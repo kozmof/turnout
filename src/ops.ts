@@ -50,8 +50,8 @@ export function calcValues<T extends AllValues, U extends AllValues, V extends A
 }
 
 export function isRandomValue(a: AllValues, b: AllValues): boolean {
-  const tags: Array<NonDeterministicSymbol | DeterministicSymbol> = nonDeterministicSymbols;
-  return (tags.includes(a.symbol) || tags.includes(b.symbol));
+  const symbols: Array<NonDeterministicSymbol | DeterministicSymbol> = nonDeterministicSymbols;
+  return (symbols.includes(a.symbol) || symbols.includes(b.symbol));
 }
 
 export function calcAllOps(container: OpsContainer, opsCollection: OpsCollection) : AllValues {

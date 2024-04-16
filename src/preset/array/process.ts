@@ -1,7 +1,7 @@
 export interface ProcessArray {
 }
 
-export const pString: ProcessArray = {
+export const pArray: ProcessArray = {
 };
 
 export interface MetaProcessArray {

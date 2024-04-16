@@ -1,7 +1,7 @@
 export interface PreprocessArray {
 }
 
-export const pString: PreprocessArray = {
+export const ppArray: PreprocessArray = {
 };
 
 export interface MetaPreprocessArray {

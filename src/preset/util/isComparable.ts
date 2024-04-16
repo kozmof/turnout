@@ -1,18 +1,18 @@
 import { type AllValues, type DeterministicSymbol, type NonDeterministicSymbol } from "../../value";
 
-const isString = (tag: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
-  const tags: Array<DeterministicSymbol | NonDeterministicSymbol> = ["string", "random-string"];
-  return tags.includes(tag);
+const isString = (symbol: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
+  const symbols: Array<DeterministicSymbol | NonDeterministicSymbol> = ["string", "random-string"];
+  return symbols.includes(symbol);
 };
 
-const isNumber = (tag: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
-  const tags: Array<DeterministicSymbol | NonDeterministicSymbol> = ["number", "random-number"];
-  return tags.includes(tag);
+const isNumber = (symbol: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
+  const symbols: Array<DeterministicSymbol | NonDeterministicSymbol> = ["number", "random-number"];
+  return symbols.includes(symbol);
 };
 
-const isBoolean = (tag: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
-  const tags: Array<DeterministicSymbol | NonDeterministicSymbol> = ["boolean", "random-boolean"];
-  return tags.includes(tag);
+const isBoolean = (symbol: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
+  const symbols: Array<DeterministicSymbol | NonDeterministicSymbol> = ["boolean", "random-boolean"];
+  return symbols.includes(symbol);
 };
 
 export const isComparable = (a: AllValues, b: AllValues): boolean => {
