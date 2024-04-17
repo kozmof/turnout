@@ -29,7 +29,7 @@ describe("[core function] calcValues", () => {
           symbol: "boolean",
           value: true
         };
-        expect(calcValues(container, ppNumber.toString, ppNumber.toString, pGeneric.isEqual)).toEqual(expected);
+        expect(calcValues(container, ppNumber.toStr, ppNumber.toStr, pGeneric.isEqual)).toEqual(expected);
       });
     });
   });
@@ -40,8 +40,8 @@ describe("", () => {
     test("", () => {
       const opsCollection: OpsCollection = {
         1: {
-          preprocessA: ppNumber.toString,
-          preprocessB: ppNumber.toString,
+          preprocessA: ppNumber.toStr,
+          preprocessB: ppNumber.toStr,
           process: pGeneric.isEqual
         }
       };

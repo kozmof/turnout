@@ -1,12 +1,12 @@
 import type { AllValues, StringValue } from "../../value";
 import { type ToStringConversion } from "../convert";
 
-interface PreprocessNumber {
-  toString: ToStringConversion
+export interface PreprocessNumber {
+  toStr: ToStringConversion
 }
 
 export const ppNumber: PreprocessNumber = {
-  toString: (val: AllValues): StringValue => {
+  toStr: (val: AllValues): StringValue => {
     switch (val.symbol) {
       case "number":
         return {
@@ -24,6 +24,6 @@ export const ppNumber: PreprocessNumber = {
   }
 };
 
-export interface MetaPreProcessNumber {
-  toNumber: ReturnType<typeof ppNumber.toString>["symbol"]
+export type MetaPreProcessNumber = {
+  [K in keyof PreprocessNumber]: ReturnType<PreprocessNumber[K]>["symbol"]
 }

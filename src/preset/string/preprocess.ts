@@ -24,6 +24,6 @@ export const ppString: PreprocessString = {
   }
 };
 
-export interface MetaPreProcessString {
-  toNumber: ReturnType<typeof ppString.toNumber>["symbol"]
+export type MetaPreProcessString = {
+  [K in keyof PreprocessString]: ReturnType<PreprocessString[K]>["symbol"]
 }
