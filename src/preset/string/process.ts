@@ -7,6 +7,12 @@ export interface ProcessString {
 }
 
 export const pString: ProcessString = {
+  /**
+   * 
+   * @param a string
+   * @param b string
+   * @returns string
+   */
   concat: (a: AllValues, b: AllValues) : StringValue => {
     if((isFixedString(a) || isRandomString(a)) && (isFixedString(b) || isRandomString(b))) {
       const isRandom = isRandomValue(a, b);

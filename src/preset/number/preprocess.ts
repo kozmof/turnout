@@ -6,6 +6,11 @@ export interface PreprocessNumber {
 }
 
 export const ppNumber: PreprocessNumber = {
+  /**
+   * 
+   * @param val number
+   * @returns string
+   */
   toStr: (val: AllValues): StringValue => {
     switch (val.symbol) {
       case "number":

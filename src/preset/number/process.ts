@@ -10,6 +10,12 @@ export interface ProcessNumber {
 }
 
 export const pNumber: ProcessNumber = {
+  /**
+   * 
+   * @param a number
+   * @param b number 
+   * @returns number
+   */
   add: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
@@ -21,6 +27,12 @@ export const pNumber: ProcessNumber = {
       throw new Error();
     }
   },
+  /**
+   * 
+   * @param a number
+   * @param b number
+   * @returns number
+   */
   minus: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
@@ -32,6 +44,12 @@ export const pNumber: ProcessNumber = {
       throw new Error();
     }
   },
+  /**
+   * 
+   * @param a number
+   * @param b number
+   * @returns number
+   */
   multiply: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
@@ -43,6 +61,12 @@ export const pNumber: ProcessNumber = {
       throw new Error();
     }
   },
+  /**
+   * 
+   * @param a number
+   * @param b number
+   * @returns number
+   */
   divide: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);

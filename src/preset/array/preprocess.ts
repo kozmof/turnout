@@ -6,6 +6,11 @@ export interface PreprocessArray {
 }
 
 export const ppArray: PreprocessArray = {
+  /**
+   * 
+   * @param val array
+   * @returns number
+   */
   length: (val: AllValues): NumberValue => {
     switch(val.symbol) {
       case "array":
