@@ -1,11 +1,24 @@
-import type { AllValues, NumberValue } from "../../value";
-import { type ToNumberConversion } from "../convert";
+import { isFixedString, isRandomString, type AllValues, type NumberValue, type StringValue } from "../../value";
+import { ToStringConversion, type ToNumberConversion } from "../convert";
 
 export interface PreprocessString {
+  pass: ToStringConversion
   toNumber: ToNumberConversion
 }
 
 export const ppString: PreprocessString = {
+  /**
+   * 
+   * @param val string
+   * @returns string
+   */
+  pass: (val: AllValues) : StringValue => {
+    if(isFixedString(val) || isRandomString(val)) {
+      return val;
+    } else {
+      throw new Error()
+    }
+  },
   /**
    * 
    * @param val string
