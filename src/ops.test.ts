@@ -1,8 +1,9 @@
 import { expect, test, describe } from "vitest";
 import { type FixedBooleanValue, type FixedNumberValue } from "./value";
-import { type OpsContainer, calcValues, type OpsCollection } from "./ops";
+import { type OpsContainer, calcValues, type OpsCollection, calcAllOps } from "./ops";
 import { pGeneric } from "./preset/generic/process";
 import { ppNumber } from "./preset/number/preprocess";
+import { pNumber } from "./preset/number/process";
 
 // Note: ☀️ is a normal test. ☁️ is a negative test
 
@@ -35,14 +36,64 @@ describe("[core function] calcValues", () => {
   });
 });
 
-describe("", () => {
-  describe("", () => {
-    test("", () => {
+describe("[core function] calcAllValues", () => {
+  describe("::basic test", () => {
+    test("Simple calculations ☀️", () => {
       const opsCollection: OpsCollection = {
         1: {
-          preprocessA: ppNumber.toStr,
-          preprocessB: ppNumber.toStr,
-          process: pGeneric.isEqual
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.add
+        },
+        2: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.multiply
+        },
+        3: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.multiply
+        },
+        4: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.add
+        },
+        5: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.add
+        },
+        6: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.minus
+        },
+        7: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.minus
+        },
+        8: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.minus
+        },
+        9: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.add
+        },
+        10: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.add
+        },
+        11: {
+          preprocessA: ppNumber.pass,
+          preprocessB: ppNumber.pass,
+          process: pNumber.divide
         }
       };
       const container: OpsContainer = {
@@ -187,11 +238,14 @@ describe("", () => {
           tag: "value",
           entity: {
             symbol: "number",
-            value: 900
+            value: 100
           }
         },
         opsId: 11
       };
+      expect(calcAllOps(container, opsCollection).value).toEqual(
+        (((100 + 200) * 300) + ((400 * 500) + (((400 + 500) - (500 + 600)) - (700 - 800)))) / 100
+      );
     });
   });
 });
