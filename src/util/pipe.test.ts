@@ -24,7 +24,7 @@ test("Pipe functions ☀️", () => {
     symbol: "number",
     value: 100
   })).toEqual({
-    tag: "number",
+    symbol: "number",
     value: 309
   });
 });

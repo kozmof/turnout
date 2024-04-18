@@ -1,5 +1,5 @@
-import { type NumberValue, type AllValues, ArrayValue, isFixedArray, isRandomArray } from "../../value";
-import { ToArrayConversion, type ToNumberConversion } from "../convert";
+import { type NumberValue, type AllValues, type ArrayValue, isFixedArray, isRandomArray } from "../../value";
+import { type ToArrayConversion, type ToNumberConversion } from "../convert";
 
 export interface PreprocessArray {
   pass: ToArrayConversion
@@ -14,9 +14,9 @@ export const ppArray: PreprocessArray = {
    */
   pass: (val: AllValues): ArrayValue => {
     if(isFixedArray(val) || isRandomArray(val)) {
-      return val
+      return val;
     } else {
-      throw new Error()
+      throw new Error();
     }
   },
   /**

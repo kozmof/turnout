@@ -1,5 +1,5 @@
 import { isFixedString, isRandomString, type AllValues, type NumberValue, type StringValue } from "../../value";
-import { ToStringConversion, type ToNumberConversion } from "../convert";
+import { type ToStringConversion, type ToNumberConversion } from "../convert";
 
 export interface PreprocessString {
   pass: ToStringConversion
@@ -16,7 +16,7 @@ export const ppString: PreprocessString = {
     if(isFixedString(val) || isRandomString(val)) {
       return val;
     } else {
-      throw new Error()
+      throw new Error();
     }
   },
   /**

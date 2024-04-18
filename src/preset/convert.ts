@@ -1,4 +1,4 @@
-import { type AllValues, type NumberValue, type StringValue, type BooleanValue, ArrayValue } from "../value";
+import { type AllValues, type NumberValue, type StringValue, type BooleanValue, type ArrayValue } from "../value";
 
 export type ToStringConversion = (val: AllValues) => StringValue;
 export type ToNumberConversion = (val: AllValues) => NumberValue;
