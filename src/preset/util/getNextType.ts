@@ -1,4 +1,5 @@
 import { type MetaPreprocessArray, type PreprocessArray } from "../array/preprocess";
+import { type MetaProcessArray, type ProcessArray } from "../array/process";
 import { type MetaProcessGeneric, type ProcessGeneric } from "../generic/process";
 import { type MetaPreProcessNumber, type PreprocessNumber } from "../number/preprocess";
 import { type MetaProcessNumber, type ProcessNumber } from "../number/process";
@@ -10,6 +11,9 @@ export const getNextProcessType = {
     return meta[key];
   },
   pString: (key: keyof ProcessString, meta: MetaProcessString) => {
+    return meta[key];
+  },
+  pArray: (key: keyof ProcessArray, meta: MetaProcessArray) => {
     return meta[key];
   },
   pGeneric: (key: keyof ProcessGeneric, meta: MetaProcessGeneric) => {
