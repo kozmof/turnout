@@ -1,5 +1,5 @@
-import strEnum from "./util/strEnum";
-import { TOM } from "./util/tom";
+import strEnum from "../util/strEnum";
+import { TOM } from "../util/tom";
 
 const _dS = strEnum(["number", "string", "boolean", "array"]);
 const _nonDS = strEnum(["random-number", "random-string", "random-boolean", "random-array"]);

@@ -1,4 +1,4 @@
-import type { AllValues } from "../value";
+import type { AllValues } from "../condition/value";
 
 /**
  * https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/reduce#function_sequential_piping

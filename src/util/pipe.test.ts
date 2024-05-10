@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { type NumberValue } from "../value";
+import { type NumberValue } from "../condition/value";
 import { pipe } from "./pipe";
 
 // Note: ☀️ is a normal test. ☁️ is a negative test
