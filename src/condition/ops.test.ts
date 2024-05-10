@@ -1,6 +1,6 @@
 import { expect, test, describe } from "vitest";
 import { type FixedBooleanValue, type FixedNumberValue } from "./value";
-import { type OpsContainer, calcValues, type OpsCollection, calcAllOps } from "./ops";
+import { type OpsTree, calcValues, type OpsCollection, calcAllOps } from "./ops";
 import { pGeneric } from "./preset/generic/process";
 import { ppNumber } from "./preset/number/preprocess";
 import { pNumber } from "./preset/number/process";
@@ -20,7 +20,7 @@ describe("[core function] calcValues", () => {
           value: 100
         };
 
-        const container: OpsContainer = {
+        const tree: OpsTree = {
           a: { tag: "value", entity: val1 },
           b: { tag: "value", entity: val2 },
           opsId: 111
@@ -30,7 +30,7 @@ describe("[core function] calcValues", () => {
           symbol: "boolean",
           value: true
         };
-        expect(calcValues(container, ppNumber.toStr, ppNumber.toStr, pGeneric.isEqual)).toEqual(expected);
+        expect(calcValues(tree, ppNumber.toStr, ppNumber.toStr, pGeneric.isEqual)).toEqual(expected);
       });
     });
   });
@@ -96,7 +96,7 @@ describe("[core function] calcAllValues", () => {
           process: pNumber.divide
         }
       };
-      const container: OpsContainer = {
+      const tree: OpsTree = {
         a: {
           tag: "ops",
           entity: {
@@ -243,7 +243,7 @@ describe("[core function] calcAllValues", () => {
         },
         opsId: 11
       };
-      expect(calcAllOps(container, opsCollection).value).toEqual(
+      expect(calcAllOps(tree, opsCollection).value).toEqual(
         (((100 + 200) * 300) + ((400 * 500) + (((400 + 500) - (500 + 600)) - (700 - 800)))) / 100
       );
     });

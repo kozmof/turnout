@@ -7,10 +7,10 @@ export interface ValuePkg {
 
 export interface OpsPkg {
   tag: "ops"
-  entity: OpsContainer
+  entity: OpsTree
 }
 
-export interface OpsContainer {
+export interface OpsTree {
   a: ValuePkg | OpsPkg
   b: ValuePkg | OpsPkg
   opsId: number
@@ -33,13 +33,13 @@ export function isOpsPkg(pkg: ValuePkg | OpsPkg): pkg is OpsPkg {
 }
 
 export function calcValues<T extends AllValues, U extends AllValues, V extends AllValues>(
-  container: OpsContainer,
+  tree: OpsTree,
   preprocessA: (value: AllValues) => T,
   preprocessB: (value: AllValues) => U,
   process: (a: T, b: U) => V
 ): V {
-  const pkgA = container.a;
-  const pkgB = container.b;
+  const pkgA = tree.a;
+  const pkgB = tree.b;
   if (isValuePkg(pkgA) && isValuePkg(pkgB)) {
     const valueA = preprocessA(pkgA.entity);
     const valueB = preprocessB(pkgB.entity);
@@ -54,32 +54,32 @@ export function isRandomValue(a: AllValues, b: AllValues): boolean {
   return (symbols.includes(a.symbol) || symbols.includes(b.symbol));
 }
 
-export function calcAllOps(container: OpsContainer, opsCollection: OpsCollection) : AllValues {
-  const dig = (container: OpsContainer): AllValues => {
-    const coll = opsCollection[container.opsId];
-    if (container.a.tag === "value" && container.b.tag === "value") {
+export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AllValues {
+  const dig = (tree: OpsTree): AllValues => {
+    const coll = opsCollection[tree.opsId];
+    if (tree.a.tag === "value" && tree.b.tag === "value") {
       return coll.process(
-        coll.preprocessA(container.a.entity),
-        coll.preprocessB(container.b.entity)
+        coll.preprocessA(tree.a.entity),
+        coll.preprocessB(tree.b.entity)
       );
 
-    } else if (container.a.tag === "value" && container.b.tag === "ops") {
-      const valB = dig(container.b.entity);
+    } else if (tree.a.tag === "value" && tree.b.tag === "ops") {
+      const valB = dig(tree.b.entity);
       return coll.process(
-        coll.preprocessA(container.a.entity),
+        coll.preprocessA(tree.a.entity),
         coll.preprocessB(valB)
       );
 
-    } else if (container.a.tag === "ops" && container.b.tag === "value") {
-      const valA = dig(container.a.entity);
+    } else if (tree.a.tag === "ops" && tree.b.tag === "value") {
+      const valA = dig(tree.a.entity);
       return coll.process(
         coll.preprocessA(valA),
-        coll.preprocessB(container.b.entity)
+        coll.preprocessB(tree.b.entity)
       );
 
-    } else if (container.a.tag === "ops" && container.b.tag === "ops") {
-      const valA = dig(container.a.entity);
-      const valB = dig(container.b.entity);
+    } else if (tree.a.tag === "ops" && tree.b.tag === "ops") {
+      const valA = dig(tree.a.entity);
+      const valB = dig(tree.b.entity);
       return coll.process(
         coll.preprocessA(valA),
         coll.preprocessB(valB)
@@ -89,6 +89,6 @@ export function calcAllOps(container: OpsContainer, opsCollection: OpsCollection
       throw new Error();
     }
   };
-  const result = dig(container);
+  const result = dig(tree);
   return result;
 }
