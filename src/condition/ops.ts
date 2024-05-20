@@ -1,3 +1,4 @@
+import { type PropertyId } from "../knot/property";
 import { nonDeterministicSymbols, type AllValues, type DeterministicSymbol, type NonDeterministicSymbol } from "./value";
 
 export interface ValuePkg {
@@ -10,9 +11,20 @@ export interface OpsPkg {
   entity: OpsTree
 }
 
+export interface PropertyPkg {
+  tag: "prop"
+  entity: PropertyId
+}
+
 export interface OpsTree {
   a: ValuePkg | OpsPkg
   b: ValuePkg | OpsPkg
+  opsId: number
+}
+
+export interface OpsTreeRef {
+  a: PropertyPkg | OpsPkg
+  b: PropertyPkg | OpsPkg
   opsId: number
 }
 

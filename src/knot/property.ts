@@ -10,3 +10,7 @@ export interface Property {
   value: AllValues
   initPosition: KnotId
 }
+
+export type PropertyState = {
+  [key in PropertyId] : Property
+}

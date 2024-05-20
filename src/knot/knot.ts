@@ -4,17 +4,18 @@ import { type Brand } from "../util/brand";
 import { type PropertyId } from "./property";
 
 export type KnotId = Brand<number, "knot">
+export interface KnotPayload {
+  ops: {
+    tree: OpsTree
+    collection: OpsCollection
+  } | null
+  propertyIds: PropertyId[]
+}
 
 export interface Knot {
   id: KnotId
   sceneId: SceneId
   from: KnotId[]
   to: KnotId[]
-  payload: {
-    ops: {
-      tree: OpsTree
-      collection: OpsCollection
-    } | null
-    propertyIds: PropertyId[]
-  }
+  payload: KnotPayload
 }
