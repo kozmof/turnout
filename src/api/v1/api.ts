@@ -4,7 +4,7 @@ import { type PropertyState } from "../../knot/property";
 import { type IFInteractionAPI, type SetUp } from "./api.interface";
 
 
-async function caliculate(tree: OpsTree, opsCollection: OpsCollection, setup: SetUp): Promise<KnotId> {
+async function calculate(tree: OpsTree, opsCollection: OpsCollection, setup: SetUp): Promise<KnotId> {
   const result = calcAllOps(tree, opsCollection);
   if (result.symbol === "boolean" || result.symbol === "random-boolean") {
     return setup.condition(result.value);
@@ -74,7 +74,7 @@ export const InteractionAPI: IFInteractionAPI = {
   knot: {
     next: async (treeRef, opsCollection, state, setup) => {
       const tree = initTree(treeRef, state);
-      const nextKnotId = await caliculate(tree, opsCollection, setup);
+      const nextKnotId = await calculate(tree, opsCollection, setup);
       const [ok, nextState] = await setup.action(nextKnotId, state);
       if (ok) {
         return [nextKnotId, nextState];
