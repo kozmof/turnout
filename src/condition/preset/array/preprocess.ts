@@ -9,8 +9,8 @@ export interface PreprocessArray {
 export const ppArray: PreprocessArray = {
   /**
    * 
-   * @param val array
-   * @returns array
+   * @param val raw value is `array`
+   * @returns raw value is `array`
    */
   pass: (val: AllValues): ArrayValue => {
     if(isFixedArray(val) || isRandomArray(val)) {
@@ -21,8 +21,8 @@ export const ppArray: PreprocessArray = {
   },
   /**
    * 
-   * @param val array
-   * @returns number
+   * @param val raw value is `array`
+   * @returns raw value is `number`
    */
   length: (val: AllValues): NumberValue => {
     switch(val.symbol) {

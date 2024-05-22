@@ -12,9 +12,9 @@ export interface ProcessNumber {
 export const pNumber: ProcessNumber = {
   /**
    * 
-   * @param a number
-   * @param b number 
-   * @returns number
+   * @param a raw value is `number`
+   * @param b raw value is `number`
+   * @returns raw value is `number`
    */
   add: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
@@ -29,9 +29,9 @@ export const pNumber: ProcessNumber = {
   },
   /**
    * 
-   * @param a number
-   * @param b number
-   * @returns number
+   * @param a raw value is `number`
+   * @param b raw value is `number`
+   * @returns raw value is `number`
    */
   minus: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
@@ -46,9 +46,9 @@ export const pNumber: ProcessNumber = {
   },
   /**
    * 
-   * @param a number
-   * @param b number
-   * @returns number
+   * @param a raw value is `number`
+   * @param b raw value is `number`
+   * @returns raw value is `number`
    */
   multiply: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
@@ -63,9 +63,9 @@ export const pNumber: ProcessNumber = {
   },
   /**
    * 
-   * @param a number
-   * @param b number
-   * @returns number
+   * @param a raw value is `number`
+   * @param b raw value is `number`
+   * @returns raw value is `number`
    */
   divide: (a: AllValues, b: AllValues) : NumberValue => {
     if((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {

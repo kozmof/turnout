@@ -9,9 +9,9 @@ export interface ProcessArray {
 export const pArray: ProcessArray = {
   /**
    * 
-   * @param a array
-   * @param b any but not array
-   * @returns boolean
+   * @param a raw value is `array`
+   * @param b raw value is `any` but not `array`
+   * @returns raw value is `boolean`
    */
   includes: (a: AllValues, b: AllValues) : BooleanValue => {
     if((isFixedArray(a) || isRandomArray(a)) && (!isFixedArray(b) && !isRandomArray(b))) {

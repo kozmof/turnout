@@ -9,8 +9,8 @@ export interface PreprocessNumber {
 export const ppNumber: PreprocessNumber = {
   /**
    * 
-   * @param val number
-   * @returns number
+   * @param val raw value is `number`
+   * @returns raw value is `number`
    */
   pass: (val: AllValues): NumberValue => {
     if (isFixedNumber(val) || isRandomNumber(val)) {
@@ -21,8 +21,8 @@ export const ppNumber: PreprocessNumber = {
   },
   /**
    * 
-   * @param val number
-   * @returns string
+   * @param val raw value is `number`
+   * @returns raw value is `string`
    */
   toStr: (val: AllValues): StringValue => {
     switch (val.symbol) {
