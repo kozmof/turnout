@@ -11,6 +11,11 @@ export interface OpsPkg {
   entity: OpsTree
 }
 
+export interface OpsPkgRef {
+  tag: "ops"
+  entity: OpsTreeRef
+}
+
 export interface PropertyPkg {
   tag: "prop"
   entity: PropertyId
@@ -23,8 +28,8 @@ export interface OpsTree {
 }
 
 export interface OpsTreeRef {
-  a: PropertyPkg | OpsPkg
-  b: PropertyPkg | OpsPkg
+  a: PropertyPkg | OpsPkgRef
+  b: PropertyPkg | OpsPkgRef
   opsId: number
 }
 

@@ -25,7 +25,7 @@ function getValue(id: PropertyId, state: PropertyState): AllValues {
 }
 
 function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
-  const mapVal = (treeRef: OpsTreeRef | OpsTree): OpsTree => {
+  const mapVal = (treeRef: OpsTreeRef): OpsTree => {
     if (treeRef.a.tag === "prop" && treeRef.b.tag === "prop") {
       return {
         a: {
