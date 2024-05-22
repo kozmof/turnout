@@ -42,6 +42,6 @@ export const ppNumber: PreprocessNumber = {
   }
 };
 
-export type MetaPreProcessNumber = {
+export type MetaPreprocessNumber = {
   [K in keyof PreprocessNumber]: ReturnType<PreprocessNumber[K]>["symbol"]
 }

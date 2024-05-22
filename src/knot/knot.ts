@@ -1,15 +1,13 @@
-import { type OpsCollection, type OpsTree } from "../condition/ops";
+import { type OpsCollection, type OpsTreeRef } from "../condition/ops";
 import { type SceneId } from "../scene/scene";
 import { type Brand } from "../util/brand";
-import { type PropertyId } from "./property";
 
 export type KnotId = Brand<number, "knot">
 export interface KnotPayload {
   ops: {
-    tree: OpsTree
+    treeRef: OpsTreeRef
     collection: OpsCollection
   } | null
-  propertyIds: PropertyId[]
 }
 
 export interface Knot {

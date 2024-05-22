@@ -42,6 +42,6 @@ export const ppString: PreprocessString = {
   }
 };
 
-export type MetaPreProcessString = {
+export type MetaPreprocessString = {
   [K in keyof PreprocessString]: ReturnType<PreprocessString[K]>["symbol"]
 }

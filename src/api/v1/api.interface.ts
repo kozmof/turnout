@@ -1,6 +1,13 @@
-import { type OpsCollection, type OpsTreeRef } from "../../condition/ops";
+import { type MetaPreprocessArray } from "../../condition/preset/array/preprocess";
+import { type MetaProcessArray } from "../../condition/preset/array/process";
+import { type MetaProcessGeneric } from "../../condition/preset/generic/process";
+import { type MetaPreprocessNumber } from "../../condition/preset/number/preprocess";
+import { type MetaProcessNumber } from "../../condition/preset/number/process";
+import { type MetaPreprocessString } from "../../condition/preset/string/preprocess";
+import { type MetaProcessString } from "../../condition/preset/string/process";
+import { type DeterministicSymbol, type NonDeterministicSymbol } from "../../condition/value";
 import { type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
-import { type PropertyState } from "../../knot/property";
+import { type Property, type PropertyId, type PropertyState } from "../../knot/property";
 import { type Scene, type SceneId } from "../../scene/scene";
 
 export interface IFKnotAPI {
@@ -26,18 +33,41 @@ export interface IFSceneAPI {
   removeKnotId: (val: { scene: Scene, knotId: KnotId }) => Scene
 }
 
-export interface SetUp {
-  condition: (val: boolean) => KnotId,
+export interface IFPropertyAPI {
+  addProperty: (val: { property: Property }) => PropertyState
+  removeProperty: (val: { propertyId: PropertyId }) => PropertyState
+}
+
+export interface Setup {
+  nextKnotId: (val: boolean, candidateIds: KnotId[]) => KnotId,
   action: (knotId: KnotId, state: PropertyState) => Promise<[boolean, PropertyState]>
 }
 
+/**
+ * Utility for interacting with an external system.
+ */
 export interface IFInteractionAPI {
   knot: {
-    next: (
-      treeRef: OpsTreeRef,
-      opsCollection: OpsCollection,
+    /**
+     * Get a next knot id and a new state
+     * @param val 
+     * @returns 
+     */
+    next: (val: {
+      knot: Knot
       state: PropertyState,
-      setup: SetUp
-    ) => Promise<[KnotId, PropertyState]>
+      setup: Setup
+    }) => Promise<[KnotId, PropertyState]>,
+  },
+  condition: {
+    getAvailablePreprocess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
+      MetaPreprocessNumber |
+      MetaPreprocessString |
+      MetaPreprocessArray,
+    getAvailableProcess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
+      MetaProcessNumber |
+      MetaProcessString |
+      MetaProcessArray |
+      MetaProcessGeneric
   }
 }

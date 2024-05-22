@@ -1,15 +1,26 @@
 import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../condition/ops";
+import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaPPArray, metaPPArrayRand, metaPPNumber, metaPPNumberRand, metaPPString, metaPPStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
+import { type AllValues } from "../../condition/value";
 import { type KnotId } from "../../knot/knot";
-import { type PropertyState } from "../../knot/property";
-import { type IFInteractionAPI, type SetUp } from "./api.interface";
+import { type PropertyId, type PropertyState } from "../../knot/property";
+import { type IFInteractionAPI, type Setup } from "./api.interface";
 
 
-async function calculate(tree: OpsTree, opsCollection: OpsCollection, setup: SetUp): Promise<KnotId> {
+async function calculate(tree: OpsTree, opsCollection: OpsCollection, setup: Setup, candidateIds: KnotId[]): Promise<KnotId> {
   const result = calcAllOps(tree, opsCollection);
   if (result.symbol === "boolean" || result.symbol === "random-boolean") {
-    return setup.condition(result.value);
+    return setup.nextKnotId(result.value, candidateIds);
   } else {
     throw new Error();
+  }
+}
+
+function getValue(id: PropertyId, state: PropertyState): AllValues {
+  const prop = state[id];
+  if (prop === undefined) {
+    throw new Error();
+  } else {
+    return prop.value;
   }
 }
 
@@ -19,11 +30,11 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
       return {
         a: {
           tag: "value",
-          entity: state[treeRef.a.entity].value
+          entity: getValue(treeRef.a.entity, state)
         },
         b: {
           tag: "value",
-          entity: state[treeRef.b.entity].value
+          entity: getValue(treeRef.b.entity, state)
         },
         opsId: treeRef.opsId
       };
@@ -31,7 +42,7 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
       return {
         a: {
           tag: "value",
-          entity: state[treeRef.a.entity].value
+          entity: getValue(treeRef.a.entity, state)
         },
         b: {
           tag: "ops",
@@ -47,7 +58,7 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
         },
         b: {
           tag: "value",
-          entity: state[treeRef.b.entity].value
+          entity: getValue(treeRef.b.entity, state)
         },
         opsId: treeRef.opsId
       };
@@ -72,15 +83,61 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
 
 export const InteractionAPI: IFInteractionAPI = {
   knot: {
-    next: async (treeRef, opsCollection, state, setup) => {
-      const tree = initTree(treeRef, state);
-      const nextKnotId = await calculate(tree, opsCollection, setup);
-      const [ok, nextState] = await setup.action(nextKnotId, state);
-      if (ok) {
-        return [nextKnotId, nextState];
+    next: async ({ knot, state, setup }) => {
+      if (knot.payload.ops !== null) {
+        const tree = initTree(knot.payload.ops.treeRef, state);
+        const nextKnotId = await calculate(tree, knot.payload.ops.collection, setup, knot.to);
+        const [ok, nextState] = await setup.action(nextKnotId, state);
+        if (ok) {
+          return [nextKnotId, nextState];
+        } else {
+          throw new Error();
+        }
       } else {
         throw new Error();
       }
     }
+  },
+  condition: {
+    getAvailablePreprocess: ({ symbol }) => {
+      switch (symbol) {
+        case "string":
+          return metaPPString;
+        case "number":
+          return metaPPNumber;
+        case "boolean": // TODO
+          return metaPPNumber;
+        case "array":
+          return metaPPArray;
+        case "random-number":
+          return metaPPNumberRand;
+        case "random-string":
+          return metaPPStringRand;
+        case "random-boolean": // TODO
+          return metaPPNumberRand;
+        case "random-array":
+          return metaPPArrayRand;
+      }
+    },
+    getAvailableProcess: ({symbol}) => {
+      switch(symbol) {
+        case "string":
+          return metaPString;
+        case "number":
+          return metaPNumber; 
+        case "boolean": // TODO
+          return metaPNumber; 
+        case "array":
+          return metaPArray;
+        case "random-number":
+          return metaPNumberRand;
+        case "random-string":
+          return metaPStringRand;
+        case "random-boolean": // TODO
+          return metaPNumberRand;
+        case "random-array":
+          return metaPArrayRand;
+      }
+    },
   }
 };
