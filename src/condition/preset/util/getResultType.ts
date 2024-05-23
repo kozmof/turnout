@@ -1,3 +1,4 @@
+import { AllValues, ArrayValue, NonArrayValue, NumberValue, StringValue } from "../../value";
 import { type MetaPreprocessArray, type PreprocessArray } from "../array/preprocess";
 import { type MetaProcessArray, type ProcessArray } from "../array/process";
 import { type MetaProcessGeneric, type ProcessGeneric } from "../generic/process";
@@ -45,28 +46,28 @@ export  const metaPGenericRand: MetaProcessGeneric = {
 };
 
 export const getResultProcessType = {
-  pNumber: (key: keyof ProcessNumber, isRandom: boolean) => {
+  pNumber: (key: keyof ProcessNumber<NumberValue, NumberValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPNumberRand[key];
     } else {
       return metaPNumber[key];
     }
   },
-  pString: (key: keyof ProcessString, isRandom: boolean) => {
+  pString: (key: keyof ProcessString<StringValue, StringValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPStringRand[key];
     } else {
       return metaPString[key];
     }
   },
-  pArray: (key: keyof ProcessArray, isRandom: boolean) => {
+  pArray: (key: keyof ProcessArray<ArrayValue, NonArrayValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPArrayRand[key];
     } else {
       return metaPArray[key];
     }
   },
-  pGeneric: (key: keyof ProcessGeneric, isRandom: boolean) => {
+  pGeneric: (key: keyof ProcessGeneric<AllValues, AllValues>, isRandom: boolean) => {
     if(isRandom) {
       return metaPGenericRand[key];
     } else {
@@ -106,21 +107,21 @@ export const metaPPArrayRand: MetaPreprocessArray = {
 };
 
 export const getResultPreprocessType = {
-  ppNumber: (key: keyof PreprocessNumber, isRandom: boolean) => {
+  ppNumber: (key: keyof PreprocessNumber<NumberValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPPNumberRand[key];
     } else {
       return metaPPNumber[key];
     }
   },
-  ppString: (key: keyof PreprocessString, isRandom: boolean) => {
+  ppString: (key: keyof PreprocessString<StringValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPPStringRand[key];
     } else {
       return metaPPString[key];
     }
   },
-  ppArray: (key: keyof PreprocessArray, isRandom: boolean) => {
+  ppArray: (key: keyof PreprocessArray<ArrayValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPPArrayRand[key];
     } else {

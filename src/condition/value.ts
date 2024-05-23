@@ -29,6 +29,7 @@ export type NumberValue = FixedNumberValue | RandomNumberValue
 export type StringValue = FixedStringValue | RandomStringValue
 export type BooleanValue = FixedBooleanValue | RandomBooleanValue
 export type ArrayValue = FixedArrayValue | RandomArrayValue
+export type NonArrayValue = Exclude<AllValues, ArrayValue>
 
 export type DeterministicValues = FixedNumberValue | FixedStringValue | FixedBooleanValue | FixedArrayValue
 export type NonDeterministicValues = RandomNumberValue | RandomStringValue | RandomBooleanValue | RandomArrayValue

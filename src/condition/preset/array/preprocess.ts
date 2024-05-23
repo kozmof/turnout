@@ -1,12 +1,12 @@
 import { type NumberValue, type AllValues, type ArrayValue, isFixedArray, isRandomArray } from "../../value";
 import { type ToArrayConversion, type ToNumberConversion } from "../convert";
 
-export interface PreprocessArray {
-  pass: ToArrayConversion
-  length: ToNumberConversion
+export interface PreprocessArray<T extends AllValues> {
+  pass: ToArrayConversion<T>
+  length: ToNumberConversion<T>
 }
 
-export const ppArray: PreprocessArray = {
+export const ppArray: PreprocessArray<AllValues> = {
   /**
    * 
    * @param val raw value is `array`
@@ -43,5 +43,11 @@ export const ppArray: PreprocessArray = {
 };
 
 export type MetaPreprocessArray = {
-  [K in keyof PreprocessArray]: ReturnType<PreprocessArray[K]>["symbol"]
+  [K in keyof PreprocessArray<ArrayValue>]: ReturnType<PreprocessArray<ArrayValue>[K]>["symbol"]
+}
+
+export type ParamsMetaPreprocessArray = {
+  [K in keyof PreprocessArray<ArrayValue>]: [
+    Parameters<PreprocessArray<ArrayValue>[K]>[0]["symbol"],
+  ]
 }

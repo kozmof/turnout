@@ -1,12 +1,12 @@
 import { isRandomValue } from "../../ops";
-import { type AllValues, type BooleanValue, isFixedArray, isRandomArray } from "../../value";
+import { type AllValues, type BooleanValue, isFixedArray, isRandomArray, ArrayValue, NonArrayValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
-export interface ProcessArray {
-  includes: ToBooleanProcess
+export interface ProcessArray<T extends AllValues, U extends AllValues> {
+  includes: ToBooleanProcess<T, U>
 }
 
-export const pArray: ProcessArray = {
+export const pArray: ProcessArray<AllValues, AllValues> = {
   /**
    * 
    * @param a raw value is `array`
@@ -27,5 +27,12 @@ export const pArray: ProcessArray = {
 };
 
 export type MetaProcessArray = {
-  [K in keyof ProcessArray]: ReturnType<ProcessArray[K]>["symbol"]
+  [K in keyof ProcessArray<ArrayValue, NonArrayValue>]: ReturnType<ProcessArray<ArrayValue, NonArrayValue>[K]>["symbol"]
+}
+
+export type ParamsMetaProcessArray = {
+  [K in keyof ProcessArray<ArrayValue, NonArrayValue>]: [
+    Parameters<ProcessArray<ArrayValue, NonArrayValue>[K]>[0]["symbol"],
+    Parameters<ProcessArray<ArrayValue, NonArrayValue>[K]>[1]["symbol"]
+  ]
 }

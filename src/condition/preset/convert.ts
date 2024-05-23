@@ -1,10 +1,10 @@
 import { type AllValues, type NumberValue, type StringValue, type BooleanValue, type ArrayValue } from "../value";
 
-export type ToStringConversion = (val: AllValues) => StringValue;
-export type ToNumberConversion = (val: AllValues) => NumberValue;
-export type ToBooleanConversion = (val: AllValues) => BooleanValue;
-export type ToArrayConversion = (val: AllValues) => ArrayValue;
+export type ToStringConversion<T extends AllValues> = (val: T) => StringValue;
+export type ToNumberConversion<T extends AllValues> = (val: T) => NumberValue;
+export type ToBooleanConversion<T extends AllValues> = (val: T) => BooleanValue;
+export type ToArrayConversion<T extends AllValues> = (val: T) => ArrayValue;
 
-export type ToStringProcess = (a: AllValues, b: AllValues) => StringValue;
-export type ToNumberProcess = (a: AllValues, b: AllValues) => NumberValue;
-export type ToBooleanProcess = (a: AllValues, b: AllValues) => BooleanValue;
+export type ToStringProcess<T extends AllValues, U extends AllValues> = (a: T, b: U) => StringValue;
+export type ToNumberProcess<T extends AllValues, U extends AllValues> = (a: T, b: U) => NumberValue;
+export type ToBooleanProcess<T extends AllValues, U extends AllValues> = (a: T, b: U) => BooleanValue;

@@ -2,11 +2,11 @@ import { isRandomValue } from "../../ops";
 import type { AllValues, BooleanValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
-export interface ProcessGeneric {
-  isEqual: ToBooleanProcess
+export interface ProcessGeneric<T extends AllValues, U extends AllValues> {
+  isEqual: ToBooleanProcess<T, U>
 }
 
-export const pGeneric: ProcessGeneric = {
+export const pGeneric: ProcessGeneric<AllValues, AllValues> = {
   isEqual: (a: AllValues, b: AllValues): BooleanValue => {
     if (
       ((a.symbol === "string" || a.symbol === "random-string") && (b.symbol === "string" || b.symbol === "random-string")) ||
@@ -26,5 +26,12 @@ export const pGeneric: ProcessGeneric = {
 };
 
 export type MetaProcessGeneric = {
-  [K in keyof ProcessGeneric]: ReturnType<ProcessGeneric[K]>["symbol"]
+  [K in keyof ProcessGeneric<AllValues, AllValues>]: ReturnType<ProcessGeneric<AllValues, AllValues>[K]>["symbol"]
+}
+
+export type ParamsMetaProcessGeneric = {
+  [K in keyof ProcessGeneric<AllValues, AllValues>]: [
+    Parameters<ProcessGeneric<AllValues, AllValues>[K]>[0]["symbol"],
+    Parameters<ProcessGeneric<AllValues, AllValues>[K]>[1]["symbol"]
+  ]
 }
