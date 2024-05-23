@@ -9,8 +9,8 @@ export interface PreprocessArray<T extends AllValues> {
 export const ppArray: PreprocessArray<AllValues> = {
   /**
    * 
-   * @param val raw value is `array`
-   * @returns raw value is `array`
+   * @param val raw value must be `array`
+   * @returns raw value must be `array`
    */
   pass: (val: AllValues): ArrayValue => {
     if(isFixedArray(val) || isRandomArray(val)) {
@@ -21,8 +21,8 @@ export const ppArray: PreprocessArray<AllValues> = {
   },
   /**
    * 
-   * @param val raw value is `array`
-   * @returns raw value is `number`
+   * @param val raw value must be `array`
+   * @returns raw value must be `number`
    */
   length: (val: AllValues): NumberValue => {
     switch(val.symbol) {

@@ -9,9 +9,9 @@ export interface ProcessString<T extends AllValues, U extends AllValues> {
 export const pString: ProcessString<AllValues, AllValues> = {
   /**
    * 
-   * @param a raw value is string
-   * @param b raw value is string
-   * @returns raw value is string
+   * @param a raw value must be string
+   * @param b raw value must be string
+   * @returns raw value must be string
    */
   concat: (a: AllValues, b: AllValues): StringValue => {
     if ((isFixedString(a) || isRandomString(a)) && (isFixedString(b) || isRandomString(b))) {

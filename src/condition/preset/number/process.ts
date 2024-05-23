@@ -12,9 +12,9 @@ export interface ProcessNumber<T extends AllValues, U extends AllValues> {
 export const pNumber: ProcessNumber<AllValues, AllValues> = {
   /**
    * 
-   * @param a raw value is `number`
-   * @param b raw value is `number`
-   * @returns raw value is `number`
+   * @param a raw value must be `number`
+   * @param b raw value must be `number`
+   * @returns raw value must be `number`
    */
   add: (a: AllValues, b: AllValues): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
@@ -29,9 +29,9 @@ export const pNumber: ProcessNumber<AllValues, AllValues> = {
   },
   /**
    * 
-   * @param a raw value is `number`
-   * @param b raw value is `number`
-   * @returns raw value is `number`
+   * @param a raw value must be `number`
+   * @param b raw value must be `number`
+   * @returns raw value must be `number`
    */
   minus: (a: AllValues, b: AllValues): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
@@ -46,9 +46,9 @@ export const pNumber: ProcessNumber<AllValues, AllValues> = {
   },
   /**
    * 
-   * @param a raw value is `number`
-   * @param b raw value is `number`
-   * @returns raw value is `number`
+   * @param a raw value must be `number`
+   * @param b raw value must be `number`
+   * @returns raw value must be `number`
    */
   multiply: (a: AllValues, b: AllValues): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
@@ -63,9 +63,9 @@ export const pNumber: ProcessNumber<AllValues, AllValues> = {
   },
   /**
    * 
-   * @param a raw value is `number`
-   * @param b raw value is `number`
-   * @returns raw value is `number`
+   * @param a raw value must be `number`
+   * @param b raw value must be `number`
+   * @returns raw value must be `number`
    */
   divide: (a: AllValues, b: AllValues): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
