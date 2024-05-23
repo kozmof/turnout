@@ -1,5 +1,5 @@
 import { isRandomValue } from "../../ops";
-import { type AllValues, type BooleanValue, isFixedArray, isRandomArray, ArrayValue, NonArrayValue } from "../../value";
+import { type AllValues, type BooleanValue, isFixedArray, isRandomArray, type ArrayValue, type NonArrayValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
 export interface ProcessArray<T extends AllValues, U extends AllValues> {

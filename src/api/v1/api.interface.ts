@@ -49,7 +49,7 @@ export interface Setup {
 export interface IFInteractionAPI {
   knot: {
     /**
-     * Get a next knot id and a new state
+     * Determine a next knot id and a new state
      * @param val 
      * @returns 
      */

@@ -1,4 +1,4 @@
-import { AllValues, ArrayValue, NonArrayValue, NumberValue, StringValue } from "../../value";
+import { type AllValues, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from "../../value";
 import { type MetaPreprocessArray, type PreprocessArray } from "../array/preprocess";
 import { type MetaProcessArray, type ProcessArray } from "../array/process";
 import { type MetaProcessGeneric, type ProcessGeneric } from "../generic/process";
