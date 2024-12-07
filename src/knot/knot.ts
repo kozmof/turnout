@@ -14,6 +14,6 @@ export interface Knot {
   id: KnotId
   sceneId: SceneId
   from: KnotId[]
-  to: KnotId[]
+  to: [KnotId, KnotId]
   payload: KnotPayload
 }

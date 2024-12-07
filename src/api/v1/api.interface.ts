@@ -38,8 +38,8 @@ export interface IFPropertyAPI {
   removeProperty: (val: { propertyId: PropertyId }) => PropertyState
 }
 
-export interface Setup {
-  nextKnotId: (val: boolean, candidateIds: KnotId[]) => KnotId,
+export interface StepIn {
+  nextKnotId: (val: boolean, candidateIds: [KnotId, KnotId]) => KnotId,
   action: (knotId: KnotId, state: PropertyState) => Promise<[boolean, PropertyState]>
 }
 
@@ -56,7 +56,7 @@ export interface IFInteractionAPI {
     next: (val: {
       knot: Knot
       state: PropertyState,
-      setup: Setup
+      stepIn: StepIn
     }) => Promise<[KnotId, PropertyState]>,
   },
   condition: {

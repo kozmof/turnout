@@ -3,13 +3,13 @@ import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaPPArray, 
 import { type AllValues } from "../../condition/value";
 import { type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
-import { type IFInteractionAPI, type Setup } from "./api.interface";
+import { type IFInteractionAPI, type StepIn } from "./api.interface";
 
 
-async function calculate(tree: OpsTree, opsCollection: OpsCollection, setup: Setup, candidateIds: KnotId[]): Promise<KnotId> {
+async function calculate(tree: OpsTree, opsCollection: OpsCollection, stepIn: StepIn, candidateIds: [KnotId, KnotId]): Promise<KnotId> {
   const result = calcAllOps(tree, opsCollection);
   if (result.symbol === "boolean" || result.symbol === "random-boolean") {
-    return setup.nextKnotId(result.value, candidateIds);
+    return stepIn.nextKnotId(result.value, candidateIds);
   } else {
     throw new Error();
   }
@@ -83,11 +83,11 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
 
 export const InteractionAPI: IFInteractionAPI = {
   knot: {
-    next: async ({ knot, state, setup }) => {
+    next: async ({ knot, state, stepIn }) => {
       if (knot.payload.ops !== null) {
         const tree = initTree(knot.payload.ops.treeRef, state);
-        const nextKnotId = await calculate(tree, knot.payload.ops.collection, setup, knot.to);
-        const [ok, nextState] = await setup.action(nextKnotId, state);
+        const nextKnotId = await calculate(tree, knot.payload.ops.collection, stepIn, knot.to);
+        const [ok, nextState] = await stepIn.action(nextKnotId, state);
         if (ok) {
           return [nextKnotId, nextState];
         } else {
