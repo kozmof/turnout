@@ -6,7 +6,7 @@ import { type PropertyId, type PropertyState } from "../../knot/property";
 import { type IFInteractionAPI, type StepIn } from "./api.interface";
 
 
-async function calculate(tree: OpsTree, opsCollection: OpsCollection, stepIn: StepIn, candidateIds: [KnotId, KnotId]): Promise<KnotId> {
+async function getNextKnotId(tree: OpsTree, opsCollection: OpsCollection, stepIn: StepIn, candidateIds: [KnotId, KnotId]): Promise<KnotId> {
   const result = calcAllOps(tree, opsCollection);
   if (result.symbol === "boolean" || result.symbol === "random-boolean") {
     return stepIn.nextKnotId(result.value, candidateIds);
@@ -85,10 +85,10 @@ export const InteractionAPI: IFInteractionAPI = {
   knot: {
     next: async ({ knot, state, stepIn }) => {
       if (knot.payload.ops !== null) {
-        const tree = initTree(knot.payload.ops.treeRef, state);
-        const nextKnotId = await calculate(tree, knot.payload.ops.collection, stepIn, knot.to);
-        const [ok, nextState] = await stepIn.action(nextKnotId, state);
+        const [ok, nextState] = await stepIn.nextPropertyState(knot.id, state);
         if (ok) {
+          const tree = initTree(knot.payload.ops.treeRef, nextState);
+          const nextKnotId = await getNextKnotId(tree, knot.payload.ops.collection, stepIn, knot.to);
           return [nextKnotId, nextState];
         } else {
           throw new Error();

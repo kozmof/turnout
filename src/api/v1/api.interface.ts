@@ -40,7 +40,7 @@ export interface IFPropertyAPI {
 
 export interface StepIn {
   nextKnotId: (val: boolean, candidateIds: [KnotId, KnotId]) => KnotId,
-  action: (knotId: KnotId, state: PropertyState) => Promise<[boolean, PropertyState]>
+  nextPropertyState: (knotId: KnotId, state: PropertyState) => Promise<[boolean, PropertyState]>
 }
 
 /**

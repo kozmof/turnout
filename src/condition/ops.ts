@@ -34,7 +34,7 @@ export interface OpsTreeRef {
 }
 
 export type OpsCollection = {
-  [opsId in number]: {
+  [opsId in string]: {
     preprocessA: (value: AllValues) => AllValues,
     preprocessB: (value: AllValues) => AllValues,
     process: (a: AllValues, b: AllValues) => AllValues
