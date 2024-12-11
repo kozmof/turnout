@@ -1,18 +1,22 @@
 import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../condition/ops";
 import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaPPArray, metaPPArrayRand, metaPPNumber, metaPPNumberRand, metaPPString, metaPPStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
 import { type AllValues } from "../../condition/value";
-import { type KnotId } from "../../knot/knot";
+import { type CandidateIdMap, type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
-import { type IFInteractionAPI, type StepIn } from "./api.interface";
+import { type IFInteractionAPI, } from "./api.interface";
 
-
-async function getNextKnotId(tree: OpsTree, opsCollection: OpsCollection, stepIn: StepIn, candidateIds: [KnotId, KnotId]): Promise<KnotId> {
-  const result = calcAllOps(tree, opsCollection);
-  if (result.symbol === "boolean" || result.symbol === "random-boolean") {
-    return stepIn.nextKnotId(result.value, candidateIds);
+function nextKnotId(value: AllValues, candidateIdMap: CandidateIdMap): KnotId {
+  const knotId = candidateIdMap[value.value.toString()]
+  if (knotId !== undefined) {
+    return knotId
   } else {
-    throw new Error();
+    return candidateIdMap.default;
   }
+}
+
+async function getNextKnotId(tree: OpsTree, opsCollection: OpsCollection, candidateIdMap: CandidateIdMap): Promise<KnotId> {
+  const result = calcAllOps(tree, opsCollection);
+  return nextKnotId(result, candidateIdMap);
 }
 
 function getValue(id: PropertyId, state: PropertyState): AllValues {
@@ -83,16 +87,12 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
 
 export const InteractionAPI: IFInteractionAPI = {
   knot: {
-    next: async ({ knot, state, stepIn }) => {
-      if (knot.payload.ops !== null) {
-        const [ok, nextState] = await stepIn.nextPropertyState(knot.id, state);
-        if (ok) {
-          const tree = initTree(knot.payload.ops.treeRef, nextState);
-          const nextKnotId = await getNextKnotId(tree, knot.payload.ops.collection, stepIn, knot.to);
-          return [nextKnotId, nextState];
-        } else {
-          throw new Error();
-        }
+    next: async ({ knot, state }) => {
+      const [ok, nextState] = await knot.payload.nextPropertyState(knot.id, state);
+      if (ok) {
+        const tree = initTree(knot.payload.ops.treeRef, nextState);
+        const nextKnotId = await getNextKnotId(tree, knot.payload.ops.collection, knot.to);
+        return [nextKnotId, nextState];
       } else {
         throw new Error();
       }
@@ -119,14 +119,14 @@ export const InteractionAPI: IFInteractionAPI = {
           return metaPPArrayRand;
       }
     },
-    getAvailableProcess: ({symbol}) => {
-      switch(symbol) {
+    getAvailableProcess: ({ symbol }) => {
+      switch (symbol) {
         case "string":
           return metaPString;
         case "number":
-          return metaPNumber; 
+          return metaPNumber;
         case "boolean": // TODO
-          return metaPNumber; 
+          return metaPNumber;
         case "array":
           return metaPArray;
         case "random-number":
