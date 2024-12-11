@@ -6,9 +6,9 @@ import { type PropertyId, type PropertyState } from "../../knot/property";
 import { type IFInteractionAPI, } from "./api.interface";
 
 function nextKnotId(value: AllValues, candidateIdMap: CandidateIdMap): KnotId {
-  const knotId = candidateIdMap[value.value.toString()]
+  const knotId = candidateIdMap[value.value.toString()];
   if (knotId !== undefined) {
-    return knotId
+    return knotId;
   } else {
     return candidateIdMap.default;
   }

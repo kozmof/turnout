@@ -5,8 +5,8 @@ import { type MetaPreprocessNumber } from "../../condition/preset/number/preproc
 import { type MetaProcessNumber } from "../../condition/preset/number/process";
 import { type MetaPreprocessString } from "../../condition/preset/string/preprocess";
 import { type MetaProcessString } from "../../condition/preset/string/process";
-import { type AllValues, type DeterministicSymbol, type NonDeterministicSymbol } from "../../condition/value";
-import { type CandidateIdMap, type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
+import { type DeterministicSymbol, type NonDeterministicSymbol } from "../../condition/value";
+import { type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
 import { type Property, type PropertyId, type PropertyState } from "../../knot/property";
 import { type Scene, type SceneId } from "../../scene/scene";
 
