@@ -25,15 +25,15 @@ const getObjectKeys = <T extends { [key: string]: unknown }>(obj: T): (keyof T)[
 }
 
 function getNextState(knot: Knot, state: PropertyState) {
-  const keys = getObjectKeys(knot.payload.ops.nextState);
+  const propertyIds = getObjectKeys(knot.payload.ops.nextState);
   const updateState: PropertyState = {}
 
-  for (const key of keys) {
-    const tree = initTree(knot.payload.ops.nextState[key].treeRef, state);
-    const newValue = calcAllOps(tree, knot.payload.ops.nextState[key].collection)
-    updateState[key] = {
-      id: state[key].id,
-      name: state[key].name,
+  for (const propertyId of propertyIds) {
+    const tree = initTree(knot.payload.ops.nextState[propertyId].treeRef, state);
+    const newValue = calcAllOps(tree, knot.payload.ops.nextState[propertyId].collection)
+    updateState[propertyId] = {
+      id: state[propertyId].id,
+      name: state[propertyId].name,
       value: newValue
     }
   }
