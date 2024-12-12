@@ -1,4 +1,4 @@
-import { type AllValues, type DeterministicSymbol, type NonDeterministicSymbol } from "../../value";
+import { type AllValue, type DeterministicSymbol, type NonDeterministicSymbol } from "../../value";
 
 const isString = (symbol: DeterministicSymbol | NonDeterministicSymbol) : boolean => {
   const symbols: Array<DeterministicSymbol | NonDeterministicSymbol> = ["string", "random-string"];
@@ -20,7 +20,7 @@ const isArray = (symbol: DeterministicSymbol | NonDeterministicSymbol) : boolean
   return symbols.includes(symbol);
 };
 
-export const isComparable = (a: AllValues, b: AllValues): boolean => {
+export const isComparable = (a: AllValue, b: AllValue): boolean => {
   if (isString(a.symbol) && isString(b.symbol)) {
     return true;
   } else if (isNumber(a.symbol) && isNumber(b.symbol)) {

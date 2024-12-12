@@ -1,13 +1,13 @@
 import { isRandomValue } from "../../ops";
-import type { AllValues, BooleanValue } from "../../value";
+import type { AllValue, BooleanValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
-export interface ProcessGeneric<T extends AllValues, U extends AllValues> {
+export interface ProcessGeneric<T extends AllValue, U extends AllValue> {
   isEqual: ToBooleanProcess<T, U>
 }
 
-export const pGeneric: ProcessGeneric<AllValues, AllValues> = {
-  isEqual: (a: AllValues, b: AllValues): BooleanValue => {
+export const pGeneric: ProcessGeneric<AllValue, AllValue> = {
+  isEqual: (a: AllValue, b: AllValue): BooleanValue => {
     if (
       ((a.symbol === "string" || a.symbol === "random-string") && (b.symbol === "string" || b.symbol === "random-string")) ||
       ((a.symbol === "number" || a.symbol === "random-number") && (b.symbol === "number" || b.symbol === "random-number")) ||
@@ -26,12 +26,12 @@ export const pGeneric: ProcessGeneric<AllValues, AllValues> = {
 };
 
 export type MetaProcessGeneric = {
-  [K in keyof ProcessGeneric<AllValues, AllValues>]: ReturnType<ProcessGeneric<AllValues, AllValues>[K]>["symbol"]
+  [K in keyof ProcessGeneric<AllValue, AllValue>]: ReturnType<ProcessGeneric<AllValue, AllValue>[K]>["symbol"]
 }
 
 export type ParamsMetaProcessGeneric = {
-  [K in keyof ProcessGeneric<AllValues, AllValues>]: [
-    Parameters<ProcessGeneric<AllValues, AllValues>[K]>[0]["symbol"],
-    Parameters<ProcessGeneric<AllValues, AllValues>[K]>[1]["symbol"]
+  [K in keyof ProcessGeneric<AllValue, AllValue>]: [
+    Parameters<ProcessGeneric<AllValue, AllValue>[K]>[0]["symbol"],
+    Parameters<ProcessGeneric<AllValue, AllValue>[K]>[1]["symbol"]
   ]
 }

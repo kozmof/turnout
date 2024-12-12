@@ -1,11 +1,11 @@
 import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../condition/ops";
 import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
-import { type AllValues } from "../../condition/value";
+import { type AllValue } from "../../condition/value";
 import { Knot, type CandidateIdMap, type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
 import { type IFInteractionAPI, } from "./api.interface";
 
-function nextKnotId(value: AllValues, candidateIdMap: CandidateIdMap): KnotId {
+function nextKnotId(value: AllValue, candidateIdMap: CandidateIdMap): KnotId {
   const knotId = candidateIdMap[value.value.toString()];
   if (knotId !== undefined) {
     return knotId;
@@ -42,7 +42,7 @@ function getNextState(knot: Knot, state: PropertyState) {
   return nextState;
 }
 
-function getValue(id: PropertyId, state: PropertyState): AllValues {
+function getValue(id: PropertyId, state: PropertyState): AllValue {
   const prop = state[id];
   if (prop === undefined) {
     throw new Error();

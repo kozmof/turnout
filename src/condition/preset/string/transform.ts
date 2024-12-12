@@ -1,18 +1,18 @@
-import { isFixedString, isRandomString, type AllValues, type NumberValue, type StringValue } from "../../value";
+import { isFixedString, isRandomString, type AllValue, type NumberValue, type StringValue } from "../../value";
 import { type ToStringConversion, type ToNumberConversion } from "../convert";
 
-export interface TransformString<T extends AllValues> {
+export interface TransformString<T extends AllValue> {
   pass: ToStringConversion<T>
   toNumber: ToNumberConversion<T>
 }
 
-export const tString: TransformString<AllValues> = {
+export const tString: TransformString<AllValue> = {
   /**
    * 
    * @param val raw value must be `string`
    * @returns raw value must be `string`
    */
-  pass: (val: AllValues) : StringValue => {
+  pass: (val: AllValue) : StringValue => {
     if(isFixedString(val) || isRandomString(val)) {
       return val;
     } else {
@@ -24,7 +24,7 @@ export const tString: TransformString<AllValues> = {
    * @param val raw value must be `string`
    * @returns raw value must be `number`
    */
-  toNumber: (val: AllValues): NumberValue => {
+  toNumber: (val: AllValue): NumberValue => {
     switch (val.symbol) {
       case "string":
         return {

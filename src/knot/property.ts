@@ -1,4 +1,4 @@
-import { type AllValues } from "../condition/value";
+import { type AllValue } from "../condition/value";
 import { type Brand } from "../util/brand";
 
 export type PropertyId = Brand<number, "property">
@@ -6,7 +6,7 @@ export type PropertyId = Brand<number, "property">
 export interface Property {
   id: PropertyId
   name: string
-  value: AllValues
+  value: AllValue
 }
 
 export type PropertyState = {

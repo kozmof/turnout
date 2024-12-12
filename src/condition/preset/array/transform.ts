@@ -1,18 +1,18 @@
-import { type NumberValue, type AllValues, type ArrayValue, isFixedArray, isRandomArray } from "../../value";
+import { type NumberValue, type AllValue, type ArrayValue, isFixedArray, isRandomArray } from "../../value";
 import { type ToArrayConversion, type ToNumberConversion } from "../convert";
 
-export interface TransformArray<T extends AllValues> {
+export interface TransformArray<T extends AllValue> {
   pass: ToArrayConversion<T>
   length: ToNumberConversion<T>
 }
 
-export const tArray: TransformArray<AllValues> = {
+export const tArray: TransformArray<AllValue> = {
   /**
    * 
    * @param val raw value must be `array`
    * @returns raw value must be `array`
    */
-  pass: (val: AllValues): ArrayValue => {
+  pass: (val: AllValue): ArrayValue => {
     if(isFixedArray(val) || isRandomArray(val)) {
       return val;
     } else {
@@ -24,7 +24,7 @@ export const tArray: TransformArray<AllValues> = {
    * @param val raw value must be `array`
    * @returns raw value must be `number`
    */
-  length: (val: AllValues): NumberValue => {
+  length: (val: AllValue): NumberValue => {
     switch(val.symbol) {
       case "array":
         return {

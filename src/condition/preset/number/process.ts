@@ -1,22 +1,22 @@
 import { isRandomValue } from "../../ops";
-import { type AllValues, type NumberValue, isFixedNumber, isRandomNumber } from "../../value";
+import { type AllValue, type NumberValue, isFixedNumber, isRandomNumber } from "../../value";
 import { type ToNumberProcess } from "../convert";
 
-export interface ProcessNumber<T extends AllValues, U extends AllValues> {
+export interface ProcessNumber<T extends AllValue, U extends AllValue> {
   add: ToNumberProcess<T, U>
   minus: ToNumberProcess<T, U>
   multiply: ToNumberProcess<T, U>
   divide: ToNumberProcess<T, U>
 }
 
-export const pNumber: ProcessNumber<AllValues, AllValues> = {
+export const pNumber: ProcessNumber<AllValue, AllValue> = {
   /**
    * 
    * @param a raw value must be `number`
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  add: (a: AllValues, b: AllValues): NumberValue => {
+  add: (a: AllValue, b: AllValue): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
       return {
@@ -33,7 +33,7 @@ export const pNumber: ProcessNumber<AllValues, AllValues> = {
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  minus: (a: AllValues, b: AllValues): NumberValue => {
+  minus: (a: AllValue, b: AllValue): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
       return {
@@ -50,7 +50,7 @@ export const pNumber: ProcessNumber<AllValues, AllValues> = {
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  multiply: (a: AllValues, b: AllValues): NumberValue => {
+  multiply: (a: AllValue, b: AllValue): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
       return {
@@ -67,7 +67,7 @@ export const pNumber: ProcessNumber<AllValues, AllValues> = {
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  divide: (a: AllValues, b: AllValues): NumberValue => {
+  divide: (a: AllValue, b: AllValue): NumberValue => {
     if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
       const isRandom = isRandomValue(a, b);
       return {

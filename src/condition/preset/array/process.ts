@@ -1,19 +1,19 @@
 import { isRandomValue } from "../../ops";
-import { type AllValues, type BooleanValue, isFixedArray, isRandomArray, type ArrayValue, type NonArrayValue } from "../../value";
+import { type AllValue, type BooleanValue, isFixedArray, isRandomArray, type ArrayValue, type NonArrayValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
-export interface ProcessArray<T extends AllValues, U extends AllValues> {
+export interface ProcessArray<T extends AllValue, U extends AllValue> {
   includes: ToBooleanProcess<T, U>
 }
 
-export const pArray: ProcessArray<AllValues, AllValues> = {
+export const pArray: ProcessArray<AllValue, AllValue> = {
   /**
    * 
    * @param a raw value must be `array`
    * @param b raw value must be `any` except `array`
    * @returns raw value must be `boolean`
    */
-  includes: (a: AllValues, b: AllValues) : BooleanValue => {
+  includes: (a: AllValue, b: AllValue) : BooleanValue => {
     if((isFixedArray(a) || isRandomArray(a)) && (!isFixedArray(b) && !isRandomArray(b))) {
       const isRandom = isRandomValue(a, b);
       return {

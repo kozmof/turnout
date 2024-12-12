@@ -36,7 +36,7 @@ describe("[core function] calcValues", () => {
   });
 });
 
-describe("[core function] calcAllValues", () => {
+describe("[core function] calcAllValue", () => {
   describe("::basic test", () => {
     test("Simple calculations ☀️", () => {
       const opsCollection: OpsCollection = {
