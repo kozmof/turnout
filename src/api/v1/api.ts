@@ -1,5 +1,5 @@
 import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../condition/ops";
-import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaPPArray, metaPPArrayRand, metaPPNumber, metaPPNumberRand, metaPPString, metaPPStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
+import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
 import { type AllValues } from "../../condition/value";
 import { Knot, type CandidateIdMap, type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
@@ -117,24 +117,24 @@ export const InteractionAPI: IFInteractionAPI = {
     }
   },
   condition: {
-    getAvailablePreprocess: ({ symbol }) => {
+    getAvailableTransform: ({ symbol }) => {
       switch (symbol) {
         case "string":
-          return metaPPString;
+          return metaTString;
         case "number":
-          return metaPPNumber;
+          return metaTNumber;
         case "boolean": // TODO
-          return metaPPNumber;
+          return metaTNumber;
         case "array":
-          return metaPPArray;
+          return metaTArray;
         case "random-number":
-          return metaPPNumberRand;
+          return metaTNumberRand;
         case "random-string":
-          return metaPPStringRand;
+          return metaTStringRand;
         case "random-boolean": // TODO
-          return metaPPNumberRand;
+          return metaTNumberRand;
         case "random-array":
-          return metaPPArrayRand;
+          return metaTArrayRand;
       }
     },
     getAvailableProcess: ({ symbol }) => {

@@ -1,12 +1,12 @@
 import { isFixedString, isRandomString, type AllValues, type NumberValue, type StringValue } from "../../value";
 import { type ToStringConversion, type ToNumberConversion } from "../convert";
 
-export interface PreprocessString<T extends AllValues> {
+export interface TransformString<T extends AllValues> {
   pass: ToStringConversion<T>
   toNumber: ToNumberConversion<T>
 }
 
-export const ppString: PreprocessString<AllValues> = {
+export const tString: TransformString<AllValues> = {
   /**
    * 
    * @param val raw value must be `string`
@@ -42,12 +42,12 @@ export const ppString: PreprocessString<AllValues> = {
   }
 };
 
-export type MetaPreprocessString = {
-  [K in keyof PreprocessString<StringValue>]: ReturnType<PreprocessString<StringValue>[K]>["symbol"]
+export type MetaTransformString = {
+  [K in keyof TransformString<StringValue>]: ReturnType<TransformString<StringValue>[K]>["symbol"]
 }
 
-export type ParamsMetaPreprocessString = {
-  [K in keyof PreprocessString<StringValue>]: [
-    Parameters<PreprocessString<StringValue>[K]>[0]["symbol"],
+export type ParamsMetaTransformString = {
+  [K in keyof TransformString<StringValue>]: [
+    Parameters<TransformString<StringValue>[K]>[0]["symbol"],
   ]
 }

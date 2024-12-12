@@ -35,8 +35,8 @@ export interface OpsTreeRef {
 
 export type OpsCollection = {
   [opsId in string]: {
-    preprocessA: (value: AllValues) => AllValues,
-    preprocessB: (value: AllValues) => AllValues,
+    transformA: (value: AllValues) => AllValues,
+    transformB: (value: AllValues) => AllValues,
     process: (a: AllValues, b: AllValues) => AllValues
   }
 }
@@ -51,15 +51,15 @@ export function isOpsPkg(pkg: ValuePkg | OpsPkg): pkg is OpsPkg {
 
 export function calcValues<T extends AllValues, U extends AllValues, V extends AllValues>(
   tree: OpsTree,
-  preprocessA: (value: AllValues) => T,
-  preprocessB: (value: AllValues) => U,
+  transformA: (value: AllValues) => T,
+  transformB: (value: AllValues) => U,
   process: (a: T, b: U) => V
 ): V {
   const pkgA = tree.a;
   const pkgB = tree.b;
   if (isValuePkg(pkgA) && isValuePkg(pkgB)) {
-    const valueA = preprocessA(pkgA.entity);
-    const valueB = preprocessB(pkgB.entity);
+    const valueA = transformA(pkgA.entity);
+    const valueB = transformB(pkgB.entity);
     return process(valueA, valueB);
   } else {
     throw new Error();
@@ -76,30 +76,30 @@ export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AllVal
     const coll = opsCollection[tree.opsId];
     if (tree.a.tag === "value" && tree.b.tag === "value") {
       return coll.process(
-        coll.preprocessA(tree.a.entity),
-        coll.preprocessB(tree.b.entity)
+        coll.transformA(tree.a.entity),
+        coll.transformB(tree.b.entity)
       );
 
     } else if (tree.a.tag === "value" && tree.b.tag === "ops") {
       const valB = dig(tree.b.entity);
       return coll.process(
-        coll.preprocessA(tree.a.entity),
-        coll.preprocessB(valB)
+        coll.transformA(tree.a.entity),
+        coll.transformB(valB)
       );
 
     } else if (tree.a.tag === "ops" && tree.b.tag === "value") {
       const valA = dig(tree.a.entity);
       return coll.process(
-        coll.preprocessA(valA),
-        coll.preprocessB(tree.b.entity)
+        coll.transformA(valA),
+        coll.transformB(tree.b.entity)
       );
 
     } else if (tree.a.tag === "ops" && tree.b.tag === "ops") {
       const valA = dig(tree.a.entity);
       const valB = dig(tree.b.entity);
       return coll.process(
-        coll.preprocessA(valA),
-        coll.preprocessB(valB)
+        coll.transformA(valA),
+        coll.transformB(valB)
       );
 
     } else {

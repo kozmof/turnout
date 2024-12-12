@@ -1,10 +1,10 @@
 import { type AllValues, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from "../../value";
-import { type MetaPreprocessArray, type PreprocessArray } from "../array/preprocess";
+import { type MetaTransformArray, type TransformArray } from "../array/transform";
 import { type MetaProcessArray, type ProcessArray } from "../array/process";
 import { type MetaProcessGeneric, type ProcessGeneric } from "../generic/process";
-import { type MetaPreprocessNumber, type PreprocessNumber } from "../number/preprocess";
+import { type MetaTransformNumber, type TransformNumber } from "../number/transform";
 import { type MetaProcessNumber, type ProcessNumber } from "../number/process";
-import { type MetaPreprocessString, type PreprocessString } from "../string/preprocess";
+import { type MetaTransformString, type TransformString } from "../string/transform";
 import { type MetaProcessString, type ProcessString } from "../string/process";
 
 export const metaPNumber: MetaProcessNumber = {
@@ -76,56 +76,56 @@ export const getResultProcessType = {
   }
 };
 
-export const metaPPNumber: MetaPreprocessNumber = {
+export const metaTNumber: MetaTransformNumber = {
   pass: "number",
   toStr: "string"
 };
 
-export const metaPPNumberRand: MetaPreprocessNumber = {
+export const metaTNumberRand: MetaTransformNumber = {
   pass: "random-number",
   toStr: "random-string"
 };
 
-export const metaPPString: MetaPreprocessString = {
+export const metaTString: MetaTransformString = {
   pass: "string",
   toNumber: "number"
 };
 
-export const metaPPStringRand: MetaPreprocessString = {
+export const metaTStringRand: MetaTransformString = {
   pass: "random-string",
   toNumber: "random-number"
 };
 
-export const metaPPArray: MetaPreprocessArray = {
+export const metaTArray: MetaTransformArray = {
   pass: "array",
   length: "number"
 };
 
-export const metaPPArrayRand: MetaPreprocessArray = {
+export const metaTArrayRand: MetaTransformArray = {
   pass: "random-array",
   length: "random-number"
 };
 
-export const getResultPreprocessType = {
-  ppNumber: (key: keyof PreprocessNumber<NumberValue>, isRandom: boolean) => {
+export const getResultTransformType = {
+  tNumber: (key: keyof TransformNumber<NumberValue>, isRandom: boolean) => {
     if(isRandom) {
-      return metaPPNumberRand[key];
+      return metaTNumberRand[key];
     } else {
-      return metaPPNumber[key];
+      return metaTNumber[key];
     }
   },
-  ppString: (key: keyof PreprocessString<StringValue>, isRandom: boolean) => {
+  tString: (key: keyof TransformString<StringValue>, isRandom: boolean) => {
     if(isRandom) {
-      return metaPPStringRand[key];
+      return metaTStringRand[key];
     } else {
-      return metaPPString[key];
+      return metaTString[key];
     }
   },
-  ppArray: (key: keyof PreprocessArray<ArrayValue>, isRandom: boolean) => {
+  tArray: (key: keyof TransformArray<ArrayValue>, isRandom: boolean) => {
     if(isRandom) {
-      return metaPPArrayRand[key];
+      return metaTArrayRand[key];
     } else {
-      return metaPPArray[key];
+      return metaTArray[key];
     }
   },
 };

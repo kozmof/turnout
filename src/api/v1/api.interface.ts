@@ -1,9 +1,9 @@
-import { type MetaPreprocessArray } from "../../condition/preset/array/preprocess";
+import { type MetaTransformArray } from "../../condition/preset/array/transform";
 import { type MetaProcessArray } from "../../condition/preset/array/process";
 import { type MetaProcessGeneric } from "../../condition/preset/generic/process";
-import { type MetaPreprocessNumber } from "../../condition/preset/number/preprocess";
+import { type MetaTransformNumber } from "../../condition/preset/number/transform";
 import { type MetaProcessNumber } from "../../condition/preset/number/process";
-import { type MetaPreprocessString } from "../../condition/preset/string/preprocess";
+import { type MetaTransformString } from "../../condition/preset/string/transform";
 import { type MetaProcessString } from "../../condition/preset/string/process";
 import { type DeterministicSymbol, type NonDeterministicSymbol } from "../../condition/value";
 import { type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
@@ -54,10 +54,10 @@ export interface IFInteractionAPI {
     }) => Promise<[KnotId, PropertyState]>,
   },
   condition: {
-    getAvailablePreprocess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
-      MetaPreprocessNumber |
-      MetaPreprocessString |
-      MetaPreprocessArray,
+    getAvailableTransform: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
+      MetaTransformNumber |
+      MetaTransformString |
+      MetaTransformArray,
     getAvailableProcess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
       MetaProcessNumber |
       MetaProcessString |
