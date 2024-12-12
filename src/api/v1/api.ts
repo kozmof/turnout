@@ -1,7 +1,7 @@
 import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../condition/ops";
 import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaPPArray, metaPPArrayRand, metaPPNumber, metaPPNumberRand, metaPPString, metaPPStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
 import { type AllValues } from "../../condition/value";
-import { type CandidateIdMap, type KnotId } from "../../knot/knot";
+import { Knot, type CandidateIdMap, type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
 import { type IFInteractionAPI, } from "./api.interface";
 
@@ -14,9 +14,32 @@ function nextKnotId(value: AllValues, candidateIdMap: CandidateIdMap): KnotId {
   }
 }
 
-async function getNextKnotId(tree: OpsTree, opsCollection: OpsCollection, candidateIdMap: CandidateIdMap): Promise<KnotId> {
-  const result = calcAllOps(tree, opsCollection);
-  return nextKnotId(result, candidateIdMap);
+function getNextKnotId(knot: Knot, state: PropertyState): KnotId {
+  const tree = initTree(knot.payload.ops.nextKnotId.treeRef, state);
+  const result = calcAllOps(tree, knot.payload.ops.nextKnotId.collection);
+  return nextKnotId(result, knot.to);
+}
+
+const getObjectKeys = <T extends { [key: string]: unknown }>(obj: T): (keyof T)[] => {
+  return Object.keys(obj)
+}
+
+function getNextState(knot: Knot, state: PropertyState) {
+  const keys = getObjectKeys(knot.payload.ops.nextState);
+  const updateState: PropertyState = {}
+
+  for (const key of keys) {
+    const tree = initTree(knot.payload.ops.nextState[key].treeRef, state);
+    const newValue = calcAllOps(tree, knot.payload.ops.nextState[key].collection)
+    updateState[key] = {
+      id: state[key].id,
+      name: state[key].name,
+      value: newValue
+    }
+  }
+
+  const nextState = { ...state, ...updateState }
+  return nextState;
 }
 
 function getValue(id: PropertyId, state: PropertyState): AllValues {
@@ -88,14 +111,9 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
 export const InteractionAPI: IFInteractionAPI = {
   knot: {
     next: async ({ knot, state }) => {
-      const [ok, nextState] = await knot.payload.nextPropertyState(knot.id, state);
-      if (ok) {
-        const tree = initTree(knot.payload.ops.treeRef, nextState);
-        const nextKnotId = await getNextKnotId(tree, knot.payload.ops.collection, knot.to);
-        return [nextKnotId, nextState];
-      } else {
-        throw new Error();
-      }
+      const nextState = getNextState(knot, state);
+      const nextKnotId = getNextKnotId(knot, nextState);
+      return [nextKnotId, nextState];
     }
   },
   condition: {
