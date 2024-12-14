@@ -1,5 +1,3 @@
-// lvkv: light vault K/V 
-
 export type KV<T> = {
   [key in string]: T | T[] | KV<T>
 }

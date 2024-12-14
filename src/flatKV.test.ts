@@ -1,5 +1,5 @@
 import { expect, test, describe } from "vitest";
-import { type KV, kvGet, kvUpdate, makeFlat, type IsValue, revertFlat } from "./lvkv";
+import { type KV, kvGet, kvUpdate, makeFlat, type IsValue, revertFlat } from "./flatKV";
 
 // Note: ☀️ is a normal test. ☁️ is a negative test
 
