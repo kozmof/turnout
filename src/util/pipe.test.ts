@@ -2,9 +2,9 @@ import { expect, test } from "vitest";
 import { type NumberValue } from "../condition/value";
 import { pipe } from "./pipe";
 
-// Note: ☀️ is a normal test. ☁️ is a negative test
+// Note: [NML]️ is a normal test. [NEG]️ is a negative test
 
-test("Pipe functions ☀️", () => {
+test("Pipe functions [NML]️", () => {
   const add3 = (a: NumberValue): NumberValue => {
     return {
       symbol: "number",

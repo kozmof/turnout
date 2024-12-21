@@ -5,12 +5,12 @@ import { pGeneric } from "./preset/generic/process";
 import { tNumber } from "./preset/number/transform";
 import { pNumber } from "./preset/number/process";
 
-// Note: ☀️ is a normal test. ☁️ is a negative test
+// Note: [NML]️ is a normal test. [NEG]️ is a negative test
 
 describe("[core function] calcValues", () => {
   describe("::basic test", () => {
     describe("::string operations", () => {
-      test("Convert two number values to string values, then compare both ️☀️", () => {
+      test("Convert two number values to string values, then compare both ️[NML]️", () => {
         const val1: FixedNumberValue = {
           symbol: "number",
           value: 100
@@ -38,7 +38,7 @@ describe("[core function] calcValues", () => {
 
 describe("[core function] calcAllValue", () => {
   describe("::basic test", () => {
-    test("Simple calculations ☀️", () => {
+    test("Simple calculations [NML]️", () => {
       const opsCollection: OpsCollection = {
         1: {
           transformA: tNumber.pass,

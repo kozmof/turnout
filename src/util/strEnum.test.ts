@@ -1,9 +1,9 @@
 import { expect, test } from "vitest";
 import strEnum from "./strEnum";
 
-// Note: ☀️ is a normal test. ☁️ is a negative test
+// Note: [NML]️ is a normal test. [NEG]️ is a negative test
 
-test("Create Enum ☀️", () => {
+test("Create Enum [NML]️", () => {
   expect(strEnum(["a", "b", "c"])).toEqual({
     a: "a",
     b: "b",

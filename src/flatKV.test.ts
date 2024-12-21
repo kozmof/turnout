@@ -1,7 +1,7 @@
 import { expect, test, describe } from "vitest";
 import { type KV, kvGet, kvUpdate, makeFlat, type IsValue, revertFlat } from "./flatKV";
 
-// Note: ☀️ is a normal test. ☁️ is a negative test
+// Note: [️NML] is a normal test. [NEG] is a negative test
 
 describe("[core function] kvGet", () => {
   const kv: KV<string> = {
@@ -18,7 +18,7 @@ describe("[core function] kvGet", () => {
     }
   };
 
-  test("Gets correctly ☀️", () => {
+  test("Gets correctly [NML]", () => {
     expect(kvGet(kv, ["a", "b", "d", "f"])).toEqual("test1");
     expect(kvGet(kv, ["a", "b", "d"])).toEqual({
       f: "test1"
@@ -27,7 +27,7 @@ describe("[core function] kvGet", () => {
     expect(kvGet(kv, ["a", "c"])).toEqual("test3");
   });
 
-  test("If the key path does not exist, it returns undefined. ☁️", () => {
+  test("If the key path does not exist, it returns undefined. [️NEG]", () => {
     expect(kvGet(kv, ["a", "x"])).toEqual(undefined);
   });
 });
@@ -38,7 +38,7 @@ describe("[core function] kvUpdate", () => {
     const isValue: IsValue<string> = (val): val is string => {
       return typeof val === "string";
     };
-    test("Update exisiting value ☀️", () => {
+    test("Update exisiting value [NML]️", () => {
       const kv: KV<string> = {
         a: {
           b: {
@@ -119,7 +119,7 @@ describe("[core function] kvUpdate", () => {
         x: "updated"
       });
     });
-    test("Add a value ☀️", () => {
+    test("Add a value [NML]️", () => {
       const kv: KV<string> = {
         a: {
           b: {
@@ -158,7 +158,7 @@ describe("[core function] kvUpdate", () => {
         x: "test5"
       });
     });
-    test("Prohibit adding a new value, if updateIffExists is true. ☀️", () => {
+    test("Prohibit adding a new value, if updateIffExists is true. [NML]️", () => {
       const kv: KV<string> = {
         a: {
           b: {
@@ -186,7 +186,7 @@ describe("[core function] kvUpdate", () => {
   });
 
   describe("::Use case of an array type", () => {
-    test("Update an exisiting value ☀️", () => {
+    test("Update an exisiting value [NML]️", () => {
       const isValue: IsValue<string[]> = (val): val is string[] => {
         return Array.isArray(val);
       };
@@ -230,7 +230,7 @@ describe("[core function] kvUpdate", () => {
   });
 
   describe("::Use case of an object type", () => {
-    test("Update an existing value ☀️", () => {
+    test("Update an existing value [NML]️", () => {
       const isValue: IsValue<{tag: string, isTested: boolean }> = (val): val is { tag: string, isTested: boolean } => {
         return "tag" in val && val.tag === "test";
       };
@@ -275,7 +275,7 @@ describe("[core function] kvUpdate", () => {
 });
 
 describe("[core function] makeFlat", () => {
-  test("flatting ☀️", () => {
+  test("flatting [NML]️", () => {
     const isValue: IsValue<string> = (val): val is string => {
       return typeof val === "string";
     };
@@ -303,7 +303,7 @@ describe("[core function] makeFlat", () => {
     });
   });
 
-  test("scoping ☀️", () => {
+  test("scoping [NML]️", () => {
     const isValue: IsValue<string> = (val): val is string => {
       return typeof val === "string";
     };
@@ -331,7 +331,7 @@ describe("[core function] makeFlat", () => {
 });
 
 describe("[core function] revertFlat", () => {
-  test("revert ☀️", () => {
+  test("revert [NML]️", () => {
     const isValue: IsValue<string> = (val): val is string => {
       return typeof val === "string";
     };
