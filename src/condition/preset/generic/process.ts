@@ -1,23 +1,15 @@
 import { isRandomValue } from "../../ops";
-import { isArray, isBoolean, isNumber, isString, type AllValue, type BooleanValue } from "../../value";
+import { type AllValue, type BooleanValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
+import { isComparable } from "../util/isComparable";
 
 export interface ProcessGeneric<T extends AllValue, U extends AllValue> {
   isEqual: ToBooleanProcess<T, U>
 }
 
-const isSameType = (a: AllValue, b: AllValue) : boolean => {
-  return (
-    (isString(a) && isString(b)) ||
-    (isNumber(a) && isNumber(b)) ||
-    (isBoolean(a) && isBoolean(b)) ||
-    (isArray(a) && isArray(b))
-  )
-}
-
 export const pGeneric: ProcessGeneric<AllValue, AllValue> = {
   isEqual: (a: AllValue, b: AllValue): BooleanValue => {
-    if (isSameType(a, b)) {
+    if (isComparable(a, b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-boolean" : "boolean",
