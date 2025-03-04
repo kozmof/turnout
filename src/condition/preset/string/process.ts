@@ -18,7 +18,8 @@ export const pString: ProcessString<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-string" : "string",
-        value: a.value + b.value
+        value: a.value + b.value,
+        subSymbol: undefined
       };
     } else {
       throw new Error();

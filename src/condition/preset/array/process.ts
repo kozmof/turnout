@@ -18,7 +18,8 @@ export const pArray: ProcessArray<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-boolean" : "boolean",
-        value: a.value.map((val) => val.value).includes(b.value)
+        value: a.value.map((val) => val.value).includes(b.value),
+        subSymbol: undefined
       };
     } else {
       throw new Error();

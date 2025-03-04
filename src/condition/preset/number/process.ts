@@ -21,7 +21,8 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
-        value: a.value + b.value
+        value: a.value + b.value,
+        subSymbol: undefined
       };
     } else {
       throw new Error();
@@ -38,7 +39,8 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
-        value: a.value - b.value
+        value: a.value - b.value,
+        subSymbol: undefined
       };
     } else {
       throw new Error();
@@ -55,7 +57,8 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
-        value: a.value * b.value
+        value: a.value * b.value,
+        subSymbol: undefined
       };
     } else {
       throw new Error();
@@ -72,7 +75,8 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
-        value: a.value / b.value
+        value: a.value / b.value,
+        subSymbol: undefined
       };
     } else {
       throw new Error();

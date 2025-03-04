@@ -13,22 +13,25 @@ describe("[core function] calcValues", () => {
       test("Convert two number values to string values, then compare both ️[NML]️", () => {
         const val1: FixedNumberValue = {
           symbol: "number",
-          value: 100
+          value: 100,
+          subSymbol: undefined
         };
         const val2: FixedNumberValue = {
           symbol: "number",
-          value: 100
+          value: 100,
+          subSymbol: undefined
         };
 
         const tree: OpsTree = {
           a: { tag: "value", entity: val1 },
           b: { tag: "value", entity: val2 },
-          opsId: 111
+          opsId: 111,
         };
 
         const expected: FixedBooleanValue = {
           symbol: "boolean",
-          value: true
+          value: true,
+          subSymbol: undefined
         };
         expect(calcValues(tree, tNumber.toStr, tNumber.toStr, pGeneric.isEqual)).toEqual(expected);
       });
@@ -110,14 +113,16 @@ describe("[core function] calcAllValue", () => {
                       tag: "value",
                       entity: {
                         symbol: "number",
-                        value: 100
+                        value: 100,
+                        subSymbol: undefined
                       }
                     },
                     b: {
                       tag: "value",
                       entity: {
                         symbol: "number",
-                        value: 200
+                        value: 200,
+                        subSymbol: undefined
                       },
                     },
                     opsId: 1
@@ -127,7 +132,8 @@ describe("[core function] calcAllValue", () => {
                   tag: "value",
                   entity: {
                     symbol: "number",
-                    value: 300
+                    value: 300,
+                    subSymbol: undefined
                   },
                 },
                 opsId: 2
@@ -143,14 +149,16 @@ describe("[core function] calcAllValue", () => {
                       tag: "value",
                       entity: {
                         symbol: "number",
-                        value: 400
+                        value: 400,
+                        subSymbol: undefined
                       }
                     },
                     b: {
                       tag: "value",
                       entity: {
                         symbol: "number",
-                        value: 500
+                        value: 500,
+                        subSymbol: undefined
                       }
                     },
                     opsId: 3
@@ -169,14 +177,16 @@ describe("[core function] calcAllValue", () => {
                               tag: "value",
                               entity: {
                                 symbol: "number",
-                                value: 400
+                                value: 400,
+                                subSymbol: undefined
                               }
                             },
                             b: {
                               tag: "value",
                               entity: {
                                 symbol: "number",
-                                value: 500
+                                value: 500,
+                                subSymbol: undefined
                               }
                             },
                             opsId: 4
@@ -189,14 +199,16 @@ describe("[core function] calcAllValue", () => {
                               tag: "value",
                               entity: {
                                 symbol: "number",
-                                value: 500
+                                value: 500,
+                                subSymbol: undefined
                               }
                             },
                             b: {
                               tag: "value",
                               entity: {
                                 symbol: "number",
-                                value: 600
+                                value: 600,
+                                subSymbol: undefined
                               }
                             },
                             opsId: 5
@@ -212,14 +224,16 @@ describe("[core function] calcAllValue", () => {
                           tag: "value",
                           entity: {
                             symbol: "number",
-                            value: 700
+                            value: 700,
+                            subSymbol: undefined
                           }
                         },
                         b: {
                           tag: "value",
                           entity: {
                             symbol: "number",
-                            value: 800
+                            value: 800,
+                            subSymbol: undefined
                           }
                         },
                         opsId: 7
@@ -238,7 +252,8 @@ describe("[core function] calcAllValue", () => {
           tag: "value",
           entity: {
             symbol: "number",
-            value: 100
+            value: 100,
+            subSymbol: undefined
           }
         },
         opsId: 11

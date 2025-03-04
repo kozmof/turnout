@@ -30,11 +30,13 @@ export const tString: TransformString<AllValue> = {
         return {
           symbol: "number",
           value: parseInt(val.value),
+          subSymbol: undefined
         };
       case "random-string":
         return {
           symbol: "random-number",
           value: parseInt(val.value),
+          subSymbol: undefined
         };
       default:
         throw new Error();

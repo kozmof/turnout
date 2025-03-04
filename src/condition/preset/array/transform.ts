@@ -29,12 +29,14 @@ export const tArray: TransformArray<AllValue> = {
       case "array":
         return {
           symbol: "number",
-          value: val.value.length
+          value: val.value.length,
+          subSymbol: undefined
         };
       case "random-array":
         return {
           symbol: "random-number",
-          value: val.value.length
+          value: val.value.length,
+          subSymbol: undefined
         };
       default:
         throw new Error();

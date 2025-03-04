@@ -10,29 +10,59 @@ export const nonDeterministicSymbols = TOM.keys(_nonDS);
 export type DeterministicSymbol = keyof typeof _dS;
 export type NonDeterministicSymbol = keyof typeof _nonDS;
 
-interface Value<T, name extends DeterministicSymbol | NonDeterministicSymbol> {
-  symbol: name
-  value: T
+interface Value<
+  T,
+  name1 extends DeterministicSymbol | NonDeterministicSymbol,
+  name2 extends Exclude<DeterministicSymbol | NonDeterministicSymbol, 'array' | 'random-array'> | undefined
+> {
+  symbol: name1;
+  value: T;
+  subSymbol: name2;
 }
 
-export type FixedNumberValue = Value<number, "number">
-export type FixedStringValue = Value<string, "string">
-export type FixedBooleanValue = Value<boolean, "boolean">
-export type FixedArrayValue = Value<AllValue[], "array">
+export type FixedNumberValue = Value<number, "number", undefined>
+export type FixedStringValue = Value<string, "string", undefined>
+export type FixedBooleanValue = Value<boolean, "boolean", undefined>
+export type FixedArrayValue = Value<AllValue[], "array", undefined>
+export type FixedNumberArrayValue = Value<AllValue[], "array", 'number'>
+export type FixedStringArrayValue = Value<AllValue[], "array", 'string'>
+export type FixedBooleanArrayValue = Value<AllValue[], "array", 'boolean'>
 
-export type RandomNumberValue = Value<number, "random-number">
-export type RandomStringValue = Value<string, "random-string">
-export type RandomBooleanValue = Value<boolean, "random-boolean">
-export type RandomArrayValue = Value<AllValue[], "random-array">
+export type RandomNumberValue = Value<number, "random-number", undefined>
+export type RandomStringValue = Value<string, "random-string", undefined>
+export type RandomBooleanValue = Value<boolean, "random-boolean", undefined>
+export type RandomArrayValue = Value<AllValue[], "random-array", undefined>
+export type RandomNumberArrayValue = Value<AllValue[], "array", 'random-number'>
+export type RandomStringArrayValue = Value<AllValue[], "array", 'random-string'>
+export type RandomBooleanArrayValue = Value<AllValue[], "array", 'random-boolean'>
 
 export type NumberValue = FixedNumberValue | RandomNumberValue
 export type StringValue = FixedStringValue | RandomStringValue
 export type BooleanValue = FixedBooleanValue | RandomBooleanValue
 export type ArrayValue = FixedArrayValue | RandomArrayValue
-export type NonArrayValue = Exclude<AllValue, ArrayValue>
+export type ArrayNumberValue = FixedNumberArrayValue | RandomNumberArrayValue
+export type ArrayStringValue = FixedStringArrayValue | RandomStringArrayValue
+export type ArrayBooleanValue = FixedBooleanArrayValue | RandomBooleanArrayValue
+export type NonArrayValue = Exclude<AllValue, ArrayValue | ArrayNumberValue | ArrayStringValue | ArrayBooleanValue>
 
-export type DeterministicValues = FixedNumberValue | FixedStringValue | FixedBooleanValue | FixedArrayValue
-export type NonDeterministicValues = RandomNumberValue | RandomStringValue | RandomBooleanValue | RandomArrayValue
+export type DeterministicValues =
+  FixedNumberValue |
+  FixedStringValue |
+  FixedBooleanValue |
+  FixedArrayValue |
+  FixedNumberArrayValue |
+  FixedStringArrayValue |
+  FixedBooleanArrayValue
+
+export type NonDeterministicValues =
+  RandomNumberValue |
+  RandomStringValue |
+  RandomBooleanValue |
+  RandomArrayValue |
+  RandomNumberArrayValue |
+  RandomStringArrayValue |
+  RandomBooleanArrayValue
+
 export type AllValue = DeterministicValues | NonDeterministicValues
 
 

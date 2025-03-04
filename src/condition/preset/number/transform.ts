@@ -30,11 +30,13 @@ export const tNumber: TransformNumber<AllValue> = {
         return {
           symbol: "string",
           value: val.value.toString(),
+          subSymbol: undefined
         };
       case "random-number":
         return {
           symbol: "random-string",
           value: val.value.toString(),
+          subSymbol: undefined
         };
       default:
         throw new Error();

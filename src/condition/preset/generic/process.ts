@@ -17,7 +17,8 @@ export const pGeneric: ProcessGeneric<AllValue, AllValue> = {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-boolean" : "boolean",
-        value: a.value === b.value, // TODO: Array case
+        value: a.value === b.value, // TODO: Array case,
+        subSymbol: undefined
       };
     } else {
       throw new Error();
