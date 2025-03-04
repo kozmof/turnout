@@ -117,7 +117,7 @@ export const InteractionAPI: IFInteractionAPI = {
     }
   },
   condition: {
-    getAvailableTransform: ({ symbol }) => {
+    getTransform: ({ symbol }) => {
       switch (symbol) {
         case "string":
           return metaTString;
@@ -137,7 +137,7 @@ export const InteractionAPI: IFInteractionAPI = {
           return metaTArrayRand;
       }
     },
-    getAvailableProcess: ({ symbol }) => {
+    getProcess: ({ symbol }) => {
       switch (symbol) {
         case "string":
           return metaPString;

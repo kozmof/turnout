@@ -54,11 +54,11 @@ export interface IFInteractionAPI {
     }) => Promise<[KnotId, PropertyState]>,
   },
   condition: {
-    getAvailableTransform: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
+    getTransform: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
       MetaTransformNumber |
       MetaTransformString |
       MetaTransformArray,
-    getAvailableProcess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
+    getProcess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
       MetaProcessNumber |
       MetaProcessString |
       MetaProcessArray |
