@@ -74,27 +74,27 @@ export function isRandomValue(a: AllValue, b: AllValue): boolean {
 export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AllValue {
   const dig = (tree: OpsTree): AllValue => {
     const coll = opsCollection[tree.opsId];
-    if (tree.a.tag === "value" && tree.b.tag === "value") {
+    if (isValuePkg(tree.a) && isValuePkg(tree.b)) {
       return coll.process(
         coll.transformA(tree.a.entity),
         coll.transformB(tree.b.entity)
       );
 
-    } else if (tree.a.tag === "value" && tree.b.tag === "ops") {
+    } else if (isValuePkg(tree.a) && isOpsPkg(tree.b)) {
       const valB = dig(tree.b.entity);
       return coll.process(
         coll.transformA(tree.a.entity),
         coll.transformB(valB)
       );
 
-    } else if (tree.a.tag === "ops" && tree.b.tag === "value") {
+    } else if (isOpsPkg(tree.a) && isValuePkg(tree.b)) {
       const valA = dig(tree.a.entity);
       return coll.process(
         coll.transformA(valA),
         coll.transformB(tree.b.entity)
       );
 
-    } else if (tree.a.tag === "ops" && tree.b.tag === "ops") {
+    } else if (isOpsPkg(tree.a) && isOpsPkg(tree.b)) {
       const valA = dig(tree.a.entity);
       const valB = dig(tree.b.entity);
       return coll.process(
