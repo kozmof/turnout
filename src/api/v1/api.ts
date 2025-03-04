@@ -3,7 +3,7 @@ import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, m
 import { type AllValue } from "../../condition/value";
 import { Knot, type CandidateIdMap, type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
-import { type IFInteractionAPI, } from "./api.d";
+import { type IFInteractionAPI, } from "./api.define";
 
 function nextKnotId(value: AllValue, candidateIdMap: CandidateIdMap): KnotId {
   const knotId = candidateIdMap[value.value.toString()];
