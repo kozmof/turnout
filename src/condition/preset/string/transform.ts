@@ -1,4 +1,4 @@
-import { isFixedString, isRandomString, type AllValue, type NumberValue, type StringValue } from "../../value";
+import { isString, type AllValue, type NumberValue, type StringValue } from "../../value";
 import { type ToStringConversion, type ToNumberConversion } from "../convert";
 
 export interface TransformString<T extends AllValue> {
@@ -13,7 +13,7 @@ export const tString: TransformString<AllValue> = {
    * @returns raw value must be `string`
    */
   pass: (val: AllValue) : StringValue => {
-    if(isFixedString(val) || isRandomString(val)) {
+    if(isString(val)) {
       return val;
     } else {
       throw new Error();

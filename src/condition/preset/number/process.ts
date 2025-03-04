@@ -1,5 +1,5 @@
 import { isRandomValue } from "../../ops";
-import { type AllValue, type NumberValue, isFixedNumber, isRandomNumber } from "../../value";
+import { type AllValue, type NumberValue, isNumber } from "../../value";
 import { type ToNumberProcess } from "../convert";
 
 export interface ProcessNumber<T extends AllValue, U extends AllValue> {
@@ -17,7 +17,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @returns raw value must be `number`
    */
   add: (a: AllValue, b: AllValue): NumberValue => {
-    if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
+    if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
@@ -35,7 +35,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @returns raw value must be `number`
    */
   minus: (a: AllValue, b: AllValue): NumberValue => {
-    if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
+    if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
@@ -53,7 +53,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @returns raw value must be `number`
    */
   multiply: (a: AllValue, b: AllValue): NumberValue => {
-    if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
+    if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",
@@ -71,7 +71,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @returns raw value must be `number`
    */
   divide: (a: AllValue, b: AllValue): NumberValue => {
-    if ((isFixedNumber(a) || isRandomNumber(a)) && (isFixedNumber(b) || isRandomNumber(b))) {
+    if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-number" : "number",

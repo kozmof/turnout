@@ -1,4 +1,4 @@
-import { type NumberValue, type AllValue, type ArrayValue, isFixedArray, isRandomArray } from "../../value";
+import { type NumberValue, type AllValue, type ArrayValue, isArray } from "../../value";
 import { type ToArrayConversion, type ToNumberConversion } from "../convert";
 
 export interface TransformArray<T extends AllValue> {
@@ -13,7 +13,7 @@ export const tArray: TransformArray<AllValue> = {
    * @returns raw value must be `array`
    */
   pass: (val: AllValue): ArrayValue => {
-    if(isFixedArray(val) || isRandomArray(val)) {
+    if(isArray(val)) {
       return val;
     } else {
       throw new Error();

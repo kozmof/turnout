@@ -74,12 +74,20 @@ export function isRandomNumber(val: AllValue): val is RandomNumberValue {
   return val.symbol === "random-number";
 }
 
+export  function isNumber(val: AllValue) {
+  return isFixedNumber(val) || isRandomNumber(val);
+}
+
 export function isFixedString(val: AllValue): val is FixedStringValue {
   return val.symbol === "string";
 }
 
 export function isRandomString(val: AllValue): val is RandomStringValue {
   return val.symbol === "random-string";
+}
+
+export function isString(val: AllValue) {
+  return isFixedString(val) || isRandomString(val);
 }
 
 export function isFixedBoolean(val: AllValue): val is FixedBooleanValue {
@@ -90,6 +98,10 @@ export function isRandomBoolean(val: AllValue): val is RandomBooleanValue {
   return val.symbol === "random-boolean";
 }
 
+export function isBoolean(val: AllValue) {
+  return isFixedBoolean(val) || isRandomBoolean(val)
+}
+
 export function isFixedArray(val: AllValue): val is FixedArrayValue {
   return val.symbol === "array";
 }
@@ -98,3 +110,6 @@ export function isRandomArray(val: AllValue): val is RandomArrayValue {
   return val.symbol === "random-array";
 }
 
+export function isArray(val: AllValue) {
+  return isFixedArray(val) || isRandomArray(val);
+}

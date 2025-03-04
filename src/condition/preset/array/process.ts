@@ -1,5 +1,5 @@
 import { isRandomValue } from "../../ops";
-import { type AllValue, type BooleanValue, isFixedArray, isRandomArray, type ArrayValue, type NonArrayValue } from "../../value";
+import { type AllValue, type BooleanValue, type ArrayValue, type NonArrayValue, isArray } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
 export interface ProcessArray<T extends AllValue, U extends AllValue> {
@@ -14,7 +14,7 @@ export const pArray: ProcessArray<AllValue, AllValue> = {
    * @returns raw value must be `boolean`
    */
   includes: (a: AllValue, b: AllValue) : BooleanValue => {
-    if((isFixedArray(a) || isRandomArray(a)) && (!isFixedArray(b) && !isRandomArray(b))) {
+    if(isArray(a) && !isArray(b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-boolean" : "boolean",

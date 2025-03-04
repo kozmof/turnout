@@ -1,19 +1,23 @@
 import { isRandomValue } from "../../ops";
-import type { AllValue, BooleanValue } from "../../value";
+import { isArray, isBoolean, isNumber, isString, type AllValue, type BooleanValue } from "../../value";
 import { type ToBooleanProcess } from "../convert";
 
 export interface ProcessGeneric<T extends AllValue, U extends AllValue> {
   isEqual: ToBooleanProcess<T, U>
 }
 
+const isSameType = (a: AllValue, b: AllValue) : boolean => {
+  return (
+    (isString(a) && isString(b)) ||
+    (isNumber(a) && isNumber(b)) ||
+    (isBoolean(a) && isBoolean(b)) ||
+    (isArray(a) && isArray(b))
+  )
+}
+
 export const pGeneric: ProcessGeneric<AllValue, AllValue> = {
   isEqual: (a: AllValue, b: AllValue): BooleanValue => {
-    if (
-      ((a.symbol === "string" || a.symbol === "random-string") && (b.symbol === "string" || b.symbol === "random-string")) ||
-      ((a.symbol === "number" || a.symbol === "random-number") && (b.symbol === "number" || b.symbol === "random-number")) ||
-      ((a.symbol === "boolean" || a.symbol === "random-boolean") && (b.symbol === "boolean" || b.symbol === "random-boolean")) ||
-      ((a.symbol === "array" || a.symbol === "random-array") && (b.symbol === "array" || b.symbol === "random-array"))
-    ) {
+    if (isSameType(a, b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-boolean" : "boolean",

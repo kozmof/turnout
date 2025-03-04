@@ -1,5 +1,5 @@
 import { isRandomValue } from "../../ops";
-import { type AllValue, type StringValue, isFixedString, isRandomString } from "../../value";
+import { type AllValue, type StringValue, isString } from "../../value";
 import { type ToStringProcess } from "../convert";
 
 export interface ProcessString<T extends AllValue, U extends AllValue> {
@@ -14,7 +14,7 @@ export const pString: ProcessString<AllValue, AllValue> = {
    * @returns raw value must be string
    */
   concat: (a: AllValue, b: AllValue): StringValue => {
-    if ((isFixedString(a) || isRandomString(a)) && (isFixedString(b) || isRandomString(b))) {
+    if (isString(a) && isString(b)) {
       const isRandom = isRandomValue(a, b);
       return {
         symbol: isRandom ? "random-string" : "string",
