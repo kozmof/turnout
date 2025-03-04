@@ -23,6 +23,7 @@
     "eslint-plugin-react": "^7.34.1",
     "prettier": "^3.2.5",
     "typescript": "^5.4.3",
-    "vitest": "^1.4.0"
+    "vite": "^6.2.0",
+    "vitest": "^3.0.7"
   }
 }
