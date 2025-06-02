@@ -1,10 +1,10 @@
 import { expect, test, describe } from "vitest";
-import { isArray, isBoolean, isFixedArray, isFixedBoolean, isFixedNumber, isFixedString, isNumber, isRandomArray, isRandomBoolean, isRandomNumber, isRandomString, isString } from "./value";
+import { isArray, isBoolean, isControlledArray, isControlledBoolean, isControlledNumber, isControlledString, isNumber, isRandomArray, isRandomBoolean, isRandomNumber, isRandomString, isString } from "./value";
 
 describe("Check TypeGuard", () => {
   test("Symbol is number", () => {
-    expect(isFixedNumber({ symbol: "number", value: 100, subSymbol: undefined })).toBe(true);
-    expect(isFixedNumber({ symbol: "random-number", value: 100, subSymbol: undefined })).toBe(false);
+    expect(isControlledNumber({ symbol: "number", value: 100, subSymbol: undefined })).toBe(true);
+    expect(isControlledNumber({ symbol: "random-number", value: 100, subSymbol: undefined })).toBe(false);
   });
   test("Symbol is random-number", () => {
     expect(isRandomNumber({ symbol: "random-number", value: 100, subSymbol: undefined })).toBe(true);
@@ -16,8 +16,8 @@ describe("Check TypeGuard", () => {
   });
 
   test("Symbol is string", () => {
-    expect(isFixedString({ symbol: "string", value: "test1", subSymbol: undefined })).toBe(true);
-    expect(isFixedString({ symbol: "random-string", value: "test2", subSymbol: undefined })).toBe(false);
+    expect(isControlledString({ symbol: "string", value: "test1", subSymbol: undefined })).toBe(true);
+    expect(isControlledString({ symbol: "random-string", value: "test2", subSymbol: undefined })).toBe(false);
   });
   test("Symbol is random-string", () => {
     expect(isRandomString({ symbol: "random-string", value: "test1", subSymbol: undefined })).toBe(true);
@@ -29,8 +29,8 @@ describe("Check TypeGuard", () => {
   });
 
   test("Symbol is boolean", () => {
-    expect(isFixedBoolean({ symbol: "boolean", value: true, subSymbol: undefined })).toBe(true);
-    expect(isFixedBoolean({ symbol: "random-boolean", value: false, subSymbol: undefined })).toBe(false);
+    expect(isControlledBoolean({ symbol: "boolean", value: true, subSymbol: undefined })).toBe(true);
+    expect(isControlledBoolean({ symbol: "random-boolean", value: false, subSymbol: undefined })).toBe(false);
   });
   test("Symbol is random-boolean", () => {
     expect(isRandomBoolean({ symbol: "random-boolean", value: true, subSymbol: undefined })).toBe(true);
@@ -42,8 +42,8 @@ describe("Check TypeGuard", () => {
   });
 
   test("Symbol is array", () => {
-    expect(isFixedArray({ symbol: "array", value: [], subSymbol: undefined })).toBe(true);
-    expect(isFixedArray({ symbol: "random-array", value: [], subSymbol: undefined})).toBe(false);
+    expect(isControlledArray({ symbol: "array", value: [], subSymbol: undefined })).toBe(true);
+    expect(isControlledArray({ symbol: "random-array", value: [], subSymbol: undefined})).toBe(false);
   });
   test("Symbol is random-array", () => {
     expect(isRandomArray({ symbol: "random-array", value: [], subSymbol: undefined})).toBe(true);

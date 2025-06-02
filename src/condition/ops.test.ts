@@ -1,5 +1,5 @@
 import { expect, test, describe } from "vitest";
-import { type FixedBooleanValue, type FixedNumberValue } from "./value";
+import { type ControlledBooleanValue, type ControlledNumberValue } from "./value";
 import { type OpsTree, calcValues, type OpsCollection, calcAllOps } from "./ops";
 import { pGeneric } from "./preset/generic/process";
 import { tNumber } from "./preset/number/transform";
@@ -11,12 +11,12 @@ describe("[core function] calcValues", () => {
   describe("::basic test", () => {
     describe("::string operations", () => {
       test("Convert two number values to string values, then compare both ️[NML]️", () => {
-        const val1: FixedNumberValue = {
+        const val1: ControlledNumberValue = {
           symbol: "number",
           value: 100,
           subSymbol: undefined
         };
-        const val2: FixedNumberValue = {
+        const val2: ControlledNumberValue = {
           symbol: "number",
           value: 100,
           subSymbol: undefined
@@ -28,7 +28,7 @@ describe("[core function] calcValues", () => {
           opsId: 111,
         };
 
-        const expected: FixedBooleanValue = {
+        const expected: ControlledBooleanValue = {
           symbol: "boolean",
           value: true,
           subSymbol: undefined

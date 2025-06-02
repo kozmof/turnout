@@ -20,13 +20,13 @@ interface Value<
   subSymbol: name2;
 }
 
-export type FixedNumberValue = Value<number, "number", undefined>
-export type FixedStringValue = Value<string, "string", undefined>
-export type FixedBooleanValue = Value<boolean, "boolean", undefined>
-export type FixedArrayValue = Value<AllValue[], "array", undefined>
-export type FixedNumberArrayValue = Value<AllValue[], "array", 'number'>
-export type FixedStringArrayValue = Value<AllValue[], "array", 'string'>
-export type FixedBooleanArrayValue = Value<AllValue[], "array", 'boolean'>
+export type ControlledNumberValue = Value<number, "number", undefined>
+export type ControlledStringValue = Value<string, "string", undefined>
+export type ControlledBooleanValue = Value<boolean, "boolean", undefined>
+export type ControlledArrayValue = Value<AllValue[], "array", undefined>
+export type ControlledNumberArrayValue = Value<AllValue[], "array", 'number'>
+export type ControlledStringArrayValue = Value<AllValue[], "array", 'string'>
+export type ControlledBooleanArrayValue = Value<AllValue[], "array", 'boolean'>
 
 export type RandomNumberValue = Value<number, "random-number", undefined>
 export type RandomStringValue = Value<string, "random-string", undefined>
@@ -36,23 +36,23 @@ export type RandomNumberArrayValue = Value<AllValue[], "array", 'random-number'>
 export type RandomStringArrayValue = Value<AllValue[], "array", 'random-string'>
 export type RandomBooleanArrayValue = Value<AllValue[], "array", 'random-boolean'>
 
-export type NumberValue = FixedNumberValue | RandomNumberValue
-export type StringValue = FixedStringValue | RandomStringValue
-export type BooleanValue = FixedBooleanValue | RandomBooleanValue
-export type ArrayValue = FixedArrayValue | RandomArrayValue
-export type ArrayNumberValue = FixedNumberArrayValue | RandomNumberArrayValue
-export type ArrayStringValue = FixedStringArrayValue | RandomStringArrayValue
-export type ArrayBooleanValue = FixedBooleanArrayValue | RandomBooleanArrayValue
+export type NumberValue = ControlledNumberValue | RandomNumberValue
+export type StringValue = ControlledStringValue | RandomStringValue
+export type BooleanValue = ControlledBooleanValue | RandomBooleanValue
+export type ArrayValue = ControlledArrayValue | RandomArrayValue
+export type ArrayNumberValue = ControlledNumberArrayValue | RandomNumberArrayValue
+export type ArrayStringValue = ControlledStringArrayValue | RandomStringArrayValue
+export type ArrayBooleanValue = ControlledBooleanArrayValue | RandomBooleanArrayValue
 export type NonArrayValue = Exclude<AllValue, ArrayValue | ArrayNumberValue | ArrayStringValue | ArrayBooleanValue>
 
 export type DeterministicValues =
-  FixedNumberValue |
-  FixedStringValue |
-  FixedBooleanValue |
-  FixedArrayValue |
-  FixedNumberArrayValue |
-  FixedStringArrayValue |
-  FixedBooleanArrayValue
+  ControlledNumberValue |
+  ControlledStringValue |
+  ControlledBooleanValue |
+  ControlledArrayValue |
+  ControlledNumberArrayValue |
+  ControlledStringArrayValue |
+  ControlledBooleanArrayValue
 
 export type NonDeterministicValues =
   RandomNumberValue |
@@ -66,7 +66,7 @@ export type NonDeterministicValues =
 export type AllValue = DeterministicValues | NonDeterministicValues
 
 
-export function isFixedNumber(val: AllValue): val is FixedNumberValue {
+export function isControlledNumber(val: AllValue): val is ControlledNumberValue {
   return val.symbol === "number";
 }
 
@@ -75,10 +75,10 @@ export function isRandomNumber(val: AllValue): val is RandomNumberValue {
 }
 
 export  function isNumber(val: AllValue) {
-  return isFixedNumber(val) || isRandomNumber(val);
+  return isControlledNumber(val) || isRandomNumber(val);
 }
 
-export function isFixedString(val: AllValue): val is FixedStringValue {
+export function isControlledString(val: AllValue): val is ControlledStringValue {
   return val.symbol === "string";
 }
 
@@ -87,10 +87,10 @@ export function isRandomString(val: AllValue): val is RandomStringValue {
 }
 
 export function isString(val: AllValue) {
-  return isFixedString(val) || isRandomString(val);
+  return isControlledString(val) || isRandomString(val);
 }
 
-export function isFixedBoolean(val: AllValue): val is FixedBooleanValue {
+export function isControlledBoolean(val: AllValue): val is ControlledBooleanValue {
   return val.symbol === "boolean";
 }
 
@@ -99,10 +99,10 @@ export function isRandomBoolean(val: AllValue): val is RandomBooleanValue {
 }
 
 export function isBoolean(val: AllValue) {
-  return isFixedBoolean(val) || isRandomBoolean(val)
+  return isControlledBoolean(val) || isRandomBoolean(val)
 }
 
-export function isFixedArray(val: AllValue): val is FixedArrayValue {
+export function isControlledArray(val: AllValue): val is ControlledArrayValue {
   return val.symbol === "array";
 }
 
@@ -111,5 +111,5 @@ export function isRandomArray(val: AllValue): val is RandomArrayValue {
 }
 
 export function isArray(val: AllValue) {
-  return isFixedArray(val) || isRandomArray(val);
+  return isControlledArray(val) || isRandomArray(val);
 }
