@@ -1,4 +1,4 @@
-import { type OpsCollection, type OpsTreeRef } from "../condition/ops";
+import { type OpsCollection, type OpsTreeRef } from "../state/ops";
 import { type SceneId } from "../scene/scene";
 import { type Brand } from "../util/brand";
 import { PropertyId, type PropertyState } from "./property";

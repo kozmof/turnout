@@ -1,6 +1,6 @@
-import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../condition/ops";
-import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from "../../condition/preset/util/getResultType";
-import { type AllValue } from "../../condition/value";
+import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../state/ops";
+import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from "../../state/preset/util/getResultType";
+import { type AllValue } from "../../state/value";
 import { Knot, type CandidateIdMap, type KnotId } from "../../knot/knot";
 import { type PropertyId, type PropertyState } from "../../knot/property";
 import { type IFInteractionAPI, } from "./api.define";

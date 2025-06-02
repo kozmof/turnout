@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import { type NumberValue } from "../condition/value";
+import { type NumberValue } from "../state/value";
 import { pipe } from "./pipe";
 
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test

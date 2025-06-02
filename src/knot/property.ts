@@ -1,4 +1,4 @@
-import { type AllValue } from "../condition/value";
+import { type AllValue } from "../state/value";
 import { type Brand } from "../util/brand";
 
 export type PropertyId = Brand<number, "property">
