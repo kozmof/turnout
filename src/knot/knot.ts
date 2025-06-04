@@ -1,5 +1,5 @@
 import { type OpsCollection, type OpsTreeRef } from "../state/ops";
-import { type SceneId } from "../scene/scene";
+import { type BoxId } from "../box/box";
 import { type Brand } from "../util/brand";
 import { PropertyId, type PropertyState } from "./property";
 
@@ -22,7 +22,7 @@ export interface KnotPayload {
 export type CandidateIdMap = Record<string, KnotId> & Record<"default", KnotId>
 export interface Knot {
   id: KnotId
-  sceneId: SceneId
+  boxId: BoxId
   from: KnotId[]
   to: CandidateIdMap
   payload: KnotPayload

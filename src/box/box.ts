@@ -1,9 +1,9 @@
 import { type KnotId } from "../knot/knot";
 import { type Brand } from "../util/brand";
 
-export type SceneId = Brand<number, "scene">
+export type BoxId = Brand<number, "box">
 
-export interface Scene {
-  id: SceneId
+export interface Box {
+  id: BoxId
   knotIds: KnotId[]
 }

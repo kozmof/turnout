@@ -8,7 +8,7 @@ import { type MetaProcessString } from "../../state/preset/string/process";
 import { type DeterministicSymbol, type NonDeterministicSymbol } from "../../state/value";
 import { type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
 import { type Property, type PropertyId, type PropertyState } from "../../knot/property";
-import { type Scene, type SceneId } from "../../scene/scene";
+import { type Box, type BoxId } from "../../box/box";
 
 export interface IFKnotAPI {
   createEmptyKnot: () => Knot
@@ -22,15 +22,15 @@ export interface IFKnotAPI {
   addKnotTo: (val: { knot: Knot, toId: KnotId }) => Knot
   removeKnotTo: (val: { knot: Knot, toId: KnotId }) => Knot
 
-  addSceneId: (val: { knot: Knot, sceneId: SceneId }) => Scene
-  removeSceneId: (val: { knot: Knot, sceneId: SceneId }) => Scene
+  addBoxId: (val: { knot: Knot, boxId: BoxId }) => Box
+  removeBoxId: (val: { knot: Knot, boxId: BoxId }) => Box
 }
 
-export interface IFSceneAPI {
-  createEmptyScene: () => Scene
+export interface IFBoxAPI {
+  createEmptyBox: () => Box
 
-  addKnotId: (val: { scene: Scene, knotId: KnotId }) => Scene
-  removeKnotId: (val: { scene: Scene, knotId: KnotId }) => Scene
+  addKnotId: (val: { box: Box, knotId: KnotId }) => Box
+  removeKnotId: (val: { box: Box, knotId: KnotId }) => Box
 }
 
 export interface IFPropertyAPI {
