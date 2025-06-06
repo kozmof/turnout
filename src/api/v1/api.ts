@@ -116,7 +116,7 @@ export const InteractionAPI: IFInteractionAPI = {
       return [nextKnotId, nextState];
     }
   },
-  condition: {
+  state: {
     getTransform: ({ symbol }) => {
       switch (symbol) {
         case "string":

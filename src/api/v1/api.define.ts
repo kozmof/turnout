@@ -53,7 +53,7 @@ export interface IFInteractionAPI {
       state: PropertyState,
     }) => Promise<[KnotId, PropertyState]>,
   },
-  condition: {
+  state: {
     getTransform: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
       MetaTransformNumber |
       MetaTransformString |
