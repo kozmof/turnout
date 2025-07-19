@@ -27,7 +27,7 @@ export const pArray: ProcessArray<AllValue, AllValue> = {
   }
 };
 
-export type MetaProcessArray = {
+export type ReturnMetaProcessArray = {
   [K in keyof ProcessArray<ArrayValue, NonArrayValue>]: ReturnType<ProcessArray<ArrayValue, NonArrayValue>[K]>["symbol"]
 }
 

@@ -84,7 +84,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
   }
 };
 
-export type MetaProcessNumber = {
+export type ReturnMetaProcessNumber = {
   [K in keyof ProcessNumber<NumberValue, NumberValue>]: ReturnType<ProcessNumber<NumberValue, NumberValue>[K]>["symbol"]
 }
 

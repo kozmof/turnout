@@ -1,47 +1,47 @@
 import { type AllValue, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from "../../value";
 import { type MetaTransformArray, type TransformArray } from "../array/transform";
-import { type MetaProcessArray, type ProcessArray } from "../array/process";
-import { type MetaProcessGeneric, type ProcessGeneric } from "../generic/process";
+import { type ReturnMetaProcessArray, type ProcessArray } from "../array/process";
+import { type ReturnMetaProcessGeneric, type ProcessGeneric } from "../generic/process";
 import { type MetaTransformNumber, type TransformNumber } from "../number/transform";
-import { type MetaProcessNumber, type ProcessNumber } from "../number/process";
+import { type ReturnMetaProcessNumber, type ProcessNumber } from "../number/process";
 import { type MetaTransformString, type TransformString } from "../string/transform";
-import { type MetaProcessString, type ProcessString } from "../string/process";
+import { type ReturnMetaProcessString, type ProcessString } from "../string/process";
 
-export const metaPNumber: MetaProcessNumber = {
+export const metaPNumber: ReturnMetaProcessNumber = {
   add: "number",
   minus: "number",
   multiply: "number",
   divide: "number"
 };
 
-export const metaPNumberRand: MetaProcessNumber = {
+export const metaPNumberRand: ReturnMetaProcessNumber = {
   add: "random-number",
   minus: "random-number",
   multiply: "random-number",
   divide: "random-number"
 };
 
-export const metaPString: MetaProcessString = {
+export const metaPString: ReturnMetaProcessString = {
   concat: "string"
 };
 
-export const metaPStringRand: MetaProcessString = {
+export const metaPStringRand: ReturnMetaProcessString = {
   concat: "random-string"
 };
 
-export  const metaPArray: MetaProcessArray = {
+export  const metaPArray: ReturnMetaProcessArray = {
   includes: "boolean"
 };
 
-export  const metaPArrayRand: MetaProcessArray = {
+export  const metaPArrayRand: ReturnMetaProcessArray = {
   includes: "random-boolean"
 };
 
-export const metaPGeneric: MetaProcessGeneric = {
+export const metaPGeneric: ReturnMetaProcessGeneric = {
   isEqual: "boolean"
 };
 
-export  const metaPGenericRand: MetaProcessGeneric = {
+export  const metaPGenericRand: ReturnMetaProcessGeneric = {
   isEqual: "random-boolean"
 };
 

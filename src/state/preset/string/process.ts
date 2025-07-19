@@ -27,7 +27,7 @@ export const pString: ProcessString<AllValue, AllValue> = {
   }
 };
 
-export type MetaProcessString = {
+export type ReturnMetaProcessString = {
   [K in keyof ProcessString<StringValue, StringValue>]: ReturnType<ProcessString<StringValue, StringValue>[K]>["symbol"]
 }
 

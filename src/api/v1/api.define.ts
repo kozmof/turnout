@@ -1,10 +1,10 @@
 import { type MetaTransformArray } from "../../state/preset/array/transform";
-import { type MetaProcessArray } from "../../state/preset/array/process";
-import { type MetaProcessGeneric } from "../../state/preset/generic/process";
+import { type ReturnMetaProcessArray } from "../../state/preset/array/process";
+import { type ReturnMetaProcessGeneric } from "../../state/preset/generic/process";
 import { type MetaTransformNumber } from "../../state/preset/number/transform";
-import { type MetaProcessNumber } from "../../state/preset/number/process";
+import { type ReturnMetaProcessNumber } from "../../state/preset/number/process";
 import { type MetaTransformString } from "../../state/preset/string/transform";
-import { type MetaProcessString } from "../../state/preset/string/process";
+import { type ReturnMetaProcessString } from "../../state/preset/string/process";
 import { type DeterministicSymbol, type NonDeterministicSymbol } from "../../state/value";
 import { type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
 import { type Property, type PropertyId, type PropertyState } from "../../knot/property";
@@ -59,9 +59,9 @@ export interface IFInteractionAPI {
       MetaTransformString |
       MetaTransformArray,
     getProcess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
-      MetaProcessNumber |
-      MetaProcessString |
-      MetaProcessArray |
-      MetaProcessGeneric
+      ReturnMetaProcessNumber |
+      ReturnMetaProcessString |
+      ReturnMetaProcessArray |
+      ReturnMetaProcessGeneric
   }
 }

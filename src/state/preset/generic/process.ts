@@ -22,7 +22,7 @@ export const pGeneric: ProcessGeneric<AllValue, AllValue> = {
   },
 };
 
-export type MetaProcessGeneric = {
+export type ReturnMetaProcessGeneric = {
   [K in keyof ProcessGeneric<AllValue, AllValue>]: ReturnType<ProcessGeneric<AllValue, AllValue>[K]>["symbol"]
 }
 
