@@ -1,9 +1,9 @@
-import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from "../../state/ops";
-import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from "../../state/preset/util/getResultType";
-import { type AllValue } from "../../state/value";
-import { Knot, type CandidateIdMap, type KnotId } from "../../knot/knot";
-import { type PropertyId, type PropertyState } from "../../knot/property";
-import { type IFInteractionAPI, } from "./api.define";
+import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from '../../state/ops';
+import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from '../../state/preset/util/getResultType';
+import { type AllValue } from '../../state/value';
+import { type Knot, type CandidateIdMap, type KnotId } from '../../knot/knot';
+import { type PropertyId, type PropertyState } from '../../knot/property';
+import { type IFInteractionAPI, } from './api.define';
 
 function nextKnotId(value: AllValue, candidateIdMap: CandidateIdMap): KnotId {
   const knotId = candidateIdMap[value.value.toString()];
@@ -20,25 +20,25 @@ function getNextKnotId(knot: Knot, state: PropertyState): KnotId {
   return nextKnotId(result, knot.to);
 }
 
-const getObjectKeys = <T extends { [key: string]: unknown }>(obj: T): (keyof T)[] => {
-  return Object.keys(obj)
-}
+const getObjectKeys = <T extends Record<string, unknown>>(obj: T): Array<keyof T> => {
+  return Object.keys(obj);
+};
 
 function getNextState(knot: Knot, state: PropertyState) {
   const propertyIds = getObjectKeys(knot.payload.ops.nextState);
-  const updateState: PropertyState = {}
+  const updateState: PropertyState = {};
 
   for (const propertyId of propertyIds) {
     const tree = initTree(knot.payload.ops.nextState[propertyId].treeRef, state);
-    const newValue = calcAllOps(tree, knot.payload.ops.nextState[propertyId].collection)
+    const newValue = calcAllOps(tree, knot.payload.ops.nextState[propertyId].collection);
     updateState[propertyId] = {
       id: state[propertyId].id,
       name: state[propertyId].name,
       value: newValue
-    }
+    };
   }
 
-  const nextState = { ...state, ...updateState }
+  const nextState = { ...state, ...updateState };
   return nextState;
 }
 
@@ -53,50 +53,50 @@ function getValue(id: PropertyId, state: PropertyState): AllValue {
 
 function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
   const mapVal = (treeRef: OpsTreeRef): OpsTree => {
-    if (treeRef.a.tag === "prop" && treeRef.b.tag === "prop") {
+    if (treeRef.a.tag === 'prop' && treeRef.b.tag === 'prop') {
       return {
         a: {
-          tag: "value",
+          tag: 'value',
           entity: getValue(treeRef.a.entity, state)
         },
         b: {
-          tag: "value",
+          tag: 'value',
           entity: getValue(treeRef.b.entity, state)
         },
         opsId: treeRef.opsId
       };
-    } else if (treeRef.a.tag === "prop" && treeRef.b.tag === "ops") {
+    } else if (treeRef.a.tag === 'prop' && treeRef.b.tag === 'ops') {
       return {
         a: {
-          tag: "value",
+          tag: 'value',
           entity: getValue(treeRef.a.entity, state)
         },
         b: {
-          tag: "ops",
+          tag: 'ops',
           entity: mapVal(treeRef.b.entity)
         },
         opsId: treeRef.opsId
       };
-    } else if (treeRef.a.tag === "ops" && treeRef.b.tag === "prop") {
+    } else if (treeRef.a.tag === 'ops' && treeRef.b.tag === 'prop') {
       return {
         a: {
-          tag: "ops",
+          tag: 'ops',
           entity: mapVal(treeRef.a.entity)
         },
         b: {
-          tag: "value",
+          tag: 'value',
           entity: getValue(treeRef.b.entity, state)
         },
         opsId: treeRef.opsId
       };
-    } else if (treeRef.a.tag === "ops" && treeRef.b.tag === "ops") {
+    } else if (treeRef.a.tag === 'ops' && treeRef.b.tag === 'ops') {
       return {
         a: {
-          tag: "ops",
+          tag: 'ops',
           entity: mapVal(treeRef.a.entity)
         },
         b: {
-          tag: "ops",
+          tag: 'ops',
           entity: mapVal(treeRef.b.entity)
         },
         opsId: treeRef.opsId
@@ -119,41 +119,41 @@ export const InteractionAPI: IFInteractionAPI = {
   state: {
     getTransform: ({ symbol }) => {
       switch (symbol) {
-        case "string":
+        case 'string':
           return metaTString;
-        case "number":
+        case 'number':
           return metaTNumber;
-        case "boolean": // TODO
+        case 'boolean': // TODO
           return metaTNumber;
-        case "array":
+        case 'array':
           return metaTArray;
-        case "random-number":
+        case 'random-number':
           return metaTNumberRand;
-        case "random-string":
+        case 'random-string':
           return metaTStringRand;
-        case "random-boolean": // TODO
+        case 'random-boolean': // TODO
           return metaTNumberRand;
-        case "random-array":
+        case 'random-array':
           return metaTArrayRand;
       }
     },
     getProcess: ({ symbol }) => {
       switch (symbol) {
-        case "string":
+        case 'string':
           return metaPString;
-        case "number":
+        case 'number':
           return metaPNumber;
-        case "boolean": // TODO
+        case 'boolean': // TODO
           return metaPNumber;
-        case "array":
+        case 'array':
           return metaPArray;
-        case "random-number":
+        case 'random-number':
           return metaPNumberRand;
-        case "random-string":
+        case 'random-string':
           return metaPStringRand;
-        case "random-boolean": // TODO
+        case 'random-boolean': // TODO
           return metaPNumberRand;
-        case "random-array":
+        case 'random-array':
           return metaPArrayRand;
       }
     },

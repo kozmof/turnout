@@ -1,9 +1,9 @@
-import { type OpsCollection, type OpsTreeRef } from "../state/ops";
-import { type BoxId } from "../box/box";
-import { type Brand } from "../util/brand";
-import { PropertyId, type PropertyState } from "./property";
+import { type OpsCollection, type OpsTreeRef } from '../state/ops';
+import { type BoxId } from '../box/box';
+import { type Brand } from '../util/brand';
+import { type PropertyId, type PropertyState } from './property';
 
-export type KnotId = Brand<number, "knot">
+export type KnotId = Brand<number, 'knot'>
 export interface KnotPayload {
   ops: {
     nextState: {
@@ -19,7 +19,7 @@ export interface KnotPayload {
   },
 }
 
-export type CandidateIdMap = Record<string, KnotId> & Record<"default", KnotId>
+export type CandidateIdMap = Record<string, KnotId> & Record<'default', KnotId>
 export interface Knot {
   id: KnotId
   boxId: BoxId

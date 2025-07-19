@@ -3,7 +3,7 @@ export type KV<T> = {
 }
 
 function isKv<T>(value: KV<T> | T | T[]): value is KV<T> {
-  return value !== null && typeof value === "object";
+  return value !== null && typeof value === 'object';
 }
 
 function exists<T>(value: KV<T> | T | T[]): boolean {
@@ -31,7 +31,7 @@ export function kvUpdate<T>(kv: KV<T>, keys: string[], value: T | T[] | KV<T>, i
   for (const key of keys) {
     if (isKv(partial) && !Array.isArray(partial) && exists(partial[key])) {
       if (isValue(partial[key])) {
-        partials.push(partial[key] as T);
+        partials.push(partial[key]);
       } else {
         partials.push({ ...partial[key] as KV<T> });
       }
@@ -71,7 +71,7 @@ type Flat<T> = {
   [flatKey in string]: T
 }
 
-export function makeFlat<T>(kv: KV<T>, isValue: IsValue<T>, scope: string[] = [], delimiter: string = ":"): Flat<T> {
+export function makeFlat<T>(kv: KV<T>, isValue: IsValue<T>, scope: string[] = [], delimiter: string = ':'): Flat<T> {
   const dig = (kv: KV<T>): Array<{
     flatKey: string;
     value: T;
@@ -107,7 +107,7 @@ export function makeFlat<T>(kv: KV<T>, isValue: IsValue<T>, scope: string[] = []
   }, initialFlat);
 }
 
-export function revertFlat<T>(flat: Flat<T>, isValue: IsValue<T>, delimiter: string = ":"): KV<T> | undefined {
+export function revertFlat<T>(flat: Flat<T>, isValue: IsValue<T>, delimiter: string = ':'): KV<T> | undefined {
   let kv: KV<T> | undefined = {};
   for (const [flatKey, value] of Object.entries(flat)) {
     if (kv !== undefined) {

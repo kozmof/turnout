@@ -1,6 +1,6 @@
-import { isRandomValue } from "../../ops";
-import { type AllValue, type StringValue, isString } from "../../value";
-import { type ToStringProcess } from "../convert";
+import { isRandomValue } from '../../ops';
+import { type AllValue, type StringValue, isString } from '../../value';
+import { type ToStringProcess } from '../convert';
 
 export interface ProcessString<T extends AllValue, U extends AllValue> {
   concat: ToStringProcess<T, U>
@@ -17,7 +17,7 @@ export const pString: ProcessString<AllValue, AllValue> = {
     if (isString(a) && isString(b)) {
       const isRandom = isRandomValue(a, b);
       return {
-        symbol: isRandom ? "random-string" : "string",
+        symbol: isRandom ? 'random-string' : 'string',
         value: a.value + b.value,
         subSymbol: undefined
       };
@@ -28,12 +28,12 @@ export const pString: ProcessString<AllValue, AllValue> = {
 };
 
 export type ReturnMetaProcessString = {
-  [K in keyof ProcessString<StringValue, StringValue>]: ReturnType<ProcessString<StringValue, StringValue>[K]>["symbol"]
+  [K in keyof ProcessString<StringValue, StringValue>]: ReturnType<ProcessString<StringValue, StringValue>[K]>['symbol']
 }
 
 export type ParamsMetaProcessString = {
   [K in keyof ProcessString<StringValue, StringValue>]: [
-    Parameters<ProcessString<StringValue, StringValue>[K]>[0]["symbol"],
-    Parameters<ProcessString<StringValue, StringValue>[K]>[1]["symbol"]
+    Parameters<ProcessString<StringValue, StringValue>[K]>[0]['symbol'],
+    Parameters<ProcessString<StringValue, StringValue>[K]>[1]['symbol']
   ]
 }

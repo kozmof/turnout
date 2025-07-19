@@ -1,5 +1,5 @@
-import { isNumber, type AllValue, type NumberValue, type StringValue } from "../../value";
-import { type ToNumberConversion, type ToStringConversion } from "../convert";
+import { isNumber, type AllValue, type NumberValue, type StringValue } from '../../value';
+import { type ToNumberConversion, type ToStringConversion } from '../convert';
 
 export interface TransformNumber<T extends AllValue> {
   pass: ToNumberConversion<T>
@@ -26,15 +26,15 @@ export const tNumber: TransformNumber<AllValue> = {
    */
   toStr: (val: AllValue): StringValue => {
     switch (val.symbol) {
-      case "number":
+      case 'number':
         return {
-          symbol: "string",
+          symbol: 'string',
           value: val.value.toString(),
           subSymbol: undefined
         };
-      case "random-number":
+      case 'random-number':
         return {
-          symbol: "random-string",
+          symbol: 'random-string',
           value: val.value.toString(),
           subSymbol: undefined
         };
@@ -45,11 +45,11 @@ export const tNumber: TransformNumber<AllValue> = {
 };
 
 export type MetaTransformNumber = {
-  [K in keyof TransformNumber<NumberValue>]: ReturnType<TransformNumber<NumberValue>[K]>["symbol"]
+  [K in keyof TransformNumber<NumberValue>]: ReturnType<TransformNumber<NumberValue>[K]>['symbol']
 }
 
 export type ParamsMetaTransformNumber = {
   [K in keyof TransformNumber<NumberValue>]: [
-    Parameters<TransformNumber<NumberValue>[K]>[0]["symbol"],
+    Parameters<TransformNumber<NumberValue>[K]>[0]['symbol'],
   ]
 }

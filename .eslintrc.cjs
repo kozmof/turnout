@@ -41,7 +41,7 @@ module.exports = {
         "no-extra-semi": "error",
         "no-unexpected-multiline": "error",
         "no-unreachable": "error",
-        "quotes": ["error", "double"]
+        "quotes": ["error", "single"]
     },
     "root": true
 }

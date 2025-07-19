@@ -1,6 +1,6 @@
-import { isRandomValue } from "../../ops";
-import { type AllValue, type NumberValue, isNumber } from "../../value";
-import { type ToNumberProcess } from "../convert";
+import { isRandomValue } from '../../ops';
+import { type AllValue, type NumberValue, isNumber } from '../../value';
+import { type ToNumberProcess } from '../convert';
 
 export interface ProcessNumber<T extends AllValue, U extends AllValue> {
   add: ToNumberProcess<T, U>
@@ -20,7 +20,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
-        symbol: isRandom ? "random-number" : "number",
+        symbol: isRandom ? 'random-number' : 'number',
         value: a.value + b.value,
         subSymbol: undefined
       };
@@ -38,7 +38,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
-        symbol: isRandom ? "random-number" : "number",
+        symbol: isRandom ? 'random-number' : 'number',
         value: a.value - b.value,
         subSymbol: undefined
       };
@@ -56,7 +56,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
-        symbol: isRandom ? "random-number" : "number",
+        symbol: isRandom ? 'random-number' : 'number',
         value: a.value * b.value,
         subSymbol: undefined
       };
@@ -74,7 +74,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
-        symbol: isRandom ? "random-number" : "number",
+        symbol: isRandom ? 'random-number' : 'number',
         value: a.value / b.value,
         subSymbol: undefined
       };
@@ -85,12 +85,12 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
 };
 
 export type ReturnMetaProcessNumber = {
-  [K in keyof ProcessNumber<NumberValue, NumberValue>]: ReturnType<ProcessNumber<NumberValue, NumberValue>[K]>["symbol"]
+  [K in keyof ProcessNumber<NumberValue, NumberValue>]: ReturnType<ProcessNumber<NumberValue, NumberValue>[K]>['symbol']
 }
 
 export type ParamsMetaProcessNumber= {
   [K in keyof ProcessNumber<NumberValue, NumberValue>]: [
-    Parameters<ProcessNumber<NumberValue, NumberValue>[K]>[0]["symbol"],
-    Parameters<ProcessNumber<NumberValue, NumberValue>[K]>[1]["symbol"]
+    Parameters<ProcessNumber<NumberValue, NumberValue>[K]>[0]['symbol'],
+    Parameters<ProcessNumber<NumberValue, NumberValue>[K]>[1]['symbol']
   ]
 }

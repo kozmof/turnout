@@ -1,8 +1,8 @@
-import strEnum from "../util/strEnum";
-import { TOM } from "../util/tom";
+import strEnum from '../util/strEnum';
+import { TOM } from '../util/tom';
 
-const _dS = strEnum(["number", "string", "boolean", "array"]);
-const _nonDS = strEnum(["random-number", "random-string", "random-boolean", "random-array"]);
+const _dS = strEnum(['number', 'string', 'boolean', 'array']);
+const _nonDS = strEnum(['random-number', 'random-string', 'random-boolean', 'random-array']);
 
 export const deterministicSymbols = TOM.keys(_dS);
 export const nonDeterministicSymbols = TOM.keys(_nonDS);
@@ -20,21 +20,21 @@ interface Value<
   subSymbol: name2;
 }
 
-export type ControlledNumberValue = Value<number, "number", undefined>
-export type ControlledStringValue = Value<string, "string", undefined>
-export type ControlledBooleanValue = Value<boolean, "boolean", undefined>
-export type ControlledArrayValue = Value<AllValue[], "array", undefined>
-export type ControlledNumberArrayValue = Value<AllValue[], "array", 'number'>
-export type ControlledStringArrayValue = Value<AllValue[], "array", 'string'>
-export type ControlledBooleanArrayValue = Value<AllValue[], "array", 'boolean'>
+export type ControlledNumberValue = Value<number, 'number', undefined>
+export type ControlledStringValue = Value<string, 'string', undefined>
+export type ControlledBooleanValue = Value<boolean, 'boolean', undefined>
+export type ControlledArrayValue = Value<AllValue[], 'array', undefined>
+export type ControlledNumberArrayValue = Value<AllValue[], 'array', 'number'>
+export type ControlledStringArrayValue = Value<AllValue[], 'array', 'string'>
+export type ControlledBooleanArrayValue = Value<AllValue[], 'array', 'boolean'>
 
-export type RandomNumberValue = Value<number, "random-number", undefined>
-export type RandomStringValue = Value<string, "random-string", undefined>
-export type RandomBooleanValue = Value<boolean, "random-boolean", undefined>
-export type RandomArrayValue = Value<AllValue[], "random-array", undefined>
-export type RandomNumberArrayValue = Value<AllValue[], "array", 'random-number'>
-export type RandomStringArrayValue = Value<AllValue[], "array", 'random-string'>
-export type RandomBooleanArrayValue = Value<AllValue[], "array", 'random-boolean'>
+export type RandomNumberValue = Value<number, 'random-number', undefined>
+export type RandomStringValue = Value<string, 'random-string', undefined>
+export type RandomBooleanValue = Value<boolean, 'random-boolean', undefined>
+export type RandomArrayValue = Value<AllValue[], 'random-array', undefined>
+export type RandomNumberArrayValue = Value<AllValue[], 'array', 'random-number'>
+export type RandomStringArrayValue = Value<AllValue[], 'array', 'random-string'>
+export type RandomBooleanArrayValue = Value<AllValue[], 'array', 'random-boolean'>
 
 export type NumberValue = ControlledNumberValue | RandomNumberValue
 export type StringValue = ControlledStringValue | RandomStringValue
@@ -67,11 +67,11 @@ export type AllValue = DeterministicValues | NonDeterministicValues
 
 
 export function isControlledNumber(val: AllValue): val is ControlledNumberValue {
-  return val.symbol === "number";
+  return val.symbol === 'number';
 }
 
 export function isRandomNumber(val: AllValue): val is RandomNumberValue {
-  return val.symbol === "random-number";
+  return val.symbol === 'random-number';
 }
 
 export  function isNumber(val: AllValue) {
@@ -79,11 +79,11 @@ export  function isNumber(val: AllValue) {
 }
 
 export function isControlledString(val: AllValue): val is ControlledStringValue {
-  return val.symbol === "string";
+  return val.symbol === 'string';
 }
 
 export function isRandomString(val: AllValue): val is RandomStringValue {
-  return val.symbol === "random-string";
+  return val.symbol === 'random-string';
 }
 
 export function isString(val: AllValue) {
@@ -91,23 +91,23 @@ export function isString(val: AllValue) {
 }
 
 export function isControlledBoolean(val: AllValue): val is ControlledBooleanValue {
-  return val.symbol === "boolean";
+  return val.symbol === 'boolean';
 }
 
 export function isRandomBoolean(val: AllValue): val is RandomBooleanValue {
-  return val.symbol === "random-boolean";
+  return val.symbol === 'random-boolean';
 }
 
 export function isBoolean(val: AllValue) {
-  return isControlledBoolean(val) || isRandomBoolean(val)
+  return isControlledBoolean(val) || isRandomBoolean(val);
 }
 
 export function isControlledArray(val: AllValue): val is ControlledArrayValue {
-  return val.symbol === "array";
+  return val.symbol === 'array';
 }
 
 export function isRandomArray(val: AllValue): val is RandomArrayValue {
-  return val.symbol === "random-array";
+  return val.symbol === 'random-array';
 }
 
 export function isArray(val: AllValue) {

@@ -1,183 +1,183 @@
-import { expect, test, describe } from "vitest";
-import { type KV, kvGet, kvUpdate, makeFlat, type IsValue, revertFlat } from "./flatKV";
+import { expect, test, describe } from 'vitest';
+import { type KV, kvGet, kvUpdate, makeFlat, type IsValue, revertFlat } from './flatKV';
 
 // Note: [️NML] is a normal test. [NEG] is a negative test
 
-describe("[core function] kvGet", () => {
+describe('[core function] kvGet', () => {
   const kv: KV<string> = {
     a: {
       b: {
         d: {
-          f: "test1"
+          f: 'test1'
         },
         e: {
-          g: "test2"
+          g: 'test2'
         }
       },
-      c: "test3"
+      c: 'test3'
     }
   };
 
-  test("Gets correctly [NML]", () => {
-    expect(kvGet(kv, ["a", "b", "d", "f"])).toEqual("test1");
-    expect(kvGet(kv, ["a", "b", "d"])).toEqual({
-      f: "test1"
+  test('Gets correctly [NML]', () => {
+    expect(kvGet(kv, ['a', 'b', 'd', 'f'])).toEqual('test1');
+    expect(kvGet(kv, ['a', 'b', 'd'])).toEqual({
+      f: 'test1'
     });
-    expect(kvGet(kv, ["a", "b", "e", "g"])).toEqual("test2");
-    expect(kvGet(kv, ["a", "c"])).toEqual("test3");
+    expect(kvGet(kv, ['a', 'b', 'e', 'g'])).toEqual('test2');
+    expect(kvGet(kv, ['a', 'c'])).toEqual('test3');
   });
 
-  test("If the key path does not exist, it returns undefined. [️NEG]", () => {
-    expect(kvGet(kv, ["a", "x"])).toEqual(undefined);
+  test('If the key path does not exist, it returns undefined. [️NEG]', () => {
+    expect(kvGet(kv, ['a', 'x'])).toEqual(undefined);
   });
 });
 
 
-describe("[core function] kvUpdate", () => {
-  describe("::Use case of a primitive value type", () => {
+describe('[core function] kvUpdate', () => {
+  describe('::Use case of a primitive value type', () => {
     const isValue: IsValue<string> = (val): val is string => {
-      return typeof val === "string";
+      return typeof val === 'string';
     };
-    test("Update exisiting value [NML]️", () => {
+    test('Update exisiting value [NML]️', () => {
       const kv: KV<string> = {
         a: {
           b: {
             d: {
-              f: "test1"
+              f: 'test1'
             },
             e: {
-              g: "test2",
-              h: "test3"
+              g: 'test2',
+              h: 'test3'
             }
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "test5"
+        x: 'test5'
       };
       let newKv = kvUpdate(
         kv,
-        ["a", "b", "d", "f"],
-        "updated",
+        ['a', 'b', 'd', 'f'],
+        'updated',
         isValue
       );
       expect(newKv).toEqual({
         a: {
           b: {
             d: {
-              f: "updated"
+              f: 'updated'
             },
             e: {
-              g: "test2",
-              h: "test3"
+              g: 'test2',
+              h: 'test3'
             }
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "test5"
+        x: 'test5'
       });
       newKv = kvUpdate(
         kv,
-        ["a", "b", "e", "g"],
-        "updated",
+        ['a', 'b', 'e', 'g'],
+        'updated',
         isValue
       );
       expect(newKv).toEqual({
         a: {
           b: {
             d: {
-              f: "test1"
+              f: 'test1'
             },
             e: {
-              g: "updated",
-              h: "test3"
+              g: 'updated',
+              h: 'test3'
             }
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "test5"
+        x: 'test5'
       });
 
       newKv = kvUpdate(
         kv,
-        ["x"],
-        "updated",
+        ['x'],
+        'updated',
         isValue
       );
       expect(newKv).toEqual({
         a: {
           b: {
             d: {
-              f: "test1"
+              f: 'test1'
             },
             e: {
-              g: "test2",
-              h: "test3"
+              g: 'test2',
+              h: 'test3'
             }
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "updated"
+        x: 'updated'
       });
     });
-    test("Add a value [NML]️", () => {
+    test('Add a value [NML]️', () => {
       const kv: KV<string> = {
         a: {
           b: {
             d: {
-              f: "test1"
+              f: 'test1'
             },
             e: {
-              g: "test2",
-              h: "test3"
+              g: 'test2',
+              h: 'test3'
             }
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "test5"
+        x: 'test5'
       };
       const newKv = kvUpdate(
         kv,
-        ["a", "b", "i", "j", "k"],
-        "added",
+        ['a', 'b', 'i', 'j', 'k'],
+        'added',
         isValue
       );
       expect(newKv).toEqual({
         a: {
           b: {
             d: {
-              f: "test1"
+              f: 'test1'
             },
             e: {
-              g: "test2",
-              h: "test3"
+              g: 'test2',
+              h: 'test3'
             },
-            i: { j: { k: "added" } },
+            i: { j: { k: 'added' } },
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "test5"
+        x: 'test5'
       });
     });
-    test("Prohibit adding a new value, if updateIffExists is true. [NML]️", () => {
+    test('Prohibit adding a new value, if updateIffExists is true. [NML]️', () => {
       const kv: KV<string> = {
         a: {
           b: {
             d: {
-              f: "test1"
+              f: 'test1'
             },
             e: {
-              g: "test2",
-              h: "test3"
+              g: 'test2',
+              h: 'test3'
             }
           },
-          c: "test4"
+          c: 'test4'
         },
-        x: "test5"
+        x: 'test5'
       };
       const newKv = kvUpdate(
         kv,
-        ["a", "b", "i", "j", "k"],
-        "added",
+        ['a', 'b', 'i', 'j', 'k'],
+        'added',
         isValue,
         true
       );
@@ -185,8 +185,8 @@ describe("[core function] kvUpdate", () => {
     });
   });
 
-  describe("::Use case of an array type", () => {
-    test("Update an exisiting value [NML]️", () => {
+  describe('::Use case of an array type', () => {
+    test('Update an exisiting value [NML]️', () => {
       const isValue: IsValue<string[]> = (val): val is string[] => {
         return Array.isArray(val);
       };
@@ -194,168 +194,168 @@ describe("[core function] kvUpdate", () => {
         a: {
           b: {
             d: {
-              f: ["test1", "testA"]
+              f: ['test1', 'testA']
             },
             e: {
-              g: ["test2", "testB"],
-              h: ["test3", "testC"]
+              g: ['test2', 'testB'],
+              h: ['test3', 'testC']
             }
           },
-          c: ["test4", "testD"]
+          c: ['test4', 'testD']
         },
-        x: ["test5", "testE"]
+        x: ['test5', 'testE']
       };
       const newKv = kvUpdate(
         kv,
-        ["a", "b", "d", "f"],
-        ["updated1", "updated2"],
+        ['a', 'b', 'd', 'f'],
+        ['updated1', 'updated2'],
         isValue
       );
       expect(newKv).toEqual({
         a: {
           b: {
             d: {
-              f: ["updated1", "updated2"]
+              f: ['updated1', 'updated2']
             },
             e: {
-              g: ["test2", "testB"],
-              h: ["test3", "testC"]
+              g: ['test2', 'testB'],
+              h: ['test3', 'testC']
             }
           },
-          c: ["test4", "testD"]
+          c: ['test4', 'testD']
         },
-        x: ["test5", "testE"]
+        x: ['test5', 'testE']
       });
     });
   });
 
-  describe("::Use case of an object type", () => {
-    test("Update an existing value [NML]️", () => {
+  describe('::Use case of an object type', () => {
+    test('Update an existing value [NML]️', () => {
       const isValue: IsValue<{tag: string, isTested: boolean }> = (val): val is { tag: string, isTested: boolean } => {
-        return "tag" in val && val.tag === "test";
+        return 'tag' in val && val.tag === 'test';
       };
       const kv: KV<{ tag: string, isTested: boolean }> = {
         a: {
           b: {
             d: {
-              f: { tag: "test", isTested: false }
+              f: { tag: 'test', isTested: false }
             },
             e: {
-              g: { tag: "test", isTested: false },
-              h: { tag: "test", isTested: false }
+              g: { tag: 'test', isTested: false },
+              h: { tag: 'test', isTested: false }
             }
           },
-          c: { tag: "test", isTested: false }
+          c: { tag: 'test', isTested: false }
         },
-        x: { tag: "test", isTested: false }
+        x: { tag: 'test', isTested: false }
       };
       const newKv = kvUpdate(
         kv,
-        ["a", "b", "d", "f"],
-        { tag: "test", isTested: true },
+        ['a', 'b', 'd', 'f'],
+        { tag: 'test', isTested: true },
         isValue
       );
       expect(newKv).toEqual({
         a: {
           b: {
             d: {
-              f: { tag: "test", isTested: true }
+              f: { tag: 'test', isTested: true }
             },
             e: {
-              g: { tag: "test", isTested: false },
-              h: { tag: "test", isTested: false }
+              g: { tag: 'test', isTested: false },
+              h: { tag: 'test', isTested: false }
             }
           },
-          c: { tag: "test", isTested: false }
+          c: { tag: 'test', isTested: false }
         },
-        x: { tag: "test", isTested: false }
+        x: { tag: 'test', isTested: false }
       });
     });
   });
 });
 
-describe("[core function] makeFlat", () => {
-  test("flatting [NML]️", () => {
+describe('[core function] makeFlat', () => {
+  test('flatting [NML]️', () => {
     const isValue: IsValue<string> = (val): val is string => {
-      return typeof val === "string";
+      return typeof val === 'string';
     };
     const kv: KV<string> = {
       a: {
         b: {
           d: {
-            f: "test1"
+            f: 'test1'
           },
           e: {
-            g: "test2",
-            h: "test3"
+            g: 'test2',
+            h: 'test3'
           }
         },
-        c: "test4"
+        c: 'test4'
       },
-      x: "test5"
+      x: 'test5'
     };
     expect(makeFlat(kv, isValue)).toEqual({
-      "a:b:d:f": "test1",
-      "a:b:e:g": "test2",
-      "a:b:e:h": "test3",
-      "a:c": "test4",
-      x: "test5"
+      'a:b:d:f': 'test1',
+      'a:b:e:g': 'test2',
+      'a:b:e:h': 'test3',
+      'a:c': 'test4',
+      x: 'test5'
     });
   });
 
-  test("scoping [NML]️", () => {
+  test('scoping [NML]️', () => {
     const isValue: IsValue<string> = (val): val is string => {
-      return typeof val === "string";
+      return typeof val === 'string';
     };
     const kv: KV<string> = {
       a: {
         b: {
           d: {
-            f: "test1"
+            f: 'test1'
           },
           e: {
-            g: "test2",
-            h: "test3"
+            g: 'test2',
+            h: 'test3'
           }
         },
-        c: "test4"
+        c: 'test4'
       },
-      x: "test5"
+      x: 'test5'
     };
-    expect(makeFlat(kv, isValue, ["a", "b", "d", "f", "e", "g", "x"])).toEqual({
-      "a:b:d:f": "test1",
-      "a:b:e:g": "test2",
-      x: "test5"
+    expect(makeFlat(kv, isValue, ['a', 'b', 'd', 'f', 'e', 'g', 'x'])).toEqual({
+      'a:b:d:f': 'test1',
+      'a:b:e:g': 'test2',
+      x: 'test5'
     });
   });
 });
 
-describe("[core function] revertFlat", () => {
-  test("revert [NML]️", () => {
+describe('[core function] revertFlat', () => {
+  test('revert [NML]️', () => {
     const isValue: IsValue<string> = (val): val is string => {
-      return typeof val === "string";
+      return typeof val === 'string';
     };
     const flat = {
-      "a:b:d:f": "test1",
-      "a:b:e:g": "test2",
-      "a:b:e:h": "test3",
-      "a:c": "test4",
-      x: "test5"
+      'a:b:d:f': 'test1',
+      'a:b:e:g': 'test2',
+      'a:b:e:h': 'test3',
+      'a:c': 'test4',
+      x: 'test5'
     };
     expect(revertFlat(flat, isValue)).toEqual({
       a: {
         b: {
           d: {
-            f: "test1"
+            f: 'test1'
           },
           e: {
-            g: "test2",
-            h: "test3"
+            g: 'test2',
+            h: 'test3'
           }
         },
-        c: "test4"
+        c: 'test4'
       },
-      x: "test5"
+      x: 'test5'
     });
   });
 });

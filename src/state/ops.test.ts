@@ -1,35 +1,35 @@
-import { expect, test, describe } from "vitest";
-import { type ControlledBooleanValue, type ControlledNumberValue } from "./value";
-import { type OpsTree, calcValues, type OpsCollection, calcAllOps } from "./ops";
-import { pGeneric } from "./preset/generic/process";
-import { tNumber } from "./preset/number/transform";
-import { pNumber } from "./preset/number/process";
+import { expect, test, describe } from 'vitest';
+import { type ControlledBooleanValue, type ControlledNumberValue } from './value';
+import { type OpsTree, calcValues, type OpsCollection, calcAllOps } from './ops';
+import { pGeneric } from './preset/generic/process';
+import { tNumber } from './preset/number/transform';
+import { pNumber } from './preset/number/process';
 
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test
 
-describe("[core function] calcValues", () => {
-  describe("::basic test", () => {
-    describe("::string operations", () => {
-      test("Convert two number values to string values, then compare both ️[NML]️", () => {
+describe('[core function] calcValues', () => {
+  describe('::basic test', () => {
+    describe('::string operations', () => {
+      test('Convert two number values to string values, then compare both ️[NML]️', () => {
         const val1: ControlledNumberValue = {
-          symbol: "number",
+          symbol: 'number',
           value: 100,
           subSymbol: undefined
         };
         const val2: ControlledNumberValue = {
-          symbol: "number",
+          symbol: 'number',
           value: 100,
           subSymbol: undefined
         };
 
         const tree: OpsTree = {
-          a: { tag: "value", entity: val1 },
-          b: { tag: "value", entity: val2 },
+          a: { tag: 'value', entity: val1 },
+          b: { tag: 'value', entity: val2 },
           opsId: 111,
         };
 
         const expected: ControlledBooleanValue = {
-          symbol: "boolean",
+          symbol: 'boolean',
           value: true,
           subSymbol: undefined
         };
@@ -39,9 +39,9 @@ describe("[core function] calcValues", () => {
   });
 });
 
-describe("[core function] calcAllValue", () => {
-  describe("::basic test", () => {
-    test("Simple calculations [NML]️", () => {
+describe('[core function] calcAllValue', () => {
+  describe('::basic test', () => {
+    test('Simple calculations [NML]️', () => {
       const opsCollection: OpsCollection = {
         1: {
           transformA: tNumber.pass,
@@ -101,26 +101,26 @@ describe("[core function] calcAllValue", () => {
       };
       const tree: OpsTree = {
         a: {
-          tag: "ops",
+          tag: 'ops',
           entity: {
             a: {
-              tag: "ops",
+              tag: 'ops',
               entity: {
                 a: {
-                  tag: "ops",
+                  tag: 'ops',
                   entity: {
                     a: {
-                      tag: "value",
+                      tag: 'value',
                       entity: {
-                        symbol: "number",
+                        symbol: 'number',
                         value: 100,
                         subSymbol: undefined
                       }
                     },
                     b: {
-                      tag: "value",
+                      tag: 'value',
                       entity: {
-                        symbol: "number",
+                        symbol: 'number',
                         value: 200,
                         subSymbol: undefined
                       },
@@ -129,9 +129,9 @@ describe("[core function] calcAllValue", () => {
                   }
                 },
                 b: {
-                  tag: "value",
+                  tag: 'value',
                   entity: {
-                    symbol: "number",
+                    symbol: 'number',
                     value: 300,
                     subSymbol: undefined
                   },
@@ -140,23 +140,23 @@ describe("[core function] calcAllValue", () => {
               },
             },
             b: {
-              tag: "ops",
+              tag: 'ops',
               entity: {
                 a: {
-                  tag: "ops",
+                  tag: 'ops',
                   entity: {
                     a: {
-                      tag: "value",
+                      tag: 'value',
                       entity: {
-                        symbol: "number",
+                        symbol: 'number',
                         value: 400,
                         subSymbol: undefined
                       }
                     },
                     b: {
-                      tag: "value",
+                      tag: 'value',
                       entity: {
-                        symbol: "number",
+                        symbol: 'number',
                         value: 500,
                         subSymbol: undefined
                       }
@@ -165,26 +165,26 @@ describe("[core function] calcAllValue", () => {
                   },
                 },
                 b: {
-                  tag: "ops",
+                  tag: 'ops',
                   entity: {
                     a: {
-                      tag: "ops",
+                      tag: 'ops',
                       entity: {
                         a: {
-                          tag: "ops",
+                          tag: 'ops',
                           entity: {
                             a: {
-                              tag: "value",
+                              tag: 'value',
                               entity: {
-                                symbol: "number",
+                                symbol: 'number',
                                 value: 400,
                                 subSymbol: undefined
                               }
                             },
                             b: {
-                              tag: "value",
+                              tag: 'value',
                               entity: {
-                                symbol: "number",
+                                symbol: 'number',
                                 value: 500,
                                 subSymbol: undefined
                               }
@@ -193,20 +193,20 @@ describe("[core function] calcAllValue", () => {
                           }
                         },
                         b: {
-                          tag: "ops",
+                          tag: 'ops',
                           entity: {
                             a: {
-                              tag: "value",
+                              tag: 'value',
                               entity: {
-                                symbol: "number",
+                                symbol: 'number',
                                 value: 500,
                                 subSymbol: undefined
                               }
                             },
                             b: {
-                              tag: "value",
+                              tag: 'value',
                               entity: {
-                                symbol: "number",
+                                symbol: 'number',
                                 value: 600,
                                 subSymbol: undefined
                               }
@@ -218,20 +218,20 @@ describe("[core function] calcAllValue", () => {
                       }
                     },
                     b: {
-                      tag: "ops",
+                      tag: 'ops',
                       entity: {
                         a: {
-                          tag: "value",
+                          tag: 'value',
                           entity: {
-                            symbol: "number",
+                            symbol: 'number',
                             value: 700,
                             subSymbol: undefined
                           }
                         },
                         b: {
-                          tag: "value",
+                          tag: 'value',
                           entity: {
-                            symbol: "number",
+                            symbol: 'number',
                             value: 800,
                             subSymbol: undefined
                           }
@@ -249,9 +249,9 @@ describe("[core function] calcAllValue", () => {
           },
         },
         b: {
-          tag: "value",
+          tag: 'value',
           entity: {
-            symbol: "number",
+            symbol: 'number',
             value: 100,
             subSymbol: undefined
           }

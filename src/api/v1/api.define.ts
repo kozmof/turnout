@@ -1,14 +1,14 @@
-import { type MetaTransformArray } from "../../state/preset/array/transform";
-import { type ReturnMetaProcessArray } from "../../state/preset/array/process";
-import { type ReturnMetaProcessGeneric } from "../../state/preset/generic/process";
-import { type MetaTransformNumber } from "../../state/preset/number/transform";
-import { type ReturnMetaProcessNumber } from "../../state/preset/number/process";
-import { type MetaTransformString } from "../../state/preset/string/transform";
-import { type ReturnMetaProcessString } from "../../state/preset/string/process";
-import { type DeterministicSymbol, type NonDeterministicSymbol } from "../../state/value";
-import { type Knot, type KnotId, type KnotPayload } from "../../knot/knot";
-import { type Property, type PropertyId, type PropertyState } from "../../knot/property";
-import { type Box, type BoxId } from "../../box/box";
+import { type MetaTransformArray } from '../../state/preset/array/transform';
+import { type ReturnMetaProcessArray } from '../../state/preset/array/process';
+import { type ReturnMetaProcessGeneric } from '../../state/preset/generic/process';
+import { type MetaTransformNumber } from '../../state/preset/number/transform';
+import { type ReturnMetaProcessNumber } from '../../state/preset/number/process';
+import { type MetaTransformString } from '../../state/preset/string/transform';
+import { type ReturnMetaProcessString } from '../../state/preset/string/process';
+import { type DeterministicSymbol, type NonDeterministicSymbol } from '../../state/value';
+import { type Knot, type KnotId, type KnotPayload } from '../../knot/knot';
+import { type Property, type PropertyId, type PropertyState } from '../../knot/property';
+import { type Box, type BoxId } from '../../box/box';
 
 export interface IFKnotAPI {
   createEmptyKnot: () => Knot

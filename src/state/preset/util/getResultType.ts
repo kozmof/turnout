@@ -1,48 +1,48 @@
-import { type AllValue, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from "../../value";
-import { type MetaTransformArray, type TransformArray } from "../array/transform";
-import { type ReturnMetaProcessArray, type ProcessArray } from "../array/process";
-import { type ReturnMetaProcessGeneric, type ProcessGeneric } from "../generic/process";
-import { type MetaTransformNumber, type TransformNumber } from "../number/transform";
-import { type ReturnMetaProcessNumber, type ProcessNumber } from "../number/process";
-import { type MetaTransformString, type TransformString } from "../string/transform";
-import { type ReturnMetaProcessString, type ProcessString } from "../string/process";
+import { type AllValue, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from '../../value';
+import { type MetaTransformArray, type TransformArray } from '../array/transform';
+import { type ReturnMetaProcessArray, type ProcessArray } from '../array/process';
+import { type ReturnMetaProcessGeneric, type ProcessGeneric } from '../generic/process';
+import { type MetaTransformNumber, type TransformNumber } from '../number/transform';
+import { type ReturnMetaProcessNumber, type ProcessNumber } from '../number/process';
+import { type MetaTransformString, type TransformString } from '../string/transform';
+import { type ReturnMetaProcessString, type ProcessString } from '../string/process';
 
 export const metaPNumber: ReturnMetaProcessNumber = {
-  add: "number",
-  minus: "number",
-  multiply: "number",
-  divide: "number"
+  add: 'number',
+  minus: 'number',
+  multiply: 'number',
+  divide: 'number'
 };
 
 export const metaPNumberRand: ReturnMetaProcessNumber = {
-  add: "random-number",
-  minus: "random-number",
-  multiply: "random-number",
-  divide: "random-number"
+  add: 'random-number',
+  minus: 'random-number',
+  multiply: 'random-number',
+  divide: 'random-number'
 };
 
 export const metaPString: ReturnMetaProcessString = {
-  concat: "string"
+  concat: 'string'
 };
 
 export const metaPStringRand: ReturnMetaProcessString = {
-  concat: "random-string"
+  concat: 'random-string'
 };
 
 export  const metaPArray: ReturnMetaProcessArray = {
-  includes: "boolean"
+  includes: 'boolean'
 };
 
 export  const metaPArrayRand: ReturnMetaProcessArray = {
-  includes: "random-boolean"
+  includes: 'random-boolean'
 };
 
 export const metaPGeneric: ReturnMetaProcessGeneric = {
-  isEqual: "boolean"
+  isEqual: 'boolean'
 };
 
 export  const metaPGenericRand: ReturnMetaProcessGeneric = {
-  isEqual: "random-boolean"
+  isEqual: 'random-boolean'
 };
 
 export const getResultProcessType = {
@@ -77,33 +77,33 @@ export const getResultProcessType = {
 };
 
 export const metaTNumber: MetaTransformNumber = {
-  pass: "number",
-  toStr: "string"
+  pass: 'number',
+  toStr: 'string'
 };
 
 export const metaTNumberRand: MetaTransformNumber = {
-  pass: "random-number",
-  toStr: "random-string"
+  pass: 'random-number',
+  toStr: 'random-string'
 };
 
 export const metaTString: MetaTransformString = {
-  pass: "string",
-  toNumber: "number"
+  pass: 'string',
+  toNumber: 'number'
 };
 
 export const metaTStringRand: MetaTransformString = {
-  pass: "random-string",
-  toNumber: "random-number"
+  pass: 'random-string',
+  toNumber: 'random-number'
 };
 
 export const metaTArray: MetaTransformArray = {
-  pass: "array",
-  length: "number"
+  pass: 'array',
+  length: 'number'
 };
 
 export const metaTArrayRand: MetaTransformArray = {
-  pass: "random-array",
-  length: "random-number"
+  pass: 'random-array',
+  length: 'random-number'
 };
 
 export const getResultTransformType = {

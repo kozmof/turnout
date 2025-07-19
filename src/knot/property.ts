@@ -1,7 +1,7 @@
-import { type AllValue } from "../state/value";
-import { type Brand } from "../util/brand";
+import { type AllValue } from '../state/value';
+import { type Brand } from '../util/brand';
 
-export type PropertyId = Brand<number, "property">
+export type PropertyId = Brand<number, 'property'>
 
 export interface Property {
   id: PropertyId

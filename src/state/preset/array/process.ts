@@ -1,6 +1,6 @@
-import { isRandomValue } from "../../ops";
-import { type AllValue, type BooleanValue, type ArrayValue, type NonArrayValue, isArray } from "../../value";
-import { type ToBooleanProcess } from "../convert";
+import { isRandomValue } from '../../ops';
+import { type AllValue, type BooleanValue, type ArrayValue, type NonArrayValue, isArray } from '../../value';
+import { type ToBooleanProcess } from '../convert';
 
 export interface ProcessArray<T extends AllValue, U extends AllValue> {
   includes: ToBooleanProcess<T, U>
@@ -17,7 +17,7 @@ export const pArray: ProcessArray<AllValue, AllValue> = {
     if(isArray(a) && !isArray(b)) {
       const isRandom = isRandomValue(a, b);
       return {
-        symbol: isRandom ? "random-boolean" : "boolean",
+        symbol: isRandom ? 'random-boolean' : 'boolean',
         value: a.value.map((val) => val.value).includes(b.value),
         subSymbol: undefined
       };
@@ -28,12 +28,12 @@ export const pArray: ProcessArray<AllValue, AllValue> = {
 };
 
 export type ReturnMetaProcessArray = {
-  [K in keyof ProcessArray<ArrayValue, NonArrayValue>]: ReturnType<ProcessArray<ArrayValue, NonArrayValue>[K]>["symbol"]
+  [K in keyof ProcessArray<ArrayValue, NonArrayValue>]: ReturnType<ProcessArray<ArrayValue, NonArrayValue>[K]>['symbol']
 }
 
 export type ParamsMetaProcessArray = {
   [K in keyof ProcessArray<ArrayValue, NonArrayValue>]: [
-    Parameters<ProcessArray<ArrayValue, NonArrayValue>[K]>[0]["symbol"],
-    Parameters<ProcessArray<ArrayValue, NonArrayValue>[K]>[1]["symbol"]
+    Parameters<ProcessArray<ArrayValue, NonArrayValue>[K]>[0]['symbol'],
+    Parameters<ProcessArray<ArrayValue, NonArrayValue>[K]>[1]['symbol']
   ]
 }

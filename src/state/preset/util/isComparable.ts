@@ -1,4 +1,4 @@
-import { isArray, isBoolean, isNumber, isString, type AllValue } from "../../value";
+import { isArray, isBoolean, isNumber, isString, type AllValue } from '../../value';
 
 export const isComparable = (a: AllValue, b: AllValue): boolean => {
   return (
@@ -6,5 +6,5 @@ export const isComparable = (a: AllValue, b: AllValue): boolean => {
     (isNumber(a) && isNumber(b)) ||
     (isBoolean(a) && isBoolean(b)) ||
     (isArray(a) && isArray(b))
-  )
+  );
 };

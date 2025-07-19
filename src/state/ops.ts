@@ -1,23 +1,23 @@
-import { type PropertyId } from "../knot/property";
-import { nonDeterministicSymbols, type AllValue, type DeterministicSymbol, type NonDeterministicSymbol } from "./value";
+import { type PropertyId } from '../knot/property';
+import { nonDeterministicSymbols, type AllValue, type DeterministicSymbol, type NonDeterministicSymbol } from './value';
 
 export interface ValuePkg {
-  tag: "value"
+  tag: 'value'
   entity: AllValue
 }
 
 export interface OpsPkg {
-  tag: "ops"
+  tag: 'ops'
   entity: OpsTree
 }
 
 export interface OpsPkgRef {
-  tag: "ops"
+  tag: 'ops'
   entity: OpsTreeRef
 }
 
 export interface PropertyPkg {
-  tag: "prop"
+  tag: 'prop'
   entity: PropertyId
 }
 
@@ -42,11 +42,11 @@ export type OpsCollection = {
 }
 
 export function isValuePkg(pkg: ValuePkg | OpsPkg): pkg is ValuePkg {
-  return pkg.tag === "value";
+  return pkg.tag === 'value';
 }
 
 export function isOpsPkg(pkg: ValuePkg | OpsPkg): pkg is OpsPkg {
-  return pkg.tag === "ops";
+  return pkg.tag === 'ops';
 }
 
 export function calcValues<T extends AllValue, U extends AllValue, V extends AllValue>(

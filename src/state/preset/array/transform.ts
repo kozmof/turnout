@@ -1,5 +1,5 @@
-import { type NumberValue, type AllValue, type ArrayValue, isArray } from "../../value";
-import { type ToArrayConversion, type ToNumberConversion } from "../convert";
+import { type NumberValue, type AllValue, type ArrayValue, isArray } from '../../value';
+import { type ToArrayConversion, type ToNumberConversion } from '../convert';
 
 export interface TransformArray<T extends AllValue> {
   pass: ToArrayConversion<T>
@@ -26,15 +26,15 @@ export const tArray: TransformArray<AllValue> = {
    */
   length: (val: AllValue): NumberValue => {
     switch(val.symbol) {
-      case "array":
+      case 'array':
         return {
-          symbol: "number",
+          symbol: 'number',
           value: val.value.length,
           subSymbol: undefined
         };
-      case "random-array":
+      case 'random-array':
         return {
-          symbol: "random-number",
+          symbol: 'random-number',
           value: val.value.length,
           subSymbol: undefined
         };
@@ -45,11 +45,11 @@ export const tArray: TransformArray<AllValue> = {
 };
 
 export type MetaTransformArray = {
-  [K in keyof TransformArray<ArrayValue>]: ReturnType<TransformArray<ArrayValue>[K]>["symbol"]
+  [K in keyof TransformArray<ArrayValue>]: ReturnType<TransformArray<ArrayValue>[K]>['symbol']
 }
 
 export type ParamsMetaTransformArray = {
   [K in keyof TransformArray<ArrayValue>]: [
-    Parameters<TransformArray<ArrayValue>[K]>[0]["symbol"],
+    Parameters<TransformArray<ArrayValue>[K]>[0]['symbol'],
   ]
 }
