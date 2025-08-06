@@ -1,11 +1,11 @@
-import { type OpsTreeRef, type OpsTree, type OpsCollection, calcAllOps } from '../../state/ops';
+import { type OpsTreeRef, type OpsTree, calcAllOps } from '../../state/ops';
 import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from '../../state/preset/util/getResultType';
-import { type AllValue } from '../../state/value';
+import { type AnyValue } from '../../state/value';
 import { type Knot, type CandidateIdMap, type KnotId } from '../../knot/knot';
 import { type PropertyId, type PropertyState } from '../../knot/property';
 import { type IFInteractionAPI, } from './api.define';
 
-function nextKnotId(value: AllValue, candidateIdMap: CandidateIdMap): KnotId {
+function nextKnotId(value: AnyValue, candidateIdMap: CandidateIdMap): KnotId {
   const knotId = candidateIdMap[value.value.toString()];
   if (knotId !== undefined) {
     return knotId;
@@ -24,7 +24,7 @@ const getObjectKeys = <T extends Record<string, unknown>>(obj: T): Array<keyof T
   return Object.keys(obj);
 };
 
-function getNextState(knot: Knot, state: PropertyState) {
+function getNextState(knot: Knot, state: PropertyState) : PropertyState {
   const propertyIds = getObjectKeys(knot.payload.ops.nextState);
   const updateState: PropertyState = {};
 
@@ -42,7 +42,7 @@ function getNextState(knot: Knot, state: PropertyState) {
   return nextState;
 }
 
-function getValue(id: PropertyId, state: PropertyState): AllValue {
+function getValue(id: PropertyId, state: PropertyState): AnyValue {
   const prop = state[id];
   if (prop === undefined) {
     throw new Error();

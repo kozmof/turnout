@@ -1,18 +1,18 @@
-import { isNumber, type AllValue, type NumberValue, type StringValue } from '../../value';
+import { isNumber, type AnyValue, type NumberValue, type StringValue } from '../../value';
 import { type ToNumberConversion, type ToStringConversion } from '../convert';
 
-export interface TransformNumber<T extends AllValue> {
+export interface TransformNumber<T extends AnyValue> {
   pass: ToNumberConversion<T>
   toStr: ToStringConversion<T>
 }
 
-export const tNumber: TransformNumber<AllValue> = {
+export const tNumber: TransformNumber<AnyValue> = {
   /**
    * 
    * @param val raw value must be `number`
    * @returns raw value must be `number`
    */
-  pass: (val: AllValue): NumberValue => {
+  pass: (val: AnyValue): NumberValue => {
     if (isNumber(val)) {
       return val;
     } else {
@@ -24,7 +24,7 @@ export const tNumber: TransformNumber<AllValue> = {
    * @param val raw value must be `number`
    * @returns raw value must be `string`
    */
-  toStr: (val: AllValue): StringValue => {
+  toStr: (val: AnyValue): StringValue => {
     switch (val.symbol) {
       case 'number':
         return {

@@ -1,4 +1,4 @@
-import { type AllValue } from '../state/value';
+import { type AnyValue } from '../state/value';
 import { type Brand } from '../util/brand';
 
 export type PropertyId = Brand<number, 'property'>
@@ -6,7 +6,7 @@ export type PropertyId = Brand<number, 'property'>
 export interface Property {
   id: PropertyId
   name: string
-  value: AllValue
+  value: AnyValue
 }
 
 export type PropertyState = {

@@ -39,7 +39,7 @@ describe('[core function] calcValues', () => {
   });
 });
 
-describe('[core function] calcAllValue', () => {
+describe('[core function] calcAnyValue', () => {
   describe('::basic test', () => {
     test('Simple calculations [NML]️', () => {
       const opsCollection: OpsCollection = {

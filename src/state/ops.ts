@@ -1,9 +1,9 @@
 import { type PropertyId } from '../knot/property';
-import { nonDeterministicSymbols, type AllValue, type DeterministicSymbol, type NonDeterministicSymbol } from './value';
+import { nonDeterministicSymbols, type AnyValue, type DeterministicSymbol, type NonDeterministicSymbol } from './value';
 
 export interface ValuePkg {
   tag: 'value'
-  entity: AllValue
+  entity: AnyValue
 }
 
 export interface OpsPkg {
@@ -35,9 +35,9 @@ export interface OpsTreeRef {
 
 export type OpsCollection = {
   [opsId in string]: {
-    transformA: (value: AllValue) => AllValue,
-    transformB: (value: AllValue) => AllValue,
-    process: (a: AllValue, b: AllValue) => AllValue
+    transformA: (value: AnyValue) => AnyValue,
+    transformB: (value: AnyValue) => AnyValue,
+    process: (a: AnyValue, b: AnyValue) => AnyValue
   }
 }
 
@@ -49,10 +49,10 @@ export function isOpsPkg(pkg: ValuePkg | OpsPkg): pkg is OpsPkg {
   return pkg.tag === 'ops';
 }
 
-export function calcValues<T extends AllValue, U extends AllValue, V extends AllValue>(
+export function calcValues<T extends AnyValue, U extends AnyValue, V extends AnyValue>(
   tree: OpsTree,
-  transformA: (value: AllValue) => T,
-  transformB: (value: AllValue) => U,
+  transformA: (value: AnyValue) => T,
+  transformB: (value: AnyValue) => U,
   process: (a: T, b: U) => V
 ): V {
   const pkgA = tree.a;
@@ -66,13 +66,13 @@ export function calcValues<T extends AllValue, U extends AllValue, V extends All
   }
 }
 
-export function isRandomValue(a: AllValue, b: AllValue): boolean {
+export function isRandomValue(a: AnyValue, b: AnyValue): boolean {
   const symbols: Array<NonDeterministicSymbol | DeterministicSymbol> = nonDeterministicSymbols;
   return (symbols.includes(a.symbol) || symbols.includes(b.symbol));
 }
 
-export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AllValue {
-  const dig = (tree: OpsTree): AllValue => {
+export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AnyValue {
+  const dig = (tree: OpsTree): AnyValue => {
     const coll = opsCollection[tree.opsId];
     if (isValuePkg(tree.a) && isValuePkg(tree.b)) {
       return coll.process(

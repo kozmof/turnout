@@ -1,6 +1,6 @@
-import { isArray, isBoolean, isNumber, isString, type AllValue } from '../../value';
+import { isArray, isBoolean, isNumber, isString, type AnyValue } from '../../value';
 
-export const isComparable = (a: AllValue, b: AllValue): boolean => {
+export const isComparable = (a: AnyValue, b: AnyValue): boolean => {
   return (
     (isString(a) && isString(b)) ||
     (isNumber(a) && isNumber(b)) ||

@@ -1,19 +1,19 @@
 import { isRandomValue } from '../../ops';
-import { type AllValue, type StringValue, isString } from '../../value';
+import { type AnyValue, type StringValue, isString } from '../../value';
 import { type ToStringProcess } from '../convert';
 
-export interface ProcessString<T extends AllValue, U extends AllValue> {
+export interface ProcessString<T extends AnyValue, U extends AnyValue> {
   concat: ToStringProcess<T, U>
 }
 
-export const pString: ProcessString<AllValue, AllValue> = {
+export const pString: ProcessString<AnyValue, AnyValue> = {
   /**
    * 
    * @param a raw value must be string
    * @param b raw value must be string
    * @returns raw value must be string
    */
-  concat: (a: AllValue, b: AllValue): StringValue => {
+  concat: (a: AnyValue, b: AnyValue): StringValue => {
     if (isString(a) && isString(b)) {
       const isRandom = isRandomValue(a, b);
       return {

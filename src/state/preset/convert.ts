@@ -1,10 +1,10 @@
-import { type AllValue, type NumberValue, type StringValue, type BooleanValue, type ArrayValue } from '../value';
+import { type AnyValue, type NumberValue, type StringValue, type BooleanValue, type ArrayValue } from '../value';
 
-export type ToStringConversion<T extends AllValue> = (val: T) => StringValue;
-export type ToNumberConversion<T extends AllValue> = (val: T) => NumberValue;
-export type ToBooleanConversion<T extends AllValue> = (val: T) => BooleanValue;
-export type ToArrayConversion<T extends AllValue> = (val: T) => ArrayValue;
+export type ToStringConversion<T extends AnyValue> = (val: T) => StringValue;
+export type ToNumberConversion<T extends AnyValue> = (val: T) => NumberValue;
+export type ToBooleanConversion<T extends AnyValue> = (val: T) => BooleanValue;
+export type ToArrayConversion<T extends AnyValue> = (val: T) => ArrayValue;
 
-export type ToStringProcess<T extends AllValue, U extends AllValue> = (a: T, b: U) => StringValue;
-export type ToNumberProcess<T extends AllValue, U extends AllValue> = (a: T, b: U) => NumberValue;
-export type ToBooleanProcess<T extends AllValue, U extends AllValue> = (a: T, b: U) => BooleanValue;
+export type ToStringProcess<T extends AnyValue, U extends AnyValue> = (a: T, b: U) => StringValue;
+export type ToNumberProcess<T extends AnyValue, U extends AnyValue> = (a: T, b: U) => NumberValue;
+export type ToBooleanProcess<T extends AnyValue, U extends AnyValue> = (a: T, b: U) => BooleanValue;

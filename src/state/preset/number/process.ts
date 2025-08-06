@@ -1,22 +1,22 @@
 import { isRandomValue } from '../../ops';
-import { type AllValue, type NumberValue, isNumber } from '../../value';
+import { type AnyValue, type NumberValue, isNumber } from '../../value';
 import { type ToNumberProcess } from '../convert';
 
-export interface ProcessNumber<T extends AllValue, U extends AllValue> {
+export interface ProcessNumber<T extends AnyValue, U extends AnyValue> {
   add: ToNumberProcess<T, U>
   minus: ToNumberProcess<T, U>
   multiply: ToNumberProcess<T, U>
   divide: ToNumberProcess<T, U>
 }
 
-export const pNumber: ProcessNumber<AllValue, AllValue> = {
+export const pNumber: ProcessNumber<AnyValue, AnyValue> = {
   /**
    * 
    * @param a raw value must be `number`
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  add: (a: AllValue, b: AllValue): NumberValue => {
+  add: (a: AnyValue, b: AnyValue): NumberValue => {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
@@ -34,7 +34,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  minus: (a: AllValue, b: AllValue): NumberValue => {
+  minus: (a: AnyValue, b: AnyValue): NumberValue => {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
@@ -52,7 +52,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  multiply: (a: AllValue, b: AllValue): NumberValue => {
+  multiply: (a: AnyValue, b: AnyValue): NumberValue => {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {
@@ -70,7 +70,7 @@ export const pNumber: ProcessNumber<AllValue, AllValue> = {
    * @param b raw value must be `number`
    * @returns raw value must be `number`
    */
-  divide: (a: AllValue, b: AllValue): NumberValue => {
+  divide: (a: AnyValue, b: AnyValue): NumberValue => {
     if (isNumber(a) && isNumber(b)) {
       const isRandom = isRandomValue(a, b);
       return {

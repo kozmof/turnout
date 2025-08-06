@@ -1,4 +1,4 @@
-import { type AllValue, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from '../../value';
+import { type AnyValue, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from '../../value';
 import { type MetaTransformArray, type TransformArray } from '../array/transform';
 import { type ReturnMetaProcessArray, type ProcessArray } from '../array/process';
 import { type ReturnMetaProcessGeneric, type ProcessGeneric } from '../generic/process';
@@ -67,7 +67,7 @@ export const getResultProcessType = {
       return metaPArray[key];
     }
   },
-  pGeneric: (key: keyof ProcessGeneric<AllValue, AllValue>, isRandom: boolean) => {
+  pGeneric: (key: keyof ProcessGeneric<AnyValue, AnyValue>, isRandom: boolean) => {
     if(isRandom) {
       return metaPGenericRand[key];
     } else {
