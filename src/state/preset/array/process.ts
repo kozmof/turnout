@@ -6,14 +6,14 @@ export interface ProcessArray<T extends AnyValue, U extends AnyValue> {
   includes: ToBooleanProcess<T, U>
 }
 
-export const pArray: ProcessArray<AnyValue, AnyValue> = {
+export const pArray: ProcessArray<AnyValue, NonArrayValue> = {
   /**
    * 
    * @param a raw value must be `array`
    * @param b raw value must be `any` except `array`
    * @returns raw value must be `boolean`
    */
-  includes: (a: AnyValue, b: AnyValue) : BooleanValue => {
+  includes: (a: AnyValue, b: NonArrayValue) : BooleanValue => {
     if(isArray(a) && !isArray(b)) {
       const isRandom = isRandomValue(a, b);
       return {
