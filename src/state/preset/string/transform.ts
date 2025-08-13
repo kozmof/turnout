@@ -1,30 +1,16 @@
-import { isString, type AnyValue, type NumberValue, type StringValue } from '../../value';
+import { type NumberValue, type StringValue } from '../../value';
 import { type ToStringConversion, type ToNumberConversion } from '../convert';
 
-export interface TransformString<T extends AnyValue> {
-  pass: ToStringConversion<T>
-  toNumber: ToNumberConversion<T>
+export interface TransformString {
+  pass: ToStringConversion<StringValue>
+  toNumber: ToNumberConversion<StringValue>
 }
 
-export const tString: TransformString<AnyValue> = {
-  /**
-   * 
-   * @param val raw value must be `string`
-   * @returns raw value must be `string`
-   */
-  pass: (val: AnyValue) : StringValue => {
-    if(isString(val)) {
-      return val;
-    } else {
-      throw new Error();
-    }
+export const tString: TransformString = {
+  pass: (val: StringValue) : StringValue => {
+    return val;
   },
-  /**
-   * 
-   * @param val raw value must be `string`
-   * @returns raw value must be `number`
-   */
-  toNumber: (val: AnyValue): NumberValue => {
+  toNumber: (val: StringValue): NumberValue => {
     switch (val.symbol) {
       case 'string':
         return {
@@ -45,11 +31,11 @@ export const tString: TransformString<AnyValue> = {
 };
 
 export type MetaTransformString = {
-  [K in keyof TransformString<StringValue>]: ReturnType<TransformString<StringValue>[K]>['symbol']
+  [K in keyof TransformString]: ReturnType<TransformString[K]>['symbol']
 }
 
 export type ParamsMetaTransformString = {
-  [K in keyof TransformString<StringValue>]: [
-    Parameters<TransformString<StringValue>[K]>[0]['symbol'],
+  [K in keyof TransformString]: [
+    Parameters<TransformString[K]>[0]['symbol'],
   ]
 }

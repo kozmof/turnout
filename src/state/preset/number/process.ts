@@ -1,96 +1,56 @@
 import { isRandomValue } from '../../ops';
-import { type AnyValue, type NumberValue, isNumber } from '../../value';
-import { type ToNumberProcess } from '../convert';
+import { type NumberValue } from '../../value';
+import { type NumberToNumber } from '../convert';
 
-export interface ProcessNumber<T extends AnyValue, U extends AnyValue> {
-  add: ToNumberProcess<T, U>
-  minus: ToNumberProcess<T, U>
-  multiply: ToNumberProcess<T, U>
-  divide: ToNumberProcess<T, U>
+export interface ProcessNumber {
+  add: NumberToNumber
+  minus: NumberToNumber
+  multiply: NumberToNumber
+  divide: NumberToNumber
 }
 
-export const pNumber: ProcessNumber<AnyValue, AnyValue> = {
-  /**
-   * 
-   * @param a raw value must be `number`
-   * @param b raw value must be `number`
-   * @returns raw value must be `number`
-   */
-  add: (a: AnyValue, b: AnyValue): NumberValue => {
-    if (isNumber(a) && isNumber(b)) {
-      const isRandom = isRandomValue(a, b);
-      return {
-        symbol: isRandom ? 'random-number' : 'number',
-        value: a.value + b.value,
-        subSymbol: undefined
-      };
-    } else {
-      throw new Error();
-    }
+export const pNumber: ProcessNumber = {
+  add: (a: NumberValue, b: NumberValue): NumberValue => {
+    const isRandom = isRandomValue(a, b);
+    return {
+      symbol: isRandom ? 'random-number' : 'number',
+      value: a.value + b.value,
+      subSymbol: undefined
+    };
   },
-  /**
-   * 
-   * @param a raw value must be `number`
-   * @param b raw value must be `number`
-   * @returns raw value must be `number`
-   */
-  minus: (a: AnyValue, b: AnyValue): NumberValue => {
-    if (isNumber(a) && isNumber(b)) {
-      const isRandom = isRandomValue(a, b);
-      return {
-        symbol: isRandom ? 'random-number' : 'number',
-        value: a.value - b.value,
-        subSymbol: undefined
-      };
-    } else {
-      throw new Error();
-    }
+  minus: (a: NumberValue, b: NumberValue): NumberValue => {
+    const isRandom = isRandomValue(a, b);
+    return {
+      symbol: isRandom ? 'random-number' : 'number',
+      value: a.value - b.value,
+      subSymbol: undefined
+    };
   },
-  /**
-   * 
-   * @param a raw value must be `number`
-   * @param b raw value must be `number`
-   * @returns raw value must be `number`
-   */
-  multiply: (a: AnyValue, b: AnyValue): NumberValue => {
-    if (isNumber(a) && isNumber(b)) {
-      const isRandom = isRandomValue(a, b);
-      return {
-        symbol: isRandom ? 'random-number' : 'number',
-        value: a.value * b.value,
-        subSymbol: undefined
-      };
-    } else {
-      throw new Error();
-    }
+  multiply: (a: NumberValue, b: NumberValue): NumberValue => {
+    const isRandom = isRandomValue(a, b);
+    return {
+      symbol: isRandom ? 'random-number' : 'number',
+      value: a.value * b.value,
+      subSymbol: undefined
+    };
   },
-  /**
-   * 
-   * @param a raw value must be `number`
-   * @param b raw value must be `number`
-   * @returns raw value must be `number`
-   */
-  divide: (a: AnyValue, b: AnyValue): NumberValue => {
-    if (isNumber(a) && isNumber(b)) {
-      const isRandom = isRandomValue(a, b);
-      return {
-        symbol: isRandom ? 'random-number' : 'number',
-        value: a.value / b.value,
-        subSymbol: undefined
-      };
-    } else {
-      throw new Error();
-    }
+  divide: (a: NumberValue, b: NumberValue): NumberValue => {
+    const isRandom = isRandomValue(a, b);
+    return {
+      symbol: isRandom ? 'random-number' : 'number',
+      value: a.value / b.value,
+      subSymbol: undefined
+    };
   }
 };
 
 export type ReturnMetaProcessNumber = {
-  [K in keyof ProcessNumber<NumberValue, NumberValue>]: ReturnType<ProcessNumber<NumberValue, NumberValue>[K]>['symbol']
+  [K in keyof ProcessNumber]: ReturnType<ProcessNumber[K]>['symbol']
 }
 
 export type ParamsMetaProcessNumber= {
-  [K in keyof ProcessNumber<NumberValue, NumberValue>]: [
-    Parameters<ProcessNumber<NumberValue, NumberValue>[K]>[0]['symbol'],
-    Parameters<ProcessNumber<NumberValue, NumberValue>[K]>[1]['symbol']
+  [K in keyof ProcessNumber]: [
+    Parameters<ProcessNumber[K]>[0]['symbol'],
+    Parameters<ProcessNumber[K]>[1]['symbol']
   ]
 }

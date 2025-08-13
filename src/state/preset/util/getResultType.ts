@@ -1,128 +1,196 @@
-import { type AnyValue, type ArrayValue, type NonArrayValue, type NumberValue, type StringValue } from '../../value';
-import { type MetaTransformArray, type TransformArray } from '../array/transform';
-import { type ReturnMetaProcessArray, type ProcessArray } from '../array/process';
-import { type ReturnMetaProcessGeneric, type ProcessGeneric } from '../generic/process';
-import { type MetaTransformNumber, type TransformNumber } from '../number/transform';
-import { type ReturnMetaProcessNumber, type ProcessNumber } from '../number/process';
-import { type MetaTransformString, type TransformString } from '../string/transform';
-import { type ReturnMetaProcessString, type ProcessString } from '../string/process';
+import { type AnyValue } from '../../value';
+import {
+  type MetaTransformArray,
+  type TransformArray,
+} from '../array/transform';
+import {
+  type ReturnMetaProcessArray,
+  type ProcessArray,
+} from '../array/process';
+import {
+  type ReturnMetaProcessGeneric,
+  type ProcessGeneric,
+} from '../generic/process';
+import {
+  type MetaTransformNumber,
+  type TransformNumber,
+} from '../number/transform';
+import {
+  type ReturnMetaProcessNumber,
+  type ProcessNumber,
+} from '../number/process';
+import {
+  type MetaTransformString,
+  type TransformString,
+} from '../string/transform';
+import {
+  type ReturnMetaProcessString,
+  type ProcessString,
+} from '../string/process';
 
 export const metaPNumber: ReturnMetaProcessNumber = {
   add: 'number',
   minus: 'number',
   multiply: 'number',
-  divide: 'number'
+  divide: 'number',
 };
 
 export const metaPNumberRand: ReturnMetaProcessNumber = {
   add: 'random-number',
   minus: 'random-number',
   multiply: 'random-number',
-  divide: 'random-number'
+  divide: 'random-number',
 };
 
 export const metaPString: ReturnMetaProcessString = {
-  concat: 'string'
+  concat: 'string',
 };
 
 export const metaPStringRand: ReturnMetaProcessString = {
-  concat: 'random-string'
+  concat: 'random-string',
 };
 
-export  const metaPArray: ReturnMetaProcessArray = {
-  includes: 'boolean'
+export const metaPArrayString: ReturnMetaProcessArray = {
+  includes: 'boolean',
+  get: 'string',
 };
 
-export  const metaPArrayRand: ReturnMetaProcessArray = {
-  includes: 'random-boolean'
+export const metaPArrayRandString: ReturnMetaProcessArray = {
+  includes: 'random-boolean',
+  get: 'random-string',
+};
+
+export const metaPArrayNumber: ReturnMetaProcessArray = {
+  includes: 'boolean',
+  get: 'number',
+};
+
+export const metaPArrayRandNumber: ReturnMetaProcessArray = {
+  includes: 'random-boolean',
+  get: 'random-number',
+};
+
+export const metaPArrayBoolean: ReturnMetaProcessArray = {
+  includes: 'boolean',
+  get: 'boolean',
+};
+
+export const metaPArrayRandBoolean: ReturnMetaProcessArray = {
+  includes: 'random-boolean',
+  get: 'random-boolean',
 };
 
 export const metaPGeneric: ReturnMetaProcessGeneric = {
-  isEqual: 'boolean'
+  isEqual: 'boolean',
 };
 
-export  const metaPGenericRand: ReturnMetaProcessGeneric = {
-  isEqual: 'random-boolean'
+export const metaPGenericRand: ReturnMetaProcessGeneric = {
+  isEqual: 'random-boolean',
 };
 
 export const getResultProcessType = {
-  pNumber: (key: keyof ProcessNumber<NumberValue, NumberValue>, isRandom: boolean) => {
-    if(isRandom) {
+  pNumber: (key: keyof ProcessNumber, isRandom: boolean) => {
+    if (isRandom) {
       return metaPNumberRand[key];
     } else {
       return metaPNumber[key];
     }
   },
-  pString: (key: keyof ProcessString<StringValue, StringValue>, isRandom: boolean) => {
-    if(isRandom) {
+  pString: (key: keyof ProcessString, isRandom: boolean) => {
+    if (isRandom) {
       return metaPStringRand[key];
     } else {
       return metaPString[key];
     }
   },
-  pArray: (key: keyof ProcessArray<ArrayValue, NonArrayValue>, isRandom: boolean) => {
-    if(isRandom) {
-      return metaPArrayRand[key];
-    } else {
-      return metaPArray[key];
+  pArray: (
+    key: keyof ProcessArray,
+    isRandom: boolean,
+    itemType: 'string' | 'number' | 'boolean'
+  ) => {
+    switch (itemType) {
+      case 'string': {
+        if (isRandom) {
+          return metaPArrayRandString[key];
+        } else {
+          return metaPArrayString[key];
+        }
+      }
+      case 'boolean': {
+        if (isRandom) {
+          return metaPArrayRandBoolean[key];
+        } else {
+          return metaPArrayBoolean[key];
+        }
+      }
+      case 'number': {
+        if (isRandom) {
+          return metaPArrayRandNumber[key];
+        } else {
+          return metaPArrayNumber[key];
+        }
+      }
     }
   },
-  pGeneric: (key: keyof ProcessGeneric<AnyValue, AnyValue>, isRandom: boolean) => {
-    if(isRandom) {
+  pGeneric: (
+    key: keyof ProcessGeneric<AnyValue, AnyValue>,
+    isRandom: boolean
+  ) => {
+    if (isRandom) {
       return metaPGenericRand[key];
     } else {
       return metaPGeneric[key];
     }
-  }
+  },
 };
 
 export const metaTNumber: MetaTransformNumber = {
   pass: 'number',
-  toStr: 'string'
+  toStr: 'string',
 };
 
 export const metaTNumberRand: MetaTransformNumber = {
   pass: 'random-number',
-  toStr: 'random-string'
+  toStr: 'random-string',
 };
 
 export const metaTString: MetaTransformString = {
   pass: 'string',
-  toNumber: 'number'
+  toNumber: 'number',
 };
 
 export const metaTStringRand: MetaTransformString = {
   pass: 'random-string',
-  toNumber: 'random-number'
+  toNumber: 'random-number',
 };
 
 export const metaTArray: MetaTransformArray = {
   pass: 'array',
-  length: 'number'
+  length: 'number',
 };
 
 export const metaTArrayRand: MetaTransformArray = {
   pass: 'random-array',
-  length: 'random-number'
+  length: 'random-number',
 };
 
 export const getResultTransformType = {
-  tNumber: (key: keyof TransformNumber<NumberValue>, isRandom: boolean) => {
-    if(isRandom) {
+  tNumber: (key: keyof TransformNumber, isRandom: boolean) => {
+    if (isRandom) {
       return metaTNumberRand[key];
     } else {
       return metaTNumber[key];
     }
   },
-  tString: (key: keyof TransformString<StringValue>, isRandom: boolean) => {
-    if(isRandom) {
+  tString: (key: keyof TransformString, isRandom: boolean) => {
+    if (isRandom) {
       return metaTStringRand[key];
     } else {
       return metaTString[key];
     }
   },
-  tArray: (key: keyof TransformArray<ArrayValue>, isRandom: boolean) => {
-    if(isRandom) {
+  tArray: (key: keyof TransformArray, isRandom: boolean) => {
+    if (isRandom) {
       return metaTArrayRand[key];
     } else {
       return metaTArray[key];

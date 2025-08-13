@@ -35,9 +35,12 @@ export interface OpsTreeRef {
 
 export type OpsCollection = {
   [opsId in string]: {
-    transformA: (value: AnyValue) => AnyValue,
-    transformB: (value: AnyValue) => AnyValue,
-    process: (a: AnyValue, b: AnyValue) => AnyValue
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    transformA: (value: any) => unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    transformB: (value: any) => unknown,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    process: (a: any, b: any) => unknown
   }
 }
 
@@ -49,30 +52,13 @@ export function isOpsPkg(pkg: ValuePkg | OpsPkg): pkg is OpsPkg {
   return pkg.tag === 'ops';
 }
 
-export function calcValues<T extends AnyValue, U extends AnyValue, V extends AnyValue>(
-  tree: OpsTree,
-  transformA: (value: AnyValue) => T,
-  transformB: (value: AnyValue) => U,
-  process: (a: T, b: U) => V
-): V {
-  const pkgA = tree.a;
-  const pkgB = tree.b;
-  if (isValuePkg(pkgA) && isValuePkg(pkgB)) {
-    const valueA = transformA(pkgA.entity);
-    const valueB = transformB(pkgB.entity);
-    return process(valueA, valueB);
-  } else {
-    throw new Error();
-  }
-}
-
 export function isRandomValue(a: AnyValue, b: AnyValue): boolean {
   const symbols: Array<NonDeterministicSymbol | DeterministicSymbol> = nonDeterministicSymbols;
   return (symbols.includes(a.symbol) || symbols.includes(b.symbol));
 }
 
 export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AnyValue {
-  const dig = (tree: OpsTree): AnyValue => {
+  const dig = (tree: OpsTree): unknown => {
     const coll = opsCollection[tree.opsId];
     if (isValuePkg(tree.a) && isValuePkg(tree.b)) {
       return coll.process(
@@ -107,5 +93,5 @@ export function calcAllOps(tree: OpsTree, opsCollection: OpsCollection) : AnyVal
     }
   };
   const result = dig(tree);
-  return result;
+  return result as AnyValue;
 }

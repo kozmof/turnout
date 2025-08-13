@@ -1,43 +1,9 @@
 import { expect, test, describe } from 'vitest';
-import { type ControlledBooleanValue, type ControlledNumberValue } from './value';
-import { type OpsTree, calcValues, type OpsCollection, calcAllOps } from './ops';
-import { pGeneric } from './preset/generic/process';
+import { type OpsTree, type OpsCollection, calcAllOps } from './ops';
 import { tNumber } from './preset/number/transform';
 import { pNumber } from './preset/number/process';
 
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test
-
-describe('[core function] calcValues', () => {
-  describe('::basic test', () => {
-    describe('::string operations', () => {
-      test('Convert two number values to string values, then compare both ️[NML]️', () => {
-        const val1: ControlledNumberValue = {
-          symbol: 'number',
-          value: 100,
-          subSymbol: undefined
-        };
-        const val2: ControlledNumberValue = {
-          symbol: 'number',
-          value: 100,
-          subSymbol: undefined
-        };
-
-        const tree: OpsTree = {
-          a: { tag: 'value', entity: val1 },
-          b: { tag: 'value', entity: val2 },
-          opsId: 111,
-        };
-
-        const expected: ControlledBooleanValue = {
-          symbol: 'boolean',
-          value: true,
-          subSymbol: undefined
-        };
-        expect(calcValues(tree, tNumber.toStr, tNumber.toStr, pGeneric.isEqual)).toEqual(expected);
-      });
-    });
-  });
-});
 
 describe('[core function] calcAnyValue', () => {
   describe('::basic test', () => {

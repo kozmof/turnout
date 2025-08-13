@@ -1,5 +1,5 @@
 import { type OpsTreeRef, type OpsTree, calcAllOps } from '../../state/ops';
-import { metaPArray, metaPArrayRand, metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand } from '../../state/preset/util/getResultType';
+import { metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand, metaPArrayBoolean } from '../../state/preset/util/getResultType';
 import { type AnyValue } from '../../state/value';
 import { type Knot, type CandidateIdMap, type KnotId } from '../../knot/knot';
 import { type PropertyId, type PropertyState } from '../../knot/property';
@@ -145,8 +145,8 @@ export const InteractionAPI: IFInteractionAPI = {
           return metaPNumber;
         case 'boolean': // TODO
           return metaPNumber;
-        case 'array':
-          return metaPArray;
+        case 'array': // TODO
+          return metaPArrayBoolean;
         case 'random-number':
           return metaPNumberRand;
         case 'random-string':
@@ -154,7 +154,7 @@ export const InteractionAPI: IFInteractionAPI = {
         case 'random-boolean': // TODO
           return metaPNumberRand;
         case 'random-array':
-          return metaPArrayRand;
+          return metaPArrayBoolean; // TODO
       }
     },
   }
