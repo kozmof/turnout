@@ -1,7 +1,7 @@
 import { type OpsCollection, type OpsTreeRef } from '../state/ops';
 import { type BoxId } from '../box/box';
 import { type Brand } from '../util/brand';
-import { type PropertyId, type PropertyState } from './property';
+import { type PropertyId } from './property';
 
 export type KnotId = Brand<number, 'knot'>
 export interface KnotPayload {

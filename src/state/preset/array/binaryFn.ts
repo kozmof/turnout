@@ -7,12 +7,12 @@ import {
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
 
-export interface ProcessArray {
+export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue, NonArrayValue>;
   get: ToItemtProcess<ArrayValue, NonArrayValue, NumberValue>;
 }
 
-export const pArray: ProcessArray = {
+export const pArray: BinaryFnArray = {
   includes: (a: ArrayValue, b: NonArrayValue): BooleanValue => {
     const isRandom = isRandomValue(a, b);
     return {
@@ -32,15 +32,15 @@ export const pArray: ProcessArray = {
   },
 };
 
-export type ReturnMetaProcessArray = {
-  [K in keyof ProcessArray]: ReturnType<
-    ProcessArray[K]
+export type ReturnMetaBinaryFnArray = {
+  [K in keyof BinaryFnArray]: ReturnType<
+    BinaryFnArray[K]
   >['symbol'];
 };
 
-export type ParamsMetaProcessArray = {
-  [K in keyof ProcessArray]: [
-    Parameters<ProcessArray[K]>[0]['symbol'],
-    Parameters<ProcessArray[K]>[1]['symbol'],
+export type ParamsMetaBinaryFnArray = {
+  [K in keyof BinaryFnArray]: [
+    Parameters<BinaryFnArray[K]>[0]['symbol'],
+    Parameters<BinaryFnArray[K]>[1]['symbol'],
   ];
 };

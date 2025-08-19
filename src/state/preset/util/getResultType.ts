@@ -4,13 +4,13 @@ import {
   type TransformArray,
 } from '../array/transform';
 import {
-  type ReturnMetaProcessArray,
-  type ProcessArray,
-} from '../array/process';
+  type ReturnMetaBinaryFnArray,
+  type BinaryFnArray,
+} from '../array/binaryFn';
 import {
-  type ReturnMetaProcessGeneric,
-  type ProcessGeneric,
-} from '../generic/process';
+  type ReturnMetaBinaryFnGeneric,
+  type BinaryFnGeneric,
+} from '../generic/binaryFn';
 import {
   type MetaTransformNumber,
   type TransformNumber,
@@ -18,7 +18,7 @@ import {
 import {
   type ReturnMetaProcessNumber,
   type ProcessNumber,
-} from '../number/process';
+} from '../number/binaryFn';
 import {
   type MetaTransformString,
   type TransformString,
@@ -26,7 +26,7 @@ import {
 import {
   type ReturnMetaProcessString,
   type ProcessString,
-} from '../string/process';
+} from '../string/binaryFn';
 
 export const metaPNumber: ReturnMetaProcessNumber = {
   add: 'number',
@@ -50,41 +50,41 @@ export const metaPStringRand: ReturnMetaProcessString = {
   concat: 'random-string',
 };
 
-export const metaPArrayString: ReturnMetaProcessArray = {
+export const metaPArrayString: ReturnMetaBinaryFnArray = {
   includes: 'boolean',
   get: 'string',
 };
 
-export const metaPArrayRandString: ReturnMetaProcessArray = {
+export const metaPArrayRandString: ReturnMetaBinaryFnArray = {
   includes: 'random-boolean',
   get: 'random-string',
 };
 
-export const metaPArrayNumber: ReturnMetaProcessArray = {
+export const metaPArrayNumber: ReturnMetaBinaryFnArray = {
   includes: 'boolean',
   get: 'number',
 };
 
-export const metaPArrayRandNumber: ReturnMetaProcessArray = {
+export const metaPArrayRandNumber: ReturnMetaBinaryFnArray = {
   includes: 'random-boolean',
   get: 'random-number',
 };
 
-export const metaPArrayBoolean: ReturnMetaProcessArray = {
+export const metaPArrayBoolean: ReturnMetaBinaryFnArray = {
   includes: 'boolean',
   get: 'boolean',
 };
 
-export const metaPArrayRandBoolean: ReturnMetaProcessArray = {
+export const metaPArrayRandBoolean: ReturnMetaBinaryFnArray = {
   includes: 'random-boolean',
   get: 'random-boolean',
 };
 
-export const metaPGeneric: ReturnMetaProcessGeneric = {
+export const metaPGeneric: ReturnMetaBinaryFnGeneric = {
   isEqual: 'boolean',
 };
 
-export const metaPGenericRand: ReturnMetaProcessGeneric = {
+export const metaPGenericRand: ReturnMetaBinaryFnGeneric = {
   isEqual: 'random-boolean',
 };
 
@@ -104,7 +104,7 @@ export const getResultProcessType = {
     }
   },
   pArray: (
-    key: keyof ProcessArray,
+    key: keyof BinaryFnArray,
     isRandom: boolean,
     itemType: 'string' | 'number' | 'boolean'
   ) => {
@@ -133,7 +133,7 @@ export const getResultProcessType = {
     }
   },
   pGeneric: (
-    key: keyof ProcessGeneric<AnyValue, AnyValue>,
+    key: keyof BinaryFnGeneric<AnyValue, AnyValue>,
     isRandom: boolean
   ) => {
     if (isRandom) {
