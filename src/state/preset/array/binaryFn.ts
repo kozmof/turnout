@@ -12,7 +12,7 @@ export interface BinaryFnArray {
   get: ToItemtProcess<ArrayValue, NonArrayValue, NumberValue>;
 }
 
-export const pArray: BinaryFnArray = {
+export const bfArray: BinaryFnArray = {
   includes: (a: ArrayValue, b: NonArrayValue): BooleanValue => {
     const isRandom = isRandomValue(a, b);
     return {

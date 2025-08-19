@@ -89,21 +89,21 @@ export const metaPGenericRand: ReturnMetaBinaryFnGeneric = {
 };
 
 export const getResultProcessType = {
-  pNumber: (key: keyof BinaryFnNumber, isRandom: boolean) => {
+  bfNumber: (key: keyof BinaryFnNumber, isRandom: boolean) => {
     if (isRandom) {
       return metaPNumberRand[key];
     } else {
       return metaPNumber[key];
     }
   },
-  pString: (key: keyof BinaryFnString, isRandom: boolean) => {
+  bfString: (key: keyof BinaryFnString, isRandom: boolean) => {
     if (isRandom) {
       return metaPStringRand[key];
     } else {
       return metaPString[key];
     }
   },
-  pArray: (
+  bfArray: (
     key: keyof BinaryFnArray,
     isRandom: boolean,
     itemType: 'string' | 'number' | 'boolean'
@@ -132,7 +132,7 @@ export const getResultProcessType = {
       }
     }
   },
-  pGeneric: (
+  bfGeneric: (
     key: keyof BinaryFnGeneric<AnyValue, AnyValue>,
     isRandom: boolean
   ) => {

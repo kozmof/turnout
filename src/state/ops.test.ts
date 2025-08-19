@@ -1,7 +1,7 @@
 import { expect, test, describe } from 'vitest';
 import { type OpsTree, type OpsCollection, calcAllOps } from './ops';
 import { tNumber } from './preset/number/transform';
-import { pNumber } from './preset/number/binaryFn';
+import { bfNumber } from './preset/number/binaryFn';
 
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test
 
@@ -12,57 +12,57 @@ describe('[core function] calcAnyValue', () => {
         1: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.add
+          process: bfNumber.add
         },
         2: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.multiply
+          process: bfNumber.multiply
         },
         3: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.multiply
+          process: bfNumber.multiply
         },
         4: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.add
+          process: bfNumber.add
         },
         5: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.add
+          process: bfNumber.add
         },
         6: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.minus
+          process: bfNumber.minus
         },
         7: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.minus
+          process: bfNumber.minus
         },
         8: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.minus
+          process: bfNumber.minus
         },
         9: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.add
+          process: bfNumber.add
         },
         10: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.add
+          process: bfNumber.add
         },
         11: {
           transformA: tNumber.pass,
           transformB: tNumber.pass,
-          process: pNumber.divide
+          process: bfNumber.divide
         }
       };
       const tree: OpsTree = {

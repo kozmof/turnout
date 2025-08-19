@@ -9,7 +9,7 @@ export interface BinaryFnNumber {
   divide: NumberToNumber
 }
 
-export const pNumber: BinaryFnNumber = {
+export const bfNumber: BinaryFnNumber = {
   add: (a: NumberValue, b: NumberValue): NumberValue => {
     const isRandom = isRandomValue(a, b);
     return {

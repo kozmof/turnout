@@ -7,7 +7,7 @@ export interface BinaryFnGeneric<T extends AnyValue, U extends AnyValue> {
   isEqual: ToBooleanProcess<T, U>
 }
 
-export const pGeneric: BinaryFnGeneric<AnyValue, AnyValue> = {
+export const bfGeneric: BinaryFnGeneric<AnyValue, AnyValue> = {
   isEqual: (a: AnyValue, b: AnyValue): BooleanValue => {
     if (isComparable(a, b)) {
       const isRandom = isRandomValue(a, b);

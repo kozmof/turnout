@@ -6,7 +6,7 @@ export interface BinaryFnString {
   concat: StringToString;
 }
 
-export const pString: BinaryFnString = {
+export const bfString: BinaryFnString = {
   concat: (a: StringValue, b: StringValue): StringValue => {
     const isRandom = isRandomValue(a, b);
     return {
