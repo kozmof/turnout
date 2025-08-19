@@ -2,9 +2,9 @@ import { type MetaTransformArray } from '../array/transform';
 import { type ReturnMetaBinaryFnArray } from '../array/binaryFn';
 import { type ReturnMetaBinaryFnGeneric } from '../generic/binaryFn';
 import { type MetaTransformNumber } from '../number/transform';
-import { type ReturnMetaProcessNumber } from '../number/binaryFn';
+import { type ReturnMetaBinaryFnNumber } from '../number/binaryFn';
 import { type MetaTransformString } from '../string/transform';
-import { type ReturnMetaProcessString } from '../string/binaryFn';
+import { type ReturnMetaBinaryFnString } from '../string/binaryFn';
 
 type RemoveRandom<
   T,
@@ -22,7 +22,7 @@ type OnlyRandom<T, R extends 'number' | 'boolean' | 'string' | 'array'> = {
 };
 
 export const metaPNumber: RemoveRandom<
-  ReturnMetaProcessNumber,
+  ReturnMetaBinaryFnNumber,
   'random-number'
 > = {
   add: 'number',
@@ -31,7 +31,7 @@ export const metaPNumber: RemoveRandom<
   divide: 'number',
 };
 
-export const metaPNumberRand: OnlyRandom<ReturnMetaProcessNumber, 'number'> = {
+export const metaPNumberRand: OnlyRandom<ReturnMetaBinaryFnNumber, 'number'> = {
   add: `random-${metaPNumber.add}`,
   minus: `random-${metaPNumber.minus}`,
   multiply: `random-${metaPNumber.multiply}`,
@@ -39,11 +39,11 @@ export const metaPNumberRand: OnlyRandom<ReturnMetaProcessNumber, 'number'> = {
 };
 
 
-export const metaPString: ReturnMetaProcessString = {
+export const metaPString: ReturnMetaBinaryFnString = {
   concat: 'string',
 };
 
-export const metaPStringRand: ReturnMetaProcessString = {
+export const metaPStringRand: ReturnMetaBinaryFnString = {
   concat: 'random-string',
 };
 

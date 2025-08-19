@@ -2,11 +2,11 @@ import { isRandomValue } from '../../ops';
 import { type StringValue } from '../../value';
 import { type StringToString } from '../convert';
 
-export interface ProcessString {
+export interface BinaryFnString {
   concat: StringToString;
 }
 
-export const pString: ProcessString = {
+export const pString: BinaryFnString = {
   concat: (a: StringValue, b: StringValue): StringValue => {
     const isRandom = isRandomValue(a, b);
     return {
@@ -17,13 +17,13 @@ export const pString: ProcessString = {
   },
 };
 
-export type ReturnMetaProcessString = {
-  [K in keyof ProcessString]: ReturnType<ProcessString[K]>['symbol'];
+export type ReturnMetaBinaryFnString = {
+  [K in keyof BinaryFnString]: ReturnType<BinaryFnString[K]>['symbol'];
 };
 
-export type ParamsMetaProcessString = {
-  [K in keyof ProcessString]: [
-    Parameters<ProcessString[K]>[0]['symbol'],
-    Parameters<ProcessString[K]>[1]['symbol'],
+export type ParamsMetaBinaryFnString = {
+  [K in keyof BinaryFnString]: [
+    Parameters<BinaryFnString[K]>[0]['symbol'],
+    Parameters<BinaryFnString[K]>[1]['symbol'],
   ];
 };

@@ -2,14 +2,14 @@ import { isRandomValue } from '../../ops';
 import { type NumberValue } from '../../value';
 import { type NumberToNumber } from '../convert';
 
-export interface ProcessNumber {
+export interface BinaryFnNumber {
   add: NumberToNumber
   minus: NumberToNumber
   multiply: NumberToNumber
   divide: NumberToNumber
 }
 
-export const pNumber: ProcessNumber = {
+export const pNumber: BinaryFnNumber = {
   add: (a: NumberValue, b: NumberValue): NumberValue => {
     const isRandom = isRandomValue(a, b);
     return {
@@ -44,13 +44,13 @@ export const pNumber: ProcessNumber = {
   }
 };
 
-export type ReturnMetaProcessNumber = {
-  [K in keyof ProcessNumber]: ReturnType<ProcessNumber[K]>['symbol']
+export type ReturnMetaBinaryFnNumber = {
+  [K in keyof BinaryFnNumber]: ReturnType<BinaryFnNumber[K]>['symbol']
 }
 
-export type ParamsMetaProcessNumber= {
-  [K in keyof ProcessNumber]: [
-    Parameters<ProcessNumber[K]>[0]['symbol'],
-    Parameters<ProcessNumber[K]>[1]['symbol']
+export type ParamsMetaBinaryFnNumber= {
+  [K in keyof BinaryFnNumber]: [
+    Parameters<BinaryFnNumber[K]>[0]['symbol'],
+    Parameters<BinaryFnNumber[K]>[1]['symbol']
   ]
 }

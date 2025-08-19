@@ -2,9 +2,9 @@ import { type MetaTransformArray } from '../../state/preset/array/transform';
 import { type ReturnMetaBinaryFnArray } from '../../state/preset/array/binaryFn';
 import { type ReturnMetaBinaryFnGeneric } from '../../state/preset/generic/binaryFn';
 import { type MetaTransformNumber } from '../../state/preset/number/transform';
-import { type ReturnMetaProcessNumber } from '../../state/preset/number/binaryFn';
+import { type ReturnMetaBinaryFnNumber } from '../../state/preset/number/binaryFn';
 import { type MetaTransformString } from '../../state/preset/string/transform';
-import { type ReturnMetaProcessString } from '../../state/preset/string/binaryFn';
+import { type ReturnMetaBinaryFnString } from '../../state/preset/string/binaryFn';
 import { type DeterministicSymbol, type NonDeterministicSymbol } from '../../state/value';
 import { type Knot, type KnotId, type KnotPayload } from '../../knot/knot';
 import { type Property, type PropertyId, type PropertyState } from '../../knot/property';
@@ -59,8 +59,8 @@ export interface IFInteractionAPI {
       MetaTransformString |
       MetaTransformArray,
     getProcess: (val: { symbol: DeterministicSymbol | NonDeterministicSymbol }) =>
-      ReturnMetaProcessNumber |
-      ReturnMetaProcessString |
+      ReturnMetaBinaryFnNumber |
+      ReturnMetaBinaryFnString |
       ReturnMetaBinaryFnArray |
       ReturnMetaBinaryFnGeneric
   }

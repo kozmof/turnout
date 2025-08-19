@@ -16,37 +16,37 @@ import {
   type TransformNumber,
 } from '../number/transform';
 import {
-  type ReturnMetaProcessNumber,
-  type ProcessNumber,
+  type ReturnMetaBinaryFnNumber,
+  type BinaryFnNumber,
 } from '../number/binaryFn';
 import {
   type MetaTransformString,
   type TransformString,
 } from '../string/transform';
 import {
-  type ReturnMetaProcessString,
-  type ProcessString,
+  type ReturnMetaBinaryFnString,
+  type BinaryFnString,
 } from '../string/binaryFn';
 
-export const metaPNumber: ReturnMetaProcessNumber = {
+export const metaPNumber: ReturnMetaBinaryFnNumber = {
   add: 'number',
   minus: 'number',
   multiply: 'number',
   divide: 'number',
 };
 
-export const metaPNumberRand: ReturnMetaProcessNumber = {
+export const metaPNumberRand: ReturnMetaBinaryFnNumber = {
   add: 'random-number',
   minus: 'random-number',
   multiply: 'random-number',
   divide: 'random-number',
 };
 
-export const metaPString: ReturnMetaProcessString = {
+export const metaPString: ReturnMetaBinaryFnString = {
   concat: 'string',
 };
 
-export const metaPStringRand: ReturnMetaProcessString = {
+export const metaPStringRand: ReturnMetaBinaryFnString = {
   concat: 'random-string',
 };
 
@@ -89,14 +89,14 @@ export const metaPGenericRand: ReturnMetaBinaryFnGeneric = {
 };
 
 export const getResultProcessType = {
-  pNumber: (key: keyof ProcessNumber, isRandom: boolean) => {
+  pNumber: (key: keyof BinaryFnNumber, isRandom: boolean) => {
     if (isRandom) {
       return metaPNumberRand[key];
     } else {
       return metaPNumber[key];
     }
   },
-  pString: (key: keyof ProcessString, isRandom: boolean) => {
+  pString: (key: keyof BinaryFnString, isRandom: boolean) => {
     if (isRandom) {
       return metaPStringRand[key];
     } else {
