@@ -1,6 +1,6 @@
-import { isRandomValue } from '../../ops';
 import { type StringValue } from '../../value';
 import { type StringToString } from '../convert';
+import { propageteRandom } from '../util/propagateRandom';
 
 export interface BinaryFnString {
   concat: StringToString;
@@ -8,9 +8,8 @@ export interface BinaryFnString {
 
 export const bfString: BinaryFnString = {
   concat: (a: StringValue, b: StringValue): StringValue => {
-    const isRandom = isRandomValue(a, b);
     return {
-      symbol: isRandom ? 'random-string' : 'string',
+      symbol: propageteRandom('string', a, b),
       value: a.value + b.value,
       subSymbol: undefined,
     };

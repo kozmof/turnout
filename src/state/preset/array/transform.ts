@@ -1,9 +1,10 @@
 import { type NumberValue, type ArrayValue } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
+import { propageteRandom } from '../util/propagateRandom';
 
 export interface TransformArray {
-  pass: ToArrayConversion<ArrayValue>
-  length: ToNumberConversion<ArrayValue>
+  pass: ToArrayConversion<ArrayValue>;
+  length: ToNumberConversion<ArrayValue>;
 }
 
 export const tArray: TransformArray = {
@@ -11,31 +12,18 @@ export const tArray: TransformArray = {
     return val;
   },
   length: (val: ArrayValue): NumberValue => {
-    switch(val.symbol) {
-      case 'array':
-        return {
-          symbol: 'number',
-          value: val.value.length,
-          subSymbol: undefined
-        };
-      case 'random-array':
-        return {
-          symbol: 'random-number',
-          value: val.value.length,
-          subSymbol: undefined
-        };
-      default:
-        throw new Error();
-    }
+    return {
+      symbol: propageteRandom('number', val, null),
+      value: val.value.length,
+      subSymbol: undefined,
+    };
   },
 };
 
 export type MetaTransformArray = {
-  [K in keyof TransformArray]: ReturnType<TransformArray[K]>['symbol']
-}
+  [K in keyof TransformArray]: ReturnType<TransformArray[K]>['symbol'];
+};
 
 export type ParamsMetaTransformArray = {
-  [K in keyof TransformArray]: [
-    Parameters<TransformArray[K]>[0]['symbol'],
-  ]
-}
+  [K in keyof TransformArray]: [Parameters<TransformArray[K]>[0]['symbol']];
+};

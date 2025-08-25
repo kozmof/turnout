@@ -1,9 +1,10 @@
 import { type NumberValue, type StringValue } from '../../value';
 import { type ToNumberConversion, type ToStringConversion } from '../convert';
+import { propageteRandom } from '../util/propagateRandom';
 
 export interface TransformNumber {
-  pass: ToNumberConversion<NumberValue>
-  toStr: ToStringConversion<NumberValue>
+  pass: ToNumberConversion<NumberValue>;
+  toStr: ToStringConversion<NumberValue>;
 }
 
 export const tNumber: TransformNumber = {
@@ -11,31 +12,18 @@ export const tNumber: TransformNumber = {
     return val;
   },
   toStr: (val: NumberValue): StringValue => {
-    switch (val.symbol) {
-      case 'number':
-        return {
-          symbol: 'string',
-          value: val.value.toString(),
-          subSymbol: undefined
-        };
-      case 'random-number':
-        return {
-          symbol: 'random-string',
-          value: val.value.toString(),
-          subSymbol: undefined
-        };
-      default:
-        throw new Error();
-    }
-  }
+    return {
+      symbol: propageteRandom('string', val, null),
+      value: val.value.toString(),
+      subSymbol: undefined,
+    };
+  },
 };
 
 export type MetaTransformNumber = {
-  [K in keyof TransformNumber]: ReturnType<TransformNumber[K]>['symbol']
-}
+  [K in keyof TransformNumber]: ReturnType<TransformNumber[K]>['symbol'];
+};
 
 export type ParamsMetaTransformNumber = {
-  [K in keyof TransformNumber]: [
-    Parameters<TransformNumber[K]>[0]['symbol'],
-  ]
-}
+  [K in keyof TransformNumber]: [Parameters<TransformNumber[K]>[0]['symbol']];
+};

@@ -1,4 +1,3 @@
-import { isRandomValue } from '../../ops';
 import {
   type BooleanValue,
   type ArrayValue,
@@ -6,6 +5,7 @@ import {
   type NumberValue,
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
+import { propageteRandom } from '../util/propagateRandom';
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue, NonArrayValue>;
@@ -14,9 +14,8 @@ export interface BinaryFnArray {
 
 export const bfArray: BinaryFnArray = {
   includes: (a: ArrayValue, b: NonArrayValue): BooleanValue => {
-    const isRandom = isRandomValue(a, b);
     return {
-      symbol: isRandom ? 'random-boolean' : 'boolean',
+      symbol: propageteRandom('boolean', a, b),
       value: a.value.map((val) => val.value).includes(b.value),
       subSymbol: undefined,
     };
