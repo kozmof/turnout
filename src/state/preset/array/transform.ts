@@ -2,12 +2,12 @@ import { type NumberValue, type ArrayValue } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
 import { propageteRandom } from '../util/propagateRandom';
 
-export interface TransformArray {
+export interface TransformFnArray {
   pass: ToArrayConversion<ArrayValue>;
   length: ToNumberConversion<ArrayValue>;
 }
 
-export const tArray: TransformArray = {
+export const tArray: TransformFnArray = {
   pass: (val: ArrayValue): ArrayValue => {
     return val;
   },
@@ -20,10 +20,10 @@ export const tArray: TransformArray = {
   },
 };
 
-export type MetaTransformArray = {
-  [K in keyof TransformArray]: ReturnType<TransformArray[K]>['symbol'];
+export type ReturnMetaTransformFnArray = {
+  [K in keyof TransformFnArray]: ReturnType<TransformFnArray[K]>['symbol'];
 };
 
-export type ParamsMetaTransformArray = {
-  [K in keyof TransformArray]: [Parameters<TransformArray[K]>[0]['symbol']];
+export type ParamsMetaTransformFnArray = {
+  [K in keyof TransformFnArray]: [Parameters<TransformFnArray[K]>[0]['symbol']];
 };

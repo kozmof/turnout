@@ -1,9 +1,16 @@
 import { type OpsTreeRef, type OpsTree, calcAllOps } from '../../state/ops';
-import { metaPNumber, metaPNumberRand, metaTArray, metaTArrayRand, metaTNumber, metaTNumberRand, metaTString, metaTStringRand, metaPString, metaPStringRand, metaPArrayBoolean } from '../../state/preset/util/getResultType';
 import { type AnyValue } from '../../state/value';
 import { type Knot, type CandidateIdMap, type KnotId } from '../../knot/knot';
 import { type PropertyId, type PropertyState } from '../../knot/property';
-import { type IFInteractionAPI, } from './api.define';
+import { type IFInteractionAPI } from './api.define';
+import {
+  metaBfArray,
+  metaBfNumber,
+  metaBfString,
+  metaTfArray,
+  metaTfNumber,
+  metaTfString,
+} from '../../state/preset/util/getResultType';
 
 function nextKnotId(value: AnyValue, candidateIdMap: CandidateIdMap): KnotId {
   const knotId = candidateIdMap[value.value.toString()];
@@ -20,21 +27,29 @@ function getNextKnotId(knot: Knot, state: PropertyState): KnotId {
   return nextKnotId(result, knot.to);
 }
 
-const getObjectKeys = <T extends Record<string, unknown>>(obj: T): Array<keyof T> => {
+const getObjectKeys = <T extends Record<string, unknown>>(
+  obj: T
+): Array<keyof T> => {
   return Object.keys(obj);
 };
 
-function getNextState(knot: Knot, state: PropertyState) : PropertyState {
+function getNextState(knot: Knot, state: PropertyState): PropertyState {
   const propertyIds = getObjectKeys(knot.payload.ops.nextState);
   const updateState: PropertyState = {};
 
   for (const propertyId of propertyIds) {
-    const tree = initTree(knot.payload.ops.nextState[propertyId].treeRef, state);
-    const newValue = calcAllOps(tree, knot.payload.ops.nextState[propertyId].collection);
+    const tree = initTree(
+      knot.payload.ops.nextState[propertyId].treeRef,
+      state
+    );
+    const newValue = calcAllOps(
+      tree,
+      knot.payload.ops.nextState[propertyId].collection
+    );
     updateState[propertyId] = {
       id: state[propertyId].id,
       name: state[propertyId].name,
-      value: newValue
+      value: newValue,
     };
   }
 
@@ -57,49 +72,49 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
       return {
         a: {
           tag: 'value',
-          entity: getValue(treeRef.a.entity, state)
+          entity: getValue(treeRef.a.entity, state),
         },
         b: {
           tag: 'value',
-          entity: getValue(treeRef.b.entity, state)
+          entity: getValue(treeRef.b.entity, state),
         },
-        opsId: treeRef.opsId
+        opsId: treeRef.opsId,
       };
     } else if (treeRef.a.tag === 'prop' && treeRef.b.tag === 'ops') {
       return {
         a: {
           tag: 'value',
-          entity: getValue(treeRef.a.entity, state)
+          entity: getValue(treeRef.a.entity, state),
         },
         b: {
           tag: 'ops',
-          entity: mapVal(treeRef.b.entity)
+          entity: mapVal(treeRef.b.entity),
         },
-        opsId: treeRef.opsId
+        opsId: treeRef.opsId,
       };
     } else if (treeRef.a.tag === 'ops' && treeRef.b.tag === 'prop') {
       return {
         a: {
           tag: 'ops',
-          entity: mapVal(treeRef.a.entity)
+          entity: mapVal(treeRef.a.entity),
         },
         b: {
           tag: 'value',
-          entity: getValue(treeRef.b.entity, state)
+          entity: getValue(treeRef.b.entity, state),
         },
-        opsId: treeRef.opsId
+        opsId: treeRef.opsId,
       };
     } else if (treeRef.a.tag === 'ops' && treeRef.b.tag === 'ops') {
       return {
         a: {
           tag: 'ops',
-          entity: mapVal(treeRef.a.entity)
+          entity: mapVal(treeRef.a.entity),
         },
         b: {
           tag: 'ops',
-          entity: mapVal(treeRef.b.entity)
+          entity: mapVal(treeRef.b.entity),
         },
-        opsId: treeRef.opsId
+        opsId: treeRef.opsId,
       };
     } else {
       throw new Error();
@@ -114,48 +129,56 @@ export const InteractionAPI: IFInteractionAPI = {
       const nextState = getNextState(knot, state);
       const nextKnotId = getNextKnotId(knot, nextState);
       return [nextKnotId, nextState];
-    }
+    },
   },
   state: {
-    getTransform: ({ symbol }) => {
+    getTransformFn: ({ symbol }) => {
       switch (symbol) {
         case 'string':
-          return metaTString;
+          return metaTfString(false);
         case 'number':
-          return metaTNumber;
+          return metaTfNumber(false);
         case 'boolean': // TODO
-          return metaTNumber;
+          break;
         case 'array':
-          return metaTArray;
+          return metaTfArray(false);
         case 'random-number':
-          return metaTNumberRand;
+          return metaTfNumber(true);
         case 'random-string':
-          return metaTStringRand;
+          return metaTfString(true);
         case 'random-boolean': // TODO
-          return metaTNumberRand;
+          break;
         case 'random-array':
-          return metaTArrayRand;
+          return metaTfArray(true);
       }
     },
-    getProcess: ({ symbol }) => {
+    getBinaryFn: ({ symbol, elemType }) => {
       switch (symbol) {
         case 'string':
-          return metaPString;
+          return metaBfString(false);
         case 'number':
-          return metaPNumber;
+          return metaBfNumber(false);
         case 'boolean': // TODO
-          return metaPNumber;
-        case 'array': // TODO
-          return metaPArrayBoolean;
+          break;
+        case 'array': {
+          if(elemType === null) {
+            throw new Error();
+          }
+          return metaBfArray(false, elemType);
+        }
         case 'random-number':
-          return metaPNumberRand;
+          return metaBfNumber(true);
         case 'random-string':
-          return metaPStringRand;
+          return metaBfString(true);
         case 'random-boolean': // TODO
-          return metaPNumberRand;
-        case 'random-array':
-          return metaPArrayBoolean; // TODO
+          break;
+        case 'random-array': {
+          if(elemType === null) {
+            throw new Error();
+          }
+          return metaBfArray(true, elemType);
+        }
       }
     },
-  }
+  },
 };

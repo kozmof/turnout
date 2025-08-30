@@ -2,12 +2,12 @@ import { type NumberValue, type StringValue } from '../../value';
 import { type ToStringConversion, type ToNumberConversion } from '../convert';
 import { propageteRandom } from '../util/propagateRandom';
 
-export interface TransformString {
+export interface TransformFnString {
   pass: ToStringConversion<StringValue>;
   toNumber: ToNumberConversion<StringValue>;
 }
 
-export const tString: TransformString = {
+export const tString: TransformFnString = {
   pass: (val: StringValue): StringValue => {
     return val;
   },
@@ -20,10 +20,10 @@ export const tString: TransformString = {
   },
 };
 
-export type MetaTransformString = {
-  [K in keyof TransformString]: ReturnType<TransformString[K]>['symbol'];
+export type ReturnMetaTransformFnString = {
+  [K in keyof TransformFnString]: ReturnType<TransformFnString[K]>['symbol'];
 };
 
-export type ParamsMetaTransformString = {
-  [K in keyof TransformString]: [Parameters<TransformString[K]>[0]['symbol']];
+export type ParamsMetaTransformFnString = {
+  [K in keyof TransformFnString]: [Parameters<TransformFnString[K]>[0]['symbol']];
 };

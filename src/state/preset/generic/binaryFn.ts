@@ -3,11 +3,11 @@ import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
 import { propageteRandom } from '../util/propagateRandom';
 
-export interface BinaryFnGeneric<T extends AnyValue, U extends AnyValue> {
-  isEqual: ToBooleanProcess<T, U>;
+export interface BinaryFnGeneric<T extends AnyValue> {
+  isEqual: ToBooleanProcess<T, T>;
 }
 
-export const bfGeneric: BinaryFnGeneric<AnyValue, AnyValue> = {
+export const bfGeneric: BinaryFnGeneric<AnyValue> = {
   isEqual: (a: AnyValue, b: AnyValue): BooleanValue => {
     if (isComparable(a, b)) {
       return {
@@ -22,14 +22,14 @@ export const bfGeneric: BinaryFnGeneric<AnyValue, AnyValue> = {
 };
 
 export type ReturnMetaBinaryFnGeneric = {
-  [K in keyof BinaryFnGeneric<AnyValue, AnyValue>]: ReturnType<
-    BinaryFnGeneric<AnyValue, AnyValue>[K]
+  [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<
+    BinaryFnGeneric<AnyValue>[K]
   >['symbol'];
 };
 
 export type ParamsMetaBinaryFnGeneric = {
-  [K in keyof BinaryFnGeneric<AnyValue, AnyValue>]: [
-    Parameters<BinaryFnGeneric<AnyValue, AnyValue>[K]>[0]['symbol'],
-    Parameters<BinaryFnGeneric<AnyValue, AnyValue>[K]>[1]['symbol'],
+  [K in keyof BinaryFnGeneric<AnyValue>]: [
+    Parameters<BinaryFnGeneric<AnyValue>[K]>[0]['symbol'],
+    Parameters<BinaryFnGeneric<AnyValue>[K]>[1]['symbol'],
   ];
 };
