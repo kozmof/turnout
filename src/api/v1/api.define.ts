@@ -1,9 +1,9 @@
-import { type ReturnMetaTransformFnArray } from '../../state/preset/array/transform';
+import { type ReturnMetaTransformFnArray } from '../../state/preset/array/transformFn';
 import { type ReturnMetaBinaryFnArray } from '../../state/preset/array/binaryFn';
 import { type ReturnMetaBinaryFnGeneric } from '../../state/preset/generic/binaryFn';
-import { type ReturnMetaTransformFnNumber } from '../../state/preset/number/transform';
+import { type ReturnMetaTransformFnNumber } from '../../state/preset/number/transformFn';
 import { type ReturnMetaBinaryFnNumber } from '../../state/preset/number/binaryFn';
-import { type ReturnMetaTransformFnString } from '../../state/preset/string/transform';
+import { type ReturnMetaTransformFnString } from '../../state/preset/string/transformFn';
 import { type ReturnMetaBinaryFnString } from '../../state/preset/string/binaryFn';
 import {
   type DeterministicSymbol,
@@ -16,7 +16,7 @@ import {
   type PropertyState,
 } from '../../knot/property';
 import { type Box, type BoxId } from '../../box/box';
-import { ElemType } from '../../state/preset/util/getResultType';
+import { type ElemType } from '../../state/preset/util/getResultType';
 
 export interface IFKnotAPI {
   createEmptyKnot: () => Knot;

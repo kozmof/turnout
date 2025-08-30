@@ -7,7 +7,7 @@ export interface TransformFnString {
   toNumber: ToNumberConversion<StringValue>;
 }
 
-export const tString: TransformFnString = {
+export const tfString: TransformFnString = {
   pass: (val: StringValue): StringValue => {
     return val;
   },

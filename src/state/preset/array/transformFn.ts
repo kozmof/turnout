@@ -7,7 +7,7 @@ export interface TransformFnArray {
   length: ToNumberConversion<ArrayValue>;
 }
 
-export const tArray: TransformFnArray = {
+export const tfArray: TransformFnArray = {
   pass: (val: ArrayValue): ArrayValue => {
     return val;
   },

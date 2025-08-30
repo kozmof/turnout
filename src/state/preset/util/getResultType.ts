@@ -11,7 +11,7 @@ import {
 import {
   type ReturnMetaTransformFnArray,
   type TransformFnArray,
-} from '../array/transform';
+} from '../array/transformFn';
 import {
   type ReturnMetaBinaryFnArray,
   type BinaryFnArray,
@@ -23,7 +23,7 @@ import {
 import {
   type ReturnMetaTransformFnNumber,
   type TransformFnNumber,
-} from '../number/transform';
+} from '../number/transformFn';
 import {
   type ReturnMetaBinaryFnNumber,
   type BinaryFnNumber,
@@ -31,7 +31,7 @@ import {
 import {
   type ReturnMetaTransformFnString,
   type TransformFnString,
-} from '../string/transform';
+} from '../string/transformFn';
 import {
   type ReturnMetaBinaryFnString,
   type BinaryFnString,
