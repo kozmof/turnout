@@ -1,4 +1,4 @@
-import { type AnyValue, type BooleanValue } from '../../value';
+import { isArray, type AnyValue, type BooleanValue } from '../../value';
 import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
 import { propageteRandom } from '../util/propagateRandom';
@@ -12,7 +12,10 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
     if (isComparable(a, b)) {
       return {
         symbol: propageteRandom('boolean', a, b),
-        value: a.value === b.value, // TODO: Array case,
+        value:
+          isArray(a) && isArray(b)
+            ? JSON.stringify(a.value) === JSON.stringify(b.value)
+            : a.value === b.value,
         subSymbol: undefined,
       };
     } else {

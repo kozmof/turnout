@@ -25,5 +25,7 @@ export type ReturnMetaTransformFnNumber = {
 };
 
 export type ParamsMetaTransformFnNumber = {
-  [K in keyof TransformFnNumber]: [Parameters<TransformFnNumber[K]>[0]['symbol']];
+  [K in keyof TransformFnNumber]: [
+    Parameters<TransformFnNumber[K]>[0]['symbol'],
+  ];
 };

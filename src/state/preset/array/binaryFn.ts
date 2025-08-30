@@ -32,9 +32,7 @@ export const bfArray: BinaryFnArray = {
 };
 
 export type ReturnMetaBinaryFnArray = {
-  [K in keyof BinaryFnArray]: ReturnType<
-    BinaryFnArray[K]
-  >['symbol'];
+  [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>['symbol'];
 };
 
 export type ParamsMetaBinaryFnArray = {
