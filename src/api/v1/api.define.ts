@@ -15,7 +15,7 @@ import {
   type PropertyId,
   type PropertyState,
 } from '../../knot/property';
-import { type Box, type BoxId } from '../../box/box';
+import { type Hank, type HankId } from '../../hank/hank';
 import { type ElemType } from '../../state/preset/util/getResultType';
 
 export interface IFKnotAPI {
@@ -30,15 +30,15 @@ export interface IFKnotAPI {
   addKnotTo: (val: { knot: Knot; toId: KnotId }) => Knot;
   removeKnotTo: (val: { knot: Knot; toId: KnotId }) => Knot;
 
-  addBoxId: (val: { knot: Knot; boxId: BoxId }) => Box;
-  removeBoxId: (val: { knot: Knot; boxId: BoxId }) => Box;
+  addHankId: (val: { knot: Knot; hankId: HankId }) => Hank;
+  removeHankId: (val: { knot: Knot; hankId: HankId }) => Hank;
 }
 
 export interface IFBoxAPI {
-  createEmptyBox: () => Box;
+  createEmptyHank: () => Hank;
 
-  addKnotId: (val: { box: Box; knotId: KnotId }) => Box;
-  removeKnotId: (val: { box: Box; knotId: KnotId }) => Box;
+  addKnotId: (val: { hank: Hank; knotId: KnotId }) => Hank;
+  removeKnotId: (val: { hank: Hank; knotId: KnotId }) => Hank;
 }
 
 export interface IFPropertyAPI {
