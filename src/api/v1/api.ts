@@ -3,14 +3,8 @@ import { type AnyValue } from '../../state/value';
 import { type Knot, type CandidateIdMap, type KnotId } from '../../knot/knot';
 import { type PropertyId, type PropertyState } from '../../knot/property';
 import { type IFInteractionAPI } from './api.define';
-import {
-  metaBfArray,
-  metaBfNumber,
-  metaBfString,
-  metaTfArray,
-  metaTfNumber,
-  metaTfString,
-} from '../../state/preset/util/getResultType';
+import { getBinaryFn } from '../../state/meta-chain/binary-fn/getBinaryFn';
+import { getTransformFn } from '../../state/meta-chain/transform-fn/getTransformFn';
 
 function nextKnotId(value: AnyValue, candidateIdMap: CandidateIdMap): KnotId {
   const knotId = candidateIdMap[value.value.toString()];
@@ -132,53 +126,7 @@ export const InteractionAPI: IFInteractionAPI = {
     },
   },
   state: {
-    getTransformFn: ({ symbol }) => {
-      switch (symbol) {
-        case 'string':
-          return metaTfString(false);
-        case 'number':
-          return metaTfNumber(false);
-        case 'boolean': // TODO
-          break;
-        case 'array':
-          return metaTfArray(false);
-        case 'random-number':
-          return metaTfNumber(true);
-        case 'random-string':
-          return metaTfString(true);
-        case 'random-boolean': // TODO
-          break;
-        case 'random-array':
-          return metaTfArray(true);
-      }
-    },
-    getBinaryFn: ({ symbol, elemType }) => {
-      switch (symbol) {
-        case 'string':
-          return metaBfString(false);
-        case 'number':
-          return metaBfNumber(false);
-        case 'boolean': // TODO
-          break;
-        case 'array': {
-          if(elemType === null) {
-            throw new Error();
-          }
-          return metaBfArray(false, elemType);
-        }
-        case 'random-number':
-          return metaBfNumber(true);
-        case 'random-string':
-          return metaBfString(true);
-        case 'random-boolean': // TODO
-          break;
-        case 'random-array': {
-          if(elemType === null) {
-            throw new Error();
-          }
-          return metaBfArray(true, elemType);
-        }
-      }
-    },
+    getTransformFn,
+    getBinaryFn,
   },
 };
