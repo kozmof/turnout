@@ -1,47 +1,66 @@
+import { TOM } from '../../../util/tom';
 import { type ReturnMetaBinaryFnArray } from '../../preset/array/binaryFn';
+import { type ReturnMetaBinaryFnGeneric } from '../../preset/generic/binaryFn';
 import { type ReturnMetaBinaryFnNumber } from '../../preset/number/binaryFn';
 import { type ReturnMetaBinaryFnString } from '../../preset/string/binaryFn';
+import { deterministicSymbols, type DeterministicSymbol } from '../../value';
 import {
-  type DeterministicSymbol,
-  type NonDeterministicSymbol,
-} from '../../value';
-import { type ElemType } from '../types';
-import { metaBfArray, metaBfNumber, metaBfString } from './metaReturn';
+  metaBfGenericParams,
+  metaBfNumberParams,
+  metaBfStringParams,
+} from './metaParams';
 
-export const getBinaryFn = ({
-  symbol,
-  elemType,
-}: {
-  symbol: DeterministicSymbol | NonDeterministicSymbol;
-  elemType: ElemType | null;
-}):
-  | ReturnMetaBinaryFnNumber
-  | ReturnMetaBinaryFnString
-  | ReturnMetaBinaryFnArray => {
-  switch (symbol) {
-    case 'string':
-      return metaBfString(false);
-    case 'number':
-      return metaBfNumber(false);
-    case 'boolean': // TODO
-      throw new Error();
-    case 'array': {
-      if (elemType === null) {
-        throw new Error();
-      }
-      return metaBfArray(false, elemType);
-    }
-    case 'random-number':
-      return metaBfNumber(true);
-    case 'random-string':
-      return metaBfString(true);
-    case 'random-boolean': // TODO
-      throw new Error();
-    case 'random-array': {
-      if (elemType === null) {
-        throw new Error();
-      }
-      return metaBfArray(true, elemType);
+type Pattern = `${DeterministicSymbol}_${DeterministicSymbol}`;
+
+const seek = <T extends Record<string, [string, string]>>(
+  callBack: (fnName: keyof T) => void,
+  obj: T,
+  patterns: string[]
+): void => {
+  for (const [fnName, fnParams] of TOM.entries(obj)) {
+    if (patterns.includes(`${fnParams[0]}_${fnParams[1]}`)) {
+      callBack(fnName);
     }
   }
+};
+
+export const getBinaryFn = ({
+  paramType1,
+  paramType2,
+}: {
+  paramType1: DeterministicSymbol;
+  paramType2: DeterministicSymbol;
+}): Array<
+  | keyof ReturnMetaBinaryFnNumber
+  | keyof ReturnMetaBinaryFnString
+  | keyof ReturnMetaBinaryFnGeneric
+  | keyof ReturnMetaBinaryFnArray
+> => {
+  const pattern1: Pattern = `${paramType1}_${paramType2}`;
+  const pattern2: Pattern = `${paramType2}_${paramType1}`;
+  const patterns = [pattern1, pattern2];
+  const fns: Array<
+    | keyof ReturnMetaBinaryFnNumber
+    | keyof ReturnMetaBinaryFnString
+    | keyof ReturnMetaBinaryFnGeneric
+    | keyof ReturnMetaBinaryFnArray
+  > = [];
+
+  const paramGens = [
+    metaBfNumberParams(),
+    metaBfStringParams(),
+    ...deterministicSymbols.map((symbol) => metaBfGenericParams(symbol)),
+  ];
+
+  for (const paramGen of paramGens) {
+    seek(
+      (fnName) => {
+        fns.push(fnName);
+      },
+      paramGen,
+      patterns
+    );
+  }
+
+  return fns;
 };

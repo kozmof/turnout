@@ -16,7 +16,6 @@ import {
   type PropertyState,
 } from '../../knot/property';
 import { type Hank, type HankId } from '../../hank/hank';
-import { type ElemType } from '../../state/preset/util/getResultType';
 
 export interface IFKnotAPI {
   createEmptyKnot: () => Knot;
@@ -69,12 +68,13 @@ export interface IFInteractionAPI {
       | ReturnMetaTransformFnString
       | ReturnMetaTransformFnArray;
     getBinaryFn: (val: {
-      symbol: DeterministicSymbol | NonDeterministicSymbol;
-      elemType: ElemType | null;
-    }) =>
-      | ReturnMetaBinaryFnNumber
-      | ReturnMetaBinaryFnString
-      | ReturnMetaBinaryFnArray
-      | ReturnMetaBinaryFnGeneric;
+      paramType1: DeterministicSymbol;
+      paramType2: DeterministicSymbol;
+    }) => Array<
+      | keyof ReturnMetaBinaryFnNumber
+      | keyof ReturnMetaBinaryFnString
+      | keyof ReturnMetaBinaryFnArray
+      | keyof ReturnMetaBinaryFnGeneric
+    >;
   };
 }
