@@ -1,36 +1,26 @@
+import { TOM } from '../../../util/tom';
 import { type ReturnMetaTransformFnArray } from '../../preset/array/transformFn';
 import { type ReturnMetaTransformFnNumber } from '../../preset/number/transformFn';
 import { type ReturnMetaTransformFnString } from '../../preset/string/transformFn';
-import {
-  type DeterministicSymbol,
-  type NonDeterministicSymbol,
-} from '../../value';
+import { type DeterministicSymbol } from '../../value';
 import { metaTfArray, metaTfNumber, metaTfString } from './metaReturn';
 
 export const getTransformFn = ({
-  symbol,
+  paramType,
 }: {
-  symbol: DeterministicSymbol | NonDeterministicSymbol;
+  paramType: DeterministicSymbol;
 }):
-  | ReturnMetaTransformFnNumber
-  | ReturnMetaTransformFnString
-  | ReturnMetaTransformFnArray => {
-  switch (symbol) {
+  | Array<keyof ReturnMetaTransformFnNumber>
+  | Array<keyof ReturnMetaTransformFnString>
+  | Array<keyof ReturnMetaTransformFnArray> => {
+  switch (paramType) {
     case 'string':
-      return metaTfString(false);
+      return TOM.keys(metaTfString(false));
     case 'number':
-      return metaTfNumber(false);
+      return TOM.keys(metaTfNumber(false));
     case 'boolean': // TODO
       throw new Error();
     case 'array':
-      return metaTfArray(false);
-    case 'random-number':
-      return metaTfNumber(true);
-    case 'random-string':
-      return metaTfString(true);
-    case 'random-boolean': // TODO
-      throw new Error();
-    case 'random-array':
-      return metaTfArray(true);
+      return TOM.keys(metaTfArray(false));
   }
 };

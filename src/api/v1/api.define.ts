@@ -5,10 +5,7 @@ import { type ReturnMetaTransformFnNumber } from '../../state/preset/number/tran
 import { type ReturnMetaBinaryFnNumber } from '../../state/preset/number/binaryFn';
 import { type ReturnMetaTransformFnString } from '../../state/preset/string/transformFn';
 import { type ReturnMetaBinaryFnString } from '../../state/preset/string/binaryFn';
-import {
-  type DeterministicSymbol,
-  type NonDeterministicSymbol,
-} from '../../state/value';
+import { type DeterministicSymbol } from '../../state/value';
 import { type Knot, type KnotId, type KnotPayload } from '../../knot/knot';
 import {
   type Property,
@@ -62,11 +59,11 @@ export interface IFInteractionAPI {
   };
   state: {
     getTransformFn: (val: {
-      symbol: DeterministicSymbol | NonDeterministicSymbol;
+      paramType: DeterministicSymbol;
     }) =>
-      | ReturnMetaTransformFnNumber
-      | ReturnMetaTransformFnString
-      | ReturnMetaTransformFnArray;
+      | Array<keyof ReturnMetaTransformFnNumber>
+      | Array<keyof ReturnMetaTransformFnString>
+      | Array<keyof ReturnMetaTransformFnArray>;
     getBinaryFn: (val: {
       paramType1: DeterministicSymbol;
       paramType2: DeterministicSymbol;
