@@ -25,7 +25,7 @@ export function kvGet<T>(kv: KV<T>, keys: string[]): T | KV<T> | T[] | undefined
 export type IsValue<T> = (x: KV<T> | T | T[]) => x is T;
 
 export function kvUpdate<T>(kv: KV<T>, keys: string[], value: T | T[] | KV<T>, isValue: IsValue<T>, updateIffExits: boolean = false): KV<T> | undefined {
-  const partials: Array<KV<T> | T> = [{ ...kv }];
+  const partials: (KV<T> | T)[] = [{ ...kv }];
   let partial: KV<T> | T | T[] = { ...kv };
 
   for (const key of keys) {
@@ -72,11 +72,11 @@ type Flat<T> = {
 }
 
 export function makeFlat<T>(kv: KV<T>, isValue: IsValue<T>, scope: string[] = [], delimiter: string = ':'): Flat<T> {
-  const dig = (kv: KV<T>): Array<{
+  const dig = (kv: KV<T>): {
     flatKey: string;
     value: T;
-  }> => {
-    let flats: Array<{ flatKey: string, value: T }> = [];
+  }[] => {
+    let flats: { flatKey: string, value: T }[] = [];
     for (const key of Object.keys(kv)) {
       if (scope.length === 0 || scope.includes(key)) {
         const next = kv[key];

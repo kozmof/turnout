@@ -4,7 +4,7 @@ import { type ReturnMetaBinaryFnNumber } from '../number/binaryFn';
 import { type ReturnMetaBinaryFnArray } from '../array/binaryFn';
 
 test('test number', () => {
-  const input: { [K in keyof ReturnMetaBinaryFnNumber] : Array<ReturnMetaBinaryFnNumber[K]>} = {
+  const input: { [K in keyof ReturnMetaBinaryFnNumber] : ReturnMetaBinaryFnNumber[K][]} = {
     add: ['number'],
     minus: ['number'],
     multiply: ['number'],
@@ -21,7 +21,7 @@ test('test number', () => {
 });
 
 test('test array', () => {
-  const input: { [K in keyof ReturnMetaBinaryFnArray] : Array<ReturnMetaBinaryFnArray[K]>} = {
+  const input: { [K in keyof ReturnMetaBinaryFnArray] : ReturnMetaBinaryFnArray[K][]} = {
     includes: ['boolean'],
     get: ['boolean', 'number', 'string']
   };

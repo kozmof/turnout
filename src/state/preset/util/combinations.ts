@@ -1,15 +1,15 @@
 type Combinations<T> = T extends object
   ? {
-      [K in keyof T]: T[K] extends ReadonlyArray<infer V> ? V : never;
+      [K in keyof T]: T[K] extends readonly (infer V)[] ? V : never;
     }
   : never;
 
 export function generateCombinations<
   T extends Record<string, readonly unknown[]>,
->(input: T): Array<Combinations<T>> {
-  const keys = Object.keys(input) as Array<keyof T>;
+>(input: T): Combinations<T>[] {
+  const keys = Object.keys(input) as (keyof T)[];
 
-  const result: Array<Combinations<T>> = [];
+  const result: Combinations<T>[] = [];
 
   function gen(
     index: number,

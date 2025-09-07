@@ -6,6 +6,6 @@ import type { AnyValue } from '../state/value';
  * @returns 
  */
 export const pipe = <T extends AnyValue>
-  (...functions: Array<(val: T) => T>) =>
+  (...functions: ((val: T) => T)[]) =>
     (initialValue: T) =>
       functions.reduce((acc, fn) => fn(acc), initialValue);

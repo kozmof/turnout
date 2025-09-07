@@ -30,21 +30,17 @@ export const getBinaryFn = ({
 }: {
   paramType1: DeterministicSymbol;
   paramType2: DeterministicSymbol;
-}): Array<
-  | keyof ReturnMetaBinaryFnNumber
+}): (| keyof ReturnMetaBinaryFnNumber
   | keyof ReturnMetaBinaryFnString
   | keyof ReturnMetaBinaryFnGeneric
-  | keyof ReturnMetaBinaryFnArray
-> => {
+  | keyof ReturnMetaBinaryFnArray)[] => {
   const pattern1: Pattern = `${paramType1}_${paramType2}`;
   const pattern2: Pattern = `${paramType2}_${paramType1}`;
   const patterns = [pattern1, pattern2];
-  const fns: Array<
-    | keyof ReturnMetaBinaryFnNumber
+  const fns: (| keyof ReturnMetaBinaryFnNumber
     | keyof ReturnMetaBinaryFnString
     | keyof ReturnMetaBinaryFnGeneric
-    | keyof ReturnMetaBinaryFnArray
-  > = [];
+    | keyof ReturnMetaBinaryFnArray)[] = [];
 
   const paramGens = [
     metaBfNumberParams(),

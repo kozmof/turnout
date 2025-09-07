@@ -58,7 +58,7 @@ export function isOpsPkg(pkg: ValuePkg | OpsPkg): pkg is OpsPkg {
 }
 
 export function isRandomValue(a: AnyValue, b: AnyValue | null): boolean {
-  const symbols: Array<NonDeterministicSymbol | DeterministicSymbol> =
+  const symbols: (NonDeterministicSymbol | DeterministicSymbol)[] =
     nonDeterministicSymbols;
   if (b !== null) {
     return symbols.includes(a.symbol) || symbols.includes(b.symbol);

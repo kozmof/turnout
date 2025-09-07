@@ -10,9 +10,9 @@ export const getTransformFn = ({
 }: {
   paramType: DeterministicSymbol;
 }):
-  | Array<keyof ReturnMetaTransformFnNumber>
-  | Array<keyof ReturnMetaTransformFnString>
-  | Array<keyof ReturnMetaTransformFnArray> => {
+  | (keyof ReturnMetaTransformFnNumber)[]
+  | (keyof ReturnMetaTransformFnString)[]
+  | (keyof ReturnMetaTransformFnArray)[] => {
   switch (paramType) {
     case 'string':
       return TOM.keys(metaTfString(false));

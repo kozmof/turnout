@@ -7,7 +7,8 @@ import { getBinaryFn } from '../../state/meta-chain/binary-fn/getBinaryFn';
 import { getTransformFn } from '../../state/meta-chain/transform-fn/getTransformFn';
 
 function nextKnotId(value: AnyValue, candidateIdMap: CandidateIdMap): KnotId {
-  const knotId = candidateIdMap[value.value.toString()];
+  const rawValue = value.value;
+  const knotId = candidateIdMap[rawValue.toString()];
   if (knotId !== undefined) {
     return knotId;
   } else {
@@ -23,7 +24,7 @@ function getNextKnotId(knot: Knot, state: PropertyState): KnotId {
 
 const getObjectKeys = <T extends Record<string, unknown>>(
   obj: T
-): Array<keyof T> => {
+): (keyof T)[] => {
   return Object.keys(obj);
 };
 
@@ -119,7 +120,7 @@ function initTree(treeRef: OpsTreeRef, state: PropertyState): OpsTree {
 
 export const InteractionAPI: IFInteractionAPI = {
   knot: {
-    next: async ({ knot, state }) => {
+    next: ({ knot, state }) => {
       const nextState = getNextState(knot, state);
       const nextKnotId = getNextKnotId(knot, nextState);
       return [nextKnotId, nextState];

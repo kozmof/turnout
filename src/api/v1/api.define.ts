@@ -55,23 +55,23 @@ export interface IFInteractionAPI {
     next: (val: {
       knot: Knot;
       state: PropertyState;
-    }) => Promise<[KnotId, PropertyState]>;
+    }) => [KnotId, PropertyState];
   };
   state: {
     getTransformFn: (val: {
       paramType: DeterministicSymbol;
     }) =>
-      | Array<keyof ReturnMetaTransformFnNumber>
-      | Array<keyof ReturnMetaTransformFnString>
-      | Array<keyof ReturnMetaTransformFnArray>;
+      | (keyof ReturnMetaTransformFnNumber)[]
+      | (keyof ReturnMetaTransformFnString)[]
+      | (keyof ReturnMetaTransformFnArray)[];
     getBinaryFn: (val: {
       paramType1: DeterministicSymbol;
       paramType2: DeterministicSymbol;
-    }) => Array<
+    }) => (
       | keyof ReturnMetaBinaryFnNumber
       | keyof ReturnMetaBinaryFnString
       | keyof ReturnMetaBinaryFnArray
       | keyof ReturnMetaBinaryFnGeneric
-    >;
+    )[];
   };
 }
