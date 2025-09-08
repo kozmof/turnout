@@ -8,8 +8,7 @@ import eslintConfigPretteir from 'eslint-config-prettier';
 export default [
   js.configs.recommended,
   pluginPromise.configs['flat/recommended'],
-  ...tseslint.configs.recommended,
-  ...tseslint.configs.recommendedTypeChecked,
+  ...tseslint.configs.strictTypeChecked,
   {
     files: ['**/*.ts', '**/*.tsx'],
     languageOptions: {
@@ -36,10 +35,6 @@ export default [
       'no-unexpected-multiline': 'error',
       'no-unreachable': 'error',
       '@typescript-eslint/array-type': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'error',
-      '@typescript-eslint/no-unsafe-argument': 'error',
-      '@typescript-eslint/no-non-null-assertion': 'error',
-      '@typescript-eslint/no-extra-non-null-assertion': 'error',
       '@typescript-eslint/no-confusing-non-null-assertion': 'error',
       '@typescript-eslint/no-unsafe-type-assertion': 'error',
       quotes: ['error', 'single'],
@@ -47,7 +42,7 @@ export default [
     settings: {
       'import/resolver': {
         node: {
-          extensions: ['.js', '.jsx', '.ts', '.tsx'],
+          extensions: ['.ts', '.tsx'],
         },
         typescript: {
           alwaysTryTypes: true,
