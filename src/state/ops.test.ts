@@ -6,7 +6,7 @@ import { bfNumber } from './preset/number/binaryFn';
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test
 
 describe('[core function] calcAnyValue', () => {
-  describe('::basic test', () => {
+  describe('basic test', () => {
     test('Simple calculations [NML]️', () => {
       const opsCollection: OpsCollection = {
         1: {

@@ -34,7 +34,7 @@ describe('[core function] kvGet', () => {
 
 
 describe('[core function] kvUpdate', () => {
-  describe('::Use case of a primitive value type', () => {
+  describe('Use case of a primitive value type', () => {
     const isValue: IsValue<string> = (val): val is string => {
       return typeof val === 'string';
     };
@@ -185,7 +185,7 @@ describe('[core function] kvUpdate', () => {
     });
   });
 
-  describe('::Use case of an array type', () => {
+  describe('Use case of an array type', () => {
     test('Update an exisiting value [NML]️', () => {
       const isValue: IsValue<string[]> = (val): val is string[] => {
         return Array.isArray(val);
@@ -229,7 +229,7 @@ describe('[core function] kvUpdate', () => {
     });
   });
 
-  describe('::Use case of an object type', () => {
+  describe('Use case of an object type', () => {
     test('Update an existing value [NML]️', () => {
       const isValue: IsValue<{tag: string, isTested: boolean }> = (val): val is { tag: string, isTested: boolean } => {
         return 'tag' in val && val.tag === 'test';
