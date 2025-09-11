@@ -52,7 +52,7 @@ function getNextState(knot: Knot, state: PropertyState): PropertyState {
   return nextState;
 }
 
-function getValue(id: PropertyId, state: PropertyState): AnyValue {
+function getValue(id: PropertyId, state: Partial<PropertyState>): AnyValue {
   const prop = state[id];
   if (prop === undefined) {
     throw new Error();

@@ -3,6 +3,7 @@ import {
   type ArrayValue,
   type NonArrayValue,
   type NumberValue,
+  AnyValue,
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
 import { propageteRandom } from '../util/propagateRandom';
@@ -11,6 +12,10 @@ export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue, NonArrayValue>;
   get: ToItemtProcess<ArrayValue, NonArrayValue, NumberValue>;
 }
+
+const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
+  return !Array.isArray(val.value);
+};
 
 export const bfArray: BinaryFnArray = {
   includes: (a: ArrayValue, b: NonArrayValue): BooleanValue => {
@@ -23,8 +28,8 @@ export const bfArray: BinaryFnArray = {
   get: (a: ArrayValue, idx: NumberValue): NonArrayValue => {
     // TODO
     const item = a.value.at(idx.value);
-    if (item !== undefined) {
-      return item as NonArrayValue;
+    if (item !== undefined && isNonArrayValue(item)) {
+      return item;
     } else {
       throw new Error();
     }

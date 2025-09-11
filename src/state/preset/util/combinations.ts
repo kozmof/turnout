@@ -4,6 +4,14 @@ type Combinations<T> = T extends object
     }
   : never;
 
+const isCompleted = <T>(
+  current: Partial<Record<keyof T, unknown>>,
+  keys: (keyof T)[],
+  index: number
+): current is Combinations<T> => {
+  return index === keys.length;
+};
+
 export function generateCombinations<
   T extends Record<string, readonly unknown[]>,
 >(input: T): Combinations<T>[] {
@@ -15,8 +23,8 @@ export function generateCombinations<
     index: number,
     current: Partial<Record<keyof T, unknown>>
   ): void {
-    if (index === keys.length) {
-      result.push(current as Combinations<T>);
+    if (isCompleted(current, keys, index)) {
+      result.push(current);
       return;
     }
 
