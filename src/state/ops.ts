@@ -41,11 +41,11 @@ export interface OpsTreeRef {
 export type OpsCollection = {
   [opsId in string]: {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    transformA: (value: any) => unknown;
+    transformA: (value: any) => AnyValue;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    transformB: (value: any) => unknown;
+    transformB: (value: any) => AnyValue;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    process: (a: any, b: any) => unknown;
+    process: (a: any, b: any) => AnyValue;
   };
 };
 
@@ -71,7 +71,7 @@ export function calcAllOps(
   tree: OpsTree,
   opsCollection: OpsCollection
 ): AnyValue {
-  const dig = (tree: OpsTree): unknown => {
+  const dig = (tree: OpsTree): AnyValue => {
     const coll = opsCollection[tree.opsId];
     if (isValuePkg(tree.a) && isValuePkg(tree.b)) {
       return coll.process(
@@ -99,5 +99,5 @@ export function calcAllOps(
     }
   };
   const result = dig(tree);
-  return result as AnyValue;
+  return result;
 }
