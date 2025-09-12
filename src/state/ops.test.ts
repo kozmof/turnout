@@ -12,58 +12,58 @@ describe('[core function] calcAnyValue', () => {
         1: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.add
+          process: bfNumber.add,
         },
         2: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.multiply
+          process: bfNumber.multiply,
         },
         3: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.multiply
+          process: bfNumber.multiply,
         },
         4: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.add
+          process: bfNumber.add,
         },
         5: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.add
+          process: bfNumber.add,
         },
         6: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.minus
+          process: bfNumber.minus,
         },
         7: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.minus
+          process: bfNumber.minus,
         },
         8: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.minus
+          process: bfNumber.minus,
         },
         9: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.add
+          process: bfNumber.add,
         },
         10: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.add
+          process: bfNumber.add,
         },
         11: {
           transformA: tfNumber.pass,
           transformB: tfNumber.pass,
-          process: bfNumber.divide
-        }
+          process: bfNumber.divide,
+        },
       };
       const tree: OpsTree = {
         a: {
@@ -80,29 +80,29 @@ describe('[core function] calcAnyValue', () => {
                       entity: {
                         symbol: 'number',
                         value: 100,
-                        subSymbol: undefined
-                      }
+                        subSymbol: undefined,
+                      },
                     },
                     b: {
                       tag: 'value',
                       entity: {
                         symbol: 'number',
                         value: 200,
-                        subSymbol: undefined
+                        subSymbol: undefined,
                       },
                     },
-                    opsId: 1
-                  }
+                    opsId: 1,
+                  },
                 },
                 b: {
                   tag: 'value',
                   entity: {
                     symbol: 'number',
                     value: 300,
-                    subSymbol: undefined
+                    subSymbol: undefined,
                   },
                 },
-                opsId: 2
+                opsId: 2,
               },
             },
             b: {
@@ -116,18 +116,18 @@ describe('[core function] calcAnyValue', () => {
                       entity: {
                         symbol: 'number',
                         value: 400,
-                        subSymbol: undefined
-                      }
+                        subSymbol: undefined,
+                      },
                     },
                     b: {
                       tag: 'value',
                       entity: {
                         symbol: 'number',
                         value: 500,
-                        subSymbol: undefined
-                      }
+                        subSymbol: undefined,
+                      },
                     },
-                    opsId: 3
+                    opsId: 3,
                   },
                 },
                 b: {
@@ -144,19 +144,19 @@ describe('[core function] calcAnyValue', () => {
                               entity: {
                                 symbol: 'number',
                                 value: 400,
-                                subSymbol: undefined
-                              }
+                                subSymbol: undefined,
+                              },
                             },
                             b: {
                               tag: 'value',
                               entity: {
                                 symbol: 'number',
                                 value: 500,
-                                subSymbol: undefined
-                              }
+                                subSymbol: undefined,
+                              },
                             },
-                            opsId: 4
-                          }
+                            opsId: 4,
+                          },
                         },
                         b: {
                           tag: 'ops',
@@ -166,22 +166,22 @@ describe('[core function] calcAnyValue', () => {
                               entity: {
                                 symbol: 'number',
                                 value: 500,
-                                subSymbol: undefined
-                              }
+                                subSymbol: undefined,
+                              },
                             },
                             b: {
                               tag: 'value',
                               entity: {
                                 symbol: 'number',
                                 value: 600,
-                                subSymbol: undefined
-                              }
+                                subSymbol: undefined,
+                              },
                             },
-                            opsId: 5
-                          }
+                            opsId: 5,
+                          },
                         },
-                        opsId: 6
-                      }
+                        opsId: 6,
+                      },
                     },
                     b: {
                       tag: 'ops',
@@ -191,27 +191,27 @@ describe('[core function] calcAnyValue', () => {
                           entity: {
                             symbol: 'number',
                             value: 700,
-                            subSymbol: undefined
-                          }
+                            subSymbol: undefined,
+                          },
                         },
                         b: {
                           tag: 'value',
                           entity: {
                             symbol: 'number',
                             value: 800,
-                            subSymbol: undefined
-                          }
+                            subSymbol: undefined,
+                          },
                         },
-                        opsId: 7
-                      }
+                        opsId: 7,
+                      },
                     },
-                    opsId: 8
+                    opsId: 8,
                   },
                 },
-                opsId: 9
+                opsId: 9,
               },
             },
-            opsId: 10
+            opsId: 10,
           },
         },
         b: {
@@ -219,13 +219,15 @@ describe('[core function] calcAnyValue', () => {
           entity: {
             symbol: 'number',
             value: 100,
-            subSymbol: undefined
-          }
+            subSymbol: undefined,
+          },
         },
-        opsId: 11
+        opsId: 11,
       };
       expect(calcAllOps(tree, opsCollection).value).toEqual(
-        (((100 + 200) * 300) + ((400 * 500) + (((400 + 500) - (500 + 600)) - (700 - 800)))) / 100
+        ((100 + 200) * 300 +
+          (400 * 500 + (400 + 500 - (500 + 600) - (700 - 800)))) /
+          100
       );
     });
   });
