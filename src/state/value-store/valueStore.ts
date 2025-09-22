@@ -12,7 +12,7 @@ export const createValueStore = (
     return key in store ? store[key].value : null;
   };
 
-  const geStatus = (key: string) => {
+  const getStatus = (key: string) => {
     return key in store ? store[key].status : null;
   };
 
@@ -41,7 +41,7 @@ export const createValueStore = (
 
   return {
     getValue,
-    geStatus,
+    getStatus,
     updateValue,
     getEditableKeys,
     getUneditableKeys,

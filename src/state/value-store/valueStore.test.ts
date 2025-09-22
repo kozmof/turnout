@@ -22,13 +22,13 @@ describe('basic test', () => {
   });
 
   test('getStatus', () => {
-    const { geStatus } = createValueStore({
+    const { getStatus } = createValueStore({
       key1: {
         value: { symbol: 'number', subSymbol: undefined, value: 100 },
         status: 'uneditable',
       },
     });
-    expect(geStatus('key1')).toBe('uneditable');
+    expect(getStatus('key1')).toBe('uneditable');
   });
 
   test('updateValue', () => {
