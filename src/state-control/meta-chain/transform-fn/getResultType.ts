@@ -1,15 +1,15 @@
 import {
   type ReturnMetaTransformFnArray,
   type TransformFnArray,
-} from '../../preset/array/transformFn';
+} from '../../preset-funcs/array/transformFn';
 import {
   type ReturnMetaTransformFnNumber,
   type TransformFnNumber,
-} from '../../preset/number/transformFn';
+} from '../../preset-funcs/number/transformFn';
 import {
   type ReturnMetaTransformFnString,
   type TransformFnString,
-} from '../../preset/string/transformFn';
+} from '../../preset-funcs/string/transformFn';
 import { metaTfArray, metaTfNumber, metaTfString } from './metaReturn';
 
 export const getResultTransformFnType = {

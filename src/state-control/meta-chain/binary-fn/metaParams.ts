@@ -1,6 +1,6 @@
-import { type ParamsMetaBinaryFnGeneric } from '../../preset/generic/binaryFn';
-import { type ParamsMetaBinaryFnNumber } from '../../preset/number/binaryFn';
-import { type ParamsMetaBinaryFnString } from '../../preset/string/binaryFn';
+import { type ParamsMetaBinaryFnGeneric } from '../../preset-funcs/generic/binaryFn';
+import { type ParamsMetaBinaryFnNumber } from '../../preset-funcs/number/binaryFn';
+import { type ParamsMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
 import {
   type DeterministicSymbol,
   type NonDeterministicSymbol,

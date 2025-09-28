@@ -1,8 +1,8 @@
 import { type AnyValue } from '../../value';
-import { type BinaryFnArray } from '../../preset/array/binaryFn';
-import { type BinaryFnGeneric } from '../../preset/generic/binaryFn';
-import { type BinaryFnNumber } from '../../preset/number/binaryFn';
-import { type BinaryFnString } from '../../preset/string/binaryFn';
+import { type BinaryFnArray } from '../../preset-funcs/array/binaryFn';
+import { type BinaryFnGeneric } from '../../preset-funcs/generic/binaryFn';
+import { type BinaryFnNumber } from '../../preset-funcs/number/binaryFn';
+import { type BinaryFnString } from '../../preset-funcs/string/binaryFn';
 import { type ElemType } from '../types';
 import {
   metaBfArray,

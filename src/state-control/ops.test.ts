@@ -1,7 +1,7 @@
 import { expect, test, describe } from 'vitest';
 import { type OpsTree, type OpsCollection, calcAllOps } from './ops';
-import { tfNumber } from './preset/number/transformFn';
-import { bfNumber } from './preset/number/binaryFn';
+import { tfNumber } from './preset-funcs/number/transformFn';
+import { bfNumber } from './preset-funcs/number/binaryFn';
 
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test
 

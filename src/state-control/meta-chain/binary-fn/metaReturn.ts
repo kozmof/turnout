@@ -1,7 +1,7 @@
-import { type ReturnMetaBinaryFnArray } from '../../preset/array/binaryFn';
-import { type ReturnMetaBinaryFnGeneric } from '../../preset/generic/binaryFn';
-import { type ReturnMetaBinaryFnNumber } from '../../preset/number/binaryFn';
-import { type ReturnMetaBinaryFnString } from '../../preset/string/binaryFn';
+import { type ReturnMetaBinaryFnArray } from '../../preset-funcs/array/binaryFn';
+import { type ReturnMetaBinaryFnGeneric } from '../../preset-funcs/generic/binaryFn';
+import { type ReturnMetaBinaryFnNumber } from '../../preset-funcs/number/binaryFn';
+import { type ReturnMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
 import { NonDeterministicSymbol } from '../../value';
 import { type ElemType } from '../types';
 

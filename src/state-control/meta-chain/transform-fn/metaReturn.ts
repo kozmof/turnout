@@ -1,6 +1,6 @@
-import { type ReturnMetaTransformFnArray } from '../../preset/array/transformFn';
-import { type ReturnMetaTransformFnNumber } from '../../preset/number/transformFn';
-import { type ReturnMetaTransformFnString } from '../../preset/string/transformFn';
+import { type ReturnMetaTransformFnArray } from '../../preset-funcs/array/transformFn';
+import { type ReturnMetaTransformFnNumber } from '../../preset-funcs/number/transformFn';
+import { type ReturnMetaTransformFnString } from '../../preset-funcs/string/transformFn';
 import { NonDeterministicSymbol } from '../../value';
 
 type RemoveRandomFromReturn<T> = {
