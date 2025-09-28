@@ -40,6 +40,10 @@ export const bfNumber: BinaryFnNumber = {
   },
 };
 
+type BinaryFnNumberNameSpace = 'binaryFnNumber';
+export type BinaryFnNumberNames =
+  `${BinaryFnNumberNameSpace}::${keyof typeof bfNumber}`;
+
 export type ReturnMetaBinaryFnNumber = {
   [K in keyof BinaryFnNumber]: ReturnType<BinaryFnNumber[K]>['symbol'];
 };

@@ -36,6 +36,10 @@ export const bfArray: BinaryFnArray = {
   },
 };
 
+type BinaryFnArrayNameSpace = 'binaryFnArray';
+export type BinaryFnArrayNames =
+  `${BinaryFnArrayNameSpace}::${keyof typeof bfArray}`;
+
 export type ReturnMetaBinaryFnArray = {
   [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>['symbol'];
 };

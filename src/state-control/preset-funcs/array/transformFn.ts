@@ -20,6 +20,10 @@ export const tfArray: TransformFnArray = {
   },
 };
 
+type TransformFnArrayNameSpace = 'transformFnArray';
+export type TransformFnArrayNames =
+  `${TransformFnArrayNameSpace}::${keyof typeof tfArray}`;
+
 export type ReturnMetaTransformFnArray = {
   [K in keyof TransformFnArray]: ReturnType<TransformFnArray[K]>['symbol'];
 };

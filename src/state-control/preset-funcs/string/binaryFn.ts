@@ -16,6 +16,10 @@ export const bfString: BinaryFnString = {
   },
 };
 
+type BinaryFnStringNameSpace = 'binaryFnString';
+export type BinaryFnStringNames =
+  `${BinaryFnStringNameSpace}::${keyof typeof bfString}`;
+
 export type ReturnMetaBinaryFnString = {
   [K in keyof BinaryFnString]: ReturnType<BinaryFnString[K]>['symbol'];
 };

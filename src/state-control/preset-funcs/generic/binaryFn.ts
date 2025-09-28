@@ -24,6 +24,10 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
   },
 };
 
+type BinaryFnGenericNameSpace = 'binaryFnGeneric';
+export type BinaryFnGenericNames =
+  `${BinaryFnGenericNameSpace}::${keyof typeof bfGeneric}`;
+
 export type ReturnMetaBinaryFnGeneric = {
   [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<
     BinaryFnGeneric<AnyValue>[K]

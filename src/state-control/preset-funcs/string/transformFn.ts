@@ -20,10 +20,16 @@ export const tfString: TransformFnString = {
   },
 };
 
+type TransformFnStringNameSpace = 'transformFnString';
+export type TransformFnStringNames =
+  `${TransformFnStringNameSpace}::${keyof typeof tfString}`;
+
 export type ReturnMetaTransformFnString = {
   [K in keyof TransformFnString]: ReturnType<TransformFnString[K]>['symbol'];
 };
 
 export type ParamsMetaTransformFnString = {
-  [K in keyof TransformFnString]: [Parameters<TransformFnString[K]>[0]['symbol']];
+  [K in keyof TransformFnString]: [
+    Parameters<TransformFnString[K]>[0]['symbol'],
+  ];
 };

@@ -20,6 +20,10 @@ export const tfNumber: TransformFnNumber = {
   },
 };
 
+type TransformFnNumberNameSpace = 'transformFnNumber';
+export type TransformFnNumberNames =
+  `${TransformFnNumberNameSpace}::${keyof typeof tfNumber}`;
+
 export type ReturnMetaTransformFnNumber = {
   [K in keyof TransformFnNumber]: ReturnType<TransformFnNumber[K]>['symbol'];
 };
