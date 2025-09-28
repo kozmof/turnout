@@ -20,9 +20,13 @@ type TransformFnNames =
 
 type FuncInterface = { name: string; type: AnyValue };
 
+export type EchoFnType = 'echo';
+export type SinkFnType = 'sink';
+
 export type EchoFunc = {
   name: BinaryFnNames;
-  transform: {
+  type: EchoFnType;
+  transformFn: {
     a: { name: TransformFnNames };
     b: { name: TransformFnNames };
   };
@@ -30,11 +34,12 @@ export type EchoFunc = {
     a: FuncInterface | EchoFunc;
     b: FuncInterface | EchoFunc;
   };
-  return: { name: string | null; type: AnyValue };
+  return: { name: string; type: AnyValue };
 };
 
 export type SinkFunc = {
   name: string;
+  tyep: SinkFnType;
   steps: (SinkFunc | EchoFunc)[];
   args: FuncInterface[];
   return: { name: string | null; type: AnyValue };
