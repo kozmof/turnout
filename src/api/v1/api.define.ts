@@ -1,11 +1,11 @@
-import { type ReturnMetaTransformFnArray } from '../../state/preset/array/transformFn';
-import { type ReturnMetaBinaryFnArray } from '../../state/preset/array/binaryFn';
-import { type ReturnMetaBinaryFnGeneric } from '../../state/preset/generic/binaryFn';
-import { type ReturnMetaTransformFnNumber } from '../../state/preset/number/transformFn';
-import { type ReturnMetaBinaryFnNumber } from '../../state/preset/number/binaryFn';
-import { type ReturnMetaTransformFnString } from '../../state/preset/string/transformFn';
-import { type ReturnMetaBinaryFnString } from '../../state/preset/string/binaryFn';
-import { type DeterministicSymbol } from '../../state/value';
+import { type ReturnMetaTransformFnArray } from '../../state-control/preset/array/transformFn';
+import { type ReturnMetaBinaryFnArray } from '../../state-control/preset/array/binaryFn';
+import { type ReturnMetaBinaryFnGeneric } from '../../state-control/preset/generic/binaryFn';
+import { type ReturnMetaTransformFnNumber } from '../../state-control/preset/number/transformFn';
+import { type ReturnMetaBinaryFnNumber } from '../../state-control/preset/number/binaryFn';
+import { type ReturnMetaTransformFnString } from '../../state-control/preset/string/transformFn';
+import { type ReturnMetaBinaryFnString } from '../../state-control/preset/string/binaryFn';
+import { type DeterministicSymbol } from '../../state-control/value';
 import { type Knot, type KnotId, type KnotPayload } from '../../knot/knot';
 import {
   type Property,

@@ -1,4 +1,4 @@
-import { type AnyValue } from '../state/value';
+import { type AnyValue } from '../state-control/value';
 import { type Brand } from '../util/brand';
 
 export type PropertyId = Brand<number, 'property'>

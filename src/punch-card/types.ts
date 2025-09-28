@@ -1,4 +1,4 @@
-import { AnyValue } from '../state/value';
+import { AnyValue } from '../state-control/value';
 
 export type EchoFunc = {
   name: string;

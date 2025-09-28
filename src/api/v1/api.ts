@@ -1,10 +1,10 @@
-import { type OpsTreeRef, type OpsTree, calcAllOps } from '../../state/ops';
-import { type AnyValue } from '../../state/value';
+import { type OpsTreeRef, type OpsTree, calcAllOps } from '../../state-control/ops';
+import { type AnyValue } from '../../state-control/value';
 import { type Knot, type CandidateIdMap, type KnotId } from '../../knot/knot';
 import { type PropertyId, type PropertyState } from '../../knot/property';
 import { type IFInteractionAPI } from './api.define';
-import { getBinaryFn } from '../../state/meta-chain/binary-fn/getBinaryFn';
-import { getTransformFn } from '../../state/meta-chain/transform-fn/getTransformFn';
+import { getBinaryFn } from '../../state-control/meta-chain/binary-fn/getBinaryFn';
+import { getTransformFn } from '../../state-control/meta-chain/transform-fn/getTransformFn';
 
 function nextKnotId(value: AnyValue, candidateIdMap: CandidateIdMap): KnotId {
   const rawValue = value.value;

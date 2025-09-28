@@ -1,4 +1,4 @@
-import { type OpsCollection, type OpsTreeRef } from '../state/ops';
+import { type OpsCollection, type OpsTreeRef } from '../state-control/ops';
 import { type HankId } from '../hank/hank';
 import { type Brand } from '../util/brand';
 import { type PropertyId } from './property';
