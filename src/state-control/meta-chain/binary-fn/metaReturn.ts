@@ -2,41 +2,47 @@ import { type ReturnMetaBinaryFnArray } from '../../preset/array/binaryFn';
 import { type ReturnMetaBinaryFnGeneric } from '../../preset/generic/binaryFn';
 import { type ReturnMetaBinaryFnNumber } from '../../preset/number/binaryFn';
 import { type ReturnMetaBinaryFnString } from '../../preset/string/binaryFn';
-import {
-  booleanType,
-  type ElemType,
-  numberType,
-  someType,
-  stringType,
-} from '../types';
+import { NonDeterministicSymbol } from '../../value';
+import { type ElemType } from '../types';
 
-export const metaBfNumber = (isRandom: boolean): ReturnMetaBinaryFnNumber => {
+type RemoveRandomFromReturn<T> = {
+  [K in keyof T]: T[K] extends infer U
+    ? Exclude<U, NonDeterministicSymbol>
+    : never;
+};
+
+export type ReturnTypeBinaryFnNumber =
+  RemoveRandomFromReturn<ReturnMetaBinaryFnNumber>;
+export type ReturnTypeBinaryFnString =
+  RemoveRandomFromReturn<ReturnMetaBinaryFnString>;
+export type ReturnTypeBinaryFnArray = RemoveRandomFromReturn<ReturnMetaBinaryFnArray>;
+export type ReturnTypeBinaryFnGeneric =
+  RemoveRandomFromReturn<ReturnMetaBinaryFnGeneric>;
+
+export const metaBfNumber = (): ReturnTypeBinaryFnNumber => {
   return {
-    add: numberType(isRandom),
-    minus: numberType(isRandom),
-    multiply: numberType(isRandom),
-    divide: numberType(isRandom),
+    add: 'number',
+    minus: 'number',
+    multiply: 'number',
+    divide: 'number',
   };
 };
 
-export const metaBfString = (isRandom: boolean): ReturnMetaBinaryFnString => {
+export const metaBfString = (): ReturnTypeBinaryFnString => {
   return {
-    concat: stringType(isRandom),
+    concat: 'string',
   };
 };
 
-export const metaBfArray = (
-  isRandom: boolean,
-  elemType: ElemType
-): ReturnMetaBinaryFnArray => {
+export const metaBfArray = (elemType: ElemType): ReturnTypeBinaryFnArray => {
   return {
-    includes: booleanType(isRandom),
-    get: someType(isRandom, elemType),
+    includes: 'boolean',
+    get: elemType,
   };
 };
 
-export const metaBfGeneric = (isRandom: boolean): ReturnMetaBinaryFnGeneric => {
+export const metaBfGeneric = (): ReturnTypeBinaryFnGeneric => {
   return {
-    isEqual: booleanType(isRandom),
+    isEqual: 'boolean',
   };
 };

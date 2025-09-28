@@ -14,21 +14,18 @@ import { metaTfArray, metaTfNumber, metaTfString } from './metaReturn';
 
 export const getResultTransformFnType = {
   tfNumber: (
-    fnName: keyof TransformFnNumber,
-    isRandom: boolean
+    fnName: keyof TransformFnNumber
   ): ReturnMetaTransformFnNumber[keyof TransformFnNumber] => {
-    return metaTfNumber(isRandom)[fnName];
+    return metaTfNumber()[fnName];
   },
   tfString: (
-    fnName: keyof TransformFnString,
-    isRandom: boolean
+    fnName: keyof TransformFnString
   ): ReturnMetaTransformFnString[keyof TransformFnString] => {
-    return metaTfString(isRandom)[fnName];
+    return metaTfString()[fnName];
   },
   tfArray: (
-    fnName: keyof TransformFnArray,
-    isRandom: boolean
+    fnName: keyof TransformFnArray
   ): ReturnMetaTransformFnArray[keyof TransformFnArray] => {
-    return metaTfArray(isRandom)[fnName];
+    return metaTfArray()[fnName];
   },
 };

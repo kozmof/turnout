@@ -1,29 +1,38 @@
 import { type ReturnMetaTransformFnArray } from '../../preset/array/transformFn';
 import { type ReturnMetaTransformFnNumber } from '../../preset/number/transformFn';
 import { type ReturnMetaTransformFnString } from '../../preset/string/transformFn';
-import { arrayType, numberType, stringType } from '../types';
+import { NonDeterministicSymbol } from '../../value';
 
-export const metaTfNumber = (
-  isRandom: boolean
-): ReturnMetaTransformFnNumber => {
+type RemoveRandomFromReturn<T> = {
+  [K in keyof T]: T[K] extends infer U
+    ? Exclude<U, NonDeterministicSymbol>
+    : never;
+};
+
+type ReturnTypeTransformFnNumber =
+  RemoveRandomFromReturn<ReturnMetaTransformFnNumber>;
+type ReturnTypeTransformFnString =
+  RemoveRandomFromReturn<ReturnMetaTransformFnString>;
+type ReturnTypeTransformFnArray =
+  RemoveRandomFromReturn<ReturnMetaTransformFnArray>;
+
+export const metaTfNumber = (): ReturnTypeTransformFnNumber => {
   return {
-    pass: numberType(isRandom),
-    toStr: stringType(isRandom),
+    pass: 'number',
+    toStr: 'string',
   };
 };
 
-export const metaTfString = (
-  isRandom: boolean
-): ReturnMetaTransformFnString => {
+export const metaTfString = (): ReturnTypeTransformFnString => {
   return {
-    pass: stringType(isRandom),
-    toNumber: numberType(isRandom),
+    pass: 'string',
+    toNumber: 'number',
   };
 };
 
-export const metaTfArray = (isRandom: boolean): ReturnMetaTransformFnArray => {
+export const metaTfArray = (): ReturnTypeTransformFnArray => {
   return {
-    pass: arrayType(isRandom),
-    length: numberType(isRandom),
+    pass: 'array',
+    length: 'number',
   };
 };

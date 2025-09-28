@@ -1,52 +1,40 @@
 import { type AnyValue } from '../../value';
-import {
-  type ReturnMetaBinaryFnArray,
-  type BinaryFnArray,
-} from '../../preset/array/binaryFn';
-import {
-  type ReturnMetaBinaryFnGeneric,
-  type BinaryFnGeneric,
-} from '../../preset/generic/binaryFn';
-import {
-  type ReturnMetaBinaryFnNumber,
-  type BinaryFnNumber,
-} from '../../preset/number/binaryFn';
-import {
-  type ReturnMetaBinaryFnString,
-  type BinaryFnString,
-} from '../../preset/string/binaryFn';
+import { type BinaryFnArray } from '../../preset/array/binaryFn';
+import { type BinaryFnGeneric } from '../../preset/generic/binaryFn';
+import { type BinaryFnNumber } from '../../preset/number/binaryFn';
+import { type BinaryFnString } from '../../preset/string/binaryFn';
 import { type ElemType } from '../types';
 import {
   metaBfArray,
   metaBfGeneric,
   metaBfNumber,
   metaBfString,
+  ReturnTypeBinaryFnArray,
+  ReturnTypeBinaryFnGeneric,
+  ReturnTypeBinaryFnNumber,
+  ReturnTypeBinaryFnString,
 } from './metaReturn';
 
 export const getResultBinaryFnType = {
   bfNumber: (
-    fnName: keyof BinaryFnNumber,
-    isRandom: boolean
-  ): ReturnMetaBinaryFnNumber[keyof BinaryFnNumber] => {
-    return metaBfNumber(isRandom)[fnName];
+    fnName: keyof BinaryFnNumber
+  ): ReturnTypeBinaryFnNumber[keyof BinaryFnNumber] => {
+    return metaBfNumber()[fnName];
   },
   bfString: (
-    fnName: keyof BinaryFnString,
-    isRandom: boolean
-  ): ReturnMetaBinaryFnString[keyof BinaryFnString] => {
-    return metaBfString(isRandom)[fnName];
+    fnName: keyof BinaryFnString
+  ): ReturnTypeBinaryFnString[keyof BinaryFnString] => {
+    return metaBfString()[fnName];
   },
   bfGeneric: (
-    fnName: keyof BinaryFnGeneric<AnyValue>,
-    isRandom: boolean
-  ): ReturnMetaBinaryFnGeneric[keyof BinaryFnGeneric<AnyValue>] => {
-    return metaBfGeneric(isRandom)[fnName];
+    fnName: keyof BinaryFnGeneric<AnyValue>
+  ): ReturnTypeBinaryFnGeneric[keyof BinaryFnGeneric<AnyValue>] => {
+    return metaBfGeneric()[fnName];
   },
   bfArray: (
     fnName: keyof BinaryFnArray,
-    elemType: ElemType,
-    isRandom: boolean
-  ): ReturnMetaBinaryFnArray[keyof BinaryFnArray] => {
-    return metaBfArray(isRandom, elemType)[fnName];
+    elemType: ElemType
+  ): ReturnTypeBinaryFnArray[keyof BinaryFnArray] => {
+    return metaBfArray(elemType)[fnName];
   },
 };

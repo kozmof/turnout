@@ -15,12 +15,12 @@ export const getTransformFn = ({
   | (keyof ReturnMetaTransformFnArray)[] => {
   switch (paramType) {
     case 'string':
-      return TOM.keys(metaTfString(false));
+      return TOM.keys(metaTfString());
     case 'number':
-      return TOM.keys(metaTfNumber(false));
+      return TOM.keys(metaTfNumber());
     case 'boolean': // TODO
       throw new Error();
     case 'array':
-      return TOM.keys(metaTfArray(false));
+      return TOM.keys(metaTfArray());
   }
 };

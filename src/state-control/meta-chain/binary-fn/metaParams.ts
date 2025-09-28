@@ -12,26 +12,31 @@ type RemoveRandomFromParams<T> = {
     : never;
 };
 
-export const metaBfNumberParams =
-  (): RemoveRandomFromParams<ParamsMetaBinaryFnNumber> => {
-    return {
-      add: ['number', 'number'],
-      minus: ['number', 'number'],
-      multiply: ['number', 'number'],
-      divide: ['number', 'number'],
-    };
-  };
+type ParamTypesBinaryFnNumber =
+  RemoveRandomFromParams<ParamsMetaBinaryFnNumber>;
+type ParamTypesBinaryFnString =
+  RemoveRandomFromParams<ParamsMetaBinaryFnString>;
+type ParamTypesBinaryFnGeneric =
+  RemoveRandomFromParams<ParamsMetaBinaryFnGeneric>;
 
-export const metaBfStringParams =
-  (): RemoveRandomFromParams<ParamsMetaBinaryFnString> => {
-    return {
-      concat: ['string', 'string'],
-    };
+export const metaBfNumberParams = (): ParamTypesBinaryFnNumber => {
+  return {
+    add: ['number', 'number'],
+    minus: ['number', 'number'],
+    multiply: ['number', 'number'],
+    divide: ['number', 'number'],
   };
+};
+
+export const metaBfStringParams = (): ParamTypesBinaryFnString => {
+  return {
+    concat: ['string', 'string'],
+  };
+};
 
 export const metaBfGenericParams = (
   symbol: DeterministicSymbol
-): RemoveRandomFromParams<ParamsMetaBinaryFnGeneric> => {
+): ParamTypesBinaryFnGeneric => {
   return {
     isEqual: [symbol, symbol],
   };
