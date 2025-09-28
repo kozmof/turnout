@@ -39,7 +39,7 @@ export type EchoFunc = {
 
 export type SinkFunc = {
   name: string;
-  tyep: SinkFnType;
+  type: SinkFnType;
   steps: (SinkFunc | EchoFunc)[];
   args: FuncInterface[];
   return: { name: string | null; type: AnyValue };
