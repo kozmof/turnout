@@ -38,9 +38,9 @@ export const bfNumber: BinaryFnNumber = {
       subSymbol: undefined,
     };
   },
-};
+} as const;
 
-type BinaryFnNumberNameSpace = 'binaryFnNumber';
+export type BinaryFnNumberNameSpace = 'binaryFnNumber';
 export type BinaryFnNumberNames =
   `${BinaryFnNumberNameSpace}::${keyof typeof bfNumber}`;
 

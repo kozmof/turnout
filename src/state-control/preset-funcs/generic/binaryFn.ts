@@ -22,9 +22,9 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
       throw new Error();
     }
   },
-};
+} as const;
 
-type BinaryFnGenericNameSpace = 'binaryFnGeneric';
+export type BinaryFnGenericNameSpace = 'binaryFnGeneric';
 export type BinaryFnGenericNames =
   `${BinaryFnGenericNameSpace}::${keyof typeof bfGeneric}`;
 

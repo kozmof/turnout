@@ -18,9 +18,9 @@ export const tfNumber: TransformFnNumber = {
       subSymbol: undefined,
     };
   },
-};
+} as const;
 
-type TransformFnNumberNameSpace = 'transformFnNumber';
+export type TransformFnNumberNameSpace = 'transformFnNumber';
 export type TransformFnNumberNames =
   `${TransformFnNumberNameSpace}::${keyof typeof tfNumber}`;
 

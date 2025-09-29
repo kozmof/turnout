@@ -14,9 +14,9 @@ export const bfString: BinaryFnString = {
       subSymbol: undefined,
     };
   },
-};
+} as const;
 
-type BinaryFnStringNameSpace = 'binaryFnString';
+export type BinaryFnStringNameSpace = 'binaryFnString';
 export type BinaryFnStringNames =
   `${BinaryFnStringNameSpace}::${keyof typeof bfString}`;
 

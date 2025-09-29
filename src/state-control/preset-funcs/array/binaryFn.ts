@@ -34,9 +34,9 @@ export const bfArray: BinaryFnArray = {
       throw new Error();
     }
   },
-};
+} as const;
 
-type BinaryFnArrayNameSpace = 'binaryFnArray';
+export type BinaryFnArrayNameSpace = 'binaryFnArray';
 export type BinaryFnArrayNames =
   `${BinaryFnArrayNameSpace}::${keyof typeof bfArray}`;
 

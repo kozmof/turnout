@@ -3,9 +3,9 @@
 type Entries<T> = { [K in keyof T]: [K, T[K]] }[keyof T][];
 
 export const TOM = {
-  // Japanese ref: https://zenn.dev/ossamoon/articles/694a601ee62526
-  keys: <T extends Record<string, unknown>>(obj: T): (keyof T)[] => {
-    return Object.keys(obj);
+  keys: <T extends object>(obj: T): (keyof T)[] => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return Object.keys(obj) as (keyof T)[];
   },
   entries: <T extends Record<string, unknown>>(obj: T): Entries<T> => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion

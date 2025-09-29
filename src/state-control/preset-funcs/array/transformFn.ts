@@ -18,9 +18,9 @@ export const tfArray: TransformFnArray = {
       subSymbol: undefined,
     };
   },
-};
+} as const;
 
-type TransformFnArrayNameSpace = 'transformFnArray';
+export type TransformFnArrayNameSpace = 'transformFnArray';
 export type TransformFnArrayNames =
   `${TransformFnArrayNameSpace}::${keyof typeof tfArray}`;
 
