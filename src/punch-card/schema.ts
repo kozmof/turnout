@@ -10,11 +10,11 @@ import {
   union,
 } from 'valibot';
 import { binaryFnNames } from './literal-schema/binaryFnNames';
-import { PlugFnType, PlugFunc, TapFnType, TapFunc } from './types';
+import { PlugFuncType, PlugFunc, TapFuncType, TapFunc } from './types';
 import { transformFnNames } from './literal-schema/transformFnNames';
 
-const plugFnType: PlugFnType = 'plug';
-const tapFnType: TapFnType = 'tap';
+const plugFuncType: PlugFuncType = 'plug';
+const tapFuncType: TapFuncType = 'tap';
 
 const funcInterfaceSchema = object({
   name: string(),
@@ -23,7 +23,7 @@ const funcInterfaceSchema = object({
 
 export const plugFuncSchema: GenericSchema<PlugFunc> = object({
   name: binaryFnNames(),
-  type: literal(plugFnType),
+  type: literal(plugFuncType),
   transformFn: object({
     a: object({ name: transformFnNames() }),
     b: object({ name: transformFnNames() }),
@@ -37,7 +37,7 @@ export const plugFuncSchema: GenericSchema<PlugFunc> = object({
 
 export const tapFuncSchema: GenericSchema<TapFunc> = object({
   name: string(),
-  type: literal(tapFnType),
+  type: literal(tapFuncType),
   steps: array(union([plugFuncSchema, lazy(() => tapFuncSchema)])),
   args: array(funcInterfaceSchema),
   return: object({

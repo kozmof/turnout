@@ -20,12 +20,12 @@ type TransformFnNames =
 
 type FuncInterface = { name: string; type: AnyValue };
 
-export type PlugFnType = 'plug';
-export type TapFnType = 'tap';
+export type PlugFuncType = 'plug';
+export type TapFuncType = 'tap';
 
 export type PlugFunc = {
   name: BinaryFnNames;
-  type: PlugFnType;
+  type: PlugFuncType;
   transformFn: {
     a: { name: TransformFnNames };
     b: { name: TransformFnNames };
@@ -39,7 +39,7 @@ export type PlugFunc = {
 
 export type TapFunc = {
   name: string;
-  type: TapFnType;
+  type: TapFuncType;
   steps: (TapFunc| PlugFunc)[];
   args: FuncInterface[];
   return: { name: string | null; type: AnyValue };
