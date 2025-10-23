@@ -1,6 +1,19 @@
-import { isRandomValue } from '../../ops';
-import { type DeterministicSymbol, type AnyValue } from '../../value';
+import {
+  type DeterministicSymbol,
+  type AnyValue,
+  type NonDeterministicSymbol,
+  nonDeterministicSymbols,
+} from '../../value';
 
+function isRandomValue(a: AnyValue, b: AnyValue | null): boolean {
+  const symbols: (NonDeterministicSymbol | DeterministicSymbol)[] =
+    nonDeterministicSymbols;
+  if (b !== null) {
+    return symbols.includes(a.symbol) || symbols.includes(b.symbol);
+  } else {
+    return symbols.includes(a.symbol);
+  }
+}
 export const propageteRandom = <T extends DeterministicSymbol>(
   symbol: T,
   a: AnyValue,
