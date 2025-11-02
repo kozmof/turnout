@@ -34,7 +34,6 @@ export type PlugFunc = {
     a: FuncInterface | PlugFunc;
     b: FuncInterface | PlugFunc;
   };
-  return: { name: string; type: AnyValue };
 };
 
 export type TapFunc = {
@@ -42,5 +41,4 @@ export type TapFunc = {
   type: TapFuncType;
   steps: (TapFunc | PlugFunc)[];
   args: FuncInterface[];
-  return: { name: string | null; type: AnyValue };
 };

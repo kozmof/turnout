@@ -4,7 +4,6 @@ import {
   GenericSchema,
   lazy,
   literal,
-  nullable,
   object,
   string,
   union,
@@ -12,13 +11,29 @@ import {
 import { binaryFnNames } from './literal-schema/binaryFnNames';
 import { PlugFuncType, PlugFunc, TapFuncType, TapFunc } from './types';
 import { transformFnNames } from './literal-schema/transformFnNames';
+import {
+  deterministicSymbols,
+  nonDeterministicSymbols,
+} from '../state-control/value';
 
 const plugFuncType: PlugFuncType = 'plug';
 const tapFuncType: TapFuncType = 'tap';
 
+const symbolLiterals = [
+  ...deterministicSymbols,
+  ...nonDeterministicSymbols,
+].map((symbol) => literal(symbol));
+
+const anyValueSchema = object({
+  symbol: union(symbolLiterals),
+  subSymbol: any(),
+  value: any(),
+});
+
 const funcInterfaceSchema = object({
   name: string(),
   type: any(),
+  value: anyValueSchema,
 });
 
 export const plugFuncSchema: GenericSchema<PlugFunc> = object({
@@ -32,7 +47,6 @@ export const plugFuncSchema: GenericSchema<PlugFunc> = object({
     a: union([funcInterfaceSchema, lazy(() => plugFuncSchema)]),
     b: union([funcInterfaceSchema, lazy(() => plugFuncSchema)]),
   }),
-  return: object({ name: string(), type: any() }),
 });
 
 export const tapFuncSchema: GenericSchema<TapFunc> = object({
@@ -40,8 +54,4 @@ export const tapFuncSchema: GenericSchema<TapFunc> = object({
   type: literal(tapFuncType),
   steps: array(union([plugFuncSchema, lazy(() => tapFuncSchema)])),
   args: array(funcInterfaceSchema),
-  return: object({
-    name: nullable(string()),
-    type: any(),
-  }),
 });
