@@ -7,18 +7,18 @@ import { BinaryFnStringNames } from '../state-control/preset-funcs/string/binary
 import { TransformFnStringNames } from '../state-control/preset-funcs/string/transformFn';
 import { AnyValue } from '../state-control/value';
 
-type BinaryFnNames =
+export type BinaryFnNames =
   | BinaryFnArrayNames
   | BinaryFnGenericNames
   | BinaryFnNumberNames
   | BinaryFnStringNames;
 
-type TransformFnNames =
+export  type TransformFnNames =
   | TransformFnArrayNames
   | TransformFnNumberNames
   | TransformFnStringNames;
 
-type FuncInterface = { name: string; type: AnyValue };
+type FuncInterface = { name: string; type: 'value'; value: AnyValue };
 
 export type PlugFuncType = 'plug';
 export type TapFuncType = 'tap';
@@ -40,7 +40,7 @@ export type PlugFunc = {
 export type TapFunc = {
   name: string;
   type: TapFuncType;
-  steps: (TapFunc| PlugFunc)[];
+  steps: (TapFunc | PlugFunc)[];
   args: FuncInterface[];
   return: { name: string | null; type: AnyValue };
 };
