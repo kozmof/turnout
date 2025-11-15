@@ -6,6 +6,7 @@ import { TransformFnNumberNames } from '../state-control/preset-funcs/number/tra
 import { BinaryFnStringNames } from '../state-control/preset-funcs/string/binaryFn';
 import { TransformFnStringNames } from '../state-control/preset-funcs/string/transformFn';
 import { AnyValue } from '../state-control/value';
+import { Brand } from '../util/brand';
 
 export type BinaryFnNames =
   | BinaryFnArrayNames
@@ -13,7 +14,7 @@ export type BinaryFnNames =
   | BinaryFnNumberNames
   | BinaryFnStringNames;
 
-export  type TransformFnNames =
+export type TransformFnNames =
   | TransformFnArrayNames
   | TransformFnNumberNames
   | TransformFnStringNames;
@@ -41,4 +42,42 @@ export type TapFunc = {
   type: TapFuncType;
   steps: (TapFunc | PlugFunc)[];
   args: FuncInterface[];
+};
+
+type PlugDefineId =  Brand<string, 'plugDefineId'>;
+type TapDefineId =  Brand<string, 'plugDefineId'>;
+type ValueId = Brand<string, 'valueId'>;
+type FuncId = Brand<string, 'funcId'>;
+type InterfaceArgId = Brand<string, 'interfaceArgId'>;
+
+export type FuncTable = {
+  [id in FuncId]: {
+    defId: PlugDefineId | TapDefineId;
+    argMap: {
+      [argName in string]: FuncId | ValueId;
+    };
+    returnId: ValueId;
+  };
+};
+
+export type PlugFuncDefTable = {
+  [defId in PlugDefineId]: {
+    name: BinaryFnNames;
+    transformFn: {
+      a: { name: TransformFnNames };
+      b: { name: TransformFnNames };
+    };
+    args: {
+      a: PlugDefineId | InterfaceArgId;
+      b: PlugDefineId | InterfaceArgId;
+    };
+    interfaceArgs: InterfaceArgId[];
+  };
+};
+
+export type TapFuncDefTable = {
+  [defId in TapDefineId]: {
+    sequence: FuncId[];
+    interfaceArgs: InterfaceArgId[];
+  };
 };
