@@ -45,7 +45,7 @@ export type TapFunc = {
 };
 
 type PlugDefineId =  Brand<string, 'plugDefineId'>;
-type TapDefineId =  Brand<string, 'plugDefineId'>;
+type TapDefineId =  Brand<string, 'tapDefineId'>;
 type ValueId = Brand<string, 'valueId'>;
 type FuncId = Brand<string, 'funcId'>;
 type InterfaceArgId = Brand<string, 'interfaceArgId'>;
