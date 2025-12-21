@@ -17,7 +17,6 @@ export type {
 
 export type { GraphExecutionError } from './runtime/errors';
 export {
-  createCyclicDependencyError,
   createMissingDependencyError,
   createMissingDefinitionError,
   createFunctionExecutionError,
@@ -26,10 +25,4 @@ export {
   isGraphExecutionError,
 } from './runtime/errors';
 
-export type {
-  NodeId,
-  DependencyGraph,
-  ExecutionOrder,
-  ExecutionState,
-  ExecutionTracker,
-} from './runtime/graph-types';
+export type { NodeId, ExecutionTree } from './runtime/tree-types';

@@ -1,57 +1,22 @@
 import { FuncId, ExecutionContext } from '../../types';
 import { AnyValue } from '../../../state-control/value';
-import { ExecutionTracker } from '../graph-types';
 import {
   GraphExecutionError,
-  createMissingDependencyError,
   createFunctionExecutionError,
   isGraphExecutionError,
 } from '../errors';
-import { buildDependencyGraph } from '../buildDependencyGraph';
-import { topologicalSort } from '../topologicalSort';
-import { executeNode } from './executeNode';
+import { buildExecutionTree } from '../buildExecutionTree';
+import { executeTree } from '../executeTree';
 
 export function executeGraph(
   rootFuncId: FuncId,
   context: ExecutionContext
 ): AnyValue {
-  // 1. Build dependency graph
-  const graph = buildDependencyGraph(
-    context.funcTable,
-    context.valueTable,
-    context.tapFuncDefTable,
-    rootFuncId
-  );
+  // 1. Build execution tree
+  const tree = buildExecutionTree(rootFuncId, context);
 
-  // 2. Compute execution order via topological sort
-  const executionOrder = topologicalSort(graph);
-
-  // 3. Initialize execution tracker
-  const tracker: ExecutionTracker = new Map();
-  for (const nodeId of graph.nodes) {
-    tracker.set(nodeId, { state: 'pending' });
-  }
-
-  // 4. Execute nodes in order
-  for (const nodeId of executionOrder) {
-    const state = tracker.get(nodeId);
-
-    // Skip if already completed (e.g., shared values)
-    if (state?.state === 'completed') {
-      continue;
-    }
-
-    executeNode(nodeId, context, tracker);
-  }
-
-  // 5. Return the result
-  const rootFuncEntry = context.funcTable[rootFuncId];
-
-  if (!rootFuncEntry) {
-    throw createMissingDependencyError(rootFuncId, rootFuncId);
-  }
-
-  const result = context.valueTable[rootFuncEntry.returnId];
+  // 2. Execute tree (post-order traversal)
+  const result = executeTree(tree, context);
 
   if (!result) {
     throw createFunctionExecutionError(

@@ -287,7 +287,9 @@ describe('executeGraph', () => {
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe('cyclicDependency');
+    // Cyclic dependencies are caught during tree construction as generic errors
+    expect(errors[0].kind).toBe('functionExecution');
+    expect(errors[0].message).toContain('Cycle detected');
   });
 
   it('should handle error: missing value', () => {

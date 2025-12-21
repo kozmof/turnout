@@ -1,12 +1,7 @@
 import { FuncId, ValueId, PlugDefineId, TapDefineId } from '../types';
-import { NodeId } from './graph-types';
+import { NodeId } from './tree-types';
 
 // Define error data types separately for type safety
-type CyclicDependencyErrorData = {
-  readonly kind: 'cyclicDependency';
-  readonly cycle: NodeId[];
-};
-
 type MissingDependencyErrorData = {
   readonly kind: 'missingDependency';
   readonly missingId: NodeId;
@@ -37,7 +32,6 @@ type MissingValueErrorData = {
 };
 
 // Combine Error with data types
-export type CyclicDependencyError = Error & CyclicDependencyErrorData;
 export type MissingDependencyError = Error & MissingDependencyErrorData;
 export type MissingDefinitionError = Error & MissingDefinitionErrorData;
 export type FunctionExecutionError = Error & FunctionExecutionErrorData;
@@ -45,7 +39,6 @@ export type EmptySequenceError = Error & EmptySequenceErrorData;
 export type MissingValueError = Error & MissingValueErrorData;
 
 export type GraphExecutionError =
-  | CyclicDependencyError
   | MissingDependencyError
   | MissingDefinitionError
   | FunctionExecutionError
@@ -53,22 +46,6 @@ export type GraphExecutionError =
   | MissingValueError;
 
 // Factory functions that create Error instances with additional properties
-export function createCyclicDependencyError(
-  cycle: NodeId[]
-): CyclicDependencyError {
-  const error = new Error(
-    `Cyclic dependency detected: ${cycle.join(' -> ')}`
-  );
-  error.name = 'CyclicDependencyError';
-
-  const errorData: CyclicDependencyErrorData = {
-    kind: 'cyclicDependency',
-    cycle,
-  };
-
-  return Object.assign(error, errorData);
-}
-
 export function createMissingDependencyError(
   missingId: NodeId,
   dependentId: NodeId
