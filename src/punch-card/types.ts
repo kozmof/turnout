@@ -44,11 +44,11 @@ export type TapFunc = {
   args: FuncInterface[];
 };
 
-type PlugDefineId =  Brand<string, 'plugDefineId'>;
-type TapDefineId =  Brand<string, 'tapDefineId'>;
-type ValueId = Brand<string, 'valueId'>;
-type FuncId = Brand<string, 'funcId'>;
-type InterfaceArgId = Brand<string, 'interfaceArgId'>;
+export type PlugDefineId = Brand<string, 'plugDefineId'>;
+export type TapDefineId = Brand<string, 'tapDefineId'>;
+export type ValueId = Brand<string, 'valueId'>;
+export type FuncId = Brand<string, 'funcId'>;
+export type InterfaceArgId = Brand<string, 'interfaceArgId'>;
 
 export type FuncTable = {
   [id in FuncId]: {
@@ -80,4 +80,15 @@ export type TapFuncDefTable = {
     sequence: FuncId[];
     interfaceArgs: InterfaceArgId[];
   };
+};
+
+export type ValueTable = {
+  [id in ValueId]: AnyValue;
+};
+
+export type ExecutionContext = {
+  valueTable: ValueTable;
+  funcTable: FuncTable;
+  plugFuncDefTable: PlugFuncDefTable;
+  tapFuncDefTable: TapFuncDefTable;
 };
