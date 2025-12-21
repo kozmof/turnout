@@ -1,7 +1,12 @@
 import { FuncId, ExecutionContext } from '../../types';
 import { AnyValue } from '../../../state-control/value';
 import { ExecutionTracker } from '../graph-types';
-import { GraphExecutionError } from '../errors';
+import {
+  GraphExecutionError,
+  createMissingDependencyError,
+  createFunctionExecutionError,
+  isGraphExecutionError,
+} from '../errors';
 import { buildDependencyGraph } from '../buildDependencyGraph';
 import { topologicalSort } from '../topologicalSort';
 import { executeNode } from './executeNode';
@@ -43,21 +48,16 @@ export function executeGraph(
   const rootFuncEntry = context.funcTable[rootFuncId];
 
   if (!rootFuncEntry) {
-    throw {
-      kind: 'missingDependency',
-      missingId: rootFuncId,
-      dependentId: rootFuncId,
-    } as GraphExecutionError;
+    throw createMissingDependencyError(rootFuncId, rootFuncId);
   }
 
   const result = context.valueTable[rootFuncEntry.returnId];
 
   if (!result) {
-    throw {
-      kind: 'functionExecution',
-      funcId: rootFuncId,
-      message: 'Root function did not produce a result',
-    } as GraphExecutionError;
+    throw createFunctionExecutionError(
+      rootFuncId,
+      'Root function did not produce a result'
+    );
   }
 
   return result;
@@ -76,22 +76,14 @@ export function executeGraphSafe(
     if (isGraphExecutionError(error)) {
       errors.push(error);
     } else {
-      errors.push({
-        kind: 'functionExecution',
-        funcId: rootFuncId,
-        message: String(error),
-        cause: error instanceof Error ? error : undefined,
-      });
+      errors.push(
+        createFunctionExecutionError(
+          rootFuncId,
+          String(error),
+          error instanceof Error ? error : undefined
+        )
+      );
     }
     return { errors };
   }
-}
-
-function isGraphExecutionError(error: unknown): error is GraphExecutionError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'kind' in error &&
-    typeof (error as any).kind === 'string'
-  );
 }

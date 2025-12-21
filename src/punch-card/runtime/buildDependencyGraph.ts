@@ -7,7 +7,7 @@ import {
   TapDefineId,
 } from '../types';
 import { DependencyGraph, NodeId } from './graph-types';
-import { GraphExecutionError } from './errors';
+import { createMissingDependencyError } from './errors';
 import { isFuncId, isTapDefineId } from '../typeGuards';
 
 export function buildDependencyGraph(
@@ -50,11 +50,7 @@ export function buildDependencyGraph(
       const funcEntry = funcTable[nodeId];
 
       if (!funcEntry) {
-        throw {
-          kind: 'missingDependency',
-          missingId: nodeId,
-          dependentId: nodeId,
-        } as GraphExecutionError;
+        throw createMissingDependencyError(nodeId, nodeId);
       }
 
       // Initialize edges for this node

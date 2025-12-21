@@ -1,5 +1,5 @@
 import { DependencyGraph, ExecutionOrder, NodeId } from './graph-types';
-import { GraphExecutionError } from './errors';
+import { createCyclicDependencyError } from './errors';
 
 export function topologicalSort(graph: DependencyGraph): ExecutionOrder {
   // Clone in-degree map for modification
@@ -38,10 +38,7 @@ export function topologicalSort(graph: DependencyGraph): ExecutionOrder {
     const remaining = Array.from(graph.nodes).filter(
       (node) => !result.includes(node)
     );
-    throw {
-      kind: 'cyclicDependency',
-      cycle: remaining,
-    } as GraphExecutionError;
+    throw createCyclicDependencyError(remaining);
   }
 
   return result;

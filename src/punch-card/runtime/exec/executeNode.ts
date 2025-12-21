@@ -1,6 +1,9 @@
 import { ExecutionContext, FuncId, PlugDefineId, TapDefineId } from '../../types';
 import { NodeId, ExecutionTracker } from '../graph-types';
-import { GraphExecutionError } from '../errors';
+import {
+  createMissingDependencyError,
+  createFunctionExecutionError,
+} from '../errors';
 import { isFuncId, isPlugDefineId, isTapDefineId } from '../../typeGuards';
 import { executePlugFunc } from './executePlugFunc';
 import { executeTapFunc } from './executeTapFunc';
@@ -23,11 +26,7 @@ export function executeNode(
   const funcEntry = context.funcTable[funcId];
 
   if (!funcEntry) {
-    throw {
-      kind: 'missingDependency',
-      missingId: funcId,
-      dependentId: funcId,
-    } as GraphExecutionError;
+    throw createMissingDependencyError(funcId, funcId);
   }
 
   tracker.set(funcId, { state: 'computing' });
@@ -41,11 +40,10 @@ export function executeNode(
     } else if (isTapDefineId(defId, context.tapFuncDefTable)) {
       executeTapFunc(funcId, defId as TapDefineId, context);
     } else {
-      throw {
-        kind: 'functionExecution',
+      throw createFunctionExecutionError(
         funcId,
-        message: `Unknown definition type for ${defId}`,
-      } as GraphExecutionError;
+        `Unknown definition type for ${defId}`
+      );
     }
 
     tracker.set(funcId, { state: 'completed' });

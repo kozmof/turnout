@@ -1,5 +1,10 @@
 import { FuncId, TapDefineId, ExecutionContext } from '../../types';
-import { GraphExecutionError } from '../errors';
+import {
+  createMissingDefinitionError,
+  createEmptySequenceError,
+  createMissingDependencyError,
+  createMissingValueError,
+} from '../errors';
 import { AnyValue } from '../../../state-control/value';
 
 export function executeTapFunc(
@@ -11,18 +16,11 @@ export function executeTapFunc(
   const def = context.tapFuncDefTable[defId];
 
   if (!def) {
-    throw {
-      kind: 'missingDefinition',
-      missingDefId: defId,
-      funcId,
-    } as GraphExecutionError;
+    throw createMissingDefinitionError(defId, funcId);
   }
 
   if (def.sequence.length === 0) {
-    throw {
-      kind: 'emptySequence',
-      funcId,
-    } as GraphExecutionError;
+    throw createEmptySequenceError(funcId);
   }
 
   const results: AnyValue[] = [];
@@ -32,20 +30,13 @@ export function executeTapFunc(
     const stepFuncEntry = context.funcTable[stepFuncId];
 
     if (!stepFuncEntry) {
-      throw {
-        kind: 'missingDependency',
-        missingId: stepFuncId,
-        dependentId: funcId,
-      } as GraphExecutionError;
+      throw createMissingDependencyError(stepFuncId, funcId);
     }
 
     const stepResult = context.valueTable[stepFuncEntry.returnId];
 
     if (!stepResult) {
-      throw {
-        kind: 'missingValue',
-        valueId: stepFuncEntry.returnId,
-      } as GraphExecutionError;
+      throw createMissingValueError(stepFuncEntry.returnId);
     }
 
     results.push(stepResult);

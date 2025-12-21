@@ -1,8 +1,11 @@
 import { FuncId, PlugDefineId, ExecutionContext, ValueId } from '../../types';
-import { GraphExecutionError } from '../errors';
+import {
+  createMissingDefinitionError,
+  createFunctionExecutionError,
+  createMissingValueError,
+} from '../errors';
 import { getBinaryFn } from '../../call-presets/getBinaryFn';
 import { getTransformFn } from '../../call-presets/getTranformFn';
-import { AnyValue } from '../../../state-control/value';
 
 export function executePlugFunc(
   funcId: FuncId,
@@ -13,11 +16,7 @@ export function executePlugFunc(
   const def = context.plugFuncDefTable[defId];
 
   if (!def) {
-    throw {
-      kind: 'missingDefinition',
-      missingDefId: defId,
-      funcId,
-    } as GraphExecutionError;
+    throw createMissingDefinitionError(defId, funcId);
   }
 
   // Get transform functions
@@ -32,28 +31,21 @@ export function executePlugFunc(
   const argBId = funcEntry.argMap['b'] as ValueId;
 
   if (!argAId || !argBId) {
-    throw {
-      kind: 'functionExecution',
+    throw createFunctionExecutionError(
       funcId,
-      message: 'Missing required args "a" or "b" in argMap',
-    } as GraphExecutionError;
+      'Missing required args "a" or "b" in argMap'
+    );
   }
 
   const valA = context.valueTable[argAId];
   const valB = context.valueTable[argBId];
 
   if (!valA) {
-    throw {
-      kind: 'missingValue',
-      valueId: argAId,
-    } as GraphExecutionError;
+    throw createMissingValueError(argAId);
   }
 
   if (!valB) {
-    throw {
-      kind: 'missingValue',
-      valueId: argBId,
-    } as GraphExecutionError;
+    throw createMissingValueError(argBId);
   }
 
   // Apply transforms and binary function

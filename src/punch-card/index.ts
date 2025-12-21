@@ -16,6 +16,15 @@ export type {
 } from './types';
 
 export type { GraphExecutionError } from './runtime/errors';
+export {
+  createCyclicDependencyError,
+  createMissingDependencyError,
+  createMissingDefinitionError,
+  createFunctionExecutionError,
+  createEmptySequenceError,
+  createMissingValueError,
+  isGraphExecutionError,
+} from './runtime/errors';
 
 export type {
   NodeId,
