@@ -1,10 +1,6 @@
-import { FuncId, ValueId } from './types';
+import { FuncId, ValueId } from '../types';
 
 export type NodeId = FuncId | ValueId;
-
-export type GraphNode =
-  | { type: 'func'; id: FuncId }
-  | { type: 'value'; id: ValueId };
 
 export type DependencyGraph = {
   nodes: Set<NodeId>;

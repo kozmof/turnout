@@ -1,6 +1,6 @@
-import { FuncId, TapDefineId, ExecutionContext } from './types';
-import { GraphExecutionError } from './errors';
-import { AnyValue } from '../state-control/value';
+import { FuncId, TapDefineId, ExecutionContext } from '../../types';
+import { GraphExecutionError } from '../errors';
+import { AnyValue } from '../../../state-control/value';
 
 export function executeTapFunc(
   funcId: FuncId,

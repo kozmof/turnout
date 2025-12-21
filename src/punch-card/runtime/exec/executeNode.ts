@@ -1,7 +1,7 @@
-import { ExecutionContext, FuncId, PlugDefineId, TapDefineId } from './types';
-import { NodeId, ExecutionTracker } from './graph-types';
-import { GraphExecutionError } from './errors';
-import { isFuncId, isPlugDefineId, isTapDefineId } from './typeGuards';
+import { ExecutionContext, FuncId, PlugDefineId, TapDefineId } from '../../types';
+import { NodeId, ExecutionTracker } from '../graph-types';
+import { GraphExecutionError } from '../errors';
+import { isFuncId, isPlugDefineId, isTapDefineId } from '../../typeGuards';
 import { executePlugFunc } from './executePlugFunc';
 import { executeTapFunc } from './executeTapFunc';
 

@@ -1,9 +1,9 @@
-import { tfArray } from '../state-control/preset-funcs/array/transformFn';
-import { tfNumber } from '../state-control/preset-funcs/number/transformFn';
-import { tfString } from '../state-control/preset-funcs/string/transformFn';
-import { AnyValue } from '../state-control/value';
-import { splitPairTranformFnNames } from '../util/splitPair';
-import { TransformFnNames } from './types';
+import { tfArray } from '../../state-control/preset-funcs/array/transformFn';
+import { tfNumber } from '../../state-control/preset-funcs/number/transformFn';
+import { tfString } from '../../state-control/preset-funcs/string/transformFn';
+import { AnyValue } from '../../state-control/value';
+import { splitPairTranformFnNames } from '../../util/splitPair';
+import { TransformFnNames } from '../types';
 
 type AnyToAny = (val: AnyValue) => AnyValue;
 

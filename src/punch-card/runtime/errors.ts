@@ -1,4 +1,4 @@
-import { FuncId, ValueId, PlugDefineId, TapDefineId } from './types';
+import { FuncId, ValueId, PlugDefineId, TapDefineId } from '../types';
 import { NodeId } from './graph-types';
 
 export type GraphExecutionError =

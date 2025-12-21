@@ -1,8 +1,8 @@
-import { FuncId, PlugDefineId, ExecutionContext, ValueId } from './types';
-import { GraphExecutionError } from './errors';
-import { getBinaryFn } from './getBinaryFn';
-import { getTransformFn } from './getTranformFn';
-import { AnyValue } from '../state-control/value';
+import { FuncId, PlugDefineId, ExecutionContext, ValueId } from '../../types';
+import { GraphExecutionError } from '../errors';
+import { getBinaryFn } from '../../call-presets/getBinaryFn';
+import { getTransformFn } from '../../call-presets/getTranformFn';
+import { AnyValue } from '../../../state-control/value';
 
 export function executePlugFunc(
   funcId: FuncId,

@@ -1,5 +1,5 @@
 // Main execution engine
-export { executeGraph, executeGraphSafe } from './executeGraph';
+export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
 
 // Types
 export type {
@@ -15,7 +15,7 @@ export type {
   InterfaceArgId,
 } from './types';
 
-export type { GraphExecutionError } from './errors';
+export type { GraphExecutionError } from './runtime/errors';
 
 export type {
   NodeId,
@@ -23,4 +23,4 @@ export type {
   ExecutionOrder,
   ExecutionState,
   ExecutionTracker,
-} from './graph-types';
+} from './runtime/graph-types';

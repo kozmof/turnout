@@ -6,7 +6,7 @@ import {
   ValueId,
   PlugDefineId,
   TapDefineId,
-} from './types';
+} from '../../types';
 
 describe('executeGraph', () => {
   it('should execute a simple PlugFunc with two number values', () => {

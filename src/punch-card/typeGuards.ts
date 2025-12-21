@@ -8,7 +8,7 @@ import {
   TapFuncDefTable,
   ValueTable,
 } from './types';
-import { NodeId } from './graph-types';
+import { NodeId } from './runtime/graph-types';
 
 export function isFuncId(
   id: NodeId,

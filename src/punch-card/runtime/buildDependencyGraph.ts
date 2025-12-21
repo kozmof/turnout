@@ -5,10 +5,10 @@ import {
   ValueId,
   TapFuncDefTable,
   TapDefineId,
-} from './types';
+} from '../types';
 import { DependencyGraph, NodeId } from './graph-types';
 import { GraphExecutionError } from './errors';
-import { isFuncId, isTapDefineId } from './typeGuards';
+import { isFuncId, isTapDefineId } from '../typeGuards';
 
 export function buildDependencyGraph(
   funcTable: FuncTable,

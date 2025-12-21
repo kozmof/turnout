@@ -8,13 +8,13 @@ import {
   string,
   union,
 } from 'valibot';
-import { binaryFnNames } from './literal-schema/binaryFnNames';
-import { PlugFuncType, PlugFunc, TapFuncType, TapFunc } from './types';
-import { transformFnNames } from './literal-schema/transformFnNames';
+import { binaryFnNames } from './binaryFnNames';
+import { PlugFuncType, PlugFunc, TapFuncType, TapFunc } from '../types';
+import { transformFnNames } from './transformFnNames';
 import {
   deterministicSymbols,
   nonDeterministicSymbols,
-} from '../state-control/value';
+} from '../../state-control/value';
 
 const plugFuncType: PlugFuncType = 'plug';
 const tapFuncType: TapFuncType = 'tap';
