@@ -81,14 +81,12 @@ export type PlugFuncDefTable = {
       a: PlugDefineId | InterfaceArgId;
       b: PlugDefineId | InterfaceArgId;
     };
-    interfaceArgs: InterfaceArgId[];
   };
 };
 
 export type TapFuncDefTable = {
   [defId in TapDefineId]: {
     sequence: FuncId[];
-    interfaceArgs: InterfaceArgId[];
   };
 };
 
@@ -97,7 +95,6 @@ export type CondFuncDefTable = {
     conditionId: FuncId | ValueId;
     trueBranchId: FuncId;
     falseBranchId: FuncId;
-    interfaceArgs: InterfaceArgId[];
   };
 };
 

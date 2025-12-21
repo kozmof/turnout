@@ -92,7 +92,6 @@ type CondFuncDefTable = {
     conditionId: FuncId | ValueId;  // evaluates to boolean
     trueBranchId: FuncId;            // execute if true
     falseBranchId: FuncId;           // execute if false
-    interfaceArgs: InterfaceArgId[];
   };
 };
 ```
@@ -245,7 +244,6 @@ type LoopFuncDefTable = {
     collectionId: ValueId;        // array to iterate
     bodyFuncId: FuncId;            // function applied to each item
     accumulatorId?: ValueId;       // for reduce
-    interfaceArgs: InterfaceArgId[];
   };
 };
 ```

@@ -34,7 +34,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -80,7 +79,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
         'pd-multiply': {
           name: 'binaryFnNumber::multiply',
@@ -92,7 +90,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -138,7 +135,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -189,7 +185,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
         'pd-multiply': {
           name: 'binaryFnNumber::multiply',
@@ -201,13 +196,11 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {
         td1: {
           sequence: ['f1' as FuncId, 'f2' as FuncId],
-          interfaceArgs: [],
         },
       } as any,
       condFuncDefTable: {} as any,
@@ -246,7 +239,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -283,7 +275,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -322,7 +313,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -350,7 +340,6 @@ describe('executeGraph', () => {
       tapFuncDefTable: {
         td1: {
           sequence: [],
-          interfaceArgs: [],
         },
       } as any,
       condFuncDefTable: {} as any,
@@ -399,7 +388,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
@@ -411,7 +399,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -420,7 +407,6 @@ describe('executeGraph', () => {
           conditionId: 'vCondition' as ValueId,
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
-          interfaceArgs: [],
         },
       } as any,
     };
@@ -470,7 +456,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
@@ -482,7 +467,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -491,7 +475,6 @@ describe('executeGraph', () => {
           conditionId: 'vCondition' as ValueId,
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
-          interfaceArgs: [],
         },
       } as any,
     };
@@ -547,7 +530,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
@@ -559,7 +541,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
@@ -571,7 +552,6 @@ describe('executeGraph', () => {
             a: 'ia1' as any,
             b: 'ia2' as any,
           },
-          interfaceArgs: ['ia1' as any, 'ia2' as any],
         },
       } as any,
       tapFuncDefTable: {} as any,
@@ -580,7 +560,6 @@ describe('executeGraph', () => {
           conditionId: 'fCondition' as FuncId,
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
-          interfaceArgs: [],
         },
       } as any,
     };
