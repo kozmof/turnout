@@ -2,12 +2,11 @@ import {
   FuncId,
   ExecutionContext,
   ValueId,
-  TapDefineId,
   CondDefineId,
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
 import { createMissingDependencyError, createMissingDefinitionError } from './errors';
-import { isFuncId, isTapDefineId, isCondDefineId } from '../typeGuards';
+import { isFuncId, isCondDefineId } from '../typeGuards';
 
 export function buildExecutionTree(
   nodeId: NodeId,
@@ -90,16 +89,9 @@ export function buildExecutionTree(
     children.push(childTree);
   }
 
-  // If this is a TapFunc, add children from sequence
-  if (isTapDefineId(defId, context.tapFuncDefTable)) {
-    const tapDef = context.tapFuncDefTable[defId as TapDefineId];
-    if (tapDef && tapDef.sequence) {
-      for (const seqFuncId of tapDef.sequence) {
-        const childTree = buildExecutionTree(seqFuncId, context, new Set(visited));
-        children.push(childTree);
-      }
-    }
-  }
+  // Note: For TapFunc, we do NOT add sequence children here
+  // The sequence functions will be executed within the scoped context by executeTapFunc
+  // This prevents sequence functions from being executed in the main tree traversal
 
   return {
     nodeId: funcId,

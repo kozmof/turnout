@@ -170,7 +170,7 @@ describe('executeGraph', () => {
         },
         tap1: {
           defId: 'td1' as TapDefineId,
-          argMap: {},
+          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId, c: 'v3' as ValueId },
           returnId: 'v6' as ValueId,
         },
       } as any,
@@ -200,6 +200,11 @@ describe('executeGraph', () => {
       } as any,
       tapFuncDefTable: {
         td1: {
+          args: {
+            a: 'ia-a' as any,
+            b: 'ia-b' as any,
+            c: 'ia-c' as any,
+          },
           sequence: ['f1' as FuncId, 'f2' as FuncId],
         },
       } as any,
@@ -339,6 +344,7 @@ describe('executeGraph', () => {
       plugFuncDefTable: {} as any,
       tapFuncDefTable: {
         td1: {
+          args: {},
           sequence: [],
         },
       } as any,

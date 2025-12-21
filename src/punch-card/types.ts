@@ -86,6 +86,9 @@ export type PlugFuncDefTable = {
 
 export type TapFuncDefTable = {
   [defId in TapDefineId]: {
+    args: {
+      [argName in string]: InterfaceArgId;
+    };
     sequence: FuncId[];
   };
 };
