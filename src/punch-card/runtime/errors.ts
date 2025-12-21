@@ -1,4 +1,4 @@
-import { FuncId, ValueId, PlugDefineId, TapDefineId } from '../types';
+import { FuncId, ValueId, PlugDefineId, TapDefineId, CondDefineId } from '../types';
 import { NodeId } from './tree-types';
 
 // Define error data types separately for type safety
@@ -10,7 +10,7 @@ type MissingDependencyErrorData = {
 
 type MissingDefinitionErrorData = {
   readonly kind: 'missingDefinition';
-  readonly missingDefId: PlugDefineId | TapDefineId;
+  readonly missingDefId: PlugDefineId | TapDefineId | CondDefineId;
   readonly funcId: FuncId;
 };
 
@@ -65,7 +65,7 @@ export function createMissingDependencyError(
 }
 
 export function createMissingDefinitionError(
-  missingDefId: PlugDefineId | TapDefineId,
+  missingDefId: PlugDefineId | TapDefineId | CondDefineId,
   funcId: FuncId
 ): MissingDefinitionError {
   const error = new Error(

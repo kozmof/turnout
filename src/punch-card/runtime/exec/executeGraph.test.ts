@@ -6,6 +6,7 @@ import {
   ValueId,
   PlugDefineId,
   TapDefineId,
+  CondDefineId,
 } from '../../types';
 
 describe('executeGraph', () => {
@@ -37,6 +38,7 @@ describe('executeGraph', () => {
         },
       } as any,
       tapFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
     };
 
     const result = executeGraph('f1' as FuncId, context);
@@ -94,6 +96,7 @@ describe('executeGraph', () => {
         },
       } as any,
       tapFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
     };
 
     const result = executeGraph('f2' as FuncId, context);
@@ -139,6 +142,7 @@ describe('executeGraph', () => {
         },
       } as any,
       tapFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
     };
 
     const result = executeGraph('f2' as FuncId, context);
@@ -206,6 +210,7 @@ describe('executeGraph', () => {
           interfaceArgs: [],
         },
       } as any,
+      condFuncDefTable: {} as any,
     };
 
     const result = executeGraph('tap1' as FuncId, context);
@@ -245,6 +250,7 @@ describe('executeGraph', () => {
         },
       } as any,
       tapFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
     };
 
     const result = executeGraph('f1' as FuncId, context);
@@ -281,6 +287,7 @@ describe('executeGraph', () => {
         },
       } as any,
       tapFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
     };
 
     const { result, errors } = executeGraphSafe('f1' as FuncId, context);
@@ -319,6 +326,7 @@ describe('executeGraph', () => {
         },
       } as any,
       tapFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
     };
 
     const { result, errors } = executeGraphSafe('f1' as FuncId, context);
@@ -345,6 +353,7 @@ describe('executeGraph', () => {
           interfaceArgs: [],
         },
       } as any,
+      condFuncDefTable: {} as any,
     };
 
     const { result, errors } = executeGraphSafe('tap1' as FuncId, context);
@@ -352,5 +361,237 @@ describe('executeGraph', () => {
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
     expect(errors[0].kind).toBe('emptySequence');
+  });
+
+  it('should execute CondFunc with true branch', () => {
+    const context: ExecutionContext = {
+      valueTable: {
+        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined },
+        v2: { symbol: 'number', value: 20, subSymbol: undefined },
+        v0: { symbol: 'number', value: 0, subSymbol: undefined },
+      } as any,
+      funcTable: {
+        fTrue: {
+          defId: 'pd-pass-true' as PlugDefineId,
+          argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vTrueResult' as ValueId,
+        },
+        fFalse: {
+          defId: 'pd-pass-false' as PlugDefineId,
+          argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vFalseResult' as ValueId,
+        },
+        cond1: {
+          defId: 'cd1' as CondDefineId,
+          argMap: {},
+          returnId: 'vCondResult' as ValueId,
+        },
+      } as any,
+      plugFuncDefTable: {
+        'pd-pass-true': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+        'pd-pass-false': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+      } as any,
+      tapFuncDefTable: {} as any,
+      condFuncDefTable: {
+        cd1: {
+          conditionId: 'vCondition' as ValueId,
+          trueBranchId: 'fTrue' as FuncId,
+          falseBranchId: 'fFalse' as FuncId,
+          interfaceArgs: [],
+        },
+      } as any,
+    };
+
+    const result = executeGraph('cond1' as FuncId, context);
+
+    expect(result).toEqual({
+      symbol: 'number',
+      value: 10,
+      subSymbol: undefined,
+    });
+  });
+
+  it('should execute CondFunc with false branch', () => {
+    const context: ExecutionContext = {
+      valueTable: {
+        vCondition: { symbol: 'boolean', value: false, subSymbol: undefined },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined },
+        v2: { symbol: 'number', value: 20, subSymbol: undefined },
+        v0: { symbol: 'number', value: 0, subSymbol: undefined },
+      } as any,
+      funcTable: {
+        fTrue: {
+          defId: 'pd-pass-true' as PlugDefineId,
+          argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vTrueResult' as ValueId,
+        },
+        fFalse: {
+          defId: 'pd-pass-false' as PlugDefineId,
+          argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vFalseResult' as ValueId,
+        },
+        cond1: {
+          defId: 'cd1' as CondDefineId,
+          argMap: {},
+          returnId: 'vCondResult' as ValueId,
+        },
+      } as any,
+      plugFuncDefTable: {
+        'pd-pass-true': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+        'pd-pass-false': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+      } as any,
+      tapFuncDefTable: {} as any,
+      condFuncDefTable: {
+        cd1: {
+          conditionId: 'vCondition' as ValueId,
+          trueBranchId: 'fTrue' as FuncId,
+          falseBranchId: 'fFalse' as FuncId,
+          interfaceArgs: [],
+        },
+      } as any,
+    };
+
+    const result = executeGraph('cond1' as FuncId, context);
+
+    expect(result).toEqual({
+      symbol: 'number',
+      value: 20,
+      subSymbol: undefined,
+    });
+  });
+
+  it('should execute nested CondFunc with computed condition', () => {
+    const context: ExecutionContext = {
+      valueTable: {
+        v1: { symbol: 'number', value: 5, subSymbol: undefined },
+        v2: { symbol: 'number', value: 5, subSymbol: undefined },
+        v3: { symbol: 'number', value: 100, subSymbol: undefined },
+        v4: { symbol: 'number', value: 200, subSymbol: undefined },
+        v0: { symbol: 'number', value: 0, subSymbol: undefined },
+      } as any,
+      funcTable: {
+        fCondition: {
+          defId: 'pd-eq' as PlugDefineId,
+          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
+          returnId: 'vCondResult' as ValueId,
+        },
+        fTrue: {
+          defId: 'pd-pass-true' as PlugDefineId,
+          argMap: { a: 'v3' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vTrueResult' as ValueId,
+        },
+        fFalse: {
+          defId: 'pd-pass-false' as PlugDefineId,
+          argMap: { a: 'v4' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vFalseResult' as ValueId,
+        },
+        cond1: {
+          defId: 'cd1' as CondDefineId,
+          argMap: {},
+          returnId: 'vFinalResult' as ValueId,
+        },
+      } as any,
+      plugFuncDefTable: {
+        'pd-eq': {
+          name: 'binaryFnGeneric::isEqual',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+        'pd-pass-true': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+        'pd-pass-false': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+          interfaceArgs: ['ia1' as any, 'ia2' as any],
+        },
+      } as any,
+      tapFuncDefTable: {} as any,
+      condFuncDefTable: {
+        cd1: {
+          conditionId: 'fCondition' as FuncId,
+          trueBranchId: 'fTrue' as FuncId,
+          falseBranchId: 'fFalse' as FuncId,
+          interfaceArgs: [],
+        },
+      } as any,
+    };
+
+    const result = executeGraph('cond1' as FuncId, context);
+
+    // 5 == 5 is true, so should return 100
+    expect(result).toEqual({
+      symbol: 'number',
+      value: 100,
+      subSymbol: undefined,
+    });
   });
 });

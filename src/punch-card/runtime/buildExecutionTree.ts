@@ -3,10 +3,11 @@ import {
   ExecutionContext,
   ValueId,
   TapDefineId,
+  CondDefineId,
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
-import { createMissingDependencyError } from './errors';
-import { isFuncId, isTapDefineId } from '../typeGuards';
+import { createMissingDependencyError, createMissingDefinitionError } from './errors';
+import { isFuncId, isTapDefineId, isCondDefineId } from '../typeGuards';
 
 export function buildExecutionTree(
   nodeId: NodeId,
@@ -56,6 +57,31 @@ export function buildExecutionTree(
     throw createMissingDependencyError(funcId, funcId);
   }
 
+  const defId = funcEntry.defId;
+
+  // Check if this is a CondFunc (conditional)
+  if (isCondDefineId(defId, context.condFuncDefTable)) {
+    const condDef = context.condFuncDefTable[defId as CondDefineId];
+    if (!condDef) {
+      throw createMissingDefinitionError(defId, funcId);
+    }
+
+    // Build trees for condition and both branches
+    const conditionTree = buildExecutionTree(condDef.conditionId, context, new Set(visited));
+    const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, new Set(visited));
+    const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, new Set(visited));
+
+    return {
+      nodeId: funcId,
+      nodeType: 'conditional',
+      funcDef: funcEntry.defId,
+      returnId: funcEntry.returnId,
+      conditionTree,
+      trueBranchTree,
+      falseBranchTree,
+    };
+  }
+
   const children: ExecutionTree[] = [];
 
   // Add children from argMap
@@ -65,7 +91,6 @@ export function buildExecutionTree(
   }
 
   // If this is a TapFunc, add children from sequence
-  const defId = funcEntry.defId;
   if (isTapDefineId(defId, context.tapFuncDefTable)) {
     const tapDef = context.tapFuncDefTable[defId as TapDefineId];
     if (tapDef && tapDef.sequence) {

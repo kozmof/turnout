@@ -3,9 +3,11 @@ import {
   ValueId,
   PlugDefineId,
   TapDefineId,
+  CondDefineId,
   FuncTable,
   PlugFuncDefTable,
   TapFuncDefTable,
+  CondFuncDefTable,
   ValueTable,
 } from './types';
 import { NodeId } from './runtime/tree-types';
@@ -36,4 +38,11 @@ export function isTapDefineId(
   tapFuncDefTable: TapFuncDefTable
 ): id is TapDefineId {
   return id in tapFuncDefTable;
+}
+
+export function isCondDefineId(
+  id: string,
+  condFuncDefTable: CondFuncDefTable
+): id is CondDefineId {
+  return id in condFuncDefTable;
 }

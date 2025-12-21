@@ -8,10 +8,12 @@ export type {
   FuncTable,
   PlugFuncDefTable,
   TapFuncDefTable,
+  CondFuncDefTable,
   FuncId,
   ValueId,
   PlugDefineId,
   TapDefineId,
+  CondDefineId,
   InterfaceArgId,
 } from './types';
 

@@ -23,6 +23,7 @@ type FuncInterface = { name: string; type: 'value'; value: AnyValue };
 
 export type PlugFuncType = 'plug';
 export type TapFuncType = 'tap';
+export type CondFuncType = 'cond';
 
 export type PlugFunc = {
   name: BinaryFnNames;
@@ -44,15 +45,24 @@ export type TapFunc = {
   args: FuncInterface[];
 };
 
+export type CondFunc = {
+  name: string;
+  type: CondFuncType;
+  condition: FuncInterface | PlugFunc;
+  trueBranch: TapFunc | PlugFunc;
+  falseBranch: TapFunc | PlugFunc;
+};
+
 export type PlugDefineId = Brand<string, 'plugDefineId'>;
 export type TapDefineId = Brand<string, 'tapDefineId'>;
+export type CondDefineId = Brand<string, 'condDefineId'>;
 export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
 export type InterfaceArgId = Brand<string, 'interfaceArgId'>;
 
 export type FuncTable = {
   [id in FuncId]: {
-    defId: PlugDefineId | TapDefineId;
+    defId: PlugDefineId | TapDefineId | CondDefineId;
     argMap: {
       [argName in string]: FuncId | ValueId;
     };
@@ -82,6 +92,15 @@ export type TapFuncDefTable = {
   };
 };
 
+export type CondFuncDefTable = {
+  [defId in CondDefineId]: {
+    conditionId: FuncId | ValueId;
+    trueBranchId: FuncId;
+    falseBranchId: FuncId;
+    interfaceArgs: InterfaceArgId[];
+  };
+};
+
 export type ValueTable = {
   [id in ValueId]: AnyValue;
 };
@@ -91,4 +110,5 @@ export type ExecutionContext = {
   funcTable: FuncTable;
   plugFuncDefTable: PlugFuncDefTable;
   tapFuncDefTable: TapFuncDefTable;
+  condFuncDefTable: CondFuncDefTable;
 };
