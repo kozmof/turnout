@@ -1,4 +1,4 @@
-import { FuncId, TapDefineId, ExecutionContext, ValueId } from '../../types';
+import { FuncId, TapDefineId, ExecutionContext, ValueId, ValueTable } from '../../types';
 import {
   createMissingDefinitionError,
   createEmptySequenceError,
@@ -8,6 +8,63 @@ import {
 import { AnyValue } from '../../../state-control/value';
 import { executeTree } from '../executeTree';
 import { buildExecutionTree } from '../buildExecutionTree';
+
+export function validateScopedValueTable(
+  scopedValueTable: Partial<ValueTable>,
+  tapDefArgs: Record<string, unknown>,
+  argMap: { [argName: string]: ValueId | FuncId }
+): asserts scopedValueTable is ValueTable {
+  // Verify that all expected arguments are present in the scoped table
+  const expectedValueIds = Object.keys(tapDefArgs).map(
+    argName => argMap[argName] as ValueId
+  );
+
+  for (const valueId of expectedValueIds) {
+    if (!(valueId in scopedValueTable)) {
+      throw new Error(
+        `Scoped value table is incomplete: missing ${valueId}`
+      );
+    }
+  }
+}
+
+export function createScopedValueTable(
+  argMap: { [argName: string]: ValueId | FuncId },
+  tapDefArgs: Record<string, unknown>,
+  sourceValueTable: ValueTable,
+  funcId: FuncId
+): ValueTable {
+  const scopedValueTable: Partial<ValueTable> = {};
+
+  for (const argName of Object.keys(tapDefArgs)) {
+    const valueId = argMap[argName] as ValueId;
+    if (!valueId) {
+      throw createMissingDependencyError(valueId, funcId);
+    }
+
+    const value = sourceValueTable[valueId];
+    if (!value) {
+      throw createMissingValueError(valueId);
+    }
+
+    scopedValueTable[valueId] = value;
+  }
+
+  // Validate before returning
+  validateScopedValueTable(scopedValueTable, tapDefArgs, argMap);
+
+  return scopedValueTable;
+}
+
+export function createScopedContext(
+  context: ExecutionContext,
+  scopedValueTable: ValueTable
+): ExecutionContext {
+  return {
+    ...context,
+    valueTable: scopedValueTable,
+  };
+}
 
 export function executeTapFunc(
   funcId: FuncId,
@@ -25,30 +82,14 @@ export function executeTapFunc(
     throw createEmptySequenceError(funcId);
   }
 
-  // Create a scoped value table that starts with only the TapFunc args
-  const scopedValueTable: typeof context.valueTable = {} as any;
+  const scopedValueTable = createScopedValueTable(
+    funcEntry.argMap,
+    def.args,
+    context.valueTable,
+    funcId
+  );
 
-  // Populate scoped value table with TapFunc arg values
-  for (const argName of Object.keys(def.args)) {
-    const valueId = funcEntry.argMap[argName] as ValueId;
-    if (!valueId) {
-      throw createMissingDependencyError(valueId, funcId);
-    }
-
-    const value = context.valueTable[valueId];
-    if (!value) {
-      throw createMissingValueError(valueId);
-    }
-
-    // Add the arg value to the scoped table
-    scopedValueTable[valueId] = value;
-  }
-
-  // Create a scoped context with the scoped value table
-  const scopedContext: ExecutionContext = {
-    ...context,
-    valueTable: scopedValueTable,
-  };
+  const scopedContext = createScopedContext(context, scopedValueTable);
 
   const results: AnyValue[] = [];
 
