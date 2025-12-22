@@ -7,11 +7,27 @@ import {
 } from '../errors';
 import { buildExecutionTree } from '../buildExecutionTree';
 import { executeTree } from '../executeTree';
+import { validateContext } from '../validateContext';
 
 export function executeGraph(
   rootFuncId: FuncId,
-  context: ExecutionContext
+  context: ExecutionContext,
+  options: { skipValidation?: boolean } = {}
 ): AnyValue {
+  // 0. Validate context before execution (unless explicitly skipped)
+  if (!options.skipValidation) {
+    const validationResult = validateContext(context);
+    if (!validationResult.valid) {
+      const errorMessages = validationResult.errors
+        .map(err => `  - ${err.message}`)
+        .join('\n');
+      throw createFunctionExecutionError(
+        rootFuncId,
+        `ExecutionContext validation failed:\n${errorMessages}`
+      );
+    }
+  }
+
   // 1. Build execution tree
   const tree = buildExecutionTree(rootFuncId, context);
 
@@ -30,12 +46,13 @@ export function executeGraph(
 
 export function executeGraphSafe(
   rootFuncId: FuncId,
-  context: ExecutionContext
+  context: ExecutionContext,
+  options: { skipValidation?: boolean } = {}
 ): { result?: AnyValue; errors: GraphExecutionError[] } {
   const errors: GraphExecutionError[] = [];
 
   try {
-    const result = executeGraph(rootFuncId, context);
+    const result = executeGraph(rootFuncId, context, options);
     return { result, errors };
   } catch (error) {
     if (isGraphExecutionError(error)) {

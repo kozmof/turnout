@@ -10,17 +10,39 @@ type AnyToAny = (valA: AnyValue, valB: AnyValue) => AnyValue;
 
 export const getBinaryFn = (joinedName: BinaryFnNames): AnyToAny => {
   const [nameSpace, fnName] = splitPairBinaryFnNames(joinedName);
+
   switch (nameSpace) {
-    case 'binaryFnArray':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return bfArray[fnName] as AnyToAny;
-    case 'binaryFnGeneric':
-      return bfGeneric[fnName] as AnyToAny;
-    case 'binaryFnNumber':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return bfNumber[fnName] as AnyToAny;
-    case 'binaryFnString':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return bfString[fnName] as AnyToAny;
+    case 'binaryFnArray': {
+      const fn = bfArray[fnName];
+      if (!fn) {
+        throw new Error(`Binary function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    case 'binaryFnGeneric': {
+      const fn = bfGeneric[fnName];
+      if (!fn) {
+        throw new Error(`Binary function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    case 'binaryFnNumber': {
+      const fn = bfNumber[fnName];
+      if (!fn) {
+        throw new Error(`Binary function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    case 'binaryFnString': {
+      const fn = bfString[fnName];
+      if (!fn) {
+        throw new Error(`Binary function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    default: {
+      const _exhaustive: never = nameSpace;
+      throw new Error(`Unknown binary function namespace: ${_exhaustive}`);
+    }
   }
 };

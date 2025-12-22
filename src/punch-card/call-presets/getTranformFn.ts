@@ -10,14 +10,30 @@ type AnyToAny = (val: AnyValue) => AnyValue;
 export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
   const [nameSpace, fnName] = splitPairTranformFnNames(joinedName);
   switch (nameSpace) {
-    case 'transformFnArray':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfArray[fnName] as AnyToAny;
-    case 'transformFnNumber':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfNumber[fnName] as AnyToAny;
-    case 'transformFnString':
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfString[fnName] as AnyToAny;
+    case 'transformFnArray': {
+      const fn = tfArray[fnName];
+      if (!fn) {
+        throw new Error(`Transform function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    case 'transformFnNumber': {
+      const fn = tfNumber[fnName];
+      if (!fn) {
+        throw new Error(`Transform function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    case 'transformFnString': {
+      const fn = tfString[fnName];
+      if (!fn) {
+        throw new Error(`Transform function not found: ${joinedName} (namespace: ${nameSpace}, function: ${fnName})`);
+      }
+      return fn as AnyToAny;
+    }
+    default: {
+      const _exhaustive: never = nameSpace;
+      throw new Error(`Unknown transform function namespace: ${_exhaustive}`);
+    }
   }
 };

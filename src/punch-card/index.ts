@@ -1,5 +1,13 @@
 // Main execution engine
 export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
+export { buildReturnIdToFuncIdMap } from './runtime/buildExecutionTree';
+
+// Context helpers
+export {
+  cloneContextForExecution,
+  freezeContext,
+  extractValueTable,
+} from './runtime/contextHelpers';
 
 // Context validation
 export {

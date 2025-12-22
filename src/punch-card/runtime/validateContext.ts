@@ -69,6 +69,12 @@ function validateFuncTable(
   errors: ValidationError[],
   warnings: ValidationWarning[]
 ): void {
+  // Build a set of all return IDs for quick lookup
+  const allReturnIds = new Set<ValueId>();
+  for (const funcEntry of Object.values(context.funcTable)) {
+    allReturnIds.add(funcEntry.returnId);
+  }
+
   for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
     const { defId, argMap, returnId } = funcEntry;
 
@@ -94,7 +100,8 @@ function validateFuncTable(
     for (const [argName, argId] of Object.entries(argMap)) {
       const isValid =
         isFuncId(argId, context.funcTable) ||
-        isValueId(argId, context.valueTable);
+        isValueId(argId, context.valueTable) ||
+        allReturnIds.has(argId as ValueId); // Will be computed during execution
 
       if (!isValid) {
         errors.push({

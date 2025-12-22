@@ -286,7 +286,7 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
+    const { result, errors } = executeGraphSafe('f1' as FuncId, context, { skipValidation: true });
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
@@ -324,7 +324,7 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
+    const { result, errors } = executeGraphSafe('f1' as FuncId, context, { skipValidation: true });
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
@@ -351,7 +351,7 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const { result, errors } = executeGraphSafe('tap1' as FuncId, context);
+    const { result, errors } = executeGraphSafe('tap1' as FuncId, context, { skipValidation: true });
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);

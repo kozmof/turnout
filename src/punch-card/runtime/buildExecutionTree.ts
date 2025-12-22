@@ -8,6 +8,30 @@ import { ExecutionTree, NodeId } from './tree-types';
 import { createMissingDependencyError, createMissingDefinitionError } from './errors';
 import { isFuncId, isCondDefineId } from '../typeGuards';
 
+/**
+ * Creates a mapping from ValueId to FuncId for functions that produce those values.
+ * This is useful for performance optimization to avoid rebuilding this map repeatedly.
+ */
+export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId, FuncId> {
+  const returnIdToFuncId = new Map<ValueId, FuncId>();
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable) as Array<
+    [FuncId, (typeof context.funcTable)[FuncId]]
+  >) {
+    returnIdToFuncId.set(funcEntry.returnId, funcId);
+  }
+  return returnIdToFuncId;
+}
+
+function getReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId, FuncId> {
+  // Use pre-computed map if available
+  if (context.returnIdToFuncId) {
+    return context.returnIdToFuncId;
+  }
+
+  // Otherwise, build it on demand
+  return buildReturnIdToFuncIdMap(context);
+}
+
 export function buildExecutionTree(
   nodeId: NodeId,
   context: ExecutionContext,
@@ -20,13 +44,8 @@ export function buildExecutionTree(
 
   visited.add(nodeId);
 
-  // Build a map of returnId -> FuncId for quick lookup
-  const returnIdToFuncId = new Map<ValueId, FuncId>();
-  for (const [funcId, funcEntry] of Object.entries(context.funcTable) as Array<
-    [FuncId, (typeof context.funcTable)[FuncId]]
-  >) {
-    returnIdToFuncId.set(funcEntry.returnId, funcId);
-  }
+  // Get the returnId -> FuncId mapping (pre-computed or on-demand)
+  const returnIdToFuncId = getReturnIdToFuncIdMap(context);
 
   // Base case: ValueId (leaf node)
   if (!isFuncId(nodeId, context.funcTable)) {

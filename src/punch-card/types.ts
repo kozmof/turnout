@@ -105,10 +105,27 @@ export type ValueTable = {
   [id in ValueId]: AnyValue;
 };
 
+/**
+ * ExecutionContext contains all the data needed to execute a graph.
+ *
+ * Note: The valueTable is mutated during execution as functions produce results.
+ * The definition tables (funcTable, plugFuncDefTable, etc.) should be treated
+ * as read-only during execution.
+ *
+ * If you need to preserve the original context, create a copy before execution
+ * using the cloneContextForExecution helper.
+ */
 export type ExecutionContext = {
+  /** Mutable table of computed values. Updated during execution. */
   valueTable: ValueTable;
+  /** Function instances table. Should be read-only during execution. */
   funcTable: FuncTable;
+  /** Plug function definitions. Should be read-only during execution. */
   plugFuncDefTable: PlugFuncDefTable;
+  /** Tap function definitions. Should be read-only during execution. */
   tapFuncDefTable: TapFuncDefTable;
+  /** Conditional function definitions. Should be read-only during execution. */
   condFuncDefTable: CondFuncDefTable;
+  /** Pre-computed mapping for performance optimization. Optional. */
+  returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
 };
