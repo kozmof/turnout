@@ -1,10 +1,5 @@
 import { FuncId, TapDefineId, ExecutionContext, ValueId, ValueTable } from '../../types';
-import {
-  createMissingDefinitionError,
-  createEmptySequenceError,
-  createMissingDependencyError,
-  createMissingValueError,
-} from '../errors';
+import { createEmptySequenceError, createMissingValueError } from '../errors';
 import { AnyValue } from '../../../state-control/value';
 import { executeTree } from '../executeTree';
 import { buildExecutionTree } from '../buildExecutionTree';
@@ -16,6 +11,7 @@ export function validateScopedValueTable(
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
   const expectedValueIds = Object.keys(tapDefArgs).map(
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     argName => argMap[argName] as ValueId
   );
 
@@ -31,19 +27,21 @@ export function validateScopedValueTable(
 export function createScopedValueTable(
   argMap: { [argName: string]: ValueId | FuncId },
   tapDefArgs: Record<string, unknown>,
-  sourceValueTable: ValueTable,
-  funcId: FuncId
+  sourceValueTable: ValueTable
 ): ValueTable {
   const scopedValueTable: Partial<ValueTable> = {};
 
   for (const argName of Object.keys(tapDefArgs)) {
-    const valueId = argMap[argName] as ValueId;
-    if (!valueId) {
-      throw createMissingDependencyError(valueId, funcId);
+    if (!(argName in argMap)) {
+      throw new Error(`Argument ${argName} is missing from argMap`);
     }
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    const valueId = argMap[argName] as ValueId;
+
     const value = sourceValueTable[valueId];
-    if (!value) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (value === undefined) {
       throw createMissingValueError(valueId);
     }
 
@@ -74,10 +72,6 @@ export function executeTapFunc(
   const funcEntry = context.funcTable[funcId];
   const def = context.tapFuncDefTable[defId];
 
-  if (!def) {
-    throw createMissingDefinitionError(defId, funcId);
-  }
-
   if (def.sequence.length === 0) {
     throw createEmptySequenceError(funcId);
   }
@@ -85,8 +79,7 @@ export function executeTapFunc(
   const scopedValueTable = createScopedValueTable(
     funcEntry.argMap,
     def.args,
-    context.valueTable,
-    funcId
+    context.valueTable
   );
 
   const scopedContext = createScopedContext(context, scopedValueTable);
@@ -96,10 +89,6 @@ export function executeTapFunc(
   // Iterate through sequence and collect results
   for (const stepFuncId of def.sequence) {
     const stepFuncEntry = context.funcTable[stepFuncId];
-
-    if (!stepFuncEntry) {
-      throw createMissingDependencyError(stepFuncId, funcId);
-    }
 
     // Build and execute the step tree with scoped context
     const stepTree = buildExecutionTree(stepFuncId, scopedContext);

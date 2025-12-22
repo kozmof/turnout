@@ -31,19 +31,27 @@ type MissingValueErrorData = {
   readonly valueId: ValueId;
 };
 
+type InvalidTreeNodeErrorData = {
+  readonly kind: 'invalidTreeNode';
+  readonly nodeId: NodeId;
+  readonly message: string;
+};
+
 // Combine Error with data types
 export type MissingDependencyError = Error & MissingDependencyErrorData;
 export type MissingDefinitionError = Error & MissingDefinitionErrorData;
 export type FunctionExecutionError = Error & FunctionExecutionErrorData;
 export type EmptySequenceError = Error & EmptySequenceErrorData;
 export type MissingValueError = Error & MissingValueErrorData;
+export type InvalidTreeNodeError = Error & InvalidTreeNodeErrorData;
 
 export type GraphExecutionError =
   | MissingDependencyError
   | MissingDefinitionError
   | FunctionExecutionError
   | EmptySequenceError
-  | MissingValueError;
+  | MissingValueError
+  | InvalidTreeNodeError;
 
 // Factory functions that create Error instances with additional properties
 export function createMissingDependencyError(
@@ -128,15 +136,29 @@ export function createMissingValueError(
   return Object.assign(error, errorData);
 }
 
+export function createInvalidTreeNodeError(
+  nodeId: NodeId,
+  message: string
+): InvalidTreeNodeError {
+  const error = new Error(`Invalid tree node ${nodeId}: ${message}`);
+  error.name = 'InvalidTreeNodeError';
+
+  const errorData: InvalidTreeNodeErrorData = {
+    kind: 'invalidTreeNode',
+    nodeId,
+    message,
+  };
+
+  return Object.assign(error, errorData);
+}
+
 // Type guard
 export function isGraphExecutionError(
   error: unknown
 ): error is GraphExecutionError {
   return (
     error instanceof Error &&
-    typeof error === 'object' &&
-    error !== null &&
     'kind' in error &&
-    typeof (error as GraphExecutionError).kind === 'string'
+    typeof (error as { kind: unknown }).kind === 'string'
   );
 }

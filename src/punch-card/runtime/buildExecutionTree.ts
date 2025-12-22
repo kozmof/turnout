@@ -2,10 +2,8 @@ import {
   FuncId,
   ExecutionContext,
   ValueId,
-  CondDefineId,
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
-import { createMissingDependencyError, createMissingDefinitionError } from './errors';
 import { isFuncId, isCondDefineId } from '../typeGuards';
 
 /**
@@ -14,10 +12,9 @@ import { isFuncId, isCondDefineId } from '../typeGuards';
  */
 export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId, FuncId> {
   const returnIdToFuncId = new Map<ValueId, FuncId>();
-  for (const [funcId, funcEntry] of Object.entries(context.funcTable) as Array<
-    [FuncId, (typeof context.funcTable)[FuncId]]
-  >) {
-    returnIdToFuncId.set(funcEntry.returnId, funcId);
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    returnIdToFuncId.set(funcEntry.returnId, funcId as FuncId);
   }
   return returnIdToFuncId;
 }
@@ -49,11 +46,11 @@ export function buildExecutionTree(
 
   // Base case: ValueId (leaf node)
   if (!isFuncId(nodeId, context.funcTable)) {
-    const valueId = nodeId as ValueId;
+    const valueId = nodeId;
 
     // Check if this value is produced by another function
-    if (returnIdToFuncId.has(valueId)) {
-      const producerFuncId = returnIdToFuncId.get(valueId)!;
+    const producerFuncId = returnIdToFuncId.get(valueId);
+    if (producerFuncId !== undefined) {
       return buildExecutionTree(producerFuncId, context, visited);
     }
 
@@ -68,21 +65,13 @@ export function buildExecutionTree(
   }
 
   // Recursive case: FuncId (internal node)
-  const funcId = nodeId as FuncId;
+  const funcId = nodeId;
   const funcEntry = context.funcTable[funcId];
-
-  if (!funcEntry) {
-    throw createMissingDependencyError(funcId, funcId);
-  }
-
   const defId = funcEntry.defId;
 
   // Check if this is a CondFunc (conditional)
   if (isCondDefineId(defId, context.condFuncDefTable)) {
-    const condDef = context.condFuncDefTable[defId as CondDefineId];
-    if (!condDef) {
-      throw createMissingDefinitionError(defId, funcId);
-    }
+    const condDef = context.condFuncDefTable[defId];
 
     // Build trees for condition and both branches
     const conditionTree = buildExecutionTree(condDef.conditionId, context, new Set(visited));

@@ -1,11 +1,9 @@
 import {
   ExecutionContext,
-  FuncId,
   ValueId,
   PlugDefineId,
   TapDefineId,
   CondDefineId,
-  InterfaceArgId,
 } from '../types';
 import { isFuncId, isValueId } from '../typeGuards';
 
@@ -40,16 +38,16 @@ export function validateContext(context: ExecutionContext): ValidationResult {
   const warnings: ValidationWarning[] = [];
 
   // 1. Validate FuncTable entries
-  validateFuncTable(context, errors, warnings);
+  validateFuncTable(context, errors);
 
   // 2. Validate PlugFuncDefTable entries
-  validatePlugFuncDefTable(context, errors, warnings);
+  validatePlugFuncDefTable(context, errors);
 
   // 3. Validate TapFuncDefTable entries
-  validateTapFuncDefTable(context, errors, warnings);
+  validateTapFuncDefTable(context, errors);
 
   // 4. Validate CondFuncDefTable entries
-  validateCondFuncDefTable(context, errors, warnings);
+  validateCondFuncDefTable(context, errors);
 
   // 5. Check for unreferenced values (warnings only)
   checkUnreferencedValues(context, warnings);
@@ -66,8 +64,7 @@ export function validateContext(context: ExecutionContext): ValidationResult {
 
 function validateFuncTable(
   context: ExecutionContext,
-  errors: ValidationError[],
-  warnings: ValidationWarning[]
+  errors: ValidationError[]
 ): void {
   // Build a set of all return IDs for quick lookup
   const allReturnIds = new Set<ValueId>();
@@ -76,7 +73,7 @@ function validateFuncTable(
   }
 
   for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-    const { defId, argMap, returnId } = funcEntry;
+    const { defId, argMap } = funcEntry;
 
     // Check if definition exists
     const defExists =
@@ -101,12 +98,13 @@ function validateFuncTable(
       const isValid =
         isFuncId(argId, context.funcTable) ||
         isValueId(argId, context.valueTable) ||
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
         allReturnIds.has(argId as ValueId); // Will be computed during execution
 
       if (!isValid) {
         errors.push({
           type: 'error',
-          message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${argId} does not exist`,
+          message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${String(argId)} does not exist`,
           details: { funcId, argName, argId },
         });
       }
@@ -116,12 +114,11 @@ function validateFuncTable(
 
 function validatePlugFuncDefTable(
   context: ExecutionContext,
-  errors: ValidationError[],
-  _warnings: ValidationWarning[]
+  errors: ValidationError[]
 ): void {
   for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
     // Validate that argument references are interface args or other plug defs
-    for (const [argName, argId] of Object.entries(def.args)) {
+    for (const argId of Object.values(def.args)) {
       // argId should be either InterfaceArgId or PlugDefineId
       // We can't strictly validate InterfaceArgId as they're just branded strings
       // But we can check if it looks like a PlugDefineId
@@ -136,6 +133,7 @@ function validatePlugFuncDefTable(
 
     // Validate function names exist (runtime check would be needed for actual functions)
     // This is a structural check only
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!def.name || typeof def.name !== 'string') {
       errors.push({
         type: 'error',
@@ -144,7 +142,10 @@ function validatePlugFuncDefTable(
       });
     }
 
-    if (!def.transformFn?.a?.name || !def.transformFn?.b?.name) {
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!def.transformFn || !def.transformFn.a || !def.transformFn.b ||
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+        !def.transformFn.a.name || !def.transformFn.b.name) {
       errors.push({
         type: 'error',
         message: `PlugFuncDefTable[${defId}]: Missing transform function definitions`,
@@ -156,8 +157,7 @@ function validatePlugFuncDefTable(
 
 function validateTapFuncDefTable(
   context: ExecutionContext,
-  errors: ValidationError[],
-  _warnings: ValidationWarning[]
+  errors: ValidationError[]
 ): void {
   for (const [defId, def] of Object.entries(context.tapFuncDefTable)) {
     // Validate sequence contains valid FuncIds
@@ -165,7 +165,7 @@ function validateTapFuncDefTable(
       if (!isFuncId(stepFuncId, context.funcTable)) {
         errors.push({
           type: 'error',
-          message: `TapFuncDefTable[${defId}].sequence: Referenced FuncId ${stepFuncId} does not exist`,
+          message: `TapFuncDefTable[${defId}].sequence: Referenced FuncId ${String(stepFuncId)} does not exist`,
           details: { defId, stepFuncId },
         });
       }
@@ -184,8 +184,7 @@ function validateTapFuncDefTable(
 
 function validateCondFuncDefTable(
   context: ExecutionContext,
-  errors: ValidationError[],
-  _warnings: ValidationWarning[]
+  errors: ValidationError[]
 ): void {
   for (const [defId, def] of Object.entries(context.condFuncDefTable)) {
     // Validate condition ID exists
@@ -196,7 +195,7 @@ function validateCondFuncDefTable(
     if (!conditionIdValid) {
       errors.push({
         type: 'error',
-        message: `CondFuncDefTable[${defId}].conditionId: Referenced ID ${def.conditionId} does not exist`,
+        message: `CondFuncDefTable[${defId}].conditionId: Referenced ID ${String(def.conditionId)} does not exist`,
         details: { defId, conditionId: def.conditionId },
       });
     }
@@ -205,7 +204,7 @@ function validateCondFuncDefTable(
     if (!isFuncId(def.trueBranchId, context.funcTable)) {
       errors.push({
         type: 'error',
-        message: `CondFuncDefTable[${defId}].trueBranchId: Referenced FuncId ${def.trueBranchId} does not exist`,
+        message: `CondFuncDefTable[${defId}].trueBranchId: Referenced FuncId ${String(def.trueBranchId)} does not exist`,
         details: { defId, trueBranchId: def.trueBranchId },
       });
     }
@@ -213,7 +212,7 @@ function validateCondFuncDefTable(
     if (!isFuncId(def.falseBranchId, context.funcTable)) {
       errors.push({
         type: 'error',
-        message: `CondFuncDefTable[${defId}].falseBranchId: Referenced FuncId ${def.falseBranchId} does not exist`,
+        message: `CondFuncDefTable[${defId}].falseBranchId: Referenced FuncId ${String(def.falseBranchId)} does not exist`,
         details: { defId, falseBranchId: def.falseBranchId },
       });
     }
@@ -230,7 +229,7 @@ function checkUnreferencedValues(
   for (const funcEntry of Object.values(context.funcTable)) {
     for (const argId of Object.values(funcEntry.argMap)) {
       if (isValueId(argId, context.valueTable)) {
-        referencedValueIds.add(argId as ValueId);
+        referencedValueIds.add(argId);
       }
     }
   }
@@ -238,12 +237,13 @@ function checkUnreferencedValues(
   // Collect referenced ValueIds from CondFuncDefTable conditions
   for (const condDef of Object.values(context.condFuncDefTable)) {
     if (isValueId(condDef.conditionId, context.valueTable)) {
-      referencedValueIds.add(condDef.conditionId as ValueId);
+      referencedValueIds.add(condDef.conditionId);
     }
   }
 
   // Check for unreferenced values
   for (const valueId of Object.keys(context.valueTable)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     if (!referencedValueIds.has(valueId as ValueId)) {
       warnings.push({
         type: 'warning',
@@ -269,6 +269,7 @@ function checkUnreferencedDefinitions(
 
   // Check PlugFuncDefTable
   for (const defId of Object.keys(context.plugFuncDefTable)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     if (!referencedDefIds.has(defId as PlugDefineId)) {
       warnings.push({
         type: 'warning',
@@ -280,6 +281,7 @@ function checkUnreferencedDefinitions(
 
   // Check TapFuncDefTable
   for (const defId of Object.keys(context.tapFuncDefTable)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     if (!referencedDefIds.has(defId as TapDefineId)) {
       warnings.push({
         type: 'warning',
@@ -291,6 +293,7 @@ function checkUnreferencedDefinitions(
 
   // Check CondFuncDefTable
   for (const defId of Object.keys(context.condFuncDefTable)) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     if (!referencedDefIds.has(defId as CondDefineId)) {
       warnings.push({
         type: 'warning',

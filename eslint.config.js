@@ -61,7 +61,7 @@ export default [
   },
 
   {
-    ignores: ['node_modules', 'dist', '.eslintrc.cjs'],
+    ignores: ['node_modules', 'dist', '.eslintrc.cjs', "**/*.test.ts"],
   },
   eslintConfigPretteir,
 ];

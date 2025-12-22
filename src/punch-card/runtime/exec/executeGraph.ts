@@ -34,13 +34,6 @@ export function executeGraph(
   // 2. Execute tree (post-order traversal)
   const result = executeTree(tree, context);
 
-  if (!result) {
-    throw createFunctionExecutionError(
-      rootFuncId,
-      'Root function did not produce a result'
-    );
-  }
-
   return result;
 }
 
