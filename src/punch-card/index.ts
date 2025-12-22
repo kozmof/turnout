@@ -1,6 +1,17 @@
 // Main execution engine
 export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
 
+// Context validation
+export {
+  validateContext,
+  assertValidContext,
+} from './runtime/validateContext';
+export type {
+  ValidationError,
+  ValidationWarning,
+  ValidationResult,
+} from './runtime/validateContext';
+
 // Types
 export type {
   ExecutionContext,
