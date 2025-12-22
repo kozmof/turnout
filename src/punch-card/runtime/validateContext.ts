@@ -93,13 +93,11 @@ function validateFuncTable(
     // Note: returnId may not exist yet if it will be computed
     // This is not an error, just informational
 
-    // Check if all arguments in argMap are valid IDs
+    // Check if all arguments in argMap are valid ValueIds
     for (const [argName, argId] of Object.entries(argMap)) {
       const isValid =
-        isFuncId(argId, context.funcTable) ||
         isValueId(argId, context.valueTable) ||
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        allReturnIds.has(argId as ValueId); // Will be computed during execution
+        allReturnIds.has(argId); // Will be computed during execution
 
       if (!isValid) {
         errors.push({

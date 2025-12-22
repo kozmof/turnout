@@ -64,7 +64,7 @@ export type FuncTable = {
   [id in FuncId]: {
     defId: PlugDefineId | TapDefineId | CondDefineId;
     argMap: {
-      [argName in string]: FuncId | ValueId;
+      [argName in string]: ValueId;
     };
     returnId: ValueId;
   };

@@ -1,4 +1,4 @@
-import { FuncId, TapDefineId, ExecutionContext, ValueId, ValueTable } from '../../types';
+import { FuncId, TapDefineId, ExecutionContext, ValueTable, ValueId } from '../../types';
 import { createEmptySequenceError, createMissingValueError } from '../errors';
 import { AnyValue } from '../../../state-control/value';
 import { executeTree } from '../executeTree';
@@ -7,12 +7,11 @@ import { buildExecutionTree } from '../buildExecutionTree';
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
   tapDefArgs: Record<string, unknown>,
-  argMap: { [argName: string]: ValueId | FuncId }
+  argMap: { [argName: string]: ValueId }
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
   const expectedValueIds = Object.keys(tapDefArgs).map(
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    argName => argMap[argName] as ValueId
+    argName => argMap[argName]
   );
 
   for (const valueId of expectedValueIds) {
@@ -25,7 +24,7 @@ export function validateScopedValueTable(
 }
 
 export function createScopedValueTable(
-  argMap: { [argName: string]: ValueId | FuncId },
+  argMap: { [argName: string]: ValueId },
   tapDefArgs: Record<string, unknown>,
   sourceValueTable: ValueTable
 ): ValueTable {
@@ -36,8 +35,7 @@ export function createScopedValueTable(
       throw new Error(`Argument ${argName} is missing from argMap`);
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const valueId = argMap[argName] as ValueId;
+    const valueId = argMap[argName];
 
     const value = sourceValueTable[valueId];
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
