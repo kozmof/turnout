@@ -465,6 +465,260 @@ describe('validateContext', () => {
     });
   });
 
+  describe('Type safety validation', () => {
+    describe('PlugFuncDefTable type errors', () => {
+      it('should detect invalid transform function name', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'number', value: 5, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: { a: 'v1' as ValueId, b: 'v1' as ValueId },
+              returnId: 'v2' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnNumber::add',
+              transformFn: {
+                a: { name: 'invalidNamespace::unknown' as any },
+                b: { name: 'transformFnNumber::pass' },
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.some(e =>
+          e.message.includes('Invalid or unknown transform function')
+        )).toBe(true);
+      });
+
+      it('should detect transform function output type mismatch with binary function input', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'number', value: 5, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: { a: 'v1' as ValueId, b: 'v1' as ValueId },
+              returnId: 'v2' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnNumber::add', // Expects number, number
+              transformFn: {
+                a: { name: 'transformFnNumber::toStr' }, // Returns string
+                b: { name: 'transformFnNumber::pass' },  // Returns number
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.some(e =>
+          e.message.includes('returns "string" but binary function') &&
+          e.message.includes('expects "number"')
+        )).toBe(true);
+      });
+
+      it('should validate correct transform and binary function types', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'number', value: 5, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: { a: 'v1' as ValueId, b: 'v1' as ValueId },
+              returnId: 'v2' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnString::concat', // Expects string, string
+              transformFn: {
+                a: { name: 'transformFnNumber::toStr' }, // Returns string
+                b: { name: 'transformFnNumber::toStr' }, // Returns string
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+    });
+
+    describe('FuncTable argument type errors', () => {
+      it('should detect argument type mismatch with transform function input', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'string', value: 'hello', subSymbol: undefined },
+            v2: { symbol: 'number', value: 42, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: {
+                a: 'v1' as ValueId, // string
+                b: 'v2' as ValueId, // number
+              },
+              returnId: 'v3' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnNumber::add',
+              transformFn: {
+                a: { name: 'transformFnNumber::pass' }, // Expects number
+                b: { name: 'transformFnNumber::pass' }, // Expects number
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(false);
+        expect(result.errors.some(e =>
+          e.message.includes('has type "string"') &&
+          e.message.includes('expects "number"')
+        )).toBe(true);
+      });
+
+      it('should validate correct argument types for transform functions', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'number', value: 10, subSymbol: undefined },
+            v2: { symbol: 'number', value: 5, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: {
+                a: 'v1' as ValueId, // number
+                b: 'v2' as ValueId, // number
+              },
+              returnId: 'v3' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnNumber::multiply',
+              transformFn: {
+                a: { name: 'transformFnNumber::pass' }, // Expects number
+                b: { name: 'transformFnNumber::pass' }, // Expects number
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should handle random- prefixed value types correctly', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'random-number', value: 7, subSymbol: undefined },
+            v2: { symbol: 'number', value: 3, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: {
+                a: 'v1' as ValueId, // random-number (should be treated as number)
+                b: 'v2' as ValueId, // number
+              },
+              returnId: 'v3' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnNumber::add',
+              transformFn: {
+                a: { name: 'transformFnNumber::pass' }, // Expects number
+                b: { name: 'transformFnNumber::pass' }, // Expects number
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+
+      it('should detect type mismatch with string to number conversion', () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: 'string', value: '123', subSymbol: undefined },
+            v2: { symbol: 'string', value: '456', subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              defId: 'pd1' as PlugDefineId,
+              argMap: {
+                a: 'v1' as ValueId, // string
+                b: 'v2' as ValueId, // string
+              },
+              returnId: 'v3' as ValueId,
+            },
+          } as any,
+          plugFuncDefTable: {
+            pd1: {
+              name: 'binaryFnNumber::add', // Expects number, number
+              transformFn: {
+                a: { name: 'transformFnString::toNumber' }, // string -> number (correct)
+                b: { name: 'transformFnString::toNumber' }, // string -> number (correct)
+              },
+              args: { a: 'ia1' as any, b: 'ia2' as any },
+            },
+          } as any,
+          tapFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(true);
+        expect(result.errors).toHaveLength(0);
+      });
+    });
+  });
+
   describe('assertValidContext', () => {
     it('should not throw for valid context', () => {
       const context: ExecutionContext = {

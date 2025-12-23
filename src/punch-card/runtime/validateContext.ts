@@ -6,6 +6,13 @@ import {
   CondDefineId,
 } from '../types';
 import { isFuncId, isValueId } from '../typeGuards';
+import {
+  getTransformFnInputType,
+  getTransformFnReturnType,
+  getBinaryFnParamTypes,
+  inferValueType,
+  inferFuncReturnType,
+} from './typeInference';
 
 export type ValidationError = {
   readonly type: 'error';
@@ -49,10 +56,16 @@ export function validateContext(context: ExecutionContext): ValidationResult {
   // 4. Validate CondFuncDefTable entries
   validateCondFuncDefTable(context, errors);
 
-  // 5. Check for unreferenced values (warnings only)
+  // 5. Validate type safety for PlugFuncDefTable entries
+  validatePlugFuncDefTableTypes(context, errors);
+
+  // 6. Validate type safety for FuncTable entries
+  validateFuncTableTypes(context, errors);
+
+  // 7. Check for unreferenced values (warnings only)
   checkUnreferencedValues(context, warnings);
 
-  // 6. Check for unreferenced definitions (warnings only)
+  // 8. Check for unreferenced definitions (warnings only)
   checkUnreferencedDefinitions(context, warnings);
 
   return {
@@ -213,6 +226,159 @@ function validateCondFuncDefTable(
         message: `CondFuncDefTable[${defId}].falseBranchId: Referenced FuncId ${String(def.falseBranchId)} does not exist`,
         details: { defId, falseBranchId: def.falseBranchId },
       });
+    }
+  }
+}
+
+/**
+ * Validates type safety for PlugFuncDefTable entries.
+ *
+ * Checks that:
+ * - Transform functions are valid and recognized
+ * - Transform function output types match binary function input types
+ *
+ * Note: This does not validate array binary functions (binaryFnArray::*)
+ * because they require element type information from runtime values,
+ * which is complex to validate statically. The design also does not
+ * support nested arrays (array elements cannot be arrays).
+ */
+function validatePlugFuncDefTableTypes(
+  context: ExecutionContext,
+  errors: ValidationError[]
+): void {
+  for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
+    // Skip type validation if transform functions are missing (caught by structural validation)
+    if (!def.transformFn?.a?.name || !def.transformFn?.b?.name) {
+      continue;
+    }
+
+    // Validate that transform function 'a' is compatible with its argument type
+    const transformAInputType = getTransformFnInputType(def.transformFn.a.name);
+    const transformAReturnType = getTransformFnReturnType(def.transformFn.a.name);
+
+    // Validate that transform function 'b' is compatible with its argument type
+    const transformBInputType = getTransformFnInputType(def.transformFn.b.name);
+    const transformBReturnType = getTransformFnReturnType(def.transformFn.b.name);
+
+    if (!transformAInputType || !transformAReturnType) {
+      errors.push({
+        type: 'error',
+        message: `PlugFuncDefTable[${defId}].transformFn.a: Invalid or unknown transform function "${def.transformFn.a.name}"`,
+        details: { defId, transformFn: def.transformFn.a.name },
+      });
+    }
+
+    if (!transformBInputType || !transformBReturnType) {
+      errors.push({
+        type: 'error',
+        message: `PlugFuncDefTable[${defId}].transformFn.b: Invalid or unknown transform function "${def.transformFn.b.name}"`,
+        details: { defId, transformFn: def.transformFn.b.name },
+      });
+    }
+
+    // Validate that the binary function's parameter types match the transform outputs
+    if (transformAReturnType && transformBReturnType) {
+      const binaryParamTypes = getBinaryFnParamTypes(def.name);
+
+      if (binaryParamTypes) {
+        const [expectedParamA, expectedParamB] = binaryParamTypes;
+
+        if (transformAReturnType !== expectedParamA) {
+          errors.push({
+            type: 'error',
+            message: `PlugFuncDefTable[${defId}]: Transform function 'a' returns "${transformAReturnType}" but binary function "${def.name}" expects "${expectedParamA}" for first parameter`,
+            details: {
+              defId,
+              transformFn: def.transformFn.a.name,
+              transformReturnType: transformAReturnType,
+              binaryFn: def.name,
+              expectedType: expectedParamA,
+            },
+          });
+        }
+
+        if (transformBReturnType !== expectedParamB) {
+          errors.push({
+            type: 'error',
+            message: `PlugFuncDefTable[${defId}]: Transform function 'b' returns "${transformBReturnType}" but binary function "${def.name}" expects "${expectedParamB}" for second parameter`,
+            details: {
+              defId,
+              transformFn: def.transformFn.b.name,
+              transformReturnType: transformBReturnType,
+              binaryFn: def.name,
+              expectedType: expectedParamB,
+            },
+          });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Validates type safety for FuncTable entries.
+ *
+ * Checks that:
+ * - Argument types in argMap match the expected input types of transform functions
+ *
+ * Note: Only validates PlugFunc entries. TapFunc and CondFunc have different
+ * validation needs that are not yet implemented. Array binary functions are
+ * also not validated due to the complexity of element type checking.
+ */
+function validateFuncTableTypes(
+  context: ExecutionContext,
+  errors: ValidationError[]
+): void {
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
+    const { defId, argMap } = funcEntry;
+
+    // Only validate PlugFunc types (TapFunc and CondFunc have different validation needs)
+    if (defId in context.plugFuncDefTable) {
+      const def = context.plugFuncDefTable[defId as PlugDefineId];
+
+      // Check argument 'a' type compatibility
+      const argAId = argMap['a'];
+      if (argAId) {
+        const argAType = inferValueType(argAId, context) ||
+                        inferFuncReturnType(argAId as any, context);
+        const expectedAType = getTransformFnInputType(def.transformFn.a.name);
+
+        if (argAType && expectedAType && argAType !== expectedAType) {
+          errors.push({
+            type: 'error',
+            message: `FuncTable[${funcId}].argMap['a']: Argument has type "${argAType}" but transform function "${def.transformFn.a.name}" expects "${expectedAType}"`,
+            details: {
+              funcId,
+              argId: argAId,
+              argType: argAType,
+              transformFn: def.transformFn.a.name,
+              expectedType: expectedAType,
+            },
+          });
+        }
+      }
+
+      // Check argument 'b' type compatibility
+      const argBId = argMap['b'];
+      if (argBId) {
+        const argBType = inferValueType(argBId, context) ||
+                        inferFuncReturnType(argBId as any, context);
+        const expectedBType = getTransformFnInputType(def.transformFn.b.name);
+
+        if (argBType && expectedBType && argBType !== expectedBType) {
+          errors.push({
+            type: 'error',
+            message: `FuncTable[${funcId}].argMap['b']: Argument has type "${argBType}" but transform function "${def.transformFn.b.name}" expects "${expectedBType}"`,
+            details: {
+              funcId,
+              argId: argBId,
+              argType: argBType,
+              transformFn: def.transformFn.b.name,
+              expectedType: expectedBType,
+            },
+          });
+        }
+      }
     }
   }
 }
