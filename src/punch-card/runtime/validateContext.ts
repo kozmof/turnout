@@ -128,19 +128,9 @@ function validatePlugFuncDefTable(
   errors: ValidationError[]
 ): void {
   for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
-    // Validate that argument references are interface args or other plug defs
-    for (const argId of Object.values(def.args)) {
-      // argId should be either InterfaceArgId or PlugDefineId
-      // We can't strictly validate InterfaceArgId as they're just branded strings
-      // But we can check if it looks like a PlugDefineId
-      if (typeof argId === 'string' && argId in context.plugFuncDefTable) {
-        // It's a nested PlugFunc - this is valid
-        continue;
-      }
-
-      // Otherwise it should be an InterfaceArgId - we trust it's valid
-      // No validation error, but could add warning if needed
-    }
+    // Validate that args field exists and has 'a' and 'b' properties
+    // args should contain InterfaceArgIds
+    // We can't strictly validate InterfaceArgId format as they're just branded strings
 
     // Validate function names exist (runtime check would be needed for actual functions)
     // This is a structural check only

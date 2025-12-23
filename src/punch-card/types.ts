@@ -78,8 +78,8 @@ export type PlugFuncDefTable = {
       b: { name: TransformFnNames };
     };
     args: {
-      a: PlugDefineId | InterfaceArgId;
-      b: PlugDefineId | InterfaceArgId;
+      a: InterfaceArgId;
+      b: InterfaceArgId;
     };
   };
 };
