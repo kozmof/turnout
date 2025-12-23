@@ -34,8 +34,7 @@ describe('executeTapFunc helpers', () => {
       const result = createScopedValueTable(
         argMap,
         tapDefArgs,
-        sourceValueTable,
-        'f1' as FuncId
+        sourceValueTable
       );
 
       expect(result).toEqual({
@@ -66,8 +65,7 @@ describe('executeTapFunc helpers', () => {
         createScopedValueTable(
           argMap,
           tapDefArgs,
-          sourceValueTable,
-          'f1' as FuncId
+          sourceValueTable
         )
       ).toThrow();
     });
@@ -92,8 +90,7 @@ describe('executeTapFunc helpers', () => {
         createScopedValueTable(
           argMap,
           tapDefArgs,
-          sourceValueTable,
-          'f1' as FuncId
+          sourceValueTable
         )
       ).toThrow('Missing value: v2');
     });
@@ -109,8 +106,7 @@ describe('executeTapFunc helpers', () => {
       const result = createScopedValueTable(
         argMap,
         tapDefArgs,
-        sourceValueTable,
-        'f1' as FuncId
+        sourceValueTable
       );
 
       expect(result).toEqual({});
