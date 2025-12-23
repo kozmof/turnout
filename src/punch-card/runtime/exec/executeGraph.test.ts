@@ -494,6 +494,65 @@ describe('executeGraph', () => {
     });
   });
 
+  it('should handle CondFunc branches sharing the same value dependency', () => {
+    // This test verifies the optimization in buildExecutionTree where sibling branches
+    // can visit the same nodes without false cycle detection
+    const context: ExecutionContext = {
+      valueTable: {
+        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined },
+        vShared: { symbol: 'number', value: 42, subSymbol: undefined }, // Used by both branches
+        v0: { symbol: 'number', value: 0, subSymbol: undefined },
+      } as any,
+      funcTable: {
+        fTrue: {
+          defId: 'pd-use-shared' as PlugDefineId,
+          argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId },
+          returnId: 'vTrueResult' as ValueId,
+        },
+        fFalse: {
+          defId: 'pd-use-shared' as PlugDefineId,
+          argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId }, // Same vShared
+          returnId: 'vFalseResult' as ValueId,
+        },
+        cond1: {
+          defId: 'cd1' as CondDefineId,
+          argMap: {},
+          returnId: 'vCondResult' as ValueId,
+        },
+      } as any,
+      plugFuncDefTable: {
+        'pd-use-shared': {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: { name: 'transformFnNumber::pass' },
+            b: { name: 'transformFnNumber::pass' },
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+        },
+      } as any,
+      tapFuncDefTable: {} as any,
+      condFuncDefTable: {
+        cd1: {
+          conditionId: 'vCondition' as ValueId,
+          trueBranchId: 'fTrue' as FuncId,
+          falseBranchId: 'fFalse' as FuncId,
+        },
+      } as any,
+    };
+
+    // This should not throw "Cycle detected" error
+    const result = executeGraph('cond1' as FuncId, context);
+
+    expect(result).toEqual({
+      symbol: 'number',
+      value: 42, // vShared + 0
+      subSymbol: undefined,
+    });
+  });
+
   it('should execute nested CondFunc with computed condition', () => {
     const context: ExecutionContext = {
       valueTable: {

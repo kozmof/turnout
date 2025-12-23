@@ -35,11 +35,28 @@ export function buildExecutionTree(
   visited: Set<NodeId> = new Set()
 ): ExecutionTree {
   // Detect cycles (shouldn't happen in valid trees, but check anyway)
+  // A cycle exists if we're currently visiting this node (in our ancestor chain)
   if (visited.has(nodeId)) {
     throw new Error(`Cycle detected at node ${nodeId}`);
   }
 
+  // Mark as visiting (will be unmarked when we leave this call)
   visited.add(nodeId);
+
+  try {
+    return buildExecutionTreeInternal(nodeId, context, visited);
+  } finally {
+    // Clean up: remove from visited set after processing
+    // This allows sibling branches to visit the same node without false cycles
+    visited.delete(nodeId);
+  }
+}
+
+function buildExecutionTreeInternal(
+  nodeId: NodeId,
+  context: ExecutionContext,
+  visited: Set<NodeId>
+): ExecutionTree {
 
   // Get the returnId -> FuncId mapping (pre-computed or on-demand)
   const returnIdToFuncId = getReturnIdToFuncIdMap(context);
@@ -74,9 +91,11 @@ export function buildExecutionTree(
     const condDef = context.condFuncDefTable[defId];
 
     // Build trees for condition and both branches
-    const conditionTree = buildExecutionTree(condDef.conditionId, context, new Set(visited));
-    const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, new Set(visited));
-    const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, new Set(visited));
+    // Each branch can visit the same nodes independently (no false cycle detection)
+    // because visited set is cleaned up after each subtree completes
+    const conditionTree = buildExecutionTree(condDef.conditionId, context, visited);
+    const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, visited);
+    const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, visited);
 
     return {
       nodeId: funcId,
@@ -92,8 +111,10 @@ export function buildExecutionTree(
   const children: ExecutionTree[] = [];
 
   // Add children from argMap
+  // Each child can independently visit the same nodes because visited set
+  // is cleaned up after each child completes
   for (const argId of Object.values(funcEntry.argMap)) {
-    const childTree = buildExecutionTree(argId, context, new Set(visited));
+    const childTree = buildExecutionTree(argId, context, visited);
     children.push(childTree);
   }
 
