@@ -5,6 +5,7 @@ import {
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
 import { isFuncId, isCondDefineId } from '../typeGuards';
+import { TOM } from '../../util/tom';
 
 /**
  * Creates a mapping from ValueId to FuncId for functions that produce those values.
@@ -12,9 +13,8 @@ import { isFuncId, isCondDefineId } from '../typeGuards';
  */
 export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId, FuncId> {
   const returnIdToFuncId = new Map<ValueId, FuncId>();
-  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    returnIdToFuncId.set(funcEntry.returnId, funcId as FuncId);
+  for (const [funcId, funcEntry] of TOM.entries(context.funcTable)) {
+    returnIdToFuncId.set(funcEntry.returnId, funcId);
   }
   return returnIdToFuncId;
 }
