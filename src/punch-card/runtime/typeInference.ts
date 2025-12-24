@@ -196,6 +196,7 @@ export function inferValueElemType(
 /**
  * Infers the return type of a function in the FuncTable.
  * This recursively analyzes the function definition to determine its output type.
+ * TODO: infer all func type-chains
  */
 export function inferFuncReturnType(
   funcId: FuncId,
