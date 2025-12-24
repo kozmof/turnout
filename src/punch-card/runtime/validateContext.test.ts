@@ -77,7 +77,15 @@ describe('validateContext', () => {
         tapFuncDefTable: {
           td1: {
             args: { x: 'ia-x' as any },
-            sequence: ['f1' as FuncId],
+            sequence: [
+              {
+                defId: 'pd1' as PlugDefineId,
+                argBindings: {
+                  a: { source: 'input', argName: 'x' },
+                  b: { source: 'input', argName: 'x' },
+                },
+              },
+            ],
           },
         } as any,
         condFuncDefTable: {} as any,
@@ -270,7 +278,7 @@ describe('validateContext', () => {
       expect(result.errors.some(e => e.message.includes('Sequence is empty'))).toBe(true);
     });
 
-    it('should detect invalid FuncId in sequence', () => {
+    it('should detect invalid definition ID in sequence', () => {
       const context: ExecutionContext = {
         valueTable: {} as any,
         funcTable: {
@@ -284,7 +292,12 @@ describe('validateContext', () => {
         tapFuncDefTable: {
           td1: {
             args: {},
-            sequence: ['f-nonexistent' as FuncId],
+            sequence: [
+              {
+                defId: 'pd-nonexistent' as PlugDefineId,
+                argBindings: {},
+              },
+            ],
           },
         } as any,
         condFuncDefTable: {} as any,
@@ -293,7 +306,7 @@ describe('validateContext', () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some(e => e.message.includes('f-nonexistent'))).toBe(true);
+      expect(result.errors.some(e => e.message.includes('pd-nonexistent'))).toBe(true);
     });
   });
 

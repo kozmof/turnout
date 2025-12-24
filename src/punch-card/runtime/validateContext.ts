@@ -161,17 +161,6 @@ function validateTapFuncDefTable(
   errors: ValidationError[]
 ): void {
   for (const [defId, def] of Object.entries(context.tapFuncDefTable)) {
-    // Validate sequence contains valid FuncIds
-    for (const stepFuncId of def.sequence) {
-      if (!isFuncId(stepFuncId, context.funcTable)) {
-        errors.push({
-          type: 'error',
-          message: `TapFuncDefTable[${defId}].sequence: Referenced FuncId ${String(stepFuncId)} does not exist`,
-          details: { defId, stepFuncId },
-        });
-      }
-    }
-
     // Check for empty sequence (also checked at runtime, but good to catch early)
     if (def.sequence.length === 0) {
       errors.push({
@@ -179,6 +168,58 @@ function validateTapFuncDefTable(
         message: `TapFuncDefTable[${defId}]: Sequence is empty`,
         details: { defId },
       });
+    }
+
+    // Validate each step in the sequence
+    for (let i = 0; i < def.sequence.length; i++) {
+      const step = def.sequence[i];
+
+      // Validate that the referenced definition exists
+      const stepDefExists =
+        step.defId in context.plugFuncDefTable ||
+        step.defId in context.tapFuncDefTable ||
+        step.defId in context.condFuncDefTable;
+
+      if (!stepDefExists) {
+        errors.push({
+          type: 'error',
+          message: `TapFuncDefTable[${defId}].sequence[${i}]: Referenced definition ${step.defId} does not exist`,
+          details: { defId, stepIndex: i, stepDefId: step.defId },
+        });
+        continue; // Skip further validation for this step
+      }
+
+      // Validate argument bindings
+      for (const [argName, binding] of Object.entries(step.argBindings)) {
+        if (binding.source === 'input') {
+          // Validate that the input argument exists in TapFunc args
+          if (!(binding.argName in def.args)) {
+            errors.push({
+              type: 'error',
+              message: `TapFuncDefTable[${defId}].sequence[${i}]: Argument binding for '${argName}' references undefined TapFunc input '${binding.argName}'`,
+              details: { defId, stepIndex: i, argName, inputArgName: binding.argName },
+            });
+          }
+        } else if (binding.source === 'step') {
+          // Validate that step index is within bounds
+          if (binding.stepIndex < 0 || binding.stepIndex >= i) {
+            errors.push({
+              type: 'error',
+              message: `TapFuncDefTable[${defId}].sequence[${i}]: Argument binding for '${argName}' references invalid step index ${binding.stepIndex} (must be < ${i})`,
+              details: { defId, stepIndex: i, argName, referencedStepIndex: binding.stepIndex },
+            });
+          }
+        } else if (binding.source === 'value') {
+          // Validate that the value exists in ValueTable
+          if (!isValueId(binding.valueId, context.valueTable)) {
+            errors.push({
+              type: 'error',
+              message: `TapFuncDefTable[${defId}].sequence[${i}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
+              details: { defId, stepIndex: i, argName, valueId: binding.valueId },
+            });
+          }
+        }
+      }
     }
   }
 }

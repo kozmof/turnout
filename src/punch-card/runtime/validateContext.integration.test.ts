@@ -153,7 +153,15 @@ describe('validateContext integration', () => {
         tapFuncDefTable: {
           td1: {
             args: { x: 'ia-x' as any, y: 'ia-y' as any },
-            sequence: ['f1' as FuncId],
+            sequence: [
+              {
+                defId: 'pd-add' as PlugDefineId,
+                argBindings: {
+                  a: { source: 'input', argName: 'x' },
+                  b: { source: 'input', argName: 'y' },
+                },
+              },
+            ],
           },
         } as any,
         condFuncDefTable: {} as any,
@@ -182,7 +190,12 @@ describe('validateContext integration', () => {
         tapFuncDefTable: {
           td1: {
             args: {},
-            sequence: ['f-nonexistent' as FuncId], // Invalid reference
+            sequence: [
+              {
+                defId: 'pd-nonexistent' as PlugDefineId,
+                argBindings: {},
+              },
+            ],
           },
         } as any,
         condFuncDefTable: {} as any,
@@ -192,7 +205,7 @@ describe('validateContext integration', () => {
 
       expect(validation.valid).toBe(false);
       expect(
-        validation.errors.some(e => e.message.includes('f-nonexistent'))
+        validation.errors.some(e => e.message.includes('pd-nonexistent'))
       ).toBe(true);
     });
   });

@@ -225,9 +225,40 @@ export function inferFuncReturnType(
     const tapDef = context.tapFuncDefTable[defId as any];
     if (tapDef.sequence.length === 0) return null;
 
-    // Return type is the type of the last function in the sequence
-    const lastFuncId = tapDef.sequence[tapDef.sequence.length - 1];
-    return inferFuncReturnType(lastFuncId, context, visited);
+    // Return type is the type of the last step in the sequence
+    const lastStep = tapDef.sequence[tapDef.sequence.length - 1];
+    const lastStepDefId = lastStep.defId;
+
+    // Recursively infer the return type of the last step's definition
+    if (lastStepDefId in context.plugFuncDefTable) {
+      return inferPlugFuncReturnType(
+        lastStepDefId as PlugDefineId,
+        context,
+        visited
+      );
+    } else if (lastStepDefId in context.tapFuncDefTable) {
+      // Recursive TapFunc - we need to create a dummy FuncId to recurse
+      // This is a limitation of the current design where inferFuncReturnType expects FuncId
+      // For now, just recurse on the definition directly by checking its structure
+      const nestedTapDef = context.tapFuncDefTable[lastStepDefId as any];
+      if (nestedTapDef.sequence.length === 0) return null;
+      // Continue recursion manually to avoid circular FuncId dependency
+      const nestedLastStep = nestedTapDef.sequence[nestedTapDef.sequence.length - 1];
+      if (nestedLastStep.defId in context.plugFuncDefTable) {
+        return inferPlugFuncReturnType(
+          nestedLastStep.defId as PlugDefineId,
+          context,
+          visited
+        );
+      }
+      // For deeper nesting, return null (limitation)
+      return null;
+    } else if (lastStepDefId in context.condFuncDefTable) {
+      // CondFunc type inference not yet fully supported
+      return null;
+    }
+
+    return null;
   }
 
   // Check if it's a CondFunc

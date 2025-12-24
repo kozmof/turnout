@@ -158,16 +158,6 @@ describe('executeGraph', () => {
         v3: { symbol: 'number', value: 2, subSymbol: undefined },
       } as any,
       funcTable: {
-        f1: {
-          defId: 'pd-add' as PlugDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v4' as ValueId,
-        },
-        f2: {
-          defId: 'pd-multiply' as PlugDefineId,
-          argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
-          returnId: 'v5' as ValueId,
-        },
         tap1: {
           defId: 'td1' as TapDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId, c: 'v3' as ValueId },
@@ -205,7 +195,22 @@ describe('executeGraph', () => {
             b: 'ia-b' as any,
             c: 'ia-c' as any,
           },
-          sequence: ['f1' as FuncId, 'f2' as FuncId],
+          sequence: [
+            {
+              defId: 'pd-add' as PlugDefineId,
+              argBindings: {
+                a: { source: 'input', argName: 'a' },
+                b: { source: 'input', argName: 'b' },
+              },
+            },
+            {
+              defId: 'pd-multiply' as PlugDefineId,
+              argBindings: {
+                a: { source: 'step', stepIndex: 0 },
+                b: { source: 'input', argName: 'c' },
+              },
+            },
+          ],
         },
       } as any,
       condFuncDefTable: {} as any,

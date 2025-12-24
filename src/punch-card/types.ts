@@ -84,12 +84,42 @@ export type PlugFuncDefTable = {
   };
 };
 
+/**
+ * Represents how a step's argument is bound to a value source.
+ * - 'input': Binds to an argument passed to the TapFunc
+ * - 'step': Binds to the return value of a previous step (by index)
+ * - 'value': Binds directly to a ValueId (constant or pre-computed value)
+ */
+export type TapArgBinding =
+  | { source: 'input'; argName: string }
+  | { source: 'step'; stepIndex: number }
+  | { source: 'value'; valueId: ValueId };
+
+/**
+ * Defines a single step in a TapFunc sequence.
+ * Each step references a function definition and specifies how its arguments are bound.
+ */
+export type TapStepBinding = {
+  defId: PlugDefineId | TapDefineId | CondDefineId;
+  argBindings: {
+    [argName: string]: TapArgBinding;
+  };
+};
+
+/**
+ * TapFunc definition table.
+ * TapFunc executes a sequence of function definitions in order,
+ * threading values through the sequence where each step can reference:
+ * - Arguments passed to the TapFunc
+ * - Results from previous steps
+ * - Direct value references
+ */
 export type TapFuncDefTable = {
   [defId in TapDefineId]: {
     args: {
       [argName in string]: InterfaceArgId;
     };
-    sequence: FuncId[];
+    sequence: TapStepBinding[];
   };
 };
 

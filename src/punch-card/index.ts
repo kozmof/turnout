@@ -34,6 +34,8 @@ export type {
   TapDefineId,
   CondDefineId,
   InterfaceArgId,
+  TapStepBinding,
+  TapArgBinding,
 } from './types';
 
 export type { GraphExecutionError } from './runtime/errors';
