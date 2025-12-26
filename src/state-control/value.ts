@@ -44,33 +44,33 @@ export type PureBooleanValue = BooleanValue<readonly []>;
 export type PureArrayValue = ArrayValue<readonly []>;
 
 export type NonArrayValue =
-  | NumberValue<any>
-  | StringValue<any>
-  | BooleanValue<any>;
+  | NumberValue<readonly EffectSymbol[]>
+  | StringValue<readonly EffectSymbol[]>
+  | BooleanValue<readonly EffectSymbol[]>;
 
 export type AnyValue =
-  | NumberValue<any>
-  | StringValue<any>
-  | BooleanValue<any>
-  | ArrayValue<any>
-  | ArrayNumberValue<any>
-  | ArrayStringValue<any>
-  | ArrayBooleanValue<any>;
+  | NumberValue<readonly EffectSymbol[]>
+  | StringValue<readonly EffectSymbol[]>
+  | BooleanValue<readonly EffectSymbol[]>
+  | ArrayValue<readonly EffectSymbol[]>
+  | ArrayNumberValue<readonly EffectSymbol[]>
+  | ArrayStringValue<readonly EffectSymbol[]>
+  | ArrayBooleanValue<readonly EffectSymbol[]>;
 
 // Type guards based on base type
-export function isNumber(val: AnyValue): val is NumberValue<any> {
+export function isNumber(val: AnyValue): val is NumberValue<readonly EffectSymbol[]> {
   return val.symbol === 'number';
 }
 
-export function isString(val: AnyValue): val is StringValue<any> {
+export function isString(val: AnyValue): val is StringValue<readonly EffectSymbol[]> {
   return val.symbol === 'string';
 }
 
-export function isBoolean(val: AnyValue): val is BooleanValue<any> {
+export function isBoolean(val: AnyValue): val is BooleanValue<readonly EffectSymbol[]> {
   return val.symbol === 'boolean';
 }
 
-export function isArray(val: AnyValue): val is ArrayValue<any> | ArrayNumberValue<any> | ArrayStringValue<any> | ArrayBooleanValue<any> {
+export function isArray(val: AnyValue): val is ArrayValue<readonly EffectSymbol[]> | ArrayNumberValue<readonly EffectSymbol[]> | ArrayStringValue<readonly EffectSymbol[]> | ArrayBooleanValue<readonly EffectSymbol[]> {
   return val.symbol === 'array';
 }
 

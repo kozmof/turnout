@@ -28,12 +28,18 @@ export const bfArray: BinaryFnArray = {
     };
   },
   get: (a: ArrayValue<readonly EffectSymbol[]>, idx: NumberValue<readonly EffectSymbol[]>): NonArrayValue => {
-    // TODO
     const item = a.value.at(idx.value);
     if (item !== undefined && isNonArrayValue(item)) {
-      return item;
+      // Propagate effects from both the array and the index to the retrieved item
+      const combinedEffects = propagateEffects(a, idx);
+      return {
+        ...item,
+        effects: [...new Set([...item.effects, ...combinedEffects])] as readonly EffectSymbol[],
+      };
     } else {
-      throw new Error();
+      throw new Error(
+        `Array index ${idx.value} is out of bounds (length: ${a.value.length}) or the item at that index is an array`
+      );
     }
   },
 } as const;

@@ -157,13 +157,8 @@ export function inferValueType(
   const value = context.valueTable[valueId];
   if (!value) return null;
 
-  // Filter out random- prefix for type checking
-  const symbol = value.symbol;
-  if (symbol.startsWith('random-')) {
-    return symbol.replace('random-', '') as BaseTypeSymbol;
-  }
-
-  return symbol as BaseTypeSymbol;
+  // Effects are tracked separately in the effects field
+  return value.symbol as BaseTypeSymbol;
 }
 
 /**
@@ -185,11 +180,7 @@ export function inferValueElemType(
   const subSymbol = value.subSymbol;
   if (!subSymbol) return null;
 
-  // Filter out random- prefix for type checking
-  if (typeof subSymbol === 'string' && subSymbol.startsWith('random-')) {
-    return subSymbol.replace('random-', '') as BaseTypeSymbol;
-  }
-
+  // Effects are tracked separately in the effects field
   return subSymbol as BaseTypeSymbol;
 }
 
