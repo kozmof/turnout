@@ -7,7 +7,7 @@ import {
   AnyValue,
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
-import { propagateEffects } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateEffects';
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue<readonly EffectSymbol[]>, NonArrayValue>;

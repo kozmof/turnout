@@ -1,7 +1,7 @@
 import { isArray, type AnyValue, type BooleanValue, type EffectSymbol } from '../../value';
 import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
-import { propagateEffects } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateEffects';
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;

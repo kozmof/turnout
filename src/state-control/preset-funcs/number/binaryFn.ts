@@ -1,6 +1,6 @@
 import { type NumberValue, type EffectSymbol } from '../../value';
 import { type NumberToNumber } from '../convert';
-import { propagateEffects } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateEffects';
 
 export interface BinaryFnNumber {
   add: NumberToNumber;

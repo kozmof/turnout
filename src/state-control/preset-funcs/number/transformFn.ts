@@ -1,6 +1,6 @@
 import { type NumberValue, type StringValue, type EffectSymbol } from '../../value';
 import { type ToNumberConversion, type ToStringConversion } from '../convert';
-import { propagateEffects } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateEffects';
 
 export interface TransformFnNumber {
   pass: ToNumberConversion<NumberValue<readonly EffectSymbol[]>>;

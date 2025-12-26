@@ -6,19 +6,94 @@ const _baseTypes = strEnum(['number', 'string', 'boolean', 'array']);
 export const baseTypeSymbols = TOM.keys(_baseTypes);
 
 export type BaseTypeSymbol = keyof typeof _baseTypes;
-export type EffectSymbol = string; // User-definable effects
 
-// Writer monad-like structure: value + computation history
+/**
+ * User-definable effect symbols for tracking computational properties.
+ *
+ * Effects represent "taints" or "computational origins" that propagate through
+ * value transformations. This enables tracking properties like:
+ * - Data provenance (where did this value come from?)
+ * - Computational dependencies (what external factors influenced this?)
+ * - Quality attributes (is this value cached, deprecated, etc.?)
+ *
+ * ## Common Effect Examples
+ *
+ * - `'random'`: Value depends on random number generation
+ * - `'network'`: Value depends on network I/O
+ * - `'cached'`: Value retrieved from cache
+ * - `'io'`: Value depends on file/disk I/O
+ * - `'deprecated'`: Value uses deprecated APIs
+ * - `'user-input'`: Value originated from user input
+ * - `'external-api'`: Value from external API call
+ *
+ * ## Usage
+ *
+ * ```typescript
+ * // Pure value (no effects)
+ * const pure: NumberValue = {
+ *   symbol: 'number',
+ *   value: 42,
+ *   subSymbol: undefined,
+ *   effects: []
+ * };
+ *
+ * // Value with single effect
+ * const random: NumberValue = {
+ *   symbol: 'number',
+ *   value: Math.random(),
+ *   subSymbol: undefined,
+ *   effects: ['random']
+ * };
+ *
+ * // Value with multiple effects
+ * const complex: NumberValue = {
+ *   symbol: 'number',
+ *   value: getCachedRandomValue(),
+ *   subSymbol: undefined,
+ *   effects: ['random', 'cached']
+ * };
+ * ```
+ */
+export type EffectSymbol = string;
+
+/**
+ * Core value structure that combines typed data with computational effects.
+ *
+ * Values track both their data and the computational history (effects) that
+ * influenced them. As values flow through operations, effects are propagated
+ * and combined using set union semantics.
+ *
+ * ## Effect Propagation
+ *
+ * When operations combine values, their effects are merged:
+ *
+ * ```typescript
+ * // a has effects ['random']
+ * // b has effects ['cached']
+ * // result = a + b has effects ['random', 'cached']
+ * ```
+ *
+ * See `propagateEffects` in `preset-funcs/util/propagateEffects.ts` for details.
+ *
+ * @template T - The JavaScript type of the value (number, string, boolean, or AnyValue[])
+ * @template BaseType - The type symbol ('number', 'string', 'boolean', 'array')
+ * @template SubType - For arrays, the element type; undefined otherwise
+ * @template Effects - Readonly array of effect symbols tracking computation history
+ */
 interface Value<
   T,
   BaseType extends BaseTypeSymbol,
   SubType extends Exclude<BaseTypeSymbol, 'array'> | undefined,
   Effects extends ReadonlyArray<EffectSymbol> = readonly [],
 > {
+  /** Base type tag for runtime type checking */
   symbol: BaseType;
+  /** The actual JavaScript value */
   value: T;
+  /** For arrays, the element type; undefined for other types */
   subSymbol: SubType;
-  effects: Effects; // Computation history
+  /** Computation history: effects that influenced this value */
+  effects: Effects;
 }
 
 // Base value types without effects

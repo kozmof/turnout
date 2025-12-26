@@ -1,6 +1,6 @@
 import { type NumberValue, type ArrayValue, type EffectSymbol } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
-import { propagateEffects } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateEffects';
 
 export interface TransformFnArray {
   pass: ToArrayConversion<ArrayValue<readonly EffectSymbol[]>>;

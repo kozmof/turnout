@@ -1,6 +1,6 @@
 import { type StringValue, type EffectSymbol } from '../../value';
 import { type StringToString } from '../convert';
-import { propagateEffects } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateEffects';
 
 export interface BinaryFnString {
   concat: StringToString;
