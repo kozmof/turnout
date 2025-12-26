@@ -1,21 +1,22 @@
-import { type NumberValue, type StringValue } from '../../value';
+import { type NumberValue, type StringValue, type EffectSymbol } from '../../value';
 import { type ToStringConversion, type ToNumberConversion } from '../convert';
-import { propageteRandom } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateRandom';
 
 export interface TransformFnString {
-  pass: ToStringConversion<StringValue>;
-  toNumber: ToNumberConversion<StringValue>;
+  pass: ToStringConversion<StringValue<readonly EffectSymbol[]>>;
+  toNumber: ToNumberConversion<StringValue<readonly EffectSymbol[]>>;
 }
 
 export const tfString: TransformFnString = {
-  pass: (val: StringValue): StringValue => {
+  pass: (val: StringValue<readonly EffectSymbol[]>): StringValue<readonly EffectSymbol[]> => {
     return val;
   },
-  toNumber: (val: StringValue): NumberValue => {
+  toNumber: (val: StringValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('number', val, null),
+      symbol: 'number',
       value: parseInt(val.value),
       subSymbol: undefined,
+      effects: propagateEffects(val, null),
     };
   },
 } as const;

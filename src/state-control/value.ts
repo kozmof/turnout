@@ -1,151 +1,97 @@
 import strEnum from '../util/strEnum';
 import { TOM } from '../util/tom';
 
-const _dS = strEnum(['number', 'string', 'boolean', 'array']);
-const _nonDS = strEnum([
-  'random-number',
-  'random-string',
-  'random-boolean',
-  'random-array',
-]);
+const _baseTypes = strEnum(['number', 'string', 'boolean', 'array']);
 
-export const deterministicSymbols = TOM.keys(_dS);
-export const nonDeterministicSymbols = TOM.keys(_nonDS);
+export const baseTypeSymbols = TOM.keys(_baseTypes);
 
-export type DeterministicSymbol = keyof typeof _dS;
-export type NonDeterministicSymbol = keyof typeof _nonDS;
+export type BaseTypeSymbol = keyof typeof _baseTypes;
+export type EffectSymbol = string; // User-definable effects
 
+// Writer monad-like structure: value + computation history
 interface Value<
   T,
-  name1 extends DeterministicSymbol | NonDeterministicSymbol,
-  name2 extends
-    | Exclude<
-        DeterministicSymbol | NonDeterministicSymbol,
-        'array' | 'random-array'
-      >
-    | undefined,
+  BaseType extends BaseTypeSymbol,
+  SubType extends Exclude<BaseTypeSymbol, 'array'> | undefined,
+  Effects extends ReadonlyArray<EffectSymbol> = readonly [],
 > {
-  symbol: name1;
+  symbol: BaseType;
   value: T;
-  subSymbol: name2;
+  subSymbol: SubType;
+  effects: Effects; // Computation history
 }
 
-export type ControlledNumberValue = Value<number, 'number', undefined>;
-export type ControlledStringValue = Value<string, 'string', undefined>;
-export type ControlledBooleanValue = Value<boolean, 'boolean', undefined>;
-export type ControlledArrayValue = Value<AnyValue[], 'array', undefined>;
-export type ControlledNumberArrayValue = Value<AnyValue[], 'array', 'number'>;
-export type ControlledStringArrayValue = Value<AnyValue[], 'array', 'string'>;
-export type ControlledBooleanArrayValue = Value<AnyValue[], 'array', 'boolean'>;
+// Base value types without effects
+export type NumberValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<number, 'number', undefined, Effects>;
+export type StringValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<string, 'string', undefined, Effects>;
+export type BooleanValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<boolean, 'boolean', undefined, Effects>;
+export type ArrayValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<AnyValue[], 'array', undefined, Effects>;
+export type ArrayNumberValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<AnyValue[], 'array', 'number', Effects>;
+export type ArrayStringValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<AnyValue[], 'array', 'string', Effects>;
+export type ArrayBooleanValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
+  Value<AnyValue[], 'array', 'boolean', Effects>;
 
-export type RandomNumberValue = Value<number, 'random-number', undefined>;
-export type RandomStringValue = Value<string, 'random-string', undefined>;
-export type RandomBooleanValue = Value<boolean, 'random-boolean', undefined>;
-export type RandomArrayValue = Value<AnyValue[], 'random-array', undefined>;
-export type RandomNumberArrayValue = Value<
-  AnyValue[],
-  'array',
-  'random-number'
->;
-export type RandomStringArrayValue = Value<
-  AnyValue[],
-  'array',
-  'random-string'
->;
-export type RandomBooleanArrayValue = Value<
-  AnyValue[],
-  'array',
-  'random-boolean'
->;
+// Convenience types for pure values (no effects)
+export type PureNumberValue = NumberValue<readonly []>;
+export type PureStringValue = StringValue<readonly []>;
+export type PureBooleanValue = BooleanValue<readonly []>;
+export type PureArrayValue = ArrayValue<readonly []>;
 
-export type NumberValue = ControlledNumberValue | RandomNumberValue;
-export type StringValue = ControlledStringValue | RandomStringValue;
-export type BooleanValue = ControlledBooleanValue | RandomBooleanValue;
-export type ArrayValue = ControlledArrayValue | RandomArrayValue;
-export type ArrayNumberValue =
-  | ControlledNumberArrayValue
-  | RandomNumberArrayValue;
-export type ArrayStringValue =
-  | ControlledStringArrayValue
-  | RandomStringArrayValue;
-export type ArrayBooleanValue =
-  | ControlledBooleanArrayValue
-  | RandomBooleanArrayValue;
-export type NonArrayValue = Exclude<
-  AnyValue,
-  ArrayValue | ArrayNumberValue | ArrayStringValue | ArrayBooleanValue
->;
+export type NonArrayValue =
+  | NumberValue<any>
+  | StringValue<any>
+  | BooleanValue<any>;
 
-export type DeterministicValues =
-  | ControlledNumberValue
-  | ControlledStringValue
-  | ControlledBooleanValue
-  | ControlledArrayValue
-  | ControlledNumberArrayValue
-  | ControlledStringArrayValue
-  | ControlledBooleanArrayValue;
+export type AnyValue =
+  | NumberValue<any>
+  | StringValue<any>
+  | BooleanValue<any>
+  | ArrayValue<any>
+  | ArrayNumberValue<any>
+  | ArrayStringValue<any>
+  | ArrayBooleanValue<any>;
 
-export type NonDeterministicValues =
-  | RandomNumberValue
-  | RandomStringValue
-  | RandomBooleanValue
-  | RandomArrayValue
-  | RandomNumberArrayValue
-  | RandomStringArrayValue
-  | RandomBooleanArrayValue;
-
-export type AnyValue = DeterministicValues | NonDeterministicValues;
-
-export function isControlledNumber(
-  val: AnyValue
-): val is ControlledNumberValue {
+// Type guards based on base type
+export function isNumber(val: AnyValue): val is NumberValue<any> {
   return val.symbol === 'number';
 }
 
-export function isRandomNumber(val: AnyValue): val is RandomNumberValue {
-  return val.symbol === 'random-number';
-}
-
-export function isNumber(val: AnyValue): val is NumberValue {
-  return isControlledNumber(val) || isRandomNumber(val);
-}
-
-export function isControlledString(
-  val: AnyValue
-): val is ControlledStringValue {
+export function isString(val: AnyValue): val is StringValue<any> {
   return val.symbol === 'string';
 }
 
-export function isRandomString(val: AnyValue): val is RandomStringValue {
-  return val.symbol === 'random-string';
-}
-
-export function isString(val: AnyValue): val is StringValue {
-  return isControlledString(val) || isRandomString(val);
-}
-
-export function isControlledBoolean(
-  val: AnyValue
-): val is ControlledBooleanValue {
+export function isBoolean(val: AnyValue): val is BooleanValue<any> {
   return val.symbol === 'boolean';
 }
 
-export function isRandomBoolean(val: AnyValue): val is RandomBooleanValue {
-  return val.symbol === 'random-boolean';
-}
-
-export function isBoolean(val: AnyValue): val is BooleanValue {
-  return isControlledBoolean(val) || isRandomBoolean(val);
-}
-
-export function isControlledArray(val: AnyValue): val is ControlledArrayValue {
+export function isArray(val: AnyValue): val is ArrayValue<any> | ArrayNumberValue<any> | ArrayStringValue<any> | ArrayBooleanValue<any> {
   return val.symbol === 'array';
 }
 
-export function isRandomArray(val: AnyValue): val is RandomArrayValue {
-  return val.symbol === 'random-array';
+// Type guards based on effects
+export function isPure(val: AnyValue): boolean {
+  return val.effects.length === 0;
 }
 
-export function isArray(val: AnyValue): val is ArrayValue {
-  return isControlledArray(val) || isRandomArray(val);
+export function hasEffect(val: AnyValue, effect: EffectSymbol): boolean {
+  return val.effects.includes(effect);
+}
+
+// Combined type guards for pure values
+export function isPureNumber(val: AnyValue): val is PureNumberValue {
+  return isNumber(val) && isPure(val);
+}
+
+export function isPureString(val: AnyValue): val is PureStringValue {
+  return isString(val) && isPure(val);
+}
+
+export function isPureBoolean(val: AnyValue): val is PureBooleanValue {
+  return isBoolean(val) && isPure(val);
 }

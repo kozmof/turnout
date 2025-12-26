@@ -11,23 +11,18 @@ import {
 import { binaryFnNames } from './binaryFnNames';
 import { PlugFuncType, PlugFunc, TapFuncType, TapFunc } from '../types';
 import { transformFnNames } from './transformFnNames';
-import {
-  deterministicSymbols,
-  nonDeterministicSymbols,
-} from '../../state-control/value';
+import { baseTypeSymbols } from '../../state-control/value';
 
 const plugFuncType: PlugFuncType = 'plug';
 const tapFuncType: TapFuncType = 'tap';
 
-const symbolLiterals = [
-  ...deterministicSymbols,
-  ...nonDeterministicSymbols,
-].map((symbol) => literal(symbol));
+const symbolLiterals = baseTypeSymbols.map((symbol) => literal(symbol));
 
 const anyValueSchema = object({
   symbol: union(symbolLiterals),
   subSymbol: any(),
   value: any(),
+  effects: array(string()), // Array of effect strings
 });
 
 const funcInterfaceSchema = object({

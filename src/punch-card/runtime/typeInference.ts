@@ -14,7 +14,7 @@ import {
   metaTfString,
   metaTfArray,
 } from '../../state-control/meta-chain/transform-fn/metaReturn';
-import type { DeterministicSymbol } from '../../state-control/value';
+import type { BaseTypeSymbol } from '../../state-control/value';
 import type {
   ExecutionContext,
   ValueId,
@@ -30,7 +30,7 @@ import type {
  */
 export function getTransformFnInputType(
   transformFnName: TransformFnNames
-): DeterministicSymbol | null {
+): BaseTypeSymbol | null {
   const [namespace] = transformFnName.split('::');
 
   switch (namespace) {
@@ -51,7 +51,7 @@ export function getTransformFnInputType(
  */
 export function getTransformFnReturnType(
   transformFnName: TransformFnNames
-): DeterministicSymbol | null {
+): BaseTypeSymbol | null {
   const [namespace, fnName] = transformFnName.split('::');
 
   switch (namespace) {
@@ -83,7 +83,7 @@ export function getTransformFnReturnType(
  */
 export function getBinaryFnParamTypes(
   binaryFnName: BinaryFnNames
-): [DeterministicSymbol, DeterministicSymbol] | null {
+): [BaseTypeSymbol, BaseTypeSymbol] | null {
   const [namespace, fnName] = binaryFnName.split('::');
 
   switch (namespace) {
@@ -116,8 +116,8 @@ export function getBinaryFnParamTypes(
  */
 export function getBinaryFnReturnType(
   binaryFnName: BinaryFnNames,
-  elemType?: DeterministicSymbol
-): DeterministicSymbol | null {
+  elemType?: BaseTypeSymbol
+): BaseTypeSymbol | null {
   const [namespace, fnName] = binaryFnName.split('::');
 
   switch (namespace) {
@@ -153,17 +153,17 @@ export function getBinaryFnReturnType(
 export function inferValueType(
   valueId: ValueId,
   context: ExecutionContext
-): DeterministicSymbol | null {
+): BaseTypeSymbol | null {
   const value = context.valueTable[valueId];
   if (!value) return null;
 
   // Filter out random- prefix for type checking
   const symbol = value.symbol;
   if (symbol.startsWith('random-')) {
-    return symbol.replace('random-', '') as DeterministicSymbol;
+    return symbol.replace('random-', '') as BaseTypeSymbol;
   }
 
-  return symbol as DeterministicSymbol;
+  return symbol as BaseTypeSymbol;
 }
 
 /**
@@ -173,7 +173,7 @@ export function inferValueType(
 export function inferValueElemType(
   valueId: ValueId,
   context: ExecutionContext
-): DeterministicSymbol | null {
+): BaseTypeSymbol | null {
   const value = context.valueTable[valueId];
   if (!value) return null;
 
@@ -187,10 +187,10 @@ export function inferValueElemType(
 
   // Filter out random- prefix for type checking
   if (typeof subSymbol === 'string' && subSymbol.startsWith('random-')) {
-    return subSymbol.replace('random-', '') as DeterministicSymbol;
+    return subSymbol.replace('random-', '') as BaseTypeSymbol;
   }
 
-  return subSymbol as DeterministicSymbol;
+  return subSymbol as BaseTypeSymbol;
 }
 
 /**
@@ -202,7 +202,7 @@ export function inferFuncReturnType(
   funcId: FuncId,
   context: ExecutionContext,
   visited: Set<FuncId> = new Set()
-): DeterministicSymbol | null {
+): BaseTypeSymbol | null {
   // Prevent infinite recursion
   if (visited.has(funcId)) return null;
   visited.add(funcId);
@@ -281,7 +281,7 @@ export function inferPlugFuncReturnType(
   defId: PlugDefineId,
   context: ExecutionContext,
   visited: Set<FuncId> = new Set()
-): DeterministicSymbol | null {
+): BaseTypeSymbol | null {
   const def = context.plugFuncDefTable[defId];
   if (!def) return null;
 

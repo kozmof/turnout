@@ -20,8 +20,8 @@ describe('validateContext integration', () => {
     it('should validate context before execution (valid case)', () => {
       const context: ExecutionContext = {
         valueTable: {
-          v1: { symbol: 'number', value: 10, subSymbol: undefined },
-          v2: { symbol: 'number', value: 5, subSymbol: undefined },
+          v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+          v2: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
         } as any,
         funcTable: {
           f1: {
@@ -59,7 +59,7 @@ describe('validateContext integration', () => {
     it('should catch errors at validation time, preventing execution', () => {
       const invalidContext: ExecutionContext = {
         valueTable: {
-          v1: { symbol: 'number', value: 10, subSymbol: undefined },
+          v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
           // v2 is missing - validation should catch this
         } as any,
         funcTable: {
@@ -125,8 +125,8 @@ describe('validateContext integration', () => {
     it('should validate TapFunc context before execution', () => {
       const context: ExecutionContext = {
         valueTable: {
-          v1: { symbol: 'number', value: 10, subSymbol: undefined },
-          v2: { symbol: 'number', value: 5, subSymbol: undefined },
+          v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+          v2: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
         } as any,
         funcTable: {
           f1: {
@@ -214,10 +214,10 @@ describe('validateContext integration', () => {
     it('should validate CondFunc context before execution', () => {
       const context: ExecutionContext = {
         valueTable: {
-          vCond: { symbol: 'boolean', value: true, subSymbol: undefined },
-          v1: { symbol: 'number', value: 100, subSymbol: undefined },
-          v2: { symbol: 'number', value: 200, subSymbol: undefined },
-          v0: { symbol: 'number', value: 0, subSymbol: undefined },
+          vCond: { symbol: 'boolean', value: true, subSymbol: undefined, effects: [] },
+          v1: { symbol: 'number', value: 100, subSymbol: undefined, effects: [] },
+          v2: { symbol: 'number', value: 200, subSymbol: undefined, effects: [] },
+          v0: { symbol: 'number', value: 0, subSymbol: undefined, effects: [] },
         } as any,
         funcTable: {
           fTrue: {
@@ -268,7 +268,7 @@ describe('validateContext integration', () => {
     it('should detect invalid CondFunc branches at validation time', () => {
       const context: ExecutionContext = {
         valueTable: {
-          vCond: { symbol: 'boolean', value: true, subSymbol: undefined },
+          vCond: { symbol: 'boolean', value: true, subSymbol: undefined, effects: [] },
         } as any,
         funcTable: {
           cond1: {
@@ -305,9 +305,9 @@ describe('validateContext integration', () => {
     it('should allow execution with warnings (unreferenced values)', () => {
       const context: ExecutionContext = {
         valueTable: {
-          v1: { symbol: 'number', value: 10, subSymbol: undefined },
-          v2: { symbol: 'number', value: 5, subSymbol: undefined },
-          v_unused: { symbol: 'number', value: 99, subSymbol: undefined }, // Unused
+          v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+          v2: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
+          v_unused: { symbol: 'number', value: 99, subSymbol: undefined, effects: [] }, // Unused
         } as any,
         funcTable: {
           f1: {

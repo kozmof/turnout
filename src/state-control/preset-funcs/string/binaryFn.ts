@@ -1,17 +1,18 @@
-import { type StringValue } from '../../value';
+import { type StringValue, type EffectSymbol } from '../../value';
 import { type StringToString } from '../convert';
-import { propageteRandom } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateRandom';
 
 export interface BinaryFnString {
   concat: StringToString;
 }
 
 export const bfString: BinaryFnString = {
-  concat: (a: StringValue, b: StringValue): StringValue => {
+  concat: (a: StringValue<readonly EffectSymbol[]>, b: StringValue<readonly EffectSymbol[]>): StringValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('string', a, b),
+      symbol: 'string',
       value: a.value + b.value,
       subSymbol: undefined,
+      effects: propagateEffects(a, b),
     };
   },
 } as const;

@@ -1,21 +1,22 @@
-import { type NumberValue, type ArrayValue } from '../../value';
+import { type NumberValue, type ArrayValue, type EffectSymbol } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
-import { propageteRandom } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateRandom';
 
 export interface TransformFnArray {
-  pass: ToArrayConversion<ArrayValue>;
-  length: ToNumberConversion<ArrayValue>;
+  pass: ToArrayConversion<ArrayValue<readonly EffectSymbol[]>>;
+  length: ToNumberConversion<ArrayValue<readonly EffectSymbol[]>>;
 }
 
 export const tfArray: TransformFnArray = {
-  pass: (val: ArrayValue): ArrayValue => {
+  pass: (val: ArrayValue<readonly EffectSymbol[]>): ArrayValue<readonly EffectSymbol[]> => {
     return val;
   },
-  length: (val: ArrayValue): NumberValue => {
+  length: (val: ArrayValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('number', val, null),
+      symbol: 'number',
       value: val.value.length,
       subSymbol: undefined,
+      effects: propagateEffects(val, null),
     };
   },
 } as const;

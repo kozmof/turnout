@@ -1,22 +1,23 @@
-import { isArray, type AnyValue, type BooleanValue } from '../../value';
+import { isArray, type AnyValue, type BooleanValue, type EffectSymbol } from '../../value';
 import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
-import { propageteRandom } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateRandom';
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;
 }
 
 export const bfGeneric: BinaryFnGeneric<AnyValue> = {
-  isEqual: (a: AnyValue, b: AnyValue): BooleanValue => {
+  isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly EffectSymbol[]> => {
     if (isComparable(a, b)) {
       return {
-        symbol: propageteRandom('boolean', a, b),
+        symbol: 'boolean',
         value:
           isArray(a) && isArray(b)
             ? JSON.stringify(a.value) === JSON.stringify(b.value)
             : a.value === b.value,
         subSymbol: undefined,
+        effects: propagateEffects(a, b),
       };
     } else {
       throw new Error();

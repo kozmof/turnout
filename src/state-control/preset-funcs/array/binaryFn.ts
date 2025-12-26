@@ -3,14 +3,15 @@ import {
   type ArrayValue,
   type NonArrayValue,
   type NumberValue,
+  type EffectSymbol,
   AnyValue,
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
-import { propageteRandom } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateRandom';
 
 export interface BinaryFnArray {
-  includes: ToBooleanProcess<ArrayValue, NonArrayValue>;
-  get: ToItemtProcess<ArrayValue, NonArrayValue, NumberValue>;
+  includes: ToBooleanProcess<ArrayValue<readonly EffectSymbol[]>, NonArrayValue>;
+  get: ToItemtProcess<ArrayValue<readonly EffectSymbol[]>, NonArrayValue, NumberValue<readonly EffectSymbol[]>>;
 }
 
 const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
@@ -18,14 +19,15 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
 };
 
 export const bfArray: BinaryFnArray = {
-  includes: (a: ArrayValue, b: NonArrayValue): BooleanValue => {
+  includes: (a: ArrayValue<readonly EffectSymbol[]>, b: NonArrayValue): BooleanValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('boolean', a, b),
+      symbol: 'boolean',
       value: a.value.map((val) => val.value).includes(b.value),
       subSymbol: undefined,
+      effects: propagateEffects(a, b),
     };
   },
-  get: (a: ArrayValue, idx: NumberValue): NonArrayValue => {
+  get: (a: ArrayValue<readonly EffectSymbol[]>, idx: NumberValue<readonly EffectSymbol[]>): NonArrayValue => {
     // TODO
     const item = a.value.at(idx.value);
     if (item !== undefined && isNonArrayValue(item)) {

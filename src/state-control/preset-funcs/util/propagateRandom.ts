@@ -1,28 +1,22 @@
 import {
-  type DeterministicSymbol,
   type AnyValue,
-  type NonDeterministicSymbol,
-  nonDeterministicSymbols,
+  type EffectSymbol,
 } from '../../value';
 
-function isRandomValue(a: AnyValue, b: AnyValue | null): boolean {
-  const symbols: (NonDeterministicSymbol | DeterministicSymbol)[] =
-    nonDeterministicSymbols;
-  if (b !== null) {
-    return symbols.includes(a.symbol) || symbols.includes(b.symbol);
-  } else {
-    return symbols.includes(a.symbol);
-  }
-}
-export const propageteRandom = <T extends DeterministicSymbol>(
-  symbol: T,
+export const propagateEffects = (
   a: AnyValue,
   b: AnyValue | null
-): T | `random-${T}` => {
-  const isRandom = isRandomValue(a, b);
-  if (isRandom) {
-    return `random-${symbol}`;
-  } else {
-    return symbol;
+): readonly EffectSymbol[] => {
+  const effectsSet = new Set<EffectSymbol>();
+
+  // Collect effects from a
+  a.effects.forEach((effect: EffectSymbol) => effectsSet.add(effect));
+
+  // Collect effects from b if it exists
+  if (b !== null) {
+    b.effects.forEach((effect: EffectSymbol) => effectsSet.add(effect));
   }
+
+  // Return unique effects as readonly array
+  return Array.from(effectsSet) as readonly EffectSymbol[];
 };

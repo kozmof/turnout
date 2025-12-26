@@ -1,20 +1,11 @@
 import { type ReturnMetaTransformFnArray } from '../../preset-funcs/array/transformFn';
 import { type ReturnMetaTransformFnNumber } from '../../preset-funcs/number/transformFn';
 import { type ReturnMetaTransformFnString } from '../../preset-funcs/string/transformFn';
-import { NonDeterministicSymbol } from '../../value';
 
-type RemoveRandomFromReturn<T> = {
-  [K in keyof T]: T[K] extends infer U
-    ? Exclude<U, NonDeterministicSymbol>
-    : never;
-};
-
-type ReturnTypeTransformFnNumber =
-  RemoveRandomFromReturn<ReturnMetaTransformFnNumber>;
-type ReturnTypeTransformFnString =
-  RemoveRandomFromReturn<ReturnMetaTransformFnString>;
-type ReturnTypeTransformFnArray =
-  RemoveRandomFromReturn<ReturnMetaTransformFnArray>;
+// No longer need to remove random symbols since effects are tracked separately
+type ReturnTypeTransformFnNumber = ReturnMetaTransformFnNumber;
+type ReturnTypeTransformFnString = ReturnMetaTransformFnString;
+type ReturnTypeTransformFnArray = ReturnMetaTransformFnArray;
 
 export const metaTfNumber = (): ReturnTypeTransformFnNumber => {
   return {

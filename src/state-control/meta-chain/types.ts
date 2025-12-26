@@ -1,45 +1,29 @@
 // Maybe deprecated
 import {
-  type ControlledBooleanValue,
-  type ControlledNumberValue,
-  type ControlledStringValue,
   type ArrayValue,
   type BooleanValue,
   type NumberValue,
   type StringValue,
+  type BaseTypeSymbol,
 } from '../value';
 
-export const numberType = (isRandom: boolean): NumberValue['symbol'] => {
-  return isRandom ? 'random-number' : 'number';
-};
+// Base type symbols (effects are tracked separately now)
+export const numberType = (): NumberValue['symbol'] => 'number';
+export const stringType = (): StringValue['symbol'] => 'string';
+export const booleanType = (): BooleanValue['symbol'] => 'boolean';
+export const arrayType = (): ArrayValue['symbol'] => 'array';
 
-export const stringType = (isRandom: boolean): StringValue['symbol'] => {
-  return isRandom ? 'random-string' : 'string';
-};
-
-export const booleanType = (isRandom: boolean): BooleanValue['symbol'] => {
-  return isRandom ? 'random-boolean' : 'boolean';
-};
-
-export const arrayType = (isRandom: boolean): ArrayValue['symbol'] => {
-  return isRandom ? 'random-array' : 'array';
-};
-
-export type ElemType =
-  | ControlledNumberValue['symbol']
-  | ControlledStringValue['symbol']
-  | ControlledBooleanValue['symbol'];
+export type ElemType = Exclude<BaseTypeSymbol, 'array'>;
 
 export const someType = (
-  isRandom: boolean,
   elemType: ElemType
 ): NumberValue['symbol'] | StringValue['symbol'] | BooleanValue['symbol'] => {
   switch (elemType) {
     case 'number':
-      return numberType(isRandom);
+      return numberType();
     case 'string':
-      return stringType(isRandom);
+      return stringType();
     case 'boolean':
-      return booleanType(isRandom);
+      return booleanType();
   }
 };

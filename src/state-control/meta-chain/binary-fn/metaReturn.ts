@@ -2,22 +2,13 @@ import { type ReturnMetaBinaryFnArray } from '../../preset-funcs/array/binaryFn'
 import { type ReturnMetaBinaryFnGeneric } from '../../preset-funcs/generic/binaryFn';
 import { type ReturnMetaBinaryFnNumber } from '../../preset-funcs/number/binaryFn';
 import { type ReturnMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
-import { NonDeterministicSymbol } from '../../value';
 import { type ElemType } from '../types';
 
-type RemoveRandomFromReturn<T> = {
-  [K in keyof T]: T[K] extends infer U
-    ? Exclude<U, NonDeterministicSymbol>
-    : never;
-};
-
-export type ReturnTypeBinaryFnNumber =
-  RemoveRandomFromReturn<ReturnMetaBinaryFnNumber>;
-export type ReturnTypeBinaryFnString =
-  RemoveRandomFromReturn<ReturnMetaBinaryFnString>;
-export type ReturnTypeBinaryFnArray = RemoveRandomFromReturn<ReturnMetaBinaryFnArray>;
-export type ReturnTypeBinaryFnGeneric =
-  RemoveRandomFromReturn<ReturnMetaBinaryFnGeneric>;
+// No longer need to remove random symbols since effects are tracked separately
+export type ReturnTypeBinaryFnNumber = ReturnMetaBinaryFnNumber;
+export type ReturnTypeBinaryFnString = ReturnMetaBinaryFnString;
+export type ReturnTypeBinaryFnArray = ReturnMetaBinaryFnArray;
+export type ReturnTypeBinaryFnGeneric = ReturnMetaBinaryFnGeneric;
 
 export const metaBfNumber = (): ReturnTypeBinaryFnNumber => {
   return {

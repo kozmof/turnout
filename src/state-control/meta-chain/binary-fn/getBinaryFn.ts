@@ -3,14 +3,14 @@ import { type ReturnMetaBinaryFnArray } from '../../preset-funcs/array/binaryFn'
 import { type ReturnMetaBinaryFnGeneric } from '../../preset-funcs/generic/binaryFn';
 import { type ReturnMetaBinaryFnNumber } from '../../preset-funcs/number/binaryFn';
 import { type ReturnMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
-import { deterministicSymbols, type DeterministicSymbol } from '../../value';
+import { baseTypeSymbols, type BaseTypeSymbol } from '../../value';
 import {
   metaBfGenericParams,
   metaBfNumberParams,
   metaBfStringParams,
 } from './metaParams';
 
-type Pattern = `${DeterministicSymbol}_${DeterministicSymbol}`;
+type Pattern = `${BaseTypeSymbol}_${BaseTypeSymbol}`;
 
 const seek = <T extends Record<string, [string, string]>>(
   callBack: (fnName: keyof T) => void,
@@ -28,8 +28,8 @@ export const getBinaryFn = ({
   paramType1,
   paramType2,
 }: {
-  paramType1: DeterministicSymbol;
-  paramType2: DeterministicSymbol;
+  paramType1: BaseTypeSymbol;
+  paramType2: BaseTypeSymbol;
 }): (
   | keyof ReturnMetaBinaryFnNumber
   | keyof ReturnMetaBinaryFnString
@@ -49,7 +49,7 @@ export const getBinaryFn = ({
   const paramGens = [
     metaBfNumberParams(),
     metaBfStringParams(),
-    ...deterministicSymbols.map((symbol) => metaBfGenericParams(symbol)),
+    ...baseTypeSymbols.map((symbol) => metaBfGenericParams(symbol)),
   ];
 
   for (const paramGen of paramGens) {

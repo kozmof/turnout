@@ -1,6 +1,6 @@
-import { type NumberValue } from '../../value';
+import { type NumberValue, type EffectSymbol } from '../../value';
 import { type NumberToNumber } from '../convert';
-import { propageteRandom } from '../util/propagateRandom';
+import { propagateEffects } from '../util/propagateRandom';
 
 export interface BinaryFnNumber {
   add: NumberToNumber;
@@ -10,32 +10,36 @@ export interface BinaryFnNumber {
 }
 
 export const bfNumber: BinaryFnNumber = {
-  add: (a: NumberValue, b: NumberValue): NumberValue => {
+  add: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('number', a, b),
+      symbol: 'number',
       value: a.value + b.value,
       subSymbol: undefined,
+      effects: propagateEffects(a, b),
     };
   },
-  minus: (a: NumberValue, b: NumberValue): NumberValue => {
+  minus: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('number', a, b),
+      symbol: 'number',
       value: a.value - b.value,
       subSymbol: undefined,
+      effects: propagateEffects(a, b),
     };
   },
-  multiply: (a: NumberValue, b: NumberValue): NumberValue => {
+  multiply: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('number', a, b),
+      symbol: 'number',
       value: a.value * b.value,
       subSymbol: undefined,
+      effects: propagateEffects(a, b),
     };
   },
-  divide: (a: NumberValue, b: NumberValue): NumberValue => {
+  divide: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
     return {
-      symbol: propageteRandom('number', a, b),
+      symbol: 'number',
       value: a.value / b.value,
       subSymbol: undefined,
+      effects: propagateEffects(a, b),
     };
   },
 } as const;

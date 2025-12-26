@@ -1,23 +1,12 @@
 import { type ParamsMetaBinaryFnGeneric } from '../../preset-funcs/generic/binaryFn';
 import { type ParamsMetaBinaryFnNumber } from '../../preset-funcs/number/binaryFn';
 import { type ParamsMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
-import {
-  type DeterministicSymbol,
-  type NonDeterministicSymbol,
-} from '../../value';
+import { type BaseTypeSymbol } from '../../value';
 
-type RemoveRandomFromParams<T> = {
-  [K in keyof T]: T[K] extends [infer U, infer V]
-    ? [Exclude<U, NonDeterministicSymbol>, Exclude<V, NonDeterministicSymbol>]
-    : never;
-};
-
-type ParamTypesBinaryFnNumber =
-  RemoveRandomFromParams<ParamsMetaBinaryFnNumber>;
-type ParamTypesBinaryFnString =
-  RemoveRandomFromParams<ParamsMetaBinaryFnString>;
-type ParamTypesBinaryFnGeneric =
-  RemoveRandomFromParams<ParamsMetaBinaryFnGeneric>;
+// No longer need to remove random symbols since effects are tracked separately
+type ParamTypesBinaryFnNumber = ParamsMetaBinaryFnNumber;
+type ParamTypesBinaryFnString = ParamsMetaBinaryFnString;
+type ParamTypesBinaryFnGeneric = ParamsMetaBinaryFnGeneric;
 
 export const metaBfNumberParams = (): ParamTypesBinaryFnNumber => {
   return {
@@ -35,7 +24,7 @@ export const metaBfStringParams = (): ParamTypesBinaryFnString => {
 };
 
 export const metaBfGenericParams = (
-  symbol: DeterministicSymbol
+  symbol: BaseTypeSymbol
 ): ParamTypesBinaryFnGeneric => {
   return {
     isEqual: [symbol, symbol],
