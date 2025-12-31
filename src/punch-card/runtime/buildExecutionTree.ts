@@ -2,9 +2,13 @@ import {
   FuncId,
   ExecutionContext,
   ValueId,
+  PlugDefineId,
+  TapDefineId,
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
+import type { ValueNode, FunctionNode, ConditionalNode } from './tree-types';
 import { isFuncId, isCondDefineId } from '../typeGuards';
+import { createMissingValueError } from './errors';
 import { TOM } from '../../util/tom';
 
 /**
@@ -74,11 +78,18 @@ function buildExecutionTreeInternal(
     // Otherwise, it's a pre-defined value
     const value = context.valueTable[valueId];
 
-    return {
-      nodeId: valueId,
+    // Value must exist in the table
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (value === undefined) {
+      throw createMissingValueError(valueId);
+    }
+
+    const valueNode: ValueNode = {
       nodeType: 'value',
+      nodeId: valueId,
       value,
     };
+    return valueNode;
   }
 
   // Recursive case: FuncId (internal node)
@@ -97,15 +108,16 @@ function buildExecutionTreeInternal(
     const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, visited);
     const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, visited);
 
-    return {
-      nodeId: funcId,
+    const conditionalNode: ConditionalNode = {
       nodeType: 'conditional',
-      funcDef: funcEntry.defId,
+      nodeId: funcId,
+      funcDef: defId, // defId is narrowed to CondDefineId by the type guard
       returnId: funcEntry.returnId,
       conditionTree,
       trueBranchTree,
       falseBranchTree,
     };
+    return conditionalNode;
   }
 
   const children: ExecutionTree[] = [];
@@ -122,11 +134,13 @@ function buildExecutionTreeInternal(
   // The sequence functions will be executed within the scoped context by executeTapFunc
   // This prevents sequence functions from being executed in the main tree traversal
 
-  return {
-    nodeId: funcId,
+  // At this point, defId must be PlugDefineId | TapDefineId (CondDefineId was handled above)
+  const functionNode: FunctionNode = {
     nodeType: 'function',
-    funcDef: funcEntry.defId,
-    children: children.length > 0 ? children : undefined,
+    nodeId: funcId,
+    funcDef: defId as PlugDefineId | TapDefineId,
     returnId: funcEntry.returnId,
+    children: children.length > 0 ? children : undefined,
   };
+  return functionNode;
 }

@@ -1,7 +1,7 @@
-import { ExecutionContext, FuncId, ValueId } from '../types';
+import { ExecutionContext } from '../types';
 import { ExecutionTree } from './tree-types';
 import { isPlugDefineId, isTapDefineId } from '../typeGuards';
-import { createFunctionExecutionError, createInvalidTreeNodeError, createMissingValueError } from './errors';
+import { createFunctionExecutionError } from './errors';
 import { executePlugFunc, type ExecutionResult } from './exec/executePlugFunc';
 import { executeTapFunc } from './exec/executeTapFunc';
 import { executeCondFunc } from './exec/executeCondFunc';
@@ -20,11 +20,7 @@ export function executeTree(
 ): ExecutionResult {
   // Base case: value node (leaf)
   if (tree.nodeType === 'value') {
-    // Value should already be in the context or in the tree
-    if (tree.value === undefined) {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      throw createMissingValueError(tree.nodeId as ValueId);
-    }
+    // TypeScript now knows tree is ValueNode, so tree.value exists
     return {
       value: tree.value,
       updatedValueTable: context.valueTable, // No changes for leaf nodes
@@ -33,21 +29,9 @@ export function executeTree(
 
   // Conditional node: evaluate condition, then execute only one branch
   if (tree.nodeType === 'conditional') {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const funcId = tree.nodeId as FuncId;
-
-    if (!tree.conditionTree) {
-      throw createInvalidTreeNodeError(funcId, 'Conditional node missing condition tree');
-    }
-    if (!tree.trueBranchTree) {
-      throw createInvalidTreeNodeError(funcId, 'Conditional node missing true branch tree');
-    }
-    if (!tree.falseBranchTree) {
-      throw createInvalidTreeNodeError(funcId, 'Conditional node missing false branch tree');
-    }
-    if (!tree.returnId) {
-      throw createInvalidTreeNodeError(funcId, 'Conditional node missing return ID');
-    }
+    // TypeScript now knows tree is ConditionalNode
+    // All required fields are guaranteed to exist (conditionTree, trueBranchTree, etc.)
+    const funcId = tree.nodeId;
 
     // Execute condition tree
     const conditionResult = executeTree(tree.conditionTree, context);
@@ -81,7 +65,10 @@ export function executeTree(
     return condFuncResult;
   }
 
-  // Regular function node
+  // Regular function node (tree.nodeType === 'function')
+  // TypeScript now knows tree is FunctionNode
+  // All required fields are guaranteed to exist (funcDef, returnId, nodeId is FuncId)
+
   // Post-order traversal: execute children first, threading state through
   let currentValueTable = context.valueTable;
 
@@ -103,11 +90,7 @@ export function executeTree(
   };
 
   // Now execute this function
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  const funcId = tree.nodeId as FuncId;
-  if (!tree.funcDef) {
-    throw createInvalidTreeNodeError(funcId, 'Function node missing function definition');
-  }
+  const funcId = tree.nodeId;
   const defId = tree.funcDef;
 
   let execResult: ExecutionResult;

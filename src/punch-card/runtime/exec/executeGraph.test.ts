@@ -266,7 +266,9 @@ describe('executeGraph', () => {
 
   it('should handle error: cyclic dependency', () => {
     const context: ExecutionContext = {
-      valueTable: {} as any,
+      valueTable: {
+        v1: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
+      } as any,
       funcTable: {
         f1: {
           defId: 'pd-add' as PlugDefineId,

@@ -3,20 +3,44 @@ import { AnyValue } from '../../state-control/value';
 
 export type NodeId = FuncId | ValueId;
 
-export type ExecutionTree = {
-  nodeId: NodeId;
-  nodeType: 'function' | 'value' | 'conditional';
+/**
+ * Execution tree node representing the computation graph.
+ * Uses discriminated union for type-safe access to node-specific fields.
+ */
+export type ExecutionTree =
+  | ValueNode
+  | FunctionNode
+  | ConditionalNode;
 
-  // For function nodes
-  funcDef?: PlugDefineId | TapDefineId | CondDefineId;
-  children?: ExecutionTree[];
-  returnId?: ValueId;
+/**
+ * Leaf node containing a pre-computed value.
+ */
+export type ValueNode = {
+  readonly nodeType: 'value';
+  readonly nodeId: ValueId;
+  readonly value: AnyValue;
+};
 
-  // For conditional nodes
-  conditionTree?: ExecutionTree;
-  trueBranchTree?: ExecutionTree;
-  falseBranchTree?: ExecutionTree;
+/**
+ * Internal node representing a function call (PlugFunc or TapFunc).
+ */
+export type FunctionNode = {
+  readonly nodeType: 'function';
+  readonly nodeId: FuncId;
+  readonly funcDef: PlugDefineId | TapDefineId;
+  readonly returnId: ValueId;
+  readonly children?: readonly ExecutionTree[];
+};
 
-  // For value nodes (leaves)
-  value?: AnyValue;
+/**
+ * Conditional node representing a CondFunc with lazy branch evaluation.
+ */
+export type ConditionalNode = {
+  readonly nodeType: 'conditional';
+  readonly nodeId: FuncId;
+  readonly funcDef: CondDefineId;
+  readonly returnId: ValueId;
+  readonly conditionTree: ExecutionTree;
+  readonly trueBranchTree: ExecutionTree;
+  readonly falseBranchTree: ExecutionTree;
 };
