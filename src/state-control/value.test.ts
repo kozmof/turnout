@@ -7,7 +7,7 @@ describe('Check TypeGuard', () => {
     expect(isPureNumber({ symbol: 'number', value: 100, subSymbol: undefined, tags: ['random'] })).toBe(false);
   });
 
-  test('Symbol is number (with random effect)', () => {
+  test('Symbol is number (with random tag)', () => {
     const randomNum = { symbol: 'number' as const, value: 100, subSymbol: undefined as undefined, tags: ['random'] as const };
     expect(isNumber(randomNum)).toBe(true);
     expect(hasTag(randomNum, 'random')).toBe(true);
@@ -24,7 +24,7 @@ describe('Check TypeGuard', () => {
     expect(isPureString({ symbol: 'string', value: 'test2', subSymbol: undefined, tags: ['random'] })).toBe(false);
   });
 
-  test('Symbol is string (with random effect)', () => {
+  test('Symbol is string (with random tag)', () => {
     const randomStr = { symbol: 'string' as const, value: 'test', subSymbol: undefined as undefined, tags: ['random'] as const };
     expect(isString(randomStr)).toBe(true);
     expect(hasTag(randomStr, 'random')).toBe(true);
@@ -40,7 +40,7 @@ describe('Check TypeGuard', () => {
     expect(isPureBoolean({ symbol: 'boolean', value: false, subSymbol: undefined, tags: ['random'] })).toBe(false);
   });
 
-  test('Symbol is boolean (with random effect)', () => {
+  test('Symbol is boolean (with random tag)', () => {
     const randomBool = { symbol: 'boolean' as const, value: true, subSymbol: undefined as undefined, tags: ['random'] as const };
     expect(isBoolean(randomBool)).toBe(true);
     expect(hasTag(randomBool, 'random')).toBe(true);
@@ -56,7 +56,7 @@ describe('Check TypeGuard', () => {
     expect(isPure({ symbol: 'array', value: [], subSymbol: undefined, tags: [] })).toBe(true);
   });
 
-  test('Symbol is array (with random effect)', () => {
+  test('Symbol is array (with random tag)', () => {
     const randomArr = { symbol: 'array' as const, value: [], subSymbol: undefined as undefined, tags: ['random'] as const };
     expect(isArray(randomArr)).toBe(true);
     expect(hasTag(randomArr, 'random')).toBe(true);

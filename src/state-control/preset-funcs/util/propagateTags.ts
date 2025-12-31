@@ -12,7 +12,7 @@ import {
  *
  * ## Tag Semantics
  *
- * Effects represent "taints" or "computational origins" rather than event counts.
+ * Tags represent "taints" or "computational origins" rather than event counts.
  * When combining tags, duplicates are removed using set union semantics.
  *
  * ### Examples
@@ -36,7 +36,7 @@ import {
  *
  * **Why deduplication?**
  * If a value is derived from random inputs, it's random regardless of how many
- * random sources contributed. Effects track "contamination" not "event counts".
+ * random sources contributed. Tags track "contamination" not "event counts".
  *
  * **Need to track multiple instances?**
  * Use distinct tag symbols for each instance:

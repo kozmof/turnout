@@ -157,7 +157,7 @@ export function inferValueType(
   const value = context.valueTable[valueId];
   if (!value) return null;
 
-  // Effects are tracked separately in the effects field
+  // Tags are tracked separately in the tags field
   return value.symbol as BaseTypeSymbol;
 }
 
@@ -180,7 +180,7 @@ export function inferValueElemType(
   const subSymbol = value.subSymbol;
   if (!subSymbol) return null;
 
-  // Effects are tracked separately in the effects field
+  // Tags are tracked separately in the tags field
   return subSymbol as BaseTypeSymbol;
 }
 

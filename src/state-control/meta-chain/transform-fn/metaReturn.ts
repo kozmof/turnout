@@ -2,7 +2,6 @@ import { type ReturnMetaTransformFnArray } from '../../preset-funcs/array/transf
 import { type ReturnMetaTransformFnNumber } from '../../preset-funcs/number/transformFn';
 import { type ReturnMetaTransformFnString } from '../../preset-funcs/string/transformFn';
 
-// No longer need to remove random symbols since effects are tracked separately
 type ReturnTypeTransformFnNumber = ReturnMetaTransformFnNumber;
 type ReturnTypeTransformFnString = ReturnMetaTransformFnString;
 type ReturnTypeTransformFnArray = ReturnMetaTransformFnArray;

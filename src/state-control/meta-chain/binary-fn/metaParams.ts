@@ -3,7 +3,6 @@ import { type ParamsMetaBinaryFnNumber } from '../../preset-funcs/number/binaryF
 import { type ParamsMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
 import { type BaseTypeSymbol } from '../../value';
 
-// No longer need to remove random symbols since effects are tracked separately
 type ParamTypesBinaryFnNumber = ParamsMetaBinaryFnNumber;
 type ParamTypesBinaryFnString = ParamsMetaBinaryFnString;
 type ParamTypesBinaryFnGeneric = ParamsMetaBinaryFnGeneric;

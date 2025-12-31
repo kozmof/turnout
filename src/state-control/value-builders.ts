@@ -32,15 +32,15 @@ import {
  * Duplicates are removed automatically.
  */
 function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
-  const effectsSet = new Set<TagSymbol>();
+  const tagsSet = new Set<TagSymbol>();
 
   for (const source of sources) {
-    for (const effect of source.tags) {
-      effectsSet.add(effect);
+    for (const tag of source.tags) {
+      tagsSet.add(tag);
     }
   }
 
-  return Array.from(effectsSet);
+  return Array.from(tagsSet);
 }
 
 /**
@@ -74,7 +74,7 @@ function createValueBuilder<TResult>(
  *
  * @example
  * const pure = buildNumber(42);
- * const withEffect = buildNumber(10, { tags: ['random'] } as AnyValue);
+ * const withTags = buildNumber(10, { tags: ['random'] } as AnyValue);
  */
 export const buildNumber = createValueBuilder<NumberValue<readonly TagSymbol[]>>('number', undefined);
 

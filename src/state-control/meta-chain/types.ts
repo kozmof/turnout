@@ -7,7 +7,6 @@ import {
   type BaseTypeSymbol,
 } from '../value';
 
-// Base type symbols (effects are tracked separately now)
 export const numberType = (): NumberValue['symbol'] => 'number';
 export const stringType = (): StringValue['symbol'] => 'string';
 export const booleanType = (): BooleanValue['symbol'] => 'boolean';

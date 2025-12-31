@@ -661,14 +661,14 @@ describe('validateContext', () => {
       it('should handle random- prefixed value types correctly', () => {
         const context: ExecutionContext = {
           valueTable: {
-            v1: { symbol: 'number', value: 7, subSymbol: undefined, tags: ['random'] }, // number with random effect
+            v1: { symbol: 'number', value: 7, subSymbol: undefined, tags: ['random'] }, // number with random tag
             v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] }, // pure number
           } as any,
           funcTable: {
             f1: {
               defId: 'pd1' as PlugDefineId,
               argMap: {
-                a: 'v1' as ValueId, // number with random effect (should be treated as number for type checking)
+                a: 'v1' as ValueId, // number with random tag (should be treated as number for type checking)
                 b: 'v2' as ValueId, // number
               },
               returnId: 'v3' as ValueId,

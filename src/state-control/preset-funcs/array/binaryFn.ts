@@ -23,29 +23,29 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
  * This is specific to array get operations where we need to combine
  * the item's own tags with tags from accessing it.
  */
-function mergeItemEffects(
+function mergeItemTags(
   item: NonArrayValue,
   array: ArrayValue<readonly TagSymbol[]>,
   index: NumberValue<readonly TagSymbol[]>
 ): readonly TagSymbol[] {
-  const effectsSet = new Set<TagSymbol>();
+  const tagsSet = new Set<TagSymbol>();
 
   // Add item's own tags
-  for (const effect of item.tags) {
-    effectsSet.add(effect);
+  for (const tag of item.tags) {
+    tagsSet.add(tag);
   }
 
   // Add array's tags
-  for (const effect of array.tags) {
-    effectsSet.add(effect);
+  for (const tag of array.tags) {
+    tagsSet.add(tag);
   }
 
   // Add index's tags
-  for (const effect of index.tags) {
-    effectsSet.add(effect);
+  for (const tag of index.tags) {
+    tagsSet.add(tag);
   }
 
-  return Array.from(effectsSet);
+  return Array.from(tagsSet);
 }
 
 export const bfArray: BinaryFnArray = {
@@ -59,7 +59,7 @@ export const bfArray: BinaryFnArray = {
       // Propagate tags from both the array and the index to the retrieved item
       return {
         ...item,
-        tags: mergeItemEffects(item, a, idx),
+        tags: mergeItemTags(item, a, idx),
       };
     } else {
       throw new Error(

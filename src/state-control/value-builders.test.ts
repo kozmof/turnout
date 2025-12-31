@@ -328,8 +328,8 @@ describe('Value Builders', () => {
     });
   });
 
-  describe('Effect propagation edge cases', () => {
-    it('handles empty effect arrays', () => {
+  describe('Tag propagation edge cases', () => {
+    it('handles empty tag arrays', () => {
       const a = buildNumber(1);
       const b = buildNumber(2);
 

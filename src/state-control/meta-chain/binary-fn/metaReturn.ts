@@ -4,7 +4,7 @@ import { type ReturnMetaBinaryFnNumber } from '../../preset-funcs/number/binaryF
 import { type ReturnMetaBinaryFnString } from '../../preset-funcs/string/binaryFn';
 import { type ElemType } from '../types';
 
-// No longer need to remove random symbols since effects are tracked separately
+// No longer need to remove random symbols since tags are tracked separately
 export type ReturnTypeBinaryFnNumber = ReturnMetaBinaryFnNumber;
 export type ReturnTypeBinaryFnString = ReturnMetaBinaryFnString;
 export type ReturnTypeBinaryFnArray = ReturnMetaBinaryFnArray;
