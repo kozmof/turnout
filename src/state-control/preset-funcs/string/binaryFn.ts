@@ -1,6 +1,6 @@
 import { type StringValue, type EffectSymbol } from '../../value';
 import { type StringToString } from '../convert';
-import { propagateEffects } from '../util/propagateEffects';
+import { binaryStringOp } from '../../value-builders';
 
 export interface BinaryFnString {
   concat: StringToString;
@@ -8,12 +8,7 @@ export interface BinaryFnString {
 
 export const bfString: BinaryFnString = {
   concat: (a: StringValue<readonly EffectSymbol[]>, b: StringValue<readonly EffectSymbol[]>): StringValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'string',
-      value: a.value + b.value,
-      subSymbol: undefined,
-      effects: propagateEffects(a, b),
-    };
+    return binaryStringOp((x, y) => x + y, a, b);
   },
 } as const;
 

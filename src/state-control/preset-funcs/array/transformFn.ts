@@ -1,6 +1,6 @@
 import { type NumberValue, type ArrayValue, type EffectSymbol } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
-import { propagateEffects } from '../util/propagateEffects';
+import { buildNumber } from '../../value-builders';
 
 export interface TransformFnArray {
   pass: ToArrayConversion<ArrayValue<readonly EffectSymbol[]>>;
@@ -12,12 +12,7 @@ export const tfArray: TransformFnArray = {
     return val;
   },
   length: (val: ArrayValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'number',
-      value: val.value.length,
-      subSymbol: undefined,
-      effects: propagateEffects(val, null),
-    };
+    return buildNumber(val.value.length, val);
   },
 } as const;
 

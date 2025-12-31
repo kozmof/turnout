@@ -1,7 +1,7 @@
 import { isArray, type AnyValue, type BooleanValue, type EffectSymbol } from '../../value';
 import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
-import { propagateEffects } from '../util/propagateEffects';
+import { buildBoolean } from '../../value-builders';
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;
@@ -10,15 +10,11 @@ export interface BinaryFnGeneric<T extends AnyValue> {
 export const bfGeneric: BinaryFnGeneric<AnyValue> = {
   isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly EffectSymbol[]> => {
     if (isComparable(a, b)) {
-      return {
-        symbol: 'boolean',
-        value:
-          isArray(a) && isArray(b)
-            ? JSON.stringify(a.value) === JSON.stringify(b.value)
-            : a.value === b.value,
-        subSymbol: undefined,
-        effects: propagateEffects(a, b),
-      };
+      const areEqual =
+        isArray(a) && isArray(b)
+          ? JSON.stringify(a.value) === JSON.stringify(b.value)
+          : a.value === b.value;
+      return buildBoolean(areEqual, a, b);
     } else {
       throw new Error();
     }

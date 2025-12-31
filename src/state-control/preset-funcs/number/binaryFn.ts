@@ -1,6 +1,6 @@
 import { type NumberValue, type EffectSymbol } from '../../value';
 import { type NumberToNumber } from '../convert';
-import { propagateEffects } from '../util/propagateEffects';
+import { binaryNumberOp } from '../../value-builders';
 
 export interface BinaryFnNumber {
   add: NumberToNumber;
@@ -11,36 +11,16 @@ export interface BinaryFnNumber {
 
 export const bfNumber: BinaryFnNumber = {
   add: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'number',
-      value: a.value + b.value,
-      subSymbol: undefined,
-      effects: propagateEffects(a, b),
-    };
+    return binaryNumberOp((x, y) => x + y, a, b);
   },
   minus: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'number',
-      value: a.value - b.value,
-      subSymbol: undefined,
-      effects: propagateEffects(a, b),
-    };
+    return binaryNumberOp((x, y) => x - y, a, b);
   },
   multiply: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'number',
-      value: a.value * b.value,
-      subSymbol: undefined,
-      effects: propagateEffects(a, b),
-    };
+    return binaryNumberOp((x, y) => x * y, a, b);
   },
   divide: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'number',
-      value: a.value / b.value,
-      subSymbol: undefined,
-      effects: propagateEffects(a, b),
-    };
+    return binaryNumberOp((x, y) => x / y, a, b);
   },
 } as const;
 

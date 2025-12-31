@@ -1,6 +1,6 @@
 import { type NumberValue, type StringValue, type EffectSymbol } from '../../value';
 import { type ToStringConversion, type ToNumberConversion } from '../convert';
-import { propagateEffects } from '../util/propagateEffects';
+import { buildNumber } from '../../value-builders';
 
 export interface TransformFnString {
   pass: ToStringConversion<StringValue<readonly EffectSymbol[]>>;
@@ -12,12 +12,7 @@ export const tfString: TransformFnString = {
     return val;
   },
   toNumber: (val: StringValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'number',
-      value: parseInt(val.value),
-      subSymbol: undefined,
-      effects: propagateEffects(val, null),
-    };
+    return buildNumber(parseInt(val.value), val);
   },
 } as const;
 

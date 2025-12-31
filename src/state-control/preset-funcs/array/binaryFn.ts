@@ -7,7 +7,7 @@ import {
   AnyValue,
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
-import { propagateEffects } from '../util/propagateEffects';
+import { buildBoolean } from '../../value-builders';
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue<readonly EffectSymbol[]>, NonArrayValue>;
@@ -18,23 +18,48 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
   return !Array.isArray(val.value);
 };
 
+/**
+ * Merges effects from item with array and index effects.
+ * This is specific to array get operations where we need to combine
+ * the item's own effects with effects from accessing it.
+ */
+function mergeItemEffects(
+  item: NonArrayValue,
+  array: ArrayValue<readonly EffectSymbol[]>,
+  index: NumberValue<readonly EffectSymbol[]>
+): readonly EffectSymbol[] {
+  const effectsSet = new Set<EffectSymbol>();
+
+  // Add item's own effects
+  for (const effect of item.effects) {
+    effectsSet.add(effect);
+  }
+
+  // Add array's effects
+  for (const effect of array.effects) {
+    effectsSet.add(effect);
+  }
+
+  // Add index's effects
+  for (const effect of index.effects) {
+    effectsSet.add(effect);
+  }
+
+  return Array.from(effectsSet);
+}
+
 export const bfArray: BinaryFnArray = {
   includes: (a: ArrayValue<readonly EffectSymbol[]>, b: NonArrayValue): BooleanValue<readonly EffectSymbol[]> => {
-    return {
-      symbol: 'boolean',
-      value: a.value.map((val) => val.value).includes(b.value),
-      subSymbol: undefined,
-      effects: propagateEffects(a, b),
-    };
+    const contains = a.value.map((val) => val.value).includes(b.value);
+    return buildBoolean(contains, a, b);
   },
   get: (a: ArrayValue<readonly EffectSymbol[]>, idx: NumberValue<readonly EffectSymbol[]>): NonArrayValue => {
     const item = a.value.at(idx.value);
     if (item !== undefined && isNonArrayValue(item)) {
       // Propagate effects from both the array and the index to the retrieved item
-      const combinedEffects = propagateEffects(a, idx);
       return {
         ...item,
-        effects: [...new Set([...item.effects, ...combinedEffects])] as readonly EffectSymbol[],
+        effects: mergeItemEffects(item, a, idx),
       };
     } else {
       throw new Error(
