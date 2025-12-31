@@ -12,7 +12,7 @@ export const tfArray: TransformFnArray = {
     return val;
   },
   length: (val: ArrayValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return buildNumber(val.value.length, val);
+    return buildNumber(val.value.length, val.tags);
   },
 } as const;
 

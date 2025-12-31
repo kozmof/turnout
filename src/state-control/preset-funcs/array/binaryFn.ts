@@ -51,7 +51,14 @@ function mergeItemTags(
 export const bfArray: BinaryFnArray = {
   includes: (a: ArrayValue<readonly TagSymbol[]>, b: NonArrayValue): BooleanValue<readonly TagSymbol[]> => {
     const contains = a.value.map((val) => val.value).includes(b.value);
-    return buildBoolean(contains, a, b);
+
+    // Merge tags from both operands
+    const tagsSet = new Set<TagSymbol>();
+    for (const tag of a.tags) tagsSet.add(tag);
+    for (const tag of b.tags) tagsSet.add(tag);
+    const mergedTags = Array.from(tagsSet);
+
+    return buildBoolean(contains, mergedTags);
   },
   get: (a: ArrayValue<readonly TagSymbol[]>, idx: NumberValue<readonly TagSymbol[]>): NonArrayValue => {
     const item = a.value.at(idx.value);

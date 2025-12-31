@@ -12,7 +12,7 @@ export const tfString: TransformFnString = {
     return val;
   },
   toNumber: (val: StringValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return buildNumber(parseInt(val.value), val);
+    return buildNumber(parseInt(val.value), val.tags);
   },
 } as const;
 

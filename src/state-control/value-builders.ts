@@ -53,14 +53,17 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
 function createValueBuilder<TResult>(
   symbol: string,
   subSymbol: string | undefined
-): (value: unknown, ...sources: AnyValue[]) => TResult {
-  return (value: unknown, ...sources: AnyValue[]): TResult => {
+): (value: unknown, tags?: readonly TagSymbol[]) => TResult {
+  return (value: unknown, tags: readonly TagSymbol[] = []): TResult => {
+    // Deduplicate tags
+    const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
+
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     return {
       symbol,
       value,
       subSymbol,
-      tags: sources.length > 0 ? mergeTags(...sources) : [],
+      tags: uniqueTags,
     } as unknown as TResult;
   };
 }
@@ -164,7 +167,7 @@ export function binaryNumberOp(
   a: NumberValue<readonly TagSymbol[]>,
   b: NumberValue<readonly TagSymbol[]>
 ): NumberValue<readonly TagSymbol[]> {
-  return buildNumber(op(a.value, b.value), a, b);
+  return buildNumber(op(a.value, b.value), mergeTags(a, b));
 }
 
 /**
@@ -184,7 +187,7 @@ export function binaryStringOp(
   a: StringValue<readonly TagSymbol[]>,
   b: StringValue<readonly TagSymbol[]>
 ): StringValue<readonly TagSymbol[]> {
-  return buildString(op(a.value, b.value), a, b);
+  return buildString(op(a.value, b.value), mergeTags(a, b));
 }
 
 /**
@@ -205,7 +208,7 @@ export function binaryBooleanOp<A, B>(
   a: AnyValue & { value: A },
   b: AnyValue & { value: B }
 ): BooleanValue<readonly TagSymbol[]> {
-  return buildBoolean(op(a.value, b.value), a, b);
+  return buildBoolean(op(a.value, b.value), mergeTags(a, b));
 }
 
 /**
@@ -224,7 +227,7 @@ export function unaryNumberOp(
   transform: (value: number) => number,
   source: NumberValue<readonly TagSymbol[]>
 ): NumberValue<readonly TagSymbol[]> {
-  return buildNumber(transform(source.value), source);
+  return buildNumber(transform(source.value), source.tags);
 }
 
 /**
@@ -243,7 +246,7 @@ export function unaryStringOp(
   transform: (value: string) => string,
   source: StringValue<readonly TagSymbol[]>
 ): StringValue<readonly TagSymbol[]> {
-  return buildString(transform(source.value), source);
+  return buildString(transform(source.value), source.tags);
 }
 
 /**
@@ -261,7 +264,7 @@ export function unaryBooleanOp(
   transform: (value: boolean) => boolean,
   source: BooleanValue<readonly TagSymbol[]>
 ): BooleanValue<readonly TagSymbol[]> {
-  return buildBoolean(transform(source.value), source);
+  return buildBoolean(transform(source.value), source.tags);
 }
 
 /**
@@ -279,7 +282,7 @@ export function unaryBooleanOp(
 export function convertValue<TIn, TOut>(
   convert: (value: TIn) => TOut,
   source: AnyValue & { value: TIn },
-  builder: (value: TOut, ...sources: AnyValue[]) => AnyValue & { value: TOut }
+  builder: (value: TOut, tags?: readonly TagSymbol[]) => AnyValue & { value: TOut }
 ): AnyValue & { value: TOut } {
-  return builder(convert(source.value), source);
+  return builder(convert(source.value), source.tags);
 }

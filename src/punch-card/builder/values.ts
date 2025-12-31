@@ -25,34 +25,21 @@ export const val = {
    * Creates a NumberValue.
    */
   number(value: number, tags: TagSymbol[] = []): AnyValue {
-    if (tags.length === 0) {
-      return buildNumber(value);
-    }
-    // Build tagged sources
-    const sources = tags.map((tag) => buildNumber(0, { tags: [tag] } as unknown as AnyValue));
-    return buildNumber(value, ...sources);
+    return buildNumber(value, tags);
   },
 
   /**
    * Creates a StringValue.
    */
   string(value: string, tags: TagSymbol[] = []): AnyValue {
-    if (tags.length === 0) {
-      return buildString(value);
-    }
-    const sources = tags.map((tag) => ({ tags: [tag] } as unknown as AnyValue));
-    return buildString(value, ...sources);
+    return buildString(value, tags);
   },
 
   /**
    * Creates a BooleanValue.
    */
   boolean(value: boolean, tags: TagSymbol[] = []): AnyValue {
-    if (tags.length === 0) {
-      return buildBoolean(value);
-    }
-    const sources = tags.map((tag) => ({ tags: [tag] } as unknown as AnyValue));
-    return buildBoolean(value, ...sources);
+    return buildBoolean(value, tags);
   },
 
   /**
@@ -63,15 +50,13 @@ export const val = {
     elements: AnyValue[],
     tags: TagSymbol[] = []
   ): AnyValue {
-    const sources = tags.map((tag) => ({ tags: [tag] } as unknown as AnyValue));
-
     switch (elemType) {
       case 'number':
-        return buildArrayNumber(elements as unknown as any[], ...sources);
+        return buildArrayNumber(elements as unknown as any[], tags);
       case 'string':
-        return buildArrayString(elements as unknown as any[], ...sources);
+        return buildArrayString(elements as unknown as any[], tags);
       case 'boolean':
-        return buildArrayBoolean(elements as unknown as any[], ...sources);
+        return buildArrayBoolean(elements as unknown as any[], tags);
     }
   },
 };

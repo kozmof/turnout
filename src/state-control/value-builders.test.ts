@@ -15,7 +15,6 @@ import {
   unaryBooleanOp,
   convertValue,
 } from './value-builders';
-import type { AnyValue } from './value';
 
 describe('Value Builders', () => {
   describe('buildNumber', () => {
@@ -31,34 +30,13 @@ describe('Value Builders', () => {
     });
 
     it('propagates tags from a single source', () => {
-      const source: AnyValue = {
-        symbol: 'number',
-        value: 10,
-        subSymbol: undefined,
-        tags: ['random'],
-      };
-
-      const result = buildNumber(42, source);
+      const result = buildNumber(42, ['random']);
 
       expect(result.tags).toEqual(['random']);
     });
 
     it('merges tags from multiple sources', () => {
-      const source1: AnyValue = {
-        symbol: 'number',
-        value: 5,
-        subSymbol: undefined,
-        tags: ['random'],
-      };
-
-      const source2: AnyValue = {
-        symbol: 'number',
-        value: 3,
-        subSymbol: undefined,
-        tags: ['cached', 'network'],
-      };
-
-      const result = buildNumber(8, source1, source2);
+      const result = buildNumber(8, ['random', 'cached', 'network']);
 
       expect(result.tags).toHaveLength(3);
       expect(result.tags).toContain('random');
@@ -67,24 +45,11 @@ describe('Value Builders', () => {
     });
 
     it('deduplicates tags', () => {
-      const source1: AnyValue = {
-        symbol: 'number',
-        value: 5,
-        subSymbol: undefined,
-        tags: ['random', 'cached'],
-      };
+      const result = buildNumber(5, ['random', 'cached', 'random']);
 
-      const source2: AnyValue = {
-        symbol: 'number',
-        value: 3,
-        subSymbol: undefined,
-        tags: ['random', 'network'],
-      };
-
-      const result = buildNumber(8, source1, source2);
-
-      expect(result.tags).toHaveLength(3);
-      expect(result.tags.filter(e => e === 'random')).toHaveLength(1);
+      expect(result.tags).toHaveLength(2);
+      expect(result.tags).toContain('random');
+      expect(result.tags).toContain('cached');
     });
   });
 
@@ -101,14 +66,7 @@ describe('Value Builders', () => {
     });
 
     it('propagates tags from sources', () => {
-      const source: AnyValue = {
-        symbol: 'string',
-        value: 'world',
-        subSymbol: undefined,
-        tags: ['user-input'],
-      };
-
-      const result = buildString('hello', source);
+      const result = buildString('hello', ['user-input']);
 
       expect(result.tags).toEqual(['user-input']);
     });
@@ -127,14 +85,7 @@ describe('Value Builders', () => {
     });
 
     it('propagates tags from sources', () => {
-      const source: AnyValue = {
-        symbol: 'boolean',
-        value: false,
-        subSymbol: undefined,
-        tags: ['computed'],
-      };
-
-      const result = buildBoolean(true, source);
+      const result = buildBoolean(true, ['computed']);
 
       expect(result.tags).toEqual(['computed']);
     });
@@ -191,10 +142,8 @@ describe('Value Builders', () => {
 
   describe('binaryNumberOp', () => {
     it('applies operation and propagates tags', () => {
-      const sourceA = buildNumber(0);
-      const a = buildNumber(5, { ...sourceA, tags: ['random'] });
-      const sourceB = buildNumber(0);
-      const b = buildNumber(3, { ...sourceB, tags: ['cached'] });
+      const a = buildNumber(5, ['random']);
+      const b = buildNumber(3, ['cached']);
 
       const result = binaryNumberOp((x, y) => x + y, a, b);
 
@@ -217,8 +166,7 @@ describe('Value Builders', () => {
 
   describe('binaryStringOp', () => {
     it('applies operation and propagates tags', () => {
-      const sourceA = buildString('');
-      const a = buildString('Hello', { ...sourceA, tags: ['network'] });
+      const a = buildString('Hello', ['network']);
       const b = buildString(' World');
 
       const result = binaryStringOp((x, y) => x + y, a, b);
@@ -230,8 +178,7 @@ describe('Value Builders', () => {
 
   describe('binaryBooleanOp', () => {
     it('applies comparison and propagates tags', () => {
-      const sourceA = buildNumber(0);
-      const a = buildNumber(5, { ...sourceA, tags: ['random'] });
+      const a = buildNumber(5, ['random']);
       const b = buildNumber(3);
 
       const result = binaryBooleanOp((x, y) => x > y, a, b);
@@ -253,8 +200,7 @@ describe('Value Builders', () => {
 
   describe('unaryNumberOp', () => {
     it('applies transformation and propagates tags', () => {
-      const baseSource = buildNumber(0);
-      const source = buildNumber(5, { ...baseSource, tags: ['random'] });
+      const source = buildNumber(5, ['random']);
 
       const result = unaryNumberOp(x => -x, source);
 
@@ -274,8 +220,7 @@ describe('Value Builders', () => {
 
   describe('unaryStringOp', () => {
     it('applies transformation and propagates tags', () => {
-      const baseSource = buildString('');
-      const source = buildString('hello', { ...baseSource, tags: ['user-input'] });
+      const source = buildString('hello', ['user-input']);
 
       const result = unaryStringOp(x => x.toUpperCase(), source);
 
@@ -286,8 +231,7 @@ describe('Value Builders', () => {
 
   describe('unaryBooleanOp', () => {
     it('applies transformation and propagates tags', () => {
-      const baseSource = buildBoolean(false);
-      const source = buildBoolean(true, { ...baseSource, tags: ['computed'] });
+      const source = buildBoolean(true, ['computed']);
 
       const result = unaryBooleanOp(x => !x, source);
 
@@ -298,8 +242,7 @@ describe('Value Builders', () => {
 
   describe('convertValue', () => {
     it('converts between types and propagates tags', () => {
-      const baseSource = buildNumber(0);
-      const source = buildNumber(42, { ...baseSource, tags: ['random'] });
+      const source = buildNumber(42, ['random']);
 
       const result = convertValue(
         (n: number) => String(n),
@@ -313,8 +256,7 @@ describe('Value Builders', () => {
     });
 
     it('converts string to number', () => {
-      const baseSource = buildString('');
-      const source = buildString('123', { ...baseSource, tags: ['network'] });
+      const source = buildString('123', ['network']);
 
       const result = convertValue(
         (s: string) => parseInt(s),
@@ -330,28 +272,13 @@ describe('Value Builders', () => {
 
   describe('Tag propagation edge cases', () => {
     it('handles empty tag arrays', () => {
-      const a = buildNumber(1);
-      const b = buildNumber(2);
-
-      const result = buildNumber(3, a, b);
+      const result = buildNumber(3);
 
       expect(result.tags).toEqual([]);
     });
 
-    it('handles many sources with overlapping tags', () => {
-      const base1 = buildNumber(0);
-      const base2 = buildNumber(0);
-      const base3 = buildNumber(0);
-      const base4 = buildNumber(0);
-
-      const sources: AnyValue[] = [
-        buildNumber(1, { ...base1, tags: ['a', 'b'] }),
-        buildNumber(2, { ...base2, tags: ['b', 'c'] }),
-        buildNumber(3, { ...base3, tags: ['c', 'd'] }),
-        buildNumber(4, { ...base4, tags: ['d', 'a'] }),
-      ];
-
-      const result = buildNumber(10, ...sources);
+    it('handles many tags with overlapping values', () => {
+      const result = buildNumber(10, ['a', 'b', 'b', 'c', 'c', 'd', 'd', 'a']);
 
       expect(result.tags).toHaveLength(4);
       expect(result.tags).toContain('a');

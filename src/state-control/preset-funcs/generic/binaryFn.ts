@@ -14,7 +14,14 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
         isArray(a) && isArray(b)
           ? JSON.stringify(a.value) === JSON.stringify(b.value)
           : a.value === b.value;
-      return buildBoolean(areEqual, a, b);
+
+      // Merge tags from both operands
+      const tagsSet = new Set<TagSymbol>();
+      for (const tag of a.tags) tagsSet.add(tag);
+      for (const tag of b.tags) tagsSet.add(tag);
+      const mergedTags = Array.from(tagsSet);
+
+      return buildBoolean(areEqual, mergedTags);
     } else {
       throw new Error();
     }
