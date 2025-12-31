@@ -3,15 +3,15 @@ import {
   type ArrayValue,
   type NonArrayValue,
   type NumberValue,
-  type EffectSymbol,
+  type TagSymbol,
   AnyValue,
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
 import { buildBoolean } from '../../value-builders';
 
 export interface BinaryFnArray {
-  includes: ToBooleanProcess<ArrayValue<readonly EffectSymbol[]>, NonArrayValue>;
-  get: ToItemtProcess<ArrayValue<readonly EffectSymbol[]>, NonArrayValue, NumberValue<readonly EffectSymbol[]>>;
+  includes: ToBooleanProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue>;
+  get: ToItemtProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue, NumberValue<readonly TagSymbol[]>>;
 }
 
 const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
@@ -19,29 +19,29 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
 };
 
 /**
- * Merges effects from item with array and index effects.
+ * Merges tags from item with array and index tags.
  * This is specific to array get operations where we need to combine
- * the item's own effects with effects from accessing it.
+ * the item's own tags with tags from accessing it.
  */
 function mergeItemEffects(
   item: NonArrayValue,
-  array: ArrayValue<readonly EffectSymbol[]>,
-  index: NumberValue<readonly EffectSymbol[]>
-): readonly EffectSymbol[] {
-  const effectsSet = new Set<EffectSymbol>();
+  array: ArrayValue<readonly TagSymbol[]>,
+  index: NumberValue<readonly TagSymbol[]>
+): readonly TagSymbol[] {
+  const effectsSet = new Set<TagSymbol>();
 
-  // Add item's own effects
-  for (const effect of item.effects) {
+  // Add item's own tags
+  for (const effect of item.tags) {
     effectsSet.add(effect);
   }
 
-  // Add array's effects
-  for (const effect of array.effects) {
+  // Add array's tags
+  for (const effect of array.tags) {
     effectsSet.add(effect);
   }
 
-  // Add index's effects
-  for (const effect of index.effects) {
+  // Add index's tags
+  for (const effect of index.tags) {
     effectsSet.add(effect);
   }
 
@@ -49,17 +49,17 @@ function mergeItemEffects(
 }
 
 export const bfArray: BinaryFnArray = {
-  includes: (a: ArrayValue<readonly EffectSymbol[]>, b: NonArrayValue): BooleanValue<readonly EffectSymbol[]> => {
+  includes: (a: ArrayValue<readonly TagSymbol[]>, b: NonArrayValue): BooleanValue<readonly TagSymbol[]> => {
     const contains = a.value.map((val) => val.value).includes(b.value);
     return buildBoolean(contains, a, b);
   },
-  get: (a: ArrayValue<readonly EffectSymbol[]>, idx: NumberValue<readonly EffectSymbol[]>): NonArrayValue => {
+  get: (a: ArrayValue<readonly TagSymbol[]>, idx: NumberValue<readonly TagSymbol[]>): NonArrayValue => {
     const item = a.value.at(idx.value);
     if (item !== undefined && isNonArrayValue(item)) {
-      // Propagate effects from both the array and the index to the retrieved item
+      // Propagate tags from both the array and the index to the retrieved item
       return {
         ...item,
-        effects: mergeItemEffects(item, a, idx),
+        tags: mergeItemEffects(item, a, idx),
       };
     } else {
       throw new Error(

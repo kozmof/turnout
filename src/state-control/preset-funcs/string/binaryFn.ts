@@ -1,4 +1,4 @@
-import { type StringValue, type EffectSymbol } from '../../value';
+import { type StringValue, type TagSymbol } from '../../value';
 import { type StringToString } from '../convert';
 import { binaryStringOp } from '../../value-builders';
 
@@ -7,7 +7,7 @@ export interface BinaryFnString {
 }
 
 export const bfString: BinaryFnString = {
-  concat: (a: StringValue<readonly EffectSymbol[]>, b: StringValue<readonly EffectSymbol[]>): StringValue<readonly EffectSymbol[]> => {
+  concat: (a: StringValue<readonly TagSymbol[]>, b: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
     return binaryStringOp((x, y) => x + y, a, b);
   },
 } as const;

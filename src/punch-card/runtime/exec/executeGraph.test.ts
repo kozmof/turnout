@@ -13,8 +13,8 @@ describe('executeGraph', () => {
   it('should execute a simple PlugFunc with two number values', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 3, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
@@ -45,16 +45,16 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 8,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should execute nested PlugFuncs with dependencies', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
-        v3: { symbol: 'number', value: 2, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v3: { symbol: 'number', value: 2, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
@@ -101,16 +101,16 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 30,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should execute shared definition with multiple instances', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 3, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 4, subSymbol: undefined, effects: [] },
-        v3: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 4, subSymbol: undefined, tags: [] },
+        v3: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
@@ -146,16 +146,16 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 12,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should execute TapFunc with sequence of PlugFuncs', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
-        v3: { symbol: 'number', value: 2, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v3: { symbol: 'number', value: 2, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         tap1: {
@@ -221,15 +221,15 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 30,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should execute with transform functions (number to string)', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 42, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'string', value: ' is the answer', subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 42, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'string', value: ' is the answer', subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
@@ -260,14 +260,14 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'string',
       value: '42 is the answer',
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should handle error: cyclic dependency', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
@@ -305,7 +305,7 @@ describe('executeGraph', () => {
   it('should handle error: missing value', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
@@ -368,10 +368,10 @@ describe('executeGraph', () => {
   it('should execute CondFunc with true branch', () => {
     const context: ExecutionContext = {
       valueTable: {
-        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined, effects: [] },
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 20, subSymbol: undefined, effects: [] },
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, effects: [] },
+        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 20, subSymbol: undefined, tags: [] },
+        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fTrue: {
@@ -429,17 +429,17 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 10,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should execute CondFunc with false branch', () => {
     const context: ExecutionContext = {
       valueTable: {
-        vCondition: { symbol: 'boolean', value: false, subSymbol: undefined, effects: [] },
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 20, subSymbol: undefined, effects: [] },
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, effects: [] },
+        vCondition: { symbol: 'boolean', value: false, subSymbol: undefined, tags: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 20, subSymbol: undefined, tags: [] },
+        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fTrue: {
@@ -497,7 +497,7 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 20,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
@@ -506,9 +506,9 @@ describe('executeGraph', () => {
     // can visit the same nodes without false cycle detection
     const context: ExecutionContext = {
       valueTable: {
-        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined, effects: [] },
-        vShared: { symbol: 'number', value: 42, subSymbol: undefined, effects: [] }, // Used by both branches
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, effects: [] },
+        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
+        vShared: { symbol: 'number', value: 42, subSymbol: undefined, tags: [] }, // Used by both branches
+        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fTrue: {
@@ -556,18 +556,18 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 42, // vShared + 0
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 
   it('should execute nested CondFunc with computed condition', () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'number', value: 5, subSymbol: undefined, effects: [] },
-        v3: { symbol: 'number', value: 100, subSymbol: undefined, effects: [] },
-        v4: { symbol: 'number', value: 200, subSymbol: undefined, effects: [] },
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v3: { symbol: 'number', value: 100, subSymbol: undefined, tags: [] },
+        v4: { symbol: 'number', value: 200, subSymbol: undefined, tags: [] },
+        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fCondition: {
@@ -642,7 +642,7 @@ describe('executeGraph', () => {
     expect(result.value).toEqual({
       symbol: 'number',
       value: 100,
-      subSymbol: undefined, effects: [],
+      subSymbol: undefined, tags: [],
     });
   });
 });

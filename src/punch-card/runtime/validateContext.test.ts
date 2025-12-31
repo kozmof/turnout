@@ -661,8 +661,8 @@ describe('validateContext', () => {
       it('should handle random- prefixed value types correctly', () => {
         const context: ExecutionContext = {
           valueTable: {
-            v1: { symbol: 'number', value: 7, subSymbol: undefined, effects: ['random'] }, // number with random effect
-            v2: { symbol: 'number', value: 3, subSymbol: undefined, effects: [] }, // pure number
+            v1: { symbol: 'number', value: 7, subSymbol: undefined, tags: ['random'] }, // number with random effect
+            v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] }, // pure number
           } as any,
           funcTable: {
             f1: {

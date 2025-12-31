@@ -1,4 +1,4 @@
-import { isArray, type AnyValue, type BooleanValue, type EffectSymbol } from '../../value';
+import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from '../../value';
 import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
 import { buildBoolean } from '../../value-builders';
@@ -8,7 +8,7 @@ export interface BinaryFnGeneric<T extends AnyValue> {
 }
 
 export const bfGeneric: BinaryFnGeneric<AnyValue> = {
-  isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly EffectSymbol[]> => {
+  isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
     if (isComparable(a, b)) {
       const areEqual =
         isArray(a) && isArray(b)

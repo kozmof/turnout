@@ -7,35 +7,35 @@ import {
   ArrayStringValue,
   ArrayBooleanValue,
   AnyValue,
-  EffectSymbol,
+  TagSymbol,
 } from './value';
 
 /**
- * Pure builders for creating values with proper effect propagation.
+ * Pure builders for creating values with proper tag propagation.
  * These eliminate repetitive object construction throughout the codebase.
  *
  * @example
  * // Creating a pure value
  * const pure = buildNumber(42);
- * // => { symbol: 'number', value: 42, subSymbol: undefined, effects: [] }
+ * // => { symbol: 'number', value: 42, subSymbol: undefined, tags: [] }
  *
  * @example
- * // Creating a value with effects from sources
- * const a = buildNumber(5, { effects: ['random'] });
- * const b = buildNumber(3, { effects: ['cached'] });
+ * // Creating a value with tags from sources
+ * const a = buildNumber(5, { tags: ['random'] });
+ * const b = buildNumber(3, { tags: ['cached'] });
  * const sum = buildNumber(8, a, b);
- * // => { symbol: 'number', value: 8, subSymbol: undefined, effects: ['random', 'cached'] }
+ * // => { symbol: 'number', value: 8, subSymbol: undefined, tags: ['random', 'cached'] }
  */
 
 /**
- * Merges effects from multiple source values using set union semantics.
+ * Merges tags from multiple source values using set union semantics.
  * Duplicates are removed automatically.
  */
-function mergeEffects(...sources: AnyValue[]): readonly EffectSymbol[] {
-  const effectsSet = new Set<EffectSymbol>();
+function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
+  const effectsSet = new Set<TagSymbol>();
 
   for (const source of sources) {
-    for (const effect of source.effects) {
+    for (const effect of source.tags) {
       effectsSet.add(effect);
     }
   }
@@ -44,57 +44,57 @@ function mergeEffects(...sources: AnyValue[]): readonly EffectSymbol[] {
 }
 
 /**
- * Builds a NumberValue with effects propagated from source values.
+ * Builds a NumberValue with tags propagated from source values.
  *
  * @param value - The numeric value
- * @param sources - Source values whose effects should be propagated
- * @returns NumberValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns NumberValue with merged tags from all sources
  *
  * @example
  * const pure = buildNumber(42);
- * const withEffect = buildNumber(10, { effects: ['random'] } as AnyValue);
+ * const withEffect = buildNumber(10, { tags: ['random'] } as AnyValue);
  */
 export function buildNumber(
   value: number,
   ...sources: AnyValue[]
-): NumberValue<readonly EffectSymbol[]> {
+): NumberValue<readonly TagSymbol[]> {
   return {
     symbol: 'number',
     value,
     subSymbol: undefined,
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
- * Builds a StringValue with effects propagated from source values.
+ * Builds a StringValue with tags propagated from source values.
  *
  * @param value - The string value
- * @param sources - Source values whose effects should be propagated
- * @returns StringValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns StringValue with merged tags from all sources
  *
  * @example
  * const greeting = buildString('Hello');
- * const fromNetwork = buildString('data', { effects: ['network'] } as AnyValue);
+ * const fromNetwork = buildString('data', { tags: ['network'] } as AnyValue);
  */
 export function buildString(
   value: string,
   ...sources: AnyValue[]
-): StringValue<readonly EffectSymbol[]> {
+): StringValue<readonly TagSymbol[]> {
   return {
     symbol: 'string',
     value,
     subSymbol: undefined,
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
- * Builds a BooleanValue with effects propagated from source values.
+ * Builds a BooleanValue with tags propagated from source values.
  *
  * @param value - The boolean value
- * @param sources - Source values whose effects should be propagated
- * @returns BooleanValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns BooleanValue with merged tags from all sources
  *
  * @example
  * const flag = buildBoolean(true);
@@ -103,21 +103,21 @@ export function buildString(
 export function buildBoolean(
   value: boolean,
   ...sources: AnyValue[]
-): BooleanValue<readonly EffectSymbol[]> {
+): BooleanValue<readonly TagSymbol[]> {
   return {
     symbol: 'boolean',
     value,
     subSymbol: undefined,
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
- * Builds an ArrayValue (untyped array) with effects propagated from source values.
+ * Builds an ArrayValue (untyped array) with tags propagated from source values.
  *
  * @param value - The array of values
- * @param sources - Source values whose effects should be propagated
- * @returns ArrayValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns ArrayValue with merged tags from all sources
  *
  * @example
  * const arr = buildArray([item1, item2, item3]);
@@ -125,21 +125,21 @@ export function buildBoolean(
 export function buildArray(
   value: AnyValue[],
   ...sources: AnyValue[]
-): ArrayValue<readonly EffectSymbol[]> {
+): ArrayValue<readonly TagSymbol[]> {
   return {
     symbol: 'array',
     value,
     subSymbol: undefined,
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
- * Builds a typed ArrayNumberValue with effects propagated from source values.
+ * Builds a typed ArrayNumberValue with tags propagated from source values.
  *
  * @param value - The array of number values
- * @param sources - Source values whose effects should be propagated
- * @returns ArrayNumberValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns ArrayNumberValue with merged tags from all sources
  *
  * @example
  * const numbers = buildArrayNumber([num1, num2]);
@@ -147,61 +147,61 @@ export function buildArray(
 export function buildArrayNumber(
   value: AnyValue[],
   ...sources: AnyValue[]
-): ArrayNumberValue<readonly EffectSymbol[]> {
+): ArrayNumberValue<readonly TagSymbol[]> {
   return {
     symbol: 'array',
     value,
     subSymbol: 'number',
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
- * Builds a typed ArrayStringValue with effects propagated from source values.
+ * Builds a typed ArrayStringValue with tags propagated from source values.
  *
  * @param value - The array of string values
- * @param sources - Source values whose effects should be propagated
- * @returns ArrayStringValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns ArrayStringValue with merged tags from all sources
  */
 export function buildArrayString(
   value: AnyValue[],
   ...sources: AnyValue[]
-): ArrayStringValue<readonly EffectSymbol[]> {
+): ArrayStringValue<readonly TagSymbol[]> {
   return {
     symbol: 'array',
     value,
     subSymbol: 'string',
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
- * Builds a typed ArrayBooleanValue with effects propagated from source values.
+ * Builds a typed ArrayBooleanValue with tags propagated from source values.
  *
  * @param value - The array of boolean values
- * @param sources - Source values whose effects should be propagated
- * @returns ArrayBooleanValue with merged effects from all sources
+ * @param sources - Source values whose tags should be propagated
+ * @returns ArrayBooleanValue with merged tags from all sources
  */
 export function buildArrayBoolean(
   value: AnyValue[],
   ...sources: AnyValue[]
-): ArrayBooleanValue<readonly EffectSymbol[]> {
+): ArrayBooleanValue<readonly TagSymbol[]> {
   return {
     symbol: 'array',
     value,
     subSymbol: 'boolean',
-    effects: sources.length > 0 ? mergeEffects(...sources) : [],
+    tags: sources.length > 0 ? mergeTags(...sources) : [],
   };
 }
 
 /**
  * Helper for binary operations on NumberValues.
- * Applies the operation and automatically propagates effects.
+ * Applies the operation and automatically propagates tags.
  *
  * @param op - Binary operation on raw number values
  * @param a - First NumberValue operand
  * @param b - Second NumberValue operand
- * @returns NumberValue with operation result and merged effects
+ * @returns NumberValue with operation result and merged tags
  *
  * @example
  * const add = (a, b) => binaryNumberOp((x, y) => x + y, a, b);
@@ -209,40 +209,40 @@ export function buildArrayBoolean(
  */
 export function binaryNumberOp(
   op: (a: number, b: number) => number,
-  a: NumberValue<readonly EffectSymbol[]>,
-  b: NumberValue<readonly EffectSymbol[]>
-): NumberValue<readonly EffectSymbol[]> {
+  a: NumberValue<readonly TagSymbol[]>,
+  b: NumberValue<readonly TagSymbol[]>
+): NumberValue<readonly TagSymbol[]> {
   return buildNumber(op(a.value, b.value), a, b);
 }
 
 /**
  * Helper for binary operations on StringValues.
- * Applies the operation and automatically propagates effects.
+ * Applies the operation and automatically propagates tags.
  *
  * @param op - Binary operation on raw string values
  * @param a - First StringValue operand
  * @param b - Second StringValue operand
- * @returns StringValue with operation result and merged effects
+ * @returns StringValue with operation result and merged tags
  *
  * @example
  * const concat = (a, b) => binaryStringOp((x, y) => x + y, a, b);
  */
 export function binaryStringOp(
   op: (a: string, b: string) => string,
-  a: StringValue<readonly EffectSymbol[]>,
-  b: StringValue<readonly EffectSymbol[]>
-): StringValue<readonly EffectSymbol[]> {
+  a: StringValue<readonly TagSymbol[]>,
+  b: StringValue<readonly TagSymbol[]>
+): StringValue<readonly TagSymbol[]> {
   return buildString(op(a.value, b.value), a, b);
 }
 
 /**
  * Helper for binary operations that produce BooleanValues.
- * Applies the operation and automatically propagates effects.
+ * Applies the operation and automatically propagates tags.
  *
  * @param op - Binary operation that returns a boolean
  * @param a - First operand
  * @param b - Second operand
- * @returns BooleanValue with operation result and merged effects
+ * @returns BooleanValue with operation result and merged tags
  *
  * @example
  * const equals = (a, b) => binaryBooleanOp((x, y) => x === y, a, b);
@@ -252,17 +252,17 @@ export function binaryBooleanOp<A, B>(
   op: (a: A, b: B) => boolean,
   a: AnyValue & { value: A },
   b: AnyValue & { value: B }
-): BooleanValue<readonly EffectSymbol[]> {
+): BooleanValue<readonly TagSymbol[]> {
   return buildBoolean(op(a.value, b.value), a, b);
 }
 
 /**
  * Helper for unary transform operations on NumberValues.
- * Applies the transformation and propagates effects from source.
+ * Applies the transformation and propagates tags from source.
  *
  * @param transform - Unary operation on raw number value
  * @param source - Source NumberValue
- * @returns NumberValue with transformed value and source effects
+ * @returns NumberValue with transformed value and source tags
  *
  * @example
  * const negate = (n) => unaryNumberOp(x => -x, n);
@@ -270,18 +270,18 @@ export function binaryBooleanOp<A, B>(
  */
 export function unaryNumberOp(
   transform: (value: number) => number,
-  source: NumberValue<readonly EffectSymbol[]>
-): NumberValue<readonly EffectSymbol[]> {
+  source: NumberValue<readonly TagSymbol[]>
+): NumberValue<readonly TagSymbol[]> {
   return buildNumber(transform(source.value), source);
 }
 
 /**
  * Helper for unary transform operations on StringValues.
- * Applies the transformation and propagates effects from source.
+ * Applies the transformation and propagates tags from source.
  *
  * @param transform - Unary operation on raw string value
  * @param source - Source StringValue
- * @returns StringValue with transformed value and source effects
+ * @returns StringValue with transformed value and source tags
  *
  * @example
  * const toUpper = (s) => unaryStringOp(x => x.toUpperCase(), s);
@@ -289,36 +289,36 @@ export function unaryNumberOp(
  */
 export function unaryStringOp(
   transform: (value: string) => string,
-  source: StringValue<readonly EffectSymbol[]>
-): StringValue<readonly EffectSymbol[]> {
+  source: StringValue<readonly TagSymbol[]>
+): StringValue<readonly TagSymbol[]> {
   return buildString(transform(source.value), source);
 }
 
 /**
  * Helper for unary transform operations on BooleanValues.
- * Applies the transformation and propagates effects from source.
+ * Applies the transformation and propagates tags from source.
  *
  * @param transform - Unary operation on raw boolean value
  * @param source - Source BooleanValue
- * @returns BooleanValue with transformed value and source effects
+ * @returns BooleanValue with transformed value and source tags
  *
  * @example
  * const not = (b) => unaryBooleanOp(x => !x, b);
  */
 export function unaryBooleanOp(
   transform: (value: boolean) => boolean,
-  source: BooleanValue<readonly EffectSymbol[]>
-): BooleanValue<readonly EffectSymbol[]> {
+  source: BooleanValue<readonly TagSymbol[]>
+): BooleanValue<readonly TagSymbol[]> {
   return buildBoolean(transform(source.value), source);
 }
 
 /**
  * Helper for conversion operations that change the value type.
- * Applies the conversion and propagates effects from source.
+ * Applies the conversion and propagates tags from source.
  *
  * @param convert - Conversion function
  * @param source - Source value
- * @returns Converted value with source effects
+ * @returns Converted value with source tags
  *
  * @example
  * const numberToString = (n) => convertValue(x => String(x), n, buildString);

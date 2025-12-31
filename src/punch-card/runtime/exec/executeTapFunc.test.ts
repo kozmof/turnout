@@ -16,9 +16,9 @@ describe('executeTapFunc helpers', () => {
   describe('createScopedValueTable', () => {
     it('should create a scoped value table with all required arguments', () => {
       const sourceValueTable: ValueTable = {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'string', value: 'hello', subSymbol: undefined, effects: [] },
-        v3: { symbol: 'boolean', value: true, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'string', value: 'hello', subSymbol: undefined, tags: [] },
+        v3: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
       } as any;
 
       const argMap = {
@@ -38,8 +38,8 @@ describe('executeTapFunc helpers', () => {
       );
 
       expect(result).toEqual({
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'string', value: 'hello', subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'string', value: 'hello', subSymbol: undefined, tags: [] },
       });
 
       // Should NOT include v3 (not in argMap)
@@ -48,7 +48,7 @@ describe('executeTapFunc helpers', () => {
 
     it('should throw error when argument is missing from argMap', () => {
       const sourceValueTable: ValueTable = {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
       } as any;
 
       const argMap = {
@@ -72,7 +72,7 @@ describe('executeTapFunc helpers', () => {
 
     it('should throw error when value is missing from sourceValueTable', () => {
       const sourceValueTable: ValueTable = {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
         // v2 is missing
       } as any;
 
@@ -97,7 +97,7 @@ describe('executeTapFunc helpers', () => {
 
     it('should handle empty tapDefArgs (no arguments)', () => {
       const sourceValueTable: ValueTable = {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
       } as any;
 
       const argMap = {};
@@ -116,8 +116,8 @@ describe('executeTapFunc helpers', () => {
   describe('validateScopedValueTable', () => {
     it('should pass validation when all expected values are present', () => {
       const scopedValueTable: Partial<ValueTable> = {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'string', value: 'hello', subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'string', value: 'hello', subSymbol: undefined, tags: [] },
       } as any;
 
       const argMap = {
@@ -137,7 +137,7 @@ describe('executeTapFunc helpers', () => {
 
     it('should throw error when expected value is missing', () => {
       const scopedValueTable: Partial<ValueTable> = {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
         // v2 is missing
       } as any;
 
@@ -171,8 +171,8 @@ describe('executeTapFunc helpers', () => {
     it('should create a new context with scoped value table', () => {
       const originalContext: ExecutionContext = {
         valueTable: {
-          v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-          v2: { symbol: 'string', value: 'original', subSymbol: undefined, effects: [] },
+          v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+          v2: { symbol: 'string', value: 'original', subSymbol: undefined, tags: [] },
         } as any,
         funcTable: {} as any,
         plugFuncDefTable: {} as any,
@@ -181,7 +181,7 @@ describe('executeTapFunc helpers', () => {
       };
 
       const scopedValueTable: ValueTable = {
-        v3: { symbol: 'number', value: 20, subSymbol: undefined, effects: [] },
+        v3: { symbol: 'number', value: 20, subSymbol: undefined, tags: [] },
       } as any;
 
       const scopedContext = createScopedContext(
@@ -192,7 +192,7 @@ describe('executeTapFunc helpers', () => {
       // Should have the new scoped value table
       expect(scopedContext.valueTable).toBe(scopedValueTable);
       expect(scopedContext.valueTable).toEqual({
-        v3: { symbol: 'number', value: 20, subSymbol: undefined, effects: [] },
+        v3: { symbol: 'number', value: 20, subSymbol: undefined, tags: [] },
       });
 
       // Should preserve other tables from original context
@@ -209,8 +209,8 @@ describe('executeTapFunc helpers', () => {
 
       // Original context should not be mutated
       expect(originalContext.valueTable).toEqual({
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, effects: [] },
-        v2: { symbol: 'string', value: 'original', subSymbol: undefined, effects: [] },
+        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'string', value: 'original', subSymbol: undefined, tags: [] },
       });
     });
   });

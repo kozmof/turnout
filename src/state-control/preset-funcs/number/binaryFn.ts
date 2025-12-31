@@ -1,4 +1,4 @@
-import { type NumberValue, type EffectSymbol } from '../../value';
+import { type NumberValue, type TagSymbol } from '../../value';
 import { type NumberToNumber } from '../convert';
 import { binaryNumberOp } from '../../value-builders';
 
@@ -10,16 +10,16 @@ export interface BinaryFnNumber {
 }
 
 export const bfNumber: BinaryFnNumber = {
-  add: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
+  add: (a: NumberValue<readonly TagSymbol[]>, b: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return binaryNumberOp((x, y) => x + y, a, b);
   },
-  minus: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
+  minus: (a: NumberValue<readonly TagSymbol[]>, b: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return binaryNumberOp((x, y) => x - y, a, b);
   },
-  multiply: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
+  multiply: (a: NumberValue<readonly TagSymbol[]>, b: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return binaryNumberOp((x, y) => x * y, a, b);
   },
-  divide: (a: NumberValue<readonly EffectSymbol[]>, b: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
+  divide: (a: NumberValue<readonly TagSymbol[]>, b: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return binaryNumberOp((x, y) => x / y, a, b);
   },
 } as const;

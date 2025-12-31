@@ -22,7 +22,7 @@ const anyValueSchema = object({
   symbol: union(symbolLiterals),
   subSymbol: any(),
   value: any(),
-  effects: array(string()), // Array of effect strings
+  tags: array(string()), // Array of tag strings
 });
 
 const funcInterfaceSchema = object({

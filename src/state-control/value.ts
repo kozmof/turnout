@@ -8,15 +8,15 @@ export const baseTypeSymbols = TOM.keys(_baseTypes);
 export type BaseTypeSymbol = keyof typeof _baseTypes;
 
 /**
- * User-definable effect symbols for tracking computational properties.
+ * User-definable tag symbols for tracking computational properties.
  *
- * Effects represent "taints" or "computational origins" that propagate through
- * value transformations. This enables tracking properties like:
+ * Tags represent markers or labels that propagate through value transformations.
+ * This enables tracking properties like:
  * - Data provenance (where did this value come from?)
  * - Computational dependencies (what external factors influenced this?)
  * - Quality attributes (is this value cached, deprecated, etc.?)
  *
- * ## Common Effect Examples
+ * ## Common Tag Examples
  *
  * - `'random'`: Value depends on random number generation
  * - `'network'`: Value depends on network I/O
@@ -29,62 +29,62 @@ export type BaseTypeSymbol = keyof typeof _baseTypes;
  * ## Usage
  *
  * ```typescript
- * // Pure value (no effects)
+ * // Pure value (no tags)
  * const pure: NumberValue = {
  *   symbol: 'number',
  *   value: 42,
  *   subSymbol: undefined,
- *   effects: []
+ *   tags: []
  * };
  *
- * // Value with single effect
+ * // Value with single tag
  * const random: NumberValue = {
  *   symbol: 'number',
  *   value: Math.random(),
  *   subSymbol: undefined,
- *   effects: ['random']
+ *   tags: ['random']
  * };
  *
- * // Value with multiple effects
+ * // Value with multiple tags
  * const complex: NumberValue = {
  *   symbol: 'number',
  *   value: getCachedRandomValue(),
  *   subSymbol: undefined,
- *   effects: ['random', 'cached']
+ *   tags: ['random', 'cached']
  * };
  * ```
  */
-export type EffectSymbol = string;
+export type TagSymbol = string;
 
 /**
- * Core value structure that combines typed data with computational effects.
+ * Core value structure that combines typed data with computational tags.
  *
- * Values track both their data and the computational history (effects) that
- * influenced them. As values flow through operations, effects are propagated
+ * Values track both their data and the computational history (tags) that
+ * influenced them. As values flow through operations, tags are propagated
  * and combined using set union semantics.
  *
- * ## Effect Propagation
+ * ## Tag Propagation
  *
- * When operations combine values, their effects are merged:
+ * When operations combine values, their tags are merged:
  *
  * ```typescript
- * // a has effects ['random']
- * // b has effects ['cached']
- * // result = a + b has effects ['random', 'cached']
+ * // a has tags ['random']
+ * // b has tags ['cached']
+ * // result = a + b has tags ['random', 'cached']
  * ```
  *
- * See `propagateEffects` in `preset-funcs/util/propagateEffects.ts` for details.
+ * See `propagateTags` in `preset-funcs/util/propagateTags.ts` for details.
  *
  * @template T - The JavaScript type of the value (number, string, boolean, or AnyValue[])
  * @template BaseType - The type symbol ('number', 'string', 'boolean', 'array')
  * @template SubType - For arrays, the element type; undefined otherwise
- * @template Effects - Readonly array of effect symbols tracking computation history
+ * @template Tags - Readonly array of tag symbols tracking computation history
  */
 interface Value<
   T,
   BaseType extends BaseTypeSymbol,
   SubType extends Exclude<BaseTypeSymbol, 'array'> | undefined,
-  Effects extends ReadonlyArray<EffectSymbol> = readonly [],
+  Tags extends readonly TagSymbol[] = readonly [],
 > {
   /** Base type tag for runtime type checking */
   symbol: BaseType;
@@ -92,70 +92,70 @@ interface Value<
   value: T;
   /** For arrays, the element type; undefined for other types */
   subSymbol: SubType;
-  /** Computation history: effects that influenced this value */
-  effects: Effects;
+  /** Computation history: tags that influenced this value */
+  tags: Tags;
 }
 
-// Base value types without effects
-export type NumberValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<number, 'number', undefined, Effects>;
-export type StringValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<string, 'string', undefined, Effects>;
-export type BooleanValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<boolean, 'boolean', undefined, Effects>;
-export type ArrayValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<AnyValue[], 'array', undefined, Effects>;
-export type ArrayNumberValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<AnyValue[], 'array', 'number', Effects>;
-export type ArrayStringValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<AnyValue[], 'array', 'string', Effects>;
-export type ArrayBooleanValue<Effects extends ReadonlyArray<EffectSymbol> = readonly []> =
-  Value<AnyValue[], 'array', 'boolean', Effects>;
+// Base value types without tags
+export type NumberValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<number, 'number', undefined, Tags>;
+export type StringValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<string, 'string', undefined, Tags>;
+export type BooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<boolean, 'boolean', undefined, Tags>;
+export type ArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<AnyValue[], 'array', undefined, Tags>;
+export type ArrayNumberValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<AnyValue[], 'array', 'number', Tags>;
+export type ArrayStringValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<AnyValue[], 'array', 'string', Tags>;
+export type ArrayBooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<AnyValue[], 'array', 'boolean', Tags>;
 
-// Convenience types for pure values (no effects)
-export type PureNumberValue = NumberValue<readonly []>;
-export type PureStringValue = StringValue<readonly []>;
-export type PureBooleanValue = BooleanValue<readonly []>;
-export type PureArrayValue = ArrayValue<readonly []>;
+// Convenience types for pure values (no tags)
+export type PureNumberValue = NumberValue;
+export type PureStringValue = StringValue;
+export type PureBooleanValue = BooleanValue;
+export type PureArrayValue = ArrayValue;
 
 export type NonArrayValue =
-  | NumberValue<readonly EffectSymbol[]>
-  | StringValue<readonly EffectSymbol[]>
-  | BooleanValue<readonly EffectSymbol[]>;
+  | NumberValue<readonly TagSymbol[]>
+  | StringValue<readonly TagSymbol[]>
+  | BooleanValue<readonly TagSymbol[]>;
 
 export type AnyValue =
-  | NumberValue<readonly EffectSymbol[]>
-  | StringValue<readonly EffectSymbol[]>
-  | BooleanValue<readonly EffectSymbol[]>
-  | ArrayValue<readonly EffectSymbol[]>
-  | ArrayNumberValue<readonly EffectSymbol[]>
-  | ArrayStringValue<readonly EffectSymbol[]>
-  | ArrayBooleanValue<readonly EffectSymbol[]>;
+  | NumberValue<readonly TagSymbol[]>
+  | StringValue<readonly TagSymbol[]>
+  | BooleanValue<readonly TagSymbol[]>
+  | ArrayValue<readonly TagSymbol[]>
+  | ArrayNumberValue<readonly TagSymbol[]>
+  | ArrayStringValue<readonly TagSymbol[]>
+  | ArrayBooleanValue<readonly TagSymbol[]>;
 
 // Type guards based on base type
-export function isNumber(val: AnyValue): val is NumberValue<readonly EffectSymbol[]> {
+export function isNumber(val: AnyValue): val is NumberValue<readonly TagSymbol[]> {
   return val.symbol === 'number';
 }
 
-export function isString(val: AnyValue): val is StringValue<readonly EffectSymbol[]> {
+export function isString(val: AnyValue): val is StringValue<readonly TagSymbol[]> {
   return val.symbol === 'string';
 }
 
-export function isBoolean(val: AnyValue): val is BooleanValue<readonly EffectSymbol[]> {
+export function isBoolean(val: AnyValue): val is BooleanValue<readonly TagSymbol[]> {
   return val.symbol === 'boolean';
 }
 
-export function isArray(val: AnyValue): val is ArrayValue<readonly EffectSymbol[]> | ArrayNumberValue<readonly EffectSymbol[]> | ArrayStringValue<readonly EffectSymbol[]> | ArrayBooleanValue<readonly EffectSymbol[]> {
+export function isArray(val: AnyValue): val is ArrayValue<readonly TagSymbol[]> | ArrayNumberValue<readonly TagSymbol[]> | ArrayStringValue<readonly TagSymbol[]> | ArrayBooleanValue<readonly TagSymbol[]> {
   return val.symbol === 'array';
 }
 
-// Type guards based on effects
+// Type guards based on tags
 export function isPure(val: AnyValue): boolean {
-  return val.effects.length === 0;
+  return val.tags.length === 0;
 }
 
-export function hasEffect(val: AnyValue, effect: EffectSymbol): boolean {
-  return val.effects.includes(effect);
+export function hasTag(val: AnyValue, tag: TagSymbol): boolean {
+  return val.tags.includes(tag);
 }
 
 // Combined type guards for pure values

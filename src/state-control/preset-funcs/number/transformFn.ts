@@ -1,17 +1,17 @@
-import { type NumberValue, type StringValue, type EffectSymbol } from '../../value';
+import { type NumberValue, type StringValue, type TagSymbol } from '../../value';
 import { type ToNumberConversion, type ToStringConversion } from '../convert';
 import { buildString } from '../../value-builders';
 
 export interface TransformFnNumber {
-  pass: ToNumberConversion<NumberValue<readonly EffectSymbol[]>>;
-  toStr: ToStringConversion<NumberValue<readonly EffectSymbol[]>>;
+  pass: ToNumberConversion<NumberValue<readonly TagSymbol[]>>;
+  toStr: ToStringConversion<NumberValue<readonly TagSymbol[]>>;
 }
 
 export const tfNumber: TransformFnNumber = {
-  pass: (val: NumberValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
+  pass: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return val;
   },
-  toStr: (val: NumberValue<readonly EffectSymbol[]>): StringValue<readonly EffectSymbol[]> => {
+  toStr: (val: NumberValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
     return buildString(val.value.toString(), val);
   },
 } as const;

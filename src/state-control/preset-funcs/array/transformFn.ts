@@ -1,17 +1,17 @@
-import { type NumberValue, type ArrayValue, type EffectSymbol } from '../../value';
+import { type NumberValue, type ArrayValue, type TagSymbol } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
 import { buildNumber } from '../../value-builders';
 
 export interface TransformFnArray {
-  pass: ToArrayConversion<ArrayValue<readonly EffectSymbol[]>>;
-  length: ToNumberConversion<ArrayValue<readonly EffectSymbol[]>>;
+  pass: ToArrayConversion<ArrayValue<readonly TagSymbol[]>>;
+  length: ToNumberConversion<ArrayValue<readonly TagSymbol[]>>;
 }
 
 export const tfArray: TransformFnArray = {
-  pass: (val: ArrayValue<readonly EffectSymbol[]>): ArrayValue<readonly EffectSymbol[]> => {
+  pass: (val: ArrayValue<readonly TagSymbol[]>): ArrayValue<readonly TagSymbol[]> => {
     return val;
   },
-  length: (val: ArrayValue<readonly EffectSymbol[]>): NumberValue<readonly EffectSymbol[]> => {
+  length: (val: ArrayValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return buildNumber(val.value.length, val);
   },
 } as const;
