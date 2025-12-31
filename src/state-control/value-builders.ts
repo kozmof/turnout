@@ -44,6 +44,28 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
 }
 
 /**
+ * Generic builder factory for creating value builders with specific symbol/subSymbol configurations.
+ * This eliminates code duplication across all builder functions.
+ *
+ * @internal
+ */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+function createValueBuilder<TResult>(
+  symbol: string,
+  subSymbol: string | undefined
+): (value: unknown, ...sources: AnyValue[]) => TResult {
+  return (value: unknown, ...sources: AnyValue[]): TResult => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return {
+      symbol,
+      value,
+      subSymbol,
+      tags: sources.length > 0 ? mergeTags(...sources) : [],
+    } as unknown as TResult;
+  };
+}
+
+/**
  * Builds a NumberValue with tags propagated from source values.
  *
  * @param value - The numeric value
@@ -54,17 +76,7 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
  * const pure = buildNumber(42);
  * const withEffect = buildNumber(10, { tags: ['random'] } as AnyValue);
  */
-export function buildNumber(
-  value: number,
-  ...sources: AnyValue[]
-): NumberValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'number',
-    value,
-    subSymbol: undefined,
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildNumber = createValueBuilder<NumberValue<readonly TagSymbol[]>>('number', undefined);
 
 /**
  * Builds a StringValue with tags propagated from source values.
@@ -77,17 +89,7 @@ export function buildNumber(
  * const greeting = buildString('Hello');
  * const fromNetwork = buildString('data', { tags: ['network'] } as AnyValue);
  */
-export function buildString(
-  value: string,
-  ...sources: AnyValue[]
-): StringValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'string',
-    value,
-    subSymbol: undefined,
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildString = createValueBuilder<StringValue<readonly TagSymbol[]>>('string', undefined);
 
 /**
  * Builds a BooleanValue with tags propagated from source values.
@@ -100,17 +102,7 @@ export function buildString(
  * const flag = buildBoolean(true);
  * const derived = buildBoolean(false, someValue, anotherValue);
  */
-export function buildBoolean(
-  value: boolean,
-  ...sources: AnyValue[]
-): BooleanValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'boolean',
-    value,
-    subSymbol: undefined,
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildBoolean = createValueBuilder<BooleanValue<readonly TagSymbol[]>>('boolean', undefined);
 
 /**
  * Builds an ArrayValue (untyped array) with tags propagated from source values.
@@ -122,17 +114,7 @@ export function buildBoolean(
  * @example
  * const arr = buildArray([item1, item2, item3]);
  */
-export function buildArray(
-  value: AnyValue[],
-  ...sources: AnyValue[]
-): ArrayValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'array',
-    value,
-    subSymbol: undefined,
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildArray = createValueBuilder<ArrayValue<readonly TagSymbol[]>>('array', undefined);
 
 /**
  * Builds a typed ArrayNumberValue with tags propagated from source values.
@@ -144,17 +126,7 @@ export function buildArray(
  * @example
  * const numbers = buildArrayNumber([num1, num2]);
  */
-export function buildArrayNumber(
-  value: AnyValue[],
-  ...sources: AnyValue[]
-): ArrayNumberValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'array',
-    value,
-    subSymbol: 'number',
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildArrayNumber = createValueBuilder<ArrayNumberValue<readonly TagSymbol[]>>('array', 'number');
 
 /**
  * Builds a typed ArrayStringValue with tags propagated from source values.
@@ -163,17 +135,7 @@ export function buildArrayNumber(
  * @param sources - Source values whose tags should be propagated
  * @returns ArrayStringValue with merged tags from all sources
  */
-export function buildArrayString(
-  value: AnyValue[],
-  ...sources: AnyValue[]
-): ArrayStringValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'array',
-    value,
-    subSymbol: 'string',
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildArrayString = createValueBuilder<ArrayStringValue<readonly TagSymbol[]>>('array', 'string');
 
 /**
  * Builds a typed ArrayBooleanValue with tags propagated from source values.
@@ -182,17 +144,7 @@ export function buildArrayString(
  * @param sources - Source values whose tags should be propagated
  * @returns ArrayBooleanValue with merged tags from all sources
  */
-export function buildArrayBoolean(
-  value: AnyValue[],
-  ...sources: AnyValue[]
-): ArrayBooleanValue<readonly TagSymbol[]> {
-  return {
-    symbol: 'array',
-    value,
-    subSymbol: 'boolean',
-    tags: sources.length > 0 ? mergeTags(...sources) : [],
-  };
-}
+export const buildArrayBoolean = createValueBuilder<ArrayBooleanValue<readonly TagSymbol[]>>('array', 'boolean');
 
 /**
  * Helper for binary operations on NumberValues.
