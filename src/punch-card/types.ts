@@ -141,9 +141,6 @@ export type ValueTable = {
  * Note: The valueTable is mutated during execution as functions produce results.
  * The definition tables (funcTable, plugFuncDefTable, etc.) should be treated
  * as read-only during execution.
- *
- * If you need to preserve the original context, create a copy before execution
- * using the cloneContextForExecution helper.
  */
 export type ExecutionContext = {
   /** Mutable table of computed values. Updated during execution. */
