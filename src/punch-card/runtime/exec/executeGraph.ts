@@ -1,5 +1,4 @@
 import { FuncId, ExecutionContext } from '../../types';
-import { AnyValue } from '../../../state-control/value';
 import {
   GraphExecutionError,
   createFunctionExecutionError,
@@ -8,12 +7,22 @@ import {
 import { buildExecutionTree } from '../buildExecutionTree';
 import { executeTree } from '../executeTree';
 import { validateContext } from '../validateContext';
+import { type ExecutionResult } from './executePlugFunc';
 
+/**
+ * Executes a computation graph starting from a root function.
+ * This is a pure function - it does not mutate the input context.
+ *
+ * @param rootFuncId - The root function to execute
+ * @param context - The execution context (read-only)
+ * @param options - Execution options
+ * @returns Execution result with computed value and updated value table
+ */
 export function executeGraph(
   rootFuncId: FuncId,
   context: ExecutionContext,
   options: { skipValidation?: boolean } = {}
-): AnyValue {
+): ExecutionResult {
   // 0. Validate context before execution (unless explicitly skipped)
   if (!options.skipValidation) {
     const validationResult = validateContext(context);
@@ -31,17 +40,26 @@ export function executeGraph(
   // 1. Build execution tree
   const tree = buildExecutionTree(rootFuncId, context);
 
-  // 2. Execute tree (post-order traversal)
+  // 2. Execute tree (post-order traversal) - returns result with updated state
   const result = executeTree(tree, context);
 
   return result;
 }
 
+/**
+ * Safe version of executeGraph that catches errors and returns them.
+ * This is a pure function - it does not mutate the input context.
+ *
+ * @param rootFuncId - The root function to execute
+ * @param context - The execution context (read-only)
+ * @param options - Execution options
+ * @returns Object containing either the result or errors
+ */
 export function executeGraphSafe(
   rootFuncId: FuncId,
   context: ExecutionContext,
   options: { skipValidation?: boolean } = {}
-): { result?: AnyValue; errors: GraphExecutionError[] } {
+): { result?: ExecutionResult; errors: GraphExecutionError[] } {
   const errors: GraphExecutionError[] = [];
 
   try {

@@ -1,6 +1,7 @@
 // Main execution engine
 export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
 export { buildReturnIdToFuncIdMap } from './runtime/buildExecutionTree';
+export type { ExecutionResult } from './runtime/exec/executePlugFunc';
 
 // Context helpers
 export {

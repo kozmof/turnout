@@ -42,7 +42,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('f1' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 8,
       subSymbol: undefined, effects: [],
@@ -98,7 +98,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('f2' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 30,
       subSymbol: undefined, effects: [],
@@ -143,7 +143,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('f2' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 12,
       subSymbol: undefined, effects: [],
@@ -218,7 +218,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('tap1' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 30,
       subSymbol: undefined, effects: [],
@@ -257,7 +257,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('f1' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'string',
       value: '42 is the answer',
       subSymbol: undefined, effects: [],
@@ -424,7 +424,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('cond1' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 10,
       subSymbol: undefined, effects: [],
@@ -492,7 +492,7 @@ describe('executeGraph', () => {
 
     const result = executeGraph('cond1' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 20,
       subSymbol: undefined, effects: [],
@@ -551,7 +551,7 @@ describe('executeGraph', () => {
     // This should not throw "Cycle detected" error
     const result = executeGraph('cond1' as FuncId, context);
 
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 42, // vShared + 0
       subSymbol: undefined, effects: [],
@@ -637,7 +637,7 @@ describe('executeGraph', () => {
     const result = executeGraph('cond1' as FuncId, context);
 
     // 5 == 5 is true, so should return 100
-    expect(result).toEqual({
+    expect(result.value).toEqual({
       symbol: 'number',
       value: 100,
       subSymbol: undefined, effects: [],

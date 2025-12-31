@@ -1,12 +1,31 @@
-import { FuncId, PlugDefineId, ExecutionContext } from '../../types';
+import { FuncId, PlugDefineId, ExecutionContext, ValueTable } from '../../types';
 import { getBinaryFn } from '../../call-presets/getBinaryFn';
 import { getTransformFn } from '../../call-presets/getTranformFn';
+import { AnyValue } from '../../../state-control/value';
 
+/**
+ * Execution result containing the computed value and updated state.
+ * This makes side effects explicit instead of relying on mutation.
+ */
+export type ExecutionResult = {
+  readonly value: AnyValue;
+  readonly updatedValueTable: ValueTable;
+};
+
+/**
+ * Executes a PlugFunc and returns the result along with updated state.
+ * This is a pure function - it does not mutate the input context.
+ *
+ * @param funcId - The function instance to execute
+ * @param defId - The function definition ID
+ * @param context - The execution context (read-only)
+ * @returns Execution result with computed value and updated value table
+ */
 export function executePlugFunc(
   funcId: FuncId,
   defId: PlugDefineId,
   context: ExecutionContext
-): void {
+): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
   const def = context.plugFuncDefTable[defId];
 
@@ -29,6 +48,12 @@ export function executePlugFunc(
   const transformedB = transformFnB(valB);
   const result = binaryFn(transformedA, transformedB);
 
-  // Store result in ValueTable
-  context.valueTable[funcEntry.returnId] = result;
+  // Return result with updated value table (immutable update)
+  return {
+    value: result,
+    updatedValueTable: {
+      ...context.valueTable,
+      [funcEntry.returnId]: result,
+    },
+  };
 }

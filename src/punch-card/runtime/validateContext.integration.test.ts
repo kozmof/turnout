@@ -52,7 +52,7 @@ describe('validateContext integration', () => {
       // STEP 2: Execute (runtime) - only if validation passed
       if (validation.valid) {
         const result = executeGraph('f1' as FuncId, context);
-        expect(result.value).toBe(15);
+        expect(result.value.value).toBe(15);
       }
     });
 
@@ -173,7 +173,7 @@ describe('validateContext integration', () => {
 
       // Execute
       const result = executeGraph('tap1' as FuncId, context);
-      expect(result.value).toBe(15);
+      expect(result.value.value).toBe(15);
     });
 
     it('should detect invalid TapFunc sequence at validation time', () => {
@@ -262,7 +262,7 @@ describe('validateContext integration', () => {
 
       // Execute
       const result = executeGraph('cond1' as FuncId, context);
-      expect(result.value).toBe(100);
+      expect(result.value.value).toBe(100);
     });
 
     it('should detect invalid CondFunc branches at validation time', () => {
@@ -341,7 +341,7 @@ describe('validateContext integration', () => {
 
       // Execution should still work
       const result = executeGraph('f1' as FuncId, context);
-      expect(result.value).toBe(15);
+      expect(result.value.value).toBe(15);
     });
   });
 });

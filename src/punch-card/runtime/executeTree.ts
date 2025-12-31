@@ -1,16 +1,23 @@
 import { ExecutionContext, FuncId, ValueId } from '../types';
 import { ExecutionTree } from './tree-types';
-import { AnyValue } from '../../state-control/value';
 import { isPlugDefineId, isTapDefineId } from '../typeGuards';
 import { createFunctionExecutionError, createInvalidTreeNodeError, createMissingValueError } from './errors';
-import { executePlugFunc } from './exec/executePlugFunc';
+import { executePlugFunc, type ExecutionResult } from './exec/executePlugFunc';
 import { executeTapFunc } from './exec/executeTapFunc';
 import { executeCondFunc } from './exec/executeCondFunc';
 
+/**
+ * Executes an execution tree and returns the result along with updated state.
+ * This is a pure function - it does not mutate the input context.
+ *
+ * @param tree - The execution tree to execute
+ * @param context - The execution context (read-only)
+ * @returns Execution result with computed value and updated value table
+ */
 export function executeTree(
   tree: ExecutionTree,
   context: ExecutionContext
-): AnyValue {
+): ExecutionResult {
   // Base case: value node (leaf)
   if (tree.nodeType === 'value') {
     // Value should already be in the context or in the tree
@@ -18,7 +25,10 @@ export function executeTree(
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       throw createMissingValueError(tree.nodeId as ValueId);
     }
-    return tree.value;
+    return {
+      value: tree.value,
+      updatedValueTable: context.valueTable, // No changes for leaf nodes
+    };
   }
 
   // Conditional node: evaluate condition, then execute only one branch
@@ -42,32 +52,55 @@ export function executeTree(
     // Execute condition tree
     const conditionResult = executeTree(tree.conditionTree, context);
 
+    // Update context with condition result
+    let currentContext: ExecutionContext = {
+      ...context,
+      valueTable: conditionResult.updatedValueTable,
+    };
+
     // Execute the appropriate branch based on condition
-    const branchResult = conditionResult.value
-      ? executeTree(tree.trueBranchTree, context)
-      : executeTree(tree.falseBranchTree, context);
+    const branchResult = conditionResult.value.value
+      ? executeTree(tree.trueBranchTree, currentContext)
+      : executeTree(tree.falseBranchTree, currentContext);
+
+    // Update context with branch result
+    currentContext = {
+      ...currentContext,
+      valueTable: branchResult.updatedValueTable,
+    };
 
     // Execute the conditional function to store the result
-    executeCondFunc(
+    const condFuncResult = executeCondFunc(
       funcId,
-      context,
-      conditionResult,
-      branchResult,
-      branchResult // both are the same since we only executed one
+      currentContext,
+      conditionResult.value,
+      branchResult.value,
+      branchResult.value // both are the same since we only executed one
     );
 
-    // Return the result
-    const result = context.valueTable[tree.returnId];
-    return result;
+    return condFuncResult;
   }
 
   // Regular function node
-  // Post-order traversal: execute children first
+  // Post-order traversal: execute children first, threading state through
+  let currentValueTable = context.valueTable;
+
   if (tree.children) {
     for (const child of tree.children) {
-      executeTree(child, context);
+      const childResult = executeTree(child, {
+        ...context,
+        valueTable: currentValueTable,
+      });
+      // Thread the updated state to the next child
+      currentValueTable = childResult.updatedValueTable;
     }
   }
+
+  // Update context with accumulated state from children
+  const updatedContext: ExecutionContext = {
+    ...context,
+    valueTable: currentValueTable,
+  };
 
   // Now execute this function
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
@@ -77,10 +110,12 @@ export function executeTree(
   }
   const defId = tree.funcDef;
 
+  let execResult: ExecutionResult;
+
   if (isPlugDefineId(defId, context.plugFuncDefTable)) {
-    executePlugFunc(funcId, defId, context);
+    execResult = executePlugFunc(funcId, defId, updatedContext);
   } else if (isTapDefineId(defId, context.tapFuncDefTable)) {
-    executeTapFunc(funcId, defId, context);
+    execResult = executeTapFunc(funcId, defId, updatedContext);
   } else {
     throw createFunctionExecutionError(
       funcId,
@@ -88,10 +123,5 @@ export function executeTree(
     );
   }
 
-  // Return the result
-  if (!tree.returnId) {
-    throw createInvalidTreeNodeError(funcId, 'Function node missing return ID');
-  }
-  const result = context.valueTable[tree.returnId];
-  return result;
+  return execResult;
 }

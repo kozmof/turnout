@@ -14,7 +14,7 @@ import {
   createFunctionExecutionError,
 } from '../errors';
 import { isPlugDefineId, isTapDefineId, isCondDefineId } from '../../typeGuards';
-import { executePlugFunc } from './executePlugFunc';
+import { executePlugFunc, type ExecutionResult } from './executePlugFunc';
 
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
@@ -132,6 +132,7 @@ function createTempFuncId(
 /**
  * Executes a single step in the TapFunc sequence.
  * Creates a temporary function instance and executes it.
+ * Returns the step result ID and updated value table.
  */
 function executeStep(
   step: TapStepBinding,
@@ -140,7 +141,7 @@ function executeStep(
   tapFuncArgMap: { [argName: string]: ValueId },
   stepResults: ValueId[],
   scopedContext: ExecutionContext
-): ValueId {
+): { stepReturnId: ValueId; updatedValueTable: ValueTable } {
   const { defId, argBindings } = step;
 
   // Resolve all argument bindings to concrete ValueIds
@@ -159,39 +160,34 @@ function executeStep(
   // Create a temporary FuncId for this step execution
   const tempFuncId = createTempFuncId(tapFuncId, stepIndex);
 
-  // Execute based on definition type
+  // Create context with temporary function entry
+  const stepContext: ExecutionContext = {
+    ...scopedContext,
+    funcTable: {
+      ...scopedContext.funcTable,
+      [tempFuncId]: {
+        defId: defId as PlugDefineId | TapDefineId,
+        argMap: resolvedArgMap,
+        returnId: stepReturnId,
+      },
+    },
+  };
+
+  // Execute based on definition type and get result
+  let execResult: ExecutionResult;
+
   if (isPlugDefineId(defId, scopedContext.plugFuncDefTable)) {
-    executePlugFunc(
+    execResult = executePlugFunc(
       tempFuncId,
       defId as PlugDefineId,
-      {
-        ...scopedContext,
-        funcTable: {
-          ...scopedContext.funcTable,
-          [tempFuncId]: {
-            defId: defId as PlugDefineId,
-            argMap: resolvedArgMap,
-            returnId: stepReturnId,
-          },
-        },
-      }
+      stepContext
     );
   } else if (isTapDefineId(defId, scopedContext.tapFuncDefTable)) {
     // Recursive TapFunc execution
-    executeTapFunc(
+    execResult = executeTapFunc(
       tempFuncId,
       defId as TapDefineId,
-      {
-        ...scopedContext,
-        funcTable: {
-          ...scopedContext.funcTable,
-          [tempFuncId]: {
-            defId: defId as TapDefineId,
-            argMap: resolvedArgMap,
-            returnId: stepReturnId,
-          },
-        },
-      }
+      stepContext
     );
   } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
     throw new Error(
@@ -204,14 +200,26 @@ function executeStep(
     );
   }
 
-  return stepReturnId;
+  return {
+    stepReturnId,
+    updatedValueTable: execResult.updatedValueTable,
+  };
 }
 
+/**
+ * Executes a TapFunc and returns the result along with updated state.
+ * This is a pure function - it does not mutate the input context.
+ *
+ * @param funcId - The function instance to execute
+ * @param defId - The function definition ID
+ * @param context - The execution context (read-only)
+ * @returns Execution result with computed value and updated value table
+ */
 export function executeTapFunc(
   funcId: FuncId,
   defId: TapDefineId,
   context: ExecutionContext
-): void {
+): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
   const def = context.tapFuncDefTable[defId];
 
@@ -226,16 +234,19 @@ export function executeTapFunc(
     context.valueTable
   );
 
-  const scopedContext = createScopedContext(context, scopedValueTable);
+  // Start with scoped context - we'll thread state through steps
+  let currentValueTable = scopedValueTable;
+  let scopedContext = createScopedContext(context, currentValueTable);
 
   // Track return ValueIds from each step
   const stepResults: ValueId[] = [];
 
-  // Execute each step in sequence
+  // Execute each step in sequence, threading state through
   for (let i = 0; i < def.sequence.length; i++) {
     const step = def.sequence[i];
 
-    const stepReturnId = executeStep(
+    // Execute step with current state
+    const stepResult = executeStep(
       step,
       i,
       funcId,
@@ -244,23 +255,33 @@ export function executeTapFunc(
       scopedContext
     );
 
-    // Add step result to scoped context for subsequent steps
-    const stepResultValue = scopedContext.valueTable[stepReturnId];
+    // Update current state for next step
+    currentValueTable = stepResult.updatedValueTable;
+    scopedContext = createScopedContext(context, currentValueTable);
+
+    // Add step result for subsequent steps to reference
+    const stepResultValue = currentValueTable[stepResult.stepReturnId];
     if (stepResultValue === undefined) {
-      throw createMissingValueError(stepReturnId);
+      throw createMissingValueError(stepResult.stepReturnId);
     }
 
-    stepResults.push(stepReturnId);
+    stepResults.push(stepResult.stepReturnId);
   }
 
   // Return the last step's result (TapFunc semantics)
   const finalResultId = stepResults[stepResults.length - 1];
-  const finalResult = scopedContext.valueTable[finalResultId];
+  const finalResult = currentValueTable[finalResultId];
 
   if (finalResult === undefined) {
     throw createMissingValueError(finalResultId);
   }
 
-  // Store result in the main ValueTable
-  context.valueTable[funcEntry.returnId] = finalResult;
+  // Return result with updated value table (immutable update to main context)
+  return {
+    value: finalResult,
+    updatedValueTable: {
+      ...context.valueTable,
+      [funcEntry.returnId]: finalResult,
+    },
+  };
 }
