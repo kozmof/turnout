@@ -85,21 +85,21 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
   // Boolean values use number transforms since they don't have their own transform namespace
   if (typeSymbol === 'boolean') {
     const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
-    return `${namespace}::pass` as TransformFnNumberNames;
+    return `${namespace}::pass`;
   }
 
   switch (typeSymbol) {
     case 'number': {
       const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
-      return `${namespace}::pass` as TransformFnNumberNames;
+      return `${namespace}::pass`;
     }
     case 'string': {
       const namespace: TransformFnStringNameSpace = 'transformFnString';
-      return `${namespace}::pass` as TransformFnStringNames;
+      return `${namespace}::pass`;
     }
     case 'array': {
       const namespace: TransformFnArrayNameSpace = 'transformFnArray';
-      return `${namespace}::pass` as TransformFnArrayNames;
+      return `${namespace}::pass`;
     }
   }
 }
