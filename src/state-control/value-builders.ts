@@ -8,6 +8,9 @@ import {
   ArrayBooleanValue,
   AnyValue,
   TagSymbol,
+  Value,
+  BaseTypeSymbol,
+  BaseTypeSubSymbol,
 } from './value';
 
 /**
@@ -47,10 +50,17 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
  * Generic builder factory for creating value builders with specific symbol/subSymbol configurations.
  * This eliminates code duplication across all builder functions.
  *
+ * Type safety note: The cast is safe because:
+ * 1. TResult is constrained to extend Value interface (enforced by the type parameter)
+ * 2. We construct an object with all required Value interface fields (symbol, value, subSymbol, tags)
+ * 3. Callers specify exact types (NumberValue, StringValue, etc.) that match the symbol/subSymbol arguments
+ *
  * @internal
  */
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-function createValueBuilder<TResult>(
+function createValueBuilder<
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+  TResult extends Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]>
+>(
   symbol: string,
   subSymbol: string | undefined
 ): (value: unknown, tags?: readonly TagSymbol[]) => TResult {
@@ -64,7 +74,7 @@ function createValueBuilder<TResult>(
       value,
       subSymbol,
       tags: uniqueTags,
-    } as unknown as TResult;
+    } as Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]> as TResult;
   };
 }
 

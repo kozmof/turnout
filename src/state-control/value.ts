@@ -8,6 +8,12 @@ export const baseTypeSymbols = TOM.keys(_baseTypes);
 export type BaseTypeSymbol = keyof typeof _baseTypes;
 
 /**
+ * Valid values for the subSymbol field in Value types.
+ * For non-array types, this is undefined. For array types, this indicates the element type.
+ */
+export type BaseTypeSubSymbol = Exclude<BaseTypeSymbol, 'array'> | undefined;
+
+/**
  * User-definable tag symbols for tracking computational properties.
  *
  * Tags represent markers or labels that propagate through value transformations.
@@ -80,10 +86,10 @@ export type TagSymbol = string;
  * @template SubType - For arrays, the element type; undefined otherwise
  * @template Tags - Readonly array of tag symbols tracking computation history
  */
-interface Value<
+export interface Value<
   T,
   BaseType extends BaseTypeSymbol,
-  SubType extends Exclude<BaseTypeSymbol, 'array'> | undefined,
+  SubType extends BaseTypeSubSymbol,
   Tags extends readonly TagSymbol[] = readonly [],
 > {
   /** Base type tag for runtime type checking */
