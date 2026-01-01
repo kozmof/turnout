@@ -12,7 +12,9 @@ import {
   BaseTypeSubSymbol,
   UnknownValue,
   createUnknownValue,
+  isValidValue,
 } from './value';
+import { createInvalidValueError } from './errors';
 
 /**
  * Pure builders for creating values with proper tag propagation.
@@ -54,12 +56,13 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
  * Type safety approach:
  * 1. Accept properly typed symbol and subSymbol parameters
  * 2. Create an UnknownValue using the type-safe createUnknownValue function
- * 3. Cast from UnknownValue to TResult (safe because TResult extends UnknownValue)
- * 4. Callers specify exact types (NumberValue, StringValue, etc.) that match the symbol/subSymbol arguments
+ * 3. Validate the structure using isValidValue type guard
+ * 4. Type guard narrows to TResult, eliminating need for unsafe cast
  *
  * @internal
  */
 function createValueBuilder<
+  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
   TResult extends UnknownValue
 >(
   symbol: BaseTypeSymbol,
@@ -69,10 +72,21 @@ function createValueBuilder<
     // Deduplicate tags
     const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
 
-    // Create a properly typed UnknownValue, then cast to the specific TResult type
+    // Create a properly typed UnknownValue
     const unknownValue = createUnknownValue(symbol, value, subSymbol, uniqueTags);
 
-    return unknownValue as TResult;
+    // Validate and narrow to TResult using type guard
+    if (isValidValue<TResult>(unknownValue, symbol, subSymbol)) {
+      return unknownValue;
+    }
+
+    // This should never happen since we just created a valid value
+    // But TypeScript needs this for exhaustiveness
+    throw createInvalidValueError(
+      symbol,
+      subSymbol,
+      'Value failed validation after construction'
+    );
   };
 }
 

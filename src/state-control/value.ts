@@ -203,3 +203,63 @@ export function createUnknownValue(
 ): UnknownValue {
   return { symbol, value, subSymbol, tags };
 }
+
+/**
+ * Type guard that validates an UnknownValue has the expected structure.
+ * This performs runtime validation to ensure the value conforms to the Value interface.
+ *
+ * @param val - The value to validate
+ * @param expectedSymbol - Optional: validate the symbol matches this value
+ * @param expectedSubSymbol - Optional: validate the subSymbol matches this value
+ * @returns True if the value is a valid UnknownValue with matching symbols
+ *
+ * @internal
+ */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+export function isValidValue<T extends UnknownValue>(
+  val: unknown,
+  expectedSymbol?: BaseTypeSymbol,
+  expectedSubSymbol?: BaseTypeSubSymbol
+): val is T {
+  // Check if val is an object
+  if (typeof val !== 'object' || val === null) {
+    return false;
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const v = val as Record<string, unknown>;
+
+  // Check all required fields exist
+  if (!('symbol' in v) || !('value' in v) || !('subSymbol' in v) || !('tags' in v)) {
+    return false;
+  }
+
+  // Validate symbol is a valid BaseTypeSymbol
+  if (typeof v.symbol !== 'string' ||
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      !(['number', 'string', 'boolean', 'array'] as const).includes(v.symbol as BaseTypeSymbol)) {
+    return false;
+  }
+
+  // Validate tags is an array
+  if (!Array.isArray(v.tags)) {
+    return false;
+  }
+
+  // Validate all tags are strings
+  if (!v.tags.every((tag: unknown) => typeof tag === 'string')) {
+    return false;
+  }
+
+  // If expectedSymbol provided, validate it matches
+  if (expectedSymbol !== undefined && v.symbol !== expectedSymbol) {
+    return false;
+  }
+
+  // If expectedSubSymbol provided, validate it matches
+  if (expectedSubSymbol !== undefined && v.subSymbol !== expectedSubSymbol) {
+    return false;
+  }
+
+  return true;
+}
