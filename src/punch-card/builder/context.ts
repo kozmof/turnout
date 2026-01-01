@@ -6,6 +6,9 @@ import type {
   TapDefineId,
   CondDefineId,
   InterfaceArgId,
+  TapStepBinding,
+  TapArgBinding,
+  TransformFnNames,
 } from '../types';
 import type {
   ContextSpec,
@@ -19,9 +22,21 @@ import type {
   ValueRef,
   TransformRef,
 } from './types';
-import { buildNumber, buildString, buildBoolean } from '../../state-control/value-builders';
+import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-control/value-builders';
 import type { AnyValue } from '../../state-control/value';
+import { isValidValue } from '../../state-control/value';
 import { buildReturnIdToFuncIdMap } from '../runtime/buildExecutionTree';
+
+/**
+ * Factory functions for creating branded ID types.
+ * These encapsulate the type assertions required for branded types.
+ */
+const createValueId = (id: string): ValueId => id as ValueId;
+const createFuncId = (id: string): FuncId => id as FuncId;
+const createPlugDefineId = (id: string): PlugDefineId => id as PlugDefineId;
+const createTapDefineId = (id: string): TapDefineId => id as TapDefineId;
+const createCondDefineId = (id: string): CondDefineId => id as CondDefineId;
+const createInterfaceArgId = (id: string): InterfaceArgId => id as InterfaceArgId;
 
 /**
  * Creates an ExecutionContext from a declarative specification.
@@ -64,26 +79,28 @@ export function ctx<T extends ContextSpec>(spec: T): BuildResult<T> {
     }
   }
 
-  // Build execution context (first without returnIdToFuncIdMap)
+  // Build execution context
   const exec: ExecutionContext = {
-    valueTable: builder.valueTable as any,
-    funcTable: builder.funcTable as any,
-    plugFuncDefTable: builder.plugFuncDefTable as any,
-    tapFuncDefTable: builder.tapFuncDefTable as any,
-    condFuncDefTable: builder.condFuncDefTable as any,
-    returnIdToFuncId: undefined as any, // Temporary
+    valueTable: builder.valueTable,
+    funcTable: builder.funcTable,
+    plugFuncDefTable: builder.plugFuncDefTable,
+    tapFuncDefTable: builder.tapFuncDefTable,
+    condFuncDefTable: builder.condFuncDefTable,
+    returnIdToFuncId: new Map(),
   };
 
   // Now build the map with the full context
-  exec.returnIdToFuncId = Object.keys(builder.funcTable).length > 0
-    ? buildReturnIdToFuncIdMap(exec)
-    : new Map();
+  if (Object.keys(builder.funcTable).length > 0) {
+    exec.returnIdToFuncId = buildReturnIdToFuncIdMap(exec);
+  }
 
   // Build typed ID map
-  const ids = {} as any;
-  for (const key of Object.keys(spec)) {
-    ids[key] = key as any;
-  }
+  const ids = Object.keys(spec).reduce((acc, key) => {
+    // Each key is either a ValueId or FuncId depending on what's in the spec
+    const id = isFunctionBuilder(spec[key]) ? createFuncId(key) : createValueId(key);
+    acc[key as keyof T] = id;
+    return acc;
+  }, {} as Record<keyof T, ValueId | FuncId>) as BuildResult<T>['ids'];
 
   return { exec, ids };
 }
@@ -120,6 +137,14 @@ function isFunctionBuilder(value: unknown): value is FunctionBuilder {
 }
 
 /**
+ * Type guard to check if a value is already an AnyValue.
+ * Uses the existing isValidValue function for consistent validation.
+ */
+function isAnyValue(value: unknown): value is AnyValue {
+  return isValidValue<AnyValue>(value);
+}
+
+/**
  * Infers AnyValue from JavaScript literal.
  */
 function inferValue(literal: ValueLiteral): AnyValue {
@@ -132,8 +157,16 @@ function inferValue(literal: ValueLiteral): AnyValue {
   if (typeof literal === 'boolean') {
     return buildBoolean(literal);
   }
-  // Already an AnyValue or array
-  return literal as AnyValue;
+  // Check if it's a JavaScript array that needs to be wrapped
+  if (Array.isArray(literal)) {
+    return buildArray(literal);
+  }
+  // Already an AnyValue - use type guard to narrow
+  if (isAnyValue(literal)) {
+    return literal;
+  }
+  // This should never happen given ValueLiteral type constraints
+  throw new Error(`Unexpected literal type: ${typeof literal}`);
 }
 
 /**
@@ -165,20 +198,20 @@ function processPlugFunc(
   builder: PlugBuilder,
   state: BuilderState
 ): void {
-  const defId = `pd${state.nextDefId++}` as PlugDefineId;
-  const returnId = `${funcId}__out` as ValueId;
+  const defId = createPlugDefineId(`pd${state.nextDefId++}`);
+  const returnId = createValueId(`${funcId}__out`);
 
   // Build argMap and transformFn from args
   const argMap: Record<string, ValueId> = {};
-  const transformFn: Record<string, { name: string }> = {};
+  const transformFnMap: Record<string, { name: TransformFnNames }> = {};
 
   for (const [key, ref] of Object.entries(builder.args)) {
     if (isTransformRef(ref)) {
-      argMap[key] = ref.valueId as ValueId;
-      transformFn[key] = { name: ref.transformFn };
+      argMap[key] = createValueId(ref.valueId);
+      transformFnMap[key] = { name: ref.transformFn };
     } else {
-      argMap[key] = ref as ValueId;
-      transformFn[key] = { name: inferPassTransform(ref, state) };
+      argMap[key] = createValueId(ref);
+      transformFnMap[key] = { name: inferPassTransform(ref, state) as TransformFnNames };
     }
   }
 
@@ -192,10 +225,13 @@ function processPlugFunc(
   // Add to definition table
   state.plugFuncDefTable[defId] = {
     name: builder.name,
-    transformFn,
+    transformFn: {
+      a: transformFnMap['a'],
+      b: transformFnMap['b'],
+    },
     args: {
-      a: 'ia1' as InterfaceArgId,
-      b: 'ia2' as InterfaceArgId,
+      a: createInterfaceArgId('ia1'),
+      b: createInterfaceArgId('ia2'),
     },
   };
 }
@@ -208,35 +244,35 @@ function processTapFunc(
   builder: TapBuilder,
   state: BuilderState
 ): void {
-  const defId = `td${state.nextDefId++}` as TapDefineId;
-  const returnId = `${funcId}__out` as ValueId;
+  const defId = createTapDefineId(`td${state.nextDefId++}`);
+  const returnId = createValueId(`${funcId}__out`);
 
   // Build argument map from the bindings provided in the builder
   const argMap: Record<string, ValueId> = {};
   const tapDefArgs: Record<string, InterfaceArgId> = {};
 
   for (const arg of builder.args) {
-    const interfaceArgId = `${funcId}__ia_${arg.name}` as InterfaceArgId;
+    const interfaceArgId = createInterfaceArgId(`${funcId}__ia_${arg.name}`);
 
     // Use the binding from argBindings
-    argMap[arg.name] = builder.argBindings[arg.name] as ValueId;
+    argMap[arg.name] = createValueId(builder.argBindings[arg.name]);
     tapDefArgs[arg.name] = interfaceArgId;
   }
 
   // Process each step in the sequence
-  const sequence: any[] = [];
+  const sequence: TapStepBinding[] = [];
   for (let i = 0; i < builder.steps.length; i++) {
     const step = builder.steps[i];
 
     if (step.__type === 'plug') {
       // Create a unique plug definition for this step
-      const stepDefId = `pd${state.nextDefId++}` as PlugDefineId;
+      const stepDefId = createPlugDefineId(`pd${state.nextDefId++}`);
 
       // Build argBindings for this step
-      const argBindings: Record<string, any> = {};
+      const argBindings: Record<string, TapArgBinding> = {};
 
       for (const [argName, ref] of Object.entries(step.args)) {
-        const refStr = typeof ref === 'string' ? ref : (ref as any).valueId;
+        const refStr = typeof ref === 'string' ? ref : ref.valueId;
 
         // Check if it's an argument to the tap function
         if (builder.args.some(arg => arg.name === refStr)) {
@@ -259,30 +295,33 @@ function processTapFunc(
         else {
           argBindings[argName] = {
             source: 'value',
-            valueId: refStr as ValueId,
+            valueId: createValueId(refStr),
           };
         }
       }
 
       // Infer transform functions for each argument
-      const transformFn: Record<string, { name: string }> = {};
+      const transformFnMap: Record<string, { name: TransformFnNames }> = {};
       for (const [argName, ref] of Object.entries(step.args)) {
         if (isTransformRef(ref)) {
-          transformFn[argName] = { name: ref.transformFn };
+          transformFnMap[argName] = { name: ref.transformFn };
         } else {
           // Infer pass transform based on the function name
           const inferredTransform = inferTransformForBinaryFn(step.name);
-          transformFn[argName] = { name: inferredTransform };
+          transformFnMap[argName] = { name: inferredTransform as TransformFnNames };
         }
       }
 
       // Add plug definition to table
       state.plugFuncDefTable[stepDefId] = {
         name: step.name,
-        transformFn,
+        transformFn: {
+          a: transformFnMap['a'],
+          b: transformFnMap['b'],
+        },
         args: {
-          a: 'ia1' as any,
-          b: 'ia2' as any,
+          a: createInterfaceArgId('ia1'),
+          b: createInterfaceArgId('ia2'),
         },
       };
 
@@ -313,8 +352,8 @@ function processCondFunc(
   builder: CondBuilder,
   state: BuilderState
 ): void {
-  const defId = `cd${state.nextDefId++}` as CondDefineId;
-  const returnId = `${funcId}__out` as ValueId;
+  const defId = createCondDefineId(`cd${state.nextDefId++}`);
+  const returnId = createValueId(`${funcId}__out`);
 
   state.funcTable[funcId] = {
     defId,
@@ -322,12 +361,16 @@ function processCondFunc(
     returnId,
   };
 
-  // Condition can be either a ValueId or FuncId (via ref.output())
-  // CondFuncDefTable accepts FuncId | ValueId for conditionId
+  // Condition can be either a ValueId or FuncId
+  // Try as ValueId first, then FuncId if it exists in funcTable
+  const conditionId = state.funcTable[builder.condition]
+    ? createFuncId(builder.condition)
+    : createValueId(builder.condition);
+
   state.condFuncDefTable[defId] = {
-    conditionId: builder.condition as FuncId | ValueId,
-    trueBranchId: builder.then as FuncId,
-    falseBranchId: builder.else as FuncId,
+    conditionId,
+    trueBranchId: createFuncId(builder.then),
+    falseBranchId: createFuncId(builder.else),
   };
 }
 

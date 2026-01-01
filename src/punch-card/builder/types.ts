@@ -7,6 +7,8 @@ import type {
   CondDefineId,
   BinaryFnNames,
   TransformFnNames,
+  InterfaceArgId,
+  TapStepBinding,
 } from '../types';
 import type { AnyValue, TagSymbol } from '../../state-control/value';
 
@@ -112,12 +114,42 @@ export type BuildResult<T extends ContextSpec> = {
 
 /**
  * Internal state during context building.
+ * Uses the same structure as ExecutionContext tables to avoid casting.
  */
 export type ContextBuilder = {
-  valueTable: Record<string, AnyValue>;
-  funcTable: Record<string, any>;
-  plugFuncDefTable: Record<string, any>;
-  tapFuncDefTable: Record<string, any>;
-  condFuncDefTable: Record<string, any>;
+  valueTable: { [id: string]: AnyValue };
+  funcTable: {
+    [id: string]: {
+      defId: PlugDefineId | TapDefineId | CondDefineId;
+      argMap: { [argName: string]: ValueId };
+      returnId: ValueId;
+    };
+  };
+  plugFuncDefTable: {
+    [defId: string]: {
+      name: BinaryFnNames;
+      transformFn: {
+        a: { name: TransformFnNames };
+        b: { name: TransformFnNames };
+      };
+      args: {
+        a: InterfaceArgId;
+        b: InterfaceArgId;
+      };
+    };
+  };
+  tapFuncDefTable: {
+    [defId: string]: {
+      args: { [argName: string]: InterfaceArgId };
+      sequence: TapStepBinding[];
+    };
+  };
+  condFuncDefTable: {
+    [defId: string]: {
+      conditionId: FuncId | ValueId;
+      trueBranchId: FuncId;
+      falseBranchId: FuncId;
+    };
+  };
   nextDefId: number;
 };
