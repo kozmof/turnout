@@ -23,7 +23,7 @@ import type {
   TransformRef,
 } from './types';
 import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-control/value-builders';
-import type { AnyValue } from '../../state-control/value';
+import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
 import { buildReturnIdToFuncIdMap } from '../runtime/buildExecutionTree';
 
@@ -37,6 +37,63 @@ const createPlugDefineId = (id: string): PlugDefineId => id as PlugDefineId;
 const createTapDefineId = (id: string): TapDefineId => id as TapDefineId;
 const createCondDefineId = (id: string): CondDefineId => id as CondDefineId;
 const createInterfaceArgId = (id: string): InterfaceArgId => id as InterfaceArgId;
+
+/**
+ * ID Schema - Centralized ID generation patterns
+ */
+const IdSchema = {
+  plugDefine: (counter: number): PlugDefineId => createPlugDefineId(`pd${counter}`),
+  tapDefine: (counter: number): TapDefineId => createTapDefineId(`td${counter}`),
+  condDefine: (counter: number): CondDefineId => createCondDefineId(`cd${counter}`),
+  returnValue: (funcId: string): ValueId => createValueId(`${funcId}__out`),
+  stepOutput: (funcId: string, stepIndex: number): ValueId =>
+    createValueId(`${funcId}__step${stepIndex}__out`),
+  interfaceArg: (funcId: string, argName: string): InterfaceArgId =>
+    createInterfaceArgId(`${funcId}__ia_${argName}`),
+  parseStepOutput: (id: string): { funcId: string; stepIndex: number } | null => {
+    const match = id.match(/^(.+)__step(\d+)__out$/);
+    return match ? { funcId: match[1], stepIndex: parseInt(match[2]) } : null;
+  },
+} as const;
+
+/**
+ * Type-to-Transform mapping - Replaces string pattern matching
+ */
+const TypeTransformMap: Record<BaseTypeSymbol, TransformFnNames> = {
+  number: 'transformFnNumber::pass' as TransformFnNames,
+  string: 'transformFnString::pass' as TransformFnNames,
+  boolean: 'transformFnNumber::pass' as TransformFnNames, // boolean uses number transform
+  array: 'transformFnArray::pass' as TransformFnNames,
+} as const;
+
+/**
+ * BinaryFn namespace to type mapping
+ */
+const BinaryFnNamespaceToType: Record<string, BaseTypeSymbol> = {
+  binaryFnNumber: 'number',
+  binaryFnString: 'string',
+  binaryFnArray: 'array',
+  binaryFnGeneric: 'number', // default to number for generic
+} as const;
+
+/**
+ * Phase 1: Value collection result
+ */
+type ValuePhaseResult = {
+  readonly valueTable: Record<string, AnyValue>;
+};
+
+/**
+ * Phase 2: Function processing state
+ */
+type FunctionPhaseState = {
+  readonly valueTable: Record<string, AnyValue>;
+  funcTable: BuilderState['funcTable'];
+  plugFuncDefTable: BuilderState['plugFuncDefTable'];
+  tapFuncDefTable: BuilderState['tapFuncDefTable'];
+  condFuncDefTable: BuilderState['condFuncDefTable'];
+  nextDefId: number;
+};
 
 /**
  * Creates an ExecutionContext from a declarative specification.
@@ -56,8 +113,45 @@ const createInterfaceArgId = (id: string): InterfaceArgId => id as InterfaceArgI
  * ```
  */
 export function ctx<T extends ContextSpec>(spec: T): BuildResult<T> {
-  const builder: BuilderState = {
-    valueTable: {},
+  // Phase 1: Collect all values
+  const valuePhase = collectValues(spec);
+
+  // Phase 2: Process all functions
+  const functionPhase = processFunctions(spec, valuePhase);
+
+  // Phase 3: Build execution context
+  const exec = buildExecutionContext(functionPhase);
+
+  // Build typed ID map
+  const ids = buildIdMap(spec);
+
+  return { exec, ids };
+}
+
+/**
+ * Phase 1: Collect all literal values from the spec
+ */
+function collectValues(spec: ContextSpec): ValuePhaseResult {
+  const valueTable: Record<string, AnyValue> = {};
+
+  for (const [key, value] of Object.entries(spec)) {
+    if (isValueLiteral(value)) {
+      valueTable[key] = inferValue(value);
+    }
+  }
+
+  return { valueTable };
+}
+
+/**
+ * Phase 2: Process all function builders
+ */
+function processFunctions(
+  spec: ContextSpec,
+  valuePhase: ValuePhaseResult
+): FunctionPhaseState {
+  const state: FunctionPhaseState = {
+    valueTable: valuePhase.valueTable,
     funcTable: {},
     plugFuncDefTable: {},
     tapFuncDefTable: {},
@@ -65,44 +159,179 @@ export function ctx<T extends ContextSpec>(spec: T): BuildResult<T> {
     nextDefId: 0,
   };
 
-  // First pass: Process all values
-  for (const [key, value] of Object.entries(spec)) {
-    if (isValueLiteral(value)) {
-      builder.valueTable[key] = inferValue(value);
-    }
-  }
+  // Validate function references before processing
+  validateFunctionReferences(spec);
 
-  // Second pass: Process all functions
   for (const [key, value] of Object.entries(spec)) {
     if (isFunctionBuilder(value)) {
-      processFunction(key, value, builder);
+      processFunction(key, value, state);
     }
   }
 
-  // Build execution context
+  return state;
+}
+
+/**
+ * Phase 3: Build the final execution context
+ */
+function buildExecutionContext(functionPhase: FunctionPhaseState): ExecutionContext {
   const exec: ExecutionContext = {
-    valueTable: builder.valueTable,
-    funcTable: builder.funcTable,
-    plugFuncDefTable: builder.plugFuncDefTable,
-    tapFuncDefTable: builder.tapFuncDefTable,
-    condFuncDefTable: builder.condFuncDefTable,
+    valueTable: functionPhase.valueTable,
+    funcTable: functionPhase.funcTable,
+    plugFuncDefTable: functionPhase.plugFuncDefTable,
+    tapFuncDefTable: functionPhase.tapFuncDefTable,
+    condFuncDefTable: functionPhase.condFuncDefTable,
     returnIdToFuncId: new Map(),
   };
 
-  // Now build the map with the full context
-  if (Object.keys(builder.funcTable).length > 0) {
+  if (Object.keys(functionPhase.funcTable).length > 0) {
     exec.returnIdToFuncId = buildReturnIdToFuncIdMap(exec);
   }
 
-  // Build typed ID map
-  const ids = Object.keys(spec).reduce((acc, key) => {
-    // Each key is either a ValueId or FuncId depending on what's in the spec
+  return exec;
+}
+
+/**
+ * Build typed ID map from spec
+ */
+function buildIdMap<T extends ContextSpec>(spec: T): BuildResult<T>['ids'] {
+  return Object.keys(spec).reduce((acc, key) => {
     const id = isFunctionBuilder(spec[key]) ? createFuncId(key) : createValueId(key);
     acc[key as keyof T] = id;
     return acc;
   }, {} as Record<keyof T, ValueId | FuncId>) as BuildResult<T>['ids'];
+}
 
-  return { exec, ids };
+/**
+ * Validates that all function references are valid and resolved in correct order
+ */
+function validateFunctionReferences(spec: ContextSpec): void {
+  const allKeys = new Set(Object.keys(spec));
+  const valueKeys = new Set<string>();
+  const functionKeys = new Set<string>();
+
+  // First pass: categorize keys
+  for (const [key, value] of Object.entries(spec)) {
+    if (isFunctionBuilder(value)) {
+      functionKeys.add(key);
+    } else {
+      valueKeys.add(key);
+    }
+  }
+
+  // Second pass: validate references
+  for (const [key, value] of Object.entries(spec)) {
+    if (isFunctionBuilder(value)) {
+      switch (value.__type) {
+        case 'cond':
+          validateCondReferences(key, value, allKeys, functionKeys);
+          break;
+        case 'plug':
+          validatePlugReferences(key, value, valueKeys);
+          break;
+        case 'tap':
+          validateTapReferences(key, value, valueKeys);
+          break;
+      }
+    }
+  }
+}
+
+/**
+ * Validates conditional function references
+ */
+function validateCondReferences(
+  funcId: string,
+  cond: CondBuilder,
+  allKeys: Set<string>,
+  functionKeys: Set<string>
+): void {
+  // Condition must reference a value or function
+  if (!allKeys.has(cond.condition)) {
+    throw new Error(
+      `Cond function '${funcId}' references undefined condition: '${cond.condition}'`
+    );
+  }
+
+  // Branches must be functions
+  if (!functionKeys.has(cond.then)) {
+    throw new Error(
+      `Cond function '${funcId}' references undefined 'then' branch: '${cond.then}'`
+    );
+  }
+  if (!functionKeys.has(cond.else)) {
+    throw new Error(
+      `Cond function '${funcId}' references undefined 'else' branch: '${cond.else}'`
+    );
+  }
+}
+
+/**
+ * Validates plug function references
+ */
+function validatePlugReferences(
+  funcId: string,
+  plug: PlugBuilder,
+  valueKeys: Set<string>
+): void {
+  for (const [argName, ref] of Object.entries(plug.args)) {
+    const refStr = typeof ref === 'string' ? ref : ref.valueId;
+
+    // Each argument must reference a value
+    // This includes:
+    // 1. Direct values in valueKeys
+    // 2. Function return values (pattern: functionId__out)
+    const isDirectValue = valueKeys.has(refStr);
+    const isFunctionOutput = refStr.endsWith('__out');
+
+    if (!isDirectValue && !isFunctionOutput) {
+      throw new Error(
+        `Plug function '${funcId}' argument '${argName}' references undefined value: '${refStr}'`
+      );
+    }
+  }
+}
+
+/**
+ * Validates tap function references
+ */
+function validateTapReferences(
+  funcId: string,
+  tap: TapBuilder,
+  valueKeys: Set<string>
+): void {
+  // Validate argument bindings
+  for (const [argName, binding] of Object.entries(tap.argBindings)) {
+    if (!valueKeys.has(binding)) {
+      throw new Error(
+        `Tap function '${funcId}' argument '${argName}' references undefined or non-value: '${binding}'`
+      );
+    }
+  }
+
+  // Validate steps
+  for (let i = 0; i < tap.steps.length; i++) {
+    const step = tap.steps[i];
+    if (step.__type === 'plug') {
+      for (const [argName, ref] of Object.entries(step.args)) {
+        const refStr = typeof ref === 'string' ? ref : ref.valueId;
+
+        // Step arguments can reference:
+        // 1. Tap function arguments
+        // 2. Previous step outputs (special naming pattern)
+        // 3. Values from the context
+        const isTapArg = tap.args.some(arg => arg.name === refStr);
+        const isStepOutput = IdSchema.parseStepOutput(refStr) !== null;
+        const isContextValue = valueKeys.has(refStr);
+
+        if (!isTapArg && !isStepOutput && !isContextValue) {
+          throw new Error(
+            `Tap function '${funcId}' step ${i} argument '${argName}' references undefined: '${refStr}'`
+          );
+        }
+      }
+    }
+  }
 }
 
 /**
@@ -171,11 +400,12 @@ function inferValue(literal: ValueLiteral): AnyValue {
 
 /**
  * Processes a function builder and adds it to the context.
+ * Uses discriminated union for type-safe dispatch.
  */
 function processFunction(
   id: string,
   builder: FunctionBuilder,
-  state: BuilderState
+  state: FunctionPhaseState
 ): void {
   switch (builder.__type) {
     case 'plug':
@@ -187,8 +417,22 @@ function processFunction(
     case 'cond':
       processCondFunc(id, builder, state);
       break;
+    default: {
+      // Exhaustiveness check - ensures all cases are handled
+      const _exhaustive: never = builder;
+      throw new Error(`Unknown function type: ${(_exhaustive as FunctionBuilder).__type}`);
+    }
   }
 }
+
+/**
+ * Standard argument structure for binary plug functions
+ */
+const BINARY_ARG_NAMES = ['a', 'b'] as const;
+const BINARY_INTERFACE_ARG_IDS = {
+  a: createInterfaceArgId('ia1'),
+  b: createInterfaceArgId('ia2'),
+} as const;
 
 /**
  * Processes a PlugFunc builder.
@@ -196,24 +440,13 @@ function processFunction(
 function processPlugFunc(
   funcId: string,
   builder: PlugBuilder,
-  state: BuilderState
+  state: FunctionPhaseState
 ): void {
-  const defId = createPlugDefineId(`pd${state.nextDefId++}`);
-  const returnId = createValueId(`${funcId}__out`);
+  const defId = IdSchema.plugDefine(state.nextDefId++);
+  const returnId = IdSchema.returnValue(funcId);
 
   // Build argMap and transformFn from args
-  const argMap: Record<string, ValueId> = {};
-  const transformFnMap: Record<string, { name: TransformFnNames }> = {};
-
-  for (const [key, ref] of Object.entries(builder.args)) {
-    if (isTransformRef(ref)) {
-      argMap[key] = createValueId(ref.valueId);
-      transformFnMap[key] = { name: ref.transformFn };
-    } else {
-      argMap[key] = createValueId(ref);
-      transformFnMap[key] = { name: inferPassTransform(ref, state) as TransformFnNames };
-    }
-  }
+  const { argMap, transformFnMap } = buildPlugArguments(builder, state);
 
   // Add to function table
   state.funcTable[funcId] = {
@@ -223,16 +456,55 @@ function processPlugFunc(
   };
 
   // Add to definition table
-  state.plugFuncDefTable[defId] = {
-    name: builder.name,
+  state.plugFuncDefTable[defId] = buildPlugDefinition(builder.name, transformFnMap);
+}
+
+/**
+ * Builds argument mappings and transform functions for a plug function
+ */
+function buildPlugArguments(
+  builder: PlugBuilder,
+  state: FunctionPhaseState
+): {
+  argMap: Record<string, ValueId>;
+  transformFnMap: Record<string, { name: TransformFnNames }>;
+} {
+  const argMap: Record<string, ValueId> = {};
+  const transformFnMap: Record<string, { name: TransformFnNames }> = {};
+
+  for (const [key, ref] of Object.entries(builder.args)) {
+    if (isTransformRef(ref)) {
+      argMap[key] = createValueId(ref.valueId);
+      transformFnMap[key] = { name: ref.transformFn };
+    } else {
+      argMap[key] = createValueId(ref);
+      transformFnMap[key] = { name: inferPassTransform(ref, state) };
+    }
+  }
+
+  return { argMap, transformFnMap };
+}
+
+/**
+ * Builds a plug function definition with configurable argument structure
+ */
+function buildPlugDefinition(
+  name: PlugBuilder['name'],
+  transformFnMap: Record<string, { name: TransformFnNames }>
+): {
+  name: PlugBuilder['name'];
+  transformFn: { a: { name: TransformFnNames }; b: { name: TransformFnNames } };
+  args: { a: InterfaceArgId; b: InterfaceArgId };
+} {
+  // Currently supports binary functions (a, b)
+  // Future: Could be extended to support n-ary functions
+  return {
+    name,
     transformFn: {
       a: transformFnMap['a'],
       b: transformFnMap['b'],
     },
-    args: {
-      a: createInterfaceArgId('ia1'),
-      b: createInterfaceArgId('ia2'),
-    },
+    args: BINARY_INTERFACE_ARG_IDS,
   };
 }
 
@@ -242,95 +514,16 @@ function processPlugFunc(
 function processTapFunc(
   funcId: string,
   builder: TapBuilder,
-  state: BuilderState
+  state: FunctionPhaseState
 ): void {
-  const defId = createTapDefineId(`td${state.nextDefId++}`);
-  const returnId = createValueId(`${funcId}__out`);
+  const defId = IdSchema.tapDefine(state.nextDefId++);
+  const returnId = IdSchema.returnValue(funcId);
 
   // Build argument map from the bindings provided in the builder
-  const argMap: Record<string, ValueId> = {};
-  const tapDefArgs: Record<string, InterfaceArgId> = {};
-
-  for (const arg of builder.args) {
-    const interfaceArgId = createInterfaceArgId(`${funcId}__ia_${arg.name}`);
-
-    // Use the binding from argBindings
-    argMap[arg.name] = createValueId(builder.argBindings[arg.name]);
-    tapDefArgs[arg.name] = interfaceArgId;
-  }
+  const { argMap, tapDefArgs } = buildTapArguments(funcId, builder);
 
   // Process each step in the sequence
-  const sequence: TapStepBinding[] = [];
-  for (let i = 0; i < builder.steps.length; i++) {
-    const step = builder.steps[i];
-
-    if (step.__type === 'plug') {
-      // Create a unique plug definition for this step
-      const stepDefId = createPlugDefineId(`pd${state.nextDefId++}`);
-
-      // Build argBindings for this step
-      const argBindings: Record<string, TapArgBinding> = {};
-
-      for (const [argName, ref] of Object.entries(step.args)) {
-        const refStr = typeof ref === 'string' ? ref : ref.valueId;
-
-        // Check if it's an argument to the tap function
-        if (builder.args.some(arg => arg.name === refStr)) {
-          argBindings[argName] = {
-            source: 'input',
-            argName: refStr,
-          };
-        }
-        // Check if it's a reference to a previous step output
-        else if (refStr.startsWith(`${funcId}__step`)) {
-          const match = refStr.match(/__step(\d+)__out$/);
-          if (match) {
-            argBindings[argName] = {
-              source: 'step',
-              stepIndex: parseInt(match[1]),
-            };
-          }
-        }
-        // Otherwise it's a value reference
-        else {
-          argBindings[argName] = {
-            source: 'value',
-            valueId: createValueId(refStr),
-          };
-        }
-      }
-
-      // Infer transform functions for each argument
-      const transformFnMap: Record<string, { name: TransformFnNames }> = {};
-      for (const [argName, ref] of Object.entries(step.args)) {
-        if (isTransformRef(ref)) {
-          transformFnMap[argName] = { name: ref.transformFn };
-        } else {
-          // Infer pass transform based on the function name
-          const inferredTransform = inferTransformForBinaryFn(step.name);
-          transformFnMap[argName] = { name: inferredTransform as TransformFnNames };
-        }
-      }
-
-      // Add plug definition to table
-      state.plugFuncDefTable[stepDefId] = {
-        name: step.name,
-        transformFn: {
-          a: transformFnMap['a'],
-          b: transformFnMap['b'],
-        },
-        args: {
-          a: createInterfaceArgId('ia1'),
-          b: createInterfaceArgId('ia2'),
-        },
-      };
-
-      sequence.push({
-        defId: stepDefId,
-        argBindings,
-      });
-    }
-  }
+  const sequence = buildTapSequence(funcId, builder, state);
 
   state.funcTable[funcId] = {
     defId,
@@ -345,15 +538,150 @@ function processTapFunc(
 }
 
 /**
+ * Builds argument mappings for a tap function
+ */
+function buildTapArguments(
+  funcId: string,
+  builder: TapBuilder
+): { argMap: Record<string, ValueId>; tapDefArgs: Record<string, InterfaceArgId> } {
+  const argMap: Record<string, ValueId> = {};
+  const tapDefArgs: Record<string, InterfaceArgId> = {};
+
+  for (const arg of builder.args) {
+    const interfaceArgId = IdSchema.interfaceArg(funcId, arg.name);
+    argMap[arg.name] = createValueId(builder.argBindings[arg.name]);
+    tapDefArgs[arg.name] = interfaceArgId;
+  }
+
+  return { argMap, tapDefArgs };
+}
+
+/**
+ * Builds the sequence of steps for a tap function
+ */
+function buildTapSequence(
+  funcId: string,
+  builder: TapBuilder,
+  state: FunctionPhaseState
+): TapStepBinding[] {
+  const sequence: TapStepBinding[] = [];
+
+  for (let i = 0; i < builder.steps.length; i++) {
+    const step = builder.steps[i];
+
+    if (step.__type === 'plug') {
+      const stepBinding = buildTapStepBinding(funcId, step, builder, state);
+      sequence.push(stepBinding);
+    }
+  }
+
+  return sequence;
+}
+
+/**
+ * Builds a single step binding for a tap function
+ */
+function buildTapStepBinding(
+  funcId: string,
+  step: PlugBuilder,
+  tapBuilder: TapBuilder,
+  state: FunctionPhaseState
+): TapStepBinding {
+  const stepDefId = IdSchema.plugDefine(state.nextDefId++);
+
+  // Build argument bindings for this step
+  const argBindings = buildStepArgBindings(funcId, step, tapBuilder);
+
+  // Infer transform functions for each argument
+  const transformFnMap = buildStepTransformMap(step);
+
+  // Add plug definition to table (reuse buildPlugDefinition for consistency)
+  state.plugFuncDefTable[stepDefId] = buildPlugDefinition(step.name, transformFnMap);
+
+  return {
+    defId: stepDefId,
+    argBindings,
+  };
+}
+
+/**
+ * Builds argument bindings for a single tap step
+ */
+function buildStepArgBindings(
+  funcId: string,
+  step: PlugBuilder,
+  tapBuilder: TapBuilder
+): Record<string, TapArgBinding> {
+  const argBindings: Record<string, TapArgBinding> = {};
+
+  for (const [argName, ref] of Object.entries(step.args)) {
+    const refStr = typeof ref === 'string' ? ref : ref.valueId;
+    argBindings[argName] = resolveArgBinding(funcId, refStr, tapBuilder);
+  }
+
+  return argBindings;
+}
+
+/**
+ * Resolves how a step argument should be bound to its value source
+ */
+function resolveArgBinding(
+  funcId: string,
+  refStr: string,
+  tapBuilder: TapBuilder
+): TapArgBinding {
+  // Check if it's an argument to the tap function
+  if (tapBuilder.args.some(arg => arg.name === refStr)) {
+    return {
+      source: 'input',
+      argName: refStr,
+    };
+  }
+
+  // Check if it's a reference to a previous step output
+  const stepOutput = IdSchema.parseStepOutput(refStr);
+  if (stepOutput && stepOutput.funcId === funcId) {
+    return {
+      source: 'step',
+      stepIndex: stepOutput.stepIndex,
+    };
+  }
+
+  // Otherwise it's a value reference
+  return {
+    source: 'value',
+    valueId: createValueId(refStr),
+  };
+}
+
+/**
+ * Builds transform function map for a step
+ */
+function buildStepTransformMap(step: PlugBuilder): Record<string, { name: TransformFnNames }> {
+  const transformFnMap: Record<string, { name: TransformFnNames }> = {};
+
+  for (const [argName, ref] of Object.entries(step.args)) {
+    if (isTransformRef(ref)) {
+      transformFnMap[argName] = { name: ref.transformFn };
+    } else {
+      const inferredTransform = inferTransformForBinaryFn(step.name);
+      transformFnMap[argName] = { name: inferredTransform };
+    }
+  }
+
+  return transformFnMap;
+}
+
+/**
  * Processes a CondFunc builder.
  */
 function processCondFunc(
   funcId: string,
   builder: CondBuilder,
-  state: BuilderState
+  state: FunctionPhaseState
 ): void {
-  const defId = createCondDefineId(`cd${state.nextDefId++}`);
-  const returnId = createValueId(`${funcId}__out`);
+  const defId = IdSchema.condDefine(state.nextDefId++);
+  const returnId = IdSchema.returnValue(funcId);
 
   state.funcTable[funcId] = {
     defId,
@@ -382,49 +710,29 @@ function isTransformRef(ref: ValueRef | TransformRef): ref is TransformRef {
 }
 
 /**
- * Infers the appropriate "pass" transform for a value reference.
+ * Infers the appropriate "pass" transform for a value reference using lookup table.
  */
-function inferPassTransform(valueRef: ValueRef, state: BuilderState): string {
+function inferPassTransform(valueRef: ValueRef, state: FunctionPhaseState): TransformFnNames {
   const value = state.valueTable[valueRef];
   if (!value) {
     // Default to number pass if value not found yet
-    return 'transformFnNumber::pass';
+    return TypeTransformMap.number;
   }
 
-  switch (value.symbol) {
-    case 'number':
-      return 'transformFnNumber::pass';
-    case 'string':
-      return 'transformFnString::pass';
-    case 'array':
-      return 'transformFnArray::pass';
-    default:
-      return 'transformFnNumber::pass';
-  }
+  return TypeTransformMap[value.symbol] ?? TypeTransformMap.number;
 }
 
 /**
- * Infers the appropriate transform function based on the binary function name.
+ * Infers the appropriate transform function based on the binary function name using lookup table.
  */
-function inferTransformForBinaryFn(binaryFnName: string): string {
-  // Extract the type from the function name (e.g., 'binaryFnNumber::add' -> 'number')
-  const match = binaryFnName.match(/^binaryFn(\w+)::/);
-  if (!match) {
-    return 'transformFnNumber::pass';
+function inferTransformForBinaryFn(binaryFnName: string): TransformFnNames {
+  // Extract namespace from the function name (e.g., 'binaryFnNumber::add' -> 'binaryFnNumber')
+  const namespace = binaryFnName.split('::')[0];
+  const typeSymbol = BinaryFnNamespaceToType[namespace];
+
+  if (!typeSymbol) {
+    return TypeTransformMap.number;
   }
 
-  const type = match[1].toLowerCase();
-  switch (type) {
-    case 'number':
-      return 'transformFnNumber::pass';
-    case 'string':
-      return 'transformFnString::pass';
-    case 'array':
-      return 'transformFnArray::pass';
-    case 'generic':
-      // Generic functions accept any type, default to number
-      return 'transformFnNumber::pass';
-    default:
-      return 'transformFnNumber::pass';
-  }
+  return TypeTransformMap[typeSymbol];
 }
