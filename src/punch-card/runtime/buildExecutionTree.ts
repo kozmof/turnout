@@ -138,7 +138,7 @@ function buildExecutionTreeInternal(
   const functionNode: FunctionNode = {
     nodeType: 'function',
     nodeId: funcId,
-    funcDef: defId as PlugDefineId | TapDefineId,
+    funcDef: defId,
     returnId: funcEntry.returnId,
     children: children.length > 0 ? children : undefined,
   };

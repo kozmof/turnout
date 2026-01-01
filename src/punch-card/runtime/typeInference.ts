@@ -158,7 +158,7 @@ export function inferValueType(
   if (!value) return null;
 
   // Tags are tracked separately in the tags field
-  return value.symbol as BaseTypeSymbol;
+  return value.symbol;
 }
 
 /**

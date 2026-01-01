@@ -179,14 +179,14 @@ function executeStep(
   if (isPlugDefineId(defId, scopedContext.plugFuncDefTable)) {
     execResult = executePlugFunc(
       tempFuncId,
-      defId as PlugDefineId,
+      defId,
       stepContext
     );
   } else if (isTapDefineId(defId, scopedContext.tapFuncDefTable)) {
     // Recursive TapFunc execution
     execResult = executeTapFunc(
       tempFuncId,
-      defId as TapDefineId,
+      defId,
       stepContext
     );
   } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
