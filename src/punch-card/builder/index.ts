@@ -6,15 +6,32 @@
  *
  * @example
  * ```typescript
- * import { ctx, plug } from '@turnout/punch-card/builder';
+ * import { ctx, plug, tap, cond, ref } from '@turnout/punch-card/builder';
  *
  * const context = ctx({
  *   v1: 5,
  *   v2: 3,
- *   f1: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+ *
+ *   // Simple plug function
+ *   sum: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+ *
+ *   // Tap function with simplified API - no need for type annotations!
+ *   compute: tap(
+ *     { x: 'v1', y: 'v2' },
+ *     [
+ *       plug('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
+ *       plug('binaryFnNumber::add', {
+ *         a: ref.output('compute__step0'),
+ *         b: 'x'
+ *       })
+ *     ]
+ *   ),
+ *
+ *   // Conditional function
+ *   result: cond('condition', { then: 'sum', else: 'compute' }),
  * });
  *
- * const result = executeGraph(context.ids.f1, context.exec);
+ * const result = executeGraph(context.ids.result, context.exec);
  * ```
  */
 

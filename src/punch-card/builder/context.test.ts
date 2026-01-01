@@ -176,11 +176,6 @@ describe('Context Builder', () => {
 
         // TapFunc: (a + b) * c
         tapFn: tap(
-          [
-            { name: 'a', type: 'number' },
-            { name: 'b', type: 'number' },
-            { name: 'c', type: 'number' },
-          ],
           { a: 'v1', b: 'v2', c: 'v3' },
           [
             plug('binaryFnNumber::add', { a: 'a', b: 'b' }),
@@ -204,11 +199,6 @@ describe('Context Builder', () => {
 
         // TapFunc: ((a + b) * c) - a
         compute: tap(
-          [
-            { name: 'a', type: 'number' },
-            { name: 'b', type: 'number' },
-            { name: 'c', type: 'number' },
-          ],
           { a: 'x', b: 'y', c: 'z' },
           [
             plug('binaryFnNumber::add', { a: 'a', b: 'b' }),
@@ -230,10 +220,6 @@ describe('Context Builder', () => {
         str2: ' world',
 
         concat: tap(
-          [
-            { name: 'a', type: 'string' },
-            { name: 'b', type: 'string' },
-          ],
           { a: 'str1', b: 'str2' },
           [
             plug('binaryFnString::concat', { a: 'a', b: 'b' }),
@@ -375,10 +361,6 @@ describe('Context Builder', () => {
 
         // Tap function
         compute: tap(
-          [
-            { name: 'a', type: 'number' },
-            { name: 'b', type: 'number' },
-          ],
           { a: 'x', b: 'y' },
           [
             plug('binaryFnNumber::multiply', { a: 'a', b: 'b' }),

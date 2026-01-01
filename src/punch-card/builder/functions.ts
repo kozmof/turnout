@@ -39,14 +39,12 @@ export function plug(
 /**
  * Creates a TapFunc builder (sequential execution).
  *
- * @param args - Argument definitions for the tap function
  * @param argBindings - Maps argument names to value IDs
  * @param steps - Sequence of steps to execute
  *
  * @example
  * ```typescript
  * tap(
- *   [{ name: 'x', type: 'number' }, { name: 'y', type: 'number' }],
  *   { x: 'v1', y: 'v2' },
  *   [
  *     plug('binaryFnNumber::add', { a: 'x', b: 'y' }),
@@ -56,13 +54,18 @@ export function plug(
  * ```
  */
 export function tap(
-  args: readonly TapArg[],
   argBindings: Record<string, ValueRef>,
   steps: readonly StepBuilder[]
 ): TapBuilder {
+  // Infer args from argBindings keys
+  const inferredArgs: TapArg[] = Object.keys(argBindings).map(name => ({
+    name,
+    type: 'number' as const, // Default (unused at runtime anyway)
+  }));
+
   return {
     __type: 'tap',
-    args,
+    args: inferredArgs,
     argBindings,
     steps,
   };
