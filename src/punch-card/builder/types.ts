@@ -2,15 +2,18 @@ import type {
   ExecutionContext,
   ValueId,
   FuncId,
-  PlugDefineId,
-  TapDefineId,
-  CondDefineId,
   BinaryFnNames,
   TransformFnNames,
-  InterfaceArgId,
-  TapStepBinding,
 } from '../types';
 import type { AnyValue, TagSymbol } from '../../state-control/value';
+
+/**
+ * Converts a mapped type with branded keys to an index signature type.
+ * This allows us to build tables progressively with string keys.
+ */
+type ToIndexSignature<T> = T extends Record<string, infer V>
+  ? { [key: string]: V }
+  : never;
 
 /**
  * Builder for plug functions.
@@ -114,42 +117,13 @@ export type BuildResult<T extends ContextSpec> = {
 
 /**
  * Internal state during context building.
- * Uses the same structure as ExecutionContext tables to avoid casting.
+ * Uses index signatures instead of branded keys to allow progressive building.
  */
 export type ContextBuilder = {
-  valueTable: { [id: string]: AnyValue };
-  funcTable: {
-    [id: string]: {
-      defId: PlugDefineId | TapDefineId | CondDefineId;
-      argMap: { [argName: string]: ValueId };
-      returnId: ValueId;
-    };
-  };
-  plugFuncDefTable: {
-    [defId: string]: {
-      name: BinaryFnNames;
-      transformFn: {
-        a: { name: TransformFnNames };
-        b: { name: TransformFnNames };
-      };
-      args: {
-        a: InterfaceArgId;
-        b: InterfaceArgId;
-      };
-    };
-  };
-  tapFuncDefTable: {
-    [defId: string]: {
-      args: { [argName: string]: InterfaceArgId };
-      sequence: TapStepBinding[];
-    };
-  };
-  condFuncDefTable: {
-    [defId: string]: {
-      conditionId: FuncId | ValueId;
-      trueBranchId: FuncId;
-      falseBranchId: FuncId;
-    };
-  };
+  valueTable: ToIndexSignature<ExecutionContext['valueTable']>;
+  funcTable: ToIndexSignature<ExecutionContext['funcTable']>;
+  plugFuncDefTable: ToIndexSignature<ExecutionContext['plugFuncDefTable']>;
+  tapFuncDefTable: ToIndexSignature<ExecutionContext['tapFuncDefTable']>;
+  condFuncDefTable: ToIndexSignature<ExecutionContext['condFuncDefTable']>;
   nextDefId: number;
 };
