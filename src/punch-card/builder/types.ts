@@ -5,7 +5,7 @@ import type {
   BinaryFnNames,
   TransformFnNames,
 } from '../types';
-import type { AnyValue, TagSymbol } from '../../state-control/value';
+import type { AnyValue } from '../../state-control/value';
 
 /**
  * Converts a mapped type with branded keys to an index signature type.

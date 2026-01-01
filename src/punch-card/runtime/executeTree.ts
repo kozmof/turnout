@@ -102,7 +102,7 @@ export function executeTree(
   } else {
     throw createFunctionExecutionError(
       funcId,
-      `Unknown definition type for ${defId}`
+      `Unknown definition type for ${String(defId)}`
     );
   }
 

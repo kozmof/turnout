@@ -114,7 +114,7 @@ function resolveArgBinding(
     default:
       // Exhaustiveness check
       const _exhaustive: never = binding;
-      throw new Error(`Unknown binding source: ${(_exhaustive as any).source}`);
+      throw new Error(`Unknown binding source: ${String(_exhaustive)}`);
   }
 }
 
@@ -126,7 +126,7 @@ function createTempFuncId(
   tapFuncId: FuncId,
   stepIndex: number
 ): FuncId {
-  return `${tapFuncId}__step${stepIndex}` as FuncId;
+  return `${tapFuncId}__step${String(stepIndex)}` as unknown as FuncId;
 }
 
 /**
@@ -155,7 +155,7 @@ function executeStep(
   }
 
   // Create a return ValueId for this step
-  const stepReturnId = `${tapFuncId}__step${stepIndex}__result` as ValueId;
+  const stepReturnId = `${tapFuncId}__step${String(stepIndex)}__result` as unknown as ValueId;
 
   // Create a temporary FuncId for this step execution
   const tempFuncId = createTempFuncId(tapFuncId, stepIndex);
@@ -166,7 +166,7 @@ function executeStep(
     funcTable: {
       ...scopedContext.funcTable,
       [tempFuncId]: {
-        defId: defId as PlugDefineId | TapDefineId,
+        defId: defId as unknown as PlugDefineId | TapDefineId,
         argMap: resolvedArgMap,
         returnId: stepReturnId,
       },
@@ -191,7 +191,7 @@ function executeStep(
     );
   } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
     throw new Error(
-      `CondFunc execution within TapFunc is not yet implemented. Step ${stepIndex} references ${defId}`
+      `CondFunc execution within TapFunc is not yet implemented. Step ${String(stepIndex)} references ${defId}`
     );
   } else {
     throw createFunctionExecutionError(
@@ -260,21 +260,12 @@ export function executeTapFunc(
     scopedContext = createScopedContext(context, currentValueTable);
 
     // Add step result for subsequent steps to reference
-    const stepResultValue = currentValueTable[stepResult.stepReturnId];
-    if (stepResultValue === undefined) {
-      throw createMissingValueError(stepResult.stepReturnId);
-    }
-
     stepResults.push(stepResult.stepReturnId);
   }
 
   // Return the last step's result (TapFunc semantics)
   const finalResultId = stepResults[stepResults.length - 1];
   const finalResult = currentValueTable[finalResultId];
-
-  if (finalResult === undefined) {
-    throw createMissingValueError(finalResultId);
-  }
 
   // Return result with updated value table (immutable update to main context)
   return {

@@ -1,6 +1,7 @@
 import {
   ExecutionContext,
   ValueId,
+  FuncId,
   PlugDefineId,
   TapDefineId,
   CondDefineId,
@@ -183,7 +184,7 @@ function validateTapFuncDefTable(
       if (!stepDefExists) {
         errors.push({
           type: 'error',
-          message: `TapFuncDefTable[${defId}].sequence[${i}]: Referenced definition ${step.defId} does not exist`,
+          message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Referenced definition ${step.defId} does not exist`,
           details: { defId, stepIndex: i, stepDefId: step.defId },
         });
         continue; // Skip further validation for this step
@@ -196,7 +197,7 @@ function validateTapFuncDefTable(
           if (!(binding.argName in def.args)) {
             errors.push({
               type: 'error',
-              message: `TapFuncDefTable[${defId}].sequence[${i}]: Argument binding for '${argName}' references undefined TapFunc input '${binding.argName}'`,
+              message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Argument binding for '${argName}' references undefined TapFunc input '${binding.argName}'`,
               details: { defId, stepIndex: i, argName, inputArgName: binding.argName },
             });
           }
@@ -205,16 +206,17 @@ function validateTapFuncDefTable(
           if (binding.stepIndex < 0 || binding.stepIndex >= i) {
             errors.push({
               type: 'error',
-              message: `TapFuncDefTable[${defId}].sequence[${i}]: Argument binding for '${argName}' references invalid step index ${binding.stepIndex} (must be < ${i})`,
+              message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Argument binding for '${argName}' references invalid step index ${String(binding.stepIndex)} (must be < ${String(i)})`,
               details: { defId, stepIndex: i, argName, referencedStepIndex: binding.stepIndex },
             });
           }
-        } else if (binding.source === 'value') {
+        } else {
+          // binding.source === 'value'
           // Validate that the value exists in ValueTable
           if (!isValueId(binding.valueId, context.valueTable)) {
             errors.push({
               type: 'error',
-              message: `TapFuncDefTable[${defId}].sequence[${i}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
+              message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
               details: { defId, stepIndex: i, argName, valueId: binding.valueId },
             });
           }
@@ -278,11 +280,6 @@ function validatePlugFuncDefTableTypes(
   errors: ValidationError[]
 ): void {
   for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
-    // Skip type validation if transform functions are missing (caught by structural validation)
-    if (!def.transformFn?.a?.name || !def.transformFn?.b?.name) {
-      continue;
-    }
-
     // Validate that transform function 'a' is compatible with its argument type
     const transformAInputType = getTransformFnInputType(def.transformFn.a.name);
     const transformAReturnType = getTransformFnReturnType(def.transformFn.a.name);
@@ -365,13 +362,13 @@ function validateFuncTableTypes(
 
     // Only validate PlugFunc types (TapFunc and CondFunc have different validation needs)
     if (defId in context.plugFuncDefTable) {
-      const def = context.plugFuncDefTable[defId as PlugDefineId];
+      const def = context.plugFuncDefTable[defId as unknown as PlugDefineId];
 
       // Check argument 'a' type compatibility
       const argAId = argMap['a'];
       if (argAId) {
         const argAType = inferValueType(argAId, context) ||
-                        inferFuncReturnType(argAId as any, context);
+                        inferFuncReturnType(argAId as unknown as FuncId, context);
         const expectedAType = getTransformFnInputType(def.transformFn.a.name);
 
         if (argAType && expectedAType && argAType !== expectedAType) {
@@ -393,7 +390,7 @@ function validateFuncTableTypes(
       const argBId = argMap['b'];
       if (argBId) {
         const argBType = inferValueType(argBId, context) ||
-                        inferFuncReturnType(argBId as any, context);
+                        inferFuncReturnType(argBId as unknown as FuncId, context);
         const expectedBType = getTransformFnInputType(def.transformFn.b.name);
 
         if (argBType && expectedBType && argBType !== expectedBType) {

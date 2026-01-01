@@ -70,7 +70,7 @@ export const bfArray: BinaryFnArray = {
       };
     } else {
       throw new Error(
-        `Array index ${idx.value} is out of bounds (length: ${a.value.length}) or the item at that index is an array`
+        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)}) or the item at that index is an array`
       );
     }
   },

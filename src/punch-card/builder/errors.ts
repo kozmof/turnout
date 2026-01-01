@@ -136,7 +136,7 @@ export function createUndefinedTapStepReferenceError(
   reference: string
 ): UndefinedTapStepReferenceError {
   const error = new Error(
-    `Tap function '${funcId}' step ${stepIndex} argument '${argName}' references undefined: '${reference}'`
+    `Tap function '${funcId}' step ${String(stepIndex)} argument '${argName}' references undefined: '${reference}'`
   );
   error.name = 'UndefinedTapStepReferenceError';
 

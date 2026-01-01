@@ -52,11 +52,11 @@ export const val = {
   ): AnyValue {
     switch (elemType) {
       case 'number':
-        return buildArrayNumber(elements as unknown as any[], tags);
+        return buildArrayNumber(elements, tags);
       case 'string':
-        return buildArrayString(elements as unknown as any[], tags);
+        return buildArrayString(elements, tags);
       case 'boolean':
-        return buildArrayBoolean(elements as unknown as any[], tags);
+        return buildArrayBoolean(elements, tags);
     }
   },
 };

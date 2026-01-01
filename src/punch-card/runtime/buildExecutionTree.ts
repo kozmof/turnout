@@ -2,8 +2,6 @@ import {
   FuncId,
   ExecutionContext,
   ValueId,
-  PlugDefineId,
-  TapDefineId,
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
 import type { ValueNode, FunctionNode, ConditionalNode } from './tree-types';

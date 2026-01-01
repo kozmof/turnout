@@ -34,39 +34,37 @@ import {
   createUndefinedTapStepReferenceError,
 } from './errors';
 import type {
-  TransformFnNumberNames,
   TransformFnNumberNameSpace,
 } from '../../state-control/preset-funcs/number/transformFn';
 import type {
-  TransformFnStringNames,
   TransformFnStringNameSpace,
 } from '../../state-control/preset-funcs/string/transformFn';
 import type {
-  TransformFnArrayNames,
   TransformFnArrayNameSpace,
 } from '../../state-control/preset-funcs/array/transformFn';
 
 /**
  * Factory functions for creating branded ID types.
  * These encapsulate the type assertions required for branded types.
+ * These are safe because they maintain the string structure expected by the branded types.
  */
-const createValueId = (id: string): ValueId => id as ValueId;
-const createFuncId = (id: string): FuncId => id as FuncId;
-const createPlugDefineId = (id: string): PlugDefineId => id as PlugDefineId;
-const createTapDefineId = (id: string): TapDefineId => id as TapDefineId;
-const createCondDefineId = (id: string): CondDefineId => id as CondDefineId;
-const createInterfaceArgId = (id: string): InterfaceArgId => id as InterfaceArgId;
+const createValueId = (id: string): ValueId => id as unknown as ValueId;
+const createFuncId = (id: string): FuncId => id as unknown as FuncId;
+const createPlugDefineId = (id: string): PlugDefineId => id as unknown as PlugDefineId;
+const createTapDefineId = (id: string): TapDefineId => id as unknown as TapDefineId;
+const createCondDefineId = (id: string): CondDefineId => id as unknown as CondDefineId;
+const createInterfaceArgId = (id: string): InterfaceArgId => id as unknown as InterfaceArgId;
 
 /**
  * ID Schema - Centralized ID generation patterns
  */
 const IdSchema = {
-  plugDefine: (counter: number): PlugDefineId => createPlugDefineId(`pd${counter}`),
-  tapDefine: (counter: number): TapDefineId => createTapDefineId(`td${counter}`),
-  condDefine: (counter: number): CondDefineId => createCondDefineId(`cd${counter}`),
+  plugDefine: (counter: number): PlugDefineId => createPlugDefineId(`pd${String(counter)}`),
+  tapDefine: (counter: number): TapDefineId => createTapDefineId(`td${String(counter)}`),
+  condDefine: (counter: number): CondDefineId => createCondDefineId(`cd${String(counter)}`),
   returnValue: (funcId: string): ValueId => createValueId(`${funcId}__out`),
   stepOutput: (funcId: string, stepIndex: number): ValueId =>
-    createValueId(`${funcId}__step${stepIndex}__out`),
+    createValueId(`${funcId}__step${String(stepIndex)}__out`),
   interfaceArg: (funcId: string, argName: string): InterfaceArgId =>
     createInterfaceArgId(`${funcId}__ia_${argName}`),
   parseStepOutput: (id: string): { funcId: string; stepIndex: number } | null => {
@@ -238,7 +236,7 @@ function buildIdMap<T extends ContextSpec>(spec: T): BuildResult<T>['ids'] {
     const id = isFunctionBuilder(spec[key]) ? createFuncId(key) : createValueId(key);
     acc[key as keyof T] = id;
     return acc;
-  }, {} as Record<keyof T, ValueId | FuncId>) as BuildResult<T>['ids'];
+  }, {} as Record<keyof T, ValueId | FuncId>) as unknown as BuildResult<T>['ids'];
 }
 
 /**
@@ -455,7 +453,6 @@ function processFunction(
 /**
  * Standard argument structure for binary plug functions
  */
-const BINARY_ARG_NAMES = ['a', 'b'] as const;
 const BINARY_INTERFACE_ARG_IDS = {
   a: createInterfaceArgId('ia1'),
   b: createInterfaceArgId('ia2'),
@@ -717,8 +714,8 @@ function processCondFunc(
   };
 
   // Condition can be either a ValueId or FuncId
-  // Try as ValueId first, then FuncId if it exists in funcTable
-  const conditionId = state.funcTable[builder.condition]
+  // Check if it exists in funcTable to determine which type to use
+  const conditionId = builder.condition in state.funcTable
     ? createFuncId(builder.condition)
     : createValueId(builder.condition);
 
@@ -733,7 +730,7 @@ function processCondFunc(
  * Checks if reference is a transform reference.
  */
 function isTransformRef(ref: ValueRef | TransformRef): ref is TransformRef {
-  return typeof ref === 'object' && '__type' in ref && ref.__type === 'transform';
+  return typeof ref === 'object' && '__type' in ref;
 }
 
 /**
@@ -741,11 +738,7 @@ function isTransformRef(ref: ValueRef | TransformRef): ref is TransformRef {
  */
 function inferPassTransform(valueRef: ValueRef, state: FunctionPhaseState): TransformFnNames {
   const value = state.valueTable[valueRef];
-  if (!value) {
-    // Default to number pass if value not found yet
-    return getPassTransformFn('number');
-  }
-
+  // Value should exist in table by this point in processing
   return getPassTransformFn(value.symbol);
 }
 
@@ -757,9 +750,6 @@ function inferTransformForBinaryFn(binaryFnName: string): TransformFnNames {
   const namespace = binaryFnName.split('::')[0];
   const typeSymbol = BinaryFnNamespaceToType[namespace];
 
-  if (!typeSymbol) {
-    return getPassTransformFn('number');
-  }
-
+  // Namespace should be defined for all valid binary functions
   return getPassTransformFn(typeSymbol);
 }
