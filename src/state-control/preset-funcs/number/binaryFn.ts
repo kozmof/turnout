@@ -1,6 +1,7 @@
 import { type NumberValue, type TagSymbol } from '../../value';
 import { type NumberToNumber } from '../convert';
 import { binaryNumberOp } from '../../value-builders';
+import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnNumber {
   add: NumberToNumber;
@@ -26,7 +27,7 @@ export const bfNumber: BinaryFnNumber = {
 
 export type BinaryFnNumberNameSpace = 'binaryFnNumber';
 export type BinaryFnNumberNames =
-  `${BinaryFnNumberNameSpace}::${keyof typeof bfNumber}`;
+  `${BinaryFnNumberNameSpace}${NamespaceDelimiter}${keyof typeof bfNumber}`;
 
 export type ReturnMetaBinaryFnNumber = {
   [K in keyof BinaryFnNumber]: ReturnType<BinaryFnNumber[K]>['symbol'];

@@ -20,6 +20,7 @@ import {
   BinaryFnStringNames,
   BinaryFnStringNameSpace,
 } from '../../state-control/preset-funcs/string/binaryFn';
+import { NAMESPACE_DELIMITER } from '../../util/constants';
 
 const binaryFnArrayNames = (): LiteralSchema<
   BinaryFnArrayNames,
@@ -27,7 +28,7 @@ const binaryFnArrayNames = (): LiteralSchema<
 >[] => {
   const namespace: BinaryFnArrayNameSpace = 'binaryFnArray';
   const fnNames = TOM.keys(bfArray);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 const binaryFnGenericNames = (): LiteralSchema<
@@ -36,7 +37,7 @@ const binaryFnGenericNames = (): LiteralSchema<
 >[] => {
   const namespace: BinaryFnGenericNameSpace = 'binaryFnGeneric';
   const fnNames = TOM.keys(bfGeneric);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 const binaryFnNumberNames = (): LiteralSchema<
@@ -45,7 +46,7 @@ const binaryFnNumberNames = (): LiteralSchema<
 >[] => {
   const namespace: BinaryFnNumberNameSpace = 'binaryFnNumber';
   const fnNames = TOM.keys(bfNumber);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 const binaryFnStringNames = (): LiteralSchema<
@@ -54,7 +55,7 @@ const binaryFnStringNames = (): LiteralSchema<
 >[] => {
   const namespace: BinaryFnStringNameSpace = 'binaryFnString';
   const fnNames = TOM.keys(bfString);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 export const binaryFnNames = () => {

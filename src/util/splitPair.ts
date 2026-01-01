@@ -1,7 +1,8 @@
 import { BinaryFnNames, TransformFnNames } from '../punch-card/types';
+import { NAMESPACE_DELIMITER, type NamespaceDelimiter } from './constants';
 
 type SplitPair<S extends string> =
-  S extends `${infer Left}::${infer Right}` ? [Left, Right] : never;
+  S extends `${infer Left}${NamespaceDelimiter}${infer Right}` ? [Left, Right] : never;
 
 const isTransformFnName = (
   pair: string[]
@@ -26,7 +27,7 @@ const isBinaryFnName = (
 export const splitPairTranformFnNames = (
   joinedName: TransformFnNames
 ): SplitPair<TransformFnNames> | null=> {
-  const pair = joinedName.split('::');
+  const pair = joinedName.split(NAMESPACE_DELIMITER);
   if (isTransformFnName(pair)) {
     return pair;
   } else {
@@ -37,7 +38,7 @@ export const splitPairTranformFnNames = (
 export const splitPairBinaryFnNames = (
   joinedName: BinaryFnNames
 ): SplitPair<BinaryFnNames> | null => {
-  const pair = joinedName.split('::');
+  const pair = joinedName.split(NAMESPACE_DELIMITER);
   if (isBinaryFnName(pair)) {
     return pair;
   } else {

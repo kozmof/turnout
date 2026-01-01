@@ -15,6 +15,7 @@ import {
   TransformFnStringNames,
   TransformFnStringNameSpace,
 } from '../../state-control/preset-funcs/string/transformFn';
+import { NAMESPACE_DELIMITER } from '../../util/constants';
 
 const transformFnArrayNames = (): LiteralSchema<
   TransformFnArrayNames,
@@ -22,7 +23,7 @@ const transformFnArrayNames = (): LiteralSchema<
 >[] => {
   const namespace: TransformFnArrayNameSpace = 'transformFnArray';
   const fnNames = TOM.keys(tfArray);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 const transformFnNumberNames = (): LiteralSchema<
@@ -31,7 +32,7 @@ const transformFnNumberNames = (): LiteralSchema<
 >[] => {
   const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
   const fnNames = TOM.keys(tfNumber);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 const transformFnStringNames = (): LiteralSchema<
@@ -40,7 +41,7 @@ const transformFnStringNames = (): LiteralSchema<
 >[] => {
   const namespace: TransformFnStringNameSpace = 'transformFnString';
   const fnNames = TOM.keys(tfString);
-  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
 export const transformFnNames = () => {

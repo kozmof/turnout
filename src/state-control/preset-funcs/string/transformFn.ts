@@ -1,6 +1,7 @@
 import { type NumberValue, type StringValue, type TagSymbol } from '../../value';
 import { type ToStringConversion, type ToNumberConversion } from '../convert';
 import { buildNumber } from '../../value-builders';
+import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface TransformFnString {
   pass: ToStringConversion<StringValue<readonly TagSymbol[]>>;
@@ -18,7 +19,7 @@ export const tfString: TransformFnString = {
 
 export type TransformFnStringNameSpace = 'transformFnString';
 export type TransformFnStringNames =
-  `${TransformFnStringNameSpace}::${keyof typeof tfString}`;
+  `${TransformFnStringNameSpace}${NamespaceDelimiter}${keyof typeof tfString}`;
 
 export type ReturnMetaTransformFnString = {
   [K in keyof TransformFnString]: ReturnType<TransformFnString[K]>['symbol'];

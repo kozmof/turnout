@@ -1,6 +1,7 @@
 import { type NumberValue, type ArrayValue, type TagSymbol } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion } from '../convert';
 import { buildNumber } from '../../value-builders';
+import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface TransformFnArray {
   pass: ToArrayConversion<ArrayValue<readonly TagSymbol[]>>;
@@ -18,7 +19,7 @@ export const tfArray: TransformFnArray = {
 
 export type TransformFnArrayNameSpace = 'transformFnArray';
 export type TransformFnArrayNames =
-  `${TransformFnArrayNameSpace}::${keyof typeof tfArray}`;
+  `${TransformFnArrayNameSpace}${NamespaceDelimiter}${keyof typeof tfArray}`;
 
 export type ReturnMetaTransformFnArray = {
   [K in keyof TransformFnArray]: ReturnType<TransformFnArray[K]>['symbol'];

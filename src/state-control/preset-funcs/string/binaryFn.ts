@@ -1,6 +1,7 @@
 import { type StringValue, type TagSymbol } from '../../value';
 import { type StringToString } from '../convert';
 import { binaryStringOp } from '../../value-builders';
+import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnString {
   concat: StringToString;
@@ -14,7 +15,7 @@ export const bfString: BinaryFnString = {
 
 export type BinaryFnStringNameSpace = 'binaryFnString';
 export type BinaryFnStringNames =
-  `${BinaryFnStringNameSpace}::${keyof typeof bfString}`;
+  `${BinaryFnStringNameSpace}${NamespaceDelimiter}${keyof typeof bfString}`;
 
 export type ReturnMetaBinaryFnString = {
   [K in keyof BinaryFnString]: ReturnType<BinaryFnString[K]>['symbol'];

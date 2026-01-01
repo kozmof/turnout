@@ -2,6 +2,7 @@ import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from '../..
 import { type ToBooleanProcess } from '../convert';
 import { isComparable } from '../util/isComparable';
 import { buildBoolean } from '../../value-builders';
+import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;
@@ -30,7 +31,7 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
 
 export type BinaryFnGenericNameSpace = 'binaryFnGeneric';
 export type BinaryFnGenericNames =
-  `${BinaryFnGenericNameSpace}::${keyof typeof bfGeneric}`;
+  `${BinaryFnGenericNameSpace}${NamespaceDelimiter}${keyof typeof bfGeneric}`;
 
 export type ReturnMetaBinaryFnGeneric = {
   [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<

@@ -45,6 +45,7 @@ import type {
   TransformFnArrayNameSpace,
 } from '../../state-control/preset-funcs/array/transformFn';
 import { splitPairBinaryFnNames } from '../../util/splitPair';
+import { NAMESPACE_DELIMITER } from '../../util/constants';
 
 /**
  * Type assertions for creating branded ID types at entry points.
@@ -156,21 +157,21 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
   // Boolean values use number transforms since they don't have their own transform namespace
   if (typeSymbol === 'boolean') {
     const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
-    return `${namespace}::pass`;
+    return `${namespace}${NAMESPACE_DELIMITER}pass`;
   }
 
   switch (typeSymbol) {
     case 'number': {
       const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
-      return `${namespace}::pass`;
+      return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
     case 'string': {
       const namespace: TransformFnStringNameSpace = 'transformFnString';
-      return `${namespace}::pass`;
+      return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
     case 'array': {
       const namespace: TransformFnArrayNameSpace = 'transformFnArray';
-      return `${namespace}::pass`;
+      return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
   }
 }

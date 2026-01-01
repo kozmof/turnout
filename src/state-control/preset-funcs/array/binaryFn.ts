@@ -8,6 +8,7 @@ import {
 } from '../../value';
 import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
 import { buildBoolean } from '../../value-builders';
+import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue>;
@@ -78,7 +79,7 @@ export const bfArray: BinaryFnArray = {
 
 export type BinaryFnArrayNameSpace = 'binaryFnArray';
 export type BinaryFnArrayNames =
-  `${BinaryFnArrayNameSpace}::${keyof typeof bfArray}`;
+  `${BinaryFnArrayNameSpace}${NamespaceDelimiter}${keyof typeof bfArray}`;
 
 export type ReturnMetaBinaryFnArray = {
   [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>['symbol'];
