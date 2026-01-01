@@ -285,18 +285,25 @@ function processFunctions(
  * Phase 3: Build the final execution context
  */
 function buildExecutionContext(functionPhase: FunctionPhaseState): ExecutionContext {
+  const returnIdToFuncId = Object.keys(functionPhase.funcTable).length > 0
+    ? buildReturnIdToFuncIdMap({
+        valueTable: functionPhase.valueTable,
+        funcTable: functionPhase.funcTable,
+        plugFuncDefTable: functionPhase.plugFuncDefTable,
+        tapFuncDefTable: functionPhase.tapFuncDefTable,
+        condFuncDefTable: functionPhase.condFuncDefTable,
+        returnIdToFuncId: new Map(),
+      })
+    : new Map();
+
   const exec: ExecutionContext = {
     valueTable: functionPhase.valueTable,
     funcTable: functionPhase.funcTable,
     plugFuncDefTable: functionPhase.plugFuncDefTable,
     tapFuncDefTable: functionPhase.tapFuncDefTable,
     condFuncDefTable: functionPhase.condFuncDefTable,
-    returnIdToFuncId: new Map(),
+    returnIdToFuncId,
   };
-
-  if (Object.keys(functionPhase.funcTable).length > 0) {
-    exec.returnIdToFuncId = buildReturnIdToFuncIdMap(exec);
-  }
 
   return exec;
 }

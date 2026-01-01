@@ -144,21 +144,21 @@ export type ValueTable = {
 /**
  * ExecutionContext contains all the data needed to execute a graph.
  *
- * Note: The valueTable is mutated during execution as functions produce results.
- * The definition tables (funcTable, plugFuncDefTable, etc.) should be treated
- * as read-only during execution.
+ * All tables are read-only at the type level to enforce immutability.
+ * Execution functions return new ValueTables rather than mutating the context.
+ * This makes the data flow explicit and supports functional execution patterns.
  */
 export type ExecutionContext = {
-  /** Mutable table of computed values. Updated during execution. */
-  valueTable: ValueTable;
-  /** Function instances table. Should be read-only during execution. */
-  funcTable: FuncTable;
-  /** Plug function definitions. Should be read-only during execution. */
-  plugFuncDefTable: PlugFuncDefTable;
-  /** Tap function definitions. Should be read-only during execution. */
-  tapFuncDefTable: TapFuncDefTable;
-  /** Conditional function definitions. Should be read-only during execution. */
-  condFuncDefTable: CondFuncDefTable;
+  /** Table of computed values. Read-only; execution returns updated copies. */
+  readonly valueTable: Readonly<ValueTable>;
+  /** Function instances table. Read-only during execution. */
+  readonly funcTable: Readonly<FuncTable>;
+  /** Plug function definitions. Read-only during execution. */
+  readonly plugFuncDefTable: Readonly<PlugFuncDefTable>;
+  /** Tap function definitions. Read-only during execution. */
+  readonly tapFuncDefTable: Readonly<TapFuncDefTable>;
+  /** Conditional function definitions. Read-only during execution. */
+  readonly condFuncDefTable: Readonly<CondFuncDefTable>;
   /** Pre-computed mapping for performance optimization. Optional. */
-  returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
+  readonly returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
 };
