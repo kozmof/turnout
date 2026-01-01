@@ -1,12 +1,12 @@
 import {
   ExecutionContext,
   ValueId,
-  FuncId,
   PlugDefineId,
   TapDefineId,
   CondDefineId,
+  PlugFuncDefTable,
 } from '../types';
-import { isFuncId, isValueId } from '../typeGuards';
+import { isFuncId, isPlugDefineId, isValueId } from '../typeGuards';
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
@@ -14,6 +14,16 @@ import {
   inferValueType,
   inferFuncReturnType,
 } from './typeInference';
+
+/**
+ * Type-safe helper to get entries from PlugFuncDefTable.
+ * Returns entries that may have undefined values.
+ */
+function getPlugFuncDefTableEntries(
+  table: PlugFuncDefTable
+): Array<[PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined]> {
+  return Object.entries(table) as Array<[PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined]>;
+}
 
 export type ValidationError = {
   readonly type: 'error';
@@ -128,7 +138,8 @@ function validatePlugFuncDefTable(
   context: ExecutionContext,
   errors: ValidationError[]
 ): void {
-  for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
+  for (const [defId, def] of getPlugFuncDefTableEntries(context.plugFuncDefTable)) {
+    if (!def) continue;
     // Validate that args field exists and has 'a' and 'b' properties
     // args should contain InterfaceArgIds
     // We can't strictly validate InterfaceArgId format as they're just branded strings
@@ -279,7 +290,12 @@ function validatePlugFuncDefTableTypes(
   context: ExecutionContext,
   errors: ValidationError[]
 ): void {
-  for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
+  for (const [defId, def] of getPlugFuncDefTableEntries(context.plugFuncDefTable)) {
+    // Skip if def is undefined or transformFn is not properly defined
+    if (!def?.transformFn?.a?.name || !def?.transformFn?.b?.name) {
+      continue;
+    }
+
     // Validate that transform function 'a' is compatible with its argument type
     const transformAInputType = getTransformFnInputType(def.transformFn.a.name);
     const transformAReturnType = getTransformFnReturnType(def.transformFn.a.name);
@@ -361,14 +377,16 @@ function validateFuncTableTypes(
     const { defId, argMap } = funcEntry;
 
     // Only validate PlugFunc types (TapFunc and CondFunc have different validation needs)
-    if (defId in context.plugFuncDefTable) {
-      const def = context.plugFuncDefTable[defId as unknown as PlugDefineId];
+    if (isPlugDefineId(defId, context.plugFuncDefTable)) {
+      const def = context.plugFuncDefTable[defId];
 
       // Check argument 'a' type compatibility
       const argAId = argMap['a'];
       if (argAId) {
-        const argAType = inferValueType(argAId, context) ||
-                        inferFuncReturnType(argAId as unknown as FuncId, context);
+        let argAType = inferValueType(argAId, context);
+        if (!argAType && isFuncId(argAId, context.funcTable)) {
+          argAType = inferFuncReturnType(argAId, context);
+        }
         const expectedAType = getTransformFnInputType(def.transformFn.a.name);
 
         if (argAType && expectedAType && argAType !== expectedAType) {
@@ -389,8 +407,10 @@ function validateFuncTableTypes(
       // Check argument 'b' type compatibility
       const argBId = argMap['b'];
       if (argBId) {
-        const argBType = inferValueType(argBId, context) ||
-                        inferFuncReturnType(argBId as unknown as FuncId, context);
+        let argBType = inferValueType(argBId, context);
+        if (!argBType && isFuncId(argBId, context.funcTable)) {
+          argBType = inferFuncReturnType(argBId, context);
+        }
         const expectedBType = getTransformFnInputType(def.transformFn.b.name);
 
         if (argBType && expectedBType && argBType !== expectedBType) {

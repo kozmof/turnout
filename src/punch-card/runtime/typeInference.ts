@@ -13,7 +13,7 @@ import {
   metaTfString,
   metaTfArray,
 } from '../../state-control/meta-chain/transform-fn/metaReturn';
-import type { BaseTypeSymbol } from '../../state-control/value';
+import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import type {
   ExecutionContext,
   ValueId,
@@ -22,6 +22,18 @@ import type {
   BinaryFnNames,
   TransformFnNames,
 } from '../types';
+import { isCondDefineId, isPlugDefineId, isTapDefineId } from '../typeGuards';
+
+/**
+ * Type-safe helper to get a value from the ValueTable.
+ * Returns undefined if the value doesn't exist.
+ */
+function getValueFromTable(
+  valueId: ValueId,
+  context: ExecutionContext
+): AnyValue | undefined {
+  return context.valueTable[valueId];
+}
 
 /**
  * Extracts the expected input type for a transform function.
@@ -56,15 +68,18 @@ export function getTransformFnReturnType(
   switch (namespace) {
     case 'transformFnNumber': {
       const meta = metaTfNumber();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'transformFnString': {
       const meta = metaTfString();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'transformFnArray': {
       const meta = metaTfArray();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     default:
       return null;
@@ -88,11 +103,13 @@ export function getBinaryFnParamTypes(
   switch (namespace) {
     case 'binaryFnNumber': {
       const meta = metaBfNumberParams();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'binaryFnString': {
       const meta = metaBfStringParams();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'binaryFnGeneric': {
       // Generic functions can work with any type, so we can't validate statically
@@ -122,22 +139,26 @@ export function getBinaryFnReturnType(
   switch (namespace) {
     case 'binaryFnNumber': {
       const meta = metaBfNumber();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'binaryFnString': {
       const meta = metaBfString();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'binaryFnGeneric': {
       const meta = metaBfGeneric();
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     case 'binaryFnArray': {
       // Array binary functions require a non-array element type
       // This design does not support nested arrays (array of arrays)
       if (!elemType || elemType === 'array') return null;
       const meta = metaBfArray(elemType);
-      return meta[fnName as unknown as keyof typeof meta] ?? null;
+      const result = meta[fnName as unknown as keyof typeof meta];
+      return result || null;
     }
     default:
       return null;
@@ -153,8 +174,8 @@ export function inferValueType(
   valueId: ValueId,
   context: ExecutionContext
 ): BaseTypeSymbol | null {
-  const value = context.valueTable[valueId];
-  // Value should exist in table
+  const value = getValueFromTable(valueId, context);
+  if (!value) return null;
   return value.symbol;
 }
 
@@ -166,7 +187,8 @@ export function inferValueElemType(
   valueId: ValueId,
   context: ExecutionContext
 ): BaseTypeSymbol | null {
-  const value = context.valueTable[valueId];
+  const value = getValueFromTable(valueId, context);
+  if (!value) return null;
 
   // Only array values have element types
   const valueType = inferValueType(valueId, context);
@@ -199,16 +221,13 @@ export function inferFuncReturnType(
   const { defId } = funcEntry;
 
   // Check if it's a PlugFunc
-  if (defId in context.plugFuncDefTable) {
-    return inferPlugFuncReturnType(
-      defId as unknown as PlugDefineId,
-      context
-    );
+  if (isPlugDefineId(defId, context.plugFuncDefTable)) {
+    return inferPlugFuncReturnType(defId, context);
   }
 
   // Check if it's a TapFunc
-  if (defId in context.tapFuncDefTable) {
-    const tapDef = context.tapFuncDefTable[defId as unknown as keyof typeof context.tapFuncDefTable];
+  if (isTapDefineId(defId, context.tapFuncDefTable)) {
+    const tapDef = context.tapFuncDefTable[defId];
     if (tapDef.sequence.length === 0) return null;
 
     // Return type is the type of the last step in the sequence
@@ -216,24 +235,19 @@ export function inferFuncReturnType(
     const lastStepDefId = lastStep.defId;
 
     // Recursively infer the return type of the last step's definition
-    if (lastStepDefId in context.plugFuncDefTable) {
-      return inferPlugFuncReturnType(
-        lastStepDefId as unknown as PlugDefineId,
-        context
-      );
+    if (isPlugDefineId(lastStepDefId, context.plugFuncDefTable)) {
+      return inferPlugFuncReturnType(lastStepDefId, context);
     } else if (lastStepDefId in context.tapFuncDefTable) {
       // Recursive TapFunc - we need to create a dummy FuncId to recurse
       // This is a limitation of the current design where inferFuncReturnType expects FuncId
       // For now, just recurse on the definition directly by checking its structure
-      const nestedTapDef = context.tapFuncDefTable[lastStepDefId as unknown as keyof typeof context.tapFuncDefTable];
+      if (!isTapDefineId(lastStepDefId, context.tapFuncDefTable)) return null;
+      const nestedTapDef = context.tapFuncDefTable[lastStepDefId];
       if (nestedTapDef.sequence.length === 0) return null;
       // Continue recursion manually to avoid circular FuncId dependency
       const nestedLastStep = nestedTapDef.sequence[nestedTapDef.sequence.length - 1];
-      if (nestedLastStep.defId in context.plugFuncDefTable) {
-        return inferPlugFuncReturnType(
-          nestedLastStep.defId as unknown as PlugDefineId,
-          context
-        );
+      if (isPlugDefineId(nestedLastStep.defId, context.plugFuncDefTable)) {
+        return inferPlugFuncReturnType(nestedLastStep.defId, context);
       }
       // For deeper nesting, return null (limitation)
       return null;
@@ -246,8 +260,8 @@ export function inferFuncReturnType(
   }
 
   // Check if it's a CondFunc
-  if (defId in context.condFuncDefTable) {
-    const condDef = context.condFuncDefTable[defId as unknown as keyof typeof context.condFuncDefTable];
+  if (isCondDefineId(defId, context.condFuncDefTable)) {
+    const condDef = context.condFuncDefTable[defId];
 
     // For conditional functions, we'd need to ensure both branches return the same type
     // For now, we'll return the true branch type

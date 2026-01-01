@@ -111,11 +111,33 @@ function resolveArgBinding(
       // Direct value reference
       return binding.valueId;
 
-    default:
+    default: {
       // Exhaustiveness check
       const _exhaustive: never = binding;
       throw new Error(`Unknown binding source: ${String(_exhaustive)}`);
+    }
   }
+}
+
+/**
+ * Type guard for ValueId - validates structure
+ */
+function isValidValueId(id: string): id is ValueId {
+  return typeof id === 'string' && id.length > 0;
+}
+
+/**
+ * Type guard for FuncId - validates structure
+ */
+function isValidFuncId(id: string): id is FuncId {
+  return typeof id === 'string' && id.length > 0;
+}
+
+/**
+ * Type guard for step definition IDs
+ */
+function isValidStepDefId(id: string): id is PlugDefineId | TapDefineId {
+  return typeof id === 'string' && (id.startsWith('pd') || id.startsWith('td'));
 }
 
 /**
@@ -126,7 +148,12 @@ function createTempFuncId(
   tapFuncId: FuncId,
   stepIndex: number
 ): FuncId {
-  return `${tapFuncId}__step${String(stepIndex)}` as unknown as FuncId;
+  const id = `${tapFuncId}__step${String(stepIndex)}`;
+  // Validate the constructed ID
+  if (!isValidFuncId(id)) {
+    throw new Error(`Invalid temporary FuncId: ${id}`);
+  }
+  return id;
 }
 
 /**
@@ -155,10 +182,19 @@ function executeStep(
   }
 
   // Create a return ValueId for this step
-  const stepReturnId = `${tapFuncId}__step${String(stepIndex)}__result` as unknown as ValueId;
+  const stepReturnIdStr = `${tapFuncId}__step${String(stepIndex)}__result`;
+  if (!isValidValueId(stepReturnIdStr)) {
+    throw new Error('Invalid ValueId for step return');
+  }
+  const stepReturnId = stepReturnIdStr;
 
   // Create a temporary FuncId for this step execution
   const tempFuncId = createTempFuncId(tapFuncId, stepIndex);
+
+  // Validate and narrow defId type
+  if (!isValidStepDefId(defId)) {
+    throw new Error(`Invalid step defId: ${defId}`);
+  }
 
   // Create context with temporary function entry
   const stepContext: ExecutionContext = {
@@ -166,7 +202,7 @@ function executeStep(
     funcTable: {
       ...scopedContext.funcTable,
       [tempFuncId]: {
-        defId: defId as unknown as PlugDefineId | TapDefineId,
+        defId,
         argMap: resolvedArgMap,
         returnId: stepReturnId,
       },

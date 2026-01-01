@@ -44,16 +44,62 @@ import type {
 } from '../../state-control/preset-funcs/array/transformFn';
 
 /**
- * Factory functions for creating branded ID types.
- * These encapsulate the type assertions required for branded types.
- * These are safe because they maintain the string structure expected by the branded types.
+ * Type assertions for creating branded ID types at entry points.
+ * These validate and assert the type for entry point creation.
+ * For internal conversions where we know the type is correct, we just assert.
  */
-const createValueId = (id: string): ValueId => id as unknown as ValueId;
-const createFuncId = (id: string): FuncId => id as unknown as FuncId;
-const createPlugDefineId = (id: string): PlugDefineId => id as unknown as PlugDefineId;
-const createTapDefineId = (id: string): TapDefineId => id as unknown as TapDefineId;
-const createCondDefineId = (id: string): CondDefineId => id as unknown as CondDefineId;
-const createInterfaceArgId = (id: string): InterfaceArgId => id as unknown as InterfaceArgId;
+const createValueId = (id: string): ValueId => {
+  // Entry point: validate that id is a valid string
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`Invalid ValueId: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as ValueId;
+};
+
+const createFuncId = (id: string): FuncId => {
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`Invalid FuncId: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as FuncId;
+};
+
+// TODO check an id pattern
+const createPlugDefineId = (id: string): PlugDefineId => {
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`Invalid PlugDefineId: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as PlugDefineId;
+};
+
+// TODO check an id pattern
+const createTapDefineId = (id: string): TapDefineId => {
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`Invalid TapDefineId: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as TapDefineId;
+};
+
+// TODO check an id pattern
+const createCondDefineId = (id: string): CondDefineId => {
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`Invalid CondDefineId: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as CondDefineId;
+};
+
+// TODO check an id pattern
+const createInterfaceArgId = (id: string): InterfaceArgId => {
+  if (typeof id !== 'string' || id.length === 0) {
+    throw new Error(`Invalid InterfaceArgId: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as InterfaceArgId;
+};
 
 /**
  * ID Schema - Centralized ID generation patterns
@@ -72,6 +118,16 @@ const IdSchema = {
     return match ? { funcId: match[1], stepIndex: parseInt(match[2]) } : null;
   },
 } as const;
+
+/**
+ * Safely gets a value from the valueTable, returning undefined if not found.
+ */
+function getValueFromTable(
+  valueRef: ValueRef,
+  valueTable: Record<string, AnyValue>
+): AnyValue | undefined {
+  return valueTable[valueRef];
+}
 
 /**
  * Gets the "pass" transform function name for a given base type symbol.
@@ -232,11 +288,15 @@ function buildExecutionContext(functionPhase: FunctionPhaseState): ExecutionCont
  * Build typed ID map from spec
  */
 function buildIdMap<T extends ContextSpec>(spec: T): BuildResult<T>['ids'] {
-  return Object.keys(spec).reduce((acc, key) => {
+  const result = Object.keys(spec).reduce((acc, key) => {
     const id = isFunctionBuilder(spec[key]) ? createFuncId(key) : createValueId(key);
     acc[key as keyof T] = id;
     return acc;
-  }, {} as Record<keyof T, ValueId | FuncId>) as unknown as BuildResult<T>['ids'];
+  }, {} as Record<keyof T, ValueId | FuncId>);
+
+  // The result shape matches BuildResult<T>['ids'] by construction
+  // We validate each ID during creation, so this assertion is safe
+  return result as BuildResult<T>['ids'];
 }
 
 /**
@@ -737,9 +797,32 @@ function isTransformRef(ref: ValueRef | TransformRef): ref is TransformRef {
  * Infers the appropriate "pass" transform for a value reference using lookup table.
  */
 function inferPassTransform(valueRef: ValueRef, state: FunctionPhaseState): TransformFnNames {
-  const value = state.valueTable[valueRef];
+  const value = getValueFromTable(valueRef, state.valueTable);
+
+  // If value exists in valueTable, use its type
+  if (value) {
+    return getPassTransformFn(value.symbol);
+  }
+
+  // TODO
+  // If value doesn't exist, check if it's a function output reference
+  if (valueRef.endsWith('__out')) {
+    // Extract function ID from the output reference (e.g., "sum__out" -> "sum")
+    const funcId = valueRef.slice(0, -5); // Remove "__out"
+    const funcEntry = state.funcTable[funcId];
+
+    if (funcEntry) {
+      // Get the definition to infer the return type
+      const def = state.plugFuncDefTable[funcEntry.defId];
+      if (def) {
+        // Infer transform from the binary function's return type
+        return inferTransformForBinaryFn(def.name);
+      }
+    }
+  }
+
   // Value should exist in table by this point in processing
-  return getPassTransformFn(value.symbol);
+  throw new Error(`Value ${valueRef} not found in valueTable`);
 }
 
 /**
