@@ -33,6 +33,18 @@ import {
   createUndefinedTapArgumentError,
   createUndefinedTapStepReferenceError,
 } from './errors';
+import type {
+  TransformFnNumberNames,
+  TransformFnNumberNameSpace,
+} from '../../state-control/preset-funcs/number/transformFn';
+import type {
+  TransformFnStringNames,
+  TransformFnStringNameSpace,
+} from '../../state-control/preset-funcs/string/transformFn';
+import type {
+  TransformFnArrayNames,
+  TransformFnArrayNameSpace,
+} from '../../state-control/preset-funcs/array/transformFn';
 
 /**
  * Factory functions for creating branded ID types.
@@ -64,17 +76,37 @@ const IdSchema = {
 } as const;
 
 /**
- * Type-to-Transform mapping - Replaces string pattern matching
+ * Gets the "pass" transform function name for a given base type symbol.
+ * Pass transforms pass values through unchanged without modification.
+ *
+ * Constructs the name using the standard pattern from state-control/preset-funcs.
  */
-const TypeTransformMap: Record<BaseTypeSymbol, TransformFnNames> = {
-  number: 'transformFnNumber::pass' as TransformFnNames,
-  string: 'transformFnString::pass' as TransformFnNames,
-  boolean: 'transformFnNumber::pass' as TransformFnNames, // boolean uses number transform
-  array: 'transformFnArray::pass' as TransformFnNames,
-} as const;
+function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
+  // Boolean values use number transforms since they don't have their own transform namespace
+  if (typeSymbol === 'boolean') {
+    const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
+    return `${namespace}::pass` as TransformFnNumberNames;
+  }
+
+  switch (typeSymbol) {
+    case 'number': {
+      const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
+      return `${namespace}::pass` as TransformFnNumberNames;
+    }
+    case 'string': {
+      const namespace: TransformFnStringNameSpace = 'transformFnString';
+      return `${namespace}::pass` as TransformFnStringNames;
+    }
+    case 'array': {
+      const namespace: TransformFnArrayNameSpace = 'transformFnArray';
+      return `${namespace}::pass` as TransformFnArrayNames;
+    }
+  }
+}
 
 /**
- * BinaryFn namespace to type mapping
+ * Maps binary function namespaces to their corresponding base type symbols.
+ * Used to infer the correct pass transform from function names.
  */
 const BinaryFnNamespaceToType: Record<string, BaseTypeSymbol> = {
   binaryFnNumber: 'number',
@@ -711,10 +743,10 @@ function inferPassTransform(valueRef: ValueRef, state: FunctionPhaseState): Tran
   const value = state.valueTable[valueRef];
   if (!value) {
     // Default to number pass if value not found yet
-    return TypeTransformMap.number;
+    return getPassTransformFn('number');
   }
 
-  return TypeTransformMap[value.symbol] ?? TypeTransformMap.number;
+  return getPassTransformFn(value.symbol);
 }
 
 /**
@@ -726,8 +758,8 @@ function inferTransformForBinaryFn(binaryFnName: string): TransformFnNames {
   const typeSymbol = BinaryFnNamespaceToType[namespace];
 
   if (!typeSymbol) {
-    return TypeTransformMap.number;
+    return getPassTransformFn('number');
   }
 
-  return TypeTransformMap[typeSymbol];
+  return getPassTransformFn(typeSymbol);
 }
