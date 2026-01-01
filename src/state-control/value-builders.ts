@@ -8,9 +8,10 @@ import {
   ArrayBooleanValue,
   AnyValue,
   TagSymbol,
-  Value,
   BaseTypeSymbol,
   BaseTypeSubSymbol,
+  UnknownValue,
+  createUnknownValue,
 } from './value';
 
 /**
@@ -50,31 +51,28 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
  * Generic builder factory for creating value builders with specific symbol/subSymbol configurations.
  * This eliminates code duplication across all builder functions.
  *
- * Type safety note: The cast is safe because:
- * 1. TResult is constrained to extend Value interface (enforced by the type parameter)
- * 2. We construct an object with all required Value interface fields (symbol, value, subSymbol, tags)
- * 3. Callers specify exact types (NumberValue, StringValue, etc.) that match the symbol/subSymbol arguments
+ * Type safety approach:
+ * 1. Accept properly typed symbol and subSymbol parameters
+ * 2. Create an UnknownValue using the type-safe createUnknownValue function
+ * 3. Cast from UnknownValue to TResult (safe because TResult extends UnknownValue)
+ * 4. Callers specify exact types (NumberValue, StringValue, etc.) that match the symbol/subSymbol arguments
  *
  * @internal
  */
 function createValueBuilder<
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  TResult extends Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]>
+  TResult extends UnknownValue
 >(
-  symbol: string,
-  subSymbol: string | undefined
+  symbol: BaseTypeSymbol,
+  subSymbol: BaseTypeSubSymbol
 ): (value: unknown, tags?: readonly TagSymbol[]) => TResult {
   return (value: unknown, tags: readonly TagSymbol[] = []): TResult => {
     // Deduplicate tags
     const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    return {
-      symbol,
-      value,
-      subSymbol,
-      tags: uniqueTags,
-    } as Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]> as TResult;
+    // Create a properly typed UnknownValue, then cast to the specific TResult type
+    const unknownValue = createUnknownValue(symbol, value, subSymbol, uniqueTags);
+
+    return unknownValue as TResult;
   };
 }
 

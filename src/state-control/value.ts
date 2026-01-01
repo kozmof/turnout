@@ -138,6 +138,12 @@ export type AnyValue =
   | ArrayStringValue<readonly TagSymbol[]>
   | ArrayBooleanValue<readonly TagSymbol[]>;
 
+/**
+ * A Value with fully generic type parameters.
+ * Useful for internal builder functions that work with any value type.
+ */
+export type UnknownValue = Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]>;
+
 // Type guards based on base type
 export function isNumber(val: AnyValue): val is NumberValue<readonly TagSymbol[]> {
   return val.symbol === 'number';
@@ -175,4 +181,25 @@ export function isPureString(val: AnyValue): val is PureStringValue {
 
 export function isPureBoolean(val: AnyValue): val is PureBooleanValue {
   return isBoolean(val) && isPure(val);
+}
+
+/**
+ * Creates an UnknownValue with the given parameters.
+ * This is a type-safe constructor that ensures all required fields are present.
+ *
+ * @param symbol - The base type symbol
+ * @param value - The actual value
+ * @param subSymbol - The sub-type symbol (for arrays)
+ * @param tags - The tags array
+ * @returns An UnknownValue with all fields properly typed
+ *
+ * @internal
+ */
+export function createUnknownValue(
+  symbol: BaseTypeSymbol,
+  value: unknown,
+  subSymbol: BaseTypeSubSymbol,
+  tags: readonly TagSymbol[]
+): UnknownValue {
+  return { symbol, value, subSymbol, tags };
 }
