@@ -25,22 +25,22 @@ const isBinaryFnName = (
 
 export const splitPairTranformFnNames = (
   joinedName: TransformFnNames
-): SplitPair<TransformFnNames> => {
+): SplitPair<TransformFnNames> | null=> {
   const pair = joinedName.split('::');
   if (isTransformFnName(pair)) {
     return pair;
   } else {
-    throw new Error();
+    return null
   }
 };
 
 export const splitPairBinaryFnNames = (
   joinedName: BinaryFnNames
-): SplitPair<BinaryFnNames> => {
+): SplitPair<BinaryFnNames> | null => {
   const pair = joinedName.split('::');
   if (isBinaryFnName(pair)) {
     return pair;
   } else {
-    throw new Error();
+    return null
   }
 };

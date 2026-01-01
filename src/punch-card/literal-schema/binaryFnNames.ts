@@ -25,36 +25,36 @@ const binaryFnArrayNames = (): LiteralSchema<
   BinaryFnArrayNames,
   undefined
 >[] => {
-  const nameSpace: BinaryFnArrayNameSpace = 'binaryFnArray';
+  const namespace: BinaryFnArrayNameSpace = 'binaryFnArray';
   const fnNames = TOM.keys(bfArray);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 const binaryFnGenericNames = (): LiteralSchema<
   BinaryFnGenericNames,
   undefined
 >[] => {
-  const nameSpace: BinaryFnGenericNameSpace = 'binaryFnGeneric';
+  const namespace: BinaryFnGenericNameSpace = 'binaryFnGeneric';
   const fnNames = TOM.keys(bfGeneric);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 const binaryFnNumberNames = (): LiteralSchema<
   BinaryFnNumberNames,
   undefined
 >[] => {
-  const nameSpace: BinaryFnNumberNameSpace = 'binaryFnNumber';
+  const namespace: BinaryFnNumberNameSpace = 'binaryFnNumber';
   const fnNames = TOM.keys(bfNumber);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 const binaryFnStringNames = (): LiteralSchema<
   BinaryFnStringNames,
   undefined
 >[] => {
-  const nameSpace: BinaryFnStringNameSpace = 'binaryFnString';
+  const namespace: BinaryFnStringNameSpace = 'binaryFnString';
   const fnNames = TOM.keys(bfString);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 export const binaryFnNames = () => {

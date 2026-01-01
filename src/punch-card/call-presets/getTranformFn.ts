@@ -8,8 +8,10 @@ import { TransformFnNames } from '../types';
 type AnyToAny = (val: AnyValue) => AnyValue;
 
 export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
-  const [nameSpace, fnName] = splitPairTranformFnNames(joinedName);
-  switch (nameSpace) {
+  const mayPair = splitPairTranformFnNames(joinedName);
+  if (mayPair === null) throw new Error();
+  const [namespace, fnName] = mayPair;
+  switch (namespace) {
     case 'transformFnArray':
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return tfArray[fnName] as AnyToAny;

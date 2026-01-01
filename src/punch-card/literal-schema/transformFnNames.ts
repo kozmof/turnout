@@ -20,27 +20,27 @@ const transformFnArrayNames = (): LiteralSchema<
   TransformFnArrayNames,
   undefined
 >[] => {
-  const nameSpace: TransformFnArrayNameSpace = 'transformFnArray';
+  const namespace: TransformFnArrayNameSpace = 'transformFnArray';
   const fnNames = TOM.keys(tfArray);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 const transformFnNumberNames = (): LiteralSchema<
   TransformFnNumberNames,
   undefined
 >[] => {
-  const nameSpace: TransformFnNumberNameSpace = 'transformFnNumber';
+  const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
   const fnNames = TOM.keys(tfNumber);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 const transformFnStringNames = (): LiteralSchema<
   TransformFnStringNames,
   undefined
 >[] => {
-  const nameSpace: TransformFnStringNameSpace = 'transformFnString';
+  const namespace: TransformFnStringNameSpace = 'transformFnString';
   const fnNames = TOM.keys(tfString);
-  return fnNames.map((fnName) => literal(`${nameSpace}::${fnName}`));
+  return fnNames.map((fnName) => literal(`${namespace}::${fnName}`));
 };
 
 export const transformFnNames = () => {

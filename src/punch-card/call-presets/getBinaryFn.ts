@@ -9,9 +9,11 @@ import { BinaryFnNames } from '../types';
 type AnyToAny = (valA: AnyValue, valB: AnyValue) => AnyValue;
 
 export const getBinaryFn = (joinedName: BinaryFnNames): AnyToAny => {
-  const [nameSpace, fnName] = splitPairBinaryFnNames(joinedName);
+  const mayPair = splitPairBinaryFnNames(joinedName);
+  if (mayPair === null) throw new Error();
+  const [namespace, fnName] = mayPair;
 
-  switch (nameSpace) {
+  switch (namespace) {
     case 'binaryFnArray':
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return bfArray[fnName] as AnyToAny;

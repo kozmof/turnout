@@ -9,6 +9,8 @@ import type {
   TapStepBinding,
   TapArgBinding,
   TransformFnNames,
+  BinaryFnNames,
+  BinaryFnNamespaces,
 } from '../types';
 import type {
   ContextSpec,
@@ -42,6 +44,7 @@ import type {
 import type {
   TransformFnArrayNameSpace,
 } from '../../state-control/preset-funcs/array/transformFn';
+import { splitPairBinaryFnNames } from '../../util/splitPair';
 
 /**
  * Type assertions for creating branded ID types at entry points.
@@ -162,7 +165,7 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
  * Maps binary function namespaces to their corresponding base type symbols.
  * Used to infer the correct pass transform from function names.
  */
-const BinaryFnNamespaceToType: Record<string, BaseTypeSymbol> = {
+const BinaryFnNamespaceToType: Record<BinaryFnNamespaces, BaseTypeSymbol> = {
   binaryFnNumber: 'number',
   binaryFnString: 'string',
   binaryFnArray: 'array',
@@ -828,9 +831,11 @@ function inferPassTransform(valueRef: ValueRef, state: FunctionPhaseState): Tran
 /**
  * Infers the appropriate transform function based on the binary function name using lookup table.
  */
-function inferTransformForBinaryFn(binaryFnName: string): TransformFnNames {
+function inferTransformForBinaryFn(binaryFnName: BinaryFnNames): TransformFnNames {
   // Extract namespace from the function name (e.g., 'binaryFnNumber::add' -> 'binaryFnNumber')
-  const namespace = binaryFnName.split('::')[0];
+  const maySplit = splitPairBinaryFnNames(binaryFnName);
+  if (maySplit === null) throw new Error();
+  const namespace = maySplit[0]
   const typeSymbol = BinaryFnNamespaceToType[namespace];
 
   // Namespace should be defined for all valid binary functions

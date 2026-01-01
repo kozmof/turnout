@@ -21,8 +21,8 @@ import {
  */
 function getPlugFuncDefTableEntries(
   table: PlugFuncDefTable
-): Array<[PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined]> {
-  return Object.entries(table) as Array<[PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined]>;
+): [PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined][] {
+  return Object.entries(table) as [PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined][];
 }
 
 export type ValidationError = {

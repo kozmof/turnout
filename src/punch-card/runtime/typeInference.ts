@@ -23,6 +23,7 @@ import type {
   TransformFnNames,
 } from '../types';
 import { isCondDefineId, isPlugDefineId, isTapDefineId } from '../typeGuards';
+import { splitPairBinaryFnNames, splitPairTranformFnNames } from '../../util/splitPair';
 
 /**
  * Type-safe helper to get a value from the ValueTable.
@@ -42,7 +43,9 @@ function getValueFromTable(
 export function getTransformFnInputType(
   transformFnName: TransformFnNames
 ): BaseTypeSymbol | null {
-  const [namespace] = transformFnName.split('::');
+  const maySplit = splitPairTranformFnNames(transformFnName);
+  if (maySplit === null) return null;
+  const namespace = maySplit[0]
 
   switch (namespace) {
     case 'transformFnNumber':
@@ -63,23 +66,25 @@ export function getTransformFnInputType(
 export function getTransformFnReturnType(
   transformFnName: TransformFnNames
 ): BaseTypeSymbol | null {
-  const [namespace, fnName] = transformFnName.split('::');
+  const maySplit = splitPairTranformFnNames(transformFnName)
+  if(maySplit === null) return null;
+  const [namespace, fnName] = maySplit;
 
   switch (namespace) {
     case 'transformFnNumber': {
       const meta = metaTfNumber();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'transformFnString': {
       const meta = metaTfString();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'transformFnArray': {
       const meta = metaTfArray();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     default:
       return null;
@@ -98,18 +103,20 @@ export function getTransformFnReturnType(
 export function getBinaryFnParamTypes(
   binaryFnName: BinaryFnNames
 ): [BaseTypeSymbol, BaseTypeSymbol] | null {
-  const [namespace, fnName] = binaryFnName.split('::');
+  const mayPair = splitPairBinaryFnNames(binaryFnName);
+  if (mayPair === null) return null;
+  const [namespace, fnName] = mayPair;
 
   switch (namespace) {
     case 'binaryFnNumber': {
       const meta = metaBfNumberParams();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'binaryFnString': {
       const meta = metaBfStringParams();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'binaryFnGeneric': {
       // Generic functions can work with any type, so we can't validate statically
@@ -134,31 +141,33 @@ export function getBinaryFnReturnType(
   binaryFnName: BinaryFnNames,
   elemType?: BaseTypeSymbol
 ): BaseTypeSymbol | null {
-  const [namespace, fnName] = binaryFnName.split('::');
+  const mayPair = splitPairBinaryFnNames(binaryFnName);
+  if (mayPair === null) return null;
+  const [namespace, fnName] = mayPair;
 
   switch (namespace) {
     case 'binaryFnNumber': {
       const meta = metaBfNumber();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'binaryFnString': {
       const meta = metaBfString();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'binaryFnGeneric': {
       const meta = metaBfGeneric();
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     case 'binaryFnArray': {
       // Array binary functions require a non-array element type
       // This design does not support nested arrays (array of arrays)
       if (!elemType || elemType === 'array') return null;
       const meta = metaBfArray(elemType);
-      const result = meta[fnName as unknown as keyof typeof meta];
-      return result || null;
+      const result = meta[fnName];
+      return result;
     }
     default:
       return null;

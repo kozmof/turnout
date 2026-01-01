@@ -227,12 +227,12 @@ function executeStep(
     );
   } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
     throw new Error(
-      `CondFunc execution within TapFunc is not yet implemented. Step ${String(stepIndex)} references ${defId}`
+      `CondFunc execution within TapFunc is not yet implemented. Step ${String(stepIndex)} references ${String(defId)}`
     );
   } else {
     throw createFunctionExecutionError(
       tempFuncId,
-      `Unknown definition type: ${defId}`
+      `Unknown definition type: ${String(defId)}`
     );
   }
 
