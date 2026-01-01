@@ -4,7 +4,6 @@ import {
   PlugDefineId,
   TapDefineId,
   CondDefineId,
-  PlugFuncDefTable,
 } from '../types';
 import { isFuncId, isPlugDefineId, isValueId } from '../typeGuards';
 import {
@@ -15,14 +14,21 @@ import {
   inferFuncReturnType,
 } from './typeInference';
 
+type AllPartial<T> = {
+  [P in keyof T]?: T[P] extends (infer U)[]
+    ? AllPartial<U>[]
+    : T[P] extends object
+    ? AllPartial<T[P]>
+    : T[P];
+};
+
 /**
  * Type-safe helper to get entries from PlugFuncDefTable.
  * Returns entries that may have undefined values.
  */
-function getPlugFuncDefTableEntries(
-  table: PlugFuncDefTable
-): [PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined][] {
-  return Object.entries(table) as [PlugDefineId, PlugFuncDefTable[PlugDefineId] | undefined][];
+function convertToUnsafeHypothesis<T extends object>(obj: T): [keyof T, AllPartial<T[keyof T]> | undefined][] {
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return Object.entries(obj) as [keyof T, AllPartial<T[keyof T]> | undefined][];
 }
 
 export type ValidationError = {
@@ -138,7 +144,7 @@ function validatePlugFuncDefTable(
   context: ExecutionContext,
   errors: ValidationError[]
 ): void {
-  for (const [defId, def] of getPlugFuncDefTableEntries(context.plugFuncDefTable)) {
+  for (const [defId, def] of convertToUnsafeHypothesis(context.plugFuncDefTable)) {
     if (!def) continue;
     // Validate that args field exists and has 'a' and 'b' properties
     // args should contain InterfaceArgIds
@@ -146,7 +152,6 @@ function validatePlugFuncDefTable(
 
     // Validate function names exist (runtime check would be needed for actual functions)
     // This is a structural check only
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!def.name || typeof def.name !== 'string') {
       errors.push({
         type: 'error',
@@ -290,9 +295,10 @@ function validatePlugFuncDefTableTypes(
   context: ExecutionContext,
   errors: ValidationError[]
 ): void {
-  for (const [defId, def] of getPlugFuncDefTableEntries(context.plugFuncDefTable)) {
+  // const plugFuncDefTable: DeepPartial<PlugFuncDefTable> = context.plugFuncDefTable;
+  for (const [defId, def] of convertToUnsafeHypothesis(context.plugFuncDefTable)) {
     // Skip if def is undefined or transformFn is not properly defined
-    if (!def?.transformFn?.a?.name || !def?.transformFn?.b?.name) {
+    if (!def?.transformFn?.a?.name || !def.transformFn.b?.name) {
       continue;
     }
 
@@ -321,7 +327,7 @@ function validatePlugFuncDefTableTypes(
     }
 
     // Validate that the binary function's parameter types match the transform outputs
-    if (transformAReturnType && transformBReturnType) {
+    if (transformAReturnType && transformBReturnType && def.name) {
       const binaryParamTypes = getBinaryFnParamTypes(def.name);
 
       if (binaryParamTypes) {

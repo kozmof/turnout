@@ -132,6 +132,20 @@ function getValueFromTable(
   return valueTable[valueRef];
 }
 
+const getFuncFromTable = (
+  funcId: string,
+  funcTable: BuilderState['funcTable']
+): BuilderState['funcTable'][string] | undefined => {
+  return funcTable[funcId]
+}
+
+const getPlugFuncDefFromTable = (
+  defId: PlugDefineId | TapDefineId | CondDefineId,
+  plugFuncDefTable: BuilderState['plugFuncDefTable']
+): BuilderState['plugFuncDefTable'][PlugDefineId] | undefined => {
+  return plugFuncDefTable[defId]
+}
+
 /**
  * Gets the "pass" transform function name for a given base type symbol.
  * Pass transforms pass values through unchanged without modification.
@@ -295,10 +309,12 @@ function buildIdMap<T extends ContextSpec>(spec: T): BuildResult<T>['ids'] {
     const id = isFunctionBuilder(spec[key]) ? createFuncId(key) : createValueId(key);
     acc[key as keyof T] = id;
     return acc;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   }, {} as Record<keyof T, ValueId | FuncId>);
 
   // The result shape matches BuildResult<T>['ids'] by construction
   // We validate each ID during creation, so this assertion is safe
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return result as BuildResult<T>['ids'];
 }
 
@@ -812,11 +828,11 @@ function inferPassTransform(valueRef: ValueRef, state: FunctionPhaseState): Tran
   if (valueRef.endsWith('__out')) {
     // Extract function ID from the output reference (e.g., "sum__out" -> "sum")
     const funcId = valueRef.slice(0, -5); // Remove "__out"
-    const funcEntry = state.funcTable[funcId];
+    const funcEntry = getFuncFromTable(funcId, state.funcTable);
 
     if (funcEntry) {
       // Get the definition to infer the return type
-      const def = state.plugFuncDefTable[funcEntry.defId];
+      const def = getPlugFuncDefFromTable(funcEntry.defId, state.plugFuncDefTable);
       if (def) {
         // Infer transform from the binary function's return type
         return inferTransformForBinaryFn(def.name);
