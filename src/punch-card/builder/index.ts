@@ -39,3 +39,12 @@ export { ctx } from './context';
 export { plug, tap, cond } from './functions';
 export { val, ref } from './values';
 export type { ContextBuilder, ContextSpec, BuildResult } from './types';
+export type {
+  BuilderValidationError,
+  UndefinedConditionError,
+  UndefinedBranchError,
+  UndefinedValueReferenceError,
+  UndefinedTapArgumentError,
+  UndefinedTapStepReferenceError,
+} from './errors';
+export { isBuilderValidationError } from './errors';

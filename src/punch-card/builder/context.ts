@@ -26,6 +26,13 @@ import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-
 import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
 import { buildReturnIdToFuncIdMap } from '../runtime/buildExecutionTree';
+import {
+  createUndefinedConditionError,
+  createUndefinedBranchError,
+  createUndefinedValueReferenceError,
+  createUndefinedTapArgumentError,
+  createUndefinedTapStepReferenceError,
+} from './errors';
 
 /**
  * Factory functions for creating branded ID types.
@@ -248,21 +255,15 @@ function validateCondReferences(
 ): void {
   // Condition must reference a value or function
   if (!allKeys.has(cond.condition)) {
-    throw new Error(
-      `Cond function '${funcId}' references undefined condition: '${cond.condition}'`
-    );
+    throw createUndefinedConditionError(funcId, cond.condition);
   }
 
   // Branches must be functions
   if (!functionKeys.has(cond.then)) {
-    throw new Error(
-      `Cond function '${funcId}' references undefined 'then' branch: '${cond.then}'`
-    );
+    throw createUndefinedBranchError(funcId, 'then', cond.then);
   }
   if (!functionKeys.has(cond.else)) {
-    throw new Error(
-      `Cond function '${funcId}' references undefined 'else' branch: '${cond.else}'`
-    );
+    throw createUndefinedBranchError(funcId, 'else', cond.else);
   }
 }
 
@@ -285,9 +286,7 @@ function validatePlugReferences(
     const isFunctionOutput = refStr.endsWith('__out');
 
     if (!isDirectValue && !isFunctionOutput) {
-      throw new Error(
-        `Plug function '${funcId}' argument '${argName}' references undefined value: '${refStr}'`
-      );
+      throw createUndefinedValueReferenceError(funcId, argName, refStr);
     }
   }
 }
@@ -303,9 +302,7 @@ function validateTapReferences(
   // Validate argument bindings
   for (const [argName, binding] of Object.entries(tap.argBindings)) {
     if (!valueKeys.has(binding)) {
-      throw new Error(
-        `Tap function '${funcId}' argument '${argName}' references undefined or non-value: '${binding}'`
-      );
+      throw createUndefinedTapArgumentError(funcId, argName, binding);
     }
   }
 
@@ -325,9 +322,7 @@ function validateTapReferences(
         const isContextValue = valueKeys.has(refStr);
 
         if (!isTapArg && !isStepOutput && !isContextValue) {
-          throw new Error(
-            `Tap function '${funcId}' step ${i} argument '${argName}' references undefined: '${refStr}'`
-          );
+          throw createUndefinedTapStepReferenceError(funcId, i, argName, refStr);
         }
       }
     }
