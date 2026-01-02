@@ -7,7 +7,7 @@ import {
   buildArrayString,
   buildArrayBoolean,
 } from '../../state-control/value-builders';
-import type { ValueRef, TransformRef } from './types';
+import type { ValueRef, FuncOutputRef, StepOutputRef, TransformRef } from './types';
 import type { TransformFnNames } from '../types';
 
 /**
@@ -67,16 +67,33 @@ export const val = {
  * @example
  * ```typescript
  * ref.output('f1')  // Reference function output
+ * ref.step('tapFn', 0)  // Reference step 0 output of tapFn
  * ref.transform('v1', 'transformFnNumber::toStr')  // With transform
  * ```
  */
 export const ref = {
   /**
    * References the output of a function.
-   * Assumes function output is stored as `${funcId}__out`.
+   * Returns a special marker that will be resolved to the actual return ID during processing.
    */
-  output(funcId: string): ValueRef {
-    return `${funcId}__out`;
+  output(funcId: string): FuncOutputRef {
+    return {
+      __type: 'funcOutput',
+      funcId,
+    };
+  },
+
+  /**
+   * References the output of a specific step in a tap function.
+   * @param tapFuncId - The ID of the tap function
+   * @param stepIndex - The index of the step (0-based)
+   */
+  step(tapFuncId: string, stepIndex: number): StepOutputRef {
+    return {
+      __type: 'stepOutput',
+      tapFuncId,
+      stepIndex,
+    };
   },
 
   /**

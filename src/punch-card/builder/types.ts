@@ -21,7 +21,7 @@ type ToIndexSignature<T> = T extends Record<string, infer V>
 export type PlugBuilder = {
   readonly __type: 'plug';
   readonly name: BinaryFnNames;
-  readonly args: Record<string, ValueRef | TransformRef>;
+  readonly args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>;
 };
 
 /**
@@ -55,11 +55,28 @@ export type ValueRef = string;
 export type FuncRef = string;
 
 /**
+ * Reference to a function's output value.
+ */
+export type FuncOutputRef = {
+  readonly __type: 'funcOutput';
+  readonly funcId: FuncRef;
+};
+
+/**
+ * Reference to a tap function step's output value.
+ */
+export type StepOutputRef = {
+  readonly __type: 'stepOutput';
+  readonly tapFuncId: FuncRef;
+  readonly stepIndex: number;
+};
+
+/**
  * Reference to a value with a transform applied.
  */
 export type TransformRef = {
   readonly __type: 'transform';
-  readonly valueId: ValueRef;
+  readonly valueId: ValueRef | FuncOutputRef | StepOutputRef;
   readonly transformFn: TransformFnNames;
 };
 
@@ -116,6 +133,35 @@ export type BuildResult<T extends ContextSpec> = {
 };
 
 /**
+ * Maps step output ValueIds to their metadata.
+ */
+export type StepMetadataTable = {
+  [stepOutputId: string]: {
+    readonly parentFuncId: FuncId;
+    readonly stepIndex: number;
+  };
+};
+
+/**
+ * Maps function return ValueIds to their source FuncId.
+ */
+export type ReturnValueMetadataTable = {
+  [returnValueId: string]: {
+    readonly sourceFuncId: FuncId;
+  };
+};
+
+/**
+ * Maps interface argument IDs to their metadata.
+ */
+export type InterfaceArgMetadataTable = {
+  [interfaceArgId: string]: {
+    readonly funcId: FuncId;
+    readonly argName: string;
+  };
+};
+
+/**
  * Internal state during context building.
  * Uses index signatures instead of branded keys to allow progressive building.
  */
@@ -125,5 +171,9 @@ export type ContextBuilder = {
   plugFuncDefTable: ToIndexSignature<ExecutionContext['plugFuncDefTable']>;
   tapFuncDefTable: ToIndexSignature<ExecutionContext['tapFuncDefTable']>;
   condFuncDefTable: ToIndexSignature<ExecutionContext['condFuncDefTable']>;
-  nextDefId: number;
+
+  // Metadata tables for hash-based IDs
+  stepMetadata: StepMetadataTable;
+  returnValueMetadata: ReturnValueMetadataTable;
+  interfaceArgMetadata: InterfaceArgMetadataTable;
 };

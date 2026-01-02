@@ -4,6 +4,8 @@ import type {
   CondBuilder,
   ValueRef,
   FuncRef,
+  FuncOutputRef,
+  StepOutputRef,
   TransformRef,
   TapArg,
   StepBuilder,
@@ -27,7 +29,7 @@ import type { BinaryFnNames } from '../types';
  */
 export function plug(
   name: BinaryFnNames,
-  args: Record<string, ValueRef | TransformRef>
+  args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>
 ): PlugBuilder {
   return {
     __type: 'plug',

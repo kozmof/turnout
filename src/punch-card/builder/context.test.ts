@@ -74,7 +74,8 @@ describe('Context Builder', () => {
       });
 
       expect(context.exec.funcTable).toHaveProperty('f1');
-      expect((context.exec.funcTable as any).f1.returnId).toBe('f1__out');
+      // returnId should be a hash-based ID with v_ prefix
+      expect((context.exec.funcTable as any).f1.returnId).toMatch(/^v_[a-f0-9]{8}$/);
     });
 
     it('should execute plug function', () => {
@@ -179,7 +180,7 @@ describe('Context Builder', () => {
           { a: 'v1', b: 'v2', c: 'v3' },
           [
             plug('binaryFnNumber::add', { a: 'a', b: 'b' }),
-            plug('binaryFnNumber::multiply', { a: ref.output('tapFn__step0'), b: 'c' }),
+            plug('binaryFnNumber::multiply', { a: ref.step('tapFn', 0), b: 'c' }),
           ]
         ),
       });
@@ -202,8 +203,8 @@ describe('Context Builder', () => {
           { a: 'x', b: 'y', c: 'z' },
           [
             plug('binaryFnNumber::add', { a: 'a', b: 'b' }),
-            plug('binaryFnNumber::multiply', { a: ref.output('compute__step0'), b: 'c' }),
-            plug('binaryFnNumber::minus', { a: ref.output('compute__step1'), b: 'a' }),
+            plug('binaryFnNumber::multiply', { a: ref.step('compute', 0), b: 'c' }),
+            plug('binaryFnNumber::minus', { a: ref.step('compute', 1), b: 'a' }),
           ]
         ),
       });
