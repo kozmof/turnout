@@ -7,21 +7,29 @@ type SplitPair<S extends string> =
 const isTransformFnName = (
   pair: string[]
 ): pair is SplitPair<TransformFnNames> => {
-  if (pair.length === 2) {
-    return true;
-  } else {
-    return false;
-  }
+  if (pair.length !== 2) return false;
+
+  const [namespace, name] = pair;
+
+  // Validate both parts are non-empty strings
+  if (typeof namespace !== 'string' || namespace.length === 0) return false;
+  if (typeof name !== 'string' || name.length === 0) return false;
+
+  return true;
 };
 
 const isBinaryFnName = (
   pair: string[]
 ): pair is SplitPair<BinaryFnNames> => {
-  if (pair.length === 2) {
-    return true;
-  } else {
-    return false;
-  }
+  if (pair.length !== 2) return false;
+
+  const [namespace, name] = pair;
+
+  // Validate both parts are non-empty strings
+  if (typeof namespace !== 'string' || namespace.length === 0) return false;
+  if (typeof name !== 'string' || name.length === 0) return false;
+
+  return true;
 };
 
 export const splitPairTranformFnNames = (

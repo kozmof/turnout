@@ -49,66 +49,16 @@ import type {
 import { splitPairBinaryFnNames } from '../../util/splitPair';
 import { NAMESPACE_DELIMITER } from '../../util/constants';
 import { IdGenerator, initializeIdGenerator } from '../../util/idGenerator';
+import {
+  createValueId,
+  createFuncId,
+  createPlugDefineId,
+  createTapDefineId,
+  createCondDefineId,
+  createInterfaceArgId,
+} from '../idValidation';
 
-/**
- * Type assertions for creating branded ID types at entry points.
- * These validate and assert the type for entry point creation.
- * For internal conversions where we know the type is correct, we just assert.
- */
-const createValueId = (id: string): ValueId => {
-  // Entry point: validate that id is a valid string
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`Invalid ValueId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as ValueId;
-};
-
-const createFuncId = (id: string): FuncId => {
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`Invalid FuncId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as FuncId;
-};
-
-// TODO check an id pattern
-const createPlugDefineId = (id: string): PlugDefineId => {
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`Invalid PlugDefineId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as PlugDefineId;
-};
-
-// TODO check an id pattern
-const createTapDefineId = (id: string): TapDefineId => {
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`Invalid TapDefineId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as TapDefineId;
-};
-
-// TODO check an id pattern
-const createCondDefineId = (id: string): CondDefineId => {
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`Invalid CondDefineId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as CondDefineId;
-};
-
-// TODO check an id pattern
-const createInterfaceArgId = (id: string): InterfaceArgId => {
-  if (typeof id !== 'string' || id.length === 0) {
-    throw new Error(`Invalid InterfaceArgId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as InterfaceArgId;
-};
-
-// Initialize IdGenerator with branded type creators
+// Initialize IdGenerator with branded type creators from centralized module
 initializeIdGenerator({
   createValueId,
   createFuncId,

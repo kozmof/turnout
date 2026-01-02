@@ -6,7 +6,6 @@ import {
   ValueId,
   TapStepBinding,
   TapArgBinding,
-  PlugDefineId,
 } from '../../types';
 import {
   createEmptySequenceError,
@@ -15,6 +14,13 @@ import {
 } from '../errors';
 import { isPlugDefineId, isTapDefineId, isCondDefineId } from '../../typeGuards';
 import { executePlugFunc, type ExecutionResult } from './executePlugFunc';
+import {
+  isValidValueId,
+  isValidFuncId,
+  isValidStepDefId,
+  createValueId,
+  createFuncId,
+} from '../../idValidation';
 
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
@@ -119,26 +125,6 @@ function resolveArgBinding(
   }
 }
 
-/**
- * Type guard for ValueId - validates structure
- */
-function isValidValueId(id: string): id is ValueId {
-  return typeof id === 'string' && id.length > 0;
-}
-
-/**
- * Type guard for FuncId - validates structure
- */
-function isValidFuncId(id: string): id is FuncId {
-  return typeof id === 'string' && id.length > 0;
-}
-
-/**
- * Type guard for step definition IDs
- */
-function isValidStepDefId(id: string): id is PlugDefineId | TapDefineId {
-  return typeof id === 'string' && (id.startsWith('pd') || id.startsWith('td'));
-}
 
 /**
  * Creates a temporary FuncId for executing a step within a TapFunc.
@@ -149,11 +135,11 @@ function createTempFuncId(
   stepIndex: number
 ): FuncId {
   const id = `${tapFuncId}__step${String(stepIndex)}`;
-  // Validate the constructed ID
+  // Validate the constructed ID using centralized validator
   if (!isValidFuncId(id)) {
     throw new Error(`Invalid temporary FuncId: ${id}`);
   }
-  return id;
+  return createFuncId(id);
 }
 
 /**
@@ -186,12 +172,12 @@ function executeStep(
   if (!isValidValueId(stepReturnIdStr)) {
     throw new Error('Invalid ValueId for step return');
   }
-  const stepReturnId = stepReturnIdStr;
+  const stepReturnId = createValueId(stepReturnIdStr);
 
   // Create a temporary FuncId for this step execution
   const tempFuncId = createTempFuncId(tapFuncId, stepIndex);
 
-  // Validate and narrow defId type
+  // Validate and narrow defId type using centralized validator
   if (!isValidStepDefId(defId)) {
     throw new Error(`Invalid step defId: ${defId}`);
   }
