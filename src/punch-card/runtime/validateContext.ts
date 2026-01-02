@@ -1,470 +1,755 @@
+/**
+ * Formalized validation system for ExecutionContext.
+ *
+ * This module implements rigorous validation that aligns types with runtime checks:
+ * 1. Type/Runtime Alignment - Uses UnvalidatedContext to represent potentially invalid input
+ * 2. Discriminated Result Types - Success/failure union instead of boolean flags
+ * 3. Type Environment Separation - Builds type map once, reuses everywhere
+ * 4. Binding Validators - Dispatch table for discriminated union handling
+ * 5. Single-Pass Validation - Consolidates traversals into state-accumulating algorithm
+ * 6. Error/Warning Separation - Compilation errors vs linting warnings are distinct
+ */
+
 import {
   ExecutionContext,
   ValueId,
+  FuncId,
   PlugDefineId,
   TapDefineId,
   CondDefineId,
+  ValueTable,
+  FuncTable,
+  TapArgBinding,
+  TransformFnNames,
+  BinaryFnNames,
 } from '../types';
-import { isFuncId, isPlugDefineId, isValueId } from '../typeGuards';
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
   getBinaryFnParamTypes,
-  inferValueType,
-  inferFuncReturnType,
 } from './typeInference';
+import type { BaseTypeSymbol } from '../../state-control/value';
 
-type AllPartial<T> = {
-  [P in keyof T]?: T[P] extends (infer U)[]
-    ? AllPartial<U>[]
-    : T[P] extends object
-    ? AllPartial<T[P]>
-    : T[P];
-};
+// ============================================================================
+// Task 1: Type/Runtime Alignment - UnvalidatedContext
+// ============================================================================
 
 /**
- * Type-safe helper to get entries from PlugFuncDefTable.
- * Returns entries that may have undefined values.
+ * Represents potentially invalid or incomplete execution context input.
+ * This type admits the possibility of missing or malformed data,
+ * allowing validation to check for these conditions without type system lies.
  */
-function convertToUnsafeHypothesis<T extends object>(obj: T): [keyof T, AllPartial<T[keyof T]> | undefined][] {
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return Object.entries(obj) as [keyof T, AllPartial<T[keyof T]> | undefined][];
-}
+export type UnvalidatedContext = {
+  readonly valueTable: Partial<ValueTable>;
+  readonly funcTable: Partial<FuncTable>;
+  readonly plugFuncDefTable: Partial<Record<string, unknown>>;
+  readonly tapFuncDefTable: Partial<Record<string, unknown>>;
+  readonly condFuncDefTable: Partial<Record<string, unknown>>;
+  readonly returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
+};
+
+// ============================================================================
+// Task 2: Discriminated Result Types
+// ============================================================================
 
 export type ValidationError = {
-  readonly type: 'error';
   readonly message: string;
   readonly details?: Record<string, unknown>;
 };
 
 export type ValidationWarning = {
-  readonly type: 'warning';
   readonly message: string;
   readonly details?: Record<string, unknown>;
 };
 
-export type ValidationResult = {
-  readonly valid: boolean;
-  readonly errors: ValidationError[];
-  readonly warnings: ValidationWarning[];
+/**
+ * Validation result as discriminated union.
+ * Success and failure are structurally distinct - the valid flag is the discriminator.
+ */
+export type ValidationResult =
+  | { readonly valid: true; readonly warnings: readonly ValidationWarning[]; readonly errors: readonly never[] }
+  | { readonly valid: false; readonly errors: readonly ValidationError[]; readonly warnings: readonly ValidationWarning[] };
+
+/**
+ * Type guard to check if validation succeeded.
+ */
+export function isValidationSuccess(result: ValidationResult): result is Extract<ValidationResult, { valid: true }> {
+  return result.valid;
+}
+
+// ============================================================================
+// Task 3: Type Environment Separation
+// ============================================================================
+
+/**
+ * Type environment maps IDs to their inferred base types.
+ * Built once during validation, then reused for all type checks.
+ */
+export type TypeEnvironment = ReadonlyMap<ValueId | FuncId, BaseTypeSymbol>;
+
+/**
+ * Builds type environment from context by inferring all value types.
+ */
+function buildTypeEnvironment(
+  context: UnvalidatedContext
+): TypeEnvironment {
+  const env = new Map<ValueId | FuncId, BaseTypeSymbol>();
+
+  // Infer types from valueTable
+  if (context.valueTable) {
+    for (const [valueId, value] of Object.entries(context.valueTable)) {
+      if (value && typeof value === 'object' && 'symbol' in value && typeof value.symbol === 'string') {
+        env.set(valueId as ValueId, value.symbol as BaseTypeSymbol);
+      }
+    }
+  }
+
+  return env;
+}
+
+/**
+ * Infers function return type with proper error handling.
+ */
+function inferFuncType(
+  funcId: FuncId,
+  context: UnvalidatedContext,
+  visited: Set<FuncId> = new Set()
+): BaseTypeSymbol | null {
+  // Cycle detection
+  if (visited.has(funcId)) return null;
+
+  const funcEntry = context.funcTable?.[funcId];
+  if (!funcEntry || typeof funcEntry !== 'object') return null;
+
+  visited.add(funcId);
+
+  const defId = 'defId' in funcEntry ? funcEntry.defId : undefined;
+  if (!defId || typeof defId !== 'string') return null;
+
+  // Check if it's a PlugFunc
+  const plugDef = context.plugFuncDefTable?.[defId];
+  if (plugDef && typeof plugDef === 'object' && 'name' in plugDef && typeof plugDef.name === 'string') {
+    return getBinaryFnReturnType(plugDef.name);
+  }
+
+  // Check if it's a TapFunc
+  const tapDef = context.tapFuncDefTable?.[defId];
+  if (tapDef && typeof tapDef === 'object' && 'sequence' in tapDef && Array.isArray(tapDef.sequence)) {
+    if (tapDef.sequence.length === 0) return null;
+
+    const lastStep = tapDef.sequence[tapDef.sequence.length - 1];
+    if (lastStep && typeof lastStep === 'object' && 'defId' in lastStep) {
+      const lastStepDefId = lastStep.defId as string;
+      const lastStepPlugDef = context.plugFuncDefTable?.[lastStepDefId];
+      if (lastStepPlugDef && typeof lastStepPlugDef === 'object' && 'name' in lastStepPlugDef) {
+        return getBinaryFnReturnType(lastStepPlugDef.name as string);
+      }
+    }
+    return null;
+  }
+
+  return null;
+}
+
+/**
+ * Helper to get return type from binary function name.
+ */
+function getBinaryFnReturnType(binaryFnName: string): BaseTypeSymbol | null {
+  const parts = binaryFnName.split('::');
+  if (parts.length !== 2) return null;
+
+  const namespace = parts[0];
+
+  switch (namespace) {
+    case 'binaryFnNumber':
+      return 'number';
+    case 'binaryFnString':
+      return 'string';
+    case 'binaryFnBoolean':
+      return 'boolean';
+    case 'binaryFnArray':
+      return 'array';
+    case 'binaryFnGeneric':
+      return 'boolean';
+    default:
+      return null;
+  }
+}
+
+// ============================================================================
+// Task 4: Binding Validators with Dispatch Table
+// ============================================================================
+
+type BindingValidationContext = {
+  readonly stepIndex: number;
+  readonly tapDefArgs: Record<string, unknown>;
+  readonly valueTable: Partial<ValueTable>;
+  readonly defId: string;
+};
+
+type BindingValidator = (
+  binding: TapArgBinding,
+  argName: string,
+  context: BindingValidationContext
+) => ValidationError | null;
+
+/**
+ * Validates 'input' source bindings - must reference TapFunc arguments.
+ */
+function validateInputBinding(
+  binding: Extract<TapArgBinding, { source: 'input' }>,
+  argName: string,
+  context: BindingValidationContext
+): ValidationError | null {
+  if (!(binding.argName in context.tapDefArgs)) {
+    return {
+      message: `TapFuncDefTable[${context.defId}].sequence[${context.stepIndex}]: Argument binding for '${argName}' references undefined TapFunc input '${binding.argName}'`,
+      details: { defId: context.defId, stepIndex: context.stepIndex, argName, inputArgName: binding.argName },
+    };
+  }
+  return null;
+}
+
+/**
+ * Validates 'step' source bindings - must reference previous steps.
+ */
+function validateStepBinding(
+  binding: Extract<TapArgBinding, { source: 'step' }>,
+  argName: string,
+  context: BindingValidationContext
+): ValidationError | null {
+  if (binding.stepIndex < 0 || binding.stepIndex >= context.stepIndex) {
+    return {
+      message: `TapFuncDefTable[${context.defId}].sequence[${context.stepIndex}]: Argument binding for '${argName}' references invalid step index ${binding.stepIndex} (must be < ${context.stepIndex})`,
+      details: { defId: context.defId, stepIndex: context.stepIndex, argName, referencedStepIndex: binding.stepIndex },
+    };
+  }
+  return null;
+}
+
+/**
+ * Validates 'value' source bindings - must reference existing values.
+ */
+function validateValueBinding(
+  binding: Extract<TapArgBinding, { source: 'value' }>,
+  argName: string,
+  context: BindingValidationContext
+): ValidationError | null {
+  if (!(binding.valueId in (context.valueTable || {}))) {
+    return {
+      message: `TapFuncDefTable[${context.defId}].sequence[${context.stepIndex}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
+      details: { defId: context.defId, stepIndex: context.stepIndex, argName, valueId: binding.valueId },
+    };
+  }
+  return null;
+}
+
+/**
+ * Dispatch table for binding validation.
+ * Maps binding source to appropriate validator.
+ */
+const BINDING_VALIDATORS: Record<TapArgBinding['source'], BindingValidator> = {
+  input: validateInputBinding as BindingValidator,
+  step: validateStepBinding as BindingValidator,
+  value: validateValueBinding as BindingValidator,
 };
 
 /**
- * Validates the logical integrity of an ExecutionContext.
- * This performs "compile-time" checks to catch issues before execution:
- * - All referenced IDs exist in their respective tables
- * - Function definitions reference valid argument IDs
- * - No dangling references
- * - Type consistency
+ * Validates a TapArgBinding using the appropriate validator from dispatch table.
  */
-export function validateContext(context: ExecutionContext): ValidationResult {
-  const errors: ValidationError[] = [];
-  const warnings: ValidationWarning[] = [];
+function validateBinding(
+  binding: TapArgBinding,
+  argName: string,
+  context: BindingValidationContext
+): ValidationError | null {
+  const validator = BINDING_VALIDATORS[binding.source];
+  return validator(binding, argName, context);
+}
 
-  // 1. Validate FuncTable entries
-  validateFuncTable(context, errors);
+// ============================================================================
+// Task 5 & 6: Single-Pass Validation with Error/Warning Separation
+// ============================================================================
 
-  // 2. Validate PlugFuncDefTable entries
-  validatePlugFuncDefTable(context, errors);
+/**
+ * Accumulated state during single-pass validation.
+ */
+type ValidationState = {
+  readonly errors: ValidationError[];
+  readonly warnings: ValidationWarning[];
+  readonly referencedValues: Set<ValueId>;
+  readonly referencedDefs: Set<PlugDefineId | TapDefineId | CondDefineId>;
+  readonly returnIds: Set<ValueId>;
+  readonly typeEnv: Map<ValueId | FuncId, BaseTypeSymbol>;
+};
 
-  // 3. Validate TapFuncDefTable entries
-  validateTapFuncDefTable(context, errors);
-
-  // 4. Validate CondFuncDefTable entries
-  validateCondFuncDefTable(context, errors);
-
-  // 5. Validate type safety for PlugFuncDefTable entries
-  validatePlugFuncDefTableTypes(context, errors);
-
-  // 6. Validate type safety for FuncTable entries
-  validateFuncTableTypes(context, errors);
-
-  // 7. Check for unreferenced values (warnings only)
-  checkUnreferencedValues(context, warnings);
-
-  // 8. Check for unreferenced definitions (warnings only)
-  checkUnreferencedDefinitions(context, warnings);
-
+/**
+ * Creates initial validation state.
+ */
+function createValidationState(): ValidationState {
   return {
-    valid: errors.length === 0,
-    errors,
-    warnings,
+    errors: [],
+    warnings: [],
+    referencedValues: new Set(),
+    referencedDefs: new Set(),
+    returnIds: new Set(),
+    typeEnv: new Map(),
   };
 }
 
-function validateFuncTable(
-  context: ExecutionContext,
-  errors: ValidationError[]
+/**
+ * Validates a single FuncTable entry.
+ */
+function validateFuncEntry(
+  funcId: string,
+  funcEntry: unknown,
+  context: UnvalidatedContext,
+  state: ValidationState
 ): void {
-  // Build a set of all return IDs for quick lookup
-  const allReturnIds = new Set<ValueId>();
-  for (const funcEntry of Object.values(context.funcTable)) {
-    allReturnIds.add(funcEntry.returnId);
+  // Structural validation
+  if (!funcEntry || typeof funcEntry !== 'object') {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: Invalid entry`,
+      details: { funcId },
+    });
+    return;
   }
 
-  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-    const { defId, argMap } = funcEntry;
+  const entry = funcEntry as Record<string, unknown>;
 
-    // Check if definition exists
-    const defExists =
-      defId in context.plugFuncDefTable ||
-      defId in context.tapFuncDefTable ||
-      defId in context.condFuncDefTable;
+  // Validate defId exists
+  if (!('defId' in entry) || typeof entry.defId !== 'string') {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: Missing or invalid defId`,
+      details: { funcId },
+    });
+    return;
+  }
 
-    if (!defExists) {
-      errors.push({
-        type: 'error',
-        message: `FuncTable[${funcId}]: Definition ${defId} does not exist`,
-        details: { funcId, defId },
-      });
-    }
+  const defId = entry.defId;
 
-    // Check if returnId exists in ValueTable (or will be created)
-    // Note: returnId may not exist yet if it will be computed
-    // This is not an error, just informational
+  // Check if definition exists
+  const defExists =
+    defId in (context.plugFuncDefTable || {}) ||
+    defId in (context.tapFuncDefTable || {}) ||
+    defId in (context.condFuncDefTable || {});
 
-    // Check if all arguments in argMap are valid ValueIds
+  if (!defExists) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: Definition ${defId} does not exist`,
+      details: { funcId, defId },
+    });
+  } else {
+    state.referencedDefs.add(defId as PlugDefineId | TapDefineId | CondDefineId);
+  }
+
+  // Validate returnId
+  if ('returnId' in entry && typeof entry.returnId === 'string') {
+    state.returnIds.add(entry.returnId as ValueId);
+  }
+
+  // Validate argMap
+  if ('argMap' in entry && entry.argMap && typeof entry.argMap === 'object') {
+    const argMap = entry.argMap as Record<string, unknown>;
     for (const [argName, argId] of Object.entries(argMap)) {
-      const isValid =
-        isValueId(argId, context.valueTable) ||
-        allReturnIds.has(argId); // Will be computed during execution
+      if (typeof argId === 'string') {
+        const valueId = argId as ValueId;
+        const isValid =
+          valueId in (context.valueTable || {}) ||
+          state.returnIds.has(valueId);
 
-      if (!isValid) {
-        errors.push({
-          type: 'error',
-          message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${String(argId)} does not exist`,
-          details: { funcId, argName, argId },
-        });
-      }
-    }
-  }
-}
-
-function validatePlugFuncDefTable(
-  context: ExecutionContext,
-  errors: ValidationError[]
-): void {
-  for (const [defId, def] of convertToUnsafeHypothesis(context.plugFuncDefTable)) {
-    if (!def) continue;
-    // Validate that args field exists and has 'a' and 'b' properties
-    // args should contain InterfaceArgIds
-    // We can't strictly validate InterfaceArgId format as they're just branded strings
-
-    // Validate function names exist (runtime check would be needed for actual functions)
-    // This is a structural check only
-    if (!def.name || typeof def.name !== 'string') {
-      errors.push({
-        type: 'error',
-        message: `PlugFuncDefTable[${defId}]: Invalid or missing function name`,
-        details: { defId, name: def.name },
-      });
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-    if (!def.transformFn || !def.transformFn.a || !def.transformFn.b ||
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
-        !def.transformFn.a.name || !def.transformFn.b.name) {
-      errors.push({
-        type: 'error',
-        message: `PlugFuncDefTable[${defId}]: Missing transform function definitions`,
-        details: { defId },
-      });
-    }
-  }
-}
-
-function validateTapFuncDefTable(
-  context: ExecutionContext,
-  errors: ValidationError[]
-): void {
-  for (const [defId, def] of Object.entries(context.tapFuncDefTable)) {
-    // Check for empty sequence (also checked at runtime, but good to catch early)
-    if (def.sequence.length === 0) {
-      errors.push({
-        type: 'error',
-        message: `TapFuncDefTable[${defId}]: Sequence is empty`,
-        details: { defId },
-      });
-    }
-
-    // Validate each step in the sequence
-    for (let i = 0; i < def.sequence.length; i++) {
-      const step = def.sequence[i];
-
-      // Validate that the referenced definition exists
-      const stepDefExists =
-        step.defId in context.plugFuncDefTable ||
-        step.defId in context.tapFuncDefTable ||
-        step.defId in context.condFuncDefTable;
-
-      if (!stepDefExists) {
-        errors.push({
-          type: 'error',
-          message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Referenced definition ${step.defId} does not exist`,
-          details: { defId, stepIndex: i, stepDefId: step.defId },
-        });
-        continue; // Skip further validation for this step
-      }
-
-      // Validate argument bindings
-      for (const [argName, binding] of Object.entries(step.argBindings)) {
-        if (binding.source === 'input') {
-          // Validate that the input argument exists in TapFunc args
-          if (!(binding.argName in def.args)) {
-            errors.push({
-              type: 'error',
-              message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Argument binding for '${argName}' references undefined TapFunc input '${binding.argName}'`,
-              details: { defId, stepIndex: i, argName, inputArgName: binding.argName },
-            });
-          }
-        } else if (binding.source === 'step') {
-          // Validate that step index is within bounds
-          if (binding.stepIndex < 0 || binding.stepIndex >= i) {
-            errors.push({
-              type: 'error',
-              message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Argument binding for '${argName}' references invalid step index ${String(binding.stepIndex)} (must be < ${String(i)})`,
-              details: { defId, stepIndex: i, argName, referencedStepIndex: binding.stepIndex },
-            });
-          }
+        if (!isValid) {
+          state.errors.push({
+            message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${argId} does not exist`,
+            details: { funcId, argName, argId },
+          });
         } else {
-          // binding.source === 'value'
-          // Validate that the value exists in ValueTable
-          if (!isValueId(binding.valueId, context.valueTable)) {
-            errors.push({
-              type: 'error',
-              message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
-              details: { defId, stepIndex: i, argName, valueId: binding.valueId },
-            });
-          }
+          state.referencedValues.add(valueId);
         }
       }
     }
   }
-}
 
-function validateCondFuncDefTable(
-  context: ExecutionContext,
-  errors: ValidationError[]
-): void {
-  for (const [defId, def] of Object.entries(context.condFuncDefTable)) {
-    // Validate condition ID exists
-    const conditionIdValid =
-      isFuncId(def.conditionId, context.funcTable) ||
-      isValueId(def.conditionId, context.valueTable);
-
-    if (!conditionIdValid) {
-      errors.push({
-        type: 'error',
-        message: `CondFuncDefTable[${defId}].conditionId: Referenced ID ${String(def.conditionId)} does not exist`,
-        details: { defId, conditionId: def.conditionId },
-      });
-    }
-
-    // Validate branch IDs exist
-    if (!isFuncId(def.trueBranchId, context.funcTable)) {
-      errors.push({
-        type: 'error',
-        message: `CondFuncDefTable[${defId}].trueBranchId: Referenced FuncId ${String(def.trueBranchId)} does not exist`,
-        details: { defId, trueBranchId: def.trueBranchId },
-      });
-    }
-
-    if (!isFuncId(def.falseBranchId, context.funcTable)) {
-      errors.push({
-        type: 'error',
-        message: `CondFuncDefTable[${defId}].falseBranchId: Referenced FuncId ${String(def.falseBranchId)} does not exist`,
-        details: { defId, falseBranchId: def.falseBranchId },
-      });
-    }
+  // Type validation for PlugFunc
+  if (defId in (context.plugFuncDefTable || {})) {
+    validatePlugFuncTypes(funcId, entry, defId, context, state);
   }
 }
 
 /**
- * Validates type safety for PlugFuncDefTable entries.
- *
- * Checks that:
- * - Transform functions are valid and recognized
- * - Transform function output types match binary function input types
- *
- * Note: This does not validate array binary functions (binaryFnArray::*)
- * because they require element type information from runtime values,
- * which is complex to validate statically. The design also does not
- * support nested arrays (array elements cannot be arrays).
+ * Validates type safety for a PlugFunc instance.
  */
-function validatePlugFuncDefTableTypes(
-  context: ExecutionContext,
-  errors: ValidationError[]
+function validatePlugFuncTypes(
+  funcId: string,
+  funcEntry: Record<string, unknown>,
+  defId: string,
+  context: UnvalidatedContext,
+  state: ValidationState
 ): void {
-  // const plugFuncDefTable: DeepPartial<PlugFuncDefTable> = context.plugFuncDefTable;
-  for (const [defId, def] of convertToUnsafeHypothesis(context.plugFuncDefTable)) {
-    // Skip if def is undefined or transformFn is not properly defined
-    if (!def?.transformFn?.a?.name || !def.transformFn.b?.name) {
+  const def = context.plugFuncDefTable?.[defId];
+  if (!def || typeof def !== 'object') return;
+
+  const plugDef = def as Record<string, unknown>;
+  if (!('transformFn' in plugDef) || !plugDef.transformFn || typeof plugDef.transformFn !== 'object') {
+    return;
+  }
+
+  const transformFn = plugDef.transformFn as Record<string, unknown>;
+  const argMap = ('argMap' in funcEntry && funcEntry.argMap && typeof funcEntry.argMap === 'object')
+    ? funcEntry.argMap as Record<string, unknown>
+    : {};
+
+  // Validate each argument
+  for (const [argName, tfn] of Object.entries(transformFn)) {
+    if (!tfn || typeof tfn !== 'object' || !('name' in tfn) || typeof tfn.name !== 'string') {
       continue;
     }
 
-    // Validate that transform function 'a' is compatible with its argument type
-    const transformAInputType = getTransformFnInputType(def.transformFn.a.name);
-    const transformAReturnType = getTransformFnReturnType(def.transformFn.a.name);
+    const transformFnName = tfn.name as TransformFnNames;
+    const expectedType = getTransformFnInputType(transformFnName);
 
-    // Validate that transform function 'b' is compatible with its argument type
-    const transformBInputType = getTransformFnInputType(def.transformFn.b.name);
-    const transformBReturnType = getTransformFnReturnType(def.transformFn.b.name);
+    const argId = argMap[argName];
+    if (typeof argId !== 'string') continue;
 
-    if (!transformAInputType || !transformAReturnType) {
-      errors.push({
-        type: 'error',
-        message: `PlugFuncDefTable[${defId}].transformFn.a: Invalid or unknown transform function "${def.transformFn.a.name}"`,
-        details: { defId, transformFn: def.transformFn.a.name },
-      });
+    // Get actual type from type environment
+    let actualType = state.typeEnv.get(argId as ValueId);
+
+    // If not in env, try to infer from funcTable
+    if (!actualType && argId in (context.funcTable || {})) {
+      const inferredType = inferFuncType(argId as FuncId, context);
+      if (inferredType) {
+        actualType = inferredType;
+        state.typeEnv.set(argId as FuncId, actualType);
+      }
     }
 
-    if (!transformBInputType || !transformBReturnType) {
-      errors.push({
-        type: 'error',
-        message: `PlugFuncDefTable[${defId}].transformFn.b: Invalid or unknown transform function "${def.transformFn.b.name}"`,
-        details: { defId, transformFn: def.transformFn.b.name },
+    if (actualType && expectedType && actualType !== expectedType) {
+      state.errors.push({
+        message: `FuncTable[${funcId}].argMap['${argName}']: Argument has type "${actualType}" but transform function "${transformFnName}" expects "${expectedType}"`,
+        details: {
+          funcId,
+          argId,
+          argType: actualType,
+          transformFn: transformFnName,
+          expectedType,
+        },
       });
     }
+  }
+}
 
-    // Validate that the binary function's parameter types match the transform outputs
-    if (transformAReturnType && transformBReturnType && def.name) {
-      const binaryParamTypes = getBinaryFnParamTypes(def.name);
+/**
+ * Validates a PlugFuncDefTable entry.
+ */
+function validatePlugDefEntry(
+  defId: string,
+  def: unknown,
+  state: ValidationState
+): void {
+  if (!def || typeof def !== 'object') {
+    state.errors.push({
+      message: `PlugFuncDefTable[${defId}]: Invalid entry`,
+      details: { defId },
+    });
+    return;
+  }
 
-      if (binaryParamTypes) {
-        const [expectedParamA, expectedParamB] = binaryParamTypes;
+  const entry = def as Record<string, unknown>;
 
-        if (transformAReturnType !== expectedParamA) {
-          errors.push({
-            type: 'error',
-            message: `PlugFuncDefTable[${defId}]: Transform function 'a' returns "${transformAReturnType}" but binary function "${def.name}" expects "${expectedParamA}" for first parameter`,
-            details: {
-              defId,
-              transformFn: def.transformFn.a.name,
-              transformReturnType: transformAReturnType,
-              binaryFn: def.name,
-              expectedType: expectedParamA,
-            },
-          });
-        }
+  // Validate function name
+  if (!('name' in entry) || typeof entry.name !== 'string' || entry.name.length === 0) {
+    state.errors.push({
+      message: `PlugFuncDefTable[${defId}]: Invalid or missing function name`,
+      details: { defId, name: entry.name },
+    });
+  }
 
-        if (transformBReturnType !== expectedParamB) {
-          errors.push({
-            type: 'error',
-            message: `PlugFuncDefTable[${defId}]: Transform function 'b' returns "${transformBReturnType}" but binary function "${def.name}" expects "${expectedParamB}" for second parameter`,
-            details: {
-              defId,
-              transformFn: def.transformFn.b.name,
-              transformReturnType: transformBReturnType,
-              binaryFn: def.name,
-              expectedType: expectedParamB,
-            },
-          });
-        }
+  // Validate transform functions
+  if (!('transformFn' in entry) || !entry.transformFn || typeof entry.transformFn !== 'object') {
+    state.errors.push({
+      message: `PlugFuncDefTable[${defId}]: Missing transform function definitions`,
+      details: { defId },
+    });
+    return;
+  }
+
+  const transformFn = entry.transformFn as Record<string, unknown>;
+
+  for (const key of ['a', 'b']) {
+    if (!(key in transformFn) || !transformFn[key] || typeof transformFn[key] !== 'object') {
+      state.errors.push({
+        message: `PlugFuncDefTable[${defId}]: Missing transform function '${key}'`,
+        details: { defId },
+      });
+      continue;
+    }
+
+    const tfn = transformFn[key] as Record<string, unknown>;
+    if (!('name' in tfn) || typeof tfn.name !== 'string') {
+      state.errors.push({
+        message: `PlugFuncDefTable[${defId}]: Transform function '${key}' missing name`,
+        details: { defId },
+      });
+      continue;
+    }
+
+    const transformFnName = tfn.name as TransformFnNames;
+    const inputType = getTransformFnInputType(transformFnName);
+    const returnType = getTransformFnReturnType(transformFnName);
+
+    if (!inputType || !returnType) {
+      state.errors.push({
+        message: `PlugFuncDefTable[${defId}].transformFn.${key}: Invalid or unknown transform function "${transformFnName}"`,
+        details: { defId, transformFn: transformFnName },
+      });
+    }
+  }
+
+  // Validate binary function compatibility
+  if ('name' in entry && typeof entry.name === 'string' && 'transformFn' in entry) {
+    validateBinaryFnCompatibility(defId, entry.name, transformFn, state);
+  }
+
+  // Check if definition is referenced
+  if (!state.referencedDefs.has(defId as PlugDefineId)) {
+    state.warnings.push({
+      message: `PlugFuncDefTable[${defId}]: Definition is never used`,
+      details: { defId },
+    });
+  }
+}
+
+/**
+ * Validates that transform function outputs match binary function inputs.
+ */
+function validateBinaryFnCompatibility(
+  defId: string,
+  binaryFnName: string,
+  transformFn: Record<string, unknown>,
+  state: ValidationState
+): void {
+  const paramTypes = getBinaryFnParamTypes(binaryFnName as BinaryFnNames);
+  if (!paramTypes) return;
+
+  const [expectedParamA, expectedParamB] = paramTypes;
+
+  // Check transform 'a'
+  if ('a' in transformFn && transformFn.a && typeof transformFn.a === 'object') {
+    const tfnA = transformFn.a as Record<string, unknown>;
+    if ('name' in tfnA && typeof tfnA.name === 'string') {
+      const returnType = getTransformFnReturnType(tfnA.name as TransformFnNames);
+      if (returnType && returnType !== expectedParamA) {
+        state.errors.push({
+          message: `PlugFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
+          details: {
+            defId,
+            transformFn: tfnA.name,
+            transformReturnType: returnType,
+            binaryFn: binaryFnName,
+            expectedType: expectedParamA,
+          },
+        });
+      }
+    }
+  }
+
+  // Check transform 'b'
+  if ('b' in transformFn && transformFn.b && typeof transformFn.b === 'object') {
+    const tfnB = transformFn.b as Record<string, unknown>;
+    if ('name' in tfnB && typeof tfnB.name === 'string') {
+      const returnType = getTransformFnReturnType(tfnB.name as TransformFnNames);
+      if (returnType && returnType !== expectedParamB) {
+        state.errors.push({
+          message: `PlugFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
+          details: {
+            defId,
+            transformFn: tfnB.name,
+            transformReturnType: returnType,
+            binaryFn: binaryFnName,
+            expectedType: expectedParamB,
+          },
+        });
       }
     }
   }
 }
 
 /**
- * Validates type safety for FuncTable entries.
- *
- * Checks that:
- * - Argument types in argMap match the expected input types of transform functions
- *
- * Note: Only validates PlugFunc entries. TapFunc and CondFunc have different
- * validation needs that are not yet implemented. Array binary functions are
- * also not validated due to the complexity of element type checking.
+ * Validates a TapFuncDefTable entry.
  */
-function validateFuncTableTypes(
-  context: ExecutionContext,
-  errors: ValidationError[]
+function validateTapDefEntry(
+  defId: string,
+  def: unknown,
+  context: UnvalidatedContext,
+  state: ValidationState
 ): void {
-  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-    const { defId, argMap } = funcEntry;
+  if (!def || typeof def !== 'object') {
+    state.errors.push({
+      message: `TapFuncDefTable[${defId}]: Invalid entry`,
+      details: { defId },
+    });
+    return;
+  }
 
-    // Only validate PlugFunc types (TapFunc and CondFunc have different validation needs)
-    if (isPlugDefineId(defId, context.plugFuncDefTable)) {
-      const def = context.plugFuncDefTable[defId];
+  const entry = def as Record<string, unknown>;
 
-      // Check argument 'a' type compatibility
-      const argAId = argMap['a'];
-      if (argAId) {
-        let argAType = inferValueType(argAId, context);
-        if (!argAType && isFuncId(argAId, context.funcTable)) {
-          argAType = inferFuncReturnType(argAId, context);
+  // Validate sequence exists
+  if (!('sequence' in entry) || !Array.isArray(entry.sequence)) {
+    state.errors.push({
+      message: `TapFuncDefTable[${defId}]: Missing or invalid sequence`,
+      details: { defId },
+    });
+    return;
+  }
+
+  // Check for empty sequence
+  if (entry.sequence.length === 0) {
+    state.errors.push({
+      message: `TapFuncDefTable[${defId}]: Sequence is empty`,
+      details: { defId },
+    });
+    return;
+  }
+
+  const tapDefArgs = ('args' in entry && entry.args && typeof entry.args === 'object')
+    ? entry.args as Record<string, unknown>
+    : {};
+
+  // Validate each step
+  for (let i = 0; i < entry.sequence.length; i++) {
+    const step = entry.sequence[i];
+    if (!step || typeof step !== 'object') continue;
+
+    const stepObj = step as Record<string, unknown>;
+
+    // Validate step defId
+    if (!('defId' in stepObj) || typeof stepObj.defId !== 'string') {
+      state.errors.push({
+        message: `TapFuncDefTable[${defId}].sequence[${i}]: Missing step defId`,
+        details: { defId, stepIndex: i },
+      });
+      continue;
+    }
+
+    const stepDefId = stepObj.defId;
+
+    // Check if step definition exists
+    const stepDefExists =
+      stepDefId in (context.plugFuncDefTable || {}) ||
+      stepDefId in (context.tapFuncDefTable || {}) ||
+      stepDefId in (context.condFuncDefTable || {});
+
+    if (!stepDefExists) {
+      state.errors.push({
+        message: `TapFuncDefTable[${defId}].sequence[${i}]: Referenced definition ${stepDefId} does not exist`,
+        details: { defId, stepIndex: i, stepDefId },
+      });
+      continue;
+    }
+
+    // Validate argument bindings using dispatch table
+    if ('argBindings' in stepObj && stepObj.argBindings && typeof stepObj.argBindings === 'object') {
+      const argBindings = stepObj.argBindings as Record<string, unknown>;
+
+      for (const [argName, binding] of Object.entries(argBindings)) {
+        if (!binding || typeof binding !== 'object' || !('source' in binding)) {
+          continue;
         }
-        const expectedAType = getTransformFnInputType(def.transformFn.a.name);
 
-        if (argAType && expectedAType && argAType !== expectedAType) {
-          errors.push({
-            type: 'error',
-            message: `FuncTable[${funcId}].argMap['a']: Argument has type "${argAType}" but transform function "${def.transformFn.a.name}" expects "${expectedAType}"`,
-            details: {
-              funcId,
-              argId: argAId,
-              argType: argAType,
-              transformFn: def.transformFn.a.name,
-              expectedType: expectedAType,
-            },
-          });
-        }
-      }
+        const bindingObj = binding as TapArgBinding;
+        const validationContext: BindingValidationContext = {
+          stepIndex: i,
+          tapDefArgs,
+          valueTable: context.valueTable || {},
+          defId,
+        };
 
-      // Check argument 'b' type compatibility
-      const argBId = argMap['b'];
-      if (argBId) {
-        let argBType = inferValueType(argBId, context);
-        if (!argBType && isFuncId(argBId, context.funcTable)) {
-          argBType = inferFuncReturnType(argBId, context);
-        }
-        const expectedBType = getTransformFnInputType(def.transformFn.b.name);
-
-        if (argBType && expectedBType && argBType !== expectedBType) {
-          errors.push({
-            type: 'error',
-            message: `FuncTable[${funcId}].argMap['b']: Argument has type "${argBType}" but transform function "${def.transformFn.b.name}" expects "${expectedBType}"`,
-            details: {
-              funcId,
-              argId: argBId,
-              argType: argBType,
-              transformFn: def.transformFn.b.name,
-              expectedType: expectedBType,
-            },
-          });
+        const error = validateBinding(bindingObj, argName, validationContext);
+        if (error) {
+          state.errors.push(error);
         }
       }
     }
+  }
+
+  // Check if definition is referenced
+  if (!state.referencedDefs.has(defId as TapDefineId)) {
+    state.warnings.push({
+      message: `TapFuncDefTable[${defId}]: Definition is never used`,
+      details: { defId },
+    });
   }
 }
 
-function checkUnreferencedValues(
-  context: ExecutionContext,
-  warnings: ValidationWarning[]
+/**
+ * Validates a CondFuncDefTable entry.
+ */
+function validateCondDefEntry(
+  defId: string,
+  def: unknown,
+  context: UnvalidatedContext,
+  state: ValidationState
 ): void {
-  const referencedValueIds = new Set<ValueId>();
+  if (!def || typeof def !== 'object') {
+    state.errors.push({
+      message: `CondFuncDefTable[${defId}]: Invalid entry`,
+      details: { defId },
+    });
+    return;
+  }
 
-  // Collect all referenced ValueIds from FuncTable argMaps
-  for (const funcEntry of Object.values(context.funcTable)) {
-    for (const argId of Object.values(funcEntry.argMap)) {
-      if (isValueId(argId, context.valueTable)) {
-        referencedValueIds.add(argId);
+  const entry = def as Record<string, unknown>;
+
+  // Validate condition ID
+  if ('conditionId' in entry && typeof entry.conditionId === 'string') {
+    const conditionId = entry.conditionId;
+    const conditionIdValid =
+      conditionId in (context.funcTable || {}) ||
+      conditionId in (context.valueTable || {});
+
+    if (!conditionIdValid) {
+      state.errors.push({
+        message: `CondFuncDefTable[${defId}].conditionId: Referenced ID ${conditionId} does not exist`,
+        details: { defId, conditionId },
+      });
+    } else if (conditionId in (context.valueTable || {})) {
+      state.referencedValues.add(conditionId as ValueId);
+    }
+  }
+
+  // Validate branch IDs
+  for (const branchKey of ['trueBranchId', 'falseBranchId']) {
+    if (branchKey in entry && typeof entry[branchKey] === 'string') {
+      const branchId = entry[branchKey] as string;
+      if (!(branchId in (context.funcTable || {}))) {
+        state.errors.push({
+          message: `CondFuncDefTable[${defId}].${branchKey}: Referenced FuncId ${branchId} does not exist`,
+          details: { defId, [branchKey]: branchId },
+        });
       }
     }
   }
 
-  // Collect referenced ValueIds from CondFuncDefTable conditions
-  for (const condDef of Object.values(context.condFuncDefTable)) {
-    if (isValueId(condDef.conditionId, context.valueTable)) {
-      referencedValueIds.add(condDef.conditionId);
-    }
+  // Check if definition is referenced
+  if (!state.referencedDefs.has(defId as CondDefineId)) {
+    state.warnings.push({
+      message: `CondFuncDefTable[${defId}]: Definition is never used`,
+      details: { defId },
+    });
   }
+}
 
-  // Check for unreferenced values
+/**
+ * Checks for unreferenced values in the ValueTable.
+ */
+function checkUnreferencedValues(
+  context: UnvalidatedContext,
+  state: ValidationState
+): void {
+  if (!context.valueTable) return;
+
   for (const valueId of Object.keys(context.valueTable)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    if (!referencedValueIds.has(valueId as ValueId)) {
-      warnings.push({
-        type: 'warning',
+    if (!state.referencedValues.has(valueId as ValueId)) {
+      state.warnings.push({
         message: `ValueTable[${valueId}]: Value is never referenced`,
         details: { valueId },
       });
@@ -472,53 +757,65 @@ function checkUnreferencedValues(
   }
 }
 
-function checkUnreferencedDefinitions(
-  context: ExecutionContext,
-  warnings: ValidationWarning[]
-): void {
-  const referencedDefIds = new Set<
-    PlugDefineId | TapDefineId | CondDefineId
-  >();
+/**
+ * Main validation function - single-pass algorithm with state accumulation.
+ *
+ * This consolidates all validation into a single traversal of the context,
+ * accumulating errors, warnings, and metadata in a shared state object.
+ */
+export function validateContext(context: UnvalidatedContext): ValidationResult {
+  const state = createValidationState();
 
-  // Collect all referenced definition IDs from FuncTable
-  for (const funcEntry of Object.values(context.funcTable)) {
-    referencedDefIds.add(funcEntry.defId);
+  // Build initial type environment from values
+  const initialTypeEnv = buildTypeEnvironment(context);
+  for (const [id, type] of initialTypeEnv) {
+    state.typeEnv.set(id, type);
   }
 
-  // Check PlugFuncDefTable
-  for (const defId of Object.keys(context.plugFuncDefTable)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    if (!referencedDefIds.has(defId as PlugDefineId)) {
-      warnings.push({
-        type: 'warning',
-        message: `PlugFuncDefTable[${defId}]: Definition is never used`,
-        details: { defId },
-      });
+  // Single pass over funcTable - validates structure and types
+  if (context.funcTable) {
+    for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
+      validateFuncEntry(funcId, funcEntry, context, state);
     }
   }
 
-  // Check TapFuncDefTable
-  for (const defId of Object.keys(context.tapFuncDefTable)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    if (!referencedDefIds.has(defId as TapDefineId)) {
-      warnings.push({
-        type: 'warning',
-        message: `TapFuncDefTable[${defId}]: Definition is never used`,
-        details: { defId },
-      });
+  // Single pass over plugFuncDefTable - validates structure and checks usage
+  if (context.plugFuncDefTable) {
+    for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
+      validatePlugDefEntry(defId, def, state);
     }
   }
 
-  // Check CondFuncDefTable
-  for (const defId of Object.keys(context.condFuncDefTable)) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    if (!referencedDefIds.has(defId as CondDefineId)) {
-      warnings.push({
-        type: 'warning',
-        message: `CondFuncDefTable[${defId}]: Definition is never used`,
-        details: { defId },
-      });
+  // Single pass over tapFuncDefTable - validates structure and checks usage
+  if (context.tapFuncDefTable) {
+    for (const [defId, def] of Object.entries(context.tapFuncDefTable)) {
+      validateTapDefEntry(defId, def, context, state);
     }
+  }
+
+  // Single pass over condFuncDefTable - validates structure and checks usage
+  if (context.condFuncDefTable) {
+    for (const [defId, def] of Object.entries(context.condFuncDefTable)) {
+      validateCondDefEntry(defId, def, context, state);
+    }
+  }
+
+  // Check for unreferenced values (warnings only)
+  checkUnreferencedValues(context, state);
+
+  // Return discriminated union result
+  if (state.errors.length === 0) {
+    return {
+      valid: true,
+      warnings: state.warnings,
+      errors: [],
+    };
+  } else {
+    return {
+      valid: false,
+      errors: state.errors,
+      warnings: state.warnings,
+    };
   }
 }
 
@@ -526,7 +823,7 @@ function checkUnreferencedDefinitions(
  * Validates context and throws an error if invalid.
  * Useful for strict validation before execution.
  */
-export function assertValidContext(context: ExecutionContext): void {
+export function assertValidContext(context: UnvalidatedContext): asserts context is ExecutionContext {
   const result = validateContext(context);
 
   if (!result.valid) {
@@ -538,4 +835,12 @@ export function assertValidContext(context: ExecutionContext): void {
       `ExecutionContext validation failed:\n${errorMessages}`
     );
   }
+}
+
+/**
+ * Type guard to check if an unvalidated context is a valid ExecutionContext.
+ */
+export function isValidContext(context: UnvalidatedContext): context is ExecutionContext {
+  const result = validateContext(context);
+  return result.valid;
 }
