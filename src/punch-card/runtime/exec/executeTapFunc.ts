@@ -14,9 +14,6 @@ import {
 } from '../errors';
 import { executePlugFunc, type ExecutionResult } from './executePlugFunc';
 import {
-  isValidValueId,
-  isValidFuncId,
-  isValidStepDefId,
   isPlugDefineId,
   isTapDefineId,
   isCondDefineId,
@@ -137,10 +134,6 @@ function createTempFuncId(
   stepIndex: number
 ): FuncId {
   const id = `${tapFuncId}__step${String(stepIndex)}`;
-  // Validate the constructed ID using centralized validator
-  if (!isValidFuncId(id)) {
-    throw new Error(`Invalid temporary FuncId: ${id}`);
-  }
   return createFuncId(id);
 }
 
@@ -171,18 +164,10 @@ function executeStep(
 
   // Create a return ValueId for this step
   const stepReturnIdStr = `${tapFuncId}__step${String(stepIndex)}__result`;
-  if (!isValidValueId(stepReturnIdStr)) {
-    throw new Error('Invalid ValueId for step return');
-  }
   const stepReturnId = createValueId(stepReturnIdStr);
 
   // Create a temporary FuncId for this step execution
   const tempFuncId = createTempFuncId(tapFuncId, stepIndex);
-
-  // Validate and narrow defId type using centralized validator
-  if (!isValidStepDefId(defId)) {
-    throw new Error(`Invalid step defId: ${defId}`);
-  }
 
   // Create context with temporary function entry
   const stepContext: ExecutionContext = {
