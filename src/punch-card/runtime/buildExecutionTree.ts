@@ -5,7 +5,7 @@ import {
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
 import type { ValueNode, FunctionNode, ConditionalNode } from './tree-types';
-import { isFuncId, isCondDefineId } from '../typeGuards';
+import { isFuncId, isCondDefineId } from '../idValidation';
 import { createMissingValueError } from './errors';
 import { TOM } from '../../util/tom';
 

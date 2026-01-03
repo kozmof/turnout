@@ -5,43 +5,60 @@ import type {
   TapDefineId,
   CondDefineId,
   InterfaceArgId,
+  FuncTable,
+  PlugFuncDefTable,
+  TapFuncDefTable,
+  CondFuncDefTable,
+  ValueTable,
 } from './types';
+import type { NodeId } from './runtime/tree-types';
 
 /**
  * Centralized ID validation module.
  *
- * This module provides three categories of functions:
+ * This module consolidates all ID validation logic in one place and provides three categories of functions:
  *
  * 1. **Structural Validators** - Check ID format/structure without table lookups
- *    - Naming: `isValid{Type}Structure(id: string): boolean`
+ *    - Naming: `isValid{Type}Id(id: string): boolean`
  *    - Purpose: Validate ID format before creation or use
+ *    - Example: `isValidValueId('v1')` checks if the string is non-empty
  *
  * 2. **Branded ID Creators** - Validate then cast to branded types
  *    - Naming: `create{Type}Id(id: string): {Type}Id`
  *    - Purpose: Safe entry point for creating branded IDs
+ *    - Example: `createValueId('v1')` validates and returns a branded ValueId
  *
  * 3. **Table-Based Guards** - Check if ID exists in execution context
- *    - Located in: `./typeGuards.ts` (separate file)
  *    - Naming: `is{Type}Id(id, table): id is {Type}Id`
  *    - Purpose: Runtime validation that ID exists in context
+ *    - Example: `isFuncId(id, funcTable)` checks if ID exists in the function table
  *
  * ## Design Rationale
  *
  * Separating structural validation from table-based validation serves two purposes:
- * - **Build-time**: Validate ID format when creating/generating IDs
- * - **Runtime**: Validate ID existence when executing
+ * - **Build-time**: Validate ID format when creating/generating IDs (structural validators)
+ * - **Runtime**: Validate ID existence when executing (table-based guards)
  *
  * This separation eliminates duplication while keeping concerns separate.
  *
  * ## ID Structure
  *
- * All IDs use the same validation: non-empty strings.
- * Prefixes (v_, f_, pd_, td_, cd_, ia_) are for debugging/readability only, not validation.
+ * All IDs use the same structural validation: non-empty strings.
+ * Prefixes (v_, f_, pd_, td_, cd_, ia_) are for debugging/readability only, not enforced by validation.
  */
 
 // ============================================================================
 // STRUCTURAL VALIDATORS
 // ============================================================================
+
+/**
+ * Core ID validation logic: non-empty string check.
+ * All ID types share the same structural requirements.
+ * @internal
+ */
+function validateIdStructure(id: string): boolean {
+  return typeof id === 'string' && id.length > 0;
+}
 
 /**
  * Validates ValueId structure: non-empty string.
@@ -55,7 +72,7 @@ import type {
  * isValidValueId('')             // false
  */
 export function isValidValueId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 /**
@@ -70,7 +87,7 @@ export function isValidValueId(id: string): boolean {
  * isValidFuncId('')              // false
  */
 export function isValidFuncId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 /**
@@ -85,7 +102,7 @@ export function isValidFuncId(id: string): boolean {
  * isValidPlugDefineId('')               // false
  */
 export function isValidPlugDefineId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 /**
@@ -100,7 +117,7 @@ export function isValidPlugDefineId(id: string): boolean {
  * isValidTapDefineId('')                // false
  */
 export function isValidTapDefineId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 /**
@@ -115,7 +132,7 @@ export function isValidTapDefineId(id: string): boolean {
  * isValidCondDefineId('')               // false
  */
 export function isValidCondDefineId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 /**
@@ -130,7 +147,7 @@ export function isValidCondDefineId(id: string): boolean {
  * isValidInterfaceArgId('')             // false
  */
 export function isValidInterfaceArgId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 /**
@@ -148,12 +165,31 @@ export function isValidInterfaceArgId(id: string): boolean {
  * isValidStepDefId('')                  // false
  */
 export function isValidStepDefId(id: string): boolean {
-  return typeof id === 'string' && id.length > 0;
+  return validateIdStructure(id);
 }
 
 // ============================================================================
 // BRANDED ID CREATORS
 // ============================================================================
+
+/**
+ * Generic ID creator that validates then casts to branded type.
+ * @param id - The ID string to validate
+ * @param validator - The validation function
+ * @param typeName - Name for error messages
+ * @internal
+ */
+function createBrandedId<T extends string>(
+  id: string,
+  validator: (id: string) => boolean,
+  typeName: string
+): T {
+  if (!validator(id)) {
+    throw new Error(`Invalid ${typeName}: ${id}`);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return id as T;
+}
 
 /**
  * Creates a branded ValueId after validating structure.
@@ -167,11 +203,7 @@ export function isValidStepDefId(id: string): boolean {
  * createValueId('');                     // Throws Error
  */
 export function createValueId(id: string): ValueId {
-  if (!isValidValueId(id)) {
-    throw new Error(`Invalid ValueId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as ValueId;
+  return createBrandedId<ValueId>(id, isValidValueId, 'ValueId');
 }
 
 /**
@@ -186,11 +218,7 @@ export function createValueId(id: string): ValueId {
  * createFuncId('');                   // Throws Error
  */
 export function createFuncId(id: string): FuncId {
-  if (!isValidFuncId(id)) {
-    throw new Error(`Invalid FuncId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as FuncId;
+  return createBrandedId<FuncId>(id, isValidFuncId, 'FuncId');
 }
 
 /**
@@ -205,11 +233,7 @@ export function createFuncId(id: string): FuncId {
  * createPlugDefineId('');                           // Throws Error
  */
 export function createPlugDefineId(id: string): PlugDefineId {
-  if (!isValidPlugDefineId(id)) {
-    throw new Error(`Invalid PlugDefineId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as PlugDefineId;
+  return createBrandedId<PlugDefineId>(id, isValidPlugDefineId, 'PlugDefineId');
 }
 
 /**
@@ -224,11 +248,7 @@ export function createPlugDefineId(id: string): PlugDefineId {
  * createTapDefineId('');                           // Throws Error
  */
 export function createTapDefineId(id: string): TapDefineId {
-  if (!isValidTapDefineId(id)) {
-    throw new Error(`Invalid TapDefineId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as TapDefineId;
+  return createBrandedId<TapDefineId>(id, isValidTapDefineId, 'TapDefineId');
 }
 
 /**
@@ -243,11 +263,7 @@ export function createTapDefineId(id: string): TapDefineId {
  * createCondDefineId('');                           // Throws Error
  */
 export function createCondDefineId(id: string): CondDefineId {
-  if (!isValidCondDefineId(id)) {
-    throw new Error(`Invalid CondDefineId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as CondDefineId;
+  return createBrandedId<CondDefineId>(id, isValidCondDefineId, 'CondDefineId');
 }
 
 /**
@@ -262,9 +278,74 @@ export function createCondDefineId(id: string): CondDefineId {
  * createInterfaceArgId('');                   // Throws Error
  */
 export function createInterfaceArgId(id: string): InterfaceArgId {
-  if (!isValidInterfaceArgId(id)) {
-    throw new Error(`Invalid InterfaceArgId: ${id}`);
-  }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as InterfaceArgId;
+  return createBrandedId<InterfaceArgId>(id, isValidInterfaceArgId, 'InterfaceArgId');
+}
+
+// ============================================================================
+// TABLE-BASED GUARDS
+// ============================================================================
+
+/**
+ * Type guard to check if an ID exists as a FuncId in the FuncTable.
+ * @param id - The ID to check
+ * @param funcTable - The function table to check against
+ * @returns True if the ID exists in the table
+ */
+export function isFuncId(
+  id: NodeId,
+  funcTable: FuncTable
+): id is FuncId {
+  return id in funcTable;
+}
+
+/**
+ * Type guard to check if an ID exists as a ValueId in the ValueTable.
+ * @param id - The ID to check
+ * @param valueTable - The value table to check against
+ * @returns True if the ID exists in the table
+ */
+export function isValueId(
+  id: NodeId,
+  valueTable: ValueTable
+): id is ValueId {
+  return id in valueTable;
+}
+
+/**
+ * Type guard to check if an ID exists as a PlugDefineId in the PlugFuncDefTable.
+ * @param id - The ID to check
+ * @param plugFuncDefTable - The plug function definition table to check against
+ * @returns True if the ID exists in the table
+ */
+export function isPlugDefineId(
+  id: string,
+  plugFuncDefTable: PlugFuncDefTable
+): id is PlugDefineId {
+  return id in plugFuncDefTable;
+}
+
+/**
+ * Type guard to check if an ID exists as a TapDefineId in the TapFuncDefTable.
+ * @param id - The ID to check
+ * @param tapFuncDefTable - The tap function definition table to check against
+ * @returns True if the ID exists in the table
+ */
+export function isTapDefineId(
+  id: string,
+  tapFuncDefTable: TapFuncDefTable
+): id is TapDefineId {
+  return id in tapFuncDefTable;
+}
+
+/**
+ * Type guard to check if an ID exists as a CondDefineId in the CondFuncDefTable.
+ * @param id - The ID to check
+ * @param condFuncDefTable - The conditional function definition table to check against
+ * @returns True if the ID exists in the table
+ */
+export function isCondDefineId(
+  id: string,
+  condFuncDefTable: CondFuncDefTable
+): id is CondDefineId {
+  return id in condFuncDefTable;
 }

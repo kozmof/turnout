@@ -12,12 +12,14 @@ import {
   createMissingValueError,
   createFunctionExecutionError,
 } from '../errors';
-import { isPlugDefineId, isTapDefineId, isCondDefineId } from '../../typeGuards';
 import { executePlugFunc, type ExecutionResult } from './executePlugFunc';
 import {
   isValidValueId,
   isValidFuncId,
   isValidStepDefId,
+  isPlugDefineId,
+  isTapDefineId,
+  isCondDefineId,
   createValueId,
   createFuncId,
 } from '../../idValidation';

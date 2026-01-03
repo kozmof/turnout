@@ -1,6 +1,6 @@
 import { ExecutionContext } from '../types';
 import { ExecutionTree } from './tree-types';
-import { isPlugDefineId, isTapDefineId } from '../typeGuards';
+import { isPlugDefineId, isTapDefineId } from '../idValidation';
 import { createFunctionExecutionError } from './errors';
 import { executePlugFunc, type ExecutionResult } from './exec/executePlugFunc';
 import { executeTapFunc } from './exec/executeTapFunc';

@@ -22,7 +22,7 @@ import type {
   BinaryFnNames,
   TransformFnNames,
 } from '../types';
-import { isCondDefineId, isPlugDefineId, isTapDefineId } from '../typeGuards';
+import { isCondDefineId, isPlugDefineId, isTapDefineId } from '../idValidation';
 import { splitPairBinaryFnNames, splitPairTranformFnNames } from '../../util/splitPair';
 
 /**
