@@ -95,10 +95,9 @@ export function isValidationSuccess(result: ValidationResult): result is Extract
 //
 // Type guards are organized into three conceptual layers:
 //
-// 1. **Generic Runtime Checks** - Pure TypeScript validation (isRecord, isBaseTypeSymbol)
+// 1. **Generic Runtime Checks** - Pure TypeScript validation (isRecord, isBaseTypeSymbol, etc.)
 // 2. **Shape Guards** - Check if value has correct type shape without context (has*Shape)
 // 3. **Context Existence Guards** - Validate ID exists in UnvalidatedContext (*ExistsInContext)
-// 4. **Predicate Guards** - Shape check + custom validation (*WithPredicate)
 //
 // This separation makes it clear which guards check types vs which validate semantics.
 // ============================================================================
@@ -121,6 +120,53 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
   if (typeof value !== 'string') return false;
   return VALID_BASE_TYPE_SYMBOLS.has(value as BaseTypeSymbol);
+}
+
+/**
+ * Type guard to check if a PlugDef has a valid binary function name property.
+ * Validates that the name is a properly formatted BinaryFnNames.
+ */
+function isPlugDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNames } {
+  if (!(value && typeof value === 'object' && 'name' in value && typeof value.name === 'string')) {
+    return false;
+  }
+  // Verify it's a valid BinaryFnNames by checking if getBinaryFnReturnType can parse it
+  return getBinaryFnReturnType(value.name as BinaryFnNames) !== null;
+}
+
+/**
+ * Type guard to check if a TapDef has a sequence property.
+ */
+function isTapDefWithSequence(value: unknown): value is { sequence: unknown[] } {
+  return !!(value && typeof value === 'object' && 'sequence' in value && Array.isArray(value.sequence));
+}
+
+/**
+ * Type guard to check if a value has a symbol property of type BaseTypeSymbol.
+ */
+function hasSymbolProperty(value: unknown): value is { symbol: BaseTypeSymbol } {
+  return !!(value && typeof value === 'object' && 'symbol' in value && isBaseTypeSymbol(value.symbol));
+}
+
+/**
+ * Type guard to check if an entry has both name and transformFn properties.
+ */
+function hasNameAndTransformFn(entry: unknown): entry is { name: string; transformFn: unknown } {
+  return !!(entry && typeof entry === 'object' && 'name' in entry && typeof entry.name === 'string' && 'transformFn' in entry);
+}
+
+/**
+ * Type guard to check if an entry has a conditionId property.
+ */
+function hasConditionId(entry: unknown): entry is { conditionId: string } {
+  return !!(entry && typeof entry === 'object' && 'conditionId' in entry && typeof entry.conditionId === 'string');
+}
+
+/**
+ * Type guard to check if an entry has a specific branch property (trueBranchId or falseBranchId).
+ */
+function hasBranchId<K extends string>(entry: unknown, branchKey: K): entry is Record<K, string> {
+  return !!(entry && typeof entry === 'object' && branchKey in entry && typeof (entry as Record<K, unknown>)[branchKey] === 'string');
 }
 
 // ----------------------------------------------------------------------------
@@ -221,36 +267,6 @@ function defineIdExistsInContext(
   );
 }
 
-// ----------------------------------------------------------------------------
-// Predicate Guards (Shape check + custom validation)
-// ----------------------------------------------------------------------------
-
-/**
- * Type guard for ValueId with additional custom validation via predicate.
- * Combines shape check with caller-provided validation logic.
- */
-function valueIdWith(value: unknown, predicate: () => boolean): value is ValueId {
-  if (typeof value !== 'string') return false;
-  return predicate();
-}
-
-/**
- * Type guard for FuncId with additional custom validation via predicate.
- * Combines shape check with caller-provided validation logic.
- */
-function funcIdWith(value: unknown, predicate: () => boolean): value is FuncId {
-  if (typeof value !== 'string') return false;
-  return predicate();
-}
-
-/**
- * Type guard for DefineId with additional custom validation via predicate.
- * Combines shape check with caller-provided validation logic.
- */
-function defineIdWith(value: unknown, predicate: () => boolean): value is PlugDefineId | TapDefineId | CondDefineId {
-  if (typeof value !== 'string') return false;
-  return predicate();
-}
 
 // ============================================================================
 // Task 3: Type Environment Separation
@@ -273,9 +289,8 @@ function buildTypeEnvironment(
   // Infer types from valueTable
   if (context.valueTable) {
     for (const [valueId, value] of Object.entries(context.valueTable)) {
-      if (valueIdWith(valueId, () => !!(value && typeof value === 'object' && 'symbol' in value && isBaseTypeSymbol(value.symbol)))) {
-        // value is validated by predicate, safe to access
-        env.set(valueId, (value as { symbol: BaseTypeSymbol }).symbol);
+      if (hasSymbolProperty(value) && hasValueIdShape(valueId)) {
+        env.set(valueId, value.symbol);
       }
     }
   }
@@ -304,28 +319,21 @@ function inferFuncType(
 
   // Check if it's a PlugFunc with a binary function name
   const plugDef = context.plugFuncDefTable?.[defId];
-  if (defineIdWith(defId, () =>
-    !!(plugDef && typeof plugDef === 'object' && 'name' in plugDef && typeof plugDef.name === 'string')
-  )) {
-    return getBinaryFnReturnType((plugDef as { name: string }).name as BinaryFnNames);
+  if (isPlugDefWithBinaryFnName(plugDef)) {
+    return getBinaryFnReturnType(plugDef.name);
   }
 
   // Check if it's a TapFunc
   const tapDef = context.tapFuncDefTable?.[defId];
-  if (defineIdWith(defId, () =>
-    !!(tapDef && typeof tapDef === 'object' && 'sequence' in tapDef && Array.isArray(tapDef.sequence))
-  )) {
-    const sequence = (tapDef as { sequence: unknown[] }).sequence;
-    if (sequence.length === 0) return null;
+  if (isTapDefWithSequence(tapDef)) {
+    if (tapDef.sequence.length === 0) return null;
 
-    const lastStep = sequence[sequence.length - 1];
+    const lastStep = tapDef.sequence[tapDef.sequence.length - 1];
     if (lastStep && typeof lastStep === 'object' && 'defId' in lastStep) {
       const lastStepDefId = lastStep.defId as string;
       const lastStepPlugDef = context.plugFuncDefTable?.[lastStepDefId];
-      if (defineIdWith(lastStepDefId, () =>
-        !!(lastStepPlugDef && typeof lastStepPlugDef === 'object' && 'name' in lastStepPlugDef && typeof lastStepPlugDef.name === 'string')
-      )) {
-        return getBinaryFnReturnType((lastStepPlugDef as { name: string }).name as BinaryFnNames);
+      if (isPlugDefWithBinaryFnName(lastStepPlugDef)) {
+        return getBinaryFnReturnType(lastStepPlugDef.name);
       }
     }
     return null;
@@ -562,7 +570,7 @@ function validatePlugFuncTypes(
     let actualType = state.typeEnv.get(argId);
 
     // If not in env, try to infer from funcTable
-    if (funcIdWith(argId, () => !actualType && argId in (context.funcTable || {}))) {
+    if (!actualType && hasFuncIdShape(argId) && funcIdExistsInContext(argId, context)) {
       const inferredType = inferFuncType(argId, context);
       if (inferredType) {
         actualType = inferredType;
@@ -653,10 +661,8 @@ function validatePlugDefEntry(
   }
 
   // Validate binary function compatibility
-  if (defineIdWith(defId, () =>
-    !!('name' in entry && typeof entry.name === 'string' && 'transformFn' in entry)
-  )) {
-    validateBinaryFnCompatibility(defId, (entry as { name: string }).name, transformFn, state);
+  if (hasNameAndTransformFn(entry)) {
+    validateBinaryFnCompatibility(defId, entry.name, transformFn, state);
   }
 
   // Check if definition is referenced
@@ -847,10 +853,8 @@ function validateCondDefEntry(
   const entry = def;
 
   // Validate condition ID
-  if (defineIdWith(defId, () =>
-    !!('conditionId' in entry && typeof entry.conditionId === 'string')
-  )) {
-    const conditionId = (entry as { conditionId: string }).conditionId;
+  if (hasConditionId(entry)) {
+    const conditionId = entry.conditionId;
 
     // Check if it's a valid ValueId or FuncId
     const isValue = valueIdExistsInContext(conditionId, context);
@@ -868,11 +872,9 @@ function validateCondDefEntry(
   }
 
   // Validate branch IDs
-  for (const branchKey of ['trueBranchId', 'falseBranchId']) {
-    if (defineIdWith(defId, () =>
-      !!(branchKey in entry && typeof entry[branchKey] === 'string')
-    )) {
-      const branchId = (entry as Record<string, string>)[branchKey];
+  for (const branchKey of ['trueBranchId', 'falseBranchId'] as const) {
+    if (hasBranchId(entry, branchKey)) {
+      const branchId = entry[branchKey];
       if (!funcIdExistsInContext(branchId, context)) {
         state.errors.push({
           message: `CondFuncDefTable[${defId}].${branchKey}: Referenced FuncId ${branchId} does not exist`,
