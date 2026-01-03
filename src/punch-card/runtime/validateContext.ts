@@ -174,10 +174,17 @@ function hasBranchId<K extends string>(entry: unknown, branchKey: K): entry is R
 // ----------------------------------------------------------------------------
 
 /**
- * Generic type guard to narrow unknown values to string-based branded types.
- * Used for ValueId, FuncId, DefineId, TransformFnNames, BinaryFnNames, etc.
+ * Type guard that checks if a value is a string and narrows it to a branded type.
+ *
+ * This only checks typeof === 'string' - it does NOT validate brand invariants.
+ * Use *ExistsInContext guards for semantic validation.
+ *
+ * @example
+ * if (isStringAs<ValueId>(valueId)) {
+ *   // TypeScript knows valueId is ValueId (a string)
+ * }
  */
-function isNarrowableTo<T>(value: unknown): value is T {
+function isStringAs<T>(value: unknown): value is T {
   return typeof value === 'string';
 }
 
@@ -257,7 +264,7 @@ function buildTypeEnvironment(
   // Infer types from valueTable
   if (context.valueTable) {
     for (const [valueId, value] of Object.entries(context.valueTable)) {
-      if (hasSymbolProperty(value) && isNarrowableTo<ValueId>(valueId)) {
+      if (hasSymbolProperty(value) && isStringAs<ValueId>(valueId)) {
         env.set(valueId, value.symbol);
       }
     }
@@ -473,7 +480,7 @@ function validateFuncEntry(
   }
 
   // Validate returnId
-  if ('returnId' in entry && isNarrowableTo<ValueId>(entry.returnId)) {
+  if ('returnId' in entry && isStringAs<ValueId>(entry.returnId)) {
     state.returnIds.add(entry.returnId);
   }
 
@@ -524,7 +531,7 @@ function validatePlugFuncTypes(
 
   // Validate each argument
   for (const [argName, tfn] of Object.entries(transformFn)) {
-    if (!isRecord(tfn) || !('name' in tfn) || !isNarrowableTo<TransformFnNames>(tfn.name)) {
+    if (!isRecord(tfn) || !('name' in tfn) || !isStringAs<TransformFnNames>(tfn.name)) {
       continue;
     }
 
@@ -532,13 +539,13 @@ function validatePlugFuncTypes(
     const expectedType = getTransformFnInputType(transformFnName);
 
     const argId = argMap[argName];
-    if (!isNarrowableTo<ValueId>(argId)) continue;
+    if (!isStringAs<ValueId>(argId)) continue;
 
     // Get actual type from type environment
     let actualType = state.typeEnv.get(argId);
 
     // If not in env, try to infer from funcTable
-    if (!actualType && isNarrowableTo<FuncId>(argId) && funcIdExistsInContext(argId, context)) {
+    if (!actualType && isStringAs<FuncId>(argId) && funcIdExistsInContext(argId, context)) {
       const inferredType = inferFuncType(argId, context);
       if (inferredType) {
         actualType = inferredType;
@@ -608,7 +615,7 @@ function validatePlugDefEntry(
     }
 
     const tfn = transformFn[key];
-    if (!('name' in tfn) || !isNarrowableTo<TransformFnNames>(tfn.name)) {
+    if (!('name' in tfn) || !isStringAs<TransformFnNames>(tfn.name)) {
       state.errors.push({
         message: `PlugFuncDefTable[${defId}]: Transform function '${key}' missing name`,
         details: { defId },
@@ -634,7 +641,7 @@ function validatePlugDefEntry(
   }
 
   // Check if definition is referenced
-  if (isNarrowableTo<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (isStringAs<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
     state.warnings.push({
       message: `PlugFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -651,7 +658,7 @@ function validateBinaryFnCompatibility(
   transformFn: Record<string, unknown>,
   state: ValidationState
 ): void {
-  if (!isNarrowableTo<BinaryFnNames>(binaryFnName)) return;
+  if (!isStringAs<BinaryFnNames>(binaryFnName)) return;
 
   const paramTypes = getBinaryFnParamTypes(binaryFnName);
   if (!paramTypes) return;
@@ -661,7 +668,7 @@ function validateBinaryFnCompatibility(
   // Check transform 'a'
   if ('a' in transformFn && isRecord(transformFn.a)) {
     const tfnA = transformFn.a;
-    if ('name' in tfnA && isNarrowableTo<TransformFnNames>(tfnA.name)) {
+    if ('name' in tfnA && isStringAs<TransformFnNames>(tfnA.name)) {
       const returnType = getTransformFnReturnType(tfnA.name);
       if (returnType && returnType !== expectedParamA) {
         state.errors.push({
@@ -681,7 +688,7 @@ function validateBinaryFnCompatibility(
   // Check transform 'b'
   if ('b' in transformFn && isRecord(transformFn.b)) {
     const tfnB = transformFn.b;
-    if ('name' in tfnB && isNarrowableTo<TransformFnNames>(tfnB.name)) {
+    if ('name' in tfnB && isStringAs<TransformFnNames>(tfnB.name)) {
       const returnType = getTransformFnReturnType(tfnB.name);
       if (returnType && returnType !== expectedParamB) {
         state.errors.push({
@@ -793,7 +800,7 @@ function validateTapDefEntry(
   }
 
   // Check if definition is referenced
-  if (isNarrowableTo<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (isStringAs<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
     state.warnings.push({
       message: `TapFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -853,7 +860,7 @@ function validateCondDefEntry(
   }
 
   // Check if definition is referenced
-  if (isNarrowableTo<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (isStringAs<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
     state.warnings.push({
       message: `CondFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -871,7 +878,7 @@ function checkUnreferencedValues(
   if (!context.valueTable) return;
 
   for (const valueId of Object.keys(context.valueTable)) {
-    if (isNarrowableTo<ValueId>(valueId) && !state.referencedValues.has(valueId)) {
+    if (isStringAs<ValueId>(valueId) && !state.referencedValues.has(valueId)) {
       state.warnings.push({
         message: `ValueTable[${valueId}]: Value is never referenced`,
         details: { valueId },
