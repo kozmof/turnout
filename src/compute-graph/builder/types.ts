@@ -85,7 +85,6 @@ export type TransformRef = {
  */
 export type PipeArg = {
   readonly name: string;
-  readonly type: 'number' | 'string' | 'boolean' | 'array';
 };
 
 /**

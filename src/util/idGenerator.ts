@@ -6,6 +6,14 @@ import type {
   CondDefineId,
   InterfaceArgId,
 } from '../compute-graph/types';
+import {
+  createValueId,
+  createFuncId,
+  createCombineDefineId,
+  createPipeDefineId,
+  createCondDefineId,
+  createInterfaceArgId,
+} from '../compute-graph/idValidation';
 
 /**
  * ID generation strategy using random hex strings with type prefixes.
@@ -21,35 +29,6 @@ import type {
  */
 
 type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ia';
-
-// Import branded type creators from context
-// These will be imported dynamically to avoid circular dependencies
-let createValueId: (id: string) => ValueId;
-let createFuncId: (id: string) => FuncId;
-let createCombineDefineId: (id: string) => CombineDefineId;
-let createPipeDefineId: (id: string) => PipeDefineId;
-let createCondDefineId: (id: string) => CondDefineId;
-let createInterfaceArgId: (id: string) => InterfaceArgId;
-
-/**
- * Initialize the ID generator with branded type creators.
- * This must be called before using the generator to avoid circular dependencies.
- */
-export function initializeIdGenerator(creators: {
-  createValueId: (id: string) => ValueId;
-  createFuncId: (id: string) => FuncId;
-  createCombineDefineId: (id: string) => CombineDefineId;
-  createPipeDefineId: (id: string) => PipeDefineId;
-  createCondDefineId: (id: string) => CondDefineId;
-  createInterfaceArgId: (id: string) => InterfaceArgId;
-}): void {
-  createValueId = creators.createValueId;
-  createFuncId = creators.createFuncId;
-  createCombineDefineId = creators.createCombineDefineId;
-  createPipeDefineId = creators.createPipeDefineId;
-  createCondDefineId = creators.createCondDefineId;
-  createInterfaceArgId = creators.createInterfaceArgId;
-}
 
 /**
  * Generates a random 8-character hex string.
@@ -71,44 +50,26 @@ export const IdGenerator = {
   },
 
   generateValueId(): ValueId {
-    if (!createValueId) {
-      throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
-    }
     return createValueId(IdGenerator.generate('v'));
   },
 
   generateFuncId(): FuncId {
-    if (!createFuncId) {
-      throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
-    }
     return createFuncId(IdGenerator.generate('f'));
   },
 
   generateCombineDefineId(): CombineDefineId {
-    if (!createCombineDefineId) {
-      throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
-    }
     return createCombineDefineId(IdGenerator.generate('pd'));
   },
 
   generatePipeDefineId(): PipeDefineId {
-    if (!createPipeDefineId) {
-      throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
-    }
     return createPipeDefineId(IdGenerator.generate('td'));
   },
 
   generateCondDefineId(): CondDefineId {
-    if (!createCondDefineId) {
-      throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
-    }
     return createCondDefineId(IdGenerator.generate('cd'));
   },
 
   generateInterfaceArgId(): InterfaceArgId {
-    if (!createInterfaceArgId) {
-      throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
-    }
     return createInterfaceArgId(IdGenerator.generate('ia'));
   },
 } as const;

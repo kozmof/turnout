@@ -34,8 +34,13 @@ function getReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId,
 export function buildExecutionTree(
   nodeId: NodeId,
   context: ExecutionContext,
-  visited: Set<NodeId> = new Set()
+  visited: Set<NodeId> = new Set(),
+  memo: Map<NodeId, ExecutionTree> = new Map()
 ): ExecutionTree {
+  // Return cached result for shared DAG nodes (diamond patterns)
+  const cached = memo.get(nodeId);
+  if (cached !== undefined) return cached;
+
   // Detect cycles (shouldn't happen in valid trees, but check anyway)
   // A cycle exists if we're currently visiting this node (in our ancestor chain)
   if (visited.has(nodeId)) {
@@ -46,7 +51,9 @@ export function buildExecutionTree(
   visited.add(nodeId);
 
   try {
-    return buildExecutionTreeInternal(nodeId, context, visited);
+    const result = buildExecutionTreeInternal(nodeId, context, visited, memo);
+    memo.set(nodeId, result);
+    return result;
   } finally {
     // Clean up: remove from visited set after processing
     // This allows sibling branches to visit the same node without false cycles
@@ -57,7 +64,8 @@ export function buildExecutionTree(
 function buildExecutionTreeInternal(
   nodeId: NodeId,
   context: ExecutionContext,
-  visited: Set<NodeId>
+  visited: Set<NodeId>,
+  memo: Map<NodeId, ExecutionTree>
 ): ExecutionTree {
 
   // Get the returnId -> FuncId mapping (pre-computed or on-demand)
@@ -70,7 +78,7 @@ function buildExecutionTreeInternal(
     // Check if this value is produced by another function
     const producerFuncId = returnIdToFuncId.get(valueId);
     if (producerFuncId !== undefined) {
-      return buildExecutionTree(producerFuncId, context, visited);
+      return buildExecutionTree(producerFuncId, context, visited, memo);
     }
 
     // Otherwise, it's a pre-defined value
@@ -102,9 +110,9 @@ function buildExecutionTreeInternal(
     // Build trees for condition and both branches
     // Each branch can visit the same nodes independently (no false cycle detection)
     // because visited set is cleaned up after each subtree completes
-    const conditionTree = buildExecutionTree(condDef.conditionId, context, visited);
-    const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, visited);
-    const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, visited);
+    const conditionTree = buildExecutionTree(condDef.conditionId, context, visited, memo);
+    const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, visited, memo);
+    const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, visited, memo);
 
     const conditionalNode: ConditionalNode = {
       nodeType: 'conditional',
@@ -124,7 +132,7 @@ function buildExecutionTreeInternal(
   // Each child can independently visit the same nodes because visited set
   // is cleaned up after each child completes
   for (const argId of Object.values(funcEntry.argMap)) {
-    const childTree = buildExecutionTree(argId, context, visited);
+    const childTree = buildExecutionTree(argId, context, visited, memo);
     children.push(childTree);
   }
 

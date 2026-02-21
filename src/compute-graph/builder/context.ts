@@ -48,25 +48,11 @@ import type {
 } from '../../state-control/preset-funcs/array/transformFn';
 import { splitPairBinaryFnNames } from '../../util/splitPair';
 import { NAMESPACE_DELIMITER } from '../../util/constants';
-import { IdGenerator, initializeIdGenerator } from '../../util/idGenerator';
+import { IdGenerator } from '../../util/idGenerator';
 import {
   createValueId,
   createFuncId,
-  createCombineDefineId,
-  createPipeDefineId,
-  createCondDefineId,
-  createInterfaceArgId,
 } from '../idValidation';
-
-// Initialize IdGenerator with branded type creators from centralized module
-initializeIdGenerator({
-  createValueId,
-  createFuncId,
-  createCombineDefineId,
-  createPipeDefineId,
-  createCondDefineId,
-  createInterfaceArgId,
-});
 
 /**
  * ID Factory - Generates hash-based IDs and tracks metadata.
@@ -608,13 +594,6 @@ function processFunction(
   }
 }
 
-/**
- * Standard argument structure for binary combine functions
- */
-const BINARY_INTERFACE_ARG_IDS = {
-  a: createInterfaceArgId('ia1'),
-  b: createInterfaceArgId('ia2'),
-} as const;
 
 /**
  * Processes a CombineFunc builder.
@@ -761,7 +740,10 @@ function buildCombineDefinition(
       a: transformFnMap['a'],
       b: transformFnMap['b'],
     },
-    args: BINARY_INTERFACE_ARG_IDS,
+    args: {
+      a: IdGenerator.generateInterfaceArgId(),
+      b: IdGenerator.generateInterfaceArgId(),
+    },
   };
 }
 
@@ -853,7 +835,7 @@ function buildPipeStepBinding(
   const argBindings = buildStepArgBindings(step, pipeBuilder, state);
 
   // Infer transform functions for each argument
-  const transformFnMap = buildStepTransformMap(step);
+  const transformFnMap = buildStepTransformMap(step, pipeBuilder);
 
   // Add combine definition to table (reuse buildCombineDefinition for consistency)
   state.combineFuncDefTable[stepDefId] = buildCombineDefinition(step.name, transformFnMap);
@@ -951,15 +933,25 @@ function resolveArgBinding(
 /**
  * Builds transform function map for a step
  */
-function buildStepTransformMap(step: CombineBuilder): Record<string, { name: TransformFnNames }> {
+function buildStepTransformMap(
+  step: CombineBuilder,
+  pipeBuilder: PipeBuilder
+): Record<string, { name: TransformFnNames }> {
   const transformFnMap: Record<string, { name: TransformFnNames }> = {};
 
   for (const [argName, ref] of Object.entries(step.args)) {
     if (isTransformRef(ref)) {
       transformFnMap[argName] = { name: ref.transformFn };
+    } else if (isStepOutputRef(ref)) {
+      // Infer transform from the referenced step's return type, not the current step's namespace
+      const referencedStep = pipeBuilder.steps[ref.stepIndex];
+      const transform =
+        referencedStep?.__type === 'combine'
+          ? inferTransformForBinaryFn(referencedStep.name)
+          : getPassTransformFn('number'); // fallback: nested pipe steps not yet typed
+      transformFnMap[argName] = { name: transform };
     } else {
-      const inferredTransform = inferTransformForBinaryFn(step.name);
-      transformFnMap[argName] = { name: inferredTransform };
+      transformFnMap[argName] = { name: inferTransformForBinaryFn(step.name) };
     }
   }
 

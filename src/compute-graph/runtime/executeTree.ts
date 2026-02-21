@@ -42,8 +42,17 @@ export function executeTree(
       valueTable: conditionResult.updatedValueTable,
     };
 
+    // Verify condition is boolean before selecting branch
+    const conditionValue = conditionResult.value;
+    if (conditionValue.symbol !== 'boolean') {
+      throw createFunctionExecutionError(
+        funcId,
+        `Condition must evaluate to boolean, got ${conditionValue.symbol}`
+      );
+    }
+
     // Execute the appropriate branch based on condition
-    const branchResult = conditionResult.value.value
+    const branchResult = conditionValue.value
       ? executeTree(tree.trueBranchTree, currentContext)
       : executeTree(tree.falseBranchTree, currentContext);
 
@@ -57,7 +66,7 @@ export function executeTree(
     const condFuncResult = executeCondFunc(
       funcId,
       currentContext,
-      conditionResult.value,
+      conditionValue,
       branchResult.value,
       branchResult.value // both are the same since we only executed one
     );

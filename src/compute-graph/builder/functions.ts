@@ -62,7 +62,6 @@ export function pipe(
   // Infer args from argBindings keys
   const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
     name,
-    type: 'number' as const, // Default (unused at runtime anyway)
   }));
 
   return {

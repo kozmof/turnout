@@ -79,7 +79,6 @@ export type TagSymbol = string;
  * // result = a + b has tags ['random', 'cached']
  * ```
  *
- * See `propagateTags` in `preset-funcs/util/propagateTags.ts` for details.
  *
  * @template T - The JavaScript type of the value (number, string, boolean, or AnyValue[])
  * @template BaseType - The type symbol ('number', 'string', 'boolean', 'array')

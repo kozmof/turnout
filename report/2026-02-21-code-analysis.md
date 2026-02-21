@@ -259,18 +259,13 @@ assertValidContext(context); // throws if invalid
 
 ## 5. Pitfalls
 
-### P-1: IdGenerator requires initialization before use
+### ~~P-1: IdGenerator requires initialization before use~~ ✓ Fixed
 
-**File:** [src/util/idGenerator.ts](../src/util/idGenerator.ts)
-**File:** [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts#L62-L69)
+Removed `initializeIdGenerator` and the module-level `let` variables from [src/util/idGenerator.ts](../src/util/idGenerator.ts). `IdGenerator` now imports the branded creators (`createValueId`, `createFuncId`, etc.) directly from [src/compute-graph/idValidation.ts](../src/compute-graph/idValidation.ts), eliminating the fragile side-effect initialization. The `initializeIdGenerator` call and import were removed from [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts).
 
-`IdGenerator` uses module-level mutable variables that must be populated by `initializeIdGenerator()`. This call is made as a side effect when `context.ts` is imported. If `executePipeFunc.ts` or `idValidation.ts` is imported in isolation (e.g. in tests that skip the builder), and `IdGenerator.generate*Id()` is called, it will throw a runtime error with the message `"IdGenerator not initialized"`. This pattern is fragile.
+### ~~P-2: `propagateTags` is defined but unused in preset functions~~ ✓ Fixed
 
-### P-2: `propagateTags` is defined but unused in preset functions
-
-**File:** [src/state-control/preset-funcs/util/propagateTags.ts](../src/state-control/preset-funcs/util/propagateTags.ts)
-
-`propagateTags` is exported and well-documented, but none of the actual preset functions (`bfNumber`, `bfString`, etc.) import it. All binary operations use `binaryNumberOp` / `binaryBooleanOp` etc. from `value-builders.ts`, which call the internal `mergeTags` function. The exported `propagateTags` and the internal `mergeTags` are functionally equivalent but maintained separately — a duplication risk.
+Deleted `src/state-control/preset-funcs/util/propagateTags.ts`. No code imported it — all binary/transform ops already use `mergeTags` inside [src/state-control/value-builders.ts](../src/state-control/value-builders.ts). Also removed the stale JSDoc reference to the file from `value.ts`.
 
 ### P-3: Boolean values have no dedicated transform namespace
 
@@ -326,24 +321,19 @@ throw new Error();  // no message
 
 This makes debugging nested KV update failures very hard. The error provides no context about which key path triggered the exception.
 
-### P-8: `meta-chain/types.ts` is marked as deprecated
+### ~~P-8: `meta-chain/types.ts` is marked as deprecated~~ ✓ Fixed
 
-**File:** [src/state-control/meta-chain/types.ts](../src/state-control/meta-chain/types.ts)
+Deleted four dead files that were never imported outside the `meta-chain/` directory:
+- `binary-fn/getResultType.ts`
+- `transform-fn/getResultType.ts`
+- `binary-fn/getBinaryFn.ts`
+- `transform-fn/getTransformFn.ts`
 
-The `// Maybe deprecated` comment at the top indicates this file may be dead code. `ElemType` is only re-exported and consumed by `metaReturn.ts` in the same directory. If `getResultType.ts` files are also unused (they exist but are not imported by the main codebase), they represent orphaned code.
+Stripped [src/state-control/meta-chain/types.ts](../src/state-control/meta-chain/types.ts) down to only `ElemType` (the one export consumed by `metaReturn.ts`), removing the `// Maybe deprecated` comment and the five unused helper functions (`numberType`, `stringType`, `booleanType`, `arrayType`, `someType`).
 
-### P-9: `PipeArg.type` field is never used at runtime
+### ~~P-9: `PipeArg.type` field is never used at runtime~~ ✓ Fixed
 
-**File:** [src/compute-graph/builder/functions.ts:66](../src/compute-graph/builder/functions.ts#L66)
-
-```typescript
-const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
-  name,
-  type: 'number' as const, // Default (unused at runtime anyway)
-}));
-```
-
-`PipeArg.type` exists in the type definition but is hardcoded to `'number'` and never read during execution. The field is extraneous in the current design.
+Resolved by the T-2 fix — `PipeArg.type` was removed from the type definition and the hardcoded assignment was dropped from `pipe()`.
 
 ### P-10: `validateContext` ordering affects accuracy
 
@@ -367,19 +357,13 @@ There is no consolidated public API entry point at `src/`. The `compute-graph/in
 
 **Recommendation:** If unused, remove to reduce dead code. If planned for future use, document the intent.
 
-### D-3: `IdGenerator` initialization pattern
+### ~~D-3: `IdGenerator` initialization pattern~~ ✓ Fixed
 
-The current pattern (module side-effect in `context.ts`) creates an implicit dependency ordering. Any module that calls `IdGenerator.generate*Id()` without first importing `context.ts` will fail at runtime.
+Resolved by the P-1 fix — `idGenerator.ts` now imports creators directly from `idValidation.ts`.
 
-**Recommendation:** Remove the initialization indirection. Since the branded ID creators (`createValueId`, etc.) are simple casts, `IdGenerator` can import them directly without circular dependency by inverting the dependency — having `idGenerator.ts` import from `idValidation.ts`.
+### ~~D-4: `propagateTags` vs `mergeTags` duplication~~ ✓ Fixed
 
-### D-4: `propagateTags` vs `mergeTags` duplication
-
-Two implementations of tag union logic exist:
-- `propagateTags` in `src/state-control/preset-funcs/util/propagateTags.ts` (public, accepts nullable `b`)
-- `mergeTags` in `src/state-control/value-builders.ts` (private, variadic)
-
-**Recommendation:** Consolidate to one utility. `value-builders.ts` already owns the tag-merge logic used by all builders; `propagateTags` can either be removed or made to delegate.
+Resolved by the P-2 fix — `propagateTags.ts` was deleted; `mergeTags` in `value-builders.ts` is the single implementation.
 
 ### D-5: No `src/` root module entry point in `package.json`
 
@@ -402,16 +386,9 @@ const GRAPH_ERROR_KINDS = new Set(['missingDependency', 'missingDefinition', ...
 error instanceof Error && 'kind' in error && GRAPH_ERROR_KINDS.has(error.kind as string)
 ```
 
-### T-2: `PipeArg` type has a dead field
+### ~~T-2: `PipeArg` type has a dead field~~ ✓ Fixed
 
-```typescript
-export type PipeArg = {
-  readonly name: string;
-  readonly type: 'number' | 'string' | 'boolean' | 'array'; // never used
-};
-```
-
-`type` is always hardcoded to `'number'` in the builder and never read anywhere. If the intent is future type-checking of pipeline arguments, it should be documented; otherwise the field should be removed.
+Removed the dead `type` field from `PipeArg` in [src/compute-graph/builder/types.ts](../src/compute-graph/builder/types.ts#L86-L88) and the corresponding hardcoded `type: 'number' as const` from the `pipe()` builder in [src/compute-graph/builder/functions.ts](../src/compute-graph/builder/functions.ts#L63-L65). `PipeArg` now only carries `name`.
 
 ### T-3: `UnknownValue` could be expressed more cleanly
 
@@ -465,42 +442,21 @@ return bfArray[fnName] as AnyToAny;
 
 If `fnName` is not a key of `bfArray`, this will produce `undefined` at runtime but TypeScript won't flag it. The switch case exhausts all known namespaces but doesn't guard against unknown `fnName` values within a namespace.
 
-### I-3: `executeTree.ts` double `.value` access is confusing
+### ~~I-3: `executeTree.ts` double `.value` access is confusing~~ ✓ Fixed
 
-**File:** [src/compute-graph/runtime/executeTree.ts:46](../src/compute-graph/runtime/executeTree.ts#L46)
+Extracted `conditionResult.value` to `conditionValue: AnyValue` in [src/compute-graph/runtime/executeTree.ts](../src/compute-graph/runtime/executeTree.ts). Added an explicit `symbol !== 'boolean'` guard before branch selection (throwing `createFunctionExecutionError` early, before the wrong branch could execute). The ternary now reads `conditionValue.value` — one dereference, clearly the raw JS boolean.
 
-```typescript
-const branchResult = conditionResult.value.value  // AnyValue.value (the JS boolean)
-  ? executeTree(tree.trueBranchTree, currentContext)
-  : executeTree(tree.falseBranchTree, currentContext);
-```
+### ~~I-4: `buildExecutionTree` sets and cleans `visited` within a try/finally — DAG vs tree~~ ✓ Fixed
 
-`conditionResult.value` is `AnyValue`, and `.value` on `AnyValue` is the raw JavaScript value. The chain `conditionResult.value.value` reads as confusing. There is also no assertion that `conditionResult.value.symbol === 'boolean'` at this call site (the check exists in `executeCondFunc`, but the branch selection happens before that call).
+Added an optional `memo: Map<NodeId, ExecutionTree>` parameter (defaulting to `new Map()`) to `buildExecutionTree` in [src/compute-graph/runtime/buildExecutionTree.ts](../src/compute-graph/runtime/buildExecutionTree.ts). The cache is checked before visiting a node; the built subtree is stored in the cache before returning. `memo` is propagated through `buildExecutionTreeInternal` and all four recursive `buildExecutionTree` calls. External callers are unaffected (parameter is optional).
 
-### I-4: `buildExecutionTree` sets and cleans `visited` within a try/finally — DAG vs tree
+### ~~I-5: `processPipeFunc` ignores `PipeBuilder.args` for type information~~ ✓ Fixed
 
-**File:** [src/compute-graph/runtime/buildExecutionTree.ts:41-54](../src/compute-graph/runtime/buildExecutionTree.ts#L41-L54)
+`buildStepTransformMap` in [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts) now accepts `pipeBuilder: PipeBuilder`. When a step argument is a `StepOutputRef`, the function looks up `pipeBuilder.steps[ref.stepIndex]` and calls `inferTransformForBinaryFn` on the *referenced* step's function name — giving the correct pass-transform type instead of always defaulting to `'number'`. The sole call site in `buildPipeStepBinding` was updated to pass `pipeBuilder`.
 
-The visited-set cleanup after each subtree means a node can be visited multiple times (sibling DAG sharing). This is intentional for diamond patterns, but re-execution of shared nodes is O(n) per reference rather than O(1) with memoization. Graphs with many shared intermediate values may be unnecessarily expensive to construct.
+### ~~I-6: `BINARY_INTERFACE_ARG_IDS` reuses hardcoded IDs across all combine definitions~~ ✓ Fixed
 
-### I-5: `processPipeFunc` ignores `PipeBuilder.args` for type information
-
-**File:** [src/compute-graph/builder/context.ts:771-795](../src/compute-graph/builder/context.ts#L771-L795)
-
-The `PipeBuilder.args` array (which holds `{ name, type }`) is iterated only to extract the `name`. The `type` field is never read. Since step transform inference falls back to `'number'` for step outputs, pipeline steps producing non-number types that are referenced later will silently receive the wrong transform.
-
-### I-6: `BINARY_INTERFACE_ARG_IDS` reuses hardcoded IDs across all combine definitions
-
-**File:** [src/compute-graph/builder/context.ts:614-617](../src/compute-graph/builder/context.ts#L614-L617)
-
-```typescript
-const BINARY_INTERFACE_ARG_IDS = {
-  a: createInterfaceArgId('ia1'),
-  b: createInterfaceArgId('ia2'),
-} as const;
-```
-
-All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia2`). This works currently because `InterfaceArgId` is not used for runtime lookup, but it defeats the purpose of the `InterfaceArgId` brand and makes the validation surface of `InterfaceArgId` meaningless.
+Removed the `BINARY_INTERFACE_ARG_IDS` constant from [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts). `buildCombineDefinition` now calls `IdGenerator.generateInterfaceArgId()` twice per invocation, producing a unique `InterfaceArgId` pair for every combine definition. Dropped the now-unused `createInterfaceArgId` import.
 
 ---
 
@@ -521,7 +477,7 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 
 1. [src/state-control/value.ts](../src/state-control/value.ts) — `Value<T,BaseType,SubType,Tags>`, type guards (`isNumber`, `isArray`, etc.)
 2. [src/state-control/value-builders.ts](../src/state-control/value-builders.ts) — `buildNumber`, `binaryNumberOp`, tag merging
-3. [src/state-control/preset-funcs/util/propagateTags.ts](../src/state-control/preset-funcs/util/propagateTags.ts) — Tag semantics
+3. [src/state-control/value-builders.ts](../src/state-control/value-builders.ts) — Tag merging via `mergeTags` (internal), `binaryNumberOp`, `unaryNumberOp`, etc.
 4. [src/state-control/preset-funcs/number/binaryFn.ts](../src/state-control/preset-funcs/number/binaryFn.ts) — Concrete function implementations
 
 ### Learning Path: Using the Builder API
@@ -560,5 +516,5 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 | Error Handling | ★★★☆☆ | Discriminated error types good; guards too broad |
 | Test Coverage | ★★★☆☆ | Integration and unit tests present, coverage unknown |
 | Documentation | ★★★★☆ | JSDoc present on key functions; design rationale documented |
-| Dead Code | ★★★☆☆ | `flatKV.ts`, `propagateTags`, `meta-chain/types.ts`, `PipeArg.type` |
+| Dead Code | ★★★★☆ | `flatKV.ts` remaining; `meta-chain` orphans, `propagateTags`, `PipeArg.type` removed |
 | Known Gaps | ★★☆☆☆ | CondFunc in PipeFunc unimplemented; step type inference broken for non-number |
