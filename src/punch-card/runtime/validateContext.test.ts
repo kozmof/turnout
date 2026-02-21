@@ -58,7 +58,7 @@ describe('validateContext', () => {
             argMap: { a: 'v1' as ValueId, b: 'v1' as ValueId },
             returnId: 'v2' as ValueId,
           },
-          tap1: {
+          pipe1: {
             defId: 'td1' as PipeDefineId,
             argMap: { x: 'v1' as ValueId },
             returnId: 'v3' as ValueId,
@@ -256,7 +256,7 @@ describe('validateContext', () => {
       const context: ExecutionContext = {
         valueTable: {} as any,
         funcTable: {
-          tap1: {
+          pipe1: {
             defId: 'td1' as PipeDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,
@@ -282,7 +282,7 @@ describe('validateContext', () => {
       const context: ExecutionContext = {
         valueTable: {} as any,
         funcTable: {
-          tap1: {
+          pipe1: {
             defId: 'td1' as PipeDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,

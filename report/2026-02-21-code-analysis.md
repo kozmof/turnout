@@ -36,7 +36,7 @@ src/
     ├── literal-schema/                # Valibot schema: function name literals
     ├── builder/                       # High-level declarative builder API
     │   ├── context.ts                 # ctx() — Phase 1/2/3 context construction
-    │   ├── functions.ts               # plug(), tap(), cond() builders
+    │   ├── functions.ts               # combine(), pipe(), cond() builders
     │   ├── values.ts                  # val, ref helpers
     │   ├── types.ts                   # Builder type definitions
     │   └── errors.ts                  # Builder validation errors
@@ -195,7 +195,7 @@ Convert:   convertValue(fn, src, builder) → builder(fn(src.value), src.tags)
 ### Builder API Usage Pattern
 
 ```typescript
-import { ctx, plug, tap, cond, ref, val } from './punch-card/builder';
+import { ctx, combine, pipe, cond, ref, val } from './punch-card/builder';
 import { executeGraph } from './punch-card';
 
 const context = ctx({
@@ -204,14 +204,14 @@ const context = ctx({
   flag: true,
 
   // CombineFunc (binary operation)
-  sum: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+  sum: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
 
   // PipeFunc (sequential pipeline)
-  compute: tap(
+  compute: pipe(
     { x: 'v1', y: 'v2' },        // arg bindings: name → value key
     [
-      plug('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
-      plug('binaryFnNumber::add', {
+      combine('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
+      combine('binaryFnNumber::add', {
         a: ref.step('compute', 0), // output of step 0
         b: 'x'
       }),
@@ -287,7 +287,7 @@ assertValidContext(context); // throws if invalid
 return getPassTransformFn('number');
 ```
 
-When a step output is referenced by another function in the same `plug()` call (via `ref.step()`), the transform function is always inferred as `transformFnNumber::pass`, even if the step produces a string or boolean. This causes silent type mismatch if the step produces a non-number.
+When a step output is referenced by another function in the same `combine()` call (via `ref.step()`), the transform function is always inferred as `transformFnNumber::pass`, even if the step produces a string or boolean. This causes silent type mismatch if the step produces a non-number.
 
 ### P-5: Error type guards are too broad
 
@@ -489,7 +489,7 @@ The visited-set cleanup after each subtree means a node can be visited multiple 
 
 The `PipeBuilder.args` array (which holds `{ name, type }`) is iterated only to extract the `name`. The `type` field is never read. Since step transform inference falls back to `'number'` for step outputs, pipeline steps producing non-number types that are referenced later will silently receive the wrong transform.
 
-### I-6: `BINARY_INTERFACE_ARG_IDS` reuses hardcoded IDs across all plug definitions
+### I-6: `BINARY_INTERFACE_ARG_IDS` reuses hardcoded IDs across all combine definitions
 
 **File:** [src/punch-card/builder/context.ts:614-617](../src/punch-card/builder/context.ts#L614-L617)
 
@@ -527,7 +527,7 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 ### Learning Path: Using the Builder API
 
 1. [src/punch-card/builder/types.ts](../src/punch-card/builder/types.ts) — `ContextSpec`, `BuildResult`, `CombineBuilder`, `PipeBuilder`, `CondBuilder`
-2. [src/punch-card/builder/functions.ts](../src/punch-card/builder/functions.ts) — `plug()`, `tap()`, `cond()` constructors
+2. [src/punch-card/builder/functions.ts](../src/punch-card/builder/functions.ts) — `combine()`, `pipe()`, `cond()` constructors
 3. [src/punch-card/builder/values.ts](../src/punch-card/builder/values.ts) — `val`, `ref` helpers
 4. [src/punch-card/builder/context.ts](../src/punch-card/builder/context.ts) — `ctx()` three-phase processing
 

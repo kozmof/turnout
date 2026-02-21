@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ctx } from './context';
-import { plug, tap, cond } from './functions';
+import { combine, pipe, cond } from './functions';
 import { val, ref } from './values';
 import { executeGraph } from '../runtime/exec/executeGraph';
 
@@ -66,11 +66,11 @@ describe('Context Builder', () => {
   });
 
   describe('CombineFunc builder', () => {
-    it('should create simple plug function', () => {
+    it('should create simple combine function', () => {
       const context = ctx({
         v1: 5,
         v2: 3,
-        f1: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
       });
 
       expect(context.exec.funcTable).toHaveProperty('f1');
@@ -78,11 +78,11 @@ describe('Context Builder', () => {
       expect((context.exec.funcTable as any).f1.returnId).toMatch(/^v_[a-f0-9]{8}$/);
     });
 
-    it('should execute plug function', () => {
+    it('should execute combine function', () => {
       const context = ctx({
         v1: 10,
         v2: 5,
-        f1: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
       });
 
       const result = executeGraph(context.ids.f1, context.exec);
@@ -96,8 +96,8 @@ describe('Context Builder', () => {
         v1: 10,
         v2: 5,
         v3: 2,
-        f1: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
-        f2: plug('binaryFnNumber::multiply', { a: ref.output('f1'), b: 'v3' }),
+        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f2: combine('binaryFnNumber::multiply', { a: ref.output('f1'), b: 'v3' }),
       });
 
       const result = executeGraph(context.ids.f2, context.exec);
@@ -112,7 +112,7 @@ describe('Context Builder', () => {
       const context = ctx({
         v1: 42,
         v2: ' is the answer',
-        f1: plug('binaryFnString::concat', {
+        f1: combine('binaryFnString::concat', {
           a: ref.transform('v1', 'transformFnNumber::toStr'),
           b: 'v2',
         }),
@@ -129,7 +129,7 @@ describe('Context Builder', () => {
     it('should provide typed ID access', () => {
       const context = ctx({
         v1: 5,
-        f1: plug('binaryFnNumber::add', { a: 'v1', b: 'v1' }),
+        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v1' }),
       });
 
       // IDs should be accessible via ids property
@@ -146,16 +146,16 @@ describe('Context Builder', () => {
         z: 5,
 
         // x + y
-        sum: plug('binaryFnNumber::add', { a: 'x', b: 'y' }),
+        sum: combine('binaryFnNumber::add', { a: 'x', b: 'y' }),
 
         // (x + y) * z
-        product: plug('binaryFnNumber::multiply', {
+        product: combine('binaryFnNumber::multiply', {
           a: ref.output('sum'),
           b: 'z',
         }),
 
         // ((x + y) * z) - x
-        final: plug('binaryFnNumber::minus', {
+        final: combine('binaryFnNumber::minus', {
           a: ref.output('product'),
           b: 'x',
         }),
@@ -169,42 +169,42 @@ describe('Context Builder', () => {
   });
 
   describe('PipeFunc builder', () => {
-    it('should create and execute simple tap function', () => {
+    it('should create and execute simple pipe function', () => {
       const context = ctx({
         v1: 10,
         v2: 5,
         v3: 2,
 
         // PipeFunc: (a + b) * c
-        tapFn: tap(
+        pipeFn: pipe(
           { a: 'v1', b: 'v2', c: 'v3' },
           [
-            plug('binaryFnNumber::add', { a: 'a', b: 'b' }),
-            plug('binaryFnNumber::multiply', { a: ref.step('tapFn', 0), b: 'c' }),
+            combine('binaryFnNumber::add', { a: 'a', b: 'b' }),
+            combine('binaryFnNumber::multiply', { a: ref.step('pipeFn', 0), b: 'c' }),
           ]
         ),
       });
 
-      const result = executeGraph(context.ids.tapFn, context.exec);
+      const result = executeGraph(context.ids.pipeFn, context.exec);
 
       // (10 + 5) * 2 = 30
       expect(result.value.value).toBe(30);
       expect(result.value.symbol).toBe('number');
     });
 
-    it('should create tap function with multiple steps', () => {
+    it('should create pipe function with multiple steps', () => {
       const context = ctx({
         x: 3,
         y: 4,
         z: 5,
 
         // PipeFunc: ((a + b) * c) - a
-        compute: tap(
+        compute: pipe(
           { a: 'x', b: 'y', c: 'z' },
           [
-            plug('binaryFnNumber::add', { a: 'a', b: 'b' }),
-            plug('binaryFnNumber::multiply', { a: ref.step('compute', 0), b: 'c' }),
-            plug('binaryFnNumber::minus', { a: ref.step('compute', 1), b: 'a' }),
+            combine('binaryFnNumber::add', { a: 'a', b: 'b' }),
+            combine('binaryFnNumber::multiply', { a: ref.step('compute', 0), b: 'c' }),
+            combine('binaryFnNumber::minus', { a: ref.step('compute', 1), b: 'a' }),
           ]
         ),
       });
@@ -215,15 +215,15 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe(32);
     });
 
-    it('should handle tap function with string operations', () => {
+    it('should handle pipe function with string operations', () => {
       const context = ctx({
         str1: 'hello',
         str2: ' world',
 
-        concat: tap(
+        concat: pipe(
           { a: 'str1', b: 'str2' },
           [
-            plug('binaryFnString::concat', { a: 'a', b: 'b' }),
+            combine('binaryFnString::concat', { a: 'a', b: 'b' }),
           ]
         ),
       });
@@ -244,10 +244,10 @@ describe('Context Builder', () => {
         v0: 0,
 
         // True branch: returns v1 + 0 = 10
-        trueFunc: plug('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
+        trueFunc: combine('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
 
         // False branch: returns v2 + 0 = 20
-        falseFunc: plug('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
+        falseFunc: combine('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
 
         // Conditional
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
@@ -266,8 +266,8 @@ describe('Context Builder', () => {
         v2: 20,
         v0: 0,
 
-        trueFunc: plug('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
-        falseFunc: plug('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
+        trueFunc: combine('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
+        falseFunc: combine('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
 
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });
@@ -286,10 +286,10 @@ describe('Context Builder', () => {
         v0: 0,
 
         // Compute condition: v1 == v2 (true)
-        isEqual: plug('binaryFnGeneric::isEqual', { a: 'v1', b: 'v2' }),
+        isEqual: combine('binaryFnGeneric::isEqual', { a: 'v1', b: 'v2' }),
 
-        trueFunc: plug('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
-        falseFunc: plug('binaryFnNumber::add', { a: 'v4', b: 'v0' }),
+        trueFunc: combine('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
+        falseFunc: combine('binaryFnNumber::add', { a: 'v4', b: 'v0' }),
 
         result: cond('isEqual', { then: 'trueFunc', else: 'falseFunc' }),
       });
@@ -307,8 +307,8 @@ describe('Context Builder', () => {
         v0: 0,
 
         // Both branches use the same 'shared' value
-        trueFunc: plug('binaryFnNumber::add', { a: 'shared', b: 'v0' }),
-        falseFunc: plug('binaryFnNumber::add', { a: 'shared', b: 'v0' }),
+        trueFunc: combine('binaryFnNumber::add', { a: 'shared', b: 'v0' }),
+        falseFunc: combine('binaryFnNumber::add', { a: 'shared', b: 'v0' }),
 
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });
@@ -329,14 +329,14 @@ describe('Context Builder', () => {
         v0: 0,
 
         // Inner true branch
-        innerTrue: plug('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
+        innerTrue: combine('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
         // Inner false branch
-        innerFalse: plug('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
+        innerFalse: combine('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
         // Inner cond
         innerCond: cond('innerCondition', { then: 'innerTrue', else: 'innerFalse' }),
 
         // Outer false branch
-        outerFalse: plug('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
+        outerFalse: combine('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
 
         // Outer cond
         result: cond('outerCondition', { then: 'innerCond', else: 'outerFalse' }),
@@ -351,27 +351,27 @@ describe('Context Builder', () => {
   });
 
   describe('Mixed function types', () => {
-    it('should combine plug, tap, and cond in one graph', () => {
+    it('should combine combine, pipe, and cond in one graph', () => {
       const context = ctx({
         x: 10,
         y: 5,
         condition: true,
 
-        // Simple plug
-        sum: plug('binaryFnNumber::add', { a: 'x', b: 'y' }),
+        // Simple combine
+        sum: combine('binaryFnNumber::add', { a: 'x', b: 'y' }),
 
         // Pipe function
-        compute: tap(
+        compute: pipe(
           { a: 'x', b: 'y' },
           [
-            plug('binaryFnNumber::multiply', { a: 'a', b: 'b' }),
+            combine('binaryFnNumber::multiply', { a: 'a', b: 'b' }),
           ]
         ),
 
         // Cond that uses both
         v0: 0,
-        trueFunc: plug('binaryFnNumber::add', { a: ref.output('sum'), b: 'v0' }),
-        falseFunc: plug('binaryFnNumber::add', { a: 'x', b: 'v0' }),
+        trueFunc: combine('binaryFnNumber::add', { a: ref.output('sum'), b: 'v0' }),
+        falseFunc: combine('binaryFnNumber::add', { a: 'x', b: 'v0' }),
 
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });

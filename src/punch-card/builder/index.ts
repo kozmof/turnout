@@ -6,21 +6,21 @@
  *
  * @example
  * ```typescript
- * import { ctx, plug, tap, cond, ref } from '@turnout/punch-card/builder';
+ * import { ctx, combine, pipe, cond, ref } from '@turnout/punch-card/builder';
  *
  * const context = ctx({
  *   v1: 5,
  *   v2: 3,
  *
- *   // Simple plug function
- *   sum: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+ *   // Simple combine function
+ *   sum: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
  *
  *   // Pipe function with simplified API - no need for type annotations!
- *   compute: tap(
+ *   compute: pipe(
  *     { x: 'v1', y: 'v2' },
  *     [
- *       plug('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
- *       plug('binaryFnNumber::add', {
+ *       combine('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
+ *       combine('binaryFnNumber::add', {
  *         a: ref.output('compute__step0'),
  *         b: 'x'
  *       })
@@ -36,7 +36,7 @@
  */
 
 export { ctx } from './context';
-export { plug, tap, cond } from './functions';
+export { combine, pipe, cond } from './functions';
 export { val, ref } from './values';
 export type { ContextBuilder, ContextSpec, BuildResult } from './types';
 export type {

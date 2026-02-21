@@ -134,7 +134,7 @@ describe('validateContext integration', () => {
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
           },
-          tap1: {
+          pipe1: {
             defId: 'td1' as PipeDefineId,
             argMap: { x: 'v1' as ValueId, y: 'v2' as ValueId },
             returnId: 'v4' as ValueId,
@@ -172,7 +172,7 @@ describe('validateContext integration', () => {
       expect(validation.valid).toBe(true);
 
       // Execute
-      const result = executeGraph('tap1' as FuncId, context);
+      const result = executeGraph('pipe1' as FuncId, context);
       expect(result.value.value).toBe(15);
     });
 
@@ -180,7 +180,7 @@ describe('validateContext integration', () => {
       const context: ExecutionContext = {
         valueTable: {} as any,
         funcTable: {
-          tap1: {
+          pipe1: {
             defId: 'td1' as PipeDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,

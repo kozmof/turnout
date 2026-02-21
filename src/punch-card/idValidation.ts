@@ -155,7 +155,7 @@ export function isValueId(
 /**
  * Type guard to check if an ID exists as a CombineDefineId in the CombineFuncDefTable.
  * @param id - The ID to check
- * @param combineFuncDefTable - The plug function definition table to check against
+ * @param combineFuncDefTable - The combine function definition table to check against
  * @returns True if the ID exists in the table
  */
 export function isCombineDefineId(
@@ -168,7 +168,7 @@ export function isCombineDefineId(
 /**
  * Type guard to check if an ID exists as a PipeDefineId in the PipeFuncDefTable.
  * @param id - The ID to check
- * @param pipeFuncDefTable - The tap function definition table to check against
+ * @param pipeFuncDefTable - The pipe function definition table to check against
  * @returns True if the ID exists in the table
  */
 export function isPipeDefineId(

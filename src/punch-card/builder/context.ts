@@ -234,7 +234,7 @@ type FunctionPhaseState = {
  * const context = ctx({
  *   v1: 5,
  *   v2: 3,
- *   f1: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+ *   f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
  * });
  *
  * executeGraph(context.ids.f1, context.exec);
@@ -404,15 +404,15 @@ function validateCondReferences(
 }
 
 /**
- * Validates plug function references
+ * Validates combine function references
  */
 function validateCombineReferences(
   funcId: string,
-  plug: CombineBuilder,
+  combine: CombineBuilder,
   valueKeys: Set<string>,
   functionKeys: Set<string>
 ): void {
-  for (const [argName, ref] of Object.entries(plug.args)) {
+  for (const [argName, ref] of Object.entries(combine.args)) {
     // Handle different reference types
     if (typeof ref === 'string') {
       // Direct value reference
@@ -425,11 +425,11 @@ function validateCombineReferences(
         throw createUndefinedValueReferenceError(funcId, argName, ref.funcId);
       }
     } else if (ref.__type === 'stepOutput') {
-      // Step output reference - validate the tap function exists
+      // Step output reference - validate the pipe function exists
       if (!functionKeys.has(ref.pipeFuncId)) {
         throw createUndefinedValueReferenceError(funcId, argName, ref.pipeFuncId);
       }
-      // Note: We can't validate stepIndex here as we don't know how many steps the tap has yet
+      // Note: We can't validate stepIndex here as we don't know how many steps the pipe has yet
     } else if (ref.__type === 'transform') {
       // Transform reference - validate the inner value
       if (typeof ref.valueId === 'string') {
@@ -450,23 +450,23 @@ function validateCombineReferences(
 }
 
 /**
- * Validates tap function references
+ * Validates pipe function references
  */
 function validatePipeReferences(
   funcId: string,
-  tap: PipeBuilder,
+  pipe: PipeBuilder,
   valueKeys: Set<string>
 ): void {
   // Validate argument bindings
-  for (const [argName, binding] of Object.entries(tap.argBindings)) {
+  for (const [argName, binding] of Object.entries(pipe.argBindings)) {
     if (!valueKeys.has(binding)) {
       throw createUndefinedPipeArgumentError(funcId, argName, binding);
     }
   }
 
   // Validate steps
-  for (let i = 0; i < tap.steps.length; i++) {
-    const step = tap.steps[i];
+  for (let i = 0; i < pipe.steps.length; i++) {
+    const step = pipe.steps[i];
     if (step.__type === 'combine') {
       for (const [argName, ref] of Object.entries(step.args)) {
         // Handle different reference types
@@ -474,7 +474,7 @@ function validatePipeReferences(
           // Step arguments can reference:
           // 1. Pipe function arguments
           // 2. Values from the context
-          const isPipeArg = tap.args.some(arg => arg.name === ref);
+          const isPipeArg = pipe.args.some(arg => arg.name === ref);
           const isContextValue = valueKeys.has(ref);
 
           if (!isPipeArg && !isContextValue) {
@@ -484,18 +484,18 @@ function validatePipeReferences(
           // Function output references are allowed (will be resolved during processing)
           // No validation needed here as they're validated elsewhere
         } else if (ref.__type === 'stepOutput') {
-          // Step output references are allowed within the same tap function
-          // Validate that it references this tap function and a previous step
+          // Step output references are allowed within the same pipe function
+          // Validate that it references this pipe function and a previous step
           if (ref.pipeFuncId !== funcId) {
-            throw new Error(`Step ${i} of tap function '${funcId}' references step from different tap function '${ref.pipeFuncId}'`);
+            throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${ref.pipeFuncId}'`);
           }
           if (ref.stepIndex >= i) {
-            throw new Error(`Step ${i} of tap function '${funcId}' references step ${ref.stepIndex} which is not a previous step`);
+            throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.stepIndex} which is not a previous step`);
           }
         } else if (ref.__type === 'transform') {
           // Transform reference - validate the inner value
           if (typeof ref.valueId === 'string') {
-            const isPipeArg = tap.args.some(arg => arg.name === ref.valueId);
+            const isPipeArg = pipe.args.some(arg => arg.name === ref.valueId);
             const isContextValue = valueKeys.has(ref.valueId);
 
             if (!isPipeArg && !isContextValue) {
@@ -504,10 +504,10 @@ function validatePipeReferences(
           } else if (ref.valueId.__type === 'stepOutput') {
             // Validate step output in transform
             if (ref.valueId.pipeFuncId !== funcId) {
-              throw new Error(`Step ${i} of tap function '${funcId}' references step from different tap function '${ref.valueId.pipeFuncId}'`);
+              throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${ref.valueId.pipeFuncId}'`);
             }
             if (ref.valueId.stepIndex >= i) {
-              throw new Error(`Step ${i} of tap function '${funcId}' references step ${ref.valueId.stepIndex} which is not a previous step`);
+              throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.valueId.stepIndex} which is not a previous step`);
             }
           }
           // FuncOutputRef in transform will be validated elsewhere
@@ -609,7 +609,7 @@ function processFunction(
 }
 
 /**
- * Standard argument structure for binary plug functions
+ * Standard argument structure for binary combine functions
  */
 const BINARY_INTERFACE_ARG_IDS = {
   a: createInterfaceArgId('ia1'),
@@ -675,14 +675,14 @@ function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): Va
  * Looks up the step output ID from the metadata table.
  */
 function resolveStepOutputRef(ref: StepOutputRef, state: FunctionPhaseState): ValueId {
-  // Find the step output value ID for this tap function and step index
+  // Find the step output value ID for this pipe function and step index
   for (const [stepOutputId, metadata] of Object.entries(state.stepMetadata)) {
     if (metadata.parentFuncId === ref.pipeFuncId && metadata.stepIndex === ref.stepIndex) {
       return createValueId(stepOutputId);
     }
   }
 
-  throw new Error(`Cannot resolve step output reference: tap function '${ref.pipeFuncId}' step ${ref.stepIndex} has no output value`);
+  throw new Error(`Cannot resolve step output reference: pipe function '${ref.pipeFuncId}' step ${ref.stepIndex} has no output value`);
 }
 
 /**
@@ -717,7 +717,7 @@ function resolveValueReference(
 }
 
 /**
- * Builds argument mappings and transform functions for a plug function
+ * Builds argument mappings and transform functions for a combine function
  */
 function buildCombineArguments(
   builder: CombineBuilder,
@@ -743,7 +743,7 @@ function buildCombineArguments(
 }
 
 /**
- * Builds a plug function definition with configurable argument structure
+ * Builds a combine function definition with configurable argument structure
  */
 function buildCombineDefinition(
   name: CombineBuilder['name'],
@@ -795,7 +795,7 @@ function processPipeFunc(
 }
 
 /**
- * Builds argument mappings for a tap function
+ * Builds argument mappings for a pipe function
  */
 function buildPipeArguments(
   funcId: string,
@@ -815,7 +815,7 @@ function buildPipeArguments(
 }
 
 /**
- * Builds the sequence of steps for a tap function
+ * Builds the sequence of steps for a pipe function
  */
 function buildPipeSequence(
   funcId: string,
@@ -840,22 +840,22 @@ function buildPipeSequence(
 }
 
 /**
- * Builds a single step binding for a tap function
+ * Builds a single step binding for a pipe function
  */
 function buildPipeStepBinding(
   step: CombineBuilder,
-  tapBuilder: PipeBuilder,
+  pipeBuilder: PipeBuilder,
   state: FunctionPhaseState
 ): PipeStepBinding {
   const stepDefId = IdGenerator.generateCombineDefineId();
 
   // Build argument bindings for this step
-  const argBindings = buildStepArgBindings(step, tapBuilder, state);
+  const argBindings = buildStepArgBindings(step, pipeBuilder, state);
 
   // Infer transform functions for each argument
   const transformFnMap = buildStepTransformMap(step);
 
-  // Add plug definition to table (reuse buildCombineDefinition for consistency)
+  // Add combine definition to table (reuse buildCombineDefinition for consistency)
   state.combineFuncDefTable[stepDefId] = buildCombineDefinition(step.name, transformFnMap);
 
   return {
@@ -865,11 +865,11 @@ function buildPipeStepBinding(
 }
 
 /**
- * Builds argument bindings for a single tap step
+ * Builds argument bindings for a single pipe step
  */
 function buildStepArgBindings(
   step: CombineBuilder,
-  tapBuilder: PipeBuilder,
+  pipeBuilder: PipeBuilder,
   state: FunctionPhaseState
 ): Record<string, PipeArgBinding> {
   const argBindings: Record<string, PipeArgBinding> = {};
@@ -901,7 +901,7 @@ function buildStepArgBindings(
       let valueId: ValueId;
       if (typeof ref.valueId === 'string') {
         // Simple string reference - resolve through normal path
-        const binding = resolveArgBinding(ref.valueId, tapBuilder);
+        const binding = resolveArgBinding(ref.valueId, pipeBuilder);
         argBindings[argName] = binding;
         continue;
       } else if (ref.valueId.__type === 'funcOutput') {
@@ -917,8 +917,8 @@ function buildStepArgBindings(
       continue;
     }
 
-    // Plain string reference - tap arg or context value
-    argBindings[argName] = resolveArgBinding(ref, tapBuilder);
+    // Plain string reference - pipe arg or context value
+    argBindings[argName] = resolveArgBinding(ref, pipeBuilder);
   }
 
   return argBindings;
@@ -927,14 +927,14 @@ function buildStepArgBindings(
 /**
  * Resolves how a step argument should be bound to its value source.
  * Note: StepOutputRef is handled directly in buildStepArgBindings, so this
- * only processes plain string references (tap args or context values).
+ * only processes plain string references (pipe args or context values).
  */
 function resolveArgBinding(
   refStr: string,
-  tapBuilder: PipeBuilder
+  pipeBuilder: PipeBuilder
 ): PipeArgBinding {
-  // Check if it's an argument to the tap function
-  if (tapBuilder.args.some(arg => arg.name === refStr)) {
+  // Check if it's an argument to the pipe function
+  if (pipeBuilder.args.some(arg => arg.name === refStr)) {
     return {
       source: 'input',
       argName: refStr,
@@ -1028,7 +1028,7 @@ function inferPassTransform(
 
   // Handle StepOutputRef
   if (typeof ref === 'object' && ref.__type === 'stepOutput') {
-    // Step outputs are always from plug functions, which return the same type as their binary function
+    // Step outputs are always from combine functions, which return the same type as their binary function
     // We need to look up the step's definition to infer its type
     // For now, default to number (most common case)
     // TODO: Properly track step output types

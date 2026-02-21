@@ -20,14 +20,14 @@ import type { BinaryFnNames } from '../types';
  *
  * @example
  * ```typescript
- * plug('binaryFnNumber::add', { a: 'v1', b: 'v2' })
- * plug('binaryFnString::concat', {
+ * combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })
+ * combine('binaryFnString::concat', {
  *   a: ref('v1').transform('transformFnNumber::toStr'),
  *   b: 'v2'
  * })
  * ```
  */
-export function plug(
+export function combine(
   name: BinaryFnNames,
   args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>
 ): CombineBuilder {
@@ -46,16 +46,16 @@ export function plug(
  *
  * @example
  * ```typescript
- * tap(
+ * pipe(
  *   { x: 'v1', y: 'v2' },
  *   [
- *     plug('binaryFnNumber::add', { a: 'x', b: 'y' }),
- *     plug('binaryFnNumber::multiply', { a: ref.output('step0'), b: 'x' })
+ *     combine('binaryFnNumber::add', { a: 'x', b: 'y' }),
+ *     combine('binaryFnNumber::multiply', { a: ref.output('step0'), b: 'x' })
  *   ]
  * )
  * ```
  */
-export function tap(
+export function pipe(
   argBindings: Record<string, ValueRef>,
   steps: readonly StepBuilder[]
 ): PipeBuilder {

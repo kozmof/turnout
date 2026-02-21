@@ -16,7 +16,7 @@ type ToIndexSignature<T> = T extends Record<string, infer V>
   : never;
 
 /**
- * Builder for plug functions.
+ * Builder for combine functions.
  */
 export type CombineBuilder = {
   readonly __type: 'combine';
@@ -25,7 +25,7 @@ export type CombineBuilder = {
 };
 
 /**
- * Builder for tap functions.
+ * Builder for pipe functions.
  */
 export type PipeBuilder = {
   readonly __type: 'pipe';
@@ -63,7 +63,7 @@ export type FuncOutputRef = {
 };
 
 /**
- * Reference to a tap function step's output value.
+ * Reference to a pipe function step's output value.
  */
 export type StepOutputRef = {
   readonly __type: 'stepOutput';
@@ -89,7 +89,7 @@ export type PipeArg = {
 };
 
 /**
- * Step in a tap function.
+ * Step in a pipe function.
  */
 export type StepBuilder = CombineBuilder | PipeBuilder;
 

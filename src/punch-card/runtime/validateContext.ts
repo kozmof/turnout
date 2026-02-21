@@ -226,7 +226,7 @@ function funcIdExistsInContext(
 
 /**
  * Type guard checking if a DefineId exists in the UnvalidatedContext.
- * Checks all definition tables (plug, tap, cond) for existence.
+ * Checks all definition tables (combine, pipe, cond) for existence.
  * This is different from idValidation table-based guards which check validated tables.
  */
 function defineIdExistsInContext(

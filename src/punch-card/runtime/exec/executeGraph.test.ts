@@ -158,7 +158,7 @@ describe('executeGraph', () => {
         v3: { symbol: 'number', value: 2, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
-        tap1: {
+        pipe1: {
           defId: 'td1' as PipeDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId, c: 'v3' as ValueId },
           returnId: 'v6' as ValueId,
@@ -216,7 +216,7 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const result = executeGraph('tap1' as FuncId, context);
+    const result = executeGraph('pipe1' as FuncId, context);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -342,7 +342,7 @@ describe('executeGraph', () => {
     const context: ExecutionContext = {
       valueTable: {} as any,
       funcTable: {
-        tap1: {
+        pipe1: {
           defId: 'td1' as PipeDefineId,
           argMap: {},
           returnId: 'v1' as ValueId,
@@ -358,7 +358,7 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const { result, errors } = executeGraphSafe('tap1' as FuncId, context, { skipValidation: true });
+    const { result, errors } = executeGraphSafe('pipe1' as FuncId, context, { skipValidation: true });
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);

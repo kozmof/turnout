@@ -67,7 +67,7 @@ export const val = {
  * @example
  * ```typescript
  * ref.output('f1')  // Reference function output
- * ref.step('tapFn', 0)  // Reference step 0 output of tapFn
+ * ref.step('pipeFn', 0)  // Reference step 0 output of pipeFn
  * ref.transform('v1', 'transformFnNumber::toStr')  // With transform
  * ```
  */
@@ -84,8 +84,8 @@ export const ref = {
   },
 
   /**
-   * References the output of a specific step in a tap function.
-   * @param pipeFuncId - The ID of the tap function
+   * References the output of a specific step in a pipe function.
+   * @param pipeFuncId - The ID of the pipe function
    * @param stepIndex - The index of the step (0-based)
    */
   step(pipeFuncId: string, stepIndex: number): StepOutputRef {
