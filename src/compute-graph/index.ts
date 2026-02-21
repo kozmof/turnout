@@ -7,8 +7,11 @@ export type { ExecutionResult } from './runtime/exec/executeCombineFunc';
 export {
   validateContext,
   assertValidContext,
+  isValidContext,
 } from './runtime/validateContext';
 export type {
+  UnvalidatedContext,
+  ValidatedContext,
   ValidationError,
   ValidationWarning,
   ValidationResult,

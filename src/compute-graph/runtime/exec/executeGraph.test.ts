@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { executeGraph, executeGraphSafe } from './executeGraph';
+import { assertValidContext } from '../validateContext';
+import type { ValidatedContext } from '../validateContext';
 import {
   ExecutionContext,
   FuncId,
@@ -40,7 +42,8 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const result = executeGraph('f1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('f1' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -96,7 +99,8 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const result = executeGraph('f2' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('f2' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -141,7 +145,8 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const result = executeGraph('f2' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('f2' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -216,7 +221,8 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const result = executeGraph('pipe1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('pipe1' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -255,7 +261,8 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     };
 
-    const result = executeGraph('f1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('f1' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'string',
@@ -265,7 +272,9 @@ describe('executeGraph', () => {
   });
 
   it('should handle error: cyclic dependency', () => {
-    const context: ExecutionContext = {
+    // Bypasses the brand to test execution-engine behaviour on a structurally
+    // broken context (self-referential returnId) that validation would reject.
+    const context = {
       valueTable: {
         v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
       } as any,
@@ -291,9 +300,9 @@ describe('executeGraph', () => {
       } as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
-    };
+    } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context, { skipValidation: true });
+    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
@@ -303,7 +312,9 @@ describe('executeGraph', () => {
   });
 
   it('should handle error: missing value', () => {
-    const context: ExecutionContext = {
+    // Bypasses the brand to test execution-engine behaviour on a context with
+    // a missing value reference that validation would reject.
+    const context = {
       valueTable: {
         v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
       } as any,
@@ -329,9 +340,9 @@ describe('executeGraph', () => {
       } as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
-    };
+    } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context, { skipValidation: true });
+    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
@@ -339,7 +350,9 @@ describe('executeGraph', () => {
   });
 
   it('should handle error: empty PipeFunc sequence', () => {
-    const context: ExecutionContext = {
+    // Bypasses the brand to test execution-engine behaviour on a context with
+    // an empty pipe sequence that validation would reject.
+    const context = {
       valueTable: {} as any,
       funcTable: {
         pipe1: {
@@ -356,9 +369,9 @@ describe('executeGraph', () => {
         },
       } as any,
       condFuncDefTable: {} as any,
-    };
+    } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('pipe1' as FuncId, context, { skipValidation: true });
+    const { result, errors } = executeGraphSafe('pipe1' as FuncId, context);
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
@@ -424,7 +437,8 @@ describe('executeGraph', () => {
       } as any,
     };
 
-    const result = executeGraph('cond1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('cond1' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -492,7 +506,8 @@ describe('executeGraph', () => {
       } as any,
     };
 
-    const result = executeGraph('cond1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('cond1' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -551,7 +566,8 @@ describe('executeGraph', () => {
     };
 
     // This should not throw "Cycle detected" error
-    const result = executeGraph('cond1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('cond1' as FuncId, validated);
 
     expect(result.value).toEqual({
       symbol: 'number',
@@ -636,7 +652,8 @@ describe('executeGraph', () => {
       } as any,
     };
 
-    const result = executeGraph('cond1' as FuncId, context);
+    const validated = assertValidContext(context);
+    const result = executeGraph('cond1' as FuncId, validated);
 
     // 5 == 5 is true, so should return 100
     expect(result.value).toEqual({

@@ -1,4 +1,4 @@
-import { FuncId, ExecutionContext } from '../../types';
+import { FuncId } from '../../types';
 import {
   GraphExecutionError,
   createFunctionExecutionError,
@@ -6,37 +6,24 @@ import {
 } from '../errors';
 import { buildExecutionTree } from '../buildExecutionTree';
 import { executeTree } from '../executeTree';
-import { validateContext } from '../validateContext';
+import type { ValidatedContext } from '../validateContext';
 import { type ExecutionResult } from './executeCombineFunc';
 
 /**
  * Executes a computation graph starting from a root function.
  * This is a pure function - it does not mutate the input context.
  *
+ * Accepts only a ValidatedContext - callers must validate the context first
+ * using validateContext, assertValidContext, or isValidContext.
+ *
  * @param rootFuncId - The root function to execute
- * @param context - The execution context (read-only)
- * @param options - Execution options
+ * @param context - The validated execution context (read-only)
  * @returns Execution result with computed value and updated value table
  */
 export function executeGraph(
   rootFuncId: FuncId,
-  context: ExecutionContext,
-  options: { skipValidation?: boolean } = {}
+  context: ValidatedContext,
 ): ExecutionResult {
-  // 0. Validate context before execution (unless explicitly skipped)
-  if (!options.skipValidation) {
-    const validationResult = validateContext(context);
-    if (!validationResult.valid) {
-      const errorMessages = validationResult.errors
-        .map(err => `  - ${err.message}`)
-        .join('\n');
-      throw createFunctionExecutionError(
-        rootFuncId,
-        `ExecutionContext validation failed:\n${errorMessages}`
-      );
-    }
-  }
-
   // 1. Build execution tree
   const tree = buildExecutionTree(rootFuncId, context);
 
@@ -50,20 +37,21 @@ export function executeGraph(
  * Safe version of executeGraph that catches errors and returns them.
  * This is a pure function - it does not mutate the input context.
  *
+ * Accepts only a ValidatedContext - callers must validate the context first
+ * using validateContext, assertValidContext, or isValidContext.
+ *
  * @param rootFuncId - The root function to execute
- * @param context - The execution context (read-only)
- * @param options - Execution options
+ * @param context - The validated execution context (read-only)
  * @returns Object containing either the result or errors
  */
 export function executeGraphSafe(
   rootFuncId: FuncId,
-  context: ExecutionContext,
-  options: { skipValidation?: boolean } = {}
+  context: ValidatedContext,
 ): { result?: ExecutionResult; errors: GraphExecutionError[] } {
   const errors: GraphExecutionError[] = [];
 
   try {
-    const result = executeGraph(rootFuncId, context, options);
+    const result = executeGraph(rootFuncId, context);
     return { result, errors };
   } catch (error) {
     if (isGraphExecutionError(error)) {

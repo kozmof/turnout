@@ -61,6 +61,19 @@ export type UnvalidatedContext = {
 };
 
 // ============================================================================
+// ValidatedContext - Branded type for contexts that have passed validation
+// ============================================================================
+
+declare const _validatedBrand: unique symbol;
+
+/**
+ * An ExecutionContext that has been verified by validateContext.
+ * The brand makes it impossible to construct this type without going through
+ * the validation functions in this module, enforcing validation at the type level.
+ */
+export type ValidatedContext = ExecutionContext & { readonly [_validatedBrand]: true };
+
+// ============================================================================
 // Task 2: Discriminated Result Types
 // ============================================================================
 
@@ -77,9 +90,11 @@ export type ValidationWarning = {
 /**
  * Validation result as discriminated union.
  * Success and failure are structurally distinct - the valid flag is the discriminator.
+ * On success, the result includes the context cast to ValidatedContext so callers
+ * can pass it directly to executeGraph without an extra assertion.
  */
 export type ValidationResult =
-  | { readonly valid: true; readonly warnings: readonly ValidationWarning[]; readonly errors: readonly never[] }
+  | { readonly valid: true; readonly context: ValidatedContext; readonly warnings: readonly ValidationWarning[]; readonly errors: readonly never[] }
   | { readonly valid: false; readonly errors: readonly ValidationError[]; readonly warnings: readonly ValidationWarning[] };
 
 /**
@@ -947,6 +962,8 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
   if (state.errors.length === 0) {
     return {
       valid: true,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      context: context as unknown as ValidatedContext,
       warnings: state.warnings,
       errors: [],
     };
@@ -960,10 +977,10 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
 }
 
 /**
- * Validates context and throws an error if invalid.
- * Useful for strict validation before execution.
+ * Validates context and throws an error if invalid, otherwise returns the ValidatedContext.
+ * Use the return value to get a type-safe ValidatedContext for passing to executeGraph.
  */
-export function assertValidContext(context: UnvalidatedContext): asserts context is ExecutionContext {
+export function assertValidContext(context: UnvalidatedContext): ValidatedContext {
   const result = validateContext(context);
 
   if (!result.valid) {
@@ -975,12 +992,16 @@ export function assertValidContext(context: UnvalidatedContext): asserts context
       `ExecutionContext validation failed:\n${errorMessages}`
     );
   }
+
+  return result.context;
 }
 
 /**
- * Type guard to check if an unvalidated context is a valid ExecutionContext.
+ * Type guard to check if an unvalidated context is a ValidatedContext.
+ * After this returns true, the context is narrowed to ValidatedContext and can be
+ * passed directly to executeGraph.
  */
-export function isValidContext(context: UnvalidatedContext): context is ExecutionContext {
+export function isValidContext(context: UnvalidatedContext): context is ValidatedContext {
   const result = validateContext(context);
   return result.valid;
 }

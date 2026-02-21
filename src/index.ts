@@ -73,9 +73,12 @@ export type { ExecutionResult } from './compute-graph';
 export {
   validateContext,
   assertValidContext,
+  isValidContext,
 } from './compute-graph';
 
 export type {
+  UnvalidatedContext,
+  ValidatedContext,
   ValidationError,
   ValidationWarning,
   ValidationResult,

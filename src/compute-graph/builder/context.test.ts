@@ -3,6 +3,7 @@ import { ctx } from './context';
 import { combine, pipe, cond } from './functions';
 import { val, ref } from './values';
 import { executeGraph } from '../runtime/exec/executeGraph';
+import { assertValidContext } from '../runtime/validateContext';
 
 describe('Context Builder', () => {
   describe('Simple values', () => {
@@ -85,7 +86,7 @@ describe('Context Builder', () => {
         f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
       });
 
-      const result = executeGraph(context.ids.f1, context.exec);
+      const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
 
       expect(result.value.value).toBe(15);
       expect(result.value.symbol).toBe('number');
@@ -100,7 +101,7 @@ describe('Context Builder', () => {
         f2: combine('binaryFnNumber::multiply', { a: ref.output('f1'), b: 'v3' }),
       });
 
-      const result = executeGraph(context.ids.f2, context.exec);
+      const result = executeGraph(context.ids.f2, assertValidContext(context.exec));
 
       // (10 + 5) * 2 = 30
       expect(result.value.value).toBe(30);
@@ -118,7 +119,7 @@ describe('Context Builder', () => {
         }),
       });
 
-      const result = executeGraph(context.ids.f1, context.exec);
+      const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
 
       expect(result.value.symbol).toBe('string');
       expect(result.value.value).toBe('42 is the answer');
@@ -161,7 +162,7 @@ describe('Context Builder', () => {
         }),
       });
 
-      const result = executeGraph(context.ids.final, context.exec);
+      const result = executeGraph(context.ids.final, assertValidContext(context.exec));
 
       // ((3 + 4) * 5) - 3 = 35 - 3 = 32
       expect(result.value.value).toBe(32);
@@ -185,7 +186,7 @@ describe('Context Builder', () => {
         ),
       });
 
-      const result = executeGraph(context.ids.pipeFn, context.exec);
+      const result = executeGraph(context.ids.pipeFn, assertValidContext(context.exec));
 
       // (10 + 5) * 2 = 30
       expect(result.value.value).toBe(30);
@@ -209,7 +210,7 @@ describe('Context Builder', () => {
         ),
       });
 
-      const result = executeGraph(context.ids.compute, context.exec);
+      const result = executeGraph(context.ids.compute, assertValidContext(context.exec));
 
       // ((3 + 4) * 5) - 3 = 35 - 3 = 32
       expect(result.value.value).toBe(32);
@@ -228,7 +229,7 @@ describe('Context Builder', () => {
         ),
       });
 
-      const result = executeGraph(context.ids.concat, context.exec);
+      const result = executeGraph(context.ids.concat, assertValidContext(context.exec));
 
       expect(result.value.value).toBe('hello world');
       expect(result.value.symbol).toBe('string');
@@ -253,7 +254,7 @@ describe('Context Builder', () => {
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });
 
-      const result = executeGraph(context.ids.result, context.exec);
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       expect(result.value.value).toBe(10);
       expect(result.value.symbol).toBe('number');
@@ -272,7 +273,7 @@ describe('Context Builder', () => {
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });
 
-      const result = executeGraph(context.ids.result, context.exec);
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       expect(result.value.value).toBe(20);
     });
@@ -294,7 +295,7 @@ describe('Context Builder', () => {
         result: cond('isEqual', { then: 'trueFunc', else: 'falseFunc' }),
       });
 
-      const result = executeGraph(context.ids.result, context.exec);
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       // 5 == 5 is true, so should return 100
       expect(result.value.value).toBe(100);
@@ -313,7 +314,7 @@ describe('Context Builder', () => {
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });
 
-      const result = executeGraph(context.ids.result, context.exec);
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       expect(result.value.value).toBe(42);
     });
@@ -342,7 +343,7 @@ describe('Context Builder', () => {
         result: cond('outerCondition', { then: 'innerCond', else: 'outerFalse' }),
       });
 
-      const result = executeGraph(context.ids.result, context.exec);
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       // outerCondition is true -> go to innerCond
       // innerCondition is false -> go to innerFalse (v2 = 2)
@@ -376,7 +377,7 @@ describe('Context Builder', () => {
         result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
       });
 
-      const result = executeGraph(context.ids.result, context.exec);
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       // condition is true, so returns sum (10 + 5 = 15)
       expect(result.value.value).toBe(15);

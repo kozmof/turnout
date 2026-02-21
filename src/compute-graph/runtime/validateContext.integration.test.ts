@@ -49,9 +49,9 @@ describe('validateContext integration', () => {
       expect(validation.valid).toBe(true);
       expect(validation.errors).toHaveLength(0);
 
-      // STEP 2: Execute (runtime) - only if validation passed
+      // STEP 2: Execute (runtime) - use validation.context to get the ValidatedContext
       if (validation.valid) {
-        const result = executeGraph('f1' as FuncId, context);
+        const result = executeGraph('f1' as FuncId, validation.context);
         expect(result.value.value).toBe(15);
       }
     });
@@ -171,9 +171,11 @@ describe('validateContext integration', () => {
       const validation = validateContext(context);
       expect(validation.valid).toBe(true);
 
-      // Execute
-      const result = executeGraph('pipe1' as FuncId, context);
-      expect(result.value.value).toBe(15);
+      // Execute - use validation.context to get the ValidatedContext
+      if (validation.valid) {
+        const result = executeGraph('pipe1' as FuncId, validation.context);
+        expect(result.value.value).toBe(15);
+      }
     });
 
     it('should detect invalid PipeFunc sequence at validation time', () => {
@@ -260,9 +262,11 @@ describe('validateContext integration', () => {
       const validation = validateContext(context);
       expect(validation.valid).toBe(true);
 
-      // Execute
-      const result = executeGraph('cond1' as FuncId, context);
-      expect(result.value.value).toBe(100);
+      // Execute - use validation.context to get the ValidatedContext
+      if (validation.valid) {
+        const result = executeGraph('cond1' as FuncId, validation.context);
+        expect(result.value.value).toBe(100);
+      }
     });
 
     it('should detect invalid CondFunc branches at validation time', () => {
@@ -339,9 +343,11 @@ describe('validateContext integration', () => {
         validation.warnings.some(w => w.message.includes('v_unused'))
       ).toBe(true);
 
-      // Execution should still work
-      const result = executeGraph('f1' as FuncId, context);
-      expect(result.value.value).toBe(15);
+      // Execution should still work - use validation.context to get the ValidatedContext
+      if (validation.valid) {
+        const result = executeGraph('f1' as FuncId, validation.context);
+        expect(result.value.value).toBe(15);
+      }
     });
   });
 });
