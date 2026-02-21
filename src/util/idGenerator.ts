@@ -5,7 +5,7 @@ import type {
   PipeDefineId,
   CondDefineId,
   InterfaceArgId,
-} from '../punch-card/types';
+} from '../compute-graph/types';
 
 /**
  * ID generation strategy using random hex strings with type prefixes.

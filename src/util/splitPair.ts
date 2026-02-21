@@ -1,4 +1,4 @@
-import { BinaryFnNames, TransformFnNames } from '../punch-card/types';
+import { BinaryFnNames, TransformFnNames } from '../compute-graph/types';
 import { NAMESPACE_DELIMITER, type NamespaceDelimiter } from './constants';
 
 type SplitPair<S extends string> =

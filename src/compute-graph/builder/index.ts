@@ -6,7 +6,7 @@
  *
  * @example
  * ```typescript
- * import { ctx, combine, pipe, cond, ref } from '@turnout/punch-card/builder';
+ * import { ctx, combine, pipe, cond, ref } from '@turnout/compute-graph/builder';
  *
  * const context = ctx({
  *   v1: 5,

@@ -29,7 +29,7 @@ src/
 │       ├── types.ts                   # ElemType (marked "Maybe deprecated")
 │       ├── binary-fn/                 # metaReturn, metaParams for binary fns
 │       └── transform-fn/              # metaReturn for transform fns
-└── punch-card/                        # Computation graph engine
+└── compute-graph/                        # Computation graph engine
     ├── types.ts                       # ExecutionContext + all table types
     ├── index.ts                       # Public API re-exports
     ├── idValidation.ts                # Branded ID creators + table-based guards
@@ -57,9 +57,9 @@ src/
 ### Layering
 
 ```
-Builder API (punch-card/builder/)
+Builder API (compute-graph/builder/)
         ↓  produces
-ExecutionContext (punch-card/types.ts)
+ExecutionContext (compute-graph/types.ts)
         ↓  validated by
 validateContext (runtime/validateContext.ts)
         ↓  transformed into
@@ -195,8 +195,8 @@ Convert:   convertValue(fn, src, builder) → builder(fn(src.value), src.tags)
 ### Builder API Usage Pattern
 
 ```typescript
-import { ctx, combine, pipe, cond, ref, val } from './punch-card/builder';
-import { executeGraph } from './punch-card';
+import { ctx, combine, pipe, cond, ref, val } from './compute-graph/builder';
+import { executeGraph } from './compute-graph';
 
 const context = ctx({
   v1: 5,                          // auto-wrapped → NumberValue
@@ -229,7 +229,7 @@ const { value } = executeGraph(context.ids.result, context.exec);
 
 For low-level control:
 ```typescript
-import { createValueId, createFuncId, createCombineDefineId } from './punch-card/idValidation';
+import { createValueId, createFuncId, createCombineDefineId } from './compute-graph/idValidation';
 
 const context: ExecutionContext = {
   valueTable: { [createValueId('v1')]: buildNumber(5) },
@@ -243,7 +243,7 @@ const context: ExecutionContext = {
 ### Validation Usage
 
 ```typescript
-import { validateContext, assertValidContext } from './punch-card';
+import { validateContext, assertValidContext } from './compute-graph';
 
 // Non-throwing — returns ValidationResult discriminated union
 const result = validateContext(context);
@@ -262,7 +262,7 @@ assertValidContext(context); // throws if invalid
 ### P-1: IdGenerator requires initialization before use
 
 **File:** [src/util/idGenerator.ts](../src/util/idGenerator.ts)
-**File:** [src/punch-card/builder/context.ts](../src/punch-card/builder/context.ts#L62-L69)
+**File:** [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts#L62-L69)
 
 `IdGenerator` uses module-level mutable variables that must be populated by `initializeIdGenerator()`. This call is made as a side effect when `context.ts` is imported. If `executePipeFunc.ts` or `idValidation.ts` is imported in isolation (e.g. in tests that skip the builder), and `IdGenerator.generate*Id()` is called, it will throw a runtime error with the message `"IdGenerator not initialized"`. This pattern is fragile.
 
@@ -274,13 +274,13 @@ assertValidContext(context); // throws if invalid
 
 ### P-3: Boolean values have no dedicated transform namespace
 
-**File:** [src/punch-card/builder/context.ts:172-176](../src/punch-card/builder/context.ts#L172-L176)
+**File:** [src/compute-graph/builder/context.ts:172-176](../src/compute-graph/builder/context.ts#L172-L176)
 
 `getPassTransformFn('boolean')` returns `transformFnNumber::pass`, which is a number transform applied to a boolean. This works at runtime because `pass` is identity, but it means type validation in `validateContext` may flag boolean values as type mismatches when paired with `transformFnNumber::pass`, since the transform expects a number input.
 
 ### P-4: `inferPassTransform` for `StepOutputRef` defaults to `'number'`
 
-**File:** [src/punch-card/builder/context.ts:1030-1035](../src/punch-card/builder/context.ts#L1030-L1035)
+**File:** [src/compute-graph/builder/context.ts:1030-1035](../src/compute-graph/builder/context.ts#L1030-L1035)
 
 ```typescript
 // TODO: Properly track step output types
@@ -293,8 +293,8 @@ When a step output is referenced by another function in the same `combine()` cal
 
 **Files:**
 - [src/state-control/errors.ts:52-60](../src/state-control/errors.ts#L52-L60)
-- [src/punch-card/runtime/errors.ts:156-164](../src/punch-card/runtime/errors.ts#L156-L164)
-- [src/punch-card/builder/errors.ts:155-163](../src/punch-card/builder/errors.ts#L155-L163)
+- [src/compute-graph/runtime/errors.ts:156-164](../src/compute-graph/runtime/errors.ts#L156-L164)
+- [src/compute-graph/builder/errors.ts:155-163](../src/compute-graph/builder/errors.ts#L155-L163)
 
 All three type guards (`isValueBuilderError`, `isGraphExecutionError`, `isBuilderValidationError`) only check:
 ```typescript
@@ -304,7 +304,7 @@ Any `Error` subclass with a string `kind` property (from any library) would matc
 
 ### P-6: `CondFunc` within `PipeFunc` is not implemented
 
-**File:** [src/punch-card/runtime/exec/executePipeFunc.ts:200-204](../src/punch-card/runtime/exec/executePipeFunc.ts#L200-L204)
+**File:** [src/compute-graph/runtime/exec/executePipeFunc.ts:200-204](../src/compute-graph/runtime/exec/executePipeFunc.ts#L200-L204)
 
 ```typescript
 } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
@@ -334,7 +334,7 @@ The `// Maybe deprecated` comment at the top indicates this file may be dead cod
 
 ### P-9: `PipeArg.type` field is never used at runtime
 
-**File:** [src/punch-card/builder/functions.ts:66](../src/punch-card/builder/functions.ts#L66)
+**File:** [src/compute-graph/builder/functions.ts:66](../src/compute-graph/builder/functions.ts#L66)
 
 ```typescript
 const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
@@ -347,7 +347,7 @@ const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
 
 ### P-10: `validateContext` ordering affects accuracy
 
-**File:** [src/punch-card/runtime/validateContext.ts:906-930](../src/punch-card/runtime/validateContext.ts#L906-L930)
+**File:** [src/compute-graph/runtime/validateContext.ts:906-930](../src/compute-graph/runtime/validateContext.ts#L906-L930)
 
 The single-pass algorithm validates `funcTable` entries first, then `combineFuncDefTable`. A `funcEntry` referencing a `defId` is checked via `defineIdExistsInContext`, but the `referencedDefs` set (used to generate "never used" warnings) is populated during the funcTable pass. If a `combineFuncDef` is added in the `combineFuncDefTable` pass after the funcTable pass, it will appear as unreferenced even if it is referenced.
 
@@ -357,13 +357,13 @@ The single-pass algorithm validates `funcTable` entries first, then `combineFunc
 
 ### D-1: No top-level `src/index.ts`
 
-There is no consolidated public API entry point at `src/`. The `punch-card/index.ts` exports runtime functions, but `state-control` types and utilities have no unified export. Users must reach into internal paths.
+There is no consolidated public API entry point at `src/`. The `compute-graph/index.ts` exports runtime functions, but `state-control` types and utilities have no unified export. Users must reach into internal paths.
 
 **Recommendation:** Add `src/index.ts` re-exporting the intended public surface: `Value` types, `buildNumber`/`buildString`/etc., `executeGraph`, builder functions, and validation utilities.
 
 ### D-2: `flatKV.ts` is architecturally disconnected
 
-`flatKV.ts` is a generic nested key-value store. No file in `punch-card/` or `state-control/` imports it. It seems like a utility that was planned for or came from a previous iteration but is no longer used in the main engine.
+`flatKV.ts` is a generic nested key-value store. No file in `compute-graph/` or `state-control/` imports it. It seems like a utility that was planned for or came from a previous iteration but is no longer used in the main engine.
 
 **Recommendation:** If unused, remove to reduce dead code. If planned for future use, document the intent.
 
@@ -419,7 +419,7 @@ export type PipeArg = {
 
 ### T-4: `BinaryFnNamespaceToType` maps `binaryFnGeneric` to `'number'` arbitrarily
 
-**File:** [src/punch-card/builder/context.ts:198-203](../src/punch-card/builder/context.ts#L198-L203)
+**File:** [src/compute-graph/builder/context.ts:198-203](../src/compute-graph/builder/context.ts#L198-L203)
 
 ```typescript
 const BinaryFnNamespaceToType: Record<BinaryFnNamespaces, BaseTypeSymbol> = {
@@ -431,7 +431,7 @@ const BinaryFnNamespaceToType: Record<BinaryFnNamespaces, BaseTypeSymbol> = {
 
 ### T-5: `CondFuncDefTable` uses `FuncId | ValueId` for `conditionId` without type narrowing
 
-**File:** [src/punch-card/types.ts:132-138](../src/punch-card/types.ts#L132-L138)
+**File:** [src/compute-graph/types.ts:132-138](../src/compute-graph/types.ts#L132-L138)
 
 ```typescript
 export type CondFuncDefTable = {
@@ -457,7 +457,7 @@ The `conditionId` union requires runtime instanceof/in checks when consumed. A d
 
 ### I-2: `getBinaryFn` and `getTransformFn` perform unsafe type assertions
 
-**File:** [src/punch-card/call-presets/getBinaryFn.ts:18-27](../src/punch-card/call-presets/getBinaryFn.ts#L18-L27)
+**File:** [src/compute-graph/call-presets/getBinaryFn.ts:18-27](../src/compute-graph/call-presets/getBinaryFn.ts#L18-L27)
 
 ```typescript
 return bfArray[fnName] as AnyToAny;
@@ -467,7 +467,7 @@ If `fnName` is not a key of `bfArray`, this will produce `undefined` at runtime 
 
 ### I-3: `executeTree.ts` double `.value` access is confusing
 
-**File:** [src/punch-card/runtime/executeTree.ts:46](../src/punch-card/runtime/executeTree.ts#L46)
+**File:** [src/compute-graph/runtime/executeTree.ts:46](../src/compute-graph/runtime/executeTree.ts#L46)
 
 ```typescript
 const branchResult = conditionResult.value.value  // AnyValue.value (the JS boolean)
@@ -479,19 +479,19 @@ const branchResult = conditionResult.value.value  // AnyValue.value (the JS bool
 
 ### I-4: `buildExecutionTree` sets and cleans `visited` within a try/finally — DAG vs tree
 
-**File:** [src/punch-card/runtime/buildExecutionTree.ts:41-54](../src/punch-card/runtime/buildExecutionTree.ts#L41-L54)
+**File:** [src/compute-graph/runtime/buildExecutionTree.ts:41-54](../src/compute-graph/runtime/buildExecutionTree.ts#L41-L54)
 
 The visited-set cleanup after each subtree means a node can be visited multiple times (sibling DAG sharing). This is intentional for diamond patterns, but re-execution of shared nodes is O(n) per reference rather than O(1) with memoization. Graphs with many shared intermediate values may be unnecessarily expensive to construct.
 
 ### I-5: `processPipeFunc` ignores `PipeBuilder.args` for type information
 
-**File:** [src/punch-card/builder/context.ts:771-795](../src/punch-card/builder/context.ts#L771-L795)
+**File:** [src/compute-graph/builder/context.ts:771-795](../src/compute-graph/builder/context.ts#L771-L795)
 
 The `PipeBuilder.args` array (which holds `{ name, type }`) is iterated only to extract the `name`. The `type` field is never read. Since step transform inference falls back to `'number'` for step outputs, pipeline steps producing non-number types that are referenced later will silently receive the wrong transform.
 
 ### I-6: `BINARY_INTERFACE_ARG_IDS` reuses hardcoded IDs across all combine definitions
 
-**File:** [src/punch-card/builder/context.ts:614-617](../src/punch-card/builder/context.ts#L614-L617)
+**File:** [src/compute-graph/builder/context.ts:614-617](../src/compute-graph/builder/context.ts#L614-L617)
 
 ```typescript
 const BINARY_INTERFACE_ARG_IDS = {
@@ -511,11 +511,11 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 | Goal | Start File |
 |------|-----------|
 | Understand value types | [src/state-control/value.ts](../src/state-control/value.ts) |
-| Build a computation | [src/punch-card/builder/index.ts](../src/punch-card/builder/index.ts) |
-| Execute a graph | [src/punch-card/runtime/exec/executeGraph.ts](../src/punch-card/runtime/exec/executeGraph.ts) |
+| Build a computation | [src/compute-graph/builder/index.ts](../src/compute-graph/builder/index.ts) |
+| Execute a graph | [src/compute-graph/runtime/exec/executeGraph.ts](../src/compute-graph/runtime/exec/executeGraph.ts) |
 | Add a preset function | [src/state-control/preset-funcs/number/binaryFn.ts](../src/state-control/preset-funcs/number/binaryFn.ts) |
-| Validate a context | [src/punch-card/runtime/validateContext.ts](../src/punch-card/runtime/validateContext.ts) |
-| Understand type inference | [src/punch-card/runtime/typeInference.ts](../src/punch-card/runtime/typeInference.ts) |
+| Validate a context | [src/compute-graph/runtime/validateContext.ts](../src/compute-graph/runtime/validateContext.ts) |
+| Understand type inference | [src/compute-graph/runtime/typeInference.ts](../src/compute-graph/runtime/typeInference.ts) |
 
 ### Learning Path: Understanding the Value System
 
@@ -526,20 +526,20 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 
 ### Learning Path: Using the Builder API
 
-1. [src/punch-card/builder/types.ts](../src/punch-card/builder/types.ts) — `ContextSpec`, `BuildResult`, `CombineBuilder`, `PipeBuilder`, `CondBuilder`
-2. [src/punch-card/builder/functions.ts](../src/punch-card/builder/functions.ts) — `combine()`, `pipe()`, `cond()` constructors
-3. [src/punch-card/builder/values.ts](../src/punch-card/builder/values.ts) — `val`, `ref` helpers
-4. [src/punch-card/builder/context.ts](../src/punch-card/builder/context.ts) — `ctx()` three-phase processing
+1. [src/compute-graph/builder/types.ts](../src/compute-graph/builder/types.ts) — `ContextSpec`, `BuildResult`, `CombineBuilder`, `PipeBuilder`, `CondBuilder`
+2. [src/compute-graph/builder/functions.ts](../src/compute-graph/builder/functions.ts) — `combine()`, `pipe()`, `cond()` constructors
+3. [src/compute-graph/builder/values.ts](../src/compute-graph/builder/values.ts) — `val`, `ref` helpers
+4. [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts) — `ctx()` three-phase processing
 
 ### Learning Path: Runtime Execution
 
-1. [src/punch-card/types.ts](../src/punch-card/types.ts) — `ExecutionContext` structure
-2. [src/punch-card/idValidation.ts](../src/punch-card/idValidation.ts) — Branded ID system
-3. [src/punch-card/runtime/tree-types.ts](../src/punch-card/runtime/tree-types.ts) — `ExecutionTree` discriminated union
-4. [src/punch-card/runtime/buildExecutionTree.ts](../src/punch-card/runtime/buildExecutionTree.ts) — DAG → tree
-5. [src/punch-card/runtime/executeTree.ts](../src/punch-card/runtime/executeTree.ts) — Post-order traversal
-6. [src/punch-card/runtime/exec/executeCombineFunc.ts](../src/punch-card/runtime/exec/executeCombineFunc.ts) — Leaf execution
-7. [src/punch-card/runtime/exec/executePipeFunc.ts](../src/punch-card/runtime/exec/executePipeFunc.ts) — Sequential scoped execution
+1. [src/compute-graph/types.ts](../src/compute-graph/types.ts) — `ExecutionContext` structure
+2. [src/compute-graph/idValidation.ts](../src/compute-graph/idValidation.ts) — Branded ID system
+3. [src/compute-graph/runtime/tree-types.ts](../src/compute-graph/runtime/tree-types.ts) — `ExecutionTree` discriminated union
+4. [src/compute-graph/runtime/buildExecutionTree.ts](../src/compute-graph/runtime/buildExecutionTree.ts) — DAG → tree
+5. [src/compute-graph/runtime/executeTree.ts](../src/compute-graph/runtime/executeTree.ts) — Post-order traversal
+6. [src/compute-graph/runtime/exec/executeCombineFunc.ts](../src/compute-graph/runtime/exec/executeCombineFunc.ts) — Leaf execution
+7. [src/compute-graph/runtime/exec/executePipeFunc.ts](../src/compute-graph/runtime/exec/executePipeFunc.ts) — Sequential scoped execution
 
 ### Learning Path: Adding a New Preset Function
 
