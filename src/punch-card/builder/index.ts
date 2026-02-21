@@ -15,7 +15,7 @@
  *   // Simple plug function
  *   sum: plug('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
  *
- *   // Tap function with simplified API - no need for type annotations!
+ *   // Pipe function with simplified API - no need for type annotations!
  *   compute: tap(
  *     { x: 'v1', y: 'v2' },
  *     [
@@ -44,7 +44,7 @@ export type {
   UndefinedConditionError,
   UndefinedBranchError,
   UndefinedValueReferenceError,
-  UndefinedTapArgumentError,
-  UndefinedTapStepReferenceError,
+  UndefinedPipeArgumentError,
+  UndefinedPipeStepReferenceError,
 } from './errors';
 export { isBuilderValidationError } from './errors';

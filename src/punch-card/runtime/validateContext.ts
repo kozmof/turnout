@@ -19,7 +19,7 @@ import {
   CondDefineId,
   ValueTable,
   FuncTable,
-  TapArgBinding,
+  PipeArgBinding,
   TransformFnNames,
   BinaryFnNames,
 } from '../types';
@@ -123,7 +123,7 @@ function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
 }
 
 /**
- * Type guard to check if a PlugDef has a valid binary function name property.
+ * Type guard to check if a CombineDef has a valid binary function name property.
  * Validates that the name is a properly formatted BinaryFnNames.
  */
 function isCombineDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNames } {
@@ -135,7 +135,7 @@ function isCombineDefWithBinaryFnName(value: unknown): value is { name: BinaryFn
 }
 
 /**
- * Type guard to check if a TapDef has a sequence property.
+ * Type guard to check if a PipeDef has a sequence property.
  */
 function isPipeDefWithSequence(value: unknown): value is { sequence: unknown[] } {
   return !!(value && typeof value === 'object' && 'sequence' in value && Array.isArray(value.sequence));
@@ -306,9 +306,9 @@ function inferFuncType(
     const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
     if (lastStep && typeof lastStep === 'object' && 'defId' in lastStep) {
       const lastStepDefId = lastStep.defId as string;
-      const lastStepPlugDef = context.combineFuncDefTable?.[lastStepDefId];
-      if (isCombineDefWithBinaryFnName(lastStepPlugDef)) {
-        return getBinaryFnReturnType(lastStepPlugDef.name);
+      const lastStepCombineDef = context.combineFuncDefTable?.[lastStepDefId];
+      if (isCombineDefWithBinaryFnName(lastStepCombineDef)) {
+        return getBinaryFnReturnType(lastStepCombineDef.name);
       }
     }
     return null;
@@ -329,7 +329,7 @@ type BindingValidationContext = {
 };
 
 type BindingValidator = (
-  binding: TapArgBinding,
+  binding: PipeArgBinding,
   argName: string,
   context: BindingValidationContext
 ) => ValidationError | null;
@@ -338,7 +338,7 @@ type BindingValidator = (
  * Validates 'input' source bindings - must reference PipeFunc arguments.
  */
 function validateInputBinding(
-  binding: Extract<TapArgBinding, { source: 'input' }>,
+  binding: Extract<PipeArgBinding, { source: 'input' }>,
   argName: string,
   context: BindingValidationContext
 ): ValidationError | null {
@@ -355,7 +355,7 @@ function validateInputBinding(
  * Validates 'step' source bindings - must reference previous steps.
  */
 function validateStepBinding(
-  binding: Extract<TapArgBinding, { source: 'step' }>,
+  binding: Extract<PipeArgBinding, { source: 'step' }>,
   argName: string,
   context: BindingValidationContext
 ): ValidationError | null {
@@ -372,7 +372,7 @@ function validateStepBinding(
  * Validates 'value' source bindings - must reference existing values.
  */
 function validateValueBinding(
-  binding: Extract<TapArgBinding, { source: 'value' }>,
+  binding: Extract<PipeArgBinding, { source: 'value' }>,
   argName: string,
   context: BindingValidationContext
 ): ValidationError | null {
@@ -389,17 +389,17 @@ function validateValueBinding(
  * Dispatch table for binding validation.
  * Maps binding source to appropriate validator.
  */
-const BINDING_VALIDATORS: Record<TapArgBinding['source'], BindingValidator> = {
+const BINDING_VALIDATORS: Record<PipeArgBinding['source'], BindingValidator> = {
   input: validateInputBinding as BindingValidator,
   step: validateStepBinding as BindingValidator,
   value: validateValueBinding as BindingValidator,
 };
 
 /**
- * Validates a TapArgBinding using the appropriate validator from dispatch table.
+ * Validates a PipeArgBinding using the appropriate validator from dispatch table.
  */
 function validateBinding(
-  binding: TapArgBinding,
+  binding: PipeArgBinding,
   argName: string,
   context: BindingValidationContext
 ): ValidationError | null {
@@ -571,7 +571,7 @@ function validateCombineFuncTypes(
 /**
  * Validates a CombineFuncDefTable entry.
  */
-function validatePlugDefEntry(
+function validateCombineDefEntry(
   defId: string,
   def: unknown,
   state: ValidationState
@@ -709,7 +709,7 @@ function validateBinaryFnCompatibility(
 /**
  * Validates a PipeFuncDefTable entry.
  */
-function validateTapDefEntry(
+function validatePipeDefEntry(
   defId: string,
   def: unknown,
   context: UnvalidatedContext,
@@ -783,7 +783,7 @@ function validateTapDefEntry(
           continue;
         }
 
-        const bindingObj = binding as TapArgBinding;
+        const bindingObj = binding as PipeArgBinding;
         const validationContext: BindingValidationContext = {
           stepIndex: i,
           pipeDefArgs,
@@ -912,14 +912,14 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
   // Single pass over combineFuncDefTable - validates structure and checks usage
   if (context.combineFuncDefTable) {
     for (const [defId, def] of Object.entries(context.combineFuncDefTable)) {
-      validatePlugDefEntry(defId, def, state);
+      validateCombineDefEntry(defId, def, state);
     }
   }
 
   // Single pass over pipeFuncDefTable - validates structure and checks usage
   if (context.pipeFuncDefTable) {
     for (const [defId, def] of Object.entries(context.pipeFuncDefTable)) {
-      validateTapDefEntry(defId, def, context, state);
+      validatePipeDefEntry(defId, def, context, state);
     }
   }
 

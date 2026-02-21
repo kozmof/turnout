@@ -6,8 +6,8 @@ import type {
   PipeDefineId,
   CondDefineId,
   InterfaceArgId,
-  TapStepBinding,
-  TapArgBinding,
+  PipeStepBinding,
+  PipeArgBinding,
   TransformFnNames,
   BinaryFnNames,
   BinaryFnNamespaces,
@@ -17,8 +17,8 @@ import type {
   BuildResult,
   ValueLiteral,
   FunctionBuilder,
-  PlugBuilder,
-  TapBuilder,
+  CombineBuilder,
+  PipeBuilder,
   CondBuilder,
   ContextBuilder as BuilderState,
   ValueRef,
@@ -34,8 +34,8 @@ import {
   createUndefinedConditionError,
   createUndefinedBranchError,
   createUndefinedValueReferenceError,
-  createUndefinedTapArgumentError,
-  createUndefinedTapStepReferenceError,
+  createUndefinedPipeArgumentError,
+  createUndefinedPipeStepReferenceError,
 } from './errors';
 import type {
   TransformFnNumberNameSpace,
@@ -370,10 +370,10 @@ function validateFunctionReferences(spec: ContextSpec): void {
           validateCondReferences(key, value, allKeys, functionKeys);
           break;
         case 'combine':
-          validatePlugReferences(key, value, valueKeys, functionKeys);
+          validateCombineReferences(key, value, valueKeys, functionKeys);
           break;
         case 'pipe':
-          validateTapReferences(key, value, valueKeys);
+          validatePipeReferences(key, value, valueKeys);
           break;
       }
     }
@@ -406,9 +406,9 @@ function validateCondReferences(
 /**
  * Validates plug function references
  */
-function validatePlugReferences(
+function validateCombineReferences(
   funcId: string,
-  plug: PlugBuilder,
+  plug: CombineBuilder,
   valueKeys: Set<string>,
   functionKeys: Set<string>
 ): void {
@@ -452,15 +452,15 @@ function validatePlugReferences(
 /**
  * Validates tap function references
  */
-function validateTapReferences(
+function validatePipeReferences(
   funcId: string,
-  tap: TapBuilder,
+  tap: PipeBuilder,
   valueKeys: Set<string>
 ): void {
   // Validate argument bindings
   for (const [argName, binding] of Object.entries(tap.argBindings)) {
     if (!valueKeys.has(binding)) {
-      throw createUndefinedTapArgumentError(funcId, argName, binding);
+      throw createUndefinedPipeArgumentError(funcId, argName, binding);
     }
   }
 
@@ -472,13 +472,13 @@ function validateTapReferences(
         // Handle different reference types
         if (typeof ref === 'string') {
           // Step arguments can reference:
-          // 1. Tap function arguments
+          // 1. Pipe function arguments
           // 2. Values from the context
-          const isTapArg = tap.args.some(arg => arg.name === ref);
+          const isPipeArg = tap.args.some(arg => arg.name === ref);
           const isContextValue = valueKeys.has(ref);
 
-          if (!isTapArg && !isContextValue) {
-            throw createUndefinedTapStepReferenceError(funcId, i, argName, ref);
+          if (!isPipeArg && !isContextValue) {
+            throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref);
           }
         } else if (ref.__type === 'funcOutput') {
           // Function output references are allowed (will be resolved during processing)
@@ -495,11 +495,11 @@ function validateTapReferences(
         } else if (ref.__type === 'transform') {
           // Transform reference - validate the inner value
           if (typeof ref.valueId === 'string') {
-            const isTapArg = tap.args.some(arg => arg.name === ref.valueId);
+            const isPipeArg = tap.args.some(arg => arg.name === ref.valueId);
             const isContextValue = valueKeys.has(ref.valueId);
 
-            if (!isTapArg && !isContextValue) {
-              throw createUndefinedTapStepReferenceError(funcId, i, argName, ref.valueId);
+            if (!isPipeArg && !isContextValue) {
+              throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueId);
             }
           } else if (ref.valueId.__type === 'stepOutput') {
             // Validate step output in transform
@@ -621,7 +621,7 @@ const BINARY_INTERFACE_ARG_IDS = {
  */
 function processCombineFunc(
   funcId: string,
-  builder: PlugBuilder,
+  builder: CombineBuilder,
   state: FunctionPhaseState
 ): void {
   const defId = IdGenerator.generateCombineDefineId();
@@ -638,7 +638,7 @@ function processCombineFunc(
   };
 
   // Add to definition table
-  state.combineFuncDefTable[defId] = buildPlugDefinition(builder.name, transformFnMap);
+  state.combineFuncDefTable[defId] = buildCombineDefinition(builder.name, transformFnMap);
 }
 
 /**
@@ -720,7 +720,7 @@ function resolveValueReference(
  * Builds argument mappings and transform functions for a plug function
  */
 function buildCombineArguments(
-  builder: PlugBuilder,
+  builder: CombineBuilder,
   state: FunctionPhaseState
 ): {
   argMap: Record<string, ValueId>;
@@ -745,11 +745,11 @@ function buildCombineArguments(
 /**
  * Builds a plug function definition with configurable argument structure
  */
-function buildPlugDefinition(
-  name: PlugBuilder['name'],
+function buildCombineDefinition(
+  name: CombineBuilder['name'],
   transformFnMap: Record<string, { name: TransformFnNames }>
 ): {
-  name: PlugBuilder['name'];
+  name: CombineBuilder['name'];
   transformFn: { a: { name: TransformFnNames }; b: { name: TransformFnNames } };
   args: { a: InterfaceArgId; b: InterfaceArgId };
 } {
@@ -770,7 +770,7 @@ function buildPlugDefinition(
  */
 function processPipeFunc(
   funcId: string,
-  builder: TapBuilder,
+  builder: PipeBuilder,
   state: FunctionPhaseState
 ): void {
   const defId = IdGenerator.generatePipeDefineId();
@@ -780,7 +780,7 @@ function processPipeFunc(
   const { argMap, pipeDefArgs } = buildPipeArguments(funcId, builder, state);
 
   // Process each step in the sequence
-  const sequence = buildTapSequence(funcId, builder, state);
+  const sequence = buildPipeSequence(funcId, builder, state);
 
   state.funcTable[funcId] = {
     defId,
@@ -799,7 +799,7 @@ function processPipeFunc(
  */
 function buildPipeArguments(
   funcId: string,
-  builder: TapBuilder,
+  builder: PipeBuilder,
   state: FunctionPhaseState
 ): { argMap: Record<string, ValueId>; pipeDefArgs: Record<string, InterfaceArgId> } {
   const argMap: Record<string, ValueId> = {};
@@ -817,12 +817,12 @@ function buildPipeArguments(
 /**
  * Builds the sequence of steps for a tap function
  */
-function buildTapSequence(
+function buildPipeSequence(
   funcId: string,
-  builder: TapBuilder,
+  builder: PipeBuilder,
   state: FunctionPhaseState
-): TapStepBinding[] {
-  const sequence: TapStepBinding[] = [];
+): PipeStepBinding[] {
+  const sequence: PipeStepBinding[] = [];
 
   for (let i = 0; i < builder.steps.length; i++) {
     const step = builder.steps[i];
@@ -831,7 +831,7 @@ function buildTapSequence(
       // Create step output ID and track in metadata
       IdFactory.createStepOutput(funcId as FuncId, i, state);
 
-      const stepBinding = buildTapStepBinding(step, builder, state);
+      const stepBinding = buildPipeStepBinding(step, builder, state);
       sequence.push(stepBinding);
     }
   }
@@ -842,11 +842,11 @@ function buildTapSequence(
 /**
  * Builds a single step binding for a tap function
  */
-function buildTapStepBinding(
-  step: PlugBuilder,
-  tapBuilder: TapBuilder,
+function buildPipeStepBinding(
+  step: CombineBuilder,
+  tapBuilder: PipeBuilder,
   state: FunctionPhaseState
-): TapStepBinding {
+): PipeStepBinding {
   const stepDefId = IdGenerator.generateCombineDefineId();
 
   // Build argument bindings for this step
@@ -855,8 +855,8 @@ function buildTapStepBinding(
   // Infer transform functions for each argument
   const transformFnMap = buildStepTransformMap(step);
 
-  // Add plug definition to table (reuse buildPlugDefinition for consistency)
-  state.combineFuncDefTable[stepDefId] = buildPlugDefinition(step.name, transformFnMap);
+  // Add plug definition to table (reuse buildCombineDefinition for consistency)
+  state.combineFuncDefTable[stepDefId] = buildCombineDefinition(step.name, transformFnMap);
 
   return {
     defId: stepDefId,
@@ -868,11 +868,11 @@ function buildTapStepBinding(
  * Builds argument bindings for a single tap step
  */
 function buildStepArgBindings(
-  step: PlugBuilder,
-  tapBuilder: TapBuilder,
+  step: CombineBuilder,
+  tapBuilder: PipeBuilder,
   state: FunctionPhaseState
-): Record<string, TapArgBinding> {
-  const argBindings: Record<string, TapArgBinding> = {};
+): Record<string, PipeArgBinding> {
+  const argBindings: Record<string, PipeArgBinding> = {};
 
   for (const [argName, ref] of Object.entries(step.args)) {
     // Handle StepOutputRef - use step binding
@@ -931,8 +931,8 @@ function buildStepArgBindings(
  */
 function resolveArgBinding(
   refStr: string,
-  tapBuilder: TapBuilder
-): TapArgBinding {
+  tapBuilder: PipeBuilder
+): PipeArgBinding {
   // Check if it's an argument to the tap function
   if (tapBuilder.args.some(arg => arg.name === refStr)) {
     return {
@@ -951,7 +951,7 @@ function resolveArgBinding(
 /**
  * Builds transform function map for a step
  */
-function buildStepTransformMap(step: PlugBuilder): Record<string, { name: TransformFnNames }> {
+function buildStepTransformMap(step: CombineBuilder): Record<string, { name: TransformFnNames }> {
   const transformFnMap: Record<string, { name: TransformFnNames }> = {};
 
   for (const [argName, ref] of Object.entries(step.args)) {

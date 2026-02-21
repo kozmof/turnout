@@ -251,10 +251,10 @@ export function inferFuncReturnType(
       // This is a limitation of the current design where inferFuncReturnType expects FuncId
       // For now, just recurse on the definition directly by checking its structure
       if (!isPipeDefineId(lastStepDefId, context.pipeFuncDefTable)) return null;
-      const nestedTapDef = context.pipeFuncDefTable[lastStepDefId];
-      if (nestedTapDef.sequence.length === 0) return null;
+      const nestedPipeDef = context.pipeFuncDefTable[lastStepDefId];
+      if (nestedPipeDef.sequence.length === 0) return null;
       // Continue recursion manually to avoid circular FuncId dependency
-      const nestedLastStep = nestedTapDef.sequence[nestedTapDef.sequence.length - 1];
+      const nestedLastStep = nestedPipeDef.sequence[nestedPipeDef.sequence.length - 1];
       if (isCombineDefineId(nestedLastStep.defId, context.combineFuncDefTable)) {
         return inferCombineFuncReturnType(nestedLastStep.defId, context);
       }

@@ -28,8 +28,8 @@ export type {
   PipeDefineId,
   CondDefineId,
   InterfaceArgId,
-  TapStepBinding,
-  TapArgBinding,
+  PipeStepBinding,
+  PipeArgBinding,
 } from './types';
 
 export type { GraphExecutionError } from './runtime/errors';

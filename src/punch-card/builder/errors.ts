@@ -21,15 +21,15 @@ type UndefinedValueReferenceErrorData = {
   readonly valueRef: ValueRef;
 };
 
-type UndefinedTapArgumentErrorData = {
-  readonly kind: 'undefinedTapArgument';
+type UndefinedPipeArgumentErrorData = {
+  readonly kind: 'undefinedPipeArgument';
   readonly funcId: string;
   readonly argName: string;
   readonly binding: string;
 };
 
-type UndefinedTapStepReferenceErrorData = {
-  readonly kind: 'undefinedTapStepReference';
+type UndefinedPipeStepReferenceErrorData = {
+  readonly kind: 'undefinedPipeStepReference';
   readonly funcId: string;
   readonly stepIndex: number;
   readonly argName: string;
@@ -40,15 +40,15 @@ type UndefinedTapStepReferenceErrorData = {
 export type UndefinedConditionError = Error & UndefinedConditionErrorData;
 export type UndefinedBranchError = Error & UndefinedBranchErrorData;
 export type UndefinedValueReferenceError = Error & UndefinedValueReferenceErrorData;
-export type UndefinedTapArgumentError = Error & UndefinedTapArgumentErrorData;
-export type UndefinedTapStepReferenceError = Error & UndefinedTapStepReferenceErrorData;
+export type UndefinedPipeArgumentError = Error & UndefinedPipeArgumentErrorData;
+export type UndefinedPipeStepReferenceError = Error & UndefinedPipeStepReferenceErrorData;
 
 export type BuilderValidationError =
   | UndefinedConditionError
   | UndefinedBranchError
   | UndefinedValueReferenceError
-  | UndefinedTapArgumentError
-  | UndefinedTapStepReferenceError;
+  | UndefinedPipeArgumentError
+  | UndefinedPipeStepReferenceError;
 
 // Factory functions that create Error instances with additional properties
 export function createUndefinedConditionError(
@@ -95,7 +95,7 @@ export function createUndefinedValueReferenceError(
   valueRef: ValueRef
 ): UndefinedValueReferenceError {
   const error = new Error(
-    `Plug function '${funcId}' argument '${argName}' references undefined value: '${valueRef}'`
+    `Combine function '${funcId}' argument '${argName}' references undefined value: '${valueRef}'`
   );
   error.name = 'UndefinedValueReferenceError';
 
@@ -109,18 +109,18 @@ export function createUndefinedValueReferenceError(
   return Object.assign(error, errorData);
 }
 
-export function createUndefinedTapArgumentError(
+export function createUndefinedPipeArgumentError(
   funcId: string,
   argName: string,
   binding: string
-): UndefinedTapArgumentError {
+): UndefinedPipeArgumentError {
   const error = new Error(
-    `Tap function '${funcId}' argument '${argName}' references undefined or non-value: '${binding}'`
+    `Pipe function '${funcId}' argument '${argName}' references undefined or non-value: '${binding}'`
   );
-  error.name = 'UndefinedTapArgumentError';
+  error.name = 'UndefinedPipeArgumentError';
 
-  const errorData: UndefinedTapArgumentErrorData = {
-    kind: 'undefinedTapArgument',
+  const errorData: UndefinedPipeArgumentErrorData = {
+    kind: 'undefinedPipeArgument',
     funcId,
     argName,
     binding,
@@ -129,19 +129,19 @@ export function createUndefinedTapArgumentError(
   return Object.assign(error, errorData);
 }
 
-export function createUndefinedTapStepReferenceError(
+export function createUndefinedPipeStepReferenceError(
   funcId: string,
   stepIndex: number,
   argName: string,
   reference: string
-): UndefinedTapStepReferenceError {
+): UndefinedPipeStepReferenceError {
   const error = new Error(
-    `Tap function '${funcId}' step ${String(stepIndex)} argument '${argName}' references undefined: '${reference}'`
+    `Pipe function '${funcId}' step ${String(stepIndex)} argument '${argName}' references undefined: '${reference}'`
   );
-  error.name = 'UndefinedTapStepReferenceError';
+  error.name = 'UndefinedPipeStepReferenceError';
 
-  const errorData: UndefinedTapStepReferenceErrorData = {
-    kind: 'undefinedTapStepReference',
+  const errorData: UndefinedPipeStepReferenceErrorData = {
+    kind: 'undefinedPipeStepReference',
     funcId,
     stepIndex,
     argName,

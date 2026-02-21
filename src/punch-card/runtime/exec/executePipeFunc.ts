@@ -4,8 +4,8 @@ import {
   ExecutionContext,
   ValueTable,
   ValueId,
-  TapStepBinding,
-  TapArgBinding,
+  PipeStepBinding,
+  PipeArgBinding,
 } from '../../types';
 import {
   createEmptySequenceError,
@@ -80,11 +80,11 @@ export function createScopedContext(
 }
 
 /**
- * Resolves a TapArgBinding to a concrete ValueId.
+ * Resolves a PipeArgBinding to a concrete ValueId.
  * This determines which value should be used for a step's argument.
  */
 function resolveArgBinding(
-  binding: TapArgBinding,
+  binding: PipeArgBinding,
   pipeFuncArgMap: { [argName: string]: ValueId },
   stepResults: ValueId[]
 ): ValueId {
@@ -143,7 +143,7 @@ function createTempFuncId(
  * Returns the step result ID and updated value table.
  */
 function executeStep(
-  step: TapStepBinding,
+  step: PipeStepBinding,
   stepIndex: number,
   pipeFuncId: FuncId,
   pipeFuncArgMap: { [argName: string]: ValueId },

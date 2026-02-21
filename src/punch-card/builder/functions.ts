@@ -1,13 +1,13 @@
 import type {
-  PlugBuilder,
-  TapBuilder,
+  CombineBuilder,
+  PipeBuilder,
   CondBuilder,
   ValueRef,
   FuncRef,
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
-  TapArg,
+  PipeArg,
   StepBuilder,
 } from './types';
 import type { BinaryFnNames } from '../types';
@@ -30,7 +30,7 @@ import type { BinaryFnNames } from '../types';
 export function plug(
   name: BinaryFnNames,
   args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>
-): PlugBuilder {
+): CombineBuilder {
   return {
     __type: 'combine',
     name,
@@ -58,9 +58,9 @@ export function plug(
 export function tap(
   argBindings: Record<string, ValueRef>,
   steps: readonly StepBuilder[]
-): TapBuilder {
+): PipeBuilder {
   // Infer args from argBindings keys
-  const inferredArgs: TapArg[] = Object.keys(argBindings).map(name => ({
+  const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
     name,
     type: 'number' as const, // Default (unused at runtime anyway)
   }));

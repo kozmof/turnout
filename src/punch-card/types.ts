@@ -96,7 +96,7 @@ export type CombineFuncDefTable = {
  * - 'step': Binds to the return value of a previous step (by index)
  * - 'value': Binds directly to a ValueId (constant or pre-computed value)
  */
-export type TapArgBinding =
+export type PipeArgBinding =
   | { source: 'input'; argName: string }
   | { source: 'step'; stepIndex: number }
   | { source: 'value'; valueId: ValueId };
@@ -105,10 +105,10 @@ export type TapArgBinding =
  * Defines a single step in a PipeFunc sequence.
  * Each step references a function definition and specifies how its arguments are bound.
  */
-export type TapStepBinding = {
+export type PipeStepBinding = {
   defId: CombineDefineId | PipeDefineId | CondDefineId;
   argBindings: {
-    [argName: string]: TapArgBinding;
+    [argName: string]: PipeArgBinding;
   };
 };
 
@@ -125,7 +125,7 @@ export type PipeFuncDefTable = {
     args: {
       [argName in string]: InterfaceArgId;
     };
-    sequence: TapStepBinding[];
+    sequence: PipeStepBinding[];
   };
 };
 
@@ -153,9 +153,9 @@ export type ExecutionContext = {
   readonly valueTable: Readonly<ValueTable>;
   /** Function instances table. Read-only during execution. */
   readonly funcTable: Readonly<FuncTable>;
-  /** Plug function definitions. Read-only during execution. */
+  /** Combine function definitions. Read-only during execution. */
   readonly combineFuncDefTable: Readonly<CombineFuncDefTable>;
-  /** Tap function definitions. Read-only during execution. */
+  /** Pipe function definitions. Read-only during execution. */
   readonly pipeFuncDefTable: Readonly<PipeFuncDefTable>;
   /** Conditional function definitions. Read-only during execution. */
   readonly condFuncDefTable: Readonly<CondFuncDefTable>;

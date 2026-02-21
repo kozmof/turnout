@@ -332,18 +332,18 @@ This makes debugging nested KV update failures very hard. The error provides no 
 
 The `// Maybe deprecated` comment at the top indicates this file may be dead code. `ElemType` is only re-exported and consumed by `metaReturn.ts` in the same directory. If `getResultType.ts` files are also unused (they exist but are not imported by the main codebase), they represent orphaned code.
 
-### P-9: `TapArg.type` field is never used at runtime
+### P-9: `PipeArg.type` field is never used at runtime
 
 **File:** [src/punch-card/builder/functions.ts:66](../src/punch-card/builder/functions.ts#L66)
 
 ```typescript
-const inferredArgs: TapArg[] = Object.keys(argBindings).map(name => ({
+const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
   name,
   type: 'number' as const, // Default (unused at runtime anyway)
 }));
 ```
 
-`TapArg.type` exists in the type definition but is hardcoded to `'number'` and never read during execution. The field is extraneous in the current design.
+`PipeArg.type` exists in the type definition but is hardcoded to `'number'` and never read during execution. The field is extraneous in the current design.
 
 ### P-10: `validateContext` ordering affects accuracy
 
@@ -402,10 +402,10 @@ const GRAPH_ERROR_KINDS = new Set(['missingDependency', 'missingDefinition', ...
 error instanceof Error && 'kind' in error && GRAPH_ERROR_KINDS.has(error.kind as string)
 ```
 
-### T-2: `TapArg` type has a dead field
+### T-2: `PipeArg` type has a dead field
 
 ```typescript
-export type TapArg = {
+export type PipeArg = {
   readonly name: string;
   readonly type: 'number' | 'string' | 'boolean' | 'array'; // never used
 };
@@ -483,11 +483,11 @@ const branchResult = conditionResult.value.value  // AnyValue.value (the JS bool
 
 The visited-set cleanup after each subtree means a node can be visited multiple times (sibling DAG sharing). This is intentional for diamond patterns, but re-execution of shared nodes is O(n) per reference rather than O(1) with memoization. Graphs with many shared intermediate values may be unnecessarily expensive to construct.
 
-### I-5: `processPipeFunc` ignores `TapBuilder.args` for type information
+### I-5: `processPipeFunc` ignores `PipeBuilder.args` for type information
 
 **File:** [src/punch-card/builder/context.ts:771-795](../src/punch-card/builder/context.ts#L771-L795)
 
-The `TapBuilder.args` array (which holds `{ name, type }`) is iterated only to extract the `name`. The `type` field is never read. Since step transform inference falls back to `'number'` for step outputs, pipeline steps producing non-number types that are referenced later will silently receive the wrong transform.
+The `PipeBuilder.args` array (which holds `{ name, type }`) is iterated only to extract the `name`. The `type` field is never read. Since step transform inference falls back to `'number'` for step outputs, pipeline steps producing non-number types that are referenced later will silently receive the wrong transform.
 
 ### I-6: `BINARY_INTERFACE_ARG_IDS` reuses hardcoded IDs across all plug definitions
 
@@ -526,7 +526,7 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 
 ### Learning Path: Using the Builder API
 
-1. [src/punch-card/builder/types.ts](../src/punch-card/builder/types.ts) — `ContextSpec`, `BuildResult`, `PlugBuilder`, `TapBuilder`, `CondBuilder`
+1. [src/punch-card/builder/types.ts](../src/punch-card/builder/types.ts) — `ContextSpec`, `BuildResult`, `CombineBuilder`, `PipeBuilder`, `CondBuilder`
 2. [src/punch-card/builder/functions.ts](../src/punch-card/builder/functions.ts) — `plug()`, `tap()`, `cond()` constructors
 3. [src/punch-card/builder/values.ts](../src/punch-card/builder/values.ts) — `val`, `ref` helpers
 4. [src/punch-card/builder/context.ts](../src/punch-card/builder/context.ts) — `ctx()` three-phase processing
@@ -560,5 +560,5 @@ All `CombineFunc` definitions share the same `InterfaceArgId` values (`ia1`, `ia
 | Error Handling | ★★★☆☆ | Discriminated error types good; guards too broad |
 | Test Coverage | ★★★☆☆ | Integration and unit tests present, coverage unknown |
 | Documentation | ★★★★☆ | JSDoc present on key functions; design rationale documented |
-| Dead Code | ★★★☆☆ | `flatKV.ts`, `propagateTags`, `meta-chain/types.ts`, `TapArg.type` |
+| Dead Code | ★★★☆☆ | `flatKV.ts`, `propagateTags`, `meta-chain/types.ts`, `PipeArg.type` |
 | Known Gaps | ★★☆☆☆ | CondFunc in PipeFunc unimplemented; step type inference broken for non-number |

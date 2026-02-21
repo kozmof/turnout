@@ -360,7 +360,7 @@ describe('Context Builder', () => {
         // Simple plug
         sum: plug('binaryFnNumber::add', { a: 'x', b: 'y' }),
 
-        // Tap function
+        // Pipe function
         compute: tap(
           { a: 'x', b: 'y' },
           [

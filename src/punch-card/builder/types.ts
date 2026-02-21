@@ -18,7 +18,7 @@ type ToIndexSignature<T> = T extends Record<string, infer V>
 /**
  * Builder for plug functions.
  */
-export type PlugBuilder = {
+export type CombineBuilder = {
   readonly __type: 'combine';
   readonly name: BinaryFnNames;
   readonly args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>;
@@ -27,9 +27,9 @@ export type PlugBuilder = {
 /**
  * Builder for tap functions.
  */
-export type TapBuilder = {
+export type PipeBuilder = {
   readonly __type: 'pipe';
-  readonly args: readonly TapArg[];
+  readonly args: readonly PipeArg[];
   readonly argBindings: Record<string, ValueRef>; // Maps arg names to value IDs
   readonly steps: readonly StepBuilder[];
 };
@@ -81,9 +81,9 @@ export type TransformRef = {
 };
 
 /**
- * Tap function argument definition.
+ * Pipe function argument definition.
  */
-export type TapArg = {
+export type PipeArg = {
   readonly name: string;
   readonly type: 'number' | 'string' | 'boolean' | 'array';
 };
@@ -91,7 +91,7 @@ export type TapArg = {
 /**
  * Step in a tap function.
  */
-export type StepBuilder = PlugBuilder | TapBuilder;
+export type StepBuilder = CombineBuilder | PipeBuilder;
 
 /**
  * Context specification - user-friendly definition.
@@ -111,7 +111,7 @@ export type ValueLiteral =
 /**
  * Any function builder.
  */
-export type FunctionBuilder = PlugBuilder | TapBuilder | CondBuilder;
+export type FunctionBuilder = CombineBuilder | PipeBuilder | CondBuilder;
 
 /**
  * Result of building a context.

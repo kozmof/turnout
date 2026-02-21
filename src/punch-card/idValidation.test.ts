@@ -64,7 +64,7 @@ describe('ID Validation Module', () => {
       });
 
       it('should accept strings regardless of prefix', () => {
-        expect(createCombineDefineId('myPlugDef')).toBe('myPlugDef');
+        expect(createCombineDefineId('myCombineDef')).toBe('myCombineDef');
         expect(createCombineDefineId('td_something')).toBe('td_something');
         expect(createCombineDefineId('')).toBe('');
       });
@@ -81,7 +81,7 @@ describe('ID Validation Module', () => {
       });
 
       it('should accept strings regardless of prefix', () => {
-        expect(createPipeDefineId('myTapDef')).toBe('myTapDef');
+        expect(createPipeDefineId('myPipeDef')).toBe('myPipeDef');
         expect(createPipeDefineId('pd_something')).toBe('pd_something');
         expect(createPipeDefineId('')).toBe('');
       });
