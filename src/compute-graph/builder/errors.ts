@@ -151,6 +151,14 @@ export function createUndefinedPipeStepReferenceError(
   return Object.assign(error, errorData);
 }
 
+const BUILDER_VALIDATION_ERROR_KINDS = new Set<string>([
+  'undefinedCondition',
+  'undefinedBranch',
+  'undefinedValueReference',
+  'undefinedPipeArgument',
+  'undefinedPipeStepReference',
+]);
+
 // Type guard
 export function isBuilderValidationError(
   error: unknown
@@ -158,6 +166,6 @@ export function isBuilderValidationError(
   return (
     error instanceof Error &&
     'kind' in error &&
-    typeof (error as { kind: unknown }).kind === 'string'
+    BUILDER_VALIDATION_ERROR_KINDS.has((error as { kind: unknown }).kind as string)
   );
 }

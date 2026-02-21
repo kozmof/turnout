@@ -129,9 +129,13 @@ export type PipeFuncDefTable = {
   };
 };
 
+export type ConditionId =
+  | { readonly source: 'value'; readonly id: ValueId }
+  | { readonly source: 'func'; readonly id: FuncId };
+
 export type CondFuncDefTable = {
   [defId in CondDefineId]: {
-    conditionId: FuncId | ValueId;
+    conditionId: ConditionId;
     trueBranchId: FuncId;
     falseBranchId: FuncId;
   };

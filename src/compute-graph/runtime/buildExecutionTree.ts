@@ -110,7 +110,7 @@ function buildExecutionTreeInternal(
     // Build trees for condition and both branches
     // Each branch can visit the same nodes independently (no false cycle detection)
     // because visited set is cleaned up after each subtree completes
-    const conditionTree = buildExecutionTree(condDef.conditionId, context, visited, memo);
+    const conditionTree = buildExecutionTree(condDef.conditionId.id, context, visited, memo);
     const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, visited, memo);
     const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, visited, memo);
 

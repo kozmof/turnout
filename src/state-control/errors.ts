@@ -49,12 +49,14 @@ export function createInvalidValueError(
  * @param error - The error to check
  * @returns True if the error is a ValueBuilderError
  */
+const VALUE_BUILDER_ERROR_KINDS = new Set<string>(['invalidValue']);
+
 export function isValueBuilderError(
   error: unknown
 ): error is ValueBuilderError {
   return (
     error instanceof Error &&
     'kind' in error &&
-    typeof (error as { kind: unknown }).kind === 'string'
+    VALUE_BUILDER_ERROR_KINDS.has((error as { kind: unknown }).kind as string)
   );
 }

@@ -133,7 +133,7 @@ describe('validateContext', () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: 'vCond' as ValueId,
+            conditionId: { source: 'value' as const, id: 'vCond' as ValueId },
             trueBranchId: 'fTrue' as FuncId,
             falseBranchId: 'fFalse' as FuncId,
           },
@@ -344,7 +344,7 @@ describe('validateContext', () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: 'v-nonexistent' as ValueId,
+            conditionId: { source: 'value' as const, id: 'v-nonexistent' as ValueId },
             trueBranchId: 'fTrue' as FuncId,
             falseBranchId: 'fFalse' as FuncId,
           },
@@ -387,7 +387,7 @@ describe('validateContext', () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: 'vCond' as ValueId,
+            conditionId: { source: 'value' as const, id: 'vCond' as ValueId },
             trueBranchId: 'f-nonexistent' as FuncId,
             falseBranchId: 'fFalse' as FuncId,
           },

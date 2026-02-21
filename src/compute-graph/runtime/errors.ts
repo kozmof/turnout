@@ -152,6 +152,15 @@ export function createInvalidTreeNodeError(
   return Object.assign(error, errorData);
 }
 
+const GRAPH_EXECUTION_ERROR_KINDS = new Set<string>([
+  'missingDependency',
+  'missingDefinition',
+  'functionExecution',
+  'emptySequence',
+  'missingValue',
+  'invalidTreeNode',
+]);
+
 // Type guard
 export function isGraphExecutionError(
   error: unknown
@@ -159,6 +168,6 @@ export function isGraphExecutionError(
   return (
     error instanceof Error &&
     'kind' in error &&
-    typeof (error as { kind: unknown }).kind === 'string'
+    GRAPH_EXECUTION_ERROR_KINDS.has((error as { kind: unknown }).kind as string)
   );
 }

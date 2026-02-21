@@ -975,11 +975,10 @@ function processCondFunc(
     returnId,
   };
 
-  // Condition can be either a ValueId or FuncId
-  // Check if it exists in funcTable to determine which type to use
+  // Condition can be either a FuncId or ValueId — discriminate at build time
   const conditionId = builder.condition in state.funcTable
-    ? createFuncId(builder.condition)
-    : createValueId(builder.condition);
+    ? { source: 'func' as const, id: createFuncId(builder.condition) }
+    : { source: 'value' as const, id: createValueId(builder.condition) };
 
   state.condFuncDefTable[defId] = {
     conditionId,

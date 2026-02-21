@@ -140,6 +140,7 @@ export type AnyValue =
 /**
  * A Value with fully generic type parameters.
  * Useful for internal builder functions that work with any value type.
+ * @internal
  */
 export type UnknownValue = Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]>;
 

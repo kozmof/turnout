@@ -345,11 +345,9 @@ The single-pass algorithm validates `funcTable` entries first, then `combineFunc
 
 ## 6. Improvement Points — Design Overview
 
-### D-1: No top-level `src/index.ts`
+### ~~D-1: No top-level `src/index.ts`~~ ✓ Fixed
 
-There is no consolidated public API entry point at `src/`. The `compute-graph/index.ts` exports runtime functions, but `state-control` types and utilities have no unified export. Users must reach into internal paths.
-
-**Recommendation:** Add `src/index.ts` re-exporting the intended public surface: `Value` types, `buildNumber`/`buildString`/etc., `executeGraph`, builder functions, and validation utilities.
+Created [src/index.ts](../src/index.ts) as the unified public entry point. It re-exports: all `Value` types and type-guards from `state-control/value`; all builder functions (`buildNumber`, `buildString`, etc.) and operation helpers from `state-control/value-builders`; `ValueBuilderError`/`isValueBuilderError` from `state-control/errors`; `executeGraph`/`executeGraphSafe`, `validateContext`/`assertValidContext`, and all `ExecutionContext`-related types from `compute-graph`; and the full builder API (`ctx`, `combine`, `pipe`, `cond`, `val`, `ref`) plus `BuilderValidationError`/`isBuilderValidationError` from `compute-graph/builder`.
 
 ### D-2: `flatKV.ts` is architecturally disconnected
 
@@ -365,34 +363,25 @@ Resolved by the P-1 fix — `idGenerator.ts` now imports creators directly from 
 
 Resolved by the P-2 fix — `propagateTags.ts` was deleted; `mergeTags` in `value-builders.ts` is the single implementation.
 
-### D-5: No `src/` root module entry point in `package.json`
+### ~~D-5: No `src/` root module entry point in `package.json`~~ ✓ Fixed
 
-`package.json` has `"main": "index.js"` but there is no `index.ts` at the project root and no build step configured. The project is currently test-only with no emit target.
+Updated [package.json](../package.json) `"main"` from `"index.js"` to `"src/index.ts"`, pointing to the new source entry created for D-1.
 
 ---
 
 ## 7. Improvement Points — Types and Interfaces
 
-### T-1: `isValueBuilderError` / `isGraphExecutionError` / `isBuilderValidationError` need stronger discrimination
+### ~~T-1: `isValueBuilderError` / `isGraphExecutionError` / `isBuilderValidationError` need stronger discrimination~~ ✓ Fixed
 
-All three guards should narrow to the specific `kind` values of their respective unions:
-
-```typescript
-// Current (too broad):
-error instanceof Error && 'kind' in error && typeof error.kind === 'string'
-
-// Recommended:
-const GRAPH_ERROR_KINDS = new Set(['missingDependency', 'missingDefinition', ...]);
-error instanceof Error && 'kind' in error && GRAPH_ERROR_KINDS.has(error.kind as string)
-```
+Added a private `Set<string>` of valid `kind` values to each error module. All three guards (`isValueBuilderError` in [src/state-control/errors.ts](../src/state-control/errors.ts), `isGraphExecutionError` in [src/compute-graph/runtime/errors.ts](../src/compute-graph/runtime/errors.ts), `isBuilderValidationError` in [src/compute-graph/builder/errors.ts](../src/compute-graph/builder/errors.ts)) now check membership in their respective Set instead of a loose `typeof === 'string'` check.
 
 ### ~~T-2: `PipeArg` type has a dead field~~ ✓ Fixed
 
 Removed the dead `type` field from `PipeArg` in [src/compute-graph/builder/types.ts](../src/compute-graph/builder/types.ts#L86-L88) and the corresponding hardcoded `type: 'number' as const` from the `pipe()` builder in [src/compute-graph/builder/functions.ts](../src/compute-graph/builder/functions.ts#L63-L65). `PipeArg` now only carries `name`.
 
-### T-3: `UnknownValue` could be expressed more cleanly
+### ~~T-3: `UnknownValue` could be expressed more cleanly~~ ✓ Fixed
 
-`UnknownValue = Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, readonly TagSymbol[]>` is used only as an intermediate in `value-builders.ts`. Callers immediately validate and narrow it. Consider whether it adds clarity or just adds an intermediate type name.
+Added `@internal` JSDoc annotation to `UnknownValue` in [src/state-control/value.ts](../src/state-control/value.ts) to signal that it is an implementation detail of the builder infrastructure and not part of the public API.
 
 ### T-4: `BinaryFnNamespaceToType` maps `binaryFnGeneric` to `'number'` arbitrarily
 
@@ -406,21 +395,22 @@ const BinaryFnNamespaceToType: Record<BinaryFnNamespaces, BaseTypeSymbol> = {
 
 `binaryFnGeneric::isEqual` accepts any type and returns `boolean`. Mapping it to `'number'` for transform inference means using it with string or array arguments will infer the wrong transform type silently.
 
-### T-5: `CondFuncDefTable` uses `FuncId | ValueId` for `conditionId` without type narrowing
+### ~~T-5: `CondFuncDefTable` uses `FuncId | ValueId` for `conditionId` without type narrowing~~ ✓ Fixed
 
-**File:** [src/compute-graph/types.ts:132-138](../src/compute-graph/types.ts#L132-L138)
+Introduced `ConditionId` discriminated union in [src/compute-graph/types.ts](../src/compute-graph/types.ts):
 
 ```typescript
-export type CondFuncDefTable = {
-  [defId in CondDefineId]: {
-    conditionId: FuncId | ValueId;   // union, no discrimination
-    trueBranchId: FuncId;
-    falseBranchId: FuncId;
-  };
-};
+export type ConditionId =
+  | { readonly source: 'value'; readonly id: ValueId }
+  | { readonly source: 'func'; readonly id: FuncId };
 ```
 
-The `conditionId` union requires runtime instanceof/in checks when consumed. A discriminated form `{ source: 'value'; id: ValueId } | { source: 'func'; id: FuncId }` would make dispatch safer and clearer.
+Updated `CondFuncDefTable.conditionId` to use the new type. Propagated through:
+- `processCondFunc` in [src/compute-graph/builder/context.ts](../src/compute-graph/builder/context.ts) — now produces the discriminated form
+- `buildExecutionTree` in [src/compute-graph/runtime/buildExecutionTree.ts](../src/compute-graph/runtime/buildExecutionTree.ts) — reads `.conditionId.id`
+- `validateContext` in [src/compute-graph/runtime/validateContext.ts](../src/compute-graph/runtime/validateContext.ts) — `hasConditionId` guard checks for `{ source, id }` shape; validation block dispatches on `source === 'value'` vs `source === 'func'`
+- All test fixtures in `validateContext.test.ts`, `validateContext.integration.test.ts`, and `executeGraph.test.ts`
+- `ConditionId` exported from [src/compute-graph/index.ts](../src/compute-graph/index.ts) and [src/index.ts](../src/index.ts)
 
 ---
 
@@ -513,8 +503,9 @@ Removed the `BINARY_INTERFACE_ARG_IDS` constant from [src/compute-graph/builder/
 | Architecture | ★★★★☆ | Clear layering; builder → context → tree → exec |
 | Type Safety | ★★★★☆ | Branded IDs, discriminated unions, template literals well used |
 | Immutability | ★★★★★ | All execution returns new state; no mutation |
-| Error Handling | ★★★☆☆ | Discriminated error types good; guards too broad |
+| Error Handling | ★★★★☆ | Discriminated error types good; guards strengthened with Set-based kind checks |
 | Test Coverage | ★★★☆☆ | Integration and unit tests present, coverage unknown |
 | Documentation | ★★★★☆ | JSDoc present on key functions; design rationale documented |
 | Dead Code | ★★★★☆ | `flatKV.ts` remaining; `meta-chain` orphans, `propagateTags`, `PipeArg.type` removed |
+| Public API | ★★★★☆ | `src/index.ts` now consolidates full public surface; `package.json` updated |
 | Known Gaps | ★★☆☆☆ | CondFunc in PipeFunc unimplemented; step type inference broken for non-number |

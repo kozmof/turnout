@@ -22,6 +22,7 @@ export type {
   CombineFuncDefTable,
   PipeFuncDefTable,
   CondFuncDefTable,
+  ConditionId,
   FuncId,
   ValueId,
   CombineDefineId,

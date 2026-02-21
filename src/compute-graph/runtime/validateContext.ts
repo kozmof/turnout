@@ -156,10 +156,14 @@ function hasNameAndTransformFn(entry: unknown): entry is { name: string; transfo
 }
 
 /**
- * Type guard to check if an entry has a conditionId property.
+ * Type guard to check if an entry has a discriminated conditionId property.
  */
-function hasConditionId(entry: unknown): entry is { conditionId: string } {
-  return !!(entry && typeof entry === 'object' && 'conditionId' in entry && typeof entry.conditionId === 'string');
+function hasConditionId(entry: unknown): entry is { conditionId: { source: string; id: string } } {
+  if (!(entry && typeof entry === 'object' && 'conditionId' in entry)) return false;
+  const cid = (entry as { conditionId: unknown }).conditionId;
+  return !!(cid && typeof cid === 'object' && 'source' in cid && 'id' in cid &&
+    typeof (cid as { source: unknown }).source === 'string' &&
+    typeof (cid as { id: unknown }).id === 'string');
 }
 
 /**
@@ -830,19 +834,25 @@ function validateCondDefEntry(
   // Validate condition ID
   if (hasConditionId(entry)) {
     const conditionId = entry.conditionId;
+    const { source, id } = conditionId;
 
-    // Check if it's a valid ValueId or FuncId
-    const isValue = valueIdExistsInContext(conditionId, context);
-    const isFunc = funcIdExistsInContext(conditionId, context);
-
-    if (!isValue && !isFunc) {
-      state.errors.push({
-        message: `CondFuncDefTable[${defId}].conditionId: Referenced ID ${conditionId} does not exist`,
-        details: { defId, conditionId },
-      });
-    } else if (isValue) {
-      // Narrowed to ValueId
-      state.referencedValues.add(conditionId);
+    if (source === 'value') {
+      if (!valueIdExistsInContext(id, context)) {
+        state.errors.push({
+          message: `CondFuncDefTable[${defId}].conditionId: Referenced ValueId ${id} does not exist`,
+          details: { defId, conditionId: id },
+        });
+      } else {
+        state.referencedValues.add(id);
+      }
+    } else {
+      // source === 'func'
+      if (!funcIdExistsInContext(id, context)) {
+        state.errors.push({
+          message: `CondFuncDefTable[${defId}].conditionId: Referenced FuncId ${id} does not exist`,
+          details: { defId, conditionId: id },
+        });
+      }
     }
   }
 
