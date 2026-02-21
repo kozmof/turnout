@@ -75,8 +75,8 @@ describe('Context Builder', () => {
       });
 
       expect(context.exec.funcTable).toHaveProperty('f1');
-      // returnId should be a hash-based ID with v_ prefix
-      expect((context.exec.funcTable as any).f1.returnId).toMatch(/^v_[a-f0-9]{8}$/);
+      // returnId should be a hash-based ID with v_ prefix and 16 hex chars
+      expect((context.exec.funcTable as any).f1.returnId).toMatch(/^v_[a-f0-9]{16}$/);
     });
 
     it('should execute combine function', () => {

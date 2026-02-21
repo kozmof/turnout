@@ -106,7 +106,7 @@ export type PipeArgBinding =
  * Each step references a function definition and specifies how its arguments are bound.
  */
 export type PipeStepBinding = {
-  defId: CombineDefineId | PipeDefineId | CondDefineId;
+  defId: CombineDefineId | PipeDefineId;
   argBindings: {
     [argName: string]: PipeArgBinding;
   };

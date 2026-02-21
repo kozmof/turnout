@@ -16,7 +16,6 @@ import { executeCombineFunc, type ExecutionResult } from './executeCombineFunc';
 import {
   isCombineDefineId,
   isPipeDefineId,
-  isCondDefineId,
   createValueId,
   createFuncId,
 } from '../../idValidation';
@@ -197,10 +196,6 @@ function executeStep(
       tempFuncId,
       defId,
       stepContext
-    );
-  } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
-    throw new Error(
-      `CondFunc execution within PipeFunc is not yet implemented. Step ${String(stepIndex)} references ${String(defId)}`
     );
   } else {
     throw createFunctionExecutionError(

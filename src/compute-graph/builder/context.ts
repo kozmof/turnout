@@ -10,7 +10,6 @@ import type {
   PipeArgBinding,
   TransformFnNames,
   BinaryFnNames,
-  BinaryFnNamespaces,
 } from '../types';
 import type {
   ContextSpec,
@@ -30,6 +29,7 @@ import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-
 import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
 import { buildReturnIdToFuncIdMap } from '../runtime/buildExecutionTree';
+import { getBinaryFnReturnType } from '../runtime/typeInference';
 import {
   createUndefinedConditionError,
   createUndefinedBranchError,
@@ -46,7 +46,6 @@ import type {
 import type {
   TransformFnArrayNameSpace,
 } from '../../state-control/preset-funcs/array/transformFn';
-import { splitPairBinaryFnNames } from '../../util/splitPair';
 import { NAMESPACE_DELIMITER } from '../../util/constants';
 import { IdGenerator } from '../../util/idGenerator';
 import {
@@ -177,16 +176,6 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
   }
 }
 
-/**
- * Maps binary function namespaces to their corresponding base type symbols.
- * Used to infer the correct pass transform from function names.
- */
-const BinaryFnNamespaceToType: Record<BinaryFnNamespaces, BaseTypeSymbol> = {
-  binaryFnNumber: 'number',
-  binaryFnString: 'string',
-  binaryFnArray: 'array',
-  binaryFnGeneric: 'number', // default to number for generic
-} as const;
 
 /**
  * Phase 1: Value collection result
@@ -258,7 +247,25 @@ function collectValues(spec: ContextSpec): ValuePhaseResult {
 }
 
 /**
+ * Looks up the pre-registered return ValueId for a function.
+ * Used by process*Func functions after the registration pass has populated returnValueMetadata.
+ */
+function lookupReturnId(funcId: string, state: FunctionPhaseState): ValueId {
+  for (const [returnId, metadata] of Object.entries(state.returnValueMetadata)) {
+    if (metadata.sourceFuncId === (funcId as FuncId)) {
+      return createValueId(returnId);
+    }
+  }
+  throw new Error(`No pre-registered return ID for function '${funcId}'`);
+}
+
+/**
  * Phase 2: Process all function builders
+ *
+ * Uses two passes to support forward references (e.g. ref.output('laterFunc')):
+ *   Pass 1 – Register return value IDs for all functions so that resolveFuncOutputRef
+ *             can find them regardless of declaration order.
+ *   Pass 2 – Fully process each function (build defs, resolve all references).
  */
 function processFunctions(
   spec: ContextSpec,
@@ -278,6 +285,14 @@ function processFunctions(
   // Validate function references before processing
   validateFunctionReferences(spec);
 
+  // Pass 1: Register return value IDs for all functions
+  for (const [key, value] of Object.entries(spec)) {
+    if (isFunctionBuilder(value)) {
+      IdFactory.createReturnValue(key as FuncId, state);
+    }
+  }
+
+  // Pass 2: Fully process each function (all return IDs are now available)
   for (const [key, value] of Object.entries(spec)) {
     if (isFunctionBuilder(value)) {
       processFunction(key, value, state);
@@ -604,7 +619,7 @@ function processCombineFunc(
   state: FunctionPhaseState
 ): void {
   const defId = IdGenerator.generateCombineDefineId();
-  const returnId = IdFactory.createReturnValue(funcId as FuncId, state);
+  const returnId = lookupReturnId(funcId, state);
 
   // Build argMap and transformFn from args
   const { argMap, transformFnMap } = buildCombineArguments(builder, state);
@@ -756,7 +771,7 @@ function processPipeFunc(
   state: FunctionPhaseState
 ): void {
   const defId = IdGenerator.generatePipeDefineId();
-  const returnId = IdFactory.createReturnValue(funcId as FuncId, state);
+  const returnId = lookupReturnId(funcId, state);
 
   // Build argument map from the bindings provided in the builder
   const { argMap, pipeDefArgs } = buildPipeArguments(funcId, builder, state);
@@ -811,7 +826,13 @@ function buildPipeSequence(
 
     if (step.__type === 'combine') {
       // Create step output ID and track in metadata
-      IdFactory.createStepOutput(funcId as FuncId, i, state);
+      const stepOutputId = IdFactory.createStepOutput(funcId as FuncId, i, state);
+
+      // Store the step's return type so inferPassTransform can resolve StepOutputRefs
+      const stepReturnType = getBinaryFnReturnType(step.name);
+      if (stepReturnType !== null) {
+        state.stepMetadata[stepOutputId].returnType = stepReturnType;
+      }
 
       const stepBinding = buildPipeStepBinding(step, builder, state);
       sequence.push(stepBinding);
@@ -967,7 +988,7 @@ function processCondFunc(
   state: FunctionPhaseState
 ): void {
   const defId = IdGenerator.generateCondDefineId();
-  const returnId = IdFactory.createReturnValue(funcId as FuncId, state);
+  const returnId = lookupReturnId(funcId, state);
 
   state.funcTable[funcId] = {
     defId,
@@ -1019,11 +1040,16 @@ function inferPassTransform(
 
   // Handle StepOutputRef
   if (typeof ref === 'object' && ref.__type === 'stepOutput') {
-    // Step outputs are always from combine functions, which return the same type as their binary function
-    // We need to look up the step's definition to infer its type
-    // For now, default to number (most common case)
-    // TODO: Properly track step output types
-    return getPassTransformFn('number');
+    // Look up the step's return type from metadata (populated during buildPipeSequence)
+    for (const metadata of Object.values(state.stepMetadata)) {
+      if (metadata.parentFuncId === (ref.pipeFuncId as FuncId) && metadata.stepIndex === ref.stepIndex) {
+        if (metadata.returnType !== undefined) {
+          return getPassTransformFn(metadata.returnType);
+        }
+        break;
+      }
+    }
+    throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);
   }
 
   // Handle ValueRef (string)
@@ -1039,15 +1065,13 @@ function inferPassTransform(
 }
 
 /**
- * Infers the appropriate transform function based on the binary function name using lookup table.
+ * Infers the appropriate transform function based on the binary function name.
+ * Uses getBinaryFnReturnType for accurate type resolution (handles generic functions correctly).
  */
 function inferTransformForBinaryFn(binaryFnName: BinaryFnNames): TransformFnNames {
-  // Extract namespace from the function name (e.g., 'binaryFnNumber::add' -> 'binaryFnNumber')
-  const maySplit = splitPairBinaryFnNames(binaryFnName);
-  if (maySplit === null) throw new Error();
-  const namespace = maySplit[0]
-  const typeSymbol = BinaryFnNamespaceToType[namespace];
-
-  // Namespace should be defined for all valid binary functions
-  return getPassTransformFn(typeSymbol);
+  const returnType = getBinaryFnReturnType(binaryFnName);
+  if (returnType === null) {
+    throw new Error(`Cannot infer transform: unknown return type for binary function '${binaryFnName}'`);
+  }
+  return getPassTransformFn(returnType);
 }

@@ -29,7 +29,10 @@ import type { BinaryFnNames } from '../types';
  */
 export function combine(
   name: BinaryFnNames,
-  args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>
+  args: {
+    a: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
+    b: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
+  }
 ): CombineBuilder {
   return {
     __type: 'combine',

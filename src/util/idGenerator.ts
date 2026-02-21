@@ -19,30 +19,31 @@ import {
  * ID generation strategy using random hex strings with type prefixes.
  *
  * Format: {prefix}_{randomHex}
- * Examples: v_a3f2d8e1, f_7b8c9a2e, pd_4f3a1b2c
+ * Examples: v_a3f2d8e1cc9b3f12, f_7b8c9a2e45d10f8a, pd_4f3a1b2c87e6d091
  *
  * This approach:
- * - Uses Math.random() for simple random IDs
+ * - Uses crypto.getRandomValues for 64 bits of cryptographic randomness
  * - Maintains readability with type prefixes (v/f/pd/td/cd/ia)
- * - Uses 8 hex chars for debugging while keeping IDs short
+ * - Uses 16 hex chars (8 bytes) to minimize collision risk at scale
  * - Avoids encoding semantic information in ID strings
  */
 
 type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ia';
 
 /**
- * Generates a random 8-character hex string.
+ * Generates a random 16-character hex string using crypto.getRandomValues.
+ * Provides 64 bits of cryptographic randomness, greatly reducing collision risk.
  */
 function generateRandomHex(): string {
-  // Generate two random 32-bit integers and combine them
-  const part1 = Math.floor(Math.random() * 0x100000000).toString(16).padStart(8, '0');
-  return part1;
+  const bytes = new Uint8Array(8);
+  globalThis.crypto.getRandomValues(bytes);
+  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
 }
 
 export const IdGenerator = {
   /**
-   * Generates a short hash ID with type prefix for debugging.
-   * Uses 8 random hex chars for readability.
+   * Generates an ID with type prefix for debugging.
+   * Uses 16 random hex chars (64-bit crypto randomness).
    */
   generate(prefix: IdPrefix): string {
     const randomHex = generateRandomHex();

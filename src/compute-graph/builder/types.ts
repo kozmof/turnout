@@ -5,7 +5,7 @@ import type {
   BinaryFnNames,
   TransformFnNames,
 } from '../types';
-import type { AnyValue } from '../../state-control/value';
+import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 
 /**
  * Converts a mapped type with branded keys to an index signature type.
@@ -21,7 +21,10 @@ type ToIndexSignature<T> = T extends Record<string, infer V>
 export type CombineBuilder = {
   readonly __type: 'combine';
   readonly name: BinaryFnNames;
-  readonly args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>;
+  readonly args: {
+    readonly a: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
+    readonly b: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
+  };
 };
 
 /**
@@ -138,6 +141,7 @@ export type StepMetadataTable = {
   [stepOutputId: string]: {
     readonly parentFuncId: FuncId;
     readonly stepIndex: number;
+    returnType?: BaseTypeSymbol;
   };
 };
 

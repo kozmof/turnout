@@ -28,11 +28,14 @@ describe('ID Validation Module', () => {
         expect(_typeCheck).toBe('v1');
       });
 
-      it('should accept various strings including empty strings', () => {
+      it('should accept various non-empty strings', () => {
         expect(createValueId('v_a3f2d8e1')).toBe('v_a3f2d8e1');
         expect(createValueId('myValue')).toBe('myValue');
         expect(createValueId('123')).toBe('123');
-        expect(createValueId('')).toBe('');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createValueId('')).toThrow('ValueId cannot be empty');
       });
     });
 
@@ -46,10 +49,13 @@ describe('ID Validation Module', () => {
         expect(_typeCheck).toBe('f1');
       });
 
-      it('should accept various strings', () => {
+      it('should accept various non-empty strings', () => {
         expect(createFuncId('f_7b8c9a2e')).toBe('f_7b8c9a2e');
         expect(createFuncId('myFunc')).toBe('myFunc');
-        expect(createFuncId('')).toBe('');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createFuncId('')).toThrow('FuncId cannot be empty');
       });
     });
 
@@ -63,10 +69,13 @@ describe('ID Validation Module', () => {
         expect(_typeCheck).toBe('pd_a3f2d8e1');
       });
 
-      it('should accept strings regardless of prefix', () => {
+      it('should accept non-empty strings regardless of prefix', () => {
         expect(createCombineDefineId('myCombineDef')).toBe('myCombineDef');
         expect(createCombineDefineId('td_something')).toBe('td_something');
-        expect(createCombineDefineId('')).toBe('');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createCombineDefineId('')).toThrow('CombineDefineId cannot be empty');
       });
     });
 
@@ -80,10 +89,13 @@ describe('ID Validation Module', () => {
         expect(_typeCheck).toBe('td_a3f2d8e1');
       });
 
-      it('should accept strings regardless of prefix', () => {
+      it('should accept non-empty strings regardless of prefix', () => {
         expect(createPipeDefineId('myPipeDef')).toBe('myPipeDef');
         expect(createPipeDefineId('pd_something')).toBe('pd_something');
-        expect(createPipeDefineId('')).toBe('');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createPipeDefineId('')).toThrow('PipeDefineId cannot be empty');
       });
     });
 
@@ -97,9 +109,12 @@ describe('ID Validation Module', () => {
         expect(_typeCheck).toBe('cd_a3f2d8e1');
       });
 
-      it('should accept strings regardless of prefix', () => {
+      it('should accept non-empty strings regardless of prefix', () => {
         expect(createCondDefineId('myCondDef')).toBe('myCondDef');
-        expect(createCondDefineId('')).toBe('');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createCondDefineId('')).toThrow('CondDefineId cannot be empty');
       });
     });
 
@@ -113,10 +128,13 @@ describe('ID Validation Module', () => {
         expect(_typeCheck).toBe('ia1');
       });
 
-      it('should accept strings regardless of prefix', () => {
+      it('should accept non-empty strings regardless of prefix', () => {
         expect(createInterfaceArgId('ia_a3f2d8e1')).toBe('ia_a3f2d8e1');
         expect(createInterfaceArgId('myArg')).toBe('myArg');
-        expect(createInterfaceArgId('')).toBe('');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createInterfaceArgId('')).toThrow('InterfaceArgId cannot be empty');
       });
     });
   });

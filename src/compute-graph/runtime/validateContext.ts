@@ -261,6 +261,26 @@ function defineIdExistsInContext(
   );
 }
 
+/**
+ * Type guard checking if a string is a valid pipe step definition ID.
+ * Pipe steps may only reference combine or pipe definitions — not cond definitions.
+ * Returns 'cond' if the value exists only in condFuncDefTable (invalid for pipe steps).
+ */
+function pipeStepDefIdExistsInContext(
+  value: unknown,
+  context: UnvalidatedContext
+): { exists: boolean; isCondDef: boolean } {
+  if (typeof value !== 'string') return { exists: false, isCondDef: false };
+
+  const inCombine = !!(context.combineFuncDefTable && value in context.combineFuncDefTable);
+  const inPipe = !!(context.pipeFuncDefTable && value in context.pipeFuncDefTable);
+  const inCond = !!(context.condFuncDefTable && value in context.condFuncDefTable);
+
+  return {
+    exists: inCombine || inPipe || inCond,
+    isCondDef: !inCombine && !inPipe && inCond,
+  };
+}
 
 // ============================================================================
 // Task 3: Type Environment Separation
@@ -784,10 +804,18 @@ function validatePipeDefEntry(
 
     const stepDefId = stepObj.defId;
 
-    // Check if step definition exists using type guard
-    if (!defineIdExistsInContext(stepDefId, context)) {
+    // Check if step definition exists and is a valid pipe step type (combine or pipe only)
+    const stepDefCheck = pipeStepDefIdExistsInContext(stepDefId, context);
+    if (!stepDefCheck.exists) {
       state.errors.push({
         message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Referenced definition ${stepDefId} does not exist`,
+        details: { defId, stepIndex: i, stepDefId },
+      });
+      continue;
+    }
+    if (stepDefCheck.isCondDef) {
+      state.errors.push({
+        message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: CondFunc definition ${stepDefId} cannot be used as a pipe step; only combine and pipe definitions are supported`,
         details: { defId, stepIndex: i, stepDefId },
       });
       continue;
@@ -918,8 +946,44 @@ function checkUnreferencedValues(
  * This consolidates all validation into a single traversal of the context,
  * accumulating errors, warnings, and metadata in a shared state object.
  */
+/**
+ * Checks that all required execution tables are present in the context.
+ * Pushes one error per missing table. Called before any semantic validation.
+ */
+function checkRequiredTables(
+  context: UnvalidatedContext,
+  state: ValidationState
+): void {
+  const required = [
+    'valueTable',
+    'funcTable',
+    'combineFuncDefTable',
+    'pipeFuncDefTable',
+    'condFuncDefTable',
+  ] as const;
+
+  for (const tableName of required) {
+    if (context[tableName] === undefined) {
+      state.errors.push({
+        message: `ExecutionContext is missing required table: ${tableName}`,
+        details: { tableName },
+      });
+    }
+  }
+}
+
 export function validateContext(context: UnvalidatedContext): ValidationResult {
   const state = createValidationState();
+
+  // Structural pre-check: all tables must be present before semantic validation
+  checkRequiredTables(context, state);
+  if (state.errors.length > 0) {
+    return {
+      valid: false,
+      errors: state.errors,
+      warnings: state.warnings,
+    };
+  }
 
   // Build initial type environment from values
   const initialTypeEnv = buildTypeEnvironment(context);

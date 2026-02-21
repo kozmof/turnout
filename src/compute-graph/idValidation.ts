@@ -48,6 +48,7 @@ import type { NodeId } from './runtime/tree-types';
  * const valueId = createValueId('v1');
  */
 export function createValueId(id: string): ValueId {
+  if (id === '') throw new Error('ValueId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as ValueId;
 }
@@ -62,6 +63,7 @@ export function createValueId(id: string): ValueId {
  * const funcId = createFuncId('f1');
  */
 export function createFuncId(id: string): FuncId {
+  if (id === '') throw new Error('FuncId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as FuncId;
 }
@@ -76,6 +78,7 @@ export function createFuncId(id: string): FuncId {
  * const defId = createCombineDefineId('pd_a3f2d8e1');
  */
 export function createCombineDefineId(id: string): CombineDefineId {
+  if (id === '') throw new Error('CombineDefineId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as CombineDefineId;
 }
@@ -90,6 +93,7 @@ export function createCombineDefineId(id: string): CombineDefineId {
  * const defId = createPipeDefineId('td_a3f2d8e1');
  */
 export function createPipeDefineId(id: string): PipeDefineId {
+  if (id === '') throw new Error('PipeDefineId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as PipeDefineId;
 }
@@ -104,6 +108,7 @@ export function createPipeDefineId(id: string): PipeDefineId {
  * const defId = createCondDefineId('cd_a3f2d8e1');
  */
 export function createCondDefineId(id: string): CondDefineId {
+  if (id === '') throw new Error('CondDefineId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as CondDefineId;
 }
@@ -118,6 +123,7 @@ export function createCondDefineId(id: string): CondDefineId {
  * const argId = createInterfaceArgId('ia1');
  */
 export function createInterfaceArgId(id: string): InterfaceArgId {
+  if (id === '') throw new Error('InterfaceArgId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as InterfaceArgId;
 }
