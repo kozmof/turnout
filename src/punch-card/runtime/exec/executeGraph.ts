@@ -7,7 +7,7 @@ import {
 import { buildExecutionTree } from '../buildExecutionTree';
 import { executeTree } from '../executeTree';
 import { validateContext } from '../validateContext';
-import { type ExecutionResult } from './executePlugFunc';
+import { type ExecutionResult } from './executeCombineFunc';
 
 /**
  * Executes a computation graph starting from a root function.

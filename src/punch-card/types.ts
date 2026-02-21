@@ -27,40 +27,40 @@ export type TransformFnNames =
 
 type FuncInterface = { name: string; type: 'value'; value: AnyValue };
 
-export type PlugFuncType = 'plug';
-export type TapFuncType = 'tap';
+export type CombineFuncType = 'combine';
+export type PipeFuncType = 'pipe';
 export type CondFuncType = 'cond';
 
-export type PlugFunc = {
+export type CombineFunc = {
   name: BinaryFnNames;
-  type: PlugFuncType;
+  type: CombineFuncType;
   transformFn: {
     a: { name: TransformFnNames };
     b: { name: TransformFnNames };
   };
   args: {
-    a: FuncInterface | PlugFunc;
-    b: FuncInterface | PlugFunc;
+    a: FuncInterface | CombineFunc;
+    b: FuncInterface | CombineFunc;
   };
 };
 
-export type TapFunc = {
+export type PipeFunc = {
   name: string;
-  type: TapFuncType;
-  steps: (TapFunc | PlugFunc)[];
+  type: PipeFuncType;
+  steps: (PipeFunc | CombineFunc)[];
   args: FuncInterface[];
 };
 
 export type CondFunc = {
   name: string;
   type: CondFuncType;
-  condition: FuncInterface | PlugFunc;
-  trueBranch: TapFunc | PlugFunc;
-  falseBranch: TapFunc | PlugFunc;
+  condition: FuncInterface | CombineFunc;
+  trueBranch: PipeFunc | CombineFunc;
+  falseBranch: PipeFunc | CombineFunc;
 };
 
-export type PlugDefineId = Brand<string, 'plugDefineId'>;
-export type TapDefineId = Brand<string, 'tapDefineId'>;
+export type CombineDefineId = Brand<string, 'combineDefineId'>;
+export type PipeDefineId = Brand<string, 'pipeDefineId'>;
 export type CondDefineId = Brand<string, 'condDefineId'>;
 export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
@@ -68,7 +68,7 @@ export type InterfaceArgId = Brand<string, 'interfaceArgId'>;
 
 export type FuncTable = {
   [id in FuncId]: {
-    defId: PlugDefineId | TapDefineId | CondDefineId;
+    defId: CombineDefineId | PipeDefineId | CondDefineId;
     argMap: {
       [argName in string]: ValueId;
     };
@@ -76,8 +76,8 @@ export type FuncTable = {
   };
 };
 
-export type PlugFuncDefTable = {
-  [defId in PlugDefineId]: {
+export type CombineFuncDefTable = {
+  [defId in CombineDefineId]: {
     name: BinaryFnNames;
     transformFn: {
       a: { name: TransformFnNames };
@@ -92,7 +92,7 @@ export type PlugFuncDefTable = {
 
 /**
  * Represents how a step's argument is bound to a value source.
- * - 'input': Binds to an argument passed to the TapFunc
+ * - 'input': Binds to an argument passed to the PipeFunc
  * - 'step': Binds to the return value of a previous step (by index)
  * - 'value': Binds directly to a ValueId (constant or pre-computed value)
  */
@@ -102,26 +102,26 @@ export type TapArgBinding =
   | { source: 'value'; valueId: ValueId };
 
 /**
- * Defines a single step in a TapFunc sequence.
+ * Defines a single step in a PipeFunc sequence.
  * Each step references a function definition and specifies how its arguments are bound.
  */
 export type TapStepBinding = {
-  defId: PlugDefineId | TapDefineId | CondDefineId;
+  defId: CombineDefineId | PipeDefineId | CondDefineId;
   argBindings: {
     [argName: string]: TapArgBinding;
   };
 };
 
 /**
- * TapFunc definition table.
- * TapFunc executes a sequence of function definitions in order,
+ * PipeFunc definition table.
+ * PipeFunc executes a sequence of function definitions in order,
  * threading values through the sequence where each step can reference:
- * - Arguments passed to the TapFunc
+ * - Arguments passed to the PipeFunc
  * - Results from previous steps
  * - Direct value references
  */
-export type TapFuncDefTable = {
-  [defId in TapDefineId]: {
+export type PipeFuncDefTable = {
+  [defId in PipeDefineId]: {
     args: {
       [argName in string]: InterfaceArgId;
     };
@@ -154,9 +154,9 @@ export type ExecutionContext = {
   /** Function instances table. Read-only during execution. */
   readonly funcTable: Readonly<FuncTable>;
   /** Plug function definitions. Read-only during execution. */
-  readonly plugFuncDefTable: Readonly<PlugFuncDefTable>;
+  readonly combineFuncDefTable: Readonly<CombineFuncDefTable>;
   /** Tap function definitions. Read-only during execution. */
-  readonly tapFuncDefTable: Readonly<TapFuncDefTable>;
+  readonly pipeFuncDefTable: Readonly<PipeFuncDefTable>;
   /** Conditional function definitions. Read-only during execution. */
   readonly condFuncDefTable: Readonly<CondFuncDefTable>;
   /** Pre-computed mapping for performance optimization. Optional. */

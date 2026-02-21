@@ -1,4 +1,4 @@
-import { FuncId, ValueId, PlugDefineId, TapDefineId, CondDefineId } from '../types';
+import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from '../types';
 import { AnyValue } from '../../state-control/value';
 
 export type NodeId = FuncId | ValueId;
@@ -22,12 +22,12 @@ export type ValueNode = {
 };
 
 /**
- * Internal node representing a function call (PlugFunc or TapFunc).
+ * Internal node representing a function call (CombineFunc or PipeFunc).
  */
 export type FunctionNode = {
   readonly nodeType: 'function';
   readonly nodeId: FuncId;
-  readonly funcDef: PlugDefineId | TapDefineId;
+  readonly funcDef: CombineDefineId | PipeDefineId;
   readonly returnId: ValueId;
   readonly children?: readonly ExecutionTree[];
 };

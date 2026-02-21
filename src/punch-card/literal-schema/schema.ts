@@ -9,12 +9,12 @@ import {
   union,
 } from 'valibot';
 import { binaryFnNames } from './binaryFnNames';
-import { PlugFuncType, PlugFunc, TapFuncType, TapFunc } from '../types';
+import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from '../types';
 import { transformFnNames } from './transformFnNames';
 import { baseTypeSymbols } from '../../state-control/value';
 
-const plugFuncType: PlugFuncType = 'plug';
-const tapFuncType: TapFuncType = 'tap';
+const combineFuncType: CombineFuncType = 'combine';
+const pipeFuncType: PipeFuncType = 'pipe';
 
 const symbolLiterals = baseTypeSymbols.map((symbol) => literal(symbol));
 
@@ -31,22 +31,22 @@ const funcInterfaceSchema = object({
   value: anyValueSchema,
 });
 
-export const plugFuncSchema: GenericSchema<PlugFunc> = object({
+export const combineFuncSchema: GenericSchema<CombineFunc> = object({
   name: binaryFnNames(),
-  type: literal(plugFuncType),
+  type: literal(combineFuncType),
   transformFn: object({
     a: object({ name: transformFnNames() }),
     b: object({ name: transformFnNames() }),
   }),
   args: object({
-    a: union([funcInterfaceSchema, lazy(() => plugFuncSchema)]),
-    b: union([funcInterfaceSchema, lazy(() => plugFuncSchema)]),
+    a: union([funcInterfaceSchema, lazy(() => combineFuncSchema)]),
+    b: union([funcInterfaceSchema, lazy(() => combineFuncSchema)]),
   }),
 });
 
-export const tapFuncSchema: GenericSchema<TapFunc> = object({
+export const pipeFuncSchema: GenericSchema<PipeFunc> = object({
   name: string(),
-  type: literal(tapFuncType),
-  steps: array(union([plugFuncSchema, lazy(() => tapFuncSchema)])),
+  type: literal(pipeFuncType),
+  steps: array(union([combineFuncSchema, lazy(() => pipeFuncSchema)])),
   args: array(funcInterfaceSchema),
 });

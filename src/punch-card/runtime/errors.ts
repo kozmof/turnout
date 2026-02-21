@@ -1,4 +1,4 @@
-import { FuncId, ValueId, PlugDefineId, TapDefineId, CondDefineId } from '../types';
+import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from '../types';
 import { NodeId } from './tree-types';
 
 // Define error data types separately for type safety
@@ -10,7 +10,7 @@ type MissingDependencyErrorData = {
 
 type MissingDefinitionErrorData = {
   readonly kind: 'missingDefinition';
-  readonly missingDefId: PlugDefineId | TapDefineId | CondDefineId;
+  readonly missingDefId: CombineDefineId | PipeDefineId | CondDefineId;
   readonly funcId: FuncId;
 };
 
@@ -73,7 +73,7 @@ export function createMissingDependencyError(
 }
 
 export function createMissingDefinitionError(
-  missingDefId: PlugDefineId | TapDefineId | CondDefineId,
+  missingDefId: CombineDefineId | PipeDefineId | CondDefineId,
   funcId: FuncId
 ): MissingDefinitionError {
   const error = new Error(
@@ -111,7 +111,7 @@ export function createFunctionExecutionError(
 }
 
 export function createEmptySequenceError(funcId: FuncId): EmptySequenceError {
-  const error = new Error(`TapFunc ${funcId} has empty sequence`);
+  const error = new Error(`PipeFunc ${funcId} has empty sequence`);
   error.name = 'EmptySequenceError';
 
   const errorData: EmptySequenceErrorData = {

@@ -1,6 +1,6 @@
 import {
   FuncId,
-  TapDefineId,
+  PipeDefineId,
   ExecutionContext,
   ValueTable,
   ValueId,
@@ -12,10 +12,10 @@ import {
   createMissingValueError,
   createFunctionExecutionError,
 } from '../errors';
-import { executePlugFunc, type ExecutionResult } from './executePlugFunc';
+import { executeCombineFunc, type ExecutionResult } from './executeCombineFunc';
 import {
-  isPlugDefineId,
-  isTapDefineId,
+  isCombineDefineId,
+  isPipeDefineId,
   isCondDefineId,
   createValueId,
   createFuncId,
@@ -23,11 +23,11 @@ import {
 
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
-  tapDefArgs: Record<string, unknown>,
+  pipeDefArgs: Record<string, unknown>,
   argMap: { [argName: string]: ValueId }
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
-  const expectedValueIds = Object.keys(tapDefArgs).map(
+  const expectedValueIds = Object.keys(pipeDefArgs).map(
     argName => argMap[argName]
   );
 
@@ -42,12 +42,12 @@ export function validateScopedValueTable(
 
 export function createScopedValueTable(
   argMap: { [argName: string]: ValueId },
-  tapDefArgs: Record<string, unknown>,
+  pipeDefArgs: Record<string, unknown>,
   sourceValueTable: ValueTable
 ): ValueTable {
   const scopedValueTable: Partial<ValueTable> = {};
 
-  for (const argName of Object.keys(tapDefArgs)) {
+  for (const argName of Object.keys(pipeDefArgs)) {
     if (!(argName in argMap)) {
       throw new Error(`Argument ${argName} is missing from argMap`);
     }
@@ -64,7 +64,7 @@ export function createScopedValueTable(
   }
 
   // Validate before returning
-  validateScopedValueTable(scopedValueTable, tapDefArgs, argMap);
+  validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap);
 
   return scopedValueTable;
 }
@@ -85,17 +85,17 @@ export function createScopedContext(
  */
 function resolveArgBinding(
   binding: TapArgBinding,
-  tapFuncArgMap: { [argName: string]: ValueId },
+  pipeFuncArgMap: { [argName: string]: ValueId },
   stepResults: ValueId[]
 ): ValueId {
   switch (binding.source) {
     case 'input': {
-      // Reference to TapFunc's input argument
-      const inputValueId = tapFuncArgMap[binding.argName];
+      // Reference to PipeFunc's input argument
+      const inputValueId = pipeFuncArgMap[binding.argName];
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (inputValueId === undefined) {
         throw new Error(
-          `TapFunc input argument '${binding.argName}' not found in argMap`
+          `PipeFunc input argument '${binding.argName}' not found in argMap`
         );
       }
       return inputValueId;
@@ -126,27 +126,27 @@ function resolveArgBinding(
 
 
 /**
- * Creates a temporary FuncId for executing a step within a TapFunc.
+ * Creates a temporary FuncId for executing a step within a PipeFunc.
  * This is an internal implementation detail.
  */
 function createTempFuncId(
-  tapFuncId: FuncId,
+  pipeFuncId: FuncId,
   stepIndex: number
 ): FuncId {
-  const id = `${tapFuncId}__step${String(stepIndex)}`;
+  const id = `${pipeFuncId}__step${String(stepIndex)}`;
   return createFuncId(id);
 }
 
 /**
- * Executes a single step in the TapFunc sequence.
+ * Executes a single step in the PipeFunc sequence.
  * Creates a temporary function instance and executes it.
  * Returns the step result ID and updated value table.
  */
 function executeStep(
   step: TapStepBinding,
   stepIndex: number,
-  tapFuncId: FuncId,
-  tapFuncArgMap: { [argName: string]: ValueId },
+  pipeFuncId: FuncId,
+  pipeFuncArgMap: { [argName: string]: ValueId },
   stepResults: ValueId[],
   scopedContext: ExecutionContext
 ): { stepReturnId: ValueId; updatedValueTable: ValueTable } {
@@ -157,17 +157,17 @@ function executeStep(
   for (const [argName, binding] of Object.entries(argBindings)) {
     resolvedArgMap[argName] = resolveArgBinding(
       binding,
-      tapFuncArgMap,
+      pipeFuncArgMap,
       stepResults
     );
   }
 
   // Create a return ValueId for this step
-  const stepReturnIdStr = `${tapFuncId}__step${String(stepIndex)}__result`;
+  const stepReturnIdStr = `${pipeFuncId}__step${String(stepIndex)}__result`;
   const stepReturnId = createValueId(stepReturnIdStr);
 
   // Create a temporary FuncId for this step execution
-  const tempFuncId = createTempFuncId(tapFuncId, stepIndex);
+  const tempFuncId = createTempFuncId(pipeFuncId, stepIndex);
 
   // Create context with temporary function entry
   const stepContext: ExecutionContext = {
@@ -185,22 +185,22 @@ function executeStep(
   // Execute based on definition type and get result
   let execResult: ExecutionResult;
 
-  if (isPlugDefineId(defId, scopedContext.plugFuncDefTable)) {
-    execResult = executePlugFunc(
+  if (isCombineDefineId(defId, scopedContext.combineFuncDefTable)) {
+    execResult = executeCombineFunc(
       tempFuncId,
       defId,
       stepContext
     );
-  } else if (isTapDefineId(defId, scopedContext.tapFuncDefTable)) {
-    // Recursive TapFunc execution
-    execResult = executeTapFunc(
+  } else if (isPipeDefineId(defId, scopedContext.pipeFuncDefTable)) {
+    // Recursive PipeFunc execution
+    execResult = executePipeFunc(
       tempFuncId,
       defId,
       stepContext
     );
   } else if (isCondDefineId(defId, scopedContext.condFuncDefTable)) {
     throw new Error(
-      `CondFunc execution within TapFunc is not yet implemented. Step ${String(stepIndex)} references ${String(defId)}`
+      `CondFunc execution within PipeFunc is not yet implemented. Step ${String(stepIndex)} references ${String(defId)}`
     );
   } else {
     throw createFunctionExecutionError(
@@ -216,7 +216,7 @@ function executeStep(
 }
 
 /**
- * Executes a TapFunc and returns the result along with updated state.
+ * Executes a PipeFunc and returns the result along with updated state.
  * This is a pure function - it does not mutate the input context.
  *
  * @param funcId - The function instance to execute
@@ -224,19 +224,19 @@ function executeStep(
  * @param context - The execution context (read-only)
  * @returns Execution result with computed value and updated value table
  */
-export function executeTapFunc(
+export function executePipeFunc(
   funcId: FuncId,
-  defId: TapDefineId,
+  defId: PipeDefineId,
   context: ExecutionContext
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
-  const def = context.tapFuncDefTable[defId];
+  const def = context.pipeFuncDefTable[defId];
 
   if (def.sequence.length === 0) {
     throw createEmptySequenceError(funcId);
   }
 
-  // Create scoped value table with TapFunc's input arguments
+  // Create scoped value table with PipeFunc's input arguments
   const scopedValueTable = createScopedValueTable(
     funcEntry.argMap,
     def.args,
@@ -272,7 +272,7 @@ export function executeTapFunc(
     stepResults.push(stepResult.stepReturnId);
   }
 
-  // Return the last step's result (TapFunc semantics)
+  // Return the last step's result (PipeFunc semantics)
   const finalResultId = stepResults[stepResults.length - 1];
   const finalResult = currentValueTable[finalResultId];
 

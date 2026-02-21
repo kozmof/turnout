@@ -4,13 +4,13 @@ import {
   ExecutionContext,
   FuncId,
   ValueId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
 } from '../../types';
 
 describe('executeGraph', () => {
-  it('should execute a simple PlugFunc with two number values', () => {
+  it('should execute a simple CombineFunc with two number values', () => {
     const context: ExecutionContext = {
       valueTable: {
         v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
@@ -18,12 +18,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
-          defId: 'pd1' as PlugDefineId,
+          defId: 'pd1' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v3' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         pd1: {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -36,7 +36,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     };
 
@@ -49,7 +49,7 @@ describe('executeGraph', () => {
     });
   });
 
-  it('should execute nested PlugFuncs with dependencies', () => {
+  it('should execute nested CombineFuncs with dependencies', () => {
     const context: ExecutionContext = {
       valueTable: {
         v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
@@ -58,17 +58,17 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
-          defId: 'pd-add' as PlugDefineId,
+          defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v4' as ValueId,
         },
         f2: {
-          defId: 'pd-multiply' as PlugDefineId,
+          defId: 'pd-multiply' as CombineDefineId,
           argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
           returnId: 'v5' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -92,7 +92,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     };
 
@@ -114,17 +114,17 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
-          defId: 'pd-add' as PlugDefineId,
+          defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v4' as ValueId,
         },
         f2: {
-          defId: 'pd-add' as PlugDefineId,
+          defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
           returnId: 'v5' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -137,7 +137,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     };
 
@@ -150,7 +150,7 @@ describe('executeGraph', () => {
     });
   });
 
-  it('should execute TapFunc with sequence of PlugFuncs', () => {
+  it('should execute PipeFunc with sequence of CombineFuncs', () => {
     const context: ExecutionContext = {
       valueTable: {
         v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
@@ -159,12 +159,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         tap1: {
-          defId: 'td1' as TapDefineId,
+          defId: 'td1' as PipeDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId, c: 'v3' as ValueId },
           returnId: 'v6' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -188,7 +188,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {
+      pipeFuncDefTable: {
         td1: {
           args: {
             a: 'ia-a' as any,
@@ -197,14 +197,14 @@ describe('executeGraph', () => {
           },
           sequence: [
             {
-              defId: 'pd-add' as PlugDefineId,
+              defId: 'pd-add' as CombineDefineId,
               argBindings: {
                 a: { source: 'input', argName: 'a' },
                 b: { source: 'input', argName: 'b' },
               },
             },
             {
-              defId: 'pd-multiply' as PlugDefineId,
+              defId: 'pd-multiply' as CombineDefineId,
               argBindings: {
                 a: { source: 'step', stepIndex: 0 },
                 b: { source: 'input', argName: 'c' },
@@ -233,12 +233,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
-          defId: 'pd1' as PlugDefineId,
+          defId: 'pd1' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v3' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         pd1: {
           name: 'binaryFnString::concat',
           transformFn: {
@@ -251,7 +251,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     };
 
@@ -271,12 +271,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
-          defId: 'pd-add' as PlugDefineId,
+          defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v2' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -289,7 +289,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     };
 
@@ -309,12 +309,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
-          defId: 'pd1' as PlugDefineId,
+          defId: 'pd1' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v3' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         pd1: {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -327,7 +327,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     };
 
@@ -338,18 +338,18 @@ describe('executeGraph', () => {
     expect(errors[0].kind).toBe('missingValue');
   });
 
-  it('should handle error: empty TapFunc sequence', () => {
+  it('should handle error: empty PipeFunc sequence', () => {
     const context: ExecutionContext = {
       valueTable: {} as any,
       funcTable: {
         tap1: {
-          defId: 'td1' as TapDefineId,
+          defId: 'td1' as PipeDefineId,
           argMap: {},
           returnId: 'v1' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {} as any,
-      tapFuncDefTable: {
+      combineFuncDefTable: {} as any,
+      pipeFuncDefTable: {
         td1: {
           args: {},
           sequence: [],
@@ -375,12 +375,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fTrue: {
-          defId: 'pd-pass-true' as PlugDefineId,
+          defId: 'pd-pass-true' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
-          defId: 'pd-pass-false' as PlugDefineId,
+          defId: 'pd-pass-false' as CombineDefineId,
           argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
           returnId: 'vFalseResult' as ValueId,
         },
@@ -390,7 +390,7 @@ describe('executeGraph', () => {
           returnId: 'vCondResult' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -414,7 +414,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
           conditionId: 'vCondition' as ValueId,
@@ -443,12 +443,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fTrue: {
-          defId: 'pd-pass-true' as PlugDefineId,
+          defId: 'pd-pass-true' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
-          defId: 'pd-pass-false' as PlugDefineId,
+          defId: 'pd-pass-false' as CombineDefineId,
           argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
           returnId: 'vFalseResult' as ValueId,
         },
@@ -458,7 +458,7 @@ describe('executeGraph', () => {
           returnId: 'vCondResult' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -482,7 +482,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
           conditionId: 'vCondition' as ValueId,
@@ -512,12 +512,12 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fTrue: {
-          defId: 'pd-use-shared' as PlugDefineId,
+          defId: 'pd-use-shared' as CombineDefineId,
           argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
-          defId: 'pd-use-shared' as PlugDefineId,
+          defId: 'pd-use-shared' as CombineDefineId,
           argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId }, // Same vShared
           returnId: 'vFalseResult' as ValueId,
         },
@@ -527,7 +527,7 @@ describe('executeGraph', () => {
           returnId: 'vCondResult' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-use-shared': {
           name: 'binaryFnNumber::add',
           transformFn: {
@@ -540,7 +540,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
           conditionId: 'vCondition' as ValueId,
@@ -571,17 +571,17 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fCondition: {
-          defId: 'pd-eq' as PlugDefineId,
+          defId: 'pd-eq' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'vCondResult' as ValueId,
         },
         fTrue: {
-          defId: 'pd-pass-true' as PlugDefineId,
+          defId: 'pd-pass-true' as CombineDefineId,
           argMap: { a: 'v3' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
-          defId: 'pd-pass-false' as PlugDefineId,
+          defId: 'pd-pass-false' as CombineDefineId,
           argMap: { a: 'v4' as ValueId, b: 'v0' as ValueId },
           returnId: 'vFalseResult' as ValueId,
         },
@@ -591,7 +591,7 @@ describe('executeGraph', () => {
           returnId: 'vFinalResult' as ValueId,
         },
       } as any,
-      plugFuncDefTable: {
+      combineFuncDefTable: {
         'pd-eq': {
           name: 'binaryFnGeneric::isEqual',
           transformFn: {
@@ -626,7 +626,7 @@ describe('executeGraph', () => {
           },
         },
       } as any,
-      tapFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
           conditionId: 'fCondition' as FuncId,

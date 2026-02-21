@@ -13,7 +13,7 @@ import type {
 import type { BinaryFnNames } from '../types';
 
 /**
- * Creates a PlugFunc builder.
+ * Creates a CombineFunc builder.
  *
  * @param name - Namespaced binary function name (e.g., 'binaryFnNumber::add')
  * @param args - Arguments mapping to value references
@@ -32,14 +32,14 @@ export function plug(
   args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>
 ): PlugBuilder {
   return {
-    __type: 'plug',
+    __type: 'combine',
     name,
     args,
   };
 }
 
 /**
- * Creates a TapFunc builder (sequential execution).
+ * Creates a PipeFunc builder (sequential execution).
  *
  * @param argBindings - Maps argument names to value IDs
  * @param steps - Sequence of steps to execute
@@ -66,7 +66,7 @@ export function tap(
   }));
 
   return {
-    __type: 'tap',
+    __type: 'pipe',
     args: inferredArgs,
     argBindings,
     steps,

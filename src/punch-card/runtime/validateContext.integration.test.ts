@@ -5,8 +5,8 @@ import {
   ExecutionContext,
   FuncId,
   ValueId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
 } from '../types';
 
@@ -25,12 +25,12 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
-            defId: 'pd-add' as PlugDefineId,
+            defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {
+        combineFuncDefTable: {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
@@ -40,7 +40,7 @@ describe('validateContext integration', () => {
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
         } as any,
-        tapFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {} as any,
       };
 
@@ -64,7 +64,7 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
-            defId: 'pd-add' as PlugDefineId,
+            defId: 'pd-add' as CombineDefineId,
             argMap: {
               a: 'v1' as ValueId,
               b: 'v2' as ValueId, // References non-existent v2
@@ -72,7 +72,7 @@ describe('validateContext integration', () => {
             returnId: 'v3' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {
+        combineFuncDefTable: {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
@@ -82,7 +82,7 @@ describe('validateContext integration', () => {
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
         } as any,
-        tapFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {} as any,
       };
 
@@ -104,13 +104,13 @@ describe('validateContext integration', () => {
         valueTable: {} as any,
         funcTable: {
           f1: {
-            defId: 'pd-nonexistent' as PlugDefineId,
+            defId: 'pd-nonexistent' as CombineDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {} as any,
-        tapFuncDefTable: {} as any,
+        combineFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {} as any,
       };
 
@@ -121,8 +121,8 @@ describe('validateContext integration', () => {
     });
   });
 
-  describe('validation with TapFunc', () => {
-    it('should validate TapFunc context before execution', () => {
+  describe('validation with PipeFunc', () => {
+    it('should validate PipeFunc context before execution', () => {
       const context: ExecutionContext = {
         valueTable: {
           v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
@@ -130,17 +130,17 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
-            defId: 'pd-add' as PlugDefineId,
+            defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
           },
           tap1: {
-            defId: 'td1' as TapDefineId,
+            defId: 'td1' as PipeDefineId,
             argMap: { x: 'v1' as ValueId, y: 'v2' as ValueId },
             returnId: 'v4' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {
+        combineFuncDefTable: {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
@@ -150,12 +150,12 @@ describe('validateContext integration', () => {
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
         } as any,
-        tapFuncDefTable: {
+        pipeFuncDefTable: {
           td1: {
             args: { x: 'ia-x' as any, y: 'ia-y' as any },
             sequence: [
               {
-                defId: 'pd-add' as PlugDefineId,
+                defId: 'pd-add' as CombineDefineId,
                 argBindings: {
                   a: { source: 'input', argName: 'x' },
                   b: { source: 'input', argName: 'y' },
@@ -176,23 +176,23 @@ describe('validateContext integration', () => {
       expect(result.value.value).toBe(15);
     });
 
-    it('should detect invalid TapFunc sequence at validation time', () => {
+    it('should detect invalid PipeFunc sequence at validation time', () => {
       const context: ExecutionContext = {
         valueTable: {} as any,
         funcTable: {
           tap1: {
-            defId: 'td1' as TapDefineId,
+            defId: 'td1' as PipeDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {} as any,
-        tapFuncDefTable: {
+        combineFuncDefTable: {} as any,
+        pipeFuncDefTable: {
           td1: {
             args: {},
             sequence: [
               {
-                defId: 'pd-nonexistent' as PlugDefineId,
+                defId: 'pd-nonexistent' as CombineDefineId,
                 argBindings: {},
               },
             ],
@@ -221,12 +221,12 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           fTrue: {
-            defId: 'pd-add' as PlugDefineId,
+            defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
             returnId: 'vTrueResult' as ValueId,
           },
           fFalse: {
-            defId: 'pd-add' as PlugDefineId,
+            defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
             returnId: 'vFalseResult' as ValueId,
           },
@@ -236,7 +236,7 @@ describe('validateContext integration', () => {
             returnId: 'vResult' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {
+        combineFuncDefTable: {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
@@ -246,7 +246,7 @@ describe('validateContext integration', () => {
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
         } as any,
-        tapFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
             conditionId: 'vCond' as ValueId,
@@ -277,8 +277,8 @@ describe('validateContext integration', () => {
             returnId: 'vResult' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {} as any,
-        tapFuncDefTable: {} as any,
+        combineFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
             conditionId: 'vCond' as ValueId,
@@ -311,12 +311,12 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
-            defId: 'pd-add' as PlugDefineId,
+            defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
           },
         } as any,
-        plugFuncDefTable: {
+        combineFuncDefTable: {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
@@ -326,7 +326,7 @@ describe('validateContext integration', () => {
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
         } as any,
-        tapFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {} as any,
       };
 

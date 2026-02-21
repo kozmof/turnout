@@ -1,7 +1,7 @@
 // Main execution engine
 export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
 export { buildReturnIdToFuncIdMap } from './runtime/buildExecutionTree';
-export type { ExecutionResult } from './runtime/exec/executePlugFunc';
+export type { ExecutionResult } from './runtime/exec/executeCombineFunc';
 
 // Context validation
 export {
@@ -19,13 +19,13 @@ export type {
   ExecutionContext,
   ValueTable,
   FuncTable,
-  PlugFuncDefTable,
-  TapFuncDefTable,
+  CombineFuncDefTable,
+  PipeFuncDefTable,
   CondFuncDefTable,
   FuncId,
   ValueId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
   InterfaceArgId,
   TapStepBinding,

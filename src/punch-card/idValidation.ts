@@ -1,13 +1,13 @@
 import type {
   ValueId,
   FuncId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
   InterfaceArgId,
   FuncTable,
-  PlugFuncDefTable,
-  TapFuncDefTable,
+  CombineFuncDefTable,
+  PipeFuncDefTable,
   CondFuncDefTable,
   ValueTable,
 } from './types';
@@ -67,31 +67,31 @@ export function createFuncId(id: string): FuncId {
 }
 
 /**
- * Creates a branded PlugDefineId from a string.
+ * Creates a branded CombineDefineId from a string.
  *
  * @param id - The ID string to brand
- * @returns A branded PlugDefineId
+ * @returns A branded CombineDefineId
  *
  * @example
- * const defId = createPlugDefineId('pd_a3f2d8e1');
+ * const defId = createCombineDefineId('pd_a3f2d8e1');
  */
-export function createPlugDefineId(id: string): PlugDefineId {
+export function createCombineDefineId(id: string): CombineDefineId {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as PlugDefineId;
+  return id as CombineDefineId;
 }
 
 /**
- * Creates a branded TapDefineId from a string.
+ * Creates a branded PipeDefineId from a string.
  *
  * @param id - The ID string to brand
- * @returns A branded TapDefineId
+ * @returns A branded PipeDefineId
  *
  * @example
- * const defId = createTapDefineId('td_a3f2d8e1');
+ * const defId = createPipeDefineId('td_a3f2d8e1');
  */
-export function createTapDefineId(id: string): TapDefineId {
+export function createPipeDefineId(id: string): PipeDefineId {
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as TapDefineId;
+  return id as PipeDefineId;
 }
 
 /**
@@ -153,29 +153,29 @@ export function isValueId(
 }
 
 /**
- * Type guard to check if an ID exists as a PlugDefineId in the PlugFuncDefTable.
+ * Type guard to check if an ID exists as a CombineDefineId in the CombineFuncDefTable.
  * @param id - The ID to check
- * @param plugFuncDefTable - The plug function definition table to check against
+ * @param combineFuncDefTable - The plug function definition table to check against
  * @returns True if the ID exists in the table
  */
-export function isPlugDefineId(
+export function isCombineDefineId(
   id: string,
-  plugFuncDefTable: PlugFuncDefTable
-): id is PlugDefineId {
-  return id in plugFuncDefTable;
+  combineFuncDefTable: CombineFuncDefTable
+): id is CombineDefineId {
+  return id in combineFuncDefTable;
 }
 
 /**
- * Type guard to check if an ID exists as a TapDefineId in the TapFuncDefTable.
+ * Type guard to check if an ID exists as a PipeDefineId in the PipeFuncDefTable.
  * @param id - The ID to check
- * @param tapFuncDefTable - The tap function definition table to check against
+ * @param pipeFuncDefTable - The tap function definition table to check against
  * @returns True if the ID exists in the table
  */
-export function isTapDefineId(
+export function isPipeDefineId(
   id: string,
-  tapFuncDefTable: TapFuncDefTable
-): id is TapDefineId {
-  return id in tapFuncDefTable;
+  pipeFuncDefTable: PipeFuncDefTable
+): id is PipeDefineId {
+  return id in pipeFuncDefTable;
 }
 
 /**

@@ -128,11 +128,11 @@ function buildExecutionTreeInternal(
     children.push(childTree);
   }
 
-  // Note: For TapFunc, we do NOT add sequence children here
-  // The sequence functions will be executed within the scoped context by executeTapFunc
+  // Note: For PipeFunc, we do NOT add sequence children here
+  // The sequence functions will be executed within the scoped context by executePipeFunc
   // This prevents sequence functions from being executed in the main tree traversal
 
-  // At this point, defId must be PlugDefineId | TapDefineId (CondDefineId was handled above)
+  // At this point, defId must be CombineDefineId | PipeDefineId (CondDefineId was handled above)
   const functionNode: FunctionNode = {
     nodeType: 'function',
     nodeId: funcId,

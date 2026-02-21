@@ -14,8 +14,8 @@ import {
   ExecutionContext,
   ValueId,
   FuncId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
   ValueTable,
   FuncTable,
@@ -54,8 +54,8 @@ const VALID_BASE_TYPE_SYMBOLS = new Set(baseTypeSymbols);
 export type UnvalidatedContext = {
   readonly valueTable?: Partial<ValueTable>;
   readonly funcTable?: Partial<FuncTable>;
-  readonly plugFuncDefTable?: Partial<Record<string, unknown>>;
-  readonly tapFuncDefTable?: Partial<Record<string, unknown>>;
+  readonly combineFuncDefTable?: Partial<Record<string, unknown>>;
+  readonly pipeFuncDefTable?: Partial<Record<string, unknown>>;
   readonly condFuncDefTable?: Partial<Record<string, unknown>>;
   readonly returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
 };
@@ -126,7 +126,7 @@ function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
  * Type guard to check if a PlugDef has a valid binary function name property.
  * Validates that the name is a properly formatted BinaryFnNames.
  */
-function isPlugDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNames } {
+function isCombineDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNames } {
   if (!(value && typeof value === 'object' && 'name' in value && typeof value.name === 'string')) {
     return false;
   }
@@ -137,7 +137,7 @@ function isPlugDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNam
 /**
  * Type guard to check if a TapDef has a sequence property.
  */
-function isTapDefWithSequence(value: unknown): value is { sequence: unknown[] } {
+function isPipeDefWithSequence(value: unknown): value is { sequence: unknown[] } {
   return !!(value && typeof value === 'object' && 'sequence' in value && Array.isArray(value.sequence));
 }
 
@@ -232,12 +232,12 @@ function funcIdExistsInContext(
 function defineIdExistsInContext(
   value: unknown,
   context: UnvalidatedContext
-): value is PlugDefineId | TapDefineId | CondDefineId {
+): value is CombineDefineId | PipeDefineId | CondDefineId {
   if (typeof value !== 'string') return false;
 
   return !!(
-    (context.plugFuncDefTable && value in context.plugFuncDefTable) ||
-    (context.tapFuncDefTable && value in context.tapFuncDefTable) ||
+    (context.combineFuncDefTable && value in context.combineFuncDefTable) ||
+    (context.pipeFuncDefTable && value in context.pipeFuncDefTable) ||
     (context.condFuncDefTable && value in context.condFuncDefTable)
   );
 }
@@ -292,22 +292,22 @@ function inferFuncType(
   const defId = 'defId' in funcEntry ? funcEntry.defId : undefined;
   if (!defId || typeof defId !== 'string') return null;
 
-  // Check if it's a PlugFunc with a binary function name
-  const plugDef = context.plugFuncDefTable?.[defId];
-  if (isPlugDefWithBinaryFnName(plugDef)) {
-    return getBinaryFnReturnType(plugDef.name);
+  // Check if it's a CombineFunc with a binary function name
+  const combineDef = context.combineFuncDefTable?.[defId];
+  if (isCombineDefWithBinaryFnName(combineDef)) {
+    return getBinaryFnReturnType(combineDef.name);
   }
 
-  // Check if it's a TapFunc
-  const tapDef = context.tapFuncDefTable?.[defId];
-  if (isTapDefWithSequence(tapDef)) {
-    if (tapDef.sequence.length === 0) return null;
+  // Check if it's a PipeFunc
+  const pipeDef = context.pipeFuncDefTable?.[defId];
+  if (isPipeDefWithSequence(pipeDef)) {
+    if (pipeDef.sequence.length === 0) return null;
 
-    const lastStep = tapDef.sequence[tapDef.sequence.length - 1];
+    const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
     if (lastStep && typeof lastStep === 'object' && 'defId' in lastStep) {
       const lastStepDefId = lastStep.defId as string;
-      const lastStepPlugDef = context.plugFuncDefTable?.[lastStepDefId];
-      if (isPlugDefWithBinaryFnName(lastStepPlugDef)) {
+      const lastStepPlugDef = context.combineFuncDefTable?.[lastStepDefId];
+      if (isCombineDefWithBinaryFnName(lastStepPlugDef)) {
         return getBinaryFnReturnType(lastStepPlugDef.name);
       }
     }
@@ -323,7 +323,7 @@ function inferFuncType(
 
 type BindingValidationContext = {
   readonly stepIndex: number;
-  readonly tapDefArgs: Record<string, unknown>;
+  readonly pipeDefArgs: Record<string, unknown>;
   readonly valueTable: Partial<ValueTable>;
   readonly defId: string;
 };
@@ -335,16 +335,16 @@ type BindingValidator = (
 ) => ValidationError | null;
 
 /**
- * Validates 'input' source bindings - must reference TapFunc arguments.
+ * Validates 'input' source bindings - must reference PipeFunc arguments.
  */
 function validateInputBinding(
   binding: Extract<TapArgBinding, { source: 'input' }>,
   argName: string,
   context: BindingValidationContext
 ): ValidationError | null {
-  if (!(binding.argName in context.tapDefArgs)) {
+  if (!(binding.argName in context.pipeDefArgs)) {
     return {
-      message: `TapFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references undefined TapFunc input '${binding.argName}'`,
+      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references undefined PipeFunc input '${binding.argName}'`,
       details: { defId: context.defId, stepIndex: context.stepIndex, argName, inputArgName: binding.argName },
     };
   }
@@ -361,7 +361,7 @@ function validateStepBinding(
 ): ValidationError | null {
   if (binding.stepIndex < 0 || binding.stepIndex >= context.stepIndex) {
     return {
-      message: `TapFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references invalid step index ${String(binding.stepIndex)} (must be < ${String(context.stepIndex)})`,
+      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references invalid step index ${String(binding.stepIndex)} (must be < ${String(context.stepIndex)})`,
       details: { defId: context.defId, stepIndex: context.stepIndex, argName, referencedStepIndex: binding.stepIndex },
     };
   }
@@ -378,7 +378,7 @@ function validateValueBinding(
 ): ValidationError | null {
   if (!(binding.valueId in context.valueTable)) {
     return {
-      message: `TapFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
+      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
       details: { defId: context.defId, stepIndex: context.stepIndex, argName, valueId: binding.valueId },
     };
   }
@@ -418,7 +418,7 @@ type ValidationState = {
   readonly errors: ValidationError[];
   readonly warnings: ValidationWarning[];
   readonly referencedValues: Set<ValueId>;
-  readonly referencedDefs: Set<PlugDefineId | TapDefineId | CondDefineId>;
+  readonly referencedDefs: Set<CombineDefineId | PipeDefineId | CondDefineId>;
   readonly returnIds: Set<ValueId>;
   readonly typeEnv: Map<ValueId | FuncId, BaseTypeSymbol>;
 };
@@ -475,7 +475,7 @@ function validateFuncEntry(
       details: { funcId, defId },
     });
   } else {
-    // defId is now narrowed to PlugDefineId | TapDefineId | CondDefineId
+    // defId is now narrowed to CombineDefineId | PipeDefineId | CondDefineId
     state.referencedDefs.add(defId);
   }
 
@@ -501,23 +501,23 @@ function validateFuncEntry(
     }
   }
 
-  // Type validation for PlugFunc
-  if (defId in (context.plugFuncDefTable || {})) {
-    validatePlugFuncTypes(funcId, entry, defId, context, state);
+  // Type validation for CombineFunc
+  if (defId in (context.combineFuncDefTable || {})) {
+    validateCombineFuncTypes(funcId, entry, defId, context, state);
   }
 }
 
 /**
- * Validates type safety for a PlugFunc instance.
+ * Validates type safety for a CombineFunc instance.
  */
-function validatePlugFuncTypes(
+function validateCombineFuncTypes(
   funcId: string,
   funcEntry: Record<string, unknown>,
   defId: string,
   context: UnvalidatedContext,
   state: ValidationState
 ): void {
-  const def = context.plugFuncDefTable?.[defId];
+  const def = context.combineFuncDefTable?.[defId];
   if (!isRecord(def)) return;
 
   if (!('transformFn' in def) || !isRecord(def.transformFn)) {
@@ -569,7 +569,7 @@ function validatePlugFuncTypes(
 }
 
 /**
- * Validates a PlugFuncDefTable entry.
+ * Validates a CombineFuncDefTable entry.
  */
 function validatePlugDefEntry(
   defId: string,
@@ -578,7 +578,7 @@ function validatePlugDefEntry(
 ): void {
   if (!isRecord(def)) {
     state.errors.push({
-      message: `PlugFuncDefTable[${defId}]: Invalid entry`,
+      message: `CombineFuncDefTable[${defId}]: Invalid entry`,
       details: { defId },
     });
     return;
@@ -589,7 +589,7 @@ function validatePlugDefEntry(
   // Validate function name
   if (!('name' in entry) || typeof entry.name !== 'string' || entry.name.length === 0) {
     state.errors.push({
-      message: `PlugFuncDefTable[${defId}]: Invalid or missing function name`,
+      message: `CombineFuncDefTable[${defId}]: Invalid or missing function name`,
       details: { defId, name: entry.name },
     });
   }
@@ -597,7 +597,7 @@ function validatePlugDefEntry(
   // Validate transform functions
   if (!('transformFn' in entry) || !isRecord(entry.transformFn)) {
     state.errors.push({
-      message: `PlugFuncDefTable[${defId}]: Missing transform function definitions`,
+      message: `CombineFuncDefTable[${defId}]: Missing transform function definitions`,
       details: { defId },
     });
     return;
@@ -608,7 +608,7 @@ function validatePlugDefEntry(
   for (const key of ['a', 'b']) {
     if (!(key in transformFn) || !isRecord(transformFn[key])) {
       state.errors.push({
-        message: `PlugFuncDefTable[${defId}]: Missing transform function '${key}'`,
+        message: `CombineFuncDefTable[${defId}]: Missing transform function '${key}'`,
         details: { defId },
       });
       continue;
@@ -617,7 +617,7 @@ function validatePlugDefEntry(
     const tfn = transformFn[key];
     if (!('name' in tfn) || !isStringAs<TransformFnNames>(tfn.name)) {
       state.errors.push({
-        message: `PlugFuncDefTable[${defId}]: Transform function '${key}' missing name`,
+        message: `CombineFuncDefTable[${defId}]: Transform function '${key}' missing name`,
         details: { defId },
       });
       continue;
@@ -629,7 +629,7 @@ function validatePlugDefEntry(
 
     if (!inputType || !returnType) {
       state.errors.push({
-        message: `PlugFuncDefTable[${defId}].transformFn.${key}: Invalid or unknown transform function "${transformFnName}"`,
+        message: `CombineFuncDefTable[${defId}].transformFn.${key}: Invalid or unknown transform function "${transformFnName}"`,
         details: { defId, transformFn: transformFnName },
       });
     }
@@ -641,9 +641,9 @@ function validatePlugDefEntry(
   }
 
   // Check if definition is referenced
-  if (isStringAs<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
     state.warnings.push({
-      message: `PlugFuncDefTable[${defId}]: Definition is never used`,
+      message: `CombineFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
     });
   }
@@ -672,7 +672,7 @@ function validateBinaryFnCompatibility(
       const returnType = getTransformFnReturnType(tfnA.name);
       if (returnType && returnType !== expectedParamA) {
         state.errors.push({
-          message: `PlugFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
+          message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
           details: {
             defId,
             transformFn: tfnA.name,
@@ -692,7 +692,7 @@ function validateBinaryFnCompatibility(
       const returnType = getTransformFnReturnType(tfnB.name);
       if (returnType && returnType !== expectedParamB) {
         state.errors.push({
-          message: `PlugFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
+          message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
           details: {
             defId,
             transformFn: tfnB.name,
@@ -707,7 +707,7 @@ function validateBinaryFnCompatibility(
 }
 
 /**
- * Validates a TapFuncDefTable entry.
+ * Validates a PipeFuncDefTable entry.
  */
 function validateTapDefEntry(
   defId: string,
@@ -717,7 +717,7 @@ function validateTapDefEntry(
 ): void {
   if (!isRecord(def)) {
     state.errors.push({
-      message: `TapFuncDefTable[${defId}]: Invalid entry`,
+      message: `PipeFuncDefTable[${defId}]: Invalid entry`,
       details: { defId },
     });
     return;
@@ -728,7 +728,7 @@ function validateTapDefEntry(
   // Validate sequence exists
   if (!('sequence' in entry) || !Array.isArray(entry.sequence)) {
     state.errors.push({
-      message: `TapFuncDefTable[${defId}]: Missing or invalid sequence`,
+      message: `PipeFuncDefTable[${defId}]: Missing or invalid sequence`,
       details: { defId },
     });
     return;
@@ -737,13 +737,13 @@ function validateTapDefEntry(
   // Check for empty sequence
   if (entry.sequence.length === 0) {
     state.errors.push({
-      message: `TapFuncDefTable[${defId}]: Sequence is empty`,
+      message: `PipeFuncDefTable[${defId}]: Sequence is empty`,
       details: { defId },
     });
     return;
   }
 
-  const tapDefArgs = ('args' in entry && isRecord(entry.args))
+  const pipeDefArgs = ('args' in entry && isRecord(entry.args))
     ? entry.args
     : {};
 
@@ -757,7 +757,7 @@ function validateTapDefEntry(
     // Validate step defId
     if (!('defId' in stepObj) || typeof stepObj.defId !== 'string') {
       state.errors.push({
-        message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Missing step defId`,
+        message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Missing step defId`,
         details: { defId, stepIndex: i },
       });
       continue;
@@ -768,7 +768,7 @@ function validateTapDefEntry(
     // Check if step definition exists using type guard
     if (!defineIdExistsInContext(stepDefId, context)) {
       state.errors.push({
-        message: `TapFuncDefTable[${defId}].sequence[${String(i)}]: Referenced definition ${stepDefId} does not exist`,
+        message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Referenced definition ${stepDefId} does not exist`,
         details: { defId, stepIndex: i, stepDefId },
       });
       continue;
@@ -786,7 +786,7 @@ function validateTapDefEntry(
         const bindingObj = binding as TapArgBinding;
         const validationContext: BindingValidationContext = {
           stepIndex: i,
-          tapDefArgs,
+          pipeDefArgs,
           valueTable: context.valueTable || {},
           defId,
         };
@@ -800,9 +800,9 @@ function validateTapDefEntry(
   }
 
   // Check if definition is referenced
-  if (isStringAs<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
     state.warnings.push({
-      message: `TapFuncDefTable[${defId}]: Definition is never used`,
+      message: `PipeFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
     });
   }
@@ -860,7 +860,7 @@ function validateCondDefEntry(
   }
 
   // Check if definition is referenced
-  if (isStringAs<PlugDefineId | TapDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
     state.warnings.push({
       message: `CondFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -909,16 +909,16 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
     }
   }
 
-  // Single pass over plugFuncDefTable - validates structure and checks usage
-  if (context.plugFuncDefTable) {
-    for (const [defId, def] of Object.entries(context.plugFuncDefTable)) {
+  // Single pass over combineFuncDefTable - validates structure and checks usage
+  if (context.combineFuncDefTable) {
+    for (const [defId, def] of Object.entries(context.combineFuncDefTable)) {
       validatePlugDefEntry(defId, def, state);
     }
   }
 
-  // Single pass over tapFuncDefTable - validates structure and checks usage
-  if (context.tapFuncDefTable) {
-    for (const [defId, def] of Object.entries(context.tapFuncDefTable)) {
+  // Single pass over pipeFuncDefTable - validates structure and checks usage
+  if (context.pipeFuncDefTable) {
+    for (const [defId, def] of Object.entries(context.pipeFuncDefTable)) {
       validateTapDefEntry(defId, def, context, state);
     }
   }

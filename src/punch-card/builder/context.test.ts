@@ -65,7 +65,7 @@ describe('Context Builder', () => {
     });
   });
 
-  describe('PlugFunc builder', () => {
+  describe('CombineFunc builder', () => {
     it('should create simple plug function', () => {
       const context = ctx({
         v1: 5,
@@ -168,14 +168,14 @@ describe('Context Builder', () => {
     });
   });
 
-  describe('TapFunc builder', () => {
+  describe('PipeFunc builder', () => {
     it('should create and execute simple tap function', () => {
       const context = ctx({
         v1: 10,
         v2: 5,
         v3: 2,
 
-        // TapFunc: (a + b) * c
+        // PipeFunc: (a + b) * c
         tapFn: tap(
           { a: 'v1', b: 'v2', c: 'v3' },
           [
@@ -198,7 +198,7 @@ describe('Context Builder', () => {
         y: 4,
         z: 5,
 
-        // TapFunc: ((a + b) * c) - a
+        // PipeFunc: ((a + b) * c) - a
         compute: tap(
           { a: 'x', b: 'y', c: 'z' },
           [

@@ -18,11 +18,11 @@ import type {
   ExecutionContext,
   ValueId,
   FuncId,
-  PlugDefineId,
+  CombineDefineId,
   BinaryFnNames,
   TransformFnNames,
 } from '../types';
-import { isCondDefineId, isPlugDefineId, isTapDefineId } from '../idValidation';
+import { isCondDefineId, isCombineDefineId, isPipeDefineId } from '../idValidation';
 import { splitPairBinaryFnNames, splitPairTranformFnNames } from '../../util/splitPair';
 
 /**
@@ -229,34 +229,34 @@ export function inferFuncReturnType(
 
   const { defId } = funcEntry;
 
-  // Check if it's a PlugFunc
-  if (isPlugDefineId(defId, context.plugFuncDefTable)) {
-    return inferPlugFuncReturnType(defId, context);
+  // Check if it's a CombineFunc
+  if (isCombineDefineId(defId, context.combineFuncDefTable)) {
+    return inferCombineFuncReturnType(defId, context);
   }
 
-  // Check if it's a TapFunc
-  if (isTapDefineId(defId, context.tapFuncDefTable)) {
-    const tapDef = context.tapFuncDefTable[defId];
-    if (tapDef.sequence.length === 0) return null;
+  // Check if it's a PipeFunc
+  if (isPipeDefineId(defId, context.pipeFuncDefTable)) {
+    const pipeDef = context.pipeFuncDefTable[defId];
+    if (pipeDef.sequence.length === 0) return null;
 
     // Return type is the type of the last step in the sequence
-    const lastStep = tapDef.sequence[tapDef.sequence.length - 1];
+    const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
     const lastStepDefId = lastStep.defId;
 
     // Recursively infer the return type of the last step's definition
-    if (isPlugDefineId(lastStepDefId, context.plugFuncDefTable)) {
-      return inferPlugFuncReturnType(lastStepDefId, context);
-    } else if (lastStepDefId in context.tapFuncDefTable) {
-      // Recursive TapFunc - we need to create a dummy FuncId to recurse
+    if (isCombineDefineId(lastStepDefId, context.combineFuncDefTable)) {
+      return inferCombineFuncReturnType(lastStepDefId, context);
+    } else if (lastStepDefId in context.pipeFuncDefTable) {
+      // Recursive PipeFunc - we need to create a dummy FuncId to recurse
       // This is a limitation of the current design where inferFuncReturnType expects FuncId
       // For now, just recurse on the definition directly by checking its structure
-      if (!isTapDefineId(lastStepDefId, context.tapFuncDefTable)) return null;
-      const nestedTapDef = context.tapFuncDefTable[lastStepDefId];
+      if (!isPipeDefineId(lastStepDefId, context.pipeFuncDefTable)) return null;
+      const nestedTapDef = context.pipeFuncDefTable[lastStepDefId];
       if (nestedTapDef.sequence.length === 0) return null;
       // Continue recursion manually to avoid circular FuncId dependency
       const nestedLastStep = nestedTapDef.sequence[nestedTapDef.sequence.length - 1];
-      if (isPlugDefineId(nestedLastStep.defId, context.plugFuncDefTable)) {
-        return inferPlugFuncReturnType(nestedLastStep.defId, context);
+      if (isCombineDefineId(nestedLastStep.defId, context.combineFuncDefTable)) {
+        return inferCombineFuncReturnType(nestedLastStep.defId, context);
       }
       // For deeper nesting, return null (limitation)
       return null;
@@ -281,13 +281,13 @@ export function inferFuncReturnType(
 }
 
 /**
- * Infers the return type of a PlugFunc definition.
+ * Infers the return type of a CombineFunc definition.
  */
-export function inferPlugFuncReturnType(
-  defId: PlugDefineId,
+export function inferCombineFuncReturnType(
+  defId: CombineDefineId,
   context: ExecutionContext
 ): BaseTypeSymbol | null {
-  const def = context.plugFuncDefTable[defId];
+  const def = context.combineFuncDefTable[defId];
 
   // For array binary functions, we'd need element type info
   // For now, we'll handle simple cases

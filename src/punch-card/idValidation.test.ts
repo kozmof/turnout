@@ -2,16 +2,16 @@ import { describe, it, expect } from 'vitest';
 import {
   createValueId,
   createFuncId,
-  createPlugDefineId,
-  createTapDefineId,
+  createCombineDefineId,
+  createPipeDefineId,
   createCondDefineId,
   createInterfaceArgId,
 } from './idValidation';
 import type {
   ValueId,
   FuncId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
   InterfaceArgId,
 } from './types';
@@ -53,37 +53,37 @@ describe('ID Validation Module', () => {
       });
     });
 
-    describe('createPlugDefineId', () => {
-      it('should create branded PlugDefineId from any string', () => {
-        const id = createPlugDefineId('pd_a3f2d8e1');
+    describe('createCombineDefineId', () => {
+      it('should create branded CombineDefineId from any string', () => {
+        const id = createCombineDefineId('pd_a3f2d8e1');
         expect(id).toBe('pd_a3f2d8e1');
 
         // Type assertion to verify branded type
-        const _typeCheck: PlugDefineId = id;
+        const _typeCheck: CombineDefineId = id;
         expect(_typeCheck).toBe('pd_a3f2d8e1');
       });
 
       it('should accept strings regardless of prefix', () => {
-        expect(createPlugDefineId('myPlugDef')).toBe('myPlugDef');
-        expect(createPlugDefineId('td_something')).toBe('td_something');
-        expect(createPlugDefineId('')).toBe('');
+        expect(createCombineDefineId('myPlugDef')).toBe('myPlugDef');
+        expect(createCombineDefineId('td_something')).toBe('td_something');
+        expect(createCombineDefineId('')).toBe('');
       });
     });
 
-    describe('createTapDefineId', () => {
-      it('should create branded TapDefineId from any string', () => {
-        const id = createTapDefineId('td_a3f2d8e1');
+    describe('createPipeDefineId', () => {
+      it('should create branded PipeDefineId from any string', () => {
+        const id = createPipeDefineId('td_a3f2d8e1');
         expect(id).toBe('td_a3f2d8e1');
 
         // Type assertion to verify branded type
-        const _typeCheck: TapDefineId = id;
+        const _typeCheck: PipeDefineId = id;
         expect(_typeCheck).toBe('td_a3f2d8e1');
       });
 
       it('should accept strings regardless of prefix', () => {
-        expect(createTapDefineId('myTapDef')).toBe('myTapDef');
-        expect(createTapDefineId('pd_something')).toBe('pd_something');
-        expect(createTapDefineId('')).toBe('');
+        expect(createPipeDefineId('myTapDef')).toBe('myTapDef');
+        expect(createPipeDefineId('pd_something')).toBe('pd_something');
+        expect(createPipeDefineId('')).toBe('');
       });
     });
 
@@ -125,17 +125,17 @@ describe('ID Validation Module', () => {
     it('should maintain branded type distinctions at compile time', () => {
       const valueId = createValueId('v1');
       const funcId = createFuncId('f1');
-      const plugDefId = createPlugDefineId('pd1');
+      const combineDefId = createCombineDefineId('pd1');
 
       // All are strings at runtime
       expect(typeof valueId).toBe('string');
       expect(typeof funcId).toBe('string');
-      expect(typeof plugDefId).toBe('string');
+      expect(typeof combineDefId).toBe('string');
 
       // But TypeScript knows they're different types (compile-time check)
       const _v: ValueId = valueId;
       const _f: FuncId = funcId;
-      const _p: PlugDefineId = plugDefId;
+      const _p: CombineDefineId = combineDefId;
 
       // Suppress unused variable warnings
       expect(_v).toBeDefined();

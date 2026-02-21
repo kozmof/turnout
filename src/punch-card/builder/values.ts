@@ -85,13 +85,13 @@ export const ref = {
 
   /**
    * References the output of a specific step in a tap function.
-   * @param tapFuncId - The ID of the tap function
+   * @param pipeFuncId - The ID of the tap function
    * @param stepIndex - The index of the step (0-based)
    */
-  step(tapFuncId: string, stepIndex: number): StepOutputRef {
+  step(pipeFuncId: string, stepIndex: number): StepOutputRef {
     return {
       __type: 'stepOutput',
-      tapFuncId,
+      pipeFuncId,
       stepIndex,
     };
   },

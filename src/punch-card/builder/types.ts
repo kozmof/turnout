@@ -19,7 +19,7 @@ type ToIndexSignature<T> = T extends Record<string, infer V>
  * Builder for plug functions.
  */
 export type PlugBuilder = {
-  readonly __type: 'plug';
+  readonly __type: 'combine';
   readonly name: BinaryFnNames;
   readonly args: Record<string, ValueRef | FuncOutputRef | StepOutputRef | TransformRef>;
 };
@@ -28,7 +28,7 @@ export type PlugBuilder = {
  * Builder for tap functions.
  */
 export type TapBuilder = {
-  readonly __type: 'tap';
+  readonly __type: 'pipe';
   readonly args: readonly TapArg[];
   readonly argBindings: Record<string, ValueRef>; // Maps arg names to value IDs
   readonly steps: readonly StepBuilder[];
@@ -67,7 +67,7 @@ export type FuncOutputRef = {
  */
 export type StepOutputRef = {
   readonly __type: 'stepOutput';
-  readonly tapFuncId: FuncRef;
+  readonly pipeFuncId: FuncRef;
   readonly stepIndex: number;
 };
 
@@ -168,8 +168,8 @@ export type InterfaceArgMetadataTable = {
 export type ContextBuilder = {
   valueTable: ToIndexSignature<ExecutionContext['valueTable']>;
   funcTable: ToIndexSignature<ExecutionContext['funcTable']>;
-  plugFuncDefTable: ToIndexSignature<ExecutionContext['plugFuncDefTable']>;
-  tapFuncDefTable: ToIndexSignature<ExecutionContext['tapFuncDefTable']>;
+  combineFuncDefTable: ToIndexSignature<ExecutionContext['combineFuncDefTable']>;
+  pipeFuncDefTable: ToIndexSignature<ExecutionContext['pipeFuncDefTable']>;
   condFuncDefTable: ToIndexSignature<ExecutionContext['condFuncDefTable']>;
 
   // Metadata tables for hash-based IDs

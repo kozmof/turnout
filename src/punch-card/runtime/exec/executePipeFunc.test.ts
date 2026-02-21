@@ -3,7 +3,7 @@ import {
   createScopedValueTable,
   createScopedContext,
   validateScopedValueTable,
-} from './executeTapFunc';
+} from './executePipeFunc';
 import {
   ExecutionContext,
   FuncId,
@@ -12,7 +12,7 @@ import {
   InterfaceArgId,
 } from '../../types';
 
-describe('executeTapFunc helpers', () => {
+describe('executePipeFunc helpers', () => {
   describe('createScopedValueTable', () => {
     it('should create a scoped value table with all required arguments', () => {
       const sourceValueTable: ValueTable = {
@@ -26,14 +26,14 @@ describe('executeTapFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const tapDefArgs = {
+      const pipeDefArgs = {
         a: 'ia-a' as InterfaceArgId,
         b: 'ia-b' as InterfaceArgId,
       };
 
       const result = createScopedValueTable(
         argMap,
-        tapDefArgs,
+        pipeDefArgs,
         sourceValueTable
       );
 
@@ -56,7 +56,7 @@ describe('executeTapFunc helpers', () => {
         a: 'v1' as ValueId,
       };
 
-      const tapDefArgs = {
+      const pipeDefArgs = {
         a: 'ia-a' as InterfaceArgId,
         b: 'ia-b' as InterfaceArgId, // Expected but not in argMap
       };
@@ -64,7 +64,7 @@ describe('executeTapFunc helpers', () => {
       expect(() =>
         createScopedValueTable(
           argMap,
-          tapDefArgs,
+          pipeDefArgs,
           sourceValueTable
         )
       ).toThrow();
@@ -81,7 +81,7 @@ describe('executeTapFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const tapDefArgs = {
+      const pipeDefArgs = {
         a: 'ia-a' as InterfaceArgId,
         b: 'ia-b' as InterfaceArgId,
       };
@@ -89,23 +89,23 @@ describe('executeTapFunc helpers', () => {
       expect(() =>
         createScopedValueTable(
           argMap,
-          tapDefArgs,
+          pipeDefArgs,
           sourceValueTable
         )
       ).toThrow('Missing value: v2');
     });
 
-    it('should handle empty tapDefArgs (no arguments)', () => {
+    it('should handle empty pipeDefArgs (no arguments)', () => {
       const sourceValueTable: ValueTable = {
         v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
       } as any;
 
       const argMap = {};
-      const tapDefArgs = {};
+      const pipeDefArgs = {};
 
       const result = createScopedValueTable(
         argMap,
-        tapDefArgs,
+        pipeDefArgs,
         sourceValueTable
       );
 
@@ -125,13 +125,13 @@ describe('executeTapFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const tapDefArgs = {
+      const pipeDefArgs = {
         a: 'ia-a' as InterfaceArgId,
         b: 'ia-b' as InterfaceArgId,
       };
 
       expect(() =>
-        validateScopedValueTable(scopedValueTable, tapDefArgs, argMap)
+        validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap)
       ).not.toThrow();
     });
 
@@ -146,23 +146,23 @@ describe('executeTapFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const tapDefArgs = {
+      const pipeDefArgs = {
         a: 'ia-a' as InterfaceArgId,
         b: 'ia-b' as InterfaceArgId,
       };
 
       expect(() =>
-        validateScopedValueTable(scopedValueTable, tapDefArgs, argMap)
+        validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap)
       ).toThrow('Scoped value table is incomplete: missing v2');
     });
 
     it('should pass validation for empty table with no arguments', () => {
       const scopedValueTable: Partial<ValueTable> = {};
       const argMap = {};
-      const tapDefArgs = {};
+      const pipeDefArgs = {};
 
       expect(() =>
-        validateScopedValueTable(scopedValueTable, tapDefArgs, argMap)
+        validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap)
       ).not.toThrow();
     });
   });
@@ -175,8 +175,8 @@ describe('executeTapFunc helpers', () => {
           v2: { symbol: 'string', value: 'original', subSymbol: undefined, tags: [] },
         } as any,
         funcTable: {} as any,
-        plugFuncDefTable: {} as any,
-        tapFuncDefTable: {} as any,
+        combineFuncDefTable: {} as any,
+        pipeFuncDefTable: {} as any,
         condFuncDefTable: {} as any,
       };
 
@@ -197,11 +197,11 @@ describe('executeTapFunc helpers', () => {
 
       // Should preserve other tables from original context
       expect(scopedContext.funcTable).toBe(originalContext.funcTable);
-      expect(scopedContext.plugFuncDefTable).toBe(
-        originalContext.plugFuncDefTable
+      expect(scopedContext.combineFuncDefTable).toBe(
+        originalContext.combineFuncDefTable
       );
-      expect(scopedContext.tapFuncDefTable).toBe(
-        originalContext.tapFuncDefTable
+      expect(scopedContext.pipeFuncDefTable).toBe(
+        originalContext.pipeFuncDefTable
       );
       expect(scopedContext.condFuncDefTable).toBe(
         originalContext.condFuncDefTable

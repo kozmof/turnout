@@ -1,8 +1,8 @@
 import type {
   ValueId,
   FuncId,
-  PlugDefineId,
-  TapDefineId,
+  CombineDefineId,
+  PipeDefineId,
   CondDefineId,
   InterfaceArgId,
 } from '../punch-card/types';
@@ -26,8 +26,8 @@ type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ia';
 // These will be imported dynamically to avoid circular dependencies
 let createValueId: (id: string) => ValueId;
 let createFuncId: (id: string) => FuncId;
-let createPlugDefineId: (id: string) => PlugDefineId;
-let createTapDefineId: (id: string) => TapDefineId;
+let createCombineDefineId: (id: string) => CombineDefineId;
+let createPipeDefineId: (id: string) => PipeDefineId;
 let createCondDefineId: (id: string) => CondDefineId;
 let createInterfaceArgId: (id: string) => InterfaceArgId;
 
@@ -38,15 +38,15 @@ let createInterfaceArgId: (id: string) => InterfaceArgId;
 export function initializeIdGenerator(creators: {
   createValueId: (id: string) => ValueId;
   createFuncId: (id: string) => FuncId;
-  createPlugDefineId: (id: string) => PlugDefineId;
-  createTapDefineId: (id: string) => TapDefineId;
+  createCombineDefineId: (id: string) => CombineDefineId;
+  createPipeDefineId: (id: string) => PipeDefineId;
   createCondDefineId: (id: string) => CondDefineId;
   createInterfaceArgId: (id: string) => InterfaceArgId;
 }): void {
   createValueId = creators.createValueId;
   createFuncId = creators.createFuncId;
-  createPlugDefineId = creators.createPlugDefineId;
-  createTapDefineId = creators.createTapDefineId;
+  createCombineDefineId = creators.createCombineDefineId;
+  createPipeDefineId = creators.createPipeDefineId;
   createCondDefineId = creators.createCondDefineId;
   createInterfaceArgId = creators.createInterfaceArgId;
 }
@@ -84,18 +84,18 @@ export const IdGenerator = {
     return createFuncId(IdGenerator.generate('f'));
   },
 
-  generatePlugDefineId(): PlugDefineId {
-    if (!createPlugDefineId) {
+  generateCombineDefineId(): CombineDefineId {
+    if (!createCombineDefineId) {
       throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
     }
-    return createPlugDefineId(IdGenerator.generate('pd'));
+    return createCombineDefineId(IdGenerator.generate('pd'));
   },
 
-  generateTapDefineId(): TapDefineId {
-    if (!createTapDefineId) {
+  generatePipeDefineId(): PipeDefineId {
+    if (!createPipeDefineId) {
       throw new Error('IdGenerator not initialized. Call initializeIdGenerator() first.');
     }
-    return createTapDefineId(IdGenerator.generate('td'));
+    return createPipeDefineId(IdGenerator.generate('td'));
   },
 
   generateCondDefineId(): CondDefineId {

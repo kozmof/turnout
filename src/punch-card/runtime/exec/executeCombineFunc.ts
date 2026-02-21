@@ -1,4 +1,4 @@
-import { FuncId, PlugDefineId, ExecutionContext, ValueTable } from '../../types';
+import { FuncId, CombineDefineId, ExecutionContext, ValueTable } from '../../types';
 import { getBinaryFn } from '../../call-presets/getBinaryFn';
 import { getTransformFn } from '../../call-presets/getTranformFn';
 import { AnyValue } from '../../../state-control/value';
@@ -13,7 +13,7 @@ export type ExecutionResult = {
 };
 
 /**
- * Executes a PlugFunc and returns the result along with updated state.
+ * Executes a CombineFunc and returns the result along with updated state.
  * This is a pure function - it does not mutate the input context.
  *
  * @param funcId - The function instance to execute
@@ -21,13 +21,13 @@ export type ExecutionResult = {
  * @param context - The execution context (read-only)
  * @returns Execution result with computed value and updated value table
  */
-export function executePlugFunc(
+export function executeCombineFunc(
   funcId: FuncId,
-  defId: PlugDefineId,
+  defId: CombineDefineId,
   context: ExecutionContext
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
-  const def = context.plugFuncDefTable[defId];
+  const def = context.combineFuncDefTable[defId];
 
   // Get transform functions
   const transformFnA = getTransformFn(def.transformFn.a.name);

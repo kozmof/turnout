@@ -1,9 +1,9 @@
 import { ExecutionContext } from '../types';
 import { ExecutionTree } from './tree-types';
-import { isPlugDefineId, isTapDefineId } from '../idValidation';
+import { isCombineDefineId, isPipeDefineId } from '../idValidation';
 import { createFunctionExecutionError } from './errors';
-import { executePlugFunc, type ExecutionResult } from './exec/executePlugFunc';
-import { executeTapFunc } from './exec/executeTapFunc';
+import { executeCombineFunc, type ExecutionResult } from './exec/executeCombineFunc';
+import { executePipeFunc } from './exec/executePipeFunc';
 import { executeCondFunc } from './exec/executeCondFunc';
 
 /**
@@ -95,10 +95,10 @@ export function executeTree(
 
   let execResult: ExecutionResult;
 
-  if (isPlugDefineId(defId, context.plugFuncDefTable)) {
-    execResult = executePlugFunc(funcId, defId, updatedContext);
-  } else if (isTapDefineId(defId, context.tapFuncDefTable)) {
-    execResult = executeTapFunc(funcId, defId, updatedContext);
+  if (isCombineDefineId(defId, context.combineFuncDefTable)) {
+    execResult = executeCombineFunc(funcId, defId, updatedContext);
+  } else if (isPipeDefineId(defId, context.pipeFuncDefTable)) {
+    execResult = executePipeFunc(funcId, defId, updatedContext);
   } else {
     throw createFunctionExecutionError(
       funcId,
