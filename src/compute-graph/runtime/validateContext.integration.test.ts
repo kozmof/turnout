@@ -25,6 +25,8 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
+            kind: 'combine',
+
             defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
@@ -34,8 +36,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -64,6 +66,8 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
+            kind: 'combine',
+
             defId: 'pd-add' as CombineDefineId,
             argMap: {
               a: 'v1' as ValueId,
@@ -76,8 +80,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -104,6 +108,8 @@ describe('validateContext integration', () => {
         valueTable: {} as any,
         funcTable: {
           f1: {
+            kind: 'combine',
+
             defId: 'pd-nonexistent' as CombineDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,
@@ -130,11 +136,15 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
+            kind: 'combine',
+
             defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
           },
           pipe1: {
+            kind: 'pipe',
+
             defId: 'td1' as PipeDefineId,
             argMap: { x: 'v1' as ValueId, y: 'v2' as ValueId },
             returnId: 'v4' as ValueId,
@@ -144,8 +154,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -155,6 +165,8 @@ describe('validateContext integration', () => {
             args: { x: 'ia-x' as any, y: 'ia-y' as any },
             sequence: [
               {
+                kind: 'combine',
+
                 defId: 'pd-add' as CombineDefineId,
                 argBindings: {
                   a: { source: 'input', argName: 'x' },
@@ -183,6 +195,8 @@ describe('validateContext integration', () => {
         valueTable: {} as any,
         funcTable: {
           pipe1: {
+            kind: 'pipe',
+
             defId: 'td1' as PipeDefineId,
             argMap: {},
             returnId: 'v1' as ValueId,
@@ -194,6 +208,8 @@ describe('validateContext integration', () => {
             args: {},
             sequence: [
               {
+                kind: 'combine',
+
                 defId: 'pd-nonexistent' as CombineDefineId,
                 argBindings: {},
               },
@@ -223,16 +239,22 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           fTrue: {
+            kind: 'combine',
+
             defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
             returnId: 'vTrueResult' as ValueId,
           },
           fFalse: {
+            kind: 'combine',
+
             defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
             returnId: 'vFalseResult' as ValueId,
           },
           cond1: {
+            kind: 'cond',
+
             defId: 'cd1' as CondDefineId,
             argMap: {},
             returnId: 'vResult' as ValueId,
@@ -242,8 +264,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -276,6 +298,8 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           cond1: {
+            kind: 'cond',
+
             defId: 'cd1' as CondDefineId,
             argMap: {},
             returnId: 'vResult' as ValueId,
@@ -315,6 +339,8 @@ describe('validateContext integration', () => {
         } as any,
         funcTable: {
           f1: {
+            kind: 'combine',
+
             defId: 'pd-add' as CombineDefineId,
             argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
             returnId: 'v3' as ValueId,
@@ -324,8 +350,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },

@@ -9,7 +9,7 @@ import {
   union,
 } from 'valibot';
 import { binaryFnNames } from './binaryFnNames';
-import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from '../types';
+import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from './input-types';
 import { transformFnNames } from './transformFnNames';
 import { baseTypeSymbols } from '../../state-control/value';
 

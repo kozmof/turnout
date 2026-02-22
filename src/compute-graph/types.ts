@@ -14,7 +14,7 @@ export type BinaryFnNames =
   | BinaryFnNumberNames
   | BinaryFnStringNames;
 
-export type BinaryFnNamespaces = 
+export type BinaryFnNamespaces =
   | BinaryFnArrayNameSpace
   | BinaryFnGenericNameSpace
   | BinaryFnNumberNameSpace
@@ -25,40 +25,6 @@ export type TransformFnNames =
   | TransformFnNumberNames
   | TransformFnStringNames;
 
-type FuncInterface = { name: string; type: 'value'; value: AnyValue };
-
-export type CombineFuncType = 'combine';
-export type PipeFuncType = 'pipe';
-export type CondFuncType = 'cond';
-
-export type CombineFunc = {
-  name: BinaryFnNames;
-  type: CombineFuncType;
-  transformFn: {
-    a: { name: TransformFnNames };
-    b: { name: TransformFnNames };
-  };
-  args: {
-    a: FuncInterface | CombineFunc;
-    b: FuncInterface | CombineFunc;
-  };
-};
-
-export type PipeFunc = {
-  name: string;
-  type: PipeFuncType;
-  steps: (PipeFunc | CombineFunc)[];
-  args: FuncInterface[];
-};
-
-export type CondFunc = {
-  name: string;
-  type: CondFuncType;
-  condition: FuncInterface | CombineFunc;
-  trueBranch: PipeFunc | CombineFunc;
-  falseBranch: PipeFunc | CombineFunc;
-};
-
 export type CombineDefineId = Brand<string, 'combineDefineId'>;
 export type PipeDefineId = Brand<string, 'pipeDefineId'>;
 export type CondDefineId = Brand<string, 'condDefineId'>;
@@ -66,22 +32,23 @@ export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
 export type InterfaceArgId = Brand<string, 'interfaceArgId'>;
 
+// Fix 2: Discriminated union on FuncTable entries — kind is a first-class field.
+export type FuncTableEntry =
+  | { kind: 'combine'; defId: CombineDefineId; argMap: { [argName in string]: ValueId }; returnId: ValueId }
+  | { kind: 'pipe';    defId: PipeDefineId;    argMap: { [argName in string]: ValueId }; returnId: ValueId }
+  | { kind: 'cond';   defId: CondDefineId;    returnId: ValueId };
+
 export type FuncTable = {
-  [id in FuncId]: {
-    defId: CombineDefineId | PipeDefineId | CondDefineId;
-    argMap: {
-      [argName in string]: ValueId;
-    };
-    returnId: ValueId;
-  };
+  [id in FuncId]: FuncTableEntry;
 };
 
 export type CombineFuncDefTable = {
   [defId in CombineDefineId]: {
     name: BinaryFnNames;
+    // Fix 4: transformFn values are TransformFnNames directly (no { name } wrapper).
     transformFn: {
-      a: { name: TransformFnNames };
-      b: { name: TransformFnNames };
+      a: TransformFnNames;
+      b: TransformFnNames;
     };
     args: {
       a: InterfaceArgId;
@@ -96,10 +63,11 @@ export type CombineFuncDefTable = {
  * - 'step': Binds to the return value of a previous step (by index)
  * - 'value': Binds directly to a ValueId (constant or pre-computed value)
  */
+// Fix 3: 'value' variant field renamed from valueId to id — consistent with ConditionId.
 export type PipeArgBinding =
   | { source: 'input'; argName: string }
   | { source: 'step'; stepIndex: number }
-  | { source: 'value'; valueId: ValueId };
+  | { source: 'value'; id: ValueId };
 
 /**
  * Defines a single step in a PipeFunc sequence.
@@ -145,6 +113,12 @@ export type ValueTable = {
   [id in ValueId]: AnyValue;
 };
 
+// Fix 6: Single canonical definition of ExecutionResult.
+export type ExecutionResult = {
+  readonly value: AnyValue;
+  readonly updatedValueTable: ValueTable;
+};
+
 /**
  * ExecutionContext contains all the data needed to execute a graph.
  *
@@ -152,17 +126,11 @@ export type ValueTable = {
  * Execution functions return new ValueTables rather than mutating the context.
  * This makes the data flow explicit and supports functional execution patterns.
  */
+// Fix 5: returnIdToFuncId removed — it was a performance cache, not a domain field.
 export type ExecutionContext = {
-  /** Table of computed values. Read-only; execution returns updated copies. */
   readonly valueTable: Readonly<ValueTable>;
-  /** Function instances table. Read-only during execution. */
   readonly funcTable: Readonly<FuncTable>;
-  /** Combine function definitions. Read-only during execution. */
   readonly combineFuncDefTable: Readonly<CombineFuncDefTable>;
-  /** Pipe function definitions. Read-only during execution. */
   readonly pipeFuncDefTable: Readonly<PipeFuncDefTable>;
-  /** Conditional function definitions. Read-only during execution. */
   readonly condFuncDefTable: Readonly<CondFuncDefTable>;
-  /** Pre-computed mapping for performance optimization. Optional. */
-  readonly returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
 };

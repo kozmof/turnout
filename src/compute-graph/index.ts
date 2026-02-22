@@ -1,7 +1,7 @@
 // Main execution engine
 export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
 export { buildReturnIdToFuncIdMap } from './runtime/buildExecutionTree';
-export type { ExecutionResult } from './runtime/exec/executeCombineFunc';
+export type { ExecutionResult } from './types';
 
 // Context validation
 export {

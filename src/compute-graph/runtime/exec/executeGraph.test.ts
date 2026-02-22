@@ -20,6 +20,8 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
+          kind: 'combine',
+
           defId: 'pd1' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v3' as ValueId,
@@ -29,8 +31,8 @@ describe('executeGraph', () => {
         pd1: {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -61,11 +63,15 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
+          kind: 'combine',
+
           defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v4' as ValueId,
         },
         f2: {
+          kind: 'combine',
+
           defId: 'pd-multiply' as CombineDefineId,
           argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
           returnId: 'v5' as ValueId,
@@ -75,8 +81,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -86,8 +92,8 @@ describe('executeGraph', () => {
         'pd-multiply': {
           name: 'binaryFnNumber::multiply',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -118,11 +124,15 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
+          kind: 'combine',
+
           defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v4' as ValueId,
         },
         f2: {
+          kind: 'combine',
+
           defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
           returnId: 'v5' as ValueId,
@@ -132,8 +142,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -164,6 +174,8 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         pipe1: {
+          kind: 'pipe',
+
           defId: 'td1' as PipeDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId, c: 'v3' as ValueId },
           returnId: 'v6' as ValueId,
@@ -173,8 +185,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -184,8 +196,8 @@ describe('executeGraph', () => {
         'pd-multiply': {
           name: 'binaryFnNumber::multiply',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -202,6 +214,8 @@ describe('executeGraph', () => {
           },
           sequence: [
             {
+              kind: 'combine',
+
               defId: 'pd-add' as CombineDefineId,
               argBindings: {
                 a: { source: 'input', argName: 'a' },
@@ -209,6 +223,8 @@ describe('executeGraph', () => {
               },
             },
             {
+              kind: 'combine',
+
               defId: 'pd-multiply' as CombineDefineId,
               argBindings: {
                 a: { source: 'step', stepIndex: 0 },
@@ -239,6 +255,8 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
+          kind: 'combine',
+
           defId: 'pd1' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v3' as ValueId,
@@ -248,8 +266,8 @@ describe('executeGraph', () => {
         pd1: {
           name: 'binaryFnString::concat',
           transformFn: {
-            a: { name: 'transformFnNumber::toStr' },
-            b: { name: 'transformFnString::pass' },
+            a: 'transformFnNumber::toStr',
+            b: 'transformFnString::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -280,6 +298,8 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
+          kind: 'combine',
+
           defId: 'pd-add' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v2' as ValueId,
@@ -289,8 +309,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -320,6 +340,8 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         f1: {
+          kind: 'combine',
+
           defId: 'pd1' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'v3' as ValueId,
@@ -329,8 +351,8 @@ describe('executeGraph', () => {
         pd1: {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -356,6 +378,8 @@ describe('executeGraph', () => {
       valueTable: {} as any,
       funcTable: {
         pipe1: {
+          kind: 'pipe',
+
           defId: 'td1' as PipeDefineId,
           argMap: {},
           returnId: 'v1' as ValueId,
@@ -388,16 +412,22 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fTrue: {
+          kind: 'combine',
+
           defId: 'pd-pass-true' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
+          kind: 'combine',
+
           defId: 'pd-pass-false' as CombineDefineId,
           argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
           returnId: 'vFalseResult' as ValueId,
         },
         cond1: {
+          kind: 'cond',
+
           defId: 'cd1' as CondDefineId,
           argMap: {},
           returnId: 'vCondResult' as ValueId,
@@ -407,8 +437,8 @@ describe('executeGraph', () => {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -418,8 +448,8 @@ describe('executeGraph', () => {
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -457,16 +487,22 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fTrue: {
+          kind: 'combine',
+
           defId: 'pd-pass-true' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
+          kind: 'combine',
+
           defId: 'pd-pass-false' as CombineDefineId,
           argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
           returnId: 'vFalseResult' as ValueId,
         },
         cond1: {
+          kind: 'cond',
+
           defId: 'cd1' as CondDefineId,
           argMap: {},
           returnId: 'vCondResult' as ValueId,
@@ -476,8 +512,8 @@ describe('executeGraph', () => {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -487,8 +523,8 @@ describe('executeGraph', () => {
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -527,16 +563,22 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fTrue: {
+          kind: 'combine',
+
           defId: 'pd-use-shared' as CombineDefineId,
           argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
+          kind: 'combine',
+
           defId: 'pd-use-shared' as CombineDefineId,
           argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId }, // Same vShared
           returnId: 'vFalseResult' as ValueId,
         },
         cond1: {
+          kind: 'cond',
+
           defId: 'cd1' as CondDefineId,
           argMap: {},
           returnId: 'vCondResult' as ValueId,
@@ -546,8 +588,8 @@ describe('executeGraph', () => {
         'pd-use-shared': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -587,21 +629,29 @@ describe('executeGraph', () => {
       } as any,
       funcTable: {
         fCondition: {
+          kind: 'combine',
+
           defId: 'pd-eq' as CombineDefineId,
           argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
           returnId: 'vCondResult' as ValueId,
         },
         fTrue: {
+          kind: 'combine',
+
           defId: 'pd-pass-true' as CombineDefineId,
           argMap: { a: 'v3' as ValueId, b: 'v0' as ValueId },
           returnId: 'vTrueResult' as ValueId,
         },
         fFalse: {
+          kind: 'combine',
+
           defId: 'pd-pass-false' as CombineDefineId,
           argMap: { a: 'v4' as ValueId, b: 'v0' as ValueId },
           returnId: 'vFalseResult' as ValueId,
         },
         cond1: {
+          kind: 'cond',
+
           defId: 'cd1' as CondDefineId,
           argMap: {},
           returnId: 'vFinalResult' as ValueId,
@@ -611,8 +661,8 @@ describe('executeGraph', () => {
         'pd-eq': {
           name: 'binaryFnGeneric::isEqual',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -622,8 +672,8 @@ describe('executeGraph', () => {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,
@@ -633,8 +683,8 @@ describe('executeGraph', () => {
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: { name: 'transformFnNumber::pass' },
-            b: { name: 'transformFnNumber::pass' },
+            a: 'transformFnNumber::pass',
+            b: 'transformFnNumber::pass',
           },
           args: {
             a: 'ia1' as any,

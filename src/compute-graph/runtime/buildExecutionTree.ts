@@ -5,13 +5,12 @@ import {
 } from '../types';
 import { ExecutionTree, NodeId } from './tree-types';
 import type { ValueNode, FunctionNode, ConditionalNode } from './tree-types';
-import { isFuncId, isCondDefineId } from '../idValidation';
+import { isFuncId } from '../idValidation';
 import { createMissingValueError } from './errors';
 import { TOM } from '../../util/tom';
 
 /**
  * Creates a mapping from ValueId to FuncId for functions that produce those values.
- * This is useful for performance optimization to avoid rebuilding this map repeatedly.
  */
 export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId, FuncId> {
   const returnIdToFuncId = new Map<ValueId, FuncId>();
@@ -19,16 +18,6 @@ export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap
     returnIdToFuncId.set(funcEntry.returnId, funcId);
   }
   return returnIdToFuncId;
-}
-
-function getReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap<ValueId, FuncId> {
-  // Use pre-computed map if available
-  if (context.returnIdToFuncId) {
-    return context.returnIdToFuncId;
-  }
-
-  // Otherwise, build it on demand
-  return buildReturnIdToFuncIdMap(context);
 }
 
 export function buildExecutionTree(
@@ -68,8 +57,8 @@ function buildExecutionTreeInternal(
   memo: Map<NodeId, ExecutionTree>
 ): ExecutionTree {
 
-  // Get the returnId -> FuncId mapping (pre-computed or on-demand)
-  const returnIdToFuncId = getReturnIdToFuncIdMap(context);
+  // Get the returnId -> FuncId mapping (always built on demand, Fix 5)
+  const returnIdToFuncId = buildReturnIdToFuncIdMap(context);
 
   // Base case: ValueId (leaf node)
   if (!isFuncId(nodeId, context.funcTable)) {
@@ -101,15 +90,12 @@ function buildExecutionTreeInternal(
   // Recursive case: FuncId (internal node)
   const funcId = nodeId;
   const funcEntry = context.funcTable[funcId];
-  const defId = funcEntry.defId;
 
-  // Check if this is a CondFunc (conditional)
-  if (isCondDefineId(defId, context.condFuncDefTable)) {
-    const condDef = context.condFuncDefTable[defId];
+  // Fix 2: use kind discriminant instead of table-lookup guard
+  if (funcEntry.kind === 'cond') {
+    const condDef = context.condFuncDefTable[funcEntry.defId];
 
     // Build trees for condition and both branches
-    // Each branch can visit the same nodes independently (no false cycle detection)
-    // because visited set is cleaned up after each subtree completes
     const conditionTree = buildExecutionTree(condDef.conditionId.id, context, visited, memo);
     const trueBranchTree = buildExecutionTree(condDef.trueBranchId, context, visited, memo);
     const falseBranchTree = buildExecutionTree(condDef.falseBranchId, context, visited, memo);
@@ -117,7 +103,7 @@ function buildExecutionTreeInternal(
     const conditionalNode: ConditionalNode = {
       nodeType: 'conditional',
       nodeId: funcId,
-      funcDef: defId, // defId is narrowed to CondDefineId by the type guard
+      funcDef: funcEntry.defId,
       returnId: funcEntry.returnId,
       conditionTree,
       trueBranchTree,
@@ -126,25 +112,19 @@ function buildExecutionTreeInternal(
     return conditionalNode;
   }
 
+  // funcEntry is now narrowed to combine | pipe
   const children: ExecutionTree[] = [];
 
-  // Add children from argMap
-  // Each child can independently visit the same nodes because visited set
-  // is cleaned up after each child completes
   for (const argId of Object.values(funcEntry.argMap)) {
     const childTree = buildExecutionTree(argId, context, visited, memo);
     children.push(childTree);
   }
 
   // Note: For PipeFunc, we do NOT add sequence children here
-  // The sequence functions will be executed within the scoped context by executePipeFunc
-  // This prevents sequence functions from being executed in the main tree traversal
-
-  // At this point, defId must be CombineDefineId | PipeDefineId (CondDefineId was handled above)
   const functionNode: FunctionNode = {
     nodeType: 'function',
     nodeId: funcId,
-    funcDef: defId,
+    funcDef: funcEntry.defId,
     returnId: funcEntry.returnId,
     children: children.length > 0 ? children : undefined,
   };

@@ -1,17 +1,8 @@
-import { FuncId, ExecutionContext, ValueTable } from '../../types';
+import { FuncId, ExecutionContext, ExecutionResult } from '../../types';
 import {
   createFunctionExecutionError,
 } from '../errors';
 import { AnyValue } from '../../../state-control/value';
-
-/**
- * Execution result containing the computed value and updated state.
- * This makes side effects explicit instead of relying on mutation.
- */
-export type ExecutionResult = {
-  readonly value: AnyValue;
-  readonly updatedValueTable: ValueTable;
-};
 
 /**
  * Executes a CondFunc and returns the result along with updated state.

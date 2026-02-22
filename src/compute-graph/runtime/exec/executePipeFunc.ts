@@ -2,6 +2,7 @@ import {
   FuncId,
   PipeDefineId,
   ExecutionContext,
+  ExecutionResult,
   ValueTable,
   ValueId,
   PipeStepBinding,
@@ -12,7 +13,7 @@ import {
   createMissingValueError,
   createFunctionExecutionError,
 } from '../errors';
-import { executeCombineFunc, type ExecutionResult } from './executeCombineFunc';
+import { executeCombineFunc } from './executeCombineFunc';
 import {
   isCombineDefineId,
   isPipeDefineId,
@@ -112,8 +113,8 @@ function resolveArgBinding(
     }
 
     case 'value':
-      // Direct value reference
-      return binding.valueId;
+      // Direct value reference (Fix 3: renamed from valueId to id)
+      return binding.id;
 
     default: {
       // Exhaustiveness check
@@ -168,18 +169,25 @@ function executeStep(
   // Create a temporary FuncId for this step execution
   const tempFuncId = createTempFuncId(pipeFuncId, stepIndex);
 
-  // Create context with temporary function entry
-  const stepContext: ExecutionContext = {
-    ...scopedContext,
-    funcTable: {
-      ...scopedContext.funcTable,
-      [tempFuncId]: {
-        defId,
-        argMap: resolvedArgMap,
-        returnId: stepReturnId,
+  // Create context with temporary function entry (Fix 2: include kind discriminant)
+  let stepContext: ExecutionContext;
+  if (isCombineDefineId(defId, scopedContext.combineFuncDefTable)) {
+    stepContext = {
+      ...scopedContext,
+      funcTable: {
+        ...scopedContext.funcTable,
+        [tempFuncId]: { kind: 'combine', defId, argMap: resolvedArgMap, returnId: stepReturnId },
       },
-    },
-  };
+    };
+  } else {
+    stepContext = {
+      ...scopedContext,
+      funcTable: {
+        ...scopedContext.funcTable,
+        [tempFuncId]: { kind: 'pipe', defId, argMap: resolvedArgMap, returnId: stepReturnId },
+      },
+    };
+  }
 
   // Execute based on definition type and get result
   let execResult: ExecutionResult;
@@ -225,6 +233,9 @@ export function executePipeFunc(
   context: ExecutionContext
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
+  if (funcEntry.kind === 'cond') {
+    throw new Error(`executePipeFunc called with cond entry for ${funcId}`);
+  }
   const def = context.pipeFuncDefTable[defId];
 
   if (def.sequence.length === 0) {

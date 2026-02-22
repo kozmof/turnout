@@ -28,8 +28,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: {
               a: 'ia1' as any,
@@ -68,8 +68,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -124,8 +124,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -186,8 +186,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -213,8 +213,8 @@ describe('validateContext', () => {
           pd1: {
             name: '' as any, // Invalid empty name
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -335,8 +335,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -378,8 +378,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -419,8 +419,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -452,16 +452,16 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
           'pd-unused': { // Unreferenced definition
             name: 'binaryFnNumber::multiply',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -496,8 +496,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnNumber::add',
               transformFn: {
-                a: { name: 'invalidNamespace::unknown' as any },
-                b: { name: 'transformFnNumber::pass' },
+                a: 'invalidNamespace::unknown' as any,
+                b: 'transformFnNumber::pass',
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -530,8 +530,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnNumber::add', // Expects number, number
               transformFn: {
-                a: { name: 'transformFnNumber::toStr' }, // Returns string
-                b: { name: 'transformFnNumber::pass' },  // Returns number
+                a: 'transformFnNumber::toStr', // Returns string
+                b: 'transformFnNumber::pass',  // Returns number
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -565,8 +565,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnString::concat', // Expects string, string
               transformFn: {
-                a: { name: 'transformFnNumber::toStr' }, // Returns string
-                b: { name: 'transformFnNumber::toStr' }, // Returns string
+                a: 'transformFnNumber::toStr', // Returns string
+                b: 'transformFnNumber::toStr', // Returns string
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -603,8 +603,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnNumber::add',
               transformFn: {
-                a: { name: 'transformFnNumber::pass' }, // Expects number
-                b: { name: 'transformFnNumber::pass' }, // Expects number
+                a: 'transformFnNumber::pass', // Expects number
+                b: 'transformFnNumber::pass', // Expects number
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -642,8 +642,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnNumber::multiply',
               transformFn: {
-                a: { name: 'transformFnNumber::pass' }, // Expects number
-                b: { name: 'transformFnNumber::pass' }, // Expects number
+                a: 'transformFnNumber::pass', // Expects number
+                b: 'transformFnNumber::pass', // Expects number
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -678,8 +678,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnNumber::add',
               transformFn: {
-                a: { name: 'transformFnNumber::pass' }, // Expects number
-                b: { name: 'transformFnNumber::pass' }, // Expects number
+                a: 'transformFnNumber::pass', // Expects number
+                b: 'transformFnNumber::pass', // Expects number
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -714,8 +714,8 @@ describe('validateContext', () => {
             pd1: {
               name: 'binaryFnNumber::add', // Expects number, number
               transformFn: {
-                a: { name: 'transformFnString::toNumber' }, // string -> number (correct)
-                b: { name: 'transformFnString::toNumber' }, // string -> number (correct)
+                a: 'transformFnString::toNumber', // string -> number (correct)
+                b: 'transformFnString::toNumber', // string -> number (correct)
               },
               args: { a: 'ia1' as any, b: 'ia2' as any },
             },
@@ -749,8 +749,8 @@ describe('validateContext', () => {
           pd1: {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: { name: 'transformFnNumber::pass' },
-              b: { name: 'transformFnNumber::pass' },
+              a: 'transformFnNumber::pass',
+              b: 'transformFnNumber::pass',
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },

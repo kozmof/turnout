@@ -57,7 +57,6 @@ export type UnvalidatedContext = {
   readonly combineFuncDefTable?: Partial<Record<string, unknown>>;
   readonly pipeFuncDefTable?: Partial<Record<string, unknown>>;
   readonly condFuncDefTable?: Partial<Record<string, unknown>>;
-  readonly returnIdToFuncId?: ReadonlyMap<ValueId, FuncId>;
 };
 
 // ============================================================================
@@ -415,10 +414,10 @@ function validateValueBinding(
   argName: string,
   context: BindingValidationContext
 ): ValidationError | null {
-  if (!(binding.valueId in context.valueTable)) {
+  if (!(binding.id in context.valueTable)) {
     return {
-      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.valueId)}`,
-      details: { defId: context.defId, stepIndex: context.stepIndex, argName, valueId: binding.valueId },
+      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.id)}`,
+      details: { defId: context.defId, stepIndex: context.stepIndex, argName, valueId: binding.id },
     };
   }
   return null;
@@ -568,13 +567,13 @@ function validateCombineFuncTypes(
     ? funcEntry.argMap
     : {};
 
-  // Validate each argument
+  // Validate each argument (Fix 4: transformFn values are strings directly)
   for (const [argName, tfn] of Object.entries(transformFn)) {
-    if (!isRecord(tfn) || !('name' in tfn) || !isStringAs<TransformFnNames>(tfn.name)) {
+    if (!isStringAs<TransformFnNames>(tfn)) {
       continue;
     }
 
-    const transformFnName = tfn.name;
+    const transformFnName = tfn;
     const expectedType = getTransformFnInputType(transformFnName);
 
     const argId = argMap[argName];
@@ -644,8 +643,9 @@ function validateCombineDefEntry(
 
   const transformFn = entry.transformFn;
 
+  // Fix 4: transformFn.a and .b are now TransformFnNames strings directly (no { name } wrapper)
   for (const key of ['a', 'b']) {
-    if (!(key in transformFn) || !isRecord(transformFn[key])) {
+    if (!(key in transformFn) || typeof transformFn[key] !== 'string') {
       state.errors.push({
         message: `CombineFuncDefTable[${defId}]: Missing transform function '${key}'`,
         details: { defId },
@@ -653,8 +653,8 @@ function validateCombineDefEntry(
       continue;
     }
 
-    const tfn = transformFn[key];
-    if (!('name' in tfn) || !isStringAs<TransformFnNames>(tfn.name)) {
+    const transformFnName = transformFn[key] as string;
+    if (!isStringAs<TransformFnNames>(transformFnName)) {
       state.errors.push({
         message: `CombineFuncDefTable[${defId}]: Transform function '${key}' missing name`,
         details: { defId },
@@ -662,7 +662,6 @@ function validateCombineDefEntry(
       continue;
     }
 
-    const transformFnName = tfn.name;
     const inputType = getTransformFnInputType(transformFnName);
     const returnType = getTransformFnReturnType(transformFnName);
 
@@ -704,43 +703,37 @@ function validateBinaryFnCompatibility(
 
   const [expectedParamA, expectedParamB] = paramTypes;
 
-  // Check transform 'a'
-  if ('a' in transformFn && isRecord(transformFn.a)) {
-    const tfnA = transformFn.a;
-    if ('name' in tfnA && isStringAs<TransformFnNames>(tfnA.name)) {
-      const returnType = getTransformFnReturnType(tfnA.name);
-      if (returnType && returnType !== expectedParamA) {
-        state.errors.push({
-          message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
-          details: {
-            defId,
-            transformFn: tfnA.name,
-            transformReturnType: returnType,
-            binaryFn: binaryFnName,
-            expectedType: expectedParamA,
-          },
-        });
-      }
+  // Check transform 'a' (Fix 4: direct string, no { name } wrapper)
+  if ('a' in transformFn && isStringAs<TransformFnNames>(transformFn.a)) {
+    const returnType = getTransformFnReturnType(transformFn.a);
+    if (returnType && returnType !== expectedParamA) {
+      state.errors.push({
+        message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
+        details: {
+          defId,
+          transformFn: transformFn.a,
+          transformReturnType: returnType,
+          binaryFn: binaryFnName,
+          expectedType: expectedParamA,
+        },
+      });
     }
   }
 
-  // Check transform 'b'
-  if ('b' in transformFn && isRecord(transformFn.b)) {
-    const tfnB = transformFn.b;
-    if ('name' in tfnB && isStringAs<TransformFnNames>(tfnB.name)) {
-      const returnType = getTransformFnReturnType(tfnB.name);
-      if (returnType && returnType !== expectedParamB) {
-        state.errors.push({
-          message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
-          details: {
-            defId,
-            transformFn: tfnB.name,
-            transformReturnType: returnType,
-            binaryFn: binaryFnName,
-            expectedType: expectedParamB,
-          },
-        });
-      }
+  // Check transform 'b' (Fix 4: direct string, no { name } wrapper)
+  if ('b' in transformFn && isStringAs<TransformFnNames>(transformFn.b)) {
+    const returnType = getTransformFnReturnType(transformFn.b);
+    if (returnType && returnType !== expectedParamB) {
+      state.errors.push({
+        message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
+        details: {
+          defId,
+          transformFn: transformFn.b,
+          transformReturnType: returnType,
+          binaryFn: binaryFnName,
+          expectedType: expectedParamB,
+        },
+      });
     }
   }
 }

@@ -1,8 +1,8 @@
-import { ExecutionContext } from '../types';
+import { ExecutionContext, type ExecutionResult } from '../types';
 import { ExecutionTree } from './tree-types';
 import { isCombineDefineId, isPipeDefineId } from '../idValidation';
 import { createFunctionExecutionError } from './errors';
-import { executeCombineFunc, type ExecutionResult } from './exec/executeCombineFunc';
+import { executeCombineFunc } from './exec/executeCombineFunc';
 import { executePipeFunc } from './exec/executePipeFunc';
 import { executeCondFunc } from './exec/executeCondFunc';
 

@@ -306,27 +306,13 @@ function processFunctions(
  * Phase 3: Build the final execution context
  */
 function buildExecutionContext(functionPhase: FunctionPhaseState): ExecutionContext {
-  const returnIdToFuncId = Object.keys(functionPhase.funcTable).length > 0
-    ? buildReturnIdToFuncIdMap({
-        valueTable: functionPhase.valueTable,
-        funcTable: functionPhase.funcTable,
-        combineFuncDefTable: functionPhase.combineFuncDefTable,
-        pipeFuncDefTable: functionPhase.pipeFuncDefTable,
-        condFuncDefTable: functionPhase.condFuncDefTable,
-        returnIdToFuncId: new Map(),
-      })
-    : new Map();
-
-  const exec: ExecutionContext = {
+  return {
     valueTable: functionPhase.valueTable,
     funcTable: functionPhase.funcTable,
     combineFuncDefTable: functionPhase.combineFuncDefTable,
     pipeFuncDefTable: functionPhase.pipeFuncDefTable,
     condFuncDefTable: functionPhase.condFuncDefTable,
-    returnIdToFuncId,
   };
-
-  return exec;
 }
 
 /**
@@ -624,8 +610,9 @@ function processCombineFunc(
   // Build argMap and transformFn from args
   const { argMap, transformFnMap } = buildCombineArguments(builder, state);
 
-  // Add to function table
+  // Add to function table (Fix 2: include kind discriminant)
   state.funcTable[funcId] = {
+    kind: 'combine',
     defId,
     argMap,
     returnId,
@@ -718,18 +705,19 @@ function buildCombineArguments(
   state: FunctionPhaseState
 ): {
   argMap: Record<string, ValueId>;
-  transformFnMap: Record<string, { name: TransformFnNames }>;
+  transformFnMap: Record<string, TransformFnNames>;
 } {
   const argMap: Record<string, ValueId> = {};
-  const transformFnMap: Record<string, { name: TransformFnNames }> = {};
+  // Fix 4: flatten to TransformFnNames directly (no { name } wrapper)
+  const transformFnMap: Record<string, TransformFnNames> = {};
 
   for (const [key, ref] of Object.entries(builder.args)) {
     if (isTransformRef(ref)) {
       argMap[key] = resolveValueReference(ref, state);
-      transformFnMap[key] = { name: ref.transformFn };
+      transformFnMap[key] = ref.transformFn;
     } else {
       argMap[key] = resolveValueReference(ref, state);
-      transformFnMap[key] = { name: inferPassTransform(ref, state) };
+      transformFnMap[key] = inferPassTransform(ref, state);
     }
   }
 
@@ -741,14 +729,13 @@ function buildCombineArguments(
  */
 function buildCombineDefinition(
   name: CombineBuilder['name'],
-  transformFnMap: Record<string, { name: TransformFnNames }>
+  transformFnMap: Record<string, TransformFnNames>
 ): {
   name: CombineBuilder['name'];
-  transformFn: { a: { name: TransformFnNames }; b: { name: TransformFnNames } };
+  // Fix 4: transformFn values are TransformFnNames directly (no { name } wrapper)
+  transformFn: { a: TransformFnNames; b: TransformFnNames };
   args: { a: InterfaceArgId; b: InterfaceArgId };
 } {
-  // Currently supports binary functions (a, b)
-  // Future: Could be extended to support n-ary functions
   return {
     name,
     transformFn: {
@@ -780,6 +767,7 @@ function processPipeFunc(
   const sequence = buildPipeSequence(funcId, builder, state);
 
   state.funcTable[funcId] = {
+    kind: 'pipe',
     defId,
     argMap,
     returnId,
@@ -891,31 +879,31 @@ function buildStepArgBindings(
 
     // Handle FuncOutputRef - resolve to actual ValueId
     if (typeof ref === 'object' && ref.__type === 'funcOutput') {
-      const valueId = resolveFuncOutputRef(ref, state);
+      const id = resolveFuncOutputRef(ref, state);
       argBindings[argName] = {
         source: 'value',
-        valueId,
+        id,
       };
       continue;
     }
 
     // Handle TransformRef
     if (typeof ref === 'object' && ref.__type === 'transform') {
-      let valueId: ValueId;
+      let id: ValueId;
       if (typeof ref.valueId === 'string') {
         // Simple string reference - resolve through normal path
         const binding = resolveArgBinding(ref.valueId, pipeBuilder);
         argBindings[argName] = binding;
         continue;
       } else if (ref.valueId.__type === 'funcOutput') {
-        valueId = resolveFuncOutputRef(ref.valueId, state);
+        id = resolveFuncOutputRef(ref.valueId, state);
       } else {
         // StepOutputRef in TransformRef
-        valueId = resolveStepOutputRef(ref.valueId, state);
+        id = resolveStepOutputRef(ref.valueId, state);
       }
       argBindings[argName] = {
         source: 'value',
-        valueId,
+        id,
       };
       continue;
     }
@@ -947,7 +935,7 @@ function resolveArgBinding(
   // Otherwise it's a value reference from the context
   return {
     source: 'value',
-    valueId: createValueId(refStr),
+    id: createValueId(refStr),
   };
 }
 
@@ -957,22 +945,21 @@ function resolveArgBinding(
 function buildStepTransformMap(
   step: CombineBuilder,
   pipeBuilder: PipeBuilder
-): Record<string, { name: TransformFnNames }> {
-  const transformFnMap: Record<string, { name: TransformFnNames }> = {};
+): Record<string, TransformFnNames> {
+  const transformFnMap: Record<string, TransformFnNames> = {};
 
   for (const [argName, ref] of Object.entries(step.args)) {
     if (isTransformRef(ref)) {
-      transformFnMap[argName] = { name: ref.transformFn };
+      transformFnMap[argName] = ref.transformFn;
     } else if (isStepOutputRef(ref)) {
       // Infer transform from the referenced step's return type, not the current step's namespace
       const referencedStep = pipeBuilder.steps[ref.stepIndex];
-      const transform =
+      transformFnMap[argName] =
         referencedStep?.__type === 'combine'
           ? inferTransformForBinaryFn(referencedStep.name)
           : getPassTransformFn('number'); // fallback: nested pipe steps not yet typed
-      transformFnMap[argName] = { name: transform };
     } else {
-      transformFnMap[argName] = { name: inferTransformForBinaryFn(step.name) };
+      transformFnMap[argName] = inferTransformForBinaryFn(step.name);
     }
   }
 
@@ -991,8 +978,8 @@ function processCondFunc(
   const returnId = lookupReturnId(funcId, state);
 
   state.funcTable[funcId] = {
+    kind: 'cond',
     defId,
-    argMap: {},
     returnId,
   };
 

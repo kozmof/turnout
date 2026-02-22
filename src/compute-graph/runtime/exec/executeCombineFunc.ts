@@ -1,16 +1,6 @@
-import { FuncId, CombineDefineId, ExecutionContext, ValueTable } from '../../types';
+import { FuncId, CombineDefineId, ExecutionContext, ExecutionResult } from '../../types';
 import { getBinaryFn } from '../../call-presets/getBinaryFn';
 import { getTransformFn } from '../../call-presets/getTranformFn';
-import { AnyValue } from '../../../state-control/value';
-
-/**
- * Execution result containing the computed value and updated state.
- * This makes side effects explicit instead of relying on mutation.
- */
-export type ExecutionResult = {
-  readonly value: AnyValue;
-  readonly updatedValueTable: ValueTable;
-};
 
 /**
  * Executes a CombineFunc and returns the result along with updated state.
@@ -27,11 +17,14 @@ export function executeCombineFunc(
   context: ExecutionContext
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
+  if (funcEntry.kind !== 'combine') {
+    throw new Error(`executeCombineFunc called with non-combine entry for ${funcId}`);
+  }
   const def = context.combineFuncDefTable[defId];
 
-  // Get transform functions
-  const transformFnA = getTransformFn(def.transformFn.a.name);
-  const transformFnB = getTransformFn(def.transformFn.b.name);
+  // Get transform functions (Fix 4: direct TransformFnNames, no .name wrapper)
+  const transformFnA = getTransformFn(def.transformFn.a);
+  const transformFnB = getTransformFn(def.transformFn.b);
 
   // Get binary function
   const binaryFn = getBinaryFn(def.name);
