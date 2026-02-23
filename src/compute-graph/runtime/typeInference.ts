@@ -82,27 +82,27 @@ export function getTransformFnReturnType(
     case 'transformFnBoolean': {
       const meta = metaTfBoolean();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'transformFnNumber': {
       const meta = metaTfNumber();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'transformFnNull': {
       const meta = metaTfNull();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'transformFnString': {
       const meta = metaTfString();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'transformFnArray': {
       const meta = metaTfArray();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     default:
       return null;
@@ -129,17 +129,17 @@ export function getBinaryFnParamTypes(
     case 'binaryFnBoolean': {
       const meta = metaBfBooleanParams();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnNumber': {
       const meta = metaBfNumberParams();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnString': {
       const meta = metaBfStringParams();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnGeneric': {
       // Generic functions can work with any type, so we can't validate statically
@@ -172,22 +172,22 @@ export function getBinaryFnReturnType(
     case 'binaryFnBoolean': {
       const meta = metaBfBoolean();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnNumber': {
       const meta = metaBfNumber();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnString': {
       const meta = metaBfString();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnGeneric': {
       const meta = metaBfGeneric();
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     case 'binaryFnArray': {
       // Array binary functions require a non-array element type
@@ -195,7 +195,7 @@ export function getBinaryFnReturnType(
       if (!elemType || elemType === 'array') return null;
       const meta = metaBfArray(elemType);
       const result = meta[fnName];
-      return result;
+      return result ?? null;
     }
     default:
       return null;

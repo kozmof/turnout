@@ -26,7 +26,7 @@ import {
  * - Avoids encoding semantic information in ID strings
  */
 
-type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd';
+type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ctx';
 
 /**
  * Generates a random 16-character hex string using crypto.getRandomValues.
@@ -66,5 +66,9 @@ export const IdGenerator = {
 
   generateCondDefineId(): CondDefineId {
     return createCondDefineId(IdGenerator.generate('cd'));
+  },
+
+  generateContextToken(): string {
+    return IdGenerator.generate('ctx');
   },
 } as const;

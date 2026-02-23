@@ -13,10 +13,10 @@ describe('Context Builder', () => {
         v2: 3,
       });
 
-      expect(context.exec.valueTable).toHaveProperty('v1');
-      expect(context.exec.valueTable).toHaveProperty('v2');
-      expect((context.exec.valueTable as any).v1.value).toBe(5);
-      expect((context.exec.valueTable as any).v2.value).toBe(3);
+      expect(context.exec.valueTable).toHaveProperty(context.ids.v1);
+      expect(context.exec.valueTable).toHaveProperty(context.ids.v2);
+      expect(context.exec.valueTable[context.ids.v1].value).toBe(5);
+      expect(context.exec.valueTable[context.ids.v2].value).toBe(3);
     });
 
     it('should create context with string literals', () => {
@@ -25,8 +25,8 @@ describe('Context Builder', () => {
         v2: 'world',
       });
 
-      expect((context.exec.valueTable as any).v1.symbol).toBe('string');
-      expect((context.exec.valueTable as any).v1.value).toBe('hello');
+      expect(context.exec.valueTable[context.ids.v1].symbol).toBe('string');
+      expect(context.exec.valueTable[context.ids.v1].value).toBe('hello');
     });
 
     it('should create context with boolean literals', () => {
@@ -35,8 +35,8 @@ describe('Context Builder', () => {
         v2: false,
       });
 
-      expect((context.exec.valueTable as any).v1.symbol).toBe('boolean');
-      expect((context.exec.valueTable as any).v1.value).toBe(true);
+      expect(context.exec.valueTable[context.ids.v1].symbol).toBe('boolean');
+      expect(context.exec.valueTable[context.ids.v1].value).toBe(true);
     });
   });
 
@@ -47,8 +47,8 @@ describe('Context Builder', () => {
         v2: val.string('hello', ['network']),
       });
 
-      expect((context.exec.valueTable as any).v1.tags).toContain('random');
-      expect((context.exec.valueTable as any).v2.tags).toContain('network');
+      expect(context.exec.valueTable[context.ids.v1].tags).toContain('random');
+      expect(context.exec.valueTable[context.ids.v2].tags).toContain('network');
     });
 
     it('should create array values', () => {
@@ -61,8 +61,8 @@ describe('Context Builder', () => {
         ]),
       });
 
-      expect((context.exec.valueTable as any).arr.symbol).toBe('array');
-      expect((context.exec.valueTable as any).arr.subSymbol).toBe('number');
+      expect(context.exec.valueTable[context.ids.arr].symbol).toBe('array');
+      expect(context.exec.valueTable[context.ids.arr].subSymbol).toBe('number');
     });
   });
 
@@ -74,9 +74,9 @@ describe('Context Builder', () => {
         f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
       });
 
-      expect(context.exec.funcTable).toHaveProperty('f1');
+      expect(context.exec.funcTable).toHaveProperty(context.ids.f1);
       // returnId should be a hash-based ID with v_ prefix and 16 hex chars
-      expect((context.exec.funcTable as any).f1.returnId).toMatch(/^v_[a-f0-9]{16}$/);
+      expect(context.exec.funcTable[context.ids.f1].returnId).toMatch(/^v_[a-f0-9]{16}$/);
     });
 
     it('should execute combine function', () => {
@@ -100,8 +100,8 @@ describe('Context Builder', () => {
         f2: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
       });
 
-      const f1DefId = (context.exec.funcTable as any).f1.defId;
-      const f2DefId = (context.exec.funcTable as any).f2.defId;
+      const f1DefId = context.exec.funcTable[context.ids.f1].defId;
+      const f2DefId = context.exec.funcTable[context.ids.f2].defId;
       expect(f1DefId).toBe(f2DefId);
       expect(Object.keys(context.exec.combineFuncDefTable)).toHaveLength(1);
     });
@@ -147,9 +147,9 @@ describe('Context Builder', () => {
         f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v1' }),
       });
 
-      // IDs should be accessible via ids property
-      expect(context.ids.v1).toBe('v1');
-      expect(context.ids.f1).toBe('f1');
+      // IDs should be accessible via ids property and end with the user key
+      expect(context.ids.v1).toMatch(/_v1$/);
+      expect(context.ids.f1).toMatch(/_f1$/);
     });
   });
 

@@ -1,6 +1,7 @@
 # Code Analysis Report — Turnout
 
 **Date:** 2026-02-23
+**Last updated:** 2026-02-24
 **Project:** Turnout — TypeScript Computation Graph Execution Engine
 **Stack:** TypeScript 5.9.2 · Valibot 1.1.0 · Vitest 3.0.7 · Vite 6.2.0
 
@@ -86,12 +87,14 @@ ScopedExecutionContext extends ExecutionContext
 ### Branded ID Types
 
 ```
-Brand<string, 'valueId'>          → ValueId   (prefix: v_)
-Brand<string, 'funcId'>           → FuncId    (prefix: f_)
-Brand<string, 'combineDefineId'>  → CombineDefineId
-Brand<string, 'pipeDefineId'>     → PipeDefineId
-Brand<string, 'condDefineId'>     → CondDefineId
+Brand<string, 'valueId'>          → ValueId         (runtime prefix: ctx_<token>_<key>  for user keys,
+Brand<string, 'funcId'>           → FuncId                                              v_<hex16> for generated)
+Brand<string, 'combineDefineId'>  → CombineDefineId  (opaque: pd_<hex16>)
+Brand<string, 'pipeDefineId'>     → PipeDefineId     (opaque: td_<hex16>)
+Brand<string, 'condDefineId'>     → CondDefineId     (opaque: cd_<hex16>)
 ```
+
+Each `ctx()` call generates a unique 64-bit random context token (`ctx_<hex16>`). All `ValueId`s and `FuncId`s derived from user-supplied spec keys are prefixed with this token, making IDs from different `ctx()` invocations structurally distinct at runtime.
 
 ### Validation Result Types
 
@@ -157,7 +160,7 @@ validateContext(context)
 ### Assessment
 
 - **Strengths:** The separation of compilation (`buildExecutionTree`) from execution (`executeTree`) enables future optimizations (caching compiled trees). Post-order traversal is a clean, correct strategy for DAGs.
-- **Concerns:** `executePipeFunc` threads mutable `tableState` through steps via reassignment; while the outer API is immutable, internal mutation could be surprising when debugging.
+- **Concerns:** None outstanding in this layer. (The earlier mutable `let tableState` accumulator in `executePipeFunc` has been replaced with a `reduce` — see §8.1.)
 
 ---
 
@@ -222,16 +225,16 @@ transformFnArray::flatten    transformFnNull::pass
 
 ## 5. Pitfalls
 
-| # | Location | Description |
-|---|----------|-------------|
-| 1 | `executePipeFunc.ts` | Internal step state is accumulated via reassignment (`let tableState = …`). Although the external contract is immutable, this imperative pattern can cause confusion if pipe steps share mutable references inside `AnyValue`. |
-| 2 | `buildExecutionTree.ts` | Cycle detection relies on visitation during tree construction. If the detection logic has an edge-case bug, it would silently produce an infinite recursion at runtime rather than a clear error. |
-| 3 | `types.ts` (FuncTableEntry) | `argMap` keys are plain `string`, not branded. A misspelled arg key would compile successfully but silently fail at execution. |
-| 4 | `typeInference.ts` | Function type metadata is stored in separate meta-tables and looked up by string namespace prefix. Any inconsistency between a registered function name and its meta entry is only caught at validation time, not at registration time. |
-| 5 | `preset-funcs` (array ops) | `intersect`, `union`, `difference` use deep equality comparison. For nested `AnyValue[]` arrays, performance degrades quadratically and correctness depends on referential or structural equality strategy not explicitly documented. |
-| 6 | `value.ts` (Tags tuple) | Tags are `readonly TagSymbol[]` tuples accumulated via union. A very long computation chain could accumulate a large tag tuple, increasing memory pressure on deeply nested graphs. |
-| 7 | `idValidation.ts` | ID prefixes (`v_`, `f_`) are validated at parse time but are human-readable strings, not cryptographically verified. IDs from different contexts can be mixed without error if the prefix matches. |
-| 8 | `builder/context.ts` | The builder accepts raw `null` as a value shorthand, but the resulting `NullValue` requires a `subSymbol` for null reason. The default null reason semantics may not be obvious to callers. |
+| # | Location | Description | Status |
+|---|----------|-------------|--------|
+| 1 | `executePipeFunc.ts` | Internal step state is accumulated via reassignment (`let tableState = …`). Although the external contract is immutable, this imperative pattern can cause confusion if pipe steps share mutable references inside `AnyValue`. | **Fixed** — replaced with `reduce` over a `PipeStepAccumulator` (2026-02-24) |
+| 2 | `buildExecutionTree.ts` | Cycle detection relies on visitation during tree construction. If the detection logic has an edge-case bug, it would silently produce an infinite recursion at runtime rather than a clear error. | Open |
+| 3 | `types.ts` (FuncTableEntry) | `argMap` keys are plain `string`, not branded. A misspelled arg key would compile successfully but silently fail at execution. | Open |
+| 4 | `typeInference.ts` | Function type metadata is stored in separate meta-tables and looked up by string namespace prefix. Any inconsistency between a registered function name and its meta entry is only caught at validation time, not at registration time. | **Fixed** — meta-table lookups now return `null` (not `undefined`); invalid names throw at `ctx()` build time (2026-02-24) |
+| 5 | `preset-funcs` (array ops) | `intersect`, `union`, `difference` use deep equality comparison. For nested `AnyValue[]` arrays, performance degrades quadratically and correctness depends on referential or structural equality strategy not explicitly documented. | Open |
+| 6 | `value.ts` (Tags tuple) | Tags are `readonly TagSymbol[]` tuples accumulated via union. A very long computation chain could accumulate a large tag tuple, increasing memory pressure on deeply nested graphs. | Open |
+| 7 | `idValidation.ts` | ID prefixes (`v_`, `f_`) are validated at parse time but are human-readable strings, not cryptographically verified. IDs from different contexts can be mixed without error if the prefix matches. | **Fixed** — each `ctx()` call generates a unique context token; all user-key-derived IDs are scoped to that token, making cross-context mixing structurally impossible (2026-02-24) |
+| 8 | `builder/context.ts` | The builder accepts raw `null` as a value shorthand, but the resulting `NullValue` requires a `subSymbol` for null reason. The default null reason semantics may not be obvious to callers. | **Fixed** — `null` removed from `ValueLiteral`; callers must use `val.null(reason)` explicitly (2026-02-24) |
 
 ---
 
@@ -298,26 +301,11 @@ Tag propagation results in union of parent tags. This grows unboundedly. Capping
 
 ## 8. Improvement Points — Implementations
 
-### 8.1 Eliminate Internal Mutation in `executePipeFunc`
+### 8.1 Eliminate Internal Mutation in `executePipeFunc` ✓ Implemented (2026-02-24)
 
-Replace the mutable accumulator pattern with a `reduce` over steps:
+~~Replace the mutable accumulator pattern with a `reduce` over steps.~~
 
-```typescript
-// Current (simplified)
-let tableState = initialTable;
-for (const step of steps) {
-  const result = executeStep(step, tableState);
-  tableState = result.updatedValueTable;
-}
-
-// Improved
-const finalTable = steps.reduce(
-  (tableState, step) => executeStep(step, tableState).updatedValueTable,
-  initialTable
-);
-```
-
-This makes the data flow explicit and eliminates the mutable `let`.
+The step loop in `executePipeFunc` now uses `def.sequence.reduce<PipeStepAccumulator>(...)`, threading an immutable `{ currentValueTable, scopedContext, stepResults }` record through each iteration. The `executeStep` signature was updated to accept `readonly ValueId[]` for step results. Data flow is now explicit and the mutable `let` variables are gone.
 
 ### 8.2 Validate Arg Keys at Build Time
 
@@ -387,4 +375,8 @@ Execution errors (`MissingDependencyError`, `FunctionExecutionError`, etc.) incl
 
 ## Summary
 
-Turnout is a well-architected, type-safe computation graph engine. Its strongest qualities are its disciplined use of TypeScript's type system (branded types, discriminated unions, readonly modifiers), clean layer separation, and immutable execution model. The primary improvement areas are: shifting more error detection to build time (arg key branding, step index validation), enabling extensibility (custom function registration, async execution), and hardening internal implementation consistency (eliminating internal mutation, standardizing array equality semantics).
+Turnout is a well-architected, type-safe computation graph engine. Its strongest qualities are its disciplined use of TypeScript's type system (branded types, discriminated unions, readonly modifiers), clean layer separation, and immutable execution model.
+
+**Resolved since initial analysis (2026-02-24):** Pitfalls 1, 4, 7, and 8 have been fixed — `executePipeFunc` now uses a pure `reduce` accumulator; meta-table lookups are null-safe and invalid function names throw at `ctx()` call time; all user-key-derived IDs are scoped to their originating `ctx()` call via a per-invocation context token; and raw `null` has been removed from `ValueLiteral`.
+
+The remaining improvement areas are: shifting more error detection to build time (arg key branding — §7.1, step index validation — §7.3), enabling extensibility (custom function registration — §6.3, async execution — §6.2), and standardizing array equality semantics (§8.4).

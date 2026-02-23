@@ -97,7 +97,7 @@ export function createScopedContext(
 function resolveArgBinding(
   binding: PipeArgBinding,
   pipeFuncArgMap: { [argName: string]: ValueId },
-  stepResults: ValueId[]
+  stepResults: readonly ValueId[]
 ): ValueId {
   switch (binding.source) {
     case 'input': {
@@ -158,7 +158,7 @@ function executeStep(
   stepIndex: number,
   pipeFuncId: FuncId,
   pipeFuncArgMap: { [argName: string]: ValueId },
-  stepResults: ValueId[],
+  stepResults: readonly ValueId[],
   scopedContext: ScopedExecutionContext
 ): { stepReturnId: ValueId; updatedValueTable: ValueTable } {
   const { defId, argBindings } = step;
@@ -266,34 +266,36 @@ export function executePipeFunc(
     context.valueTable
   );
 
-  // Start with scoped context - we'll thread state through steps
-  let currentValueTable = scopedValueTable;
-  let scopedContext: ScopedExecutionContext = createScopedContext(context, currentValueTable);
+  type PipeStepAccumulator = {
+    readonly currentValueTable: ValueTable;
+    readonly scopedContext: ScopedExecutionContext;
+    readonly stepResults: readonly ValueId[];
+  };
 
-  // Track return ValueIds from each step
-  const stepResults: ValueId[] = [];
-
-  // Execute each step in sequence, threading state through
-  for (let i = 0; i < def.sequence.length; i++) {
-    const step = def.sequence[i];
-
-    // Execute step with current state
-    const stepResult = executeStep(
-      step,
-      i,
-      funcId,
-      funcEntry.argMap,
-      stepResults,
-      scopedContext
-    );
-
-    // Update current state for next step
-    currentValueTable = stepResult.updatedValueTable;
-    scopedContext = createScopedContext(scopedContext, currentValueTable);
-
-    // Add step result for subsequent steps to reference
-    stepResults.push(stepResult.stepReturnId);
-  }
+  // Execute each step in sequence, threading state through via reduce
+  const { currentValueTable, stepResults } = def.sequence.reduce<PipeStepAccumulator>(
+    ({ currentValueTable, scopedContext, stepResults }, step, i) => {
+      const stepResult = executeStep(
+        step,
+        i,
+        funcId,
+        funcEntry.argMap,
+        stepResults,
+        scopedContext
+      );
+      const nextTable = stepResult.updatedValueTable;
+      return {
+        currentValueTable: nextTable,
+        scopedContext: createScopedContext(scopedContext, nextTable),
+        stepResults: [...stepResults, stepResult.stepReturnId],
+      };
+    },
+    {
+      currentValueTable: scopedValueTable,
+      scopedContext: createScopedContext(context, scopedValueTable),
+      stepResults: [],
+    }
+  );
 
   // Return the last step's result (PipeFunc semantics)
   const finalResultId = stepResults[stepResults.length - 1];

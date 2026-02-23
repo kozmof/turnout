@@ -25,7 +25,7 @@ import type {
   StepOutputRef,
   TransformRef,
 } from './types';
-import { buildNumber, buildString, buildBoolean, buildNull, buildArray } from '../../state-control/value-builders';
+import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-control/value-builders';
 import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
 import { getBinaryFnReturnType } from '../runtime/typeInference';
@@ -171,6 +171,15 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
 
 
 /**
+ * Scope helper: scopes user-supplied key strings to the current ctx() invocation.
+ * Prevents cross-context ID mixing when two ctx() calls use the same key names.
+ */
+type Scope = {
+  readonly valueId: (key: string) => ValueId;
+  readonly funcId: (key: string) => FuncId;
+};
+
+/**
  * Phase 1: Value collection result
  */
 type ValuePhaseResult = {
@@ -215,17 +224,25 @@ function getStepOutputLookupKey(funcId: string, stepIndex: number): string {
  * ```
  */
 export function ctx<T extends ContextSpec>(spec: T): BuildResult<T> {
+  // Generate a unique token for this ctx() invocation so IDs can't be silently
+  // mixed across contexts that happen to share the same user-supplied key names.
+  const token = IdGenerator.generateContextToken();
+  const scope: Scope = {
+    valueId: (key) => createValueId(`${token}_${key}`),
+    funcId:  (key) => createFuncId(`${token}_${key}`),
+  };
+
   // Phase 1: Collect all values
-  const valuePhase = collectValues(spec);
+  const valuePhase = collectValues(spec, scope);
 
   // Phase 2: Process all functions
-  const functionPhase = processFunctions(spec, valuePhase);
+  const functionPhase = processFunctions(spec, valuePhase, scope);
 
   // Phase 3: Build execution context
   const exec = buildExecutionContext(functionPhase);
 
   // Build typed ID map
-  const ids = buildIdMap(spec);
+  const ids = buildIdMap(spec, scope);
 
   return { exec, ids };
 }
@@ -233,12 +250,12 @@ export function ctx<T extends ContextSpec>(spec: T): BuildResult<T> {
 /**
  * Phase 1: Collect all literal values from the spec
  */
-function collectValues(spec: ContextSpec): ValuePhaseResult {
+function collectValues(spec: ContextSpec, scope: Scope): ValuePhaseResult {
   const valueTable: Record<string, AnyValue> = {};
 
   for (const [key, value] of Object.entries(spec)) {
     if (isValueLiteral(value)) {
-      valueTable[key] = inferValue(value);
+      valueTable[scope.valueId(key)] = inferValue(value);
     }
   }
 
@@ -265,7 +282,8 @@ function lookupReturnId(funcId: string, state: FunctionPhaseState): ValueId {
  */
 function processFunctions(
   spec: ContextSpec,
-  valuePhase: ValuePhaseResult
+  valuePhase: ValuePhaseResult,
+  scope: Scope
 ): FunctionPhaseState {
   const state: FunctionPhaseState = {
     valueTable: valuePhase.valueTable,
@@ -293,7 +311,7 @@ function processFunctions(
         referenceIndex.valueKeys,
         referenceIndex.functionKeys
       );
-      processFunction(key, value, state);
+      processFunction(key, value, state, scope);
     }
   }
 
@@ -316,9 +334,9 @@ function buildExecutionContext(functionPhase: FunctionPhaseState): ExecutionCont
 /**
  * Build typed ID map from spec
  */
-function buildIdMap<T extends ContextSpec>(spec: T): BuildResult<T>['ids'] {
+function buildIdMap<T extends ContextSpec>(spec: T, scope: Scope): BuildResult<T>['ids'] {
   const result = Object.keys(spec).reduce((acc, key) => {
-    const id = isFunctionBuilder(spec[key]) ? createFuncId(key) : createValueId(key);
+    const id = isFunctionBuilder(spec[key]) ? scope.funcId(key) : scope.valueId(key);
     acc[key as keyof T] = id;
     return acc;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
@@ -552,7 +570,6 @@ function isValueLiteral(value: unknown): value is ValueLiteral {
   if (typeof value === 'number') return true;
   if (typeof value === 'string') return true;
   if (typeof value === 'boolean') return true;
-  if (value === null) return true;
   if (Array.isArray(value)) return true;
   if (
     typeof value === 'object' &&
@@ -598,9 +615,6 @@ function inferValue(literal: ValueLiteral): AnyValue {
   if (typeof literal === 'boolean') {
     return buildBoolean(literal);
   }
-  if (literal === null) {
-    return buildNull('unknown');
-  }
   // Check if it's a JavaScript array that needs to be wrapped
   if (Array.isArray(literal)) {
     return buildArray(literal);
@@ -620,17 +634,18 @@ function inferValue(literal: ValueLiteral): AnyValue {
 function processFunction(
   id: string,
   builder: FunctionBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): void {
   switch (builder.__type) {
     case 'combine':
-      processCombineFunc(id, builder, state);
+      processCombineFunc(id, builder, state, scope);
       break;
     case 'pipe':
-      processPipeFunc(id, builder, state);
+      processPipeFunc(id, builder, state, scope);
       break;
     case 'cond':
-      processCondFunc(id, builder, state);
+      processCondFunc(id, builder, state, scope);
       break;
     default: {
       // Exhaustiveness check - ensures all cases are handled
@@ -647,16 +662,17 @@ function processFunction(
 function processCombineFunc(
   funcId: string,
   builder: CombineBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): void {
   const returnId = lookupReturnId(funcId, state);
 
   // Build argMap and transformFn from args
-  const { argMap, transformFnMap } = buildCombineArguments(builder, state);
+  const { argMap, transformFnMap } = buildCombineArguments(builder, state, scope);
   const defId = getOrCreateCombineDefinitionId(builder.name, transformFnMap, state);
 
-  // Add to function table (Fix 2: include kind discriminant)
-  state.funcTable[funcId] = {
+  // Add to function table using scoped funcId
+  state.funcTable[scope.funcId(funcId)] = {
     kind: 'combine',
     defId,
     argMap,
@@ -704,12 +720,13 @@ function resolveStepOutputRef(ref: StepOutputRef, state: FunctionPhaseState): Va
  */
 function resolveValueReference(
   ref: ValueInputRef | TransformRef,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): ValueId {
   if (isTransformRef(ref)) {
     const valueRef = ref.valueRef;
     if (valueRef.__type === 'value') {
-      return createValueId(valueRef.id);
+      return scope.valueId(valueRef.id);
     }
     if (valueRef.__type === 'funcOutput') {
       return resolveFuncOutputRef(valueRef, state);
@@ -726,11 +743,11 @@ function resolveValueReference(
   }
 
   if (typeof ref === 'object' && ref.__type === 'value') {
-    return createValueId(ref.id);
+    return scope.valueId(ref.id);
   }
 
   // Direct ValueRef string
-  return createValueId(ref);
+  return scope.valueId(ref);
 }
 
 /**
@@ -738,7 +755,8 @@ function resolveValueReference(
  */
 function buildCombineArguments(
   builder: CombineBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): {
   argMap: Record<string, ValueId>;
   transformFnMap: Record<string, TransformFnNames>;
@@ -749,11 +767,11 @@ function buildCombineArguments(
 
   for (const [key, ref] of Object.entries(builder.args)) {
     if (isTransformRef(ref)) {
-      argMap[key] = resolveValueReference(ref, state);
+      argMap[key] = resolveValueReference(ref, state, scope);
       transformFnMap[key] = ref.transformFn;
     } else {
-      argMap[key] = resolveValueReference(ref, state);
-      transformFnMap[key] = inferPassTransform(ref, state);
+      argMap[key] = resolveValueReference(ref, state, scope);
+      transformFnMap[key] = inferPassTransform(ref, state, scope);
     }
   }
 
@@ -791,18 +809,19 @@ function buildCombineDefinition(
 function processPipeFunc(
   funcId: string,
   builder: PipeBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): void {
   const defId = IdGenerator.generatePipeDefineId();
   const returnId = lookupReturnId(funcId, state);
 
   // Build argument map from the bindings provided in the builder
-  const { argMap, pipeDefArgs } = buildPipeArguments(builder);
+  const { argMap, pipeDefArgs } = buildPipeArguments(builder, scope);
 
   // Process each step in the sequence
-  const sequence = buildPipeSequence(funcId, builder, state);
+  const sequence = buildPipeSequence(funcId, builder, state, scope);
 
-  state.funcTable[funcId] = {
+  state.funcTable[scope.funcId(funcId)] = {
     kind: 'pipe',
     defId,
     argMap,
@@ -819,13 +838,14 @@ function processPipeFunc(
  * Builds argument mappings for a pipe function
  */
 function buildPipeArguments(
-  builder: PipeBuilder
+  builder: PipeBuilder,
+  scope: Scope
 ): { argMap: Record<string, ValueId>; pipeDefArgs: Record<string, true> } {
   const argMap: Record<string, ValueId> = {};
   const pipeDefArgs: Record<string, true> = {};
 
   for (const [argName, valueRef] of Object.entries(builder.argBindings)) {
-    argMap[argName] = createValueId(valueRef);
+    argMap[argName] = scope.valueId(valueRef);
     pipeDefArgs[argName] = true;
   }
 
@@ -838,7 +858,8 @@ function buildPipeArguments(
 function buildPipeSequence(
   funcId: string,
   builder: PipeBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): PipeStepBinding[] {
   const sequence: PipeStepBinding[] = [];
 
@@ -856,7 +877,7 @@ function buildPipeSequence(
         state.stepMetadata[stepOutputId].returnType = stepReturnType;
       }
 
-      const stepBinding = buildPipeStepBinding(step, builder, state);
+      const stepBinding = buildPipeStepBinding(step, builder, state, scope);
       sequence.push(stepBinding);
     }
   }
@@ -870,10 +891,11 @@ function buildPipeSequence(
 function buildPipeStepBinding(
   step: CombineBuilder,
   pipeBuilder: PipeBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): PipeStepBinding {
   // Build argument bindings for this step
-  const argBindings = buildStepArgBindings(step, pipeBuilder, state);
+  const argBindings = buildStepArgBindings(step, pipeBuilder, state, scope);
 
   // Infer transform functions for each argument
   const transformFnMap = buildStepTransformMap(step, pipeBuilder);
@@ -891,7 +913,8 @@ function buildPipeStepBinding(
 function buildStepArgBindings(
   step: CombineBuilder,
   pipeBuilder: PipeBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): Record<string, PipeArgBinding> {
   const argBindings: Record<string, PipeArgBinding> = {};
 
@@ -918,7 +941,7 @@ function buildStepArgBindings(
     }
 
     if (typeof ref === 'object' && ref.__type === 'value') {
-      argBindings[argName] = resolveArgBinding(ref.id, pipeBuilder);
+      argBindings[argName] = resolveArgBinding(ref.id, pipeBuilder, scope);
       continue;
     }
 
@@ -927,7 +950,7 @@ function buildStepArgBindings(
       let id: ValueId;
       if (ref.valueRef.__type === 'value') {
         // Simple string reference - resolve through normal path
-        const binding = resolveArgBinding(ref.valueRef.id, pipeBuilder);
+        const binding = resolveArgBinding(ref.valueRef.id, pipeBuilder, scope);
         argBindings[argName] = binding;
         continue;
       } else if (ref.valueRef.__type === 'funcOutput') {
@@ -944,7 +967,7 @@ function buildStepArgBindings(
     }
 
     // Plain string reference - pipe arg or context value
-    argBindings[argName] = resolveArgBinding(ref, pipeBuilder);
+    argBindings[argName] = resolveArgBinding(ref, pipeBuilder, scope);
   }
 
   return argBindings;
@@ -957,7 +980,8 @@ function buildStepArgBindings(
  */
 function resolveArgBinding(
   refStr: string,
-  pipeBuilder: PipeBuilder
+  pipeBuilder: PipeBuilder,
+  scope: Scope
 ): PipeArgBinding {
   // Check if it's an argument to the pipe function
   if (Object.prototype.hasOwnProperty.call(pipeBuilder.argBindings, refStr)) {
@@ -970,7 +994,7 @@ function resolveArgBinding(
   // Otherwise it's a value reference from the context
   return {
     source: 'value',
-    id: createValueId(refStr),
+    id: scope.valueId(refStr),
   };
 }
 
@@ -1007,26 +1031,27 @@ function buildStepTransformMap(
 function processCondFunc(
   funcId: string,
   builder: CondBuilder,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): void {
   const defId = IdGenerator.generateCondDefineId();
   const returnId = lookupReturnId(funcId, state);
 
-  state.funcTable[funcId] = {
+  state.funcTable[scope.funcId(funcId)] = {
     kind: 'cond',
     defId,
     returnId,
   };
 
   // Condition can be either a FuncId or ValueId — discriminate at build time
-  const conditionId = builder.condition in state.funcTable
-    ? { source: 'func' as const, id: createFuncId(builder.condition) }
-    : { source: 'value' as const, id: createValueId(builder.condition) };
+  const conditionId = scope.funcId(builder.condition) in state.funcTable
+    ? { source: 'func' as const, id: scope.funcId(builder.condition) }
+    : { source: 'value' as const, id: scope.valueId(builder.condition) };
 
   state.condFuncDefTable[defId] = {
     conditionId,
-    trueBranchId: createFuncId(builder.then),
-    falseBranchId: createFuncId(builder.else),
+    trueBranchId: scope.funcId(builder.then),
+    falseBranchId: scope.funcId(builder.else),
   };
 }
 
@@ -1042,11 +1067,12 @@ function isTransformRef(ref: ValueInputRef | TransformRef): ref is TransformRef 
  */
 function inferPassTransform(
   ref: ValueInputRef,
-  state: FunctionPhaseState
+  state: FunctionPhaseState,
+  scope: Scope
 ): TransformFnNames {
-  // Handle FuncOutputRef
+  // Handle FuncOutputRef — funcTable is now keyed by scoped IDs
   if (typeof ref === 'object' && ref.__type === 'funcOutput') {
-    const funcEntry = getFuncFromTable(ref.funcId, state.funcTable);
+    const funcEntry = getFuncFromTable(scope.funcId(ref.funcId), state.funcTable);
 
     if (funcEntry) {
       // Get the definition to infer the return type
@@ -1074,16 +1100,17 @@ function inferPassTransform(
     throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);
   }
 
+  // Handle ValueObjectRef — valueTable is now keyed by scoped IDs
   if (typeof ref === 'object' && ref.__type === 'value') {
-    const value = getValueFromTable(ref.id, state.valueTable);
+    const value = getValueFromTable(scope.valueId(ref.id), state.valueTable);
     if (value) {
       return getPassTransformFn(value.symbol);
     }
     throw new Error(`Value ${ref.id} not found in valueTable`);
   }
 
-  // Handle ValueRef (string)
-  const value = getValueFromTable(ref, state.valueTable);
+  // Handle ValueRef (string) — valueTable is now keyed by scoped IDs
+  const value = getValueFromTable(scope.valueId(ref), state.valueTable);
 
   // If value exists in valueTable, use its type
   if (value) {
@@ -1120,6 +1147,12 @@ function getOrCreateCombineDefinitionId(
   transformFnMap: Record<string, TransformFnNames>,
   state: FunctionPhaseState
 ): CombineDefineId {
+  // Validate at build time — catch unknown names before validateContext
+  if (getBinaryFnReturnType(name) === null) {
+    throw new Error(
+      `Unknown binary function '${name}'. Verify the function name and namespace prefix.`
+    );
+  }
   const signature = createCombineDefSignature(name, transformFnMap);
   const existing = state.combineDefIdBySignature.get(signature);
   if (existing !== undefined) return existing;

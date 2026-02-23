@@ -119,7 +119,6 @@ export type ValueLiteral =
   | number
   | string
   | boolean
-  | null
   | AnyValue
   | readonly AnyValue[];
 
