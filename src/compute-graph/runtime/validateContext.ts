@@ -22,15 +22,15 @@ import {
   PipeArgBinding,
   TransformFnNames,
   BinaryFnNames,
-} from '../types';
+} from "../types";
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
   getBinaryFnParamTypes,
   getBinaryFnReturnType,
-} from './typeInference';
-import type { BaseTypeSymbol } from '../../state-control/value';
-import { baseTypeSymbols } from '../../state-control/value';
+} from "./typeInference";
+import type { BaseTypeSymbol } from "../../state-control/value";
+import { baseTypeSymbols } from "../../state-control/value";
 
 // ============================================================================
 // Constants
@@ -70,7 +70,9 @@ declare const _validatedBrand: unique symbol;
  * The brand makes it impossible to construct this type without going through
  * the validation functions in this module, enforcing validation at the type level.
  */
-export type ValidatedContext = ExecutionContext & { readonly [_validatedBrand]: true };
+export type ValidatedContext = ExecutionContext & {
+  readonly [_validatedBrand]: true;
+};
 
 // ============================================================================
 // Task 2: Discriminated Result Types
@@ -93,13 +95,24 @@ export type ValidationWarning = {
  * can pass it directly to executeGraph without an extra assertion.
  */
 export type ValidationResult =
-  | { readonly valid: true; readonly context: ValidatedContext; readonly warnings: readonly ValidationWarning[]; readonly errors: readonly never[] }
-  | { readonly valid: false; readonly errors: readonly ValidationError[]; readonly warnings: readonly ValidationWarning[] };
+  | {
+      readonly valid: true;
+      readonly context: ValidatedContext;
+      readonly warnings: readonly ValidationWarning[];
+      readonly errors: readonly never[];
+    }
+  | {
+      readonly valid: false;
+      readonly errors: readonly ValidationError[];
+      readonly warnings: readonly ValidationWarning[];
+    };
 
 /**
  * Type guard to check if validation succeeded.
  */
-export function isValidationSuccess(result: ValidationResult): result is Extract<ValidationResult, { valid: true }> {
+export function isValidationSuccess(
+  result: ValidationResult,
+): result is Extract<ValidationResult, { valid: true }> {
   return result.valid;
 }
 
@@ -124,7 +137,7 @@ export function isValidationSuccess(result: ValidationResult): result is Extract
  * Type guard to check if a value is a Record with string keys.
  */
 function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -132,7 +145,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
  * Uses the canonical list from value.ts to prevent type drift.
  */
 function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
-  if (typeof value !== 'string') return false;
+  if (typeof value !== "string") return false;
   return VALID_BASE_TYPE_SYMBOLS.has(value as BaseTypeSymbol);
 }
 
@@ -140,8 +153,17 @@ function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
  * Type guard to check if a CombineDef has a valid binary function name property.
  * Validates that the name is a properly formatted BinaryFnNames.
  */
-function isCombineDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNames } {
-  if (!(value && typeof value === 'object' && 'name' in value && typeof value.name === 'string')) {
+function isCombineDefWithBinaryFnName(
+  value: unknown,
+): value is { name: BinaryFnNames } {
+  if (
+    !(
+      value &&
+      typeof value === "object" &&
+      "name" in value &&
+      typeof value.name === "string"
+    )
+  ) {
     return false;
   }
   // Verify it's a valid BinaryFnNames by checking if getBinaryFnReturnType can parse it
@@ -151,40 +173,44 @@ function isCombineDefWithBinaryFnName(value: unknown): value is { name: BinaryFn
 /**
  * Type guard to check if a PipeDef has a sequence property.
  */
-function isPipeDefWithSequence(value: unknown): value is { sequence: unknown[] } {
-  return !!(value && typeof value === 'object' && 'sequence' in value && Array.isArray(value.sequence));
+function isPipeDefWithSequence(
+  value: unknown,
+): value is { sequence: unknown[] } {
+  return !!(
+    value &&
+    typeof value === "object" &&
+    "sequence" in value &&
+    Array.isArray(value.sequence)
+  );
 }
 
 /**
  * Type guard to check if a value has a symbol property of type BaseTypeSymbol.
  */
-function hasSymbolProperty(value: unknown): value is { symbol: BaseTypeSymbol } {
-  return !!(value && typeof value === 'object' && 'symbol' in value && isBaseTypeSymbol(value.symbol));
+function hasSymbolProperty(
+  value: unknown,
+): value is { symbol: BaseTypeSymbol } {
+  return !!(
+    value &&
+    typeof value === "object" &&
+    "symbol" in value &&
+    isBaseTypeSymbol(value.symbol)
+  );
 }
 
 /**
  * Type guard to check if an entry has both name and transformFn properties.
  */
-function hasNameAndTransformFn(entry: unknown): entry is { name: string; transformFn: unknown } {
-  return !!(entry && typeof entry === 'object' && 'name' in entry && typeof entry.name === 'string' && 'transformFn' in entry);
-}
-
-/**
- * Type guard to check if an entry has a discriminated conditionId property.
- */
-function hasConditionId(entry: unknown): entry is { conditionId: { source: string; id: string } } {
-  if (!(entry && typeof entry === 'object' && 'conditionId' in entry)) return false;
-  const cid = (entry as { conditionId: unknown }).conditionId;
-  return !!(cid && typeof cid === 'object' && 'source' in cid && 'id' in cid &&
-    typeof (cid as { source: unknown }).source === 'string' &&
-    typeof (cid as { id: unknown }).id === 'string');
-}
-
-/**
- * Type guard to check if an entry has a specific branch property (trueBranchId or falseBranchId).
- */
-function hasBranchId<K extends string>(entry: unknown, branchKey: K): entry is Record<K, string> {
-  return !!(entry && typeof entry === 'object' && branchKey in entry && typeof (entry as Record<K, unknown>)[branchKey] === 'string');
+function hasNameAndTransformFn(
+  entry: unknown,
+): entry is { name: string; transformFn: unknown } {
+  return !!(
+    entry &&
+    typeof entry === "object" &&
+    "name" in entry &&
+    typeof entry.name === "string" &&
+    "transformFn" in entry
+  );
 }
 
 // ----------------------------------------------------------------------------
@@ -203,7 +229,14 @@ function hasBranchId<K extends string>(entry: unknown, branchKey: K): entry is R
  * }
  */
 function isStringAs<T>(value: unknown): value is T {
-  return typeof value === 'string';
+  return typeof value === "string";
+}
+
+/**
+ * Runtime helper to safely check key existence without assuming object shape.
+ */
+function hasKey(table: unknown, key: string): boolean {
+  return isRecord(table) && key in table;
 }
 
 // ----------------------------------------------------------------------------
@@ -218,12 +251,12 @@ function isStringAs<T>(value: unknown): value is T {
 function valueIdExistsInContext(
   value: unknown,
   context: UnvalidatedContext,
-  returnIds?: Set<ValueId>
+  returnIds?: Set<ValueId>,
 ): value is ValueId {
-  if (typeof value !== 'string') return false;
+  if (typeof value !== "string") return false;
 
   // Check if exists in valueTable or returnIds
-  const inValueTable = context.valueTable && value in context.valueTable;
+  const inValueTable = hasKey(context.valueTable, value);
   const inReturnIds = returnIds && returnIds.has(value as ValueId);
 
   return !!(inValueTable || inReturnIds);
@@ -236,10 +269,10 @@ function valueIdExistsInContext(
  */
 function funcIdExistsInContext(
   value: unknown,
-  context: UnvalidatedContext
+  context: UnvalidatedContext,
 ): value is FuncId {
-  if (typeof value !== 'string') return false;
-  return !!(context.funcTable && value in context.funcTable);
+  if (typeof value !== "string") return false;
+  return hasKey(context.funcTable, value);
 }
 
 /**
@@ -249,14 +282,14 @@ function funcIdExistsInContext(
  */
 function defineIdExistsInContext(
   value: unknown,
-  context: UnvalidatedContext
+  context: UnvalidatedContext,
 ): value is CombineDefineId | PipeDefineId | CondDefineId {
-  if (typeof value !== 'string') return false;
+  if (typeof value !== "string") return false;
 
   return !!(
-    (context.combineFuncDefTable && value in context.combineFuncDefTable) ||
-    (context.pipeFuncDefTable && value in context.pipeFuncDefTable) ||
-    (context.condFuncDefTable && value in context.condFuncDefTable)
+    hasKey(context.combineFuncDefTable, value) ||
+    hasKey(context.pipeFuncDefTable, value) ||
+    hasKey(context.condFuncDefTable, value)
   );
 }
 
@@ -267,13 +300,13 @@ function defineIdExistsInContext(
  */
 function pipeStepDefIdExistsInContext(
   value: unknown,
-  context: UnvalidatedContext
+  context: UnvalidatedContext,
 ): { exists: boolean; isCondDef: boolean } {
-  if (typeof value !== 'string') return { exists: false, isCondDef: false };
+  if (typeof value !== "string") return { exists: false, isCondDef: false };
 
-  const inCombine = !!(context.combineFuncDefTable && value in context.combineFuncDefTable);
-  const inPipe = !!(context.pipeFuncDefTable && value in context.pipeFuncDefTable);
-  const inCond = !!(context.condFuncDefTable && value in context.condFuncDefTable);
+  const inCombine = hasKey(context.combineFuncDefTable, value);
+  const inPipe = hasKey(context.pipeFuncDefTable, value);
+  const inCond = hasKey(context.condFuncDefTable, value);
 
   return {
     exists: inCombine || inPipe || inCond,
@@ -294,9 +327,7 @@ export type TypeEnvironment = ReadonlyMap<ValueId | FuncId, BaseTypeSymbol>;
 /**
  * Builds type environment from context by inferring all value types.
  */
-function buildTypeEnvironment(
-  context: UnvalidatedContext
-): TypeEnvironment {
+function buildTypeEnvironment(context: UnvalidatedContext): TypeEnvironment {
   const env = new Map<ValueId | FuncId, BaseTypeSymbol>();
 
   // Infer types from valueTable
@@ -317,18 +348,18 @@ function buildTypeEnvironment(
 function inferFuncType(
   funcId: FuncId,
   context: UnvalidatedContext,
-  visited: Set<FuncId> = new Set()
+  visited: Set<FuncId> = new Set(),
 ): BaseTypeSymbol | null {
   // Cycle detection
   if (visited.has(funcId)) return null;
 
   const funcEntry = context.funcTable?.[funcId];
-  if (!funcEntry || typeof funcEntry !== 'object') return null;
+  if (!funcEntry || typeof funcEntry !== "object") return null;
 
   visited.add(funcId);
 
-  const defId = 'defId' in funcEntry ? funcEntry.defId : undefined;
-  if (!defId || typeof defId !== 'string') return null;
+  const defId = "defId" in funcEntry ? funcEntry.defId : undefined;
+  if (!defId || typeof defId !== "string") return null;
 
   // Check if it's a CombineFunc with a binary function name
   const combineDef = context.combineFuncDefTable?.[defId];
@@ -342,7 +373,7 @@ function inferFuncType(
     if (pipeDef.sequence.length === 0) return null;
 
     const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
-    if (lastStep && typeof lastStep === 'object' && 'defId' in lastStep) {
+    if (lastStep && typeof lastStep === "object" && "defId" in lastStep) {
       const lastStepDefId = lastStep.defId as string;
       const lastStepCombineDef = context.combineFuncDefTable?.[lastStepDefId];
       if (isCombineDefWithBinaryFnName(lastStepCombineDef)) {
@@ -364,26 +395,32 @@ type BindingValidationContext = {
   readonly pipeDefArgs: Record<string, unknown>;
   readonly valueTable: Partial<ValueTable>;
   readonly defId: string;
+  readonly referencedValues: Set<ValueId>;
 };
 
 type BindingValidator = (
   binding: PipeArgBinding,
   argName: string,
-  context: BindingValidationContext
+  context: BindingValidationContext,
 ) => ValidationError | null;
 
 /**
  * Validates 'input' source bindings - must reference PipeFunc arguments.
  */
 function validateInputBinding(
-  binding: Extract<PipeArgBinding, { source: 'input' }>,
+  binding: Extract<PipeArgBinding, { source: "input" }>,
   argName: string,
-  context: BindingValidationContext
+  context: BindingValidationContext,
 ): ValidationError | null {
   if (!(binding.argName in context.pipeDefArgs)) {
     return {
       message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references undefined PipeFunc input '${binding.argName}'`,
-      details: { defId: context.defId, stepIndex: context.stepIndex, argName, inputArgName: binding.argName },
+      details: {
+        defId: context.defId,
+        stepIndex: context.stepIndex,
+        argName,
+        inputArgName: binding.argName,
+      },
     };
   }
   return null;
@@ -393,14 +430,23 @@ function validateInputBinding(
  * Validates 'step' source bindings - must reference previous steps.
  */
 function validateStepBinding(
-  binding: Extract<PipeArgBinding, { source: 'step' }>,
+  binding: Extract<PipeArgBinding, { source: "step" }>,
   argName: string,
-  context: BindingValidationContext
+  context: BindingValidationContext,
 ): ValidationError | null {
-  if (binding.stepIndex < 0 || binding.stepIndex >= context.stepIndex) {
+  if (
+    !Number.isInteger(binding.stepIndex) ||
+    binding.stepIndex < 0 ||
+    binding.stepIndex >= context.stepIndex
+  ) {
     return {
       message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references invalid step index ${String(binding.stepIndex)} (must be < ${String(context.stepIndex)})`,
-      details: { defId: context.defId, stepIndex: context.stepIndex, argName, referencedStepIndex: binding.stepIndex },
+      details: {
+        defId: context.defId,
+        stepIndex: context.stepIndex,
+        argName,
+        referencedStepIndex: binding.stepIndex,
+      },
     };
   }
   return null;
@@ -410,24 +456,90 @@ function validateStepBinding(
  * Validates 'value' source bindings - must reference existing values.
  */
 function validateValueBinding(
-  binding: Extract<PipeArgBinding, { source: 'value' }>,
+  binding: Extract<PipeArgBinding, { source: "value" }>,
   argName: string,
-  context: BindingValidationContext
+  context: BindingValidationContext,
 ): ValidationError | null {
-  if (!(binding.id in context.valueTable)) {
+  if (!hasKey(context.valueTable, binding.id)) {
     return {
       message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references non-existent ValueId ${String(binding.id)}`,
-      details: { defId: context.defId, stepIndex: context.stepIndex, argName, valueId: binding.id },
+      details: {
+        defId: context.defId,
+        stepIndex: context.stepIndex,
+        argName,
+        valueId: binding.id,
+      },
     };
   }
+  context.referencedValues.add(binding.id);
   return null;
+}
+
+function parseBinding(
+  binding: unknown,
+  defId: string,
+  stepIndex: number,
+  argName: string,
+): { binding?: PipeArgBinding; error?: ValidationError } {
+  if (
+    !isRecord(binding) ||
+    !("source" in binding) ||
+    typeof binding.source !== "string"
+  ) {
+    return {
+      error: {
+        message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: Argument binding for '${argName}' is invalid`,
+        details: { defId, stepIndex, argName },
+      },
+    };
+  }
+
+  switch (binding.source) {
+    case "input":
+      if (!("argName" in binding) || typeof binding.argName !== "string") {
+        return {
+          error: {
+            message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'input' binding for '${argName}' must include string argName`,
+            details: { defId, stepIndex, argName },
+          },
+        };
+      }
+      return { binding: binding as PipeArgBinding };
+    case "step":
+      if (!("stepIndex" in binding) || typeof binding.stepIndex !== "number") {
+        return {
+          error: {
+            message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'step' binding for '${argName}' must include numeric stepIndex`,
+            details: { defId, stepIndex, argName },
+          },
+        };
+      }
+      return { binding: binding as PipeArgBinding };
+    case "value":
+      if (!("id" in binding) || typeof binding.id !== "string") {
+        return {
+          error: {
+            message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'value' binding for '${argName}' must include string id`,
+            details: { defId, stepIndex, argName },
+          },
+        };
+      }
+      return { binding: binding as PipeArgBinding };
+    default:
+      return {
+        error: {
+          message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: Argument binding for '${argName}' has unknown source "${binding.source}"`,
+          details: { defId, stepIndex, argName, source: binding.source },
+        },
+      };
+  }
 }
 
 /**
  * Dispatch table for binding validation.
  * Maps binding source to appropriate validator.
  */
-const BINDING_VALIDATORS: Record<PipeArgBinding['source'], BindingValidator> = {
+const BINDING_VALIDATORS: Record<PipeArgBinding["source"], BindingValidator> = {
   input: validateInputBinding as BindingValidator,
   step: validateStepBinding as BindingValidator,
   value: validateValueBinding as BindingValidator,
@@ -439,9 +551,15 @@ const BINDING_VALIDATORS: Record<PipeArgBinding['source'], BindingValidator> = {
 function validateBinding(
   binding: PipeArgBinding,
   argName: string,
-  context: BindingValidationContext
+  context: BindingValidationContext,
 ): ValidationError | null {
   const validator = BINDING_VALIDATORS[binding.source];
+  if (!validator) {
+    return {
+      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' has unknown source "${(binding as { source: string }).source}"`,
+      details: { defId: context.defId, stepIndex: context.stepIndex, argName },
+    };
+  }
   return validator(binding, argName, context);
 }
 
@@ -482,7 +600,7 @@ function validateFuncEntry(
   funcId: string,
   funcEntry: unknown,
   context: UnvalidatedContext,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   // Structural validation with type guard
   if (!isRecord(funcEntry)) {
@@ -495,8 +613,28 @@ function validateFuncEntry(
 
   const entry = funcEntry;
 
+  // Validate kind discriminant
+  if (!("kind" in entry) || typeof entry.kind !== "string") {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: Missing or invalid kind`,
+      details: { funcId, kind: "kind" in entry ? entry.kind : undefined },
+    });
+    return;
+  }
+  if (
+    entry.kind !== "combine" &&
+    entry.kind !== "pipe" &&
+    entry.kind !== "cond"
+  ) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: Unknown kind "${entry.kind}"`,
+      details: { funcId, kind: entry.kind },
+    });
+    return;
+  }
+
   // Validate defId exists
-  if (!('defId' in entry) || typeof entry.defId !== 'string') {
+  if (!("defId" in entry) || typeof entry.defId !== "string") {
     state.errors.push({
       message: `FuncTable[${funcId}]: Missing or invalid defId`,
       details: { funcId },
@@ -518,20 +656,65 @@ function validateFuncEntry(
   }
 
   // Validate returnId
-  if ('returnId' in entry && isStringAs<ValueId>(entry.returnId)) {
+  if (!("returnId" in entry) || !isStringAs<ValueId>(entry.returnId)) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: Missing or invalid returnId`,
+      details: { funcId },
+    });
+  } else {
     state.returnIds.add(entry.returnId);
   }
 
+  // Validate kind/definition compatibility
+  if (entry.kind === "combine" && !hasKey(context.combineFuncDefTable, defId)) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: kind "combine" must reference CombineFuncDefTable, got ${defId}`,
+      details: { funcId, defId, kind: entry.kind },
+    });
+  }
+  if (entry.kind === "pipe" && !hasKey(context.pipeFuncDefTable, defId)) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: kind "pipe" must reference PipeFuncDefTable, got ${defId}`,
+      details: { funcId, defId, kind: entry.kind },
+    });
+  }
+  if (entry.kind === "cond" && !hasKey(context.condFuncDefTable, defId)) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: kind "cond" must reference CondFuncDefTable, got ${defId}`,
+      details: { funcId, defId, kind: entry.kind },
+    });
+  }
+
+  const hasArgMap = "argMap" in entry && isRecord(entry.argMap);
+  if ((entry.kind === "combine" || entry.kind === "pipe") && !hasArgMap) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: kind "${entry.kind}" requires argMap`,
+      details: { funcId, kind: entry.kind },
+    });
+  }
+  if (entry.kind === "cond" && "argMap" in entry && !isRecord(entry.argMap)) {
+    state.errors.push({
+      message: `FuncTable[${funcId}]: cond argMap must be an object when provided`,
+      details: { funcId },
+    });
+  }
+
   // Validate argMap
-  if ('argMap' in entry && isRecord(entry.argMap)) {
-    for (const [argName, argId] of Object.entries(entry.argMap)) {
+  const argMap = hasArgMap ? (entry.argMap as Record<string, unknown>) : null;
+  if (argMap) {
+    for (const [argName, argId] of Object.entries(argMap)) {
+      if (!isStringAs<ValueId>(argId)) {
+        state.errors.push({
+          message: `FuncTable[${funcId}].argMap['${argName}']: Argument ID must be a string`,
+          details: { funcId, argName, argId },
+        });
+        continue;
+      }
       if (!valueIdExistsInContext(argId, context, state.returnIds)) {
-        if (typeof argId === 'string') {
-          state.errors.push({
-            message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${argId} does not exist`,
-            details: { funcId, argName, argId },
-          });
-        }
+        state.errors.push({
+          message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${argId} does not exist`,
+          details: { funcId, argName, argId },
+        });
       } else {
         // argId is now narrowed to ValueId and validated
         state.referencedValues.add(argId);
@@ -540,7 +723,7 @@ function validateFuncEntry(
   }
 
   // Type validation for CombineFunc
-  if (defId in (context.combineFuncDefTable || {})) {
+  if (entry.kind === "combine" && hasKey(context.combineFuncDefTable, defId)) {
     validateCombineFuncTypes(funcId, entry, defId, context, state);
   }
 }
@@ -553,19 +736,18 @@ function validateCombineFuncTypes(
   funcEntry: Record<string, unknown>,
   defId: string,
   context: UnvalidatedContext,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   const def = context.combineFuncDefTable?.[defId];
   if (!isRecord(def)) return;
 
-  if (!('transformFn' in def) || !isRecord(def.transformFn)) {
+  if (!("transformFn" in def) || !isRecord(def.transformFn)) {
     return;
   }
 
   const transformFn = def.transformFn;
-  const argMap = ('argMap' in funcEntry && isRecord(funcEntry.argMap))
-    ? funcEntry.argMap
-    : {};
+  const argMap =
+    "argMap" in funcEntry && isRecord(funcEntry.argMap) ? funcEntry.argMap : {};
 
   // Validate each argument (Fix 4: transformFn values are strings directly)
   for (const [argName, tfn] of Object.entries(transformFn)) {
@@ -583,7 +765,11 @@ function validateCombineFuncTypes(
     let actualType = state.typeEnv.get(argId);
 
     // If not in env, try to infer from funcTable
-    if (!actualType && isStringAs<FuncId>(argId) && funcIdExistsInContext(argId, context)) {
+    if (
+      !actualType &&
+      isStringAs<FuncId>(argId) &&
+      funcIdExistsInContext(argId, context)
+    ) {
       const inferredType = inferFuncType(argId, context);
       if (inferredType) {
         actualType = inferredType;
@@ -612,7 +798,7 @@ function validateCombineFuncTypes(
 function validateCombineDefEntry(
   defId: string,
   def: unknown,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   if (!isRecord(def)) {
     state.errors.push({
@@ -625,15 +811,27 @@ function validateCombineDefEntry(
   const entry = def;
 
   // Validate function name
-  if (!('name' in entry) || typeof entry.name !== 'string' || entry.name.length === 0) {
+  if (
+    !("name" in entry) ||
+    typeof entry.name !== "string" ||
+    entry.name.length === 0
+  ) {
     state.errors.push({
       message: `CombineFuncDefTable[${defId}]: Invalid or missing function name`,
       details: { defId, name: entry.name },
     });
+  } else {
+    const binaryReturnType = getBinaryFnReturnType(entry.name as BinaryFnNames);
+    if (!binaryReturnType) {
+      state.errors.push({
+        message: `CombineFuncDefTable[${defId}]: Invalid or unknown binary function "${entry.name}"`,
+        details: { defId, binaryFn: entry.name },
+      });
+    }
   }
 
   // Validate transform functions
-  if (!('transformFn' in entry) || !isRecord(entry.transformFn)) {
+  if (!("transformFn" in entry) || !isRecord(entry.transformFn)) {
     state.errors.push({
       message: `CombineFuncDefTable[${defId}]: Missing transform function definitions`,
       details: { defId },
@@ -644,8 +842,8 @@ function validateCombineDefEntry(
   const transformFn = entry.transformFn;
 
   // Fix 4: transformFn.a and .b are now TransformFnNames strings directly (no { name } wrapper)
-  for (const key of ['a', 'b']) {
-    if (!(key in transformFn) || typeof transformFn[key] !== 'string') {
+  for (const key of ["a", "b"]) {
+    if (!(key in transformFn) || typeof transformFn[key] !== "string") {
       state.errors.push({
         message: `CombineFuncDefTable[${defId}]: Missing transform function '${key}'`,
         details: { defId },
@@ -679,7 +877,10 @@ function validateCombineDefEntry(
   }
 
   // Check if definition is referenced
-  if (isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (
+    isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) &&
+    !state.referencedDefs.has(defId)
+  ) {
     state.warnings.push({
       message: `CombineFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -694,7 +895,7 @@ function validateBinaryFnCompatibility(
   defId: string,
   binaryFnName: string,
   transformFn: Record<string, unknown>,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   if (!isStringAs<BinaryFnNames>(binaryFnName)) return;
 
@@ -704,7 +905,7 @@ function validateBinaryFnCompatibility(
   const [expectedParamA, expectedParamB] = paramTypes;
 
   // Check transform 'a' (Fix 4: direct string, no { name } wrapper)
-  if ('a' in transformFn && isStringAs<TransformFnNames>(transformFn.a)) {
+  if ("a" in transformFn && isStringAs<TransformFnNames>(transformFn.a)) {
     const returnType = getTransformFnReturnType(transformFn.a);
     if (returnType && returnType !== expectedParamA) {
       state.errors.push({
@@ -721,7 +922,7 @@ function validateBinaryFnCompatibility(
   }
 
   // Check transform 'b' (Fix 4: direct string, no { name } wrapper)
-  if ('b' in transformFn && isStringAs<TransformFnNames>(transformFn.b)) {
+  if ("b" in transformFn && isStringAs<TransformFnNames>(transformFn.b)) {
     const returnType = getTransformFnReturnType(transformFn.b);
     if (returnType && returnType !== expectedParamB) {
       state.errors.push({
@@ -745,7 +946,7 @@ function validatePipeDefEntry(
   defId: string,
   def: unknown,
   context: UnvalidatedContext,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   if (!isRecord(def)) {
     state.errors.push({
@@ -758,7 +959,7 @@ function validatePipeDefEntry(
   const entry = def;
 
   // Validate sequence exists
-  if (!('sequence' in entry) || !Array.isArray(entry.sequence)) {
+  if (!("sequence" in entry) || !Array.isArray(entry.sequence)) {
     state.errors.push({
       message: `PipeFuncDefTable[${defId}]: Missing or invalid sequence`,
       details: { defId },
@@ -775,19 +976,23 @@ function validatePipeDefEntry(
     return;
   }
 
-  const pipeDefArgs = ('args' in entry && isRecord(entry.args))
-    ? entry.args
-    : {};
+  const pipeDefArgs = "args" in entry && isRecord(entry.args) ? entry.args : {};
 
   // Validate each step
   for (let i = 0; i < entry.sequence.length; i++) {
     const step = entry.sequence[i];
-    if (!isRecord(step)) continue;
+    if (!isRecord(step)) {
+      state.errors.push({
+        message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Step must be an object`,
+        details: { defId, stepIndex: i },
+      });
+      continue;
+    }
 
     const stepObj = step;
 
     // Validate step defId
-    if (!('defId' in stepObj) || typeof stepObj.defId !== 'string') {
+    if (!("defId" in stepObj) || typeof stepObj.defId !== "string") {
       state.errors.push({
         message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Missing step defId`,
         details: { defId, stepIndex: i },
@@ -814,33 +1019,44 @@ function validatePipeDefEntry(
       continue;
     }
 
+    if (!("argBindings" in stepObj) || !isRecord(stepObj.argBindings)) {
+      state.errors.push({
+        message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Missing or invalid argBindings`,
+        details: { defId, stepIndex: i },
+      });
+      continue;
+    }
+
     // Validate argument bindings using dispatch table
-    if ('argBindings' in stepObj && isRecord(stepObj.argBindings)) {
-      const argBindings = stepObj.argBindings;
+    const argBindings = stepObj.argBindings;
+    for (const [argName, rawBinding] of Object.entries(argBindings)) {
+      const parsed = parseBinding(rawBinding, defId, i, argName);
+      if (parsed.error) {
+        state.errors.push(parsed.error);
+        continue;
+      }
+      if (!parsed.binding) continue;
 
-      for (const [argName, binding] of Object.entries(argBindings)) {
-        if (!isRecord(binding) || !('source' in binding)) {
-          continue;
-        }
+      const validationContext: BindingValidationContext = {
+        stepIndex: i,
+        pipeDefArgs,
+        valueTable: context.valueTable || {},
+        defId,
+        referencedValues: state.referencedValues,
+      };
 
-        const bindingObj = binding as PipeArgBinding;
-        const validationContext: BindingValidationContext = {
-          stepIndex: i,
-          pipeDefArgs,
-          valueTable: context.valueTable || {},
-          defId,
-        };
-
-        const error = validateBinding(bindingObj, argName, validationContext);
-        if (error) {
-          state.errors.push(error);
-        }
+      const error = validateBinding(parsed.binding, argName, validationContext);
+      if (error) {
+        state.errors.push(error);
       }
     }
   }
 
   // Check if definition is referenced
-  if (isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (
+    isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) &&
+    !state.referencedDefs.has(defId)
+  ) {
     state.warnings.push({
       message: `PipeFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -855,7 +1071,7 @@ function validateCondDefEntry(
   defId: string,
   def: unknown,
   context: UnvalidatedContext,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   if (!isRecord(def)) {
     state.errors.push({
@@ -868,11 +1084,34 @@ function validateCondDefEntry(
   const entry = def;
 
   // Validate condition ID
-  if (hasConditionId(entry)) {
+  if (!("conditionId" in entry) || !isRecord(entry.conditionId)) {
+    state.errors.push({
+      message: `CondFuncDefTable[${defId}]: Missing or invalid conditionId`,
+      details: { defId },
+    });
+  } else {
     const conditionId = entry.conditionId;
-    const { source, id } = conditionId;
 
-    if (source === 'value') {
+    if (
+      !("source" in conditionId) ||
+      typeof conditionId.source !== "string" ||
+      !("id" in conditionId) ||
+      typeof conditionId.id !== "string"
+    ) {
+      state.errors.push({
+        message: `CondFuncDefTable[${defId}].conditionId: Must include string source and id`,
+        details: { defId },
+      });
+    } else if (
+      conditionId.source !== "value" &&
+      conditionId.source !== "func"
+    ) {
+      state.errors.push({
+        message: `CondFuncDefTable[${defId}].conditionId: Unknown source "${conditionId.source}"`,
+        details: { defId, source: conditionId.source },
+      });
+    } else if (conditionId.source === "value") {
+      const id = conditionId.id;
       if (!valueIdExistsInContext(id, context)) {
         state.errors.push({
           message: `CondFuncDefTable[${defId}].conditionId: Referenced ValueId ${id} does not exist`,
@@ -880,33 +1119,57 @@ function validateCondDefEntry(
         });
       } else {
         state.referencedValues.add(id);
+        const conditionType = state.typeEnv.get(id);
+        if (conditionType && conditionType !== "boolean") {
+          state.errors.push({
+            message: `CondFuncDefTable[${defId}].conditionId: Condition value must be boolean, got "${conditionType}"`,
+            details: { defId, conditionId: id, conditionType },
+          });
+        }
       }
     } else {
-      // source === 'func'
+      const id = conditionId.id;
       if (!funcIdExistsInContext(id, context)) {
         state.errors.push({
           message: `CondFuncDefTable[${defId}].conditionId: Referenced FuncId ${id} does not exist`,
           details: { defId, conditionId: id },
         });
+      } else {
+        const inferredType = inferFuncType(id, context);
+        if (inferredType && inferredType !== "boolean") {
+          state.errors.push({
+            message: `CondFuncDefTable[${defId}].conditionId: Function condition must return boolean, got "${inferredType}"`,
+            details: { defId, conditionId: id, conditionType: inferredType },
+          });
+        }
       }
     }
   }
 
   // Validate branch IDs
-  for (const branchKey of ['trueBranchId', 'falseBranchId'] as const) {
-    if (hasBranchId(entry, branchKey)) {
-      const branchId = entry[branchKey];
-      if (!funcIdExistsInContext(branchId, context)) {
-        state.errors.push({
-          message: `CondFuncDefTable[${defId}].${branchKey}: Referenced FuncId ${branchId} does not exist`,
-          details: { defId, [branchKey]: branchId },
-        });
-      }
+  for (const branchKey of ["trueBranchId", "falseBranchId"] as const) {
+    if (!(branchKey in entry) || typeof entry[branchKey] !== "string") {
+      state.errors.push({
+        message: `CondFuncDefTable[${defId}].${branchKey}: Missing or invalid FuncId`,
+        details: { defId, branchKey },
+      });
+      continue;
+    }
+
+    const branchId = entry[branchKey];
+    if (!funcIdExistsInContext(branchId, context)) {
+      state.errors.push({
+        message: `CondFuncDefTable[${defId}].${branchKey}: Referenced FuncId ${branchId} does not exist`,
+        details: { defId, [branchKey]: branchId },
+      });
     }
   }
 
   // Check if definition is referenced
-  if (isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) && !state.referencedDefs.has(defId)) {
+  if (
+    isStringAs<CombineDefineId | PipeDefineId | CondDefineId>(defId) &&
+    !state.referencedDefs.has(defId)
+  ) {
     state.warnings.push({
       message: `CondFuncDefTable[${defId}]: Definition is never used`,
       details: { defId },
@@ -919,9 +1182,9 @@ function validateCondDefEntry(
  */
 function checkUnreferencedValues(
   context: UnvalidatedContext,
-  state: ValidationState
+  state: ValidationState,
 ): void {
-  if (!context.valueTable) return;
+  if (!isRecord(context.valueTable)) return;
 
   for (const valueId of Object.keys(context.valueTable)) {
     if (isStringAs<ValueId>(valueId) && !state.referencedValues.has(valueId)) {
@@ -930,6 +1193,213 @@ function checkUnreferencedValues(
         details: { valueId },
       });
     }
+  }
+}
+
+/**
+ * Pre-collects all function return IDs to make argMap reference validation order-independent.
+ */
+function collectReturnIds(
+  context: UnvalidatedContext,
+  state: ValidationState,
+): void {
+  if (!isRecord(context.funcTable)) return;
+
+  for (const funcEntry of Object.values(context.funcTable)) {
+    if (
+      isRecord(funcEntry) &&
+      "returnId" in funcEntry &&
+      isStringAs<ValueId>(funcEntry.returnId)
+    ) {
+      state.returnIds.add(funcEntry.returnId);
+    }
+  }
+}
+
+/**
+ * Detects cycles in FuncTable dependencies (argMap producers + Cond branches/conditions).
+ */
+function checkFunctionCycles(
+  context: UnvalidatedContext,
+  state: ValidationState,
+): void {
+  if (!isRecord(context.funcTable)) return;
+
+  const returnIdToFuncId = new Map<string, string>();
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
+    if (
+      isRecord(funcEntry) &&
+      "returnId" in funcEntry &&
+      typeof funcEntry.returnId === "string"
+    ) {
+      returnIdToFuncId.set(funcEntry.returnId, funcId);
+    }
+  }
+
+  const deps = new Map<string, Set<string>>();
+
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
+    if (!isRecord(funcEntry)) continue;
+    const funcDeps = new Set<string>();
+
+    if ("argMap" in funcEntry && isRecord(funcEntry.argMap)) {
+      for (const argId of Object.values(funcEntry.argMap)) {
+        if (typeof argId !== "string") continue;
+        const producer = returnIdToFuncId.get(argId);
+        if (producer) funcDeps.add(producer);
+      }
+    }
+
+    if (
+      "defId" in funcEntry &&
+      typeof funcEntry.defId === "string" &&
+      hasKey(context.condFuncDefTable, funcEntry.defId)
+    ) {
+      const condDef = context.condFuncDefTable?.[funcEntry.defId];
+      if (isRecord(condDef)) {
+        if (
+          "conditionId" in condDef &&
+          isRecord(condDef.conditionId) &&
+          "source" in condDef.conditionId &&
+          condDef.conditionId.source === "func" &&
+          "id" in condDef.conditionId &&
+          typeof condDef.conditionId.id === "string"
+        ) {
+          funcDeps.add(condDef.conditionId.id);
+        }
+        if (
+          "trueBranchId" in condDef &&
+          typeof condDef.trueBranchId === "string"
+        ) {
+          funcDeps.add(condDef.trueBranchId);
+        }
+        if (
+          "falseBranchId" in condDef &&
+          typeof condDef.falseBranchId === "string"
+        ) {
+          funcDeps.add(condDef.falseBranchId);
+        }
+      }
+    }
+
+    deps.set(funcId, funcDeps);
+  }
+
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const stack: string[] = [];
+  const reported = new Set<string>();
+
+  const reportCycle = (cyclePath: string[]): void => {
+    const key = cyclePath.join(" -> ");
+    if (reported.has(key)) return;
+    reported.add(key);
+    state.errors.push({
+      message: `FuncTable: Cycle detected ${key}`,
+      details: { cycle: cyclePath },
+    });
+  };
+
+  const dfs = (funcId: string): void => {
+    if (visited.has(funcId)) return;
+    if (visiting.has(funcId)) {
+      const start = stack.indexOf(funcId);
+      const cycle =
+        start >= 0 ? [...stack.slice(start), funcId] : [funcId, funcId];
+      reportCycle(cycle);
+      return;
+    }
+
+    visiting.add(funcId);
+    stack.push(funcId);
+
+    const funcDeps = deps.get(funcId);
+    if (funcDeps) {
+      for (const dep of funcDeps) {
+        if (deps.has(dep)) dfs(dep);
+      }
+    }
+
+    stack.pop();
+    visiting.delete(funcId);
+    visited.add(funcId);
+  };
+
+  for (const funcId of deps.keys()) {
+    dfs(funcId);
+  }
+}
+
+/**
+ * Detects recursive Pipe definition graphs such as td1 -> td1 or td1 -> td2 -> td1.
+ */
+function checkPipeDefinitionCycles(
+  context: UnvalidatedContext,
+  state: ValidationState,
+): void {
+  if (!isRecord(context.pipeFuncDefTable)) return;
+
+  const deps = new Map<string, Set<string>>();
+  for (const [defId, def] of Object.entries(context.pipeFuncDefTable)) {
+    const defDeps = new Set<string>();
+    if (isRecord(def) && "sequence" in def && Array.isArray(def.sequence)) {
+      for (const step of def.sequence) {
+        if (
+          !isRecord(step) ||
+          !("defId" in step) ||
+          typeof step.defId !== "string"
+        )
+          continue;
+        if (hasKey(context.pipeFuncDefTable, step.defId)) {
+          defDeps.add(step.defId);
+        }
+      }
+    }
+    deps.set(defId, defDeps);
+  }
+
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const stack: string[] = [];
+  const reported = new Set<string>();
+
+  const reportCycle = (cyclePath: string[]): void => {
+    const key = cyclePath.join(" -> ");
+    if (reported.has(key)) return;
+    reported.add(key);
+    state.errors.push({
+      message: `PipeFuncDefTable: Cycle detected ${key}`,
+      details: { cycle: cyclePath },
+    });
+  };
+
+  const dfs = (defId: string): void => {
+    if (visited.has(defId)) return;
+    if (visiting.has(defId)) {
+      const start = stack.indexOf(defId);
+      const cycle =
+        start >= 0 ? [...stack.slice(start), defId] : [defId, defId];
+      reportCycle(cycle);
+      return;
+    }
+
+    visiting.add(defId);
+    stack.push(defId);
+
+    const defDeps = deps.get(defId);
+    if (defDeps) {
+      for (const dep of defDeps) {
+        if (deps.has(dep)) dfs(dep);
+      }
+    }
+
+    stack.pop();
+    visiting.delete(defId);
+    visited.add(defId);
+  };
+
+  for (const defId of deps.keys()) {
+    dfs(defId);
   }
 }
 
@@ -945,21 +1415,29 @@ function checkUnreferencedValues(
  */
 function checkRequiredTables(
   context: UnvalidatedContext,
-  state: ValidationState
+  state: ValidationState,
 ): void {
   const required = [
-    'valueTable',
-    'funcTable',
-    'combineFuncDefTable',
-    'pipeFuncDefTable',
-    'condFuncDefTable',
+    "valueTable",
+    "funcTable",
+    "combineFuncDefTable",
+    "pipeFuncDefTable",
+    "condFuncDefTable",
   ] as const;
 
   for (const tableName of required) {
-    if (context[tableName] === undefined) {
+    const table = context[tableName];
+    if (table === undefined) {
       state.errors.push({
         message: `ExecutionContext is missing required table: ${tableName}`,
         details: { tableName },
+      });
+      continue;
+    }
+    if (!isRecord(table)) {
+      state.errors.push({
+        message: `ExecutionContext table ${tableName} must be an object`,
+        details: { tableName, actualType: typeof table },
       });
     }
   }
@@ -983,6 +1461,9 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
   for (const [id, type] of initialTypeEnv) {
     state.typeEnv.set(id, type);
   }
+
+  // Pre-collect return IDs to make function output references order-independent
+  collectReturnIds(context, state);
 
   // Single pass over funcTable - validates structure and types
   if (context.funcTable) {
@@ -1012,6 +1493,10 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
     }
   }
 
+  // Detect dependency cycles before execution.
+  checkFunctionCycles(context, state);
+  checkPipeDefinitionCycles(context, state);
+
   // Check for unreferenced values (warnings only)
   checkUnreferencedValues(context, state);
 
@@ -1037,17 +1522,17 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
  * Validates context and throws an error if invalid, otherwise returns the ValidatedContext.
  * Use the return value to get a type-safe ValidatedContext for passing to executeGraph.
  */
-export function assertValidContext(context: UnvalidatedContext): ValidatedContext {
+export function assertValidContext(
+  context: UnvalidatedContext,
+): ValidatedContext {
   const result = validateContext(context);
 
   if (!result.valid) {
     const errorMessages = result.errors
-      .map(err => `  - ${err.message}`)
-      .join('\n');
+      .map((err) => `  - ${err.message}`)
+      .join("\n");
 
-    throw new Error(
-      `ExecutionContext validation failed:\n${errorMessages}`
-    );
+    throw new Error(`ExecutionContext validation failed:\n${errorMessages}`);
   }
 
   return result.context;
@@ -1058,7 +1543,9 @@ export function assertValidContext(context: UnvalidatedContext): ValidatedContex
  * After this returns true, the context is narrowed to ValidatedContext and can be
  * passed directly to executeGraph.
  */
-export function isValidContext(context: UnvalidatedContext): context is ValidatedContext {
+export function isValidContext(
+  context: UnvalidatedContext,
+): context is ValidatedContext {
   const result = validateContext(context);
   return result.valid;
 }
