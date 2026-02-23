@@ -1,22 +1,22 @@
-import { type NumberValue, type ArrayValue, type TagSymbol, type BooleanValue } from '../../value';
+import { type NumberValue, type AnyArrayValue, type TagSymbol, type BooleanValue } from '../../value';
 import { type ToArrayConversion, type ToNumberConversion, type ToBooleanConversion } from '../convert';
 import { buildBoolean, buildNumber } from '../../value-builders';
 import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface TransformFnArray {
-  pass: ToArrayConversion<ArrayValue<readonly TagSymbol[]>>;
-  length: ToNumberConversion<ArrayValue<readonly TagSymbol[]>>;
-  isEmpty: ToBooleanConversion<ArrayValue<readonly TagSymbol[]>>;
+  pass: ToArrayConversion<AnyArrayValue<readonly TagSymbol[]>>;
+  length: ToNumberConversion<AnyArrayValue<readonly TagSymbol[]>>;
+  isEmpty: ToBooleanConversion<AnyArrayValue<readonly TagSymbol[]>>;
 }
 
 export const tfArray: TransformFnArray = {
-  pass: (val: ArrayValue<readonly TagSymbol[]>): ArrayValue<readonly TagSymbol[]> => {
+  pass: (val: AnyArrayValue<readonly TagSymbol[]>): AnyArrayValue<readonly TagSymbol[]> => {
     return val;
   },
-  length: (val: ArrayValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
+  length: (val: AnyArrayValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return buildNumber(val.value.length, val.tags);
   },
-  isEmpty: (val: ArrayValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
+  isEmpty: (val: AnyArrayValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
     return buildBoolean(val.value.length === 0, val.tags);
   },
 } as const;

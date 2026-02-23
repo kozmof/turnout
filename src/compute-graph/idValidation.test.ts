@@ -5,6 +5,7 @@ import {
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
+  createPipeArgName,
 } from './idValidation';
 import type {
   ValueId,
@@ -12,6 +13,7 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
+  PipeArgName,
 } from './types';
 
 describe('ID Validation Module', () => {
@@ -113,6 +115,20 @@ describe('ID Validation Module', () => {
 
       it('should throw on empty string', () => {
         expect(() => createCondDefineId('')).toThrow('CondDefineId cannot be empty');
+      });
+    });
+
+    describe('createPipeArgName', () => {
+      it('should create branded PipeArgName from any non-empty string', () => {
+        const name = createPipeArgName('x');
+        expect(name).toBe('x');
+
+        const _typeCheck: PipeArgName = name;
+        expect(_typeCheck).toBe('x');
+      });
+
+      it('should throw on empty string', () => {
+        expect(() => createPipeArgName('')).toThrow('PipeArgName cannot be empty');
       });
     });
 

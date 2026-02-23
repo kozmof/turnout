@@ -20,6 +20,7 @@ import type {
   CondBuilder,
   ContextBuilder as BuilderState,
   ValueRef,
+  ValueInputRef,
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
@@ -55,6 +56,7 @@ import { IdGenerator } from '../../util/idGenerator';
 import {
   createValueId,
   createFuncId,
+  createPipeArgName,
 } from '../idValidation';
 
 /**
@@ -257,9 +259,9 @@ function lookupReturnId(funcId: string, state: FunctionPhaseState): ValueId {
  * Phase 2: Process all function builders
  *
  * Uses two passes to support forward references (e.g. ref.output('laterFunc')):
- *   Pass 1 – Register return value IDs for all functions so that resolveFuncOutputRef
- *             can find them regardless of declaration order.
- *   Pass 2 – Fully process each function (build defs, resolve all references).
+ *   Pass 1 – Index keys and register return value IDs for all functions so that
+ *             cross-function references are order-independent.
+ *   Pass 2 – Validate + process each function with the precomputed reference index.
  */
 function processFunctions(
   spec: ContextSpec,
@@ -278,20 +280,19 @@ function processFunctions(
     combineDefIdBySignature: new Map(),
   };
 
-  // Validate function references before processing
-  validateFunctionReferences(spec);
+  // Pass 1: build key index and register function return IDs
+  const referenceIndex = buildReferenceIndexAndRegisterReturns(spec, state);
 
-  // Pass 1: Register return value IDs for all functions
+  // Pass 2: validate and process each function
   for (const [key, value] of Object.entries(spec)) {
     if (isFunctionBuilder(value)) {
-      const returnId = IdFactory.createReturnValue(key as FuncId, state);
-      state.returnIdByFuncId[key] = returnId;
-    }
-  }
-
-  // Pass 2: Fully process each function (all return IDs are now available)
-  for (const [key, value] of Object.entries(spec)) {
-    if (isFunctionBuilder(value)) {
+      validateFunctionReference(
+        key,
+        value,
+        referenceIndex.allKeys,
+        referenceIndex.valueKeys,
+        referenceIndex.functionKeys
+      );
       processFunction(key, value, state);
     }
   }
@@ -330,36 +331,64 @@ function buildIdMap<T extends ContextSpec>(spec: T): BuildResult<T>['ids'] {
 }
 
 /**
- * Validates that all function references are valid and resolved in correct order
+ * Reference index used during function validation/processing.
  */
-function validateFunctionReferences(spec: ContextSpec): void {
-  const allKeys = new Set(Object.keys(spec));
+type ReferenceIndex = {
+  readonly allKeys: Set<string>;
+  readonly valueKeys: Set<string>;
+  readonly functionKeys: Set<string>;
+};
+
+/**
+ * First pass over spec:
+ * - categorizes keys (all/value/function)
+ * - registers return IDs for functions
+ */
+function buildReferenceIndexAndRegisterReturns(
+  spec: ContextSpec,
+  state: FunctionPhaseState
+): ReferenceIndex {
+  const allKeys = new Set<string>();
   const valueKeys = new Set<string>();
   const functionKeys = new Set<string>();
 
-  // First pass: categorize keys
   for (const [key, value] of Object.entries(spec)) {
+    allKeys.add(key);
     if (isFunctionBuilder(value)) {
       functionKeys.add(key);
+      const returnId = IdFactory.createReturnValue(createFuncId(key), state);
+      state.returnIdByFuncId[key] = returnId;
     } else {
       valueKeys.add(key);
     }
   }
 
-  // Second pass: validate references
-  for (const [key, value] of Object.entries(spec)) {
-    if (isFunctionBuilder(value)) {
-      switch (value.__type) {
-        case 'cond':
-          validateCondReferences(key, value, allKeys, functionKeys);
-          break;
-        case 'combine':
-          validateCombineReferences(key, value, valueKeys, functionKeys);
-          break;
-        case 'pipe':
-          validatePipeReferences(key, value, valueKeys, functionKeys);
-          break;
-      }
+  return { allKeys, valueKeys, functionKeys };
+}
+
+/**
+ * Validates a single function builder against the precomputed reference index.
+ */
+function validateFunctionReference(
+  funcId: string,
+  builder: FunctionBuilder,
+  allKeys: Set<string>,
+  valueKeys: Set<string>,
+  functionKeys: Set<string>
+): void {
+  switch (builder.__type) {
+    case 'cond':
+      validateCondReferences(funcId, builder, allKeys, functionKeys);
+      break;
+    case 'combine':
+      validateCombineReferences(funcId, builder, valueKeys, functionKeys);
+      break;
+    case 'pipe':
+      validatePipeReferences(funcId, builder, valueKeys, functionKeys);
+      break;
+    default: {
+      const _exhaustive: never = builder;
+      throw new Error(`Unknown function type: ${(_exhaustive as FunctionBuilder).__type}`);
     }
   }
 }
@@ -403,6 +432,10 @@ function validateCombineReferences(
       if (!valueKeys.has(ref)) {
         throw createUndefinedValueReferenceError(funcId, argName, ref);
       }
+    } else if (ref.__type === 'value') {
+      if (!valueKeys.has(ref.id)) {
+        throw createUndefinedValueReferenceError(funcId, argName, ref.id);
+      }
     } else if (ref.__type === 'funcOutput') {
       // Function output reference
       if (!functionKeys.has(ref.funcId)) {
@@ -415,19 +448,17 @@ function validateCombineReferences(
       }
       // Note: We can't validate stepIndex here as we don't know how many steps the pipe has yet
     } else if (ref.__type === 'transform') {
-      // Transform reference - validate the inner value
-      if (typeof ref.valueId === 'string') {
-        if (!valueKeys.has(ref.valueId)) {
-          throw createUndefinedValueReferenceError(funcId, argName, ref.valueId);
+      const valueRef = ref.valueRef;
+      if (valueRef.__type === 'value') {
+        if (!valueKeys.has(valueRef.id)) {
+          throw createUndefinedValueReferenceError(funcId, argName, valueRef.id);
         }
-      } else if (ref.valueId.__type === 'funcOutput') {
-        if (!functionKeys.has(ref.valueId.funcId)) {
-          throw createUndefinedValueReferenceError(funcId, argName, ref.valueId.funcId);
+      } else if (valueRef.__type === 'funcOutput') {
+        if (!functionKeys.has(valueRef.funcId)) {
+          throw createUndefinedValueReferenceError(funcId, argName, valueRef.funcId);
         }
-      } else if (ref.valueId.__type === 'stepOutput') {
-        if (!functionKeys.has(ref.valueId.pipeFuncId)) {
-          throw createUndefinedValueReferenceError(funcId, argName, ref.valueId.pipeFuncId);
-        }
+      } else if (!functionKeys.has(valueRef.pipeFuncId)) {
+        throw createUndefinedValueReferenceError(funcId, argName, valueRef.pipeFuncId);
       }
     }
   }
@@ -467,6 +498,12 @@ function validatePipeReferences(
           if (!isPipeArg && !isContextValue) {
             throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref);
           }
+        } else if (ref.__type === 'value') {
+          const isPipeArg = pipeArgNames.has(ref.id);
+          const isContextValue = valueKeys.has(ref.id);
+          if (!isPipeArg && !isContextValue) {
+            throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.id);
+          }
         } else if (ref.__type === 'funcOutput') {
           if (!functionKeys.has(ref.funcId)) {
             throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.funcId);
@@ -482,24 +519,24 @@ function validatePipeReferences(
           }
         } else if (ref.__type === 'transform') {
           // Transform reference - validate the inner value
-          if (typeof ref.valueId === 'string') {
-            const isPipeArg = pipeArgNames.has(ref.valueId);
-            const isContextValue = valueKeys.has(ref.valueId);
+          if (ref.valueRef.__type === 'value') {
+            const isPipeArg = pipeArgNames.has(ref.valueRef.id);
+            const isContextValue = valueKeys.has(ref.valueRef.id);
 
             if (!isPipeArg && !isContextValue) {
-              throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueId);
+              throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueRef.id);
             }
-          } else if (ref.valueId.__type === 'funcOutput') {
-            if (!functionKeys.has(ref.valueId.funcId)) {
-              throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueId.funcId);
+          } else if (ref.valueRef.__type === 'funcOutput') {
+            if (!functionKeys.has(ref.valueRef.funcId)) {
+              throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueRef.funcId);
             }
-          } else if (ref.valueId.__type === 'stepOutput') {
+          } else if (ref.valueRef.__type === 'stepOutput') {
             // Validate step output in transform
-            if (ref.valueId.pipeFuncId !== funcId) {
-              throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${ref.valueId.pipeFuncId}'`);
+            if (ref.valueRef.pipeFuncId !== funcId) {
+              throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${ref.valueRef.pipeFuncId}'`);
             }
-            if (ref.valueId.stepIndex >= i) {
-              throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.valueId.stepIndex} which is not a previous step`);
+            if (ref.valueRef.stepIndex >= i) {
+              throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.valueRef.stepIndex} which is not a previous step`);
             }
           }
         }
@@ -630,14 +667,14 @@ function processCombineFunc(
 /**
  * Type guard to check if a reference is a FuncOutputRef.
  */
-function isFuncOutputRef(ref: ValueRef | FuncOutputRef | StepOutputRef | TransformRef): ref is FuncOutputRef {
+function isFuncOutputRef(ref: ValueInputRef | TransformRef): ref is FuncOutputRef {
   return typeof ref === 'object' && ref.__type === 'funcOutput';
 }
 
 /**
  * Type guard to check if a reference is a StepOutputRef.
  */
-function isStepOutputRef(ref: ValueRef | FuncOutputRef | StepOutputRef | TransformRef): ref is StepOutputRef {
+function isStepOutputRef(ref: ValueInputRef | TransformRef): ref is StepOutputRef {
   return typeof ref === 'object' && ref.__type === 'stepOutput';
 }
 
@@ -666,19 +703,18 @@ function resolveStepOutputRef(ref: StepOutputRef, state: FunctionPhaseState): Va
  * Resolves any value reference (ValueRef, FuncOutputRef, StepOutputRef, or TransformRef) to a ValueId.
  */
 function resolveValueReference(
-  ref: ValueRef | FuncOutputRef | StepOutputRef | TransformRef,
+  ref: ValueInputRef | TransformRef,
   state: FunctionPhaseState
 ): ValueId {
   if (isTransformRef(ref)) {
-    // For TransformRef, resolve the inner valueId
-    if (typeof ref.valueId === 'object') {
-      if (ref.valueId.__type === 'funcOutput') {
-        return resolveFuncOutputRef(ref.valueId, state);
-      } else if (ref.valueId.__type === 'stepOutput') {
-        return resolveStepOutputRef(ref.valueId, state);
-      }
+    const valueRef = ref.valueRef;
+    if (valueRef.__type === 'value') {
+      return createValueId(valueRef.id);
     }
-    return createValueId(ref.valueId);
+    if (valueRef.__type === 'funcOutput') {
+      return resolveFuncOutputRef(valueRef, state);
+    }
+    return resolveStepOutputRef(valueRef, state);
   }
 
   if (isFuncOutputRef(ref)) {
@@ -687,6 +723,10 @@ function resolveValueReference(
 
   if (isStepOutputRef(ref)) {
     return resolveStepOutputRef(ref, state);
+  }
+
+  if (typeof ref === 'object' && ref.__type === 'value') {
+    return createValueId(ref.id);
   }
 
   // Direct ValueRef string
@@ -877,19 +917,24 @@ function buildStepArgBindings(
       continue;
     }
 
+    if (typeof ref === 'object' && ref.__type === 'value') {
+      argBindings[argName] = resolveArgBinding(ref.id, pipeBuilder);
+      continue;
+    }
+
     // Handle TransformRef
     if (typeof ref === 'object' && ref.__type === 'transform') {
       let id: ValueId;
-      if (typeof ref.valueId === 'string') {
+      if (ref.valueRef.__type === 'value') {
         // Simple string reference - resolve through normal path
-        const binding = resolveArgBinding(ref.valueId, pipeBuilder);
+        const binding = resolveArgBinding(ref.valueRef.id, pipeBuilder);
         argBindings[argName] = binding;
         continue;
-      } else if (ref.valueId.__type === 'funcOutput') {
-        id = resolveFuncOutputRef(ref.valueId, state);
+      } else if (ref.valueRef.__type === 'funcOutput') {
+        id = resolveFuncOutputRef(ref.valueRef, state);
       } else {
         // StepOutputRef in TransformRef
-        id = resolveStepOutputRef(ref.valueId, state);
+        id = resolveStepOutputRef(ref.valueRef, state);
       }
       argBindings[argName] = {
         source: 'value',
@@ -918,7 +963,7 @@ function resolveArgBinding(
   if (Object.prototype.hasOwnProperty.call(pipeBuilder.argBindings, refStr)) {
     return {
       source: 'input',
-      argName: refStr,
+      argName: createPipeArgName(refStr),
     };
   }
 
@@ -988,7 +1033,7 @@ function processCondFunc(
 /**
  * Checks if reference is a transform reference.
  */
-function isTransformRef(ref: ValueRef | FuncOutputRef | StepOutputRef | TransformRef): ref is TransformRef {
+function isTransformRef(ref: ValueInputRef | TransformRef): ref is TransformRef {
   return typeof ref === 'object' && ref.__type === 'transform';
 }
 
@@ -996,7 +1041,7 @@ function isTransformRef(ref: ValueRef | FuncOutputRef | StepOutputRef | Transfor
  * Infers the appropriate "pass" transform for a value reference using lookup table.
  */
 function inferPassTransform(
-  ref: ValueRef | FuncOutputRef | StepOutputRef,
+  ref: ValueInputRef,
   state: FunctionPhaseState
 ): TransformFnNames {
   // Handle FuncOutputRef
@@ -1027,6 +1072,14 @@ function inferPassTransform(
       }
     }
     throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);
+  }
+
+  if (typeof ref === 'object' && ref.__type === 'value') {
+    const value = getValueFromTable(ref.id, state.valueTable);
+    if (value) {
+      return getPassTransformFn(value.symbol);
+    }
+    throw new Error(`Value ${ref.id} not found in valueTable`);
   }
 
   // Handle ValueRef (string)

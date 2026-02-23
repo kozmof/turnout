@@ -4,8 +4,7 @@ import type {
   CondBuilder,
   ValueRef,
   FuncRef,
-  FuncOutputRef,
-  StepOutputRef,
+  ValueInputRef,
   TransformRef,
   StepBuilder,
 } from './types';
@@ -29,8 +28,8 @@ import type { BinaryFnNames } from '../types';
 export function combine(
   name: BinaryFnNames,
   args: {
-    a: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
-    b: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
+    a: ValueInputRef | TransformRef;
+    b: ValueInputRef | TransformRef;
   }
 ): CombineBuilder {
   return {

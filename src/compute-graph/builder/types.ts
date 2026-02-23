@@ -22,8 +22,8 @@ export type CombineBuilder = {
   readonly __type: 'combine';
   readonly name: BinaryFnNames;
   readonly args: {
-    readonly a: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
-    readonly b: ValueRef | FuncOutputRef | StepOutputRef | TransformRef;
+    readonly a: ValueInputRef | TransformRef;
+    readonly b: ValueInputRef | TransformRef;
   };
 };
 
@@ -74,11 +74,31 @@ export type StepOutputRef = {
 };
 
 /**
+ * Object-form reference to a value.
+ * Used to normalize value references in contexts where object-only refs are preferred.
+ */
+export type ValueObjectRef = {
+  readonly __type: 'value';
+  readonly id: ValueRef;
+};
+
+/**
+ * Canonical reference variants used by normalized reference handling paths.
+ */
+export type ValueSourceRef = ValueObjectRef | FuncOutputRef | StepOutputRef;
+
+/**
+ * User-facing value input reference.
+ * Supports direct string refs for ergonomics and object refs for explicitness.
+ */
+export type ValueInputRef = ValueRef | ValueSourceRef;
+
+/**
  * Reference to a value with a transform applied.
  */
 export type TransformRef = {
   readonly __type: 'transform';
-  readonly valueId: ValueRef | FuncOutputRef | StepOutputRef;
+  readonly valueRef: ValueSourceRef;
   readonly transformFn: TransformFnNames;
 };
 

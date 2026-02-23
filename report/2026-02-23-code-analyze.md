@@ -239,14 +239,17 @@ Relevant code: `src/compute-graph/types.ts`, `src/compute-graph/runtime/exec/exe
 This issue was addressed. `CombineFuncDefTable.args` and `PipeFuncDefTable.args` are now key-presence markers (`true`) rather than branded interface-argument IDs, matching runtime behavior that only uses arg-name keys.
 Relevant code: `src/compute-graph/types.ts:51`, `src/compute-graph/types.ts:97`, `src/compute-graph/builder/context.ts:724`, `src/compute-graph/builder/context.ts:779`.
 
-**T2. `PipeArgBinding` source `'input'` uses unbranded `argName: string`**
-The `argName` in `{ source: 'input'; argName: string }` is a plain string — invalid argument names are not caught at the type level, unlike the branded `ValueId` used in `{ source: 'value'; id: ValueId }`.
+**T2. Resolved — branded `PipeArgName` for input bindings**
+`PipeArgBinding` now uses `{ source: 'input'; argName: PipeArgName }` and `PipeArgName` is constructed via `createPipeArgName`, so invalid argument names are rejected consistently with other branded identifiers.
+Relevant code: `src/compute-graph/types.ts`, `src/compute-graph/idValidation.ts`, `src/compute-graph/idValidation.test.ts`, `src/compute-graph/runtime/validateContext.ts`.
 
-**T3. `AnyValue` includes untyped `ArrayValue` alongside typed array variants**
-Having both `ArrayValue` (subSymbol `undefined`) and `ArrayNumberValue`, `ArrayStringValue`, etc. in the same union forces all consumers to handle the untyped case. A separate `TypedArrayValue` union would reduce branch handling in practice.
+**T3. Resolved — typed-array unions introduced for array-specialized call sites**
+`TypedArrayValue` and `AnyArrayValue` were introduced, along with `isTypedArray`. Array-oriented implementations now consume the array-specific aliases instead of repeatedly branching from broad `AnyValue`.
+Relevant code: `src/state-control/value.ts`, `src/state-control/preset-funcs/convert.ts`, `src/state-control/preset-funcs/array/transformFn.ts`, `src/state-control/preset-funcs/array/binaryFn.ts`, `src/compute-graph/builder/values.ts`, `src/index.ts`.
 
-**T4. `TransformRef.valueId` is a three-way union requiring special-cased resolution**
-The type `ValueRef | FuncOutputRef | StepOutputRef` in `src/compute-graph/builder/types.ts:82` causes branching in `resolveValueReference` and `buildStepArgBindings`. The string (`ValueRef`) branch takes a separate code path from the object refs, adding complexity.
+**T4. Resolved — `TransformRef` now uses normalized value-source refs**
+`TransformRef` now stores `valueRef: ValueSourceRef` (object form) instead of a mixed `ValueRef | FuncOutputRef | StepOutputRef` field. String value refs are normalized at construction time, removing the old special-cased string path.
+Relevant code: `src/compute-graph/builder/types.ts`, `src/compute-graph/builder/values.ts`, `src/compute-graph/builder/context.ts`.
 
 ---
 
@@ -260,14 +263,16 @@ Implemented via direct reverse lookup maps in builder state:
 - `funcId -> returnValueId`
 - `(funcId, stepIndex) -> stepOutputId`
 
-**I3. Collapse the double-iteration in `validateFunctionReferences`**
-The builder iterates the spec in `validateFunctionReferences` and again in `processFunctions`. A single-pass design that defers validation alongside processing would be more efficient and easier to reason about.
+**I3. Resolved — pre-validation pass removed and merged into processing**
+Function handling no longer performs a full standalone validation traversal before processing. Validation is now performed inline with `processFunctions` after index/return registration, eliminating the prior extra pass over all builders.
+Relevant code: `src/compute-graph/builder/context.ts`.
 
 **I4. Resolved — unreachable throw removed in `createValueBuilder`**
 `createValueBuilder` now directly returns the constructed value under the constructor invariant; the dead validation throw path was removed.
 
-**I5. Simplify `executeCondFunc` call signature**
-In `src/compute-graph/runtime/executeTree.ts:66-73`, `executeCondFunc` receives `branchResult.value` for both its `selectedValue` and `otherValue` parameters. The function signature should be simplified to accept only the single resolved branch value, removing the conceptually meaningless duplicate.
+**I5. Resolved — `executeCondFunc` now takes only selected branch value**
+The condition executor no longer takes duplicated selected/other values. The call site now passes only the resolved branch result and the executor signature reflects that single-value contract.
+Relevant code: `src/compute-graph/runtime/exec/executeCondFunc.ts`, `src/compute-graph/runtime/executeTree.ts`.
 
 ---
 

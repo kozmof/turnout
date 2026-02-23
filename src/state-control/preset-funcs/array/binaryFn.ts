@@ -1,6 +1,6 @@
 import {
   type BooleanValue,
-  type ArrayValue,
+  type AnyArrayValue,
   type NonArrayValue,
   type NumberValue,
   type TagSymbol,
@@ -11,8 +11,8 @@ import { buildArray, buildBoolean } from '../../value-builders';
 import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnArray {
-  includes: ToBooleanProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue>;
-  get: ToItemtProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue, NumberValue<readonly TagSymbol[]>>;
+  includes: ToBooleanProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue>;
+  get: ToItemtProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue, NumberValue<readonly TagSymbol[]>>;
   concat: ArrayToArray;
 }
 
@@ -27,7 +27,7 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
  */
 function mergeItemTags(
   item: NonArrayValue,
-  array: ArrayValue<readonly TagSymbol[]>,
+  array: AnyArrayValue<readonly TagSymbol[]>,
   index: NumberValue<readonly TagSymbol[]>
 ): readonly TagSymbol[] {
   const tagsSet = new Set<TagSymbol>();
@@ -51,8 +51,8 @@ function mergeItemTags(
 }
 
 function mergeArrayTags(
-  a: ArrayValue<readonly TagSymbol[]>,
-  b: ArrayValue<readonly TagSymbol[]>
+  a: AnyArrayValue<readonly TagSymbol[]>,
+  b: AnyArrayValue<readonly TagSymbol[]>
 ): readonly TagSymbol[] {
   const tagsSet = new Set<TagSymbol>();
   for (const tag of a.tags) tagsSet.add(tag);
@@ -61,7 +61,7 @@ function mergeArrayTags(
 }
 
 export const bfArray: BinaryFnArray = {
-  includes: (a: ArrayValue<readonly TagSymbol[]>, b: NonArrayValue): BooleanValue<readonly TagSymbol[]> => {
+  includes: (a: AnyArrayValue<readonly TagSymbol[]>, b: NonArrayValue): BooleanValue<readonly TagSymbol[]> => {
     const contains = a.value.map((val) => val.value).includes(b.value);
 
     // Merge tags from both operands
@@ -72,7 +72,7 @@ export const bfArray: BinaryFnArray = {
 
     return buildBoolean(contains, mergedTags);
   },
-  get: (a: ArrayValue<readonly TagSymbol[]>, idx: NumberValue<readonly TagSymbol[]>): NonArrayValue => {
+  get: (a: AnyArrayValue<readonly TagSymbol[]>, idx: NumberValue<readonly TagSymbol[]>): NonArrayValue => {
     const item = a.value.at(idx.value);
     if (item !== undefined && isNonArrayValue(item)) {
       // Propagate tags from both the array and the index to the retrieved item
@@ -86,7 +86,7 @@ export const bfArray: BinaryFnArray = {
       );
     }
   },
-  concat: (a: ArrayValue<readonly TagSymbol[]>, b: ArrayValue<readonly TagSymbol[]>): ArrayValue<readonly TagSymbol[]> => {
+  concat: (a: AnyArrayValue<readonly TagSymbol[]>, b: AnyArrayValue<readonly TagSymbol[]>): AnyArrayValue<readonly TagSymbol[]> => {
     return buildArray([...a.value, ...b.value], mergeArrayTags(a, b));
   },
 } as const;

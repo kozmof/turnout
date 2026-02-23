@@ -1,4 +1,4 @@
-import type { TagSymbol, AnyValue } from '../../state-control/value';
+import type { TagSymbol, AnyValue, TypedArrayValue } from '../../state-control/value';
 import {
   buildNumber,
   buildString,
@@ -10,7 +10,13 @@ import {
   buildArrayNull,
 } from '../../state-control/value-builders';
 import type { NullReasonSubSymbol } from '../../state-control/value';
-import type { ValueRef, FuncOutputRef, StepOutputRef, TransformRef } from './types';
+import type {
+  ValueInputRef,
+  ValueSourceRef,
+  FuncOutputRef,
+  StepOutputRef,
+  TransformRef,
+} from './types';
 import type { TransformFnNames } from '../types';
 
 /**
@@ -59,7 +65,7 @@ export const val = {
     elemType: 'number' | 'string' | 'boolean' | 'null',
     elements: AnyValue[],
     tags: TagSymbol[] = []
-  ): AnyValue {
+  ): TypedArrayValue<readonly TagSymbol[]> {
     switch (elemType) {
       case 'number':
         return buildArrayNumber(elements, tags);
@@ -111,10 +117,15 @@ export const ref = {
   /**
    * Creates a reference with a transform function applied.
    */
-  transform(valueId: ValueRef, transformFn: TransformFnNames): TransformRef {
+  transform(valueRef: ValueInputRef, transformFn: TransformFnNames): TransformRef {
+    const normalizedValueRef: ValueSourceRef =
+      typeof valueRef === 'string'
+        ? { __type: 'value', id: valueRef }
+        : valueRef;
+
     return {
       __type: 'transform',
-      valueId,
+      valueRef: normalizedValueRef,
       transformFn,
     };
   },

@@ -4,6 +4,7 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
+  PipeArgName,
   FuncTable,
   CombineFuncDefTable,
   PipeFuncDefTable,
@@ -110,6 +111,18 @@ export function createCondDefineId(id: string): CondDefineId {
   if (id === '') throw new Error('CondDefineId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as CondDefineId;
+}
+
+/**
+ * Creates a branded PipeArgName from a string.
+ *
+ * @param name - The argument name to brand
+ * @returns A branded PipeArgName
+ */
+export function createPipeArgName(name: string): PipeArgName {
+  if (name === '') throw new Error('PipeArgName cannot be empty');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return name as PipeArgName;
 }
 
 // ============================================================================

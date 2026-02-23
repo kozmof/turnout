@@ -37,6 +37,7 @@ export type PipeDefineId = Brand<string, 'pipeDefineId'>;
 export type CondDefineId = Brand<string, 'condDefineId'>;
 export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
+export type PipeArgName = Brand<string, 'pipeArgName'>;
 
 // Fix 2: Discriminated union on FuncTable entries — kind is a first-class field.
 export type FuncTableEntry =
@@ -71,7 +72,7 @@ export type CombineFuncDefTable = {
  */
 // Fix 3: 'value' variant field renamed from valueId to id — consistent with ConditionId.
 export type PipeArgBinding =
-  | { source: 'input'; argName: string }
+  | { source: 'input'; argName: PipeArgName }
   | { source: 'step'; stepIndex: number }
   | { source: 'value'; id: ValueId };
 

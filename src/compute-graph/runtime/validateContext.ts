@@ -29,6 +29,7 @@ import {
   getBinaryFnParamTypes,
   getBinaryFnReturnType,
 } from "./typeInference";
+import { createPipeArgName, createValueId } from "../idValidation";
 import type { BaseTypeSymbol } from "../../state-control/value";
 import { baseTypeSymbols } from "../../state-control/value";
 
@@ -503,7 +504,11 @@ function parseBinding(
 
   switch (binding.source) {
     case "input":
-      if (!("argName" in binding) || typeof binding.argName !== "string") {
+      if (
+        !("argName" in binding) ||
+        typeof binding.argName !== "string" ||
+        binding.argName.length === 0
+      ) {
         return {
           error: {
             message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'input' binding for '${argName}' must include string argName`,
@@ -511,7 +516,12 @@ function parseBinding(
           },
         };
       }
-      return { binding: binding as PipeArgBinding };
+      return {
+        binding: {
+          source: "input",
+          argName: createPipeArgName(binding.argName),
+        },
+      };
     case "step":
       if (!("stepIndex" in binding) || typeof binding.stepIndex !== "number") {
         return {
@@ -521,9 +531,18 @@ function parseBinding(
           },
         };
       }
-      return { binding: binding as PipeArgBinding };
+      return {
+        binding: {
+          source: "step",
+          stepIndex: binding.stepIndex,
+        },
+      };
     case "value":
-      if (!("id" in binding) || typeof binding.id !== "string") {
+      if (
+        !("id" in binding) ||
+        typeof binding.id !== "string" ||
+        binding.id.length === 0
+      ) {
         return {
           error: {
             message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'value' binding for '${argName}' must include string id`,
@@ -531,7 +550,12 @@ function parseBinding(
           },
         };
       }
-      return { binding: binding as PipeArgBinding };
+      return {
+        binding: {
+          source: "value",
+          id: createValueId(binding.id),
+        },
+      };
     default:
       return {
         error: {

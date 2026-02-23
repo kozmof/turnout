@@ -134,6 +134,16 @@ export type ArrayBooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
 export type ArrayNullValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<AnyValue[], 'array', 'null', Tags>;
 
+export type TypedArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
+  | ArrayNumberValue<Tags>
+  | ArrayStringValue<Tags>
+  | ArrayBooleanValue<Tags>
+  | ArrayNullValue<Tags>;
+
+export type AnyArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
+  | ArrayValue<Tags>
+  | TypedArrayValue<Tags>;
+
 // Convenience types for pure values (no tags)
 export type PureNumberValue = NumberValue;
 export type PureStringValue = StringValue;
@@ -152,11 +162,7 @@ export type AnyValue =
   | StringValue<readonly TagSymbol[]>
   | BooleanValue<readonly TagSymbol[]>
   | NullValue<readonly TagSymbol[]>
-  | ArrayValue<readonly TagSymbol[]>
-  | ArrayNumberValue<readonly TagSymbol[]>
-  | ArrayStringValue<readonly TagSymbol[]>
-  | ArrayBooleanValue<readonly TagSymbol[]>
-  | ArrayNullValue<readonly TagSymbol[]>;
+  | AnyArrayValue<readonly TagSymbol[]>;
 
 /**
  * A Value with fully generic type parameters.
@@ -184,8 +190,14 @@ export function isNull(val: AnyValue): val is NullValue<readonly TagSymbol[]> {
 
 export function isArray(
   val: AnyValue
-): val is ArrayValue<readonly TagSymbol[]> | ArrayNumberValue<readonly TagSymbol[]> | ArrayStringValue<readonly TagSymbol[]> | ArrayBooleanValue<readonly TagSymbol[]> | ArrayNullValue<readonly TagSymbol[]> {
+): val is AnyArrayValue<readonly TagSymbol[]> {
   return val.symbol === 'array';
+}
+
+export function isTypedArray(
+  val: AnyValue
+): val is TypedArrayValue<readonly TagSymbol[]> {
+  return isArray(val) && val.subSymbol !== undefined;
 }
 
 // Type guards based on tags

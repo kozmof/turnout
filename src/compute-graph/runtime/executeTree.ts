@@ -60,9 +60,7 @@ export function executeTree(
     const condFuncResult = executeCondFunc(
       funcId,
       currentContext,
-      conditionValue,
-      branchResult.value,
-      branchResult.value // both are the same since we only executed one
+      branchResult.value
     );
 
     return condFuncResult;
