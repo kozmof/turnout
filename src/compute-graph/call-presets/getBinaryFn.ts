@@ -1,4 +1,5 @@
 import { bfArray } from '../../state-control/preset-funcs/array/binaryFn';
+import { bfBoolean } from '../../state-control/preset-funcs/boolean/binaryFn';
 import { bfGeneric } from '../../state-control/preset-funcs/generic/binaryFn';
 import { bfNumber } from '../../state-control/preset-funcs/number/binaryFn';
 import { bfString } from '../../state-control/preset-funcs/string/binaryFn';
@@ -17,6 +18,9 @@ export const getBinaryFn = (joinedName: BinaryFnNames): AnyToAny => {
     case 'binaryFnArray':
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return bfArray[fnName] as AnyToAny;
+    case 'binaryFnBoolean':
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      return bfBoolean[fnName] as AnyToAny;
     case 'binaryFnGeneric':
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return bfGeneric[fnName] as AnyToAny;

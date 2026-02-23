@@ -4,6 +4,11 @@ import {
   TransformFnArrayNames,
   TransformFnArrayNameSpace,
 } from '../../state-control/preset-funcs/array/transformFn';
+import {
+  tfBoolean,
+  TransformFnBooleanNames,
+  TransformFnBooleanNameSpace,
+} from '../../state-control/preset-funcs/boolean/transformFn';
 import { TOM } from '../../util/tom';
 import {
   tfNumber,
@@ -40,6 +45,15 @@ const transformFnNumberNames = (): LiteralSchema<
   return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
+const transformFnBooleanNames = (): LiteralSchema<
+  TransformFnBooleanNames,
+  undefined
+>[] => {
+  const namespace: TransformFnBooleanNameSpace = 'transformFnBoolean';
+  const fnNames = TOM.keys(tfBoolean);
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
+};
+
 const transformFnStringNames = (): LiteralSchema<
   TransformFnStringNames,
   undefined
@@ -61,6 +75,7 @@ const transformFnNullNames = (): LiteralSchema<
 export const transformFnNames = () => {
   return union([
     ...transformFnArrayNames(),
+    ...transformFnBooleanNames(),
     ...transformFnNumberNames(),
     ...transformFnNullNames(),
     ...transformFnStringNames(),

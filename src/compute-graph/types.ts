@@ -1,5 +1,7 @@
 import { BinaryFnArrayNames, BinaryFnArrayNameSpace } from '../state-control/preset-funcs/array/binaryFn';
 import { TransformFnArrayNames } from '../state-control/preset-funcs/array/transformFn';
+import { BinaryFnBooleanNames, BinaryFnBooleanNameSpace } from '../state-control/preset-funcs/boolean/binaryFn';
+import { TransformFnBooleanNames } from '../state-control/preset-funcs/boolean/transformFn';
 import { BinaryFnGenericNames, BinaryFnGenericNameSpace } from '../state-control/preset-funcs/generic/binaryFn';
 import { BinaryFnNumberNames, BinaryFnNumberNameSpace } from '../state-control/preset-funcs/number/binaryFn';
 import { TransformFnNumberNames } from '../state-control/preset-funcs/number/transformFn';
@@ -11,18 +13,21 @@ import { Brand } from '../util/brand';
 
 export type BinaryFnNames =
   | BinaryFnArrayNames
+  | BinaryFnBooleanNames
   | BinaryFnGenericNames
   | BinaryFnNumberNames
   | BinaryFnStringNames;
 
 export type BinaryFnNamespaces =
   | BinaryFnArrayNameSpace
+  | BinaryFnBooleanNameSpace
   | BinaryFnGenericNameSpace
   | BinaryFnNumberNameSpace
   | BinaryFnStringNameSpace
 
 export type TransformFnNames =
   | TransformFnArrayNames
+  | TransformFnBooleanNames
   | TransformFnNumberNames
   | TransformFnNullNames
   | TransformFnStringNames;

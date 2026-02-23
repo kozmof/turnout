@@ -38,6 +38,9 @@ import {
   createUndefinedPipeStepReferenceError,
 } from './errors';
 import type {
+  TransformFnBooleanNameSpace,
+} from '../../state-control/preset-funcs/boolean/transformFn';
+import type {
   TransformFnNullNameSpace,
 } from '../../state-control/preset-funcs/null/transformFn';
 import type {
@@ -157,13 +160,11 @@ const getCombineFuncDefFromTable = (
  * Constructs the name using the standard pattern from state-control/preset-funcs.
  */
 function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
-  // Boolean values use number transforms since they don't have their own transform namespace
-  if (typeSymbol === 'boolean') {
-    const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
-    return `${namespace}${NAMESPACE_DELIMITER}pass`;
-  }
-
   switch (typeSymbol) {
+    case 'boolean': {
+      const namespace: TransformFnBooleanNameSpace = 'transformFnBoolean';
+      return `${namespace}${NAMESPACE_DELIMITER}pass`;
+    }
     case 'number': {
       const namespace: TransformFnNumberNameSpace = 'transformFnNumber';
       return `${namespace}${NAMESPACE_DELIMITER}pass`;

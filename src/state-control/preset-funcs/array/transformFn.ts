@@ -1,11 +1,12 @@
-import { type NumberValue, type ArrayValue, type TagSymbol } from '../../value';
-import { type ToArrayConversion, type ToNumberConversion } from '../convert';
-import { buildNumber } from '../../value-builders';
+import { type NumberValue, type ArrayValue, type TagSymbol, type BooleanValue } from '../../value';
+import { type ToArrayConversion, type ToNumberConversion, type ToBooleanConversion } from '../convert';
+import { buildBoolean, buildNumber } from '../../value-builders';
 import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface TransformFnArray {
   pass: ToArrayConversion<ArrayValue<readonly TagSymbol[]>>;
   length: ToNumberConversion<ArrayValue<readonly TagSymbol[]>>;
+  isEmpty: ToBooleanConversion<ArrayValue<readonly TagSymbol[]>>;
 }
 
 export const tfArray: TransformFnArray = {
@@ -14,6 +15,9 @@ export const tfArray: TransformFnArray = {
   },
   length: (val: ArrayValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
     return buildNumber(val.value.length, val.tags);
+  },
+  isEmpty: (val: ArrayValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
+    return buildBoolean(val.value.length === 0, val.tags);
   },
 } as const;
 

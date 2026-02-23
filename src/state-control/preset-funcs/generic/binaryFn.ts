@@ -6,23 +6,33 @@ import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;
+  isNotEqual: ToBooleanProcess<T, T>;
+}
+
+function mergeOperandTags(a: AnyValue, b: AnyValue): readonly TagSymbol[] {
+  const tagsSet = new Set<TagSymbol>();
+  for (const tag of a.tags) tagsSet.add(tag);
+  for (const tag of b.tags) tagsSet.add(tag);
+  return Array.from(tagsSet);
+}
+
+function areValuesEqual(a: AnyValue, b: AnyValue): boolean {
+  return isArray(a) && isArray(b)
+    ? JSON.stringify(a.value) === JSON.stringify(b.value)
+    : a.value === b.value;
 }
 
 export const bfGeneric: BinaryFnGeneric<AnyValue> = {
   isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
     if (isComparable(a, b)) {
-      const areEqual =
-        isArray(a) && isArray(b)
-          ? JSON.stringify(a.value) === JSON.stringify(b.value)
-          : a.value === b.value;
-
-      // Merge tags from both operands
-      const tagsSet = new Set<TagSymbol>();
-      for (const tag of a.tags) tagsSet.add(tag);
-      for (const tag of b.tags) tagsSet.add(tag);
-      const mergedTags = Array.from(tagsSet);
-
-      return buildBoolean(areEqual, mergedTags);
+      return buildBoolean(areValuesEqual(a, b), mergeOperandTags(a, b));
+    } else {
+      throw new Error();
+    }
+  },
+  isNotEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
+    if (isComparable(a, b)) {
+      return buildBoolean(!areValuesEqual(a, b), mergeOperandTags(a, b));
     } else {
       throw new Error();
     }

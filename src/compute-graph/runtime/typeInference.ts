@@ -1,14 +1,17 @@
 import {
+  metaBfBoolean,
   metaBfNumber,
   metaBfString,
   metaBfArray,
   metaBfGeneric,
 } from '../../state-control/meta-chain/binary-fn/metaReturn';
 import {
+  metaBfBooleanParams,
   metaBfNumberParams,
   metaBfStringParams,
 } from '../../state-control/meta-chain/binary-fn/metaParams';
 import {
+  metaTfBoolean,
   metaTfNumber,
   metaTfNull,
   metaTfString,
@@ -49,6 +52,8 @@ export function getTransformFnInputType(
   const namespace = maySplit[0]
 
   switch (namespace) {
+    case 'transformFnBoolean':
+      return 'boolean';
     case 'transformFnNumber':
       return 'number';
     case 'transformFnNull':
@@ -74,6 +79,11 @@ export function getTransformFnReturnType(
   const [namespace, fnName] = maySplit;
 
   switch (namespace) {
+    case 'transformFnBoolean': {
+      const meta = metaTfBoolean();
+      const result = meta[fnName];
+      return result;
+    }
     case 'transformFnNumber': {
       const meta = metaTfNumber();
       const result = meta[fnName];
@@ -116,6 +126,11 @@ export function getBinaryFnParamTypes(
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
+    case 'binaryFnBoolean': {
+      const meta = metaBfBooleanParams();
+      const result = meta[fnName];
+      return result;
+    }
     case 'binaryFnNumber': {
       const meta = metaBfNumberParams();
       const result = meta[fnName];
@@ -154,6 +169,11 @@ export function getBinaryFnReturnType(
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
+    case 'binaryFnBoolean': {
+      const meta = metaBfBoolean();
+      const result = meta[fnName];
+      return result;
+    }
     case 'binaryFnNumber': {
       const meta = metaBfNumber();
       const result = meta[fnName];

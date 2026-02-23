@@ -1,4 +1,5 @@
 import { tfArray } from '../../state-control/preset-funcs/array/transformFn';
+import { tfBoolean } from '../../state-control/preset-funcs/boolean/transformFn';
 import { tfNumber } from '../../state-control/preset-funcs/number/transformFn';
 import { tfNull } from '../../state-control/preset-funcs/null/transformFn';
 import { tfString } from '../../state-control/preset-funcs/string/transformFn';
@@ -16,6 +17,9 @@ export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
     case 'transformFnArray':
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return tfArray[fnName] as AnyToAny;
+    case 'transformFnBoolean':
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      return tfBoolean[fnName] as AnyToAny;
     case 'transformFnNumber':
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return tfNumber[fnName] as AnyToAny;

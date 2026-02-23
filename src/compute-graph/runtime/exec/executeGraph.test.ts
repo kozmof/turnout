@@ -54,6 +54,48 @@ describe('executeGraph', () => {
     });
   });
 
+  it('should execute a boolean CombineFunc', () => {
+    const context: ExecutionContext = {
+      valueTable: {
+        v1: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'boolean', value: false, subSymbol: undefined, tags: [] },
+      } as any,
+      funcTable: {
+        f1: {
+          kind: 'combine',
+
+          defId: 'pd-boolean' as CombineDefineId,
+          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
+          returnId: 'v3' as ValueId,
+        },
+      } as any,
+      combineFuncDefTable: {
+        'pd-boolean': {
+          name: 'binaryFnBoolean::or',
+          transformFn: {
+            a: 'transformFnBoolean::pass',
+            b: 'transformFnBoolean::pass',
+          },
+          args: {
+            a: 'ia1' as any,
+            b: 'ia2' as any,
+          },
+        },
+      } as any,
+      pipeFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
+    };
+
+    const validated = assertValidContext(context);
+    const result = executeGraph('f1' as FuncId, validated);
+
+    expect(result.value).toEqual({
+      symbol: 'boolean',
+      value: true,
+      subSymbol: undefined, tags: [],
+    });
+  });
+
   it('should execute nested CombineFuncs with dependencies', () => {
     const context: ExecutionContext = {
       valueTable: {

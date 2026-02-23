@@ -6,13 +6,14 @@ import {
   type TagSymbol,
   AnyValue,
 } from '../../value';
-import { type ToItemtProcess, type ToBooleanProcess } from '../convert';
-import { buildBoolean } from '../../value-builders';
+import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from '../convert';
+import { buildArray, buildBoolean } from '../../value-builders';
 import { type NamespaceDelimiter } from '../../../util/constants';
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue>;
   get: ToItemtProcess<ArrayValue<readonly TagSymbol[]>, NonArrayValue, NumberValue<readonly TagSymbol[]>>;
+  concat: ArrayToArray;
 }
 
 const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
@@ -49,6 +50,16 @@ function mergeItemTags(
   return Array.from(tagsSet);
 }
 
+function mergeArrayTags(
+  a: ArrayValue<readonly TagSymbol[]>,
+  b: ArrayValue<readonly TagSymbol[]>
+): readonly TagSymbol[] {
+  const tagsSet = new Set<TagSymbol>();
+  for (const tag of a.tags) tagsSet.add(tag);
+  for (const tag of b.tags) tagsSet.add(tag);
+  return Array.from(tagsSet);
+}
+
 export const bfArray: BinaryFnArray = {
   includes: (a: ArrayValue<readonly TagSymbol[]>, b: NonArrayValue): BooleanValue<readonly TagSymbol[]> => {
     const contains = a.value.map((val) => val.value).includes(b.value);
@@ -74,6 +85,9 @@ export const bfArray: BinaryFnArray = {
         `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)}) or the item at that index is an array`
       );
     }
+  },
+  concat: (a: ArrayValue<readonly TagSymbol[]>, b: ArrayValue<readonly TagSymbol[]>): ArrayValue<readonly TagSymbol[]> => {
+    return buildArray([...a.value, ...b.value], mergeArrayTags(a, b));
   },
 } as const;
 

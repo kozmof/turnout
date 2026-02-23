@@ -4,6 +4,11 @@ import {
   BinaryFnArrayNames,
   BinaryFnArrayNameSpace,
 } from '../../state-control/preset-funcs/array/binaryFn';
+import {
+  bfBoolean,
+  BinaryFnBooleanNames,
+  BinaryFnBooleanNameSpace,
+} from '../../state-control/preset-funcs/boolean/binaryFn';
 import { TOM } from '../../util/tom';
 import {
   bfGeneric,
@@ -40,6 +45,15 @@ const binaryFnGenericNames = (): LiteralSchema<
   return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
+const binaryFnBooleanNames = (): LiteralSchema<
+  BinaryFnBooleanNames,
+  undefined
+>[] => {
+  const namespace: BinaryFnBooleanNameSpace = 'binaryFnBoolean';
+  const fnNames = TOM.keys(bfBoolean);
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
+};
+
 const binaryFnNumberNames = (): LiteralSchema<
   BinaryFnNumberNames,
   undefined
@@ -61,6 +75,7 @@ const binaryFnStringNames = (): LiteralSchema<
 export const binaryFnNames = () => {
   return union([
     ...binaryFnArrayNames(),
+    ...binaryFnBooleanNames(),
     ...binaryFnGenericNames(),
     ...binaryFnNumberNames(),
     ...binaryFnStringNames(),
