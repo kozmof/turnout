@@ -31,7 +31,6 @@ export type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  InterfaceArgId,
   PipeStepBinding,
   PipeArgBinding,
 } from './types';

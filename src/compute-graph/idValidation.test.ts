@@ -5,7 +5,6 @@ import {
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
-  createInterfaceArgId,
 } from './idValidation';
 import type {
   ValueId,
@@ -13,7 +12,6 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  InterfaceArgId,
 } from './types';
 
 describe('ID Validation Module', () => {
@@ -118,25 +116,6 @@ describe('ID Validation Module', () => {
       });
     });
 
-    describe('createInterfaceArgId', () => {
-      it('should create branded InterfaceArgId from any string', () => {
-        const id = createInterfaceArgId('ia1');
-        expect(id).toBe('ia1');
-
-        // Type assertion to verify branded type
-        const _typeCheck: InterfaceArgId = id;
-        expect(_typeCheck).toBe('ia1');
-      });
-
-      it('should accept non-empty strings regardless of prefix', () => {
-        expect(createInterfaceArgId('ia_a3f2d8e1')).toBe('ia_a3f2d8e1');
-        expect(createInterfaceArgId('myArg')).toBe('myArg');
-      });
-
-      it('should throw on empty string', () => {
-        expect(() => createInterfaceArgId('')).toThrow('InterfaceArgId cannot be empty');
-      });
-    });
   });
 
   describe('Type Safety', () => {

@@ -4,7 +4,6 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  InterfaceArgId,
   FuncTable,
   CombineFuncDefTable,
   PipeFuncDefTable,
@@ -31,7 +30,7 @@ import type { NodeId } from './runtime/tree-types';
  * ## ID Structure
  *
  * IDs are arbitrary non-empty strings. No structural validation is performed.
- * Prefixes (v_, f_, pd_, td_, cd_, ia_) are for debugging/readability only, not enforced.
+ * Prefixes (v_, f_, pd_, td_, cd_) are for debugging/readability only, not enforced.
  */
 
 // ============================================================================
@@ -111,21 +110,6 @@ export function createCondDefineId(id: string): CondDefineId {
   if (id === '') throw new Error('CondDefineId cannot be empty');
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as CondDefineId;
-}
-
-/**
- * Creates a branded InterfaceArgId from a string.
- *
- * @param id - The ID string to brand
- * @returns A branded InterfaceArgId
- *
- * @example
- * const argId = createInterfaceArgId('ia1');
- */
-export function createInterfaceArgId(id: string): InterfaceArgId {
-  if (id === '') throw new Error('InterfaceArgId cannot be empty');
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return id as InterfaceArgId;
 }
 
 // ============================================================================

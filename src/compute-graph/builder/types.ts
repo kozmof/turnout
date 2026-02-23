@@ -156,16 +156,6 @@ export type ReturnValueMetadataTable = {
 };
 
 /**
- * Maps interface argument IDs to their metadata.
- */
-export type InterfaceArgMetadataTable = {
-  [interfaceArgId: string]: {
-    readonly funcId: FuncId;
-    readonly argName: string;
-  };
-};
-
-/**
  * Internal state during context building.
  * Uses index signatures instead of branded keys to allow progressive building.
  */
@@ -179,5 +169,4 @@ export type ContextBuilder = {
   // Metadata tables for hash-based IDs
   stepMetadata: StepMetadataTable;
   returnValueMetadata: ReturnValueMetadataTable;
-  interfaceArgMetadata: InterfaceArgMetadataTable;
 };

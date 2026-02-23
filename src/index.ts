@@ -107,7 +107,6 @@ export type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  InterfaceArgId,
   PipeStepBinding,
   PipeArgBinding,
 } from './compute-graph';

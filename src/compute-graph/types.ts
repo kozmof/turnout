@@ -37,7 +37,6 @@ export type PipeDefineId = Brand<string, 'pipeDefineId'>;
 export type CondDefineId = Brand<string, 'condDefineId'>;
 export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
-export type InterfaceArgId = Brand<string, 'interfaceArgId'>;
 
 // Fix 2: Discriminated union on FuncTable entries — kind is a first-class field.
 export type FuncTableEntry =
@@ -58,8 +57,8 @@ export type CombineFuncDefTable = {
       b: TransformFnNames;
     };
     args: {
-      a: InterfaceArgId;
-      b: InterfaceArgId;
+      a: true;
+      b: true;
     };
   };
 };
@@ -98,7 +97,7 @@ export type PipeStepBinding = {
 export type PipeFuncDefTable = {
   [defId in PipeDefineId]: {
     args: {
-      [argName in string]: InterfaceArgId;
+      [argName in string]: true;
     };
     sequence: PipeStepBinding[];
   };

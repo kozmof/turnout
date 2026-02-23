@@ -5,7 +5,6 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  InterfaceArgId,
   PipeStepBinding,
   PipeArgBinding,
   TransformFnNames,
@@ -88,21 +87,6 @@ const IdFactory = {
     };
 
     return returnValueId;
-  },
-
-  createInterfaceArg(
-    funcId: FuncId,
-    argName: string,
-    state: BuilderState
-  ): InterfaceArgId {
-    const argId = IdGenerator.generateInterfaceArgId();
-
-    state.interfaceArgMetadata[argId] = {
-      funcId,
-      argName,
-    };
-
-    return argId;
   },
 
   // Lookup helpers to replace parsing
@@ -203,7 +187,6 @@ type FunctionPhaseState = {
   condFuncDefTable: BuilderState['condFuncDefTable'];
   stepMetadata: BuilderState['stepMetadata'];
   returnValueMetadata: BuilderState['returnValueMetadata'];
-  interfaceArgMetadata: BuilderState['interfaceArgMetadata'];
 };
 
 /**
@@ -287,7 +270,6 @@ function processFunctions(
     condFuncDefTable: {},
     stepMetadata: {},
     returnValueMetadata: {},
-    interfaceArgMetadata: {},
   };
 
   // Validate function references before processing
@@ -746,7 +728,7 @@ function buildCombineDefinition(
   name: CombineBuilder['name'];
   // Fix 4: transformFn values are TransformFnNames directly (no { name } wrapper)
   transformFn: { a: TransformFnNames; b: TransformFnNames };
-  args: { a: InterfaceArgId; b: InterfaceArgId };
+  args: { a: true; b: true };
 } {
   return {
     name,
@@ -755,8 +737,8 @@ function buildCombineDefinition(
       b: transformFnMap['b'],
     },
     args: {
-      a: IdGenerator.generateInterfaceArgId(),
-      b: IdGenerator.generateInterfaceArgId(),
+      a: true,
+      b: true,
     },
   };
 }
@@ -773,7 +755,7 @@ function processPipeFunc(
   const returnId = lookupReturnId(funcId, state);
 
   // Build argument map from the bindings provided in the builder
-  const { argMap, pipeDefArgs } = buildPipeArguments(funcId, builder, state);
+  const { argMap, pipeDefArgs } = buildPipeArguments(builder);
 
   // Process each step in the sequence
   const sequence = buildPipeSequence(funcId, builder, state);
@@ -795,17 +777,14 @@ function processPipeFunc(
  * Builds argument mappings for a pipe function
  */
 function buildPipeArguments(
-  funcId: string,
-  builder: PipeBuilder,
-  state: FunctionPhaseState
-): { argMap: Record<string, ValueId>; pipeDefArgs: Record<string, InterfaceArgId> } {
+  builder: PipeBuilder
+): { argMap: Record<string, ValueId>; pipeDefArgs: Record<string, true> } {
   const argMap: Record<string, ValueId> = {};
-  const pipeDefArgs: Record<string, InterfaceArgId> = {};
+  const pipeDefArgs: Record<string, true> = {};
 
   for (const arg of builder.args) {
-    const interfaceArgId = IdFactory.createInterfaceArg(funcId as FuncId, arg.name, state);
     argMap[arg.name] = createValueId(builder.argBindings[arg.name]);
-    pipeDefArgs[arg.name] = interfaceArgId;
+    pipeDefArgs[arg.name] = true;
   }
 
   return { argMap, pipeDefArgs };

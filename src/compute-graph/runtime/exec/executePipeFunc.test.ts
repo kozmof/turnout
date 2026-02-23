@@ -9,7 +9,6 @@ import {
   FuncId,
   ValueId,
   ValueTable,
-  InterfaceArgId,
 } from '../../types';
 
 describe('executePipeFunc helpers', () => {
@@ -27,8 +26,8 @@ describe('executePipeFunc helpers', () => {
       };
 
       const pipeDefArgs = {
-        a: 'ia-a' as InterfaceArgId,
-        b: 'ia-b' as InterfaceArgId,
+        a: true,
+        b: true,
       };
 
       const result = createScopedValueTable(
@@ -57,8 +56,8 @@ describe('executePipeFunc helpers', () => {
       };
 
       const pipeDefArgs = {
-        a: 'ia-a' as InterfaceArgId,
-        b: 'ia-b' as InterfaceArgId, // Expected but not in argMap
+        a: true,
+        b: true, // Expected but not in argMap
       };
 
       expect(() =>
@@ -82,8 +81,8 @@ describe('executePipeFunc helpers', () => {
       };
 
       const pipeDefArgs = {
-        a: 'ia-a' as InterfaceArgId,
-        b: 'ia-b' as InterfaceArgId,
+        a: true,
+        b: true,
       };
 
       expect(() =>
@@ -126,8 +125,8 @@ describe('executePipeFunc helpers', () => {
       };
 
       const pipeDefArgs = {
-        a: 'ia-a' as InterfaceArgId,
-        b: 'ia-b' as InterfaceArgId,
+        a: true,
+        b: true,
       };
 
       expect(() =>
@@ -147,8 +146,8 @@ describe('executePipeFunc helpers', () => {
       };
 
       const pipeDefArgs = {
-        a: 'ia-a' as InterfaceArgId,
-        b: 'ia-b' as InterfaceArgId,
+        a: true,
+        b: true,
       };
 
       expect(() =>

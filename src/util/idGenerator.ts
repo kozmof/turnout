@@ -4,7 +4,6 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  InterfaceArgId,
 } from '../compute-graph/types';
 import {
   createValueId,
@@ -12,7 +11,6 @@ import {
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
-  createInterfaceArgId,
 } from '../compute-graph/idValidation';
 
 /**
@@ -23,12 +21,12 @@ import {
  *
  * This approach:
  * - Uses crypto.getRandomValues for 64 bits of cryptographic randomness
- * - Maintains readability with type prefixes (v/f/pd/td/cd/ia)
+ * - Maintains readability with type prefixes (v/f/pd/td/cd)
  * - Uses 16 hex chars (8 bytes) to minimize collision risk at scale
  * - Avoids encoding semantic information in ID strings
  */
 
-type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ia';
+type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd';
 
 /**
  * Generates a random 16-character hex string using crypto.getRandomValues.
@@ -68,9 +66,5 @@ export const IdGenerator = {
 
   generateCondDefineId(): CondDefineId {
     return createCondDefineId(IdGenerator.generate('cd'));
-  },
-
-  generateInterfaceArgId(): InterfaceArgId {
-    return createInterfaceArgId(IdGenerator.generate('ia'));
   },
 } as const;
