@@ -10,6 +10,7 @@ import {
 } from '../../state-control/meta-chain/binary-fn/metaParams';
 import {
   metaTfNumber,
+  metaTfNull,
   metaTfString,
   metaTfArray,
 } from '../../state-control/meta-chain/transform-fn/metaReturn';
@@ -50,6 +51,8 @@ export function getTransformFnInputType(
   switch (namespace) {
     case 'transformFnNumber':
       return 'number';
+    case 'transformFnNull':
+      return 'null';
     case 'transformFnString':
       return 'string';
     case 'transformFnArray':
@@ -73,6 +76,11 @@ export function getTransformFnReturnType(
   switch (namespace) {
     case 'transformFnNumber': {
       const meta = metaTfNumber();
+      const result = meta[fnName];
+      return result;
+    }
+    case 'transformFnNull': {
+      const meta = metaTfNull();
       const result = meta[fnName];
       return result;
     }

@@ -11,6 +11,11 @@ import {
   TransformFnNumberNameSpace,
 } from '../../state-control/preset-funcs/number/transformFn';
 import {
+  tfNull,
+  TransformFnNullNames,
+  TransformFnNullNameSpace,
+} from '../../state-control/preset-funcs/null/transformFn';
+import {
   tfString,
   TransformFnStringNames,
   TransformFnStringNameSpace,
@@ -44,10 +49,20 @@ const transformFnStringNames = (): LiteralSchema<
   return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
+const transformFnNullNames = (): LiteralSchema<
+  TransformFnNullNames,
+  undefined
+>[] => {
+  const namespace: TransformFnNullNameSpace = 'transformFnNull';
+  const fnNames = TOM.keys(tfNull);
+  return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
+};
+
 export const transformFnNames = () => {
   return union([
     ...transformFnArrayNames(),
     ...transformFnNumberNames(),
+    ...transformFnNullNames(),
     ...transformFnStringNames(),
   ]);
 };

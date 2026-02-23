@@ -3,10 +3,13 @@ import {
   buildNumber,
   buildString,
   buildBoolean,
+  buildNull,
   buildArrayNumber,
   buildArrayString,
   buildArrayBoolean,
+  buildArrayNull,
 } from '../../state-control/value-builders';
+import type { NullReasonSubSymbol } from '../../state-control/value';
 import type { ValueRef, FuncOutputRef, StepOutputRef, TransformRef } from './types';
 import type { TransformFnNames } from '../types';
 
@@ -43,10 +46,17 @@ export const val = {
   },
 
   /**
+   * Creates a NullValue with a reason category.
+   */
+  null(reason: NullReasonSubSymbol = 'unknown', tags: TagSymbol[] = []): AnyValue {
+    return buildNull(reason, tags);
+  },
+
+  /**
    * Creates a typed ArrayValue.
    */
   array(
-    elemType: 'number' | 'string' | 'boolean',
+    elemType: 'number' | 'string' | 'boolean' | 'null',
     elements: AnyValue[],
     tags: TagSymbol[] = []
   ): AnyValue {
@@ -57,6 +67,8 @@ export const val = {
         return buildArrayString(elements, tags);
       case 'boolean':
         return buildArrayBoolean(elements, tags);
+      case 'null':
+        return buildArrayNull(elements, tags);
     }
   },
 };

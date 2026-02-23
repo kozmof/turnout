@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { isArray, isBoolean, isNumber, isString, isPure, isPureNumber, isPureString, isPureBoolean, hasTag } from './value';
+import { isArray, isBoolean, isNull, isNumber, isString, isPure, isPureNumber, isPureString, isPureBoolean, isPureNull, hasTag } from './value';
 
 describe('Check TypeGuard', () => {
   test('Symbol is number (pure)', () => {
@@ -65,6 +65,18 @@ describe('Check TypeGuard', () => {
   test('Symbol is array (any tags)', () => {
     expect(isArray({ symbol: 'array', value: [], subSymbol: undefined, tags: ['random'] })).toBe(true);
     expect(isArray({ symbol: 'array', value: [], subSymbol: undefined, tags: [] })).toBe(true);
+  });
+
+  test('Symbol is null (pure)', () => {
+    expect(isPureNull({ symbol: 'null', value: null, subSymbol: 'missing', tags: [] })).toBe(true);
+    expect(isPureNull({ symbol: 'null', value: null, subSymbol: 'error', tags: ['random'] })).toBe(false);
+  });
+
+  test('Symbol is null (with reason)', () => {
+    const missingValue = { symbol: 'null' as const, value: null, subSymbol: 'not-found' as const, tags: ['network'] as const };
+    expect(isNull(missingValue)).toBe(true);
+    expect(hasTag(missingValue, 'network')).toBe(true);
+    expect(isPure(missingValue)).toBe(false);
   });
 
   test('Custom tags', () => {

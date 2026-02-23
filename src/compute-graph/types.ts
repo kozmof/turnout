@@ -3,6 +3,7 @@ import { TransformFnArrayNames } from '../state-control/preset-funcs/array/trans
 import { BinaryFnGenericNames, BinaryFnGenericNameSpace } from '../state-control/preset-funcs/generic/binaryFn';
 import { BinaryFnNumberNames, BinaryFnNumberNameSpace } from '../state-control/preset-funcs/number/binaryFn';
 import { TransformFnNumberNames } from '../state-control/preset-funcs/number/transformFn';
+import { TransformFnNullNames } from '../state-control/preset-funcs/null/transformFn';
 import { BinaryFnStringNames, BinaryFnStringNameSpace } from '../state-control/preset-funcs/string/binaryFn';
 import { TransformFnStringNames } from '../state-control/preset-funcs/string/transformFn';
 import { AnyValue } from '../state-control/value';
@@ -23,6 +24,7 @@ export type BinaryFnNamespaces =
 export type TransformFnNames =
   | TransformFnArrayNames
   | TransformFnNumberNames
+  | TransformFnNullNames
   | TransformFnStringNames;
 
 export type CombineDefineId = Brand<string, 'combineDefineId'>;

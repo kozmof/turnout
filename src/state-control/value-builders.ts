@@ -2,14 +2,17 @@ import {
   NumberValue,
   StringValue,
   BooleanValue,
+  NullValue,
   ArrayValue,
   ArrayNumberValue,
   ArrayStringValue,
   ArrayBooleanValue,
+  ArrayNullValue,
   AnyValue,
   TagSymbol,
   BaseTypeSymbol,
   BaseTypeSubSymbol,
+  NullReasonSubSymbol,
   UnknownValue,
   createUnknownValue,
   isValidValue,
@@ -130,6 +133,31 @@ export const buildString = createValueBuilder<StringValue<readonly TagSymbol[]>>
 export const buildBoolean = createValueBuilder<BooleanValue<readonly TagSymbol[]>>('boolean', undefined);
 
 /**
+ * Builds a NullValue with a required reason subSymbol and propagated tags.
+ *
+ * @param reason - Category describing why the value is null
+ * @param tags - Optional tags to attach
+ * @returns NullValue with the provided reason
+ */
+export function buildNull(
+  reason: NullReasonSubSymbol,
+  tags: readonly TagSymbol[] = []
+): NullValue<readonly TagSymbol[]> {
+  const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
+  const unknownValue = createUnknownValue('null', null, reason, uniqueTags);
+
+  if (isValidValue<NullValue<readonly TagSymbol[]>>(unknownValue, 'null', reason)) {
+    return unknownValue;
+  }
+
+  throw createInvalidValueError(
+    'null',
+    reason,
+    'Value failed validation after construction'
+  );
+}
+
+/**
  * Builds an ArrayValue (untyped array) with tags propagated from source values.
  *
  * @param value - The array of values
@@ -170,6 +198,15 @@ export const buildArrayString = createValueBuilder<ArrayStringValue<readonly Tag
  * @returns ArrayBooleanValue with merged tags from all sources
  */
 export const buildArrayBoolean = createValueBuilder<ArrayBooleanValue<readonly TagSymbol[]>>('array', 'boolean');
+
+/**
+ * Builds a typed ArrayNullValue with tags propagated from source values.
+ *
+ * @param value - The array of null values
+ * @param sources - Source values whose tags should be propagated
+ * @returns ArrayNullValue with merged tags from all sources
+ */
+export const buildArrayNull = createValueBuilder<ArrayNullValue<readonly TagSymbol[]>>('array', 'null');
 
 /**
  * Helper for binary operations on NumberValues.

@@ -3,10 +3,12 @@ import {
   buildNumber,
   buildString,
   buildBoolean,
+  buildNull,
   buildArray,
   buildArrayNumber,
   buildArrayString,
   buildArrayBoolean,
+  buildArrayNull,
   binaryNumberOp,
   binaryStringOp,
   binaryBooleanOp,
@@ -91,6 +93,26 @@ describe('Value Builders', () => {
     });
   });
 
+  describe('buildNull', () => {
+    it('creates a null value with reason', () => {
+      const result = buildNull('missing');
+
+      expect(result).toEqual({
+        symbol: 'null',
+        value: null,
+        subSymbol: 'missing',
+        tags: [],
+      });
+    });
+
+    it('propagates tags from sources', () => {
+      const result = buildNull('error', ['network']);
+
+      expect(result.tags).toEqual(['network']);
+      expect(result.subSymbol).toBe('error');
+    });
+  });
+
   describe('buildArray', () => {
     it('creates a pure array value', () => {
       const item1 = buildNumber(1);
@@ -137,6 +159,18 @@ describe('Value Builders', () => {
 
       expect(result.symbol).toBe('array');
       expect(result.subSymbol).toBe('boolean');
+    });
+  });
+
+  describe('buildArrayNull', () => {
+    it('creates a typed null array', () => {
+      const item1 = buildNull('missing');
+      const item2 = buildNull('error');
+      const result = buildArrayNull([item1, item2]);
+
+      expect(result.symbol).toBe('array');
+      expect(result.subSymbol).toBe('null');
+      expect(result.value).toHaveLength(2);
     });
   });
 

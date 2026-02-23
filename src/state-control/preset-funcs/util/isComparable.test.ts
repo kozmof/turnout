@@ -41,4 +41,15 @@ describe('Check comparable or not', () => {
       { symbol: 'boolean', value: true, subSymbol: undefined, tags: ['random'] }
     )).toBe(false);
   });
+
+  test('Symbol is null (with reason categories)', () => {
+    expect(isComparable(
+      { symbol: 'null', value: null, subSymbol: 'missing', tags: [] },
+      { symbol: 'null', value: null, subSymbol: 'error', tags: ['random'] }
+    )).toBe(true);
+    expect(isComparable(
+      { symbol: 'null', value: null, subSymbol: 'unknown', tags: [] },
+      { symbol: 'number', value: 10, subSymbol: undefined, tags: [] }
+    )).toBe(false);
+  });
 });

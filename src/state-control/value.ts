@@ -1,17 +1,30 @@
 import strEnum from '../util/strEnum';
 import { TOM } from '../util/tom';
 
-const _baseTypes = strEnum(['number', 'string', 'boolean', 'array']);
+const _baseTypes = strEnum(['number', 'string', 'boolean', 'array', 'null']);
+const _nullReasonSubSymbols = strEnum([
+  'missing',
+  'not-found',
+  'error',
+  'filtered',
+  'redacted',
+  'unknown',
+]);
 
 export const baseTypeSymbols = TOM.keys(_baseTypes);
+export const nullReasonSubSymbols = TOM.keys(_nullReasonSubSymbols);
 
 export type BaseTypeSymbol = keyof typeof _baseTypes;
+export type NullReasonSubSymbol = keyof typeof _nullReasonSubSymbols;
+export type ArrayElemSubSymbol = Exclude<BaseTypeSymbol, 'array'> | undefined;
 
 /**
  * Valid values for the subSymbol field in Value types.
- * For non-array types, this is undefined. For array types, this indicates the element type.
+ * - For array values: element type (or undefined for untyped arrays)
+ * - For null values: reason category
+ * - For number/string/boolean values: undefined
  */
-export type BaseTypeSubSymbol = Exclude<BaseTypeSymbol, 'array'> | undefined;
+export type BaseTypeSubSymbol = ArrayElemSubSymbol | NullReasonSubSymbol;
 
 /**
  * User-definable tag symbols for tracking computational properties.
@@ -80,8 +93,8 @@ export type TagSymbol = string;
  * ```
  *
  *
- * @template T - The JavaScript type of the value (number, string, boolean, or AnyValue[])
- * @template BaseType - The type symbol ('number', 'string', 'boolean', 'array')
+ * @template T - The JavaScript type of the value (number, string, boolean, null, or AnyValue[])
+ * @template BaseType - The type symbol ('number', 'string', 'boolean', 'array', or 'null')
  * @template SubType - For arrays, the element type; undefined otherwise
  * @template Tags - Readonly array of tag symbols tracking computation history
  */
@@ -95,7 +108,7 @@ export interface Value<
   symbol: BaseType;
   /** The actual JavaScript value */
   value: T;
-  /** For arrays, the element type; undefined for other types */
+  /** For arrays: element type. For null: reason category. For number/string/boolean: undefined. */
   subSymbol: SubType;
   /** Computation history: tags that influenced this value */
   tags: Tags;
@@ -108,6 +121,8 @@ export type StringValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<string, 'string', undefined, Tags>;
 export type BooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<boolean, 'boolean', undefined, Tags>;
+export type NullValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<null, 'null', NullReasonSubSymbol, Tags>;
 export type ArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<AnyValue[], 'array', undefined, Tags>;
 export type ArrayNumberValue<Tags extends readonly TagSymbol[] = readonly []> =
@@ -116,26 +131,32 @@ export type ArrayStringValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<AnyValue[], 'array', 'string', Tags>;
 export type ArrayBooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<AnyValue[], 'array', 'boolean', Tags>;
+export type ArrayNullValue<Tags extends readonly TagSymbol[] = readonly []> =
+  Value<AnyValue[], 'array', 'null', Tags>;
 
 // Convenience types for pure values (no tags)
 export type PureNumberValue = NumberValue;
 export type PureStringValue = StringValue;
 export type PureBooleanValue = BooleanValue;
+export type PureNullValue = NullValue;
 export type PureArrayValue = ArrayValue;
 
 export type NonArrayValue =
   | NumberValue<readonly TagSymbol[]>
   | StringValue<readonly TagSymbol[]>
-  | BooleanValue<readonly TagSymbol[]>;
+  | BooleanValue<readonly TagSymbol[]>
+  | NullValue<readonly TagSymbol[]>;
 
 export type AnyValue =
   | NumberValue<readonly TagSymbol[]>
   | StringValue<readonly TagSymbol[]>
   | BooleanValue<readonly TagSymbol[]>
+  | NullValue<readonly TagSymbol[]>
   | ArrayValue<readonly TagSymbol[]>
   | ArrayNumberValue<readonly TagSymbol[]>
   | ArrayStringValue<readonly TagSymbol[]>
-  | ArrayBooleanValue<readonly TagSymbol[]>;
+  | ArrayBooleanValue<readonly TagSymbol[]>
+  | ArrayNullValue<readonly TagSymbol[]>;
 
 /**
  * A Value with fully generic type parameters.
@@ -157,7 +178,13 @@ export function isBoolean(val: AnyValue): val is BooleanValue<readonly TagSymbol
   return val.symbol === 'boolean';
 }
 
-export function isArray(val: AnyValue): val is ArrayValue<readonly TagSymbol[]> | ArrayNumberValue<readonly TagSymbol[]> | ArrayStringValue<readonly TagSymbol[]> | ArrayBooleanValue<readonly TagSymbol[]> {
+export function isNull(val: AnyValue): val is NullValue<readonly TagSymbol[]> {
+  return val.symbol === 'null';
+}
+
+export function isArray(
+  val: AnyValue
+): val is ArrayValue<readonly TagSymbol[]> | ArrayNumberValue<readonly TagSymbol[]> | ArrayStringValue<readonly TagSymbol[]> | ArrayBooleanValue<readonly TagSymbol[]> | ArrayNullValue<readonly TagSymbol[]> {
   return val.symbol === 'array';
 }
 
@@ -183,13 +210,17 @@ export function isPureBoolean(val: AnyValue): val is PureBooleanValue {
   return isBoolean(val) && isPure(val);
 }
 
+export function isPureNull(val: AnyValue): val is PureNullValue {
+  return isNull(val) && isPure(val);
+}
+
 /**
  * Creates an UnknownValue with the given parameters.
  * This is a type-safe constructor that ensures all required fields are present.
  *
  * @param symbol - The base type symbol
  * @param value - The actual value
- * @param subSymbol - The sub-type symbol (for arrays)
+ * @param subSymbol - The sub-type symbol (array element type or null reason)
  * @param tags - The tags array
  * @returns An UnknownValue with all fields properly typed
  *
@@ -237,8 +268,33 @@ export function isValidValue<T extends UnknownValue>(
   // Validate symbol is a valid BaseTypeSymbol
   if (typeof v.symbol !== 'string' ||
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      !(['number', 'string', 'boolean', 'array'] as const).includes(v.symbol as BaseTypeSymbol)) {
+      !baseTypeSymbols.includes(v.symbol as BaseTypeSymbol)) {
     return false;
+  }
+
+  // Validate subSymbol shape based on symbol
+  if (v.symbol === 'number' || v.symbol === 'string' || v.symbol === 'boolean') {
+    if (v.subSymbol !== undefined) {
+      return false;
+    }
+  } else if (v.symbol === 'array') {
+    if (
+      v.subSymbol !== undefined &&
+      v.subSymbol !== 'number' &&
+      v.subSymbol !== 'string' &&
+      v.subSymbol !== 'boolean' &&
+      v.subSymbol !== 'null'
+    ) {
+      return false;
+    }
+  } else if (v.symbol === 'null') {
+    if (
+      typeof v.subSymbol !== 'string' ||
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+      !nullReasonSubSymbols.includes(v.subSymbol as NullReasonSubSymbol)
+    ) {
+      return false;
+    }
   }
 
   // Validate tags is an array

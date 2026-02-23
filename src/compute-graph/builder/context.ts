@@ -25,7 +25,7 @@ import type {
   StepOutputRef,
   TransformRef,
 } from './types';
-import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-control/value-builders';
+import { buildNumber, buildString, buildBoolean, buildNull, buildArray } from '../../state-control/value-builders';
 import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
 import { buildReturnIdToFuncIdMap } from '../runtime/buildExecutionTree';
@@ -37,6 +37,9 @@ import {
   createUndefinedPipeArgumentError,
   createUndefinedPipeStepReferenceError,
 } from './errors';
+import type {
+  TransformFnNullNameSpace,
+} from '../../state-control/preset-funcs/null/transformFn';
 import type {
   TransformFnNumberNameSpace,
 } from '../../state-control/preset-funcs/number/transformFn';
@@ -167,6 +170,10 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
     }
     case 'string': {
       const namespace: TransformFnStringNameSpace = 'transformFnString';
+      return `${namespace}${NAMESPACE_DELIMITER}pass`;
+    }
+    case 'null': {
+      const namespace: TransformFnNullNameSpace = 'transformFnNull';
       return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
     case 'array': {
@@ -505,12 +512,13 @@ function validatePipeReferences(
 }
 
 /**
- * Checks if a value is a literal (number, string, boolean, or AnyValue).
+ * Checks if a value is a literal (number, string, boolean, null, or AnyValue).
  */
 function isValueLiteral(value: unknown): value is ValueLiteral {
   if (typeof value === 'number') return true;
   if (typeof value === 'string') return true;
   if (typeof value === 'boolean') return true;
+  if (value === null) return true;
   if (Array.isArray(value)) return true;
   if (
     typeof value === 'object' &&
@@ -555,6 +563,9 @@ function inferValue(literal: ValueLiteral): AnyValue {
   }
   if (typeof literal === 'boolean') {
     return buildBoolean(literal);
+  }
+  if (literal === null) {
+    return buildNull('unknown');
   }
   // Check if it's a JavaScript array that needs to be wrapped
   if (Array.isArray(literal)) {
