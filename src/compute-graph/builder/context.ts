@@ -27,7 +27,6 @@ import type {
 import { buildNumber, buildString, buildBoolean, buildNull, buildArray } from '../../state-control/value-builders';
 import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
-import { buildReturnIdToFuncIdMap } from '../runtime/buildExecutionTree';
 import { getBinaryFnReturnType } from '../runtime/typeInference';
 import {
   createUndefinedConditionError,
@@ -187,7 +186,13 @@ type FunctionPhaseState = {
   condFuncDefTable: BuilderState['condFuncDefTable'];
   stepMetadata: BuilderState['stepMetadata'];
   returnValueMetadata: BuilderState['returnValueMetadata'];
+  returnIdByFuncId: Record<string, ValueId>;
+  stepOutputIdByFuncStep: Record<string, ValueId>;
 };
+
+function getStepOutputLookupKey(funcId: string, stepIndex: number): string {
+  return `${funcId}::${String(stepIndex)}`;
+}
 
 /**
  * Creates an ExecutionContext from a declarative specification.
@@ -242,11 +247,8 @@ function collectValues(spec: ContextSpec): ValuePhaseResult {
  * Used by process*Func functions after the registration pass has populated returnValueMetadata.
  */
 function lookupReturnId(funcId: string, state: FunctionPhaseState): ValueId {
-  for (const [returnId, metadata] of Object.entries(state.returnValueMetadata)) {
-    if (metadata.sourceFuncId === (funcId as FuncId)) {
-      return createValueId(returnId);
-    }
-  }
+  const returnId = state.returnIdByFuncId[funcId];
+  if (returnId !== undefined) return returnId;
   throw new Error(`No pre-registered return ID for function '${funcId}'`);
 }
 
@@ -270,6 +272,8 @@ function processFunctions(
     condFuncDefTable: {},
     stepMetadata: {},
     returnValueMetadata: {},
+    returnIdByFuncId: {},
+    stepOutputIdByFuncStep: {},
   };
 
   // Validate function references before processing
@@ -278,7 +282,8 @@ function processFunctions(
   // Pass 1: Register return value IDs for all functions
   for (const [key, value] of Object.entries(spec)) {
     if (isFunctionBuilder(value)) {
-      IdFactory.createReturnValue(key as FuncId, state);
+      const returnId = IdFactory.createReturnValue(key as FuncId, state);
+      state.returnIdByFuncId[key] = returnId;
     }
   }
 
@@ -350,7 +355,7 @@ function validateFunctionReferences(spec: ContextSpec): void {
           validateCombineReferences(key, value, valueKeys, functionKeys);
           break;
         case 'pipe':
-          validatePipeReferences(key, value, valueKeys);
+          validatePipeReferences(key, value, valueKeys, functionKeys);
           break;
       }
     }
@@ -432,8 +437,11 @@ function validateCombineReferences(
 function validatePipeReferences(
   funcId: string,
   pipe: PipeBuilder,
-  valueKeys: Set<string>
+  valueKeys: Set<string>,
+  functionKeys: Set<string>
 ): void {
+  const pipeArgNames = new Set(Object.keys(pipe.argBindings));
+
   // Validate argument bindings
   for (const [argName, binding] of Object.entries(pipe.argBindings)) {
     if (!valueKeys.has(binding)) {
@@ -451,15 +459,16 @@ function validatePipeReferences(
           // Step arguments can reference:
           // 1. Pipe function arguments
           // 2. Values from the context
-          const isPipeArg = pipe.args.some(arg => arg.name === ref);
+          const isPipeArg = pipeArgNames.has(ref);
           const isContextValue = valueKeys.has(ref);
 
           if (!isPipeArg && !isContextValue) {
             throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref);
           }
         } else if (ref.__type === 'funcOutput') {
-          // Function output references are allowed (will be resolved during processing)
-          // No validation needed here as they're validated elsewhere
+          if (!functionKeys.has(ref.funcId)) {
+            throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.funcId);
+          }
         } else if (ref.__type === 'stepOutput') {
           // Step output references are allowed within the same pipe function
           // Validate that it references this pipe function and a previous step
@@ -472,11 +481,15 @@ function validatePipeReferences(
         } else if (ref.__type === 'transform') {
           // Transform reference - validate the inner value
           if (typeof ref.valueId === 'string') {
-            const isPipeArg = pipe.args.some(arg => arg.name === ref.valueId);
+            const isPipeArg = pipeArgNames.has(ref.valueId);
             const isContextValue = valueKeys.has(ref.valueId);
 
             if (!isPipeArg && !isContextValue) {
               throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueId);
+            }
+          } else if (ref.valueId.__type === 'funcOutput') {
+            if (!functionKeys.has(ref.valueId.funcId)) {
+              throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueId.funcId);
             }
           } else if (ref.valueId.__type === 'stepOutput') {
             // Validate step output in transform
@@ -487,7 +500,6 @@ function validatePipeReferences(
               throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.valueId.stepIndex} which is not a previous step`);
             }
           }
-          // FuncOutputRef in transform will be validated elsewhere
         }
       }
     }
@@ -635,13 +647,8 @@ function isStepOutputRef(ref: ValueRef | FuncOutputRef | StepOutputRef | Transfo
  * Looks up the return ID from the metadata table.
  */
 function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): ValueId {
-  // Find the return value ID for this function
-  for (const [returnId, metadata] of Object.entries(state.returnValueMetadata)) {
-    if (metadata.sourceFuncId === ref.funcId) {
-      return createValueId(returnId);
-    }
-  }
-
+  const returnId = state.returnIdByFuncId[ref.funcId];
+  if (returnId !== undefined) return returnId;
   throw new Error(`Cannot resolve function output reference: function '${ref.funcId}' has no return value`);
 }
 
@@ -650,13 +657,9 @@ function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): Va
  * Looks up the step output ID from the metadata table.
  */
 function resolveStepOutputRef(ref: StepOutputRef, state: FunctionPhaseState): ValueId {
-  // Find the step output value ID for this pipe function and step index
-  for (const [stepOutputId, metadata] of Object.entries(state.stepMetadata)) {
-    if (metadata.parentFuncId === ref.pipeFuncId && metadata.stepIndex === ref.stepIndex) {
-      return createValueId(stepOutputId);
-    }
-  }
-
+  const lookupKey = getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex);
+  const stepOutputId = state.stepOutputIdByFuncStep[lookupKey];
+  if (stepOutputId !== undefined) return stepOutputId;
   throw new Error(`Cannot resolve step output reference: pipe function '${ref.pipeFuncId}' step ${ref.stepIndex} has no output value`);
 }
 
@@ -782,9 +785,9 @@ function buildPipeArguments(
   const argMap: Record<string, ValueId> = {};
   const pipeDefArgs: Record<string, true> = {};
 
-  for (const arg of builder.args) {
-    argMap[arg.name] = createValueId(builder.argBindings[arg.name]);
-    pipeDefArgs[arg.name] = true;
+  for (const [argName, valueRef] of Object.entries(builder.argBindings)) {
+    argMap[argName] = createValueId(valueRef);
+    pipeDefArgs[argName] = true;
   }
 
   return { argMap, pipeDefArgs };
@@ -806,6 +809,7 @@ function buildPipeSequence(
     if (step.__type === 'combine') {
       // Create step output ID and track in metadata
       const stepOutputId = IdFactory.createStepOutput(funcId as FuncId, i, state);
+      state.stepOutputIdByFuncStep[getStepOutputLookupKey(funcId, i)] = stepOutputId;
 
       // Store the step's return type so inferPassTransform can resolve StepOutputRefs
       const stepReturnType = getBinaryFnReturnType(step.name);
@@ -916,7 +920,7 @@ function resolveArgBinding(
   pipeBuilder: PipeBuilder
 ): PipeArgBinding {
   // Check if it's an argument to the pipe function
-  if (pipeBuilder.args.some(arg => arg.name === refStr)) {
+  if (Object.prototype.hasOwnProperty.call(pipeBuilder.argBindings, refStr)) {
     return {
       source: 'input',
       argName: refStr,
@@ -1018,13 +1022,13 @@ function inferPassTransform(
 
   // Handle StepOutputRef
   if (typeof ref === 'object' && ref.__type === 'stepOutput') {
-    // Look up the step's return type from metadata (populated during buildPipeSequence)
-    for (const metadata of Object.values(state.stepMetadata)) {
-      if (metadata.parentFuncId === (ref.pipeFuncId as FuncId) && metadata.stepIndex === ref.stepIndex) {
-        if (metadata.returnType !== undefined) {
-          return getPassTransformFn(metadata.returnType);
-        }
-        break;
+    const stepOutputId = state.stepOutputIdByFuncStep[
+      getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex)
+    ];
+    if (stepOutputId !== undefined) {
+      const metadata = state.stepMetadata[stepOutputId];
+      if (metadata?.returnType !== undefined) {
+        return getPassTransformFn(metadata.returnType);
       }
     }
     throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);

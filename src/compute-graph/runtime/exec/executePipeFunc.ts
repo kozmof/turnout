@@ -272,7 +272,7 @@ export function executePipeFunc(
 
     // Update current state for next step
     currentValueTable = stepResult.updatedValueTable;
-    scopedContext = createScopedContext(context, currentValueTable);
+    scopedContext = createScopedContext(scopedContext, currentValueTable);
 
     // Add step result for subsequent steps to reference
     stepResults.push(stepResult.stepReturnId);

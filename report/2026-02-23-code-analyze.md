@@ -3,6 +3,7 @@
 **Project summary:** A typed **computation graph execution engine** in TypeScript. Users declare a graph with a builder API (`ctx`, `combine`, `pipe`, `cond`) and execute it functionally via `executeGraph`. Values carry provenance tags that propagate through operations.
 
 **Update (2026-02-23):** `InterfaceArgId` was removed from the compute-graph model and API. Function-definition `args` are represented as key-presence markers (`true`) because runtime behavior depends on arg names, not argument-ID values.
+**Update (2026-02-23, later):** Pitfalls **P1–P7** listed below were fixed in code, and targeted regression tests were added for pipe-step `funcOutput` validation and conditional return-type inference.
 
 ---
 
@@ -173,28 +174,42 @@ binaryNumberOp((x, y) => x + y, a, b)
 
 ---
 
-## 5. Pitfalls
+## 5. Pitfalls (Status Update)
 
-**P1. `buildReturnIdToFuncIdMap` called on every node during tree building**
-In `src/compute-graph/runtime/buildExecutionTree.ts:61`, `buildReturnIdToFuncIdMap` is invoked inside `buildExecutionTreeInternal`, which is called once per node. This rebuilds a map that is O(|funcTable|) every node visit, making tree building O(n²) in the number of functions.
+**P1. Resolved — `buildReturnIdToFuncIdMap` hoisted once per tree build**
+`buildExecutionTree` now builds the return-ID map once and threads it through recursion, removing per-node rebuilds and eliminating the O(n²)-style behavior from repeated map construction.
+Relevant code: `src/compute-graph/runtime/buildExecutionTree.ts`.
 
-**P2. `executePipeFunc` scoped context base is always the outer context**
-In `src/compute-graph/runtime/exec/executePipeFunc.ts:275`, after each step `scopedContext` is rebuilt from the outer `context`, not from the previous `scopedContext`. This is correct only because `currentValueTable` is the actual state carrier — but it is subtle and fragile.
+**P2. Resolved — `executePipeFunc` now chains scoped context from prior step**
+After each step, `scopedContext` is now rebuilt from the previous scoped context (`createScopedContext(scopedContext, currentValueTable)`), making the state-threading model explicit and less fragile.
+Relevant code: `src/compute-graph/runtime/exec/executePipeFunc.ts`.
 
-**P3. `inferFuncReturnType` has a known limitation for `CondFunc` branches**
-In `src/compute-graph/runtime/typeInference.ts:305`, only the `trueBranchId` type is returned for conditional functions (TODO comment present). If branches return different types, type inference silently provides incorrect information, which could propagate incorrect `transformFn` selection in the builder.
+**P3. Resolved — `inferFuncReturnType` handles both `CondFunc` branches**
+Conditional return-type inference now evaluates both branches and returns:
+- the shared type when both branches agree
+- `null` when branches differ or cannot be inferred
+This prevents silent mis-inference from true-branch-only behavior.
+Relevant code: `src/compute-graph/runtime/typeInference.ts`.
+Regression tests: `src/compute-graph/runtime/typeInference.test.ts`.
 
-**P4. `validatePipeReferences` does not validate `funcOutput` refs inside pipe steps**
-In `src/compute-graph/builder/context.ts:427`, `funcOutput` refs within pipe step arguments are noted as "validated elsewhere" but no corresponding validation path enforces them in the pipe step context.
+**P4. Resolved — pipe-step `funcOutput` refs are validated**
+`validatePipeReferences` now validates `funcOutput` references in pipe-step arguments, including `TransformRef.valueId` when it is a `funcOutput`.
+Relevant code: `src/compute-graph/builder/context.ts`.
+Regression test: `src/compute-graph/builder/context.test.ts`.
 
-**P5. `createValueBuilder` always validates after construction — dead code path**
-The `isValidValue` call in `src/state-control/value-builders.ts:82` is always `true` since the value was just constructed correctly. The `throw` branch is unreachable dead code and adds unnecessary overhead.
+**P5. Resolved — removed unreachable validation path in `createValueBuilder`**
+The dead post-construction validation/throw branch in `createValueBuilder` was removed, and the builder now returns the constructed value directly under the established constructor invariant.
+Relevant code: `src/state-control/value-builders.ts`.
 
-**P6. `lookupReturnId` in the builder is O(n) linear scan**
-`src/compute-graph/builder/context.ts:261-267` iterates all entries in `returnValueMetadata` for every lookup. This could be replaced with a direct reverse map for O(1) access.
+**P6. Resolved — builder lookups switched to O(1) reverse maps**
+`lookupReturnId`, `resolveFuncOutputRef`, and `resolveStepOutputRef` now use direct reverse lookup maps maintained in builder state:
+- `funcId -> returnValueId`
+- `(funcId, stepIndex) -> stepOutputId`
+Relevant code: `src/compute-graph/builder/context.ts`.
 
-**P7. `PipeBuilder` duplicates argument names across `args` array and `argBindings` record**
-The dual representation in `src/compute-graph/builder/types.ts:33-38` means argument names are stored twice and must be kept in sync manually. A mismatch causes a silent runtime error.
+**P7. Resolved — removed duplicated `PipeBuilder.args` representation**
+`PipeBuilder` now uses `argBindings` as the single source of truth for pipe argument names/bindings. This removes manual sync risk between `args` and `argBindings`.
+Relevant code: `src/compute-graph/builder/types.ts`, `src/compute-graph/builder/functions.ts`, `src/compute-graph/builder/context.ts`.
 
 ---
 
@@ -233,19 +248,19 @@ The type `ValueRef | FuncOutputRef | StepOutputRef` in `src/compute-graph/builde
 
 ## 8. Improvement Points — Implementations
 
-**I1. Memoize or hoist `buildReturnIdToFuncIdMap`**
-Move the map build to the top-level call of `buildExecutionTree` and pass it down as a parameter to `buildExecutionTreeInternal` to avoid O(n) reconstruction per node.
+**I1. Resolved — `buildReturnIdToFuncIdMap` hoisted**
+Implemented by building the map once in `buildExecutionTree` and threading it through recursive calls.
 
-**I2. Replace linear scans in `resolveFuncOutputRef` / `resolveStepOutputRef`**
-`src/compute-graph/builder/context.ts:655-678` iterates all metadata entries. Replace `returnValueMetadata` and `stepMetadata` with direct reverse lookup maps:
-- `funcId → returnValueId`
-- `(funcId, stepIndex) → stepOutputId`
+**I2. Resolved — linear scans replaced in output-reference resolution**
+Implemented via direct reverse lookup maps in builder state:
+- `funcId -> returnValueId`
+- `(funcId, stepIndex) -> stepOutputId`
 
 **I3. Collapse the double-iteration in `validateFunctionReferences`**
 The builder iterates the spec in `validateFunctionReferences` and again in `processFunctions`. A single-pass design that defers validation alongside processing would be more efficient and easier to reason about.
 
-**I4. Remove the unreachable throw in `createValueBuilder`**
-The `if (!isValidValue(...)) throw ...` branch in `src/state-control/value-builders.ts:82` is dead code. Remove it and replace the validation approach with a direct return of the constructed value.
+**I4. Resolved — unreachable throw removed in `createValueBuilder`**
+`createValueBuilder` now directly returns the constructed value under the constructor invariant; the dead validation throw path was removed.
 
 **I5. Simplify `executeCondFunc` call signature**
 In `src/compute-graph/runtime/executeTree.ts:66-73`, `executeCondFunc` receives `branchResult.value` for both its `selectedValue` and `otherValue` parameters. The function signature should be simplified to accept only the single resolved branch value, removing the conceptually meaningless duplicate.

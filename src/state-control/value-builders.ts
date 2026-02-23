@@ -59,8 +59,7 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
  * Type safety approach:
  * 1. Accept properly typed symbol and subSymbol parameters
  * 2. Create an UnknownValue using the type-safe createUnknownValue function
- * 3. Validate the structure using isValidValue type guard
- * 4. Type guard narrows to TResult, eliminating need for unsafe cast
+ * 3. Cast to TResult based on the invariant enforced by symbol/subSymbol inputs
  *
  * @internal
  */
@@ -75,21 +74,9 @@ function createValueBuilder<
     // Deduplicate tags
     const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
 
-    // Create a properly typed UnknownValue
-    const unknownValue = createUnknownValue(symbol, value, subSymbol, uniqueTags);
-
-    // Validate and narrow to TResult using type guard
-    if (isValidValue<TResult>(unknownValue, symbol, subSymbol)) {
-      return unknownValue;
-    }
-
-    // This should never happen since we just created a valid value
-    // But TypeScript needs this for exhaustiveness
-    throw createInvalidValueError(
-      symbol,
-      subSymbol,
-      'Value failed validation after construction'
-    );
+    // createUnknownValue guarantees the required structural fields.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return createUnknownValue(symbol, value, subSymbol, uniqueTags) as TResult;
   };
 }
 

@@ -234,6 +234,23 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe('hello world');
       expect(result.value.symbol).toBe('string');
     });
+
+    it('should reject undefined funcOutput references inside pipe steps', () => {
+      expect(() =>
+        ctx({
+          v1: 10,
+          pipeFn: pipe(
+            { a: 'v1' },
+            [
+              combine('binaryFnNumber::add', {
+                a: ref.output('missingFunc'),
+                b: 'a',
+              }),
+            ]
+          ),
+        })
+      ).toThrow("Pipe function 'pipeFn' step 0 argument 'a' references undefined: 'missingFunc'");
+    });
   });
 
   describe('CondFunc builder', () => {

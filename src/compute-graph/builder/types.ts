@@ -32,8 +32,7 @@ export type CombineBuilder = {
  */
 export type PipeBuilder = {
   readonly __type: 'pipe';
-  readonly args: readonly PipeArg[];
-  readonly argBindings: Record<string, ValueRef>; // Maps arg names to value IDs
+  readonly argBindings: Record<string, ValueRef>; // Single source of truth for pipe arg names and bindings
   readonly steps: readonly StepBuilder[];
 };
 
@@ -81,13 +80,6 @@ export type TransformRef = {
   readonly __type: 'transform';
   readonly valueId: ValueRef | FuncOutputRef | StepOutputRef;
   readonly transformFn: TransformFnNames;
-};
-
-/**
- * Pipe function argument definition.
- */
-export type PipeArg = {
-  readonly name: string;
 };
 
 /**

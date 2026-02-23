@@ -253,59 +253,73 @@ export function inferFuncReturnType(
   if (visited.has(funcId)) return null;
   visited.add(funcId);
 
-  const funcEntry = context.funcTable[funcId];
+  try {
+    const funcEntry = context.funcTable[funcId];
+    const { defId } = funcEntry;
 
-  const { defId } = funcEntry;
+    // Check if it's a CombineFunc
+    if (isCombineDefineId(defId, context.combineFuncDefTable)) {
+      return inferCombineFuncReturnType(defId, context);
+    }
 
-  // Check if it's a CombineFunc
-  if (isCombineDefineId(defId, context.combineFuncDefTable)) {
-    return inferCombineFuncReturnType(defId, context);
-  }
+    // Check if it's a PipeFunc
+    if (isPipeDefineId(defId, context.pipeFuncDefTable)) {
+      const pipeDef = context.pipeFuncDefTable[defId];
+      if (pipeDef.sequence.length === 0) return null;
 
-  // Check if it's a PipeFunc
-  if (isPipeDefineId(defId, context.pipeFuncDefTable)) {
-    const pipeDef = context.pipeFuncDefTable[defId];
-    if (pipeDef.sequence.length === 0) return null;
+      // Return type is the type of the last step in the sequence
+      const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
+      const lastStepDefId = lastStep.defId;
 
-    // Return type is the type of the last step in the sequence
-    const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
-    const lastStepDefId = lastStep.defId;
-
-    // Recursively infer the return type of the last step's definition
-    if (isCombineDefineId(lastStepDefId, context.combineFuncDefTable)) {
-      return inferCombineFuncReturnType(lastStepDefId, context);
-    } else if (lastStepDefId in context.pipeFuncDefTable) {
-      // Recursive PipeFunc - we need to create a dummy FuncId to recurse
-      // This is a limitation of the current design where inferFuncReturnType expects FuncId
-      // For now, just recurse on the definition directly by checking its structure
-      if (!isPipeDefineId(lastStepDefId, context.pipeFuncDefTable)) return null;
-      const nestedPipeDef = context.pipeFuncDefTable[lastStepDefId];
-      if (nestedPipeDef.sequence.length === 0) return null;
-      // Continue recursion manually to avoid circular FuncId dependency
-      const nestedLastStep = nestedPipeDef.sequence[nestedPipeDef.sequence.length - 1];
-      if (isCombineDefineId(nestedLastStep.defId, context.combineFuncDefTable)) {
-        return inferCombineFuncReturnType(nestedLastStep.defId, context);
+      // Recursively infer the return type of the last step's definition
+      if (isCombineDefineId(lastStepDefId, context.combineFuncDefTable)) {
+        return inferCombineFuncReturnType(lastStepDefId, context);
+      } else if (lastStepDefId in context.pipeFuncDefTable) {
+        // Recursive PipeFunc - we need to create a dummy FuncId to recurse
+        // This is a limitation of the current design where inferFuncReturnType expects FuncId
+        // For now, just recurse on the definition directly by checking its structure
+        if (!isPipeDefineId(lastStepDefId, context.pipeFuncDefTable)) return null;
+        const nestedPipeDef = context.pipeFuncDefTable[lastStepDefId];
+        if (nestedPipeDef.sequence.length === 0) return null;
+        // Continue recursion manually to avoid circular FuncId dependency
+        const nestedLastStep = nestedPipeDef.sequence[nestedPipeDef.sequence.length - 1];
+        if (isCombineDefineId(nestedLastStep.defId, context.combineFuncDefTable)) {
+          return inferCombineFuncReturnType(nestedLastStep.defId, context);
+        }
+        // For deeper nesting, return null (limitation)
+        return null;
+      } else if (lastStepDefId in context.condFuncDefTable) {
+        // CondFunc type inference not yet fully supported
+        return null;
       }
-      // For deeper nesting, return null (limitation)
-      return null;
-    } else if (lastStepDefId in context.condFuncDefTable) {
-      // CondFunc type inference not yet fully supported
+
       return null;
     }
 
+    // Check if it's a CondFunc
+    if (isCondDefineId(defId, context.condFuncDefTable)) {
+      const condDef = context.condFuncDefTable[defId];
+
+      // Branches must resolve to the same type to infer a single output type.
+      const trueBranchType = inferFuncReturnType(
+        condDef.trueBranchId,
+        context,
+        new Set(visited)
+      );
+      const falseBranchType = inferFuncReturnType(
+        condDef.falseBranchId,
+        context,
+        new Set(visited)
+      );
+
+      if (trueBranchType === null || falseBranchType === null) return null;
+      return trueBranchType === falseBranchType ? trueBranchType : null;
+    }
+
     return null;
+  } finally {
+    visited.delete(funcId);
   }
-
-  // Check if it's a CondFunc
-  if (isCondDefineId(defId, context.condFuncDefTable)) {
-    const condDef = context.condFuncDefTable[defId];
-
-    // For conditional functions, we'd need to ensure both branches return the same type
-    // For now, we'll return the true branch type
-    return inferFuncReturnType(condDef.trueBranchId, context, visited);
-  }
-
-  return null;
 }
 
 /**

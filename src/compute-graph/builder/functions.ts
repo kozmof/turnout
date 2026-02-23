@@ -7,7 +7,6 @@ import type {
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
-  PipeArg,
   StepBuilder,
 } from './types';
 import type { BinaryFnNames } from '../types';
@@ -62,14 +61,8 @@ export function pipe(
   argBindings: Record<string, ValueRef>,
   steps: readonly StepBuilder[]
 ): PipeBuilder {
-  // Infer args from argBindings keys
-  const inferredArgs: PipeArg[] = Object.keys(argBindings).map(name => ({
-    name,
-  }));
-
   return {
     __type: 'pipe',
-    args: inferredArgs,
     argBindings,
     steps,
   };
