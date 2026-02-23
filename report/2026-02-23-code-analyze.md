@@ -2,6 +2,8 @@
 
 **Project summary:** A typed **computation graph execution engine** in TypeScript. Users declare a graph with a builder API (`ctx`, `combine`, `pipe`, `cond`) and execute it functionally via `executeGraph`. Values carry provenance tags that propagate through operations.
 
+**Update (2026-02-23):** `InterfaceArgId` was removed from the compute-graph model and API. Function-definition `args` are represented as key-presence markers (`true`) because runtime behavior depends on arg names, not argument-ID values.
+
 ---
 
 ## 1. Code Organization and Structure
@@ -55,7 +57,7 @@ The layering is clean: `util` → `state-control` → `compute-graph`. The build
 
 ```
 Brand<K,T>                  — phantom type foundation
-  └── ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId, InterfaceArgId
+  └── ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId
 
 Value<T, BaseType, SubType, Tags>
   ├── NumberValue, StringValue, BooleanValue, NullValue
@@ -214,8 +216,9 @@ The scoped context created in `executePipeFunc` is still typed as `ExecutionCont
 
 ## 7. Improvement Points — Types and Interfaces
 
-**T1. `CombineFuncDefTable.args` (`InterfaceArgId`) values are never read at runtime**
-In `src/compute-graph/types.ts:64`, the `args: { a: InterfaceArgId; b: InterfaceArgId }` field is stored in every combine definition. The execution path resolves arguments via `funcEntry.argMap` directly and never consults this field. It is structural decoration without runtime purpose.
+**T1. Resolved: removed `InterfaceArgId` from function-definition args**
+This issue was addressed. `CombineFuncDefTable.args` and `PipeFuncDefTable.args` are now key-presence markers (`true`) rather than branded interface-argument IDs, matching runtime behavior that only uses arg-name keys.
+Relevant code: `src/compute-graph/types.ts:51`, `src/compute-graph/types.ts:97`, `src/compute-graph/builder/context.ts:724`, `src/compute-graph/builder/context.ts:779`.
 
 **T2. `PipeArgBinding` source `'input'` uses unbranded `argName: string`**
 The `argName` in `{ source: 'input'; argName: string }` is a plain string — invalid argument names are not caught at the type level, unlike the branded `ValueId` used in `{ source: 'value'; id: ValueId }`.
