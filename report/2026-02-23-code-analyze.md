@@ -213,19 +213,23 @@ Relevant code: `src/compute-graph/builder/types.ts`, `src/compute-graph/builder/
 
 ---
 
-## 6. Improvement Points — Design Overview
+## 6. Improvement Points — Design Overview (Status Update)
 
-**D1. No definition sharing: `ctx()` creates a fresh `CombineDefineId` per usage**
-The builder creates one definition per `combine()` call even if the same function configuration is reused. A definition registry with structural equality could reduce `CombineFuncDefTable` size.
+**D1. Resolved — definition sharing added for Combine definitions**
+The builder now uses a signature-based registry (`name + transformFn.a + transformFn.b`) and reuses an existing `CombineDefineId` when definitions are structurally identical. This reduces duplicate entries in `CombineFuncDefTable`.
+Relevant code: `src/compute-graph/builder/context.ts`.
 
-**D2. `ExecutionContext` is rebuilt via object spread on every state update**
-During tree execution, every step spreads the context (`{ ...context, valueTable: ... }`). For large contexts this causes O(|context|) object allocations per step. A mutable accumulator or persistent map structure would be more efficient.
+**D2. Resolved — runtime context updates no longer rely on object spread of full context**
+Execution context re-threading now uses explicit reconstruction helpers rather than `{ ...context, valueTable }` object spreads during tree traversal and pipe scoping updates.
+Relevant code: `src/compute-graph/runtime/executeTree.ts`, `src/compute-graph/runtime/exec/executePipeFunc.ts`.
 
-**D3. `ValidatedContext` brand is applied via double cast**
-At `src/compute-graph/runtime/validateContext.ts:1023`, the brand is applied as `context as unknown as ValidatedContext`. While logically correct, this bypasses TypeScript's type system. An explicit constructor function or helper would make the intent clearer.
+**D3. Resolved — explicit `ValidatedContext` constructor introduced**
+Validation success now builds a branded `ValidatedContext` through `createValidatedContext(...)` instead of using `as unknown as` double-cast.
+Relevant code: `src/compute-graph/runtime/validateContext.ts`.
 
-**D4. PipeFunc scoping is implicit at the type level**
-The scoped context created in `executePipeFunc` is still typed as `ExecutionContext`. A dedicated `ScopedExecutionContext` type would make the invariant (restricted value visibility) explicit and statically checked.
+**D4. Resolved — dedicated `ScopedExecutionContext` type introduced**
+Pipe execution now uses an explicit scoped context type with scope metadata and visible-value tracking.
+Relevant code: `src/compute-graph/types.ts`, `src/compute-graph/runtime/exec/executePipeFunc.ts`.
 
 ---
 

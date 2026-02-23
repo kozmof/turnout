@@ -92,6 +92,20 @@ describe('Context Builder', () => {
       expect(result.value.symbol).toBe('number');
     });
 
+    it('should reuse identical combine function definitions', () => {
+      const context = ctx({
+        v1: 10,
+        v2: 5,
+        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f2: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+      });
+
+      const f1DefId = (context.exec.funcTable as any).f1.defId;
+      const f2DefId = (context.exec.funcTable as any).f2.defId;
+      expect(f1DefId).toBe(f2DefId);
+      expect(Object.keys(context.exec.combineFuncDefTable)).toHaveLength(1);
+    });
+
     it('should handle chained functions', () => {
       const context = ctx({
         v1: 10,

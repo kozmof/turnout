@@ -188,6 +188,7 @@ type FunctionPhaseState = {
   returnValueMetadata: BuilderState['returnValueMetadata'];
   returnIdByFuncId: Record<string, ValueId>;
   stepOutputIdByFuncStep: Record<string, ValueId>;
+  combineDefIdBySignature: Map<string, CombineDefineId>;
 };
 
 function getStepOutputLookupKey(funcId: string, stepIndex: number): string {
@@ -274,6 +275,7 @@ function processFunctions(
     returnValueMetadata: {},
     returnIdByFuncId: {},
     stepOutputIdByFuncStep: {},
+    combineDefIdBySignature: new Map(),
   };
 
   // Validate function references before processing
@@ -610,11 +612,11 @@ function processCombineFunc(
   builder: CombineBuilder,
   state: FunctionPhaseState
 ): void {
-  const defId = IdGenerator.generateCombineDefineId();
   const returnId = lookupReturnId(funcId, state);
 
   // Build argMap and transformFn from args
   const { argMap, transformFnMap } = buildCombineArguments(builder, state);
+  const defId = getOrCreateCombineDefinitionId(builder.name, transformFnMap, state);
 
   // Add to function table (Fix 2: include kind discriminant)
   state.funcTable[funcId] = {
@@ -623,9 +625,6 @@ function processCombineFunc(
     argMap,
     returnId,
   };
-
-  // Add to definition table
-  state.combineFuncDefTable[defId] = buildCombineDefinition(builder.name, transformFnMap);
 }
 
 /**
@@ -833,16 +832,12 @@ function buildPipeStepBinding(
   pipeBuilder: PipeBuilder,
   state: FunctionPhaseState
 ): PipeStepBinding {
-  const stepDefId = IdGenerator.generateCombineDefineId();
-
   // Build argument bindings for this step
   const argBindings = buildStepArgBindings(step, pipeBuilder, state);
 
   // Infer transform functions for each argument
   const transformFnMap = buildStepTransformMap(step, pipeBuilder);
-
-  // Add combine definition to table (reuse buildCombineDefinition for consistency)
-  state.combineFuncDefTable[stepDefId] = buildCombineDefinition(step.name, transformFnMap);
+  const stepDefId = getOrCreateCombineDefinitionId(step.name, transformFnMap, state);
 
   return {
     defId: stepDefId,
@@ -1056,4 +1051,28 @@ function inferTransformForBinaryFn(binaryFnName: BinaryFnNames): TransformFnName
     throw new Error(`Cannot infer transform: unknown return type for binary function '${binaryFnName}'`);
   }
   return getPassTransformFn(returnType);
+}
+
+function createCombineDefSignature(
+  name: CombineBuilder['name'],
+  transformFnMap: Record<string, TransformFnNames>
+): string {
+  const transformA = transformFnMap['a'];
+  const transformB = transformFnMap['b'];
+  return `${name}|a:${transformA}|b:${transformB}`;
+}
+
+function getOrCreateCombineDefinitionId(
+  name: CombineBuilder['name'],
+  transformFnMap: Record<string, TransformFnNames>,
+  state: FunctionPhaseState
+): CombineDefineId {
+  const signature = createCombineDefSignature(name, transformFnMap);
+  const existing = state.combineDefIdBySignature.get(signature);
+  if (existing !== undefined) return existing;
+
+  const defId = IdGenerator.generateCombineDefineId();
+  state.combineFuncDefTable[defId] = buildCombineDefinition(name, transformFnMap);
+  state.combineDefIdBySignature.set(signature, defId);
+  return defId;
 }

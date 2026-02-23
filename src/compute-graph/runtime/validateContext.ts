@@ -63,7 +63,7 @@ export type UnvalidatedContext = {
 // ValidatedContext - Branded type for contexts that have passed validation
 // ============================================================================
 
-declare const _validatedBrand: unique symbol;
+const _validatedBrand: unique symbol = Symbol("validatedContext");
 
 /**
  * An ExecutionContext that has been verified by validateContext.
@@ -73,6 +73,13 @@ declare const _validatedBrand: unique symbol;
 export type ValidatedContext = ExecutionContext & {
   readonly [_validatedBrand]: true;
 };
+
+function createValidatedContext(context: ExecutionContext): ValidatedContext {
+  return {
+    ...context,
+    [_validatedBrand]: true,
+  };
+}
 
 // ============================================================================
 // Task 2: Discriminated Result Types
@@ -1416,7 +1423,7 @@ function checkPipeDefinitionCycles(
 function checkRequiredTables(
   context: UnvalidatedContext,
   state: ValidationState,
-): void {
+): context is ExecutionContext {
   const required = [
     "valueTable",
     "funcTable",
@@ -1425,9 +1432,12 @@ function checkRequiredTables(
     "condFuncDefTable",
   ] as const;
 
+  let hasAllRequiredTables = true;
+
   for (const tableName of required) {
     const table = context[tableName];
     if (table === undefined) {
+      hasAllRequiredTables = false;
       state.errors.push({
         message: `ExecutionContext is missing required table: ${tableName}`,
         details: { tableName },
@@ -1435,20 +1445,23 @@ function checkRequiredTables(
       continue;
     }
     if (!isRecord(table)) {
+      hasAllRequiredTables = false;
       state.errors.push({
         message: `ExecutionContext table ${tableName} must be an object`,
         details: { tableName, actualType: typeof table },
       });
     }
   }
+
+  return hasAllRequiredTables;
 }
 
 export function validateContext(context: UnvalidatedContext): ValidationResult {
   const state = createValidationState();
 
   // Structural pre-check: all tables must be present before semantic validation
-  checkRequiredTables(context, state);
-  if (state.errors.length > 0) {
+  const hasAllRequiredTables = checkRequiredTables(context, state);
+  if (!hasAllRequiredTables || state.errors.length > 0) {
     return {
       valid: false,
       errors: state.errors,
@@ -1504,8 +1517,7 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
   if (state.errors.length === 0) {
     return {
       valid: true,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      context: context as unknown as ValidatedContext,
+      context: createValidatedContext(context),
       warnings: state.warnings,
       errors: [],
     };

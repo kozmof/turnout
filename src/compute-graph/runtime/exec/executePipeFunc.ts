@@ -3,6 +3,7 @@ import {
   PipeDefineId,
   ExecutionContext,
   ExecutionResult,
+  ScopedExecutionContext,
   ValueTable,
   ValueId,
   PipeStepBinding,
@@ -70,12 +71,22 @@ export function createScopedValueTable(
 }
 
 export function createScopedContext(
-  context: ExecutionContext,
+  context: ExecutionContext | ScopedExecutionContext,
   scopedValueTable: ValueTable
-): ExecutionContext {
+): ScopedExecutionContext {
+  const visibleValueIds = new Set<ValueId>();
+  for (const valueId of Object.keys(scopedValueTable)) {
+    visibleValueIds.add(createValueId(valueId));
+  }
+
   return {
-    ...context,
     valueTable: scopedValueTable,
+    funcTable: context.funcTable,
+    combineFuncDefTable: context.combineFuncDefTable,
+    pipeFuncDefTable: context.pipeFuncDefTable,
+    condFuncDefTable: context.condFuncDefTable,
+    scope: 'pipe',
+    visibleValueIds,
   };
 }
 
@@ -148,7 +159,7 @@ function executeStep(
   pipeFuncId: FuncId,
   pipeFuncArgMap: { [argName: string]: ValueId },
   stepResults: ValueId[],
-  scopedContext: ExecutionContext
+  scopedContext: ScopedExecutionContext
 ): { stepReturnId: ValueId; updatedValueTable: ValueTable } {
   const { defId, argBindings } = step;
 
@@ -173,7 +184,10 @@ function executeStep(
   let stepContext: ExecutionContext;
   if (isCombineDefineId(defId, scopedContext.combineFuncDefTable)) {
     stepContext = {
-      ...scopedContext,
+      valueTable: scopedContext.valueTable,
+      combineFuncDefTable: scopedContext.combineFuncDefTable,
+      pipeFuncDefTable: scopedContext.pipeFuncDefTable,
+      condFuncDefTable: scopedContext.condFuncDefTable,
       funcTable: {
         ...scopedContext.funcTable,
         [tempFuncId]: { kind: 'combine', defId, argMap: resolvedArgMap, returnId: stepReturnId },
@@ -181,7 +195,10 @@ function executeStep(
     };
   } else {
     stepContext = {
-      ...scopedContext,
+      valueTable: scopedContext.valueTable,
+      combineFuncDefTable: scopedContext.combineFuncDefTable,
+      pipeFuncDefTable: scopedContext.pipeFuncDefTable,
+      condFuncDefTable: scopedContext.condFuncDefTable,
       funcTable: {
         ...scopedContext.funcTable,
         [tempFuncId]: { kind: 'pipe', defId, argMap: resolvedArgMap, returnId: stepReturnId },
@@ -251,7 +268,7 @@ export function executePipeFunc(
 
   // Start with scoped context - we'll thread state through steps
   let currentValueTable = scopedValueTable;
-  let scopedContext = createScopedContext(context, currentValueTable);
+  let scopedContext: ScopedExecutionContext = createScopedContext(context, currentValueTable);
 
   // Track return ValueIds from each step
   const stepResults: ValueId[] = [];

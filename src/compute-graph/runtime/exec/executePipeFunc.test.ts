@@ -205,6 +205,8 @@ describe('executePipeFunc helpers', () => {
       expect(scopedContext.condFuncDefTable).toBe(
         originalContext.condFuncDefTable
       );
+      expect(scopedContext.scope).toBe('pipe');
+      expect(scopedContext.visibleValueIds.has('v3' as ValueId)).toBe(true);
 
       // Original context should not be mutated
       expect(originalContext.valueTable).toEqual({

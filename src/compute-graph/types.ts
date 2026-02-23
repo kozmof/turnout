@@ -140,3 +140,14 @@ export type ExecutionContext = {
   readonly pipeFuncDefTable: Readonly<PipeFuncDefTable>;
   readonly condFuncDefTable: Readonly<CondFuncDefTable>;
 };
+
+/**
+ * Pipe-local scoped execution context.
+ *
+ * Scope is explicit at the type level so Pipe execution code can
+ * distinguish restricted visibility contexts from full root contexts.
+ */
+export type ScopedExecutionContext = ExecutionContext & {
+  readonly scope: 'pipe';
+  readonly visibleValueIds: ReadonlySet<ValueId>;
+};

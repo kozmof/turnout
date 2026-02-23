@@ -1,4 +1,4 @@
-import { ExecutionContext, type ExecutionResult } from '../types';
+import { ExecutionContext, type ExecutionResult, type ValueTable } from '../types';
 import { ExecutionTree } from './tree-types';
 import { isCombineDefineId, isPipeDefineId } from '../idValidation';
 import { createFunctionExecutionError } from './errors';
@@ -37,10 +37,7 @@ export function executeTree(
     const conditionResult = executeTree(tree.conditionTree, context);
 
     // Update context with condition result
-    let currentContext: ExecutionContext = {
-      ...context,
-      valueTable: conditionResult.updatedValueTable,
-    };
+    let currentContext = withValueTable(context, conditionResult.updatedValueTable);
 
     // Verify condition is boolean before selecting branch
     const conditionValue = conditionResult.value;
@@ -57,10 +54,7 @@ export function executeTree(
       : executeTree(tree.falseBranchTree, currentContext);
 
     // Update context with branch result
-    currentContext = {
-      ...currentContext,
-      valueTable: branchResult.updatedValueTable,
-    };
+    currentContext = withValueTable(currentContext, branchResult.updatedValueTable);
 
     // Execute the conditional function to store the result
     const condFuncResult = executeCondFunc(
@@ -83,20 +77,14 @@ export function executeTree(
 
   if (tree.children) {
     for (const child of tree.children) {
-      const childResult = executeTree(child, {
-        ...context,
-        valueTable: currentValueTable,
-      });
+      const childResult = executeTree(child, withValueTable(context, currentValueTable));
       // Thread the updated state to the next child
       currentValueTable = childResult.updatedValueTable;
     }
   }
 
   // Update context with accumulated state from children
-  const updatedContext: ExecutionContext = {
-    ...context,
-    valueTable: currentValueTable,
-  };
+  const updatedContext = withValueTable(context, currentValueTable);
 
   // Now execute this function
   const funcId = tree.nodeId;
@@ -116,4 +104,18 @@ export function executeTree(
   }
 
   return execResult;
+}
+
+function withValueTable(
+  context: ExecutionContext,
+  valueTable: ValueTable
+): ExecutionContext {
+  if (context.valueTable === valueTable) return context;
+  return {
+    valueTable,
+    funcTable: context.funcTable,
+    combineFuncDefTable: context.combineFuncDefTable,
+    pipeFuncDefTable: context.pipeFuncDefTable,
+    condFuncDefTable: context.condFuncDefTable,
+  };
 }
