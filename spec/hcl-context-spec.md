@@ -44,8 +44,7 @@ prog "main" {
 |-------------|---------------------|
 | `name:type = literal` | `binding "name" { type = "type" value = literal }` |
 | `name:type = { fn_alias = [x, y] }` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = { fn_alias = { a = x, b = y } }` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = { fn_alias = { a: x, b: y } }` (DSL sugar) | normalize to `{ a = x, b = y }`, then apply named-arg lowering |
+| `name:type = { fn_alias = [a: x, b: y] }` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `pipe = { args = {...} steps = [...] }` | `expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } }` |
 | `cond = { condition = c then = t else = e }` | `expr = { cond = { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } } }` |
 | `if` inline condition | lowered to generated `binding "__if_<name>_cond"` + `cond` |
@@ -90,7 +89,7 @@ prog "main" {
 
 `arg(x)` normalization:
 
-- Named args `{ a = x, b = y }` or `{ a: x, b: y }` -> ordered pair `[arg(x), arg(y)]`
+- Labeled pair args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
 - DSL bare identifier `v` -> `{ ref = "v" }`
 - DSL literal (`"s"`, `1`, `true`, `[1,2]`) -> `{ lit = <literal> }`
 - `{ func_ref = "fn" }` -> `{ func_ref = "fn" }`
@@ -102,14 +101,14 @@ prog "main" {
 CAN (OK):
 - Authors can use typed keys in DSL (`v1:int = 5`).
 - Authors can use bare identifiers as references in DSL (`{ add = [v1, v2] }`).
-- Authors can write explicit named binary args (`{ add = { a = v1, b = v2 } }`).
-- Authors can optionally use `:` in named args (`{ add = { a: v1, b: v2 } }`), which is normalized before lowering.
+- Authors can write explicit labeled binary args (`{ add = [a: v1, b: v2] }`).
+- Compiler may accept `{ a = ..., b = ... }` and `{ a: ..., b: ... }` as compatibility input and normalize to `[a: ..., b: ...]`.
 
 CAN'T (NG):
 - Lowered plain HCL cannot keep `name:type` as an attribute key.
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
-- A single binary call cannot mix positional and named argument forms.
+- A single binary call cannot mix positional and labeled argument forms.
 
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks and typed reference objects (`ref`, `func_ref`) to stay parseable and unambiguous in plain HCL.
@@ -197,13 +196,14 @@ There are four forms: **combine**, **pipe**, **cond**, and **if** (sugar for con
 
 ```hcl
 name:type = { fn_alias = [arg1, arg2] }            # positional
-name:type = { fn_alias = { a = arg1, b = arg2 } }  # named
-name:type = { fn_alias = { a: arg1, b: arg2 } }    # named DSL sugar
+name:type = { fn_alias = [a: arg1, b: arg2] }      # explicit labeled pair
 ```
 
 The object has exactly one key (the function alias). Its value must be either:
 - a **2-item positional list** (`[arg1, arg2]`)
-- a **named object** with exactly `a` and `b`
+- a **labeled pair** (`[a: arg1, b: arg2]`)
+
+Labeled pairs are DSL-layer syntax and are normalized during lowering.
 
 Both forms are semantically identical.
 The compiler always lowers to runtime combine args `{ a: <arg1>, b: <arg2> }`.
@@ -216,12 +216,12 @@ prog "main" {
   v2:int = 3
 
   sum:int   = { add = [v1, v2] }
-  txt:str   = { str_concat = { a = "edge ", b = "mix" } }
-  flag:bool = { gt = { a = v1, b = v2 } }
+  txt:str   = { str_concat = [a: "edge ", b: "mix"] }
+  flag:bool = { gt = [a: v1, b: v2] }
 }
 ```
 
-`{ a: ..., b: ... }` is accepted as DSL sugar and normalized to `{ a = ..., b = ... }` before lowering.
+Compatibility input `{ a = ..., b = ... }` / `{ a: ..., b: ... }` may be accepted and normalized to `[a: ..., b: ...]` before lowering.
 
 **Emitted ContextSpec:**
 
@@ -263,7 +263,7 @@ prog "main" {
 | `arr_get`      | `binaryFnArray::get`                     | `arr(T)`  | `int`     | `T`         |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr(T)`  | `arr(T)`  | `arr(T)`    |
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary arg payload must be either a 2-item list or a `{a,b}` named object (`InvalidBinaryArgShape` otherwise).
+> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary arg payload must be either a 2-item list or a `[a:..., b:...]` labeled pair (`InvalidBinaryArgShape` otherwise).
 
 ---
 
@@ -275,7 +275,7 @@ name:type = {
     args  = { param_name = value_binding_key, ... }
     steps = [
       { fn_alias = [ref_1, ref_2] },               # positional
-      { fn_alias = { a = ref_1, b = ref_2 } },     # named
+      { fn_alias = [a: ref_1, b: ref_2] },         # labeled pair
       ...
     ]
   }
@@ -294,7 +294,7 @@ prog "main" {
       args  = { x = v1, y = v2 }
       steps = [
         { add = [x, y] },
-        { mul = { a = { step_ref = 0 }, b = x } }
+        { mul = [a: { step_ref = 0 }, b: x] }
       ]
     }
   }
@@ -321,7 +321,7 @@ prog "main" {
 
 - `args` keys become pipe parameter names; values must be **value** binding names (not function bindings).
 - Each entry in `steps` is a combine expression using the same alias table as §3.1.
-- Each step accepts positional (`[x, y]`) or named (`{ a = x, b = y }` / `{ a: x, b: y }`) args; both lower identically.
+- Each step accepts positional (`[x, y]`) or labeled (`[a: x, b: y]`) args; both lower identically.
 - Inside `steps`, argument references may be:
   - A pipe parameter name (from `args`)
   - A context value binding name
@@ -388,7 +388,7 @@ prog "main" {
 
 ### 3.4 `if` — syntactic sugar for `cond`
 
-`if` extends `cond` by allowing the condition to be an **inline combine expression** instead of a bare binding name. Inline combine args can be positional or named, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
+`if` extends `cond` by allowing the condition to be an **inline combine expression** instead of a bare binding name. Inline combine args can be positional or labeled, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
 
 ```hcl
 name:type = {
@@ -488,7 +488,7 @@ prog "main" {
 | `UnknownFnAlias` | Function alias not in the built-in table |
 | `UndefinedRef` | Bare identifier references an unknown binding |
 | `UndefinedFuncRef` | `func_ref`/`then`/`else` references a non-function binding |
-| `InvalidBinaryArgShape` | Binary arg payload is not a 2-item list and not a `{a,b}` named object |
+| `InvalidBinaryArgShape` | Binary arg payload is not a 2-item list and not a `[a:..., b:...]` labeled pair |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |
 | `CondNotBool` | `condition` binding does not resolve to `bool` |
@@ -563,7 +563,7 @@ prog "main" {
   doubled:int = { mul = [n, n] }
 
   # --- String ---
-  label_hi:str = { str_concat = { a = msg, b = " high" } }
+  label_hi:str = { str_concat = [a: msg, b: " high"] }
   label_lo:str = { str_concat = [msg, " low"] }
 
   # --- Condition via combine ---
@@ -581,7 +581,7 @@ prog "main" {
   }
 
   # --- if (inline condition) ---
-  result_fn_hi:str = { str_concat = { a = msg, b = " !" } }
+  result_fn_hi:str = { str_concat = [a: msg, b: " !"] }
   result_fn_lo:str = { str_concat = [msg, " ."] }
 
   final:str = {
@@ -637,7 +637,7 @@ ctx({
 | # | Path | Idempotency check |
 |---|------|------------------|
 | 1 | Parse `name:arr(int) = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
-| 2 | `{ add = [v1, v2] }` and `{ add = { a = v1, b = v2 } }` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both arg forms emit identical ContextSpec |
+| 2 | `{ add = [v1, v2] }` and `{ add = [a: v1, b: v2] }` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both arg forms emit identical ContextSpec |
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
@@ -651,8 +651,8 @@ ctx({
 | `then = fn` where `fn` is a value binding | `UndefinedFuncRef` error |
 | `step_ref = 0` in step 0 (self-reference) | `StepRefOutOfBounds` error |
 | Two `prog` blocks in one file | Either `DuplicateProg` error or emit two separate `ctx()` calls — specify behaviour |
-| `{ add = { a = v1 } }` | `InvalidBinaryArgShape` error (`b` missing) |
-| `{ add = { a = v1, b = v2, c = v3 } }` | `InvalidBinaryArgShape` error (extra key) |
+| `{ add = [a: v1] }` | `InvalidBinaryArgShape` error (`b` missing) |
+| `{ add = [a: v1, b: v2, c: v3] }` | `InvalidBinaryArgShape` error (extra key) |
 | `__reserved:int = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |
 | `cond` condition references a function whose return type is `int` | `CondNotBool` error |
