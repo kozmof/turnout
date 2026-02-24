@@ -25,10 +25,7 @@ describe('executePipeFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const pipeDefArgs = {
-        a: true,
-        b: true,
-      };
+      const pipeDefArgs = ['a', 'b'];
 
       const result = createScopedValueTable(
         argMap,
@@ -55,10 +52,7 @@ describe('executePipeFunc helpers', () => {
         a: 'v1' as ValueId,
       };
 
-      const pipeDefArgs = {
-        a: true,
-        b: true, // Expected but not in argMap
-      };
+      const pipeDefArgs = ['a', 'b']; // 'b' expected but missing from argMap
 
       expect(() =>
         createScopedValueTable(
@@ -80,10 +74,7 @@ describe('executePipeFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const pipeDefArgs = {
-        a: true,
-        b: true,
-      };
+      const pipeDefArgs = ['a', 'b'];
 
       expect(() =>
         createScopedValueTable(
@@ -100,7 +91,7 @@ describe('executePipeFunc helpers', () => {
       } as any;
 
       const argMap = {};
-      const pipeDefArgs = {};
+      const pipeDefArgs: string[] = [];
 
       const result = createScopedValueTable(
         argMap,
@@ -124,10 +115,7 @@ describe('executePipeFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const pipeDefArgs = {
-        a: true,
-        b: true,
-      };
+      const pipeDefArgs = ['a', 'b'];
 
       expect(() =>
         validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap)
@@ -145,10 +133,7 @@ describe('executePipeFunc helpers', () => {
         b: 'v2' as ValueId,
       };
 
-      const pipeDefArgs = {
-        a: true,
-        b: true,
-      };
+      const pipeDefArgs = ['a', 'b'];
 
       expect(() =>
         validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap)
@@ -158,7 +143,7 @@ describe('executePipeFunc helpers', () => {
     it('should pass validation for empty table with no arguments', () => {
       const scopedValueTable: Partial<ValueTable> = {};
       const argMap = {};
-      const pipeDefArgs = {};
+      const pipeDefArgs: string[] = [];
 
       expect(() =>
         validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap)

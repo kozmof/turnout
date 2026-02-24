@@ -75,6 +75,8 @@ describe('Context Builder', () => {
       });
 
       expect(context.exec.funcTable).toHaveProperty(context.ids.f1);
+      const combineDef = Object.values(context.exec.combineFuncDefTable)[0];
+      expect('args' in combineDef).toBe(false);
       // returnId should be a hash-based ID with v_ prefix and 16 hex chars
       expect(context.exec.funcTable[context.ids.f1].returnId).toMatch(/^v_[a-f0-9]{16}$/);
     });
@@ -199,6 +201,9 @@ describe('Context Builder', () => {
           ]
         ),
       });
+
+      const pipeDef = Object.values(context.exec.pipeFuncDefTable)[0];
+      expect(pipeDef.args).toEqual(['a', 'b', 'c']);
 
       const result = executeGraph(context.ids.pipeFn, assertValidContext(context.exec));
 

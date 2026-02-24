@@ -57,10 +57,6 @@ export type CombineFuncDefTable = {
       a: TransformFnNames;
       b: TransformFnNames;
     };
-    args: {
-      a: true;
-      b: true;
-    };
   };
 };
 
@@ -97,9 +93,7 @@ export type PipeStepBinding = {
  */
 export type PipeFuncDefTable = {
   [defId in PipeDefineId]: {
-    args: {
-      [argName in string]: true;
-    };
+    args: string[];
     sequence: PipeStepBinding[];
   };
 };

@@ -400,7 +400,7 @@ function inferFuncType(
 
 type BindingValidationContext = {
   readonly stepIndex: number;
-  readonly pipeDefArgs: Record<string, unknown>;
+  readonly pipeDefArgs: ReadonlySet<string>;
   readonly valueTable: Partial<ValueTable>;
   readonly defId: string;
   readonly referencedValues: Set<ValueId>;
@@ -420,7 +420,7 @@ function validateInputBinding(
   argName: string,
   context: BindingValidationContext,
 ): ValidationError | null {
-  if (!(binding.argName in context.pipeDefArgs)) {
+  if (!context.pipeDefArgs.has(binding.argName)) {
     return {
       message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' references undefined PipeFunc input '${binding.argName}'`,
       details: {
@@ -1007,7 +1007,32 @@ function validatePipeDefEntry(
     return;
   }
 
-  const pipeDefArgs = "args" in entry && isRecord(entry.args) ? entry.args : {};
+  const pipeDefArgNames: string[] = [];
+  if ("args" in entry) {
+    const rawArgs: unknown = entry.args;
+    if (Array.isArray(rawArgs)) {
+      for (let i = 0; i < rawArgs.length; i++) {
+        const argName: unknown = rawArgs[i];
+        if (typeof argName !== "string") {
+          state.errors.push({
+            message: `PipeFuncDefTable[${defId}].args[${String(i)}]: argument name must be a string`,
+            details: { defId, argIndex: i, argName },
+          });
+          continue;
+        }
+        pipeDefArgNames.push(argName);
+      }
+    } else if (isRecord(rawArgs)) {
+      // Backward compatibility: accept legacy map-shaped args and treat keys as arg names.
+      pipeDefArgNames.push(...Object.keys(rawArgs));
+    } else {
+      state.errors.push({
+        message: `PipeFuncDefTable[${defId}]: 'args' must be an array of strings`,
+        details: { defId, args: rawArgs },
+      });
+    }
+  }
+  const pipeDefArgs = new Set(pipeDefArgNames);
 
   // Validate each step
   for (let i = 0; i < entry.sequence.length; i++) {

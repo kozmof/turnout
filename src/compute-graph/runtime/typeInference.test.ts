@@ -40,7 +40,6 @@ function buildCondContext(
             ? 'transformFnNumber::pass'
             : 'transformFnString::pass',
         },
-        args: { a: true, b: true },
       },
       cd_false: {
         name: falseBranchName,
@@ -52,7 +51,6 @@ function buildCondContext(
             ? 'transformFnNumber::pass'
             : 'transformFnString::pass',
         },
-        args: { a: true, b: true },
       },
     } as any,
     pipeFuncDefTable: {} as any,

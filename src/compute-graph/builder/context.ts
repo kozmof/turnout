@@ -788,17 +788,12 @@ function buildCombineDefinition(
   name: CombineBuilder['name'];
   // Fix 4: transformFn values are TransformFnNames directly (no { name } wrapper)
   transformFn: { a: TransformFnNames; b: TransformFnNames };
-  args: { a: true; b: true };
 } {
   return {
     name,
     transformFn: {
       a: transformFnMap['a'],
       b: transformFnMap['b'],
-    },
-    args: {
-      a: true,
-      b: true,
     },
   };
 }
@@ -840,13 +835,13 @@ function processPipeFunc(
 function buildPipeArguments(
   builder: PipeBuilder,
   scope: Scope
-): { argMap: Record<string, ValueId>; pipeDefArgs: Record<string, true> } {
+): { argMap: Record<string, ValueId>; pipeDefArgs: string[] } {
   const argMap: Record<string, ValueId> = {};
-  const pipeDefArgs: Record<string, true> = {};
+  const pipeDefArgs: string[] = [];
 
   for (const [argName, valueRef] of Object.entries(builder.argBindings)) {
     argMap[argName] = scope.valueId(valueRef);
-    pipeDefArgs[argName] = true;
+    pipeDefArgs.push(argName);
   }
 
   return { argMap, pipeDefArgs };
