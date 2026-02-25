@@ -14,7 +14,7 @@ The compiler reads DSL input, lowers it to canonical plain HCL syntax, validates
 
 This spec defines two layers:
 
-1. **Surface DSL** (authoring syntax): includes typed keys (`name:type`) and bare references (`v1`).
+1. **Surface DSL** (authoring syntax): includes typed keys (`name:type`), function-call expressions (`add(v1, v2)`), and bare references (`v1`).
 2. **Canonical plain HCL** (lowered syntax): uses only standard HCL identifiers/blocks/attributes so a stock HCL parser can parse it.
 
 ### Canonical plain HCL shape
@@ -43,11 +43,13 @@ prog "main" {
 | Surface DSL | Canonical plain HCL |
 |-------------|---------------------|
 | `name:type = literal` | `binding "name" { type = "type" value = literal }` |
-| `name:type = { fn_alias = [x, y] }` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = { fn_alias = [a: x, b: y] }` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `pipe = { args = {...} steps = [...] }` | `expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } }` |
+| `name:type = fn_alias(x, y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
+| `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
+| `name:type = { fn_alias = [x, y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
+| `name:type = { fn_alias = [a: x, b: y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
+| `pipe = { args = {...} steps = [fn_alias(...), ...] }` | `expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } }` |
 | `cond = { condition = c then = t else = e }` | `expr = { cond = { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } } }` |
-| `if` inline condition | lowered to generated `binding "__if_<name>_cond"` + `cond` |
+| `if` inline condition (`cond = fn_alias(...)`) | lowered to generated `binding "__if_<name>_cond"` + `cond` |
 
 ### End-to-end lowering example
 
@@ -57,7 +59,7 @@ Surface DSL:
 prog "main" {
   v1:int = 5
   v2:int = 3
-  sum:int = { add = [v1, v2] }
+  sum:int = add(v1, v2)
 }
 ```
 
@@ -89,7 +91,10 @@ prog "main" {
 
 `arg(x)` normalization:
 
-- Labeled pair args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
+- Positional call args `(x, y)` -> ordered pair `[arg(x), arg(y)]`
+- Named call args `(a: x, b: y)` -> ordered pair `[arg(x), arg(y)]`
+- Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
+- Compatibility object args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
 - DSL bare identifier `v` -> `{ ref = "v" }`
 - DSL literal (`"s"`, `1`, `true`, `[1,2]`) -> `{ lit = <literal> }`
 - `{ func_ref = "fn" }` -> `{ func_ref = "fn" }`
@@ -100,15 +105,15 @@ prog "main" {
 
 CAN (OK):
 - Authors can use typed keys in DSL (`v1:int = 5`).
-- Authors can use bare identifiers as references in DSL (`{ add = [v1, v2] }`).
-- Authors can write explicit labeled binary args (`{ add = [a: v1, b: v2] }`).
-- Compiler may accept `{ a = ..., b = ... }` and `{ a: ..., b: ... }` as compatibility input and normalize to `[a: ..., b: ...]`.
+- Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
+- Authors can write explicit named args (`add(a: v1, b: v2)`).
+- Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
 CAN'T (NG):
 - Lowered plain HCL cannot keep `name:type` as an attribute key.
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
-- A single binary call cannot mix positional and labeled argument forms.
+- A single binary call cannot mix positional and named argument forms.
 
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks and typed reference objects (`ref`, `func_ref`) to stay parseable and unambiguous in plain HCL.
@@ -120,9 +125,9 @@ Correlation between CAN and CAN'T:
 | `int`        | `'number'`     | `number` (integer) | `val.number(n)` / `n`  |
 | `str`        | `'string'`     | `string`     | `val.string(s)` / `s`       |
 | `bool`       | `'boolean'`    | `boolean`    | `val.boolean(b)` / `b`      |
-| `arr(int)`   | `'array'`      | —            | `val.array('number', [...])`|
-| `arr(str)`   | `'array'`      | —            | `val.array('string', [...])`|
-| `arr(bool)`  | `'array'`      | —            | `val.array('boolean', [...])`|
+| `arr<int>`   | `'array'`      | —            | `val.array('number', [...])`|
+| `arr<str>`   | `'array'`      | —            | `val.array('string', [...])`|
+| `arr<bool>`  | `'array'`      | —            | `val.array('boolean', [...])`|
 
 ---
 
@@ -147,7 +152,7 @@ name:type = literal
 ```
 
 - `name` must match `[A-Za-z_][A-Za-z0-9_]*`; names starting with `__` are reserved for compiler-generated bindings.
-- `type` is one of: `int | str | bool | arr(int) | arr(str) | arr(bool)`
+- `type` is one of: `int | str | bool | arr<int> | arr<str> | arr<bool>`
 - In the DSL layer, keys are written as `name:type`; the lowering pass splits on the **first** `:` and emits canonical plain HCL `binding` blocks.
 
 ### Examples
@@ -157,9 +162,9 @@ prog "main" {
   n:int        = 10
   msg:str      = "hello"
   flag:bool    = true
-  xs:arr(int)  = [1, 2, 3]
-  ys:arr(str)  = ["a", "b", "c"]
-  bs:arr(bool) = [true, false, true]
+  xs:arr<int>  = [1, 2, 3]
+  ys:arr<str>  = ["a", "b", "c"]
+  bs:arr<bool> = [true, false, true]
 }
 ```
 
@@ -169,7 +174,7 @@ prog "main" {
 |------|-------|
 | Literal must match declared type | `TypeMismatch` |
 | `:int` value must have no fractional part (`42` OK, `3.14` error) | `NonIntegerValue` |
-| All elements of `arr(T)` must be of type `T` | `HeterogeneousArray` |
+| All elements of `arr<T>` must be of type `T` | `HeterogeneousArray` |
 | Nested arrays are not allowed as value literals | `NestedArrayNotAllowed` |
 | Same `name` declared twice in the same `prog` | `DuplicateBinding` |
 
@@ -179,7 +184,7 @@ prog "main" {
 // n:int = 10  →
 { n: 10 }
 
-// xs:arr(int) = [1, 2, 3]  →
+// xs:arr<int> = [1, 2, 3]  →
 { xs: val.array('number', [val.number(1), val.number(2), val.number(3)]) }
 ```
 
@@ -187,23 +192,23 @@ prog "main" {
 
 ## 3. Function expressions
 
-All function expressions are encoded as HCL objects (single-key objects at the top level).
-There are four forms: **combine**, **pipe**, **cond**, and **if** (sugar for cond).
+Function expressions in the Surface DSL use call syntax for binary combine functions.
+There are four forms: **combine** (call expression), **pipe**, **cond**, and **if** (sugar for cond).
 
 ---
 
 ### 3.1 Combine — binary operation
 
 ```hcl
-name:type = { fn_alias = [arg1, arg2] }            # positional
-name:type = { fn_alias = [a: arg1, b: arg2] }      # explicit labeled pair
+name:type = fn_alias(arg1, arg2)               # positional call
+name:type = fn_alias(a: arg1, b: arg2)         # explicit named call
 ```
 
-The object has exactly one key (the function alias). Its value must be either:
-- a **2-item positional list** (`[arg1, arg2]`)
-- a **labeled pair** (`[a: arg1, b: arg2]`)
+Each binary function call must be either:
+- a **2-item positional call** (`fn_alias(arg1, arg2)`)
+- a **named call with `a` and `b`** (`fn_alias(a: arg1, b: arg2)`)
 
-Labeled pairs are DSL-layer syntax and are normalized during lowering.
+Named calls are normalized during lowering to ordered args `[a, b]`.
 
 Both forms are semantically identical.
 The compiler always lowers to runtime combine args `{ a: <arg1>, b: <arg2> }`.
@@ -215,13 +220,13 @@ prog "main" {
   v1:int = 5
   v2:int = 3
 
-  sum:int   = { add = [v1, v2] }
-  txt:str   = { str_concat = [a: "edge ", b: "mix"] }
-  flag:bool = { gt = [a: v1, b: v2] }
+  sum:int   = add(v1, v2)
+  txt:str   = str_concat(a: "edge ", b: "mix")
+  flag:bool = gt(a: v1, b: v2)
 }
 ```
 
-Compatibility input `{ a = ..., b = ... }` / `{ a: ..., b: ... }` may be accepted and normalized to `[a: ..., b: ...]` before lowering.
+Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alias = [a: x, b: y] }` may be accepted and normalized to call form before lowering.
 
 **Emitted ContextSpec:**
 
@@ -259,11 +264,11 @@ Compatibility input `{ a = ..., b = ... }` / `{ a: ..., b: ... }` may be accepte
 | `bool_xor`     | `binaryFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      |
 | `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      |
 | `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      |
-| `arr_includes` | `binaryFnArray::includes`                | `arr(T)`  | `T`       | `bool`      |
-| `arr_get`      | `binaryFnArray::get`                     | `arr(T)`  | `int`     | `T`         |
-| `arr_concat`   | `binaryFnArray::concat`                  | `arr(T)`  | `arr(T)`  | `arr(T)`    |
+| `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      |
+| `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `int`     | `T`         |
+| `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    |
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary arg payload must be either a 2-item list or a `[a:..., b:...]` labeled pair (`InvalidBinaryArgShape` otherwise).
+> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise).
 
 ---
 
@@ -274,8 +279,8 @@ name:type = {
   pipe = {
     args  = { param_name = value_binding_key, ... }
     steps = [
-      { fn_alias = [ref_1, ref_2] },               # positional
-      { fn_alias = [a: ref_1, b: ref_2] },         # labeled pair
+      fn_alias(ref_1, ref_2),                      # positional call
+      fn_alias(a: ref_1, b: ref_2),                # named call
       ...
     ]
   }
@@ -293,8 +298,8 @@ prog "main" {
     pipe = {
       args  = { x = v1, y = v2 }
       steps = [
-        { add = [x, y] },
-        { mul = [a: { step_ref = 0 }, b: x] }
+        add(x, y),
+        mul(a: { step_ref = 0 }, b: x)
       ]
     }
   }
@@ -321,7 +326,7 @@ prog "main" {
 
 - `args` keys become pipe parameter names; values must be **value** binding names (not function bindings).
 - Each entry in `steps` is a combine expression using the same alias table as §3.1.
-- Each step accepts positional (`[x, y]`) or labeled (`[a: x, b: y]`) args; both lower identically.
+- Each step accepts positional (`fn(x, y)`) or named (`fn(a: x, b: y)`) args; both lower identically.
 - Inside `steps`, argument references may be:
   - A pipe parameter name (from `args`)
   - A context value binding name
@@ -351,9 +356,9 @@ prog "main" {
   v1:int = 10
   v2:int = 3
 
-  flag:bool = { gt = [v1, v2] }
-  addFn:int = { add = [v1, v2] }
-  subFn:int = { sub = [v1, v2] }
+  flag:bool = gt(v1, v2)
+  addFn:int = add(v1, v2)
+  subFn:int = sub(v1, v2)
 
   result:int = {
     cond = {
@@ -388,12 +393,12 @@ prog "main" {
 
 ### 3.4 `if` — syntactic sugar for `cond`
 
-`if` extends `cond` by allowing the condition to be an **inline combine expression** instead of a bare binding name. Inline combine args can be positional or labeled, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
+`if` extends `cond` by allowing the condition to be an **inline combine call** instead of a bare binding name. Inline combine args can be positional or named, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
 
 ```hcl
 name:type = {
   if = {
-    cond = { fn_alias = [ref_1, ref_2] }   # inline expression
+    cond = fn_alias(ref_1, ref_2)   # inline call expression
     then = fn_binding_name
     else = fn_binding_name
   }
@@ -419,12 +424,12 @@ prog "main" {
   v1:int = 10
   v2:int = 3
 
-  addFn:int = { add = [v1, v2] }
-  subFn:int = { sub = [v1, v2] }
+  addFn:int = add(v1, v2)
+  subFn:int = sub(v1, v2)
 
   result:int = {
     if = {
-      cond = { gt = [v1, v2] }
+      cond = gt(v1, v2)
       then = addFn
       else = subFn
     }
@@ -481,14 +486,14 @@ prog "main" {
 |------------|------------------|
 | `TypeMismatch` | Literal does not match declared `:type` |
 | `NonIntegerValue` | Float literal assigned to `:int` binding |
-| `HeterogeneousArray` | Mixed element types in `arr(T)` literal |
+| `HeterogeneousArray` | Mixed element types in `arr<T>` literal |
 | `NestedArrayLiteral` | Array literal contains a sub-array in a value binding |
 | `DuplicateBinding` | Same `name` declared twice in one `prog` |
 | `ReservedName` | User binding name starts with `__` |
 | `UnknownFnAlias` | Function alias not in the built-in table |
 | `UndefinedRef` | Bare identifier references an unknown binding |
 | `UndefinedFuncRef` | `func_ref`/`then`/`else` references a non-function binding |
-| `InvalidBinaryArgShape` | Binary arg payload is not a 2-item list and not a `[a:..., b:...]` labeled pair |
+| `InvalidBinaryArgShape` | Binary call is not `(x, y)` and not `(a: ..., b: ...)` |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |
 | `CondNotBool` | `condition` binding does not resolve to `bool` |
@@ -510,10 +515,10 @@ The following constructs are syntactically reserved. They cannot be compiled to 
 
 ```hcl
 # range — produces [0, 1, ..., n-1]
-xs:arr(int) = { range = { n = count } }
+xs:arr<int> = { range = { n = count } }
 
 # map — applies fn to each element
-ys:arr(int) = {
+ys:arr<int> = {
   map = {
     xs = source_arr
     fn = step_fn_name
@@ -521,7 +526,7 @@ ys:arr(int) = {
 }
 
 # filter — keeps elements where predicate returns true
-zs:arr(int) = {
+zs:arr<int> = {
   filter = {
     xs   = source_arr
     pred = predicate_fn_name
@@ -542,7 +547,7 @@ total:int = {
 
 | New builder type | New ContextSpec key | Description |
 |-----------------|---------------------|-------------|
-| `RangeBuilder`  | `{ __type: 'range'; count: ValueRef }` | Produces `arr(int)` |
+| `RangeBuilder`  | `{ __type: 'range'; count: ValueRef }` | Produces `arr<int>` |
 | `MapBuilder`    | `{ __type: 'map'; xs: ValueRef; fn: FuncRef }` | Applies function to each element |
 | `FilterBuilder` | `{ __type: 'filter'; xs: ValueRef; pred: FuncRef }` | Filters by boolean predicate |
 | `FoldBuilder`   | `{ __type: 'fold'; xs: ValueRef; init: ValueRef; fn: FuncRef }` | Left fold |
@@ -560,33 +565,33 @@ prog "main" {
   msg:str = "score"
 
   # --- Arithmetic ---
-  doubled:int = { mul = [n, n] }
+  doubled:int = mul(n, n)
 
   # --- String ---
-  label_hi:str = { str_concat = [a: msg, b: " high"] }
-  label_lo:str = { str_concat = [msg, " low"] }
+  label_hi:str = str_concat(a: msg, b: " high")
+  label_lo:str = str_concat(msg, " low")
 
   # --- Condition via combine ---
-  is_big:bool = { gt = [doubled, n] }
+  is_big:bool = gt(doubled, n)
 
   # --- Pipe: (n * n) + n ---
   piped:int = {
     pipe = {
       args  = { x = n }
       steps = [
-        { mul = [x, x] },
-        { add = [{ step_ref = 0 }, x] }
+        mul(x, x),
+        add({ step_ref = 0 }, x)
       ]
     }
   }
 
   # --- if (inline condition) ---
-  result_fn_hi:str = { str_concat = [a: msg, b: " !"] }
-  result_fn_lo:str = { str_concat = [msg, " ."] }
+  result_fn_hi:str = str_concat(a: msg, b: " !")
+  result_fn_lo:str = str_concat(msg, " .")
 
   final:str = {
     if = {
-      cond = { gt = [piped, doubled] }
+      cond = gt(piped, doubled)
       then = result_fn_hi
       else = result_fn_lo
     }
@@ -636,8 +641,8 @@ ctx({
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | Parse `name:arr(int) = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
-| 2 | `{ add = [v1, v2] }` and `{ add = [a: v1, b: v2] }` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both arg forms emit identical ContextSpec |
+| 1 | Parse `name:arr<int> = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
+| 2 | `add(v1, v2)` and `add(a: v1, b: v2)` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both call forms emit identical ContextSpec |
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
@@ -647,12 +652,12 @@ ctx({
 | Case | Expected behaviour |
 |------|--------------------|
 | `n:int = 3.0` | `NonIntegerValue` error (fractional part = 0 but is float in HCL) |
-| `xs:arr(int) = []` | Emit `val.array('number', [])` — empty array is valid |
+| `xs:arr<int> = []` | Emit `val.array('number', [])` — empty array is valid |
 | `then = fn` where `fn` is a value binding | `UndefinedFuncRef` error |
 | `step_ref = 0` in step 0 (self-reference) | `StepRefOutOfBounds` error |
 | Two `prog` blocks in one file | Either `DuplicateProg` error or emit two separate `ctx()` calls — specify behaviour |
-| `{ add = [a: v1] }` | `InvalidBinaryArgShape` error (`b` missing) |
-| `{ add = [a: v1, b: v2, c: v3] }` | `InvalidBinaryArgShape` error (extra key) |
+| `add(a: v1)` | `InvalidBinaryArgShape` error (`b` missing) |
+| `add(a: v1, b: v2, c: v3)` | `InvalidBinaryArgShape` error (extra key) |
 | `__reserved:int = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |
 | `cond` condition references a function whose return type is `int` | `CondNotBool` error |
