@@ -47,10 +47,10 @@ prog "main" {
 | `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = { fn_alias = [x, y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = { fn_alias = [a: x, b: y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = pipe(p1:v1, p2:v2)[fn_alias(...), ...]` | `binding "name" { type = "type" expr = { pipe = { args = { p1 = ref(v1), p2 = ref(v2) } steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
+| `name:type = #pipe(p1:v1, p2:v2)[fn_alias(...), ...]` | `binding "name" { type = "type" expr = { pipe = { args = { p1 = ref(v1), p2 = ref(v2) } steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
 | `name:type = { pipe = { args = {...} steps = [fn_alias(...), ...] } }` (compatibility input) | `binding "name" { type = "type" expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
 | `cond = { condition = c then = t else = e }` | `expr = { cond = { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } } }` |
-| `if` inline condition (`cond = fn_alias(...)`) | lowered to generated `binding "__if_<name>_cond"` + `cond` |
+| `#if` inline condition (`cond = fn_alias(...)`) | lowered to generated `binding "__if_<name>_cond"` + `cond` |
 
 ### End-to-end lowering example
 
@@ -94,7 +94,7 @@ prog "main" {
 
 - Positional call args `(x, y)` -> ordered pair `[arg(x), arg(y)]`
 - Named call args `(a: x, b: y)` -> ordered pair `[arg(x), arg(y)]`
-- Pipe header pair `pipe(p: v)` -> `args = { p = ref(v) }`
+- Pipe header pair `#pipe(p: v)` -> `args = { p = ref(v) }`
 - Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
 - Compatibility object args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
 - DSL bare identifier `v` -> `{ ref = "v" }`
@@ -109,7 +109,7 @@ CAN (OK):
 - Authors can use typed keys in DSL (`v1:int = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
-- Authors can write pipes as `pipe(x:n)[step1, step2]`.
+- Authors can write pipes as `#pipe(x:n)[step1, step2]`.
 - Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
 CAN'T (NG):
@@ -196,7 +196,7 @@ prog "main" {
 ## 3. Function expressions
 
 Function expressions in the Surface DSL use call syntax for binary combine functions.
-There are four forms: **combine** (call expression), **pipe**, **cond**, and **if** (sugar for cond).
+There are four forms: **combine** (call expression), **#pipe**, **cond**, and **#if** (sugar for cond).
 
 ---
 
@@ -275,17 +275,17 @@ Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alia
 
 ---
 
-### 3.2 Pipe — sequential steps
+### 3.2 `#pipe` — sequential steps
 
 ```hcl
-name:type = pipe(param_name:value_binding_key, ...)[
+name:type = #pipe(param_name:value_binding_key, ...)[
   fn_alias(ref_1, ref_2),                      # positional call
   fn_alias(a: ref_1, b: ref_2),                # named call
   ...
 ]
 ```
 
-Compatibility input `name:type = { pipe = { args = {...} steps = [...] } }` may be accepted and normalized to the `pipe(...)[...]` form before lowering.
+Compatibility input `name:type = pipe(...)[...]` and `name:type = { pipe = { args = {...} steps = [...] } }` may be accepted and normalized to the `#pipe(...)[...]` form before lowering.
 
 **Example:**
 
@@ -294,7 +294,7 @@ prog "main" {
   v1:int = 5
   v2:int = 3
 
-  result:int = pipe(x:v1, y:v2)[
+  result:int = #pipe(x:v1, y:v2)[
     add(x, y),
     mul(a: { step_ref = 0 }, b: x)
   ]
@@ -319,11 +319,11 @@ prog "main" {
 
 **Rules:**
 
-- `pipe(...)` header pairs define pipe parameter names and source value bindings; each `param:value` source must reference a **value** binding (not a function binding).
+- `#pipe(...)` header pairs define pipe parameter names and source value bindings; each `param:value` source must reference a **value** binding (not a function binding).
 - Each entry in `steps` is a combine expression using the same alias table as §3.1.
 - Each step accepts positional (`fn(x, y)`) or named (`fn(a: x, b: y)`) args; both lower identically.
 - Inside `steps`, argument references may be:
-  - A pipe parameter name (from the `pipe(...)` header)
+  - A pipe parameter name (from the `#pipe(...)` header)
   - A context value binding name
   - `{ step_ref = N }` — reference to the output of step N (N must be < current step index) → `ref.step(name, N)`
   - `{ func_ref = "fn_name" }` — reference to a function's output → `ref.output('fn_name')`
@@ -381,34 +381,32 @@ prog "main" {
 **Rules:**
 
 - `condition` must be a binding name whose resolved type is `bool` (value or function output).
-- `then` and `else` must be **function** binding names (combine/pipe/cond/if).
+- `then` and `else` must be **function** binding names (combine/#pipe/cond/#if).
 - Both branches must have the same resolved return type, which must match the binding's declared type.
 
 ---
 
-### 3.4 `if` — syntactic sugar for `cond`
+### 3.4 `#if` — syntactic sugar for `cond`
 
-`if` extends `cond` by allowing the condition to be an **inline combine call** instead of a bare binding name. Inline combine args can be positional or named, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
+`#if` extends `cond` by allowing the condition to be an **inline combine call** instead of a bare binding name. Inline combine args can be positional or named, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
 
 ```hcl
-name:type = {
-  if = {
-    cond = fn_alias(ref_1, ref_2)   # inline call expression
-    then = fn_binding_name
-    else = fn_binding_name
-  }
+name:type = #if {
+  cond = fn_alias(ref_1, ref_2)   # inline call expression
+  then = fn_binding_name
+  else = fn_binding_name
 }
 ```
+
+Compatibility input `name:type = { if = { ... } }` may be accepted and normalized to the `#if { ... }` form before lowering.
 
 `cond` may also be a bare binding name (identical to the `cond` form):
 
 ```hcl
-name:type = {
-  if = {
-    cond = existing_bool_binding
-    then = fn_binding_name
-    else = fn_binding_name
-  }
+name:type = #if {
+  cond = existing_bool_binding
+  then = fn_binding_name
+  else = fn_binding_name
 }
 ```
 
@@ -422,12 +420,10 @@ prog "main" {
   addFn:int = add(v1, v2)
   subFn:int = sub(v1, v2)
 
-  result:int = {
-    if = {
-      cond = gt(v1, v2)
-      then = addFn
-      else = subFn
-    }
+  result:int = #if {
+    cond = gt(v1, v2)
+    then = addFn
+    else = subFn
   }
 }
 ```
@@ -458,7 +454,7 @@ prog "main" {
 | HCL form | Emits | Valid in |
 |----------|-------|----------|
 | Bare identifier `v_name` | `'v_name'` (`ValueRef` string) | combine args, pipe args |
-| Bare identifier in `cond.then`/`cond.else` | `'fn_name'` (`FuncRef` string) | cond/if |
+| Bare identifier in `cond.then`/`cond.else` | `'fn_name'` (`FuncRef` string) | cond/#if |
 | `{ func_ref = "fn_name" }` | `ref.output('fn_name')` (`FuncOutputRef`) | combine args, pipe step args |
 | `{ step_ref = N }` | `ref.step(pipe_name, N)` (`StepOutputRef`) | pipe step args only |
 | `{ transform = { ref = "v", fn = "transformFn..." } }` | `ref.transform('v', 'transformFn...')` (`TransformRef`) | combine args, pipe step args |
@@ -570,21 +566,19 @@ prog "main" {
   is_big:bool = gt(doubled, n)
 
   # --- Pipe: (n * n) + n ---
-  piped:int = pipe(x:n)[
+  piped:int = #pipe(x:n)[
     mul(x, x),
     add({ step_ref = 0 }, x)
   ]
 
-  # --- if (inline condition) ---
+  # --- #if (inline condition) ---
   result_fn_hi:str = str_concat(a: msg, b: " !")
   result_fn_lo:str = str_concat(msg, " .")
 
-  final:str = {
-    if = {
-      cond = gt(piped, doubled)
-      then = result_fn_hi
-      else = result_fn_lo
-    }
+  final:str = #if {
+    cond = gt(piped, doubled)
+    then = result_fn_hi
+    else = result_fn_lo
   }
 }
 ```
@@ -624,7 +618,7 @@ ctx({
 | D. Combine emitter | All 24 function aliases |
 | E. Pipe emitter | `step_ref`, `func_ref`, `transform` references inside steps |
 | F. Cond emitter | condition/branch resolution |
-| G. `if` sugar emitter | Auto-name generation, collision avoidance |
+| G. `#if` sugar emitter | Auto-name generation, collision avoidance |
 | H. Error paths | All 17 error codes |
 
 ### Critical paths
@@ -635,7 +629,7 @@ ctx({
 | 2 | `add(v1, v2)` and `add(a: v1, b: v2)` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both call forms emit identical ContextSpec |
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
-| 5 | `if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
+| 5 | `#if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
 
 ### Edge cases
 
