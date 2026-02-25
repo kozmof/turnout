@@ -47,7 +47,8 @@ prog "main" {
 | `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = { fn_alias = [x, y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = { fn_alias = [a: x, b: y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `pipe = { args = {...} steps = [fn_alias(...), ...] }` | `expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } }` |
+| `name:type = pipe(p1:v1, p2:v2)[fn_alias(...), ...]` | `binding "name" { type = "type" expr = { pipe = { args = { p1 = ref(v1), p2 = ref(v2) } steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
+| `name:type = { pipe = { args = {...} steps = [fn_alias(...), ...] } }` (compatibility input) | `binding "name" { type = "type" expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
 | `cond = { condition = c then = t else = e }` | `expr = { cond = { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } } }` |
 | `if` inline condition (`cond = fn_alias(...)`) | lowered to generated `binding "__if_<name>_cond"` + `cond` |
 
@@ -93,6 +94,7 @@ prog "main" {
 
 - Positional call args `(x, y)` -> ordered pair `[arg(x), arg(y)]`
 - Named call args `(a: x, b: y)` -> ordered pair `[arg(x), arg(y)]`
+- Pipe header pair `pipe(p: v)` -> `args = { p = ref(v) }`
 - Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
 - Compatibility object args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
 - DSL bare identifier `v` -> `{ ref = "v" }`
@@ -107,6 +109,7 @@ CAN (OK):
 - Authors can use typed keys in DSL (`v1:int = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
+- Authors can write pipes as `pipe(x:n)[step1, step2]`.
 - Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
 CAN'T (NG):
@@ -275,17 +278,14 @@ Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alia
 ### 3.2 Pipe — sequential steps
 
 ```hcl
-name:type = {
-  pipe = {
-    args  = { param_name = value_binding_key, ... }
-    steps = [
-      fn_alias(ref_1, ref_2),                      # positional call
-      fn_alias(a: ref_1, b: ref_2),                # named call
-      ...
-    ]
-  }
-}
+name:type = pipe(param_name:value_binding_key, ...)[
+  fn_alias(ref_1, ref_2),                      # positional call
+  fn_alias(a: ref_1, b: ref_2),                # named call
+  ...
+]
 ```
+
+Compatibility input `name:type = { pipe = { args = {...} steps = [...] } }` may be accepted and normalized to the `pipe(...)[...]` form before lowering.
 
 **Example:**
 
@@ -294,15 +294,10 @@ prog "main" {
   v1:int = 5
   v2:int = 3
 
-  result:int = {
-    pipe = {
-      args  = { x = v1, y = v2 }
-      steps = [
-        add(x, y),
-        mul(a: { step_ref = 0 }, b: x)
-      ]
-    }
-  }
+  result:int = pipe(x:v1, y:v2)[
+    add(x, y),
+    mul(a: { step_ref = 0 }, b: x)
+  ]
 }
 ```
 
@@ -324,11 +319,11 @@ prog "main" {
 
 **Rules:**
 
-- `args` keys become pipe parameter names; values must be **value** binding names (not function bindings).
+- `pipe(...)` header pairs define pipe parameter names and source value bindings; each `param:value` source must reference a **value** binding (not a function binding).
 - Each entry in `steps` is a combine expression using the same alias table as §3.1.
 - Each step accepts positional (`fn(x, y)`) or named (`fn(a: x, b: y)`) args; both lower identically.
 - Inside `steps`, argument references may be:
-  - A pipe parameter name (from `args`)
+  - A pipe parameter name (from the `pipe(...)` header)
   - A context value binding name
   - `{ step_ref = N }` — reference to the output of step N (N must be < current step index) → `ref.step(name, N)`
   - `{ func_ref = "fn_name" }` — reference to a function's output → `ref.output('fn_name')`
@@ -500,7 +495,7 @@ prog "main" {
 | `BranchTypeMismatch` | `then` and `else` return types differ |
 | `StepRefOutOfBounds` | `step_ref = N` where N ≥ current step index |
 | `CrossPipeStepRef` | `step_ref` inside a pipe references a different pipe's step |
-| `PipeArgNotValue` | `args` entry references a function binding (must be value) |
+| `PipeArgNotValue` | pipe parameter mapping references a function binding (must be value) |
 
 ---
 
@@ -575,15 +570,10 @@ prog "main" {
   is_big:bool = gt(doubled, n)
 
   # --- Pipe: (n * n) + n ---
-  piped:int = {
-    pipe = {
-      args  = { x = n }
-      steps = [
-        mul(x, x),
-        add({ step_ref = 0 }, x)
-      ]
-    }
-  }
+  piped:int = pipe(x:n)[
+    mul(x, x),
+    add({ step_ref = 0 }, x)
+  ]
 
   # --- if (inline condition) ---
   result_fn_hi:str = str_concat(a: msg, b: " !")
