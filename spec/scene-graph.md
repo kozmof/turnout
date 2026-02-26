@@ -33,7 +33,7 @@ CAN (OK):
 - An action can embed one HCL ContextSpec program.
 - An action can bind runtime inputs from SSOT paths or literals.
 - An action can emit multiple output keys to merge into SSOT.
-- An action can transition to other actions using ordered predicates.
+- An action can transition to other actions using per-transition condition `prog` blocks.
 
 CAN'T (NG):
 
@@ -41,12 +41,13 @@ CAN'T (NG):
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
 - An `input` target cannot reference an undefined binding.
 - An `emit` source cannot reference an undefined binding.
+- A transition cannot omit `when.root` or `when.prog`.
 - Transition targets cannot reference missing actions.
 
 Correlation:
 
 - Because `root` is function-only, `from = "<root_binding>"` is always available as a deterministic emission source.
-- Because `input` and `emit` reference declared bindings, scene validation can fail fast before run-time mutation.
+- Because action `compute` and transition `when` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
 
 ## 4. Runtime Data Model
 
@@ -90,8 +91,22 @@ type ActionEmitBinding = {
 };
 
 type TransitionRule = {
-  when: string; // predicate expression against { result, state }
+  when: TransitionConditionGraph;
   to: ActionId;
+};
+
+type TransitionConditionGraph = {
+  prog: string; // canonical source of one inline `prog "<name>" { ... }` block
+  root: string; // bool binding in transition program (value or function output)
+  inputs?: TransitionInputBinding[];
+};
+
+type TransitionInputBinding = {
+  to: string; // target value binding name in transition condition program
+  fromAction?: string; // source binding from action program output table
+  fromSsot?: string; // dotted path in post-merge SSOT (S_{n+1})
+  fromLiteral?: unknown;
+  required?: boolean; // default true (for fromAction/fromSsot)
 };
 
 type OverviewView = {
@@ -104,6 +119,7 @@ Source exclusivity rules:
 
 - `ActionInputBinding`: exactly one of `fromSsot` or `fromLiteral` MUST be set.
 - `ActionEmitBinding`: exactly one of `from` or `fromLiteral` MUST be set.
+- `TransitionInputBinding`: exactly one of `fromAction`, `fromSsot`, or `fromLiteral` MUST be set.
 
 ## 5. HCL Scene DSL
 
@@ -144,11 +160,26 @@ scene "loan_flow" {
     }
 
     transition {
-      when = "result.value == true"
+      when {
+        root = "go"
+        prog "to_approve" {
+          decision:bool = false
+          go:bool = decision
+        }
+        input {
+          to          = "decision"
+          from_action = "decision"
+        }
+      }
       to   = "approve"
     }
     transition {
-      when = "true"
+      when {
+        root = "always"
+        prog "to_reject" {
+          always:bool = true
+        }
+      }
       to   = "reject"
     }
   }
@@ -168,7 +199,11 @@ Before first action execution, implementations MUST validate:
 7. `compute.root` exists in the program and resolves to a function binding.
 8. Every `input.to` exists and resolves to a value binding.
 9. Every `emit.from` exists in the program when `from` is used.
-10. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
+10. For each transition, `when.prog` parses under HCL ContextSpec v1.
+11. For each transition, `when.root` exists and resolves to a `bool` binding (value or function output).
+12. For each transition input, `input.to` exists and resolves to a value binding in `when.prog`.
+13. For each transition input with `fromAction`, the source binding exists in action program outputs.
+14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
 
@@ -194,7 +229,13 @@ For one action invocation with pre-state `S_n`:
    - `from`: resolve binding value from graph context/output table.
    - `fromLiteral`: use literal value directly.
 7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
-8. Evaluate transitions against `{ result: R_n, state: S_{n+1} }`.
+8. Evaluate transitions in declaration order:
+   - Build/validate each transition `when` graph.
+   - Resolve transition inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve `when.root` to a boolean value:
+     - If `when.root` is a function binding, execute it.
+     - If `when.root` is a value binding, read it directly.
+   - Treat resolved boolean as the rule result.
 9. Select next action IDs based on effective policy and enqueue.
 
 Failure semantics:
@@ -206,6 +247,7 @@ Failure semantics:
 
 - Effective transition policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
+- Each rule's `when` graph is evaluated independently and must resolve `when.root` to boolean.
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
@@ -233,6 +275,9 @@ Existing required codes from v0.2 remain required, plus the following:
 - `SCN_INPUT_SOURCE_MISSING`
 - `SCN_EMIT_SOURCE_INVALID`
 - `SCN_EMIT_SOURCE_UNAVAILABLE`
+- `SCN_TRANSITION_CONDITION_INVALID`
+- `SCN_TRANSITION_WHEN_NOT_BOOL`
+- `SCN_TRANSITION_INPUT_SOURCE_INVALID`
 
 Recommended diagnostic payload:
 
@@ -260,6 +305,8 @@ type SceneDiagnostic = {
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
 2. Missing SSOT input path with required input fails action without merge.
 3. `emit.from = compute.root` writes exactly the executed root result.
-4. `first-match` and `all-match` selection behavior is deterministic.
-5. Overview enforcement modes behave as defined.
-6. Re-running with same inputs and snapshot yields identical `result`, `delta`, and selected next actions.
+4. Transition `when.prog` parse/validation failures stop scheduling and emit transition diagnostics.
+5. `transition.when.root` must resolve to `bool`, else validation fails.
+6. `first-match` and `all-match` selection behavior is deterministic.
+7. Overview enforcement modes behave as defined.
+8. Re-running with same inputs and snapshot yields identical `result`, `delta`, and selected next actions.

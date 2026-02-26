@@ -47,12 +47,27 @@ scene "loan_flow" {
     }
 
     transition {
-      when = "result.value == true"
+      when {
+        root = "go"
+        prog "to_approve" {
+          decision:bool = false
+          go:bool = decision
+        }
+        input {
+          to          = "decision"
+          from_action = "decision"
+        }
+      }
       to   = "approve"
     }
 
     transition {
-      when = "true"
+      when {
+        root = "always"
+        prog "to_reject" {
+          always:bool = true
+        }
+      }
       to   = "reject"
     }
   }
