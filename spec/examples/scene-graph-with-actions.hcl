@@ -1,6 +1,6 @@
 scene "loan_flow" {
   entry_actions     = ["score"]
-  transition_policy = "first-match"
+  next_policy       = "first-match"
 
   view "overview" {
     text = <<-EOT
@@ -46,7 +46,7 @@ scene "loan_flow" {
       from = "income"
     }
 
-    transition {
+    next {
       when {
         root = "go"
         prog "to_approve" {
@@ -61,7 +61,7 @@ scene "loan_flow" {
       to   = "approve"
     }
 
-    transition {
+    next {
       when {
         root = "always"
         prog "to_reject" {

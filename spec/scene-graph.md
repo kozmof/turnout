@@ -13,7 +13,7 @@ Primary goals:
 1. A scene must be able to define actions declaratively.
 2. Each action must be able to declare its computation graph inline.
 3. Input values and emitted output deltas must be explicit and deterministic.
-4. Transition behavior must remain deterministic (`first-match` or `all-match`).
+4. Next-action behavior must remain deterministic (`first-match` or `all-match`).
 
 ## 2. Conventions
 
@@ -33,7 +33,7 @@ CAN (OK):
 - An action can embed one HCL ContextSpec program.
 - An action can bind runtime inputs from SSOT paths or literals.
 - An action can emit multiple output keys to merge into SSOT.
-- An action can transition to other actions using per-transition condition `prog` blocks.
+- An action can define next actions using per-next condition `prog` blocks.
 
 CAN'T (NG):
 
@@ -41,13 +41,13 @@ CAN'T (NG):
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
 - An `input` target cannot reference an undefined binding.
 - An `emit` source cannot reference an undefined binding.
-- A transition cannot omit `when.root` or `when.prog`.
-- Transition targets cannot reference missing actions.
+- A next rule cannot omit `when.root` or `when.prog`.
+- Next targets cannot reference missing actions.
 
 Correlation:
 
 - Because `root` is function-only, `from = "<root_binding>"` is always available as a deterministic emission source.
-- Because action `compute` and transition `when` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
+- Because action `compute` and next-rule `when` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
 
 ## 4. Runtime Data Model
 
@@ -56,7 +56,7 @@ type Scene = {
   sceneId: string;
   actions: Action[];
   entryActionIds: ActionId[];
-  transitionPolicy?: "first-match" | "all-match"; // default: first-match
+  nextPolicy?: "first-match" | "all-match"; // default: first-match
   view?: OverviewView;
 };
 
@@ -65,8 +65,8 @@ type Action = {
   compute: ActionComputeGraph;
   inputs?: ActionInputBinding[];
   emits?: ActionEmitBinding[];
-  transitions?: TransitionRule[]; // default: []
-  transitionPolicy?: "first-match" | "all-match";
+  next?: NextRule[]; // default: []
+  nextPolicy?: "first-match" | "all-match";
   resultMerge?: {
     mode?: "replace-by-id"; // default: replace-by-id
   };
@@ -90,19 +90,19 @@ type ActionEmitBinding = {
   fromLiteral?: unknown;
 };
 
-type TransitionRule = {
-  when: TransitionConditionGraph;
+type NextRule = {
+  when: NextConditionGraph;
   to: ActionId;
 };
 
-type TransitionConditionGraph = {
+type NextConditionGraph = {
   prog: string; // canonical source of one inline `prog "<name>" { ... }` block
-  root: string; // bool binding in transition program (value or function output)
-  inputs?: TransitionInputBinding[];
+  root: string; // bool binding in next-condition program (value or function output)
+  inputs?: NextInputBinding[];
 };
 
-type TransitionInputBinding = {
-  to: string; // target value binding name in transition condition program
+type NextInputBinding = {
+  to: string; // target value binding name in next-condition program
   fromAction?: string; // source binding from action program output table
   fromSsot?: string; // dotted path in post-merge SSOT (S_{n+1})
   fromLiteral?: unknown;
@@ -119,7 +119,7 @@ Source exclusivity rules:
 
 - `ActionInputBinding`: exactly one of `fromSsot` or `fromLiteral` MUST be set.
 - `ActionEmitBinding`: exactly one of `from` or `fromLiteral` MUST be set.
-- `TransitionInputBinding`: exactly one of `fromAction`, `fromSsot`, or `fromLiteral` MUST be set.
+- `NextInputBinding`: exactly one of `fromAction`, `fromSsot`, or `fromLiteral` MUST be set.
 
 ## 5. HCL Scene DSL
 
@@ -128,7 +128,7 @@ This spec standardizes the following scene-level HCL shape:
 ```hcl
 scene "loan_flow" {
   entry_actions      = ["score"]
-  transition_policy  = "first-match"
+  next_policy        = "first-match"
 
   action "score" {
     compute {
@@ -159,7 +159,7 @@ scene "loan_flow" {
       from      = "decision"
     }
 
-    transition {
+    next {
       when {
         root = "go"
         prog "to_approve" {
@@ -173,7 +173,7 @@ scene "loan_flow" {
       }
       to   = "approve"
     }
-    transition {
+    next {
       when {
         root = "always"
         prog "to_reject" {
@@ -193,16 +193,16 @@ Before first action execution, implementations MUST validate:
 1. `actions` is non-empty.
 2. `entryActionIds` is non-empty and all entries exist.
 3. Every `actionId` is unique.
-4. All transition targets exist.
+4. All next targets exist.
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program and resolves to a function binding.
 8. Every `input.to` exists and resolves to a value binding.
 9. Every `emit.from` exists in the program when `from` is used.
-10. For each transition, `when.prog` parses under HCL ContextSpec v1.
-11. For each transition, `when.root` exists and resolves to a `bool` binding (value or function output).
-12. For each transition input, `input.to` exists and resolves to a value binding in `when.prog`.
-13. For each transition input with `fromAction`, the source binding exists in action program outputs.
+10. For each next rule, `when.prog` parses under HCL ContextSpec v1.
+11. For each next rule, `when.root` exists and resolves to a `bool` binding (value or function output).
+12. For each next input, `input.to` exists and resolves to a value binding in `when.prog`.
+13. For each next input with `fromAction`, the source binding exists in action program outputs.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
@@ -229,9 +229,9 @@ For one action invocation with pre-state `S_n`:
    - `from`: resolve binding value from graph context/output table.
    - `fromLiteral`: use literal value directly.
 7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
-8. Evaluate transitions in declaration order:
-   - Build/validate each transition `when` graph.
-   - Resolve transition inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+8. Evaluate next rules in declaration order:
+   - Build/validate each next-rule `when` graph.
+   - Resolve next inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
    - Resolve `when.root` to a boolean value:
      - If `when.root` is a function binding, execute it.
      - If `when.root` is a value binding, read it directly.
@@ -243,9 +243,9 @@ Failure semantics:
 - If any step before merge fails, merge MUST NOT occur.
 - No partial SSOT mutation is allowed.
 
-## 8. Transition Semantics
+## 8. Next Semantics
 
-- Effective transition policy: action-level override, else scene-level, else `first-match`.
+- Effective next policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
 - Each rule's `when` graph is evaluated independently and must resolve `when.root` to boolean.
 - `first-match`: select first true rule.
@@ -263,7 +263,7 @@ Overview DSL behavior is unchanged from `draft-spec/scene-graph.md`:
 Runtime mapping:
 
 - `impl_nodes = { action.actionId }`
-- `impl_data_edges = { (actionId, targetActionId) | targetActionId in action.transitions }`
+- `impl_data_edges = { (actionId, targetActionId) | targetActionId in action.next }`
 
 ## 10. Diagnostics (Minimum Set)
 
@@ -275,9 +275,9 @@ Existing required codes from v0.2 remain required, plus the following:
 - `SCN_INPUT_SOURCE_MISSING`
 - `SCN_EMIT_SOURCE_INVALID`
 - `SCN_EMIT_SOURCE_UNAVAILABLE`
-- `SCN_TRANSITION_CONDITION_INVALID`
-- `SCN_TRANSITION_WHEN_NOT_BOOL`
-- `SCN_TRANSITION_INPUT_SOURCE_INVALID`
+- `SCN_NEXT_CONDITION_INVALID`
+- `SCN_NEXT_WHEN_NOT_BOOL`
+- `SCN_NEXT_INPUT_SOURCE_INVALID`
 
 Recommended diagnostic payload:
 
@@ -289,7 +289,7 @@ type SceneDiagnostic = {
     | "scene_validation"
     | "action_validate"
     | "action_execute"
-    | "transition_resolve"
+    | "next_resolve"
     | "overview_parse"
     | "overview_compile"
     | "overview_enforce";
@@ -305,8 +305,8 @@ type SceneDiagnostic = {
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
 2. Missing SSOT input path with required input fails action without merge.
 3. `emit.from = compute.root` writes exactly the executed root result.
-4. Transition `when.prog` parse/validation failures stop scheduling and emit transition diagnostics.
-5. `transition.when.root` must resolve to `bool`, else validation fails.
+4. Next-rule `when.prog` parse/validation failures stop scheduling and emit next diagnostics.
+5. `next.when.root` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same inputs and snapshot yields identical `result`, `delta`, and selected next actions.
