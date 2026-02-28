@@ -47,22 +47,22 @@ scene "loan_flow" {
     }
 
     next {
-      when {
+      compute {
         root = "go"
         prog "to_approve" {
           decision:bool = false
           go:bool = decision
         }
-        input {
-          to          = "decision"
-          from_action = "decision"
-        }
+      }
+      input {
+        to          = "decision"
+        from_action = "decision"
       }
       to   = "approve"
     }
 
     next {
-      when {
+      compute {
         root = "always"
         prog "to_reject" {
           always:bool = true

@@ -33,7 +33,7 @@ CAN (OK):
 - An action can embed one HCL ContextSpec program.
 - An action can bind runtime inputs from SSOT paths or literals.
 - An action can emit multiple output keys to merge into SSOT.
-- An action can define next actions using per-next condition `prog` blocks.
+- An action can define next actions using per-next `compute` `prog` blocks.
 
 CAN'T (NG):
 
@@ -41,13 +41,13 @@ CAN'T (NG):
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
 - An `input` target cannot reference an undefined binding.
 - An `emit` source cannot reference an undefined binding.
-- A next rule cannot omit `when.root` or `when.prog`.
+- A next rule cannot omit `compute.root` or `compute.prog`.
 - Next targets cannot reference missing actions.
 
 Correlation:
 
 - Because `root` is function-only, `from = "<root_binding>"` is always available as a deterministic emission source.
-- Because action `compute` and next-rule `when` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
+- Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
 
 ## 4. Runtime Data Model
 
@@ -91,18 +91,18 @@ type ActionEmitBinding = {
 };
 
 type NextRule = {
-  when: NextConditionGraph;
+  compute: NextComputeGraph;
+  inputs?: NextInputBinding[];
   to: ActionId;
 };
 
-type NextConditionGraph = {
+type NextComputeGraph = {
   prog: string; // canonical source of one inline `prog "<name>" { ... }` block
-  root: string; // bool binding in next-condition program (value or function output)
-  inputs?: NextInputBinding[];
+  root: string; // bool binding in next compute program (value or function output)
 };
 
 type NextInputBinding = {
-  to: string; // target value binding name in next-condition program
+  to: string; // target value binding name in next compute program
   fromAction?: string; // source binding from action program output table
   fromSsot?: string; // dotted path in post-merge SSOT (S_{n+1})
   fromLiteral?: unknown;
@@ -160,21 +160,21 @@ scene "loan_flow" {
     }
 
     next {
-      when {
+      compute {
         root = "go"
         prog "to_approve" {
           decision:bool = false
           go:bool = decision
         }
-        input {
-          to          = "decision"
-          from_action = "decision"
-        }
+      }
+      input {
+        to          = "decision"
+        from_action = "decision"
       }
       to   = "approve"
     }
     next {
-      when {
+      compute {
         root = "always"
         prog "to_reject" {
           always:bool = true
@@ -199,9 +199,9 @@ Before first action execution, implementations MUST validate:
 7. `compute.root` exists in the program and resolves to a function binding.
 8. Every `input.to` exists and resolves to a value binding.
 9. Every `emit.from` exists in the program when `from` is used.
-10. For each next rule, `when.prog` parses under HCL ContextSpec v1.
-11. For each next rule, `when.root` exists and resolves to a `bool` binding (value or function output).
-12. For each next input, `input.to` exists and resolves to a value binding in `when.prog`.
+10. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
+11. For each next rule, `compute.root` exists and resolves to a `bool` binding (value or function output).
+12. For each next input, `input.to` exists and resolves to a value binding in `compute.prog`.
 13. For each next input with `fromAction`, the source binding exists in action program outputs.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
 
@@ -230,11 +230,11 @@ For one action invocation with pre-state `S_n`:
    - `fromLiteral`: use literal value directly.
 7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
 8. Evaluate next rules in declaration order:
-   - Build/validate each next-rule `when` graph.
+   - Build/validate each next-rule `compute` graph.
    - Resolve next inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
-   - Resolve `when.root` to a boolean value:
-     - If `when.root` is a function binding, execute it.
-     - If `when.root` is a value binding, read it directly.
+   - Resolve `compute.root` to a boolean value:
+     - If `compute.root` is a function binding, execute it.
+     - If `compute.root` is a value binding, read it directly.
    - Treat resolved boolean as the rule result.
 9. Select next action IDs based on effective policy and enqueue.
 
@@ -247,7 +247,7 @@ Failure semantics:
 
 - Effective next policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
-- Each rule's `when` graph is evaluated independently and must resolve `when.root` to boolean.
+- Each rule's `compute` graph is evaluated independently and must resolve `compute.root` to boolean.
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
@@ -275,8 +275,8 @@ Existing required codes from v0.2 remain required, plus the following:
 - `SCN_INPUT_SOURCE_MISSING`
 - `SCN_EMIT_SOURCE_INVALID`
 - `SCN_EMIT_SOURCE_UNAVAILABLE`
-- `SCN_NEXT_CONDITION_INVALID`
-- `SCN_NEXT_WHEN_NOT_BOOL`
+- `SCN_NEXT_COMPUTE_INVALID`
+- `SCN_NEXT_COMPUTE_NOT_BOOL`
 - `SCN_NEXT_INPUT_SOURCE_INVALID`
 
 Recommended diagnostic payload:
@@ -305,8 +305,8 @@ type SceneDiagnostic = {
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
 2. Missing SSOT input path with required input fails action without merge.
 3. `emit.from = compute.root` writes exactly the executed root result.
-4. Next-rule `when.prog` parse/validation failures stop scheduling and emit next diagnostics.
-5. `next.when.root` must resolve to `bool`, else validation fails.
+4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
+5. `next.compute.root` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same inputs and snapshot yields identical `result`, `delta`, and selected next actions.

@@ -35,7 +35,7 @@ Out of scope in this draft:
 - SSOT: canonical mutable state for one scene run.
 - Scene: collection of actions, one or more entry actions, optional overview contract.
 - Action: unit that executes a compute graph and emits result + merge delta.
-- Transition rule: ordered predicate + target action.
+- Transition rule: ordered compute condition + target action.
 - Scene run: one execution instance with lifecycle status.
 
 ### 3.2 Structural contracts
@@ -63,8 +63,22 @@ type Action = {
 };
 
 type TransitionRule = {
-  when: string; // predicate expression resolved by runtime
+  compute: TransitionComputeGraph;
+  inputs?: TransitionInputBinding[];
   to: ActionId;
+};
+
+type TransitionComputeGraph = {
+  prog: string; // canonical source of one inline `prog "<name>" { ... }` block
+  root: string; // bool binding in transition compute program (value or function output)
+};
+
+type TransitionInputBinding = {
+  to: string; // target value binding name in transition compute program
+  fromAction?: string; // source binding from action program output table
+  fromSsot?: string; // dotted path in post-merge SSOT (S_{n+1})
+  fromLiteral?: unknown;
+  required?: boolean; // default true (for fromAction/fromSsot)
 };
 
 type OverviewView = {
@@ -80,9 +94,11 @@ Before first action execution, the implementation MUST validate:
 3. Every `actionId` is unique.
 4. Every `entryActionId` exists in `actions`.
 5. Every transition target exists in `actions`.
-6. Every referenced graph ID and value/function/definition ID exists.
-7. If `view` exists, the overview text parses and compiles.
-8. If `view` exists, overview enforcement succeeds for the configured mode.
+6. Every action graph and transition `compute.prog` parses under HCL ContextSpec v1.
+7. Every transition `compute.root` exists and resolves to a `bool` binding (value or function output).
+8. For each transition input, `input.to` exists and resolves to a value binding in `compute.prog`.
+9. If `view` exists, the overview text parses and compiles.
+10. If `view` exists, overview enforcement succeeds for the configured mode.
 
 If any invariant fails, run status MUST be `invalid_graph` except overview parse/compile/enforcement failures, which MUST be `invalid_overview`.
 
@@ -95,7 +111,13 @@ For one action invocation with pre-state `S_n`:
 4. Context validate: run runtime context validation (same gate as `validateContext`).
 5. Execute graph: produce result `R_n` and delta `D_n`.
 6. Merge: atomically apply `D_n` to SSOT and produce `S_{n+1}`.
-7. Transition evaluate: evaluate transition rules against `R_n` and `S_{n+1}`.
+7. Transition evaluate:
+   - Build/validate each transition `compute` graph.
+   - Resolve transition inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve `compute.root` to a boolean value:
+     - If `compute.root` is a function binding, execute it.
+     - If `compute.root` is a value binding, read it directly.
+   - Treat resolved boolean as the rule result.
 8. Schedule: enqueue selected next action(s), then mark action complete.
 
 Failure behavior:
@@ -124,10 +146,11 @@ Future merge modes MAY be added, but unknown merge mode values MUST fail validat
 
 ### 6.2 Evaluation rules
 - Transition order is declaration order.
-- `first-match`: select the first rule that evaluates `true`.
-- `all-match`: select all rules that evaluate `true`, preserving declaration order.
+- Each transition `compute` graph is evaluated independently and must resolve `compute.root` to boolean.
+- `first-match`: select the first rule whose `compute.root` resolves `true`.
+- `all-match`: select all rules whose `compute.root` resolves `true`, preserving declaration order.
 - If no rule matches, the run MUST enter terminal `completed` state.
-- Predicates MUST be evaluated against `R_n` and `S_{n+1}`.
+- Transition inputs MAY be resolved from `R_n` (`fromAction`) and `S_{n+1}` (`fromSsot`).
 
 ## 7. Failure Semantics and Diagnostics
 
@@ -355,8 +378,8 @@ On enforcement failure, diagnostics MUST include:
 - Unknown merge mode fails pre-execution validation.
 
 ### 11.4 Transition behavior
-- `first-match` chooses first true rule.
-- `all-match` returns all true rules in declaration order.
+- `first-match` chooses first transition rule with `compute.root == true`.
+- `all-match` returns all transition rules with `compute.root == true` in declaration order.
 - No-match transitions run to terminal `completed`.
 
 ### 11.5 Overview parser and compiler
