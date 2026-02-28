@@ -13,7 +13,7 @@ scene "loan_flow" {
 
   action "score" {
     compute {
-      root     = "decision"
+      root     = decision
       prog "score_graph" {
         income:int = 0
         debt:int = 0
@@ -27,54 +27,54 @@ scene "loan_flow" {
     }
 
     input {
-      to        = "income"
-      from_ssot = "applicant.income"
+      to        = income
+      from_ssot = applicant.income
     }
 
     input {
-      to        = "debt"
-      from_ssot = "applicant.debt"
+      to        = debt
+      from_ssot = applicant.debt
     }
 
     emit {
-      to   = "decision.approved"
-      from = "decision"
+      to   = decision.approved
+      from = decision
     }
 
     emit {
-      to   = "decision.input_income"
-      from = "income"
+      to   = decision.input_income
+      from = income
     }
 
     next {
       compute {
-        root = "go"
+        root = go
         prog "to_approve" {
           decision:bool = false
           go:bool = decision
         }
       }
       input {
-        to          = "decision"
-        from_action = "decision"
+        to          = decision
+        from_action = decision
       }
-      to   = "approve"
+      to   = approve
     }
 
     next {
       compute {
-        root = "always"
+        root = always
         prog "to_reject" {
           always:bool = true
         }
       }
-      to   = "reject"
+      to   = reject
     }
   }
 
   action "approve" {
     compute {
-      root     = "approval_code"
+      root     = approval_code
       prog "approve_graph" {
         prefix:str = "APR-"
         suffix:str = "0001"
@@ -83,32 +83,32 @@ scene "loan_flow" {
     }
 
     emit {
-      to           = "decision.status"
+      to           = decision.status
       from_literal = "approved"
     }
 
     emit {
-      to   = "decision.code"
-      from = "approval_code"
+      to   = decision.code
+      from = approval_code
     }
   }
 
   action "reject" {
     compute {
-      root     = "reason"
+      root     = reason
       prog "reject_graph" {
         reason:str = "risk_threshold_not_met"
       }
     }
 
     emit {
-      to           = "decision.status"
+      to           = decision.status
       from_literal = "rejected"
     }
 
     emit {
-      to   = "decision.reason"
-      from = "reason"
+      to   = decision.reason
+      from = reason
     }
   }
 }

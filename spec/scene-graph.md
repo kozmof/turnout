@@ -25,6 +25,20 @@ The key words `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` are to be in
 - `SceneId`, `ActionId`, and HCL binding names use `IDENT = [A-Za-z_][A-Za-z0-9_]*`.
 - Matching is case-sensitive.
 
+### 2.3 Reference normalization
+
+For reference-style DSL attributes, implementations MUST normalize HCL syntax to canonical runtime strings before validation/execution.
+
+- Bare reference form and quoted string form are both allowed and MUST be treated equivalently:
+  - Example: `to = decision.reason` and `to = "decision.reason"` normalize to the same runtime string.
+- Reference-style attributes include:
+  - `compute.root`
+  - `input.to`, `input.from_ssot`
+  - `emit.to`, `emit.from`
+  - `next.to`
+  - `next.input.to`, `next.input.from_action`, `next.input.from_ssot`
+- Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
+
 ## 3. Balance Rules (CAN / CAN'T)
 
 CAN (OK):
@@ -46,7 +60,7 @@ CAN'T (NG):
 
 Correlation:
 
-- Because `root` is function-only, `from = "<root_binding>"` is always available as a deterministic emission source.
+- Because `root` is function-only, `from = <root_binding>` is always available as a deterministic emission source.
 - Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
 
 ## 4. Runtime Data Model
@@ -74,37 +88,37 @@ type Action = {
 
 type ActionComputeGraph = {
   prog: string; // canonical source of one inline `prog "<name>" { ... }` block
-  root: string; // binding key in program, must resolve to function binding
+  root: string; // canonical binding key from DSL `compute.root`; must resolve to function binding
 };
 
 type ActionInputBinding = {
-  to: string; // target value binding name in action program
-  fromSsot?: string; // dotted path in scene snapshot
+  to: string; // canonical target value binding from DSL `input.to`
+  fromSsot?: string; // canonical dotted path from DSL `input.from_ssot`
   fromLiteral?: unknown;
   required?: boolean; // default true (only for fromSsot)
 };
 
 type ActionEmitBinding = {
-  to: string; // destination key in action delta (merged to SSOT)
-  from?: string; // emit resolved program binding value (including root binding)
+  to: string; // canonical destination key from DSL `emit.to` (merged to SSOT)
+  from?: string; // canonical binding key from DSL `emit.from` (including root binding)
   fromLiteral?: unknown;
 };
 
 type NextRule = {
   compute: NextComputeGraph;
   inputs?: NextInputBinding[];
-  to: ActionId;
+  to: ActionId; // canonical target action id from DSL `next.to`
 };
 
 type NextComputeGraph = {
   prog: string; // canonical source of one inline `prog "<name>" { ... }` block
-  root: string; // bool binding in next compute program (value or function output)
+  root: string; // canonical bool binding key from DSL `next.compute.root`
 };
 
 type NextInputBinding = {
-  to: string; // target value binding name in next compute program
-  fromAction?: string; // source binding from action program output table
-  fromSsot?: string; // dotted path in post-merge SSOT (S_{n+1})
+  to: string; // canonical target value binding from DSL `next.input.to`
+  fromAction?: string; // canonical source binding from DSL `next.input.from_action`
+  fromSsot?: string; // canonical dotted path from DSL `next.input.from_ssot` (S_{n+1})
   fromLiteral?: unknown;
   required?: boolean; // default true (for fromAction/fromSsot)
 };
@@ -125,6 +139,8 @@ Source exclusivity rules:
 
 This spec standardizes the following scene-level HCL shape:
 
+Reference-style fields below are shown in bare form; per Section 2.3, quoted and bare forms normalize identically.
+
 ```hcl
 scene "loan_flow" {
   entry_actions      = ["score"]
@@ -132,7 +148,7 @@ scene "loan_flow" {
 
   action "score" {
     compute {
-      root     = "decision"
+      root     = decision
       prog "score_graph" {
         income:int = 0
         debt:int   = 0
@@ -145,42 +161,42 @@ scene "loan_flow" {
     }
 
     input {
-      to        = "income"
-      from_ssot = "applicant.income"
+      to        = income
+      from_ssot = applicant.income
     }
 
     input {
-      to        = "debt"
-      from_ssot = "applicant.debt"
+      to        = debt
+      from_ssot = applicant.debt
     }
 
     emit {
-      to        = "decision.approved"
-      from      = "decision"
+      to        = decision.approved
+      from      = decision
     }
 
     next {
       compute {
-        root = "go"
+        root = go
         prog "to_approve" {
           decision:bool = false
           go:bool = decision
         }
       }
       input {
-        to          = "decision"
-        from_action = "decision"
+        to          = decision
+        from_action = decision
       }
-      to   = "approve"
+      to   = approve
     }
     next {
       compute {
-        root = "always"
+        root = always
         prog "to_reject" {
           always:bool = true
         }
       }
-      to   = "reject"
+      to   = reject
     }
   }
 }
@@ -310,3 +326,4 @@ type SceneDiagnostic = {
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same inputs and snapshot yields identical `result`, `delta`, and selected next actions.
+9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
