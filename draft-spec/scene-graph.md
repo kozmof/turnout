@@ -64,7 +64,7 @@ type Action = {
 
 type TransitionRule = {
   compute: TransitionComputeGraph;
-  inputs?: TransitionInputBinding[];
+  ingresses?: TransitionIngressBinding[];
   to: ActionId;
 };
 
@@ -73,7 +73,7 @@ type TransitionComputeGraph = {
   root: string; // bool binding in transition compute program (value or function output)
 };
 
-type TransitionInputBinding = {
+type TransitionIngressBinding = {
   to: string; // target value binding name in transition compute program
   fromAction?: string; // source binding from action program output table
   fromSsot?: string; // dotted path in post-merge SSOT (S_{n+1})
@@ -96,7 +96,7 @@ Before first action execution, the implementation MUST validate:
 5. Every transition target exists in `actions`.
 6. Every action graph and transition `compute.prog` parses under HCL ContextSpec v1.
 7. Every transition `compute.root` exists and resolves to a `bool` binding (value or function output).
-8. For each transition input, `input.to` exists and resolves to a value binding in `compute.prog`.
+8. For each transition ingress, `ingress.to` exists and resolves to a value binding in `compute.prog`.
 9. If `view` exists, the overview text parses and compiles.
 10. If `view` exists, overview enforcement succeeds for the configured mode.
 
@@ -113,7 +113,7 @@ For one action invocation with pre-state `S_n`:
 6. Merge: atomically apply `D_n` to SSOT and produce `S_{n+1}`.
 7. Transition evaluate:
    - Build/validate each transition `compute` graph.
-   - Resolve transition inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve transition ingresses from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
    - Resolve `compute.root` to a boolean value:
      - If `compute.root` is a function binding, execute it.
      - If `compute.root` is a value binding, read it directly.
@@ -150,7 +150,7 @@ Future merge modes MAY be added, but unknown merge mode values MUST fail validat
 - `first-match`: select the first rule whose `compute.root` resolves `true`.
 - `all-match`: select all rules whose `compute.root` resolves `true`, preserving declaration order.
 - If no rule matches, the run MUST enter terminal `completed` state.
-- Transition inputs MAY be resolved from `R_n` (`fromAction`) and `S_{n+1}` (`fromSsot`).
+- Transition ingresses MAY be resolved from `R_n` (`fromAction`) and `S_{n+1}` (`fromSsot`).
 
 ## 7. Failure Semantics and Diagnostics
 

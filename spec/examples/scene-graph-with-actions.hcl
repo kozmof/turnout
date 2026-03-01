@@ -26,22 +26,22 @@ scene "loan_flow" {
       }
     }
 
-    input {
+    ingress {
       to        = income
       from_ssot = applicant.income
     }
 
-    input {
+    ingress {
       to        = debt
       from_ssot = applicant.debt
     }
 
-    emit {
+    egress {
       to   = decision.approved
       from = decision
     }
 
-    emit {
+    egress {
       to   = decision.input_income
       from = income
     }
@@ -54,7 +54,7 @@ scene "loan_flow" {
           go:bool = decision
         }
       }
-      input {
+      ingress {
         to          = decision
         from_action = decision
       }
@@ -82,12 +82,12 @@ scene "loan_flow" {
       }
     }
 
-    emit {
+    egress {
       to           = decision.status
       from_literal = "approved"
     }
 
-    emit {
+    egress {
       to   = decision.code
       from = approval_code
     }
@@ -101,12 +101,12 @@ scene "loan_flow" {
       }
     }
 
-    emit {
+    egress {
       to           = decision.status
       from_literal = "rejected"
     }
 
-    emit {
+    egress {
       to   = decision.reason
       from = reason
     }

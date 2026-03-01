@@ -12,7 +12,7 @@ Primary goals:
 
 1. A scene must be able to define actions declaratively.
 2. Each action must be able to declare its computation graph inline.
-3. Input values and emitted output deltas must be explicit and deterministic.
+3. Ingress values and egress deltas must be explicit and deterministic.
 4. Next-action behavior must remain deterministic (`first-match` or `all-match`).
 
 ## 2. Conventions
@@ -33,10 +33,10 @@ For reference-style DSL attributes, implementations MUST normalize HCL syntax to
   - Example: `to = decision.reason` and `to = "decision.reason"` normalize to the same runtime string.
 - Reference-style attributes include:
   - `compute.root`
-  - `input.to`, `input.from_ssot`
-  - `emit.to`, `emit.from`
+  - `ingress.to`, `ingress.from_ssot`
+  - `egress.to`, `egress.from`
   - `next.to`
-  - `next.input.to`, `next.input.from_action`, `next.input.from_ssot`
+  - `next.ingress.to`, `next.ingress.from_action`, `next.ingress.from_ssot`
 - Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
 
 ## 3. Balance Rules (CAN / CAN'T)
@@ -45,16 +45,16 @@ CAN (OK):
 
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
-- An action can bind runtime inputs from SSOT paths or literals.
-- An action can emit multiple output keys to merge into SSOT.
+- An action can bind runtime ingresses from SSOT paths or literals.
+- An action can define multiple egresses to merge into SSOT.
 - An action can define next actions using per-next `compute` `prog` blocks.
 
 CAN'T (NG):
 
 - An action cannot omit `compute.root`.
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
-- An `input` target cannot reference an undefined binding.
-- An `emit` source cannot reference an undefined binding.
+- An `ingress` target cannot reference an undefined binding.
+- An `egress` source cannot reference an undefined binding.
 - A next rule cannot omit `compute.root` or `compute.prog`.
 - Next targets cannot reference missing actions.
 
@@ -77,8 +77,8 @@ type Scene = {
 type Action = {
   actionId: ActionId;
   compute: ActionComputeGraph;
-  inputs?: ActionInputBinding[];
-  emits?: ActionEmitBinding[];
+  ingresses?: ActionIngressBinding[];
+  egresses?: ActionEgressBinding[];
   next?: NextRule[]; // default: []
   nextPolicy?: "first-match" | "all-match";
   resultMerge?: {
@@ -91,22 +91,22 @@ type ActionComputeGraph = {
   root: string; // canonical binding key from DSL `compute.root`; must resolve to function binding
 };
 
-type ActionInputBinding = {
-  to: string; // canonical target value binding from DSL `input.to`
-  fromSsot?: string; // canonical dotted path from DSL `input.from_ssot`
+type ActionIngressBinding = {
+  to: string; // canonical target value binding from DSL `ingress.to`
+  fromSsot?: string; // canonical dotted path from DSL `ingress.from_ssot`
   fromLiteral?: unknown;
   required?: boolean; // default true (only for fromSsot)
 };
 
-type ActionEmitBinding = {
-  to: string; // canonical destination key from DSL `emit.to` (merged to SSOT)
-  from?: string; // canonical binding key from DSL `emit.from` (including root binding)
+type ActionEgressBinding = {
+  to: string; // canonical destination key from DSL `egress.to` (merged to SSOT)
+  from?: string; // canonical binding key from DSL `egress.from` (including root binding)
   fromLiteral?: unknown;
 };
 
 type NextRule = {
   compute: NextComputeGraph;
-  inputs?: NextInputBinding[];
+  ingresses?: NextIngressBinding[];
   to: ActionId; // canonical target action id from DSL `next.to`
 };
 
@@ -115,10 +115,10 @@ type NextComputeGraph = {
   root: string; // canonical bool binding key from DSL `next.compute.root`
 };
 
-type NextInputBinding = {
-  to: string; // canonical target value binding from DSL `next.input.to`
-  fromAction?: string; // canonical source binding from DSL `next.input.from_action`
-  fromSsot?: string; // canonical dotted path from DSL `next.input.from_ssot` (S_{n+1})
+type NextIngressBinding = {
+  to: string; // canonical target value binding from DSL `next.ingress.to`
+  fromAction?: string; // canonical source binding from DSL `next.ingress.from_action`
+  fromSsot?: string; // canonical dotted path from DSL `next.ingress.from_ssot` (S_{n+1})
   fromLiteral?: unknown;
   required?: boolean; // default true (for fromAction/fromSsot)
 };
@@ -131,9 +131,9 @@ type OverviewView = {
 
 Source exclusivity rules:
 
-- `ActionInputBinding`: exactly one of `fromSsot` or `fromLiteral` MUST be set.
-- `ActionEmitBinding`: exactly one of `from` or `fromLiteral` MUST be set.
-- `NextInputBinding`: exactly one of `fromAction`, `fromSsot`, or `fromLiteral` MUST be set.
+- `ActionIngressBinding`: exactly one of `fromSsot` or `fromLiteral` MUST be set.
+- `ActionEgressBinding`: exactly one of `from` or `fromLiteral` MUST be set.
+- `NextIngressBinding`: exactly one of `fromAction`, `fromSsot`, or `fromLiteral` MUST be set.
 
 ## 5. HCL Scene DSL
 
@@ -160,17 +160,17 @@ scene "loan_flow" {
       }
     }
 
-    input {
+    ingress {
       to        = income
       from_ssot = applicant.income
     }
 
-    input {
+    ingress {
       to        = debt
       from_ssot = applicant.debt
     }
 
-    emit {
+    egress {
       to        = decision.approved
       from      = decision
     }
@@ -183,7 +183,7 @@ scene "loan_flow" {
           go:bool = decision
         }
       }
-      input {
+      ingress {
         to          = decision
         from_action = decision
       }
@@ -213,12 +213,12 @@ Before first action execution, implementations MUST validate:
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program and resolves to a function binding.
-8. Every `input.to` exists and resolves to a value binding.
-9. Every `emit.from` exists in the program when `from` is used.
+8. Every `ingress.to` exists and resolves to a value binding.
+9. Every `egress.from` exists in the program when `from` is used.
 10. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 11. For each next rule, `compute.root` exists and resolves to a `bool` binding (value or function output).
-12. For each next input, `input.to` exists and resolves to a value binding in `compute.prog`.
-13. For each next input with `fromAction`, the source binding exists in action program outputs.
+12. For each next ingress, `ingress.to` exists and resolves to a value binding in `compute.prog`.
+13. For each next ingress with `fromAction`, the source binding exists in action program outputs.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
@@ -229,25 +229,25 @@ For one action invocation with pre-state `S_n`:
 
 1. Snapshot: capture immutable scene snapshot `S_n`.
 2. Load graph template: parse/compile `compute.prog` if not cached.
-3. Resolve inputs:
-   - For each `input` with `fromSsot`, read `S_n` by dotted path.
+3. Resolve ingresses:
+   - For each `ingress` with `fromSsot`, read `S_n` by dotted path.
    - If missing and `required` is true (default), fail action.
-   - Apply resolved inputs as overrides of target value bindings.
+   - Apply resolved ingresses as overrides of target value bindings.
 4. Build runtime graph:
    - Lower HCL program to ContextSpec.
-   - Apply input overrides.
+   - Apply ingress overrides.
    - Build with `ctx(spec)`.
    - Validate with `validateContext`.
 5. Execute root function:
    - `rootFuncId = ids[compute.root]`
    - `R_n = executeGraph(rootFuncId, validatedContext)`
-6. Build action delta `D_n` from `emits`:
+6. Build action delta `D_n` from `egresses`:
    - `from`: resolve binding value from graph context/output table.
    - `fromLiteral`: use literal value directly.
 7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
 8. Evaluate next rules in declaration order:
    - Build/validate each next-rule `compute` graph.
-   - Resolve next inputs from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve next ingresses from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
    - Resolve `compute.root` to a boolean value:
      - If `compute.root` is a function binding, execute it.
      - If `compute.root` is a value binding, read it directly.
@@ -287,13 +287,13 @@ Existing required codes from v0.2 remain required, plus the following:
 
 - `SCN_INVALID_ACTION_GRAPH`
 - `SCN_ACTION_ROOT_NOT_FUNCTION`
-- `SCN_INPUT_TARGET_NOT_VALUE`
-- `SCN_INPUT_SOURCE_MISSING`
-- `SCN_EMIT_SOURCE_INVALID`
-- `SCN_EMIT_SOURCE_UNAVAILABLE`
+- `SCN_INGRESS_TARGET_NOT_VALUE`
+- `SCN_INGRESS_SOURCE_MISSING`
+- `SCN_EGRESS_SOURCE_INVALID`
+- `SCN_EGRESS_SOURCE_UNAVAILABLE`
 - `SCN_NEXT_COMPUTE_INVALID`
 - `SCN_NEXT_COMPUTE_NOT_BOOL`
-- `SCN_NEXT_INPUT_SOURCE_INVALID`
+- `SCN_NEXT_INGRESS_SOURCE_INVALID`
 
 Recommended diagnostic payload:
 
@@ -319,11 +319,11 @@ type SceneDiagnostic = {
 ## 11. Conformance Checklist
 
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
-2. Missing SSOT input path with required input fails action without merge.
-3. `emit.from = compute.root` writes exactly the executed root result.
+2. Missing SSOT ingress path with required ingress fails action without merge.
+3. `egress.from = compute.root` writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.root` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
-8. Re-running with same inputs and snapshot yields identical `result`, `delta`, and selected next actions.
+8. Re-running with same ingresses and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
