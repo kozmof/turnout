@@ -20,8 +20,8 @@ scene "loan_flow" {
         min_income:int = 50000
         max_debt:int = 20000
 
-        income_ok:bool = gte(income, min_income)
-        debt_ok:bool = lte(debt, max_debt)
+        income_ok:bool =| income >= min_income
+        debt_ok:bool =| debt <= max_debt
         decision:bool = bool_and(income_ok, debt_ok)
       }
     }
@@ -52,7 +52,7 @@ scene "loan_flow" {
         prog "to_approve" {
           decision:bool = false
           income_ok:bool = false
-          go:bool = bool_and(decision, income_ok)
+          go:bool =| decision & income_ok
         }
       }
       ingress {
@@ -83,7 +83,7 @@ scene "loan_flow" {
       prog "approve_graph" {
         prefix:str = "APR-"
         suffix:str = "0001"
-        approval_code:str = str_concat(prefix, suffix)
+        approval_code:str =| prefix + suffix
       }
     }
 
