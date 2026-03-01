@@ -50,6 +50,7 @@ CAN (OK):
 - An action can define multiple egresses to merge into SSOT.
 - An action can define next actions using per-next `compute` `prog` blocks.
 - A next ingress can source any value binding defined by the current action `compute.prog` via `from_action`.
+- An action can include optional narrative text (`text`) as a string.
 
 CAN'T (NG):
 
@@ -79,6 +80,7 @@ type Scene = {
 
 type Action = {
   actionId: ActionId;
+  text?: string; // optional action-local narrative text
   compute: ActionComputeGraph;
   ingresses?: ActionIngressBinding[];
   egresses?: ActionEgressBinding[];
@@ -216,6 +218,43 @@ scene "loan_flow" {
 }
 ```
 
+### 5.1 Action Docstring Sugar (`"""..."""`)
+
+For authoring convenience, an action MAY contain one Python-style triple-quoted text block at action-block top level:
+
+```hcl
+action "forest_trail" {
+  """
+  You take the forest trail.
+  """
+
+  compute {
+    # ...
+  }
+}
+```
+
+This surface syntax MUST be lowered to canonical action text in plain HCL:
+
+```hcl
+action "forest_trail" {
+  text = <<-EOT
+    You take the forest trail.
+  EOT
+
+  compute {
+    # ...
+  }
+}
+```
+
+Lowering and validation rules:
+
+1. The triple-quoted text block MAY appear at most once per action.
+2. The lowered value MUST be assigned to `action.text` as a string.
+3. If both a triple-quoted block and explicit `text = ...` appear in one action, validation MUST fail (`SCN_ACTION_TEXT_DUPLICATE`).
+4. A single newline immediately after opening `"""` and immediately before closing `"""` MUST be trimmed during lowering; all other content MUST be preserved verbatim.
+
 ## 6. Validation Rules
 
 Before first action execution, implementations MUST validate:
@@ -234,6 +273,7 @@ Before first action execution, implementations MUST validate:
 12. For each next ingress, `ingress.to` exists and resolves to a value binding in `compute.prog`.
 13. For each next ingress with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
+15. For action docstring sugar, each action has at most one triple-quoted text block and no conflict with explicit `text`.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
 
@@ -310,6 +350,7 @@ Existing required codes from v0.2 remain required, plus the following:
 - `SCN_NEXT_COMPUTE_INVALID`
 - `SCN_NEXT_COMPUTE_NOT_BOOL`
 - `SCN_NEXT_INGRESS_SOURCE_INVALID`
+- `SCN_ACTION_TEXT_DUPLICATE`
 
 Recommended diagnostic payload:
 
@@ -344,3 +385,4 @@ type SceneDiagnostic = {
 8. Re-running with same ingresses and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
 10. A `next.ingress.from_action` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
+11. Triple-quoted action text and explicit `text` assignment produce identical runtime `action.text`.

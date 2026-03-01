@@ -12,6 +12,14 @@ scene "loan_flow" {
   }
 
   action "score" {
+    """
+    Logic overview:
+    - Read income and debt from SSOT into compute inputs.
+    - Evaluate threshold checks and derive `decision`.
+    - Persist approval flag and input snapshot to SSOT.
+    - Route to `approve` when decision path is true; otherwise fall through to `reject`.
+    """
+
     compute {
       root     = decision
       prog "score_graph" {
@@ -78,6 +86,12 @@ scene "loan_flow" {
   }
 
   action "approve" {
+    """
+    Logic overview:
+    - Build a deterministic approval code from a fixed prefix/suffix pair.
+    - Mark decision status as approved and store the generated code.
+    """
+
     compute {
       root     = approval_code
       prog "approve_graph" {
@@ -99,6 +113,12 @@ scene "loan_flow" {
   }
 
   action "reject" {
+    """
+    Logic overview:
+    - Produce a deterministic rejection reason.
+    - Mark decision status as rejected and persist the rejection reason.
+    """
+
     compute {
       root     = reason
       prog "reject_graph" {

@@ -28,6 +28,14 @@ scene "adventure_story_chapter_1" {
   }
 
   action "choose_route" {
+    """
+    Logic overview:
+    - Collect map/clue/coin/lockpick values from SSOT ingresses.
+    - Compute route eligibility flags (`can_forest`, `can_gate`, `can_sewer`).
+    - Persist chapter hub metadata after route selection.
+    - Evaluate next actions in order: forest, gate, sewer, then campfire fallback.
+    """
+
     compute {
       root     = decision_ready
       prog "choose_route_graph" {
@@ -131,6 +139,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "forest_trail" {
+    """
+    Logic overview:
+    - Set forest route metadata and a deterministic danger level.
+    - Emit route, current location, and threat level to story state.
+    - Always continue to `shrine_discovery`.
+    """
+
     compute {
       root     = story_route
       prog "forest_trail_graph" {
@@ -170,6 +185,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "city_gate" {
+    """
+    Logic overview:
+    - Read current coins from SSOT and apply the city gate toll.
+    - Emit updated coin balance plus route/location updates.
+    - Always continue to `courtyard_arrival`.
+    """
+
     compute {
       root     = story_route
       prog "city_gate_graph" {
@@ -215,6 +237,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "sewer_tunnel" {
+    """
+    Logic overview:
+    - Read lockpick skill from SSOT and evaluate hidden-mark discovery.
+    - Emit route/location updates and discovery flag.
+    - Always continue to `hidden_archive`.
+    """
+
     compute {
       root     = story_route
       prog "sewer_tunnel_graph" {
@@ -259,6 +288,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "campfire_wait" {
+    """
+    Logic overview:
+    - Set route and journal note for the wait-at-camp branch.
+    - Emit route/journal fields and a fixed camp location literal.
+    - Always continue to `chapter_end`.
+    """
+
     compute {
       root     = story_route
       prog "campfire_wait_graph" {
@@ -295,6 +331,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "shrine_discovery" {
+    """
+    Logic overview:
+    - Materialize shrine reward text from relic data.
+    - Emit chapter reward and fixed shrine location.
+    - Always continue to `chapter_end`.
+    """
+
     compute {
       root     = reward
       prog "shrine_discovery_graph" {
@@ -325,6 +368,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "courtyard_arrival" {
+    """
+    Logic overview:
+    - Materialize city-branch reward text from writ data.
+    - Emit chapter reward and fixed courtyard location.
+    - Always continue to `chapter_end`.
+    """
+
     compute {
       root     = reward
       prog "courtyard_arrival_graph" {
@@ -355,6 +405,13 @@ scene "adventure_story_chapter_1" {
   }
 
   action "hidden_archive" {
+    """
+    Logic overview:
+    - Materialize archive-branch reward text from ledger data.
+    - Emit chapter reward and fixed archive location.
+    - Always continue to `chapter_end`.
+    """
+
     compute {
       root     = reward
       prog "hidden_archive_graph" {
@@ -385,6 +442,12 @@ scene "adventure_story_chapter_1" {
   }
 
   action "chapter_end" {
+    """
+    Logic overview:
+    - Build final chapter result identifier from prefix/suffix.
+    - Mark chapter state as resolved and store the final result string.
+    """
+
     compute {
       root     = chapter_result
       prog "chapter_end_graph" {
