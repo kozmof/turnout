@@ -63,7 +63,7 @@ scene "loan_flow" {
         to          = income_ok
         from_action = income_ok
       }
-      to   = approve
+      action = approve
     }
 
     next {
@@ -73,7 +73,7 @@ scene "loan_flow" {
           always:bool = true
         }
       }
-      to   = reject
+      action = reject
     }
   }
 

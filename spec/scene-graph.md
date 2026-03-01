@@ -35,7 +35,7 @@ For reference-style DSL attributes, implementations MUST normalize HCL syntax to
   - `compute.root`
   - `ingress.to`, `ingress.from_ssot`
   - `egress.to`, `egress.from`
-  - `next.to`
+  - `next.action`
   - `next.ingress.to`, `next.ingress.from_action`, `next.ingress.from_ssot`
 - Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
 
@@ -57,7 +57,7 @@ CAN'T (NG):
 - An `ingress` target cannot reference an undefined binding.
 - An `egress` source cannot reference an undefined binding.
 - A next rule cannot omit `compute.root` or `compute.prog`.
-- Next targets cannot reference missing actions.
+- Next actions cannot reference missing actions.
 
 Correlation:
 
@@ -109,7 +109,7 @@ type ActionEgressBinding = {
 type NextRule = {
   compute: NextComputeGraph;
   ingresses?: NextIngressBinding[];
-  to: ActionId; // canonical target action id from DSL `next.to`
+  action: ActionId; // canonical next action id from DSL `next.action`
 };
 
 type NextComputeGraph = {
@@ -199,7 +199,7 @@ scene "loan_flow" {
         to          = income_ok
         from_action = income_ok
       }
-      to   = approve
+      action = approve
     }
     next {
       compute {
@@ -208,7 +208,7 @@ scene "loan_flow" {
           always:bool = true
         }
       }
-      to   = reject
+      action = reject
     }
   }
 }
@@ -221,7 +221,7 @@ Before first action execution, implementations MUST validate:
 1. `actions` is non-empty.
 2. `entryActionIds` is non-empty and all entries exist.
 3. Every `actionId` is unique.
-4. All next targets exist.
+4. All next actions exist.
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program and resolves to a function binding.
@@ -293,7 +293,7 @@ Overview DSL behavior is unchanged from `draft-spec/scene-graph.md`:
 Runtime mapping:
 
 - `impl_nodes = { action.actionId }`
-- `impl_data_edges = { (actionId, targetActionId) | targetActionId in action.next }`
+- `impl_data_edges = { (actionId, nextActionId) | nextActionId in action.next }`
 
 ## 10. Diagnostics (Minimum Set)
 
