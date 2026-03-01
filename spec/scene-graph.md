@@ -48,6 +48,7 @@ CAN (OK):
 - An action can bind runtime ingresses from SSOT paths or literals.
 - An action can define multiple egresses to merge into SSOT.
 - An action can define next actions using per-next `compute` `prog` blocks.
+- A next ingress can source any value binding defined by the current action `compute.prog` via `from_action`.
 
 CAN'T (NG):
 
@@ -62,6 +63,7 @@ Correlation:
 
 - Because `root` is function-only, `from = <root_binding>` is always available as a deterministic emission source.
 - Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
+- Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.ingress.from_action` mapping.
 
 ## 4. Runtime Data Model
 
@@ -117,7 +119,7 @@ type NextComputeGraph = {
 
 type NextIngressBinding = {
   to: string; // canonical target value binding from DSL `next.ingress.to`
-  fromAction?: string; // canonical source binding from DSL `next.ingress.from_action`
+  fromAction?: string; // canonical source binding from current action `compute.prog` via DSL `next.ingress.from_action`
   fromSsot?: string; // canonical dotted path from DSL `next.ingress.from_ssot` (S_{n+1})
   fromLiteral?: unknown;
   required?: boolean; // default true (for fromAction/fromSsot)
@@ -134,6 +136,11 @@ Source exclusivity rules:
 - `ActionIngressBinding`: exactly one of `fromSsot` or `fromLiteral` MUST be set.
 - `ActionEgressBinding`: exactly one of `from` or `fromLiteral` MUST be set.
 - `NextIngressBinding`: exactly one of `fromAction`, `fromSsot`, or `fromLiteral` MUST be set.
+
+Action-to-next binding scope:
+
+- For one action invocation, `next.ingress.from_action` MUST resolve against that action's `compute.prog` binding namespace.
+- Implementations MAY resolve these bindings lazily, but observable behavior MUST match eager availability of all value bindings declared in action `compute.prog`.
 
 ## 5. HCL Scene DSL
 
@@ -180,12 +187,17 @@ scene "loan_flow" {
         root = go
         prog "to_approve" {
           decision:bool = false
-          go:bool = decision
+          income_ok:bool = false
+          go:bool = bool_and(decision, income_ok)
         }
       }
       ingress {
         to          = decision
         from_action = decision
+      }
+      ingress {
+        to          = income_ok
+        from_action = income_ok
       }
       to   = approve
     }
@@ -218,7 +230,7 @@ Before first action execution, implementations MUST validate:
 10. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 11. For each next rule, `compute.root` exists and resolves to a `bool` binding (value or function output).
 12. For each next ingress, `ingress.to` exists and resolves to a value binding in `compute.prog`.
-13. For each next ingress with `fromAction`, the source binding exists in action program outputs.
+13. For each next ingress with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
@@ -241,13 +253,14 @@ For one action invocation with pre-state `S_n`:
 5. Execute root function:
    - `rootFuncId = ids[compute.root]`
    - `R_n = executeGraph(rootFuncId, validatedContext)`
+   - Build action binding namespace `A_n` from this invocation's action `compute.prog` context.
 6. Build action delta `D_n` from `egresses`:
    - `from`: resolve binding value from graph context/output table.
    - `fromLiteral`: use literal value directly.
 7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
 8. Evaluate next rules in declaration order:
    - Build/validate each next-rule `compute` graph.
-   - Resolve next ingresses from action outputs (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve next ingresses from action binding namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
    - Resolve `compute.root` to a boolean value:
      - If `compute.root` is a function binding, execute it.
      - If `compute.root` is a value binding, read it directly.
@@ -264,6 +277,7 @@ Failure semantics:
 - Effective next policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
 - Each rule's `compute` graph is evaluated independently and must resolve `compute.root` to boolean.
+- `fromAction` ingresses read from the current action `compute.prog` binding namespace (`A_n`).
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
@@ -327,3 +341,4 @@ type SceneDiagnostic = {
 7. Overview enforcement modes behave as defined.
 8. Re-running with same ingresses and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
+10. A `next.ingress.from_action` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.

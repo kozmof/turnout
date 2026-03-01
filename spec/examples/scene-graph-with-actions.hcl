@@ -51,12 +51,17 @@ scene "loan_flow" {
         root = go
         prog "to_approve" {
           decision:bool = false
-          go:bool = decision
+          income_ok:bool = false
+          go:bool = bool_and(decision, income_ok)
         }
       }
       ingress {
         to          = decision
         from_action = decision
+      }
+      ingress {
+        to          = income_ok
+        from_action = income_ok
       }
       to   = approve
     }
