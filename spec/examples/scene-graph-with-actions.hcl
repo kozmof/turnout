@@ -48,7 +48,7 @@ scene "loan_flow" {
 
     next {
       compute {
-        root = go
+        condition = go
         prog "to_approve" {
           decision:bool = false
           income_ok:bool = false
@@ -68,7 +68,7 @@ scene "loan_flow" {
 
     next {
       compute {
-        root = always
+        condition = always
         prog "to_reject" {
           always:bool = true
         }

@@ -32,7 +32,8 @@ For reference-style DSL attributes, implementations MUST normalize HCL syntax to
 - Bare reference form and quoted string form are both allowed and MUST be treated equivalently:
   - Example: `to = decision.reason` and `to = "decision.reason"` normalize to the same runtime string.
 - Reference-style attributes include:
-  - `compute.root`
+  - `action.compute.root`
+  - `next.compute.condition`
   - `ingress.to`, `ingress.from_ssot`
   - `egress.to`, `egress.from`
   - `next.action`
@@ -56,7 +57,7 @@ CAN'T (NG):
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
 - An `ingress` target cannot reference an undefined binding.
 - An `egress` source cannot reference an undefined binding.
-- A next rule cannot omit `compute.root` or `compute.prog`.
+- A next rule cannot omit `compute.condition` or `compute.prog`.
 - Next actions cannot reference missing actions.
 
 Correlation:
@@ -114,7 +115,7 @@ type NextRule = {
 
 type NextComputeGraph = {
   prog: string; // canonical source of one inline `prog "<name>" { ... }` block
-  root: string; // canonical bool binding key from DSL `next.compute.root`
+  condition: string; // canonical bool binding key from DSL `next.compute.condition`
 };
 
 type NextIngressBinding = {
@@ -184,7 +185,7 @@ scene "loan_flow" {
 
     next {
       compute {
-        root = go
+        condition = go
         prog "to_approve" {
           decision:bool = false
           income_ok:bool = false
@@ -203,7 +204,7 @@ scene "loan_flow" {
     }
     next {
       compute {
-        root = always
+        condition = always
         prog "to_reject" {
           always:bool = true
         }
@@ -228,7 +229,7 @@ Before first action execution, implementations MUST validate:
 8. Every `ingress.to` exists and resolves to a value binding.
 9. Every `egress.from` exists in the program when `from` is used.
 10. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
-11. For each next rule, `compute.root` exists and resolves to a `bool` binding (value or function output).
+11. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
 12. For each next ingress, `ingress.to` exists and resolves to a value binding in `compute.prog`.
 13. For each next ingress with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
@@ -261,9 +262,9 @@ For one action invocation with pre-state `S_n`:
 8. Evaluate next rules in declaration order:
    - Build/validate each next-rule `compute` graph.
    - Resolve next ingresses from action binding namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
-   - Resolve `compute.root` to a boolean value:
-     - If `compute.root` is a function binding, execute it.
-     - If `compute.root` is a value binding, read it directly.
+   - Resolve `compute.condition` to a boolean value:
+     - If `compute.condition` is a function binding, execute it.
+     - If `compute.condition` is a value binding, read it directly.
    - Treat resolved boolean as the rule result.
 9. Select next action IDs based on effective policy and enqueue.
 
@@ -276,7 +277,7 @@ Failure semantics:
 
 - Effective next policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
-- Each rule's `compute` graph is evaluated independently and must resolve `compute.root` to boolean.
+- Each rule's `compute` graph is evaluated independently and must resolve `compute.condition` to boolean.
 - `fromAction` ingresses read from the current action `compute.prog` binding namespace (`A_n`).
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
@@ -336,7 +337,7 @@ type SceneDiagnostic = {
 2. Missing SSOT ingress path with required ingress fails action without merge.
 3. `egress.from = compute.root` writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
-5. `next.compute.root` must resolve to `bool`, else validation fails.
+5. `next.compute.condition` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same ingresses and snapshot yields identical `result`, `delta`, and selected next actions.
