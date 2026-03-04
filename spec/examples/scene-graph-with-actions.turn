@@ -23,53 +23,50 @@ scene "loan_flow" {
     compute {
       root     = decision
       prog "score_graph" {
-        income:int = 0
-        debt:int = 0
+        <~>income:int = 0
+        ~>debt:int = 0
         min_income:int = 50000
         max_debt:int = 20000
 
         income_ok:bool =| income >= min_income
         debt_ok:bool =| debt <= max_debt
-        decision:bool = bool_and(income_ok, debt_ok)
+        <~decision:bool = bool_and(income_ok, debt_ok)
       }
     }
 
-    ingress {
-      to        = income
-      from_ssot = applicant.income
-    }
-
-    ingress {
-      to        = debt
-      from_ssot = applicant.debt
-    }
-
-    egress {
-      to   = decision.approved
-      from = decision
-    }
-
-    egress {
-      to   = decision.input_income
-      from = income
+    io {
+      group {
+        income {
+          from_ssot = applicant.income
+          to_ssot   = decision.input_income
+        }
+        debt {
+          from_ssot = applicant.debt
+        }
+        decision {
+          to_ssot = decision.approved
+        }
+      }
     }
 
     next {
       compute {
         condition = go
         prog "to_approve" {
-          decision:bool = false
-          income_ok:bool = false
-          go:bool =| decision & income_ok
+          ~>decision:bool = false
+          ~>income_ok:bool = false
+          <~go:bool =| decision & income_ok
         }
       }
-      ingress {
-        to          = decision
-        from_action = decision
-      }
-      ingress {
-        to          = income_ok
-        from_action = income_ok
+      io {
+        group {
+          decision {
+            from_action = decision
+          }
+          income_ok {
+            from_action = income_ok
+          }
+        }
       }
       action = approve
     }
@@ -97,18 +94,20 @@ scene "loan_flow" {
       prog "approve_graph" {
         prefix:str = "APR-"
         suffix:str = "0001"
-        approval_code:str =| prefix + suffix
+        <~approval_code:str =| prefix + suffix
+        <~status:str = "approved"
       }
     }
 
-    egress {
-      to           = decision.status
-      from_literal = "approved"
-    }
-
-    egress {
-      to   = decision.code
-      from = approval_code
+    io {
+      group {
+        status {
+          to_ssot = decision.status
+        }
+        approval_code {
+          to_ssot = decision.code
+        }
+      }
     }
   }
 
@@ -122,18 +121,20 @@ scene "loan_flow" {
     compute {
       root     = reason
       prog "reject_graph" {
-        reason:str = "risk_threshold_not_met"
+        <~reason:str = "risk_threshold_not_met"
+        <~status:str = "rejected"
       }
     }
 
-    egress {
-      to           = decision.status
-      from_literal = "rejected"
-    }
-
-    egress {
-      to   = decision.reason
-      from = reason
+    io {
+      group {
+        status {
+          to_ssot = decision.status
+        }
+        reason {
+          to_ssot = decision.reason
+        }
+      }
     }
   }
 }
