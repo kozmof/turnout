@@ -1,0 +1,365 @@
+scene "llm_support_workflow" {
+  entry_actions     = ["analyze_request"]
+  next_policy       = "first-match"
+
+  view "overview" {
+    text = <<-EOT
+      analyze_request
+        |=> retrieve_context
+        |=> draft_direct
+      retrieve_context
+        |=> draft_with_context
+      draft_direct
+        |=> safety_check
+      draft_with_context
+        |=> safety_check
+      safety_check
+        |=> publish_response
+        |=> human_review
+    EOT
+    enforce = "at_least"
+  }
+
+  action "analyze_request" {
+    """
+    Logic overview:
+    - Read request-level routing flags from SSOT.
+    - Decide whether retrieval is needed for this turn.
+    - Persist workflow stage metadata.
+    """
+
+    compute {
+      root     = analysis_ready
+      prog "analyze_request_graph" {
+        ~>need_grounding:bool = false
+        ~>kb_enabled:bool = false
+        ~>priority_tier:int = 0
+        <~workflow_stage:str = "analyzed"
+
+        retrieve_ready:bool = bool_and(need_grounding, kb_enabled)
+        fast_lane:bool =| priority_tier >= 2
+        analysis_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        need_grounding {
+          from_ssot = request.flags.need_grounding
+        }
+        kb_enabled {
+          from_ssot = runtime.features.kb_enabled
+        }
+        priority_tier {
+          from_ssot = request.priority_tier
+        }
+        workflow_stage {
+          to_ssot = workflow.stage
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = go_retrieve
+        prog "to_retrieve_context" {
+          ~>retrieve_ready:bool = false
+          go_retrieve:bool = bool_and(retrieve_ready, true)
+        }
+      }
+      io {
+        group {
+          retrieve_ready {
+            from_action = retrieve_ready
+          }
+        }
+      }
+      action = retrieve_context
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_draft_direct" {
+          always:bool = true
+        }
+      }
+      action = draft_direct
+    }
+  }
+
+  action "retrieve_context" {
+    """
+    Logic overview:
+    - Read query and retrieval hint from SSOT.
+    - Build deterministic retrieval context text.
+    - Persist context payload and stage metadata.
+    """
+
+    compute {
+      root     = retrieval_ready
+      prog "retrieve_context_graph" {
+        ~>query:str = ""
+        ~>doc_hint:str = ""
+        <~workflow_stage:str = "retrieved"
+
+        context_prefix:str =| query + " :: "
+        <~retrieved_context:str =| context_prefix + doc_hint
+        retrieval_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        query {
+          from_ssot = request.query
+        }
+        doc_hint {
+          from_ssot = request.doc_hint
+        }
+        workflow_stage {
+          to_ssot = workflow.stage
+        }
+        retrieved_context {
+          to_ssot = workflow.context
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_draft_with_context" {
+          always:bool = true
+        }
+      }
+      action = draft_with_context
+    }
+  }
+
+  action "draft_direct" {
+    """
+    Logic overview:
+    - Produce a direct draft from request text only.
+    - Persist draft and stage metadata.
+    """
+
+    compute {
+      root     = draft_ready
+      prog "draft_direct_graph" {
+        ~>query:str = ""
+        prefix:str = "Direct answer: "
+        <~draft_text:str =| prefix + query
+        <~workflow_stage:str = "drafted_direct"
+        draft_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        query {
+          from_ssot = request.query
+        }
+        draft_text {
+          to_ssot = workflow.draft
+        }
+        workflow_stage {
+          to_ssot = workflow.stage
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_safety_check_from_direct" {
+          always:bool = true
+        }
+      }
+      action = safety_check
+    }
+  }
+
+  action "draft_with_context" {
+    """
+    Logic overview:
+    - Read request text and retrieved context from SSOT.
+    - Produce a grounded draft.
+    - Persist draft and stage metadata.
+    """
+
+    compute {
+      root     = draft_ready
+      prog "draft_with_context_graph" {
+        ~>query:str = ""
+        ~>retrieved_context:str = ""
+        <~workflow_stage:str = "drafted_with_context"
+
+        draft_seed:str =| query + " | "
+        <~draft_text:str =| draft_seed + retrieved_context
+        draft_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        query {
+          from_ssot = request.query
+        }
+        retrieved_context {
+          from_ssot = workflow.context
+        }
+        draft_text {
+          to_ssot = workflow.draft
+        }
+        workflow_stage {
+          to_ssot = workflow.stage
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_safety_check_from_context" {
+          always:bool = true
+        }
+      }
+      action = safety_check
+    }
+  }
+
+  action "safety_check" {
+    """
+    Logic overview:
+    - Read moderation scores from SSOT.
+    - Approve when both toxicity and PII checks pass.
+    - Persist approval result and stage metadata.
+    """
+
+    compute {
+      root     = safety_ready
+      prog "safety_check_graph" {
+        ~>toxicity_score:int = 0
+        ~>pii_score:int = 0
+        <~workflow_stage:str = "safety_checked"
+
+        toxicity_ok:bool =| toxicity_score <= 2
+        pii_ok:bool =| pii_score <= 1
+        <~approved:bool = bool_and(toxicity_ok, pii_ok)
+        safety_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        toxicity_score {
+          from_ssot = moderation.toxicity_score
+        }
+        pii_score {
+          from_ssot = moderation.pii_score
+        }
+        approved {
+          to_ssot = workflow.approved
+        }
+        workflow_stage {
+          to_ssot = workflow.stage
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = go_publish
+        prog "to_publish_response" {
+          ~>approved:bool = false
+          go_publish:bool = bool_and(approved, true)
+        }
+      }
+      io {
+        group {
+          approved {
+            from_action = approved
+          }
+        }
+      }
+      action = publish_response
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_human_review" {
+          always:bool = true
+        }
+      }
+      action = human_review
+    }
+  }
+
+  action "publish_response" {
+    """
+    Logic overview:
+    - Read generated draft from SSOT.
+    - Publish final response and update workflow status.
+    """
+
+    compute {
+      root     = publish_ready
+      prog "publish_response_graph" {
+        ~>draft_text:str = ""
+        <~workflow_status:str = "sent"
+        <~final_response:str =| draft_text + ""
+        publish_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        draft_text {
+          from_ssot = workflow.draft
+        }
+        workflow_status {
+          to_ssot = workflow.status
+        }
+        final_response {
+          to_ssot = conversation.last_response
+        }
+      }
+    }
+  }
+
+  action "human_review" {
+    """
+    Logic overview:
+    - Read generated draft from SSOT.
+    - Create a deterministic handoff note for a human operator.
+    - Persist review note and workflow status.
+    """
+
+    compute {
+      root     = handoff_ready
+      prog "human_review_graph" {
+        ~>draft_text:str = ""
+        prefix:str = "Review needed: "
+        <~handoff_note:str =| prefix + draft_text
+        <~workflow_status:str = "awaiting_human"
+        handoff_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      group {
+        draft_text {
+          from_ssot = workflow.draft
+        }
+        handoff_note {
+          to_ssot = review.note
+        }
+        workflow_status {
+          to_ssot = workflow.status
+        }
+      }
+    }
+  }
+}
