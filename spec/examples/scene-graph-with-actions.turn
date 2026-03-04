@@ -55,7 +55,7 @@ scene "loan_flow" {
         prog "to_approve" {
           ~>decision:bool = false
           ~>income_ok:bool = false
-          <~go:bool =| decision & income_ok
+          go:bool =| decision & income_ok
         }
       }
       io {
