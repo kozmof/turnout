@@ -55,7 +55,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      in {
         has_map {
           from_ssot = story.flags.has_map
         }
@@ -68,6 +68,8 @@ scene "adventure_story_chapter_1" {
         lockpick_skill {
           from_ssot = party.skills.lockpick
         }
+      }
+      out {
         chapter_state {
           to_ssot = story.chapter_state
         }
@@ -86,7 +88,7 @@ scene "adventure_story_chapter_1" {
         }
       }
       io {
-        group {
+        in {
           can_forest {
             from_action = can_forest
           }
@@ -104,7 +106,7 @@ scene "adventure_story_chapter_1" {
         }
       }
       io {
-        group {
+        in {
           can_gate {
             from_action = can_gate
           }
@@ -122,7 +124,7 @@ scene "adventure_story_chapter_1" {
         }
       }
       io {
-        group {
+        in {
           can_sewer {
             from_action = can_sewer
           }
@@ -163,7 +165,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      out {
         story_route {
           to_ssot = story.route
         }
@@ -209,10 +211,12 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      in {
         coins {
           from_ssot = party.inventory.coins
         }
+      }
+      out {
         coins_after {
           to_ssot = party.inventory.coins
         }
@@ -257,10 +261,12 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      in {
         lockpick_skill {
           from_ssot = party.skills.lockpick
         }
+      }
+      out {
         story_route {
           to_ssot = story.route
         }
@@ -303,7 +309,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      out {
         story_route {
           to_ssot = story.route
         }
@@ -345,7 +351,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      out {
         reward {
           to_ssot = story.chapter_reward
         }
@@ -384,7 +390,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      out {
         reward {
           to_ssot = story.chapter_reward
         }
@@ -423,7 +429,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      out {
         reward {
           to_ssot = story.chapter_reward
         }
@@ -462,7 +468,7 @@ scene "adventure_story_chapter_1" {
     }
 
     io {
-      group {
+      out {
         chapter_state {
           to_ssot = story.chapter_state
         }

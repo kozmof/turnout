@@ -34,9 +34,11 @@ For reference-style DSL attributes, implementations MUST normalize HCL syntax to
 - Reference-style attributes include:
   - `action.compute.root`
   - `next.compute.condition`
-  - `action.io.group.<binding>.from_ssot`, `action.io.group.<binding>.to_ssot`
+  - `action.io.in.<binding>.from_ssot`
+  - `action.io.out.<binding>.to_ssot`
   - `next.action`
-  - `next.io.group.<binding>.from_action`, `next.io.group.<binding>.from_ssot`
+  - `next.io.in.<binding>.from_action`, `next.io.in.<binding>.from_ssot`
+  - `next.io.out.<binding>.to_ssot`
 - Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
 
 ## 3. Balance Rules (CAN / CAN'T)
@@ -45,17 +47,17 @@ CAN (OK):
 
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
-- An action can bind grouped IO mappings under `io { group { ... } }`.
+- An action can bind IO mappings under separated `io { in { ... } out { ... } }`.
 - An action can define inbound/outbound direction per binding in `compute.prog`.
 - An action can define next actions using per-next `compute` `prog` blocks.
-- A next IO entry can source any value binding defined by the current action `compute.prog` via `from_action`.
+- A next IO input entry can source any value binding defined by the current action `compute.prog` via `from_action`.
 - An action can include optional narrative text (`text`) as a string.
 
 CAN'T (NG):
 
 - An action cannot omit `compute.root`.
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
-- An `io.group` binding key cannot reference an undefined binding.
+- An `io.in` or `io.out` binding key cannot reference an undefined binding.
 - A binding marked as ingress-capable cannot omit its ingress source.
 - A next rule cannot omit `compute.condition` or `compute.prog`.
 - Next actions cannot reference missing actions.
@@ -64,7 +66,7 @@ Correlation:
 
 - Because `root` is function-only, a `<~ root` or `<~> root` binding is always available as a deterministic emission source.
 - Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
-- Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.io.group.<binding>.from_action` mapping.
+- Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.io.in.<binding>.from_action` mapping.
 
 ## 4. Runtime Data Model
 
@@ -81,7 +83,7 @@ type Action = {
   actionId: ActionId;
   text?: string; // optional action-local narrative text
   compute: ActionComputeGraph;
-  io?: IoGroup;
+  io?: IoSpec;
   next?: NextRule[]; // default: []
   nextPolicy?: "first-match" | "all-match";
   resultMerge?: {
@@ -96,21 +98,25 @@ type ActionComputeGraph = {
 
 type IoDirection = "ingress" | "egress" | "both";
 
-type IoGroup = {
-  group: Record<string, IoBinding>; // key is binding name declared in compute.prog
+type IoSpec = {
+  in?: Record<string, IoInBinding>; // key is binding name declared in compute.prog
+  out?: Record<string, IoOutBinding>; // key is binding name declared in compute.prog
 };
 
-type IoBinding = {
+type IoInBinding = {
   fromSsot?: string; // canonical dotted source path
   fromAction?: string; // canonical source binding from prior action namespace (next-rule only)
   fromLiteral?: unknown; // literal ingress source
-  toSsot?: string; // canonical destination key in SSOT; default is binding key
   required?: boolean; // default true for fromSsot/fromAction
+};
+
+type IoOutBinding = {
+  toSsot?: string; // canonical destination key in SSOT; default is binding key
 };
 
 type NextRule = {
   compute: NextComputeGraph;
-  io?: IoGroup;
+  io?: IoSpec;
   action: ActionId; // canonical next action id from DSL `next.action`
 };
 
@@ -125,16 +131,17 @@ type OverviewView = {
 };
 ```
 
-Source exclusivity rules:
+Group separation and source rules:
 
-- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set: `fromSsot` or `fromLiteral`.
-- For next-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set: `fromAction`, `fromSsot`, or `fromLiteral`.
-- For bindings declared as `<~` or `<~>`, SSOT merge destination is `toSsot` if provided, otherwise the binding key.
-- `fromAction` is only valid inside `next.io.group`.
+- IO mappings MUST be separated: ingress mappings under `io.in`, egress mappings under `io.out`.
+- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `io.in`: `fromSsot` or `fromLiteral`.
+- For next-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `io.in`: `fromAction`, `fromSsot`, or `fromLiteral`.
+- For bindings declared as `<~` or `<~>`, destination mapping is declared in `io.out` and destination key is `toSsot` if provided, otherwise binding key.
+- `fromAction` is only valid inside `next.io.in`.
 
 Action-to-next binding scope:
 
-- For one action invocation, `next.io.group.<binding>.from_action` MUST resolve against that action's `compute.prog` binding namespace.
+- For one action invocation, `next.io.in.<binding>.from_action` MUST resolve against that action's `compute.prog` binding namespace.
 - Implementations MAY resolve these bindings lazily, but observable behavior MUST match eager availability of all value bindings declared in action `compute.prog`.
 
 ## 5. HCL Scene DSL
@@ -169,13 +176,17 @@ scene "loan_flow" {
     }
 
     io {
-      group {
+      in {
         income {
           from_ssot = applicant.income
-          to_ssot   = decision.input_income
         }
         debt {
           from_ssot = applicant.debt
+        }
+      }
+      out {
+        income {
+          to_ssot = decision.input_income
         }
         decision {
           to_ssot = decision.approved
@@ -193,7 +204,7 @@ scene "loan_flow" {
         }
       }
       io {
-        group {
+        in {
           decision {
             from_action = decision
           }
@@ -265,11 +276,11 @@ Before first action execution, implementations MUST validate:
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program and resolves to a function binding.
-8. Every `io.group` binding key exists and resolves to a value binding in `compute.prog`.
-9. For every binding declared `~>` or `<~>`, exactly one ingress source is set in `io.group`.
+8. Every `io.in` and `io.out` binding key exists and resolves to a value binding in `compute.prog`.
+9. For every binding declared `~>` or `<~>`, exactly one ingress source is set in `io.in`.
 10. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 11. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
-12. For each next rule, every `next.io.group` binding key exists and resolves to a value binding in that next-rule `compute.prog`.
+12. For each next rule, every `next.io.in` and `next.io.out` binding key exists and resolves to a value binding in that next-rule `compute.prog`.
 13. For each next binding with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
 14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
 15. For action docstring sugar, each action has at most one triple-quoted text block and no conflict with explicit `text`.
@@ -283,7 +294,7 @@ For one action invocation with pre-state `S_n`:
 1. Snapshot: capture immutable scene snapshot `S_n`.
 2. Load graph template: parse/compile `compute.prog` if not cached.
 3. Resolve ingress-capable IO bindings:
-   - For each `io.group.<binding>` where direction is `~>` or `<~>`, resolve source (`fromSsot`, `fromLiteral`).
+   - For each `io.in.<binding>` where direction is `~>` or `<~>`, resolve source (`fromSsot`, `fromLiteral`).
    - If missing and `required` is true (default), fail action.
    - Apply resolved values as overrides of target bindings.
 4. Build runtime graph:
@@ -296,7 +307,7 @@ For one action invocation with pre-state `S_n`:
    - `R_n = executeGraph(rootFuncId, validatedContext)`
    - Build action binding namespace `A_n` from this invocation's action `compute.prog` context.
 6. Build action delta `D_n` from egress-capable IO bindings:
-   - For each `io.group.<binding>` where direction is `<~` or `<~>`, read binding value from graph context/output table.
+   - For each `io.out.<binding>` where direction is `<~` or `<~>`, read binding value from graph context/output table.
    - Destination key is `toSsot` if provided; otherwise binding name.
 7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
 8. Evaluate next rules in declaration order:
@@ -318,7 +329,7 @@ Failure semantics:
 - Effective next policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
 - Each rule's `compute` graph is evaluated independently and must resolve `compute.condition` to boolean.
-- `fromAction` in `next.io.group` reads from the current action `compute.prog` binding namespace (`A_n`).
+- `fromAction` in `next.io.in` reads from the current action `compute.prog` binding namespace (`A_n`).
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
@@ -376,12 +387,12 @@ type SceneDiagnostic = {
 
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
 2. Missing SSOT ingress path with required ingress fails action without merge.
-3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `io.group`.
+3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `io.out`.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.condition` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same IO inputs and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
-10. A `next.io.group.<binding>.from_action` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
+10. A `next.io.in.<binding>.from_action` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
 11. Triple-quoted action text and explicit `text` assignment produce identical runtime `action.text`.

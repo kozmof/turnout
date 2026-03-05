@@ -43,7 +43,7 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         need_grounding {
           from_ssot = request.flags.need_grounding
         }
@@ -53,6 +53,8 @@ scene "llm_support_workflow" {
         priority_tier {
           from_ssot = request.priority_tier
         }
+      }
+      out {
         workflow_stage {
           to_ssot = workflow.stage
         }
@@ -68,7 +70,7 @@ scene "llm_support_workflow" {
         }
       }
       io {
-        group {
+        in {
           retrieve_ready {
             from_action = retrieve_ready
           }
@@ -110,13 +112,15 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         query {
           from_ssot = request.query
         }
         doc_hint {
           from_ssot = request.doc_hint
         }
+      }
+      out {
         workflow_stage {
           to_ssot = workflow.stage
         }
@@ -156,10 +160,12 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         query {
           from_ssot = request.query
         }
+      }
+      out {
         draft_text {
           to_ssot = workflow.draft
         }
@@ -202,13 +208,15 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         query {
           from_ssot = request.query
         }
         retrieved_context {
           from_ssot = workflow.context
         }
+      }
+      out {
         draft_text {
           to_ssot = workflow.draft
         }
@@ -252,13 +260,15 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         toxicity_score {
           from_ssot = moderation.toxicity_score
         }
         pii_score {
           from_ssot = moderation.pii_score
         }
+      }
+      out {
         approved {
           to_ssot = workflow.approved
         }
@@ -277,7 +287,7 @@ scene "llm_support_workflow" {
         }
       }
       io {
-        group {
+        in {
           approved {
             from_action = approved
           }
@@ -315,10 +325,12 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         draft_text {
           from_ssot = workflow.draft
         }
+      }
+      out {
         workflow_status {
           to_ssot = workflow.status
         }
@@ -349,10 +361,12 @@ scene "llm_support_workflow" {
     }
 
     io {
-      group {
+      in {
         draft_text {
           from_ssot = workflow.draft
         }
+      }
+      out {
         handoff_note {
           to_ssot = review.note
         }

@@ -35,13 +35,17 @@ scene "loan_flow" {
     }
 
     io {
-      group {
+      in {
         income {
           from_ssot = applicant.income
-          to_ssot   = decision.input_income
         }
         debt {
           from_ssot = applicant.debt
+        }
+      }
+      out {
+        income {
+          to_ssot = decision.input_income
         }
         decision {
           to_ssot = decision.approved
@@ -59,7 +63,7 @@ scene "loan_flow" {
         }
       }
       io {
-        group {
+        in {
           decision {
             from_action = decision
           }
@@ -100,7 +104,7 @@ scene "loan_flow" {
     }
 
     io {
-      group {
+      out {
         status {
           to_ssot = decision.status
         }
@@ -127,7 +131,7 @@ scene "loan_flow" {
     }
 
     io {
-      group {
+      out {
         status {
           to_ssot = decision.status
         }
