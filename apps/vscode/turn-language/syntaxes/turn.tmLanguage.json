@@ -1,0 +1,151 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Turn",
+  "scopeName": "source.turn",
+  "fileTypes": ["turn"],
+  "patterns": [
+    { "include": "#docstring" },
+    { "include": "#heredoc" },
+    { "include": "#property-assign" },
+    { "include": "#named-block" },
+    { "include": "#simple-block" },
+    { "include": "#sigil-decl" },
+    { "include": "#type-annotation" },
+    { "include": "#function-call" },
+    { "include": "#string" },
+    { "include": "#number" },
+    { "include": "#boolean" },
+    { "include": "#flow-arrow" },
+    { "include": "#computed-assign" },
+    { "include": "#operator" },
+    { "include": "#identifier" }
+  ],
+  "repository": {
+    "docstring": {
+      "begin": "\"\"\"",
+      "end": "\"\"\"",
+      "name": "comment.block.documentation.turn",
+      "beginCaptures": {
+        "0": { "name": "punctuation.definition.comment.turn" }
+      },
+      "endCaptures": {
+        "0": { "name": "punctuation.definition.comment.turn" }
+      }
+    },
+
+    "heredoc": {
+      "begin": "(<<-EOT)",
+      "end": "^(\\s*EOT)\\s*$",
+      "name": "string.unquoted.heredoc.turn",
+      "beginCaptures": {
+        "1": { "name": "keyword.operator.heredoc.begin.turn" }
+      },
+      "endCaptures": {
+        "1": { "name": "keyword.operator.heredoc.end.turn" }
+      },
+      "patterns": [
+        {
+          "match": "\\|=>",
+          "name": "keyword.operator.flow.turn"
+        },
+        {
+          "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
+          "name": "variable.other.turn"
+        }
+      ]
+    },
+
+    "property-assign": {
+      "comment": "Named properties on the left-hand side of an assignment. Must come before named-block so 'action =' is caught as a property rather than a block keyword.",
+      "match": "\\b(entry_actions|next_policy|enforce|root|condition|from_ssot|to_ssot|from_action|text|action)\\b(?=\\s*=)",
+      "captures": {
+        "1": { "name": "keyword.other.property.turn" }
+      }
+    },
+
+    "named-block": {
+      "comment": "Block keywords that introduce a named (string-labeled) block: scene, view, action, prog.",
+      "match": "\\b(scene|action|view|prog)\\b(\\s+(\"[^\"]*\"))?",
+      "captures": {
+        "1": { "name": "keyword.declaration.turn" },
+        "3": { "name": "entity.name.section.turn" }
+      }
+    },
+
+    "simple-block": {
+      "comment": "Anonymous block keywords that open a block without a name.",
+      "match": "\\b(compute|io|next|in|out)\\b",
+      "captures": {
+        "1": { "name": "keyword.other.block.turn" }
+      }
+    },
+
+    "sigil-decl": {
+      "comment": "Variable declarations prefixed with directional sigils: <~> (bidir), ~> (input), <~ (output).",
+      "match": "(<~>|~>|<~)([a-zA-Z_][a-zA-Z0-9_]*)",
+      "captures": {
+        "1": { "name": "keyword.operator.sigil.turn" },
+        "2": { "name": "variable.other.turn" }
+      }
+    },
+
+    "type-annotation": {
+      "comment": "Type suffix on variable declarations: :bool, :int, :str.",
+      "match": ":(bool|int|str)\\b",
+      "captures": {
+        "1": { "name": "storage.type.turn" }
+      }
+    },
+
+    "function-call": {
+      "comment": "Built-in function calls such as bool_and(...).",
+      "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
+      "captures": {
+        "1": { "name": "support.function.turn" }
+      }
+    },
+
+    "string": {
+      "begin": "\"",
+      "end": "\"",
+      "name": "string.quoted.double.turn"
+    },
+
+    "number": {
+      "match": "-?\\b[0-9]+\\b",
+      "name": "constant.numeric.turn"
+    },
+
+    "boolean": {
+      "match": "\\b(true|false)\\b",
+      "captures": {
+        "1": { "name": "constant.language.boolean.turn" }
+      }
+    },
+
+    "flow-arrow": {
+      "comment": "|=> flow routing arrows used in view text.",
+      "match": "\\|=>",
+      "name": "keyword.operator.flow.turn"
+    },
+
+    "computed-assign": {
+      "comment": "=| computed/derived assignment operator. Must come before plain = to avoid splitting.",
+      "match": "=\\|",
+      "name": "keyword.operator.assignment.computed.turn"
+    },
+
+    "operator": {
+      "match": "(>=|<=|=|\\+|-|&|\\|)",
+      "captures": {
+        "1": { "name": "keyword.operator.turn" }
+      }
+    },
+
+    "identifier": {
+      "comment": "Catch-all for remaining identifiers and dotted SSOT paths.",
+      "match": "\\b[a-zA-Z_][a-zA-Z0-9_.]*\\b",
+      "name": "variable.other.turn"
+    }
+  }
+}

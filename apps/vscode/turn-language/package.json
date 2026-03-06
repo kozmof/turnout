@@ -1,0 +1,30 @@
+{
+  "name": "turn-language",
+  "displayName": "Turn Language",
+  "description": "Syntax highlighting for .turn scene graph files",
+  "version": "0.1.0",
+  "publisher": "turnout",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "turn",
+        "aliases": ["Turn", "turn"],
+        "extensions": [".turn"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "turn",
+        "scopeName": "source.turn",
+        "path": "./syntaxes/turn.tmLanguage.json"
+      }
+    ]
+  }
+}
