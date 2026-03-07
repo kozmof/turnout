@@ -1,0 +1,483 @@
+scene "detective_evidence_hunt" {
+  entry_actions     = ["arrive_crime_scene"]
+  next_policy       = "first-match"
+
+  view "overview" {
+    flow = <<-EOT
+      arrive_crime_scene
+        |=> scan_scene
+      scan_scene
+        |=> collect_physical_evidence
+        |=> interview_witness
+      collect_physical_evidence
+        |=> interview_witness
+      interview_witness
+        |=> analyze_timeline
+      analyze_timeline
+        |=> identify_suspect
+        |=> search_for_more_evidence
+      identify_suspect
+        |=> submit_case_file
+      search_for_more_evidence
+        |=> submit_case_file
+    EOT
+    enforce = "at_least"
+  }
+
+  action "arrive_crime_scene" {
+    """
+    Logic overview:
+    - Initialize the investigation at the crime scene.
+    - Set phase metadata and opening detective note.
+    - Transition to scene scanning.
+    """
+
+    compute {
+      root     = phase_ready
+      prog "arrive_crime_scene_graph" {
+        <~phase:str = "arrive_crime_scene"
+        <~detective_note:str = "Scene secured. Start collecting clues."
+        phase_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      out {
+        phase {
+          to_ssot = investigation.phase
+        }
+        detective_note {
+          to_ssot = investigation.last_note
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_scan_scene" {
+          always:bool = true
+        }
+      }
+      action = scan_scene
+    }
+  }
+
+  action "scan_scene" {
+    """
+    Logic overview:
+    - Read scene disturbance, visibility score, and camera status.
+    - Determine whether the scene is ready for direct evidence collection.
+    - Branch to collect evidence or proceed to witness interview.
+    """
+
+    compute {
+      root     = scene_hotspot_found
+      prog "scan_scene_graph" {
+        ~>disturbance_detected:bool = false
+        ~>visibility_score:int = 0
+        ~>camera_online:bool = false
+
+        clue_candidate:bool = bool_and(disturbance_detected, camera_online)
+        search_ready:bool =| visibility_score >= 3
+        <~scene_hotspot_found:bool = bool_and(clue_candidate, search_ready)
+        <~phase:str = "scan_scene"
+      }
+    }
+
+    io {
+      in {
+        disturbance_detected {
+          from_ssot = crime_scene.disturbance_detected
+        }
+        visibility_score {
+          from_ssot = crime_scene.visibility_score
+        }
+        camera_online {
+          from_ssot = crime_scene.camera_online
+        }
+      }
+      out {
+        scene_hotspot_found {
+          to_ssot = investigation.scene_hotspot_found
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = go_collect
+        prog "to_collect_physical_evidence" {
+          ~>scene_hotspot_found:bool = false
+          go_collect:bool = bool_and(scene_hotspot_found, true)
+        }
+      }
+      io {
+        in {
+          scene_hotspot_found {
+            from_action = scene_hotspot_found
+          }
+        }
+      }
+      action = collect_physical_evidence
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_interview_witness_from_scan" {
+          always:bool = true
+        }
+      }
+      action = interview_witness
+    }
+  }
+
+  action "collect_physical_evidence" {
+    """
+    Logic overview:
+    - Read collected trace quality and selected evidence tag.
+    - Determine whether critical evidence has been found.
+    - Persist evidence log for downstream timeline analysis.
+    """
+
+    compute {
+      root     = critical_evidence_found
+      prog "collect_physical_evidence_graph" {
+        ~>fingerprint_match:int = 0
+        ~>blood_trace:bool = false
+        ~>weapon_found:bool = false
+        ~>evidence_tag:str = ""
+
+        fp_strong:bool =| fingerprint_match >= 6
+        trace_and_weapon:bool = bool_and(blood_trace, weapon_found)
+        <~critical_evidence_found:bool = bool_and(fp_strong, trace_and_weapon)
+        prefix:str = "Collected evidence: "
+        <~evidence_log:str =| prefix + evidence_tag
+        <~phase:str = "collect_physical_evidence"
+      }
+    }
+
+    io {
+      in {
+        fingerprint_match {
+          from_ssot = evidence.fingerprint_match
+        }
+        blood_trace {
+          from_ssot = evidence.blood_trace
+        }
+        weapon_found {
+          from_ssot = evidence.weapon_found
+        }
+        evidence_tag {
+          from_ssot = evidence.selected_tag
+        }
+      }
+      out {
+        critical_evidence_found {
+          to_ssot = investigation.critical_evidence_found
+        }
+        evidence_log {
+          to_ssot = investigation.evidence_log
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_interview_witness_from_collect" {
+          always:bool = true
+        }
+      }
+      action = interview_witness
+    }
+  }
+
+  action "interview_witness" {
+    """
+    Logic overview:
+    - Read witness statement and contradiction/alibi signals.
+    - Mark timeline priority for deeper reconstruction.
+    - Persist interview note and phase metadata.
+    """
+
+    compute {
+      root     = timeline_priority
+      prog "interview_witness_graph" {
+        ~>contradiction_detected:bool = false
+        ~>alibi_strength:int = 0
+        ~>witness_statement:str = ""
+
+        alibi_weak:bool =| alibi_strength <= 3
+        <~timeline_priority:bool = bool_and(contradiction_detected, alibi_weak)
+        prefix:str = "Witness says: "
+        <~interview_note:str =| prefix + witness_statement
+        <~phase:str = "interview_witness"
+      }
+    }
+
+    io {
+      in {
+        contradiction_detected {
+          from_ssot = witness.contradiction_detected
+        }
+        alibi_strength {
+          from_ssot = witness.alibi_strength
+        }
+        witness_statement {
+          from_ssot = witness.statement
+        }
+      }
+      out {
+        timeline_priority {
+          to_ssot = investigation.timeline_priority
+        }
+        interview_note {
+          to_ssot = investigation.interview_note
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_analyze_timeline" {
+          always:bool = true
+        }
+      }
+      action = analyze_timeline
+    }
+  }
+
+  action "analyze_timeline" {
+    """
+    Logic overview:
+    - Read evidence and timeline readiness signals.
+    - Decide whether there is enough support to identify a suspect.
+    - Branch to suspect identification or extended evidence search.
+    """
+
+    compute {
+      root     = ready_to_identify_suspect
+      prog "analyze_timeline_graph" {
+        ~>critical_evidence_found:bool = false
+        ~>timeline_priority:bool = false
+        ~>camera_timestamp_ok:bool = false
+
+        evidence_and_time:bool = bool_and(critical_evidence_found, camera_timestamp_ok)
+        <~ready_to_identify_suspect:bool = bool_and(evidence_and_time, timeline_priority)
+        <~phase:str = "analyze_timeline"
+      }
+    }
+
+    io {
+      in {
+        critical_evidence_found {
+          from_ssot = investigation.critical_evidence_found
+        }
+        timeline_priority {
+          from_ssot = investigation.timeline_priority
+        }
+        camera_timestamp_ok {
+          from_ssot = crime_scene.camera_timestamp_ok
+        }
+      }
+      out {
+        ready_to_identify_suspect {
+          to_ssot = investigation.ready_to_identify_suspect
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = go_identify
+        prog "to_identify_suspect" {
+          ~>ready_to_identify_suspect:bool = false
+          go_identify:bool = bool_and(ready_to_identify_suspect, true)
+        }
+      }
+      io {
+        in {
+          ready_to_identify_suspect {
+            from_action = ready_to_identify_suspect
+          }
+        }
+      }
+      action = identify_suspect
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_search_for_more_evidence" {
+          always:bool = true
+        }
+      }
+      action = search_for_more_evidence
+    }
+  }
+
+  action "identify_suspect" {
+    """
+    Logic overview:
+    - Read lead suspect identity and confidence score.
+    - Generate suspect summary and case-file readiness.
+    - Proceed to final submission.
+    """
+
+    compute {
+      root     = case_file_ready
+      prog "identify_suspect_graph" {
+        ~>suspect_name:str = ""
+        ~>confidence_score:int = 0
+
+        high_confidence:bool =| confidence_score >= 8
+        prefix:str = "Primary suspect: "
+        <~suspect_summary:str =| prefix + suspect_name
+        <~case_file_ready:bool = bool_and(high_confidence, true)
+        <~phase:str = "identify_suspect"
+      }
+    }
+
+    io {
+      in {
+        suspect_name {
+          from_ssot = leads.primary_suspect_name
+        }
+        confidence_score {
+          from_ssot = leads.confidence_score
+        }
+      }
+      out {
+        suspect_summary {
+          to_ssot = investigation.suspect_summary
+        }
+        case_file_ready {
+          to_ssot = investigation.case_file_ready
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_submit_case_file_from_identify" {
+          always:bool = true
+        }
+      }
+      action = submit_case_file
+    }
+  }
+
+  action "search_for_more_evidence" {
+    """
+    Logic overview:
+    - Record extended search area note when evidence is insufficient.
+    - Mark case file as not ready yet.
+    - Continue to final submission as pending investigation.
+    """
+
+    compute {
+      root     = handoff_ready
+      prog "search_for_more_evidence_graph" {
+        ~>last_search_area:str = ""
+
+        prefix:str = "Extended search area: "
+        <~search_note:str =| prefix + last_search_area
+        <~case_file_ready:bool = false
+        <~phase:str = "search_for_more_evidence"
+        handoff_ready:bool = bool_and(true, true)
+      }
+    }
+
+    io {
+      in {
+        last_search_area {
+          from_ssot = crime_scene.last_search_area
+        }
+      }
+      out {
+        search_note {
+          to_ssot = investigation.search_note
+        }
+        case_file_ready {
+          to_ssot = investigation.case_file_ready
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_submit_case_file_from_search" {
+          always:bool = true
+        }
+      }
+      action = submit_case_file
+    }
+  }
+
+  action "submit_case_file" {
+    """
+    Logic overview:
+    - Read case-file readiness and suspect summary.
+    - Emit a final investigation report line.
+    - Persist final phase and closure flag.
+    """
+
+    compute {
+      root     = investigation_closed
+      prog "submit_case_file_graph" {
+        ~>case_file_ready:bool = false
+        ~>suspect_summary:str = ""
+
+        prefix:str = "Filed report: "
+        <~report_line:str =| prefix + suspect_summary
+        <~investigation_closed:bool = bool_and(case_file_ready, true)
+        <~phase:str = "submit_case_file"
+      }
+    }
+
+    io {
+      in {
+        case_file_ready {
+          from_ssot = investigation.case_file_ready
+        }
+        suspect_summary {
+          from_ssot = investigation.suspect_summary
+        }
+      }
+      out {
+        report_line {
+          to_ssot = investigation.report_line
+        }
+        investigation_closed {
+          to_ssot = investigation.closed
+        }
+        phase {
+          to_ssot = investigation.phase
+        }
+      }
+    }
+  }
+}
