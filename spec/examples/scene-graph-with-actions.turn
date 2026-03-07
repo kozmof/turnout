@@ -3,7 +3,7 @@ scene "loan_flow" {
   next_policy       = "first-match"
 
   view "overview" {
-    text = <<-EOT
+    flow = <<-EOT
       score
         |=> approve
         |=> reject

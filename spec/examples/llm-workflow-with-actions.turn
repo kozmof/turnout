@@ -3,7 +3,7 @@ scene "llm_support_workflow" {
   next_policy       = "first-match"
 
   view "overview" {
-    text = <<-EOT
+    flow = <<-EOT
       analyze_request
         |=> retrieve_context
         |=> draft_direct

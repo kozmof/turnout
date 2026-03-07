@@ -23,7 +23,7 @@ The system defines a deterministic scene orchestration model where:
 1. Actions execute compute graphs against an immutable snapshot of SSOT.
 2. Action output merges atomically into SSOT.
 3. Next actions are selected via deterministic transition rules.
-4. Optional Overview DSL text can enforce a topology contract against the implementation graph.
+4. Optional Overview DSL flow can enforce a topology contract against the implementation graph.
 
 Out of scope in this draft:
 - Distributed scheduling and cross-process consistency.
@@ -82,7 +82,7 @@ type TransitionIngressBinding = {
 };
 
 type OverviewView = {
-  text: string;
+  flow: string;
   enforce: "nodes_only" | "at_least" | "strict";
 };
 ```
@@ -97,7 +97,7 @@ Before first action execution, the implementation MUST validate:
 6. Every action graph and transition `compute.prog` parses under HCL ContextSpec v1.
 7. Every transition `compute.root` exists and resolves to a `bool` binding (value or function output).
 8. For each transition ingress, `ingress.to` exists and resolves to a value binding in `compute.prog`.
-9. If `view` exists, the overview text parses and compiles.
+9. If `view` exists, the overview flow parses and compiles.
 10. If `view` exists, overview enforcement succeeds for the configured mode.
 
 If any invariant fails, run status MUST be `invalid_graph` except overview parse/compile/enforcement failures, which MUST be `invalid_overview`.
@@ -216,7 +216,7 @@ It is embedded in HCL:
 
 ```hcl
 view "overview" {
-  text = <<-EOT
+  flow = <<-EOT
     A
       |=> B => C
       |=> D(&B)

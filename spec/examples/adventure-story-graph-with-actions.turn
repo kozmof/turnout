@@ -3,7 +3,7 @@ scene "adventure_story_chapter_1" {
   next_policy       = "first-match"
 
   view "overview" {
-    text = <<-EOT
+    flow = <<-EOT
       choose_route
         |=> forest_trail
         |=> city_gate

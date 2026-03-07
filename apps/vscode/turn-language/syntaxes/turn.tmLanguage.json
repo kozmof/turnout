@@ -57,7 +57,7 @@
 
     "property-assign": {
       "comment": "Named properties on the left-hand side of an assignment. Must come before named-block so 'action =' is caught as a property rather than a block keyword.",
-      "match": "\\b(entry_actions|next_policy|enforce|root|condition|from_ssot|to_ssot|from_action|text|action)\\b(?=\\s*=)",
+      "match": "\\b(entry_actions|next_policy|enforce|root|condition|from_ssot|to_ssot|from_action|text|flow|action)\\b(?=\\s*=)",
       "captures": {
         "1": { "name": "keyword.other.property.turn" }
       }
@@ -124,7 +124,7 @@
     },
 
     "flow-arrow": {
-      "comment": "|=> flow routing arrows used in view text.",
+      "comment": "|=> flow routing arrows used in view flow.",
       "match": "\\|=>",
       "name": "keyword.operator.flow.turn"
     },

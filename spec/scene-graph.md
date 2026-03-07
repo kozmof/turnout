@@ -126,7 +126,7 @@ type NextComputeGraph = {
 };
 
 type OverviewView = {
-  text: string;
+  flow: string;
   enforce: "nodes_only" | "at_least" | "strict";
 };
 ```
