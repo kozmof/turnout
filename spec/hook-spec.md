@@ -12,21 +12,40 @@ A hook is a named extension point declared inside an `io` block. It lets consume
 Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer via `runtime.registerHook()`. If no implementation is registered for a hook name, the runtime silently skips it.
 
 ```
-action "foo" {
+action "process_order" {
   compute {
-    root = result
-    prog "foo_graph" {
-      name:string   = ""
-      result:string = process(name)
+    root = receipt
+    prog "order_graph" {
+      raw_payload:string = ""
+      user_id:string     = ""
+      receipt:string     = build_receipt(raw_payload, user_id)
     }
   }
 
   io {
     in {
-      name { from_hook = "user_input" }
+      # from_ssot: read user_id from SSOT before the graph runs
+      user_id     { from_ssot = session.user_id }
+      # from_hook: consumer supplies raw_payload via a pre hook
+      raw_payload { from_hook = "get_payload" }
+    }
+    out {
+      # from_hook + to_ssot: post hook may override receipt, then it is merged to SSOT
+      receipt { from_hook = "audit_receipt", to_ssot = orders.last_receipt }
     }
   }
 }
+```
+
+```typescript
+runtime.registerHook("get_payload", (ctx) => {
+  ctx.set("raw_payload", ctx.get("incoming_event_body"));
+});
+
+runtime.registerHook("audit_receipt", async (ctx) => {
+  await log.write("audit", ctx.get("receipt"));
+  // optionally override: ctx.set("receipt", redact(ctx.get("receipt")));
+});
 ```
 
 ---
