@@ -68,6 +68,7 @@ Rules:
 - The Go CLI can emit multiple `prog` blocks in one HCL file — one per action — as long as each block has a distinct name label matching its `actionId`.
 - The Go CLI can declare SSOT effect bindings inside `prog` blocks using `ssot_input` and `ssot_output` sub-blocks.
 - The Go CLI can declare effect timing for each action: `ssot_input` (SSOT → action input before execution) or `ssot_output` (action output → SSOT after merge).
+- The Go CLI can emit `hook` sub-blocks inside a `prog` block — one per `hook` declaration in the Turn DSL — preserving name label, `timing`, and `affect` binding names in declaration order (per `hook-spec.md` §2).
 - The Go CLI can report parse and type errors (per the error catalogue in `hcl-context-spec.md` §5 and the extended catalogue below) and abort without emitting partial HCL.
 - The Go CLI can validate that every transition `compute.root` binding resolves to a `bool` at convert time.
 
@@ -81,6 +82,10 @@ Rules:
 - Effect timing cannot be inferred at runtime; it must be fixed in the emitted HCL at convert time as declared in the Turn DSL.
 - The Go CLI cannot emit an `ssot_input` or `ssot_output` binding whose name does not match an existing `binding` block in the same `prog`.
 - The Go CLI cannot emit a `ssot_path` that is not a valid dotted identifier path.
+- The Go CLI cannot emit two `hook` sub-blocks with the same name label in the same `prog` block (`DuplicateHookLabel`).
+- The Go CLI cannot emit a `hook` sub-block with a `timing` value other than `"pre"` or `"post"` (`InvalidHookTiming`).
+- The Go CLI cannot emit a `hook` sub-block whose `affect` binding name does not match an existing `binding` block in the same `prog` (`UnresolvedHookAffectBinding`).
+- The Go CLI cannot emit a `hook` sub-block inside a transition `prog` block (`TransitionHook`).
 
 ### Convert-phase Error Catalogue
 
@@ -92,6 +97,10 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 | `DuplicateProgLabel` | Two `prog` blocks with the same name label in one emitted HCL file |
 | `InvalidSsotPath` | `ssot_path` value is not a valid dotted identifier path |
 | `UnresolvedSsotBinding` | `ssot_input`/`ssot_output` binding name has no matching `binding` block in the same `prog` |
+| `DuplicateHookLabel` | Two `hook` sub-blocks with the same name label in one `prog` block |
+| `InvalidHookTiming` | `hook` sub-block `timing` value is not `"pre"` or `"post"` |
+| `UnresolvedHookAffectBinding` | A `hook` affect binding name has no matching `binding` block in the same `prog` |
+| `TransitionHook` | A `hook` block appears inside a `next { }` transition block |
 
 ---
 
@@ -113,6 +122,9 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 - The runtime can pass each action's canonical plain HCL `prog` block to `ctx()` to produce the action's `ContextSpec`.
 - The runtime can resolve SSOT effect input bindings from the pre-action SSOT snapshot into the action's `inputBindings`.
 - The runtime can execute each action's `ContextSpec` via `executeGraph` to produce result `R_n` and merge delta `D_n`.
+- The runtime can execute `pre` hooks for an action in declaration order before `executeGraph`, allowing each registered hook to read and write its declared `affect` bindings (per `hook-spec.md` §3).
+- The runtime can execute `post` hooks for an action in declaration order after `executeGraph`, allowing each registered hook to read and override result bindings before `D_n` is built.
+- The runtime can silently skip any hook whose name has no registered implementation.
 - The runtime can atomically apply `D_n` to SSOT to produce `S_{n+1}`, writing only the declared effect output bindings.
 - The runtime can evaluate each transition's inline `prog` block by building a fresh `ContextSpec` for that transition, resolving ingresses from `R_n` (`fromAction`), `S_{n+1}` (`fromSsot`), or declared literals.
 - The runtime can apply `first-match` or `all-match` transition policy, defaulting to `first-match` when neither action-level nor scene-level policy is set.
@@ -131,6 +143,9 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 - The runtime cannot accept an unknown merge mode; it must fail pre-execution validation.
 - The runtime cannot skip transition evaluation after a successful action execution.
 - The runtime cannot change effect timing at runtime; timing is fixed by the emitted HCL declarations.
+- The runtime cannot allow a hook implementation to `get()` or `set()` a binding not declared in its `affect` block; such access is a runtime error and aborts action execution.
+- The runtime cannot allow a `post` hook to write to SSOT directly; all writes must go through the declared merge step.
+- The runtime cannot change hook execution order at runtime; hooks execute in declaration order as emitted in HCL.
 - Under `all-match`, the runtime cannot execute selected next actions concurrently; execution order is declaration order and each action merges before the next begins.
 
 ---
@@ -189,10 +204,12 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 |--------|----------------|
 | A. Convert — lowering | All DSL surface forms produce canonical plain HCL |
 | B. Convert — SSOT effect bindings | `ssot_input`/`ssot_output` sub-blocks emitted correctly |
+| B2. Convert — hook sub-blocks | `hook` sub-blocks emitted with correct `timing` and `affect` bindings in declaration order |
 | C. Convert — error paths | All converter error codes abort without partial HCL |
 | D. Runtime — scene loading | `prog` blocks map to `Action` entries correctly |
 | E. Runtime — effect binding resolution | Pre/post SSOT paths read/write at correct times |
-| F. Runtime — execution ordering | snapshot → execute → merge → transition |
+| E2. Runtime — hook execution | Pre hooks fire before graph; post hooks fire after graph; unregistered hooks skipped |
+| F. Runtime — execution ordering | snapshot → pre-hooks → execute → post-hooks → merge → transition |
 | G. Runtime — transition semantics | `first-match`, `all-match`, no-match, sequential ordering |
 | H. Runtime — merge semantics | `replace-by-id` atomicity, unknown mode rejection |
 | I. Runtime — structural invariants | All `scene-graph.md §3.3` invariants trigger `invalid_graph` |
@@ -207,6 +224,8 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 | 4 | `all-match` sequential ordering: action B sees A's merge | Assert SSOT after A is visible to B; assert B's delta builds on A's output |
 | 5 | Transition ingress uses `S_{n+1}` (post-merge), not `S_n` | Verify `fromSsot` reflects A's merged output, not pre-merge snapshot |
 | 6 | Same preconditions produce identical `R_n`, `D_n`, next action IDs | Re-execute scene from same `S_n` and ad hoc inputs; assert identical outputs |
+| 7 | Pre-hook `set()` visible to compute graph | Same hook impl + same `S_n` → identical graph input and result both runs |
+| 8 | Post-hook `set()` enters `D_n` and merges to SSOT | Same hook impl + same graph output → identical SSOT after merge both runs |
 
 ### Edge cases
 
