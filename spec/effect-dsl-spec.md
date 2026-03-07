@@ -17,9 +17,16 @@ action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      ~>income:int   = 0                          # ← sigil: input from SSOT
+      ~>income:int   = 0                             # ← sigil: input from SSOT
       <~decision:bool = bool_and(income_ok, debt_ok) # ← sigil: output to SSOT
-      income_ok:bool  =| income >= 50000          # plain compute binding
+      income_ok:bool  =| income >= 50000             # plain compute binding
+    }
+  }
+
+  hook "clamp_income" {                             # ← hook: pre-execution extension point
+    timing = "pre"
+    affect {
+      income { binding = "income" }
     }
   }
 
@@ -142,6 +149,20 @@ action "score" {
     }
   }
 
+  hook "clamp_income" {
+    timing = "pre"
+    affect {
+      income { binding = "income" }   # consumer can adjust income before graph runs
+    }
+  }
+
+  hook "audit_decision" {
+    timing = "post"
+    affect {
+      decision { binding = "decision" }   # consumer can observe (or override) result
+    }
+  }
+
   io {
     in {
       income { from_ssot = applicant.income }   # ~> and <~> income
@@ -257,10 +278,16 @@ Sigils are stripped from the canonical binding name during lowering. The sigil i
 **Turn DSL source:**
 ```
 prog "score_graph" {
-  ~>income:int   = 0
+  ~>income:int    = 0
   <~decision:bool = bool_and(income_ok, debt_ok)
   income_ok:bool  =| income >= min_income
   min_income:int  = 50000
+}
+hook "clamp_income" {
+  timing = "pre"
+  affect {
+    income { binding = "income" }
+  }
 }
 io {
   in  { income   { from_ssot = applicant.income  } }
@@ -276,6 +303,11 @@ prog "score_graph" {
   }
   ssot_output {
     binding "decision" { ssot_path = "decision.approved" }
+  }
+
+  hook "clamp_income" {
+    timing = "pre"
+    binding "income" { }
   }
 
   binding "income" {
