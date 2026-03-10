@@ -34,11 +34,10 @@ For reference-style DSL attributes, implementations MUST normalize HCL syntax to
 - Reference-style attributes include:
   - `action.compute.root`
   - `next.compute.condition`
-  - `action.io.in.<binding>.from_ssot`
-  - `action.io.out.<binding>.to_ssot`
+  - `action.prepare.<binding>.from_ssot`
+  - `action.merge.<binding>.to_ssot`
   - `next.action`
-  - `next.io.in.<binding>.from_action`, `next.io.in.<binding>.from_ssot`
-  - `next.io.out.<binding>.to_ssot`
+  - `next.prepare.<binding>.from_action`, `next.prepare.<binding>.from_ssot`
 - Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
 
 ## 3. Balance Rules (CAN / CAN'T)
@@ -47,18 +46,19 @@ CAN (OK):
 
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
-- An action can bind IO mappings under separated `io { in { ... } out { ... } }`.
-- An action can define inbound/outbound direction per binding in `compute.prog`.
+- An action can declare SSOT inputs under `prepare` and SSOT outputs under `merge`.
+- An action can define inbound/outbound direction per binding in `compute.prog` using sigils.
 - An action can define next actions using per-next `compute` `prog` blocks.
-- A next IO input entry can source any value binding defined by the current action `compute.prog` via `from_action`.
+- A next `prepare` input entry can source any value binding defined by the current action `compute.prog` via `from_action`.
+- An action can declare one or more publish hooks under `publish`.
 - An action can include optional narrative text (`text`) as a string.
 
 CAN'T (NG):
 
 - An action cannot omit `compute.root`.
 - `compute.root` cannot point to a value binding; it must resolve to a function binding.
-- An `io.in` or `io.out` binding key cannot reference an undefined binding.
-- A binding marked as ingress-capable cannot omit its ingress source.
+- A `prepare` or `merge` binding key cannot reference an undefined binding.
+- A binding marked as ingress-capable (`~>` or `<~>`) cannot omit its `prepare` entry.
 - A next rule cannot omit `compute.condition` or `compute.prog`.
 - Next actions cannot reference missing actions.
 
@@ -66,7 +66,7 @@ Correlation:
 
 - Because `root` is function-only, a `<~ root` or `<~> root` binding is always available as a deterministic emission source.
 - Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
-- Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.io.in.<binding>.from_action` mapping.
+- Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.prepare.<binding>.from_action` mapping.
 
 ## 4. Runtime Data Model
 
@@ -83,7 +83,9 @@ type Action = {
   actionId: ActionId;
   text?: string; // optional action-local narrative text
   compute: ActionComputeGraph;
-  io?: IoSpec;
+  prepare?: PrepareSpec;
+  merge?: MergeSpec;
+  publish?: PublishSpec;
   next?: NextRule[]; // default: []
   nextPolicy?: "first-match" | "all-match";
   resultMerge?: {
@@ -96,28 +98,44 @@ type ActionComputeGraph = {
   root: string; // canonical binding key from DSL `compute.root`; must resolve to function binding
 };
 
-type IoDirection = "ingress" | "egress" | "both";
-
-type IoSpec = {
-  in?: Record<string, IoInBinding>; // key is binding name declared in compute.prog
-  out?: Record<string, IoOutBinding>; // key is binding name declared in compute.prog
+type PrepareSpec = {
+  bindings: Record<string, PrepareBinding>; // key is binding name declared in compute.prog
 };
 
-type IoInBinding = {
-  fromSsot?: string; // canonical dotted source path
-  fromAction?: string; // canonical source binding from prior action namespace (next-rule only)
+type PrepareBinding = {
+  fromSsot?: string;    // canonical dotted SSOT source path
+  fromHook?: string;    // hook name; hook returns object whose field matches binding name
   fromLiteral?: unknown; // literal ingress source
-  required?: boolean; // default true for fromSsot/fromAction
+  required?: boolean;   // default true for fromSsot
 };
 
-type IoOutBinding = {
+type MergeSpec = {
+  bindings: Record<string, MergeBinding>; // key is binding name declared in compute.prog
+};
+
+type MergeBinding = {
   toSsot?: string; // canonical destination key in SSOT; default is binding key
+};
+
+type PublishSpec = {
+  hooks: string[]; // hook names, invoked in declaration order after merge
 };
 
 type NextRule = {
   compute: NextComputeGraph;
-  io?: IoSpec;
+  prepare?: NextPrepareSpec;
   action: ActionId; // canonical next action id from DSL `next.action`
+};
+
+type NextPrepareSpec = {
+  bindings: Record<string, NextPrepareBinding>; // key is binding name in next compute.prog
+};
+
+type NextPrepareBinding = {
+  fromAction?: string;  // source binding from current action compute.prog result
+  fromSsot?: string;    // post-merge SSOT path S_{n+1}
+  fromLiteral?: unknown;
+  required?: boolean;
 };
 
 type NextComputeGraph = {
@@ -131,17 +149,18 @@ type OverviewView = {
 };
 ```
 
-Group separation and source rules:
+Source and destination rules:
 
-- IO mappings MUST be separated: ingress mappings under `io.in`, egress mappings under `io.out`.
-- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `io.in`: `fromSsot` or `fromLiteral`.
-- For next-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `io.in`: `fromAction`, `fromSsot`, or `fromLiteral`.
-- For bindings declared as `<~` or `<~>`, destination mapping is declared in `io.out` and destination key is `toSsot` if provided, otherwise binding key.
-- `fromAction` is only valid inside `next.io.in`.
+- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromSsot`, `fromHook`, or `fromLiteral`.
+- For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`; destination key is `toSsot` if provided, otherwise the binding key.
+- For next-level bindings declared as `~>`, exactly one ingress source MUST be set in the transition `prepare`: `fromAction`, `fromSsot`, or `fromLiteral`.
+- `fromAction` is only valid inside transition `prepare` bindings.
+- `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
+- Publish hooks in `publish.hooks` fire after merge in declaration order and receive the complete final state.
 
 Action-to-next binding scope:
 
-- For one action invocation, `next.io.in.<binding>.from_action` MUST resolve against that action's `compute.prog` binding namespace.
+- For one action invocation, `next.prepare.<binding>.fromAction` MUST resolve against that action's `compute.prog` binding namespace.
 - Implementations MAY resolve these bindings lazily, but observable behavior MUST match eager availability of all value bindings declared in action `compute.prog`.
 
 ## 5. HCL Scene DSL
@@ -165,53 +184,42 @@ scene "loan_flow" {
     compute {
       root     = decision
       prog "score_graph" {
-        <~>income:int = 0
-        ~>debt:int   = 0
-        min_income:int = 50000
-        max_debt:int   = 20000
-        income_ok:bool =| income >= min_income
-        debt_ok:bool   =| debt <= max_debt
+        <~>income:int    = 0
+        ~>debt:int       = 0
+        min_income:int   = 50000
+        max_debt:int     = 20000
+        income_ok:bool   =| income >= min_income
+        debt_ok:bool     =| debt <= max_debt
         <~decision:bool  = bool_and(income_ok, debt_ok)
       }
     }
 
-    io {
-      in {
-        income {
-          from_ssot = applicant.income
-        }
-        debt {
-          from_ssot = applicant.debt
-        }
-      }
-      out {
-        income {
-          to_ssot = decision.input_income
-        }
-        decision {
-          to_ssot = decision.approved
-        }
-      }
+    prepare {
+      income { from_ssot = applicant.income }
+      debt   { from_ssot = applicant.debt   }
+    }
+
+    merge {
+      income   { to_ssot = decision.input_income }
+      decision { to_ssot = decision.approved     }
+    }
+
+    publish {
+      hook = "score_audit"
     }
 
     next {
       compute {
         condition = go
         prog "to_approve" {
-          ~>decision:bool = false
+          ~>decision:bool  = false
           ~>income_ok:bool = false
           go:bool =| decision & income_ok
         }
       }
-      io {
-        in {
-          decision {
-            from_action = decision
-          }
-          income_ok {
-            from_action = income_ok
-          }
-        }
+      prepare {
+        decision  { from_action = decision  }
+        income_ok { from_action = income_ok }
       }
       action = approve
     }
@@ -276,14 +284,15 @@ Before first action execution, implementations MUST validate:
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program and resolves to a function binding.
-8. Every `io.in` and `io.out` binding key exists and resolves to a value binding in `compute.prog`.
-9. For every binding declared `~>` or `<~>`, exactly one ingress source is set in `io.in`.
-10. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
-11. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
-12. For each next rule, every `next.io.in` and `next.io.out` binding key exists and resolves to a value binding in that next-rule `compute.prog`.
-13. For each next binding with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
-14. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
-15. For action docstring sugar, each action has at most one triple-quoted text block and no conflict with explicit `text`.
+8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`.
+9. For every binding declared `~>` or `<~>`, exactly one ingress source is set in `prepare`.
+10. For every binding declared `<~` or `<~>`, a `merge` entry exists.
+11. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
+12. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
+13. For each next rule, every transition `prepare` binding key exists and resolves to a value binding in that next-rule `compute.prog`.
+14. For each next binding with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
+15. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
+16. For action docstring sugar, each action has at most one triple-quoted text block and no conflict with explicit `text`.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
 
@@ -291,28 +300,32 @@ Validation failures MUST produce `invalid_graph` except overview failures, which
 
 For one action invocation with pre-state `S_n`:
 
-1. Snapshot: capture immutable scene snapshot `S_n`.
+1. Snapshot: capture immutable SSOT snapshot `S_n`.
 2. Load graph template: parse/compile `compute.prog` if not cached.
-3. Resolve ingress-capable IO bindings:
-   - For each `io.in.<binding>` where direction is `~>` or `<~>`, resolve source (`fromSsot`, `fromLiteral`).
-   - If missing and `required` is true (default), fail action.
-   - Apply resolved values as overrides of target bindings.
+3. Prepare phase:
+   - For each `prepare.<binding>` with `fromSsot`, resolve value from `S_n`.
+   - For each `prepare.<binding>` with `fromHook`, invoke the named hook (deduplicating calls for the same hook name); map returned object fields into state bindings.
+   - For each `prepare.<binding>` with `fromLiteral`, assign literal value.
+   - If a required source is missing, fail action without executing the graph.
 4. Build runtime graph:
    - Lower HCL program to ContextSpec.
-   - Apply IO-derived ingress overrides.
+   - Apply prepare-derived state overrides.
    - Build with `ctx(spec)`.
    - Validate with `validateContext`.
 5. Execute root function:
    - `rootFuncId = ids[compute.root]`
    - `R_n = executeGraph(rootFuncId, validatedContext)`
-   - Build action binding namespace `A_n` from this invocation's action `compute.prog` context.
-6. Build action delta `D_n` from egress-capable IO bindings:
-   - For each `io.out.<binding>` where direction is `<~` or `<~>`, read binding value from graph context/output table.
+   - Build action binding namespace `A_n` from this invocation's `compute.prog` context.
+6. Merge phase — build action delta `D_n` from `merge` bindings:
+   - For each `merge.<binding>`, read binding value from graph context/output table.
    - Destination key is `toSsot` if provided; otherwise binding name.
-7. Merge `D_n` atomically into SSOT using `replace-by-id` mode.
+   - Merge `D_n` atomically into SSOT using `replace-by-id` mode → produces `S_{n+1}`.
+7. Publish phase:
+   - For each `hook` in `publish.hooks` (declaration order), invoke the hook passing the complete final state.
+   - Publish hooks are read-only; return values are ignored.
 8. Evaluate next rules in declaration order:
    - Build/validate each next-rule `compute` graph.
-   - Resolve next ingress-capable bindings from action binding namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve transition `prepare` bindings from action namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
    - Resolve `compute.condition` to a boolean value:
      - If `compute.condition` is a function binding, execute it.
      - If `compute.condition` is a value binding, read it directly.
@@ -329,7 +342,7 @@ Failure semantics:
 - Effective next policy: action-level override, else scene-level, else `first-match`.
 - Evaluation order is declaration order.
 - Each rule's `compute` graph is evaluated independently and must resolve `compute.condition` to boolean.
-- `fromAction` in `next.io.in` reads from the current action `compute.prog` binding namespace (`A_n`).
+- `fromAction` in transition `prepare` reads from the current action `compute.prog` binding namespace (`A_n`).
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
@@ -387,12 +400,13 @@ type SceneDiagnostic = {
 
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
 2. Missing SSOT ingress path with required ingress fails action without merge.
-3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `io.out`.
+3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `merge`.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.condition` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
-8. Re-running with same IO inputs and snapshot yields identical `result`, `delta`, and selected next actions.
+8. Re-running with same prepare inputs and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
-10. A `next.io.in.<binding>.from_action` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
+10. A transition `prepare.<binding>.fromAction` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
 11. Triple-quoted action text and explicit `text` assignment produce identical runtime `action.text`.
+12. Publish hooks fire after merge in declaration order and receive the complete final state.

@@ -41,15 +41,9 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      out {
-        phase {
-          to_ssot = investigation.phase
-        }
-        detective_note {
-          to_ssot = investigation.last_note
-        }
-      }
+    merge {
+      phase         { to_ssot = investigation.phase     }
+      detective_note { to_ssot = investigation.last_note }
     }
 
     next {
@@ -85,26 +79,15 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        disturbance_detected {
-          from_ssot = crime_scene.disturbance_detected
-        }
-        visibility_score {
-          from_ssot = crime_scene.visibility_score
-        }
-        camera_online {
-          from_ssot = crime_scene.camera_online
-        }
-      }
-      out {
-        scene_hotspot_found {
-          to_ssot = investigation.scene_hotspot_found
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      disturbance_detected { from_ssot = crime_scene.disturbance_detected }
+      visibility_score     { from_ssot = crime_scene.visibility_score     }
+      camera_online        { from_ssot = crime_scene.camera_online        }
+    }
+
+    merge {
+      scene_hotspot_found { to_ssot = investigation.scene_hotspot_found }
+      phase               { to_ssot = investigation.phase               }
     }
 
     next {
@@ -115,12 +98,8 @@ scene "detective_evidence_hunt" {
           go_collect:bool = bool_and(scene_hotspot_found, true)
         }
       }
-      io {
-        in {
-          scene_hotspot_found {
-            from_action = scene_hotspot_found
-          }
-        }
+      prepare {
+        scene_hotspot_found { from_action = scene_hotspot_found }
       }
       action = collect_physical_evidence
     }
@@ -161,32 +140,17 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        fingerprint_match {
-          from_ssot = evidence.fingerprint_match
-        }
-        blood_trace {
-          from_ssot = evidence.blood_trace
-        }
-        weapon_found {
-          from_ssot = evidence.weapon_found
-        }
-        evidence_tag {
-          from_ssot = evidence.selected_tag
-        }
-      }
-      out {
-        critical_evidence_found {
-          to_ssot = investigation.critical_evidence_found
-        }
-        evidence_log {
-          to_ssot = investigation.evidence_log
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      fingerprint_match { from_ssot = evidence.fingerprint_match }
+      blood_trace       { from_ssot = evidence.blood_trace       }
+      weapon_found      { from_ssot = evidence.weapon_found      }
+      evidence_tag      { from_ssot = evidence.selected_tag      }
+    }
+
+    merge {
+      critical_evidence_found { to_ssot = investigation.critical_evidence_found }
+      evidence_log            { to_ssot = investigation.evidence_log            }
+      phase                   { to_ssot = investigation.phase                   }
     }
 
     next {
@@ -223,29 +187,16 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        contradiction_detected {
-          from_ssot = witness.contradiction_detected
-        }
-        alibi_strength {
-          from_ssot = witness.alibi_strength
-        }
-        witness_statement {
-          from_ssot = witness.statement
-        }
-      }
-      out {
-        timeline_priority {
-          to_ssot = investigation.timeline_priority
-        }
-        interview_note {
-          to_ssot = investigation.interview_note
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      contradiction_detected { from_ssot = witness.contradiction_detected }
+      alibi_strength         { from_ssot = witness.alibi_strength         }
+      witness_statement      { from_ssot = witness.statement              }
+    }
+
+    merge {
+      timeline_priority { to_ssot = investigation.timeline_priority }
+      interview_note    { to_ssot = investigation.interview_note    }
+      phase             { to_ssot = investigation.phase             }
     }
 
     next {
@@ -280,26 +231,15 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        critical_evidence_found {
-          from_ssot = investigation.critical_evidence_found
-        }
-        timeline_priority {
-          from_ssot = investigation.timeline_priority
-        }
-        camera_timestamp_ok {
-          from_ssot = crime_scene.camera_timestamp_ok
-        }
-      }
-      out {
-        ready_to_identify_suspect {
-          to_ssot = investigation.ready_to_identify_suspect
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      critical_evidence_found { from_ssot = investigation.critical_evidence_found }
+      timeline_priority       { from_ssot = investigation.timeline_priority       }
+      camera_timestamp_ok     { from_ssot = crime_scene.camera_timestamp_ok       }
+    }
+
+    merge {
+      ready_to_identify_suspect { to_ssot = investigation.ready_to_identify_suspect }
+      phase                     { to_ssot = investigation.phase                     }
     }
 
     next {
@@ -310,12 +250,8 @@ scene "detective_evidence_hunt" {
           go_identify:bool = bool_and(ready_to_identify_suspect, true)
         }
       }
-      io {
-        in {
-          ready_to_identify_suspect {
-            from_action = ready_to_identify_suspect
-          }
-        }
+      prepare {
+        ready_to_identify_suspect { from_action = ready_to_identify_suspect }
       }
       action = identify_suspect
     }
@@ -353,26 +289,15 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        suspect_name {
-          from_ssot = leads.primary_suspect_name
-        }
-        confidence_score {
-          from_ssot = leads.confidence_score
-        }
-      }
-      out {
-        suspect_summary {
-          to_ssot = investigation.suspect_summary
-        }
-        case_file_ready {
-          to_ssot = investigation.case_file_ready
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      suspect_name     { from_ssot = leads.primary_suspect_name }
+      confidence_score { from_ssot = leads.confidence_score     }
+    }
+
+    merge {
+      suspect_summary  { to_ssot = investigation.suspect_summary  }
+      case_file_ready  { to_ssot = investigation.case_file_ready  }
+      phase            { to_ssot = investigation.phase            }
     }
 
     next {
@@ -407,23 +332,14 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        last_search_area {
-          from_ssot = crime_scene.last_search_area
-        }
-      }
-      out {
-        search_note {
-          to_ssot = investigation.search_note
-        }
-        case_file_ready {
-          to_ssot = investigation.case_file_ready
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      last_search_area { from_ssot = crime_scene.last_search_area }
+    }
+
+    merge {
+      search_note     { to_ssot = investigation.search_note     }
+      case_file_ready { to_ssot = investigation.case_file_ready }
+      phase           { to_ssot = investigation.phase           }
     }
 
     next {
@@ -458,26 +374,15 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    io {
-      in {
-        case_file_ready {
-          from_ssot = investigation.case_file_ready
-        }
-        suspect_summary {
-          from_ssot = investigation.suspect_summary
-        }
-      }
-      out {
-        report_line {
-          to_ssot = investigation.report_line
-        }
-        investigation_closed {
-          to_ssot = investigation.closed
-        }
-        phase {
-          to_ssot = investigation.phase
-        }
-      }
+    prepare {
+      case_file_ready  { from_ssot = investigation.case_file_ready  }
+      suspect_summary  { from_ssot = investigation.suspect_summary  }
+    }
+
+    merge {
+      report_line           { to_ssot = investigation.report_line }
+      investigation_closed  { to_ssot = investigation.closed      }
+      phase                 { to_ssot = investigation.phase       }
     }
   }
 }

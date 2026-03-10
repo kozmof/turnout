@@ -34,23 +34,14 @@ scene "loan_flow" {
       }
     }
 
-    io {
-      in {
-        income {
-          from_ssot = applicant.income
-        }
-        debt {
-          from_ssot = applicant.debt
-        }
-      }
-      out {
-        income {
-          to_ssot = decision.input_income
-        }
-        decision {
-          to_ssot = decision.approved
-        }
-      }
+    prepare {
+      income { from_ssot = applicant.income }
+      debt   { from_ssot = applicant.debt   }
+    }
+
+    merge {
+      income   { to_ssot = decision.input_income }
+      decision { to_ssot = decision.approved     }
     }
 
     next {
@@ -62,15 +53,9 @@ scene "loan_flow" {
           go:bool =| decision & income_ok
         }
       }
-      io {
-        in {
-          decision {
-            from_action = decision
-          }
-          income_ok {
-            from_action = income_ok
-          }
-        }
+      prepare {
+        decision  { from_action = decision  }
+        income_ok { from_action = income_ok }
       }
       action = approve
     }
@@ -103,15 +88,9 @@ scene "loan_flow" {
       }
     }
 
-    io {
-      out {
-        status {
-          to_ssot = decision.status
-        }
-        approval_code {
-          to_ssot = decision.code
-        }
-      }
+    merge {
+      status        { to_ssot = decision.status }
+      approval_code { to_ssot = decision.code   }
     }
   }
 
@@ -130,15 +109,9 @@ scene "loan_flow" {
       }
     }
 
-    io {
-      out {
-        status {
-          to_ssot = decision.status
-        }
-        reason {
-          to_ssot = decision.reason
-        }
-      }
+    merge {
+      status { to_ssot = decision.status }
+      reason { to_ssot = decision.reason }
     }
   }
 }

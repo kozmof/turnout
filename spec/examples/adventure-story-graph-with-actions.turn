@@ -30,7 +30,7 @@ scene "adventure_story_chapter_1" {
   action "choose_route" {
     """
     Logic overview:
-    - Collect map/clue/coin/lockpick values from SSOT IO inputs.
+    - Collect map/clue/coin/lockpick values from SSOT inputs.
     - Compute route eligibility flags (`can_forest`, `can_gate`, `can_sewer`).
     - Persist chapter hub metadata after route selection.
     - Evaluate next actions in order: forest, gate, sewer, then campfire fallback.
@@ -54,29 +54,16 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      in {
-        has_map {
-          from_ssot = story.flags.has_map
-        }
-        clue_count {
-          from_ssot = story.clues.count
-        }
-        coins {
-          from_ssot = party.inventory.coins
-        }
-        lockpick_skill {
-          from_ssot = party.skills.lockpick
-        }
-      }
-      out {
-        chapter_state {
-          to_ssot = story.chapter_state
-        }
-        last_hub {
-          to_ssot = story.last_hub
-        }
-      }
+    prepare {
+      has_map        { from_ssot = story.flags.has_map      }
+      clue_count     { from_ssot = story.clues.count        }
+      coins          { from_ssot = party.inventory.coins    }
+      lockpick_skill { from_ssot = party.skills.lockpick    }
+    }
+
+    merge {
+      chapter_state { to_ssot = story.chapter_state }
+      last_hub      { to_ssot = story.last_hub      }
     }
 
     next {
@@ -87,12 +74,8 @@ scene "adventure_story_chapter_1" {
           go_forest:bool = bool_and(can_forest, true)
         }
       }
-      io {
-        in {
-          can_forest {
-            from_action = can_forest
-          }
-        }
+      prepare {
+        can_forest { from_action = can_forest }
       }
       action = forest_trail
     }
@@ -105,12 +88,8 @@ scene "adventure_story_chapter_1" {
           go_gate:bool = bool_and(can_gate, true)
         }
       }
-      io {
-        in {
-          can_gate {
-            from_action = can_gate
-          }
-        }
+      prepare {
+        can_gate { from_action = can_gate }
       }
       action = city_gate
     }
@@ -123,12 +102,8 @@ scene "adventure_story_chapter_1" {
           go_sewer:bool = bool_and(can_sewer, true)
         }
       }
-      io {
-        in {
-          can_sewer {
-            from_action = can_sewer
-          }
-        }
+      prepare {
+        can_sewer { from_action = can_sewer }
       }
       action = sewer_tunnel
     }
@@ -164,18 +139,10 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      out {
-        story_route {
-          to_ssot = story.route
-        }
-        location {
-          to_ssot = story.current_location
-        }
-        danger_level {
-          to_ssot = story.threat_level
-        }
-      }
+    merge {
+      story_route  { to_ssot = story.route            }
+      location     { to_ssot = story.current_location }
+      danger_level { to_ssot = story.threat_level     }
     }
 
     next {
@@ -210,23 +177,14 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      in {
-        coins {
-          from_ssot = party.inventory.coins
-        }
-      }
-      out {
-        coins_after {
-          to_ssot = party.inventory.coins
-        }
-        location {
-          to_ssot = story.current_location
-        }
-        story_route {
-          to_ssot = story.route
-        }
-      }
+    prepare {
+      coins { from_ssot = party.inventory.coins }
+    }
+
+    merge {
+      coins_after  { to_ssot = party.inventory.coins  }
+      location     { to_ssot = story.current_location }
+      story_route  { to_ssot = story.route            }
     }
 
     next {
@@ -260,23 +218,14 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      in {
-        lockpick_skill {
-          from_ssot = party.skills.lockpick
-        }
-      }
-      out {
-        story_route {
-          to_ssot = story.route
-        }
-        location {
-          to_ssot = story.current_location
-        }
-        found_mark {
-          to_ssot = story.flags.found_hidden_mark
-        }
-      }
+    prepare {
+      lockpick_skill { from_ssot = party.skills.lockpick }
+    }
+
+    merge {
+      story_route  { to_ssot = story.route                   }
+      location     { to_ssot = story.current_location        }
+      found_mark   { to_ssot = story.flags.found_hidden_mark }
     }
 
     next {
@@ -308,18 +257,10 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      out {
-        story_route {
-          to_ssot = story.route
-        }
-        note {
-          to_ssot = story.journal.latest
-        }
-        location {
-          to_ssot = story.current_location
-        }
-      }
+    merge {
+      story_route { to_ssot = story.route            }
+      note        { to_ssot = story.journal.latest   }
+      location    { to_ssot = story.current_location }
     }
 
     next {
@@ -350,15 +291,9 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      out {
-        reward {
-          to_ssot = story.chapter_reward
-        }
-        location {
-          to_ssot = story.current_location
-        }
-      }
+    merge {
+      reward   { to_ssot = story.chapter_reward    }
+      location { to_ssot = story.current_location  }
     }
 
     next {
@@ -389,15 +324,9 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      out {
-        reward {
-          to_ssot = story.chapter_reward
-        }
-        location {
-          to_ssot = story.current_location
-        }
-      }
+    merge {
+      reward   { to_ssot = story.chapter_reward   }
+      location { to_ssot = story.current_location }
     }
 
     next {
@@ -428,15 +357,9 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      out {
-        reward {
-          to_ssot = story.chapter_reward
-        }
-        location {
-          to_ssot = story.current_location
-        }
-      }
+    merge {
+      reward   { to_ssot = story.chapter_reward   }
+      location { to_ssot = story.current_location }
     }
 
     next {
@@ -467,15 +390,9 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    io {
-      out {
-        chapter_state {
-          to_ssot = story.chapter_state
-        }
-        chapter_result {
-          to_ssot = story.result
-        }
-      }
+    merge {
+      chapter_state  { to_ssot = story.chapter_state }
+      chapter_result { to_ssot = story.result        }
     }
   }
 }

@@ -1,140 +1,154 @@
 # Hook Specification — Turn DSL
 
 > **Status**: Draft for implementation
-> **Scope**: Turn DSL `hook` declarations inside `io` blocks, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
+> **Scope**: Turn DSL `prepare.from_hook` and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
 
 ---
 
 ## Overview
 
-A hook is a named extension point declared inside an `io` block. It lets consumers inject TypeScript logic at a fixed point in the action execution lifecycle — either before the compute graph runs (`pre`) or after it completes (`post`) — and selectively read or write specific prog binding values.
+A hook is a named extension point declared inside an action's `prepare` or `publish` section. It lets consumers inject TypeScript logic at fixed points in the action execution lifecycle.
+
+- **Prepare hooks** (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs; the hook returns an object whose fields are mapped into runtime state bindings.
+- **Publish hooks** (`publish { hook = "<name>" }`) — fire after merge; the hook receives the entire final state snapshot and cannot mutate it.
 
 Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer via `runtime.registerHook()`. If no implementation is registered for a hook name, the runtime silently skips it.
 
-```
+```hcl
 action "process_order" {
   compute {
     root = receipt
     prog "order_graph" {
-      raw_payload:string = ""
-      user_id:string     = ""
-      receipt:string     = build_receipt(raw_payload, user_id)
+      ~>raw_payload:string = ""
+      ~>user_id:string     = ""
+      <~receipt:string     = build_receipt(raw_payload, user_id)
     }
   }
 
-  io {
-    in {
-      # from_ssot: read user_id from SSOT before the graph runs
-      user_id     { from_ssot = session.user_id }
-      # from_hook: consumer supplies raw_payload via a pre hook
-      raw_payload { from_hook = "get_payload" }
-    }
-    out {
-      # from_hook + to_ssot: post hook may override receipt, then it is merged to SSOT
-      receipt { from_hook = "audit_receipt", to_ssot = orders.last_receipt }
-    }
+  prepare {
+    user_id     { from_ssot = session.user_id }
+    raw_payload { from_hook = "payload_input" }
+  }
+
+  merge {
+    receipt { to_ssot = orders.last_receipt }
+  }
+
+  publish {
+    hook = "audit_export"
   }
 }
 ```
 
 ```typescript
-runtime.registerHook("get_payload", (ctx) => {
-  ctx.set("raw_payload", ctx.get("incoming_event_body"));
-});
+runtime.registerHook("payload_input", (ctx) => {
+  return { raw_payload: ctx.requestBody() }
+})
 
-runtime.registerHook("audit_receipt", async (ctx) => {
-  await log.write("audit", ctx.get("receipt"));
-  // optionally override: ctx.set("receipt", redact(ctx.get("receipt")));
-});
+runtime.registerHook("audit_export", (ctx) => {
+  audit.log(ctx.state())
+})
 ```
 
 ---
 
 ## 1. DSL Syntax
 
-### 1.1 Structure
+### 1.1 Prepare hooks
 
-Hooks are declared inline inside the `io` block using `from_hook`:
+A prepare hook is declared by setting `from_hook` on a binding entry inside the `prepare` section:
 
 ```
 action "<actionId>" {
   compute { ... }
 
-  io {
-    in {
-      <bindingName> { from_ssot = <path> }                              # SSOT input
-      <bindingName> { from_hook = "<hookName>" }                        # pre-hook input
-    }
-    out {
-      <bindingName> { to_ssot = <path> }                                # SSOT output
-      <bindingName> { from_hook = "<hookName>" }                        # post-hook output
-      <bindingName> { to_ssot = <path>, from_hook = "<hookName>" }      # both
-    }
+  prepare {
+    <bindingName> { from_ssot = <path> }         # SSOT input
+    <bindingName> { from_hook = "<hookName>" }   # hook input
   }
 }
 ```
 
-**Direction → timing mapping:**
+Each `prepare` entry must define exactly one source (`from_ssot` or `from_hook`). They cannot be combined on the same binding.
 
-| `io` direction | Implied hook timing |
-|---------------|---------------------|
-| `in`          | `pre`               |
-| `out`         | `post`              |
+**Hook invocation and result mapping:**
 
-**`in` block** — each entry may carry one of:
-- `from_ssot = <path>` — read binding from SSOT before the compute graph
-- `from_hook = "<hookName>"` — register a `pre` hook that may `set()` this binding
-
-**`out` block** — each entry may carry:
-- `to_ssot = <path>` — write binding to SSOT after the compute graph
-- `from_hook = "<hookName>"` — register a `post` hook that may `set()` this binding
-- both `to_ssot` and `from_hook` may appear together on the same binding
-
-**Multiple bindings, same hook name:** The same `hookName` may appear on multiple `in` entries (or multiple `out` entries). All matching bindings are aggregated — the hook implementation can `get()`/`set()` all of them.
-
-### 1.2 Timing semantics
-
-| Implied timing | Fires | Can write bindings | Can read bindings |
-|----------------|-------|-------------------|------------------|
-| `pre` (from `in`) | Before `executeGraph` | Yes — values injected before compute graph runs | Yes — reads initial/ssot-resolved values |
-| `post` (from `out`) | After `executeGraph` | Yes — values override result bindings before merge | Yes — reads compute graph output |
-
-- A `pre` hook that `set()`s a binding overrides whatever value was resolved (from SSOT or default) before the compute graph sees it.
-- A `post` hook that `set()`s a binding overrides the compute graph's output before the merge delta `D_n` is built. The overridden value goes through the normal atomic merge.
-
-### 1.3 Execution order within an action
+1. The runtime invokes the hook, obtaining a result object.
+2. For each binding that declared `from_hook = "<hookName>"`, the runtime assigns:
 
 ```
-1. Resolve from_ssot bindings from S_n
-2. Execute "pre" hooks (io.in declaration order); each registered hook may set() its bindings
-3. executeGraph — compute graph runs with current binding values
-4. Execute "post" hooks (io.out declaration order); each registered hook may set() its bindings
-5. Build merge delta D_n from result bindings
-6. Atomically apply D_n to SSOT → S_{n+1}
-7. Evaluate transitions
+state[bindingName] = hookResult[bindingName]
 ```
 
-### 1.4 Complete example
+The hook implementation is responsible for returning a field with the correct binding name.
+
+### 1.2 Hook deduplication (multiple bindings, same hook name)
+
+If multiple bindings in the same `prepare` section reference the same hook name, the runtime **invokes the hook once** and reuses the returned object for all matching bindings:
+
+```hcl
+prepare {
+  raw_payload { from_hook = "request_context" }
+  user_agent  { from_hook = "request_context" }
+}
+```
+
+Mapping:
 
 ```
-action "enrich" {
+state.raw_payload = result.raw_payload
+state.user_agent  = result.user_agent
+```
+
+### 1.3 Publish hooks
+
+Publish hooks are declared in the `publish` section using `hook = "<name>"`:
+
+```hcl
+publish {
+  hook = "audit_export"
+  hook = "metrics_emit"
+}
+```
+
+Multiple `hook` entries are allowed. Publish hooks fire in declaration order after the merge step. Each receives the **entire final action state**.
+
+### 1.4 Execution order within an action
+
+```
+1. Resolve prepare.from_ssot bindings from SSOT
+2. Invoke prepare hooks (declaration order); collect returned objects
+3. Map hook result fields into state bindings
+4. Execute compute graph
+5. Apply merge.to_ssot
+6. Invoke publish hooks (declaration order) with final state
+```
+
+### 1.5 Complete example
+
+```hcl
+action "process_order" {
   compute {
-    root = enriched_payload
-    prog "enrich_graph" {
-      raw_payload:string      = ""
-      extra_field:string      = ""
-      enriched_payload:string = concat(raw_payload, extra_field)
+    root = receipt
+    prog "order_graph" {
+      ~>raw_payload:string = ""
+      ~>user_id:string     = ""
+      <~receipt:string     = build_receipt(raw_payload, user_id)
     }
   }
 
-  io {
-    in {
-      raw_payload { from_ssot = request.payload }
-      extra_field { from_hook = "inject_extra" }
-    }
-    out {
-      enriched_payload { from_hook = "audit_log" }
-    }
+  prepare {
+    user_id     { from_ssot = session.user_id }
+    raw_payload { from_hook = "payload_input" }
+  }
+
+  merge {
+    receipt { to_ssot = orders.last_receipt }
+  }
+
+  publish {
+    hook = "audit_export"
+    hook = "metrics_emit"
   }
 }
 ```
@@ -143,46 +157,46 @@ action "enrich" {
 
 ## 2. HCL Lowering
 
-`from_hook` entries are lowered to `hook` sub-blocks inside the action's `prog` block in the emitted canonical HCL. They appear alongside `ssot_input` and `ssot_output` sub-blocks.
+`prepare.from_hook` entries and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block continues to use plain `binding` declarations (sigils stripped).
 
 ### 2.1 Shape
 
 ```hcl
-prog "enrich_graph" {
-  ssot_input {
-    binding "raw_payload" { ssot_path = "request.payload" }
+action "process_order" {
+  compute {
+    root = "receipt"
+    prog "order_graph" {
+      binding "raw_payload" { type = "string" value = "" }
+      binding "user_id"     { type = "string" value = "" }
+      binding "receipt"     {
+        type = "string"
+        expr = { combine = { fn = "build_receipt" args = [{ ref = "raw_payload" }, { ref = "user_id" }] } }
+      }
+    }
   }
 
-  hook "inject_extra" {
-    timing = "pre"
-    binding "extra_field" { }
+  prepare {
+    binding "user_id"     { from_ssot = "session.user_id" }
+    binding "raw_payload" { from_hook  = "payload_input" }
   }
 
-  hook "audit_log" {
-    timing   = "post"
-    binding "enriched_payload" { }
+  merge {
+    binding "receipt" { to_ssot = "orders.last_receipt" }
   }
 
-  binding "raw_payload" {
-    type  = "string"
-    value = ""
-  }
-  binding "extra_field" {
-    type  = "string"
-    value = ""
-  }
-  binding "enriched_payload" {
-    type = "string"
-    expr = { combine = { fn = "concat" args = [{ ref = "raw_payload" }, { ref = "extra_field" }] } }
+  publish {
+    hook = "audit_export"
+    hook = "metrics_emit"
   }
 }
 ```
 
 Rules:
-- Each `hook "<name>"` sub-block contains `timing` and one `binding "<name>" { }` entry per `from_hook` entry that shares that name.
-- `timing` is derived from the `io` direction: `in` → `"pre"`, `out` → `"post"`.
-- Multiple `hook` sub-blocks are emitted in declaration order within their respective `in`/`out` groups (`in` entries before `out` entries).
-- The binding name inside a `hook` sub-block must match an existing `binding` block in the same `prog`.
+- Sigils are stripped from binding names in the `prog` block; direction is encoded structurally by membership in `prepare` or `merge`.
+- Each `prepare` entry becomes `binding "<name>" { from_ssot = ... }` or `binding "<name>" { from_hook = ... }`.
+- Each `merge` entry becomes `binding "<name>" { to_ssot = ... }`.
+- Each `publish` hook entry becomes a `hook = "<name>"` attribute (repeated for multiple hooks).
+- Binding names inside `prepare` and `merge` must match an existing binding declared in the `prog` block.
 
 ---
 
@@ -191,86 +205,114 @@ Rules:
 ### 3.1 Hook registration API (TypeScript)
 
 ```typescript
-interface HookContext {
+interface PrepareHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  readonly timing: "pre" | "post";
-  /** Read the current value of a binding declared with this hook's name in io. */
+  /** Read the current value of a state binding (e.g. from a prior from_ssot resolution). */
   get(binding: string): unknown;
-  /** Override the value of a binding declared with this hook's name in io. */
-  set(binding: string, value: unknown): void;
 }
 
-type HookImpl = (ctx: HookContext) => void | Promise<void>;
+interface PublishHookContext {
+  readonly actionId: string;
+  readonly hookName: string;
+  /** Read the entire final state snapshot. */
+  state(): Record<string, unknown>;
+}
+
+type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Promise<Record<string, unknown>>;
+type PublishHookImpl = (ctx: PublishHookContext) => void | Promise<void>;
 
 // Registration
-runtime.registerHook(hookName: string, impl: HookImpl): void;
+runtime.registerHook(hookName: string, impl: PrepareHookImpl | PublishHookImpl): void;
 ```
 
-Consumers call `runtime.registerHook()` once per hook name before execution begins. The hook name must match the label declared in the Turn DSL.
+Consumers call `runtime.registerHook()` once per hook name before execution begins.
 
 ```typescript
-runtime.registerHook("inject_extra", async (ctx) => {
-  ctx.set("extra_field", await fetchExtra(ctx.get("raw_payload")));
-});
+runtime.registerHook("payload_input", async (ctx) => {
+  return { raw_payload: await fetchPayload() }
+})
 
-runtime.registerHook("audit_log", async (ctx) => {
-  console.log(ctx.actionId, ctx.get("enriched_payload"));
-});
+runtime.registerHook("audit_export", (ctx) => {
+  audit.log(ctx.state())
+})
 ```
 
-### 3.2 Unregistered hooks
+### 3.2 Prepare hook mapping
 
-If no implementation has been registered for a hook name when the action executes, the runtime **silently skips** that hook. No error or warning is emitted. Binding values are left unchanged.
+After a prepare hook returns its result object, the runtime maps each declared binding:
 
-### 3.3 Multiple hooks, same timing
+```
+state[bindingName] = hookResult[bindingName]
+```
 
-When multiple hooks share the same timing (`pre` or `post`), they execute in declaration order within the `in`/`out` block. Each hook sees the binding values as left by the previous hook — i.e., `set()` by an earlier hook is visible to a later hook's `get()` for the same binding.
+If the result object is missing a declared binding field, the runtime emits `MissingHookField`.
 
-### 3.4 Hook isolation
+### 3.3 Publish hook state
 
-- A hook implementation can only `get()` and `set()` bindings declared with its name in the `io` block. Attempting to access any other binding throws a runtime error.
-- A `post` hook cannot write to SSOT directly. Values written via `set()` feed into `D_n` through the normal merge step.
+Publish hooks receive the complete final state after the merge step:
+
+```
+{
+  raw_payload: "...",
+  user_id: "u123",
+  receipt: "..."
+}
+```
+
+Publish hooks cannot mutate this state. Any return value is ignored.
+
+### 3.4 Unregistered hooks
+
+If no implementation has been registered for a hook name when the action executes, the runtime **silently skips** that hook. No error or warning is emitted.
+
+- For a skipped prepare hook, the binding value remains unchanged (whatever was resolved from SSOT or the default).
+- For a skipped publish hook, nothing is emitted.
+
+### 3.5 Multiple prepare hooks, same name
+
+When multiple bindings reference the same prepare hook name, the hook executes **once** and the returned object is reused for all matching bindings.
+
+### 3.6 Hook isolation
+
+- Prepare hooks: can read runtime context and optionally read current state via `ctx.get()`. They cannot write state directly; writes occur only through the returned object mapped by the runtime.
+- Publish hooks: can read the full final state via `ctx.state()`. They cannot write state.
 
 ---
 
 ## 4. CAN (OK)
 
-- `io.in { <binding> { from_hook = "<name>" } }` declares a `pre` hook for that binding.
-- `io.out { <binding> { from_hook = "<name>" } }` declares a `post` hook for that binding.
-- An `io.out` entry may carry both `to_ssot` and `from_hook` on the same binding; both effects are applied.
-- The same hook name may appear on multiple `in` entries (or multiple `out` entries); all matching bindings are aggregated into one hook.
-- Multiple distinct hook names may be declared in the same `io` block.
-- Multiple hooks with the same timing execute in declaration order.
-- Two hooks in the same action can affect overlapping or identical bindings.
-- A `pre` hook can `set()` a binding before the compute graph runs; the compute graph observes the updated value.
-- A `post` hook can `set()` a result binding; the updated value enters `D_n` and is merged into SSOT.
-- A `post` hook can `get()` any binding declared with its name in `io.out`, including non-SSOT bindings computed by the graph.
+- `prepare { <binding> { from_hook = "<name>" } }` declares a prepare-phase hook for that binding.
+- `publish { hook = "<name>" }` declares a publish-phase hook for the action.
+- An `prepare` entry may carry `from_ssot` or `from_hook`; both are valid sources.
+- The same hook name may appear on multiple `prepare` entries; all matching bindings are collected from the single hook invocation result.
+- Multiple `hook` entries in a `publish` block are valid and execute in declaration order.
+- Two distinct hook names may be declared in the same action.
 - If no implementation is registered for a hook name, the runtime silently skips it.
-- The converter can emit multiple `hook` sub-blocks inside a single `prog` block, in declaration order.
-- A hook can coexist with `ssot_input` / `ssot_output` sub-blocks in the same `prog` block.
+- Prepare hooks fire before the compute graph; the compute graph observes the mapped values.
+- Publish hooks fire after merge; they receive the complete final state.
 
 ---
 
 ## 5. CAN'T (NG)
 
-- The same hook name cannot appear in both `io.in` and `io.out` (`HookTimingConflict`); a hook has exactly one timing.
-- `from_hook` cannot appear on an `io.in` entry together with `from_ssot` on the same binding (`ConflictingIoSources`); an `in` binding has exactly one source.
-- A `from_hook` binding name cannot be absent from the action's `prog` block (`UnresolvedHookBinding`).
-- A hook implementation cannot `get()` or `set()` a binding not declared with its name in the `io` block (runtime error).
-- A `post` hook cannot write to SSOT directly; all writes must go through the declared merge step.
+- A `prepare` entry cannot carry both `from_ssot` and `from_hook` on the same binding (`InvalidPrepareSource`).
+- A `from_hook` binding name cannot be absent from the action's `prog` block (`MissingHookField` at runtime; `UnresolvedPrepareBinding` at convert time).
+- A prepare hook implementation cannot write to state directly; it can only return values via the result object.
+- A publish hook cannot mutate state; return values are ignored.
 - Hook execution order cannot be changed at runtime; it is fixed by declaration order in the emitted HCL.
-- A `pre` hook cannot observe compute graph results (graph has not run yet); only initial/ssot-resolved binding values are available.
+- A prepare hook cannot observe compute graph results (the graph has not run yet); only SSOT-resolved and default binding values are available via `ctx.get()`.
 
 ---
 
 ## 6. Error Catalogue
 
-| Error code | Trigger condition |
-|------------|------------------|
-| `HookTimingConflict` | The same hook name appears in both `io.in` and `io.out` in one `action` |
-| `UnresolvedHookBinding` | A `from_hook` binding name has no matching `binding` block in the same `prog` |
-| `ConflictingIoSources` | An `io.in` binding entry carries both `from_ssot` and `from_hook` |
+| Error code | Condition |
+|------------|-----------|
+| `MissingHookField` | Prepare hook result object is missing a field required by a declared binding |
+| `InvalidPrepareSource` | A `prepare` entry carries both `from_ssot` and `from_hook` |
+| `UnresolvedPrepareBinding` | A `prepare` `from_hook` binding name has no matching binding in the `prog` block |
+| `UnresolvedMergeBinding` | A `merge` binding name has no matching binding in the `prog` block |
 
 ---
 
@@ -280,36 +322,34 @@ When multiple hooks share the same timing (`pre` or `post`), they execute in dec
 
 | Domain | Coverage target |
 |--------|----------------|
-| A. DSL parsing | `io.in/out` with `from_hook` correctly parsed; timing inferred from direction |
-| B. HCL lowering | `hook` sub-blocks emitted inside `prog` in declaration order |
-| C. Binding validation | `from_hook` binding names validated against `prog` bindings at convert time |
-| D. Pre-hook execution | Hook fires before graph; `set()` value visible to compute graph |
-| E. Post-hook execution | Hook fires after graph; `set()` value enters `D_n` and merges to SSOT |
-| E2. Post-hook + SSOT output | `io.out` binding with both `from_hook` and `to_ssot`; hook value goes through merge |
-| F. Declaration order | Multiple hooks with same timing execute in declaration order |
-| G. Unregistered hook | Silently skipped; no error, binding values unchanged |
-| H. Hook isolation | `get()`/`set()` outside declared bindings raises runtime error |
-| I. Error paths | All 3 error codes trigger correctly and abort without partial output |
+| A. DSL parsing | `prepare` entries with `from_hook` correctly parsed; `publish` `hook` entries collected |
+| B. HCL lowering | `prepare`/`merge`/`publish` sub-blocks emitted in declaration order |
+| C. Binding validation | `from_hook` and `merge` binding names validated against `prog` bindings at convert time |
+| D. Prepare hook execution | Hook fires before graph; returned field value visible to compute graph |
+| E. Hook deduplication | Multiple bindings on same hook name → hook called once; all fields mapped |
+| F. Publish hook execution | Hook fires after merge; receives full final state; cannot mutate |
+| G. Declaration order | Multiple publish hooks execute in declaration order |
+| H. Unregistered hook | Silently skipped; no error, binding values unchanged |
+| I. Error paths | All error codes trigger correctly and abort without partial output |
 
 ### Critical paths (idempotency)
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | `io`-inline `from_hook` → emitted HCL `hook` sub-block | Re-lower same DSL source; emitted HCL is byte-identical |
-| 2 | Pre-hook `set()` → compute graph observes value | Same hook impl + same initial state → identical graph result both runs |
-| 3 | Post-hook `set()` → value in `D_n` → SSOT | Same hook impl + same graph output → identical SSOT after merge both runs |
+| 1 | `prepare.from_hook` → emitted HCL `prepare` sub-block | Re-lower same DSL source; emitted HCL is byte-identical |
+| 2 | Prepare hook return value → compute graph observes mapped binding | Same hook impl + same SSOT state → identical graph result both runs |
+| 3 | Publish hook receives state after merge | Same action state → identical state delivered to publish hook both runs |
 | 4 | Unregistered hook → no state change | Execute with hook unregistered; assert binding values identical to no-hook run |
 
 ### Edge cases
 
 | Case | Expected behaviour |
 |------|--------------------|
-| Same hook name in `io.in` and `io.out` | `HookTimingConflict` error at convert time |
-| `io.in { x { from_ssot = p, from_hook = "h" } }` | `ConflictingIoSources` error at convert time |
-| `io.in { x { from_hook = "h" } }` where `x` is not in `prog` | `UnresolvedHookBinding` error at convert time |
-| `io.out { x { to_ssot = p, from_hook = "h" } }` | Valid — post hook runs, then value (possibly overridden) enters merge |
-| Same hook name on multiple `in` entries | Valid — bindings are aggregated; hook impl can get/set all of them |
-| Hook registered but `set()` called on binding not in `io` | Runtime error; execution aborted |
-| Two `pre` hooks both `set()` the same binding | Second hook's value wins (declaration order); compute graph sees second value |
+| Same hook name on multiple `prepare` entries | Hook called once; result fields mapped to all declaring bindings |
+| Hook result missing a declared binding field | `MissingHookField` error; action execution aborted |
+| `prepare { x { from_ssot = p, from_hook = "h" } }` | `InvalidPrepareSource` error at convert time |
+| `prepare { x { from_hook = "h" } }` where `x` not in `prog` | `UnresolvedPrepareBinding` error at convert time |
+| `publish { hook = "h1"; hook = "h2" }` | Both hooks fire; h1 before h2 |
+| Publish hook impl returns a value | Return value ignored; no state mutation |
 | Hook impl is async and rejects | Runtime error propagated; action execution aborted; SSOT not mutated |
-| Action has `pre` and `post` hooks; `pre` hook unregistered | Pre hook silently skipped; post hook executes normally |
+| Prepare hook unregistered; publish hook registered | Prepare skipped silently; publish fires normally |

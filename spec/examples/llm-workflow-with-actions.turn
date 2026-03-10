@@ -42,23 +42,14 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        need_grounding {
-          from_ssot = request.flags.need_grounding
-        }
-        kb_enabled {
-          from_ssot = runtime.features.kb_enabled
-        }
-        priority_tier {
-          from_ssot = request.priority_tier
-        }
-      }
-      out {
-        workflow_stage {
-          to_ssot = workflow.stage
-        }
-      }
+    prepare {
+      need_grounding { from_ssot = request.flags.need_grounding }
+      kb_enabled     { from_ssot = runtime.features.kb_enabled  }
+      priority_tier  { from_ssot = request.priority_tier        }
+    }
+
+    merge {
+      workflow_stage { to_ssot = workflow.stage }
     }
 
     next {
@@ -69,12 +60,8 @@ scene "llm_support_workflow" {
           go_retrieve:bool = bool_and(retrieve_ready, true)
         }
       }
-      io {
-        in {
-          retrieve_ready {
-            from_action = retrieve_ready
-          }
-        }
+      prepare {
+        retrieve_ready { from_action = retrieve_ready }
       }
       action = retrieve_context
     }
@@ -111,23 +98,14 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        query {
-          from_ssot = request.query
-        }
-        doc_hint {
-          from_ssot = request.doc_hint
-        }
-      }
-      out {
-        workflow_stage {
-          to_ssot = workflow.stage
-        }
-        retrieved_context {
-          to_ssot = workflow.context
-        }
-      }
+    prepare {
+      query    { from_ssot = request.query    }
+      doc_hint { from_ssot = request.doc_hint }
+    }
+
+    merge {
+      workflow_stage    { to_ssot = workflow.stage   }
+      retrieved_context { to_ssot = workflow.context }
     }
 
     next {
@@ -159,20 +137,13 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        query {
-          from_ssot = request.query
-        }
-      }
-      out {
-        draft_text {
-          to_ssot = workflow.draft
-        }
-        workflow_stage {
-          to_ssot = workflow.stage
-        }
-      }
+    prepare {
+      query { from_ssot = request.query }
+    }
+
+    merge {
+      draft_text     { to_ssot = workflow.draft }
+      workflow_stage { to_ssot = workflow.stage }
     }
 
     next {
@@ -207,23 +178,14 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        query {
-          from_ssot = request.query
-        }
-        retrieved_context {
-          from_ssot = workflow.context
-        }
-      }
-      out {
-        draft_text {
-          to_ssot = workflow.draft
-        }
-        workflow_stage {
-          to_ssot = workflow.stage
-        }
-      }
+    prepare {
+      query             { from_ssot = request.query    }
+      retrieved_context { from_ssot = workflow.context }
+    }
+
+    merge {
+      draft_text     { to_ssot = workflow.draft }
+      workflow_stage { to_ssot = workflow.stage }
     }
 
     next {
@@ -259,23 +221,14 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        toxicity_score {
-          from_ssot = moderation.toxicity_score
-        }
-        pii_score {
-          from_ssot = moderation.pii_score
-        }
-      }
-      out {
-        approved {
-          to_ssot = workflow.approved
-        }
-        workflow_stage {
-          to_ssot = workflow.stage
-        }
-      }
+    prepare {
+      toxicity_score { from_ssot = moderation.toxicity_score }
+      pii_score      { from_ssot = moderation.pii_score      }
+    }
+
+    merge {
+      approved       { to_ssot = workflow.approved }
+      workflow_stage { to_ssot = workflow.stage    }
     }
 
     next {
@@ -286,12 +239,8 @@ scene "llm_support_workflow" {
           go_publish:bool = bool_and(approved, true)
         }
       }
-      io {
-        in {
-          approved {
-            from_action = approved
-          }
-        }
+      prepare {
+        approved { from_action = approved }
       }
       action = publish_response
     }
@@ -324,20 +273,13 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        draft_text {
-          from_ssot = workflow.draft
-        }
-      }
-      out {
-        workflow_status {
-          to_ssot = workflow.status
-        }
-        final_response {
-          to_ssot = conversation.last_response
-        }
-      }
+    prepare {
+      draft_text { from_ssot = workflow.draft }
+    }
+
+    merge {
+      workflow_status { to_ssot = workflow.status           }
+      final_response  { to_ssot = conversation.last_response }
     }
   }
 
@@ -360,20 +302,13 @@ scene "llm_support_workflow" {
       }
     }
 
-    io {
-      in {
-        draft_text {
-          from_ssot = workflow.draft
-        }
-      }
-      out {
-        handoff_note {
-          to_ssot = review.note
-        }
-        workflow_status {
-          to_ssot = workflow.status
-        }
-      }
+    prepare {
+      draft_text { from_ssot = workflow.draft }
+    }
+
+    merge {
+      handoff_note    { to_ssot = review.note      }
+      workflow_status { to_ssot = workflow.status  }
     }
   }
 }
