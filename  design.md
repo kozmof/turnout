@@ -204,7 +204,7 @@ raw_payload {
 Hook:
 
 ```ts
-runtime.registerHook("payload_input", () => {
+runtime.hook("payload_input", () => {
   return {
     raw_payload: "...data..."
   }
@@ -413,7 +413,7 @@ action "process_order" {
 Example hooks:
 
 ```ts
-runtime.registerHook("payload_input", (ctx) => {
+runtime.hook("payload_input", (ctx) => {
   return {
     raw_payload: ctx.requestBody()
   }
@@ -421,7 +421,7 @@ runtime.registerHook("payload_input", (ctx) => {
 ```
 
 ```ts
-runtime.registerHook("audit_export", (ctx) => {
+runtime.hook("audit_export", (ctx) => {
   audit.log(ctx.state())
 })
 ```

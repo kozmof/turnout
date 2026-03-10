@@ -12,7 +12,7 @@ A hook is a named extension point declared inside an action's `prepare` or `publ
 - **Prepare hooks** (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs; the hook returns an object whose fields are mapped into runtime state bindings.
 - **Publish hooks** (`publish { hook = "<name>" }`) — fire after merge; the hook receives the entire final state snapshot and cannot mutate it.
 
-Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer via `runtime.registerHook()`. If no implementation is registered for a hook name, the runtime silently skips it.
+Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer via `runtime.hook()`. If no implementation is registered for a hook name, the runtime silently skips it.
 
 ```hcl
 action "process_order" {
@@ -41,11 +41,11 @@ action "process_order" {
 ```
 
 ```typescript
-runtime.registerHook("payload_input", (ctx) => {
+runtime.hook("payload_input", (ctx) => {
   return { raw_payload: ctx.requestBody() }
 })
 
-runtime.registerHook("audit_export", (ctx) => {
+runtime.hook("audit_export", (ctx) => {
   audit.log(ctx.state())
 })
 ```
@@ -223,17 +223,17 @@ type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Pr
 type PublishHookImpl = (ctx: PublishHookContext) => void | Promise<void>;
 
 // Registration
-runtime.registerHook(hookName: string, impl: PrepareHookImpl | PublishHookImpl): void;
+runtime.hook(hookName: string, impl: PrepareHookImpl | PublishHookImpl): void;
 ```
 
-Consumers call `runtime.registerHook()` once per hook name before execution begins.
+Consumers call `runtime.hook()` once per hook name before execution begins.
 
 ```typescript
-runtime.registerHook("payload_input", async (ctx) => {
+runtime.hook("payload_input", async (ctx) => {
   return { raw_payload: await fetchPayload() }
 })
 
-runtime.registerHook("audit_export", (ctx) => {
+runtime.hook("audit_export", (ctx) => {
   audit.log(ctx.state())
 })
 ```
