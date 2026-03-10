@@ -7,6 +7,25 @@
 
 ## Overview
 
+### Layer Responsibilities
+
+The model separates concerns across four layers:
+
+| layer   | responsibility                   |
+| ------- | -------------------------------- |
+| prog    | declare computation and bindings |
+| prepare | construct input state            |
+| merge   | persist results                  |
+| publish | expose final state               |
+
+Key properties:
+- Sigils define directional intent; binding names remain plain canonical identifiers.
+- `prepare` and `merge` operate on **individual bindings**; `publish` operates on the **whole state**.
+- Hooks never mutate state directly; state is written only through prepare result mapping.
+- All SSOT paths and hook names are declared explicitly at convert time.
+
+### Pipeline
+
 The pipeline has two sequential phases:
 
 1. **Convert phase** — A Go CLI reads Turn DSL and emits canonical plain HCL files that conform to `hcl-context-spec.md`.
@@ -126,6 +145,31 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 - Atomically merge the action result delta into SSOT.
 - Evaluate transition compute programs using post-merge SSOT and action output.
 - Enqueue selected next action(s) according to the transition policy.
+
+### Action-Local State
+
+During execution of one action, the runtime maintains a local state map:
+
+```
+State = { binding_name → value }
+```
+
+Binding names are defined by the `prog` block in `compute`; the set of bindings declared there forms the **runtime state schema** for that action invocation. This state map is distinct from SSOT (`S_n` / `S_{n+1}`):
+
+- `prepare` populates state bindings from SSOT paths or hook results before the graph runs.
+- `compute` reads and writes state bindings through the program graph.
+- `merge` selects specific state bindings and writes them back to SSOT.
+- `publish` exposes the complete final state map to publish hooks (read-only).
+
+Example state during `process_order` execution:
+
+```
+{
+  raw_payload: "...",
+  user_id: "u123",
+  receipt: "..."
+}
+```
 
 ### Execution Order (per action)
 
