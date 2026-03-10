@@ -168,7 +168,7 @@ Action-to-next binding scope:
 This spec standardizes the following scene-level HCL shape:
 
 Reference-style fields below are shown in bare form; per Section 2.3, quoted and bare forms normalize identically.
-Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool =| income >= min_income`, `go:bool =| decision & income_ok`) follows HCL ContextSpec lowering rules.
+Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
 Directional binding prefixes are interpreted before ContextSpec lowering:
 
 - `~>name:type = ...` means ingress-only binding.
@@ -188,8 +188,8 @@ scene "loan_flow" {
         ~>debt:int       = 0
         min_income:int   = 50000
         max_debt:int     = 20000
-        income_ok:bool   =| income >= min_income
-        debt_ok:bool     =| debt <= max_debt
+        income_ok:bool   = income >= min_income
+        debt_ok:bool     = debt <= max_debt
         <~decision:bool  = bool_and(income_ok, debt_ok)
       }
     }
@@ -214,7 +214,7 @@ scene "loan_flow" {
         prog "to_approve" {
           ~>decision:bool  = false
           ~>income_ok:bool = false
-          go:bool =| decision & income_ok
+          go:bool = decision & income_ok
         }
       }
       prepare {

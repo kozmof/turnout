@@ -46,10 +46,10 @@ scene "adventure_story_chapter_1" {
         <~chapter_state:str = "route_selected"
         <~last_hub:str = "crossroads"
 
-        clue_enough:bool =| clue_count >= 2
+        clue_enough:bool = clue_count >= 2
         can_forest:bool = bool_and(has_map, clue_enough)
-        can_gate:bool =| coins >= 3
-        can_sewer:bool =| lockpick_skill >= 1
+        can_gate:bool = coins >= 3
+        can_sewer:bool = lockpick_skill >= 1
         decision_ready:bool = bool_and(true, true)
       }
     }
@@ -134,8 +134,8 @@ scene "adventure_story_chapter_1" {
         <~location:str = "Whispering Forest"
         danger:int = 2
 
-        <~story_route:str =| route + ""
-        <~danger_level:int =| danger + 0
+        <~story_route:str = route + ""
+        <~danger_level:int = danger + 0
       }
     }
 
@@ -172,8 +172,8 @@ scene "adventure_story_chapter_1" {
         ~>coins:int = 0
         toll:int = 3
 
-        <~coins_after:int =| coins - toll
-        <~story_route:str =| route + ""
+        <~coins_after:int = coins - toll
+        <~story_route:str = route + ""
       }
     }
 
@@ -213,8 +213,8 @@ scene "adventure_story_chapter_1" {
         <~location:str = "Sunken Tunnel"
         ~>lockpick_skill:int = 0
 
-        <~found_mark:bool =| lockpick_skill >= 2
-        <~story_route:str =| route + ""
+        <~found_mark:bool = lockpick_skill >= 2
+        <~story_route:str = route + ""
       }
     }
 
@@ -253,7 +253,7 @@ scene "adventure_story_chapter_1" {
         route:str = "campfire_wait"
         <~note:str = "waited_until_dawn"
         <~location:str = "Crossroads Camp"
-        <~story_route:str =| route + ""
+        <~story_route:str = route + ""
       }
     }
 
@@ -286,7 +286,7 @@ scene "adventure_story_chapter_1" {
       root     = reward
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
-        <~reward:str =| relic + ""
+        <~reward:str = relic + ""
         <~location:str = "Ruined Shrine"
       }
     }
@@ -319,7 +319,7 @@ scene "adventure_story_chapter_1" {
       root     = reward
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
-        <~reward:str =| writ + ""
+        <~reward:str = writ + ""
         <~location:str = "Castle Courtyard"
       }
     }
@@ -352,7 +352,7 @@ scene "adventure_story_chapter_1" {
       root     = reward
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
-        <~reward:str =| ledger + ""
+        <~reward:str = ledger + ""
         <~location:str = "Hidden Archive"
       }
     }
@@ -385,7 +385,7 @@ scene "adventure_story_chapter_1" {
       prog "chapter_end_graph" {
         prefix:str = "chapter_1_"
         suffix:str = "complete"
-        <~chapter_result:str =| prefix + suffix
+        <~chapter_result:str = prefix + suffix
         <~chapter_state:str = "resolved"
       }
     }

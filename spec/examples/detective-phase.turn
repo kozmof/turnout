@@ -73,7 +73,7 @@ scene "detective_evidence_hunt" {
         ~>camera_online:bool = false
 
         clue_candidate:bool = bool_and(disturbance_detected, camera_online)
-        search_ready:bool =| visibility_score >= 3
+        search_ready:bool = visibility_score >= 3
         <~scene_hotspot_found:bool = bool_and(clue_candidate, search_ready)
         <~phase:str = "scan_scene"
       }
@@ -131,11 +131,11 @@ scene "detective_evidence_hunt" {
         ~>weapon_found:bool = false
         ~>evidence_tag:str = ""
 
-        fp_strong:bool =| fingerprint_match >= 6
+        fp_strong:bool = fingerprint_match >= 6
         trace_and_weapon:bool = bool_and(blood_trace, weapon_found)
         <~critical_evidence_found:bool = bool_and(fp_strong, trace_and_weapon)
         prefix:str = "Collected evidence: "
-        <~evidence_log:str =| prefix + evidence_tag
+        <~evidence_log:str = prefix + evidence_tag
         <~phase:str = "collect_physical_evidence"
       }
     }
@@ -179,10 +179,10 @@ scene "detective_evidence_hunt" {
         ~>alibi_strength:int = 0
         ~>witness_statement:str = ""
 
-        alibi_weak:bool =| alibi_strength <= 3
+        alibi_weak:bool = alibi_strength <= 3
         <~timeline_priority:bool = bool_and(contradiction_detected, alibi_weak)
         prefix:str = "Witness says: "
-        <~interview_note:str =| prefix + witness_statement
+        <~interview_note:str = prefix + witness_statement
         <~phase:str = "interview_witness"
       }
     }
@@ -281,9 +281,9 @@ scene "detective_evidence_hunt" {
         ~>suspect_name:str = ""
         ~>confidence_score:int = 0
 
-        high_confidence:bool =| confidence_score >= 8
+        high_confidence:bool = confidence_score >= 8
         prefix:str = "Primary suspect: "
-        <~suspect_summary:str =| prefix + suspect_name
+        <~suspect_summary:str = prefix + suspect_name
         <~case_file_ready:bool = bool_and(high_confidence, true)
         <~phase:str = "identify_suspect"
       }
@@ -325,7 +325,7 @@ scene "detective_evidence_hunt" {
         ~>last_search_area:str = ""
 
         prefix:str = "Extended search area: "
-        <~search_note:str =| prefix + last_search_area
+        <~search_note:str = prefix + last_search_area
         <~case_file_ready:bool = false
         <~phase:str = "search_for_more_evidence"
         handoff_ready:bool = bool_and(true, true)
@@ -368,7 +368,7 @@ scene "detective_evidence_hunt" {
         ~>suspect_summary:str = ""
 
         prefix:str = "Filed report: "
-        <~report_line:str =| prefix + suspect_summary
+        <~report_line:str = prefix + suspect_summary
         <~investigation_closed:bool = bool_and(case_file_ready, true)
         <~phase:str = "submit_case_file"
       }

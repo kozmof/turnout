@@ -14,7 +14,7 @@ The compiler reads DSL input, lowers it to canonical plain HCL syntax, validates
 
 This spec defines two layers:
 
-1. **Surface DSL** (authoring syntax): includes typed keys (`name:type`), function-call expressions (`add(v1, v2)`), parse-safe infix expressions (`name:bool =| lhs >= rhs`, `name:str =| lhs + rhs`), and bare references (`v1`).
+1. **Surface DSL** (authoring syntax): includes typed keys (`name:type`), function-call expressions (`add(v1, v2)`), infix expressions (`name:bool = lhs >= rhs`, `name:str = lhs + rhs`), and bare references (`v1`).
 2. **Canonical plain HCL** (lowered syntax): uses only standard HCL identifiers/blocks/attributes so a stock HCL parser can parse it.
 
 ### Canonical plain HCL shape
@@ -45,10 +45,10 @@ prog "main" {
 | `name:type = literal` | `binding "name" { type = "type" value = literal }` |
 | `name:type = fn_alias(x, y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:bool =| lhs & rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_and" args = [arg(lhs), arg(rhs)] } } }` |
-| `name:bool =| lhs >= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "gte" args = [arg(lhs), arg(rhs)] } } }` |
-| `name:bool =| lhs <= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "lte" args = [arg(lhs), arg(rhs)] } } }` |
-| `name:str =| lhs + rhs` | `binding "name" { type = "str" expr = { combine = { fn = "str_concat" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs & rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_and" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs >= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "gte" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs <= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "lte" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:str = lhs + rhs` | `binding "name" { type = "str" expr = { combine = { fn = "str_concat" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:type = { fn_alias = [x, y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = { fn_alias = [a: x, b: y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = #pipe(p1:v1, p2:v2)[fn_alias(...), ...]` | `binding "name" { type = "type" expr = { pipe = { args = { p1 = ref(v1), p2 = ref(v2) } steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
@@ -98,10 +98,10 @@ prog "main" {
 
 - Positional call args `(x, y)` -> ordered pair `[arg(x), arg(y)]`
 - Named call args `(a: x, b: y)` -> ordered pair `[arg(x), arg(y)]`
-- Parse-safe infix `lhs & rhs` with `=|` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_and"`
-- Parse-safe infix `lhs >= rhs` with `=|` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "gte"`
-- Parse-safe infix `lhs <= rhs` with `=|` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "lte"`
-- Parse-safe infix `lhs + rhs` with `=|` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "str_concat"`
+- Infix `lhs & rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_and"`
+- Infix `lhs >= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "gte"`
+- Infix `lhs <= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "lte"`
+- Infix `lhs + rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "str_concat"`
 - Pipe header pair `#pipe(p: v)` -> `args = { p = ref(v) }`
 - Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
 - Compatibility object args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
@@ -117,7 +117,7 @@ CAN (OK):
 - Authors can use typed keys in DSL (`v1:int = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
-- Authors can write parse-safe infix expressions (`income_ok:bool =| income >= min_income`, `approval_code:str =| prefix + suffix`).
+- Authors can write infix expressions with `=` (`income_ok:bool = income >= min_income`, `approval_code:str = prefix + suffix`).
 - Authors can write pipes as `#pipe(x:n)[step1, step2]`.
 - Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
@@ -126,12 +126,11 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
 - A single binary call cannot mix positional and named argument forms.
-- Infix expressions must use `=|`; forms like `name:bool = lhs >= rhs` are not valid Surface DSL.
-- Infix expressions currently support only `&`, `>=`, `<=`, `+`, with exactly two operands.
+- Infix expressions support only `&`, `>=`, `<=`, `+`, with exactly two operands.
 
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks and typed reference objects (`ref`, `func_ref`) to stay parseable and unambiguous in plain HCL.
-- Because infix operators can be confused with native HCL expression forms, `=|` is required as an explicit parse-safe marker before infix lowering.
+- Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker — the parser distinguishes infix from function calls by token lookahead.
 
 ### Runtime value types
 
@@ -208,25 +207,27 @@ prog "main" {
 ## 3. Function expressions
 
 Function expressions in the Surface DSL use call syntax for binary combine functions, plus a parse-safe infix shorthand.
-There are five forms: **combine** (call expression), **infix** (`=| lhs OP rhs`), **#pipe**, **cond**, and **#if** (sugar for cond).
+There are five forms: **combine** (call expression), **infix** (`= lhs OP rhs`), **#pipe**, **cond**, and **#if** (sugar for cond).
 
 ---
 
 ### 3.1 Combine — binary operation
 
 ```hcl
-name:type = fn_alias(arg1, arg2)               # positional call
-name:type = fn_alias(a: arg1, b: arg2)         # explicit named call
-name:bool =| lhs & rhs                         # parse-safe infix sugar for bool_and
-name:bool =| lhs >= rhs                        # parse-safe infix sugar for gte
-name:bool =| lhs <= rhs                        # parse-safe infix sugar for lte
-name:str  =| lhs + rhs                         # parse-safe infix sugar for str_concat
+name:type = fn_alias(arg1, arg2)     # positional call
+name:type = fn_alias(a: arg1, b: arg2)  # explicit named call
+name:bool = lhs & rhs               # infix sugar for bool_and
+name:bool = lhs >= rhs              # infix sugar for gte
+name:bool = lhs <= rhs              # infix sugar for lte
+name:str  = lhs + rhs               # infix sugar for str_concat
 ```
 
 Each binary combine expression must be one of:
 - a **2-item positional call** (`fn_alias(arg1, arg2)`)
 - a **named call with `a` and `b`** (`fn_alias(a: arg1, b: arg2)`)
-- a **parse-safe infix call** (`name:<type> =| lhs OP rhs`)
+- an **infix expression** (`name:<type> = lhs OP rhs`)
+
+The parser distinguishes infix from function calls by the token following the first operand identifier: an infix operator (`&`, `>=`, `<=`, `+`) signals an infix expression; `(` signals a function call.
 
 Named calls are normalized during lowering to ordered args `[a, b]`.
 Infix calls are normalized by operator:
@@ -245,11 +246,11 @@ prog "main" {
   v1:int = 5
   v2:int = 3
 
-  sum:int   = add(v1, v2)
-  txt:str   =| "edge " + "mix"
-  flag_hi:bool =| v1 >= v2
-  flag_lo:bool =| v1 <= v2
-  go:bool   =| flag_hi & true
+  sum:int      = add(v1, v2)
+  txt:str      = "edge " + "mix"
+  flag_hi:bool = v1 >= v2
+  flag_lo:bool = v1 <= v2
+  go:bool      = flag_hi & true
 }
 ```
 
@@ -297,7 +298,7 @@ Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alia
 | `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `int`     | `T`         |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    |
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Parse-safe infix form must be exactly `name:<type> =| lhs OP rhs` with supported operators `&`, `>=`, `<=`, `+`; `+` is valid only for `name:str` (`InvalidInfixExpr` otherwise).
+> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs` with supported operators `&`, `>=`, `<=`, `+`; `+` is valid only for `name:str` (`InvalidInfixExpr` otherwise).
 
 ---
 
@@ -511,7 +512,7 @@ prog "main" {
 | `UndefinedRef` | Bare identifier references an unknown binding |
 | `UndefinedFuncRef` | `func_ref`/`then`/`else` references a non-function binding |
 | `InvalidBinaryArgShape` | Binary call is not `(x, y)` and not `(a: ..., b: ...)` |
-| `InvalidInfixExpr` | `=|` form is malformed, uses an unsupported infix operator, or violates operator/type pairing |
+| `InvalidInfixExpr` | Infix expression is malformed, uses an unsupported operator, or violates operator/type pairing |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |
 | `CondNotBool` | `condition` binding does not resolve to `bool` |
@@ -590,7 +591,7 @@ prog "main" {
   label_lo:str = str_concat(msg, " low")
 
   # --- Condition via combine ---
-  is_big:bool = gt(doubled, n)
+  is_big:bool = doubled >= n
 
   # --- Pipe: (n * n) + n ---
   piped:int = #pipe(x:n)[
@@ -657,7 +658,7 @@ ctx({
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `#if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
-| 6 | `income_ok:bool =| income >= min_income`, `debt_ok:bool =| debt <= max_debt`, `approval_code:str =| prefix + suffix` | Infix and call forms emit equivalent ContextSpec |
+| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix` | Infix and call forms emit equivalent ContextSpec |
 
 ### Edge cases
 
@@ -670,8 +671,8 @@ ctx({
 | Two `prog` blocks in one file | Either `DuplicateProg` error or emit two separate `ctx()` calls — specify behaviour |
 | `add(a: v1)` | `InvalidBinaryArgShape` error (`b` missing) |
 | `add(a: v1, b: v2, c: v3)` | `InvalidBinaryArgShape` error (extra key) |
-| `go:bool =| decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |
-| `approval_code:str =| prefix ++ suffix` | `InvalidInfixExpr` error (unsupported operator token) |
+| `go:bool = decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |
+| `approval_code:str = prefix ++ suffix` | `InvalidInfixExpr` error (unsupported operator token) |
 | `__reserved:int = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |
 | `cond` condition references a function whose return type is `int` | `CondNotBool` error |
@@ -680,4 +681,4 @@ ctx({
 
 - **Two-`prog` file behaviour**: not yet specified — choose: error or multi-ctx emission.
 - **`div` integer safety**: `binaryFnNumber::divide` returns a float; the spec declares `div` as `int → int` but the runtime produces a float value. Consider adding a `div_floor` alias (`div` followed by `transformFnNumber::floor`) or documenting that `:int` on a `div` binding is advisory.
-- **Phase 2 activation**: decide whether Phase 2 syntax in a Phase 1 file is a parse error or a `UnsupportedConstruct` warning.
+- **Phase 2 activation**: decide whether Phase 2 syntax in a Phase 1 file is a parse error or an `UnsupportedConstruct` warning.

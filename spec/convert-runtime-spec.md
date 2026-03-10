@@ -72,7 +72,7 @@ Rules:
 
 ### CAN (OK)
 
-- The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function call expressions, parse-safe infix expressions (`=|`), `#pipe`, `cond`, and `#if`.
+- The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function call expressions, parse-safe infix expressions (`=`), `#pipe`, `cond`, and `#if`.
 - The Go CLI can lower all surface DSL forms to canonical plain HCL `binding` blocks, identically to the rules in `hcl-context-spec.md` §2–3.
 - The Go CLI can emit compatibility input forms (`{ fn = [x, y] }`, `pipe(...)`) when an intermediate representation requires them, provided they are normalized before final HCL output.
 - The Go CLI can emit multiple `action` blocks in one HCL file — one per declared action — as long as each block has a distinct name label matching its `actionId`.
