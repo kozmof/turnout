@@ -190,7 +190,7 @@ scene "loan_flow" {
         max_debt:int     = 20000
         income_ok:bool   = income >= min_income
         debt_ok:bool     = debt <= max_debt
-        <~decision:bool  = bool_and(income_ok, debt_ok)
+        <~decision:bool  = income_ok & debt_ok
       }
     }
 

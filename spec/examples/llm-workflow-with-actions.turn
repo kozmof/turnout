@@ -36,9 +36,9 @@ scene "llm_support_workflow" {
         ~>priority_tier:int = 0
         <~workflow_stage:str = "analyzed"
 
-        retrieve_ready:bool = bool_and(need_grounding, kb_enabled)
+        retrieve_ready:bool = need_grounding & kb_enabled
         fast_lane:bool = priority_tier >= 2
-        analysis_ready:bool = bool_and(true, true)
+        analysis_ready:bool = true & true
       }
     }
 
@@ -57,7 +57,7 @@ scene "llm_support_workflow" {
         condition = go_retrieve
         prog "to_retrieve_context" {
           ~>retrieve_ready:bool = false
-          go_retrieve:bool = bool_and(retrieve_ready, true)
+          go_retrieve:bool = retrieve_ready & true
         }
       }
       prepare {
@@ -94,7 +94,7 @@ scene "llm_support_workflow" {
 
         context_prefix:str = query + " :: "
         <~retrieved_context:str = context_prefix + doc_hint
-        retrieval_ready:bool = bool_and(true, true)
+        retrieval_ready:bool = true & true
       }
     }
 
@@ -133,7 +133,7 @@ scene "llm_support_workflow" {
         prefix:str = "Direct answer: "
         <~draft_text:str = prefix + query
         <~workflow_stage:str = "drafted_direct"
-        draft_ready:bool = bool_and(true, true)
+        draft_ready:bool = true & true
       }
     }
 
@@ -174,7 +174,7 @@ scene "llm_support_workflow" {
 
         draft_seed:str = query + " | "
         <~draft_text:str = draft_seed + retrieved_context
-        draft_ready:bool = bool_and(true, true)
+        draft_ready:bool = true & true
       }
     }
 
@@ -216,8 +216,8 @@ scene "llm_support_workflow" {
 
         toxicity_ok:bool = toxicity_score <= 2
         pii_ok:bool = pii_score <= 1
-        <~approved:bool = bool_and(toxicity_ok, pii_ok)
-        safety_ready:bool = bool_and(true, true)
+        <~approved:bool = toxicity_ok & pii_ok
+        safety_ready:bool = true & true
       }
     }
 
@@ -236,7 +236,7 @@ scene "llm_support_workflow" {
         condition = go_publish
         prog "to_publish_response" {
           ~>approved:bool = false
-          go_publish:bool = bool_and(approved, true)
+          go_publish:bool = approved & true
         }
       }
       prepare {
@@ -269,7 +269,7 @@ scene "llm_support_workflow" {
         ~>draft_text:str = ""
         <~workflow_status:str = "sent"
         <~final_response:str = draft_text + ""
-        publish_ready:bool = bool_and(true, true)
+        publish_ready:bool = true & true
       }
     }
 
@@ -298,7 +298,7 @@ scene "llm_support_workflow" {
         prefix:str = "Review needed: "
         <~handoff_note:str = prefix + draft_text
         <~workflow_status:str = "awaiting_human"
-        handoff_ready:bool = bool_and(true, true)
+        handoff_ready:bool = true & true
       }
     }
 

@@ -117,7 +117,8 @@ CAN (OK):
 - Authors can use typed keys in DSL (`v1:int = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
-- Authors can write infix expressions with `=` (`income_ok:bool = income >= min_income`, `approval_code:str = prefix + suffix`).
+- Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`).
+- Authors can write call-only functions using call syntax (`add(v1, v2)`, `gt(v1, v2)`, `bool_or(a, b)`).
 - Authors can write pipes as `#pipe(x:n)[step1, step2]`.
 - Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
@@ -126,11 +127,14 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
 - A single binary call cannot mix positional and named argument forms.
+- Operator-only functions (`bool_and`, `gte`, `lte`, `str_concat`) cannot be written in call form. `bool_and(a, b)`, `gte(a, b)`, `lte(a, b)`, `str_concat(a, b)` are all `OperatorOnlyFn` errors.
+- Operator-only functions cannot appear as steps inside `#pipe(...)[ ]`, because pipe steps require call syntax. They must instead be expressed as call-form aliases — but since operator-only functions have no callable alias, they cannot be used as pipe steps.
 - Infix expressions support only `&`, `>=`, `<=`, `+`, with exactly two operands.
 
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks and typed reference objects (`ref`, `func_ref`) to stay parseable and unambiguous in plain HCL.
 - Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker — the parser distinguishes infix from function calls by token lookahead.
+- Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition: every binary function is either call-only or operator-only.
 
 ### Runtime value types
 
@@ -213,24 +217,28 @@ There are five forms: **combine** (call expression), **infix** (`= lhs OP rhs`),
 
 ### 3.1 Combine — binary operation
 
+Binary functions are divided into two categories based on whether a DSL infix operator is assigned:
+
+**Operator functions** — have an assigned DSL infix operator and **must** be written using it. Call-form alias is forbidden for these:
+
 ```hcl
-name:type = fn_alias(arg1, arg2)     # positional call
-name:type = fn_alias(a: arg1, b: arg2)  # explicit named call
-name:bool = lhs & rhs               # infix sugar for bool_and
-name:bool = lhs >= rhs              # infix sugar for gte
-name:bool = lhs <= rhs              # infix sugar for lte
-name:str  = lhs + rhs               # infix sugar for str_concat
+name:bool = lhs & rhs               # bool_and  — only valid form
+name:bool = lhs >= rhs              # gte        — only valid form
+name:bool = lhs <= rhs              # lte        — only valid form
+name:str  = lhs + rhs               # str_concat — only valid form
 ```
 
-Each binary combine expression must be one of:
-- a **2-item positional call** (`fn_alias(arg1, arg2)`)
-- a **named call with `a` and `b`** (`fn_alias(a: arg1, b: arg2)`)
-- an **infix expression** (`name:<type> = lhs OP rhs`)
+**Call functions** — have no infix operator and **must** be written using call syntax:
+
+```hcl
+name:type = fn_alias(arg1, arg2)        # positional call
+name:type = fn_alias(a: arg1, b: arg2) # named call
+```
 
 The parser distinguishes infix from function calls by the token following the first operand identifier: an infix operator (`&`, `>=`, `<=`, `+`) signals an infix expression; `(` signals a function call.
 
 Named calls are normalized during lowering to ordered args `[a, b]`.
-Infix calls are normalized by operator:
+Operator functions are normalized by operator:
 - `lhs & rhs` -> `bool_and(lhs, rhs)`
 - `lhs >= rhs` -> `gte(lhs, rhs)`
 - `lhs <= rhs` -> `lte(lhs, rhs)`
@@ -272,33 +280,35 @@ Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alia
 
 #### Built-in function alias table
 
-| HCL alias      | Runtime `BinaryFnNames`                  | arg1 type | arg2 type | return type |
-|----------------|------------------------------------------|-----------|-----------|-------------|
-| `add`          | `binaryFnNumber::add`                    | `int`     | `int`     | `int`       |
-| `sub`          | `binaryFnNumber::minus`                  | `int`     | `int`     | `int`       |
-| `mul`          | `binaryFnNumber::multiply`               | `int`     | `int`     | `int`       |
-| `div`          | `binaryFnNumber::divide`                 | `int`     | `int`     | `int`       |
-| `mod`          | `binaryFnNumber::mod`                    | `int`     | `int`     | `int`       |
-| `max`          | `binaryFnNumber::max`                    | `int`     | `int`     | `int`       |
-| `min`          | `binaryFnNumber::min`                    | `int`     | `int`     | `int`       |
-| `gt`           | `binaryFnNumber::greaterThan`            | `int`     | `int`     | `bool`      |
-| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `int`     | `int`     | `bool`      |
-| `lt`           | `binaryFnNumber::lessThan`               | `int`     | `int`     | `bool`      |
-| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `int`     | `int`     | `bool`      |
-| `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       |
-| `str_includes` | `binaryFnString::includes`               | `str`     | `str`     | `bool`      |
-| `str_starts`   | `binaryFnString::startsWith`             | `str`     | `str`     | `bool`      |
-| `str_ends`     | `binaryFnString::endsWith`               | `str`     | `str`     | `bool`      |
-| `bool_and`     | `binaryFnBoolean::and`                   | `bool`    | `bool`    | `bool`      |
-| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      |
-| `bool_xor`     | `binaryFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      |
-| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      |
-| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      |
-| `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      |
-| `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `int`     | `T`         |
-| `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    |
+Functions marked **operator-only** must be written using their DSL operator. Their alias cannot be used in call form.
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs` with supported operators `&`, `>=`, `<=`, `+`; `+` is valid only for `name:str` (`InvalidInfixExpr` otherwise).
+| HCL alias      | Runtime `BinaryFnNames`                  | arg1 type | arg2 type | return type | DSL form         |
+|----------------|------------------------------------------|-----------|-----------|-------------|------------------|
+| `add`          | `binaryFnNumber::add`                    | `int`     | `int`     | `int`       | call only        |
+| `sub`          | `binaryFnNumber::minus`                  | `int`     | `int`     | `int`       | call only        |
+| `mul`          | `binaryFnNumber::multiply`               | `int`     | `int`     | `int`       | call only        |
+| `div`          | `binaryFnNumber::divide`                 | `int`     | `int`     | `int`       | call only        |
+| `mod`          | `binaryFnNumber::mod`                    | `int`     | `int`     | `int`       | call only        |
+| `max`          | `binaryFnNumber::max`                    | `int`     | `int`     | `int`       | call only        |
+| `min`          | `binaryFnNumber::min`                    | `int`     | `int`     | `int`       | call only        |
+| `gt`           | `binaryFnNumber::greaterThan`            | `int`     | `int`     | `bool`      | call only        |
+| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `int`     | `int`     | `bool`      | **operator-only** `>=` |
+| `lt`           | `binaryFnNumber::lessThan`               | `int`     | `int`     | `bool`      | call only        |
+| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `int`     | `int`     | `bool`      | **operator-only** `<=` |
+| `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       | **operator-only** `+`  |
+| `str_includes` | `binaryFnString::includes`               | `str`     | `str`     | `bool`      | call only        |
+| `str_starts`   | `binaryFnString::startsWith`             | `str`     | `str`     | `bool`      | call only        |
+| `str_ends`     | `binaryFnString::endsWith`               | `str`     | `str`     | `bool`      | call only        |
+| `bool_and`     | `binaryFnBoolean::and`                   | `bool`    | `bool`    | `bool`      | **operator-only** `&`  |
+| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | call only        |
+| `bool_xor`     | `binaryFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      | call only        |
+| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | call only        |
+| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | call only        |
+| `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      | call only        |
+| `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `int`     | `T`         | call only        |
+| `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
+
+> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs` with supported operators `&`, `>=`, `<=`, `+`; `+` is valid only for `name:str` (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
@@ -417,9 +427,11 @@ prog "main" {
 
 `#if` extends `cond` by allowing the condition to be an **inline combine call** instead of a bare binding name. Inline combine args can be positional or named, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
 
+The inline condition must be a **call-only** function (e.g. `gt`, `lt`, `eq`). Operator-only functions (`gte`, `lte`, `bool_and`, `str_concat`) cannot be used as an inline `cond` expression because they require infix syntax, which is not supported inside `#if { cond = ... }`.
+
 ```hcl
 name:type = #if {
-  cond = fn_alias(ref_1, ref_2)   # inline call expression
+  cond = fn_alias(ref_1, ref_2)   # must be a call-only function
   then = fn_binding_name
   else = fn_binding_name
 }
@@ -509,6 +521,7 @@ prog "main" {
 | `DuplicateBinding` | Same `name` declared twice in one `prog` |
 | `ReservedName` | User binding name starts with `__` |
 | `UnknownFnAlias` | Function alias not in the built-in table |
+| `OperatorOnlyFn` | Call-form alias used for a function that requires operator syntax (`bool_and`, `gte`, `lte`, `str_concat`) |
 | `UndefinedRef` | Bare identifier references an unknown binding |
 | `UndefinedFuncRef` | `func_ref`/`then`/`else` references a non-function binding |
 | `InvalidBinaryArgShape` | Binary call is not `(x, y)` and not `(a: ..., b: ...)` |
@@ -587,8 +600,8 @@ prog "main" {
   doubled:int = mul(n, n)
 
   # --- String ---
-  label_hi:str = str_concat(a: msg, b: " high")
-  label_lo:str = str_concat(msg, " low")
+  label_hi:str = msg + " high"
+  label_lo:str = msg + " low"
 
   # --- Condition via combine ---
   is_big:bool = doubled >= n
@@ -600,8 +613,8 @@ prog "main" {
   ]
 
   # --- #if (inline condition) ---
-  result_fn_hi:str = str_concat(a: msg, b: " !")
-  result_fn_lo:str = str_concat(msg, " .")
+  result_fn_hi:str = msg + " !"
+  result_fn_lo:str = msg + " ."
 
   final:str = #if {
     cond = gt(piped, doubled)
@@ -620,7 +633,7 @@ ctx({
   doubled:           combine('binaryFnNumber::multiply',    { a: 'n',      b: 'n' }),
   label_hi:          combine('binaryFnString::concat',      { a: 'msg',    b: ' high' }),
   label_lo:          combine('binaryFnString::concat',      { a: 'msg',    b: ' low'  }),
-  is_big:            combine('binaryFnNumber::greaterThan', { a: 'doubled', b: 'n' }),
+  is_big:            combine('binaryFnNumber::greaterThanOrEqual', { a: 'doubled', b: 'n' }),
   piped:             pipe({ x: 'n' }, [
                        combine('binaryFnNumber::multiply', { a: 'x', b: 'x' }),
                        combine('binaryFnNumber::add',      { a: ref.step('piped', 0), b: 'x' }),
@@ -658,7 +671,7 @@ ctx({
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `#if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
-| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix` | Infix and call forms emit equivalent ContextSpec |
+| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
 
 ### Edge cases
 
@@ -672,6 +685,9 @@ ctx({
 | `add(a: v1)` | `InvalidBinaryArgShape` error (`b` missing) |
 | `add(a: v1, b: v2, c: v3)` | `InvalidBinaryArgShape` error (extra key) |
 | `go:bool = decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |
+| `go:bool = bool_and(flag_hi, flag_lo)` | `OperatorOnlyFn` error (`bool_and` requires `&` operator) |
+| `ok:bool = gte(income, min)` | `OperatorOnlyFn` error (`gte` requires `>=` operator) |
+| `label:str = str_concat(a, b)` | `OperatorOnlyFn` error (`str_concat` requires `+` operator) |
 | `approval_code:str = prefix ++ suffix` | `InvalidInfixExpr` error (unsupported operator token) |
 | `__reserved:int = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |

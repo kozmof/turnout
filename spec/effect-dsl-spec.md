@@ -18,7 +18,7 @@ action "score" {
     root = decision
     prog "score_graph" {
       ~>income:int    = 0                              # ← sigil: input from SSOT
-      <~decision:bool = bool_and(income_ok, debt_ok)  # ← sigil: output to SSOT
+      <~decision:bool = income_ok & debt_ok           # ← sigil: output to SSOT
       income_ok:bool  = income >= 50000              # plain compute binding
     }
   }
@@ -179,7 +179,7 @@ action "score" {
 
       income_ok:bool   = income >= min_income
       debt_ok:bool     = debt <= max_debt
-      <~decision:bool  = bool_and(income_ok, debt_ok)
+      <~decision:bool  = income_ok & debt_ok
     }
   }
 
@@ -277,7 +277,7 @@ action "score" {
     root = decision
     prog "score_graph" {
       ~>income:int    = 0
-      <~decision:bool = bool_and(income_ok, debt_ok)
+      <~decision:bool = income_ok & debt_ok
       income_ok:bool  = income >= min_income
       min_income:int  = 50000
     }

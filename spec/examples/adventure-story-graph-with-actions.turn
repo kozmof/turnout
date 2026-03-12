@@ -47,10 +47,10 @@ scene "adventure_story_chapter_1" {
         <~last_hub:str = "crossroads"
 
         clue_enough:bool = clue_count >= 2
-        can_forest:bool = bool_and(has_map, clue_enough)
+        can_forest:bool = has_map & clue_enough
         can_gate:bool = coins >= 3
         can_sewer:bool = lockpick_skill >= 1
-        decision_ready:bool = bool_and(true, true)
+        decision_ready:bool = true & true
       }
     }
 
@@ -71,7 +71,7 @@ scene "adventure_story_chapter_1" {
         condition = go_forest
         prog "to_forest" {
           ~>can_forest:bool = false
-          go_forest:bool = bool_and(can_forest, true)
+          go_forest:bool = can_forest & true
         }
       }
       prepare {
@@ -85,7 +85,7 @@ scene "adventure_story_chapter_1" {
         condition = go_gate
         prog "to_gate" {
           ~>can_gate:bool = false
-          go_gate:bool = bool_and(can_gate, true)
+          go_gate:bool = can_gate & true
         }
       }
       prepare {
@@ -99,7 +99,7 @@ scene "adventure_story_chapter_1" {
         condition = go_sewer
         prog "to_sewer" {
           ~>can_sewer:bool = false
-          go_sewer:bool = bool_and(can_sewer, true)
+          go_sewer:bool = can_sewer & true
         }
       }
       prepare {

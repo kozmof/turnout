@@ -37,7 +37,7 @@ scene "detective_evidence_hunt" {
       prog "arrive_crime_scene_graph" {
         <~phase:str = "arrive_crime_scene"
         <~detective_note:str = "Scene secured. Start collecting clues."
-        phase_ready:bool = bool_and(true, true)
+        phase_ready:bool = true & true
       }
     }
 
@@ -72,9 +72,9 @@ scene "detective_evidence_hunt" {
         ~>visibility_score:int = 0
         ~>camera_online:bool = false
 
-        clue_candidate:bool = bool_and(disturbance_detected, camera_online)
+        clue_candidate:bool = disturbance_detected & camera_online
         search_ready:bool = visibility_score >= 3
-        <~scene_hotspot_found:bool = bool_and(clue_candidate, search_ready)
+        <~scene_hotspot_found:bool = clue_candidate & search_ready
         <~phase:str = "scan_scene"
       }
     }
@@ -95,7 +95,7 @@ scene "detective_evidence_hunt" {
         condition = go_collect
         prog "to_collect_physical_evidence" {
           ~>scene_hotspot_found:bool = false
-          go_collect:bool = bool_and(scene_hotspot_found, true)
+          go_collect:bool = scene_hotspot_found & true
         }
       }
       prepare {
@@ -132,8 +132,8 @@ scene "detective_evidence_hunt" {
         ~>evidence_tag:str = ""
 
         fp_strong:bool = fingerprint_match >= 6
-        trace_and_weapon:bool = bool_and(blood_trace, weapon_found)
-        <~critical_evidence_found:bool = bool_and(fp_strong, trace_and_weapon)
+        trace_and_weapon:bool = blood_trace & weapon_found
+        <~critical_evidence_found:bool = fp_strong & trace_and_weapon
         prefix:str = "Collected evidence: "
         <~evidence_log:str = prefix + evidence_tag
         <~phase:str = "collect_physical_evidence"
@@ -180,7 +180,7 @@ scene "detective_evidence_hunt" {
         ~>witness_statement:str = ""
 
         alibi_weak:bool = alibi_strength <= 3
-        <~timeline_priority:bool = bool_and(contradiction_detected, alibi_weak)
+        <~timeline_priority:bool = contradiction_detected & alibi_weak
         prefix:str = "Witness says: "
         <~interview_note:str = prefix + witness_statement
         <~phase:str = "interview_witness"
@@ -225,8 +225,8 @@ scene "detective_evidence_hunt" {
         ~>timeline_priority:bool = false
         ~>camera_timestamp_ok:bool = false
 
-        evidence_and_time:bool = bool_and(critical_evidence_found, camera_timestamp_ok)
-        <~ready_to_identify_suspect:bool = bool_and(evidence_and_time, timeline_priority)
+        evidence_and_time:bool = critical_evidence_found & camera_timestamp_ok
+        <~ready_to_identify_suspect:bool = evidence_and_time & timeline_priority
         <~phase:str = "analyze_timeline"
       }
     }
@@ -247,7 +247,7 @@ scene "detective_evidence_hunt" {
         condition = go_identify
         prog "to_identify_suspect" {
           ~>ready_to_identify_suspect:bool = false
-          go_identify:bool = bool_and(ready_to_identify_suspect, true)
+          go_identify:bool = ready_to_identify_suspect & true
         }
       }
       prepare {
@@ -284,7 +284,7 @@ scene "detective_evidence_hunt" {
         high_confidence:bool = confidence_score >= 8
         prefix:str = "Primary suspect: "
         <~suspect_summary:str = prefix + suspect_name
-        <~case_file_ready:bool = bool_and(high_confidence, true)
+        <~case_file_ready:bool = high_confidence & true
         <~phase:str = "identify_suspect"
       }
     }
@@ -328,7 +328,7 @@ scene "detective_evidence_hunt" {
         <~search_note:str = prefix + last_search_area
         <~case_file_ready:bool = false
         <~phase:str = "search_for_more_evidence"
-        handoff_ready:bool = bool_and(true, true)
+        handoff_ready:bool = true & true
       }
     }
 
@@ -369,7 +369,7 @@ scene "detective_evidence_hunt" {
 
         prefix:str = "Filed report: "
         <~report_line:str = prefix + suspect_summary
-        <~investigation_closed:bool = bool_and(case_file_ready, true)
+        <~investigation_closed:bool = case_file_ready & true
         <~phase:str = "submit_case_file"
       }
     }
