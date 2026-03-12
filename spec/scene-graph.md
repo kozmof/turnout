@@ -30,14 +30,14 @@ The key words `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` are to be in
 For reference-style DSL attributes, implementations MUST normalize HCL syntax to canonical runtime strings before validation/execution.
 
 - Bare reference form and quoted string form are both allowed and MUST be treated equivalently:
-  - Example: `to_ssot = decision.reason` and `to_ssot = "decision.reason"` normalize to the same runtime string.
+  - Example: `to_state = decision.reason` and `to_state = "decision.reason"` normalize to the same runtime string.
 - Reference-style attributes include:
   - `action.compute.root`
   - `next.compute.condition`
-  - `action.prepare.<binding>.from_ssot`
-  - `action.merge.<binding>.to_ssot`
+  - `action.prepare.<binding>.from_state`
+  - `action.merge.<binding>.to_state`
   - `next.action`
-  - `next.prepare.<binding>.from_action`, `next.prepare.<binding>.from_ssot`
+  - `next.prepare.<binding>.from_action`, `next.prepare.<binding>.from_state`
 - Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
 
 ## 3. Balance Rules (CAN / CAN'T)
@@ -46,7 +46,7 @@ CAN (OK):
 
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
-- An action can declare SSOT inputs under `prepare` and SSOT outputs under `merge`.
+- An action can declare STATE inputs under `prepare` and STATE outputs under `merge`.
 - An action can define inbound/outbound direction per binding in `compute.prog` using sigils.
 - An action can define next actions using per-next `compute` `prog` blocks.
 - A next `prepare` input entry can source any value binding defined by the current action `compute.prog` via `from_action`.
@@ -103,7 +103,7 @@ type PrepareSpec = {
 };
 
 type PrepareBinding = {
-  fromSsot?: string;    // canonical dotted SSOT source path
+  fromSsot?: string;    // canonical dotted STATE source path
   fromHook?: string;    // hook name; hook returns object whose field matches binding name
   fromLiteral?: unknown; // literal ingress source
   required?: boolean;   // default true for fromSsot
@@ -114,7 +114,7 @@ type MergeSpec = {
 };
 
 type MergeBinding = {
-  toSsot?: string; // canonical destination key in SSOT; default is binding key
+  toSsot?: string; // canonical destination key in STATE; default is binding key
 };
 
 type PublishSpec = {
@@ -133,7 +133,7 @@ type NextPrepareSpec = {
 
 type NextPrepareBinding = {
   fromAction?: string;  // source binding from current action compute.prog result
-  fromSsot?: string;    // post-merge SSOT path S_{n+1}
+  fromSsot?: string;    // post-merge STATE path S_{n+1}
   fromLiteral?: unknown;
   required?: boolean;
 };
@@ -195,13 +195,13 @@ scene "loan_flow" {
     }
 
     prepare {
-      income { from_ssot = applicant.income }
-      debt   { from_ssot = applicant.debt   }
+      income { from_state = applicant.income }
+      debt   { from_state = applicant.debt   }
     }
 
     merge {
-      income   { to_ssot = decision.input_income }
-      decision { to_ssot = decision.approved     }
+      income   { to_state = decision.input_income }
+      decision { to_state = decision.approved     }
     }
 
     publish {
@@ -300,7 +300,7 @@ Validation failures MUST produce `invalid_graph` except overview failures, which
 
 For one action invocation with pre-state `S_n`:
 
-1. Snapshot: capture immutable SSOT snapshot `S_n`.
+1. Snapshot: capture immutable STATE snapshot `S_n`.
 2. Load graph template: parse/compile `compute.prog` if not cached.
 3. Prepare phase:
    - For each `prepare.<binding>` with `fromSsot`, resolve value from `S_n`.
@@ -319,7 +319,7 @@ For one action invocation with pre-state `S_n`:
 6. Merge phase — build action delta `D_n` from `merge` bindings:
    - For each `merge.<binding>`, read binding value from graph context/output table.
    - Destination key is `toSsot` if provided; otherwise binding name.
-   - Merge `D_n` atomically into SSOT using `replace-by-id` mode → produces `S_{n+1}`.
+   - Merge `D_n` atomically into STATE using `replace-by-id` mode → produces `S_{n+1}`.
 7. Publish phase:
    - For each `hook` in `publish.hooks` (declaration order), invoke the hook passing the complete final state.
    - Publish hooks are read-only; return values are ignored.
@@ -335,7 +335,7 @@ For one action invocation with pre-state `S_n`:
 Failure semantics:
 
 - If any step before merge fails, merge MUST NOT occur.
-- No partial SSOT mutation is allowed.
+- No partial STATE mutation is allowed.
 
 ## 8. Next Semantics
 
@@ -399,7 +399,7 @@ type SceneDiagnostic = {
 ## 11. Conformance Checklist
 
 1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
-2. Missing SSOT ingress path with required ingress fails action without merge.
+2. Missing STATE ingress path with required ingress fails action without merge.
 3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `merge`.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.condition` must resolve to `bool`, else validation fails.

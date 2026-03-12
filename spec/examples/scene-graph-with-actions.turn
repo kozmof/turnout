@@ -14,9 +14,9 @@ scene "loan_flow" {
   action "score" {
     """
     Logic overview:
-    - Read income and debt from SSOT into compute inputs.
+    - Read income and debt from STATE into compute inputs.
     - Evaluate threshold checks and derive `decision`.
-    - Persist approval flag and input snapshot to SSOT.
+    - Persist approval flag and input snapshot to STATE.
     - Route to `approve` when decision path is true; otherwise fall through to `reject`.
     """
 
@@ -35,13 +35,13 @@ scene "loan_flow" {
     }
 
     prepare {
-      income { from_ssot = applicant.income }
-      debt   { from_ssot = applicant.debt   }
+      income { from_state = applicant.income }
+      debt   { from_state = applicant.debt   }
     }
 
     merge {
-      income   { to_ssot = decision.input_income }
-      decision { to_ssot = decision.approved     }
+      income   { to_state = decision.input_income }
+      decision { to_state = decision.approved     }
     }
 
     next {
@@ -89,8 +89,8 @@ scene "loan_flow" {
     }
 
     merge {
-      status        { to_ssot = decision.status }
-      approval_code { to_ssot = decision.code   }
+      status        { to_state = decision.status }
+      approval_code { to_state = decision.code   }
     }
   }
 
@@ -110,8 +110,8 @@ scene "loan_flow" {
     }
 
     merge {
-      status { to_ssot = decision.status }
-      reason { to_ssot = decision.reason }
+      status { to_state = decision.status }
+      reason { to_state = decision.reason }
     }
   }
 }

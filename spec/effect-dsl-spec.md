@@ -1,34 +1,34 @@
 # Effect DSL Specification — Turn DSL
 
 > **Status**: Draft for implementation
-> **Scope**: Turn DSL syntax for SSOT effect declarations (sigils + `prepare`/`merge` sections) and their lowering to canonical HCL
+> **Scope**: Turn DSL syntax for STATE effect declarations (sigils + `prepare`/`merge` sections) and their lowering to canonical HCL
 
 ---
 
 ## Overview
 
-SSOT effects in Turn DSL are expressed through two complementary parts that must always appear together:
+STATE effects in Turn DSL are expressed through two complementary parts that must always appear together:
 
-1. **Sigil** — a directional prefix on a binding declaration inside a `prog` block, marking it as SSOT-connected and specifying the direction.
-2. **`prepare` / `merge` sections** — sibling blocks to `compute` inside an `action`, declaring the concrete SSOT dotted paths for sigiled bindings.
+1. **Sigil** — a directional prefix on a binding declaration inside a `prog` block, marking it as STATE-connected and specifying the direction.
+2. **`prepare` / `merge` sections** — sibling blocks to `compute` inside an `action`, declaring the concrete STATE dotted paths for sigiled bindings.
 
 ```
 action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      ~>income:int    = 0                              # ← sigil: input from SSOT
-      <~decision:bool = income_ok & debt_ok           # ← sigil: output to SSOT
+      ~>income:int    = 0                              # ← sigil: input from STATE
+      <~decision:bool = income_ok & debt_ok           # ← sigil: output to STATE
       income_ok:bool  = income >= 50000              # plain compute binding
     }
   }
 
   prepare {
-    income { from_ssot = applicant.income }    # ← SSOT path for ~>income
+    income { from_state = applicant.income }    # ← STATE path for ~>income
   }
 
   merge {
-    decision { to_ssot = decision.approved }   # ← SSOT path for <~decision
+    decision { to_state = decision.approved }   # ← STATE path for <~decision
   }
 }
 ```
@@ -52,9 +52,9 @@ All references in `prepare` and `merge` use plain canonical binding names.
 
 | Sigil | Direction | Required section |
 |-------|-----------|-----------------|
-| `~>`  | Pre-action input: SSOT → binding | Must appear in `prepare` exactly once |
-| `<~`  | Post-action output: binding → SSOT | Must appear in `merge` exactly once |
-| `<~>` | Bidirectional: SSOT→binding pre-action **and** binding→SSOT post-action | Must appear in both `prepare` and `merge` exactly once each |
+| `~>`  | Pre-action input: STATE → binding | Must appear in `prepare` exactly once |
+| `<~`  | Post-action output: binding → STATE | Must appear in `merge` exactly once |
+| `<~>` | Bidirectional: STATE→binding pre-action **and** binding→STATE post-action | Must appear in both `prepare` and `merge` exactly once each |
 
 ### 1.2 Grammar
 
@@ -72,26 +72,26 @@ The sigil is written immediately before the binding name — no whitespace betwe
 
 ### 1.3 Semantics of the default value
 
-The value or expression on the right-hand side of a sigiled binding is a **type-system sentinel** — it exists to satisfy the binding type declaration and serves as the compute-graph's structural value. It has **no effect on SSOT resolution**.
+The value or expression on the right-hand side of a sigiled binding is a **type-system sentinel** — it exists to satisfy the binding type declaration and serves as the compute-graph's structural value. It has **no effect on STATE resolution**.
 
-- All `from_ssot` entries are `required = true`. A missing SSOT path at runtime is an error regardless of the binding's default value.
+- All `from_state` entries are `required = true`. A missing STATE path at runtime is an error regardless of the binding's default value.
 - The sentinel value is still lowered into the canonical `binding` block as `value` or `expr`, so the compute graph remains well-typed.
 
 ```
 # The '0' is a type sentinel only.
-# If applicant.income is absent in SSOT, runtime error — not fallback to 0.
+# If applicant.income is absent in STATE, runtime error — not fallback to 0.
 ~>income:int = 0
-prepare { income { from_ssot = applicant.income } }
+prepare { income { from_state = applicant.income } }
 ```
 
 ### 1.4 Bidirectional sigil
 
-`<~>` signals that the binding is populated from SSOT before execution **and** written back to SSOT after merge — potentially at **different SSOT paths**:
+`<~>` signals that the binding is populated from STATE before execution **and** written back to STATE after merge — potentially at **different STATE paths**:
 
 ```
 <~>income:int = 0
-prepare { income { from_ssot = applicant.income      } }   # reads from applicant.income
-merge   { income { to_ssot   = decision.input_income } }   # writes to decision.input_income
+prepare { income { from_state = applicant.income      } }   # reads from applicant.income
+merge   { income { to_state   = decision.input_income } }   # writes to decision.input_income
 ```
 
 ---
@@ -103,7 +103,7 @@ merge   { income { to_ssot   = decision.input_income } }   # writes to decision.
 ```
 prepare {
   <binding_name> {
-    from_ssot = <dotted.path>
+    from_state = <dotted.path>
   }
   <binding_name> {
     from_hook = "<hookName>"
@@ -113,16 +113,16 @@ prepare {
 ```
 
 - `prepare` is a sibling of `compute` inside `action`.
-- `prepare` may be omitted entirely for pure-compute actions with no SSOT inputs.
-- Each entry must define exactly one source: `from_ssot` or `from_hook`.
+- `prepare` may be omitted entirely for pure-compute actions with no STATE inputs.
+- Each entry must define exactly one source: `from_state` or `from_hook`.
 
-### 2.2 `from_ssot` — reads from SSOT
+### 2.2 `from_state` — reads from STATE
 
 ```
-<binding_name> { from_ssot = <dotted.path> }
+<binding_name> { from_state = <dotted.path> }
 ```
 
-Reads a value from SSOT before the compute graph runs and assigns it to the named binding.
+Reads a value from STATE before the compute graph runs and assigns it to the named binding.
 
 ### 2.3 `from_hook` — reads from a hook result
 
@@ -132,9 +132,9 @@ Reads a value from SSOT before the compute graph runs and assigns it to the name
 
 Invokes the named hook, obtains a result object, and assigns `result[bindingName]` to `state[bindingName]`. See `hook-spec.md` for full semantics.
 
-### 2.4 SSOT path format
+### 2.4 STATE path format
 
-`from_ssot` values are **dotted paths**:
+`from_state` values are **dotted paths**:
 
 ```
 dotted-path ::= IDENT ('.' IDENT)*
@@ -154,16 +154,16 @@ An empty segment (e.g. `foo..bar`) or a path starting/ending with `.` is invalid
 ```
 merge {
   <binding_name> {
-    to_ssot = <dotted.path>
+    to_state = <dotted.path>
   }
   ...
 }
 ```
 
 - `merge` is a sibling of `compute` inside `action`.
-- `merge` may be omitted entirely for pure-compute actions with no SSOT outputs.
+- `merge` may be omitted entirely for pure-compute actions with no STATE outputs.
 
-Rule: `SSOT[path] = state[binding]`
+Rule: `STATE[path] = state[binding]`
 
 ### 3.2 Complete action-level example
 
@@ -184,13 +184,13 @@ action "score" {
   }
 
   prepare {
-    income { from_ssot = applicant.income }
-    debt   { from_ssot = applicant.debt   }
+    income { from_state = applicant.income }
+    debt   { from_state = applicant.debt   }
   }
 
   merge {
-    income   { to_ssot = decision.input_income }
-    decision { to_ssot = decision.approved     }
+    income   { to_state = decision.input_income }
+    decision { to_state = decision.approved     }
   }
 }
 ```
@@ -201,7 +201,7 @@ action "score" {
 
 ### 4.1 Structure
 
-Inside a `next { }` block, a `prepare` block declares **ingress bindings** for the transition's compute program. Only `from_action` and `from_ssot` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
+Inside a `next { }` block, a `prepare` block declares **ingress bindings** for the transition's compute program. Only `from_action` and `from_state` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
 
 ```
 next {
@@ -228,13 +228,13 @@ Each entry inside a transition `prepare` must have exactly one of:
 | Attribute | Source |
 |-----------|--------|
 | `from_action = <binding>` | Value of the named binding from the action's result |
-| `from_ssot = <dotted.path>` | Post-merge SSOT state after the action's merge |
+| `from_state = <dotted.path>` | Post-merge STATE state after the action's merge |
 
 Both may be used in the same transition `prepare` block, one per entry.
 
 ### 4.3 Sigil on transition `prog` bindings
 
-`~>` inside a transition `prog` block marks a binding as an ingress binding populated from the transition `prepare` entries. `<~` and `<~>` are **not valid** in transition `prog` blocks (transitions cannot output to SSOT).
+`~>` inside a transition `prog` block marks a binding as an ingress binding populated from the transition `prepare` entries. `<~` and `<~>` are **not valid** in transition `prog` blocks (transitions cannot output to STATE).
 
 ---
 
@@ -242,12 +242,12 @@ Both may be used in the same transition `prepare` block, one per entry.
 
 ### CAN (OK)
 
-- A `~>` binding can appear in `prepare` with a `from_ssot` path.
-- A `<~` binding can appear in `merge` with a `to_ssot` path.
-- A `<~>` binding can appear in both `prepare` and `merge` with different SSOT paths.
+- A `~>` binding can appear in `prepare` with a `from_state` path.
+- A `<~` binding can appear in `merge` with a `to_state` path.
+- A `<~>` binding can appear in both `prepare` and `merge` with different STATE paths.
 - The `prepare` and `merge` sections can be omitted entirely when no sigiled bindings are declared.
-- A transition `prepare` entry can use `from_action` and another entry in the same block can use `from_ssot`.
-- A `~>` binding in a transition `prog` block can have its ingress declared via `from_action` or `from_ssot`.
+- A transition `prepare` entry can use `from_action` and another entry in the same block can use `from_state`.
+- A `~>` binding in a transition `prog` block can have its ingress declared via `from_action` or `from_state`.
 
 ### CAN'T (NG)
 
@@ -255,10 +255,10 @@ Both may be used in the same transition `prepare` block, one per entry.
 - A `prepare` or `merge` entry cannot reference a binding name that has no sigil in the corresponding `prog` block.
 - The same binding name cannot appear twice in `prepare` or twice in `merge`.
 - A `<~>` binding cannot be present in `prepare` but absent from `merge`, or vice versa.
-- A `prepare` entry cannot carry both `from_ssot` and `from_hook` on the same binding.
+- A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding.
 - `merge` cannot appear inside a `next { }` transition block.
-- A transition `prepare` entry cannot have neither `from_action` nor `from_ssot`.
-- A transition `prepare` entry cannot have both `from_action` and `from_ssot` simultaneously.
+- A transition `prepare` entry cannot have neither `from_action` nor `from_state`.
+- A transition `prepare` entry cannot have both `from_action` and `from_state` simultaneously.
 - `<~` or `<~>` sigils cannot appear inside a transition `prog` block.
 - A plain (no-sigil) binding cannot appear in `prepare` or `merge`.
 
@@ -283,10 +283,10 @@ action "score" {
     }
   }
   prepare {
-    income { from_ssot = applicant.income }
+    income { from_state = applicant.income }
   }
   merge {
-    decision { to_ssot = decision.approved }
+    decision { to_state = decision.approved }
   }
 }
 ```
@@ -316,10 +316,10 @@ action "score" {
     }
   }
   prepare {
-    binding "income" { from_ssot = "applicant.income" }
+    binding "income" { from_state = "applicant.income" }
   }
   merge {
-    binding "decision" { to_ssot = "decision.approved" }
+    binding "decision" { to_state = "decision.approved" }
   }
 }
 ```
@@ -331,14 +331,14 @@ A `<~>` binding appears in **both** `prepare` and `merge` with their respective 
 **Turn DSL:**
 ```
 <~>income:int = 0
-prepare { income { from_ssot = applicant.income      } }
-merge   { income { to_ssot   = decision.input_income } }
+prepare { income { from_state = applicant.income      } }
+merge   { income { to_state   = decision.input_income } }
 ```
 
 **Emitted HCL:**
 ```hcl
-prepare { binding "income" { from_ssot = "applicant.income"      } }
-merge   { binding "income" { to_ssot   = "decision.input_income" } }
+prepare { binding "income" { from_state = "applicant.income"      } }
+merge   { binding "income" { to_state   = "decision.input_income" } }
 binding "income" { type = "int" value = 0 }
 ```
 
@@ -361,11 +361,11 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | `BidirMissingPrepareEntry` | A `<~>` binding appears in `merge` but not in `prepare` |
 | `BidirMissingMergeEntry` | A `<~>` binding appears in `prepare` but not in `merge` |
 | `TransitionMerge` | A `merge` block is present inside a `next { }` transition |
-| `InvalidTransitionIngress` | A transition `prepare` entry has neither `from_action` nor `from_ssot`, or has both |
+| `InvalidTransitionIngress` | A transition `prepare` entry has neither `from_action` nor `from_state`, or has both |
 | `TransitionHook` | A `from_hook` source appears inside a transition `prepare` block |
 | `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
-| `InvalidSsotPath` | A `from_ssot` or `to_ssot` value is not a valid dotted identifier path |
-| `InvalidPrepareSource` | A `prepare` entry carries both `from_ssot` and `from_hook` |
+| `InvalidSsotPath` | A `from_state` or `to_state` value is not a valid dotted identifier path |
+| `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
 
 ---
 
@@ -378,37 +378,37 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | A. Sigil parsing | All three sigil forms (`~>`, `<~`, `<~>`) correctly identified |
 | B. Correspondence | Sigil ↔ `prepare`/`merge` entry matching validated at convert time |
 | C. Bidirectional lowering | `<~>` produces entries in both `prepare` and `merge` |
-| D. Sentinel value | Binding default lowered as `value`/`expr`; no effect on SSOT resolution |
-| E. Transition `prepare` | `from_action` and `from_ssot` entries lower to correct `TransitionIngressBinding` fields |
+| D. Sentinel value | Binding default lowered as `value`/`expr`; no effect on STATE resolution |
+| E. Transition `prepare` | `from_action` and `from_state` entries lower to correct `TransitionIngressBinding` fields |
 | F. Error paths | All error codes trigger correctly and abort without partial output |
 
 ### Critical paths (idempotency)
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | `~>` binding + `prepare` → `prepare` block with `from_ssot` | Re-lower same DSL source; emitted HCL is byte-identical |
-| 2 | `<~` binding + `merge` → `merge` block with `to_ssot` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 1 | `~>` binding + `prepare` → `prepare` block with `from_state` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 2 | `<~` binding + `merge` → `merge` block with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
 | 3 | `<~>` binding + `prepare` + `merge` (different paths) → both sub-blocks | Both paths preserved; independent of declaration order |
 | 4 | Action with no `prepare`/`merge` → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
 | 5 | Transition `prepare { from_action }` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
-| 6 | Transition `prepare { from_ssot }` → `TransitionIngressBinding.fromSsot` | Field mapping is deterministic for identical input |
+| 6 | Transition `prepare { from_state }` → `TransitionIngressBinding.fromSsot` | Field mapping is deterministic for identical input |
 
 ### Edge cases
 
 | Case | Expected behaviour |
 |------|--------------------|
 | `~>income:int = 0` with no `prepare` block at all | `MissingPrepareEntry` |
-| `prepare { income { from_ssot = ... } }` where `income` has no sigil | `SpuriousPrepareEntry` |
+| `prepare { income { from_state = ... } }` where `income` has no sigil | `SpuriousPrepareEntry` |
 | `<~>income` appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
 | `<~>income` appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
 | `merge` present inside a `next { }` block | `TransitionMerge` |
-| Transition `prepare` entry with no `from_action` and no `from_ssot` | `InvalidTransitionIngress` |
-| Transition `prepare` entry with both `from_action` and `from_ssot` | `InvalidTransitionIngress` |
+| Transition `prepare` entry with no `from_action` and no `from_state` | `InvalidTransitionIngress` |
+| Transition `prepare` entry with both `from_action` and `from_state` | `InvalidTransitionIngress` |
 | `from_hook` inside a transition `prepare` | `TransitionHook` |
 | `<~phase` sigil inside a transition `prog` block | `TransitionOutputSigil` |
-| `from_ssot = "applicant..income"` (empty segment) | `InvalidSsotPath` |
-| `from_ssot = ".income"` (leading dot) | `InvalidSsotPath` |
+| `from_state = "applicant..income"` (empty segment) | `InvalidSsotPath` |
+| `from_state = ".income"` (leading dot) | `InvalidSsotPath` |
 | Same binding name twice in `prepare` | `DuplicatePrepareEntry` |
-| `prepare { x { from_ssot = p, from_hook = "h" } }` | `InvalidPrepareSource` |
+| `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` |
 | Action with `prepare` only and no `merge` | Valid — only `~>` bindings required |
 | Action with `merge` only and no `prepare` | Valid — only `<~` bindings required |

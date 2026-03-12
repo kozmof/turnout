@@ -42,8 +42,8 @@ scene "detective_evidence_hunt" {
     }
 
     merge {
-      phase         { to_ssot = investigation.phase     }
-      detective_note { to_ssot = investigation.last_note }
+      phase         { to_state = investigation.phase     }
+      detective_note { to_state = investigation.last_note }
     }
 
     next {
@@ -80,14 +80,14 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      disturbance_detected { from_ssot = crime_scene.disturbance_detected }
-      visibility_score     { from_ssot = crime_scene.visibility_score     }
-      camera_online        { from_ssot = crime_scene.camera_online        }
+      disturbance_detected { from_state = crime_scene.disturbance_detected }
+      visibility_score     { from_state = crime_scene.visibility_score     }
+      camera_online        { from_state = crime_scene.camera_online        }
     }
 
     merge {
-      scene_hotspot_found { to_ssot = investigation.scene_hotspot_found }
-      phase               { to_ssot = investigation.phase               }
+      scene_hotspot_found { to_state = investigation.scene_hotspot_found }
+      phase               { to_state = investigation.phase               }
     }
 
     next {
@@ -141,16 +141,16 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      fingerprint_match { from_ssot = evidence.fingerprint_match }
-      blood_trace       { from_ssot = evidence.blood_trace       }
-      weapon_found      { from_ssot = evidence.weapon_found      }
-      evidence_tag      { from_ssot = evidence.selected_tag      }
+      fingerprint_match { from_state = evidence.fingerprint_match }
+      blood_trace       { from_state = evidence.blood_trace       }
+      weapon_found      { from_state = evidence.weapon_found      }
+      evidence_tag      { from_state = evidence.selected_tag      }
     }
 
     merge {
-      critical_evidence_found { to_ssot = investigation.critical_evidence_found }
-      evidence_log            { to_ssot = investigation.evidence_log            }
-      phase                   { to_ssot = investigation.phase                   }
+      critical_evidence_found { to_state = investigation.critical_evidence_found }
+      evidence_log            { to_state = investigation.evidence_log            }
+      phase                   { to_state = investigation.phase                   }
     }
 
     next {
@@ -188,15 +188,15 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      contradiction_detected { from_ssot = witness.contradiction_detected }
-      alibi_strength         { from_ssot = witness.alibi_strength         }
-      witness_statement      { from_ssot = witness.statement              }
+      contradiction_detected { from_state = witness.contradiction_detected }
+      alibi_strength         { from_state = witness.alibi_strength         }
+      witness_statement      { from_state = witness.statement              }
     }
 
     merge {
-      timeline_priority { to_ssot = investigation.timeline_priority }
-      interview_note    { to_ssot = investigation.interview_note    }
-      phase             { to_ssot = investigation.phase             }
+      timeline_priority { to_state = investigation.timeline_priority }
+      interview_note    { to_state = investigation.interview_note    }
+      phase             { to_state = investigation.phase             }
     }
 
     next {
@@ -232,14 +232,14 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      critical_evidence_found { from_ssot = investigation.critical_evidence_found }
-      timeline_priority       { from_ssot = investigation.timeline_priority       }
-      camera_timestamp_ok     { from_ssot = crime_scene.camera_timestamp_ok       }
+      critical_evidence_found { from_state = investigation.critical_evidence_found }
+      timeline_priority       { from_state = investigation.timeline_priority       }
+      camera_timestamp_ok     { from_state = crime_scene.camera_timestamp_ok       }
     }
 
     merge {
-      ready_to_identify_suspect { to_ssot = investigation.ready_to_identify_suspect }
-      phase                     { to_ssot = investigation.phase                     }
+      ready_to_identify_suspect { to_state = investigation.ready_to_identify_suspect }
+      phase                     { to_state = investigation.phase                     }
     }
 
     next {
@@ -290,14 +290,14 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      suspect_name     { from_ssot = leads.primary_suspect_name }
-      confidence_score { from_ssot = leads.confidence_score     }
+      suspect_name     { from_state = leads.primary_suspect_name }
+      confidence_score { from_state = leads.confidence_score     }
     }
 
     merge {
-      suspect_summary  { to_ssot = investigation.suspect_summary  }
-      case_file_ready  { to_ssot = investigation.case_file_ready  }
-      phase            { to_ssot = investigation.phase            }
+      suspect_summary  { to_state = investigation.suspect_summary  }
+      case_file_ready  { to_state = investigation.case_file_ready  }
+      phase            { to_state = investigation.phase            }
     }
 
     next {
@@ -333,13 +333,13 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      last_search_area { from_ssot = crime_scene.last_search_area }
+      last_search_area { from_state = crime_scene.last_search_area }
     }
 
     merge {
-      search_note     { to_ssot = investigation.search_note     }
-      case_file_ready { to_ssot = investigation.case_file_ready }
-      phase           { to_ssot = investigation.phase           }
+      search_note     { to_state = investigation.search_note     }
+      case_file_ready { to_state = investigation.case_file_ready }
+      phase           { to_state = investigation.phase           }
     }
 
     next {
@@ -375,14 +375,14 @@ scene "detective_evidence_hunt" {
     }
 
     prepare {
-      case_file_ready  { from_ssot = investigation.case_file_ready  }
-      suspect_summary  { from_ssot = investigation.suspect_summary  }
+      case_file_ready  { from_state = investigation.case_file_ready  }
+      suspect_summary  { from_state = investigation.suspect_summary  }
     }
 
     merge {
-      report_line           { to_ssot = investigation.report_line }
-      investigation_closed  { to_ssot = investigation.closed      }
-      phase                 { to_ssot = investigation.phase       }
+      report_line           { to_state = investigation.report_line }
+      investigation_closed  { to_state = investigation.closed      }
+      phase                 { to_state = investigation.phase       }
     }
   }
 }

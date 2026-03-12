@@ -26,12 +26,12 @@ action "process_order" {
   }
 
   prepare {
-    user_id     { from_ssot = session.user_id }
+    user_id     { from_state = session.user_id }
     raw_payload { from_hook = "payload_input" }
   }
 
   merge {
-    receipt { to_ssot = orders.last_receipt }
+    receipt { to_state = orders.last_receipt }
   }
 
   publish {
@@ -63,13 +63,13 @@ action "<actionId>" {
   compute { ... }
 
   prepare {
-    <bindingName> { from_ssot = <path> }         # SSOT input
+    <bindingName> { from_state = <path> }         # STATE input
     <bindingName> { from_hook = "<hookName>" }   # hook input
   }
 }
 ```
 
-Each `prepare` entry must define exactly one source (`from_ssot` or `from_hook`). They cannot be combined on the same binding.
+Each `prepare` entry must define exactly one source (`from_state` or `from_hook`). They cannot be combined on the same binding.
 
 **Hook invocation and result mapping:**
 
@@ -116,11 +116,11 @@ Multiple `hook` entries are allowed. Publish hooks fire in declaration order aft
 ### 1.4 Execution order within an action
 
 ```
-1. Resolve prepare.from_ssot bindings from SSOT
+1. Resolve prepare.from_state bindings from STATE
 2. Invoke prepare hooks (declaration order); collect returned objects
 3. Map hook result fields into state bindings
 4. Execute compute graph
-5. Apply merge.to_ssot
+5. Apply merge.to_state
 6. Invoke publish hooks (declaration order) with final state
 ```
 
@@ -138,12 +138,12 @@ action "process_order" {
   }
 
   prepare {
-    user_id     { from_ssot = session.user_id }
+    user_id     { from_state = session.user_id }
     raw_payload { from_hook = "payload_input" }
   }
 
   merge {
-    receipt { to_ssot = orders.last_receipt }
+    receipt { to_state = orders.last_receipt }
   }
 
   publish {
@@ -176,12 +176,12 @@ action "process_order" {
   }
 
   prepare {
-    binding "user_id"     { from_ssot = "session.user_id" }
+    binding "user_id"     { from_state = "session.user_id" }
     binding "raw_payload" { from_hook  = "payload_input" }
   }
 
   merge {
-    binding "receipt" { to_ssot = "orders.last_receipt" }
+    binding "receipt" { to_state = "orders.last_receipt" }
   }
 
   publish {
@@ -193,8 +193,8 @@ action "process_order" {
 
 Rules:
 - Sigils are stripped from binding names in the `prog` block; direction is encoded structurally by membership in `prepare` or `merge`.
-- Each `prepare` entry becomes `binding "<name>" { from_ssot = ... }` or `binding "<name>" { from_hook = ... }`.
-- Each `merge` entry becomes `binding "<name>" { to_ssot = ... }`.
+- Each `prepare` entry becomes `binding "<name>" { from_state = ... }` or `binding "<name>" { from_hook = ... }`.
+- Each `merge` entry becomes `binding "<name>" { to_state = ... }`.
 - Each `publish` hook entry becomes a `hook = "<name>"` attribute (repeated for multiple hooks).
 - Binding names inside `prepare` and `merge` must match an existing binding declared in the `prog` block.
 
@@ -208,7 +208,7 @@ Rules:
 interface PrepareHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  /** Read the current value of a state binding (e.g. from a prior from_ssot resolution). */
+  /** Read the current value of a state binding (e.g. from a prior from_state resolution). */
   get(binding: string): unknown;
 }
 
@@ -266,7 +266,7 @@ Publish hooks cannot mutate this state. Any return value is ignored.
 
 If no implementation has been registered for a hook name when the action executes, the runtime **silently skips** that hook. No error or warning is emitted.
 
-- For a skipped prepare hook, the binding value remains unchanged (whatever was resolved from SSOT or the default).
+- For a skipped prepare hook, the binding value remains unchanged (whatever was resolved from STATE or the default).
 - For a skipped publish hook, nothing is emitted.
 
 ### 3.5 Multiple prepare hooks, same name
@@ -284,7 +284,7 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 
 - `prepare { <binding> { from_hook = "<name>" } }` declares a prepare-phase hook for that binding.
 - `publish { hook = "<name>" }` declares a publish-phase hook for the action.
-- An `prepare` entry may carry `from_ssot` or `from_hook`; both are valid sources.
+- An `prepare` entry may carry `from_state` or `from_hook`; both are valid sources.
 - The same hook name may appear on multiple `prepare` entries; all matching bindings are collected from the single hook invocation result.
 - Multiple `hook` entries in a `publish` block are valid and execute in declaration order.
 - Two distinct hook names may be declared in the same action.
@@ -296,12 +296,12 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 
 ## 5. CAN'T (NG)
 
-- A `prepare` entry cannot carry both `from_ssot` and `from_hook` on the same binding (`InvalidPrepareSource`).
+- A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
 - A `from_hook` binding name cannot be absent from the action's `prog` block (`MissingHookField` at runtime; `UnresolvedPrepareBinding` at convert time).
 - A prepare hook implementation cannot write to state directly; it can only return values via the result object.
 - A publish hook cannot mutate state; return values are ignored.
 - Hook execution order cannot be changed at runtime; it is fixed by declaration order in the emitted HCL.
-- A prepare hook cannot observe compute graph results (the graph has not run yet); only SSOT-resolved and default binding values are available via `ctx.get()`.
+- A prepare hook cannot observe compute graph results (the graph has not run yet); only STATE-resolved and default binding values are available via `ctx.get()`.
 
 ---
 
@@ -310,7 +310,7 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 | Error code | Condition |
 |------------|-----------|
 | `MissingHookField` | Prepare hook result object is missing a field required by a declared binding |
-| `InvalidPrepareSource` | A `prepare` entry carries both `from_ssot` and `from_hook` |
+| `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
 | `UnresolvedPrepareBinding` | A `prepare` `from_hook` binding name has no matching binding in the `prog` block |
 | `UnresolvedMergeBinding` | A `merge` binding name has no matching binding in the `prog` block |
 
@@ -337,7 +337,7 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 | # | Path | Idempotency check |
 |---|------|------------------|
 | 1 | `prepare.from_hook` → emitted HCL `prepare` sub-block | Re-lower same DSL source; emitted HCL is byte-identical |
-| 2 | Prepare hook return value → compute graph observes mapped binding | Same hook impl + same SSOT state → identical graph result both runs |
+| 2 | Prepare hook return value → compute graph observes mapped binding | Same hook impl + same STATE state → identical graph result both runs |
 | 3 | Publish hook receives state after merge | Same action state → identical state delivered to publish hook both runs |
 | 4 | Unregistered hook → no state change | Execute with hook unregistered; assert binding values identical to no-hook run |
 
@@ -347,9 +347,9 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 |------|--------------------|
 | Same hook name on multiple `prepare` entries | Hook called once; result fields mapped to all declaring bindings |
 | Hook result missing a declared binding field | `MissingHookField` error; action execution aborted |
-| `prepare { x { from_ssot = p, from_hook = "h" } }` | `InvalidPrepareSource` error at convert time |
+| `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` error at convert time |
 | `prepare { x { from_hook = "h" } }` where `x` not in `prog` | `UnresolvedPrepareBinding` error at convert time |
 | `publish { hook = "h1"; hook = "h2" }` | Both hooks fire; h1 before h2 |
 | Publish hook impl returns a value | Return value ignored; no state mutation |
-| Hook impl is async and rejects | Runtime error propagated; action execution aborted; SSOT not mutated |
+| Hook impl is async and rejects | Runtime error propagated; action execution aborted; STATE not mutated |
 | Prepare hook unregistered; publish hook registered | Prepare skipped silently; publish fires normally |

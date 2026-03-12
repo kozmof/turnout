@@ -30,7 +30,7 @@ scene "adventure_story_chapter_1" {
   action "choose_route" {
     """
     Logic overview:
-    - Collect map/clue/coin/lockpick values from SSOT inputs.
+    - Collect map/clue/coin/lockpick values from STATE inputs.
     - Compute route eligibility flags (`can_forest`, `can_gate`, `can_sewer`).
     - Persist chapter hub metadata after route selection.
     - Evaluate next actions in order: forest, gate, sewer, then campfire fallback.
@@ -55,15 +55,15 @@ scene "adventure_story_chapter_1" {
     }
 
     prepare {
-      has_map        { from_ssot = story.flags.has_map      }
-      clue_count     { from_ssot = story.clues.count        }
-      coins          { from_ssot = party.inventory.coins    }
-      lockpick_skill { from_ssot = party.skills.lockpick    }
+      has_map        { from_state = story.flags.has_map      }
+      clue_count     { from_state = story.clues.count        }
+      coins          { from_state = party.inventory.coins    }
+      lockpick_skill { from_state = party.skills.lockpick    }
     }
 
     merge {
-      chapter_state { to_ssot = story.chapter_state }
-      last_hub      { to_ssot = story.last_hub      }
+      chapter_state { to_state = story.chapter_state }
+      last_hub      { to_state = story.last_hub      }
     }
 
     next {
@@ -140,9 +140,9 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route  { to_ssot = story.route            }
-      location     { to_ssot = story.current_location }
-      danger_level { to_ssot = story.threat_level     }
+      story_route  { to_state = story.route            }
+      location     { to_state = story.current_location }
+      danger_level { to_state = story.threat_level     }
     }
 
     next {
@@ -159,7 +159,7 @@ scene "adventure_story_chapter_1" {
   action "city_gate" {
     """
     Logic overview:
-    - Read current coins from SSOT and apply the city gate toll.
+    - Read current coins from STATE and apply the city gate toll.
     - Emit updated coin balance plus route/location updates.
     - Always continue to `courtyard_arrival`.
     """
@@ -178,13 +178,13 @@ scene "adventure_story_chapter_1" {
     }
 
     prepare {
-      coins { from_ssot = party.inventory.coins }
+      coins { from_state = party.inventory.coins }
     }
 
     merge {
-      coins_after  { to_ssot = party.inventory.coins  }
-      location     { to_ssot = story.current_location }
-      story_route  { to_ssot = story.route            }
+      coins_after  { to_state = party.inventory.coins  }
+      location     { to_state = story.current_location }
+      story_route  { to_state = story.route            }
     }
 
     next {
@@ -201,7 +201,7 @@ scene "adventure_story_chapter_1" {
   action "sewer_tunnel" {
     """
     Logic overview:
-    - Read lockpick skill from SSOT and evaluate hidden-mark discovery.
+    - Read lockpick skill from STATE and evaluate hidden-mark discovery.
     - Emit route/location updates and discovery flag.
     - Always continue to `hidden_archive`.
     """
@@ -219,13 +219,13 @@ scene "adventure_story_chapter_1" {
     }
 
     prepare {
-      lockpick_skill { from_ssot = party.skills.lockpick }
+      lockpick_skill { from_state = party.skills.lockpick }
     }
 
     merge {
-      story_route  { to_ssot = story.route                   }
-      location     { to_ssot = story.current_location        }
-      found_mark   { to_ssot = story.flags.found_hidden_mark }
+      story_route  { to_state = story.route                   }
+      location     { to_state = story.current_location        }
+      found_mark   { to_state = story.flags.found_hidden_mark }
     }
 
     next {
@@ -258,9 +258,9 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route { to_ssot = story.route            }
-      note        { to_ssot = story.journal.latest   }
-      location    { to_ssot = story.current_location }
+      story_route { to_state = story.route            }
+      note        { to_state = story.journal.latest   }
+      location    { to_state = story.current_location }
     }
 
     next {
@@ -292,8 +292,8 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      reward   { to_ssot = story.chapter_reward    }
-      location { to_ssot = story.current_location  }
+      reward   { to_state = story.chapter_reward    }
+      location { to_state = story.current_location  }
     }
 
     next {
@@ -325,8 +325,8 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      reward   { to_ssot = story.chapter_reward   }
-      location { to_ssot = story.current_location }
+      reward   { to_state = story.chapter_reward   }
+      location { to_state = story.current_location }
     }
 
     next {
@@ -358,8 +358,8 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      reward   { to_ssot = story.chapter_reward   }
-      location { to_ssot = story.current_location }
+      reward   { to_state = story.chapter_reward   }
+      location { to_state = story.current_location }
     }
 
     next {
@@ -391,8 +391,8 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      chapter_state  { to_ssot = story.chapter_state }
-      chapter_result { to_ssot = story.result        }
+      chapter_state  { to_state = story.chapter_state }
+      chapter_result { to_state = story.result        }
     }
   }
 }

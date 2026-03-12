@@ -23,7 +23,7 @@ scene "llm_support_workflow" {
   action "analyze_request" {
     """
     Logic overview:
-    - Read request-level routing flags from SSOT.
+    - Read request-level routing flags from STATE.
     - Decide whether retrieval is needed for this turn.
     - Persist workflow stage metadata.
     """
@@ -43,13 +43,13 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      need_grounding { from_ssot = request.flags.need_grounding }
-      kb_enabled     { from_ssot = runtime.features.kb_enabled  }
-      priority_tier  { from_ssot = request.priority_tier        }
+      need_grounding { from_state = request.flags.need_grounding }
+      kb_enabled     { from_state = runtime.features.kb_enabled  }
+      priority_tier  { from_state = request.priority_tier        }
     }
 
     merge {
-      workflow_stage { to_ssot = workflow.stage }
+      workflow_stage { to_state = workflow.stage }
     }
 
     next {
@@ -80,7 +80,7 @@ scene "llm_support_workflow" {
   action "retrieve_context" {
     """
     Logic overview:
-    - Read query and retrieval hint from SSOT.
+    - Read query and retrieval hint from STATE.
     - Build deterministic retrieval context text.
     - Persist context payload and stage metadata.
     """
@@ -99,13 +99,13 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      query    { from_ssot = request.query    }
-      doc_hint { from_ssot = request.doc_hint }
+      query    { from_state = request.query    }
+      doc_hint { from_state = request.doc_hint }
     }
 
     merge {
-      workflow_stage    { to_ssot = workflow.stage   }
-      retrieved_context { to_ssot = workflow.context }
+      workflow_stage    { to_state = workflow.stage   }
+      retrieved_context { to_state = workflow.context }
     }
 
     next {
@@ -138,12 +138,12 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      query { from_ssot = request.query }
+      query { from_state = request.query }
     }
 
     merge {
-      draft_text     { to_ssot = workflow.draft }
-      workflow_stage { to_ssot = workflow.stage }
+      draft_text     { to_state = workflow.draft }
+      workflow_stage { to_state = workflow.stage }
     }
 
     next {
@@ -160,7 +160,7 @@ scene "llm_support_workflow" {
   action "draft_with_context" {
     """
     Logic overview:
-    - Read request text and retrieved context from SSOT.
+    - Read request text and retrieved context from STATE.
     - Produce a grounded draft.
     - Persist draft and stage metadata.
     """
@@ -179,13 +179,13 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      query             { from_ssot = request.query    }
-      retrieved_context { from_ssot = workflow.context }
+      query             { from_state = request.query    }
+      retrieved_context { from_state = workflow.context }
     }
 
     merge {
-      draft_text     { to_ssot = workflow.draft }
-      workflow_stage { to_ssot = workflow.stage }
+      draft_text     { to_state = workflow.draft }
+      workflow_stage { to_state = workflow.stage }
     }
 
     next {
@@ -202,7 +202,7 @@ scene "llm_support_workflow" {
   action "safety_check" {
     """
     Logic overview:
-    - Read moderation scores from SSOT.
+    - Read moderation scores from STATE.
     - Approve when both toxicity and PII checks pass.
     - Persist approval result and stage metadata.
     """
@@ -222,13 +222,13 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      toxicity_score { from_ssot = moderation.toxicity_score }
-      pii_score      { from_ssot = moderation.pii_score      }
+      toxicity_score { from_state = moderation.toxicity_score }
+      pii_score      { from_state = moderation.pii_score      }
     }
 
     merge {
-      approved       { to_ssot = workflow.approved }
-      workflow_stage { to_ssot = workflow.stage    }
+      approved       { to_state = workflow.approved }
+      workflow_stage { to_state = workflow.stage    }
     }
 
     next {
@@ -259,7 +259,7 @@ scene "llm_support_workflow" {
   action "publish_response" {
     """
     Logic overview:
-    - Read generated draft from SSOT.
+    - Read generated draft from STATE.
     - Publish final response and update workflow status.
     """
 
@@ -274,19 +274,19 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      draft_text { from_ssot = workflow.draft }
+      draft_text { from_state = workflow.draft }
     }
 
     merge {
-      workflow_status { to_ssot = workflow.status           }
-      final_response  { to_ssot = conversation.last_response }
+      workflow_status { to_state = workflow.status           }
+      final_response  { to_state = conversation.last_response }
     }
   }
 
   action "human_review" {
     """
     Logic overview:
-    - Read generated draft from SSOT.
+    - Read generated draft from STATE.
     - Create a deterministic handoff note for a human operator.
     - Persist review note and workflow status.
     """
@@ -303,12 +303,12 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      draft_text { from_ssot = workflow.draft }
+      draft_text { from_state = workflow.draft }
     }
 
     merge {
-      handoff_note    { to_ssot = review.note      }
-      workflow_status { to_ssot = workflow.status  }
+      handoff_note    { to_state = review.note      }
+      workflow_status { to_state = workflow.status  }
     }
   }
 }
