@@ -212,8 +212,8 @@ scene "loan_flow" {
       compute {
         condition = go
         prog "to_approve" {
-          ~>decision:bool  = false
-          ~>income_ok:bool = false
+          ~>decision:bool  = _
+          ~>income_ok:bool = _
           go:bool = decision & income_ok
         }
       }

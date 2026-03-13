@@ -19,8 +19,8 @@ action "process_order" {
   compute {
     root = receipt
     prog "order_graph" {
-      ~>raw_payload:string = ""
-      ~>user_id:string     = ""
+      ~>raw_payload:string = _
+      ~>user_id:string     = _
       <~receipt:string     = build_receipt(raw_payload, user_id)
     }
   }
@@ -131,8 +131,8 @@ action "process_order" {
   compute {
     root = receipt
     prog "order_graph" {
-      ~>raw_payload:string = ""
-      ~>user_id:string     = ""
+      ~>raw_payload:string = _
+      ~>user_id:string     = _
       <~receipt:string     = build_receipt(raw_payload, user_id)
     }
   }

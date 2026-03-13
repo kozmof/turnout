@@ -17,7 +17,7 @@ action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      ~>income:int    = 0                              # ← sigil: input from STATE
+      ~>income:int    = _                              # ← sigil: input from STATE
       <~decision:bool = income_ok & debt_ok           # ← sigil: output to STATE
       income_ok:bool  = income >= 50000              # plain compute binding
     }
@@ -59,28 +59,28 @@ All references in `prepare` and `merge` use plain canonical binding names.
 ### 1.2 Grammar
 
 ```
-sigil-decl   ::= sigil IDENT ':' type '=' (literal | expr)
+sigil-decl   ::= sigil IDENT ':' type '=' ('_' | literal | expr)
 sigil        ::= '~>' | '<~' | '<~>'
 ```
 
 The sigil is written immediately before the binding name — no whitespace between sigil and name:
 
 ```
-~>income:int = 0        # OK
-~ > income:int = 0      # NG — space not allowed
+~>income:int = _        # OK
+~ > income:int = _      # NG — space not allowed
 ```
 
-### 1.3 Semantics of the default value
+### 1.3 Semantics of `_`
 
-The value or expression on the right-hand side of a sigiled binding is a **type-system sentinel** — it exists to satisfy the binding type declaration and serves as the compute-graph's structural value. It has **no effect on STATE resolution**.
+The `_` placeholder on the right-hand side of a `~>` or `<~>` binding delegates the default value to the STATE declaration. It avoids repeating the default value that is already authoritative in the `state` block.
 
-- All `from_state` entries are `required = true`. A missing STATE path at runtime is an error regardless of the binding's default value.
-- The sentinel value is still lowered into the canonical `binding` block as `value` or `expr`, so the compute graph remains well-typed.
+- All `from_state` entries are `required = true`. A missing STATE path at runtime is an error; `_` is not a fallback value.
+- The converter resolves `_` from the STATE schema and emits the state-declared default in the canonical `binding` block as `value`, so the compute graph remains well-typed.
 
 ```
-# The '0' is a type sentinel only.
-# If applicant.income is absent in STATE, runtime error — not fallback to 0.
-~>income:int = 0
+# '_' delegates to the STATE-declared default.
+# If applicant.income is absent in STATE, runtime error — not fallback to state default.
+~>income:int = _
 prepare { income { from_state = applicant.income } }
 ```
 
@@ -89,7 +89,7 @@ prepare { income { from_state = applicant.income } }
 `<~>` signals that the binding is populated from STATE before execution **and** written back to STATE after merge — potentially at **different STATE paths**:
 
 ```
-<~>income:int = 0
+<~>income:int = _
 prepare { income { from_state = applicant.income      } }   # reads from applicant.income
 merge   { income { to_state   = decision.input_income } }   # writes to decision.input_income
 ```
@@ -208,8 +208,8 @@ next {
   compute {
     condition = go
     prog "to_approve" {
-      ~>decision:bool  = false
-      ~>income_ok:bool = false
+      ~>decision:bool  = _
+      ~>income_ok:bool = _
       go:bool = decision & income_ok
     }
   }
@@ -276,7 +276,7 @@ action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      ~>income:int    = 0
+      ~>income:int    = _
       <~decision:bool = income_ok & debt_ok
       income_ok:bool  = income >= min_income
       min_income:int  = 50000
@@ -330,7 +330,7 @@ A `<~>` binding appears in **both** `prepare` and `merge` with their respective 
 
 **Turn DSL:**
 ```
-<~>income:int = 0
+<~>income:int = _
 prepare { income { from_state = applicant.income      } }
 merge   { income { to_state   = decision.input_income } }
 ```
@@ -397,7 +397,7 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 
 | Case | Expected behaviour |
 |------|--------------------|
-| `~>income:int = 0` with no `prepare` block at all | `MissingPrepareEntry` |
+| `~>income:int = _` with no `prepare` block at all | `MissingPrepareEntry` |
 | `prepare { income { from_state = ... } }` where `income` has no sigil | `SpuriousPrepareEntry` |
 | `<~>income` appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
 | `<~>income` appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
