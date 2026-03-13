@@ -33,11 +33,10 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = phase_ready
+      root     = phase
       prog "arrive_crime_scene_graph" {
-        <~phase:str = "arrive_crime_scene"
         <~detective_note:str = "Scene secured. Start collecting clues."
-        phase_ready:bool = true
+        <~phase:str = "arrive_crime_scene"
       }
     }
 
@@ -320,7 +319,7 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = handoff_ready
+      root     = phase
       prog "search_for_more_evidence_graph" {
         ~>last_search_area:str = _
 
@@ -328,7 +327,6 @@ scene "detective_evidence_hunt" {
         <~search_note:str = prefix + last_search_area
         <~case_file_ready:bool = false
         <~phase:str = "search_for_more_evidence"
-        handoff_ready:bool = true
       }
     }
 

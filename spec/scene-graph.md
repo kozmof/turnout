@@ -175,6 +175,8 @@ Directional binding prefixes are interpreted before ContextSpec lowering:
 - `<~name:type = ...` means egress-only binding.
 - `<~>name:type = ...` means ingress + egress binding.
 
+**Convention — root binding declared last**: The binding named by `compute.root` SHOULD be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable: inputs and intermediate values come first, and the final output that drives the action result appears at the bottom. All example files in this spec follow this convention.
+
 ```hcl
 scene "loan_flow" {
   entry_actions      = ["score"]

@@ -83,8 +83,8 @@ scene "loan_flow" {
       prog "approve_graph" {
         prefix:str = "APR-"
         suffix:str = "0001"
-        <~approval_code:str = prefix + suffix
         <~status:str = "approved"
+        <~approval_code:str = prefix + suffix
       }
     }
 
@@ -104,8 +104,8 @@ scene "loan_flow" {
     compute {
       root     = reason
       prog "reject_graph" {
-        <~reason:str = "risk_threshold_not_met"
         <~status:str = "rejected"
+        <~reason:str = "risk_threshold_not_met"
       }
     }
 

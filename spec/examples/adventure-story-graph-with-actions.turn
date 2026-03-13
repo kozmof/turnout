@@ -131,11 +131,11 @@ scene "adventure_story_chapter_1" {
       root     = story_route
       prog "forest_trail_graph" {
         route:str = "forest_trail"
-        <~location:str = "Whispering Forest"
         danger:int = 2
 
-        <~story_route:str = route + ""
+        <~location:str = "Whispering Forest"
         <~danger_level:int = danger + 0
+        <~story_route:str = route + ""
       }
     }
 
@@ -286,8 +286,8 @@ scene "adventure_story_chapter_1" {
       root     = reward
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
-        <~reward:str = relic + ""
         <~location:str = "Ruined Shrine"
+        <~reward:str = relic + ""
       }
     }
 
@@ -319,8 +319,8 @@ scene "adventure_story_chapter_1" {
       root     = reward
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
-        <~reward:str = writ + ""
         <~location:str = "Castle Courtyard"
+        <~reward:str = writ + ""
       }
     }
 
@@ -352,8 +352,8 @@ scene "adventure_story_chapter_1" {
       root     = reward
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
-        <~reward:str = ledger + ""
         <~location:str = "Hidden Archive"
+        <~reward:str = ledger + ""
       }
     }
 
@@ -385,8 +385,8 @@ scene "adventure_story_chapter_1" {
       prog "chapter_end_graph" {
         prefix:str = "chapter_1_"
         suffix:str = "complete"
-        <~chapter_result:str = prefix + suffix
         <~chapter_state:str = "resolved"
+        <~chapter_result:str = prefix + suffix
       }
     }
 
