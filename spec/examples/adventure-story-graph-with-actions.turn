@@ -134,8 +134,8 @@ scene "adventure_story_chapter_1" {
         danger:int = 2
 
         <~location:str = "Whispering Forest"
-        <~danger_level:int = danger + 0
-        <~story_route:str = route + ""
+        <~danger_level:int = danger
+        <~story_route:str = route
       }
     }
 
@@ -173,7 +173,7 @@ scene "adventure_story_chapter_1" {
         toll:int = 3
 
         <~coins_after:int = coins - toll
-        <~story_route:str = route + ""
+        <~story_route:str = route
       }
     }
 
@@ -214,7 +214,7 @@ scene "adventure_story_chapter_1" {
         ~>lockpick_skill:int = _
 
         <~found_mark:bool = lockpick_skill >= 2
-        <~story_route:str = route + ""
+        <~story_route:str = route
       }
     }
 
@@ -253,7 +253,7 @@ scene "adventure_story_chapter_1" {
         route:str = "campfire_wait"
         <~note:str = "waited_until_dawn"
         <~location:str = "Crossroads Camp"
-        <~story_route:str = route + ""
+        <~story_route:str = route
       }
     }
 
@@ -287,7 +287,7 @@ scene "adventure_story_chapter_1" {
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
         <~location:str = "Ruined Shrine"
-        <~reward:str = relic + ""
+        <~reward:str = relic
       }
     }
 
@@ -320,7 +320,7 @@ scene "adventure_story_chapter_1" {
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
         <~location:str = "Castle Courtyard"
-        <~reward:str = writ + ""
+        <~reward:str = writ
       }
     }
 
@@ -353,7 +353,7 @@ scene "adventure_story_chapter_1" {
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
         <~location:str = "Hidden Archive"
-        <~reward:str = ledger + ""
+        <~reward:str = ledger
       }
     }
 

@@ -268,7 +268,7 @@ scene "llm_support_workflow" {
       prog "publish_response_graph" {
         ~>draft_text:str = _
         <~workflow_status:str = "sent"
-        <~final_response:str = draft_text + ""
+        <~final_response:str = draft_text
         publish_ready:bool = true
       }
     }
