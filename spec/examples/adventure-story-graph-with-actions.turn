@@ -39,10 +39,10 @@ scene "adventure_story_chapter_1" {
     compute {
       root     = decision_ready
       prog "choose_route_graph" {
-        ~>has_map:bool = false
-        ~>clue_count:int = 0
-        ~>coins:int = 0
-        ~>lockpick_skill:int = 0
+        ~>has_map:bool = _
+        ~>clue_count:int = _
+        ~>coins:int = _
+        ~>lockpick_skill:int = _
         <~chapter_state:str = "route_selected"
         <~last_hub:str = "crossroads"
 
@@ -70,7 +70,7 @@ scene "adventure_story_chapter_1" {
       compute {
         condition = go_forest
         prog "to_forest" {
-          ~>can_forest:bool = false
+          ~>can_forest:bool = _
           go_forest:bool = can_forest & true
         }
       }
@@ -84,7 +84,7 @@ scene "adventure_story_chapter_1" {
       compute {
         condition = go_gate
         prog "to_gate" {
-          ~>can_gate:bool = false
+          ~>can_gate:bool = _
           go_gate:bool = can_gate & true
         }
       }
@@ -98,7 +98,7 @@ scene "adventure_story_chapter_1" {
       compute {
         condition = go_sewer
         prog "to_sewer" {
-          ~>can_sewer:bool = false
+          ~>can_sewer:bool = _
           go_sewer:bool = can_sewer & true
         }
       }
@@ -169,7 +169,7 @@ scene "adventure_story_chapter_1" {
       prog "city_gate_graph" {
         route:str = "city_gate"
         <~location:str = "Stonebridge Gate"
-        ~>coins:int = 0
+        ~>coins:int = _
         toll:int = 3
 
         <~coins_after:int = coins - toll
@@ -211,7 +211,7 @@ scene "adventure_story_chapter_1" {
       prog "sewer_tunnel_graph" {
         route:str = "sewer_tunnel"
         <~location:str = "Sunken Tunnel"
-        ~>lockpick_skill:int = 0
+        ~>lockpick_skill:int = _
 
         <~found_mark:bool = lockpick_skill >= 2
         <~story_route:str = route + ""

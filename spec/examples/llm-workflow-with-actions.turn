@@ -31,9 +31,9 @@ scene "llm_support_workflow" {
     compute {
       root     = analysis_ready
       prog "analyze_request_graph" {
-        ~>need_grounding:bool = false
-        ~>kb_enabled:bool = false
-        ~>priority_tier:int = 0
+        ~>need_grounding:bool = _
+        ~>kb_enabled:bool = _
+        ~>priority_tier:int = _
         <~workflow_stage:str = "analyzed"
 
         retrieve_ready:bool = need_grounding & kb_enabled
@@ -56,7 +56,7 @@ scene "llm_support_workflow" {
       compute {
         condition = go_retrieve
         prog "to_retrieve_context" {
-          ~>retrieve_ready:bool = false
+          ~>retrieve_ready:bool = _
           go_retrieve:bool = retrieve_ready & true
         }
       }
@@ -88,8 +88,8 @@ scene "llm_support_workflow" {
     compute {
       root     = retrieval_ready
       prog "retrieve_context_graph" {
-        ~>query:str = ""
-        ~>doc_hint:str = ""
+        ~>query:str = _
+        ~>doc_hint:str = _
         <~workflow_stage:str = "retrieved"
 
         context_prefix:str = query + " :: "
@@ -129,7 +129,7 @@ scene "llm_support_workflow" {
     compute {
       root     = draft_ready
       prog "draft_direct_graph" {
-        ~>query:str = ""
+        ~>query:str = _
         prefix:str = "Direct answer: "
         <~draft_text:str = prefix + query
         <~workflow_stage:str = "drafted_direct"
@@ -168,8 +168,8 @@ scene "llm_support_workflow" {
     compute {
       root     = draft_ready
       prog "draft_with_context_graph" {
-        ~>query:str = ""
-        ~>retrieved_context:str = ""
+        ~>query:str = _
+        ~>retrieved_context:str = _
         <~workflow_stage:str = "drafted_with_context"
 
         draft_seed:str = query + " | "
@@ -210,8 +210,8 @@ scene "llm_support_workflow" {
     compute {
       root     = safety_ready
       prog "safety_check_graph" {
-        ~>toxicity_score:int = 0
-        ~>pii_score:int = 0
+        ~>toxicity_score:int = _
+        ~>pii_score:int = _
         <~workflow_stage:str = "safety_checked"
 
         toxicity_ok:bool = toxicity_score <= 2
@@ -235,7 +235,7 @@ scene "llm_support_workflow" {
       compute {
         condition = go_publish
         prog "to_publish_response" {
-          ~>approved:bool = false
+          ~>approved:bool = _
           go_publish:bool = approved & true
         }
       }
@@ -266,7 +266,7 @@ scene "llm_support_workflow" {
     compute {
       root     = publish_ready
       prog "publish_response_graph" {
-        ~>draft_text:str = ""
+        ~>draft_text:str = _
         <~workflow_status:str = "sent"
         <~final_response:str = draft_text + ""
         publish_ready:bool = true & true
@@ -294,7 +294,7 @@ scene "llm_support_workflow" {
     compute {
       root     = handoff_ready
       prog "human_review_graph" {
-        ~>draft_text:str = ""
+        ~>draft_text:str = _
         prefix:str = "Review needed: "
         <~handoff_note:str = prefix + draft_text
         <~workflow_status:str = "awaiting_human"
