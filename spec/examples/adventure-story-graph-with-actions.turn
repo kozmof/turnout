@@ -50,7 +50,7 @@ scene "adventure_story_chapter_1" {
         can_forest:bool = has_map & clue_enough
         can_gate:bool = coins >= 3
         can_sewer:bool = lockpick_skill >= 1
-        decision_ready:bool = true & true
+        decision_ready:bool = true
       }
     }
 
@@ -71,7 +71,7 @@ scene "adventure_story_chapter_1" {
         condition = go_forest
         prog "to_forest" {
           ~>can_forest:bool = _
-          go_forest:bool = can_forest & true
+          go_forest:bool = can_forest
         }
       }
       prepare {
@@ -85,7 +85,7 @@ scene "adventure_story_chapter_1" {
         condition = go_gate
         prog "to_gate" {
           ~>can_gate:bool = _
-          go_gate:bool = can_gate & true
+          go_gate:bool = can_gate
         }
       }
       prepare {
@@ -99,7 +99,7 @@ scene "adventure_story_chapter_1" {
         condition = go_sewer
         prog "to_sewer" {
           ~>can_sewer:bool = _
-          go_sewer:bool = can_sewer & true
+          go_sewer:bool = can_sewer
         }
       }
       prepare {

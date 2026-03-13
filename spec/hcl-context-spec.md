@@ -43,6 +43,7 @@ prog "main" {
 | Surface DSL | Canonical plain HCL |
 |-------------|---------------------|
 | `name:type = literal` | `binding "name" { type = "type" value = literal }` |
+| `name:type = identifier` (single bare identifier, not a literal; see §2.1 for disambiguation) | `binding "name" { type = "type" expr = { combine = { fn = "<identity-fn>" args = [arg(identifier), arg(identity-rhs)] } } }` where identity-fn and identity-rhs are type-dependent (see identity-combine table below) |
 | `name:type = fn_alias(x, y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:bool = lhs & rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_and" args = [arg(lhs), arg(rhs)] } } }` |
@@ -55,6 +56,37 @@ prog "main" {
 | `name:type = { pipe = { args = {...} steps = [fn_alias(...), ...] } }` (compatibility input) | `binding "name" { type = "type" expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
 | `cond = { condition = c then = t else = e }` | `expr = { cond = { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } } }` |
 | `#if` inline condition (`cond = fn_alias(...)`) | lowered to generated `binding "__if_<name>_cond"` + `cond` |
+
+#### Identity-combine table (for single-reference form)
+
+The single-reference form `name:type = identifier` lowers to a combine using a type-appropriate identity operation. The result is always a function binding, not a value binding.
+
+| Declared type | Identity combine | Lowered canonical HCL (abbreviated) |
+|---|---|---|
+| `bool` | `bool_and(identifier, true)` | `combine = { fn = "bool_and" args = [{ ref = "identifier" }, { lit = true }] }` |
+| `int` | `add(identifier, 0)` | `combine = { fn = "add" args = [{ ref = "identifier" }, { lit = 0 }] }` |
+| `str` | `str_concat(identifier, "")` | `combine = { fn = "str_concat" args = [{ ref = "identifier" }, { lit = "" }] }` |
+| `arr<T>` | `arr_concat(identifier, [])` | `combine = { fn = "arr_concat" args = [{ ref = "identifier" }, { lit = [] }] }` |
+
+The identity RHS literal (`true`, `0`, `""`, `[]`) is chosen so the combine always returns the value of `identifier` unchanged.
+
+#### Disambiguation: single-reference form vs literal vs infix
+
+After `name:type =`, the parser selects the form by examining the first and second tokens of the RHS:
+
+| First token | Second token | Form |
+|---|---|---|
+| keyword literal (`true`, `false`) | any | value binding (literal) |
+| numeric literal, string literal, `[` | any | value binding (literal) |
+| bare `IDENT` (not `true`/`false`) | `(` | function call |
+| bare `IDENT` (not `true`/false`) | `&`, `>=`, `<=`, `+` | infix expression |
+| bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | **single-reference form** |
+| `{` | any | block form (cond/if/pipe compat) |
+| `#pipe` | any | pipe form |
+| `#if` | any | if form |
+| `_` (with directional sigil prefix) | any | ingress placeholder |
+
+The ingress placeholder `_` is not a bare identifier and must not match the single-reference form.
 
 ### End-to-end lowering example
 
@@ -102,6 +134,7 @@ prog "main" {
 - Infix `lhs >= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "gte"`
 - Infix `lhs <= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "lte"`
 - Infix `lhs + rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "str_concat"`
+- Single-reference form `name:type = identifier` -> identity combine args per the identity-combine table above
 - Pipe header pair `#pipe(p: v)` -> `args = { p = ref(v) }`
 - Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
 - Compatibility object args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
@@ -120,6 +153,7 @@ CAN (OK):
 - Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`).
 - Authors can write call-only functions using call syntax (`add(v1, v2)`, `gt(v1, v2)`, `bool_or(a, b)`).
 - Authors can write pipes as `#pipe(x:n)[step1, step2]`.
+- Authors can write a single-reference binding `name:type = identifier` to pass another binding's value through as a function binding. The compiler lowers this to an identity combine per the identity-combine table.
 - Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
 CAN'T (NG):
@@ -130,6 +164,8 @@ CAN'T (NG):
 - Operator-only functions (`bool_and`, `gte`, `lte`, `str_concat`) cannot be written in call form. `bool_and(a, b)`, `gte(a, b)`, `lte(a, b)`, `str_concat(a, b)` are all `OperatorOnlyFn` errors.
 - Operator-only functions cannot appear as steps inside `#pipe(...)[ ]`, because pipe steps require call syntax. They must instead be expressed as call-form aliases — but since operator-only functions have no callable alias, they cannot be used as pipe steps.
 - Infix expressions support only `&`, `>=`, `<=`, `+`, with exactly two operands.
+- The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
+- The ingress placeholder `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier — they are handled by their own forms.
 
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks and typed reference objects (`ref`, `func_ref`) to stay parseable and unambiguous in plain HCL.
@@ -533,6 +569,7 @@ prog "main" {
 | `StepRefOutOfBounds` | `step_ref = N` where N ≥ current step index |
 | `CrossPipeStepRef` | `step_ref` inside a pipe references a different pipe's step |
 | `PipeArgNotValue` | pipe parameter mapping references a function binding (must be value) |
+| `SingleRefTypeMismatch` | Single-reference form `name:type = identifier` where `identifier` resolves to a different type than `type` |
 
 ---
 

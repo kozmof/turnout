@@ -56,7 +56,7 @@ CAN (OK):
 CAN'T (NG):
 
 - An action cannot omit `compute.root`.
-- `compute.root` cannot point to a value binding; it must resolve to a function binding.
+- `compute.root` cannot point to a binding that does not exist in `compute.prog`.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A binding marked as ingress-capable (`~>` or `<~>`) cannot omit its `prepare` entry.
 - A next rule cannot omit `compute.condition` or `compute.prog`.
@@ -64,7 +64,7 @@ CAN'T (NG):
 
 Correlation:
 
-- Because `root` is function-only, a `<~ root` or `<~> root` binding is always available as a deterministic emission source.
+- Because `root` accepts both value and function bindings (matching `compute.condition` semantics), a `<~ root` or `<~> root` binding is always available as a deterministic emission source regardless of whether `root` resolves to a value or function binding.
 - Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
 - Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.prepare.<binding>.from_action` mapping.
 
@@ -95,7 +95,7 @@ type Action = {
 
 type ActionComputeGraph = {
   prog: string; // canonical source of one inline `prog "<name>" { ... }` block
-  root: string; // canonical binding key from DSL `compute.root`; must resolve to function binding
+  root: string; // canonical binding key from DSL `compute.root`; resolves to a value or function binding
 };
 
 type PrepareSpec = {
@@ -283,7 +283,7 @@ Before first action execution, implementations MUST validate:
 4. All next actions exist.
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
-7. `compute.root` exists in the program and resolves to a function binding.
+7. `compute.root` exists in the program (value or function binding).
 8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`.
 9. For every binding declared `~>` or `<~>`, exactly one ingress source is set in `prepare`.
 10. For every binding declared `<~` or `<~>`, a `merge` entry exists.
@@ -312,9 +312,10 @@ For one action invocation with pre-state `S_n`:
    - Apply prepare-derived state overrides.
    - Build with `ctx(spec)`.
    - Validate with `validateContext`.
-5. Execute root function:
-   - `rootFuncId = ids[compute.root]`
-   - `R_n = executeGraph(rootFuncId, validatedContext)`
+5. Execute root:
+   - `rootBinding = ids[compute.root]`
+   - If `compute.root` resolves to a function binding: `R_n = executeGraph(rootBinding as FuncId, validatedContext)`
+   - If `compute.root` resolves to a value binding: `R_n = readValue(rootBinding as ValueId, validatedContext)` (identical to how `compute.condition` handles value bindings)
    - Build action binding namespace `A_n` from this invocation's `compute.prog` context.
 6. Merge phase — build action delta `D_n` from `merge` bindings:
    - For each `merge.<binding>`, read binding value from graph context/output table.
@@ -365,7 +366,7 @@ Runtime mapping:
 Existing required codes from v0.2 remain required, plus the following:
 
 - `SCN_INVALID_ACTION_GRAPH`
-- `SCN_ACTION_ROOT_NOT_FUNCTION`
+- `SCN_ACTION_ROOT_NOT_FOUND`
 - `SCN_INGRESS_TARGET_NOT_VALUE`
 - `SCN_INGRESS_SOURCE_MISSING`
 - `SCN_EGRESS_SOURCE_INVALID`
@@ -398,7 +399,7 @@ type SceneDiagnostic = {
 
 ## 11. Conformance Checklist
 
-1. Invalid `root` binding type fails validation (`SCN_ACTION_ROOT_NOT_FUNCTION`).
+1. A `compute.root` that names a missing binding fails validation (`SCN_ACTION_ROOT_NOT_FOUND`). A `compute.root` that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
 3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `merge`.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.

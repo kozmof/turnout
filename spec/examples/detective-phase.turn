@@ -37,7 +37,7 @@ scene "detective_evidence_hunt" {
       prog "arrive_crime_scene_graph" {
         <~phase:str = "arrive_crime_scene"
         <~detective_note:str = "Scene secured. Start collecting clues."
-        phase_ready:bool = true & true
+        phase_ready:bool = true
       }
     }
 
@@ -95,7 +95,7 @@ scene "detective_evidence_hunt" {
         condition = go_collect
         prog "to_collect_physical_evidence" {
           ~>scene_hotspot_found:bool = _
-          go_collect:bool = scene_hotspot_found & true
+          go_collect:bool = scene_hotspot_found
         }
       }
       prepare {
@@ -247,7 +247,7 @@ scene "detective_evidence_hunt" {
         condition = go_identify
         prog "to_identify_suspect" {
           ~>ready_to_identify_suspect:bool = _
-          go_identify:bool = ready_to_identify_suspect & true
+          go_identify:bool = ready_to_identify_suspect
         }
       }
       prepare {
@@ -284,7 +284,7 @@ scene "detective_evidence_hunt" {
         high_confidence:bool = confidence_score >= 8
         prefix:str = "Primary suspect: "
         <~suspect_summary:str = prefix + suspect_name
-        <~case_file_ready:bool = high_confidence & true
+        <~case_file_ready:bool = high_confidence
         <~phase:str = "identify_suspect"
       }
     }
@@ -328,7 +328,7 @@ scene "detective_evidence_hunt" {
         <~search_note:str = prefix + last_search_area
         <~case_file_ready:bool = false
         <~phase:str = "search_for_more_evidence"
-        handoff_ready:bool = true & true
+        handoff_ready:bool = true
       }
     }
 
@@ -369,7 +369,7 @@ scene "detective_evidence_hunt" {
 
         prefix:str = "Filed report: "
         <~report_line:str = prefix + suspect_summary
-        <~investigation_closed:bool = case_file_ready & true
+        <~investigation_closed:bool = case_file_ready
         <~phase:str = "submit_case_file"
       }
     }
