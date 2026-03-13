@@ -137,7 +137,7 @@ Invokes the named hook, obtains a result object, and assigns `result[bindingName
 `from_state` values are **dotted paths**:
 
 ```
-dotted-path ::= IDENT ('.' IDENT)*
+dotted-path ::= IDENT '.' IDENT
 IDENT       ::= [A-Za-z_][A-Za-z0-9_]*
 ```
 
@@ -228,9 +228,10 @@ Each entry inside a transition `prepare` must have exactly one of:
 | Attribute | Source |
 |-----------|--------|
 | `from_action = <binding>` | Value of the named binding from the action's result |
-| `from_state = <dotted.path>` | Post-merge STATE state after the action's merge |
+| `from_state = <dotted.path>` | Post-merge STATE value after the action's merge |
+| `from_literal = <value>` | A literal value (string, number, or boolean) |
 
-Both may be used in the same transition `prepare` block, one per entry.
+Any one of these may be used per entry; they may be mixed across different entries in the same transition `prepare` block.
 
 ### 4.3 Sigil on transition `prog` bindings
 
@@ -256,9 +257,9 @@ Both may be used in the same transition `prepare` block, one per entry.
 - The same binding name cannot appear twice in `prepare` or twice in `merge`.
 - A `<~>` binding cannot be present in `prepare` but absent from `merge`, or vice versa.
 - A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding.
-- `merge` cannot appear inside a `next { }` transition block.
-- A transition `prepare` entry cannot have neither `from_action` nor `from_state`.
-- A transition `prepare` entry cannot have both `from_action` and `from_state` simultaneously.
+- `merge` or `publish` cannot appear inside a `next { }` transition block.
+- A transition `prepare` entry cannot have none of `from_action`, `from_state`, or `from_literal`.
+- A transition `prepare` entry cannot have more than one of `from_action`, `from_state`, and `from_literal` simultaneously.
 - `<~` or `<~>` sigils cannot appear inside a transition `prog` block.
 - A plain (no-sigil) binding cannot appear in `prepare` or `merge`.
 
@@ -360,11 +361,12 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | `DuplicateMergeEntry` | The same binding name appears more than once in `merge` |
 | `BidirMissingPrepareEntry` | A `<~>` binding appears in `merge` but not in `prepare` |
 | `BidirMissingMergeEntry` | A `<~>` binding appears in `prepare` but not in `merge` |
-| `TransitionMerge` | A `merge` block is present inside a `next { }` transition |
-| `InvalidTransitionIngress` | A transition `prepare` entry has neither `from_action` nor `from_state`, or has both |
+| `TransitionMerge` | A `merge` or `publish` block is present inside a `next { }` transition |
+| `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
 | `TransitionHook` | A `from_hook` source appears inside a transition `prepare` block |
 | `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
-| `InvalidSsotPath` | A `from_state` or `to_state` value is not a valid dotted identifier path |
+| `InvalidSsotPath` | A `from_state` or `to_state` value is not a valid dotted identifier path (empty segment, leading/trailing dot, or invalid characters) |
+| `InvalidStatePath` | A `from_state` or `to_state` value does not have exactly two segments (see `state-shape-spec.md`) |
 | `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
 
 ---
@@ -402,8 +404,8 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | `<~>income` appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
 | `<~>income` appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
 | `merge` present inside a `next { }` block | `TransitionMerge` |
-| Transition `prepare` entry with no `from_action` and no `from_state` | `InvalidTransitionIngress` |
-| Transition `prepare` entry with both `from_action` and `from_state` | `InvalidTransitionIngress` |
+| Transition `prepare` entry with no `from_action`, `from_state`, or `from_literal` | `InvalidTransitionIngress` |
+| Transition `prepare` entry with more than one of `from_action`, `from_state`, `from_literal` | `InvalidTransitionIngress` |
 | `from_hook` inside a transition `prepare` | `TransitionHook` |
 | `<~phase` sigil inside a transition `prog` block | `TransitionOutputSigil` |
 | `from_state = "applicant..income"` (empty segment) | `InvalidSsotPath` |

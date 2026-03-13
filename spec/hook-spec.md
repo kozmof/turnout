@@ -19,9 +19,9 @@ action "process_order" {
   compute {
     root = receipt
     prog "order_graph" {
-      ~>raw_payload:string = _
-      ~>user_id:string     = _
-      <~receipt:string     = build_receipt(raw_payload, user_id)
+      ~>raw_payload:str = _
+      ~>user_id:str     = _
+      <~receipt:str     = build_receipt(raw_payload, user_id)
     }
   }
 
@@ -131,9 +131,9 @@ action "process_order" {
   compute {
     root = receipt
     prog "order_graph" {
-      ~>raw_payload:string = _
-      ~>user_id:string     = _
-      <~receipt:string     = build_receipt(raw_payload, user_id)
+      ~>raw_payload:str = _
+      ~>user_id:str     = _
+      <~receipt:str     = build_receipt(raw_payload, user_id)
     }
   }
 
@@ -166,10 +166,10 @@ action "process_order" {
   compute {
     root = "receipt"
     prog "order_graph" {
-      binding "raw_payload" { type = "string" value = "" }
-      binding "user_id"     { type = "string" value = "" }
+      binding "raw_payload" { type = "str" value = "" }
+      binding "user_id"     { type = "str" value = "" }
       binding "receipt"     {
-        type = "string"
+        type = "str"
         expr = { combine = { fn = "build_receipt" args = [{ ref = "raw_payload" }, { ref = "user_id" }] } }
       }
     }

@@ -99,7 +99,7 @@ Rules:
 - The Go CLI can emit `publish` sub-blocks with one or more `hook` attributes per action.
 - The Go CLI can emit `prepare` entries with `from_hook` for prepare-phase hook bindings (per `hook-spec.md`).
 - The Go CLI can report parse and type errors (per the error catalogue in `hcl-context-spec.md` §5 and the extended catalogue below) and abort without emitting partial HCL.
-- The Go CLI can validate that every transition `compute.root` binding resolves to a `bool` at convert time.
+- The Go CLI can validate that every transition `compute.condition` binding resolves to a `bool` at convert time.
 
 ### CAN'T (NG)
 
@@ -131,6 +131,12 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 | `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
 | `TransitionHook` | A `from_hook` source appears in a transition `prepare` block |
 | `TransitionMerge` | A `merge` or `publish` block appears inside a `next { }` block |
+| `SpuriousPrepareEntry` | A `prepare` entry references a binding that has no sigil in the corresponding `prog` block |
+| `SpuriousMergeEntry` | A `merge` entry references a binding that has no sigil in the corresponding `prog` block |
+| `BidirMissingPrepareEntry` | A `<~>` binding appears in `merge` but has no corresponding entry in `prepare` |
+| `BidirMissingMergeEntry` | A `<~>` binding appears in `prepare` but has no corresponding entry in `merge` |
+| `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
+| `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
 
 ---
 
@@ -310,7 +316,7 @@ Example state during `process_order` execution:
 | `all-match` selects 0 next actions | Enter terminal `completed` state |
 | `all-match` selects 3 actions; action 2 fails execution | Action 3 does not run; no partial STATE mutation from action 2 |
 | Unknown merge mode in action | Fail pre-execution validation; `invalid_graph` |
-| Transition `compute.root` resolves to `int`, not `bool` | `SCN_INVALID_CONTEXT` at scene validation; `invalid_graph` |
+| Transition `compute.condition` resolves to `int`, not `bool` | `SCN_INVALID_CONTEXT` at scene validation; `invalid_graph` |
 | `fromSsot` path not present in `S_{n+1}` and `required = true` | Transition ingress resolution error at runtime |
 | `all-match` with no transitions declared | Enter terminal `completed` state |
 | Prepare hook unregistered | Silently skipped; binding value remains default or STATE-resolved |
