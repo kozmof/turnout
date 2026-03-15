@@ -78,6 +78,7 @@ A **path expression** matches the route history against a single scene's executi
 |---|---|
 | `scene-id.<action-id>` | scene-id ran exactly that action as its terminal action |
 | `scene-id.*.<action-id>` | scene-id ran any preceding actions, and its **last** executed action was `<action-id>` |
+| `scene-id.*.<action-id>.<action-id>…` | scene-id ran any preceding actions, and its **last N** executed actions were the given sequence in order |
 
 #### OR expression `\|`
 
@@ -98,7 +99,8 @@ The `_` pattern matches any route history unconditionally. It MUST appear at mos
 When multiple patterns match the same history, the **narrower** pattern wins:
 
 1. **Fewer `*` wildcards = higher priority** (most specific pattern wins).
-2. When two patterns have the same wildcard count, **declaration order** (top-to-bottom) determines the winner.
+2. When two patterns have the same wildcard count, **longer specific suffix = higher priority** — more action segments after the `*` wins (e.g. `scene.*.foo.bar` beats `scene.*.bar`).
+3. When two patterns have the same wildcard count and the same suffix length, **declaration order** (top-to-bottom) determines the winner.
 
 `_` has lowest priority because it contains no path structure and always matches.
 
@@ -173,7 +175,7 @@ Before first chapter execution, implementations MUST validate:
 
 1. Each `match` block has at most one `_` arm.
 2. All `=> <scene-id>` targets reference scenes that exist within the chapter graph.
-3. All path forms are well-formed (`<scene-id>.<action-id>` or `<scene-id>.*.<action-id>`); bare `<scene-id>.*` is rejected.
+3. All path forms are well-formed (`<scene-id>.<action-id>` or `<scene-id>.*.<action-id>(.<action-id>)*`); bare `<scene-id>.*` is rejected.
 4. All branches within a `|` expression share a common `=> <scene-id>` target (enforced by syntax).
 
 Validation failures MUST produce `invalid_route`.
@@ -226,6 +228,7 @@ Validation failures MUST produce `invalid_route`.
 | 2 | `scene-1.*.final_action` matches only when `final_action` is last | History ending with `final_action` matches; any other last action does not |
 | 3 | `_` selected when no specific pattern matches | Histories with no narrow match always route to `_` target |
 | 4 | Narrow beats broad | Two patterns matching the same history; assert narrower (fewer `*`) selected |
+| 6 | Longer suffix beats shorter | `scene.*.foo.bar` and `scene.*.bar` both match; assert `scene.*.foo.bar` selected |
 | 5 | OR expression consistency | `path1 \| path2` and two separate arms with the same targets produce identical routing decisions |
 
 ### Edge Cases
