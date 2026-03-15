@@ -7,7 +7,7 @@
 
 ## Overview
 
-STATE (`S_n`) is the shared mutable store that persists values across action executions within a scene. Actions read from STATE through `prepare` and write back through `merge`, using dotted paths such as `applicant.income` or `decision.approved`.
+STATE (`S_n`) is the shared mutable store that persists values across action executions. Within a route, STATE is global — all scenes in a route share the same STATE instance. Actions read from STATE through `prepare` and write back through `merge`, using dotted paths such as `applicant.income` or `decision.approved`.
 
 STATE is declared **independently of any action**, either at the top level of the same Turn DSL file as `scene`, or in a dedicated file referenced by `state_file`. This separation makes STATE the single authoritative source for the type contract that all actions must satisfy: the declared field types are **type constraints** enforced at convert time against every action's `merge` bindings.
 
@@ -28,25 +28,24 @@ This spec defines:
 
 ### 1.1 Namespace and field
 
-STATE is a two-level map. Every leaf value lives at a **dotted path** of exactly two segments:
+STATE is a hierarchical map. Every leaf value lives at a **dotted path** of two or more segments:
 
 ```
 <namespace>.<field>
+<namespace>.<sub>.<field>
 ```
 
-- **Namespace** (`ns`) — top-level grouping key. Example: `applicant`, `decision`.
-- **Field** (`field`) — leaf key within a namespace. Example: `income`, `approved`.
+- **Namespace** (`ns`) — top-level grouping key. Example: `applicant`, `session`.
+- **Field** (`field`) — leaf key within a namespace. Example: `income`, `cart`.
+- Additional intermediate segments are allowed for deeper grouping. Example: `session.cart.items`.
 
-Paths with more than two segments or fewer than two segments are not valid STATE paths under this spec.
+Paths with fewer than two segments are not valid STATE paths.
 
 ```
-applicant.income    # valid: namespace=applicant, field=income
-decision.approved   # valid: namespace=decision,  field=approved
+applicant.income    # valid: two-segment path
+session.cart.items  # valid: three-segment path
 income              # invalid: single-segment path
-a.b.c               # invalid: three-segment path
 ```
-
-> **Note**: Support for deeper nesting may be added in a future revision. All current Turn DSL examples use exactly two-segment paths.
 
 ### 1.2 Immutable snapshot
 
@@ -65,12 +64,12 @@ A `state` block is declared at the **top level** of a Turn DSL file, independent
 ```hcl
 state {
   applicant {
-    income:int = 0
-    debt:int   = 0
+    income:number = 0
+    debt:number   = 0
   }
   decision {
     approved:bool     = false
-    input_income:int  = 0
+    input_income:number  = 0
     status:str        = ""
     code:str          = ""
     reason:str        = ""
@@ -96,7 +95,7 @@ state-block     ::= 'state' '{' namespace-decl* '}'
 state-file-directive ::= 'state_file' '=' string-literal
 namespace-decl  ::= IDENT '{' field-decl* '}'
 field-decl      ::= IDENT ':' type '=' literal
-type            ::= 'int' | 'str' | 'bool' | 'arr<int>' | 'arr<str>' | 'arr<bool>'
+type            ::= 'number' | 'str' | 'bool' | 'arr<number>' | 'arr<str>' | 'arr<bool>'
 literal         ::= number | string | boolean | array-literal
 IDENT           ::= [A-Za-z_][A-Za-z0-9_]*
 ```
@@ -107,14 +106,14 @@ A Turn DSL file MUST contain exactly one `state-source` (either an inline `state
 
 Every field declaration requires an explicit default value. The default value is used to initialize STATE before any action runs. The type of the literal must match the declared type:
 
-| Type       | Valid default literal examples         |
-|------------|----------------------------------------|
-| `int`      | `0`, `42`, `-10`                       |
-| `str`      | `""`, `"pending"`                      |
-| `bool`     | `false`, `true`                        |
-| `arr<int>` | `[]`                                   |
-| `arr<str>` | `[]`                                   |
-| `arr<bool>`| `[]`                                   |
+| Type          | Valid default literal examples         |
+|---------------|----------------------------------------|
+| `number`      | `0`, `42`, `-10`, `3.14`               |
+| `str`         | `""`, `"pending"`                      |
+| `bool`        | `false`, `true`                        |
+| `arr<number>` | `[]`                                   |
+| `arr<str>`    | `[]`                                   |
+| `arr<bool>`   | `[]`                                   |
 
 ### 2.3 Uniqueness rules
 
@@ -154,11 +153,11 @@ The Go converter lowers the Turn DSL `state` block to the following canonical HC
 state {
   namespace "applicant" {
     field "income" {
-      type  = "int"
+      type  = "number"
       value = 0
     }
     field "debt" {
-      type  = "int"
+      type  = "number"
       value = 0
     }
   }
@@ -168,7 +167,7 @@ state {
       value = false
     }
     field "input_income" {
-      type  = "int"
+      type  = "number"
       value = 0
     }
     field "status" {
@@ -189,22 +188,23 @@ state {
 
 ### 3.1 Lowering rules
 
-| Turn DSL surface construct        | Canonical HCL output                                                   |
-|-----------------------------------|------------------------------------------------------------------------|
-| Namespace block `applicant { }` | `namespace "applicant" { }` block                                      |
-| Field `income:int = 0`            | `field "income" { type = "int" value = 0 }` block                     |
-| Field `approved:bool = false`     | `field "approved" { type = "bool" value = false }` block              |
-| Field `status:str = ""`           | `field "status" { type = "str" value = "" }` block                    |
-| Array field `tags:arr<str> = []`  | `field "tags" { type = "arr<str>" value = [] }` block                 |
+| Turn DSL surface construct           | Canonical HCL output                                                      |
+|--------------------------------------|---------------------------------------------------------------------------|
+| Namespace block `applicant { }`      | `namespace "applicant" { }` block                                         |
+| Field `income:number = 0`            | `field "income" { type = "number" value = 0 }` block                     |
+| Field `approved:bool = false`        | `field "approved" { type = "bool" value = false }` block                 |
+| Field `status:str = ""`              | `field "status" { type = "str" value = "" }` block                       |
+| Array field `tags:arr<str> = []`     | `field "tags" { type = "arr<str>" value = [] }` block                    |
+| Array field `scores:arr<number> = []`| `field "scores" { type = "arr<number>" value = [] }` block               |
 
 When the DSL uses `state_file`, the converter reads and lowers the referenced file's `state` block using identical lowering rules; the result is indistinguishable from an inline `state` block.
 
 ### 3.2 Attribute schema per `field` block
 
-| Attribute | Type   | Required | Description                                           |
-|-----------|--------|----------|-------------------------------------------------------|
-| `type`    | string | yes      | One of: `"int"`, `"str"`, `"bool"`, `"arr<int>"`, `"arr<str>"`, `"arr<bool>"` |
-| `value`   | literal| yes      | Default value; must be type-compatible                |
+| Attribute | Type   | Required | Description                                                               |
+|-----------|--------|----------|---------------------------------------------------------------------------|
+| `type`    | string | yes      | One of: `"number"`, `"str"`, `"bool"`, `"arr<number>"`, `"arr<str>"`, `"arr<bool>"` |
+| `value`   | literal| yes      | Default value; must be type-compatible                                    |
 
 ---
 
@@ -212,14 +212,14 @@ When the DSL uses `state_file`, the converter reads and lowers the referenced fi
 
 STATE fields share the same primitive type set as HCL ContextSpec bindings (per `hcl-context-spec.md`):
 
-| STATE type  | Runtime JS type | Default zero value |
-|-------------|----------------|--------------------|
-| `int`       | `number`       | `0`                |
-| `str`       | `string`       | `""`               |
-| `bool`      | `boolean`      | `false`            |
-| `arr<int>`  | `number[]`     | `[]`               |
-| `arr<str>`  | `string[]`     | `[]`               |
-| `arr<bool>` | `boolean[]`    | `[]`               |
+| STATE type     | Runtime JS type | Default zero value |
+|----------------|----------------|--------------------|
+| `number`       | `number`       | `0`                |
+| `str`          | `string`       | `""`               |
+| `bool`         | `boolean`      | `false`            |
+| `arr<number>`  | `number[]`     | `[]`               |
+| `arr<str>`     | `string[]`     | `[]`               |
+| `arr<bool>`    | `boolean[]`    | `[]`               |
 
 ### 4.1 Type constraints on actions
 
@@ -235,9 +235,9 @@ This constraint is checked across all actions simultaneously. The STATE `state` 
 
 No implicit coercion occurs between STATE types. A `merge` binding writing a `str` value to a STATE field declared as `int` is a type error (`StateTypeMismatch`).
 
-### 4.3 Integer division advisory
+### 4.3 Division results
 
-When a `div` compute binding (`int / int`) writes to an `int` STATE field, the result may be a float. The field receives the float value; no floor coercion is applied automatically. This is consistent with the `div` advisory in `convert-runtime-spec.md` §Resolved Decisions.
+`div` (`number / number`) may produce a fractional result. Since the STATE field type `number` corresponds to the JavaScript `number` type (which accommodates both integers and fractions), the fractional result is stored as-is. No implicit coercion occurs. Authors who require integer results should apply `.floor()` or `.round()` via a `transformFn` before writing to STATE.
 
 ---
 
@@ -246,16 +246,14 @@ When a `div` compute binding (`int / int`) writes to an `int` STATE field, the r
 ### 5.1 Dotted path grammar
 
 ```
-dotted-path  ::= namespace '.' field
-namespace    ::= IDENT
-field        ::= IDENT
+dotted-path  ::= IDENT ('.' IDENT)+
 IDENT        ::= [A-Za-z_][A-Za-z0-9_]*
 ```
 
 A dotted path is valid if and only if:
-- It contains exactly one `.` separator.
-- Both the namespace segment and the field segment match `IDENT`.
-- Neither segment is empty.
+- It contains at least one `.` separator (i.e., two or more segments).
+- Every segment matches `IDENT`.
+- No segment is empty.
 
 ### 5.2 Declared vs. undeclared paths
 
@@ -286,7 +284,7 @@ type StateSchema = {
 };
 
 type StateFieldMeta = {
-  type:         "int" | "str" | "bool" | "arr<int>" | "arr<str>" | "arr<bool>";
+  type:         "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>";
   defaultValue: StateValue;
 };
 ```
@@ -322,12 +320,12 @@ The `state` block and `scene` block are co-located in the same HCL file emitted 
 ```hcl
 state {
   namespace "applicant" {
-    field "income" { type = "int"  value = 0 }
-    field "debt"   { type = "int"  value = 0 }
+    field "income" { type = "number"  value = 0 }
+    field "debt"   { type = "number"  value = 0 }
   }
   namespace "decision" {
     field "approved"     { type = "bool" value = false }
-    field "input_income" { type = "int"  value = 0     }
+    field "input_income" { type = "number"  value = 0     }
     field "status"       { type = "str"  value = ""    }
     field "code"         { type = "str"  value = ""    }
     field "reason"       { type = "str"  value = ""    }
@@ -398,7 +396,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 - A transition compute program cannot write to STATE (no `<~` or `<~>` sigils in transition `prog` blocks).
 - The runtime cannot accept a partial `state` block (missing `type` or `value`) without emitting a validation error.
 - A `state` block cannot contain duplicate namespace labels or duplicate field names within one namespace.
-- An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type; this is a convert-time type constraint error (`StateTypeMismatch`).
+- An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type; this is a convert-time type constraint error (`StateTypeMismatch`). For example, writing a `str` value to a `number` field is a type error.
 
 ---
 
@@ -415,11 +413,12 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 | `DuplicateStateNamespace`      | Two `namespace` blocks in one `state` block share the same label                                           |
 | `DuplicateStateField`          | Two `field` blocks within one namespace share the same name                                                |
 | `MissingStateFieldAttr`        | A `field` block is missing `type` or `value`                                                               |
-| `InvalidStateFieldType`        | `type` is not one of `"int"`, `"str"`, `"bool"`, `"arr<int>"`, `"arr<str>"`, `"arr<bool>"`                |
+| `InvalidStateFieldType`        | `type` is not one of `"number"`, `"str"`, `"bool"`, `"arr<number>"`, `"arr<str>"`, `"arr<bool>"`          |
 | `StateFieldDefaultTypeMismatch`| The `value` literal is not type-compatible with the declared `type`                                        |
 | `UnresolvedStatePath`          | A `from_state` or `to_state` path references a namespace or field not declared in the `state` block        |
 | `StateTypeMismatch`            | The type of a `merge` source binding does not match the declared type of the target STATE field            |
-| `InvalidStatePath`             | A `from_state` or `to_state` value is not a valid two-segment dotted identifier path                       |
+| `InvalidStatePath`             | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
+| `MissingStatePath`             | *(runtime)* A `from_state` path is declared and `required = true`, but the dotted path is absent from STATE at resolution time; `SceneDiagnostic.details` carries `path` and `bindingName` |
 
 ---
 
@@ -432,12 +431,12 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 ```hcl
 state {
   applicant {
-    income:int = 0
-    debt:int   = 0
+    income:number = 0
+    debt:number   = 0
   }
   decision {
     approved:bool     = false
-    input_income:int  = 0
+    input_income:number  = 0
     status:str        = ""
     code:str          = ""
     reason:str        = ""
@@ -452,12 +451,12 @@ scene "loan_flow" {
     compute {
       root = decision
       prog "score_graph" {
-        <~>income:int   = _
-        ~>debt:int      = _
-        min_income:int  = 50000
-        max_debt:int    = 20000
+        <~>income:number   = _
+        ~>debt:number      = _
+        min_income:number  = 50000
+        max_debt:number    = 20000
         income_ok:bool  = income >= min_income
-        debt_ok:bool    = debt <= max_debt
+        debt_ok:bool    = debt   <= max_debt
         <~decision:bool = income_ok & debt_ok
       }
     }
@@ -510,12 +509,12 @@ scene "loan_flow" {
 ```hcl
 state {
   applicant {
-    income:int = 0
-    debt:int   = 0
+    income:number = 0
+    debt:number   = 0
   }
   decision {
     approved:bool     = false
-    input_income:int  = 0
+    input_income:number  = 0
     status:str        = ""
     code:str          = ""
     reason:str        = ""
@@ -546,11 +545,11 @@ The converter resolves `loan.state.hcl` at convert time and produces canonical H
 state {
   namespace "applicant" {
     field "income" {
-      type  = "int"
+      type  = "number"
       value = 0
     }
     field "debt" {
-      type  = "int"
+      type  = "number"
       value = 0
     }
   }
@@ -560,7 +559,7 @@ state {
       value = false
     }
     field "input_income" {
-      type  = "int"
+      type  = "number"
       value = 0
     }
     field "status" {
@@ -587,19 +586,19 @@ scene "loan_flow" {
       root = "decision"
       prog "score_graph" {
         binding "income" {
-          type  = "int"
+          type  = "number"
           value = 0
         }
         binding "debt" {
-          type  = "int"
+          type  = "number"
           value = 0
         }
         binding "min_income" {
-          type  = "int"
+          type  = "number"
           value = 50000
         }
         binding "max_debt" {
-          type  = "int"
+          type  = "number"
           value = 20000
         }
         binding "income_ok" {
@@ -705,6 +704,7 @@ scene "loan_flow" {
 | C. Initialization | `S_0` contains all declared fields at their default values before first action |
 | D. Path resolution | `from_state` and `to_state` paths validated against declared schema at convert time |
 | E. Type constraint checking | `StateTypeMismatch` emitted when `merge` source type ≠ STATE field type for any action; checked across all actions in one pass |
+| E2. `number` type accepts fractions | `div` result (possibly fractional) stored in `number` STATE field without error; `.floor()`/`.round()` available for authors who need integer semantics |
 | F. Error paths | All error codes trigger correctly and abort without partial HCL output |
 | G. Merge semantics | `D_n` writes only declared paths; undeclared paths in STATE unchanged |
 | H. Snapshot isolation | `S_n` snapshot used for `prepare`; `S_{n+1}` visible only after merge completes |
@@ -733,12 +733,12 @@ scene "loan_flow" {
 | Neither `state { }` nor `state_file` in DSL file | `MissingStateSource` at convert time |
 | `from_state = "applicant.unknown"` where `unknown` not in schema | `UnresolvedStatePath` at convert time |
 | `to_state = "decision.approved"` with source binding type `str`, STATE field type `bool` | `StateTypeMismatch` at convert time |
-| Two actions both writing to `decision.status`; one writes `str` (correct), one writes `int` | `StateTypeMismatch` on the `int`-writing action at convert time; error identifies the offending action and binding |
+| Two actions both writing to `decision.status`; one writes `str` (correct), one writes `number` | `StateTypeMismatch` on the `number`-writing action at convert time; error identifies the offending action and binding |
 | Two `namespace "decision" {}` blocks in one `state` block | `DuplicateStateNamespace` |
 | Field declared twice within one namespace | `DuplicateStateField` |
 | `from_state = "applicant"` (single segment) | `InvalidStatePath` |
-| `from_state = "a.b.c"` (three segments) | `InvalidStatePath` |
-| `field "income" { type = "int" }` with no `value` | `MissingStateFieldAttr` |
+| `from_state = "session.cart.items"` (three segments) | Valid — three-segment paths are allowed |
+| `field "income" { type = "number" }` with no `value` | `MissingStateFieldAttr` |
 | HCL file with no `state` block | `MissingStateBlock` |
 | HCL file with two `state` blocks | `DuplicateStateBlock` |
 | `<~>income` reads from `applicant.income`, writes to `decision.input_income` | Both paths must be declared; types must match source binding type |

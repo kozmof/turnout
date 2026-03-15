@@ -40,9 +40,9 @@ scene "adventure_story_chapter_1" {
       root     = decision_ready
       prog "choose_route_graph" {
         ~>has_map:bool = _
-        ~>clue_count:int = _
-        ~>coins:int = _
-        ~>lockpick_skill:int = _
+        ~>clue_count:number     = _
+        ~>coins:number          = _
+        ~>lockpick_skill:number = _
         <~chapter_state:str = "route_selected"
         <~last_hub:str = "crossroads"
 
@@ -131,10 +131,10 @@ scene "adventure_story_chapter_1" {
       root     = story_route
       prog "forest_trail_graph" {
         route:str = "forest_trail"
-        danger:int = 2
+        danger:number = 2
 
         <~location:str = "Whispering Forest"
-        <~danger_level:int = danger
+        <~danger_level:number = danger
         <~story_route:str = route
       }
     }
@@ -169,10 +169,10 @@ scene "adventure_story_chapter_1" {
       prog "city_gate_graph" {
         route:str = "city_gate"
         <~location:str = "Stonebridge Gate"
-        ~>coins:int = _
-        toll:int = 3
+        ~>coins:number = _
+        toll:number    = 3
 
-        <~coins_after:int = coins - toll
+        <~coins_after:number = coins - toll
         <~story_route:str = route
       }
     }
@@ -211,7 +211,7 @@ scene "adventure_story_chapter_1" {
       prog "sewer_tunnel_graph" {
         route:str = "sewer_tunnel"
         <~location:str = "Sunken Tunnel"
-        ~>lockpick_skill:int = _
+        ~>lockpick_skill:number = _
 
         <~found_mark:bool = lockpick_skill >= 2
         <~story_route:str = route

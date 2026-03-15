@@ -44,6 +44,7 @@ Turn DSL  ──[Go CLI]──>  HCL file  ──[TypeScript runtime]──>  ST
 - Parse Turn DSL source.
 - Lower DSL constructs to canonical plain HCL (per `hcl-context-spec.md` lowering rules).
 - Emit one `prog "<actionId>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block.
+- Emit `entry_actions = ["<actionId>", ...]` as a top-level attribute at the top of each scene block to declare the scene's entry action IDs.
 - Emit inline transition `prog` blocks for each next-rule compute program.
 - Emit STATE effect declarations (`prepare` and `merge` sub-blocks) at action level.
 - Emit `publish` sub-block for any publish-phase hook declarations.
@@ -57,11 +58,11 @@ action "checkout" {
     root = "order_id"
     prog "checkout_graph" {
       binding "cart_items" {
-        type  = "string"
+        type  = "str"
         value = ""
       }
       binding "order_id" {
-        type  = "string"
+        type  = "str"
         expr  = { combine = { fn = "build_order" args = [{ ref = "cart_items" }] } }
       }
     }
@@ -123,7 +124,7 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 |------------|------------------|
 | `UnsupportedConstruct` | Phase 2 loop construct (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 DSL file |
 | `DuplicateActionLabel` | Two `action` blocks with the same name label in one emitted HCL file |
-| `InvalidSsotPath` | `from_state` or `to_state` value is not a valid dotted identifier path |
+| `InvalidStatePath` | `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
 | `UnresolvedPrepareBinding` | `prepare` binding name has no matching `binding` block in the same `prog` |
 | `UnresolvedMergeBinding` | `merge` binding name has no matching `binding` block in the same `prog` |
 | `MissingPrepareEntry` | A `~>` or `<~>` sigiled binding has no corresponding `prepare` entry |
@@ -268,8 +269,10 @@ Example state during `process_order` execution:
 |---|----------|------------|
 | 1 | Phase 2 constructs in Phase 1 file | **Hard error**: emit `UnsupportedConstruct` diagnostic and abort — no HCL is emitted. |
 | 2 | Duplicate `action` block name labels | **Parse error**: fail with `DuplicateActionLabel` — last-wins is forbidden. |
-| 3 | `div` integer safety | `binaryFnNumber::divide` produces a float; `:int` on a `div` binding is **advisory only**. A `div_floor` alias may be added in a future revision. |
+| 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should chain `.floor()` or `.round()` after division. |
 | 4 | Parallel action scheduling under `all-match` | **Sequential, declaration order**: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
+| 5 | Entry action HCL declaration | `entryActionIds` are emitted as a top-level string-list attribute: `entry_actions = ["<actionId>", ...]` at the top of the scene block. |
+| 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |
 
 ---
 
@@ -311,19 +314,19 @@ Example state during `process_order` execution:
 | Turn DSL contains `range(n)` (Phase 2) | `UnsupportedConstruct` error, no HCL emitted |
 | Two `action` blocks with identical name labels | `DuplicateActionLabel` error |
 | `prepare` binding name not present as a `binding` block | `UnresolvedPrepareBinding` error at convert time |
-| `from_state = "foo..bar"` (empty segment) | `InvalidSsotPath` error |
-| `div` binding with `:int` type | Advisory; runtime produces float — document and do not coerce |
+| `from_state = "foo..bar"` (empty segment) | `InvalidStatePath` error |
+| `div` binding result stored in `:number` field | Valid; `number` type accepts fractional results — authors may chain `.floor()` or `.round()` if integer semantics needed |
 | `all-match` selects 0 next actions | Enter terminal `completed` state |
 | `all-match` selects 3 actions; action 2 fails execution | Action 3 does not run; no partial STATE mutation from action 2 |
 | Unknown merge mode in action | Fail pre-execution validation; `invalid_graph` |
 | Transition `compute.condition` resolves to `int`, not `bool` | `SCN_INVALID_CONTEXT` at scene validation; `invalid_graph` |
-| `fromSsot` path not present in `S_{n+1}` and `required = true` | Transition ingress resolution error at runtime |
+| `fromSsot` path not present in `S_{n+1}` and `required = true` | `MissingStatePath` runtime error; `SceneDiagnostic` carries `path` and `bindingName` in `details` |
 | `all-match` with no transitions declared | Enter terminal `completed` state |
 | Prepare hook unregistered | Silently skipped; binding value remains default or STATE-resolved |
 | Publish hook returns a value | Return value ignored; state unchanged |
 
-### Remaining open points
+### Resolved points
 
-- **Entry action HCL declaration**: The Turn DSL mechanism for declaring `entryActionIds` is not yet specified.
-- **`fromSsot` missing-path behavior**: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the exact error code and `SceneDiagnostic` shape are not yet specified.
-- **`div_floor` alias**: Decide whether to add a `div_floor` built-in alias in a future revision of `hcl-context-spec.md`.
+- **Entry action HCL declaration**: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = ["<actionId>", ...]`.
+- **`fromSsot` missing-path behavior**: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
+- **`div_floor` alias**: No longer a priority — `number` type natively accepts fractional results. A convenience alias may still be added but is not required for correctness.

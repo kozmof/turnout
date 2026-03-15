@@ -88,9 +88,7 @@ type Action = {
   publish?: PublishSpec;
   next?: NextRule[]; // default: []
   nextPolicy?: "first-match" | "all-match";
-  resultMerge?: {
-    mode?: "replace-by-id"; // default: replace-by-id
-  };
+  // Merge mode is always "replace-by-id"; not author-configurable.
 };
 
 type ActionComputeGraph = {
@@ -186,10 +184,10 @@ scene "loan_flow" {
     compute {
       root     = decision
       prog "score_graph" {
-        <~>income:int    = 0
-        ~>debt:int       = 0
-        min_income:int   = 50000
-        max_debt:int     = 20000
+        <~>income:number  = 0
+        ~>debt:number     = 0
+        min_income:number = 50000
+        max_debt:number   = 20000
         income_ok:bool   = income >= min_income
         debt_ok:bool     = debt <= max_debt
         <~decision:bool  = income_ok & debt_ok

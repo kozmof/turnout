@@ -22,12 +22,12 @@ This spec defines two layers:
 ```hcl
 prog "main" {
   binding "v1" {
-    type  = "int"
+    type  = "number"
     value = 5
   }
 
   binding "sum" {
-    type = "int"
+    type = "number"
     expr = {
       combine = {
         fn   = "add"
@@ -43,7 +43,7 @@ prog "main" {
 | Surface DSL | Canonical plain HCL |
 |-------------|---------------------|
 | `name:type = literal` | `binding "name" { type = "type" value = literal }` |
-| `name:type = identifier` (single bare identifier, not a literal; see §2.1 for disambiguation) | `binding "name" { type = "type" expr = { combine = { fn = "<identity-fn>" args = [arg(identifier), arg(identity-rhs)] } } }` where identity-fn and identity-rhs are type-dependent (see identity-combine table below) |
+| `name:type = identifier` (single bare identifier; see §2.1 for disambiguation) | `binding "name" { type = "type" expr = { combine = { fn = "<identity-fn>" args = [arg(identifier), arg(identity-rhs)] } } }` where identity-fn and identity-rhs are type-dependent (see identity-combine table below) |
 | `name:type = fn_alias(x, y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:bool = lhs & rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_and" args = [arg(lhs), arg(rhs)] } } }` |
@@ -63,10 +63,10 @@ The single-reference form `name:type = identifier` lowers to a combine using a t
 
 | Declared type | Identity combine | Lowered canonical HCL (abbreviated) |
 |---|---|---|
-| `bool` | `bool_and(identifier, true)` | `combine = { fn = "bool_and" args = [{ ref = "identifier" }, { lit = true }] }` |
-| `int` | `add(identifier, 0)` | `combine = { fn = "add" args = [{ ref = "identifier" }, { lit = 0 }] }` |
-| `str` | `str_concat(identifier, "")` | `combine = { fn = "str_concat" args = [{ ref = "identifier" }, { lit = "" }] }` |
-| `arr<T>` | `arr_concat(identifier, [])` | `combine = { fn = "arr_concat" args = [{ ref = "identifier" }, { lit = [] }] }` |
+| `bool`        | `bool_and(identifier, true)` | `combine = { fn = "bool_and" args = [{ ref = "identifier" }, { lit = true }] }` |
+| `number`      | `add(identifier, 0)`         | `combine = { fn = "add" args = [{ ref = "identifier" }, { lit = 0 }] }` |
+| `str`         | `str_concat(identifier, "")` | `combine = { fn = "str_concat" args = [{ ref = "identifier" }, { lit = "" }] }` |
+| `arr<T>`      | `arr_concat(identifier, [])` | `combine = { fn = "arr_concat" args = [{ ref = "identifier" }, { lit = [] }] }` |
 
 The identity RHS literal (`true`, `0`, `""`, `[]`) is chosen so the combine always returns the value of `identifier` unchanged.
 
@@ -94,9 +94,9 @@ Surface DSL:
 
 ```hcl
 prog "main" {
-  v1:int = 5
-  v2:int = 3
-  sum:int = add(v1, v2)
+  v1:number = 5
+  v2:number = 3
+  sum:number = add(v1, v2)
 }
 ```
 
@@ -105,17 +105,17 @@ Lowered plain HCL:
 ```hcl
 prog "main" {
   binding "v1" {
-    type  = "int"
+    type  = "number"
     value = 5
   }
 
   binding "v2" {
-    type  = "int"
+    type  = "number"
     value = 3
   }
 
   binding "sum" {
-    type = "int"
+    type = "number"
     expr = {
       combine = {
         fn   = "add"
@@ -147,7 +147,7 @@ prog "main" {
 ### Balance rules (CAN / CAN'T)
 
 CAN (OK):
-- Authors can use typed keys in DSL (`v1:int = 5`).
+- Authors can use typed keys in DSL (`v1:number = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
 - Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`).
@@ -176,10 +176,10 @@ Correlation between CAN and CAN'T:
 
 | HCL type     | Runtime symbol | JS primitive | `val.*` builder             |
 |--------------|----------------|--------------|-----------------------------|
-| `int`        | `'number'`     | `number` (integer) | `val.number(n)` / `n`  |
+| `number`     | `'number'`     | `number`           | `val.number(n)` / `n`  |
 | `str`        | `'string'`     | `string`     | `val.string(s)` / `s`       |
 | `bool`       | `'boolean'`    | `boolean`    | `val.boolean(b)` / `b`      |
-| `arr<int>`   | `'array'`      | —            | `val.array('number', [...])`|
+| `arr<number>`| `'array'`      | —            | `val.array('number', [...])`|
 | `arr<str>`   | `'array'`      | —            | `val.array('string', [...])`|
 | `arr<bool>`  | `'array'`      | —            | `val.array('boolean', [...])`|
 
@@ -206,19 +206,19 @@ name:type = literal
 ```
 
 - `name` must match `[A-Za-z_][A-Za-z0-9_]*`; names starting with `__` are reserved for compiler-generated bindings.
-- `type` is one of: `int | str | bool | arr<int> | arr<str> | arr<bool>`
+- `type` is one of: `number | str | bool | arr<number> | arr<str> | arr<bool>`
 - In the DSL layer, keys are written as `name:type`; the lowering pass splits on the **first** `:` and emits canonical plain HCL `binding` blocks.
 
 ### Examples
 
 ```hcl
 prog "main" {
-  n:int        = 10
-  msg:str      = "hello"
-  flag:bool    = true
-  xs:arr<int>  = [1, 2, 3]
-  ys:arr<str>  = ["a", "b", "c"]
-  bs:arr<bool> = [true, false, true]
+  n:number        = 10
+  msg:str         = "hello"
+  flag:bool       = true
+  xs:arr<number>  = [1, 2, 3]
+  ys:arr<str>     = ["a", "b", "c"]
+  bs:arr<bool>    = [true, false, true]
 }
 ```
 
@@ -227,7 +227,7 @@ prog "main" {
 | Rule | Error |
 |------|-------|
 | Literal must match declared type | `TypeMismatch` |
-| `:int` value must have no fractional part (`42` OK, `3.14` error) | `NonIntegerValue` |
+| `:number` value must be a valid numeric literal (integers and decimals both accepted) | `NonIntegerValue` |
 | All elements of `arr<T>` must be of type `T` | `HeterogeneousArray` |
 | Nested arrays are not allowed as value literals | `NestedArrayNotAllowed` |
 | Same `name` declared twice in the same `prog` | `DuplicateBinding` |
@@ -235,10 +235,10 @@ prog "main" {
 ### ContextSpec emission
 
 ```typescript
-// n:int = 10  →
+// n:number = 10  →
 { n: 10 }
 
-// xs:arr<int> = [1, 2, 3]  →
+// xs:arr<number> = [1, 2, 3]  →
 { xs: val.array('number', [val.number(1), val.number(2), val.number(3)]) }
 ```
 
@@ -287,14 +287,14 @@ The compiler always lowers to runtime combine args `{ a: <arg1>, b: <arg2> }`.
 
 ```hcl
 prog "main" {
-  v1:int = 5
-  v2:int = 3
+  v1:number = 5
+  v2:number = 3
 
-  sum:int      = add(v1, v2)
+  sum:number   = add(v1, v2)
   txt:str      = "edge " + "mix"
-  flag_hi:bool = v1 >= v2
-  flag_lo:bool = v1 <= v2
-  go:bool      = flag_hi & true
+  flag_hi:bool  = v1 >= v2
+  flag_lo:bool  = v1 <= v2
+  go:bool       = flag_hi & true
 }
 ```
 
@@ -320,17 +320,17 @@ Functions marked **operator-only** must be written using their DSL operator. The
 
 | HCL alias      | Runtime `BinaryFnNames`                  | arg1 type | arg2 type | return type | DSL form         |
 |----------------|------------------------------------------|-----------|-----------|-------------|------------------|
-| `add`          | `binaryFnNumber::add`                    | `int`     | `int`     | `int`       | call only        |
-| `sub`          | `binaryFnNumber::minus`                  | `int`     | `int`     | `int`       | call only        |
-| `mul`          | `binaryFnNumber::multiply`               | `int`     | `int`     | `int`       | call only        |
-| `div`          | `binaryFnNumber::divide`                 | `int`     | `int`     | `int`       | call only        |
-| `mod`          | `binaryFnNumber::mod`                    | `int`     | `int`     | `int`       | call only        |
-| `max`          | `binaryFnNumber::max`                    | `int`     | `int`     | `int`       | call only        |
-| `min`          | `binaryFnNumber::min`                    | `int`     | `int`     | `int`       | call only        |
-| `gt`           | `binaryFnNumber::greaterThan`            | `int`     | `int`     | `bool`      | call only        |
-| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `int`     | `int`     | `bool`      | **operator-only** `>=` |
-| `lt`           | `binaryFnNumber::lessThan`               | `int`     | `int`     | `bool`      | call only        |
-| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `int`     | `int`     | `bool`      | **operator-only** `<=` |
+| `add`          | `binaryFnNumber::add`                    | `number`  | `number`  | `number`    | call only        |
+| `sub`          | `binaryFnNumber::minus`                  | `number`  | `number`  | `number`    | call only        |
+| `mul`          | `binaryFnNumber::multiply`               | `number`  | `number`  | `number`    | call only        |
+| `div`          | `binaryFnNumber::divide`                 | `number`  | `number`  | `number`    | call only        |
+| `mod`          | `binaryFnNumber::mod`                    | `number`  | `number`  | `number`    | call only        |
+| `max`          | `binaryFnNumber::max`                    | `number`  | `number`  | `number`    | call only        |
+| `min`          | `binaryFnNumber::min`                    | `number`  | `number`  | `number`    | call only        |
+| `gt`           | `binaryFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | call only        |
+| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `number`  | `number`  | `bool`      | **operator-only** `>=` |
+| `lt`           | `binaryFnNumber::lessThan`               | `number`  | `number`  | `bool`      | call only        |
+| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `number`  | `number`  | `bool`      | **operator-only** `<=` |
 | `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       | **operator-only** `+`  |
 | `str_includes` | `binaryFnString::includes`               | `str`     | `str`     | `bool`      | call only        |
 | `str_starts`   | `binaryFnString::startsWith`             | `str`     | `str`     | `bool`      | call only        |
@@ -341,7 +341,7 @@ Functions marked **operator-only** must be written using their DSL operator. The
 | `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | call only        |
 | `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | call only        |
 | `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      | call only        |
-| `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `int`     | `T`         | call only        |
+| `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
 > **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs` with supported operators `&`, `>=`, `<=`, `+`; `+` is valid only for `name:str` (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
@@ -364,10 +364,10 @@ Compatibility input `name:type = pipe(...)[...]` and `name:type = { pipe = { arg
 
 ```hcl
 prog "main" {
-  v1:int = 5
-  v2:int = 3
+  v1:number = 5
+  v2:number = 3
 
-  result:int = #pipe(x:v1, y:v2)[
+  result:number = #pipe(x:v1, y:v2)[
     add(x, y),
     mul(a: { step_ref = 0 }, b: x)
   ]
@@ -421,14 +421,14 @@ name:type = {
 
 ```hcl
 prog "main" {
-  v1:int = 10
-  v2:int = 3
+  v1:number = 10
+  v2:number = 3
 
-  flag:bool = gt(v1, v2)
-  addFn:int = add(v1, v2)
-  subFn:int = sub(v1, v2)
+  flag:bool    = gt(v1, v2)
+  addFn:number = add(v1, v2)
+  subFn:number = sub(v1, v2)
 
-  result:int = {
+  result:number = {
     cond = {
       condition = flag
       then      = addFn
@@ -489,13 +489,13 @@ name:type = #if {
 
 ```hcl
 prog "main" {
-  v1:int = 10
-  v2:int = 3
+  v1:number = 10
+  v2:number = 3
 
-  addFn:int = add(v1, v2)
-  subFn:int = sub(v1, v2)
+  addFn:number = add(v1, v2)
+  subFn:number = sub(v1, v2)
 
-  result:int = #if {
+  result:number = #if {
     cond = gt(v1, v2)
     then = addFn
     else = subFn
@@ -544,6 +544,8 @@ prog "main" {
 | `transformFnArray` | `pass` |
 | `transformFnNull` | `pass` |
 
+> **Note**: The table above lists the internal `pass` identity transform available for all types. The full set of DSL-surface transform methods (e.g. `.toStr()`, `.trim()`, `.abs()`, `.not()`, `.isEmpty()`) is defined in `transform-fn-dsl-spec.md`, which is the authoritative reference for authoring transform expressions.
+
 ---
 
 ## 5. Error catalogue
@@ -551,9 +553,10 @@ prog "main" {
 | Error code | Trigger condition |
 |------------|------------------|
 | `TypeMismatch` | Literal does not match declared `:type` |
-| `NonIntegerValue` | Float literal assigned to `:int` binding |
+| `NonIntegerValue` | Non-numeric literal assigned to `:number` binding |
 | `HeterogeneousArray` | Mixed element types in `arr<T>` literal |
-| `NestedArrayLiteral` | Array literal contains a sub-array in a value binding |
+| `NestedArrayNotAllowed` | Array literal contains a sub-array in a value binding |
+| `DuplicateProg` | More than one `prog` block declared in one file |
 | `DuplicateBinding` | Same `name` declared twice in one `prog` |
 | `ReservedName` | User binding name starts with `__` |
 | `UnknownFnAlias` | Function alias not in the built-in table |
@@ -584,10 +587,10 @@ The following constructs are syntactically reserved. They cannot be compiled to 
 
 ```hcl
 # range — produces [0, 1, ..., n-1]
-xs:arr<int> = { range = { n = count } }
+xs:arr<number> = { range = { n = count } }
 
 # map — applies fn to each element
-ys:arr<int> = {
+ys:arr<number> = {
   map = {
     xs = source_arr
     fn = step_fn_name
@@ -595,7 +598,7 @@ ys:arr<int> = {
 }
 
 # filter — keeps elements where predicate returns true
-zs:arr<int> = {
+zs:arr<number> = {
   filter = {
     xs   = source_arr
     pred = predicate_fn_name
@@ -603,7 +606,7 @@ zs:arr<int> = {
 }
 
 # fold — reduces array to single value
-total:int = {
+total:number = {
   fold = {
     xs   = source_arr
     init = zero_value
@@ -616,7 +619,7 @@ total:int = {
 
 | New builder type | New ContextSpec key | Description |
 |-----------------|---------------------|-------------|
-| `RangeBuilder`  | `{ __type: 'range'; count: ValueRef }` | Produces `arr<int>` |
+| `RangeBuilder`  | `{ __type: 'range'; count: ValueRef }` | Produces `arr<number>` |
 | `MapBuilder`    | `{ __type: 'map'; xs: ValueRef; fn: FuncRef }` | Applies function to each element |
 | `FilterBuilder` | `{ __type: 'filter'; xs: ValueRef; pred: FuncRef }` | Filters by boolean predicate |
 | `FoldBuilder`   | `{ __type: 'fold'; xs: ValueRef; init: ValueRef; fn: FuncRef }` | Left fold |
@@ -630,11 +633,11 @@ These would extend `FunctionBuilder` and require new execution paths in `execute
 ```hcl
 prog "main" {
   # --- Values ---
-  n:int   = 10
-  msg:str = "score"
+  n:number = 10
+  msg:str  = "score"
 
   # --- Arithmetic ---
-  doubled:int = mul(n, n)
+  doubled:number = mul(n, n)
 
   # --- String ---
   label_hi:str = msg + " high"
@@ -644,7 +647,7 @@ prog "main" {
   is_big:bool = doubled >= n
 
   # --- Pipe: (n * n) + n ---
-  piped:int = #pipe(x:n)[
+  piped:number = #pipe(x:n)[
     mul(x, x),
     add({ step_ref = 0 }, x)
   ]
@@ -703,22 +706,22 @@ ctx({
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | Parse `name:arr<int> = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
+| 1 | Parse `name:arr<number> = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
 | 2 | `add(v1, v2)` and `add(a: v1, b: v2)` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both call forms emit identical ContextSpec |
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `#if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
-| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
+| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix` (where `income` and `min_income` are `:number`) | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
 
 ### Edge cases
 
 | Case | Expected behaviour |
 |------|--------------------|
-| `n:int = 3.0` | `NonIntegerValue` error (fractional part = 0 but is float in HCL) |
-| `xs:arr<int> = []` | Emit `val.array('number', [])` — empty array is valid |
+| `n:number = "hello"` | `TypeMismatch` error (string literal assigned to `number` type) |
+| `xs:arr<number> = []` | Emit `val.array('number', [])` — empty array is valid |
 | `then = fn` where `fn` is a value binding | `UndefinedFuncRef` error |
 | `step_ref = 0` in step 0 (self-reference) | `StepRefOutOfBounds` error |
-| Two `prog` blocks in one file | Either `DuplicateProg` error or emit two separate `ctx()` calls — specify behaviour |
+| Two `prog` blocks in one file | `DuplicateProg` error — a file may contain at most one `prog` block |
 | `add(a: v1)` | `InvalidBinaryArgShape` error (`b` missing) |
 | `add(a: v1, b: v2, c: v3)` | `InvalidBinaryArgShape` error (extra key) |
 | `go:bool = decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |
@@ -726,12 +729,11 @@ ctx({
 | `ok:bool = gte(income, min)` | `OperatorOnlyFn` error (`gte` requires `>=` operator) |
 | `label:str = str_concat(a, b)` | `OperatorOnlyFn` error (`str_concat` requires `+` operator) |
 | `approval_code:str = prefix ++ suffix` | `InvalidInfixExpr` error (unsupported operator token) |
-| `__reserved:int = 1` | `ReservedName` error |
+| `__reserved:number = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |
 | `cond` condition references a function whose return type is `int` | `CondNotBool` error |
 
 ### Manual intervention points
 
-- **Two-`prog` file behaviour**: not yet specified — choose: error or multi-ctx emission.
-- **`div` integer safety**: `binaryFnNumber::divide` returns a float; the spec declares `div` as `int → int` but the runtime produces a float value. Consider adding a `div_floor` alias (`div` followed by `transformFnNumber::floor`) or documenting that `:int` on a `div` binding is advisory.
-- **Phase 2 activation**: decide whether Phase 2 syntax in a Phase 1 file is a parse error or an `UnsupportedConstruct` warning.
+- **`div` fractional results**: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should chain `.floor()` or `.round()` after `div`.
+- **Phase 2 activation**: Phase 2 syntax (loops, `#pipe`, `#if`) encountered in a Phase 1 file is a hard parse error that aborts conversion.

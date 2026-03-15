@@ -21,9 +21,15 @@ A `route "<route_id>"` block defines a **route node** in a higher-level scene gr
 - Maintains a **route history** — the ordered sequence of `scene_id.action_id` entries appended as actions complete.
 - Evaluates its `match` block each time a scene within it reaches a terminal state.
 
-### 2.2 Route History
+### 2.2 STATE Sharing
+
+STATE is global within a route. When the route transitions from one scene to another, STATE is not reset — the destination scene starts with the same STATE (`S_n`) that the previous scene left behind. STATE persists across all scene boundaries within a single route invocation.
+
+### 2.3 Route History
 
 Each time an action completes within a route, the runtime appends `<scene_id>.<action_id>` to the route's route history. History grows in execution order and is scoped to a single route invocation. **History MUST be reset to empty each time the route is entered; it does not persist across route re-entries.**
+
+When a scene is visited more than once within a route (i.e., its actions appear in history non-contiguously), pattern evaluation considers **all** contiguous blocks of that scene's entries in execution order. The **first contiguous block** (earliest in history) that satisfies the pattern determines a match. If no contiguous block matches, the arm does not match.
 
 Example history after `scene_1` executes `intro`, `quiz`, then `final_action`:
 
@@ -181,7 +187,7 @@ Interpretation:
 Before first route execution, implementations MUST validate:
 
 1. Each `match` block has at most one `_` arm.
-2. All `=> <scene_id>` targets reference scenes that exist within the route graph.
+2. All `=> <scene_id>` targets reference scenes that exist in the global scene registry.
 3. All path forms are well-formed (`<scene_id>.<action_id>` or `<scene_id>.*.<action_id>(.<action_id>)*`) with exactly zero or one `*`; bare `<scene_id>.*` and multiple `*` are rejected.
 4. All branches within a `|` expression share a common `=> <scene_id>` target (enforced by syntax).
 
@@ -191,11 +197,15 @@ Validation failures MUST produce an `invalid_route` diagnostic. Each failure emi
 
 ## 9. Open Questions
 
-| # | Question |
-|---|---|
-| 1 | **Multiple visits**: If a scene is visited more than once within a route, does `scene_id.*.final_action` match the most recent contiguous block, any contiguous block, or all contiguous blocks? |
-| 4 | **`RouteDiagnostic` payload**: What fields beyond `code` and `message` are required (e.g. `routeId`, `armIndex`, `patternText`)? |
-| 5 | **Scope of `=> <scene_id>` targets**: Must target scenes be declared within the route's own scope, or may they reference globally defined scenes? |
+No open questions remain.
+
+**Resolved:**
+
+| # | Resolution |
+|---|------------|
+| 1 | **Multiple visits**: `scene_id.*.final_action` evaluates all contiguous blocks of `scene_id` entries in execution order. The **first** contiguous block (earliest in history) that satisfies the pattern determines a match. See §2.3 for full semantics. |
+| 4 | **`RouteDiagnostic` payload**: `routeId` is required (non-optional); `armIndex` and `patternText` remain optional. |
+| 5 | **Scope of `=> <scene_id>` targets**: A target may reference any scene in the global scene registry; it is not restricted to scenes declared within the same route block. |
 
 ---
 
@@ -208,7 +218,7 @@ type RouteDiagnostic = {
   code: string;
   severity: "error" | "warning";
   stage: "route_validation" | "route_execute";
-  routeId?: string;
+  routeId: string;         // required: the ID of the route that produced the diagnostic
   armIndex?: number;       // zero-based index of the failing match arm
   patternText?: string;    // the pattern source text that triggered the error
   message: string;
@@ -266,3 +276,4 @@ type RouteDiagnostic = {
 | Bare `scene_id.*` with no terminal action | `BareWildcardPath` validation error |
 | Path with two `*` wildcards | `MultipleWildcards` validation error |
 | Interleaved history `[scene_1.a, scene_2.x, scene_1.final]` | `scene_1` contiguous block is `[scene_1.a]` only; `scene_1.*.final` does not match |
+| History `[scene_1.a, scene_1.final, scene_2.x, scene_1.b, scene_1.final]` (scene_1 visited twice) | First contiguous block `[scene_1.a, scene_1.final]` matches `scene_1.*.final`; the second block is not evaluated |

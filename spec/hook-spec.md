@@ -208,7 +208,8 @@ Rules:
 interface PrepareHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  /** Read the current value of a state binding (e.g. from a prior from_state resolution). */
+  /** Read the current value of a state binding (e.g. from a prior from_state resolution).
+   *  Returns `undefined` if the binding name does not correspond to a resolved state binding. */
   get(binding: string): unknown;
 }
 

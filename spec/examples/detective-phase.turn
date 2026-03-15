@@ -68,7 +68,7 @@ scene "detective_evidence_hunt" {
       root     = scene_hotspot_found
       prog "scan_scene_graph" {
         ~>disturbance_detected:bool = _
-        ~>visibility_score:int = _
+        ~>visibility_score:number = _
         ~>camera_online:bool = _
 
         clue_candidate:bool = disturbance_detected & camera_online
@@ -125,7 +125,7 @@ scene "detective_evidence_hunt" {
     compute {
       root     = critical_evidence_found
       prog "collect_physical_evidence_graph" {
-        ~>fingerprint_match:int = _
+        ~>fingerprint_match:number = _
         ~>blood_trace:bool = _
         ~>weapon_found:bool = _
         ~>evidence_tag:str = _
@@ -175,7 +175,7 @@ scene "detective_evidence_hunt" {
       root     = timeline_priority
       prog "interview_witness_graph" {
         ~>contradiction_detected:bool = _
-        ~>alibi_strength:int = _
+        ~>alibi_strength:number = _
         ~>witness_statement:str = _
 
         alibi_weak:bool = alibi_strength <= 3
@@ -278,7 +278,7 @@ scene "detective_evidence_hunt" {
       root     = case_file_ready
       prog "identify_suspect_graph" {
         ~>suspect_name:str = _
-        ~>confidence_score:int = _
+        ~>confidence_score:number = _
 
         high_confidence:bool = confidence_score >= 8
         prefix:str = "Primary suspect: "

@@ -33,7 +33,7 @@ scene "llm_support_workflow" {
       prog "analyze_request_graph" {
         ~>need_grounding:bool = _
         ~>kb_enabled:bool = _
-        ~>priority_tier:int = _
+        ~>priority_tier:number = _
         <~workflow_stage:str = "analyzed"
 
         retrieve_ready:bool = need_grounding & kb_enabled
@@ -210,8 +210,8 @@ scene "llm_support_workflow" {
     compute {
       root     = safety_ready
       prog "safety_check_graph" {
-        ~>toxicity_score:int = _
-        ~>pii_score:int = _
+        ~>toxicity_score:number = _
+        ~>pii_score:number      = _
         <~workflow_stage:str = "safety_checked"
 
         toxicity_ok:bool = toxicity_score <= 2

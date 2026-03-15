@@ -23,10 +23,10 @@ scene "loan_flow" {
     compute {
       root     = decision
       prog "score_graph" {
-        <~>income:int = _
-        ~>debt:int = _
-        min_income:int = 50000
-        max_debt:int = 20000
+        <~>income:number = _
+        ~>debt:number    = _
+        min_income:number = 50000
+        max_debt:number   = 20000
 
         income_ok:bool = income >= min_income
         debt_ok:bool = debt <= max_debt

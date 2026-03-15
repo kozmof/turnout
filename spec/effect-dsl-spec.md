@@ -17,9 +17,9 @@ action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      ~>income:int    = _                              # ← sigil: input from STATE
+      ~>income:number = _                              # ← sigil: input from STATE
       <~decision:bool = income_ok & debt_ok           # ← sigil: output to STATE
-      income_ok:bool  = income >= 50000              # plain compute binding
+      income_ok:bool  = income >= 50000               # plain compute binding
     }
   }
 
@@ -66,8 +66,8 @@ sigil        ::= '~>' | '<~' | '<~>'
 The sigil is written immediately before the binding name — no whitespace between sigil and name:
 
 ```
-~>income:int = _        # OK
-~ > income:int = _      # NG — space not allowed
+~>income:number = _        # OK
+~ > income:number = _      # NG — space not allowed
 ```
 
 ### 1.3 Semantics of `_`
@@ -80,7 +80,7 @@ The `_` placeholder on the right-hand side of a `~>` or `<~>` binding delegates 
 ```
 # '_' delegates to the STATE-declared default.
 # If applicant.income is absent in STATE, runtime error — not fallback to state default.
-~>income:int = _
+~>income:number = _
 prepare { income { from_state = applicant.income } }
 ```
 
@@ -89,7 +89,7 @@ prepare { income { from_state = applicant.income } }
 `<~>` signals that the binding is populated from STATE before execution **and** written back to STATE after merge — potentially at **different STATE paths**:
 
 ```
-<~>income:int = _
+<~>income:number = _
 prepare { income { from_state = applicant.income      } }   # reads from applicant.income
 merge   { income { to_state   = decision.input_income } }   # writes to decision.input_income
 ```
@@ -134,16 +134,16 @@ Invokes the named hook, obtains a result object, and assigns `result[bindingName
 
 ### 2.4 STATE path format
 
-`from_state` values are **dotted paths**:
+`from_state` values are **dotted paths** of two or more segments:
 
 ```
-dotted-path ::= IDENT '.' IDENT
+dotted-path ::= IDENT ('.' IDENT)+
 IDENT       ::= [A-Za-z_][A-Za-z0-9_]*
 ```
 
-Examples: `applicant.income`, `workflow.stage`, `session.user_id`.
+Examples: `applicant.income`, `workflow.stage`, `session.user_id`, `session.cart.items`.
 
-An empty segment (e.g. `foo..bar`) or a path starting/ending with `.` is invalid (`InvalidSsotPath`).
+An empty segment (e.g. `foo..bar`), a path starting/ending with `.`, or a single-segment path is invalid (`InvalidStatePath`).
 
 ---
 
@@ -172,10 +172,10 @@ action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      <~>income:int    = 0
-      ~>debt:int       = 0
-      min_income:int   = 50000
-      max_debt:int     = 20000
+      <~>income:number  = 0
+      ~>debt:number     = 0
+      min_income:number = 50000
+      max_debt:number   = 20000
 
       income_ok:bool   = income >= min_income
       debt_ok:bool     = debt <= max_debt
@@ -233,6 +233,8 @@ Each entry inside a transition `prepare` must have exactly one of:
 
 Any one of these may be used per entry; they may be mixed across different entries in the same transition `prepare` block.
 
+> **Note on `from_literal` type validation**: The literal value's type is validated at runtime rather than at convert time. If the literal's type does not match the transition binding's declared type, the runtime will attempt coercion; authors are responsible for ensuring the literal value is compatible with the binding's type.
+
 ### 4.3 Sigil on transition `prog` bindings
 
 `~>` inside a transition `prog` block marks a binding as an ingress binding populated from the transition `prepare` entries. `<~` and `<~>` are **not valid** in transition `prog` blocks (transitions cannot output to STATE).
@@ -277,10 +279,10 @@ action "score" {
   compute {
     root = decision
     prog "score_graph" {
-      ~>income:int    = _
+      ~>income:number = _
       <~decision:bool = income_ok & debt_ok
       income_ok:bool  = income >= min_income
-      min_income:int  = 50000
+      min_income:number = 50000
     }
   }
   prepare {
@@ -299,7 +301,7 @@ action "score" {
     root = "decision"
     prog "score_graph" {
       binding "income" {
-        type  = "int"
+        type  = "number"
         value = 0
       }
       binding "decision" {
@@ -311,7 +313,7 @@ action "score" {
         expr = { combine = { fn = "gte" args = [{ ref = "income" }, { ref = "min_income" }] } }
       }
       binding "min_income" {
-        type  = "int"
+        type  = "number"
         value = 50000
       }
     }
@@ -331,7 +333,7 @@ A `<~>` binding appears in **both** `prepare` and `merge` with their respective 
 
 **Turn DSL:**
 ```
-<~>income:int = _
+<~>income:number = _
 prepare { income { from_state = applicant.income      } }
 merge   { income { to_state   = decision.input_income } }
 ```
@@ -340,7 +342,7 @@ merge   { income { to_state   = decision.input_income } }
 ```hcl
 prepare { binding "income" { from_state = "applicant.income"      } }
 merge   { binding "income" { to_state   = "decision.input_income" } }
-binding "income" { type = "int" value = 0 }
+binding "income" { type = "number" value = 0 }
 ```
 
 ### 6.3 Transition-level lowering
@@ -365,8 +367,7 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
 | `TransitionHook` | A `from_hook` source appears inside a transition `prepare` block |
 | `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
-| `InvalidSsotPath` | A `from_state` or `to_state` value is not a valid dotted identifier path (empty segment, leading/trailing dot, or invalid characters) |
-| `InvalidStatePath` | A `from_state` or `to_state` value does not have exactly two segments (see `state-shape-spec.md`) |
+| `InvalidStatePath` | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
 | `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
 
 ---
@@ -399,7 +400,7 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 
 | Case | Expected behaviour |
 |------|--------------------|
-| `~>income:int = _` with no `prepare` block at all | `MissingPrepareEntry` |
+| `~>income:number = _` with no `prepare` block at all | `MissingPrepareEntry` |
 | `prepare { income { from_state = ... } }` where `income` has no sigil | `SpuriousPrepareEntry` |
 | `<~>income` appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
 | `<~>income` appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
@@ -408,8 +409,8 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | Transition `prepare` entry with more than one of `from_action`, `from_state`, `from_literal` | `InvalidTransitionIngress` |
 | `from_hook` inside a transition `prepare` | `TransitionHook` |
 | `<~phase` sigil inside a transition `prog` block | `TransitionOutputSigil` |
-| `from_state = "applicant..income"` (empty segment) | `InvalidSsotPath` |
-| `from_state = ".income"` (leading dot) | `InvalidSsotPath` |
+| `from_state = "applicant..income"` (empty segment) | `InvalidStatePath` |
+| `from_state = ".income"` (leading dot) | `InvalidStatePath` |
 | Same binding name twice in `prepare` | `DuplicatePrepareEntry` |
 | `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` |
 | Action with `prepare` only and no `merge` | Valid — only `~>` bindings required |
