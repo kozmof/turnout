@@ -254,10 +254,21 @@ const (
 	InfixAnd    InfixOp = iota // & → bool_and
 	InfixGTE                   // >= → gte
 	InfixLTE                   // <= → lte
-	InfixConcat                // + → str_concat
+	InfixGT                    // > → gt
+	InfixLT                    // < → lt
+	InfixBoolOr                // | → bool_or
+	InfixEq                    // == → eq
+	InfixNeq                   // != → neq
+	// InfixPlus is type-dispatched: name:number → add; name:str → str_concat.
+	// FnAlias returns "" — the lowerer resolves the alias from the binding's declared type.
+	InfixPlus                  // + → add (number) / str_concat (str)
+	InfixSub                   // - → sub
+	InfixMul                   // * → mul
+	InfixDiv                   // / → div
+	InfixMod                   // % → mod
 )
 
-var infixOpNames = [...]string{"&", ">=", "<=", "+"}
+var infixOpNames = [...]string{"&", ">=", "<=", ">", "<", "|", "==", "!=", "+", "-", "*", "/", "%"}
 
 func (op InfixOp) String() string {
 	if int(op) < len(infixOpNames) {
@@ -267,6 +278,8 @@ func (op InfixOp) String() string {
 }
 
 // FnAlias returns the canonical function alias for this infix operator.
+// For InfixPlus, the alias is type-dispatched (number → "add", str → "str_concat");
+// this method returns "" and the lowerer resolves it from the binding's declared type.
 func (op InfixOp) FnAlias() string {
 	switch op {
 	case InfixAnd:
@@ -275,8 +288,26 @@ func (op InfixOp) FnAlias() string {
 		return "gte"
 	case InfixLTE:
 		return "lte"
-	case InfixConcat:
-		return "str_concat"
+	case InfixGT:
+		return "gt"
+	case InfixLT:
+		return "lt"
+	case InfixBoolOr:
+		return "bool_or"
+	case InfixEq:
+		return "eq"
+	case InfixNeq:
+		return "neq"
+	case InfixPlus:
+		return "" // type-dispatched: "add" for number, "str_concat" for str
+	case InfixSub:
+		return "sub"
+	case InfixMul:
+		return "mul"
+	case InfixDiv:
+		return "div"
+	case InfixMod:
+		return "mod"
 	default:
 		return ""
 	}

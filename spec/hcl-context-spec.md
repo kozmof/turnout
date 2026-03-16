@@ -50,6 +50,16 @@ prog "main" {
 | `name:bool = lhs >= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "gte" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs <= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "lte" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:str = lhs + rhs` | `binding "name" { type = "str" expr = { combine = { fn = "str_concat" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:number = lhs - rhs` | `binding "name" { type = "number" expr = { combine = { fn = "sub" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:number = lhs * rhs` | `binding "name" { type = "number" expr = { combine = { fn = "mul" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:number = lhs / rhs` | `binding "name" { type = "number" expr = { combine = { fn = "div" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:number = lhs + rhs` | `binding "name" { type = "number" expr = { combine = { fn = "add" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:number = lhs % rhs` | `binding "name" { type = "number" expr = { combine = { fn = "mod" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs > rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "gt" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs < rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "lt" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs \| rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_or" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs == rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "eq" args = [arg(lhs), arg(rhs)] } } }` |
+| `name:bool = lhs != rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "neq" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:type = { fn_alias = [x, y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = { fn_alias = [a: x, b: y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:type = #pipe(p1:v1, p2:v2)[fn_alias(...), ...]` | `binding "name" { type = "type" expr = { pipe = { args = { p1 = ref(v1), p2 = ref(v2) } steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
@@ -79,7 +89,7 @@ After `name:type =`, the parser selects the form by examining the first and seco
 | keyword literal (`true`, `false`) | any | value binding (literal) |
 | numeric literal, string literal, `[` | any | value binding (literal) |
 | bare `IDENT` (not `true`/`false`) | `(` | function call |
-| bare `IDENT` (not `true`/false`) | `&`, `>=`, `<=`, `+` | infix expression |
+| bare `IDENT` (not `true`/`false`) | `&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=` | infix expression |
 | bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | **single-reference form** |
 | `{` | any | block form (cond/if/pipe compat) |
 | `#pipe` | any | pipe form |
@@ -96,7 +106,7 @@ Surface DSL:
 prog "main" {
   v1:number = 5
   v2:number = 3
-  sum:number = add(v1, v2)
+  sum:number = v1 + v2
 }
 ```
 
@@ -130,10 +140,19 @@ prog "main" {
 
 - Positional call args `(x, y)` -> ordered pair `[arg(x), arg(y)]`
 - Named call args `(a: x, b: y)` -> ordered pair `[arg(x), arg(y)]`
-- Infix `lhs & rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_and"`
+- Infix `lhs & rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_and"`
 - Infix `lhs >= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "gte"`
 - Infix `lhs <= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "lte"`
-- Infix `lhs + rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "str_concat"`
+- Infix `lhs > rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "gt"`
+- Infix `lhs < rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "lt"`
+- Infix `lhs | rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_or"`
+- Infix `lhs == rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "eq"`
+- Infix `lhs != rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "neq"`
+- Infix `lhs + rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "add"` (for `name:number`) or `fn = "str_concat"` (for `name:str`) — type-dispatched
+- Infix `lhs - rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "sub"`
+- Infix `lhs * rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "mul"`
+- Infix `lhs / rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "div"`
+- Infix `lhs % rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "mod"`
 - Single-reference form `name:type = identifier` -> identity combine args per the identity-combine table above
 - Pipe header pair `#pipe(p: v)` -> `args = { p = ref(v) }`
 - Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
@@ -150,8 +169,8 @@ CAN (OK):
 - Authors can use typed keys in DSL (`v1:number = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
-- Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`).
-- Authors can write call-only functions using call syntax (`add(v1, v2)`, `gt(v1, v2)`, `bool_or(a, b)`).
+- Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `big:bool = income > 0`, `small:bool = debt < limit`, `match:bool = a == b`, `diff:bool = a != b`, `either:bool = flag_a | flag_b`, `sum:number = a + b`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`, `remainder:number = total - discount`, `area:number = width * height`, `rate:number = amount / count`, `rem:number = total % count`).
+- Authors can write call-only functions using call syntax (`max(v1, v2)`, `min(v1, v2)`, `str_includes(a, b)`).
 - Authors can write pipes as `#pipe(x:n)[step1, step2]`.
 - Authors can write a single-reference binding `name:type = identifier` to pass another binding's value through as a function binding. The compiler lowers this to an identity combine per the identity-combine table.
 - Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
@@ -161,9 +180,9 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
 - A single binary call cannot mix positional and named argument forms.
-- Operator-only functions (`bool_and`, `gte`, `lte`, `str_concat`) cannot be written in call form. `bool_and(a, b)`, `gte(a, b)`, `lte(a, b)`, `str_concat(a, b)` are all `OperatorOnlyFn` errors.
+- Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
 - Operator-only functions cannot appear as steps inside `#pipe(...)[ ]`, because pipe steps require call syntax. They must instead be expressed as call-form aliases — but since operator-only functions have no callable alias, they cannot be used as pipe steps.
-- Infix expressions support only `&`, `>=`, `<=`, `+`, with exactly two operands.
+- Infix expressions support only `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, `%`, with exactly two operands.
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
 - The ingress placeholder `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier — they are handled by their own forms.
 
@@ -258,10 +277,20 @@ Binary functions are divided into two categories based on whether a DSL infix op
 **Operator functions** — have an assigned DSL infix operator and **must** be written using it. Call-form alias is forbidden for these:
 
 ```hcl
-name:bool = lhs & rhs               # bool_and  — only valid form
-name:bool = lhs >= rhs              # gte        — only valid form
-name:bool = lhs <= rhs              # lte        — only valid form
-name:str  = lhs + rhs               # str_concat — only valid form
+name:bool   = lhs & rhs             # bool_and  — only valid form
+name:bool   = lhs >= rhs            # gte        — only valid form
+name:bool   = lhs <= rhs            # lte        — only valid form
+name:bool   = lhs > rhs             # gt         — only valid form
+name:bool   = lhs < rhs             # lt         — only valid form
+name:bool   = lhs | rhs             # bool_or    — only valid form
+name:bool   = lhs == rhs            # eq         — only valid form
+name:bool   = lhs != rhs            # neq        — only valid form
+name:number = lhs + rhs             # add        — only valid form
+name:str    = lhs + rhs             # str_concat — only valid form  (same token, dispatched by declared type)
+name:number = lhs - rhs             # sub        — only valid form
+name:number = lhs * rhs             # mul        — only valid form
+name:number = lhs / rhs             # div        — only valid form
+name:number = lhs % rhs             # mod        — only valid form
 ```
 
 **Call functions** — have no infix operator and **must** be written using call syntax:
@@ -271,14 +300,23 @@ name:type = fn_alias(arg1, arg2)        # positional call
 name:type = fn_alias(a: arg1, b: arg2) # named call
 ```
 
-The parser distinguishes infix from function calls by the token following the first operand identifier: an infix operator (`&`, `>=`, `<=`, `+`) signals an infix expression; `(` signals a function call.
+The parser distinguishes infix from function calls by the token following the first operand identifier: an infix operator (`&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=`) signals an infix expression; `(` signals a function call.
 
 Named calls are normalized during lowering to ordered args `[a, b]`.
 Operator functions are normalized by operator:
-- `lhs & rhs` -> `bool_and(lhs, rhs)`
-- `lhs >= rhs` -> `gte(lhs, rhs)`
-- `lhs <= rhs` -> `lte(lhs, rhs)`
-- `lhs + rhs` -> `str_concat(lhs, rhs)` (only valid for `name:str`)
+- `lhs & rhs`  -> `bool_and(lhs, rhs)` (only valid for `name:bool`)
+- `lhs >= rhs` -> `gte(lhs, rhs)` (only valid for `name:bool`)
+- `lhs <= rhs` -> `lte(lhs, rhs)` (only valid for `name:bool`)
+- `lhs > rhs`  -> `gt(lhs, rhs)` (only valid for `name:bool`)
+- `lhs < rhs`  -> `lt(lhs, rhs)` (only valid for `name:bool`)
+- `lhs | rhs`  -> `bool_or(lhs, rhs)` (only valid for `name:bool`)
+- `lhs == rhs` -> `eq(lhs, rhs)` (only valid for `name:bool`)
+- `lhs != rhs` -> `neq(lhs, rhs)` (only valid for `name:bool`)
+- `lhs + rhs`  -> `add(lhs, rhs)` for `name:number`; `str_concat(lhs, rhs)` for `name:str` (type-dispatched)
+- `lhs - rhs`  -> `sub(lhs, rhs)` (only valid for `name:number`)
+- `lhs * rhs`  -> `mul(lhs, rhs)` (only valid for `name:number`)
+- `lhs / rhs`  -> `div(lhs, rhs)` (only valid for `name:number`)
+- `lhs % rhs`  -> `mod(lhs, rhs)` (only valid for `name:number`)
 
 All forms are semantically identical after lowering.
 The compiler always lowers to runtime combine args `{ a: <arg1>, b: <arg2> }`.
@@ -290,8 +328,10 @@ prog "main" {
   v1:number = 5
   v2:number = 3
 
-  sum:number   = add(v1, v2)
-  txt:str      = "edge " + "mix"
+  diff:number   = v1 - v2
+  prod:number   = v1 * v2
+  quot:number   = v1 / v2
+  txt:str       = "edge " + "mix"
   flag_hi:bool  = v1 >= v2
   flag_lo:bool  = v1 <= v2
   go:bool       = flag_hi & true
@@ -304,13 +344,15 @@ Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alia
 
 ```typescript
 {
-  v1:   5,
-  v2:   3,
-  sum:  combine('binaryFnNumber::add',      { a: 'v1', b: 'v2' }),
-  txt:  combine('binaryFnString::concat',        { a: 'edge ', b: 'mix' }),
+  v1:      5,
+  v2:      3,
+  diff:    combine('binaryFnNumber::minus',              { a: 'v1', b: 'v2' }),
+  prod:    combine('binaryFnNumber::multiply',           { a: 'v1', b: 'v2' }),
+  quot:    combine('binaryFnNumber::divide',             { a: 'v1', b: 'v2' }),
+  txt:     combine('binaryFnString::concat',             { a: 'edge ', b: 'mix' }),
   flag_hi: combine('binaryFnNumber::greaterThanOrEqual', { a: 'v1', b: 'v2' }),
   flag_lo: combine('binaryFnNumber::lessThanOrEqual',    { a: 'v1', b: 'v2' }),
-  go:   combine('binaryFnBoolean::and',          { a: 'flag_hi', b: true }),
+  go:      combine('binaryFnBoolean::and',               { a: 'flag_hi', b: true }),
 }
 ```
 
@@ -320,31 +362,31 @@ Functions marked **operator-only** must be written using their DSL operator. The
 
 | HCL alias      | Runtime `BinaryFnNames`                  | arg1 type | arg2 type | return type | DSL form         |
 |----------------|------------------------------------------|-----------|-----------|-------------|------------------|
-| `add`          | `binaryFnNumber::add`                    | `number`  | `number`  | `number`    | call only        |
-| `sub`          | `binaryFnNumber::minus`                  | `number`  | `number`  | `number`    | call only        |
-| `mul`          | `binaryFnNumber::multiply`               | `number`  | `number`  | `number`    | call only        |
-| `div`          | `binaryFnNumber::divide`                 | `number`  | `number`  | `number`    | call only        |
-| `mod`          | `binaryFnNumber::mod`                    | `number`  | `number`  | `number`    | call only        |
+| `add`          | `binaryFnNumber::add`                    | `number`  | `number`  | `number`    | **operator-only** `+` (for `:number`) |
+| `sub`          | `binaryFnNumber::minus`                  | `number`  | `number`  | `number`    | **operator-only** `-` |
+| `mul`          | `binaryFnNumber::multiply`               | `number`  | `number`  | `number`    | **operator-only** `*` |
+| `div`          | `binaryFnNumber::divide`                 | `number`  | `number`  | `number`    | **operator-only** `/` |
+| `mod`          | `binaryFnNumber::mod`                    | `number`  | `number`  | `number`    | **operator-only** `%` |
 | `max`          | `binaryFnNumber::max`                    | `number`  | `number`  | `number`    | call only        |
 | `min`          | `binaryFnNumber::min`                    | `number`  | `number`  | `number`    | call only        |
-| `gt`           | `binaryFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | call only        |
+| `gt`           | `binaryFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | **operator-only** `>` |
 | `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `number`  | `number`  | `bool`      | **operator-only** `>=` |
-| `lt`           | `binaryFnNumber::lessThan`               | `number`  | `number`  | `bool`      | call only        |
+| `lt`           | `binaryFnNumber::lessThan`               | `number`  | `number`  | `bool`      | **operator-only** `<` |
 | `lte`          | `binaryFnNumber::lessThanOrEqual`        | `number`  | `number`  | `bool`      | **operator-only** `<=` |
 | `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       | **operator-only** `+`  |
 | `str_includes` | `binaryFnString::includes`               | `str`     | `str`     | `bool`      | call only        |
 | `str_starts`   | `binaryFnString::startsWith`             | `str`     | `str`     | `bool`      | call only        |
 | `str_ends`     | `binaryFnString::endsWith`               | `str`     | `str`     | `bool`      | call only        |
 | `bool_and`     | `binaryFnBoolean::and`                   | `bool`    | `bool`    | `bool`      | **operator-only** `&`  |
-| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | call only        |
+| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | **operator-only** `\|` |
 | `bool_xor`     | `binaryFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      | call only        |
-| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | call only        |
-| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | call only        |
+| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | **operator-only** `==` |
+| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | **operator-only** `!=` |
 | `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      | call only        |
 | `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs` with supported operators `&`, `>=`, `<=`, `+`; `+` is valid only for `name:str` (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
+> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs`; operator/type pairings are enforced: `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` for `name:bool`; `+`/`-`/`*`/`/`/`%` for `name:number`; `+` (only) for `name:str`; `eq`/`neq` (`==`/`!=`) are the sole exceptions — they accept any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
@@ -636,8 +678,10 @@ prog "main" {
   n:number = 10
   msg:str  = "score"
 
-  # --- Arithmetic ---
-  doubled:number = mul(n, n)
+  # --- Arithmetic (operator forms) ---
+  doubled:number = n * n
+  halved:number  = n / 2
+  less:number    = n - 1
 
   # --- String ---
   label_hi:str = msg + " high"
@@ -646,7 +690,7 @@ prog "main" {
   # --- Condition via combine ---
   is_big:bool = doubled >= n
 
-  # --- Pipe: (n * n) + n ---
+  # --- Pipe: (n * n) - n ---
   piped:number = #pipe(x:n)[
     mul(x, x),
     add({ step_ref = 0 }, x)
@@ -670,9 +714,11 @@ prog "main" {
 ctx({
   n:                 10,
   msg:               'score',
-  doubled:           combine('binaryFnNumber::multiply',    { a: 'n',      b: 'n' }),
-  label_hi:          combine('binaryFnString::concat',      { a: 'msg',    b: ' high' }),
-  label_lo:          combine('binaryFnString::concat',      { a: 'msg',    b: ' low'  }),
+  doubled:           combine('binaryFnNumber::multiply',         { a: 'n',      b: 'n' }),
+  halved:            combine('binaryFnNumber::divide',           { a: 'n',      b: 2 }),
+  less:              combine('binaryFnNumber::minus',            { a: 'n',      b: 1 }),
+  label_hi:          combine('binaryFnString::concat',           { a: 'msg',    b: ' high' }),
+  label_lo:          combine('binaryFnString::concat',           { a: 'msg',    b: ' low'  }),
   is_big:            combine('binaryFnNumber::greaterThanOrEqual', { a: 'doubled', b: 'n' }),
   piped:             pipe({ x: 'n' }, [
                        combine('binaryFnNumber::multiply', { a: 'x', b: 'x' }),
@@ -711,7 +757,7 @@ ctx({
 | 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `#if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
-| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix` (where `income` and `min_income` are `:number`) | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
+| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
 
 ### Edge cases
 
@@ -727,8 +773,21 @@ ctx({
 | `go:bool = decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |
 | `go:bool = bool_and(flag_hi, flag_lo)` | `OperatorOnlyFn` error (`bool_and` requires `&` operator) |
 | `ok:bool = gte(income, min)` | `OperatorOnlyFn` error (`gte` requires `>=` operator) |
+| `ok:bool = gt(income, 0)` | `OperatorOnlyFn` error (`gt` requires `>` operator) |
+| `ok:bool = lt(debt, max)` | `OperatorOnlyFn` error (`lt` requires `<` operator) |
+| `ok:bool = bool_or(a, b)` | `OperatorOnlyFn` error (`bool_or` requires `|` operator) |
+| `ok:bool = eq(a, b)` | `OperatorOnlyFn` error (`eq` requires `==` operator) |
+| `ok:bool = neq(a, b)` | `OperatorOnlyFn` error (`neq` requires `!=` operator) |
+| `sum:number = add(a, b)` | `OperatorOnlyFn` error (`add` requires `+` operator) |
+| `rem:number = mod(a, b)` | `OperatorOnlyFn` error (`mod` requires `%` operator) |
 | `label:str = str_concat(a, b)` | `OperatorOnlyFn` error (`str_concat` requires `+` operator) |
+| `diff:number = sub(a, b)` | `OperatorOnlyFn` error (`sub` requires `-` operator) |
+| `prod:number = mul(a, b)` | `OperatorOnlyFn` error (`mul` requires `*` operator) |
+| `quot:number = div(a, b)` | `OperatorOnlyFn` error (`div` requires `/` operator) |
 | `approval_code:str = prefix ++ suffix` | `InvalidInfixExpr` error (unsupported operator token) |
+| `n:str = a - b` | `InvalidInfixExpr` error (`-` is only valid for `name:number`) |
+| `n:str = a == b` | `InvalidInfixExpr` error (`==` produces `bool`, not `str`) |
+| `n:number = a | b` | `InvalidInfixExpr` error (`|` is only valid for `name:bool`) |
 | `__reserved:number = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |
 | `cond` condition references a function whose return type is `int` | `CondNotBool` error |

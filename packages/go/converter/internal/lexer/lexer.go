@@ -39,6 +39,14 @@ const (
 	TokGTE       // >=
 	TokLTE       // <=
 	TokPlus      // +
+	TokMinus     // -
+	TokStar      // *
+	TokSlash     // /
+	TokPercent   // %
+	TokGT        // >  (standalone, not >=)
+	TokLT        // <  (standalone, not <=, <~, <~>, <<-)
+	TokEqEq      // ==
+	TokNeq       // !=
 
 	// Special forms
 	TokHashPipe    // #pipe
@@ -252,6 +260,31 @@ func (l *lex) scanToken() {
 		l.advance()
 		l.emit(TokPlus, "+", ln, co)
 
+	case c == '-':
+		l.advance()
+		l.emit(TokMinus, "-", ln, co)
+
+	case c == '*':
+		l.advance()
+		l.emit(TokStar, "*", ln, co)
+
+	case c == '/':
+		l.advance()
+		l.emit(TokSlash, "/", ln, co)
+
+	case c == '%':
+		l.advance()
+		l.emit(TokPercent, "%", ln, co)
+
+	case c == '!':
+		l.advance()
+		if l.peek() == '=' {
+			l.advance()
+			l.emit(TokNeq, "!=", ln, co)
+		} else {
+			l.errorf(ln, co, "unexpected '!' — did you mean '!='?")
+		}
+
 	case c == '&':
 		l.advance()
 		l.emit(TokAmpersand, "&", ln, co)
@@ -269,6 +302,9 @@ func (l *lex) scanToken() {
 		if l.peek() == '>' {
 			l.advance()
 			l.emit(TokArrow, "=>", ln, co)
+		} else if l.peek() == '=' {
+			l.advance()
+			l.emit(TokEqEq, "==", ln, co)
 		} else {
 			l.emit(TokEquals, "=", ln, co)
 		}
@@ -279,7 +315,7 @@ func (l *lex) scanToken() {
 			l.advance()
 			l.emit(TokGTE, ">=", ln, co)
 		} else {
-			l.errorf(ln, co, "unexpected '>' — did you mean '>='?")
+			l.emit(TokGT, ">", ln, co)
 		}
 
 	case c == '<':
@@ -343,7 +379,7 @@ func (l *lex) scanLAngle(ln, co int) {
 		l.emit(TokLTE, "<=", ln, co)
 	default:
 		l.advance()
-		l.errorf(ln, co, "unexpected '<' — expected '<<-', '<~>', '<~', or '<='")
+		l.emit(TokLT, "<", ln, co)
 	}
 }
 

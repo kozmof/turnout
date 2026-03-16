@@ -417,17 +417,39 @@ func TestUnterminatedString(t *testing.T) {
 	}
 }
 
-func TestUnexpectedLAngle(t *testing.T) {
-	_, ds := Tokenize("<test>", "x < y")
-	if !ds.HasErrors() {
-		t.Error("expected lex error for standalone <, got none")
+func TestStandaloneLT(t *testing.T) {
+	toks, ds := Tokenize("<test>", "x < y")
+	if ds.HasErrors() {
+		t.Errorf("unexpected lex error for standalone <: %v", ds)
+	}
+	// expect: IDENT(<) TokLT IDENT(y) EOF  — standalone < emits TokLT
+	found := false
+	for _, tok := range toks {
+		if tok.Kind == TokLT {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected TokLT token for standalone <")
 	}
 }
 
 func TestStandaloneGT(t *testing.T) {
-	_, ds := Tokenize("<test>", "x > y")
-	if !ds.HasErrors() {
-		t.Error("expected lex error for standalone >, got none")
+	toks, ds := Tokenize("<test>", "x > y")
+	if ds.HasErrors() {
+		t.Errorf("unexpected lex error for standalone >: %v", ds)
+	}
+	// expect: IDENT(x) TokGT IDENT(y) EOF  — standalone > emits TokGT
+	found := false
+	for _, tok := range toks {
+		if tok.Kind == TokGT {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("expected TokGT token for standalone >")
 	}
 }
 

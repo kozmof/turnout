@@ -165,7 +165,16 @@ func TestInfixOpString(t *testing.T) {
 		{ast.InfixAnd, "&"},
 		{ast.InfixGTE, ">="},
 		{ast.InfixLTE, "<="},
-		{ast.InfixConcat, "+"},
+		{ast.InfixGT, ">"},
+		{ast.InfixLT, "<"},
+		{ast.InfixBoolOr, "|"},
+		{ast.InfixEq, "=="},
+		{ast.InfixNeq, "!="},
+		{ast.InfixPlus, "+"},
+		{ast.InfixSub, "-"},
+		{ast.InfixMul, "*"},
+		{ast.InfixDiv, "/"},
+		{ast.InfixMod, "%"},
 	}
 	for _, tc := range cases {
 		if got := tc.op.String(); got != tc.want {
@@ -182,7 +191,16 @@ func TestInfixOpFnAlias(t *testing.T) {
 		{ast.InfixAnd, "bool_and"},
 		{ast.InfixGTE, "gte"},
 		{ast.InfixLTE, "lte"},
-		{ast.InfixConcat, "str_concat"},
+		{ast.InfixGT, "gt"},
+		{ast.InfixLT, "lt"},
+		{ast.InfixBoolOr, "bool_or"},
+		{ast.InfixEq, "eq"},
+		{ast.InfixNeq, "neq"},
+		{ast.InfixPlus, ""},  // type-dispatched; lowerer resolves to "add" or "str_concat"
+		{ast.InfixSub, "sub"},
+		{ast.InfixMul, "mul"},
+		{ast.InfixDiv, "div"},
+		{ast.InfixMod, "mod"},
 	}
 	for _, tc := range cases {
 		if got := tc.op.FnAlias(); got != tc.want {

@@ -134,53 +134,53 @@ Recursive descent parser consuming the token stream.
 
 ### Entry point
 
-- [ ] `ParseFile(src string) (*ast.TurnFile, []diag.Diagnostic)`
+- [x] `ParseFile(src string) (*ast.TurnFile, []diag.Diagnostic)`
 
 ### State parsing
 
-- [ ] Parse top-level `state { ... }` block into `InlineStateBlock`
-- [ ] Parse top-level `state_file = "..."` into `StateFileDirective`
-- [ ] Error if both present (`ConflictingStateSource`)
-- [ ] Error if neither present (`MissingStateSource`)
-- [ ] Parse namespace blocks and field declarations (`name:type = literal`)
+- [x] Parse top-level `state { ... }` block into `InlineStateBlock`
+- [x] Parse top-level `state_file = "..."` into `StateFileDirective`
+- [x] Error if both present (`ConflictingStateSource`)
+- [x] Error if neither present (`MissingStateSource`)
+- [x] Parse namespace blocks and field declarations (`name:type = literal`)
 
 ### Scene parsing
 
-- [ ] Parse `scene "<id>" { ... }` block
-- [ ] Parse `entry_actions`, `next_policy`, `view`, actions
-- [ ] Parse `action "<id>" { ... }` blocks
-- [ ] Parse optional triple-quoted docstring at action top level → `text`
-- [ ] Error on duplicate docstring + explicit `text` (`SCN_ACTION_TEXT_DUPLICATE`)
-- [ ] Parse `compute`, `prepare`, `merge`, `publish`, `next` sub-blocks
+- [x] Parse `scene "<id>" { ... }` block
+- [x] Parse `entry_actions`, `next_policy`, `view`, actions
+- [x] Parse `action "<id>" { ... }` blocks
+- [x] Parse optional triple-quoted docstring at action top level → `text`
+- [x] Error on duplicate docstring + explicit `text` (`SCN_ACTION_TEXT_DUPLICATE`)
+- [x] Parse `compute`, `prepare`, `merge`, `publish`, `next` sub-blocks
 
 ### Prog parsing
 
-- [ ] Parse `prog "<name>" { ... }` block with binding declarations
-- [ ] Handle sigil prefix before typed key: `<~>income:number = _`
-- [ ] Dispatch RHS parsing by disambiguation rules (see Lexer section)
-- [ ] Parse function calls: positional `fn(a, b)` and named `fn(a: x, b: y)`
-- [ ] Parse infix expressions: `lhs OP rhs`
-- [ ] Parse `#pipe(p:v)[step1, step2]`
-- [ ] Parse `#if { cond = ...; then = ...; else = ... }`
-- [ ] Parse `{ cond = { ... } }` block form
-- [ ] Parse `{ step_ref = N }`, `{ func_ref = "..." }`, `{ transform = { ... } }`
+- [x] Parse `prog "<name>" { ... }` block with binding declarations
+- [x] Handle sigil prefix before typed key: `<~>income:number = _`
+- [x] Dispatch RHS parsing by disambiguation rules (see Lexer section)
+- [x] Parse function calls: positional `fn(a, b)` and named `fn(a: x, b: y)`
+- [x] Parse infix expressions: `lhs OP rhs`
+- [x] Parse `#pipe(p:v)[step1, step2]`
+- [x] Parse `#if { cond = ...; then = ...; else = ... }`
+- [x] Parse `{ cond = { ... } }` block form
+- [x] Parse `{ step_ref = N }`, `{ func_ref = "..." }`, `{ transform = { ... } }`
 
 ---
 
 ## Phase 5 — State Schema Resolver (`internal/state`)
 
-- [ ] `Resolve(source ast.StateSource, basePath string) (*StateSchema, []diag.Diagnostic)`
-- [ ] For `InlineStateBlock`: validate and build `StateSchema` directly
-- [ ] For `StateFileDirective`:
+- [x] `Resolve(source ast.StateSource, basePath string) (*StateSchema, []diag.Diagnostic)`
+- [x] For `InlineStateBlock`: validate and build `StateSchema` directly
+- [x] For `StateFileDirective`:
   - Resolve path relative to the input file
   - Error if file missing (`StateFileMissing`)
   - Parse file — error if parse fails (`StateFileParseError`)
   - Error if the file contains anything other than a `state` block
-- [ ] `StateSchema` type: `map[string]StateFieldMeta` keyed by dotted path (`ns.field`)
-- [ ] Validate no duplicate namespaces (`DuplicateStateNamespace`)
-- [ ] Validate no duplicate fields within namespace (`DuplicateStateField`)
-- [ ] Validate `type` is one of the 6 valid strings (`InvalidStateFieldType`)
-- [ ] Validate default value type-compatibility (`StateFieldDefaultTypeMismatch`)
+- [x] `StateSchema` type: `map[string]StateFieldMeta` keyed by dotted path (`ns.field`)
+- [x] Validate no duplicate namespaces (`DuplicateStateNamespace`)
+- [x] Validate no duplicate fields within namespace (`DuplicateStateField`)
+- [x] Validate `type` is one of the 6 valid strings (`InvalidStateFieldType`)
+- [x] Validate default value type-compatibility (`StateFieldDefaultTypeMismatch`)
 
 ---
 
