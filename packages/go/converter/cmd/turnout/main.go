@@ -51,7 +51,6 @@ func runConvert(args []string) int {
 	}
 
 	inputPath := fs.Arg(0)
-	_ = stateFile
 
 	src, err := os.ReadFile(inputPath)
 	if err != nil {
@@ -66,6 +65,9 @@ func runConvert(args []string) int {
 	}
 
 	basePath := filepath.Dir(inputPath)
+	if *stateFile != "" {
+		basePath = *stateFile
+	}
 	schema, ds2 := state.Resolve(turnFile.StateSource, basePath)
 	if ds2.HasErrors() {
 		printDiags(ds2)

@@ -378,12 +378,12 @@ scene "<id>" {
 
 ## Phase 9 — CLI Entry Point (`cmd/turnout`)
 
-- [ ] Accept positional argument: input `.turn` file path
-- [ ] Accept optional `-o` flag: output `.hcl` file path (default: same name, `.hcl` extension)
-- [ ] Exit code `0` on success; `1` on any diagnostic error
-- [ ] Print diagnostics to stderr in structured format: `<file>:<line>:<col>: error [<code>]: <message>`
-- [ ] Support `-state-file` flag to override the `state_file` base path resolution
-- [ ] Print emitted HCL to stdout when `-o -` is given
+- [x] Accept positional argument: input `.turn` file path
+- [x] Accept optional `-o` flag: output `.hcl` file path (default: same name, `.hcl` extension)
+- [x] Exit code `0` on success; `1` on any diagnostic error
+- [x] Print diagnostics to stderr in structured format: `<file>:<line>:<col>: error [<code>]: <message>`
+- [x] Support `-state-file` flag to override the `state_file` base path resolution
+- [x] Print emitted HCL to stdout when `-o -` is given
 
 ---
 
