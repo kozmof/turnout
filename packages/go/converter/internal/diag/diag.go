@@ -1,0 +1,152 @@
+package diag
+
+import "fmt"
+
+// Severity classifies a diagnostic.
+type Severity int
+
+const (
+	SeverityError   Severity = iota
+	SeverityWarning
+)
+
+// Diagnostic carries a single convert-time or parse-time message.
+type Diagnostic struct {
+	Severity Severity
+	Code     string
+	Message  string
+	File     string
+	Line     int
+	Col      int
+}
+
+// Format returns the human-readable string for stderr output.
+// Format: <file>:<line>:<col>: error [<code>]: <message>
+func (d Diagnostic) Format() string {
+	if d.File == "" {
+		return fmt.Sprintf("error [%s]: %s", d.Code, d.Message)
+	}
+	return fmt.Sprintf("%s:%d:%d: error [%s]: %s", d.File, d.Line, d.Col, d.Code, d.Message)
+}
+
+// Diagnostics is a slice of Diagnostic values.
+type Diagnostics []Diagnostic
+
+// HasErrors reports whether any diagnostic has SeverityError.
+func (ds Diagnostics) HasErrors() bool {
+	for _, d := range ds {
+		if d.Severity == SeverityError {
+			return true
+		}
+	}
+	return false
+}
+
+// Errorf creates a new error Diagnostic with no position.
+func Errorf(code, format string, args ...any) Diagnostic {
+	return Diagnostic{
+		Severity: SeverityError,
+		Code:     code,
+		Message:  fmt.Sprintf(format, args...),
+	}
+}
+
+// ErrorAt creates a new error Diagnostic with file/line/col.
+func ErrorAt(file string, line, col int, code, format string, args ...any) Diagnostic {
+	return Diagnostic{
+		Severity: SeverityError,
+		Code:     code,
+		Message:  fmt.Sprintf(format, args...),
+		File:     file,
+		Line:     line,
+		Col:      col,
+	}
+}
+
+// Error codes from hcl-context-spec.md
+const (
+	CodeTypeMismatch          = "TypeMismatch"
+	CodeNonIntegerValue       = "NonIntegerValue"
+	CodeHeterogeneousArray    = "HeterogeneousArray"
+	CodeNestedArrayNotAllowed = "NestedArrayNotAllowed"
+	CodeDuplicateProg         = "DuplicateProg"
+	CodeDuplicateBinding      = "DuplicateBinding"
+	CodeReservedName          = "ReservedName"
+	CodeUnknownFnAlias        = "UnknownFnAlias"
+	CodeOperatorOnlyFn        = "OperatorOnlyFn"
+	CodeUndefinedRef          = "UndefinedRef"
+	CodeUndefinedFuncRef      = "UndefinedFuncRef"
+	CodeInvalidBinaryArgShape = "InvalidBinaryArgShape"
+	CodeInvalidInfixExpr      = "InvalidInfixExpr"
+	CodeArgTypeMismatch       = "ArgTypeMismatch"
+	CodeReturnTypeMismatch    = "ReturnTypeMismatch"
+	CodeCondNotBool           = "CondNotBool"
+	CodeBranchTypeMismatch    = "BranchTypeMismatch"
+	CodeStepRefOutOfBounds    = "StepRefOutOfBounds"
+	CodeCrossPipeStepRef      = "CrossPipeStepRef"
+	CodePipeArgNotValue       = "PipeArgNotValue"
+	CodeSingleRefTypeMismatch = "SingleRefTypeMismatch"
+)
+
+// Error codes from state-shape-spec.md
+const (
+	CodeMissingStateSource            = "MissingStateSource"
+	CodeConflictingStateSource        = "ConflictingStateSource"
+	CodeStateFileMissing              = "StateFileMissing"
+	CodeStateFileParseError           = "StateFileParseError"
+	CodeMissingStateBlock             = "MissingStateBlock"
+	CodeDuplicateStateBlock           = "DuplicateStateBlock"
+	CodeDuplicateStateNamespace       = "DuplicateStateNamespace"
+	CodeDuplicateStateField           = "DuplicateStateField"
+	CodeMissingStateFieldAttr         = "MissingStateFieldAttr"
+	CodeInvalidStateFieldType         = "InvalidStateFieldType"
+	CodeStateFieldDefaultTypeMismatch = "StateFieldDefaultTypeMismatch"
+	CodeUnresolvedStatePath           = "UnresolvedStatePath"
+	CodeStateTypeMismatch             = "StateTypeMismatch"
+	CodeInvalidStatePath              = "InvalidStatePath"
+	CodeMissingStatePath              = "MissingStatePath"
+)
+
+// Error codes from effect-dsl-spec.md + convert-runtime-spec.md
+const (
+	CodeMissingPrepareEntry      = "MissingPrepareEntry"
+	CodeMissingMergeEntry        = "MissingMergeEntry"
+	CodeSpuriousPrepareEntry     = "SpuriousPrepareEntry"
+	CodeSpuriousMergeEntry       = "SpuriousMergeEntry"
+	CodeDuplicatePrepareEntry    = "DuplicatePrepareEntry"
+	CodeDuplicateMergeEntry      = "DuplicateMergeEntry"
+	CodeBidirMissingPrepareEntry = "BidirMissingPrepareEntry"
+	CodeBidirMissingMergeEntry   = "BidirMissingMergeEntry"
+	CodeTransitionMerge          = "TransitionMerge"
+	CodeTransitionHook           = "TransitionHook"
+	CodeTransitionOutputSigil    = "TransitionOutputSigil"
+	CodeInvalidTransitionIngress = "InvalidTransitionIngress"
+	CodeInvalidPrepareSource     = "InvalidPrepareSource"
+	CodeUnresolvedPrepareBinding = "UnresolvedPrepareBinding"
+	CodeUnresolvedMergeBinding   = "UnresolvedMergeBinding"
+	CodeDuplicateActionLabel     = "DuplicateActionLabel"
+	CodeUnsupportedConstruct     = "UnsupportedConstruct"
+)
+
+// Error codes from scene-graph.md
+const (
+	CodeSCNInvalidActionGraph       = "SCN_INVALID_ACTION_GRAPH"
+	CodeSCNActionRootNotFound       = "SCN_ACTION_ROOT_NOT_FOUND"
+	CodeSCNIngressTargetNotValue    = "SCN_INGRESS_TARGET_NOT_VALUE"
+	CodeSCNIngressSourceMissing     = "SCN_INGRESS_SOURCE_MISSING"
+	CodeSCNEgressSourceInvalid      = "SCN_EGRESS_SOURCE_INVALID"
+	CodeSCNEgressSourceUnavailable  = "SCN_EGRESS_SOURCE_UNAVAILABLE"
+	CodeSCNNextComputeInvalid       = "SCN_NEXT_COMPUTE_INVALID"
+	CodeSCNNextComputeNotBool       = "SCN_NEXT_COMPUTE_NOT_BOOL"
+	CodeSCNNextIngressSourceInvalid = "SCN_NEXT_INGRESS_SOURCE_INVALID"
+	CodeSCNActionTextDuplicate      = "SCN_ACTION_TEXT_DUPLICATE"
+)
+
+// Error codes from scene-to-scene.md
+const (
+	CodeDuplicateCatchAll  = "DuplicateCatchAll"
+	CodeBareWildcardPath   = "BareWildcardPath"
+	CodeMultipleWildcards  = "MultipleWildcards"
+	CodeInvalidPathItem    = "InvalidPathItem"
+	CodeUnresolvedScene    = "UnresolvedScene"
+)

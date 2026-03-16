@@ -23,9 +23,9 @@
 
 ### 1.1 Go module setup
 
-- [ ] Create `packages/go/converter/` directory
-- [ ] `go mod init github.com/turnout/converter`
-- [ ] Define top-level package structure:
+- [x] Create `packages/go/converter/` directory
+- [x] `go mod init github.com/turnout/converter`
+- [x] Define top-level package structure:
   - `cmd/turnout/` — CLI entry point (`main.go`)
   - `internal/lexer/` — tokenizer
   - `internal/parser/` — AST parser
@@ -35,7 +35,7 @@
   - `internal/validate/` — structural + type validation
   - `internal/emit/` — HCL emitter
   - `internal/diag/` — diagnostic / error types
-- [ ] CLI flags: `turnout convert <input.turn> [-o output.hcl]`
+- [x] CLI flags: `turnout convert <input.turn> [-o output.hcl]`
 
 ---
 
@@ -45,18 +45,18 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [ ] **Keywords**: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `root`, `condition`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `view`, `flow`, `enforce`, `text`
-- [ ] **Typed key** (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
+- [x] **Keywords**: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `root`, `condition`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `view`, `flow`, `enforce`, `text`
+- [x] **Typed key** (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
-- [ ] **Sigil prefixes**: `<~>`, `<~`, `~>` (parse longest-match first)
-- [ ] **Infix operators**: `>=`, `<=`, `&`, `+` (distinguish from HCL attribute assignment `=`)
-- [ ] **Special forms**: `#pipe`, `#if`
-- [ ] **Ingress placeholder**: `_`
-- [ ] **Triple-quoted strings**: `"""..."""` (Python-style docstrings on action blocks)
-- [ ] **HCL heredoc**: `<<-EOT...EOT`
-- [ ] **Literals**: integer, decimal, string (`"`), boolean (`true`/`false`), array (`[...]`)
-- [ ] **Punctuation**: `{`, `}`, `[`, `]`, `(`, `,`, `:`, `=`, `.`, `=>`, `|`
-- [ ] **Comments**: `#` to end-of-line
+- [x] **Sigil prefixes**: `<~>`, `<~`, `~>` (parse longest-match first)
+- [x] **Infix operators**: `>=`, `<=`, `&`, `+` (distinguish from HCL attribute assignment `=`)
+- [x] **Special forms**: `#pipe`, `#if`
+- [x] **Ingress placeholder**: `_`
+- [x] **Triple-quoted strings**: `"""..."""` (Python-style docstrings on action blocks)
+- [x] **HCL heredoc**: `<<-EOT...EOT`
+- [x] **Literals**: integer, decimal, string (`"`), boolean (`true`/`false`), array (`[...]`)
+- [x] **Punctuation**: `{`, `}`, `[`, `]`, `(`, `,`, `:`, `=`, `.`, `=>`, `|`
+- [x] **Comments**: `#` to end-of-line
 
 ### Disambiguation rules (per `hcl-context-spec.md §2`)
 
@@ -78,30 +78,30 @@ Define Go structs for every DSL construct.
 
 ### Top-level
 
-- [ ] `TurnFile { StateSource StateSource; Scene *SceneBlock }`
-- [ ] `StateSource` interface with two impls: `InlineStateBlock` and `StateFileDirective`
+- [x] `TurnFile { StateSource StateSource; Scene *SceneBlock }`
+- [x] `StateSource` interface with two impls: `InlineStateBlock` and `StateFileDirective`
 
 ### State block
 
-- [ ] `InlineStateBlock { Namespaces []*NamespaceDecl }`
-- [ ] `StateFileDirective { Path string }`
-- [ ] `NamespaceDecl { Name string; Fields []*FieldDecl }`
-- [ ] `FieldDecl { Name string; Type FieldType; Default Literal }`
-- [ ] `FieldType` enum: `Number | Str | Bool | ArrNumber | ArrStr | ArrBool`
+- [x] `InlineStateBlock { Namespaces []*NamespaceDecl }`
+- [x] `StateFileDirective { Path string }`
+- [x] `NamespaceDecl { Name string; Fields []*FieldDecl }`
+- [x] `FieldDecl { Name string; Type FieldType; Default Literal }`
+- [x] `FieldType` enum: `Number | Str | Bool | ArrNumber | ArrStr | ArrBool`
 
 ### Scene block
 
-- [ ] `SceneBlock { ID string; EntryActions []string; NextPolicy string; View *ViewBlock; Actions []*ActionBlock }`
-- [ ] `ViewBlock { Name string; Flow string; Enforce string }`
+- [x] `SceneBlock { ID string; EntryActions []string; NextPolicy string; View *ViewBlock; Actions []*ActionBlock }`
+- [x] `ViewBlock { Name string; Flow string; Enforce string }`
 
 ### Action block
 
-- [ ] `ActionBlock { ID string; Text *string; Compute *ComputeBlock; Prepare *PrepareBlock; Merge *MergeBlock; Publish *PublishBlock; Next []*NextRule }`
-- [ ] `ComputeBlock { Root string; Prog *ProgBlock }`
-- [ ] `ProgBlock { Name string; Bindings []*BindingDecl }`
-- [ ] `BindingDecl { Sigil Sigil; Name string; Type FieldType; RHS BindingRHS }`
-- [ ] `Sigil` enum: `None | Ingress | Egress | BiDir`
-- [ ] `BindingRHS` interface with impls:
+- [x] `ActionBlock { ID string; Text *string; Compute *ComputeBlock; Prepare *PrepareBlock; Merge *MergeBlock; Publish *PublishBlock; Next []*NextRule }`
+- [x] `ComputeBlock { Root string; Prog *ProgBlock }`
+- [x] `ProgBlock { Name string; Bindings []*BindingDecl }`
+- [x] `BindingDecl { Sigil Sigil; Name string; Type FieldType; RHS BindingRHS }`
+- [x] `Sigil` enum: `None | Ingress | Egress | BiDir`
+- [x] `BindingRHS` interface with impls:
   - `LiteralRHS { Value Literal }`
   - `SingleRefRHS { RefName string }`
   - `FuncCallRHS { FnAlias string; Args []Arg }`
@@ -113,18 +113,18 @@ Define Go structs for every DSL construct.
 
 ### Prepare / Merge / Publish
 
-- [ ] `PrepareBlock { Entries []*PrepareEntry }`
-- [ ] `PrepareEntry { BindingName string; Source PrepareSource }` — `PrepareSource` is one of `FromState | FromHook | FromLiteral`
-- [ ] `MergeBlock { Entries []*MergeEntry }`
-- [ ] `MergeEntry { BindingName string; ToState string }`
-- [ ] `PublishBlock { Hooks []string }`
+- [x] `PrepareBlock { Entries []*PrepareEntry }`
+- [x] `PrepareEntry { BindingName string; Source PrepareSource }` — `PrepareSource` is one of `FromState | FromHook | FromLiteral`
+- [x] `MergeBlock { Entries []*MergeEntry }`
+- [x] `MergeEntry { BindingName string; ToState string }`
+- [x] `PublishBlock { Hooks []string }`
 
 ### Next rules
 
-- [ ] `NextRule { Compute *NextComputeBlock; Prepare *NextPrepareBlock; ActionID string }`
-- [ ] `NextComputeBlock { Condition string; Prog *ProgBlock }`
-- [ ] `NextPrepareBlock { Entries []*NextPrepareEntry }`
-- [ ] `NextPrepareEntry { BindingName string; Source NextPrepareSource }` — one of `FromAction | FromState | FromLiteral`
+- [x] `NextRule { Compute *NextComputeBlock; Prepare *NextPrepareBlock; ActionID string }`
+- [x] `NextComputeBlock { Condition string; Prog *ProgBlock }`
+- [x] `NextPrepareBlock { Entries []*NextPrepareEntry }`
+- [x] `NextPrepareEntry { BindingName string; Source NextPrepareSource }` — one of `FromAction | FromState | FromLiteral`
 
 ---
 
