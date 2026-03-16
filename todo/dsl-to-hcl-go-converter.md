@@ -190,39 +190,39 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 
 ### Binding lowering (per `hcl-context-spec.md §2–3`)
 
-- [ ] `name:type = literal` → `binding "name" { type = "type" value = literal }`
-- [ ] `name:type = identifier` (single-ref) → identity combine per type:
+- [x] `name:type = literal` → `binding "name" { type = "type" value = literal }`
+- [x] `name:type = identifier` (single-ref) → identity combine per type:
   - `bool` → `combine { fn = "bool_and" args = [{ ref = "identifier" }, { lit = true }] }`
   - `number` → `combine { fn = "add" args = [{ ref = "identifier" }, { lit = 0 }] }`
   - `str` → `combine { fn = "str_concat" args = [{ ref = "identifier" }, { lit = "" }] }`
   - `arr<T>` → `combine { fn = "arr_concat" args = [{ ref = "identifier" }, { lit = [] }] }`
-- [ ] `name:type = fn(a, b)` (positional call) → `combine { fn = "fn" args = [{ ref = "a" }, { ref = "b" }] }`
-- [ ] `name:type = fn(a: x, b: y)` (named call) → same, discard parameter names
-- [ ] `name:bool = lhs & rhs` → `combine { fn = "bool_and" ... }`
-- [ ] `name:bool = lhs >= rhs` → `combine { fn = "gte" ... }`
-- [ ] `name:bool = lhs <= rhs` → `combine { fn = "lte" ... }`
-- [ ] `name:str = lhs + rhs` → `combine { fn = "str_concat" ... }`
-- [ ] `#pipe(p:v)[step1, step2]` → `pipe { args = { p = ref(v) } steps = [...] }`
-- [ ] `{ cond = { condition = c then = t else = e } }` → `cond { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } }`
-- [ ] `#if { cond = fn(a,b) then = t else = e }` → auto-generate `__if_<name>_cond` binding + `cond` form
-- [ ] `{ transform = { ref = "v", fn = "..." } }` → pass through unchanged
+- [x] `name:type = fn(a, b)` (positional call) → `combine { fn = "fn" args = [{ ref = "a" }, { ref = "b" }] }`
+- [x] `name:type = fn(a: x, b: y)` (named call) → same, discard parameter names
+- [x] `name:bool = lhs & rhs` → `combine { fn = "bool_and" ... }`
+- [x] `name:bool = lhs >= rhs` → `combine { fn = "gte" ... }`
+- [x] `name:bool = lhs <= rhs` → `combine { fn = "lte" ... }`
+- [x] `name:str = lhs + rhs` → `combine { fn = "str_concat" ... }`
+- [x] `#pipe(p:v)[step1, step2]` → `pipe { args = { p = ref(v) } steps = [...] }`
+- [x] `{ cond = { condition = c then = t else = e } }` → `cond { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } }`
+- [x] `#if { cond = fn(a,b) then = t else = e }` → auto-generate `__if_<name>_cond` binding + `cond` form
+- [x] `{ transform = { ref = "v", fn = "..." } }` → pass through unchanged
 
 ### Sigil lowering (per `effect-dsl-spec.md §6`)
 
-- [ ] Strip sigil from binding name in canonical `binding` block
-- [ ] `~>name:type = _` with STATE schema → resolve default value from STATE schema; emit `binding "name" { type = "type" value = <default> }`
-- [ ] `~>` / `<~>` bindings → emit entry in `prepare { binding "name" { from_state = "..." } }`
-- [ ] `<~` / `<~>` bindings → emit entry in `merge { binding "name" { to_state = "..." } }`
-- [ ] `from_hook = "..."` → emit `binding "name" { from_hook = "..." }` in `prepare`
+- [x] Strip sigil from binding name in canonical `binding` block
+- [x] `~>name:type = _` with STATE schema → resolve default value from STATE schema; emit `binding "name" { type = "type" value = <default> }`
+- [x] `~>` / `<~>` bindings → emit entry in `prepare { binding "name" { from_state = "..." } }`
+- [x] `<~` / `<~>` bindings → emit entry in `merge { binding "name" { to_state = "..." } }`
+- [x] `from_hook = "..."` → emit `binding "name" { from_hook = "..." }` in `prepare`
 
 ### Docstring lowering (per `scene-graph.md §5.1`)
 
-- [ ] `"""..."""` → `text = <<-EOT\n...\nEOT`
-- [ ] Trim one leading newline after opening `"""` and one trailing newline before closing `"""`
+- [x] `"""..."""` → `text = <<-EOT\n...\nEOT`
+- [x] Trim one leading newline after opening `"""` and one trailing newline before closing `"""`
 
 ### State block lowering (per `state-shape-spec.md §3`)
 
-- [ ] `state { ns { field:type = default } }` → `state { namespace "ns" { field "field" { type = "type" value = default } } }`
+- [x] `state { ns { field:type = default } }` → `state { namespace "ns" { field "field" { type = "type" value = default } } }`
 
 ### Route DSL lowering (per `scene-to-scene.md §3`)
 
@@ -242,62 +242,62 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [ ] Each field has `type` and `value` (`MissingStateFieldAttr`)
 - [ ] `type` is one of 6 valid strings (`InvalidStateFieldType`)
 - [ ] Default `value` type-compatible with declared `type` (`StateFieldDefaultTypeMismatch`)
-- [ ] All `from_state` / `to_state` paths declared in STATE schema (`UnresolvedStatePath`)
-- [ ] `to_state` target type matches source binding type across all actions (`StateTypeMismatch`)
+- [x] All `from_state` / `to_state` paths declared in STATE schema (`UnresolvedStatePath`)
+- [x] `to_state` target type matches source binding type across all actions (`StateTypeMismatch`)
 
 ### Binding validation (per `hcl-context-spec.md §5`)
 
-- [ ] Literal matches declared `:type` (`TypeMismatch`)
+- [x] Literal matches declared `:type` (`TypeMismatch`)
 - [ ] `:number` value is a valid numeric literal (`NonIntegerValue` — but decimals are allowed per spec)
-- [ ] `arr<T>` elements all of type `T` (`HeterogeneousArray`)
-- [ ] No nested arrays in value bindings (`NestedArrayNotAllowed`)
+- [x] `arr<T>` elements all of type `T` (`HeterogeneousArray`)
+- [x] No nested arrays in value bindings (`NestedArrayNotAllowed`)
 - [ ] At most one `prog` block per file (`DuplicateProg`)
-- [ ] No duplicate binding names within `prog` (`DuplicateBinding`)
-- [ ] No user binding name starts with `__` (`ReservedName`)
-- [ ] Function alias in built-in table (`UnknownFnAlias`)
+- [x] No duplicate binding names within `prog` (`DuplicateBinding`)
+- [x] No user binding name starts with `__` (`ReservedName`)
+- [x] Function alias in built-in table (`UnknownFnAlias`)
 - [ ] Operator-only functions not used in call form (`OperatorOnlyFn`): `bool_and`, `gte`, `lte`, `str_concat`
-- [ ] Bare identifier references resolve to declared binding (`UndefinedRef`)
-- [ ] `func_ref` / `then` / `else` reference function bindings (`UndefinedFuncRef`)
+- [x] Bare identifier references resolve to declared binding (`UndefinedRef`)
+- [x] `func_ref` / `then` / `else` reference function bindings (`UndefinedFuncRef`)
 - [ ] Binary call args are `(x,y)` or `(a:x,b:y)` (`InvalidBinaryArgShape`)
 - [ ] Infix: valid operator, valid type pairing (`InvalidInfixExpr`)
-- [ ] Arg types match function param types (`ArgTypeMismatch`)
-- [ ] Return type matches declared binding type (`ReturnTypeMismatch`)
-- [ ] Condition binding resolves to `bool` (`CondNotBool`)
-- [ ] `then`/`else` return types match (`BranchTypeMismatch`)
-- [ ] `step_ref = N` is within bounds (`StepRefOutOfBounds`)
+- [x] Arg types match function param types (`ArgTypeMismatch`)
+- [x] Return type matches declared binding type (`ReturnTypeMismatch`)
+- [x] Condition binding resolves to `bool` (`CondNotBool`)
+- [x] `then`/`else` return types match (`BranchTypeMismatch`)
+- [x] `step_ref = N` is within bounds (`StepRefOutOfBounds`)
 - [ ] `step_ref` does not cross pipe boundary (`CrossPipeStepRef`)
-- [ ] Pipe param source is a value binding (`PipeArgNotValue`)
-- [ ] Single-ref form: referenced binding type matches declared type (`SingleRefTypeMismatch`)
+- [x] Pipe param source is a value binding (`PipeArgNotValue`)
+- [x] Single-ref form: referenced binding type matches declared type (`SingleRefTypeMismatch`)
 
 ### Effect DSL validation (per `effect-dsl-spec.md §5`, `convert-runtime-spec.md §Phase1`)
 
-- [ ] Each `~>` / `<~>` binding has a `prepare` entry (`MissingPrepareEntry`)
-- [ ] Each `<~` / `<~>` binding has a `merge` entry (`MissingMergeEntry`)
-- [ ] No `prepare` entry for non-sigiled binding (`SpuriousPrepareEntry`)
-- [ ] No `merge` entry for non-sigiled binding (`SpuriousMergeEntry`)
-- [ ] No duplicate binding name in `prepare` (`DuplicatePrepareEntry`)
-- [ ] No duplicate binding name in `merge` (`DuplicateMergeEntry`)
-- [ ] `<~>` binding in `prepare` must also be in `merge` (`BidirMissingMergeEntry`)
-- [ ] `<~>` binding in `merge` must also be in `prepare` (`BidirMissingPrepareEntry`)
+- [x] Each `~>` / `<~>` binding has a `prepare` entry (`MissingPrepareEntry`)
+- [x] Each `<~` / `<~>` binding has a `merge` entry (`MissingMergeEntry`)
+- [x] No `prepare` entry for non-sigiled binding (`SpuriousPrepareEntry`)
+- [x] No `merge` entry for non-sigiled binding (`SpuriousMergeEntry`)
+- [x] No duplicate binding name in `prepare` (`DuplicatePrepareEntry`)
+- [x] No duplicate binding name in `merge` (`DuplicateMergeEntry`)
+- [x] `<~>` binding in `prepare` must also be in `merge` (`BidirMissingMergeEntry`)
+- [x] `<~>` binding in `merge` must also be in `prepare` (`BidirMissingPrepareEntry`)
 - [ ] No `merge` or `publish` inside `next {}` (`TransitionMerge`)
 - [ ] No `from_hook` in transition `prepare` (`TransitionHook`)
-- [ ] No `<~` or `<~>` sigil in transition `prog` (`TransitionOutputSigil`)
-- [ ] Transition `prepare` entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`)
+- [x] No `<~` or `<~>` sigil in transition `prog` (`TransitionOutputSigil`)
+- [x] Transition `prepare` entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`)
 - [ ] No `from_state` + `from_hook` on same `prepare` entry (`InvalidPrepareSource`)
-- [ ] Every `prepare` binding name has a matching `binding` in the same `prog` (`UnresolvedPrepareBinding`)
-- [ ] Every `merge` binding name has a matching `binding` in the same `prog` (`UnresolvedMergeBinding`)
-- [ ] `from_state` / `to_state` values are valid dotted paths (`InvalidStatePath`)
-- [ ] No duplicate `action` block names in one HCL file (`DuplicateActionLabel`)
+- [x] Every `prepare` binding name has a matching `binding` in the same `prog` (`UnresolvedPrepareBinding`)
+- [x] Every `merge` binding name has a matching `binding` in the same `prog` (`UnresolvedMergeBinding`)
+- [x] `from_state` / `to_state` values are valid dotted paths (`InvalidStatePath`)
+- [x] No duplicate `action` block names in one HCL file (`DuplicateActionLabel`)
 
 ### Scene structural validation (per `scene-graph.md §6`)
 
-- [ ] `actions` is non-empty
-- [ ] `entryActionIds` non-empty; all referenced actions exist
-- [ ] All `actionId`s are unique
-- [ ] All `next.action` references exist in scene
-- [ ] `compute.root` binding exists in `prog`
-- [ ] Every `prepare` / `merge` binding key exists in `prog`
-- [ ] `compute.condition` binding resolves to `bool` in each next rule
+- [x] `actions` is non-empty
+- [x] `entryActionIds` non-empty; all referenced actions exist
+- [x] All `actionId`s are unique
+- [x] All `next.action` references exist in scene
+- [x] `compute.root` binding exists in `prog`
+- [x] Every `prepare` / `merge` binding key exists in `prog`
+- [x] `compute.condition` binding resolves to `bool` in each next rule
 - [ ] Action docstring: at most one triple-quoted block; no conflict with `text =` (`SCN_ACTION_TEXT_DUPLICATE`)
 
 ### Phase 2 guard
@@ -323,10 +323,10 @@ state {
 }
 ```
 
-- [ ] Emit `state` block before `scene` block in output file
-- [ ] Namespace blocks in declaration order
-- [ ] Field blocks in declaration order
-- [ ] String values quoted; number/bool unquoted; arrays as `[]` or `[v1, v2]`
+- [x] Emit `state` block before `scene` block in output file
+- [x] Namespace blocks in declaration order
+- [x] Field blocks in declaration order
+- [x] String values quoted; number/bool unquoted; arrays as `[]` or `[v1, v2]`
 
 ### Scene block emission (per `scene-graph.md §5`)
 
@@ -361,18 +361,18 @@ scene "<id>" {
 }
 ```
 
-- [ ] `entry_actions` as string list attribute
-- [ ] `next_policy` as string attribute
-- [ ] Each action block with unique label
-- [ ] `compute.root` and `next.compute.condition` as quoted strings
-- [ ] `prog` block with `binding` blocks (not `name:type` keys)
-- [ ] Expr blocks: `combine`, `pipe`, `cond` using reference objects `{ ref = "..." }` / `{ lit = <v> }` / `{ func_ref = "..." }` / `{ step_ref = N }`
-- [ ] `prepare` / `merge` bindings quoted
-- [ ] Multiple `hook` attributes in `publish`
+- [x] `entry_actions` as string list attribute
+- [x] `next_policy` as string attribute
+- [x] Each action block with unique label
+- [x] `compute.root` and `next.compute.condition` as quoted strings
+- [x] `prog` block with `binding` blocks (not `name:type` keys)
+- [x] Expr blocks: `combine`, `pipe`, `cond` using reference objects `{ ref = "..." }` / `{ lit = <v> }` / `{ func_ref = "..." }` / `{ step_ref = N }`
+- [x] `prepare` / `merge` bindings quoted
+- [x] Multiple `hook` attributes in `publish`
 
 ### Reference normalization (per `scene-graph.md §2.3`)
 
-- [ ] All reference-style fields emitted as quoted strings (bare form not used in output)
+- [x] All reference-style fields emitted as quoted strings (bare form not used in output)
 
 ---
 
