@@ -934,3 +934,171 @@ func TestRHSCompatFuncBlock(t *testing.T) {
 		t.Errorf("RHS: got %T", b.RHS)
 	}
 }
+
+// ── route block ───────────────────────────────────────────────────────────────
+
+func TestParseRouteBlock(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s1" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}
+route "main" {
+  match {
+    s1.*.done => s1,
+    _ => s1
+  }
+}`
+	tf := mustParse(t, src)
+	if len(tf.Routes) != 1 {
+		t.Fatalf("expected 1 route, got %d", len(tf.Routes))
+	}
+	r := tf.Routes[0]
+	if r.ID != "main" {
+		t.Errorf("route ID = %q, want %q", r.ID, "main")
+	}
+	if r.Match == nil {
+		t.Fatal("route.Match is nil")
+	}
+	if len(r.Match.Arms) != 2 {
+		t.Fatalf("expected 2 arms, got %d", len(r.Match.Arms))
+	}
+
+	// First arm: s1.*.done => s1
+	arm0 := r.Match.Arms[0]
+	if len(arm0.Branches) != 1 {
+		t.Fatalf("arm0: expected 1 branch, got %d", len(arm0.Branches))
+	}
+	pe0 := arm0.Branches[0]
+	if pe0.CatchAll {
+		t.Error("arm0: should not be catch-all")
+	}
+	if pe0.SceneID != "s1" {
+		t.Errorf("arm0 SceneID = %q, want %q", pe0.SceneID, "s1")
+	}
+	if len(pe0.Segments) != 2 || pe0.Segments[0] != "*" || pe0.Segments[1] != "done" {
+		t.Errorf("arm0 Segments = %v, want [* done]", pe0.Segments)
+	}
+	if arm0.Target != "s1" {
+		t.Errorf("arm0 Target = %q, want %q", arm0.Target, "s1")
+	}
+
+	// Second arm: _ => s1
+	arm1 := r.Match.Arms[1]
+	if len(arm1.Branches) != 1 {
+		t.Fatalf("arm1: expected 1 branch, got %d", len(arm1.Branches))
+	}
+	if !arm1.Branches[0].CatchAll {
+		t.Error("arm1: expected catch-all")
+	}
+	if arm1.Target != "s1" {
+		t.Errorf("arm1 Target = %q, want %q", arm1.Target, "s1")
+	}
+}
+
+func TestParseRouteORBranches(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s1" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}
+route "r" {
+  match {
+    s1.start | s1.*.end => s1
+  }
+}`
+	tf := mustParse(t, src)
+	if len(tf.Routes) != 1 {
+		t.Fatalf("expected 1 route")
+	}
+	arm := tf.Routes[0].Match.Arms[0]
+	if len(arm.Branches) != 2 {
+		t.Fatalf("expected 2 OR branches, got %d", len(arm.Branches))
+	}
+	// First branch: s1.start
+	b0 := arm.Branches[0]
+	if b0.SceneID != "s1" || len(b0.Segments) != 1 || b0.Segments[0] != "start" {
+		t.Errorf("branch0: SceneID=%q Segments=%v", b0.SceneID, b0.Segments)
+	}
+	// Second branch: s1.*.end
+	b1 := arm.Branches[1]
+	if b1.SceneID != "s1" || len(b1.Segments) != 2 || b1.Segments[0] != "*" || b1.Segments[1] != "end" {
+		t.Errorf("branch1: SceneID=%q Segments=%v", b1.SceneID, b1.Segments)
+	}
+}
+
+func TestParseRouteCatchAllOnly(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}
+route "r" { match { _ => s } }`
+	tf := mustParse(t, src)
+	arm := tf.Routes[0].Match.Arms[0]
+	if !arm.Branches[0].CatchAll {
+		t.Error("expected catch-all branch")
+	}
+	if arm.Target != "s" {
+		t.Errorf("target = %q, want %q", arm.Target, "s")
+	}
+}
+
+func TestParseMultipleRoutes(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}
+route "r1" { match { _ => s } }
+route "r2" { match { s.done => s } }`
+	tf := mustParse(t, src)
+	if len(tf.Routes) != 2 {
+		t.Fatalf("expected 2 routes, got %d", len(tf.Routes))
+	}
+	if tf.Routes[0].ID != "r1" || tf.Routes[1].ID != "r2" {
+		t.Errorf("route IDs = %q, %q", tf.Routes[0].ID, tf.Routes[1].ID)
+	}
+}
+
+func TestParseRouteWildcardSegment(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}
+route "r" { match { s.*.final => s } }`
+	tf := mustParse(t, src)
+	pe := tf.Routes[0].Match.Arms[0].Branches[0]
+	if len(pe.Segments) != 2 || pe.Segments[0] != "*" || pe.Segments[1] != "final" {
+		t.Errorf("segments = %v, want [* final]", pe.Segments)
+	}
+}
+
+// TestRouteDoesNotBreakBindingNamedRoute verifies that using "route" as a
+// binding name in a scene still parses correctly (contextual keyword).
+func TestRouteDoesNotBreakBindingNamedRoute(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = route
+      prog "p" {
+        route:str = "forest_trail"
+      }
+    }
+  }
+}`
+	tf := mustParse(t, src)
+	if tf.Scene == nil {
+		t.Fatal("scene not parsed")
+	}
+	b := tf.Scene.Actions[0].Compute.Prog.Bindings[0]
+	if b.Name != "route" {
+		t.Errorf("binding name = %q, want %q", b.Name, "route")
+	}
+	if len(tf.Routes) != 0 {
+		t.Errorf("expected 0 routes, got %d", len(tf.Routes))
+	}
+}

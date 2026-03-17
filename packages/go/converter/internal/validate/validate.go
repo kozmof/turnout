@@ -86,7 +86,90 @@ func Validate(model *lower.Model, schema state.Schema) diag.Diagnostics {
 	if model.Scene != nil {
 		validateScene(model.Scene, schema, &ds)
 	}
+	if len(model.Routes) > 0 {
+		knownScenes := buildKnownScenes(model)
+		validateRoutes(model.Routes, knownScenes, &ds)
+	}
 	return ds
+}
+
+// buildKnownScenes returns a set of scene IDs present in the model.
+func buildKnownScenes(model *lower.Model) map[string]bool {
+	known := make(map[string]bool)
+	if model.Scene != nil {
+		known[model.Scene.ID] = true
+	}
+	return known
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Group E — Route validation (per scene-to-scene.md §8)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func validateRoutes(routes []*lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag.Diagnostics) {
+	for _, r := range routes {
+		validateRoute(r, knownScenes, ds)
+	}
+}
+
+func validateRoute(r *lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag.Diagnostics) {
+	catchAllCount := 0
+	for i, arm := range r.Arms {
+		// Validate target scene exists.
+		if arm.Target != "" && !knownScenes[arm.Target] {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedScene,
+				"route %q arm %d: target scene %q is not defined", r.ID, i, arm.Target))
+		}
+		for _, pat := range arm.Patterns {
+			if pat == "_" {
+				catchAllCount++
+				if catchAllCount > 1 {
+					*ds = append(*ds, diag.Errorf(diag.CodeDuplicateCatchAll,
+						"route %q: match block has more than one _ catch-all arm", r.ID))
+				}
+				continue
+			}
+			validateRoutePattern(r.ID, i, pat, ds)
+		}
+	}
+}
+
+// validateRoutePattern validates a single non-catch-all path pattern string.
+func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagnostics) {
+	parts := strings.Split(pat, ".")
+
+	// Must have a non-empty, non-wildcard scene_id as the first segment.
+	if len(parts) < 1 || parts[0] == "" || parts[0] == "*" {
+		*ds = append(*ds, diag.Errorf(diag.CodeInvalidPathItem,
+			"route %q arm %d: pattern %q has no valid scene_id prefix", routeID, armIdx, pat))
+		return
+	}
+
+	// Must have at least one action segment after the scene_id.
+	if len(parts) < 2 {
+		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
+			"route %q arm %d: pattern %q has no action segment after scene_id", routeID, armIdx, pat))
+		return
+	}
+
+	// Count wildcards in action segments (parts[1:]).
+	wildcardCount := 0
+	for _, seg := range parts[1:] {
+		if seg == "*" {
+			wildcardCount++
+		}
+	}
+	if wildcardCount > 1 {
+		*ds = append(*ds, diag.Errorf(diag.CodeMultipleWildcards,
+			"route %q arm %d: pattern %q has more than one * wildcard", routeID, armIdx, pat))
+		return
+	}
+
+	// Last segment must be a specific action_id, not *.
+	if parts[len(parts)-1] == "*" {
+		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
+			"route %q arm %d: pattern %q ends with * (terminal action required)", routeID, armIdx, pat))
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

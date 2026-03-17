@@ -1289,6 +1289,122 @@ func (p *parser) parseFieldDecl() *ast.FieldDecl {
 
 // ─── parseFile ───────────────────────────────────────────────────────────────
 
+// ─── Route block parsing ──────────────────────────────────────────────────────
+
+// parseRouteBlock parses `route "<id>" { match { ... } }`.
+// "route" has already been identified as a TokIdent with value "route" by the caller.
+func (p *parser) parseRouteBlock() *ast.RouteBlock {
+	pos := p.posOf(p.peek())
+	p.advance() // consume the bare "route" ident
+	idTok, _ := p.expect(lexer.TokStringLit)
+	p.expect(lexer.TokLBrace)
+	rb := &ast.RouteBlock{Pos: pos, ID: idTok.Value}
+	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
+		t := p.peek()
+		if t.Kind == lexer.TokIdent && t.Value == "match" {
+			if rb.Match != nil {
+				p.errorf(t, "duplicate match block in route %q", rb.ID)
+				p.skipBlock()
+				continue
+			}
+			rb.Match = p.parseMatchBlock()
+		} else {
+			p.errorf(t, "expected 'match' in route block, got %s %q", kindName(t.Kind), t.Value)
+			p.advance()
+		}
+	}
+	p.expect(lexer.TokRBrace)
+	return rb
+}
+
+// parseMatchBlock parses `match { <arm>... }`.
+// "match" has already been identified as a TokIdent with value "match" by the caller.
+func (p *parser) parseMatchBlock() *ast.MatchBlock {
+	pos := p.posOf(p.peek())
+	p.advance() // consume the bare "match" ident
+	p.expect(lexer.TokLBrace)
+	mb := &ast.MatchBlock{Pos: pos}
+	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
+		arm := p.parseMatchArm()
+		if arm != nil {
+			mb.Arms = append(mb.Arms, arm)
+		}
+	}
+	p.expect(lexer.TokRBrace)
+	return mb
+}
+
+// parseMatchArm parses one arm: `<branch> (| <branch>)* => <scene_id>,`
+func (p *parser) parseMatchArm() *ast.MatchArm {
+	pos := p.posOf(p.peek())
+	arm := &ast.MatchArm{Pos: pos}
+
+	for {
+		branch := p.parsePathExpr()
+		if branch != nil {
+			arm.Branches = append(arm.Branches, branch)
+		}
+		if p.peek().Kind == lexer.TokPipe {
+			p.advance() // consume |
+			continue
+		}
+		break
+	}
+
+	p.expect(lexer.TokArrow) // =>
+	arm.Target = p.parseRefVal()
+
+	// optional trailing comma
+	if p.peek().Kind == lexer.TokComma {
+		p.advance()
+	}
+	return arm
+}
+
+// parsePathExpr parses `_` or `scene_id(.segment)*` where segment is an ident or `*`.
+func (p *parser) parsePathExpr() *ast.PathExpr {
+	pos := p.posOf(p.peek())
+	t := p.peek()
+
+	if t.Kind == lexer.TokUnderscore {
+		p.advance()
+		return &ast.PathExpr{Pos: pos, CatchAll: true}
+	}
+
+	// scene_id — bare ident or keyword used as identifier
+	sceneID := ""
+	if t.Kind == lexer.TokIdent || isKeyword(t.Kind) {
+		p.advance()
+		sceneID = t.Value
+	} else {
+		p.errorf(t, "expected scene_id or _ in path expression, got %s %q", kindName(t.Kind), t.Value)
+		return nil
+	}
+
+	var segments []string
+	for p.peek().Kind == lexer.TokDot {
+		p.advance() // consume .
+		seg := p.peek()
+		switch seg.Kind {
+		case lexer.TokStar:
+			p.advance()
+			segments = append(segments, "*")
+		case lexer.TokIdent:
+			p.advance()
+			segments = append(segments, seg.Value)
+		default:
+			if isKeyword(seg.Kind) {
+				p.advance()
+				segments = append(segments, seg.Value)
+			} else {
+				p.errorf(seg, "expected action_id or * in path expression, got %s %q", kindName(seg.Kind), seg.Value)
+			}
+		}
+	}
+
+	return &ast.PathExpr{Pos: pos, SceneID: sceneID, Segments: segments}
+}
+
 func (p *parser) parseFile() *ast.TurnFile {
 	tf := &ast.TurnFile{}
 	hasState := false
@@ -1331,6 +1447,19 @@ func (p *parser) parseFile() *ast.TurnFile {
 			}
 			hasScene = true
 			tf.Scene = p.parseSceneBlock()
+
+		case lexer.TokIdent:
+			// `route` is not a hard keyword (to avoid clashing with user identifiers),
+			// so it arrives as TokIdent at file top level.
+			if t.Value == "route" {
+				rb := p.parseRouteBlock()
+				if rb != nil {
+					tf.Routes = append(tf.Routes, rb)
+				}
+				continue
+			}
+			p.errorf(t, "unexpected token %s %q at file top level", kindName(t.Kind), t.Value)
+			p.advance()
 
 		default:
 			p.errorf(t, "unexpected token %s %q at file top level", kindName(t.Kind), t.Value)

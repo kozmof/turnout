@@ -25,14 +25,24 @@ func Emit(w io.Writer, model *lower.Model) diag.Diagnostics {
 		return nil
 	}
 	iw := &iWriter{out: w}
+	sep := false
 	if model.State != nil {
 		writeStateBlock(iw, model.State)
+		sep = true
 	}
 	if model.Scene != nil {
-		if model.State != nil {
+		if sep {
 			iw.nl()
 		}
 		writeSceneBlock(iw, model.Scene)
+		sep = true
+	}
+	for _, r := range model.Routes {
+		if sep {
+			iw.nl()
+		}
+		writeRouteBlock(iw, r)
+		sep = true
 	}
 	return nil
 }
@@ -475,4 +485,43 @@ func writeLiteral(lit ast.Literal) string {
 		return "[" + strings.Join(parts, ", ") + "]"
 	}
 	return "null"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route block
+// ─────────────────────────────────────────────────────────────────────────────
+
+// writeRouteBlock emits:
+//
+//	route "<id>" {
+//	  match {
+//	    arm {
+//	      patterns = ["pat1", "pat2"]
+//	      target   = "scene_id"
+//	    }
+//	    ...
+//	  }
+//	}
+func writeRouteBlock(iw *iWriter, r *lower.HCLRouteBlock) {
+	iw.wl("route %q {", r.ID)
+	iw.depth++
+	iw.wl("match {")
+	iw.depth++
+	for _, arm := range r.Arms {
+		iw.wl("arm {")
+		iw.depth++
+		// patterns = ["p1", "p2"]
+		quoted := make([]string, len(arm.Patterns))
+		for i, p := range arm.Patterns {
+			quoted[i] = fmt.Sprintf("%q", p)
+		}
+		iw.wl("patterns = [%s]", strings.Join(quoted, ", "))
+		iw.wl("target   = %q", arm.Target)
+		iw.depth--
+		iw.wl("}")
+	}
+	iw.depth--
+	iw.wl("}")
+	iw.depth--
+	iw.wl("}")
 }

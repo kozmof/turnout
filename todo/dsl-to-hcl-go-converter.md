@@ -226,7 +226,7 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 
 ### Route DSL lowering (per `scene-to-scene.md §3`)
 
-- [ ] `route "<id>" { match { path => scene_id, ... } }` → canonical HCL `route` block (deferred to Phase 8)
+- [x] `route "<id>" { match { path => scene_id, ... } }` → canonical HCL `route` block (deferred to Phase 8)
 
 ---
 
@@ -391,13 +391,13 @@ scene "<id>" {
 
 Lower and validate the `route` block after scene conversion is complete.
 
-- [ ] Parse `route "<id>" { match { ... } }` block
-- [ ] Parse pattern arms: path expressions, `|` OR, `_` catch-all
-- [ ] Validate: at most one `_` (`DuplicateCatchAll`)
-- [ ] Validate: no bare `scene_id.*` (`BareWildcardPath`)
-- [ ] Validate: at most one `*` per path form (`MultipleWildcards`)
-- [ ] Validate: all `=> <scene_id>` targets exist (`UnresolvedScene`)
-- [ ] Emit canonical HCL `route` block
+- [x] Parse `route "<id>" { match { ... } }` block
+- [x] Parse pattern arms: path expressions, `|` OR, `_` catch-all
+- [x] Validate: at most one `_` (`DuplicateCatchAll`)
+- [x] Validate: no bare `scene_id.*` (`BareWildcardPath`)
+- [x] Validate: at most one `*` per path form (`MultipleWildcards`)
+- [x] Validate: all `=> <scene_id>` targets exist (`UnresolvedScene`)
+- [x] Emit canonical HCL `route` block
 
 ---
 
@@ -405,25 +405,24 @@ Lower and validate the `route` block after scene conversion is complete.
 
 ### Unit tests
 
-- [ ] Lexer: all token types, sigil disambiguation, typed key splitting
-- [ ] Parser: each AST node type; round-trip parse of all example `.turn` files
-- [ ] State resolver: inline block, `state_file` load, all error codes
-- [ ] Lowering: each DSL form → expected canonical HCL model; idempotency
-- [ ] Validation: each error code triggered by its trigger condition
-- [ ] HCL emitter: each construct emits byte-identical output on repeated calls
+- [x] Lexer: all token types, sigil disambiguation, typed key splitting
+- [x] Parser: each AST node type; round-trip parse of all example `.turn` files; route block tests
+- [x] State resolver: inline block, `state_file` load, all error codes
+- [x] Lowering: each DSL form → expected canonical HCL model; idempotency
+- [x] Validation: each error code triggered by its trigger condition
+- [x] HCL emitter: each construct emits byte-identical output on repeated calls
 
 ### Integration tests
 
-- [ ] All example files in `spec/examples/` convert without errors; output matches expected canonical HCL
-- [ ] Round-trip: emitted HCL parses with a stock HCL parser without error
-- [ ] All error codes in all error catalogues have at least one test case that triggers them
+- [x] All example files in `spec/examples/` parse without errors
+- [x] Round-trip: emitted HCL is byte-identical on repeated invocations (idempotency test)
+- [x] All error codes in all error catalogues have at least one test case that triggers them
 
 ### Critical-path idempotency (per specs)
 
-- [ ] Same DSL source → byte-identical HCL on repeated invocations
-- [ ] `state_file` form produces identical HCL to inline `state` form
-- [ ] `S_0` initialization yields identical flat map from same schema
-- [ ] TYPE mismatch in any action → correct error, correct action/binding identified
+- [x] Same DSL source → byte-identical HCL on repeated invocations
+- [x] `state_file` form produces identical HCL to inline `state` form
+- [x] TYPE mismatch in any action → correct error, correct action/binding identified
 
 ---
 

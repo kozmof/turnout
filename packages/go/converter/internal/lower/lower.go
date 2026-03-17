@@ -18,8 +18,26 @@ import (
 
 // Model is the lowered canonical HCL representation, ready for validation and emission.
 type Model struct {
-	State *HCLStateBlock
-	Scene *HCLSceneBlock
+	State  *HCLStateBlock
+	Scene  *HCLSceneBlock
+	Routes []*HCLRouteBlock
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route block types
+// ─────────────────────────────────────────────────────────────────────────────
+
+// HCLRouteBlock corresponds to `route "<id>" { match { ... } }`.
+type HCLRouteBlock struct {
+	ID   string
+	Arms []*HCLMatchArm
+}
+
+// HCLMatchArm is one arm of a match block.
+// Patterns holds the string representation of each OR-branch ("_" for catch-all).
+type HCLMatchArm struct {
+	Patterns []string
+	Target   string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -228,10 +246,46 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*Model, diag.Diagnostics) {
 		sceneBlock = lowerSceneBlock(file.Scene, schema, &ds)
 	}
 
+	routes := lowerRouteBlocks(file.Routes)
+
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	return &Model{State: stateBlock, Scene: sceneBlock}, ds
+	return &Model{State: stateBlock, Scene: sceneBlock, Routes: routes}, ds
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route block lowering
+// ─────────────────────────────────────────────────────────────────────────────
+
+// lowerRouteBlocks lowers all route blocks to canonical HCL model form.
+func lowerRouteBlocks(routes []*ast.RouteBlock) []*HCLRouteBlock {
+	result := make([]*HCLRouteBlock, 0, len(routes))
+	for _, r := range routes {
+		hclr := &HCLRouteBlock{ID: r.ID}
+		if r.Match != nil {
+			for _, arm := range r.Match.Arms {
+				hclArm := &HCLMatchArm{Target: arm.Target}
+				for _, branch := range arm.Branches {
+					hclArm.Patterns = append(hclArm.Patterns, pathExprString(branch))
+				}
+				hclr.Arms = append(hclr.Arms, hclArm)
+			}
+		}
+		result = append(result, hclr)
+	}
+	return result
+}
+
+// pathExprString converts a PathExpr to its canonical string form.
+func pathExprString(pe *ast.PathExpr) string {
+	if pe.CatchAll {
+		return "_"
+	}
+	parts := make([]string, 0, 1+len(pe.Segments))
+	parts = append(parts, pe.SceneID)
+	parts = append(parts, pe.Segments...)
+	return strings.Join(parts, ".")
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

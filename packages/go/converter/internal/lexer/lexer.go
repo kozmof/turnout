@@ -80,6 +80,8 @@ const (
 	TokKwFlow
 	TokKwEnforce
 	TokKwText
+	TokKwRoute
+	TokKwMatch
 )
 
 // Token is a single lexed token.

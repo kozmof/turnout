@@ -114,6 +114,7 @@ func (s Sigil) String() string {
 type TurnFile struct {
 	StateSource StateSource // nil only if both are absent (error case)
 	Scene       *SceneBlock
+	Routes      []*RouteBlock
 }
 
 // StateSource is implemented by *InlineStateBlock and *StateFileDirective.
@@ -576,3 +577,37 @@ type ArrayLiteral struct {
 }
 
 func (*ArrayLiteral) literal() {}
+
+// ────────────────────────────────────────────────────────────
+// Route / Match
+// ────────────────────────────────────────────────────────────
+
+// RouteBlock is the `route "<id>" { match { ... } }` top-level block.
+type RouteBlock struct {
+	Pos   Pos
+	ID    string
+	Match *MatchBlock
+}
+
+// MatchBlock is the `match { <arms...> }` inside a route block.
+type MatchBlock struct {
+	Pos  Pos
+	Arms []*MatchArm
+}
+
+// MatchArm is one `<path-expr> => <scene_id>` arm (possibly OR-joined branches).
+type MatchArm struct {
+	Pos      Pos
+	Branches []*PathExpr // one or more branches joined with |
+	Target   string      // scene_id target
+}
+
+// PathExpr is one path-form in a match arm.
+// CatchAll == true means the _ pattern.
+// Otherwise SceneID + Segments describe the path (Segments may contain "*").
+type PathExpr struct {
+	Pos      Pos
+	CatchAll bool
+	SceneID  string
+	Segments []string // e.g. ["*", "final_action"] for scene_id.*.final_action
+}
