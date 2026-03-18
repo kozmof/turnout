@@ -1,0 +1,268 @@
+import { describe, it, expect } from 'vitest';
+import { executeScene } from '../src/executor/scene-executor.js';
+import { StateManager } from '../src/state/state-manager.js';
+import {
+  buildNumber,
+  buildString,
+  buildBoolean,
+  isPureNumber,
+  isPureString,
+  isPureBoolean,
+} from 'turnout';
+import type { SceneBlock, ActionModel } from '../src/types/scene-model.js';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Build a trivial pass-through action that merges one number binding into STATE. */
+function makePassAction(id: string, value: number, toState: string): ActionModel {
+  return {
+    id,
+    compute: {
+      root: 'out',
+      prog: {
+        name: `${id}_prog`,
+        bindings: [
+          { name: 'v', type: 'number', value },
+          {
+            name: 'out',
+            type: 'number',
+            expr: { combine: { fn: 'add', args: [{ ref: 'v' }, { lit: 0 }] } },
+          },
+        ],
+      },
+    },
+    merge: [{ binding: 'v', to_state: toState }],
+  };
+}
+
+/** Build a conditional next rule that fires when a boolean state path is true. */
+function makeBoolCondNextRule(
+  condStatePath: string,
+  nextActionId: string,
+): ActionModel['next'] {
+  return [
+    {
+      prepare: [{ binding: 'flag', from_state: condStatePath }],
+      compute: {
+        condition: 'flag',
+        prog: {
+          name: 'cond_prog',
+          bindings: [{ name: 'flag', type: 'bool', value: false }],
+        },
+      },
+      action: nextActionId,
+    },
+  ];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Single action, no next rules → terminates immediately
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeScene — single terminal action', () => {
+  const scene: SceneBlock = {
+    id: 'single_scene',
+    entry_actions: ['only_action'],
+    actions: [makePassAction('only_action', 7, 'out.val')],
+  };
+
+  it('terminates the single action', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    expect(result.terminatedAt).toEqual(['only_action']);
+  });
+
+  it('trace contains one action entry', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    expect(result.trace.actions).toHaveLength(1);
+    expect(result.trace.actions[0].actionId).toBe('only_action');
+    expect(result.trace.actions[0].nextActionIds).toEqual([]);
+  });
+
+  it('final state has the merged value', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    const v = result.stateAfterScene.read('out.val');
+    expect(isPureNumber(v!) && v.value).toBe(7);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Two-action chain (first-match, conditional)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeScene — two-action chain (first-match)', () => {
+  const scene: SceneBlock = {
+    id: 'chain_scene',
+    entry_actions: ['action_a'],
+    next_policy: 'first-match',
+    actions: [
+      {
+        ...makePassAction('action_a', 1, 'step.a'),
+        next: makeBoolCondNextRule('gate.proceed', 'action_b'),
+      },
+      makePassAction('action_b', 2, 'step.b'),
+    ],
+  };
+
+  it('follows the chain when the condition is true', () => {
+    const state = StateManager.from({ 'gate.proceed': buildBoolean(true) });
+    const result = executeScene(scene, state);
+    expect(result.terminatedAt).toEqual(['action_b']);
+    expect(result.trace.actions.map((t) => t.actionId)).toEqual(['action_a', 'action_b']);
+    const v = result.stateAfterScene.read('step.b');
+    expect(isPureNumber(v!) && v.value).toBe(2);
+  });
+
+  it('terminates at action_a when the condition is false', () => {
+    const state = StateManager.from({ 'gate.proceed': buildBoolean(false) });
+    const result = executeScene(scene, state);
+    expect(result.terminatedAt).toEqual(['action_a']);
+    expect(result.trace.actions.map((t) => t.actionId)).toEqual(['action_a']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Unconditional next rule
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeScene — unconditional next rule', () => {
+  const scene: SceneBlock = {
+    id: 'unconditional_scene',
+    entry_actions: ['first'],
+    actions: [
+      {
+        ...makePassAction('first', 10, 'step.first'),
+        next: [{ action: 'second' }],   // no compute → always fires
+      },
+      makePassAction('second', 20, 'step.second'),
+    ],
+  };
+
+  it('always follows an unconditional next rule', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    expect(result.terminatedAt).toEqual(['second']);
+    expect(result.trace.actions.map((t) => t.actionId)).toEqual(['first', 'second']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// all-match policy
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeScene — all-match policy', () => {
+  const scene: SceneBlock = {
+    id: 'all_match_scene',
+    entry_actions: ['start'],
+    next_policy: 'all-match',
+    actions: [
+      {
+        ...makePassAction('start', 0, 'step.start'),
+        next: [
+          { action: 'branch_a' },   // unconditional
+          { action: 'branch_b' },   // unconditional
+        ],
+      },
+      makePassAction('branch_a', 100, 'step.a'),
+      makePassAction('branch_b', 200, 'step.b'),
+    ],
+  };
+
+  it('enqueues all matching branches', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    const ran = result.trace.actions.map((t) => t.actionId);
+    expect(ran).toContain('branch_a');
+    expect(ran).toContain('branch_b');
+    expect(result.terminatedAt).toContain('branch_a');
+    expect(result.terminatedAt).toContain('branch_b');
+  });
+
+  it('start action has both nextActionIds', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    const startTrace = result.trace.actions.find((t) => t.actionId === 'start')!;
+    expect(startTrace.nextActionIds).toEqual(['branch_a', 'branch_b']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State propagation across actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeScene — state propagation', () => {
+  /** Action B reads the value written by action A via from_state in prepare. */
+  const actionA: ActionModel = {
+    id: 'action_a',
+    compute: {
+      root: 'out',
+      prog: {
+        name: 'a_prog',
+        bindings: [
+          { name: 'v', type: 'number', value: 55 },
+          {
+            name: 'out',
+            type: 'number',
+            expr: { combine: { fn: 'add', args: [{ ref: 'v' }, { lit: 0 }] } },
+          },
+        ],
+      },
+    },
+    merge: [{ binding: 'v', to_state: 'shared.val' }],
+    next: [{ action: 'action_b' }],
+  };
+
+  const actionB: ActionModel = {
+    id: 'action_b',
+    prepare: [{ binding: 'input', from_state: 'shared.val' }],
+    compute: {
+      root: 'doubled',
+      prog: {
+        name: 'b_prog',
+        bindings: [
+          { name: 'input', type: 'number', value: 0 },
+          {
+            name: 'doubled',
+            type: 'number',
+            expr: { combine: { fn: 'add', args: [{ ref: 'input' }, { ref: 'input' }] } },
+          },
+        ],
+      },
+    },
+    merge: [{ binding: 'doubled', to_state: 'shared.doubled' }],
+  };
+
+  const scene: SceneBlock = {
+    id: 'propagation_scene',
+    entry_actions: ['action_a'],
+    actions: [actionA, actionB],
+  };
+
+  it('action_b can read the STATE written by action_a', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    const doubled = result.stateAfterScene.read('shared.doubled');
+    // 55 written by A, doubled by B → 110
+    expect(isPureNumber(doubled!) && doubled.value).toBe(110);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Cycle guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeScene — cycle guard', () => {
+  const scene: SceneBlock = {
+    id: 'cycle_scene',
+    entry_actions: ['a'],
+    actions: [
+      {
+        ...makePassAction('a', 1, 'step.a'),
+        next: [{ action: 'a' }],   // self-loop
+      },
+    ],
+  };
+
+  it('does not loop infinitely on a self-referencing next rule', () => {
+    const result = executeScene(scene, StateManager.from({}));
+    // 'a' runs once; the re-queued 'a' is skipped by the visited guard
+    expect(result.trace.actions.filter((t) => t.actionId === 'a')).toHaveLength(1);
+  });
+});

@@ -126,7 +126,7 @@ Also exports `literalToValue(value, type)` for use by the prepare resolver.
 
 ---
 
-## Phase 4 — HCL Context Builder
+## Phase 4 — HCL Context Builder ✅
 
 **File**: `src/executor/hcl-context-builder.ts`
 
@@ -151,12 +151,12 @@ Lowering rules: value binding → `val()`, combine → `combine()`, pipe → `pi
 
 ### Tasks
 
-- [ ] Implement `src/executor/hcl-context-builder.ts`
-- [ ] Unit tests with sample `ProgModel` fixtures
+- [x] Implement `src/executor/hcl-context-builder.ts`
+- [x] Unit tests with sample `ProgModel` fixtures
 
 ---
 
-## Phase 5 — Prepare Resolver (Stubs)
+## Phase 5 — Prepare Resolver (Stubs) ✅
 
 **File**: `src/executor/prepare-resolver.ts`
 
@@ -193,12 +193,12 @@ function resolveNextPrepare(
 
 ### Tasks
 
-- [ ] Implement `src/executor/prepare-resolver.ts`
-- [ ] Unit tests for each source type
+- [x] Implement `src/executor/prepare-resolver.ts`
+- [x] Unit tests for each source type
 
 ---
 
-## Phase 6 — Action Executor
+## Phase 6 — Action Executor ✅
 
 **File**: `src/executor/action-executor.ts`
 
@@ -223,12 +223,12 @@ Steps: resolve prepare → build context → `assertValidContext` → `executeGr
 
 ### Tasks
 
-- [ ] Implement `src/executor/action-executor.ts`
-- [ ] Unit tests with mock `ActionModel`
+- [x] Implement `src/executor/action-executor.ts`
+- [x] Unit tests with mock `ActionModel`
 
 ---
 
-## Phase 7 — Scene Executor
+## Phase 7 — Scene Executor ✅
 
 **File**: `src/executor/scene-executor.ts`
 
@@ -255,8 +255,8 @@ Algorithm:
 
 ### Tasks
 
-- [ ] Implement `src/executor/scene-executor.ts`
-- [ ] Unit tests: first-match, all-match, no-match termination
+- [x] Implement `src/executor/scene-executor.ts`
+- [x] Unit tests: first-match, all-match, no-match termination
 
 ---
 
@@ -418,10 +418,11 @@ packages/ts/scene-runner/        ✅ new package (pnpm, vitest, @types/node)
     state/
       state-manager.ts            ✅ StateManager (flat KV, immutable writes, fromSchema)
     executor/
-      hcl-context-builder.ts         ProgModel → ExecutionContext
-      prepare-resolver.ts            from_state / from_action / from_hook stubs
-      action-executor.ts             executeAction()
-      scene-executor.ts              executeScene()
+      types.ts                    ✅ ActionExecutionResult (shared type)
+      hcl-context-builder.ts      ✅ ProgModel → ExecutionContext
+      prepare-resolver.ts         ✅ from_state / from_action / from_hook stubs
+      action-executor.ts          ✅ executeAction()
+      scene-executor.ts           ✅ executeScene()
       route-pattern.ts               history extraction, pattern matching, priority
       route-executor.ts              executeRoute()
     harness/
