@@ -27,15 +27,15 @@ The Go converter is complete. The TypeScript runtime has a compute-graph engine 
 
 ---
 
-## Phase 0 — Extend Go Converter: JSON Output
+## Phase 0 — Extend Go Converter: JSON Output ✅
 
 Add `-format json` flag to the CLI so the converter emits the lowered model as JSON alongside the existing `-format hcl` default.
 
 ### Tasks
 
-- [ ] Add `EmitJSON(model *lower.Model) ([]byte, error)` in `packages/go/converter/internal/emit/`
-- [ ] Add `-format` flag to `packages/go/converter/cmd/turnout/main.go` (`hcl` | `json`, default `hcl`)
-- [ ] Write unit tests for JSON emitter
+- [x] Add `EmitJSON(w io.Writer, model *lower.Model) error` in `packages/go/converter/internal/emit/json.go`
+- [x] Add `-format` flag to `packages/go/converter/cmd/turnout/main.go` (`hcl` | `json`, default `hcl`)
+- [x] Write unit test `TestEmitJSONBasic` in `emit_test.go`
 
 ### JSON top-level shape
 
@@ -54,75 +54,42 @@ Add `-format json` flag to the CLI so the converter emits the lowered model as J
     {
       "id": "route_1",
       "match": [
-        { "patterns": [{ "scene_id": "scene_1", "wildcard": true, "suffix": ["final_action"] }], "target": "scene_2" },
-        { "patterns": [{ "catch_all": true }], "target": "scene_other" }
+        { "patterns": ["scene_1.*.final_action"], "target": "scene_2" },
+        { "patterns": ["_"], "target": "scene_other" }
       ]
     }
   ]
 }
 ```
 
-Note: `scenes` is an array (multiple scenes per file); `routes` is optional (may be absent for single-scene files).
+Notes:
+- `scenes` is always an array; the current converter emits one scene per file (single-element array)
+- `routes` is omitted when absent
+- Route patterns are raw strings (`"_"`, `"scene.action"`, `"scene.*.action.action"`) — parsed by the TypeScript side
+- `step_ref` uses a JSON pointer so `step_ref=0` serialises correctly as `0`
 
 ---
 
-## Phase 1 — TypeScript Scene Model Types
+## Phase 1 — TypeScript Scene Model Types ✅
 
-**File**: `src/types/scene-model.ts`
+**Package**: `packages/ts/scene-runner/` (new; depends on `turnout` runtime via `file:../runtime`)
 
-```typescript
-type TurnModel        = { state: StateModel; scenes: SceneBlock[]; routes: RouteModel[] }
-type StateModel       = { namespaces: NamespaceModel[] }
-type NamespaceModel   = { name: string; fields: FieldModel[] }
-type FieldModel       = { name: string; type: FieldTypeStr; value: Literal }
+### Files created
 
-// Scene layer
-type SceneBlock       = { id: string; entry_actions: string[]; next_policy: 'first-match' | 'all-match'; actions: ActionModel[] }
-type ActionModel      = { id: string; compute: ComputeModel; prepare: PrepareEntry[]; merge: MergeEntry[]; publish?: string[]; next: NextRuleModel[] }
-type ComputeModel     = { root: string; prog: ProgModel }
-type ProgModel        = { name: string; bindings: BindingModel[] }
-type BindingModel     = { name: string; type: FieldTypeStr; value?: Literal; expr?: ExprModel }
-type ExprModel        = { combine: CombineExpr } | { pipe: PipeExpr } | { cond: CondExpr }
-type PrepareEntry     = { binding: string } & ({ from_state: string } | { from_hook: string } | { from_literal: Literal })
-type MergeEntry       = { binding: string; to_state: string }
-type NextRuleModel    = { compute: NextComputeModel; prepare?: NextPrepareEntry[]; action: string }
-type NextPrepareEntry = { binding: string } & ({ from_action: string } | { from_state: string } | { from_literal: Literal })
+- `src/types/scene-model.ts` — `TurnModel`, `SceneBlock`, `ActionModel`, `BindingModel`, `ExprModel` (discriminated union), `ArgModel` (discriminated union), `PrepareEntry`, `NextPrepareEntry`, `RouteModel`, `MatchArm`
+- `src/types/harness-types.ts` — `HarnessOptions`, `HarnessResult`, `HookRegistry`, `HookContext`, `ExecutionTrace` (discriminated: `scene` | `route`), `ActionTrace`, `SceneTrace`, `RouteTrace`
+- `package.json`, `tsconfig.json` — package scaffolding; `pnpm install` run
 
-// Route layer
-type RouteModel       = { id: string; match: MatchArm[] }
-type MatchArm         = { patterns: PathPattern[]; target: string }  // patterns are OR-joined
-type PathPattern      = CatchAllPattern | PathExprPattern
-type CatchAllPattern  = { catch_all: true }
-type PathExprPattern  = { scene_id: string; wildcard: boolean; suffix: string[] }
-// wildcard=false: suffix=[action_id] → exact  e.g. scene_1.final
-// wildcard=true:  suffix=[...] → prefix wildcard  e.g. scene_1.*.foo.bar
-```
+### Key design notes
 
-**File**: `src/types/harness-types.ts`
-
-```typescript
-type HarnessOptions = {
-  turnFile?: string       // invokes Go CLI
-  jsonFile?: string       // loads pre-converted JSON
-  entryScene: string      // which scene (or route) to start from
-  initialState: Record<string, AnyValue>
-  hooks?: HookRegistry
-}
-type HarnessResult = { finalState: Record<string, AnyValue>; trace: ExecutionTrace; model: TurnModel }
-type ExecutionTrace = { routes: RouteTrace[] }
-type RouteTrace     = { routeId: string; scenes: SceneTrace[] }
-type SceneTrace     = { sceneId: string; actions: ActionTrace[] }
-type ActionTrace    = { actionId: string; computeRootValue: AnyValue; nextActionIds: string[] }
-```
-
-### Tasks
-
-- [ ] Write `src/types/scene-model.ts`
-- [ ] Write `src/types/harness-types.ts`
+- `PrepareEntry` is a discriminated union: `from_state` XOR `from_hook` (action-level; `from_literal` not emitted at action level by the converter)
+- `NextPrepareEntry` is a discriminated union: `from_action` XOR `from_state` XOR `from_literal`
+- `MatchArm.patterns` is `string[]` — raw strings from the converter, parsed into structured form by `route-pattern.ts`
+- `HarnessOptions.entryId` dispatches to scene or route executor based on whether it matches a `route.id` or `scene.id`
 
 ---
 
-## Phase 2 — Converter Bridge
+## Phase 2 — Converter Bridge ✅
 
 **File**: `src/converter/bridge.ts`
 
@@ -131,33 +98,31 @@ function runConverter(turnFilePath: string): TurnModel   // invokes Go CLI, retu
 function loadJsonModel(jsonFilePath: string): TurnModel  // loads pre-built JSON
 ```
 
-### Tasks
-
-- [ ] Implement `src/converter/bridge.ts`
+- `runConverter` calls `execFileSync('turnout', ['convert', path, '-o', '-', '-format', 'json'])`
+- Falls back to looking for the binary next to the Go converter source if not on PATH
+- Both functions throw with a descriptive message on failure
 
 ---
 
-## Phase 3 — State Manager
+## Phase 3 — State Manager ✅
 
 **File**: `src/state/state-manager.ts`
 
-STATE is a flat `Record<string, AnyValue>` keyed by dotted path (`"request.query"`). No nested structures — flat map only. STATE is shared and carried across scene boundaries within a route; it is never reset between scenes.
+STATE is a flat `Record<string, AnyValue>` keyed by dotted path (`"request.query"`). No nested structures. STATE is shared and carried across scene boundaries within a route; it is never reset between scenes.
 
 ```typescript
 class StateManager {
-  constructor(private readonly state: Record<string, AnyValue>) {}
-
+  static from(initial: Record<string, AnyValue>): StateManager
+  static fromSchema(stateModel: StateModel, overrides?: Record<string, AnyValue>): StateManager
   read(path: string): AnyValue | undefined
-  write(path: string, value: AnyValue): StateManager   // immutable, returns new instance
+  write(path: string, value: AnyValue): StateManager   // immutable — returns new instance
   snapshot(): Readonly<Record<string, AnyValue>>
-  static fromSchema(stateModel: StateModel): StateManager  // populate defaults from schema
 }
 ```
 
-### Tasks
+Also exports `literalToValue(value, type)` for use by the prepare resolver.
 
-- [ ] Implement `src/state/state-manager.ts`
-- [ ] Unit tests: read, write (immutability), `fromSchema`
+**Tests**: `tests/state-manager.test.ts` — 7 passing unit tests covering `from`, `fromSchema`, `read`, `write` immutability, `snapshot`, override precedence.
 
 ---
 
@@ -195,7 +160,7 @@ Lowering rules: value binding → `val()`, combine → `combine()`, pipe → `pi
 
 **File**: `src/executor/prepare-resolver.ts`
 
-### Action-level prepare (`from_state` | `from_hook` | `from_literal`)
+### Action-level prepare (`from_state` | `from_hook`)
 
 ```typescript
 function resolveActionPrepare(
@@ -209,7 +174,6 @@ function resolveActionPrepare(
 |--------|-----------|
 | `from_state` | `state.read(path)` — **from_state stub** |
 | `from_hook` | `hooks[hookName](ctx)` → extract field matching binding name — **from_hook stub** |
-| `from_literal` | wrap with `buildNumber` / `buildString` / `buildBoolean` |
 
 ### Next-rule prepare (`from_action` | `from_state` | `from_literal`)
 
@@ -225,15 +189,7 @@ function resolveNextPrepare(
 |--------|-----------|
 | `from_action` | `prevResult.bindingValues[name]` — **from_action stub** |
 | `from_state` | `state.read(path)` (post-merge S_{n+1}) |
-| `from_literal` | wrap literal |
-
-### Hook registry
-
-```typescript
-type HookContext  = { readState: (path: string) => AnyValue | undefined }
-type HookHandler  = (ctx: HookContext) => Record<string, AnyValue>
-type HookRegistry = Record<string, HookHandler>
-```
+| `from_literal` | `literalToValue(value, bindingType)` |
 
 ### Tasks
 
@@ -312,45 +268,34 @@ Route history is a `string[]` of `"scene_id.action_id"` entries accumulated acro
 
 ### Contiguous-block extraction
 
-For a given `scene_id`, find the **longest uninterrupted run** of `scene_id.*` entries at the tail of the current history (i.e., ending at the current last entry). Entries from other scenes break the block.
+Per spec §2.3: when a scene is visited more than once, the **first** contiguous block (earliest in history) that satisfies the pattern determines a match.
 
 ```typescript
-function extractContiguousBlock(history: string[], sceneId: string): string[]
-// Returns the action_id sequence for the most recent contiguous block of scene_id
-// e.g. history = ["s1.a", "s2.x", "s1.b", "s1.final"], sceneId = "s1"
-//      → ["b", "final"]  (second contiguous block, ending at tail)
-```
-
-Wait — per spec §2.3, if scene is visited more than once, the **first** contiguous block (earliest in history) that satisfies the pattern determines a match. So pattern evaluation checks all contiguous blocks, not just the tail.
-
-```typescript
-function extractAllContiguousBlocks(history: string[], sceneId: string): string[][]
 // Returns all contiguous blocks of scene_id entries in history order
+function extractAllContiguousBlocks(history: string[], sceneId: string): string[][]
 ```
 
 ### Pattern matching
 
-```typescript
-function matchesPattern(block: string[], pattern: PathExprPattern): boolean
-// wildcard=false: block's last entry === suffix[0] (and block.length === 1)
-// wildcard=true:  block ends with suffix sequence (in order)
+Patterns arrive as raw strings from the converter JSON:
+- `"_"` → catch-all
+- `"scene_id.action_id"` → exact (no wildcard)
+- `"scene_id.*.action_id"` → wildcard prefix
+- `"scene_id.*.action_a.action_b"` → wildcard prefix + multi-step suffix
 
+```typescript
 function evaluateMatchArm(history: string[], arm: MatchArm): boolean
 // true if any pattern in arm.patterns matches (OR semantics)
-// CatchAllPattern always returns true
 
 function selectNextScene(history: string[], arms: MatchArm[]): string | null
-// Apply priority:
-//   1. Fewer wildcards = higher priority
-//   2. Same wildcard count: longer suffix = higher priority
-//   3. Same count + length: declaration order
-// Returns target scene_id, or null if no match (route enters completed state)
+// Priority: fewer wildcards > longer suffix > declaration order
+// Returns null if no arm matches (route enters completed state)
 ```
 
 ### Tasks
 
 - [ ] Implement `src/executor/route-pattern.ts`
-- [ ] Unit tests covering all match forms, priority rules, OR patterns, catch-all, interleaved history, multiple-visit semantics
+- [ ] Unit tests: exact, wildcard, OR, catch-all, priority, interleaved history, multiple-visit semantics
 
 ---
 
@@ -362,14 +307,14 @@ function selectNextScene(history: string[], arms: MatchArm[]): string | null
 type RouteExecutionResult = {
   routeId: string
   finalState: Record<string, AnyValue>
-  history: string[]               // final route history
+  history: string[]
   trace: SceneTrace[]
   status: 'completed' | 'matched_exhausted'
 }
 
 function executeRoute(
   route: RouteModel,
-  scenes: Record<string, SceneBlock>,   // all scenes keyed by id
+  scenes: Record<string, SceneBlock>,
   entrySceneId: string,
   initialState: Record<string, AnyValue>,
   hooks?: HookRegistry
@@ -379,13 +324,7 @@ function executeRoute(
 Algorithm:
 1. Reset `history = []`; `state = StateManager.fromSchema(...) + initialState`
 2. `currentSceneId = entrySceneId`
-3. Loop:
-   a. `result = executeScene(scenes[currentSceneId], state, hooks)`
-   b. Append each `sceneId.actionId` from `result.trace` to `history`
-   c. `state = result.stateAfterScene`
-   d. `nextSceneId = selectNextScene(history, route.match)`
-   e. If `nextSceneId` is null → `status = 'completed'`, break
-   f. `currentSceneId = nextSceneId`
+3. Loop: execute scene → append `sceneId.actionId` entries to history → update state → `selectNextScene` → repeat or break
 
 ### Tasks
 
@@ -402,8 +341,8 @@ Algorithm:
 function runHarness(options: HarnessOptions): HarnessResult
 ```
 
-- If `entryScene` matches a `route.id` → use `executeRoute`
-- If `entryScene` matches a `scene.id` directly → use `executeScene` (single-scene mode, no history)
+- If `entryId` matches a `route.id` → use `executeRoute`
+- If `entryId` matches a `scene.id` directly → use `executeScene` (single-scene mode, no history)
 - Returns `HarnessResult` with `finalState`, full `ExecutionTrace`, and `TurnModel`
 
 ### Tasks
@@ -419,6 +358,8 @@ function runHarness(options: HarnessOptions): HarnessResult
 
 ### Single-scene tests (current examples, no `route` block)
 
+> Note: example `.turn` files in `spec/examples/` have no `state` block. The bridge must prepend a minimal `state {}` or the tests must supply a state file. The converter requires a state source.
+
 #### `llm-workflow.test.ts`
 
 | Test | Key STATE | Expected |
@@ -433,14 +374,9 @@ Similar path-coverage tests (2–3 paths per file).
 
 ### Route-level tests
 
-Route-level E2E tests require multi-scene `.turn` files with `route` blocks. These will be authored alongside the test files as fixtures in `tests/fixtures/`:
+#### `tests/fixtures/two-scene-route.turn` (to be authored)
 
-#### `tests/fixtures/two-scene-route.turn` (to be written)
-
-A minimal two-scene workflow:
-- `scene_intake` → collects data, terminates at `intake_done`
-- `scene_process` → uses STATE left by `scene_intake`, terminates at `process_done`
-- `route "main" { match { scene_intake.*.intake_done => scene_process, _ => scene_process } }`
+A minimal two-scene workflow with a `state` block, two scenes, and a `route` block.
 
 #### `route-execution.test.ts`
 
@@ -449,8 +385,8 @@ A minimal two-scene workflow:
 | Two-scene route | scene_1 terminal → matches pattern → enters scene_2 | final STATE reflects both scenes' merges |
 | Catch-all fallback | scene_1 terminal with no specific match | `_` routes to fallback scene |
 | Completed state | no `_`, no match | `status = 'completed'` |
-| History accumulation | STATE shared across scenes | scene_2 reads STATE written by scene_1 |
-| Priority: exact beats wildcard | Two arms match; exact `scene.action` vs `scene.*.action` | exact arm selected |
+| STATE shared across scenes | scene_2 reads STATE written by scene_1 | correct STATE propagation |
+| Priority: exact beats wildcard | two arms match | exact arm (`scene.action`) selected over `scene.*.action` |
 
 ### Tasks
 
@@ -463,54 +399,46 @@ A minimal two-scene workflow:
 
 ---
 
-## Package Setup
-
-### Tasks
-
-- [ ] Create `packages/ts/scene-runner/package.json` with dependency on `@turnout/runtime`
-- [ ] Create `packages/ts/scene-runner/tsconfig.json`
-- [ ] Create `packages/ts/scene-runner/vitest.config.ts`
-
----
-
 ## File Map
 
 ```
 packages/go/converter/
-  internal/emit/emit.go          ← add EmitJSON()
-  cmd/turnout/main.go            ← add -format flag
+  internal/emit/
+    emit.go                        (existing — HCL emitter)
+    json.go                     ✅ EmitJSON() — JSON emitter
+  cmd/turnout/main.go             ✅ -format hcl|json flag
 
-packages/ts/scene-runner/        ← new package
+packages/ts/scene-runner/        ✅ new package (pnpm, vitest, @types/node)
   src/
     types/
-      scene-model.ts             ← TurnModel, SceneBlock, RouteModel, PathPattern, etc.
-      harness-types.ts           ← HarnessOptions, HarnessResult, ExecutionTrace
+      scene-model.ts              ✅ TurnModel, SceneBlock, RouteModel, ArgModel, etc.
+      harness-types.ts            ✅ HarnessOptions, HarnessResult, ExecutionTrace
     converter/
-      bridge.ts                  ← runConverter(), loadJsonModel()
+      bridge.ts                   ✅ runConverter(), loadJsonModel()
     state/
-      state-manager.ts           ← StateManager (flat KV, immutable writes)
+      state-manager.ts            ✅ StateManager (flat KV, immutable writes, fromSchema)
     executor/
-      hcl-context-builder.ts     ← ProgModel → ExecutionContext
-      prepare-resolver.ts        ← from_state / from_action / from_hook stubs
-      action-executor.ts         ← executeAction()
-      scene-executor.ts          ← executeScene()
-      route-pattern.ts           ← history extraction, pattern matching, priority
-      route-executor.ts          ← executeRoute()
+      hcl-context-builder.ts         ProgModel → ExecutionContext
+      prepare-resolver.ts            from_state / from_action / from_hook stubs
+      action-executor.ts             executeAction()
+      scene-executor.ts              executeScene()
+      route-pattern.ts               history extraction, pattern matching, priority
+      route-executor.ts              executeRoute()
     harness/
-      harness.ts                 ← runHarness() (dispatches to scene or route executor)
+      harness.ts                     runHarness()
     index.ts
   tests/
+    state-manager.test.ts         ✅ 7 passing unit tests
     fixtures/
-      two-scene-route.turn       ← minimal multi-scene fixture
+      two-scene-route.turn
     e2e/
       llm-workflow.test.ts
       scene-graph-with-actions.test.ts
       detective-phase.test.ts
       adventure-story-graph-with-actions.test.ts
       route-execution.test.ts
-  package.json
-  tsconfig.json
-  vitest.config.ts
+  package.json                    ✅
+  tsconfig.json                   ✅
 ```
 
 ---
@@ -522,5 +450,5 @@ packages/ts/scene-runner/        ← new package
 | `ctx`, `combine`, `pipe`, `cond`, `val`, `ref` | `packages/ts/runtime/src/compute-graph/builder/index.ts` |
 | `executeGraph`, `executeGraphSafe` | `packages/ts/runtime/src/compute-graph/runtime/exec/executeGraph.ts` |
 | `assertValidContext` | `packages/ts/runtime/src/compute-graph/runtime/validateContext.ts` |
-| `buildNumber`, `buildString`, `buildBoolean`, `buildArray` | `packages/ts/runtime/src/state-control/value-builders.ts` |
-| `AnyValue`, type guards | `packages/ts/runtime/src/state-control/value.ts` |
+| `buildNumber`, `buildString`, `buildBoolean`, `buildArray`, `buildNull` | `packages/ts/runtime/src/state-control/value-builders.ts` |
+| `AnyValue`, type guards (`isPureNumber`, `isPureString`, …) | `packages/ts/runtime/src/state-control/value.ts` |

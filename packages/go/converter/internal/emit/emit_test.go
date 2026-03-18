@@ -721,3 +721,74 @@ func TestIntegrationAllExamplesParseClean(t *testing.T) {
 		})
 	}
 }
+
+// ─── JSON emitter ─────────────────────────────────────────────────────────────
+
+func TestEmitJSONBasic(t *testing.T) {
+	src := `state {
+  request {
+    query:str  = ""
+    ready:bool = false
+  }
+}
+scene "test_scene" {
+  entry_actions = ["act_a"]
+  next_policy   = "first-match"
+  action "act_a" {
+    compute { root = done prog "g" {
+      ~>q:str = _
+      <~out:str = q
+      done:bool = true
+    } }
+    prepare { q { from_state = request.query } }
+    merge   { out { to_state = request.query } }
+    next {
+      compute { condition = done prog "to_b" { done:bool = true } }
+      action = act_b
+    }
+  }
+  action "act_b" {
+    compute { root = ok prog "h" { ok:bool = true } }
+  }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("parse: %v", ds)
+	}
+	schema, ds2 := state.Resolve(tf.StateSource, "")
+	if ds2.HasErrors() {
+		t.Fatalf("state: %v", ds2)
+	}
+	model, ds3 := lower.Lower(tf, schema)
+	if ds3.HasErrors() {
+		t.Fatalf("lower: %v", ds3)
+	}
+	if err := validate.Validate(model, schema); err.HasErrors() {
+		t.Fatalf("validate: %v", err)
+	}
+
+	var sb strings.Builder
+	if err := emit.EmitJSON(&sb, model); err != nil {
+		t.Fatalf("EmitJSON: %v", err)
+	}
+	out := sb.String()
+
+	checks := []string{
+		`"scenes"`,
+		`"test_scene"`,
+		`"entry_actions"`,
+		`"act_a"`,
+		`"prepare"`,
+		`"from_state"`,
+		`"request.query"`,
+		`"merge"`,
+		`"to_state"`,
+		`"next"`,
+		`"namespaces"`,
+	}
+	for _, want := range checks {
+		if !strings.Contains(out, want) {
+			t.Errorf("EmitJSON output missing %q\nOutput:\n%s", want, out)
+		}
+	}
+}

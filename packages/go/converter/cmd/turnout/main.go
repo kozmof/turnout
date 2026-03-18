@@ -32,13 +32,14 @@ func main() {
 }
 
 func printUsage() {
-	fmt.Fprintln(os.Stderr, "Usage: turnout convert <input.turn> [-o output.hcl] [-state-file path]")
+	fmt.Fprintln(os.Stderr, "Usage: turnout convert <input.turn> [-o output.hcl] [-state-file path] [-format hcl|json]")
 }
 
 func runConvert(args []string) int {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
-	output    := fs.String("o", "", "output .hcl file path (use '-' for stdout; default: input with .hcl extension)")
+	output    := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
+	format    := fs.String("format", "hcl", "output format: hcl or json")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -86,13 +87,19 @@ func runConvert(args []string) int {
 		return 1
 	}
 
+	if *format != "hcl" && *format != "json" {
+		fmt.Fprintf(os.Stderr, "turnout: unknown format %q (must be hcl or json)\n", *format)
+		return 1
+	}
+
+	ext := "." + *format
 	var w io.Writer
 	if *output == "-" {
 		w = os.Stdout
 	} else {
 		outPath := *output
 		if outPath == "" {
-			outPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ".hcl"
+			outPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ext
 		}
 		f, err := os.Create(outPath)
 		if err != nil {
@@ -101,6 +108,14 @@ func runConvert(args []string) int {
 		}
 		defer f.Close()
 		w = f
+	}
+
+	if *format == "json" {
+		if err := emit.EmitJSON(w, model); err != nil {
+			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 
 	ds5 := emit.Emit(w, model)
