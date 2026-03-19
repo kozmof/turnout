@@ -1,0 +1,58 @@
+state {
+  namespace "input" {
+    field "value" { type = number, default = 0 }
+  }
+  namespace "output" {
+    field "result" { type = number, default = 0 }
+  }
+}
+
+scene "scene_a" {
+  entry_actions = ["step_a"]
+
+  action "step_a" {
+    compute {
+      root = doubled
+      prog "a_prog" {
+        ~>value:number = _
+        doubled:number = value + value
+      }
+    }
+
+    prepare {
+      value { from_state = input.value }
+    }
+
+    merge {
+      doubled { to_state = output.result }
+    }
+  }
+}
+
+scene "scene_b" {
+  entry_actions = ["step_b"]
+
+  action "step_b" {
+    compute {
+      root = final_val
+      prog "b_prog" {
+        ~>result:number = _
+        final_val:number = result + 1
+      }
+    }
+
+    prepare {
+      result { from_state = output.result }
+    }
+
+    merge {
+      final_val { to_state = output.result }
+    }
+  }
+}
+
+route "main_route" {
+  match {
+    scene_a.step_a => scene_b
+  }
+}

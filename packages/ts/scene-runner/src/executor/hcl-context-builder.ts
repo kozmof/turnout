@@ -1,4 +1,4 @@
-import { ctx, combine, pipe, cond } from 'turnout';
+import { ctx, combine, pipe, cond, ref as runtimeRef } from 'turnout';
 import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'turnout';
 import type { ProgModel, ArgModel, Literal } from '../types/scene-model.js';
 import { literalToValue } from '../state/state-manager.js';
@@ -93,6 +93,14 @@ export function buildContextFromProg(
   const spec: Record<string, unknown> = {};
   let litCounter = 0;
 
+  // Pre-compute which binding names are function bindings (have expr).
+  // When a ref arg points to a function binding, the builder API requires
+  // ref.output(name) to reference the function's return value, not a plain
+  // string (which would look up a non-existent direct value slot).
+  const functionBindingNames = new Set(
+    prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name),
+  );
+
   // Register a synthetic value binding for an inline literal arg.
   function addLitBinding(lit: Literal): string {
     const name = `__lit_${litCounter++}`;
@@ -102,7 +110,11 @@ export function buildContextFromProg(
 
   // Resolve an ArgModel to the appropriate reference type for the builder API.
   function resolveArg(arg: ArgModel, currentPipeName?: string): unknown {
-    if (arg.ref !== undefined) return arg.ref;
+    if (arg.ref !== undefined) {
+      // Function-binding outputs must be referenced via ref.output(), not as a
+      // bare string (which looks up a value slot that doesn't exist for funcs).
+      return functionBindingNames.has(arg.ref) ? runtimeRef.output(arg.ref) : arg.ref;
+    }
     if (arg.func_ref !== undefined) return arg.func_ref;
     if (arg.lit !== undefined) return addLitBinding(arg.lit);
     if (arg.step_ref !== undefined) {

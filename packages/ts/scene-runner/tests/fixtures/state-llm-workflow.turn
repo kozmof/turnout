@@ -1,0 +1,27 @@
+state {
+  request {
+    query:str            = ""
+    doc_hint:str         = ""
+    priority_tier:number = 0
+  }
+  runtime {
+    kb_enabled:bool = false
+  }
+  workflow {
+    stage:str    = ""
+    context:str  = ""
+    draft:str    = ""
+    status:str   = ""
+    approved:bool = false
+  }
+  moderation {
+    toxicity_score:number = 0
+    pii_score:number      = 0
+  }
+  conversation {
+    last_response:str = ""
+  }
+  review {
+    note:str = ""
+  }
+}

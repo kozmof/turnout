@@ -1,0 +1,13 @@
+state {
+  applicant {
+    income:number = 0
+    debt:number   = 0
+  }
+  decision {
+    approved:bool        = false
+    input_income:number  = 0
+    status:str           = ""
+    code:str             = ""
+    reason:str           = ""
+  }
+}

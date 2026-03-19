@@ -1,0 +1,668 @@
+{
+  "state": {
+    "namespaces": [
+      {
+        "name": "request",
+        "fields": [
+          {
+            "name": "need_grounding",
+            "type": "bool",
+            "value": false
+          },
+          {
+            "name": "kb_enabled",
+            "type": "bool",
+            "value": false
+          },
+          {
+            "name": "toxicity_score",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "query",
+            "type": "str",
+            "value": ""
+          },
+          {
+            "name": "doc_hint",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "workflow",
+        "fields": [
+          {
+            "name": "stage",
+            "type": "str",
+            "value": ""
+          },
+          {
+            "name": "context",
+            "type": "str",
+            "value": ""
+          },
+          {
+            "name": "draft",
+            "type": "str",
+            "value": ""
+          },
+          {
+            "name": "status",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "review",
+        "fields": [
+          {
+            "name": "note",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      },
+      {
+        "name": "response",
+        "fields": [
+          {
+            "name": "last",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "ai_workflow",
+      "entry_actions": [
+        "analyze"
+      ],
+      "next_policy": "first-match",
+      "actions": [
+        {
+          "id": "analyze",
+          "compute": {
+            "root": "analysis_done",
+            "prog": {
+              "name": "analyze_prog",
+              "bindings": [
+                {
+                  "name": "need_grounding",
+                  "type": "bool",
+                  "value": false
+                },
+                {
+                  "name": "kb_enabled",
+                  "type": "bool",
+                  "value": false
+                },
+                {
+                  "name": "retrieve_ready",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "bool_and",
+                      "args": [
+                        {
+                          "ref": "need_grounding"
+                        },
+                        {
+                          "ref": "kb_enabled"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "analysis_done",
+                  "type": "bool",
+                  "value": true
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "need_grounding",
+              "from_state": "request.need_grounding"
+            },
+            {
+              "binding": "kb_enabled",
+              "from_state": "request.kb_enabled"
+            }
+          ],
+          "next": [
+            {
+              "compute": {
+                "condition": "go_retrieve",
+                "prog": {
+                  "name": "to_retrieve",
+                  "bindings": [
+                    {
+                      "name": "retrieve_ready",
+                      "type": "bool",
+                      "value": false
+                    },
+                    {
+                      "name": "go_retrieve",
+                      "type": "bool",
+                      "expr": {
+                        "combine": {
+                          "fn": "bool_and",
+                          "args": [
+                            {
+                              "ref": "retrieve_ready"
+                            },
+                            {
+                              "lit": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "prepare": [
+                {
+                  "binding": "retrieve_ready",
+                  "from_action": "retrieve_ready"
+                }
+              ],
+              "action": "retrieve"
+            },
+            {
+              "compute": {
+                "condition": "always",
+                "prog": {
+                  "name": "to_draft_direct",
+                  "bindings": [
+                    {
+                      "name": "always",
+                      "type": "bool",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "action": "draft_direct"
+            }
+          ]
+        },
+        {
+          "id": "retrieve",
+          "compute": {
+            "root": "context_str",
+            "prog": {
+              "name": "retrieve_prog",
+              "bindings": [
+                {
+                  "name": "doc_hint",
+                  "type": "str",
+                  "value": ""
+                },
+                {
+                  "name": "prefix",
+                  "type": "str",
+                  "value": "Retrieved: "
+                },
+                {
+                  "name": "context_str",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "prefix"
+                        },
+                        {
+                          "ref": "doc_hint"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "doc_hint",
+              "from_state": "request.doc_hint"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "context_str",
+              "to_state": "workflow.context"
+            }
+          ],
+          "next": [
+            {
+              "compute": {
+                "condition": "always",
+                "prog": {
+                  "name": "to_draft_with_ctx",
+                  "bindings": [
+                    {
+                      "name": "always",
+                      "type": "bool",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "action": "draft_with_context"
+            }
+          ]
+        },
+        {
+          "id": "draft_direct",
+          "compute": {
+            "root": "draft_text",
+            "prog": {
+              "name": "draft_direct_prog",
+              "bindings": [
+                {
+                  "name": "query",
+                  "type": "str",
+                  "value": ""
+                },
+                {
+                  "name": "prefix",
+                  "type": "str",
+                  "value": "Direct answer: "
+                },
+                {
+                  "name": "draft_text",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "prefix"
+                        },
+                        {
+                          "ref": "query"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "query",
+              "from_state": "request.query"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "draft_text",
+              "to_state": "workflow.draft"
+            }
+          ],
+          "next": [
+            {
+              "compute": {
+                "condition": "always",
+                "prog": {
+                  "name": "to_safety",
+                  "bindings": [
+                    {
+                      "name": "always",
+                      "type": "bool",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "action": "safety_check"
+            }
+          ]
+        },
+        {
+          "id": "draft_with_context",
+          "compute": {
+            "root": "draft_text",
+            "prog": {
+              "name": "draft_ctx_prog",
+              "bindings": [
+                {
+                  "name": "query",
+                  "type": "str",
+                  "value": ""
+                },
+                {
+                  "name": "context",
+                  "type": "str",
+                  "value": ""
+                },
+                {
+                  "name": "sep",
+                  "type": "str",
+                  "value": " [ctx:"
+                },
+                {
+                  "name": "close",
+                  "type": "str",
+                  "value": "]"
+                },
+                {
+                  "name": "mid",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "query"
+                        },
+                        {
+                          "ref": "sep"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "mid2",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "mid"
+                        },
+                        {
+                          "ref": "context"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "draft_text",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "mid2"
+                        },
+                        {
+                          "ref": "close"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "query",
+              "from_state": "request.query"
+            },
+            {
+              "binding": "context",
+              "from_state": "workflow.context"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "draft_text",
+              "to_state": "workflow.draft"
+            }
+          ],
+          "next": [
+            {
+              "compute": {
+                "condition": "always",
+                "prog": {
+                  "name": "to_safety2",
+                  "bindings": [
+                    {
+                      "name": "always",
+                      "type": "bool",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "action": "safety_check"
+            }
+          ]
+        },
+        {
+          "id": "safety_check",
+          "compute": {
+            "root": "safe",
+            "prog": {
+              "name": "safety_prog",
+              "bindings": [
+                {
+                  "name": "toxicity",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "threshold",
+                  "type": "number",
+                  "value": 3
+                },
+                {
+                  "name": "safe",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "lte",
+                      "args": [
+                        {
+                          "ref": "toxicity"
+                        },
+                        {
+                          "ref": "threshold"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "toxicity",
+              "from_state": "request.toxicity_score"
+            }
+          ],
+          "next": [
+            {
+              "compute": {
+                "condition": "go_publish",
+                "prog": {
+                  "name": "to_publish",
+                  "bindings": [
+                    {
+                      "name": "safe",
+                      "type": "bool",
+                      "value": false
+                    },
+                    {
+                      "name": "go_publish",
+                      "type": "bool",
+                      "expr": {
+                        "combine": {
+                          "fn": "bool_and",
+                          "args": [
+                            {
+                              "ref": "safe"
+                            },
+                            {
+                              "lit": true
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "prepare": [
+                {
+                  "binding": "safe",
+                  "from_action": "safe"
+                }
+              ],
+              "action": "publish"
+            },
+            {
+              "compute": {
+                "condition": "always",
+                "prog": {
+                  "name": "to_review",
+                  "bindings": [
+                    {
+                      "name": "always",
+                      "type": "bool",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "action": "human_review"
+            }
+          ]
+        },
+        {
+          "id": "publish",
+          "compute": {
+            "root": "final_response",
+            "prog": {
+              "name": "publish_prog",
+              "bindings": [
+                {
+                  "name": "draft",
+                  "type": "str",
+                  "value": ""
+                },
+                {
+                  "name": "final_response",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "draft"
+                        },
+                        {
+                          "lit": ""
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "status",
+                  "type": "str",
+                  "value": "sent"
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "draft",
+              "from_state": "workflow.draft"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "final_response",
+              "to_state": "response.last"
+            },
+            {
+              "binding": "status",
+              "to_state": "workflow.status"
+            }
+          ]
+        },
+        {
+          "id": "human_review",
+          "compute": {
+            "root": "review_note",
+            "prog": {
+              "name": "review_prog",
+              "bindings": [
+                {
+                  "name": "draft",
+                  "type": "str",
+                  "value": ""
+                },
+                {
+                  "name": "prefix",
+                  "type": "str",
+                  "value": "Review needed: "
+                },
+                {
+                  "name": "review_note",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "prefix"
+                        },
+                        {
+                          "ref": "draft"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "status",
+                  "type": "str",
+                  "value": "awaiting_human"
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "draft",
+              "from_state": "workflow.draft"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "review_note",
+              "to_state": "review.note"
+            },
+            {
+              "binding": "status",
+              "to_state": "workflow.status"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

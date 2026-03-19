@@ -1,0 +1,220 @@
+state {
+  request {
+    need_grounding:bool   = false
+    kb_enabled:bool       = false
+    toxicity_score:number = 0
+    query:str             = ""
+    doc_hint:str          = ""
+  }
+  workflow {
+    stage:str   = ""
+    context:str = ""
+    draft:str   = ""
+    status:str  = ""
+  }
+  review {
+    note:str = ""
+  }
+  response {
+    last:str = ""
+  }
+}
+
+scene "ai_workflow" {
+  entry_actions = ["analyze"]
+  next_policy   = "first-match"
+
+  action "analyze" {
+    compute {
+      root = analysis_done
+      prog "analyze_prog" {
+        ~>need_grounding:bool = _
+        ~>kb_enabled:bool     = _
+        retrieve_ready:bool = need_grounding & kb_enabled
+        analysis_done:bool  = true
+      }
+    }
+    prepare {
+      need_grounding { from_state = request.need_grounding }
+      kb_enabled     { from_state = request.kb_enabled     }
+    }
+    next {
+      compute {
+        condition = go_retrieve
+        prog "to_retrieve" {
+          ~>retrieve_ready:bool = _
+          go_retrieve:bool = retrieve_ready
+        }
+      }
+      prepare {
+        retrieve_ready { from_action = retrieve_ready }
+      }
+      action = retrieve
+    }
+    next {
+      compute {
+        condition = always
+        prog "to_draft_direct" {
+          always:bool = true
+        }
+      }
+      action = draft_direct
+    }
+  }
+
+  action "retrieve" {
+    compute {
+      root = context_str
+      prog "retrieve_prog" {
+        ~>doc_hint:str = _
+        prefix:str      = "Retrieved: "
+        <~context_str:str = prefix + doc_hint
+      }
+    }
+    prepare {
+      doc_hint { from_state = request.doc_hint }
+    }
+    merge {
+      context_str { to_state = workflow.context }
+    }
+    next {
+      compute {
+        condition = always
+        prog "to_draft_with_ctx" {
+          always:bool = true
+        }
+      }
+      action = draft_with_context
+    }
+  }
+
+  action "draft_direct" {
+    compute {
+      root = draft_text
+      prog "draft_direct_prog" {
+        ~>query:str    = _
+        prefix:str      = "Direct answer: "
+        <~draft_text:str = prefix + query
+      }
+    }
+    prepare {
+      query { from_state = request.query }
+    }
+    merge {
+      draft_text { to_state = workflow.draft }
+    }
+    next {
+      compute {
+        condition = always
+        prog "to_safety" {
+          always:bool = true
+        }
+      }
+      action = safety_check
+    }
+  }
+
+  action "draft_with_context" {
+    compute {
+      root = draft_text
+      prog "draft_ctx_prog" {
+        ~>query:str   = _
+        ~>context:str = _
+        sep:str       = " [ctx:"
+        close:str     = "]"
+        mid:str        = query + sep
+        mid2:str        = mid + context
+        <~draft_text:str = mid2 + close
+      }
+    }
+    prepare {
+      query   { from_state = request.query    }
+      context { from_state = workflow.context }
+    }
+    merge {
+      draft_text { to_state = workflow.draft }
+    }
+    next {
+      compute {
+        condition = always
+        prog "to_safety2" {
+          always:bool = true
+        }
+      }
+      action = safety_check
+    }
+  }
+
+  action "safety_check" {
+    compute {
+      root = safe
+      prog "safety_prog" {
+        ~>toxicity:number = _
+        threshold:number  = 3
+        safe:bool = toxicity <= threshold
+      }
+    }
+    prepare {
+      toxicity { from_state = request.toxicity_score }
+    }
+    next {
+      compute {
+        condition = go_publish
+        prog "to_publish" {
+          ~>safe:bool = _
+          go_publish:bool = safe
+        }
+      }
+      prepare {
+        safe { from_action = safe }
+      }
+      action = publish
+    }
+    next {
+      compute {
+        condition = always
+        prog "to_review" {
+          always:bool = true
+        }
+      }
+      action = human_review
+    }
+  }
+
+  action "publish" {
+    compute {
+      root = final_response
+      prog "publish_prog" {
+        ~>draft:str         = _
+        <~final_response:str = draft
+        <~status:str         = "sent"
+      }
+    }
+    prepare {
+      draft { from_state = workflow.draft }
+    }
+    merge {
+      final_response { to_state = response.last    }
+      status         { to_state = workflow.status  }
+    }
+  }
+
+  action "human_review" {
+    compute {
+      root = review_note
+      prog "review_prog" {
+        ~>draft:str          = _
+        prefix:str           = "Review needed: "
+        <~review_note:str    = prefix + draft
+        <~status:str         = "awaiting_human"
+      }
+    }
+    prepare {
+      draft { from_state = workflow.draft }
+    }
+    merge {
+      review_note { to_state = review.note       }
+      status      { to_state = workflow.status   }
+    }
+  }
+}

@@ -1,0 +1,314 @@
+{
+  "state": {
+    "namespaces": [
+      {
+        "name": "applicant",
+        "fields": [
+          {
+            "name": "income",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "debt",
+            "type": "number",
+            "value": 0
+          }
+        ]
+      },
+      {
+        "name": "decision",
+        "fields": [
+          {
+            "name": "approved",
+            "type": "bool",
+            "value": false
+          },
+          {
+            "name": "input_income",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "status",
+            "type": "str",
+            "value": ""
+          },
+          {
+            "name": "code",
+            "type": "str",
+            "value": ""
+          },
+          {
+            "name": "reason",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "loan_flow",
+      "entry_actions": [
+        "score"
+      ],
+      "next_policy": "first-match",
+      "actions": [
+        {
+          "id": "score",
+          "compute": {
+            "root": "decision",
+            "prog": {
+              "name": "score_graph",
+              "bindings": [
+                {
+                  "name": "income",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "debt",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "min_income",
+                  "type": "number",
+                  "value": 50000
+                },
+                {
+                  "name": "max_debt",
+                  "type": "number",
+                  "value": 20000
+                },
+                {
+                  "name": "income_ok",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "gte",
+                      "args": [
+                        {
+                          "ref": "income"
+                        },
+                        {
+                          "ref": "min_income"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "debt_ok",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "lte",
+                      "args": [
+                        {
+                          "ref": "debt"
+                        },
+                        {
+                          "ref": "max_debt"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "decision",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "bool_and",
+                      "args": [
+                        {
+                          "ref": "income_ok"
+                        },
+                        {
+                          "ref": "debt_ok"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "income",
+              "from_state": "applicant.income"
+            },
+            {
+              "binding": "debt",
+              "from_state": "applicant.debt"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "income",
+              "to_state": "decision.input_income"
+            },
+            {
+              "binding": "decision",
+              "to_state": "decision.approved"
+            }
+          ],
+          "next": [
+            {
+              "compute": {
+                "condition": "go",
+                "prog": {
+                  "name": "to_approve",
+                  "bindings": [
+                    {
+                      "name": "decision",
+                      "type": "bool",
+                      "value": false
+                    },
+                    {
+                      "name": "income_ok",
+                      "type": "bool",
+                      "value": false
+                    },
+                    {
+                      "name": "go",
+                      "type": "bool",
+                      "expr": {
+                        "combine": {
+                          "fn": "bool_and",
+                          "args": [
+                            {
+                              "ref": "decision"
+                            },
+                            {
+                              "ref": "income_ok"
+                            }
+                          ]
+                        }
+                      }
+                    }
+                  ]
+                }
+              },
+              "prepare": [
+                {
+                  "binding": "decision",
+                  "from_action": "decision"
+                },
+                {
+                  "binding": "income_ok",
+                  "from_action": "income_ok"
+                }
+              ],
+              "action": "approve"
+            },
+            {
+              "compute": {
+                "condition": "always",
+                "prog": {
+                  "name": "to_reject",
+                  "bindings": [
+                    {
+                      "name": "always",
+                      "type": "bool",
+                      "value": true
+                    }
+                  ]
+                }
+              },
+              "action": "reject"
+            }
+          ]
+        },
+        {
+          "id": "approve",
+          "compute": {
+            "root": "approval_code",
+            "prog": {
+              "name": "approve_graph",
+              "bindings": [
+                {
+                  "name": "prefix",
+                  "type": "str",
+                  "value": "APR-"
+                },
+                {
+                  "name": "suffix",
+                  "type": "str",
+                  "value": "0001"
+                },
+                {
+                  "name": "status",
+                  "type": "str",
+                  "value": "approved"
+                },
+                {
+                  "name": "approval_code",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "prefix"
+                        },
+                        {
+                          "ref": "suffix"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "merge": [
+            {
+              "binding": "status",
+              "to_state": "decision.status"
+            },
+            {
+              "binding": "approval_code",
+              "to_state": "decision.code"
+            }
+          ]
+        },
+        {
+          "id": "reject",
+          "compute": {
+            "root": "reason",
+            "prog": {
+              "name": "reject_graph",
+              "bindings": [
+                {
+                  "name": "status",
+                  "type": "str",
+                  "value": "rejected"
+                },
+                {
+                  "name": "reason",
+                  "type": "str",
+                  "value": "risk_threshold_not_met"
+                }
+              ]
+            }
+          },
+          "merge": [
+            {
+              "binding": "status",
+              "to_state": "decision.status"
+            },
+            {
+              "binding": "reason",
+              "to_state": "decision.reason"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

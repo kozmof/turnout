@@ -1,0 +1,341 @@
+state {
+  request {
+    query:str            = ""
+    doc_hint:str         = ""
+    priority_tier:number = 0
+  }
+  runtime {
+    kb_enabled:bool = false
+  }
+  workflow {
+    stage:str    = ""
+    context:str  = ""
+    draft:str    = ""
+    status:str   = ""
+    approved:bool = false
+  }
+  moderation {
+    toxicity_score:number = 0
+    pii_score:number      = 0
+  }
+  conversation {
+    last_response:str = ""
+  }
+  review {
+    note:str = ""
+  }
+}
+scene "llm_support_workflow" {
+  entry_actions     = ["analyze_request"]
+  next_policy       = "first-match"
+
+  view "overview" {
+    flow = <<-EOT
+      analyze_request
+        |=> retrieve_context
+        |=> draft_direct
+      retrieve_context
+        |=> draft_with_context
+      draft_direct
+        |=> safety_check
+      draft_with_context
+        |=> safety_check
+      safety_check
+        |=> publish_response
+        |=> human_review
+    EOT
+    enforce = "at_least"
+  }
+
+  action "analyze_request" {
+    """
+    Logic overview:
+    - Read request-level routing flags from STATE.
+    - Decide whether retrieval is needed for this turn.
+    - Persist workflow stage metadata.
+    """
+
+    compute {
+      root     = analysis_ready
+      prog "analyze_request_graph" {
+        ~>need_grounding:bool = _
+        ~>kb_enabled:bool = _
+        ~>priority_tier:number = _
+        <~workflow_stage:str = "analyzed"
+
+        retrieve_ready:bool = need_grounding & kb_enabled
+        fast_lane:bool = priority_tier >= 2
+        analysis_ready:bool = true
+      }
+    }
+
+    prepare {
+      need_grounding { from_state = request.flags.need_grounding }
+      kb_enabled     { from_state = runtime.features.kb_enabled  }
+      priority_tier  { from_state = request.priority_tier        }
+    }
+
+    merge {
+      workflow_stage { to_state = workflow.stage }
+    }
+
+    next {
+      compute {
+        condition = go_retrieve
+        prog "to_retrieve_context" {
+          ~>retrieve_ready:bool = _
+          go_retrieve:bool = retrieve_ready
+        }
+      }
+      prepare {
+        retrieve_ready { from_action = retrieve_ready }
+      }
+      action = retrieve_context
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_draft_direct" {
+          always:bool = true
+        }
+      }
+      action = draft_direct
+    }
+  }
+
+  action "retrieve_context" {
+    """
+    Logic overview:
+    - Read query and retrieval hint from STATE.
+    - Build deterministic retrieval context text.
+    - Persist context payload and stage metadata.
+    """
+
+    compute {
+      root     = retrieval_ready
+      prog "retrieve_context_graph" {
+        ~>query:str = _
+        ~>doc_hint:str = _
+        <~workflow_stage:str = "retrieved"
+
+        context_prefix:str = query + " :: "
+        <~retrieved_context:str = context_prefix + doc_hint
+        retrieval_ready:bool = true
+      }
+    }
+
+    prepare {
+      query    { from_state = request.query    }
+      doc_hint { from_state = request.doc_hint }
+    }
+
+    merge {
+      workflow_stage    { to_state = workflow.stage   }
+      retrieved_context { to_state = workflow.context }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_draft_with_context" {
+          always:bool = true
+        }
+      }
+      action = draft_with_context
+    }
+  }
+
+  action "draft_direct" {
+    """
+    Logic overview:
+    - Produce a direct draft from request text only.
+    - Persist draft and stage metadata.
+    """
+
+    compute {
+      root     = draft_ready
+      prog "draft_direct_graph" {
+        ~>query:str = _
+        prefix:str = "Direct answer: "
+        <~draft_text:str = prefix + query
+        <~workflow_stage:str = "drafted_direct"
+        draft_ready:bool = true
+      }
+    }
+
+    prepare {
+      query { from_state = request.query }
+    }
+
+    merge {
+      draft_text     { to_state = workflow.draft }
+      workflow_stage { to_state = workflow.stage }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_safety_check_from_direct" {
+          always:bool = true
+        }
+      }
+      action = safety_check
+    }
+  }
+
+  action "draft_with_context" {
+    """
+    Logic overview:
+    - Read request text and retrieved context from STATE.
+    - Produce a grounded draft.
+    - Persist draft and stage metadata.
+    """
+
+    compute {
+      root     = draft_ready
+      prog "draft_with_context_graph" {
+        ~>query:str = _
+        ~>retrieved_context:str = _
+        <~workflow_stage:str = "drafted_with_context"
+
+        draft_seed:str = query + " | "
+        <~draft_text:str = draft_seed + retrieved_context
+        draft_ready:bool = true
+      }
+    }
+
+    prepare {
+      query             { from_state = request.query    }
+      retrieved_context { from_state = workflow.context }
+    }
+
+    merge {
+      draft_text     { to_state = workflow.draft }
+      workflow_stage { to_state = workflow.stage }
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_safety_check_from_context" {
+          always:bool = true
+        }
+      }
+      action = safety_check
+    }
+  }
+
+  action "safety_check" {
+    """
+    Logic overview:
+    - Read moderation scores from STATE.
+    - Approve when both toxicity and PII checks pass.
+    - Persist approval result and stage metadata.
+    """
+
+    compute {
+      root     = safety_ready
+      prog "safety_check_graph" {
+        ~>toxicity_score:number = _
+        ~>pii_score:number      = _
+        <~workflow_stage:str = "safety_checked"
+
+        toxicity_ok:bool = toxicity_score <= 2
+        pii_ok:bool = pii_score <= 1
+        <~approved:bool = toxicity_ok & pii_ok
+        safety_ready:bool = true
+      }
+    }
+
+    prepare {
+      toxicity_score { from_state = moderation.toxicity_score }
+      pii_score      { from_state = moderation.pii_score      }
+    }
+
+    merge {
+      approved       { to_state = workflow.approved }
+      workflow_stage { to_state = workflow.stage    }
+    }
+
+    next {
+      compute {
+        condition = go_publish
+        prog "to_publish_response" {
+          ~>approved:bool = _
+          go_publish:bool = approved
+        }
+      }
+      prepare {
+        approved { from_action = approved }
+      }
+      action = publish_response
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_human_review" {
+          always:bool = true
+        }
+      }
+      action = human_review
+    }
+  }
+
+  action "publish_response" {
+    """
+    Logic overview:
+    - Read generated draft from STATE.
+    - Publish final response and update workflow status.
+    """
+
+    compute {
+      root     = publish_ready
+      prog "publish_response_graph" {
+        ~>draft_text:str = _
+        <~workflow_status:str = "sent"
+        <~final_response:str = draft_text
+        publish_ready:bool = true
+      }
+    }
+
+    prepare {
+      draft_text { from_state = workflow.draft }
+    }
+
+    merge {
+      workflow_status { to_state = workflow.status           }
+      final_response  { to_state = conversation.last_response }
+    }
+  }
+
+  action "human_review" {
+    """
+    Logic overview:
+    - Read generated draft from STATE.
+    - Create a deterministic handoff note for a human operator.
+    - Persist review note and workflow status.
+    """
+
+    compute {
+      root     = handoff_ready
+      prog "human_review_graph" {
+        ~>draft_text:str = _
+        prefix:str = "Review needed: "
+        <~handoff_note:str = prefix + draft_text
+        <~workflow_status:str = "awaiting_human"
+        handoff_ready:bool = true
+      }
+    }
+
+    prepare {
+      draft_text { from_state = workflow.draft }
+    }
+
+    merge {
+      handoff_note    { to_state = review.note      }
+      workflow_status { to_state = workflow.status  }
+    }
+  }
+}
