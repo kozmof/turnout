@@ -20,61 +20,107 @@ export type SceneExecutionResult = {
   terminatedAt: string[];
 };
 
+export type StepResult =
+  | { done: false; trace: ActionTrace }
+  | { done: true; trace?: undefined };
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Scene executor
+// Scene executor — manual stepping API
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type SceneExecutor = {
+  readonly isDone: () => boolean;
+  /** Execute the next pending action. Returns `{ done: true }` when the queue is empty. */
+  readonly next: () => StepResult;
+  /** Returns the final result. Throws if the scene is not yet complete. */
+  readonly result: () => SceneExecutionResult;
+};
+
 /**
- * Execute a scene by draining the action queue until no further next rules fire.
+ * Creates a scene executor that advances one action at a time via `next()`.
  *
- * @param scene   - The scene definition (entry actions, policy, action list).
- * @param state   - The current STATE at scene entry (may carry values from prior scenes).
- * @param hooks   - Optional hook registry for from_hook prepare resolution.
+ * @example
+ * const executor = createSceneExecutor(scene, state, hooks);
+ * while (!executor.isDone()) {
+ *   const { trace } = executor.next();
+ * }
+ * const result = executor.result();
  */
-export function executeScene(
+export function createSceneExecutor(
   scene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = {},
-): SceneExecutionResult {
+): SceneExecutor {
   const actionMap = buildActionMap(scene.actions);
   const policy: NextPolicy = scene.next_policy ?? 'first-match';
 
+  let currentState = state;
   const queue: string[] = [...scene.entry_actions];
   const visited = new Set<string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
 
-  while (queue.length > 0) {
-    const actionId = queue.shift()!;
+  function drainVisited(): void {
+    while (queue.length > 0 && visited.has(queue[0]!)) queue.shift();
+  }
 
-    // Cycle guard: each action runs at most once per scene execution.
-    if (visited.has(actionId)) continue;
+  function isDone(): boolean {
+    drainVisited();
+    return queue.length === 0;
+  }
+
+  function next(): StepResult {
+    drainVisited();
+    if (queue.length === 0) return { done: true };
+
+    const actionId = queue.shift()!;
     visited.add(actionId);
 
     const action = actionMap[actionId];
     if (!action) throw new Error(`Scene "${scene.id}": unknown action "${actionId}"`);
 
-    const result = executeAction(action, state, hooks);
-    state = result.stateAfterMerge;
+    const result = executeAction(action, currentState, hooks);
+    currentState = result.stateAfterMerge;
 
-    const nextIds = evaluateNextRules(action, state, result, policy);
+    const nextIds = evaluateNextRules(action, currentState, result, policy);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
-    actionTraces.push({
+    const trace: ActionTrace = {
       actionId,
       computeRootValue: result.computeRootValue,
       nextActionIds: nextIds,
-    });
-
+    };
+    actionTraces.push(trace);
     queue.push(...nextIds);
+
+    return { done: false, trace };
   }
 
-  return {
-    sceneId: scene.id,
-    stateAfterScene: state,
-    trace: { sceneId: scene.id, actions: actionTraces },
-    terminatedAt,
-  };
+  function result(): SceneExecutionResult {
+    if (!isDone()) throw new Error(`Scene "${scene.id}": execution is not complete`);
+    return {
+      sceneId: scene.id,
+      stateAfterScene: currentState,
+      trace: { sceneId: scene.id, actions: actionTraces },
+      terminatedAt,
+    };
+  }
+
+  return { isDone, next, result };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Convenience wrapper — runs the scene to completion in one call
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function executeScene(
+  scene: SceneBlock,
+  state: StateManager,
+  hooks: HookRegistry = {},
+): SceneExecutionResult {
+  const executor = createSceneExecutor(scene, state, hooks);
+  while (!executor.isDone()) executor.next();
+  return executor.result();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

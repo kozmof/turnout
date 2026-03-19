@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { executeScene } from '../src/executor/scene-executor.js';
+import { executeScene, createSceneExecutor } from '../src/executor/scene-executor.js';
 import { StateManager } from '../src/state/state-manager.js';
 import {
   buildNumber,
@@ -264,5 +264,115 @@ describe('executeScene — cycle guard', () => {
     const result = executeScene(scene, StateManager.from({}));
     // 'a' runs once; the re-queued 'a' is skipped by the visited guard
     expect(result.trace.actions.filter((t) => t.actionId === 'a')).toHaveLength(1);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createSceneExecutor — manual stepping API
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('createSceneExecutor — isDone / next / result', () => {
+  const scene: SceneBlock = {
+    id: 'step_scene',
+    entry_actions: ['only_action'],
+    actions: [makePassAction('only_action', 7, 'out.val')],
+  };
+
+  it('isDone() is false before any steps', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    expect(executor.isDone()).toBe(false);
+  });
+
+  it('next() returns done:false with a trace on the first step', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const step = executor.next();
+    expect(step.done).toBe(false);
+    expect(step.trace?.actionId).toBe('only_action');
+  });
+
+  it('isDone() is true after the single action runs', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    executor.next();
+    expect(executor.isDone()).toBe(true);
+  });
+
+  it('next() returns done:true when the queue is empty', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    executor.next();
+    expect(executor.next()).toEqual({ done: true });
+  });
+
+  it('result() throws before the scene is complete', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    expect(() => executor.result()).toThrow();
+  });
+
+  it('result() returns the correct SceneExecutionResult after completion', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    while (!executor.isDone()) executor.next();
+    const result = executor.result();
+    expect(result.sceneId).toBe('step_scene');
+    expect(result.terminatedAt).toEqual(['only_action']);
+    const v = result.stateAfterScene.read('out.val');
+    expect(isPureNumber(v!) && v.value).toBe(7);
+  });
+});
+
+describe('createSceneExecutor — step-by-step trace', () => {
+  const scene: SceneBlock = {
+    id: 'chain_step_scene',
+    entry_actions: ['first'],
+    actions: [
+      {
+        ...makePassAction('first', 10, 'step.first'),
+        next: [{ action: 'second' }],
+      },
+      makePassAction('second', 20, 'step.second'),
+    ],
+  };
+
+  it('yields each action trace in order', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+
+    const step1 = executor.next();
+    expect(step1.done).toBe(false);
+    expect(step1.trace?.actionId).toBe('first');
+    expect(step1.trace?.nextActionIds).toEqual(['second']);
+
+    const step2 = executor.next();
+    expect(step2.done).toBe(false);
+    expect(step2.trace?.actionId).toBe('second');
+    expect(step2.trace?.nextActionIds).toEqual([]);
+
+    expect(executor.isDone()).toBe(true);
+  });
+
+  it('intermediate state is visible via result() only after completion', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    executor.next(); // run 'first'
+    expect(() => executor.result()).toThrow(); // 'second' still pending
+    executor.next(); // run 'second'
+    const result = executor.result();
+    const v = result.stateAfterScene.read('step.second');
+    expect(isPureNumber(v!) && v.value).toBe(20);
+  });
+});
+
+describe('createSceneExecutor — cycle guard', () => {
+  const scene: SceneBlock = {
+    id: 'cycle_step_scene',
+    entry_actions: ['a'],
+    actions: [
+      {
+        ...makePassAction('a', 1, 'step.a'),
+        next: [{ action: 'a' }],
+      },
+    ],
+  };
+
+  it('completes after one step despite a self-loop next rule', () => {
+    const executor = createSceneExecutor(scene, StateManager.from({}));
+    executor.next();
+    expect(executor.isDone()).toBe(true);
   });
 });
