@@ -3,6 +3,23 @@ import { execFileSync, execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import type { TurnModel } from '../types/scene-model.js';
 
+// ─────────────────────────────────────────────────────────────────────────────
+// File loading
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Read a `.turn` file from disk and return its raw content as a string.
+ * Server-only (uses Node.js `fs`).
+ */
+export function loadTurnFile(filePath: string): string {
+  try {
+    return readFileSync(filePath, 'utf8');
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`Cannot read turn file "${filePath}": ${msg}`);
+  }
+}
+
 /**
  * Resolve the path to the `turnout` binary.
  * Looks on PATH first; falls back to the built binary in the Go converter package.
@@ -39,6 +56,24 @@ export function runConverter(turnFilePath: string): TurnModel {
     throw new Error(`turnout converter failed for "${turnFilePath}": ${msg}`);
   }
   return parseJSON(output.toString('utf8'), turnFilePath);
+}
+
+/**
+ * Invoke the Go converter on a `.turn` file and return the canonical HCL
+ * output as a string.
+ * Server-only (requires the `turnout` binary and Node.js `child_process`).
+ */
+export function convertToHCL(turnFilePath: string): string {
+  const bin = resolveTurnoutBin();
+  try {
+    const output = execFileSync(bin, ['convert', turnFilePath, '-o', '-', '-format', 'hcl'], {
+      encoding: 'buffer',
+    });
+    return output.toString('utf8');
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    throw new Error(`turnout converter failed for "${turnFilePath}": ${msg}`);
+  }
 }
 
 /**
