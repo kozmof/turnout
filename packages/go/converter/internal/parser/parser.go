@@ -598,6 +598,7 @@ func (p *parser) parseIfCompatRHS() ast.BindingRHS {
 	p.expect(lexer.TokEquals)
 	p.expect(lexer.TokLBrace)
 	rhs := p.parseIfBody(pos)
+	p.expect(lexer.TokRBrace) // inner }
 	p.expect(lexer.TokRBrace) // outer }
 	return rhs
 }
@@ -1341,9 +1342,23 @@ func (p *parser) parseMatchArm() *ast.MatchArm {
 
 	for {
 		branch := p.parsePathExpr()
-		if branch != nil {
-			arm.Branches = append(arm.Branches, branch)
+		if branch == nil {
+			// Error already recorded; skip to the next arm boundary to
+			// avoid an infinite loop in the caller's loop.
+			p.skipTo(lexer.TokArrow, lexer.TokComma, lexer.TokRBrace)
+			if p.peek().Kind == lexer.TokArrow {
+				// Try to recover by consuming the rest of the arm.
+				p.advance() // consume =>
+				arm.Target = p.parseRefVal()
+				if p.peek().Kind == lexer.TokComma {
+					p.advance()
+				}
+			} else if p.peek().Kind == lexer.TokComma {
+				p.advance()
+			}
+			return nil
 		}
+		arm.Branches = append(arm.Branches, branch)
 		if p.peek().Kind == lexer.TokPipe {
 			p.advance() // consume |
 			continue

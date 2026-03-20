@@ -394,7 +394,10 @@ func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindin
 	}
 
 	// Validate steps; accumulate step return types for step_ref checks.
+	// stepKnown[i] tracks whether stepTypes[i] is a real resolved type (vs. unknown).
+	// FieldTypeNumber == 0, so we cannot use 0 as a "unknown" sentinel.
 	stepTypes := make([]ast.FieldType, 0, len(p.Steps))
+	stepKnown := make([]bool, 0, len(p.Steps))
 
 	for i, step := range p.Steps {
 		spec, ok := builtinFns[step.Fn]
@@ -402,6 +405,7 @@ func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindin
 			*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
 				"binding %q pipe step %d: unknown function alias %q", b.Name, i, step.Fn))
 			stepTypes = append(stepTypes, 0)
+			stepKnown = append(stepKnown, false)
 			continue
 		}
 
@@ -417,17 +421,17 @@ func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindin
 			}
 		}
 
-		retType, _ := resolveExpectedReturn(spec, step.Args, pipeScope, stepTypes)
+		retType, known := resolveExpectedReturn(spec, step.Args, pipeScope, stepTypes)
 		stepTypes = append(stepTypes, retType)
+		stepKnown = append(stepKnown, known)
 	}
 
 	// ReturnTypeMismatch: last step return type must match binding type.
 	if n := len(p.Steps); n > 0 {
-		lastRet := stepTypes[n-1]
-		if lastRet != 0 && lastRet != b.Type {
+		if stepKnown[n-1] && stepTypes[n-1] != b.Type {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: pipe last step returns %s but binding declares type %s",
-				b.Name, lastRet, b.Type))
+				b.Name, stepTypes[n-1], b.Type))
 		}
 	}
 }
