@@ -18,10 +18,9 @@ This pass covers the current repository state across:
 - `pnpm --dir packages/ts/runtime test`: passed
   - 13 test files
   - 178 tests
-- `pnpm --dir packages/ts/scene-runner test`: failed
-  - 5 test files failed
-  - 67 tests failed, 63 passed
-  - The dominant failure is API drift around `StateManager.from` and `StateManager.fromSchema` in the unit tests; the end-to-end JSON fixture tests still pass
+- `pnpm --dir packages/ts/scene-runner test`: passed ✓ (fixed 2026-03-21)
+  - 10 test files
+  - 130 tests
 
 ## 1. Code Organization And Structure
 
@@ -217,13 +216,15 @@ It is intentionally thin. That is fine for syntax highlighting, but it does not 
 
 ## 5. Pitfalls
 
-### 5.1 `runConverter` is broken when `turnout` exists on PATH
+### 5.1 `runConverter` is broken when `turnout` exists on PATH — **FIXED**
 
-`packages/ts/scene-runner/src/server/bridge.ts` checks whether `turnout --help` works, but returns `'runtime'` instead of `'turnout'` from `resolveTurnoutBin()`.
+`packages/ts/scene-runner/src/server/bridge.ts` checked whether `turnout --help` works but returned `'runtime'` instead of `'turnout'` from `resolveTurnoutBin()`.
+
+Fix: changed `return 'runtime'` to `return 'turnout'`.
 
 Impact:
 
-- `runConverter(...)` and `convertToHCL(...)` will try to execute the wrong binary in the common happy-path deployment case
+- ~~`runConverter(...)` and `convertToHCL(...)` will try to execute the wrong binary in the common happy-path deployment case~~
 - current JSON-based E2E tests do not catch this because they bypass converter execution
 
 ### 5.2 Publish hooks are specified but not executed
@@ -241,20 +242,15 @@ Impact:
 - runtime behavior is behind the documented `prepare -> compute -> merge -> publish` lifecycle
 - hook-related features are only partially implemented
 
-### 5.3 Route transitions launch all target entry actions, not only the first
+### 5.3 Route transitions launch all target entry actions, not only the first — FIXED
 
-The route spec says route-driven entry should start from the first declared `entry_actions` element of the target scene. Current implementation creates a normal scene executor, which seeds the queue with all `entry_actions`.
+The route spec says route-driven entry should start from the first declared `entry_actions` element of the target scene. `createSceneExecutor` now accepts an optional `entryActions` override. Both `executeRoute` and the `Runner` pass `[scene.entry_actions[0]]` for route-driven transitions; direct scene execution is unchanged.
 
 Relevant code:
 
 - `packages/ts/scene-runner/src/executor/route-executor.ts`
 - `packages/ts/scene-runner/src/runner.ts`
 - `packages/ts/scene-runner/src/executor/scene-executor.ts`
-
-Impact:
-
-- route behavior can diverge from spec on multi-entry scenes
-- the mismatch is easy to miss because existing fixtures mostly use one entry action
 
 ### 5.4 Missing prepare sources do not fail the action
 
@@ -271,14 +267,9 @@ Impact:
 - workflows can continue with sentinel nulls instead of failing loudly
 - debugging becomes harder because the source of failure is erased into data
 
-### 5.5 Prepare hooks are not deduplicated
+### 5.5 Prepare hooks are not deduplicated — FIXED
 
-The action execution spec says repeated references to the same prepare hook may be deduplicated per action invocation. Current `resolveActionPrepare(...)` calls the hook once per binding entry.
-
-Impact:
-
-- duplicated side effects if hooks are not pure
-- wasted work for expensive hook sources
+`resolveActionPrepare(...)` now maintains a per-invocation `hookCache` keyed by hook name. Each hook is called at most once per `resolveActionPrepare` call; subsequent bindings that reference the same hook read from the cache.
 
 ### 5.6 Overview / `view` data is parsed, then dropped
 
@@ -296,28 +287,13 @@ Impact:
 - one part of the DSL is effectively non-executable metadata today
 - spec coverage for overview enforcement is not reflected in the implementation
 
-### 5.7 Scene-runner unit tests are out of sync with the current API
+### 5.7 Scene-runner unit tests are out of sync with the current API — FIXED
 
-The failing `scene-runner` tests import `StateManager` as if it exposes `StateManager.from(...)` and `StateManager.fromSchema(...)`. The implementation now exports `stateManagerFrom(...)` and `stateManagerFromSchema(...)`.
+The tests use `StateManager.from(...)` and `StateManager.fromSchema(...)`. The `StateManager` type has been converted to an `interface` and a merged `namespace StateManager` now exports `from` and `fromSchema` as aliases for `stateManagerFrom` and `stateManagerFromSchema`. All 130 scene-runner tests pass.
 
-Impact:
+### 5.8 Empty array literal inference is fragile in the scene-runner — FIXED
 
-- CI signal for this package is noisy
-- regressions in scene execution could be masked by the volume of unrelated red tests
-
-### 5.8 Empty array literal inference is fragile in the scene-runner
-
-Both:
-
-- `packages/ts/scene-runner/src/executor/hcl-context-builder.ts`
-- `packages/ts/scene-runner/src/executor/prepare-resolver.ts`
-
-infer array literal type by inspecting the first element. `[]` therefore falls through to a null-like fallback instead of producing a typed empty array.
-
-Impact:
-
-- spec-valid empty arrays are at risk of becoming wrong runtime values
-- array-heavy workflows will be hard to extend safely
+Both `inferLiteralAnyValue` (hcl-context-builder) and `inferLiteralValue` (prepare-resolver) now detect an empty array and return `buildArray([])` instead of falling through to a null or wrong-type fallback. Non-empty arrays continue to use element-type inference as before.
 
 ### 5.9 Multi-scene routing is stronger in the runtime than in the compiler
 
@@ -387,16 +363,16 @@ If not, it should be called out as parse-only or draft-only.
 
 ## 8. Improvement Points 3 (Implementations)
 
-1. Fix `resolveTurnoutBin()` to return `'turnout'` when PATH lookup succeeds.
+1. ~~Fix `resolveTurnoutBin()` to return `'turnout'` when PATH lookup succeeds.~~ **Done.**
 2. Add a real publish phase to action execution and cover it with tests.
-3. Introduce a route-entry helper that launches only the first target scene entry action.
+3. ~~Introduce a route-entry helper that launches only the first target scene entry action.~~ **Done.**
 4. Decide on missing-source semantics:
    - fail fast per spec, or
    - document the current null-injection behavior as intentional
-5. Cache prepare hook results per action invocation by hook name.
-6. Either restore `StateManager.from*` compatibility wrappers or update the failing tests to the current API.
+5. ~~Cache prepare hook results per action invocation by hook name.~~ **Done.**
+6. ~~Either restore `StateManager.from*` compatibility wrappers or update the failing tests to the current API.~~ **Done** — restored via interface/namespace merging.
 7. Preserve `view`/overview data through lowering if the spec remains active.
-8. Add typed empty-array handling in `hcl-context-builder.ts` and `prepare-resolver.ts`.
+8. ~~Add typed empty-array handling in `hcl-context-builder.ts` and `prepare-resolver.ts`.~~ **Done.**
 9. Add integration tests for the `turnFile` path, not just prebuilt JSON fixtures.
 
 ## 9. Learning Paths On Implementations (Entries And Goals)
@@ -459,9 +435,18 @@ Goal:
 
 The repository has a strong core: the Go converter pipeline is well-structured, and the TypeScript runtime is the most mature and reliable subsystem today. The weakest point is the scene-runner layer, not because its architecture is poor, but because it is currently where most behavior-level drift accumulates.
 
-The most important near-term fixes are:
+**Fixed 2026-03-21** (5 of 9 implementation items resolved, all 130 scene-runner tests now pass):
 
-1. repair the server bridge binary lookup
-2. implement publish hooks
-3. align route-driven entry semantics with the spec
-4. restore a trustworthy `scene-runner` test signal
+- 5.1 server bridge binary lookup (`'runtime'` → `'turnout'`)
+- 5.3 route-driven entry now uses only the first `entry_actions` element
+- 5.5 prepare hooks deduplicated per action invocation via `hookCache`
+- 5.7 `StateManager` interface + namespace merging restores `.from` / `.fromSchema`
+- 5.8 empty array literals now produce `buildArray([])` instead of a null fallback
+
+Remaining open items:
+
+- 5.2 implement the publish lifecycle phase
+- 5.4 decide on missing-source semantics (fail-fast vs. documented null injection)
+- 5.6 preserve or explicitly drop `view`/overview data through lowering
+- 5.9 multi-scene authoring end-to-end through the compiler
+- item 9: integration tests for the `turnFile` path

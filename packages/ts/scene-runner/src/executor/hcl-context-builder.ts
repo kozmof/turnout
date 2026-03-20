@@ -1,4 +1,4 @@
-import { ctx, combine, pipe, cond, ref as runtimeRef } from 'runtime';
+import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'runtime';
 import type { ProgModel, ArgModel, Literal } from '../types/scene-model.js';
 import { literalToValue } from '../state/state-manager.js';
@@ -69,6 +69,8 @@ function inferLiteralAnyValue(lit: Literal): AnyValue {
     if (typeof first === 'number') return literalToValue(lit, 'arr<number>');
     if (typeof first === 'string') return literalToValue(lit, 'arr<str>');
     if (typeof first === 'boolean') return literalToValue(lit, 'arr<bool>');
+    // Empty array — no element type to infer; return a typed empty array value.
+    return buildArray([]);
   }
   return literalToValue(null, 'number');
 }

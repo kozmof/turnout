@@ -1,4 +1,4 @@
-import { buildNull } from 'runtime';
+import { buildNull, buildArray } from 'runtime';
 import type { AnyValue } from 'runtime';
 import type { PrepareEntry, NextPrepareEntry, Literal } from '../types/scene-model.js';
 import type { StateManager } from '../state/state-manager.js';
@@ -19,6 +19,7 @@ export function resolveActionPrepare(
   hooks: HookRegistry,
 ): Record<string, AnyValue> {
   const result: Record<string, AnyValue> = {};
+  const hookCache: Record<string, Record<string, AnyValue>> = {};
 
   for (const entry of entries) {
     if (entry.from_state !== undefined) {
@@ -29,8 +30,10 @@ export function resolveActionPrepare(
       if (!hook) {
         result[entry.binding] = buildNull('missing');
       } else {
-        const hookResult = hook({ readState: (p) => state.read(p) });
-        result[entry.binding] = hookResult[entry.binding] ?? buildNull('missing');
+        if (!hookCache[hookName]) {
+          hookCache[hookName] = hook({ readState: (p) => state.read(p) });
+        }
+        result[entry.binding] = hookCache[hookName][entry.binding] ?? buildNull('missing');
       }
     }
   }
@@ -80,6 +83,8 @@ function inferLiteralValue(lit: Literal): AnyValue {
     if (typeof first === 'number') return literalToValue(lit, 'arr<number>');
     if (typeof first === 'string') return literalToValue(lit, 'arr<str>');
     if (typeof first === 'boolean') return literalToValue(lit, 'arr<bool>');
+    // Empty array — no element type to infer; return a typed empty array value.
+    return buildArray([]);
   }
   return buildNull('unknown');
 }

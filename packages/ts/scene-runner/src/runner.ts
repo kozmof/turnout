@@ -128,10 +128,13 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
 
   // hooks is passed by reference so useHook() mutations are visible
   // to the executor without needing to recreate it.
+  // In route mode, only the first entry action fires per scene (spec §route-entry).
+  const initialScene = sceneMap[currentSceneId]!;
   let executor: SceneExecutor = createSceneExecutor(
-    sceneMap[currentSceneId]!,
+    initialScene,
     state,
     hooks,
+    route ? [initialScene.entry_actions[0]!] : undefined,
   );
 
   let done = false;
@@ -184,7 +187,8 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       }
 
       currentSceneId = nextSceneId;
-      executor = createSceneExecutor(nextScene, state, hooks);
+      // Route-driven entry: only the first entry action fires (spec §route-entry).
+      executor = createSceneExecutor(nextScene, state, hooks, [nextScene.entry_actions[0]!]);
       // Loop again to execute the first action of the new scene.
     }
   }

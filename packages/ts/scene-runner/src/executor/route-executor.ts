@@ -49,7 +49,10 @@ export function executeRoute(
     const scene = scenes[currentSceneId];
     if (!scene) throw new Error(`Route "${route.id}": unknown scene "${currentSceneId}"`);
 
-    const sceneResult = executeScene(scene, state, hooks);
+    // Route-driven entry: only the first declared entry action fires (spec §route-entry).
+    const routeEntry = scene.entry_actions[0];
+    if (!routeEntry) throw new Error(`Route "${route.id}": scene "${currentSceneId}" has no entry actions`);
+    const sceneResult = executeScene(scene, state, hooks, [routeEntry]);
     state = sceneResult.stateAfterScene;
     sceneTraces.push(sceneResult.trace);
 

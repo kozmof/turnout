@@ -39,6 +39,10 @@ export type SceneExecutor = {
 /**
  * Creates a scene executor that advances one action at a time via `next()`.
  *
+ * @param entryActions - Override which actions seed the initial queue.
+ *   Defaults to `scene.entry_actions`. Pass a single-element array for
+ *   route-driven entry where only the first entry action should fire.
+ *
  * @example
  * const executor = createSceneExecutor(scene, state, hooks);
  * while (!executor.isDone()) {
@@ -50,12 +54,13 @@ export function createSceneExecutor(
   scene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = {},
+  entryActions?: string[],
 ): SceneExecutor {
   const actionMap = buildActionMap(scene.actions);
   const policy: NextPolicy = scene.next_policy ?? 'first-match';
 
   let currentState = state;
-  const queue: string[] = [...scene.entry_actions];
+  const queue: string[] = [...(entryActions ?? scene.entry_actions)];
   const visited = new Set<string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
@@ -117,8 +122,9 @@ export function executeScene(
   scene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = {},
+  entryActions?: string[],
 ): SceneExecutionResult {
-  const executor = createSceneExecutor(scene, state, hooks);
+  const executor = createSceneExecutor(scene, state, hooks, entryActions);
   while (!executor.isDone()) executor.next();
   return executor.result();
 }

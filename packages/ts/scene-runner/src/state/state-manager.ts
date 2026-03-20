@@ -13,7 +13,7 @@ import type { StateModel } from '../types/scene-model.js';
  * ("namespace.field"). All mutations return a new instance, preserving
  * immutability across action boundaries.
  */
-export type StateManager = {
+export interface StateManager {
   /** Read a value by dotted path. Returns undefined if the path does not exist. */
   read(path: string): AnyValue | undefined;
   /**
@@ -23,7 +23,7 @@ export type StateManager = {
   write(path: string, value: AnyValue): StateManager;
   /** Return a shallow copy of the current state record. */
   snapshot(): Readonly<Record<string, AnyValue>>;
-};
+}
 
 function make(state: Record<string, AnyValue>): StateManager {
   return {
@@ -99,3 +99,9 @@ function literalToValue(
  * Converts a raw JSON literal to a typed AnyValue given its field type string.
  */
 export { literalToValue };
+
+// eslint-disable-next-line @typescript-eslint/no-namespace
+export namespace StateManager {
+  export const from = stateManagerFrom;
+  export const fromSchema = stateManagerFromSchema;
+}
