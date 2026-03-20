@@ -13,49 +13,47 @@ import type { StateModel } from '../types/scene-model.js';
  * ("namespace.field"). All mutations return a new instance, preserving
  * immutability across action boundaries.
  */
-export class StateManager {
-  private constructor(private readonly state: Record<string, AnyValue>) {}
-
-  /** Create a StateManager from a flat initial state record. */
-  static from(initial: Record<string, AnyValue>): StateManager {
-    return new StateManager({ ...initial });
-  }
-
-  /**
-   * Create a StateManager from a STATE schema, populating each field with
-   * its declared default value. Fields present in `overrides` take precedence.
-   */
-  static fromSchema(
-    stateModel: StateModel,
-    overrides: Record<string, AnyValue> = {},
-  ): StateManager {
-    const defaults: Record<string, AnyValue> = {};
-    for (const ns of stateModel.namespaces) {
-      for (const field of ns.fields) {
-        const path = `${ns.name}.${field.name}`;
-        defaults[path] = literalToValue(field.value, field.type);
-      }
-    }
-    return new StateManager({ ...defaults, ...overrides });
-  }
-
+export type StateManager = {
   /** Read a value by dotted path. Returns undefined if the path does not exist. */
-  read(path: string): AnyValue | undefined {
-    return this.state[path];
-  }
-
+  read(path: string): AnyValue | undefined;
   /**
    * Return a new StateManager with the given path set to value.
    * Does not mutate the current instance.
    */
-  write(path: string, value: AnyValue): StateManager {
-    return new StateManager({ ...this.state, [path]: value });
-  }
-
+  write(path: string, value: AnyValue): StateManager;
   /** Return a shallow copy of the current state record. */
-  snapshot(): Readonly<Record<string, AnyValue>> {
-    return { ...this.state };
+  snapshot(): Readonly<Record<string, AnyValue>>;
+};
+
+function make(state: Record<string, AnyValue>): StateManager {
+  return {
+    read: (path) => state[path],
+    write: (path, value) => make({ ...state, [path]: value }),
+    snapshot: () => ({ ...state }),
+  };
+}
+
+/** Create a StateManager from a flat initial state record. */
+export function stateManagerFrom(initial: Record<string, AnyValue>): StateManager {
+  return make({ ...initial });
+}
+
+/**
+ * Create a StateManager from a STATE schema, populating each field with
+ * its declared default value. Fields present in `overrides` take precedence.
+ */
+export function stateManagerFromSchema(
+  stateModel: StateModel,
+  overrides: Record<string, AnyValue> = {},
+): StateManager {
+  const defaults: Record<string, AnyValue> = {};
+  for (const ns of stateModel.namespaces) {
+    for (const field of ns.fields) {
+      const path = `${ns.name}.${field.name}`;
+      defaults[path] = literalToValue(field.value, field.type);
+    }
   }
+  return make({ ...defaults, ...overrides });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

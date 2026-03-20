@@ -1,5 +1,6 @@
 import type { HarnessOptions, HarnessResult } from '../types/harness-types.js';
-import { StateManager } from '../state/state-manager.js';
+import { stateManagerFrom, stateManagerFromSchema } from '../state/state-manager.js';
+import type { StateManager } from '../state/state-manager.js';
 import { executeScene } from '../executor/scene-executor.js';
 import { executeRoute } from '../executor/route-executor.js';
 
@@ -25,8 +26,8 @@ export function runHarness(options: HarnessOptions): HarnessResult {
   // apply the caller-supplied overrides. When there is no schema (the spec
   // examples omit a state {} block), use the provided values directly.
   const state: StateManager = model.state
-    ? StateManager.fromSchema(model.state, options.initialState)
-    : StateManager.from(options.initialState);
+    ? stateManagerFromSchema(model.state, options.initialState)
+    : stateManagerFrom(options.initialState);
 
   // ── 2. Build lookup maps ─────────────────────────────────────────────────
   const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));

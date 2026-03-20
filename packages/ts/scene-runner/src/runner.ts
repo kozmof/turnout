@@ -1,5 +1,5 @@
 import type { AnyValue } from 'runtime';
-import type { TurnModel, RouteModel, SceneBlock } from './types/scene-model.js';
+import type { TurnModel } from './types/scene-model.js';
 import type {
   HookRegistry,
   HookHandler,
@@ -7,7 +7,8 @@ import type {
   ActionTrace,
   SceneTrace,
 } from './types/harness-types.js';
-import { StateManager } from './state/state-manager.js';
+import { stateManagerFrom, stateManagerFromSchema } from './state/state-manager.js';
+import type { StateManager } from './state/state-manager.js';
 import {
   createSceneExecutor,
   type SceneExecutor,
@@ -29,10 +30,6 @@ export type RunnerStepResult =
   | { done: true }
   | { done: false; sceneId: string; actionId: string; trace: ActionTrace };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Runner
-// ─────────────────────────────────────────────────────────────────────────────
-
 /**
  * Step-by-step execution controller for a TurnModel.
  *
@@ -53,80 +50,15 @@ export type RunnerStepResult =
  * // Or run to completion in one call
  * const result = runner.run();
  */
-export class Runner {
-  private readonly model: TurnModel;
-  private readonly sceneMap: Record<string, SceneBlock>;
-  private readonly route: RouteModel | null;
-  private readonly hooks: HookRegistry = {};
-
-  private state: StateManager;
-  private executor: SceneExecutor;
-  private currentSceneId: string;
-
-  // Route mode accumulation
-  private readonly routeHistory: string[] = [];
-  private readonly routeSceneTraces: SceneTrace[] = [];
-
-  private _done = false;
-
-  constructor(model: TurnModel, options: RunnerOptions) {
-    this.model = model;
-    this.sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
-    const routeMap = Object.fromEntries((model.routes ?? []).map((r) => [r.id, r]));
-
-    this.state = model.state
-      ? StateManager.fromSchema(model.state, options.initialState)
-      : StateManager.from(options.initialState);
-
-    const route = routeMap[options.entryId];
-    const scene = this.sceneMap[options.entryId];
-
-    if (route) {
-      const entrySceneId = model.scenes[0]?.id;
-      if (!entrySceneId) {
-        throw new Error(
-          `Runner: route "${options.entryId}" found but model has no scenes`,
-        );
-      }
-      this.route = route;
-      this.currentSceneId = entrySceneId;
-    } else if (scene) {
-      this.route = null;
-      this.currentSceneId = options.entryId;
-    } else {
-      throw new Error(
-        `Runner: entryId "${options.entryId}" not found as route or scene in the model`,
-      );
-    }
-
-    // hooks is passed by reference so registerHook() mutations are visible
-    // to the executor without needing to recreate it.
-    this.executor = createSceneExecutor(
-      this.sceneMap[this.currentSceneId]!,
-      this.state,
-      this.hooks,
-    );
-  }
-
-  // ── Hook registration ───────────────────────────────────────────────────────
-
+export type Runner = {
   /**
    * Register a hook handler.
    * Can be called before or between steps — mutations are picked up immediately.
-   * Returns `this` for chaining.
+   * Returns the runner for chaining.
    */
-  registerHook(name: string, handler: HookHandler): this {
-    this.hooks[name] = handler;
-    return this;
-  }
-
-  // ── Step control ────────────────────────────────────────────────────────────
-
+  registerHook(name: string, handler: HookHandler): Runner;
   /** True when all actions have completed (scene or route finished). */
-  isDone(): boolean {
-    return this._done;
-  }
-
+  isDone(): boolean;
   /**
    * Advance by `steps` actions (default: 1).
    * Scene transitions in route mode are handled automatically and do not
@@ -135,110 +67,18 @@ export class Runner {
    *
    * Returns fewer than `steps` entries if execution finishes early.
    */
-  next(steps = 1): RunnerStepResult[] {
-    const results: RunnerStepResult[] = [];
-    for (let i = 0; i < steps; i++) {
-      const r = this._advance();
-      results.push(r);
-      if (r.done) break;
-    }
-    return results;
-  }
-
+  next(steps?: number): RunnerStepResult[];
   /**
    * Run to completion and return the final result.
    * Equivalent to calling `next()` in a loop until done.
    */
-  run(): HarnessResult {
-    while (!this._done) this._advance();
-    return this.result();
-  }
-
+  run(): HarnessResult;
   /**
    * Return the final `HarnessResult`.
    * Throws if execution is not yet complete.
    */
-  result(): HarnessResult {
-    if (!this._done) {
-      throw new Error(
-        'Runner: execution is not complete — call run() or step until isDone()',
-      );
-    }
-
-    if (this.route) {
-      return {
-        finalState: this.state.snapshot(),
-        trace: {
-          kind: 'route',
-          route: { routeId: this.route.id, scenes: this.routeSceneTraces },
-        },
-        model: this.model,
-      };
-    }
-
-    const sceneTrace = this.executor.result().trace;
-    return {
-      finalState: this.state.snapshot(),
-      trace: { kind: 'scene', scene: sceneTrace },
-      model: this.model,
-    };
-  }
-
-  // ── Internal ────────────────────────────────────────────────────────────────
-
-  /**
-   * Advance one action, handling scene transitions in route mode transparently.
-   * Loops past empty scenes or exhausted executors until an action runs or
-   * execution reaches a terminal state.
-   */
-  private _advance(): RunnerStepResult {
-    for (;;) {
-      // Try to execute the next pending action in the current scene.
-      if (!this.executor.isDone()) {
-        const step = this.executor.next();
-        if (step.done) continue; // queue became empty mid-loop (shouldn't happen)
-
-        if (this.route) {
-          this.routeHistory.push(`${this.currentSceneId}.${step.trace.actionId}`);
-        }
-        return { done: false, sceneId: this.currentSceneId, actionId: step.trace.actionId, trace: step.trace };
-      }
-
-      // Current scene is exhausted — finalise it.
-      const sceneResult = this.executor.result();
-      this.state = sceneResult.stateAfterScene;
-
-      if (!this.route) {
-        // Scene mode: we're done.
-        this._done = true;
-        return { done: true };
-      }
-
-      // Route mode: save the scene trace and find the next scene.
-      this.routeSceneTraces.push(sceneResult.trace);
-
-      const nextSceneId = selectNextScene(
-        this.routeHistory,
-        this.route.match,
-        this.currentSceneId,
-      );
-
-      if (nextSceneId === null) {
-        this._done = true;
-        return { done: true };
-      }
-
-      const nextScene = this.sceneMap[nextSceneId];
-      if (!nextScene) {
-        throw new Error(`Runner: unknown scene "${nextSceneId}" referenced by route`);
-      }
-
-      this.currentSceneId = nextSceneId;
-      this.executor = createSceneExecutor(nextScene, this.state, this.hooks);
-      // Loop again to execute the first action of the new scene.
-    }
-  }
-}
+  result(): HarnessResult;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Factory
@@ -255,5 +95,149 @@ export class Runner {
  *   - `.result()` — get the final HarnessResult
  */
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
-  return new Runner(model, options);
+  const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
+  const routeMap = Object.fromEntries((model.routes ?? []).map((r) => [r.id, r]));
+  const hooks: HookRegistry = {};
+
+  let state: StateManager = model.state
+    ? stateManagerFromSchema(model.state, options.initialState)
+    : stateManagerFrom(options.initialState);
+
+  const route = routeMap[options.entryId] ?? null;
+  let currentSceneId: string;
+
+  if (route) {
+    const entrySceneId = model.scenes[0]?.id;
+    if (!entrySceneId) {
+      throw new Error(
+        `Runner: route "${options.entryId}" found but model has no scenes`,
+      );
+    }
+    currentSceneId = entrySceneId;
+  } else if (sceneMap[options.entryId]) {
+    currentSceneId = options.entryId;
+  } else {
+    throw new Error(
+      `Runner: entryId "${options.entryId}" not found as route or scene in the model`,
+    );
+  }
+
+  // Route mode accumulation
+  const routeHistory: string[] = [];
+  const routeSceneTraces: SceneTrace[] = [];
+
+  // hooks is passed by reference so registerHook() mutations are visible
+  // to the executor without needing to recreate it.
+  let executor: SceneExecutor = createSceneExecutor(
+    sceneMap[currentSceneId]!,
+    state,
+    hooks,
+  );
+
+  let done = false;
+
+  /**
+   * Advance one action, handling scene transitions in route mode transparently.
+   * Loops past empty scenes or exhausted executors until an action runs or
+   * execution reaches a terminal state.
+   */
+  function advance(): RunnerStepResult {
+    for (;;) {
+      // Try to execute the next pending action in the current scene.
+      if (!executor.isDone()) {
+        const step = executor.next();
+        if (step.done) continue; // queue became empty mid-loop (shouldn't happen)
+
+        if (route) {
+          routeHistory.push(`${currentSceneId}.${step.trace.actionId}`);
+        }
+        return { done: false, sceneId: currentSceneId, actionId: step.trace.actionId, trace: step.trace };
+      }
+
+      // Current scene is exhausted — finalise it.
+      const sceneResult = executor.result();
+      state = sceneResult.stateAfterScene;
+
+      if (!route) {
+        // Scene mode: we're done.
+        done = true;
+        return { done: true };
+      }
+
+      // Route mode: save the scene trace and find the next scene.
+      routeSceneTraces.push(sceneResult.trace);
+
+      const nextSceneId = selectNextScene(
+        routeHistory,
+        route.match,
+        currentSceneId,
+      );
+
+      if (nextSceneId === null) {
+        done = true;
+        return { done: true };
+      }
+
+      const nextScene = sceneMap[nextSceneId];
+      if (!nextScene) {
+        throw new Error(`Runner: unknown scene "${nextSceneId}" referenced by route`);
+      }
+
+      currentSceneId = nextSceneId;
+      executor = createSceneExecutor(nextScene, state, hooks);
+      // Loop again to execute the first action of the new scene.
+    }
+  }
+
+  return {
+    registerHook(name, handler) {
+      hooks[name] = handler;
+      return this;
+    },
+
+    isDone() {
+      return done;
+    },
+
+    next(steps = 1) {
+      const results: RunnerStepResult[] = [];
+      for (let i = 0; i < steps; i++) {
+        const r = advance();
+        results.push(r);
+        if (r.done) break;
+      }
+      return results;
+    },
+
+    run() {
+      while (!done) advance();
+      return this.result();
+    },
+
+    result() {
+      if (!done) {
+        throw new Error(
+          'Runner: execution is not complete — call run() or step until isDone()',
+        );
+      }
+
+      if (route) {
+        return {
+          finalState: state.snapshot(),
+          trace: {
+            kind: 'route',
+            route: { routeId: route.id, scenes: routeSceneTraces },
+          },
+          model,
+        };
+      }
+
+      const sceneTrace = executor.result().trace;
+      return {
+        finalState: state.snapshot(),
+        trace: { kind: 'scene', scene: sceneTrace },
+        model,
+      };
+    },
+  };
 }
