@@ -1,1 +1,0 @@
-- state path is only foo.bar but spec says it is allowed that foo.bar.baz 
