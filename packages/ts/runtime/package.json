@@ -6,7 +6,7 @@
   "main": "src/index.ts",
   "type": "module",
   "scripts": {
-    "test": "vitest",
+    "test": "vitest --run",
     "lint": "eslint src/**/*.{ts,tsx}"
   },
   "author": "",
