@@ -1,4 +1,4 @@
-import type { AnyValue } from 'turnout';
+import type { AnyValue } from 'runtime';
 import type { RouteModel, SceneBlock } from '../types/scene-model.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, RouteTrace } from '../types/harness-types.js';

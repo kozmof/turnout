@@ -1,5 +1,5 @@
-import { executeGraph, assertValidContext, isPureBoolean } from 'turnout';
-import type { FuncId } from 'turnout';
+import { executeGraph, assertValidContext, isPureBoolean } from 'runtime';
+import type { FuncId } from 'runtime';
 import type { SceneBlock, ActionModel, NextPolicy } from '../types/scene-model.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';

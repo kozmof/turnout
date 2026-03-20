@@ -12,7 +12,7 @@
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { runServerHarness as runHarness } from '../../src/server/index.js';
-import { buildNumber, isPureNumber } from 'turnout';
+import { buildNumber, isPureNumber } from 'runtime';
 
 const fixture = resolve(__dirname, '../fixtures/two-scene-route.json');
 

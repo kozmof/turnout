@@ -13,7 +13,7 @@ import {
   isPureString,
   isPureBoolean,
   isPureNull,
-} from 'turnout';
+} from 'runtime';
 import type { ActionExecutionResult } from '../src/executor/types.js';
 import type { HookRegistry } from '../src/types/harness-types.js';
 
@@ -101,7 +101,7 @@ describe('resolveActionPrepare', () => {
 // resolveNextPrepare
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makePrevResult(bindingValues: Record<string, import('turnout').AnyValue>): ActionExecutionResult {
+function makePrevResult(bindingValues: Record<string, import('runtime').AnyValue>): ActionExecutionResult {
   return {
     actionId: 'prev_action',
     computeRootValue: buildNull('unknown'),

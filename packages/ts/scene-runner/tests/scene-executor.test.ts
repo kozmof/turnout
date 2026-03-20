@@ -8,7 +8,7 @@ import {
   isPureNumber,
   isPureString,
   isPureBoolean,
-} from 'turnout';
+} from 'runtime';
 import type { SceneBlock, ActionModel } from '../src/types/scene-model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { executeRoute } from '../src/executor/route-executor.js';
 import { StateManager } from '../src/state/state-manager.js';
-import { isPureNumber } from 'turnout';
+import { isPureNumber } from 'runtime';
 import type { RouteModel, SceneBlock, ActionModel } from '../src/types/scene-model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

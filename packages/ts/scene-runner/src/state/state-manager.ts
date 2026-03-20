@@ -4,8 +4,8 @@ import {
   buildBoolean,
   buildArray,
   buildNull,
-} from 'turnout';
-import type { AnyValue } from 'turnout';
+} from 'runtime';
+import type { AnyValue } from 'runtime';
 import type { StateModel } from '../types/scene-model.js';
 
 /**

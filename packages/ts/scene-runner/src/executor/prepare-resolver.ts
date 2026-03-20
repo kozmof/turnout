@@ -1,5 +1,5 @@
-import { buildNull } from 'turnout';
-import type { AnyValue } from 'turnout';
+import { buildNull } from 'runtime';
+import type { AnyValue } from 'runtime';
 import type { PrepareEntry, NextPrepareEntry, Literal } from '../types/scene-model.js';
 import type { StateManager } from '../state/state-manager.js';
 import { literalToValue } from '../state/state-manager.js';

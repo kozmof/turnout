@@ -11,7 +11,7 @@ function resolveTurnoutBin(): string {
   try {
     // Check if turnout is on PATH
     execSync('turnout --help', { stdio: 'ignore' });
-    return 'turnout';
+    return 'runtime';
   } catch {
     // Fall back to building from source
     const goConverterDir = new URL(

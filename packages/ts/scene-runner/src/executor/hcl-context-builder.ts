@@ -1,5 +1,5 @@
-import { ctx, combine, pipe, cond, ref as runtimeRef } from 'turnout';
-import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'turnout';
+import { ctx, combine, pipe, cond, ref as runtimeRef } from 'runtime';
+import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'runtime';
 import type { ProgModel, ArgModel, Literal } from '../types/scene-model.js';
 import { literalToValue } from '../state/state-manager.js';
 

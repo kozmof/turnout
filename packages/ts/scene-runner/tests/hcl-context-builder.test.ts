@@ -12,7 +12,7 @@ import {
   isPureNumber,
   isPureBoolean,
   isPureString,
-} from 'turnout';
+} from 'runtime';
 import type { ProgModel } from '../src/types/scene-model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

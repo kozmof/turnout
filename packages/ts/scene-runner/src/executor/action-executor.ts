@@ -1,5 +1,5 @@
-import { executeGraph, assertValidContext, buildNull } from 'turnout';
-import type { AnyValue, FuncId } from 'turnout';
+import { executeGraph, assertValidContext, buildNull } from 'runtime';
+import type { AnyValue, FuncId } from 'runtime';
 import type { ActionModel } from '../types/scene-model.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry } from '../types/harness-types.js';

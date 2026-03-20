@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { StateManager } from '../src/state/state-manager.js';
-import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean } from 'turnout';
+import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean } from 'runtime';
 import type { StateModel } from '../src/types/scene-model.js';
 
 describe('StateManager', () => {

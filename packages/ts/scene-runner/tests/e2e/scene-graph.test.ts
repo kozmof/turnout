@@ -10,7 +10,7 @@
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { runServerHarness as runHarness } from '../../src/server/index.js';
-import { buildNumber, isPureBoolean, isPureString } from 'turnout';
+import { buildNumber, isPureBoolean, isPureString } from 'runtime';
 
 const fixture = resolve(__dirname, '../fixtures/scene-graph.json');
 

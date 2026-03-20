@@ -1,4 +1,4 @@
-import type { AnyValue } from 'turnout';
+import type { AnyValue } from 'runtime';
 import type { TurnModel } from './scene-model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

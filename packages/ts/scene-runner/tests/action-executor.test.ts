@@ -10,7 +10,7 @@ import {
   isPureString,
   isPureBoolean,
   isPureNull,
-} from 'turnout';
+} from 'runtime';
 import type { ActionModel } from '../src/types/scene-model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

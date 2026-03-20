@@ -1,6 +1,6 @@
 // Node.js only — loads models from disk before delegating to the universal harness.
 import type { HarnessResult, HookRegistry } from '../types/harness-types.js';
-import type { AnyValue } from 'turnout';
+import type { AnyValue } from 'runtime';
 import { runConverter, loadJsonModel } from './bridge.js';
 import { runHarness } from '../harness/harness.js';
 
