@@ -11,7 +11,7 @@
  */
 import { resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
-import { runHarness } from '../../src/index.js';
+import { runServerHarness as runHarness } from '../../src/server/index.js';
 import { buildBoolean, buildNumber, buildString, isPureString } from 'turnout';
 
 const fixture = resolve(__dirname, '../fixtures/workflow.json');

@@ -1,15 +1,16 @@
 import type { HarnessOptions, HarnessResult } from '../types/harness-types.js';
-import type { TurnModel } from '../types/scene-model.js';
-import { runConverter, loadJsonModel } from '../converter/bridge.js';
 import { StateManager } from '../state/state-manager.js';
 import { executeScene } from '../executor/scene-executor.js';
 import { executeRoute } from '../executor/route-executor.js';
 
 /**
- * Top-level test harness entry point.
+ * Universal harness entry point (client + server).
  *
- * Loads a model from a `.turn` file (via Go converter) or a pre-built JSON file,
- * builds STATE, then dispatches to the route or scene executor based on `entryId`.
+ * Accepts a pre-parsed TurnModel, builds STATE, then dispatches to the route
+ * or scene executor based on `entryId`.
+ *
+ * To load a model from a .turn or .json file (Node.js only), use
+ * `runServerHarness` from the server entry point instead.
  *
  * Dispatch rules:
  *  - `entryId` matches a `route.id`  → `executeRoute` (entry scene = first in model)
@@ -17,17 +18,9 @@ import { executeRoute } from '../executor/route-executor.js';
  *  - no match                         → throws
  */
 export function runHarness(options: HarnessOptions): HarnessResult {
-  // ── 1. Load model ─────────────────────────────────────────────────────────
-  let model: TurnModel;
-  if (options.turnFile) {
-    model = runConverter(options.turnFile);
-  } else if (options.jsonFile) {
-    model = loadJsonModel(options.jsonFile);
-  } else {
-    throw new Error('runHarness: either turnFile or jsonFile must be provided');
-  }
+  const { model } = options;
 
-  // ── 2. Build STATE ────────────────────────────────────────────────────────
+  // ── 1. Build STATE ────────────────────────────────────────────────────────
   // When the model has a state schema, seed it with declared defaults then
   // apply the caller-supplied overrides. When there is no schema (the spec
   // examples omit a state {} block), use the provided values directly.
@@ -35,11 +28,11 @@ export function runHarness(options: HarnessOptions): HarnessResult {
     ? StateManager.fromSchema(model.state, options.initialState)
     : StateManager.from(options.initialState);
 
-  // ── 3. Build lookup maps ─────────────────────────────────────────────────
+  // ── 2. Build lookup maps ─────────────────────────────────────────────────
   const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
   const routeMap = Object.fromEntries((model.routes ?? []).map((r) => [r.id, r]));
 
-  // ── 4a. Route mode ────────────────────────────────────────────────────────
+  // ── 3a. Route mode ────────────────────────────────────────────────────────
   const route = routeMap[options.entryId];
   if (route) {
     const entrySceneId = model.scenes[0]?.id;
@@ -54,7 +47,7 @@ export function runHarness(options: HarnessOptions): HarnessResult {
     };
   }
 
-  // ── 4b. Scene mode ────────────────────────────────────────────────────────
+  // ── 3b. Scene mode ────────────────────────────────────────────────────────
   const scene = sceneMap[options.entryId];
   if (scene) {
     const result = executeScene(scene, state, options.hooks);

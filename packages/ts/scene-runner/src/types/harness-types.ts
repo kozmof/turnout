@@ -14,14 +14,12 @@ export type HookHandler = (ctx: HookContext) => Record<string, AnyValue>;
 export type HookRegistry = Record<string, HookHandler>;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Harness options
+// Harness options — universal (client + server)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type HarnessOptions = {
-  /** Path to a .turn file — the Go converter will be invoked to produce JSON. */
-  turnFile?: string;
-  /** Path to a pre-converted .json file — skips the converter invocation. */
-  jsonFile?: string;
+  /** Pre-parsed TurnModel. Use ServerHarnessOptions to load from a file. */
+  model: TurnModel;
   /**
    * ID of the scene or route to execute.
    * If it matches a route.id, the route executor is used.

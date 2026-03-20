@@ -1,3 +1,4 @@
+// Node.js only — uses child_process and fs.
 import { execFileSync, execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import type { TurnModel } from '../types/scene-model.js';
