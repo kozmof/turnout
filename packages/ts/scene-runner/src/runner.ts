@@ -39,7 +39,7 @@ export type RunnerStepResult =
  *
  * @example
  * const runner = createRunner(model, { entryId: 'checkout', initialState: {} });
- * runner.registerHook('get_cart', (ctx) => ({ items: buildString('a,b') }));
+ * runner.useHook('get_cart', (ctx) => ({ items: buildString('a,b') }));
  *
  * // Manual stepping
  * while (!runner.isDone()) {
@@ -56,7 +56,7 @@ export type Runner = {
    * Can be called before or between steps — mutations are picked up immediately.
    * Returns the runner for chaining.
    */
-  registerHook(name: string, handler: HookHandler): Runner;
+  useHook(name: string, handler: HookHandler): Runner;
   /** True when all actions have completed (scene or route finished). */
   isDone(): boolean;
   /**
@@ -88,7 +88,7 @@ export type Runner = {
  * Create a Runner for the given model and options.
  *
  * The Runner is the primary execution interface:
- *   - `.registerHook(name, handler)` — register hooks before or between steps
+ *   - `.useHook(name, handler)` — register hooks before or between steps
  *   - `.next(steps?)` — advance by N actions (default 1)
  *   - `.run()` — run to completion
  *   - `.isDone()` — check if finished
@@ -126,7 +126,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const routeHistory: string[] = [];
   const routeSceneTraces: SceneTrace[] = [];
 
-  // hooks is passed by reference so registerHook() mutations are visible
+  // hooks is passed by reference so useHook() mutations are visible
   // to the executor without needing to recreate it.
   let executor: SceneExecutor = createSceneExecutor(
     sceneMap[currentSceneId]!,
@@ -190,7 +190,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   }
 
   return {
-    registerHook(name, handler) {
+    useHook(name, handler) {
       hooks[name] = handler;
       return this;
     },
