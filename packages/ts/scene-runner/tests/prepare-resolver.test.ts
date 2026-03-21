@@ -13,6 +13,7 @@ import {
   isPureString,
   isPureBoolean,
   isPureNull,
+  isArray,
 } from 'runtime';
 import type { ActionExecutionResult } from '../src/executor/types.js';
 import type { HookRegistry } from '../src/types/harness-types.js';
@@ -186,6 +187,50 @@ describe('resolveNextPrepare', () => {
       prevResult,
     );
     expect(isPureBoolean(result['flag']!) && result['flag'].value).toBe(true);
+  });
+
+  it('from_literal converts number array correctly', () => {
+    const state = StateManager.from({});
+    const prevResult = makePrevResult({});
+    const result = resolveNextPrepare(
+      [{ binding: 'nums', from_literal: [1, 2, 3] }],
+      state,
+      prevResult,
+    );
+    expect(isArray(result['nums']!)).toBe(true);
+  });
+
+  it('from_literal converts string array correctly', () => {
+    const state = StateManager.from({});
+    const prevResult = makePrevResult({});
+    const result = resolveNextPrepare(
+      [{ binding: 'tags', from_literal: ['a', 'b'] }],
+      state,
+      prevResult,
+    );
+    expect(isArray(result['tags']!)).toBe(true);
+  });
+
+  it('from_literal converts bool array correctly', () => {
+    const state = StateManager.from({});
+    const prevResult = makePrevResult({});
+    const result = resolveNextPrepare(
+      [{ binding: 'flags', from_literal: [true, false] }],
+      state,
+      prevResult,
+    );
+    expect(isArray(result['flags']!)).toBe(true);
+  });
+
+  it('from_literal handles empty array (no element type to infer)', () => {
+    const state = StateManager.from({});
+    const prevResult = makePrevResult({});
+    const result = resolveNextPrepare(
+      [{ binding: 'empty', from_literal: [] as unknown as number[] }],
+      state,
+      prevResult,
+    );
+    expect(isArray(result['empty']!)).toBe(true);
   });
 
   it('resolves multiple entries with mixed sources', () => {

@@ -1,0 +1,59 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Mock bridge so tests don't need the actual go converter binary.
+vi.mock('../src/server/bridge.js', () => ({
+  runConverter: vi.fn(),
+  loadJsonModel: vi.fn(),
+}));
+
+import { runConverter, loadJsonModel } from '../src/server/bridge.js';
+import { runServerHarness } from '../src/server/harness.js';
+import type { TurnModel } from '../src/types/scene-model.js';
+
+const mockRunConverter = vi.mocked(runConverter);
+const mockLoadJsonModel = vi.mocked(loadJsonModel);
+
+const minimalModel: TurnModel = {
+  scenes: [{ id: 'scene_a', entry_actions: ['act_a'], actions: [{ id: 'act_a' }] }],
+};
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
+
+describe('runServerHarness', () => {
+  it('loads model from jsonFile and executes', () => {
+    mockLoadJsonModel.mockReturnValue(minimalModel);
+
+    const result = runServerHarness({
+      jsonFile: 'model.json',
+      entryId: 'scene_a',
+      initialState: {},
+    });
+
+    expect(mockLoadJsonModel).toHaveBeenCalledWith('model.json');
+    expect(result.trace.kind).toBe('scene');
+  });
+
+  it('loads model from turnFile via runConverter', () => {
+    mockRunConverter.mockReturnValue(minimalModel);
+
+    const result = runServerHarness({
+      turnFile: 'my.turn',
+      entryId: 'scene_a',
+      initialState: {},
+    });
+
+    expect(mockRunConverter).toHaveBeenCalledWith('my.turn');
+    expect(result.trace.kind).toBe('scene');
+  });
+
+  it('throws when neither turnFile nor jsonFile is provided', () => {
+    expect(() =>
+      runServerHarness({
+        entryId: 'scene_a',
+        initialState: {},
+      }),
+    ).toThrow('either turnFile or jsonFile must be provided');
+  });
+});

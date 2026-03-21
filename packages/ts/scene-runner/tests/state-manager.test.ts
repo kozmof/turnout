@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { StateManager } from '../src/state/state-manager.js';
-import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean } from 'runtime';
+import { StateManager, literalToValue } from '../src/state/state-manager.js';
+import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
 import type { StateModel } from '../src/types/scene-model.js';
 
 describe('StateManager', () => {
@@ -71,5 +71,110 @@ describe('StateManager', () => {
       const p = sm.read('request.priority');
       expect(isPureNumber(p!) && p.value).toBe(1);
     });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// literalToValue edge cases
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('literalToValue', () => {
+  it('returns buildNull("missing") for null', () => {
+    const val = literalToValue(null, 'number');
+    expect(isPureNull(val)).toBe(true);
+  });
+
+  it('returns buildNull("missing") for undefined', () => {
+    const val = literalToValue(undefined, 'str');
+    expect(isPureNull(val)).toBe(true);
+  });
+
+  it('handles arr<number> with a number array', () => {
+    const val = literalToValue([1, 2, 3], 'arr<number>');
+    expect(isArray(val)).toBe(true);
+  });
+
+  it('handles arr<str> with a string array', () => {
+    const val = literalToValue(['a', 'b'], 'arr<str>');
+    expect(isArray(val)).toBe(true);
+  });
+
+  it('handles arr<bool> with a boolean array', () => {
+    const val = literalToValue([true, false], 'arr<bool>');
+    expect(isArray(val)).toBe(true);
+  });
+
+  it('handles arr<number> with non-array value (falls back to empty array)', () => {
+    const val = literalToValue('not-an-array', 'arr<number>');
+    expect(isArray(val)).toBe(true);
+  });
+
+  it('returns buildNull("unknown") for an unrecognised type', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = literalToValue('value', 'unknown' as any);
+    expect(isPureNull(val)).toBe(true);
+  });
+
+  it('coerces a non-number value to number for type "number"', () => {
+    const val = literalToValue('42', 'number');
+    expect(isPureNumber(val!) && val.value).toBe(42);
+  });
+
+  it('coerces a non-string value to string for type "str"', () => {
+    const val = literalToValue(99, 'str');
+    expect(isPureString(val!) && val.value).toBe('99');
+  });
+
+  it('handles arr<str> with non-array value (falls back to empty array)', () => {
+    const val = literalToValue('not-an-array', 'arr<str>');
+    expect(isArray(val)).toBe(true);
+  });
+
+  it('handles arr<bool> with non-array value (falls back to empty array)', () => {
+    const val = literalToValue('not-an-array', 'arr<bool>');
+    expect(isArray(val)).toBe(true);
+  });
+});
+
+describe('stateManagerFromSchema — array field types', () => {
+  it('populates arr<number> defaults from schema', () => {
+    const model: StateModel = {
+      namespaces: [
+        {
+          name: 'data',
+          fields: [{ name: 'nums', type: 'arr<number>', value: [10, 20] }],
+        },
+      ],
+    };
+    const sm = StateManager.fromSchema(model);
+    const val = sm.read('data.nums');
+    expect(val).toBeDefined();
+    expect(isArray(val!)).toBe(true);
+  });
+
+  it('populates arr<str> defaults from schema', () => {
+    const model: StateModel = {
+      namespaces: [
+        {
+          name: 'data',
+          fields: [{ name: 'tags', type: 'arr<str>', value: ['x', 'y'] }],
+        },
+      ],
+    };
+    const sm = StateManager.fromSchema(model);
+    expect(isArray(sm.read('data.tags')!)).toBe(true);
+  });
+
+  it('populates arr<bool> defaults from schema', () => {
+    const model: StateModel = {
+      namespaces: [
+        {
+          name: 'data',
+          fields: [{ name: 'flags', type: 'arr<bool>', value: [true, false] }],
+        },
+      ],
+    };
+    const sm = StateManager.fromSchema(model);
+    expect(isArray(sm.read('data.flags')!)).toBe(true);
   });
 });
