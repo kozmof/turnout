@@ -392,8 +392,8 @@ scene "<id>" {
 Lower and validate the `route` block after scene conversion is complete.
 
 - [x] Parse `route "<id>" { match { ... } }` block
-- [x] Parse pattern arms: path expressions, `|` OR, `_` catch-all
-- [x] Validate: at most one `_` (`DuplicateCatchAll`)
+- [x] Parse pattern arms: path expressions, `|` OR, `_` fallback
+- [x] Validate: at most one `_` (`DuplicateFallback`)
 - [x] Validate: no bare `scene_id.*` (`BareWildcardPath`)
 - [x] Validate: at most one `*` per path form (`MultipleWildcards`)
 - [x] Validate: all `=> <scene_id>` targets exist (`UnresolvedScene`)
@@ -460,4 +460,4 @@ All error codes that the converter must emit, grouped by spec source:
 `SCN_INVALID_ACTION_GRAPH`, `SCN_ACTION_ROOT_NOT_FOUND`, `SCN_INGRESS_TARGET_NOT_VALUE`, `SCN_INGRESS_SOURCE_MISSING`, `SCN_EGRESS_SOURCE_INVALID`, `SCN_EGRESS_SOURCE_UNAVAILABLE`, `SCN_NEXT_COMPUTE_INVALID`, `SCN_NEXT_COMPUTE_NOT_BOOL`, `SCN_NEXT_INGRESS_SOURCE_INVALID`, `SCN_ACTION_TEXT_DUPLICATE`
 
 ### `scene-to-scene.md`
-`DuplicateCatchAll`, `BareWildcardPath`, `MultipleWildcards`, `InvalidPathItem`, `UnresolvedScene`
+`DuplicateFallback`, `BareWildcardPath`, `MultipleWildcards`, `InvalidPathItem`, `UnresolvedScene`

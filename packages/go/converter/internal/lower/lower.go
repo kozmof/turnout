@@ -34,7 +34,7 @@ type HCLRouteBlock struct {
 }
 
 // HCLMatchArm is one arm of a match block.
-// Patterns holds the string representation of each OR-branch ("_" for catch-all).
+// Patterns holds the string representation of each OR-branch ("_" for fallback).
 type HCLMatchArm struct {
 	Patterns []string
 	Target   string
@@ -279,7 +279,7 @@ func lowerRouteBlocks(routes []*ast.RouteBlock) []*HCLRouteBlock {
 
 // pathExprString converts a PathExpr to its canonical string form.
 func pathExprString(pe *ast.PathExpr) string {
-	if pe.CatchAll {
+	if pe.Fallback {
 		return "_"
 	}
 	parts := make([]string, 0, 1+len(pe.Segments))

@@ -152,12 +152,12 @@ describe('selectNextScene — single match', () => {
     expect(selectNextScene(['s1.final'], arms, 's1')).toBe('scene_b');
   });
 
-  it('catch-all matches regardless of currentSceneId', () => {
+  it('fallback matches regardless of currentSceneId', () => {
     const arms = [arm('fallback', '_')];
     expect(selectNextScene(['s1.whatever'], arms, 's1')).toBe('fallback');
   });
 
-  it('catch-all fires for a different currentSceneId', () => {
+  it('fallback fires for a different currentSceneId', () => {
     const arms = [arm('fallback', '_')];
     expect(selectNextScene(['s2.done'], arms, 's2')).toBe('fallback');
   });

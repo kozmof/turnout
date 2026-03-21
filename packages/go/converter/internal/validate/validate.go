@@ -113,7 +113,7 @@ func validateRoutes(routes []*lower.HCLRouteBlock, knownScenes map[string]bool, 
 }
 
 func validateRoute(r *lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag.Diagnostics) {
-	catchAllCount := 0
+	fallbackCount := 0
 	for i, arm := range r.Arms {
 		// Validate target scene exists.
 		if arm.Target != "" && !knownScenes[arm.Target] {
@@ -122,10 +122,10 @@ func validateRoute(r *lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag
 		}
 		for _, pat := range arm.Patterns {
 			if pat == "_" {
-				catchAllCount++
-				if catchAllCount > 1 {
-					*ds = append(*ds, diag.Errorf(diag.CodeDuplicateCatchAll,
-						"route %q: match block has more than one _ catch-all arm", r.ID))
+				fallbackCount++
+				if fallbackCount > 1 {
+					*ds = append(*ds, diag.Errorf(diag.CodeDuplicateFallback,
+						"route %q: match block has more than one _ fallback arm", r.ID))
 				}
 				continue
 			}
@@ -134,7 +134,7 @@ func validateRoute(r *lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag
 	}
 }
 
-// validateRoutePattern validates a single non-catch-all path pattern string.
+// validateRoutePattern validates a single non-fallback path pattern string.
 func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagnostics) {
 	parts := strings.Split(pat, ".")
 

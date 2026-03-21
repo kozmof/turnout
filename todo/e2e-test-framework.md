@@ -278,7 +278,7 @@ function extractAllContiguousBlocks(history: string[], sceneId: string): string[
 ### Pattern matching
 
 Patterns arrive as raw strings from the converter JSON:
-- `"_"` → catch-all
+- `"_"` → fallback (no match)
 - `"scene_id.action_id"` → exact (no wildcard)
 - `"scene_id.*.action_id"` → wildcard prefix
 - `"scene_id.*.action_a.action_b"` → wildcard prefix + multi-step suffix
@@ -295,7 +295,7 @@ function selectNextScene(history: string[], arms: MatchArm[]): string | null
 ### Tasks
 
 - [x] Implement `src/executor/route-pattern.ts`
-- [x] Unit tests: exact, wildcard, OR, catch-all, priority, interleaved history, multiple-visit semantics
+- [x] Unit tests: exact, wildcard, OR, fallback, priority, interleaved history, multiple-visit semantics
 
 ---
 
@@ -383,7 +383,7 @@ A minimal two-scene workflow with a `state` block, two scenes, and a `route` blo
 | Test | Scenario | Expected |
 |------|----------|----------|
 | Two-scene route | scene_1 terminal → matches pattern → enters scene_2 | final STATE reflects both scenes' merges |
-| Catch-all fallback | scene_1 terminal with no specific match | `_` routes to fallback scene |
+| Fallback | scene_1 terminal with no specific match | `_` routes to fallback scene |
 | Completed state | no `_`, no match | `status = 'completed'` |
 | STATE shared across scenes | scene_2 reads STATE written by scene_1 | correct STATE propagation |
 | Priority: exact beats wildcard | two arms match | exact arm (`scene.action`) selected over `scene.*.action` |

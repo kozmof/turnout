@@ -660,11 +660,11 @@ route "r1" {
 `
 }
 
-func TestDuplicateCatchAll(t *testing.T) {
+func TestDuplicateFallback(t *testing.T) {
 	src := routeSrc(`    _ => scene_1,
     _ => scene_1`)
-	if !hasCode(pipeline(src), diag.CodeDuplicateCatchAll) {
-		t.Error("want DuplicateCatchAll")
+	if !hasCode(pipeline(src), diag.CodeDuplicateFallback) {
+		t.Error("want DuplicateFallback")
 	}
 }
 

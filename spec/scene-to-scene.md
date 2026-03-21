@@ -96,7 +96,7 @@ A path expression with a single `*` is permitted. **Multiple `*` wildcards in a 
 
 Multiple path forms can be OR-joined within a single arm using `|`. All branches of a `|` expression must share the same `=> <scene_id>` target. Each branch is evaluated independently; the arm matches if any branch matches.
 
-#### Catch-all `_`
+#### Fallback `_`
 
 The `_` pattern matches any route history unconditionally. It MUST appear at most once per `match` block and SHOULD be the last arm.
 
@@ -120,7 +120,7 @@ When multiple patterns match the same history, the **narrower** pattern wins:
 
 ## 5. Terminal Behavior
 
-If no pattern matches and no `_` catch-all is present, the route enters a **terminal `completed` state** — analogous to a scene with no matching next actions.
+If no pattern matches and no `_` fallback is present, the route enters a **terminal `completed` state** — analogous to a scene with no matching next actions.
 
 ---
 
@@ -173,7 +173,7 @@ Interpretation:
 
 ### CAN'T (NG)
 
-- A `match` block cannot have more than one `_` catch-all arm (`DuplicateCatchAll`).
+- A `match` block cannot have more than one `_` fallback arm (`DuplicateFallback`).
 - A path form cannot use bare `scene_id.*` with no terminal action_id (`BareWildcardPath`).
 - A path form cannot use more than one `*` wildcard (`MultipleWildcards`).
 - A path item cannot omit the scene_id prefix; bare action names are invalid (`InvalidPathItem`).
@@ -228,7 +228,7 @@ type RouteDiagnostic = {
 
 | Error code | Trigger condition |
 |---|---|
-| `DuplicateCatchAll` | More than one `_` arm in a `match` block |
+| `DuplicateFallback` | More than one `_` arm in a `match` block |
 | `BareWildcardPath` | A path form uses `scene_id.*` with no terminal action_id |
 | `MultipleWildcards` | A path form contains more than one `*` wildcard |
 | `InvalidPathItem` | A pattern path item is missing a scene_id prefix or is otherwise malformed |
@@ -248,7 +248,7 @@ type RouteDiagnostic = {
 | D. Pattern matching — wildcard prefix | `scene_1.*.final_action` matches when last action in contiguous block is `final_action`, rejects otherwise |
 | E. OR expression | `path1 \| path2` arm matches when either branch matches |
 | F. Priority resolution | Narrower patterns (fewer `*`) win; declaration order breaks ties among equal-wildcard patterns |
-| G. Catch-all | `_` selected when no specific pattern matches; absent `_` → `completed` |
+| G. Fallback | `_` selected when no specific pattern matches; absent `_` → `completed` |
 | H. Match result | `=> <scene_id>` causes entry from first declared `entry_actions` of target scene |
 | I. Error paths | All error codes trigger correctly and abort without partial state |
 | J. Contiguous-block matching | Interleaved actions from another scene break the contiguous block; pattern does not match across the break |
@@ -272,7 +272,7 @@ type RouteDiagnostic = {
 | No `_` and no pattern matches | Route enters `completed` state |
 | `_` declared before a more specific arm | Specific arm still wins (priority overrides order) |
 | `=> target` where target scene is undefined | `UnresolvedScene` at compile/validate time |
-| `DuplicateCatchAll`: two `_` arms | Validation error; no route evaluates |
+| `DuplicateFallback`: two `_` arms | Validation error; no route evaluates |
 | Bare `scene_id.*` with no terminal action | `BareWildcardPath` validation error |
 | Path with two `*` wildcards | `MultipleWildcards` validation error |
 | Interleaved history `[scene_1.a, scene_2.x, scene_1.final]` | `scene_1` contiguous block is `[scene_1.a]` only; `scene_1.*.final` does not match |

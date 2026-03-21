@@ -603,11 +603,11 @@ type MatchArm struct {
 }
 
 // PathExpr is one path-form in a match arm.
-// CatchAll == true means the _ pattern.
+// Fallback == true means the _ pattern.
 // Otherwise SceneID + Segments describe the path (Segments may contain "*").
 type PathExpr struct {
 	Pos      Pos
-	CatchAll bool
+	Fallback bool
 	SceneID  string
 	Segments []string // e.g. ["*", "final_action"] for scene_id.*.final_action
 }

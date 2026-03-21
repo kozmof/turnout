@@ -729,7 +729,7 @@ route "route_1" {
 	}
 	arm1 := r.Arms[1]
 	if arm1.Patterns[0] != "_" {
-		t.Errorf("catch-all pattern = %q", arm1.Patterns[0])
+		t.Errorf("fallback pattern = %q", arm1.Patterns[0])
 	}
 }
 

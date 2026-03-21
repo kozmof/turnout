@@ -181,7 +181,7 @@ type jsonRoute struct {
 }
 
 type jsonMatchArm struct {
-	// Patterns holds the raw pattern strings ("_" for catch-all,
+	// Patterns holds the raw pattern strings ("_" for fallback,
 	// "scene.action" or "scene.*.action[.action...]" for path expressions).
 	// Multiple entries are OR-joined.
 	Patterns []string `json:"patterns"`

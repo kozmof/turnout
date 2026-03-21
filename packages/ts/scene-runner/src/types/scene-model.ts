@@ -182,7 +182,7 @@ export type RouteModel = {
 
 export type MatchArm = {
   // Raw pattern strings from the converter.
-  // "_" is catch-all; "scene_id.action" or "scene_id.*.action[.action...]" are path forms.
+  // "_" is fallback (no match); "scene_id.action" or "scene_id.*.action[.action...]" are path forms.
   // Multiple entries in the array are OR-joined.
   patterns: string[];
   target: string;

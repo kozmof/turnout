@@ -1383,7 +1383,7 @@ func (p *parser) parsePathExpr() *ast.PathExpr {
 
 	if t.Kind == lexer.TokUnderscore {
 		p.advance()
-		return &ast.PathExpr{Pos: pos, CatchAll: true}
+		return &ast.PathExpr{Pos: pos, Fallback: true}
 	}
 
 	// scene_id — bare ident or keyword used as identifier

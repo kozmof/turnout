@@ -144,7 +144,7 @@ const (
 
 // Error codes from scene-to-scene.md
 const (
-	CodeDuplicateCatchAll  = "DuplicateCatchAll"
+	CodeDuplicateFallback  = "DuplicateFallback"
 	CodeBareWildcardPath   = "BareWildcardPath"
 	CodeMultipleWildcards  = "MultipleWildcards"
 	CodeInvalidPathItem    = "InvalidPathItem"

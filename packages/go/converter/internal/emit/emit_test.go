@@ -485,7 +485,7 @@ route "route_1" {
 		t.Error("missing target")
 	}
 	if !strings.Contains(out, `patterns = ["_"]`) {
-		t.Error("missing catch-all pattern")
+		t.Error("missing fallback pattern")
 	}
 }
 

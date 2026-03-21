@@ -970,8 +970,8 @@ route "main" {
 		t.Fatalf("arm0: expected 1 branch, got %d", len(arm0.Branches))
 	}
 	pe0 := arm0.Branches[0]
-	if pe0.CatchAll {
-		t.Error("arm0: should not be catch-all")
+	if pe0.Fallback {
+		t.Error("arm0: should not be fallback")
 	}
 	if pe0.SceneID != "s1" {
 		t.Errorf("arm0 SceneID = %q, want %q", pe0.SceneID, "s1")
@@ -988,8 +988,8 @@ route "main" {
 	if len(arm1.Branches) != 1 {
 		t.Fatalf("arm1: expected 1 branch, got %d", len(arm1.Branches))
 	}
-	if !arm1.Branches[0].CatchAll {
-		t.Error("arm1: expected catch-all")
+	if !arm1.Branches[0].Fallback {
+		t.Error("arm1: expected fallback")
 	}
 	if arm1.Target != "s1" {
 		t.Errorf("arm1 Target = %q, want %q", arm1.Target, "s1")
@@ -1027,7 +1027,7 @@ route "r" {
 	}
 }
 
-func TestParseRouteCatchAllOnly(t *testing.T) {
+func TestParseRouteFallbackOnly(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = ["a"]
@@ -1036,8 +1036,8 @@ scene "s" {
 route "r" { match { _ => s } }`
 	tf := mustParse(t, src)
 	arm := tf.Routes[0].Match.Arms[0]
-	if !arm.Branches[0].CatchAll {
-		t.Error("expected catch-all branch")
+	if !arm.Branches[0].Fallback {
+		t.Error("expected fallback branch")
 	}
 	if arm.Target != "s" {
 		t.Errorf("target = %q, want %q", arm.Target, "s")
