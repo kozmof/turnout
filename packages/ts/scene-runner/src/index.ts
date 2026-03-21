@@ -13,7 +13,7 @@ export type {
   RouteTrace,
   ExecutionTrace,
 } from './types/harness-types.js';
-export type { TurnModel } from './types/scene-model.js';
+export type { TurnModel } from './types/turnout-model_pb.js';
 export { stateManagerFrom, stateManagerFromSchema } from './state/state-manager.js';
 export type { StateManager } from './state/state-manager.js';
 

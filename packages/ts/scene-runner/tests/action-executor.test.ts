@@ -11,7 +11,7 @@ import {
   isPureBoolean,
   isPureNull,
 } from 'runtime';
-import type { ActionModel } from '../src/types/scene-model.js';
+import type { ActionModel } from '../src/types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -64,7 +64,7 @@ describe('executeAction — compute', () => {
 describe('executeAction — prepare', () => {
   const actionWithPrepare: ActionModel = {
     id: 'prepared_action',
-    prepare: [{ binding: 'a', from_state: 'inputs.a' }],
+    prepare: [{ binding: 'a', fromState: 'inputs.a' }],
     compute: {
       root: 'sum',
       prog: {
@@ -111,7 +111,7 @@ describe('executeAction — merge', () => {
         ],
       },
     },
-    merge: [{ binding: 'x', to_state: 'output.value' }],
+    merge: [{ binding: 'x', toState: 'output.value' }],
   };
 
   it('writes merged binding value to STATE', () => {
@@ -145,7 +145,7 @@ describe('executeAction — merge', () => {
         },
       },
       merge: [
-        { binding: 'score', to_state: 'result.score' },
+        { binding: 'score', toState: 'result.score' },
       ],
     };
     const state = StateManager.from({});

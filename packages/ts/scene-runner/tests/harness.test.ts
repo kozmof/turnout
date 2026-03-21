@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'vitest';
 import { runHarness } from '../src/harness/harness.js';
-import type { TurnModel } from '../src/types/scene-model.js';
+import type { TurnModel } from '../src/types/turnout-model_pb.js';
 
 // Minimal scene fixture — no compute, just an empty action so execution terminates.
 const minimalScene = {
   id: 'scene_a',
-  entry_actions: ['act_a'],
+  entryActions: ['act_a'],
   actions: [{ id: 'act_a' }],
 };
 

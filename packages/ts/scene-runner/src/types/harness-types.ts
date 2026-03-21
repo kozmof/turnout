@@ -1,5 +1,5 @@
 import type { AnyValue } from 'runtime';
-import type { TurnModel } from './scene-model.js';
+import type { TurnModel } from './turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook registry

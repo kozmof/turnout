@@ -1,7 +1,7 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'runtime';
-import type { ProgModel, ArgModel, Literal } from '../types/scene-model.js';
-import { literalToValue } from '../state/state-manager.js';
+import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
+import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -60,15 +60,16 @@ function mapFnName(hclFn: string): Parameters<typeof combine>[0] {
 // Literal inference
 // ─────────────────────────────────────────────────────────────────────────────
 
-function inferLiteralAnyValue(lit: Literal): AnyValue {
-  if (typeof lit === 'number') return literalToValue(lit, 'number');
-  if (typeof lit === 'string') return literalToValue(lit, 'str');
-  if (typeof lit === 'boolean') return literalToValue(lit, 'bool');
-  if (Array.isArray(lit)) {
-    const first = lit[0];
-    if (typeof first === 'number') return literalToValue(lit, 'arr<number>');
-    if (typeof first === 'string') return literalToValue(lit, 'arr<str>');
-    if (typeof first === 'boolean') return literalToValue(lit, 'arr<bool>');
+function inferLiteralAnyValue(lit: unknown): AnyValue {
+  const v = protoValueToJs(lit);
+  if (typeof v === 'number') return literalToValue(v, 'number');
+  if (typeof v === 'string') return literalToValue(v, 'str');
+  if (typeof v === 'boolean') return literalToValue(v, 'bool');
+  if (Array.isArray(v)) {
+    const first = v[0];
+    if (typeof first === 'number') return literalToValue(v, 'arr<number>');
+    if (typeof first === 'string') return literalToValue(v, 'arr<str>');
+    if (typeof first === 'boolean') return literalToValue(v, 'arr<bool>');
     // Empty array — no element type to infer; return a typed empty array value.
     return buildArray([]);
   }
@@ -104,7 +105,7 @@ export function buildContextFromProg(
   );
 
   // Register a synthetic value binding for an inline literal arg.
-  function addLitBinding(lit: Literal): string {
+  function addLitBinding(lit: unknown): string {
     const name = `__lit_${litCounter++}`;
     spec[name] = inferLiteralAnyValue(lit);
     return name;
@@ -117,11 +118,11 @@ export function buildContextFromProg(
       // bare string (which looks up a value slot that doesn't exist for funcs).
       return functionBindingNames.has(arg.ref) ? runtimeRef.output(arg.ref) : arg.ref;
     }
-    if (arg.func_ref !== undefined) return arg.func_ref;
+    if (arg.funcRef !== undefined) return arg.funcRef;
     if (arg.lit !== undefined) return addLitBinding(arg.lit);
-    if (arg.step_ref !== undefined) {
+    if (arg.stepRef !== undefined) {
       if (!currentPipeName) throw new Error('step_ref used outside of pipe context');
-      return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: arg.step_ref };
+      return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: arg.stepRef };
     }
     if (arg.transform !== undefined) {
       return {
@@ -152,7 +153,7 @@ export function buildContextFromProg(
       const p = binding.expr.pipe;
       const argBindings: Record<string, string> = {};
       for (const param of p.params) {
-        argBindings[param.param_name] = param.source_ident;
+        argBindings[param.paramName] = param.sourceIdent;
       }
       const steps = p.steps.map((step) =>
         combine(mapFnName(step.fn), {
@@ -167,7 +168,7 @@ export function buildContextFromProg(
       const c = binding.expr.cond;
       const conditionRef = c.condition ? (resolveArg(c.condition) as string) : '';
       const thenRef = c.then ? (resolveArg(c.then) as string) : '';
-      const elseRef = c.else ? (resolveArg(c.else) as string) : '';
+      const elseRef = c.elseBranch ? (resolveArg(c.elseBranch) as string) : '';
       spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
     }
   }

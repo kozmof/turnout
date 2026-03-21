@@ -6,7 +6,10 @@ import {
   buildNull,
 } from 'runtime';
 import type { AnyValue } from 'runtime';
-import type { StateModel } from '../types/scene-model.js';
+import { toJson } from '@bufbuild/protobuf';
+import { ValueSchema } from '@bufbuild/protobuf/wkt';
+import type { Value } from '@bufbuild/protobuf/wkt';
+import type { StateModel } from '../types/turnout-model_pb.js';
 
 /**
  * StateManager holds STATE as a flat Record keyed by dotted path
@@ -61,15 +64,33 @@ export function stateManagerFromSchema(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Unwrap a protobuf `google.protobuf.Value` message to a plain JS primitive.
+ * If the input is not a protobuf Value (already a primitive), it is returned as-is.
+ */
+export function protoValueToJs(v: unknown): unknown {
+  if (v === null || v === undefined) return v;
+  // Detect protobuf Value by the presence of the 'kind' oneof field.
+  if (typeof v === 'object' && 'kind' in v) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return toJson(ValueSchema, v as Value);
+  }
+  return v;
+}
+
+/**
  * Convert a JSON literal value (from the schema default) to a typed AnyValue.
  */
 function literalToValue(
   value: unknown,
   type: string,
 ): AnyValue {
-  if (value === null || value === undefined) {
+  const raw = protoValueToJs(value);
+  if (raw === null || raw === undefined) {
     return buildNull('missing');
   }
+  // Reassign so the switch below sees the unwrapped primitive.
+  // eslint-disable-next-line no-param-reassign
+  value = raw;
   switch (type) {
     case 'number':
       return buildNumber(typeof value === 'number' ? value : Number(value));

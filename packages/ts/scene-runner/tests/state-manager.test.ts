@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { StateManager, literalToValue } from '../src/state/state-manager.js';
 import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
-import type { StateModel } from '../src/types/scene-model.js';
+import type { StateModel } from '../src/types/turnout-model_pb.js';
 
 describe('StateManager', () => {
   it('reads a value written with from()', () => {

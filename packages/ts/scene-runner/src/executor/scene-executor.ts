@@ -1,6 +1,6 @@
 import { executeGraph, assertValidContext, isPureBoolean } from 'runtime';
 import type { FuncId } from 'runtime';
-import type { SceneBlock, ActionModel, NextPolicy } from '../types/scene-model.js';
+import type { SceneBlock, ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
@@ -40,7 +40,7 @@ export type SceneExecutor = {
  * Creates a scene executor that advances one action at a time via `next()`.
  *
  * @param entryActions - Override which actions seed the initial queue.
- *   Defaults to `scene.entry_actions`. Pass a single-element array for
+ *   Defaults to `scene.entryActions`. Pass a single-element array for
  *   route-driven entry where only the first entry action should fire.
  *
  * @example
@@ -57,10 +57,10 @@ export function createSceneExecutor(
   entryActions?: string[],
 ): SceneExecutor {
   const actionMap = buildActionMap(scene.actions);
-  const policy: NextPolicy = scene.next_policy ?? 'first-match';
+  const policy: string = scene.nextPolicy ?? 'first-match';
 
   let currentState = state;
-  const queue: string[] = [...(entryActions ?? scene.entry_actions)];
+  const queue: string[] = [...(entryActions ?? scene.entryActions)];
   const visited = new Set<string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
@@ -147,7 +147,7 @@ function evaluateNextRules(
   action: ActionModel,
   state: StateManager,
   result: ActionExecutionResult,
-  policy: NextPolicy,
+  policy: string,
 ): string[] {
   const rules = action.next ?? [];
   const matches: string[] = [];

@@ -18,7 +18,7 @@
   "scenes": [
     {
       "id": "scene_a",
-      "entry_actions": ["step_a"],
+      "entryActions": ["step_a"],
       "actions": [
         {
           "id": "step_a",
@@ -42,17 +42,17 @@
             }
           },
           "prepare": [
-            { "binding": "value", "from_state": "input.value" }
+            { "binding": "value", "fromState": "input.value" }
           ],
           "merge": [
-            { "binding": "doubled", "to_state": "output.result" }
+            { "binding": "doubled", "toState": "output.result" }
           ]
         }
       ]
     },
     {
       "id": "scene_b",
-      "entry_actions": ["step_b"],
+      "entryActions": ["step_b"],
       "actions": [
         {
           "id": "step_b",
@@ -77,10 +77,10 @@
             }
           },
           "prepare": [
-            { "binding": "result", "from_state": "output.result" }
+            { "binding": "result", "fromState": "output.result" }
           ],
           "merge": [
-            { "binding": "final_val", "to_state": "output.result" }
+            { "binding": "final_val", "toState": "output.result" }
           ]
         }
       ]

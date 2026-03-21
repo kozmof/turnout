@@ -9,7 +9,7 @@ import {
   isPureString,
   isPureBoolean,
 } from 'runtime';
-import type { SceneBlock, ActionModel } from '../src/types/scene-model.js';
+import type { SceneBlock, ActionModel } from '../src/types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -33,7 +33,7 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
         ],
       },
     },
-    merge: [{ binding: 'v', to_state: toState }],
+    merge: [{ binding: 'v', toState: toState }],
   };
 }
 
@@ -44,7 +44,7 @@ function makeBoolCondNextRule(
 ): ActionModel['next'] {
   return [
     {
-      prepare: [{ binding: 'flag', from_state: condStatePath }],
+      prepare: [{ binding: 'flag', fromState: condStatePath }],
       compute: {
         condition: 'flag',
         prog: {
@@ -64,7 +64,7 @@ function makeBoolCondNextRule(
 describe('executeScene — single terminal action', () => {
   const scene: SceneBlock = {
     id: 'single_scene',
-    entry_actions: ['only_action'],
+    entryActions: ['only_action'],
     actions: [makePassAction('only_action', 7, 'out.val')],
   };
 
@@ -94,8 +94,8 @@ describe('executeScene — single terminal action', () => {
 describe('executeScene — two-action chain (first-match)', () => {
   const scene: SceneBlock = {
     id: 'chain_scene',
-    entry_actions: ['action_a'],
-    next_policy: 'first-match',
+    entryActions: ['action_a'],
+    nextPolicy: 'first-match',
     actions: [
       {
         ...makePassAction('action_a', 1, 'step.a'),
@@ -129,7 +129,7 @@ describe('executeScene — two-action chain (first-match)', () => {
 describe('executeScene — unconditional next rule', () => {
   const scene: SceneBlock = {
     id: 'unconditional_scene',
-    entry_actions: ['first'],
+    entryActions: ['first'],
     actions: [
       {
         ...makePassAction('first', 10, 'step.first'),
@@ -153,8 +153,8 @@ describe('executeScene — unconditional next rule', () => {
 describe('executeScene — all-match policy', () => {
   const scene: SceneBlock = {
     id: 'all_match_scene',
-    entry_actions: ['start'],
-    next_policy: 'all-match',
+    entryActions: ['start'],
+    nextPolicy: 'all-match',
     actions: [
       {
         ...makePassAction('start', 0, 'step.start'),
@@ -206,13 +206,13 @@ describe('executeScene — state propagation', () => {
         ],
       },
     },
-    merge: [{ binding: 'v', to_state: 'shared.val' }],
+    merge: [{ binding: 'v', toState: 'shared.val' }],
     next: [{ action: 'action_b' }],
   };
 
   const actionB: ActionModel = {
     id: 'action_b',
-    prepare: [{ binding: 'input', from_state: 'shared.val' }],
+    prepare: [{ binding: 'input', fromState: 'shared.val' }],
     compute: {
       root: 'doubled',
       prog: {
@@ -227,12 +227,12 @@ describe('executeScene — state propagation', () => {
         ],
       },
     },
-    merge: [{ binding: 'doubled', to_state: 'shared.doubled' }],
+    merge: [{ binding: 'doubled', toState: 'shared.doubled' }],
   };
 
   const scene: SceneBlock = {
     id: 'propagation_scene',
-    entry_actions: ['action_a'],
+    entryActions: ['action_a'],
     actions: [actionA, actionB],
   };
 
@@ -251,7 +251,7 @@ describe('executeScene — state propagation', () => {
 describe('executeScene — cycle guard', () => {
   const scene: SceneBlock = {
     id: 'cycle_scene',
-    entry_actions: ['a'],
+    entryActions: ['a'],
     actions: [
       {
         ...makePassAction('a', 1, 'step.a'),
@@ -274,7 +274,7 @@ describe('executeScene — cycle guard', () => {
 describe('createSceneExecutor — isDone / next / result', () => {
   const scene: SceneBlock = {
     id: 'step_scene',
-    entry_actions: ['only_action'],
+    entryActions: ['only_action'],
     actions: [makePassAction('only_action', 7, 'out.val')],
   };
 
@@ -321,7 +321,7 @@ describe('createSceneExecutor — isDone / next / result', () => {
 describe('createSceneExecutor — step-by-step trace', () => {
   const scene: SceneBlock = {
     id: 'chain_step_scene',
-    entry_actions: ['first'],
+    entryActions: ['first'],
     actions: [
       {
         ...makePassAction('first', 10, 'step.first'),
@@ -361,7 +361,7 @@ describe('createSceneExecutor — step-by-step trace', () => {
 describe('createSceneExecutor — cycle guard', () => {
   const scene: SceneBlock = {
     id: 'cycle_step_scene',
-    entry_actions: ['a'],
+    entryActions: ['a'],
     actions: [
       {
         ...makePassAction('a', 1, 'step.a'),

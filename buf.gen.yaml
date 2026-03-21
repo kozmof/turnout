@@ -1,0 +1,12 @@
+version: v2
+inputs:
+  - directory: schema
+plugins:
+  - local: protoc-gen-go
+    out: packages/go/converter/internal/emit/turnoutpb
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-es
+    out: packages/ts/scene-runner/src/types
+    opt:
+      - target=ts

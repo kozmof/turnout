@@ -1,6 +1,6 @@
 # Unified Turnout Report
 
-- Date: 2026-03-21 (last updated: 2026-03-21)
+- Date: 2026-03-21 (last updated: 2026-03-22)
 - Scope: Consolidates and updates the five historical reports previously stored in `report/`
 - Source reports:
   - `2026-02-23-balance-spec-validateContext.md`
@@ -11,28 +11,54 @@
 
 ## Implementation Log
 
+### 2026-03-22 — Step 2: Protobuf schema as single source of truth
+
+Replaced the hand-written JSON Schema and all hand-maintained Go/TS type definitions with generated code from a single `.proto` file.
+
+**Motivation:**
+The previous approach (Step 1) introduced `schema/turnout-model.json` as a canonical JSON Schema and required both Go (`emit/json.go`, 25 hand-written structs) and TypeScript (`src/types/scene-model.ts`, 193 lines) to stay in sync with it manually. This still left two independent type surfaces that could drift.
+
+**Deliverables:**
+
+- `schema/turnout-model.proto` — single source of truth defining all 18+ message types (`TurnModel`, `SceneBlock`, `ActionModel`, `ComputeModel`, `ProgModel`, `BindingModel`, `ExprModel`, `ArgModel`, `CondExpr`, `CombineExpr`, `PipeExpr`, `PipeParam`, `PipeStep`, `PrepareEntry`, `MergeEntry`, `NextRuleModel`, `NextPrepareEntry`, `RouteModel`, `MatchArm`, `FieldModel`, `NamespaceModel`, `StateModel`, `TransformArg`). Uses `google.protobuf.Value` for `Literal`, `optional` scalars for presence-tracked fields, `else_branch` to avoid keyword conflict in generated Go.
+- `schema/buf.yaml` — buf v2 module descriptor.
+- `buf.gen.yaml` — code generation config: `protoc-gen-go` → `packages/go/converter/internal/emit/turnoutpb/`, `protoc-gen-es` → `packages/ts/scene-runner/src/types/`.
+- `packages/go/converter/internal/emit/turnoutpb/turnout-model.pb.go` — generated Go structs (replaces 25 hand-written structs in `json.go`).
+- `packages/ts/scene-runner/src/types/turnout-model_pb.ts` — generated TypeScript types (replaces `scene-model.ts`).
+- `packages/go/converter/internal/emit/json.go` — rewrote to use `turnoutpb.*` types and `protojson.Marshal` for output. All 25 hand-written `json*` structs removed.
+- `packages/go/converter/internal/emit/json_schema_test.go` — rewrote to use `protojson.Unmarshal` for round-trip validation instead of JSON Schema validation.
+- `packages/ts/scene-runner/src/state/state-manager.ts` — added `protoValueToJs()` helper (uses `toJson(ValueSchema, v)` from `@bufbuild/protobuf`) to unwrap `google.protobuf.Value` proto messages into plain JS primitives. Required because `field.value` and `binding.value` in the generated types are `Value` messages, not native JS values.
+- `packages/ts/scene-runner/src/executor/hcl-context-builder.ts` and `prepare-resolver.ts` — updated `inferLiteralAnyValue` / `inferLiteralValue` to call `protoValueToJs()` before type-checking.
+- All TS test files and JSON fixtures updated from snake_case field names (`entry_actions`, `from_state`, `to_state`, etc.) to camelCase (`entryActions`, `fromState`, `toState`, etc.) — the protobuf JSON encoding convention.
+
+**Removed:**
+
+- `schema/turnout-model.json` — superseded by `schema/turnout-model.proto`.
+- `packages/ts/scene-runner/src/types/scene-model.ts` — superseded by `turnout-model_pb.ts`.
+- `ajv` devDependency — JSON Schema validation library no longer needed.
+- `github.com/google/jsonschema-go` Go dependency — removed via `go mod tidy`.
+
+**Post-implementation test counts:**
+
+- `go test ./...` in `packages/go/converter`: passed (all 9 packages)
+- `pnpm --dir packages/ts/scene-runner test`: passed (14 test files, 184 tests)
+
+---
+
 ### 2026-03-21 — Step 1: Shared JSON boundary schema
 
 Completed "Highest-Leverage Next Step 1: Establish one shared schema for the Go-to-TS JSON boundary."
 
 **Deliverables:**
 
-- `schema/turnout-model.json` — new canonical JSON Schema (draft-07) covering every type in the Go→TS boundary: `TurnModel`, `SceneBlock`, `ActionModel`, `ComputeModel`, `ProgModel`, `BindingModel`, `ExprModel`, `ArgModel`, `PrepareEntry`, `MergeEntry`, `NextRuleModel`, `NextPrepareEntry`, `RouteModel`, `MatchArm`, `FieldTypeStr`, `Literal`, and all nested sub-types. Every property has a `description`.
-- `packages/go/converter/internal/emit/json_schema_test.go` — three Go conformance tests in `package emit`:
-  - `TestSchemaFileIsValidJSON`: verifies the schema file parses and declares all 25 expected `$defs`.
-  - `TestEmitJSONRoundTrip`: runs a full pipeline (state + compute + prepare/merge + publish + next + route) then decodes the emitted JSON with `DisallowUnknownFields`; any field the emitter adds outside `jsonModel` will fail this test.
-  - `TestEmitJSONNilModelProducesEmptyScenes`: edge-case guard.
-- `packages/ts/scene-runner/tests/schema-conformance.test.ts` — TS conformance tests (Vitest): validates the schema file structure, runs the three existing JSON fixture files through structural checks, and confirms inline `TurnModel` values type-check.
-- Cross-reference comments added to `packages/go/converter/internal/emit/json.go` and `packages/ts/scene-runner/src/types/scene-model.ts` pointing both files at the schema as the source of truth.
+- `schema/turnout-model.json` — canonical JSON Schema (draft-07) covering every type in the Go→TS boundary. *(Superseded by Step 2 — file removed.)*
+- `packages/go/converter/internal/emit/json_schema_test.go` — Go conformance tests. *(Superseded by Step 2 — now uses protojson round-trip.)*
+- `packages/ts/scene-runner/tests/schema-conformance.test.ts` — TS conformance tests. *(Updated in Step 2 to use `fromJson(TurnModelSchema, ...)`  instead of AJV.)*
 
 **Post-implementation test counts:**
 
 - `go test ./...` in `packages/go/converter`: passed (all 8 packages, +3 new tests)
 - `pnpm --dir packages/ts/scene-runner test`: passed (14 test files, 188 tests, +10 new tests)
-
-**What this does not change:**
-
-The schema reflects the boundary as it exists today — it does not yet add `action.text` (G6) or `scene.view` (G8), which remain parse-only metadata. Those are tracked under Step 4.
 
 ---
 
@@ -43,14 +69,14 @@ The schema reflects the boundary as it exists today — it does not yet add `act
   - 13 test files
   - 178 tests
 - `pnpm --dir packages/ts/scene-runner test`: passed
-  - 13 test files
-  - 179 tests
+  - 14 test files
+  - 184 tests
 
 Repository size at verification time:
 
 - Go converter: 24 `.go` files
 - TS runtime: 65 `.ts` files in `packages/ts/runtime/src`
-- TS scene-runner: 16 `.ts` files in `packages/ts/scene-runner/src`
+- TS scene-runner: 15 `.ts` files in `packages/ts/scene-runner/src`
 - Specs: 8 markdown specs in `spec/`
 
 ## Architecture Snapshot
@@ -60,14 +86,17 @@ Turnout is still best understood as a layered monorepo:
 1. Go converter
    - lex -> parse -> resolve state -> lower -> validate -> emit
    - owns DSL parsing and canonical HCL / JSON emission
+   - JSON output now uses `protojson.Marshal` against `turnoutpb.*` generated types
 2. TS runtime
    - owns typed values, compute-graph validation, and graph execution
 3. TS scene-runner
    - owns action, scene, and route orchestration on top of the runtime
+   - types now generated from `schema/turnout-model.proto` via `buf generate`
 4. VS Code extension
    - syntax highlighting only
 
-The strongest design choice remains the separation between source-language concerns in Go and execution-model concerns in TypeScript. The weakest boundary is still the JSON contract between them: it is hand-maintained on both sides rather than generated from one shared schema.
+**Contract boundary:**
+The Go→TS JSON contract is now defined entirely in `schema/turnout-model.proto`. Running `buf generate` from the repo root regenerates both `turnoutpb/turnout-model.pb.go` (Go) and `src/types/turnout-model_pb.ts` (TypeScript). Structural drift between the two sides is caught at compile time.
 
 ## `validateContext.ts` Status
 
@@ -96,14 +125,14 @@ These are the gaps that still reproduce against the current codebase.
 |---|---|---|
 | G1 | Publish hooks are lowered and emitted into JSON, but the TS scene-runner never executes a publish phase. | `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/json.go`, `packages/ts/scene-runner/src/executor/action-executor.ts` |
 | G2 | Hook typing still models only synchronous prepare-hook behavior. There is no publish-hook context and no async hook support in the runtime API. | `packages/ts/scene-runner/src/types/harness-types.ts` |
-| G3 | Missing `from_state` values still become `buildNull("missing")` instead of producing the spec-described missing-path failure. | `packages/ts/scene-runner/src/executor/prepare-resolver.ts` |
+| G3 | Missing `fromState` values still become `buildNull("missing")` instead of producing the spec-described missing-path failure. | `packages/ts/scene-runner/src/executor/prepare-resolver.ts` |
 | G4 | An unregistered prepare hook still overwrites the binding with `buildNull("missing")` instead of silently skipping while preserving the prior/default value. | `packages/ts/scene-runner/src/executor/prepare-resolver.ts`, `spec/hook-spec.md` |
 | G5 | Missing fields in a prepare hook result still become `buildNull("missing")`; `MissingHookField` is not emitted. | `packages/ts/scene-runner/src/executor/prepare-resolver.ts`, `spec/hook-spec.md` |
-| G6 | Action narrative text exists in AST, lowering, and HCL emission, but the JSON boundary and runtime model drop it. | `packages/go/converter/internal/ast/ast.go`, `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/emit.go`, `packages/go/converter/internal/emit/json.go`, `packages/ts/scene-runner/src/types/scene-model.ts` |
-| G7 | Per-action `nextPolicy` override from the scene spec is still not represented in the converter JSON or runtime model. | `spec/scene-graph.md`, `packages/ts/scene-runner/src/types/scene-model.ts` |
-| G8 | Scene `view` metadata is parsed, but dropped before JSON/runtime, so overview enforcement is still not implemented end to end. | `packages/go/converter/internal/ast/ast.go`, `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/json.go`, `packages/ts/scene-runner/src/types/scene-model.ts` |
+| G6 | Action narrative text exists in AST, lowering, and HCL emission, but is not present in the proto schema or runtime model. | `packages/go/converter/internal/ast/ast.go`, `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/emit.go`, `schema/turnout-model.proto` |
+| G7 | Per-action `nextPolicy` override from the scene spec is still not represented in the converter JSON or runtime model. | `spec/scene-graph.md`, `schema/turnout-model.proto` |
+| G8 | Scene `view` metadata is parsed, but dropped before JSON/runtime, so overview enforcement is still not implemented end to end. | `packages/go/converter/internal/ast/ast.go`, `packages/go/converter/internal/lower/lower.go`, `schema/turnout-model.proto` |
 | G9 | Scene/route runtime failures still surface as plain JS errors; `SceneDiagnostic` and `RouteDiagnostic` payloads are not implemented on the TS side. | `spec/scene-graph.md`, `spec/scene-to-scene.md`, no matching runtime types in `packages/ts/scene-runner` |
-| G10 | The compiler still lowers and emits a single scene (`lower.Model.Scene`), while the runtime contract and route executor already assume `TurnModel.scenes[]`. | `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/json.go`, `packages/ts/scene-runner/src/types/scene-model.ts`, `packages/ts/scene-runner/src/executor/route-executor.ts` |
+| G10 | The compiler still lowers and emits a single scene (`lower.Model.Scene`), while the runtime contract and route executor already assume `TurnModel.scenes[]`. | `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/json.go`, `packages/ts/scene-runner/src/executor/route-executor.ts` |
 
 ## Historical Findings Now Resolved
 
@@ -117,6 +146,7 @@ These items appeared in older reports but are no longer current.
 | Empty-array literal inference fell through to a null-ish fallback. | Fixed in `prepare-resolver.ts` and `hcl-context-builder.ts`; empty arrays now stay arrays. |
 | `StateManager.from(...)` and `StateManager.fromSchema(...)` compatibility gaps were breaking scene-runner tests. | Fixed. Namespace aliases are present and the scene-runner suite is green. |
 | The 2026-03-20 cycle-guard note said the executor used a count-based guard. | No longer current. `scene-executor.ts` now uses a `visited` set and skips already-executed actions. |
+| Go and TS type definitions for the JSON boundary were hand-maintained independently, creating a drift risk. | Fixed (2026-03-22). `schema/turnout-model.proto` is the single source of truth; both Go (`turnoutpb/`) and TS (`turnout-model_pb.ts`) types are generated by `buf generate`. |
 
 ## Spec Document Issues Still Worth Cleaning Up
 
@@ -143,11 +173,11 @@ These items appeared in older reports but are no longer current.
 
 ## Highest-Leverage Next Steps
 
-1. ~~Establish one shared schema for the Go-to-TS JSON boundary.~~ **Done 2026-03-21** — `schema/turnout-model.json` is the canonical source of truth; conformance tests added to both Go and TS packages.
+1. ~~Establish one shared schema for the Go-to-TS JSON boundary.~~ **Done 2026-03-22** — `schema/turnout-model.proto` is the canonical source of truth; both Go and TypeScript types are generated by `buf generate`. Conformance verified by `protojson` round-trip tests (Go) and `fromJson(TurnModelSchema, ...)` fixture tests (TS).
 2. Implement a real publish phase and split prepare/publish hook types at the API level.
 3. Decide and codify missing-source semantics, then align runtime behavior and diagnostics with that decision.
-4. Preserve `action.text` and `scene.view` end to end, or explicitly downgrade them to parse-only metadata.
-5. Extend the compiler model from singular-scene lowering to first-class multi-scene authoring.
+4. Add `action.text` and `scene.view` to `turnout-model.proto` and propagate them end to end, or explicitly downgrade them to parse-only metadata in the spec.
+5. Extend the compiler model from singular-scene lowering (`lower.Model.Scene`) to first-class multi-scene authoring (`lower.Model.Scenes`).
 
 ## Learning Paths
 
@@ -181,7 +211,8 @@ Goal:
 
 Start with:
 
-- `packages/ts/scene-runner/src/types/scene-model.ts`
+- `schema/turnout-model.proto`
+- `packages/ts/scene-runner/src/types/turnout-model_pb.ts`
 - `packages/ts/scene-runner/src/executor/action-executor.ts`
 - `packages/ts/scene-runner/src/executor/scene-executor.ts`
 - `packages/ts/scene-runner/src/executor/route-executor.ts`
@@ -192,4 +223,6 @@ Goal:
 
 ## Bottom Line
 
-Turnout still has a solid layered architecture and a strong compute-graph validation core. The main risk today is no longer basic correctness inside the runtime engine; it is contract drift at the product boundary: hooks, action metadata, overview metadata, diagnostics, and multi-scene authoring are still only partially aligned across spec, converter, and runtime.
+Turnout has a solid layered architecture and a strong compute-graph validation core. The Go→TS JSON contract is now generated from a single proto schema (`schema/turnout-model.proto`), eliminating the main drift risk identified in the previous report.
+
+The remaining risks are at the product boundary: publish hooks are still unimplemented in the runtime, missing-source semantics conflict with the specs, and the compiler still emits a single-scene model while the runtime already assumes multi-scene. Those are the next meaningful targets.

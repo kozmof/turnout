@@ -1,164 +1,55 @@
 /**
- * Schema conformance tests for the Go→TS JSON boundary.
+ * Proto contract conformance tests for the Go→TS JSON boundary.
  *
- * These tests verify that:
- *   1. schema/turnout-model.json is valid JSON and declares every expected definition.
- *   2. The JSON fixture files used by other tests conform to the TurnModel type structure.
- *
- * TypeScript itself (strict mode, no implicit any) enforces the TurnModel contract
- * at compile time. This file adds a lightweight runtime check so that:
- *   - drift in the schema file is caught before code review
- *   - fixture files are validated against the schema's structural requirements
+ * The schema is now defined in schema/turnout-model.proto. Both Go and
+ * TypeScript types are generated from that file, so structural drift is
+ * caught at compile time. These runtime tests verify that:
+ *   1. JSON fixture files can be loaded with fromJson (valid proto JSON).
+ *   2. TypeScript can construct valid TurnModel values using the generated types.
  */
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { Ajv } from 'ajv';
-import type { TurnModel, SceneBlock, ActionModel } from '../src/types/scene-model.js';
+import { fromJson, type JsonObject } from '@bufbuild/protobuf';
+import type { TurnModel, SceneBlock, ActionModel } from '../src/types/turnout-model_pb.js';
+import { TurnModelSchema } from '../src/types/turnout-model_pb.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-
-// Path from tests/ up to repo root, then into schema/.
-const schemaPath = resolve(__dirname, '../../../../schema/turnout-model.json');
 const fixturesDir = resolve(__dirname, 'fixtures');
 
-// Compile the schema once for all tests.
-const ajv = new Ajv({ strict: true });
-const validate = ajv.compile(readJSON(schemaPath) as object);
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-function readJSON(path: string): unknown {
-  return JSON.parse(readFileSync(path, 'utf-8'));
-}
-
-/** The full set of $defs the schema must declare. */
-const EXPECTED_DEFS = [
-  'FieldTypeStr', 'Literal',
-  'StateModel', 'NamespaceModel', 'FieldModel',
-  'SceneBlock', 'ActionModel',
-  'ComputeModel', 'ProgModel', 'BindingModel',
-  'ExprModel', 'CombineExpr', 'PipeExpr', 'PipeParam', 'PipeStep', 'CondExpr',
-  'ArgModel', 'TransformArg',
-  'PrepareEntry', 'MergeEntry',
-  'NextRuleModel', 'NextComputeModel', 'NextPrepareEntry',
-  'RouteModel', 'MatchArm',
-] as const;
-
-/** Structural checks applied to every fixture TurnModel. */
-function assertTurnModel(raw: unknown, label: string): void {
-  expect(raw, `${label}: must be an object`).toBeTypeOf('object');
-  expect(raw).not.toBeNull();
-  const m = raw as Record<string, unknown>;
-  expect(Array.isArray(m['scenes']), `${label}: scenes must be an array`).toBe(true);
-  const scenes = m['scenes'] as unknown[];
-  for (const scene of scenes) {
-    assertSceneBlock(scene, label);
-  }
-  if (m['state'] !== undefined) {
-    expect(m['state'], `${label}: state must be an object`).toBeTypeOf('object');
-    const st = m['state'] as Record<string, unknown>;
-    expect(Array.isArray(st['namespaces']), `${label}: state.namespaces must be an array`).toBe(true);
-  }
-  if (m['routes'] !== undefined) {
-    expect(Array.isArray(m['routes']), `${label}: routes must be an array`).toBe(true);
-  }
-}
-
-function assertSceneBlock(raw: unknown, label: string): void {
-  const s = raw as Record<string, unknown>;
-  expect(s['id'], `${label}: scene.id must be a string`).toBeTypeOf('string');
-  expect(Array.isArray(s['entry_actions']), `${label}: scene.entry_actions must be an array`).toBe(true);
-  expect(Array.isArray(s['actions']), `${label}: scene.actions must be an array`).toBe(true);
-  if (s['next_policy'] !== undefined) {
-    expect(['first-match', 'all-match'], `${label}: scene.next_policy must be a valid enum value`).toContain(s['next_policy']);
-  }
-  for (const action of s['actions'] as unknown[]) {
-    assertActionModel(action, label);
-  }
-}
-
-function assertActionModel(raw: unknown, label: string): void {
-  const a = raw as Record<string, unknown>;
-  expect(a['id'], `${label}: action.id must be a string`).toBeTypeOf('string');
-  if (a['prepare'] !== undefined) {
-    expect(Array.isArray(a['prepare']), `${label}: action.prepare must be an array`).toBe(true);
-  }
-  if (a['merge'] !== undefined) {
-    expect(Array.isArray(a['merge']), `${label}: action.merge must be an array`).toBe(true);
-  }
-  if (a['publish'] !== undefined) {
-    expect(Array.isArray(a['publish']), `${label}: action.publish must be an array`).toBe(true);
-  }
-  if (a['next'] !== undefined) {
-    expect(Array.isArray(a['next']), `${label}: action.next must be an array`).toBe(true);
-  }
+function loadFixture(name: string): TurnModel {
+  const raw = readFileSync(resolve(fixturesDir, name), 'utf-8');
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  return fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tests
+// Fixture file tests
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('schema/turnout-model.json', () => {
-  it('is valid JSON', () => {
-    expect(() => readJSON(schemaPath)).not.toThrow();
-  });
-
-  it('has required top-level JSON Schema keys', () => {
-    const schema = readJSON(schemaPath) as Record<string, unknown>;
-    for (const key of ['$schema', '$id', 'title', 'description', '$defs', 'properties']) {
-      expect(schema, `missing key "${key}"`).toHaveProperty(key);
-    }
-  });
-
-  it('declares all expected $defs', () => {
-    const schema = readJSON(schemaPath) as Record<string, unknown>;
-    const defs = schema['$defs'] as Record<string, unknown>;
-    for (const name of EXPECTED_DEFS) {
-      expect(defs, `missing $defs.${name}`).toHaveProperty(name);
-    }
-  });
-
-  it('top-level "required" includes "scenes"', () => {
-    const schema = readJSON(schemaPath) as Record<string, unknown>;
-    expect(Array.isArray(schema['required'])).toBe(true);
-    expect(schema['required'] as string[]).toContain('scenes');
-  });
-});
-
-describe('fixture JSON files conform to TurnModel schema structure', () => {
-  const fixtures = ['workflow.json', 'scene-graph.json', 'two-scene-route.json'];
-
-  for (const filename of fixtures) {
-    it(`${filename} has valid TurnModel structure`, () => {
-      const raw = readJSON(`${fixturesDir}/${filename}`);
-      assertTurnModel(raw, filename);
-
-      // JSON Schema validation: verify against the actual schema file.
-      const ok = validate(raw);
-      expect(ok, `${filename} schema errors: ${JSON.stringify(validate.errors)}`).toBe(true);
-
-      // TypeScript compile-time check: this assignment will fail to compile if
-      // the fixture shape diverges from TurnModel.
-      const _typed: TurnModel = raw as TurnModel;
-      void _typed;
+describe('fixture files are valid proto JSON', () => {
+  for (const fixture of ['workflow.json', 'scene-graph.json', 'two-scene-route.json']) {
+    it(fixture, () => {
+      expect(() => loadFixture(fixture)).not.toThrow();
+      const model = loadFixture(fixture);
+      expect(Array.isArray(model.scenes)).toBe(true);
     });
   }
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Inline TurnModel type conformance (compile-time + shape check)
+// ─────────────────────────────────────────────────────────────────────────────
+
 describe('inline TurnModel type conformance', () => {
   it('accepts a minimal valid TurnModel', () => {
-    // TypeScript enforces this at compile time; JSON Schema validates the shape
-    // against schema/turnout-model.json at runtime.
-    const model: TurnModel = {
+    const model = {
       scenes: [
         {
           id: 'test',
-          entry_actions: ['a'],
+          entryActions: ['a'],
           actions: [
             {
               id: 'a',
@@ -170,14 +61,13 @@ describe('inline TurnModel type conformance', () => {
           ],
         } satisfies SceneBlock,
       ],
-    };
-    assertTurnModel(model, 'inline minimal model');
-    const ok1 = validate(model);
-    expect(ok1, `inline minimal schema errors: ${JSON.stringify(validate.errors)}`).toBe(true);
+    } satisfies TurnModel;
+    expect(Array.isArray(model.scenes)).toBe(true);
+    expect(model.scenes[0]?.id).toBe('test');
   });
 
   it('accepts a TurnModel with state and routes', () => {
-    const model: TurnModel = {
+    const model = {
       state: {
         namespaces: [
           { name: 'user', fields: [{ name: 'active', type: 'bool', value: false }] },
@@ -186,17 +76,16 @@ describe('inline TurnModel type conformance', () => {
       scenes: [
         {
           id: 's',
-          entry_actions: ['a'],
-          next_policy: 'first-match',
+          entryActions: ['a'],
+          nextPolicy: 'first-match',
           actions: [{ id: 'a' }],
-        },
+        } satisfies SceneBlock,
       ],
       routes: [
         { id: 'main', match: [{ patterns: ['_'], target: 's' }] },
       ],
-    };
-    assertTurnModel(model, 'inline full model');
-    const ok2 = validate(model);
-    expect(ok2, `inline full schema errors: ${JSON.stringify(validate.errors)}`).toBe(true);
+    } satisfies TurnModel;
+    expect(model.state?.namespaces).toHaveLength(1);
+    expect(model.routes).toHaveLength(1);
   });
 });

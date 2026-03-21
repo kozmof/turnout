@@ -14,7 +14,7 @@ import {
   isPureString,
   isArray,
 } from 'runtime';
-import type { ProgModel, ArgModel } from '../src/types/scene-model.js';
+import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -145,8 +145,8 @@ describe('buildContextFromProg — cond expr', () => {
         expr: {
           cond: {
             condition: { ref: 'flag' },
-            then: { func_ref: 'pass_x' },
-            else: { func_ref: 'pass_y' },
+            then: { funcRef: 'pass_x' },
+            elseBranch: { funcRef: 'pass_y' },
           },
         },
       },
@@ -249,7 +249,7 @@ describe('buildContextFromProg — errors', () => {
           name: 'result',
           type: 'number',
           // step_ref inside a combine (not pipe) is invalid
-          expr: { combine: { fn: 'add', args: [{ step_ref: 0 } as ArgModel, { ref: 'x' }] } },
+          expr: { combine: { fn: 'add', args: [{ stepRef: 0 } as ArgModel, { ref: 'x' }] } },
         },
       ],
     };
@@ -384,7 +384,7 @@ describe('buildContextFromProg — pipe expr', () => {
           type: 'number',
           expr: {
             pipe: {
-              params: [{ param_name: 'input', source_ident: 'x' }],
+              params: [{ paramName: 'input', sourceIdent: 'x' }],
               steps: [
                 { fn: 'add', args: [{ ref: 'input' }, { lit: 1 }] },
               ],
@@ -408,10 +408,10 @@ describe('buildContextFromProg — pipe expr', () => {
           type: 'number',
           expr: {
             pipe: {
-              params: [{ param_name: 'input', source_ident: 'x' }],
+              params: [{ paramName: 'input', sourceIdent: 'x' }],
               steps: [
                 { fn: 'add', args: [{ ref: 'input' }, { lit: 1 }] },       // step 0: input + 1
-                { fn: 'add', args: [{ step_ref: 0 }, { lit: 10 }] },        // step 1: step_0 + 10
+                { fn: 'add', args: [{ stepRef: 0 }, { lit: 10 }] },        // step 1: step_0 + 10
               ],
             },
           },

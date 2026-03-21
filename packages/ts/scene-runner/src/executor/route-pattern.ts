@@ -1,4 +1,4 @@
-import type { MatchArm } from '../types/scene-model.js';
+import type { MatchArm } from '../types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal types

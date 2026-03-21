@@ -51,10 +51,10 @@
   "scenes": [
     {
       "id": "loan_flow",
-      "entry_actions": [
+      "entryActions": [
         "score"
       ],
-      "next_policy": "first-match",
+      "nextPolicy": "first-match",
       "actions": [
         {
           "id": "score",
@@ -140,21 +140,21 @@
           "prepare": [
             {
               "binding": "income",
-              "from_state": "applicant.income"
+              "fromState": "applicant.income"
             },
             {
               "binding": "debt",
-              "from_state": "applicant.debt"
+              "fromState": "applicant.debt"
             }
           ],
           "merge": [
             {
               "binding": "income",
-              "to_state": "decision.input_income"
+              "toState": "decision.input_income"
             },
             {
               "binding": "decision",
-              "to_state": "decision.approved"
+              "toState": "decision.approved"
             }
           ],
           "next": [
@@ -197,11 +197,11 @@
               "prepare": [
                 {
                   "binding": "decision",
-                  "from_action": "decision"
+                  "fromAction": "decision"
                 },
                 {
                   "binding": "income_ok",
-                  "from_action": "income_ok"
+                  "fromAction": "income_ok"
                 }
               ],
               "action": "approve"
@@ -269,11 +269,11 @@
           "merge": [
             {
               "binding": "status",
-              "to_state": "decision.status"
+              "toState": "decision.status"
             },
             {
               "binding": "approval_code",
-              "to_state": "decision.code"
+              "toState": "decision.code"
             }
           ]
         },
@@ -300,11 +300,11 @@
           "merge": [
             {
               "binding": "status",
-              "to_state": "decision.status"
+              "toState": "decision.status"
             },
             {
               "binding": "reason",
-              "to_state": "decision.reason"
+              "toState": "decision.reason"
             }
           ]
         }

@@ -1,8 +1,8 @@
 import { buildNull, buildArray } from 'runtime';
 import type { AnyValue } from 'runtime';
-import type { PrepareEntry, NextPrepareEntry, Literal } from '../types/scene-model.js';
+import type { PrepareEntry, NextPrepareEntry } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
-import { literalToValue } from '../state/state-manager.js';
+import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 import type { HookRegistry } from '../types/harness-types.js';
 import type { ActionExecutionResult } from './types.js';
 
@@ -22,10 +22,10 @@ export function resolveActionPrepare(
   const hookCache: Record<string, Record<string, AnyValue>> = {};
 
   for (const entry of entries) {
-    if (entry.from_state !== undefined) {
-      result[entry.binding] = state.read(entry.from_state) ?? buildNull('missing');
-    } else if (entry.from_hook !== undefined) {
-      const hookName = entry.from_hook;
+    if (entry.fromState !== undefined) {
+      result[entry.binding] = state.read(entry.fromState) ?? buildNull('missing');
+    } else if (entry.fromHook !== undefined) {
+      const hookName = entry.fromHook;
       const hook = hooks[hookName];
       if (!hook) {
         result[entry.binding] = buildNull('missing');
@@ -57,13 +57,13 @@ export function resolveNextPrepare(
   const result: Record<string, AnyValue> = {};
 
   for (const entry of entries) {
-    if (entry.from_action !== undefined) {
+    if (entry.fromAction !== undefined) {
       result[entry.binding] =
-        prevResult.bindingValues[entry.from_action] ?? buildNull('missing');
-    } else if (entry.from_state !== undefined) {
-      result[entry.binding] = state.read(entry.from_state) ?? buildNull('missing');
-    } else if (entry.from_literal !== undefined) {
-      result[entry.binding] = inferLiteralValue(entry.from_literal);
+        prevResult.bindingValues[entry.fromAction] ?? buildNull('missing');
+    } else if (entry.fromState !== undefined) {
+      result[entry.binding] = state.read(entry.fromState) ?? buildNull('missing');
+    } else if (entry.fromLiteral !== undefined) {
+      result[entry.binding] = inferLiteralValue(entry.fromLiteral);
     }
   }
 
@@ -74,15 +74,16 @@ export function resolveNextPrepare(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function inferLiteralValue(lit: Literal): AnyValue {
-  if (typeof lit === 'number') return literalToValue(lit, 'number');
-  if (typeof lit === 'string') return literalToValue(lit, 'str');
-  if (typeof lit === 'boolean') return literalToValue(lit, 'bool');
-  if (Array.isArray(lit)) {
-    const first = lit[0];
-    if (typeof first === 'number') return literalToValue(lit, 'arr<number>');
-    if (typeof first === 'string') return literalToValue(lit, 'arr<str>');
-    if (typeof first === 'boolean') return literalToValue(lit, 'arr<bool>');
+function inferLiteralValue(lit: unknown): AnyValue {
+  const v = protoValueToJs(lit);
+  if (typeof v === 'number') return literalToValue(v, 'number');
+  if (typeof v === 'string') return literalToValue(v, 'str');
+  if (typeof v === 'boolean') return literalToValue(v, 'bool');
+  if (Array.isArray(v)) {
+    const first = v[0];
+    if (typeof first === 'number') return literalToValue(v, 'arr<number>');
+    if (typeof first === 'string') return literalToValue(v, 'arr<str>');
+    if (typeof first === 'boolean') return literalToValue(v, 'arr<bool>');
     // Empty array — no element type to infer; return a typed empty array value.
     return buildArray([]);
   }

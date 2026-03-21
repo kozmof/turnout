@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { evaluateMatchArm, selectNextScene } from '../src/executor/route-pattern.js';
-import type { MatchArm } from '../src/types/scene-model.js';
+import type { MatchArm } from '../src/types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

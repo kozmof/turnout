@@ -81,10 +81,10 @@
   "scenes": [
     {
       "id": "ai_workflow",
-      "entry_actions": [
+      "entryActions": [
         "analyze"
       ],
-      "next_policy": "first-match",
+      "nextPolicy": "first-match",
       "actions": [
         {
           "id": "analyze",
@@ -131,11 +131,11 @@
           "prepare": [
             {
               "binding": "need_grounding",
-              "from_state": "request.need_grounding"
+              "fromState": "request.need_grounding"
             },
             {
               "binding": "kb_enabled",
-              "from_state": "request.kb_enabled"
+              "fromState": "request.kb_enabled"
             }
           ],
           "next": [
@@ -173,7 +173,7 @@
               "prepare": [
                 {
                   "binding": "retrieve_ready",
-                  "from_action": "retrieve_ready"
+                  "fromAction": "retrieve_ready"
                 }
               ],
               "action": "retrieve"
@@ -236,13 +236,13 @@
           "prepare": [
             {
               "binding": "doc_hint",
-              "from_state": "request.doc_hint"
+              "fromState": "request.doc_hint"
             }
           ],
           "merge": [
             {
               "binding": "context_str",
-              "to_state": "workflow.context"
+              "toState": "workflow.context"
             }
           ],
           "next": [
@@ -304,13 +304,13 @@
           "prepare": [
             {
               "binding": "query",
-              "from_state": "request.query"
+              "fromState": "request.query"
             }
           ],
           "merge": [
             {
               "binding": "draft_text",
-              "to_state": "workflow.draft"
+              "toState": "workflow.draft"
             }
           ],
           "next": [
@@ -416,17 +416,17 @@
           "prepare": [
             {
               "binding": "query",
-              "from_state": "request.query"
+              "fromState": "request.query"
             },
             {
               "binding": "context",
-              "from_state": "workflow.context"
+              "fromState": "workflow.context"
             }
           ],
           "merge": [
             {
               "binding": "draft_text",
-              "to_state": "workflow.draft"
+              "toState": "workflow.draft"
             }
           ],
           "next": [
@@ -488,7 +488,7 @@
           "prepare": [
             {
               "binding": "toxicity",
-              "from_state": "request.toxicity_score"
+              "fromState": "request.toxicity_score"
             }
           ],
           "next": [
@@ -526,7 +526,7 @@
               "prepare": [
                 {
                   "binding": "safe",
-                  "from_action": "safe"
+                  "fromAction": "safe"
                 }
               ],
               "action": "publish"
@@ -589,17 +589,17 @@
           "prepare": [
             {
               "binding": "draft",
-              "from_state": "workflow.draft"
+              "fromState": "workflow.draft"
             }
           ],
           "merge": [
             {
               "binding": "final_response",
-              "to_state": "response.last"
+              "toState": "response.last"
             },
             {
               "binding": "status",
-              "to_state": "workflow.status"
+              "toState": "workflow.status"
             }
           ]
         },
@@ -648,17 +648,17 @@
           "prepare": [
             {
               "binding": "draft",
-              "from_state": "workflow.draft"
+              "fromState": "workflow.draft"
             }
           ],
           "merge": [
             {
               "binding": "review_note",
-              "to_state": "review.note"
+              "toState": "review.note"
             },
             {
               "binding": "status",
-              "to_state": "workflow.status"
+              "toState": "workflow.status"
             }
           ]
         }

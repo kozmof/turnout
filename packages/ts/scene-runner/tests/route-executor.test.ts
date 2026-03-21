@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { executeRoute } from '../src/executor/route-executor.js';
 import { StateManager } from '../src/state/state-manager.js';
 import { isPureNumber } from 'runtime';
-import type { RouteModel, SceneBlock, ActionModel } from '../src/types/scene-model.js';
+import type { RouteModel, SceneBlock, ActionModel } from '../src/types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -26,12 +26,12 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
         ],
       },
     },
-    merge: [{ binding: 'v', to_state: toState }],
+    merge: [{ binding: 'v', toState: toState }],
   };
 }
 
 function makeScene(id: string, ...actions: ActionModel[]): SceneBlock {
-  return { id, entry_actions: [actions[0].id], actions };
+  return { id, entryActions: [actions[0].id], actions };
 }
 
 function makeSceneMap(...scenes: SceneBlock[]): Record<string, SceneBlock> {
@@ -135,7 +135,7 @@ describe('executeRoute — wildcard pattern match "scene_1.*.terminal"', () => {
   const terminal = makePassAction('terminal', 2, 's1.term');
   const scene1: SceneBlock = {
     id: 'scene_1',
-    entry_actions: ['intro'],
+    entryActions: ['intro'],
     actions: [
       { ...intro, next: [{ action: 'terminal' }] },
       terminal,
@@ -196,12 +196,12 @@ describe('executeRoute — three-scene chain', () => {
 
 describe('executeRoute — STATE propagates from scene_1 to scene_2', () => {
   const writeAction = makePassAction('write', 55, 'shared.val');
-  const scene1: SceneBlock = { id: 'scene_1', entry_actions: ['write'], actions: [writeAction] };
+  const scene1: SceneBlock = { id: 'scene_1', entryActions: ['write'], actions: [writeAction] };
 
   /** scene_2 reads shared.val via from_state prepare and doubles it. */
   const readAction: ActionModel = {
     id: 'read_double',
-    prepare: [{ binding: 'v', from_state: 'shared.val' }],
+    prepare: [{ binding: 'v', fromState: 'shared.val' }],
     compute: {
       root: 'doubled',
       prog: {
@@ -216,9 +216,9 @@ describe('executeRoute — STATE propagates from scene_1 to scene_2', () => {
         ],
       },
     },
-    merge: [{ binding: 'doubled', to_state: 'shared.doubled' }],
+    merge: [{ binding: 'doubled', toState: 'shared.doubled' }],
   };
-  const scene2: SceneBlock = { id: 'scene_2', entry_actions: ['read_double'], actions: [readAction] };
+  const scene2: SceneBlock = { id: 'scene_2', entryActions: ['read_double'], actions: [readAction] };
 
   const route: RouteModel = {
     id: 'r1',

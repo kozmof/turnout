@@ -1,0 +1,192 @@
+syntax = "proto3";
+
+// Package turnout.model.v1 is the single source of truth for the JSON contract
+// emitted by the Go converter (-format json) and consumed by the TypeScript
+// scene-runner. Changing this file and running `buf generate` from the repo
+// root regenerates both the Go and TypeScript types automatically.
+package turnout.model.v1;
+
+import "google/protobuf/struct.proto";
+
+option go_package = "github.com/turnout/converter/internal/emit/turnoutpb";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Top-level model
+// ─────────────────────────────────────────────────────────────────────────────
+
+message TurnModel {
+  StateModel state = 1;
+  repeated SceneBlock scenes = 2;
+  repeated RouteModel routes = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// State
+// ─────────────────────────────────────────────────────────────────────────────
+
+message StateModel {
+  repeated NamespaceModel namespaces = 1;
+}
+
+message NamespaceModel {
+  string name = 1;
+  repeated FieldModel fields = 2;
+}
+
+message FieldModel {
+  string name = 1;
+  // type is one of: "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>"
+  string type = 2;
+  google.protobuf.Value value = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scene / Action
+// ─────────────────────────────────────────────────────────────────────────────
+
+message SceneBlock {
+  string id = 1;
+  repeated string entry_actions = 2;
+  // next_policy is one of: "first-match" | "all-match". Absent means first-match.
+  optional string next_policy = 3;
+  repeated ActionModel actions = 4;
+}
+
+message ActionModel {
+  string id = 1;
+  ComputeModel compute = 2;
+  repeated PrepareEntry prepare = 3;
+  repeated MergeEntry merge = 4;
+  repeated string publish = 5;
+  repeated NextRuleModel next = 6;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Compute / Prog / Binding
+// ─────────────────────────────────────────────────────────────────────────────
+
+message ComputeModel {
+  // root is the binding name whose resolved value is the action's compute output.
+  string root = 1;
+  ProgModel prog = 2;
+}
+
+message ProgModel {
+  string name = 1;
+  repeated BindingModel bindings = 2;
+}
+
+message BindingModel {
+  string name = 1;
+  // type is a FieldTypeStr: "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>"
+  string type = 2;
+  // Exactly one of value or expr is present.
+  google.protobuf.Value value = 3;
+  ExprModel expr = 4;
+}
+
+message ExprModel {
+  // Exactly one of combine, pipe, or cond is present.
+  CombineExpr combine = 1;
+  PipeExpr pipe = 2;
+  CondExpr cond = 3;
+}
+
+message CombineExpr {
+  string fn = 1;
+  repeated ArgModel args = 2;
+}
+
+message PipeExpr {
+  repeated PipeParam params = 1;
+  repeated PipeStep steps = 2;
+}
+
+message PipeParam {
+  string param_name = 1;
+  string source_ident = 2;
+}
+
+message PipeStep {
+  string fn = 1;
+  repeated ArgModel args = 2;
+}
+
+message CondExpr {
+  ArgModel condition = 1;
+  ArgModel then = 2;
+  // Note: field is named else_branch because "else" is a reserved word in
+  // generated code. The JSON key is "elseBranch" (camelCase).
+  ArgModel else_branch = 3;
+}
+
+message ArgModel {
+  // Exactly one of the following is present.
+  optional string ref = 1;
+  google.protobuf.Value lit = 2;
+  optional string func_ref = 3;
+  // step_ref uses optional so that value 0 is serialised (not omitted).
+  optional int32 step_ref = 4;
+  TransformArg transform = 5;
+}
+
+message TransformArg {
+  string ref = 1;
+  string fn = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Prepare / Merge
+// ─────────────────────────────────────────────────────────────────────────────
+
+message PrepareEntry {
+  string binding = 1;
+  // Exactly one of from_state or from_hook is present.
+  optional string from_state = 2;
+  optional string from_hook = 3;
+}
+
+message MergeEntry {
+  string binding = 1;
+  string to_state = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Next rules
+// ─────────────────────────────────────────────────────────────────────────────
+
+message NextRuleModel {
+  NextComputeModel compute = 1;
+  repeated NextPrepareEntry prepare = 2;
+  string action = 3;
+}
+
+message NextComputeModel {
+  // condition is the binding name within prog whose boolean value gates the transition.
+  string condition = 1;
+  ProgModel prog = 2;
+}
+
+message NextPrepareEntry {
+  string binding = 1;
+  // Exactly one of from_action, from_state, or from_literal is present.
+  optional string from_action = 2;
+  optional string from_state = 3;
+  google.protobuf.Value from_literal = 4;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Route
+// ─────────────────────────────────────────────────────────────────────────────
+
+message RouteModel {
+  string id = 1;
+  repeated MatchArm match = 2;
+}
+
+message MatchArm {
+  // patterns holds raw pattern strings. "_" is fallback; "scene.action" or
+  // "scene.*.action[.action...]" are path forms. Multiple entries are OR-joined.
+  repeated string patterns = 1;
+  string target = 2;
+}

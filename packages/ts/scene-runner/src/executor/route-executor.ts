@@ -1,5 +1,5 @@
 import type { AnyValue } from 'runtime';
-import type { RouteModel, SceneBlock } from '../types/scene-model.js';
+import type { RouteModel, SceneBlock } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, RouteTrace } from '../types/harness-types.js';
 import { executeScene } from './scene-executor.js';
@@ -50,7 +50,7 @@ export function executeRoute(
     if (!scene) throw new Error(`Route "${route.id}": unknown scene "${currentSceneId}"`);
 
     // Route-driven entry: only the first declared entry action fires (spec §route-entry).
-    const routeEntry = scene.entry_actions[0];
+    const routeEntry = scene.entryActions[0];
     if (!routeEntry) throw new Error(`Route "${route.id}": scene "${currentSceneId}" has no entry actions`);
     const sceneResult = executeScene(scene, state, hooks, [routeEntry]);
     state = sceneResult.stateAfterScene;

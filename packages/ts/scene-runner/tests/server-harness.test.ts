@@ -8,13 +8,13 @@ vi.mock('../src/server/bridge.js', () => ({
 
 import { runConverter, loadJsonModel } from '../src/server/bridge.js';
 import { runServerHarness } from '../src/server/harness.js';
-import type { TurnModel } from '../src/types/scene-model.js';
+import type { TurnModel } from '../src/types/turnout-model_pb.js';
 
 const mockRunConverter = vi.mocked(runConverter);
 const mockLoadJsonModel = vi.mocked(loadJsonModel);
 
 const minimalModel: TurnModel = {
-  scenes: [{ id: 'scene_a', entry_actions: ['act_a'], actions: [{ id: 'act_a' }] }],
+  scenes: [{ id: 'scene_a', entryActions: ['act_a'], actions: [{ id: 'act_a' }] }],
 };
 
 beforeEach(() => {

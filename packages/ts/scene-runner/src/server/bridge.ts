@@ -1,7 +1,9 @@
 // Node.js only — uses child_process and fs.
 import { execFileSync, execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import type { TurnModel } from '../types/scene-model.js';
+import { fromJson, type JsonObject } from '@bufbuild/protobuf';
+import type { TurnModel } from '../types/turnout-model_pb.js';
+import { TurnModelSchema } from '../types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // File loading
@@ -93,7 +95,8 @@ export function loadJsonModel(jsonFilePath: string): TurnModel {
 
 function parseJSON(raw: string, source: string): TurnModel {
   try {
-    return JSON.parse(raw) as TurnModel;
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    return fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject);
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Invalid JSON from "${source}": ${msg}`);

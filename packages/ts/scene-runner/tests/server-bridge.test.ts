@@ -12,14 +12,14 @@ vi.mock('node:child_process', () => ({
 import { readFileSync } from 'node:fs';
 import { execFileSync, execSync } from 'node:child_process';
 import { loadTurnFile, loadJsonModel, runConverter, convertToHCL } from '../src/server/bridge.js';
-import type { TurnModel } from '../src/types/scene-model.js';
+import type { TurnModel } from '../src/types/turnout-model_pb.js';
 
 const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecFile = vi.mocked(execFileSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecSync = vi.mocked(execSync) as unknown as ReturnType<typeof vi.fn>;
 
 const minimalModel: TurnModel = {
-  scenes: [{ id: 'scene_a', entry_actions: [], actions: [] }],
+  scenes: [{ id: 'scene_a', entryActions: [], actions: [] }],
 };
 
 beforeEach(() => {

@@ -26,7 +26,7 @@ describe('resolveActionPrepare', () => {
   it('from_state reads the value from StateManager', () => {
     const state = StateManager.from({ 'request.query': buildString('hello') });
     const result = resolveActionPrepare(
-      [{ binding: 'query', from_state: 'request.query' }],
+      [{ binding: 'query', fromState: 'request.query' }],
       state,
       {},
     );
@@ -36,7 +36,7 @@ describe('resolveActionPrepare', () => {
   it('from_state returns buildNull("missing") when path is not in state', () => {
     const state = StateManager.from({});
     const result = resolveActionPrepare(
-      [{ binding: 'missing_val', from_state: 'no.such.path' }],
+      [{ binding: 'missing_val', fromState: 'no.such.path' }],
       state,
       {},
     );
@@ -50,7 +50,7 @@ describe('resolveActionPrepare', () => {
       my_hook: (_ctx) => ({ foo: buildNumber(42) }),
     };
     const result = resolveActionPrepare(
-      [{ binding: 'foo', from_hook: 'my_hook' }],
+      [{ binding: 'foo', fromHook: 'my_hook' }],
       state,
       hooks,
     );
@@ -66,14 +66,14 @@ describe('resolveActionPrepare', () => {
         return { bar: buildString('from_hook') };
       },
     };
-    resolveActionPrepare([{ binding: 'bar', from_hook: 'my_hook' }], state, hooks);
+    resolveActionPrepare([{ binding: 'bar', fromHook: 'my_hook' }], state, hooks);
     expect(isPureNumber(capturedValue as never) && (capturedValue as { value: number }).value).toBe(7);
   });
 
   it('from_hook returns buildNull("missing") if the hook is not registered', () => {
     const state = StateManager.from({});
     const result = resolveActionPrepare(
-      [{ binding: 'foo', from_hook: 'nonexistent_hook' }],
+      [{ binding: 'foo', fromHook: 'nonexistent_hook' }],
       state,
       {},
     );
@@ -87,8 +87,8 @@ describe('resolveActionPrepare', () => {
     });
     const result = resolveActionPrepare(
       [
-        { binding: 'x_val', from_state: 'a.x' },
-        { binding: 'y_val', from_state: 'b.y' },
+        { binding: 'x_val', fromState: 'a.x' },
+        { binding: 'y_val', fromState: 'b.y' },
       ],
       state,
       {},
@@ -116,7 +116,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({ score: buildNumber(99) });
     const result = resolveNextPrepare(
-      [{ binding: 'score', from_action: 'score' }],
+      [{ binding: 'score', fromAction: 'score' }],
       state,
       prevResult,
     );
@@ -127,7 +127,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'missing', from_action: 'missing' }],
+      [{ binding: 'missing', fromAction: 'missing' }],
       state,
       prevResult,
     );
@@ -138,7 +138,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({ 'workflow.stage': buildString('review') });
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'stage', from_state: 'workflow.stage' }],
+      [{ binding: 'stage', fromState: 'workflow.stage' }],
       state,
       prevResult,
     );
@@ -149,7 +149,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'x', from_state: 'no.path' }],
+      [{ binding: 'x', fromState: 'no.path' }],
       state,
       prevResult,
     );
@@ -160,7 +160,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'n', from_literal: 42 }],
+      [{ binding: 'n', fromLiteral: 42 }],
       state,
       prevResult,
     );
@@ -171,7 +171,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'msg', from_literal: 'hello' }],
+      [{ binding: 'msg', fromLiteral: 'hello' }],
       state,
       prevResult,
     );
@@ -182,7 +182,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'flag', from_literal: true }],
+      [{ binding: 'flag', fromLiteral: true }],
       state,
       prevResult,
     );
@@ -193,7 +193,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'nums', from_literal: [1, 2, 3] }],
+      [{ binding: 'nums', fromLiteral: [1, 2, 3] }],
       state,
       prevResult,
     );
@@ -204,7 +204,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'tags', from_literal: ['a', 'b'] }],
+      [{ binding: 'tags', fromLiteral: ['a', 'b'] }],
       state,
       prevResult,
     );
@@ -215,7 +215,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'flags', from_literal: [true, false] }],
+      [{ binding: 'flags', fromLiteral: [true, false] }],
       state,
       prevResult,
     );
@@ -226,7 +226,7 @@ describe('resolveNextPrepare', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'empty', from_literal: [] as unknown as number[] }],
+      [{ binding: 'empty', fromLiteral: [] as unknown as number[] }],
       state,
       prevResult,
     );
@@ -238,9 +238,9 @@ describe('resolveNextPrepare', () => {
     const prevResult = makePrevResult({ raw_score: buildNumber(5) });
     const result = resolveNextPrepare(
       [
-        { binding: 'score', from_action: 'raw_score' },
-        { binding: 'mode', from_state: 'ctx.mode' },
-        { binding: 'threshold', from_literal: 3 },
+        { binding: 'score', fromAction: 'raw_score' },
+        { binding: 'mode', fromState: 'ctx.mode' },
+        { binding: 'threshold', fromLiteral: 3 },
       ],
       state,
       prevResult,

@@ -140,7 +140,7 @@ scene "s" {
   entry_actions = ["a"]
   action "a" { compute { root = r prog "p" { r:bool = true } } }
 }`)
-	if strings.Contains(out, "next_policy") {
+	if strings.Contains(out, "nextPolicy") {
 		t.Error("next_policy should be omitted when empty")
 	}
 }
@@ -776,13 +776,13 @@ scene "test_scene" {
 	checks := []string{
 		`"scenes"`,
 		`"test_scene"`,
-		`"entry_actions"`,
+		`"entryActions"`,
 		`"act_a"`,
 		`"prepare"`,
-		`"from_state"`,
+		`"fromState"`,
 		`"request.query"`,
 		`"merge"`,
-		`"to_state"`,
+		`"toState"`,
 		`"next"`,
 		`"namespaces"`,
 	}
