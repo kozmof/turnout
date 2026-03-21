@@ -9,7 +9,10 @@ import (
 )
 
 // EmitJSON writes the lowered model as indented JSON to w.
-// The JSON schema is consumed by the TypeScript scene runner.
+// The JSON schema is defined in schema/turnout-model.json (repo root) and
+// consumed by the TypeScript scene runner (packages/ts/scene-runner).
+// Both this file and packages/ts/scene-runner/src/types/scene-model.ts must
+// stay in sync with that schema.
 func EmitJSON(w io.Writer, model *lower.Model) error {
 	jm := modelToJSON(model)
 	enc := json.NewEncoder(w)

@@ -1,4 +1,7 @@
 // Types that mirror the JSON schema emitted by the Go converter's -format json flag.
+// The canonical schema is defined in schema/turnout-model.json (repo root).
+// Both this file and packages/go/converter/internal/emit/json.go must stay in
+// sync with that schema.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Primitives

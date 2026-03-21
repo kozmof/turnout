@@ -1,6 +1,6 @@
 # Unified Turnout Report
 
-- Date: 2026-03-21
+- Date: 2026-03-21 (last updated: 2026-03-21)
 - Scope: Consolidates and updates the five historical reports previously stored in `report/`
 - Source reports:
   - `2026-02-23-balance-spec-validateContext.md`
@@ -8,6 +8,33 @@
   - `2026-03-20-code-analyze.md`
   - `2026-03-21-code-analyze.md`
   - `2026-03-21-ponder-spec.md`
+
+## Implementation Log
+
+### 2026-03-21 — Step 1: Shared JSON boundary schema
+
+Completed "Highest-Leverage Next Step 1: Establish one shared schema for the Go-to-TS JSON boundary."
+
+**Deliverables:**
+
+- `schema/turnout-model.json` — new canonical JSON Schema (draft-07) covering every type in the Go→TS boundary: `TurnModel`, `SceneBlock`, `ActionModel`, `ComputeModel`, `ProgModel`, `BindingModel`, `ExprModel`, `ArgModel`, `PrepareEntry`, `MergeEntry`, `NextRuleModel`, `NextPrepareEntry`, `RouteModel`, `MatchArm`, `FieldTypeStr`, `Literal`, and all nested sub-types. Every property has a `description`.
+- `packages/go/converter/internal/emit/json_schema_test.go` — three Go conformance tests in `package emit`:
+  - `TestSchemaFileIsValidJSON`: verifies the schema file parses and declares all 25 expected `$defs`.
+  - `TestEmitJSONRoundTrip`: runs a full pipeline (state + compute + prepare/merge + publish + next + route) then decodes the emitted JSON with `DisallowUnknownFields`; any field the emitter adds outside `jsonModel` will fail this test.
+  - `TestEmitJSONNilModelProducesEmptyScenes`: edge-case guard.
+- `packages/ts/scene-runner/tests/schema-conformance.test.ts` — TS conformance tests (Vitest): validates the schema file structure, runs the three existing JSON fixture files through structural checks, and confirms inline `TurnModel` values type-check.
+- Cross-reference comments added to `packages/go/converter/internal/emit/json.go` and `packages/ts/scene-runner/src/types/scene-model.ts` pointing both files at the schema as the source of truth.
+
+**Post-implementation test counts:**
+
+- `go test ./...` in `packages/go/converter`: passed (all 8 packages, +3 new tests)
+- `pnpm --dir packages/ts/scene-runner test`: passed (14 test files, 188 tests, +10 new tests)
+
+**What this does not change:**
+
+The schema reflects the boundary as it exists today — it does not yet add `action.text` (G6) or `scene.view` (G8), which remain parse-only metadata. Those are tracked under Step 4.
+
+---
 
 ## Validation Snapshot
 
@@ -116,7 +143,7 @@ These items appeared in older reports but are no longer current.
 
 ## Highest-Leverage Next Steps
 
-1. Establish one shared schema for the Go-to-TS JSON boundary.
+1. ~~Establish one shared schema for the Go-to-TS JSON boundary.~~ **Done 2026-03-21** — `schema/turnout-model.json` is the canonical source of truth; conformance tests added to both Go and TS packages.
 2. Implement a real publish phase and split prepare/publish hook types at the API level.
 3. Decide and codify missing-source semantics, then align runtime behavior and diagnostics with that decision.
 4. Preserve `action.text` and `scene.view` end to end, or explicitly downgrade them to parse-only metadata.
