@@ -12,6 +12,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/google/jsonschema-go/jsonschema"
 	"github.com/turnout/converter/internal/lower"
 	"github.com/turnout/converter/internal/parser"
 	"github.com/turnout/converter/internal/state"
@@ -20,6 +21,36 @@ import (
 
 // schemaPath is relative to the package directory (packages/go/converter/internal/emit).
 const schemaPath = "../../../../../schema/turnout-model.json"
+
+// loadResolvedSchema reads schemaPath and returns a resolved schema ready for validation.
+func loadResolvedSchema(t *testing.T) *jsonschema.Resolved {
+	t.Helper()
+	data, err := os.ReadFile(schemaPath)
+	if err != nil {
+		t.Fatalf("cannot read schema: %v", err)
+	}
+	var s jsonschema.Schema
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatalf("cannot parse schema: %v", err)
+	}
+	rs, err := s.Resolve(&jsonschema.ResolveOptions{BaseURI: "https://turnout.dev/schema/turnout-model.json"})
+	if err != nil {
+		t.Fatalf("cannot resolve schema: %v", err)
+	}
+	return rs
+}
+
+// validateAgainstSchema checks that the JSON in buf conforms to turnout-model.json.
+func validateAgainstSchema(t *testing.T, rs *jsonschema.Resolved, buf *bytes.Buffer) {
+	t.Helper()
+	var instance any
+	if err := json.Unmarshal(buf.Bytes(), &instance); err != nil {
+		t.Fatalf("cannot unmarshal emitted JSON for schema validation: %v", err)
+	}
+	if err := rs.Validate(instance); err != nil {
+		t.Fatalf("emitted JSON does not conform to schema/turnout-model.json:\n%v", err)
+	}
+}
 
 // expectedDefs is the full set of $defs names the schema must declare.
 var expectedDefs = []string{
@@ -68,6 +99,7 @@ func TestSchemaFileIsValidJSON(t *testing.T) {
 // jsonModel (and therefore absent from the shared schema) will cause the decode
 // to fail, catching drift between emitter and schema.
 func TestEmitJSONRoundTrip(t *testing.T) {
+	rs := loadResolvedSchema(t)
 	const src = `state {
   user {
     score:number = 0
@@ -140,9 +172,11 @@ route "main" {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 
-	// Decode with strict unknown-field rejection. Because jsonModel and its
-	// nested structs are the Go mirror of the schema, any field emitted outside
-	// the schema will appear as an unknown field here and fail the test.
+	// Validate against the JSON Schema — catches missing required fields, wrong
+	// enum values, wrong types, and extra properties.
+	validateAgainstSchema(t, rs, &buf)
+
+	// Also decode with strict unknown-field rejection as a secondary guard.
 	dec := json.NewDecoder(&buf)
 	dec.DisallowUnknownFields()
 	var jm jsonModel
@@ -161,10 +195,12 @@ route "main" {
 // TestEmitJSONNilModelProducesEmptyScenes verifies that a nil model still
 // emits a valid JSON object with an empty scenes array.
 func TestEmitJSONNilModelProducesEmptyScenes(t *testing.T) {
+	rs := loadResolvedSchema(t)
 	var buf bytes.Buffer
 	if err := EmitJSON(&buf, (*lower.Model)(nil)); err != nil {
 		t.Fatalf("EmitJSON nil: %v", err)
 	}
+	validateAgainstSchema(t, rs, &buf)
 	dec := json.NewDecoder(&buf)
 	dec.DisallowUnknownFields()
 	var jm jsonModel

@@ -15,6 +15,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { Ajv } from 'ajv';
 import type { TurnModel, SceneBlock, ActionModel } from '../src/types/scene-model.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Path from tests/ up to repo root, then into schema/.
 const schemaPath = resolve(__dirname, '../../../../schema/turnout-model.json');
 const fixturesDir = resolve(__dirname, 'fixtures');
+
+// Compile the schema once for all tests.
+const ajv = new Ajv({ strict: true });
+const validate = ajv.compile(readJSON(schemaPath) as object);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -133,6 +138,10 @@ describe('fixture JSON files conform to TurnModel schema structure', () => {
       const raw = readJSON(`${fixturesDir}/${filename}`);
       assertTurnModel(raw, filename);
 
+      // JSON Schema validation: verify against the actual schema file.
+      const ok = validate(raw);
+      expect(ok, `${filename} schema errors: ${JSON.stringify(validate.errors)}`).toBe(true);
+
       // TypeScript compile-time check: this assignment will fail to compile if
       // the fixture shape diverges from TurnModel.
       const _typed: TurnModel = raw as TurnModel;
@@ -143,8 +152,8 @@ describe('fixture JSON files conform to TurnModel schema structure', () => {
 
 describe('inline TurnModel type conformance', () => {
   it('accepts a minimal valid TurnModel', () => {
-    // TypeScript enforces this at compile time; the runtime check confirms the
-    // structural validator also accepts it.
+    // TypeScript enforces this at compile time; JSON Schema validates the shape
+    // against schema/turnout-model.json at runtime.
     const model: TurnModel = {
       scenes: [
         {
@@ -163,6 +172,8 @@ describe('inline TurnModel type conformance', () => {
       ],
     };
     assertTurnModel(model, 'inline minimal model');
+    const ok1 = validate(model);
+    expect(ok1, `inline minimal schema errors: ${JSON.stringify(validate.errors)}`).toBe(true);
   });
 
   it('accepts a TurnModel with state and routes', () => {
@@ -185,5 +196,7 @@ describe('inline TurnModel type conformance', () => {
       ],
     };
     assertTurnModel(model, 'inline full model');
+    const ok2 = validate(model);
+    expect(ok2, `inline full schema errors: ${JSON.stringify(validate.errors)}`).toBe(true);
   });
 });
