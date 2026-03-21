@@ -301,7 +301,7 @@ Every declared field is present in `S_0`. No field is absent after initializatio
 
 ### 6.2 Snapshot semantics
 
-`S_n` is captured as an immutable snapshot at the start of each action. The snapshot MUST NOT reflect any merge delta applied during the current action's execution (`S_{n+1}` is only visible to subsequent actions or transition `fromSsot` reads, per `scene-graph.md §7`).
+`S_n` is captured as an immutable snapshot at the start of each action. The snapshot MUST NOT reflect any merge delta applied during the current action's execution (`S_{n+1}` is only visible to subsequent actions or transition `fromState` reads, per `scene-graph.md §7`).
 
 ### 6.3 Merge semantics
 

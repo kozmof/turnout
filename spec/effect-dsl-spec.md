@@ -394,7 +394,7 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | 3 | `<~>` binding + `prepare` + `merge` (different paths) → both sub-blocks | Both paths preserved; independent of declaration order |
 | 4 | Action with no `prepare`/`merge` → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
 | 5 | Transition `prepare { from_action }` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
-| 6 | Transition `prepare { from_state }` → `TransitionIngressBinding.fromSsot` | Field mapping is deterministic for identical input |
+| 6 | Transition `prepare { from_state }` → `TransitionIngressBinding.fromState` | Field mapping is deterministic for identical input |
 
 ### Edge cases
 

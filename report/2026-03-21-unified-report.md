@@ -97,7 +97,6 @@ These items appeared in older reports but are no longer current.
 
 - `state-shape-spec.md` both allows deeper paths like `session.cart.items` and later says paths with more than two segments are invalid. The current validator allows 2+ segments, so the "more than two segments" prohibition is the stale line.
 - `transform-fn-dsl-spec.md` uses `string` in its method table, while the rest of the specs and the codebase use `str`.
-- `scene-graph.md` and `convert-runtime-spec.md` use camelCase / SSOT naming such as `nextPolicy`, `fromSsot`, and `toSsot`, while the JSON model and runtime use `next_policy`, `from_state`, and `to_state`.
 - `scene-to-scene.md` still has two different sections both labeled `2.3`.
 
 ### Overlaps

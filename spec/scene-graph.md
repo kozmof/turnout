@@ -101,10 +101,10 @@ type PrepareSpec = {
 };
 
 type PrepareBinding = {
-  fromSsot?: string;    // canonical dotted STATE source path
+  fromState?: string;    // canonical dotted STATE source path
   fromHook?: string;    // hook name; hook returns object whose field matches binding name
   fromLiteral?: unknown; // literal ingress source
-  required?: boolean;   // default true for fromSsot
+  required?: boolean;   // default true for fromState
 };
 
 type MergeSpec = {
@@ -112,7 +112,7 @@ type MergeSpec = {
 };
 
 type MergeBinding = {
-  toSsot?: string; // canonical destination key in STATE; default is binding key
+  toState?: string; // canonical destination key in STATE; default is binding key
 };
 
 type PublishSpec = {
@@ -131,7 +131,7 @@ type NextPrepareSpec = {
 
 type NextPrepareBinding = {
   fromAction?: string;  // source binding from current action compute.prog result
-  fromSsot?: string;    // post-merge STATE path S_{n+1}
+  fromState?: string;    // post-merge STATE path S_{n+1}
   fromLiteral?: unknown;
   required?: boolean;
 };
@@ -149,9 +149,9 @@ type OverviewView = {
 
 Source and destination rules:
 
-- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromSsot`, `fromHook`, or `fromLiteral`.
-- For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`; destination key is `toSsot` if provided, otherwise the binding key.
-- For next-level bindings declared as `~>`, exactly one ingress source MUST be set in the transition `prepare`: `fromAction`, `fromSsot`, or `fromLiteral`.
+- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromState`, `fromHook`, or `fromLiteral`.
+- For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`; destination key is `toState` if provided, otherwise the binding key.
+- For next-level bindings declared as `~>`, exactly one ingress source MUST be set in the transition `prepare`: `fromAction`, `fromState`, or `fromLiteral`.
 - `fromAction` is only valid inside transition `prepare` bindings.
 - `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
 - Publish hooks in `publish.hooks` fire after merge in declaration order and receive the complete final state.
@@ -303,7 +303,7 @@ For one action invocation with pre-state `S_n`:
 1. Snapshot: capture immutable STATE snapshot `S_n`.
 2. Load graph template: parse/compile `compute.prog` if not cached.
 3. Prepare phase:
-   - For each `prepare.<binding>` with `fromSsot`, resolve value from `S_n`.
+   - For each `prepare.<binding>` with `fromState`, resolve value from `S_n`.
    - For each `prepare.<binding>` with `fromHook`, invoke the named hook (deduplicating calls for the same hook name); map returned object fields into state bindings.
    - For each `prepare.<binding>` with `fromLiteral`, assign literal value.
    - If a required source is missing, fail action without executing the graph.
@@ -319,14 +319,14 @@ For one action invocation with pre-state `S_n`:
    - Build action binding namespace `A_n` from this invocation's `compute.prog` context.
 6. Merge phase — build action delta `D_n` from `merge` bindings:
    - For each `merge.<binding>`, read binding value from graph context/output table.
-   - Destination key is `toSsot` if provided; otherwise binding name.
+   - Destination key is `toState` if provided; otherwise binding name.
    - Merge `D_n` atomically into STATE using `replace-by-id` mode → produces `S_{n+1}`.
 7. Publish phase:
    - For each `hook` in `publish.hooks` (declaration order), invoke the hook passing the complete final state.
    - Publish hooks are read-only; return values are ignored.
 8. Evaluate next rules in declaration order:
    - Build/validate each next-rule `compute` graph.
-   - Resolve transition `prepare` bindings from action namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromSsot`), and literals.
+   - Resolve transition `prepare` bindings from action namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromState`), and literals.
    - Resolve `compute.condition` to a boolean value:
      - If `compute.condition` is a function binding, execute it.
      - If `compute.condition` is a value binding, read it directly.

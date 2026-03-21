@@ -201,7 +201,7 @@ Example state during `process_order` execution:
 - The runtime can atomically apply `D_n` to STATE to produce `S_{n+1}`, writing only the declared `merge` output bindings.
 - The runtime can invoke `publish` hooks in declaration order after merge, passing the complete final state.
 - The runtime can silently skip any hook whose name has no registered implementation.
-- The runtime can evaluate each transition's inline `prog` block by building a fresh `ContextSpec` for that transition, resolving ingresses from `R_n` (`fromAction`), `S_{n+1}` (`fromSsot`), or declared literals.
+- The runtime can evaluate each transition's inline `prog` block by building a fresh `ContextSpec` for that transition, resolving ingresses from `R_n` (`fromAction`), `S_{n+1}` (`fromState`), or declared literals.
 - The runtime can apply `first-match` or `all-match` transition policy, defaulting to `first-match` when neither action-level nor scene-level policy is set.
 - When `all-match` selects multiple next actions, the runtime can execute them **sequentially in declaration order**, with each subsequent action seeing the STATE state produced by the prior action's merge.
 - The runtime can enter terminal `completed` state when no transition rule matches.
@@ -239,7 +239,7 @@ Example state during `process_order` execution:
 - An action can declare multiple prepare input bindings, each reading from a distinct STATE dotted path or hook.
 - An action can declare multiple merge output bindings, each writing to a distinct STATE dotted path.
 - An action can declare multiple publish hooks; each receives the full final state.
-- Transition ingress can read from action output (`fromAction`) and from post-merge STATE (`fromSsot`) in the same rule.
+- Transition ingress can read from action output (`fromAction`) and from post-merge STATE (`fromState`) in the same rule.
 - STATE keys not present in `D_n` remain unchanged after merge.
 
 ### CAN'T (NG)
@@ -302,7 +302,7 @@ Example state during `process_order` execution:
 | 2 | Prepare `from_state` path resolves from `S_n`, not `S_{n+1}` | Execute action twice with same `S_n`; assert identical state bindings both times |
 | 3 | Merge is atomic: either all `D_n` keys written or none | Inject failure after partial write; assert STATE unchanged |
 | 4 | `all-match` sequential ordering: action B sees A's merge | Assert STATE after A is visible to B; assert B's delta builds on A's output |
-| 5 | Transition ingress uses `S_{n+1}` (post-merge), not `S_n` | Verify `fromSsot` reflects A's merged output, not pre-merge snapshot |
+| 5 | Transition ingress uses `S_{n+1}` (post-merge), not `S_n` | Verify `fromState` reflects A's merged output, not pre-merge snapshot |
 | 6 | Same preconditions produce identical `R_n`, `D_n`, next action IDs | Re-execute scene from same `S_n` and inputs; assert identical outputs |
 | 7 | Prepare hook return value → state binding visible to compute graph | Same hook impl + same `S_n` → identical graph input and result both runs |
 | 8 | Publish hook receives state after merge | Same action state → identical state delivered to publish hook both runs |
@@ -320,7 +320,7 @@ Example state during `process_order` execution:
 | `all-match` selects 3 actions; action 2 fails execution | Action 3 does not run; no partial STATE mutation from action 2 |
 | Unknown merge mode in action | Fail pre-execution validation; `invalid_graph` |
 | Transition `compute.condition` resolves to `int`, not `bool` | `SCN_INVALID_CONTEXT` at scene validation; `invalid_graph` |
-| `fromSsot` path not present in `S_{n+1}` and `required = true` | `MissingStatePath` runtime error; `SceneDiagnostic` carries `path` and `bindingName` in `details` |
+| `fromState` path not present in `S_{n+1}` and `required = true` | `MissingStatePath` runtime error; `SceneDiagnostic` carries `path` and `bindingName` in `details` |
 | `all-match` with no transitions declared | Enter terminal `completed` state |
 | Prepare hook unregistered | Silently skipped; binding value remains default or STATE-resolved |
 | Publish hook returns a value | Return value ignored; state unchanged |
@@ -328,5 +328,5 @@ Example state during `process_order` execution:
 ### Resolved points
 
 - **Entry action HCL declaration**: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = ["<actionId>", ...]`.
-- **`fromSsot` missing-path behavior**: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
+- **`fromState` missing-path behavior**: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
 - **`div_floor` alias**: No longer a priority — `number` type natively accepts fractional results. A convenience alias may still be added but is not required for correctness.
