@@ -301,7 +301,7 @@ func writePipe(iw *iWriter, p *lower.HCLPipe) {
 		iw.wl("steps = [")
 		iw.depth++
 		for _, step := range p.Steps {
-			iw.wl("{ fn = %q  args = %s },", step.Fn, writeArgs(step.Args))
+			iw.wl("{ fn = %q, args = %s },", step.Fn, writeArgs(step.Args))
 		}
 		iw.depth--
 		iw.wl("]")
@@ -364,13 +364,13 @@ func writeMerge(iw *iWriter, m *lower.HCLMerge) {
 }
 
 func writePublish(iw *iWriter, p *lower.HCLPublish) {
-	iw.wl("publish {")
-	iw.depth++
-	for _, h := range p.Hooks {
-		iw.wl("hook = %q", h)
+	// Emit as a list attribute so the HCL is round-trip parseable.
+	// A repeated `hook = "..."` block attribute would be a duplicate-key error.
+	quoted := make([]string, len(p.Hooks))
+	for i, h := range p.Hooks {
+		quoted[i] = fmt.Sprintf("%q", h)
 	}
-	iw.depth--
-	iw.wl("}")
+	iw.wl("publish = [%s]", strings.Join(quoted, ", "))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -441,7 +441,7 @@ func writeArg(arg *lower.HCLArg) string {
 	case arg.IsStepRef:
 		return fmt.Sprintf(`{ step_ref = %d }`, arg.StepRef)
 	case arg.Transform != nil:
-		return fmt.Sprintf(`{ transform = { ref = %q  fn = %q } }`, arg.Transform.Ref, arg.Transform.Fn)
+		return fmt.Sprintf(`{ transform = { ref = %q, fn = %q } }`, arg.Transform.Ref, arg.Transform.Fn)
 	}
 	return `{}`
 }

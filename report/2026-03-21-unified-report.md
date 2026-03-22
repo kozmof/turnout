@@ -1,6 +1,6 @@
 # Unified Turnout Report
 
-- Date: 2026-03-21 (last updated: 2026-03-22)
+- Date: 2026-03-21 (last updated: 2026-03-22 ×2)
 - Scope: Consolidates and updates the five historical reports previously stored in `report/`
 - Source reports:
   - `2026-02-23-balance-spec-validateContext.md`
@@ -10,6 +10,36 @@
   - `2026-03-21-ponder-spec.md`
 
 ## Implementation Log
+
+### 2026-03-22 — Step 3: HCL as the validated intermediate for JSON output
+
+Changed the JSON emission path from `DSL → lower.Model → protobuf → JSON` to `DSL → lower.Model → HCL text → hcl-lang validate → decode → JSON`. HCL is now both the canonical output format and the mandatory validation gate: JSON can only be produced if the emitted HCL passes schema validation.
+
+**Motivation:**
+The previous Step 2 path emitted JSON directly from `lower.Model` via `modelToProto()`. This meant the HCL and JSON paths diverged after the `lower.Model` stage — a bug in the HCL emitter would not be caught on the JSON path, and conversely. Making HCL the single source for JSON ensures both outputs are always coherent and that the emitter's HCL is mechanically verified on every JSON conversion.
+
+**Deliverables:**
+
+- `packages/go/converter/internal/emit/hcl_schema.go` — `turnoutBodySchema()` returning a `schema.BodySchema` for the full canonical HCL format: `state/namespace/field`, `scene/action/compute/prog/binding/expr`, `prepare/merge/publish/next`, `route/match/arm`. Uses hcl-lang constraint types (`LiteralType`, `AnyExpression`) for attribute value constraints.
+- `packages/go/converter/internal/emit/hcl_decode.go` — two responsibilities:
+  - `validateHCL(src)`: parses the HCL buffer with `hclsyntax.ParseConfig`, then runs hcl-lang validators (`UnexpectedAttribute`, `UnexpectedBlock`, `MissingRequiredAttribute`, `BlockLabelsLength`, `MaxBlocks`) via `PathDecoder.ValidateFile`.
+  - `decodeHCLBody(body)` + ~20 supporting functions: walks the validated `hcl.Body` → `*turnoutpb.TurnModel` using `hcl.Body.Content(*hcl.BodySchema)` for structural access and `expr.Value(nil)` → `cty.Value` for attribute evaluation. Handles all expr types (combine/pipe/cond), all arg variants (ref/lit/func_ref/step_ref/transform), and all source variants (from_state/from_hook/from_action/from_literal).
+- `packages/go/converter/internal/emit/json.go` — `EmitJSON` rewritten as the 4-step chain: `Emit()` (HCL buffer) → `validateHCL()` → `decodeHCLBody()` → `protojson.Marshal()`. All old `modelToProto*` conversion functions removed (~130 lines).
+- `packages/go/converter/internal/emit/emit.go` — three fixes exposed by the new round-trip parse:
+  - `writePublish`: changed from `publish { hook = "name" \n hook = "name" }` (repeated attributes = invalid HCL duplicate-key error) to `publish = ["name", "name"]`.
+  - Pipe step format: `{ fn = %q  args = %s }` → `{ fn = %q, args = %s }` (comma required as separator in inline HCL object literals).
+  - Transform arg format: `{ transform = { ref = %q  fn = %q } }` → `{ transform = { ref = %q, fn = %q } }` (same issue).
+- `go.mod` / `go.sum` — added `github.com/hashicorp/hcl/v2 v2.24.0`, `github.com/hashicorp/hcl-lang v0.0.0-20260227034452-913389926489`, `github.com/zclconf/go-cty v1.16.3`, and transitive dependencies.
+
+**Test fixes:**
+
+- `emit_test.go` `TestEmitPublishBlock`: updated expected string from `publish { hook = "..." }` block format to `publish = ["audit", "notify"]` attribute format.
+
+**Post-implementation test counts:**
+
+- `go test ./...` in `packages/go/converter`: all 9 packages pass
+
+---
 
 ### 2026-03-22 — Step 2: Protobuf schema as single source of truth
 
@@ -74,7 +104,7 @@ Completed "Highest-Leverage Next Step 1: Establish one shared schema for the Go-
 
 Repository size at verification time:
 
-- Go converter: 24 `.go` files
+- Go converter: 35 `.go` files (12 non-test, non-generated source files; +2 new: `hcl_schema.go`, `hcl_decode.go`)
 - TS runtime: 65 `.ts` files in `packages/ts/runtime/src`
 - TS scene-runner: 15 `.ts` files in `packages/ts/scene-runner/src`
 - Specs: 8 markdown specs in `spec/`
@@ -84,9 +114,10 @@ Repository size at verification time:
 Turnout is still best understood as a layered monorepo:
 
 1. Go converter
-   - lex -> parse -> resolve state -> lower -> validate -> emit
+   - lex → parse → resolve state → lower → validate → emit
    - owns DSL parsing and canonical HCL / JSON emission
-   - JSON output now uses `protojson.Marshal` against `turnoutpb.*` generated types
+   - JSON path (Step 3): `lower.Model → HCL text (Emit) → hcl-lang validate → decode → protojson.Marshal`
+   - HCL is both the canonical human output and the required gate for JSON; structural drift between the two is now mechanically impossible
 2. TS runtime
    - owns typed values, compute-graph validation, and graph execution
 3. TS scene-runner
@@ -96,7 +127,10 @@ Turnout is still best understood as a layered monorepo:
    - syntax highlighting only
 
 **Contract boundary:**
-The Go→TS JSON contract is now defined entirely in `schema/turnout-model.proto`. Running `buf generate` from the repo root regenerates both `turnoutpb/turnout-model.pb.go` (Go) and `src/types/turnout-model_pb.ts` (TypeScript). Structural drift between the two sides is caught at compile time.
+The Go→TS JSON contract is defined entirely in `schema/turnout-model.proto`. Running `buf generate` from the repo root regenerates both `turnoutpb/turnout-model.pb.go` (Go) and `src/types/turnout-model_pb.ts` (TypeScript). Structural drift between the two sides is caught at compile time.
+
+**HCL validation gate:**
+JSON can only be produced if the emitted HCL parses successfully and passes schema validation (`hcl-lang` structural validators). Any regression in the HCL emitter that produces malformed or structurally incorrect HCL is now surfaced immediately on the JSON path.
 
 ## `validateContext.ts` Status
 
@@ -147,6 +181,7 @@ These items appeared in older reports but are no longer current.
 | `StateManager.from(...)` and `StateManager.fromSchema(...)` compatibility gaps were breaking scene-runner tests. | Fixed. Namespace aliases are present and the scene-runner suite is green. |
 | The 2026-03-20 cycle-guard note said the executor used a count-based guard. | No longer current. `scene-executor.ts` now uses a `visited` set and skips already-executed actions. |
 | Go and TS type definitions for the JSON boundary were hand-maintained independently, creating a drift risk. | Fixed (2026-03-22). `schema/turnout-model.proto` is the single source of truth; both Go (`turnoutpb/`) and TS (`turnout-model_pb.ts`) types are generated by `buf generate`. |
+| HCL and JSON emission paths diverged after `lower.Model`, meaning HCL emitter bugs were invisible on the JSON path. | Fixed (2026-03-22). JSON now goes through `Emit → validateHCL → decodeHCLBody`. Three latent emitter bugs (duplicate `publish` block attrs, two missing comma separators in inline object literals) were caught and fixed by the new round-trip. |
 
 ## Spec Document Issues Still Worth Cleaning Up
 
@@ -174,10 +209,11 @@ These items appeared in older reports but are no longer current.
 ## Highest-Leverage Next Steps
 
 1. ~~Establish one shared schema for the Go-to-TS JSON boundary.~~ **Done 2026-03-22** — `schema/turnout-model.proto` is the canonical source of truth; both Go and TypeScript types are generated by `buf generate`. Conformance verified by `protojson` round-trip tests (Go) and `fromJson(TurnModelSchema, ...)` fixture tests (TS).
-2. Implement a real publish phase and split prepare/publish hook types at the API level.
-3. Decide and codify missing-source semantics, then align runtime behavior and diagnostics with that decision.
-4. Add `action.text` and `scene.view` to `turnout-model.proto` and propagate them end to end, or explicitly downgrade them to parse-only metadata in the spec.
-5. Extend the compiler model from singular-scene lowering (`lower.Model.Scene`) to first-class multi-scene authoring (`lower.Model.Scenes`).
+2. ~~Tighten the DSL → JSON path through HCL validation.~~ **Done 2026-03-22** — JSON is now produced from validated HCL (`hcl-lang` schema + structural validators). The HCL emitter bugs (duplicate `publish` attrs, missing comma separators in inline objects) were caught and fixed by the new round-trip parse.
+3. Implement a real publish phase and split prepare/publish hook types at the API level.
+4. Decide and codify missing-source semantics, then align runtime behavior and diagnostics with that decision.
+5. Add `action.text` and `scene.view` to `turnout-model.proto` and propagate them end to end, or explicitly downgrade them to parse-only metadata in the spec.
+6. Extend the compiler model from singular-scene lowering (`lower.Model.Scene`) to first-class multi-scene authoring (`lower.Model.Scenes`).
 
 ## Learning Paths
 

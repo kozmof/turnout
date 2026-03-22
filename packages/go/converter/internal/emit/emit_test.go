@@ -378,14 +378,8 @@ scene "s" {
     }
   }
 }`)
-	if !strings.Contains(out, `publish {`) {
-		t.Error("missing publish block")
-	}
-	if !strings.Contains(out, `hook = "audit"`) {
-		t.Error("missing hook audit")
-	}
-	if !strings.Contains(out, `hook = "notify"`) {
-		t.Error("missing hook notify")
+	if !strings.Contains(out, `publish = ["audit", "notify"]`) {
+		t.Errorf("missing publish list attribute, got:\n%s", out)
 	}
 }
 
