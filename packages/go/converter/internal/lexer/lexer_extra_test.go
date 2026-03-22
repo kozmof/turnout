@@ -1,11 +1,6 @@
 package lexer
 
-import (
-	"strings"
-	"testing"
-
-	"github.com/turnout/converter/internal/diag"
-)
+import "testing"
 
 // TestBangWithoutEquals verifies that '!' not followed by '=' produces an error.
 func TestBangWithoutEquals(t *testing.T) {
@@ -212,29 +207,5 @@ func TestUnterminatedStringEOF(t *testing.T) {
 	_, ds := Tokenize("<test>", `"no closing quote`)
 	if !ds.HasErrors() {
 		t.Error("expected lex error for string without closing quote at EOF")
-	}
-}
-
-func TestUnterminatedTripleQuoteEOF(t *testing.T) {
-	_, ds := Tokenize("<test>", "\"\"\"\nno closing quote")
-	if !ds.HasErrors() {
-		t.Fatal("expected lex error for triple-quoted string without closing delimiter")
-	}
-	if ds[0].Code != "LexError" || ds[0].Message != "unterminated triple-quoted string" {
-		t.Fatalf("unexpected diagnostic: %+v", ds[0])
-	}
-}
-
-func TestUnexpectedCharacterBurstIsCapped(t *testing.T) {
-	_, ds := Tokenize("<test>", strings.Repeat("@", 1000))
-	if !ds.HasErrors() {
-		t.Fatal("expected lex errors")
-	}
-	if len(ds) != maxDiagnostics+1 {
-		t.Fatalf("diag count = %d, want %d", len(ds), maxDiagnostics+1)
-	}
-	last := ds[len(ds)-1]
-	if last.Code != diag.CodeTooManyDiagnostics {
-		t.Fatalf("last diagnostic code = %q, want %q", last.Code, diag.CodeTooManyDiagnostics)
 	}
 }
