@@ -6,7 +6,7 @@ import "fmt"
 type Severity int
 
 const (
-	SeverityError   Severity = iota
+	SeverityError Severity = iota
 	SeverityWarning
 )
 
@@ -62,6 +62,11 @@ func ErrorAt(file string, line, col int, code, format string, args ...any) Diagn
 		Col:      col,
 	}
 }
+
+// Generic converter error codes.
+const (
+	CodeTooManyDiagnostics = "TooManyDiagnostics"
+)
 
 // Error codes from hcl-context-spec.md
 const (
@@ -144,9 +149,9 @@ const (
 
 // Error codes from scene-to-scene.md
 const (
-	CodeDuplicateFallback  = "DuplicateFallback"
-	CodeBareWildcardPath   = "BareWildcardPath"
-	CodeMultipleWildcards  = "MultipleWildcards"
-	CodeInvalidPathItem    = "InvalidPathItem"
-	CodeUnresolvedScene    = "UnresolvedScene"
+	CodeDuplicateFallback = "DuplicateFallback"
+	CodeBareWildcardPath  = "BareWildcardPath"
+	CodeMultipleWildcards = "MultipleWildcards"
+	CodeInvalidPathItem   = "InvalidPathItem"
+	CodeUnresolvedScene   = "UnresolvedScene"
 )

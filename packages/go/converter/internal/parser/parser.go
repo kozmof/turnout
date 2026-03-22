@@ -66,9 +66,12 @@ type parser struct {
 	pos    int
 	file   string
 	diags  diag.Diagnostics
+	halted bool
 }
 
-func (p *parser) peek() lexer.Token    { return p.peekAt(0) }
+const maxDiagnostics = 100
+
+func (p *parser) peek() lexer.Token { return p.peekAt(0) }
 func (p *parser) peekAt(n int) lexer.Token {
 	i := p.pos + n
 	if i >= len(p.tokens) {
@@ -92,6 +95,22 @@ func (p *parser) posOf(t lexer.Token) ast.Pos {
 
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
+	if p.halted {
+		return
+	}
+	if len(p.diags) >= maxDiagnostics {
+		p.diags = append(p.diags, diag.ErrorAt(
+			p.file,
+			t.Line,
+			t.Col,
+			diag.CodeTooManyDiagnostics,
+			"too many parse errors; stopping after %d diagnostics",
+			maxDiagnostics,
+		))
+		p.pos = len(p.tokens) - 1
+		p.halted = true
+		return
+	}
 	p.diags = append(p.diags, diag.ErrorAt(p.file, t.Line, t.Col,
 		"ParseSyntaxError", "%s", fmt.Sprintf(format, args...)))
 }
@@ -1481,6 +1500,9 @@ func (p *parser) parseFile() *ast.TurnFile {
 			p.advance()
 		}
 	}
+	if p.halted {
+		return tf
+	}
 
 	if !hasState {
 		p.diags = append(p.diags, diag.Errorf(diag.CodeMissingStateSource,
@@ -1498,72 +1520,71 @@ func (p *parser) parseFile() *ast.TurnFile {
 // kindName returns a human-readable name for a token kind.
 func kindName(k lexer.TokenKind) string {
 	names := map[lexer.TokenKind]string{
-		lexer.TokEOF:           "EOF",
-		lexer.TokIdent:         "IDENT",
-		lexer.TokType:          "TYPE",
-		lexer.TokStringLit:     "STRING",
-		lexer.TokNumberLit:     "NUMBER",
-		lexer.TokBoolLit:       "BOOL",
-		lexer.TokSigilBiDir:    "<~>",
-		lexer.TokSigilEgress:   "<~",
-		lexer.TokSigilIngress:  "~>",
-		lexer.TokLBrace:        "{",
-		lexer.TokRBrace:        "}",
-		lexer.TokLBracket:      "[",
-		lexer.TokRBracket:      "]",
-		lexer.TokLParen:        "(",
-		lexer.TokRParen:        ")",
-		lexer.TokComma:         ",",
-		lexer.TokColon:         ":",
-		lexer.TokEquals:        "=",
-		lexer.TokDot:           ".",
-		lexer.TokArrow:         "=>",
-		lexer.TokPipe:          "|",
-		lexer.TokAmpersand:     "&",
-		lexer.TokGTE:           ">=",
-		lexer.TokLTE:           "<=",
-		lexer.TokGT:            ">",
-		lexer.TokLT:            "<",
-		lexer.TokPlus:          "+",
-		lexer.TokMinus:         "-",
-		lexer.TokStar:          "*",
-		lexer.TokSlash:         "/",
-		lexer.TokPercent:       "%",
-		lexer.TokEqEq:          "==",
-		lexer.TokNeq:           "!=",
-		lexer.TokHashPipe:      "#pipe",
-		lexer.TokHashIf:        "#if",
-		lexer.TokUnderscore:    "_",
-		lexer.TokHeredoc:       "HEREDOC",
-		lexer.TokTripleQuote:   "TRIPLE_QUOTE",
-		lexer.TokKwState:       "state",
-		lexer.TokKwStateFile:   "state_file",
-		lexer.TokKwScene:       "scene",
-		lexer.TokKwAction:      "action",
-		lexer.TokKwCompute:     "compute",
-		lexer.TokKwPrepare:     "prepare",
-		lexer.TokKwMerge:       "merge",
-		lexer.TokKwPublish:     "publish",
-		lexer.TokKwNext:        "next",
-		lexer.TokKwProg:        "prog",
-		lexer.TokKwRoot:        "root",
-		lexer.TokKwCondition:   "condition",
+		lexer.TokEOF:            "EOF",
+		lexer.TokIdent:          "IDENT",
+		lexer.TokType:           "TYPE",
+		lexer.TokStringLit:      "STRING",
+		lexer.TokNumberLit:      "NUMBER",
+		lexer.TokBoolLit:        "BOOL",
+		lexer.TokSigilBiDir:     "<~>",
+		lexer.TokSigilEgress:    "<~",
+		lexer.TokSigilIngress:   "~>",
+		lexer.TokLBrace:         "{",
+		lexer.TokRBrace:         "}",
+		lexer.TokLBracket:       "[",
+		lexer.TokRBracket:       "]",
+		lexer.TokLParen:         "(",
+		lexer.TokRParen:         ")",
+		lexer.TokComma:          ",",
+		lexer.TokColon:          ":",
+		lexer.TokEquals:         "=",
+		lexer.TokDot:            ".",
+		lexer.TokArrow:          "=>",
+		lexer.TokPipe:           "|",
+		lexer.TokAmpersand:      "&",
+		lexer.TokGTE:            ">=",
+		lexer.TokLTE:            "<=",
+		lexer.TokGT:             ">",
+		lexer.TokLT:             "<",
+		lexer.TokPlus:           "+",
+		lexer.TokMinus:          "-",
+		lexer.TokStar:           "*",
+		lexer.TokSlash:          "/",
+		lexer.TokPercent:        "%",
+		lexer.TokEqEq:           "==",
+		lexer.TokNeq:            "!=",
+		lexer.TokHashPipe:       "#pipe",
+		lexer.TokHashIf:         "#if",
+		lexer.TokUnderscore:     "_",
+		lexer.TokHeredoc:        "HEREDOC",
+		lexer.TokTripleQuote:    "TRIPLE_QUOTE",
+		lexer.TokKwState:        "state",
+		lexer.TokKwStateFile:    "state_file",
+		lexer.TokKwScene:        "scene",
+		lexer.TokKwAction:       "action",
+		lexer.TokKwCompute:      "compute",
+		lexer.TokKwPrepare:      "prepare",
+		lexer.TokKwMerge:        "merge",
+		lexer.TokKwPublish:      "publish",
+		lexer.TokKwNext:         "next",
+		lexer.TokKwProg:         "prog",
+		lexer.TokKwRoot:         "root",
+		lexer.TokKwCondition:    "condition",
 		lexer.TokKwEntryActions: "entry_actions",
-		lexer.TokKwNextPolicy:  "next_policy",
-		lexer.TokKwFromState:   "from_state",
-		lexer.TokKwFromAction:  "from_action",
-		lexer.TokKwFromHook:    "from_hook",
-		lexer.TokKwFromLiteral: "from_literal",
-		lexer.TokKwToState:     "to_state",
-		lexer.TokKwHook:        "hook",
-		lexer.TokKwView:        "view",
-		lexer.TokKwFlow:        "flow",
-		lexer.TokKwEnforce:     "enforce",
-		lexer.TokKwText:        "text",
+		lexer.TokKwNextPolicy:   "next_policy",
+		lexer.TokKwFromState:    "from_state",
+		lexer.TokKwFromAction:   "from_action",
+		lexer.TokKwFromHook:     "from_hook",
+		lexer.TokKwFromLiteral:  "from_literal",
+		lexer.TokKwToState:      "to_state",
+		lexer.TokKwHook:         "hook",
+		lexer.TokKwView:         "view",
+		lexer.TokKwFlow:         "flow",
+		lexer.TokKwEnforce:      "enforce",
+		lexer.TokKwText:         "text",
 	}
 	if s, ok := names[k]; ok {
 		return s
 	}
 	return fmt.Sprintf("token(%d)", int(k))
 }
-

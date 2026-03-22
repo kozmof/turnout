@@ -10,12 +10,12 @@ import (
 type TokenKind int
 
 const (
-	TokEOF     TokenKind = iota
-	TokIdent             // bare identifier (not a keyword)
-	TokType              // arr<number> | arr<str> | arr<bool>
-	TokStringLit         // "..."
-	TokNumberLit         // 42 | 3.14
-	TokBoolLit           // true | false
+	TokEOF       TokenKind = iota
+	TokIdent               // bare identifier (not a keyword)
+	TokType                // arr<number> | arr<str> | arr<bool>
+	TokStringLit           // "..."
+	TokNumberLit           // 42 | 3.14
+	TokBoolLit             // true | false
 
 	// Sigils — longest match first in source
 	TokSigilBiDir   // <~>
@@ -110,19 +110,22 @@ func Tokenize(file, src string) ([]Token, diag.Diagnostics) {
 // ────────────────────────────────────────────────────────────
 
 type lex struct {
-	file  string
-	src   []rune
-	pos   int
-	line  int
-	col   int
-	toks  []Token
-	diags diag.Diagnostics
+	file   string
+	src    []rune
+	pos    int
+	line   int
+	col    int
+	toks   []Token
+	diags  diag.Diagnostics
+	halted bool
 }
+
+const maxDiagnostics = 100
 
 // pos snapshot for speculative scanning / backtracking
 type snapshot struct{ pos, line, col int }
 
-func (l *lex) save() snapshot   { return snapshot{l.pos, l.line, l.col} }
+func (l *lex) save() snapshot     { return snapshot{l.pos, l.line, l.col} }
 func (l *lex) restore(s snapshot) { l.pos = s.pos; l.line = s.line; l.col = s.col }
 
 func (l *lex) atEnd() bool { return l.pos >= len(l.src) }
@@ -161,6 +164,22 @@ func (l *lex) emit(kind TokenKind, value string, line, col int) {
 }
 
 func (l *lex) errorf(line, col int, format string, args ...any) {
+	if l.halted {
+		return
+	}
+	if len(l.diags) >= maxDiagnostics {
+		l.diags = append(l.diags, diag.ErrorAt(
+			l.file,
+			line,
+			col,
+			diag.CodeTooManyDiagnostics,
+			"too many lexical errors; stopping after %d diagnostics",
+			maxDiagnostics,
+		))
+		l.pos = len(l.src)
+		l.halted = true
+		return
+	}
 	l.diags = append(l.diags, diag.ErrorAt(l.file, line, col, "LexError", format, args...))
 }
 
@@ -371,13 +390,17 @@ func (l *lex) scanLAngle(ln, co int) {
 	case c1 == '<' && c2 == '-':
 		l.scanHeredoc(ln, co)
 	case c1 == '~' && c2 == '>':
-		l.advance(); l.advance(); l.advance()
+		l.advance()
+		l.advance()
+		l.advance()
 		l.emit(TokSigilBiDir, "<~>", ln, co)
 	case c1 == '~':
-		l.advance(); l.advance()
+		l.advance()
+		l.advance()
 		l.emit(TokSigilEgress, "<~", ln, co)
 	case c1 == '=':
-		l.advance(); l.advance()
+		l.advance()
+		l.advance()
 		l.emit(TokLTE, "<=", ln, co)
 	default:
 		l.advance()
@@ -391,7 +414,9 @@ func (l *lex) scanLAngle(ln, co int) {
 
 func (l *lex) scanHeredoc(ln, co int) {
 	// Consume <<-
-	l.advance(); l.advance(); l.advance()
+	l.advance()
+	l.advance()
+	l.advance()
 
 	// Read delimiter identifier (rest of opening line)
 	var delimBuf strings.Builder
@@ -519,7 +544,9 @@ func (l *lex) scanQuotedString(ln, co int) {
 }
 
 func (l *lex) scanTripleQuote(ln, co int) {
-	l.advance(); l.advance(); l.advance() // consume """
+	l.advance()
+	l.advance()
+	l.advance() // consume """
 
 	// Trim one leading newline per spec
 	if l.peek() == '\r' {
@@ -530,12 +557,20 @@ func (l *lex) scanTripleQuote(ln, co int) {
 	}
 
 	var sb strings.Builder
+	closed := false
 	for !l.atEnd() {
 		if l.peek() == '"' && l.peekAt(1) == '"' && l.peekAt(2) == '"' {
-			l.advance(); l.advance(); l.advance() // consume closing """
+			l.advance()
+			l.advance()
+			l.advance() // consume closing """
+			closed = true
 			break
 		}
 		sb.WriteRune(l.advance())
+	}
+	if !closed {
+		l.errorf(ln, co, "unterminated triple-quoted string")
+		return
 	}
 
 	// Trim one trailing newline per spec

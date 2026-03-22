@@ -633,6 +633,24 @@ func TestParseFileLexError(t *testing.T) {
 	}
 }
 
+func TestParseFileParseDiagnosticsAreCapped(t *testing.T) {
+	var sb strings.Builder
+	for range 1000 {
+		sb.WriteString("foo\n")
+	}
+	_, ds := parser.ParseFile("bad.turn", sb.String())
+	if !ds.HasErrors() {
+		t.Fatal("expected parse errors")
+	}
+	if len(ds) != 101 {
+		t.Fatalf("diag count = %d, want 101", len(ds))
+	}
+	last := ds[len(ds)-1]
+	if last.Code != "TooManyDiagnostics" {
+		t.Fatalf("last diagnostic code = %q, want TooManyDiagnostics", last.Code)
+	}
+}
+
 // ── Lines 165-167: parseRefVal dot then non-ident ─────────────────────────────
 
 func TestParseRefValDotNonIdent(t *testing.T) {
