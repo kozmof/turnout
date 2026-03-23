@@ -71,7 +71,15 @@ type HCLSceneBlock struct {
 	ID           string
 	EntryActions []string
 	NextPolicy   string // "" means omit from output
+	View         *HCLView  // nil = no view block
 	Actions      []*HCLAction
+}
+
+// HCLView corresponds to the `view "<name>" { flow = ... enforce = "..." }` block.
+type HCLView struct {
+	Name    string
+	Flow    string
+	Enforce string
 }
 
 // HCLAction corresponds to `action "<id>" { ... }` inside a scene.
@@ -373,6 +381,13 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.Diagno
 		EntryActions: scene.EntryActions,
 		NextPolicy:   scene.NextPolicy,
 		Actions:      make([]*HCLAction, 0, len(scene.Actions)),
+	}
+	if scene.View != nil {
+		result.View = &HCLView{
+			Name:    scene.View.Name,
+			Flow:    scene.View.Flow,
+			Enforce: scene.View.Enforce,
+		}
 	}
 	for _, a := range scene.Actions {
 		result.Actions = append(result.Actions, lowerAction(a, schema, ds))

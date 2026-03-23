@@ -155,3 +155,13 @@ const (
 	CodeInvalidPathItem   = "InvalidPathItem"
 	CodeUnresolvedScene   = "UnresolvedScene"
 )
+
+// Error codes from scene-graph.md §9 (Overview DSL Enforcement)
+const (
+	CodeOverviewParseError  = "SCN_OVERVIEW_PARSE_ERROR"
+	CodeOverviewInvalidMode = "SCN_OVERVIEW_INVALID_MODE"
+	CodeOverviewUnknownNode = "SCN_OVERVIEW_UNKNOWN_NODE"
+	CodeOverviewMissingEdge = "SCN_OVERVIEW_MISSING_EDGE"
+	CodeOverviewExtraNode   = "SCN_OVERVIEW_EXTRA_NODE"
+	CodeOverviewExtraEdge   = "SCN_OVERVIEW_EXTRA_EDGE"
+)

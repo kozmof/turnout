@@ -194,6 +194,8 @@ func validateScene(scene *lower.HCLSceneBlock, schema state.Schema, ds *diag.Dia
 		}
 	}
 
+	validateOverview(scene, actionIndex, ds)
+
 	if len(scene.Actions) == 0 {
 		*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
 			"scene %q has no actions", scene.ID))
@@ -915,6 +917,141 @@ func literalFieldType(lit ast.Literal) (ast.FieldType, bool) {
 		}
 	}
 	return 0, false
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Overview DSL enforcement (scene-graph.md §9)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// flowEdge is a directed edge from one action to another as declared in the flow.
+type flowEdge struct{ from, to string }
+
+// parseFlow parses the flow heredoc text into a list of declared nodes and edges.
+// Format: a bare identifier starts a new source node; a line beginning with "|=>"
+// declares an edge from the most recent source node to the named target.
+func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, edges []flowEdge, ok bool) {
+	var current string
+	seen := make(map[string]bool)
+	for _, raw := range strings.Split(flowText, "\n") {
+		line := strings.TrimSpace(raw)
+		if line == "" {
+			continue
+		}
+		if strings.HasPrefix(line, "|=>") {
+			target := strings.TrimSpace(line[3:])
+			if !isIdent(target) {
+				*ds = append(*ds, diag.Errorf(diag.CodeOverviewParseError,
+					"scene %q: flow has malformed edge target %q", sceneID, target))
+				return nil, nil, false
+			}
+			if current == "" {
+				*ds = append(*ds, diag.Errorf(diag.CodeOverviewParseError,
+					"scene %q: flow has edge %q before any source node", sceneID, target))
+				return nil, nil, false
+			}
+			edges = append(edges, flowEdge{from: current, to: target})
+			// Edge targets are also flow nodes.
+			if !seen[target] {
+				seen[target] = true
+				nodes = append(nodes, target)
+			}
+		} else {
+			if !isIdent(line) {
+				*ds = append(*ds, diag.Errorf(diag.CodeOverviewParseError,
+					"scene %q: flow has invalid node identifier %q", sceneID, line))
+				return nil, nil, false
+			}
+			current = line
+			if !seen[line] {
+				seen[line] = true
+				nodes = append(nodes, line)
+			}
+		}
+	}
+	return nodes, edges, true
+}
+
+// validateOverview enforces the view flow against the actual action graph per
+// scene-graph.md §9:
+//   - nodes_only: overview.nodes ⊆ impl_nodes
+//   - at_least:   overview.nodes ⊆ impl_nodes  AND  overview.edges ⊆ impl_edges
+//   - strict:     overview.nodes == impl_nodes  AND  overview.edges == impl_edges
+func validateOverview(scene *lower.HCLSceneBlock, actionIndex map[string]*lower.HCLAction, ds *diag.Diagnostics) {
+	if scene.View == nil {
+		return
+	}
+	v := scene.View
+
+	switch v.Enforce {
+	case "nodes_only", "at_least", "strict":
+	default:
+		*ds = append(*ds, diag.Errorf(diag.CodeOverviewInvalidMode,
+			"scene %q: view %q has unknown enforce mode %q", scene.ID, v.Name, v.Enforce))
+		return
+	}
+
+	flowNodes, flowEdges, ok := parseFlow(v.Flow, scene.ID, ds)
+	if !ok {
+		return
+	}
+
+	// Build impl edge set from actual next rules.
+	implEdges := make(map[flowEdge]bool)
+	for _, a := range scene.Actions {
+		for _, nr := range a.Next {
+			if nr.Action != "" {
+				implEdges[flowEdge{from: a.ID, to: nr.Action}] = true
+			}
+		}
+	}
+
+	// All modes: overview.nodes ⊆ impl_nodes
+	for _, node := range flowNodes {
+		if _, exists := actionIndex[node]; !exists {
+			*ds = append(*ds, diag.Errorf(diag.CodeOverviewUnknownNode,
+				"scene %q: flow references unknown action %q", scene.ID, node))
+		}
+	}
+
+	if v.Enforce == "nodes_only" {
+		return
+	}
+
+	// at_least + strict: overview.edges ⊆ impl_edges
+	for _, e := range flowEdges {
+		if !implEdges[e] {
+			*ds = append(*ds, diag.Errorf(diag.CodeOverviewMissingEdge,
+				"scene %q: flow declares edge %s |=> %s but no such next rule exists", scene.ID, e.from, e.to))
+		}
+	}
+
+	if v.Enforce == "strict" {
+		// Build flow sets for reverse checks.
+		flowNodeSet := make(map[string]bool, len(flowNodes))
+		for _, n := range flowNodes {
+			flowNodeSet[n] = true
+		}
+		flowEdgeSet := make(map[flowEdge]bool, len(flowEdges))
+		for _, e := range flowEdges {
+			flowEdgeSet[e] = true
+		}
+
+		// strict: impl_nodes ⊆ overview.nodes
+		for _, a := range scene.Actions {
+			if !flowNodeSet[a.ID] {
+				*ds = append(*ds, diag.Errorf(diag.CodeOverviewExtraNode,
+					"scene %q: action %q exists but is not listed in flow", scene.ID, a.ID))
+			}
+		}
+
+		// strict: impl_edges ⊆ overview.edges
+		for e := range implEdges {
+			if !flowEdgeSet[e] {
+				*ds = append(*ds, diag.Errorf(diag.CodeOverviewExtraEdge,
+					"scene %q: next rule %s |=> %s exists but is not declared in flow", scene.ID, e.from, e.to))
+			}
+		}
+	}
 }
 
 // isIdent reports whether s is a valid DSL identifier ([A-Za-z_][A-Za-z0-9_]*).

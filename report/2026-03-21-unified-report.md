@@ -1,6 +1,6 @@
 # Unified Turnout Report
 
-- Date: 2026-03-21 (last updated: 2026-03-22 ×2)
+- Date: 2026-03-21 (last updated: 2026-03-24)
 - Scope: Consolidates and updates the five historical reports previously stored in `report/`
 - Source reports:
   - `2026-02-23-balance-spec-validateContext.md`
@@ -10,6 +10,32 @@
   - `2026-03-21-ponder-spec.md`
 
 ## Implementation Log
+
+### 2026-03-24 — Flow overview validation in the compiler
+
+Added compile-time enforcement of the `view { flow = ... enforce = "..." }` block against the actual action graph (scene-graph.md §9).
+
+**Motivation:**
+`view` blocks were parsed into the AST and carried through lowering but were silently dropped — no checks were performed. The `flow` text existed purely as documentation. This change makes the three enforcement modes mechanically verified during the DSL → HCL conversion phase.
+
+**Deliverables:**
+
+- `packages/go/converter/internal/lower/lower.go` — added `HCLView` struct (`Name`, `Flow`, `Enforce`) and `View *HCLView` field to `HCLSceneBlock`; `lowerSceneBlock` now populates it from the AST `ViewBlock`.
+- `packages/go/converter/internal/diag/diag.go` — added six new error codes: `SCN_OVERVIEW_PARSE_ERROR`, `SCN_OVERVIEW_INVALID_MODE`, `SCN_OVERVIEW_UNKNOWN_NODE`, `SCN_OVERVIEW_MISSING_EDGE`, `SCN_OVERVIEW_EXTRA_NODE`, `SCN_OVERVIEW_EXTRA_EDGE`.
+- `packages/go/converter/internal/validate/validate.go` — added `validateOverview` (called from `validateScene` after the action index is built). Parses the flow text into nodes and directed edges; both source nodes and edge targets count as overview nodes. Enforces the selected mode:
+  - `nodes_only` — every flow node must resolve to a known action (`SCN_OVERVIEW_UNKNOWN_NODE` on violation).
+  - `at_least` — same, plus every flow edge must have a matching `next` rule (`SCN_OVERVIEW_MISSING_EDGE` on violation).
+  - `strict` — exact equality: no extra actions (`SCN_OVERVIEW_EXTRA_NODE`) and no extra next rules (`SCN_OVERVIEW_EXTRA_EDGE`).
+- `packages/go/converter/internal/validate/validate_overview_test.go` — 13 new tests covering all three modes, parse errors, and the invalid-mode guard.
+
+**Scope note:**
+This resolves the compile-time half of G8. The `view` block is still not part of `turnout-model.proto` or the JSON output, so runtime enforcement (passing the view to the TS scene-runner) remains open.
+
+**Post-implementation test counts:**
+
+- `go test ./...` in `packages/go/converter`: all 9 packages pass
+
+---
 
 ### 2026-03-22 — Step 3: HCL as the validated intermediate for JSON output
 
@@ -164,7 +190,7 @@ These are the gaps that still reproduce against the current codebase.
 | G5 | Missing fields in a prepare hook result still become `buildNull("missing")`; `MissingHookField` is not emitted. | `packages/ts/scene-runner/src/executor/prepare-resolver.ts`, `spec/hook-spec.md` |
 | G6 | Action narrative text exists in AST, lowering, and HCL emission, but is not present in the proto schema or runtime model. | `packages/go/converter/internal/ast/ast.go`, `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/emit.go`, `schema/turnout-model.proto` |
 | G7 | Per-action `nextPolicy` override from the scene spec is still not represented in the converter JSON or runtime model. | `spec/scene-graph.md`, `schema/turnout-model.proto` |
-| G8 | Scene `view` metadata is parsed, but dropped before JSON/runtime, so overview enforcement is still not implemented end to end. | `packages/go/converter/internal/ast/ast.go`, `packages/go/converter/internal/lower/lower.go`, `schema/turnout-model.proto` |
+| G8 | Scene `view` is now lowered and overview enforcement is validated at compile time (all three modes). The `view` block is still absent from `turnout-model.proto` and the JSON output, so runtime enforcement in the TS scene-runner is still not implemented. | `schema/turnout-model.proto`, `packages/ts/scene-runner/src/executor/scene-executor.ts` |
 | G9 | Scene/route runtime failures still surface as plain JS errors; `SceneDiagnostic` and `RouteDiagnostic` payloads are not implemented on the TS side. | `spec/scene-graph.md`, `spec/scene-to-scene.md`, no matching runtime types in `packages/ts/scene-runner` |
 | G10 | The compiler still lowers and emits a single scene (`lower.Model.Scene`), while the runtime contract and route executor already assume `TurnModel.scenes[]`. | `packages/go/converter/internal/lower/lower.go`, `packages/go/converter/internal/emit/json.go`, `packages/ts/scene-runner/src/executor/route-executor.ts` |
 
@@ -212,7 +238,7 @@ These items appeared in older reports but are no longer current.
 2. ~~Tighten the DSL → JSON path through HCL validation.~~ **Done 2026-03-22** — JSON is now produced from validated HCL (`hcl-lang` schema + structural validators). The HCL emitter bugs (duplicate `publish` attrs, missing comma separators in inline objects) were caught and fixed by the new round-trip parse.
 3. Implement a real publish phase and split prepare/publish hook types at the API level.
 4. Decide and codify missing-source semantics, then align runtime behavior and diagnostics with that decision.
-5. Add `action.text` and `scene.view` to `turnout-model.proto` and propagate them end to end, or explicitly downgrade them to parse-only metadata in the spec.
+5. Add `action.text` and `scene.view` to `turnout-model.proto` and propagate them end to end, or explicitly downgrade them to parse-only metadata in the spec. (`scene.view` compile-time enforcement done 2026-03-24; JSON/runtime propagation still open.)
 6. Extend the compiler model from singular-scene lowering (`lower.Model.Scene`) to first-class multi-scene authoring (`lower.Model.Scenes`).
 
 ## Learning Paths

@@ -1,6 +1,6 @@
 # Codebase Analysis Report
 
-Date: 2026-03-22
+Date: 2026-03-22 (last updated: 2026-03-24)
 
 ## Summary
 
@@ -144,7 +144,19 @@ Relevant files:
 - `packages/go/converter/internal/validate/validate.go`
 - `packages/go/converter/internal/emit/emit.go`
 
-#### 4. Route entry is implicit and order-dependent
+#### ~~4. `view` flow overview was parsed but never enforced~~ ✅ Fixed 2026-03-24
+
+The `view { flow = ... enforce = "..." }` block was parsed into the AST and lowered, but the `flow` text was never validated against the actual action graph. The three enforcement modes (`nodes_only`, `at_least`, `strict`) now run in the validate phase: every flow node is checked against the action index, and (depending on mode) every declared edge is checked against actual `next` rules and vice-versa.
+
+The `view` block is still not present in `turnout-model.proto` or the JSON output, so runtime enforcement remains open.
+
+Relevant files:
+
+- `packages/go/converter/internal/lower/lower.go`
+- `packages/go/converter/internal/validate/validate.go`
+- `packages/go/converter/internal/validate/validate_overview_test.go`
+
+#### 5. Route entry is implicit and order-dependent
 
 When executing a route, the runtime chooses `model.scenes[0]` as the entry scene. That makes route start behavior dependent on scene ordering rather than explicit route metadata.
 
@@ -155,7 +167,7 @@ Relevant files:
 
 This is workable for fixtures, but brittle as the format evolves.
 
-#### 5. HCL emission does not surface write failures
+#### 6. HCL emission does not surface write failures
 
 The emitter currently writes to `io.Writer` without returning write errors. The code comments acknowledge this, but it still means truncated or partially failed HCL writes may not be surfaced cleanly by the API.
 
@@ -179,7 +191,9 @@ Relevant file:
 ### Implementations
 
 - ~~Teach the Go converter to represent multiple scenes if route-oriented authoring is a first-class goal.~~ ✅ Fixed 2026-03-23
+- ~~Add compile-time enforcement of `view` flow overview against the action graph.~~ ✅ Fixed 2026-03-24 — all three modes (`nodes_only`, `at_least`, `strict`) now validated in the compiler.
 - Add runtime publish-hook execution after merge.
+- Add `view` to `turnout-model.proto` and propagate it to the TS runtime for runtime overview enforcement.
 - Return or collect writer errors in the HCL emitter.
 
 ## Learning Path
