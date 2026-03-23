@@ -242,13 +242,13 @@ func irregularSchema() state.Schema {
 func irregularModelWithRoutes(routes []*lower.HCLRouteBlock) *lower.Model {
 	return &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
 				irregularAction(nil, nil, nil, nil),
 			},
-		},
+		}},
 		Routes: routes,
 	}
 }
@@ -256,11 +256,11 @@ func irregularModelWithRoutes(routes []*lower.HCLRouteBlock) *lower.Model {
 func irregularModelWithAction(action *lower.HCLAction) *lower.Model {
 	return &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions:      []*lower.HCLAction{action},
-		},
+		}},
 	}
 }
 

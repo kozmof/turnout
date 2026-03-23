@@ -140,7 +140,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
     }
   }`),
 			mutate: func(tf *ast.TurnFile) {
-				tf.Scene.Actions[0].Compute.Prog.Bindings[0].RHS = nil
+				tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0].RHS = nil
 			},
 		},
 		{
@@ -158,7 +158,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
     }
   }`),
 			mutate: func(tf *ast.TurnFile) {
-				rhs := tf.Scene.Actions[0].Compute.Prog.Bindings[3].RHS.(*ast.IfRHS)
+				rhs := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3].RHS.(*ast.IfRHS)
 				rhs.Cond = nil
 			},
 		},

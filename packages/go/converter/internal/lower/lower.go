@@ -19,7 +19,7 @@ import (
 // Model is the lowered canonical HCL representation, ready for validation and emission.
 type Model struct {
 	State  *HCLStateBlock
-	Scene  *HCLSceneBlock
+	Scenes []*HCLSceneBlock
 	Routes []*HCLRouteBlock
 }
 
@@ -241,9 +241,9 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*Model, diag.Diagnostics) {
 
 	stateBlock := lowerStateBlock(file.StateSource, schema, &ds)
 
-	var sceneBlock *HCLSceneBlock
-	if file.Scene != nil {
-		sceneBlock = lowerSceneBlock(file.Scene, schema, &ds)
+	var sceneBlocks []*HCLSceneBlock
+	for _, s := range file.Scenes {
+		sceneBlocks = append(sceneBlocks, lowerSceneBlock(s, schema, &ds))
 	}
 
 	routes := lowerRouteBlocks(file.Routes)
@@ -251,7 +251,7 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*Model, diag.Diagnostics) {
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	return &Model{State: stateBlock, Scene: sceneBlock, Routes: routes}, ds
+	return &Model{State: stateBlock, Scenes: sceneBlocks, Routes: routes}, ds
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

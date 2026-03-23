@@ -63,7 +63,7 @@ func minimalWithState(stateBlock, sceneBody string) string {
 // binding returns the nth binding from the first action's prog.
 func binding(t *testing.T, model *lower.Model, n int) *lower.HCLBinding {
 	t.Helper()
-	b := model.Scene.Actions[0].Compute.Prog.Bindings
+	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings
 	if n >= len(b) {
 		t.Fatalf("binding index %d out of range (have %d)", n, len(b))
 	}
@@ -163,7 +163,7 @@ func TestLowerLiteralRHS(t *testing.T) {
       }
     }
   }`))
-	bindings := model.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
 
 	// n:number = 99
 	if bindings[0].Value == nil {
@@ -504,7 +504,7 @@ func TestLowerIfRHSBareRef(t *testing.T) {
       }
     }
   }`))
-	bindings := model.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// 4 bindings: flag, thenFn, elseFn, result
 	if len(bindings) != 4 {
 		t.Errorf("binding count = %d, want 4", len(bindings))
@@ -537,7 +537,7 @@ func TestLowerIfRHSCall(t *testing.T) {
       }
     }
   }`))
-	bindings := model.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// 6 bindings: x, y, thenFn, elseFn, __if_result_cond, result
 	if len(bindings) != 6 {
 		t.Errorf("binding count = %d, want 6", len(bindings))
@@ -590,7 +590,7 @@ scene "test" {
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
 	}
-	prep := model.Scene.Actions[0].Prepare
+	prep := model.Scenes[0].Actions[0].Prepare
 	if prep == nil || len(prep.Entries) != 1 {
 		t.Fatal("expected 1 prepare entry")
 	}
@@ -621,7 +621,7 @@ scene "test" {
 	if b.Sigil != ast.SigilEgress {
 		t.Errorf("sigil = %v, want Egress", b.Sigil)
 	}
-	mg := model.Scene.Actions[0].Merge
+	mg := model.Scenes[0].Actions[0].Merge
 	if mg == nil || len(mg.Entries) != 1 {
 		t.Fatal("expected 1 merge entry")
 	}
@@ -655,10 +655,10 @@ scene "test" {
 	if b.Sigil != ast.SigilBiDir {
 		t.Errorf("sigil = %v, want BiDir", b.Sigil)
 	}
-	if model.Scene.Actions[0].Prepare == nil {
+	if model.Scenes[0].Actions[0].Prepare == nil {
 		t.Error("expected prepare block")
 	}
-	if model.Scene.Actions[0].Merge == nil {
+	if model.Scenes[0].Actions[0].Merge == nil {
 		t.Error("expected merge block")
 	}
 }
@@ -673,7 +673,7 @@ func TestLowerDocstringTrimming(t *testing.T) {
     """
     compute { root = v prog "p" { v:bool = true } }
   }`))
-	text := model.Scene.Actions[0].Text
+	text := model.Scenes[0].Actions[0].Text
 	if text == nil {
 		t.Fatal("action.Text is nil")
 	}
@@ -744,7 +744,7 @@ func TestLowerPublishBlock(t *testing.T) {
       hook = "hook_b"
     }
   }`))
-	pub := model.Scene.Actions[0].Publish
+	pub := model.Scenes[0].Actions[0].Publish
 	if pub == nil || len(pub.Hooks) != 2 {
 		t.Fatalf("publish hooks = %v", pub)
 	}
@@ -770,7 +770,7 @@ func TestLowerNextRule(t *testing.T) {
   action "b" {
     compute { root = v prog "p" { v:bool = true } }
   }`))
-	rules := model.Scene.Actions[0].Next
+	rules := model.Scenes[0].Actions[0].Next
 	if len(rules) != 1 {
 		t.Fatalf("next rules = %d, want 1", len(rules))
 	}
@@ -794,10 +794,10 @@ func TestLowerIdempotency(t *testing.T) {
   }`)
 	m1 := mustLower(t, src)
 	m2 := mustLower(t, src)
-	if m1.Scene.ID != m2.Scene.ID {
-		t.Errorf("scene ID differs: %q vs %q", m1.Scene.ID, m2.Scene.ID)
+	if m1.Scenes[0].ID != m2.Scenes[0].ID {
+		t.Errorf("scene ID differs: %q vs %q", m1.Scenes[0].ID, m2.Scenes[0].ID)
 	}
-	if len(m1.Scene.Actions) != len(m2.Scene.Actions) {
-		t.Errorf("action count differs: %d vs %d", len(m1.Scene.Actions), len(m2.Scene.Actions))
+	if len(m1.Scenes[0].Actions) != len(m2.Scenes[0].Actions) {
+		t.Errorf("action count differs: %d vs %d", len(m1.Scenes[0].Actions), len(m2.Scenes[0].Actions))
 	}
 }

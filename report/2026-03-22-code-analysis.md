@@ -132,18 +132,17 @@ Relevant files:
 
 This means HCL output is richer than JSON output, which creates asymmetry between converter modes.
 
-#### 3. The Go converter is still structurally single-scene
+#### ~~3. The Go converter is still structurally single-scene~~ ✅ Fixed 2026-03-23
 
-The parser tracks only one top-level scene and rejects duplicate scene blocks. The lowered model also holds only one scene, while the runtime and protobuf schema clearly expect multiple scenes.
+The parser, lowered model, validator, and HCL emitter all now support multiple scene blocks per file. `TurnFile.Scenes` is a slice, the parser accumulates all scene blocks, `Lower()` produces `Model.Scenes`, `Validate()` loops over each scene and emits a `DuplicateSceneID` diagnostic for duplicate IDs, and `Emit()` writes all scenes in order. Single-scene files continue to work unchanged. The runtime and protobuf contract were already multi-scene and required no changes.
 
 Relevant files:
 
+- `packages/go/converter/internal/ast/ast.go`
 - `packages/go/converter/internal/parser/parser.go`
 - `packages/go/converter/internal/lower/lower.go`
-- `packages/ts/scene-runner/src/harness/harness.ts`
-- `packages/ts/scene-runner/src/runner.ts`
-
-This is the most important architectural mismatch in the codebase today.
+- `packages/go/converter/internal/validate/validate.go`
+- `packages/go/converter/internal/emit/emit.go`
 
 #### 4. Route entry is implicit and order-dependent
 
@@ -168,7 +167,7 @@ Relevant file:
 
 ### Design-level
 
-- Unify the product direction around either true multi-scene conversion or explicitly single-scene authoring, because the current converter/runtime boundary is inconsistent.
+- ~~Unify the product direction around either true multi-scene conversion or explicitly single-scene authoring, because the current converter/runtime boundary is inconsistent.~~ ✅ Fixed 2026-03-23 — the converter now supports multiple scenes, aligning with the runtime and proto contract.
 - Make route entry explicit in the shared model instead of inferring it from array order.
 - Decide whether HCL and JSON outputs are meant to be semantically equivalent; if yes, add `text` support to the JSON model path.
 
@@ -179,7 +178,7 @@ Relevant file:
 
 ### Implementations
 
-- Teach the Go converter to represent multiple scenes if route-oriented authoring is a first-class goal.
+- ~~Teach the Go converter to represent multiple scenes if route-oriented authoring is a first-class goal.~~ ✅ Fixed 2026-03-23
 - Add runtime publish-hook execution after merge.
 - Return or collect writer errors in the HCL emitter.
 

@@ -14,7 +14,7 @@ func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {
 	t.Parallel()
 
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -27,7 +27,7 @@ func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	out := emitModel(model)
@@ -43,7 +43,7 @@ func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T)
 	t.Parallel()
 
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -66,7 +66,7 @@ func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T)
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	out := emitModel(model)
@@ -82,7 +82,7 @@ func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 	t.Parallel()
 
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -111,7 +111,7 @@ func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	out := emitModel(model)
@@ -164,7 +164,7 @@ func TestEmitJSONIrregularSourcePrecedenceAndNulls(t *testing.T) {
 				},
 			},
 		},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -192,7 +192,7 @@ func TestEmitJSONIrregularSourcePrecedenceAndNulls(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 
 	var sb strings.Builder

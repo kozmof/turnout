@@ -273,16 +273,16 @@ func TestTurnFileConstruction(t *testing.T) {
 				},
 			},
 		},
-		Scene: &ast.SceneBlock{
+		Scenes: []*ast.SceneBlock{{
 			Pos:          p,
 			ID:           "loan_flow",
 			EntryActions: []string{"score"},
 			NextPolicy:   "first-match",
-		},
+		}},
 	}
 
-	if tf.Scene.ID != "loan_flow" {
-		t.Errorf("scene ID = %q, want %q", tf.Scene.ID, "loan_flow")
+	if tf.Scenes[0].ID != "loan_flow" {
+		t.Errorf("scene ID = %q, want %q", tf.Scenes[0].ID, "loan_flow")
 	}
 
 	ns := tf.StateSource.(*ast.InlineStateBlock).Namespaces[0]

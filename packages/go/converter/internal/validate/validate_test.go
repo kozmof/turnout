@@ -596,11 +596,11 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 	// (can't parse an empty scene normally)
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions:      []*lower.HCLAction{},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
@@ -611,7 +611,7 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{},
 			Actions: []*lower.HCLAction{
@@ -619,7 +619,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 					{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
 				}}}},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {

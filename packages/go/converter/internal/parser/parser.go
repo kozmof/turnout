@@ -1442,7 +1442,6 @@ func (p *parser) parsePathExpr() *ast.PathExpr {
 func (p *parser) parseFile() *ast.TurnFile {
 	tf := &ast.TurnFile{}
 	hasState := false
-	hasScene := false
 
 	for p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
@@ -1474,13 +1473,9 @@ func (p *parser) parseFile() *ast.TurnFile {
 			}
 
 		case lexer.TokKwScene:
-			if hasScene {
-				p.errorf(t, "duplicate scene block")
-				p.skipBlock()
-				continue
+			if sb := p.parseSceneBlock(); sb != nil {
+				tf.Scenes = append(tf.Scenes, sb)
 			}
-			hasScene = true
-			tf.Scene = p.parseSceneBlock()
 
 		case lexer.TokIdent:
 			// `route` is not a hard keyword (to avoid clashing with user identifiers),
@@ -1508,7 +1503,7 @@ func (p *parser) parseFile() *ast.TurnFile {
 		p.diags = append(p.diags, diag.Errorf(diag.CodeMissingStateSource,
 			"Turn DSL file must contain either a state block or state_file directive"))
 	}
-	if !hasScene {
+	if len(tf.Scenes) == 0 {
 		p.diags = append(p.diags, diag.Errorf("MissingScene",
 			"Turn DSL file must contain a scene block"))
 	}

@@ -65,7 +65,7 @@ scene "s" {
 
 func TestEmitArgTransform(t *testing.T) {
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -94,7 +94,7 @@ func TestEmitArgTransform(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	out := emitModel(model)
 	if !strings.Contains(out, `transform = { ref = "x"`) {
@@ -111,7 +111,7 @@ func TestEmitArgTransform(t *testing.T) {
 
 func TestEmitArgStepRef(t *testing.T) {
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -143,7 +143,7 @@ func TestEmitArgStepRef(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	out := emitModel(model)
 	if !strings.Contains(out, `step_ref = 0`) {
@@ -326,7 +326,7 @@ scene "s" {
 func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 	stepRef := 0
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -358,7 +358,7 @@ func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	var sb strings.Builder
 	if err := emit.EmitJSON(&sb, model); err != nil {
@@ -375,7 +375,7 @@ func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 
 func TestEmitJSONArgTransform(t *testing.T) {
 	model := &lower.Model{
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -404,7 +404,7 @@ func TestEmitJSONArgTransform(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	var sb strings.Builder
 	if err := emit.EmitJSON(&sb, model); err != nil {

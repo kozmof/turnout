@@ -30,11 +30,11 @@ func Emit(w io.Writer, model *lower.Model) diag.Diagnostics {
 		writeStateBlock(iw, model.State)
 		sep = true
 	}
-	if model.Scene != nil {
+	for _, s := range model.Scenes {
 		if sep {
 			iw.nl()
 		}
-		writeSceneBlock(iw, model.Scene)
+		writeSceneBlock(iw, s)
 		sep = true
 	}
 	for _, r := range model.Routes {

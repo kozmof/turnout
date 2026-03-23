@@ -75,8 +75,8 @@ func TestParseRefValKeyword(t *testing.T) {
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}
-	if tf.Scene.Actions[0].Compute.Root != "condition" {
-		t.Errorf("root = %q, want %q", tf.Scene.Actions[0].Compute.Root, "condition")
+	if tf.Scenes[0].Actions[0].Compute.Root != "condition" {
+		t.Errorf("root = %q, want %q", tf.Scenes[0].Actions[0].Compute.Root, "condition")
 	}
 }
 
@@ -106,7 +106,7 @@ scene "test" {
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}
-	prep := tf.Scene.Actions[0].Prepare
+	prep := tf.Scenes[0].Actions[0].Prepare
 	if prep == nil || len(prep.Entries) == 0 {
 		t.Fatal("expected prepare entry")
 	}
@@ -173,7 +173,7 @@ Hello world.
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	if len(bindings) < 1 {
 		t.Fatal("no bindings")
 	}
@@ -223,7 +223,7 @@ func TestParseBlockArgFuncRef(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src2)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	pipe, ok := bindings[2].RHS.(*ast.PipeRHS)
 	if !ok {
 		t.Fatalf("expected PipeRHS, got %T", bindings[2].RHS)
@@ -251,7 +251,7 @@ func TestParseBlockArgTransform(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	fc, ok := bindings[1].RHS.(*ast.FuncCallRHS)
 	if !ok {
 		t.Fatalf("expected FuncCallRHS, got %T", bindings[1].RHS)
@@ -295,7 +295,7 @@ func TestParsePipeCompatRHS(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	pipe, ok := bindings[1].RHS.(*ast.PipeRHS)
 	if !ok {
 		t.Fatalf("expected PipeRHS, got %T", bindings[1].RHS)
@@ -325,7 +325,7 @@ func TestParseIfCompatRHS(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	ifRHS, ok := bindings[3].RHS.(*ast.IfRHS)
 	if !ok {
 		t.Fatalf("expected IfRHS, got %T", bindings[3].RHS)
@@ -423,7 +423,7 @@ func TestParseFnCompatRHS(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	fc, ok := bindings[2].RHS.(*ast.FuncCallRHS)
 	if !ok {
 		t.Fatalf("expected FuncCallRHS, got %T", bindings[2].RHS)
@@ -489,7 +489,7 @@ func TestParseAllInfixOperators(t *testing.T) {
 			t.Errorf("op %q: unexpected parse errors: %v", tc.op, ds)
 			continue
 		}
-		bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+		bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 		infix, ok := bindings[2].RHS.(*ast.InfixRHS)
 		if !ok {
 			t.Errorf("op %q: expected InfixRHS, got %T", tc.op, bindings[2].RHS)
@@ -530,7 +530,7 @@ scene "test" {
   }
 }`
 	tf := mustParse(t, src)
-	nr := tf.Scene.Actions[0].Next[0]
+	nr := tf.Scenes[0].Actions[0].Next[0]
 	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
 		t.Fatal("expected next prepare entries")
 	}
@@ -566,7 +566,7 @@ scene "test" {
   }
 }`
 	tf := mustParse(t, src)
-	nr := tf.Scene.Actions[0].Next[0]
+	nr := tf.Scenes[0].Actions[0].Next[0]
 	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
 		t.Fatal("expected next prepare entries")
 	}
@@ -859,7 +859,7 @@ func TestParseCompatArgListNamedKeys(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	fc, ok := bindings[2].RHS.(*ast.FuncCallRHS)
 	if !ok {
 		t.Fatalf("expected FuncCallRHS, got %T", bindings[2].RHS)
@@ -963,7 +963,7 @@ func TestParseIfBodyNoCond(t *testing.T) {
 	if tf == nil {
 		return // parse error is fine, just check no panic
 	}
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	ifRHS, ok := bindings[2].RHS.(*ast.IfRHS)
 	if !ok {
 		t.Fatalf("expected IfRHS, got %T", bindings[2].RHS)

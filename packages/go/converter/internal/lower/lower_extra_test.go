@@ -36,7 +36,7 @@ scene "test" {
   }
 }`
 	model := mustLower(t, src)
-	nr := model.Scene.Actions[0].Next[0]
+	nr := model.Scenes[0].Actions[0].Next[0]
 	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
 		t.Fatal("expected prepare entries")
 	}
@@ -82,7 +82,7 @@ scene "test" {
   }
 }`
 	model := mustLower(t, src)
-	nr := model.Scene.Actions[0].Next[0]
+	nr := model.Scenes[0].Actions[0].Next[0]
 	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
 		t.Fatal("expected prepare entries")
 	}
@@ -120,7 +120,7 @@ func TestLowerArgFuncRef(t *testing.T) {
     }
   }`)
 	model := mustLower(t, src)
-	bindings := model.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// result binding is the 3rd (index 2)
 	b := bindings[2]
 	if b.Expr == nil || b.Expr.Pipe == nil {
@@ -147,7 +147,7 @@ func TestLowerArgTransform(t *testing.T) {
     }
   }`)
 	model := mustLower(t, src)
-	bindings := model.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
 	b := bindings[1]
 	if b.Expr == nil || b.Expr.Pipe == nil {
 		t.Fatal("expected pipe expr on result binding")
@@ -186,7 +186,7 @@ scene "test" {
   }
 }`
 	model := mustLower(t, src)
-	b := model.Scene.Actions[0].Compute.Prog.Bindings[0]
+	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	if b.Name != "items" {
 		t.Fatalf("binding = %q, want items", b.Name)
 	}
@@ -219,7 +219,7 @@ scene "test" {
   }
 }`
 	model := mustLower(t, src)
-	b := model.Scene.Actions[0].Compute.Prog.Bindings[0]
+	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	lit, ok := b.Value.(*ast.StringLiteral)
 	if !ok {
 		t.Fatalf("value type = %T, want *ast.StringLiteral", b.Value)
@@ -249,7 +249,7 @@ scene "test" {
   }
 }`
 	model := mustLower(t, src)
-	b := model.Scene.Actions[0].Compute.Prog.Bindings[0]
+	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	lit, ok := b.Value.(*ast.BoolLiteral)
 	if !ok {
 		t.Fatalf("value type = %T, want *ast.BoolLiteral", b.Value)
@@ -274,7 +274,7 @@ func TestLowerArgLit(t *testing.T) {
     }
   }`)
 	model := mustLower(t, src)
-	b := model.Scene.Actions[0].Compute.Prog.Bindings[1]
+	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[1]
 	if b.Expr == nil || b.Expr.Combine == nil {
 		t.Fatal("expected combine expr on result binding")
 	}
@@ -315,7 +315,7 @@ scene "test" {
   }
 }`
 	model := mustLower(t, src)
-	nr := model.Scene.Actions[0].Next[0]
+	nr := model.Scenes[0].Actions[0].Next[0]
 	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
 		t.Fatal("expected prepare entries")
 	}

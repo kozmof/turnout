@@ -148,7 +148,7 @@ scene "loan_flow" {
 }
 `
 	tf := mustParse(t, src)
-	sb := tf.Scene
+	sb := tf.Scenes[0]
 	if sb.ID != "loan_flow" {
 		t.Errorf("scene ID = %q", sb.ID)
 	}
@@ -177,7 +177,7 @@ scene "s" {
 }
 `
 	tf := mustParse(t, src)
-	v := tf.Scene.View
+	v := tf.Scenes[0].View
 	if v == nil {
 		t.Fatal("view is nil")
 	}
@@ -202,7 +202,7 @@ func TestParseActionTripleQuoteDocstring(t *testing.T) {
     compute { root = v prog "p" { v:bool = true } }
   }`)
 	tf := mustParse(t, src)
-	ab := tf.Scene.Actions[0]
+	ab := tf.Scenes[0].Actions[0]
 	if ab.Text == nil {
 		t.Fatal("action.Text is nil")
 	}
@@ -217,7 +217,7 @@ func TestParseActionExplicitText(t *testing.T) {
     compute { root = v prog "p" { v:bool = true } }
   }`)
 	tf := mustParse(t, src)
-	ab := tf.Scene.Actions[0]
+	ab := tf.Scenes[0].Actions[0]
 	if ab.Text == nil || *ab.Text != "explicit text" {
 		t.Errorf("text = %v", ab.Text)
 	}
@@ -236,7 +236,7 @@ func TestParseComputeBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	ab := tf.Scene.Actions[0]
+	ab := tf.Scenes[0].Actions[0]
 	cb := ab.Compute
 	if cb == nil {
 		t.Fatal("compute is nil")
@@ -274,7 +274,7 @@ func TestParseSigils(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	cases := []struct {
 		name  string
 		sigil ast.Sigil
@@ -307,7 +307,7 @@ func TestRHSLiteralForms(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 
 	if r, ok := bindings[0].RHS.(*ast.LiteralRHS); !ok {
 		t.Errorf("n RHS: got %T", bindings[0].RHS)
@@ -344,7 +344,7 @@ func TestRHSPlaceholder(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[0]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	if _, ok := b.RHS.(*ast.PlaceholderRHS); !ok {
 		t.Errorf("RHS: got %T, want *PlaceholderRHS", b.RHS)
 	}
@@ -361,7 +361,7 @@ func TestRHSSingleRef(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[1]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[1]
 	if sr, ok := b.RHS.(*ast.SingleRefRHS); !ok || sr.RefName != "v" {
 		t.Errorf("RHS: got %T, want *SingleRefRHS{v}", b.RHS)
 	}
@@ -379,7 +379,7 @@ func TestRHSFuncCall(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[2]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[2]
 	fc, ok := b.RHS.(*ast.FuncCallRHS)
 	if !ok {
 		t.Fatalf("RHS: got %T, want *FuncCallRHS", b.RHS)
@@ -401,7 +401,7 @@ func TestRHSNamedFuncCall(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[2]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[2]
 	fc, ok := b.RHS.(*ast.FuncCallRHS)
 	if !ok {
 		t.Fatalf("RHS: got %T, want *FuncCallRHS", b.RHS)
@@ -440,7 +440,7 @@ func TestRHSInfixForms(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	bindings := tf.Scene.Actions[0].Compute.Prog.Bindings
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
 	cases := []struct {
 		idx int
 		op  ast.InfixOp
@@ -489,7 +489,7 @@ func TestRHSPipe(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[2]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[2]
 	pr, ok := b.RHS.(*ast.PipeRHS)
 	if !ok {
 		t.Fatalf("RHS: got %T, want *PipeRHS", b.RHS)
@@ -529,7 +529,7 @@ func TestRHSCondBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[3]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3]
 	cr, ok := b.RHS.(*ast.CondRHS)
 	if !ok {
 		t.Fatalf("RHS: got %T, want *CondRHS", b.RHS)
@@ -561,7 +561,7 @@ func TestRHSIfInlineCall(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[4]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[4]
 	ir, ok := b.RHS.(*ast.IfRHS)
 	if !ok {
 		t.Fatalf("RHS: got %T, want *IfRHS", b.RHS)
@@ -592,7 +592,7 @@ func TestRHSIfBareRef(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[3]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3]
 	ir, ok := b.RHS.(*ast.IfRHS)
 	if !ok {
 		t.Fatalf("RHS: got %T, want *IfRHS", b.RHS)
@@ -619,7 +619,7 @@ func TestParsePrepareBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	pb := tf.Scene.Actions[0].Prepare
+	pb := tf.Scenes[0].Actions[0].Prepare
 	if pb == nil || len(pb.Entries) != 1 {
 		t.Fatalf("prepare entries = %v", pb)
 	}
@@ -641,7 +641,7 @@ func TestParsePrepareFromHook(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	e := tf.Scene.Actions[0].Prepare.Entries[0]
+	e := tf.Scenes[0].Actions[0].Prepare.Entries[0]
 	fh, ok := e.Source.(*ast.FromHook)
 	if !ok || fh.HookName != "score_api" {
 		t.Errorf("source: got %T %v", e.Source, e.Source)
@@ -662,7 +662,7 @@ func TestParseMergeBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	mb := tf.Scene.Actions[0].Merge
+	mb := tf.Scenes[0].Actions[0].Merge
 	if mb == nil || len(mb.Entries) != 1 {
 		t.Fatalf("merge entries = %v", mb)
 	}
@@ -681,7 +681,7 @@ func TestParsePublishBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	pub := tf.Scene.Actions[0].Publish
+	pub := tf.Scenes[0].Actions[0].Publish
 	if pub == nil || len(pub.Hooks) != 2 {
 		t.Fatalf("publish hooks = %v", pub)
 	}
@@ -716,7 +716,7 @@ func TestParseNextBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	rules := tf.Scene.Actions[0].Next
+	rules := tf.Scenes[0].Actions[0].Next
 	if len(rules) != 1 {
 		t.Fatalf("next rule count = %d", len(rules))
 	}
@@ -749,7 +749,7 @@ func TestParseNextFromState(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	pe := tf.Scene.Actions[0].Next[0].Prepare.Entries[0]
+	pe := tf.Scenes[0].Actions[0].Next[0].Prepare.Entries[0]
 	fs, ok := pe.Source.(*ast.FromState)
 	if !ok || fs.Path != "ns.field" {
 		t.Errorf("source: got %T %v", pe.Source, pe.Source)
@@ -768,7 +768,7 @@ func TestParseNextFromLiteral(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	pe := tf.Scene.Actions[0].Next[0].Prepare.Entries[0]
+	pe := tf.Scenes[0].Actions[0].Next[0].Prepare.Entries[0]
 	fl, ok := pe.Source.(*ast.FromLiteral)
 	if !ok {
 		t.Fatalf("source: got %T", pe.Source)
@@ -801,13 +801,13 @@ func TestReferenceNormalization(t *testing.T) {
 	tf1 := mustParse(t, srcBare)
 	tf2 := mustParse(t, srcQuoted)
 
-	if tf1.Scene.Actions[0].Compute.Root != tf2.Scene.Actions[0].Compute.Root {
+	if tf1.Scenes[0].Actions[0].Compute.Root != tf2.Scenes[0].Actions[0].Compute.Root {
 		t.Errorf("root differs: %q vs %q",
-			tf1.Scene.Actions[0].Compute.Root,
-			tf2.Scene.Actions[0].Compute.Root)
+			tf1.Scenes[0].Actions[0].Compute.Root,
+			tf2.Scenes[0].Actions[0].Compute.Root)
 	}
-	if tf1.Scene.Actions[0].Merge.Entries[0].ToState !=
-		tf2.Scene.Actions[0].Merge.Entries[0].ToState {
+	if tf1.Scenes[0].Actions[0].Merge.Entries[0].ToState !=
+		tf2.Scenes[0].Actions[0].Merge.Entries[0].ToState {
 		t.Error("to_state differs")
 	}
 }
@@ -820,7 +820,7 @@ func TestThreeSegmentPath(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	e := tf.Scene.Actions[0].Prepare.Entries[0]
+	e := tf.Scenes[0].Actions[0].Prepare.Entries[0]
 	fs, ok := e.Source.(*ast.FromState)
 	if !ok || fs.Path != "session.cart.items" {
 		t.Errorf("path: got %q", fs.Path)
@@ -842,14 +842,14 @@ func parseWithDummyState(t *testing.T, path string) *ast.TurnFile {
 
 func TestExampleSceneGraphWithActions(t *testing.T) {
 	tf := parseWithDummyState(t, "../../../../../spec/examples/scene-graph-with-actions.turn")
-	if tf.Scene.ID != "loan_flow" {
-		t.Errorf("scene ID = %q", tf.Scene.ID)
+	if tf.Scenes[0].ID != "loan_flow" {
+		t.Errorf("scene ID = %q", tf.Scenes[0].ID)
 	}
-	if len(tf.Scene.Actions) != 3 {
-		t.Errorf("action count = %d, want 3", len(tf.Scene.Actions))
+	if len(tf.Scenes[0].Actions) != 3 {
+		t.Errorf("action count = %d, want 3", len(tf.Scenes[0].Actions))
 	}
 	// verify nested next rules
-	score := tf.Scene.Actions[0]
+	score := tf.Scenes[0].Actions[0]
 	if len(score.Next) != 2 {
 		t.Errorf("score next count = %d, want 2", len(score.Next))
 	}
@@ -868,21 +868,21 @@ func TestExampleDetectivePhase(t *testing.T) {
 		}
 		t.Fatalf("parse failed")
 	}
-	if tf.Scene.ID != "detective_evidence_hunt" {
-		t.Errorf("scene ID = %q", tf.Scene.ID)
+	if tf.Scenes[0].ID != "detective_evidence_hunt" {
+		t.Errorf("scene ID = %q", tf.Scenes[0].ID)
 	}
 }
 
 func TestExampleAdventureStory(t *testing.T) {
 	tf := parseWithDummyState(t, "../../../../../spec/examples/adventure-story-graph-with-actions.turn")
-	if tf.Scene == nil {
+	if tf.Scenes[0] == nil {
 		t.Fatal("scene is nil")
 	}
 }
 
 func TestExampleLLMWorkflow(t *testing.T) {
 	tf := parseWithDummyState(t, "../../../../../spec/examples/llm-workflow-with-actions.turn")
-	if tf.Scene == nil {
+	if tf.Scenes[0] == nil {
 		t.Fatal("scene is nil")
 	}
 }
@@ -928,7 +928,7 @@ func TestRHSCompatFuncBlock(t *testing.T) {
     }
   }`)
 	tf := mustParse(t, src)
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[2]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[2]
 	fc, ok := b.RHS.(*ast.FuncCallRHS)
 	if !ok || fc.FnAlias != "add" || len(fc.Args) != 2 {
 		t.Errorf("RHS: got %T", b.RHS)
@@ -1091,10 +1091,10 @@ scene "s" {
   }
 }`
 	tf := mustParse(t, src)
-	if tf.Scene == nil {
+	if tf.Scenes[0] == nil {
 		t.Fatal("scene not parsed")
 	}
-	b := tf.Scene.Actions[0].Compute.Prog.Bindings[0]
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	if b.Name != "route" {
 		t.Errorf("binding name = %q, want %q", b.Name, "route")
 	}

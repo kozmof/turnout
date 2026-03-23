@@ -260,7 +260,7 @@ func TestInvalidTransitionIngress(t *testing.T) {
 	// Manually build a model with a next prepare entry that has no source (count=0).
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -287,7 +287,7 @@ func TestInvalidTransitionIngress(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeInvalidTransitionIngress) {
@@ -310,7 +310,7 @@ func TestRoutePatternWildcardFirstSegment(t *testing.T) {
 	// Build model manually with a route arm whose pattern starts with "*"
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "scene_1",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -321,7 +321,7 @@ func TestRoutePatternWildcardFirstSegment(t *testing.T) {
 					},
 				}}},
 			},
-		},
+		}},
 		Routes: []*lower.HCLRouteBlock{
 			{
 				ID: "r1",
@@ -341,7 +341,7 @@ func TestRoutePatternEmptyFirstSegment(t *testing.T) {
 	// Pattern with empty first segment (e.g. ".action")
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "scene_1",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -352,7 +352,7 @@ func TestRoutePatternEmptyFirstSegment(t *testing.T) {
 					},
 				}}},
 			},
-		},
+		}},
 		Routes: []*lower.HCLRouteBlock{
 			{
 				ID: "r1",
@@ -374,7 +374,7 @@ func TestRoutePatternNoActionSegment(t *testing.T) {
 	// Pattern "scene_1" (no dot) — no action segment
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "scene_1",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -385,7 +385,7 @@ func TestRoutePatternNoActionSegment(t *testing.T) {
 					},
 				}}},
 			},
-		},
+		}},
 		Routes: []*lower.HCLRouteBlock{
 			{
 				ID: "r1",
@@ -407,13 +407,13 @@ func TestActionComputeNil(t *testing.T) {
 	// Action with nil Compute should not panic and produce no extra errors
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
 				{ID: "a", Compute: nil},
 			},
-		},
+		}},
 	}
 	// Should not panic; may produce no errors (nil compute is allowed structurally)
 	ds := validate.Validate(model, nil)
@@ -443,7 +443,7 @@ func TestValidateProgNil(t *testing.T) {
 	// Build model with action that has Compute with nil Prog
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -455,7 +455,7 @@ func TestValidateProgNil(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	// Root "r" won't be found in empty scope → SCNActionRootNotFound
@@ -503,7 +503,7 @@ func TestCondConditionRefUndefined(t *testing.T) {
 	// Build model manually with HCLCond whose Condition refs an undefined name
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -531,7 +531,7 @@ func TestCondConditionRefUndefined(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeUndefinedRef) {
@@ -546,7 +546,7 @@ func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 	// won't fire, but ReturnTypeMismatch will (thenType != b.Type)
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -587,7 +587,7 @@ func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeReturnTypeMismatch) {
@@ -957,7 +957,7 @@ func TestFuncRefUndefined(t *testing.T) {
 	// Build model manually with a combine that has a FuncRef pointing to undefined
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -988,7 +988,7 @@ func TestFuncRefUndefined(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeUndefinedFuncRef) {
@@ -1000,7 +1000,7 @@ func TestFuncRefOnValueBinding(t *testing.T) {
 	// func_ref points to a value binding (not a function) → UndefinedFuncRef
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -1031,7 +1031,7 @@ func TestFuncRefOnValueBinding(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeUndefinedFuncRef) {
@@ -1045,7 +1045,7 @@ func TestArrConcatNoArgs(t *testing.T) {
 	// arr_concat combine with empty args → resolveExpectedReturn returns (0,false)
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -1072,7 +1072,7 @@ func TestArrConcatNoArgs(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	// Should not panic; validateCombineArgTypes with < 2 args returns early
 	ds := validate.Validate(model, nil)
@@ -1150,7 +1150,7 @@ func TestResolveArgTypeFuncRef(t *testing.T) {
 	// pipe step with func_ref arg — resolveArgType FuncRef branch
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -1193,7 +1193,7 @@ func TestResolveArgTypeFuncRef(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	_ = ds
@@ -1222,7 +1222,7 @@ func TestCombineArgTypesLessThan2Args(t *testing.T) {
 	// Combine with 1 arg → validateCombineArgTypes returns early (no panic)
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -1250,7 +1250,7 @@ func TestCombineArgTypesLessThan2Args(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	// Should not panic
 	ds := validate.Validate(model, nil)
@@ -1330,7 +1330,7 @@ func TestLiteralMatchesFieldTypeArrWithNonArray(t *testing.T) {
 	// Build model manually with array-typed binding but NumberLiteral value
 	model := &lower.Model{
 		State: &lower.HCLStateBlock{},
-		Scene: &lower.HCLSceneBlock{
+		Scenes: []*lower.HCLSceneBlock{{
 			ID:           "s",
 			EntryActions: []string{"a"},
 			Actions: []*lower.HCLAction{
@@ -1353,7 +1353,7 @@ func TestLiteralMatchesFieldTypeArrWithNonArray(t *testing.T) {
 					},
 				},
 			},
-		},
+		}},
 	}
 	ds := validate.Validate(model, nil)
 	if !hasCode(ds, diag.CodeTypeMismatch) {

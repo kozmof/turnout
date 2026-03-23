@@ -83,8 +83,14 @@ func Validate(model *lower.Model, schema state.Schema) diag.Diagnostics {
 	if model == nil {
 		return ds
 	}
-	if model.Scene != nil {
-		validateScene(model.Scene, schema, &ds)
+	seenSceneIDs := make(map[string]bool)
+	for _, s := range model.Scenes {
+		if seenSceneIDs[s.ID] {
+			ds = append(ds, diag.Errorf("DuplicateSceneID",
+				"duplicate scene ID %q", s.ID))
+		}
+		seenSceneIDs[s.ID] = true
+		validateScene(s, schema, &ds)
 	}
 	if len(model.Routes) > 0 {
 		knownScenes := buildKnownScenes(model)
@@ -96,8 +102,8 @@ func Validate(model *lower.Model, schema state.Schema) diag.Diagnostics {
 // buildKnownScenes returns a set of scene IDs present in the model.
 func buildKnownScenes(model *lower.Model) map[string]bool {
 	known := make(map[string]bool)
-	if model.Scene != nil {
-		known[model.Scene.ID] = true
+	for _, s := range model.Scenes {
+		known[s.ID] = true
 	}
 	return known
 }
