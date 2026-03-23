@@ -1,0 +1,642 @@
+# Multi-scene example: Customer Onboarding Flow
+#
+# Route: onboarding_flow
+#   intake  -->  document_review  -->  risk_assessment  -->  approved
+#                                  \                    \-->  manual_review  -->  approved
+#                                   \                                        \-->  rejected
+#                \-->  rejected (early reject)
+#                                   \-->  rejected (docs invalid)
+#                                                       \-->  rejected (high risk)
+#
+# STATE is shared across all scenes in the route.
+# Route history accumulates: intake.*, document_review.*, risk_assessment.*, etc.
+
+# ---------------------------------------------------------------------------
+# Scene 1: intake
+# Entry point. Collects applicant data, decides proceed or early reject.
+# ---------------------------------------------------------------------------
+
+scene "intake" {
+  entry_actions = ["collect_info"]
+  next_policy   = "first-match"
+
+  view "overview" {
+    flow = <<-EOT
+      collect_info
+        |=> proceed
+        |=> early_reject
+    EOT
+    enforce = "at_least"
+  }
+
+  action "collect_info" {
+    """
+    Logic overview:
+    - Read applicant age, residency flag, and sanction-list hit from STATE.
+    - Determine whether the applicant clears the minimum entry bar.
+    - Branch to `proceed` when eligible; fall through to `early_reject`.
+    """
+
+    compute {
+      root = eligible
+      prog "collect_info_graph" {
+        ~>age:number         = _
+        ~>is_resident:bool   = _
+        ~>sanctioned:bool    = _
+
+        age_ok:bool       = age >= 18
+        not_sanctioned:bool = sanctioned == false
+        <~eligible:bool   = age_ok & is_resident & not_sanctioned
+        <~phase:str       = "intake_collect_info"
+      }
+    }
+
+    prepare {
+      age          { from_state = applicant.age          }
+      is_resident  { from_state = applicant.is_resident  }
+      sanctioned   { from_state = applicant.sanctioned   }
+    }
+
+    merge {
+      eligible { to_state = intake.eligible }
+      phase    { to_state = flow.phase      }
+    }
+
+    next {
+      compute {
+        condition = go_proceed
+        prog "to_proceed" {
+          ~>eligible:bool = _
+          go_proceed:bool = eligible
+        }
+      }
+      prepare {
+        eligible { from_action = eligible }
+      }
+      action = proceed
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_early_reject" {
+          always:bool = true
+        }
+      }
+      action = early_reject
+    }
+  }
+
+  action "proceed" {
+    """
+    Logic overview:
+    - Mark intake as passed and stamp the transition phase.
+    - No next actions — scene terminates here, routing hands off to the route match block.
+    """
+
+    compute {
+      root = phase
+      prog "proceed_graph" {
+        <~intake_passed:bool = true
+        <~phase:str          = "intake_proceed"
+      }
+    }
+
+    merge {
+      intake_passed { to_state = intake.passed  }
+      phase         { to_state = flow.phase     }
+    }
+  }
+
+  action "early_reject" {
+    """
+    Logic overview:
+    - Record the rejection reason and mark intake as failed.
+    - No next actions — scene terminates here.
+    """
+
+    compute {
+      root = phase
+      prog "early_reject_graph" {
+        <~reject_reason:str  = "failed_intake_eligibility"
+        <~intake_passed:bool = false
+        <~phase:str          = "intake_early_reject"
+      }
+    }
+
+    merge {
+      reject_reason { to_state = flow.reject_reason }
+      intake_passed { to_state = intake.passed      }
+      phase         { to_state = flow.phase         }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Scene 2: document_review
+# Validates submitted identity documents.
+# ---------------------------------------------------------------------------
+
+scene "document_review" {
+  entry_actions = ["check_documents"]
+  next_policy   = "first-match"
+
+  view "overview" {
+    flow = <<-EOT
+      check_documents
+        |=> mark_valid
+        |=> mark_invalid
+    EOT
+    enforce = "at_least"
+  }
+
+  action "check_documents" {
+    """
+    Logic overview:
+    - Read document expiry status and OCR confidence score from STATE.
+    - Determine whether documents pass the quality threshold.
+    - Branch to mark_valid or mark_invalid.
+    """
+
+    compute {
+      root = docs_ok
+      prog "check_documents_graph" {
+        ~>doc_expired:bool      = _
+        ~>ocr_confidence:number = _
+
+        not_expired:bool    = doc_expired == false
+        ocr_ok:bool         = ocr_confidence >= 80
+        <~docs_ok:bool      = not_expired & ocr_ok
+        <~phase:str         = "document_review_check"
+      }
+    }
+
+    prepare {
+      doc_expired     { from_state = documents.expired       }
+      ocr_confidence  { from_state = documents.ocr_confidence }
+    }
+
+    merge {
+      docs_ok { to_state = documents.review_passed }
+      phase   { to_state = flow.phase              }
+    }
+
+    next {
+      compute {
+        condition = go_valid
+        prog "to_mark_valid" {
+          ~>docs_ok:bool = _
+          go_valid:bool  = docs_ok
+        }
+      }
+      prepare {
+        docs_ok { from_action = docs_ok }
+      }
+      action = mark_valid
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_mark_invalid" {
+          always:bool = true
+        }
+      }
+      action = mark_invalid
+    }
+  }
+
+  action "mark_valid" {
+    """
+    Logic overview:
+    - Stamp documents as verified and record the verification phase.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "mark_valid_graph" {
+        <~docs_verified:bool = true
+        <~phase:str          = "document_review_mark_valid"
+      }
+    }
+
+    merge {
+      docs_verified { to_state = documents.verified }
+      phase         { to_state = flow.phase         }
+    }
+  }
+
+  action "mark_invalid" {
+    """
+    Logic overview:
+    - Stamp documents as unverified, record a rejection reason.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "mark_invalid_graph" {
+        <~docs_verified:bool = false
+        <~reject_reason:str  = "document_validation_failed"
+        <~phase:str          = "document_review_mark_invalid"
+      }
+    }
+
+    merge {
+      docs_verified { to_state = documents.verified  }
+      reject_reason { to_state = flow.reject_reason  }
+      phase         { to_state = flow.phase          }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Scene 3: risk_assessment
+# Scores the applicant and branches to low / high / borderline outcomes.
+# ---------------------------------------------------------------------------
+
+scene "risk_assessment" {
+  entry_actions = ["score_risk"]
+  next_policy   = "first-match"
+
+  view "overview" {
+    flow = <<-EOT
+      score_risk
+        |=> low_risk_pass
+        |=> high_risk_fail
+        |=> borderline_flag
+    EOT
+    enforce = "at_least"
+  }
+
+  action "score_risk" {
+    """
+    Logic overview:
+    - Read credit score and fraud flag from STATE.
+    - Derive risk tier: low (<= 30), high (>= 70), or borderline in between.
+    - Branch on tier.
+    """
+
+    compute {
+      root = risk_tier
+      prog "score_risk_graph" {
+        ~>credit_score:number = _
+        ~>fraud_flag:bool     = _
+
+        is_low_risk:bool       = credit_score >= 700 & fraud_flag == false
+        is_high_risk:bool      = credit_score < 500 | fraud_flag
+        <~risk_score:number    = credit_score
+        <~risk_tier:str        = "borderline"
+        <~phase:str            = "risk_assessment_score"
+      }
+    }
+
+    prepare {
+      credit_score { from_state = applicant.credit_score }
+      fraud_flag   { from_state = applicant.fraud_flag   }
+    }
+
+    merge {
+      risk_score { to_state = risk.score  }
+      risk_tier  { to_state = risk.tier   }
+      phase      { to_state = flow.phase  }
+    }
+
+    next {
+      compute {
+        condition = go_low
+        prog "to_low_risk" {
+          ~>is_low_risk:bool = _
+          go_low:bool        = is_low_risk
+        }
+      }
+      prepare {
+        is_low_risk { from_action = is_low_risk }
+      }
+      action = low_risk_pass
+    }
+
+    next {
+      compute {
+        condition = go_high
+        prog "to_high_risk" {
+          ~>is_high_risk:bool = _
+          go_high:bool        = is_high_risk
+        }
+      }
+      prepare {
+        is_high_risk { from_action = is_high_risk }
+      }
+      action = high_risk_fail
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_borderline" {
+          always:bool = true
+        }
+      }
+      action = borderline_flag
+    }
+  }
+
+  action "low_risk_pass" {
+    """
+    Logic overview:
+    - Record final risk decision as low and mark assessment complete.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "low_risk_pass_graph" {
+        <~risk_decision:str  = "low_risk_approved"
+        <~phase:str          = "risk_assessment_low_risk_pass"
+      }
+    }
+
+    merge {
+      risk_decision { to_state = risk.decision }
+      phase         { to_state = flow.phase    }
+    }
+  }
+
+  action "high_risk_fail" {
+    """
+    Logic overview:
+    - Record final risk decision as high risk and stamp rejection reason.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "high_risk_fail_graph" {
+        <~risk_decision:str  = "high_risk_rejected"
+        <~reject_reason:str  = "risk_score_too_high"
+        <~phase:str          = "risk_assessment_high_risk_fail"
+      }
+    }
+
+    merge {
+      risk_decision { to_state = risk.decision   }
+      reject_reason { to_state = flow.reject_reason }
+      phase         { to_state = flow.phase      }
+    }
+  }
+
+  action "borderline_flag" {
+    """
+    Logic overview:
+    - Flag the case for manual review and record the borderline decision.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "borderline_flag_graph" {
+        <~risk_decision:str   = "borderline_manual_review"
+        <~needs_review:bool   = true
+        <~phase:str           = "risk_assessment_borderline_flag"
+      }
+    }
+
+    merge {
+      risk_decision { to_state = risk.decision   }
+      needs_review  { to_state = risk.needs_review }
+      phase         { to_state = flow.phase      }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Scene 4: manual_review
+# A human reviewer approves or rejects a borderline application.
+# ---------------------------------------------------------------------------
+
+scene "manual_review" {
+  entry_actions = ["assign_reviewer"]
+  next_policy   = "first-match"
+
+  view "overview" {
+    flow = <<-EOT
+      assign_reviewer
+        |=> override_approve
+        |=> override_reject
+    EOT
+    enforce = "at_least"
+  }
+
+  action "assign_reviewer" {
+    """
+    Logic overview:
+    - Read reviewer decision and confidence from STATE (written by an external hook).
+    - Branch on reviewer outcome.
+    """
+
+    compute {
+      root = reviewer_approved
+      prog "assign_reviewer_graph" {
+        ~>reviewer_decision:str    = _
+        ~>reviewer_confidence:number = _
+
+        decision_ok:bool             = reviewer_confidence >= 70
+        <~reviewer_approved:bool     = decision_ok
+        <~phase:str                  = "manual_review_assign"
+      }
+    }
+
+    prepare {
+      reviewer_decision    { from_state = review.reviewer_decision    }
+      reviewer_confidence  { from_state = review.reviewer_confidence  }
+    }
+
+    merge {
+      reviewer_approved { to_state = review.approved }
+      phase             { to_state = flow.phase      }
+    }
+
+    next {
+      compute {
+        condition = go_approve
+        prog "to_override_approve" {
+          ~>reviewer_approved:bool = _
+          go_approve:bool          = reviewer_approved
+        }
+      }
+      prepare {
+        reviewer_approved { from_action = reviewer_approved }
+      }
+      action = override_approve
+    }
+
+    next {
+      compute {
+        condition = always
+        prog "to_override_reject" {
+          always:bool = true
+        }
+      }
+      action = override_reject
+    }
+  }
+
+  action "override_approve" {
+    """
+    Logic overview:
+    - Record that the manual reviewer approved the case.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "override_approve_graph" {
+        <~review_outcome:str = "manual_approved"
+        <~phase:str          = "manual_review_override_approve"
+      }
+    }
+
+    merge {
+      review_outcome { to_state = review.outcome }
+      phase          { to_state = flow.phase     }
+    }
+  }
+
+  action "override_reject" {
+    """
+    Logic overview:
+    - Record that the manual reviewer rejected the case and stamp the reason.
+    - Terminal action — scene ends here.
+    """
+
+    compute {
+      root = phase
+      prog "override_reject_graph" {
+        <~review_outcome:str = "manual_rejected"
+        <~reject_reason:str  = "manual_review_declined"
+        <~phase:str          = "manual_review_override_reject"
+      }
+    }
+
+    merge {
+      review_outcome { to_state = review.outcome        }
+      reject_reason  { to_state = flow.reject_reason    }
+      phase          { to_state = flow.phase            }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Scene 5: approved
+# Issues an approval decision and generates an account reference.
+# ---------------------------------------------------------------------------
+
+scene "approved" {
+  entry_actions = ["issue_approval"]
+  next_policy   = "first-match"
+
+  action "issue_approval" {
+    """
+    Logic overview:
+    - Generate a deterministic approval reference.
+    - Mark the overall flow outcome as approved.
+    - Terminal action — no next actions.
+    """
+
+    compute {
+      root = account_ref
+      prog "issue_approval_graph" {
+        prefix:str           = "ACC-"
+        suffix:str           = "APPROVED"
+        <~account_ref:str    = prefix + suffix
+        <~flow_outcome:str   = "approved"
+        <~phase:str          = "approved_issue_approval"
+      }
+    }
+
+    merge {
+      account_ref  { to_state = flow.account_ref }
+      flow_outcome { to_state = flow.outcome     }
+      phase        { to_state = flow.phase       }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Scene 6: rejected
+# Records a final rejection with the accumulated reject_reason from STATE.
+# ---------------------------------------------------------------------------
+
+scene "rejected" {
+  entry_actions = ["issue_rejection"]
+  next_policy   = "first-match"
+
+  action "issue_rejection" {
+    """
+    Logic overview:
+    - Read the reject_reason written by the preceding scene.
+    - Stamp the flow outcome as rejected and emit a final notice.
+    - Terminal action — no next actions.
+    """
+
+    compute {
+      root = flow_outcome
+      prog "issue_rejection_graph" {
+        ~>reject_reason:str  = _
+
+        prefix:str           = "Rejected: "
+        <~rejection_notice:str = prefix + reject_reason
+        <~flow_outcome:str   = "rejected"
+        <~phase:str          = "rejected_issue_rejection"
+      }
+    }
+
+    prepare {
+      reject_reason { from_state = flow.reject_reason }
+    }
+
+    merge {
+      rejection_notice { to_state = flow.rejection_notice }
+      flow_outcome     { to_state = flow.outcome          }
+      phase            { to_state = flow.phase            }
+    }
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Route: onboarding_flow
+#
+# Evaluated each time a scene reaches a terminal state (no next action).
+# STATE is not reset between scenes — flow.* and risk.* accumulate.
+# History format: <scene_id>.<action_id>, grown in execution order.
+#
+# Priority notes:
+#   - Exact terminal-action patterns (no *) beat wildcard patterns.
+#   - Among wildcard patterns, declaration order breaks ties.
+#   - `_` is lowest priority and handles unexpected histories.
+# ---------------------------------------------------------------------------
+
+route "onboarding_flow" {
+  match {
+    # intake outcomes
+    intake.proceed       => document_review,
+    intake.early_reject  => rejected,
+
+    # document_review outcomes
+    document_review.mark_valid   => risk_assessment,
+    document_review.mark_invalid => rejected,
+
+    # risk_assessment outcomes — exact matches beat the wildcard fallback
+    risk_assessment.low_risk_pass   => approved,
+    risk_assessment.high_risk_fail  => rejected,
+    risk_assessment.borderline_flag => manual_review,
+
+    # manual_review outcomes
+    manual_review.override_approve => approved,
+    manual_review.override_reject  => rejected,
+
+    # catch-all: any unrecognised terminal history goes to rejected
+    _ => rejected
+  }
+}
