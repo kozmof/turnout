@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
 func TestParseIrregularTopLevelErrors(t *testing.T) {

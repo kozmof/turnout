@@ -8,12 +8,12 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/emit"
-	"github.com/turnout/converter/internal/lower"
-	"github.com/turnout/converter/internal/parser"
-	"github.com/turnout/converter/internal/state"
-	"github.com/turnout/converter/internal/validate"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
+	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 )
 
 func main() {

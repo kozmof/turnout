@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/lexer"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
 // ParseFile parses Turn DSL source src into a TurnFile AST.

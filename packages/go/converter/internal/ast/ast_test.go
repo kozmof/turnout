@@ -3,7 +3,7 @@ package ast_test
 import (
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 )
 
 // ── compile-time interface checks ─────────────────────────────────────────────

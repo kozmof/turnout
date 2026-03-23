@@ -3,7 +3,7 @@ package validate_test
 import (
 	"testing"
 
-	"github.com/turnout/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

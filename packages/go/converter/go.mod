@@ -1,4 +1,4 @@
-module github.com/turnout/converter
+module github.com/kozmof/turnout/packages/go/converter
 
 go 1.24.0
 

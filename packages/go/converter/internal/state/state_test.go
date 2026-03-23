@@ -5,9 +5,9 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/state"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

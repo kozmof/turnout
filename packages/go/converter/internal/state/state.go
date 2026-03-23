@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
 // FieldMeta holds the resolved type and default value for a single STATE field.

@@ -3,9 +3,9 @@ package state_test
 import (
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/state"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
 func TestResolveIrregularInlineErrorsAccumulate(t *testing.T) {

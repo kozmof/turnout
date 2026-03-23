@@ -6,10 +6,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/lower"
-	"github.com/turnout/converter/internal/parser"
-	"github.com/turnout/converter/internal/state"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
 // ─── helpers ──────────────────────────────────────────────────────────────────

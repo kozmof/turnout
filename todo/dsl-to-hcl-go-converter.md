@@ -24,7 +24,7 @@
 ### 1.1 Go module setup
 
 - [x] Create `packages/go/converter/` directory
-- [x] `go mod init github.com/turnout/converter`
+- [x] `go mod init github.com/kozmof/turnout/packages/go/converter`
 - [x] Define top-level package structure:
   - `cmd/turnout/` — CLI entry point (`main.go`)
   - `internal/lexer/` — tokenizer

@@ -1550,7 +1550,7 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x05match\x18\x02 \x03(\v2\x1a.turnout.model.v1.MatchArmR\x05match\">\n" +
 	"\bMatchArm\x12\x1a\n" +
 	"\bpatterns\x18\x01 \x03(\tR\bpatterns\x12\x16\n" +
-	"\x06target\x18\x02 \x01(\tR\x06targetB6Z4github.com/turnout/converter/internal/emit/turnoutpbb\x06proto3"
+	"\x06target\x18\x02 \x01(\tR\x06targetB6Z4github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpbb\x06proto3"
 
 var (
 	file_turnout_model_proto_rawDescOnce sync.Once

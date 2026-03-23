@@ -3,11 +3,11 @@ package lower_test
 import (
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/lower"
-	"github.com/turnout/converter/internal/parser"
-	"github.com/turnout/converter/internal/state"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
 // ─── lowerNextPrepare: from_state and from_literal branches ──────────────────

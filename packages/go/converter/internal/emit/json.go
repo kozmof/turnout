@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/hashicorp/hcl/v2"
-	"github.com/turnout/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 

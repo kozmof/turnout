@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
 // minimalTurnFile wraps a scene body in the minimum scaffolding required for a

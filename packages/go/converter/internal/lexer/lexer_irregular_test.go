@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turnout/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
 
 func TestIrregularLexMalformedInputs(t *testing.T) {

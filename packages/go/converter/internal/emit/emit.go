@@ -10,9 +10,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/diag"
-	"github.com/turnout/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────

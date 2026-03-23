@@ -5,9 +5,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/turnout/converter/internal/ast"
-	"github.com/turnout/converter/internal/emit"
-	"github.com/turnout/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
+	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 )
 
 func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {

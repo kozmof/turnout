@@ -8,7 +8,7 @@ package turnout.model.v1;
 
 import "google/protobuf/struct.proto";
 
-option go_package = "github.com/turnout/converter/internal/emit/turnoutpb";
+option go_package = "github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Top-level model

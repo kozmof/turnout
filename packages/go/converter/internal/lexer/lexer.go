@@ -3,7 +3,7 @@ package lexer
 import (
 	"strings"
 
-	"github.com/turnout/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
 
 // TokenKind classifies a token produced by the Turn DSL lexer.
