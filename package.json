@@ -1,7 +1,7 @@
 {
   "scripts": {
     "generate": "PATH=\"$HOME/go/bin:$(go env GOPATH)/bin:$PATH:./node_modules/.bin\" buf generate",
-    "test": "pnpm --dir packages/ts/runtime test && pnpm --dir packages/ts/scene-runner test && (cd packages/go/converter && go test ./...)"
+    "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run) && (cd packages/go/converter && /usr/local/go/bin/go test ./...)"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.66.1",
