@@ -441,7 +441,11 @@ func writeArg(arg *lower.HCLArg) string {
 	case arg.IsStepRef:
 		return fmt.Sprintf(`{ step_ref = %d }`, arg.StepRef)
 	case arg.Transform != nil:
-		return fmt.Sprintf(`{ transform = { ref = %q, fn = %q } }`, arg.Transform.Ref, arg.Transform.Fn)
+		fnParts := make([]string, len(arg.Transform.Fn))
+		for i, f := range arg.Transform.Fn {
+			fnParts[i] = fmt.Sprintf("%q", f)
+		}
+		return fmt.Sprintf(`{ transform = { ref = %q, fn = [%s] } }`, arg.Transform.Ref, strings.Join(fnParts, ", "))
 	}
 	return `{}`
 }

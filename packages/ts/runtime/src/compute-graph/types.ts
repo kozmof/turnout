@@ -52,10 +52,10 @@ export type FuncTable = {
 export type CombineFuncDefTable = {
   [defId in CombineDefineId]: {
     name: BinaryFnNames;
-    // Fix 4: transformFn values are TransformFnNames directly (no { name } wrapper).
+    // Each arg carries an ordered chain of transforms applied before the binary fn.
     transformFn: {
-      a: TransformFnNames;
-      b: TransformFnNames;
+      a: readonly TransformFnNames[];
+      b: readonly TransformFnNames[];
     };
   };
 };

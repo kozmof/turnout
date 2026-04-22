@@ -36,8 +36,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: 'transformFnNumber::pass',
-              b: 'transformFnNumber::pass',
+              a: ['transformFnNumber::pass'],
+              b: ['transformFnNumber::pass'],
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -80,8 +80,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: 'transformFnNumber::pass',
-              b: 'transformFnNumber::pass',
+              a: ['transformFnNumber::pass'],
+              b: ['transformFnNumber::pass'],
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -154,8 +154,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: 'transformFnNumber::pass',
-              b: 'transformFnNumber::pass',
+              a: ['transformFnNumber::pass'],
+              b: ['transformFnNumber::pass'],
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -264,8 +264,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: 'transformFnNumber::pass',
-              b: 'transformFnNumber::pass',
+              a: ['transformFnNumber::pass'],
+              b: ['transformFnNumber::pass'],
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },
@@ -350,8 +350,8 @@ describe('validateContext integration', () => {
           'pd-add': {
             name: 'binaryFnNumber::add',
             transformFn: {
-              a: 'transformFnNumber::pass',
-              b: 'transformFnNumber::pass',
+              a: ['transformFnNumber::pass'],
+              b: ['transformFnNumber::pass'],
             },
             args: { a: 'ia1' as any, b: 'ia2' as any },
           },

@@ -31,8 +31,8 @@ describe('executeGraph', () => {
         pd1: {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -73,8 +73,8 @@ describe('executeGraph', () => {
         'pd-boolean': {
           name: 'binaryFnBoolean::or',
           transformFn: {
-            a: 'transformFnBoolean::pass',
-            b: 'transformFnBoolean::pass',
+            a: ['transformFnBoolean::pass'],
+            b: ['transformFnBoolean::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -123,8 +123,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -134,8 +134,8 @@ describe('executeGraph', () => {
         'pd-multiply': {
           name: 'binaryFnNumber::multiply',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -184,8 +184,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -227,8 +227,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -238,8 +238,8 @@ describe('executeGraph', () => {
         'pd-multiply': {
           name: 'binaryFnNumber::multiply',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -308,8 +308,8 @@ describe('executeGraph', () => {
         pd1: {
           name: 'binaryFnString::concat',
           transformFn: {
-            a: 'transformFnNumber::toStr',
-            b: 'transformFnString::pass',
+            a: ['transformFnNumber::toStr'],
+            b: ['transformFnString::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -351,8 +351,8 @@ describe('executeGraph', () => {
         'pd-add': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -393,8 +393,8 @@ describe('executeGraph', () => {
         pd1: {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -479,8 +479,8 @@ describe('executeGraph', () => {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -490,8 +490,8 @@ describe('executeGraph', () => {
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -554,8 +554,8 @@ describe('executeGraph', () => {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -565,8 +565,8 @@ describe('executeGraph', () => {
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -630,8 +630,8 @@ describe('executeGraph', () => {
         'pd-use-shared': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -703,8 +703,8 @@ describe('executeGraph', () => {
         'pd-eq': {
           name: 'binaryFnGeneric::isEqual',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -714,8 +714,8 @@ describe('executeGraph', () => {
         'pd-pass-true': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,
@@ -725,8 +725,8 @@ describe('executeGraph', () => {
         'pd-pass-false': {
           name: 'binaryFnNumber::add',
           transformFn: {
-            a: 'transformFnNumber::pass',
-            b: 'transformFnNumber::pass',
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
           },
           args: {
             a: 'ia1' as any,

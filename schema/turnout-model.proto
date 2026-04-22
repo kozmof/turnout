@@ -132,7 +132,7 @@ message ArgModel {
 
 message TransformArg {
   string ref = 1;
-  string fn = 2;
+  repeated string fn = 2;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

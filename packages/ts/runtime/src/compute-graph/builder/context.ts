@@ -759,11 +759,10 @@ function buildCombineArguments(
   scope: Scope
 ): {
   argMap: Record<string, ValueId>;
-  transformFnMap: Record<string, TransformFnNames>;
+  transformFnMap: Record<string, readonly TransformFnNames[]>;
 } {
   const argMap: Record<string, ValueId> = {};
-  // Fix 4: flatten to TransformFnNames directly (no { name } wrapper)
-  const transformFnMap: Record<string, TransformFnNames> = {};
+  const transformFnMap: Record<string, readonly TransformFnNames[]> = {};
 
   for (const [key, ref] of Object.entries(builder.args)) {
     if (isTransformRef(ref)) {
@@ -783,17 +782,16 @@ function buildCombineArguments(
  */
 function buildCombineDefinition(
   name: CombineBuilder['name'],
-  transformFnMap: Record<string, TransformFnNames>
+  transformFnMap: Record<string, readonly TransformFnNames[]>
 ): {
   name: CombineBuilder['name'];
-  // Fix 4: transformFn values are TransformFnNames directly (no { name } wrapper)
-  transformFn: { a: TransformFnNames; b: TransformFnNames };
+  transformFn: { a: readonly TransformFnNames[]; b: readonly TransformFnNames[] };
 } {
   return {
     name,
     transformFn: {
-      a: transformFnMap['a'],
-      b: transformFnMap['b'],
+      a: transformFnMap['a'] ?? [],
+      b: transformFnMap['b'] ?? [],
     },
   };
 }
@@ -999,8 +997,8 @@ function resolveArgBinding(
 function buildStepTransformMap(
   step: CombineBuilder,
   pipeBuilder: PipeBuilder
-): Record<string, TransformFnNames> {
-  const transformFnMap: Record<string, TransformFnNames> = {};
+): Record<string, readonly TransformFnNames[]> {
+  const transformFnMap: Record<string, readonly TransformFnNames[]> = {};
 
   for (const [argName, ref] of Object.entries(step.args)) {
     if (isTransformRef(ref)) {
@@ -1008,12 +1006,13 @@ function buildStepTransformMap(
     } else if (isStepOutputRef(ref)) {
       // Infer transform from the referenced step's return type, not the current step's namespace
       const referencedStep = pipeBuilder.steps[ref.stepIndex];
-      transformFnMap[argName] =
+      transformFnMap[argName] = [
         referencedStep?.__type === 'combine'
           ? inferTransformForBinaryFn(referencedStep.name)
-          : getPassTransformFn('number'); // fallback: nested pipe steps not yet typed
+          : getPassTransformFn('number'), // fallback: nested pipe steps not yet typed
+      ];
     } else {
-      transformFnMap[argName] = inferTransformForBinaryFn(step.name);
+      transformFnMap[argName] = [inferTransformForBinaryFn(step.name)];
     }
   }
 
@@ -1064,7 +1063,7 @@ function inferPassTransform(
   ref: ValueInputRef,
   state: FunctionPhaseState,
   scope: Scope
-): TransformFnNames {
+): readonly TransformFnNames[] {
   // Handle FuncOutputRef — funcTable is now keyed by scoped IDs
   if (typeof ref === 'object' && ref.__type === 'funcOutput') {
     const funcEntry = getFuncFromTable(scope.funcId(ref.funcId), state.funcTable);
@@ -1074,7 +1073,7 @@ function inferPassTransform(
       const def = getCombineFuncDefFromTable(funcEntry.defId, state.combineFuncDefTable);
       if (def) {
         // Infer transform from the binary function's return type
-        return inferTransformForBinaryFn(def.name);
+        return [inferTransformForBinaryFn(def.name)];
       }
     }
 
@@ -1089,7 +1088,7 @@ function inferPassTransform(
     if (stepOutputId !== undefined) {
       const metadata = state.stepMetadata[stepOutputId];
       if (metadata?.returnType !== undefined) {
-        return getPassTransformFn(metadata.returnType);
+        return [getPassTransformFn(metadata.returnType)];
       }
     }
     throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);
@@ -1099,7 +1098,7 @@ function inferPassTransform(
   if (typeof ref === 'object' && ref.__type === 'value') {
     const value = getValueFromTable(scope.valueId(ref.id), state.valueTable);
     if (value) {
-      return getPassTransformFn(value.symbol);
+      return [getPassTransformFn(value.symbol)];
     }
     throw new Error(`Value ${ref.id} not found in valueTable`);
   }
@@ -1109,7 +1108,7 @@ function inferPassTransform(
 
   // If value exists in valueTable, use its type
   if (value) {
-    return getPassTransformFn(value.symbol);
+    return [getPassTransformFn(value.symbol)];
   }
 
   // Value should exist in table by this point in processing
@@ -1130,16 +1129,16 @@ function inferTransformForBinaryFn(binaryFnName: BinaryFnNames): TransformFnName
 
 function createCombineDefSignature(
   name: CombineBuilder['name'],
-  transformFnMap: Record<string, TransformFnNames>
+  transformFnMap: Record<string, readonly TransformFnNames[]>
 ): string {
   const transformA = transformFnMap['a'];
   const transformB = transformFnMap['b'];
-  return `${name}|a:${transformA}|b:${transformB}`;
+  return `${name}|a:${transformA?.join(',')}|b:${transformB?.join(',')}`;
 }
 
 function getOrCreateCombineDefinitionId(
   name: CombineBuilder['name'],
-  transformFnMap: Record<string, TransformFnNames>,
+  transformFnMap: Record<string, readonly TransformFnNames[]>,
   state: FunctionPhaseState
 ): CombineDefineId {
   // Validate at build time — catch unknown names before validateContext

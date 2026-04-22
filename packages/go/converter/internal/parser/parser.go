@@ -305,7 +305,8 @@ func (p *parser) parseArrayLiteral() *ast.ArrayLiteral {
 
 // parseArg parses one argument in a function call, infix expr, or pipe step.
 // Valid forms: bare ident (RefArg), literal (LitArg), { step_ref = N },
-// { func_ref = "name" }, { transform = { ref = "v", fn = "..." } }.
+// { func_ref = "name" }, { transform = { ref = "v", fn = [...] } },
+// or the DSL method-call form: receiver.method1().method2()
 func (p *parser) parseArg() ast.Arg {
 	t := p.peek()
 	switch t.Kind {
@@ -313,12 +314,35 @@ func (p *parser) parseArg() ast.Arg {
 		return p.parseBlockArg()
 	case lexer.TokIdent:
 		p.advance()
+		// Check for method-call chain: ident followed by one or more .methodName()
+		if p.peek().Kind == lexer.TokDot {
+			return p.parseMethodChain(t.Value)
+		}
 		return &ast.RefArg{Name: t.Value}
 	default:
 		// literal arg
 		lit := p.parseLiteral()
 		return &ast.LitArg{Value: lit}
 	}
+}
+
+// parseMethodChain parses `receiver.method1().method2()...` and returns a
+// MethodCallArg. The receiver ident has already been consumed.
+func (p *parser) parseMethodChain(receiver string) ast.Arg {
+	var methods []string
+	for p.peek().Kind == lexer.TokDot {
+		p.advance() // consume .
+		methodTok := p.peek()
+		if methodTok.Kind != lexer.TokIdent {
+			p.errorf(methodTok, "expected method name after '.', got %s", kindName(methodTok.Kind))
+			break
+		}
+		p.advance() // consume method name
+		p.expect(lexer.TokLParen)
+		p.expect(lexer.TokRParen)
+		methods = append(methods, methodTok.Value)
+	}
+	return &ast.MethodCallArg{Receiver: receiver, Methods: methods}
 }
 
 // parseBlockArg parses { step_ref = N }, { func_ref = "fn" }, or
@@ -346,7 +370,8 @@ func (p *parser) parseBlockArg() ast.Arg {
 		result = &ast.FuncRefArg{FnName: strTok.Value}
 	case "transform":
 		p.expect(lexer.TokLBrace)
-		var ref, fn string
+		var ref string
+		var fns []string
 		for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 			fk := p.peek()
 			if fk.Kind != lexer.TokIdent {
@@ -359,15 +384,29 @@ func (p *parser) parseBlockArg() ast.Arg {
 			case "ref":
 				ref = p.parseRefVal()
 			case "fn":
-				strTok, _ := p.expect(lexer.TokStringLit)
-				fn = strTok.Value
+				if p.peek().Kind == lexer.TokLBracket {
+					// fn = ["fn1", "fn2", ...]
+					p.advance() // consume [
+					for p.peek().Kind != lexer.TokRBracket && p.peek().Kind != lexer.TokEOF {
+						strTok, _ := p.expect(lexer.TokStringLit)
+						fns = append(fns, strTok.Value)
+						if p.peek().Kind == lexer.TokComma {
+							p.advance()
+						}
+					}
+					p.expect(lexer.TokRBracket)
+				} else {
+					// Legacy single-string form: fn = "fn1"
+					strTok, _ := p.expect(lexer.TokStringLit)
+					fns = []string{strTok.Value}
+				}
 			default:
 				p.errorf(fk, "unexpected field %q in transform arg", fk.Value)
 				p.advance()
 			}
 		}
 		p.expect(lexer.TokRBrace)
-		result = &ast.TransformArg{Ref: ref, Fn: fn}
+		result = &ast.TransformArg{Ref: ref, Fn: fns}
 		_ = open
 	default:
 		p.errorf(key, "unexpected block arg key %q; expected step_ref, func_ref, or transform", key.Value)

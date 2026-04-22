@@ -94,12 +94,12 @@ export type ValueSourceRef = ValueObjectRef | FuncOutputRef | StepOutputRef;
 export type ValueInputRef = ValueRef | ValueSourceRef;
 
 /**
- * Reference to a value with a transform applied.
+ * Reference to a value with one or more transforms applied in sequence.
  */
 export type TransformRef = {
   readonly __type: 'transform';
   readonly valueRef: ValueSourceRef;
-  readonly transformFn: TransformFnNames;
+  readonly transformFn: readonly TransformFnNames[];
 };
 
 /**

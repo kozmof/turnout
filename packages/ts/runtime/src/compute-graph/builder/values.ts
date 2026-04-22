@@ -115,9 +115,9 @@ export const ref = {
   },
 
   /**
-   * Creates a reference with a transform function applied.
+   * Creates a reference with one or more transform functions applied in sequence.
    */
-  transform(valueRef: ValueInputRef, transformFn: TransformFnNames): TransformRef {
+  transform(valueRef: ValueInputRef, transformFn: TransformFnNames | readonly TransformFnNames[]): TransformRef {
     const normalizedValueRef: ValueSourceRef =
       typeof valueRef === 'string'
         ? { __type: 'value', id: valueRef }
@@ -126,7 +126,7 @@ export const ref = {
     return {
       __type: 'transform',
       valueRef: normalizedValueRef,
-      transformFn,
+      transformFn: Array.isArray(transformFn) ? transformFn : [transformFn],
     };
   },
 };

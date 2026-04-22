@@ -260,8 +260,8 @@ func TestParseBlockArgTransform(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected TransformArg, got %T", fc.Args[0])
 	}
-	if tr.Ref != "v" || tr.Fn != "myFn" {
-		t.Errorf("transform: ref=%q fn=%q", tr.Ref, tr.Fn)
+	if tr.Ref != "v" || len(tr.Fn) != 1 || tr.Fn[0] != "myFn" {
+		t.Errorf("transform: ref=%q fn=%v", tr.Ref, tr.Fn)
 	}
 }
 

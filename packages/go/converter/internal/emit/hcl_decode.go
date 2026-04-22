@@ -547,8 +547,16 @@ func ctyToArg(v cty.Value, rng hcl.Range) (*turnoutpb.ArgModel, hcl.Diagnostics)
 		}
 		if tv.Type().HasAttribute("fn") {
 			fv := tv.GetAttr("fn")
-			if fv.Type() == cty.String {
-				ta.Fn = fv.AsString()
+			if fv.Type().IsListType() || fv.Type().IsTupleType() {
+				it := fv.ElementIterator()
+				for it.Next() {
+					_, elem := it.Element()
+					if elem.Type() == cty.String {
+						ta.Fn = append(ta.Fn, elem.AsString())
+					}
+				}
+			} else if fv.Type() == cty.String {
+				ta.Fn = []string{fv.AsString()}
 			}
 		}
 		am.Transform = ta

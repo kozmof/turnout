@@ -409,13 +409,23 @@ type StepRefArg struct{ Index int }
 
 func (*StepRefArg) arg() {}
 
-// TransformArg is `{ transform = { ref = "v", fn = "transformFn..." } }`.
+// TransformArg is `{ transform = { ref = "v", fn = ["transformFn..."] } }`.
 type TransformArg struct {
 	Ref string
-	Fn  string
+	Fn  []string
 }
 
 func (*TransformArg) arg() {}
+
+// MethodCallArg is the DSL method-call form `receiver.method1().method2()`.
+// Methods holds unqualified method names; the lowerer resolves them to fully
+// qualified transformFn names using the binding type context.
+type MethodCallArg struct {
+	Receiver string
+	Methods  []string
+}
+
+func (*MethodCallArg) arg() {}
 
 // ────────────────────────────────────────────────────────────
 // Prepare / Merge / Publish

@@ -22,10 +22,6 @@ export function executeCombineFunc(
   }
   const def = context.combineFuncDefTable[defId];
 
-  // Get transform functions (Fix 4: direct TransformFnNames, no .name wrapper)
-  const transformFnA = getTransformFn(def.transformFn.a);
-  const transformFnB = getTransformFn(def.transformFn.b);
-
   // Get binary function
   const binaryFn = getBinaryFn(def.name);
 
@@ -36,9 +32,9 @@ export function executeCombineFunc(
   const valA = context.valueTable[argAId];
   const valB = context.valueTable[argBId];
 
-  // Apply transforms and binary function
-  const transformedA = transformFnA(valA);
-  const transformedB = transformFnB(valB);
+  // Apply the transform chain for each arg: each fn in the array is applied in order.
+  const transformedA = def.transformFn.a.reduce((v, fn) => getTransformFn(fn)(v), valA);
+  const transformedB = def.transformFn.b.reduce((v, fn) => getTransformFn(fn)(v), valB);
   const result = binaryFn(transformedA, transformedB);
 
   // Return result with updated value table (immutable update)

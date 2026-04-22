@@ -984,7 +984,7 @@ func (x *ArgModel) GetTransform() *TransformArg {
 type TransformArg struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Ref           string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
-	Fn            string                 `protobuf:"bytes,2,opt,name=fn,proto3" json:"fn,omitempty"`
+	Fn            []string               `protobuf:"bytes,2,rep,name=fn,proto3" json:"fn,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1026,11 +1026,11 @@ func (x *TransformArg) GetRef() string {
 	return ""
 }
 
-func (x *TransformArg) GetFn() string {
+func (x *TransformArg) GetFn() []string {
 	if x != nil {
 		return x.Fn
 	}
-	return ""
+	return nil
 }
 
 type PrepareEntry struct {
@@ -1515,7 +1515,7 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\t_step_ref\"0\n" +
 	"\fTransformArg\x12\x10\n" +
 	"\x03ref\x18\x01 \x01(\tR\x03ref\x12\x0e\n" +
-	"\x02fn\x18\x02 \x01(\tR\x02fn\"\x8b\x01\n" +
+	"\x02fn\x18\x02 \x03(\tR\x02fn\"\x8b\x01\n" +
 	"\fPrepareEntry\x12\x18\n" +
 	"\abinding\x18\x01 \x01(\tR\abinding\x12\"\n" +
 	"\n" +

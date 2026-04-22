@@ -159,8 +159,8 @@ func TestLowerArgTransform(t *testing.T) {
 	if step.Args[0].Transform.Ref != "x" {
 		t.Errorf("transform.ref = %q, want x", step.Args[0].Transform.Ref)
 	}
-	if step.Args[0].Transform.Fn != "doThing" {
-		t.Errorf("transform.fn = %q, want doThing", step.Args[0].Transform.Fn)
+	if len(step.Args[0].Transform.Fn) != 1 || step.Args[0].Transform.Fn[0] != "doThing" {
+		t.Errorf("transform.fn = %v, want [doThing]", step.Args[0].Transform.Fn)
 	}
 }
 

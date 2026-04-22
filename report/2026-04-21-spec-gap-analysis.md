@@ -12,7 +12,7 @@ Four gaps identified. The core computation pipeline, state management, route rou
 |---|-----|------|----------|--------|
 | 1 | Publish hooks never invoked in action executor | `hook-spec.md §3`, `scene-graph.md §7` | **Critical** | ✅ Fixed 2026-04-22 |
 | 2 | Hook context API doesn't match spec | `hook-spec.md §3.1` | **Medium** | ✅ Fixed 2026-04-22 |
-| 3 | TransformFn DSL method-call syntax not in Go converter | `transform-fn-dsl-spec.md` | **Medium** | Open |
+| 3 | TransformFn DSL method-call syntax not in Go converter | `transform-fn-dsl-spec.md` | **Medium** | ✅ Fixed 2026-04-22 |
 | 4 | `string.toNumber()` uses `parseInt` (truncates decimals) | `transform-fn-dsl-spec.md §CAN'T` | **Low** | Open |
 
 ---
@@ -72,7 +72,7 @@ Replaced `HookContext`/`HookHandler` in `harness-types.ts` with the spec-complia
 
 ---
 
-## GAP 3 — TransformFn DSL method-call syntax not in Go converter (Medium)
+## GAP 3 — TransformFn DSL method-call syntax not in Go converter ✅ Fixed 2026-04-22
 
 **Spec reference**: `transform-fn-dsl-spec.md`
 
@@ -83,14 +83,31 @@ income.toStr()
 name.trim().toUpperCase()
 score.abs().toStr()
 ```
-The Go converter must parse this syntax and lower it to `{ transform = { ref = "...", fn = "transformFn..." } }` in canonical HCL.
+The Go converter must parse this syntax and lower it to `{ transform = { ref = "...", fn = [...] } }` in canonical HCL, with the chain encoded as an ordered list.
 
-**What the code has**:
+**What the code had**:
 - All runtime `transformFn` implementations exist in `packages/ts/runtime/src/state-control/preset-funcs/` (number: `toStr`, `abs`, `floor`, `ceil`, `round`, `negate`; string: `toNumber`, `trim`, `toLowerCase`, `toUpperCase`, `length`; boolean: `not`, `toStr`; array: `length`, `isEmpty`).
 - `packages/ts/scene-runner/src/executor/hcl-context-builder.ts` handles the `{ transform = { ref, fn } }` HCL block form at runtime.
-- The Go converter lexer/parser/lowerer has **no support** for dot-method-call syntax. There is no tokenisation of `.methodName()` chains and no lowering rule for them.
+- The Go converter lexer/parser/lowerer had **no support** for dot-method-call syntax.
+- The TS runtime `binaryFunc` accepted only a single `transformFn` per argument, making chains impossible.
 
-**Impact**: Authors cannot use the method-call DSL syntax. They must write raw `{ transform = { ref = "v" fn = "transformFnNumber::toStr" } }` block forms directly, which the spec explicitly says is the internal representation, not the authoring syntax.
+**Fix**:
+
+*Proto / generated files* (`schema/turnout-model.proto`, `turnout-model.pb.go`, `turnout-model_pb.ts`):
+Changed `string fn` → `repeated string fn` in `TransformArg` so the wire format carries an ordered list.
+
+*TS runtime* (`packages/ts/runtime`):
+- `CombineFuncDefTable.transformFn.{a,b}`: changed from `TransformFnNames` to `readonly TransformFnNames[]`.
+- `builder/context.ts`, `builder/types.ts`, `builder/values.ts`: propagated array type throughout; `ref.transform()` accepts either a single name or an array.
+- `executeCombineFunc.ts`: replaced single-apply with `reduce` to chain transforms in order.
+- `validateContext.ts`: updated to validate arrays — input type checked against first fn, output type checked against last fn.
+
+*Go converter* (`packages/go/converter`):
+- `ast.go`: added `MethodCallArg{Receiver, Methods}` node; changed `TransformArg.Fn` to `[]string`.
+- `parser.go`: extended `parseArg` to detect `ident.method()...` chains and call `parseMethodChain`; updated `parseBlockArg` to handle the new `fn = [...]` list form (with legacy single-string backward compat).
+- `lower.go`: added `methodTable` (15 entries mapping DSL method names to qualified `transformFn::name` strings per type), `lookupMethod`, `lowerMethodCallArg`; threading `bindingTypes` context through all lowering functions so method names can be qualified correctly.
+- `emit.go`: changed transform serialisation from `fn = "x"` to `fn = ["x", ...]`.
+- `hcl_decode.go`: updated `fn` decoding to handle both list and legacy single-string forms.
 
 ---
 

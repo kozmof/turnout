@@ -83,7 +83,7 @@ func TestEmitArgTransform(t *testing.T) {
 										Combine: &lower.HCLCombine{
 											Fn: "add",
 											Args: []*lower.HCLArg{
-												{Transform: &lower.HCLTransform{Ref: "x", Fn: "myTransform"}},
+												{Transform: &lower.HCLTransform{Ref: "x", Fn: []string{"myTransform"}}},
 												{Lit: &ast.NumberLiteral{Value: 0}},
 											},
 										},
@@ -100,7 +100,7 @@ func TestEmitArgTransform(t *testing.T) {
 	if !strings.Contains(out, `transform = { ref = "x"`) {
 		t.Errorf("missing transform arg in output:\n%s", out)
 	}
-	if !strings.Contains(out, `fn = "myTransform"`) {
+	if !strings.Contains(out, `fn = ["myTransform"]`) {
 		t.Errorf("missing transform fn in output:\n%s", out)
 	}
 	// Also covers lit branch (NumberLiteral 0 as second arg)
@@ -393,7 +393,7 @@ func TestEmitJSONArgTransform(t *testing.T) {
 										Combine: &lower.HCLCombine{
 											Fn: "add",
 											Args: []*lower.HCLArg{
-												{Transform: &lower.HCLTransform{Ref: "v", Fn: "myFn"}},
+												{Transform: &lower.HCLTransform{Ref: "v", Fn: []string{"myFn"}}},
 												{Lit: &ast.NumberLiteral{Value: 0}},
 											},
 										},

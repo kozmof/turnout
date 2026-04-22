@@ -780,13 +780,13 @@ function validateCombineFuncTypes(
   const argMap =
     "argMap" in funcEntry && isRecord(funcEntry.argMap) ? funcEntry.argMap : {};
 
-  // Validate each argument (Fix 4: transformFn values are strings directly)
-  for (const [argName, tfn] of Object.entries(transformFn)) {
-    if (!isStringAs<TransformFnNames>(tfn)) {
-      continue;
-    }
+  // Validate each argument: input type must match first fn in chain
+  for (const [argName, fns] of Object.entries(transformFn)) {
+    if (!Array.isArray(fns) || fns.length === 0) continue;
+    const firstFn = fns[0];
+    if (!isStringAs<TransformFnNames>(firstFn)) continue;
 
-    const transformFnName = tfn;
+    const transformFnName = firstFn;
     const expectedType = getTransformFnInputType(transformFnName);
 
     const argId = argMap[argName];
@@ -872,9 +872,9 @@ function validateCombineDefEntry(
 
   const transformFn = entry.transformFn;
 
-  // Fix 4: transformFn.a and .b are now TransformFnNames strings directly (no { name } wrapper)
+  // transformFn.a and .b are arrays of TransformFnNames (chain applied in order)
   for (const key of ["a", "b"]) {
-    if (!(key in transformFn) || typeof transformFn[key] !== "string") {
+    if (!(key in transformFn) || !Array.isArray(transformFn[key])) {
       state.errors.push({
         message: `CombineFuncDefTable[${defId}]: Missing transform function '${key}'`,
         details: { defId },
@@ -882,23 +882,25 @@ function validateCombineDefEntry(
       continue;
     }
 
-    const transformFnName = transformFn[key] as string;
-    if (!isStringAs<TransformFnNames>(transformFnName)) {
-      state.errors.push({
-        message: `CombineFuncDefTable[${defId}]: Transform function '${key}' missing name`,
-        details: { defId },
-      });
-      continue;
-    }
+    const fns = transformFn[key] as unknown[];
+    for (const transformFnName of fns) {
+      if (!isStringAs<TransformFnNames>(transformFnName)) {
+        state.errors.push({
+          message: `CombineFuncDefTable[${defId}]: Transform function '${key}' has invalid entry`,
+          details: { defId },
+        });
+        continue;
+      }
 
-    const inputType = getTransformFnInputType(transformFnName);
-    const returnType = getTransformFnReturnType(transformFnName);
+      const inputType = getTransformFnInputType(transformFnName);
+      const returnType = getTransformFnReturnType(transformFnName);
 
-    if (!inputType || !returnType) {
-      state.errors.push({
-        message: `CombineFuncDefTable[${defId}].transformFn.${key}: Invalid or unknown transform function "${transformFnName}"`,
-        details: { defId, transformFn: transformFnName },
-      });
+      if (!inputType || !returnType) {
+        state.errors.push({
+          message: `CombineFuncDefTable[${defId}].transformFn.${key}: Invalid or unknown transform function "${transformFnName}"`,
+          details: { defId, transformFn: transformFnName },
+        });
+      }
     }
   }
 
@@ -935,37 +937,43 @@ function validateBinaryFnCompatibility(
 
   const [expectedParamA, expectedParamB] = paramTypes;
 
-  // Check transform 'a' (Fix 4: direct string, no { name } wrapper)
-  if ("a" in transformFn && isStringAs<TransformFnNames>(transformFn.a)) {
-    const returnType = getTransformFnReturnType(transformFn.a);
-    if (returnType && returnType !== expectedParamA) {
-      state.errors.push({
-        message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
-        details: {
-          defId,
-          transformFn: transformFn.a,
-          transformReturnType: returnType,
-          binaryFn: binaryFnName,
-          expectedType: expectedParamA,
-        },
-      });
+  // Check transform 'a': binary fn input must match return type of last fn in chain
+  if ("a" in transformFn && Array.isArray(transformFn.a) && transformFn.a.length > 0) {
+    const lastFn = transformFn.a[transformFn.a.length - 1];
+    if (isStringAs<TransformFnNames>(lastFn)) {
+      const returnType = getTransformFnReturnType(lastFn);
+      if (returnType && returnType !== expectedParamA) {
+        state.errors.push({
+          message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
+          details: {
+            defId,
+            transformFn: lastFn,
+            transformReturnType: returnType,
+            binaryFn: binaryFnName,
+            expectedType: expectedParamA,
+          },
+        });
+      }
     }
   }
 
-  // Check transform 'b' (Fix 4: direct string, no { name } wrapper)
-  if ("b" in transformFn && isStringAs<TransformFnNames>(transformFn.b)) {
-    const returnType = getTransformFnReturnType(transformFn.b);
-    if (returnType && returnType !== expectedParamB) {
-      state.errors.push({
-        message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
-        details: {
-          defId,
-          transformFn: transformFn.b,
-          transformReturnType: returnType,
-          binaryFn: binaryFnName,
-          expectedType: expectedParamB,
-        },
-      });
+  // Check transform 'b': binary fn input must match return type of last fn in chain
+  if ("b" in transformFn && Array.isArray(transformFn.b) && transformFn.b.length > 0) {
+    const lastFn = transformFn.b[transformFn.b.length - 1];
+    if (isStringAs<TransformFnNames>(lastFn)) {
+      const returnType = getTransformFnReturnType(lastFn);
+      if (returnType && returnType !== expectedParamB) {
+        state.errors.push({
+          message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
+          details: {
+            defId,
+            transformFn: lastFn,
+            transformReturnType: returnType,
+            binaryFn: binaryFnName,
+            expectedType: expectedParamB,
+          },
+        });
+      }
     }
   }
 }

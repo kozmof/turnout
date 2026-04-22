@@ -169,10 +169,10 @@ type HCLArg struct {
 	Transform *HCLTransform // { transform = { ref fn } }
 }
 
-// HCLTransform corresponds to `transform = { ref = "v" fn = "transformFn..." }`.
+// HCLTransform corresponds to `transform = { ref = "v" fn = ["transformFn..."] }`.
 type HCLTransform struct {
 	Ref string
-	Fn  string
+	Fn  []string
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -533,12 +533,17 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.Diag
 	if prog == nil {
 		return nil
 	}
+	// Build a binding type map so method-chain args can be resolved.
+	bindingTypes := make(map[string]string, len(prog.Bindings))
+	for _, decl := range prog.Bindings {
+		bindingTypes[decl.Name] = fieldTypeToMethodType(decl.Type)
+	}
 	result := &HCLProg{
 		Name:     prog.Name,
 		Bindings: make([]*HCLBinding, 0, len(prog.Bindings)),
 	}
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, ds)
+		bindings := lowerBinding(decl, resolver, ds, bindingTypes)
 		result.Bindings = append(result.Bindings, bindings...)
 	}
 	return result
@@ -548,7 +553,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.Diag
 // Returns two bindings for #if with an inline CondExprCall (auto-generated
 // __if_<name>_cond binding is inserted before the main binding).
 // Sigil is carried through to HCLBinding so the validator can check sigil rules.
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, ds *diag.Diagnostics) []*HCLBinding {
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, ds *diag.Diagnostics, bindingTypes map[string]string) []*HCLBinding {
 	name := decl.Name // sigil already stripped by parser
 	ft := decl.Type
 
@@ -561,15 +566,15 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, ds *diag.Diag
 	case *ast.SingleRefRHS:
 		bindings = []*HCLBinding{lowerSingleRefRHS(name, ft, rhs)}
 	case *ast.FuncCallRHS:
-		bindings = []*HCLBinding{lowerFuncCallRHS(name, ft, rhs)}
+		bindings = []*HCLBinding{lowerFuncCallRHS(name, ft, rhs, bindingTypes)}
 	case *ast.InfixRHS:
-		bindings = []*HCLBinding{lowerInfixRHS(name, ft, rhs)}
+		bindings = []*HCLBinding{lowerInfixRHS(name, ft, rhs, bindingTypes)}
 	case *ast.PipeRHS:
-		bindings = []*HCLBinding{lowerPipeRHS(name, ft, rhs)}
+		bindings = []*HCLBinding{lowerPipeRHS(name, ft, rhs, bindingTypes)}
 	case *ast.CondRHS:
 		bindings = []*HCLBinding{lowerCondRHS(name, ft, rhs)}
 	case *ast.IfRHS:
-		bindings = lowerIfRHS(name, ft, rhs, ds)
+		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
 	default:
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
@@ -628,20 +633,20 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *HC
 	}
 }
 
-func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS) *HCLBinding {
+func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]string) *HCLBinding {
 	return &HCLBinding{
 		Name: name,
 		Type: ft,
 		Expr: &HCLExpr{Combine: &HCLCombine{
 			Fn:   rhs.FnAlias,
-			Args: lowerArgs(rhs.Args),
+			Args: lowerArgsWithTypes(rhs.Args, bindingTypes),
 		}},
 	}
 }
 
 // lowerInfixRHS lowers `name:type = lhs OP rhs` to a combine.
 // InfixPlus is type-dispatched: number → "add", str → "str_concat".
-func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS) *HCLBinding {
+func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]string) *HCLBinding {
 	fn := rhs.Op.FnAlias()
 	if fn == "" { // InfixPlus
 		if ft == ast.FieldTypeStr {
@@ -655,12 +660,12 @@ func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS) *HCLBinding
 		Type: ft,
 		Expr: &HCLExpr{Combine: &HCLCombine{
 			Fn:   fn,
-			Args: []*HCLArg{lowerArg(rhs.LHS), lowerArg(rhs.RHS)},
+			Args: []*HCLArg{lowerArgWithTypes(rhs.LHS, bindingTypes), lowerArgWithTypes(rhs.RHS, bindingTypes)},
 		}},
 	}
 }
 
-func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS) *HCLBinding {
+func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS, bindingTypes map[string]string) *HCLBinding {
 	params := make([]*HCLPipeParam, 0, len(rhs.Params))
 	for _, p := range rhs.Params {
 		params = append(params, &HCLPipeParam{
@@ -672,7 +677,7 @@ func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS) *HCLBinding {
 	for _, s := range rhs.Steps {
 		steps = append(steps, &HCLPipeStep{
 			Fn:   s.FnAlias,
-			Args: lowerArgs(s.Args),
+			Args: lowerArgsWithTypes(s.Args, bindingTypes),
 		})
 	}
 	return &HCLBinding{
@@ -702,7 +707,7 @@ func lowerCondRHS(name string, ft ast.FieldType, rhs *ast.CondRHS) *HCLBinding {
 //   - CondExprRef: equivalent to CondRHS (one binding returned).
 //   - CondExprCall: auto-generates __if_<name>_cond binding (two bindings returned,
 //     generated binding first so it precedes the cond in the prog).
-func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnostics) []*HCLBinding {
+func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnostics, bindingTypes map[string]string) []*HCLBinding {
 	switch cond := rhs.Cond.(type) {
 	case *ast.CondExprRef:
 		return []*HCLBinding{{
@@ -722,7 +727,7 @@ func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnost
 			Type: ast.FieldTypeBool,
 			Expr: &HCLExpr{Combine: &HCLCombine{
 				Fn:   cond.FnAlias,
-				Args: lowerArgs(cond.Args),
+				Args: lowerArgsWithTypes(cond.Args, bindingTypes),
 			}},
 		}
 		mainBinding := &HCLBinding{
@@ -747,7 +752,102 @@ func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnost
 // Arg lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
+// fieldTypeToMethodType converts an ast.FieldType to the type string used in the
+// method lookup table ("number", "string", "boolean", "array").
+func fieldTypeToMethodType(ft ast.FieldType) string {
+	switch ft {
+	case ast.FieldTypeNumber:
+		return "number"
+	case ast.FieldTypeStr:
+		return "string"
+	case ast.FieldTypeBool:
+		return "boolean"
+	default: // arr<number>, arr<str>, arr<bool>
+		return "array"
+	}
+}
+
+// methodTable maps unqualified DSL method names to their fully qualified transformFn
+// name and the output type produced (used to resolve subsequent chain steps).
+// Methods that are unique across all types are resolved without type context.
+// Ambiguous methods (toStr, length) are resolved using the input type.
+type methodEntry struct {
+	inputType  string // "number", "string", "boolean", "array"
+	outputType string
+	qualName   string
+}
+
+var methodTable = []methodEntry{
+	// number
+	{"number", "string", "transformFnNumber::toStr"},
+	{"number", "number", "transformFnNumber::abs"},
+	{"number", "number", "transformFnNumber::floor"},
+	{"number", "number", "transformFnNumber::ceil"},
+	{"number", "number", "transformFnNumber::round"},
+	{"number", "number", "transformFnNumber::negate"},
+	// string
+	{"string", "number", "transformFnString::toNumber"},
+	{"string", "string", "transformFnString::trim"},
+	{"string", "string", "transformFnString::toLowerCase"},
+	{"string", "string", "transformFnString::toUpperCase"},
+	{"string", "number", "transformFnString::length"},
+	// boolean
+	{"boolean", "boolean", "transformFnBoolean::not"},
+	{"boolean", "string", "transformFnBoolean::toStr"},
+	// array
+	{"array", "number", "transformFnArray::length"},
+	{"array", "boolean", "transformFnArray::isEmpty"},
+}
+
+// lookupMethod finds the qualified transformFn name for a DSL method given the
+// receiver's current type. Returns the qualified name and the output type.
+func lookupMethod(method, inputType string) (qualName, outputType string, ok bool) {
+	for _, e := range methodTable {
+		if e.inputType == inputType && methodBaseName(e.qualName) == method {
+			return e.qualName, e.outputType, true
+		}
+	}
+	return "", "", false
+}
+
+// methodBaseName extracts the method name from a qualified transformFn name
+// (e.g. "transformFnNumber::toStr" → "toStr").
+func methodBaseName(qualName string) string {
+	if i := strings.Index(qualName, "::"); i >= 0 {
+		return qualName[i+2:]
+	}
+	return qualName
+}
+
+// lowerMethodCallArg resolves a MethodCallArg to a HCLArg{Transform} using the
+// binding type map to qualify method names. Returns a plain RefArg if the chain
+// cannot be resolved (e.g. unknown binding).
+func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]string) *HCLArg {
+	receiverType, ok := bindingTypes[a.Receiver]
+	if !ok {
+		// Unknown receiver — emit as a plain ref and let validation catch it.
+		return &HCLArg{Ref: a.Receiver}
+	}
+
+	fns := make([]string, 0, len(a.Methods))
+	currentType := receiverType
+	for _, method := range a.Methods {
+		qual, outType, found := lookupMethod(method, currentType)
+		if !found {
+			// Unknown method — emit as plain ref; validator will diagnose.
+			return &HCLArg{Ref: a.Receiver}
+		}
+		fns = append(fns, qual)
+		currentType = outType
+	}
+	return &HCLArg{Transform: &HCLTransform{Ref: a.Receiver, Fn: fns}}
+}
+
 func lowerArg(arg ast.Arg) *HCLArg {
+	return lowerArgWithTypes(arg, nil)
+}
+
+func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]string) *HCLArg {
 	switch a := arg.(type) {
 	case *ast.RefArg:
 		return &HCLArg{Ref: a.Name}
@@ -759,15 +859,21 @@ func lowerArg(arg ast.Arg) *HCLArg {
 		return &HCLArg{StepRef: a.Index, IsStepRef: true}
 	case *ast.TransformArg:
 		return &HCLArg{Transform: &HCLTransform{Ref: a.Ref, Fn: a.Fn}}
+	case *ast.MethodCallArg:
+		return lowerMethodCallArg(a, bindingTypes)
 	default:
 		return &HCLArg{}
 	}
 }
 
 func lowerArgs(args []ast.Arg) []*HCLArg {
+	return lowerArgsWithTypes(args, nil)
+}
+
+func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]string) []*HCLArg {
 	result := make([]*HCLArg, len(args))
 	for i, a := range args {
-		result[i] = lowerArg(a)
+		result[i] = lowerArgWithTypes(a, bindingTypes)
 	}
 	return result
 }
