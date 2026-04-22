@@ -8,35 +8,31 @@
 
 Four gaps identified. The core computation pipeline, state management, route routing, effect DSL sigils, and HCL lowering are all well-aligned with their respective specs. The gaps are concentrated in the hook system and the TransformFn DSL surface syntax.
 
-| # | Gap | Spec | Severity |
-|---|-----|------|----------|
-| 1 | Publish hooks never invoked in action executor | `hook-spec.md §3`, `scene-graph.md §7` | **Critical** |
-| 2 | Hook context API doesn't match spec | `hook-spec.md §3.1` | **Medium** |
-| 3 | TransformFn DSL method-call syntax not in Go converter | `transform-fn-dsl-spec.md` | **Medium** |
-| 4 | `string.toNumber()` uses `parseInt` (truncates decimals) | `transform-fn-dsl-spec.md §CAN'T` | **Low** |
+| # | Gap | Spec | Severity | Status |
+|---|-----|------|----------|--------|
+| 1 | Publish hooks never invoked in action executor | `hook-spec.md §3`, `scene-graph.md §7` | **Critical** | ✅ Fixed 2026-04-22 |
+| 2 | Hook context API doesn't match spec | `hook-spec.md §3.1` | **Medium** | ✅ Fixed 2026-04-22 |
+| 3 | TransformFn DSL method-call syntax not in Go converter | `transform-fn-dsl-spec.md` | **Medium** | Open |
+| 4 | `string.toNumber()` uses `parseInt` (truncates decimals) | `transform-fn-dsl-spec.md §CAN'T` | **Low** | Open |
 
 ---
 
-## GAP 1 — Publish hooks are not invoked (Critical)
+## GAP 1 — Publish hooks are not invoked ✅ Fixed 2026-04-22
 
 **Spec references**: `hook-spec.md §3`, `hook-spec.md §1.4`, `scene-graph.md §7 step 7`, `convert-runtime-spec.md Phase 2`
 
 **What the spec requires**:
 After the merge step completes, all hooks listed in `action.publish` must fire in declaration order, each receiving the complete final action state (read-only). Return values are ignored.
 
-**What the code does**:
-`packages/ts/scene-runner/src/executor/action-executor.ts` performs five steps — prepare, build context, execute graph, extract bindings, apply merge — then returns. Step 6 (publish hooks) is entirely absent. `ActionModel.publish: string[]` is populated from the protobuf model but never read by the executor.
+**What the code did**:
+`packages/ts/scene-runner/src/executor/action-executor.ts` performed five steps — prepare, build context, execute graph, extract bindings, apply merge — then returned. Step 6 (publish hooks) was entirely absent. `ActionModel.publish: string[]` was populated from the protobuf model but never read by the executor.
 
-**Affected files**:
-- `packages/ts/scene-runner/src/executor/action-executor.ts` — missing publish invocation
-- `packages/ts/scene-runner/src/types/harness-types.ts` — no publish hook type defined
-
-**Required change**:
-After the merge loop in `executeAction`, iterate `action.publish` and invoke each named hook from the registry with the final merged state. A skipped (unregistered) hook must be silently ignored.
+**Fix**:
+Added Step 6 to `executeAction` in `action-executor.ts`: after the merge loop, iterates `action.publish` and invokes each named hook from the registry with the final merged state snapshot via `PublishHookContext`. Unregistered hooks are silently skipped.
 
 ---
 
-## GAP 2 — Hook context API doesn't match spec (Medium)
+## GAP 2 — Hook context API doesn't match spec ✅ Fixed 2026-04-22
 
 **Spec reference**: `hook-spec.md §3.1`
 
@@ -58,7 +54,7 @@ type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Pr
 type PublishHookImpl = (ctx: PublishHookContext) => void | Promise<void>;
 ```
 
-**What the code has** (`packages/ts/scene-runner/src/types/harness-types.ts`):
+**What the code had** (`packages/ts/scene-runner/src/types/harness-types.ts`):
 ```typescript
 type HookContext = {
   readState: (path: string) => AnyValue | undefined;
@@ -67,9 +63,12 @@ type HookHandler = (ctx: HookContext) => Record<string, AnyValue>;
 ```
 
 **Specific mismatches**:
-- `actionId` and `hookName` are absent from the context object
-- `readState(path)` reads STATE dotted-paths; spec's `get(binding)` reads action-local binding values by name (not STATE paths)
-- Single `HookHandler` type covers both prepare and publish; spec requires distinct `PrepareHookImpl` (returns object) and `PublishHookImpl` (returns void)
+- `actionId` and `hookName` were absent from the context object
+- `readState(path)` read STATE dotted-paths; spec's `get(binding)` reads action-local binding values by name (not STATE paths)
+- Single `HookHandler` type covered both prepare and publish; spec requires distinct `PrepareHookImpl` (returns object) and `PublishHookImpl` (returns void)
+
+**Fix**:
+Replaced `HookContext`/`HookHandler` in `harness-types.ts` with the spec-compliant `PrepareHookContext`, `PublishHookContext`, `PrepareHookImpl`, `PublishHookImpl`, and `HookImpl` union. Updated `prepare-resolver.ts` to pass `actionId` and build a correct `PrepareHookContext` where `get(binding)` reads from the bindings already resolved earlier in the same prepare pass. Updated `runner.ts` `useHook` signature and `index.ts` public exports accordingly.
 
 ---
 

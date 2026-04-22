@@ -3,7 +3,7 @@ import type { AnyValue } from 'runtime';
 import type { PrepareEntry, NextPrepareEntry } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
-import type { HookRegistry } from '../types/harness-types.js';
+import type { HookRegistry, PrepareHookContext, PrepareHookImpl } from '../types/harness-types.js';
 import type { ActionExecutionResult } from './types.js';
 
 /**
@@ -17,6 +17,7 @@ export function resolveActionPrepare(
   entries: PrepareEntry[],
   state: StateManager,
   hooks: HookRegistry,
+  actionId: string,
 ): Record<string, AnyValue> {
   const result: Record<string, AnyValue> = {};
   const hookCache: Record<string, Record<string, AnyValue>> = {};
@@ -31,7 +32,13 @@ export function resolveActionPrepare(
         result[entry.binding] = buildNull('missing');
       } else {
         if (!hookCache[hookName]) {
-          hookCache[hookName] = hook({ readState: (p) => state.read(p) });
+          const ctx: PrepareHookContext = {
+            actionId,
+            hookName,
+            get: (binding) => result[binding],
+          };
+          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+          hookCache[hookName] = (hook as PrepareHookImpl)(ctx) as Record<string, AnyValue>;
         }
         result[entry.binding] = hookCache[hookName][entry.binding] ?? buildNull('missing');
       }

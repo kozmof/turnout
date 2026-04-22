@@ -109,17 +109,11 @@ One nice property is that compute-graph validation is separated from orchestrati
 
 ### Pitfalls and design gaps
 
-#### 1. `publish` hooks are modeled but not executed
+#### ~~1. `publish` hooks are modeled but not executed~~ ✅ Fixed 2026-04-22
 
-The specs describe a `prepare -> compute -> merge -> publish` lifecycle, and the protobuf model includes `publish` on actions, but the current runtime action executor stops after merge and returns.
+~~The specs describe a `prepare -> compute -> merge -> publish` lifecycle, and the protobuf model includes `publish` on actions, but the current runtime action executor stops after merge and returns.~~
 
-Relevant files:
-
-- `packages/ts/scene-runner/src/executor/action-executor.ts`
-- `packages/ts/scene-runner/src/types/harness-types.ts`
-- `schema/turnout-model.proto`
-
-This is the largest behavior gap between the stated lifecycle and the implemented runtime.
+`executeAction` in `action-executor.ts` now runs a Step 6 that iterates `action.publish` and invokes each named hook with a `PublishHookContext` (carrying `actionId`, `hookName`, and `state()` returning the post-merge snapshot). Unregistered hooks are silently skipped per spec.
 
 #### 2. Action `text` is preserved in HCL but dropped in JSON/runtime
 
@@ -185,14 +179,14 @@ Relevant file:
 
 ### Types and interfaces
 
-- Split hook interfaces by phase: prepare hooks returning binding maps versus publish hooks receiving final state read-only.
+- ~~Split hook interfaces by phase: prepare hooks returning binding maps versus publish hooks receiving final state read-only.~~ ✅ Done 2026-04-22
 - Promote behavior-critical lifecycle fields into the shared proto whenever they are intended to survive JSON conversion.
 
 ### Implementations
 
 - ~~Teach the Go converter to represent multiple scenes if route-oriented authoring is a first-class goal.~~ ✅ Fixed 2026-03-23
 - ~~Add compile-time enforcement of `view` flow overview against the action graph.~~ ✅ Fixed 2026-03-24 — all three modes (`nodes_only`, `at_least`, `strict`) now validated in the compiler.
-- Add runtime publish-hook execution after merge.
+- ~~Add runtime publish-hook execution after merge.~~ ✅ Done 2026-04-22
 - Add `view` to `turnout-model.proto` and propagate it to the TS runtime for runtime overview enforcement.
 - Return or collect writer errors in the HCL emitter.
 

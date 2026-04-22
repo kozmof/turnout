@@ -5,13 +5,25 @@ import type { TurnModel } from './turnout-model_pb.js';
 // Hook registry
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type HookContext = {
-  readState: (path: string) => AnyValue | undefined;
-};
+export interface PrepareHookContext {
+  readonly actionId: string;
+  readonly hookName: string;
+  /** Read the value of a binding already resolved via from_state in this prepare pass. */
+  get(binding: string): unknown;
+}
 
-export type HookHandler = (ctx: HookContext) => Record<string, AnyValue>;
+export interface PublishHookContext {
+  readonly actionId: string;
+  readonly hookName: string;
+  /** Read the complete final state snapshot after merge. */
+  state(): Record<string, unknown>;
+}
 
-export type HookRegistry = Record<string, HookHandler>;
+export type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Promise<Record<string, unknown>>;
+export type PublishHookImpl  = (ctx: PublishHookContext) => void | Promise<void>;
+export type HookImpl         = PrepareHookImpl | PublishHookImpl;
+
+export type HookRegistry = Record<string, HookImpl>;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Harness options — universal (client + server)

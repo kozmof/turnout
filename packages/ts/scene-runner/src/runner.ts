@@ -2,7 +2,7 @@ import type { AnyValue } from 'runtime';
 import type { TurnModel } from './types/turnout-model_pb.js';
 import type {
   HookRegistry,
-  HookHandler,
+  HookImpl,
   HarnessResult,
   ActionTrace,
   SceneTrace,
@@ -56,7 +56,7 @@ export type Runner = {
    * Can be called before or between steps — mutations are picked up immediately.
    * Returns the runner for chaining.
    */
-  useHook(name: string, handler: HookHandler): Runner;
+  useHook(name: string, handler: HookImpl): Runner;
   /** True when all actions have completed (scene or route finished). */
   isDone(): boolean;
   /**

@@ -29,6 +29,7 @@ describe('resolveActionPrepare', () => {
       [{ binding: 'query', fromState: 'request.query' }],
       state,
       {},
+      'test_action',
     );
     expect(isPureString(result['query']!) && result['query'].value).toBe('hello');
   });
@@ -39,6 +40,7 @@ describe('resolveActionPrepare', () => {
       [{ binding: 'missing_val', fromState: 'no.such.path' }],
       state,
       {},
+      'test_action',
     );
     const val = result['missing_val'];
     expect(isPureNull(val!)).toBe(true);
@@ -53,21 +55,36 @@ describe('resolveActionPrepare', () => {
       [{ binding: 'foo', fromHook: 'my_hook' }],
       state,
       hooks,
+      'test_action',
     );
     expect(isPureNumber(result['foo']!) && result['foo'].value).toBe(42);
   });
 
-  it('from_hook passes a readState function to the hook', () => {
+  it('from_hook passes PrepareHookContext with actionId, hookName, and get()', () => {
     const state = StateManager.from({ 'a.x': buildNumber(7) });
-    let capturedValue: unknown;
+    let capturedActionId: string | undefined;
+    let capturedHookName: string | undefined;
+    let capturedGetResult: unknown;
     const hooks: HookRegistry = {
       my_hook: (ctx) => {
-        capturedValue = ctx.readState('a.x');
+        capturedActionId = ctx.actionId;
+        capturedHookName = ctx.hookName;
+        capturedGetResult = ctx.get('x_val'); // reads the binding resolved via from_state above
         return { bar: buildString('from_hook') };
       },
     };
-    resolveActionPrepare([{ binding: 'bar', fromHook: 'my_hook' }], state, hooks);
-    expect(isPureNumber(capturedValue as never) && (capturedValue as { value: number }).value).toBe(7);
+    resolveActionPrepare(
+      [
+        { binding: 'x_val', fromState: 'a.x' }, // resolved first
+        { binding: 'bar', fromHook: 'my_hook' }, // hook reads x_val via ctx.get()
+      ],
+      state,
+      hooks,
+      'action_42',
+    );
+    expect(capturedActionId).toBe('action_42');
+    expect(capturedHookName).toBe('my_hook');
+    expect(isPureNumber(capturedGetResult as never) && (capturedGetResult as { value: number }).value).toBe(7);
   });
 
   it('from_hook returns buildNull("missing") if the hook is not registered', () => {
@@ -76,6 +93,7 @@ describe('resolveActionPrepare', () => {
       [{ binding: 'foo', fromHook: 'nonexistent_hook' }],
       state,
       {},
+      'test_action',
     );
     expect(isPureNull(result['foo']!)).toBe(true);
   });
@@ -92,6 +110,7 @@ describe('resolveActionPrepare', () => {
       ],
       state,
       {},
+      'test_action',
     );
     expect(isPureNumber(result['x_val']!) && result['x_val'].value).toBe(1);
     expect(isPureString(result['y_val']!) && result['y_val'].value).toBe('two');

@@ -2,7 +2,7 @@ import { executeGraph, assertValidContext, buildNull } from 'runtime';
 import type { AnyValue, FuncId } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
-import type { HookRegistry } from '../types/harness-types.js';
+import type { HookRegistry, PublishHookContext, PublishHookImpl } from '../types/harness-types.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
 import { resolveActionPrepare } from './prepare-resolver.js';
 import type { ActionExecutionResult } from './types.js';
@@ -31,7 +31,7 @@ export function executeAction(
   }
 
   // Step 1: resolve prepare entries into injected binding values.
-  const preparedValues = resolveActionPrepare(action.prepare ?? [], state, hooks);
+  const preparedValues = resolveActionPrepare(action.prepare ?? [], state, hooks, action.id);
 
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues);
@@ -85,6 +85,20 @@ export function executeAction(
     if (bindingVal !== undefined) {
       mergedState = mergedState.write(entry.toState, bindingVal);
     }
+  }
+
+  // Step 6: invoke publish hooks in declaration order with the final merged state.
+  const finalStateSnapshot = mergedState.snapshot();
+  for (const hookName of action.publish ?? []) {
+    const hook = hooks[hookName];
+    if (!hook) continue;
+    const ctx: PublishHookContext = {
+      actionId: action.id,
+      hookName,
+      state: () => finalStateSnapshot,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    (hook as PublishHookImpl)(ctx);
   }
 
   return {
