@@ -18,7 +18,7 @@ import type { ActionModel } from '../src/types/turnout-model_pb.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** A simple action: adds two values and merges the result into STATE. */
-const addAction: ActionModel = {
+const addAction = {
   id: 'add_action',
   compute: {
     root: 'sum',
@@ -35,7 +35,7 @@ const addAction: ActionModel = {
       ],
     },
   },
-};
+} as unknown as ActionModel;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basic compute
@@ -62,7 +62,7 @@ describe('executeAction — compute', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeAction — prepare', () => {
-  const actionWithPrepare: ActionModel = {
+  const actionWithPrepare = {
     id: 'prepared_action',
     prepare: [{ binding: 'a', fromState: 'inputs.a' }],
     compute: {
@@ -80,7 +80,7 @@ describe('executeAction — prepare', () => {
         ],
       },
     },
-  };
+  } as unknown as ActionModel;
 
   it('from_state injects value from STATE into the prog', () => {
     const state = StateManager.from({ 'inputs.a': buildNumber(5) });
@@ -95,7 +95,7 @@ describe('executeAction — prepare', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeAction — merge', () => {
-  const actionWithMerge: ActionModel = {
+  const actionWithMerge = {
     id: 'merge_action',
     compute: {
       root: 'result',
@@ -112,7 +112,7 @@ describe('executeAction — merge', () => {
       },
     },
     merge: [{ binding: 'x', toState: 'output.value' }],
-  };
+  } as unknown as ActionModel;
 
   it('writes merged binding value to STATE', () => {
     const state = StateManager.from({});
@@ -128,7 +128,7 @@ describe('executeAction — merge', () => {
   });
 
   it('merges multiple entries', () => {
-    const action: ActionModel = {
+    const action = {
       id: 'multi_merge',
       compute: {
         root: 'label',
@@ -147,7 +147,7 @@ describe('executeAction — merge', () => {
       merge: [
         { binding: 'score', toState: 'result.score' },
       ],
-    };
+    } as unknown as ActionModel;
     const state = StateManager.from({});
     const result = executeAction(action, state, {});
     expect(isPureNumber(result.stateAfterMerge.read('result.score')!) && result.stateAfterMerge.read('result.score')!.value).toBe(99);
@@ -159,9 +159,9 @@ describe('executeAction — merge', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeAction — no compute', () => {
-  const noComputeAction: ActionModel = {
+  const noComputeAction = {
     id: 'noop',
-  };
+  } as unknown as ActionModel;
 
   it('returns buildNull("missing") as computeRootValue', () => {
     const state = StateManager.from({});

@@ -11,19 +11,19 @@ const minimalScene = {
 
 describe('runHarness — error cases', () => {
   it('throws when a matching route exists but the model has no scenes', () => {
-    const model: TurnModel = {
+    const model = {
       scenes: [],
       routes: [{ id: 'empty_route', match: [] }],
-    };
+    } as unknown as TurnModel;
     expect(() =>
       runHarness({ model, entryId: 'empty_route', initialState: {} }),
     ).toThrow('route "empty_route" found but model has no scenes');
   });
 
   it('throws when entryId matches neither a route nor a scene', () => {
-    const model: TurnModel = {
+    const model = {
       scenes: [minimalScene],
-    };
+    } as unknown as TurnModel;
     expect(() =>
       runHarness({ model, entryId: 'nonexistent', initialState: {} }),
     ).toThrow('entryId "nonexistent" not found as route or scene in the model');
@@ -32,10 +32,10 @@ describe('runHarness — error cases', () => {
 
 describe('runHarness — model without state schema', () => {
   it('uses stateManagerFrom when model has no state block', () => {
-    const model: TurnModel = {
+    const model = {
       // no state field
       scenes: [minimalScene],
-    };
+    } as unknown as TurnModel;
     const result = runHarness({
       model,
       entryId: 'scene_a',
@@ -45,9 +45,9 @@ describe('runHarness — model without state schema', () => {
   });
 
   it('accepts caller-supplied initialState when no schema is present', () => {
-    const model: TurnModel = {
+    const model = {
       scenes: [minimalScene],
-    };
+    } as unknown as TurnModel;
     const { finalState } = runHarness({
       model,
       entryId: 'scene_a',
@@ -60,9 +60,9 @@ describe('runHarness — model without state schema', () => {
 
 describe('runHarness — scene mode', () => {
   it('returns a scene trace when entryId matches a scene', () => {
-    const model: TurnModel = {
+    const model = {
       scenes: [minimalScene],
-    };
+    } as unknown as TurnModel;
     const result = runHarness({ model, entryId: 'scene_a', initialState: {} });
     expect(result.trace.kind).toBe('scene');
     if (result.trace.kind !== 'scene') throw new Error('expected scene trace');

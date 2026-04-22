@@ -13,9 +13,9 @@ import type { TurnModel } from '../src/types/turnout-model_pb.js';
 const mockRunConverter = vi.mocked(runConverter);
 const mockLoadJsonModel = vi.mocked(loadJsonModel);
 
-const minimalModel: TurnModel = {
+const minimalModel = {
   scenes: [{ id: 'scene_a', entryActions: ['act_a'], actions: [{ id: 'act_a' }] }],
-};
+} as unknown as TurnModel;
 
 beforeEach(() => {
   vi.resetAllMocks();

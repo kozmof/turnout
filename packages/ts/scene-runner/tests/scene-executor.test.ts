@@ -34,7 +34,7 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
       },
     },
     merge: [{ binding: 'v', toState: toState }],
-  };
+  } as unknown as ActionModel;
 }
 
 /** Build a conditional next rule that fires when a boolean state path is true. */
@@ -54,7 +54,7 @@ function makeBoolCondNextRule(
       },
       action: nextActionId,
     },
-  ];
+  ] as unknown as ActionModel['next'];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -62,11 +62,11 @@ function makeBoolCondNextRule(
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeScene — single terminal action', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'single_scene',
     entryActions: ['only_action'],
     actions: [makePassAction('only_action', 7, 'out.val')],
-  };
+  } as unknown as SceneBlock;
 
   it('terminates the single action', () => {
     const result = executeScene(scene, StateManager.from({}));
@@ -92,7 +92,7 @@ describe('executeScene — single terminal action', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeScene — two-action chain (first-match)', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'chain_scene',
     entryActions: ['action_a'],
     nextPolicy: 'first-match',
@@ -103,7 +103,7 @@ describe('executeScene — two-action chain (first-match)', () => {
       },
       makePassAction('action_b', 2, 'step.b'),
     ],
-  };
+  } as unknown as SceneBlock;
 
   it('follows the chain when the condition is true', () => {
     const state = StateManager.from({ 'gate.proceed': buildBoolean(true) });
@@ -127,7 +127,7 @@ describe('executeScene — two-action chain (first-match)', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeScene — unconditional next rule', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'unconditional_scene',
     entryActions: ['first'],
     actions: [
@@ -137,7 +137,7 @@ describe('executeScene — unconditional next rule', () => {
       },
       makePassAction('second', 20, 'step.second'),
     ],
-  };
+  } as unknown as SceneBlock;
 
   it('always follows an unconditional next rule', () => {
     const result = executeScene(scene, StateManager.from({}));
@@ -151,7 +151,7 @@ describe('executeScene — unconditional next rule', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeScene — all-match policy', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'all_match_scene',
     entryActions: ['start'],
     nextPolicy: 'all-match',
@@ -166,7 +166,7 @@ describe('executeScene — all-match policy', () => {
       makePassAction('branch_a', 100, 'step.a'),
       makePassAction('branch_b', 200, 'step.b'),
     ],
-  };
+  } as unknown as SceneBlock;
 
   it('enqueues all matching branches', () => {
     const result = executeScene(scene, StateManager.from({}));
@@ -190,7 +190,7 @@ describe('executeScene — all-match policy', () => {
 
 describe('executeScene — state propagation', () => {
   /** Action B reads the value written by action A via from_state in prepare. */
-  const actionA: ActionModel = {
+  const actionA = {
     id: 'action_a',
     compute: {
       root: 'out',
@@ -208,9 +208,9 @@ describe('executeScene — state propagation', () => {
     },
     merge: [{ binding: 'v', toState: 'shared.val' }],
     next: [{ action: 'action_b' }],
-  };
+  } as unknown as ActionModel;
 
-  const actionB: ActionModel = {
+  const actionB = {
     id: 'action_b',
     prepare: [{ binding: 'input', fromState: 'shared.val' }],
     compute: {
@@ -228,13 +228,13 @@ describe('executeScene — state propagation', () => {
       },
     },
     merge: [{ binding: 'doubled', toState: 'shared.doubled' }],
-  };
+  } as unknown as ActionModel;
 
-  const scene: SceneBlock = {
+  const scene = {
     id: 'propagation_scene',
     entryActions: ['action_a'],
     actions: [actionA, actionB],
-  };
+  } as unknown as SceneBlock;
 
   it('action_b can read the STATE written by action_a', () => {
     const result = executeScene(scene, StateManager.from({}));
@@ -249,7 +249,7 @@ describe('executeScene — state propagation', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeScene — cycle guard', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'cycle_scene',
     entryActions: ['a'],
     actions: [
@@ -258,7 +258,7 @@ describe('executeScene — cycle guard', () => {
         next: [{ action: 'a' }],   // self-loop
       },
     ],
-  };
+  } as unknown as SceneBlock;
 
   it('does not loop infinitely on a self-referencing next rule', () => {
     const result = executeScene(scene, StateManager.from({}));
@@ -272,11 +272,11 @@ describe('executeScene — cycle guard', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('createSceneExecutor — isDone / next / result', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'step_scene',
     entryActions: ['only_action'],
     actions: [makePassAction('only_action', 7, 'out.val')],
-  };
+  } as unknown as SceneBlock;
 
   it('isDone() is false before any steps', () => {
     const executor = createSceneExecutor(scene, StateManager.from({}));
@@ -319,7 +319,7 @@ describe('createSceneExecutor — isDone / next / result', () => {
 });
 
 describe('createSceneExecutor — step-by-step trace', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'chain_step_scene',
     entryActions: ['first'],
     actions: [
@@ -329,7 +329,7 @@ describe('createSceneExecutor — step-by-step trace', () => {
       },
       makePassAction('second', 20, 'step.second'),
     ],
-  };
+  } as unknown as SceneBlock;
 
   it('yields each action trace in order', () => {
     const executor = createSceneExecutor(scene, StateManager.from({}));
@@ -359,7 +359,7 @@ describe('createSceneExecutor — step-by-step trace', () => {
 });
 
 describe('createSceneExecutor — cycle guard', () => {
-  const scene: SceneBlock = {
+  const scene = {
     id: 'cycle_step_scene',
     entryActions: ['a'],
     actions: [
@@ -368,7 +368,7 @@ describe('createSceneExecutor — cycle guard', () => {
         next: [{ action: 'a' }],
       },
     ],
-  };
+  } as unknown as SceneBlock;
 
   it('completes after one step despite a self-loop next rule', () => {
     const executor = createSceneExecutor(scene, StateManager.from({}));

@@ -18,9 +18,9 @@ const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.
 const mockExecFile = vi.mocked(execFileSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecSync = vi.mocked(execSync) as unknown as ReturnType<typeof vi.fn>;
 
-const minimalModel: TurnModel = {
+const minimalModel = {
   scenes: [{ id: 'scene_a', entryActions: [], actions: [] }],
-};
+} as unknown as TurnModel;
 
 beforeEach(() => {
   vi.resetAllMocks();

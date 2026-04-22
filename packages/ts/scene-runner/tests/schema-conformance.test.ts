@@ -57,11 +57,11 @@ describe('inline TurnModel type conformance', () => {
                 root: 'out',
                 prog: { name: 'p', bindings: [{ name: 'out', type: 'bool', value: true }] },
               },
-            } satisfies ActionModel,
+            } as unknown as ActionModel,
           ],
-        } satisfies SceneBlock,
+        } as unknown as SceneBlock,
       ],
-    } satisfies TurnModel;
+    } as unknown as TurnModel;
     expect(Array.isArray(model.scenes)).toBe(true);
     expect(model.scenes[0]?.id).toBe('test');
   });
@@ -78,13 +78,13 @@ describe('inline TurnModel type conformance', () => {
           id: 's',
           entryActions: ['a'],
           nextPolicy: 'first-match',
-          actions: [{ id: 'a' }],
-        } satisfies SceneBlock,
+          actions: [{ id: 'a' } as unknown as ActionModel],
+        } as unknown as SceneBlock,
       ],
       routes: [
-        { id: 'main', match: [{ patterns: ['_'], target: 's' }] },
+        { id: 'main', match: [{ patterns: ['_'], target: 's' }] } as unknown as import('../src/types/turnout-model_pb.js').RouteModel,
       ],
-    } satisfies TurnModel;
+    } as unknown as TurnModel;
     expect(model.state?.namespaces).toHaveLength(1);
     expect(model.routes).toHaveLength(1);
   });

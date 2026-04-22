@@ -38,7 +38,7 @@ describe('StateManager', () => {
   });
 
   describe('fromSchema', () => {
-    const model: StateModel = {
+    const model = {
       namespaces: [
         {
           name: 'request',
@@ -49,7 +49,7 @@ describe('StateManager', () => {
           ],
         },
       ],
-    };
+    } as unknown as StateModel;
 
     it('populates defaults from schema', () => {
       const sm = StateManager.fromSchema(model);
@@ -138,14 +138,14 @@ describe('literalToValue', () => {
 
 describe('stateManagerFromSchema — array field types', () => {
   it('populates arr<number> defaults from schema', () => {
-    const model: StateModel = {
+    const model = {
       namespaces: [
         {
           name: 'data',
           fields: [{ name: 'nums', type: 'arr<number>', value: [10, 20] }],
         },
       ],
-    };
+    } as unknown as StateModel;
     const sm = StateManager.fromSchema(model);
     const val = sm.read('data.nums');
     expect(val).toBeDefined();
@@ -153,27 +153,27 @@ describe('stateManagerFromSchema — array field types', () => {
   });
 
   it('populates arr<str> defaults from schema', () => {
-    const model: StateModel = {
+    const model = {
       namespaces: [
         {
           name: 'data',
           fields: [{ name: 'tags', type: 'arr<str>', value: ['x', 'y'] }],
         },
       ],
-    };
+    } as unknown as StateModel;
     const sm = StateManager.fromSchema(model);
     expect(isArray(sm.read('data.tags')!)).toBe(true);
   });
 
   it('populates arr<bool> defaults from schema', () => {
-    const model: StateModel = {
+    const model = {
       namespaces: [
         {
           name: 'data',
           fields: [{ name: 'flags', type: 'arr<bool>', value: [true, false] }],
         },
       ],
-    };
+    } as unknown as StateModel;
     const sm = StateManager.fromSchema(model);
     expect(isArray(sm.read('data.flags')!)).toBe(true);
   });

@@ -30,6 +30,15 @@ export function executeAction(
     };
   }
 
+  if (!action.compute.prog) {
+    return {
+      actionId: action.id,
+      computeRootValue: buildNull('missing'),
+      bindingValues: {},
+      stateAfterMerge: state,
+    };
+  }
+
   // Step 1: resolve prepare entries into injected binding values.
   const preparedValues = resolveActionPrepare(action.prepare ?? [], state, hooks, action.id);
 

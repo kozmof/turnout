@@ -1,6 +1,7 @@
 {
   "scripts": {
     "generate": "PATH=\"$HOME/go/bin:$(go env GOPATH)/bin:$PATH:./node_modules/.bin\" buf generate",
+    "typecheck": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --noEmit) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --noEmit)",
     "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run) && (cd packages/go/converter && /usr/local/go/bin/go test ./...)"
   },
   "devDependencies": {

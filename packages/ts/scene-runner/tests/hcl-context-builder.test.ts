@@ -13,6 +13,7 @@ import {
   isPureBoolean,
   isPureString,
   isArray,
+  type FuncId,
 } from 'runtime';
 import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 
@@ -21,7 +22,7 @@ import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function runProg(ctx: BuiltContext, rootName: string) {
-  const rootId = ctx.nameToValueId[rootName];
+  const rootId = ctx.ids[rootName] as FuncId;
   const validated = assertValidContext(ctx.exec);
   return executeGraph(rootId, validated);
 }
@@ -31,12 +32,12 @@ function runProg(ctx: BuiltContext, rootName: string) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildContextFromProg — value bindings', () => {
-  const prog: ProgModel = {
+  const prog = {
     name: 'test_prog',
     bindings: [
       { name: 'x', type: 'number', value: 10 },
     ],
-  };
+  } as unknown as ProgModel;
 
   it('uses the literal default when no injection is provided', () => {
     const ctx = buildContextFromProg(prog, {});
@@ -59,7 +60,7 @@ describe('buildContextFromProg — value bindings', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildContextFromProg — combine expr', () => {
-  const prog: ProgModel = {
+  const prog = {
     name: 'add_prog',
     bindings: [
       { name: 'a', type: 'number', value: 3 },
@@ -70,7 +71,7 @@ describe('buildContextFromProg — combine expr', () => {
         expr: { combine: { fn: 'add', args: [{ ref: 'a' }, { ref: 'b' }] } },
       },
     ],
-  };
+  } as unknown as ProgModel;
 
   it('computes a + b correctly', () => {
     const ctx = buildContextFromProg(prog, {});
@@ -97,7 +98,7 @@ describe('buildContextFromProg — combine expr', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildContextFromProg — boolean combine', () => {
-  const prog: ProgModel = {
+  const prog = {
     name: 'bool_prog',
     bindings: [
       { name: 'p', type: 'bool', value: true },
@@ -108,7 +109,7 @@ describe('buildContextFromProg — boolean combine', () => {
         expr: { combine: { fn: 'bool_and', args: [{ ref: 'p' }, { ref: 'q' }] } },
       },
     ],
-  };
+  } as unknown as ProgModel;
 
   it('bool_and works correctly', () => {
     const ctx = buildContextFromProg(prog, {});
@@ -123,7 +124,7 @@ describe('buildContextFromProg — boolean combine', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildContextFromProg — cond expr', () => {
-  const prog: ProgModel = {
+  const prog = {
     name: 'cond_prog',
     bindings: [
       { name: 'flag', type: 'bool', value: true },
@@ -151,7 +152,7 @@ describe('buildContextFromProg — cond expr', () => {
         },
       },
     ],
-  };
+  } as unknown as ProgModel;
 
   it('cond returns then-branch when condition is true', () => {
     const ctx = buildContextFromProg(prog, {});
@@ -173,7 +174,7 @@ describe('buildContextFromProg — cond expr', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildContextFromProg — lit args', () => {
-  const prog: ProgModel = {
+  const prog = {
     name: 'lit_prog',
     bindings: [
       { name: 'x', type: 'number', value: 5 },
@@ -183,7 +184,7 @@ describe('buildContextFromProg — lit args', () => {
         expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 10 }] } },
       },
     ],
-  };
+  } as unknown as ProgModel;
 
   it('inline literal arg is resolved as a synthetic value', () => {
     const ctx = buildContextFromProg(prog, {});
@@ -198,7 +199,7 @@ describe('buildContextFromProg — lit args', () => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('buildContextFromProg — nameToValueId', () => {
-  const prog: ProgModel = {
+  const prog = {
     name: 'full_prog',
     bindings: [
       { name: 'v1', type: 'number', value: 1 },
@@ -209,7 +210,7 @@ describe('buildContextFromProg — nameToValueId', () => {
         expr: { combine: { fn: 'add', args: [{ ref: 'v1' }, { ref: 'v2' }] } },
       },
     ],
-  };
+  } as unknown as ProgModel;
 
   it('nameToValueId contains entries for all bindings', () => {
     const ctx = buildContextFromProg(prog, {});
@@ -225,7 +226,7 @@ describe('buildContextFromProg — nameToValueId', () => {
 
 describe('buildContextFromProg — errors', () => {
   it('throws a descriptive error for an unknown HCL function name', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'err_prog',
       bindings: [
         { name: 'x', type: 'number', value: 1 },
@@ -236,12 +237,12 @@ describe('buildContextFromProg — errors', () => {
           expr: { combine: { fn: 'unknown_fn', args: [{ ref: 'x' }, { ref: 'y' }] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown HCL function name');
   });
 
   it('throws when step_ref is used outside a pipe context', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'step_ref_err_prog',
       bindings: [
         { name: 'x', type: 'number', value: 1 },
@@ -252,12 +253,12 @@ describe('buildContextFromProg — errors', () => {
           expr: { combine: { fn: 'add', args: [{ stepRef: 0 } as ArgModel, { ref: 'x' }] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow('step_ref used outside of pipe context');
   });
 
   it('throws for a completely unrecognised ArgModel variant', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'unknown_arg_prog',
       bindings: [
         { name: 'x', type: 'number', value: 1 },
@@ -267,12 +268,12 @@ describe('buildContextFromProg — errors', () => {
           expr: { combine: { fn: 'add', args: [{ ref: 'x' }, {} as ArgModel] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown ArgModel variant');
   });
 
   it('processes a transform arg before the context is built', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'transform_prog',
       bindings: [
         { name: 'x', type: 'number', value: 5 },
@@ -291,7 +292,7 @@ describe('buildContextFromProg — errors', () => {
           },
         },
       ],
-    };
+    } as unknown as ProgModel;
     // The transform branch in resolveArg executes; ctx() may or may not throw.
     try {
       buildContextFromProg(prog, {});
@@ -312,7 +313,7 @@ describe('buildContextFromProg — errors', () => {
 // (lines 67-73) and document the current builder limitation.
 describe('buildContextFromProg — array literal args (inferLiteralAnyValue coverage)', () => {
   it('reaches inferLiteralAnyValue array branch for number arrays before builder throws', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'num_arr_prog',
       bindings: [
         {
@@ -321,13 +322,13 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
           expr: { combine: { fn: 'arr_concat', args: [{ lit: [1, 2] }, { lit: [3, 4] }] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     // inferLiteralAnyValue([1,2]) runs (covers array branch), then ctx() rejects arr_concat
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
   });
 
   it('reaches inferLiteralAnyValue array branch for string arrays before builder throws', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'str_arr_prog',
       bindings: [
         {
@@ -336,12 +337,12 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
           expr: { combine: { fn: 'arr_concat', args: [{ lit: ['a', 'b'] }, { lit: ['c'] }] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
   });
 
   it('reaches inferLiteralAnyValue array branch for bool arrays before builder throws', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'bool_arr_prog',
       bindings: [
         {
@@ -350,12 +351,12 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
           expr: { combine: { fn: 'arr_concat', args: [{ lit: [true, false] }, { lit: [true] }] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
   });
 
   it('reaches inferLiteralAnyValue empty-array branch (buildArray fallback) before builder throws', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'empty_arr_prog',
       bindings: [
         {
@@ -364,7 +365,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
           expr: { combine: { fn: 'arr_concat', args: [{ lit: [] as unknown as number[] }, { lit: [1] }] } },
         },
       ],
-    };
+    } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
   });
 });
@@ -375,7 +376,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
 
 describe('buildContextFromProg — pipe expr', () => {
   it('builds a context with a single-step pipe binding', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'pipe_prog',
       bindings: [
         { name: 'x', type: 'number', value: 5 },
@@ -392,14 +393,14 @@ describe('buildContextFromProg — pipe expr', () => {
           },
         },
       ],
-    };
+    } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
     expect(ctx.nameToValueId['chained']).toBeDefined();
     expect(ctx.ids['chained']).toBeDefined();
   });
 
   it('builds a context with a multi-step pipe that uses step_ref', () => {
-    const prog: ProgModel = {
+    const prog = {
       name: 'pipe_step_ref_prog',
       bindings: [
         { name: 'x', type: 'number', value: 2 },
@@ -417,7 +418,7 @@ describe('buildContextFromProg — pipe expr', () => {
           },
         },
       ],
-    };
+    } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
     expect(ctx.nameToValueId['chained']).toBeDefined();
   });

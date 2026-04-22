@@ -27,11 +27,11 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
       },
     },
     merge: [{ binding: 'v', toState: toState }],
-  };
+  } as unknown as ActionModel;
 }
 
 function makeScene(id: string, ...actions: ActionModel[]): SceneBlock {
-  return { id, entryActions: [actions[0].id], actions };
+  return { id, entryActions: [actions[0].id], actions } as unknown as SceneBlock;
 }
 
 function makeSceneMap(...scenes: SceneBlock[]): Record<string, SceneBlock> {
@@ -44,7 +44,7 @@ function makeSceneMap(...scenes: SceneBlock[]): Record<string, SceneBlock> {
 
 describe('executeRoute — single scene, no match arm', () => {
   const scene = makeScene('only_scene', makePassAction('step', 7, 'out.v'));
-  const route: RouteModel = { id: 'r1', match: [] };
+  const route = { id: 'r1', match: [] } as unknown as RouteModel;
 
   it('status is "completed"', () => {
     const result = executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
@@ -78,10 +78,10 @@ describe('executeRoute — two-scene route (exact pattern)', () => {
   const scene1 = makeScene('scene_1', makePassAction('a1', 1, 's1.val'));
   const scene2 = makeScene('scene_2', makePassAction('a2', 2, 's2.val'));
   // arm only references scene_1 → fires after scene_1, not after scene_2
-  const route: RouteModel = {
+  const route = {
     id: 'r1',
     match: [{ patterns: ['scene_1.a1'], target: 'scene_2' }],
-  };
+  } as unknown as RouteModel;
 
   it('executes both scenes in order', () => {
     const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
@@ -114,10 +114,10 @@ describe('executeRoute — two-scene route (exact pattern)', () => {
 describe('executeRoute — pattern does not match', () => {
   const scene1 = makeScene('scene_1', makePassAction('terminal', 99, 's1.out'));
   const scene2 = makeScene('scene_2', makePassAction('done', 42, 's2.out'));
-  const route: RouteModel = {
+  const route = {
     id: 'r_nomatch',
     match: [{ patterns: ['scene_1.other_action'], target: 'scene_2' }],
-  };
+  } as unknown as RouteModel;
 
   it('route terminates after scene_1 when pattern does not match', () => {
     const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
@@ -133,19 +133,19 @@ describe('executeRoute — pattern does not match', () => {
 describe('executeRoute — wildcard pattern match "scene_1.*.terminal"', () => {
   const intro = makePassAction('intro', 1, 's1.intro');
   const terminal = makePassAction('terminal', 2, 's1.term');
-  const scene1: SceneBlock = {
+  const scene1 = {
     id: 'scene_1',
     entryActions: ['intro'],
     actions: [
       { ...intro, next: [{ action: 'terminal' }] },
       terminal,
     ],
-  };
+  } as unknown as SceneBlock;
   const scene2 = makeScene('scene_2', makePassAction('final', 100, 's2.out'));
-  const route: RouteModel = {
+  const route = {
     id: 'r1',
     match: [{ patterns: ['scene_1.*.terminal'], target: 'scene_2' }],
-  };
+  } as unknown as RouteModel;
 
   it('routes to scene_2 via wildcard match', () => {
     const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
@@ -168,14 +168,14 @@ describe('executeRoute — three-scene chain', () => {
   const scene1 = makeScene('s1', makePassAction('a', 10, 'v.a'));
   const scene2 = makeScene('s2', makePassAction('b', 20, 'v.b'));
   const scene3 = makeScene('s3', makePassAction('c', 30, 'v.c'));
-  const route: RouteModel = {
+  const route = {
     id: 'chain',
     match: [
       { patterns: ['s1.a'], target: 's2' },
       { patterns: ['s2.b'], target: 's3' },
       // no arm for s3 → route completes
     ],
-  };
+  } as unknown as RouteModel;
 
   it('executes all three scenes', () => {
     const result = executeRoute(route, makeSceneMap(scene1, scene2, scene3), 's1', StateManager.from({}));
@@ -196,10 +196,10 @@ describe('executeRoute — three-scene chain', () => {
 
 describe('executeRoute — STATE propagates from scene_1 to scene_2', () => {
   const writeAction = makePassAction('write', 55, 'shared.val');
-  const scene1: SceneBlock = { id: 'scene_1', entryActions: ['write'], actions: [writeAction] };
+  const scene1 = { id: 'scene_1', entryActions: ['write'], actions: [writeAction] } as unknown as SceneBlock;
 
   /** scene_2 reads shared.val via from_state prepare and doubles it. */
-  const readAction: ActionModel = {
+  const readAction = {
     id: 'read_double',
     prepare: [{ binding: 'v', fromState: 'shared.val' }],
     compute: {
@@ -217,13 +217,13 @@ describe('executeRoute — STATE propagates from scene_1 to scene_2', () => {
       },
     },
     merge: [{ binding: 'doubled', toState: 'shared.doubled' }],
-  };
-  const scene2: SceneBlock = { id: 'scene_2', entryActions: ['read_double'], actions: [readAction] };
+  } as unknown as ActionModel;
+  const scene2 = { id: 'scene_2', entryActions: ['read_double'], actions: [readAction] } as unknown as SceneBlock;
 
-  const route: RouteModel = {
+  const route = {
     id: 'r1',
     match: [{ patterns: ['scene_1.write'], target: 'scene_2' }],
-  };
+  } as unknown as RouteModel;
 
   it('scene_2 reads STATE written by scene_1 and produces correct output', () => {
     const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
@@ -242,10 +242,10 @@ describe('executeRoute — OR pattern in a single arm', () => {
   const scene2 = makeScene('alt', makePassAction('done', 2, 'alt.v'));
   const sceneEnd = makeScene('s_end', makePassAction('finish', 99, 'end.v'));
   // Both scene paths lead to the same target via OR
-  const route: RouteModel = {
+  const route = {
     id: 'r_or',
     match: [{ patterns: ['s1.done', 'alt.done'], target: 's_end' }],
-  };
+  } as unknown as RouteModel;
 
   it('OR pattern fires when s1 exits with "done"', () => {
     const result = executeRoute(route, makeSceneMap(scene1, sceneEnd), 's1', StateManager.from({}));
@@ -264,7 +264,7 @@ describe('executeRoute — OR pattern in a single arm', () => {
 
 describe('executeRoute — result metadata', () => {
   const scene = makeScene('s1', makePassAction('a', 1, 'x'));
-  const route: RouteModel = { id: 'my_route', match: [] };
+  const route = { id: 'my_route', match: [] } as unknown as RouteModel;
 
   it('result.routeId matches the route id', () => {
     const result = executeRoute(route, makeSceneMap(scene), 's1', StateManager.from({}));

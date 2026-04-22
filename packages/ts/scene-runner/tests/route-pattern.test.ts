@@ -7,7 +7,7 @@ import type { MatchArm } from '../src/types/turnout-model_pb.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function arm(target: string, ...patterns: string[]): MatchArm {
-  return { patterns, target };
+  return { patterns, target } as unknown as MatchArm;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

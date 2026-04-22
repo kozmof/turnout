@@ -158,6 +158,8 @@ function evaluateNextRules(
     if (!rule.compute) {
       // No compute block → unconditional match.
       condMet = true;
+    } else if (!rule.compute.prog) {
+      condMet = false;
     } else {
       const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
       const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared);
