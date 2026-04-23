@@ -46,8 +46,8 @@ function strVal(v: unknown): string | undefined {
 // ─── retrieval path ──────────────────────────────────────────────────────────
 
 describe('ai_workflow — retrieval path', () => {
-  it('routes through retrieve when need_grounding=true and kb_enabled=true', () => {
-    const { finalState } = runHarness({
+  it('routes through retrieve when need_grounding=true and kb_enabled=true', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({
@@ -61,8 +61,8 @@ describe('ai_workflow — retrieval path', () => {
     expect(strVal(finalState['workflow.status'])).toBe('sent');
   });
 
-  it('populates response.last with a non-empty string', () => {
-    const { finalState } = runHarness({
+  it('populates response.last with a non-empty string', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({
@@ -77,8 +77,8 @@ describe('ai_workflow — retrieval path', () => {
     expect(isPureString(last!) && last.value.length > 0).toBe(true);
   });
 
-  it('trace includes retrieve and draft_with_context', () => {
-    const result = runHarness({
+  it('trace includes retrieve and draft_with_context', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({
@@ -98,8 +98,8 @@ describe('ai_workflow — retrieval path', () => {
 // ─── direct draft path ───────────────────────────────────────────────────────
 
 describe('ai_workflow — direct draft path', () => {
-  it('routes through draft_direct when need_grounding=false', () => {
-    const { finalState } = runHarness({
+  it('routes through draft_direct when need_grounding=false', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({ 'request.query': 'my question' }),
@@ -111,8 +111,8 @@ describe('ai_workflow — direct draft path', () => {
     expect(last?.startsWith('Direct answer:')).toBe(true);
   });
 
-  it('trace includes draft_direct, not retrieve', () => {
-    const result = runHarness({
+  it('trace includes draft_direct, not retrieve', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState(),
@@ -129,8 +129,8 @@ describe('ai_workflow — direct draft path', () => {
 // ─── human review path ───────────────────────────────────────────────────────
 
 describe('ai_workflow — human review path', () => {
-  it('routes to human_review when toxicity_score > 3', () => {
-    const { finalState } = runHarness({
+  it('routes to human_review when toxicity_score > 3', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({ 'request.toxicity_score': 5 }),
@@ -139,8 +139,8 @@ describe('ai_workflow — human review path', () => {
     expect(strVal(finalState['workflow.status'])).toBe('awaiting_human');
   });
 
-  it('populates review.note starting with "Review needed: "', () => {
-    const { finalState } = runHarness({
+  it('populates review.note starting with "Review needed: "', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({
@@ -153,8 +153,8 @@ describe('ai_workflow — human review path', () => {
     expect(note?.startsWith('Review needed:')).toBe(true);
   });
 
-  it('trace includes human_review, not publish', () => {
-    const result = runHarness({
+  it('trace includes human_review, not publish', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'ai_workflow',
       initialState: baseState({ 'request.toxicity_score': 4 }),

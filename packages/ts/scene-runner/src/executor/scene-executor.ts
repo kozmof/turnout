@@ -31,7 +31,7 @@ export type StepResult =
 export type SceneExecutor = {
   readonly isDone: () => boolean;
   /** Execute the next pending action. Returns `{ done: true }` when the queue is empty. */
-  readonly next: () => StepResult;
+  readonly next: () => Promise<StepResult>;
   /** Returns the final result. Throws if the scene is not yet complete. */
   readonly result: () => SceneExecutionResult;
 };
@@ -74,7 +74,7 @@ export function createSceneExecutor(
     return queue.length === 0;
   }
 
-  function next(): StepResult {
+  async function next(): Promise<StepResult> {
     drainVisited();
     if (queue.length === 0) return { done: true };
 
@@ -84,7 +84,7 @@ export function createSceneExecutor(
     const action = actionMap[actionId];
     if (!action) throw new Error(`Scene "${scene.id}": unknown action "${actionId}"`);
 
-    const result = executeAction(action, currentState, hooks);
+    const result = await executeAction(action, currentState, hooks);
     currentState = result.stateAfterMerge;
 
     const nextIds = evaluateNextRules(action, currentState, result, policy);
@@ -118,14 +118,14 @@ export function createSceneExecutor(
 // Convenience wrapper — runs the scene to completion in one call
 // ─────────────────────────────────────────────────────────────────────────────
 
-export function executeScene(
+export async function executeScene(
   scene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = {},
   entryActions?: string[],
-): SceneExecutionResult {
+): Promise<SceneExecutionResult> {
   const executor = createSceneExecutor(scene, state, hooks, entryActions);
-  while (!executor.isDone()) executor.next();
+  while (!executor.isDone()) await executor.next();
   return executor.result();
 }
 

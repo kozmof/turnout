@@ -13,12 +13,12 @@ import type { ActionExecutionResult } from './types.js';
  *   - from_state: reads the dotted-path value from STATE (the from_state stub)
  *   - from_hook:  calls the named hook handler and extracts the binding field
  */
-export function resolveActionPrepare(
+export async function resolveActionPrepare(
   entries: PrepareEntry[],
   state: StateManager,
   hooks: HookRegistry,
   actionId: string,
-): Record<string, AnyValue> {
+): Promise<Record<string, AnyValue>> {
   const result: Record<string, AnyValue> = {};
   const hookCache: Record<string, Record<string, AnyValue>> = {};
 
@@ -38,7 +38,7 @@ export function resolveActionPrepare(
             get: (binding) => result[binding],
           };
           // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-          hookCache[hookName] = (hook as PrepareHookImpl)(ctx) as Record<string, AnyValue>;
+          hookCache[hookName] = await (hook as PrepareHookImpl)(ctx) as Record<string, AnyValue>;
         }
         result[entry.binding] = hookCache[hookName][entry.binding] ?? buildNull('missing');
       }

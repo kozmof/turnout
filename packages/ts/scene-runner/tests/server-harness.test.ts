@@ -22,10 +22,10 @@ beforeEach(() => {
 });
 
 describe('runServerHarness', () => {
-  it('loads model from jsonFile and executes', () => {
+  it('loads model from jsonFile and executes', async () => {
     mockLoadJsonModel.mockReturnValue(minimalModel);
 
-    const result = runServerHarness({
+    const result = await runServerHarness({
       jsonFile: 'model.json',
       entryId: 'scene_a',
       initialState: {},
@@ -35,10 +35,10 @@ describe('runServerHarness', () => {
     expect(result.trace.kind).toBe('scene');
   });
 
-  it('loads model from turnFile via runConverter', () => {
+  it('loads model from turnFile via runConverter', async () => {
     mockRunConverter.mockReturnValue(minimalModel);
 
-    const result = runServerHarness({
+    const result = await runServerHarness({
       turnFile: 'my.turn',
       entryId: 'scene_a',
       initialState: {},
@@ -48,12 +48,12 @@ describe('runServerHarness', () => {
     expect(result.trace.kind).toBe('scene');
   });
 
-  it('throws when neither turnFile nor jsonFile is provided', () => {
-    expect(() =>
+  it('throws when neither turnFile nor jsonFile is provided', async () => {
+    await expect(
       runServerHarness({
         entryId: 'scene_a',
         initialState: {},
       }),
-    ).toThrow('either turnFile or jsonFile must be provided');
+    ).rejects.toThrow('either turnFile or jsonFile must be provided');
   });
 });

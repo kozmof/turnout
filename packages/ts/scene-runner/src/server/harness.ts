@@ -31,7 +31,7 @@ export type ServerHarnessOptions = {
  * `child_process` and `fs`. Use `runHarness` directly when the model is
  * already available as a parsed object.
  */
-export function runServerHarness(options: ServerHarnessOptions): HarnessResult {
+export async function runServerHarness(options: ServerHarnessOptions): Promise<HarnessResult> {
   let model;
   if (options.turnFile) {
     model = runConverter(options.turnFile);

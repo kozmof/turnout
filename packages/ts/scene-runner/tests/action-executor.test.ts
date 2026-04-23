@@ -42,15 +42,15 @@ const addAction = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('executeAction — compute', () => {
-  it('returns the correct computeRootValue', () => {
+  it('returns the correct computeRootValue', async () => {
     const state = StateManager.from({});
-    const result = executeAction(addAction, state, {});
+    const result = await executeAction(addAction, state, {});
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(7);
   });
 
-  it('populates bindingValues for all prog bindings', () => {
+  it('populates bindingValues for all prog bindings', async () => {
     const state = StateManager.from({});
-    const result = executeAction(addAction, state, {});
+    const result = await executeAction(addAction, state, {});
     expect(isPureNumber(result.bindingValues['a']) && result.bindingValues['a'].value).toBe(3);
     expect(isPureNumber(result.bindingValues['b']) && result.bindingValues['b'].value).toBe(4);
     expect(isPureNumber(result.bindingValues['sum']) && result.bindingValues['sum'].value).toBe(7);
@@ -82,9 +82,9 @@ describe('executeAction — prepare', () => {
     },
   } as unknown as ActionModel;
 
-  it('from_state injects value from STATE into the prog', () => {
+  it('from_state injects value from STATE into the prog', async () => {
     const state = StateManager.from({ 'inputs.a': buildNumber(5) });
-    const result = executeAction(actionWithPrepare, state, {});
+    const result = await executeAction(actionWithPrepare, state, {});
     // a is overridden to 5; b is 10 → sum = 15
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(15);
   });
@@ -114,20 +114,20 @@ describe('executeAction — merge', () => {
     merge: [{ binding: 'x', toState: 'output.value' }],
   } as unknown as ActionModel;
 
-  it('writes merged binding value to STATE', () => {
+  it('writes merged binding value to STATE', async () => {
     const state = StateManager.from({});
-    const result = executeAction(actionWithMerge, state, {});
+    const result = await executeAction(actionWithMerge, state, {});
     const stateVal = result.stateAfterMerge.read('output.value');
     expect(isPureNumber(stateVal!) && stateVal.value).toBe(42);
   });
 
-  it('does not mutate the input state', () => {
+  it('does not mutate the input state', async () => {
     const state = StateManager.from({});
-    executeAction(actionWithMerge, state, {});
+    await executeAction(actionWithMerge, state, {});
     expect(state.read('output.value')).toBeUndefined();
   });
 
-  it('merges multiple entries', () => {
+  it('merges multiple entries', async () => {
     const action = {
       id: 'multi_merge',
       compute: {
@@ -149,7 +149,7 @@ describe('executeAction — merge', () => {
       ],
     } as unknown as ActionModel;
     const state = StateManager.from({});
-    const result = executeAction(action, state, {});
+    const result = await executeAction(action, state, {});
     expect(isPureNumber(result.stateAfterMerge.read('result.score')!) && result.stateAfterMerge.read('result.score')!.value).toBe(99);
   });
 });
@@ -163,21 +163,21 @@ describe('executeAction — no compute', () => {
     id: 'noop',
   } as unknown as ActionModel;
 
-  it('returns buildNull("missing") as computeRootValue', () => {
+  it('returns buildNull("missing") as computeRootValue', async () => {
     const state = StateManager.from({});
-    const result = executeAction(noComputeAction, state, {});
+    const result = await executeAction(noComputeAction, state, {});
     expect(isPureNull(result.computeRootValue)).toBe(true);
   });
 
-  it('returns empty bindingValues', () => {
+  it('returns empty bindingValues', async () => {
     const state = StateManager.from({});
-    const result = executeAction(noComputeAction, state, {});
+    const result = await executeAction(noComputeAction, state, {});
     expect(Object.keys(result.bindingValues)).toHaveLength(0);
   });
 
-  it('returns the original state unchanged', () => {
+  it('returns the original state unchanged', async () => {
     const state = StateManager.from({ 'a.b': buildString('original') });
-    const result = executeAction(noComputeAction, state, {});
+    const result = await executeAction(noComputeAction, state, {});
     expect(result.stateAfterMerge).toBe(state);
   });
 });

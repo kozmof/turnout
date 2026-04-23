@@ -24,9 +24,9 @@ import type { PrepareEntry, NextPrepareEntry } from '../src/types/turnout-model_
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('resolveActionPrepare', () => {
-  it('from_state reads the value from StateManager', () => {
+  it('from_state reads the value from StateManager', async () => {
     const state = StateManager.from({ 'request.query': buildString('hello') });
-    const result = resolveActionPrepare(
+    const result = await resolveActionPrepare(
       [{ binding: 'query', fromState: 'request.query' }] as unknown as PrepareEntry[],
       state,
       {},
@@ -35,9 +35,9 @@ describe('resolveActionPrepare', () => {
     expect(isPureString(result['query']!) && result['query'].value).toBe('hello');
   });
 
-  it('from_state returns buildNull("missing") when path is not in state', () => {
+  it('from_state returns buildNull("missing") when path is not in state', async () => {
     const state = StateManager.from({});
-    const result = resolveActionPrepare(
+    const result = await resolveActionPrepare(
       [{ binding: 'missing_val', fromState: 'no.such.path' }] as unknown as PrepareEntry[],
       state,
       {},
@@ -47,12 +47,12 @@ describe('resolveActionPrepare', () => {
     expect(isPureNull(val!)).toBe(true);
   });
 
-  it('from_hook calls the hook and extracts the binding field', () => {
+  it('from_hook calls the hook and extracts the binding field', async () => {
     const state = StateManager.from({});
     const hooks: HookRegistry = {
       my_hook: (_ctx: PrepareHookContext) => ({ foo: buildNumber(42) }),
     };
-    const result = resolveActionPrepare(
+    const result = await resolveActionPrepare(
       [{ binding: 'foo', fromHook: 'my_hook' }] as unknown as PrepareEntry[],
       state,
       hooks,
@@ -61,7 +61,24 @@ describe('resolveActionPrepare', () => {
     expect(isPureNumber(result['foo']!) && result['foo'].value).toBe(42);
   });
 
-  it('from_hook passes PrepareHookContext with actionId, hookName, and get()', () => {
+  it('from_hook supports async hook returning a Promise', async () => {
+    const state = StateManager.from({});
+    const hooks: HookRegistry = {
+      async_hook: async (_ctx: PrepareHookContext) => {
+        await Promise.resolve();
+        return { val: buildNumber(99) };
+      },
+    };
+    const result = await resolveActionPrepare(
+      [{ binding: 'val', fromHook: 'async_hook' }] as unknown as PrepareEntry[],
+      state,
+      hooks,
+      'test_action',
+    );
+    expect(isPureNumber(result['val']!) && result['val'].value).toBe(99);
+  });
+
+  it('from_hook passes PrepareHookContext with actionId, hookName, and get()', async () => {
     const state = StateManager.from({ 'a.x': buildNumber(7) });
     let capturedActionId: string | undefined;
     let capturedHookName: string | undefined;
@@ -74,7 +91,7 @@ describe('resolveActionPrepare', () => {
         return { bar: buildString('from_hook') };
       },
     };
-    resolveActionPrepare(
+    await resolveActionPrepare(
       [
         { binding: 'x_val', fromState: 'a.x' }, // resolved first
         { binding: 'bar', fromHook: 'my_hook' }, // hook reads x_val via ctx.get()
@@ -88,9 +105,9 @@ describe('resolveActionPrepare', () => {
     expect(isPureNumber(capturedGetResult as never) && (capturedGetResult as { value: number }).value).toBe(7);
   });
 
-  it('from_hook returns buildNull("missing") if the hook is not registered', () => {
+  it('from_hook returns buildNull("missing") if the hook is not registered', async () => {
     const state = StateManager.from({});
-    const result = resolveActionPrepare(
+    const result = await resolveActionPrepare(
       [{ binding: 'foo', fromHook: 'nonexistent_hook' }] as unknown as PrepareEntry[],
       state,
       {},
@@ -99,12 +116,12 @@ describe('resolveActionPrepare', () => {
     expect(isPureNull(result['foo']!)).toBe(true);
   });
 
-  it('resolves multiple entries independently', () => {
+  it('resolves multiple entries independently', async () => {
     const state = StateManager.from({
       'a.x': buildNumber(1),
       'b.y': buildString('two'),
     });
-    const result = resolveActionPrepare(
+    const result = await resolveActionPrepare(
       [
         { binding: 'x_val', fromState: 'a.x' },
         { binding: 'y_val', fromState: 'b.y' },

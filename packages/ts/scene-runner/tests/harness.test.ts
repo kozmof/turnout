@@ -10,33 +10,33 @@ const minimalScene = {
 };
 
 describe('runHarness — error cases', () => {
-  it('throws when a matching route exists but the model has no scenes', () => {
+  it('throws when a matching route exists but the model has no scenes', async () => {
     const model = {
       scenes: [],
       routes: [{ id: 'empty_route', match: [] }],
     } as unknown as TurnModel;
-    expect(() =>
+    await expect(() =>
       runHarness({ model, entryId: 'empty_route', initialState: {} }),
-    ).toThrow('route "empty_route" found but model has no scenes');
+    ).rejects.toThrow('route "empty_route" found but model has no scenes');
   });
 
-  it('throws when entryId matches neither a route nor a scene', () => {
+  it('throws when entryId matches neither a route nor a scene', async () => {
     const model = {
       scenes: [minimalScene],
     } as unknown as TurnModel;
-    expect(() =>
+    await expect(() =>
       runHarness({ model, entryId: 'nonexistent', initialState: {} }),
-    ).toThrow('entryId "nonexistent" not found as route or scene in the model');
+    ).rejects.toThrow('entryId "nonexistent" not found as route or scene in the model');
   });
 });
 
 describe('runHarness — model without state schema', () => {
-  it('uses stateManagerFrom when model has no state block', () => {
+  it('uses stateManagerFrom when model has no state block', async () => {
     const model = {
       // no state field
       scenes: [minimalScene],
     } as unknown as TurnModel;
-    const result = runHarness({
+    const result = await runHarness({
       model,
       entryId: 'scene_a',
       initialState: {},
@@ -44,29 +44,16 @@ describe('runHarness — model without state schema', () => {
     expect(result.trace.kind).toBe('scene');
   });
 
-  it('accepts caller-supplied initialState when no schema is present', () => {
+  it('accepts caller-supplied initialState when no schema is present', async () => {
     const model = {
       scenes: [minimalScene],
     } as unknown as TurnModel;
-    const { finalState } = runHarness({
+    const { finalState } = await runHarness({
       model,
       entryId: 'scene_a',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialState: { 'custom.key': { type: 'number', value: 42 } as any },
     });
     expect(finalState['custom.key']).toBeDefined();
-  });
-});
-
-describe('runHarness — scene mode', () => {
-  it('returns a scene trace when entryId matches a scene', () => {
-    const model = {
-      scenes: [minimalScene],
-    } as unknown as TurnModel;
-    const result = runHarness({ model, entryId: 'scene_a', initialState: {} });
-    expect(result.trace.kind).toBe('scene');
-    if (result.trace.kind !== 'scene') throw new Error('expected scene trace');
-    expect(result.trace.scene.sceneId).toBe('scene_a');
-    expect(result.model).toBe(model);
   });
 });

@@ -26,8 +26,8 @@ function numVal(v: unknown): number | undefined {
 // ─── two-scene route ──────────────────────────────────────────────────────────
 
 describe('route — two-scene pipeline', () => {
-  it('executes both scenes and produces value * 2 + 1', () => {
-    const { finalState } = runHarness({
+  it('executes both scenes and produces value * 2 + 1', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(10) },
@@ -36,8 +36,8 @@ describe('route — two-scene pipeline', () => {
     expect(numVal(finalState['output.result'])).toBe(21); // 10*2+1
   });
 
-  it('works for different input values', () => {
-    const { finalState } = runHarness({
+  it('works for different input values', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(7) },
@@ -48,8 +48,8 @@ describe('route — two-scene pipeline', () => {
 });
 
 describe('route — schema default state', () => {
-  it('uses schema default (value=0) when no initialState override provided', () => {
-    const { finalState } = runHarness({
+  it('uses schema default (value=0) when no initialState override provided', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: {},
@@ -61,8 +61,8 @@ describe('route — schema default state', () => {
 });
 
 describe('route — trace', () => {
-  it('returns a route trace with kind = "route"', () => {
-    const result = runHarness({
+  it('returns a route trace with kind = "route"', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(5) },
@@ -71,8 +71,8 @@ describe('route — trace', () => {
     expect(result.trace.kind).toBe('route');
   });
 
-  it('trace contains both scene_a and scene_b', () => {
-    const result = runHarness({
+  it('trace contains both scene_a and scene_b', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(5) },
@@ -84,8 +84,8 @@ describe('route — trace', () => {
     expect(sceneIds).toContain('scene_b');
   });
 
-  it('trace has scene_a before scene_b', () => {
-    const result = runHarness({
+  it('trace has scene_a before scene_b', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(3) },
@@ -98,10 +98,10 @@ describe('route — trace', () => {
 });
 
 describe('route — STATE propagation', () => {
-  it('scene_b can read the value written by scene_a', () => {
+  it('scene_b can read the value written by scene_a', async () => {
     // Intermediate: after scene_a, output.result = 10*2 = 20.
     // scene_b reads output.result (20) and writes 20+1 = 21.
-    const { finalState } = runHarness({
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(10) },
@@ -113,8 +113,8 @@ describe('route — STATE propagation', () => {
 });
 
 describe('route — finalState snapshot', () => {
-  it('finalState is a plain Record<string, AnyValue>', () => {
-    const { finalState } = runHarness({
+  it('finalState is a plain Record<string, AnyValue>', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'main_route',
       initialState: { 'input.value': buildNumber(2) },

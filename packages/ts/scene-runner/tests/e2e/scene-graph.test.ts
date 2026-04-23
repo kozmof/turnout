@@ -22,8 +22,8 @@ function state(income: number, debt: number) {
 }
 
 describe('loan_flow — approve path', () => {
-  it('approves when income ≥ 50000 AND debt ≤ 20000', () => {
-    const { finalState } = runHarness({
+  it('approves when income ≥ 50000 AND debt ≤ 20000', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(60_000, 10_000),
@@ -33,8 +33,8 @@ describe('loan_flow — approve path', () => {
     expect(isPureBoolean(approved!) && approved.value).toBe(true);
   });
 
-  it('writes merged income to decision.input_income', () => {
-    const { finalState } = runHarness({
+  it('writes merged income to decision.input_income', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(60_000, 10_000),
@@ -44,8 +44,8 @@ describe('loan_flow — approve path', () => {
     expect(inputIncome && 'value' in inputIncome && inputIncome.value).toBe(60_000);
   });
 
-  it('sets status = "approved" and code = "APR-0001"', () => {
-    const { finalState } = runHarness({
+  it('sets status = "approved" and code = "APR-0001"', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(75_000, 5_000),
@@ -59,8 +59,8 @@ describe('loan_flow — approve path', () => {
 });
 
 describe('loan_flow — reject path (low income)', () => {
-  it('rejects when income < 50000', () => {
-    const { finalState } = runHarness({
+  it('rejects when income < 50000', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(30_000, 10_000),
@@ -70,8 +70,8 @@ describe('loan_flow — reject path (low income)', () => {
     expect(isPureBoolean(approved!) && approved.value).toBe(false);
   });
 
-  it('sets status = "rejected" and reason = "risk_threshold_not_met"', () => {
-    const { finalState } = runHarness({
+  it('sets status = "rejected" and reason = "risk_threshold_not_met"', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(30_000, 10_000),
@@ -85,8 +85,8 @@ describe('loan_flow — reject path (low income)', () => {
 });
 
 describe('loan_flow — reject path (high debt)', () => {
-  it('rejects when debt > 20000', () => {
-    const { finalState } = runHarness({
+  it('rejects when debt > 20000', async () => {
+    const { finalState } = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(60_000, 30_000),
@@ -98,8 +98,8 @@ describe('loan_flow — reject path (high debt)', () => {
 });
 
 describe('loan_flow — trace', () => {
-  it('returns a scene trace with kind = "scene"', () => {
-    const result = runHarness({
+  it('returns a scene trace with kind = "scene"', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(60_000, 10_000),
@@ -108,8 +108,8 @@ describe('loan_flow — trace', () => {
     expect(result.trace.kind).toBe('scene');
   });
 
-  it('approve path trace contains score and approve actions', () => {
-    const result = runHarness({
+  it('approve path trace contains score and approve actions', async () => {
+    const result = await runHarness({
       jsonFile: fixture,
       entryId: 'loan_flow',
       initialState: state(60_000, 10_000),

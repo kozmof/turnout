@@ -46,24 +46,24 @@ describe('executeRoute — single scene, no match arm', () => {
   const scene = makeScene('only_scene', makePassAction('step', 7, 'out.v'));
   const route = { id: 'r1', match: [] } as unknown as RouteModel;
 
-  it('status is "completed"', () => {
-    const result = executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
+  it('status is "completed"', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
     expect(result.status).toBe('completed');
   });
 
-  it('trace contains one scene entry', () => {
-    const result = executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
+  it('trace contains one scene entry', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
     expect(result.trace.scenes).toHaveLength(1);
     expect(result.trace.scenes[0].sceneId).toBe('only_scene');
   });
 
-  it('history has one entry per completed action', () => {
-    const result = executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
+  it('history has one entry per completed action', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
     expect(result.history).toEqual(['only_scene.step']);
   });
 
-  it('finalState reflects the scene merge', () => {
-    const result = executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
+  it('finalState reflects the scene merge', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene), 'only_scene', StateManager.from({}));
     const v = result.finalState['out.v'];
     expect(isPureNumber(v!) && v.value).toBe(7);
   });
@@ -83,26 +83,26 @@ describe('executeRoute — two-scene route (exact pattern)', () => {
     match: [{ patterns: ['scene_1.a1'], target: 'scene_2' }],
   } as unknown as RouteModel;
 
-  it('executes both scenes in order', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('executes both scenes in order', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     expect(result.trace.scenes.map((s) => s.sceneId)).toEqual(['scene_1', 'scene_2']);
   });
 
-  it('history has entries from both scenes', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('history has entries from both scenes', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     expect(result.history).toEqual(['scene_1.a1', 'scene_2.a2']);
   });
 
-  it('finalState has values from both scenes', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('finalState has values from both scenes', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     const s1 = result.finalState['s1.val'];
     const s2 = result.finalState['s2.val'];
     expect(isPureNumber(s1!) && s1.value).toBe(1);
     expect(isPureNumber(s2!) && s2.value).toBe(2);
   });
 
-  it('status is completed after second scene', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('status is completed after second scene', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     expect(result.status).toBe('completed');
   });
 });
@@ -119,8 +119,8 @@ describe('executeRoute — pattern does not match', () => {
     match: [{ patterns: ['scene_1.other_action'], target: 'scene_2' }],
   } as unknown as RouteModel;
 
-  it('route terminates after scene_1 when pattern does not match', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('route terminates after scene_1 when pattern does not match', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     expect(result.trace.scenes).toHaveLength(1);
     expect(result.status).toBe('completed');
   });
@@ -147,13 +147,13 @@ describe('executeRoute — wildcard pattern match "scene_1.*.terminal"', () => {
     match: [{ patterns: ['scene_1.*.terminal'], target: 'scene_2' }],
   } as unknown as RouteModel;
 
-  it('routes to scene_2 via wildcard match', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('routes to scene_2 via wildcard match', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     expect(result.trace.scenes.map((s) => s.sceneId)).toEqual(['scene_1', 'scene_2']);
   });
 
-  it('history contains all actions including those before the terminal', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('history contains all actions including those before the terminal', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     expect(result.history).toContain('scene_1.intro');
     expect(result.history).toContain('scene_1.terminal');
     expect(result.history).toContain('scene_2.final');
@@ -177,13 +177,13 @@ describe('executeRoute — three-scene chain', () => {
     ],
   } as unknown as RouteModel;
 
-  it('executes all three scenes', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2, scene3), 's1', StateManager.from({}));
+  it('executes all three scenes', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2, scene3), 's1', StateManager.from({}));
     expect(result.trace.scenes.map((s) => s.sceneId)).toEqual(['s1', 's2', 's3']);
   });
 
-  it('finalState has values from all three scenes', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2, scene3), 's1', StateManager.from({}));
+  it('finalState has values from all three scenes', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2, scene3), 's1', StateManager.from({}));
     expect(isPureNumber(result.finalState['v.a']!) && result.finalState['v.a'].value).toBe(10);
     expect(isPureNumber(result.finalState['v.b']!) && result.finalState['v.b'].value).toBe(20);
     expect(isPureNumber(result.finalState['v.c']!) && result.finalState['v.c'].value).toBe(30);
@@ -225,8 +225,8 @@ describe('executeRoute — STATE propagates from scene_1 to scene_2', () => {
     match: [{ patterns: ['scene_1.write'], target: 'scene_2' }],
   } as unknown as RouteModel;
 
-  it('scene_2 reads STATE written by scene_1 and produces correct output', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
+  it('scene_2 reads STATE written by scene_1 and produces correct output', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, scene2), 'scene_1', StateManager.from({}));
     // 55 written by scene_1, doubled by scene_2 → 110
     const doubled = result.finalState['shared.doubled'];
     expect(isPureNumber(doubled!) && doubled.value).toBe(110);
@@ -247,13 +247,13 @@ describe('executeRoute — OR pattern in a single arm', () => {
     match: [{ patterns: ['s1.done', 'alt.done'], target: 's_end' }],
   } as unknown as RouteModel;
 
-  it('OR pattern fires when s1 exits with "done"', () => {
-    const result = executeRoute(route, makeSceneMap(scene1, sceneEnd), 's1', StateManager.from({}));
+  it('OR pattern fires when s1 exits with "done"', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene1, sceneEnd), 's1', StateManager.from({}));
     expect(result.trace.scenes.map((s) => s.sceneId)).toEqual(['s1', 's_end']);
   });
 
-  it('OR pattern fires when alt exits with "done"', () => {
-    const result = executeRoute(route, makeSceneMap(scene2, sceneEnd), 'alt', StateManager.from({}));
+  it('OR pattern fires when alt exits with "done"', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene2, sceneEnd), 'alt', StateManager.from({}));
     expect(result.trace.scenes.map((s) => s.sceneId)).toEqual(['alt', 's_end']);
   });
 });
@@ -266,13 +266,13 @@ describe('executeRoute — result metadata', () => {
   const scene = makeScene('s1', makePassAction('a', 1, 'x'));
   const route = { id: 'my_route', match: [] } as unknown as RouteModel;
 
-  it('result.routeId matches the route id', () => {
-    const result = executeRoute(route, makeSceneMap(scene), 's1', StateManager.from({}));
+  it('result.routeId matches the route id', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene), 's1', StateManager.from({}));
     expect(result.routeId).toBe('my_route');
   });
 
-  it('result.trace.routeId matches the route id', () => {
-    const result = executeRoute(route, makeSceneMap(scene), 's1', StateManager.from({}));
+  it('result.trace.routeId matches the route id', async () => {
+    const result = await executeRoute(route, makeSceneMap(scene), 's1', StateManager.from({}));
     expect(result.trace.routeId).toBe('my_route');
   });
 });

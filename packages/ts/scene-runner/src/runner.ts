@@ -67,12 +67,24 @@ export type Runner = {
    *
    * Returns fewer than `steps` entries if execution finishes early.
    */
-  next(steps?: number): RunnerStepResult[];
+  next(steps?: number): Promise<RunnerStepResult[]>;
   /**
    * Run to completion and return the final result.
    * Equivalent to calling `next()` in a loop until done.
    */
-  run(): HarnessResult;
+  run(): Promise<HarnessResult>;
+  /**
+   * Async generator that yields one `RunnerStepResult` per completed action.
+   * Terminates when execution is complete, allowing the caller to observe
+   * each action incrementally and yield control between steps.
+   *
+   * @example
+   * for await (const step of runner.runAsync()) {
+   *   console.log(step.actionId, step.trace);
+   * }
+   * const result = runner.result();
+   */
+  runAsync(): AsyncGenerator<RunnerStepResult>;
   /**
    * Return the final `HarnessResult`.
    * Throws if execution is not yet complete.
@@ -144,11 +156,11 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
    * Loops past empty scenes or exhausted executors until an action runs or
    * execution reaches a terminal state.
    */
-  function advance(): RunnerStepResult {
+  async function advance(): Promise<RunnerStepResult> {
     for (;;) {
       // Try to execute the next pending action in the current scene.
       if (!executor.isDone()) {
-        const step = executor.next();
+        const step = await executor.next();
         if (step.done) continue; // queue became empty mid-loop (shouldn't happen)
 
         if (route) {
@@ -203,19 +215,27 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       return done;
     },
 
-    next(steps = 1) {
+    async next(steps = 1) {
       const results: RunnerStepResult[] = [];
       for (let i = 0; i < steps; i++) {
-        const r = advance();
+        const r = await advance();
         results.push(r);
         if (r.done) break;
       }
       return results;
     },
 
-    run() {
-      while (!done) advance();
+    async run() {
+      while (!done) await advance();
       return this.result();
+    },
+
+    async *runAsync() {
+      while (!done) {
+        const r = await advance();
+        if (r.done) break;
+        yield r;
+      }
     },
 
     result() {

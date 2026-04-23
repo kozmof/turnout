@@ -18,7 +18,7 @@ import { executeRoute } from '../executor/route-executor.js';
  *  - `entryId` matches a `scene.id`  → `executeScene`  (single-scene mode)
  *  - no match                         → throws
  */
-export function runHarness(options: HarnessOptions): HarnessResult {
+export async function runHarness(options: HarnessOptions): Promise<HarnessResult> {
   const { model } = options;
 
   // ── 1. Build STATE ────────────────────────────────────────────────────────
@@ -40,7 +40,7 @@ export function runHarness(options: HarnessOptions): HarnessResult {
     if (!entrySceneId) {
       throw new Error(`runHarness: route "${options.entryId}" found but model has no scenes`);
     }
-    const result = executeRoute(route, sceneMap, entrySceneId, state, options.hooks);
+    const result = await executeRoute(route, sceneMap, entrySceneId, state, options.hooks);
     return {
       finalState: result.finalState,
       trace: { kind: 'route', route: result.trace },
@@ -51,7 +51,7 @@ export function runHarness(options: HarnessOptions): HarnessResult {
   // ── 3b. Scene mode ────────────────────────────────────────────────────────
   const scene = sceneMap[options.entryId];
   if (scene) {
-    const result = executeScene(scene, state, options.hooks);
+    const result = await executeScene(scene, state, options.hooks);
     return {
       finalState: result.stateAfterScene.snapshot(),
       trace: { kind: 'scene', scene: result.trace },

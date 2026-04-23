@@ -34,13 +34,13 @@ export type RouteExecutionResult = {
  * @param state         - The initial STATE (typically built from the model's state schema).
  * @param hooks         - Optional hook registry passed through to each scene execution.
  */
-export function executeRoute(
+export async function executeRoute(
   route: RouteModel,
   scenes: Record<string, SceneBlock>,
   entrySceneId: string,
   state: StateManager,
   hooks: HookRegistry = {},
-): RouteExecutionResult {
+): Promise<RouteExecutionResult> {
   const history: string[] = [];
   const sceneTraces: RouteTrace['scenes'] = [];
   let currentSceneId = entrySceneId;
@@ -52,7 +52,7 @@ export function executeRoute(
     // Route-driven entry: only the first declared entry action fires (spec §route-entry).
     const routeEntry = scene.entryActions[0];
     if (!routeEntry) throw new Error(`Route "${route.id}": scene "${currentSceneId}" has no entry actions`);
-    const sceneResult = executeScene(scene, state, hooks, [routeEntry]);
+    const sceneResult = await executeScene(scene, state, hooks, [routeEntry]);
     state = sceneResult.stateAfterScene;
     sceneTraces.push(sceneResult.trace);
 

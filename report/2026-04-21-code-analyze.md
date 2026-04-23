@@ -144,9 +144,11 @@ The DSL is readable and concise. The sigils (`~>`, `<~`, `<~>`) encode data-flow
 
 `subSymbol` serves two purposes: encoding array element types and encoding null reasons. This is non-obvious — a reader must know which `symbol` value is in scope before `subSymbol` becomes interpretable. A discriminated union with separate `elementType` and `nullReason` fields would be clearer.
 
-**P2 — `node10` module resolution in runtime** (`packages/ts/runtime/tsconfig.json`)
+**P2 — `node10` module resolution in runtime** (`packages/ts/runtime/tsconfig.json`) ✓ *Already resolved*
 
-The runtime uses `"moduleResolution": "node10"` while scene-runner uses `"node16"`. `node10` does not support the `exports` field in `package.json`, which means conditional exports (browser vs. Node.js) are silently ignored when the runtime is consumed. This is a latent cross-environment bug.
+~~The runtime uses `"moduleResolution": "node10"` while scene-runner uses `"node16"`. `node10` does not support the `exports` field in `package.json`, which means conditional exports (browser vs. Node.js) are silently ignored when the runtime is consumed.~~
+
+The runtime tsconfig already uses `"moduleResolution": "bundler"`, which fully honours `package.json` `exports` fields including conditional exports. This pitfall no longer applies.
 
 **P3 — No cycle detection documented as limitation**
 
@@ -164,13 +166,39 @@ The lowering phase outputs `HCLSceneBlock` / `HCLRouteBlock` Go structs that are
 
 If a hook registered via `useHook` throws or returns an unexpected type, the prepare resolver's error handling is not clearly defined. Unhandled promise rejections in async hooks could cause the runner to hang or produce misleading trace output.
 
+> **Partially resolved (2026-04-23):** Async hooks are now properly `await`ed throughout the call stack (`resolveActionPrepare` → `executeAction` → `SceneExecutor.next`). Promise rejections from hooks now propagate as rejected Promises on `Runner.run()` / `Runner.next()` rather than being silently dropped. Explicit error-boundary handling (catch + structured error value) remains a future improvement.
+
 ---
 
 ## 6. Improvement Points 1 — Design Overview
 
-**D1 — No streaming or incremental execution**
+**D1 — No streaming or incremental execution** ✓ *Resolved 2026-04-23*
 
-The runner's `next()` API steps one action at a time, but `run()` executes to completion synchronously. For long-running scenes with many actions, there is no way to yield, checkpoint, or resume — the entire execution must complete in one call. Consider an async generator or continuation-passing design for `run()`.
+~~The runner's `next()` API steps one action at a time, but `run()` executes to completion synchronously. For long-running scenes with many actions, there is no way to yield, checkpoint, or resume — the entire execution must complete in one call. Consider an async generator or continuation-passing design for `run()`.~~
+
+The entire execution stack has been made async and a streaming API has been added. Changes across 7 source files and 7 test files:
+
+- `resolveActionPrepare()` — now `async`; hook calls are properly `await`ed (also fixes P6)
+- `executeAction()` — now `async`; awaits prepare resolver and publish hooks
+- `SceneExecutor.next()` — returns `Promise<StepResult>`
+- `executeScene()` / `executeRoute()` — now `async`
+- `Runner.next()` — returns `Promise<RunnerStepResult[]>`
+- `Runner.run()` — returns `Promise<HarnessResult>`
+- `Runner.runAsync()` — **new**: `AsyncGenerator<RunnerStepResult>` that yields after each action, giving callers incremental control and event-loop yield points between steps
+
+```typescript
+// Streaming: observe each action as it completes
+for await (const step of runner.runAsync()) {
+  console.log(step.sceneId, step.actionId);
+  // checkpoint or cancel here if needed
+}
+const result = runner.result();
+
+// Batch: unchanged ergonomics, now async
+const result = await runner.run();
+```
+
+All 184 existing tests pass; a new test was added to `prepare-resolver.test.ts` asserting that async hook Promises are awaited (the previously silent failure case).
 
 **D2 — Proto as late-stage contract, not early-stage**
 

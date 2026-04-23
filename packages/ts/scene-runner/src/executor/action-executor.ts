@@ -15,11 +15,11 @@ import type { ActionExecutionResult } from './types.js';
  *   4. Extract binding values from the result
  *   5. Apply merge entries to STATE
  */
-export function executeAction(
+export async function executeAction(
   action: ActionModel,
   state: StateManager,
   hooks: HookRegistry,
-): ActionExecutionResult {
+): Promise<ActionExecutionResult> {
   // Actions without a compute block are no-ops (no graph, no merge).
   if (!action.compute) {
     return {
@@ -40,7 +40,7 @@ export function executeAction(
   }
 
   // Step 1: resolve prepare entries into injected binding values.
-  const preparedValues = resolveActionPrepare(action.prepare ?? [], state, hooks, action.id);
+  const preparedValues = await resolveActionPrepare(action.prepare ?? [], state, hooks, action.id);
 
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues);
@@ -107,7 +107,7 @@ export function executeAction(
       state: () => finalStateSnapshot,
     };
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    (hook as PublishHookImpl)(ctx);
+    await (hook as PublishHookImpl)(ctx);
   }
 
   return {
