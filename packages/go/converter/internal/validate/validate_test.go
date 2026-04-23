@@ -3,12 +3,13 @@ package validate_test
 import (
 	"testing"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -27,12 +28,12 @@ func pipeline(src string) diag.Diagnostics {
 	if ds2.HasErrors() {
 		return ds
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, sc, ds3 := lower.Lower(tf, schema)
 	ds = append(ds, ds3...)
-	if model == nil {
+	if tm == nil {
 		return ds
 	}
-	ds4 := validate.Validate(model, schema)
+	ds4 := validate.Validate(tm, sc, schema)
 	return append(ds, ds4...)
 }
 
@@ -594,34 +595,34 @@ scene "test" {
 func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 	// manually build model with empty actions to trigger this
 	// (can't parse an empty scene normally)
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions:      []*lower.HCLAction{},
+			Actions:      []*turnoutpb.ActionModel{},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty actions")
 	}
 }
 
 func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{},
-			Actions: []*lower.HCLAction{
-				{ID: "a", Compute: &lower.HCLCompute{Root: "v", Prog: &lower.HCLProg{Name: "p", Bindings: []*lower.HCLBinding{
-					{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+			Actions: []*turnoutpb.ActionModel{
+				{Id: "a", Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{Name: "p", Bindings: []*turnoutpb.BindingModel{
+					{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 				}}}},
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_actions")
 	}

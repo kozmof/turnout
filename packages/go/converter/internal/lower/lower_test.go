@@ -7,15 +7,17 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-// mustLower parses src, resolves state, and lowers to a Model.
-func mustLower(t *testing.T, src string) *lower.Model {
+// mustLower parses src, resolves state, and lowers to a proto model + sidecar.
+func mustLower(t *testing.T, src string) (*turnoutpb.TurnModel, *lower.Sidecar) {
 	t.Helper()
 	tf, ds := parser.ParseFile("test.turn", src)
 	if ds.HasErrors() {
@@ -31,14 +33,14 @@ func mustLower(t *testing.T, src string) *lower.Model {
 		}
 		t.Fatalf("state resolve failed")
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, sc, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		for _, d := range ds3 {
 			t.Logf("lower diag: %s", d.Format())
 		}
 		t.Fatalf("lower failed")
 	}
-	return model
+	return tm, sc
 }
 
 // minimal wraps a scene body in the minimum valid scaffolding.
@@ -61,9 +63,9 @@ func minimalWithState(stateBlock, sceneBody string) string {
 }
 
 // binding returns the nth binding from the first action's prog.
-func binding(t *testing.T, model *lower.Model, n int) *lower.HCLBinding {
+func binding(t *testing.T, tm *turnoutpb.TurnModel, n int) *turnoutpb.BindingModel {
 	t.Helper()
-	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings
+	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	if n >= len(b) {
 		t.Fatalf("binding index %d out of range (have %d)", n, len(b))
 	}
@@ -73,7 +75,7 @@ func binding(t *testing.T, model *lower.Model, n int) *lower.HCLBinding {
 // ─── state block lowering ─────────────────────────────────────────────────────
 
 func TestLowerStateBlockInline(t *testing.T) {
-	model := mustLower(t, `state {
+	tm, _ := mustLower(t, `state {
   applicant {
     income:number = 42
     approved:bool = true
@@ -88,25 +90,25 @@ scene "s" {
     compute { root = v prog "p" { v:bool = true } }
   }
 }`)
-	if model.State == nil {
+	if tm.State == nil {
 		t.Fatal("model.State is nil")
 	}
-	if len(model.State.Namespaces) != 2 {
-		t.Fatalf("namespace count = %d, want 2", len(model.State.Namespaces))
+	if len(tm.State.Namespaces) != 2 {
+		t.Fatalf("namespace count = %d, want 2", len(tm.State.Namespaces))
 	}
-	ns0 := model.State.Namespaces[0]
+	ns0 := tm.State.Namespaces[0]
 	if ns0.Name != "applicant" {
 		t.Errorf("ns[0].Name = %q", ns0.Name)
 	}
 	if len(ns0.Fields) != 2 {
 		t.Errorf("ns[0] fields = %d, want 2", len(ns0.Fields))
 	}
-	if ns0.Fields[0].Name != "income" || ns0.Fields[0].Type != ast.FieldTypeNumber {
-		t.Errorf("field[0]: name=%q type=%v", ns0.Fields[0].Name, ns0.Fields[0].Type)
+	if ns0.Fields[0].Name != "income" || ns0.Fields[0].Type != "number" {
+		t.Errorf("field[0]: name=%q type=%q", ns0.Fields[0].Name, ns0.Fields[0].Type)
 	}
-	n, ok := ns0.Fields[0].Default.(*ast.NumberLiteral)
-	if !ok || n.Value != 42 {
-		t.Errorf("field[0] default: got %T %v", ns0.Fields[0].Default, ns0.Fields[0].Default)
+	nv, ok := ns0.Fields[0].Value.Kind.(*structpb.Value_NumberValue)
+	if !ok || nv.NumberValue != 42 {
+		t.Errorf("field[0] default: got %T %v", ns0.Fields[0].Value, ns0.Fields[0].Value)
 	}
 }
 
@@ -134,23 +136,23 @@ scene "s" {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, _, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
 	// state_file directive → state block reconstructed from schema (sorted)
-	if model.State == nil || len(model.State.Namespaces) != 1 {
-		t.Fatalf("want 1 namespace, got %v", model.State)
+	if tm.State == nil || len(tm.State.Namespaces) != 1 {
+		t.Fatalf("want 1 namespace, got %v", tm.State)
 	}
-	if model.State.Namespaces[0].Name != "app" {
-		t.Errorf("ns name = %q", model.State.Namespaces[0].Name)
+	if tm.State.Namespaces[0].Name != "app" {
+		t.Errorf("ns name = %q", tm.State.Namespaces[0].Name)
 	}
 }
 
 // ─── literal RHS ──────────────────────────────────────────────────────────────
 
 func TestLowerLiteralRHS(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = v
@@ -163,36 +165,36 @@ func TestLowerLiteralRHS(t *testing.T) {
       }
     }
   }`))
-	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 
 	// n:number = 99
 	if bindings[0].Value == nil {
 		t.Fatal("n: expected value binding")
 	}
-	if num, ok := bindings[0].Value.(*ast.NumberLiteral); !ok || num.Value != 99 {
-		t.Errorf("n value: got %T %v", bindings[0].Value, bindings[0].Value)
+	if nv, ok := bindings[0].Value.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 99 {
+		t.Errorf("n value: got %T %v", bindings[0].Value.Kind, bindings[0].Value)
 	}
 
 	// s:str = "hi"
-	if s, ok := bindings[1].Value.(*ast.StringLiteral); !ok || s.Value != "hi" {
-		t.Errorf("s value: got %T", bindings[1].Value)
+	if sv, ok := bindings[1].Value.Kind.(*structpb.Value_StringValue); !ok || sv.StringValue != "hi" {
+		t.Errorf("s value: got %T", bindings[1].Value.Kind)
 	}
 
 	// b:bool = true
-	if bl, ok := bindings[2].Value.(*ast.BoolLiteral); !ok || !bl.Value {
-		t.Errorf("b value: got %T", bindings[2].Value)
+	if bv, ok := bindings[2].Value.Kind.(*structpb.Value_BoolValue); !ok || !bv.BoolValue {
+		t.Errorf("b value: got %T", bindings[2].Value.Kind)
 	}
 
 	// xs:arr<number> = [1, 2]
-	if arr, ok := bindings[3].Value.(*ast.ArrayLiteral); !ok || len(arr.Elements) != 2 {
-		t.Errorf("xs value: got %T len=%v", bindings[3].Value, bindings[3])
+	if lv, ok := bindings[3].Value.Kind.(*structpb.Value_ListValue); !ok || len(lv.ListValue.Values) != 2 {
+		t.Errorf("xs value: got %T len=%v", bindings[3].Value.Kind, bindings[3])
 	}
 }
 
 // ─── single-ref RHS (identity combine) ────────────────────────────────────────
 
 func TestLowerSingleRefBool(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -202,23 +204,23 @@ func TestLowerSingleRefBool(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 1)
+	b := binding(t, tm, 1)
 	if b.Expr == nil || b.Expr.Combine == nil {
 		t.Fatal("expected combine expr")
 	}
 	if b.Expr.Combine.Fn != "bool_and" {
 		t.Errorf("fn = %q, want bool_and", b.Expr.Combine.Fn)
 	}
-	if b.Expr.Combine.Args[0].Ref != "src" {
-		t.Errorf("arg[0].ref = %q", b.Expr.Combine.Args[0].Ref)
+	if b.Expr.Combine.Args[0].Ref == nil || *b.Expr.Combine.Args[0].Ref != "src" {
+		t.Errorf("arg[0].ref = %v", b.Expr.Combine.Args[0].Ref)
 	}
-	if lit, ok := b.Expr.Combine.Args[1].Lit.(*ast.BoolLiteral); !ok || !lit.Value {
-		t.Errorf("identity arg[1]: got %T", b.Expr.Combine.Args[1].Lit)
+	if bv, ok := b.Expr.Combine.Args[1].Lit.Kind.(*structpb.Value_BoolValue); !ok || !bv.BoolValue {
+		t.Errorf("identity arg[1]: got %T", b.Expr.Combine.Args[1].Lit.Kind)
 	}
 }
 
 func TestLowerSingleRefNumber(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -228,17 +230,17 @@ func TestLowerSingleRefNumber(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 1)
+	b := binding(t, tm, 1)
 	if b.Expr.Combine.Fn != "add" {
 		t.Errorf("fn = %q, want add", b.Expr.Combine.Fn)
 	}
-	if lit, ok := b.Expr.Combine.Args[1].Lit.(*ast.NumberLiteral); !ok || lit.Value != 0 {
-		t.Errorf("identity lit: got %T", b.Expr.Combine.Args[1].Lit)
+	if nv, ok := b.Expr.Combine.Args[1].Lit.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 0 {
+		t.Errorf("identity lit: got %T", b.Expr.Combine.Args[1].Lit.Kind)
 	}
 }
 
 func TestLowerSingleRefStr(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -248,14 +250,14 @@ func TestLowerSingleRefStr(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 1)
+	b := binding(t, tm, 1)
 	if b.Expr.Combine.Fn != "str_concat" {
 		t.Errorf("fn = %q, want str_concat", b.Expr.Combine.Fn)
 	}
 }
 
 func TestLowerSingleRefArr(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -265,7 +267,7 @@ func TestLowerSingleRefArr(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 1)
+	b := binding(t, tm, 1)
 	if b.Expr.Combine.Fn != "arr_concat" {
 		t.Errorf("fn = %q, want arr_concat", b.Expr.Combine.Fn)
 	}
@@ -274,7 +276,7 @@ func TestLowerSingleRefArr(t *testing.T) {
 // ─── func-call RHS ────────────────────────────────────────────────────────────
 
 func TestLowerFuncCallRHS(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -285,7 +287,7 @@ func TestLowerFuncCallRHS(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 2)
+	b := binding(t, tm, 2)
 	if b.Expr == nil || b.Expr.Combine == nil {
 		t.Fatal("expected combine")
 	}
@@ -295,15 +297,16 @@ func TestLowerFuncCallRHS(t *testing.T) {
 	if len(b.Expr.Combine.Args) != 2 {
 		t.Errorf("args = %d", len(b.Expr.Combine.Args))
 	}
-	if b.Expr.Combine.Args[0].Ref != "a" || b.Expr.Combine.Args[1].Ref != "b" {
-		t.Errorf("args: %v", b.Expr.Combine.Args)
+	a0, a1 := b.Expr.Combine.Args[0], b.Expr.Combine.Args[1]
+	if a0.Ref == nil || *a0.Ref != "a" || a1.Ref == nil || *a1.Ref != "b" {
+		t.Errorf("args: %v %v", a0.Ref, a1.Ref)
 	}
 }
 
 // ─── infix RHS ────────────────────────────────────────────────────────────────
 
 func TestLowerInfixBoolAnd(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -314,14 +317,14 @@ func TestLowerInfixBoolAnd(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 2)
+	b := binding(t, tm, 2)
 	if b.Expr.Combine.Fn != "bool_and" {
 		t.Errorf("fn = %q", b.Expr.Combine.Fn)
 	}
 }
 
 func TestLowerInfixGTE(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -332,14 +335,14 @@ func TestLowerInfixGTE(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 2)
+	b := binding(t, tm, 2)
 	if b.Expr.Combine.Fn != "gte" {
 		t.Errorf("fn = %q, want gte", b.Expr.Combine.Fn)
 	}
 }
 
 func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -350,14 +353,14 @@ func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 2)
+	b := binding(t, tm, 2)
 	if b.Expr.Combine.Fn != "add" {
 		t.Errorf("fn = %q, want add", b.Expr.Combine.Fn)
 	}
 }
 
 func TestLowerInfixPlusStrIsConcat(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -368,7 +371,7 @@ func TestLowerInfixPlusStrIsConcat(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 2)
+	b := binding(t, tm, 2)
 	if b.Expr.Combine.Fn != "str_concat" {
 		t.Errorf("fn = %q, want str_concat", b.Expr.Combine.Fn)
 	}
@@ -378,7 +381,7 @@ func TestLowerInfixPlusStrIsConcat(t *testing.T) {
 
 func TestLowerPlaceholderWithState(t *testing.T) {
 	// ~>income:number = _ with state default 100 → binding value = 100
-	model := mustLower(t, `state {
+	tm, _ := mustLower(t, `state {
   applicant {
     income:number = 100
   }
@@ -397,20 +400,19 @@ scene "test" {
     }
   }
 }`)
-	b := binding(t, model, 0)
+	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Fatal("expected value binding from placeholder")
 	}
-	num, ok := b.Value.(*ast.NumberLiteral)
-	if !ok || num.Value != 100 {
-		t.Errorf("placeholder value: got %T %v, want 100", b.Value, b.Value)
+	if nv, ok := b.Value.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 100 {
+		t.Errorf("placeholder value: got %T %v, want 100", b.Value.Kind, b.Value)
 	}
 }
 
 // ─── pipe RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerPipeRHS(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -424,7 +426,7 @@ func TestLowerPipeRHS(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 2)
+	b := binding(t, tm, 2)
 	if b.Expr == nil || b.Expr.Pipe == nil {
 		t.Fatal("expected pipe expr")
 	}
@@ -442,7 +444,7 @@ func TestLowerPipeRHS(t *testing.T) {
 		t.Errorf("step[0].fn = %q", pipe.Steps[0].Fn)
 	}
 	// step[1] first arg is step_ref = 0
-	if !pipe.Steps[1].Args[0].IsStepRef || pipe.Steps[1].Args[0].StepRef != 0 {
+	if pipe.Steps[1].Args[0].StepRef == nil || *pipe.Steps[1].Args[0].StepRef != 0 {
 		t.Errorf("step[1].args[0]: want step_ref=0, got %+v", pipe.Steps[1].Args[0])
 	}
 }
@@ -450,7 +452,7 @@ func TestLowerPipeRHS(t *testing.T) {
 // ─── cond RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerCondRHS(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -468,19 +470,19 @@ func TestLowerCondRHS(t *testing.T) {
       }
     }
   }`))
-	b := binding(t, model, 3)
+	b := binding(t, tm, 3)
 	if b.Expr == nil || b.Expr.Cond == nil {
 		t.Fatal("expected cond expr")
 	}
 	cond := b.Expr.Cond
-	if cond.Condition.Ref != "flag" {
-		t.Errorf("condition.ref = %q", cond.Condition.Ref)
+	if cond.Condition.Ref == nil || *cond.Condition.Ref != "flag" {
+		t.Errorf("condition.ref = %v", cond.Condition.Ref)
 	}
-	if cond.Then.FuncRef != "thenFn" {
-		t.Errorf("then.func_ref = %q", cond.Then.FuncRef)
+	if cond.Then.FuncRef == nil || *cond.Then.FuncRef != "thenFn" {
+		t.Errorf("then.func_ref = %v", cond.Then.FuncRef)
 	}
-	if cond.Else.FuncRef != "elseFn" {
-		t.Errorf("else.func_ref = %q", cond.Else.FuncRef)
+	if cond.ElseBranch.FuncRef == nil || *cond.ElseBranch.FuncRef != "elseFn" {
+		t.Errorf("else.func_ref = %v", cond.ElseBranch.FuncRef)
 	}
 }
 
@@ -488,7 +490,7 @@ func TestLowerCondRHS(t *testing.T) {
 
 func TestLowerIfRHSBareRef(t *testing.T) {
 	// #if with bare ref → single cond binding (no auto-gen)
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -504,7 +506,7 @@ func TestLowerIfRHSBareRef(t *testing.T) {
       }
     }
   }`))
-	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// 4 bindings: flag, thenFn, elseFn, result
 	if len(bindings) != 4 {
 		t.Errorf("binding count = %d, want 4", len(bindings))
@@ -513,14 +515,14 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 	if result.Name != "result" {
 		t.Errorf("last binding name = %q", result.Name)
 	}
-	if result.Expr.Cond.Condition.Ref != "flag" {
-		t.Errorf("cond ref = %q", result.Expr.Cond.Condition.Ref)
+	if result.Expr.Cond.Condition.Ref == nil || *result.Expr.Cond.Condition.Ref != "flag" {
+		t.Errorf("cond ref = %v", result.Expr.Cond.Condition.Ref)
 	}
 }
 
 func TestLowerIfRHSCall(t *testing.T) {
 	// #if with inline call → auto-generated __if_result_cond binding first
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -537,7 +539,7 @@ func TestLowerIfRHSCall(t *testing.T) {
       }
     }
   }`))
-	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// 6 bindings: x, y, thenFn, elseFn, __if_result_cond, result
 	if len(bindings) != 6 {
 		t.Errorf("binding count = %d, want 6", len(bindings))
@@ -546,8 +548,8 @@ func TestLowerIfRHSCall(t *testing.T) {
 	if autoGen.Name != "__if_result_cond" {
 		t.Errorf("auto-gen name = %q, want __if_result_cond", autoGen.Name)
 	}
-	if autoGen.Type != ast.FieldTypeBool {
-		t.Errorf("auto-gen type = %v, want bool", autoGen.Type)
+	if autoGen.Type != "bool" {
+		t.Errorf("auto-gen type = %q, want bool", autoGen.Type)
 	}
 	if autoGen.Expr.Combine.Fn != "gt" {
 		t.Errorf("auto-gen fn = %q, want gt", autoGen.Expr.Combine.Fn)
@@ -556,15 +558,15 @@ func TestLowerIfRHSCall(t *testing.T) {
 	if mainB.Name != "result" {
 		t.Errorf("main binding name = %q", mainB.Name)
 	}
-	if mainB.Expr.Cond.Condition.Ref != "__if_result_cond" {
-		t.Errorf("cond ref = %q", mainB.Expr.Cond.Condition.Ref)
+	if mainB.Expr.Cond.Condition.Ref == nil || *mainB.Expr.Cond.Condition.Ref != "__if_result_cond" {
+		t.Errorf("cond ref = %v", mainB.Expr.Cond.Condition.Ref)
 	}
 }
 
 // ─── sigil lowering ───────────────────────────────────────────────────────────
 
 func TestLowerSigilIngress(t *testing.T) {
-	model := mustLower(t, `state {
+	tm, sc := mustLower(t, `state {
   app {
     score:number = 0
   }
@@ -583,24 +585,25 @@ scene "test" {
     }
   }
 }`)
-	b := binding(t, model, 0)
-	if b.Sigil != ast.SigilIngress {
-		t.Errorf("sigil = %v, want Ingress", b.Sigil)
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "score"}
+	if sc.Sigils[key] != ast.SigilIngress {
+		t.Errorf("sigil = %v, want Ingress", sc.Sigils[key])
 	}
+	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
 	}
-	prep := model.Scenes[0].Actions[0].Prepare
-	if prep == nil || len(prep.Entries) != 1 {
-		t.Fatal("expected 1 prepare entry")
+	prep := tm.Scenes[0].Actions[0].Prepare
+	if len(prep) != 1 {
+		t.Fatalf("expected 1 prepare entry, got %d", len(prep))
 	}
-	if prep.Entries[0].BindingName != "score" || prep.Entries[0].FromState != "app.score" {
-		t.Errorf("prepare entry: %+v", prep.Entries[0])
+	if prep[0].Binding != "score" || prep[0].FromState == nil || *prep[0].FromState != "app.score" {
+		t.Errorf("prepare entry: binding=%q fromState=%v", prep[0].Binding, prep[0].FromState)
 	}
 }
 
 func TestLowerSigilEgress(t *testing.T) {
-	model := mustLower(t, `state {
+	tm, sc := mustLower(t, `state {
   app { approved:bool = false }
 }
 scene "test" {
@@ -617,21 +620,21 @@ scene "test" {
     }
   }
 }`)
-	b := binding(t, model, 0)
-	if b.Sigil != ast.SigilEgress {
-		t.Errorf("sigil = %v, want Egress", b.Sigil)
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "approved"}
+	if sc.Sigils[key] != ast.SigilEgress {
+		t.Errorf("sigil = %v, want Egress", sc.Sigils[key])
 	}
-	mg := model.Scenes[0].Actions[0].Merge
-	if mg == nil || len(mg.Entries) != 1 {
-		t.Fatal("expected 1 merge entry")
+	mg := tm.Scenes[0].Actions[0].Merge
+	if len(mg) != 1 {
+		t.Fatalf("expected 1 merge entry, got %d", len(mg))
 	}
-	if mg.Entries[0].ToState != "app.approved" {
-		t.Errorf("to_state = %q", mg.Entries[0].ToState)
+	if mg[0].ToState != "app.approved" {
+		t.Errorf("to_state = %q", mg[0].ToState)
 	}
 }
 
 func TestLowerSigilBiDir(t *testing.T) {
-	model := mustLower(t, `state {
+	tm, sc := mustLower(t, `state {
   app { count:number = 0 }
 }
 scene "test" {
@@ -651,32 +654,33 @@ scene "test" {
     }
   }
 }`)
-	b := binding(t, model, 0)
-	if b.Sigil != ast.SigilBiDir {
-		t.Errorf("sigil = %v, want BiDir", b.Sigil)
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "count"}
+	if sc.Sigils[key] != ast.SigilBiDir {
+		t.Errorf("sigil = %v, want BiDir", sc.Sigils[key])
 	}
-	if model.Scenes[0].Actions[0].Prepare == nil {
-		t.Error("expected prepare block")
+	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
+		t.Error("expected prepare entries")
 	}
-	if model.Scenes[0].Actions[0].Merge == nil {
-		t.Error("expected merge block")
+	if len(tm.Scenes[0].Actions[0].Merge) == 0 {
+		t.Error("expected merge entries")
 	}
 }
 
 // ─── docstring lowering ───────────────────────────────────────────────────────
 
 func TestLowerDocstringTrimming(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	_, sc := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     """
     Hello world.
     """
     compute { root = v prog "p" { v:bool = true } }
   }`))
-	text := model.Scenes[0].Actions[0].Text
-	if text == nil {
-		t.Fatal("action.Text is nil")
+	meta, ok := sc.Actions["test/a"]
+	if !ok || meta.Text == nil {
+		t.Fatal("action text not found in sidecar")
 	}
+	text := meta.Text
 	if strings.HasPrefix(*text, "\n") {
 		t.Errorf("text has leading newline: %q", *text)
 	}
@@ -691,7 +695,7 @@ func TestLowerDocstringTrimming(t *testing.T) {
 // ─── route block lowering ────────────────────────────────────────────────────
 
 func TestLowerRouteBlock(t *testing.T) {
-	model := mustLower(t, `state { ns { v:number = 0 } }
+	tm, _ := mustLower(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = ["a"]
   action "a" { compute { root = v prog "p" { v:bool = true } } }
@@ -704,17 +708,17 @@ route "route_1" {
     _ => scene_1
   }
 }`)
-	if len(model.Routes) != 1 {
-		t.Fatalf("route count = %d, want 1", len(model.Routes))
+	if len(tm.Routes) != 1 {
+		t.Fatalf("route count = %d, want 1", len(tm.Routes))
 	}
-	r := model.Routes[0]
-	if r.ID != "route_1" {
-		t.Errorf("route ID = %q", r.ID)
+	r := tm.Routes[0]
+	if r.Id != "route_1" {
+		t.Errorf("route ID = %q", r.Id)
 	}
-	if len(r.Arms) != 2 {
-		t.Fatalf("arm count = %d, want 2", len(r.Arms))
+	if len(r.Match) != 2 {
+		t.Fatalf("arm count = %d, want 2", len(r.Match))
 	}
-	arm0 := r.Arms[0]
+	arm0 := r.Match[0]
 	if len(arm0.Patterns) != 2 {
 		t.Errorf("arm[0] patterns = %d, want 2", len(arm0.Patterns))
 	}
@@ -727,7 +731,7 @@ route "route_1" {
 	if arm0.Target != "scene_1" {
 		t.Errorf("arm[0].target = %q", arm0.Target)
 	}
-	arm1 := r.Arms[1]
+	arm1 := r.Match[1]
 	if arm1.Patterns[0] != "_" {
 		t.Errorf("fallback pattern = %q", arm1.Patterns[0])
 	}
@@ -736,7 +740,7 @@ route "route_1" {
 // ─── publish lowering ─────────────────────────────────────────────────────────
 
 func TestLowerPublishBlock(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute { root = v prog "p" { v:bool = true } }
     publish {
@@ -744,19 +748,19 @@ func TestLowerPublishBlock(t *testing.T) {
       hook = "hook_b"
     }
   }`))
-	pub := model.Scenes[0].Actions[0].Publish
-	if pub == nil || len(pub.Hooks) != 2 {
+	pub := tm.Scenes[0].Actions[0].Publish
+	if len(pub) != 2 {
 		t.Fatalf("publish hooks = %v", pub)
 	}
-	if pub.Hooks[0] != "hook_a" || pub.Hooks[1] != "hook_b" {
-		t.Errorf("hooks = %v", pub.Hooks)
+	if pub[0] != "hook_a" || pub[1] != "hook_b" {
+		t.Errorf("hooks = %v", pub)
 	}
 }
 
 // ─── next rule lowering ───────────────────────────────────────────────────────
 
 func TestLowerNextRule(t *testing.T) {
-	model := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute { root = v prog "p" { v:bool = true } }
     next {
@@ -770,7 +774,7 @@ func TestLowerNextRule(t *testing.T) {
   action "b" {
     compute { root = v prog "p" { v:bool = true } }
   }`))
-	rules := model.Scenes[0].Actions[0].Next
+	rules := tm.Scenes[0].Actions[0].Next
 	if len(rules) != 1 {
 		t.Fatalf("next rules = %d, want 1", len(rules))
 	}
@@ -792,10 +796,10 @@ func TestLowerIdempotency(t *testing.T) {
   action "a" {
     compute { root = v prog "p" { v:bool = true } }
   }`)
-	m1 := mustLower(t, src)
-	m2 := mustLower(t, src)
-	if m1.Scenes[0].ID != m2.Scenes[0].ID {
-		t.Errorf("scene ID differs: %q vs %q", m1.Scenes[0].ID, m2.Scenes[0].ID)
+	m1, _ := mustLower(t, src)
+	m2, _ := mustLower(t, src)
+	if m1.Scenes[0].Id != m2.Scenes[0].Id {
+		t.Errorf("scene ID differs: %q vs %q", m1.Scenes[0].Id, m2.Scenes[0].Id)
 	}
 	if len(m1.Scenes[0].Actions) != len(m2.Scenes[0].Actions) {
 		t.Errorf("action count differs: %d vs %d", len(m1.Scenes[0].Actions), len(m2.Scenes[0].Actions))

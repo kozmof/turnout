@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
@@ -29,11 +30,11 @@ func fullPipeline(t *testing.T, src string) string {
 	if ds2.HasErrors() {
 		t.Fatalf("state resolve failed: %v", ds2)
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, sc, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower failed: %v", ds3)
 	}
-	ds4 := validate.Validate(model, schema)
+	ds4 := validate.Validate(tm, sc, schema)
 	if ds4.HasErrors() {
 		for _, d := range ds4 {
 			t.Logf("validate: %s", d.Format())
@@ -41,14 +42,14 @@ func fullPipeline(t *testing.T, src string) string {
 		t.Fatalf("validate failed")
 	}
 	var sb strings.Builder
-	emit.Emit(&sb, model)
+	emit.Emit(&sb, tm, sc)
 	return sb.String()
 }
 
 // emitModel emits a pre-built model (bypassing parse/validate).
-func emitModel(model *lower.Model) string {
+func emitModel(tm *turnoutpb.TurnModel, sc *lower.Sidecar) string {
 	var sb strings.Builder
-	emit.Emit(&sb, model)
+	emit.Emit(&sb, tm, sc)
 	return sb.String()
 }
 
@@ -560,7 +561,7 @@ scene "loan_flow" {
 }
 
 func TestEmitNilModelNoop(t *testing.T) {
-	out := emitModel(nil)
+	out := emitModel(nil, nil)
 	if out != "" {
 		t.Errorf("nil model should emit nothing, got %q", out)
 	}
@@ -607,7 +608,7 @@ scene "s" {
 	if ds2.HasErrors() {
 		t.Fatalf("state_file resolve: %v", ds2)
 	}
-	model2, ds3 := lower.Lower(tf2, schema2)
+	tm2, sc2, ds3 := lower.Lower(tf2, schema2)
 	if ds3.HasErrors() {
 		t.Fatalf("lower state_file: %v", ds3)
 	}
@@ -615,7 +616,7 @@ scene "s" {
 	// Both should produce a state block with namespace "app" and fields "score" + "active".
 	inlineOut := fullPipeline(t, inlineSrc)
 	var sb strings.Builder
-	emit.Emit(&sb, model2)
+	emit.Emit(&sb, tm2, sc2)
 	stateFileOut := sb.String()
 
 	// They won't be byte-identical (ordering may differ), but both must contain
@@ -674,13 +675,13 @@ func pipelineFromFile(t *testing.T, path string) string {
 	}
 	// Use the scene/routes from the AST to produce a partial model for emitting.
 	// We skip validate so type-mismatch against our stub state schema doesn't fail.
-	model, _ := lower.Lower(tf, schema) // errors expected for missing state paths
-	if model == nil {
+	tm, sc, _ := lower.Lower(tf, schema) // errors expected for missing state paths
+	if tm == nil {
 		// Lower returned nil — return a placeholder indicating parse passed.
 		return "(parse-only)"
 	}
 	var sb strings.Builder
-	emit.Emit(&sb, model)
+	emit.Emit(&sb, tm, sc)
 	return sb.String()
 }
 
@@ -753,16 +754,16 @@ scene "test_scene" {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, sc, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if err := validate.Validate(model, schema); err.HasErrors() {
-		t.Fatalf("validate: %v", err)
+	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
+		t.Fatalf("validate: %v", ds4)
 	}
 
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, model); err != nil {
+	if err := emit.EmitJSON(&sb, tm); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 	out := sb.String()

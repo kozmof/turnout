@@ -3,10 +3,11 @@ package validate_test
 import (
 	"testing"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─── Array functions ──────────────────────────────────────────────────────────
@@ -258,30 +259,28 @@ scene "test" {
 
 func TestInvalidTransitionIngress(t *testing.T) {
 	// Manually build a model with a next prepare entry that has no source (count=0).
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "r",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "r", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "r", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
-					Next: []*lower.HCLNextRule{
+					Next: []*turnoutpb.NextRuleModel{
 						{
 							Action: "a",
-							Prepare: &lower.HCLNextPrepare{
-								Entries: []*lower.HCLNextPrepareEntry{
-									{BindingName: "x"}, // count=0: no FromAction/FromState/FromLiteral
-								},
+							Prepare: []*turnoutpb.NextPrepareEntry{
+								{Binding: "x"}, // count=0: no FromAction/FromState/FromLiteral
 							},
 						},
 					},
@@ -289,49 +288,50 @@ func TestInvalidTransitionIngress(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeInvalidTransitionIngress) {
 		t.Error("want InvalidTransitionIngress for next prepare entry with no source")
 	}
 }
 
-// ─── Validate(nil, nil) ───────────────────────────────────────────────────────
+// ─── Validate(nil, nil, nil) ──────────────────────────────────────────────────
 
 func TestValidateNilModel(t *testing.T) {
-	ds := validate.Validate(nil, nil)
+	ds := validate.Validate(nil, nil, nil)
 	if ds.HasErrors() {
 		t.Error("nil model should produce no errors")
 	}
 }
 
-// ─── Route pattern: empty / wildcard first segment (lines 142-146) ───────────
+// ─── Route pattern: empty / wildcard first segment ────────────────────────────
 
 func TestRoutePatternWildcardFirstSegment(t *testing.T) {
 	// Build model manually with a route arm whose pattern starts with "*"
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "scene_1",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "scene_1",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
-				{ID: "a", Compute: &lower.HCLCompute{Root: "v", Prog: &lower.HCLProg{
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{
 					Name: "p",
-					Bindings: []*lower.HCLBinding{
-						{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+					Bindings: []*turnoutpb.BindingModel{
+						{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 					},
-				}}},
-			},
+				}},
+			}},
 		}},
-		Routes: []*lower.HCLRouteBlock{
+		Routes: []*turnoutpb.RouteModel{
 			{
-				ID: "r1",
-				Arms: []*lower.HCLMatchArm{
+				Id: "r1",
+				Match: []*turnoutpb.MatchArm{
 					{Patterns: []string{"*.action"}, Target: "scene_1"},
 				},
 			},
 		},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeInvalidPathItem) {
 		t.Error("want InvalidPathItem for route pattern starting with *")
 	}
@@ -339,88 +339,90 @@ func TestRoutePatternWildcardFirstSegment(t *testing.T) {
 
 func TestRoutePatternEmptyFirstSegment(t *testing.T) {
 	// Pattern with empty first segment (e.g. ".action")
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "scene_1",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "scene_1",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
-				{ID: "a", Compute: &lower.HCLCompute{Root: "v", Prog: &lower.HCLProg{
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{
 					Name: "p",
-					Bindings: []*lower.HCLBinding{
-						{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+					Bindings: []*turnoutpb.BindingModel{
+						{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 					},
-				}}},
-			},
+				}},
+			}},
 		}},
-		Routes: []*lower.HCLRouteBlock{
+		Routes: []*turnoutpb.RouteModel{
 			{
-				ID: "r1",
-				Arms: []*lower.HCLMatchArm{
+				Id: "r1",
+				Match: []*turnoutpb.MatchArm{
 					{Patterns: []string{".action"}, Target: "scene_1"},
 				},
 			},
 		},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeInvalidPathItem) {
 		t.Error("want InvalidPathItem for route pattern with empty first segment")
 	}
 }
 
-// ─── Route pattern: no action segment (bare scene ID, lines 149-153) ─────────
+// ─── Route pattern: no action segment (bare scene ID) ────────────────────────
 
 func TestRoutePatternNoActionSegment(t *testing.T) {
 	// Pattern "scene_1" (no dot) — no action segment
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "scene_1",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "scene_1",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
-				{ID: "a", Compute: &lower.HCLCompute{Root: "v", Prog: &lower.HCLProg{
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{
 					Name: "p",
-					Bindings: []*lower.HCLBinding{
-						{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+					Bindings: []*turnoutpb.BindingModel{
+						{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 					},
-				}}},
-			},
+				}},
+			}},
 		}},
-		Routes: []*lower.HCLRouteBlock{
+		Routes: []*turnoutpb.RouteModel{
 			{
-				ID: "r1",
-				Arms: []*lower.HCLMatchArm{
+				Id: "r1",
+				Match: []*turnoutpb.MatchArm{
 					{Patterns: []string{"scene_1"}, Target: "scene_1"},
 				},
 			},
 		},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeBareWildcardPath) {
 		t.Error("want BareWildcardPath for route pattern with no action segment")
 	}
 }
 
-// ─── Action with Compute == nil (lines 221-223) ───────────────────────────────
+// ─── Action with Compute == nil ───────────────────────────────────────────────
 
 func TestActionComputeNil(t *testing.T) {
 	// Action with nil Compute should not panic and produce no extra errors
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
-				{ID: "a", Compute: nil},
+			Actions: []*turnoutpb.ActionModel{
+				{Id: "a", Compute: nil},
 			},
 		}},
 	}
 	// Should not panic; may produce no errors (nil compute is allowed structurally)
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	_ = ds
 }
 
-// ─── next rule references unknown action (lines 228-231) ─────────────────────
+// ─── next rule references unknown action ─────────────────────────────────────
 
 func TestNextRuleUnknownAction(t *testing.T) {
 	src := basicState + `
@@ -437,19 +439,19 @@ scene "test" {
 	}
 }
 
-// ─── validateProg(nil) (lines 246-248) ───────────────────────────────────────
+// ─── validateProg(nil) ───────────────────────────────────────────────────────
 
 func TestValidateProgNil(t *testing.T) {
 	// Build model with action that has Compute with nil Prog
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "r",
 						Prog: nil,
 					},
@@ -457,14 +459,14 @@ func TestValidateProgNil(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	// Root "r" won't be found in empty scope → SCNActionRootNotFound
 	if !hasCode(ds, diag.CodeSCNActionRootNotFound) {
 		t.Error("want SCNActionRootNotFound when prog is nil and root is set")
 	}
 }
 
-// ─── pipe param source undefined (lines 382-385) ─────────────────────────────
+// ─── pipe param source undefined ─────────────────────────────────────────────
 
 func TestPipeParamSourceUndefined(t *testing.T) {
 	src := min(`        result:number = #pipe(a:undefined_ref)[add(a, a)]
@@ -474,7 +476,7 @@ func TestPipeParamSourceUndefined(t *testing.T) {
 	}
 }
 
-// ─── pipe step unknown function (lines 401-405) ───────────────────────────────
+// ─── pipe step unknown function ───────────────────────────────────────────────
 
 func TestPipeStepUnknownFunction(t *testing.T) {
 	src := min(`        x:number = 1
@@ -485,7 +487,7 @@ func TestPipeStepUnknownFunction(t *testing.T) {
 	}
 }
 
-// ─── pipe last step type mismatch (lines 427-431) ────────────────────────────
+// ─── pipe last step type mismatch ────────────────────────────────────────────
 
 func TestPipeLastStepTypeMismatch(t *testing.T) {
 	// add returns number but binding is bool
@@ -497,32 +499,32 @@ func TestPipeLastStepTypeMismatch(t *testing.T) {
 	}
 }
 
-// ─── cond condition reference undefined (lines 441-444) ──────────────────────
+// ─── cond condition reference undefined ──────────────────────────────────────
 
 func TestCondConditionRefUndefined(t *testing.T) {
-	// Build model manually with HCLCond whose Condition refs an undefined name
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	// Build model manually with CondExpr whose Condition refs an undefined name
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 								{
 									Name: "r",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Cond: &lower.HCLCond{
-											Condition: &lower.HCLArg{Ref: "undefined_cond"},
-											Then:      &lower.HCLArg{FuncRef: "v"},
-											Else:      &lower.HCLArg{FuncRef: "v"},
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Cond: &turnoutpb.CondExpr{
+											Condition:  &turnoutpb.ArgModel{Ref: proto.String("undefined_cond")},
+											Then:       &turnoutpb.ArgModel{FuncRef: proto.String("v")},
+											ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("v")},
 										},
 									},
 								},
@@ -533,55 +535,55 @@ func TestCondConditionRefUndefined(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeUndefinedRef) {
 		t.Error("want UndefinedRef for cond condition reference to undefined name")
 	}
 }
 
-// ─── cond branch type mismatch vs binding (lines 490-494) ────────────────────
+// ─── cond branch type mismatch vs binding ────────────────────────────────────
 
 func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 	// thenFn has type bool but binding declares number — then==else so BranchTypeMismatch
 	// won't fire, but ReturnTypeMismatch will (thenType != b.Type)
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "flag", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
 								// thenFn is a function binding returning bool
 								{
 									Name: "thenFn",
-									Type: ast.FieldTypeBool,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "bool",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn:   "bool_and",
-											Args: []*lower.HCLArg{{Ref: "flag"}, {Lit: &ast.BoolLiteral{Value: true}}},
+											Args: []*turnoutpb.ArgModel{{Ref: proto.String("flag")}, {Lit: structpb.NewBoolValue(true)}},
 										},
 									},
 								},
 								// binding r declares number but cond branches return bool
 								{
 									Name: "r",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Cond: &lower.HCLCond{
-											Condition: &lower.HCLArg{Ref: "flag"},
-											Then:      &lower.HCLArg{FuncRef: "thenFn"},
-											Else:      &lower.HCLArg{FuncRef: "thenFn"},
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Cond: &turnoutpb.CondExpr{
+											Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+											Then:       &turnoutpb.ArgModel{FuncRef: proto.String("thenFn")},
+											ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("thenFn")},
 										},
 									},
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -589,13 +591,13 @@ func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeReturnTypeMismatch) {
 		t.Error("want ReturnTypeMismatch for cond branch type != binding type")
 	}
 }
 
-// ─── to_state invalid path (lines 547-553) ───────────────────────────────────
+// ─── to_state invalid path ────────────────────────────────────────────────────
 
 func TestMergeToStateInvalidPath(t *testing.T) {
 	// to_state = "nodot" has no dot → InvalidStatePath
@@ -645,7 +647,7 @@ scene "test" {
 	}
 }
 
-// ─── SigilIngress with no prepare (lines 566-569) ────────────────────────────
+// ─── SigilIngress with no prepare ────────────────────────────────────────────
 
 func TestSigilIngressNoPrepare(t *testing.T) {
 	src := basicState + `
@@ -667,7 +669,7 @@ scene "test" {
 	}
 }
 
-// ─── SigilBiDir with neither prepare nor merge (lines 578-583) ───────────────
+// ─── SigilBiDir with neither prepare nor merge ───────────────────────────────
 
 func TestSigilBiDirNoPrepareNoMerge(t *testing.T) {
 	src := basicState + `
@@ -693,7 +695,7 @@ scene "test" {
 	}
 }
 
-// ─── next prepare FromAction/FromState/FromLiteral (lines 622-630) ───────────
+// ─── next prepare FromAction/FromState/FromLiteral ───────────────────────────
 
 func TestNextPrepareFromAction(t *testing.T) {
 	src := basicState + `
@@ -761,7 +763,7 @@ scene "test" {
 	}
 }
 
-// ─── validateStatePath from next prepare from_state (lines 636-638) ──────────
+// ─── validateStatePath from next prepare from_state ──────────────────────────
 
 func TestNextPrepareFromStateInvalidPath(t *testing.T) {
 	src := basicState + `
@@ -782,7 +784,7 @@ scene "test" {
 	}
 }
 
-// ─── next rule condition not found in prog (lines 652-655) ───────────────────
+// ─── next rule condition not found in prog ────────────────────────────────────
 
 func TestNextRuleConditionNotInProg(t *testing.T) {
 	src := basicState + `
@@ -805,7 +807,7 @@ scene "test" {
 	}
 }
 
-// ─── validateStatePath: invalid path and not in schema (lines 668-676) ───────
+// ─── validateStatePath: invalid path and not in schema ───────────────────────
 
 func TestValidateStatePathInvalidPath(t *testing.T) {
 	src := basicState + `
@@ -853,7 +855,7 @@ scene "test" {
 	}
 }
 
-// ─── isValidStatePath: len<2 and invalid ident (lines 682-688) ───────────────
+// ─── isValidStatePath: len<2 and invalid ident ───────────────────────────────
 
 func TestIsValidStatePathTooShort(t *testing.T) {
 	// "nodot" → only one segment after split → len < 2 → invalid
@@ -951,38 +953,38 @@ scene "test" {
 	}
 }
 
-// ─── validateArgRefs FuncRef undefined and func_ref on value (lines 705-714) ──
+// ─── validateArgRefs FuncRef undefined and func_ref on value ─────────────────
 
 func TestFuncRefUndefined(t *testing.T) {
 	// Build model manually with a combine that has a FuncRef pointing to undefined
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "x", Type: ast.FieldTypeNumber, Value: &ast.NumberLiteral{Value: 1}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn: "add",
-											Args: []*lower.HCLArg{
-												{FuncRef: "nonexistent"},
-												{Ref: "x"},
+											Args: []*turnoutpb.ArgModel{
+												{FuncRef: proto.String("nonexistent")},
+												{Ref: proto.String("x")},
 											},
 										},
 									},
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -990,7 +992,7 @@ func TestFuncRefUndefined(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef for func_ref pointing to undefined name")
 	}
@@ -998,34 +1000,34 @@ func TestFuncRefUndefined(t *testing.T) {
 
 func TestFuncRefOnValueBinding(t *testing.T) {
 	// func_ref points to a value binding (not a function) → UndefinedFuncRef
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "x", Type: ast.FieldTypeNumber, Value: &ast.NumberLiteral{Value: 1}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn: "add",
-											Args: []*lower.HCLArg{
-												{FuncRef: "x"}, // x is a value binding, not func
-												{Ref: "x"},
+											Args: []*turnoutpb.ArgModel{
+												{FuncRef: proto.String("x")}, // x is a value binding, not func
+												{Ref: proto.String("x")},
 											},
 										},
 									},
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -1033,40 +1035,40 @@ func TestFuncRefOnValueBinding(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef for func_ref pointing to value binding")
 	}
 }
 
-// ─── resolveExpectedReturn arr_concat with no args (line 740) ────────────────
+// ─── resolveExpectedReturn arr_concat with no args ───────────────────────────
 
 func TestArrConcatNoArgs(t *testing.T) {
 	// arr_concat combine with empty args → resolveExpectedReturn returns (0,false)
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
+							Bindings: []*turnoutpb.BindingModel{
 								{
 									Name: "result",
-									Type: ast.FieldTypeArrNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "arr<number>",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn:   "arr_concat",
-											Args: []*lower.HCLArg{}, // no args
+											Args: []*turnoutpb.ArgModel{}, // no args
 										},
 									},
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -1075,14 +1077,14 @@ func TestArrConcatNoArgs(t *testing.T) {
 		}},
 	}
 	// Should not panic; validateCombineArgTypes with < 2 args returns early
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	_ = ds
 }
 
 // ─── resolveArgType branches ──────────────────────────────────────────────────
 
 func TestResolveArgTypeLitNumber(t *testing.T) {
-	// arr_get(items, 0) — the "0" is a LitArg (NumberLiteral) → literalFieldType called
+	// arr_get(items, 0) — the "0" is a LitArg (NumberValue) → literalFieldType called
 	src := min(`        items:arr<number> = [1, 2, 3]
         out:number = arr_get(items, 0)
 `)
@@ -1095,7 +1097,7 @@ func TestResolveArgTypeLitNumber(t *testing.T) {
 }
 
 func TestResolveArgTypeLitString(t *testing.T) {
-	// str_includes(label, "hello") — "hello" is a StringLiteral LitArg
+	// str_includes(label, "hello") — "hello" is a StringValue LitArg
 	src := min(`        label:str = ""
         out:bool = str_includes(label, "hello")
 `)
@@ -1108,7 +1110,7 @@ func TestResolveArgTypeLitString(t *testing.T) {
 }
 
 func TestResolveArgTypeLitBool(t *testing.T) {
-	// bool_xor(active, true) — true is a BoolLiteral LitArg
+	// bool_xor(active, true) — true is a BoolValue LitArg
 	src := min(`        active:bool = false
         out:bool = bool_xor(active, true)
 `)
@@ -1121,7 +1123,7 @@ func TestResolveArgTypeLitBool(t *testing.T) {
 }
 
 func TestResolveArgTypeLitArrayNonEmpty(t *testing.T) {
-	// arr_concat(items, [1,2]) — [1,2] is ArrayLiteral LitArg
+	// arr_concat(items, [1,2]) — [1,2] is ListValue LitArg
 	src := min(`        items:arr<number> = []
         out:arr<number> = arr_concat(items, [1, 2])
 `)
@@ -1134,7 +1136,7 @@ func TestResolveArgTypeLitArrayNonEmpty(t *testing.T) {
 }
 
 func TestResolveArgTypeLitArrayEmpty(t *testing.T) {
-	// arr_concat(items, []) — empty ArrayLiteral → literalFieldType returns (0, false)
+	// arr_concat(items, []) — empty ListValue → literalFieldType returns (0, false)
 	src := min(`        items:arr<number> = []
         out:arr<number> = arr_concat(items, [])
 `)
@@ -1148,46 +1150,46 @@ func TestResolveArgTypeLitArrayEmpty(t *testing.T) {
 
 func TestResolveArgTypeFuncRef(t *testing.T) {
 	// pipe step with func_ref arg — resolveArgType FuncRef branch
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "x", Type: ast.FieldTypeNumber, Value: &ast.NumberLiteral{Value: 1}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
 								{
 									Name: "fn1",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn:   "add",
-											Args: []*lower.HCLArg{{Ref: "x"}, {Lit: &ast.NumberLiteral{Value: 0}}},
+											Args: []*turnoutpb.ArgModel{{Ref: proto.String("x")}, {Lit: structpb.NewNumberValue(0)}},
 										},
 									},
 								},
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Pipe: &lower.HCLPipe{
-											Params: []*lower.HCLPipeParam{{ParamName: "a", SourceIdent: "x"}},
-											Steps: []*lower.HCLPipeStep{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Pipe: &turnoutpb.PipeExpr{
+											Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+											Steps: []*turnoutpb.PipeStep{
 												{
 													Fn:   "add",
-													Args: []*lower.HCLArg{{FuncRef: "fn1"}, {Ref: "a"}},
+													Args: []*turnoutpb.ArgModel{{FuncRef: proto.String("fn1")}, {Ref: proto.String("a")}},
 												},
 											},
 										},
 									},
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -1195,7 +1197,7 @@ func TestResolveArgTypeFuncRef(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	_ = ds
 }
 
@@ -1216,35 +1218,35 @@ func TestResolveArgTypeStepRef(t *testing.T) {
 	}
 }
 
-// ─── validateCombineArgTypes with < 2 args (lines 772-774) ───────────────────
+// ─── validateCombineArgTypes with < 2 args ────────────────────────────────────
 
 func TestCombineArgTypesLessThan2Args(t *testing.T) {
 	// Combine with 1 arg → validateCombineArgTypes returns early (no panic)
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								{Name: "x", Type: ast.FieldTypeNumber, Value: &ast.NumberLiteral{Value: 1}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn:   "add",
-											Args: []*lower.HCLArg{{Ref: "x"}}, // only 1 arg
+											Args: []*turnoutpb.ArgModel{{Ref: proto.String("x")}}, // only 1 arg
 										},
 									},
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -1253,11 +1255,11 @@ func TestCombineArgTypesLessThan2Args(t *testing.T) {
 		}},
 	}
 	// Should not panic
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	_ = ds
 }
 
-// ─── arr_get arg2 type not number (lines 790-793) ────────────────────────────
+// ─── arr_get arg2 type not number ────────────────────────────────────────────
 
 func TestArrGetArg2NotNumber(t *testing.T) {
 	// arr_get(items, label) — label is str, not number
@@ -1270,7 +1272,7 @@ func TestArrGetArg2NotNumber(t *testing.T) {
 	}
 }
 
-// ─── arr_concat arg1 not array (lines 805-808) ────────────────────────────────
+// ─── arr_concat arg1 not array ────────────────────────────────────────────────
 
 func TestArrConcatArg1NotArray(t *testing.T) {
 	// arr_concat(score, items) — score is number, not array
@@ -1283,7 +1285,7 @@ func TestArrConcatArg1NotArray(t *testing.T) {
 	}
 }
 
-// ─── default case arg type mismatch (lines 815-818) ──────────────────────────
+// ─── default case arg type mismatch ──────────────────────────────────────────
 
 func TestDefaultCaseArgTypeMismatch(t *testing.T) {
 	// add(label, score) — label is str but add expects number
@@ -1296,7 +1298,7 @@ func TestDefaultCaseArgTypeMismatch(t *testing.T) {
 	}
 }
 
-// ─── isIdentityCombine str_concat and arr_concat branches (lines 835-848) ────
+// ─── isIdentityCombine str_concat and arr_concat branches ────────────────────
 
 func TestIdentityCombineStrConcat(t *testing.T) {
 	// t:str = label → lowered as str_concat(label, "") → identity combine
@@ -1324,30 +1326,30 @@ func TestIdentityCombineArrConcat(t *testing.T) {
 	}
 }
 
-// ─── literalMatchesFieldType arr with non-array value (lines 865-867) ────────
+// ─── literalMatchesFieldType arr with non-array value ────────────────────────
 
 func TestLiteralMatchesFieldTypeArrWithNonArray(t *testing.T) {
-	// Build model manually with array-typed binding but NumberLiteral value
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	// Build model manually with array-typed binding but NumberValue → literalMatchesFieldType returns false
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "v",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
-								// arr<number> typed but has a NumberLiteral value → literalMatchesFieldType returns false
+							Bindings: []*turnoutpb.BindingModel{
+								// arr<number> typed but has a NumberValue → literalMatchesFieldType returns false
 								{
 									Name:  "bad",
-									Type:  ast.FieldTypeArrNumber,
-									Value: &ast.NumberLiteral{Value: 42},
+									Type:  "arr<number>",
+									Value: structpb.NewNumberValue(42),
 								},
-								{Name: "v", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+								{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -1355,16 +1357,16 @@ func TestLiteralMatchesFieldTypeArrWithNonArray(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeTypeMismatch) {
-		t.Error("want TypeMismatch for arr<number> binding with NumberLiteral value")
+		t.Error("want TypeMismatch for arr<number> binding with NumberValue value")
 	}
 }
 
-// ─── literalFieldType: BoolLiteral branch (lines 887-888) ────────────────────
+// ─── literalFieldType: BoolValue branch ──────────────────────────────────────
 
 func TestLiteralFieldTypeBoolLiteral(t *testing.T) {
-	// bool_xor(active, false) — false is BoolLiteral → literalFieldType returns bool
+	// bool_xor(active, false) — false is BoolValue → literalFieldType returns bool
 	src := min(`        active:bool = false
         out:bool = bool_xor(active, false)
 `)
@@ -1376,7 +1378,7 @@ func TestLiteralFieldTypeBoolLiteral(t *testing.T) {
 	}
 }
 
-// ─── Ref not found in resolveArgType (line 753) ───────────────────────────────
+// ─── Ref not found in resolveArgType ─────────────────────────────────────────
 
 func TestResolveArgTypeRefNotFound(t *testing.T) {
 	// combine where first arg refs an undefined name — resolveArgType returns (0, false)

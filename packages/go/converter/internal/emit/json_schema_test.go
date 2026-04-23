@@ -83,31 +83,31 @@ route "main" {
 	if ds2.HasErrors() {
 		t.Fatalf("state resolve: %v", ds2)
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, sc, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(model, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSON(&buf, model); err != nil {
+	if err := EmitJSON(&buf, tm); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 
 	// Unmarshal back via protojson — rejects unknown fields, verifying the
 	// emitter never produces keys outside the proto schema.
-	var tm turnoutpb.TurnModel
-	if err := protojson.Unmarshal(buf.Bytes(), &tm); err != nil {
+	var got turnoutpb.TurnModel
+	if err := protojson.Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatalf("protojson.Unmarshal: %v\n(emitted JSON contains a field not declared in turnout-model.proto)", err)
 	}
 
-	if len(tm.Scenes) == 0 {
+	if len(got.Scenes) == 0 {
 		t.Fatal("expected at least one scene in output")
 	}
-	if tm.Scenes[0].Id != "s" {
-		t.Errorf("scene ID: got %q, want %q", tm.Scenes[0].Id, "s")
+	if got.Scenes[0].Id != "s" {
+		t.Errorf("scene ID: got %q, want %q", got.Scenes[0].Id, "s")
 	}
 }
 
@@ -115,7 +115,7 @@ route "main" {
 // valid proto JSON that unmarshals without error.
 func TestEmitJSONNilModelProducesValidJSON(t *testing.T) {
 	var buf bytes.Buffer
-	if err := EmitJSON(&buf, (*lower.Model)(nil)); err != nil {
+	if err := EmitJSON(&buf, nil); err != nil {
 		t.Fatalf("EmitJSON nil: %v", err)
 	}
 	var tm turnoutpb.TurnModel

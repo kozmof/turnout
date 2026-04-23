@@ -5,9 +5,12 @@ import (
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestValidateIrregularRouteModels(t *testing.T) {
@@ -15,15 +18,15 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		model    *lower.Model
+		model    *turnoutpb.TurnModel
 		wantCode string
 	}{
 		{
 			name: "duplicate_fallback",
-			model: irregularModelWithRoutes([]*lower.HCLRouteBlock{
+			model: irregularModelWithRoutes([]*turnoutpb.RouteModel{
 				{
-					ID: "main",
-					Arms: []*lower.HCLMatchArm{
+					Id: "main",
+					Match: []*turnoutpb.MatchArm{
 						{Patterns: []string{"_"}, Target: "s"},
 						{Patterns: []string{"_"}, Target: "s"},
 					},
@@ -33,10 +36,10 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 		},
 		{
 			name: "multiple_wildcards",
-			model: irregularModelWithRoutes([]*lower.HCLRouteBlock{
+			model: irregularModelWithRoutes([]*turnoutpb.RouteModel{
 				{
-					ID: "main",
-					Arms: []*lower.HCLMatchArm{
+					Id: "main",
+					Match: []*turnoutpb.MatchArm{
 						{Patterns: []string{"s.*.*.done"}, Target: "s"},
 					},
 				},
@@ -45,10 +48,10 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 		},
 		{
 			name: "unresolved_scene",
-			model: irregularModelWithRoutes([]*lower.HCLRouteBlock{
+			model: irregularModelWithRoutes([]*turnoutpb.RouteModel{
 				{
-					ID: "main",
-					Arms: []*lower.HCLMatchArm{
+					Id: "main",
+					Match: []*turnoutpb.MatchArm{
 						{Patterns: []string{"s.start"}, Target: "missing"},
 					},
 				},
@@ -61,7 +64,7 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ds := validate.Validate(tc.model, irregularSchema())
+			ds := validate.Validate(tc.model, nil, irregularSchema())
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -72,61 +75,48 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 func TestValidateIrregularActionEffects(t *testing.T) {
 	t.Parallel()
 
-	cases := []struct {
+	type irrCase struct {
 		name     string
-		action   *lower.HCLAction
+		bindings []irrBind
+		prepare  []*turnoutpb.PrepareEntry
+		merge    []*turnoutpb.MergeEntry
+		next     []*turnoutpb.NextRuleModel
 		wantCode string
-	}{
+		extra    string // optional extra code check
+	}
+
+	cases := []irrCase{
 		{
 			name: "missing_prepare_entry",
-			action: irregularAction(
-				[]*lower.HCLBinding{
-					{Name: "score", Type: ast.FieldTypeNumber, Sigil: ast.SigilIngress, Value: &ast.NumberLiteral{Value: 0}},
-				},
-				nil,
-				nil,
-				nil,
-			),
+			bindings: []irrBind{
+				{name: "score", ft: ast.FieldTypeNumber, sigil: ast.SigilIngress, val: structpb.NewNumberValue(0)},
+			},
 			wantCode: diag.CodeMissingPrepareEntry,
 		},
 		{
 			name: "spurious_prepare_entry_and_invalid_path",
-			action: irregularAction(
-				[]*lower.HCLBinding{
-					{Name: "plain", Type: ast.FieldTypeNumber, Value: &ast.NumberLiteral{Value: 0}},
-				},
-				&lower.HCLPrepare{Entries: []*lower.HCLPrepareEntry{
-					{BindingName: "plain", FromState: "bad"},
-				}},
-				nil,
-				nil,
-			),
+			bindings: []irrBind{
+				{name: "plain", ft: ast.FieldTypeNumber, val: structpb.NewNumberValue(0)},
+			},
+			prepare: []*turnoutpb.PrepareEntry{
+				{Binding: "plain", FromState: proto.String("bad")},
+			},
 			wantCode: diag.CodeSpuriousPrepareEntry,
+			extra:    diag.CodeInvalidStatePath,
 		},
 		{
 			name: "state_type_mismatch",
-			action: irregularAction(
-				[]*lower.HCLBinding{
-					{Name: "flag", Type: ast.FieldTypeBool, Sigil: ast.SigilEgress, Value: &ast.BoolLiteral{Value: true}},
-				},
-				nil,
-				&lower.HCLMerge{Entries: []*lower.HCLMergeEntry{
-					{BindingName: "flag", ToState: "app.score"},
-				}},
-				nil,
-			),
+			bindings: []irrBind{
+				{name: "flag", ft: ast.FieldTypeBool, sigil: ast.SigilEgress, val: structpb.NewBoolValue(true)},
+			},
+			merge: []*turnoutpb.MergeEntry{
+				{Binding: "flag", ToState: "app.score"},
+			},
 			wantCode: diag.CodeStateTypeMismatch,
 		},
 		{
-			name: "unresolved_merge_binding",
-			action: irregularAction(
-				nil,
-				nil,
-				&lower.HCLMerge{Entries: []*lower.HCLMergeEntry{
-					{BindingName: "ghost", ToState: "app.score"},
-				}},
-				nil,
-			),
+			name:  "unresolved_merge_binding",
+			merge: []*turnoutpb.MergeEntry{{Binding: "ghost", ToState: "app.score"}},
 			wantCode: diag.CodeUnresolvedMergeBinding,
 		},
 	}
@@ -135,13 +125,14 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			model := irregularModelWithAction(tc.action)
-			ds := validate.Validate(model, irregularSchema())
+			action, sc := buildIrregularAction(tc.bindings, tc.prepare, tc.merge, tc.next)
+			model := irregularModelWithAction(action)
+			ds := validate.Validate(model, sc, irregularSchema())
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
-			if tc.name == "spurious_prepare_entry_and_invalid_path" && !hasCode(ds, diag.CodeInvalidStatePath) {
-				t.Fatalf("missing diagnostic code %q in %v", diag.CodeInvalidStatePath, ds)
+			if tc.extra != "" && !hasCode(ds, tc.extra) {
+				t.Fatalf("missing diagnostic code %q in %v", tc.extra, ds)
 			}
 		})
 	}
@@ -152,44 +143,44 @@ func TestValidateIrregularNextRules(t *testing.T) {
 
 	cases := []struct {
 		name     string
-		next     []*lower.HCLNextRule
+		next     []*turnoutpb.NextRuleModel
 		wantCode string
 	}{
 		{
 			name: "transition_prepare_with_zero_sources",
-			next: []*lower.HCLNextRule{
+			next: []*turnoutpb.NextRuleModel{
 				{
 					Action: "a",
-					Prepare: &lower.HCLNextPrepare{Entries: []*lower.HCLNextPrepareEntry{
-						{BindingName: "score"},
-					}},
+					Prepare: []*turnoutpb.NextPrepareEntry{
+						{Binding: "score"}, // count=0: no FromAction/FromState/FromLiteral
+					},
 				},
 			},
 			wantCode: diag.CodeInvalidTransitionIngress,
 		},
 		{
 			name: "transition_prepare_with_multiple_sources",
-			next: []*lower.HCLNextRule{
+			next: []*turnoutpb.NextRuleModel{
 				{
 					Action: "a",
-					Prepare: &lower.HCLNextPrepare{Entries: []*lower.HCLNextPrepareEntry{
-						{BindingName: "score", FromAction: "score", FromState: "app.score"},
-					}},
+					Prepare: []*turnoutpb.NextPrepareEntry{
+						{Binding: "score", FromAction: proto.String("score"), FromState: proto.String("app.score")},
+					},
 				},
 			},
 			wantCode: diag.CodeInvalidTransitionIngress,
 		},
 		{
 			name: "condition_wrong_type",
-			next: []*lower.HCLNextRule{
+			next: []*turnoutpb.NextRuleModel{
 				{
 					Action: "a",
-					Compute: &lower.HCLNextCompute{
+					Compute: &turnoutpb.NextComputeModel{
 						Condition: "score",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "n",
-							Bindings: []*lower.HCLBinding{
-								{Name: "score", Type: ast.FieldTypeNumber, Value: &ast.NumberLiteral{Value: 1}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "score", Type: "number", Value: structpb.NewNumberValue(1)},
 							},
 						},
 					},
@@ -199,16 +190,16 @@ func TestValidateIrregularNextRules(t *testing.T) {
 		},
 		{
 			name: "transition_output_sigil",
-			next: []*lower.HCLNextRule{
+			next: []*turnoutpb.NextRuleModel{
 				{
 					Action: "a",
-					Compute: &lower.HCLNextCompute{
+					Compute: &turnoutpb.NextComputeModel{
 						Condition: "go",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "n",
-							Bindings: []*lower.HCLBinding{
-								{Name: "out", Type: ast.FieldTypeNumber, Sigil: ast.SigilEgress, Value: &ast.NumberLiteral{Value: 1}},
-								{Name: "go", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
+							Bindings: []*turnoutpb.BindingModel{
+								{Name: "out", Type: "number", Value: structpb.NewNumberValue(1)},
+								{Name: "go", Type: "bool", Value: structpb.NewBoolValue(true)},
 							},
 						},
 					},
@@ -222,8 +213,26 @@ func TestValidateIrregularNextRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			model := irregularModelWithAction(irregularAction(nil, nil, nil, tc.next))
-			ds := validate.Validate(model, irregularSchema())
+			// "transition_output_sigil" needs a sigil on binding "out" in next prog
+			var sc *lower.Sidecar
+			if tc.name == "transition_output_sigil" {
+				sc = &lower.Sidecar{
+					Sigils:  make(map[lower.BindingKey]ast.Sigil),
+					Actions: make(map[string]lower.ActionMeta),
+					Scenes:  make(map[string]lower.SceneMeta),
+				}
+				sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", ProgName: "n", BindingName: "out"}] = ast.SigilEgress
+			}
+			action, actionSC := buildIrregularAction(nil, nil, nil, tc.next)
+			if sc == nil {
+				sc = actionSC
+			} else if actionSC != nil {
+				for k, v := range actionSC.Sigils {
+					sc.Sigils[k] = v
+				}
+			}
+			model := irregularModelWithAction(action)
+			ds := validate.Validate(model, sc, irregularSchema())
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -233,48 +242,74 @@ func TestValidateIrregularNextRules(t *testing.T) {
 
 func irregularSchema() state.Schema {
 	return state.Schema{
-		"app.score": {Type: ast.FieldTypeNumber, DefaultValue: &ast.NumberLiteral{Value: 0}},
-		"app.flag":  {Type: ast.FieldTypeBool, DefaultValue: &ast.BoolLiteral{Value: false}},
-		"app.label": {Type: ast.FieldTypeStr, DefaultValue: &ast.StringLiteral{Value: ""}},
+		"app.score": {Type: ast.FieldTypeNumber, DefaultValue: nil},
+		"app.flag":  {Type: ast.FieldTypeBool, DefaultValue: nil},
+		"app.label": {Type: ast.FieldTypeStr, DefaultValue: nil},
 	}
 }
 
-func irregularModelWithRoutes(routes []*lower.HCLRouteBlock) *lower.Model {
-	return &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+func irregularModelWithRoutes(routes []*turnoutpb.RouteModel) *turnoutpb.TurnModel {
+	action, _ := buildIrregularAction(nil, nil, nil, nil)
+	return &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
-				irregularAction(nil, nil, nil, nil),
-			},
+			Actions:      []*turnoutpb.ActionModel{action},
 		}},
 		Routes: routes,
 	}
 }
 
-func irregularModelWithAction(action *lower.HCLAction) *lower.Model {
-	return &lower.Model{
-		State: &lower.HCLStateBlock{},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+func irregularModelWithAction(action *turnoutpb.ActionModel) *turnoutpb.TurnModel {
+	return &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions:      []*lower.HCLAction{action},
+			Actions:      []*turnoutpb.ActionModel{action},
 		}},
 	}
 }
 
-func irregularAction(bindings []*lower.HCLBinding, prepare *lower.HCLPrepare, merge *lower.HCLMerge, next []*lower.HCLNextRule) *lower.HCLAction {
-	progBindings := []*lower.HCLBinding{
-		{Name: "ready", Type: ast.FieldTypeBool, Value: &ast.BoolLiteral{Value: true}},
-	}
-	progBindings = append(progBindings, bindings...)
+type irrBind struct {
+	name  string
+	ft    ast.FieldType
+	sigil ast.Sigil
+	val   *structpb.Value
+	expr  *turnoutpb.ExprModel
+}
 
-	return &lower.HCLAction{
-		ID: "a",
-		Compute: &lower.HCLCompute{
+// buildIrregularAction constructs an ActionModel with a "ready:bool = true" base binding
+// plus any additional bindings. Returns the action and a sidecar with any sigils.
+func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *lower.Sidecar) {
+	sc := &lower.Sidecar{
+		Sigils:  make(map[lower.BindingKey]ast.Sigil),
+		Actions: make(map[string]lower.ActionMeta),
+		Scenes:  make(map[string]lower.SceneMeta),
+	}
+
+	progBindings := []*turnoutpb.BindingModel{
+		{Name: "ready", Type: "bool", Value: structpb.NewBoolValue(true)},
+	}
+	for _, ib := range bindings {
+		bm := &turnoutpb.BindingModel{Name: ib.name, Type: ib.ft.String()}
+		if ib.val != nil {
+			bm.Value = ib.val
+		} else {
+			bm.Expr = ib.expr
+		}
+		progBindings = append(progBindings, bm)
+		if ib.sigil != ast.SigilNone {
+			sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", ProgName: "p", BindingName: ib.name}] = ib.sigil
+		}
+	}
+
+	return &turnoutpb.ActionModel{
+		Id: "a",
+		Compute: &turnoutpb.ComputeModel{
 			Root: "ready",
-			Prog: &lower.HCLProg{
+			Prog: &turnoutpb.ProgModel{
 				Name:     "p",
 				Bindings: progBindings,
 			},
@@ -282,5 +317,5 @@ func irregularAction(bindings []*lower.HCLBinding, prepare *lower.HCLPrepare, me
 		Prepare: prepare,
 		Merge:   merge,
 		Next:    next,
-	}
+	}, sc
 }

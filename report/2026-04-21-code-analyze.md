@@ -86,9 +86,9 @@ main() → convert()
   ├── lexer.Tokenize()
   ├── parser.Parse(tokens)
   ├── state.Resolve(ast)
-  ├── lower.Lower(ast, schema)
-  ├── validate.Validate(lowered)
-  └── emit.Emit(model, format, writer)
+  ├── lower.Lower(ast, schema)          → (*turnoutpb.TurnModel, *Sidecar)
+  ├── validate.Validate(tm, sc, schema)
+  └── emit.Emit(w, tm, sc)  /  emit.EmitJSON(w, tm)
 ```
 
 Each phase depends only on the output of the prior phase — no backtracking or cross-phase mutation.
@@ -158,9 +158,11 @@ The runtime tsconfig already uses `"moduleResolution": "bundler"`, which fully h
 
 The validation brand is a TypeScript symbol (`declare const brand: unique symbol`). Any code that casts `as ValidatedContext` bypasses all runtime checks. This pattern is powerful but invisible — one unsafe cast in test scaffolding can silently propagate to production paths.
 
-**P5 — Go `lower` phase output is HCL, not proto**
+**P5 — Go `lower` phase output is HCL, not proto** ✓ *Resolved 2026-04-23*
 
-The lowering phase outputs `HCLSceneBlock` / `HCLRouteBlock` Go structs that are then re-encoded to JSON/HCL by the emitter. The proto model is only involved at the emit stage. If the HCL structs and the proto schema diverge, the discrepancy would only surface at JSON emission time, not at the lowering stage — a late detection point.
+~~The lowering phase outputs `HCLSceneBlock` / `HCLRouteBlock` Go structs that are then re-encoded to JSON/HCL by the emitter. The proto model is only involved at the emit stage. If the HCL structs and the proto schema diverge, the discrepancy would only surface at JSON emission time, not at the lowering stage — a late detection point.~~
+
+`lower.Lower` now produces `*turnoutpb.TurnModel` directly; the ~25 `lower.HCL*` intermediate structs have been deleted. DSL-only metadata not representable in proto (sigils, action text) is carried in a thin `lower.Sidecar` value alongside. Schema divergence is now a compile-time error rather than a late emit-time surprise.
 
 **P6 — `prepareResolver` hook failures are silent**
 
@@ -200,9 +202,21 @@ const result = await runner.run();
 
 All 184 existing tests pass; a new test was added to `prepare-resolver.test.ts` asserting that async hook Promises are awaited (the previously silent failure case).
 
-**D2 — Proto as late-stage contract, not early-stage**
+**D2 — Proto as late-stage contract, not early-stage** ✓ *Resolved 2026-04-23*
 
-The protobuf schema is the "single source of truth" for JSON interchange, but the Go compiler's internal representation (`HCLSceneBlock` etc.) is a separate struct hierarchy. This means there are two models to keep in sync. Consider generating Go structs directly from the proto definition and using them throughout the pipeline from lowering onward.
+~~The protobuf schema is the "single source of truth" for JSON interchange, but the Go compiler's internal representation (`HCLSceneBlock` etc.) is a separate struct hierarchy. This means there are two models to keep in sync. Consider generating Go structs directly from the proto definition and using them throughout the pipeline from lowering onward.~~
+
+The pipeline is now proto-first throughout. Changes across 12 source and test files:
+
+- **`lower.Lower`** — return type changed from `(*lower.Model, diag.Diagnostics)` to `(*turnoutpb.TurnModel, *lower.Sidecar, diag.Diagnostics)`; all ~25 `lower.HCL*` intermediate struct types deleted
+- **`lower.Sidecar`** — new thin struct that carries DSL-only metadata alongside the proto model: `Sigils map[BindingKey]ast.Sigil` (binding-level ingress/egress annotations consumed by the validator), `Actions map[string]ActionMeta` (action text for HCL emit), and `Scenes map[string]SceneMeta`
+- **`validate.Validate`** — signature updated to `(tm *turnoutpb.TurnModel, sc *lower.Sidecar, schema state.Schema)`; sigil lookups now go through the sidecar map
+- **`emit.Emit`** — signature updated to `(w io.Writer, tm *turnoutpb.TurnModel, sc *lower.Sidecar)`; action text sourced from sidecar
+- **`emit.EmitJSON`** — 4-step HCL roundtrip (`Emit → parse → decode → re-encode`) replaced with a single `protojson.Marshal` call
+- **`emit/hcl_decode.go`, `emit/hcl_schema.go`** — deleted (dead code)
+- **`main.go`** — call chain updated to thread the three-return `Lower` result through validate and emit
+
+All 10 test packages pass with 0 failures.
 
 **D3 — VSCode extension is syntax-only**
 
@@ -300,9 +314,9 @@ The runner produces a `trace` in the result, but there is no log output during e
 2. `packages/go/converter/internal/lexer/lexer.go` — tokenization of the DSL
 3. `packages/go/converter/internal/parser/parser.go` — recursive-descent parsing
 4. `packages/go/converter/internal/ast/ast.go` — AST node types
-5. `packages/go/converter/internal/lower/lower.go` — AST → HCL model
+5. `packages/go/converter/internal/lower/lower.go` — AST → `*turnoutpb.TurnModel` + `*lower.Sidecar`
 6. `packages/go/converter/internal/validate/validate.go` — type checking and sigil rules
-7. `packages/go/converter/internal/emit/emit.go` — HCL/JSON output
+7. `packages/go/converter/internal/emit/emit.go` — HCL output; `emit/json.go` for JSON via `protojson.Marshal`
 
 **Entry: Running a model end-to-end**
 1. `schema/turnout-model.proto` — understand the JSON contract first

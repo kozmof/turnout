@@ -1,6 +1,7 @@
-// Package validate runs all structural and type-checking rules against the lowered Model.
-// All diagnostics are collected before returning so callers see every error in one pass.
-// Validation failures leave the Model unmodified; no partial output is produced.
+// Package validate runs all structural and type-checking rules against the
+// lowered proto model. All diagnostics are collected before returning so
+// callers see every error in one pass. Validation failures leave the model
+// unmodified; no partial output is produced.
 package validate
 
 import (
@@ -8,31 +9,31 @@ import (
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Internal helper types
 // ─────────────────────────────────────────────────────────────────────────────
 
-// bindingInfo holds the per-binding facts the validator accumulates in validateProg.
 type bindingInfo struct {
 	fieldType ast.FieldType
-	isFunc    bool // true = Expr non-nil (function binding)
+	isFunc    bool
 	sigil     ast.Sigil
 }
 
-// fnSpec describes one row in the built-in function alias table.
 type fnSpec struct {
-	arg1Type    ast.FieldType
-	arg2Type    ast.FieldType
-	returnType  ast.FieldType
+	arg1Type     ast.FieldType
+	arg2Type     ast.FieldType
+	returnType   ast.FieldType
 	operatorOnly bool
-	isGeneric   bool // eq/neq: any homogeneous type pair → bool
-	isArrGet    bool // arr_get: arr<T>, number → T
-	isArrInc    bool // arr_includes: arr<T>, T → bool
-	isArrConcat bool // arr_concat: arr<T>, arr<T> → arr<T>
+	isGeneric    bool
+	isArrGet     bool
+	isArrInc     bool
+	isArrConcat  bool
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -40,33 +41,26 @@ type fnSpec struct {
 // ─────────────────────────────────────────────────────────────────────────────
 
 var builtinFns = map[string]fnSpec{
-	// Number arithmetic — operator-only
 	"add": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
 	"sub": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
 	"mul": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
 	"div": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
 	"mod": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	// Number arithmetic — call-only
 	"max": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
 	"min": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	// Number comparison — operator-only
 	"gt":  {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"gte": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"lt":  {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"lte": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	// String — str_concat operator-only; rest call-only
 	"str_concat":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeStr, operatorOnly: true},
 	"str_includes": {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
 	"str_starts":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
 	"str_ends":     {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
-	// Boolean — bool_and/bool_or operator-only; bool_xor call-only
 	"bool_and": {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"bool_or":  {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"bool_xor": {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	// Generic equality — operator-only, polymorphic
 	"eq":  {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
 	"neq": {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
-	// Array — call-only, polymorphic
 	"arr_includes": {isArrInc: true},
 	"arr_get":      {isArrGet: true},
 	"arr_concat":   {isArrConcat: true},
@@ -76,89 +70,84 @@ var builtinFns = map[string]fnSpec{
 // Entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Validate runs all structural and type validation rules against the lowered Model.
+// Validate runs all structural and type validation rules against the proto model.
+// sc may be nil (treated as no sidecar metadata). schema may be nil.
 // Returns diagnostics; callers must check HasErrors() before proceeding to emission.
-func Validate(model *lower.Model, schema state.Schema) diag.Diagnostics {
+func Validate(tm *turnoutpb.TurnModel, sc *lower.Sidecar, schema state.Schema) diag.Diagnostics {
 	var ds diag.Diagnostics
-	if model == nil {
+	if tm == nil {
 		return ds
 	}
 	seenSceneIDs := make(map[string]bool)
-	for _, s := range model.Scenes {
-		if seenSceneIDs[s.ID] {
+	for _, s := range tm.Scenes {
+		if seenSceneIDs[s.Id] {
 			ds = append(ds, diag.Errorf("DuplicateSceneID",
-				"duplicate scene ID %q", s.ID))
+				"duplicate scene ID %q", s.Id))
 		}
-		seenSceneIDs[s.ID] = true
-		validateScene(s, schema, &ds)
+		seenSceneIDs[s.Id] = true
+		validateScene(s, schema, sc, &ds)
 	}
-	if len(model.Routes) > 0 {
-		knownScenes := buildKnownScenes(model)
-		validateRoutes(model.Routes, knownScenes, &ds)
+	if len(tm.Routes) > 0 {
+		knownScenes := buildKnownScenes(tm)
+		validateRoutes(tm.Routes, knownScenes, &ds)
 	}
 	return ds
 }
 
-// buildKnownScenes returns a set of scene IDs present in the model.
-func buildKnownScenes(model *lower.Model) map[string]bool {
+func buildKnownScenes(tm *turnoutpb.TurnModel) map[string]bool {
 	known := make(map[string]bool)
-	for _, s := range model.Scenes {
-		known[s.ID] = true
+	for _, s := range tm.Scenes {
+		known[s.Id] = true
 	}
 	return known
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Group E — Route validation (per scene-to-scene.md §8)
+// Group E — Route validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateRoutes(routes []*lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag.Diagnostics) {
+func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, ds *diag.Diagnostics) {
 	for _, r := range routes {
 		validateRoute(r, knownScenes, ds)
 	}
 }
 
-func validateRoute(r *lower.HCLRouteBlock, knownScenes map[string]bool, ds *diag.Diagnostics) {
+func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, ds *diag.Diagnostics) {
 	fallbackCount := 0
-	for i, arm := range r.Arms {
-		// Validate target scene exists.
+	for i, arm := range r.Match {
 		if arm.Target != "" && !knownScenes[arm.Target] {
 			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedScene,
-				"route %q arm %d: target scene %q is not defined", r.ID, i, arm.Target))
+				"route %q arm %d: target scene %q is not defined", r.Id, i, arm.Target))
 		}
 		for _, pat := range arm.Patterns {
 			if pat == "_" {
 				fallbackCount++
 				if fallbackCount > 1 {
 					*ds = append(*ds, diag.Errorf(diag.CodeDuplicateFallback,
-						"route %q: match block has more than one _ fallback arm", r.ID))
+						"route %q: match block has more than one _ fallback arm", r.Id))
 				}
 				continue
 			}
-			validateRoutePattern(r.ID, i, pat, ds)
+			validateRoutePattern(r.Id, i, pat, ds)
 		}
 	}
 }
 
-// validateRoutePattern validates a single non-fallback path pattern string.
 func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagnostics) {
 	parts := strings.Split(pat, ".")
 
-	// Must have a non-empty, non-wildcard scene_id as the first segment.
 	if len(parts) < 1 || parts[0] == "" || parts[0] == "*" {
 		*ds = append(*ds, diag.Errorf(diag.CodeInvalidPathItem,
 			"route %q arm %d: pattern %q has no valid scene_id prefix", routeID, armIdx, pat))
 		return
 	}
 
-	// Must have at least one action segment after the scene_id.
 	if len(parts) < 2 {
 		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
 			"route %q arm %d: pattern %q has no action segment after scene_id", routeID, armIdx, pat))
 		return
 	}
 
-	// Count wildcards in action segments (parts[1:]).
 	wildcardCount := 0
 	for _, seg := range parts[1:] {
 		if seg == "*" {
@@ -171,7 +160,6 @@ func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagn
 		return
 	}
 
-	// Last segment must be a specific action_id, not *.
 	if parts[len(parts)-1] == "*" {
 		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
 			"route %q arm %d: pattern %q ends with * (terminal action required)", routeID, armIdx, pat))
@@ -182,33 +170,32 @@ func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagn
 // Group D — Scene structural validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateScene(scene *lower.HCLSceneBlock, schema state.Schema, ds *diag.Diagnostics) {
-	// Build action index; detect duplicates.
-	actionIndex := make(map[string]*lower.HCLAction, len(scene.Actions))
+func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.Sidecar, ds *diag.Diagnostics) {
+	actionIndex := make(map[string]*turnoutpb.ActionModel, len(scene.Actions))
 	for _, a := range scene.Actions {
-		if _, exists := actionIndex[a.ID]; exists {
+		if _, exists := actionIndex[a.Id]; exists {
 			*ds = append(*ds, diag.Errorf(diag.CodeDuplicateActionLabel,
-				"duplicate action ID %q in scene %q", a.ID, scene.ID))
+				"duplicate action ID %q in scene %q", a.Id, scene.Id))
 		} else {
-			actionIndex[a.ID] = a
+			actionIndex[a.Id] = a
 		}
 	}
 
-	validateOverview(scene, actionIndex, ds)
+	validateOverview(scene, actionIndex, sc, ds)
 
 	if len(scene.Actions) == 0 {
 		*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
-			"scene %q has no actions", scene.ID))
+			"scene %q has no actions", scene.Id))
 	}
 
 	if len(scene.EntryActions) == 0 {
 		*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
-			"scene %q has no entry actions", scene.ID))
+			"scene %q has no entry actions", scene.Id))
 	}
 	for _, ea := range scene.EntryActions {
 		if _, ok := actionIndex[ea]; !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
-				"entry action %q not found in scene %q", ea, scene.ID))
+				"entry action %q not found in scene %q", ea, scene.Id))
 		}
 	}
 
@@ -216,12 +203,12 @@ func validateScene(scene *lower.HCLSceneBlock, schema state.Schema, ds *diag.Dia
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			scope = validateProg(a.Compute.Prog, schema, false, ds)
+			scope = validateProg(a.Compute.Prog, schema, false, sc, scene.Id, a.Id, ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
 					*ds = append(*ds, diag.Errorf(diag.CodeSCNActionRootNotFound,
-						"action %q: compute.root %q not found in prog", a.ID, a.Compute.Root))
+						"action %q: compute.root %q not found in prog", a.Id, a.Compute.Root))
 				}
 			}
 
@@ -235,10 +222,10 @@ func validateScene(scene *lower.HCLSceneBlock, schema state.Schema, ds *diag.Dia
 			if nr.Action != "" {
 				if _, ok := actionIndex[nr.Action]; !ok {
 					*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
-						"action %q: next rule references unknown action %q", a.ID, nr.Action))
+						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, ds)
+			validateNextRule(nr, schema, sc, scene.Id, a.Id, ds)
 		}
 	}
 }
@@ -247,10 +234,7 @@ func validateScene(scene *lower.HCLSceneBlock, schema state.Schema, ds *diag.Dia
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-// validateProg validates all bindings in a prog block and returns a scope map.
-// Uses a two-pass approach: first register all bindings (enabling forward refs),
-// then run structural and type checks.
-func validateProg(prog *lower.HCLProg, schema state.Schema, isTransition bool, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, sc *lower.Sidecar, sceneID, actionID string, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -265,16 +249,20 @@ func validateProg(prog *lower.HCLProg, schema state.Schema, isTransition bool, d
 		} else {
 			seen[b.Name] = true
 		}
+		ft, _ := ast.FieldTypeFromString(b.Type)
+		sigil := sigilFor(sc, sceneID, actionID, prog.Name, b.Name)
 		scope[b.Name] = bindingInfo{
-			fieldType: b.Type,
+			fieldType: ft,
 			isFunc:    b.Expr != nil,
-			sigil:     b.Sigil,
+			sigil:     sigil,
 		}
 	}
 
 	// Pass 2: structural + type checks.
 	for _, b := range prog.Bindings {
-		// ReservedName: user names may not start with __; auto-generated __if_X_cond is exempt.
+		ft, _ := ast.FieldTypeFromString(b.Type)
+		sigil := sigilFor(sc, sceneID, actionID, prog.Name, b.Name)
+
 		if strings.HasPrefix(b.Name, "__") {
 			if !(strings.HasPrefix(b.Name, "__if_") && strings.HasSuffix(b.Name, "_cond")) {
 				*ds = append(*ds, diag.Errorf(diag.CodeReservedName,
@@ -282,19 +270,18 @@ func validateProg(prog *lower.HCLProg, schema state.Schema, isTransition bool, d
 			}
 		}
 
-		// TransitionOutputSigil: <~ and <~> are forbidden inside transition progs.
-		if isTransition && (b.Sigil == ast.SigilEgress || b.Sigil == ast.SigilBiDir) {
+		if isTransition && (sigil == ast.SigilEgress || sigil == ast.SigilBiDir) {
 			*ds = append(*ds, diag.Errorf(diag.CodeTransitionOutputSigil,
-				"binding %q: output sigil %s is not allowed in transition progs", b.Name, b.Sigil))
+				"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
 		}
 
 		if b.Value != nil {
-			if !literalMatchesFieldType(b.Value, b.Type) {
+			if !structpbMatchesFieldType(b.Value, ft) {
 				*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
 					"binding %q: literal value does not match declared type %s", b.Name, b.Type))
 			}
-			if b.Type.IsArray() {
-				validateArrayLiteral(b.Value, b.Type, b.Name, ds)
+			if ft.IsArray() {
+				validateArrayLiteral(b.Value, ft, b.Name, ds)
 			}
 		}
 
@@ -313,28 +300,112 @@ func validateProg(prog *lower.HCLProg, schema state.Schema, isTransition bool, d
 	return scope
 }
 
-// validateArrayLiteral checks HeterogeneousArray and NestedArrayNotAllowed.
-func validateArrayLiteral(lit ast.Literal, ft ast.FieldType, bindingName string, ds *diag.Diagnostics) {
-	arr, ok := lit.(*ast.ArrayLiteral)
+// sigilFor looks up the sigil for a binding in the sidecar. Returns SigilNone
+// when the sidecar is nil or no entry exists.
+func sigilFor(sc *lower.Sidecar, sceneID, actionID, progName, bindingName string) ast.Sigil {
+	if sc == nil {
+		return ast.SigilNone
+	}
+	return sc.Sigils[lower.BindingKey{
+		SceneID:     sceneID,
+		ActionID:    actionID,
+		ProgName:    progName,
+		BindingName: bindingName,
+	}]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Literal / structpb helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+func validateArrayLiteral(v *structpb.Value, ft ast.FieldType, bindingName string, ds *diag.Diagnostics) {
+	lv, ok := v.Kind.(*structpb.Value_ListValue)
 	if !ok {
 		return
 	}
 	elemFT := ft.ElemType()
-	for _, elem := range arr.Elements {
-		if _, isArr := elem.(*ast.ArrayLiteral); isArr {
+	for _, elem := range lv.ListValue.GetValues() {
+		if _, isArr := elem.Kind.(*structpb.Value_ListValue); isArr {
 			*ds = append(*ds, diag.Errorf(diag.CodeNestedArrayNotAllowed,
 				"binding %q: nested arrays are not allowed in value bindings", bindingName))
 			continue
 		}
-		if !literalMatchesFieldType(elem, elemFT) {
+		if !structpbMatchesFieldType(elem, elemFT) {
 			*ds = append(*ds, diag.Errorf(diag.CodeHeterogeneousArray,
 				"binding %q: array element does not match declared element type %s", bindingName, elemFT))
 		}
 	}
 }
 
-// validateCombine validates a combine expression.
-func validateCombine(b *lower.HCLBinding, c *lower.HCLCombine, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
+	if v == nil {
+		return false
+	}
+	switch ft {
+	case ast.FieldTypeNumber:
+		_, ok := v.Kind.(*structpb.Value_NumberValue)
+		return ok
+	case ast.FieldTypeStr:
+		_, ok := v.Kind.(*structpb.Value_StringValue)
+		return ok
+	case ast.FieldTypeBool:
+		_, ok := v.Kind.(*structpb.Value_BoolValue)
+		return ok
+	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
+		lv, ok := v.Kind.(*structpb.Value_ListValue)
+		if !ok {
+			return false
+		}
+		elemFT := ft.ElemType()
+		for _, elem := range lv.ListValue.GetValues() {
+			if !structpbMatchesFieldType(elem, elemFT) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+func structpbFieldType(v *structpb.Value) (ast.FieldType, bool) {
+	if v == nil {
+		return 0, false
+	}
+	switch k := v.Kind.(type) {
+	case *structpb.Value_NumberValue:
+		_ = k
+		return ast.FieldTypeNumber, true
+	case *structpb.Value_StringValue:
+		_ = k
+		return ast.FieldTypeStr, true
+	case *structpb.Value_BoolValue:
+		_ = k
+		return ast.FieldTypeBool, true
+	case *structpb.Value_ListValue:
+		if k.ListValue == nil || len(k.ListValue.Values) == 0 {
+			return 0, false
+		}
+		elemFT, ok := structpbFieldType(k.ListValue.Values[0])
+		if !ok {
+			return 0, false
+		}
+		switch elemFT {
+		case ast.FieldTypeNumber:
+			return ast.FieldTypeArrNumber, true
+		case ast.FieldTypeStr:
+			return ast.FieldTypeArrStr, true
+		case ast.FieldTypeBool:
+			return ast.FieldTypeArrBool, true
+		}
+	}
+	return 0, false
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Combine / Pipe / Cond validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	spec, ok := builtinFns[c.Fn]
 	if !ok {
 		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
@@ -342,45 +413,40 @@ func validateCombine(b *lower.HCLBinding, c *lower.HCLCombine, scope map[string]
 		return
 	}
 
-	// Identity combine detection → SingleRefTypeMismatch.
-	// Shape: fn ∈ identity set, args[0].Ref != "", args[1].Lit == identity element.
 	if isIdentityCombine(c) {
-		refName := c.Args[0].Ref
+		refName := *c.Args[0].Ref
 		refInfo, exists := scope[refName]
 		if !exists {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", b.Name, refName))
 			return
 		}
-		if refInfo.fieldType != b.Type {
+		bFt, _ := ast.FieldTypeFromString(b.Type)
+		if refInfo.fieldType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeSingleRefTypeMismatch,
 				"binding %q: single-reference %q has type %s but binding declares type %s",
 				b.Name, refName, refInfo.fieldType, b.Type))
 		}
-		return // identity combines are structurally correct by construction
+		return
 	}
 
-	// Validate all args: UndefinedRef / UndefinedFuncRef.
 	for _, arg := range c.Args {
 		validateArgRefs(b.Name, arg, scope, ds)
 	}
 
-	// ReturnTypeMismatch.
 	if retType, known := resolveExpectedReturn(spec, c.Args, scope, nil); known {
-		if retType != b.Type {
+		bFt, _ := ast.FieldTypeFromString(b.Type)
+		if retType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: function %q returns %s but binding declares type %s",
 				b.Name, c.Fn, retType, b.Type))
 		}
 	}
 
-	// ArgTypeMismatch.
 	validateCombineArgTypes(b.Name, c, spec, scope, ds)
 }
 
-// validatePipe validates a pipe expression.
-func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindingInfo, ds *diag.Diagnostics) {
-	// Build pipe scope: prog scope + pipe params.
+func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	pipeScope := make(map[string]bindingInfo, len(scope)+len(p.Params))
 	for k, v := range scope {
 		pipeScope[k] = v
@@ -401,9 +467,6 @@ func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindin
 		pipeScope[param.ParamName] = bindingInfo{fieldType: srcInfo.fieldType, isFunc: false}
 	}
 
-	// Validate steps; accumulate step return types for step_ref checks.
-	// stepKnown[i] tracks whether stepTypes[i] is a real resolved type (vs. unknown).
-	// FieldTypeNumber == 0, so we cannot use 0 as a "unknown" sentinel.
 	stepTypes := make([]ast.FieldType, 0, len(p.Steps))
 	stepKnown := make([]bool, 0, len(p.Steps))
 
@@ -418,11 +481,11 @@ func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindin
 		}
 
 		for _, arg := range step.Args {
-			if arg.IsStepRef {
-				if arg.StepRef >= i {
+			if arg.StepRef != nil {
+				if int(*arg.StepRef) >= i {
 					*ds = append(*ds, diag.Errorf(diag.CodeStepRefOutOfBounds,
 						"binding %q pipe step %d: step_ref = %d is out of bounds (must be < %d)",
-						b.Name, i, arg.StepRef, i))
+						b.Name, i, *arg.StepRef, i))
 				}
 			} else {
 				validateArgRefs(b.Name, arg, pipeScope, ds)
@@ -434,21 +497,21 @@ func validatePipe(b *lower.HCLBinding, p *lower.HCLPipe, scope map[string]bindin
 		stepKnown = append(stepKnown, known)
 	}
 
-	// ReturnTypeMismatch: last step return type must match binding type.
 	if n := len(p.Steps); n > 0 {
-		if stepKnown[n-1] && stepTypes[n-1] != b.Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
-				"binding %q: pipe last step returns %s but binding declares type %s",
-				b.Name, stepTypes[n-1], b.Type))
+		if stepKnown[n-1] {
+			bFt, _ := ast.FieldTypeFromString(b.Type)
+			if stepTypes[n-1] != bFt {
+				*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+					"binding %q: pipe last step returns %s but binding declares type %s",
+					b.Name, stepTypes[n-1], b.Type))
+			}
 		}
 	}
 }
 
-// validateCond validates a cond expression.
-func validateCond(b *lower.HCLBinding, cond *lower.HCLCond, scope map[string]bindingInfo, ds *diag.Diagnostics) {
-	// Condition must resolve to bool.
-	if cond.Condition != nil && cond.Condition.Ref != "" {
-		condRef := cond.Condition.Ref
+func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+	if cond.Condition != nil && cond.Condition.Ref != nil && *cond.Condition.Ref != "" {
+		condRef := *cond.Condition.Ref
 		info, ok := scope[condRef]
 		if !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
@@ -463,8 +526,8 @@ func validateCond(b *lower.HCLBinding, cond *lower.HCLCond, scope map[string]bin
 	var thenType, elseType ast.FieldType
 	var hasThen, hasElse bool
 
-	if cond.Then != nil && cond.Then.FuncRef != "" {
-		ref := cond.Then.FuncRef
+	if cond.Then != nil && cond.Then.FuncRef != nil && *cond.Then.FuncRef != "" {
+		ref := *cond.Then.FuncRef
 		info, ok := scope[ref]
 		if !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
@@ -478,8 +541,8 @@ func validateCond(b *lower.HCLBinding, cond *lower.HCLCond, scope map[string]bin
 		}
 	}
 
-	if cond.Else != nil && cond.Else.FuncRef != "" {
-		ref := cond.Else.FuncRef
+	if cond.ElseBranch != nil && cond.ElseBranch.FuncRef != nil && *cond.ElseBranch.FuncRef != "" {
+		ref := *cond.ElseBranch.FuncRef
 		info, ok := scope[ref]
 		if !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
@@ -499,10 +562,13 @@ func validateCond(b *lower.HCLBinding, cond *lower.HCLCond, scope map[string]bin
 			b.Name, thenType, elseType))
 	}
 
-	if hasThen && thenType != b.Type {
-		*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
-			"binding %q cond: branch return type %s does not match declared type %s",
-			b.Name, thenType, b.Type))
+	if hasThen {
+		bFt, _ := ast.FieldTypeFromString(b.Type)
+		if thenType != bFt {
+			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+				"binding %q cond: branch return type %s does not match declared type %s",
+				b.Name, thenType, b.Type))
+		}
 	}
 }
 
@@ -510,144 +576,132 @@ func validateCond(b *lower.HCLBinding, cond *lower.HCLCond, scope map[string]bin
 // Group C — Effect DSL / sigil validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateActionEffects(a *lower.HCLAction, scope map[string]bindingInfo, schema state.Schema, ds *diag.Diagnostics) {
+func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInfo, schema state.Schema, ds *diag.Diagnostics) {
 	preparedNames := map[string]bool{}
 	mergedNames := map[string]bool{}
 
-	// Prepare entries.
-	if a.Prepare != nil {
-		seen := map[string]bool{}
-		for _, e := range a.Prepare.Entries {
-			if seen[e.BindingName] {
-				*ds = append(*ds, diag.Errorf(diag.CodeDuplicatePrepareEntry,
-					"action %q: duplicate prepare entry for binding %q", a.ID, e.BindingName))
-				continue
-			}
-			seen[e.BindingName] = true
-			preparedNames[e.BindingName] = true
+	seen := map[string]bool{}
+	for _, e := range a.Prepare {
+		if seen[e.Binding] {
+			*ds = append(*ds, diag.Errorf(diag.CodeDuplicatePrepareEntry,
+				"action %q: duplicate prepare entry for binding %q", a.Id, e.Binding))
+			continue
+		}
+		seen[e.Binding] = true
+		preparedNames[e.Binding] = true
 
-			if _, ok := scope[e.BindingName]; !ok {
-				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedPrepareBinding,
-					"action %q: prepare binding %q not found in prog", a.ID, e.BindingName))
-			}
+		if _, ok := scope[e.Binding]; !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedPrepareBinding,
+				"action %q: prepare binding %q not found in prog", a.Id, e.Binding))
+		}
 
-			if e.FromState != "" {
-				validateStatePath(e.FromState, schema, ds)
+		if e.FromState != nil {
+			validateStatePath(*e.FromState, schema, ds)
+		}
+	}
+
+	seen = map[string]bool{}
+	for _, e := range a.Merge {
+		if seen[e.Binding] {
+			*ds = append(*ds, diag.Errorf(diag.CodeDuplicateMergeEntry,
+				"action %q: duplicate merge entry for binding %q", a.Id, e.Binding))
+			continue
+		}
+		seen[e.Binding] = true
+		mergedNames[e.Binding] = true
+
+		srcInfo, inScope := scope[e.Binding]
+		if !inScope {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedMergeBinding,
+				"action %q: merge binding %q not found in prog", a.Id, e.Binding))
+		}
+
+		if e.ToState != "" {
+			if !isValidStatePath(e.ToState) {
+				*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
+					"action %q: to_state %q is not a valid dotted path", a.Id, e.ToState))
+			} else if meta, ok := schema[e.ToState]; !ok {
+				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
+					"action %q: to_state %q is not declared in the state schema", a.Id, e.ToState))
+			} else if inScope && srcInfo.fieldType != meta.Type {
+				*ds = append(*ds, diag.Errorf(diag.CodeStateTypeMismatch,
+					"action %q: merge binding %q has type %s but STATE field %q has type %s",
+					a.Id, e.Binding, srcInfo.fieldType, e.ToState, meta.Type))
 			}
 		}
 	}
 
-	// Merge entries.
-	if a.Merge != nil {
-		seen := map[string]bool{}
-		for _, e := range a.Merge.Entries {
-			if seen[e.BindingName] {
-				*ds = append(*ds, diag.Errorf(diag.CodeDuplicateMergeEntry,
-					"action %q: duplicate merge entry for binding %q", a.ID, e.BindingName))
-				continue
-			}
-			seen[e.BindingName] = true
-			mergedNames[e.BindingName] = true
-
-			srcInfo, inScope := scope[e.BindingName]
-			if !inScope {
-				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedMergeBinding,
-					"action %q: merge binding %q not found in prog", a.ID, e.BindingName))
-			}
-
-			if e.ToState != "" {
-				if !isValidStatePath(e.ToState) {
-					*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
-						"action %q: to_state %q is not a valid dotted path", a.ID, e.ToState))
-				} else if meta, ok := schema[e.ToState]; !ok {
-					*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
-						"action %q: to_state %q is not declared in the state schema", a.ID, e.ToState))
-				} else if inScope && srcInfo.fieldType != meta.Type {
-					*ds = append(*ds, diag.Errorf(diag.CodeStateTypeMismatch,
-						"action %q: merge binding %q has type %s but STATE field %q has type %s",
-						a.ID, e.BindingName, srcInfo.fieldType, e.ToState, meta.Type))
-				}
-			}
-		}
-	}
-
-	// Sigil-based requirement checks — iterate scope bindings.
 	for name, info := range scope {
 		switch info.sigil {
 		case ast.SigilIngress:
 			if !preparedNames[name] {
 				*ds = append(*ds, diag.Errorf(diag.CodeMissingPrepareEntry,
-					"action %q: binding %q has ~> sigil but no prepare entry", a.ID, name))
+					"action %q: binding %q has ~> sigil but no prepare entry", a.Id, name))
 			}
 		case ast.SigilEgress:
 			if !mergedNames[name] {
 				*ds = append(*ds, diag.Errorf(diag.CodeMissingMergeEntry,
-					"action %q: binding %q has <~ sigil but no merge entry", a.ID, name))
+					"action %q: binding %q has <~ sigil but no merge entry", a.Id, name))
 			}
 		case ast.SigilBiDir:
 			inPrepare := preparedNames[name]
 			inMerge := mergedNames[name]
 			if !inPrepare && !inMerge {
 				*ds = append(*ds, diag.Errorf(diag.CodeMissingPrepareEntry,
-					"action %q: binding %q has <~> sigil but no prepare entry", a.ID, name))
+					"action %q: binding %q has <~> sigil but no prepare entry", a.Id, name))
 				*ds = append(*ds, diag.Errorf(diag.CodeMissingMergeEntry,
-					"action %q: binding %q has <~> sigil but no merge entry", a.ID, name))
+					"action %q: binding %q has <~> sigil but no merge entry", a.Id, name))
 			} else if inPrepare && !inMerge {
 				*ds = append(*ds, diag.Errorf(diag.CodeBidirMissingMergeEntry,
-					"action %q: binding %q has <~> sigil: appears in prepare but not in merge", a.ID, name))
+					"action %q: binding %q has <~> sigil: appears in prepare but not in merge", a.Id, name))
 			} else if !inPrepare && inMerge {
 				*ds = append(*ds, diag.Errorf(diag.CodeBidirMissingPrepareEntry,
-					"action %q: binding %q has <~> sigil: appears in merge but not in prepare", a.ID, name))
+					"action %q: binding %q has <~> sigil: appears in merge but not in prepare", a.Id, name))
 			}
 		}
 	}
 
-	// Spurious entry checks.
 	for name := range preparedNames {
 		info, ok := scope[name]
 		if !ok {
-			continue // UnresolvedPrepareBinding already emitted
+			continue
 		}
 		if info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
 			*ds = append(*ds, diag.Errorf(diag.CodeSpuriousPrepareEntry,
-				"action %q: prepare entry for %q has no corresponding ~> or <~> sigil in prog", a.ID, name))
+				"action %q: prepare entry for %q has no corresponding ~> or <~> sigil in prog", a.Id, name))
 		}
 	}
 	for name := range mergedNames {
 		info, ok := scope[name]
 		if !ok {
-			continue // UnresolvedMergeBinding already emitted
+			continue
 		}
 		if info.sigil != ast.SigilEgress && info.sigil != ast.SigilBiDir {
 			*ds = append(*ds, diag.Errorf(diag.CodeSpuriousMergeEntry,
-				"action %q: merge entry for %q has no corresponding <~ or <~> sigil in prog", a.ID, name))
+				"action %q: merge entry for %q has no corresponding <~ or <~> sigil in prog", a.Id, name))
 		}
 	}
 }
 
-// validateNextRule validates a next/transition rule.
-func validateNextRule(nr *lower.HCLNextRule, schema state.Schema, ds *diag.Diagnostics) {
-	// InvalidTransitionIngress: each prepare entry must have exactly one source.
-	if nr.Prepare != nil {
-		for _, e := range nr.Prepare.Entries {
-			count := 0
-			if e.FromAction != "" {
-				count++
-			}
-			if e.FromState != "" {
-				count++
-			}
-			if e.FromLiteral != nil {
-				count++
-			}
-			if count != 1 {
-				*ds = append(*ds, diag.Errorf(diag.CodeInvalidTransitionIngress,
-					"transition prepare entry for %q must have exactly one of from_action, from_state, from_literal; got %d",
-					e.BindingName, count))
-			}
-			if e.FromState != "" {
-				validateStatePath(e.FromState, schema, ds)
-			}
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lower.Sidecar, sceneID, actionID string, ds *diag.Diagnostics) {
+	for _, e := range nr.Prepare {
+		count := 0
+		if e.FromAction != nil {
+			count++
+		}
+		if e.FromState != nil {
+			count++
+		}
+		if e.FromLiteral != nil {
+			count++
+		}
+		if count != 1 {
+			*ds = append(*ds, diag.Errorf(diag.CodeInvalidTransitionIngress,
+				"transition prepare entry for %q must have exactly one of from_action, from_state, from_literal; got %d",
+				e.Binding, count))
+		}
+		if e.FromState != nil {
+			validateStatePath(*e.FromState, schema, ds)
 		}
 	}
 
@@ -655,10 +709,8 @@ func validateNextRule(nr *lower.HCLNextRule, schema state.Schema, ds *diag.Diagn
 		return
 	}
 
-	// Validate transition prog (isTransition=true enforces TransitionOutputSigil etc.).
-	nextScope := validateProg(nr.Compute.Prog, schema, true, ds)
+	nextScope := validateProg(nr.Compute.Prog, schema, true, sc, sceneID, actionID, ds)
 
-	// Condition must resolve to bool.
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]
 		if !ok {
@@ -675,7 +727,6 @@ func validateNextRule(nr *lower.HCLNextRule, schema state.Schema, ds *diag.Diagn
 // Group A — State path validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-// validateStatePath checks InvalidStatePath then UnresolvedStatePath.
 func validateStatePath(path string, schema state.Schema, ds *diag.Diagnostics) {
 	if !isValidStatePath(path) {
 		*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
@@ -688,7 +739,6 @@ func validateStatePath(path string, schema state.Schema, ds *diag.Diagnostics) {
 	}
 }
 
-// isValidStatePath reports whether path is a valid dotted STATE path (IDENT.IDENT+).
 func isValidStatePath(path string) bool {
 	parts := strings.Split(path, ".")
 	if len(parts) < 2 {
@@ -706,31 +756,27 @@ func isValidStatePath(path string) bool {
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// validateArgRefs emits UndefinedRef or UndefinedFuncRef for a single arg.
-func validateArgRefs(bindingName string, arg *lower.HCLArg, scope map[string]bindingInfo, ds *diag.Diagnostics) {
-	if arg.Ref != "" {
-		if _, ok := scope[arg.Ref]; !ok {
+func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+	if arg.Ref != nil && *arg.Ref != "" {
+		if _, ok := scope[*arg.Ref]; !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
-				"binding %q: reference %q is not defined", bindingName, arg.Ref))
+				"binding %q: reference %q is not defined", bindingName, *arg.Ref))
 		}
 	}
-	if arg.FuncRef != "" {
-		info, ok := scope[arg.FuncRef]
+	if arg.FuncRef != nil && *arg.FuncRef != "" {
+		info, ok := scope[*arg.FuncRef]
 		if !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
-				"binding %q: func_ref %q is not defined", bindingName, arg.FuncRef))
+				"binding %q: func_ref %q is not defined", bindingName, *arg.FuncRef))
 		} else if !info.isFunc {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q: func_ref %q references a value binding; a function binding is required",
-				bindingName, arg.FuncRef))
+				bindingName, *arg.FuncRef))
 		}
 	}
 }
 
-// resolveExpectedReturn returns the expected return type of spec given the actual args.
-// stepTypes is non-nil only inside pipe step validation, where stepTypes[i] is step i's return.
-// Returns (type, true) when determinable, (0, false) otherwise.
-func resolveExpectedReturn(spec fnSpec, args []*lower.HCLArg, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
+func resolveExpectedReturn(spec fnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
 	switch {
 	case spec.isGeneric, spec.isArrInc:
 		return ast.FieldTypeBool, true
@@ -755,34 +801,34 @@ func resolveExpectedReturn(spec fnSpec, args []*lower.HCLArg, scope map[string]b
 	}
 }
 
-// resolveArgType infers the FieldType of an arg from scope / literal / stepTypes.
-// Returns (type, true) when determinable.
-func resolveArgType(arg *lower.HCLArg, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
-	if arg.Ref != "" {
-		if info, ok := scope[arg.Ref]; ok {
+func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
+	if arg.Ref != nil {
+		if info, ok := scope[*arg.Ref]; ok {
 			return info.fieldType, true
 		}
 		return 0, false
 	}
 	if arg.Lit != nil {
-		return literalFieldType(arg.Lit)
+		return structpbFieldType(arg.Lit)
 	}
-	if arg.FuncRef != "" {
-		if info, ok := scope[arg.FuncRef]; ok {
+	if arg.FuncRef != nil {
+		if info, ok := scope[*arg.FuncRef]; ok {
 			return info.fieldType, true
 		}
 		return 0, false
 	}
-	if arg.IsStepRef && stepTypes != nil && arg.StepRef >= 0 && arg.StepRef < len(stepTypes) && stepTypes[arg.StepRef] != 0 {
-		return stepTypes[arg.StepRef], true
+	if arg.StepRef != nil && stepTypes != nil {
+		idx := int(*arg.StepRef)
+		if idx >= 0 && idx < len(stepTypes) && stepTypes[idx] != 0 {
+			return stepTypes[idx], true
+		}
 	}
 	return 0, false
 }
 
-// validateCombineArgTypes emits ArgTypeMismatch for mismatched argument types.
-func validateCombineArgTypes(bindingName string, c *lower.HCLCombine, spec fnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	if len(c.Args) < 2 {
-		return // binary shape validated upstream
+		return
 	}
 	arg1Type, ok1 := resolveArgType(c.Args[0], scope, nil)
 	arg2Type, ok2 := resolveArgType(c.Args[1], scope, nil)
@@ -835,100 +881,36 @@ func validateCombineArgTypes(bindingName string, c *lower.HCLCombine, spec fnSpe
 	}
 }
 
-// isIdentityCombine reports whether c is the canonical identity combine emitted by the lowerer
-// for the single-reference form (name:type = identifier).
-// Shape: fn ∈ {bool_and, add, str_concat, arr_concat}, args[0].Ref != "", args[1].Lit = identity element.
-func isIdentityCombine(c *lower.HCLCombine) bool {
+// isIdentityCombine reports whether c is a canonical identity combine emitted
+// by the lowerer for the single-reference form.
+func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
 	identityFns := map[string]bool{"bool_and": true, "add": true, "str_concat": true, "arr_concat": true}
-	if !identityFns[c.Fn] || len(c.Args) != 2 || c.Args[0].Ref == "" || c.Args[1].Lit == nil {
+	if !identityFns[c.Fn] || len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
 		return false
 	}
 	switch c.Fn {
 	case "bool_and":
-		b, ok := c.Args[1].Lit.(*ast.BoolLiteral)
-		return ok && b.Value
+		bv, ok := c.Args[1].Lit.Kind.(*structpb.Value_BoolValue)
+		return ok && bv.BoolValue
 	case "add":
-		n, ok := c.Args[1].Lit.(*ast.NumberLiteral)
-		return ok && n.Value == 0
+		nv, ok := c.Args[1].Lit.Kind.(*structpb.Value_NumberValue)
+		return ok && nv.NumberValue == 0
 	case "str_concat":
-		s, ok := c.Args[1].Lit.(*ast.StringLiteral)
-		return ok && s.Value == ""
+		sv, ok := c.Args[1].Lit.Kind.(*structpb.Value_StringValue)
+		return ok && sv.StringValue == ""
 	case "arr_concat":
-		arr, ok := c.Args[1].Lit.(*ast.ArrayLiteral)
-		return ok && len(arr.Elements) == 0
+		lv, ok := c.Args[1].Lit.Kind.(*structpb.Value_ListValue)
+		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
 	}
 	return false
-}
-
-// literalMatchesFieldType reports whether lit is compatible with ft.
-func literalMatchesFieldType(lit ast.Literal, ft ast.FieldType) bool {
-	switch ft {
-	case ast.FieldTypeNumber:
-		_, ok := lit.(*ast.NumberLiteral)
-		return ok
-	case ast.FieldTypeStr:
-		_, ok := lit.(*ast.StringLiteral)
-		return ok
-	case ast.FieldTypeBool:
-		_, ok := lit.(*ast.BoolLiteral)
-		return ok
-	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
-		arr, ok := lit.(*ast.ArrayLiteral)
-		if !ok {
-			return false
-		}
-		elemFT := ft.ElemType()
-		for _, e := range arr.Elements {
-			if !literalMatchesFieldType(e, elemFT) {
-				return false
-			}
-		}
-		return true
-	}
-	return false
-}
-
-// literalFieldType infers the FieldType from a concrete Literal.
-// Returns (0, false) for empty arrays (element type indeterminate).
-func literalFieldType(lit ast.Literal) (ast.FieldType, bool) {
-	switch lit.(type) {
-	case *ast.NumberLiteral:
-		return ast.FieldTypeNumber, true
-	case *ast.StringLiteral:
-		return ast.FieldTypeStr, true
-	case *ast.BoolLiteral:
-		return ast.FieldTypeBool, true
-	case *ast.ArrayLiteral:
-		arr := lit.(*ast.ArrayLiteral)
-		if len(arr.Elements) == 0 {
-			return 0, false
-		}
-		elemFT, ok := literalFieldType(arr.Elements[0])
-		if !ok {
-			return 0, false
-		}
-		switch elemFT {
-		case ast.FieldTypeNumber:
-			return ast.FieldTypeArrNumber, true
-		case ast.FieldTypeStr:
-			return ast.FieldTypeArrStr, true
-		case ast.FieldTypeBool:
-			return ast.FieldTypeArrBool, true
-		}
-	}
-	return 0, false
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Overview DSL enforcement (scene-graph.md §9)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// flowEdge is a directed edge from one action to another as declared in the flow.
 type flowEdge struct{ from, to string }
 
-// parseFlow parses the flow heredoc text into a list of declared nodes and edges.
-// Format: a bare identifier starts a new source node; a line beginning with "|=>"
-// declares an edge from the most recent source node to the named target.
 func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, edges []flowEdge, ok bool) {
 	var current string
 	seen := make(map[string]bool)
@@ -950,7 +932,6 @@ func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, 
 				return nil, nil, false
 			}
 			edges = append(edges, flowEdge{from: current, to: target})
-			// Edge targets are also flow nodes.
 			if !seen[target] {
 				seen[target] = true
 				nodes = append(nodes, target)
@@ -971,45 +952,42 @@ func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, 
 	return nodes, edges, true
 }
 
-// validateOverview enforces the view flow against the actual action graph per
-// scene-graph.md §9:
-//   - nodes_only: overview.nodes ⊆ impl_nodes
-//   - at_least:   overview.nodes ⊆ impl_nodes  AND  overview.edges ⊆ impl_edges
-//   - strict:     overview.nodes == impl_nodes  AND  overview.edges == impl_edges
-func validateOverview(scene *lower.HCLSceneBlock, actionIndex map[string]*lower.HCLAction, ds *diag.Diagnostics) {
-	if scene.View == nil {
+func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turnoutpb.ActionModel, sc *lower.Sidecar, ds *diag.Diagnostics) {
+	if sc == nil {
 		return
 	}
-	v := scene.View
+	sceneMeta, ok := sc.Scenes[scene.Id]
+	if !ok || sceneMeta.View == nil {
+		return
+	}
+	v := sceneMeta.View
 
 	switch v.Enforce {
 	case "nodes_only", "at_least", "strict":
 	default:
 		*ds = append(*ds, diag.Errorf(diag.CodeOverviewInvalidMode,
-			"scene %q: view %q has unknown enforce mode %q", scene.ID, v.Name, v.Enforce))
+			"scene %q: view %q has unknown enforce mode %q", scene.Id, v.Name, v.Enforce))
 		return
 	}
 
-	flowNodes, flowEdges, ok := parseFlow(v.Flow, scene.ID, ds)
+	flowNodes, flowEdges, ok := parseFlow(v.Flow, scene.Id, ds)
 	if !ok {
 		return
 	}
 
-	// Build impl edge set from actual next rules.
 	implEdges := make(map[flowEdge]bool)
 	for _, a := range scene.Actions {
 		for _, nr := range a.Next {
 			if nr.Action != "" {
-				implEdges[flowEdge{from: a.ID, to: nr.Action}] = true
+				implEdges[flowEdge{from: a.Id, to: nr.Action}] = true
 			}
 		}
 	}
 
-	// All modes: overview.nodes ⊆ impl_nodes
 	for _, node := range flowNodes {
 		if _, exists := actionIndex[node]; !exists {
 			*ds = append(*ds, diag.Errorf(diag.CodeOverviewUnknownNode,
-				"scene %q: flow references unknown action %q", scene.ID, node))
+				"scene %q: flow references unknown action %q", scene.Id, node))
 		}
 	}
 
@@ -1017,16 +995,14 @@ func validateOverview(scene *lower.HCLSceneBlock, actionIndex map[string]*lower.
 		return
 	}
 
-	// at_least + strict: overview.edges ⊆ impl_edges
 	for _, e := range flowEdges {
 		if !implEdges[e] {
 			*ds = append(*ds, diag.Errorf(diag.CodeOverviewMissingEdge,
-				"scene %q: flow declares edge %s |=> %s but no such next rule exists", scene.ID, e.from, e.to))
+				"scene %q: flow declares edge %s |=> %s but no such next rule exists", scene.Id, e.from, e.to))
 		}
 	}
 
 	if v.Enforce == "strict" {
-		// Build flow sets for reverse checks.
 		flowNodeSet := make(map[string]bool, len(flowNodes))
 		for _, n := range flowNodes {
 			flowNodeSet[n] = true
@@ -1036,25 +1012,22 @@ func validateOverview(scene *lower.HCLSceneBlock, actionIndex map[string]*lower.
 			flowEdgeSet[e] = true
 		}
 
-		// strict: impl_nodes ⊆ overview.nodes
 		for _, a := range scene.Actions {
-			if !flowNodeSet[a.ID] {
+			if !flowNodeSet[a.Id] {
 				*ds = append(*ds, diag.Errorf(diag.CodeOverviewExtraNode,
-					"scene %q: action %q exists but is not listed in flow", scene.ID, a.ID))
+					"scene %q: action %q exists but is not listed in flow", scene.Id, a.Id))
 			}
 		}
 
-		// strict: impl_edges ⊆ overview.edges
 		for e := range implEdges {
 			if !flowEdgeSet[e] {
 				*ds = append(*ds, diag.Errorf(diag.CodeOverviewExtraEdge,
-					"scene %q: next rule %s |=> %s exists but is not declared in flow", scene.ID, e.from, e.to))
+					"scene %q: next rule %s |=> %s exists but is not declared in flow", scene.Id, e.from, e.to))
 			}
 		}
 	}
 }
 
-// isIdent reports whether s is a valid DSL identifier ([A-Za-z_][A-Za-z0-9_]*).
 func isIdent(s string) bool {
 	if len(s) == 0 {
 		return false

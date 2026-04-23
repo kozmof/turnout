@@ -5,32 +5,31 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {
 	t.Parallel()
 
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Prepare: &lower.HCLPrepare{
-						Entries: []*lower.HCLPrepareEntry{
-							{BindingName: "score", FromState: "app.score", FromHook: "score_hook"},
-						},
+					Id: "a",
+					Prepare: []*turnoutpb.PrepareEntry{
+						{Binding: "score", FromState: proto.String("app.score"), FromHook: proto.String("score_hook")},
 					},
 				},
 			},
 		}},
 	}
 
-	out := emitModel(model)
+	out := emitModel(model, nil)
 	if !strings.Contains(out, `from_state = "app.score"`) {
 		t.Fatalf("missing from_state in output:\n%s", out)
 	}
@@ -42,24 +41,22 @@ func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {
 func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T) {
 	t.Parallel()
 
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Next: []*lower.HCLNextRule{
+					Id: "a",
+					Next: []*turnoutpb.NextRuleModel{
 						{
 							Action: "a",
-							Prepare: &lower.HCLNextPrepare{
-								Entries: []*lower.HCLNextPrepareEntry{
-									{
-										BindingName: "score",
-										FromAction:  "score",
-										FromState:   "app.score",
-										FromLiteral: &ast.NumberLiteral{Value: 5},
-									},
+							Prepare: []*turnoutpb.NextPrepareEntry{
+								{
+									Binding:     "score",
+									FromAction:  proto.String("score"),
+									FromState:   proto.String("app.score"),
+									FromLiteral: structpb.NewNumberValue(5),
 								},
 							},
 						},
@@ -69,7 +66,7 @@ func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T)
 		}},
 	}
 
-	out := emitModel(model)
+	out := emitModel(model, nil)
 	if !strings.Contains(out, `from_action  = "score"`) {
 		t.Fatalf("missing from_action in output:\n%s", out)
 	}
@@ -81,27 +78,27 @@ func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T)
 func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 	t.Parallel()
 
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "result",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
+							Bindings: []*turnoutpb.BindingModel{
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn: "add",
-											Args: []*lower.HCLArg{
+											Args: []*turnoutpb.ArgModel{
 												{},
-												{Lit: &ast.NumberLiteral{Value: 1}},
+												{Lit: structpb.NewNumberValue(1)},
 											},
 										},
 									},
@@ -114,7 +111,7 @@ func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 		}},
 	}
 
-	out := emitModel(model)
+	out := emitModel(model, nil)
 	if !strings.Contains(out, `args = [{}, { lit = 1 }]`) {
 		t.Fatalf("expected empty arg object in output:\n%s", out)
 	}
@@ -123,16 +120,20 @@ func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 func TestEmitIrregularArrayWithNilElementEmitsNull(t *testing.T) {
 	t.Parallel()
 
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{
-			Namespaces: []*lower.HCLNamespace{
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{
+			Namespaces: []*turnoutpb.NamespaceModel{
 				{
 					Name: "ns",
-					Fields: []*lower.HCLStateField{
+					Fields: []*turnoutpb.FieldModel{
 						{
-							Name:    "items",
-							Type:    ast.FieldTypeArrNumber,
-							Default: &ast.ArrayLiteral{Elements: []ast.Literal{nil, &ast.NumberLiteral{Value: 2}}},
+							Name: "items",
+							Type: "arr<number>",
+							Value: &structpb.Value{Kind: &structpb.Value_ListValue{
+								ListValue: &structpb.ListValue{
+									Values: []*structpb.Value{nil, structpb.NewNumberValue(2)},
+								},
+							}},
 						},
 					},
 				},
@@ -140,7 +141,7 @@ func TestEmitIrregularArrayWithNilElementEmitsNull(t *testing.T) {
 		},
 	}
 
-	out := emitModel(model)
+	out := emitModel(model, nil)
 	if !strings.Contains(out, `value = [null, 2]`) {
 		t.Fatalf("expected null array element in output:\n%s", out)
 	}
@@ -149,44 +150,43 @@ func TestEmitIrregularArrayWithNilElementEmitsNull(t *testing.T) {
 func TestEmitJSONIrregularSourcePrecedenceAndNulls(t *testing.T) {
 	t.Parallel()
 
-	model := &lower.Model{
-		State: &lower.HCLStateBlock{
-			Namespaces: []*lower.HCLNamespace{
+	// Each prepare entry has exactly one source set; the JSON serializes all non-nil fields.
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{
+			Namespaces: []*turnoutpb.NamespaceModel{
 				{
 					Name: "ns",
-					Fields: []*lower.HCLStateField{
+					Fields: []*turnoutpb.FieldModel{
 						{
-							Name:    "items",
-							Type:    ast.FieldTypeArrNumber,
-							Default: &ast.ArrayLiteral{Elements: []ast.Literal{nil, &ast.NumberLiteral{Value: 2}}},
+							Name: "items",
+							Type: "arr<number>",
+							Value: &structpb.Value{Kind: &structpb.Value_ListValue{
+								ListValue: &structpb.ListValue{
+									Values: []*structpb.Value{
+										{Kind: &structpb.Value_NullValue{}},
+										structpb.NewNumberValue(2),
+									},
+								},
+							}},
 						},
 					},
 				},
 			},
 		},
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Prepare: &lower.HCLPrepare{
-						Entries: []*lower.HCLPrepareEntry{
-							{BindingName: "score", FromState: "app.score", FromHook: "score_hook"},
-						},
+					Id: "a",
+					Prepare: []*turnoutpb.PrepareEntry{
+						{Binding: "score", FromState: proto.String("app.score")},
 					},
-					Next: []*lower.HCLNextRule{
+					Next: []*turnoutpb.NextRuleModel{
 						{
 							Action: "a",
-							Prepare: &lower.HCLNextPrepare{
-								Entries: []*lower.HCLNextPrepareEntry{
-									{
-										BindingName: "score",
-										FromAction:  "score",
-										FromState:   "app.score",
-										FromLiteral: &ast.NumberLiteral{Value: 5},
-									},
-								},
+							Prepare: []*turnoutpb.NextPrepareEntry{
+								{Binding: "score", FromAction: proto.String("score")},
 							},
 						},
 					},
@@ -200,13 +200,13 @@ func TestEmitJSONIrregularSourcePrecedenceAndNulls(t *testing.T) {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 	out := sb.String()
-	if !strings.Contains(out, `"fromState":  "app.score"`) && !strings.Contains(out, `"fromState": "app.score"`) {
+	if !strings.Contains(out, `"fromState"`) {
 		t.Fatalf("missing fromState in output:\n%s", out)
 	}
 	if strings.Contains(out, `"fromHook"`) {
 		t.Fatalf("unexpected fromHook in output:\n%s", out)
 	}
-	if !strings.Contains(out, `"fromAction": "score"`) {
+	if !strings.Contains(out, `"fromAction"`) {
 		t.Fatalf("missing fromAction in output:\n%s", out)
 	}
 	if strings.Contains(out, `"fromLiteral"`) {

@@ -1,6 +1,7 @@
-// Package lower lowers a parsed TurnFile AST to the canonical HCL model (Model),
-// ready for validation and emission. No text is produced here; the emitter (Phase 8)
-// converts Model to HCL text.
+// Package lower lowers a parsed TurnFile AST to the canonical proto model
+// (turnoutpb.TurnModel), ready for validation and emission. No text is
+// produced here; the emitter (emit package) converts TurnModel to HCL text or
+// JSON.
 package lower
 
 import (
@@ -9,283 +10,88 @@ import (
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Model — top-level canonical HCL representation
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Model is the lowered canonical HCL representation, ready for validation and emission.
-type Model struct {
-	State  *HCLStateBlock
-	Scenes []*HCLSceneBlock
-	Routes []*HCLRouteBlock
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Route block types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// HCLRouteBlock corresponds to `route "<id>" { match { ... } }`.
-type HCLRouteBlock struct {
-	ID   string
-	Arms []*HCLMatchArm
-}
-
-// HCLMatchArm is one arm of a match block.
-// Patterns holds the string representation of each OR-branch ("_" for fallback).
-type HCLMatchArm struct {
-	Patterns []string
-	Target   string
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// State block types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// HCLStateBlock corresponds to the top-level `state { ... }` HCL block.
-type HCLStateBlock struct {
-	Namespaces []*HCLNamespace
-}
-
-// HCLNamespace corresponds to `namespace "<name>" { ... }` inside a state block.
-type HCLNamespace struct {
-	Name   string
-	Fields []*HCLStateField
-}
-
-// HCLStateField corresponds to `field "<name>" { type = "..." value = ... }`.
-type HCLStateField struct {
-	Name    string
-	Type    ast.FieldType
-	Default ast.Literal
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Scene / Action types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// HCLSceneBlock corresponds to `scene "<id>" { ... }`.
-type HCLSceneBlock struct {
-	ID           string
-	EntryActions []string
-	NextPolicy   string // "" means omit from output
-	View         *HCLView  // nil = no view block
-	Actions      []*HCLAction
-}
-
-// HCLView corresponds to the `view "<name>" { flow = ... enforce = "..." }` block.
-type HCLView struct {
-	Name    string
-	Flow    string
-	Enforce string
-}
-
-// HCLAction corresponds to `action "<id>" { ... }` inside a scene.
-type HCLAction struct {
-	ID      string
-	Text    *string      // nil = omit; emitter renders as text = <<-EOT ... EOT
-	Compute *HCLCompute
-	Prepare *HCLPrepare  // nil = omit
-	Merge   *HCLMerge    // nil = omit
-	Publish *HCLPublish  // nil = omit
-	Next    []*HCLNextRule
-}
-
-// HCLCompute corresponds to `compute { root = "..." prog "..." { ... } }`.
-type HCLCompute struct {
-	Root string
-	Prog *HCLProg
-}
-
-// HCLProg corresponds to `prog "<name>" { ... }` containing binding blocks.
-type HCLProg struct {
-	Name     string
-	Bindings []*HCLBinding
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Binding types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// HCLBinding corresponds to `binding "<name>" { type = "..." value/expr = ... }`.
-// Exactly one of Value or Expr is non-nil.
-// Sigil carries the original DSL direction marker for validator use; the emitter ignores it.
-type HCLBinding struct {
-	Name  string
-	Type  ast.FieldType
-	Sigil ast.Sigil   // SigilNone for plain bindings; validator uses this for prepare/merge checks
-	Value ast.Literal // non-nil for value bindings
-	Expr  *HCLExpr    // non-nil for function bindings
-}
-
-// HCLExpr is the `expr = { ... }` block. Exactly one inner field is non-nil.
-type HCLExpr struct {
-	Combine *HCLCombine
-	Pipe    *HCLPipe
-	Cond    *HCLCond
-}
-
-// HCLCombine corresponds to `combine = { fn = "..." args = [...] }`.
-type HCLCombine struct {
-	Fn   string
-	Args []*HCLArg
-}
-
-// HCLPipe corresponds to `pipe = { args = { ... } steps = [...] }`.
-type HCLPipe struct {
-	Params []*HCLPipeParam
-	Steps  []*HCLPipeStep
-}
-
-// HCLPipeParam is one `paramName = ref(sourceIdent)` entry in the pipe args object.
-type HCLPipeParam struct {
-	ParamName   string
-	SourceIdent string
-}
-
-// HCLPipeStep is one step inside a pipe step list.
-type HCLPipeStep struct {
-	Fn   string
-	Args []*HCLArg
-}
-
-// HCLCond corresponds to `cond = { condition = {...} then = {...} else = {...} }`.
-type HCLCond struct {
-	Condition *HCLArg
-	Then      *HCLArg
-	Else      *HCLArg
-}
-
-// HCLArg is a discriminated-union argument value. Exactly one field is non-zero.
-// IsStepRef distinguishes StepRef=0 (valid) from "no step ref" (zero value).
-type HCLArg struct {
-	Ref       string       // { ref = "name" }
-	Lit       ast.Literal  // { lit = <literal> }
-	FuncRef   string       // { func_ref = "name" }
-	StepRef   int          // { step_ref = N }
-	IsStepRef bool         // true when StepRef form is used (disambiguates N=0)
-	Transform *HCLTransform // { transform = { ref fn } }
-}
-
-// HCLTransform corresponds to `transform = { ref = "v" fn = ["transformFn..."] }`.
-type HCLTransform struct {
-	Ref string
-	Fn  []string
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Prepare / Merge / Publish types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// HCLPrepare corresponds to the action-level `prepare { ... }` block.
-type HCLPrepare struct {
-	Entries []*HCLPrepareEntry
-}
-
-// HCLPrepareEntry is one binding entry inside an action-level prepare block.
-// Exactly one of FromState / FromHook is non-empty.
-type HCLPrepareEntry struct {
-	BindingName string
-	FromState   string // dotted path; "" if not used
-	FromHook    string // hook name; "" if not used
-}
-
-// HCLMerge corresponds to the `merge { ... }` block.
-type HCLMerge struct {
-	Entries []*HCLMergeEntry
-}
-
-// HCLMergeEntry is one binding entry inside a merge block.
-type HCLMergeEntry struct {
-	BindingName string
-	ToState     string
-}
-
-// HCLPublish corresponds to the `publish { hook = "..." ... }` block.
-type HCLPublish struct {
-	Hooks []string
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Next rule types
-// ─────────────────────────────────────────────────────────────────────────────
-
-// HCLNextRule corresponds to a `next { ... }` block inside an action.
-type HCLNextRule struct {
-	Compute *HCLNextCompute
-	Prepare *HCLNextPrepare // nil = omit
-	Action  string
-}
-
-// HCLNextCompute corresponds to `compute { condition = "..." prog "..." { ... } }` inside next.
-type HCLNextCompute struct {
-	Condition string
-	Prog      *HCLProg
-}
-
-// HCLNextPrepare corresponds to the `prepare { ... }` block inside a next rule.
-type HCLNextPrepare struct {
-	Entries []*HCLNextPrepareEntry
-}
-
-// HCLNextPrepareEntry is one binding entry inside a transition prepare block.
-// Exactly one of FromAction / FromState / FromLiteral is non-zero.
-type HCLNextPrepareEntry struct {
-	BindingName string
-	FromAction  string      // source binding name; "" if not used
-	FromState   string      // dotted path; "" if not used
-	FromLiteral ast.Literal // non-nil if from_literal form used
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Lower converts a parsed TurnFile and resolved STATE schema to a canonical HCL Model.
-func Lower(file *ast.TurnFile, schema state.Schema) (*Model, diag.Diagnostics) {
+// Lower converts a parsed TurnFile and resolved STATE schema to a canonical
+// proto model plus a sidecar that carries DSL metadata not representable in
+// proto (sigils, view blocks, action text).
+func Lower(file *ast.TurnFile, schema state.Schema) (*turnoutpb.TurnModel, *Sidecar, diag.Diagnostics) {
 	var ds diag.Diagnostics
+	sc := newSidecar()
 
-	stateBlock := lowerStateBlock(file.StateSource, schema, &ds)
+	stateModel := lowerStateBlock(file.StateSource, schema, &ds)
 
-	var sceneBlocks []*HCLSceneBlock
+	tm := &turnoutpb.TurnModel{State: stateModel}
+
 	for _, s := range file.Scenes {
-		sceneBlocks = append(sceneBlocks, lowerSceneBlock(s, schema, &ds))
+		tm.Scenes = append(tm.Scenes, lowerSceneBlock(s, schema, sc, &ds))
 	}
 
-	routes := lowerRouteBlocks(file.Routes)
+	tm.Routes = lowerRouteBlocks(file.Routes)
 
 	if ds.HasErrors() {
-		return nil, ds
+		return nil, nil, ds
 	}
-	return &Model{State: stateBlock, Scenes: sceneBlocks, Routes: routes}, ds
+	return tm, sc, ds
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Conversion helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+// literalToStructpb converts an ast.Literal to a structpb.Value. A nil literal
+// becomes a null value.
+func literalToStructpb(lit ast.Literal) *structpb.Value {
+	if lit == nil {
+		return structpb.NewNullValue()
+	}
+	switch v := lit.(type) {
+	case *ast.NumberLiteral:
+		return structpb.NewNumberValue(v.Value)
+	case *ast.StringLiteral:
+		return structpb.NewStringValue(v.Value)
+	case *ast.BoolLiteral:
+		return structpb.NewBoolValue(v.Value)
+	case *ast.ArrayLiteral:
+		vals := make([]*structpb.Value, len(v.Elements))
+		for i, e := range v.Elements {
+			vals[i] = literalToStructpb(e)
+		}
+		return structpb.NewListValue(&structpb.ListValue{Values: vals})
+	}
+	return structpb.NewNullValue()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Route block lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-// lowerRouteBlocks lowers all route blocks to canonical HCL model form.
-func lowerRouteBlocks(routes []*ast.RouteBlock) []*HCLRouteBlock {
-	result := make([]*HCLRouteBlock, 0, len(routes))
+func lowerRouteBlocks(routes []*ast.RouteBlock) []*turnoutpb.RouteModel {
+	result := make([]*turnoutpb.RouteModel, 0, len(routes))
 	for _, r := range routes {
-		hclr := &HCLRouteBlock{ID: r.ID}
+		rm := &turnoutpb.RouteModel{Id: r.ID}
 		if r.Match != nil {
 			for _, arm := range r.Match.Arms {
-				hclArm := &HCLMatchArm{Target: arm.Target}
+				pbArm := &turnoutpb.MatchArm{Target: arm.Target}
 				for _, branch := range arm.Branches {
-					hclArm.Patterns = append(hclArm.Patterns, pathExprString(branch))
+					pbArm.Patterns = append(pbArm.Patterns, pathExprString(branch))
 				}
-				hclr.Arms = append(hclr.Arms, hclArm)
+				rm.Match = append(rm.Match, pbArm)
 			}
 		}
-		result = append(result, hclr)
+		result = append(result, rm)
 	}
 	return result
 }
 
-// pathExprString converts a PathExpr to its canonical string form.
 func pathExprString(pe *ast.PathExpr) string {
 	if pe.Fallback {
 		return "_"
@@ -300,7 +106,7 @@ func pathExprString(pe *ast.PathExpr) string {
 // State block lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnostics) *HCLStateBlock {
+func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnostics) *turnoutpb.StateModel {
 	switch s := src.(type) {
 	case *ast.InlineStateBlock:
 		return lowerStateBlockFromAST(s)
@@ -308,35 +114,32 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnost
 		_ = s
 		return lowerStateBlockFromSchema(schema)
 	default:
-		return &HCLStateBlock{}
+		return &turnoutpb.StateModel{}
 	}
 }
 
-// lowerStateBlockFromAST lowers an inline state block, preserving declaration order.
-func lowerStateBlockFromAST(block *ast.InlineStateBlock) *HCLStateBlock {
-	result := &HCLStateBlock{Namespaces: make([]*HCLNamespace, 0, len(block.Namespaces))}
+func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(block.Namespaces))}
 	for _, ns := range block.Namespaces {
-		hclNS := &HCLNamespace{
+		pbNS := &turnoutpb.NamespaceModel{
 			Name:   ns.Name,
-			Fields: make([]*HCLStateField, 0, len(ns.Fields)),
+			Fields: make([]*turnoutpb.FieldModel, 0, len(ns.Fields)),
 		}
 		for _, f := range ns.Fields {
-			hclNS.Fields = append(hclNS.Fields, &HCLStateField{
-				Name:    f.Name,
-				Type:    f.Type,
-				Default: f.Default,
+			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
+				Name:  f.Name,
+				Type:  f.Type.String(),
+				Value: literalToStructpb(f.Default),
 			})
 		}
-		result.Namespaces = append(result.Namespaces, hclNS)
+		sm.Namespaces = append(sm.Namespaces, pbNS)
 	}
-	return result
+	return sm
 }
 
 // lowerStateBlockFromSchema reconstructs a state block from the flat schema map,
 // sorting namespaces and fields alphabetically for deterministic output.
-// Used when the source is a state_file directive (AST order is unavailable).
-func lowerStateBlockFromSchema(schema state.Schema) *HCLStateBlock {
-	// Group field names by namespace.
+func lowerStateBlockFromSchema(schema state.Schema) *turnoutpb.StateModel {
 	nsMap := make(map[string][]string)
 	for key := range schema {
 		parts := strings.SplitN(key, ".", 2)
@@ -352,78 +155,78 @@ func lowerStateBlockFromSchema(schema state.Schema) *HCLStateBlock {
 	}
 	sort.Strings(nsNames)
 
-	result := &HCLStateBlock{Namespaces: make([]*HCLNamespace, 0, len(nsNames))}
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsNames))}
 	for _, nsName := range nsNames {
 		fieldNames := nsMap[nsName]
 		sort.Strings(fieldNames)
 
-		hclNS := &HCLNamespace{Name: nsName, Fields: make([]*HCLStateField, 0, len(fieldNames))}
+		pbNS := &turnoutpb.NamespaceModel{Name: nsName, Fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
 		for _, fieldName := range fieldNames {
 			meta := schema[nsName+"."+fieldName]
-			hclNS.Fields = append(hclNS.Fields, &HCLStateField{
-				Name:    fieldName,
-				Type:    meta.Type,
-				Default: meta.DefaultValue,
+			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
+				Name:  fieldName,
+				Type:  meta.Type.String(),
+				Value: literalToStructpb(meta.DefaultValue),
 			})
 		}
-		result.Namespaces = append(result.Namespaces, hclNS)
+		sm.Namespaces = append(sm.Namespaces, pbNS)
 	}
-	return result
+	return sm
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scene / Action lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.Diagnostics) *HCLSceneBlock {
-	result := &HCLSceneBlock{
-		ID:           scene.ID,
+func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.SceneBlock {
+	sb := &turnoutpb.SceneBlock{
+		Id:           scene.ID,
 		EntryActions: scene.EntryActions,
-		NextPolicy:   scene.NextPolicy,
-		Actions:      make([]*HCLAction, 0, len(scene.Actions)),
+		Actions:      make([]*turnoutpb.ActionModel, 0, len(scene.Actions)),
+	}
+	if scene.NextPolicy != "" {
+		sb.NextPolicy = proto.String(scene.NextPolicy)
 	}
 	if scene.View != nil {
-		result.View = &HCLView{
+		sc.Scenes[scene.ID] = SceneMeta{View: &ViewMeta{
 			Name:    scene.View.Name,
 			Flow:    scene.View.Flow,
 			Enforce: scene.View.Enforce,
-		}
+		}}
 	}
 	for _, a := range scene.Actions {
-		result.Actions = append(result.Actions, lowerAction(a, schema, ds))
+		sb.Actions = append(sb.Actions, lowerAction(a, schema, scene.ID, sc, ds))
 	}
-	return result
+	return sb
 }
 
-func lowerAction(a *ast.ActionBlock, schema state.Schema, ds *diag.Diagnostics) *HCLAction {
+func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ActionModel {
 	resolver := newActionPrepareResolver(a.Prepare, schema)
 
-	var compute *HCLCompute
+	am := &turnoutpb.ActionModel{Id: a.ID}
+
+	// Text goes to the sidecar (HCL-only, stripped from JSON).
+	if text := lowerActionText(a.Text); text != nil {
+		sc.Actions[sceneID+"/"+a.ID] = ActionMeta{Text: text}
+	}
+
 	if a.Compute != nil {
-		compute = &HCLCompute{
+		am.Compute = &turnoutpb.ComputeModel{
 			Root: a.Compute.Root,
-			Prog: lowerProgInner(a.Compute.Prog, resolver, ds),
+			Prog: lowerProgInner(a.Compute.Prog, resolver, sceneID, a.ID, sc, ds),
 		}
 	}
 
-	nexts := make([]*HCLNextRule, 0, len(a.Next))
-	for _, nr := range a.Next {
-		nexts = append(nexts, lowerNextRule(nr, schema, ds))
-	}
+	am.Prepare = lowerPrepare(a.Prepare)
+	am.Merge = lowerMerge(a.Merge)
+	am.Publish = lowerPublish(a.Publish)
 
-	return &HCLAction{
-		ID:      a.ID,
-		Text:    lowerActionText(a.Text),
-		Compute: compute,
-		Prepare: lowerPrepare(a.Prepare),
-		Merge:   lowerMerge(a.Merge),
-		Publish: lowerPublish(a.Publish),
-		Next:    nexts,
+	for _, nr := range a.Next {
+		am.Next = append(am.Next, lowerNextRule(nr, schema, sceneID, a.ID, sc, ds))
 	}
+	return am
 }
 
-// lowerActionText trims one leading and one trailing newline from the raw docstring,
-// per scene-graph.md §5.1.
 func lowerActionText(raw *string) *string {
 	if raw == nil {
 		return nil
@@ -442,150 +245,147 @@ func lowerActionText(raw *string) *string {
 // Prepare / Merge / Publish lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerPrepare(prepare *ast.PrepareBlock) *HCLPrepare {
+func lowerPrepare(prepare *ast.PrepareBlock) []*turnoutpb.PrepareEntry {
 	if prepare == nil {
 		return nil
 	}
-	result := &HCLPrepare{Entries: make([]*HCLPrepareEntry, 0, len(prepare.Entries))}
+	entries := make([]*turnoutpb.PrepareEntry, 0, len(prepare.Entries))
 	for _, e := range prepare.Entries {
-		entry := &HCLPrepareEntry{BindingName: e.BindingName}
+		pe := &turnoutpb.PrepareEntry{Binding: e.BindingName}
 		switch s := e.Source.(type) {
 		case *ast.FromState:
-			entry.FromState = s.Path
+			pe.FromState = proto.String(s.Path)
 		case *ast.FromHook:
-			entry.FromHook = s.HookName
+			pe.FromHook = proto.String(s.HookName)
 		}
-		result.Entries = append(result.Entries, entry)
+		entries = append(entries, pe)
 	}
-	return result
+	return entries
 }
 
-func lowerMerge(merge *ast.MergeBlock) *HCLMerge {
+func lowerMerge(merge *ast.MergeBlock) []*turnoutpb.MergeEntry {
 	if merge == nil {
 		return nil
 	}
-	result := &HCLMerge{Entries: make([]*HCLMergeEntry, 0, len(merge.Entries))}
+	entries := make([]*turnoutpb.MergeEntry, 0, len(merge.Entries))
 	for _, e := range merge.Entries {
-		result.Entries = append(result.Entries, &HCLMergeEntry{
-			BindingName: e.BindingName,
-			ToState:     e.ToState,
+		entries = append(entries, &turnoutpb.MergeEntry{
+			Binding: e.BindingName,
+			ToState: e.ToState,
 		})
 	}
-	return result
+	return entries
 }
 
-func lowerPublish(pub *ast.PublishBlock) *HCLPublish {
+func lowerPublish(pub *ast.PublishBlock) []string {
 	if pub == nil {
 		return nil
 	}
 	hooks := make([]string, len(pub.Hooks))
 	copy(hooks, pub.Hooks)
-	return &HCLPublish{Hooks: hooks}
+	return hooks
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Next rule lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerNextRule(nr *ast.NextRule, schema state.Schema, ds *diag.Diagnostics) *HCLNextRule {
+func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.NextRuleModel {
 	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
 
-	var compute *HCLNextCompute
+	pbNR := &turnoutpb.NextRuleModel{Action: nr.ActionID}
+
 	if nr.Compute != nil {
-		compute = &HCLNextCompute{
+		pbNR.Compute = &turnoutpb.NextComputeModel{
 			Condition: nr.Compute.Condition,
-			Prog:      lowerProgInner(nr.Compute.Prog, resolver, ds),
+			Prog:      lowerProgInner(nr.Compute.Prog, resolver, sceneID, actionID, sc, ds),
 		}
 	}
 
-	return &HCLNextRule{
-		Compute: compute,
-		Prepare: lowerNextPrepare(nr.Prepare),
-		Action:  nr.ActionID,
-	}
+	pbNR.Prepare = lowerNextPrepare(nr.Prepare)
+	return pbNR
 }
 
-func lowerNextPrepare(np *ast.NextPrepareBlock) *HCLNextPrepare {
+func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {
 	if np == nil {
 		return nil
 	}
-	result := &HCLNextPrepare{Entries: make([]*HCLNextPrepareEntry, 0, len(np.Entries))}
+	entries := make([]*turnoutpb.NextPrepareEntry, 0, len(np.Entries))
 	for _, e := range np.Entries {
-		entry := &HCLNextPrepareEntry{BindingName: e.BindingName}
+		entry := &turnoutpb.NextPrepareEntry{Binding: e.BindingName}
 		switch s := e.Source.(type) {
 		case *ast.FromAction:
-			entry.FromAction = s.BindingName
+			entry.FromAction = proto.String(s.BindingName)
 		case *ast.FromState:
-			entry.FromState = s.Path
+			entry.FromState = proto.String(s.Path)
 		case *ast.FromLiteral:
-			entry.FromLiteral = s.Value
+			entry.FromLiteral = literalToStructpb(s.Value)
 		}
-		result.Entries = append(result.Entries, entry)
+		entries = append(entries, entry)
 	}
-	return result
+	return entries
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prog / Binding lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.Diagnostics) *HCLProg {
+func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ProgModel {
 	if prog == nil {
 		return nil
 	}
-	// Build a binding type map so method-chain args can be resolved.
 	bindingTypes := make(map[string]string, len(prog.Bindings))
 	for _, decl := range prog.Bindings {
 		bindingTypes[decl.Name] = fieldTypeToMethodType(decl.Type)
 	}
-	result := &HCLProg{
+	pm := &turnoutpb.ProgModel{
 		Name:     prog.Name,
-		Bindings: make([]*HCLBinding, 0, len(prog.Bindings)),
+		Bindings: make([]*turnoutpb.BindingModel, 0, len(prog.Bindings)),
 	}
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, ds, bindingTypes)
-		result.Bindings = append(result.Bindings, bindings...)
+		bindings := lowerBinding(decl, resolver, sceneID, actionID, prog.Name, sc, ds, bindingTypes)
+		pm.Bindings = append(pm.Bindings, bindings...)
 	}
-	return result
+	return pm
 }
 
-// lowerBinding lowers one BindingDecl to one or more HCLBindings.
-// Returns two bindings for #if with an inline CondExprCall (auto-generated
-// __if_<name>_cond binding is inserted before the main binding).
-// Sigil is carried through to HCLBinding so the validator can check sigil rules.
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, ds *diag.Diagnostics, bindingTypes map[string]string) []*HCLBinding {
-	name := decl.Name // sigil already stripped by parser
+// lowerBinding lowers one BindingDecl to one or more BindingModels.
+// Sigils are captured in the sidecar keyed by (sceneID, actionID, progName, bindingName).
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID, progName string, sc *Sidecar, ds *diag.Diagnostics, bindingTypes map[string]string) []*turnoutpb.BindingModel {
+	name := decl.Name
 	ft := decl.Type
 
-	var bindings []*HCLBinding
+	var bindings []*turnoutpb.BindingModel
 	switch rhs := decl.RHS.(type) {
 	case *ast.LiteralRHS:
-		bindings = []*HCLBinding{lowerLiteralRHS(name, ft, rhs)}
+		bindings = []*turnoutpb.BindingModel{lowerLiteralRHS(name, ft, rhs)}
 	case *ast.PlaceholderRHS:
-		bindings = []*HCLBinding{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
+		bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 	case *ast.SingleRefRHS:
-		bindings = []*HCLBinding{lowerSingleRefRHS(name, ft, rhs)}
+		bindings = []*turnoutpb.BindingModel{lowerSingleRefRHS(name, ft, rhs)}
 	case *ast.FuncCallRHS:
-		bindings = []*HCLBinding{lowerFuncCallRHS(name, ft, rhs, bindingTypes)}
+		bindings = []*turnoutpb.BindingModel{lowerFuncCallRHS(name, ft, rhs, bindingTypes)}
 	case *ast.InfixRHS:
-		bindings = []*HCLBinding{lowerInfixRHS(name, ft, rhs, bindingTypes)}
+		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes)}
 	case *ast.PipeRHS:
-		bindings = []*HCLBinding{lowerPipeRHS(name, ft, rhs, bindingTypes)}
+		bindings = []*turnoutpb.BindingModel{lowerPipeRHS(name, ft, rhs, bindingTypes)}
 	case *ast.CondRHS:
-		bindings = []*HCLBinding{lowerCondRHS(name, ft, rhs)}
+		bindings = []*turnoutpb.BindingModel{lowerCondRHS(name, ft, rhs)}
 	case *ast.IfRHS:
 		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
 	default:
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
-		bindings = []*HCLBinding{{Name: name, Type: ft, Value: zeroLiteralFor(ft)}}
+		bindings = []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
 	}
 
-	// Populate Sigil on the user-declared binding (matched by name).
+	// Capture sigil for the user-declared binding (matched by name).
 	// Auto-generated bindings (e.g. __if_X_cond) have different names and keep SigilNone.
-	for _, b := range bindings {
-		if b.Name == name {
-			b.Sigil = decl.Sigil
+	if decl.Sigil != ast.SigilNone {
+		for _, b := range bindings {
+			if b.Name == name {
+				sc.Sigils[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = decl.Sigil
+			}
 		}
 	}
 	return bindings
@@ -595,156 +395,149 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, ds *diag.Diag
 // RHS-specific lowering functions
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *HCLBinding {
-	return &HCLBinding{Name: name, Type: ft, Value: rhs.Value}
+func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *turnoutpb.BindingModel {
+	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(rhs.Value)}
 }
 
-func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *HCLBinding {
+func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, ds)
-	return &HCLBinding{Name: name, Type: ft, Value: val}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
 }
 
-// lowerSingleRefRHS lowers `name:type = identifier` to an identity combine,
-// per hcl-context-spec.md identity-combine table.
-func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *HCLBinding {
+// lowerSingleRefRHS lowers `name:type = identifier` to an identity combine.
+func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *turnoutpb.BindingModel {
 	var fn string
-	var identityArg *HCLArg
+	var identityArg *turnoutpb.ArgModel
 	switch ft {
 	case ast.FieldTypeBool:
 		fn = "bool_and"
-		identityArg = &HCLArg{Lit: &ast.BoolLiteral{Value: true}}
+		identityArg = &turnoutpb.ArgModel{Lit: structpb.NewBoolValue(true)}
 	case ast.FieldTypeNumber:
 		fn = "add"
-		identityArg = &HCLArg{Lit: &ast.NumberLiteral{Value: 0}}
+		identityArg = &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(0)}
 	case ast.FieldTypeStr:
 		fn = "str_concat"
-		identityArg = &HCLArg{Lit: &ast.StringLiteral{Value: ""}}
+		identityArg = &turnoutpb.ArgModel{Lit: structpb.NewStringValue("")}
 	default: // arr<number>, arr<str>, arr<bool>
 		fn = "arr_concat"
-		identityArg = &HCLArg{Lit: &ast.ArrayLiteral{}}
+		identityArg = &turnoutpb.ArgModel{Lit: structpb.NewListValue(&structpb.ListValue{})}
 	}
-	return &HCLBinding{
+	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft,
-		Expr: &HCLExpr{Combine: &HCLCombine{
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   fn,
-			Args: []*HCLArg{{Ref: rhs.RefName}, identityArg},
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String(rhs.RefName)}, identityArg},
 		}},
 	}
 }
 
-func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]string) *HCLBinding {
-	return &HCLBinding{
+func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]string) *turnoutpb.BindingModel {
+	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft,
-		Expr: &HCLExpr{Combine: &HCLCombine{
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   rhs.FnAlias,
 			Args: lowerArgsWithTypes(rhs.Args, bindingTypes),
 		}},
 	}
 }
 
-// lowerInfixRHS lowers `name:type = lhs OP rhs` to a combine.
-// InfixPlus is type-dispatched: number → "add", str → "str_concat".
-func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]string) *HCLBinding {
+func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]string) *turnoutpb.BindingModel {
 	fn := rhs.Op.FnAlias()
-	if fn == "" { // InfixPlus
+	if fn == "" {
 		if ft == ast.FieldTypeStr {
 			fn = "str_concat"
 		} else {
 			fn = "add"
 		}
 	}
-	return &HCLBinding{
+	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft,
-		Expr: &HCLExpr{Combine: &HCLCombine{
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   fn,
-			Args: []*HCLArg{lowerArgWithTypes(rhs.LHS, bindingTypes), lowerArgWithTypes(rhs.RHS, bindingTypes)},
+			Args: []*turnoutpb.ArgModel{lowerArgWithTypes(rhs.LHS, bindingTypes), lowerArgWithTypes(rhs.RHS, bindingTypes)},
 		}},
 	}
 }
 
-func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS, bindingTypes map[string]string) *HCLBinding {
-	params := make([]*HCLPipeParam, 0, len(rhs.Params))
+func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS, bindingTypes map[string]string) *turnoutpb.BindingModel {
+	params := make([]*turnoutpb.PipeParam, 0, len(rhs.Params))
 	for _, p := range rhs.Params {
-		params = append(params, &HCLPipeParam{
+		params = append(params, &turnoutpb.PipeParam{
 			ParamName:   p.ParamName,
 			SourceIdent: p.SourceIdent,
 		})
 	}
-	steps := make([]*HCLPipeStep, 0, len(rhs.Steps))
+	steps := make([]*turnoutpb.PipeStep, 0, len(rhs.Steps))
 	for _, s := range rhs.Steps {
-		steps = append(steps, &HCLPipeStep{
+		steps = append(steps, &turnoutpb.PipeStep{
 			Fn:   s.FnAlias,
 			Args: lowerArgsWithTypes(s.Args, bindingTypes),
 		})
 	}
-	return &HCLBinding{
+	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft,
-		Expr: &HCLExpr{Pipe: &HCLPipe{Params: params, Steps: steps}},
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{Params: params, Steps: steps}},
 	}
 }
 
-func lowerCondRHS(name string, ft ast.FieldType, rhs *ast.CondRHS) *HCLBinding {
+func lowerCondRHS(name string, ft ast.FieldType, rhs *ast.CondRHS) *turnoutpb.BindingModel {
 	condRef := ""
 	if ref, ok := rhs.Condition.(*ast.CondExprRef); ok {
 		condRef = ref.BindingName
 	}
-	return &HCLBinding{
+	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft,
-		Expr: &HCLExpr{Cond: &HCLCond{
-			Condition: &HCLArg{Ref: condRef},
-			Then:      &HCLArg{FuncRef: rhs.Then},
-			Else:      &HCLArg{FuncRef: rhs.Else},
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+			Condition:  &turnoutpb.ArgModel{Ref: proto.String(condRef)},
+			Then:       &turnoutpb.ArgModel{FuncRef: proto.String(rhs.Then)},
+			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String(rhs.Else)},
 		}},
 	}
 }
 
-// lowerIfRHS lowers an #if form.
-//   - CondExprRef: equivalent to CondRHS (one binding returned).
-//   - CondExprCall: auto-generates __if_<name>_cond binding (two bindings returned,
-//     generated binding first so it precedes the cond in the prog).
-func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnostics, bindingTypes map[string]string) []*HCLBinding {
+func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnostics, bindingTypes map[string]string) []*turnoutpb.BindingModel {
 	switch cond := rhs.Cond.(type) {
 	case *ast.CondExprRef:
-		return []*HCLBinding{{
+		return []*turnoutpb.BindingModel{{
 			Name: name,
-			Type: ft,
-			Expr: &HCLExpr{Cond: &HCLCond{
-				Condition: &HCLArg{Ref: cond.BindingName},
-				Then:      &HCLArg{FuncRef: rhs.Then},
-				Else:      &HCLArg{FuncRef: rhs.Else},
+			Type: ft.String(),
+			Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String(cond.BindingName)},
+				Then:       &turnoutpb.ArgModel{FuncRef: proto.String(rhs.Then)},
+				ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String(rhs.Else)},
 			}},
 		}}
 
 	case *ast.CondExprCall:
 		generatedName := "__if_" + name + "_cond"
-		generatedBinding := &HCLBinding{
+		generatedBinding := &turnoutpb.BindingModel{
 			Name: generatedName,
-			Type: ast.FieldTypeBool,
-			Expr: &HCLExpr{Combine: &HCLCombine{
+			Type: ast.FieldTypeBool.String(),
+			Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 				Fn:   cond.FnAlias,
 				Args: lowerArgsWithTypes(cond.Args, bindingTypes),
 			}},
 		}
-		mainBinding := &HCLBinding{
+		mainBinding := &turnoutpb.BindingModel{
 			Name: name,
-			Type: ft,
-			Expr: &HCLExpr{Cond: &HCLCond{
-				Condition: &HCLArg{Ref: generatedName},
-				Then:      &HCLArg{FuncRef: rhs.Then},
-				Else:      &HCLArg{FuncRef: rhs.Else},
+			Type: ft.String(),
+			Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String(generatedName)},
+				Then:       &turnoutpb.ArgModel{FuncRef: proto.String(rhs.Then)},
+				ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String(rhs.Else)},
 			}},
 		}
-		return []*HCLBinding{generatedBinding, mainBinding}
+		return []*turnoutpb.BindingModel{generatedBinding, mainBinding}
 
 	default:
 		*ds = append(*ds, diag.ErrorAt(rhs.Pos.File, rhs.Pos.Line, rhs.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported #if condition form for binding %q", name))
-		return []*HCLBinding{{Name: name, Type: ft, Value: zeroLiteralFor(ft)}}
+		return []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
 	}
 }
 
@@ -752,8 +545,6 @@ func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnost
 // Arg lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-// fieldTypeToMethodType converts an ast.FieldType to the type string used in the
-// method lookup table ("number", "string", "boolean", "array").
 func fieldTypeToMethodType(ft ast.FieldType) string {
 	switch ft {
 	case ast.FieldTypeNumber:
@@ -762,45 +553,35 @@ func fieldTypeToMethodType(ft ast.FieldType) string {
 		return "string"
 	case ast.FieldTypeBool:
 		return "boolean"
-	default: // arr<number>, arr<str>, arr<bool>
+	default:
 		return "array"
 	}
 }
 
-// methodTable maps unqualified DSL method names to their fully qualified transformFn
-// name and the output type produced (used to resolve subsequent chain steps).
-// Methods that are unique across all types are resolved without type context.
-// Ambiguous methods (toStr, length) are resolved using the input type.
 type methodEntry struct {
-	inputType  string // "number", "string", "boolean", "array"
+	inputType  string
 	outputType string
 	qualName   string
 }
 
 var methodTable = []methodEntry{
-	// number
 	{"number", "string", "transformFnNumber::toStr"},
 	{"number", "number", "transformFnNumber::abs"},
 	{"number", "number", "transformFnNumber::floor"},
 	{"number", "number", "transformFnNumber::ceil"},
 	{"number", "number", "transformFnNumber::round"},
 	{"number", "number", "transformFnNumber::negate"},
-	// string
 	{"string", "number", "transformFnString::toNumber"},
 	{"string", "string", "transformFnString::trim"},
 	{"string", "string", "transformFnString::toLowerCase"},
 	{"string", "string", "transformFnString::toUpperCase"},
 	{"string", "number", "transformFnString::length"},
-	// boolean
 	{"boolean", "boolean", "transformFnBoolean::not"},
 	{"boolean", "string", "transformFnBoolean::toStr"},
-	// array
 	{"array", "number", "transformFnArray::length"},
 	{"array", "boolean", "transformFnArray::isEmpty"},
 }
 
-// lookupMethod finds the qualified transformFn name for a DSL method given the
-// receiver's current type. Returns the qualified name and the output type.
 func lookupMethod(method, inputType string) (qualName, outputType string, ok bool) {
 	for _, e := range methodTable {
 		if e.inputType == inputType && methodBaseName(e.qualName) == method {
@@ -810,8 +591,6 @@ func lookupMethod(method, inputType string) (qualName, outputType string, ok boo
 	return "", "", false
 }
 
-// methodBaseName extracts the method name from a qualified transformFn name
-// (e.g. "transformFnNumber::toStr" → "toStr").
 func methodBaseName(qualName string) string {
 	if i := strings.Index(qualName, "::"); i >= 0 {
 		return qualName[i+2:]
@@ -819,14 +598,10 @@ func methodBaseName(qualName string) string {
 	return qualName
 }
 
-// lowerMethodCallArg resolves a MethodCallArg to a HCLArg{Transform} using the
-// binding type map to qualify method names. Returns a plain RefArg if the chain
-// cannot be resolved (e.g. unknown binding).
-func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]string) *HCLArg {
+func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]string) *turnoutpb.ArgModel {
 	receiverType, ok := bindingTypes[a.Receiver]
 	if !ok {
-		// Unknown receiver — emit as a plain ref and let validation catch it.
-		return &HCLArg{Ref: a.Receiver}
+		return &turnoutpb.ArgModel{Ref: proto.String(a.Receiver)}
 	}
 
 	fns := make([]string, 0, len(a.Methods))
@@ -834,44 +609,35 @@ func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]string) *H
 	for _, method := range a.Methods {
 		qual, outType, found := lookupMethod(method, currentType)
 		if !found {
-			// Unknown method — emit as plain ref; validator will diagnose.
-			return &HCLArg{Ref: a.Receiver}
+			return &turnoutpb.ArgModel{Ref: proto.String(a.Receiver)}
 		}
 		fns = append(fns, qual)
 		currentType = outType
 	}
-	return &HCLArg{Transform: &HCLTransform{Ref: a.Receiver, Fn: fns}}
+	return &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{Ref: a.Receiver, Fn: fns}}
 }
 
-func lowerArg(arg ast.Arg) *HCLArg {
-	return lowerArgWithTypes(arg, nil)
-}
-
-func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]string) *HCLArg {
+func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]string) *turnoutpb.ArgModel {
 	switch a := arg.(type) {
 	case *ast.RefArg:
-		return &HCLArg{Ref: a.Name}
+		return &turnoutpb.ArgModel{Ref: proto.String(a.Name)}
 	case *ast.LitArg:
-		return &HCLArg{Lit: a.Value}
+		return &turnoutpb.ArgModel{Lit: literalToStructpb(a.Value)}
 	case *ast.FuncRefArg:
-		return &HCLArg{FuncRef: a.FnName}
+		return &turnoutpb.ArgModel{FuncRef: proto.String(a.FnName)}
 	case *ast.StepRefArg:
-		return &HCLArg{StepRef: a.Index, IsStepRef: true}
+		return &turnoutpb.ArgModel{StepRef: proto.Int32(int32(a.Index))}
 	case *ast.TransformArg:
-		return &HCLArg{Transform: &HCLTransform{Ref: a.Ref, Fn: a.Fn}}
+		return &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{Ref: a.Ref, Fn: a.Fn}}
 	case *ast.MethodCallArg:
 		return lowerMethodCallArg(a, bindingTypes)
 	default:
-		return &HCLArg{}
+		return &turnoutpb.ArgModel{}
 	}
 }
 
-func lowerArgs(args []ast.Arg) []*HCLArg {
-	return lowerArgsWithTypes(args, nil)
-}
-
-func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]string) []*HCLArg {
-	result := make([]*HCLArg, len(args))
+func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]string) []*turnoutpb.ArgModel {
+	result := make([]*turnoutpb.ArgModel, len(args))
 	for i, a := range args {
 		result[i] = lowerArgWithTypes(a, bindingTypes)
 	}
@@ -882,8 +648,6 @@ func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]string) []*HCLAr
 // prepareResolver — abstracts placeholder default resolution
 // ─────────────────────────────────────────────────────────────────────────────
 
-// prepareResolver resolves the default value for a PlaceholderRHS ("_") binding.
-// Two implementations exist: one for action-level progs and one for transition progs.
 type prepareResolver interface {
 	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal
 }
@@ -924,8 +688,6 @@ func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, po
 		}
 		return meta.DefaultValue
 	case *ast.FromHook:
-		// Hook source: no schema default exists; emit zero literal so the
-		// compute graph is well-typed. The runtime will override via the hook.
 		return zeroLiteralFor(ft)
 	default:
 		return zeroLiteralFor(ft)
@@ -968,7 +730,6 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 		}
 		return meta.DefaultValue
 	case *ast.FromAction:
-		// Value comes from action result at runtime; emit zero literal for type safety.
 		return zeroLiteralFor(ft)
 	case *ast.FromLiteral:
 		return s.Value
@@ -981,8 +742,6 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// zeroLiteralFor returns the zero-value literal for a given FieldType.
-// Used when no schema default is available (e.g. FromHook, FromAction).
 func zeroLiteralFor(ft ast.FieldType) ast.Literal {
 	switch ft {
 	case ast.FieldTypeNumber:
@@ -991,7 +750,7 @@ func zeroLiteralFor(ft ast.FieldType) ast.Literal {
 		return &ast.StringLiteral{Value: ""}
 	case ast.FieldTypeBool:
 		return &ast.BoolLiteral{Value: false}
-	default: // arr<number>, arr<str>, arr<bool>
+	default:
 		return &ast.ArrayLiteral{}
 	}
 }

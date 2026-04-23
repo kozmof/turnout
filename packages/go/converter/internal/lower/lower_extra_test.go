@@ -3,11 +3,11 @@ package lower_test
 import (
 	"testing"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─── lowerNextPrepare: from_state and from_literal branches ──────────────────
@@ -35,26 +35,25 @@ scene "test" {
     }
   }
 }`
-	model := mustLower(t, src)
-	nr := model.Scenes[0].Actions[0].Next[0]
-	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
+	tm, _ := mustLower(t, src)
+	nr := tm.Scenes[0].Actions[0].Next[0]
+	if len(nr.Prepare) == 0 {
 		t.Fatal("expected prepare entries")
 	}
-	e := nr.Prepare.Entries[0]
-	if e.BindingName != "score" {
-		t.Errorf("binding = %q, want score", e.BindingName)
+	e := nr.Prepare[0]
+	if e.Binding != "score" {
+		t.Errorf("binding = %q, want score", e.Binding)
 	}
-	if e.FromState != "app.score" {
-		t.Errorf("from_state = %q, want app.score", e.FromState)
+	if e.FromState == nil || *e.FromState != "app.score" {
+		t.Errorf("from_state = %v, want app.score", e.FromState)
 	}
 	// Placeholder _ with from_state should resolve to the state default (10)
 	b := nr.Compute.Prog.Bindings[0]
 	if b.Name != "score" {
 		t.Errorf("binding name = %q, want score", b.Name)
 	}
-	num, ok := b.Value.(*ast.NumberLiteral)
-	if !ok || num.Value != 10 {
-		t.Errorf("binding value: got %T %v, want NumberLiteral 10", b.Value, b.Value)
+	if nv, ok := b.Value.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 10 {
+		t.Errorf("binding value: got %T %v, want 10", b.Value.Kind, b.Value)
 	}
 }
 
@@ -81,23 +80,22 @@ scene "test" {
     }
   }
 }`
-	model := mustLower(t, src)
-	nr := model.Scenes[0].Actions[0].Next[0]
-	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
+	tm, _ := mustLower(t, src)
+	nr := tm.Scenes[0].Actions[0].Next[0]
+	if len(nr.Prepare) == 0 {
 		t.Fatal("expected prepare entries")
 	}
-	e := nr.Prepare.Entries[0]
-	if e.BindingName != "val" {
-		t.Errorf("binding = %q, want val", e.BindingName)
+	e := nr.Prepare[0]
+	if e.Binding != "val" {
+		t.Errorf("binding = %q, want val", e.Binding)
 	}
-	if lit, ok := e.FromLiteral.(*ast.NumberLiteral); !ok || lit.Value != 99 {
-		t.Errorf("from_literal = %T %v, want NumberLiteral 99", e.FromLiteral, e.FromLiteral)
+	if nv, ok := e.FromLiteral.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 99 {
+		t.Errorf("from_literal = %T %v, want 99", e.FromLiteral.Kind, e.FromLiteral)
 	}
 	// Placeholder _ with from_literal = 99 → binding value should be 99
 	b := nr.Compute.Prog.Bindings[0]
-	num, ok := b.Value.(*ast.NumberLiteral)
-	if !ok || num.Value != 99 {
-		t.Errorf("binding value: got %T %v, want NumberLiteral 99", b.Value, b.Value)
+	if nv, ok := b.Value.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 99 {
+		t.Errorf("binding value: got %T %v, want 99", b.Value.Kind, b.Value)
 	}
 }
 
@@ -119,16 +117,16 @@ func TestLowerArgFuncRef(t *testing.T) {
       }
     }
   }`)
-	model := mustLower(t, src)
-	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
+	tm, _ := mustLower(t, src)
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// result binding is the 3rd (index 2)
 	b := bindings[2]
 	if b.Expr == nil || b.Expr.Pipe == nil {
 		t.Fatal("expected pipe expr on result binding")
 	}
 	step := b.Expr.Pipe.Steps[0]
-	if step.Args[0].FuncRef != "thenFn" {
-		t.Errorf("step arg[0].FuncRef = %q, want thenFn", step.Args[0].FuncRef)
+	if step.Args[0].FuncRef == nil || *step.Args[0].FuncRef != "thenFn" {
+		t.Errorf("step arg[0].FuncRef = %v, want thenFn", step.Args[0].FuncRef)
 	}
 }
 
@@ -146,8 +144,8 @@ func TestLowerArgTransform(t *testing.T) {
       }
     }
   }`)
-	model := mustLower(t, src)
-	bindings := model.Scenes[0].Actions[0].Compute.Prog.Bindings
+	tm, _ := mustLower(t, src)
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	b := bindings[1]
 	if b.Expr == nil || b.Expr.Pipe == nil {
 		t.Fatal("expected pipe expr on result binding")
@@ -185,17 +183,17 @@ scene "test" {
     }
   }
 }`
-	model := mustLower(t, src)
-	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	tm, _ := mustLower(t, src)
+	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	if b.Name != "items" {
 		t.Fatalf("binding = %q, want items", b.Name)
 	}
-	arr, ok := b.Value.(*ast.ArrayLiteral)
+	lv, ok := b.Value.Kind.(*structpb.Value_ListValue)
 	if !ok {
-		t.Fatalf("value type = %T, want *ast.ArrayLiteral", b.Value)
+		t.Fatalf("value type = %T, want ListValue", b.Value.Kind)
 	}
-	if len(arr.Elements) != 0 {
-		t.Errorf("zero array should be empty, got %d elements", len(arr.Elements))
+	if len(lv.ListValue.Values) != 0 {
+		t.Errorf("zero array should be empty, got %d elements", len(lv.ListValue.Values))
 	}
 }
 
@@ -218,14 +216,14 @@ scene "test" {
     }
   }
 }`
-	model := mustLower(t, src)
-	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	lit, ok := b.Value.(*ast.StringLiteral)
+	tm, _ := mustLower(t, src)
+	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	sv, ok := b.Value.Kind.(*structpb.Value_StringValue)
 	if !ok {
-		t.Fatalf("value type = %T, want *ast.StringLiteral", b.Value)
+		t.Fatalf("value type = %T, want StringValue", b.Value.Kind)
 	}
-	if lit.Value != "" {
-		t.Errorf("zero str = %q, want empty string", lit.Value)
+	if sv.StringValue != "" {
+		t.Errorf("zero str = %q, want empty string", sv.StringValue)
 	}
 }
 
@@ -248,14 +246,14 @@ scene "test" {
     }
   }
 }`
-	model := mustLower(t, src)
-	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	lit, ok := b.Value.(*ast.BoolLiteral)
+	tm, _ := mustLower(t, src)
+	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	bv, ok := b.Value.Kind.(*structpb.Value_BoolValue)
 	if !ok {
-		t.Fatalf("value type = %T, want *ast.BoolLiteral", b.Value)
+		t.Fatalf("value type = %T, want BoolValue", b.Value.Kind)
 	}
-	if lit.Value != false {
-		t.Errorf("zero bool = %v, want false", lit.Value)
+	if bv.BoolValue != false {
+		t.Errorf("zero bool = %v, want false", bv.BoolValue)
 	}
 }
 
@@ -273,17 +271,16 @@ func TestLowerArgLit(t *testing.T) {
       }
     }
   }`)
-	model := mustLower(t, src)
-	b := model.Scenes[0].Actions[0].Compute.Prog.Bindings[1]
+	tm, _ := mustLower(t, src)
+	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[1]
 	if b.Expr == nil || b.Expr.Combine == nil {
 		t.Fatal("expected combine expr on result binding")
 	}
 	if b.Expr.Combine.Args[1].Lit == nil {
 		t.Fatal("expected lit arg for numeric literal 5")
 	}
-	num, ok := b.Expr.Combine.Args[1].Lit.(*ast.NumberLiteral)
-	if !ok || num.Value != 5 {
-		t.Errorf("lit arg = %T %v, want NumberLiteral 5", b.Expr.Combine.Args[1].Lit, b.Expr.Combine.Args[1].Lit)
+	if nv, ok := b.Expr.Combine.Args[1].Lit.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 5 {
+		t.Errorf("lit arg = %T %v, want 5", b.Expr.Combine.Args[1].Lit.Kind, b.Expr.Combine.Args[1].Lit)
 	}
 }
 
@@ -314,23 +311,22 @@ scene "test" {
     }
   }
 }`
-	model := mustLower(t, src)
-	nr := model.Scenes[0].Actions[0].Next[0]
-	if nr.Prepare == nil || len(nr.Prepare.Entries) == 0 {
+	tm, _ := mustLower(t, src)
+	nr := tm.Scenes[0].Actions[0].Next[0]
+	if len(nr.Prepare) == 0 {
 		t.Fatal("expected prepare entries")
 	}
-	e := nr.Prepare.Entries[0]
-	if e.BindingName != "score" {
-		t.Errorf("binding = %q, want score", e.BindingName)
+	e := nr.Prepare[0]
+	if e.Binding != "score" {
+		t.Errorf("binding = %q, want score", e.Binding)
 	}
-	if e.FromAction != "r" {
-		t.Errorf("from_action = %q, want r", e.FromAction)
+	if e.FromAction == nil || *e.FromAction != "r" {
+		t.Errorf("from_action = %v, want r", e.FromAction)
 	}
-	// zeroLiteralFor(Number) → NumberLiteral{0}
+	// zeroLiteralFor(Number) → NumberValue{0}
 	b := nr.Compute.Prog.Bindings[0]
-	num, ok := b.Value.(*ast.NumberLiteral)
-	if !ok || num.Value != 0 {
-		t.Errorf("binding value: got %T %v, want NumberLiteral 0", b.Value, b.Value)
+	if nv, ok := b.Value.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 0 {
+		t.Errorf("binding value: got %T %v, want 0", b.Value.Kind, b.Value)
 	}
 }
 
@@ -347,7 +343,7 @@ func lowerWithErrors(t *testing.T, src string) diag.Diagnostics {
 	if ds2.HasErrors() {
 		t.Fatalf("state resolve failed: %v", ds2)
 	}
-	_, ds3 := lower.Lower(tf, schema)
+	_, _, ds3 := lower.Lower(tf, schema)
 	return ds3
 }
 
@@ -461,14 +457,14 @@ scene "test" {
 		t.Fatalf("parse: %v", ds)
 	}
 	// Pass a schema with a non-dotted key to exercise the continue branch.
-	schema := state.Schema{"nodot": {DefaultValue: &ast.NumberLiteral{Value: 0}}}
-	model, ds3 := lower.Lower(tf, schema)
+	schema := state.Schema{"nodot": {DefaultValue: nil}}
+	tm, _, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
 	// The bad key was skipped, so no namespaces in the state block.
-	if model.State != nil && len(model.State.Namespaces) != 0 {
-		t.Errorf("expected 0 namespaces, got %d", len(model.State.Namespaces))
+	if tm.State != nil && len(tm.State.Namespaces) != 0 {
+		t.Errorf("expected 0 namespaces, got %d", len(tm.State.Namespaces))
 	}
 }
 

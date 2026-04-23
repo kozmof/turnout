@@ -4,16 +4,18 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // pipelineModel runs parse→state→lower→validate and returns the lowered model.
-func pipelineModel(t *testing.T, src string) *lower.Model {
+func pipelineModel(t *testing.T, src string) *turnoutpb.TurnModel {
 	t.Helper()
 	tf, ds := parser.ParseFile("test.turn", src)
 	if ds.HasErrors() {
@@ -23,14 +25,14 @@ func pipelineModel(t *testing.T, src string) *lower.Model {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	model, ds3 := lower.Lower(tf, schema)
+	tm, sc, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(model, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
-	return model
+	return tm
 }
 
 // ─── writeLiteral: non-empty array and bool false ─────────────────────────────
@@ -64,27 +66,27 @@ scene "s" {
 // ─── writeArg: transform, step_ref, lit branches ─────────────────────────────
 
 func TestEmitArgTransform(t *testing.T) {
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "result",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
+							Bindings: []*turnoutpb.BindingModel{
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn: "add",
-											Args: []*lower.HCLArg{
-												{Transform: &lower.HCLTransform{Ref: "x", Fn: []string{"myTransform"}}},
-												{Lit: &ast.NumberLiteral{Value: 0}},
+											Args: []*turnoutpb.ArgModel{
+												{Transform: &turnoutpb.TransformArg{Ref: "x", Fn: []string{"myTransform"}}},
+												{Lit: structpb.NewNumberValue(0)},
 											},
 										},
 									},
@@ -96,43 +98,43 @@ func TestEmitArgTransform(t *testing.T) {
 			},
 		}},
 	}
-	out := emitModel(model)
+	out := emitModel(model, nil)
 	if !strings.Contains(out, `transform = { ref = "x"`) {
 		t.Errorf("missing transform arg in output:\n%s", out)
 	}
 	if !strings.Contains(out, `fn = ["myTransform"]`) {
 		t.Errorf("missing transform fn in output:\n%s", out)
 	}
-	// Also covers lit branch (NumberLiteral 0 as second arg)
+	// Also covers lit branch (NumberValue 0 as second arg)
 	if !strings.Contains(out, `lit = 0`) {
 		t.Errorf("missing lit arg in output:\n%s", out)
 	}
 }
 
 func TestEmitArgStepRef(t *testing.T) {
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "result",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
+							Bindings: []*turnoutpb.BindingModel{
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Pipe: &lower.HCLPipe{
-											Params: []*lower.HCLPipeParam{{ParamName: "a", SourceIdent: "x"}},
-											Steps: []*lower.HCLPipeStep{
-												{Fn: "add", Args: []*lower.HCLArg{{Ref: "a"}, {Ref: "a"}}},
-												{Fn: "add", Args: []*lower.HCLArg{
-													{IsStepRef: true, StepRef: 0},
-													{Lit: &ast.NumberLiteral{Value: 1}},
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Pipe: &turnoutpb.PipeExpr{
+											Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+											Steps: []*turnoutpb.PipeStep{
+												{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}},
+												{Fn: "add", Args: []*turnoutpb.ArgModel{
+													{StepRef: proto.Int32(0)},
+													{Lit: structpb.NewNumberValue(1)},
 												}},
 											},
 										},
@@ -145,7 +147,7 @@ func TestEmitArgStepRef(t *testing.T) {
 			},
 		}},
 	}
-	out := emitModel(model)
+	out := emitModel(model, nil)
 	if !strings.Contains(out, `step_ref = 0`) {
 		t.Errorf("missing step_ref in output:\n%s", out)
 	}
@@ -324,30 +326,29 @@ scene "s" {
 }
 
 func TestEmitJSONArgStepRefAndLit(t *testing.T) {
-	stepRef := 0
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "result",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
+							Bindings: []*turnoutpb.BindingModel{
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Pipe: &lower.HCLPipe{
-											Params: []*lower.HCLPipeParam{{ParamName: "a", SourceIdent: "x"}},
-											Steps: []*lower.HCLPipeStep{
-												{Fn: "add", Args: []*lower.HCLArg{{Ref: "a"}, {Ref: "a"}}},
-												{Fn: "add", Args: []*lower.HCLArg{
-													{IsStepRef: true, StepRef: stepRef},
-													{Lit: &ast.NumberLiteral{Value: 5}},
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Pipe: &turnoutpb.PipeExpr{
+											Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+											Steps: []*turnoutpb.PipeStep{
+												{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}},
+												{Fn: "add", Args: []*turnoutpb.ArgModel{
+													{StepRef: proto.Int32(0)},
+													{Lit: structpb.NewNumberValue(5)},
 												}},
 											},
 										},
@@ -374,27 +375,27 @@ func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 }
 
 func TestEmitJSONArgTransform(t *testing.T) {
-	model := &lower.Model{
-		Scenes: []*lower.HCLSceneBlock{{
-			ID:           "s",
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
 			EntryActions: []string{"a"},
-			Actions: []*lower.HCLAction{
+			Actions: []*turnoutpb.ActionModel{
 				{
-					ID: "a",
-					Compute: &lower.HCLCompute{
+					Id: "a",
+					Compute: &turnoutpb.ComputeModel{
 						Root: "result",
-						Prog: &lower.HCLProg{
+						Prog: &turnoutpb.ProgModel{
 							Name: "p",
-							Bindings: []*lower.HCLBinding{
+							Bindings: []*turnoutpb.BindingModel{
 								{
 									Name: "result",
-									Type: ast.FieldTypeNumber,
-									Expr: &lower.HCLExpr{
-										Combine: &lower.HCLCombine{
+									Type: "number",
+									Expr: &turnoutpb.ExprModel{
+										Combine: &turnoutpb.CombineExpr{
 											Fn: "add",
-											Args: []*lower.HCLArg{
-												{Transform: &lower.HCLTransform{Ref: "v", Fn: []string{"myFn"}}},
-												{Lit: &ast.NumberLiteral{Value: 0}},
+											Args: []*turnoutpb.ArgModel{
+												{Transform: &turnoutpb.TransformArg{Ref: "v", Fn: []string{"myFn"}}},
+												{Lit: structpb.NewNumberValue(0)},
 											},
 										},
 									},
