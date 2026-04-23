@@ -250,9 +250,16 @@ The pattern `"_"` means fallback and `"scene.action"` means a qualified path, bu
 
 ## 8. Improvement Points 3 — Implementations
 
-**I1 — `hcl-context-builder.ts` is a God function**
+**I1 — `hcl-context-builder.ts` is a God function** ✓ *Resolved 2026-04-23*
 
-The `hclContextBuilder.build(prog)` function translates an entire `ProgModel` into an `ExecutionContext` — covering ID creation, table population, literal inference, and function name mapping all in one place. Breaking it into `buildValueTable`, `buildFuncTable`, `buildDefTables` would improve testability and readability.
+~~The `hclContextBuilder.build(prog)` function translates an entire `ProgModel` into an `ExecutionContext` — covering ID creation, table population, literal inference, and function name mapping all in one place.~~
+
+`buildContextFromProg` has been reduced to a 5-line orchestrator over two exported, independently testable phases:
+
+- **`buildSpec(prog, injectedValues)`** — owns all binding-translation logic (preprocessing, literal registration, arg resolution, the value/combine/pipe/cond dispatch loop). Returns a plain `Record<string, unknown>` that can be inspected without running `ctx()` or `executeGraph`.
+- **`buildNameToValueId(bindings, ids, funcTable)`** — pure function that maps each binding name to its `ValueId`, making the value-vs-function-binding indirection explicit.
+
+10 new unit tests cover both functions in isolation; the 20 existing integration tests are unchanged.
 
 **I2 — `executeGraph` rebuilds the tree on every call**
 

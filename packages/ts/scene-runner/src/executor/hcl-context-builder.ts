@@ -77,22 +77,20 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Core builder
+// Phase 1: ProgModel → ContextSpec record
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Translate a `ProgModel` and a map of pre-resolved injected values into an
- * `ExecutionContext` ready for `assertValidContext` + `executeGraph`.
+ * Translate a `ProgModel` and pre-resolved injected values into the plain spec
+ * record consumed by the runtime `ctx()` builder.
  *
- * `injectedValues` are values resolved by the prepare resolver (from_state,
- * from_action, from_hook). They override the binding's declared literal default.
+ * Exported for unit testing — the returned record can be inspected without
+ * running `ctx()` or `executeGraph`.
  */
-export function buildContextFromProg(
+export function buildSpec(
   prog: ProgModel,
   injectedValues: Record<string, AnyValue>,
-): BuiltContext {
-  // We build the spec as a plain record and cast it to ContextSpec before
-  // passing to ctx(), since we construct it dynamically.
+): Record<string, unknown> {
   const spec: Record<string, unknown> = {};
   let litCounter = 0;
 
@@ -173,18 +171,30 @@ export function buildContextFromProg(
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  const result = ctx(spec as ContextSpec);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  const ids = result.ids as Record<string, FuncId | ValueId>;
+  return spec;
+}
 
-  // funcTable is indexed by branded FuncId but at runtime the keys are strings.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  const funcTable = result.exec.funcTable as unknown as Record<string, { returnId: ValueId }>;
+// ─────────────────────────────────────────────────────────────────────────────
+// Phase 2: ids + funcTable → nameToValueId
+// ─────────────────────────────────────────────────────────────────────────────
 
-  // Derive nameToValueId: map every binding name to its computed ValueId.
+/**
+ * Derive a binding-name → ValueId map from the IDs and funcTable produced by
+ * `ctx()`.
+ *
+ * For value bindings the id IS the ValueId. For function bindings the result
+ * lives in the function's return value slot (`funcTable[id].returnId`).
+ *
+ * Exported for unit testing — can be exercised with synthetic ids/funcTable
+ * without constructing a full ExecutionContext.
+ */
+export function buildNameToValueId(
+  bindings: ProgModel['bindings'],
+  ids: Record<string, FuncId | ValueId>,
+  funcTable: Record<string, { returnId: ValueId }>,
+): Record<string, ValueId> {
   const nameToValueId: Record<string, ValueId> = {};
-  for (const binding of prog.bindings) {
+  for (const binding of bindings) {
     const id = ids[binding.name];
     if (binding.expr) {
       // Function binding: the result lives in the function's return value slot.
@@ -196,6 +206,31 @@ export function buildContextFromProg(
       nameToValueId[binding.name] = id as ValueId;
     }
   }
+  return nameToValueId;
+}
 
-  return { exec: result.exec, ids, nameToValueId };
+// ─────────────────────────────────────────────────────────────────────────────
+// Public builder — orchestrates the two phases
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Translate a `ProgModel` and a map of pre-resolved injected values into an
+ * `ExecutionContext` ready for `assertValidContext` + `executeGraph`.
+ *
+ * `injectedValues` are values resolved by the prepare resolver (from_state,
+ * from_action, from_hook). They override the binding's declared literal default.
+ */
+export function buildContextFromProg(
+  prog: ProgModel,
+  injectedValues: Record<string, AnyValue>,
+): BuiltContext {
+  const spec = buildSpec(prog, injectedValues);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const result = ctx(spec as ContextSpec);
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const ids = result.ids as Record<string, FuncId | ValueId>;
+  // funcTable is indexed by branded FuncId but at runtime the keys are strings.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const funcTable = result.exec.funcTable as unknown as Record<string, { returnId: ValueId }>;
+  return { exec: result.exec, ids, nameToValueId: buildNameToValueId(prog.bindings, ids, funcTable) };
 }

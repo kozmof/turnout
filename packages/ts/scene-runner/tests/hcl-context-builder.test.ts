@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   buildContextFromProg,
+  buildSpec,
+  buildNameToValueId,
   type BuiltContext,
 } from '../src/executor/hcl-context-builder.js';
 import {
@@ -26,6 +28,154 @@ function runProg(ctx: BuiltContext, rootName: string) {
   const validated = assertValidContext(ctx.exec);
   return executeGraph(rootId, validated);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// buildSpec — unit tests (no ctx() or executeGraph needed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('buildSpec — value bindings', () => {
+  it('uses the literal default when no injection is provided', () => {
+    const prog = {
+      name: 'p',
+      bindings: [{ name: 'x', type: 'number', value: 10 }],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const spec = buildSpec(prog, {});
+    expect(spec['x']).toMatchObject({ symbol: 'number', value: 10 });
+  });
+
+  it('injected value overrides the literal default', () => {
+    const prog = {
+      name: 'p',
+      bindings: [{ name: 'x', type: 'number', value: 10 }],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const injected = buildNumber(99);
+    const spec = buildSpec(prog, { x: injected });
+    expect(spec['x']).toBe(injected);
+  });
+
+  it('spec key matches the binding name', () => {
+    const prog = {
+      name: 'p',
+      bindings: [{ name: 'myBinding', type: 'bool', value: true }],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const spec = buildSpec(prog, {});
+    expect('myBinding' in spec).toBe(true);
+  });
+});
+
+describe('buildSpec — inline literal args', () => {
+  it('adds a synthetic __lit_N key for each inline literal arg', () => {
+    const prog = {
+      name: 'p',
+      bindings: [
+        { name: 'x', type: 'number', value: 5 },
+        {
+          name: 'result',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 10 }] } },
+        },
+      ],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const spec = buildSpec(prog, {});
+    const litKeys = Object.keys(spec).filter((k) => k.startsWith('__lit_'));
+    expect(litKeys).toHaveLength(1);
+    expect(spec[litKeys[0]!]).toMatchObject({ symbol: 'number', value: 10 });
+  });
+
+  it('counter increments across multiple literal args', () => {
+    const prog = {
+      name: 'p',
+      bindings: [
+        {
+          name: 'a',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ lit: 1 }, { lit: 2 }] } },
+        },
+      ],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const spec = buildSpec(prog, {});
+    const litKeys = Object.keys(spec).filter((k) => k.startsWith('__lit_'));
+    expect(litKeys).toHaveLength(2);
+    expect(litKeys).toContain('__lit_0');
+    expect(litKeys).toContain('__lit_1');
+  });
+});
+
+describe('buildSpec — error cases', () => {
+  it('throws for an unknown HCL function name before ctx() is reached', () => {
+    const prog = {
+      name: 'p',
+      bindings: [
+        { name: 'x', type: 'number', value: 1 },
+        { name: 'y', type: 'number', value: 2 },
+        {
+          name: 'z',
+          type: 'number',
+          expr: { combine: { fn: 'no_such_fn', args: [{ ref: 'x' }, { ref: 'y' }] } },
+        },
+      ],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    expect(() => buildSpec(prog, {})).toThrow('Unknown HCL function name: "no_such_fn"');
+  });
+
+  it('throws when step_ref is used outside a pipe context', () => {
+    const prog = {
+      name: 'p',
+      bindings: [
+        { name: 'x', type: 'number', value: 1 },
+        {
+          name: 'result',
+          type: 'number',
+          expr: {
+            combine: {
+              fn: 'add',
+              args: [{ stepRef: 0 } as import('../src/types/turnout-model_pb.js').ArgModel, { ref: 'x' }],
+            },
+          },
+        },
+      ],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    expect(() => buildSpec(prog, {})).toThrow('step_ref used outside of pipe context');
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// buildNameToValueId — unit tests (no ProgModel or runtime needed)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('buildNameToValueId', () => {
+  it('maps a value binding name to its ValueId directly', () => {
+    const fakeValueId = 'val_x' as unknown as ValueId;
+    const bindings = [{ name: 'x' }] as unknown as import('../src/types/turnout-model_pb.js').ProgModel['bindings'];
+    const result = buildNameToValueId(bindings, { x: fakeValueId }, {});
+    expect(result['x']).toBe(fakeValueId);
+  });
+
+  it('maps a function binding name to its returnId via funcTable', () => {
+    const fakeFuncId = 'fn_f' as unknown as FuncId;
+    const fakeReturnId = 'ret_f' as unknown as ValueId;
+    const bindings = [
+      { name: 'f', expr: { combine: {} } },
+    ] as unknown as import('../src/types/turnout-model_pb.js').ProgModel['bindings'];
+    const funcTable = { fn_f: { returnId: fakeReturnId } };
+    const result = buildNameToValueId(bindings, { f: fakeFuncId }, funcTable);
+    expect(result['f']).toBe(fakeReturnId);
+  });
+
+  it('handles mixed value and function bindings in one pass', () => {
+    const fakeValId  = 'val_v' as unknown as ValueId;
+    const fakeFuncId = 'fn_g'  as unknown as FuncId;
+    const fakeRetId  = 'ret_g' as unknown as ValueId;
+    const bindings = [
+      { name: 'v' },
+      { name: 'g', expr: { combine: {} } },
+    ] as unknown as import('../src/types/turnout-model_pb.js').ProgModel['bindings'];
+    const funcTable = { fn_g: { returnId: fakeRetId } };
+    const result = buildNameToValueId(bindings, { v: fakeValId, g: fakeFuncId }, funcTable);
+    expect(result['v']).toBe(fakeValId);
+    expect(result['g']).toBe(fakeRetId);
+  });
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Value bindings
