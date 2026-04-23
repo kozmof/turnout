@@ -136,6 +136,47 @@ describe('literalToValue', () => {
   });
 });
 
+// ─────────────────────────────────────────────────────────────────────────────
+// write() path validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('StateManager — write() path validation', () => {
+  const model = {
+    namespaces: [
+      {
+        name: 'applicant',
+        fields: [
+          { name: 'income', type: 'number', value: 0 },
+          { name: 'name',   type: 'str',    value: '' },
+        ],
+      },
+    ],
+  } as unknown as StateModel;
+
+  it('write() to a declared schema path succeeds', () => {
+    const sm = StateManager.fromSchema(model);
+    expect(() => sm.write('applicant.income', buildNumber(50_000))).not.toThrow();
+  });
+
+  it('write() to an unknown path throws with the bad path in the message', () => {
+    const sm = StateManager.fromSchema(model);
+    expect(() => sm.write('applicant.typo', buildNumber(1)))
+      .toThrow('"applicant.typo"');
+  });
+
+  it('write() propagates the schema constraint to the returned manager', () => {
+    const sm = StateManager.fromSchema(model);
+    const sm2 = sm.write('applicant.income', buildNumber(1));
+    expect(() => sm2.write('applicant.typo', buildNumber(2)))
+      .toThrow('"applicant.typo"');
+  });
+
+  it('write() on a schema-less manager never throws for unknown paths', () => {
+    const sm = StateManager.from({ 'a.x': buildNumber(1) });
+    expect(() => sm.write('any.unknown.path', buildNumber(99))).not.toThrow();
+  });
+});
+
 describe('stateManagerFromSchema — array field types', () => {
   it('populates arr<number> defaults from schema', () => {
     const model = {

@@ -265,9 +265,11 @@ The pattern `"_"` means fallback and `"scene.action"` means a qualified path, bu
 
 `buildReturnIdToFuncIdMap()` and tree construction run inside `executeGraph` on every invocation. For a given `ValidatedContext`, the execution tree is deterministic and could be memoized or pre-built once (e.g., during `validateContext`). This is a performance improvement for repeated execution of the same model.
 
-**I3 — State manager uses dotted-path strings as keys without validation**
+**I3 — State manager uses dotted-path strings as keys without validation** ✓ *Resolved 2026-04-23*
 
-`state-manager.ts` keys state by dotted path (e.g., `"applicant.income"`). There is no validation that the path exists in the schema at read/write time — a typo silently returns `undefined`. Validating paths against the `StateModel` at `write()` time would surface errors earlier.
+~~`state-manager.ts` keys state by dotted path (e.g., `"applicant.income"`). There is no validation that the path exists in the schema at read/write time — a typo silently returns `undefined`.~~
+
+The internal `make()` factory now accepts a `validPaths: ReadonlySet<string> | null` parameter. Schema-backed managers (created via `stateManagerFromSchema`) build the set from the schema namespaces/fields in the same loop that populates defaults, then thread it through every subsequent `write()` call. A write to an undeclared path throws immediately with the bad path name in the message. Schema-less managers (`stateManagerFrom`) pass `null` and remain permissive. 4 new tests cover valid write, unknown-path throw, constraint propagation to the returned manager, and schema-less passthrough.
 
 **I4 — Go `validate.go` has a 70+ function flat registry**
 

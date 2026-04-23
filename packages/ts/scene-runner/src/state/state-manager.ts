@@ -28,35 +28,50 @@ export interface StateManager {
   snapshot(): Readonly<Record<string, AnyValue>>;
 }
 
-function make(state: Record<string, AnyValue>): StateManager {
+function make(
+  state: Record<string, AnyValue>,
+  validPaths: ReadonlySet<string> | null,
+): StateManager {
   return {
     read: (path) => state[path],
-    write: (path, value) => make({ ...state, [path]: value }),
+    write: (path, value) => {
+      if (validPaths !== null && !validPaths.has(path)) {
+        throw new Error(
+          `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+        );
+      }
+      return make({ ...state, [path]: value }, validPaths);
+    },
     snapshot: () => ({ ...state }),
   };
 }
 
 /** Create a StateManager from a flat initial state record. */
 export function stateManagerFrom(initial: Record<string, AnyValue>): StateManager {
-  return make({ ...initial });
+  return make({ ...initial }, null);
 }
 
 /**
  * Create a StateManager from a STATE schema, populating each field with
  * its declared default value. Fields present in `overrides` take precedence.
+ *
+ * `write()` on the returned manager (and any manager derived from it) will
+ * throw immediately for any path not declared in the schema.
  */
 export function stateManagerFromSchema(
   stateModel: StateModel,
   overrides: Record<string, AnyValue> = {},
 ): StateManager {
   const defaults: Record<string, AnyValue> = {};
+  const validPaths = new Set<string>();
   for (const ns of stateModel.namespaces) {
     for (const field of ns.fields) {
       const path = `${ns.name}.${field.name}`;
       defaults[path] = literalToValue(field.value, field.type);
+      validPaths.add(path);
     }
   }
-  return make({ ...defaults, ...overrides });
+  return make({ ...defaults, ...overrides }, validPaths);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
