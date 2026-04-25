@@ -67,9 +67,9 @@ scene "detective_evidence_hunt" {
     compute {
       root     = scene_hotspot_found
       prog "scan_scene_graph" {
-        ~>disturbance_detected:bool = _
-        ~>visibility_score:number = _
-        ~>camera_online:bool = _
+        ~>disturbance_detected:bool
+        ~>visibility_score:number
+        ~>camera_online:bool
 
         clue_candidate:bool = disturbance_detected & camera_online
         search_ready:bool = visibility_score >= 3
@@ -93,7 +93,7 @@ scene "detective_evidence_hunt" {
       compute {
         condition = go_collect
         prog "to_collect_physical_evidence" {
-          ~>scene_hotspot_found:bool = _
+          ~>scene_hotspot_found:bool
           go_collect:bool = scene_hotspot_found
         }
       }
@@ -125,10 +125,10 @@ scene "detective_evidence_hunt" {
     compute {
       root     = critical_evidence_found
       prog "collect_physical_evidence_graph" {
-        ~>fingerprint_match:number = _
-        ~>blood_trace:bool = _
-        ~>weapon_found:bool = _
-        ~>evidence_tag:str = _
+        ~>fingerprint_match:number
+        ~>blood_trace:bool
+        ~>weapon_found:bool
+        ~>evidence_tag:str
 
         fp_strong:bool = fingerprint_match >= 6
         trace_and_weapon:bool = blood_trace & weapon_found
@@ -174,9 +174,9 @@ scene "detective_evidence_hunt" {
     compute {
       root     = timeline_priority
       prog "interview_witness_graph" {
-        ~>contradiction_detected:bool = _
-        ~>alibi_strength:number = _
-        ~>witness_statement:str = _
+        ~>contradiction_detected:bool
+        ~>alibi_strength:number
+        ~>witness_statement:str
 
         alibi_weak:bool = alibi_strength <= 3
         <~timeline_priority:bool = contradiction_detected & alibi_weak
@@ -220,9 +220,9 @@ scene "detective_evidence_hunt" {
     compute {
       root     = ready_to_identify_suspect
       prog "analyze_timeline_graph" {
-        ~>critical_evidence_found:bool = _
-        ~>timeline_priority:bool = _
-        ~>camera_timestamp_ok:bool = _
+        ~>critical_evidence_found:bool
+        ~>timeline_priority:bool
+        ~>camera_timestamp_ok:bool
 
         evidence_and_time:bool = critical_evidence_found & camera_timestamp_ok
         <~ready_to_identify_suspect:bool = evidence_and_time & timeline_priority
@@ -245,7 +245,7 @@ scene "detective_evidence_hunt" {
       compute {
         condition = go_identify
         prog "to_identify_suspect" {
-          ~>ready_to_identify_suspect:bool = _
+          ~>ready_to_identify_suspect:bool
           go_identify:bool = ready_to_identify_suspect
         }
       }
@@ -277,8 +277,8 @@ scene "detective_evidence_hunt" {
     compute {
       root     = case_file_ready
       prog "identify_suspect_graph" {
-        ~>suspect_name:str = _
-        ~>confidence_score:number = _
+        ~>suspect_name:str
+        ~>confidence_score:number
 
         high_confidence:bool = confidence_score >= 8
         prefix:str = "Primary suspect: "
@@ -321,7 +321,7 @@ scene "detective_evidence_hunt" {
     compute {
       root     = phase
       prog "search_for_more_evidence_graph" {
-        ~>last_search_area:str = _
+        ~>last_search_area:str
 
         prefix:str = "Extended search area: "
         <~search_note:str = prefix + last_search_area
@@ -362,8 +362,8 @@ scene "detective_evidence_hunt" {
     compute {
       root     = investigation_closed
       prog "submit_case_file_graph" {
-        ~>case_file_ready:bool = _
-        ~>suspect_summary:str = _
+        ~>case_file_ready:bool
+        ~>suspect_summary:str
 
         prefix:str = "Filed report: "
         <~report_line:str = prefix + suspect_summary

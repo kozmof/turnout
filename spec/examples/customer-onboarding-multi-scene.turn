@@ -40,9 +40,9 @@ scene "intake" {
     compute {
       root = eligible
       prog "collect_info_graph" {
-        ~>age:number         = _
-        ~>is_resident:bool   = _
-        ~>sanctioned:bool    = _
+        ~>age:number
+        ~>is_resident:bool
+        ~>sanctioned:bool
 
         age_ok:bool       = age >= 18
         not_sanctioned:bool = sanctioned == false
@@ -66,7 +66,7 @@ scene "intake" {
       compute {
         condition = go_proceed
         prog "to_proceed" {
-          ~>eligible:bool = _
+          ~>eligible:bool
           go_proceed:bool = eligible
         }
       }
@@ -161,8 +161,8 @@ scene "document_review" {
     compute {
       root = docs_ok
       prog "check_documents_graph" {
-        ~>doc_expired:bool      = _
-        ~>ocr_confidence:number = _
+        ~>doc_expired:bool
+        ~>ocr_confidence:number
 
         not_expired:bool    = doc_expired == false
         ocr_ok:bool         = ocr_confidence >= 80
@@ -185,7 +185,7 @@ scene "document_review" {
       compute {
         condition = go_valid
         prog "to_mark_valid" {
-          ~>docs_ok:bool = _
+          ~>docs_ok:bool
           go_valid:bool  = docs_ok
         }
       }
@@ -274,20 +274,24 @@ scene "risk_assessment" {
     """
     Logic overview:
     - Read credit score and fraud flag from STATE.
-    - Derive risk tier: low (<= 30), high (>= 70), or borderline in between.
+    - Derive risk tier: low, high, or borderline.
     - Branch on tier.
     """
 
     compute {
       root = risk_tier
       prog "score_risk_graph" {
-        ~>credit_score:number = _
-        ~>fraud_flag:bool     = _
+        ~>credit_score:number
+        ~>fraud_flag:bool
 
-        is_low_risk:bool       = credit_score >= 700 & fraud_flag == false
-        is_high_risk:bool      = credit_score < 500 | fraud_flag
         <~risk_score:number    = credit_score
-        <~risk_tier:str        = "borderline"
+        <~risk_tier:str        = #case(
+          (credit_score, fraud_flag),
+          (_, true) => "high",
+          (score, false) if score >= 700 => "low",
+          (score, false) if score < 500 => "high",
+          _ => "borderline"
+        )
         <~phase:str            = "risk_assessment_score"
       }
     }
@@ -307,12 +311,12 @@ scene "risk_assessment" {
       compute {
         condition = go_low
         prog "to_low_risk" {
-          ~>is_low_risk:bool = _
-          go_low:bool        = is_low_risk
+          ~>risk_tier:str
+          go_low:bool     = risk_tier == "low"
         }
       }
       prepare {
-        is_low_risk { from_action = is_low_risk }
+        risk_tier { from_action = risk_tier }
       }
       action = low_risk_pass
     }
@@ -321,12 +325,12 @@ scene "risk_assessment" {
       compute {
         condition = go_high
         prog "to_high_risk" {
-          ~>is_high_risk:bool = _
-          go_high:bool        = is_high_risk
+          ~>risk_tier:str
+          go_high:bool    = risk_tier == "high"
         }
       }
       prepare {
-        is_high_risk { from_action = is_high_risk }
+        risk_tier { from_action = risk_tier }
       }
       action = high_risk_fail
     }
@@ -438,8 +442,8 @@ scene "manual_review" {
     compute {
       root = reviewer_approved
       prog "assign_reviewer_graph" {
-        ~>reviewer_decision:str    = _
-        ~>reviewer_confidence:number = _
+        ~>reviewer_decision:str
+        ~>reviewer_confidence:number
 
         decision_ok:bool             = reviewer_confidence >= 70
         <~reviewer_approved:bool     = decision_ok
@@ -461,7 +465,7 @@ scene "manual_review" {
       compute {
         condition = go_approve
         prog "to_override_approve" {
-          ~>reviewer_approved:bool = _
+          ~>reviewer_approved:bool
           go_approve:bool          = reviewer_approved
         }
       }
@@ -583,7 +587,7 @@ scene "rejected" {
     compute {
       root = flow_outcome
       prog "issue_rejection_graph" {
-        ~>reject_reason:str  = _
+        ~>reject_reason:str
 
         prefix:str           = "Rejected: "
         <~rejection_notice:str = prefix + reject_reason

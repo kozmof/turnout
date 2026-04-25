@@ -60,12 +60,9 @@ prog "main" {
 | `name:bool = lhs \| rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_or" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs == rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "eq" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs != rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "neq" args = [arg(lhs), arg(rhs)] } } }` |
-| `name:type = { fn_alias = [x, y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = { fn_alias = [a: x, b: y] }` (compatibility input) | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = #pipe(p1:v1, p2:v2)[fn_alias(...), ...]` | `binding "name" { type = "type" expr = { pipe = { args = { p1 = ref(v1), p2 = ref(v2) } steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
-| `name:type = { pipe = { args = {...} steps = [fn_alias(...), ...] } }` (compatibility input) | `binding "name" { type = "type" expr = { pipe = { args = {...} steps = [ { fn = "...", args = [arg(...), arg(...)] }, ... ] } } }` |
-| `cond = { condition = c then = t else = e }` | `expr = { cond = { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } } }` |
-| `#if` inline condition (`cond = fn_alias(...)`) | lowered to generated `binding "__if_<name>_cond"` + `cond` |
+| `name:type = #if(cond, then_expr, else_expr)` | `binding "name" { type = "type" expr = { if = { cond = expr(cond) then = expr(then_expr) else = expr(else_expr) } } }` |
+| `name:type = #case(subject, pattern => expr, _ => default)` | `binding "name" { type = "type" expr = { case = { subject = expr(subject) arms = [...] } } }` |
+| `name:type = #pipe(initial_value, step1, step2, ...)` | `binding "name" { type = "type" expr = { pipe = { initial = expr(initial_value) steps = [expr(step1), expr(step2), ...] } } }` |
 
 #### Identity-combine table (for single-reference form)
 
@@ -91,12 +88,14 @@ After `name:type =`, the parser selects the form by examining the first and seco
 | bare `IDENT` (not `true`/`false`) | `(` | function call |
 | bare `IDENT` (not `true`/`false`) | `&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=` | infix expression |
 | bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | **single-reference form** |
-| `{` | any | block form (cond/if/pipe compat) |
+| `{` | any | block form (reserved constructs only; not used for v0 function expressions) |
 | `#pipe` | any | pipe form |
 | `#if` | any | if form |
-| `_` (with directional sigil prefix) | any | ingress placeholder |
+| `#case` | any | case form |
+| `#it` | any | valid only inside a `#pipe` step |
+| no RHS after directional sigil `~>` / `<~>` | any | STATE-populated input declaration |
 
-The ingress placeholder `_` is not a bare identifier and must not match the single-reference form.
+`_` is not a bare identifier and must not match the single-reference form. It is valid only as a `#case` wildcard pattern.
 
 ### End-to-end lowering example
 
@@ -154,14 +153,9 @@ prog "main" {
 - Infix `lhs / rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "div"`
 - Infix `lhs % rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "mod"`
 - Single-reference form `name:type = identifier` -> identity combine args per the identity-combine table above
-- Pipe header pair `#pipe(p: v)` -> `args = { p = ref(v) }`
-- Compatibility object args `[x, y]` -> ordered pair `[arg(x), arg(y)]`
-- Compatibility object args `[a: x, b: y]` -> ordered pair `[arg(x), arg(y)]`
 - DSL bare identifier `v` -> `{ ref = "v" }`
 - DSL literal (`"s"`, `1`, `true`, `[1,2]`) -> `{ lit = <literal> }`
-- `{ func_ref = "fn" }` -> `{ func_ref = "fn" }`
-- `{ step_ref = N }` -> `{ step_ref = N }`
-- `{ transform = { ref = "v", fn = "transformFn..." } }` -> unchanged
+- `#it` inside a `#pipe` step -> reference to the current pipeline value for that step
 
 ### Balance rules (CAN / CAN'T)
 
@@ -171,23 +165,27 @@ CAN (OK):
 - Authors can write explicit named args (`add(a: v1, b: v2)`).
 - Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `big:bool = income > 0`, `small:bool = debt < limit`, `match:bool = a == b`, `diff:bool = a != b`, `either:bool = flag_a | flag_b`, `sum:number = a + b`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`, `remainder:number = total - discount`, `area:number = width * height`, `rate:number = amount / count`, `rem:number = total % count`).
 - Authors can write call-only functions using call syntax (`max(v1, v2)`, `min(v1, v2)`, `str_includes(a, b)`).
-- Authors can write pipes as `#pipe(x:n)[step1, step2]`.
+- Authors can write pipes as `#pipe(initial_value, step1, step2, ...)`.
+- Authors can use `#it` inside a `#pipe` step to refer to the current pipeline value.
+- Authors can write binary choices as `#if(cond, then_expr, else_expr)`.
+- Authors can write ordered classifications as `#case(subject, pattern => expr, _ => default_expr)`.
 - Authors can write a single-reference binding `name:type = identifier` to pass another binding's value through as a function binding. The compiler lowers this to an identity combine per the identity-combine table.
-- Compiler may accept legacy object input (`{ add = [v1, v2] }`, `{ add = [a: v1, b: v2] }`) and normalize it to call form.
 
 CAN'T (NG):
 - Lowered plain HCL cannot keep `name:type` as an attribute key.
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
+- Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not part of v0.
 - A single binary call cannot mix positional and named argument forms.
 - Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
-- Operator-only functions cannot appear as steps inside `#pipe(...)[ ]`, because pipe steps require call syntax. They must instead be expressed as call-form aliases — but since operator-only functions have no callable alias, they cannot be used as pipe steps.
 - Infix expressions support only `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, `%`, with exactly two operands.
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
-- The ingress placeholder `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier — they are handled by their own forms.
+- `#it` cannot appear outside a `#pipe` step.
+- `_` cannot be used as a pipe placeholder or sigil placeholder. It is valid only as a wildcard pattern inside `#case`.
+- The wildcard `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier — they are handled by their own forms.
 
 Correlation between CAN and CAN'T:
-- Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks and typed reference objects (`ref`, `func_ref`) to stay parseable and unambiguous in plain HCL.
+- Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks, reference nodes, and canonical expression nodes to stay parseable and unambiguous in plain HCL.
 - Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker — the parser distinguishes infix from function calls by token lookahead.
 - Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition: every binary function is either call-only or operator-only.
 
@@ -266,7 +264,7 @@ prog "main" {
 ## 3. Function expressions
 
 Function expressions in the Surface DSL use call syntax for binary combine functions, plus a parse-safe infix shorthand.
-There are five forms: **combine** (call expression), **infix** (`= lhs OP rhs`), **#pipe**, **cond**, and **#if** (sugar for cond).
+There are five forms: **combine** (call expression), **infix** (`= lhs OP rhs`), **#if**, **#case**, and **#pipe**.
 
 ---
 
@@ -338,8 +336,6 @@ prog "main" {
 }
 ```
 
-Compatibility input `name:type = { fn_alias = [x, y] }` / `name:type = { fn_alias = [a: x, b: y] }` may be accepted and normalized to call form before lowering.
-
 **Emitted ContextSpec:**
 
 ```typescript
@@ -390,29 +386,20 @@ Functions marked **operator-only** must be written using their DSL operator. The
 
 ---
 
-### 3.2 `#pipe` — sequential steps
+### 3.2 `#if` — binary conditional expression
 
 ```hcl
-name:type = #pipe(param_name:value_binding_key, ...)[
-  fn_alias(ref_1, ref_2),                      # positional call
-  fn_alias(a: ref_1, b: ref_2),                # named call
-  ...
-]
+name:type = #if(cond, then_expr, else_expr)
 ```
 
-Compatibility input `name:type = pipe(...)[...]` and `name:type = { pipe = { args = {...} steps = [...] } }` may be accepted and normalized to the `#pipe(...)[...]` form before lowering.
+`#if` selects between two expressions. The condition must resolve to `bool`, and only the selected branch is evaluated.
 
 **Example:**
 
 ```hcl
 prog "main" {
-  v1:number = 5
-  v2:number = 3
-
-  result:number = #pipe(x:v1, y:v2)[
-    add(x, y),
-    mul(a: { step_ref = 0 }, b: x)
-  ]
+  temp_c:number = 24
+  status:str = #if(temp_c < 28, "warmup", "run")
 }
 ```
 
@@ -420,13 +407,65 @@ prog "main" {
 
 ```typescript
 {
-  v1: 5,
-  v2: 3,
-  result: pipe(
-    { x: 'v1', y: 'v2' },
+  temp_c: 24,
+  status: ifExpr(
+    combine('binaryFnNumber::lessThan', { a: 'temp_c', b: 28 }),
+    'warmup',
+    'run'
+  ),
+}
+```
+
+**Rules:**
+
+- `cond` must resolve to `bool`.
+- `then_expr` and `else_expr` must resolve to the same type.
+- The binding's declared type must match the branch type.
+- `#if` is preferred for short binary decisions; use `#case` for three or more outcomes.
+
+---
+
+### 3.3 `#case` — ordered classification
+
+```hcl
+name:type = #case(
+  subject,
+  pattern1 => expr1,
+  pattern2 => expr2,
+  _ => default_expr
+)
+```
+
+`#case` evaluates arms from top to bottom and returns the expression for the first matching pattern whose guard passes.
+
+**Example:**
+
+```hcl
+prog "main" {
+  unsafe:bool = false
+  spindle_temp_c:number = 24
+
+  route:str = #case(
+    (unsafe, spindle_temp_c),
+    (true, _) => "lockout",
+    (false, t) if t < 28 => "warmup",
+    _ => "run"
+  )
+}
+```
+
+**Emitted ContextSpec:**
+
+```typescript
+{
+  unsafe: false,
+  spindle_temp_c: 24,
+  route: caseExpr(
+    tuple('unsafe', 'spindle_temp_c'),
     [
-      combine('binaryFnNumber::add',      { a: 'x',                        b: 'y' }),
-      combine('binaryFnNumber::multiply', { a: ref.step('result', 0),      b: 'x' }),
+      { pattern: tuple(true, wildcard()), expr: 'lockout' },
+      { pattern: tuple(false, bind('t')), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
+      { pattern: wildcard(), expr: 'run' },
     ]
   ),
 }
@@ -434,49 +473,42 @@ prog "main" {
 
 **Rules:**
 
-- `#pipe(...)` header pairs define pipe parameter names and source value bindings; each `param:value` source must reference a **value** binding (not a function binding).
-- Each entry in `steps` is a combine expression using the same alias table as §3.1.
-- Each step accepts positional (`fn(x, y)`) or named (`fn(a: x, b: y)`) args; both lower identically.
-- Inside `steps`, argument references may be:
-  - A pipe parameter name (from the `#pipe(...)` header)
-  - A context value binding name
-  - `{ step_ref = N }` — reference to the output of step N (N must be < current step index) → `ref.step(name, N)`
-  - `{ func_ref = "fn_name" }` — reference to a function's output → `ref.output('fn_name')`
-  - `{ transform = { ref = "v", fn = "transformFnNumber::toStr" } }` → `ref.transform('v', 'transformFnNumber::toStr')`
-- The binding's declared type must match the return type of the **last** step.
+- Supported patterns are literals, wildcard `_`, variable binders, tuple patterns, and guarded arms.
+- `_` matches any value and does not bind.
+- Pattern binders are visible only in that arm's guard and expression.
+- If no arm matches and no wildcard arm exists, evaluation fails.
+- All arm expressions must resolve to a common type matching the binding's declared type.
 
 ---
 
-### 3.3 Cond — conditional dispatch
+### 3.4 `#pipe` — sequential steps
 
 ```hcl
-name:type = {
-  cond = {
-    condition = binding_name
-    then      = fn_binding_name
-    else      = fn_binding_name
-  }
-}
+name:type = #pipe(
+  initial_value,
+  step1,
+  step2
+)
 ```
+
+`#pipe` evaluates `initial_value`, then evaluates each step in order with `#it` bound to the current pipeline value. The final step result is the pipe result.
 
 **Example:**
 
 ```hcl
 prog "main" {
-  v1:number = 10
-  v2:number = 3
+  raw_temp_c:number = 24.4
 
-  flag:bool    = gt(v1, v2)
-  addFn:number = add(v1, v2)
-  subFn:number = sub(v1, v2)
-
-  result:number = {
-    cond = {
-      condition = flag
-      then      = addFn
-      else      = subFn
-    }
-  }
+  route:str = #pipe(
+    raw_temp_c,
+    round(#it, 1),
+    #case(
+      #it,
+      t if t < 28 => "warmup",
+      t if t > 90 => "hold",
+      _ => "run"
+    )
+  )
 }
 ```
 
@@ -484,97 +516,33 @@ prog "main" {
 
 ```typescript
 {
-  v1:     10,
-  v2:     3,
-  flag:   combine('binaryFnNumber::greaterThan', { a: 'v1', b: 'v2' }),
-  addFn:  combine('binaryFnNumber::add',         { a: 'v1', b: 'v2' }),
-  subFn:  combine('binaryFnNumber::minus',       { a: 'v1', b: 'v2' }),
-  result: cond('flag', { then: 'addFn', else: 'subFn' }),
+  raw_temp_c: 24.4,
+  route: pipeExpr('raw_temp_c', [
+    call('round', [it(), 1]),
+    caseExpr(it(), [
+      { pattern: bind('t'), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
+      { pattern: bind('t'), guard: combine('binaryFnNumber::greaterThan', { a: 't', b: 90 }), expr: 'hold' },
+      { pattern: wildcard(), expr: 'run' },
+    ]),
+  ]),
 }
 ```
 
 **Rules:**
 
-- `condition` must be a binding name whose resolved type is `bool` (value or function output).
-- `then` and `else` must be **function** binding names (combine/#pipe/cond/#if).
-- Both branches must have the same resolved return type, which must match the binding's declared type.
-
----
-
-### 3.4 `#if` — syntactic sugar for `cond`
-
-`#if` extends `cond` by allowing the condition to be an **inline combine call** instead of a bare binding name. Inline combine args can be positional or named, following §3.1. When inlined, the compiler auto-generates a hidden condition binding named `__if_<name>_cond`.
-
-The inline condition must be a **call-only** function (e.g. `gt`, `lt`, `eq`). Operator-only functions (`gte`, `lte`, `bool_and`, `str_concat`) cannot be used as an inline `cond` expression because they require infix syntax, which is not supported inside `#if { cond = ... }`.
-
-```hcl
-name:type = #if {
-  cond = fn_alias(ref_1, ref_2)   # must be a call-only function
-  then = fn_binding_name
-  else = fn_binding_name
-}
-```
-
-Compatibility input `name:type = { if = { ... } }` may be accepted and normalized to the `#if { ... }` form before lowering.
-
-`cond` may also be a bare binding name (identical to the `cond` form):
-
-```hcl
-name:type = #if {
-  cond = existing_bool_binding
-  then = fn_binding_name
-  else = fn_binding_name
-}
-```
-
-**Example — inline condition:**
-
-```hcl
-prog "main" {
-  v1:number = 10
-  v2:number = 3
-
-  addFn:number = add(v1, v2)
-  subFn:number = sub(v1, v2)
-
-  result:number = #if {
-    cond = gt(v1, v2)
-    then = addFn
-    else = subFn
-  }
-}
-```
-
-**Emitted ContextSpec (compiler-generated `__if_result_cond`):**
-
-```typescript
-{
-  v1:                5,
-  v2:                3,
-  addFn:             combine('binaryFnNumber::add',         { a: 'v1', b: 'v2' }),
-  subFn:             combine('binaryFnNumber::minus',       { a: 'v1', b: 'v2' }),
-  __if_result_cond:  combine('binaryFnNumber::greaterThan', { a: 'v1', b: 'v2' }),
-  result:            cond('__if_result_cond', { then: 'addFn', else: 'subFn' }),
-}
-```
-
-**Rules:**
-
-- Auto-generated names (`__if_<name>_cond`) must not clash with user bindings. The `__` prefix is reserved.
-- `then`/`else` must still reference named function bindings — inline branch values are not supported (no identity function exists in the current runtime).
-- All other rules from §3.3 apply.
-
+- Each step is a full expression template and may refer to `#it`.
+- `#it` is valid only inside a `#pipe` step.
+- `_` is not a pipe placeholder.
+- The binding's declared type must match the return type of the final step.
 ---
 
 ## 4. Reference types inside argument values
 
 | HCL form | Emits | Valid in |
 |----------|-------|----------|
-| Bare identifier `v_name` | `'v_name'` (`ValueRef` string) | combine args, pipe args |
-| Bare identifier in `cond.then`/`cond.else` | `'fn_name'` (`FuncRef` string) | cond/#if |
-| `{ func_ref = "fn_name" }` | `ref.output('fn_name')` (`FuncOutputRef`) | combine args, pipe step args |
-| `{ step_ref = N }` | `ref.step(pipe_name, N)` (`StepOutputRef`) | pipe step args only |
-| `{ transform = { ref = "v", fn = "transformFn..." } }` | `ref.transform('v', 'transformFn...')` (`TransformRef`) | combine args, pipe step args |
+| Bare identifier `v_name` | `'v_name'` (`ValueRef` string) | expressions and call args |
+| `#it` | current pipeline value reference | `#pipe` steps only |
+| `_` | wildcard pattern | `#case` patterns only |
 
 #### Available transform function names (fully-qualified)
 
@@ -604,16 +572,17 @@ prog "main" {
 | `UnknownFnAlias` | Function alias not in the built-in table |
 | `OperatorOnlyFn` | Call-form alias used for a function that requires operator syntax (`bool_and`, `gte`, `lte`, `str_concat`) |
 | `UndefinedRef` | Bare identifier references an unknown binding |
-| `UndefinedFuncRef` | `func_ref`/`then`/`else` references a non-function binding |
+| `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in v0 source |
 | `InvalidBinaryArgShape` | Binary call is not `(x, y)` and not `(a: ..., b: ...)` |
 | `InvalidInfixExpr` | Infix expression is malformed, uses an unsupported operator, or violates operator/type pairing |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |
 | `CondNotBool` | `condition` binding does not resolve to `bool` |
 | `BranchTypeMismatch` | `then` and `else` return types differ |
-| `StepRefOutOfBounds` | `step_ref = N` where N ≥ current step index |
-| `CrossPipeStepRef` | `step_ref` inside a pipe references a different pipe's step |
-| `PipeArgNotValue` | pipe parameter mapping references a function binding (must be value) |
+| `CaseArmTypeMismatch` | `#case` arm expressions do not resolve to a common type |
+| `CaseNoMatch` | `#case` evaluation reaches no matching arm and no `_` wildcard arm exists |
+| `ItOutsidePipe` | `#it` appears outside a `#pipe` step |
+| `InvalidWildcardUse` | `_` appears anywhere other than a `#case` wildcard pattern |
 | `SingleRefTypeMismatch` | Single-reference form `name:type = identifier` where `identifier` resolves to a different type than `type` |
 
 ---
@@ -691,20 +660,22 @@ prog "main" {
   is_big:bool = doubled >= n
 
   # --- Pipe: (n * n) - n ---
-  piped:number = #pipe(x:n)[
-    mul(x, x),
-    add({ step_ref = 0 }, x)
-  ]
+  piped:number = #pipe(
+    n,
+    #it * #it,
+    #it - n
+  )
 
-  # --- #if (inline condition) ---
-  result_fn_hi:str = msg + " !"
-  result_fn_lo:str = msg + " ."
+  # --- #case classification ---
+  band:str = #case(
+    piped,
+    x if x >= 80 => "high",
+    x if x >= 50 => "medium",
+    _ => "low"
+  )
 
-  final:str = #if {
-    cond = gt(piped, doubled)
-    then = result_fn_hi
-    else = result_fn_lo
-  }
+  # --- #if binary choice ---
+  final:str = #if(piped > doubled, msg + " !", msg + " .")
 }
 ```
 
@@ -720,14 +691,20 @@ ctx({
   label_hi:          combine('binaryFnString::concat',           { a: 'msg',    b: ' high' }),
   label_lo:          combine('binaryFnString::concat',           { a: 'msg',    b: ' low'  }),
   is_big:            combine('binaryFnNumber::greaterThanOrEqual', { a: 'doubled', b: 'n' }),
-  piped:             pipe({ x: 'n' }, [
-                       combine('binaryFnNumber::multiply', { a: 'x', b: 'x' }),
-                       combine('binaryFnNumber::add',      { a: ref.step('piped', 0), b: 'x' }),
+  piped:             pipeExpr('n', [
+                       combine('binaryFnNumber::multiply', { a: it(), b: it() }),
+                       combine('binaryFnNumber::minus',    { a: it(), b: 'n' }),
                      ]),
-  result_fn_hi:      combine('binaryFnString::concat', { a: 'msg', b: ' !' }),
-  result_fn_lo:      combine('binaryFnString::concat', { a: 'msg', b: ' .' }),
-  __if_final_cond:   combine('binaryFnNumber::greaterThan', { a: 'piped', b: 'doubled' }),
-  final:             cond('__if_final_cond', { then: 'result_fn_hi', else: 'result_fn_lo' }),
+  band:              caseExpr('piped', [
+                       { pattern: bind('x'), guard: combine('binaryFnNumber::greaterThanOrEqual', { a: 'x', b: 80 }), expr: 'high' },
+                       { pattern: bind('x'), guard: combine('binaryFnNumber::greaterThanOrEqual', { a: 'x', b: 50 }), expr: 'medium' },
+                       { pattern: wildcard(), expr: 'low' },
+                     ]),
+  final:             ifExpr(
+                       combine('binaryFnNumber::greaterThan', { a: 'piped', b: 'doubled' }),
+                       combine('binaryFnString::concat', { a: 'msg', b: ' !' }),
+                       combine('binaryFnString::concat', { a: 'msg', b: ' .' }),
+                     ),
 })
 ```
 
@@ -743,10 +720,10 @@ ctx({
 | B. Type checker | Strict enforcement at parse time |
 | C. Reference resolver | Two-pass forward-reference resolution |
 | D. Combine emitter | All 24 function aliases |
-| E. Pipe emitter | `step_ref`, `func_ref`, `transform` references inside steps |
-| F. Cond emitter | condition/branch resolution |
-| G. `#if` sugar emitter | Auto-name generation, collision avoidance |
-| H. Error paths | All 18 error codes |
+| E. Pipe emitter | `#it` scoping and ordered step evaluation |
+| F. `#if` emitter | condition/branch type checking and selected-branch evaluation |
+| G. `#case` emitter | ordered pattern matching, guards, wildcard fallback |
+| H. Error paths | All error codes |
 
 ### Critical paths
 
@@ -754,10 +731,11 @@ ctx({
 |---|------|------------------|
 | 1 | Parse `name:arr<number> = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
 | 2 | `add(v1, v2)` and `add(a: v1, b: v2)` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both call forms emit identical ContextSpec |
-| 3 | Pipe with `step_ref = 0` → `ref.step(name, 0)` resolved to correct `StepOutputRef` | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
+| 3 | Pipe with `#it` in each step → current pipeline value resolved to the prior step result | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
-| 5 | `#if` with inline cond → auto-generated `__if_result_cond` in emitted spec | Name is deterministic; does not vary between compilations |
+| 5 | `#if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
 | 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
+| 7 | `#case` with guarded tuple arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
 
 ### Edge cases
 
@@ -765,8 +743,11 @@ ctx({
 |------|--------------------|
 | `n:number = "hello"` | `TypeMismatch` error (string literal assigned to `number` type) |
 | `xs:arr<number> = []` | Emit `val.array('number', [])` — empty array is valid |
-| `then = fn` where `fn` is a value binding | `UndefinedFuncRef` error |
-| `step_ref = 0` in step 0 (self-reference) | `StepRefOutOfBounds` error |
+| `#if(flag, 1, "one")` | `BranchTypeMismatch` error |
+| `#case(x, 1 => "one", 2 => 2)` | `CaseArmTypeMismatch` error |
+| `#case(x, 1 => "one")` with subject `2` | `CaseNoMatch` runtime error |
+| `n:number = #it + 1` outside `#pipe` | `ItOutsidePipe` error |
+| `n:number = _` outside a `#case` pattern | `InvalidWildcardUse` error |
 | Two `prog` blocks in one file | `DuplicateProg` error — a file may contain at most one `prog` block |
 | `add(a: v1)` | `InvalidBinaryArgShape` error (`b` missing) |
 | `add(a: v1, b: v2, c: v3)` | `InvalidBinaryArgShape` error (extra key) |
@@ -790,9 +771,9 @@ ctx({
 | `n:number = a | b` | `InvalidInfixExpr` error (`|` is only valid for `name:bool`) |
 | `__reserved:number = 1` | `ReservedName` error |
 | `eq` with mismatched arg types (`int` vs `str`) | `ArgTypeMismatch` error |
-| `cond` condition references a function whose return type is `int` | `CondNotBool` error |
+| Block-style conditional form appears in source | `UnsupportedBlockExpression` error |
 
 ### Manual intervention points
 
 - **`div` fractional results**: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should chain `.floor()` or `.round()` after `div`.
-- **Phase 2 activation**: Phase 2 syntax (loops, `#pipe`, `#if`) encountered in a Phase 1 file is a hard parse error that aborts conversion.
+- **Phase 2 activation**: Phase 2 loop syntax (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 file is a hard parse error that aborts conversion.

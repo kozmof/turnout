@@ -92,9 +92,8 @@ Rules:
 
 ### CAN (OK)
 
-- The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function call expressions, parse-safe infix expressions (`=`), `#pipe`, `cond`, and `#if`.
+- The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function call expressions, parse-safe infix expressions (`=`), `#if`, `#case`, and `#pipe`.
 - The Go CLI can lower all surface DSL forms to canonical plain HCL `binding` blocks, identically to the rules in `hcl-context-spec.md` §2–3.
-- The Go CLI can emit compatibility input forms (`{ fn = [x, y] }`, `pipe(...)`) when an intermediate representation requires them, provided they are normalized before final HCL output.
 - The Go CLI can emit multiple `action` blocks in one HCL file — one per declared action — as long as each block has a distinct name label matching its `actionId`.
 - The Go CLI can declare STATE effect bindings inside action blocks using `prepare` and `merge` sub-blocks.
 - The Go CLI can emit `publish` sub-blocks with one or more `hook` attributes per action.
@@ -105,7 +104,8 @@ Rules:
 ### CAN'T (NG)
 
 - The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output; typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
-- The Go CLI cannot emit bare identifiers in argument positions; all references must be lowered to `{ ref = "name" }`, `{ func_ref = "..." }`, `{ step_ref = N }`, or `{ transform = { ... } }` forms.
+- The Go CLI cannot emit bare identifiers in argument positions; all references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
+- The Go CLI cannot accept or emit non-v0 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `#pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
 - The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output; encountering them **must produce an `UnsupportedConstruct` error** and abort without emitting any HCL.
 - The Go CLI cannot emit HCL that is not parseable by a stock HCL parser.
 - The Go CLI cannot emit a file in which two `action` blocks share the same name label.

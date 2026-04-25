@@ -169,9 +169,9 @@ Reference-style fields below are shown in bare form; per Section 2.3, quoted and
 Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
 Directional binding prefixes are interpreted before ContextSpec lowering:
 
-- `~>name:type = ...` means ingress-only binding.
+- `~>name:type` means ingress-only binding.
 - `<~name:type = ...` means egress-only binding.
-- `<~>name:type = ...` means ingress + egress binding.
+- `<~>name:type` means ingress + egress binding.
 
 **Convention — root binding declared last**: The binding named by `compute.root` SHOULD be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable: inputs and intermediate values come first, and the final output that drives the action result appears at the bottom. All example files in this spec follow this convention.
 
@@ -184,8 +184,8 @@ scene "loan_flow" {
     compute {
       root     = decision
       prog "score_graph" {
-        <~>income:number  = 0
-        ~>debt:number     = 0
+        <~>income:number
+        ~>debt:number
         min_income:number = 50000
         max_debt:number   = 20000
         income_ok:bool   = income >= min_income
@@ -212,8 +212,8 @@ scene "loan_flow" {
       compute {
         condition = go
         prog "to_approve" {
-          ~>decision:bool  = _
-          ~>income_ok:bool = _
+          ~>decision:bool
+          ~>income_ok:bool
           go:bool = decision & income_ok
         }
       }
