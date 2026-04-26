@@ -9,6 +9,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -76,6 +77,24 @@ const basicState = `state {
 
 func min(progBody string) string {
 	return minScene(basicState, progBody)
+}
+
+// minModel builds a minimal TurnModel with one scene/action/prog containing bindings.
+func minModel(progName string, bindings []*turnoutpb.BindingModel) *turnoutpb.TurnModel {
+	return &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: bindings[len(bindings)-1].Name,
+					Prog: &turnoutpb.ProgModel{Name: progName, Bindings: bindings},
+				},
+			}},
+		}},
+	}
 }
 
 // ─── positive: valid source ───────────────────────────────────────────────────
@@ -167,17 +186,16 @@ func TestUndefinedRef(t *testing.T) {
 }
 
 func TestUndefinedFuncRef(t *testing.T) {
-	// then/else referring to an undefined binding
-	src := min(`        flag:bool = true
-        out:number = {
-          cond = {
-            condition = flag
-            then      = noSuchFn
-            else      = noSuchFn
-          }
-        }
-`)
-	if !hasCode(pipeline(src), diag.CodeUndefinedFuncRef) {
+	// then/else func_ref referring to an undefined binding — construct proto directly
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+			Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+			Then:       &turnoutpb.ArgModel{FuncRef: proto.String("noSuchFn")},
+			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("noSuchFn")},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef")
 	}
 }
@@ -205,64 +223,79 @@ func TestReturnTypeMismatch(t *testing.T) {
 }
 
 func TestCondNotBool(t *testing.T) {
-	// condition binding is number, not bool
-	src := min(`        n:number    = 5
-        thenFn:bool = true
-        elseFn:bool = false
-        out:bool = {
-          cond = {
-            condition = n
-            then      = thenFn
-            else      = elseFn
-          }
-        }
-`)
-	if !hasCode(pipeline(src), diag.CodeCondNotBool) {
+	// condition binding is number, not bool — construct proto directly
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "n", Type: "number", Value: structpb.NewNumberValue(5)},
+		{Name: "thenFn", Type: "bool", Value: structpb.NewBoolValue(true)},
+		{Name: "elseFn", Type: "bool", Value: structpb.NewBoolValue(false)},
+		{Name: "out", Type: "bool", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+			Condition:  &turnoutpb.ArgModel{Ref: proto.String("n")},
+			Then:       &turnoutpb.ArgModel{FuncRef: proto.String("thenFn")},
+			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeCondNotBool) {
 		t.Error("want CondNotBool")
 	}
 }
 
 func TestBranchTypeMismatch(t *testing.T) {
-	// then returns number, else returns str → mismatch
-	src := min(`        flag:bool    = true
-        thenFn:number = add(x, x)
-        elseFn:str    = str_concat(s, s)
-        x:number = 1
-        s:str    = "a"
-        out:number = {
-          cond = {
-            condition = flag
-            then      = thenFn
-            else      = elseFn
-          }
-        }
-`)
-	if !hasCode(pipeline(src), diag.CodeBranchTypeMismatch) {
+	// then returns number, else returns str → mismatch — construct proto directly
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
+		{Name: "s", Type: "str", Value: structpb.NewStringValue("a")},
+		{Name: "thenFn", Type: "number", Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   "add",
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String("x")}, {Ref: proto.String("x")}},
+		}}},
+		{Name: "elseFn", Type: "str", Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   "str_concat",
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String("s")}, {Ref: proto.String("s")}},
+		}}},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+			Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+			Then:       &turnoutpb.ArgModel{FuncRef: proto.String("thenFn")},
+			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeBranchTypeMismatch) {
 		t.Error("want BranchTypeMismatch")
 	}
 }
 
 func TestStepRefOutOfBounds(t *testing.T) {
-	// pipe with 1 step, step_ref = 5 → out of bounds
-	src := min(`        x:number = 3
-        out:number = #pipe(a:x)[
-          add(a, a),
-          mul({ step_ref = 99 }, a)
-        ]
-`)
-	if !hasCode(pipeline(src), diag.CodeStepRefOutOfBounds) {
+	// pipe with 2 steps, step_ref = 99 → out of bounds — construct proto directly
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(3)},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+			Steps: []*turnoutpb.PipeStep{
+				{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}},
+				{Fn: "mul", Args: []*turnoutpb.ArgModel{{StepRef: proto.Int32(99)}, {Ref: proto.String("a")}}},
+			},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeStepRefOutOfBounds) {
 		t.Error("want StepRefOutOfBounds")
 	}
 }
 
 func TestPipeArgNotValue(t *testing.T) {
-	// pipe param ident points to a function binding (not a value binding)
-	src := min(`        x:number = 3
-        y:number = 4
-        fnb:number = add(x, y)
-        out:number = #pipe(a:fnb)[add(a, a)]
-`)
-	if !hasCode(pipeline(src), diag.CodePipeArgNotValue) {
+	// pipe param ident points to a function binding (not a value binding) — construct proto directly
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(3)},
+		{Name: "y", Type: "number", Value: structpb.NewNumberValue(4)},
+		{Name: "fnb", Type: "number", Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   "add",
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String("x")}, {Ref: proto.String("y")}},
+		}}},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "fnb"}},
+			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodePipeArgNotValue) {
 		t.Error("want PipeArgNotValue")
 	}
 }
@@ -288,7 +321,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        ~>score:number = _
+        ~>score:number
       }
     }
   }
@@ -375,7 +408,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        ~>score:number = _
+        ~>score:number
       }
     }
     prepare {
@@ -422,7 +455,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        <~>score:number = 0
+        <~>score:number
       }
     }
     merge {
@@ -445,7 +478,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        <~>score:number = _
+        <~>score:number
       }
     }
     prepare {
@@ -540,7 +573,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        ~>score:number = _
+        ~>score:number
       }
     }
     prepare {

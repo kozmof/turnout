@@ -167,7 +167,7 @@ scene "s" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }
@@ -195,7 +195,7 @@ scene "s" {
       compute {
         condition = go
         prog "n" {
-          ~>val:number = _
+          ~>val:number
           go:bool = true
         }
       }
@@ -214,22 +214,43 @@ scene "s" {
 // ─── JSON: pipe, cond, route, litToJSON array, argToJSON branches ─────────────
 
 func TestEmitJSONPipeExpr(t *testing.T) {
-	src := `state { ns { v:number = 0 } }
-scene "s" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = result
-      prog "p" {
-        x:number      = 3
-        y:number      = 4
-        result:number = #pipe(a:x, b:y)[add(a, b)]
-      }
-    }
-  }
-}`
+	// Construct proto model directly to test that PipeExpr serializes to JSON.
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "result",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "x", Type: "number", Value: structpb.NewNumberValue(3)},
+							{Name: "y", Type: "number", Value: structpb.NewNumberValue(4)},
+							{Name: "result", Type: "number", Expr: &turnoutpb.ExprModel{
+								Pipe: &turnoutpb.PipeExpr{
+									Params: []*turnoutpb.PipeParam{
+										{ParamName: "a", SourceIdent: "x"},
+										{ParamName: "b", SourceIdent: "y"},
+									},
+									Steps: []*turnoutpb.PipeStep{{
+										Fn: "add",
+										Args: []*turnoutpb.ArgModel{
+											{Ref: proto.String("a")},
+											{Ref: proto.String("b")},
+										},
+									}},
+								},
+							}},
+						},
+					},
+				},
+			}},
+		}},
+	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, pipelineModel(t, src)); err != nil {
+	if err := emit.EmitJSON(&sb, model); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 	out := sb.String()
@@ -245,29 +266,43 @@ scene "s" {
 }
 
 func TestEmitJSONCondExpr(t *testing.T) {
-	src := `state { ns { v:number = 0 } }
-scene "s" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = result
-      prog "p" {
-        flag:bool     = true
-        thenFn:number = add(x, x)
-        x:number      = 1
-        result:number = {
-          cond = {
-            condition = flag
-            then      = thenFn
-            else      = thenFn
-          }
-        }
-      }
-    }
-  }
-}`
+	// Construct proto model directly to test that CondExpr serializes to JSON.
+	model := &turnoutpb.TurnModel{
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "result",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+							{Name: "thenFn", Type: "number", Expr: &turnoutpb.ExprModel{
+								Combine: &turnoutpb.CombineExpr{
+									Fn: "add",
+									Args: []*turnoutpb.ArgModel{
+										{Ref: proto.String("flag")},
+										{Ref: proto.String("flag")},
+									},
+								},
+							}},
+							{Name: "result", Type: "number", Expr: &turnoutpb.ExprModel{
+								Cond: &turnoutpb.CondExpr{
+									Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+									Then:       &turnoutpb.ArgModel{FuncRef: proto.String("thenFn")},
+									ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("thenFn")},
+								},
+							}},
+						},
+					},
+				},
+			}},
+		}},
+	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, pipelineModel(t, src)); err != nil {
+	if err := emit.EmitJSON(&sb, model); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 	out := sb.String()

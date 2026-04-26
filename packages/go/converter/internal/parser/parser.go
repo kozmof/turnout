@@ -442,7 +442,6 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 // ─── parseRHS ────────────────────────────────────────────────────────────────
 
 // parseRHS parses the right-hand side of a binding declaration.
-// bindingName is used only for compiler-generated `#if` cond binding names.
 func (p *parser) parseRHS(_ string) ast.BindingRHS {
 	t := p.peek()
 	switch t.Kind {
@@ -451,22 +450,29 @@ func (p *parser) parseRHS(_ string) ast.BindingRHS {
 		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket:
 		return &ast.LiteralRHS{Value: p.parseLiteral()}
 
-	// ── placeholder ────────────────────────────────────────────────────────
+	// ── _ is invalid as a binding RHS (v0: only valid in #case patterns) ──
 	case lexer.TokUnderscore:
+		p.errorf(t, "_ is not a valid binding RHS; it is reserved for #case wildcard patterns")
 		p.advance()
-		return &ast.PlaceholderRHS{}
+		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
-	// ── #pipe ──────────────────────────────────────────────────────────────
+	// ── #pipe (new function-call form) ────────────────────────────────────
 	case lexer.TokHashPipe:
-		return p.parsePipeRHS()
+		return p.parsePipeCallRHS()
 
-	// ── #if ────────────────────────────────────────────────────────────────
+	// ── #if (new function-call form) ──────────────────────────────────────
 	case lexer.TokHashIf:
-		return p.parseIfRHS()
+		return p.parseIfCallRHS()
 
-	// ── block form: { cond / fn_alias / pipe / if } ────────────────────────
+	// ── #case ─────────────────────────────────────────────────────────────
+	case lexer.TokHashCase:
+		return p.parseCaseCallRHS()
+
+	// ── block form: rejected in v0 ─────────────────────────────────────────
 	case lexer.TokLBrace:
-		return p.parseBlockRHS()
+		p.errorf(t, "block-form expressions are not supported in v0; use #if(cond, then, else), #case(...), or call syntax fn(args)")
+		p.skipBlock()
+		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
 	// ── ident-based forms ──────────────────────────────────────────────────
 	case lexer.TokIdent:
@@ -536,167 +542,83 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 	}
 }
 
-// parseBlockRHS handles block-form RHS: { cond = {...} }, { fn = [...] },
-// { pipe = {...} }, or { if = {...} }.
-func (p *parser) parseBlockRHS() ast.BindingRHS {
-	p.advance() // consume {
+// ─── #if (v0 function-call form) ─────────────────────────────────────────────
 
-	keyTok := p.peek()
-	if keyTok.Kind != lexer.TokIdent {
-		p.errorf(keyTok, "expected identifier inside block RHS, got %s", kindName(keyTok.Kind))
-		p.skipTo(lexer.TokRBrace)
-		p.advance()
-		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
-	}
-
-	switch keyTok.Value {
-	case "cond":
-		return p.parseCondBlockRHS()
-	case "pipe":
-		return p.parsePipeCompatRHS()
-	case "if":
-		return p.parseIfCompatRHS()
-	default:
-		// fn_alias = [args] compatibility form
-		return p.parseFnCompatRHS(keyTok)
-	}
-}
-
-// parseCondBlockRHS parses `cond = { condition = c then = t else = e } }`.
-// The outer `{` has already been consumed.
-func (p *parser) parseCondBlockRHS() ast.BindingRHS {
+// parseIfCallRHS parses `#if(cond_expr, then_expr, else_expr)`.
+func (p *parser) parseIfCallRHS() ast.BindingRHS {
 	pos := p.posOf(p.peek())
-	p.advance() // consume "cond" ident
-	p.expect(lexer.TokEquals)
-	p.expect(lexer.TokLBrace)
-
-	var condExpr ast.CondExpr
-	var thenStr, elseStr string
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		fk := p.peek()
-		switch fk.Kind {
-		case lexer.TokKwCondition:
-			p.advance()
-			p.expect(lexer.TokEquals)
-			condExpr = &ast.CondExprRef{BindingName: p.parseRefVal()}
-		case lexer.TokIdent:
-			switch fk.Value {
-			case "then":
-				p.advance()
-				p.expect(lexer.TokEquals)
-				thenStr = p.parseRefVal()
-			case "else":
-				p.advance()
-				p.expect(lexer.TokEquals)
-				elseStr = p.parseRefVal()
-			default:
-				p.errorf(fk, "unexpected field %q in cond block", fk.Value)
-				p.advance()
-			}
-		default:
-			p.errorf(fk, "unexpected token %s in cond block", kindName(fk.Kind))
-			p.advance()
-		}
-	}
-	p.expect(lexer.TokRBrace) // inner }
-	p.expect(lexer.TokRBrace) // outer }
-
-	if condExpr == nil {
-		condExpr = &ast.CondExprRef{}
-	}
-	return &ast.CondRHS{Pos: pos, Condition: condExpr, Then: thenStr, Else: elseStr}
-}
-
-// parseFnCompatRHS parses `fn_alias = [x, y]` compatibility form.
-// The outer `{` and key ident have NOT been consumed yet.
-func (p *parser) parseFnCompatRHS(keyTok lexer.Token) ast.BindingRHS {
-	p.advance() // consume fn_alias ident
-	p.expect(lexer.TokEquals)
-	args := p.parseCompatArgList()
-	p.expect(lexer.TokRBrace)
-	return &ast.FuncCallRHS{FnAlias: keyTok.Value, Args: args}
-}
-
-// parsePipeCompatRHS parses `pipe = { args = {...} steps = [...] }` compat form.
-// Outer `{` already consumed; "pipe" ident not yet consumed.
-func (p *parser) parsePipeCompatRHS() ast.BindingRHS {
-	p.advance() // consume "pipe" ident
-	p.expect(lexer.TokEquals)
-	p.expect(lexer.TokLBrace)
-
-	var params []ast.PipeParam
-	var steps []ast.PipeStep
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		fk := p.peek()
-		if fk.Kind != lexer.TokIdent {
-			p.advance()
-			continue
-		}
-		p.advance()
-		p.expect(lexer.TokEquals)
-		switch fk.Value {
-		case "args":
-			params = p.parsePipeArgsBlock()
-		case "steps":
-			steps = p.parsePipeStepsList()
-		default:
-			p.errorf(fk, "unexpected field %q in pipe block", fk.Value)
-		}
-	}
-	p.expect(lexer.TokRBrace) // inner }
-	p.expect(lexer.TokRBrace) // outer }
-	return &ast.PipeRHS{Params: params, Steps: steps}
-}
-
-// parseIfCompatRHS parses `if = { cond = ... then = ... else = ... }` compat form.
-// Outer `{` already consumed; "if" ident not yet consumed.
-func (p *parser) parseIfCompatRHS() ast.BindingRHS {
-	pos := p.posOf(p.peek())
-	p.advance() // consume "if" ident
-	p.expect(lexer.TokEquals)
-	p.expect(lexer.TokLBrace)
-	rhs := p.parseIfBody(pos)
-	p.expect(lexer.TokRBrace) // inner }
-	p.expect(lexer.TokRBrace) // outer }
-	return rhs
-}
-
-// parseCompatArgList parses `[x, y]` or `[a: x, b: y]` compat arg lists.
-func (p *parser) parseCompatArgList() []ast.Arg {
-	p.expect(lexer.TokLBracket)
-	var args []ast.Arg
-	for p.peek().Kind != lexer.TokRBracket && p.peek().Kind != lexer.TokEOF {
-		// skip named key if present: ident ':'
-		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
-			p.advance()
-			p.advance()
-		}
-		args = append(args, p.parseArg())
-		if p.peek().Kind == lexer.TokComma {
-			p.advance()
-		} else {
-			break
-		}
-	}
-	p.expect(lexer.TokRBracket)
-	return args
-}
-
-// ─── #pipe ────────────────────────────────────────────────────────────────────
-
-func (p *parser) parsePipeRHS() ast.BindingRHS {
-	p.advance() // consume #pipe
+	p.advance() // consume #if
 	p.expect(lexer.TokLParen)
+	cond := p.parseLocalExpr()
+	p.expect(lexer.TokComma)
+	then := p.parseLocalExpr()
+	p.expect(lexer.TokComma)
+	els := p.parseLocalExpr()
+	p.expect(lexer.TokRParen)
+	return &ast.IfCallRHS{Pos: pos, Cond: cond, Then: then, Else: els}
+}
 
-	var params []ast.PipeParam
+// ─── #case (v0 form) ──────────────────────────────────────────────────────────
+
+// parseCaseCallRHS parses `#case(subject, pattern => expr, ..., _ => default)`.
+func (p *parser) parseCaseCallRHS() ast.BindingRHS {
+	pos := p.posOf(p.peek())
+	p.advance() // consume #case
+	p.expect(lexer.TokLParen)
+	subject := p.parseLocalExpr()
+	var arms []ast.LocalCaseArm
+	for p.peek().Kind == lexer.TokComma {
+		p.advance() // consume comma
+		arm := p.parseCaseArm()
+		arms = append(arms, arm)
+	}
+	p.expect(lexer.TokRParen)
+	return &ast.CaseCallRHS{Pos: pos, Subject: subject, Arms: arms}
+}
+
+func (p *parser) parseCaseArm() ast.LocalCaseArm {
+	pos := p.posOf(p.peek())
+	pattern := p.parseCasePattern()
+
+	var guard ast.LocalExpr
+	// Guard: `if <expr>` before `=>`
+	if p.peek().Kind == lexer.TokIdent && p.peek().Value == "if" {
+		p.advance() // consume "if"
+		guard = p.parseLocalExpr()
+	}
+
+	p.expect(lexer.TokArrow)
+	expr := p.parseLocalExpr()
+	return ast.LocalCaseArm{Pos: pos, Pattern: pattern, Guard: guard, Expr: expr}
+}
+
+func (p *parser) parseCasePattern() ast.LocalCasePattern {
+	t := p.peek()
+	switch t.Kind {
+	case lexer.TokUnderscore:
+		p.advance()
+		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
+	case lexer.TokLParen:
+		return p.parseTupleCasePattern()
+	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit:
+		lit := p.parseLiteral()
+		return &ast.LiteralCasePattern{Pos: p.posOf(t), Value: lit}
+	case lexer.TokIdent:
+		nameTok := p.advance()
+		return &ast.VarBinderPattern{Pos: p.posOf(t), Name: nameTok.Value}
+	default:
+		p.errorf(t, "expected pattern in #case arm, got %s %q", kindName(t.Kind), t.Value)
+		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
+	}
+}
+
+func (p *parser) parseTupleCasePattern() *ast.TupleCasePattern {
+	open := p.peek()
+	pos := p.posOf(open)
+	p.advance() // consume (
+	var elems []ast.LocalCasePattern
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		nameTok, _ := p.expectIdent()
-		p.expect(lexer.TokColon)
-		srcTok, _ := p.expectIdent()
-		params = append(params, ast.PipeParam{
-			ParamName:   nameTok.Value,
-			SourceIdent: srcTok.Value,
-		})
+		elems = append(elems, p.parseCasePattern())
 		if p.peek().Kind == lexer.TokComma {
 			p.advance()
 		} else {
@@ -704,125 +626,178 @@ func (p *parser) parsePipeRHS() ast.BindingRHS {
 		}
 	}
 	p.expect(lexer.TokRParen)
-
-	var steps []ast.PipeStep
-	steps = p.parsePipeStepsList()
-	return &ast.PipeRHS{Params: params, Steps: steps}
+	return &ast.TupleCasePattern{Pos: pos, Elems: elems}
 }
 
-// parsePipeStepsList parses `[ fn_alias(args), ... ]`.
-func (p *parser) parsePipeStepsList() []ast.PipeStep {
-	p.expect(lexer.TokLBracket)
-	var steps []ast.PipeStep
-	for p.peek().Kind != lexer.TokRBracket && p.peek().Kind != lexer.TokEOF {
-		fnTok, ok := p.expectIdent()
-		if !ok {
-			p.skipTo(lexer.TokRBracket, lexer.TokComma)
-			if p.peek().Kind == lexer.TokComma {
-				p.advance()
-			}
-			continue
-		}
-		args := p.parseFuncArgs()
-		steps = append(steps, ast.PipeStep{FnAlias: fnTok.Value, Args: args})
-		if p.peek().Kind == lexer.TokComma {
-			p.advance()
-		} else {
-			break
-		}
+// ─── #pipe (v0 function-call form) ───────────────────────────────────────────
+
+// parsePipeCallRHS parses `#pipe(initial_expr, step1_expr, step2_expr, ...)`.
+func (p *parser) parsePipeCallRHS() ast.BindingRHS {
+	pos := p.posOf(p.peek())
+	p.advance() // consume #pipe
+	p.expect(lexer.TokLParen)
+	initial := p.parseLocalExpr()
+	var steps []ast.LocalExpr
+	for p.peek().Kind == lexer.TokComma {
+		p.advance() // consume comma
+		step := p.parseLocalExpr()
+		steps = append(steps, step)
 	}
-	p.expect(lexer.TokRBracket)
-	return steps
+	p.expect(lexer.TokRParen)
+	return &ast.PipeCallRHS{Pos: pos, Initial: initial, Steps: steps}
 }
 
-// parsePipeArgsBlock parses `{ p1 = ref(v1), p2 = ref(v2) }` compat pipe args.
-func (p *parser) parsePipeArgsBlock() []ast.PipeParam {
-	p.expect(lexer.TokLBrace)
-	var params []ast.PipeParam
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		nameTok, ok := p.expectIdent()
-		if !ok {
-			p.skipTo(lexer.TokRBrace)
-			break
-		}
-		p.expect(lexer.TokEquals)
-		// value is a reference ident or bare ident
-		src := p.parseRefVal()
-		params = append(params, ast.PipeParam{ParamName: nameTok.Value, SourceIdent: src})
-		if p.peek().Kind == lexer.TokComma {
-			p.advance()
-		} else {
-			break
-		}
+// ─── Local expression parser ──────────────────────────────────────────────────
+
+// parseLocalExpr parses a single local expression (ref, literal, call, #it,
+// nested #if/#case/#pipe, or a binary infix expression).
+func (p *parser) parseLocalExpr() ast.LocalExpr {
+	lhs := p.parseLocalPrimary()
+	// Check for infix operator
+	switch p.peek().Kind {
+	case lexer.TokAmpersand, lexer.TokGTE, lexer.TokLTE, lexer.TokGT, lexer.TokLT,
+		lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq, lexer.TokPlus, lexer.TokMinus,
+		lexer.TokStar, lexer.TokSlash, lexer.TokPercent:
+		opTok := p.advance()
+		op := localInfixOpFromTok(opTok)
+		rhs := p.parseLocalPrimary()
+		return &ast.LocalInfixExpr{Pos: p.posOf(opTok), Op: op, LHS: lhs, RHS: rhs}
 	}
-	p.expect(lexer.TokRBrace)
-	return params
+	return lhs
 }
 
-// ─── #if ─────────────────────────────────────────────────────────────────────
+func (p *parser) parseLocalPrimary() ast.LocalExpr {
+	t := p.peek()
+	switch t.Kind {
+	case lexer.TokHashIf:
+		return p.parseLocalIfExpr()
+	case lexer.TokHashCase:
+		return p.parseLocalCaseExpr()
+	case lexer.TokHashPipe:
+		return p.parseLocalPipeExpr()
+	case lexer.TokHashIt:
+		p.advance()
+		return &ast.LocalItExpr{Pos: p.posOf(t)}
+	case lexer.TokIdent:
+		nameTok := p.advance()
+		if p.peek().Kind == lexer.TokLParen {
+			args := p.parseLocalArgList()
+			return &ast.LocalCallExpr{Pos: p.posOf(nameTok), FnAlias: nameTok.Value, Args: args}
+		}
+		return &ast.LocalRefExpr{Pos: p.posOf(nameTok), Name: nameTok.Value}
+	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit,
+		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket:
+		lit := p.parseLiteral()
+		return &ast.LocalLitExpr{Pos: p.posOf(t), Value: lit}
+	default:
+		p.errorf(t, "expected expression, got %s %q", kindName(t.Kind), t.Value)
+		return &ast.LocalLitExpr{Pos: p.posOf(t), Value: &ast.BoolLiteral{}}
+	}
+}
 
-func (p *parser) parseIfRHS() ast.BindingRHS {
+func (p *parser) parseLocalIfExpr() ast.LocalExpr {
 	pos := p.posOf(p.peek())
 	p.advance() // consume #if
-	p.expect(lexer.TokLBrace)
-	rhs := p.parseIfBody(pos)
-	p.expect(lexer.TokRBrace)
-	return rhs
+	p.expect(lexer.TokLParen)
+	cond := p.parseLocalExpr()
+	p.expect(lexer.TokComma)
+	then := p.parseLocalExpr()
+	p.expect(lexer.TokComma)
+	els := p.parseLocalExpr()
+	p.expect(lexer.TokRParen)
+	return &ast.LocalIfExpr{Pos: pos, Cond: cond, Then: then, Else: els}
 }
 
-// parseIfBody parses the interior of an #if or { if = { ... } } block.
-// `{ ` has already been consumed.
-func (p *parser) parseIfBody(pos ast.Pos) *ast.IfRHS {
-	var cond ast.CondExpr
-	var thenStr, elseStr string
-
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		fk := p.peek()
-		if fk.Kind != lexer.TokIdent {
-			p.errorf(fk, "expected identifier in #if block, got %s", kindName(fk.Kind))
-			p.advance()
-			continue
-		}
+func (p *parser) parseLocalCaseExpr() ast.LocalExpr {
+	pos := p.posOf(p.peek())
+	p.advance() // consume #case
+	p.expect(lexer.TokLParen)
+	subject := p.parseLocalExpr()
+	var arms []ast.LocalCaseArm
+	for p.peek().Kind == lexer.TokComma {
 		p.advance()
-		p.expect(lexer.TokEquals)
-		switch fk.Value {
-		case "cond":
-			cond = p.parseCondExpr()
-		case "then":
-			thenStr = p.parseRefVal()
-		case "else":
-			elseStr = p.parseRefVal()
-		default:
-			p.errorf(fk, "unexpected field %q in #if block", fk.Value)
-		}
+		arm := p.parseCaseArm()
+		arms = append(arms, arm)
 	}
-	if cond == nil {
-		cond = &ast.CondExprRef{}
-	}
-	return &ast.IfRHS{Pos: pos, Cond: cond, Then: thenStr, Else: elseStr}
+	p.expect(lexer.TokRParen)
+	return &ast.LocalCaseExpr{Pos: pos, Subject: subject, Arms: arms}
 }
 
-// parseCondExpr parses the `cond = <expr>` value inside #if:
-// either `fn_alias(args)` (CondExprCall) or a bare ident (CondExprRef).
-func (p *parser) parseCondExpr() ast.CondExpr {
-	t := p.peek()
-	if t.Kind != lexer.TokIdent {
-		p.errorf(t, "expected identifier for condition expression, got %s", kindName(t.Kind))
-		return &ast.CondExprRef{}
+func (p *parser) parseLocalPipeExpr() ast.LocalExpr {
+	pos := p.posOf(p.peek())
+	p.advance() // consume #pipe
+	p.expect(lexer.TokLParen)
+	initial := p.parseLocalExpr()
+	var steps []ast.LocalExpr
+	for p.peek().Kind == lexer.TokComma {
+		p.advance()
+		steps = append(steps, p.parseLocalExpr())
 	}
-	p.advance() // consume ident
-	if p.peek().Kind == lexer.TokLParen {
-		// inline func call
-		args := p.parseFuncArgs()
-		return &ast.CondExprCall{FnAlias: t.Value, Args: args}
+	p.expect(lexer.TokRParen)
+	return &ast.LocalPipeExpr{Pos: pos, Initial: initial, Steps: steps}
+}
+
+// parseLocalArgList parses `(expr, expr, ...)` as a list of local expressions.
+// Named-arg `name: expr` form is also accepted (the name is skipped).
+func (p *parser) parseLocalArgList() []ast.LocalExpr {
+	p.expect(lexer.TokLParen)
+	var args []ast.LocalExpr
+	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
+		// skip named arg key if present
+		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
+			p.advance()
+			p.advance()
+		}
+		args = append(args, p.parseLocalExpr())
+		if p.peek().Kind == lexer.TokComma {
+			p.advance()
+		} else {
+			break
+		}
 	}
-	return &ast.CondExprRef{BindingName: t.Value}
+	p.expect(lexer.TokRParen)
+	return args
+}
+
+func localInfixOpFromTok(t lexer.Token) ast.InfixOp {
+	switch t.Kind {
+	case lexer.TokAmpersand:
+		return ast.InfixAnd
+	case lexer.TokGTE:
+		return ast.InfixGTE
+	case lexer.TokLTE:
+		return ast.InfixLTE
+	case lexer.TokGT:
+		return ast.InfixGT
+	case lexer.TokLT:
+		return ast.InfixLT
+	case lexer.TokPipe:
+		return ast.InfixBoolOr
+	case lexer.TokEqEq:
+		return ast.InfixEq
+	case lexer.TokNeq:
+		return ast.InfixNeq
+	case lexer.TokPlus:
+		return ast.InfixPlus
+	case lexer.TokMinus:
+		return ast.InfixSub
+	case lexer.TokStar:
+		return ast.InfixMul
+	case lexer.TokSlash:
+		return ast.InfixDiv
+	case lexer.TokPercent:
+		return ast.InfixMod
+	default:
+		return ast.InfixAnd
+	}
 }
 
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
 
 // parseBindingDecl parses one binding declaration inside a prog block:
-// [sigil] name ':' type '=' rhs
+// [sigil] name ':' type ['=' rhs]
+// Ingress (~>) and bidirectional (<~>) sigils are input-only declarations with no RHS.
+// Egress (<~) and plain bindings require '=' followed by an RHS.
 func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	t := p.peek()
 	pos := p.posOf(t)
@@ -843,7 +818,6 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 
 	nameTok, ok := p.expectIdent()
 	if !ok {
-		// error recovery: skip to next line
 		p.skipTo(lexer.TokRBrace)
 		return nil
 	}
@@ -854,6 +828,23 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		p.skipTo(lexer.TokRBrace)
 		return nil
 	}
+
+	// Input sigils (~> and <~>) have no RHS.
+	if sigil == ast.SigilIngress || sigil == ast.SigilBiDir {
+		if p.peek().Kind == lexer.TokEquals {
+			p.errorf(p.peek(), "input sigil declaration %q must not have a right-hand side; remove '= ...'", nameTok.Value)
+			p.advance() // consume =
+			p.parseRHS(nameTok.Value) // consume and discard the erroneous RHS
+		}
+		return &ast.BindingDecl{
+			Pos:   pos,
+			Sigil: sigil,
+			Name:  nameTok.Value,
+			Type:  ft,
+			RHS:   &ast.SigilInputRHS{},
+		}
+	}
+
 	p.expect(lexer.TokEquals)
 	rhs := p.parseRHS(nameTok.Value)
 
@@ -1589,6 +1580,8 @@ func kindName(k lexer.TokenKind) string {
 		lexer.TokNeq:            "!=",
 		lexer.TokHashPipe:       "#pipe",
 		lexer.TokHashIf:         "#if",
+		lexer.TokHashCase:       "#case",
+		lexer.TokHashIt:         "#it",
 		lexer.TokUnderscore:     "_",
 		lexer.TokHeredoc:        "HEREDOC",
 		lexer.TokTripleQuote:    "TRIPLE_QUOTE",

@@ -51,7 +51,9 @@ const (
 	// Special forms
 	TokHashPipe    // #pipe
 	TokHashIf      // #if
-	TokUnderscore  // _ (standalone ingress placeholder)
+	TokHashCase    // #case
+	TokHashIt      // #it
+	TokUnderscore  // _ (wildcard in #case patterns, fallback in route match)
 	TokHeredoc     // <<-EOT...EOT  — Value holds stripped body
 	TokTripleQuote // """..."""     — Value holds trimmed body
 
@@ -596,11 +598,25 @@ func (l *lex) scanHash(ln, co int) {
 		l.emit(TokHashPipe, "#pipe", ln, co)
 		return
 	}
+	if l.matchPrefix("#case") && !isIdentChar(l.peekAt(5)) {
+		for range 5 {
+			l.advance()
+		}
+		l.emit(TokHashCase, "#case", ln, co)
+		return
+	}
 	if l.matchPrefix("#if") && !isIdentChar(l.peekAt(3)) {
 		for range 3 {
 			l.advance()
 		}
 		l.emit(TokHashIf, "#if", ln, co)
+		return
+	}
+	if l.matchPrefix("#it") && !isIdentChar(l.peekAt(3)) {
+		for range 3 {
+			l.advance()
+		}
+		l.emit(TokHashIt, "#it", ln, co)
 		return
 	}
 	// Line comment — skip to end of line

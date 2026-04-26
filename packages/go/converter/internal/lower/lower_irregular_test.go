@@ -29,7 +29,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        ~>score:number = _
+        ~>score:number
       }
     }
   }
@@ -47,7 +47,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        ~>score:number = _
+        ~>score:number
       }
     }
     prepare {
@@ -70,7 +70,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }
@@ -93,7 +93,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }
@@ -153,13 +153,17 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
         flag:bool     = true
         thenFn:number = 1
         elseFn:number = 2
-        result:number = #if { cond = flag then = thenFn else = elseFn }
+        result:number = 0
       }
     }
   }`),
 			mutate: func(tf *ast.TurnFile) {
-				rhs := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3].RHS.(*ast.IfRHS)
-				rhs.Cond = nil
+				// Inject a deprecated IfRHS with nil Cond directly to exercise the
+				// CodeUnsupportedConstruct path in lower.go.
+				tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3].RHS = &ast.IfRHS{
+					Then: "thenFn",
+					Else: "elseFn",
+				}
 			},
 		},
 	}

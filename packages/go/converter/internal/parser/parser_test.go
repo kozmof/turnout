@@ -266,9 +266,9 @@ func TestParseSigils(t *testing.T) {
     compute {
       root = x
       prog "p" {
-        ~>a:number = _
+        ~>a:number
         <~b:bool   = true
-        <~>c:str   = ""
+        <~>c:str
         d:number   = 0
       }
     }
@@ -339,14 +339,14 @@ func TestRHSPlaceholder(t *testing.T) {
     compute {
       root = v
       prog "p" {
-        ~>v:number = _
+        ~>v:number
       }
     }
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	if _, ok := b.RHS.(*ast.PlaceholderRHS); !ok {
-		t.Errorf("RHS: got %T, want *PlaceholderRHS", b.RHS)
+	if _, ok := b.RHS.(*ast.SigilInputRHS); !ok {
+		t.Errorf("RHS: got %T, want *SigilInputRHS", b.RHS)
 	}
 }
 
@@ -481,32 +481,26 @@ func TestRHSPipe(t *testing.T) {
       prog "p" {
         v1:number = 5
         v2:number = 3
-        result:number = #pipe(x:v1, y:v2)[
-          add(x, y),
-          mul({ step_ref = 0 }, x)
-        ]
+        result:number = #pipe(v1, add(#it, v2))
       }
     }
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[2]
-	pr, ok := b.RHS.(*ast.PipeRHS)
+	pr, ok := b.RHS.(*ast.PipeCallRHS)
 	if !ok {
-		t.Fatalf("RHS: got %T, want *PipeRHS", b.RHS)
+		t.Fatalf("RHS: got %T, want *PipeCallRHS", b.RHS)
 	}
-	if len(pr.Params) != 2 {
-		t.Errorf("param count = %d, want 2", len(pr.Params))
+	initRef, ok := pr.Initial.(*ast.LocalRefExpr)
+	if !ok || initRef.Name != "v1" {
+		t.Errorf("initial: got %T, want ref to v1", pr.Initial)
 	}
-	if pr.Params[0].ParamName != "x" || pr.Params[0].SourceIdent != "v1" {
-		t.Errorf("param[0]: %+v", pr.Params[0])
+	if len(pr.Steps) != 1 {
+		t.Errorf("step count = %d, want 1", len(pr.Steps))
 	}
-	if len(pr.Steps) != 2 {
-		t.Errorf("step count = %d, want 2", len(pr.Steps))
-	}
-	// second step's first arg should be StepRefArg{0}
-	sa, ok := pr.Steps[1].Args[0].(*ast.StepRefArg)
-	if !ok || sa.Index != 0 {
-		t.Errorf("step[1].args[0]: got %T", pr.Steps[1].Args[0])
+	call, ok := pr.Steps[0].(*ast.LocalCallExpr)
+	if !ok || call.FnAlias != "add" {
+		t.Errorf("step[0]: got %T, want LocalCallExpr{add}", pr.Steps[0])
 	}
 }
 
@@ -518,28 +512,27 @@ func TestRHSCondBlock(t *testing.T) {
         flag:bool    = true
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        result:number = {
-          cond = {
-            condition = flag
-            then      = addFn
-            else      = subFn
-          }
-        }
+        result:number = #if(flag, addFn, subFn)
       }
     }
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3]
-	cr, ok := b.RHS.(*ast.CondRHS)
+	ir, ok := b.RHS.(*ast.IfCallRHS)
 	if !ok {
-		t.Fatalf("RHS: got %T, want *CondRHS", b.RHS)
+		t.Fatalf("RHS: got %T, want *IfCallRHS", b.RHS)
 	}
-	ref, ok := cr.Condition.(*ast.CondExprRef)
-	if !ok || ref.BindingName != "flag" {
-		t.Errorf("condition: got %T", cr.Condition)
+	ref, ok := ir.Cond.(*ast.LocalRefExpr)
+	if !ok || ref.Name != "flag" {
+		t.Errorf("cond: got %T", ir.Cond)
 	}
-	if cr.Then != "addFn" || cr.Else != "subFn" {
-		t.Errorf("then=%q else=%q", cr.Then, cr.Else)
+	thenRef, ok := ir.Then.(*ast.LocalRefExpr)
+	if !ok || thenRef.Name != "addFn" {
+		t.Errorf("then: got %T", ir.Then)
+	}
+	elseRef, ok := ir.Else.(*ast.LocalRefExpr)
+	if !ok || elseRef.Name != "subFn" {
+		t.Errorf("else: got %T", ir.Else)
 	}
 }
 
@@ -552,26 +545,27 @@ func TestRHSIfInlineCall(t *testing.T) {
         v2:number    = 3
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        result:number = #if {
-          cond = gt(v1, v2)
-          then = addFn
-          else = subFn
-        }
+        result:number = #if(gt(v1, v2), addFn, subFn)
       }
     }
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[4]
-	ir, ok := b.RHS.(*ast.IfRHS)
+	ir, ok := b.RHS.(*ast.IfCallRHS)
 	if !ok {
-		t.Fatalf("RHS: got %T, want *IfRHS", b.RHS)
+		t.Fatalf("RHS: got %T, want *IfCallRHS", b.RHS)
 	}
-	call, ok := ir.Cond.(*ast.CondExprCall)
+	call, ok := ir.Cond.(*ast.LocalCallExpr)
 	if !ok || call.FnAlias != "gt" || len(call.Args) != 2 {
 		t.Errorf("cond: got %T", ir.Cond)
 	}
-	if ir.Then != "addFn" || ir.Else != "subFn" {
-		t.Errorf("then=%q else=%q", ir.Then, ir.Else)
+	thenRef, ok := ir.Then.(*ast.LocalRefExpr)
+	if !ok || thenRef.Name != "addFn" {
+		t.Errorf("then: got %T", ir.Then)
+	}
+	elseRef, ok := ir.Else.(*ast.LocalRefExpr)
+	if !ok || elseRef.Name != "subFn" {
+		t.Errorf("else: got %T", ir.Else)
 	}
 }
 
@@ -583,22 +577,18 @@ func TestRHSIfBareRef(t *testing.T) {
         flag:bool    = true
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        result:number = #if {
-          cond = flag
-          then = addFn
-          else = subFn
-        }
+        result:number = #if(flag, addFn, subFn)
       }
     }
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3]
-	ir, ok := b.RHS.(*ast.IfRHS)
+	ir, ok := b.RHS.(*ast.IfCallRHS)
 	if !ok {
-		t.Fatalf("RHS: got %T, want *IfRHS", b.RHS)
+		t.Fatalf("RHS: got %T, want *IfCallRHS", b.RHS)
 	}
-	ref, ok := ir.Cond.(*ast.CondExprRef)
-	if !ok || ref.BindingName != "flag" {
+	ref, ok := ir.Cond.(*ast.LocalRefExpr)
+	if !ok || ref.Name != "flag" {
 		t.Errorf("cond: got %T %v", ir.Cond, ir.Cond)
 	}
 }
@@ -610,7 +600,7 @@ func TestParsePrepareBlock(t *testing.T) {
     compute {
       root = v
       prog "p" {
-        ~>income:number = _
+        ~>income:number
         v:bool = true
       }
     }
@@ -635,7 +625,7 @@ func TestParsePrepareBlock(t *testing.T) {
 
 func TestParsePrepareFromHook(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { root = v prog "p" { ~>data:str = _ v:bool = true } }
+    compute { root = v prog "p" { ~>data:str v:bool = true } }
     prepare {
       data { from_hook = "score_api" }
     }
@@ -705,7 +695,7 @@ func TestParseNextBlock(t *testing.T) {
       compute {
         condition = go
         prog "to_approve" {
-          ~>decision:bool = _
+          ~>decision:bool
           go:bool = decision
         }
       }
@@ -814,7 +804,7 @@ func TestReferenceNormalization(t *testing.T) {
 
 func TestThreeSegmentPath(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { root = v prog "p" { ~>v:number = _ } }
+    compute { root = v prog "p" { ~>v:number } }
     prepare {
       v { from_state = session.cart.items }
     }
@@ -917,13 +907,14 @@ scene "s" {
 // ── compat block forms ────────────────────────────────────────────────────────
 
 func TestRHSCompatFuncBlock(t *testing.T) {
+	// Old block form { add = [v1, v2] } is now rejected; use function call syntax instead.
 	src := minimalTurnFile(`  action "a" {
     compute {
       root = out
       prog "p" {
         v1:number = 5
         v2:number = 3
-        out:number = { add = [v1, v2] }
+        out:number = add(v1, v2)
       }
     }
   }`)

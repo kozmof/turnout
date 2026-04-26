@@ -247,7 +247,7 @@ scene "s" {
       prog "p" {
         x:number      = 3
         y:number      = 4
-        result:number = #pipe(a:x, b:y)[add(a, b)]
+        result:number = #pipe(x, add(#it, y))
       }
     }
   }
@@ -255,8 +255,11 @@ scene "s" {
 	if !strings.Contains(out, `pipe = {`) {
 		t.Error("missing pipe block")
 	}
-	if !strings.Contains(out, `fn = "add"`) {
-		t.Error("missing fn in pipe step")
+	if !strings.Contains(out, `initial = `) {
+		t.Error("missing initial in pipe")
+	}
+	if !strings.Contains(out, `it = true`) {
+		t.Error("missing it placeholder in pipe step")
 	}
 }
 
@@ -268,31 +271,22 @@ scene "s" {
     compute {
       root = result
       prog "p" {
+        x:number      = 1
         flag:bool     = true
         thenFn:number = add(x, x)
-        x:number      = 1
-        result:number = {
-          cond = {
-            condition = flag
-            then      = thenFn
-            else      = thenFn
-          }
-        }
+        result:number = #if(flag, thenFn, thenFn)
       }
     }
   }
 }`)
-	if !strings.Contains(out, `cond = {`) {
-		t.Error("missing cond block")
+	if !strings.Contains(out, `if = {`) {
+		t.Error("missing if block")
 	}
-	if !strings.Contains(out, `condition = {`) {
-		t.Error("missing condition object")
+	if !strings.Contains(out, `cond = { ref = "flag" }`) {
+		t.Error("missing cond ref")
 	}
-	if !strings.Contains(out, `{ ref = "flag" }`) {
-		t.Error("missing condition ref")
-	}
-	if !strings.Contains(out, `{ func_ref = "thenFn" }`) {
-		t.Error("missing func_ref")
+	if !strings.Contains(out, `{ ref = "thenFn" }`) {
+		t.Error("missing then/else ref")
 	}
 }
 
@@ -307,7 +301,7 @@ scene "s" {
   action "a" {
     compute {
       root = score
-      prog "p" { ~>score:number = _ }
+      prog "p" { ~>score:number }
     }
     prepare {
       score { from_state = app.score }
@@ -331,7 +325,7 @@ scene "s" {
   action "a" {
     compute {
       root = data
-      prog "p" { ~>data:str = _ }
+      prog "p" { ~>data:str }
     }
     prepare {
       data { from_hook = "api_hook" }
@@ -430,7 +424,7 @@ scene "s" {
       compute {
         condition = go
         prog "n" {
-          ~>decision:bool = _
+          ~>decision:bool
           go:bool = decision
         }
       }
@@ -731,7 +725,7 @@ scene "test_scene" {
   next_policy   = "first-match"
   action "act_a" {
     compute { root = done prog "g" {
-      ~>q:str = _
+      ~>q:str
       <~out:str = q
       done:bool = true
     } }

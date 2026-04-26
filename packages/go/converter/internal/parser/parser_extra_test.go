@@ -94,7 +94,7 @@ scene "test" {
     compute {
       root = v
       prog "p" {
-        ~>v:number = _
+        ~>v:number
       }
     }
     prepare {
@@ -190,52 +190,31 @@ Hello world.
 // ── parseBlockArg branches ─────────────────────────────────────────────────────
 
 func TestParseBlockArgFuncRef(t *testing.T) {
-	// { func_ref = "someFn" } as an argument exercises the func_ref branch
+	// { func_ref = "fn1" } as a function argument exercises the func_ref parsing branch.
 	src := minimalTurnFile(`  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = result
-      prog "p" {
-        thenFn:number = 1
-        result:number = {
-          cond = {
-            condition = thenFn
-            then      = thenFn
-            else      = thenFn
-          }
-        }
-      }
-    }
-  }`)
-	// This implicitly uses func_ref in cond then/else during lowering,
-	// but we can also test direct block arg parsing:
-	src2 := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
         v:number = 3
         fn1:number = add(v, v)
-        result:number = #pipe(a:v)[
-          add({ func_ref = "fn1" }, a)
-        ]
+        result:number = add({ func_ref = "fn1" }, v)
       }
     }
   }`)
-	tf := mustParse(t, src2)
+	tf := mustParse(t, src)
 	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
-	pipe, ok := bindings[2].RHS.(*ast.PipeRHS)
+	fc, ok := bindings[2].RHS.(*ast.FuncCallRHS)
 	if !ok {
-		t.Fatalf("expected PipeRHS, got %T", bindings[2].RHS)
+		t.Fatalf("expected FuncCallRHS, got %T", bindings[2].RHS)
 	}
-	arg, ok := pipe.Steps[0].Args[0].(*ast.FuncRefArg)
+	arg, ok := fc.Args[0].(*ast.FuncRefArg)
 	if !ok {
-		t.Fatalf("expected FuncRefArg, got %T", pipe.Steps[0].Args[0])
+		t.Fatalf("expected FuncRefArg, got %T", fc.Args[0])
 	}
 	if arg.FnName != "fn1" {
 		t.Errorf("FnName = %q, want fn1", arg.FnName)
 	}
-	_ = src
 }
 
 func TestParseBlockArgTransform(t *testing.T) {
@@ -283,35 +262,40 @@ func TestParseBlockArgUnknownKey(t *testing.T) {
 // ── parsePipeCompatRHS (block form { pipe = { ... } }) ─────────────────────────
 
 func TestParsePipeCompatRHS(t *testing.T) {
-	// Block-form pipe compat: { pipe = { args = { a = x } steps = [add(a, a)] } }
+	// New #pipe(initial, step1, ...) form: #pipe(x, add(#it, x))
 	src := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
         x:number = 5
-        result:number = { pipe = { args = { a = x } steps = [add(a, a)] } }
+        result:number = #pipe(x, add(#it, x))
       }
     }
   }`)
 	tf := mustParse(t, src)
 	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
-	pipe, ok := bindings[1].RHS.(*ast.PipeRHS)
+	pipe, ok := bindings[1].RHS.(*ast.PipeCallRHS)
 	if !ok {
-		t.Fatalf("expected PipeRHS, got %T", bindings[1].RHS)
+		t.Fatalf("expected PipeCallRHS, got %T", bindings[1].RHS)
 	}
-	if len(pipe.Params) != 1 || pipe.Params[0].ParamName != "a" || pipe.Params[0].SourceIdent != "x" {
-		t.Errorf("pipe params: %+v", pipe.Params)
+	initRef, ok := pipe.Initial.(*ast.LocalRefExpr)
+	if !ok || initRef.Name != "x" {
+		t.Errorf("initial: got %T, want ref to x", pipe.Initial)
 	}
-	if len(pipe.Steps) != 1 || pipe.Steps[0].FnAlias != "add" {
-		t.Errorf("pipe steps: %+v", pipe.Steps)
+	if len(pipe.Steps) != 1 {
+		t.Errorf("step count = %d, want 1", len(pipe.Steps))
+	}
+	call, ok := pipe.Steps[0].(*ast.LocalCallExpr)
+	if !ok || call.FnAlias != "add" {
+		t.Errorf("step[0]: got %T, want LocalCallExpr{add}", pipe.Steps[0])
 	}
 }
 
 // ── parseIfCompatRHS (block form { if = { ... } }) ─────────────────────────────
 
 func TestParseIfCompatRHS(t *testing.T) {
-	// Block-form if compat: { if = { cond = flag then = thenFn else = elseFn } }
+	// New #if(cond, then, else) call form
 	src := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
@@ -320,22 +304,27 @@ func TestParseIfCompatRHS(t *testing.T) {
         flag:bool     = true
         thenFn:number = 1
         elseFn:number = 2
-        result:number = { if = { cond = flag then = thenFn else = elseFn } }
+        result:number = #if(flag, thenFn, elseFn)
       }
     }
   }`)
 	tf := mustParse(t, src)
 	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
-	ifRHS, ok := bindings[3].RHS.(*ast.IfRHS)
+	ifRHS, ok := bindings[3].RHS.(*ast.IfCallRHS)
 	if !ok {
-		t.Fatalf("expected IfRHS, got %T", bindings[3].RHS)
+		t.Fatalf("expected IfCallRHS, got %T", bindings[3].RHS)
 	}
-	ref, ok := ifRHS.Cond.(*ast.CondExprRef)
-	if !ok || ref.BindingName != "flag" {
+	ref, ok := ifRHS.Cond.(*ast.LocalRefExpr)
+	if !ok || ref.Name != "flag" {
 		t.Errorf("cond: got %T", ifRHS.Cond)
 	}
-	if ifRHS.Then != "thenFn" || ifRHS.Else != "elseFn" {
-		t.Errorf("then=%q else=%q", ifRHS.Then, ifRHS.Else)
+	thenRef, ok := ifRHS.Then.(*ast.LocalRefExpr)
+	if !ok || thenRef.Name != "thenFn" {
+		t.Errorf("then: got %T", ifRHS.Then)
+	}
+	elseRef, ok := ifRHS.Else.(*ast.LocalRefExpr)
+	if !ok || elseRef.Name != "elseFn" {
+		t.Errorf("else: got %T", ifRHS.Else)
 	}
 }
 
@@ -410,15 +399,15 @@ func TestParseBlockRHSNonIdentKey(t *testing.T) {
 // ── parseFnCompatRHS (fn_alias = [...]) ────────────────────────────────────────
 
 func TestParseFnCompatRHS(t *testing.T) {
-	// Block-compat fn form: out:number = { add = [x, y] }
+	// Function call form: add(x, y)
 	src := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
-        x:number     = 3
-        y:number     = 4
-        result:number = { add = [x, y] }
+        x:number      = 3
+        y:number      = 4
+        result:number = add(x, y)
       }
     }
   }`)
@@ -515,7 +504,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>x:number = _
+          ~>x:number
           go:bool = true
         }
       }
@@ -551,7 +540,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>x:number = _
+          ~>x:number
           go:bool = true
         }
       }
@@ -846,15 +835,15 @@ func TestParsePipeCompatRHSUnknownField(t *testing.T) {
 // ── Lines 612-615: parseCompatArgList named key ───────────────────────────────
 
 func TestParseCompatArgListNamedKeys(t *testing.T) {
-	// { add = [a:x, b:y] } — named keys in compat arg list
+	// Function call with two ref args: add(x, y)
 	src := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
-        x:number = 3
-        y:number = 4
-        result:number = { add = [a:x, b:y] }
+        x:number      = 3
+        y:number      = 4
+        result:number = add(x, y)
       }
     }
   }`)

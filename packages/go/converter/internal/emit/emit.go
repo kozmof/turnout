@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
@@ -149,7 +150,7 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lowe
 			iw.nl()
 		}
 		sep = true
-		writeCompute(iw, a.Compute)
+		writeCompute(iw, a.Compute, sceneID, a.Id, sc)
 	}
 
 	if len(a.Prepare) > 0 {
@@ -181,7 +182,7 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lowe
 			iw.nl()
 		}
 		sep = true
-		writeNextRule(iw, nr)
+		writeNextRule(iw, nr, sceneID, a.Id, sc)
 	}
 
 	iw.depth--
@@ -210,42 +211,51 @@ func writeText(iw *iWriter, text string) {
 // Compute block
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel) {
+func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel, sceneID, actionID string, sc *lower.Sidecar) {
 	iw.wl("compute {")
 	iw.depth++
 	iw.wl("root = %q", c.Root)
 	if c.Prog != nil {
-		writeProg(iw, c.Prog)
+		writeProg(iw, c.Prog, sceneID, actionID, sc)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel) {
+func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel, sceneID, actionID string, sc *lower.Sidecar) {
 	iw.wl("compute {")
 	iw.depth++
 	iw.wl("condition = %q", c.Condition)
 	if c.Prog != nil {
-		writeProg(iw, c.Prog)
+		writeProg(iw, c.Prog, sceneID, actionID, sc)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeProg(iw *iWriter, p *turnoutpb.ProgModel) {
+func writeProg(iw *iWriter, p *turnoutpb.ProgModel, sceneID, actionID string, sc *lower.Sidecar) {
 	iw.wl("prog %q {", p.Name)
 	iw.depth++
 	for _, b := range p.Bindings {
-		writeBinding(iw, b)
+		writeBinding(iw, b, sceneID, actionID, p.Name, sc)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeBinding(iw *iWriter, b *turnoutpb.BindingModel) {
+func writeBinding(iw *iWriter, b *turnoutpb.BindingModel, sceneID, actionID, progName string, sc *lower.Sidecar) {
 	iw.wl("binding %q {", b.Name)
 	iw.depth++
 	iw.wl("type  = %q", b.Type)
+	if sc != nil {
+		key := lower.BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: b.Name}
+		if extRHS, ok := sc.ExtExprs[key]; ok {
+			writeExtExpr(iw, extRHS)
+			iw.depth--
+			iw.wl("}")
+			return
+		}
+	}
 	if b.Value != nil {
 		iw.wl("value = %s", writeStructpbValue(b.Value))
 	} else if b.Expr != nil {
@@ -379,7 +389,7 @@ func writePublish(iw *iWriter, hooks []string) {
 // Next rule
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel) {
+func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel, sceneID, actionID string, sc *lower.Sidecar) {
 	iw.wl("next {")
 	iw.depth++
 
@@ -387,7 +397,7 @@ func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel) {
 
 	if nr.Compute != nil {
 		sep = true
-		writeNextCompute(iw, nr.Compute)
+		writeNextCompute(iw, nr.Compute, sceneID, actionID, sc)
 	}
 
 	if len(nr.Prepare) > 0 {
@@ -490,6 +500,150 @@ func writeStructpbValue(v *structpb.Value) string {
 		parts := make([]string, len(k.ListValue.Values))
 		for i, e := range k.ListValue.Values {
 			parts[i] = writeStructpbValue(e)
+		}
+		return "[" + strings.Join(parts, ", ") + "]"
+	}
+	return "null"
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Extended expression emitters (if / case / pipe stored in sidecar ExtExprs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// writeExtExpr writes `expr  = { if/case/pipe = { ... } }` for a sidecar RHS.
+func writeExtExpr(iw *iWriter, rhs ast.BindingRHS) {
+	iw.wl("expr  = {")
+	iw.depth++
+	switch r := rhs.(type) {
+	case *ast.IfCallRHS:
+		iw.wl("if = {")
+		iw.depth++
+		iw.wl("cond = %s", localExprInline(r.Cond))
+		iw.wl("then = %s", localExprInline(r.Then))
+		iw.wl("else = %s", localExprInline(r.Else))
+		iw.depth--
+		iw.wl("}")
+	case *ast.CaseCallRHS:
+		iw.wl("case = {")
+		iw.depth++
+		iw.wl("subject = %s", localExprInline(r.Subject))
+		arms := make([]string, len(r.Arms))
+		for i, arm := range r.Arms {
+			arms[i] = localCaseArmInline(arm)
+		}
+		iw.wl("arms    = [%s]", strings.Join(arms, ", "))
+		iw.depth--
+		iw.wl("}")
+	case *ast.PipeCallRHS:
+		iw.wl("pipe = {")
+		iw.depth++
+		iw.wl("initial = %s", localExprInline(r.Initial))
+		steps := make([]string, len(r.Steps))
+		for i, s := range r.Steps {
+			steps[i] = localExprInline(s)
+		}
+		iw.wl("steps   = [%s]", strings.Join(steps, ", "))
+		iw.depth--
+		iw.wl("}")
+	}
+	iw.depth--
+	iw.wl("}")
+}
+
+// localExprInline returns the inline HCL representation of a LocalExpr node.
+func localExprInline(e ast.LocalExpr) string {
+	if e == nil {
+		return `{ ref = "__nil__" }`
+	}
+	switch x := e.(type) {
+	case *ast.LocalRefExpr:
+		return fmt.Sprintf(`{ ref = %q }`, x.Name)
+	case *ast.LocalLitExpr:
+		return fmt.Sprintf(`{ lit = %s }`, localLitToHCL(x.Value))
+	case *ast.LocalItExpr:
+		return `{ it = true }`
+	case *ast.LocalCallExpr:
+		args := make([]string, len(x.Args))
+		for i, a := range x.Args {
+			args[i] = localExprInline(a)
+		}
+		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.FnAlias, strings.Join(args, ", "))
+	case *ast.LocalInfixExpr:
+		fn := x.Op.FnAlias()
+		if fn == "" {
+			fn = "add" // InfixPlus default; type dispatch happens at runtime
+		}
+		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn, localExprInline(x.LHS), localExprInline(x.RHS))
+	case *ast.LocalIfExpr:
+		return fmt.Sprintf(`{ if = { cond = %s, then = %s, else = %s } }`,
+			localExprInline(x.Cond), localExprInline(x.Then), localExprInline(x.Else))
+	case *ast.LocalCaseExpr:
+		arms := make([]string, len(x.Arms))
+		for i, arm := range x.Arms {
+			arms[i] = localCaseArmInline(arm)
+		}
+		return fmt.Sprintf(`{ case = { subject = %s, arms = [%s] } }`,
+			localExprInline(x.Subject), strings.Join(arms, ", "))
+	case *ast.LocalPipeExpr:
+		steps := make([]string, len(x.Steps))
+		for i, s := range x.Steps {
+			steps[i] = localExprInline(s)
+		}
+		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
+			localExprInline(x.Initial), strings.Join(steps, ", "))
+	}
+	return `{ ref = "__unknown__" }`
+}
+
+func localCaseArmInline(arm ast.LocalCaseArm) string {
+	s := fmt.Sprintf(`{ pattern = %s`, localPatternInline(arm.Pattern))
+	if arm.Guard != nil {
+		s += fmt.Sprintf(`, guard = %s`, localExprInline(arm.Guard))
+	}
+	s += fmt.Sprintf(`, expr = %s }`, localExprInline(arm.Expr))
+	return s
+}
+
+func localPatternInline(p ast.LocalCasePattern) string {
+	if p == nil {
+		return `{ wildcard = true }`
+	}
+	switch x := p.(type) {
+	case *ast.WildcardCasePattern:
+		return `{ wildcard = true }`
+	case *ast.LiteralCasePattern:
+		return fmt.Sprintf(`{ lit = %s }`, localLitToHCL(x.Value))
+	case *ast.VarBinderPattern:
+		return fmt.Sprintf(`{ bind = %q }`, x.Name)
+	case *ast.TupleCasePattern:
+		elems := make([]string, len(x.Elems))
+		for i, e := range x.Elems {
+			elems[i] = localPatternInline(e)
+		}
+		return fmt.Sprintf(`{ tuple = [%s] }`, strings.Join(elems, ", "))
+	}
+	return `{ wildcard = true }`
+}
+
+// localLitToHCL converts an ast.Literal to its HCL text representation.
+func localLitToHCL(lit ast.Literal) string {
+	if lit == nil {
+		return "null"
+	}
+	switch v := lit.(type) {
+	case *ast.NumberLiteral:
+		return strconv.FormatFloat(v.Value, 'f', -1, 64)
+	case *ast.StringLiteral:
+		return fmt.Sprintf("%q", v.Value)
+	case *ast.BoolLiteral:
+		if v.Value {
+			return "true"
+		}
+		return "false"
+	case *ast.ArrayLiteral:
+		parts := make([]string, len(v.Elements))
+		for i, e := range v.Elements {
+			parts[i] = localLitToHCL(e)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	}

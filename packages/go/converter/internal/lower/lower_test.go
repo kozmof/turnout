@@ -392,7 +392,7 @@ scene "test" {
     compute {
       root = income
       prog "p" {
-        ~>income:number = _
+        ~>income:number
       }
     }
     prepare {
@@ -412,97 +412,92 @@ scene "test" {
 // ─── pipe RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerPipeRHS(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	// New #pipe(initial, step1, step2, ...) form stores in sidecar ExtExprs.
+	_, sc := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
         x:number = 3
         y:number = 4
-        result:number = #pipe(a:x, b:y)[
-          add(a, b),
-          mul({ step_ref = 0 }, a)
-        ]
+        result:number = #pipe(x, add(#it, y))
       }
     }
   }`))
-	b := binding(t, tm, 2)
-	if b.Expr == nil || b.Expr.Pipe == nil {
-		t.Fatal("expected pipe expr")
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
+	extRHS, ok := sc.ExtExprs[key]
+	if !ok {
+		t.Fatal("expected ExtExpr for result")
 	}
-	pipe := b.Expr.Pipe
-	if len(pipe.Params) != 2 {
-		t.Errorf("params = %d, want 2", len(pipe.Params))
+	pipeRHS, ok := extRHS.(*ast.PipeCallRHS)
+	if !ok {
+		t.Fatalf("expected PipeCallRHS, got %T", extRHS)
 	}
-	if pipe.Params[0].ParamName != "a" || pipe.Params[0].SourceIdent != "x" {
-		t.Errorf("param[0]: %+v", pipe.Params[0])
+	initRef, ok := pipeRHS.Initial.(*ast.LocalRefExpr)
+	if !ok || initRef.Name != "x" {
+		t.Errorf("initial = %v, want ref to x", pipeRHS.Initial)
 	}
-	if len(pipe.Steps) != 2 {
-		t.Errorf("steps = %d, want 2", len(pipe.Steps))
+	if len(pipeRHS.Steps) != 1 {
+		t.Errorf("steps = %d, want 1", len(pipeRHS.Steps))
 	}
-	if pipe.Steps[0].Fn != "add" {
-		t.Errorf("step[0].fn = %q", pipe.Steps[0].Fn)
-	}
-	// step[1] first arg is step_ref = 0
-	if pipe.Steps[1].Args[0].StepRef == nil || *pipe.Steps[1].Args[0].StepRef != 0 {
-		t.Errorf("step[1].args[0]: want step_ref=0, got %+v", pipe.Steps[1].Args[0])
+	call, ok := pipeRHS.Steps[0].(*ast.LocalCallExpr)
+	if !ok || call.FnAlias != "add" {
+		t.Errorf("step[0] = %T, want LocalCallExpr{add}", pipeRHS.Steps[0])
 	}
 }
 
 // ─── cond RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerCondRHS(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	// New #if(cond, then, else) form stores in sidecar ExtExprs as IfCallRHS.
+	_, sc := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
-        flag:bool    = true
+        flag:bool     = true
         thenFn:number = add(x, y)
         elseFn:number = add(x, y)
-        result:number = {
-          cond = {
-            condition = flag
-            then      = thenFn
-            else      = elseFn
-          }
-        }
+        result:number = #if(flag, thenFn, elseFn)
       }
     }
   }`))
-	b := binding(t, tm, 3)
-	if b.Expr == nil || b.Expr.Cond == nil {
-		t.Fatal("expected cond expr")
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
+	extRHS, ok := sc.ExtExprs[key]
+	if !ok {
+		t.Fatal("expected ExtExpr for result")
 	}
-	cond := b.Expr.Cond
-	if cond.Condition.Ref == nil || *cond.Condition.Ref != "flag" {
-		t.Errorf("condition.ref = %v", cond.Condition.Ref)
+	ifRHS, ok := extRHS.(*ast.IfCallRHS)
+	if !ok {
+		t.Fatalf("expected IfCallRHS, got %T", extRHS)
 	}
-	if cond.Then.FuncRef == nil || *cond.Then.FuncRef != "thenFn" {
-		t.Errorf("then.func_ref = %v", cond.Then.FuncRef)
+	cond, ok := ifRHS.Cond.(*ast.LocalRefExpr)
+	if !ok || cond.Name != "flag" {
+		t.Errorf("cond = %v, want ref to flag", ifRHS.Cond)
 	}
-	if cond.ElseBranch.FuncRef == nil || *cond.ElseBranch.FuncRef != "elseFn" {
-		t.Errorf("else.func_ref = %v", cond.ElseBranch.FuncRef)
+	thenRef, ok := ifRHS.Then.(*ast.LocalRefExpr)
+	if !ok || thenRef.Name != "thenFn" {
+		t.Errorf("then = %v, want ref to thenFn", ifRHS.Then)
+	}
+	elseRef, ok := ifRHS.Else.(*ast.LocalRefExpr)
+	if !ok || elseRef.Name != "elseFn" {
+		t.Errorf("else = %v, want ref to elseFn", ifRHS.Else)
 	}
 }
 
 // ─── #if RHS ──────────────────────────────────────────────────────────────────
 
 func TestLowerIfRHSBareRef(t *testing.T) {
-	// #if with bare ref → single cond binding (no auto-gen)
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	// #if(flag, thenFn, elseFn) with bare ref condition → IfCallRHS in sidecar
+	tm, sc := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
-        flag:bool    = true
+        flag:bool     = true
         thenFn:number = add(x, y)
         elseFn:number = add(x, y)
-        result:number = #if {
-          cond = flag
-          then = thenFn
-          else = elseFn
-        }
+        result:number = #if(flag, thenFn, elseFn)
       }
     }
   }`))
@@ -511,55 +506,53 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 	if len(bindings) != 4 {
 		t.Errorf("binding count = %d, want 4", len(bindings))
 	}
-	result := bindings[3]
-	if result.Name != "result" {
-		t.Errorf("last binding name = %q", result.Name)
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
+	extRHS, ok := sc.ExtExprs[key]
+	if !ok {
+		t.Fatal("expected ExtExpr for result")
 	}
-	if result.Expr.Cond.Condition.Ref == nil || *result.Expr.Cond.Condition.Ref != "flag" {
-		t.Errorf("cond ref = %v", result.Expr.Cond.Condition.Ref)
+	ifRHS, ok := extRHS.(*ast.IfCallRHS)
+	if !ok {
+		t.Fatalf("expected IfCallRHS, got %T", extRHS)
+	}
+	ref, ok := ifRHS.Cond.(*ast.LocalRefExpr)
+	if !ok || ref.Name != "flag" {
+		t.Errorf("cond ref = %v, want flag", ifRHS.Cond)
 	}
 }
 
 func TestLowerIfRHSCall(t *testing.T) {
-	// #if with inline call → auto-generated __if_result_cond binding first
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	// #if(gt(x,y), thenFn, elseFn) with call condition → IfCallRHS in sidecar, no auto-gen bindings
+	tm, sc := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
-        x:number     = 5
-        y:number     = 3
+        x:number      = 5
+        y:number      = 3
         thenFn:number = add(x, y)
         elseFn:number = add(x, y)
-        result:number = #if {
-          cond = gt(x, y)
-          then = thenFn
-          else = elseFn
-        }
+        result:number = #if(gt(x, y), thenFn, elseFn)
       }
     }
   }`))
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
-	// 6 bindings: x, y, thenFn, elseFn, __if_result_cond, result
-	if len(bindings) != 6 {
-		t.Errorf("binding count = %d, want 6", len(bindings))
+	// 5 bindings: x, y, thenFn, elseFn, result — no auto-generated __if_result_cond
+	if len(bindings) != 5 {
+		t.Errorf("binding count = %d, want 5", len(bindings))
 	}
-	autoGen := bindings[4]
-	if autoGen.Name != "__if_result_cond" {
-		t.Errorf("auto-gen name = %q, want __if_result_cond", autoGen.Name)
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
+	extRHS, ok := sc.ExtExprs[key]
+	if !ok {
+		t.Fatal("expected ExtExpr for result")
 	}
-	if autoGen.Type != "bool" {
-		t.Errorf("auto-gen type = %q, want bool", autoGen.Type)
+	ifRHS, ok := extRHS.(*ast.IfCallRHS)
+	if !ok {
+		t.Fatalf("expected IfCallRHS, got %T", extRHS)
 	}
-	if autoGen.Expr.Combine.Fn != "gt" {
-		t.Errorf("auto-gen fn = %q, want gt", autoGen.Expr.Combine.Fn)
-	}
-	mainB := bindings[5]
-	if mainB.Name != "result" {
-		t.Errorf("main binding name = %q", mainB.Name)
-	}
-	if mainB.Expr.Cond.Condition.Ref == nil || *mainB.Expr.Cond.Condition.Ref != "__if_result_cond" {
-		t.Errorf("cond ref = %v", mainB.Expr.Cond.Condition.Ref)
+	call, ok := ifRHS.Cond.(*ast.LocalCallExpr)
+	if !ok || call.FnAlias != "gt" {
+		t.Errorf("cond = %v, want LocalCallExpr{gt}", ifRHS.Cond)
 	}
 }
 
@@ -577,7 +570,7 @@ scene "test" {
     compute {
       root = score
       prog "p" {
-        ~>score:number = _
+        ~>score:number
       }
     }
     prepare {
@@ -643,7 +636,7 @@ scene "test" {
     compute {
       root = count
       prog "p" {
-        <~>count:number = _
+        <~>count:number
       }
     }
     prepare {

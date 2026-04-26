@@ -24,7 +24,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }
@@ -69,7 +69,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>val:number = _
+          ~>val:number
           go:bool = true
         }
       }
@@ -102,7 +102,7 @@ scene "test" {
 // ─── lowerArg: FuncRefArg and TransformArg branches ──────────────────────────
 
 func TestLowerArgFuncRef(t *testing.T) {
-	// Uses { func_ref = "thenFn" } as a pipe step argument, exercising lowerArg(FuncRefArg).
+	// Uses { func_ref = "thenFn" } as a function argument, exercising lowerArg(FuncRefArg).
 	// Lower does not type-check; validation is a separate phase.
 	src := minimal(`  entry_actions = ["a"]
   action "a" {
@@ -111,9 +111,7 @@ func TestLowerArgFuncRef(t *testing.T) {
       prog "p" {
         x:number      = 1
         thenFn:number = add(x, x)
-        result:number = #pipe(a:x)[
-          add({ func_ref = "thenFn" }, a)
-        ]
+        result:number = add({ func_ref = "thenFn" }, x)
       }
     }
   }`)
@@ -121,44 +119,40 @@ func TestLowerArgFuncRef(t *testing.T) {
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// result binding is the 3rd (index 2)
 	b := bindings[2]
-	if b.Expr == nil || b.Expr.Pipe == nil {
-		t.Fatal("expected pipe expr on result binding")
+	if b.Expr == nil || b.Expr.Combine == nil {
+		t.Fatal("expected combine expr on result binding")
 	}
-	step := b.Expr.Pipe.Steps[0]
-	if step.Args[0].FuncRef == nil || *step.Args[0].FuncRef != "thenFn" {
-		t.Errorf("step arg[0].FuncRef = %v, want thenFn", step.Args[0].FuncRef)
+	if b.Expr.Combine.Args[0].FuncRef == nil || *b.Expr.Combine.Args[0].FuncRef != "thenFn" {
+		t.Errorf("arg[0].FuncRef = %v, want thenFn", b.Expr.Combine.Args[0].FuncRef)
 	}
 }
 
 func TestLowerArgTransform(t *testing.T) {
-	// Uses { transform = { ref = "x" fn = "doThing" } } as a pipe step arg.
+	// Uses { transform = { ref = "x" fn = "doThing" } } as a function argument.
 	src := minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
         x:number      = 1
-        result:number = #pipe(a:x)[
-          add({ transform = { ref = "x" fn = "doThing" } }, a)
-        ]
+        result:number = add({ transform = { ref = "x" fn = "doThing" } }, x)
       }
     }
   }`)
 	tm, _ := mustLower(t, src)
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	b := bindings[1]
-	if b.Expr == nil || b.Expr.Pipe == nil {
-		t.Fatal("expected pipe expr on result binding")
+	if b.Expr == nil || b.Expr.Combine == nil {
+		t.Fatal("expected combine expr on result binding")
 	}
-	step := b.Expr.Pipe.Steps[0]
-	if step.Args[0].Transform == nil {
+	if b.Expr.Combine.Args[0].Transform == nil {
 		t.Fatal("expected transform arg")
 	}
-	if step.Args[0].Transform.Ref != "x" {
-		t.Errorf("transform.ref = %q, want x", step.Args[0].Transform.Ref)
+	if b.Expr.Combine.Args[0].Transform.Ref != "x" {
+		t.Errorf("transform.ref = %q, want x", b.Expr.Combine.Args[0].Transform.Ref)
 	}
-	if len(step.Args[0].Transform.Fn) != 1 || step.Args[0].Transform.Fn[0] != "doThing" {
-		t.Errorf("transform.fn = %v, want [doThing]", step.Args[0].Transform.Fn)
+	if len(b.Expr.Combine.Args[0].Transform.Fn) != 1 || b.Expr.Combine.Args[0].Transform.Fn[0] != "doThing" {
+		t.Errorf("transform.fn = %v, want [doThing]", b.Expr.Combine.Args[0].Transform.Fn)
 	}
 }
 
@@ -175,7 +169,7 @@ scene "test" {
     compute {
       root = items
       prog "p" {
-        ~>items:arr<number> = _
+        ~>items:arr<number>
       }
     }
     prepare {
@@ -208,7 +202,7 @@ scene "test" {
     compute {
       root = label
       prog "p" {
-        ~>label:str = _
+        ~>label:str
       }
     }
     prepare {
@@ -238,7 +232,7 @@ scene "test" {
     compute {
       root = flag
       prog "p" {
-        ~>flag:bool = _
+        ~>flag:bool
       }
     }
     prepare {
@@ -300,7 +294,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }
@@ -358,7 +352,7 @@ scene "test" {
     compute {
       root = x
       prog "p" {
-        ~>x:number = _
+        ~>x:number
       }
     }
   }
@@ -387,7 +381,7 @@ scene "test" {
     compute {
       root = x
       prog "p" {
-        ~>x:number = _
+        ~>x:number
       }
     }
     prepare {
@@ -421,7 +415,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }
@@ -481,7 +475,7 @@ scene "test" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }

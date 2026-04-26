@@ -101,7 +101,7 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = v prog "p" { ~>v:number = _ } }
+    compute { root = v prog "p" { ~>v:number } }
     prepare {
       v { from_state = }
     }

@@ -39,7 +39,7 @@ scene "s" {
     compute {
       root = done
       prog "p" {
-        ~>score:number = _
+        ~>score:number
         <~done:bool    = true
       }
     }
@@ -56,7 +56,7 @@ scene "s" {
       compute {
         condition = go
         prog "n" {
-          ~>score:number = _
+          ~>score:number
           go:bool = true
         }
       }

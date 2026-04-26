@@ -373,6 +373,7 @@ func (*CondRHS) bindingRHS() {}
 
 // IfRHS is `name:type = #if { cond = <expr> then = t else = e }`.
 // Cond may be *CondExprRef or *CondExprCall.
+// Deprecated: use IfCallRHS for the v0 #if(cond, then, else) form.
 type IfRHS struct {
 	Pos  Pos
 	Cond CondExpr
@@ -381,6 +382,158 @@ type IfRHS struct {
 }
 
 func (*IfRHS) bindingRHS() {}
+
+// ────────────────────────────────────────────────────────────
+// v0 local expression tree
+// ────────────────────────────────────────────────────────────
+
+// LocalExpr is a recursive expression node used inside #if, #case, and #pipe.
+type LocalExpr interface{ localExpr() }
+
+// LocalRefExpr is a bare identifier reference: `v` → `{ ref = "v" }`.
+type LocalRefExpr struct {
+	Pos  Pos
+	Name string
+}
+
+func (*LocalRefExpr) localExpr() {}
+
+// LocalLitExpr is a literal value: `42` → `{ lit = 42 }`.
+type LocalLitExpr struct {
+	Pos   Pos
+	Value Literal
+}
+
+func (*LocalLitExpr) localExpr() {}
+
+// LocalItExpr is `#it` — the current pipeline value; valid only inside #pipe steps.
+type LocalItExpr struct{ Pos Pos }
+
+func (*LocalItExpr) localExpr() {}
+
+// LocalCallExpr is a function call: `fn(arg1, arg2)`.
+type LocalCallExpr struct {
+	Pos     Pos
+	FnAlias string
+	Args    []LocalExpr
+}
+
+func (*LocalCallExpr) localExpr() {}
+
+// LocalInfixExpr is a binary infix expression: `lhs OP rhs`.
+type LocalInfixExpr struct {
+	Pos      Pos
+	Op       InfixOp
+	LHS, RHS LocalExpr
+}
+
+func (*LocalInfixExpr) localExpr() {}
+
+// LocalIfExpr is a nested `#if(cond, then, else)` expression.
+type LocalIfExpr struct {
+	Pos            Pos
+	Cond, Then, Else LocalExpr
+}
+
+func (*LocalIfExpr) localExpr() {}
+
+// LocalCaseExpr is a nested `#case(subject, arms...)` expression.
+type LocalCaseExpr struct {
+	Pos     Pos
+	Subject LocalExpr
+	Arms    []LocalCaseArm
+}
+
+func (*LocalCaseExpr) localExpr() {}
+
+// LocalPipeExpr is a nested `#pipe(initial, steps...)` expression.
+type LocalPipeExpr struct {
+	Pos     Pos
+	Initial LocalExpr
+	Steps   []LocalExpr
+}
+
+func (*LocalPipeExpr) localExpr() {}
+
+// ────────────────────────────────────────────────────────────
+// #case arm and pattern types
+// ────────────────────────────────────────────────────────────
+
+// LocalCaseArm is one arm of a #case expression.
+type LocalCaseArm struct {
+	Pos     Pos
+	Pattern LocalCasePattern
+	Guard   LocalExpr // nil if no guard
+	Expr    LocalExpr
+}
+
+// LocalCasePattern is a pattern in a #case arm.
+type LocalCasePattern interface{ localCasePattern() }
+
+// WildcardCasePattern matches any value without binding: `_`.
+type WildcardCasePattern struct{ Pos Pos }
+
+func (*WildcardCasePattern) localCasePattern() {}
+
+// LiteralCasePattern matches by value equality: `42`, `"run"`, `true`.
+type LiteralCasePattern struct {
+	Pos   Pos
+	Value Literal
+}
+
+func (*LiteralCasePattern) localCasePattern() {}
+
+// VarBinderPattern matches any value and binds it to a name: `x`.
+type VarBinderPattern struct {
+	Pos  Pos
+	Name string
+}
+
+func (*VarBinderPattern) localCasePattern() {}
+
+// TupleCasePattern matches a tuple structurally: `(pat1, pat2, ...)`.
+type TupleCasePattern struct {
+	Pos   Pos
+	Elems []LocalCasePattern
+}
+
+func (*TupleCasePattern) localCasePattern() {}
+
+// ────────────────────────────────────────────────────────────
+// v0 binding RHS types
+// ────────────────────────────────────────────────────────────
+
+// SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
+// with no right-hand side expression. The value is populated at runtime via prepare.
+type SigilInputRHS struct{}
+
+func (*SigilInputRHS) bindingRHS() {}
+
+// IfCallRHS is the v0 `#if(cond, then_expr, else_expr)` function-call form.
+type IfCallRHS struct {
+	Pos            Pos
+	Cond, Then, Else LocalExpr
+}
+
+func (*IfCallRHS) bindingRHS() {}
+
+// CaseCallRHS is the v0 `#case(subject, pattern => expr, ..., _ => default)` form.
+type CaseCallRHS struct {
+	Pos     Pos
+	Subject LocalExpr
+	Arms    []LocalCaseArm
+}
+
+func (*CaseCallRHS) bindingRHS() {}
+
+// PipeCallRHS is the v0 `#pipe(initial, step1, step2, ...)` form.
+type PipeCallRHS struct {
+	Pos     Pos
+	Initial LocalExpr
+	Steps   []LocalExpr
+}
+
+func (*PipeCallRHS) bindingRHS() {}
 
 // ────────────────────────────────────────────────────────────
 // Arg — argument in a function call, infix expression, or pipe step

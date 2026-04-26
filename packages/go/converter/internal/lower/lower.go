@@ -361,6 +361,14 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		bindings = []*turnoutpb.BindingModel{lowerLiteralRHS(name, ft, rhs)}
 	case *ast.PlaceholderRHS:
 		bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
+	case *ast.SigilInputRHS:
+		// Ingress (~>): same "resolve or error" behavior as old PlaceholderRHS.
+		// Bidir (<~>): silently use zero if no prepare; validator emits the bidir-specific error.
+		if decl.Sigil == ast.SigilBiDir {
+			bindings = []*turnoutpb.BindingModel{lowerBiDirInputRHS(name, ft, decl.Pos, resolver)}
+		} else {
+			bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
+		}
 	case *ast.SingleRefRHS:
 		bindings = []*turnoutpb.BindingModel{lowerSingleRefRHS(name, ft, rhs)}
 	case *ast.FuncCallRHS:
@@ -373,6 +381,10 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		bindings = []*turnoutpb.BindingModel{lowerCondRHS(name, ft, rhs)}
 	case *ast.IfRHS:
 		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
+	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
+		key := BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}
+		sc.ExtExprs[key] = rhs
+		bindings = []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
 	default:
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
@@ -401,6 +413,15 @@ func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *turnou
 
 func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, ds)
+	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
+}
+
+// lowerBiDirInputRHS resolves the default value for a <~> binding silently:
+// if there is no prepare entry, it emits zero value without an error so the
+// validator can emit the bidir-specific CodeBidirMissingPrepareEntry instead.
+func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver) *turnoutpb.BindingModel {
+	var noDiags diag.Diagnostics
+	val := resolver.resolveDefault(name, ft, pos, &noDiags)
 	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
 }
 

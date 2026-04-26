@@ -469,9 +469,14 @@ func TestValidateProgNil(t *testing.T) {
 // ─── pipe param source undefined ─────────────────────────────────────────────
 
 func TestPipeParamSourceUndefined(t *testing.T) {
-	src := min(`        result:number = #pipe(a:undefined_ref)[add(a, a)]
-`)
-	if !hasCode(pipeline(src), diag.CodeUndefinedRef) {
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "undefined_ref"}},
+			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUndefinedRef) {
 		t.Error("want UndefinedRef for pipe param with undefined source")
 	}
 }
@@ -479,10 +484,14 @@ func TestPipeParamSourceUndefined(t *testing.T) {
 // ─── pipe step unknown function ───────────────────────────────────────────────
 
 func TestPipeStepUnknownFunction(t *testing.T) {
-	src := min(`        x:number = 1
-        result:number = #pipe(a:x)[unknown_fn(a, a)]
-`)
-	if !hasCode(pipeline(src), diag.CodeUnknownFnAlias) {
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+			Steps:  []*turnoutpb.PipeStep{{Fn: "unknown_fn", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUnknownFnAlias) {
 		t.Error("want UnknownFnAlias for pipe step with unknown function")
 	}
 }
@@ -490,11 +499,15 @@ func TestPipeStepUnknownFunction(t *testing.T) {
 // ─── pipe last step type mismatch ────────────────────────────────────────────
 
 func TestPipeLastStepTypeMismatch(t *testing.T) {
-	// add returns number but binding is bool
-	src := min(`        x:number = 1
-        result:bool = #pipe(a:x)[add(a, a)]
-`)
-	if !hasCode(pipeline(src), diag.CodeReturnTypeMismatch) {
+	// add returns number but binding is bool → ReturnTypeMismatch
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
+		{Name: "out", Type: "bool", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeReturnTypeMismatch) {
 		t.Error("want ReturnTypeMismatch for pipe last step type mismatch")
 	}
 }
@@ -657,7 +670,7 @@ scene "test" {
     compute {
       root = v
       prog "p" {
-        ~>x:number = _
+        ~>x:number
         v:bool = true
       }
     }
@@ -679,7 +692,7 @@ scene "test" {
     compute {
       root = v
       prog "p" {
-        <~>x:number = 0
+        <~>x:number
         v:bool = true
       }
     }
@@ -704,7 +717,7 @@ scene "test" {
   action "a" {
     compute { root = r prog "p" { r:bool = true } }
     next {
-      compute { condition = go prog "n" { ~>score:number = _ go:bool = true } }
+      compute { condition = go prog "n" { ~>score:number go:bool = true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -726,7 +739,7 @@ scene "test" {
   action "a" {
     compute { root = r prog "p" { r:bool = true } }
     next {
-      compute { condition = go prog "n" { ~>score:number = _ go:bool = true } }
+      compute { condition = go prog "n" { ~>score:number go:bool = true } }
       prepare { score { from_state = app.score } }
       action = a
     }
@@ -748,7 +761,7 @@ scene "test" {
   action "a" {
     compute { root = r prog "p" { r:bool = true } }
     next {
-      compute { condition = go prog "n" { ~>score:number = _ go:bool = true } }
+      compute { condition = go prog "n" { ~>score:number go:bool = true } }
       prepare { score { from_literal = 42 } }
       action = a
     }
@@ -766,20 +779,29 @@ scene "test" {
 // ─── validateStatePath from next prepare from_state ──────────────────────────
 
 func TestNextPrepareFromStateInvalidPath(t *testing.T) {
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute { root = r prog "p" { r:bool = true } }
-    next {
-      compute { condition = go prog "n" { ~>score:number = 0 go:bool = true } }
-      prepare { score { from_state = nodot } }
-      action = a
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
+	// Build model directly: next prepare with from_state = "nodot" (no dot) → InvalidStatePath
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "test",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "r",
+					Prog: &turnoutpb.ProgModel{
+						Name:     "p",
+						Bindings: []*turnoutpb.BindingModel{{Name: "r", Type: "bool", Value: structpb.NewBoolValue(true)}},
+					},
+				},
+				Next: []*turnoutpb.NextRuleModel{{
+					Action:  "a",
+					Prepare: []*turnoutpb.NextPrepareEntry{{Binding: "score", FromState: proto.String("nodot")}},
+				}},
+			}},
+		}},
+	}
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeInvalidStatePath) {
 		t.Error("want InvalidStatePath for next prepare from_state with invalid path")
 	}
 }
@@ -810,24 +832,29 @@ scene "test" {
 // ─── validateStatePath: invalid path and not in schema ───────────────────────
 
 func TestValidateStatePathInvalidPath(t *testing.T) {
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = v
-      prog "p" {
-        ~>x:number = 0
-        v:bool = true
-      }
-    }
-    prepare {
-      x { from_state = nodot }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
+	// Build model directly: action prepare with from_state = "nodot" (no dot) → InvalidStatePath
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "test",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "v",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)},
+							{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
+						},
+					},
+				},
+				Prepare: []*turnoutpb.PrepareEntry{{Binding: "x", FromState: proto.String("nodot")}},
+			}},
+		}},
+	}
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeInvalidStatePath) {
 		t.Error("want InvalidStatePath for prepare from_state with invalid path")
 	}
 }
@@ -840,7 +867,7 @@ scene "test" {
     compute {
       root = v
       prog "p" {
-        ~>x:number = _
+        ~>x:number
         v:bool = true
       }
     }
@@ -1203,14 +1230,21 @@ func TestResolveArgTypeFuncRef(t *testing.T) {
 
 func TestResolveArgTypeStepRef(t *testing.T) {
 	// pipe with step_ref — resolveArgType StepRef branch
-	src := min(`        x:number = 1
-        y:number = 2
-        out:number = #pipe(a:x, b:y)[
-          add(a, b),
-          add({ step_ref = 0 }, b)
-        ]
-`)
-	ds := pipeline(src)
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
+		{Name: "y", Type: "number", Value: structpb.NewNumberValue(2)},
+		{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{
+				{ParamName: "a", SourceIdent: "x"},
+				{ParamName: "b", SourceIdent: "y"},
+			},
+			Steps: []*turnoutpb.PipeStep{
+				{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("b")}}},
+				{Fn: "add", Args: []*turnoutpb.ArgModel{{StepRef: proto.Int32(0)}, {Ref: proto.String("b")}}},
+			},
+		}}},
+	})
+	ds := validate.Validate(model, nil, nil)
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("unexpected error: %s", d.Format())
