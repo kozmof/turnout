@@ -450,7 +450,7 @@ func (p *parser) parseRHS(_ string) ast.BindingRHS {
 		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket:
 		return &ast.LiteralRHS{Value: p.parseLiteral()}
 
-	// ── _ is invalid as a binding RHS (v0: only valid in #case patterns) ──
+	// ── _ is invalid as a binding RHS (v1: only valid in #case patterns) ──
 	case lexer.TokUnderscore:
 		p.errorf(t, "_ is not a valid binding RHS; it is reserved for #case wildcard patterns")
 		p.advance()
@@ -468,9 +468,9 @@ func (p *parser) parseRHS(_ string) ast.BindingRHS {
 	case lexer.TokHashCase:
 		return p.parseCaseCallRHS()
 
-	// ── block form: rejected in v0 ─────────────────────────────────────────
+	// ── block form: rejected in v1 ─────────────────────────────────────────
 	case lexer.TokLBrace:
-		p.errorf(t, "block-form expressions are not supported in v0; use #if(cond, then, else), #case(...), or call syntax fn(args)")
+		p.errorf(t, "block-form expressions are not supported in v1; use #if(cond, then, else), #case(...), or call syntax fn(args)")
 		p.skipBlock()
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
@@ -542,7 +542,7 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 	}
 }
 
-// ─── #if (v0 function-call form) ─────────────────────────────────────────────
+// ─── #if (v1 function-call form) ─────────────────────────────────────────────
 
 // parseIfCallRHS parses `#if(cond_expr, then_expr, else_expr)`.
 func (p *parser) parseIfCallRHS() ast.BindingRHS {
@@ -558,7 +558,7 @@ func (p *parser) parseIfCallRHS() ast.BindingRHS {
 	return &ast.IfCallRHS{Pos: pos, Cond: cond, Then: then, Else: els}
 }
 
-// ─── #case (v0 form) ──────────────────────────────────────────────────────────
+// ─── #case (v1 form) ──────────────────────────────────────────────────────────
 
 // parseCaseCallRHS parses `#case(subject, pattern => expr, ..., _ => default)`.
 func (p *parser) parseCaseCallRHS() ast.BindingRHS {
@@ -629,7 +629,7 @@ func (p *parser) parseTupleCasePattern() *ast.TupleCasePattern {
 	return &ast.TupleCasePattern{Pos: pos, Elems: elems}
 }
 
-// ─── #pipe (v0 function-call form) ───────────────────────────────────────────
+// ─── #pipe (v1 function-call form) ───────────────────────────────────────────
 
 // parsePipeCallRHS parses `#pipe(initial_expr, step1_expr, step2_expr, ...)`.
 func (p *parser) parsePipeCallRHS() ast.BindingRHS {

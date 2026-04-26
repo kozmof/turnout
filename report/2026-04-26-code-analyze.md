@@ -34,7 +34,7 @@ Each package has a single, clearly-stated responsibility. The `diag` package pro
 
 | Interface | Variants |
 |-----------|----------|
-| `BindingRHS` | `LiteralRHS`, `PlaceholderRHS`, `SigilInputRHS`, `SingleRefRHS`, `FuncCallRHS`, `InfixRHS`, `PipeRHS`, `CondRHS`, `IfRHS` (legacy) · `IfCallRHS`, `CaseCallRHS`, `PipeCallRHS` (v0) |
+| `BindingRHS` | `LiteralRHS`, `SigilInputRHS`, `SingleRefRHS`, `FuncCallRHS`, `InfixRHS`, `IfCallRHS`, `CaseCallRHS`, `PipeCallRHS` (v1) |
 | `Arg` | `RefArg`, `LitArg`, `FuncRefArg`, `StepRefArg`, `TransformArg`, `MethodCallArg` |
 | `LocalExpr` | `LocalRefExpr`, `LocalLitExpr`, `LocalItExpr`, `LocalCallExpr`, `LocalInfixExpr`, `LocalIfExpr`, `LocalCaseExpr`, `LocalPipeExpr` |
 | `LocalCasePattern` | `WildcardCasePattern`, `LiteralCasePattern`, `VarBinderPattern`, `TupleCasePattern` |
@@ -67,7 +67,6 @@ main.go: ParseFile → state.Resolve → lower.Lower → validate.Validate → e
 ```
 lowerBinding (lower.go:355)
   ├── lowerLiteralRHS / lowerSingleRefRHS / lowerFuncCallRHS / lowerInfixRHS
-  ├── lowerIfRHS / lowerCondRHS / lowerPipeRHS   (legacy flat forms)
   └── (IfCallRHS | CaseCallRHS | PipeCallRHS) → localLowerer.lowerTop
        ├── lowerIfInto    → lowerExprTemp (cond, then, else) → appendBinding
        ├── lowerCaseInto  → right-to-left fold of nested CondExpr bindings
@@ -142,19 +141,16 @@ Promoting these to hard keyword tokens (`TokKwRoute`, `TokKwMatch`) would make p
 
 ## 7. Improvement Points 2 (Types/Interfaces)
 
-**T1 — `BindingRHS` has 12 variants including clearly-deprecated ones:**
-`PlaceholderRHS`, `CondRHS`, `IfRHS`, `PipeRHS` are the pre-v0 forms. Their presence alongside the v0 forms (`SigilInputRHS`, `IfCallRHS`, `CaseCallRHS`, `PipeCallRHS`) creates cognitive overhead. A migration or clearer doc-comment marking legacy vs. current would help.
+**T1 — `Arg` and `LocalExpr` are parallel hierarchies:**
+`Arg` is for the proto-lowering path; `LocalExpr` is for the v1 expression tree. Both define literal, reference, and call variants — unification or explicit bridging types would reduce the total surface area.
 
-**T2 — `Arg` and `LocalExpr` are parallel hierarchies:**
-`Arg` is for the proto-lowering path; `LocalExpr` is for the v0 expression tree. Both define literal, reference, and call variants — unification or explicit bridging types would reduce the total surface area.
-
-**T3 — `PrepareSource`/`NextPrepareSource` split not enforced by types:**
+**T2 — `PrepareSource`/`NextPrepareSource` split not enforced by types:**
 The constraint "FromLiteral is forbidden in action-level prepare" lives only in the validator comment and documentation. A separate `ActionPrepareSource` type (without `FromLiteral`) would make this a compile-time guarantee.
 
-**T4 — `FuncTableEntry.argMap` asymmetry in TypeScript:**
+**T3 — `FuncTableEntry.argMap` asymmetry in TypeScript:**
 `combine` and `pipe` entries carry `argMap`; `cond` does not (types.ts:44–46). Code touching `FuncTableEntry` must always special-case `cond`. Documenting why (cond resolves its inputs differently) would help.
 
-**T5 — Branded type leakage in `hcl-context-builder.ts`:**
+**T4 — Branded type leakage in `hcl-context-builder.ts`:**
 Numerous `as FuncId`, `as ValueId`, `as ContextSpec` casts in `hcl-context-builder.ts:237–244` indicate the bridge between proto model and runtime types is not type-safe at the boundary. A typed adapter layer would eliminate these escape hatches.
 
 ---

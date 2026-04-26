@@ -1,4 +1,4 @@
-# Specification Update: v0 Local Expressions and Sigil Inputs
+# Specification Update: v1 Local Expressions and Sigil Inputs
 
 **Date:** 2026-04-25
 
@@ -6,7 +6,7 @@
 
 ## Summary
 
-The specification set was updated to make the v0 Turnout DSL stricter and clearer around local expressions and STATE-connected bindings.
+The specification set was updated to make the v1 Turnout DSL stricter and clearer around local expressions and STATE-connected bindings.
 
 The main change is a clean separation of meanings:
 
@@ -20,7 +20,7 @@ This removes the previous ambiguity where `_` could look like both a wildcard an
 
 ## Expression Forms
 
-The v0 local expression surface now centers on:
+The v1 local expression surface now centers on:
 
 ```turn
 #if(cond, then_expr, else_expr)
@@ -42,14 +42,7 @@ The v0 local expression surface now centers on:
 )
 ```
 
-Legacy or compatibility-style forms are not part of v0:
-
-- block-style `#if { ... }`
-- block-style `cond`
-- `#pipe(x:v)[...]`
-- object-form function calls like `{ add = [x, y] }`
-
-The specs now call these non-v0 forms out as unsupported instead of describing compatibility behavior.
+The specs treat non-v1 forms as unsupported.
 
 ---
 
@@ -102,7 +95,7 @@ The tokenizer/parser should reject `_` outside `#case` patterns. In particular, 
 
 `#it` should be valid only inside `#pipe` steps.
 
-The converter should reject non-v0 expression shapes rather than normalize them.
+The converter should reject non-v1 expression shapes rather than normalize them.
 
 ---
 

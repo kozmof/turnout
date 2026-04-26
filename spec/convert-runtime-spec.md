@@ -105,7 +105,7 @@ Rules:
 
 - The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output; typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
 - The Go CLI cannot emit bare identifiers in argument positions; all references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
-- The Go CLI cannot accept or emit non-v0 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `#pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
+- The Go CLI cannot accept or emit non-v1 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `#pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
 - The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output; encountering them **must produce an `UnsupportedConstruct` error** and abort without emitting any HCL.
 - The Go CLI cannot emit HCL that is not parseable by a stock HCL parser.
 - The Go CLI cannot emit a file in which two `action` blocks share the same name label.

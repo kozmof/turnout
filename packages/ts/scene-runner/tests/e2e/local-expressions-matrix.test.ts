@@ -1,5 +1,5 @@
 /**
- * E2E: v0 local expressions matrix
+ * E2E: v1 local expressions matrix
  *
  * Pipeline: generated .turn DSL -> Go converter -> proto JSON -> scene-runner
  * runtime -> STATE/output assertions.
@@ -394,7 +394,7 @@ route "pipe_route" {
   },
 ];
 
-describe('v0 local expressions — DSL convert runtime output matrix', () => {
+describe('v1 local expressions — DSL convert runtime output matrix', () => {
   for (const tc of cases) {
     it(`${tc.pattern} / ${tc.complexity}`, async () => {
       const turnFile = writeTurn(tc.name, tc.src);

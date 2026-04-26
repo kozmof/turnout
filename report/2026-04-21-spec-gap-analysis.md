@@ -104,10 +104,10 @@ Changed `string fn` → `repeated string fn` in `TransformArg` so the wire forma
 
 *Go converter* (`packages/go/converter`):
 - `ast.go`: added `MethodCallArg{Receiver, Methods}` node; changed `TransformArg.Fn` to `[]string`.
-- `parser.go`: extended `parseArg` to detect `ident.method()...` chains and call `parseMethodChain`; updated `parseBlockArg` to handle the new `fn = [...]` list form (with legacy single-string backward compat).
+- `parser.go`: extended `parseArg` to detect `ident.method()...` chains and call `parseMethodChain`; updated `parseBlockArg` to handle the new `fn = [...]` list form.
 - `lower.go`: added `methodTable` (15 entries mapping DSL method names to qualified `transformFn::name` strings per type), `lookupMethod`, `lowerMethodCallArg`; threading `bindingTypes` context through all lowering functions so method names can be qualified correctly.
 - `emit.go`: changed transform serialisation from `fn = "x"` to `fn = ["x", ...]`.
-- `hcl_decode.go`: updated `fn` decoding to handle both list and legacy single-string forms.
+- `hcl_decode.go`: updated `fn` decoding to handle the list form.
 
 ---
 

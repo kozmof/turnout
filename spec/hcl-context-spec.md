@@ -88,7 +88,7 @@ After `name:type =`, the parser selects the form by examining the first and seco
 | bare `IDENT` (not `true`/`false`) | `(` | function call |
 | bare `IDENT` (not `true`/`false`) | `&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=` | infix expression |
 | bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | **single-reference form** |
-| `{` | any | block form (reserved constructs only; not used for v0 function expressions) |
+| `{` | any | block form (reserved constructs only; not used for v1 function expressions) |
 | `#pipe` | any | pipe form |
 | `#if` | any | if form |
 | `#case` | any | case form |
@@ -175,7 +175,7 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep `name:type` as an attribute key.
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
-- Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not part of v0.
+- Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not part of v1.
 - A single binary call cannot mix positional and named argument forms.
 - Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
 - Infix expressions support only `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, `%`, with exactly two operands.
@@ -572,7 +572,7 @@ prog "main" {
 | `UnknownFnAlias` | Function alias not in the built-in table |
 | `OperatorOnlyFn` | Call-form alias used for a function that requires operator syntax (`bool_and`, `gte`, `lte`, `str_concat`) |
 | `UndefinedRef` | Bare identifier references an unknown binding |
-| `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in v0 source |
+| `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in v1 source |
 | `InvalidBinaryArgShape` | Binary call is not `(x, y)` and not `(a: ..., b: ...)` |
 | `InvalidInfixExpr` | Infix expression is malformed, uses an unsupported operator, or violates operator/type pairing |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |

@@ -373,7 +373,7 @@ func (*CondRHS) bindingRHS() {}
 
 // IfRHS is `name:type = #if { cond = <expr> then = t else = e }`.
 // Cond may be *CondExprRef or *CondExprCall.
-// Deprecated: use IfCallRHS for the v0 #if(cond, then, else) form.
+// Use IfCallRHS for the v1 #if(cond, then, else) form.
 type IfRHS struct {
 	Pos  Pos
 	Cond CondExpr
@@ -384,7 +384,7 @@ type IfRHS struct {
 func (*IfRHS) bindingRHS() {}
 
 // ────────────────────────────────────────────────────────────
-// v0 local expression tree
+// v1 local expression tree
 // ────────────────────────────────────────────────────────────
 
 // LocalExpr is a recursive expression node used inside #if, #case, and #pipe.
@@ -500,7 +500,7 @@ type TupleCasePattern struct {
 func (*TupleCasePattern) localCasePattern() {}
 
 // ────────────────────────────────────────────────────────────
-// v0 binding RHS types
+// v1 binding RHS types
 // ────────────────────────────────────────────────────────────
 
 // SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
@@ -509,7 +509,7 @@ type SigilInputRHS struct{}
 
 func (*SigilInputRHS) bindingRHS() {}
 
-// IfCallRHS is the v0 `#if(cond, then_expr, else_expr)` function-call form.
+// IfCallRHS is the v1 `#if(cond, then_expr, else_expr)` function-call form.
 type IfCallRHS struct {
 	Pos            Pos
 	Cond, Then, Else LocalExpr
@@ -517,7 +517,7 @@ type IfCallRHS struct {
 
 func (*IfCallRHS) bindingRHS() {}
 
-// CaseCallRHS is the v0 `#case(subject, pattern => expr, ..., _ => default)` form.
+// CaseCallRHS is the v1 `#case(subject, pattern => expr, ..., _ => default)` form.
 type CaseCallRHS struct {
 	Pos     Pos
 	Subject LocalExpr
@@ -526,7 +526,7 @@ type CaseCallRHS struct {
 
 func (*CaseCallRHS) bindingRHS() {}
 
-// PipeCallRHS is the v0 `#pipe(initial, step1, step2, ...)` form.
+// PipeCallRHS is the v1 `#pipe(initial, step1, step2, ...)` form.
 type PipeCallRHS struct {
 	Pos     Pos
 	Initial LocalExpr
