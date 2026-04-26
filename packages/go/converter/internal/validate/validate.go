@@ -5,6 +5,7 @@
 package validate
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -41,26 +42,26 @@ type fnSpec struct {
 // ─────────────────────────────────────────────────────────────────────────────
 
 var builtinFns = map[string]fnSpec{
-	"add": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"sub": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"mul": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"div": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"mod": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"max": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"min": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"gt":  {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"gte": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"lt":  {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"lte": {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"add":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
+	"sub":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
+	"mul":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
+	"div":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
+	"mod":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
+	"max":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
+	"min":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
+	"gt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"gte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"lt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"lte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"str_concat":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeStr, operatorOnly: true},
 	"str_includes": {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
 	"str_starts":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
 	"str_ends":     {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
-	"bool_and": {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"bool_or":  {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"bool_xor": {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	"eq":  {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
-	"neq": {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
+	"bool_and":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"bool_or":      {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"bool_xor":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
+	"eq":           {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
+	"neq":          {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
 	"arr_includes": {isArrInc: true},
 	"arr_get":      {isArrGet: true},
 	"arr_concat":   {isArrConcat: true},
@@ -203,7 +204,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			scope = validateProg(a.Compute.Prog, schema, false, sc, scene.Id, a.Id, ds)
+			scope = validateProg(a.Compute.Prog, schema, false, sc, scene.Id, a.Id, "compute", ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -218,14 +219,14 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 		}
 		_ = scope
 
-		for _, nr := range a.Next {
+		for i, nr := range a.Next {
 			if nr.Action != "" {
 				if _, ok := actionIndex[nr.Action]; !ok {
 					*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, sc, scene.Id, a.Id, ds)
+			validateNextRule(nr, schema, sc, scene.Id, a.Id, "next:"+strconv.Itoa(i), ds)
 		}
 	}
 }
@@ -234,7 +235,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, sc *lower.Sidecar, sceneID, actionID string, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, sc *lower.Sidecar, sceneID, actionID, scopeName string, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -250,10 +251,10 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 			seen[b.Name] = true
 		}
 		ft, _ := ast.FieldTypeFromString(b.Type)
-		sigil := sigilFor(sc, sceneID, actionID, prog.Name, b.Name)
+		sigil := sigilFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
-			isFunc:    b.Expr != nil,
+			isFunc:    b.Expr != nil || extExprFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name) != nil,
 			sigil:     sigil,
 		}
 	}
@@ -261,7 +262,8 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	// Pass 2: structural + type checks.
 	for _, b := range prog.Bindings {
 		ft, _ := ast.FieldTypeFromString(b.Type)
-		sigil := sigilFor(sc, sceneID, actionID, prog.Name, b.Name)
+		sigil := sigilFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
+		extExpr := extExprFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !(strings.HasPrefix(b.Name, "__if_") && strings.HasSuffix(b.Name, "_cond")) {
@@ -273,6 +275,11 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		if isTransition && (sigil == ast.SigilEgress || sigil == ast.SigilBiDir) {
 			*ds = append(*ds, diag.Errorf(diag.CodeTransitionOutputSigil,
 				"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
+		}
+
+		if extExpr != nil {
+			validateExtExpr(b, extExpr, scope, ds)
+			continue
 		}
 
 		if b.Value != nil {
@@ -302,11 +309,41 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 
 // sigilFor looks up the sigil for a binding in the sidecar. Returns SigilNone
 // when the sidecar is nil or no entry exists.
-func sigilFor(sc *lower.Sidecar, sceneID, actionID, progName, bindingName string) ast.Sigil {
+func sigilFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName string) ast.Sigil {
 	if sc == nil {
 		return ast.SigilNone
 	}
+	if sigil, ok := sc.Sigils[lower.BindingKey{
+		SceneID:     sceneID,
+		ActionID:    actionID,
+		Scope:       scope,
+		ProgName:    progName,
+		BindingName: bindingName,
+	}]; ok {
+		return sigil
+	}
 	return sc.Sigils[lower.BindingKey{
+		SceneID:     sceneID,
+		ActionID:    actionID,
+		ProgName:    progName,
+		BindingName: bindingName,
+	}]
+}
+
+func extExprFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName string) ast.BindingRHS {
+	if sc == nil {
+		return nil
+	}
+	if rhs, ok := sc.ExtExprs[lower.BindingKey{
+		SceneID:     sceneID,
+		ActionID:    actionID,
+		Scope:       scope,
+		ProgName:    progName,
+		BindingName: bindingName,
+	}]; ok {
+		return rhs
+	}
+	return sc.ExtExprs[lower.BindingKey{
 		SceneID:     sceneID,
 		ActionID:    actionID,
 		ProgName:    progName,
@@ -573,6 +610,316 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Extended local expression validation (#if / #case / #pipe / #it sidecar)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func validateExtExpr(b *turnoutpb.BindingModel, rhs ast.BindingRHS, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+	var ret ast.FieldType
+	var known bool
+	switch r := rhs.(type) {
+	case *ast.IfCallRHS:
+		ret, known = validateLocalIf(b.Name, r.Cond, r.Then, r.Else, scope, 0, false, ds)
+	case *ast.CaseCallRHS:
+		ret, known = validateLocalCase(b.Name, r.Subject, r.Arms, scope, 0, false, ds)
+	case *ast.PipeCallRHS:
+		ret, known = validateLocalPipe(b.Name, r.Initial, r.Steps, scope, 0, false, ds)
+	default:
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: unsupported extended expression %T", b.Name, rhs))
+		return
+	}
+	if known {
+		bFt, _ := ast.FieldTypeFromString(b.Type)
+		if ret != bFt {
+			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+				"binding %q: extended expression returns %s but binding declares type %s",
+				b.Name, ret, b.Type))
+		}
+	}
+}
+
+func validateLocalExpr(bindingName string, e ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	switch x := e.(type) {
+	case *ast.LocalRefExpr:
+		info, ok := scope[x.Name]
+		if !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+				"binding %q: reference %q is not defined", bindingName, x.Name))
+			return 0, false
+		}
+		return info.fieldType, true
+	case *ast.LocalLitExpr:
+		return literalFieldType(x.Value)
+	case *ast.LocalItExpr:
+		if !itAllowed {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+				"binding %q: #it is only valid inside #pipe step expressions", bindingName))
+			return 0, false
+		}
+		if itType == 0 {
+			return 0, false
+		}
+		return itType, true
+	case *ast.LocalCallExpr:
+		return validateLocalCall(bindingName, x, scope, itType, itAllowed, ds)
+	case *ast.LocalInfixExpr:
+		return validateLocalInfix(bindingName, x, scope, itType, itAllowed, ds)
+	case *ast.LocalIfExpr:
+		return validateLocalIf(bindingName, x.Cond, x.Then, x.Else, scope, itType, itAllowed, ds)
+	case *ast.LocalCaseExpr:
+		return validateLocalCase(bindingName, x.Subject, x.Arms, scope, itType, itAllowed, ds)
+	case *ast.LocalPipeExpr:
+		return validateLocalPipe(bindingName, x.Initial, x.Steps, scope, itType, itAllowed, ds)
+	default:
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: unsupported local expression %T", bindingName, e))
+		return 0, false
+	}
+}
+
+func validateLocalCall(bindingName string, call *ast.LocalCallExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	spec, ok := builtinFns[call.FnAlias]
+	if !ok {
+		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
+			"binding %q: unknown function alias %q", bindingName, call.FnAlias))
+		return 0, false
+	}
+	argTypes := make([]ast.FieldType, len(call.Args))
+	argKnown := make([]bool, len(call.Args))
+	for i, arg := range call.Args {
+		argTypes[i], argKnown[i] = validateLocalExpr(bindingName, arg, scope, itType, itAllowed, ds)
+	}
+	validateLocalCallArgTypes(bindingName, call.FnAlias, spec, argTypes, argKnown, ds)
+	return resolveLocalCallReturn(spec, argTypes, argKnown)
+}
+
+func validateLocalInfix(bindingName string, infix *ast.LocalInfixExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	lhsType, lhsOK := validateLocalExpr(bindingName, infix.LHS, scope, itType, itAllowed, ds)
+	rhsType, rhsOK := validateLocalExpr(bindingName, infix.RHS, scope, itType, itAllowed, ds)
+	fn := infix.Op.FnAlias()
+	if fn == "" {
+		if lhsOK && rhsOK && lhsType == ast.FieldTypeStr && rhsType == ast.FieldTypeStr {
+			return ast.FieldTypeStr, true
+		}
+		fn = "add"
+	}
+	spec, ok := builtinFns[fn]
+	if !ok {
+		return 0, false
+	}
+	validateLocalCallArgTypes(bindingName, fn, spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK}, ds)
+	return resolveLocalCallReturn(spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK})
+}
+
+func validateLocalIf(bindingName string, cond, thenExpr, elseExpr ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	condType, condOK := validateLocalExpr(bindingName, cond, scope, itType, itAllowed, ds)
+	if condOK && condType != ast.FieldTypeBool {
+		*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+			"binding %q: #if condition has type %s; bool required", bindingName, condType))
+	}
+	thenType, thenOK := validateLocalExpr(bindingName, thenExpr, scope, itType, itAllowed, ds)
+	elseType, elseOK := validateLocalExpr(bindingName, elseExpr, scope, itType, itAllowed, ds)
+	if thenOK && elseOK && thenType != elseType {
+		*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+			"binding %q: #if branches return %s and %s", bindingName, thenType, elseType))
+		return 0, false
+	}
+	if thenOK {
+		return thenType, true
+	}
+	if elseOK {
+		return elseType, true
+	}
+	return 0, false
+}
+
+func validateLocalCase(bindingName string, subject ast.LocalExpr, arms []ast.LocalCaseArm, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	subjectType, subjectOK := validateLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
+	var ret ast.FieldType
+	retOK := false
+	for _, arm := range arms {
+		armScope := scopeWithPatternBindings(scope, arm.Pattern, subjectType, subjectOK)
+		validatePattern(bindingName, arm.Pattern, subjectType, subjectOK, ds)
+		if arm.Guard != nil {
+			guardType, guardOK := validateLocalExpr(bindingName, arm.Guard, armScope, itType, itAllowed, ds)
+			if guardOK && guardType != ast.FieldTypeBool {
+				*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+					"binding %q: #case guard has type %s; bool required", bindingName, guardType))
+			}
+		}
+		armType, armOK := validateLocalExpr(bindingName, arm.Expr, armScope, itType, itAllowed, ds)
+		if !armOK {
+			continue
+		}
+		if retOK && armType != ret {
+			*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+				"binding %q: #case arms return %s and %s", bindingName, ret, armType))
+			continue
+		}
+		ret = armType
+		retOK = true
+	}
+	return ret, retOK
+}
+
+func validateLocalPipe(bindingName string, initial ast.LocalExpr, steps []ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	current, known := validateLocalExpr(bindingName, initial, scope, itType, itAllowed, ds)
+	for _, step := range steps {
+		stepType, stepOK := validateLocalExpr(bindingName, step, scope, current, true, ds)
+		current, known = stepType, stepOK
+	}
+	return current, known
+}
+
+func literalFieldType(lit ast.Literal) (ast.FieldType, bool) {
+	switch v := lit.(type) {
+	case *ast.NumberLiteral:
+		return ast.FieldTypeNumber, true
+	case *ast.StringLiteral:
+		return ast.FieldTypeStr, true
+	case *ast.BoolLiteral:
+		return ast.FieldTypeBool, true
+	case *ast.ArrayLiteral:
+		if len(v.Elements) == 0 {
+			return ast.FieldTypeArrNumber, false
+		}
+		elemType, ok := literalFieldType(v.Elements[0])
+		if !ok {
+			return 0, false
+		}
+		for _, elem := range v.Elements[1:] {
+			t, ok := literalFieldType(elem)
+			if !ok || t != elemType {
+				return 0, false
+			}
+		}
+		switch elemType {
+		case ast.FieldTypeNumber:
+			return ast.FieldTypeArrNumber, true
+		case ast.FieldTypeStr:
+			return ast.FieldTypeArrStr, true
+		case ast.FieldTypeBool:
+			return ast.FieldTypeArrBool, true
+		}
+	}
+	return 0, false
+}
+
+func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
+	if len(types) < 2 {
+		return
+	}
+	t1, ok1 := types[0], known[0]
+	t2, ok2 := types[1], known[1]
+	switch {
+	case spec.isGeneric:
+		if ok1 && ok2 && t1 != t2 {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: %s requires homogeneous operand types, got %s and %s", bindingName, fn, t1, t2))
+		}
+	case spec.isArrGet:
+		if ok1 && !t1.IsArray() {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: arr_get arg1 must be an array type, got %s", bindingName, t1))
+		}
+		if ok2 && t2 != ast.FieldTypeNumber {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: arr_get arg2 must be number, got %s", bindingName, t2))
+		}
+	case spec.isArrInc:
+		if ok1 && !t1.IsArray() {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: arr_includes arg1 must be an array type, got %s", bindingName, t1))
+		}
+		if ok1 && ok2 && t1.IsArray() && t2 != t1.ElemType() {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: arr_includes arg2 type %s does not match array element type %s",
+				bindingName, t2, t1.ElemType()))
+		}
+	case spec.isArrConcat:
+		if ok1 && !t1.IsArray() {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: arr_concat arg1 must be array, got %s", bindingName, t1))
+		}
+		if ok1 && ok2 && t1 != t2 {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: arr_concat args must have same array type, got %s and %s", bindingName, t1, t2))
+		}
+	default:
+		if ok1 && t1 != spec.arg1Type {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: %s arg1 expects %s, got %s", bindingName, fn, spec.arg1Type, t1))
+		}
+		if ok2 && t2 != spec.arg2Type {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: %s arg2 expects %s, got %s", bindingName, fn, spec.arg2Type, t2))
+		}
+	}
+}
+
+func resolveLocalCallReturn(spec fnSpec, types []ast.FieldType, known []bool) (ast.FieldType, bool) {
+	switch {
+	case spec.isGeneric, spec.isArrInc:
+		return ast.FieldTypeBool, true
+	case spec.isArrGet:
+		if len(types) >= 1 && known[0] && types[0].IsArray() {
+			return types[0].ElemType(), true
+		}
+		return 0, false
+	case spec.isArrConcat:
+		if len(types) >= 1 && known[0] {
+			return types[0], true
+		}
+		return 0, false
+	default:
+		return spec.returnType, true
+	}
+}
+
+func validatePattern(bindingName string, pattern ast.LocalCasePattern, subjectType ast.FieldType, subjectKnown bool, ds *diag.Diagnostics) {
+	switch p := pattern.(type) {
+	case *ast.LiteralCasePattern:
+		patternType, ok := literalFieldType(p.Value)
+		if ok && subjectKnown && patternType != subjectType {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: #case literal pattern has type %s but subject has type %s",
+				bindingName, patternType, subjectType))
+		}
+	case *ast.TupleCasePattern:
+		for _, elem := range p.Elems {
+			validatePattern(bindingName, elem, subjectType, false, ds)
+		}
+	}
+}
+
+func scopeWithPatternBindings(scope map[string]bindingInfo, pattern ast.LocalCasePattern, subjectType ast.FieldType, subjectKnown bool) map[string]bindingInfo {
+	next := scope
+	copied := false
+	var add func(ast.LocalCasePattern)
+	add = func(p ast.LocalCasePattern) {
+		switch x := p.(type) {
+		case *ast.VarBinderPattern:
+			if !copied {
+				next = make(map[string]bindingInfo, len(scope)+1)
+				for k, v := range scope {
+					next[k] = v
+				}
+				copied = true
+			}
+			if subjectKnown {
+				next[x.Name] = bindingInfo{fieldType: subjectType}
+			}
+		case *ast.TupleCasePattern:
+			for _, elem := range x.Elems {
+				add(elem)
+			}
+		}
+	}
+	add(pattern)
+	return next
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Group C — Effect DSL / sigil validation
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -683,7 +1030,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lower.Sidecar, sceneID, actionID string, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lower.Sidecar, sceneID, actionID, scopeName string, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -709,7 +1056,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lowe
 		return
 	}
 
-	nextScope := validateProg(nr.Compute.Prog, schema, true, sc, sceneID, actionID, ds)
+	nextScope := validateProg(nr.Compute.Prog, schema, true, sc, sceneID, actionID, scopeName, ds)
 
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]

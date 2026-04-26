@@ -3,6 +3,7 @@ package lower_test
 import (
 	"testing"
 
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
@@ -54,6 +55,48 @@ scene "test" {
 	}
 	if nv, ok := b.Value.Kind.(*structpb.Value_NumberValue); !ok || nv.NumberValue != 10 {
 		t.Errorf("binding value: got %T %v, want 10", b.Value.Kind, b.Value)
+	}
+}
+
+func TestLowerSidecarExtExprScopesActionAndNext(t *testing.T) {
+	src := `state { app { n:number = 0 } }
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = out
+      prog "p" {
+        flag:bool = true
+        out:number = #if(flag, 1, 0)
+      }
+    }
+    next {
+      compute {
+        condition = out
+        prog "p" {
+          out:bool = #if(true, true, false)
+        }
+      }
+      action = a
+    }
+  }
+}`
+	_, sc := mustLower(t, src)
+	actionKey := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "out"}
+	nextKey := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "next:0", ProgName: "p", BindingName: "out"}
+	actionRHS, ok := sc.ExtExprs[actionKey].(*ast.IfCallRHS)
+	if !ok {
+		t.Fatalf("missing action scoped IfCallRHS")
+	}
+	nextRHS, ok := sc.ExtExprs[nextKey].(*ast.IfCallRHS)
+	if !ok {
+		t.Fatalf("missing next scoped IfCallRHS")
+	}
+	if _, ok := actionRHS.Then.(*ast.LocalLitExpr); !ok {
+		t.Errorf("action then = %T, want LocalLitExpr", actionRHS.Then)
+	}
+	if _, ok := nextRHS.Then.(*ast.LocalLitExpr); !ok {
+		t.Errorf("next then = %T, want LocalLitExpr", nextRHS.Then)
 	}
 }
 

@@ -37,9 +37,9 @@ func printUsage() {
 
 func runConvert(args []string) int {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
-	output    := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
+	output := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
-	format    := fs.String("format", "hcl", "output format: hcl or json")
+	format := fs.String("format", "hcl", "output format: hcl or json")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -111,7 +111,7 @@ func runConvert(args []string) int {
 	}
 
 	if *format == "json" {
-		if err := emit.EmitJSON(w, tm); err != nil {
+		if err := emit.EmitJSON(w, tm, sc); err != nil {
 			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
 			return 1
 		}

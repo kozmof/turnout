@@ -48,6 +48,40 @@ func TestArrIncludesValid(t *testing.T) {
 	}
 }
 
+func TestValidateExtExprUndefinedRef(t *testing.T) {
+	src := min(`        flag:bool = true
+        out:number = #if(flag, missing_ref, 1)
+`)
+	if !hasCode(pipeline(src), diag.CodeUndefinedRef) {
+		t.Error("want UndefinedRef for missing ref inside #if sidecar expression")
+	}
+}
+
+func TestValidateExtExprBranchTypeMismatch(t *testing.T) {
+	src := min(`        flag:bool = true
+        out:number = #if(flag, 1, "oops")
+`)
+	if !hasCode(pipeline(src), diag.CodeBranchTypeMismatch) {
+		t.Error("want BranchTypeMismatch for mismatched #if local branches")
+	}
+}
+
+func TestValidateExtExprItOutsidePipeStep(t *testing.T) {
+	src := min(`        out:number = #if(true, #it, 1)
+`)
+	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for #it outside #pipe step")
+	}
+}
+
+func TestValidateExtExprPipeStepTypeMismatch(t *testing.T) {
+	src := min(`        out:number = #pipe("s", add(#it, 1))
+`)
+	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
+		t.Error("want ArgTypeMismatch for #pipe step using #it with wrong type")
+	}
+}
+
 func TestArrIncludesArgTypeMismatch(t *testing.T) {
 	// arr_includes arg2 type must match array element type
 	src := min(`        items:arr<number> = [1, 2]

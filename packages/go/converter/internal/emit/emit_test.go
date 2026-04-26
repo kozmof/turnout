@@ -781,3 +781,39 @@ scene "test_scene" {
 		}
 	}
 }
+
+func TestEmitJSONRejectsSidecarExtExprs(t *testing.T) {
+	src := `state { app { n:number = 0 } }
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = out
+      prog "p" {
+        flag:bool = true
+        out:number = #if(flag, 1, 0)
+      }
+    }
+  }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("parse: %v", ds)
+	}
+	schema, ds2 := state.Resolve(tf.StateSource, "")
+	if ds2.HasErrors() {
+		t.Fatalf("state: %v", ds2)
+	}
+	tm, sc, ds3 := lower.Lower(tf, schema)
+	if ds3.HasErrors() {
+		t.Fatalf("lower: %v", ds3)
+	}
+	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
+		t.Fatalf("validate: %v", ds4)
+	}
+	var sb strings.Builder
+	err := emit.EmitJSON(&sb, tm, sc)
+	if err == nil || !strings.Contains(err.Error(), "json output does not support") {
+		t.Fatalf("EmitJSON error = %v, want unsupported sidecar expression error", err)
+	}
+}

@@ -7,8 +7,10 @@ import "github.com/kozmof/turnout/packages/go/converter/internal/ast"
 // ─────────────────────────────────────────────────────────────────────────────
 
 // BindingKey uniquely identifies a binding within the model.
+// Scope distinguishes the action's main compute prog ("compute") from each
+// transition prog ("next:<index>") under the same action.
 type BindingKey struct {
-	SceneID, ActionID, ProgName, BindingName string
+	SceneID, ActionID, Scope, ProgName, BindingName string
 }
 
 // ViewMeta carries the view block data for a scene (HCL authoring-time only,
@@ -37,8 +39,8 @@ type SceneMeta struct {
 //   - Extended expression trees for #if, #case, #pipe (HCL-only, not in proto)
 type Sidecar struct {
 	Sigils   map[BindingKey]ast.Sigil
-	Actions  map[string]ActionMeta  // key: sceneID + "/" + actionID
-	Scenes   map[string]SceneMeta   // key: sceneID
+	Actions  map[string]ActionMeta         // key: sceneID + "/" + actionID
+	Scenes   map[string]SceneMeta          // key: sceneID
 	ExtExprs map[BindingKey]ast.BindingRHS // IfCallRHS | CaseCallRHS | PipeCallRHS
 }
 

@@ -150,7 +150,7 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lowe
 			iw.nl()
 		}
 		sep = true
-		writeCompute(iw, a.Compute, sceneID, a.Id, sc)
+		writeCompute(iw, a.Compute, sceneID, a.Id, "compute", sc)
 	}
 
 	if len(a.Prepare) > 0 {
@@ -177,12 +177,12 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lowe
 		writePublish(iw, a.Publish)
 	}
 
-	for _, nr := range a.Next {
+	for i, nr := range a.Next {
 		if sep {
 			iw.nl()
 		}
 		sep = true
-		writeNextRule(iw, nr, sceneID, a.Id, sc)
+		writeNextRule(iw, nr, sceneID, a.Id, fmt.Sprintf("next:%d", i), sc)
 	}
 
 	iw.depth--
@@ -211,44 +211,44 @@ func writeText(iw *iWriter, text string) {
 // Compute block
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel, sceneID, actionID string, sc *lower.Sidecar) {
+func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
 	iw.wl("compute {")
 	iw.depth++
 	iw.wl("root = %q", c.Root)
 	if c.Prog != nil {
-		writeProg(iw, c.Prog, sceneID, actionID, sc)
+		writeProg(iw, c.Prog, sceneID, actionID, scope, sc)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel, sceneID, actionID string, sc *lower.Sidecar) {
+func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
 	iw.wl("compute {")
 	iw.depth++
 	iw.wl("condition = %q", c.Condition)
 	if c.Prog != nil {
-		writeProg(iw, c.Prog, sceneID, actionID, sc)
+		writeProg(iw, c.Prog, sceneID, actionID, scope, sc)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeProg(iw *iWriter, p *turnoutpb.ProgModel, sceneID, actionID string, sc *lower.Sidecar) {
+func writeProg(iw *iWriter, p *turnoutpb.ProgModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
 	iw.wl("prog %q {", p.Name)
 	iw.depth++
 	for _, b := range p.Bindings {
-		writeBinding(iw, b, sceneID, actionID, p.Name, sc)
+		writeBinding(iw, b, sceneID, actionID, scope, p.Name, sc)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeBinding(iw *iWriter, b *turnoutpb.BindingModel, sceneID, actionID, progName string, sc *lower.Sidecar) {
+func writeBinding(iw *iWriter, b *turnoutpb.BindingModel, sceneID, actionID, scope, progName string, sc *lower.Sidecar) {
 	iw.wl("binding %q {", b.Name)
 	iw.depth++
 	iw.wl("type  = %q", b.Type)
 	if sc != nil {
-		key := lower.BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: b.Name}
+		key := lower.BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: b.Name}
 		if extRHS, ok := sc.ExtExprs[key]; ok {
 			writeExtExpr(iw, extRHS)
 			iw.depth--
@@ -389,7 +389,7 @@ func writePublish(iw *iWriter, hooks []string) {
 // Next rule
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel, sceneID, actionID string, sc *lower.Sidecar) {
+func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
 	iw.wl("next {")
 	iw.depth++
 
@@ -397,7 +397,7 @@ func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel, sceneID, actionID s
 
 	if nr.Compute != nil {
 		sep = true
-		writeNextCompute(iw, nr.Compute, sceneID, actionID, sc)
+		writeNextCompute(iw, nr.Compute, sceneID, actionID, scope, sc)
 	}
 
 	if len(nr.Prepare) > 0 {

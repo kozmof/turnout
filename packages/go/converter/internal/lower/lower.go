@@ -5,6 +5,7 @@
 package lower
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -213,7 +214,7 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	if a.Compute != nil {
 		am.Compute = &turnoutpb.ComputeModel{
 			Root: a.Compute.Root,
-			Prog: lowerProgInner(a.Compute.Prog, resolver, sceneID, a.ID, sc, ds),
+			Prog: lowerProgInner(a.Compute.Prog, resolver, sceneID, a.ID, "compute", sc, ds),
 		}
 	}
 
@@ -221,8 +222,8 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	am.Merge = lowerMerge(a.Merge)
 	am.Publish = lowerPublish(a.Publish)
 
-	for _, nr := range a.Next {
-		am.Next = append(am.Next, lowerNextRule(nr, schema, sceneID, a.ID, sc, ds))
+	for i, nr := range a.Next {
+		am.Next = append(am.Next, lowerNextRule(nr, schema, sceneID, a.ID, fmt.Sprintf("next:%d", i), sc, ds))
 	}
 	return am
 }
@@ -290,7 +291,7 @@ func lowerPublish(pub *ast.PublishBlock) []string {
 // Next rule lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.NextRuleModel {
+func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID, scope string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.NextRuleModel {
 	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
 
 	pbNR := &turnoutpb.NextRuleModel{Action: nr.ActionID}
@@ -298,7 +299,7 @@ func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID stri
 	if nr.Compute != nil {
 		pbNR.Compute = &turnoutpb.NextComputeModel{
 			Condition: nr.Compute.Condition,
-			Prog:      lowerProgInner(nr.Compute.Prog, resolver, sceneID, actionID, sc, ds),
+			Prog:      lowerProgInner(nr.Compute.Prog, resolver, sceneID, actionID, scope, sc, ds),
 		}
 	}
 
@@ -330,7 +331,7 @@ func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {
 // Prog / Binding lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ProgModel {
+func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID, scope string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ProgModel {
 	if prog == nil {
 		return nil
 	}
@@ -343,7 +344,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 		Bindings: make([]*turnoutpb.BindingModel, 0, len(prog.Bindings)),
 	}
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, sceneID, actionID, prog.Name, sc, ds, bindingTypes)
+		bindings := lowerBinding(decl, resolver, sceneID, actionID, scope, prog.Name, sc, ds, bindingTypes)
 		pm.Bindings = append(pm.Bindings, bindings...)
 	}
 	return pm
@@ -351,7 +352,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
 // Sigils are captured in the sidecar keyed by (sceneID, actionID, progName, bindingName).
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID, progName string, sc *Sidecar, ds *diag.Diagnostics, bindingTypes map[string]string) []*turnoutpb.BindingModel {
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID, scope, progName string, sc *Sidecar, ds *diag.Diagnostics, bindingTypes map[string]string) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -382,8 +383,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.IfRHS:
 		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
-		key := BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}
+		key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}
 		sc.ExtExprs[key] = rhs
+		if scope == "compute" {
+			sc.ExtExprs[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = rhs
+		}
 		bindings = []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
 	default:
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
@@ -396,7 +400,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	if decl.Sigil != ast.SigilNone {
 		for _, b := range bindings {
 			if b.Name == name {
-				sc.Sigils[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = decl.Sigil
+				key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}
+				sc.Sigils[key] = decl.Sigil
+				if scope == "compute" {
+					sc.Sigils[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = decl.Sigil
+				}
 			}
 		}
 	}
