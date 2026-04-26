@@ -254,7 +254,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		sigil := sigilFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
-			isFunc:    b.Expr != nil || extExprFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name) != nil,
+			isFunc:    b.Expr != nil || b.ExtExpr != nil,
 			sigil:     sigil,
 		}
 	}
@@ -263,7 +263,6 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	for _, b := range prog.Bindings {
 		ft, _ := ast.FieldTypeFromString(b.Type)
 		sigil := sigilFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
-		extExpr := extExprFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !(strings.HasPrefix(b.Name, "__if_") && strings.HasSuffix(b.Name, "_cond")) &&
@@ -278,8 +277,8 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 				"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
 		}
 
-		if extExpr != nil {
-			validateExtExpr(b, extExpr, scope, ds)
+		if b.ExtExpr != nil {
+			validateExtExpr(b, protoLocalExprToAST(b.ExtExpr), scope, ds)
 			continue
 		}
 
@@ -331,25 +330,106 @@ func sigilFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName
 	}]
 }
 
-func extExprFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName string) ast.BindingRHS {
-	if sc == nil {
+// protoLocalExprToAST converts a proto LocalExprModel back to an ast.LocalExpr
+// so the existing AST-based validation functions can be reused unchanged.
+func protoLocalExprToAST(e *turnoutpb.LocalExprModel) ast.LocalExpr {
+	if e == nil {
 		return nil
 	}
-	if rhs, ok := sc.ExtExprs[lower.BindingKey{
-		SceneID:     sceneID,
-		ActionID:    actionID,
-		Scope:       scope,
-		ProgName:    progName,
-		BindingName: bindingName,
-	}]; ok {
-		return rhs
+	switch x := e.Expr.(type) {
+	case *turnoutpb.LocalExprModel_Ref:
+		return &ast.LocalRefExpr{Name: x.Ref.GetName()}
+	case *turnoutpb.LocalExprModel_Lit:
+		return &ast.LocalLitExpr{Value: structpbToLiteral(x.Lit.GetValue())}
+	case *turnoutpb.LocalExprModel_It:
+		return &ast.LocalItExpr{}
+	case *turnoutpb.LocalExprModel_Call:
+		args := make([]ast.LocalExpr, len(x.Call.GetArgs()))
+		for i, a := range x.Call.GetArgs() {
+			args[i] = protoLocalExprToAST(a)
+		}
+		return &ast.LocalCallExpr{FnAlias: x.Call.GetFn(), Args: args}
+	case *turnoutpb.LocalExprModel_Infix:
+		return &ast.LocalInfixExpr{
+			Op:  ast.InfixOp(x.Infix.GetOp()),
+			LHS: protoLocalExprToAST(x.Infix.GetLhs()),
+			RHS: protoLocalExprToAST(x.Infix.GetRhs()),
+		}
+	case *turnoutpb.LocalExprModel_IfExpr:
+		return &ast.LocalIfExpr{
+			Cond: protoLocalExprToAST(x.IfExpr.GetCond()),
+			Then: protoLocalExprToAST(x.IfExpr.GetThen()),
+			Else: protoLocalExprToAST(x.IfExpr.GetElseBranch()),
+		}
+	case *turnoutpb.LocalExprModel_CaseExpr:
+		arms := make([]ast.LocalCaseArm, len(x.CaseExpr.GetArms()))
+		for i, arm := range x.CaseExpr.GetArms() {
+			a := ast.LocalCaseArm{
+				Pattern: protoCasePatternToAST(arm.GetPattern()),
+				Expr:    protoLocalExprToAST(arm.GetExpr()),
+			}
+			if arm.GetGuard() != nil {
+				a.Guard = protoLocalExprToAST(arm.GetGuard())
+			}
+			arms[i] = a
+		}
+		return &ast.LocalCaseExpr{Subject: protoLocalExprToAST(x.CaseExpr.GetSubject()), Arms: arms}
+	case *turnoutpb.LocalExprModel_PipeExpr:
+		steps := make([]ast.LocalExpr, len(x.PipeExpr.GetSteps()))
+		for i, s := range x.PipeExpr.GetSteps() {
+			steps[i] = protoLocalExprToAST(s)
+		}
+		return &ast.LocalPipeExpr{Initial: protoLocalExprToAST(x.PipeExpr.GetInitial()), Steps: steps}
+	default:
+		return nil
 	}
-	return sc.ExtExprs[lower.BindingKey{
-		SceneID:     sceneID,
-		ActionID:    actionID,
-		ProgName:    progName,
-		BindingName: bindingName,
-	}]
+}
+
+func protoCasePatternToAST(p *turnoutpb.LocalCasePatternModel) ast.LocalCasePattern {
+	if p == nil {
+		return &ast.WildcardCasePattern{}
+	}
+	switch x := p.Pattern.(type) {
+	case *turnoutpb.LocalCasePatternModel_Wildcard:
+		return &ast.WildcardCasePattern{}
+	case *turnoutpb.LocalCasePatternModel_Lit:
+		return &ast.LiteralCasePattern{Value: structpbToLiteral(x.Lit.GetValue())}
+	case *turnoutpb.LocalCasePatternModel_VarBinder:
+		return &ast.VarBinderPattern{Name: x.VarBinder.GetName()}
+	case *turnoutpb.LocalCasePatternModel_Tuple:
+		elems := make([]ast.LocalCasePattern, len(x.Tuple.GetElems()))
+		for i, elem := range x.Tuple.GetElems() {
+			elems[i] = protoCasePatternToAST(elem)
+		}
+		return &ast.TupleCasePattern{Elems: elems}
+	default:
+		return &ast.WildcardCasePattern{}
+	}
+}
+
+func structpbToLiteral(v *structpb.Value) ast.Literal {
+	if v == nil {
+		return &ast.NumberLiteral{}
+	}
+	switch x := v.Kind.(type) {
+	case *structpb.Value_NumberValue:
+		return &ast.NumberLiteral{Value: x.NumberValue}
+	case *structpb.Value_StringValue:
+		return &ast.StringLiteral{Value: x.StringValue}
+	case *structpb.Value_BoolValue:
+		return &ast.BoolLiteral{Value: x.BoolValue}
+	case *structpb.Value_ListValue:
+		if x.ListValue == nil {
+			return &ast.ArrayLiteral{}
+		}
+		elems := make([]ast.Literal, len(x.ListValue.Values))
+		for i, elem := range x.ListValue.Values {
+			elems[i] = structpbToLiteral(elem)
+		}
+		return &ast.ArrayLiteral{Elements: elems}
+	default:
+		return &ast.NumberLiteral{}
+	}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -614,19 +694,19 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 // Extended local expression validation (#if / #case / #pipe / #it sidecar)
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateExtExpr(b *turnoutpb.BindingModel, rhs ast.BindingRHS, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateExtExpr(b *turnoutpb.BindingModel, e ast.LocalExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	var ret ast.FieldType
 	var known bool
-	switch r := rhs.(type) {
-	case *ast.IfCallRHS:
+	switch r := e.(type) {
+	case *ast.LocalIfExpr:
 		ret, known = validateLocalIf(b.Name, r.Cond, r.Then, r.Else, scope, 0, false, ds)
-	case *ast.CaseCallRHS:
+	case *ast.LocalCaseExpr:
 		ret, known = validateLocalCase(b.Name, r.Subject, r.Arms, scope, 0, false, ds)
-	case *ast.PipeCallRHS:
+	case *ast.LocalPipeExpr:
 		ret, known = validateLocalPipe(b.Name, r.Initial, r.Steps, scope, 0, false, ds)
 	default:
 		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: unsupported extended expression %T", b.Name, rhs))
+			"binding %q: unsupported extended expression %T", b.Name, e))
 		return
 	}
 	if known {

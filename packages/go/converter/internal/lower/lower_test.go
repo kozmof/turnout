@@ -72,6 +72,18 @@ func binding(t *testing.T, tm *turnoutpb.TurnModel, n int) *turnoutpb.BindingMod
 	return b[n]
 }
 
+// findBinding returns the binding with the given name from bs, or fatals.
+func findBinding(t *testing.T, bs []*turnoutpb.BindingModel, name string) *turnoutpb.BindingModel {
+	t.Helper()
+	for _, b := range bs {
+		if b.Name == name {
+			return b
+		}
+	}
+	t.Fatalf("binding %q not found", name)
+	return nil
+}
+
 // ─── state block lowering ─────────────────────────────────────────────────────
 
 func TestLowerStateBlockInline(t *testing.T) {
@@ -412,8 +424,8 @@ scene "test" {
 // ─── pipe RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerPipeRHS(t *testing.T) {
-	// New #pipe(initial, step1, step2, ...) form stores in sidecar ExtExprs.
-	_, sc := mustLower(t, minimal(`  entry_actions = ["a"]
+	// #pipe(initial, step1, ...) stores structured form in binding.ExtExpr.
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -424,33 +436,32 @@ func TestLowerPipeRHS(t *testing.T) {
       }
     }
   }`))
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
-	extRHS, ok := sc.ExtExprs[key]
-	if !ok {
+	result := findBinding(t, tm.Scenes[0].Actions[0].Compute.Prog.Bindings, "result")
+	if result.ExtExpr == nil {
 		t.Fatal("expected ExtExpr for result")
 	}
-	pipeRHS, ok := extRHS.(*ast.PipeCallRHS)
+	pipeExpr, ok := result.ExtExpr.Expr.(*turnoutpb.LocalExprModel_PipeExpr)
 	if !ok {
-		t.Fatalf("expected PipeCallRHS, got %T", extRHS)
+		t.Fatalf("expected PipeExpr, got %T", result.ExtExpr.Expr)
 	}
-	initRef, ok := pipeRHS.Initial.(*ast.LocalRefExpr)
-	if !ok || initRef.Name != "x" {
-		t.Errorf("initial = %v, want ref to x", pipeRHS.Initial)
+	initRef, ok := pipeExpr.PipeExpr.GetInitial().Expr.(*turnoutpb.LocalExprModel_Ref)
+	if !ok || initRef.Ref.GetName() != "x" {
+		t.Errorf("initial = %v, want ref to x", pipeExpr.PipeExpr.GetInitial())
 	}
-	if len(pipeRHS.Steps) != 1 {
-		t.Errorf("steps = %d, want 1", len(pipeRHS.Steps))
+	if len(pipeExpr.PipeExpr.GetSteps()) != 1 {
+		t.Errorf("steps = %d, want 1", len(pipeExpr.PipeExpr.GetSteps()))
 	}
-	call, ok := pipeRHS.Steps[0].(*ast.LocalCallExpr)
-	if !ok || call.FnAlias != "add" {
-		t.Errorf("step[0] = %T, want LocalCallExpr{add}", pipeRHS.Steps[0])
+	callExpr, ok := pipeExpr.PipeExpr.GetSteps()[0].Expr.(*turnoutpb.LocalExprModel_Call)
+	if !ok || callExpr.Call.GetFn() != "add" {
+		t.Errorf("step[0] = %T, want Call{add}", pipeExpr.PipeExpr.GetSteps()[0].Expr)
 	}
 }
 
 // ─── cond RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerCondRHS(t *testing.T) {
-	// New #if(cond, then, else) form stores in sidecar ExtExprs as IfCallRHS.
-	_, sc := mustLower(t, minimal(`  entry_actions = ["a"]
+	// #if(cond, then, else) stores structured form in binding.ExtExpr.
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -462,34 +473,33 @@ func TestLowerCondRHS(t *testing.T) {
       }
     }
   }`))
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
-	extRHS, ok := sc.ExtExprs[key]
-	if !ok {
+	result := findBinding(t, tm.Scenes[0].Actions[0].Compute.Prog.Bindings, "result")
+	if result.ExtExpr == nil {
 		t.Fatal("expected ExtExpr for result")
 	}
-	ifRHS, ok := extRHS.(*ast.IfCallRHS)
+	ifExpr, ok := result.ExtExpr.Expr.(*turnoutpb.LocalExprModel_IfExpr)
 	if !ok {
-		t.Fatalf("expected IfCallRHS, got %T", extRHS)
+		t.Fatalf("expected IfExpr, got %T", result.ExtExpr.Expr)
 	}
-	cond, ok := ifRHS.Cond.(*ast.LocalRefExpr)
-	if !ok || cond.Name != "flag" {
-		t.Errorf("cond = %v, want ref to flag", ifRHS.Cond)
+	condRef, ok := ifExpr.IfExpr.GetCond().Expr.(*turnoutpb.LocalExprModel_Ref)
+	if !ok || condRef.Ref.GetName() != "flag" {
+		t.Errorf("cond = %v, want ref to flag", ifExpr.IfExpr.GetCond())
 	}
-	thenRef, ok := ifRHS.Then.(*ast.LocalRefExpr)
-	if !ok || thenRef.Name != "thenFn" {
-		t.Errorf("then = %v, want ref to thenFn", ifRHS.Then)
+	thenRef, ok := ifExpr.IfExpr.GetThen().Expr.(*turnoutpb.LocalExprModel_Ref)
+	if !ok || thenRef.Ref.GetName() != "thenFn" {
+		t.Errorf("then = %v, want ref to thenFn", ifExpr.IfExpr.GetThen())
 	}
-	elseRef, ok := ifRHS.Else.(*ast.LocalRefExpr)
-	if !ok || elseRef.Name != "elseFn" {
-		t.Errorf("else = %v, want ref to elseFn", ifRHS.Else)
+	elseRef, ok := ifExpr.IfExpr.GetElseBranch().Expr.(*turnoutpb.LocalExprModel_Ref)
+	if !ok || elseRef.Ref.GetName() != "elseFn" {
+		t.Errorf("else = %v, want ref to elseFn", ifExpr.IfExpr.GetElseBranch())
 	}
 }
 
 // ─── #if RHS ──────────────────────────────────────────────────────────────────
 
 func TestLowerIfRHSBareRef(t *testing.T) {
-	// #if(flag, thenFn, elseFn) with bare ref condition → IfCallRHS in sidecar
-	tm, sc := mustLower(t, minimal(`  entry_actions = ["a"]
+	// #if(flag, thenFn, elseFn) with bare ref condition → ExtExpr on binding
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -505,28 +515,26 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 	if len(bindings) <= 4 {
 		t.Errorf("binding count = %d, want generated helper bindings plus result", len(bindings))
 	}
-	result := bindings[len(bindings)-1]
-	if result.Name != "result" || result.Expr == nil || result.Expr.Cond == nil {
-		t.Fatalf("last binding = %+v, want result cond expr", result)
+	last := bindings[len(bindings)-1]
+	if last.Name != "result" || last.Expr == nil || last.Expr.Cond == nil {
+		t.Fatalf("last binding = %+v, want result cond expr", last)
 	}
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
-	extRHS, ok := sc.ExtExprs[key]
-	if !ok {
+	if last.ExtExpr == nil {
 		t.Fatal("expected ExtExpr for result")
 	}
-	ifRHS, ok := extRHS.(*ast.IfCallRHS)
+	ifExpr, ok := last.ExtExpr.Expr.(*turnoutpb.LocalExprModel_IfExpr)
 	if !ok {
-		t.Fatalf("expected IfCallRHS, got %T", extRHS)
+		t.Fatalf("expected IfExpr, got %T", last.ExtExpr.Expr)
 	}
-	ref, ok := ifRHS.Cond.(*ast.LocalRefExpr)
-	if !ok || ref.Name != "flag" {
-		t.Errorf("cond ref = %v, want flag", ifRHS.Cond)
+	ref, ok := ifExpr.IfExpr.GetCond().Expr.(*turnoutpb.LocalExprModel_Ref)
+	if !ok || ref.Ref.GetName() != "flag" {
+		t.Errorf("cond ref = %v, want flag", ifExpr.IfExpr.GetCond())
 	}
 }
 
 func TestLowerIfRHSCall(t *testing.T) {
-	// #if(gt(x,y), thenFn, elseFn) with call condition → IfCallRHS in sidecar, no auto-gen bindings
-	tm, sc := mustLower(t, minimal(`  entry_actions = ["a"]
+	// #if(gt(x,y), thenFn, elseFn) with call condition → ExtExpr on binding
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -543,22 +551,20 @@ func TestLowerIfRHSCall(t *testing.T) {
 	if len(bindings) <= 5 {
 		t.Errorf("binding count = %d, want generated helper bindings plus result", len(bindings))
 	}
-	result := bindings[len(bindings)-1]
-	if result.Name != "result" || result.Expr == nil || result.Expr.Cond == nil {
-		t.Fatalf("last binding = %+v, want result cond expr", result)
+	last := bindings[len(bindings)-1]
+	if last.Name != "result" || last.Expr == nil || last.Expr.Cond == nil {
+		t.Fatalf("last binding = %+v, want result cond expr", last)
 	}
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
-	extRHS, ok := sc.ExtExprs[key]
-	if !ok {
+	if last.ExtExpr == nil {
 		t.Fatal("expected ExtExpr for result")
 	}
-	ifRHS, ok := extRHS.(*ast.IfCallRHS)
+	ifExpr, ok := last.ExtExpr.Expr.(*turnoutpb.LocalExprModel_IfExpr)
 	if !ok {
-		t.Fatalf("expected IfCallRHS, got %T", extRHS)
+		t.Fatalf("expected IfExpr, got %T", last.ExtExpr.Expr)
 	}
-	call, ok := ifRHS.Cond.(*ast.LocalCallExpr)
-	if !ok || call.FnAlias != "gt" {
-		t.Errorf("cond = %v, want LocalCallExpr{gt}", ifRHS.Cond)
+	callExpr, ok := ifExpr.IfExpr.GetCond().Expr.(*turnoutpb.LocalExprModel_Call)
+	if !ok || callExpr.Call.GetFn() != "gt" {
+		t.Errorf("cond = %v, want Call{gt}", ifExpr.IfExpr.GetCond())
 	}
 }
 

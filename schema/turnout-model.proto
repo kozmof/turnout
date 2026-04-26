@@ -83,6 +83,9 @@ message BindingModel {
   // Exactly one of value or expr is present.
   google.protobuf.Value value = 3;
   ExprModel expr = 4;
+  // ext_expr carries the structured source expression for #if/#case/#pipe bindings.
+  // Used by the HCL emitter to reproduce the original form. Ignored by the runtime.
+  LocalExprModel ext_expr = 5;
 }
 
 message ExprModel {
@@ -190,3 +193,75 @@ message MatchArm {
   repeated string patterns = 1;
   string target = 2;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local expression — structured form stored alongside flat bindings for
+// HCL re-emission. Present only on #if / #case / #pipe user bindings.
+// The runtime ignores this field; it executes only the flat ExprModel bindings.
+// ─────────────────────────────────────────────────────────────────────────────
+
+message LocalExprModel {
+  oneof expr {
+    LocalRefExprModel   ref       = 1;
+    LocalLitExprModel   lit       = 2;
+    LocalItExprModel    it        = 3;
+    LocalCallExprModel  call      = 4;
+    LocalInfixExprModel infix     = 5;
+    LocalIfExprModel    if_expr   = 6;
+    LocalCaseExprModel  case_expr = 7;
+    LocalPipeExprModel  pipe_expr = 8;
+  }
+}
+
+message LocalRefExprModel  { string name = 1; }
+message LocalLitExprModel  { google.protobuf.Value value = 1; }
+message LocalItExprModel   {}
+
+message LocalCallExprModel {
+  string fn = 1;
+  repeated LocalExprModel args = 2;
+}
+
+message LocalInfixExprModel {
+  // op is the ast.InfixOp iota value (0=&, 1=>=, 2=<=, 3=>, 4=<, 5=|, 6===,
+  // 7=!=, 8=+, 9=-, 10=*, 11=/, 12=%). Value 8 (+) is type-dispatched at emit time.
+  int32 op = 1;
+  LocalExprModel lhs = 2;
+  LocalExprModel rhs = 3;
+}
+
+message LocalIfExprModel {
+  LocalExprModel cond        = 1;
+  LocalExprModel then        = 2;
+  LocalExprModel else_branch = 3;
+}
+
+message LocalCaseArmModel {
+  LocalCasePatternModel pattern = 1;
+  LocalExprModel        guard   = 2; // nil when no guard
+  LocalExprModel        expr    = 3;
+}
+
+message LocalCaseExprModel {
+  LocalExprModel            subject = 1;
+  repeated LocalCaseArmModel arms   = 2;
+}
+
+message LocalPipeExprModel {
+  LocalExprModel            initial = 1;
+  repeated LocalExprModel   steps   = 2;
+}
+
+message LocalCasePatternModel {
+  oneof pattern {
+    LocalWildcardPatternModel  wildcard   = 1;
+    LocalLitPatternModel       lit        = 2;
+    LocalVarBinderPatternModel var_binder = 3;
+    LocalTuplePatternModel     tuple      = 4;
+  }
+}
+
+message LocalWildcardPatternModel  {}
+message LocalLitPatternModel       { google.protobuf.Value value = 1; }
+message LocalVarBinderPatternModel { string name = 1; }
+message LocalTuplePatternModel     { repeated LocalCasePatternModel elems = 1; }

@@ -90,10 +90,11 @@ executeGraph(funcId, assertValidContext(exec))
 
 **Sidecar pattern:** The `lower.Sidecar` (`lower/sidecar.go`) is a metadata bag that cannot live in the proto IR:
 - `Sigils` — binding direction indicators (`~>`, `<~`, `<~>`) consumed only by the validator
-- `ExtExprs` — full AST of `#if`/`#case`/`#pipe` kept for HCL re-emission (not used by the TS runtime, which reads the already-flattened proto bindings)
 - `Scenes` / `Actions` — view metadata and docstrings (HCL-only)
 
-**BindingKey dual-scope registration:** When `scope == "compute"`, `lowerBinding` (lower.go:386–412) registers the same entry at both `{scope="compute", ...}` and `{scope="", ...}` in `sc.Sigils` and `sc.ExtExprs`. This is a workaround that allows the validator's `sigilFor`/`extExprFor` to find entries regardless of which scope string the caller passes.
+The sidecar no longer carries `ExtExprs`. Structured `#if`/`#case`/`#pipe` expressions are now stored directly in `BindingModel.ext_expr` (`LocalExprModel`) in the proto IR and read by the emitter from there.
+
+**BindingKey dual-scope registration:** When `scope == "compute"`, `lowerBinding` registers the same sigil entry at both `{scope="compute", ...}` and `{scope="", ...}` in `sc.Sigils`. This is a workaround that allows the validator's `sigilFor` to find the entry regardless of which scope string the caller passes. (The equivalent workaround for `ExtExprs` was removed when `ExtExprs` was eliminated.)
 
 **`route` / `match` as soft keywords:** These are parsed as `TokIdent` with value-checked strings (parser.go:1510–1519), not hard keywords. This avoids reserving them as identifiers globally but makes the parser fragile to value-based branching.
 
@@ -125,8 +126,8 @@ The lexer's `scanNumber` (lexer.go:643–656) only recognizes non-negative numbe
 
 ## 6. Improvement Points 1 (Design Overview)
 
-**D1 — Dual representation for extended expressions:**
-`#if`/`#case`/`#pipe` expressions exist in two forms simultaneously: flattened into proto bindings (for execution) and kept as AST in the sidecar (for HCL re-emission). Any change to these forms must touch both paths. Consider extending the proto model with structured nodes to eliminate the AST sidecar, or computing HCL directly from the flattened proto.
+**D1 — Dual representation for extended expressions: ✅ resolved**
+`#if`/`#case`/`#pipe` expressions are now stored once in the proto IR as `BindingModel.ext_expr` (`LocalExprModel`). The flat `ExprModel` bindings remain for runtime execution; the emitter reads `ext_expr` for HCL re-emission. `Sidecar.ExtExprs` and the `extExprFor` validator function were removed. The `LocalExprModel` message family was added to `schema/turnout-model.proto` and regenerated.
 
 **D2 — Sidecar as an accumulating bolt-on:**
 As the DSL grows, the `Sidecar` struct will accumulate more optional metadata. The pattern is sustainable for now but a richer IR (separate from the proto exchange format) would be cleaner long-term.
@@ -160,8 +161,8 @@ Numerous `as FuncId`, `as ValueId`, `as ContextSpec` casts in `hcl-context-build
 **I1 — `validateCombineArgTypes` / `validateLocalCallArgTypes` near-duplication:**
 Both functions in `validate.go:809–858` and `validate.go:1177–1230` implement the same flag-dispatch logic (`isGeneric`, `isArrGet`, etc.) but operate on different input types. A shared helper `validateBinaryArgTypePair(fn, spec, t1, ok1, t2, ok2)` would eliminate the duplication.
 
-**I2 — `sigilFor`/`extExprFor` double key-lookup:**
-Both helper functions in `validate.go:313–352` try two `BindingKey` lookups (with/without `Scope`) to compensate for the dual-registration in `lowerBinding`. Standardizing on a single canonical key lookup would remove this workaround.
+**I2 — `sigilFor` double key-lookup:**
+`sigilFor` in `validate.go` tries two `BindingKey` lookups (with/without `Scope`) to compensate for the dual-registration in `lowerBinding`. (`extExprFor` and its equivalent workaround were removed when `ExtExprs` was eliminated.) Standardizing on a single canonical scope key would remove the remaining workaround.
 
 **I3 — `localFnReturnType` is incomplete relative to `builtinFns`:**
 `lower.go:919–930` hard-codes return types for a subset of functions, returning `FieldTypeNumber` as the implicit default. Functions added to `builtinFns` in the validator won't automatically appear here — they need a manual addition to avoid mistyped temp bindings.
@@ -184,11 +185,11 @@ Recommended reading order to understand the full system:
 | 2 | `packages/go/converter/internal/lexer/lexer.go` | Token kinds, sigil scanning, heredoc |
 | 3 | `packages/go/converter/internal/ast/ast.go` | All interface hierarchies — read alongside step 4 |
 | 4 | `packages/go/converter/internal/parser/parser.go` | `parseBindingDecl`, `parseRHS`, `parseLocalExpr` |
-| 5 | `packages/go/converter/internal/lower/sidecar.go` | Why the sidecar exists |
-| 6 | `packages/go/converter/internal/lower/lower.go` | `lowerBinding`, `localLowerer` — the most complex part |
-| 7 | `packages/go/converter/internal/validate/validate.go` | `validateProg`, `validateActionEffects`, `validateExtExpr` |
-| 8 | `packages/go/converter/internal/emit/emit.go` | `writeBinding`, `writeExtExpr`, `localExprInline` |
-| 9 | `schema/turnout-model.proto` | The canonical IR between Go and TS |
+| 5 | `packages/go/converter/internal/lower/sidecar.go` | What the sidecar still carries (sigils, view/action metadata) |
+| 6 | `packages/go/converter/internal/lower/lower.go` | `lowerBinding`, `localLowerer`, `bindingRHSToProto` — the most complex part |
+| 7 | `packages/go/converter/internal/validate/validate.go` | `validateProg`, `validateActionEffects`, `validateExtExpr`, `protoLocalExprToAST` |
+| 8 | `packages/go/converter/internal/emit/emit.go` | `writeBinding`, `writeExtExpr`, `localExprInline` (all proto-based) |
+| 9 | `schema/turnout-model.proto` | The canonical IR between Go and TS; includes `LocalExprModel` for structured expressions |
 | 10 | `packages/ts/runtime/src/compute-graph/types.ts` | `ExecutionContext`, `FuncTableEntry`, `PipeArgBinding` |
 | 11 | `packages/ts/runtime/src/compute-graph/runtime/executeTree.ts` | Recursive tree execution |
 | 12 | `packages/ts/scene-runner/src/executor/hcl-context-builder.ts` | Proto model → runtime context bridge |

@@ -150,7 +150,7 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lowe
 			iw.nl()
 		}
 		sep = true
-		writeCompute(iw, a.Compute, sceneID, a.Id, "compute", sc)
+		writeCompute(iw, a.Compute)
 	}
 
 	if len(a.Prepare) > 0 {
@@ -177,12 +177,12 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lowe
 		writePublish(iw, a.Publish)
 	}
 
-	for i, nr := range a.Next {
+	for _, nr := range a.Next {
 		if sep {
 			iw.nl()
 		}
 		sep = true
-		writeNextRule(iw, nr, sceneID, a.Id, fmt.Sprintf("next:%d", i), sc)
+		writeNextRule(iw, nr)
 	}
 
 	iw.depth--
@@ -211,50 +211,47 @@ func writeText(iw *iWriter, text string) {
 // Compute block
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
+func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel) {
 	iw.wl("compute {")
 	iw.depth++
 	iw.wl("root = %q", c.Root)
 	if c.Prog != nil {
-		writeProg(iw, c.Prog, sceneID, actionID, scope, sc)
+		writeProg(iw, c.Prog)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
+func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel) {
 	iw.wl("compute {")
 	iw.depth++
 	iw.wl("condition = %q", c.Condition)
 	if c.Prog != nil {
-		writeProg(iw, c.Prog, sceneID, actionID, scope, sc)
+		writeProg(iw, c.Prog)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeProg(iw *iWriter, p *turnoutpb.ProgModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
+func writeProg(iw *iWriter, p *turnoutpb.ProgModel) {
 	iw.wl("prog %q {", p.Name)
 	iw.depth++
 	for _, b := range p.Bindings {
-		writeBinding(iw, b, sceneID, actionID, scope, p.Name, sc)
+		writeBinding(iw, b)
 	}
 	iw.depth--
 	iw.wl("}")
 }
 
-func writeBinding(iw *iWriter, b *turnoutpb.BindingModel, sceneID, actionID, scope, progName string, sc *lower.Sidecar) {
+func writeBinding(iw *iWriter, b *turnoutpb.BindingModel) {
 	iw.wl("binding %q {", b.Name)
 	iw.depth++
 	iw.wl("type  = %q", b.Type)
-	if sc != nil {
-		key := lower.BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: b.Name}
-		if extRHS, ok := sc.ExtExprs[key]; ok {
-			writeExtExpr(iw, extRHS)
-			iw.depth--
-			iw.wl("}")
-			return
-		}
+	if b.ExtExpr != nil {
+		writeExtExpr(iw, b.ExtExpr)
+		iw.depth--
+		iw.wl("}")
+		return
 	}
 	if b.Value != nil {
 		iw.wl("value = %s", writeStructpbValue(b.Value))
@@ -389,7 +386,7 @@ func writePublish(iw *iWriter, hooks []string) {
 // Next rule
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel, sceneID, actionID, scope string, sc *lower.Sidecar) {
+func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel) {
 	iw.wl("next {")
 	iw.depth++
 
@@ -397,7 +394,7 @@ func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel, sceneID, actionID, 
 
 	if nr.Compute != nil {
 		sep = true
-		writeNextCompute(iw, nr.Compute, sceneID, actionID, scope, sc)
+		writeNextCompute(iw, nr.Compute)
 	}
 
 	if len(nr.Prepare) > 0 {
@@ -507,39 +504,39 @@ func writeStructpbValue(v *structpb.Value) string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extended expression emitters (if / case / pipe stored in sidecar ExtExprs)
+// Extended expression emitters (#if / #case / #pipe from proto ext_expr)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// writeExtExpr writes `expr  = { if/case/pipe = { ... } }` for a sidecar RHS.
-func writeExtExpr(iw *iWriter, rhs ast.BindingRHS) {
+// writeExtExpr writes `expr  = { if/case/pipe = { ... } }` from the proto LocalExprModel.
+func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel) {
 	iw.wl("expr  = {")
 	iw.depth++
-	switch r := rhs.(type) {
-	case *ast.IfCallRHS:
+	switch x := e.Expr.(type) {
+	case *turnoutpb.LocalExprModel_IfExpr:
 		iw.wl("if = {")
 		iw.depth++
-		iw.wl("cond = %s", localExprInline(r.Cond))
-		iw.wl("then = %s", localExprInline(r.Then))
-		iw.wl("else = %s", localExprInline(r.Else))
+		iw.wl("cond = %s", localExprInline(x.IfExpr.GetCond()))
+		iw.wl("then = %s", localExprInline(x.IfExpr.GetThen()))
+		iw.wl("else = %s", localExprInline(x.IfExpr.GetElseBranch()))
 		iw.depth--
 		iw.wl("}")
-	case *ast.CaseCallRHS:
+	case *turnoutpb.LocalExprModel_CaseExpr:
 		iw.wl("case = {")
 		iw.depth++
-		iw.wl("subject = %s", localExprInline(r.Subject))
-		arms := make([]string, len(r.Arms))
-		for i, arm := range r.Arms {
+		iw.wl("subject = %s", localExprInline(x.CaseExpr.GetSubject()))
+		arms := make([]string, len(x.CaseExpr.GetArms()))
+		for i, arm := range x.CaseExpr.GetArms() {
 			arms[i] = localCaseArmInline(arm)
 		}
 		iw.wl("arms    = [%s]", strings.Join(arms, ", "))
 		iw.depth--
 		iw.wl("}")
-	case *ast.PipeCallRHS:
+	case *turnoutpb.LocalExprModel_PipeExpr:
 		iw.wl("pipe = {")
 		iw.depth++
-		iw.wl("initial = %s", localExprInline(r.Initial))
-		steps := make([]string, len(r.Steps))
-		for i, s := range r.Steps {
+		iw.wl("initial = %s", localExprInline(x.PipeExpr.GetInitial()))
+		steps := make([]string, len(x.PipeExpr.GetSteps()))
+		for i, s := range x.PipeExpr.GetSteps() {
 			steps[i] = localExprInline(s)
 		}
 		iw.wl("steps   = [%s]", strings.Join(steps, ", "))
@@ -550,74 +547,76 @@ func writeExtExpr(iw *iWriter, rhs ast.BindingRHS) {
 	iw.wl("}")
 }
 
-// localExprInline returns the inline HCL representation of a LocalExpr node.
-func localExprInline(e ast.LocalExpr) string {
+// localExprInline returns the inline HCL representation of a proto LocalExprModel.
+func localExprInline(e *turnoutpb.LocalExprModel) string {
 	if e == nil {
 		return `{ ref = "__nil__" }`
 	}
-	switch x := e.(type) {
-	case *ast.LocalRefExpr:
-		return fmt.Sprintf(`{ ref = %q }`, x.Name)
-	case *ast.LocalLitExpr:
-		return fmt.Sprintf(`{ lit = %s }`, localLitToHCL(x.Value))
-	case *ast.LocalItExpr:
+	switch x := e.Expr.(type) {
+	case *turnoutpb.LocalExprModel_Ref:
+		return fmt.Sprintf(`{ ref = %q }`, x.Ref.GetName())
+	case *turnoutpb.LocalExprModel_Lit:
+		return fmt.Sprintf(`{ lit = %s }`, structpbValueToHCL(x.Lit.GetValue()))
+	case *turnoutpb.LocalExprModel_It:
 		return `{ it = true }`
-	case *ast.LocalCallExpr:
-		args := make([]string, len(x.Args))
-		for i, a := range x.Args {
+	case *turnoutpb.LocalExprModel_Call:
+		args := make([]string, len(x.Call.GetArgs()))
+		for i, a := range x.Call.GetArgs() {
 			args[i] = localExprInline(a)
 		}
-		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.FnAlias, strings.Join(args, ", "))
-	case *ast.LocalInfixExpr:
-		fn := x.Op.FnAlias()
+		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.Call.GetFn(), strings.Join(args, ", "))
+	case *turnoutpb.LocalExprModel_Infix:
+		op := ast.InfixOp(x.Infix.GetOp())
+		fn := op.FnAlias()
 		if fn == "" {
-			fn = "add" // InfixPlus default; type dispatch happens at runtime
+			fn = "add" // InfixPlus; type dispatch happens at runtime
 		}
-		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn, localExprInline(x.LHS), localExprInline(x.RHS))
-	case *ast.LocalIfExpr:
+		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn,
+			localExprInline(x.Infix.GetLhs()), localExprInline(x.Infix.GetRhs()))
+	case *turnoutpb.LocalExprModel_IfExpr:
 		return fmt.Sprintf(`{ if = { cond = %s, then = %s, else = %s } }`,
-			localExprInline(x.Cond), localExprInline(x.Then), localExprInline(x.Else))
-	case *ast.LocalCaseExpr:
-		arms := make([]string, len(x.Arms))
-		for i, arm := range x.Arms {
+			localExprInline(x.IfExpr.GetCond()), localExprInline(x.IfExpr.GetThen()), localExprInline(x.IfExpr.GetElseBranch()))
+	case *turnoutpb.LocalExprModel_CaseExpr:
+		arms := make([]string, len(x.CaseExpr.GetArms()))
+		for i, arm := range x.CaseExpr.GetArms() {
 			arms[i] = localCaseArmInline(arm)
 		}
 		return fmt.Sprintf(`{ case = { subject = %s, arms = [%s] } }`,
-			localExprInline(x.Subject), strings.Join(arms, ", "))
-	case *ast.LocalPipeExpr:
-		steps := make([]string, len(x.Steps))
-		for i, s := range x.Steps {
+			localExprInline(x.CaseExpr.GetSubject()), strings.Join(arms, ", "))
+	case *turnoutpb.LocalExprModel_PipeExpr:
+		steps := make([]string, len(x.PipeExpr.GetSteps()))
+		for i, s := range x.PipeExpr.GetSteps() {
 			steps[i] = localExprInline(s)
 		}
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
-			localExprInline(x.Initial), strings.Join(steps, ", "))
+			localExprInline(x.PipeExpr.GetInitial()), strings.Join(steps, ", "))
 	}
 	return `{ ref = "__unknown__" }`
 }
 
-func localCaseArmInline(arm ast.LocalCaseArm) string {
-	s := fmt.Sprintf(`{ pattern = %s`, localPatternInline(arm.Pattern))
-	if arm.Guard != nil {
-		s += fmt.Sprintf(`, guard = %s`, localExprInline(arm.Guard))
+func localCaseArmInline(arm *turnoutpb.LocalCaseArmModel) string {
+	s := fmt.Sprintf(`{ pattern = %s`, localPatternInline(arm.GetPattern()))
+	if arm.GetGuard() != nil {
+		s += fmt.Sprintf(`, guard = %s`, localExprInline(arm.GetGuard()))
 	}
-	s += fmt.Sprintf(`, expr = %s }`, localExprInline(arm.Expr))
+	s += fmt.Sprintf(`, expr = %s }`, localExprInline(arm.GetExpr()))
 	return s
 }
 
-func localPatternInline(p ast.LocalCasePattern) string {
+func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 	if p == nil {
 		return `{ wildcard = true }`
 	}
-	switch x := p.(type) {
-	case *ast.WildcardCasePattern:
+	switch x := p.Pattern.(type) {
+	case *turnoutpb.LocalCasePatternModel_Wildcard:
 		return `{ wildcard = true }`
-	case *ast.LiteralCasePattern:
-		return fmt.Sprintf(`{ lit = %s }`, localLitToHCL(x.Value))
-	case *ast.VarBinderPattern:
-		return fmt.Sprintf(`{ bind = %q }`, x.Name)
-	case *ast.TupleCasePattern:
-		elems := make([]string, len(x.Elems))
-		for i, e := range x.Elems {
+	case *turnoutpb.LocalCasePatternModel_Lit:
+		return fmt.Sprintf(`{ lit = %s }`, structpbValueToHCL(x.Lit.GetValue()))
+	case *turnoutpb.LocalCasePatternModel_VarBinder:
+		return fmt.Sprintf(`{ bind = %q }`, x.VarBinder.GetName())
+	case *turnoutpb.LocalCasePatternModel_Tuple:
+		elems := make([]string, len(x.Tuple.GetElems()))
+		for i, e := range x.Tuple.GetElems() {
 			elems[i] = localPatternInline(e)
 		}
 		return fmt.Sprintf(`{ tuple = [%s] }`, strings.Join(elems, ", "))
@@ -625,25 +624,28 @@ func localPatternInline(p ast.LocalCasePattern) string {
 	return `{ wildcard = true }`
 }
 
-// localLitToHCL converts an ast.Literal to its HCL text representation.
-func localLitToHCL(lit ast.Literal) string {
-	if lit == nil {
+// structpbValueToHCL converts a structpb.Value to its HCL text representation.
+func structpbValueToHCL(v *structpb.Value) string {
+	if v == nil {
 		return "null"
 	}
-	switch v := lit.(type) {
-	case *ast.NumberLiteral:
-		return strconv.FormatFloat(v.Value, 'f', -1, 64)
-	case *ast.StringLiteral:
-		return fmt.Sprintf("%q", v.Value)
-	case *ast.BoolLiteral:
-		if v.Value {
+	switch x := v.Kind.(type) {
+	case *structpb.Value_NumberValue:
+		return strconv.FormatFloat(x.NumberValue, 'f', -1, 64)
+	case *structpb.Value_StringValue:
+		return fmt.Sprintf("%q", x.StringValue)
+	case *structpb.Value_BoolValue:
+		if x.BoolValue {
 			return "true"
 		}
 		return "false"
-	case *ast.ArrayLiteral:
-		parts := make([]string, len(v.Elements))
-		for i, e := range v.Elements {
-			parts[i] = localLitToHCL(e)
+	case *structpb.Value_ListValue:
+		if x.ListValue == nil {
+			return "[]"
+		}
+		parts := make([]string, len(x.ListValue.Values))
+		for i, e := range x.ListValue.Values {
+			parts[i] = structpbValueToHCL(e)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	}

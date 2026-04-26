@@ -3,8 +3,8 @@ package lower_test
 import (
 	"testing"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
@@ -81,22 +81,43 @@ scene "test" {
     }
   }
 }`
-	_, sc := mustLower(t, src)
-	actionKey := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "out"}
-	nextKey := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "next:0", ProgName: "p", BindingName: "out"}
-	actionRHS, ok := sc.ExtExprs[actionKey].(*ast.IfCallRHS)
+	tm, _ := mustLower(t, src)
+	action := tm.Scenes[0].Actions[0]
+
+	// Action compute prog: find "out" binding and check ext_expr.
+	var actionOut *turnoutpb.BindingModel
+	for _, b := range action.Compute.Prog.Bindings {
+		if b.Name == "out" {
+			actionOut = b
+		}
+	}
+	if actionOut == nil || actionOut.ExtExpr == nil {
+		t.Fatal("missing ExtExpr on action out binding")
+	}
+	actionIfExpr, ok := actionOut.ExtExpr.Expr.(*turnoutpb.LocalExprModel_IfExpr)
 	if !ok {
-		t.Fatalf("missing action scoped IfCallRHS")
+		t.Fatalf("action out ExtExpr: got %T, want IfExpr", actionOut.ExtExpr.Expr)
 	}
-	nextRHS, ok := sc.ExtExprs[nextKey].(*ast.IfCallRHS)
+	if _, ok := actionIfExpr.IfExpr.GetThen().Expr.(*turnoutpb.LocalExprModel_Lit); !ok {
+		t.Errorf("action then = %T, want Lit", actionIfExpr.IfExpr.GetThen().Expr)
+	}
+
+	// Next compute prog: find "out" binding and check ext_expr.
+	var nextOut *turnoutpb.BindingModel
+	for _, b := range action.Next[0].Compute.Prog.Bindings {
+		if b.Name == "out" {
+			nextOut = b
+		}
+	}
+	if nextOut == nil || nextOut.ExtExpr == nil {
+		t.Fatal("missing ExtExpr on next out binding")
+	}
+	nextIfExpr, ok := nextOut.ExtExpr.Expr.(*turnoutpb.LocalExprModel_IfExpr)
 	if !ok {
-		t.Fatalf("missing next scoped IfCallRHS")
+		t.Fatalf("next out ExtExpr: got %T, want IfExpr", nextOut.ExtExpr.Expr)
 	}
-	if _, ok := actionRHS.Then.(*ast.LocalLitExpr); !ok {
-		t.Errorf("action then = %T, want LocalLitExpr", actionRHS.Then)
-	}
-	if _, ok := nextRHS.Then.(*ast.LocalLitExpr); !ok {
-		t.Errorf("next then = %T, want LocalLitExpr", nextRHS.Then)
+	if _, ok := nextIfExpr.IfExpr.GetThen().Expr.(*turnoutpb.LocalExprModel_Lit); !ok {
+		t.Errorf("next then = %T, want Lit", nextIfExpr.IfExpr.GetThen().Expr)
 	}
 }
 

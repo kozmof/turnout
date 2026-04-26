@@ -383,11 +383,6 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.IfRHS:
 		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
-		key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}
-		sc.ExtExprs[key] = rhs
-		if scope == "compute" {
-			sc.ExtExprs[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = rhs
-		}
 		c := newLocalLowerer(name, ft, bindingTypes, ds)
 		bindings = c.lowerTop(rhs)
 	default:
@@ -604,6 +599,16 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 	}
 	if len(c.bindings) == 0 {
 		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
+	}
+	// Attach the structured source expression to the user-declared name binding
+	// so the HCL emitter can reproduce the original #if/#case/#pipe form.
+	if extExpr := bindingRHSToProto(rhs); extExpr != nil {
+		for _, b := range c.bindings {
+			if b.Name == c.target {
+				b.ExtExpr = extExpr
+				break
+			}
+		}
 	}
 	return c.bindings
 }
@@ -829,6 +834,129 @@ func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.
 	c.itRef, c.itType, c.itAllowed = prevItRef, prevItType, prevItAllowed
 	if len(steps) == 0 {
 		c.emitIdentity(name, ft, currentRef)
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AST → proto LocalExprModel converters (for ext_expr population)
+// ─────────────────────────────────────────────────────────────────────────────
+
+func bindingRHSToProto(rhs ast.BindingRHS) *turnoutpb.LocalExprModel {
+	switch r := rhs.(type) {
+	case *ast.IfCallRHS:
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_IfExpr{IfExpr: &turnoutpb.LocalIfExprModel{
+			Cond:       localExprToProto(r.Cond),
+			Then:       localExprToProto(r.Then),
+			ElseBranch: localExprToProto(r.Else),
+		}}}
+	case *ast.CaseCallRHS:
+		arms := make([]*turnoutpb.LocalCaseArmModel, len(r.Arms))
+		for i, arm := range r.Arms {
+			a := &turnoutpb.LocalCaseArmModel{
+				Pattern: localCasePatternToProto(arm.Pattern),
+				Expr:    localExprToProto(arm.Expr),
+			}
+			if arm.Guard != nil {
+				a.Guard = localExprToProto(arm.Guard)
+			}
+			arms[i] = a
+		}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_CaseExpr{CaseExpr: &turnoutpb.LocalCaseExprModel{
+			Subject: localExprToProto(r.Subject),
+			Arms:    arms,
+		}}}
+	case *ast.PipeCallRHS:
+		steps := make([]*turnoutpb.LocalExprModel, len(r.Steps))
+		for i, s := range r.Steps {
+			steps[i] = localExprToProto(s)
+		}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_PipeExpr{PipeExpr: &turnoutpb.LocalPipeExprModel{
+			Initial: localExprToProto(r.Initial),
+			Steps:   steps,
+		}}}
+	default:
+		return nil
+	}
+}
+
+func localExprToProto(e ast.LocalExpr) *turnoutpb.LocalExprModel {
+	if e == nil {
+		return nil
+	}
+	switch x := e.(type) {
+	case *ast.LocalRefExpr:
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Ref{Ref: &turnoutpb.LocalRefExprModel{Name: x.Name}}}
+	case *ast.LocalLitExpr:
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Lit{Lit: &turnoutpb.LocalLitExprModel{Value: literalToStructpb(x.Value)}}}
+	case *ast.LocalItExpr:
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_It{It: &turnoutpb.LocalItExprModel{}}}
+	case *ast.LocalCallExpr:
+		args := make([]*turnoutpb.LocalExprModel, len(x.Args))
+		for i, a := range x.Args {
+			args[i] = localExprToProto(a)
+		}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Call{Call: &turnoutpb.LocalCallExprModel{Fn: x.FnAlias, Args: args}}}
+	case *ast.LocalInfixExpr:
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Infix{Infix: &turnoutpb.LocalInfixExprModel{
+			Op:  int32(x.Op),
+			Lhs: localExprToProto(x.LHS),
+			Rhs: localExprToProto(x.RHS),
+		}}}
+	case *ast.LocalIfExpr:
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_IfExpr{IfExpr: &turnoutpb.LocalIfExprModel{
+			Cond:       localExprToProto(x.Cond),
+			Then:       localExprToProto(x.Then),
+			ElseBranch: localExprToProto(x.Else),
+		}}}
+	case *ast.LocalCaseExpr:
+		arms := make([]*turnoutpb.LocalCaseArmModel, len(x.Arms))
+		for i, arm := range x.Arms {
+			a := &turnoutpb.LocalCaseArmModel{
+				Pattern: localCasePatternToProto(arm.Pattern),
+				Expr:    localExprToProto(arm.Expr),
+			}
+			if arm.Guard != nil {
+				a.Guard = localExprToProto(arm.Guard)
+			}
+			arms[i] = a
+		}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_CaseExpr{CaseExpr: &turnoutpb.LocalCaseExprModel{
+			Subject: localExprToProto(x.Subject),
+			Arms:    arms,
+		}}}
+	case *ast.LocalPipeExpr:
+		steps := make([]*turnoutpb.LocalExprModel, len(x.Steps))
+		for i, s := range x.Steps {
+			steps[i] = localExprToProto(s)
+		}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_PipeExpr{PipeExpr: &turnoutpb.LocalPipeExprModel{
+			Initial: localExprToProto(x.Initial),
+			Steps:   steps,
+		}}}
+	default:
+		return nil
+	}
+}
+
+func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePatternModel {
+	if p == nil {
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Wildcard{Wildcard: &turnoutpb.LocalWildcardPatternModel{}}}
+	}
+	switch x := p.(type) {
+	case *ast.WildcardCasePattern:
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Wildcard{Wildcard: &turnoutpb.LocalWildcardPatternModel{}}}
+	case *ast.LiteralCasePattern:
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Lit{Lit: &turnoutpb.LocalLitPatternModel{Value: literalToStructpb(x.Value)}}}
+	case *ast.VarBinderPattern:
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_VarBinder{VarBinder: &turnoutpb.LocalVarBinderPatternModel{Name: x.Name}}}
+	case *ast.TupleCasePattern:
+		elems := make([]*turnoutpb.LocalCasePatternModel, len(x.Elems))
+		for i, elem := range x.Elems {
+			elems[i] = localCasePatternToProto(elem)
+		}
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Tuple{Tuple: &turnoutpb.LocalTuplePatternModel{Elems: elems}}}
+	default:
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Wildcard{Wildcard: &turnoutpb.LocalWildcardPatternModel{}}}
 	}
 }
 

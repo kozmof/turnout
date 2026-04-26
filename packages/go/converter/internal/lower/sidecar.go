@@ -36,20 +36,17 @@ type SceneMeta struct {
 //   - Sigil per binding (validator-only)
 //   - View per scene (HCL authoring-time annotation, validator-only)
 //   - Text per action (HCL-only, stripped from JSON)
-//   - Extended expression trees for #if, #case, #pipe (HCL-only, not in proto)
 type Sidecar struct {
-	Sigils   map[BindingKey]ast.Sigil
-	Actions  map[string]ActionMeta         // key: sceneID + "/" + actionID
-	Scenes   map[string]SceneMeta          // key: sceneID
-	ExtExprs map[BindingKey]ast.BindingRHS // IfCallRHS | CaseCallRHS | PipeCallRHS
+	Sigils  map[BindingKey]ast.Sigil
+	Actions map[string]ActionMeta // key: sceneID + "/" + actionID
+	Scenes  map[string]SceneMeta  // key: sceneID
 }
 
 // newSidecar returns an empty, non-nil Sidecar.
 func newSidecar() *Sidecar {
 	return &Sidecar{
-		Sigils:   make(map[BindingKey]ast.Sigil),
-		Actions:  make(map[string]ActionMeta),
-		Scenes:   make(map[string]SceneMeta),
-		ExtExprs: make(map[BindingKey]ast.BindingRHS),
+		Sigils:  make(map[BindingKey]ast.Sigil),
+		Actions: make(map[string]ActionMeta),
+		Scenes:  make(map[string]SceneMeta),
 	}
 }
