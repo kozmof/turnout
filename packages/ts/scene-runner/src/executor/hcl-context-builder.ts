@@ -132,6 +132,15 @@ export function buildSpec(
     throw new Error('Unknown ArgModel variant encountered in hcl-context-builder');
   }
 
+  // `cond()` accepts a binding id for the condition. The runtime builder then
+  // decides whether that id names a value binding or a function binding.
+  function resolveCondConditionArg(arg: ArgModel): string {
+    if (arg.ref !== undefined) return arg.ref;
+    if (arg.funcRef !== undefined) return arg.funcRef;
+    if (arg.lit !== undefined) return addLitBinding(arg.lit);
+    throw new Error('Cond condition must resolve to a value or function binding');
+  }
+
   // Process each binding in declaration order (converter guarantees topological order).
   for (const binding of prog.bindings) {
     if (!binding.expr) {
@@ -164,7 +173,7 @@ export function buildSpec(
       spec[binding.name] = pipe(argBindings, steps);
     } else if (binding.expr.cond) {
       const c = binding.expr.cond;
-      const conditionRef = c.condition ? (resolveArg(c.condition) as string) : '';
+      const conditionRef = c.condition ? resolveCondConditionArg(c.condition) : '';
       const thenRef = c.then ? (resolveArg(c.then) as string) : '';
       const elseRef = c.elseBranch ? (resolveArg(c.elseBranch) as string) : '';
       spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });

@@ -502,9 +502,12 @@ func TestLowerIfRHSBareRef(t *testing.T) {
     }
   }`))
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
-	// 4 bindings: flag, thenFn, elseFn, result
-	if len(bindings) != 4 {
-		t.Errorf("binding count = %d, want 4", len(bindings))
+	if len(bindings) <= 4 {
+		t.Errorf("binding count = %d, want generated helper bindings plus result", len(bindings))
+	}
+	result := bindings[len(bindings)-1]
+	if result.Name != "result" || result.Expr == nil || result.Expr.Cond == nil {
+		t.Fatalf("last binding = %+v, want result cond expr", result)
 	}
 	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
 	extRHS, ok := sc.ExtExprs[key]
@@ -537,9 +540,12 @@ func TestLowerIfRHSCall(t *testing.T) {
     }
   }`))
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
-	// 5 bindings: x, y, thenFn, elseFn, result — no auto-generated __if_result_cond
-	if len(bindings) != 5 {
-		t.Errorf("binding count = %d, want 5", len(bindings))
+	if len(bindings) <= 5 {
+		t.Errorf("binding count = %d, want generated helper bindings plus result", len(bindings))
+	}
+	result := bindings[len(bindings)-1]
+	if result.Name != "result" || result.Expr == nil || result.Expr.Cond == nil {
+		t.Fatalf("last binding = %+v, want result cond expr", result)
 	}
 	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "result"}
 	extRHS, ok := sc.ExtExprs[key]

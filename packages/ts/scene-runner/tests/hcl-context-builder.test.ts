@@ -16,6 +16,7 @@ import {
   isPureString,
   isArray,
   type FuncId,
+  type ValueId,
 } from 'runtime';
 import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 

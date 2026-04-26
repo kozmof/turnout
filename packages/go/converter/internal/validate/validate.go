@@ -266,7 +266,8 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		extExpr := extExprFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
-			if !(strings.HasPrefix(b.Name, "__if_") && strings.HasSuffix(b.Name, "_cond")) {
+			if !(strings.HasPrefix(b.Name, "__if_") && strings.HasSuffix(b.Name, "_cond")) &&
+				!strings.HasPrefix(b.Name, "__local_") {
 				*ds = append(*ds, diag.Errorf(diag.CodeReservedName,
 					"binding %q: names starting with __ are reserved", b.Name))
 			}

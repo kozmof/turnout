@@ -111,7 +111,7 @@ func runConvert(args []string) int {
 	}
 
 	if *format == "json" {
-		if err := emit.EmitJSON(w, tm, sc); err != nil {
+		if err := emit.EmitJSON(w, tm); err != nil {
 			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
 			return 1
 		}

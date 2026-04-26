@@ -27,6 +27,8 @@ export function loadTurnFile(filePath: string): string {
  * Looks on PATH first; falls back to the built binary in the Go converter package.
  */
 function resolveTurnoutBin(): string {
+  if (process.env.TURNOUT_BIN) return process.env.TURNOUT_BIN;
+
   try {
     // Check if turnout is on PATH
     execSync('turnout --help', { stdio: 'ignore' });
@@ -50,7 +52,7 @@ export function runConverter(turnFilePath: string): TurnModel {
   const bin = resolveTurnoutBin();
   let output: Buffer;
   try {
-    output = execFileSync(bin, ['convert', turnFilePath, '-o', '-', '-format', 'json'], {
+    output = execFileSync(bin, ['convert', '-o', '-', '-format', 'json', turnFilePath], {
       encoding: 'buffer',
     });
   } catch (err: unknown) {
@@ -68,7 +70,7 @@ export function runConverter(turnFilePath: string): TurnModel {
 export function convertToHCL(turnFilePath: string): string {
   const bin = resolveTurnoutBin();
   try {
-    const output = execFileSync(bin, ['convert', turnFilePath, '-o', '-', '-format', 'hcl'], {
+    const output = execFileSync(bin, ['convert', '-o', '-', '-format', 'hcl', turnFilePath], {
       encoding: 'buffer',
     });
     return output.toString('utf8');

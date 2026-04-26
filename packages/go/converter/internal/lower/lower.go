@@ -388,7 +388,8 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		if scope == "compute" {
 			sc.ExtExprs[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = rhs
 		}
-		bindings = []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
+		c := newLocalLowerer(name, ft, bindingTypes, ds)
+		bindings = c.lowerTop(rhs)
 	default:
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
@@ -567,6 +568,377 @@ func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnost
 		*ds = append(*ds, diag.ErrorAt(rhs.Pos.File, rhs.Pos.Line, rhs.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported #if condition form for binding %q", name))
 		return []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Local expression lowering (#if / #case / #pipe / #it)
+// ─────────────────────────────────────────────────────────────────────────────
+
+type localLowerer struct {
+	target       string
+	targetType   ast.FieldType
+	bindingTypes map[string]string
+	ds           *diag.Diagnostics
+	counter      int
+	bindings     []*turnoutpb.BindingModel
+	itRef        string
+	itType       ast.FieldType
+	itAllowed    bool
+}
+
+func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]string, ds *diag.Diagnostics) *localLowerer {
+	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds}
+}
+
+func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
+	switch r := rhs.(type) {
+	case *ast.IfCallRHS:
+		c.lowerIfInto(c.target, c.targetType, r.Cond, r.Then, r.Else)
+	case *ast.CaseCallRHS:
+		c.lowerCaseInto(c.target, c.targetType, r.Subject, r.Arms)
+	case *ast.PipeCallRHS:
+		c.lowerPipeInto(c.target, c.targetType, r.Initial, r.Steps)
+	default:
+		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
+	}
+	if len(c.bindings) == 0 {
+		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
+	}
+	return c.bindings
+}
+
+func (c *localLowerer) temp(prefix string) string {
+	c.counter++
+	return fmt.Sprintf("__local_%s_%s_%d", c.target, prefix, c.counter)
+}
+
+func (c *localLowerer) remember(name string, ft ast.FieldType) {
+	c.bindingTypes[name] = fieldTypeToMethodType(ft)
+}
+
+func (c *localLowerer) appendBinding(b *turnoutpb.BindingModel, ft ast.FieldType) {
+	c.bindings = append(c.bindings, b)
+	c.remember(b.Name, ft)
+}
+
+func (c *localLowerer) emitValue(name string, ft ast.FieldType, lit ast.Literal) {
+	c.appendBinding(&turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(lit)}, ft)
+}
+
+func (c *localLowerer) emitIdentity(name string, ft ast.FieldType, ref string) {
+	c.appendBinding(lowerSingleRefRHS(name, ft, &ast.SingleRefRHS{RefName: ref}), ft)
+}
+
+func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalExpr) {
+	switch x := e.(type) {
+	case *ast.LocalLitExpr:
+		c.emitValue(name, ft, x.Value)
+	case *ast.LocalRefExpr:
+		c.emitIdentity(name, ft, x.Name)
+	case *ast.LocalItExpr:
+		if !c.itAllowed {
+			*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+				diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
+			c.emitValue(name, ft, zeroLiteralFor(ft))
+			return
+		}
+		c.emitIdentity(name, ft, c.itRef)
+	case *ast.LocalCallExpr:
+		c.lowerCallInto(name, ft, x)
+	case *ast.LocalInfixExpr:
+		c.lowerInfixInto(name, ft, x)
+	case *ast.LocalIfExpr:
+		c.lowerIfInto(name, ft, x.Cond, x.Then, x.Else)
+	case *ast.LocalCaseExpr:
+		c.lowerCaseInto(name, ft, x.Subject, x.Arms)
+	case *ast.LocalPipeExpr:
+		c.lowerPipeInto(name, ft, x.Initial, x.Steps)
+	default:
+		c.emitValue(name, ft, zeroLiteralFor(ft))
+	}
+}
+
+func (c *localLowerer) lowerExprTemp(e ast.LocalExpr, hint string, ft ast.FieldType) (string, ast.FieldType) {
+	name := c.temp(hint)
+	c.lowerExprInto(name, ft, e)
+	return name, ft
+}
+
+func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldType) string {
+	ref, _ := c.lowerExprTemp(e, hint+"_value", ft)
+	fnName := c.temp(hint + "_fn")
+	c.emitIdentity(fnName, ft, ref)
+	return fnName
+}
+
+func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr) {
+	args := make([]*turnoutpb.ArgModel, 0, len(call.Args))
+	for i, arg := range call.Args {
+		argType := c.inferLocalType(arg, ft)
+		ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType)
+		args = append(args, &turnoutpb.ArgModel{Ref: proto.String(ref)})
+	}
+	c.appendBinding(&turnoutpb.BindingModel{
+		Name: name,
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   call.FnAlias,
+			Args: args,
+		}},
+	}, ft)
+}
+
+func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.LocalInfixExpr) {
+	fn := infix.Op.FnAlias()
+	if fn == "" {
+		if ft == ast.FieldTypeStr {
+			fn = "str_concat"
+		} else {
+			fn = "add"
+		}
+	}
+	leftType, rightType := localOperandTypes(fn, ft)
+	leftRef, _ := c.lowerExprTemp(infix.LHS, "lhs", leftType)
+	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType)
+	c.appendBinding(&turnoutpb.BindingModel{
+		Name: name,
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   fn,
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String(leftRef)}, {Ref: proto.String(rightRef)}},
+		}},
+	}, ft)
+}
+
+func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr, elseExpr ast.LocalExpr) {
+	condRef, _ := c.lowerExprTemp(cond, "cond", ast.FieldTypeBool)
+	thenFn := c.lowerFuncTemp(thenExpr, "then", ft)
+	elseFn := c.lowerFuncTemp(elseExpr, "else", ft)
+	c.appendBinding(&turnoutpb.BindingModel{
+		Name: name,
+		Type: ft.String(),
+		Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+			Condition:  &turnoutpb.ArgModel{Ref: proto.String(condRef)},
+			Then:       &turnoutpb.ArgModel{FuncRef: proto.String(thenFn)},
+			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String(elseFn)},
+		}},
+	}, ft)
+}
+
+func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm) {
+	subjectType := c.inferLocalType(subject, ft)
+	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType)
+	fallbackFn := ""
+	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
+	for _, arm := range arms {
+		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
+			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft)
+			break
+		}
+		conditionalArms = append(conditionalArms, arm)
+	}
+	if fallbackFn == "" {
+		fallbackFn = c.lowerFuncTemp(&ast.LocalLitExpr{Value: zeroLiteralFor(ft)}, "case_default", ft)
+	}
+	nextFn := fallbackFn
+	for i := len(conditionalArms) - 1; i >= 0; i-- {
+		arm := conditionalArms[i]
+		condRef := c.lowerCasePatternCond(subjectRef, subjectType, arm)
+		thenFn := c.lowerFuncTemp(arm.Expr, "case_then", ft)
+		condName := c.temp("case_cond")
+		if i == 0 {
+			condName = name
+		}
+		c.appendBinding(&turnoutpb.BindingModel{
+			Name: condName,
+			Type: ft.String(),
+			Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String(condRef)},
+				Then:       &turnoutpb.ArgModel{FuncRef: proto.String(thenFn)},
+				ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String(nextFn)},
+			}},
+		}, ft)
+		nextFn = condName
+	}
+	if len(conditionalArms) == 0 {
+		c.emitIdentity(name, ft, nextFn)
+	}
+}
+
+func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.FieldType, arm ast.LocalCaseArm) string {
+	var condRef string
+	switch p := arm.Pattern.(type) {
+	case *ast.LiteralCasePattern:
+		litName := c.temp("case_lit")
+		c.emitValue(litName, subjectType, p.Value)
+		condRef = c.temp("case_match")
+		c.appendBinding(&turnoutpb.BindingModel{
+			Name: condRef,
+			Type: ast.FieldTypeBool.String(),
+			Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+				Fn:   "eq",
+				Args: []*turnoutpb.ArgModel{{Ref: proto.String(subjectRef)}, {Ref: proto.String(litName)}},
+			}},
+		}, ast.FieldTypeBool)
+	case *ast.VarBinderPattern:
+		condRef = c.temp("case_bind")
+		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: true})
+	case *ast.TupleCasePattern:
+		*c.ds = append(*c.ds, diag.ErrorAt(p.Pos.File, p.Pos.Line, p.Pos.Col,
+			diag.CodeUnsupportedConstruct, "#case tuple patterns are not yet supported by runtime lowering"))
+		condRef = c.temp("case_tuple_unsupported")
+		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: false})
+	default:
+		condRef = c.temp("case_unsupported")
+		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: false})
+	}
+	if arm.Guard == nil {
+		return condRef
+	}
+	guardRef, _ := c.lowerExprTemp(arm.Guard, "case_guard", ast.FieldTypeBool)
+	combined := c.temp("case_guarded")
+	c.appendBinding(&turnoutpb.BindingModel{
+		Name: combined,
+		Type: ast.FieldTypeBool.String(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   "bool_and",
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String(condRef)}, {Ref: proto.String(guardRef)}},
+		}},
+	}, ast.FieldTypeBool)
+	return combined
+}
+
+func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.LocalExpr, steps []ast.LocalExpr) {
+	currentType := c.inferLocalType(initial, ft)
+	currentRef, _ := c.lowerExprTemp(initial, "pipe_initial", currentType)
+	prevItRef, prevItType, prevItAllowed := c.itRef, c.itType, c.itAllowed
+	for i, step := range steps {
+		stepName := name
+		if i < len(steps)-1 {
+			stepName = c.temp("pipe_step")
+		}
+		c.itRef, c.itType, c.itAllowed = currentRef, currentType, true
+		stepType := ft
+		if i < len(steps)-1 {
+			stepType = c.inferLocalType(step, ft)
+		}
+		c.lowerExprInto(stepName, stepType, step)
+		currentRef, currentType = stepName, stepType
+	}
+	c.itRef, c.itType, c.itAllowed = prevItRef, prevItType, prevItAllowed
+	if len(steps) == 0 {
+		c.emitIdentity(name, ft, currentRef)
+	}
+}
+
+func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) ast.FieldType {
+	switch x := e.(type) {
+	case *ast.LocalLitExpr:
+		if ft, ok := literalFieldType(x.Value); ok {
+			return ft
+		}
+	case *ast.LocalRefExpr:
+		if s, ok := c.bindingTypes[x.Name]; ok {
+			if ft, ok := methodTypeToFieldType(s); ok {
+				return ft
+			}
+		}
+	case *ast.LocalItExpr:
+		if c.itAllowed {
+			return c.itType
+		}
+	case *ast.LocalCallExpr:
+		return localFnReturnType(x.FnAlias, fallback)
+	case *ast.LocalInfixExpr:
+		fn := x.Op.FnAlias()
+		if fn == "" {
+			return fallback
+		}
+		return localFnReturnType(fn, fallback)
+	case *ast.LocalIfExpr:
+		return c.inferLocalType(x.Then, fallback)
+	case *ast.LocalCaseExpr:
+		for _, arm := range x.Arms {
+			return c.inferLocalType(arm.Expr, fallback)
+		}
+	case *ast.LocalPipeExpr:
+		if len(x.Steps) > 0 {
+			return c.inferLocalType(x.Steps[len(x.Steps)-1], fallback)
+		}
+		return c.inferLocalType(x.Initial, fallback)
+	}
+	return fallback
+}
+
+func literalFieldType(lit ast.Literal) (ast.FieldType, bool) {
+	switch v := lit.(type) {
+	case *ast.NumberLiteral:
+		return ast.FieldTypeNumber, true
+	case *ast.StringLiteral:
+		return ast.FieldTypeStr, true
+	case *ast.BoolLiteral:
+		return ast.FieldTypeBool, true
+	case *ast.ArrayLiteral:
+		if len(v.Elements) == 0 {
+			return ast.FieldTypeArrNumber, true
+		}
+		elem, ok := literalFieldType(v.Elements[0])
+		if !ok {
+			return 0, false
+		}
+		switch elem {
+		case ast.FieldTypeNumber:
+			return ast.FieldTypeArrNumber, true
+		case ast.FieldTypeStr:
+			return ast.FieldTypeArrStr, true
+		case ast.FieldTypeBool:
+			return ast.FieldTypeArrBool, true
+		default:
+			return 0, false
+		}
+	}
+	return 0, false
+}
+
+func methodTypeToFieldType(s string) (ast.FieldType, bool) {
+	switch s {
+	case "number":
+		return ast.FieldTypeNumber, true
+	case "string":
+		return ast.FieldTypeStr, true
+	case "boolean":
+		return ast.FieldTypeBool, true
+	case "array":
+		return ast.FieldTypeArrNumber, true
+	default:
+		return 0, false
+	}
+}
+
+func localFnReturnType(fn string, fallback ast.FieldType) ast.FieldType {
+	switch fn {
+	case "gt", "gte", "lt", "lte", "eq", "neq", "bool_and", "bool_or", "bool_xor", "str_includes", "str_starts", "str_ends", "arr_includes":
+		return ast.FieldTypeBool
+	case "str_concat":
+		return ast.FieldTypeStr
+	case "arr_concat":
+		return fallback
+	default:
+		return ast.FieldTypeNumber
+	}
+}
+
+func localOperandTypes(fn string, fallback ast.FieldType) (ast.FieldType, ast.FieldType) {
+	switch fn {
+	case "str_concat", "str_includes", "str_starts", "str_ends":
+		return ast.FieldTypeStr, ast.FieldTypeStr
+	case "bool_and", "bool_or", "bool_xor":
+		return ast.FieldTypeBool, ast.FieldTypeBool
+	case "eq", "neq":
+		return fallback, fallback
+	default:
+		return ast.FieldTypeNumber, ast.FieldTypeNumber
 	}
 }
 

@@ -782,7 +782,7 @@ scene "test_scene" {
 	}
 }
 
-func TestEmitJSONRejectsSidecarExtExprs(t *testing.T) {
+func TestEmitJSONIncludesLoweredExtExprs(t *testing.T) {
 	src := `state { app { n:number = 0 } }
 scene "test" {
   entry_actions = ["a"]
@@ -812,8 +812,13 @@ scene "test" {
 		t.Fatalf("validate: %v", ds4)
 	}
 	var sb strings.Builder
-	err := emit.EmitJSON(&sb, tm, sc)
-	if err == nil || !strings.Contains(err.Error(), "json output does not support") {
-		t.Fatalf("EmitJSON error = %v, want unsupported sidecar expression error", err)
+	if err := emit.EmitJSON(&sb, tm); err != nil {
+		t.Fatalf("EmitJSON: %v", err)
+	}
+	out := sb.String()
+	for _, want := range []string{`"cond"`, `__local_out_then_fn`, `__local_out_else_fn`} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("EmitJSON output missing %q\n%s", want, out)
+		}
 	}
 }
