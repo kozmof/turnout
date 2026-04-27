@@ -39,11 +39,37 @@ export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
 export type PipeArgName = Brand<string, 'pipeArgName'>;
 
-// Fix 2: Discriminated union on FuncTable entries — kind is a first-class field.
+/**
+ * Per-instance input wiring for combine and pipe functions.
+ * Maps each argument name to the ValueId that holds its current value in the
+ * value table. Looked up at execution time so the executor can pull live values.
+ */
+export type FuncArgMap = { [argName in string]: ValueId };
+
+/**
+ * Discriminated union of runtime function-table entries.
+ *
+ * combine / pipe carry `argMap` because their inputs are live value-table
+ * references resolved during execution. cond does NOT carry `argMap`: its
+ * inputs (condition id, true/false branch ids) are fully pre-resolved into
+ * `condFuncDefTable` at build time, and `executeCondFunc` receives the
+ * already-selected branch value as a parameter — no runtime value lookup needed.
+ *
+ * Use `hasArgMap(entry)` to narrow to the combine | pipe variants without
+ * special-casing `cond` directly.
+ */
 export type FuncTableEntry =
-  | { kind: 'combine'; defId: CombineDefineId; argMap: { [argName in string]: ValueId }; returnId: ValueId }
-  | { kind: 'pipe';    defId: PipeDefineId;    argMap: { [argName in string]: ValueId }; returnId: ValueId }
-  | { kind: 'cond';   defId: CondDefineId;    returnId: ValueId };
+  | { kind: 'combine'; defId: CombineDefineId; argMap: FuncArgMap; returnId: ValueId }
+  | { kind: 'pipe';    defId: PipeDefineId;    argMap: FuncArgMap; returnId: ValueId }
+  | { kind: 'cond';   defId: CondDefineId;                        returnId: ValueId };
+
+/** Narrows a FuncTableEntry to the two variants that carry `argMap` (combine | pipe). */
+export type ArgMapFuncEntry = Extract<FuncTableEntry, { argMap: FuncArgMap }>;
+
+/** Type guard: true when the entry is a combine or pipe entry (the two that carry `argMap`). */
+export function hasArgMap(entry: FuncTableEntry): entry is ArgMapFuncEntry {
+  return 'argMap' in entry;
+}
 
 export type FuncTable = {
   [id in FuncId]: FuncTableEntry;

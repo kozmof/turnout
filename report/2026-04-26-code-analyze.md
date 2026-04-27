@@ -148,8 +148,8 @@ Promoting these to hard keyword tokens (`TokKwRoute`, `TokKwMatch`) would make p
 **T2 — `PrepareSource`/`NextPrepareSource` split not enforced by types:**
 The constraint "FromLiteral is forbidden in action-level prepare" lives only in the validator comment and documentation. A separate `ActionPrepareSource` type (without `FromLiteral`) would make this a compile-time guarantee.
 
-**T3 — `FuncTableEntry.argMap` asymmetry in TypeScript:**
-`combine` and `pipe` entries carry `argMap`; `cond` does not (types.ts:44–46). Code touching `FuncTableEntry` must always special-case `cond`. Documenting why (cond resolves its inputs differently) would help.
+**T3 — `FuncTableEntry.argMap` asymmetry in TypeScript: ✅ resolved**
+`combine` and `pipe` carry `argMap` because their inputs are live value-table references resolved during execution; `cond` does not because its inputs are pre-resolved into `condFuncDefTable` at build time and `executeCondFunc` receives the selected value as a parameter. A `FuncArgMap` named type, an `ArgMapFuncEntry` union alias, and a `hasArgMap(entry)` predicate were added to `types.ts`. The `kind === 'cond'` guard in `executePipeFunc` was replaced with `!hasArgMap(funcEntry)`. Note: `combine` and `pipe` are now DSL-internal (only called from `hcl-context-builder.ts`); the asymmetry is a pure implementation detail with no external API surface.
 
 **T4 — Branded type leakage in `hcl-context-builder.ts`:**
 Numerous `as FuncId`, `as ValueId`, `as ContextSpec` casts in `hcl-context-builder.ts:237–244` indicate the bridge between proto model and runtime types is not type-safe at the boundary. A typed adapter layer would eliminate these escape hatches.
