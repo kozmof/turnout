@@ -730,7 +730,7 @@ func validateLocalExpr(bindingName string, e ast.LocalExpr, scope map[string]bin
 		}
 		return info.fieldType, true
 	case *ast.LocalLitExpr:
-		return literalFieldType(x.Value)
+		return ast.LiteralFieldType(x.Value)
 	case *ast.LocalItExpr:
 		if !itAllowed {
 			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
@@ -852,40 +852,6 @@ func validateLocalPipe(bindingName string, initial ast.LocalExpr, steps []ast.Lo
 	return current, known
 }
 
-func literalFieldType(lit ast.Literal) (ast.FieldType, bool) {
-	switch v := lit.(type) {
-	case *ast.NumberLiteral:
-		return ast.FieldTypeNumber, true
-	case *ast.StringLiteral:
-		return ast.FieldTypeStr, true
-	case *ast.BoolLiteral:
-		return ast.FieldTypeBool, true
-	case *ast.ArrayLiteral:
-		if len(v.Elements) == 0 {
-			return ast.FieldTypeArrNumber, false
-		}
-		elemType, ok := literalFieldType(v.Elements[0])
-		if !ok {
-			return 0, false
-		}
-		for _, elem := range v.Elements[1:] {
-			t, ok := literalFieldType(elem)
-			if !ok || t != elemType {
-				return 0, false
-			}
-		}
-		switch elemType {
-		case ast.FieldTypeNumber:
-			return ast.FieldTypeArrNumber, true
-		case ast.FieldTypeStr:
-			return ast.FieldTypeArrStr, true
-		case ast.FieldTypeBool:
-			return ast.FieldTypeArrBool, true
-		}
-	}
-	return 0, false
-}
-
 func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
 	if len(types) < 2 {
 		return
@@ -960,7 +926,7 @@ func resolveLocalCallReturn(spec fnSpec, types []ast.FieldType, known []bool) (a
 func validatePattern(bindingName string, pattern ast.LocalCasePattern, subjectType ast.FieldType, subjectKnown bool, ds *diag.Diagnostics) {
 	switch p := pattern.(type) {
 	case *ast.LiteralCasePattern:
-		patternType, ok := literalFieldType(p.Value)
+		patternType, ok := ast.LiteralFieldType(p.Value)
 		if ok && subjectKnown && patternType != subjectType {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: #case literal pattern has type %s but subject has type %s",

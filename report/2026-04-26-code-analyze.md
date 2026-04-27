@@ -104,11 +104,11 @@ The sidecar no longer carries `ExtExprs`. Structured `#if`/`#case`/`#pipe` expre
 
 ## 5. Pitfalls
 
-**P1 — Duplicate `literalFieldType` with divergent behavior:**
-Both `lower.go:874` and `validate.go:775` define `literalFieldType(ast.Literal)`. They differ on empty arrays: the lowerer returns `(FieldTypeArrNumber, true)` while the validator returns `(FieldTypeArrNumber, false)`. This inconsistency means an empty array literal passes validation but may be treated differently during lowering.
+**P1 — Duplicate `literalFieldType` with divergent behavior: ✅ resolved**
+The canonical implementation was moved to `ast.LiteralFieldType(ast.Literal) (ast.FieldType, bool)` in `ast/ast.go`. Both private copies were deleted; all call sites in `lower.go` and `validate.go` now call `ast.LiteralFieldType`. The lowerer's two bugs (empty array returning `true`, only checking the first element of multi-element arrays) are eliminated by the canonical implementation.
 
-**P2 — `methodTypeToFieldType` loses array element type:**
-`lower.go:904–917` maps `"array"` → `FieldTypeArrNumber` regardless of the actual element type. This means `inferLocalType` can mislabel an `arr<str>` or `arr<bool>` binding as `arr<number>`.
+**P2 — `methodTypeToFieldType` loses array element type: ✅ resolved**
+`fieldTypeToMethodType` now emits `"arr<number>"`, `"arr<str>"`, `"arr<bool>"` for the three array types instead of collapsing them all to `"array"`. `methodTypeToFieldType` has matching cases for each, making the pair a lossless round-trip. `inferLocalType` now correctly recovers the full array element type from `bindingTypes`.
 
 **P3 — `FN_MAP` in `hcl-context-builder.ts` is missing `arr_get` and `arr_includes`:**
 The Go validator accepts both functions (validate.go:65–66), but `hcl-context-builder.ts:22–51` has no mapping for them. A `.turn` file using either would pass Go validation but throw at runtime.
@@ -164,8 +164,8 @@ Both functions in `validate.go:809–858` and `validate.go:1177–1230` implemen
 **I2 — `sigilFor` double key-lookup:**
 `sigilFor` in `validate.go` tries two `BindingKey` lookups (with/without `Scope`) to compensate for the dual-registration in `lowerBinding`. (`extExprFor` and its equivalent workaround were removed when `ExtExprs` was eliminated.) Standardizing on a single canonical scope key would remove the remaining workaround.
 
-**I3 — `localFnReturnType` is incomplete relative to `builtinFns`:**
-`lower.go:919–930` hard-codes return types for a subset of functions, returning `FieldTypeNumber` as the implicit default. Functions added to `builtinFns` in the validator won't automatically appear here — they need a manual addition to avoid mistyped temp bindings.
+**I3 — `localFnReturnType` is incomplete relative to `builtinFns`: ✅ resolved**
+`arr_get` was absent from `localFnReturnType` and fell through to `default: FieldTypeNumber`, mislabeling its temp binding when used on `arr<str>` or `arr<bool>`. It was added to the `"arr_concat", "arr_get"` case that returns `fallback`, carrying the declared binding type forward (same approach as `arr_concat`, since the element type is not inferable from the function name alone).
 
 **I4 — `lowerCaseInto` emits bindings in non-intuitive order:**
 The right-to-left fold at `lower.go:745–762` means the `name` binding is emitted last and intermediate conditions are emitted before their referencing `cond` binding. Reordering (or documenting the intent) would make the output easier to trace.

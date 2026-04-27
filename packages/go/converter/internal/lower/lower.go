@@ -963,7 +963,7 @@ func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePattern
 func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) ast.FieldType {
 	switch x := e.(type) {
 	case *ast.LocalLitExpr:
-		if ft, ok := literalFieldType(x.Value); ok {
+		if ft, ok := ast.LiteralFieldType(x.Value); ok {
 			return ft
 		}
 	case *ast.LocalRefExpr:
@@ -999,36 +999,6 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 	return fallback
 }
 
-func literalFieldType(lit ast.Literal) (ast.FieldType, bool) {
-	switch v := lit.(type) {
-	case *ast.NumberLiteral:
-		return ast.FieldTypeNumber, true
-	case *ast.StringLiteral:
-		return ast.FieldTypeStr, true
-	case *ast.BoolLiteral:
-		return ast.FieldTypeBool, true
-	case *ast.ArrayLiteral:
-		if len(v.Elements) == 0 {
-			return ast.FieldTypeArrNumber, true
-		}
-		elem, ok := literalFieldType(v.Elements[0])
-		if !ok {
-			return 0, false
-		}
-		switch elem {
-		case ast.FieldTypeNumber:
-			return ast.FieldTypeArrNumber, true
-		case ast.FieldTypeStr:
-			return ast.FieldTypeArrStr, true
-		case ast.FieldTypeBool:
-			return ast.FieldTypeArrBool, true
-		default:
-			return 0, false
-		}
-	}
-	return 0, false
-}
-
 func methodTypeToFieldType(s string) (ast.FieldType, bool) {
 	switch s {
 	case "number":
@@ -1037,8 +1007,12 @@ func methodTypeToFieldType(s string) (ast.FieldType, bool) {
 		return ast.FieldTypeStr, true
 	case "boolean":
 		return ast.FieldTypeBool, true
-	case "array":
+	case "arr<number>":
 		return ast.FieldTypeArrNumber, true
+	case "arr<str>":
+		return ast.FieldTypeArrStr, true
+	case "arr<bool>":
+		return ast.FieldTypeArrBool, true
 	default:
 		return 0, false
 	}
@@ -1050,7 +1024,7 @@ func localFnReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 		return ast.FieldTypeBool
 	case "str_concat":
 		return ast.FieldTypeStr
-	case "arr_concat":
+	case "arr_concat", "arr_get":
 		return fallback
 	default:
 		return ast.FieldTypeNumber
@@ -1082,8 +1056,14 @@ func fieldTypeToMethodType(ft ast.FieldType) string {
 		return "string"
 	case ast.FieldTypeBool:
 		return "boolean"
+	case ast.FieldTypeArrNumber:
+		return "arr<number>"
+	case ast.FieldTypeArrStr:
+		return "arr<str>"
+	case ast.FieldTypeArrBool:
+		return "arr<bool>"
 	default:
-		return "array"
+		return "number"
 	}
 }
 
