@@ -25,14 +25,14 @@ func pipelineModel(t *testing.T, src string) *turnoutpb.TurnModel {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Sidecar, schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
-	return tm
+	return lr.Model
 }
 
 // ─── writeLiteral: non-empty array and bool false ─────────────────────────────

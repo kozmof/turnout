@@ -196,9 +196,9 @@ func lowerDiagnosticsFromSource(t *testing.T, src string, mutate func(*ast.TurnF
 		t.Fatalf("state: %v", ds2)
 	}
 
-	tm, _, ds3 := lower.Lower(tf, schema)
-	if tm != nil {
-		t.Fatalf("expected nil model for irregular lowering path, got %#v", tm)
+	lr, ds3 := lower.Lower(tf, schema)
+	if lr != nil {
+		t.Fatalf("expected nil result for irregular lowering path, got %#v", lr)
 	}
 	return ds3
 }

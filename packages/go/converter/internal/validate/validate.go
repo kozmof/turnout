@@ -313,18 +313,10 @@ func sigilFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName
 	if sc == nil {
 		return ast.SigilNone
 	}
-	if sigil, ok := sc.Sigils[lower.BindingKey{
-		SceneID:     sceneID,
-		ActionID:    actionID,
-		Scope:       scope,
-		ProgName:    progName,
-		BindingName: bindingName,
-	}]; ok {
-		return sigil
-	}
 	return sc.Sigils[lower.BindingKey{
 		SceneID:     sceneID,
 		ActionID:    actionID,
+		Scope:       scope,
 		ProgName:    progName,
 		BindingName: bindingName,
 	}]
@@ -852,12 +844,9 @@ func validateLocalPipe(bindingName string, initial ast.LocalExpr, steps []ast.Lo
 	return current, known
 }
 
-func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
-	if len(types) < 2 {
-		return
-	}
-	t1, ok1 := types[0], known[0]
-	t2, ok2 := types[1], known[1]
+// validateBinaryArgTypePair checks the two operand types of a binary function
+// against the fn spec. Shared by validateLocalCallArgTypes and validateCombineArgTypes.
+func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.Diagnostics) {
 	switch {
 	case spec.isGeneric:
 		if ok1 && ok2 && t1 != t2 {
@@ -886,7 +875,7 @@ func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.
 	case spec.isArrConcat:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_concat arg1 must be array, got %s", bindingName, t1))
+				"binding %q: arr_concat arg1 must be an array type, got %s", bindingName, t1))
 		}
 		if ok1 && ok2 && t1 != t2 {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
@@ -902,6 +891,13 @@ func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.
 				"binding %q: %s arg2 expects %s, got %s", bindingName, fn, spec.arg2Type, t2))
 		}
 	}
+}
+
+func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
+	if len(types) < 2 {
+		return
+	}
+	validateBinaryArgTypePair(bindingName, fn, spec, types[0], known[0], types[1], known[1], ds)
 }
 
 func resolveLocalCallReturn(spec fnSpec, types []ast.FieldType, known []bool) (ast.FieldType, bool) {
@@ -1226,53 +1222,7 @@ func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec 
 	}
 	arg1Type, ok1 := resolveArgType(c.Args[0], scope, nil)
 	arg2Type, ok2 := resolveArgType(c.Args[1], scope, nil)
-
-	switch {
-	case spec.isGeneric:
-		if ok1 && ok2 && arg1Type != arg2Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s requires homogeneous operand types, got %s and %s",
-				bindingName, c.Fn, arg1Type, arg2Type))
-		}
-	case spec.isArrGet:
-		if ok1 && !arg1Type.IsArray() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_get arg1 must be an array type, got %s", bindingName, arg1Type))
-		}
-		if ok2 && arg2Type != ast.FieldTypeNumber {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_get arg2 must be number, got %s", bindingName, arg2Type))
-		}
-	case spec.isArrInc:
-		if ok1 && !arg1Type.IsArray() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_includes arg1 must be an array type, got %s", bindingName, arg1Type))
-		}
-		if ok1 && ok2 && arg1Type.IsArray() && arg2Type != arg1Type.ElemType() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_includes arg2 type %s does not match array element type %s",
-				bindingName, arg2Type, arg1Type.ElemType()))
-		}
-	case spec.isArrConcat:
-		if ok1 && !arg1Type.IsArray() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_concat arg1 must be an array type, got %s", bindingName, arg1Type))
-		}
-		if ok1 && ok2 && arg1Type != arg2Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: arr_concat arg types must match, got %s and %s",
-				bindingName, arg1Type, arg2Type))
-		}
-	default:
-		if ok1 && arg1Type != spec.arg1Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s arg1 expects %s, got %s", bindingName, c.Fn, spec.arg1Type, arg1Type))
-		}
-		if ok2 && arg2Type != spec.arg2Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s arg2 expects %s, got %s", bindingName, c.Fn, spec.arg2Type, arg2Type))
-		}
-	}
+	validateBinaryArgTypePair(bindingName, c.Fn, spec, arg1Type, ok1, arg2Type, ok2, ds)
 }
 
 // isIdentityCombine reports whether c is a canonical identity combine emitted

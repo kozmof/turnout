@@ -21,10 +21,16 @@ import (
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Lower converts a parsed TurnFile and resolved STATE schema to a canonical
-// proto model plus a sidecar that carries DSL metadata not representable in
-// proto (sigils, view blocks, action text).
-func Lower(file *ast.TurnFile, schema state.Schema) (*turnoutpb.TurnModel, *Sidecar, diag.Diagnostics) {
+// LowerResult bundles the canonical proto model with the sidecar that carries
+// DSL metadata not representable in proto (sigils, view blocks, action text).
+type LowerResult struct {
+	Model   *turnoutpb.TurnModel
+	Sidecar *Sidecar
+}
+
+// Lower converts a parsed TurnFile and resolved STATE schema to a LowerResult
+// plus diagnostics. Returns a nil LowerResult when the input has errors.
+func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnostics) {
 	var ds diag.Diagnostics
 	sc := newSidecar()
 
@@ -39,9 +45,9 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*turnoutpb.TurnModel, *Side
 	tm.Routes = lowerRouteBlocks(file.Routes)
 
 	if ds.HasErrors() {
-		return nil, nil, ds
+		return nil, ds
 	}
-	return tm, sc, ds
+	return &LowerResult{Model: tm, Sidecar: sc}, ds
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -396,11 +402,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	if decl.Sigil != ast.SigilNone {
 		for _, b := range bindings {
 			if b.Name == name {
-				key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}
-				sc.Sigils[key] = decl.Sigil
-				if scope == "compute" {
-					sc.Sigils[BindingKey{SceneID: sceneID, ActionID: actionID, ProgName: progName, BindingName: name}] = decl.Sigil
-				}
+				sc.Sigils[BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}] = decl.Sigil
 			}
 		}
 	}
@@ -731,6 +733,11 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 	}, ft)
 }
 
+// lowerCaseInto emits bindings in reverse arm order (last arm first). This is
+// required to produce topologically sorted output: each CondExpr binding
+// references the next arm's binding as its else-branch, so inner arms must be
+// defined before the outer ones that reference them. The user's declared name
+// is assigned to the outermost arm (i == 0) and is therefore emitted last.
 func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm) {
 	subjectType := c.inferLocalType(subject, ft)
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType)
@@ -1164,12 +1171,12 @@ type prepareResolver interface {
 // ── Action-level resolver ──
 
 type actionPrepareResolver struct {
-	index  map[string]ast.PrepareSource
+	index  map[string]ast.ActionPrepareSource
 	schema state.Schema
 }
 
 func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) prepareResolver {
-	index := make(map[string]ast.PrepareSource)
+	index := make(map[string]ast.ActionPrepareSource)
 	if prepare != nil {
 		for _, e := range prepare.Entries {
 			index[e.BindingName] = e.Source

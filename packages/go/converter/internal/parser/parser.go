@@ -181,7 +181,7 @@ func (p *parser) parseRefVal() string {
 		for p.peek().Kind == lexer.TokDot {
 			p.advance() // consume '.'
 			seg := p.peek()
-			if seg.Kind != lexer.TokIdent {
+			if seg.Kind != lexer.TokIdent && !isKeyword(seg.Kind) {
 				p.errorf(seg, "expected identifier after '.' in path, got %s", kindName(seg.Kind))
 				break
 			}
@@ -215,8 +215,19 @@ func (p *parser) parseRefVal() string {
 }
 
 // isKeyword reports whether k is any keyword token kind.
+// Listed explicitly so the compiler catches any new keyword not added here.
 func isKeyword(k lexer.TokenKind) bool {
-	return k >= lexer.TokKwState && k <= lexer.TokKwText
+	switch k {
+	case lexer.TokKwState, lexer.TokKwStateFile, lexer.TokKwScene, lexer.TokKwAction,
+		lexer.TokKwCompute, lexer.TokKwPrepare, lexer.TokKwMerge, lexer.TokKwPublish,
+		lexer.TokKwNext, lexer.TokKwProg, lexer.TokKwRoot, lexer.TokKwCondition,
+		lexer.TokKwEntryActions, lexer.TokKwNextPolicy,
+		lexer.TokKwFromState, lexer.TokKwFromAction, lexer.TokKwFromHook, lexer.TokKwFromLiteral,
+		lexer.TokKwToState, lexer.TokKwHook, lexer.TokKwView, lexer.TokKwFlow,
+		lexer.TokKwEnforce, lexer.TokKwText, lexer.TokKwRoute, lexer.TokKwMatch:
+		return true
+	}
+	return false
 }
 
 // ─── parseFieldType ──────────────────────────────────────────────────────────
@@ -273,6 +284,21 @@ func (p *parser) parseLiteral() ast.Literal {
 	case lexer.TokHeredoc, lexer.TokTripleQuote:
 		p.advance()
 		return &ast.StringLiteral{Pos: p.posOf(t), Value: t.Value}
+
+	case lexer.TokMinus:
+		p.advance() // consume '-'
+		numTok := p.peek()
+		if numTok.Kind != lexer.TokNumberLit {
+			p.errorf(numTok, "expected number after '-', got %s", kindName(numTok.Kind))
+			return &ast.NumberLiteral{Pos: p.posOf(t)}
+		}
+		p.advance()
+		v, err := strconv.ParseFloat(numTok.Value, 64)
+		if err != nil {
+			p.errorf(numTok, "invalid number literal %q: %v", numTok.Value, err)
+			return &ast.NumberLiteral{Pos: p.posOf(t)}
+		}
+		return &ast.NumberLiteral{Pos: p.posOf(t), Value: -v}
 
 	case lexer.TokLBracket:
 		return p.parseArrayLiteral()
@@ -447,7 +473,7 @@ func (p *parser) parseRHS(_ string) ast.BindingRHS {
 	switch t.Kind {
 	// ── literal forms ──────────────────────────────────────────────────────
 	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit,
-		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket:
+		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket, lexer.TokMinus:
 		return &ast.LiteralRHS{Value: p.parseLiteral()}
 
 	// ── _ is invalid as a binding RHS (v1: only valid in #case patterns) ──
@@ -600,7 +626,7 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	case lexer.TokLParen:
 		return p.parseTupleCasePattern()
-	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit:
+	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit, lexer.TokMinus:
 		lit := p.parseLiteral()
 		return &ast.LiteralCasePattern{Pos: p.posOf(t), Value: lit}
 	case lexer.TokIdent:
@@ -686,7 +712,7 @@ func (p *parser) parseLocalPrimary() ast.LocalExpr {
 		}
 		return &ast.LocalRefExpr{Pos: p.posOf(nameTok), Name: nameTok.Value}
 	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit,
-		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket:
+		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket, lexer.TokMinus:
 		lit := p.parseLiteral()
 		return &ast.LocalLitExpr{Pos: p.posOf(t), Value: lit}
 	default:
@@ -924,7 +950,7 @@ func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
 		entryPos := p.posOf(nameTok)
 		p.expect(lexer.TokLBrace)
 
-		var src ast.PrepareSource
+		var src ast.ActionPrepareSource
 		for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 			fk := p.peek()
 			switch fk.Kind {
@@ -938,10 +964,10 @@ func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
 				hookTok, _ := p.expect(lexer.TokStringLit)
 				src = &ast.FromHook{Pos: p.posOf(fk), HookName: hookTok.Value}
 			case lexer.TokKwFromLiteral:
-				// from_literal valid in action prepare (per spec, validator rejects at action level)
+				p.errorf(fk, "from_literal is not allowed in action-level prepare; use from_state or from_hook")
 				p.advance()
 				p.expect(lexer.TokEquals)
-				src = &ast.FromLiteral{Pos: p.posOf(fk), Value: p.parseLiteral()}
+				p.parseLiteral() // consume and discard
 			default:
 				p.errorf(fk, "unexpected token %s in prepare entry", kindName(fk.Kind))
 				p.advance()
@@ -950,7 +976,7 @@ func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
 		p.expect(lexer.TokRBrace)
 
 		if src == nil {
-			p.errorf(nameTok, "prepare entry %q has no source (from_state, from_hook, or from_literal)", nameTok.Value)
+			p.errorf(nameTok, "prepare entry %q has no source (from_state or from_hook)", nameTok.Value)
 			src = &ast.FromState{}
 		}
 		entries = append(entries, &ast.PrepareEntry{
@@ -1342,16 +1368,15 @@ func (p *parser) parseFieldDecl() *ast.FieldDecl {
 // ─── Route block parsing ──────────────────────────────────────────────────────
 
 // parseRouteBlock parses `route "<id>" { match { ... } }`.
-// "route" has already been identified as a TokIdent with value "route" by the caller.
 func (p *parser) parseRouteBlock() *ast.RouteBlock {
 	pos := p.posOf(p.peek())
-	p.advance() // consume the bare "route" ident
+	p.advance() // consume the route keyword
 	idTok, _ := p.expect(lexer.TokStringLit)
 	p.expect(lexer.TokLBrace)
 	rb := &ast.RouteBlock{Pos: pos, ID: idTok.Value}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
-		if t.Kind == lexer.TokIdent && t.Value == "match" {
+		if t.Kind == lexer.TokKwMatch {
 			if rb.Match != nil {
 				p.errorf(t, "duplicate match block in route %q", rb.ID)
 				p.skipBlock()
@@ -1368,10 +1393,9 @@ func (p *parser) parseRouteBlock() *ast.RouteBlock {
 }
 
 // parseMatchBlock parses `match { <arm>... }`.
-// "match" has already been identified as a TokIdent with value "match" by the caller.
 func (p *parser) parseMatchBlock() *ast.MatchBlock {
 	pos := p.posOf(p.peek())
-	p.advance() // consume the bare "match" ident
+	p.advance() // consume the match keyword
 	p.expect(lexer.TokLBrace)
 	mb := &ast.MatchBlock{Pos: pos}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
@@ -1507,16 +1531,13 @@ func (p *parser) parseFile() *ast.TurnFile {
 				tf.Scenes = append(tf.Scenes, sb)
 			}
 
-		case lexer.TokIdent:
-			// `route` is not a hard keyword (to avoid clashing with user identifiers),
-			// so it arrives as TokIdent at file top level.
-			if t.Value == "route" {
-				rb := p.parseRouteBlock()
-				if rb != nil {
-					tf.Routes = append(tf.Routes, rb)
-				}
-				continue
+		case lexer.TokKwRoute:
+			rb := p.parseRouteBlock()
+			if rb != nil {
+				tf.Routes = append(tf.Routes, rb)
 			}
+
+		case lexer.TokIdent:
 			p.errorf(t, "unexpected token %s %q at file top level", kindName(t.Kind), t.Value)
 			p.advance()
 

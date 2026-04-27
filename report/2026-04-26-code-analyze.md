@@ -38,11 +38,11 @@ Each package has a single, clearly-stated responsibility. The `diag` package pro
 | `Arg` | `RefArg`, `LitArg`, `FuncRefArg`, `StepRefArg`, `TransformArg`, `MethodCallArg` |
 | `LocalExpr` | `LocalRefExpr`, `LocalLitExpr`, `LocalItExpr`, `LocalCallExpr`, `LocalInfixExpr`, `LocalIfExpr`, `LocalCaseExpr`, `LocalPipeExpr` |
 | `LocalCasePattern` | `WildcardCasePattern`, `LiteralCasePattern`, `VarBinderPattern`, `TupleCasePattern` |
-| `PrepareSource` | `FromState`, `FromHook`, `FromLiteral` (action-level) |
+| `ActionPrepareSource` | `FromState`, `FromHook` (action-level prepare only) |
 | `NextPrepareSource` | `FromAction`, `FromState`, `FromLiteral` (transition-level) |
 | `StateSource` | `InlineStateBlock`, `StateFileDirective` |
 
-Notable: `FromState` and `FromLiteral` implement *both* `PrepareSource` and `NextPrepareSource`. The constraint that `FromLiteral` is forbidden at the action level is expressed in the validator, not the type system.
+Notable: `FromState` implements both `ActionPrepareSource` and `NextPrepareSource`. `FromLiteral` is forbidden in action-level prepare by the type system (it only implements `NextPrepareSource`); the parser emits an error if `from_literal` appears in an action `prepare` block.
 
 ### TypeScript types
 
@@ -94,9 +94,7 @@ executeGraph(funcId, assertValidContext(exec))
 
 The sidecar no longer carries `ExtExprs`. Structured `#if`/`#case`/`#pipe` expressions are now stored directly in `BindingModel.ext_expr` (`LocalExprModel`) in the proto IR and read by the emitter from there.
 
-**BindingKey dual-scope registration:** When `scope == "compute"`, `lowerBinding` registers the same sigil entry at both `{scope="compute", ...}` and `{scope="", ...}` in `sc.Sigils`. This is a workaround that allows the validator's `sigilFor` to find the entry regardless of which scope string the caller passes. (The equivalent workaround for `ExtExprs` was removed when `ExtExprs` was eliminated.)
-
-**`route` / `match` as soft keywords:** These are parsed as `TokIdent` with value-checked strings (parser.go:1510–1519), not hard keywords. This avoids reserving them as identifiers globally but makes the parser fragile to value-based branching.
+**`route` / `match` as hard keywords:** Both are now `TokKwRoute` / `TokKwMatch` in the lexer keyword map and the parser's `isKeyword` switch. Path expressions (dotted paths like `story.route`) accept keyword tokens as field-name segments via the `isKeyword(seg.Kind)` fallback in `parseRefVal`.
 
 **`#case` lowering as a right-to-left fold:** `lowerCaseInto` (lower.go:729–766) builds nested `CondExpr` bindings from the last arm inward. The binding for the user's declared name is emitted last (when `i == 0`), so the output order is bottom-up.
 
@@ -110,17 +108,17 @@ The canonical implementation was moved to `ast.LiteralFieldType(ast.Literal) (as
 **P2 — `methodTypeToFieldType` loses array element type: ✅ resolved**
 `fieldTypeToMethodType` now emits `"arr<number>"`, `"arr<str>"`, `"arr<bool>"` for the three array types instead of collapsing them all to `"array"`. `methodTypeToFieldType` has matching cases for each, making the pair a lossless round-trip. `inferLocalType` now correctly recovers the full array element type from `bindingTypes`.
 
-**P3 — `FN_MAP` in `hcl-context-builder.ts` is missing `arr_get` and `arr_includes`:**
-The Go validator accepts both functions (validate.go:65–66), but `hcl-context-builder.ts:22–51` has no mapping for them. A `.turn` file using either would pass Go validation but throw at runtime.
+**P3 — `FN_MAP` in `hcl-context-builder.ts` is missing `arr_get` and `arr_includes`: ✅ resolved**
+`arr_get: 'binaryFnArray::get'` and `arr_includes: 'binaryFnArray::includes'` were added to the `FN_MAP` in `hcl-context-builder.ts`.
 
-**P4 — `isKeyword` uses an implicit range:**
-`parser.go:218–220` checks `k >= TokKwState && k <= TokKwText`. If a new keyword token is added *outside* that range, `isKeyword` silently returns false, breaking path-expression parsing for keyword-named scene IDs.
+**P4 — `isKeyword` uses an implicit range: ✅ resolved**
+`isKeyword` was rewritten as an explicit switch over all 26 keyword token kinds, including the newly-promoted `TokKwRoute` and `TokKwMatch`. Adding a new keyword now requires an explicit case rather than a silent no-op if it falls outside a magic range.
 
 **P5 — `stateManagerFrom` vs `stateManagerFromSchema` validation asymmetry:**
-`stateManagerFrom` uses `null` for `validPaths` (no path validation on `write`), while `stateManagerFromSchema` validates strictly. Tests that use the ad-hoc form won't catch invalid write paths that would throw in production.
+`stateManagerFrom` intentionally uses `null` for `validPaths` (no path validation). The scene-executor and tests pass `StateManager.from({})` with an empty initial state and write merge outputs to arbitrary paths at runtime; strict validation would break these callers. The asymmetry is by design: `stateManagerFromSchema` is the production entry point with strict validation; `stateManagerFrom` is a permissive form for partial/ad-hoc states.
 
-**P6 — No negative number literal support:**
-The lexer's `scanNumber` (lexer.go:643–656) only recognizes non-negative numbers. Negative literals must be expressed as infix (e.g., `0 - 1`) or cannot be state defaults.
+**P6 — No negative number literal support: ✅ resolved**
+`parseLiteral` now handles `TokMinus` followed by `TokNumberLit`, returning a `*ast.NumberLiteral` with a negated value. `TokMinus` was also added to the literal dispatch cases in `parseRHS`, `parseLocalExpr`, and `parseCasePattern`.
 
 ---
 
@@ -129,11 +127,11 @@ The lexer's `scanNumber` (lexer.go:643–656) only recognizes non-negative numbe
 **D1 — Dual representation for extended expressions: ✅ resolved**
 `#if`/`#case`/`#pipe` expressions are now stored once in the proto IR as `BindingModel.ext_expr` (`LocalExprModel`). The flat `ExprModel` bindings remain for runtime execution; the emitter reads `ext_expr` for HCL re-emission. `Sidecar.ExtExprs` and the `extExprFor` validator function were removed. The `LocalExprModel` message family was added to `schema/turnout-model.proto` and regenerated.
 
-**D2 — Sidecar as an accumulating bolt-on:**
-As the DSL grows, the `Sidecar` struct will accumulate more optional metadata. The pattern is sustainable for now but a richer IR (separate from the proto exchange format) would be cleaner long-term.
+**D2 — Sidecar as an accumulating bolt-on: ✅ resolved**
+`lower.Lower()` now returns `(*LowerResult, diag.Diagnostics)` where `LowerResult` bundles `Model *turnoutpb.TurnModel` and `Sidecar *Sidecar`. All callers in `main.go` and test helpers have been updated to use `lr.Model` / `lr.Sidecar`.
 
-**D3 — `route`/`match` as value-checked idents:**
-Promoting these to hard keyword tokens (`TokKwRoute`, `TokKwMatch`) would make parsing more explicit and consistent with all other structural keywords.
+**D3 — `route`/`match` as value-checked idents: ✅ resolved**
+Both are now hard keyword tokens (`TokKwRoute`, `TokKwMatch`). `parseFile` dispatches on `lexer.TokKwRoute` and `parseRouteBlock` checks for `lexer.TokKwMatch`.
 
 **D4 — CLI has only one command:**
 `main.go` has a `switch` on `os.Args[1]` with only `"convert"`. The scaffolding is ready for more commands, but `printUsage` hard-codes only one. A `cobra`/`kingpin` library would be cleaner if the CLI grows.
@@ -142,36 +140,36 @@ Promoting these to hard keyword tokens (`TokKwRoute`, `TokKwMatch`) would make p
 
 ## 7. Improvement Points 2 (Types/Interfaces)
 
-**T1 — `Arg` and `LocalExpr` are parallel hierarchies:**
-`Arg` is for the proto-lowering path; `LocalExpr` is for the v1 expression tree. Both define literal, reference, and call variants — unification or explicit bridging types would reduce the total surface area.
+**T1 — `Arg` and `LocalExpr` are parallel hierarchies: ✅ resolved**
+A doc comment block was added before `LocalExpr` in `ast.go` explaining the boundary: `Arg` feeds the lowerer (proto-level, flattened); `LocalExpr` is the v1 expression tree (pre-lowering, recursive). The asymmetry is intentional and now documented.
 
-**T2 — `PrepareSource`/`NextPrepareSource` split not enforced by types:**
-The constraint "FromLiteral is forbidden in action-level prepare" lives only in the validator comment and documentation. A separate `ActionPrepareSource` type (without `FromLiteral`) would make this a compile-time guarantee.
+**T2 — `PrepareSource`/`NextPrepareSource` split not enforced by types: ✅ resolved**
+`PrepareSource` was renamed to `ActionPrepareSource` (implemented only by `*FromState` and `*FromHook`). `*FromLiteral` no longer satisfies `ActionPrepareSource`, so passing it in action-level prepare is a compile-time error. The parser now emits a parse error if `from_literal` appears in an action `prepare` block.
 
 **T3 — `FuncTableEntry.argMap` asymmetry in TypeScript: ✅ resolved**
 `combine` and `pipe` carry `argMap` because their inputs are live value-table references resolved during execution; `cond` does not because its inputs are pre-resolved into `condFuncDefTable` at build time and `executeCondFunc` receives the selected value as a parameter. A `FuncArgMap` named type, an `ArgMapFuncEntry` union alias, and a `hasArgMap(entry)` predicate were added to `types.ts`. The `kind === 'cond'` guard in `executePipeFunc` was replaced with `!hasArgMap(funcEntry)`. Note: `combine` and `pipe` are now DSL-internal (only called from `hcl-context-builder.ts`); the asymmetry is a pure implementation detail with no external API surface.
 
-**T4 — Branded type leakage in `hcl-context-builder.ts`:**
-Numerous `as FuncId`, `as ValueId`, `as ContextSpec` casts in `hcl-context-builder.ts:237–244` indicate the bridge between proto model and runtime types is not type-safe at the boundary. A typed adapter layer would eliminate these escape hatches.
+**T4 — Branded type leakage in `hcl-context-builder.ts`: ✅ resolved**
+Typed assertion helpers (`asFuncId`, `asValueId`, `asBinaryFnName`, `asCombineArg`) were added in `hcl-context-builder.ts`. All scattered `as FuncId` / `as ValueId` casts were replaced with helper calls, and the unsafe-cast reasoning is consolidated in a single header comment block.
 
 ---
 
 ## 8. Improvement Points 3 (Implementations)
 
-**I1 — `validateCombineArgTypes` / `validateLocalCallArgTypes` near-duplication:**
-Both functions in `validate.go:809–858` and `validate.go:1177–1230` implement the same flag-dispatch logic (`isGeneric`, `isArrGet`, etc.) but operate on different input types. A shared helper `validateBinaryArgTypePair(fn, spec, t1, ok1, t2, ok2)` would eliminate the duplication.
+**I1 — `validateCombineArgTypes` / `validateLocalCallArgTypes` near-duplication: ✅ resolved**
+`validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.Diagnostics)` was extracted as a shared helper. Both `validateLocalCallArgTypes` and `validateCombineArgTypes` now delegate to it; the duplicate flag-dispatch switch is gone.
 
-**I2 — `sigilFor` double key-lookup:**
-`sigilFor` in `validate.go` tries two `BindingKey` lookups (with/without `Scope`) to compensate for the dual-registration in `lowerBinding`. (`extExprFor` and its equivalent workaround were removed when `ExtExprs` was eliminated.) Standardizing on a single canonical scope key would remove the remaining workaround.
+**I2 — `sigilFor` double key-lookup: ✅ resolved**
+The dual-registration block in `lowerBinding` was removed. `sigilFor` now performs a single lookup with the caller's scope. All sidecar construction in tests was updated to include the correct `Scope` field (`"compute"` for action prog bindings, `"next:N"` for transition prog bindings).
 
 **I3 — `localFnReturnType` is incomplete relative to `builtinFns`: ✅ resolved**
 `arr_get` was absent from `localFnReturnType` and fell through to `default: FieldTypeNumber`, mislabeling its temp binding when used on `arr<str>` or `arr<bool>`. It was added to the `"arr_concat", "arr_get"` case that returns `fallback`, carrying the declared binding type forward (same approach as `arr_concat`, since the element type is not inferable from the function name alone).
 
-**I4 — `lowerCaseInto` emits bindings in non-intuitive order:**
-The right-to-left fold at `lower.go:745–762` means the `name` binding is emitted last and intermediate conditions are emitted before their referencing `cond` binding. Reordering (or documenting the intent) would make the output easier to trace.
+**I4 — `lowerCaseInto` emits bindings in non-intuitive order: ✅ resolved**
+A doc comment was added to `lowerCaseInto` explaining that the right-to-left fold is required for topological ordering: each `cond` expression must be emitted before the binding that references it.
 
-**I5 — `buildSpec` empty-array type gap:**
-`hcl-context-builder.ts:73–75` returns `buildArray([])` for empty array literals with no element type. If the array is subsequently used in a typed context (e.g., `arr_concat`), the runtime may encounter a type mismatch that the Go validator would have caught.
+**I5 — `buildSpec` empty-array type gap: ✅ resolved**
+`buildSpec` in `hcl-context-builder.ts` now throws `"inline array arg must not be empty"` instead of silently returning `buildArray([])` for empty array inline args. This surfaces the type-gap as an error at build time rather than a silent mismatch at runtime.
 
 ---
 

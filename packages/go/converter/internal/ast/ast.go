@@ -424,6 +424,16 @@ func (*IfRHS) bindingRHS() {}
 // v1 local expression tree
 // ────────────────────────────────────────────────────────────
 
+// LocalExpr is the pre-lowering expression tree used inside #if, #case, and
+// #pipe blocks. It is parsed and walked by the lowerer and validator, then
+// discarded after lowering produces flat BindingModel / ExprModel proto nodes.
+//
+// Arg (below) is the post-lowering, proto-level argument type used inside
+// CombineExpr / PipeExpr. Although both hierarchies have literal, reference,
+// and call variants, they serve different abstraction levels and must not be
+// conflated: LocalExpr nodes carry source positions and richer structure;
+// Arg nodes map 1-to-1 onto proto ArgModel fields.
+//
 // LocalExpr is a recursive expression node used inside #if, #case, and #pipe.
 type LocalExpr interface{ localExpr() }
 
@@ -627,15 +637,16 @@ type PrepareBlock struct {
 	Entries []*PrepareEntry
 }
 
-// PrepareSource is implemented by *FromState, *FromHook, and *FromLiteral.
-// The validator rejects *FromLiteral at the action level (only valid in transitions).
-type PrepareSource interface{ prepareSource() }
+// ActionPrepareSource is implemented by *FromState and *FromHook.
+// *FromLiteral is excluded by design: it is only valid in transition prepare blocks.
+// This makes the constraint a compile-time guarantee rather than a runtime check.
+type ActionPrepareSource interface{ actionPrepareSource() }
 
 // PrepareEntry binds a prog binding name to a concrete ingress source.
 type PrepareEntry struct {
 	Pos         Pos
 	BindingName string
-	Source      PrepareSource
+	Source      ActionPrepareSource
 }
 
 // MergeBlock is the `merge { ... }` block of an action.
@@ -695,10 +706,10 @@ type NextPrepareEntry struct {
 // ────────────────────────────────────────────────────────────
 // Shared ingress/egress source types
 //
-// FromState and FromLiteral implement BOTH PrepareSource and NextPrepareSource
-// so they can be used in both action-level and transition-level prepare blocks.
-// FromHook implements only PrepareSource (forbidden in transitions).
-// FromAction implements only NextPrepareSource (transitions only).
+// ActionPrepareSource: *FromState, *FromHook — valid in action-level prepare.
+// NextPrepareSource: *FromAction, *FromState, *FromLiteral — valid in transitions.
+// FromHook is forbidden in transitions; FromAction and FromLiteral are forbidden
+// at action level. These exclusions are enforced by the type system.
 // ────────────────────────────────────────────────────────────
 
 // FromState is `from_state = <dotted.path>` — reads a value from STATE.
@@ -708,8 +719,8 @@ type FromState struct {
 	Path string
 }
 
-func (*FromState) prepareSource()     {}
-func (*FromState) nextPrepareSource() {}
+func (*FromState) actionPrepareSource() {}
+func (*FromState) nextPrepareSource()   {}
 
 // FromHook is `from_hook = "<hookName>"` — reads from a hook result.
 // Valid only in action-level prepare (not in transitions).
@@ -718,7 +729,7 @@ type FromHook struct {
 	HookName string
 }
 
-func (*FromHook) prepareSource() {}
+func (*FromHook) actionPrepareSource() {}
 
 // FromLiteral is `from_literal = <value>` — injects a literal value.
 // Valid only in transition prepare (not in action-level prepare).
@@ -727,7 +738,6 @@ type FromLiteral struct {
 	Value Literal
 }
 
-func (*FromLiteral) prepareSource()     {}
 func (*FromLiteral) nextPrepareSource() {}
 
 // FromAction is `from_action = <binding>` — reads from the action result's binding.

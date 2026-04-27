@@ -29,12 +29,12 @@ func pipeline(src string) diag.Diagnostics {
 	if ds2.HasErrors() {
 		return ds
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	ds = append(ds, ds3...)
-	if tm == nil {
+	if lr == nil {
 		return ds
 	}
-	ds4 := validate.Validate(tm, sc, schema)
+	ds4 := validate.Validate(lr.Model, lr.Sidecar, schema)
 	return append(ds, ds4...)
 }
 

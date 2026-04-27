@@ -34,10 +34,9 @@ func TestMarkerMethods(t *testing.T) {
 	(*CondExprRef)(nil).condExpr()
 	(*CondExprCall)(nil).condExpr()
 
-	// PrepareSource markers
-	(*FromState)(nil).prepareSource()
-	(*FromHook)(nil).prepareSource()
-	(*FromLiteral)(nil).prepareSource()
+	// ActionPrepareSource markers
+	(*FromState)(nil).actionPrepareSource()
+	(*FromHook)(nil).actionPrepareSource()
 
 	// NextPrepareSource markers
 	(*FromState)(nil).nextPrepareSource()

@@ -401,7 +401,7 @@ func lowerWithErrors(t *testing.T, src string) diag.Diagnostics {
 	if ds2.HasErrors() {
 		t.Fatalf("state resolve failed: %v", ds2)
 	}
-	_, _, ds3 := lower.Lower(tf, schema)
+	_, ds3 := lower.Lower(tf, schema)
 	return ds3
 }
 
@@ -516,13 +516,13 @@ scene "test" {
 	}
 	// Pass a schema with a non-dotted key to exercise the continue branch.
 	schema := state.Schema{"nodot": {DefaultValue: nil}}
-	tm, _, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
 	// The bad key was skipped, so no namespaces in the state block.
-	if tm.State != nil && len(tm.State.Namespaces) != 0 {
-		t.Errorf("expected 0 namespaces, got %d", len(tm.State.Namespaces))
+	if lr.Model.State != nil && len(lr.Model.State.Namespaces) != 0 {
+		t.Errorf("expected 0 namespaces, got %d", len(lr.Model.State.Namespaces))
 	}
 }
 

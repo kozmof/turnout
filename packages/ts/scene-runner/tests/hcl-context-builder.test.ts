@@ -506,7 +506,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
   });
 
-  it('reaches inferLiteralAnyValue empty-array branch (buildArray fallback) before builder throws', () => {
+  it('throws immediately for an empty-array inline arg', () => {
     const prog = {
       name: 'empty_arr_prog',
       bindings: [
@@ -517,7 +517,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
+    expect(() => buildContextFromProg(prog, {})).toThrow('empty array literal');
   });
 });
 

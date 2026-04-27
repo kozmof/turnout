@@ -30,11 +30,11 @@ func fullPipeline(t *testing.T, src string) string {
 	if ds2.HasErrors() {
 		t.Fatalf("state resolve failed: %v", ds2)
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower failed: %v", ds3)
 	}
-	ds4 := validate.Validate(tm, sc, schema)
+	ds4 := validate.Validate(lr.Model, lr.Sidecar, schema)
 	if ds4.HasErrors() {
 		for _, d := range ds4 {
 			t.Logf("validate: %s", d.Format())
@@ -42,7 +42,7 @@ func fullPipeline(t *testing.T, src string) string {
 		t.Fatalf("validate failed")
 	}
 	var sb strings.Builder
-	emit.Emit(&sb, tm, sc)
+	emit.Emit(&sb, lr.Model, lr.Sidecar)
 	return sb.String()
 }
 
@@ -602,7 +602,7 @@ scene "s" {
 	if ds2.HasErrors() {
 		t.Fatalf("state_file resolve: %v", ds2)
 	}
-	tm2, sc2, ds3 := lower.Lower(tf2, schema2)
+	lr2, ds3 := lower.Lower(tf2, schema2)
 	if ds3.HasErrors() {
 		t.Fatalf("lower state_file: %v", ds3)
 	}
@@ -610,7 +610,7 @@ scene "s" {
 	// Both should produce a state block with namespace "app" and fields "score" + "active".
 	inlineOut := fullPipeline(t, inlineSrc)
 	var sb strings.Builder
-	emit.Emit(&sb, tm2, sc2)
+	emit.Emit(&sb, lr2.Model, lr2.Sidecar)
 	stateFileOut := sb.String()
 
 	// They won't be byte-identical (ordering may differ), but both must contain
@@ -669,13 +669,13 @@ func pipelineFromFile(t *testing.T, path string) string {
 	}
 	// Use the scene/routes from the AST to produce a partial model for emitting.
 	// We skip validate so type-mismatch against our stub state schema doesn't fail.
-	tm, sc, _ := lower.Lower(tf, schema) // errors expected for missing state paths
-	if tm == nil {
+	lr, _ := lower.Lower(tf, schema) // errors expected for missing state paths
+	if lr == nil {
 		// Lower returned nil — return a placeholder indicating parse passed.
 		return "(parse-only)"
 	}
 	var sb strings.Builder
-	emit.Emit(&sb, tm, sc)
+	emit.Emit(&sb, lr.Model, lr.Sidecar)
 	return sb.String()
 }
 
@@ -748,16 +748,16 @@ scene "test_scene" {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Sidecar, schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, tm); err != nil {
+	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 	out := sb.String()
@@ -804,15 +804,15 @@ scene "test" {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Sidecar, schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, tm); err != nil {
+	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 	out := sb.String()

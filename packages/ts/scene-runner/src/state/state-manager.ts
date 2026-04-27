@@ -46,7 +46,15 @@ function make(
   };
 }
 
-/** Create a StateManager from a flat initial state record. */
+/**
+ * Create a StateManager from a flat initial state record.
+ *
+ * No path validation is applied: any `write()` call succeeds regardless of
+ * the path, making this constructor suitable for partial or ad-hoc initial
+ * states (e.g., in tests or runtime contexts where the full schema is not
+ * available). Use `stateManagerFromSchema` when strict path validation is
+ * required.
+ */
 export function stateManagerFrom(initial: Record<string, AnyValue>): StateManager {
   return make({ ...initial }, null);
 }

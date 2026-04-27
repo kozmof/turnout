@@ -16,6 +16,26 @@ export type BuiltContext = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Branded-type assertion helpers
+//
+// The ctx() builder is generic over a statically-known ContextSpec, so its
+// return type encodes every key as a branded ID. When we build a spec from a
+// dynamic proto model the type system cannot infer the specific keys, making
+// unsafe casts unavoidable at this boundary. Concentrating them here makes the
+// escape hatch explicit and keeps the rest of the bridge type-clean.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function asFuncId(s: string): FuncId   { return s as FuncId; }
+function asValueId(s: string): ValueId { return s as ValueId; }
+// FN_MAP values are all valid BinaryFnNames by construction; this narrows the string.
+function asBinaryFnName(s: string): Parameters<typeof combine>[0] {
+  return s as Parameters<typeof combine>[0];
+}
+// resolveArg returns unknown; callers that pass the result to combine() know the shape.
+type CombineArgRef = Parameters<typeof combine>[1]['a'];
+function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
+
+// ─────────────────────────────────────────────────────────────────────────────
 // HCL function name → runtime BinaryFnNames mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -46,14 +66,15 @@ const FN_MAP: Record<string, string> = {
   eq:  'binaryFnGeneric::isEqual',
   neq: 'binaryFnGeneric::isNotEqual',
   // Array
-  arr_concat: 'binaryFnArray::concat',
+  arr_concat:    'binaryFnArray::concat',
+  arr_get:       'binaryFnArray::get',
+  arr_includes:  'binaryFnArray::includes',
 };
 
 function mapFnName(hclFn: string): Parameters<typeof combine>[0] {
   const mapped = FN_MAP[hclFn];
   if (!mapped) throw new Error(`Unknown HCL function name: "${hclFn}"`);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return mapped as Parameters<typeof combine>[0];
+  return asBinaryFnName(mapped);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -70,8 +91,13 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
     if (typeof first === 'number') return literalToValue(v, 'arr<number>');
     if (typeof first === 'string') return literalToValue(v, 'arr<str>');
     if (typeof first === 'boolean') return literalToValue(v, 'arr<bool>');
-    // Empty array — no element type to infer; return a typed empty array value.
-    return buildArray([]);
+    // Empty array literal used as an inline function argument is type-ambiguous:
+    // the element type cannot be inferred without a declared binding type.
+    // Use a named binding with a declared type instead (e.g. `x: arr<number> = []`).
+    throw new Error(
+      'empty array literal used as inline function argument is type-ambiguous; ' +
+      'use a named binding with a declared type instead',
+    );
   }
   return literalToValue(null, 'number');
 }
@@ -151,10 +177,8 @@ export function buildSpec(
     } else if (binding.expr.combine) {
       const c = binding.expr.combine;
       spec[binding.name] = combine(mapFnName(c.fn), {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        a: resolveArg(c.args[0]) as Parameters<typeof combine>[1]['a'],
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        b: resolveArg(c.args[1]) as Parameters<typeof combine>[1]['b'],
+        a: asCombineArg(resolveArg(c.args[0])),
+        b: asCombineArg(resolveArg(c.args[1])),
       });
     } else if (binding.expr.pipe) {
       const p = binding.expr.pipe;
@@ -164,10 +188,8 @@ export function buildSpec(
       }
       const steps = p.steps.map((step) =>
         combine(mapFnName(step.fn), {
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-          a: resolveArg(step.args[0], binding.name) as Parameters<typeof combine>[1]['a'],
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-          b: resolveArg(step.args[1], binding.name) as Parameters<typeof combine>[1]['b'],
+          a: asCombineArg(resolveArg(step.args[0], binding.name)),
+          b: asCombineArg(resolveArg(step.args[1], binding.name)),
         }),
       );
       spec[binding.name] = pipe(argBindings, steps);
@@ -207,12 +229,10 @@ export function buildNameToValueId(
     const id = ids[binding.name];
     if (binding.expr) {
       // Function binding: the result lives in the function's return value slot.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      nameToValueId[binding.name] = funcTable[id as string].returnId;
+      nameToValueId[binding.name] = funcTable[asFuncId(id as string)].returnId;
     } else {
       // Value binding: the id is the ValueId directly.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      nameToValueId[binding.name] = id as ValueId;
+      nameToValueId[binding.name] = asValueId(id as string);
     }
   }
   return nameToValueId;
@@ -234,12 +254,8 @@ export function buildContextFromProg(
   injectedValues: Record<string, AnyValue>,
 ): BuiltContext {
   const spec = buildSpec(prog, injectedValues);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  const result = ctx(spec as ContextSpec);
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  const ids = result.ids as Record<string, FuncId | ValueId>;
-  // funcTable is indexed by branded FuncId but at runtime the keys are strings.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+  const result = ctx(spec as ContextSpec); // dynamic spec — branded keys unavailable statically
+  const ids = result.ids as Record<string, FuncId | ValueId>; // see asFuncId/asValueId above
   const funcTable = result.exec.funcTable as unknown as Record<string, { returnId: ValueId }>;
   return { exec: result.exec, ids, nameToValueId: buildNameToValueId(prog.bindings, ids, funcTable) };
 }

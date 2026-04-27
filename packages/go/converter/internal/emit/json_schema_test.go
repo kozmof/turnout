@@ -83,16 +83,16 @@ route "main" {
 	if ds2.HasErrors() {
 		t.Fatalf("state resolve: %v", ds2)
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(tm, sc, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Sidecar, schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSON(&buf, tm); err != nil {
+	if err := EmitJSON(&buf, lr.Model); err != nil {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 

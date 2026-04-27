@@ -75,13 +75,13 @@ func runConvert(args []string) int {
 		return 1
 	}
 
-	tm, sc, ds3 := lower.Lower(turnFile, schema)
+	lr, ds3 := lower.Lower(turnFile, schema)
 	if ds3.HasErrors() {
 		printDiags(ds3)
 		return 1
 	}
 
-	ds4 := validate.Validate(tm, sc, schema)
+	ds4 := validate.Validate(lr.Model, lr.Sidecar, schema)
 	if ds4.HasErrors() {
 		printDiags(ds4)
 		return 1
@@ -111,14 +111,14 @@ func runConvert(args []string) int {
 	}
 
 	if *format == "json" {
-		if err := emit.EmitJSON(w, tm); err != nil {
+		if err := emit.EmitJSON(w, lr.Model); err != nil {
 			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
 			return 1
 		}
 		return 0
 	}
 
-	ds5 := emit.Emit(w, tm, sc)
+	ds5 := emit.Emit(w, lr.Model, lr.Sidecar)
 	if ds5.HasErrors() {
 		printDiags(ds5)
 		return 1

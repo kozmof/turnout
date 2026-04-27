@@ -221,7 +221,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 					Actions: make(map[string]lower.ActionMeta),
 					Scenes:  make(map[string]lower.SceneMeta),
 				}
-				sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", ProgName: "n", BindingName: "out"}] = ast.SigilEgress
+				sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "next:0", ProgName: "n", BindingName: "out"}] = ast.SigilEgress
 			}
 			action, actionSC := buildIrregularAction(nil, nil, nil, tc.next)
 			if sc == nil {
@@ -301,7 +301,7 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		}
 		progBindings = append(progBindings, bm)
 		if ib.sigil != ast.SigilNone {
-			sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", ProgName: "p", BindingName: ib.name}] = ib.sigil
+			sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: ib.name}] = ib.sigil
 		}
 	}
 

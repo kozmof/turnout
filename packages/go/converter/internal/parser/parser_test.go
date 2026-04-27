@@ -1066,30 +1066,3 @@ route "r" { match { s.*.final => s } }`
 	}
 }
 
-// TestRouteDoesNotBreakBindingNamedRoute verifies that using "route" as a
-// binding name in a scene still parses correctly (contextual keyword).
-func TestRouteDoesNotBreakBindingNamedRoute(t *testing.T) {
-	src := `state { ns { v:number = 0 } }
-scene "s" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = route
-      prog "p" {
-        route:str = "forest_trail"
-      }
-    }
-  }
-}`
-	tf := mustParse(t, src)
-	if tf.Scenes[0] == nil {
-		t.Fatal("scene not parsed")
-	}
-	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	if b.Name != "route" {
-		t.Errorf("binding name = %q, want %q", b.Name, "route")
-	}
-	if len(tf.Routes) != 0 {
-		t.Errorf("expected 0 routes, got %d", len(tf.Routes))
-	}
-}

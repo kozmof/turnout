@@ -33,14 +33,14 @@ func mustLower(t *testing.T, src string) (*turnoutpb.TurnModel, *lower.Sidecar) 
 		}
 		t.Fatalf("state resolve failed")
 	}
-	tm, sc, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		for _, d := range ds3 {
 			t.Logf("lower diag: %s", d.Format())
 		}
 		t.Fatalf("lower failed")
 	}
-	return tm, sc
+	return lr.Model, lr.Sidecar
 }
 
 // minimal wraps a scene body in the minimum valid scaffolding.
@@ -148,11 +148,12 @@ scene "s" {
 	if ds2.HasErrors() {
 		t.Fatalf("state: %v", ds2)
 	}
-	tm, _, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
 	// state_file directive → state block reconstructed from schema (sorted)
+	tm := lr.Model
 	if tm.State == nil || len(tm.State.Namespaces) != 1 {
 		t.Fatalf("want 1 namespace, got %v", tm.State)
 	}
@@ -590,7 +591,7 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "score"}
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "score"}
 	if sc.Sigils[key] != ast.SigilIngress {
 		t.Errorf("sigil = %v, want Ingress", sc.Sigils[key])
 	}
@@ -625,7 +626,7 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "approved"}
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "approved"}
 	if sc.Sigils[key] != ast.SigilEgress {
 		t.Errorf("sigil = %v, want Egress", sc.Sigils[key])
 	}
@@ -659,7 +660,7 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", ProgName: "p", BindingName: "count"}
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "count"}
 	if sc.Sigils[key] != ast.SigilBiDir {
 		t.Errorf("sigil = %v, want BiDir", sc.Sigils[key])
 	}

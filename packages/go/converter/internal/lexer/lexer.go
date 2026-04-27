@@ -214,6 +214,8 @@ var keywords = map[string]TokenKind{
 	"flow":          TokKwFlow,
 	"enforce":       TokKwEnforce,
 	"text":          TokKwText,
+	"route":         TokKwRoute,
+	"match":         TokKwMatch,
 }
 
 // ────────────────────────────────────────────────────────────

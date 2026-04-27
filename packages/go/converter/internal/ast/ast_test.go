@@ -38,10 +38,9 @@ var (
 	_ ast.CondExpr = (*ast.CondExprRef)(nil)
 	_ ast.CondExpr = (*ast.CondExprCall)(nil)
 
-	// PrepareSource — FromState, FromHook, FromLiteral
-	_ ast.PrepareSource = (*ast.FromState)(nil)
-	_ ast.PrepareSource = (*ast.FromHook)(nil)
-	_ ast.PrepareSource = (*ast.FromLiteral)(nil)
+	// ActionPrepareSource — FromState, FromHook
+	_ ast.ActionPrepareSource = (*ast.FromState)(nil)
+	_ ast.ActionPrepareSource = (*ast.FromHook)(nil)
 
 	// NextPrepareSource — FromState, FromAction, FromLiteral
 	_ ast.NextPrepareSource = (*ast.FromState)(nil)
@@ -225,24 +224,24 @@ func TestPosString(t *testing.T) {
 // ── FromState dual interface ──────────────────────────────────────────────────
 
 func TestFromStateDualInterface(t *testing.T) {
-	// FromState should satisfy both PrepareSource and NextPrepareSource
+	// FromState should satisfy both ActionPrepareSource and NextPrepareSource
 	fs := &ast.FromState{Path: "applicant.income"}
-	var _ ast.PrepareSource = fs
+	var _ ast.ActionPrepareSource = fs
 	var _ ast.NextPrepareSource = fs
 	if fs.Path != "applicant.income" {
 		t.Errorf("FromState.Path = %q, want %q", fs.Path, "applicant.income")
 	}
 }
 
-func TestFromLiteralDualInterface(t *testing.T) {
+func TestFromLiteralNextPrepareOnly(t *testing.T) {
+	// FromLiteral implements only NextPrepareSource (forbidden at action level)
 	fl := &ast.FromLiteral{Value: &ast.NumberLiteral{Value: 42}}
-	var _ ast.PrepareSource = fl
 	var _ ast.NextPrepareSource = fl
 }
 
-func TestFromHookPrepareSoureOnly(t *testing.T) {
-	// FromHook must satisfy PrepareSource
-	var _ ast.PrepareSource = (*ast.FromHook)(nil)
+func TestFromHookActionPrepareOnly(t *testing.T) {
+	// FromHook must satisfy ActionPrepareSource
+	var _ ast.ActionPrepareSource = (*ast.FromHook)(nil)
 	// (FromHook does NOT satisfy NextPrepareSource — compile-time check only via absence)
 }
 

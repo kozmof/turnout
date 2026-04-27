@@ -130,12 +130,12 @@ scene "adventure_story_chapter_1" {
     compute {
       root     = story_route
       prog "forest_trail_graph" {
-        route:str = "forest_trail"
+        route_name:str = "forest_trail"
         danger:number = 2
 
         <~location:str = "Whispering Forest"
         <~danger_level:number = danger
-        <~story_route:str = route
+        <~story_route:str = route_name
       }
     }
 
@@ -167,13 +167,13 @@ scene "adventure_story_chapter_1" {
     compute {
       root     = story_route
       prog "city_gate_graph" {
-        route:str = "city_gate"
+        route_name:str = "city_gate"
         <~location:str = "Stonebridge Gate"
         ~>coins:number
         toll:number    = 3
 
         <~coins_after:number = coins - toll
-        <~story_route:str = route
+        <~story_route:str = route_name
       }
     }
 
@@ -209,12 +209,12 @@ scene "adventure_story_chapter_1" {
     compute {
       root     = story_route
       prog "sewer_tunnel_graph" {
-        route:str = "sewer_tunnel"
+        route_name:str = "sewer_tunnel"
         <~location:str = "Sunken Tunnel"
         ~>lockpick_skill:number
 
         <~found_mark:bool = lockpick_skill >= 2
-        <~story_route:str = route
+        <~story_route:str = route_name
       }
     }
 
@@ -250,10 +250,10 @@ scene "adventure_story_chapter_1" {
     compute {
       root     = story_route
       prog "campfire_wait_graph" {
-        route:str = "campfire_wait"
+        route_name:str = "campfire_wait"
         <~note:str = "waited_until_dawn"
         <~location:str = "Crossroads Camp"
-        <~story_route:str = route
+        <~story_route:str = route_name
       }
     }
 
