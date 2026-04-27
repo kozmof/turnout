@@ -55,11 +55,13 @@ func TestOverviewNodesOnlyValid(t *testing.T) {
 }
 
 func TestOverviewNodesOnlyUnknownNode(t *testing.T) {
+	// missing_action must be declared as a node line to appear in overview_nodes
+	// and be checked against impl_nodes.  A pure edge target is not in overview_nodes.
 	src := twoActionScene(`
   view "overview" {
     flow = <<-EOT
       a
-        |=> missing_action
+      missing_action
     EOT
     enforce = "nodes_only"
   }
@@ -282,8 +284,8 @@ func TestOverviewParseErrorEdgeBeforeNode(t *testing.T) {
     enforce = "nodes_only"
   }
 `)
-	if !hasCode(pipeline(src), diag.CodeOverviewParseError) {
-		t.Error("want SCN_OVERVIEW_PARSE_ERROR")
+	if !hasCode(pipeline(src), diag.CodeOverviewEdgeWithoutSource) {
+		t.Error("want SCN_OVERVIEW_EDGE_WITHOUT_SOURCE")
 	}
 }
 
@@ -297,8 +299,200 @@ func TestOverviewParseErrorBadIdent(t *testing.T) {
     enforce = "nodes_only"
   }
 `)
-	if !hasCode(pipeline(src), diag.CodeOverviewParseError) {
-		t.Error("want SCN_OVERVIEW_PARSE_ERROR")
+	if !hasCode(pipeline(src), diag.CodeOverviewInvalidIdent) {
+		t.Error("want SCN_OVERVIEW_INVALID_IDENT")
+	}
+}
+
+func TestOverviewFlowEmpty(t *testing.T) {
+	src := twoActionScene(`
+  view "overview" {
+    flow = "   "
+    enforce = "nodes_only"
+  }
+`)
+	if !hasCode(pipeline(src), diag.CodeOverviewFlowEmpty) {
+		t.Error("want SCN_OVERVIEW_FLOW_EMPTY")
+	}
+}
+
+func TestOverviewEdgeNoTarget(t *testing.T) {
+	src := twoActionScene(`
+  view "overview" {
+    flow = <<-EOT
+      a
+        |=>
+    EOT
+    enforce = "nodes_only"
+  }
+`)
+	if !hasCode(pipeline(src), diag.CodeOverviewEdgeNoTarget) {
+		t.Error("want SCN_OVERVIEW_EDGE_NO_TARGET")
+	}
+}
+
+func TestOverviewChainNoTarget(t *testing.T) {
+	src := twoActionScene(`
+  view "overview" {
+    flow = <<-EOT
+      a |=>
+    EOT
+    enforce = "nodes_only"
+  }
+`)
+	if !hasCode(pipeline(src), diag.CodeOverviewChainNoTarget) {
+		t.Error("want SCN_OVERVIEW_CHAIN_NO_TARGET")
+	}
+}
+
+func TestOverviewChainLinear(t *testing.T) {
+	// §6.4: foo |=> bar |=> baz parses as nodes={foo,bar}, edges={(foo,bar),(bar,baz)}, current=baz
+	src := basicState + `
+scene "test" {
+  entry_actions = ["foo"]
+  view "overview" {
+    flow = <<-EOT
+      foo |=> bar |=> baz
+    EOT
+    enforce = "at_least"
+  }
+  action "foo" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = bar }
+  }
+  action "bar" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = baz }
+  }
+  action "baz" {
+    compute { root = v  prog "p" { v:bool = true } }
+  }
+}
+`
+	if ds := pipeline(src); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+func TestOverviewChainContinuation(t *testing.T) {
+	// §6.5: chain line sets current; subsequent |=> lines extend from the last chain element
+	src := basicState + `
+scene "test" {
+  entry_actions = ["analyze"]
+  view "overview" {
+    flow = <<-EOT
+      analyze |=> score |=> decide
+        |=> approve
+        |=> reject
+    EOT
+    enforce = "at_least"
+  }
+  action "analyze" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = score }
+  }
+  action "score" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = decide }
+  }
+  action "decide" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = approve }
+    next { compute { condition = v  prog "r" { v:bool = true } }  action = reject }
+  }
+  action "approve" {
+    compute { root = v  prog "p" { v:bool = true } }
+  }
+  action "reject" {
+    compute { root = v  prog "p" { v:bool = true } }
+  }
+}
+`
+	if ds := pipeline(src); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+func TestOverviewChainTargetNotInNodes(t *testing.T) {
+	// The last chain element (baz) must NOT be in overview_nodes; strict mode
+	// must require it to exist in impl_nodes via OVW_NODE_EXTRA when absent from flow.
+	src := basicState + `
+scene "test" {
+  entry_actions = ["foo"]
+  view "overview" {
+    flow = <<-EOT
+      foo |=> bar |=> baz
+      baz
+    EOT
+    enforce = "strict"
+  }
+  action "foo" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = bar }
+  }
+  action "bar" {
+    compute { root = v  prog "p" { v:bool = true } }
+    next { compute { condition = v  prog "q" { v:bool = true } }  action = baz }
+  }
+  action "baz" {
+    compute { root = v  prog "p" { v:bool = true } }
+  }
+}
+`
+	if ds := pipeline(src); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+func TestOverviewDuplicateView(t *testing.T) {
+	src := basicState + `
+scene "test" {
+  entry_actions = ["a"]
+  view "overview" {
+    flow = <<-EOT
+      a
+    EOT
+    enforce = "nodes_only"
+  }
+  view "overview" {
+    flow = <<-EOT
+      a
+    EOT
+    enforce = "nodes_only"
+  }
+  action "a" {
+    compute { root = v  prog "p" { v:bool = true } }
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeOverviewDuplicate) {
+		t.Error("want SCN_OVERVIEW_DUPLICATE")
+	}
+}
+
+func TestOverviewUnknownViewName(t *testing.T) {
+	src := basicState + `
+scene "test" {
+  entry_actions = ["a"]
+  view "sidebar" {
+    flow = <<-EOT
+      a
+    EOT
+    enforce = "nodes_only"
+  }
+  action "a" {
+    compute { root = v  prog "p" { v:bool = true } }
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeOverviewUnknownView) {
+		t.Error("want SCN_OVERVIEW_UNKNOWN_VIEW")
 	}
 }
 

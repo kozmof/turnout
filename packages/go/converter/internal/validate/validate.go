@@ -1255,45 +1255,108 @@ func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
 
 type flowEdge struct{ from, to string }
 
+func parseErr(code, sceneID, format string, args ...any) diag.Diagnostic {
+	d := diag.Errorf(code, "scene %q: "+format, append([]any{sceneID}, args...)...)
+	d.Stage = "overview_parse"
+	return d
+}
+
 func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, edges []flowEdge, ok bool) {
+	if strings.TrimSpace(flowText) == "" {
+		*ds = append(*ds, parseErr(diag.CodeOverviewFlowEmpty, sceneID, "flow is empty or whitespace-only"))
+		return nil, nil, false
+	}
+
 	var current string
-	seen := make(map[string]bool)
+	seenNodes := make(map[string]bool)
+	seenEdges := make(map[flowEdge]bool)
+
+	addEdge := func(from, to string) {
+		e := flowEdge{from: from, to: to}
+		if !seenEdges[e] {
+			seenEdges[e] = true
+			edges = append(edges, e)
+		}
+	}
+	addNode := func(id string) {
+		if !seenNodes[id] {
+			seenNodes[id] = true
+			nodes = append(nodes, id)
+		}
+	}
+
 	for _, raw := range strings.Split(flowText, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" {
 			continue
 		}
+
 		if strings.HasPrefix(line, "|=>") {
+			// Edge line — sources from current.
 			target := strings.TrimSpace(line[3:])
+			if target == "" {
+				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeNoTarget, sceneID, "edge line |=> has no target identifier"))
+				return nil, nil, false
+			}
 			if !isIdent(target) {
-				*ds = append(*ds, diag.Errorf(diag.CodeOverviewParseError,
-					"scene %q: flow has malformed edge target %q", sceneID, target))
+				*ds = append(*ds, parseErr(diag.CodeOverviewInvalidIdent, sceneID, "flow has invalid edge target %q", target))
 				return nil, nil, false
 			}
 			if current == "" {
-				*ds = append(*ds, diag.Errorf(diag.CodeOverviewParseError,
-					"scene %q: flow has edge %q before any source node", sceneID, target))
+				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeWithoutSource, sceneID, "edge |=> %q appears before any source node", target))
 				return nil, nil, false
 			}
-			edges = append(edges, flowEdge{from: current, to: target})
-			if !seen[target] {
-				seen[target] = true
-				nodes = append(nodes, target)
+			addEdge(current, target)
+			// target is NOT added to nodes (spec §4.3)
+
+		} else if strings.Contains(line, "|=>") {
+			// Chain line — split into segments and wire them sequentially.
+			parts := strings.Split(line, "|=>")
+			for i, seg := range parts {
+				parts[i] = strings.TrimSpace(seg)
 			}
+			if parts[len(parts)-1] == "" {
+				*ds = append(*ds, parseErr(diag.CodeOverviewChainNoTarget, sceneID, "chain line ends with |=> and has no target"))
+				return nil, nil, false
+			}
+			for _, seg := range parts {
+				if !isIdent(seg) {
+					*ds = append(*ds, parseErr(diag.CodeOverviewInvalidIdent, sceneID, "flow has invalid chain segment %q", seg))
+					return nil, nil, false
+				}
+			}
+			// All segments except the last become nodes (spec §4.2).
+			for _, seg := range parts[:len(parts)-1] {
+				addNode(seg)
+			}
+			for i := 0; i < len(parts)-1; i++ {
+				addEdge(parts[i], parts[i+1])
+			}
+			current = parts[len(parts)-1]
+
 		} else {
+			// Node line.
 			if !isIdent(line) {
-				*ds = append(*ds, diag.Errorf(diag.CodeOverviewParseError,
-					"scene %q: flow has invalid node identifier %q", sceneID, line))
+				*ds = append(*ds, parseErr(diag.CodeOverviewInvalidIdent, sceneID, "flow has invalid node identifier %q", line))
 				return nil, nil, false
 			}
+			addNode(line)
 			current = line
-			if !seen[line] {
-				seen[line] = true
-				nodes = append(nodes, line)
-			}
 		}
 	}
 	return nodes, edges, true
+}
+
+func compileErr(code, format string, args ...any) diag.Diagnostic {
+	d := diag.Errorf(code, format, args...)
+	d.Stage = "overview_compile"
+	return d
+}
+
+func enforceErr(code, format string, args ...any) diag.Diagnostic {
+	d := diag.Errorf(code, format, args...)
+	d.Stage = "overview_enforce"
+	return d
 }
 
 func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turnoutpb.ActionModel, sc *lower.Sidecar, ds *diag.Diagnostics) {
@@ -1306,10 +1369,16 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 	}
 	v := sceneMeta.View
 
+	if v.Name != "overview" {
+		*ds = append(*ds, compileErr(diag.CodeOverviewUnknownView,
+			"scene %q: view name must be \"overview\"; got %q", scene.Id, v.Name))
+		return
+	}
+
 	switch v.Enforce {
 	case "nodes_only", "at_least", "strict":
 	default:
-		*ds = append(*ds, diag.Errorf(diag.CodeOverviewInvalidMode,
+		*ds = append(*ds, compileErr(diag.CodeOverviewInvalidMode,
 			"scene %q: view %q has unknown enforce mode %q", scene.Id, v.Name, v.Enforce))
 		return
 	}
@@ -1330,7 +1399,7 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 
 	for _, node := range flowNodes {
 		if _, exists := actionIndex[node]; !exists {
-			*ds = append(*ds, diag.Errorf(diag.CodeOverviewUnknownNode,
+			*ds = append(*ds, enforceErr(diag.CodeOverviewUnknownNode,
 				"scene %q: flow references unknown action %q", scene.Id, node))
 		}
 	}
@@ -1341,7 +1410,7 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 
 	for _, e := range flowEdges {
 		if !implEdges[e] {
-			*ds = append(*ds, diag.Errorf(diag.CodeOverviewMissingEdge,
+			*ds = append(*ds, enforceErr(diag.CodeOverviewMissingEdge,
 				"scene %q: flow declares edge %s |=> %s but no such next rule exists", scene.Id, e.from, e.to))
 		}
 	}
@@ -1358,14 +1427,14 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 
 		for _, a := range scene.Actions {
 			if !flowNodeSet[a.Id] {
-				*ds = append(*ds, diag.Errorf(diag.CodeOverviewExtraNode,
+				*ds = append(*ds, enforceErr(diag.CodeOverviewExtraNode,
 					"scene %q: action %q exists but is not listed in flow", scene.Id, a.Id))
 			}
 		}
 
 		for e := range implEdges {
 			if !flowEdgeSet[e] {
-				*ds = append(*ds, diag.Errorf(diag.CodeOverviewExtraEdge,
+				*ds = append(*ds, enforceErr(diag.CodeOverviewExtraEdge,
 					"scene %q: next rule %s |=> %s exists but is not declared in flow", scene.Id, e.from, e.to))
 			}
 		}

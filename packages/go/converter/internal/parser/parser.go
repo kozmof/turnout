@@ -1233,6 +1233,13 @@ func (p *parser) parseViewBlock() *ast.ViewBlock {
 	p.expect(lexer.TokLBrace)
 
 	vb := &ast.ViewBlock{Pos: pos, Name: labelTok.Value}
+	if labelTok.Value != "overview" {
+		p.diags = append(p.diags, diag.ErrorAt(
+			p.file, labelTok.Line, labelTok.Col,
+			diag.CodeOverviewUnknownView,
+			"view name must be \"overview\"; got %q", labelTok.Value,
+		))
+	}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
 		switch t.Kind {
@@ -1282,7 +1289,16 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 			strTok, _ := p.expect(lexer.TokStringLit)
 			sb.NextPolicy = strTok.Value
 		case lexer.TokKwView:
-			sb.View = p.parseViewBlock()
+			parsed := p.parseViewBlock()
+			if sb.View != nil {
+				p.diags = append(p.diags, diag.ErrorAt(
+					p.file, parsed.Pos.Line, parsed.Pos.Col,
+					diag.CodeOverviewDuplicate,
+					"scene %q: duplicate view block; only one view \"overview\" block is allowed", sb.ID,
+				))
+			} else {
+				sb.View = parsed
+			}
 		case lexer.TokKwAction:
 			sb.Actions = append(sb.Actions, p.parseActionBlock())
 		default:

@@ -14,6 +14,7 @@ const (
 type Diagnostic struct {
 	Severity Severity
 	Code     string
+	Stage    string // overview_parse | overview_compile | overview_enforce (empty for others)
 	Message  string
 	File     string
 	Line     int
@@ -21,12 +22,16 @@ type Diagnostic struct {
 }
 
 // Format returns the human-readable string for stderr output.
-// Format: <file>:<line>:<col>: error [<code>]: <message>
+// Format: <file>:<line>:<col>: error [<code>](<stage>): <message>
 func (d Diagnostic) Format() string {
-	if d.File == "" {
-		return fmt.Sprintf("error [%s]: %s", d.Code, d.Message)
+	code := d.Code
+	if d.Stage != "" {
+		code = fmt.Sprintf("%s/%s", d.Code, d.Stage)
 	}
-	return fmt.Sprintf("%s:%d:%d: error [%s]: %s", d.File, d.Line, d.Col, d.Code, d.Message)
+	if d.File == "" {
+		return fmt.Sprintf("error [%s]: %s", code, d.Message)
+	}
+	return fmt.Sprintf("%s:%d:%d: error [%s]: %s", d.File, d.Line, d.Col, code, d.Message)
 }
 
 // Diagnostics is a slice of Diagnostic values.
@@ -156,10 +161,19 @@ const (
 	CodeUnresolvedScene   = "UnresolvedScene"
 )
 
-// Error codes from scene-graph.md §9 (Overview DSL Enforcement)
+// Error codes from overview-dsl-spec.md §9 (Overview DSL)
 const (
-	CodeOverviewParseError  = "SCN_OVERVIEW_PARSE_ERROR"
+	// parse stage (§9.1)
+	CodeOverviewFlowEmpty          = "SCN_OVERVIEW_FLOW_EMPTY"
+	CodeOverviewEdgeWithoutSource  = "SCN_OVERVIEW_EDGE_WITHOUT_SOURCE"
+	CodeOverviewEdgeNoTarget       = "SCN_OVERVIEW_EDGE_NO_TARGET"
+	CodeOverviewChainNoTarget      = "SCN_OVERVIEW_CHAIN_NO_TARGET"
+	CodeOverviewInvalidIdent       = "SCN_OVERVIEW_INVALID_IDENT"
+	// compile stage (§9.2)
 	CodeOverviewInvalidMode = "SCN_OVERVIEW_INVALID_MODE"
+	CodeOverviewDuplicate   = "SCN_OVERVIEW_DUPLICATE"
+	CodeOverviewUnknownView = "SCN_OVERVIEW_UNKNOWN_VIEW"
+	// enforce stage (§9.3)
 	CodeOverviewUnknownNode = "SCN_OVERVIEW_UNKNOWN_NODE"
 	CodeOverviewMissingEdge = "SCN_OVERVIEW_MISSING_EDGE"
 	CodeOverviewExtraNode   = "SCN_OVERVIEW_EXTRA_NODE"

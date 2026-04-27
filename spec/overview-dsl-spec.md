@@ -303,6 +303,43 @@ Parsed:
 
 `decide`, `approve`, and `reject` are edge targets only and are NOT added to `nodes`.
 
+**Inline chaining from a standalone `|=>` line is not possible.** A line whose trimmed content starts with `|=>` is unconditionally an edge line; any `|=>` within it becomes part of the target string, which fails `OVW_INVALID_IDENT`. For example:
+
+```
+analyze |=> score |=> decide
+  |=> approve |=> done     ← ERROR: edge line, target is "approve |=> done"
+```
+
+To continue chaining from a branch target, re-declare it as a standalone node line and then use edge lines or a new chain:
+
+```
+analyze |=> score |=> decide
+  |=> approve
+  |=> reject
+approve
+  |=> done
+```
+
+Parsed:
+- `nodes = {analyze, score, approve}`
+- `edges = {(analyze,score),(score,decide),(decide,approve),(decide,reject),(approve,done)}`
+- After the `approve` node line, `current = approve`; `|=> done` adds edge `(approve,done)`
+
+**Indentation depth has no semantic meaning.** `current` is updated only by node lines and chain lines, never by edge lines. Extra indentation on a `|=>` line does not change which node it sources from. The following looks like `done` and `recheck` branch from `approve`, but they actually branch from `decide`:
+
+```
+analyze |=> score |=> decide
+  |=> approve
+    |=> done       ← sources from decide, not approve
+    |=> recheck    ← sources from decide, not approve
+```
+
+Parsed:
+- `nodes = {analyze, score}`
+- `edges = {(analyze,score),(score,decide),(decide,approve),(decide,done),(decide,recheck)}`
+
+**Non-ASCII whitespace in indentation is a parse error.** If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|=>`. The remaining content — non-ASCII characters followed by `|=>` — is treated as a chain line whose first segment fails `OVW_INVALID_IDENT`. See §6.9 for an example.
+
 ### 6.6 Parse error — edge without source
 
 ```
@@ -329,6 +366,18 @@ foo |=>
 → `OVW_CHAIN_NO_TARGET` because the segment after the last `|=>` is empty.
 
 Note: `|=> bar |=> baz` starts with `|=>` so it is classified as an edge line (not a chain line), and its target `bar |=> baz` fails `OVW_INVALID_IDENT` because `|` is not a valid `IDENT` character.
+
+### 6.9 Parse error — non-ASCII whitespace in indentation
+
+```
+analyze |=> score |=> decide
+  |=> approve
+　　|=> done
+```
+
+The third line uses ideographic spaces (U+3000) as indentation. After trimming ASCII whitespace only, the leading `　　` characters remain, so the line does not start with `|=>`. It contains `|=>` as a substring, so it is classified as a chain line. The split produces segments `["　　", "done"]`; the first segment `　　` fails `OVW_INVALID_IDENT` → `OVW_INVALID_IDENT`.
+
+Implementations MUST document which whitespace characters are stripped during trimming. Implementations that strip Unicode whitespace (including U+3000) will instead classify this line as an edge line sourcing from `current` (i.e. `decide`), producing no error but silently ignoring the visual indentation intent. Authors MUST use only ASCII whitespace (U+0020 space or U+0009 tab) for indentation.
 
 ## 7. Validation Lifecycle
 
