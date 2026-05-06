@@ -805,8 +805,8 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 		// emitIdentity also calls remember(), registering the type for downstream inference.
 		c.emitIdentity(p.Name, subjectType, subjectRef)
 	case *ast.TupleCasePattern:
-		*c.ds = append(*c.ds, diag.ErrorAt(p.Pos.File, p.Pos.Line, p.Pos.Col,
-			diag.CodeUnsupportedConstruct, "#case tuple patterns are not yet supported by runtime lowering"))
+		// Validation rejects tuple patterns before lowering reaches here.
+		// Emit false as a defensive fallback so the graph remains structurally valid.
 		condRef = c.temp("case_tuple_unsupported")
 		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: false})
 	default:
@@ -1009,7 +1009,9 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 		return c.inferLocalType(x.Then, fallback)
 	case *ast.LocalCaseExpr:
 		for _, arm := range x.Arms {
-			return c.inferLocalType(arm.Expr, fallback)
+			if t := c.inferLocalType(arm.Expr, fallback); t != fallback {
+				return t
+			}
 		}
 	case *ast.LocalPipeExpr:
 		if len(x.Steps) > 0 {

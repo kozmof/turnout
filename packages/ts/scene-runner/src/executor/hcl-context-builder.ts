@@ -1,4 +1,5 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
+import { SceneRuntimeError } from './errors.js';
 import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'runtime';
 import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
@@ -13,6 +14,10 @@ export type BuiltContext = {
   ids: Record<string, FuncId | ValueId>;
   /** Binding name → ValueId for every binding. Used for from_action lookup. */
   nameToValueId: Record<string, ValueId>;
+  /** Returns the FuncId for a function binding, or undefined if it is a value binding. */
+  getFuncId(name: string): FuncId | undefined;
+  /** Returns the ValueId for a value binding, or undefined if it is a function binding. */
+  getValueId(name: string): ValueId | undefined;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -73,7 +78,13 @@ const FN_MAP: Record<string, string> = {
 
 function mapFnName(hclFn: string): Parameters<typeof combine>[0] {
   const mapped = FN_MAP[hclFn];
-  if (!mapped) throw new Error(`Unknown HCL function name: "${hclFn}"`);
+  if (!mapped) {
+    throw new SceneRuntimeError(
+      'UnknownFunction',
+      '(prog)',
+      `unknown HCL function name "${hclFn}" — no runtime mapping exists`,
+    );
+  }
   return asBinaryFnName(mapped);
 }
 
@@ -257,5 +268,13 @@ export function buildContextFromProg(
   const result = ctx(spec as ContextSpec); // dynamic spec — branded keys unavailable statically
   const ids = result.ids as Record<string, FuncId | ValueId>; // see asFuncId/asValueId above
   const funcTable = result.exec.funcTable as unknown as Record<string, { returnId: ValueId }>;
-  return { exec: result.exec, ids, nameToValueId: buildNameToValueId(prog.bindings, ids, funcTable) };
+  const nameToValueId = buildNameToValueId(prog.bindings, ids, funcTable);
+  const funcBindingNames = new Set(prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name));
+  function getFuncId(name: string): FuncId | undefined {
+    return funcBindingNames.has(name) ? asFuncId(ids[name] as string) : undefined;
+  }
+  function getValueId(name: string): ValueId | undefined {
+    return !funcBindingNames.has(name) ? asValueId(ids[name] as string) : undefined;
+  }
+  return { exec: result.exec, ids, nameToValueId, getFuncId, getValueId };
 }

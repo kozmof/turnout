@@ -1,5 +1,4 @@
 import { executeGraph, assertValidContext, isPureBoolean } from 'runtime';
-import type { FuncId } from 'runtime';
 import type { SceneBlock, ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
@@ -37,12 +36,17 @@ export type SceneExecutor = {
   readonly result: () => SceneExecutionResult;
 };
 
+/** Default maximum number of action steps before aborting to prevent infinite loops. */
+const DEFAULT_MAX_STEPS = 10_000;
+
 /**
  * Creates a scene executor that advances one action at a time via `next()`.
  *
  * @param entryActions - Override which actions seed the initial queue.
  *   Defaults to `scene.entryActions`. Pass a single-element array for
  *   route-driven entry where only the first entry action should fire.
+ * @param maxSteps - Abort after this many action executions to guard against
+ *   infinite loops in hand-crafted or malformed JSON models. Defaults to 10 000.
  *
  * @example
  * const executor = createSceneExecutor(scene, state, hooks);
@@ -56,6 +60,7 @@ export function createSceneExecutor(
   state: StateManager,
   hooks: HookRegistry = {},
   entryActions?: string[],
+  maxSteps: number = DEFAULT_MAX_STEPS,
 ): SceneExecutor {
   const actionMap = buildActionMap(scene.actions);
   const policy: string = scene.nextPolicy ?? 'first-match';
@@ -66,9 +71,21 @@ export function createSceneExecutor(
   const visited = new Set<string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
+  const sceneWarnings: string[] = [];
+  let stepCount = 0;
 
   function drainVisited(): void {
-    while (queueHead < queue.length && visited.has(queue[queueHead]!)) queueHead++;
+    while (queueHead < queue.length && visited.has(queue[queueHead]!)) {
+      // Under all-match policy the same action may be enqueued by multiple next
+      // rules. The visited guard prevents re-execution, but silently dropping
+      // the entry can surprise authors. Record a warning so it is visible in the trace.
+      if (policy === 'all-match') {
+        sceneWarnings.push(
+          `action "${queue[queueHead]!}" was enqueued more than once (all-match) but ran only once`,
+        );
+      }
+      queueHead++;
+    }
   }
 
   function isDone(): boolean {
@@ -79,6 +96,15 @@ export function createSceneExecutor(
   async function next(): Promise<StepResult> {
     drainVisited();
     if (queueHead >= queue.length) return { done: true };
+
+    if (stepCount >= maxSteps) {
+      throw new SceneRuntimeError(
+        'MaxStepsExceeded',
+        scene.id,
+        `exceeded ${maxSteps} action steps — possible infinite loop in next-rule graph`,
+      );
+    }
+    stepCount++;
 
     const actionId = queue[queueHead++]!;
     visited.add(actionId);
@@ -105,10 +131,12 @@ export function createSceneExecutor(
 
   function result(): SceneExecutionResult {
     if (!isDone()) throw new SceneRuntimeError('IncompleteScene', scene.id, 'execution is not complete');
+    const trace: SceneTrace = { sceneId: scene.id, actions: actionTraces };
+    if (sceneWarnings.length > 0) trace.warnings = sceneWarnings;
     return {
       sceneId: scene.id,
       stateAfterScene: currentState,
-      trace: { sceneId: scene.id, actions: actionTraces },
+      trace,
       terminatedAt,
     };
   }
@@ -125,8 +153,9 @@ export async function executeScene(
   state: StateManager,
   hooks: HookRegistry = {},
   entryActions?: string[],
+  maxSteps?: number,
 ): Promise<SceneExecutionResult> {
-  const executor = createSceneExecutor(scene, state, hooks, entryActions);
+  const executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
   while (!executor.isDone()) await executor.next();
   return executor.result();
 }
@@ -173,8 +202,7 @@ function evaluateNextRules(
       let condValue;
       if (condBinding?.expr) {
         // Function binding: run the graph and read the root's return value.
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        const condFuncId = builtCtx.ids[conditionName] as FuncId;
+        const condFuncId = builtCtx.getFuncId(conditionName)!;
         condValue = executeGraph(condFuncId, validated).value;
       } else {
         // Value binding: the value is already in the context's value table.

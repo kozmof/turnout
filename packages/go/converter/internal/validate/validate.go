@@ -936,9 +936,8 @@ func validatePattern(bindingName string, pattern ast.LocalCasePattern, subjectTy
 				bindingName, patternType, subjectType))
 		}
 	case *ast.TupleCasePattern:
-		for _, elem := range p.Elems {
-			validatePattern(bindingName, elem, subjectType, false, ds)
-		}
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: #case tuple patterns are not yet supported", bindingName))
 	}
 }
 

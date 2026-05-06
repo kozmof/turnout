@@ -1,5 +1,5 @@
 import { executeGraph, assertValidContext, buildNull } from 'runtime';
-import type { AnyValue, FuncId } from 'runtime';
+import type { AnyValue } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, PublishHookContext, PublishHookImpl } from '../types/harness-types.js';
@@ -56,8 +56,7 @@ export async function executeAction(
   let updatedTable = validatedCtx.valueTable;
 
   if (rootIsFunction) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    const rootFuncId = builtCtx.ids[action.compute.root] as FuncId;
+    const rootFuncId = builtCtx.getFuncId(action.compute.root)!;
     const execResult = executeGraph(rootFuncId, validatedCtx);
     computeRootValue = execResult.value;
     updatedTable = execResult.updatedValueTable;
@@ -77,8 +76,7 @@ export async function executeAction(
 
     if (v === undefined && binding.expr) {
       // Not computed yet — run the sub-graph rooted at this function binding.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      const subFuncId = builtCtx.ids[binding.name] as FuncId;
+      const subFuncId = builtCtx.getFuncId(binding.name)!;
       const subResult = executeGraph(subFuncId, validatedCtx);
       updatedTable = { ...updatedTable, ...subResult.updatedValueTable };
       v = subResult.updatedValueTable[valueId];

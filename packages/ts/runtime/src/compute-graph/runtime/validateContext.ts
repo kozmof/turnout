@@ -607,6 +607,9 @@ type ValidationState = {
   readonly referencedValues: Set<ValueId>;
   readonly referencedDefs: Set<CombineDefineId | PipeDefineId | CondDefineId>;
   readonly returnIds: Set<ValueId>;
+  // Intentionally mutable during the validation pass — entries are added lazily
+  // as types are inferred. The exported TypeEnvironment alias uses ReadonlyMap
+  // for the frozen snapshot exposed to consumers after validation completes.
   readonly typeEnv: Map<ValueId | FuncId, BaseTypeSymbol>;
 };
 
@@ -808,7 +811,14 @@ function validateCombineFuncTypes(
       }
     }
 
-    if (actualType && expectedType && actualType !== expectedType) {
+    if (!actualType) {
+      // Type could not be determined — emit a warning rather than silently skipping
+      // the compatibility check, so authors know the check was bypassed.
+      state.warnings.push({
+        message: `FuncTable[${funcId}].argMap['${argName}']: type of argument "${argId}" could not be inferred, skipping compatibility check`,
+        details: { funcId, argId, argName, transformFn: transformFnName, expectedType },
+      });
+    } else if (expectedType && actualType !== expectedType) {
       state.errors.push({
         message: `FuncTable[${funcId}].argMap['${argName}']: Argument has type "${actualType}" but transform function "${transformFnName}" expects "${expectedType}"`,
         details: {
@@ -1262,6 +1272,7 @@ function checkUnreferencedValues(
 
 /**
  * Pre-collects all function return IDs to make argMap reference validation order-independent.
+ * Also detects duplicate returnIds across functions, which would corrupt cycle detection.
  */
 function collectReturnIds(
   context: UnvalidatedContext,
@@ -1269,13 +1280,26 @@ function collectReturnIds(
 ): void {
   if (!isRecord(context.funcTable)) return;
 
-  for (const funcEntry of Object.values(context.funcTable)) {
+  // Track which funcId owns each returnId so duplicates can be reported precisely.
+  const returnIdOwners = new Map<string, string>();
+
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
     if (
       isRecord(funcEntry) &&
       "returnId" in funcEntry &&
       isStringAs<ValueId>(funcEntry.returnId)
     ) {
-      state.returnIds.add(funcEntry.returnId);
+      const returnId = funcEntry.returnId;
+      const existingOwner = returnIdOwners.get(returnId);
+      if (existingOwner !== undefined) {
+        state.errors.push({
+          message: `FuncTable: duplicate returnId "${returnId}" shared by "${existingOwner}" and "${funcId}"`,
+          details: { returnId, firstOwner: existingOwner, secondOwner: funcId },
+        });
+      } else {
+        returnIdOwners.set(returnId, funcId);
+        state.returnIds.add(returnId);
+      }
     }
   }
 }

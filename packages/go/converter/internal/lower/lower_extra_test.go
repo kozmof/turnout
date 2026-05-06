@@ -562,3 +562,52 @@ scene "test" {
 		t.Errorf("want UnresolvedStatePath diagnostic, got: %v", ds)
 	}
 }
+
+// TestLowerCaseIntoTopologicalOrder verifies that lowerCaseInto emits bindings
+// in reverse arm order: each CondExpr.ElseBranch.FuncRef must reference a
+// binding name that was emitted earlier (lower index) in the slice, guaranteeing
+// topological order so every reference is defined before it is used.
+func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        score:number = 1
+        result:str = #case(score, 1 => "one", 2 => "two", 3 => "three", _ => "other")
+      }
+    }
+  }`)
+	tm, _ := mustLower(t, src)
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
+
+	// Build an index from binding name → position in the slice.
+	nameToIndex := make(map[string]int, len(bindings))
+	for i, b := range bindings {
+		nameToIndex[b.Name] = i
+	}
+
+	// For every CondExpr binding, its ElseBranch.FuncRef must refer to a name
+	// that was defined earlier (lower index) than the CondExpr binding itself.
+	for i, b := range bindings {
+		if b.Expr == nil || b.Expr.Cond == nil {
+			continue
+		}
+		cond := b.Expr.Cond
+		if cond.ElseBranch == nil || cond.ElseBranch.FuncRef == nil {
+			continue
+		}
+		elseRef := *cond.ElseBranch.FuncRef
+		elseIdx, ok := nameToIndex[elseRef]
+		if !ok {
+			// ElseBranch references a synthetic name not in the slice (e.g. a
+			// function literal emitted outside prog bindings) — skip.
+			continue
+		}
+		if elseIdx >= i {
+			t.Errorf("binding[%d] %q: ElseBranch.FuncRef=%q is at index %d (>= %d); "+
+				"want it defined before this binding (topological order violation)",
+				i, b.Name, elseRef, elseIdx, i)
+		}
+	}
+}

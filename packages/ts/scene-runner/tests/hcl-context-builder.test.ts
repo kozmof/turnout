@@ -116,7 +116,7 @@ describe('buildSpec — error cases', () => {
         },
       ],
     } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
-    expect(() => buildSpec(prog, {})).toThrow('Unknown HCL function name: "no_such_fn"');
+    expect(() => buildSpec(prog, {})).toThrow('unknown HCL function name "no_such_fn"');
   });
 
   it('throws when step_ref is used outside a pipe context', () => {
@@ -389,7 +389,7 @@ describe('buildContextFromProg — errors', () => {
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('Unknown HCL function name');
+    expect(() => buildContextFromProg(prog, {})).toThrow('unknown HCL function name');
   });
 
   it('throws when step_ref is used outside a pipe context', () => {

@@ -57,6 +57,8 @@ export type ActionTrace = {
 export type SceneTrace = {
   sceneId: string;
   actions: ActionTrace[];
+  /** Non-fatal warnings produced during scene execution (e.g. skipped duplicate actions). */
+  warnings?: string[];
 };
 
 export type RouteTrace = {
