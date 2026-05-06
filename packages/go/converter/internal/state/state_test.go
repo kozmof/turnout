@@ -14,11 +14,11 @@ import (
 
 func pos() ast.Pos { return ast.Pos{File: "test.turn", Line: 1, Col: 1} }
 
-func numLit(v float64) *ast.NumberLiteral { return &ast.NumberLiteral{Pos: pos(), Value: v} }
-func strLit(v string) *ast.StringLiteral  { return &ast.StringLiteral{Pos: pos(), Value: v} }
-func boolLit(v bool) *ast.BoolLiteral     { return &ast.BoolLiteral{Pos: pos(), Value: v} }
+func numLit(v float64) *ast.NumberLiteral { return &ast.NumberLiteral{LitPos: pos(), Value: v} }
+func strLit(v string) *ast.StringLiteral  { return &ast.StringLiteral{LitPos: pos(), Value: v} }
+func boolLit(v bool) *ast.BoolLiteral     { return &ast.BoolLiteral{LitPos: pos(), Value: v} }
 func arrLit(elems ...ast.Literal) *ast.ArrayLiteral {
-	return &ast.ArrayLiteral{Pos: pos(), Elements: elems}
+	return &ast.ArrayLiteral{LitPos: pos(), Elements: elems}
 }
 
 func field(name string, ft ast.FieldType, def ast.Literal) *ast.FieldDecl {

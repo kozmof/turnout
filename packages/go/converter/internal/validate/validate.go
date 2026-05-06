@@ -266,6 +266,9 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		}
 	}
 
+	// Pass 1b: detect reference cycles across bindings in this prog.
+	detectBindingCycles(prog, ds)
+
 	// Pass 2: structural + type checks.
 	for _, b := range prog.Bindings {
 		ft, _ := ast.FieldTypeFromString(b.Type)
@@ -1462,4 +1465,110 @@ func isIdent(s string) bool {
 		}
 	}
 	return true
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Binding cycle detection
+// ─────────────────────────────────────────────────────────────────────────────
+
+// detectBindingCycles reports a CodeCyclicBinding diagnostic for every binding
+// in prog that participates in a reference cycle. Cycles cause infinite
+// recursion in buildExecutionTree on the TypeScript side, so they must be
+// caught here at validation time.
+func detectBindingCycles(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) {
+	adj := buildBindingRefGraph(prog)
+
+	const (
+		unvisited = 0
+		inStack   = 1
+		done      = 2
+	)
+	color := make(map[string]int, len(prog.Bindings))
+	reported := make(map[string]bool)
+
+	var visit func(name string)
+	visit = func(name string) {
+		switch color[name] {
+		case done:
+			return
+		case inStack:
+			if !reported[name] {
+				reported[name] = true
+				*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
+					"prog %q: binding %q is part of a reference cycle", prog.Name, name))
+			}
+			return
+		}
+		color[name] = inStack
+		for _, dep := range adj[name] {
+			visit(dep)
+		}
+		color[name] = done
+	}
+
+	for _, b := range prog.Bindings {
+		visit(b.Name)
+	}
+}
+
+// buildBindingRefGraph returns an adjacency list: binding name → binding names
+// it references (via ref, func_ref, transform.ref, or pipe param source_ident).
+func buildBindingRefGraph(prog *turnoutpb.ProgModel) map[string][]string {
+	adj := make(map[string][]string, len(prog.Bindings))
+	for _, b := range prog.Bindings {
+		adj[b.Name] = nil
+	}
+	for _, b := range prog.Bindings {
+		if b.Expr == nil {
+			continue
+		}
+		var refs []string
+		collectExprBindingRefs(b.Expr, &refs)
+		adj[b.Name] = refs
+	}
+	return adj
+}
+
+func collectExprBindingRefs(expr *turnoutpb.ExprModel, refs *[]string) {
+	if expr == nil {
+		return
+	}
+	if expr.Combine != nil {
+		for _, arg := range expr.Combine.Args {
+			collectArgBindingRefs(arg, refs)
+		}
+	}
+	if expr.Pipe != nil {
+		for _, p := range expr.Pipe.Params {
+			if p.SourceIdent != "" {
+				*refs = append(*refs, p.SourceIdent)
+			}
+		}
+		for _, step := range expr.Pipe.Steps {
+			for _, arg := range step.Args {
+				collectArgBindingRefs(arg, refs)
+			}
+		}
+	}
+	if expr.Cond != nil {
+		collectArgBindingRefs(expr.Cond.Condition, refs)
+		collectArgBindingRefs(expr.Cond.Then, refs)
+		collectArgBindingRefs(expr.Cond.ElseBranch, refs)
+	}
+}
+
+func collectArgBindingRefs(arg *turnoutpb.ArgModel, refs *[]string) {
+	if arg == nil {
+		return
+	}
+	if arg.Ref != nil && *arg.Ref != "" {
+		*refs = append(*refs, *arg.Ref)
+	}
+	if arg.FuncRef != nil && *arg.FuncRef != "" {
+		*refs = append(*refs, *arg.FuncRef)
+	}
+	if arg.Transform != nil && arg.Transform.Ref != "" {
+		*refs = append(*refs, arg.Transform.Ref)
+	}
+	// step_ref is a numeric pipe-step index, not a binding name — skip.
 }

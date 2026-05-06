@@ -22,16 +22,20 @@ type Diagnostic struct {
 }
 
 // Format returns the human-readable string for stderr output.
-// Format: <file>:<line>:<col>: error [<code>](<stage>): <message>
+// Format: <file>:<line>:<col>: error|warning [<code>](<stage>): <message>
 func (d Diagnostic) Format() string {
 	code := d.Code
 	if d.Stage != "" {
 		code = fmt.Sprintf("%s/%s", d.Code, d.Stage)
 	}
-	if d.File == "" {
-		return fmt.Sprintf("error [%s]: %s", code, d.Message)
+	level := "error"
+	if d.Severity == SeverityWarning {
+		level = "warning"
 	}
-	return fmt.Sprintf("%s:%d:%d: error [%s]: %s", d.File, d.Line, d.Col, code, d.Message)
+	if d.File == "" {
+		return fmt.Sprintf("%s [%s]: %s", level, code, d.Message)
+	}
+	return fmt.Sprintf("%s:%d:%d: %s [%s]: %s", d.File, d.Line, d.Col, level, code, d.Message)
 }
 
 // Diagnostics is a slice of Diagnostic values.
@@ -68,9 +72,22 @@ func ErrorAt(file string, line, col int, code, format string, args ...any) Diagn
 	}
 }
 
+// WarnAt creates a new warning Diagnostic with file/line/col.
+func WarnAt(file string, line, col int, code, format string, args ...any) Diagnostic {
+	return Diagnostic{
+		Severity: SeverityWarning,
+		Code:     code,
+		Message:  fmt.Sprintf(format, args...),
+		File:     file,
+		Line:     line,
+		Col:      col,
+	}
+}
+
 // Generic converter error codes.
 const (
 	CodeTooManyDiagnostics = "TooManyDiagnostics"
+	CodeNamedArgIgnored    = "NamedArgIgnored"
 )
 
 // Error codes from hcl-context-spec.md
@@ -119,6 +136,7 @@ const (
 
 // Error codes from effect-dsl-spec.md + convert-runtime-spec.md
 const (
+	CodeUnknownMethod            = "UnknownMethod"
 	CodeMissingPrepareEntry      = "MissingPrepareEntry"
 	CodeMissingMergeEntry        = "MissingMergeEntry"
 	CodeSpuriousPrepareEntry     = "SpuriousPrepareEntry"
@@ -136,6 +154,7 @@ const (
 	CodeUnresolvedMergeBinding   = "UnresolvedMergeBinding"
 	CodeDuplicateActionLabel     = "DuplicateActionLabel"
 	CodeUnsupportedConstruct     = "UnsupportedConstruct"
+	CodeCyclicBinding            = "CyclicBinding"
 )
 
 // Error codes from scene-graph.md

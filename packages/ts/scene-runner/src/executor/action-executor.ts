@@ -45,45 +45,32 @@ export async function executeAction(
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues);
 
-  // Step 3: validate and execute.
+  // Step 3: validate the execution context.
   const validatedCtx = assertValidContext(builtCtx.exec);
 
-  // Determine whether the root binding is a function or a plain value.
-  const rootBinding = action.compute.prog.bindings.find((b) => b.name === action.compute!.root);
-  const rootIsFunction = rootBinding?.expr !== undefined;
-
-  let computeRootValue: AnyValue;
+  // Step 4: execute all bindings in declaration (topological) order.
+  // The converter guarantees that each binding's dependencies appear before it,
+  // so a single forward pass with an accumulated valueTable is sufficient — no
+  // binding is ever executed twice, including side-branch bindings not reachable
+  // from the root.
   let updatedTable = validatedCtx.valueTable;
-
-  if (rootIsFunction) {
-    const rootFuncId = builtCtx.getFuncId(action.compute.root)!;
-    const execResult = executeGraph(rootFuncId, validatedCtx);
-    computeRootValue = execResult.value;
-    updatedTable = execResult.updatedValueTable;
-  } else {
-    // Root is a plain value binding — read it directly from the value table.
-    const rootValueId = builtCtx.nameToValueId[action.compute.root];
-    computeRootValue = validatedCtx.valueTable[rootValueId] ?? buildNull('missing');
-  }
-
-  // Step 4: extract binding values for every binding in the prog.
-  // Function bindings that are NOT reachable from the root (side-branch
-  // computations consumed by next-rule from_action) must be executed separately.
   const bindingValues: Record<string, AnyValue> = {};
+
   for (const binding of action.compute.prog.bindings) {
     const valueId = builtCtx.nameToValueId[binding.name];
-    let v = updatedTable[valueId];
 
-    if (v === undefined && binding.expr) {
-      // Not computed yet — run the sub-graph rooted at this function binding.
-      const subFuncId = builtCtx.getFuncId(binding.name)!;
-      const subResult = executeGraph(subFuncId, validatedCtx);
-      updatedTable = { ...updatedTable, ...subResult.updatedValueTable };
-      v = subResult.updatedValueTable[valueId];
+    if (updatedTable[valueId] === undefined && binding.expr) {
+      const funcId = builtCtx.getFuncId(binding.name)!;
+      const result = executeGraph(funcId, { ...validatedCtx, valueTable: updatedTable });
+      updatedTable = { ...updatedTable, ...result.updatedValueTable };
     }
 
+    const v = updatedTable[valueId];
     if (v !== undefined) bindingValues[binding.name] = v;
   }
+
+  const rootValueId = builtCtx.nameToValueId[action.compute.root];
+  const computeRootValue = updatedTable[rootValueId] ?? buildNull('missing');
 
   // Step 5: apply merge entries — each write returns a new StateManager.
   let mergedState = state;

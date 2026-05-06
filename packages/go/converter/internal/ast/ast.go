@@ -759,39 +759,46 @@ func (*FromAction) nextPrepareSource() {}
 // ────────────────────────────────────────────────────────────
 
 // Literal is implemented by all literal value node types.
-type Literal interface{ literal() }
+type Literal interface {
+	literal()
+	Pos() Pos
+}
 
 // NumberLiteral is an integer or decimal numeric literal.
 type NumberLiteral struct {
-	Pos   Pos
-	Value float64
+	LitPos Pos
+	Value  float64
 }
 
-func (*NumberLiteral) literal() {}
+func (*NumberLiteral) literal()      {}
+func (n *NumberLiteral) Pos() Pos    { return n.LitPos }
 
 // StringLiteral is a quoted string literal.
 type StringLiteral struct {
-	Pos   Pos
-	Value string
+	LitPos Pos
+	Value  string
 }
 
-func (*StringLiteral) literal() {}
+func (*StringLiteral) literal()      {}
+func (s *StringLiteral) Pos() Pos    { return s.LitPos }
 
 // BoolLiteral is a boolean literal (`true` or `false`).
 type BoolLiteral struct {
-	Pos   Pos
-	Value bool
+	LitPos Pos
+	Value  bool
 }
 
-func (*BoolLiteral) literal() {}
+func (*BoolLiteral) literal()        {}
+func (b *BoolLiteral) Pos() Pos      { return b.LitPos }
 
 // ArrayLiteral is an array literal `[e1, e2, ...]`.
 type ArrayLiteral struct {
-	Pos      Pos
+	LitPos   Pos
 	Elements []Literal
 }
 
-func (*ArrayLiteral) literal() {}
+func (*ArrayLiteral) literal()       {}
+func (a *ArrayLiteral) Pos() Pos     { return a.LitPos }
 
 // ────────────────────────────────────────────────────────────
 // Route / Match

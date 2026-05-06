@@ -93,6 +93,12 @@ func (p *parser) posOf(t lexer.Token) ast.Pos {
 	return ast.Pos{File: p.file, Line: t.Line, Col: t.Col}
 }
 
+// warnf appends a parse warning diagnostic.
+func (p *parser) warnf(t lexer.Token, format string, args ...any) {
+	p.diags = append(p.diags, diag.WarnAt(p.file, t.Line, t.Col,
+		diag.CodeNamedArgIgnored, "%s", fmt.Sprintf(format, args...)))
+}
+
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
 	if p.halted {
@@ -266,46 +272,46 @@ func (p *parser) parseLiteral() ast.Literal {
 	switch t.Kind {
 	case lexer.TokBoolLit:
 		p.advance()
-		return &ast.BoolLiteral{Pos: p.posOf(t), Value: t.Value == "true"}
+		return &ast.BoolLiteral{LitPos: p.posOf(t), Value: t.Value == "true"}
 
 	case lexer.TokNumberLit:
 		p.advance()
 		v, err := strconv.ParseFloat(t.Value, 64)
 		if err != nil {
 			p.errorf(t, "invalid number literal %q: %v", t.Value, err)
-			return &ast.NumberLiteral{Pos: p.posOf(t)}
+			return &ast.NumberLiteral{LitPos: p.posOf(t)}
 		}
-		return &ast.NumberLiteral{Pos: p.posOf(t), Value: v}
+		return &ast.NumberLiteral{LitPos: p.posOf(t), Value: v}
 
 	case lexer.TokStringLit:
 		p.advance()
-		return &ast.StringLiteral{Pos: p.posOf(t), Value: t.Value}
+		return &ast.StringLiteral{LitPos: p.posOf(t), Value: t.Value}
 
 	case lexer.TokHeredoc, lexer.TokTripleQuote:
 		p.advance()
-		return &ast.StringLiteral{Pos: p.posOf(t), Value: t.Value}
+		return &ast.StringLiteral{LitPos: p.posOf(t), Value: t.Value}
 
 	case lexer.TokMinus:
 		p.advance() // consume '-'
 		numTok := p.peek()
 		if numTok.Kind != lexer.TokNumberLit {
 			p.errorf(numTok, "expected number after '-', got %s", kindName(numTok.Kind))
-			return &ast.NumberLiteral{Pos: p.posOf(t)}
+			return &ast.NumberLiteral{LitPos: p.posOf(t)}
 		}
 		p.advance()
 		v, err := strconv.ParseFloat(numTok.Value, 64)
 		if err != nil {
 			p.errorf(numTok, "invalid number literal %q: %v", numTok.Value, err)
-			return &ast.NumberLiteral{Pos: p.posOf(t)}
+			return &ast.NumberLiteral{LitPos: p.posOf(t)}
 		}
-		return &ast.NumberLiteral{Pos: p.posOf(t), Value: -v}
+		return &ast.NumberLiteral{LitPos: p.posOf(t), Value: -v}
 
 	case lexer.TokLBracket:
 		return p.parseArrayLiteral()
 
 	default:
 		p.errorf(t, "expected literal value, got %s %q", kindName(t.Kind), t.Value)
-		return &ast.BoolLiteral{Pos: p.posOf(t)}
+		return &ast.BoolLiteral{LitPos: p.posOf(t)}
 	}
 }
 
@@ -324,7 +330,7 @@ func (p *parser) parseArrayLiteral() *ast.ArrayLiteral {
 		}
 	}
 	p.expect(lexer.TokRBracket)
-	return &ast.ArrayLiteral{Pos: pos, Elements: elems}
+	return &ast.ArrayLiteral{LitPos: pos, Elements: elems}
 }
 
 // ─── parseArg ─────────────────────────────────────────────────────────────────
@@ -444,15 +450,17 @@ func (p *parser) parseBlockArg() ast.Arg {
 }
 
 // parseFuncArgs parses the argument list of a function call: (arg, arg) or
-// (name: arg, name: arg). Named form is normalized to ordered Args.
+// (name: arg, name: arg). Named form is normalized to ordered args; the name
+// is discarded. A warning is emitted because named args give a false impression
+// of named-parameter semantics — only positional order matters.
 func (p *parser) parseFuncArgs() []ast.Arg {
 	p.expect(lexer.TokLParen)
 	var args []ast.Arg
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		// Detect named arg: ident ':'
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
-			p.advance() // skip name
-			p.advance() // skip ':'
+			nameTok := p.advance() // consume name
+			p.advance()            // consume ':'
+			p.warnf(nameTok, "named argument %q is treated as positional; the name has no effect", nameTok.Value)
 		}
 		args = append(args, p.parseArg())
 		if p.peek().Kind == lexer.TokComma {
@@ -764,15 +772,16 @@ func (p *parser) parseLocalPipeExpr() ast.LocalExpr {
 }
 
 // parseLocalArgList parses `(expr, expr, ...)` as a list of local expressions.
-// Named-arg `name: expr` form is also accepted (the name is skipped).
+// Named-arg `name: expr` form is also accepted; the name is treated as
+// positional and a warning is emitted.
 func (p *parser) parseLocalArgList() []ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	var args []ast.LocalExpr
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		// skip named arg key if present
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
-			p.advance()
-			p.advance()
+			nameTok := p.advance() // consume name
+			p.advance()            // consume ':'
+			p.warnf(nameTok, "named argument %q is treated as positional; the name has no effect", nameTok.Value)
 		}
 		args = append(args, p.parseLocalExpr())
 		if p.peek().Kind == lexer.TokComma {

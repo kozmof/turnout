@@ -89,12 +89,10 @@ export function createSceneExecutor(
   }
 
   function isDone(): boolean {
-    drainVisited();
     return queueHead >= queue.length;
   }
 
   async function next(): Promise<StepResult> {
-    drainVisited();
     if (queueHead >= queue.length) return { done: true };
 
     if (stepCount >= maxSteps) {
@@ -125,6 +123,7 @@ export function createSceneExecutor(
     };
     actionTraces.push(trace);
     queue.push(...nextIds);
+    drainVisited();
 
     return { done: false, trace };
   }
