@@ -50,6 +50,15 @@ message SceneBlock {
   // next_policy is one of: "first-match" | "all-match". Absent means first-match.
   optional string next_policy = 3;
   repeated ActionModel actions = 4;
+  optional ViewBlock view = 5;
+}
+
+// ViewBlock carries the authoring-time overview annotation for a scene.
+// name must be "overview". enforce is one of: "nodes_only" | "at_least" | "strict".
+message ViewBlock {
+  string name = 1;
+  string flow = 2;
+  optional string enforce = 3;
 }
 
 message ActionModel {
@@ -59,6 +68,8 @@ message ActionModel {
   repeated MergeEntry merge = 4;
   repeated string publish = 5;
   repeated NextRuleModel next = 6;
+  // text is the narrative description of the action (optional authoring metadata).
+  optional string text = 7;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -185,6 +196,7 @@ message NextPrepareEntry {
 message RouteModel {
   string id = 1;
   repeated MatchArm match = 2;
+  optional string entry_scene_id = 3;
 }
 
 message MatchArm {

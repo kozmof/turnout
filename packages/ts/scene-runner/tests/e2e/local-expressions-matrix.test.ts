@@ -187,6 +187,7 @@ scene "if_b" {
   }
 }
 route "if_route" {
+  entry "if_a"
   match { if_a.done => if_b }
 }`,
   },
@@ -288,6 +289,7 @@ scene "case_b" {
   }
 }
 route "case_route" {
+  entry "case_a"
   match { case_a.done => case_b }
 }`,
   },
@@ -389,6 +391,7 @@ scene "pipe_b" {
   }
 }
 route "pipe_route" {
+  entry "pipe_a"
   match { pipe_a.done => pipe_b }
 }`,
   },

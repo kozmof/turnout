@@ -687,6 +687,7 @@ scene "scene_1" {
   action "a" { compute { root = v prog "p" { v:bool = true } } }
 }
 route "r1" {
+  entry "scene_1"
   match {
 ` + matchBody + `
   }
@@ -731,5 +732,40 @@ func TestRouteValidNoErrors(t *testing.T) {
 		for _, d := range ds {
 			t.Errorf("unexpected error: %s", d.Format())
 		}
+	}
+}
+
+func TestMissingEntryScene(t *testing.T) {
+	src := basicState + `
+scene "scene_1" {
+  entry_actions = ["a"]
+  action "a" { compute { root = v prog "p" { v:bool = true } } }
+}
+route "r1" {
+  match {
+    _ => scene_1
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeMissingEntryScene) {
+		t.Error("want MissingEntryScene")
+	}
+}
+
+func TestUnresolvedEntryScene(t *testing.T) {
+	src := basicState + `
+scene "scene_1" {
+  entry_actions = ["a"]
+  action "a" { compute { root = v prog "p" { v:bool = true } } }
+}
+route "r1" {
+  entry "undefined_scene"
+  match {
+    _ => scene_1
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeUnresolvedEntryScene) {
+		t.Error("want UnresolvedEntryScene")
 	}
 }

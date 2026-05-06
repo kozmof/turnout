@@ -71,6 +71,7 @@ scene "s" {
   }
 }
 route "main" {
+  entry "s"
   match {
     _ => "s"
   }

@@ -85,6 +85,9 @@ func lowerRouteBlocks(routes []*ast.RouteBlock) []*turnoutpb.RouteModel {
 	result := make([]*turnoutpb.RouteModel, 0, len(routes))
 	for _, r := range routes {
 		rm := &turnoutpb.RouteModel{Id: r.ID}
+		if r.EntrySceneID != "" {
+			rm.EntrySceneId = proto.String(r.EntrySceneID)
+		}
 		if r.Match != nil {
 			for _, arm := range r.Match.Arms {
 				pbArm := &turnoutpb.MatchArm{Target: arm.Target}
@@ -195,11 +198,14 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds
 		sb.NextPolicy = proto.String(scene.NextPolicy)
 	}
 	if scene.View != nil {
-		sc.Scenes[scene.ID] = SceneMeta{View: &ViewMeta{
-			Name:    scene.View.Name,
-			Flow:    scene.View.Flow,
-			Enforce: scene.View.Enforce,
-		}}
+		vb := &turnoutpb.ViewBlock{
+			Name: scene.View.Name,
+			Flow: scene.View.Flow,
+		}
+		if scene.View.Enforce != "" {
+			vb.Enforce = proto.String(scene.View.Enforce)
+		}
+		sb.View = vb
 	}
 	for _, a := range scene.Actions {
 		sb.Actions = append(sb.Actions, lowerAction(a, schema, scene.ID, sc, ds))
@@ -212,9 +218,8 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 
 	am := &turnoutpb.ActionModel{Id: a.ID}
 
-	// Text goes to the sidecar (HCL-only, stripped from JSON).
 	if text := lowerActionText(a.Text); text != nil {
-		sc.Actions[sceneID+"/"+a.ID] = ActionMeta{Text: text}
+		am.Text = text
 	}
 
 	if a.Compute != nil {

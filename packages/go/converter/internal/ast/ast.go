@@ -792,11 +792,12 @@ func (*ArrayLiteral) literal() {}
 // Route / Match
 // ────────────────────────────────────────────────────────────
 
-// RouteBlock is the `route "<id>" { match { ... } }` top-level block.
+// RouteBlock is the `route "<id>" { entry "<scene_id>" match { ... } }` top-level block.
 type RouteBlock struct {
-	Pos   Pos
-	ID    string
-	Match *MatchBlock
+	Pos          Pos
+	ID           string
+	EntrySceneID string
+	Match        *MatchBlock
 }
 
 // MatchBlock is the `match { <arms...> }` inside a route block.

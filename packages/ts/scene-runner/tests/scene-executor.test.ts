@@ -10,6 +10,7 @@ import {
   isPureBoolean,
 } from 'runtime';
 import type { SceneBlock, ActionModel } from '../src/types/turnout-model_pb.js';
+import { SceneRuntimeError } from '../src/executor/errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -302,9 +303,12 @@ describe('createSceneExecutor — isDone / next / result', () => {
     expect(await executor.next()).toEqual({ done: true });
   });
 
-  it('result() throws before the scene is complete', () => {
+  it('result() throws SceneRuntimeError(IncompleteScene) before the scene is complete', () => {
     const executor = createSceneExecutor(scene, StateManager.from({}));
-    expect(() => executor.result()).toThrow();
+    let err: unknown;
+    try { executor.result(); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(SceneRuntimeError);
+    expect((err as SceneRuntimeError).code).toBe('IncompleteScene');
   });
 
   it('result() returns the correct SceneExecutionResult after completion', async () => {
@@ -350,7 +354,9 @@ describe('createSceneExecutor — step-by-step trace', () => {
   it('intermediate state is visible via result() only after completion', async () => {
     const executor = createSceneExecutor(scene, StateManager.from({}));
     await executor.next(); // run 'first'
-    expect(() => executor.result()).toThrow(); // 'second' still pending
+    let err: unknown;
+    try { executor.result(); } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(SceneRuntimeError); // 'second' still pending
     await executor.next(); // run 'second'
     const result = executor.result();
     const v = result.stateAfterScene.read('step.second');

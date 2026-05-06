@@ -29,7 +29,7 @@ func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {
 		}},
 	}
 
-	out := emitModel(model, nil)
+	out := emitModel(model)
 	if !strings.Contains(out, `from_state = "app.score"`) {
 		t.Fatalf("missing from_state in output:\n%s", out)
 	}
@@ -66,7 +66,7 @@ func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T)
 		}},
 	}
 
-	out := emitModel(model, nil)
+	out := emitModel(model)
 	if !strings.Contains(out, `from_action  = "score"`) {
 		t.Fatalf("missing from_action in output:\n%s", out)
 	}
@@ -111,7 +111,7 @@ func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 		}},
 	}
 
-	out := emitModel(model, nil)
+	out := emitModel(model)
 	if !strings.Contains(out, `args = [{}, { lit = 1 }]`) {
 		t.Fatalf("expected empty arg object in output:\n%s", out)
 	}
@@ -141,7 +141,7 @@ func TestEmitIrregularArrayWithNilElementEmitsNull(t *testing.T) {
 		},
 	}
 
-	out := emitModel(model, nil)
+	out := emitModel(model)
 	if !strings.Contains(out, `value = [null, 2]`) {
 		t.Fatalf("expected null array element in output:\n%s", out)
 	}

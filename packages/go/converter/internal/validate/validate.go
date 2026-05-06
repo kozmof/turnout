@@ -114,6 +114,13 @@ func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool,
 }
 
 func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, ds *diag.Diagnostics) {
+	if r.EntrySceneId == nil || *r.EntrySceneId == "" {
+		*ds = append(*ds, diag.Errorf(diag.CodeMissingEntryScene,
+			"route %q: missing entry declaration", r.Id))
+	} else if !knownScenes[*r.EntrySceneId] {
+		*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedEntryScene,
+			"route %q: entry scene %q is not defined", r.Id, *r.EntrySceneId))
+	}
 	fallbackCount := 0
 	for i, arm := range r.Match {
 		if arm.Target != "" && !knownScenes[arm.Target] {
@@ -1360,14 +1367,10 @@ func enforceErr(code, format string, args ...any) diag.Diagnostic {
 }
 
 func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turnoutpb.ActionModel, sc *lower.Sidecar, ds *diag.Diagnostics) {
-	if sc == nil {
+	if scene.View == nil {
 		return
 	}
-	sceneMeta, ok := sc.Scenes[scene.Id]
-	if !ok || sceneMeta.View == nil {
-		return
-	}
-	v := sceneMeta.View
+	v := scene.View
 
 	if v.Name != "overview" {
 		*ds = append(*ds, compileErr(diag.CodeOverviewUnknownView,
@@ -1375,11 +1378,15 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		return
 	}
 
-	switch v.Enforce {
+	enforce := ""
+	if v.Enforce != nil {
+		enforce = *v.Enforce
+	}
+	switch enforce {
 	case "nodes_only", "at_least", "strict":
 	default:
 		*ds = append(*ds, compileErr(diag.CodeOverviewInvalidMode,
-			"scene %q: view %q has unknown enforce mode %q", scene.Id, v.Name, v.Enforce))
+			"scene %q: view %q has unknown enforce mode %q", scene.Id, v.Name, enforce))
 		return
 	}
 
@@ -1404,7 +1411,7 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		}
 	}
 
-	if v.Enforce == "nodes_only" {
+	if enforce == "nodes_only" {
 		return
 	}
 
@@ -1415,7 +1422,7 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		}
 	}
 
-	if v.Enforce == "strict" {
+	if enforce == "strict" {
 		flowNodeSet := make(map[string]bool, len(flowNodes))
 		for _, n := range flowNodes {
 			flowNodeSet[n] = true

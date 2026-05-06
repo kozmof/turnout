@@ -119,10 +119,15 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   let currentSceneId: string;
 
   if (route) {
-    const entrySceneId = model.scenes[0]?.id;
+    const entrySceneId = route.entrySceneId;
     if (!entrySceneId) {
       throw new Error(
-        `Runner: route "${options.entryId}" found but model has no scenes`,
+        `Runner: route "${options.entryId}" has no entry scene declared`,
+      );
+    }
+    if (!sceneMap[entrySceneId]) {
+      throw new Error(
+        `Runner: route "${options.entryId}" entry scene "${entrySceneId}" is not in the model`,
       );
     }
     currentSceneId = entrySceneId;

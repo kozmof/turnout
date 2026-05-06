@@ -154,11 +154,13 @@ const (
 
 // Error codes from scene-to-scene.md
 const (
-	CodeDuplicateFallback = "DuplicateFallback"
-	CodeBareWildcardPath  = "BareWildcardPath"
-	CodeMultipleWildcards = "MultipleWildcards"
-	CodeInvalidPathItem   = "InvalidPathItem"
-	CodeUnresolvedScene   = "UnresolvedScene"
+	CodeDuplicateFallback    = "DuplicateFallback"
+	CodeBareWildcardPath     = "BareWildcardPath"
+	CodeMultipleWildcards    = "MultipleWildcards"
+	CodeInvalidPathItem      = "InvalidPathItem"
+	CodeUnresolvedScene      = "UnresolvedScene"
+	CodeMissingEntryScene    = "MissingEntryScene"
+	CodeUnresolvedEntryScene = "UnresolvedEntryScene"
 )
 
 // Error codes from overview-dsl-spec.md §9 (Overview DSL)

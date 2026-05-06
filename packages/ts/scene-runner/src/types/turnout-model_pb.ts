@@ -17,7 +17,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file turnout-model.proto.
  */
 export const file_turnout_model: GenFile = /*@__PURE__*/
-  fileDesc("ChN0dXJub3V0LW1vZGVsLnByb3RvEhB0dXJub3V0Lm1vZGVsLnYxIpQBCglUdXJuTW9kZWwSKwoFc3RhdGUYASABKAsyHC50dXJub3V0Lm1vZGVsLnYxLlN0YXRlTW9kZWwSLAoGc2NlbmVzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5TY2VuZUJsb2NrEiwKBnJvdXRlcxgDIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuUm91dGVNb2RlbCJCCgpTdGF0ZU1vZGVsEjQKCm5hbWVzcGFjZXMYASADKAsyIC50dXJub3V0Lm1vZGVsLnYxLk5hbWVzcGFjZU1vZGVsIkwKDk5hbWVzcGFjZU1vZGVsEgwKBG5hbWUYASABKAkSLAoGZmllbGRzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5GaWVsZE1vZGVsIk8KCkZpZWxkTW9kZWwSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEiUKBXZhbHVlGAMgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlIokBCgpTY2VuZUJsb2NrEgoKAmlkGAEgASgJEhUKDWVudHJ5X2FjdGlvbnMYAiADKAkSGAoLbmV4dF9wb2xpY3kYAyABKAlIAIgBARIuCgdhY3Rpb25zGAQgAygLMh0udHVybm91dC5tb2RlbC52MS5BY3Rpb25Nb2RlbEIOCgxfbmV4dF9wb2xpY3ki6AEKC0FjdGlvbk1vZGVsEgoKAmlkGAEgASgJEi8KB2NvbXB1dGUYAiABKAsyHi50dXJub3V0Lm1vZGVsLnYxLkNvbXB1dGVNb2RlbBIvCgdwcmVwYXJlGAMgAygLMh4udHVybm91dC5tb2RlbC52MS5QcmVwYXJlRW50cnkSKwoFbWVyZ2UYBCADKAsyHC50dXJub3V0Lm1vZGVsLnYxLk1lcmdlRW50cnkSDwoHcHVibGlzaBgFIAMoCRItCgRuZXh0GAYgAygLMh8udHVybm91dC5tb2RlbC52MS5OZXh0UnVsZU1vZGVsIkcKDENvbXB1dGVNb2RlbBIMCgRyb290GAEgASgJEikKBHByb2cYAiABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlByb2dNb2RlbCJLCglQcm9nTW9kZWwSDAoEbmFtZRgBIAEoCRIwCghiaW5kaW5ncxgCIAMoCzIeLnR1cm5vdXQubW9kZWwudjEuQmluZGluZ01vZGVsIrABCgxCaW5kaW5nTW9kZWwSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEiUKBXZhbHVlGAMgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEikKBGV4cHIYBCABKAsyGy50dXJub3V0Lm1vZGVsLnYxLkV4cHJNb2RlbBIyCghleHRfZXhwchgFIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwijwEKCUV4cHJNb2RlbBIuCgdjb21iaW5lGAEgASgLMh0udHVybm91dC5tb2RlbC52MS5Db21iaW5lRXhwchIoCgRwaXBlGAIgASgLMhoudHVybm91dC5tb2RlbC52MS5QaXBlRXhwchIoCgRjb25kGAMgASgLMhoudHVybm91dC5tb2RlbC52MS5Db25kRXhwciJDCgtDb21iaW5lRXhwchIKCgJmbhgBIAEoCRIoCgRhcmdzGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCJiCghQaXBlRXhwchIrCgZwYXJhbXMYASADKAsyGy50dXJub3V0Lm1vZGVsLnYxLlBpcGVQYXJhbRIpCgVzdGVwcxgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuUGlwZVN0ZXAiNQoJUGlwZVBhcmFtEhIKCnBhcmFtX25hbWUYASABKAkSFAoMc291cmNlX2lkZW50GAIgASgJIkAKCFBpcGVTdGVwEgoKAmZuGAEgASgJEigKBGFyZ3MYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsIpQBCghDb25kRXhwchItCgljb25kaXRpb24YASABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsEigKBHRoZW4YAiABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsEi8KC2Vsc2VfYnJhbmNoGAMgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCLEAQoIQXJnTW9kZWwSEAoDcmVmGAEgASgJSACIAQESIwoDbGl0GAIgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEhUKCGZ1bmNfcmVmGAMgASgJSAGIAQESFQoIc3RlcF9yZWYYBCABKAVIAogBARIxCgl0cmFuc2Zvcm0YBSABKAsyHi50dXJub3V0Lm1vZGVsLnYxLlRyYW5zZm9ybUFyZ0IGCgRfcmVmQgsKCV9mdW5jX3JlZkILCglfc3RlcF9yZWYiJwoMVHJhbnNmb3JtQXJnEgsKA3JlZhgBIAEoCRIKCgJmbhgCIAMoCSJtCgxQcmVwYXJlRW50cnkSDwoHYmluZGluZxgBIAEoCRIXCgpmcm9tX3N0YXRlGAIgASgJSACIAQESFgoJZnJvbV9ob29rGAMgASgJSAGIAQFCDQoLX2Zyb21fc3RhdGVCDAoKX2Zyb21faG9vayIvCgpNZXJnZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSEAoIdG9fc3RhdGUYAiABKAkiiQEKDU5leHRSdWxlTW9kZWwSMwoHY29tcHV0ZRgBIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTmV4dENvbXB1dGVNb2RlbBIzCgdwcmVwYXJlGAIgAygLMiIudHVybm91dC5tb2RlbC52MS5OZXh0UHJlcGFyZUVudHJ5Eg4KBmFjdGlvbhgDIAEoCSJQChBOZXh0Q29tcHV0ZU1vZGVsEhEKCWNvbmRpdGlvbhgBIAEoCRIpCgRwcm9nGAIgASgLMhsudHVybm91dC5tb2RlbC52MS5Qcm9nTW9kZWwiowEKEE5leHRQcmVwYXJlRW50cnkSDwoHYmluZGluZxgBIAEoCRIYCgtmcm9tX2FjdGlvbhgCIAEoCUgAiAEBEhcKCmZyb21fc3RhdGUYAyABKAlIAYgBARIsCgxmcm9tX2xpdGVyYWwYBCABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWVCDgoMX2Zyb21fYWN0aW9uQg0KC19mcm9tX3N0YXRlIkMKClJvdXRlTW9kZWwSCgoCaWQYASABKAkSKQoFbWF0Y2gYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLk1hdGNoQXJtIiwKCE1hdGNoQXJtEhAKCHBhdHRlcm5zGAEgAygJEg4KBnRhcmdldBgCIAEoCSLNAwoOTG9jYWxFeHByTW9kZWwSMgoDcmVmGAEgASgLMiMudHVybm91dC5tb2RlbC52MS5Mb2NhbFJlZkV4cHJNb2RlbEgAEjIKA2xpdBgCIAEoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxMaXRFeHByTW9kZWxIABIwCgJpdBgDIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJdEV4cHJNb2RlbEgAEjQKBGNhbGwYBCABKAsyJC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FsbEV4cHJNb2RlbEgAEjYKBWluZml4GAUgASgLMiUudHVybm91dC5tb2RlbC52MS5Mb2NhbEluZml4RXhwck1vZGVsSAASNQoHaWZfZXhwchgGIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJZkV4cHJNb2RlbEgAEjkKCWNhc2VfZXhwchgHIAEoCzIkLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlRXhwck1vZGVsSAASOQoJcGlwZV9leHByGAggASgLMiQudHVybm91dC5tb2RlbC52MS5Mb2NhbFBpcGVFeHByTW9kZWxIAEIGCgRleHByIiEKEUxvY2FsUmVmRXhwck1vZGVsEgwKBG5hbWUYASABKAkiOgoRTG9jYWxMaXRFeHByTW9kZWwSJQoFdmFsdWUYASABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiEgoQTG9jYWxJdEV4cHJNb2RlbCJQChJMb2NhbENhbGxFeHByTW9kZWwSCgoCZm4YASABKAkSLgoEYXJncxgCIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwifwoTTG9jYWxJbmZpeEV4cHJNb2RlbBIKCgJvcBgBIAEoBRItCgNsaHMYAiABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi0KA3JocxgDIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwiqQEKEExvY2FsSWZFeHByTW9kZWwSLgoEY29uZBgBIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSLgoEdGhlbhgCIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSNQoLZWxzZV9icmFuY2gYAyABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIq4BChFMb2NhbENhc2VBcm1Nb2RlbBI4CgdwYXR0ZXJuGAEgASgLMicudHVybm91dC5tb2RlbC52MS5Mb2NhbENhc2VQYXR0ZXJuTW9kZWwSLwoFZ3VhcmQYAiABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi4KBGV4cHIYAyABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsInoKEkxvY2FsQ2FzZUV4cHJNb2RlbBIxCgdzdWJqZWN0GAEgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIxCgRhcm1zGAIgAygLMiMudHVybm91dC5tb2RlbC52MS5Mb2NhbENhc2VBcm1Nb2RlbCJ4ChJMb2NhbFBpcGVFeHByTW9kZWwSMQoHaW5pdGlhbBgBIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSLwoFc3RlcHMYAiADKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIpkCChVMb2NhbENhc2VQYXR0ZXJuTW9kZWwSPwoId2lsZGNhcmQYASABKAsyKy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsV2lsZGNhcmRQYXR0ZXJuTW9kZWxIABI1CgNsaXQYAiABKAsyJi50dXJub3V0Lm1vZGVsLnYxLkxvY2FsTGl0UGF0dGVybk1vZGVsSAASQgoKdmFyX2JpbmRlchgDIAEoCzIsLnR1cm5vdXQubW9kZWwudjEuTG9jYWxWYXJCaW5kZXJQYXR0ZXJuTW9kZWxIABI5CgV0dXBsZRgEIAEoCzIoLnR1cm5vdXQubW9kZWwudjEuTG9jYWxUdXBsZVBhdHRlcm5Nb2RlbEgAQgkKB3BhdHRlcm4iGwoZTG9jYWxXaWxkY2FyZFBhdHRlcm5Nb2RlbCI9ChRMb2NhbExpdFBhdHRlcm5Nb2RlbBIlCgV2YWx1ZRgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZSIqChpMb2NhbFZhckJpbmRlclBhdHRlcm5Nb2RlbBIMCgRuYW1lGAEgASgJIlAKFkxvY2FsVHVwbGVQYXR0ZXJuTW9kZWwSNgoFZWxlbXMYASADKAsyJy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZVBhdHRlcm5Nb2RlbEJJWkdnaXRodWIuY29tL2tvem1vZi90dXJub3V0L3BhY2thZ2VzL2dvL2NvbnZlcnRlci9pbnRlcm5hbC9lbWl0L3R1cm5vdXRwYmIGcHJvdG8z", [file_google_protobuf_struct]);
+  fileDesc("ChN0dXJub3V0LW1vZGVsLnByb3RvEhB0dXJub3V0Lm1vZGVsLnYxIpQBCglUdXJuTW9kZWwSKwoFc3RhdGUYASABKAsyHC50dXJub3V0Lm1vZGVsLnYxLlN0YXRlTW9kZWwSLAoGc2NlbmVzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5TY2VuZUJsb2NrEiwKBnJvdXRlcxgDIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuUm91dGVNb2RlbCJCCgpTdGF0ZU1vZGVsEjQKCm5hbWVzcGFjZXMYASADKAsyIC50dXJub3V0Lm1vZGVsLnYxLk5hbWVzcGFjZU1vZGVsIkwKDk5hbWVzcGFjZU1vZGVsEgwKBG5hbWUYASABKAkSLAoGZmllbGRzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5GaWVsZE1vZGVsIk8KCkZpZWxkTW9kZWwSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEiUKBXZhbHVlGAMgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlIsIBCgpTY2VuZUJsb2NrEgoKAmlkGAEgASgJEhUKDWVudHJ5X2FjdGlvbnMYAiADKAkSGAoLbmV4dF9wb2xpY3kYAyABKAlIAIgBARIuCgdhY3Rpb25zGAQgAygLMh0udHVybm91dC5tb2RlbC52MS5BY3Rpb25Nb2RlbBIuCgR2aWV3GAUgASgLMhsudHVybm91dC5tb2RlbC52MS5WaWV3QmxvY2tIAYgBAUIOCgxfbmV4dF9wb2xpY3lCBwoFX3ZpZXciSQoJVmlld0Jsb2NrEgwKBG5hbWUYASABKAkSDAoEZmxvdxgCIAEoCRIUCgdlbmZvcmNlGAMgASgJSACIAQFCCgoIX2VuZm9yY2UihAIKC0FjdGlvbk1vZGVsEgoKAmlkGAEgASgJEi8KB2NvbXB1dGUYAiABKAsyHi50dXJub3V0Lm1vZGVsLnYxLkNvbXB1dGVNb2RlbBIvCgdwcmVwYXJlGAMgAygLMh4udHVybm91dC5tb2RlbC52MS5QcmVwYXJlRW50cnkSKwoFbWVyZ2UYBCADKAsyHC50dXJub3V0Lm1vZGVsLnYxLk1lcmdlRW50cnkSDwoHcHVibGlzaBgFIAMoCRItCgRuZXh0GAYgAygLMh8udHVybm91dC5tb2RlbC52MS5OZXh0UnVsZU1vZGVsEhEKBHRleHQYByABKAlIAIgBAUIHCgVfdGV4dCJHCgxDb21wdXRlTW9kZWwSDAoEcm9vdBgBIAEoCRIpCgRwcm9nGAIgASgLMhsudHVybm91dC5tb2RlbC52MS5Qcm9nTW9kZWwiSwoJUHJvZ01vZGVsEgwKBG5hbWUYASABKAkSMAoIYmluZGluZ3MYAiADKAsyHi50dXJub3V0Lm1vZGVsLnYxLkJpbmRpbmdNb2RlbCKwAQoMQmluZGluZ01vZGVsEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCRIlCgV2YWx1ZRgDIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZRIpCgRleHByGAQgASgLMhsudHVybm91dC5tb2RlbC52MS5FeHByTW9kZWwSMgoIZXh0X2V4cHIYBSABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIo8BCglFeHByTW9kZWwSLgoHY29tYmluZRgBIAEoCzIdLnR1cm5vdXQubW9kZWwudjEuQ29tYmluZUV4cHISKAoEcGlwZRgCIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuUGlwZUV4cHISKAoEY29uZBgDIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuQ29uZEV4cHIiQwoLQ29tYmluZUV4cHISCgoCZm4YASABKAkSKAoEYXJncxgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwiYgoIUGlwZUV4cHISKwoGcGFyYW1zGAEgAygLMhsudHVybm91dC5tb2RlbC52MS5QaXBlUGFyYW0SKQoFc3RlcHMYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLlBpcGVTdGVwIjUKCVBpcGVQYXJhbRISCgpwYXJhbV9uYW1lGAEgASgJEhQKDHNvdXJjZV9pZGVudBgCIAEoCSJACghQaXBlU3RlcBIKCgJmbhgBIAEoCRIoCgRhcmdzGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCKUAQoIQ29uZEV4cHISLQoJY29uZGl0aW9uGAEgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbBIoCgR0aGVuGAIgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbBIvCgtlbHNlX2JyYW5jaBgDIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwixAEKCEFyZ01vZGVsEhAKA3JlZhgBIAEoCUgAiAEBEiMKA2xpdBgCIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZRIVCghmdW5jX3JlZhgDIAEoCUgBiAEBEhUKCHN0ZXBfcmVmGAQgASgFSAKIAQESMQoJdHJhbnNmb3JtGAUgASgLMh4udHVybm91dC5tb2RlbC52MS5UcmFuc2Zvcm1BcmdCBgoEX3JlZkILCglfZnVuY19yZWZCCwoJX3N0ZXBfcmVmIicKDFRyYW5zZm9ybUFyZxILCgNyZWYYASABKAkSCgoCZm4YAiADKAkibQoMUHJlcGFyZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSFwoKZnJvbV9zdGF0ZRgCIAEoCUgAiAEBEhYKCWZyb21faG9vaxgDIAEoCUgBiAEBQg0KC19mcm9tX3N0YXRlQgwKCl9mcm9tX2hvb2siLwoKTWVyZ2VFbnRyeRIPCgdiaW5kaW5nGAEgASgJEhAKCHRvX3N0YXRlGAIgASgJIokBCg1OZXh0UnVsZU1vZGVsEjMKB2NvbXB1dGUYASABKAsyIi50dXJub3V0Lm1vZGVsLnYxLk5leHRDb21wdXRlTW9kZWwSMwoHcHJlcGFyZRgCIAMoCzIiLnR1cm5vdXQubW9kZWwudjEuTmV4dFByZXBhcmVFbnRyeRIOCgZhY3Rpb24YAyABKAkiUAoQTmV4dENvbXB1dGVNb2RlbBIRCgljb25kaXRpb24YASABKAkSKQoEcHJvZxgCIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuUHJvZ01vZGVsIqMBChBOZXh0UHJlcGFyZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSGAoLZnJvbV9hY3Rpb24YAiABKAlIAIgBARIXCgpmcm9tX3N0YXRlGAMgASgJSAGIAQESLAoMZnJvbV9saXRlcmFsGAQgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlQg4KDF9mcm9tX2FjdGlvbkINCgtfZnJvbV9zdGF0ZSJzCgpSb3V0ZU1vZGVsEgoKAmlkGAEgASgJEikKBW1hdGNoGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5NYXRjaEFybRIbCg5lbnRyeV9zY2VuZV9pZBgDIAEoCUgAiAEBQhEKD19lbnRyeV9zY2VuZV9pZCIsCghNYXRjaEFybRIQCghwYXR0ZXJucxgBIAMoCRIOCgZ0YXJnZXQYAiABKAkizQMKDkxvY2FsRXhwck1vZGVsEjIKA3JlZhgBIAEoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxSZWZFeHByTW9kZWxIABIyCgNsaXQYAiABKAsyIy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsTGl0RXhwck1vZGVsSAASMAoCaXQYAyABKAsyIi50dXJub3V0Lm1vZGVsLnYxLkxvY2FsSXRFeHByTW9kZWxIABI0CgRjYWxsGAQgASgLMiQudHVybm91dC5tb2RlbC52MS5Mb2NhbENhbGxFeHByTW9kZWxIABI2CgVpbmZpeBgFIAEoCzIlLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJbmZpeEV4cHJNb2RlbEgAEjUKB2lmX2V4cHIYBiABKAsyIi50dXJub3V0Lm1vZGVsLnYxLkxvY2FsSWZFeHByTW9kZWxIABI5CgljYXNlX2V4cHIYByABKAsyJC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZUV4cHJNb2RlbEgAEjkKCXBpcGVfZXhwchgIIAEoCzIkLnR1cm5vdXQubW9kZWwudjEuTG9jYWxQaXBlRXhwck1vZGVsSABCBgoEZXhwciIhChFMb2NhbFJlZkV4cHJNb2RlbBIMCgRuYW1lGAEgASgJIjoKEUxvY2FsTGl0RXhwck1vZGVsEiUKBXZhbHVlGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlIhIKEExvY2FsSXRFeHByTW9kZWwiUAoSTG9jYWxDYWxsRXhwck1vZGVsEgoKAmZuGAEgASgJEi4KBGFyZ3MYAiADKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIn8KE0xvY2FsSW5maXhFeHByTW9kZWwSCgoCb3AYASABKAUSLQoDbGhzGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBItCgNyaHMYAyABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIqkBChBMb2NhbElmRXhwck1vZGVsEi4KBGNvbmQYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi4KBHRoZW4YAiABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEjUKC2Vsc2VfYnJhbmNoGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKuAQoRTG9jYWxDYXNlQXJtTW9kZWwSOAoHcGF0dGVybhgBIAEoCzInLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlUGF0dGVybk1vZGVsEi8KBWd1YXJkGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIuCgRleHByGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCJ6ChJMb2NhbENhc2VFeHByTW9kZWwSMQoHc3ViamVjdBgBIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSMQoEYXJtcxgCIAMoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlQXJtTW9kZWwieAoSTG9jYWxQaXBlRXhwck1vZGVsEjEKB2luaXRpYWwYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi8KBXN0ZXBzGAIgAygLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKZAgoVTG9jYWxDYXNlUGF0dGVybk1vZGVsEj8KCHdpbGRjYXJkGAEgASgLMisudHVybm91dC5tb2RlbC52MS5Mb2NhbFdpbGRjYXJkUGF0dGVybk1vZGVsSAASNQoDbGl0GAIgASgLMiYudHVybm91dC5tb2RlbC52MS5Mb2NhbExpdFBhdHRlcm5Nb2RlbEgAEkIKCnZhcl9iaW5kZXIYAyABKAsyLC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsVmFyQmluZGVyUGF0dGVybk1vZGVsSAASOQoFdHVwbGUYBCABKAsyKC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsVHVwbGVQYXR0ZXJuTW9kZWxIAEIJCgdwYXR0ZXJuIhsKGUxvY2FsV2lsZGNhcmRQYXR0ZXJuTW9kZWwiPQoUTG9jYWxMaXRQYXR0ZXJuTW9kZWwSJQoFdmFsdWUYASABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiKgoaTG9jYWxWYXJCaW5kZXJQYXR0ZXJuTW9kZWwSDAoEbmFtZRgBIAEoCSJQChZMb2NhbFR1cGxlUGF0dGVybk1vZGVsEjYKBWVsZW1zGAEgAygLMicudHVybm91dC5tb2RlbC52MS5Mb2NhbENhc2VQYXR0ZXJuTW9kZWxCSVpHZ2l0aHViLmNvbS9rb3ptb2YvdHVybm91dC9wYWNrYWdlcy9nby9jb252ZXJ0ZXIvaW50ZXJuYWwvZW1pdC90dXJub3V0cGJiBnByb3RvMw", [file_google_protobuf_struct]);
 
 /**
  * @generated from message turnout.model.v1.TurnModel
@@ -139,6 +139,11 @@ export type SceneBlock = Message<"turnout.model.v1.SceneBlock"> & {
    * @generated from field: repeated turnout.model.v1.ActionModel actions = 4;
    */
   actions: ActionModel[];
+
+  /**
+   * @generated from field: optional turnout.model.v1.ViewBlock view = 5;
+   */
+  view?: ViewBlock;
 };
 
 /**
@@ -147,6 +152,36 @@ export type SceneBlock = Message<"turnout.model.v1.SceneBlock"> & {
  */
 export const SceneBlockSchema: GenMessage<SceneBlock> = /*@__PURE__*/
   messageDesc(file_turnout_model, 4);
+
+/**
+ * ViewBlock carries the authoring-time overview annotation for a scene.
+ * name must be "overview". enforce is one of: "nodes_only" | "at_least" | "strict".
+ *
+ * @generated from message turnout.model.v1.ViewBlock
+ */
+export type ViewBlock = Message<"turnout.model.v1.ViewBlock"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string flow = 2;
+   */
+  flow: string;
+
+  /**
+   * @generated from field: optional string enforce = 3;
+   */
+  enforce?: string;
+};
+
+/**
+ * Describes the message turnout.model.v1.ViewBlock.
+ * Use `create(ViewBlockSchema)` to create a new message.
+ */
+export const ViewBlockSchema: GenMessage<ViewBlock> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 5);
 
 /**
  * @generated from message turnout.model.v1.ActionModel
@@ -181,6 +216,13 @@ export type ActionModel = Message<"turnout.model.v1.ActionModel"> & {
    * @generated from field: repeated turnout.model.v1.NextRuleModel next = 6;
    */
   next: NextRuleModel[];
+
+  /**
+   * text is the narrative description of the action (optional authoring metadata).
+   *
+   * @generated from field: optional string text = 7;
+   */
+  text?: string;
 };
 
 /**
@@ -188,7 +230,7 @@ export type ActionModel = Message<"turnout.model.v1.ActionModel"> & {
  * Use `create(ActionModelSchema)` to create a new message.
  */
 export const ActionModelSchema: GenMessage<ActionModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 5);
+  messageDesc(file_turnout_model, 6);
 
 /**
  * @generated from message turnout.model.v1.ComputeModel
@@ -212,7 +254,7 @@ export type ComputeModel = Message<"turnout.model.v1.ComputeModel"> & {
  * Use `create(ComputeModelSchema)` to create a new message.
  */
 export const ComputeModelSchema: GenMessage<ComputeModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 6);
+  messageDesc(file_turnout_model, 7);
 
 /**
  * @generated from message turnout.model.v1.ProgModel
@@ -234,7 +276,7 @@ export type ProgModel = Message<"turnout.model.v1.ProgModel"> & {
  * Use `create(ProgModelSchema)` to create a new message.
  */
 export const ProgModelSchema: GenMessage<ProgModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 7);
+  messageDesc(file_turnout_model, 8);
 
 /**
  * @generated from message turnout.model.v1.BindingModel
@@ -278,7 +320,7 @@ export type BindingModel = Message<"turnout.model.v1.BindingModel"> & {
  * Use `create(BindingModelSchema)` to create a new message.
  */
 export const BindingModelSchema: GenMessage<BindingModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 8);
+  messageDesc(file_turnout_model, 9);
 
 /**
  * @generated from message turnout.model.v1.ExprModel
@@ -307,7 +349,7 @@ export type ExprModel = Message<"turnout.model.v1.ExprModel"> & {
  * Use `create(ExprModelSchema)` to create a new message.
  */
 export const ExprModelSchema: GenMessage<ExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 9);
+  messageDesc(file_turnout_model, 10);
 
 /**
  * @generated from message turnout.model.v1.CombineExpr
@@ -329,7 +371,7 @@ export type CombineExpr = Message<"turnout.model.v1.CombineExpr"> & {
  * Use `create(CombineExprSchema)` to create a new message.
  */
 export const CombineExprSchema: GenMessage<CombineExpr> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 10);
+  messageDesc(file_turnout_model, 11);
 
 /**
  * @generated from message turnout.model.v1.PipeExpr
@@ -351,7 +393,7 @@ export type PipeExpr = Message<"turnout.model.v1.PipeExpr"> & {
  * Use `create(PipeExprSchema)` to create a new message.
  */
 export const PipeExprSchema: GenMessage<PipeExpr> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 11);
+  messageDesc(file_turnout_model, 12);
 
 /**
  * @generated from message turnout.model.v1.PipeParam
@@ -373,7 +415,7 @@ export type PipeParam = Message<"turnout.model.v1.PipeParam"> & {
  * Use `create(PipeParamSchema)` to create a new message.
  */
 export const PipeParamSchema: GenMessage<PipeParam> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 12);
+  messageDesc(file_turnout_model, 13);
 
 /**
  * @generated from message turnout.model.v1.PipeStep
@@ -395,7 +437,7 @@ export type PipeStep = Message<"turnout.model.v1.PipeStep"> & {
  * Use `create(PipeStepSchema)` to create a new message.
  */
 export const PipeStepSchema: GenMessage<PipeStep> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 13);
+  messageDesc(file_turnout_model, 14);
 
 /**
  * @generated from message turnout.model.v1.CondExpr
@@ -425,7 +467,7 @@ export type CondExpr = Message<"turnout.model.v1.CondExpr"> & {
  * Use `create(CondExprSchema)` to create a new message.
  */
 export const CondExprSchema: GenMessage<CondExpr> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 14);
+  messageDesc(file_turnout_model, 15);
 
 /**
  * @generated from message turnout.model.v1.ArgModel
@@ -466,7 +508,7 @@ export type ArgModel = Message<"turnout.model.v1.ArgModel"> & {
  * Use `create(ArgModelSchema)` to create a new message.
  */
 export const ArgModelSchema: GenMessage<ArgModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 15);
+  messageDesc(file_turnout_model, 16);
 
 /**
  * @generated from message turnout.model.v1.TransformArg
@@ -488,7 +530,7 @@ export type TransformArg = Message<"turnout.model.v1.TransformArg"> & {
  * Use `create(TransformArgSchema)` to create a new message.
  */
 export const TransformArgSchema: GenMessage<TransformArg> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 16);
+  messageDesc(file_turnout_model, 17);
 
 /**
  * @generated from message turnout.model.v1.PrepareEntry
@@ -517,7 +559,7 @@ export type PrepareEntry = Message<"turnout.model.v1.PrepareEntry"> & {
  * Use `create(PrepareEntrySchema)` to create a new message.
  */
 export const PrepareEntrySchema: GenMessage<PrepareEntry> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 17);
+  messageDesc(file_turnout_model, 18);
 
 /**
  * @generated from message turnout.model.v1.MergeEntry
@@ -539,7 +581,7 @@ export type MergeEntry = Message<"turnout.model.v1.MergeEntry"> & {
  * Use `create(MergeEntrySchema)` to create a new message.
  */
 export const MergeEntrySchema: GenMessage<MergeEntry> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 18);
+  messageDesc(file_turnout_model, 19);
 
 /**
  * @generated from message turnout.model.v1.NextRuleModel
@@ -566,7 +608,7 @@ export type NextRuleModel = Message<"turnout.model.v1.NextRuleModel"> & {
  * Use `create(NextRuleModelSchema)` to create a new message.
  */
 export const NextRuleModelSchema: GenMessage<NextRuleModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 19);
+  messageDesc(file_turnout_model, 20);
 
 /**
  * @generated from message turnout.model.v1.NextComputeModel
@@ -590,7 +632,7 @@ export type NextComputeModel = Message<"turnout.model.v1.NextComputeModel"> & {
  * Use `create(NextComputeModelSchema)` to create a new message.
  */
 export const NextComputeModelSchema: GenMessage<NextComputeModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 20);
+  messageDesc(file_turnout_model, 21);
 
 /**
  * @generated from message turnout.model.v1.NextPrepareEntry
@@ -624,7 +666,7 @@ export type NextPrepareEntry = Message<"turnout.model.v1.NextPrepareEntry"> & {
  * Use `create(NextPrepareEntrySchema)` to create a new message.
  */
 export const NextPrepareEntrySchema: GenMessage<NextPrepareEntry> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 21);
+  messageDesc(file_turnout_model, 22);
 
 /**
  * @generated from message turnout.model.v1.RouteModel
@@ -639,6 +681,11 @@ export type RouteModel = Message<"turnout.model.v1.RouteModel"> & {
    * @generated from field: repeated turnout.model.v1.MatchArm match = 2;
    */
   match: MatchArm[];
+
+  /**
+   * @generated from field: optional string entry_scene_id = 3;
+   */
+  entrySceneId?: string;
 };
 
 /**
@@ -646,7 +693,7 @@ export type RouteModel = Message<"turnout.model.v1.RouteModel"> & {
  * Use `create(RouteModelSchema)` to create a new message.
  */
 export const RouteModelSchema: GenMessage<RouteModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 22);
+  messageDesc(file_turnout_model, 23);
 
 /**
  * @generated from message turnout.model.v1.MatchArm
@@ -671,7 +718,7 @@ export type MatchArm = Message<"turnout.model.v1.MatchArm"> & {
  * Use `create(MatchArmSchema)` to create a new message.
  */
 export const MatchArmSchema: GenMessage<MatchArm> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 23);
+  messageDesc(file_turnout_model, 24);
 
 /**
  * @generated from message turnout.model.v1.LocalExprModel
@@ -736,7 +783,7 @@ export type LocalExprModel = Message<"turnout.model.v1.LocalExprModel"> & {
  * Use `create(LocalExprModelSchema)` to create a new message.
  */
 export const LocalExprModelSchema: GenMessage<LocalExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 24);
+  messageDesc(file_turnout_model, 25);
 
 /**
  * @generated from message turnout.model.v1.LocalRefExprModel
@@ -753,7 +800,7 @@ export type LocalRefExprModel = Message<"turnout.model.v1.LocalRefExprModel"> & 
  * Use `create(LocalRefExprModelSchema)` to create a new message.
  */
 export const LocalRefExprModelSchema: GenMessage<LocalRefExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 25);
+  messageDesc(file_turnout_model, 26);
 
 /**
  * @generated from message turnout.model.v1.LocalLitExprModel
@@ -770,7 +817,7 @@ export type LocalLitExprModel = Message<"turnout.model.v1.LocalLitExprModel"> & 
  * Use `create(LocalLitExprModelSchema)` to create a new message.
  */
 export const LocalLitExprModelSchema: GenMessage<LocalLitExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 26);
+  messageDesc(file_turnout_model, 27);
 
 /**
  * @generated from message turnout.model.v1.LocalItExprModel
@@ -783,7 +830,7 @@ export type LocalItExprModel = Message<"turnout.model.v1.LocalItExprModel"> & {
  * Use `create(LocalItExprModelSchema)` to create a new message.
  */
 export const LocalItExprModelSchema: GenMessage<LocalItExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 27);
+  messageDesc(file_turnout_model, 28);
 
 /**
  * @generated from message turnout.model.v1.LocalCallExprModel
@@ -805,7 +852,7 @@ export type LocalCallExprModel = Message<"turnout.model.v1.LocalCallExprModel"> 
  * Use `create(LocalCallExprModelSchema)` to create a new message.
  */
 export const LocalCallExprModelSchema: GenMessage<LocalCallExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 28);
+  messageDesc(file_turnout_model, 29);
 
 /**
  * @generated from message turnout.model.v1.LocalInfixExprModel
@@ -835,7 +882,7 @@ export type LocalInfixExprModel = Message<"turnout.model.v1.LocalInfixExprModel"
  * Use `create(LocalInfixExprModelSchema)` to create a new message.
  */
 export const LocalInfixExprModelSchema: GenMessage<LocalInfixExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 29);
+  messageDesc(file_turnout_model, 30);
 
 /**
  * @generated from message turnout.model.v1.LocalIfExprModel
@@ -862,7 +909,7 @@ export type LocalIfExprModel = Message<"turnout.model.v1.LocalIfExprModel"> & {
  * Use `create(LocalIfExprModelSchema)` to create a new message.
  */
 export const LocalIfExprModelSchema: GenMessage<LocalIfExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 30);
+  messageDesc(file_turnout_model, 31);
 
 /**
  * @generated from message turnout.model.v1.LocalCaseArmModel
@@ -891,7 +938,7 @@ export type LocalCaseArmModel = Message<"turnout.model.v1.LocalCaseArmModel"> & 
  * Use `create(LocalCaseArmModelSchema)` to create a new message.
  */
 export const LocalCaseArmModelSchema: GenMessage<LocalCaseArmModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 31);
+  messageDesc(file_turnout_model, 32);
 
 /**
  * @generated from message turnout.model.v1.LocalCaseExprModel
@@ -913,7 +960,7 @@ export type LocalCaseExprModel = Message<"turnout.model.v1.LocalCaseExprModel"> 
  * Use `create(LocalCaseExprModelSchema)` to create a new message.
  */
 export const LocalCaseExprModelSchema: GenMessage<LocalCaseExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 32);
+  messageDesc(file_turnout_model, 33);
 
 /**
  * @generated from message turnout.model.v1.LocalPipeExprModel
@@ -935,7 +982,7 @@ export type LocalPipeExprModel = Message<"turnout.model.v1.LocalPipeExprModel"> 
  * Use `create(LocalPipeExprModelSchema)` to create a new message.
  */
 export const LocalPipeExprModelSchema: GenMessage<LocalPipeExprModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 33);
+  messageDesc(file_turnout_model, 34);
 
 /**
  * @generated from message turnout.model.v1.LocalCasePatternModel
@@ -976,7 +1023,7 @@ export type LocalCasePatternModel = Message<"turnout.model.v1.LocalCasePatternMo
  * Use `create(LocalCasePatternModelSchema)` to create a new message.
  */
 export const LocalCasePatternModelSchema: GenMessage<LocalCasePatternModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 34);
+  messageDesc(file_turnout_model, 35);
 
 /**
  * @generated from message turnout.model.v1.LocalWildcardPatternModel
@@ -989,7 +1036,7 @@ export type LocalWildcardPatternModel = Message<"turnout.model.v1.LocalWildcardP
  * Use `create(LocalWildcardPatternModelSchema)` to create a new message.
  */
 export const LocalWildcardPatternModelSchema: GenMessage<LocalWildcardPatternModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 35);
+  messageDesc(file_turnout_model, 36);
 
 /**
  * @generated from message turnout.model.v1.LocalLitPatternModel
@@ -1006,7 +1053,7 @@ export type LocalLitPatternModel = Message<"turnout.model.v1.LocalLitPatternMode
  * Use `create(LocalLitPatternModelSchema)` to create a new message.
  */
 export const LocalLitPatternModelSchema: GenMessage<LocalLitPatternModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 36);
+  messageDesc(file_turnout_model, 37);
 
 /**
  * @generated from message turnout.model.v1.LocalVarBinderPatternModel
@@ -1023,7 +1070,7 @@ export type LocalVarBinderPatternModel = Message<"turnout.model.v1.LocalVarBinde
  * Use `create(LocalVarBinderPatternModelSchema)` to create a new message.
  */
 export const LocalVarBinderPatternModelSchema: GenMessage<LocalVarBinderPatternModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 37);
+  messageDesc(file_turnout_model, 38);
 
 /**
  * @generated from message turnout.model.v1.LocalTuplePatternModel
@@ -1040,5 +1087,5 @@ export type LocalTuplePatternModel = Message<"turnout.model.v1.LocalTuplePattern
  * Use `create(LocalTuplePatternModelSchema)` to create a new message.
  */
 export const LocalTuplePatternModelSchema: GenMessage<LocalTuplePatternModel> = /*@__PURE__*/
-  messageDesc(file_turnout_model, 38);
+  messageDesc(file_turnout_model, 39);
 

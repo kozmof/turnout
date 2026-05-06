@@ -95,6 +95,12 @@ describe('preset functions', () => {
       expect(tfString.length(v).tags).toEqual(['source']);
     });
 
+    it('toNumber preserves decimal places', () => {
+      expect(tfString.toNumber(buildString('3.14')).value).toBe(3.14);
+      expect(tfString.toNumber(buildString('42')).value).toBe(42);
+      expect(tfString.toNumber(buildString('-1.5')).value).toBe(-1.5);
+    });
+
     it('supports essential string binary predicates', () => {
       const a = buildString('turnout-engine', ['left']);
       const b = buildString('turn', ['right']);

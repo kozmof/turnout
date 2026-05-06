@@ -7,6 +7,7 @@ import { executeAction } from './action-executor.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
 import { resolveNextPrepare } from './prepare-resolver.js';
 import type { ActionExecutionResult } from './types.js';
+import { SceneRuntimeError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -82,7 +83,7 @@ export function createSceneExecutor(
     visited.add(actionId);
 
     const action = actionMap[actionId];
-    if (!action) throw new Error(`Scene "${scene.id}": unknown action "${actionId}"`);
+    if (!action) throw new SceneRuntimeError('UnknownAction', scene.id, `unknown action "${actionId}"`);
 
     const result = await executeAction(action, currentState, hooks);
     currentState = result.stateAfterMerge;
@@ -102,7 +103,7 @@ export function createSceneExecutor(
   }
 
   function result(): SceneExecutionResult {
-    if (!isDone()) throw new Error(`Scene "${scene.id}": execution is not complete`);
+    if (!isDone()) throw new SceneRuntimeError('IncompleteScene', scene.id, 'execution is not complete');
     return {
       sceneId: scene.id,
       stateAfterScene: currentState,

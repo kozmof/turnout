@@ -13,7 +13,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -22,8 +21,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Emit writes canonical plain HCL to w from the validated proto model.
-// sc carries HCL-only metadata (action text); it may be nil.
-func Emit(w io.Writer, tm *turnoutpb.TurnModel, sc *lower.Sidecar) diag.Diagnostics {
+func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 	if tm == nil {
 		return nil
 	}
@@ -37,7 +35,7 @@ func Emit(w io.Writer, tm *turnoutpb.TurnModel, sc *lower.Sidecar) diag.Diagnost
 		if sep {
 			iw.nl()
 		}
-		writeSceneBlock(iw, s, sc)
+		writeSceneBlock(iw, s)
 		sep = true
 	}
 	for _, r := range tm.Routes {
@@ -103,7 +101,7 @@ func writeStateBlock(iw *iWriter, s *turnoutpb.StateModel) {
 // Scene block
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock, sc *lower.Sidecar) {
+func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 	iw.wl("scene %q {", s.Id)
 	iw.depth++
 
@@ -119,11 +117,32 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock, sc *lower.Sidecar) {
 		iw.wl("next_policy   = %q", *s.NextPolicy)
 	}
 
-	for _, a := range s.Actions {
+	// view block (omit if absent)
+	if s.View != nil {
 		iw.nl()
-		writeAction(iw, a, s.Id, sc)
+		writeViewBlock(iw, s.View)
 	}
 
+	for _, a := range s.Actions {
+		iw.nl()
+		writeAction(iw, a)
+	}
+
+	iw.depth--
+	iw.wl("}")
+}
+
+func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
+	iw.wl("view %q {", v.Name)
+	iw.depth++
+	iw.wl("flow = <<-EOT")
+	for _, l := range strings.Split(strings.TrimRight(v.Flow, "\n"), "\n") {
+		fmt.Fprintf(iw.out, "%s%s\n", strings.Repeat("\t", iw.depth), l)
+	}
+	fmt.Fprintf(iw.out, "%sEOT\n", strings.Repeat("\t", iw.depth))
+	if v.Enforce != nil {
+		iw.wl("enforce = %q", *v.Enforce)
+	}
 	iw.depth--
 	iw.wl("}")
 }
@@ -132,17 +151,15 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock, sc *lower.Sidecar) {
 // Action block
 // ─────────────────────────────────────────────────────────────────────────────
 
-func writeAction(iw *iWriter, a *turnoutpb.ActionModel, sceneID string, sc *lower.Sidecar) {
+func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 	iw.wl("action %q {", a.Id)
 	iw.depth++
 
 	sep := false
 
-	if sc != nil {
-		if meta, ok := sc.Actions[sceneID+"/"+a.Id]; ok && meta.Text != nil {
-			sep = true
-			writeText(iw, *meta.Text)
-		}
+	if a.Text != nil {
+		sep = true
+		writeText(iw, *a.Text)
 	}
 
 	if a.Compute != nil {

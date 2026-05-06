@@ -217,9 +217,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			var sc *lower.Sidecar
 			if tc.name == "transition_output_sigil" {
 				sc = &lower.Sidecar{
-					Sigils:  make(map[lower.BindingKey]ast.Sigil),
-					Actions: make(map[string]lower.ActionMeta),
-					Scenes:  make(map[string]lower.SceneMeta),
+					Sigils: make(map[lower.BindingKey]ast.Sigil),
 				}
 				sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "next:0", ProgName: "n", BindingName: "out"}] = ast.SigilEgress
 			}
@@ -284,9 +282,7 @@ type irrBind struct {
 // plus any additional bindings. Returns the action and a sidecar with any sigils.
 func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *lower.Sidecar) {
 	sc := &lower.Sidecar{
-		Sigils:  make(map[lower.BindingKey]ast.Sigil),
-		Actions: make(map[string]lower.ActionMeta),
-		Scenes:  make(map[string]lower.SceneMeta),
+		Sigils: make(map[lower.BindingKey]ast.Sigil),
 	}
 
 	progBindings := []*turnoutpb.BindingModel{

@@ -12,12 +12,12 @@ import {
   isPureNumber,
   isPureString,
   isPureBoolean,
-  isPureNull,
   isArray,
 } from 'runtime';
 import type { ActionExecutionResult } from '../src/executor/types.js';
 import type { HookRegistry, PrepareHookContext } from '../src/types/harness-types.js';
 import type { PrepareEntry, NextPrepareEntry } from '../src/types/turnout-model_pb.js';
+import { PrepareError } from '../src/executor/errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // resolveActionPrepare
@@ -35,16 +35,17 @@ describe('resolveActionPrepare', () => {
     expect(isPureString(result['query']!) && result['query'].value).toBe('hello');
   });
 
-  it('from_state returns buildNull("missing") when path is not in state', async () => {
+  it('from_state throws PrepareError(MissingStateBinding) when path is not in state', async () => {
     const state = StateManager.from({});
-    const result = await resolveActionPrepare(
+    const err = await resolveActionPrepare(
       [{ binding: 'missing_val', fromState: 'no.such.path' }] as unknown as PrepareEntry[],
       state,
       {},
       'test_action',
-    );
-    const val = result['missing_val'];
-    expect(isPureNull(val!)).toBe(true);
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe('MissingStateBinding');
+    expect((err as PrepareError).actionId).toBe('test_action');
   });
 
   it('from_hook calls the hook and extracts the binding field', async () => {
@@ -105,15 +106,32 @@ describe('resolveActionPrepare', () => {
     expect(isPureNumber(capturedGetResult as never) && (capturedGetResult as { value: number }).value).toBe(7);
   });
 
-  it('from_hook returns buildNull("missing") if the hook is not registered', async () => {
+  it('from_hook throws PrepareError(UnregisteredHook) when the hook is not registered', async () => {
     const state = StateManager.from({});
-    const result = await resolveActionPrepare(
+    const err = await resolveActionPrepare(
       [{ binding: 'foo', fromHook: 'nonexistent_hook' }] as unknown as PrepareEntry[],
       state,
       {},
       'test_action',
-    );
-    expect(isPureNull(result['foo']!)).toBe(true);
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe('UnregisteredHook');
+    expect((err as PrepareError).actionId).toBe('test_action');
+  });
+
+  it('from_hook throws PrepareError(MissingHookField) when hook result is missing a declared field', async () => {
+    const state = StateManager.from({});
+    const hooks: HookRegistry = {
+      partial_hook: (_ctx: PrepareHookContext) => ({ other_field: buildNumber(1) }),
+    };
+    const err = await resolveActionPrepare(
+      [{ binding: 'expected_field', fromHook: 'partial_hook' }] as unknown as PrepareEntry[],
+      state,
+      hooks,
+      'test_action',
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe('MissingHookField');
   });
 
   it('resolves multiple entries independently', async () => {
@@ -160,15 +178,19 @@ describe('resolveNextPrepare', () => {
     expect(isPureNumber(result['score']!) && result['score'].value).toBe(99);
   });
 
-  it('from_action returns buildNull("missing") when binding is absent in prevResult', () => {
+  it('from_action throws PrepareError(MissingActionBinding) when binding is absent in prevResult', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
-    const result = resolveNextPrepare(
-      [{ binding: 'missing', fromAction: 'missing' }] as unknown as NextPrepareEntry[],
-      state,
-      prevResult,
-    );
-    expect(isPureNull(result['missing']!)).toBe(true);
+    let err: unknown;
+    try {
+      resolveNextPrepare(
+        [{ binding: 'missing', fromAction: 'missing' }] as unknown as NextPrepareEntry[],
+        state,
+        prevResult,
+      );
+    } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe('MissingActionBinding');
   });
 
   it('from_state reads the post-merge state', () => {
@@ -182,15 +204,19 @@ describe('resolveNextPrepare', () => {
     expect(isPureString(result['stage']!) && result['stage'].value).toBe('review');
   });
 
-  it('from_state returns buildNull("missing") when path not in state', () => {
+  it('from_state throws PrepareError(MissingStateBinding) when path not in state', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
-    const result = resolveNextPrepare(
-      [{ binding: 'x', fromState: 'no.path' }] as unknown as NextPrepareEntry[],
-      state,
-      prevResult,
-    );
-    expect(isPureNull(result['x']!)).toBe(true);
+    let err: unknown;
+    try {
+      resolveNextPrepare(
+        [{ binding: 'x', fromState: 'no.path' }] as unknown as NextPrepareEntry[],
+        state,
+        prevResult,
+      );
+    } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe('MissingStateBinding');
   });
 
   it('from_literal converts number correctly', () => {

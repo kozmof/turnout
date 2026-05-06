@@ -17,7 +17,7 @@ export const tfString: TransformFnString = {
     return val;
   },
   toNumber: (val: StringValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return buildNumber(parseInt(val.value), val.tags);
+    return buildNumber(parseFloat(val.value), val.tags);
   },
   trim: (val: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
     return unaryStringOp((s) => s.trim(), val);

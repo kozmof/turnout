@@ -84,6 +84,7 @@ const (
 	TokKwText
 	TokKwRoute
 	TokKwMatch
+	TokKwEntry
 )
 
 // Token is a single lexed token.
@@ -216,6 +217,7 @@ var keywords = map[string]TokenKind{
 	"text":          TokKwText,
 	"route":         TokKwRoute,
 	"match":         TokKwMatch,
+	"entry":         TokKwEntry,
 }
 
 // ────────────────────────────────────────────────────────────

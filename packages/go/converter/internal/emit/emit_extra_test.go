@@ -98,7 +98,7 @@ func TestEmitArgTransform(t *testing.T) {
 			},
 		}},
 	}
-	out := emitModel(model, nil)
+	out := emitModel(model)
 	if !strings.Contains(out, `transform = { ref = "x"`) {
 		t.Errorf("missing transform arg in output:\n%s", out)
 	}
@@ -147,7 +147,7 @@ func TestEmitArgStepRef(t *testing.T) {
 			},
 		}},
 	}
-	out := emitModel(model, nil)
+	out := emitModel(model)
 	if !strings.Contains(out, `step_ref = 0`) {
 		t.Errorf("missing step_ref in output:\n%s", out)
 	}
@@ -321,6 +321,7 @@ scene "scene_1" {
   action "a" { compute { root = r prog "p" { r:bool = true } } }
 }
 route "r1" {
+  entry "scene_1"
   match {
     scene_1.*.final => scene_1,
     _ => scene_1

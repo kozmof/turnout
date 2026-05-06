@@ -42,14 +42,14 @@ func fullPipeline(t *testing.T, src string) string {
 		t.Fatalf("validate failed")
 	}
 	var sb strings.Builder
-	emit.Emit(&sb, lr.Model, lr.Sidecar)
+	emit.Emit(&sb, lr.Model)
 	return sb.String()
 }
 
 // emitModel emits a pre-built model (bypassing parse/validate).
-func emitModel(tm *turnoutpb.TurnModel, sc *lower.Sidecar) string {
+func emitModel(tm *turnoutpb.TurnModel) string {
 	var sb strings.Builder
-	emit.Emit(&sb, tm, sc)
+	emit.Emit(&sb, tm)
 	return sb.String()
 }
 
@@ -452,6 +452,7 @@ scene "scene_1" {
   action "a" { compute { root = r prog "p" { r:bool = true } } }
 }
 route "route_1" {
+  entry "scene_1"
   match {
     scene_1.*.final_action => scene_1,
     _ => scene_1
@@ -484,7 +485,7 @@ scene "s" {
   entry_actions = ["a"]
   action "a" { compute { root = r prog "p" { r:bool = true } } }
 }
-route "r1" { match { _ => s } }`)
+route "r1" { entry "s" match { _ => s } }`)
 	sceneIdx := strings.Index(out, "scene ")
 	routeIdx := strings.Index(out, "route ")
 	if sceneIdx < 0 || routeIdx < 0 {
@@ -502,6 +503,7 @@ scene "scene_1" {
   action "a" { compute { root = r prog "p" { r:bool = true } } }
 }
 route "r1" {
+  entry "scene_1"
   match {
     scene_1.*.end |
     scene_1.start
@@ -555,7 +557,7 @@ scene "loan_flow" {
 }
 
 func TestEmitNilModelNoop(t *testing.T) {
-	out := emitModel(nil, nil)
+	out := emitModel(nil)
 	if out != "" {
 		t.Errorf("nil model should emit nothing, got %q", out)
 	}
@@ -610,7 +612,7 @@ scene "s" {
 	// Both should produce a state block with namespace "app" and fields "score" + "active".
 	inlineOut := fullPipeline(t, inlineSrc)
 	var sb strings.Builder
-	emit.Emit(&sb, lr2.Model, lr2.Sidecar)
+	emit.Emit(&sb, lr2.Model)
 	stateFileOut := sb.String()
 
 	// They won't be byte-identical (ordering may differ), but both must contain
@@ -675,7 +677,7 @@ func pipelineFromFile(t *testing.T, path string) string {
 		return "(parse-only)"
 	}
 	var sb strings.Builder
-	emit.Emit(&sb, lr.Model, lr.Sidecar)
+	emit.Emit(&sb, lr.Model)
 	return sb.String()
 }
 

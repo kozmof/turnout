@@ -224,7 +224,7 @@ func isKeyword(k lexer.TokenKind) bool {
 		lexer.TokKwEntryActions, lexer.TokKwNextPolicy,
 		lexer.TokKwFromState, lexer.TokKwFromAction, lexer.TokKwFromHook, lexer.TokKwFromLiteral,
 		lexer.TokKwToState, lexer.TokKwHook, lexer.TokKwView, lexer.TokKwFlow,
-		lexer.TokKwEnforce, lexer.TokKwText, lexer.TokKwRoute, lexer.TokKwMatch:
+		lexer.TokKwEnforce, lexer.TokKwText, lexer.TokKwRoute, lexer.TokKwMatch, lexer.TokKwEntry:
 		return true
 	}
 	return false
@@ -1392,15 +1392,26 @@ func (p *parser) parseRouteBlock() *ast.RouteBlock {
 	rb := &ast.RouteBlock{Pos: pos, ID: idTok.Value}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
-		if t.Kind == lexer.TokKwMatch {
+		switch t.Kind {
+		case lexer.TokKwEntry:
+			if rb.EntrySceneID != "" {
+				p.errorf(t, "duplicate entry declaration in route %q", rb.ID)
+				p.advance()
+				p.advance() // skip the string literal too
+				continue
+			}
+			p.advance() // consume 'entry'
+			idTok, _ := p.expect(lexer.TokStringLit)
+			rb.EntrySceneID = idTok.Value
+		case lexer.TokKwMatch:
 			if rb.Match != nil {
 				p.errorf(t, "duplicate match block in route %q", rb.ID)
 				p.skipBlock()
 				continue
 			}
 			rb.Match = p.parseMatchBlock()
-		} else {
-			p.errorf(t, "expected 'match' in route block, got %s %q", kindName(t.Kind), t.Value)
+		default:
+			p.errorf(t, "expected 'entry' or 'match' in route block, got %s %q", kindName(t.Kind), t.Value)
 			p.advance()
 		}
 	}
@@ -1646,6 +1657,9 @@ func kindName(k lexer.TokenKind) string {
 		lexer.TokKwFlow:         "flow",
 		lexer.TokKwEnforce:      "enforce",
 		lexer.TokKwText:         "text",
+		lexer.TokKwRoute:        "route",
+		lexer.TokKwMatch:        "match",
+		lexer.TokKwEntry:        "entry",
 	}
 	if s, ok := names[k]; ok {
 		return s

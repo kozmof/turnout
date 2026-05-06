@@ -6,65 +6,60 @@
 
 ## Likely Current Issues
 
-### Missing prepare-source semantics
+### ~~Missing prepare-source semantics~~ — Resolved 2026-05-06
 
-Missing action-level `from_state` values, unregistered prepare hooks, and missing fields in prepare hook results still become `buildNull("missing")`.
+`resolveActionPrepare` and `resolveNextPrepare` in `packages/ts/scene-runner/src/executor/prepare-resolver.ts` now throw on all four previously-silent cases:
 
-This conflicts with the specs and leaves the runtime behavior undecided: abort with a diagnostic, preserve the declared/default value, preserve the already-resolved value, or explicitly inject null.
+- `from_state` path absent from STATE → `Error: [action: <id>] from_state path "<path>" is not present in state`
+- `from_hook` name not in registry → `Error: [action: <id>] prepare hook "<name>" is not registered`
+- Hook result missing a declared field → `Error: … (MissingHookField)`
+- `from_action` binding absent from previous action result → `Error: from_action binding "<name>" was not produced by action "<id>"`
 
-Evidence:
+Tests updated accordingly; all 208 pass.
 
-- Previous report: `2026-03-21-unified-report.md` G3, G4, G5
-- Current code: `packages/ts/scene-runner/src/executor/prepare-resolver.ts`
+### ~~`action.text` is not in the JSON/runtime model~~ — Resolved 2026-05-06
 
-### `action.text` is not in the JSON/runtime model
+`action.text` and `scene.view` are now part of the proto contract and propagated end-to-end:
 
-Action narrative text exists in the DSL parser, lowering metadata, and HCL emission path, but it is absent from `schema/turnout-model.proto` and therefore absent from the runtime JSON contract.
+- `schema/turnout-model.proto` — `ActionModel` gains `optional string text = 7`; `SceneBlock` gains `optional ViewBlock view = 5`; new `ViewBlock` message added (`name`, `flow`, `optional string enforce`). Both generated files regenerated via `pnpm generate`.
+- `lower.go` — `lowerAction` sets `am.Text` from `lowerActionText(a.Text)`; `lowerSceneBlock` sets `sb.View` from the AST `ViewBlock`.
+- `emit.go` — `writeAction` reads `a.Text` from the proto field; `writeSceneBlock` calls `writeViewBlock(iw, s.View)` when present; `Emit` signature no longer takes a sidecar.
+- `validate.go` — `validateOverview` reads from `scene.View` (proto) instead of `sc.Scenes`.
+- `sidecar.go` — removed `ViewMeta`, `ActionMeta`, `SceneMeta` types and `Actions`/`Scenes` maps; sidecar now carries only `Sigils`.
 
-Decision needed: add `action.text` to the proto and propagate it end to end, or explicitly document it as parse/HCL-only metadata.
+All Go and TS tests pass (208 TS, full Go suite).
 
-Evidence:
+### ~~`scene.view` is not in the JSON/runtime model~~ — Resolved 2026-05-06
 
-- Previous report: `2026-03-21-unified-report.md` G6
-- Current schema: `schema/turnout-model.proto`
+See `action.text` entry above; both were resolved together.
 
-### `scene.view` is not in the JSON/runtime model
+### ~~Runtime diagnostics are still plain JavaScript errors~~ — Resolved 2026-05-06
 
-Scene `view` is now validated at compile time, but the view block is still absent from `schema/turnout-model.proto` and the emitted JSON. Runtime overview enforcement in the TypeScript scene runner is therefore not implemented.
+Introduced `packages/ts/scene-runner/src/executor/errors.ts` with three structured error classes, each carrying a typed `code` field and relevant context:
 
-Decision needed: add `scene.view` to the proto/runtime model, or document view blocks as compile-time/HCL-only metadata.
+- `PrepareError` (codes: `MissingStateBinding`, `UnregisteredHook`, `MissingHookField`, `MissingActionBinding`) — thrown by `prepare-resolver.ts`
+- `SceneRuntimeError` (codes: `UnknownAction`, `IncompleteScene`) — thrown by `scene-executor.ts`
+- `RouteRuntimeError` (codes: `UnknownScene`, `NoEntryAction`) — thrown by `route-executor.ts`
 
-Evidence:
+All three extend `Error` for catch-compatibility. Tests updated to assert `instanceof` and `code`.
 
-- Previous reports: `2026-03-21-unified-report.md` G8, `2026-03-22-code-analysis.md`
-- Current schema: `schema/turnout-model.proto`
+### ~~`string.toNumber()` truncates decimals~~ — Resolved 2026-05-06
 
-### Runtime diagnostics are still plain JavaScript errors
+`parseInt` replaced with `parseFloat` in `packages/ts/runtime/src/state-control/preset-funcs/string/transformFn.ts:20`. Test added to `preset-funcs.test.ts` covering decimal, integer, and negative decimal inputs.
 
-Scene and route runtime failures still appear to surface as plain JS errors rather than structured `SceneDiagnostic` or `RouteDiagnostic` payloads.
+### ~~Route entry scene is implicit~~ — Resolved 2026-05-06
 
-Evidence:
+Added an explicit `entry "<scene_id>"` declaration to the route DSL block. Changes span the full stack:
 
-- Previous report: `2026-03-21-unified-report.md` G9
-- Runtime area: `packages/ts/scene-runner/src/executor/`
+- `schema/turnout-model.proto` — `RouteModel` gains `optional string entry_scene_id = 3`; both generated files regenerated via `pnpm generate`
+- `lexer.go` — new `TokKwEntry` / `"entry"` keyword
+- `ast.go` — `RouteBlock.EntrySceneID string`
+- `parser.go` — parses `entry "<scene_id>"` inside route blocks; duplicate entry emits a parser error
+- `lower.go` — emits `EntrySceneId` when set
+- `validate.go` — `MissingEntryScene` if absent; `UnresolvedEntryScene` if the named scene is not defined
+- `runner.ts` — uses `route.entrySceneId` instead of `model.scenes[0]`; throws if absent or unknown
 
-### `string.toNumber()` truncates decimals
-
-`string.toNumber()` still uses `parseInt`, so values like `"3.14"` become `3`. The spec implies full JavaScript number parsing, so this should likely use `parseFloat`.
-
-Evidence:
-
-- Previous report: `2026-04-21-spec-gap-analysis.md` Gap 4
-- Current code: `packages/ts/runtime/src/state-control/preset-funcs/string/transformFn.ts`
-
-### Route entry scene is implicit
-
-When running a route, the runner still picks `model.scenes[0]` as the entry scene. This makes route start behavior dependent on scene order rather than explicit route metadata.
-
-Evidence:
-
-- Previous report: `2026-03-22-code-analysis.md`
-- Current code: `packages/ts/scene-runner/src/runner.ts`
+All Go and TS tests pass (208 TS, full Go suite).
 
 ### CLI has only one command
 
@@ -89,7 +84,6 @@ Resolved on 2026-05-06. All items below were fixed in the spec files; no runtime
 
 ## Open Design Questions
 
-- What should happen when a prepare source is missing: abort, preserve a declared/default value, preserve an already-resolved value, or inject a typed null?
 - What is the canonical type of an empty array literal in the spec?
 - Under `all-match`, if a selected next action has already executed, should that be a skip, an error, or a re-run?
 

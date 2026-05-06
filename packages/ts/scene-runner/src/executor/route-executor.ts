@@ -4,6 +4,7 @@ import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, RouteTrace } from '../types/harness-types.js';
 import { executeScene } from './scene-executor.js';
 import { selectNextScene } from './route-pattern.js';
+import { RouteRuntimeError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -47,11 +48,11 @@ export async function executeRoute(
 
   for (;;) {
     const scene = scenes[currentSceneId];
-    if (!scene) throw new Error(`Route "${route.id}": unknown scene "${currentSceneId}"`);
+    if (!scene) throw new RouteRuntimeError('UnknownScene', route.id, `unknown scene "${currentSceneId}"`);
 
     // Route-driven entry: only the first declared entry action fires (spec §route-entry).
     const routeEntry = scene.entryActions[0];
-    if (!routeEntry) throw new Error(`Route "${route.id}": scene "${currentSceneId}" has no entry actions`);
+    if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${currentSceneId}" has no entry actions`);
     const sceneResult = await executeScene(scene, state, hooks, [routeEntry]);
     state = sceneResult.stateAfterScene;
     sceneTraces.push(sceneResult.trace);

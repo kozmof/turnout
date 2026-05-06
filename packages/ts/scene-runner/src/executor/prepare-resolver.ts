@@ -5,6 +5,7 @@ import type { StateManager } from '../state/state-manager.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 import type { HookRegistry, PrepareHookContext, PrepareHookImpl } from '../types/harness-types.js';
 import type { ActionExecutionResult } from './types.js';
+import { PrepareError } from './errors.js';
 
 /**
  * Resolve action-level prepare entries into a map of binding name → AnyValue.
@@ -24,24 +25,31 @@ export async function resolveActionPrepare(
 
   for (const entry of entries) {
     if (entry.fromState !== undefined) {
-      result[entry.binding] = state.read(entry.fromState) ?? buildNull('missing');
+      const val = state.read(entry.fromState);
+      if (val === undefined) {
+        throw new PrepareError('MissingStateBinding', actionId, `from_state path "${entry.fromState}" is not present in state`);
+      }
+      result[entry.binding] = val;
     } else if (entry.fromHook !== undefined) {
       const hookName = entry.fromHook;
       const hook = hooks[hookName];
       if (!hook) {
-        result[entry.binding] = buildNull('missing');
-      } else {
-        if (!hookCache[hookName]) {
-          const ctx: PrepareHookContext = {
-            actionId,
-            hookName,
-            get: (binding) => result[binding],
-          };
-          // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-          hookCache[hookName] = await (hook as PrepareHookImpl)(ctx) as Record<string, AnyValue>;
-        }
-        result[entry.binding] = hookCache[hookName][entry.binding] ?? buildNull('missing');
+        throw new PrepareError('UnregisteredHook', actionId, `prepare hook "${hookName}" is not registered`);
       }
+      if (!hookCache[hookName]) {
+        const ctx: PrepareHookContext = {
+          actionId,
+          hookName,
+          get: (binding) => result[binding],
+        };
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+        hookCache[hookName] = await (hook as PrepareHookImpl)(ctx) as Record<string, AnyValue>;
+      }
+      const val = hookCache[hookName][entry.binding];
+      if (val === undefined) {
+        throw new PrepareError('MissingHookField', actionId, `prepare hook "${hookName}" did not return field "${entry.binding}"`);
+      }
+      result[entry.binding] = val;
     }
   }
 
@@ -65,10 +73,17 @@ export function resolveNextPrepare(
 
   for (const entry of entries) {
     if (entry.fromAction !== undefined) {
-      result[entry.binding] =
-        prevResult.bindingValues[entry.fromAction] ?? buildNull('missing');
+      const val = prevResult.bindingValues[entry.fromAction];
+      if (val === undefined) {
+        throw new PrepareError('MissingActionBinding', prevResult.actionId, `from_action binding "${entry.fromAction}" was not produced`);
+      }
+      result[entry.binding] = val;
     } else if (entry.fromState !== undefined) {
-      result[entry.binding] = state.read(entry.fromState) ?? buildNull('missing');
+      const val = state.read(entry.fromState);
+      if (val === undefined) {
+        throw new PrepareError('MissingStateBinding', prevResult.actionId, `from_state path "${entry.fromState}" is not present in state`);
+      }
+      result[entry.binding] = val;
     } else if (entry.fromLiteral !== undefined) {
       result[entry.binding] = inferLiteralValue(entry.fromLiteral);
     }

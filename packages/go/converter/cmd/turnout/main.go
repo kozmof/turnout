@@ -118,7 +118,7 @@ func runConvert(args []string) int {
 		return 0
 	}
 
-	ds5 := emit.Emit(w, lr.Model, lr.Sidecar)
+	ds5 := emit.Emit(w, lr.Model)
 	if ds5.HasErrors() {
 		printDiags(ds5)
 		return 1

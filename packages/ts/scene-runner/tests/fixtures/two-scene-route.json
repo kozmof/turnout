@@ -89,6 +89,7 @@
   "routes": [
     {
       "id": "main_route",
+      "entrySceneId": "scene_a",
       "match": [
         { "patterns": ["scene_a.step_a"], "target": "scene_b" }
       ]

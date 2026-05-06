@@ -675,18 +675,20 @@ scene "test" {
 // ─── docstring lowering ───────────────────────────────────────────────────────
 
 func TestLowerDocstringTrimming(t *testing.T) {
-	_, sc := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     """
     Hello world.
     """
     compute { root = v prog "p" { v:bool = true } }
   }`))
-	meta, ok := sc.Actions["test/a"]
-	if !ok || meta.Text == nil {
-		t.Fatal("action text not found in sidecar")
+	if len(tm.Scenes) == 0 || len(tm.Scenes[0].Actions) == 0 {
+		t.Fatal("no actions in lowered model")
 	}
-	text := meta.Text
+	text := tm.Scenes[0].Actions[0].Text
+	if text == nil {
+		t.Fatal("action text not found in proto model")
+	}
 	if strings.HasPrefix(*text, "\n") {
 		t.Errorf("text has leading newline: %q", *text)
 	}
@@ -707,6 +709,7 @@ scene "scene_1" {
   action "a" { compute { root = v prog "p" { v:bool = true } } }
 }
 route "route_1" {
+  entry "scene_1"
   match {
     scene_1.*.final_action |
     scene_other.*.end
@@ -720,6 +723,9 @@ route "route_1" {
 	r := tm.Routes[0]
 	if r.Id != "route_1" {
 		t.Errorf("route ID = %q", r.Id)
+	}
+	if r.GetEntrySceneId() != "scene_1" {
+		t.Errorf("entry_scene_id = %q, want \"scene_1\"", r.GetEntrySceneId())
 	}
 	if len(r.Match) != 2 {
 		t.Fatalf("arm count = %d, want 2", len(r.Match))
