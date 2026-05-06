@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('node:fs', () => ({
   readFileSync: vi.fn(),
+  accessSync: vi.fn(),
+  constants: { X_OK: 1 },
 }));
 
 vi.mock('node:child_process', () => ({

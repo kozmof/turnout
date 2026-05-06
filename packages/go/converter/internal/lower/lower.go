@@ -801,6 +801,9 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 	case *ast.VarBinderPattern:
 		condRef = c.temp("case_bind")
 		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: true})
+		// Inject the binder variable so arm expressions can reference p.Name.
+		// emitIdentity also calls remember(), registering the type for downstream inference.
+		c.emitIdentity(p.Name, subjectType, subjectRef)
 	case *ast.TupleCasePattern:
 		*c.ds = append(*c.ds, diag.ErrorAt(p.Pos.File, p.Pos.Line, p.Pos.Col,
 			diag.CodeUnsupportedConstruct, "#case tuple patterns are not yet supported by runtime lowering"))
@@ -983,6 +986,12 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 			if ft, ok := methodTypeToFieldType(s); ok {
 				return ft
 			}
+		} else {
+			// Emit an early diagnostic so callers see a precise UndefinedRef at the
+			// source location rather than a cascade of type-mismatch errors downstream.
+			*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+				diag.CodeUndefinedRef,
+				"binding %q: reference %q is not defined", c.target, x.Name))
 		}
 	case *ast.LocalItExpr:
 		if c.itAllowed {

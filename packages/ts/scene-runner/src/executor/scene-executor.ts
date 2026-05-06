@@ -62,24 +62,25 @@ export function createSceneExecutor(
 
   let currentState = state;
   const queue: string[] = [...(entryActions ?? scene.entryActions)];
+  let queueHead = 0;
   const visited = new Set<string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
 
   function drainVisited(): void {
-    while (queue.length > 0 && visited.has(queue[0]!)) queue.shift();
+    while (queueHead < queue.length && visited.has(queue[queueHead]!)) queueHead++;
   }
 
   function isDone(): boolean {
     drainVisited();
-    return queue.length === 0;
+    return queueHead >= queue.length;
   }
 
   async function next(): Promise<StepResult> {
     drainVisited();
-    if (queue.length === 0) return { done: true };
+    if (queueHead >= queue.length) return { done: true };
 
-    const actionId = queue.shift()!;
+    const actionId = queue[queueHead++]!;
     visited.add(actionId);
 
     const action = actionMap[actionId];

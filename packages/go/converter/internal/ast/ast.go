@@ -52,15 +52,20 @@ func (ft FieldType) String() string {
 	return fmt.Sprintf("FieldType(%d)", int(ft))
 }
 
+var fieldTypeByString = map[string]FieldType{
+	"number":     FieldTypeNumber,
+	"str":        FieldTypeStr,
+	"bool":       FieldTypeBool,
+	"arr<number>": FieldTypeArrNumber,
+	"arr<str>":   FieldTypeArrStr,
+	"arr<bool>":  FieldTypeArrBool,
+}
+
 // FieldTypeFromString converts a DSL type string to a FieldType.
 // Returns (0, false) if the string is not a valid type.
 func FieldTypeFromString(s string) (FieldType, bool) {
-	for i, name := range fieldTypeNames {
-		if name == s {
-			return FieldType(i), true
-		}
-	}
-	return 0, false
+	ft, ok := fieldTypeByString[s]
+	return ft, ok
 }
 
 // LiteralFieldType infers the FieldType of a Literal value.

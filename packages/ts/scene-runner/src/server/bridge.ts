@@ -1,6 +1,6 @@
 // Node.js only — uses child_process and fs.
 import { execFileSync, execSync } from 'node:child_process';
-import { readFileSync } from 'node:fs';
+import { accessSync, constants, readFileSync } from 'node:fs';
 import { fromJson, type JsonObject } from '@bufbuild/protobuf';
 import type { TurnModel } from '../types/turnout-model_pb.js';
 import { TurnModelSchema } from '../types/turnout-model_pb.js';
@@ -34,12 +34,20 @@ function resolveTurnoutBin(): string {
     execSync('turnout --help', { stdio: 'ignore' });
     return 'turnout';
   } catch {
-    // Fall back to building from source
+    // Fall back to the locally-built binary in the Go converter package.
     const goConverterDir = new URL(
       '../../../../go/converter',
       import.meta.url,
     ).pathname;
-    return `${goConverterDir}/cmd/turnout/turnout`;
+    const binPath = `${goConverterDir}/cmd/turnout/turnout`;
+    try {
+      accessSync(binPath, constants.X_OK);
+    } catch {
+      throw new Error(
+        `turnout binary not found. Run: cd ${goConverterDir} && go build ./cmd/turnout`,
+      );
+    }
+    return binPath;
   }
 }
 

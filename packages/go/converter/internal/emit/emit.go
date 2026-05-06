@@ -137,9 +137,9 @@ func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
 	iw.depth++
 	iw.wl("flow = <<-EOT")
 	for _, l := range strings.Split(strings.TrimRight(v.Flow, "\n"), "\n") {
-		fmt.Fprintf(iw.out, "%s%s\n", strings.Repeat("\t", iw.depth), l)
+		fmt.Fprintf(iw.out, "%s%s\n", iw.tabs(), l)
 	}
-	fmt.Fprintf(iw.out, "%sEOT\n", strings.Repeat("\t", iw.depth))
+	fmt.Fprintf(iw.out, "%sEOT\n", iw.tabs())
 	if v.Enforce != nil {
 		iw.wl("enforce = %q", *v.Enforce)
 	}
