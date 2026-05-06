@@ -371,6 +371,8 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
 | `InvalidStatePath` | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
 | `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
+| `UnresolvedPrepareBinding` | A `prepare` binding name has no matching `binding` block in the same `prog` |
+| `UnresolvedMergeBinding` | A `merge` binding name has no matching `binding` block in the same `prog` |
 
 ---
 

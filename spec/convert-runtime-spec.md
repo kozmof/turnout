@@ -82,13 +82,7 @@ action "checkout" {
 }
 ```
 
-Rules:
-- `prepare` entries declare STATE inputs (`from_state`) or hook inputs (`from_hook`) for `~>` and `<~>` sigiled bindings.
-- `merge` entries declare STATE outputs (`to_state`) for `<~` and `<~>` sigiled bindings.
-- `publish` entries declare publish-phase hook names; multiple `hook` attributes are allowed.
-- Every binding name inside `prepare` or `merge` must also appear as a `binding` block in the same `prog` block.
-- `state_path` / dotted path values are composed of `[A-Za-z_][A-Za-z0-9_]*` segments separated by `.`.
-- Timing is fixed at convert time: `prepare` bindings are resolved before execution; `merge` bindings are written after execution; `publish` hooks fire after merge.
+> For the full sigil, `prepare`/`merge`/`publish` DSL rules and lowering details, see `effect-dsl-spec.md §1–6` and `hook-spec.md §2`.
 
 ### CAN (OK)
 
@@ -124,20 +118,8 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 |------------|------------------|
 | `UnsupportedConstruct` | Phase 2 loop construct (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 DSL file |
 | `DuplicateActionLabel` | Two `action` blocks with the same name label in one emitted HCL file |
-| `InvalidStatePath` | `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
-| `UnresolvedPrepareBinding` | `prepare` binding name has no matching `binding` block in the same `prog` |
-| `UnresolvedMergeBinding` | `merge` binding name has no matching `binding` block in the same `prog` |
-| `MissingPrepareEntry` | A `~>` or `<~>` sigiled binding has no corresponding `prepare` entry |
-| `MissingMergeEntry` | A `<~` or `<~>` sigiled binding has no corresponding `merge` entry |
-| `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
-| `TransitionHook` | A `from_hook` source appears in a transition `prepare` block |
-| `TransitionMerge` | A `merge` or `publish` block appears inside a `next { }` block |
-| `SpuriousPrepareEntry` | A `prepare` entry references a binding that has no sigil in the corresponding `prog` block |
-| `SpuriousMergeEntry` | A `merge` entry references a binding that has no sigil in the corresponding `prog` block |
-| `BidirMissingPrepareEntry` | A `<~>` binding appears in `merge` but has no corresponding entry in `prepare` |
-| `BidirMissingMergeEntry` | A `<~>` binding appears in `prepare` but has no corresponding entry in `merge` |
-| `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
-| `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
+
+For all sigil/`prepare`/`merge`/transition error codes (`InvalidStatePath`, `MissingPrepareEntry`, `MissingMergeEntry`, `SpuriousPrepareEntry`, `SpuriousMergeEntry`, `BidirMissingPrepareEntry`, `BidirMissingMergeEntry`, `TransitionMerge`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`, `InvalidPrepareSource`, `UnresolvedPrepareBinding`, `UnresolvedMergeBinding`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
 
 ---
 
@@ -145,7 +127,9 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 
 ### Responsibilities
 
-- Parse the emitted HCL and construct a `Scene` (per `scene-graph.md` §3.2).
+> The TypeScript runtime data model (`Scene`, `Action`, `PrepareSpec`, `MergeSpec`, `PublishSpec`, `NextRule`, etc.) is defined in `scene-graph.md §4`. Action execution semantics are defined in `scene-graph.md §7`.
+
+- Parse the emitted HCL and construct a `Scene` (per `scene-graph.md §4`).
 - For each action, pass its `prog` block to `ctx()` to obtain a `ContextSpec`.
 - Validate scene structural invariants (per `scene-graph.md` §3.3) before first execution.
 - Execute actions following the four-phase lifecycle: **prepare → compute → merge → publish**.
@@ -180,15 +164,9 @@ Example state during `process_order` execution:
 
 ### Execution Order (per action)
 
-```
-1. Resolve prepare.from_state bindings from STATE snapshot S_n
-2. Invoke prepare hooks (declaration order); collect returned objects
-3. Map hook result fields into state bindings
-4. Execute compute graph (executeGraph)
-5. Apply merge.to_state → produce STATE delta D_n; apply atomically → S_{n+1}
-6. Invoke publish hooks (declaration order) with final state snapshot
-7. Evaluate transitions
-```
+> For the full per-action lifecycle (prepare → compute → merge → publish), see `scene-graph.md §7`. Hook invocation ordering and deduplication rules are in `hook-spec.md §1.4`.
+
+After the publish phase completes, the runtime evaluates transition rules: for each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked to select the next action(s) per the effective next policy (`first-match` or `all-match`).
 
 ### CAN (OK)
 

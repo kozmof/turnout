@@ -388,7 +388,6 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 - A `state` block cannot be declared inside a `scene` or `action` block; it must be top-level.
 - A Turn DSL file cannot declare both an inline `state` block and a `state_file` directive (`ConflictingStateSource`).
 - A `state_file` cannot contain a `scene` block or another `state_file` directive; it must contain only a `state` block.
-- A `state` block cannot declare a path with more than two segments (e.g. `a.b.c` is not a valid namespace/field pair in this spec).
 - A `state` block cannot declare a path with fewer than two segments (single-segment identifiers are not valid STATE paths).
 - A field cannot be declared without both `type` and `value`.
 - A `from_state` or `to_state` path cannot reference an undeclared field.

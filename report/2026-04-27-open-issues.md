@@ -77,15 +77,15 @@ Evidence:
 
 ## Spec Cleanup
 
-These are documentation/spec issues rather than confirmed implementation bugs.
+Resolved on 2026-05-06. All items below were fixed in the spec files; no runtime code changes were required.
 
-- `state-shape-spec.md` both allows deeper paths like `session.cart.items` and later says paths with more than two segments are invalid. The stale line appears to be the two-segment prohibition.
-- `transform-fn-dsl-spec.md` uses `string` in its method table while the rest of the specs and codebase use `str`.
-- `scene-to-scene.md` has two sections labeled `2.3`.
-- `effect-dsl-spec.md` and `convert-runtime-spec.md` overlap on prepare/merge lowering rules.
-- `hook-spec.md` and `convert-runtime-spec.md` overlap on hook lifecycle and emitted shape.
-- `scene-graph.md` and `convert-runtime-spec.md` overlap on the runtime data model.
-- Error catalogues are repeated across multiple specs without one clear source of truth.
+- `state-shape-spec.md` — stale CAN'T line prohibiting paths with more than two segments removed. Three-segment paths (`session.cart.items`) are valid per §1.1 and the Go validator already enforced no upper-bound check.
+- `transform-fn-dsl-spec.md` — method table receiver type labels corrected from `string`/`boolean`/`array` to `str`/`bool`/`arr`.
+- `scene-to-scene.md` — duplicate `§2.3` (Trigger) renumbered to `§2.4`.
+- `effect-dsl-spec.md` / `convert-runtime-spec.md` overlap — inline Rules block in `convert-runtime-spec.md` replaced with a cross-reference to `effect-dsl-spec.md §1–6` and `hook-spec.md §2`.
+- `hook-spec.md` / `convert-runtime-spec.md` overlap — 7-step Execution Order in `convert-runtime-spec.md` replaced with references to `scene-graph.md §7` and `hook-spec.md §1.4`; Phase 2 Responsibilities now points to `scene-graph.md §4` for the data model.
+- `scene-graph.md` / `convert-runtime-spec.md` overlap — Phase 2 Responsibilities section now explicitly defers the runtime data model and execution semantics to `scene-graph.md §4` and `§7`.
+- Error catalogues — `convert-runtime-spec.md` Convert-phase Error Catalogue trimmed to its two unique codes (`UnsupportedConstruct`, `DuplicateActionLabel`); all others cross-referenced to `effect-dsl-spec.md §7` and `hook-spec.md §6`. `UnresolvedPrepareBinding` and `UnresolvedMergeBinding` added to `effect-dsl-spec.md §7` as their canonical home. `hook-spec.md §6` now only owns `MissingHookField`.
 
 ## Open Design Questions
 

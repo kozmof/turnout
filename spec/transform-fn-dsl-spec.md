@@ -26,9 +26,9 @@ For multi-step local expression chains, authors should use `#pipe(initial, step,
 | Receiver type | DSL methods |
 |---|---|
 | `number` | `.toStr()`, `.abs()`, `.floor()`, `.ceil()`, `.round()`, `.negate()` |
-| `string` | `.toNumber()`, `.trim()`, `.toLowerCase()`, `.toUpperCase()`, `.length()` |
-| `boolean` | `.not()`, `.toStr()` |
-| `array` | `.length()`, `.isEmpty()` |
+| `str` | `.toNumber()`, `.trim()`, `.toLowerCase()`, `.toUpperCase()`, `.length()` |
+| `bool` | `.not()`, `.toStr()` |
+| `arr` | `.length()`, `.isEmpty()` |
 | `null` | *(none)* |
 
 ---

@@ -311,9 +311,8 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 | Error code | Condition |
 |------------|-----------|
 | `MissingHookField` | Prepare hook result object is missing a field required by a declared binding |
-| `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
-| `UnresolvedPrepareBinding` | A `prepare` `from_hook` binding name has no matching binding in the `prog` block |
-| `UnresolvedMergeBinding` | A `merge` binding name has no matching binding in the `prog` block |
+
+For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBinding`, see `effect-dsl-spec.md §7`.
 
 ---
 
