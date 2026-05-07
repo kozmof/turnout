@@ -41,6 +41,17 @@ func (d Diagnostic) Format() string {
 // Diagnostics is a slice of Diagnostic values.
 type Diagnostics []Diagnostic
 
+// DiagSink manages a diagnostic slice with a hard error cap.
+type DiagSink struct {
+	Diags  Diagnostics
+	halted bool
+}
+
+func (s *DiagSink) IsHalted() bool      { return s.halted }
+func (s *DiagSink) AtCap() bool         { return len(s.Diags) >= MaxDiagnostics }
+func (s *DiagSink) Halt()               { s.halted = true }
+func (s *DiagSink) Append(d Diagnostic) { s.Diags = append(s.Diags, d) }
+
 // HasErrors reports whether any diagnostic has SeverityError.
 func (ds Diagnostics) HasErrors() bool {
 	for _, d := range ds {
@@ -83,6 +94,9 @@ func WarnAt(file string, line, col int, code, format string, args ...any) Diagno
 		Col:      col,
 	}
 }
+
+// MaxDiagnostics is the hard cap on diagnostic count before halting.
+const MaxDiagnostics = 100
 
 // Generic converter error codes.
 const (

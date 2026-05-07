@@ -18,6 +18,9 @@ message TurnModel {
   StateModel state = 1;
   repeated SceneBlock scenes = 2;
   repeated RouteModel routes = 3;
+  // version identifies the schema revision. The Go emitter sets this to 1.
+  // The TypeScript runner validates this on load and rejects other values.
+  uint32 version = 4;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

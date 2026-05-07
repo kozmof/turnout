@@ -225,7 +225,7 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	if a.Compute != nil {
 		am.Compute = &turnoutpb.ComputeModel{
 			Root: a.Compute.Root,
-			Prog: lowerProgInner(a.Compute.Prog, resolver, sceneID, a.ID, "compute", sc, ds),
+			Prog: lowerProgInner(a.Compute.Prog, resolver, sceneID, a.ID, ComputeScope(), sc, ds),
 		}
 	}
 
@@ -234,11 +234,17 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	am.Publish = lowerPublish(a.Publish)
 
 	for i, nr := range a.Next {
-		am.Next = append(am.Next, lowerNextRule(nr, schema, sceneID, a.ID, fmt.Sprintf("next:%d", i), sc, ds))
+		am.Next = append(am.Next, lowerNextRule(nr, schema, sceneID, a.ID, NextScope(i), sc, ds))
 	}
 	return am
 }
 
+// lowerActionText normalises the raw string captured from either a heredoc or
+// triple-quoted text literal:
+//   - heredoc body: the scanner produces "\nline1\nline2"; strip the leading \n.
+//   - triple-quote: the scanner already strips the leading \n; strip only the trailing \n.
+//
+// Only one leading and one trailing \n are ever present by scanner invariant.
 func lowerActionText(raw *string) *string {
 	if raw == nil {
 		return nil
@@ -302,7 +308,7 @@ func lowerPublish(pub *ast.PublishBlock) []string {
 // Next rule lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID, scope string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.NextRuleModel {
+func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.NextRuleModel {
 	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
 
 	pbNR := &turnoutpb.NextRuleModel{Action: nr.ActionID}
@@ -342,13 +348,13 @@ func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {
 // Prog / Binding lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID, scope string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ProgModel {
+func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ProgModel {
 	if prog == nil {
 		return nil
 	}
-	bindingTypes := make(map[string]string, len(prog.Bindings))
+	bindingTypes := make(map[string]ast.FieldType, len(prog.Bindings))
 	for _, decl := range prog.Bindings {
-		bindingTypes[decl.Name] = fieldTypeToMethodType(decl.Type)
+		bindingTypes[decl.Name] = decl.Type
 	}
 	pm := &turnoutpb.ProgModel{
 		Name:     prog.Name,
@@ -363,7 +369,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
 // Sigils are captured in the sidecar keyed by (sceneID, actionID, progName, bindingName).
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID, scope, progName string, sc *Sidecar, ds *diag.Diagnostics, bindingTypes map[string]string) []*turnoutpb.BindingModel {
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, progName string, sc *Sidecar, ds *diag.Diagnostics, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -464,7 +470,7 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *tu
 	}
 }
 
-func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]string, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.BindingModel {
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),
@@ -475,7 +481,7 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindi
 	}
 }
 
-func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]string, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.BindingModel {
 	fn := rhs.Op.FnAlias()
 	if fn == "" {
 		if ft == ast.FieldTypeStr {
@@ -494,7 +500,7 @@ func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingType
 	}
 }
 
-func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS, bindingTypes map[string]string, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerPipeRHS(name string, ft ast.FieldType, rhs *ast.PipeRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.BindingModel {
 	params := make([]*turnoutpb.PipeParam, 0, len(rhs.Params))
 	for _, p := range rhs.Params {
 		params = append(params, &turnoutpb.PipeParam{
@@ -532,7 +538,7 @@ func lowerCondRHS(name string, ft ast.FieldType, rhs *ast.CondRHS) *turnoutpb.Bi
 	}
 }
 
-func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnostics, bindingTypes map[string]string) []*turnoutpb.BindingModel {
+func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnostics, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
 	switch cond := rhs.Cond.(type) {
 	case *ast.CondExprRef:
 		return []*turnoutpb.BindingModel{{
@@ -580,7 +586,7 @@ func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnost
 type localLowerer struct {
 	target       string
 	targetType   ast.FieldType
-	bindingTypes map[string]string
+	bindingTypes map[string]ast.FieldType
 	ds           *diag.Diagnostics
 	counter      int
 	bindings     []*turnoutpb.BindingModel
@@ -589,7 +595,7 @@ type localLowerer struct {
 	itAllowed    bool
 }
 
-func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]string, ds *diag.Diagnostics) *localLowerer {
+func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *localLowerer {
 	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds}
 }
 
@@ -628,7 +634,7 @@ func (c *localLowerer) temp(prefix string) string {
 }
 
 func (c *localLowerer) remember(name string, ft ast.FieldType) {
-	c.bindingTypes[name] = fieldTypeToMethodType(ft)
+	c.bindingTypes[name] = ft
 }
 
 func (c *localLowerer) appendBinding(b *turnoutpb.BindingModel, ft ast.FieldType) {
@@ -756,11 +762,18 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	subjectType := c.inferLocalType(subject, ft)
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType)
 	fallbackFn := ""
+	seenWildcard := false
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
 	for _, arm := range arms {
-		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
-			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft)
+		if seenWildcard {
+			*c.ds = append(*c.ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+				"binding %q: #case arm is unreachable (wildcard _ must be the last arm)", c.target))
 			break
+		}
+		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
+			seenWildcard = true
+			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft)
+			continue
 		}
 		conditionalArms = append(conditionalArms, arm)
 	}
@@ -991,10 +1004,8 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 			return ft
 		}
 	case *ast.LocalRefExpr:
-		if s, ok := c.bindingTypes[x.Name]; ok {
-			if ft, ok := methodTypeToFieldType(s); ok {
-				return ft
-			}
+		if ft, ok := c.bindingTypes[x.Name]; ok {
+			return ft
 		}
 		// Unknown refs fall through to `return fallback` below.
 		// The UndefinedRef diagnostic is emitted in lowerExprInto, which also
@@ -1027,25 +1038,6 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 		return c.inferLocalType(x.Initial, fallback)
 	}
 	return fallback
-}
-
-func methodTypeToFieldType(s string) (ast.FieldType, bool) {
-	switch s {
-	case "number":
-		return ast.FieldTypeNumber, true
-	case "string":
-		return ast.FieldTypeStr, true
-	case "boolean":
-		return ast.FieldTypeBool, true
-	case "arr<number>":
-		return ast.FieldTypeArrNumber, true
-	case "arr<str>":
-		return ast.FieldTypeArrStr, true
-	case "arr<bool>":
-		return ast.FieldTypeArrBool, true
-	default:
-		return 0, false
-	}
 }
 
 func localFnReturnType(fn string, fallback ast.FieldType) ast.FieldType {
@@ -1082,67 +1074,52 @@ func localOperandTypes(fn string, fallback ast.FieldType) (ast.FieldType, ast.Fi
 // Arg lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func fieldTypeToMethodType(ft ast.FieldType) string {
-	switch ft {
-	case ast.FieldTypeNumber:
-		return "number"
-	case ast.FieldTypeStr:
-		return "string"
-	case ast.FieldTypeBool:
-		return "boolean"
-	case ast.FieldTypeArrNumber:
-		return "arr<number>"
-	case ast.FieldTypeArrStr:
-		return "arr<str>"
-	case ast.FieldTypeArrBool:
-		return "arr<bool>"
-	default:
-		return "number"
-	}
-}
-
 type methodEntry struct {
 	qualName   string
-	outputType string
+	outputType ast.FieldType
+}
+
+var arrayMethods = map[string]methodEntry{
+	"length":  {"transformFnArray::length", ast.FieldTypeNumber},
+	"isEmpty": {"transformFnArray::isEmpty", ast.FieldTypeBool},
 }
 
 // methodMap is keyed by inputType → methodBaseName → entry for O(1) lookup.
-var methodMap = map[string]map[string]methodEntry{
-	"number": {
-		"toStr":   {"transformFnNumber::toStr", "string"},
-		"abs":     {"transformFnNumber::abs", "number"},
-		"floor":   {"transformFnNumber::floor", "number"},
-		"ceil":    {"transformFnNumber::ceil", "number"},
-		"round":   {"transformFnNumber::round", "number"},
-		"negate":  {"transformFnNumber::negate", "number"},
+var methodMap = map[ast.FieldType]map[string]methodEntry{
+	ast.FieldTypeNumber: {
+		"toStr":  {"transformFnNumber::toStr", ast.FieldTypeStr},
+		"abs":    {"transformFnNumber::abs", ast.FieldTypeNumber},
+		"floor":  {"transformFnNumber::floor", ast.FieldTypeNumber},
+		"ceil":   {"transformFnNumber::ceil", ast.FieldTypeNumber},
+		"round":  {"transformFnNumber::round", ast.FieldTypeNumber},
+		"negate": {"transformFnNumber::negate", ast.FieldTypeNumber},
 	},
-	"string": {
-		"toNumber":    {"transformFnString::toNumber", "number"},
-		"trim":        {"transformFnString::trim", "string"},
-		"toLowerCase": {"transformFnString::toLowerCase", "string"},
-		"toUpperCase": {"transformFnString::toUpperCase", "string"},
-		"length":      {"transformFnString::length", "number"},
+	ast.FieldTypeStr: {
+		"toNumber":    {"transformFnString::toNumber", ast.FieldTypeNumber},
+		"trim":        {"transformFnString::trim", ast.FieldTypeStr},
+		"toLowerCase": {"transformFnString::toLowerCase", ast.FieldTypeStr},
+		"toUpperCase": {"transformFnString::toUpperCase", ast.FieldTypeStr},
+		"length":      {"transformFnString::length", ast.FieldTypeNumber},
 	},
-	"boolean": {
-		"not":   {"transformFnBoolean::not", "boolean"},
-		"toStr": {"transformFnBoolean::toStr", "string"},
+	ast.FieldTypeBool: {
+		"not":   {"transformFnBoolean::not", ast.FieldTypeBool},
+		"toStr": {"transformFnBoolean::toStr", ast.FieldTypeStr},
 	},
-	"array": {
-		"length":  {"transformFnArray::length", "number"},
-		"isEmpty": {"transformFnArray::isEmpty", "boolean"},
-	},
+	ast.FieldTypeArrNumber: arrayMethods,
+	ast.FieldTypeArrStr:    arrayMethods,
+	ast.FieldTypeArrBool:   arrayMethods,
 }
 
-func lookupMethod(method, inputType string) (qualName, outputType string, ok bool) {
+func lookupMethod(method string, inputType ast.FieldType) (qualName string, outputType ast.FieldType, ok bool) {
 	if byMethod, found := methodMap[inputType]; found {
 		if e, found := byMethod[method]; found {
 			return e.qualName, e.outputType, true
 		}
 	}
-	return "", "", false
+	return "", 0, false
 }
 
-func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]string, ds *diag.Diagnostics) *turnoutpb.ArgModel {
+func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.ArgModel {
 	receiverType, ok := bindingTypes[a.Receiver]
 	if !ok {
 		*ds = append(*ds, diag.Errorf(diag.CodeUnknownMethod,
@@ -1165,7 +1142,7 @@ func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]string, ds
 	return &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{Ref: a.Receiver, Fn: fns}}
 }
 
-func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]string, ds *diag.Diagnostics) *turnoutpb.ArgModel {
+func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.ArgModel {
 	switch a := arg.(type) {
 	case *ast.RefArg:
 		return &turnoutpb.ArgModel{Ref: proto.String(a.Name)}
@@ -1184,7 +1161,7 @@ func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]string, ds *diag.Dia
 	}
 }
 
-func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]string, ds *diag.Diagnostics) []*turnoutpb.ArgModel {
+func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) []*turnoutpb.ArgModel {
 	result := make([]*turnoutpb.ArgModel, len(args))
 	for i, a := range args {
 		result[i] = lowerArgWithTypes(a, bindingTypes, ds)

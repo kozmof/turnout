@@ -1,16 +1,41 @@
 package lower
 
-import "github.com/kozmof/turnout/packages/go/converter/internal/ast"
+import (
+	"fmt"
+
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sidecar — metadata that cannot live in the proto IR
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ProgScope distinguishes the action's main compute prog from each transition prog.
+type ProgScope struct {
+	IsNext    bool
+	NextIndex int // meaningful only when IsNext == true
+}
+
+// ComputeScope returns the ProgScope for a compute prog.
+func ComputeScope() ProgScope { return ProgScope{} }
+
+// NextScope returns the ProgScope for the i-th next-rule prog.
+func NextScope(i int) ProgScope { return ProgScope{IsNext: true, NextIndex: i} }
+
+func (s ProgScope) String() string {
+	if !s.IsNext {
+		return "compute"
+	}
+	return fmt.Sprintf("next:%d", s.NextIndex)
+}
+
 // BindingKey uniquely identifies a binding within the model.
-// Scope distinguishes the action's main compute prog ("compute") from each
-// transition prog ("next:<index>") under the same action.
+// Scope distinguishes the action's main compute prog from each transition prog.
 type BindingKey struct {
-	SceneID, ActionID, Scope, ProgName, BindingName string
+	SceneID, ActionID string
+	Scope             ProgScope
+	ProgName          string
+	BindingName       string
 }
 
 // Sidecar carries DSL metadata that is not part of the proto IR:

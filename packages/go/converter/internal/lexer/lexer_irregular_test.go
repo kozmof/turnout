@@ -105,8 +105,8 @@ func TestUnexpectedCharacterBurstIsCapped(t *testing.T) {
 	if !ds.HasErrors() {
 		t.Fatal("expected lex errors")
 	}
-	if len(ds) != maxDiagnostics+1 {
-		t.Fatalf("diag count = %d, want %d", len(ds), maxDiagnostics+1)
+	if len(ds) != diag.MaxDiagnostics+1 {
+		t.Fatalf("diag count = %d, want %d", len(ds), diag.MaxDiagnostics+1)
 	}
 	last := ds[len(ds)-1]
 	if last.Code != diag.CodeTooManyDiagnostics {

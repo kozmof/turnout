@@ -106,7 +106,7 @@ export function loadJsonModel(jsonFilePath: string): TurnModel {
 function parseJSON(raw: string, source: string): TurnModel {
   try {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    return fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject);
+    return fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject, { ignoreUnknownFields: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(`Invalid JSON from "${source}": ${msg}`);

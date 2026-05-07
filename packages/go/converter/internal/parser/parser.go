@@ -19,10 +19,10 @@ func ParseFile(file, src string) (*ast.TurnFile, diag.Diagnostics) {
 	}
 	p := &parser{tokens: tokens, file: file}
 	tf := p.parseFile()
-	if p.diags.HasErrors() {
-		return nil, p.diags
+	if p.Diags.HasErrors() {
+		return nil, p.Diags
 	}
-	return tf, p.diags
+	return tf, p.Diags
 }
 
 // ParseStateFile parses a state-only file (no scene block required).
@@ -37,7 +37,7 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 
 	// Filter out MissingScene — state files legitimately have no scene block.
 	var realDiags diag.Diagnostics
-	for _, d := range p.diags {
+	for _, d := range p.Diags {
 		if d.Code == "MissingScene" {
 			continue
 		}
@@ -65,11 +65,9 @@ type parser struct {
 	tokens []lexer.Token
 	pos    int
 	file   string
-	diags  diag.Diagnostics
-	halted bool
+	diag.DiagSink
 }
 
-const maxDiagnostics = 100
 
 func (p *parser) peek() lexer.Token { return p.peekAt(0) }
 func (p *parser) peekAt(n int) lexer.Token {
@@ -95,29 +93,23 @@ func (p *parser) posOf(t lexer.Token) ast.Pos {
 
 // warnf appends a parse warning diagnostic.
 func (p *parser) warnf(t lexer.Token, format string, args ...any) {
-	p.diags = append(p.diags, diag.WarnAt(p.file, t.Line, t.Col,
+	p.Diags = append(p.Diags, diag.WarnAt(p.file, t.Line, t.Col,
 		diag.CodeNamedArgIgnored, "%s", fmt.Sprintf(format, args...)))
 }
 
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
-	if p.halted {
+	if p.IsHalted() {
 		return
 	}
-	if len(p.diags) >= maxDiagnostics {
-		p.diags = append(p.diags, diag.ErrorAt(
-			p.file,
-			t.Line,
-			t.Col,
-			diag.CodeTooManyDiagnostics,
-			"too many parse errors; stopping after %d diagnostics",
-			maxDiagnostics,
-		))
-		p.pos = len(p.tokens) - 1
-		p.halted = true
+	if p.AtCap() {
+		p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTooManyDiagnostics,
+			"too many parse errors; stopping after %d diagnostics", diag.MaxDiagnostics))
+		p.pos = len(p.tokens) - 1 // stage-specific recovery: skip to end
+		p.Halt()
 		return
 	}
-	p.diags = append(p.diags, diag.ErrorAt(p.file, t.Line, t.Col,
+	p.Append(diag.ErrorAt(p.file, t.Line, t.Col,
 		"ParseSyntaxError", "%s", fmt.Sprintf(format, args...)))
 }
 
@@ -1243,7 +1235,7 @@ func (p *parser) parseViewBlock() *ast.ViewBlock {
 
 	vb := &ast.ViewBlock{Pos: pos, Name: labelTok.Value}
 	if labelTok.Value != "overview" {
-		p.diags = append(p.diags, diag.ErrorAt(
+		p.Diags = append(p.Diags, diag.ErrorAt(
 			p.file, labelTok.Line, labelTok.Col,
 			diag.CodeOverviewUnknownView,
 			"view name must be \"overview\"; got %q", labelTok.Value,
@@ -1300,7 +1292,7 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 		case lexer.TokKwView:
 			parsed := p.parseViewBlock()
 			if sb.View != nil {
-				p.diags = append(p.diags, diag.ErrorAt(
+				p.Diags = append(p.Diags, diag.ErrorAt(
 					p.file, parsed.Pos.Line, parsed.Pos.Col,
 					diag.CodeOverviewDuplicate,
 					"scene %q: duplicate view block; only one view \"overview\" block is allowed", sb.ID,
@@ -1582,16 +1574,16 @@ func (p *parser) parseFile() *ast.TurnFile {
 			p.advance()
 		}
 	}
-	if p.halted {
+	if p.IsHalted() {
 		return tf
 	}
 
 	if !hasState {
-		p.diags = append(p.diags, diag.Errorf(diag.CodeMissingStateSource,
+		p.Diags = append(p.Diags, diag.Errorf(diag.CodeMissingStateSource,
 			"Turn DSL file must contain either a state block or state_file directive"))
 	}
 	if len(tf.Scenes) == 0 {
-		p.diags = append(p.diags, diag.Errorf("MissingScene",
+		p.Diags = append(p.Diags, diag.Errorf("MissingScene",
 			"Turn DSL file must contain a scene block"))
 	}
 	return tf

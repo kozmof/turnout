@@ -77,6 +77,8 @@ export {
 export {
   executeGraph,
   executeGraphSafe,
+  buildExecutionTree,
+  executeTree,
   buildReturnIdToFuncIdMap,
 } from './compute-graph';
 

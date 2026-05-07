@@ -17,6 +17,8 @@ export type RouteExecutionResult = {
   trace: RouteTrace;
   /** Terminal state — route exits when no match arm fires. */
   status: 'completed';
+  /** Non-fatal warnings produced during route execution. */
+  warnings?: string[];
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ export async function executeRoute(
 ): Promise<RouteExecutionResult> {
   const history: string[] = [];
   const sceneTraces: RouteTrace['scenes'] = [];
+  const warnings: string[] = [];
   let currentSceneId = entrySceneId;
 
   for (;;) {
@@ -51,6 +54,11 @@ export async function executeRoute(
     if (!scene) throw new RouteRuntimeError('UnknownScene', route.id, `unknown scene "${currentSceneId}"`);
 
     // Route-driven entry: only the first declared entry action fires (spec §route-entry).
+    if (scene.entryActions.length > 1) {
+      warnings.push(
+        `route "${route.id}" scene "${currentSceneId}": only the first entry action fires in route-driven execution (${scene.entryActions.length} declared)`,
+      );
+    }
     const routeEntry = scene.entryActions[0];
     if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${currentSceneId}" has no entry actions`);
     const sceneResult = await executeScene(scene, state, hooks, [routeEntry]);
@@ -75,5 +83,6 @@ export async function executeRoute(
     history,
     trace: { routeId: route.id, scenes: sceneTraces },
     status: 'completed',
+    ...(warnings.length > 0 ? { warnings } : {}),
   };
 }

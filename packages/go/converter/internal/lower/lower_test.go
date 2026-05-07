@@ -591,7 +591,7 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "score"}
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: "score"}
 	if sig, _ := sc.Get(key); sig != ast.SigilIngress {
 		t.Errorf("sigil = %v, want Ingress", sig)
 	}
@@ -626,7 +626,7 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "approved"}
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: "approved"}
 	if sig, _ := sc.Get(key); sig != ast.SigilEgress {
 		t.Errorf("sigil = %v, want Egress", sig)
 	}
@@ -660,7 +660,7 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "count"}
+	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: "count"}
 	if sig, _ := sc.Get(key); sig != ast.SigilBiDir {
 		t.Errorf("sigil = %v, want BiDir", sig)
 	}

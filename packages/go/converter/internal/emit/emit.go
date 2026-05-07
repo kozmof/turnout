@@ -583,7 +583,7 @@ func localExprInline(e *turnoutpb.LocalExprModel) string {
 	case *turnoutpb.LocalExprModel_Ref:
 		return fmt.Sprintf(`{ ref = %q }`, x.Ref.GetName())
 	case *turnoutpb.LocalExprModel_Lit:
-		return fmt.Sprintf(`{ lit = %s }`, structpbValueToHCL(x.Lit.GetValue()))
+		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(x.Lit.GetValue()))
 	case *turnoutpb.LocalExprModel_It:
 		return `{ it = true }`
 	case *turnoutpb.LocalExprModel_Call:
@@ -638,7 +638,7 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 	case *turnoutpb.LocalCasePatternModel_Wildcard:
 		return `{ wildcard = true }`
 	case *turnoutpb.LocalCasePatternModel_Lit:
-		return fmt.Sprintf(`{ lit = %s }`, structpbValueToHCL(x.Lit.GetValue()))
+		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(x.Lit.GetValue()))
 	case *turnoutpb.LocalCasePatternModel_VarBinder:
 		return fmt.Sprintf(`{ bind = %q }`, x.VarBinder.GetName())
 	case *turnoutpb.LocalCasePatternModel_Tuple:
@@ -649,34 +649,6 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 		return fmt.Sprintf(`{ tuple = [%s] }`, strings.Join(elems, ", "))
 	}
 	return `{ wildcard = true }`
-}
-
-// structpbValueToHCL converts a structpb.Value to its HCL text representation.
-func structpbValueToHCL(v *structpb.Value) string {
-	if v == nil {
-		return "null"
-	}
-	switch x := v.Kind.(type) {
-	case *structpb.Value_NumberValue:
-		return strconv.FormatFloat(x.NumberValue, 'f', -1, 64)
-	case *structpb.Value_StringValue:
-		return fmt.Sprintf("%q", x.StringValue)
-	case *structpb.Value_BoolValue:
-		if x.BoolValue {
-			return "true"
-		}
-		return "false"
-	case *structpb.Value_ListValue:
-		if x.ListValue == nil {
-			return "[]"
-		}
-		parts := make([]string, len(x.ListValue.Values))
-		for i, e := range x.ListValue.Values {
-			parts[i] = structpbValueToHCL(e)
-		}
-		return "[" + strings.Join(parts, ", ") + "]"
-	}
-	return "null"
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -15,6 +15,8 @@ import (
 // EmitJSON marshals a validated proto model directly to indented JSON.
 // ext_expr fields are stripped before marshalling — the runtime ignores them
 // and they add unnecessary bytes to every #if/#case/#pipe binding.
+// A "version":1 field is injected at the top of the JSON object so that the
+// TypeScript runner can detect schema mismatches at load time.
 func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) error {
 	if tm == nil {
 		tm = &turnoutpb.TurnModel{}
@@ -24,8 +26,18 @@ func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) error {
 	if err != nil {
 		return err
 	}
+	// Inject "version":1 as the first field of the JSON object.
+	// protojson always emits a JSON object (raw[0] == '{').
+	var versioned bytes.Buffer
+	versioned.WriteString(`{"version":1`)
+	if len(raw) >= 2 && raw[1] != '}' {
+		versioned.WriteByte(',')
+		versioned.Write(raw[1:]) // write everything after the opening {
+	} else {
+		versioned.WriteByte('}')
+	}
 	var buf bytes.Buffer
-	if err = json.Indent(&buf, raw, "", "  "); err != nil {
+	if err = json.Indent(&buf, versioned.Bytes(), "", "  "); err != nil {
 		return err
 	}
 	buf.WriteByte('\n')

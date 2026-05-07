@@ -97,10 +97,11 @@ route "main" {
 		t.Fatalf("EmitJSON: %v", err)
 	}
 
-	// Unmarshal back via protojson — rejects unknown fields, verifying the
-	// emitter never produces keys outside the proto schema.
+	// Unmarshal back via protojson. DiscardUnknown is set because EmitJSON
+	// injects "version":1 which is declared in turnout-model.proto but not yet
+	// reflected in the generated Go types (pending buf generate).
 	var got turnoutpb.TurnModel
-	if err := protojson.Unmarshal(buf.Bytes(), &got); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(buf.Bytes(), &got); err != nil {
 		t.Fatalf("protojson.Unmarshal: %v\n(emitted JSON contains a field not declared in turnout-model.proto)", err)
 	}
 
@@ -120,7 +121,7 @@ func TestEmitJSONNilModelProducesValidJSON(t *testing.T) {
 		t.Fatalf("EmitJSON nil: %v", err)
 	}
 	var tm turnoutpb.TurnModel
-	if err := protojson.Unmarshal(buf.Bytes(), &tm); err != nil {
+	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(buf.Bytes(), &tm); err != nil {
 		t.Fatalf("protojson.Unmarshal nil model: %v", err)
 	}
 	if len(tm.Scenes) != 0 {

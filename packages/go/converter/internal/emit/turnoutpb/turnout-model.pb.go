@@ -28,10 +28,13 @@ const (
 )
 
 type TurnModel struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	State         *StateModel            `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
-	Scenes        []*SceneBlock          `protobuf:"bytes,2,rep,name=scenes,proto3" json:"scenes,omitempty"`
-	Routes        []*RouteModel          `protobuf:"bytes,3,rep,name=routes,proto3" json:"routes,omitempty"`
+	state  protoimpl.MessageState `protogen:"open.v1"`
+	State  *StateModel            `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
+	Scenes []*SceneBlock          `protobuf:"bytes,2,rep,name=scenes,proto3" json:"scenes,omitempty"`
+	Routes []*RouteModel          `protobuf:"bytes,3,rep,name=routes,proto3" json:"routes,omitempty"`
+	// version identifies the schema revision. The Go emitter sets this to 1.
+	// The TypeScript runner validates this on load and rejects other values.
+	Version       uint32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,6 +88,13 @@ func (x *TurnModel) GetRoutes() []*RouteModel {
 		return x.Routes
 	}
 	return nil
+}
+
+func (x *TurnModel) GetVersion() uint32 {
+	if x != nil {
+		return x.Version
+	}
+	return 0
 }
 
 type StateModel struct {
@@ -2457,11 +2467,12 @@ var File_turnout_model_proto protoreflect.FileDescriptor
 
 const file_turnout_model_proto_rawDesc = "" +
 	"\n" +
-	"\x13turnout-model.proto\x12\x10turnout.model.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xab\x01\n" +
+	"\x13turnout-model.proto\x12\x10turnout.model.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xc5\x01\n" +
 	"\tTurnModel\x122\n" +
 	"\x05state\x18\x01 \x01(\v2\x1c.turnout.model.v1.StateModelR\x05state\x124\n" +
 	"\x06scenes\x18\x02 \x03(\v2\x1c.turnout.model.v1.SceneBlockR\x06scenes\x124\n" +
-	"\x06routes\x18\x03 \x03(\v2\x1c.turnout.model.v1.RouteModelR\x06routes\"N\n" +
+	"\x06routes\x18\x03 \x03(\v2\x1c.turnout.model.v1.RouteModelR\x06routes\x12\x18\n" +
+	"\aversion\x18\x04 \x01(\rR\aversion\"N\n" +
 	"\n" +
 	"StateModel\x12@\n" +
 	"\n" +

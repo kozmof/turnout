@@ -47,6 +47,18 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 		}
 	}
 
+	edgeEndpoints := make(map[string]bool)
+	for _, e := range g.Edges {
+		edgeEndpoints[e.From] = true
+		edgeEndpoints[e.To] = true
+	}
+	for id := range edgeEndpoints {
+		if !actionSet[id] {
+			ds = append(ds, enforceErr(diag.CodeOverviewUnknownNode,
+				"scene %q: flow edge references unknown action %q", sceneID, id))
+		}
+	}
+
 	if mode == "nodes_only" {
 		return ds
 	}

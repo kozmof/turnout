@@ -69,8 +69,10 @@ func FieldTypeFromString(s string) (FieldType, bool) {
 }
 
 // LiteralFieldType infers the FieldType of a Literal value.
-// For an empty ArrayLiteral the type is FieldTypeArrNumber with ok=false
-// (element type is unknown). Returns (0, false) for mixed-element arrays.
+// For an empty ArrayLiteral, ok is false (element type is unknown); the returned
+// FieldType is FieldTypeArrNumber as a placeholder. Callers MUST check ok before
+// using the returned type when the literal may be an empty array.
+// Returns (0, false) for mixed-element arrays.
 func LiteralFieldType(lit Literal) (FieldType, bool) {
 	switch v := lit.(type) {
 	case *NumberLiteral:

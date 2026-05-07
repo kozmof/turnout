@@ -107,6 +107,13 @@ export type Runner = {
  *   - `.result()` — get the final HarnessResult
  */
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
+  const versionedModel = model as TurnModel & { version?: number };
+  if (versionedModel.version !== undefined && versionedModel.version !== 0 && versionedModel.version !== 1) {
+    throw new Error(
+      `Model schema version ${versionedModel.version} is not supported; expected 1. ` +
+      `Regenerate the model with a compatible converter.`,
+    );
+  }
   const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
   const routeMap = Object.fromEntries((model.routes ?? []).map((r) => [r.id, r]));
   const hooks: HookRegistry = {};

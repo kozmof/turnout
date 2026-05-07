@@ -217,7 +217,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			var sc *lower.Sidecar
 			if tc.name == "transition_output_sigil" {
 				sc = lower.NewSidecar()
-				sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "next:0", ProgName: "n", BindingName: "out"}, ast.SigilEgress)
+				sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: lower.NextScope(0), ProgName: "n", BindingName: "out"}, ast.SigilEgress)
 			}
 			action, actionSC := buildIrregularAction(nil, nil, nil, tc.next)
 			if sc == nil {
@@ -291,7 +291,7 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		}
 		progBindings = append(progBindings, bm)
 		if ib.sigil != ast.SigilNone {
-			sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: ib.name}, ib.sigil)
+			sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: ib.name}, ib.sigil)
 		}
 	}
 

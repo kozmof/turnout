@@ -105,7 +105,7 @@ func Tokenize(file, src string) ([]Token, diag.Diagnostics) {
 		col:  1,
 	}
 	l.run()
-	return l.toks, l.diags
+	return l.toks, l.Diags
 }
 
 // ────────────────────────────────────────────────────────────
@@ -113,17 +113,15 @@ func Tokenize(file, src string) ([]Token, diag.Diagnostics) {
 // ────────────────────────────────────────────────────────────
 
 type lex struct {
-	file   string
-	src    []rune
-	pos    int
-	line   int
-	col    int
-	toks   []Token
-	diags  diag.Diagnostics
-	halted bool
+	file string
+	src  []rune
+	pos  int
+	line int
+	col  int
+	toks []Token
+	diag.DiagSink
 }
 
-const maxDiagnostics = 100
 
 // pos snapshot for speculative scanning / backtracking
 type snapshot struct{ pos, line, col int }
@@ -167,23 +165,17 @@ func (l *lex) emit(kind TokenKind, value string, line, col int) {
 }
 
 func (l *lex) errorf(line, col int, format string, args ...any) {
-	if l.halted {
+	if l.IsHalted() {
 		return
 	}
-	if len(l.diags) >= maxDiagnostics {
-		l.diags = append(l.diags, diag.ErrorAt(
-			l.file,
-			line,
-			col,
-			diag.CodeTooManyDiagnostics,
-			"too many lexical errors; stopping after %d diagnostics",
-			maxDiagnostics,
-		))
-		l.pos = len(l.src)
-		l.halted = true
+	if l.AtCap() {
+		l.Append(diag.ErrorAt(l.file, line, col, diag.CodeTooManyDiagnostics,
+			"too many lexical errors; stopping after %d diagnostics", diag.MaxDiagnostics))
+		l.pos = len(l.src) // stage-specific recovery: exhaust input
+		l.Halt()
 		return
 	}
-	l.diags = append(l.diags, diag.ErrorAt(l.file, line, col, "LexError", format, args...))
+	l.Append(diag.ErrorAt(l.file, line, col, "LexError", format, args...))
 }
 
 // ────────────────────────────────────────────────────────────

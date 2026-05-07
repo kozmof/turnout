@@ -5,7 +5,6 @@
 package validate
 
 import (
-	"strconv"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -221,7 +220,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			scope = validateProg(a.Compute.Prog, schema, false, sc, scene.Id, a.Id, "compute", ds)
+			scope = validateProg(a.Compute.Prog, schema, false, sc, scene.Id, a.Id, lower.ComputeScope(), ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -234,8 +233,6 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 		} else {
 			scope = map[string]bindingInfo{}
 		}
-		_ = scope
-
 		for i, nr := range a.Next {
 			if nr.Action != "" {
 				if _, ok := actionIndex[nr.Action]; !ok {
@@ -243,7 +240,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, sc, scene.Id, a.Id, "next:"+strconv.Itoa(i), ds)
+			validateNextRule(nr, schema, sc, scene.Id, a.Id, lower.NextScope(i), ds)
 		}
 	}
 }
@@ -252,7 +249,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, sc *lower.Sidecar, sceneID, actionID, scopeName string, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, sc *lower.Sidecar, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -329,7 +326,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 
 // sigilFor looks up the sigil for a binding in the sidecar. Returns SigilNone
 // when the sidecar is nil or no entry exists.
-func sigilFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName string) ast.Sigil {
+func sigilFor(sc *lower.Sidecar, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
 	if sc == nil {
 		return ast.SigilNone
 	}
@@ -1093,7 +1090,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lower.Sidecar, sceneID, actionID, scopeName string, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lower.Sidecar, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
