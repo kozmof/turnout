@@ -419,7 +419,7 @@ func protoCasePatternToAST(p *turnoutpb.LocalCasePatternModel) ast.LocalCasePatt
 
 func structpbToLiteral(v *structpb.Value) ast.Literal {
 	if v == nil {
-		return &ast.NumberLiteral{}
+		return nil
 	}
 	switch x := v.Kind.(type) {
 	case *structpb.Value_NumberValue:
@@ -438,7 +438,9 @@ func structpbToLiteral(v *structpb.Value) ast.Literal {
 		}
 		return &ast.ArrayLiteral{Elements: elems}
 	default:
-		return &ast.NumberLiteral{}
+		// Null or unrecognised structpb variant; return nil so callers treat it
+		// as "type unknown" rather than silently coercing to numeric zero.
+		return nil
 	}
 }
 
@@ -1389,11 +1391,12 @@ func buildBindingRefGraph(prog *turnoutpb.ProgModel) map[string][]string {
 		adj[b.Name] = nil
 	}
 	for _, b := range prog.Bindings {
-		if b.Expr == nil {
-			continue
-		}
 		var refs []string
-		collectExprBindingRefs(b.Expr, &refs)
+		if b.Expr != nil {
+			collectExprBindingRefs(b.Expr, &refs)
+		} else if b.ExtExpr != nil {
+			collectLocalExprBindingRefs(b.ExtExpr, &refs)
+		}
 		adj[b.Name] = refs
 	}
 	return adj
@@ -1441,4 +1444,38 @@ func collectArgBindingRefs(arg *turnoutpb.ArgModel, refs *[]string) {
 		*refs = append(*refs, arg.Transform.Ref)
 	}
 	// step_ref is a numeric pipe-step index, not a binding name — skip.
+}
+
+// collectLocalExprBindingRefs extracts binding name references from a LocalExprModel
+// for cycle detection. Used for ext_expr bindings that have no Expr counterpart.
+func collectLocalExprBindingRefs(e *turnoutpb.LocalExprModel, refs *[]string) {
+	if e == nil {
+		return
+	}
+	switch x := e.Expr.(type) {
+	case *turnoutpb.LocalExprModel_Ref:
+		*refs = append(*refs, x.Ref.GetName())
+	case *turnoutpb.LocalExprModel_Call:
+		for _, a := range x.Call.GetArgs() {
+			collectLocalExprBindingRefs(a, refs)
+		}
+	case *turnoutpb.LocalExprModel_Infix:
+		collectLocalExprBindingRefs(x.Infix.GetLhs(), refs)
+		collectLocalExprBindingRefs(x.Infix.GetRhs(), refs)
+	case *turnoutpb.LocalExprModel_IfExpr:
+		collectLocalExprBindingRefs(x.IfExpr.GetCond(), refs)
+		collectLocalExprBindingRefs(x.IfExpr.GetThen(), refs)
+		collectLocalExprBindingRefs(x.IfExpr.GetElseBranch(), refs)
+	case *turnoutpb.LocalExprModel_CaseExpr:
+		collectLocalExprBindingRefs(x.CaseExpr.GetSubject(), refs)
+		for _, arm := range x.CaseExpr.GetArms() {
+			collectLocalExprBindingRefs(arm.GetGuard(), refs)
+			collectLocalExprBindingRefs(arm.GetExpr(), refs)
+		}
+	case *turnoutpb.LocalExprModel_PipeExpr:
+		collectLocalExprBindingRefs(x.PipeExpr.GetInitial(), refs)
+		for _, s := range x.PipeExpr.GetSteps() {
+			collectLocalExprBindingRefs(s, refs)
+		}
+	}
 }

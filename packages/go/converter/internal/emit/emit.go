@@ -145,11 +145,14 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
 	iw.wl("view %q {", v.Name)
 	iw.depth++
-	iw.wl("flow = <<-EOT")
-	for _, l := range strings.Split(strings.TrimRight(v.Flow, "\n"), "\n") {
-		fmt.Fprintf(iw.out, "%s%s\n", iw.tabs(), l)
+	flow := strings.TrimRight(v.Flow, "\n")
+	ind := iw.tabs()
+	delim := chooseHeredocDelim(flow, ind)
+	fmt.Fprintf(iw.out, "%sflow = <<-%s\n", ind, delim)
+	for _, l := range strings.Split(flow, "\n") {
+		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
 	}
-	fmt.Fprintf(iw.out, "%sEOT\n", iw.tabs())
+	fmt.Fprintf(iw.out, "%s%s\n", ind, delim)
 	if v.Enforce != nil {
 		iw.wl("enforce = %q", *v.Enforce)
 	}
@@ -216,22 +219,44 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 	iw.wl("}")
 }
 
+// chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
+// content lines will be prefixed with indent. It tries candidates in order and
+// returns the first whose indented form does not appear as any content line.
+func chooseHeredocDelim(text, indent string) string {
+	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
+	for _, delim := range candidates {
+		collision := false
+		for _, line := range strings.Split(text, "\n") {
+			if line == indent+delim {
+				collision = true
+				break
+			}
+		}
+		if !collision {
+			return delim
+		}
+	}
+	return fmt.Sprintf("TURN_EOT_%d", len(text))
+}
+
 // writeText emits:
 //
-//	text = <<-EOT
+//	text = <<-<delim>
 //	<content lines at current indentation>
-//	EOT
+//	<delim>
 //
 // With <<-, HCL strips leading whitespace equal to the closing marker's
-// indentation. Since both content lines and EOT are at iw.tabs(), the strip
-// amount equals iw.tabs(), leaving the original text string intact.
+// indentation. Since both content lines and the closing delimiter are at
+// iw.tabs(), the strip amount equals iw.tabs(), leaving the original text
+// string intact. The delimiter is chosen to avoid collision with any content line.
 func writeText(iw *iWriter, text string) {
 	ind := iw.tabs()
-	fmt.Fprintf(iw.out, "%stext = <<-EOT\n", ind)
+	delim := chooseHeredocDelim(text, ind)
+	fmt.Fprintf(iw.out, "%stext = <<-%s\n", ind, delim)
 	for _, l := range strings.Split(text, "\n") {
 		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
 	}
-	fmt.Fprintf(iw.out, "%sEOT\n", ind)
+	fmt.Fprintf(iw.out, "%s%s\n", ind, delim)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -577,7 +602,7 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel) {
 // localExprInline returns the inline HCL representation of a proto LocalExprModel.
 func localExprInline(e *turnoutpb.LocalExprModel) string {
 	if e == nil {
-		return `{ ref = "__nil__" }`
+		return `{ lit = false }`
 	}
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_Ref:
@@ -618,7 +643,7 @@ func localExprInline(e *turnoutpb.LocalExprModel) string {
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
 			localExprInline(x.PipeExpr.GetInitial()), strings.Join(steps, ", "))
 	}
-	return `{ ref = "__unknown__" }`
+	return `{ lit = false }`
 }
 
 func localCaseArmInline(arm *turnoutpb.LocalCaseArmModel) string {

@@ -196,12 +196,11 @@ function evaluateNextRules(
       const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;
-      const condBinding = rule.compute.prog.bindings.find((b) => b.name === conditionName);
 
       let condValue;
-      if (condBinding?.expr) {
+      const condFuncId = builtCtx.getFuncId(conditionName);
+      if (condFuncId != null) {
         // Function binding: run the graph and read the root's return value.
-        const condFuncId = builtCtx.getFuncId(conditionName)!;
         condValue = executeGraph(condFuncId, validated).value;
       } else {
         // Value binding: the value is already in the context's value table.

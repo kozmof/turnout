@@ -91,11 +91,6 @@ func (p *parser) posOf(t lexer.Token) ast.Pos {
 	return ast.Pos{File: p.file, Line: t.Line, Col: t.Col}
 }
 
-// warnf appends a parse warning diagnostic.
-func (p *parser) warnf(t lexer.Token, format string, args ...any) {
-	p.Diags = append(p.Diags, diag.WarnAt(p.file, t.Line, t.Col,
-		diag.CodeNamedArgIgnored, "%s", fmt.Sprintf(format, args...)))
-}
 
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
@@ -452,7 +447,8 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
 			nameTok := p.advance() // consume name
 			p.advance()            // consume ':'
-			p.warnf(nameTok, "named argument %q is treated as positional; the name has no effect", nameTok.Value)
+			p.Diags = append(p.Diags, diag.WarnAt(p.file, nameTok.Line, nameTok.Col,
+				diag.CodeNamedArgIgnored, "named argument %q is treated as positional; the name has no effect", nameTok.Value))
 		}
 		args = append(args, p.parseArg())
 		if p.peek().Kind == lexer.TokComma {
@@ -554,6 +550,8 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 			op = ast.InfixDiv
 		case lexer.TokPercent:
 			op = ast.InfixMod
+		default:
+			panic(fmt.Sprintf("unreachable: parseIdentRHS infix switch on unexpected token kind %v", opTok.Kind))
 		}
 		rhs := p.parseArg()
 		return &ast.InfixRHS{
@@ -773,7 +771,8 @@ func (p *parser) parseLocalArgList() []ast.LocalExpr {
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
 			nameTok := p.advance() // consume name
 			p.advance()            // consume ':'
-			p.warnf(nameTok, "named argument %q is treated as positional; the name has no effect", nameTok.Value)
+			p.Diags = append(p.Diags, diag.WarnAt(p.file, nameTok.Line, nameTok.Col,
+				diag.CodeNamedArgIgnored, "named argument %q is treated as positional; the name has no effect", nameTok.Value))
 		}
 		args = append(args, p.parseLocalExpr())
 		if p.peek().Kind == lexer.TokComma {
@@ -815,7 +814,7 @@ func localInfixOpFromTok(t lexer.Token) ast.InfixOp {
 	case lexer.TokPercent:
 		return ast.InfixMod
 	default:
-		return ast.InfixAnd
+		panic(fmt.Sprintf("unreachable: localInfixOpFromTok called with unexpected token kind %v", t.Kind))
 	}
 }
 

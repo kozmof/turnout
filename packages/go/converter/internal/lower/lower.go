@@ -239,20 +239,21 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	return am
 }
 
-// lowerActionText normalises the raw string captured from either a heredoc or
-// triple-quoted text literal:
-//   - heredoc body: the scanner produces "\nline1\nline2"; strip the leading \n.
-//   - triple-quote: the scanner already strips the leading \n; strip only the trailing \n.
+// lowerActionText trims a single trailing newline from the raw string captured
+// from a triple-quoted text literal or heredoc body.
 //
-// Only one leading and one trailing \n are ever present by scanner invariant.
+// Scanner invariants:
+//   - heredoc (<<-): body is the joined rawLines with no leading or trailing \n.
+//   - triple-quote ("""): the scanner strips one leading \n and one trailing \n
+//     at scan time, but if the content itself ends with \n a second one remains.
+//
+// A leading \n is NOT stripped here — doing so would silently eat a genuine
+// blank first line written by the author.
 func lowerActionText(raw *string) *string {
 	if raw == nil {
 		return nil
 	}
 	s := *raw
-	if len(s) > 0 && s[0] == '\n' {
-		s = s[1:]
-	}
 	if len(s) > 0 && s[len(s)-1] == '\n' {
 		s = s[:len(s)-1]
 	}
