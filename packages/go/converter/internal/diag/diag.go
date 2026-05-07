@@ -88,6 +88,7 @@ func WarnAt(file string, line, col int, code, format string, args ...any) Diagno
 const (
 	CodeTooManyDiagnostics = "TooManyDiagnostics"
 	CodeNamedArgIgnored    = "NamedArgIgnored"
+	CodeEmitIOError        = "EmitIOError"
 )
 
 // Error codes from hcl-context-spec.md

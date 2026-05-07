@@ -12,6 +12,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/overview"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -26,15 +27,24 @@ type bindingInfo struct {
 	sigil     ast.Sigil
 }
 
+// fnKind classifies the special dispatch behaviour of a built-in function.
+// The four array/generic variants are mutually exclusive; operatorOnly is orthogonal.
+type fnKind int
+
+const (
+	fnKindStandard   fnKind = iota // regular typed binary function
+	fnKindGeneric                  // eq/neq: both operands must share the same type
+	fnKindArrGet                   // arr_get: returns element type of arg1
+	fnKindArrInc                   // arr_includes: returns bool
+	fnKindArrConcat                // arr_concat: returns same array type as arg1
+)
+
 type fnSpec struct {
 	arg1Type     ast.FieldType
 	arg2Type     ast.FieldType
 	returnType   ast.FieldType
 	operatorOnly bool
-	isGeneric    bool
-	isArrGet     bool
-	isArrInc     bool
-	isArrConcat  bool
+	kind         fnKind
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,11 +70,11 @@ var builtinFns = map[string]fnSpec{
 	"bool_and":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"bool_or":      {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
 	"bool_xor":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	"eq":           {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
-	"neq":          {returnType: ast.FieldTypeBool, operatorOnly: true, isGeneric: true},
-	"arr_includes": {isArrInc: true},
-	"arr_get":      {isArrGet: true},
-	"arr_concat":   {isArrConcat: true},
+	"eq":           {returnType: ast.FieldTypeBool, operatorOnly: true, kind: fnKindGeneric},
+	"neq":          {returnType: ast.FieldTypeBool, operatorOnly: true, kind: fnKindGeneric},
+	"arr_includes": {kind: fnKindArrInc},
+	"arr_get":      {kind: fnKindArrGet},
+	"arr_concat":   {kind: fnKindArrConcat},
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -323,13 +333,14 @@ func sigilFor(sc *lower.Sidecar, sceneID, actionID, scope, progName, bindingName
 	if sc == nil {
 		return ast.SigilNone
 	}
-	return sc.Sigils[lower.BindingKey{
+	sigil, _ := sc.Get(lower.BindingKey{
 		SceneID:     sceneID,
 		ActionID:    actionID,
 		Scope:       scope,
 		ProgName:    progName,
 		BindingName: bindingName,
-	}]
+	})
+	return sigil
 }
 
 // protoLocalExprToAST converts a proto LocalExprModel back to an ast.LocalExpr
@@ -857,13 +868,13 @@ func validateLocalPipe(bindingName string, initial ast.LocalExpr, steps []ast.Lo
 // validateBinaryArgTypePair checks the two operand types of a binary function
 // against the fn spec. Shared by validateLocalCallArgTypes and validateCombineArgTypes.
 func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.Diagnostics) {
-	switch {
-	case spec.isGeneric:
+	switch spec.kind {
+	case fnKindGeneric:
 		if ok1 && ok2 && t1 != t2 {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: %s requires homogeneous operand types, got %s and %s", bindingName, fn, t1, t2))
 		}
-	case spec.isArrGet:
+	case fnKindArrGet:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_get arg1 must be an array type, got %s", bindingName, t1))
@@ -872,7 +883,7 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.Field
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_get arg2 must be number, got %s", bindingName, t2))
 		}
-	case spec.isArrInc:
+	case fnKindArrInc:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_includes arg1 must be an array type, got %s", bindingName, t1))
@@ -882,7 +893,7 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.Field
 				"binding %q: arr_includes arg2 type %s does not match array element type %s",
 				bindingName, t2, t1.ElemType()))
 		}
-	case spec.isArrConcat:
+	case fnKindArrConcat:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_concat arg1 must be an array type, got %s", bindingName, t1))
@@ -911,15 +922,15 @@ func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.
 }
 
 func resolveLocalCallReturn(spec fnSpec, types []ast.FieldType, known []bool) (ast.FieldType, bool) {
-	switch {
-	case spec.isGeneric, spec.isArrInc:
+	switch spec.kind {
+	case fnKindGeneric, fnKindArrInc:
 		return ast.FieldTypeBool, true
-	case spec.isArrGet:
+	case fnKindArrGet:
 		if len(types) >= 1 && known[0] && types[0].IsArray() {
 			return types[0].ElemType(), true
 		}
 		return 0, false
-	case spec.isArrConcat:
+	case fnKindArrConcat:
 		if len(types) >= 1 && known[0] {
 			return types[0], true
 		}
@@ -1151,6 +1162,23 @@ func isValidStatePath(path string) bool {
 	return true
 }
 
+func isIdent(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	c := s[0]
+	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+		return false
+	}
+	for i := 1; i < len(s); i++ {
+		c = s[i]
+		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9')) {
+			return false
+		}
+	}
+	return true
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1176,10 +1204,10 @@ func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[stri
 }
 
 func resolveExpectedReturn(spec fnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
-	switch {
-	case spec.isGeneric, spec.isArrInc:
+	switch spec.kind {
+	case fnKindGeneric, fnKindArrInc:
 		return ast.FieldTypeBool, true
-	case spec.isArrGet:
+	case fnKindArrGet:
 		if len(args) >= 1 {
 			t, ok := resolveArgType(args[0], scope, stepTypes)
 			if ok && t.IsArray() {
@@ -1187,7 +1215,7 @@ func resolveExpectedReturn(spec fnSpec, args []*turnoutpb.ArgModel, scope map[st
 			}
 		}
 		return 0, false
-	case spec.isArrConcat:
+	case fnKindArrConcat:
 		if len(args) >= 1 {
 			t, ok := resolveArgType(args[0], scope, stepTypes)
 			if ok {
@@ -1262,109 +1290,9 @@ func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
 // Overview DSL enforcement (scene-graph.md §9)
 // ─────────────────────────────────────────────────────────────────────────────
 
-type flowEdge struct{ from, to string }
-
-func parseErr(code, sceneID, format string, args ...any) diag.Diagnostic {
-	d := diag.Errorf(code, "scene %q: "+format, append([]any{sceneID}, args...)...)
-	d.Stage = "overview_parse"
-	return d
-}
-
-func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, edges []flowEdge, ok bool) {
-	if strings.TrimSpace(flowText) == "" {
-		*ds = append(*ds, parseErr(diag.CodeOverviewFlowEmpty, sceneID, "flow is empty or whitespace-only"))
-		return nil, nil, false
-	}
-
-	var current string
-	seenNodes := make(map[string]bool)
-	seenEdges := make(map[flowEdge]bool)
-
-	addEdge := func(from, to string) {
-		e := flowEdge{from: from, to: to}
-		if !seenEdges[e] {
-			seenEdges[e] = true
-			edges = append(edges, e)
-		}
-	}
-	addNode := func(id string) {
-		if !seenNodes[id] {
-			seenNodes[id] = true
-			nodes = append(nodes, id)
-		}
-	}
-
-	for _, raw := range strings.Split(flowText, "\n") {
-		line := strings.TrimSpace(raw)
-		if line == "" {
-			continue
-		}
-
-		if strings.HasPrefix(line, "|=>") {
-			// Edge line — sources from current.
-			target := strings.TrimSpace(line[3:])
-			if target == "" {
-				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeNoTarget, sceneID, "edge line |=> has no target identifier"))
-				return nil, nil, false
-			}
-			if !isIdent(target) {
-				*ds = append(*ds, parseErr(diag.CodeOverviewInvalidIdent, sceneID, "flow has invalid edge target %q", target))
-				return nil, nil, false
-			}
-			if current == "" {
-				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeWithoutSource, sceneID, "edge |=> %q appears before any source node", target))
-				return nil, nil, false
-			}
-			addEdge(current, target)
-			// target is NOT added to nodes (spec §4.3)
-
-		} else if strings.Contains(line, "|=>") {
-			// Chain line — split into segments and wire them sequentially.
-			parts := strings.Split(line, "|=>")
-			for i, seg := range parts {
-				parts[i] = strings.TrimSpace(seg)
-			}
-			if parts[len(parts)-1] == "" {
-				*ds = append(*ds, parseErr(diag.CodeOverviewChainNoTarget, sceneID, "chain line ends with |=> and has no target"))
-				return nil, nil, false
-			}
-			for _, seg := range parts {
-				if !isIdent(seg) {
-					*ds = append(*ds, parseErr(diag.CodeOverviewInvalidIdent, sceneID, "flow has invalid chain segment %q", seg))
-					return nil, nil, false
-				}
-			}
-			// All segments except the last become nodes (spec §4.2).
-			for _, seg := range parts[:len(parts)-1] {
-				addNode(seg)
-			}
-			for i := 0; i < len(parts)-1; i++ {
-				addEdge(parts[i], parts[i+1])
-			}
-			current = parts[len(parts)-1]
-
-		} else {
-			// Node line.
-			if !isIdent(line) {
-				*ds = append(*ds, parseErr(diag.CodeOverviewInvalidIdent, sceneID, "flow has invalid node identifier %q", line))
-				return nil, nil, false
-			}
-			addNode(line)
-			current = line
-		}
-	}
-	return nodes, edges, true
-}
-
 func compileErr(code, format string, args ...any) diag.Diagnostic {
 	d := diag.Errorf(code, format, args...)
 	d.Stage = "overview_compile"
-	return d
-}
-
-func enforceErr(code, format string, args ...any) diag.Diagnostic {
-	d := diag.Errorf(code, format, args...)
-	d.Stage = "overview_enforce"
 	return d
 }
 
@@ -1392,79 +1320,24 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		return
 	}
 
-	flowNodes, flowEdges, ok := parseFlow(v.Flow, scene.Id, ds)
-	if !ok {
+	g, parseDiags := overview.Parse(v.Flow, scene.Id)
+	*ds = append(*ds, parseDiags...)
+	if parseDiags.HasErrors() {
 		return
 	}
 
-	implEdges := make(map[flowEdge]bool)
+	actionIDs := make([]string, 0, len(scene.Actions))
+	implEdges := make(map[overview.Edge]bool)
 	for _, a := range scene.Actions {
+		actionIDs = append(actionIDs, a.Id)
 		for _, nr := range a.Next {
 			if nr.Action != "" {
-				implEdges[flowEdge{from: a.Id, to: nr.Action}] = true
+				implEdges[overview.Edge{From: a.Id, To: nr.Action}] = true
 			}
 		}
 	}
 
-	for _, node := range flowNodes {
-		if _, exists := actionIndex[node]; !exists {
-			*ds = append(*ds, enforceErr(diag.CodeOverviewUnknownNode,
-				"scene %q: flow references unknown action %q", scene.Id, node))
-		}
-	}
-
-	if enforce == "nodes_only" {
-		return
-	}
-
-	for _, e := range flowEdges {
-		if !implEdges[e] {
-			*ds = append(*ds, enforceErr(diag.CodeOverviewMissingEdge,
-				"scene %q: flow declares edge %s |=> %s but no such next rule exists", scene.Id, e.from, e.to))
-		}
-	}
-
-	if enforce == "strict" {
-		flowNodeSet := make(map[string]bool, len(flowNodes))
-		for _, n := range flowNodes {
-			flowNodeSet[n] = true
-		}
-		flowEdgeSet := make(map[flowEdge]bool, len(flowEdges))
-		for _, e := range flowEdges {
-			flowEdgeSet[e] = true
-		}
-
-		for _, a := range scene.Actions {
-			if !flowNodeSet[a.Id] {
-				*ds = append(*ds, enforceErr(diag.CodeOverviewExtraNode,
-					"scene %q: action %q exists but is not listed in flow", scene.Id, a.Id))
-			}
-		}
-
-		for e := range implEdges {
-			if !flowEdgeSet[e] {
-				*ds = append(*ds, enforceErr(diag.CodeOverviewExtraEdge,
-					"scene %q: next rule %s |=> %s exists but is not declared in flow", scene.Id, e.from, e.to))
-			}
-		}
-	}
-}
-
-func isIdent(s string) bool {
-	if len(s) == 0 {
-		return false
-	}
-	c := s[0]
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
-		return false
-	}
-	for i := 1; i < len(s); i++ {
-		c = s[i]
-		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9')) {
-			return false
-		}
-	}
-	return true
+	*ds = append(*ds, overview.Enforce(g, actionIDs, implEdges, enforce, scene.Id)...)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

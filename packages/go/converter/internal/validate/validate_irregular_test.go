@@ -216,18 +216,14 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			// "transition_output_sigil" needs a sigil on binding "out" in next prog
 			var sc *lower.Sidecar
 			if tc.name == "transition_output_sigil" {
-				sc = &lower.Sidecar{
-					Sigils: make(map[lower.BindingKey]ast.Sigil),
-				}
-				sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "next:0", ProgName: "n", BindingName: "out"}] = ast.SigilEgress
+				sc = lower.NewSidecar()
+				sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "next:0", ProgName: "n", BindingName: "out"}, ast.SigilEgress)
 			}
 			action, actionSC := buildIrregularAction(nil, nil, nil, tc.next)
 			if sc == nil {
 				sc = actionSC
 			} else if actionSC != nil {
-				for k, v := range actionSC.Sigils {
-					sc.Sigils[k] = v
-				}
+				sc.Merge(actionSC)
 			}
 			model := irregularModelWithAction(action)
 			ds := validate.Validate(model, sc, irregularSchema())
@@ -281,9 +277,7 @@ type irrBind struct {
 // buildIrregularAction constructs an ActionModel with a "ready:bool = true" base binding
 // plus any additional bindings. Returns the action and a sidecar with any sigils.
 func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *lower.Sidecar) {
-	sc := &lower.Sidecar{
-		Sigils: make(map[lower.BindingKey]ast.Sigil),
-	}
+	sc := lower.NewSidecar()
 
 	progBindings := []*turnoutpb.BindingModel{
 		{Name: "ready", Type: "bool", Value: structpb.NewBoolValue(true)},
@@ -297,7 +291,7 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		}
 		progBindings = append(progBindings, bm)
 		if ib.sigil != ast.SigilNone {
-			sc.Sigils[lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: ib.name}] = ib.sigil
+			sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: ib.name}, ib.sigil)
 		}
 	}
 

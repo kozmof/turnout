@@ -592,8 +592,8 @@ scene "test" {
   }
 }`)
 	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "score"}
-	if sc.Sigils[key] != ast.SigilIngress {
-		t.Errorf("sigil = %v, want Ingress", sc.Sigils[key])
+	if sig, _ := sc.Get(key); sig != ast.SigilIngress {
+		t.Errorf("sigil = %v, want Ingress", sig)
 	}
 	b := binding(t, tm, 0)
 	if b.Value == nil {
@@ -627,8 +627,8 @@ scene "test" {
   }
 }`)
 	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "approved"}
-	if sc.Sigils[key] != ast.SigilEgress {
-		t.Errorf("sigil = %v, want Egress", sc.Sigils[key])
+	if sig, _ := sc.Get(key); sig != ast.SigilEgress {
+		t.Errorf("sigil = %v, want Egress", sig)
 	}
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
@@ -661,8 +661,8 @@ scene "test" {
   }
 }`)
 	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: "compute", ProgName: "p", BindingName: "count"}
-	if sc.Sigils[key] != ast.SigilBiDir {
-		t.Errorf("sigil = %v, want BiDir", sc.Sigils[key])
+	if sig, _ := sc.Get(key); sig != ast.SigilBiDir {
+		t.Errorf("sigil = %v, want BiDir", sig)
 	}
 	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
 		t.Error("expected prepare entries")

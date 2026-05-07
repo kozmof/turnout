@@ -407,7 +407,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	if decl.Sigil != ast.SigilNone {
 		for _, b := range bindings {
 			if b.Name == name {
-				sc.Sigils[BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}] = decl.Sigil
+				sc.Set(BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}, decl.Sigil)
 			}
 		}
 	}
@@ -620,6 +620,8 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 	return c.bindings
 }
 
+// temp generates a unique temporary binding name. The counter is never reset
+// within a prog, so all generated names are globally unique within that prog.
 func (c *localLowerer) temp(prefix string) string {
 	c.counter++
 	return fmt.Sprintf("__local_%s_%s_%d", c.target, prefix, c.counter)

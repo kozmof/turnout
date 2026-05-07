@@ -16,12 +16,34 @@ type BindingKey struct {
 // Sidecar carries DSL metadata that is not part of the proto IR:
 //   - Sigil per binding (validator-only)
 type Sidecar struct {
-	Sigils map[BindingKey]ast.Sigil
+	sigils map[BindingKey]ast.Sigil
 }
 
-// newSidecar returns an empty, non-nil Sidecar.
-func newSidecar() *Sidecar {
-	return &Sidecar{
-		Sigils: make(map[BindingKey]ast.Sigil),
+// NewSidecar returns an empty, non-nil Sidecar.
+func NewSidecar() *Sidecar {
+	return &Sidecar{sigils: make(map[BindingKey]ast.Sigil)}
+}
+
+// newSidecar is the package-internal alias used by Lower().
+func newSidecar() *Sidecar { return NewSidecar() }
+
+// Set records the sigil for the given binding key.
+func (s *Sidecar) Set(key BindingKey, sigil ast.Sigil) {
+	s.sigils[key] = sigil
+}
+
+// Get returns the sigil for the given binding key, or SigilNone if absent.
+func (s *Sidecar) Get(key BindingKey) (ast.Sigil, bool) {
+	v, ok := s.sigils[key]
+	return v, ok
+}
+
+// Merge copies all entries from other into s.
+func (s *Sidecar) Merge(other *Sidecar) {
+	if other == nil {
+		return
+	}
+	for k, v := range other.sigils {
+		s.sigils[k] = v
 	}
 }

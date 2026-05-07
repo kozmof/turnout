@@ -1,7 +1,6 @@
 // Package emit writes canonical plain HCL from the validated proto model.
 // All structural and type errors must be caught before calling Emit; no DSL
-// validation is performed here. IO errors from the writer are not surfaced as
-// diagnostics — callers should detect truncated output via the writer itself.
+// validation is performed here.
 package emit
 
 import (
@@ -21,6 +20,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Emit writes canonical plain HCL to w from the validated proto model.
+// Returns a diagnostic if an IO error occurs during writing.
 func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 	if tm == nil {
 		return nil
@@ -45,6 +45,9 @@ func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 		writeRouteBlock(iw, r)
 		sep = true
 	}
+	if iw.err != nil {
+		return diag.Diagnostics{diag.Errorf(diag.CodeEmitIOError, "write error: %v", iw.err)}
+	}
 	return nil
 }
 
@@ -55,16 +58,23 @@ func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 type iWriter struct {
 	out   io.Writer
 	depth int
+	err   error // first IO error encountered; subsequent writes are no-ops
 }
 
 // wl writes one line at current indentation followed by a newline.
 func (iw *iWriter) wl(format string, args ...interface{}) {
-	fmt.Fprintf(iw.out, iw.tabs()+format+"\n", args...)
+	if iw.err != nil {
+		return
+	}
+	_, iw.err = fmt.Fprintf(iw.out, iw.tabs()+format+"\n", args...)
 }
 
 // nl writes a blank line (no content, no indentation).
 func (iw *iWriter) nl() {
-	fmt.Fprintln(iw.out)
+	if iw.err != nil {
+		return
+	}
+	_, iw.err = fmt.Fprintln(iw.out)
 }
 
 // tabs returns the current indentation string (2 spaces per level).
