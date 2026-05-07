@@ -18,14 +18,26 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Generated binding name constants (shared with validate package)
+// ─────────────────────────────────────────────────────────────────────────────
+
+// GeneratedIfCondPrefix and GeneratedIfCondSuffix delimit the synthetic binding
+// emitted for a CondExprCall condition (e.g. "__if_x_cond"). The validate
+// package uses these to recognize and allow the reserved __ namespace.
+const (
+	GeneratedIfCondPrefix = "__if_"
+	GeneratedIfCondSuffix = "_cond"
+	GeneratedLocalPrefix  = "__local_"
+)
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// LowerResult bundles the canonical proto model with the sidecar that carries
-// DSL metadata not representable in proto (sigils, view blocks, action text).
+// LowerResult bundles the canonical proto model. Sigil metadata is embedded in
+// Model.Annotations (cleared by the emitter before JSON output).
 type LowerResult struct {
-	Model   *turnoutpb.TurnModel
-	Sidecar *Sidecar
+	Model *turnoutpb.TurnModel
 }
 
 // Lower converts a parsed TurnFile and resolved STATE schema to a LowerResult
@@ -47,7 +59,10 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnost
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	return &LowerResult{Model: tm, Sidecar: sc}, ds
+	// Embed sigil metadata in the proto model so the validator does not need a
+	// separate sidecar parameter. The emitter clears this field before output.
+	tm.Annotations = sc.ToAnnotations()
+	return &LowerResult{Model: tm}, ds
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -129,13 +144,32 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnost
 }
 
 func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(block.Namespaces))}
+	// Collect namespaces into a map to sort them, matching lowerStateBlockFromSchema order.
+	nsMap := make(map[string]*ast.NamespaceDecl, len(block.Namespaces))
+	nsNames := make([]string, 0, len(block.Namespaces))
 	for _, ns := range block.Namespaces {
-		pbNS := &turnoutpb.NamespaceModel{
-			Name:   ns.Name,
-			Fields: make([]*turnoutpb.FieldModel, 0, len(ns.Fields)),
-		}
+		nsMap[ns.Name] = ns
+		nsNames = append(nsNames, ns.Name)
+	}
+	sort.Strings(nsNames)
+
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsNames))}
+	for _, nsName := range nsNames {
+		ns := nsMap[nsName]
+		fieldNames := make([]string, 0, len(ns.Fields))
+		fieldMap := make(map[string]*ast.FieldDecl, len(ns.Fields))
 		for _, f := range ns.Fields {
+			fieldNames = append(fieldNames, f.Name)
+			fieldMap[f.Name] = f
+		}
+		sort.Strings(fieldNames)
+
+		pbNS := &turnoutpb.NamespaceModel{
+			Name:   nsName,
+			Fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames)),
+		}
+		for _, fName := range fieldNames {
+			f := fieldMap[fName]
 			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
 				Name:  f.Name,
 				Type:  f.Type.String(),
@@ -553,7 +587,7 @@ func lowerIfRHS(name string, ft ast.FieldType, rhs *ast.IfRHS, ds *diag.Diagnost
 		}}
 
 	case *ast.CondExprCall:
-		generatedName := "__if_" + name + "_cond"
+		generatedName := GeneratedIfCondPrefix + name + GeneratedIfCondSuffix
 		generatedBinding := &turnoutpb.BindingModel{
 			Name: generatedName,
 			Type: ast.FieldTypeBool.String(),
@@ -703,9 +737,34 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr) {
 	args := make([]*turnoutpb.ArgModel, 0, len(call.Args))
 	for i, arg := range call.Args {
-		argType := c.inferLocalType(arg, ft)
-		ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType)
-		args = append(args, &turnoutpb.ArgModel{Ref: proto.String(ref)})
+		// Inline simple args directly rather than emitting a temp binding.
+		// Only complex sub-expressions (nested calls, #if, #case, #pipe, infix)
+		// need a temp binding.
+		switch x := arg.(type) {
+		case *ast.LocalRefExpr:
+			if _, known := c.bindingTypes[x.Name]; !known {
+				*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+					diag.CodeUndefinedRef,
+					"binding %q: reference %q is not defined", name, x.Name))
+				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
+			} else {
+				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(x.Name)})
+			}
+		case *ast.LocalLitExpr:
+			args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(x.Value)})
+		case *ast.LocalItExpr:
+			if !c.itAllowed {
+				*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+					diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
+				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
+			} else {
+				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(c.itRef)})
+			}
+		default:
+			argType := c.inferLocalType(arg, ft)
+			ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType)
+			args = append(args, &turnoutpb.ArgModel{Ref: proto.String(ref)})
+		}
 	}
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,

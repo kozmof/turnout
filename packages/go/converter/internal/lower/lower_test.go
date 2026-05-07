@@ -17,7 +17,7 @@ import (
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 // mustLower parses src, resolves state, and lowers to a proto model + sidecar.
-func mustLower(t *testing.T, src string) (*turnoutpb.TurnModel, *lower.Sidecar) {
+func mustLower(t *testing.T, src string) *turnoutpb.TurnModel {
 	t.Helper()
 	tf, ds := parser.ParseFile("test.turn", src)
 	if ds.HasErrors() {
@@ -40,7 +40,7 @@ func mustLower(t *testing.T, src string) (*turnoutpb.TurnModel, *lower.Sidecar) 
 		}
 		t.Fatalf("lower failed")
 	}
-	return lr.Model, lr.Sidecar
+	return lr.Model
 }
 
 // minimal wraps a scene body in the minimum valid scaffolding.
@@ -87,7 +87,7 @@ func findBinding(t *testing.T, bs []*turnoutpb.BindingModel, name string) *turno
 // ─── state block lowering ─────────────────────────────────────────────────────
 
 func TestLowerStateBlockInline(t *testing.T) {
-	tm, _ := mustLower(t, `state {
+	tm := mustLower(t, `state {
   applicant {
     income:number = 42
     approved:bool = true
@@ -115,12 +115,20 @@ scene "s" {
 	if len(ns0.Fields) != 2 {
 		t.Errorf("ns[0] fields = %d, want 2", len(ns0.Fields))
 	}
-	if ns0.Fields[0].Name != "income" || ns0.Fields[0].Type != "number" {
+	// Fields are sorted alphabetically: "approved" < "income".
+	if ns0.Fields[0].Name != "approved" || ns0.Fields[0].Type != "bool" {
 		t.Errorf("field[0]: name=%q type=%q", ns0.Fields[0].Name, ns0.Fields[0].Type)
 	}
-	nv, ok := ns0.Fields[0].Value.Kind.(*structpb.Value_NumberValue)
-	if !ok || nv.NumberValue != 42 {
+	bv, ok := ns0.Fields[0].Value.Kind.(*structpb.Value_BoolValue)
+	if !ok || !bv.BoolValue {
 		t.Errorf("field[0] default: got %T %v", ns0.Fields[0].Value, ns0.Fields[0].Value)
+	}
+	if ns0.Fields[1].Name != "income" || ns0.Fields[1].Type != "number" {
+		t.Errorf("field[1]: name=%q type=%q", ns0.Fields[1].Name, ns0.Fields[1].Type)
+	}
+	nv, ok2 := ns0.Fields[1].Value.Kind.(*structpb.Value_NumberValue)
+	if !ok2 || nv.NumberValue != 42 {
+		t.Errorf("field[1] default: got %T %v", ns0.Fields[1].Value, ns0.Fields[1].Value)
 	}
 }
 
@@ -165,7 +173,7 @@ scene "s" {
 // ─── literal RHS ──────────────────────────────────────────────────────────────
 
 func TestLowerLiteralRHS(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = v
@@ -207,7 +215,7 @@ func TestLowerLiteralRHS(t *testing.T) {
 // ─── single-ref RHS (identity combine) ────────────────────────────────────────
 
 func TestLowerSingleRefBool(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -233,7 +241,7 @@ func TestLowerSingleRefBool(t *testing.T) {
 }
 
 func TestLowerSingleRefNumber(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -253,7 +261,7 @@ func TestLowerSingleRefNumber(t *testing.T) {
 }
 
 func TestLowerSingleRefStr(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -270,7 +278,7 @@ func TestLowerSingleRefStr(t *testing.T) {
 }
 
 func TestLowerSingleRefArr(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -289,7 +297,7 @@ func TestLowerSingleRefArr(t *testing.T) {
 // ─── func-call RHS ────────────────────────────────────────────────────────────
 
 func TestLowerFuncCallRHS(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -319,7 +327,7 @@ func TestLowerFuncCallRHS(t *testing.T) {
 // ─── infix RHS ────────────────────────────────────────────────────────────────
 
 func TestLowerInfixBoolAnd(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -337,7 +345,7 @@ func TestLowerInfixBoolAnd(t *testing.T) {
 }
 
 func TestLowerInfixGTE(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -355,7 +363,7 @@ func TestLowerInfixGTE(t *testing.T) {
 }
 
 func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -373,7 +381,7 @@ func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
 }
 
 func TestLowerInfixPlusStrIsConcat(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = out
@@ -394,7 +402,7 @@ func TestLowerInfixPlusStrIsConcat(t *testing.T) {
 
 func TestLowerPlaceholderWithState(t *testing.T) {
 	// ~>income:number = _ with state default 100 → binding value = 100
-	tm, _ := mustLower(t, `state {
+	tm := mustLower(t, `state {
   applicant {
     income:number = 100
   }
@@ -426,7 +434,7 @@ scene "test" {
 
 func TestLowerPipeRHS(t *testing.T) {
 	// #pipe(initial, step1, ...) stores structured form in binding.ExtExpr.
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -462,7 +470,7 @@ func TestLowerPipeRHS(t *testing.T) {
 
 func TestLowerCondRHS(t *testing.T) {
 	// #if(cond, then, else) stores structured form in binding.ExtExpr.
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -500,7 +508,7 @@ func TestLowerCondRHS(t *testing.T) {
 
 func TestLowerIfRHSBareRef(t *testing.T) {
 	// #if(flag, thenFn, elseFn) with bare ref condition → ExtExpr on binding
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -535,7 +543,7 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 
 func TestLowerIfRHSCall(t *testing.T) {
 	// #if(gt(x,y), thenFn, elseFn) with call condition → ExtExpr on binding
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
@@ -572,7 +580,7 @@ func TestLowerIfRHSCall(t *testing.T) {
 // ─── sigil lowering ───────────────────────────────────────────────────────────
 
 func TestLowerSigilIngress(t *testing.T) {
-	tm, sc := mustLower(t, `state {
+	tm := mustLower(t, `state {
   app {
     score:number = 0
   }
@@ -591,9 +599,9 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: "score"}
-	if sig, _ := sc.Get(key); sig != ast.SigilIngress {
-		t.Errorf("sigil = %v, want Ingress", sig)
+	annotKey := lower.SigilAnnotationKey("test", "a", lower.ComputeScope(), "p", "score")
+	if tm.Annotations == nil || ast.Sigil(tm.Annotations.Sigils[annotKey]) != ast.SigilIngress {
+		t.Errorf("sigil = %v, want Ingress", tm.Annotations)
 	}
 	b := binding(t, tm, 0)
 	if b.Value == nil {
@@ -609,7 +617,7 @@ scene "test" {
 }
 
 func TestLowerSigilEgress(t *testing.T) {
-	tm, sc := mustLower(t, `state {
+	tm := mustLower(t, `state {
   app { approved:bool = false }
 }
 scene "test" {
@@ -626,9 +634,9 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: "approved"}
-	if sig, _ := sc.Get(key); sig != ast.SigilEgress {
-		t.Errorf("sigil = %v, want Egress", sig)
+	annotKey := lower.SigilAnnotationKey("test", "a", lower.ComputeScope(), "p", "approved")
+	if tm.Annotations == nil || ast.Sigil(tm.Annotations.Sigils[annotKey]) != ast.SigilEgress {
+		t.Errorf("sigil = %v, want Egress", tm.Annotations)
 	}
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
@@ -640,7 +648,7 @@ scene "test" {
 }
 
 func TestLowerSigilBiDir(t *testing.T) {
-	tm, sc := mustLower(t, `state {
+	tm := mustLower(t, `state {
   app { count:number = 0 }
 }
 scene "test" {
@@ -660,9 +668,9 @@ scene "test" {
     }
   }
 }`)
-	key := lower.BindingKey{SceneID: "test", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: "count"}
-	if sig, _ := sc.Get(key); sig != ast.SigilBiDir {
-		t.Errorf("sigil = %v, want BiDir", sig)
+	annotKey := lower.SigilAnnotationKey("test", "a", lower.ComputeScope(), "p", "count")
+	if tm.Annotations == nil || ast.Sigil(tm.Annotations.Sigils[annotKey]) != ast.SigilBiDir {
+		t.Errorf("sigil = %v, want BiDir", tm.Annotations)
 	}
 	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
 		t.Error("expected prepare entries")
@@ -675,7 +683,7 @@ scene "test" {
 // ─── docstring lowering ───────────────────────────────────────────────────────
 
 func TestLowerDocstringTrimming(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     """
     Hello world.
@@ -703,7 +711,7 @@ func TestLowerDocstringTrimming(t *testing.T) {
 // ─── route block lowering ────────────────────────────────────────────────────
 
 func TestLowerRouteBlock(t *testing.T) {
-	tm, _ := mustLower(t, `state { ns { v:number = 0 } }
+	tm := mustLower(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = ["a"]
   action "a" { compute { root = v prog "p" { v:bool = true } } }
@@ -752,7 +760,7 @@ route "route_1" {
 // ─── publish lowering ─────────────────────────────────────────────────────────
 
 func TestLowerPublishBlock(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute { root = v prog "p" { v:bool = true } }
     publish {
@@ -772,7 +780,7 @@ func TestLowerPublishBlock(t *testing.T) {
 // ─── next rule lowering ───────────────────────────────────────────────────────
 
 func TestLowerNextRule(t *testing.T) {
-	tm, _ := mustLower(t, minimal(`  entry_actions = ["a"]
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute { root = v prog "p" { v:bool = true } }
     next {
@@ -808,8 +816,8 @@ func TestLowerIdempotency(t *testing.T) {
   action "a" {
     compute { root = v prog "p" { v:bool = true } }
   }`)
-	m1, _ := mustLower(t, src)
-	m2, _ := mustLower(t, src)
+	m1 := mustLower(t, src)
+	m2 := mustLower(t, src)
 	if m1.Scenes[0].Id != m2.Scenes[0].Id {
 		t.Errorf("scene ID differs: %q vs %q", m1.Scenes[0].Id, m2.Scenes[0].Id)
 	}

@@ -47,16 +47,33 @@ function make(
 }
 
 /**
- * Create a StateManager from a flat initial state record.
- *
- * No path validation is applied: any `write()` call succeeds regardless of
- * the path, making this constructor suitable for partial or ad-hoc initial
- * states (e.g., in tests or runtime contexts where the full schema is not
- * available). Use `stateManagerFromSchema` when strict path validation is
- * required.
+ * Create a StateManager from a flat initial state record with no path
+ * validation. Any `write()` call succeeds regardless of the path, making this
+ * constructor suitable for partial or ad-hoc states where the full schema is
+ * not available. Use `stateManagerFromStrict` or `stateManagerFromSchema` when
+ * typo-safety matters.
  */
-export function stateManagerFrom(initial: Record<string, AnyValue>): StateManager {
+export function stateManagerFromUnchecked(initial: Record<string, AnyValue>): StateManager {
   return make({ ...initial }, null);
+}
+
+/**
+ * @deprecated Use `stateManagerFromUnchecked` for no-validation semantics, or
+ * `stateManagerFromStrict` / `stateManagerFromSchema` for strict path checking.
+ */
+export const stateManagerFrom = stateManagerFromUnchecked;
+
+/**
+ * Create a StateManager from a flat initial state record, enforcing that every
+ * subsequent `write()` targets one of the paths in `validPaths`. Throws
+ * immediately on an unknown path, making it safe to use in tests where typo'd
+ * state paths should surface as hard errors.
+ */
+export function stateManagerFromStrict(
+  initial: Record<string, AnyValue>,
+  validPaths: ReadonlySet<string>,
+): StateManager {
+  return make({ ...initial }, validPaths);
 }
 
 /**
@@ -146,6 +163,7 @@ export { literalToValue };
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace StateManager {
-  export const from = stateManagerFrom;
+  export const from = stateManagerFromUnchecked;
+  export const fromStrict = stateManagerFromStrict;
   export const fromSchema = stateManagerFromSchema;
 }

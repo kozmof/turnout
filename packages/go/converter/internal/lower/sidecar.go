@@ -4,30 +4,25 @@ import (
 	"fmt"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sidecar — metadata that cannot live in the proto IR
 // ─────────────────────────────────────────────────────────────────────────────
 
-// ProgScope distinguishes the action's main compute prog from each transition prog.
-type ProgScope struct {
-	IsNext    bool
-	NextIndex int // meaningful only when IsNext == true
-}
+// ProgScope is a self-describing key that identifies which prog within an action
+// a binding belongs to. The string form is human-readable and stable across
+// rule reorderings, making it safe to use as a map key.
+type ProgScope string
 
-// ComputeScope returns the ProgScope for a compute prog.
-func ComputeScope() ProgScope { return ProgScope{} }
+// ComputeScope returns the ProgScope for the action's main compute prog.
+func ComputeScope() ProgScope { return "compute" }
 
-// NextScope returns the ProgScope for the i-th next-rule prog.
-func NextScope(i int) ProgScope { return ProgScope{IsNext: true, NextIndex: i} }
+// NextScope returns the ProgScope for the i-th (0-based) next-rule prog.
+func NextScope(i int) ProgScope { return ProgScope(fmt.Sprintf("next:%d", i)) }
 
-func (s ProgScope) String() string {
-	if !s.IsNext {
-		return "compute"
-	}
-	return fmt.Sprintf("next:%d", s.NextIndex)
-}
+func (s ProgScope) String() string { return string(s) }
 
 // BindingKey uniquely identifies a binding within the model.
 // Scope distinguishes the action's main compute prog from each transition prog.
@@ -36,6 +31,20 @@ type BindingKey struct {
 	Scope             ProgScope
 	ProgName          string
 	BindingName       string
+}
+
+// sigilAnnotationKey encodes a BindingKey as the canonical map key used in
+// TurnModel.Annotations.Sigils.
+func sigilAnnotationKey(k BindingKey) string {
+	return fmt.Sprintf("%s:%s:%s:%s:%s", k.SceneID, k.ActionID, k.Scope, k.ProgName, k.BindingName)
+}
+
+// SigilAnnotationKey is the exported form used by the validate package.
+func SigilAnnotationKey(sceneID, actionID string, scope ProgScope, progName, bindingName string) string {
+	return sigilAnnotationKey(BindingKey{
+		SceneID: sceneID, ActionID: actionID,
+		Scope: scope, ProgName: progName, BindingName: bindingName,
+	})
 }
 
 // Sidecar carries DSL metadata that is not part of the proto IR:
@@ -71,4 +80,17 @@ func (s *Sidecar) Merge(other *Sidecar) {
 	for k, v := range other.sigils {
 		s.sigils[k] = v
 	}
+}
+
+// ToAnnotations converts the sidecar into a SigilAnnotations proto message
+// suitable for embedding in TurnModel.Annotations. Returns nil when empty.
+func (s *Sidecar) ToAnnotations() *turnoutpb.SigilAnnotations {
+	if len(s.sigils) == 0 {
+		return nil
+	}
+	m := make(map[string]int32, len(s.sigils))
+	for k, v := range s.sigils {
+		m[sigilAnnotationKey(k)] = int32(v)
+	}
+	return &turnoutpb.SigilAnnotations{Sigils: m}
 }

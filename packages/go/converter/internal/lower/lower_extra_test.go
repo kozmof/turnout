@@ -36,7 +36,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	nr := tm.Scenes[0].Actions[0].Next[0]
 	if len(nr.Prepare) == 0 {
 		t.Fatal("expected prepare entries")
@@ -81,7 +81,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	action := tm.Scenes[0].Actions[0]
 
 	// Action compute prog: find "out" binding and check ext_expr.
@@ -144,7 +144,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	nr := tm.Scenes[0].Actions[0].Next[0]
 	if len(nr.Prepare) == 0 {
 		t.Fatal("expected prepare entries")
@@ -179,7 +179,7 @@ func TestLowerArgFuncRef(t *testing.T) {
       }
     }
   }`)
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	// result binding is the 3rd (index 2)
 	b := bindings[2]
@@ -203,7 +203,7 @@ func TestLowerArgTransform(t *testing.T) {
       }
     }
   }`)
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 	b := bindings[1]
 	if b.Expr == nil || b.Expr.Combine == nil {
@@ -241,7 +241,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	if b.Name != "items" {
 		t.Fatalf("binding = %q, want items", b.Name)
@@ -274,7 +274,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	sv, ok := b.Value.Kind.(*structpb.Value_StringValue)
 	if !ok {
@@ -304,7 +304,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
 	bv, ok := b.Value.Kind.(*structpb.Value_BoolValue)
 	if !ok {
@@ -329,7 +329,7 @@ func TestLowerArgLit(t *testing.T) {
       }
     }
   }`)
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	b := tm.Scenes[0].Actions[0].Compute.Prog.Bindings[1]
 	if b.Expr == nil || b.Expr.Combine == nil {
 		t.Fatal("expected combine expr on result binding")
@@ -369,7 +369,7 @@ scene "test" {
     }
   }
 }`
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	nr := tm.Scenes[0].Actions[0].Next[0]
 	if len(nr.Prepare) == 0 {
 		t.Fatal("expected prepare entries")
@@ -578,7 +578,7 @@ func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
       }
     }
   }`)
-	tm, _ := mustLower(t, src)
+	tm := mustLower(t, src)
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
 
 	// Build an index from binding name → position in the slice.

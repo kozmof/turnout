@@ -673,21 +673,23 @@ func (p *parser) parsePipeCallRHS() ast.BindingRHS {
 
 // ─── Local expression parser ──────────────────────────────────────────────────
 
-// parseLocalExpr parses a single local expression (ref, literal, call, #it,
-// nested #if/#case/#pipe, or a binary infix expression).
+// parseLocalExpr parses a local expression, building a left-associative chain
+// of infix operations so that `a + b + c` works as expected.
 func (p *parser) parseLocalExpr() ast.LocalExpr {
 	lhs := p.parseLocalPrimary()
-	// Check for infix operator
-	switch p.peek().Kind {
-	case lexer.TokAmpersand, lexer.TokGTE, lexer.TokLTE, lexer.TokGT, lexer.TokLT,
-		lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq, lexer.TokPlus, lexer.TokMinus,
-		lexer.TokStar, lexer.TokSlash, lexer.TokPercent:
-		opTok := p.advance()
-		op := localInfixOpFromTok(opTok)
-		rhs := p.parseLocalPrimary()
-		return &ast.LocalInfixExpr{Pos: p.posOf(opTok), Op: op, LHS: lhs, RHS: rhs}
+	for {
+		switch p.peek().Kind {
+		case lexer.TokAmpersand, lexer.TokGTE, lexer.TokLTE, lexer.TokGT, lexer.TokLT,
+			lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq, lexer.TokPlus, lexer.TokMinus,
+			lexer.TokStar, lexer.TokSlash, lexer.TokPercent:
+			opTok := p.advance()
+			op := localInfixOpFromTok(opTok)
+			rhs := p.parseLocalPrimary()
+			lhs = &ast.LocalInfixExpr{Pos: p.posOf(opTok), Op: op, LHS: lhs, RHS: rhs}
+		default:
+			return lhs
+		}
 	}
-	return lhs
 }
 
 func (p *parser) parseLocalPrimary() ast.LocalExpr {

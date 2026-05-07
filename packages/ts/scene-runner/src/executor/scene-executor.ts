@@ -24,6 +24,21 @@ export type StepResult =
   | { done: false; trace: ActionTrace }
   | { done: true; trace?: undefined };
 
+/**
+ * Discriminated union returned by `executeSceneSafe`. Callers that prefer
+ * throwing semantics should use `executeScene` instead.
+ */
+export type SceneResult =
+  | { ok: true; value: SceneExecutionResult }
+  | {
+      ok: false;
+      error: SceneRuntimeError;
+      /** State at the point of failure (after any successfully completed actions). */
+      partialState: StateManager;
+      /** ID of the action that was executing when the error occurred. */
+      failedActionId: string;
+    };
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Scene executor — manual stepping API
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,6 +49,8 @@ export type SceneExecutor = {
   readonly next: () => Promise<StepResult>;
   /** Returns the final result. Throws if the scene is not yet complete. */
   readonly result: () => SceneExecutionResult;
+  /** Returns the current accumulated state. Available at any point during execution. */
+  readonly partialState: () => StateManager;
 };
 
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
@@ -140,7 +157,11 @@ export function createSceneExecutor(
     };
   }
 
-  return { isDone, next, result };
+  function partialState(): StateManager {
+    return currentState;
+  }
+
+  return { isDone, next, result, partialState };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -159,6 +180,39 @@ export async function executeScene(
   return executor.result();
 }
 
+/**
+ * Like `executeScene` but catches `SceneRuntimeError` and returns a
+ * discriminated union instead of throwing. Partial state at the point of
+ * failure is preserved in `result.partialState`.
+ */
+export async function executeSceneSafe(
+  scene: SceneBlock,
+  state: StateManager,
+  hooks: HookRegistry = {},
+  entryActions?: string[],
+  maxSteps?: number,
+): Promise<SceneResult> {
+  const executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
+  let lastActionId = scene.entryActions[0] ?? '';
+  try {
+    while (!executor.isDone()) {
+      const step = await executor.next();
+      if (!step.done) lastActionId = step.trace.actionId;
+    }
+    return { ok: true, value: executor.result() };
+  } catch (err) {
+    if (err instanceof SceneRuntimeError) {
+      return {
+        ok: false,
+        error: err,
+        partialState: executor.partialState(),
+        failedActionId: lastActionId,
+      };
+    }
+    throw err;
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -172,6 +226,9 @@ function buildActionMap(actions: ActionModel[]): Record<string, ActionModel> {
 /**
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
+ *
+ * Rules that share the same `compute.prog.name` reuse a single built context
+ * rather than rebuilding it per rule.
  */
 function evaluateNextRules(
   action: ActionModel,
@@ -182,6 +239,10 @@ function evaluateNextRules(
   const rules = action.next ?? [];
   const matches: string[] = [];
 
+  // Cache built contexts keyed by prog name to avoid redundant context builds
+  // when multiple next rules share the same prog.
+  const ctxCache = new Map<string, ReturnType<typeof buildContextFromProg> & { validated: ReturnType<typeof assertValidContext> }>();
+
   for (const rule of rules) {
     let condMet: boolean;
 
@@ -191,21 +252,24 @@ function evaluateNextRules(
     } else if (!rule.compute.prog) {
       condMet = false;
     } else {
-      const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared);
-      const validated = assertValidContext(builtCtx.exec);
+      const progName = rule.compute.prog.name;
+      let cached = ctxCache.get(progName);
+      if (!cached) {
+        const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
+        const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared);
+        const validated = assertValidContext(builtCtx.exec);
+        cached = { ...builtCtx, validated };
+        ctxCache.set(progName, cached);
+      }
 
       const conditionName = rule.compute.condition;
-
+      const condFuncId = cached.getFuncId(conditionName);
       let condValue;
-      const condFuncId = builtCtx.getFuncId(conditionName);
       if (condFuncId != null) {
-        // Function binding: run the graph and read the root's return value.
-        condValue = executeGraph(condFuncId, validated).value;
+        condValue = executeGraph(condFuncId, cached.validated).value;
       } else {
-        // Value binding: the value is already in the context's value table.
-        const condValueId = builtCtx.nameToValueId[conditionName];
-        condValue = validated.valueTable[condValueId];
+        const condValueId = cached.nameToValueId[conditionName];
+        condValue = cached.validated.valueTable[condValueId];
       }
 
       condMet = isPureBoolean(condValue) && condValue.value;

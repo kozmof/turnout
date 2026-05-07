@@ -81,13 +81,15 @@ var builtinFns = map[string]fnSpec{
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Validate runs all structural and type validation rules against the proto model.
-// sc may be nil (treated as no sidecar metadata). schema may be nil.
-// Returns diagnostics; callers must check HasErrors() before proceeding to emission.
-func Validate(tm *turnoutpb.TurnModel, sc *lower.Sidecar, schema state.Schema) diag.Diagnostics {
+// Sigil metadata is read from tm.Annotations (populated by the lowerer).
+// schema may be nil. Returns diagnostics; callers must check HasErrors() before
+// proceeding to emission.
+func Validate(tm *turnoutpb.TurnModel, schema state.Schema) diag.Diagnostics {
 	var ds diag.Diagnostics
 	if tm == nil {
 		return ds
 	}
+	annotations := tm.Annotations
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
@@ -95,7 +97,7 @@ func Validate(tm *turnoutpb.TurnModel, sc *lower.Sidecar, schema state.Schema) d
 				"duplicate scene ID %q", s.Id))
 		}
 		seenSceneIDs[s.Id] = true
-		validateScene(s, schema, sc, &ds)
+		validateScene(s, schema, annotations, &ds)
 	}
 	if len(tm.Routes) > 0 {
 		knownScenes := buildKnownScenes(tm)
@@ -187,7 +189,7 @@ func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagn
 // Group D — Scene structural validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.Sidecar, ds *diag.Diagnostics) {
+func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, annotations *turnoutpb.SigilAnnotations, ds *diag.Diagnostics) {
 	actionIndex := make(map[string]*turnoutpb.ActionModel, len(scene.Actions))
 	for _, a := range scene.Actions {
 		if _, exists := actionIndex[a.Id]; exists {
@@ -198,7 +200,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 		}
 	}
 
-	validateOverview(scene, actionIndex, sc, ds)
+	validateOverview(scene, actionIndex, ds)
 
 	if len(scene.Actions) == 0 {
 		*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
@@ -220,7 +222,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			scope = validateProg(a.Compute.Prog, schema, false, sc, scene.Id, a.Id, lower.ComputeScope(), ds)
+			scope = validateProg(a.Compute.Prog, schema, false, annotations, scene.Id, a.Id, lower.ComputeScope(), ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -240,7 +242,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, sc, scene.Id, a.Id, lower.NextScope(i), ds)
+			validateNextRule(nr, schema, annotations, scene.Id, a.Id, lower.NextScope(i), ds)
 		}
 	}
 }
@@ -249,13 +251,15 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, sc *lower.S
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, sc *lower.Sidecar, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
 
-	// Pass 1: register all bindings; detect duplicates.
+	// Pass 1: register all bindings; detect duplicates; build adjacency map for
+	// cycle detection (avoids a second traversal in the previously separate Pass 1b).
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
+	adj := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
 	for _, b := range prog.Bindings {
 		if seen[b.Name] {
@@ -265,25 +269,62 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 			seen[b.Name] = true
 		}
 		ft, _ := ast.FieldTypeFromString(b.Type)
-		sigil := sigilFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
+		sigil := sigilFor(annotations, sceneID, actionID, scopeName, prog.Name, b.Name)
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
 			isFunc:    b.Expr != nil || b.ExtExpr != nil,
 			sigil:     sigil,
 		}
+		var refs []string
+		if b.Expr != nil {
+			collectExprBindingRefs(b.Expr, &refs)
+		} else if b.ExtExpr != nil {
+			collectLocalExprBindingRefs(b.ExtExpr, &refs)
+		}
+		adj[b.Name] = refs
 	}
 
-	// Pass 1b: detect reference cycles across bindings in this prog.
-	detectBindingCycles(prog, ds)
+	// Pass 1b: detect reference cycles using the adjacency map built above.
+	{
+		const (
+			unvisited = 0
+			inStack   = 1
+			done      = 2
+		)
+		color := make(map[string]int, len(prog.Bindings))
+		reported := make(map[string]bool)
+		var visit func(name string)
+		visit = func(name string) {
+			switch color[name] {
+			case done:
+				return
+			case inStack:
+				if !reported[name] {
+					reported[name] = true
+					*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
+						"prog %q: binding %q is part of a reference cycle", prog.Name, name))
+				}
+				return
+			}
+			color[name] = inStack
+			for _, dep := range adj[name] {
+				visit(dep)
+			}
+			color[name] = done
+		}
+		for _, b := range prog.Bindings {
+			visit(b.Name)
+		}
+	}
 
 	// Pass 2: structural + type checks.
 	for _, b := range prog.Bindings {
 		ft, _ := ast.FieldTypeFromString(b.Type)
-		sigil := sigilFor(sc, sceneID, actionID, scopeName, prog.Name, b.Name)
+		sigil := sigilFor(annotations, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
-			if !(strings.HasPrefix(b.Name, "__if_") && strings.HasSuffix(b.Name, "_cond")) &&
-				!strings.HasPrefix(b.Name, "__local_") {
+			if !(strings.HasPrefix(b.Name, lower.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, lower.GeneratedIfCondSuffix)) &&
+				!strings.HasPrefix(b.Name, lower.GeneratedLocalPrefix) {
 				*ds = append(*ds, diag.Errorf(diag.CodeReservedName,
 					"binding %q: names starting with __ are reserved", b.Name))
 			}
@@ -324,20 +365,18 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	return scope
 }
 
-// sigilFor looks up the sigil for a binding in the sidecar. Returns SigilNone
-// when the sidecar is nil or no entry exists.
-func sigilFor(sc *lower.Sidecar, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
-	if sc == nil {
+// sigilFor looks up the sigil for a binding from tm.Annotations. Returns
+// SigilNone when annotations is nil or no entry exists.
+func sigilFor(annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
+	if annotations == nil || annotations.Sigils == nil {
 		return ast.SigilNone
 	}
-	sigil, _ := sc.Get(lower.BindingKey{
-		SceneID:     sceneID,
-		ActionID:    actionID,
-		Scope:       scope,
-		ProgName:    progName,
-		BindingName: bindingName,
-	})
-	return sigil
+	key := lower.SigilAnnotationKey(sceneID, actionID, scope, progName, bindingName)
+	v, ok := annotations.Sigils[key]
+	if !ok {
+		return ast.SigilNone
+	}
+	return ast.Sigil(v)
 }
 
 // protoLocalExprToAST converts a proto LocalExprModel back to an ast.LocalExpr
@@ -1092,7 +1131,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lower.Sidecar, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -1118,7 +1157,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, sc *lowe
 		return
 	}
 
-	nextScope := validateProg(nr.Compute.Prog, schema, true, sc, sceneID, actionID, scopeName, ds)
+	nextScope := validateProg(nr.Compute.Prog, schema, true, annotations, sceneID, actionID, scopeName, ds)
 
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]
@@ -1259,6 +1298,10 @@ func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec 
 	arg1Type, ok1 := resolveArgType(c.Args[0], scope, nil)
 	arg2Type, ok2 := resolveArgType(c.Args[1], scope, nil)
 	validateBinaryArgTypePair(bindingName, c.Fn, spec, arg1Type, ok1, arg2Type, ok2, ds)
+	for i := range c.Args[2:] {
+		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			"binding %q: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, c.Fn, i+2))
+	}
 }
 
 // isIdentityCombine reports whether c is a canonical identity combine emitted
@@ -1295,7 +1338,7 @@ func compileErr(code, format string, args ...any) diag.Diagnostic {
 	return d
 }
 
-func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turnoutpb.ActionModel, sc *lower.Sidecar, ds *diag.Diagnostics) {
+func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turnoutpb.ActionModel, ds *diag.Diagnostics) {
 	if scene.View == nil {
 		return
 	}

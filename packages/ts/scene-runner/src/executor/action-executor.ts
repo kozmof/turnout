@@ -57,7 +57,10 @@ export async function executeAction(
   //
   // buildExecutionTree is called once per funcId and cached: the tree structure
   // depends only on the static context (funcTable, def tables), not the valueTable.
-  let updatedTable = validatedCtx.valueTable;
+  //
+  // updatedTable is mutated in-place via Object.assign to avoid O(N²) object
+  // allocations from spreading the full table on every binding iteration.
+  const updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
   const treeCache = new Map<FuncId, ExecutionTree>();
 
@@ -70,7 +73,7 @@ export async function executeAction(
         treeCache.set(funcId, buildExecutionTree(funcId, validatedCtx));
       }
       const result = executeTree(treeCache.get(funcId)!, { ...validatedCtx, valueTable: updatedTable });
-      updatedTable = { ...updatedTable, ...result.updatedValueTable };
+      Object.assign(updatedTable, result.updatedValueTable);
 
       if (updatedTable[valueId] === undefined) {
         throw new SceneRuntimeError(

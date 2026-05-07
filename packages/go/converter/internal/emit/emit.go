@@ -220,23 +220,27 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 }
 
 // chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
-// content lines will be prefixed with indent. It tries candidates in order and
-// returns the first whose indented form does not appear as any content line.
+// content lines will be prefixed with indent. It tries named candidates first,
+// then falls back to an incrementing numeric suffix until finding one that does
+// not collide with any indented content line.
 func chooseHeredocDelim(text, indent string) string {
 	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
+	lines := strings.Split(text, "\n")
+	lineSet := make(map[string]struct{}, len(lines))
+	for _, line := range lines {
+		lineSet[indent+line] = struct{}{}
+	}
 	for _, delim := range candidates {
-		collision := false
-		for _, line := range strings.Split(text, "\n") {
-			if line == indent+delim {
-				collision = true
-				break
-			}
-		}
-		if !collision {
+		if _, collision := lineSet[indent+delim]; !collision {
 			return delim
 		}
 	}
-	return fmt.Sprintf("TURN_EOT_%d", len(text))
+	for n := 3; ; n++ {
+		delim := fmt.Sprintf("TURN_EOT_%d", n)
+		if _, collision := lineSet[indent+delim]; !collision {
+			return delim
+		}
+	}
 }
 
 // writeText emits:

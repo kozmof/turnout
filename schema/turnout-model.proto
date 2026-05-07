@@ -21,6 +21,17 @@ message TurnModel {
   // version identifies the schema revision. The Go emitter sets this to 1.
   // The TypeScript runner validates this on load and rejects other values.
   uint32 version = 4;
+  // annotations carries sigil metadata from the DSL that cannot be represented
+  // in the flat binding model. Populated by the Go lowerer; consumed by the
+  // validator. Not serialised into the final JSON emitted to the runtime.
+  optional SigilAnnotations annotations = 5;
+}
+
+// SigilAnnotations carries sigil metadata for each binding. The map key
+// encodes "sceneID:actionID:scope:progName:bindingName". Sigil values match
+// the ast.Sigil iota (0=None, 1=Ingress, 2=Egress, 3=BiDir).
+message SigilAnnotations {
+  map<string, int32> sigils = 1;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
