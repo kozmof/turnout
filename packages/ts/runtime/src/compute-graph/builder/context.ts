@@ -200,6 +200,8 @@ type FunctionPhaseState = {
   returnIdByFuncId: Record<string, ValueId>;
   stepOutputIdByFuncStep: Record<string, ValueId>;
   combineDefIdBySignature: Map<string, CombineDefineId>;
+  /** Return type keyed by user-supplied spec key, populated in Pass 1 for forward-reference resolution. */
+  returnTypeByFuncKey: Map<string, BaseTypeSymbol>;
 };
 
 function getStepOutputLookupKey(funcId: string, stepIndex: number): string {
@@ -296,6 +298,7 @@ function processFunctions(
     returnIdByFuncId: {},
     stepOutputIdByFuncStep: {},
     combineDefIdBySignature: new Map(),
+    returnTypeByFuncKey: new Map(),
   };
 
   // Pass 1: build key index and register function return IDs
@@ -376,6 +379,20 @@ function buildReferenceIndexAndRegisterReturns(
       functionKeys.add(key);
       const returnId = IdFactory.createReturnValue(createFuncId(key), state);
       state.returnIdByFuncId[key] = returnId;
+      // Pre-compute return type so inferPassTransform can resolve FuncOutputRef args
+      // that appear in functions declared BEFORE the referenced function in the spec
+      // (forward references). combine and pipe return types are statically determinable;
+      // cond branches depend on sibling functions and are resolved lazily in Pass 2.
+      if (value.__type === 'combine') {
+        const rt = getBinaryFnReturnType(value.name);
+        if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
+      } else if (value.__type === 'pipe' && value.steps.length > 0) {
+        const lastStep = value.steps[value.steps.length - 1];
+        if (lastStep.__type === 'combine') {
+          const rt = getBinaryFnReturnType(lastStep.name);
+          if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
+        }
+      }
     } else {
       valueKeys.add(key);
     }
@@ -1066,18 +1083,22 @@ function inferPassTransform(
 ): readonly TransformFnNames[] {
   // Handle FuncOutputRef — funcTable is now keyed by scoped IDs
   if (typeof ref === 'object' && ref.__type === 'funcOutput') {
+    // Primary path: referenced function has already been processed in Pass 2.
     const funcEntry = getFuncFromTable(scope.funcId(ref.funcId), state.funcTable);
-
     if (funcEntry) {
-      // Get the definition to infer the return type
       const def = getCombineFuncDefFromTable(funcEntry.defId, state.combineFuncDefTable);
-      if (def) {
-        // Infer transform from the binary function's return type
-        return [inferTransformForBinaryFn(def.name)];
-      }
+      if (def) return [inferTransformForBinaryFn(def.name)];
     }
 
-    throw new Error(`Function ${ref.funcId} not found or has no definition`);
+    // Fallback: referenced function not yet processed (forward reference in spec).
+    // Return type was pre-computed for combine/pipe builders during Pass 1.
+    const precomputedType = state.returnTypeByFuncKey.get(ref.funcId);
+    if (precomputedType !== undefined) return [getPassTransformFn(precomputedType)];
+
+    throw new Error(
+      `Function "${ref.funcId}" not found — forward references to cond functions are not supported; ` +
+      `declare the cond function before functions that reference its output`,
+    );
   }
 
   // Handle StepOutputRef

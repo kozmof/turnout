@@ -1,5 +1,5 @@
 import { assertValidContext, buildNull, buildExecutionTree, executeTree } from 'runtime';
-import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
+import type { AnyValue, FuncId } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, PublishHookContext, PublishHookImpl } from '../types/harness-types.js';
@@ -44,7 +44,7 @@ export async function executeAction(
   const preparedValues = await resolveActionPrepare(action.prepare ?? [], state, hooks, action.id);
 
   // Step 2: translate ProgModel + injected values → ExecutionContext.
-  const builtCtx = buildContextFromProg(action.compute.prog, preparedValues);
+  const builtCtx = buildContextFromProg(action.compute.prog, preparedValues, action.id);
 
   // Step 3: validate the execution context.
   const validatedCtx = assertValidContext(builtCtx.exec);
@@ -55,24 +55,17 @@ export async function executeAction(
   // binding is ever executed twice, including side-branch bindings not reachable
   // from the root.
   //
-  // buildExecutionTree is called once per funcId and cached: the tree structure
-  // depends only on the static context (funcTable, def tables), not the valueTable.
-  //
   // updatedTable is mutated in-place via Object.assign to avoid O(N²) object
   // allocations from spreading the full table on every binding iteration.
   const updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
-  const treeCache = new Map<FuncId, ExecutionTree>();
 
   for (const binding of action.compute.prog.bindings) {
     const valueId = builtCtx.nameToValueId[binding.name];
 
     if (updatedTable[valueId] === undefined && binding.expr) {
       const funcId = builtCtx.getFuncId(binding.name)!;
-      if (!treeCache.has(funcId)) {
-        treeCache.set(funcId, buildExecutionTree(funcId, validatedCtx));
-      }
-      const result = executeTree(treeCache.get(funcId)!, { ...validatedCtx, valueTable: updatedTable });
+      const result = executeTree(buildExecutionTree(funcId, validatedCtx), { ...validatedCtx, valueTable: updatedTable });
       Object.assign(updatedTable, result.updatedValueTable);
 
       if (updatedTable[valueId] === undefined) {

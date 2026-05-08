@@ -251,7 +251,7 @@ function evaluateNextRules(
       condMet = false;
     } else {
       const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared);
+      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
       const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;

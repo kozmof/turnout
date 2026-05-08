@@ -63,6 +63,9 @@ export async function resolveActionPrepare(
  *   - from_action:  reads a binding value from the previous action's result (the from_action stub)
  *   - from_state:   reads from the post-merge STATE
  *   - from_literal: converts the inline literal to a typed AnyValue
+ *
+ * Note: from_hook is NOT supported here — next-rule evaluation is synchronous and
+ * hook calls are async. Use from_action or from_state to pass values into next rules.
  */
 export function resolveNextPrepare(
   entries: NextPrepareEntry[],
@@ -86,6 +89,14 @@ export function resolveNextPrepare(
       result[entry.binding] = val;
     } else if (entry.fromLiteral !== undefined) {
       result[entry.binding] = inferLiteralValue(entry.fromLiteral);
+    } else if ((entry as Record<string, unknown>).fromHook !== undefined) {
+      // from_hook requires async execution — not supported in synchronous next-rule evaluate.
+      // Use from_action to forward an action binding, or from_state for a state path.
+      throw new PrepareError(
+        'UnregisteredHook',
+        prevResult.actionId,
+        `from_hook is not supported in next-rule prepare entries (binding "${entry.binding}"); use from_action or from_state instead`,
+      );
     }
   }
 

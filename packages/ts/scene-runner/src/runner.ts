@@ -147,7 +147,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   }
 
   // Route mode accumulation
-  const routeHistory: string[] = [];
+  let routeHistory: string[] = [];
   const routeSceneTraces: SceneTrace[] = [];
   let routeTransitionCount = 0;
   const MAX_ROUTE_TRANSITIONS = 1_000;
@@ -204,7 +204,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       // Entries for the finished scene are no longer needed — non-catchall route
       // arms only match pattern.sceneId === currentSceneId, so previous scenes'
       // history can never affect future transitions.
-      routeHistory.length = 0;
+      routeHistory = [];
 
       if (nextSceneId === null) {
         done = true;

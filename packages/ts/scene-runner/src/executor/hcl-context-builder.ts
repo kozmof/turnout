@@ -76,12 +76,12 @@ const FN_MAP: Record<string, string> = {
   arr_includes:  'binaryFnArray::includes',
 };
 
-function mapFnName(hclFn: string): Parameters<typeof combine>[0] {
+function mapFnName(hclFn: string, contextId: string): Parameters<typeof combine>[0] {
   const mapped = FN_MAP[hclFn];
   if (!mapped) {
     throw new SceneRuntimeError(
       'UnknownFunction',
-      '(prog)',
+      contextId,
       `unknown HCL function name "${hclFn}" — no runtime mapping exists`,
     );
   }
@@ -127,6 +127,7 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
 export function buildSpec(
   prog: ProgModel,
   injectedValues: Record<string, AnyValue>,
+  contextId = '(unknown)',
 ): Record<string, unknown> {
   const spec: Record<string, unknown> = {};
   let litCounter = 0;
@@ -187,7 +188,7 @@ export function buildSpec(
         injected !== undefined ? injected : literalToValue(binding.value!, binding.type);
     } else if (binding.expr.combine) {
       const c = binding.expr.combine;
-      spec[binding.name] = combine(mapFnName(c.fn), {
+      spec[binding.name] = combine(mapFnName(c.fn, contextId), {
         a: asCombineArg(resolveArg(c.args[0])),
         b: asCombineArg(resolveArg(c.args[1])),
       });
@@ -198,7 +199,7 @@ export function buildSpec(
         argBindings[param.paramName] = param.sourceIdent;
       }
       const steps = p.steps.map((step) =>
-        combine(mapFnName(step.fn), {
+        combine(mapFnName(step.fn, contextId), {
           a: asCombineArg(resolveArg(step.args[0], binding.name)),
           b: asCombineArg(resolveArg(step.args[1], binding.name)),
         }),
@@ -259,12 +260,17 @@ export function buildNameToValueId(
  *
  * `injectedValues` are values resolved by the prepare resolver (from_state,
  * from_action, from_hook). They override the binding's declared literal default.
+ *
+ * `contextId` is included in any `SceneRuntimeError` thrown during context
+ * construction (e.g. unknown HCL function names). Pass the action ID so errors
+ * surface the actual source rather than the generic `'(unknown)'` placeholder.
  */
 export function buildContextFromProg(
   prog: ProgModel,
   injectedValues: Record<string, AnyValue>,
+  contextId = '(unknown)',
 ): BuiltContext {
-  const spec = buildSpec(prog, injectedValues);
+  const spec = buildSpec(prog, injectedValues, contextId);
   const result = ctx(spec as ContextSpec); // dynamic spec — branded keys unavailable statically
   const ids = result.ids as Record<string, FuncId | ValueId>; // see asFuncId/asValueId above
   const funcTable = result.exec.funcTable as unknown as Record<string, { returnId: ValueId }>;

@@ -36,9 +36,16 @@ export async function runHarness(options: HarnessOptions): Promise<HarnessResult
   // ── 3a. Route mode ────────────────────────────────────────────────────────
   const route = routeMap[options.entryId];
   if (route) {
-    const entrySceneId = model.scenes[0]?.id;
+    // Prefer the route's declared entry scene; fall back to the first model scene
+    // for legacy models generated before entrySceneId was added to the schema.
+    const entrySceneId = route.entrySceneId || model.scenes[0]?.id;
     if (!entrySceneId) {
       throw new Error(`runHarness: route "${options.entryId}" found but model has no scenes`);
+    }
+    if (!sceneMap[entrySceneId]) {
+      throw new Error(
+        `runHarness: route "${options.entryId}" entry scene "${entrySceneId}" is not in the model`,
+      );
     }
     const result = await executeRoute(route, sceneMap, entrySceneId, state, options.hooks);
     return {

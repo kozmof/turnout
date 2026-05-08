@@ -163,6 +163,7 @@ export { literalToValue };
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace StateManager {
+  /** @deprecated Use `stateManagerFromUnchecked` for no-validation semantics. */
   export const from = stateManagerFromUnchecked;
   export const fromStrict = stateManagerFromStrict;
   export const fromSchema = stateManagerFromSchema;
