@@ -819,6 +819,12 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 // defined before the outer ones that reference them. The user's declared name
 // is assigned to the outermost arm (i == 0) and is therefore emitted last.
 func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm) {
+	if len(arms) == 0 {
+		*c.ds = append(*c.ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: #case with no arms always returns zero — add at least one arm or a wildcard (_)", c.target))
+		c.emitValue(name, ft, zeroLiteralFor(ft))
+		return
+	}
 	subjectType := c.inferLocalType(subject, ft)
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType)
 	fallbackFn := ""
@@ -1106,7 +1112,13 @@ func localFnReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 		return ast.FieldTypeBool
 	case "str_concat":
 		return ast.FieldTypeStr
-	case "arr_concat", "arr_get":
+	case "arr_concat":
+		return fallback
+	case "arr_get":
+		// arr_get(arr<T>, number) → T; resolve the element type when we know the array type.
+		if fallback.IsArray() {
+			return fallback.ElemType()
+		}
 		return fallback
 	case "add", "sub", "mul", "div", "mod", "max", "min":
 		return ast.FieldTypeNumber

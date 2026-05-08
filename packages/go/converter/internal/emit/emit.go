@@ -221,8 +221,8 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 
 // chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
 // content lines will be prefixed with indent. It tries named candidates first,
-// then falls back to an incrementing numeric suffix until finding one that does
-// not collide with any indented content line.
+// then falls back to an incrementing numeric suffix. If the content contains
+// every candidate (pathological case), a FNV-derived suffix guarantees termination.
 func chooseHeredocDelim(text, indent string) string {
 	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
 	lines := strings.Split(text, "\n")
@@ -235,12 +235,21 @@ func chooseHeredocDelim(text, indent string) string {
 			return delim
 		}
 	}
-	for n := 3; ; n++ {
+	for n := 3; n < 1000; n++ {
 		delim := fmt.Sprintf("TURN_EOT_%d", n)
 		if _, collision := lineSet[indent+delim]; !collision {
 			return delim
 		}
 	}
+	// Fallback: derive a delimiter from the content via a simple FNV-style hash.
+	// Reaching here requires the content to contain 1000+ TURN_EOT_N variants,
+	// which is not a realistic input — but we must not loop forever.
+	var h uint32 = 2166136261
+	for i := 0; i < len(text) && i < 4096; i++ {
+		h ^= uint32(text[i])
+		h *= 16777619
+	}
+	return fmt.Sprintf("TURN_EOT_%08x", h)
 }
 
 // writeText emits:

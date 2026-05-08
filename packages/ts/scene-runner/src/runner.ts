@@ -149,6 +149,8 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   // Route mode accumulation
   const routeHistory: string[] = [];
   const routeSceneTraces: SceneTrace[] = [];
+  let routeTransitionCount = 0;
+  const MAX_ROUTE_TRANSITIONS = 1_000;
 
   // hooks is passed by reference so useHook() mutations are visible
   // to the executor without needing to recreate it.
@@ -208,6 +210,14 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       const nextScene = sceneMap[nextSceneId];
       if (!nextScene) {
         throw new Error(`Runner: unknown scene "${nextSceneId}" referenced by route`);
+      }
+
+      routeTransitionCount++;
+      if (routeTransitionCount > MAX_ROUTE_TRANSITIONS) {
+        done = true;
+        throw new Error(
+          `Runner: route "${route.id}" exceeded ${MAX_ROUTE_TRANSITIONS} scene transitions — possible infinite loop`,
+        );
       }
 
       currentSceneId = nextSceneId;

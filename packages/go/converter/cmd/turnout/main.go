@@ -39,6 +39,44 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  turnout validate <input.turn> [-state-file path]")
 }
 
+// compileResult bundles the artifacts of a successful parse→lower→validate run.
+type compileResult struct {
+	lr     *lower.LowerResult
+	schema state.Schema
+}
+
+// compile runs parse → state-resolve → lower → validate for inputPath.
+// stateBasePath is used to resolve state_file references. On any error it
+// returns (nil, diags-with-errors); on success it returns (result, warnings).
+func compile(inputPath, stateBasePath string) (*compileResult, diag.Diagnostics) {
+	src, err := os.ReadFile(inputPath)
+	if err != nil {
+		return nil, diag.Diagnostics{diag.Errorf("IOError", "cannot read %s: %v", inputPath, err)}
+	}
+
+	turnFile, ds1 := parser.ParseFile(inputPath, string(src))
+	if ds1.HasErrors() {
+		return nil, ds1
+	}
+
+	schema, ds2 := state.Resolve(turnFile.StateSource, stateBasePath)
+	if ds2.HasErrors() {
+		return nil, ds2
+	}
+
+	lr, ds3 := lower.Lower(turnFile, schema)
+	if ds3.HasErrors() {
+		return nil, ds3
+	}
+
+	ds4 := validate.Validate(lr.Model, schema)
+	if ds4.HasErrors() {
+		return nil, ds4
+	}
+
+	return &compileResult{lr: lr, schema: schema}, ds4
+}
+
 func runConvert(args []string) int {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
 	output := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
@@ -56,48 +94,24 @@ func runConvert(args []string) int {
 	}
 
 	inputPath := fs.Arg(0)
-
-	src, err := os.ReadFile(inputPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "turnout: cannot read %s: %v\n", inputPath, err)
-		return 1
-	}
-
-	turnFile, ds := parser.ParseFile(inputPath, string(src))
-	if ds.HasErrors() {
-		printDiags(ds)
-		return 1
-	}
-
 	basePath := filepath.Dir(inputPath)
 	if *stateFile != "" {
 		basePath = *stateFile
 	}
-	schema, ds2 := state.Resolve(turnFile.StateSource, basePath)
-	if ds2.HasErrors() {
-		printDiags(ds2)
+
+	result, ds := compile(inputPath, basePath)
+	if ds.HasErrors() || result == nil {
+		printDiags(ds)
 		return 1
 	}
-
-	lr, ds3 := lower.Lower(turnFile, schema)
-	if ds3.HasErrors() {
-		printDiags(ds3)
-		return 1
-	}
-
-	ds4 := validate.Validate(lr.Model, schema)
-	if ds4.HasErrors() {
-		printDiags(ds4)
-		return 1
-	}
-
-	// Clear annotations before emission — they are validator-only metadata.
-	lr.Model.Annotations = nil
 
 	if *format != "hcl" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "turnout: unknown format %q (must be hcl or json)\n", *format)
 		return 1
 	}
+
+	// Clear annotations before emission — they are validator-only metadata.
+	result.lr.Model.Annotations = nil
 
 	ext := "." + *format
 	var w io.Writer
@@ -118,14 +132,14 @@ func runConvert(args []string) int {
 	}
 
 	if *format == "json" {
-		if err := emit.EmitJSON(w, lr.Model); err != nil {
+		if err := emit.EmitJSON(w, result.lr.Model); err != nil {
 			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
 			return 1
 		}
 		return 0
 	}
 
-	ds5 := emit.Emit(w, lr.Model)
+	ds5 := emit.Emit(w, result.lr.Model)
 	if ds5.HasErrors() {
 		printDiags(ds5)
 		return 1
@@ -135,7 +149,7 @@ func runConvert(args []string) int {
 }
 
 // runValidate runs parse → state resolve → lower → validate and exits 0 on
-// success, 1 on any error. No output is produced; diagnostics go to stderr.
+// success, 1 on any error. All diagnostics (including warnings) go to stderr.
 func runValidate(args []string) int {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
@@ -151,37 +165,14 @@ func runValidate(args []string) int {
 	}
 
 	inputPath := fs.Arg(0)
-	src, err := os.ReadFile(inputPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "turnout: cannot read %s: %v\n", inputPath, err)
-		return 1
-	}
-
-	turnFile, ds := parser.ParseFile(inputPath, string(src))
-	if ds.HasErrors() {
-		printDiags(ds)
-		return 1
-	}
-
 	basePath := filepath.Dir(inputPath)
 	if *stateFile != "" {
 		basePath = *stateFile
 	}
-	schema, ds2 := state.Resolve(turnFile.StateSource, basePath)
-	if ds2.HasErrors() {
-		printDiags(ds2)
-		return 1
-	}
 
-	lr, ds3 := lower.Lower(turnFile, schema)
-	if ds3.HasErrors() {
-		printDiags(ds3)
-		return 1
-	}
-
-	ds4 := validate.Validate(lr.Model, schema)
-	printDiags(ds4)
-	if ds4.HasErrors() {
+	_, ds := compile(inputPath, basePath)
+	printDiags(ds)
+	if ds.HasErrors() {
 		return 1
 	}
 	return 0
