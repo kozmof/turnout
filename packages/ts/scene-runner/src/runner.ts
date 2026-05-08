@@ -7,7 +7,7 @@ import type {
   ActionTrace,
   SceneTrace,
 } from './types/harness-types.js';
-import { stateManagerFrom, stateManagerFromSchema } from './state/state-manager.js';
+import { stateManagerFromUnchecked, stateManagerFromSchema } from './state/state-manager.js';
 import type { StateManager } from './state/state-manager.js';
 import {
   createSceneExecutor,
@@ -120,7 +120,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
 
   let state: StateManager = model.state
     ? stateManagerFromSchema(model.state, options.initialState)
-    : stateManagerFrom(options.initialState);
+    : stateManagerFromUnchecked(options.initialState);
 
   const route = routeMap[options.entryId] ?? null;
   let currentSceneId: string;
@@ -201,6 +201,10 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
         route.match,
         currentSceneId,
       );
+      // Entries for the finished scene are no longer needed — non-catchall route
+      // arms only match pattern.sceneId === currentSceneId, so previous scenes'
+      // history can never affect future transitions.
+      routeHistory.length = 0;
 
       if (nextSceneId === null) {
         done = true;

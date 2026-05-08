@@ -483,8 +483,9 @@ func (l *lex) scanHeredoc(ln, co int) {
 		if i > 0 {
 			body.WriteByte('\n')
 		}
-		if len([]rune(rl)) >= minIndent {
-			body.WriteString(string([]rune(rl)[minIndent:]))
+		// minIndent is a count of leading ASCII whitespace bytes, so byte-slicing is safe.
+		if len(rl) >= minIndent {
+			body.WriteString(rl[minIndent:])
 		} else {
 			body.WriteString(rl)
 		}

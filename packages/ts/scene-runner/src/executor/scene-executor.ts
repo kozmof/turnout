@@ -227,8 +227,10 @@ function buildActionMap(actions: ActionModel[]): Record<string, ActionModel> {
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
  *
- * Rules that share the same `compute.prog.name` reuse a single built context
- * rather than rebuilding it per rule.
+ * Each next rule builds its own context independently. The previous caching
+ * by prog name was incorrect: each `next { compute { prog ... } }` block is
+ * an independent prog object with its own bindings and prepare entries, so
+ * sharing a context across rules with the same name produces wrong conditions.
  */
 function evaluateNextRules(
   action: ActionModel,
@@ -239,10 +241,6 @@ function evaluateNextRules(
   const rules = action.next ?? [];
   const matches: string[] = [];
 
-  // Cache built contexts keyed by prog name to avoid redundant context builds
-  // when multiple next rules share the same prog.
-  const ctxCache = new Map<string, ReturnType<typeof buildContextFromProg> & { validated: ReturnType<typeof assertValidContext> }>();
-
   for (const rule of rules) {
     let condMet: boolean;
 
@@ -252,24 +250,18 @@ function evaluateNextRules(
     } else if (!rule.compute.prog) {
       condMet = false;
     } else {
-      const progName = rule.compute.prog.name;
-      let cached = ctxCache.get(progName);
-      if (!cached) {
-        const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-        const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared);
-        const validated = assertValidContext(builtCtx.exec);
-        cached = { ...builtCtx, validated };
-        ctxCache.set(progName, cached);
-      }
+      const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
+      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared);
+      const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;
-      const condFuncId = cached.getFuncId(conditionName);
+      const condFuncId = builtCtx.getFuncId(conditionName);
       let condValue;
       if (condFuncId != null) {
-        condValue = executeGraph(condFuncId, cached.validated).value;
+        condValue = executeGraph(condFuncId, validated).value;
       } else {
-        const condValueId = cached.nameToValueId[conditionName];
-        condValue = cached.validated.valueTable[condValueId];
+        const condValueId = builtCtx.nameToValueId[conditionName];
+        condValue = validated.valueTable[condValueId];
       }
 
       condMet = isPureBoolean(condValue) && condValue.value;

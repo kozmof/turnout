@@ -40,22 +40,21 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 		actionSet[id] = true
 	}
 
+	// Collect all names referenced by the overview graph in one deduplicated set,
+	// then check membership once — prevents duplicate diagnostics for nodes that
+	// appear in both g.Nodes and as edge endpoints.
+	allReferenced := make(map[string]struct{}, len(g.Nodes)+len(g.Edges)*2)
 	for _, node := range g.Nodes {
-		if !actionSet[node] {
-			ds = append(ds, enforceErr(diag.CodeOverviewUnknownNode,
-				"scene %q: flow references unknown action %q", sceneID, node))
-		}
+		allReferenced[node] = struct{}{}
 	}
-
-	edgeEndpoints := make(map[string]bool)
 	for _, e := range g.Edges {
-		edgeEndpoints[e.From] = true
-		edgeEndpoints[e.To] = true
+		allReferenced[e.From] = struct{}{}
+		allReferenced[e.To] = struct{}{}
 	}
-	for id := range edgeEndpoints {
-		if !actionSet[id] {
+	for name := range allReferenced {
+		if !actionSet[name] {
 			ds = append(ds, enforceErr(diag.CodeOverviewUnknownNode,
-				"scene %q: flow edge references unknown action %q", sceneID, id))
+				"scene %q: flow references unknown action %q", sceneID, name))
 		}
 	}
 
