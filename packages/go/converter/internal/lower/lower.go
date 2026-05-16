@@ -136,7 +136,10 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnost
 	case *ast.InlineStateBlock:
 		return lowerStateBlockFromAST(s)
 	case *ast.StateFileDirective:
-		_ = s
+		if len(schema) == 0 {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+				"state_file %q: schema was not pre-loaded; call state.Load() before Lower()", s.Path))
+		}
 		return lowerStateBlockFromSchema(schema)
 	default:
 		return &turnoutpb.StateModel{}
@@ -435,8 +438,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.IfRHS:
 		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
-		c := newLocalLowerer(name, ft, bindingTypes, ds)
-		bindings = c.lowerTop(rhs)
+		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
 	default:
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
@@ -453,6 +455,13 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		}
 	}
 	return bindings
+}
+
+// lowerLocalRHS delegates IfCallRHS / CaseCallRHS / PipeCallRHS to the
+// localLowerer, making the abstraction boundary explicit in the lowerBinding switch.
+func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) []*turnoutpb.BindingModel {
+	c := newLocalLowerer(name, ft, bindingTypes, ds)
+	return c.lowerTop(rhs)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

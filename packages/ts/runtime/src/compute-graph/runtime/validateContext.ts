@@ -53,7 +53,7 @@ const VALID_BASE_TYPE_SYMBOLS = new Set(baseTypeSymbols);
  * allowing validation to check for these conditions without type system lies.
  */
 export type UnvalidatedContext = {
-  readonly valueTable?: Partial<ValueTable>;
+  readonly valueTable?: ValueTable;
   readonly funcTable?: Partial<FuncTable>;
   readonly combineFuncDefTable?: Partial<Record<string, unknown>>;
   readonly pipeFuncDefTable?: Partial<Record<string, unknown>>;
@@ -607,6 +607,9 @@ type ValidationState = {
   readonly referencedValues: Set<ValueId>;
   readonly referencedDefs: Set<CombineDefineId | PipeDefineId | CondDefineId>;
   readonly returnIds: Set<ValueId>;
+  // Populated by collectReturnIds; reused by checkFunctionCycles to avoid a
+  // second traversal of funcTable.
+  readonly returnIdToFuncId: Map<string, string>;
   // Intentionally mutable during the validation pass — entries are added lazily
   // as types are inferred. The exported TypeEnvironment alias uses ReadonlyMap
   // for the frozen snapshot exposed to consumers after validation completes.
@@ -623,6 +626,7 @@ function createValidationState(): ValidationState {
     referencedValues: new Set(),
     referencedDefs: new Set(),
     returnIds: new Set(),
+    returnIdToFuncId: new Map(),
     typeEnv: new Map(),
   };
 }
@@ -1280,9 +1284,6 @@ function collectReturnIds(
 ): void {
   if (!isRecord(context.funcTable)) return;
 
-  // Track which funcId owns each returnId so duplicates can be reported precisely.
-  const returnIdOwners = new Map<string, string>();
-
   for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
     if (
       isRecord(funcEntry) &&
@@ -1290,14 +1291,14 @@ function collectReturnIds(
       isStringAs<ValueId>(funcEntry.returnId)
     ) {
       const returnId = funcEntry.returnId;
-      const existingOwner = returnIdOwners.get(returnId);
+      const existingOwner = state.returnIdToFuncId.get(returnId);
       if (existingOwner !== undefined) {
         state.errors.push({
           message: `FuncTable: duplicate returnId "${returnId}" shared by "${existingOwner}" and "${funcId}"`,
           details: { returnId, firstOwner: existingOwner, secondOwner: funcId },
         });
       } else {
-        returnIdOwners.set(returnId, funcId);
+        state.returnIdToFuncId.set(returnId, funcId);
         state.returnIds.add(returnId);
       }
     }
@@ -1313,17 +1314,8 @@ function checkFunctionCycles(
 ): void {
   if (!isRecord(context.funcTable)) return;
 
-  const returnIdToFuncId = new Map<string, string>();
-  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-    if (
-      isRecord(funcEntry) &&
-      "returnId" in funcEntry &&
-      typeof funcEntry.returnId === "string"
-    ) {
-      returnIdToFuncId.set(funcEntry.returnId, funcId);
-    }
-  }
-
+  // state.returnIdToFuncId is already populated by collectReturnIds (which runs
+  // before checkFunctionCycles), so we reuse it directly instead of rebuilding.
   const deps = new Map<string, Set<string>>();
 
   for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
@@ -1333,7 +1325,7 @@ function checkFunctionCycles(
     if ("argMap" in funcEntry && isRecord(funcEntry.argMap)) {
       for (const argId of Object.values(funcEntry.argMap)) {
         if (typeof argId !== "string") continue;
-        const producer = returnIdToFuncId.get(argId);
+        const producer = state.returnIdToFuncId.get(argId);
         if (producer) funcDeps.add(producer);
       }
     }
@@ -1379,12 +1371,17 @@ function checkFunctionCycles(
   const reported = new Set<string>();
 
   const reportCycle = (cyclePath: string[]): void => {
-    const key = cyclePath.join(" -> ");
+    // Rotate to start from the lexicographically smallest node so the report
+    // is deterministic regardless of which DFS entry point discovers the cycle.
+    const inner = cyclePath.slice(0, -1);
+    const minIdx = inner.reduce((mi, v, i) => (v < inner[mi] ? i : mi), 0);
+    const normalized = [...inner.slice(minIdx), ...inner.slice(0, minIdx), inner[minIdx]];
+    const key = normalized.join(" -> ");
     if (reported.has(key)) return;
     reported.add(key);
     state.errors.push({
       message: `FuncTable: Cycle detected ${key}`,
-      details: { cycle: cyclePath },
+      details: { cycle: normalized },
     });
   };
 

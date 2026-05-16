@@ -97,8 +97,8 @@ describe('buildSpec — inline literal args', () => {
     const spec = buildSpec(prog, {});
     const litKeys = Object.keys(spec).filter((k) => k.startsWith('__lit_'));
     expect(litKeys).toHaveLength(2);
-    expect(litKeys).toContain('__lit_0');
-    expect(litKeys).toContain('__lit_1');
+    // Counter is module-level; we only verify two distinct keys were generated.
+    expect(new Set(litKeys).size).toBe(2);
   });
 });
 

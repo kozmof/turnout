@@ -4,6 +4,10 @@ import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'r
 import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
+// Module-level counter ensures __lit_N names are globally unique across
+// buildSpec calls, preventing collisions if buildSpec is ever reused incrementally.
+let _litCounter = 0;
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -130,7 +134,6 @@ export function buildSpec(
   contextId = '(unknown)',
 ): Record<string, unknown> {
   const spec: Record<string, unknown> = {};
-  let litCounter = 0;
 
   // Pre-compute which binding names are function bindings (have expr).
   // When a ref arg points to a function binding, the builder API requires
@@ -142,7 +145,7 @@ export function buildSpec(
 
   // Register a synthetic value binding for an inline literal arg.
   function addLitBinding(lit: unknown): string {
-    const name = `__lit_${litCounter++}`;
+    const name = `__lit_${_litCounter++}`;
     spec[name] = inferLiteralAnyValue(lit);
     return name;
   }

@@ -351,6 +351,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		}
 
 		if b.Expr != nil {
+			validateNoEmptyArrayLitArgs(b, ds)
 			switch {
 			case b.Expr.Combine != nil:
 				validateCombine(b, b.Expr.Combine, scope, ds)
@@ -1301,6 +1302,53 @@ func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec 
 	for i := range c.Args[2:] {
 		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 			"binding %q: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, c.Fn, i+2))
+	}
+}
+
+// argHasEmptyArrayLit reports whether arg carries an empty array literal.
+func argHasEmptyArrayLit(arg *turnoutpb.ArgModel) bool {
+	if arg == nil || arg.Lit == nil {
+		return false
+	}
+	lv, ok := arg.Lit.Kind.(*structpb.Value_ListValue)
+	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+}
+
+// validateNoEmptyArrayLitArgs emits CodeEmptyArrayLitArg for any empty array
+// literal used as an inline function argument. Empty arrays are type-ambiguous
+// at runtime (hcl-context-builder.ts cannot infer the element type), so they
+// must be caught here so authors get a clear diagnostic at conversion time.
+//
+// Identity combines (e.g. arr_concat(x, [])) are exempt: the lowerer generates
+// them for single-reference array bindings and the [] carries an implicit type
+// from the other operand.
+func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics) {
+	if b.Expr == nil {
+		return
+	}
+	check := func(arg *turnoutpb.ArgModel) {
+		if argHasEmptyArrayLit(arg) {
+			*ds = append(*ds, diag.Errorf(diag.CodeEmptyArrayLitArg,
+				"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
+					"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
+		}
+	}
+	if c := b.Expr.Combine; c != nil && !isIdentityCombine(c) {
+		for _, arg := range c.Args {
+			check(arg)
+		}
+	}
+	if p := b.Expr.Pipe; p != nil {
+		for _, step := range p.Steps {
+			for _, arg := range step.Args {
+				check(arg)
+			}
+		}
+	}
+	if cond := b.Expr.Cond; cond != nil {
+		check(cond.Condition)
+		check(cond.Then)
+		check(cond.ElseBranch)
 	}
 }
 

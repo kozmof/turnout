@@ -170,6 +170,7 @@ const (
 	CodeDuplicateActionLabel     = "DuplicateActionLabel"
 	CodeUnsupportedConstruct     = "UnsupportedConstruct"
 	CodeCyclicBinding            = "CyclicBinding"
+	CodeEmptyArrayLitArg         = "EmptyArrayLitArg"
 )
 
 // Error codes from scene-graph.md

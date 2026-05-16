@@ -593,7 +593,8 @@ func (*PipeCallRHS) bindingRHS() {}
 // Arg — argument in a function call, infix expression, or pipe step
 // ────────────────────────────────────────────────────────────
 
-// Arg is implemented by all argument node types.
+// Arg is the post-lowering, proto-level argument type used inside CombineExpr
+// and PipeExpr steps. See LocalExpr for its pre-lowering counterpart.
 type Arg interface{ arg() }
 
 // RefArg is a bare identifier reference: `v` → `{ ref = "v" }` in canonical HCL.
