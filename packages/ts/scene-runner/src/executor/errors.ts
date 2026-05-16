@@ -41,7 +41,7 @@ export class SceneRuntimeError extends Error {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RouteErrorCode = 'UnknownScene' | 'NoEntryAction';
+export type RouteErrorCode = 'UnknownScene' | 'NoEntryAction' | 'MaxRouteTransitionsExceeded';
 
 export class RouteRuntimeError extends Error {
   readonly code: RouteErrorCode;

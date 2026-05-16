@@ -135,6 +135,31 @@ func (p *parser) skipTo(kinds ...lexer.TokenKind) {
 	}
 }
 
+func (p *parser) atAny(kinds ...lexer.TokenKind) bool {
+	for _, k := range kinds {
+		if p.peek().Kind == k {
+			return true
+		}
+	}
+	return false
+}
+
+// syncToBlockItem advances to the next likely sibling item in the current
+// block, or to the current block's closing brace. Nested blocks are skipped so
+// recovery does not accidentally stop on a token inside malformed content.
+func (p *parser) syncToBlockItem(starters ...lexer.TokenKind) {
+	for p.peek().Kind != lexer.TokEOF && p.peek().Kind != lexer.TokRBrace {
+		if p.atAny(starters...) {
+			return
+		}
+		if p.peek().Kind == lexer.TokLBrace {
+			p.skipBlock()
+			continue
+		}
+		p.advance()
+	}
+}
+
 // skipBlock skips a balanced { ... } block. Assumes the opening { has NOT yet
 // been consumed.
 func (p *parser) skipBlock() {
@@ -822,14 +847,14 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 
 	nameTok, ok := p.expectIdent()
 	if !ok {
-		p.skipTo(lexer.TokRBrace)
+		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilEgress, lexer.TokSigilIngress)
 		return nil
 	}
 
 	p.expect(lexer.TokColon)
 	ft, ok := p.parseFieldType()
 	if !ok {
-		p.skipTo(lexer.TokRBrace)
+		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilEgress, lexer.TokSigilIngress)
 		return nil
 	}
 
@@ -902,7 +927,7 @@ func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 			prog = p.parseProgBlock()
 		default:
 			p.errorf(t, "unexpected token %s %q in compute block", kindName(t.Kind), t.Value)
-			p.advance()
+			p.syncToBlockItem(lexer.TokKwRoot, lexer.TokKwProg)
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -922,6 +947,9 @@ func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
 		if t.Kind != lexer.TokIdent {
 			p.errorf(t, "expected binding name in prepare block, got %s", kindName(t.Kind))
 			p.advance()
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 			continue
 		}
 		nameTok := p.advance()
@@ -948,7 +976,7 @@ func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
 				p.parseLiteral() // consume and discard
 			default:
 				p.errorf(fk, "unexpected token %s in prepare entry", kindName(fk.Kind))
-				p.advance()
+				p.syncToBlockItem(lexer.TokKwFromState, lexer.TokKwFromHook, lexer.TokKwFromLiteral)
 			}
 		}
 		p.expect(lexer.TokRBrace)
@@ -980,6 +1008,9 @@ func (p *parser) parseMergeBlock() *ast.MergeBlock {
 		if t.Kind != lexer.TokIdent {
 			p.errorf(t, "expected binding name in merge block, got %s", kindName(t.Kind))
 			p.advance()
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 			continue
 		}
 		nameTok := p.advance()
@@ -995,7 +1026,7 @@ func (p *parser) parseMergeBlock() *ast.MergeBlock {
 				toState = p.parseRefVal()
 			} else {
 				p.errorf(fk, "unexpected token %s in merge entry", kindName(fk.Kind))
-				p.advance()
+				p.syncToBlockItem(lexer.TokKwToState)
 			}
 		}
 		p.expect(lexer.TokRBrace)
@@ -1059,6 +1090,9 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 		default:
 			p.errorf(t, "unexpected token %s in next block", kindName(t.Kind))
 			p.advance()
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -1084,7 +1118,7 @@ func (p *parser) parseNextComputeBlock() *ast.NextComputeBlock {
 			prog = p.parseProgBlock()
 		default:
 			p.errorf(t, "unexpected token %s in next compute block", kindName(t.Kind))
-			p.advance()
+			p.syncToBlockItem(lexer.TokKwCondition, lexer.TokKwProg)
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -1102,6 +1136,9 @@ func (p *parser) parseNextPrepareBlock() *ast.NextPrepareBlock {
 		if t.Kind != lexer.TokIdent {
 			p.errorf(t, "expected binding name in next prepare block, got %s", kindName(t.Kind))
 			p.advance()
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 			continue
 		}
 		nameTok := p.advance()
@@ -1126,7 +1163,7 @@ func (p *parser) parseNextPrepareBlock() *ast.NextPrepareBlock {
 				src = &ast.FromLiteral{Pos: p.posOf(fk), Value: p.parseLiteral()}
 			default:
 				p.errorf(fk, "unexpected token %s in next prepare entry", kindName(fk.Kind))
-				p.advance()
+				p.syncToBlockItem(lexer.TokKwFromAction, lexer.TokKwFromState, lexer.TokKwFromLiteral)
 			}
 		}
 		p.expect(lexer.TokRBrace)
@@ -1195,6 +1232,9 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 		default:
 			p.errorf(t, "unexpected token %s %q in action block", kindName(t.Kind), t.Value)
 			p.advance()
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -1282,6 +1322,9 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 		default:
 			p.errorf(t, "unexpected token %s %q in scene block", kindName(t.Kind), t.Value)
 			p.advance()
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 		}
 	}
 	p.expect(lexer.TokRBrace)

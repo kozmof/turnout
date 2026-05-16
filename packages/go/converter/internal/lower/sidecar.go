@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -88,9 +89,24 @@ func (s *Sidecar) ToAnnotations() *turnoutpb.SigilAnnotations {
 	if len(s.sigils) == 0 {
 		return nil
 	}
-	m := make(map[string]int32, len(s.sigils))
-	for k, v := range s.sigils {
-		m[sigilAnnotationKey(k)] = int32(v)
+	keys := make([]BindingKey, 0, len(s.sigils))
+	for k := range s.sigils {
+		keys = append(keys, k)
 	}
-	return &turnoutpb.SigilAnnotations{Sigils: m}
+	sort.Slice(keys, func(i, j int) bool {
+		return sigilAnnotationKey(keys[i]) < sigilAnnotationKey(keys[j])
+	})
+
+	entries := make([]*turnoutpb.SigilAnnotation, 0, len(keys))
+	for _, k := range keys {
+		entries = append(entries, &turnoutpb.SigilAnnotation{
+			SceneId:     k.SceneID,
+			ActionId:    k.ActionID,
+			Scope:       k.Scope.String(),
+			ProgName:    k.ProgName,
+			BindingName: k.BindingName,
+			Sigil:       int32(s.sigils[k]),
+		})
+	}
+	return &turnoutpb.SigilAnnotations{Entries: entries}
 }

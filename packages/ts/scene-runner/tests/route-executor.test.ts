@@ -276,3 +276,32 @@ describe('executeRoute — result metadata', () => {
     expect(result.trace.routeId).toBe('my_route');
   });
 });
+
+describe('executeRoute — execution limits', () => {
+  const first = { ...makePassAction('first', 1, 'step.first'), next: [{ action: 'second' }] } as unknown as ActionModel;
+  const second = makePassAction('second', 2, 'step.second');
+  const longScene = { id: 'long_scene', entryActions: ['first'], actions: [first, second] } as unknown as SceneBlock;
+
+  it('passes maxSceneSteps through to scene execution', async () => {
+    const route = { id: 'limited', match: [] } as unknown as RouteModel;
+    await expect(() =>
+      executeRoute(route, makeSceneMap(longScene), 'long_scene', StateManager.from({}), {}, { maxSceneSteps: 1 }),
+    ).rejects.toThrow('exceeded 1 action steps');
+  });
+
+  it('stops routes that exceed maxRouteTransitions', async () => {
+    const s1 = makeScene('s1', makePassAction('a', 1, 'v.a'));
+    const s2 = makeScene('s2', makePassAction('b', 2, 'v.b'));
+    const route = {
+      id: 'loop',
+      match: [
+        { patterns: ['s1.a'], target: 's2' },
+        { patterns: ['s2.b'], target: 's1' },
+      ],
+    } as unknown as RouteModel;
+
+    await expect(() =>
+      executeRoute(route, makeSceneMap(s1, s2), 's1', StateManager.from({}), {}, { maxRouteTransitions: 0 }),
+    ).rejects.toThrow('exceeded 0 scene transitions');
+  });
+});

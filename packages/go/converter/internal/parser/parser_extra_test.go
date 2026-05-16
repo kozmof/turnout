@@ -1481,3 +1481,58 @@ func hasParserDiagCode(ds diag.Diagnostics, code string) bool {
 	}
 	return false
 }
+
+func TestParserRecoveryReportsSiblingActionBlockErrors(t *testing.T) {
+	src := minimalTurnFile(`  entry_actions = ["a"]
+  action "a" {
+    garbage { nested { ignored = true } }
+    also_bad { ignored = true }
+    compute { root = v prog "p" { v:bool = true } }
+  }`)
+	_, ds := parser.ParseFile("test.turn", src)
+	if countParserDiagnosticsContaining(ds, "action block") < 2 {
+		t.Fatalf("expected recovery to report both malformed action siblings, got %v", ds)
+	}
+}
+
+func TestParserRecoveryReportsSiblingPrepareEntryErrors(t *testing.T) {
+	src := minimalTurnFile(`  entry_actions = ["a"]
+  action "a" {
+    compute { root = v prog "p" { ~>v:number } }
+    prepare {
+      123 { bad = true }
+      456 { also_bad = true }
+      v { from_state = ns.val }
+    }
+  }`)
+	_, ds := parser.ParseFile("test.turn", src)
+	if countParserDiagnosticsContaining(ds, "prepare block") < 2 {
+		t.Fatalf("expected recovery to report both malformed prepare siblings, got %v", ds)
+	}
+}
+
+func TestParserRecoveryReportsSiblingNextItemErrors(t *testing.T) {
+	src := minimalTurnFile(`  entry_actions = ["a"]
+  action "a" {
+    compute { root = v prog "p" { v:bool = true } }
+    next {
+      garbage { nested = true }
+      also_bad { nested = true }
+      action = a
+    }
+  }`)
+	_, ds := parser.ParseFile("test.turn", src)
+	if countParserDiagnosticsContaining(ds, "next block") < 2 {
+		t.Fatalf("expected recovery to report both malformed next siblings, got %v", ds)
+	}
+}
+
+func countParserDiagnosticsContaining(ds diag.Diagnostics, needle string) int {
+	count := 0
+	for _, d := range ds {
+		if strings.Contains(d.Message, needle) {
+			count++
+		}
+	}
+	return count
+}

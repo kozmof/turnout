@@ -42,6 +42,10 @@ export type HarnessOptions = {
   initialState: Record<string, AnyValue>;
   /** Optional hook implementations for from_hook prepare entries. */
   hooks?: HookRegistry;
+  /** Maximum action steps allowed per scene execution. */
+  maxSceneSteps?: number;
+  /** Maximum scene transitions allowed during route execution. */
+  maxRouteTransitions?: number;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

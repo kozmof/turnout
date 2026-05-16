@@ -47,7 +47,10 @@ export async function runHarness(options: HarnessOptions): Promise<HarnessResult
         `runHarness: route "${options.entryId}" entry scene "${entrySceneId}" is not in the model`,
       );
     }
-    const result = await executeRoute(route, sceneMap, entrySceneId, state, options.hooks);
+    const result = await executeRoute(route, sceneMap, entrySceneId, state, options.hooks, {
+      maxSceneSteps: options.maxSceneSteps,
+      maxRouteTransitions: options.maxRouteTransitions,
+    });
     return {
       finalState: result.finalState,
       trace: { kind: 'route', route: result.trace },
@@ -58,7 +61,7 @@ export async function runHarness(options: HarnessOptions): Promise<HarnessResult
   // ── 3b. Scene mode ────────────────────────────────────────────────────────
   const scene = sceneMap[options.entryId];
   if (scene) {
-    const result = await executeScene(scene, state, options.hooks);
+    const result = await executeScene(scene, state, options.hooks, undefined, options.maxSceneSteps);
     return {
       finalState: result.stateAfterScene.snapshot(),
       trace: { kind: 'scene', scene: result.trace },

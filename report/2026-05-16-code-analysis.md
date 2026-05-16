@@ -224,17 +224,24 @@ Inline state lowering now preserves author declaration order for namespaces and 
 **1. Go binary as subprocess dependency**
 The scene-runner's `server/bridge.ts` spawns the Go binary to convert `.turn` files. This requires Go to be installed alongside the TypeScript consumer. A WASM port of the converter would eliminate this requirement.
 
-**2. Two parallel expression trees**
-The system maintains `LocalExpr` (pre-lowering, AST-level) and `Arg` (post-lowering, proto-level), both with literal/ref/call variants. Both are also mapped to proto messages (`LocalExprModel`, `ArgModel`). A single IR serving both roles could reduce the total type surface.
+**2. Two parallel expression trees — Resolved incrementally**
+A full IR rewrite was avoided. Instead, `packages/go/converter/internal/localexpr/` now provides shared proto-local-expression traversal helpers. Validation uses this shared traversal for `LocalExprModel` reference collection, reducing duplicated recursive switch logic while keeping the existing `ast.LocalExpr`, `ast.Arg`, `LocalExprModel`, and `ArgModel` public shapes unchanged.
 
-**3. Sigil annotation key encoding**
-The key `"sceneID:actionID:scope:progName:bindingName"` in `SigilAnnotations` is an implicit string encoding. A proto message with explicit fields would be safer and self-documenting.
+**3. Sigil annotation key encoding — Resolved with compatibility path**
+`schema/turnout-model.proto` now includes structured `SigilAnnotation` entries with explicit `scene_id`, `action_id`, `scope`, `prog_name`, `binding_name`, and `sigil` fields. `lower.Sidecar` emits structured entries, and validation reads structured entries first while retaining fallback support for the legacy string-keyed `sigils` map.
 
-**4. `DEFAULT_MAX_STEPS` is not per-route configurable**
-The 10,000-step ceiling in `createSceneExecutor` is a global constant. Complex scene graphs with legitimately long chains cannot raise this per-route; it must be passed as a parameter to every `executeScene()` call.
+**4. `DEFAULT_MAX_STEPS` is not per-route configurable — Resolved**
+Route execution now accepts `maxSceneSteps` and `maxRouteTransitions` options. These flow through `executeRoute`, `runHarness`, and `createRunner`, while preserving the previous defaults: 10,000 action steps per scene and 1,000 route transitions.
 
-**5. Compiler error recovery is coarse**
-On parse error, recovery uses `skipTo(TokRBrace)` or `skipBlock()`. This means one malformed block may suppress errors in adjacent sibling blocks. A more granular recovery strategy (e.g., re-sync at the next `action` or `scene` keyword) would surface more errors per compilation pass.
+**5. Compiler error recovery is coarse — Improved**
+The parser now has scoped recovery helpers (`syncToBlockItem`, `atAny`) and uses them in key scene/action/compute/prepare/merge/next parsing paths. Malformed block items skip their own nested bodies and continue to sibling items, surfacing more diagnostics in a single parse pass.
+
+### Verification
+
+- `buf generate` was run via the local Buf binary and regenerated Go/TypeScript protobuf types.
+- `go test ./...` from `packages/go/converter` passes.
+- `pnpm test` from `packages/ts/scene-runner` passes: 16 test files, 215 tests.
+- `pnpm run typecheck` from repo root passes.
 
 ---
 

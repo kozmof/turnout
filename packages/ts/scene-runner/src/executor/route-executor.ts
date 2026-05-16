@@ -10,6 +10,15 @@ import { RouteRuntimeError } from './errors.js';
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type RouteExecutionOptions = {
+  /** Maximum action steps allowed per scene execution. Defaults to scene executor default. */
+  maxSceneSteps?: number;
+  /** Maximum scene transitions before aborting a route. Defaults to 1,000. */
+  maxRouteTransitions?: number;
+};
+
+const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
+
 export type RouteExecutionResult = {
   routeId: string;
   finalState: Record<string, AnyValue>;
@@ -43,7 +52,10 @@ export async function executeRoute(
   entrySceneId: string,
   state: StateManager,
   hooks: HookRegistry = {},
+  options: RouteExecutionOptions = {},
 ): Promise<RouteExecutionResult> {
+  const maxRouteTransitions = options.maxRouteTransitions ?? DEFAULT_MAX_ROUTE_TRANSITIONS;
+  let routeTransitionCount = 0;
   const history: string[] = [];
   const sceneTraces: RouteTrace['scenes'] = [];
   const warnings: string[] = [];
@@ -61,7 +73,7 @@ export async function executeRoute(
     }
     const routeEntry = scene.entryActions[0];
     if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${currentSceneId}" has no entry actions`);
-    const sceneResult = await executeScene(scene, state, hooks, [routeEntry]);
+    const sceneResult = await executeScene(scene, state, hooks, [routeEntry], options.maxSceneSteps);
     state = sceneResult.stateAfterScene;
     sceneTraces.push(sceneResult.trace);
 
@@ -73,6 +85,15 @@ export async function executeRoute(
     // Evaluate match arms against history, restricting to patterns for the current scene.
     const nextSceneId = selectNextScene(history, route.match, currentSceneId);
     if (nextSceneId === null) break; // No arm matched — route completes.
+
+    routeTransitionCount++;
+    if (routeTransitionCount > maxRouteTransitions) {
+      throw new RouteRuntimeError(
+        'MaxRouteTransitionsExceeded',
+        route.id,
+        `exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
+      );
+    }
 
     currentSceneId = nextSceneId;
   }

@@ -598,10 +598,7 @@ scene "test" {
     }
   }
 }`)
-	annotKey := lower.SigilAnnotationKey("test", "a", lower.ComputeScope(), "p", "score")
-	if tm.Annotations == nil || ast.Sigil(tm.Annotations.Sigils[annotKey]) != ast.SigilIngress {
-		t.Errorf("sigil = %v, want Ingress", tm.Annotations)
-	}
+	assertSigilAnnotation(t, tm, "test", "a", lower.ComputeScope(), "p", "score", ast.SigilIngress)
 	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
@@ -633,10 +630,7 @@ scene "test" {
     }
   }
 }`)
-	annotKey := lower.SigilAnnotationKey("test", "a", lower.ComputeScope(), "p", "approved")
-	if tm.Annotations == nil || ast.Sigil(tm.Annotations.Sigils[annotKey]) != ast.SigilEgress {
-		t.Errorf("sigil = %v, want Egress", tm.Annotations)
-	}
+	assertSigilAnnotation(t, tm, "test", "a", lower.ComputeScope(), "p", "approved", ast.SigilEgress)
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
 		t.Fatalf("expected 1 merge entry, got %d", len(mg))
@@ -667,10 +661,7 @@ scene "test" {
     }
   }
 }`)
-	annotKey := lower.SigilAnnotationKey("test", "a", lower.ComputeScope(), "p", "count")
-	if tm.Annotations == nil || ast.Sigil(tm.Annotations.Sigils[annotKey]) != ast.SigilBiDir {
-		t.Errorf("sigil = %v, want BiDir", tm.Annotations)
-	}
+	assertSigilAnnotation(t, tm, "test", "a", lower.ComputeScope(), "p", "count", ast.SigilBiDir)
 	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
 		t.Error("expected prepare entries")
 	}
@@ -823,4 +814,20 @@ func TestLowerIdempotency(t *testing.T) {
 	if len(m1.Scenes[0].Actions) != len(m2.Scenes[0].Actions) {
 		t.Errorf("action count differs: %d vs %d", len(m1.Scenes[0].Actions), len(m2.Scenes[0].Actions))
 	}
+}
+
+func assertSigilAnnotation(t *testing.T, tm *turnoutpb.TurnModel, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, want ast.Sigil) {
+	t.Helper()
+	if tm.Annotations == nil {
+		t.Fatal("missing annotations")
+	}
+	for _, entry := range tm.Annotations.Entries {
+		if entry.SceneId == sceneID && entry.ActionId == actionID && entry.Scope == scope.String() && entry.ProgName == progName && entry.BindingName == bindingName {
+			if ast.Sigil(entry.Sigil) != want {
+				t.Fatalf("sigil = %v, want %v", ast.Sigil(entry.Sigil), want)
+			}
+			return
+		}
+	}
+	t.Fatalf("missing structured sigil annotation for %s", lower.SigilAnnotationKey(sceneID, actionID, scope, progName, bindingName))
 }

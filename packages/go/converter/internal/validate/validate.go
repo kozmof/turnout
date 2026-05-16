@@ -10,6 +10,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/localexpr"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/overview"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
@@ -31,11 +32,11 @@ type bindingInfo struct {
 type fnKind int
 
 const (
-	fnKindStandard   fnKind = iota // regular typed binary function
-	fnKindGeneric                  // eq/neq: both operands must share the same type
-	fnKindArrGet                   // arr_get: returns element type of arg1
-	fnKindArrInc                   // arr_includes: returns bool
-	fnKindArrConcat                // arr_concat: returns same array type as arg1
+	fnKindStandard  fnKind = iota // regular typed binary function
+	fnKindGeneric                 // eq/neq: both operands must share the same type
+	fnKindArrGet                  // arr_get: returns element type of arg1
+	fnKindArrInc                  // arr_includes: returns bool
+	fnKindArrConcat               // arr_concat: returns same array type as arg1
 )
 
 type fnSpec struct {
@@ -366,10 +367,23 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	return scope
 }
 
-// sigilFor looks up the sigil for a binding from tm.Annotations. Returns
-// SigilNone when annotations is nil or no entry exists.
+// sigilFor looks up the sigil for a binding from tm.Annotations. Structured
+// entries are canonical; the legacy string-keyed map remains a fallback for
+// models built before SigilAnnotation entries were added.
 func sigilFor(annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
-	if annotations == nil || annotations.Sigils == nil {
+	if annotations == nil {
+		return ast.SigilNone
+	}
+	for _, entry := range annotations.GetEntries() {
+		if entry.GetSceneId() == sceneID &&
+			entry.GetActionId() == actionID &&
+			entry.GetScope() == scope.String() &&
+			entry.GetProgName() == progName &&
+			entry.GetBindingName() == bindingName {
+			return ast.Sigil(entry.GetSigil())
+		}
+	}
+	if annotations.Sigils == nil {
 		return ast.SigilNone
 	}
 	key := lower.SigilAnnotationKey(sceneID, actionID, scope, progName, bindingName)
@@ -1540,33 +1554,9 @@ func collectArgBindingRefs(arg *turnoutpb.ArgModel, refs *[]string) {
 // collectLocalExprBindingRefs extracts binding name references from a LocalExprModel
 // for cycle detection. Used for ext_expr bindings that have no Expr counterpart.
 func collectLocalExprBindingRefs(e *turnoutpb.LocalExprModel, refs *[]string) {
-	if e == nil {
-		return
-	}
-	switch x := e.Expr.(type) {
-	case *turnoutpb.LocalExprModel_Ref:
-		*refs = append(*refs, x.Ref.GetName())
-	case *turnoutpb.LocalExprModel_Call:
-		for _, a := range x.Call.GetArgs() {
-			collectLocalExprBindingRefs(a, refs)
+	localexpr.WalkProto(e, func(node *turnoutpb.LocalExprModel) {
+		if ref, ok := node.Expr.(*turnoutpb.LocalExprModel_Ref); ok {
+			*refs = append(*refs, ref.Ref.GetName())
 		}
-	case *turnoutpb.LocalExprModel_Infix:
-		collectLocalExprBindingRefs(x.Infix.GetLhs(), refs)
-		collectLocalExprBindingRefs(x.Infix.GetRhs(), refs)
-	case *turnoutpb.LocalExprModel_IfExpr:
-		collectLocalExprBindingRefs(x.IfExpr.GetCond(), refs)
-		collectLocalExprBindingRefs(x.IfExpr.GetThen(), refs)
-		collectLocalExprBindingRefs(x.IfExpr.GetElseBranch(), refs)
-	case *turnoutpb.LocalExprModel_CaseExpr:
-		collectLocalExprBindingRefs(x.CaseExpr.GetSubject(), refs)
-		for _, arm := range x.CaseExpr.GetArms() {
-			collectLocalExprBindingRefs(arm.GetGuard(), refs)
-			collectLocalExprBindingRefs(arm.GetExpr(), refs)
-		}
-	case *turnoutpb.LocalExprModel_PipeExpr:
-		collectLocalExprBindingRefs(x.PipeExpr.GetInitial(), refs)
-		for _, s := range x.PipeExpr.GetSteps() {
-			collectLocalExprBindingRefs(s, refs)
-		}
-	}
+	})
 }

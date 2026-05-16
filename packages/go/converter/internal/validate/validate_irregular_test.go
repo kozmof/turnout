@@ -115,8 +115,8 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 			wantCode: diag.CodeStateTypeMismatch,
 		},
 		{
-			name:  "unresolved_merge_binding",
-			merge: []*turnoutpb.MergeEntry{{Binding: "ghost", ToState: "app.score"}},
+			name:     "unresolved_merge_binding",
+			merge:    []*turnoutpb.MergeEntry{{Binding: "ghost", ToState: "app.score"}},
 			wantCode: diag.CodeUnresolvedMergeBinding,
 		},
 	}
@@ -218,11 +218,10 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			model := irregularModelWithAction(action)
 			// "transition_output_sigil" needs a sigil on binding "out" in next prog.
 			if tc.name == "transition_output_sigil" {
-				key := lower.SigilAnnotationKey("s", "a", lower.NextScope(0), "n", "out")
 				if actionAnnotations == nil {
-					actionAnnotations = &turnoutpb.SigilAnnotations{Sigils: map[string]int32{key: int32(ast.SigilEgress)}}
+					actionAnnotations = &turnoutpb.SigilAnnotations{Entries: []*turnoutpb.SigilAnnotation{structuredSigilAnnotation("s", "a", lower.NextScope(0), "n", "out", ast.SigilEgress)}}
 				} else {
-					actionAnnotations.Sigils[key] = int32(ast.SigilEgress)
+					actionAnnotations.Entries = append(actionAnnotations.Entries, structuredSigilAnnotation("s", "a", lower.NextScope(0), "n", "out", ast.SigilEgress))
 				}
 			}
 			model.Annotations = actionAnnotations
@@ -277,8 +276,6 @@ type irrBind struct {
 // buildIrregularAction constructs an ActionModel with a "ready:bool = true" base binding
 // plus any additional bindings. Returns the action and the sigil annotations to embed in the model.
 func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *turnoutpb.SigilAnnotations) {
-	sigils := make(map[string]int32)
-
 	progBindings := []*turnoutpb.BindingModel{
 		{Name: "ready", Type: "bool", Value: structpb.NewBoolValue(true)},
 	}
@@ -290,15 +287,17 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 			bm.Expr = ib.expr
 		}
 		progBindings = append(progBindings, bm)
-		if ib.sigil != ast.SigilNone {
-			key := lower.SigilAnnotationKey("s", "a", lower.ComputeScope(), "p", ib.name)
-			sigils[key] = int32(ib.sigil)
-		}
 	}
 
+	entries := make([]*turnoutpb.SigilAnnotation, 0, len(bindings))
+	for _, ib := range bindings {
+		if ib.sigil != ast.SigilNone {
+			entries = append(entries, structuredSigilAnnotation("s", "a", lower.ComputeScope(), "p", ib.name, ib.sigil))
+		}
+	}
 	var annotations *turnoutpb.SigilAnnotations
-	if len(sigils) > 0 {
-		annotations = &turnoutpb.SigilAnnotations{Sigils: sigils}
+	if len(entries) > 0 {
+		annotations = &turnoutpb.SigilAnnotations{Entries: entries}
 	}
 
 	return &turnoutpb.ActionModel{
@@ -314,4 +313,32 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		Merge:   merge,
 		Next:    next,
 	}, annotations
+}
+
+func TestValidateLegacySigilAnnotationMapFallback(t *testing.T) {
+	action, _ := buildIrregularAction(
+		[]irrBind{{name: "score", ft: ast.FieldTypeNumber, sigil: ast.SigilNone, val: structpb.NewNumberValue(0)}},
+		nil,
+		nil,
+		nil,
+	)
+	key := lower.SigilAnnotationKey("s", "a", lower.ComputeScope(), "p", "score")
+	model := irregularModelWithAction(action)
+	model.Annotations = &turnoutpb.SigilAnnotations{Sigils: map[string]int32{key: int32(ast.SigilIngress)}}
+
+	ds := validate.Validate(model, irregularSchema())
+	if !hasCode(ds, diag.CodeMissingPrepareEntry) {
+		t.Fatalf("want MissingPrepareEntry from legacy sigil map fallback, got %v", ds)
+	}
+}
+
+func structuredSigilAnnotation(sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, sigil ast.Sigil) *turnoutpb.SigilAnnotation {
+	return &turnoutpb.SigilAnnotation{
+		SceneId:     sceneID,
+		ActionId:    actionID,
+		Scope:       scope.String(),
+		ProgName:    progName,
+		BindingName: bindingName,
+		Sigil:       int32(sigil),
+	}
 }

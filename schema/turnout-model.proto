@@ -27,11 +27,20 @@ message TurnModel {
   optional SigilAnnotations annotations = 5;
 }
 
-// SigilAnnotations carries sigil metadata for each binding. The map key
-// encodes "sceneID:actionID:scope:progName:bindingName". Sigil values match
-// the ast.Sigil iota (0=None, 1=Ingress, 2=Egress, 3=BiDir).
+// SigilAnnotations carries sigil metadata for each binding. Structured entries
+// are the canonical representation; sigils is retained as a legacy fallback.
 message SigilAnnotations {
-  map<string, int32> sigils = 1;
+  map<string, int32> sigils = 1; // legacy: "sceneID:actionID:scope:progName:bindingName" -> sigil
+  repeated SigilAnnotation entries = 2;
+}
+
+message SigilAnnotation {
+  string scene_id = 1;
+  string action_id = 2;
+  string scope = 3;
+  string prog_name = 4;
+  string binding_name = 5;
+  int32 sigil = 6;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

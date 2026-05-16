@@ -24,6 +24,10 @@ export type RunnerOptions = {
   entryId: string;
   /** Initial STATE values, keyed by dotted path ("namespace.field"). */
   initialState: Record<string, AnyValue>;
+  /** Maximum action steps allowed per scene execution. */
+  maxSceneSteps?: number;
+  /** Maximum scene transitions allowed during route execution. Defaults to 1,000. */
+  maxRouteTransitions?: number;
 };
 
 export type RunnerStepResult =
@@ -150,7 +154,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   let routeHistory: string[] = [];
   const routeSceneTraces: SceneTrace[] = [];
   let routeTransitionCount = 0;
-  const MAX_ROUTE_TRANSITIONS = 1_000;
+  const maxRouteTransitions = options.maxRouteTransitions ?? 1_000;
 
   // hooks is passed by reference so useHook() mutations are visible
   // to the executor without needing to recreate it.
@@ -161,6 +165,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
     state,
     hooks,
     route ? [initialScene.entryActions[0]!] : undefined,
+    options.maxSceneSteps,
   );
 
   let done = false;
@@ -217,16 +222,16 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       }
 
       routeTransitionCount++;
-      if (routeTransitionCount > MAX_ROUTE_TRANSITIONS) {
+      if (routeTransitionCount > maxRouteTransitions) {
         done = true;
         throw new Error(
-          `Runner: route "${route.id}" exceeded ${MAX_ROUTE_TRANSITIONS} scene transitions — possible infinite loop`,
+          `Runner: route "${route.id}" exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
         );
       }
 
       currentSceneId = nextSceneId;
       // Route-driven entry: only the first entry action fires (spec §route-entry).
-      executor = createSceneExecutor(nextScene, state, hooks, [nextScene.entryActions[0]!]);
+      executor = createSceneExecutor(nextScene, state, hooks, [nextScene.entryActions[0]!], options.maxSceneSteps);
       // Loop again to execute the first action of the new scene.
     }
   }
