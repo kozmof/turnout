@@ -400,15 +400,9 @@ func TestRHSNamedFuncCall(t *testing.T) {
       }
     }
   }`)
-	tf := mustParse(t, src)
-	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[2]
-	fc, ok := b.RHS.(*ast.FuncCallRHS)
-	if !ok {
-		t.Fatalf("RHS: got %T, want *FuncCallRHS", b.RHS)
-	}
-	// named args are normalized to positional
-	if len(fc.Args) != 2 {
-		t.Errorf("args count = %d, want 2", len(fc.Args))
+	_, ds := parser.ParseFile("test.turn", src)
+	if !ds.HasErrors() {
+		t.Fatal("expected named function call args to be rejected")
 	}
 }
 
@@ -1065,4 +1059,3 @@ route "r" { match { s.*.final => s } }`
 		t.Errorf("segments = %v, want [* final]", pe.Segments)
 	}
 }
-

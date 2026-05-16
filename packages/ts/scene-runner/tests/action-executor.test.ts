@@ -181,3 +181,35 @@ describe('executeAction — no compute', () => {
     expect(result.stateAfterMerge).toBe(state);
   });
 });
+
+describe('executeAction — cumulative binding table', () => {
+  it('makes earlier computed bindings available to later bindings', async () => {
+    const action = {
+      id: 'chain_compute',
+      compute: {
+        root: 'z',
+        prog: {
+          name: 'chain_prog',
+          bindings: [
+            { name: 'x', type: 'number', value: 1 },
+            {
+              name: 'y',
+              type: 'number',
+              expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 1 }] } },
+            },
+            {
+              name: 'z',
+              type: 'number',
+              expr: { combine: { fn: 'add', args: [{ ref: 'y' }, { lit: 1 }] } },
+            },
+          ],
+        },
+      },
+    } as unknown as ActionModel;
+
+    const result = await executeAction(action, StateManager.from({}), {});
+    expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(3);
+    expect(isPureNumber(result.bindingValues['y']) && result.bindingValues['y'].value).toBe(2);
+    expect(isPureNumber(result.bindingValues['z']) && result.bindingValues['z'].value).toBe(3);
+  });
+});

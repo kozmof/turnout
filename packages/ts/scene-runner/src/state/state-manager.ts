@@ -109,12 +109,22 @@ export function stateManagerFromSchema(
  */
 export function protoValueToJs(v: unknown): unknown {
   if (v === null || v === undefined) return v;
-  // Detect protobuf Value by the presence of the 'kind' oneof field.
-  if (typeof v === 'object' && 'kind' in v) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    return toJson(ValueSchema, v as Value);
+  if (isProtoValue(v)) {
+    return toJson(ValueSchema, v);
   }
   return v;
+}
+
+
+function isProtoValue(v: unknown): v is Value {
+  if (typeof v !== 'object' || v === null) return false;
+
+  const candidate = v as { readonly $typeName?: unknown; readonly kind?: unknown };
+  if (candidate.$typeName !== 'google.protobuf.Value') return false;
+
+  if (typeof candidate.kind !== 'object' || candidate.kind === null) return false;
+  const kind = candidate.kind as { readonly case?: unknown; readonly value?: unknown };
+  return typeof kind.case === 'string' && 'value' in kind;
 }
 
 /**

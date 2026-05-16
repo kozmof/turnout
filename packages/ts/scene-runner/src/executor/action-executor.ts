@@ -55,8 +55,8 @@ export async function executeAction(
   // binding is ever executed twice, including side-branch bindings not reachable
   // from the root.
   //
-  // updatedTable is mutated in-place via Object.assign to avoid O(N²) object
-  // allocations from spreading the full table on every binding iteration.
+  // updatedTable intentionally accumulates computed values across the forward pass
+  // so later bindings can depend on earlier function bindings without re-execution.
   const updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
 
@@ -65,8 +65,9 @@ export async function executeAction(
 
     if (updatedTable[valueId] === undefined && binding.expr) {
       const funcId = builtCtx.getFuncId(binding.name)!;
-      const result = executeTree(buildExecutionTree(funcId, validatedCtx), { ...validatedCtx, valueTable: updatedTable });
-      Object.assign(updatedTable, result.updatedValueTable);
+      const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
+      const result = executeTree(buildExecutionTree(funcId, bindingCtx), bindingCtx);
+      mergeValueTable(updatedTable, result.updatedValueTable);
 
       if (updatedTable[valueId] === undefined) {
         throw new SceneRuntimeError(
@@ -113,4 +114,10 @@ export async function executeAction(
     bindingValues,
     stateAfterMerge: mergedState,
   };
+}
+
+function mergeValueTable(target: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
+  for (const [id, value] of Object.entries(source)) {
+    target[id] = value;
+  }
 }

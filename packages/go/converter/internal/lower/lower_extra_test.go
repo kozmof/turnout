@@ -611,3 +611,80 @@ func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
 		}
 	}
 }
+
+func TestLowerBidirMissingPrepareUsesBidirDiagnostic(t *testing.T) {
+	src := `state {
+  app { score:number = 0 }
+}
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = score
+      prog "p" {
+        <~>score:number
+      }
+    }
+    merge {
+      score { to_state = app.score }
+    }
+  }
+}`
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeBidirMissingPrepareEntry) {
+		t.Fatalf("want BidirMissingPrepareEntry diagnostic, got %v", ds)
+	}
+}
+
+func TestLowerBidirFromStateErrorsAreNotSwallowed(t *testing.T) {
+	src := `state {
+  app { score:number = 0 }
+}
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = score
+      prog "p" {
+        <~>score:number
+      }
+    }
+    prepare {
+      score { from_state = app.missing }
+    }
+    merge {
+      score { to_state = app.score }
+    }
+  }
+}`
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeUnresolvedStatePath) {
+		t.Fatalf("want UnresolvedStatePath diagnostic, got %v", ds)
+	}
+}
+
+func TestLowerTupleCasePatternEmitsDiagnostic(t *testing.T) {
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        score:number = 1
+        result:str = #case(score, (1, 2) => "tuple", _ => "other")
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Fatalf("want UnsupportedConstruct diagnostic, got %v", ds)
+	}
+}
+
+func hasLowerDiagCode(ds diag.Diagnostics, code string) bool {
+	for _, d := range ds {
+		if d.Code == code {
+			return true
+		}
+	}
+	return false
+}

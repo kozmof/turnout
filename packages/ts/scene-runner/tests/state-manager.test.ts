@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StateManager, literalToValue } from '../src/state/state-manager.js';
+import { StateManager, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
 import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
 import type { StateModel } from '../src/types/turnout-model_pb.js';
 
@@ -217,5 +217,12 @@ describe('stateManagerFromSchema — array field types', () => {
     } as unknown as StateModel;
     const sm = StateManager.fromSchema(model);
     expect(isArray(sm.read('data.flags')!)).toBe(true);
+  });
+});
+
+describe('protoValueToJs', () => {
+  it('does not treat arbitrary objects with a kind property as protobuf Values', () => {
+    const value = { kind: 'scene', value: 42 };
+    expect(protoValueToJs(value)).toBe(value);
   });
 });

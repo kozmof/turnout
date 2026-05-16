@@ -147,32 +147,13 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnost
 }
 
 func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
-	// Collect namespaces into a map to sort them, matching lowerStateBlockFromSchema order.
-	nsMap := make(map[string]*ast.NamespaceDecl, len(block.Namespaces))
-	nsNames := make([]string, 0, len(block.Namespaces))
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(block.Namespaces))}
 	for _, ns := range block.Namespaces {
-		nsMap[ns.Name] = ns
-		nsNames = append(nsNames, ns.Name)
-	}
-	sort.Strings(nsNames)
-
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsNames))}
-	for _, nsName := range nsNames {
-		ns := nsMap[nsName]
-		fieldNames := make([]string, 0, len(ns.Fields))
-		fieldMap := make(map[string]*ast.FieldDecl, len(ns.Fields))
-		for _, f := range ns.Fields {
-			fieldNames = append(fieldNames, f.Name)
-			fieldMap[f.Name] = f
-		}
-		sort.Strings(fieldNames)
-
 		pbNS := &turnoutpb.NamespaceModel{
-			Name:   nsName,
-			Fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames)),
+			Name:   ns.Name,
+			Fields: make([]*turnoutpb.FieldModel, 0, len(ns.Fields)),
 		}
-		for _, fName := range fieldNames {
-			f := fieldMap[fName]
+		for _, f := range ns.Fields {
 			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
 				Name:  f.Name,
 				Type:  f.Type.String(),
@@ -419,9 +400,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 	case *ast.SigilInputRHS:
 		// Ingress (~>): same "resolve or error" behavior as old PlaceholderRHS.
-		// Bidir (<~>): silently use zero if no prepare; validator emits the bidir-specific error.
+		// Bidir (<~>): use the bidirectional-specific missing-prepare diagnostic.
 		if decl.Sigil == ast.SigilBiDir {
-			bindings = []*turnoutpb.BindingModel{lowerBiDirInputRHS(name, ft, decl.Pos, resolver)}
+			bindings = []*turnoutpb.BindingModel{lowerBiDirInputRHS(name, ft, decl.Pos, resolver, ds)}
 		} else {
 			bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 		}
@@ -473,16 +454,15 @@ func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *turnou
 }
 
 func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *turnoutpb.BindingModel {
-	val := resolver.resolveDefault(name, ft, pos, ds)
+	val := resolver.resolveDefault(name, ft, pos, diag.CodeMissingPrepareEntry, ds)
 	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
 }
 
-// lowerBiDirInputRHS resolves the default value for a <~> binding silently:
-// if there is no prepare entry, it emits zero value without an error so the
-// validator can emit the bidir-specific CodeBidirMissingPrepareEntry instead.
-func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver) *turnoutpb.BindingModel {
-	var noDiags diag.Diagnostics
-	val := resolver.resolveDefault(name, ft, pos, &noDiags)
+// lowerBiDirInputRHS resolves the default value for a <~> binding. Missing
+// prepare entries use the bidirectional-specific diagnostic code, but other
+// resolver failures such as unresolved state paths still surface normally.
+func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+	val := resolver.resolveDefault(name, ft, pos, diag.CodeBidirMissingPrepareEntry, ds)
 	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
 }
 
@@ -902,8 +882,9 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 		// emitIdentity also calls remember(), registering the type for downstream inference.
 		c.emitIdentity(p.Name, subjectType, subjectRef)
 	case *ast.TupleCasePattern:
-		// Validation rejects tuple patterns before lowering reaches here.
-		// Emit false as a defensive fallback so the graph remains structurally valid.
+		*c.ds = append(*c.ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: #case tuple patterns are not yet supported", c.target))
+		// Keep the graph structurally valid after reporting the lowering error.
 		condRef = c.temp("case_tuple_unsupported")
 		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: false})
 	default:
@@ -1255,7 +1236,7 @@ func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]ast.FieldType, d
 // ─────────────────────────────────────────────────────────────────────────────
 
 type prepareResolver interface {
-	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal
+	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.Diagnostics) ast.Literal
 }
 
 // ── Action-level resolver ──
@@ -1275,11 +1256,11 @@ func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) pr
 	return &actionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal {
+func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.Diagnostics) ast.Literal {
 	src, ok := r.index[name]
 	if !ok {
 		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
-			diag.CodeMissingPrepareEntry,
+			missingPrepareCode,
 			"binding %q uses placeholder _ but has no prepare entry", name))
 		return zeroLiteralFor(ft)
 	}
@@ -1317,11 +1298,11 @@ func newTransitionPrepareResolver(prepare *ast.NextPrepareBlock, schema state.Sc
 	return &transitionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal {
+func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.Diagnostics) ast.Literal {
 	src, ok := r.index[name]
 	if !ok {
 		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
-			diag.CodeMissingPrepareEntry,
+			missingPrepareCode,
 			"binding %q uses placeholder _ but has no transition prepare entry", name))
 		return zeroLiteralFor(ft)
 	}

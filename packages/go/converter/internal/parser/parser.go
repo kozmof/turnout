@@ -68,7 +68,6 @@ type parser struct {
 	diag.DiagSink
 }
 
-
 func (p *parser) peek() lexer.Token { return p.peekAt(0) }
 func (p *parser) peekAt(n int) lexer.Token {
 	i := p.pos + n
@@ -90,7 +89,6 @@ func (p *parser) advance() lexer.Token {
 func (p *parser) posOf(t lexer.Token) ast.Pos {
 	return ast.Pos{File: p.file, Line: t.Line, Col: t.Col}
 }
-
 
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
@@ -174,7 +172,7 @@ func (p *parser) parseRefVal() string {
 		for p.peek().Kind == lexer.TokDot {
 			p.advance() // consume '.'
 			seg := p.peek()
-			if seg.Kind != lexer.TokIdent && !isKeyword(seg.Kind) {
+			if seg.Kind != lexer.TokIdent {
 				p.errorf(seg, "expected identifier after '.' in path, got %s", kindName(seg.Kind))
 				break
 			}
@@ -183,25 +181,6 @@ func (p *parser) parseRefVal() string {
 		}
 		return val
 	default:
-		// Some keywords are valid as bare references (e.g. root = decision when
-		// "decision" happens to be parsed as a keyword in another context).
-		// In practice keyword names like 'score', 'approve' etc. won't be keywords,
-		// but handle the case defensively.
-		if isKeyword(t.Kind) {
-			p.advance()
-			val := t.Value
-			for p.peek().Kind == lexer.TokDot {
-				p.advance()
-				seg := p.peek()
-				if seg.Kind == lexer.TokIdent || isKeyword(seg.Kind) {
-					p.advance()
-					val += "." + seg.Value
-				} else {
-					break
-				}
-			}
-			return val
-		}
 		p.errorf(t, "expected identifier or string for reference value, got %s %q", kindName(t.Kind), t.Value)
 		return ""
 	}
@@ -436,10 +415,8 @@ func (p *parser) parseBlockArg() ast.Arg {
 	return result
 }
 
-// parseFuncArgs parses the argument list of a function call: (arg, arg) or
-// (name: arg, name: arg). Named form is normalized to ordered args; the name
-// is discarded. A warning is emitted because named args give a false impression
-// of named-parameter semantics — only positional order matters.
+// parseFuncArgs parses the positional argument list of a function call: (arg, arg).
+// Named-arg form is rejected because calls have positional semantics only.
 func (p *parser) parseFuncArgs() []ast.Arg {
 	p.expect(lexer.TokLParen)
 	var args []ast.Arg
@@ -447,8 +424,8 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
 			nameTok := p.advance() // consume name
 			p.advance()            // consume ':'
-			p.Diags = append(p.Diags, diag.WarnAt(p.file, nameTok.Line, nameTok.Col,
-				diag.CodeNamedArgIgnored, "named argument %q is treated as positional; the name has no effect", nameTok.Value))
+			p.Diags = append(p.Diags, diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
+				diag.CodeNamedArgIgnored, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
 		}
 		args = append(args, p.parseArg())
 		if p.peek().Kind == lexer.TokComma {
@@ -763,9 +740,8 @@ func (p *parser) parseLocalPipeExpr() ast.LocalExpr {
 	return &ast.LocalPipeExpr{Pos: pos, Initial: initial, Steps: steps}
 }
 
-// parseLocalArgList parses `(expr, expr, ...)` as a list of local expressions.
-// Named-arg `name: expr` form is also accepted; the name is treated as
-// positional and a warning is emitted.
+// parseLocalArgList parses `(expr, expr, ...)` as positional local expressions.
+// Named-arg form is rejected because local calls have positional semantics only.
 func (p *parser) parseLocalArgList() []ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	var args []ast.LocalExpr
@@ -773,8 +749,8 @@ func (p *parser) parseLocalArgList() []ast.LocalExpr {
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
 			nameTok := p.advance() // consume name
 			p.advance()            // consume ':'
-			p.Diags = append(p.Diags, diag.WarnAt(p.file, nameTok.Line, nameTok.Col,
-				diag.CodeNamedArgIgnored, "named argument %q is treated as positional; the name has no effect", nameTok.Value))
+			p.Diags = append(p.Diags, diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
+				diag.CodeNamedArgIgnored, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
 		}
 		args = append(args, p.parseLocalExpr())
 		if p.peek().Kind == lexer.TokComma {
@@ -861,7 +837,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	if sigil == ast.SigilIngress || sigil == ast.SigilBiDir {
 		if p.peek().Kind == lexer.TokEquals {
 			p.errorf(p.peek(), "input sigil declaration %q must not have a right-hand side; remove '= ...'", nameTok.Value)
-			p.advance() // consume =
+			p.advance()               // consume =
 			p.parseRHS(nameTok.Value) // consume and discard the erroneous RHS
 		}
 		return &ast.BindingDecl{

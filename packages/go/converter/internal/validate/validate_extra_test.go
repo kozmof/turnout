@@ -734,11 +734,8 @@ scene "test" {
 }
 `
 	ds := pipeline(src)
-	if !hasCode(ds, diag.CodeMissingPrepareEntry) {
-		t.Error("want MissingPrepareEntry for <~> with neither prepare nor merge")
-	}
-	if !hasCode(ds, diag.CodeMissingMergeEntry) {
-		t.Error("want MissingMergeEntry for <~> with neither prepare nor merge")
+	if !hasCode(ds, diag.CodeBidirMissingPrepareEntry) {
+		t.Error("want BidirMissingPrepareEntry for <~> with no prepare")
 	}
 }
 

@@ -51,6 +51,8 @@ export type SceneExecutor = {
   readonly result: () => SceneExecutionResult;
   /** Returns the current accumulated state. Available at any point during execution. */
   readonly partialState: () => StateManager;
+  /** ID of the action currently being attempted, if any. */
+  readonly currentActionId: () => string | undefined;
 };
 
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
@@ -90,6 +92,7 @@ export function createSceneExecutor(
   const terminatedAt: string[] = [];
   const sceneWarnings: string[] = [];
   let stepCount = 0;
+  let currentAction: string | undefined;
 
   function drainVisited(): void {
     while (queueHead < queue.length && visited.has(queue[queueHead]!)) {
@@ -122,6 +125,7 @@ export function createSceneExecutor(
     stepCount++;
 
     const actionId = queue[queueHead++]!;
+    currentAction = actionId;
     visited.add(actionId);
 
     const action = actionMap[actionId];
@@ -142,6 +146,7 @@ export function createSceneExecutor(
     queue.push(...nextIds);
     drainVisited();
 
+    currentAction = undefined;
     return { done: false, trace };
   }
 
@@ -161,7 +166,11 @@ export function createSceneExecutor(
     return currentState;
   }
 
-  return { isDone, next, result, partialState };
+  function currentActionId(): string | undefined {
+    return currentAction;
+  }
+
+  return { isDone, next, result, partialState, currentActionId };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -206,7 +215,7 @@ export async function executeSceneSafe(
         ok: false,
         error: err,
         partialState: executor.partialState(),
-        failedActionId: lastActionId,
+        failedActionId: executor.currentActionId() ?? lastActionId,
       };
     }
     throw err;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { executeScene, createSceneExecutor } from '../src/executor/scene-executor.js';
+import { executeScene, executeSceneSafe, createSceneExecutor } from '../src/executor/scene-executor.js';
 import { StateManager } from '../src/state/state-manager.js';
 import {
   buildNumber,
@@ -380,5 +380,45 @@ describe('createSceneExecutor — cycle guard', () => {
     const executor = createSceneExecutor(scene, StateManager.from({}));
     await executor.next();
     expect(executor.isDone()).toBe(true);
+  });
+});
+
+describe('executeSceneSafe — failedActionId', () => {
+  const scene = {
+    id: 'safe_failure_scene',
+    entryActions: ['first'],
+    actions: [
+      {
+        ...makePassAction('first', 1, 'step.first'),
+        next: [{ action: 'second' }],
+      },
+      {
+        id: 'second',
+        compute: {
+          root: 'out',
+          prog: {
+            name: 'bad_prog',
+            bindings: [
+              { name: 'x', type: 'number', value: 1 },
+              {
+                name: 'out',
+                type: 'number',
+                expr: { combine: { fn: 'missing_fn', args: [{ ref: 'x' }, { lit: 1 }] } },
+              },
+            ],
+          },
+        },
+      },
+    ],
+  } as unknown as SceneBlock;
+
+  it('reports the action that failed before trace emission', async () => {
+    const result = await executeSceneSafe(scene, StateManager.from({}));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failedActionId).toBe('second');
+      expect(result.error.code).toBe('UnknownFunction');
+      expect(result.partialState.read('step.first')).toBeDefined();
+    }
   });
 });

@@ -178,39 +178,44 @@ createSceneExecutor(scene, state, hooks)
 
 ---
 
-## 5. Pitfalls
+## 5. Pitfalls — Resolved 2026-05-16
 
-### P1 — `TupleCasePattern` silently produces `false`
+### P1 — `TupleCasePattern` silently produces `false` — **Resolved**
 
-`packages/go/converter/internal/lower/lower.go:905-909` — `TupleCasePattern` in `lowerCasePatternCond` emits a `false` literal. The comment says validation rejects it first, but there is no guard: if validation is bypassed or a bug allows it through, the case arm silently never matches.
+`packages/go/converter/internal/lower/lower.go` now emits `CodeUnsupportedConstruct` if a tuple `#case` pattern reaches lowering. It still emits a structural `false` fallback after the diagnostic so later lowering does not panic on a malformed graph.
 
-### P2 — `lowerBiDirInputRHS` swallows errors intentionally
+### P2 — `lowerBiDirInputRHS` swallows errors intentionally — **Resolved**
 
-`packages/go/converter/internal/lower/lower.go:483-487` — Resolving `<~>` default discards errors into `noDiags` so the validator can emit a bidir-specific error code instead. If the validator check for `CodeBidirMissingPrepareEntry` is ever missed or misordered, errors disappear silently.
+`prepareResolver.resolveDefault` now accepts the missing-prepare diagnostic code to emit. `<~>` missing prepare is reported as `CodeBidirMissingPrepareEntry`, while other resolver failures such as `CodeUnresolvedStatePath` are reported through the normal diagnostics path instead of being discarded.
 
-### P3 — `executeSceneSafe` `failedActionId` is stale on certain failures
+### P3 — `executeSceneSafe` `failedActionId` is stale on certain failures — **Resolved**
 
-`packages/ts/scene-runner/src/executor/scene-executor.ts:196-213` — `lastActionId` captures the *last traced action*, not the failing one. For errors thrown *during* an action (before `trace` is emitted), `failedActionId` points to the previous action.
+`SceneExecutor` now exposes `currentActionId()`. `executeSceneSafe` uses it when catching `SceneRuntimeError`, so failures thrown before trace emission report the action currently being attempted rather than the last completed action.
 
-### P4 — Named args silently stripped
+### P4 — Named args silently stripped — **Resolved**
 
-`packages/go/converter/internal/parser/parser.go:447-452` — Named args (`name: value`) emit a warning and are normalized to positional. Authors may write `fn(a: x, b: y)` thinking they have named-parameter semantics, but order is what matters.
+`parseFuncArgs` and `parseLocalArgList` now reject named arguments with `CodeNamedArgIgnored` as an error. Parsing continues through the value for recovery, but DSL calls are strictly positional.
 
-### P5 — `parseRefVal` accepts keywords as bare identifiers in dotted paths
+### P5 — `parseRefVal` accepts keywords as bare identifiers in dotted paths — **Resolved**
 
-`packages/go/converter/internal/parser/parser.go:186-207` — Keywords (`state`, `route`, etc.) are allowed in dotted paths. This is a defensive workaround but can mask real syntax errors if a keyword appears where an identifier is expected.
+`parseRefVal` now requires identifiers or quoted strings for references, and dotted path segments must be identifiers. Keyword-like paths must be quoted, e.g. `to_state = "story.route"`.
 
-### P6 — `protoValueToJs` uses duck-typing for proto detection
+### P6 — `protoValueToJs` uses duck-typing for proto detection — **Resolved**
 
-`packages/ts/scene-runner/src/state/state-manager.ts:110-118` — Detection by `'kind' in v` is fragile. Any plain object with a `kind` property would be misidentified as a proto Value.
+`protoValueToJs` now uses a narrow protobuf `Value` guard based on the generated message shape before calling `toJson(ValueSchema, ...)`. Plain objects with a `kind` property are returned unchanged.
 
-### P7 — `lowerStateBlockFromAST` sorts fields alphabetically
+### P7 — `lowerStateBlockFromAST` sorts fields alphabetically — **Resolved**
 
-`packages/go/converter/internal/lower/lower.go:151-184` — Namespace and field order in emitted output always follows alphabetical sort, regardless of source declaration order. This is deterministic but can confuse authors expecting output order to match source order.
+Inline state lowering now preserves author declaration order for namespaces and fields. `state_file` / schema-derived state still sorts namespaces and fields alphabetically because source order is unavailable there.
 
-### P8 — `Object.assign` mutation with `executeTree` in action executor
+### P8 — `Object.assign` mutation with `executeTree` in action executor — **Resolved**
 
-`packages/ts/scene-runner/src/executor/action-executor.ts:60-69` — `updatedTable` is mutated in-place, then passed via `{ ...validatedCtx, valueTable: updatedTable }`. Since the spread creates a new object but keeps the same reference for `valueTable`, if `executeTree` internally spreads the context again, the shared mutable reference means cross-binding state is cumulative — correct here, but subtle.
+`executeAction` now creates a binding-local execution context and uses an explicit `mergeValueTable` helper to accumulate computed values. The cumulative cross-binding behavior is unchanged, but the mutation is intentional and covered by regression tests.
+
+### Verification
+
+- `go test ./...` from `packages/go/converter` passes.
+- `pnpm test` from `packages/ts/scene-runner` passes: 15 test files, 211 tests.
 
 ---
 

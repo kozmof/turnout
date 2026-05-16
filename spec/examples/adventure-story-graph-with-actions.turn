@@ -140,7 +140,7 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route  { to_state = story.route            }
+      story_route  { to_state = "story.route"            }
       location     { to_state = story.current_location }
       danger_level { to_state = story.threat_level     }
     }
@@ -184,7 +184,7 @@ scene "adventure_story_chapter_1" {
     merge {
       coins_after  { to_state = party.inventory.coins  }
       location     { to_state = story.current_location }
-      story_route  { to_state = story.route            }
+      story_route  { to_state = "story.route"            }
     }
 
     next {
@@ -223,7 +223,7 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route  { to_state = story.route                   }
+      story_route  { to_state = "story.route"                   }
       location     { to_state = story.current_location        }
       found_mark   { to_state = story.flags.found_hidden_mark }
     }
@@ -258,7 +258,7 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route { to_state = story.route            }
+      story_route { to_state = "story.route"            }
       note        { to_state = story.journal.latest   }
       location    { to_state = story.current_location }
     }

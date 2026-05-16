@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
@@ -58,9 +59,7 @@ func TestParseStateFileLexError(t *testing.T) {
 
 // ── Keyword as reference value ─────────────────────────────────────────────────
 
-func TestParseRefValKeyword(t *testing.T) {
-	// Using "condition" (a keyword) as a reference value exercises the
-	// isKeyword branch in parseRefVal.
+func TestParseRefValKeywordIsError(t *testing.T) {
 	src := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
@@ -70,19 +69,13 @@ func TestParseRefValKeyword(t *testing.T) {
       }
     }
   }`)
-	tf, ds := parser.ParseFile("test.turn", src)
-	// Parser should succeed (no syntax errors); semantic errors (root not found) are OK.
-	if ds.HasErrors() {
-		t.Fatalf("unexpected parse errors: %v", ds)
-	}
-	if tf.Scenes[0].Actions[0].Compute.Root != "condition" {
-		t.Errorf("root = %q, want %q", tf.Scenes[0].Actions[0].Compute.Root, "condition")
+	_, ds := parser.ParseFile("test.turn", src)
+	if !ds.HasErrors() {
+		t.Fatal("expected keyword reference to be rejected")
 	}
 }
 
-func TestParseRefValKeywordDottedPath(t *testing.T) {
-	// from_state = state.score: "state" is TokKwState, exercises keyword path + dot continuation.
-	// The state block uses a valid namespace "ns"; the from_state path uses "state" as a keyword-ident.
+func TestParseRefValKeywordDottedPathIsError(t *testing.T) {
 	src := `state {
   ns {
     score:number = 0
@@ -102,17 +95,9 @@ scene "test" {
     }
   }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
-	if ds.HasErrors() {
-		t.Fatalf("unexpected parse errors: %v", ds)
-	}
-	prep := tf.Scenes[0].Actions[0].Prepare
-	if prep == nil || len(prep.Entries) == 0 {
-		t.Fatal("expected prepare entry")
-	}
-	fs, ok := prep.Entries[0].Source.(*ast.FromState)
-	if !ok || fs.Path != "state.score" {
-		t.Errorf("from_state = %v", prep.Entries[0].Source)
+	_, ds := parser.ParseFile("test.turn", src)
+	if !ds.HasErrors() {
+		t.Fatal("expected keyword-led dotted path to be rejected")
 	}
 }
 
@@ -1452,4 +1437,47 @@ scene "s" {
 }
 someident = 1`
 	parser.ParseFile("test.turn", src) //nolint — error recovery test
+}
+
+func TestParseNamedArgsAreErrors(t *testing.T) {
+	src := minimalTurnFile(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        x:number = 1
+        result:number = add(left: x, right: 2)
+      }
+    }
+  }`)
+	_, ds := parser.ParseFile("test.turn", src)
+	if !hasParserDiagCode(ds, diag.CodeNamedArgIgnored) {
+		t.Fatalf("want NamedArgIgnored error diagnostic, got %v", ds)
+	}
+}
+
+func TestParseLocalNamedArgsAreErrors(t *testing.T) {
+	src := minimalTurnFile(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        x:number = 1
+        result:number = #if(true, add(left: x, right: 2), 0)
+      }
+    }
+  }`)
+	_, ds := parser.ParseFile("test.turn", src)
+	if !hasParserDiagCode(ds, diag.CodeNamedArgIgnored) {
+		t.Fatalf("want NamedArgIgnored error diagnostic, got %v", ds)
+	}
+}
+
+func hasParserDiagCode(ds diag.Diagnostics, code string) bool {
+	for _, d := range ds {
+		if d.Code == code {
+			return true
+		}
+	}
+	return false
 }

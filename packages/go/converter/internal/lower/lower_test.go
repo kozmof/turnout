@@ -115,19 +115,18 @@ scene "s" {
 	if len(ns0.Fields) != 2 {
 		t.Errorf("ns[0] fields = %d, want 2", len(ns0.Fields))
 	}
-	// Fields are sorted alphabetically: "approved" < "income".
-	if ns0.Fields[0].Name != "approved" || ns0.Fields[0].Type != "bool" {
+	if ns0.Fields[0].Name != "income" || ns0.Fields[0].Type != "number" {
 		t.Errorf("field[0]: name=%q type=%q", ns0.Fields[0].Name, ns0.Fields[0].Type)
 	}
-	bv, ok := ns0.Fields[0].Value.Kind.(*structpb.Value_BoolValue)
-	if !ok || !bv.BoolValue {
+	nv, ok := ns0.Fields[0].Value.Kind.(*structpb.Value_NumberValue)
+	if !ok || nv.NumberValue != 42 {
 		t.Errorf("field[0] default: got %T %v", ns0.Fields[0].Value, ns0.Fields[0].Value)
 	}
-	if ns0.Fields[1].Name != "income" || ns0.Fields[1].Type != "number" {
+	if ns0.Fields[1].Name != "approved" || ns0.Fields[1].Type != "bool" {
 		t.Errorf("field[1]: name=%q type=%q", ns0.Fields[1].Name, ns0.Fields[1].Type)
 	}
-	nv, ok2 := ns0.Fields[1].Value.Kind.(*structpb.Value_NumberValue)
-	if !ok2 || nv.NumberValue != 42 {
+	bv, ok2 := ns0.Fields[1].Value.Kind.(*structpb.Value_BoolValue)
+	if !ok2 || !bv.BoolValue {
 		t.Errorf("field[1] default: got %T %v", ns0.Fields[1].Value, ns0.Fields[1].Value)
 	}
 }
