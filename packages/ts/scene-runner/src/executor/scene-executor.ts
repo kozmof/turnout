@@ -27,12 +27,16 @@ export type StepResult =
 /**
  * Discriminated union returned by `executeSceneSafe`. Callers that prefer
  * throwing semantics should use `executeScene` instead.
+ *
+ * `error` is `unknown` so that unexpected throws (non-`SceneRuntimeError`)
+ * are also captured here rather than re-thrown bare, ensuring `partialState`
+ * is always available on failure.
  */
 export type SceneResult =
   | { ok: true; value: SceneExecutionResult }
   | {
       ok: false;
-      error: SceneRuntimeError;
+      error: unknown;
       /** State at the point of failure (after any successfully completed actions). */
       partialState: StateManager;
       /** ID of the action that was executing when the error occurred. */
@@ -210,15 +214,12 @@ export async function executeSceneSafe(
     }
     return { ok: true, value: executor.result() };
   } catch (err) {
-    if (err instanceof SceneRuntimeError) {
-      return {
-        ok: false,
-        error: err,
-        partialState: executor.partialState(),
-        failedActionId: executor.currentActionId() ?? lastActionId,
-      };
-    }
-    throw err;
+    return {
+      ok: false,
+      error: err,
+      partialState: executor.partialState(),
+      failedActionId: executor.currentActionId() ?? lastActionId,
+    };
   }
 }
 

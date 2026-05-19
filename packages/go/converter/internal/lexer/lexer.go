@@ -1,6 +1,7 @@
 package lexer
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -179,37 +180,112 @@ func (l *lex) errorf(line, col int, format string, args ...any) {
 }
 
 // ────────────────────────────────────────────────────────────
-// Keyword table
+// Keyword table — single source of truth
 // ────────────────────────────────────────────────────────────
+//
+// keywordTable drives both the lexer's keyword lookup (keywords map, built in
+// init) and TokenName's display strings for keyword tokens. Adding a new keyword
+// requires only a single entry here.
 
-var keywords = map[string]TokenKind{
-	"state":         TokKwState,
-	"state_file":    TokKwStateFile,
-	"scene":         TokKwScene,
-	"action":        TokKwAction,
-	"compute":       TokKwCompute,
-	"prepare":       TokKwPrepare,
-	"merge":         TokKwMerge,
-	"publish":       TokKwPublish,
-	"next":          TokKwNext,
-	"prog":          TokKwProg,
-	"root":          TokKwRoot,
-	"condition":     TokKwCondition,
-	"entry_actions": TokKwEntryActions,
-	"next_policy":   TokKwNextPolicy,
-	"from_state":    TokKwFromState,
-	"from_action":   TokKwFromAction,
-	"from_hook":     TokKwFromHook,
-	"from_literal":  TokKwFromLiteral,
-	"to_state":      TokKwToState,
-	"hook":          TokKwHook,
-	"view":          TokKwView,
-	"flow":          TokKwFlow,
-	"enforce":       TokKwEnforce,
-	"text":          TokKwText,
-	"route":         TokKwRoute,
-	"match":         TokKwMatch,
-	"entry":         TokKwEntry,
+type keywordEntry struct {
+	text string
+	kind TokenKind
+}
+
+var keywordTable = []keywordEntry{
+	{"state", TokKwState},
+	{"state_file", TokKwStateFile},
+	{"scene", TokKwScene},
+	{"action", TokKwAction},
+	{"compute", TokKwCompute},
+	{"prepare", TokKwPrepare},
+	{"merge", TokKwMerge},
+	{"publish", TokKwPublish},
+	{"next", TokKwNext},
+	{"prog", TokKwProg},
+	{"root", TokKwRoot},
+	{"condition", TokKwCondition},
+	{"entry_actions", TokKwEntryActions},
+	{"next_policy", TokKwNextPolicy},
+	{"from_state", TokKwFromState},
+	{"from_action", TokKwFromAction},
+	{"from_hook", TokKwFromHook},
+	{"from_literal", TokKwFromLiteral},
+	{"to_state", TokKwToState},
+	{"hook", TokKwHook},
+	{"view", TokKwView},
+	{"flow", TokKwFlow},
+	{"enforce", TokKwEnforce},
+	{"text", TokKwText},
+	{"route", TokKwRoute},
+	{"match", TokKwMatch},
+	{"entry", TokKwEntry},
+}
+
+// keywords is derived from keywordTable and used by scanIdent.
+var keywords map[string]TokenKind
+
+// tokenNames maps every TokenKind to its human-readable display string,
+// used by TokenName. Keyword entries are derived from keywordTable.
+var tokenNames map[TokenKind]string
+
+func init() {
+	keywords = make(map[string]TokenKind, len(keywordTable))
+	tokenNames = map[TokenKind]string{
+		TokEOF:          "EOF",
+		TokIdent:        "IDENT",
+		TokType:         "TYPE",
+		TokStringLit:    "STRING",
+		TokNumberLit:    "NUMBER",
+		TokBoolLit:      "BOOL",
+		TokSigilBiDir:   "<~>",
+		TokSigilEgress:  "<~",
+		TokSigilIngress: "~>",
+		TokLBrace:       "{",
+		TokRBrace:       "}",
+		TokLBracket:     "[",
+		TokRBracket:     "]",
+		TokLParen:       "(",
+		TokRParen:       ")",
+		TokComma:        ",",
+		TokColon:        ":",
+		TokEquals:       "=",
+		TokDot:          ".",
+		TokArrow:        "=>",
+		TokPipe:         "|",
+		TokAmpersand:    "&",
+		TokGTE:          ">=",
+		TokLTE:          "<=",
+		TokGT:           ">",
+		TokLT:           "<",
+		TokPlus:         "+",
+		TokMinus:        "-",
+		TokStar:         "*",
+		TokSlash:        "/",
+		TokPercent:      "%",
+		TokEqEq:         "==",
+		TokNeq:          "!=",
+		TokHashPipe:     "#pipe",
+		TokHashIf:       "#if",
+		TokHashCase:     "#case",
+		TokHashIt:       "#it",
+		TokUnderscore:   "_",
+		TokHeredoc:      "HEREDOC",
+		TokTripleQuote:  "TRIPLE_QUOTE",
+	}
+	for _, e := range keywordTable {
+		keywords[e.text] = e.kind
+		tokenNames[e.kind] = e.text
+	}
+}
+
+// TokenName returns a human-readable display string for k (e.g. "state", "{",
+// "IDENT"). Used by the parser when formatting syntax-error messages.
+func TokenName(k TokenKind) string {
+	if s, ok := tokenNames[k]; ok {
+		return s
+	}
+	return fmt.Sprintf("token(%d)", int(k))
 }
 
 // ────────────────────────────────────────────────────────────

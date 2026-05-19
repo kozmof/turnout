@@ -31,6 +31,7 @@ export interface StateManager {
 function make(
   state: Record<string, AnyValue>,
   validPaths: ReadonlySet<string> | null,
+  typeMap: ReadonlyMap<string, string> | null = null,
 ): StateManager {
   return {
     read: (path) => state[path],
@@ -40,10 +41,31 @@ function make(
           `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
         );
       }
-      return make({ ...state, [path]: value }, validPaths);
+      if (typeMap !== null) {
+        const expectedType = typeMap.get(path);
+        if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
+          throw new Error(
+            `StateManager: type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
+          );
+        }
+      }
+      return make({ ...state, [path]: value }, validPaths, typeMap);
     },
     snapshot: () => ({ ...state }),
   };
+}
+
+function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
+  if (value.symbol === 'null') return true;
+  switch (schemaType) {
+    case 'number': return value.symbol === 'number';
+    case 'str': return value.symbol === 'string';
+    case 'bool': return value.symbol === 'boolean';
+    case 'arr<number>':
+    case 'arr<str>':
+    case 'arr<bool>': return value.symbol === 'array';
+    default: return true;
+  }
 }
 
 /**
@@ -89,14 +111,16 @@ export function stateManagerFromSchema(
 ): StateManager {
   const defaults: Record<string, AnyValue> = {};
   const validPaths = new Set<string>();
+  const typeMap = new Map<string, string>();
   for (const ns of stateModel.namespaces) {
     for (const field of ns.fields) {
       const path = `${ns.name}.${field.name}`;
       defaults[path] = literalToValue(field.value, field.type);
       validPaths.add(path);
+      typeMap.set(path, field.type);
     }
   }
-  return make({ ...defaults, ...overrides }, validPaths);
+  return make({ ...defaults, ...overrides }, validPaths, typeMap);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

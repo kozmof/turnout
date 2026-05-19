@@ -219,6 +219,54 @@ Inline state lowering now preserves author declaration order for namespaces and 
 
 ---
 
+## 5.1 Pitfalls — Resolved 2026-05-19
+
+Issues identified in the 2026-05-18 analysis; all fixed in this session.
+
+### P9 — Dead function `detectBindingCycles` — **Resolved**
+
+`packages/go/converter/internal/validate/validate.go` — The dead `detectBindingCycles` and its helper `buildBindingRefGraph` were deleted. The inlined Pass 1b anonymous block was extracted into a named `detectCycles(progName, adj, bindings, ds)` function, which is now called from `validateProg` at the same point.
+
+### P10 — `stateManagerFrom` silently bypasses path validation — **Resolved**
+
+`packages/ts/scene-runner/src/state/state-manager.ts` — `stateManagerFrom` is already annotated `@deprecated` with a JSDoc pointing to `stateManagerFromUnchecked` / `stateManagerFromSchema`. Audit confirmed no active call sites outside the file itself.
+
+### P11 — `StateManager.write` does not validate value types — **Resolved**
+
+`packages/ts/scene-runner/src/state/state-manager.ts` — The internal `make()` factory now accepts an optional `typeMap: ReadonlyMap<string, string> | null`. `stateManagerFromSchema` populates it from the schema. `write()` calls a new `matchesSchemaType` helper that checks the written value's `symbol` against the schema-declared type (`"str"` → `"string"`, `"bool"` → `"boolean"`, `"arr<…>"` → `"array"`); null values are always accepted. `stateManagerFromUnchecked` and `stateManagerFromStrict` pass `null` and skip type checking.
+
+### P12 — Route validation does not check action IDs in target scenes — **Resolved**
+
+`packages/go/converter/internal/validate/validate.go` — `buildKnownScenes` replaced by `buildKnownScenesAndActions`, which builds both `map[string]bool` (scene existence) and `map[string]map[string]bool` (scene → action set). `validateRoutePattern` now cross-checks **direct** `scene_id.action_id` patterns (exactly 2 segments, no wildcards) against the action set, emitting `diag.CodeUnresolvedAction` for unknown action IDs. Wildcard patterns (`scene_id.*.terminal`) are exempt because the terminal action may live in a downstream scene. One pre-existing test fixture that used a non-existent action was corrected.
+
+### P13 — `inferLocalType` fallback on unknown references — **No change**
+
+The 2026-05-18 analysis rated this Low. The existing behaviour (emit `UndefinedRef` diagnostic + fall back to declared type + emit a zero literal in `lowerExprInto`) is documented in-code. Deferred.
+
+### P14 — `executeSceneSafe` loses partial state on non-`SceneRuntimeError` — **Resolved**
+
+`packages/ts/scene-runner/src/executor/scene-executor.ts` — The `catch` block no longer re-throws unknown errors bare. `SceneResult.error` widened to `unknown`; all thrown values now return `{ ok: false, error, partialState, failedActionId }`. Callers that need to distinguish `SceneRuntimeError` from other errors can do so with `instanceof` on `result.error`.
+
+### P15 — `parseIdentRHS` uses `panic` for exhaustiveness guard — **Resolved**
+
+`packages/go/converter/internal/parser/parser.go` — The `panic(fmt.Sprintf(...))` at the `default` branch of the infix-op switch was replaced with `p.errorf(opTok, "internal error: ...")` + a safe `return &ast.SingleRefRHS{...}` fallback, matching every other unreachable branch in the parser.
+
+### P16 — `tokenKindNames` and `keywords` maps maintained separately — **Resolved**
+
+`packages/go/converter/internal/lexer/lexer.go` — Introduced `keywordTable []keywordEntry` (text + kind per keyword) as the single source of truth. An `init()` function derives both the `keywords` scanning map and a `tokenNames` display map from it; keyword token display names are populated automatically. Exported `TokenName(k TokenKind) string` replaces the parser's private `tokenKindNames` map + `kindName` function. Adding a new keyword now requires one entry only.
+
+### P17 — `chooseHeredocDelim` magic number — **Resolved**
+
+`packages/go/converter/internal/emit/emit.go` — `n < 1000` replaced with `const maxHeredocDelimAttempts = 1000`.
+
+### Verification
+
+- `go test -buildvcs=false ./...` from `packages/go/converter` passes: all packages green.
+- `npm test` from `packages/ts/scene-runner`: 206 unit tests pass (9 skipped). One e2e test suite is skipped due to a pre-existing build-cache permission issue in this environment, unrelated to these changes.
+- `npm test` from `packages/ts/runtime`: 169 tests pass.
+
+---
+
 ## 6. Improvement Points — Design Overview
 
 **1. Go binary as subprocess dependency**
@@ -242,6 +290,7 @@ The parser now has scoped recovery helpers (`syncToBlockItem`, `atAny`) and uses
 - `go test ./...` from `packages/go/converter` passes.
 - `pnpm test` from `packages/ts/scene-runner` passes: 16 test files, 215 tests.
 - `pnpm run typecheck` from repo root passes.
+- *(Updated 2026-05-19)* `go test -buildvcs=false ./...` passes with additional route action-ID validation and cycle-detection refactor included.
 
 ---
 

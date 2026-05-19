@@ -235,7 +235,8 @@ func chooseHeredocDelim(text, indent string) string {
 			return delim
 		}
 	}
-	for n := 3; n < 1000; n++ {
+	const maxHeredocDelimAttempts = 1000
+	for n := 3; n < maxHeredocDelimAttempts; n++ {
 		delim := fmt.Sprintf("TURN_EOT_%d", n)
 		if _, collision := lineSet[indent+delim]; !collision {
 			return delim

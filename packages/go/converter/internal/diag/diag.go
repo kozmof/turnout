@@ -194,6 +194,7 @@ const (
 	CodeMultipleWildcards    = "MultipleWildcards"
 	CodeInvalidPathItem      = "InvalidPathItem"
 	CodeUnresolvedScene      = "UnresolvedScene"
+	CodeUnresolvedAction     = "UnresolvedAction"
 	CodeMissingEntryScene    = "MissingEntryScene"
 	CodeUnresolvedEntryScene = "UnresolvedEntryScene"
 )

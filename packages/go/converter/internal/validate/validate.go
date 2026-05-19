@@ -101,31 +101,37 @@ func Validate(tm *turnoutpb.TurnModel, schema state.Schema) diag.Diagnostics {
 		validateScene(s, schema, annotations, &ds)
 	}
 	if len(tm.Routes) > 0 {
-		knownScenes := buildKnownScenes(tm)
-		validateRoutes(tm.Routes, knownScenes, &ds)
+		knownScenes, knownActions := buildKnownScenesAndActions(tm)
+		validateRoutes(tm.Routes, knownScenes, knownActions, &ds)
 	}
 	return ds
 }
 
-func buildKnownScenes(tm *turnoutpb.TurnModel) map[string]bool {
-	known := make(map[string]bool)
+func buildKnownScenesAndActions(tm *turnoutpb.TurnModel) (map[string]bool, map[string]map[string]bool) {
+	scenes := make(map[string]bool, len(tm.Scenes))
+	actions := make(map[string]map[string]bool, len(tm.Scenes))
 	for _, s := range tm.Scenes {
-		known[s.Id] = true
+		scenes[s.Id] = true
+		actionSet := make(map[string]bool, len(s.Actions))
+		for _, a := range s.Actions {
+			actionSet[a.Id] = true
+		}
+		actions[s.Id] = actionSet
 	}
-	return known
+	return scenes, actions
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Group E — Route validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, ds *diag.Diagnostics) {
+func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
 	for _, r := range routes {
-		validateRoute(r, knownScenes, ds)
+		validateRoute(r, knownScenes, knownActions, ds)
 	}
 }
 
-func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, ds *diag.Diagnostics) {
+func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
 	if r.EntrySceneId == nil || *r.EntrySceneId == "" {
 		*ds = append(*ds, diag.Errorf(diag.CodeMissingEntryScene,
 			"route %q: missing entry declaration", r.Id))
@@ -148,12 +154,12 @@ func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, ds *dia
 				}
 				continue
 			}
-			validateRoutePattern(r.Id, i, pat, ds)
+			validateRoutePattern(r.Id, i, pat, knownActions, ds)
 		}
 	}
 }
 
-func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagnostics) {
+func validateRoutePattern(routeID string, armIdx int, pat string, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
 	parts := strings.Split(pat, ".")
 
 	if len(parts) < 1 || parts[0] == "" || parts[0] == "*" {
@@ -183,6 +189,24 @@ func validateRoutePattern(routeID string, armIdx int, pat string, ds *diag.Diagn
 	if parts[len(parts)-1] == "*" {
 		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
 			"route %q arm %d: pattern %q ends with * (terminal action required)", routeID, armIdx, pat))
+		return
+	}
+
+	// Cross-check: for direct scene_id.action_id patterns (exactly 2 segments,
+	// no wildcards), verify the action ID exists in the named scene.
+	// Wildcard patterns (scene_id.*.terminal) are skipped because the terminal
+	// action may live in a downstream scene reached via routing.
+	// Skip if the scene is unknown (already reported as UnresolvedScene).
+	if len(parts) == 2 {
+		sceneID := parts[0]
+		actionID := parts[1]
+		if actionSet, sceneKnown := knownActions[sceneID]; sceneKnown {
+			if !actionSet[actionID] {
+				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedAction,
+					"route %q arm %d: pattern %q references action %q which does not exist in scene %q",
+					routeID, armIdx, pat, actionID, sceneID))
+			}
+		}
 	}
 }
 
@@ -286,37 +310,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	}
 
 	// Pass 1b: detect reference cycles using the adjacency map built above.
-	{
-		const (
-			unvisited = 0
-			inStack   = 1
-			done      = 2
-		)
-		color := make(map[string]int, len(prog.Bindings))
-		reported := make(map[string]bool)
-		var visit func(name string)
-		visit = func(name string) {
-			switch color[name] {
-			case done:
-				return
-			case inStack:
-				if !reported[name] {
-					reported[name] = true
-					*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
-						"prog %q: binding %q is part of a reference cycle", prog.Name, name))
-				}
-				return
-			}
-			color[name] = inStack
-			for _, dep := range adj[name] {
-				visit(dep)
-			}
-			color[name] = done
-		}
-		for _, b := range prog.Bindings {
-			visit(b.Name)
-		}
-	}
+	detectCycles(prog.Name, adj, prog.Bindings, ds)
 
 	// Pass 2: structural + type checks.
 	for _, b := range prog.Bindings {
@@ -1448,21 +1442,18 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 // Binding cycle detection
 // ─────────────────────────────────────────────────────────────────────────────
 
-// detectBindingCycles reports a CodeCyclicBinding diagnostic for every binding
-// in prog that participates in a reference cycle. Cycles cause infinite
-// recursion in buildExecutionTree on the TypeScript side, so they must be
-// caught here at validation time.
-func detectBindingCycles(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) {
-	adj := buildBindingRefGraph(prog)
-
+// detectCycles reports a CodeCyclicBinding diagnostic for each binding in
+// bindings that participates in a reference cycle according to adj. Cycles
+// cause infinite recursion in buildExecutionTree on the TypeScript side and
+// must be caught at validation time.
+func detectCycles(progName string, adj map[string][]string, bindings []*turnoutpb.BindingModel, ds *diag.Diagnostics) {
 	const (
 		unvisited = 0
 		inStack   = 1
 		done      = 2
 	)
-	color := make(map[string]int, len(prog.Bindings))
+	color := make(map[string]int, len(bindings))
 	reported := make(map[string]bool)
-
 	var visit func(name string)
 	visit = func(name string) {
 		switch color[name] {
@@ -1472,7 +1463,7 @@ func detectBindingCycles(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) {
 			if !reported[name] {
 				reported[name] = true
 				*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
-					"prog %q: binding %q is part of a reference cycle", prog.Name, name))
+					"prog %q: binding %q is part of a reference cycle", progName, name))
 			}
 			return
 		}
@@ -1482,29 +1473,9 @@ func detectBindingCycles(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) {
 		}
 		color[name] = done
 	}
-
-	for _, b := range prog.Bindings {
+	for _, b := range bindings {
 		visit(b.Name)
 	}
-}
-
-// buildBindingRefGraph returns an adjacency list: binding name → binding names
-// it references (via ref, func_ref, transform.ref, or pipe param source_ident).
-func buildBindingRefGraph(prog *turnoutpb.ProgModel) map[string][]string {
-	adj := make(map[string][]string, len(prog.Bindings))
-	for _, b := range prog.Bindings {
-		adj[b.Name] = nil
-	}
-	for _, b := range prog.Bindings {
-		var refs []string
-		if b.Expr != nil {
-			collectExprBindingRefs(b.Expr, &refs)
-		} else if b.ExtExpr != nil {
-			collectLocalExprBindingRefs(b.ExtExpr, &refs)
-		}
-		adj[b.Name] = refs
-	}
-	return adj
 }
 
 func collectExprBindingRefs(expr *turnoutpb.ExprModel, refs *[]string) {

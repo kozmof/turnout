@@ -553,7 +553,8 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 		case lexer.TokPercent:
 			op = ast.InfixMod
 		default:
-			panic(fmt.Sprintf("unreachable: parseIdentRHS infix switch on unexpected token kind %v", opTok.Kind))
+			p.errorf(opTok, "internal error: parseIdentRHS infix switch on unexpected token kind %v", opTok.Kind)
+			return &ast.SingleRefRHS{RefName: nameTok.Value}
 		}
 		rhs := p.parseArg()
 		return &ast.InfixRHS{
@@ -1609,84 +1610,8 @@ func (p *parser) parseFile() *ast.TurnFile {
 	return tf
 }
 
-// ─── kindName ─────────────────────────────────────────────────────────────────
-
-// tokenKindNames maps every TokenKind to its human-readable display name.
-// Defined at package level to avoid a map allocation on every call to kindName.
-var tokenKindNames = map[lexer.TokenKind]string{
-	lexer.TokEOF:            "EOF",
-	lexer.TokIdent:          "IDENT",
-	lexer.TokType:           "TYPE",
-	lexer.TokStringLit:      "STRING",
-	lexer.TokNumberLit:      "NUMBER",
-	lexer.TokBoolLit:        "BOOL",
-	lexer.TokSigilBiDir:     "<~>",
-	lexer.TokSigilEgress:    "<~",
-	lexer.TokSigilIngress:   "~>",
-	lexer.TokLBrace:         "{",
-	lexer.TokRBrace:         "}",
-	lexer.TokLBracket:       "[",
-	lexer.TokRBracket:       "]",
-	lexer.TokLParen:         "(",
-	lexer.TokRParen:         ")",
-	lexer.TokComma:          ",",
-	lexer.TokColon:          ":",
-	lexer.TokEquals:         "=",
-	lexer.TokDot:            ".",
-	lexer.TokArrow:          "=>",
-	lexer.TokPipe:           "|",
-	lexer.TokAmpersand:      "&",
-	lexer.TokGTE:            ">=",
-	lexer.TokLTE:            "<=",
-	lexer.TokGT:             ">",
-	lexer.TokLT:             "<",
-	lexer.TokPlus:           "+",
-	lexer.TokMinus:          "-",
-	lexer.TokStar:           "*",
-	lexer.TokSlash:          "/",
-	lexer.TokPercent:        "%",
-	lexer.TokEqEq:           "==",
-	lexer.TokNeq:            "!=",
-	lexer.TokHashPipe:       "#pipe",
-	lexer.TokHashIf:         "#if",
-	lexer.TokHashCase:       "#case",
-	lexer.TokHashIt:         "#it",
-	lexer.TokUnderscore:     "_",
-	lexer.TokHeredoc:        "HEREDOC",
-	lexer.TokTripleQuote:    "TRIPLE_QUOTE",
-	lexer.TokKwState:        "state",
-	lexer.TokKwStateFile:    "state_file",
-	lexer.TokKwScene:        "scene",
-	lexer.TokKwAction:       "action",
-	lexer.TokKwCompute:      "compute",
-	lexer.TokKwPrepare:      "prepare",
-	lexer.TokKwMerge:        "merge",
-	lexer.TokKwPublish:      "publish",
-	lexer.TokKwNext:         "next",
-	lexer.TokKwProg:         "prog",
-	lexer.TokKwRoot:         "root",
-	lexer.TokKwCondition:    "condition",
-	lexer.TokKwEntryActions: "entry_actions",
-	lexer.TokKwNextPolicy:   "next_policy",
-	lexer.TokKwFromState:    "from_state",
-	lexer.TokKwFromAction:   "from_action",
-	lexer.TokKwFromHook:     "from_hook",
-	lexer.TokKwFromLiteral:  "from_literal",
-	lexer.TokKwToState:      "to_state",
-	lexer.TokKwHook:         "hook",
-	lexer.TokKwView:         "view",
-	lexer.TokKwFlow:         "flow",
-	lexer.TokKwEnforce:      "enforce",
-	lexer.TokKwText:         "text",
-	lexer.TokKwRoute:        "route",
-	lexer.TokKwMatch:        "match",
-	lexer.TokKwEntry:        "entry",
-}
-
 // kindName returns a human-readable name for a token kind.
+// Delegates to lexer.TokenName so the name table has a single source of truth.
 func kindName(k lexer.TokenKind) string {
-	if s, ok := tokenKindNames[k]; ok {
-		return s
-	}
-	return fmt.Sprintf("token(%d)", int(k))
+	return lexer.TokenName(k)
 }

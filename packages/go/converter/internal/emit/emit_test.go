@@ -506,7 +506,7 @@ route "r1" {
   entry "scene_1"
   match {
     scene_1.*.end |
-    scene_1.start
+    scene_1.a
       => scene_1
   }
 }`)
@@ -514,7 +514,7 @@ route "r1" {
 	if !strings.Contains(out, `"scene_1.*.end"`) {
 		t.Error("missing first OR branch")
 	}
-	if !strings.Contains(out, `"scene_1.start"`) {
+	if !strings.Contains(out, `"scene_1.a"`) {
 		t.Error("missing second OR branch")
 	}
 	// Should be in one patterns array
