@@ -1,5 +1,7 @@
 import {
   FuncId,
+  FuncArgMap,
+  ArgName,
   PipeDefineId,
   ExecutionContext,
   ExecutionResult,
@@ -35,11 +37,11 @@ function getPipeArgNames(pipeArgSpec: PipeArgSpec): string[] {
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
   pipeDefArgs: PipeArgSpec,
-  argMap: { [argName: string]: ValueId }
+  argMap: FuncArgMap
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
   const expectedValueIds = getPipeArgNames(pipeDefArgs).map(
-    argName => argMap[argName]
+    argName => argMap[argName as ArgName]
   );
 
   for (const valueId of expectedValueIds) {
@@ -52,7 +54,7 @@ export function validateScopedValueTable(
 }
 
 export function createScopedValueTable(
-  argMap: { [argName: string]: ValueId },
+  argMap: FuncArgMap,
   pipeDefArgs: PipeArgSpec,
   sourceValueTable: ValueTable
 ): ValueTable {
@@ -63,7 +65,7 @@ export function createScopedValueTable(
       throw new Error(`Argument ${argName} is missing from argMap`);
     }
 
-    const valueId = argMap[argName];
+    const valueId = argMap[argName as ArgName];
 
     const value = sourceValueTable[valueId];
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -106,13 +108,13 @@ export function createScopedContext(
  */
 function resolveArgBinding(
   binding: PipeArgBinding,
-  pipeFuncArgMap: { [argName: string]: ValueId },
+  pipeFuncArgMap: FuncArgMap,
   stepResults: readonly ValueId[]
 ): ValueId {
   switch (binding.source) {
     case 'input': {
       // Reference to PipeFunc's input argument
-      const inputValueId = pipeFuncArgMap[binding.argName];
+      const inputValueId = pipeFuncArgMap[binding.argName as unknown as ArgName];
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (inputValueId === undefined) {
         throw new Error(
@@ -167,16 +169,16 @@ function executeStep(
   step: PipeStepBinding,
   stepIndex: number,
   pipeFuncId: FuncId,
-  pipeFuncArgMap: { [argName: string]: ValueId },
+  pipeFuncArgMap: FuncArgMap,
   stepResults: readonly ValueId[],
   scopedContext: ScopedExecutionContext
 ): { stepReturnId: ValueId; updatedValueTable: ValueTable } {
   const { defId, argBindings } = step;
 
   // Resolve all argument bindings to concrete ValueIds
-  const resolvedArgMap: { [argName: string]: ValueId } = {};
+  const resolvedArgMap: FuncArgMap = {} as FuncArgMap;
   for (const [argName, binding] of Object.entries(argBindings)) {
-    resolvedArgMap[argName] = resolveArgBinding(
+    resolvedArgMap[argName as ArgName] = resolveArgBinding(
       binding,
       pipeFuncArgMap,
       stepResults

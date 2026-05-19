@@ -91,6 +91,11 @@ export function convertToHCL(turnFilePath: string): string {
 /**
  * Load a pre-converted JSON model file, skipping the Go converter.
  * Useful for faster test runs after the initial conversion.
+ *
+ * This is the preferred entry point for environments without `child_process`
+ * (browsers, edge functions, WASM hosts): convert the model ahead of time with
+ * `runConverter` in a Node build step, then use `loadJsonModel` at runtime to
+ * deserialize the JSON without spawning any sub-process.
  */
 export function loadJsonModel(jsonFilePath: string): TurnModel {
   let raw: string;

@@ -22,6 +22,8 @@ import {
   PipeArgBinding,
   TransformFnNames,
   BinaryFnNames,
+  isValueCondition,
+  isFuncCondition,
 } from "../types";
 import {
   getTransformFnInputType,

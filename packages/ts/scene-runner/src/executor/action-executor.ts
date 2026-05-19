@@ -2,10 +2,11 @@ import { assertValidContext, buildNull, buildExecutionTree, executeTree } from '
 import type { AnyValue, FuncId } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
-import type { HookRegistry, PublishHookContext, PublishHookImpl } from '../types/harness-types.js';
+import type { HookRegistry, PublishHookContext } from '../types/harness-types.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
 import { resolveActionPrepare } from './prepare-resolver.js';
 import type { ActionExecutionResult } from './types.js';
+import type { PublishHookOutcome } from '../types/harness-types.js';
 import { SceneRuntimeError } from './errors.js';
 
 /**
@@ -28,6 +29,7 @@ export async function executeAction(
       computeRootValue: buildNull('missing'),
       bindingValues: {},
       stateAfterMerge: state,
+      publishOutcomes: [],
     };
   }
 
@@ -37,6 +39,7 @@ export async function executeAction(
       computeRootValue: buildNull('missing'),
       bindingValues: {},
       stateAfterMerge: state,
+      publishOutcomes: [],
     };
   }
 
@@ -96,16 +99,21 @@ export async function executeAction(
 
   // Step 6: invoke publish hooks in declaration order with the final merged state.
   const finalStateSnapshot = mergedState.snapshot();
+  const publishOutcomes: PublishHookOutcome[] = [];
   for (const hookName of action.publish ?? []) {
-    const hook = hooks[hookName];
+    const hook = hooks.publish[hookName];
     if (!hook) continue;
     const ctx: PublishHookContext = {
       actionId: action.id,
       hookName,
       state: () => finalStateSnapshot,
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    await (hook as PublishHookImpl)(ctx);
+    try {
+      await hook(ctx);
+      publishOutcomes.push({ hookName, status: 'ok' });
+    } catch (err) {
+      publishOutcomes.push({ hookName, status: 'error', message: String(err) });
+    }
   }
 
   return {
@@ -113,6 +121,7 @@ export async function executeAction(
     computeRootValue,
     bindingValues,
     stateAfterMerge: mergedState,
+    publishOutcomes,
   };
 }
 

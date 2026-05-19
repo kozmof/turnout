@@ -285,7 +285,7 @@ describe('executeRoute — execution limits', () => {
   it('passes maxSceneSteps through to scene execution', async () => {
     const route = { id: 'limited', match: [] } as unknown as RouteModel;
     await expect(() =>
-      executeRoute(route, makeSceneMap(longScene), 'long_scene', StateManager.from({}), {}, { maxSceneSteps: 1 }),
+      executeRoute(route, makeSceneMap(longScene), 'long_scene', StateManager.from({}), { prepare: {}, publish: {} }, { maxSceneSteps: 1 }),
     ).rejects.toThrow('exceeded 1 action steps');
   });
 
@@ -301,7 +301,7 @@ describe('executeRoute — execution limits', () => {
     } as unknown as RouteModel;
 
     await expect(() =>
-      executeRoute(route, makeSceneMap(s1, s2), 's1', StateManager.from({}), {}, { maxRouteTransitions: 0 }),
+      executeRoute(route, makeSceneMap(s1, s2), 's1', StateManager.from({}), { prepare: {}, publish: {} }, { maxRouteTransitions: 0 }),
     ).rejects.toThrow('exceeded 0 scene transitions');
   });
 });

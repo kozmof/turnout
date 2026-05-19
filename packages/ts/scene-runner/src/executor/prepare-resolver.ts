@@ -3,7 +3,7 @@ import type { AnyValue } from 'runtime';
 import type { PrepareEntry, NextPrepareEntry } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
-import type { HookRegistry, PrepareHookContext, PrepareHookImpl } from '../types/harness-types.js';
+import type { HookRegistry, PrepareHookContext } from '../types/harness-types.js';
 import type { ActionExecutionResult } from './types.js';
 import { PrepareError } from './errors.js';
 
@@ -32,7 +32,7 @@ export async function resolveActionPrepare(
       result[entry.binding] = val;
     } else if (entry.fromHook !== undefined) {
       const hookName = entry.fromHook;
-      const hook = hooks[hookName];
+      const hook = hooks.prepare[hookName];
       if (!hook) {
         throw new PrepareError('UnregisteredHook', actionId, `prepare hook "${hookName}" is not registered`);
       }
@@ -42,8 +42,7 @@ export async function resolveActionPrepare(
           hookName,
           get: (binding) => result[binding],
         };
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-        hookCache[hookName] = await (hook as PrepareHookImpl)(ctx) as Record<string, AnyValue>;
+        hookCache[hookName] = await hook(ctx) as Record<string, AnyValue>;
       }
       const val = hookCache[hookName][entry.binding];
       if (val === undefined) {

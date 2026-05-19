@@ -3,12 +3,15 @@ import type { TurnModel } from './types/turnout-model_pb.js';
 import type {
   HookRegistry,
   HookImpl,
+  PrepareHookImpl,
+  PublishHookImpl,
   HarnessResult,
   ActionTrace,
   SceneTrace,
 } from './types/harness-types.js';
 import { stateManagerFromUnchecked, stateManagerFromSchema } from './state/state-manager.js';
 import type { StateManager } from './state/state-manager.js';
+import { migrateModel } from './migration.js';
 import {
   createSceneExecutor,
   type SceneExecutor,
@@ -55,10 +58,13 @@ export type RunnerStepResult =
  * const result = runner.run();
  */
 export type Runner = {
+  /** Register a prepare hook. Returns the runner for chaining. */
+  usePrepareHook(name: string, handler: PrepareHookImpl): Runner;
+  /** Register a publish hook. Returns the runner for chaining. */
+  usePublishHook(name: string, handler: PublishHookImpl): Runner;
   /**
-   * Register a hook handler.
-   * Can be called before or between steps — mutations are picked up immediately.
-   * Returns the runner for chaining.
+   * @deprecated Use `usePrepareHook` or `usePublishHook` for type-safe hook registration.
+   * This overload registers as a prepare hook. Will be removed in a future version.
    */
   useHook(name: string, handler: HookImpl): Runner;
   /** True when all actions have completed (scene or route finished). */
@@ -111,19 +117,13 @@ export type Runner = {
  *   - `.result()` — get the final HarnessResult
  */
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
-  const versionedModel = model as TurnModel & { version?: number };
-  if (versionedModel.version !== undefined && versionedModel.version !== 0 && versionedModel.version !== 1) {
-    throw new Error(
-      `Model schema version ${versionedModel.version} is not supported; expected 1. ` +
-      `Regenerate the model with a compatible converter.`,
-    );
-  }
-  const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
-  const routeMap = Object.fromEntries((model.routes ?? []).map((r) => [r.id, r]));
-  const hooks: HookRegistry = {};
+  const migratedModel = migrateModel(model);
+  const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
+  const routeMap = Object.fromEntries((migratedModel.routes ?? []).map((r) => [r.id, r]));
+  const hooks: HookRegistry = { prepare: {}, publish: {} };
 
-  let state: StateManager = model.state
-    ? stateManagerFromSchema(model.state, options.initialState)
+  let state: StateManager = migratedModel.state
+    ? stateManagerFromSchema(migratedModel.state, options.initialState)
     : stateManagerFromUnchecked(options.initialState);
 
   const route = routeMap[options.entryId] ?? null;
@@ -237,8 +237,18 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   }
 
   return {
+    usePrepareHook(name, handler) {
+      hooks.prepare[name] = handler;
+      return this;
+    },
+
+    usePublishHook(name, handler) {
+      hooks.publish[name] = handler;
+      return this;
+    },
+
     useHook(name, handler) {
-      hooks[name] = handler;
+      hooks.prepare[name] = handler as PrepareHookImpl;
       return this;
     },
 
@@ -283,7 +293,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
             kind: 'route',
             route: { routeId: route.id, scenes: routeSceneTraces },
           },
-          model,
+          model: migratedModel,
         };
       }
 
@@ -291,7 +301,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       return {
         finalState: state.snapshot(),
         trace: { kind: 'scene', scene: sceneTrace },
-        model,
+        model: migratedModel,
       };
     },
   };

@@ -29,7 +29,7 @@ describe('resolveActionPrepare', () => {
     const result = await resolveActionPrepare(
       [{ binding: 'query', fromState: 'request.query' }] as unknown as PrepareEntry[],
       state,
-      {},
+      { prepare: {}, publish: {} },
       'test_action',
     );
     expect(isPureString(result['query']!) && result['query'].value).toBe('hello');
@@ -40,7 +40,7 @@ describe('resolveActionPrepare', () => {
     const err = await resolveActionPrepare(
       [{ binding: 'missing_val', fromState: 'no.such.path' }] as unknown as PrepareEntry[],
       state,
-      {},
+      { prepare: {}, publish: {} },
       'test_action',
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PrepareError);
@@ -51,7 +51,8 @@ describe('resolveActionPrepare', () => {
   it('from_hook calls the hook and extracts the binding field', async () => {
     const state = StateManager.from({});
     const hooks: HookRegistry = {
-      my_hook: (_ctx: PrepareHookContext) => ({ foo: buildNumber(42) }),
+      prepare: { my_hook: (_ctx: PrepareHookContext) => ({ foo: buildNumber(42) }) },
+      publish: {},
     };
     const result = await resolveActionPrepare(
       [{ binding: 'foo', fromHook: 'my_hook' }] as unknown as PrepareEntry[],
@@ -65,10 +66,13 @@ describe('resolveActionPrepare', () => {
   it('from_hook supports async hook returning a Promise', async () => {
     const state = StateManager.from({});
     const hooks: HookRegistry = {
-      async_hook: async (_ctx: PrepareHookContext) => {
-        await Promise.resolve();
-        return { val: buildNumber(99) };
+      prepare: {
+        async_hook: async (_ctx: PrepareHookContext) => {
+          await Promise.resolve();
+          return { val: buildNumber(99) };
+        },
       },
+      publish: {},
     };
     const result = await resolveActionPrepare(
       [{ binding: 'val', fromHook: 'async_hook' }] as unknown as PrepareEntry[],
@@ -85,12 +89,15 @@ describe('resolveActionPrepare', () => {
     let capturedHookName: string | undefined;
     let capturedGetResult: unknown;
     const hooks: HookRegistry = {
-      my_hook: (ctx: PrepareHookContext) => {
-        capturedActionId = ctx.actionId;
-        capturedHookName = ctx.hookName;
-        capturedGetResult = ctx.get('x_val'); // reads the binding resolved via from_state above
-        return { bar: buildString('from_hook') };
+      prepare: {
+        my_hook: (ctx: PrepareHookContext) => {
+          capturedActionId = ctx.actionId;
+          capturedHookName = ctx.hookName;
+          capturedGetResult = ctx.get('x_val'); // reads the binding resolved via from_state above
+          return { bar: buildString('from_hook') };
+        },
       },
+      publish: {},
     };
     await resolveActionPrepare(
       [
@@ -111,7 +118,7 @@ describe('resolveActionPrepare', () => {
     const err = await resolveActionPrepare(
       [{ binding: 'foo', fromHook: 'nonexistent_hook' }] as unknown as PrepareEntry[],
       state,
-      {},
+      { prepare: {}, publish: {} },
       'test_action',
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PrepareError);
@@ -122,7 +129,8 @@ describe('resolveActionPrepare', () => {
   it('from_hook throws PrepareError(MissingHookField) when hook result is missing a declared field', async () => {
     const state = StateManager.from({});
     const hooks: HookRegistry = {
-      partial_hook: (_ctx: PrepareHookContext) => ({ other_field: buildNumber(1) }),
+      prepare: { partial_hook: (_ctx: PrepareHookContext) => ({ other_field: buildNumber(1) }) },
+      publish: {},
     };
     const err = await resolveActionPrepare(
       [{ binding: 'expected_field', fromHook: 'partial_hook' }] as unknown as PrepareEntry[],
@@ -145,7 +153,7 @@ describe('resolveActionPrepare', () => {
         { binding: 'y_val', fromState: 'b.y' },
       ] as unknown as PrepareEntry[],
       state,
-      {},
+      { prepare: {}, publish: {} },
       'test_action',
     );
     expect(isPureNumber(result['x_val']!) && result['x_val'].value).toBe(1);
@@ -163,6 +171,7 @@ function makePrevResult(bindingValues: Record<string, import('runtime').AnyValue
     computeRootValue: buildNull('unknown'),
     bindingValues,
     stateAfterMerge: StateManager.from({}),
+    publishOutcomes: [],
   };
 }
 

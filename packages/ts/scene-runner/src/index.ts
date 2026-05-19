@@ -9,6 +9,7 @@ export type {
   HookImpl,
   PrepareHookImpl,
   PublishHookImpl,
+  PublishHookOutcome,
   PrepareHookContext,
   PublishHookContext,
   ActionTrace,

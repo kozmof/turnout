@@ -417,7 +417,7 @@ describe('executeSceneSafe — failedActionId', () => {
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.failedActionId).toBe('second');
-      expect(result.error.code).toBe('UnknownFunction');
+      expect((result.error as { code?: string }).code).toBe('UnknownFunction');
       expect(result.partialState.read('step.first')).toBeDefined();
     }
   });

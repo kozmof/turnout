@@ -51,7 +51,7 @@ export async function executeRoute(
   scenes: Record<string, SceneBlock>,
   entrySceneId: string,
   state: StateManager,
-  hooks: HookRegistry = {},
+  hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteExecutionResult> {
   const maxRouteTransitions = options.maxRouteTransitions ?? DEFAULT_MAX_ROUTE_TRANSITIONS;

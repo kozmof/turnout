@@ -81,7 +81,7 @@ const DEFAULT_MAX_STEPS = 10_000;
 export function createSceneExecutor(
   scene: SceneBlock,
   state: StateManager,
-  hooks: HookRegistry = {},
+  hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
 ): SceneExecutor {
@@ -184,7 +184,7 @@ export function createSceneExecutor(
 export async function executeScene(
   scene: SceneBlock,
   state: StateManager,
-  hooks: HookRegistry = {},
+  hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps?: number,
 ): Promise<SceneExecutionResult> {
@@ -201,7 +201,7 @@ export async function executeScene(
 export async function executeSceneSafe(
   scene: SceneBlock,
   state: StateManager,
-  hooks: HookRegistry = {},
+  hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps?: number,
 ): Promise<SceneResult> {

@@ -7,6 +7,7 @@ import {
 import {
   ExecutionContext,
   FuncId,
+  FuncArgMap,
   ValueId,
   ValueTable,
 } from '../../types';
@@ -23,7 +24,7 @@ describe('executePipeFunc helpers', () => {
       const argMap = {
         a: 'v1' as ValueId,
         b: 'v2' as ValueId,
-      };
+      } as FuncArgMap;
 
       const pipeDefArgs = ['a', 'b'];
 
@@ -50,7 +51,7 @@ describe('executePipeFunc helpers', () => {
       const argMap = {
         // Missing 'b'
         a: 'v1' as ValueId,
-      };
+      } as FuncArgMap;
 
       const pipeDefArgs = ['a', 'b']; // 'b' expected but missing from argMap
 
@@ -90,7 +91,7 @@ describe('executePipeFunc helpers', () => {
         v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
       } as any;
 
-      const argMap = {};
+      const argMap = {} as FuncArgMap;
       const pipeDefArgs: string[] = [];
 
       const result = createScopedValueTable(
@@ -131,7 +132,7 @@ describe('executePipeFunc helpers', () => {
       const argMap = {
         a: 'v1' as ValueId,
         b: 'v2' as ValueId,
-      };
+      } as FuncArgMap;
 
       const pipeDefArgs = ['a', 'b'];
 
@@ -142,7 +143,7 @@ describe('executePipeFunc helpers', () => {
 
     it('should pass validation for empty table with no arguments', () => {
       const scopedValueTable: Partial<ValueTable> = {};
-      const argMap = {};
+      const argMap = {} as FuncArgMap;
       const pipeDefArgs: string[] = [];
 
       expect(() =>

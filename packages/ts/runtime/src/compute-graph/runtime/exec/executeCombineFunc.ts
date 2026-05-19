@@ -1,4 +1,5 @@
 import { FuncId, CombineDefineId, ExecutionContext, ExecutionResult } from '../../types';
+import { createArgName } from '../../idValidation';
 import { getBinaryFn } from '../../call-presets/getBinaryFn';
 import { getTransformFn } from '../../call-presets/getTranformFn';
 
@@ -26,8 +27,8 @@ export function executeCombineFunc(
   const binaryFn = getBinaryFn(def.name);
 
   // Resolve argument values from argMap
-  const argAId = funcEntry.argMap['a'];
-  const argBId = funcEntry.argMap['b'];
+  const argAId = funcEntry.argMap[createArgName('a')];
+  const argBId = funcEntry.argMap[createArgName('b')];
 
   const valA = context.valueTable[argAId];
   const valB = context.valueTable[argBId];

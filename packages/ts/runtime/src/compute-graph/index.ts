@@ -30,11 +30,14 @@ export type {
   FuncId,
   ValueId,
   PipeArgName,
+  ArgName,
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
   PipeStepBinding,
   PipeArgBinding,
+  isValueCondition,
+  isFuncCondition,
 } from './types';
 
 export type { GraphExecutionError } from './runtime/errors';

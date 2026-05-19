@@ -38,13 +38,14 @@ export type CondDefineId = Brand<string, 'condDefineId'>;
 export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
 export type PipeArgName = Brand<string, 'pipeArgName'>;
+export type ArgName = Brand<string, 'argName'>;
 
 /**
  * Per-instance input wiring for combine and pipe functions.
  * Maps each argument name to the ValueId that holds its current value in the
  * value table. Looked up at execution time so the executor can pull live values.
  */
-export type FuncArgMap = { [argName in string]: ValueId };
+export type FuncArgMap = { [argName in ArgName]: ValueId };
 
 /**
  * Discriminated union of runtime function-table entries.
@@ -127,6 +128,14 @@ export type PipeFuncDefTable = {
 export type ConditionId =
   | { readonly source: 'value'; readonly id: ValueId }
   | { readonly source: 'func'; readonly id: FuncId };
+
+export function isValueCondition(id: ConditionId): id is Extract<ConditionId, { source: 'value' }> {
+  return id.source === 'value';
+}
+
+export function isFuncCondition(id: ConditionId): id is Extract<ConditionId, { source: 'func' }> {
+  return id.source === 'func';
+}
 
 export type CondFuncDefTable = {
   [defId in CondDefineId]: {

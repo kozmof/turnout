@@ -2,6 +2,7 @@ import type {
   ExecutionContext,
   ValueId,
   FuncId,
+  FuncArgMap,
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
@@ -57,6 +58,7 @@ import {
   createValueId,
   createFuncId,
   createPipeArgName,
+  createArgName,
 } from '../idValidation';
 
 /**
@@ -775,18 +777,19 @@ function buildCombineArguments(
   state: FunctionPhaseState,
   scope: Scope
 ): {
-  argMap: Record<string, ValueId>;
+  argMap: FuncArgMap;
   transformFnMap: Record<string, readonly TransformFnNames[]>;
 } {
-  const argMap: Record<string, ValueId> = {};
+  const argMap: FuncArgMap = {} as FuncArgMap;
   const transformFnMap: Record<string, readonly TransformFnNames[]> = {};
 
   for (const [key, ref] of Object.entries(builder.args)) {
+    const argKey = createArgName(key);
     if (isTransformRef(ref)) {
-      argMap[key] = resolveValueReference(ref, state, scope);
+      argMap[argKey] = resolveValueReference(ref, state, scope);
       transformFnMap[key] = ref.transformFn;
     } else {
-      argMap[key] = resolveValueReference(ref, state, scope);
+      argMap[argKey] = resolveValueReference(ref, state, scope);
       transformFnMap[key] = inferPassTransform(ref, state, scope);
     }
   }
@@ -850,12 +853,12 @@ function processPipeFunc(
 function buildPipeArguments(
   builder: PipeBuilder,
   scope: Scope
-): { argMap: Record<string, ValueId>; pipeDefArgs: string[] } {
-  const argMap: Record<string, ValueId> = {};
+): { argMap: FuncArgMap; pipeDefArgs: string[] } {
+  const argMap: FuncArgMap = {} as FuncArgMap;
   const pipeDefArgs: string[] = [];
 
   for (const [argName, valueRef] of Object.entries(builder.argBindings)) {
-    argMap[argName] = scope.valueId(valueRef);
+    argMap[createArgName(argName)] = scope.valueId(valueRef);
     pipeDefArgs.push(argName);
   }
 

@@ -597,6 +597,12 @@ func (*PipeCallRHS) bindingRHS() {}
 // and PipeExpr steps. See LocalExpr for its pre-lowering counterpart.
 type Arg interface{ arg() }
 
+// PreLowerArg is a source-syntax argument resolved during lowering to a
+// proto-level Arg. Implementors appear in parser output but are not valid
+// in the lowered proto model. Use concrete type switches (e.g. *MethodCallArg)
+// or this interface to identify and handle pre-lowering forms.
+type PreLowerArg interface{ preLowerArg() }
+
 // RefArg is a bare identifier reference: `v` → `{ ref = "v" }` in canonical HCL.
 type RefArg struct{ Name string }
 
@@ -628,12 +634,17 @@ func (*TransformArg) arg() {}
 // MethodCallArg is the DSL method-call form `receiver.method1().method2()`.
 // Methods holds unqualified method names; the lowerer resolves them to fully
 // qualified transformFn names using the binding type context.
+//
+// This is a pre-lowering form (implements PreLowerArg): it appears in parser
+// output inside []Arg slices and is resolved to TransformArg by lowerMethodCallArg.
+// It is not a valid post-lowering proto-level argument on its own.
 type MethodCallArg struct {
 	Receiver string
 	Methods  []string
 }
 
-func (*MethodCallArg) arg() {}
+func (*MethodCallArg) arg()         {}
+func (*MethodCallArg) preLowerArg() {}
 
 // ────────────────────────────────────────────────────────────
 // Prepare / Merge / Publish

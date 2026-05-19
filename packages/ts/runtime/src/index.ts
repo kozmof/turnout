@@ -110,11 +110,14 @@ export type {
   FuncId,
   ValueId,
   PipeArgName,
+  ArgName,
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
   PipeStepBinding,
   PipeArgBinding,
+  isValueCondition,
+  isFuncCondition,
 } from './compute-graph';
 
 export type {

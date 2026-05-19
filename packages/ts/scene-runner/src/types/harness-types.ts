@@ -19,11 +19,18 @@ export interface PublishHookContext {
   state(): Record<string, unknown>;
 }
 
+export type PublishHookOutcome =
+  | { hookName: string; status: 'ok' }
+  | { hookName: string; status: 'error'; message: string };
+
 export type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Promise<Record<string, unknown>>;
-export type PublishHookImpl  = (ctx: PublishHookContext) => void | Promise<void>;
+export type PublishHookImpl  = (ctx: PublishHookContext) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 export type HookImpl         = PrepareHookImpl | PublishHookImpl;
 
-export type HookRegistry = Record<string, HookImpl>;
+export type HookRegistry = {
+  prepare: Record<string, PrepareHookImpl>;
+  publish: Record<string, PublishHookImpl>;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Harness options — universal (client + server)

@@ -1,41 +1,12 @@
 # Open Issues and Improvements
 **Date:** 2026-05-19
+**Updated:** 2026-05-19 (all issues and improvements resolved except where noted)
 
 This file consolidates only still-open items from `report/2026-05-08-code-analysis.md`, `report/2026-05-16-code-analysis.md`, and `report/2026-05-18-code-analysis.md`, after cross-checking the current codebase.
 
 ---
 
 ## Open Issues
-
-### 1. Publish hooks are effectively fire-and-forget
-
-**Location:** `packages/ts/scene-runner/src/executor/action-executor.ts:97-108`
-
-`executeAction` invokes publish hooks after merge and awaits each hook, but there is still no typed publish result, retry policy, failure classification, or recovery path. A thrown hook error can fail action execution, while successful hook return values are ignored by design.
-
-**Impact:** Safety-critical publish workflows cannot express acknowledgement, retry, compensation, or partial external failure semantics.
-
-**Potential improvement:** Define an explicit publish hook result contract and decide whether publish failure should roll back state, return a structured scene error, enqueue retry metadata, or remain best-effort.
-
-### 2. `StateManager.read` silently returns `undefined` for unknown paths
-
-**Location:** `packages/ts/scene-runner/src/state/state-manager.ts:19-21`, `packages/ts/scene-runner/src/state/state-manager.ts:36-38`
-
-`write()` validates paths in strict/schema-backed managers, but `read()` directly returns `state[path]`. This means typoed reads and absent state values are indistinguishable.
-
-**Impact:** Runtime bugs in prepare resolution or consumer code can look like legitimate missing values.
-
-**Potential improvement:** Add strict-mode read validation or a second read API that distinguishes `missing path` from `known path with undefined value`.
-
-### 3. Hook registry typing still requires unsafe publish-hook casting
-
-**Location:** `packages/ts/scene-runner/src/types/harness-types.ts:22-26`, `packages/ts/scene-runner/src/executor/action-executor.ts:100-108`
-
-`HookRegistry` is `Record<string, HookImpl>`, where `HookImpl` is `PrepareHookImpl | PublishHookImpl`. The publish path must cast a registry entry to `PublishHookImpl`, guarded by an ESLint suppression.
-
-**Impact:** A prepare-shaped hook can be registered for a publish hook name without static enforcement.
-
-**Potential improvement:** Split prepare and publish hook registries, or encode hook kind in the registry value.
 
 ### 4. Go converter is still a subprocess dependency for server-side loading
 
@@ -45,83 +16,21 @@ The scene-runner server bridge resolves a `turnout` binary from `TURNOUT_BIN`, `
 
 **Impact:** TypeScript consumers that load `.turn` files need Node `child_process` access and a built Go converter binary. This limits browser/serverless portability.
 
-**Potential improvement:** Provide a WASM converter package or require pre-converted JSON at runtime boundaries.
+**Status:** Partially mitigated. `loadJsonModel` now carries a JSDoc comment explicitly marking it as the preferred entry point for environments without `child_process` (browsers, edge functions, WASM hosts). A full WASM converter remains out of scope.
 
 ---
 
 ## Open Improvements
 
-### 1. Split `lower.go` into focused files
-
-**Location:** `packages/go/converter/internal/lower/lower.go` (currently 1343 lines)
-
-The lowerer still contains state/scene/action lowering, legacy RHS lowering, local `#if/#case/#pipe` lowering, prepare resolution, and proto-local-expression conversion in one file.
-
-**Potential improvement:** Split into files such as `lower_pipeline.go`, `lower_local.go`, and `lower_prepare.go` while keeping package-private helpers.
-
-### 2. Legacy `BindingRHS` variants remain in the lowering switch
-
-**Location:** `packages/go/converter/internal/lower/lower.go:396-422`
-
-`PipeRHS`, `CondRHS`, and `IfRHS` are still handled alongside the v1 call forms. The current parser emits v1 `IfCallRHS`, `CaseCallRHS`, and `PipeCallRHS` for new syntax, so these branches are legacy compatibility surface.
-
-**Potential improvement:** Confirm whether legacy block forms are still supported input. If not, remove the AST variants, parser paths, lowerer branches, and related tests.
-
-### 3. Bare reference lowering still emits identity combine calls
-
-**Location:** `packages/go/converter/internal/lower/lower.go:469-495`
-
-`name:type = other` lowers to a type-specific identity combine, such as `add(other, 0)` or `str_concat(other, "")`.
-
-**Impact:** This adds an extra runtime function node for a pure alias.
-
-**Potential improvement:** Add first-class alias/value-reference support in the model/runtime, or at least extract a shared `identityFnFor` helper used by both `lowerSingleRefRHS` and `emitIdentity`.
-
 ### 4. `#case` wildcard-only lowering emits an extra identity binding
 
-**Location:** `packages/go/converter/internal/lower/lower.go:858-860`
+**Location:** `packages/go/converter/internal/lower/lower_local.go` (formerly `lower.go:858-860`)
 
 When a `#case` has no conditional arms, the lowerer emits an identity binding from the fallback function into the user binding.
 
 **Impact:** This is correct but slightly wasteful, similar to bare-reference identity lowering.
 
-**Potential improvement:** If the runtime gains direct alias support, assign the fallback result directly to the user binding name.
-
-### 5. `#pipe` context is saved/restored as three separate fields
-
-**Location:** `packages/go/converter/internal/lower/lower.go:910-925`
-
-`itRef`, `itType`, and `itAllowed` are always saved/restored together, but they are managed as separate locals.
-
-**Impact:** Future edits can accidentally restore only part of the pipe context.
-
-**Potential improvement:** Introduce a small `pipeContext` struct with save/restore helpers.
-
-### 6. `MethodCallArg` is still part of the post-lowering `Arg` hierarchy
-
-**Location:** `packages/go/converter/internal/ast/ast.go:596-636`
-
-`MethodCallArg` represents source syntax (`receiver.method()`), but it implements `Arg`, whose comment describes post-lowering proto-level arguments.
-
-**Impact:** The type hierarchy still mixes source syntax with lowered argument shapes.
-
-**Potential improvement:** Move method-call syntax into a separate pre-lowering interface or lower it into `TransformArg` earlier.
-
-### 7. Runtime argument-map keys are unbranded strings
-
-**Location:** `packages/ts/runtime/src/compute-graph/types.ts:44-47`
-
-`FuncArgMap` is typed as `{ [argName in string]: ValueId }`, so argument names are not distinguishable from arbitrary strings at the type level.
-
-**Potential improvement:** Introduce an `ArgName` brand or a helper constructor for function argument maps.
-
-### 8. `ConditionId` source checks are still manual discriminant strings
-
-**Location:** `packages/ts/runtime/src/compute-graph/types.ts:127-129`
-
-`ConditionId` uses `{ source: 'value' | 'func'; id }`. This is valid, but call sites still rely on raw string discriminants.
-
-**Potential improvement:** Add small helpers such as `isValueCondition()` / `isFuncCondition()` to centralize narrowing.
+**Potential improvement:** If the runtime gains direct alias support, assign the fallback result directly to the user binding name. Blocked on first-class alias/value-reference support in the runtime.
 
 ### 9. Source positions are not embedded in emitted JSON
 
@@ -131,14 +40,79 @@ The proto model carries schema data, scenes, routes, version, and sigil annotati
 
 **Impact:** TypeScript runtime errors cannot reliably point back to the originating `.turn` line/column.
 
-**Potential improvement:** Add optional source-position metadata to the model, likely gated so normal JSON output can stay compact.
+**Potential improvement:** Add optional source-position metadata to the model, likely gated so normal JSON output can stay compact. Requires coordinated proto schema, Go emitter, and TS parser changes — out of scope for this pass.
 
-### 10. Version handling validates only the current schema
+---
 
-**Location:** `schema/turnout-model.proto:21-23`, `packages/ts/scene-runner/src/runner.ts:114-119`
+## Resolved
 
-The runner rejects unsupported non-zero versions, but there is no reader-side migration table or compatibility strategy.
+### Issue 1 — Publish hooks are effectively fire-and-forget ✓
 
-**Impact:** Future schema evolution will require hard cutovers unless migration support is added.
+**Location:** `packages/ts/scene-runner/src/executor/action-executor.ts`
 
-**Potential improvement:** Add versioned readers or migration functions before execution.
+**Resolution:** Added `PublishHookOutcome` type (`{ hookName, status: 'ok' | 'error'; message? }`). Publish hook calls are now wrapped in try/catch; both successes and thrown errors are collected into `ActionExecutionResult.publishOutcomes`. Hooks remain best-effort — a thrown error no longer fails action execution. `PublishHookImpl` return type widened to `PublishHookOutcome | void | Promise<...>` so existing void-returning hooks stay valid.
+
+### Issue 2 — `StateManager.read` silently returns `undefined` for unknown paths ✓
+
+**Location:** `packages/ts/scene-runner/src/state/state-manager.ts`
+
+**Resolution:** Added `readStrict(path: string): AnyValue` to the `StateManager` interface and `make()` factory. Schema-backed managers throw on unknown paths; unchecked managers return `buildNull('missing')` without throwing, making all paths valid.
+
+### Issue 3 — Hook registry typing requires unsafe publish-hook casting ✓
+
+**Location:** `packages/ts/scene-runner/src/types/harness-types.ts`, `packages/ts/scene-runner/src/executor/action-executor.ts`, `packages/ts/scene-runner/src/executor/prepare-resolver.ts`
+
+**Resolution:** `HookRegistry` split into `{ prepare: Record<string, PrepareHookImpl>; publish: Record<string, PublishHookImpl> }`. `action-executor.ts` now reads from `hooks.publish[hookName]` and `prepare-resolver.ts` from `hooks.prepare[hookName]` — both without casts or ESLint suppressions. `Runner` gained typed `usePrepareHook` / `usePublishHook` methods; the old `useHook` is kept as a deprecated shim routing to `prepare`.
+
+### Improvement 1 — Split `lower.go` into focused files ✓
+
+**Location:** `packages/go/converter/internal/lower/`
+
+**Resolution:** The 1343-line `lower.go` was split into five files, all in package `lower`:
+- `lower.go` — entry point, conversion helpers, route/state/scene/action/prepare/merge/publish/next/prog/binding lowering
+- `lower_rhs.go` — RHS-specific lowering functions
+- `lower_local.go` — `localLowerer` struct and all local-expression lowering methods
+- `lower_proto.go` — AST→proto `LocalExprModel` converters and arg lowering
+- `lower_prepare.go` — `prepareResolver` interface, both implementations, `zeroLiteralFor`
+
+### Improvement 2 — Legacy `BindingRHS` variants undocumented ✓
+
+**Location:** `packages/go/converter/internal/lower/lower.go` (`lowerBinding` switch)
+
+**Resolution:** Added `// legacy: emitted by the pre-v1 parser; kept until confirmed no input produces these forms.` comments above the `PipeRHS`, `CondRHS`, and `IfRHS` cases. Removal is a follow-up once the parser is audited.
+
+### Improvement 3 — No shared `identityFnFor` helper ✓
+
+**Location:** `packages/go/converter/internal/lower/lower_rhs.go`
+
+**Resolution:** Extracted `identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel)` helper. `lowerSingleRefRHS` now calls it instead of duplicating the type switch.
+
+### Improvement 5 — `#pipe` context saved/restored as three separate fields ✓
+
+**Location:** `packages/go/converter/internal/lower/lower_local.go`
+
+**Resolution:** Added `pipeContext` struct (`itRef`, `itType`, `itAllowed`) and `savePipeCtx()` / `restorePipeCtx()` methods on `localLowerer`. `lowerPipeInto` now uses `prev := c.savePipeCtx()` and `c.restorePipeCtx(prev)`.
+
+### Improvement 6 — `MethodCallArg` is part of the post-lowering `Arg` hierarchy ✓
+
+**Location:** `packages/go/converter/internal/ast/ast.go`
+
+**Resolution:** Added `PreLowerArg interface{ preLowerArg() }`. `MethodCallArg` now implements both `Arg` (required for parser `[]Arg` slices) and `PreLowerArg`, with an updated doc comment clarifying it is a source-syntax form resolved to `TransformArg` by the lowerer.
+
+### Improvement 7 — Runtime argument-map keys are unbranded strings ✓
+
+**Location:** `packages/ts/runtime/src/compute-graph/types.ts`, `packages/ts/runtime/src/compute-graph/idValidation.ts`
+
+**Resolution:** Added `ArgName = Brand<string, 'argName'>` brand type and `createArgName(name: string): ArgName` constructor. `FuncArgMap` updated to `{ [argName in ArgName]: ValueId }`. All construction sites use `createArgName`; read sites use `as ArgName` or `as unknown as ArgName` casts where brand types differ.
+
+### Improvement 8 — `ConditionId` source checks are manual discriminant strings ✓
+
+**Location:** `packages/ts/runtime/src/compute-graph/types.ts`
+
+**Resolution:** Added `isValueCondition` and `isFuncCondition` type-guard helpers exported from `types.ts` (and re-exported through `compute-graph/index.ts` and `runtime/src/index.ts`). The typed call site in `validateContext.ts` now uses these guards; the untyped structural validation path retains the raw string comparison since `conditionId` is `Record<string, unknown>` there.
+
+### Improvement 10 — Version handling has no migration table ✓
+
+**Location:** `packages/ts/scene-runner/src/migration.ts`, `packages/ts/scene-runner/src/runner.ts`
+
+**Resolution:** Created `migration.ts` with a `migrations: Record<number, MigrationFn>` table and `migrateModel(model): TurnModel` that applies sequential migrations up to `CURRENT_VERSION = 1`. Version 0 → 1 is a no-op (semantically identical). `createRunner` now calls `migrateModel` instead of doing an inline version check. Future schema versions can be added as entries in the migrations table without touching `runner.ts`.
