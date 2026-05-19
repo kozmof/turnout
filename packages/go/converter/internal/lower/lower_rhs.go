@@ -70,19 +70,11 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindi
 }
 
 func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.BindingModel {
-	fn := rhs.Op.FnAlias()
-	if fn == "" {
-		if ft == ast.FieldTypeStr {
-			fn = "str_concat"
-		} else {
-			fn = "add"
-		}
-	}
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
-			Fn:   fn,
+			Fn:   rhs.Op.FnAliasForType(ft),
 			Args: []*turnoutpb.ArgModel{lowerArgWithTypes(rhs.LHS, bindingTypes, ds), lowerArgWithTypes(rhs.RHS, bindingTypes, ds)},
 		}},
 	}

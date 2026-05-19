@@ -10,7 +10,7 @@ import {
   ValueId,
   PipeStepBinding,
   PipeArgBinding,
-  hasArgMap,
+  isArgMapEntry,
 } from '../../types';
 import {
   createEmptySequenceError,
@@ -262,7 +262,7 @@ export function executePipeFunc(
   context: ExecutionContext
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
-  if (!hasArgMap(funcEntry)) {
+  if (!isArgMapEntry(funcEntry)) {
     throw new Error(`executePipeFunc called with cond entry for ${funcId}`);
   }
   const def = context.pipeFuncDefTable[defId];

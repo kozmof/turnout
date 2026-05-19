@@ -14,11 +14,28 @@ const CURRENT_VERSION = 1;
 /**
  * Apply sequential migrations to bring `model` up to `CURRENT_VERSION`.
  * Returns the migrated model (may be the same reference if no migration ran).
- * Throws if the model's version is already above the current supported version.
+ * Throws if the model's version is above the current supported version, or if
+ * CURRENT_VERSION falls outside the model's declared [minVersion, maxVersion].
  */
 export function migrateModel(model: TurnModel): TurnModel {
   const versionedModel = model as TurnModel & { version?: number };
   let version = versionedModel.version ?? 0;
+
+  // Respect min_version / max_version when the emitter declares them (non-zero).
+  const minVersion = model.minVersion ?? 0;
+  const maxVersion = model.maxVersion ?? 0;
+  if (minVersion > 0 && CURRENT_VERSION < minVersion) {
+    throw new Error(
+      `Runtime version ${CURRENT_VERSION} is below the model's required minimum version ${minVersion}. ` +
+      `Upgrade the scene-runner package.`,
+    );
+  }
+  if (maxVersion > 0 && CURRENT_VERSION > maxVersion) {
+    throw new Error(
+      `Runtime version ${CURRENT_VERSION} exceeds the model's maximum compatible version ${maxVersion}. ` +
+      `Regenerate the model with a compatible converter.`,
+    );
+  }
 
   if (version > CURRENT_VERSION) {
     throw new Error(

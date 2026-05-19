@@ -56,21 +56,23 @@ export type FuncArgMap = { [argName in ArgName]: ValueId };
  * `condFuncDefTable` at build time, and `executeCondFunc` receives the
  * already-selected branch value as a parameter — no runtime value lookup needed.
  *
- * Use `hasArgMap(entry)` to narrow to the combine | pipe variants without
+ * Use `isArgMapEntry(entry)` to narrow to the combine | pipe variants without
  * special-casing `cond` directly.
  */
 export type FuncTableEntry =
   | { kind: 'combine'; defId: CombineDefineId; argMap: FuncArgMap; returnId: ValueId }
   | { kind: 'pipe';    defId: PipeDefineId;    argMap: FuncArgMap; returnId: ValueId }
+  // No argMap: cond inputs are pre-resolved into condFuncDefTable at build time.
   | { kind: 'cond';   defId: CondDefineId;                        returnId: ValueId };
 
 /** Narrows a FuncTableEntry to the two variants that carry `argMap` (combine | pipe). */
 export type ArgMapFuncEntry = Extract<FuncTableEntry, { argMap: FuncArgMap }>;
 
 /** Type guard: true when the entry is a combine or pipe entry (the two that carry `argMap`). */
-export function hasArgMap(entry: FuncTableEntry): entry is ArgMapFuncEntry {
+export function isArgMapEntry(entry: FuncTableEntry): entry is ArgMapFuncEntry {
   return 'argMap' in entry;
 }
+
 
 export type FuncTable = {
   [id in FuncId]: FuncTableEntry;

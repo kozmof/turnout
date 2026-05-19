@@ -72,9 +72,9 @@ function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
     case 'number': return value.symbol === 'number';
     case 'str': return value.symbol === 'string';
     case 'bool': return value.symbol === 'boolean';
-    case 'arr<number>':
-    case 'arr<str>':
-    case 'arr<bool>': return value.symbol === 'array';
+    case 'arr<number>': return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'number');
+    case 'arr<str>':    return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'string');
+    case 'arr<bool>':   return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'boolean');
     default: return true;
   }
 }
@@ -90,11 +90,6 @@ export function stateManagerFromUnchecked(initial: Record<string, AnyValue>): St
   return make({ ...initial }, null);
 }
 
-/**
- * @deprecated Use `stateManagerFromUnchecked` for no-validation semantics, or
- * `stateManagerFromStrict` / `stateManagerFromSchema` for strict path checking.
- */
-export const stateManagerFrom = stateManagerFromUnchecked;
 
 /**
  * Create a StateManager from a flat initial state record, enforcing that every
@@ -208,8 +203,6 @@ export { literalToValue };
 
 // eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace StateManager {
-  /** @deprecated Use `stateManagerFromUnchecked` for no-validation semantics. */
-  export const from = stateManagerFromUnchecked;
   export const fromStrict = stateManagerFromStrict;
   export const fromSchema = stateManagerFromSchema;
 }

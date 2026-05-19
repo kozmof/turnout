@@ -1,36 +1,36 @@
 import { describe, it, expect } from 'vitest';
-import { StateManager, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
+import { StateManager, stateManagerFromUnchecked, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
 import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
 import type { StateModel } from '../src/types/turnout-model_pb.js';
 
 describe('StateManager', () => {
   it('reads a value written with from()', () => {
-    const sm = StateManager.from({ 'a.x': buildNumber(42) });
+    const sm = stateManagerFromUnchecked({ 'a.x': buildNumber(42) });
     const val = sm.read('a.x');
     expect(val).toBeDefined();
     expect(isPureNumber(val!) && val.value).toBe(42);
   });
 
   it('returns buildNull("missing") for absent unchecked paths', () => {
-    const sm = StateManager.from({});
+    const sm = stateManagerFromUnchecked({});
     expect(isPureNull(sm.read('no.such.path'))).toBe(true);
   });
 
   it('write returns a new instance with updated value', () => {
-    const sm = StateManager.from({ 'a.x': buildNumber(1) });
+    const sm = stateManagerFromUnchecked({ 'a.x': buildNumber(1) });
     const sm2 = sm.write('a.x', buildNumber(99));
     expect(isPureNumber(sm.read('a.x')!) && sm.read('a.x')!.value).toBe(1);
     expect(isPureNumber(sm2.read('a.x')!) && sm2.read('a.x')!.value).toBe(99);
   });
 
   it('write does not mutate original', () => {
-    const sm = StateManager.from({ 'a.x': buildNumber(5) });
+    const sm = stateManagerFromUnchecked({ 'a.x': buildNumber(5) });
     sm.write('a.x', buildNumber(500));
     expect(isPureNumber(sm.read('a.x')!) && sm.read('a.x')!.value).toBe(5);
   });
 
   it('snapshot returns a flat copy', () => {
-    const sm = StateManager.from({ 'a.x': buildNumber(7), 'b.y': buildString('hi') });
+    const sm = stateManagerFromUnchecked({ 'a.x': buildNumber(7), 'b.y': buildString('hi') });
     const snap = sm.snapshot();
     expect(Object.keys(snap)).toHaveLength(2);
     expect(isPureNumber(snap['a.x']) && snap['a.x'].value).toBe(7);
@@ -172,7 +172,7 @@ describe('StateManager — write() path validation', () => {
   });
 
   it('write() on a schema-less manager never throws for unknown paths', () => {
-    const sm = StateManager.from({ 'a.x': buildNumber(1) });
+    const sm = stateManagerFromUnchecked({ 'a.x': buildNumber(1) });
     expect(() => sm.write('any.unknown.path', buildNumber(99))).not.toThrow();
   });
 });

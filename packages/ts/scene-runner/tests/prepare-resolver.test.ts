@@ -3,7 +3,7 @@ import {
   resolveActionPrepare,
   resolveNextPrepare,
 } from '../src/executor/prepare-resolver.js';
-import { StateManager } from '../src/state/state-manager.js';
+import { StateManager, stateManagerFromUnchecked } from '../src/state/state-manager.js';
 import {
   buildNumber,
   buildString,
@@ -26,7 +26,7 @@ import { PrepareError } from '../src/executor/errors.js';
 
 describe('resolveActionPrepare', () => {
   it('from_state reads the value from StateManager', async () => {
-    const state = StateManager.from({ 'request.query': buildString('hello') });
+    const state = stateManagerFromUnchecked({ 'request.query': buildString('hello') });
     const result = await resolveActionPrepare(
       [{ binding: 'query', fromState: 'request.query' }] as unknown as PrepareEntry[],
       state,
@@ -37,7 +37,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('from_state returns buildNull("missing") when an unchecked path is absent', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await resolveActionPrepare(
       [{ binding: 'missing_val', fromState: 'no.such.path' }] as unknown as PrepareEntry[],
       state,
@@ -48,7 +48,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('from_hook calls the hook and extracts the binding field', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
       prepare: { my_hook: (_ctx: PrepareHookContext) => ({ foo: buildNumber(42) }) },
       publish: {},
@@ -63,7 +63,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('from_hook supports async hook returning a Promise', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
       prepare: {
         async_hook: async (_ctx: PrepareHookContext) => {
@@ -83,7 +83,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('from_hook passes PrepareHookContext with actionId, hookName, and get()', async () => {
-    const state = StateManager.from({ 'a.x': buildNumber(7) });
+    const state = stateManagerFromUnchecked({ 'a.x': buildNumber(7) });
     let capturedActionId: string | undefined;
     let capturedHookName: string | undefined;
     let capturedGetResult: unknown;
@@ -113,7 +113,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('from_hook throws PrepareError(UnregisteredHook) when the hook is not registered', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const err = await resolveActionPrepare(
       [{ binding: 'foo', fromHook: 'nonexistent_hook' }] as unknown as PrepareEntry[],
       state,
@@ -126,7 +126,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('from_hook throws PrepareError(MissingHookField) when hook result is missing a declared field', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
       prepare: { partial_hook: (_ctx: PrepareHookContext) => ({ other_field: buildNumber(1) }) },
       publish: {},
@@ -142,7 +142,7 @@ describe('resolveActionPrepare', () => {
   });
 
   it('resolves multiple entries independently', async () => {
-    const state = StateManager.from({
+    const state = stateManagerFromUnchecked({
       'a.x': buildNumber(1),
       'b.y': buildString('two'),
     });
@@ -169,14 +169,14 @@ function makePrevResult(bindingValues: Record<string, import('runtime').AnyValue
     actionId: 'prev_action',
     computeRootValue: buildNull('unknown'),
     bindingValues,
-    stateAfterMerge: StateManager.from({}),
+    stateAfterMerge: stateManagerFromUnchecked({}),
     publishOutcomes: [],
   };
 }
 
 describe('resolveNextPrepare', () => {
   it('from_action reads from prevResult.bindingValues', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({ score: buildNumber(99) });
     const result = resolveNextPrepare(
       [{ binding: 'score', fromAction: 'score' }] as unknown as NextPrepareEntry[],
@@ -187,7 +187,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_action throws PrepareError(MissingActionBinding) when binding is absent in prevResult', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     let err: unknown;
     try {
@@ -202,7 +202,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_state reads the post-merge state', () => {
-    const state = StateManager.from({ 'workflow.stage': buildString('review') });
+    const state = stateManagerFromUnchecked({ 'workflow.stage': buildString('review') });
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'stage', fromState: 'workflow.stage' }] as unknown as NextPrepareEntry[],
@@ -213,7 +213,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_state returns buildNull("missing") when an unchecked next path is absent', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'x', fromState: 'no.path' }] as unknown as NextPrepareEntry[],
@@ -224,7 +224,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal converts number correctly', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'n', fromLiteral: 42 }] as unknown as NextPrepareEntry[],
@@ -235,7 +235,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal converts string correctly', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'msg', fromLiteral: 'hello' }] as unknown as NextPrepareEntry[],
@@ -246,7 +246,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal converts boolean correctly', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'flag', fromLiteral: true }] as unknown as NextPrepareEntry[],
@@ -257,7 +257,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal converts number array correctly', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'nums', fromLiteral: [1, 2, 3] }] as unknown as NextPrepareEntry[],
@@ -268,7 +268,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal converts string array correctly', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'tags', fromLiteral: ['a', 'b'] }] as unknown as NextPrepareEntry[],
@@ -279,7 +279,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal converts bool array correctly', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'flags', fromLiteral: [true, false] }] as unknown as NextPrepareEntry[],
@@ -290,7 +290,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('from_literal handles empty array (no element type to infer)', () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
       [{ binding: 'empty', fromLiteral: [] as unknown as number[] }] as unknown as NextPrepareEntry[],
@@ -301,7 +301,7 @@ describe('resolveNextPrepare', () => {
   });
 
   it('resolves multiple entries with mixed sources', () => {
-    const state = StateManager.from({ 'ctx.mode': buildString('fast') });
+    const state = stateManagerFromUnchecked({ 'ctx.mode': buildString('fast') });
     const prevResult = makePrevResult({ raw_score: buildNumber(5) });
     const result = resolveNextPrepare(
       [

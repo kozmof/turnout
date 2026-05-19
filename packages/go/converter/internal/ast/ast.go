@@ -268,6 +268,14 @@ type BindingDecl struct {
 // BindingRHS is implemented by all RHS node types.
 type BindingRHS interface{ bindingRHS() }
 
+// PreLowerRHS marks binding RHS types that exist only before lowering.
+// The lowerer converts these to flat BindingModel entries; encountering
+// a PreLowerRHS in post-lowering code paths is always a compiler bug.
+type PreLowerRHS interface {
+	BindingRHS
+	preLowerRHS()
+}
+
 // LiteralRHS is `name:type = <literal>`.
 type LiteralRHS struct{ Value Literal }
 
@@ -351,6 +359,20 @@ func (op InfixOp) FnAlias() string {
 	default:
 		return ""
 	}
+}
+
+// FnAliasForType returns the resolved function alias for this operator given the
+// binding's declared field type. Unlike FnAlias, it always returns a non-empty
+// string: InfixPlus dispatches to "str_concat" for FieldTypeStr and "add"
+// otherwise. All other operators delegate to FnAlias directly.
+func (op InfixOp) FnAliasForType(ft FieldType) string {
+	if op != InfixPlus {
+		return op.FnAlias()
+	}
+	if ft == FieldTypeStr {
+		return "str_concat"
+	}
+	return "add"
 }
 
 // InfixRHS is `name:type = lhs OP rhs`.
@@ -504,7 +526,8 @@ type IfCallRHS struct {
 	Cond, Then, Else LocalExpr
 }
 
-func (*IfCallRHS) bindingRHS() {}
+func (*IfCallRHS) bindingRHS()    {}
+func (*IfCallRHS) preLowerRHS()  {}
 
 // CaseCallRHS is the v1 `#case(subject, pattern => expr, ..., _ => default)` form.
 type CaseCallRHS struct {
@@ -513,7 +536,8 @@ type CaseCallRHS struct {
 	Arms    []LocalCaseArm
 }
 
-func (*CaseCallRHS) bindingRHS() {}
+func (*CaseCallRHS) bindingRHS()   {}
+func (*CaseCallRHS) preLowerRHS() {}
 
 // PipeCallRHS is the v1 `#pipe(initial, step1, step2, ...)` form.
 type PipeCallRHS struct {
@@ -522,7 +546,8 @@ type PipeCallRHS struct {
 	Steps   []LocalExpr
 }
 
-func (*PipeCallRHS) bindingRHS() {}
+func (*PipeCallRHS) bindingRHS()   {}
+func (*PipeCallRHS) preLowerRHS() {}
 
 // ────────────────────────────────────────────────────────────
 // Arg — argument in a function call, infix expression, or pipe step

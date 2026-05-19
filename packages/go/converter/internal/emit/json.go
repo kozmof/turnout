@@ -14,14 +14,17 @@ import (
 
 // EmitJSON marshals a validated proto model directly to indented JSON.
 // ext_expr fields are stripped before marshalling — the runtime ignores them
-// and they add unnecessary bytes to every #if/#case/#pipe binding.
+// (only the HCL emitter uses ext_expr) and they add unnecessary bytes.
 // A "version":1 field is injected at the top of the JSON object so that the
 // TypeScript runner can detect schema mismatches at load time.
+// min_version and max_version are set to 1 to declare runtime compatibility.
 func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) error {
 	if tm == nil {
 		tm = &turnoutpb.TurnModel{}
 	}
 	tm = stripExtExpr(tm)
+	tm.MinVersion = 1
+	tm.MaxVersion = 1
 	raw, err := protojson.Marshal(tm)
 	if err != nil {
 		return err

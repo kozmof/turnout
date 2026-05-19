@@ -68,7 +68,7 @@ func localExprToProto(e ast.LocalExpr) *turnoutpb.LocalExprModel {
 		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Call{Call: &turnoutpb.LocalCallExprModel{Fn: x.FnAlias, Args: args}}}
 	case *ast.LocalInfixExpr:
 		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Infix{Infix: &turnoutpb.LocalInfixExprModel{
-			Op:  int32(x.Op),
+			Op:  turnoutpb.InfixOp(x.Op),
 			Lhs: localExprToProto(x.LHS),
 			Rhs: localExprToProto(x.RHS),
 		}}}

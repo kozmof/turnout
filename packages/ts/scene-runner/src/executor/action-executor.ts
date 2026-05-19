@@ -69,13 +69,13 @@ export async function executeAction(
   for (const binding of action.compute.prog.bindings) {
     const valueId = builtCtx.nameToValueId[binding.name];
 
-    if (updatedTable[valueId] === undefined && binding.expr) {
+    if (!Object.hasOwn(updatedTable, valueId) && binding.expr) {
       const funcId = builtCtx.getFuncId(binding.name)!;
       const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
       const result = executeTree(buildExecutionTree(funcId, bindingCtx, new Set(), new Map(), returnIdToFuncId), bindingCtx);
       mergeValueTable(updatedTable, result.updatedValueTable);
 
-      if (updatedTable[valueId] === undefined) {
+      if (!Object.hasOwn(updatedTable, valueId)) {
         throw new SceneRuntimeError(
           'OutOfOrderBinding',
           action.id,
@@ -128,8 +128,9 @@ export async function executeAction(
   };
 }
 
-function mergeValueTable(target: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
+// Mutates accumulator — intentional; this is the local mutable value table for this action's forward pass.
+function mergeValueTable(accumulator: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
   for (const [id, value] of Object.entries(source)) {
-    target[id] = value;
+    accumulator[id] = value;
   }
 }

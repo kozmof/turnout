@@ -206,7 +206,7 @@ export async function executeSceneSafe(
   maxSteps?: number,
 ): Promise<SceneResult> {
   const executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
-  let lastActionId = scene.entryActions[0] ?? '';
+  let lastActionId = (entryActions ?? scene.entryActions)[0] ?? '';
   try {
     while (!executor.isDone()) {
       const step = await executor.next();

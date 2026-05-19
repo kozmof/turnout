@@ -676,23 +676,54 @@ func (p *parser) parsePipeCallRHS() ast.BindingRHS {
 
 // ─── Local expression parser ──────────────────────────────────────────────────
 
-// parseLocalExpr parses a local expression, building a left-associative chain
-// of infix operations so that `a + b + c` works as expected.
+// infixPrec returns the binding precedence for an infix token (higher binds tighter).
+// Returns (0, false) for non-infix tokens.
+//
+// Precedence table (highest binds tightest):
+//
+//	5  *  /  %
+//	4  +  -
+//	3  <  <=  >  >=
+//	2  ==  !=
+//	1  & (bool_and)
+//	0  | (bool_or)
+func infixPrec(k lexer.TokenKind) (int, bool) {
+	switch k {
+	case lexer.TokStar, lexer.TokSlash, lexer.TokPercent:
+		return 5, true
+	case lexer.TokPlus, lexer.TokMinus:
+		return 4, true
+	case lexer.TokLT, lexer.TokLTE, lexer.TokGT, lexer.TokGTE:
+		return 3, true
+	case lexer.TokEqEq, lexer.TokNeq:
+		return 2, true
+	case lexer.TokAmpersand:
+		return 1, true
+	case lexer.TokPipe:
+		return 0, true
+	default:
+		return 0, false
+	}
+}
+
+// parseLocalExpr parses a local expression using precedence climbing so that
+// operator precedence is respected: e.g. `a + b * c` parses as `a + (b * c)`.
 func (p *parser) parseLocalExpr() ast.LocalExpr {
+	return p.parseLocalPrec(0)
+}
+
+func (p *parser) parseLocalPrec(minPrec int) ast.LocalExpr {
 	lhs := p.parseLocalPrimary()
 	for {
-		switch p.peek().Kind {
-		case lexer.TokAmpersand, lexer.TokGTE, lexer.TokLTE, lexer.TokGT, lexer.TokLT,
-			lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq, lexer.TokPlus, lexer.TokMinus,
-			lexer.TokStar, lexer.TokSlash, lexer.TokPercent:
-			opTok := p.advance()
-			op := localInfixOpFromTok(opTok)
-			rhs := p.parseLocalPrimary()
-			lhs = &ast.LocalInfixExpr{Pos: p.posOf(opTok), Op: op, LHS: lhs, RHS: rhs}
-		default:
-			return lhs
+		prec, ok := infixPrec(p.peek().Kind)
+		if !ok || prec < minPrec {
+			break
 		}
+		opTok := p.advance()
+		rhs := p.parseLocalPrec(prec + 1) // +1 for left-associativity
+		lhs = &ast.LocalInfixExpr{Pos: p.posOf(opTok), Op: localInfixOpFromTok(opTok), LHS: lhs, RHS: rhs}
 	}
+	return lhs
 }
 
 func (p *parser) parseLocalPrimary() ast.LocalExpr {

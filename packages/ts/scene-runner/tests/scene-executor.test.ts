@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { executeScene, executeSceneSafe, createSceneExecutor } from '../src/executor/scene-executor.js';
-import { StateManager } from '../src/state/state-manager.js';
+import { StateManager, stateManagerFromUnchecked } from '../src/state/state-manager.js';
 import {
   buildNumber,
   buildString,
@@ -70,19 +70,19 @@ describe('executeScene — single terminal action', () => {
   } as unknown as SceneBlock;
 
   it('terminates the single action', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     expect(result.terminatedAt).toEqual(['only_action']);
   });
 
   it('trace contains one action entry', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     expect(result.trace.actions).toHaveLength(1);
     expect(result.trace.actions[0].actionId).toBe('only_action');
     expect(result.trace.actions[0].nextActionIds).toEqual([]);
   });
 
   it('final state has the merged value', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     const v = result.stateAfterScene.read('out.val');
     expect(isPureNumber(v!) && v.value).toBe(7);
   });
@@ -107,7 +107,7 @@ describe('executeScene — two-action chain (first-match)', () => {
   } as unknown as SceneBlock;
 
   it('follows the chain when the condition is true', async () => {
-    const state = StateManager.from({ 'gate.proceed': buildBoolean(true) });
+    const state = stateManagerFromUnchecked({ 'gate.proceed': buildBoolean(true) });
     const result = await executeScene(scene, state);
     expect(result.terminatedAt).toEqual(['action_b']);
     expect(result.trace.actions.map((t) => t.actionId)).toEqual(['action_a', 'action_b']);
@@ -116,7 +116,7 @@ describe('executeScene — two-action chain (first-match)', () => {
   });
 
   it('terminates at action_a when the condition is false', async () => {
-    const state = StateManager.from({ 'gate.proceed': buildBoolean(false) });
+    const state = stateManagerFromUnchecked({ 'gate.proceed': buildBoolean(false) });
     const result = await executeScene(scene, state);
     expect(result.terminatedAt).toEqual(['action_a']);
     expect(result.trace.actions.map((t) => t.actionId)).toEqual(['action_a']);
@@ -141,7 +141,7 @@ describe('executeScene — unconditional next rule', () => {
   } as unknown as SceneBlock;
 
   it('always follows an unconditional next rule', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     expect(result.terminatedAt).toEqual(['second']);
     expect(result.trace.actions.map((t) => t.actionId)).toEqual(['first', 'second']);
   });
@@ -170,7 +170,7 @@ describe('executeScene — all-match policy', () => {
   } as unknown as SceneBlock;
 
   it('enqueues all matching branches', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     const ran = result.trace.actions.map((t) => t.actionId);
     expect(ran).toContain('branch_a');
     expect(ran).toContain('branch_b');
@@ -179,7 +179,7 @@ describe('executeScene — all-match policy', () => {
   });
 
   it('start action has both nextActionIds', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     const startTrace = result.trace.actions.find((t) => t.actionId === 'start')!;
     expect(startTrace.nextActionIds).toEqual(['branch_a', 'branch_b']);
   });
@@ -238,7 +238,7 @@ describe('executeScene — state propagation', () => {
   } as unknown as SceneBlock;
 
   it('action_b can read the STATE written by action_a', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     const doubled = result.stateAfterScene.read('shared.doubled');
     // 55 written by A, doubled by B → 110
     expect(isPureNumber(doubled!) && doubled.value).toBe(110);
@@ -262,7 +262,7 @@ describe('executeScene — cycle guard', () => {
   } as unknown as SceneBlock;
 
   it('does not loop infinitely on a self-referencing next rule', async () => {
-    const result = await executeScene(scene, StateManager.from({}));
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
     // 'a' runs once; the re-queued 'a' is skipped by the visited guard
     expect(result.trace.actions.filter((t) => t.actionId === 'a')).toHaveLength(1);
   });
@@ -280,31 +280,31 @@ describe('createSceneExecutor — isDone / next / result', () => {
   } as unknown as SceneBlock;
 
   it('isDone() is false before any steps', () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     expect(executor.isDone()).toBe(false);
   });
 
   it('next() returns done:false with a trace on the first step', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     const step = await executor.next();
     expect(step.done).toBe(false);
     expect(step.trace?.actionId).toBe('only_action');
   });
 
   it('isDone() is true after the single action runs', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     await executor.next();
     expect(executor.isDone()).toBe(true);
   });
 
   it('next() returns done:true when the queue is empty', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     await executor.next();
     expect(await executor.next()).toEqual({ done: true });
   });
 
   it('result() throws SceneRuntimeError(IncompleteScene) before the scene is complete', () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     let err: unknown;
     try { executor.result(); } catch (e) { err = e; }
     expect(err).toBeInstanceOf(SceneRuntimeError);
@@ -312,7 +312,7 @@ describe('createSceneExecutor — isDone / next / result', () => {
   });
 
   it('result() returns the correct SceneExecutionResult after completion', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     while (!executor.isDone()) await executor.next();
     const result = executor.result();
     expect(result.sceneId).toBe('step_scene');
@@ -336,7 +336,7 @@ describe('createSceneExecutor — step-by-step trace', () => {
   } as unknown as SceneBlock;
 
   it('yields each action trace in order', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
 
     const step1 = await executor.next();
     expect(step1.done).toBe(false);
@@ -352,7 +352,7 @@ describe('createSceneExecutor — step-by-step trace', () => {
   });
 
   it('intermediate state is visible via result() only after completion', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     await executor.next(); // run 'first'
     let err: unknown;
     try { executor.result(); } catch (e) { err = e; }
@@ -377,7 +377,7 @@ describe('createSceneExecutor — cycle guard', () => {
   } as unknown as SceneBlock;
 
   it('completes after one step despite a self-loop next rule', async () => {
-    const executor = createSceneExecutor(scene, StateManager.from({}));
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     await executor.next();
     expect(executor.isDone()).toBe(true);
   });
@@ -413,7 +413,7 @@ describe('executeSceneSafe — failedActionId', () => {
   } as unknown as SceneBlock;
 
   it('reports the action that failed before trace emission', async () => {
-    const result = await executeSceneSafe(scene, StateManager.from({}));
+    const result = await executeSceneSafe(scene, stateManagerFromUnchecked({}));
     expect(result.ok).toBe(false);
     if (!result.ok) {
       expect(result.failedActionId).toBe('second');

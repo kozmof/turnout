@@ -25,12 +25,17 @@ message TurnModel {
   // in the flat binding model. Populated by the Go lowerer; consumed by the
   // validator. Not serialised into the final JSON emitted to the runtime.
   optional SigilAnnotations annotations = 5;
+  // min_version / max_version declare the runtime version range this model
+  // requires. Absent (zero) means unconstrained. The TypeScript runner should
+  // reject models where CURRENT_VERSION < min_version or > max_version.
+  uint32 min_version = 6;
+  uint32 max_version = 7;
 }
 
-// SigilAnnotations carries sigil metadata for each binding. Structured entries
-// are the canonical representation; sigils is retained as a legacy fallback.
+// SigilAnnotations carries sigil metadata for each binding.
+// entries is the canonical representation.
 message SigilAnnotations {
-  map<string, int32> sigils = 1; // legacy: "sceneID:actionID:scope:progName:bindingName" -> sigil
+  reserved 1; reserved "sigils"; // removed legacy map<string, int32> sigils
   repeated SigilAnnotation entries = 2;
 }
 
@@ -118,7 +123,8 @@ message BindingModel {
   google.protobuf.Value value = 3;
   ExprModel expr = 4;
   // ext_expr carries the structured source expression for #if/#case/#pipe bindings.
-  // Used by the HCL emitter to reproduce the original form. Ignored by the runtime.
+  // Populated by the HCL emitter to round-trip those forms. MUST NOT be set in
+  // JSON output; the runtime ignores this field entirely.
   LocalExprModel ext_expr = 5;
 }
 
@@ -257,10 +263,26 @@ message LocalCallExprModel {
   repeated LocalExprModel args = 2;
 }
 
+// InfixOp enumerates DSL infix operators. Values match ast.InfixOp iota so
+// existing serialized models remain valid after the int32 → enum migration.
+enum InfixOp {
+  INFIX_OP_AND     = 0;  // & → bool_and
+  INFIX_OP_GTE     = 1;  // >= → gte
+  INFIX_OP_LTE     = 2;  // <= → lte
+  INFIX_OP_GT      = 3;  // > → gt
+  INFIX_OP_LT      = 4;  // < → lt
+  INFIX_OP_BOOL_OR = 5;  // | → bool_or
+  INFIX_OP_EQ      = 6;  // == → eq
+  INFIX_OP_NEQ     = 7;  // != → neq
+  INFIX_OP_PLUS    = 8;  // + → add (number) / str_concat (str)
+  INFIX_OP_SUB     = 9;  // - → sub
+  INFIX_OP_MUL     = 10; // * → mul
+  INFIX_OP_DIV     = 11; // / → div
+  INFIX_OP_MOD     = 12; // % → mod
+}
+
 message LocalInfixExprModel {
-  // op is the ast.InfixOp iota value (0=&, 1=>=, 2=<=, 3=>, 4=<, 5=|, 6===,
-  // 7=!=, 8=+, 9=-, 10=*, 11=/, 12=%). Value 8 (+) is type-dispatched at emit time.
-  int32 op = 1;
+  InfixOp op = 1;
   LocalExprModel lhs = 2;
   LocalExprModel rhs = 3;
 }

@@ -7,8 +7,8 @@
 // scene-runner. Changing this file and running `buf generate` from the repo
 // root regenerates both the Go and TypeScript types automatically.
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Value } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_struct } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
@@ -17,7 +17,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file turnout-model.proto.
  */
 export const file_turnout_model: GenFile = /*@__PURE__*/
-  fileDesc("ChN0dXJub3V0LW1vZGVsLnByb3RvEhB0dXJub3V0Lm1vZGVsLnYxIvMBCglUdXJuTW9kZWwSKwoFc3RhdGUYASABKAsyHC50dXJub3V0Lm1vZGVsLnYxLlN0YXRlTW9kZWwSLAoGc2NlbmVzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5TY2VuZUJsb2NrEiwKBnJvdXRlcxgDIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuUm91dGVNb2RlbBIPCgd2ZXJzaW9uGAQgASgNEjwKC2Fubm90YXRpb25zGAUgASgLMiIudHVybm91dC5tb2RlbC52MS5TaWdpbEFubm90YXRpb25zSACIAQFCDgoMX2Fubm90YXRpb25zIrUBChBTaWdpbEFubm90YXRpb25zEj4KBnNpZ2lscxgBIAMoCzIuLnR1cm5vdXQubW9kZWwudjEuU2lnaWxBbm5vdGF0aW9ucy5TaWdpbHNFbnRyeRIyCgdlbnRyaWVzGAIgAygLMiEudHVybm91dC5tb2RlbC52MS5TaWdpbEFubm90YXRpb24aLQoLU2lnaWxzRW50cnkSCwoDa2V5GAEgASgJEg0KBXZhbHVlGAIgASgFOgI4ASJ9Cg9TaWdpbEFubm90YXRpb24SEAoIc2NlbmVfaWQYASABKAkSEQoJYWN0aW9uX2lkGAIgASgJEg0KBXNjb3BlGAMgASgJEhEKCXByb2dfbmFtZRgEIAEoCRIUCgxiaW5kaW5nX25hbWUYBSABKAkSDQoFc2lnaWwYBiABKAUiQgoKU3RhdGVNb2RlbBI0CgpuYW1lc3BhY2VzGAEgAygLMiAudHVybm91dC5tb2RlbC52MS5OYW1lc3BhY2VNb2RlbCJMCg5OYW1lc3BhY2VNb2RlbBIMCgRuYW1lGAEgASgJEiwKBmZpZWxkcxgCIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuRmllbGRNb2RlbCJPCgpGaWVsZE1vZGVsEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCRIlCgV2YWx1ZRgDIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZSLCAQoKU2NlbmVCbG9jaxIKCgJpZBgBIAEoCRIVCg1lbnRyeV9hY3Rpb25zGAIgAygJEhgKC25leHRfcG9saWN5GAMgASgJSACIAQESLgoHYWN0aW9ucxgEIAMoCzIdLnR1cm5vdXQubW9kZWwudjEuQWN0aW9uTW9kZWwSLgoEdmlldxgFIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuVmlld0Jsb2NrSAGIAQFCDgoMX25leHRfcG9saWN5QgcKBV92aWV3IkkKCVZpZXdCbG9jaxIMCgRuYW1lGAEgASgJEgwKBGZsb3cYAiABKAkSFAoHZW5mb3JjZRgDIAEoCUgAiAEBQgoKCF9lbmZvcmNlIoQCCgtBY3Rpb25Nb2RlbBIKCgJpZBgBIAEoCRIvCgdjb21wdXRlGAIgASgLMh4udHVybm91dC5tb2RlbC52MS5Db21wdXRlTW9kZWwSLwoHcHJlcGFyZRgDIAMoCzIeLnR1cm5vdXQubW9kZWwudjEuUHJlcGFyZUVudHJ5EisKBW1lcmdlGAQgAygLMhwudHVybm91dC5tb2RlbC52MS5NZXJnZUVudHJ5Eg8KB3B1Ymxpc2gYBSADKAkSLQoEbmV4dBgGIAMoCzIfLnR1cm5vdXQubW9kZWwudjEuTmV4dFJ1bGVNb2RlbBIRCgR0ZXh0GAcgASgJSACIAQFCBwoFX3RleHQiRwoMQ29tcHV0ZU1vZGVsEgwKBHJvb3QYASABKAkSKQoEcHJvZxgCIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuUHJvZ01vZGVsIksKCVByb2dNb2RlbBIMCgRuYW1lGAEgASgJEjAKCGJpbmRpbmdzGAIgAygLMh4udHVybm91dC5tb2RlbC52MS5CaW5kaW5nTW9kZWwisAEKDEJpbmRpbmdNb2RlbBIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSJQoFdmFsdWUYAyABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUSKQoEZXhwchgEIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuRXhwck1vZGVsEjIKCGV4dF9leHByGAUgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKPAQoJRXhwck1vZGVsEi4KB2NvbWJpbmUYASABKAsyHS50dXJub3V0Lm1vZGVsLnYxLkNvbWJpbmVFeHByEigKBHBpcGUYAiABKAsyGi50dXJub3V0Lm1vZGVsLnYxLlBpcGVFeHByEigKBGNvbmQYAyABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkNvbmRFeHByIkMKC0NvbWJpbmVFeHByEgoKAmZuGAEgASgJEigKBGFyZ3MYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsImIKCFBpcGVFeHByEisKBnBhcmFtcxgBIAMoCzIbLnR1cm5vdXQubW9kZWwudjEuUGlwZVBhcmFtEikKBXN0ZXBzGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5QaXBlU3RlcCI1CglQaXBlUGFyYW0SEgoKcGFyYW1fbmFtZRgBIAEoCRIUCgxzb3VyY2VfaWRlbnQYAiABKAkiQAoIUGlwZVN0ZXASCgoCZm4YASABKAkSKAoEYXJncxgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwilAEKCENvbmRFeHByEi0KCWNvbmRpdGlvbhgBIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwSKAoEdGhlbhgCIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwSLwoLZWxzZV9icmFuY2gYAyABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsIsQBCghBcmdNb2RlbBIQCgNyZWYYASABKAlIAIgBARIjCgNsaXQYAiABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUSFQoIZnVuY19yZWYYAyABKAlIAYgBARIVCghzdGVwX3JlZhgEIAEoBUgCiAEBEjEKCXRyYW5zZm9ybRgFIAEoCzIeLnR1cm5vdXQubW9kZWwudjEuVHJhbnNmb3JtQXJnQgYKBF9yZWZCCwoJX2Z1bmNfcmVmQgsKCV9zdGVwX3JlZiInCgxUcmFuc2Zvcm1BcmcSCwoDcmVmGAEgASgJEgoKAmZuGAIgAygJIm0KDFByZXBhcmVFbnRyeRIPCgdiaW5kaW5nGAEgASgJEhcKCmZyb21fc3RhdGUYAiABKAlIAIgBARIWCglmcm9tX2hvb2sYAyABKAlIAYgBAUINCgtfZnJvbV9zdGF0ZUIMCgpfZnJvbV9ob29rIi8KCk1lcmdlRW50cnkSDwoHYmluZGluZxgBIAEoCRIQCgh0b19zdGF0ZRgCIAEoCSKJAQoNTmV4dFJ1bGVNb2RlbBIzCgdjb21wdXRlGAEgASgLMiIudHVybm91dC5tb2RlbC52MS5OZXh0Q29tcHV0ZU1vZGVsEjMKB3ByZXBhcmUYAiADKAsyIi50dXJub3V0Lm1vZGVsLnYxLk5leHRQcmVwYXJlRW50cnkSDgoGYWN0aW9uGAMgASgJIlAKEE5leHRDb21wdXRlTW9kZWwSEQoJY29uZGl0aW9uGAEgASgJEikKBHByb2cYAiABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlByb2dNb2RlbCKjAQoQTmV4dFByZXBhcmVFbnRyeRIPCgdiaW5kaW5nGAEgASgJEhgKC2Zyb21fYWN0aW9uGAIgASgJSACIAQESFwoKZnJvbV9zdGF0ZRgDIAEoCUgBiAEBEiwKDGZyb21fbGl0ZXJhbBgEIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZUIOCgxfZnJvbV9hY3Rpb25CDQoLX2Zyb21fc3RhdGUicwoKUm91dGVNb2RlbBIKCgJpZBgBIAEoCRIpCgVtYXRjaBgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuTWF0Y2hBcm0SGwoOZW50cnlfc2NlbmVfaWQYAyABKAlIAIgBAUIRCg9fZW50cnlfc2NlbmVfaWQiLAoITWF0Y2hBcm0SEAoIcGF0dGVybnMYASADKAkSDgoGdGFyZ2V0GAIgASgJIs0DCg5Mb2NhbEV4cHJNb2RlbBIyCgNyZWYYASABKAsyIy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsUmVmRXhwck1vZGVsSAASMgoDbGl0GAIgASgLMiMudHVybm91dC5tb2RlbC52MS5Mb2NhbExpdEV4cHJNb2RlbEgAEjAKAml0GAMgASgLMiIudHVybm91dC5tb2RlbC52MS5Mb2NhbEl0RXhwck1vZGVsSAASNAoEY2FsbBgEIAEoCzIkLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYWxsRXhwck1vZGVsSAASNgoFaW5maXgYBSABKAsyJS50dXJub3V0Lm1vZGVsLnYxLkxvY2FsSW5maXhFeHByTW9kZWxIABI1CgdpZl9leHByGAYgASgLMiIudHVybm91dC5tb2RlbC52MS5Mb2NhbElmRXhwck1vZGVsSAASOQoJY2FzZV9leHByGAcgASgLMiQudHVybm91dC5tb2RlbC52MS5Mb2NhbENhc2VFeHByTW9kZWxIABI5CglwaXBlX2V4cHIYCCABKAsyJC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsUGlwZUV4cHJNb2RlbEgAQgYKBGV4cHIiIQoRTG9jYWxSZWZFeHByTW9kZWwSDAoEbmFtZRgBIAEoCSI6ChFMb2NhbExpdEV4cHJNb2RlbBIlCgV2YWx1ZRgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZSISChBMb2NhbEl0RXhwck1vZGVsIlAKEkxvY2FsQ2FsbEV4cHJNb2RlbBIKCgJmbhgBIAEoCRIuCgRhcmdzGAIgAygLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCJ/ChNMb2NhbEluZml4RXhwck1vZGVsEgoKAm9wGAEgASgFEi0KA2xocxgCIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSLQoDcmhzGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKpAQoQTG9jYWxJZkV4cHJNb2RlbBIuCgRjb25kGAEgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIuCgR0aGVuGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBI1CgtlbHNlX2JyYW5jaBgDIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwirgEKEUxvY2FsQ2FzZUFybU1vZGVsEjgKB3BhdHRlcm4YASABKAsyJy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZVBhdHRlcm5Nb2RlbBIvCgVndWFyZBgCIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSLgoEZXhwchgDIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwiegoSTG9jYWxDYXNlRXhwck1vZGVsEjEKB3N1YmplY3QYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEjEKBGFybXMYAiADKAsyIy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZUFybU1vZGVsIngKEkxvY2FsUGlwZUV4cHJNb2RlbBIxCgdpbml0aWFsGAEgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIvCgVzdGVwcxgCIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwimQIKFUxvY2FsQ2FzZVBhdHRlcm5Nb2RlbBI/Cgh3aWxkY2FyZBgBIAEoCzIrLnR1cm5vdXQubW9kZWwudjEuTG9jYWxXaWxkY2FyZFBhdHRlcm5Nb2RlbEgAEjUKA2xpdBgCIAEoCzImLnR1cm5vdXQubW9kZWwudjEuTG9jYWxMaXRQYXR0ZXJuTW9kZWxIABJCCgp2YXJfYmluZGVyGAMgASgLMiwudHVybm91dC5tb2RlbC52MS5Mb2NhbFZhckJpbmRlclBhdHRlcm5Nb2RlbEgAEjkKBXR1cGxlGAQgASgLMigudHVybm91dC5tb2RlbC52MS5Mb2NhbFR1cGxlUGF0dGVybk1vZGVsSABCCQoHcGF0dGVybiIbChlMb2NhbFdpbGRjYXJkUGF0dGVybk1vZGVsIj0KFExvY2FsTGl0UGF0dGVybk1vZGVsEiUKBXZhbHVlGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlIioKGkxvY2FsVmFyQmluZGVyUGF0dGVybk1vZGVsEgwKBG5hbWUYASABKAkiUAoWTG9jYWxUdXBsZVBhdHRlcm5Nb2RlbBI2CgVlbGVtcxgBIAMoCzInLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlUGF0dGVybk1vZGVsQklaR2dpdGh1Yi5jb20va296bW9mL3R1cm5vdXQvcGFja2FnZXMvZ28vY29udmVydGVyL2ludGVybmFsL2VtaXQvdHVybm91dHBiYgZwcm90bzM", [file_google_protobuf_struct]);
+  fileDesc("ChN0dXJub3V0LW1vZGVsLnByb3RvEhB0dXJub3V0Lm1vZGVsLnYxIp0CCglUdXJuTW9kZWwSKwoFc3RhdGUYASABKAsyHC50dXJub3V0Lm1vZGVsLnYxLlN0YXRlTW9kZWwSLAoGc2NlbmVzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5TY2VuZUJsb2NrEiwKBnJvdXRlcxgDIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuUm91dGVNb2RlbBIPCgd2ZXJzaW9uGAQgASgNEjwKC2Fubm90YXRpb25zGAUgASgLMiIudHVybm91dC5tb2RlbC52MS5TaWdpbEFubm90YXRpb25zSACIAQESEwoLbWluX3ZlcnNpb24YBiABKA0SEwoLbWF4X3ZlcnNpb24YByABKA1CDgoMX2Fubm90YXRpb25zIlQKEFNpZ2lsQW5ub3RhdGlvbnMSMgoHZW50cmllcxgCIAMoCzIhLnR1cm5vdXQubW9kZWwudjEuU2lnaWxBbm5vdGF0aW9uSgQIARACUgZzaWdpbHMifQoPU2lnaWxBbm5vdGF0aW9uEhAKCHNjZW5lX2lkGAEgASgJEhEKCWFjdGlvbl9pZBgCIAEoCRINCgVzY29wZRgDIAEoCRIRCglwcm9nX25hbWUYBCABKAkSFAoMYmluZGluZ19uYW1lGAUgASgJEg0KBXNpZ2lsGAYgASgFIkIKClN0YXRlTW9kZWwSNAoKbmFtZXNwYWNlcxgBIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTmFtZXNwYWNlTW9kZWwiTAoOTmFtZXNwYWNlTW9kZWwSDAoEbmFtZRgBIAEoCRIsCgZmaWVsZHMYAiADKAsyHC50dXJub3V0Lm1vZGVsLnYxLkZpZWxkTW9kZWwiTwoKRmllbGRNb2RlbBIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSJQoFdmFsdWUYAyABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiwgEKClNjZW5lQmxvY2sSCgoCaWQYASABKAkSFQoNZW50cnlfYWN0aW9ucxgCIAMoCRIYCgtuZXh0X3BvbGljeRgDIAEoCUgAiAEBEi4KB2FjdGlvbnMYBCADKAsyHS50dXJub3V0Lm1vZGVsLnYxLkFjdGlvbk1vZGVsEi4KBHZpZXcYBSABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlZpZXdCbG9ja0gBiAEBQg4KDF9uZXh0X3BvbGljeUIHCgVfdmlldyJJCglWaWV3QmxvY2sSDAoEbmFtZRgBIAEoCRIMCgRmbG93GAIgASgJEhQKB2VuZm9yY2UYAyABKAlIAIgBAUIKCghfZW5mb3JjZSKEAgoLQWN0aW9uTW9kZWwSCgoCaWQYASABKAkSLwoHY29tcHV0ZRgCIAEoCzIeLnR1cm5vdXQubW9kZWwudjEuQ29tcHV0ZU1vZGVsEi8KB3ByZXBhcmUYAyADKAsyHi50dXJub3V0Lm1vZGVsLnYxLlByZXBhcmVFbnRyeRIrCgVtZXJnZRgEIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuTWVyZ2VFbnRyeRIPCgdwdWJsaXNoGAUgAygJEi0KBG5leHQYBiADKAsyHy50dXJub3V0Lm1vZGVsLnYxLk5leHRSdWxlTW9kZWwSEQoEdGV4dBgHIAEoCUgAiAEBQgcKBV90ZXh0IkcKDENvbXB1dGVNb2RlbBIMCgRyb290GAEgASgJEikKBHByb2cYAiABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlByb2dNb2RlbCJLCglQcm9nTW9kZWwSDAoEbmFtZRgBIAEoCRIwCghiaW5kaW5ncxgCIAMoCzIeLnR1cm5vdXQubW9kZWwudjEuQmluZGluZ01vZGVsIrABCgxCaW5kaW5nTW9kZWwSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEiUKBXZhbHVlGAMgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEikKBGV4cHIYBCABKAsyGy50dXJub3V0Lm1vZGVsLnYxLkV4cHJNb2RlbBIyCghleHRfZXhwchgFIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwijwEKCUV4cHJNb2RlbBIuCgdjb21iaW5lGAEgASgLMh0udHVybm91dC5tb2RlbC52MS5Db21iaW5lRXhwchIoCgRwaXBlGAIgASgLMhoudHVybm91dC5tb2RlbC52MS5QaXBlRXhwchIoCgRjb25kGAMgASgLMhoudHVybm91dC5tb2RlbC52MS5Db25kRXhwciJDCgtDb21iaW5lRXhwchIKCgJmbhgBIAEoCRIoCgRhcmdzGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCJiCghQaXBlRXhwchIrCgZwYXJhbXMYASADKAsyGy50dXJub3V0Lm1vZGVsLnYxLlBpcGVQYXJhbRIpCgVzdGVwcxgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuUGlwZVN0ZXAiNQoJUGlwZVBhcmFtEhIKCnBhcmFtX25hbWUYASABKAkSFAoMc291cmNlX2lkZW50GAIgASgJIkAKCFBpcGVTdGVwEgoKAmZuGAEgASgJEigKBGFyZ3MYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsIpQBCghDb25kRXhwchItCgljb25kaXRpb24YASABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsEigKBHRoZW4YAiABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsEi8KC2Vsc2VfYnJhbmNoGAMgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCLEAQoIQXJnTW9kZWwSEAoDcmVmGAEgASgJSACIAQESIwoDbGl0GAIgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEhUKCGZ1bmNfcmVmGAMgASgJSAGIAQESFQoIc3RlcF9yZWYYBCABKAVIAogBARIxCgl0cmFuc2Zvcm0YBSABKAsyHi50dXJub3V0Lm1vZGVsLnYxLlRyYW5zZm9ybUFyZ0IGCgRfcmVmQgsKCV9mdW5jX3JlZkILCglfc3RlcF9yZWYiJwoMVHJhbnNmb3JtQXJnEgsKA3JlZhgBIAEoCRIKCgJmbhgCIAMoCSJtCgxQcmVwYXJlRW50cnkSDwoHYmluZGluZxgBIAEoCRIXCgpmcm9tX3N0YXRlGAIgASgJSACIAQESFgoJZnJvbV9ob29rGAMgASgJSAGIAQFCDQoLX2Zyb21fc3RhdGVCDAoKX2Zyb21faG9vayIvCgpNZXJnZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSEAoIdG9fc3RhdGUYAiABKAkiiQEKDU5leHRSdWxlTW9kZWwSMwoHY29tcHV0ZRgBIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTmV4dENvbXB1dGVNb2RlbBIzCgdwcmVwYXJlGAIgAygLMiIudHVybm91dC5tb2RlbC52MS5OZXh0UHJlcGFyZUVudHJ5Eg4KBmFjdGlvbhgDIAEoCSJQChBOZXh0Q29tcHV0ZU1vZGVsEhEKCWNvbmRpdGlvbhgBIAEoCRIpCgRwcm9nGAIgASgLMhsudHVybm91dC5tb2RlbC52MS5Qcm9nTW9kZWwiowEKEE5leHRQcmVwYXJlRW50cnkSDwoHYmluZGluZxgBIAEoCRIYCgtmcm9tX2FjdGlvbhgCIAEoCUgAiAEBEhcKCmZyb21fc3RhdGUYAyABKAlIAYgBARIsCgxmcm9tX2xpdGVyYWwYBCABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWVCDgoMX2Zyb21fYWN0aW9uQg0KC19mcm9tX3N0YXRlInMKClJvdXRlTW9kZWwSCgoCaWQYASABKAkSKQoFbWF0Y2gYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLk1hdGNoQXJtEhsKDmVudHJ5X3NjZW5lX2lkGAMgASgJSACIAQFCEQoPX2VudHJ5X3NjZW5lX2lkIiwKCE1hdGNoQXJtEhAKCHBhdHRlcm5zGAEgAygJEg4KBnRhcmdldBgCIAEoCSLNAwoOTG9jYWxFeHByTW9kZWwSMgoDcmVmGAEgASgLMiMudHVybm91dC5tb2RlbC52MS5Mb2NhbFJlZkV4cHJNb2RlbEgAEjIKA2xpdBgCIAEoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxMaXRFeHByTW9kZWxIABIwCgJpdBgDIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJdEV4cHJNb2RlbEgAEjQKBGNhbGwYBCABKAsyJC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FsbEV4cHJNb2RlbEgAEjYKBWluZml4GAUgASgLMiUudHVybm91dC5tb2RlbC52MS5Mb2NhbEluZml4RXhwck1vZGVsSAASNQoHaWZfZXhwchgGIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJZkV4cHJNb2RlbEgAEjkKCWNhc2VfZXhwchgHIAEoCzIkLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlRXhwck1vZGVsSAASOQoJcGlwZV9leHByGAggASgLMiQudHVybm91dC5tb2RlbC52MS5Mb2NhbFBpcGVFeHByTW9kZWxIAEIGCgRleHByIiEKEUxvY2FsUmVmRXhwck1vZGVsEgwKBG5hbWUYASABKAkiOgoRTG9jYWxMaXRFeHByTW9kZWwSJQoFdmFsdWUYASABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiEgoQTG9jYWxJdEV4cHJNb2RlbCJQChJMb2NhbENhbGxFeHByTW9kZWwSCgoCZm4YASABKAkSLgoEYXJncxgCIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwimgEKE0xvY2FsSW5maXhFeHByTW9kZWwSJQoCb3AYASABKA4yGS50dXJub3V0Lm1vZGVsLnYxLkluZml4T3ASLQoDbGhzGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBItCgNyaHMYAyABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIqkBChBMb2NhbElmRXhwck1vZGVsEi4KBGNvbmQYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi4KBHRoZW4YAiABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEjUKC2Vsc2VfYnJhbmNoGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKuAQoRTG9jYWxDYXNlQXJtTW9kZWwSOAoHcGF0dGVybhgBIAEoCzInLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlUGF0dGVybk1vZGVsEi8KBWd1YXJkGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIuCgRleHByGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCJ6ChJMb2NhbENhc2VFeHByTW9kZWwSMQoHc3ViamVjdBgBIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSMQoEYXJtcxgCIAMoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlQXJtTW9kZWwieAoSTG9jYWxQaXBlRXhwck1vZGVsEjEKB2luaXRpYWwYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi8KBXN0ZXBzGAIgAygLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKZAgoVTG9jYWxDYXNlUGF0dGVybk1vZGVsEj8KCHdpbGRjYXJkGAEgASgLMisudHVybm91dC5tb2RlbC52MS5Mb2NhbFdpbGRjYXJkUGF0dGVybk1vZGVsSAASNQoDbGl0GAIgASgLMiYudHVybm91dC5tb2RlbC52MS5Mb2NhbExpdFBhdHRlcm5Nb2RlbEgAEkIKCnZhcl9iaW5kZXIYAyABKAsyLC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsVmFyQmluZGVyUGF0dGVybk1vZGVsSAASOQoFdHVwbGUYBCABKAsyKC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsVHVwbGVQYXR0ZXJuTW9kZWxIAEIJCgdwYXR0ZXJuIhsKGUxvY2FsV2lsZGNhcmRQYXR0ZXJuTW9kZWwiPQoUTG9jYWxMaXRQYXR0ZXJuTW9kZWwSJQoFdmFsdWUYASABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiKgoaTG9jYWxWYXJCaW5kZXJQYXR0ZXJuTW9kZWwSDAoEbmFtZRgBIAEoCSJQChZMb2NhbFR1cGxlUGF0dGVybk1vZGVsEjYKBWVsZW1zGAEgAygLMicudHVybm91dC5tb2RlbC52MS5Mb2NhbENhc2VQYXR0ZXJuTW9kZWwq9QEKB0luZml4T3ASEAoMSU5GSVhfT1BfQU5EEAASEAoMSU5GSVhfT1BfR1RFEAESEAoMSU5GSVhfT1BfTFRFEAISDwoLSU5GSVhfT1BfR1QQAxIPCgtJTkZJWF9PUF9MVBAEEhQKEElORklYX09QX0JPT0xfT1IQBRIPCgtJTkZJWF9PUF9FURAGEhAKDElORklYX09QX05FURAHEhEKDUlORklYX09QX1BMVVMQCBIQCgxJTkZJWF9PUF9TVUIQCRIQCgxJTkZJWF9PUF9NVUwQChIQCgxJTkZJWF9PUF9ESVYQCxIQCgxJTkZJWF9PUF9NT0QQDEJJWkdnaXRodWIuY29tL2tvem1vZi90dXJub3V0L3BhY2thZ2VzL2dvL2NvbnZlcnRlci9pbnRlcm5hbC9lbWl0L3R1cm5vdXRwYmIGcHJvdG8z", [file_google_protobuf_struct]);
 
 /**
  * @generated from message turnout.model.v1.TurnModel
@@ -54,6 +54,20 @@ export type TurnModel = Message<"turnout.model.v1.TurnModel"> & {
    * @generated from field: optional turnout.model.v1.SigilAnnotations annotations = 5;
    */
   annotations?: SigilAnnotations;
+
+  /**
+   * min_version / max_version declare the runtime version range this model
+   * requires. Absent (zero) means unconstrained. The TypeScript runner should
+   * reject models where CURRENT_VERSION < min_version or > max_version.
+   *
+   * @generated from field: uint32 min_version = 6;
+   */
+  minVersion: number;
+
+  /**
+   * @generated from field: uint32 max_version = 7;
+   */
+  maxVersion: number;
 };
 
 /**
@@ -64,19 +78,12 @@ export const TurnModelSchema: GenMessage<TurnModel> = /*@__PURE__*/
   messageDesc(file_turnout_model, 0);
 
 /**
- * SigilAnnotations carries sigil metadata for each binding. Structured entries
- * are the canonical representation; sigils is retained as a legacy fallback.
+ * SigilAnnotations carries sigil metadata for each binding.
+ * entries is the canonical representation.
  *
  * @generated from message turnout.model.v1.SigilAnnotations
  */
 export type SigilAnnotations = Message<"turnout.model.v1.SigilAnnotations"> & {
-  /**
-   * legacy: "sceneID:actionID:scope:progName:bindingName" -> sigil
-   *
-   * @generated from field: map<string, int32> sigils = 1;
-   */
-  sigils: { [key: string]: number };
-
   /**
    * @generated from field: repeated turnout.model.v1.SigilAnnotation entries = 2;
    */
@@ -394,7 +401,8 @@ export type BindingModel = Message<"turnout.model.v1.BindingModel"> & {
 
   /**
    * ext_expr carries the structured source expression for #if/#case/#pipe bindings.
-   * Used by the HCL emitter to reproduce the original form. Ignored by the runtime.
+   * Populated by the HCL emitter to round-trip those forms. MUST NOT be set in
+   * JSON output; the runtime ignores this field entirely.
    *
    * @generated from field: turnout.model.v1.LocalExprModel ext_expr = 5;
    */
@@ -945,12 +953,9 @@ export const LocalCallExprModelSchema: GenMessage<LocalCallExprModel> = /*@__PUR
  */
 export type LocalInfixExprModel = Message<"turnout.model.v1.LocalInfixExprModel"> & {
   /**
-   * op is the ast.InfixOp iota value (0=&, 1=>=, 2=<=, 3=>, 4=<, 5=|, 6===,
-   * 7=!=, 8=+, 9=-, 10=*, 11=/, 12=%). Value 8 (+) is type-dispatched at emit time.
-   *
-   * @generated from field: int32 op = 1;
+   * @generated from field: turnout.model.v1.InfixOp op = 1;
    */
-  op: number;
+  op: InfixOp;
 
   /**
    * @generated from field: turnout.model.v1.LocalExprModel lhs = 2;
@@ -1174,4 +1179,109 @@ export type LocalTuplePatternModel = Message<"turnout.model.v1.LocalTuplePattern
  */
 export const LocalTuplePatternModelSchema: GenMessage<LocalTuplePatternModel> = /*@__PURE__*/
   messageDesc(file_turnout_model, 41);
+
+/**
+ * InfixOp enumerates DSL infix operators. Values match ast.InfixOp iota so
+ * existing serialized models remain valid after the int32 → enum migration.
+ *
+ * @generated from enum turnout.model.v1.InfixOp
+ */
+export enum InfixOp {
+  /**
+   * & → bool_and
+   *
+   * @generated from enum value: INFIX_OP_AND = 0;
+   */
+  AND = 0,
+
+  /**
+   * >= → gte
+   *
+   * @generated from enum value: INFIX_OP_GTE = 1;
+   */
+  GTE = 1,
+
+  /**
+   * <= → lte
+   *
+   * @generated from enum value: INFIX_OP_LTE = 2;
+   */
+  LTE = 2,
+
+  /**
+   * > → gt
+   *
+   * @generated from enum value: INFIX_OP_GT = 3;
+   */
+  GT = 3,
+
+  /**
+   * < → lt
+   *
+   * @generated from enum value: INFIX_OP_LT = 4;
+   */
+  LT = 4,
+
+  /**
+   * | → bool_or
+   *
+   * @generated from enum value: INFIX_OP_BOOL_OR = 5;
+   */
+  BOOL_OR = 5,
+
+  /**
+   * == → eq
+   *
+   * @generated from enum value: INFIX_OP_EQ = 6;
+   */
+  EQ = 6,
+
+  /**
+   * != → neq
+   *
+   * @generated from enum value: INFIX_OP_NEQ = 7;
+   */
+  NEQ = 7,
+
+  /**
+   * + → add (number) / str_concat (str)
+   *
+   * @generated from enum value: INFIX_OP_PLUS = 8;
+   */
+  PLUS = 8,
+
+  /**
+   * - → sub
+   *
+   * @generated from enum value: INFIX_OP_SUB = 9;
+   */
+  SUB = 9,
+
+  /**
+   * * → mul
+   *
+   * @generated from enum value: INFIX_OP_MUL = 10;
+   */
+  MUL = 10,
+
+  /**
+   * / → div
+   *
+   * @generated from enum value: INFIX_OP_DIV = 11;
+   */
+  DIV = 11,
+
+  /**
+   * % → mod
+   *
+   * @generated from enum value: INFIX_OP_MOD = 12;
+   */
+  MOD = 12,
+}
+
+/**
+ * Describes the enum turnout.model.v1.InfixOp.
+ */
+export const InfixOpSchema: GenEnum<InfixOp> = /*@__PURE__*/
+  enumDesc(file_turnout_model, 0);
 

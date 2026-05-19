@@ -188,14 +188,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 }
 
 func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.LocalInfixExpr) {
-	fn := infix.Op.FnAlias()
-	if fn == "" {
-		if ft == ast.FieldTypeStr {
-			fn = "str_concat"
-		} else {
-			fn = "add"
-		}
-	}
+	fn := infix.Op.FnAliasForType(ft)
 	leftType, rightType := localOperandTypes(fn, ft)
 	leftRef, _ := c.lowerExprTemp(infix.LHS, "lhs", leftType)
 	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType)
@@ -373,11 +366,7 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 	case *ast.LocalCallExpr:
 		return localFnReturnType(x.FnAlias, fallback)
 	case *ast.LocalInfixExpr:
-		fn := x.Op.FnAlias()
-		if fn == "" {
-			return fallback
-		}
-		return localFnReturnType(fn, fallback)
+		return localFnReturnType(x.Op.FnAliasForType(fallback), fallback)
 	case *ast.LocalIfExpr:
 		return c.inferLocalType(x.Then, fallback)
 	case *ast.LocalCaseExpr:

@@ -5,7 +5,9 @@
 package lower
 
 import (
-	"sort"
+	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -176,17 +178,9 @@ func lowerStateBlockFromSchema(schema state.Schema) *turnoutpb.StateModel {
 		nsMap[parts[0]] = append(nsMap[parts[0]], parts[1])
 	}
 
-	nsNames := make([]string, 0, len(nsMap))
-	for ns := range nsMap {
-		nsNames = append(nsNames, ns)
-	}
-	sort.Strings(nsNames)
-
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsNames))}
-	for _, nsName := range nsNames {
-		fieldNames := nsMap[nsName]
-		sort.Strings(fieldNames)
-
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsMap))}
+	for _, nsName := range slices.Sorted(maps.Keys(nsMap)) {
+		fieldNames := slices.Sorted(slices.Values(nsMap[nsName]))
 		pbNS := &turnoutpb.NamespaceModel{Name: nsName, Fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
 		for _, fieldName := range fieldNames {
 			meta := schema[nsName+"."+fieldName]
@@ -412,6 +406,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
 	default:
+		if _, ok := rhs.(ast.PreLowerRHS); ok {
+			panic(fmt.Sprintf("lowerBinding: unhandled pre-lowering RHS type %T for binding %q — add a case to the type switch", rhs, name))
+		}
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
 		bindings = []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}

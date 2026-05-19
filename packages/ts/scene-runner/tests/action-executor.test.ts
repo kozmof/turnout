@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { executeAction } from '../src/executor/action-executor.js';
-import { StateManager } from '../src/state/state-manager.js';
+import { StateManager, stateManagerFromUnchecked } from '../src/state/state-manager.js';
 import {
   buildNumber,
   buildString,
@@ -43,13 +43,13 @@ const addAction = {
 
 describe('executeAction — compute', () => {
   it('returns the correct computeRootValue', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await executeAction(addAction, state, { prepare: {}, publish: {} });
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(7);
   });
 
   it('populates bindingValues for all prog bindings', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await executeAction(addAction, state, { prepare: {}, publish: {} });
     expect(isPureNumber(result.bindingValues['a']) && result.bindingValues['a'].value).toBe(3);
     expect(isPureNumber(result.bindingValues['b']) && result.bindingValues['b'].value).toBe(4);
@@ -83,7 +83,7 @@ describe('executeAction — prepare', () => {
   } as unknown as ActionModel;
 
   it('from_state injects value from STATE into the prog', async () => {
-    const state = StateManager.from({ 'inputs.a': buildNumber(5) });
+    const state = stateManagerFromUnchecked({ 'inputs.a': buildNumber(5) });
     const result = await executeAction(actionWithPrepare, state, { prepare: {}, publish: {} });
     // a is overridden to 5; b is 10 → sum = 15
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(15);
@@ -115,14 +115,14 @@ describe('executeAction — merge', () => {
   } as unknown as ActionModel;
 
   it('writes merged binding value to STATE', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await executeAction(actionWithMerge, state, { prepare: {}, publish: {} });
     const stateVal = result.stateAfterMerge.read('output.value');
     expect(isPureNumber(stateVal!) && stateVal.value).toBe(42);
   });
 
   it('does not mutate the input state', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     await executeAction(actionWithMerge, state, { prepare: {}, publish: {} });
     expect(isPureNull(state.read('output.value'))).toBe(true);
   });
@@ -148,7 +148,7 @@ describe('executeAction — merge', () => {
         { binding: 'score', toState: 'result.score' },
       ],
     } as unknown as ActionModel;
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await executeAction(action, state, { prepare: {}, publish: {} });
     expect(isPureNumber(result.stateAfterMerge.read('result.score')!) && result.stateAfterMerge.read('result.score')!.value).toBe(99);
   });
@@ -164,19 +164,19 @@ describe('executeAction — no compute', () => {
   } as unknown as ActionModel;
 
   it('returns buildNull("missing") as computeRootValue', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await executeAction(noComputeAction, state, { prepare: {}, publish: {} });
     expect(isPureNull(result.computeRootValue)).toBe(true);
   });
 
   it('returns empty bindingValues', async () => {
-    const state = StateManager.from({});
+    const state = stateManagerFromUnchecked({});
     const result = await executeAction(noComputeAction, state, { prepare: {}, publish: {} });
     expect(Object.keys(result.bindingValues)).toHaveLength(0);
   });
 
   it('returns the original state unchanged', async () => {
-    const state = StateManager.from({ 'a.b': buildString('original') });
+    const state = stateManagerFromUnchecked({ 'a.b': buildString('original') });
     const result = await executeAction(noComputeAction, state, { prepare: {}, publish: {} });
     expect(result.stateAfterMerge).toBe(state);
   });
@@ -207,7 +207,7 @@ describe('executeAction — cumulative binding table', () => {
       },
     } as unknown as ActionModel;
 
-    const result = await executeAction(action, StateManager.from({}), { prepare: {}, publish: {} });
+    const result = await executeAction(action, stateManagerFromUnchecked({}), { prepare: {}, publish: {} });
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(3);
     expect(isPureNumber(result.bindingValues['y']) && result.bindingValues['y'].value).toBe(2);
     expect(isPureNumber(result.bindingValues['z']) && result.bindingValues['z'].value).toBe(3);

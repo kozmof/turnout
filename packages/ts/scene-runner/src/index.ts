@@ -18,7 +18,7 @@ export type {
   ExecutionTrace,
 } from './types/harness-types.js';
 export type { TurnModel } from './types/turnout-model_pb.js';
-export { stateManagerFrom, stateManagerFromUnchecked, stateManagerFromStrict, stateManagerFromSchema } from './state/state-manager.js';
+export { stateManagerFromUnchecked, stateManagerFromStrict, stateManagerFromSchema } from './state/state-manager.js';
 export type { StateManager } from './state/state-manager.js';
 export { executeSceneSafe } from './executor/scene-executor.js';
 export type { SceneResult, SceneExecutionResult } from './executor/scene-executor.js';

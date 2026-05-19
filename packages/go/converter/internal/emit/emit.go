@@ -221,8 +221,8 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 
 // chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
 // content lines will be prefixed with indent. It tries named candidates first,
-// then falls back to an incrementing numeric suffix. If the content contains
-// every candidate (pathological case), a FNV-derived suffix guarantees termination.
+// then falls back to a hash-derived suffix derived directly from the content —
+// O(n) in content length, no loop over potential delimiters.
 func chooseHeredocDelim(text, indent string) string {
 	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
 	lines := strings.Split(text, "\n")
@@ -235,22 +235,22 @@ func chooseHeredocDelim(text, indent string) string {
 			return delim
 		}
 	}
-	const maxHeredocDelimAttempts = 1000
-	for n := 3; n < maxHeredocDelimAttempts; n++ {
-		delim := fmt.Sprintf("TURN_EOT_%d", n)
+	// Hash-first fallback: derive a delimiter from the content directly.
+	// One FNV pass produces a hex suffix; if that collides (content contains the
+	// exact indented "TURN_EOT_<hash>" line), XOR with a counter and retry.
+	// In practice this loop runs at most twice because a second collision would
+	// require the content to contain both the first and second hash values.
+	var h uint32 = 2166136261
+	for i := 0; i < len(text); i++ {
+		h ^= uint32(text[i])
+		h *= 16777619
+	}
+	for extra := uint32(0); ; extra++ {
+		delim := fmt.Sprintf("TURN_EOT_%08x", h^extra)
 		if _, collision := lineSet[indent+delim]; !collision {
 			return delim
 		}
 	}
-	// Fallback: derive a delimiter from the content via a simple FNV-style hash.
-	// Reaching here requires the content to contain 1000+ TURN_EOT_N variants,
-	// which is not a realistic input — but we must not loop forever.
-	var h uint32 = 2166136261
-	for i := 0; i < len(text) && i < 4096; i++ {
-		h ^= uint32(text[i])
-		h *= 16777619
-	}
-	return fmt.Sprintf("TURN_EOT_%08x", h)
 }
 
 // writeText emits:
@@ -632,7 +632,7 @@ func localExprInline(e *turnoutpb.LocalExprModel) string {
 		}
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.Call.GetFn(), strings.Join(args, ", "))
 	case *turnoutpb.LocalExprModel_Infix:
-		op := ast.InfixOp(x.Infix.GetOp())
+		op := ast.InfixOp(int32(x.Infix.GetOp()))
 		fn := op.FnAlias()
 		if fn == "" {
 			fn = "add" // InfixPlus; type dispatch happens at runtime
