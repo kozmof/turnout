@@ -395,8 +395,6 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	switch rhs := decl.RHS.(type) {
 	case *ast.LiteralRHS:
 		bindings = []*turnoutpb.BindingModel{lowerLiteralRHS(name, ft, rhs)}
-	case *ast.PlaceholderRHS:
-		bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 	case *ast.SigilInputRHS:
 		// Ingress (~>): same "resolve or error" behavior as old PlaceholderRHS.
 		// Bidir (<~>): use the bidirectional-specific missing-prepare diagnostic.
@@ -411,15 +409,6 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		bindings = []*turnoutpb.BindingModel{lowerFuncCallRHS(name, ft, rhs, bindingTypes, ds)}
 	case *ast.InfixRHS:
 		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
-	// legacy: emitted by the pre-v1 parser; kept until confirmed no input produces these forms.
-	case *ast.PipeRHS:
-		bindings = []*turnoutpb.BindingModel{lowerPipeRHS(name, ft, rhs, bindingTypes, ds)}
-	// legacy: emitted by the pre-v1 parser; kept until confirmed no input produces these forms.
-	case *ast.CondRHS:
-		bindings = []*turnoutpb.BindingModel{lowerCondRHS(name, ft, rhs)}
-	// legacy: emitted by the pre-v1 parser; kept until confirmed no input produces these forms.
-	case *ast.IfRHS:
-		bindings = lowerIfRHS(name, ft, rhs, ds, bindingTypes)
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
 	default:

@@ -829,5 +829,5 @@ func assertSigilAnnotation(t *testing.T, tm *turnoutpb.TurnModel, sceneID, actio
 			return
 		}
 	}
-	t.Fatalf("missing structured sigil annotation for %s", lower.SigilAnnotationKey(sceneID, actionID, scope, progName, bindingName))
+	t.Fatalf("missing structured sigil annotation for %s:%s:%s:%s:%s", sceneID, actionID, scope.String(), progName, bindingName)
 }

@@ -114,7 +114,9 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
       'use a named binding with a declared type instead',
     );
   }
-  return literalToValue(null, 'number');
+  throw new Error(
+    `unrecognized protobuf value kind for inline literal: ${typeof v}`,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

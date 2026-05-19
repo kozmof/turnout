@@ -918,35 +918,6 @@ func TestParseIfBodyUnknownField(t *testing.T) {
 	mustParseFail(t, src)
 }
 
-// ── Lines 741-743: parseIfBody cond == nil (CondExprRef fallback) ─────────────
-
-func TestParseIfBodyNoCond(t *testing.T) {
-	// v:bool = #if { then = tf else = ef } — no cond field, uses CondExprRef{} fallback
-	src := minimalTurnFile(`  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = result
-      prog "p" {
-        tf:number   = 1
-        ef:number   = 2
-        result:bool = #if { then = tf else = ef }
-      }
-    }
-  }`)
-	tf, _ := parser.ParseFile("test.turn", src)
-	if tf == nil {
-		return // parse error is fine, just check no panic
-	}
-	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
-	ifRHS, ok := bindings[2].RHS.(*ast.IfRHS)
-	if !ok {
-		t.Fatalf("expected IfRHS, got %T", bindings[2].RHS)
-	}
-	if _, ok := ifRHS.Cond.(*ast.CondExprRef); !ok {
-		t.Errorf("expected CondExprRef fallback, got %T", ifRHS.Cond)
-	}
-}
-
 // ── Lines 751-754: parseCondExpr non-ident ───────────────────────────────────
 
 func TestParseCondExprNonIdent(t *testing.T) {

@@ -273,11 +273,6 @@ type LiteralRHS struct{ Value Literal }
 
 func (*LiteralRHS) bindingRHS() {}
 
-// PlaceholderRHS is `name:type = _` (ingress placeholder; delegates default to STATE).
-type PlaceholderRHS struct{}
-
-func (*PlaceholderRHS) bindingRHS() {}
-
 // SingleRefRHS is `name:type = identifier` (bare single-reference form).
 type SingleRefRHS struct{ RefName string }
 
@@ -366,66 +361,6 @@ type InfixRHS struct {
 }
 
 func (*InfixRHS) bindingRHS() {}
-
-// PipeParam is one `paramName:sourceIdent` pair in a `#pipe(...)` header.
-type PipeParam struct {
-	ParamName   string
-	SourceIdent string
-}
-
-// PipeStep is one step in a `#pipe` step list.
-type PipeStep struct {
-	FnAlias string
-	Args    []Arg
-}
-
-// PipeRHS is `name:type = #pipe(p1:v1, ...)[step1, step2, ...]`.
-type PipeRHS struct {
-	Params []PipeParam
-	Steps  []PipeStep
-}
-
-func (*PipeRHS) bindingRHS() {}
-
-// CondExpr is the condition inside a cond or #if form.
-// Implemented by *CondExprRef (bare binding name) and *CondExprCall (inline call).
-type CondExpr interface{ condExpr() }
-
-// CondExprRef is a bare binding-name condition (the only form valid in CondRHS).
-type CondExprRef struct{ BindingName string }
-
-func (*CondExprRef) condExpr() {}
-
-// CondExprCall is an inline `fn(args)` condition (only valid in IfRHS).
-type CondExprCall struct {
-	FnAlias string
-	Args    []Arg
-}
-
-func (*CondExprCall) condExpr() {}
-
-// CondRHS is `name:type = { cond = { condition = c then = t else = e } }`.
-// Condition must be a *CondExprRef (enforced in validation).
-type CondRHS struct {
-	Pos       Pos
-	Condition CondExpr
-	Then      string
-	Else      string
-}
-
-func (*CondRHS) bindingRHS() {}
-
-// IfRHS is `name:type = #if { cond = <expr> then = t else = e }`.
-// Cond may be *CondExprRef or *CondExprCall.
-// Use IfCallRHS for the v1 #if(cond, then, else) form.
-type IfRHS struct {
-	Pos  Pos
-	Cond CondExpr
-	Then string
-	Else string
-}
-
-func (*IfRHS) bindingRHS() {}
 
 // ────────────────────────────────────────────────────────────
 // v1 local expression tree

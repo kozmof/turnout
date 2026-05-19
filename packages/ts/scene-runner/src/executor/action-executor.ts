@@ -1,4 +1,4 @@
-import { assertValidContext, buildNull, buildExecutionTree, executeTree } from 'runtime';
+import { assertValidContext, buildNull, buildExecutionTree, buildReturnIdToFuncIdMap, executeTree } from 'runtime';
 import type { AnyValue, FuncId } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
@@ -63,13 +63,16 @@ export async function executeAction(
   const updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
 
+  // Build once — funcTable is stable across the loop; only valueTable grows.
+  const returnIdToFuncId = buildReturnIdToFuncIdMap(validatedCtx);
+
   for (const binding of action.compute.prog.bindings) {
     const valueId = builtCtx.nameToValueId[binding.name];
 
     if (updatedTable[valueId] === undefined && binding.expr) {
       const funcId = builtCtx.getFuncId(binding.name)!;
       const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
-      const result = executeTree(buildExecutionTree(funcId, bindingCtx), bindingCtx);
+      const result = executeTree(buildExecutionTree(funcId, bindingCtx, new Set(), new Map(), returnIdToFuncId), bindingCtx);
       mergeValueTable(updatedTable, result.updatedValueTable);
 
       if (updatedTable[valueId] === undefined) {

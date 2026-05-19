@@ -40,14 +40,6 @@ func sigilAnnotationKey(k BindingKey) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s", k.SceneID, k.ActionID, k.Scope, k.ProgName, k.BindingName)
 }
 
-// SigilAnnotationKey is the exported form used by the validate package.
-func SigilAnnotationKey(sceneID, actionID string, scope ProgScope, progName, bindingName string) string {
-	return sigilAnnotationKey(BindingKey{
-		SceneID: sceneID, ActionID: actionID,
-		Scope: scope, ProgName: progName, BindingName: bindingName,
-	})
-}
-
 // Sidecar carries DSL metadata that is not part of the proto IR:
 //   - Sigil per binding (validator-only)
 type Sidecar struct {

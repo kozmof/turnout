@@ -315,23 +315,6 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 	}, annotations
 }
 
-func TestValidateLegacySigilAnnotationMapFallback(t *testing.T) {
-	action, _ := buildIrregularAction(
-		[]irrBind{{name: "score", ft: ast.FieldTypeNumber, sigil: ast.SigilNone, val: structpb.NewNumberValue(0)}},
-		nil,
-		nil,
-		nil,
-	)
-	key := lower.SigilAnnotationKey("s", "a", lower.ComputeScope(), "p", "score")
-	model := irregularModelWithAction(action)
-	model.Annotations = &turnoutpb.SigilAnnotations{Sigils: map[string]int32{key: int32(ast.SigilIngress)}}
-
-	ds := validate.Validate(model, irregularSchema())
-	if !hasCode(ds, diag.CodeMissingPrepareEntry) {
-		t.Fatalf("want MissingPrepareEntry from legacy sigil map fallback, got %v", ds)
-	}
-}
-
 func structuredSigilAnnotation(sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, sigil ast.Sigil) *turnoutpb.SigilAnnotation {
 	return &turnoutpb.SigilAnnotation{
 		SceneId:     sceneID,

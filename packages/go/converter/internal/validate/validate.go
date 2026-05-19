@@ -5,6 +5,7 @@
 package validate
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -78,6 +79,23 @@ var builtinFns = map[string]fnSpec{
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Sigil index — O(1) lookup replacing the prior O(N) linear scan
+// ─────────────────────────────────────────────────────────────────────────────
+
+// sigilIndex maps "sceneID:actionID:scope:progName:bindingName" → Sigil.
+type sigilIndex map[string]ast.Sigil
+
+func buildSigilIndex(annotations *turnoutpb.SigilAnnotations) sigilIndex {
+	idx := make(sigilIndex, len(annotations.GetEntries()))
+	for _, e := range annotations.GetEntries() {
+		key := fmt.Sprintf("%s:%s:%s:%s:%s",
+			e.GetSceneId(), e.GetActionId(), e.GetScope(), e.GetProgName(), e.GetBindingName())
+		idx[key] = ast.Sigil(e.GetSigil())
+	}
+	return idx
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -90,7 +108,7 @@ func Validate(tm *turnoutpb.TurnModel, schema state.Schema) diag.Diagnostics {
 	if tm == nil {
 		return ds
 	}
-	annotations := tm.Annotations
+	idx := buildSigilIndex(tm.Annotations)
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
@@ -98,7 +116,7 @@ func Validate(tm *turnoutpb.TurnModel, schema state.Schema) diag.Diagnostics {
 				"duplicate scene ID %q", s.Id))
 		}
 		seenSceneIDs[s.Id] = true
-		validateScene(s, schema, annotations, &ds)
+		validateScene(s, schema, idx, &ds)
 	}
 	if len(tm.Routes) > 0 {
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
@@ -214,7 +232,7 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 // Group D — Scene structural validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, annotations *turnoutpb.SigilAnnotations, ds *diag.Diagnostics) {
+func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx sigilIndex, ds *diag.Diagnostics) {
 	actionIndex := make(map[string]*turnoutpb.ActionModel, len(scene.Actions))
 	for _, a := range scene.Actions {
 		if _, exists := actionIndex[a.Id]; exists {
@@ -247,7 +265,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, annotations
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			scope = validateProg(a.Compute.Prog, schema, false, annotations, scene.Id, a.Id, lower.ComputeScope(), ds)
+			scope = validateProg(a.Compute.Prog, schema, false, idx, scene.Id, a.Id, lower.ComputeScope(), ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -267,7 +285,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, annotations
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, annotations, scene.Id, a.Id, lower.NextScope(i), ds)
+			validateNextRule(nr, schema, idx, scene.Id, a.Id, lower.NextScope(i), ds)
 		}
 	}
 }
@@ -276,7 +294,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, annotations
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -294,7 +312,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 			seen[b.Name] = true
 		}
 		ft, _ := ast.FieldTypeFromString(b.Type)
-		sigil := sigilFor(annotations, sceneID, actionID, scopeName, prog.Name, b.Name)
+		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
 			isFunc:    b.Expr != nil || b.ExtExpr != nil,
@@ -315,7 +333,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	// Pass 2: structural + type checks.
 	for _, b := range prog.Bindings {
 		ft, _ := ast.FieldTypeFromString(b.Type)
-		sigil := sigilFor(annotations, sceneID, actionID, scopeName, prog.Name, b.Name)
+		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !(strings.HasPrefix(b.Name, lower.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, lower.GeneratedIfCondSuffix)) &&
@@ -361,31 +379,10 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	return scope
 }
 
-// sigilFor looks up the sigil for a binding from tm.Annotations. Structured
-// entries are canonical; the legacy string-keyed map remains a fallback for
-// models built before SigilAnnotation entries were added.
-func sigilFor(annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
-	if annotations == nil {
-		return ast.SigilNone
-	}
-	for _, entry := range annotations.GetEntries() {
-		if entry.GetSceneId() == sceneID &&
-			entry.GetActionId() == actionID &&
-			entry.GetScope() == scope.String() &&
-			entry.GetProgName() == progName &&
-			entry.GetBindingName() == bindingName {
-			return ast.Sigil(entry.GetSigil())
-		}
-	}
-	if annotations.Sigils == nil {
-		return ast.SigilNone
-	}
-	key := lower.SigilAnnotationKey(sceneID, actionID, scope, progName, bindingName)
-	v, ok := annotations.Sigils[key]
-	if !ok {
-		return ast.SigilNone
-	}
-	return ast.Sigil(v)
+// sigilFor looks up the sigil for a binding from the pre-built index.
+func sigilFor(idx sigilIndex, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
+	key := fmt.Sprintf("%s:%s:%s:%s:%s", sceneID, actionID, scope, progName, bindingName)
+	return idx[key]
 }
 
 // protoLocalExprToAST converts a proto LocalExprModel back to an ast.LocalExpr
@@ -1140,7 +1137,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, annotations *turnoutpb.SigilAnnotations, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -1166,7 +1163,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, annotati
 		return
 	}
 
-	nextScope := validateProg(nr.Compute.Prog, schema, true, annotations, sceneID, actionID, scopeName, ds)
+	nextScope := validateProg(nr.Compute.Prog, schema, true, idx, sceneID, actionID, scopeName, ds)
 
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]

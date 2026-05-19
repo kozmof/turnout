@@ -143,29 +143,6 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 				tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0].RHS = nil
 			},
 		},
-		{
-			name: "nil_if_condition",
-			src: minimal(`  entry_actions = ["a"]
-  action "a" {
-    compute {
-      root = result
-      prog "p" {
-        flag:bool     = true
-        thenFn:number = 1
-        elseFn:number = 2
-        result:number = 0
-      }
-    }
-  }`),
-			mutate: func(tf *ast.TurnFile) {
-				// Inject a deprecated IfRHS with nil Cond directly to exercise the
-				// CodeUnsupportedConstruct path in lower.go.
-				tf.Scenes[0].Actions[0].Compute.Prog.Bindings[3].RHS = &ast.IfRHS{
-					Then: "thenFn",
-					Else: "elseFn",
-				}
-			},
-		},
 	}
 
 	for _, tc := range cases {

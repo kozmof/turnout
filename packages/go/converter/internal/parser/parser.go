@@ -38,7 +38,7 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 	// Filter out MissingScene — state files legitimately have no scene block.
 	var realDiags diag.Diagnostics
 	for _, d := range p.Diags {
-		if d.Code == "MissingScene" {
+		if d.Code == diag.CodeMissingScene {
 			continue
 		}
 		realDiags = append(realDiags, d)
@@ -1604,7 +1604,7 @@ func (p *parser) parseFile() *ast.TurnFile {
 			"Turn DSL file must contain either a state block or state_file directive"))
 	}
 	if len(tf.Scenes) == 0 {
-		p.Diags = append(p.Diags, diag.Errorf("MissingScene",
+		p.Diags = append(p.Diags, diag.Errorf(diag.CodeMissingScene,
 			"Turn DSL file must contain a scene block"))
 	}
 	return tf

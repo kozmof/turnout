@@ -15,13 +15,9 @@ func TestMarkerMethods(t *testing.T) {
 
 	// BindingRHS markers
 	(*LiteralRHS)(nil).bindingRHS()
-	(*PlaceholderRHS)(nil).bindingRHS()
 	(*SingleRefRHS)(nil).bindingRHS()
 	(*FuncCallRHS)(nil).bindingRHS()
 	(*InfixRHS)(nil).bindingRHS()
-	(*PipeRHS)(nil).bindingRHS()
-	(*CondRHS)(nil).bindingRHS()
-	(*IfRHS)(nil).bindingRHS()
 
 	// Arg markers
 	(*RefArg)(nil).arg()
@@ -29,10 +25,6 @@ func TestMarkerMethods(t *testing.T) {
 	(*FuncRefArg)(nil).arg()
 	(*StepRefArg)(nil).arg()
 	(*TransformArg)(nil).arg()
-
-	// CondExpr markers
-	(*CondExprRef)(nil).condExpr()
-	(*CondExprCall)(nil).condExpr()
 
 	// ActionPrepareSource markers
 	(*FromState)(nil).actionPrepareSource()

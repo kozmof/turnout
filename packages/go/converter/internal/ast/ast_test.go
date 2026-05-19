@@ -19,13 +19,9 @@ var (
 
 	// BindingRHS
 	_ ast.BindingRHS = (*ast.LiteralRHS)(nil)
-	_ ast.BindingRHS = (*ast.PlaceholderRHS)(nil)
 	_ ast.BindingRHS = (*ast.SingleRefRHS)(nil)
 	_ ast.BindingRHS = (*ast.FuncCallRHS)(nil)
 	_ ast.BindingRHS = (*ast.InfixRHS)(nil)
-	_ ast.BindingRHS = (*ast.PipeRHS)(nil)
-	_ ast.BindingRHS = (*ast.CondRHS)(nil)
-	_ ast.BindingRHS = (*ast.IfRHS)(nil)
 
 	// Arg
 	_ ast.Arg = (*ast.RefArg)(nil)
@@ -33,10 +29,6 @@ var (
 	_ ast.Arg = (*ast.FuncRefArg)(nil)
 	_ ast.Arg = (*ast.StepRefArg)(nil)
 	_ ast.Arg = (*ast.TransformArg)(nil)
-
-	// CondExpr
-	_ ast.CondExpr = (*ast.CondExprRef)(nil)
-	_ ast.CondExpr = (*ast.CondExprCall)(nil)
 
 	// ActionPrepareSource — FromState, FromHook
 	_ ast.ActionPrepareSource = (*ast.FromState)(nil)
@@ -309,7 +301,7 @@ func TestActionBlockConstruction(t *testing.T) {
 						Sigil: ast.SigilIngress,
 						Name:  "income",
 						Type:  ast.FieldTypeNumber,
-						RHS:   &ast.PlaceholderRHS{},
+						RHS:   &ast.SigilInputRHS{},
 					},
 					{
 						Sigil: ast.SigilEgress,
@@ -350,58 +342,6 @@ func TestActionBlockConstruction(t *testing.T) {
 	}
 }
 
-func TestPipeRHSConstruction(t *testing.T) {
-	rhs := &ast.PipeRHS{
-		Params: []ast.PipeParam{
-			{ParamName: "x", SourceIdent: "v1"},
-			{ParamName: "y", SourceIdent: "v2"},
-		},
-		Steps: []ast.PipeStep{
-			{FnAlias: "add", Args: []ast.Arg{
-				&ast.RefArg{Name: "x"},
-				&ast.RefArg{Name: "y"},
-			}},
-			{FnAlias: "mul", Args: []ast.Arg{
-				&ast.StepRefArg{Index: 0},
-				&ast.RefArg{Name: "x"},
-			}},
-		},
-	}
-
-	if len(rhs.Params) != 2 {
-		t.Errorf("param count = %d, want 2", len(rhs.Params))
-	}
-	if len(rhs.Steps) != 2 {
-		t.Errorf("step count = %d, want 2", len(rhs.Steps))
-	}
-	if _, ok := rhs.Steps[1].Args[0].(*ast.StepRefArg); !ok {
-		t.Error("first arg of step 1 should be *StepRefArg")
-	}
-}
-
-func TestCondRHSAndIfRHS(t *testing.T) {
-	condRHS := &ast.CondRHS{
-		Condition: &ast.CondExprRef{BindingName: "flag"},
-		Then:      "addFn",
-		Else:      "subFn",
-	}
-	if _, ok := condRHS.Condition.(*ast.CondExprRef); !ok {
-		t.Error("CondRHS.Condition should be *CondExprRef")
-	}
-
-	ifRHS := &ast.IfRHS{
-		Cond: &ast.CondExprCall{
-			FnAlias: "gt",
-			Args:    []ast.Arg{&ast.RefArg{Name: "v1"}, &ast.RefArg{Name: "v2"}},
-		},
-		Then: "addFn",
-		Else: "subFn",
-	}
-	if _, ok := ifRHS.Cond.(*ast.CondExprCall); !ok {
-		t.Error("IfRHS.Cond should be *CondExprCall")
-	}
-}
-
 func TestNextRuleConstruction(t *testing.T) {
 	p := ast.Pos{}
 	rule := &ast.NextRule{
@@ -415,7 +355,7 @@ func TestNextRuleConstruction(t *testing.T) {
 						Sigil: ast.SigilIngress,
 						Name:  "decision",
 						Type:  ast.FieldTypeBool,
-						RHS:   &ast.PlaceholderRHS{},
+						RHS:   &ast.SigilInputRHS{},
 					},
 				},
 			},
