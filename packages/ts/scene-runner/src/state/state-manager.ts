@@ -17,14 +17,12 @@ import type { StateModel } from '../types/turnout-model_pb.js';
  * immutability across action boundaries.
  */
 export interface StateManager {
-  /** Read a value by dotted path. Returns undefined if the path does not exist. */
-  read(path: string): AnyValue | undefined;
   /**
    * Read a value by dotted path, throwing if the path is unknown in schema-backed managers.
    * For unchecked managers, treats all paths as valid and returns buildNull('missing') when absent.
    * Use this to distinguish a known-but-absent path from a typo'd path.
    */
-  readStrict(path: string): AnyValue;
+  read(path: string): AnyValue;
   /**
    * Return a new StateManager with the given path set to value.
    * Does not mutate the current instance.
@@ -40,8 +38,7 @@ function make(
   typeMap: ReadonlyMap<string, string> | null = null,
 ): StateManager {
   return {
-    read: (path) => state[path],
-    readStrict: (path) => {
+    read: (path) => {
       if (validPaths !== null && !validPaths.has(path)) {
         throw new Error(
           `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,

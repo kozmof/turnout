@@ -11,9 +11,9 @@ describe('StateManager', () => {
     expect(isPureNumber(val!) && val.value).toBe(42);
   });
 
-  it('returns undefined for unknown path', () => {
+  it('returns buildNull("missing") for absent unchecked paths', () => {
     const sm = StateManager.from({});
-    expect(sm.read('no.such.path')).toBeUndefined();
+    expect(isPureNull(sm.read('no.such.path'))).toBe(true);
   });
 
   it('write returns a new instance with updated value', () => {

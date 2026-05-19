@@ -12,6 +12,7 @@ import {
   isPureNumber,
   isPureString,
   isPureBoolean,
+  isPureNull,
   isArray,
 } from 'runtime';
 import type { ActionExecutionResult } from '../src/executor/types.js';
@@ -35,17 +36,15 @@ describe('resolveActionPrepare', () => {
     expect(isPureString(result['query']!) && result['query'].value).toBe('hello');
   });
 
-  it('from_state throws PrepareError(MissingStateBinding) when path is not in state', async () => {
+  it('from_state returns buildNull("missing") when an unchecked path is absent', async () => {
     const state = StateManager.from({});
-    const err = await resolveActionPrepare(
+    const result = await resolveActionPrepare(
       [{ binding: 'missing_val', fromState: 'no.such.path' }] as unknown as PrepareEntry[],
       state,
       { prepare: {}, publish: {} },
       'test_action',
-    ).catch((e: unknown) => e);
-    expect(err).toBeInstanceOf(PrepareError);
-    expect((err as PrepareError).code).toBe('MissingStateBinding');
-    expect((err as PrepareError).actionId).toBe('test_action');
+    );
+    expect(isPureNull(result['missing_val']!)).toBe(true);
   });
 
   it('from_hook calls the hook and extracts the binding field', async () => {
@@ -213,19 +212,15 @@ describe('resolveNextPrepare', () => {
     expect(isPureString(result['stage']!) && result['stage'].value).toBe('review');
   });
 
-  it('from_state throws PrepareError(MissingStateBinding) when path not in state', () => {
+  it('from_state returns buildNull("missing") when an unchecked next path is absent', () => {
     const state = StateManager.from({});
     const prevResult = makePrevResult({});
-    let err: unknown;
-    try {
-      resolveNextPrepare(
-        [{ binding: 'x', fromState: 'no.path' }] as unknown as NextPrepareEntry[],
-        state,
-        prevResult,
-      );
-    } catch (e) { err = e; }
-    expect(err).toBeInstanceOf(PrepareError);
-    expect((err as PrepareError).code).toBe('MissingStateBinding');
+    const result = resolveNextPrepare(
+      [{ binding: 'x', fromState: 'no.path' }] as unknown as NextPrepareEntry[],
+      state,
+      prevResult,
+    );
+    expect(isPureNull(result['x']!)).toBe(true);
   });
 
   it('from_literal converts number correctly', () => {

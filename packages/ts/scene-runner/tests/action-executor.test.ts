@@ -124,7 +124,7 @@ describe('executeAction — merge', () => {
   it('does not mutate the input state', async () => {
     const state = StateManager.from({});
     await executeAction(actionWithMerge, state, { prepare: {}, publish: {} });
-    expect(state.read('output.value')).toBeUndefined();
+    expect(isPureNull(state.read('output.value'))).toBe(true);
   });
 
   it('merges multiple entries', async () => {

@@ -25,11 +25,7 @@ export async function resolveActionPrepare(
 
   for (const entry of entries) {
     if (entry.fromState !== undefined) {
-      const val = state.read(entry.fromState);
-      if (val === undefined) {
-        throw new PrepareError('MissingStateBinding', actionId, `from_state path "${entry.fromState}" is not present in state`);
-      }
-      result[entry.binding] = val;
+      result[entry.binding] = state.read(entry.fromState);
     } else if (entry.fromHook !== undefined) {
       const hookName = entry.fromHook;
       const hook = hooks.prepare[hookName];
@@ -81,11 +77,7 @@ export function resolveNextPrepare(
       }
       result[entry.binding] = val;
     } else if (entry.fromState !== undefined) {
-      const val = state.read(entry.fromState);
-      if (val === undefined) {
-        throw new PrepareError('MissingStateBinding', prevResult.actionId, `from_state path "${entry.fromState}" is not present in state`);
-      }
-      result[entry.binding] = val;
+      result[entry.binding] = state.read(entry.fromState);
     } else if (entry.fromLiteral !== undefined) {
       result[entry.binding] = inferLiteralValue(entry.fromLiteral);
     } else if ((entry as Record<string, unknown>).fromHook !== undefined) {

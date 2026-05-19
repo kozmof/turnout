@@ -56,7 +56,7 @@ The proto model carries schema data, scenes, routes, version, and sigil annotati
 
 **Location:** `packages/ts/scene-runner/src/state/state-manager.ts`
 
-**Resolution:** Added `readStrict(path: string): AnyValue` to the `StateManager` interface and `make()` factory. Schema-backed managers throw on unknown paths; unchecked managers return `buildNull('missing')` without throwing, making all paths valid.
+**Resolution:** Collapsed strict read behavior into `StateManager.read(path: string): AnyValue`. Schema-backed managers throw on unknown paths; unchecked managers return `buildNull('missing')` without throwing, making all paths valid.
 
 ### Issue 3 — Hook registry typing requires unsafe publish-hook casting ✓
 
