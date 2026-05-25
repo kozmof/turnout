@@ -22,18 +22,8 @@ export async function executeAction(
   state: StateManager,
   hooks: HookRegistry,
 ): Promise<ActionExecutionResult> {
-  // Actions without a compute block are no-ops (no graph, no merge).
-  if (!action.compute) {
-    return {
-      actionId: action.id,
-      computeRootValue: buildNull('missing'),
-      bindingValues: {},
-      stateAfterMerge: state,
-      publishOutcomes: [],
-    };
-  }
-
-  if (!action.compute.prog) {
+  // Actions without a compute block or prog are no-ops (no graph, no merge).
+  if (!action.compute?.prog) {
     return {
       actionId: action.id,
       computeRootValue: buildNull('missing'),

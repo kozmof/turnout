@@ -14,7 +14,9 @@ const sceneB = {
   actions: [{ id: 'b' }],
 };
 
+// spec: scene-to-scene.md §route — maxRouteTransitions and maxSceneSteps guards
 describe('createRunner — route execution limits', () => {
+  // spec: scene-to-scene.md §route — exceeding maxRouteTransitions throws
   it('uses maxRouteTransitions in route mode', async () => {
     const model = {
       scenes: [sceneA, sceneB],
@@ -32,6 +34,7 @@ describe('createRunner — route execution limits', () => {
     await expect(() => runner.run()).rejects.toThrow('exceeded 0 scene transitions');
   });
 
+  // spec: scene-graph.md §action — exceeding maxSceneSteps throws MaxStepsExceeded
   it('uses maxSceneSteps for the active scene executor', async () => {
     const model = {
       scenes: [{

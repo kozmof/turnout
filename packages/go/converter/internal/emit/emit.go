@@ -245,12 +245,14 @@ func chooseHeredocDelim(text, indent string) string {
 		h ^= uint32(text[i])
 		h *= 16777619
 	}
-	for extra := uint32(0); ; extra++ {
+	const maxFallbackAttempts = 100
+	for extra := uint32(0); extra < maxFallbackAttempts; extra++ {
 		delim := fmt.Sprintf("TURN_EOT_%08x", h^extra)
 		if _, collision := lineSet[indent+delim]; !collision {
 			return delim
 		}
 	}
+	panic(fmt.Sprintf("chooseHeredocDelim: failed to find a non-colliding delimiter after %d attempts", maxFallbackAttempts))
 }
 
 // writeText emits:

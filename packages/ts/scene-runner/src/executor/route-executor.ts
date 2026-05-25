@@ -3,7 +3,7 @@ import type { RouteModel, SceneBlock } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, RouteTrace } from '../types/harness-types.js';
 import { executeScene } from './scene-executor.js';
-import { selectNextScene } from './route-pattern.js';
+import { selectNextScene, parseMatchArms } from './route-pattern.js';
 import { RouteRuntimeError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@ export async function executeRoute(
   options: RouteExecutionOptions = {},
 ): Promise<RouteExecutionResult> {
   const maxRouteTransitions = options.maxRouteTransitions ?? DEFAULT_MAX_ROUTE_TRANSITIONS;
+  const parsedArms = parseMatchArms(route.match);
   let routeTransitionCount = 0;
   const history: string[] = [];
   const sceneTraces: RouteTrace['scenes'] = [];
@@ -83,7 +84,7 @@ export async function executeRoute(
     }
 
     // Evaluate match arms against history, restricting to patterns for the current scene.
-    const nextSceneId = selectNextScene(history, route.match, currentSceneId);
+    const nextSceneId = selectNextScene(history, parsedArms, currentSceneId);
     if (nextSceneId === null) break; // No arm matched — route completes.
 
     routeTransitionCount++;

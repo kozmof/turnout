@@ -174,22 +174,34 @@ function literalToValue(
   value = raw;
   switch (type) {
     case 'number':
-      return buildNumber(typeof value === 'number' ? value : Number(value));
+      if (typeof value !== 'number') throw new Error(`literalToValue: schema type "number" but got ${typeof value} (${JSON.stringify(value)})`);
+      return buildNumber(value);
     case 'str':
-      return buildString(typeof value === 'string' ? value : String(value));
+      if (typeof value !== 'string') throw new Error(`literalToValue: schema type "str" but got ${typeof value} (${JSON.stringify(value)})`);
+      return buildString(value);
     case 'bool':
-      return buildBoolean(Boolean(value));
+      if (typeof value !== 'boolean') throw new Error(`literalToValue: schema type "bool" but got ${typeof value} (${JSON.stringify(value)})`);
+      return buildBoolean(value);
     case 'arr<number>': {
-      const arr = Array.isArray(value) ? value : [];
-      return buildArray(arr.map((v) => buildNumber(Number(v))));
+      if (!Array.isArray(value)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof value}`);
+      return buildArray(value.map((v) => {
+        if (typeof v !== 'number') throw new Error(`literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
+        return buildNumber(v);
+      }));
     }
     case 'arr<str>': {
-      const arr = Array.isArray(value) ? value : [];
-      return buildArray(arr.map((v) => buildString(String(v))));
+      if (!Array.isArray(value)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof value}`);
+      return buildArray(value.map((v) => {
+        if (typeof v !== 'string') throw new Error(`literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
+        return buildString(v);
+      }));
     }
     case 'arr<bool>': {
-      const arr = Array.isArray(value) ? value : [];
-      return buildArray(arr.map((v) => buildBoolean(Boolean(v))));
+      if (!Array.isArray(value)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof value}`);
+      return buildArray(value.map((v) => {
+        if (typeof v !== 'boolean') throw new Error(`literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
+        return buildBoolean(v);
+      }));
     }
     default:
       return buildNull('unknown');
@@ -202,8 +214,3 @@ function literalToValue(
  */
 export { literalToValue };
 
-// eslint-disable-next-line @typescript-eslint/no-namespace
-export namespace StateManager {
-  export const fromStrict = stateManagerFromStrict;
-  export const fromSchema = stateManagerFromSchema;
-}

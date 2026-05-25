@@ -108,6 +108,8 @@ function withValueTable(
   context: ExecutionContext,
   valueTable: ValueTable
 ): ExecutionContext {
+  // Short-circuit: avoid a new object allocation when the table is unchanged.
+  // Valid only because ValueTable is never mutated in place.
   if (context.valueTable === valueTable) return context;
   return {
     valueTable,

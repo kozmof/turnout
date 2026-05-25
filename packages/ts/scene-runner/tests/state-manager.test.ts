@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { StateManager, stateManagerFromUnchecked, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
+import { stateManagerFromUnchecked, stateManagerFromSchema, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
 import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
 import type { StateModel } from '../src/types/turnout-model_pb.js';
 
@@ -52,7 +52,7 @@ describe('StateManager', () => {
     } as unknown as StateModel;
 
     it('populates defaults from schema', () => {
-      const sm = StateManager.fromSchema(model);
+      const sm = stateManagerFromSchema(model);
       const q = sm.read('request.query');
       const p = sm.read('request.priority');
       const r = sm.read('request.ready');
@@ -62,7 +62,7 @@ describe('StateManager', () => {
     });
 
     it('overrides take precedence over schema defaults', () => {
-      const sm = StateManager.fromSchema(model, {
+      const sm = stateManagerFromSchema(model, {
         'request.query': buildString('override'),
       });
       const q = sm.read('request.query');
@@ -104,9 +104,8 @@ describe('literalToValue', () => {
     expect(isArray(val)).toBe(true);
   });
 
-  it('handles arr<number> with non-array value (falls back to empty array)', () => {
-    const val = literalToValue('not-an-array', 'arr<number>');
-    expect(isArray(val)).toBe(true);
+  it('throws when arr<number> receives a non-array value', () => {
+    expect(() => literalToValue('not-an-array', 'arr<number>')).toThrow('arr<number>');
   });
 
   it('returns buildNull("unknown") for an unrecognised type', () => {
@@ -115,24 +114,20 @@ describe('literalToValue', () => {
     expect(isPureNull(val)).toBe(true);
   });
 
-  it('coerces a non-number value to number for type "number"', () => {
-    const val = literalToValue('42', 'number');
-    expect(isPureNumber(val!) && val.value).toBe(42);
+  it('throws when type "number" receives a non-number value', () => {
+    expect(() => literalToValue('42', 'number')).toThrow('schema type "number"');
   });
 
-  it('coerces a non-string value to string for type "str"', () => {
-    const val = literalToValue(99, 'str');
-    expect(isPureString(val!) && val.value).toBe('99');
+  it('throws when type "str" receives a non-string value', () => {
+    expect(() => literalToValue(99, 'str')).toThrow('schema type "str"');
   });
 
-  it('handles arr<str> with non-array value (falls back to empty array)', () => {
-    const val = literalToValue('not-an-array', 'arr<str>');
-    expect(isArray(val)).toBe(true);
+  it('throws when arr<str> receives a non-array value', () => {
+    expect(() => literalToValue('not-an-array', 'arr<str>')).toThrow('arr<str>');
   });
 
-  it('handles arr<bool> with non-array value (falls back to empty array)', () => {
-    const val = literalToValue('not-an-array', 'arr<bool>');
-    expect(isArray(val)).toBe(true);
+  it('throws when arr<bool> receives a non-array value', () => {
+    expect(() => literalToValue('not-an-array', 'arr<bool>')).toThrow('arr<bool>');
   });
 });
 
@@ -140,6 +135,7 @@ describe('literalToValue', () => {
 // write() path validation
 // ─────────────────────────────────────────────────────────────────────────────
 
+// spec: state-shape-spec.md §schema — write() validates against declared schema paths
 describe('StateManager — write() path validation', () => {
   const model = {
     namespaces: [
@@ -154,18 +150,18 @@ describe('StateManager — write() path validation', () => {
   } as unknown as StateModel;
 
   it('write() to a declared schema path succeeds', () => {
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     expect(() => sm.write('applicant.income', buildNumber(50_000))).not.toThrow();
   });
 
   it('write() to an unknown path throws with the bad path in the message', () => {
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     expect(() => sm.write('applicant.typo', buildNumber(1)))
       .toThrow('"applicant.typo"');
   });
 
   it('write() propagates the schema constraint to the returned manager', () => {
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     const sm2 = sm.write('applicant.income', buildNumber(1));
     expect(() => sm2.write('applicant.typo', buildNumber(2)))
       .toThrow('"applicant.typo"');
@@ -187,7 +183,7 @@ describe('stateManagerFromSchema — array field types', () => {
         },
       ],
     } as unknown as StateModel;
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     const val = sm.read('data.nums');
     expect(val).toBeDefined();
     expect(isArray(val!)).toBe(true);
@@ -202,7 +198,7 @@ describe('stateManagerFromSchema — array field types', () => {
         },
       ],
     } as unknown as StateModel;
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     expect(isArray(sm.read('data.tags')!)).toBe(true);
   });
 
@@ -215,7 +211,7 @@ describe('stateManagerFromSchema — array field types', () => {
         },
       ],
     } as unknown as StateModel;
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     expect(isArray(sm.read('data.flags')!)).toBe(true);
   });
 });
@@ -238,7 +234,7 @@ describe('matchesSchemaType — unknown type guard', () => {
         },
       ],
     } as unknown as StateModel;
-    const sm = StateManager.fromSchema(model);
+    const sm = stateManagerFromSchema(model);
     // write() invokes matchesSchemaType, which should throw for 'invalid_type'.
     expect(() => sm.write('x.v', buildNumber(1))).toThrow(
       'unknown schema type "invalid_type"',

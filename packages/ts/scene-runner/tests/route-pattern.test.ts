@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateMatchArm, selectNextScene } from '../src/executor/route-pattern.js';
+import { evaluateMatchArm, selectNextScene, parseMatchArms } from '../src/executor/route-pattern.js';
 import type { MatchArm } from '../src/types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -125,20 +125,21 @@ describe('evaluateMatchArm — OR semantics', () => {
 // selectNextScene — no match
 // ─────────────────────────────────────────────────────────────────────────────
 
+// spec: scene-to-scene.md §route — no matching arm → route completes
 describe('selectNextScene — no match', () => {
   it('returns null for empty arms array', () => {
-    expect(selectNextScene(['s1.final'], [], 's1')).toBeNull();
+    expect(selectNextScene(['s1.final'], parseMatchArms([]), 's1')).toBeNull();
   });
 
   it('returns null when no arm pattern matches the history', () => {
     const arms = [arm('scene_b', 's1.other')];
-    expect(selectNextScene(['s1.final'], arms, 's1')).toBeNull();
+    expect(selectNextScene(['s1.final'], parseMatchArms(arms),'s1')).toBeNull();
   });
 
+  // spec: scene-to-scene.md §route — currentSceneId filter prevents stale patterns
   it('returns null when the pattern scene differs from currentSceneId', () => {
-    // Pattern references s1 but currentScene is s2 → filtered out
     const arms = [arm('scene_b', 's1.final')];
-    expect(selectNextScene(['s1.final'], arms, 's2')).toBeNull();
+    expect(selectNextScene(['s1.final'], parseMatchArms(arms),'s2')).toBeNull();
   });
 });
 
@@ -146,20 +147,21 @@ describe('selectNextScene — no match', () => {
 // selectNextScene — single match
 // ─────────────────────────────────────────────────────────────────────────────
 
+// spec: scene-to-scene.md §route — basic arm selection
 describe('selectNextScene — single match', () => {
   it('returns the matching arm target', () => {
     const arms = [arm('scene_b', 's1.final')];
-    expect(selectNextScene(['s1.final'], arms, 's1')).toBe('scene_b');
+    expect(selectNextScene(['s1.final'], parseMatchArms(arms),'s1')).toBe('scene_b');
   });
 
   it('fallback matches regardless of currentSceneId', () => {
     const arms = [arm('fallback', '_')];
-    expect(selectNextScene(['s1.whatever'], arms, 's1')).toBe('fallback');
+    expect(selectNextScene(['s1.whatever'], parseMatchArms(arms), 's1')).toBe('fallback');
   });
 
   it('fallback fires for a different currentSceneId', () => {
     const arms = [arm('fallback', '_')];
-    expect(selectNextScene(['s2.done'], arms, 's2')).toBe('fallback');
+    expect(selectNextScene(['s2.done'], parseMatchArms(arms), 's2')).toBe('fallback');
   });
 });
 
@@ -167,6 +169,7 @@ describe('selectNextScene — single match', () => {
 // selectNextScene — priority
 // ─────────────────────────────────────────────────────────────────────────────
 
+// spec: scene-to-scene.md §route — priority: fewer wildcards > longer suffix > declaration order
 describe('selectNextScene — priority', () => {
   it('exact (0 wildcards) beats wildcard (1 wildcard)', () => {
     const history = ['s1.final'];
@@ -174,7 +177,7 @@ describe('selectNextScene — priority', () => {
       arm('wild_target', 's1.*.final'),  // index 0, wildcard
       arm('exact_target', 's1.final'),   // index 1, exact
     ];
-    expect(selectNextScene(history, arms, 's1')).toBe('exact_target');
+    expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('exact_target');
   });
 
   it('wildcard beats catchall', () => {
@@ -183,7 +186,7 @@ describe('selectNextScene — priority', () => {
       arm('catch_target', '_'),           // index 0, catchall
       arm('wild_target', 's1.*.final'),   // index 1, wildcard
     ];
-    expect(selectNextScene(history, arms, 's1')).toBe('wild_target');
+    expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('wild_target');
   });
 
   it('specific arm beats "_" even when "_" is declared first', () => {
@@ -192,7 +195,7 @@ describe('selectNextScene — priority', () => {
       arm('fallback', '_'),          // index 0
       arm('specific', 's1.final'),   // index 1
     ];
-    expect(selectNextScene(history, arms, 's1')).toBe('specific');
+    expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('specific');
   });
 
   it('longer suffix beats shorter suffix at equal wildcard count', () => {
@@ -201,7 +204,7 @@ describe('selectNextScene — priority', () => {
       arm('short', 's1.*.bar'),       // suffix length 1
       arm('long', 's1.*.foo.bar'),    // suffix length 2
     ];
-    expect(selectNextScene(history, arms, 's1')).toBe('long');
+    expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('long');
   });
 
   it('declaration order breaks ties among equal-priority patterns', () => {
@@ -210,7 +213,7 @@ describe('selectNextScene — priority', () => {
       arm('first', 's1.*.final'),   // index 0, wildcard, suffix 1
       arm('second', 's2.*.end'),    // index 1, filtered out (wrong scene)
     ];
-    expect(selectNextScene(history, arms, 's1')).toBe('first');
+    expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('first');
   });
 
   it('first declared arm wins when two have equal priority (same wildcard+suffix)', () => {
@@ -220,6 +223,6 @@ describe('selectNextScene — priority', () => {
       arm('first_target', 's1.*.final'),   // index 0
       arm('second_target', 's1.*.final'),  // index 1 — same pattern, different target
     ];
-    expect(selectNextScene(history, arms, 's1')).toBe('first_target');
+    expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('first_target');
   });
 });

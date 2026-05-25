@@ -3,10 +3,10 @@ export { createRunner } from './runner.js';
 export type { Runner, RunnerOptions, RunnerStepResult } from './runner.js';
 export { runHarness } from './harness/harness.js';
 export type {
+  ExecutionOptions,
   HarnessOptions,
   HarnessResult,
   HookRegistry,
-  HookImpl,
   PrepareHookImpl,
   PublishHookImpl,
   PublishHookOutcome,

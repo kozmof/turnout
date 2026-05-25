@@ -1,13 +1,19 @@
 import type { MatchArm } from '../types/turnout-model_pb.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Internal types
+// Types
 // ─────────────────────────────────────────────────────────────────────────────
 
 type ParsedPattern =
   | { kind: 'catchall' }
   | { kind: 'exact'; sceneId: string; suffix: string[] }    // 0 wildcards
   | { kind: 'wildcard'; sceneId: string; suffix: string[] } // 1 wildcard before suffix
+
+/** A MatchArm with patterns pre-parsed — build once at model load time. */
+export type ParsedMatchArm = {
+  readonly patterns: readonly ParsedPattern[];
+  readonly target: string;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Parsing
@@ -96,6 +102,18 @@ function suffixLength(p: ParsedPattern): number {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Pre-parse all patterns in a route's match arms once at model load time.
+ * Pass the result to `selectNextScene` to avoid repeated string splitting on
+ * every scene transition.
+ */
+export function parseMatchArms(arms: readonly MatchArm[]): ParsedMatchArm[] {
+  return arms.map((arm) => ({
+    patterns: arm.patterns.map(parsePattern),
+    target: arm.target,
+  }));
+}
+
+/**
  * Returns true if any pattern in `arm.patterns` matches `history` (OR semantics).
  * Does not apply current-scene filtering — use this for per-arm unit testing.
  */
@@ -116,7 +134,7 @@ export function evaluateMatchArm(history: string[], arm: MatchArm): boolean {
  */
 export function selectNextScene(
   history: string[],
-  arms: MatchArm[],
+  arms: readonly ParsedMatchArm[],
   currentSceneId: string,
 ): string | null {
   type Candidate = { target: string; wildcards: number; suffixLen: number; index: number };
@@ -128,7 +146,6 @@ export function selectNextScene(
     // Filter patterns to those eligible for the current scene.
     // Catchall (_) is always eligible; scene-specific patterns only when sceneId matches.
     const eligibleParsed = arm.patterns
-      .map((raw) => parsePattern(raw))
       .filter((p) => p.kind === 'catchall' || p.sceneId === currentSceneId);
 
     const matchingPatterns = eligibleParsed.filter((p) => matchParsedPattern(p, history));
