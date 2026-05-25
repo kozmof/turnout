@@ -34,7 +34,7 @@ func fullPipeline(t *testing.T, src string) string {
 	if ds3.HasErrors() {
 		t.Fatalf("lower failed: %v", ds3)
 	}
-	ds4 := validate.Validate(lr.Model, schema)
+	ds4 := validate.Validate(lr.Model, lr.Schema)
 	if ds4.HasErrors() {
 		for _, d := range ds4 {
 			t.Logf("validate: %s", d.Format())
@@ -754,7 +754,7 @@ scene "test_scene" {
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(lr.Model, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 
@@ -810,7 +810,7 @@ scene "test" {
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(lr.Model, schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Schema); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 	var sb strings.Builder

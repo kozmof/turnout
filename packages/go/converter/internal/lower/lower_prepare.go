@@ -1,3 +1,4 @@
+// lower_prepare.go resolves sigil-input placeholder defaults via a prepareResolver interface.
 package lower
 
 import (
@@ -41,14 +42,7 @@ func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, po
 	}
 	switch s := src.(type) {
 	case *ast.FromState:
-		meta, found := r.schema[s.Path]
-		if !found {
-			*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
-				diag.CodeUnresolvedStatePath,
-				"from_state path %q is not declared in the state schema", s.Path))
-			return zeroLiteralFor(ft)
-		}
-		return meta.DefaultValue
+		return resolveFromState(s.Path, r.schema, ft, pos, ds)
 	case *ast.FromHook:
 		return zeroLiteralFor(ft)
 	default:
@@ -83,14 +77,7 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 	}
 	switch s := src.(type) {
 	case *ast.FromState:
-		meta, found := r.schema[s.Path]
-		if !found {
-			*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
-				diag.CodeUnresolvedStatePath,
-				"from_state path %q is not declared in the state schema", s.Path))
-			return zeroLiteralFor(ft)
-		}
-		return meta.DefaultValue
+		return resolveFromState(s.Path, r.schema, ft, pos, ds)
 	case *ast.FromAction:
 		return zeroLiteralFor(ft)
 	case *ast.FromLiteral:
@@ -103,6 +90,19 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+// resolveFromState looks up path in schema and returns its default value.
+// Emits CodeUnresolvedStatePath and returns a zero literal when path is absent.
+func resolveFromState(path string, schema state.Schema, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal {
+	meta, found := schema[path]
+	if !found {
+		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
+			diag.CodeUnresolvedStatePath,
+			"from_state path %q is not declared in the state schema", path))
+		return zeroLiteralFor(ft)
+	}
+	return meta.DefaultValue
+}
 
 func zeroLiteralFor(ft ast.FieldType) ast.Literal {
 	switch ft {

@@ -40,9 +40,9 @@ func printUsage() {
 }
 
 // compileResult bundles the artifacts of a successful parse→lower→validate run.
+// The resolved STATE schema is available via lr.Schema.
 type compileResult struct {
-	lr     *lower.LowerResult
-	schema state.Schema
+	lr *lower.LowerResult
 }
 
 // compile runs parse → state-resolve → lower → validate for inputPath.
@@ -69,12 +69,12 @@ func compile(inputPath, stateBasePath string) (*compileResult, diag.Diagnostics)
 		return nil, ds3
 	}
 
-	ds4 := validate.Validate(lr.Model, schema)
+	ds4 := validate.Validate(lr.Model, lr.Schema)
 	if ds4.HasErrors() {
 		return nil, ds4
 	}
 
-	return &compileResult{lr: lr, schema: schema}, ds4
+	return &compileResult{lr: lr}, ds4
 }
 
 func runConvert(args []string) int {

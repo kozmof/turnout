@@ -664,38 +664,30 @@ func (l *lex) scanTripleQuote(ln, co int) {
 // ────────────────────────────────────────────────────────────
 
 func (l *lex) scanHash(ln, co int) {
-	if l.matchPrefix("#pipe") && !isIdentChar(l.peekAt(5)) {
-		for range 5 {
-			l.advance()
-		}
-		l.emit(TokHashPipe, "#pipe", ln, co)
-		return
-	}
-	if l.matchPrefix("#case") && !isIdentChar(l.peekAt(5)) {
-		for range 5 {
-			l.advance()
-		}
-		l.emit(TokHashCase, "#case", ln, co)
-		return
-	}
-	if l.matchPrefix("#if") && !isIdentChar(l.peekAt(3)) {
-		for range 3 {
-			l.advance()
-		}
-		l.emit(TokHashIf, "#if", ln, co)
-		return
-	}
-	if l.matchPrefix("#it") && !isIdentChar(l.peekAt(3)) {
-		for range 3 {
-			l.advance()
-		}
-		l.emit(TokHashIt, "#it", ln, co)
-		return
-	}
+	if l.tryHashKeyword("#pipe", TokHashPipe, ln, co) { return }
+	if l.tryHashKeyword("#case", TokHashCase, ln, co) { return }
+	if l.tryHashKeyword("#if",   TokHashIf,   ln, co) { return }
+	if l.tryHashKeyword("#it",   TokHashIt,   ln, co) { return }
 	// Line comment — skip to end of line
 	for !l.atEnd() && l.peek() != '\n' {
 		l.advance()
 	}
+}
+
+// tryHashKeyword advances past prefix and emits kind if prefix matches at the
+// current position and is not followed by an identifier character (preventing
+// "#ifoo" from being lexed as TokHashIf + "oo"). Returns true on match.
+func (l *lex) tryHashKeyword(prefix string, kind TokenKind, ln, co int) bool {
+	runes := []rune(prefix)
+	n := len(runes)
+	if !l.matchPrefix(prefix) || isIdentChar(l.peekAt(n)) {
+		return false
+	}
+	for range n {
+		l.advance()
+	}
+	l.emit(kind, prefix, ln, co)
+	return true
 }
 
 // matchPrefix checks if the runes at the current position exactly spell s.

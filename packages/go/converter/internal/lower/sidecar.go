@@ -1,3 +1,4 @@
+// sidecar.go carries per-binding sigil metadata outside the proto IR for the validator.
 package lower
 
 import (
@@ -77,6 +78,7 @@ func (s *Sidecar) Merge(other *Sidecar) {
 
 // ToAnnotations converts the sidecar into a SigilAnnotations proto message
 // suitable for embedding in TurnModel.Annotations. Returns nil when empty.
+// Entries are sorted by key so the output is deterministic across map iterations.
 func (s *Sidecar) ToAnnotations() *turnoutpb.SigilAnnotations {
 	if len(s.sigils) == 0 {
 		return nil

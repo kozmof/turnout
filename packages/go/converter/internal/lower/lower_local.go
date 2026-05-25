@@ -1,3 +1,4 @@
+// lower_local.go lowers #if / #case / #pipe LocalExpr trees to flat binding sequences.
 package lower
 
 import (
@@ -54,7 +55,7 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 	case *ast.PipeCallRHS:
 		c.lowerPipeInto(c.target, c.targetType, r.Initial, r.Steps)
 	default:
-		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
+		panic(fmt.Sprintf("lowerTop: unhandled BindingRHS type %T for binding %q — add a case to the type switch", rhs, c.target))
 	}
 	if len(c.bindings) == 0 {
 		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
@@ -128,7 +129,7 @@ func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalE
 	case *ast.LocalPipeExpr:
 		c.lowerPipeInto(name, ft, x.Initial, x.Steps)
 	default:
-		c.emitValue(name, ft, zeroLiteralFor(ft))
+		panic(fmt.Sprintf("lowerExprInto: unhandled LocalExpr type %T — add a case to the type switch", e))
 	}
 }
 

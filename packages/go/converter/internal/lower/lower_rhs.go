@@ -1,3 +1,4 @@
+// lower_rhs.go lowers BindingRHS and Arg AST nodes to proto BindingModel expressions.
 package lower
 
 import (

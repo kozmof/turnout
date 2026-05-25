@@ -1,3 +1,4 @@
+// lower_proto.go converts AST nodes to LocalExprModel proto messages for ext_expr round-trip.
 package lower
 
 import (

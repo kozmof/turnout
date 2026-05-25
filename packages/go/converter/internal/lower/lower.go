@@ -35,10 +35,13 @@ const (
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// LowerResult bundles the canonical proto model. Sigil metadata is embedded in
-// Model.Annotations (cleared by the emitter before JSON output).
+// LowerResult bundles the canonical proto model and the resolved STATE schema.
+// Sigil metadata is embedded in Model.Annotations (cleared by the emitter before
+// JSON output). Schema is forwarded to validate.Validate so callers do not need
+// to thread it separately.
 type LowerResult struct {
-	Model *turnoutpb.TurnModel
+	Model  *turnoutpb.TurnModel
+	Schema state.Schema
 }
 
 // Lower converts a parsed TurnFile and resolved STATE schema to a LowerResult
@@ -63,7 +66,7 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnost
 	// Embed sigil metadata in the proto model so the validator does not need a
 	// separate sidecar parameter. The emitter clears this field before output.
 	tm.Annotations = sc.ToAnnotations()
-	return &LowerResult{Model: tm}, ds
+	return &LowerResult{Model: tm, Schema: schema}, ds
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
