@@ -29,6 +29,7 @@ import type {
 import { buildNumber, buildString, buildBoolean, buildArray } from '../../state-control/value-builders';
 import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
 import { isValidValue } from '../../state-control/value';
+import { assertNever } from '../../util/brand';
 import { getBinaryFnReturnType } from '../runtime/typeInference';
 import {
   createUndefinedConditionError,
@@ -168,6 +169,8 @@ function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
       const namespace: TransformFnArrayNameSpace = 'transformFnArray';
       return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
+    default:
+      return assertNever(typeSymbol);
   }
 }
 

@@ -1,4 +1,5 @@
 import type { TagSymbol, AnyValue, TypedArrayValue } from '../../state-control/value';
+import { assertNever } from '../../util/brand';
 import {
   buildNumber,
   buildString,
@@ -75,6 +76,8 @@ export const val = {
         return buildArrayBoolean(elements, tags);
       case 'null':
         return buildArrayNull(elements, tags);
+      default:
+        return assertNever(elemType);
     }
   },
 };

@@ -44,13 +44,32 @@ type LowerResult struct {
 	Schema state.Schema
 }
 
+// LowerResolvingState resolves the STATE schema from basePath (the directory of
+// the input .turn file) and then calls Lower. Use this when the source file may
+// contain a state_file directive; it avoids the two-step
+// state.Resolve + Lower call sequence that callers otherwise must get right.
+// Declaration order from the state source is preserved in the emitted HCL.
+func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, diag.Diagnostics) {
+	schema, order, ds := state.ResolveWithOrder(file.StateSource, basePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	return lowerCore(file, schema, order)
+}
+
 // Lower converts a parsed TurnFile and resolved STATE schema to a LowerResult
 // plus diagnostics. Returns a nil LowerResult when the input has errors.
+// Field ordering in emitted HCL follows alphabetical order for state_file
+// sources; use LowerResolvingState to preserve declaration order.
 func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnostics) {
+	return lowerCore(file, schema, nil)
+}
+
+func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
 	var ds diag.Diagnostics
 	sc := newSidecar()
 
-	stateModel := lowerStateBlock(file.StateSource, schema, &ds)
+	stateModel := lowerStateBlock(file.StateSource, schema, schemaOrder, &ds)
 
 	tm := &turnoutpb.TurnModel{State: stateModel}
 
@@ -135,16 +154,16 @@ func pathExprString(pe *ast.PathExpr) string {
 // State block lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerStateBlock(src ast.StateSource, schema state.Schema, ds *diag.Diagnostics) *turnoutpb.StateModel {
+func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, ds *diag.Diagnostics) *turnoutpb.StateModel {
 	switch s := src.(type) {
 	case *ast.InlineStateBlock:
 		return lowerStateBlockFromAST(s)
 	case *ast.StateFileDirective:
 		if len(schema) == 0 {
 			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-				"state_file %q: schema was not pre-loaded; call state.Load() before Lower()", s.Path))
+				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
 		}
-		return lowerStateBlockFromSchema(schema)
+		return lowerStateBlockFromSchema(schema, order)
 	default:
 		return &turnoutpb.StateModel{}
 	}
@@ -169,9 +188,14 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 	return sm
 }
 
-// lowerStateBlockFromSchema reconstructs a state block from the flat schema map,
-// sorting namespaces and fields alphabetically for deterministic output.
-func lowerStateBlockFromSchema(schema state.Schema) *turnoutpb.StateModel {
+// lowerStateBlockFromSchema reconstructs a state block from the flat schema map.
+// When order is non-nil it uses declaration order; otherwise it sorts
+// namespaces and fields alphabetically for deterministic output.
+func lowerStateBlockFromSchema(schema state.Schema, order []string) *turnoutpb.StateModel {
+	if len(order) > 0 {
+		return lowerStateBlockFromSchemaOrdered(schema, order)
+	}
+
 	nsMap := make(map[string][]string)
 	for key := range schema {
 		parts := strings.SplitN(key, ".", 2)
@@ -194,6 +218,50 @@ func lowerStateBlockFromSchema(schema state.Schema) *turnoutpb.StateModel {
 			})
 		}
 		sm.Namespaces = append(sm.Namespaces, pbNS)
+	}
+	return sm
+}
+
+// lowerStateBlockFromSchemaOrdered reconstructs a state block using the
+// provided declaration order for namespaces and fields.
+func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turnoutpb.StateModel {
+	// Build namespace models preserving order; track insertion order for ns.
+	type nsEntry struct {
+		name   string
+		fields []*turnoutpb.FieldModel
+	}
+	nsIndex := make(map[string]int)
+	var nsList []nsEntry
+
+	for _, key := range order {
+		parts := strings.SplitN(key, ".", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		nsName, fieldName := parts[0], parts[1]
+		meta, ok := schema[key]
+		if !ok {
+			continue
+		}
+		idx, exists := nsIndex[nsName]
+		if !exists {
+			idx = len(nsList)
+			nsList = append(nsList, nsEntry{name: nsName})
+			nsIndex[nsName] = idx
+		}
+		nsList[idx].fields = append(nsList[idx].fields, &turnoutpb.FieldModel{
+			Name:  fieldName,
+			Type:  meta.Type.String(),
+			Value: literalToStructpb(meta.DefaultValue),
+		})
+	}
+
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsList))}
+	for _, ns := range nsList {
+		sm.Namespaces = append(sm.Namespaces, &turnoutpb.NamespaceModel{
+			Name:   ns.name,
+			Fields: ns.fields,
+		})
 	}
 	return sm
 }

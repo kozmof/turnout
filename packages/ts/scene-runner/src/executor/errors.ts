@@ -25,7 +25,7 @@ export class PrepareError extends Error {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SceneErrorCode = 'UnknownAction' | 'IncompleteScene' | 'MaxStepsExceeded' | 'UnknownFunction' | 'OutOfOrderBinding';
+export type SceneErrorCode = 'UnknownAction' | 'IncompleteScene' | 'MaxStepsExceeded' | 'UnknownFunction' | 'OutOfOrderBinding' | 'DuplicateActionId';
 
 export class SceneRuntimeError extends Error {
   readonly code: SceneErrorCode;

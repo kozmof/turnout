@@ -209,3 +209,25 @@ func TestUnterminatedStringEOF(t *testing.T) {
 		t.Error("expected lex error for string without closing quote at EOF")
 	}
 }
+
+// TestHeredocMultibyteIndent verifies that heredoc indent stripping works
+// correctly when body lines contain multi-byte characters after the stripped
+// leading whitespace. This guards against rune-count vs byte-slice confusion.
+func TestHeredocMultibyteIndent(t *testing.T) {
+	// Two spaces of indentation, then a multi-byte character (é = U+00E9, 2 bytes in UTF-8).
+	src := "x = <<-EOT\n  café\n  EOT\n"
+	toks := filterEOF(mustTokenize(t, src))
+	var hd Token
+	for _, tok := range toks {
+		if tok.Kind == TokHeredoc {
+			hd = tok
+			break
+		}
+	}
+	if hd.Kind != TokHeredoc {
+		t.Fatal("expected TokHeredoc token")
+	}
+	if hd.Value != "café" {
+		t.Errorf("heredoc body = %q, want %q", hd.Value, "café")
+	}
+}

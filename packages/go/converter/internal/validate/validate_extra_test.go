@@ -746,7 +746,7 @@ func TestNextPrepareFromAction(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { root = r prog "p" { r:number = 42 } }
     next {
       compute { condition = go prog "n" { ~>score:number go:bool = true } }
       prepare { score { from_action = r } }
@@ -804,6 +804,58 @@ scene "test" {
 		for _, d := range ds {
 			t.Errorf("unexpected error: %s", d.Format())
 		}
+	}
+}
+
+func TestNextPrepareFromActionUnknown(t *testing.T) {
+	src := basicState + `
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute { root = r prog "p" { r:number = 42 } }
+    next {
+      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      prepare { score { from_action = missing_binding } }
+      action = a
+    }
+  }
+}
+`
+	ds := pipeline(src)
+	found := false
+	for _, d := range ds {
+		if d.Code == "NextPrepareFromActionUnknown" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected NextPrepareFromActionUnknown diagnostic; got: %v", ds)
+	}
+}
+
+func TestNextPrepareFromActionTypeMismatch(t *testing.T) {
+	src := basicState + `
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute { root = r prog "p" { r:bool = true } }
+    next {
+      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      prepare { score { from_action = r } }
+      action = a
+    }
+  }
+}
+`
+	ds := pipeline(src)
+	found := false
+	for _, d := range ds {
+		if d.Code == "NextPrepareFromActionTypeMismatch" {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("expected NextPrepareFromActionTypeMismatch diagnostic; got: %v", ds)
 	}
 }
 

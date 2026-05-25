@@ -135,6 +135,9 @@ export {
   isGraphExecutionError,
 } from './compute-graph';
 
+// ── Exhaustiveness helper ─────────────────────────────────────────────────────
+export { assertNever } from './util/brand';
+
 // ── Builder API ───────────────────────────────────────────────────────────────
 export { ctx, combine, pipe, cond, val, ref } from './compute-graph/builder';
 

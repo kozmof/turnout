@@ -261,6 +261,9 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx sigilIn
 		}
 	}
 
+	// Build a map of action ID → compute scope for from_action cross-checks (3-A, 3-B).
+	actionScopes := make(map[string]map[string]bindingInfo, len(scene.Actions))
+
 	for _, a := range scene.Actions {
 		var scope map[string]bindingInfo
 
@@ -278,6 +281,8 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx sigilIn
 		} else {
 			scope = map[string]bindingInfo{}
 		}
+		actionScopes[a.Id] = scope
+
 		for i, nr := range a.Next {
 			if nr.Action != "" {
 				if _, ok := actionIndex[nr.Action]; !ok {
@@ -285,7 +290,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx sigilIn
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, idx, scene.Id, a.Id, lower.NextScope(i), ds)
+			validateNextRule(nr, schema, idx, scene.Id, a.Id, lower.NextScope(i), scope, ds)
 		}
 	}
 }
@@ -1137,7 +1142,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, actionScope map[string]bindingInfo, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -1157,6 +1162,15 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx sigi
 		if e.FromState != nil {
 			validateStatePath(*e.FromState, schema, ds)
 		}
+		// 3-A: verify the from_action binding exists in the source action's compute prog.
+		if e.FromAction != nil {
+			srcName := *e.FromAction
+			if _, ok := actionScope[srcName]; !ok {
+				*ds = append(*ds, diag.Errorf(diag.CodeNextPrepareFromActionUnknown,
+					"action %q: next prepare binding %q references from_action %q which does not exist in this action's compute prog",
+					actionID, e.Binding, srcName))
+			}
+		}
 	}
 
 	if nr.Compute == nil {
@@ -1173,6 +1187,21 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx sigi
 		} else if info.fieldType != ast.FieldTypeBool {
 			*ds = append(*ds, diag.Errorf(diag.CodeSCNNextComputeNotBool,
 				"next rule condition %q has type %s; bool required", cond, info.fieldType))
+		}
+	}
+
+	// 3-B: verify type consistency between from_action source and target binding.
+	for _, e := range nr.Prepare {
+		if e.FromAction == nil {
+			continue
+		}
+		srcName := *e.FromAction
+		srcInfo, srcOK := actionScope[srcName]
+		dstInfo, dstOK := nextScope[e.Binding]
+		if srcOK && dstOK && srcInfo.fieldType != dstInfo.fieldType {
+			*ds = append(*ds, diag.Errorf(diag.CodeNextPrepareFromActionTypeMismatch,
+				"action %q: next prepare binding %q (type %s) does not match from_action %q (type %s)",
+				actionID, e.Binding, dstInfo.fieldType, srcName, srcInfo.fieldType))
 		}
 	}
 }

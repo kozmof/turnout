@@ -40,6 +40,15 @@ export type FuncId = Brand<string, 'funcId'>;
 export type PipeArgName = Brand<string, 'pipeArgName'>;
 export type ArgName = Brand<string, 'argName'>;
 
+/** Typed constructor helpers — centralise `as XxxId` casts to one place. */
+export const makeCombineDefineId = (s: string): CombineDefineId => s as CombineDefineId;
+export const makePipeDefineId    = (s: string): PipeDefineId    => s as PipeDefineId;
+export const makeCondDefineId    = (s: string): CondDefineId    => s as CondDefineId;
+export const makeValueId         = (s: string): ValueId         => s as ValueId;
+export const makeFuncId          = (s: string): FuncId          => s as FuncId;
+export const makePipeArgName     = (s: string): PipeArgName     => s as PipeArgName;
+export const makeArgName         = (s: string): ArgName         => s as ArgName;
+
 /**
  * Per-instance input wiring for combine and pipe functions.
  * Maps each argument name to the ValueId that holds its current value in the
@@ -71,6 +80,11 @@ export type ArgMapFuncEntry = Extract<FuncTableEntry, { argMap: FuncArgMap }>;
 /** Type guard: true when the entry is a combine or pipe entry (the two that carry `argMap`). */
 export function isArgMapEntry(entry: FuncTableEntry): entry is ArgMapFuncEntry {
   return 'argMap' in entry;
+}
+
+/** Type guard: true when the entry is a cond entry (no `argMap`; inputs pre-resolved at build time). */
+export function isCondEntry(entry: FuncTableEntry): entry is Extract<FuncTableEntry, { kind: 'cond' }> {
+  return entry.kind === 'cond';
 }
 
 

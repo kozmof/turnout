@@ -75,7 +75,8 @@ function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
     case 'arr<number>': return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'number');
     case 'arr<str>':    return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'string');
     case 'arr<bool>':   return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'boolean');
-    default: return true;
+    default:
+      throw new Error(`StateManager: unknown schema type "${schemaType}"`);
   }
 }
 

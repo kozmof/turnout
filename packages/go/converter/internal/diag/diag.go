@@ -200,6 +200,17 @@ const (
 	CodeUnresolvedEntryScene = "UnresolvedEntryScene"
 )
 
+// Error codes for cross-action validation.
+const (
+	// CodeNextPrepareFromActionUnknown is emitted when a from_action source
+	// references a binding name that does not exist in the source action's
+	// compute prog output.
+	CodeNextPrepareFromActionUnknown = "NextPrepareFromActionUnknown"
+	// CodeNextPrepareFromActionTypeMismatch is emitted when the type of the
+	// from_action source binding does not match the target binding's declared type.
+	CodeNextPrepareFromActionTypeMismatch = "NextPrepareFromActionTypeMismatch"
+)
+
 // Error codes from overview-dsl-spec.md §9 (Overview DSL)
 const (
 	// parse stage (§9.1)

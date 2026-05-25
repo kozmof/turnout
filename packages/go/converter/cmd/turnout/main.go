@@ -12,7 +12,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 )
 
@@ -59,22 +58,17 @@ func compile(inputPath, stateBasePath string) (*compileResult, diag.Diagnostics)
 		return nil, ds1
 	}
 
-	schema, ds2 := state.Resolve(turnFile.StateSource, stateBasePath)
+	lr, ds2 := lower.LowerResolvingState(turnFile, stateBasePath)
 	if ds2.HasErrors() {
 		return nil, ds2
 	}
 
-	lr, ds3 := lower.Lower(turnFile, schema)
+	ds3 := validate.Validate(lr.Model, lr.Schema)
 	if ds3.HasErrors() {
 		return nil, ds3
 	}
 
-	ds4 := validate.Validate(lr.Model, lr.Schema)
-	if ds4.HasErrors() {
-		return nil, ds4
-	}
-
-	return &compileResult{lr: lr}, ds4
+	return &compileResult{lr: lr}, ds3
 }
 
 func runConvert(args []string) int {

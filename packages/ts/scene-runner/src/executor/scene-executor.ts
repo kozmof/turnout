@@ -119,6 +119,10 @@ export function createSceneExecutor(
   async function next(): Promise<StepResult> {
     if (queueHead >= queue.length) return { done: true };
 
+    // Peek the next action id before any guard so currentActionId() is accurate
+    // even when MaxStepsExceeded is thrown — callers need it for error reporting.
+    currentAction = queue[queueHead]!;
+
     if (stepCount >= maxSteps) {
       throw new SceneRuntimeError(
         'MaxStepsExceeded',
@@ -129,7 +133,6 @@ export function createSceneExecutor(
     stepCount++;
 
     const actionId = queue[queueHead++]!;
-    currentAction = actionId;
     visited.add(actionId);
 
     const action = actionMap[actionId];
@@ -206,19 +209,17 @@ export async function executeSceneSafe(
   maxSteps?: number,
 ): Promise<SceneResult> {
   const executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
-  let lastActionId = (entryActions ?? scene.entryActions)[0] ?? '';
   try {
-    while (!executor.isDone()) {
-      const step = await executor.next();
-      if (!step.done) lastActionId = step.trace.actionId;
-    }
+    while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };
   } catch (err) {
     return {
       ok: false,
       error: err,
       partialState: executor.partialState(),
-      failedActionId: executor.currentActionId() ?? lastActionId,
+      // currentActionId() is set before any guard in next(), so it is always
+      // the action that was being attempted when the error was thrown.
+      failedActionId: executor.currentActionId() ?? '<none>',
     };
   }
 }
@@ -229,7 +230,12 @@ export async function executeSceneSafe(
 
 function buildActionMap(actions: ActionModel[]): Record<string, ActionModel> {
   const map: Record<string, ActionModel> = {};
-  for (const a of actions) map[a.id] = a;
+  for (const a of actions) {
+    if (map[a.id] !== undefined) {
+      throw new SceneRuntimeError('DuplicateActionId', '<build>', `duplicate action id "${a.id}"`);
+    }
+    map[a.id] = a;
+  }
   return map;
 }
 

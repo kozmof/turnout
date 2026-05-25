@@ -22,18 +22,47 @@ type Schema map[string]FieldMeta
 // Resolve builds a Schema from a StateSource.
 // basePath is the directory of the input .turn file, used to resolve relative state_file paths.
 func Resolve(source ast.StateSource, basePath string) (Schema, diag.Diagnostics) {
+	schema, _, ds := ResolveWithOrder(source, basePath)
+	return schema, ds
+}
+
+// ResolveWithOrder is like Resolve but also returns the dotted field keys in
+// declaration order (namespace order, then field order within each namespace).
+// The lower package uses the order to preserve field sequence in emitted HCL
+// when the source uses state_file. Callers that do not need ordering can
+// ignore the second return value.
+func ResolveWithOrder(source ast.StateSource, basePath string) (Schema, []string, diag.Diagnostics) {
 	switch s := source.(type) {
 	case *ast.InlineStateBlock:
-		return resolveInline(s)
+		schema, ds := resolveInline(s)
+		return schema, inlineOrder(s), ds
 	case *ast.StateFileDirective:
-		return resolveStateFile(s, basePath)
+		schema, order, ds := resolveStateFileWithOrder(s, basePath)
+		return schema, order, ds
 	default:
-		return nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateSource, "no state source")}
+		return nil, nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateSource, "no state source")}
 	}
+}
+
+// inlineOrder returns the dotted keys for block in declaration order.
+func inlineOrder(block *ast.InlineStateBlock) []string {
+	var keys []string
+	for _, ns := range block.Namespaces {
+		for _, f := range ns.Fields {
+			keys = append(keys, ns.Name+"."+f.Name)
+		}
+	}
+	return keys
 }
 
 // resolveStateFile loads and parses an external state file, then resolves it.
 func resolveStateFile(d *ast.StateFileDirective, basePath string) (Schema, diag.Diagnostics) {
+	schema, _, ds := resolveStateFileWithOrder(d, basePath)
+	return schema, ds
+}
+
+// resolveStateFileWithOrder is like resolveStateFile but also returns ordered keys.
+func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Schema, []string, diag.Diagnostics) {
 	path := d.Path
 	if !filepath.IsAbs(path) {
 		path = filepath.Join(basePath, path)
@@ -41,7 +70,7 @@ func resolveStateFile(d *ast.StateFileDirective, basePath string) (Schema, diag.
 
 	src, err := os.ReadFile(path)
 	if err != nil {
-		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
+		return nil, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
 	}
 
 	inline, parseDiags := parser.ParseStateFile(path, string(src))
@@ -54,10 +83,11 @@ func resolveStateFile(d *ast.StateFileDirective, basePath string) (Schema, diag.
 			}
 			ds = append(ds, diag.Errorf(code, "%s", pd.Message))
 		}
-		return nil, ds
+		return nil, nil, ds
 	}
 
-	return resolveInline(inline)
+	schema, ds := resolveInline(inline)
+	return schema, inlineOrder(inline), ds
 }
 
 // resolveInline builds a Schema from an InlineStateBlock.

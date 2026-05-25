@@ -226,3 +226,22 @@ describe('protoValueToJs', () => {
     expect(protoValueToJs(value)).toBe(value);
   });
 });
+
+describe('matchesSchemaType — unknown type guard', () => {
+  it('throws when the schema declares an unrecognised type string', () => {
+    // Construct a schema with an invalid type string to force the default branch.
+    const model = {
+      namespaces: [
+        {
+          name: 'x',
+          fields: [{ name: 'v', type: 'invalid_type', value: null }],
+        },
+      ],
+    } as unknown as StateModel;
+    const sm = StateManager.fromSchema(model);
+    // write() invokes matchesSchemaType, which should throw for 'invalid_type'.
+    expect(() => sm.write('x.v', buildNumber(1))).toThrow(
+      'unknown schema type "invalid_type"',
+    );
+  });
+});
