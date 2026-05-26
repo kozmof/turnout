@@ -371,7 +371,7 @@ func (p *parser) parseMethodChain(receiver string) ast.Arg {
 // parseBlockArg parses { step_ref = N }, { func_ref = "fn" }, or
 // { transform = { ref = "v", fn = "..." } }.
 func (p *parser) parseBlockArg() ast.Arg {
-	open := p.advance() // consume {
+	p.advance() // consume {
 	key := p.peek()
 	if key.Kind != lexer.TokIdent {
 		p.errorf(key, "expected identifier inside block arg, got %s", kindName(key.Kind))
@@ -430,7 +430,6 @@ func (p *parser) parseBlockArg() ast.Arg {
 		}
 		p.expect(lexer.TokRBrace)
 		result = &ast.TransformArg{Ref: ref, Fn: fns}
-		_ = open
 	default:
 		p.errorf(key, "unexpected block arg key %q; expected step_ref, func_ref, or transform", key.Value)
 		p.skipTo(lexer.TokRBrace)
@@ -1268,13 +1267,6 @@ func (p *parser) parseViewBlock() *ast.ViewBlock {
 	p.expect(lexer.TokLBrace)
 
 	vb := &ast.ViewBlock{Pos: pos, Name: labelTok.Value}
-	if labelTok.Value != "overview" {
-		p.Diags = append(p.Diags, diag.ErrorAt(
-			p.file, labelTok.Line, labelTok.Col,
-			diag.CodeOverviewUnknownView,
-			"view name must be \"overview\"; got %q", labelTok.Value,
-		))
-	}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
 		switch t.Kind {

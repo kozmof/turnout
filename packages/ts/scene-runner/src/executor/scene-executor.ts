@@ -23,7 +23,7 @@ export type SceneExecutionResult = {
 
 export type StepResult =
   | { done: false; trace: ActionTrace }
-  | { done: true; trace?: undefined };
+  | { done: true };
 
 /**
  * Discriminated union returned by `executeSceneSafe`. Callers that prefer
@@ -63,6 +63,15 @@ export type SceneExecutor = {
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
 const DEFAULT_MAX_STEPS = 10_000;
 
+// Produces a deterministic JSON string regardless of object key insertion order.
+function stableKey(obj: unknown): string {
+  return JSON.stringify(obj, (_k, v) =>
+    v !== null && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
+      : v,
+  );
+}
+
 /**
  * Creates a scene executor that advances one action at a time via `next()`.
  *
@@ -98,6 +107,8 @@ export function createSceneExecutor(
   const sceneWarnings: string[] = [];
   let stepCount = 0;
   let currentAction: string | undefined;
+  // Scoped to the scene lifetime so identical next-rule progs are cached across all actions.
+  const ctxCache = new Map<string, BuiltContext>();
 
   function drainVisited(): void {
     while (queueHead < queue.length && visited.has(queue[queueHead]!)) {
@@ -142,7 +153,7 @@ export function createSceneExecutor(
     const result = await executeAction(action, currentState, hooks);
     currentState = result.stateAfterMerge;
 
-    const nextIds = evaluateNextRules(action, currentState, result, policy);
+    const nextIds = evaluateNextRules(action, currentState, result, policy, ctxCache);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
     const trace: ActionTrace = {
@@ -254,10 +265,10 @@ function evaluateNextRules(
   state: StateManager,
   result: ActionExecutionResult,
   policy: string,
+  ctxCache: Map<string, BuiltContext>,
 ): string[] {
   const rules = action.next ?? [];
   const matches: string[] = [];
-  const ctxCache = new Map<string, BuiltContext>();
 
   for (const rule of rules) {
     let condMet: boolean;
@@ -269,7 +280,7 @@ function evaluateNextRules(
       condMet = false;
     } else {
       const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      const fingerprint = JSON.stringify(rule.compute.prog) + '|' + JSON.stringify(rule.prepare ?? []);
+      const fingerprint = `${stableKey(rule.compute.prog)}|${stableKey(rule.prepare ?? [])}`;
       let builtCtx = ctxCache.get(fingerprint);
       if (!builtCtx) {
         builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);

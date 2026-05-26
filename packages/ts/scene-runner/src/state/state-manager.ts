@@ -37,6 +37,14 @@ export interface StateManager {
   validPaths(): ReadonlySet<string> | null;
 }
 
+const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function assertSafePath(path: string): void {
+  if (RESERVED_KEYS.has(path)) {
+    throw new Error(`StateManager: reserved path "${path}" is not allowed`);
+  }
+}
+
 function make(
   state: Record<string, AnyValue>,
   validPaths: ReadonlySet<string> | null,
@@ -44,6 +52,7 @@ function make(
 ): StateManager {
   return {
     read: (path) => {
+      assertSafePath(path);
       if (validPaths !== null && !validPaths.has(path)) {
         throw new Error(
           `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
@@ -52,6 +61,7 @@ function make(
       return state[path] ?? buildNull('missing');
     },
     write: (path, value) => {
+      assertSafePath(path);
       if (validPaths !== null && !validPaths.has(path)) {
         throw new Error(
           `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,

@@ -15,9 +15,9 @@ import {
   type SceneExecutor,
 } from './executor/scene-executor.js';
 import { parseMatchArms } from './executor/route-pattern.js';
-import type { ParsedMatchArm } from './executor/route-pattern.js';
 import { createRouteStepper } from './executor/route-stepper.js';
 import type { RouteStepper } from './executor/route-stepper.js';
+import { resolveDispatchTarget } from './executor/dispatch.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -93,8 +93,6 @@ export type Runner = {
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-type RouteEntry = { id: string; entrySceneId?: string; parsedArms: ParsedMatchArm[] };
-
 /**
  * Build the shared Runner methods (usePrepareHook, usePublishHook, isDone, next,
  * run, runAsync, result) from three mode-specific callbacks.
@@ -139,15 +137,6 @@ function buildSceneMap(model: ReturnType<typeof migrateModel>) {
   return Object.fromEntries(model.scenes.map((s) => [s.id, s]));
 }
 
-function buildRouteMap(model: ReturnType<typeof migrateModel>): Record<string, RouteEntry> {
-  return Object.fromEntries(
-    (model.routes ?? []).map((r): [string, RouteEntry] => [
-      r.id,
-      { id: r.id, entrySceneId: r.entrySceneId, parsedArms: parseMatchArms(r.match) },
-    ]),
-  );
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Factory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -166,7 +155,6 @@ function buildRouteMap(model: ReturnType<typeof migrateModel>): Record<string, R
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const migratedModel = migrateModel(model);
   const sceneMap = buildSceneMap(migratedModel);
-  const routeMap = buildRouteMap(migratedModel);
 
   // hooks is passed by reference so registrations after construction are visible
   // to the executor without needing to recreate it.
@@ -178,25 +166,15 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
 
   // ── Determine execution mode (route vs scene) ─────────────────────────────
 
-  const routeEntry = routeMap[options.entryId] ?? null;
+  const target = resolveDispatchTarget(migratedModel, options.entryId);
   let done = false;
 
   // Route mode
-  if (routeEntry) {
-    const entrySceneId = routeEntry.entrySceneId;
-    if (!entrySceneId) {
-      throw new Error(`Runner: route "${options.entryId}" has no entry scene declared`);
-    }
-    if (!sceneMap[entrySceneId]) {
-      throw new Error(
-        `Runner: route "${options.entryId}" entry scene "${entrySceneId}" is not in the model`,
-      );
-    }
-
+  if (target.kind === 'route') {
     const routeStepper: RouteStepper = createRouteStepper(
-      routeEntry.id,
-      routeEntry.parsedArms,
-      entrySceneId,
+      target.route.id,
+      parseMatchArms(target.route.match),
+      target.entryScene.id,
       sceneMap,
       initialState,
       hooks,
@@ -230,13 +208,8 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   }
 
   // Scene mode
-  const scene = sceneMap[options.entryId];
-  if (!scene) {
-    throw new Error(`Runner: entryId "${options.entryId}" not found as route or scene in the model`);
-  }
-
   const sceneExecutor: SceneExecutor = createSceneExecutor(
-    scene,
+    target.scene,
     initialState,
     hooks,
     undefined,

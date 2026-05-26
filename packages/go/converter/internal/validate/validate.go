@@ -13,6 +13,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/localexpr"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
+	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"github.com/kozmof/turnout/packages/go/converter/internal/overview"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -341,8 +342,8 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
-			if !(strings.HasPrefix(b.Name, lower.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, lower.GeneratedIfCondSuffix)) &&
-				!strings.HasPrefix(b.Name, lower.GeneratedLocalPrefix) {
+			if !(strings.HasPrefix(b.Name, names.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, names.GeneratedIfCondSuffix)) &&
+				!strings.HasPrefix(b.Name, names.GeneratedLocalPrefix) {
 				*ds = append(*ds, diag.Errorf(diag.CodeReservedName,
 					"binding %q: names starting with __ are reserved", b.Name))
 			}

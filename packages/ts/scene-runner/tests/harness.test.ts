@@ -10,14 +10,14 @@ const minimalScene = {
 };
 
 describe('runHarness — error cases', () => {
-  it('throws when a matching route exists but the model has no scenes', async () => {
+  it('throws when a matching route exists but has no entrySceneId declared', async () => {
     const model = {
       scenes: [],
       routes: [{ id: 'empty_route', match: [] }],
     } as unknown as TurnModel;
     await expect(() =>
       runHarness({ model, entryId: 'empty_route', initialState: {} }),
-    ).rejects.toThrow('route "empty_route" found but model has no scenes');
+    ).rejects.toThrow('entry "empty_route" is a route but has no entry scene declared');
   });
 
   it('throws when entryId matches neither a route nor a scene', async () => {

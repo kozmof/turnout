@@ -3,6 +3,7 @@ import { stateManagerFromUnchecked, stateManagerFromSchema } from '../state/stat
 import type { StateManager } from '../state/state-manager.js';
 import { executeScene } from '../executor/scene-executor.js';
 import { executeRoute } from '../executor/route-executor.js';
+import { resolveDispatchTarget } from '../executor/dispatch.js';
 
 /**
  * Universal harness entry point (client + server).
@@ -14,62 +15,45 @@ import { executeRoute } from '../executor/route-executor.js';
  * `runServerHarness` from the server entry point instead.
  *
  * Dispatch rules:
- *  - `entryId` matches a `route.id`  → `executeRoute` (entry scene = first in model)
- *  - `entryId` matches a `scene.id`  → `executeScene`  (single-scene mode)
+ *  - `entryId` matches a `route.id`  → `executeRoute`
+ *  - `entryId` matches a `scene.id`  → `executeScene`
  *  - no match                         → throws
  */
 export async function runHarness(options: HarnessOptions): Promise<HarnessResult> {
   const { model } = options;
 
   // ── 1. Build STATE ────────────────────────────────────────────────────────
-  // When the model has a state schema, seed it with declared defaults then
-  // apply the caller-supplied overrides. When there is no schema (the spec
-  // examples omit a state {} block), use the provided values directly.
   const state: StateManager = model.state
     ? stateManagerFromSchema(model.state, options.initialState)
     : stateManagerFromUnchecked(options.initialState);
 
-  // ── 2. Build lookup maps ─────────────────────────────────────────────────
+  // ── 2. Resolve dispatch target ────────────────────────────────────────────
+  const target = resolveDispatchTarget(model, options.entryId);
   const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
-  const routeMap = Object.fromEntries((model.routes ?? []).map((r) => [r.id, r]));
 
-  // ── 3a. Route mode ────────────────────────────────────────────────────────
-  const route = routeMap[options.entryId];
-  if (route) {
-    // Prefer the route's declared entry scene; fall back to the first model scene
-    // for legacy models generated before entrySceneId was added to the schema.
-    const entrySceneId = route.entrySceneId || model.scenes[0]?.id;
-    if (!entrySceneId) {
-      throw new Error(`runHarness: route "${options.entryId}" found but model has no scenes`);
-    }
-    if (!sceneMap[entrySceneId]) {
-      throw new Error(
-        `runHarness: route "${options.entryId}" entry scene "${entrySceneId}" is not in the model`,
-      );
-    }
-    const result = await executeRoute(route, sceneMap, entrySceneId, state, options.hooks, {
-      maxSceneSteps: options.maxSceneSteps,
-      maxRouteTransitions: options.maxRouteTransitions,
-    });
-    return {
-      finalState: result.finalState,
-      trace: { kind: 'route', route: result.trace },
-      model,
-    };
+  // ── 3. Execute ────────────────────────────────────────────────────────────
+  if (target.kind === 'route') {
+    const result = await executeRoute(
+      target.route,
+      sceneMap,
+      target.entryScene.id,
+      state,
+      options.hooks,
+      { maxSceneSteps: options.maxSceneSteps, maxRouteTransitions: options.maxRouteTransitions },
+    );
+    return { finalState: result.finalState, trace: { kind: 'route', route: result.trace }, model };
   }
 
-  // ── 3b. Scene mode ────────────────────────────────────────────────────────
-  const scene = sceneMap[options.entryId];
-  if (scene) {
-    const result = await executeScene(scene, state, options.hooks, undefined, options.maxSceneSteps);
-    return {
-      finalState: result.stateAfterScene.snapshot(),
-      trace: { kind: 'scene', scene: result.trace },
-      model,
-    };
-  }
-
-  throw new Error(
-    `runHarness: entryId "${options.entryId}" not found as route or scene in the model`,
+  const result = await executeScene(
+    target.scene,
+    state,
+    options.hooks,
+    undefined,
+    options.maxSceneSteps,
   );
+  return {
+    finalState: result.stateAfterScene.snapshot(),
+    trace: { kind: 'scene', scene: result.trace },
+    model,
+  };
 }

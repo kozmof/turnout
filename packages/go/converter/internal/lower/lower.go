@@ -19,19 +19,6 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Generated binding name constants (shared with validate package)
-// ─────────────────────────────────────────────────────────────────────────────
-
-// GeneratedIfCondPrefix and GeneratedIfCondSuffix delimit the synthetic binding
-// emitted for a CondExprCall condition (e.g. "__if_x_cond"). The validate
-// package uses these to recognize and allow the reserved __ namespace.
-const (
-	GeneratedIfCondPrefix = "__if_"
-	GeneratedIfCondSuffix = "_cond"
-	GeneratedLocalPrefix  = "__local_"
-)
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 

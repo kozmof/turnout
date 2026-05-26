@@ -288,7 +288,8 @@ describe('createSceneExecutor — isDone / next / result', () => {
     const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
     const step = await executor.next();
     expect(step.done).toBe(false);
-    expect(step.trace?.actionId).toBe('only_action');
+    if (step.done) return;
+    expect(step.trace.actionId).toBe('only_action');
   });
 
   it('isDone() is true after the single action runs', async () => {
@@ -340,13 +341,15 @@ describe('createSceneExecutor — step-by-step trace', () => {
 
     const step1 = await executor.next();
     expect(step1.done).toBe(false);
-    expect(step1.trace?.actionId).toBe('first');
-    expect(step1.trace?.nextActionIds).toEqual(['second']);
+    if (step1.done) return;
+    expect(step1.trace.actionId).toBe('first');
+    expect(step1.trace.nextActionIds).toEqual(['second']);
 
     const step2 = await executor.next();
     expect(step2.done).toBe(false);
-    expect(step2.trace?.actionId).toBe('second');
-    expect(step2.trace?.nextActionIds).toEqual([]);
+    if (step2.done) return;
+    expect(step2.trace.actionId).toBe('second');
+    expect(step2.trace.nextActionIds).toEqual([]);
 
     expect(executor.isDone()).toBe(true);
   });

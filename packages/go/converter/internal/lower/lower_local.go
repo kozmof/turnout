@@ -7,6 +7,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -77,7 +78,7 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 // within a prog, so all generated names are globally unique within that prog.
 func (c *localLowerer) temp(prefix string) string {
 	c.counter++
-	return fmt.Sprintf("__local_%s_%s_%d", c.target, prefix, c.counter)
+	return fmt.Sprintf("%s%s_%s_%d", names.GeneratedLocalPrefix, c.target, prefix, c.counter)
 }
 
 func (c *localLowerer) remember(name string, ft ast.FieldType) {

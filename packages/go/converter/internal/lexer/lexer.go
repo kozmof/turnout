@@ -532,7 +532,9 @@ func (l *lex) scanHeredoc(ln, co int) {
 		rawLines = append(rawLines, lineStr)
 	}
 
-	// <<- strips common leading whitespace from body lines
+	// <<- strips common leading whitespace from body lines.
+	// Tabs and spaces both count as one indent unit (no tab-stop expansion).
+	// Authors should use consistent indentation within a heredoc.
 	minIndent := -1
 	for _, rl := range rawLines {
 		if strings.TrimSpace(rl) == "" {
@@ -675,13 +677,19 @@ func (l *lex) scanHash(ln, co int) {
 	}
 }
 
-// tryHashKeyword advances past prefix and emits kind if prefix matches at the
-// current position and is not followed by an identifier character (preventing
-// "#ifoo" from being lexed as TokHashIf + "oo"). Returns true on match.
+// tryHashKeyword checks whether prefix matches at the current position and is
+// not followed by an identifier character (preventing "#ifoo" from being lexed
+// as TokHashIf + "oo"). On match it advances past the prefix, emits kind, and
+// returns true. The check and advance are merged into one pass over the runes.
 func (l *lex) tryHashKeyword(prefix string, kind TokenKind, ln, co int) bool {
 	runes := []rune(prefix)
 	n := len(runes)
-	if !l.matchPrefix(prefix) || isIdentChar(l.peekAt(n)) {
+	for i, r := range runes {
+		if l.pos+i >= len(l.src) || l.src[l.pos+i] != r {
+			return false
+		}
+	}
+	if isIdentChar(l.peekAt(n)) {
 		return false
 	}
 	for range n {
