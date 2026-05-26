@@ -3,6 +3,7 @@ package state
 import (
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -15,9 +16,36 @@ type FieldMeta struct {
 	DefaultValue ast.Literal
 }
 
-// Schema is the resolved STATE schema: a flat map from dotted path to FieldMeta.
-// Example key: "applicant.income"
-type Schema map[string]FieldMeta
+// Schema is the resolved STATE schema: a nested map from namespace → field → FieldMeta.
+// Use Get("ns.field") for point lookups and Flat() when a dotted-path map is needed.
+type Schema map[string]map[string]FieldMeta
+
+// Get looks up a dotted path "ns.field" in the nested schema.
+func (s Schema) Get(path string) (FieldMeta, bool) {
+	dot := strings.IndexByte(path, '.')
+	if dot < 0 {
+		return FieldMeta{}, false
+	}
+	ns, field := path[:dot], path[dot+1:]
+	fields, ok := s[ns]
+	if !ok {
+		return FieldMeta{}, false
+	}
+	meta, ok := fields[field]
+	return meta, ok
+}
+
+// Flat returns a flat map[string]FieldMeta keyed by "ns.field" dotted paths.
+// Use sparingly — it allocates a new map each call.
+func (s Schema) Flat() map[string]FieldMeta {
+	out := make(map[string]FieldMeta)
+	for ns, fields := range s {
+		for field, meta := range fields {
+			out[ns+"."+field] = meta
+		}
+	}
+	return out
+}
 
 // Resolve builds a Schema from a StateSource.
 // basePath is the directory of the input .turn file, used to resolve relative state_file paths.
@@ -104,6 +132,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 			continue
 		}
 		seenNS[ns.Name] = true
+		schema[ns.Name] = make(map[string]FieldMeta)
 
 		seenField := make(map[string]bool)
 		for _, f := range ns.Fields {
@@ -129,8 +158,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 				continue
 			}
 
-			key := ns.Name + "." + f.Name
-			schema[key] = FieldMeta{Type: f.Type, DefaultValue: f.Default}
+			schema[ns.Name][f.Name] = FieldMeta{Type: f.Type, DefaultValue: f.Default}
 		}
 	}
 

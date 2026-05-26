@@ -4,6 +4,7 @@ import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
+import type { BuiltContext } from './hcl-context-builder.js';
 import { resolveNextPrepare } from './prepare-resolver.js';
 import type { ActionExecutionResult } from './types.js';
 import { SceneRuntimeError } from './errors.js';
@@ -85,7 +86,7 @@ export function createSceneExecutor(
   entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
 ): SceneExecutor {
-  const actionMap = buildActionMap(scene.actions);
+  const actionMap = buildActionMap(scene.actions, scene.id);
   const policy: string = scene.nextPolicy ?? 'first-match';
 
   let currentState = state;
@@ -228,11 +229,11 @@ export async function executeSceneSafe(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildActionMap(actions: ActionModel[]): Record<string, ActionModel> {
+function buildActionMap(actions: ActionModel[], sceneId: string): Record<string, ActionModel> {
   const map: Record<string, ActionModel> = {};
   for (const a of actions) {
     if (map[a.id] !== undefined) {
-      throw new SceneRuntimeError('DuplicateActionId', '<build>', `duplicate action id "${a.id}"`);
+      throw new SceneRuntimeError('DuplicateActionId', sceneId, `duplicate action id "${a.id}"`);
     }
     map[a.id] = a;
   }
@@ -256,6 +257,7 @@ function evaluateNextRules(
 ): string[] {
   const rules = action.next ?? [];
   const matches: string[] = [];
+  const ctxCache = new Map<string, BuiltContext>();
 
   for (const rule of rules) {
     let condMet: boolean;
@@ -267,7 +269,12 @@ function evaluateNextRules(
       condMet = false;
     } else {
       const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+      const fingerprint = JSON.stringify(rule.compute.prog) + '|' + JSON.stringify(rule.prepare ?? []);
+      let builtCtx = ctxCache.get(fingerprint);
+      if (!builtCtx) {
+        builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+        ctxCache.set(fingerprint, builtCtx);
+      }
       const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;

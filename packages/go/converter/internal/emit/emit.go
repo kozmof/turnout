@@ -5,6 +5,7 @@ package emit
 
 import (
 	"fmt"
+	"hash/fnv"
 	"io"
 	"strconv"
 	"strings"
@@ -46,7 +47,7 @@ func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 		sep = true
 	}
 	if iw.err != nil {
-		return diag.Diagnostics{diag.Errorf(diag.CodeEmitIOError, "write error: %v", iw.err)}
+		return diag.Diagnostics{diag.Errorf(diag.CodeEmitIOError, "emit error: %v", iw.err)}
 	}
 	return nil
 }
@@ -58,7 +59,14 @@ func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 type iWriter struct {
 	out   io.Writer
 	depth int
-	err   error // first IO error encountered; subsequent writes are no-ops
+	err   error // first error encountered (IO or delimiter); subsequent writes are no-ops
+}
+
+// setErr records the first non-IO error (e.g., delimiter collision).
+func (iw *iWriter) setErr(err error) {
+	if iw.err == nil {
+		iw.err = err
+	}
 }
 
 // wl writes one line at current indentation followed by a newline.
@@ -147,7 +155,13 @@ func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
 	iw.depth++
 	flow := strings.TrimRight(v.Flow, "\n")
 	ind := iw.tabs()
-	delim := chooseHeredocDelim(flow, ind)
+	delim, err := chooseHeredocDelim(flow, ind)
+	if err != nil {
+		iw.setErr(fmt.Errorf("view %q: %w", v.Name, err))
+		iw.depth--
+		iw.wl("}")
+		return
+	}
 	fmt.Fprintf(iw.out, "%sflow = <<-%s\n", ind, delim)
 	for _, l := range strings.Split(flow, "\n") {
 		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
@@ -223,7 +237,8 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 // content lines will be prefixed with indent. It tries named candidates first,
 // then falls back to a hash-derived suffix derived directly from the content —
 // O(n) in content length, no loop over potential delimiters.
-func chooseHeredocDelim(text, indent string) string {
+// Returns an error if no non-colliding delimiter can be found (adversarial input only).
+func chooseHeredocDelim(text, indent string) (string, error) {
 	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
 	lines := strings.Split(text, "\n")
 	lineSet := make(map[string]struct{}, len(lines))
@@ -232,27 +247,24 @@ func chooseHeredocDelim(text, indent string) string {
 	}
 	for _, delim := range candidates {
 		if _, collision := lineSet[indent+delim]; !collision {
-			return delim
+			return delim, nil
 		}
 	}
 	// Hash-first fallback: derive a delimiter from the content directly.
-	// One FNV pass produces a hex suffix; if that collides (content contains the
-	// exact indented "TURN_EOT_<hash>" line), XOR with a counter and retry.
-	// In practice this loop runs at most twice because a second collision would
-	// require the content to contain both the first and second hash values.
-	var h uint32 = 2166136261
-	for i := 0; i < len(text); i++ {
-		h ^= uint32(text[i])
-		h *= 16777619
-	}
+	// One FNV-1a pass produces a hex suffix; if that collides (content contains
+	// the exact indented "TURN_EOT_<hash>" line), XOR with a counter and retry.
+	// In practice this loop runs at most twice.
+	hfn := fnv.New32a()
+	_, _ = hfn.Write([]byte(text))
+	h := hfn.Sum32()
 	const maxFallbackAttempts = 100
 	for extra := uint32(0); extra < maxFallbackAttempts; extra++ {
 		delim := fmt.Sprintf("TURN_EOT_%08x", h^extra)
 		if _, collision := lineSet[indent+delim]; !collision {
-			return delim
+			return delim, nil
 		}
 	}
-	panic(fmt.Sprintf("chooseHeredocDelim: failed to find a non-colliding delimiter after %d attempts", maxFallbackAttempts))
+	return "", fmt.Errorf("chooseHeredocDelim: failed to find a non-colliding delimiter after %d attempts", maxFallbackAttempts)
 }
 
 // writeText emits:
@@ -267,7 +279,11 @@ func chooseHeredocDelim(text, indent string) string {
 // string intact. The delimiter is chosen to avoid collision with any content line.
 func writeText(iw *iWriter, text string) {
 	ind := iw.tabs()
-	delim := chooseHeredocDelim(text, ind)
+	delim, err := chooseHeredocDelim(text, ind)
+	if err != nil {
+		iw.setErr(fmt.Errorf("text field: %w", err))
+		return
+	}
 	fmt.Fprintf(iw.out, "%stext = <<-%s\n", ind, delim)
 	for _, l := range strings.Split(text, "\n") {
 		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
@@ -316,7 +332,7 @@ func writeBinding(iw *iWriter, b *turnoutpb.BindingModel) {
 	iw.depth++
 	iw.wl("type  = %q", b.Type)
 	if b.ExtExpr != nil {
-		writeExtExpr(iw, b.ExtExpr)
+		writeExtExpr(iw, b.ExtExpr, b.Type)
 		iw.depth--
 		iw.wl("}")
 		return
@@ -576,25 +592,27 @@ func writeStructpbValue(v *structpb.Value) string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // writeExtExpr writes `expr  = { if/case/pipe = { ... } }` from the proto LocalExprModel.
-func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel) {
+// bindingType is the declared DSL type string of the enclosing binding (e.g. "str", "number"),
+// used to resolve the InfixPlus operator to "str_concat" vs "add".
+func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) {
 	iw.wl("expr  = {")
 	iw.depth++
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_IfExpr:
 		iw.wl("if = {")
 		iw.depth++
-		iw.wl("cond = %s", localExprInline(x.IfExpr.GetCond()))
-		iw.wl("then = %s", localExprInline(x.IfExpr.GetThen()))
-		iw.wl("else = %s", localExprInline(x.IfExpr.GetElseBranch()))
+		iw.wl("cond = %s", localExprInline(x.IfExpr.GetCond(), bindingType))
+		iw.wl("then = %s", localExprInline(x.IfExpr.GetThen(), bindingType))
+		iw.wl("else = %s", localExprInline(x.IfExpr.GetElseBranch(), bindingType))
 		iw.depth--
 		iw.wl("}")
 	case *turnoutpb.LocalExprModel_CaseExpr:
 		iw.wl("case = {")
 		iw.depth++
-		iw.wl("subject = %s", localExprInline(x.CaseExpr.GetSubject()))
+		iw.wl("subject = %s", localExprInline(x.CaseExpr.GetSubject(), bindingType))
 		arms := make([]string, len(x.CaseExpr.GetArms()))
 		for i, arm := range x.CaseExpr.GetArms() {
-			arms[i] = localCaseArmInline(arm)
+			arms[i] = localCaseArmInline(arm, bindingType)
 		}
 		iw.wl("arms    = [%s]", strings.Join(arms, ", "))
 		iw.depth--
@@ -602,10 +620,10 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel) {
 	case *turnoutpb.LocalExprModel_PipeExpr:
 		iw.wl("pipe = {")
 		iw.depth++
-		iw.wl("initial = %s", localExprInline(x.PipeExpr.GetInitial()))
+		iw.wl("initial = %s", localExprInline(x.PipeExpr.GetInitial(), bindingType))
 		steps := make([]string, len(x.PipeExpr.GetSteps()))
 		for i, s := range x.PipeExpr.GetSteps() {
-			steps[i] = localExprInline(s)
+			steps[i] = localExprInline(s, bindingType)
 		}
 		iw.wl("steps   = [%s]", strings.Join(steps, ", "))
 		iw.depth--
@@ -616,7 +634,9 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel) {
 }
 
 // localExprInline returns the inline HCL representation of a proto LocalExprModel.
-func localExprInline(e *turnoutpb.LocalExprModel) string {
+// bindingType is the declared DSL type string of the enclosing binding, used to
+// resolve InfixPlus to "str_concat" (str) or "add" (number).
+func localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 	if e == nil {
 		return `{ lit = false }`
 	}
@@ -630,44 +650,42 @@ func localExprInline(e *turnoutpb.LocalExprModel) string {
 	case *turnoutpb.LocalExprModel_Call:
 		args := make([]string, len(x.Call.GetArgs()))
 		for i, a := range x.Call.GetArgs() {
-			args[i] = localExprInline(a)
+			args[i] = localExprInline(a, bindingType)
 		}
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.Call.GetFn(), strings.Join(args, ", "))
 	case *turnoutpb.LocalExprModel_Infix:
 		op := ast.InfixOp(int32(x.Infix.GetOp()))
-		fn := op.FnAlias()
-		if fn == "" {
-			fn = "add" // InfixPlus; type dispatch happens at runtime
-		}
+		ft, _ := ast.FieldTypeFromString(bindingType)
+		fn := op.FnAliasForType(ft)
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn,
-			localExprInline(x.Infix.GetLhs()), localExprInline(x.Infix.GetRhs()))
+			localExprInline(x.Infix.GetLhs(), bindingType), localExprInline(x.Infix.GetRhs(), bindingType))
 	case *turnoutpb.LocalExprModel_IfExpr:
 		return fmt.Sprintf(`{ if = { cond = %s, then = %s, else = %s } }`,
-			localExprInline(x.IfExpr.GetCond()), localExprInline(x.IfExpr.GetThen()), localExprInline(x.IfExpr.GetElseBranch()))
+			localExprInline(x.IfExpr.GetCond(), bindingType), localExprInline(x.IfExpr.GetThen(), bindingType), localExprInline(x.IfExpr.GetElseBranch(), bindingType))
 	case *turnoutpb.LocalExprModel_CaseExpr:
 		arms := make([]string, len(x.CaseExpr.GetArms()))
 		for i, arm := range x.CaseExpr.GetArms() {
-			arms[i] = localCaseArmInline(arm)
+			arms[i] = localCaseArmInline(arm, bindingType)
 		}
 		return fmt.Sprintf(`{ case = { subject = %s, arms = [%s] } }`,
-			localExprInline(x.CaseExpr.GetSubject()), strings.Join(arms, ", "))
+			localExprInline(x.CaseExpr.GetSubject(), bindingType), strings.Join(arms, ", "))
 	case *turnoutpb.LocalExprModel_PipeExpr:
 		steps := make([]string, len(x.PipeExpr.GetSteps()))
 		for i, s := range x.PipeExpr.GetSteps() {
-			steps[i] = localExprInline(s)
+			steps[i] = localExprInline(s, bindingType)
 		}
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
-			localExprInline(x.PipeExpr.GetInitial()), strings.Join(steps, ", "))
+			localExprInline(x.PipeExpr.GetInitial(), bindingType), strings.Join(steps, ", "))
 	}
 	return `{ lit = false }`
 }
 
-func localCaseArmInline(arm *turnoutpb.LocalCaseArmModel) string {
+func localCaseArmInline(arm *turnoutpb.LocalCaseArmModel, bindingType string) string {
 	s := fmt.Sprintf(`{ pattern = %s`, localPatternInline(arm.GetPattern()))
 	if arm.GetGuard() != nil {
-		s += fmt.Sprintf(`, guard = %s`, localExprInline(arm.GetGuard()))
+		s += fmt.Sprintf(`, guard = %s`, localExprInline(arm.GetGuard(), bindingType))
 	}
-	s += fmt.Sprintf(`, expr = %s }`, localExprInline(arm.GetExpr()))
+	s += fmt.Sprintf(`, expr = %s }`, localExprInline(arm.GetExpr(), bindingType))
 	return s
 }
 

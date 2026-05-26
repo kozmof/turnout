@@ -1422,8 +1422,8 @@ func TestParseNamedArgsAreErrors(t *testing.T) {
     }
   }`)
 	_, ds := parser.ParseFile("test.turn", src)
-	if !hasParserDiagCode(ds, diag.CodeNamedArgIgnored) {
-		t.Fatalf("want NamedArgIgnored error diagnostic, got %v", ds)
+	if !hasParserDiagCode(ds, diag.CodeNamedArgNotSupported) {
+		t.Fatalf("want NamedArgNotSupported error diagnostic, got %v", ds)
 	}
 }
 
@@ -1439,8 +1439,8 @@ func TestParseLocalNamedArgsAreErrors(t *testing.T) {
     }
   }`)
 	_, ds := parser.ParseFile("test.turn", src)
-	if !hasParserDiagCode(ds, diag.CodeNamedArgIgnored) {
-		t.Fatalf("want NamedArgIgnored error diagnostic, got %v", ds)
+	if !hasParserDiagCode(ds, diag.CodeNamedArgNotSupported) {
+		t.Fatalf("want NamedArgNotSupported error diagnostic, got %v", ds)
 	}
 }
 

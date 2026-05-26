@@ -101,7 +101,7 @@ const MaxDiagnostics = 100
 // Generic converter error codes.
 const (
 	CodeTooManyDiagnostics = "TooManyDiagnostics"
-	CodeNamedArgIgnored    = "NamedArgIgnored"
+	CodeNamedArgNotSupported = "NamedArgNotSupported"
 	CodeEmitIOError        = "EmitIOError"
 )
 

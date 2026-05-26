@@ -94,7 +94,7 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // resolveFromState looks up path in schema and returns its default value.
 // Emits CodeUnresolvedStatePath and returns a zero literal when path is absent.
 func resolveFromState(path string, schema state.Schema, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal {
-	meta, found := schema[path]
+	meta, found := schema.Get(path)
 	if !found {
 		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
 			diag.CodeUnresolvedStatePath,

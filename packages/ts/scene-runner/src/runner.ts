@@ -95,6 +95,46 @@ export type Runner = {
 
 type RouteEntry = { id: string; entrySceneId?: string; parsedArms: ParsedMatchArm[] };
 
+/**
+ * Build the shared Runner methods (usePrepareHook, usePublishHook, isDone, next,
+ * run, runAsync, result) from three mode-specific callbacks.
+ * Both route and scene execution branches call this to avoid duplicating the
+ * step-loop, async-generator, and result-accessor logic.
+ */
+function makeRunnerMethods(
+  hooks: HookRegistry,
+  advanceFn: () => Promise<RunnerStepResult>,
+  doneFn: () => boolean,
+  resultFn: () => HarnessResult,
+): Runner {
+  return {
+    usePrepareHook(name, handler) { hooks.prepare[name] = handler; return this; },
+    usePublishHook(name, handler) { hooks.publish[name] = handler; return this; },
+    isDone: doneFn,
+    async next(steps = 1) {
+      const results: RunnerStepResult[] = [];
+      for (let i = 0; i < steps; i++) {
+        const r = await advanceFn();
+        results.push(r);
+        if (r.done) break;
+      }
+      return results;
+    },
+    async run() {
+      while (!doneFn()) await advanceFn();
+      return resultFn();
+    },
+    async *runAsync() {
+      while (!doneFn()) {
+        const r = await advanceFn();
+        if (r.done) break;
+        yield r;
+      }
+    },
+    result: resultFn,
+  };
+}
+
 function buildSceneMap(model: ReturnType<typeof migrateModel>) {
   return Object.fromEntries(model.scenes.map((s) => [s.id, s]));
 }
@@ -173,31 +213,11 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       return { done: false, sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
     }
 
-    return {
-      usePrepareHook(name, handler) { hooks.prepare[name] = handler; return this; },
-      usePublishHook(name, handler) { hooks.publish[name] = handler; return this; },
-      isDone: () => done,
-      async next(steps = 1) {
-        const results: RunnerStepResult[] = [];
-        for (let i = 0; i < steps; i++) {
-          const r = await advanceRoute();
-          results.push(r);
-          if (r.done) break;
-        }
-        return results;
-      },
-      async run() {
-        while (!done) await advanceRoute();
-        return this.result();
-      },
-      async *runAsync() {
-        while (!done) {
-          const r = await advanceRoute();
-          if (r.done) break;
-          yield r;
-        }
-      },
-      result() {
+    return makeRunnerMethods(
+      hooks,
+      advanceRoute,
+      () => done,
+      () => {
         if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
         const { finalState, trace } = routeStepper.result();
         return {
@@ -206,7 +226,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
           model: migratedModel,
         };
       },
-    };
+    );
   }
 
   // Scene mode
@@ -236,31 +256,11 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
     return { done: false, sceneId: options.entryId, actionId: step.trace.actionId, trace: step.trace };
   }
 
-  return {
-    usePrepareHook(name, handler) { hooks.prepare[name] = handler; return this; },
-    usePublishHook(name, handler) { hooks.publish[name] = handler; return this; },
-    isDone: () => done,
-    async next(steps = 1) {
-      const results: RunnerStepResult[] = [];
-      for (let i = 0; i < steps; i++) {
-        const r = await advanceScene();
-        results.push(r);
-        if (r.done) break;
-      }
-      return results;
-    },
-    async run() {
-      while (!done) await advanceScene();
-      return this.result();
-    },
-    async *runAsync() {
-      while (!done) {
-        const r = await advanceScene();
-        if (r.done) break;
-        yield r;
-      }
-    },
-    result() {
+  return makeRunnerMethods(
+    hooks,
+    advanceScene,
+    () => done,
+    () => {
       if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
       const sceneTrace = sceneExecutor.result().trace;
       return {
@@ -269,5 +269,5 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
         model: migratedModel,
       };
     },
-  };
+  );
 }

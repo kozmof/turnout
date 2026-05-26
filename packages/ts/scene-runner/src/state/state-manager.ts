@@ -30,6 +30,11 @@ export interface StateManager {
   write(path: string, value: AnyValue): StateManager;
   /** Return a shallow copy of the current state record. */
   snapshot(): Readonly<Record<string, AnyValue>>;
+  /**
+   * Return the set of declared valid paths, or null for unchecked managers.
+   * Useful for test introspection and tooling.
+   */
+  validPaths(): ReadonlySet<string> | null;
 }
 
 function make(
@@ -63,11 +68,11 @@ function make(
       return make({ ...state, [path]: value }, validPaths, typeMap);
     },
     snapshot: () => ({ ...state }),
+    validPaths: () => validPaths,
   };
 }
 
 function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
-  if (value.symbol === 'null') return true;
   switch (schemaType) {
     case 'number': return value.symbol === 'number';
     case 'str': return value.symbol === 'string';
@@ -97,12 +102,16 @@ export function stateManagerFromUnchecked(initial: Record<string, AnyValue>): St
  * subsequent `write()` targets one of the paths in `validPaths`. Throws
  * immediately on an unknown path, making it safe to use in tests where typo'd
  * state paths should surface as hard errors.
+ *
+ * When `typeMap` is provided, `write()` also validates that the value's runtime
+ * type matches the declared schema type for that path.
  */
 export function stateManagerFromStrict(
   initial: Record<string, AnyValue>,
   validPaths: ReadonlySet<string>,
+  typeMap?: ReadonlyMap<string, string>,
 ): StateManager {
-  return make({ ...initial }, validPaths);
+  return make({ ...initial }, validPaths, typeMap ?? null);
 }
 
 /**

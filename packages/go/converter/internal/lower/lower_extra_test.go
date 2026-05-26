@@ -500,10 +500,10 @@ scene "test" {
 	}
 }
 
-// ─── lowerStateBlockFromSchema: skip non-dotted key ──────────────────────────
+// ─── lowerStateBlockFromSchema: empty namespace produces no output ────────────
 
-func TestLowerStateBlockFromSchemaBadKey(t *testing.T) {
-	// A schema entry without a dot is skipped (continue branch in lowerStateBlockFromSchema).
+func TestLowerStateBlockFromSchemaEmptyNamespace(t *testing.T) {
+	// A namespace with no fields produces no namespaces in the state block.
 	// Requires a TurnFile with a state_file directive to reach lowerStateBlockFromSchema.
 	src := `state_file = "fake.turn"
 scene "test" {
@@ -514,13 +514,13 @@ scene "test" {
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	// Pass a schema with a non-dotted key to exercise the continue branch.
-	schema := state.Schema{"nodot": {DefaultValue: nil}}
+	// Pass a schema with an empty inner map to verify it produces no namespace entries.
+	schema := state.Schema{"empty": {}}
 	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	// The bad key was skipped, so no namespaces in the state block.
+	// Empty namespace has no fields, so State should have 0 namespaces.
 	if lr.Model.State != nil && len(lr.Model.State.Namespaces) != 0 {
 		t.Errorf("expected 0 namespaces, got %d", len(lr.Model.State.Namespaces))
 	}

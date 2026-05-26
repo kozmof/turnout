@@ -60,11 +60,11 @@ func TestInlineValid(t *testing.T) {
 	if ds.HasErrors() {
 		t.Fatalf("unexpected errors: %v", ds)
 	}
-	if len(schema) != 4 {
-		t.Fatalf("want 4 fields, got %d", len(schema))
+	if got := len(schema.Flat()); got != 4 {
+		t.Fatalf("want 4 fields, got %d", got)
 	}
 
-	m, ok := schema["applicant.income"]
+	m, ok := schema.Get("applicant.income")
 	if !ok {
 		t.Fatal("missing applicant.income")
 	}
@@ -175,10 +175,10 @@ state {
 	if ds.HasErrors() {
 		t.Fatalf("unexpected errors: %v", ds)
 	}
-	if _, ok := schema["applicant.income"]; !ok {
+	if _, ok := schema.Get("applicant.income"); !ok {
 		t.Error("missing applicant.income in schema")
 	}
-	if _, ok := schema["applicant.name"]; !ok {
+	if _, ok := schema.Get("applicant.name"); !ok {
 		t.Error("missing applicant.name in schema")
 	}
 }
@@ -218,7 +218,7 @@ state {
 	if ds.HasErrors() {
 		t.Fatalf("unexpected errors: %v", ds)
 	}
-	if _, ok := schema["x.val"]; !ok {
+	if _, ok := schema.Get("x.val"); !ok {
 		t.Error("missing x.val in schema")
 	}
 }

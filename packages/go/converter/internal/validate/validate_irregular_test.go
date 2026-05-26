@@ -235,9 +235,11 @@ func TestValidateIrregularNextRules(t *testing.T) {
 
 func irregularSchema() state.Schema {
 	return state.Schema{
-		"app.score": {Type: ast.FieldTypeNumber, DefaultValue: nil},
-		"app.flag":  {Type: ast.FieldTypeBool, DefaultValue: nil},
-		"app.label": {Type: ast.FieldTypeStr, DefaultValue: nil},
+		"app": {
+			"score": {Type: ast.FieldTypeNumber, DefaultValue: nil},
+			"flag":  {Type: ast.FieldTypeBool, DefaultValue: nil},
+			"label": {Type: ast.FieldTypeStr, DefaultValue: nil},
+		},
 	}
 }
 

@@ -112,7 +112,7 @@ func literalToStructpb(lit ast.Literal) *structpb.Value {
 		}
 		return structpb.NewListValue(&structpb.ListValue{Values: vals})
 	}
-	return structpb.NewNullValue()
+	panic(fmt.Sprintf("literalToStructpb: unhandled Literal type %T", lit))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -189,43 +189,9 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 }
 
 // lowerStateBlockFromSchema reconstructs a state block from the flat schema map.
-// When order is non-nil it uses declaration order; otherwise it sorts
-// namespaces and fields alphabetically for deterministic output.
+// When order is non-empty it preserves that declaration order; otherwise
+// namespaces and fields are sorted alphabetically for deterministic output.
 func lowerStateBlockFromSchema(schema state.Schema, order []string) *turnoutpb.StateModel {
-	if len(order) > 0 {
-		return lowerStateBlockFromSchemaOrdered(schema, order)
-	}
-
-	nsMap := make(map[string][]string)
-	for key := range schema {
-		parts := strings.SplitN(key, ".", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		nsMap[parts[0]] = append(nsMap[parts[0]], parts[1])
-	}
-
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsMap))}
-	for _, nsName := range slices.Sorted(maps.Keys(nsMap)) {
-		fieldNames := slices.Sorted(slices.Values(nsMap[nsName]))
-		pbNS := &turnoutpb.NamespaceModel{Name: nsName, Fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
-		for _, fieldName := range fieldNames {
-			meta := schema[nsName+"."+fieldName]
-			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
-				Name:  fieldName,
-				Type:  meta.Type.String(),
-				Value: literalToStructpb(meta.DefaultValue),
-			})
-		}
-		sm.Namespaces = append(sm.Namespaces, pbNS)
-	}
-	return sm
-}
-
-// lowerStateBlockFromSchemaOrdered reconstructs a state block using the
-// provided declaration order for namespaces and fields.
-func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turnoutpb.StateModel {
-	// Build namespace models preserving order; track insertion order for ns.
 	type nsEntry struct {
 		name   string
 		fields []*turnoutpb.FieldModel
@@ -233,16 +199,7 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 	nsIndex := make(map[string]int)
 	var nsList []nsEntry
 
-	for _, key := range order {
-		parts := strings.SplitN(key, ".", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		nsName, fieldName := parts[0], parts[1]
-		meta, ok := schema[key]
-		if !ok {
-			continue
-		}
+	addField := func(nsName, fieldName string, meta state.FieldMeta) {
 		idx, exists := nsIndex[nsName]
 		if !exists {
 			idx = len(nsList)
@@ -254,6 +211,28 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 			Type:  meta.Type.String(),
 			Value: literalToStructpb(meta.DefaultValue),
 		})
+	}
+
+	if len(order) > 0 {
+		// Ordered path: caller supplied dotted keys in declaration order.
+		for _, key := range order {
+			meta, ok := schema.Get(key)
+			if !ok {
+				continue
+			}
+			dot := strings.IndexByte(key, '.')
+			if dot < 0 {
+				continue
+			}
+			addField(key[:dot], key[dot+1:], meta)
+		}
+	} else {
+		// Unordered path: iterate nested structure in sorted namespace/field order.
+		for _, nsName := range slices.Sorted(maps.Keys(schema)) {
+			for _, fieldName := range slices.Sorted(maps.Keys(schema[nsName])) {
+				addField(nsName, fieldName, schema[nsName][fieldName])
+			}
+		}
 	}
 
 	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsList))}
@@ -477,8 +456,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
 	default:
-		if _, ok := rhs.(ast.PreLowerRHS); ok {
-			panic(fmt.Sprintf("lowerBinding: unhandled pre-lowering RHS type %T for binding %q — add a case to the type switch", rhs, name))
+		// Exhaustiveness guard: list every known pre-lowering type explicitly so
+		// that adding a new PreLowerRHS to ast.go surfaces here as a required edit.
+		switch rhs.(type) {
+		case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
+			panic(fmt.Sprintf("lowerBinding: pre-lowering RHS type %T reached default branch for binding %q — add an explicit case above", rhs, name))
 		}
 		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
 			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))

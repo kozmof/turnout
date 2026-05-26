@@ -1,5 +1,5 @@
 import { assertValidContext, buildNull, buildExecutionTree, buildReturnIdToFuncIdMap, executeTree } from 'runtime';
-import type { AnyValue, FuncId } from 'runtime';
+import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, PublishHookContext } from '../types/harness-types.js';
@@ -55,6 +55,7 @@ export async function executeAction(
 
   // Build once — funcTable is stable across the loop; only valueTable grows.
   const returnIdToFuncId = buildReturnIdToFuncIdMap(validatedCtx);
+  const treeCache = new Map<FuncId, ExecutionTree>();
 
   for (const binding of action.compute.prog.bindings) {
     const valueId = builtCtx.nameToValueId[binding.name];
@@ -62,7 +63,12 @@ export async function executeAction(
     if (!Object.hasOwn(updatedTable, valueId) && binding.expr) {
       const funcId = builtCtx.getFuncId(binding.name)!;
       const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
-      const result = executeTree(buildExecutionTree(funcId, bindingCtx, new Set(), new Map(), returnIdToFuncId), bindingCtx);
+      let tree = treeCache.get(funcId);
+      if (!tree) {
+        tree = buildExecutionTree(funcId, bindingCtx, new Set(), new Map(), returnIdToFuncId);
+        treeCache.set(funcId, tree);
+      }
+      const result = executeTree(tree, bindingCtx);
       mergeValueTable(updatedTable, result.updatedValueTable);
 
       if (!Object.hasOwn(updatedTable, valueId)) {

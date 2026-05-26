@@ -1079,7 +1079,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 			if !isValidStatePath(e.ToState) {
 				*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
 					"action %q: to_state %q is not a valid dotted path", a.Id, e.ToState))
-			} else if meta, ok := schema[e.ToState]; !ok {
+			} else if meta, ok := schema.Get(e.ToState); !ok {
 				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
 					"action %q: to_state %q is not declared in the state schema", a.Id, e.ToState))
 			} else if inScope && srcInfo.fieldType != meta.Type {
@@ -1216,7 +1216,7 @@ func validateStatePath(path string, schema state.Schema, ds *diag.Diagnostics) {
 			"state path %q is not a valid dotted path (must be IDENT.IDENT+)", path))
 		return
 	}
-	if _, ok := schema[path]; !ok {
+	if _, ok := schema.Get(path); !ok {
 		*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
 			"state path %q is not declared in the state schema", path))
 	}

@@ -71,16 +71,21 @@ const _validatedBrand: unique symbol = Symbol("validatedContext");
 /**
  * An ExecutionContext that has been verified by validateContext.
  * The brand makes it impossible to construct this type without going through
- * the validation functions in this module, enforcing validation at the type level.
+ * the validation functions in this module.
+ * The structural `validated: true` field makes the constraint visible in IDE
+ * types and prevents code that spreads a `ValidatedContext` without preserving
+ * the field from silently satisfying the type.
  */
 export type ValidatedContext = ExecutionContext & {
   readonly [_validatedBrand]: true;
+  readonly validated: true;
 };
 
 function createValidatedContext(context: ExecutionContext): ValidatedContext {
   return {
     ...context,
     [_validatedBrand]: true,
+    validated: true,
   };
 }
 

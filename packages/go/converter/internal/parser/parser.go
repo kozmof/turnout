@@ -450,7 +450,7 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 			nameTok := p.advance() // consume name
 			p.advance()            // consume ':'
 			p.Diags = append(p.Diags, diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
-				diag.CodeNamedArgIgnored, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
+				diag.CodeNamedArgNotSupported, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
 		}
 		args = append(args, p.parseArg())
 		if p.peek().Kind == lexer.TokComma {
@@ -508,6 +508,43 @@ func (p *parser) parseRHS(_ string) ast.BindingRHS {
 	}
 }
 
+// tokenToInfixOp converts an infix operator token to the corresponding ast.InfixOp.
+// Returns (op, true) on success, (0, false) for unrecognised tokens.
+// This is the single source of truth for the token→op mapping used by both
+// parseIdentRHS (outer binding dispatch) and localInfixOpFromTok (local expressions).
+func tokenToInfixOp(t lexer.Token) (ast.InfixOp, bool) {
+	switch t.Kind {
+	case lexer.TokAmpersand:
+		return ast.InfixAnd, true
+	case lexer.TokGTE:
+		return ast.InfixGTE, true
+	case lexer.TokLTE:
+		return ast.InfixLTE, true
+	case lexer.TokGT:
+		return ast.InfixGT, true
+	case lexer.TokLT:
+		return ast.InfixLT, true
+	case lexer.TokPipe:
+		return ast.InfixBoolOr, true
+	case lexer.TokEqEq:
+		return ast.InfixEq, true
+	case lexer.TokNeq:
+		return ast.InfixNeq, true
+	case lexer.TokPlus:
+		return ast.InfixPlus, true
+	case lexer.TokMinus:
+		return ast.InfixSub, true
+	case lexer.TokStar:
+		return ast.InfixMul, true
+	case lexer.TokSlash:
+		return ast.InfixDiv, true
+	case lexer.TokPercent:
+		return ast.InfixMod, true
+	default:
+		return 0, false
+	}
+}
+
 // parseIdentRHS dispatches between FuncCallRHS, InfixRHS, and SingleRefRHS.
 func (p *parser) parseIdentRHS() ast.BindingRHS {
 	nameTok := p.advance() // consume the first ident
@@ -524,35 +561,8 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 		lexer.TokGT, lexer.TokLT, lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq:
 		// infix: lhs OP rhs
 		opTok := p.advance()
-		var op ast.InfixOp
-		switch opTok.Kind {
-		case lexer.TokAmpersand:
-			op = ast.InfixAnd
-		case lexer.TokGTE:
-			op = ast.InfixGTE
-		case lexer.TokLTE:
-			op = ast.InfixLTE
-		case lexer.TokGT:
-			op = ast.InfixGT
-		case lexer.TokLT:
-			op = ast.InfixLT
-		case lexer.TokPipe:
-			op = ast.InfixBoolOr
-		case lexer.TokEqEq:
-			op = ast.InfixEq
-		case lexer.TokNeq:
-			op = ast.InfixNeq
-		case lexer.TokPlus:
-			op = ast.InfixPlus
-		case lexer.TokMinus:
-			op = ast.InfixSub
-		case lexer.TokStar:
-			op = ast.InfixMul
-		case lexer.TokSlash:
-			op = ast.InfixDiv
-		case lexer.TokPercent:
-			op = ast.InfixMod
-		default:
+		op, ok := tokenToInfixOp(opTok)
+		if !ok {
 			p.errorf(opTok, "internal error: parseIdentRHS infix switch on unexpected token kind %v", opTok.Kind)
 			return &ast.SingleRefRHS{RefName: nameTok.Value}
 		}
@@ -807,7 +817,7 @@ func (p *parser) parseLocalArgList() []ast.LocalExpr {
 			nameTok := p.advance() // consume name
 			p.advance()            // consume ':'
 			p.Diags = append(p.Diags, diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
-				diag.CodeNamedArgIgnored, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
+				diag.CodeNamedArgNotSupported, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
 		}
 		args = append(args, p.parseLocalExpr())
 		if p.peek().Kind == lexer.TokComma {
@@ -821,36 +831,11 @@ func (p *parser) parseLocalArgList() []ast.LocalExpr {
 }
 
 func localInfixOpFromTok(t lexer.Token) ast.InfixOp {
-	switch t.Kind {
-	case lexer.TokAmpersand:
-		return ast.InfixAnd
-	case lexer.TokGTE:
-		return ast.InfixGTE
-	case lexer.TokLTE:
-		return ast.InfixLTE
-	case lexer.TokGT:
-		return ast.InfixGT
-	case lexer.TokLT:
-		return ast.InfixLT
-	case lexer.TokPipe:
-		return ast.InfixBoolOr
-	case lexer.TokEqEq:
-		return ast.InfixEq
-	case lexer.TokNeq:
-		return ast.InfixNeq
-	case lexer.TokPlus:
-		return ast.InfixPlus
-	case lexer.TokMinus:
-		return ast.InfixSub
-	case lexer.TokStar:
-		return ast.InfixMul
-	case lexer.TokSlash:
-		return ast.InfixDiv
-	case lexer.TokPercent:
-		return ast.InfixMod
-	default:
+	op, ok := tokenToInfixOp(t)
+	if !ok {
 		panic(fmt.Sprintf("unreachable: localInfixOpFromTok called with unexpected token kind %v", t.Kind))
 	}
+	return op
 }
 
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
