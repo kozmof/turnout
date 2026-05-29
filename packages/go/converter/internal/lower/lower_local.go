@@ -300,7 +300,7 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 		c.emitIdentity(p.Name, subjectType, subjectRef)
 	case *ast.TupleCasePattern:
 		*c.ds = append(*c.ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: #case tuple patterns are not yet supported", c.target))
+			"binding %q: #case tuple patterns are not supported; use _ to ignore the subject, or a variable binder (e.g. x) to capture it", c.target))
 		// Keep the graph structurally valid after reporting the lowering error.
 		condRef = c.temp("case_tuple_unsupported")
 		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: false})

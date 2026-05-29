@@ -107,8 +107,6 @@ export function createSceneExecutor(
   const sceneWarnings: string[] = [];
   let stepCount = 0;
   let currentAction: string | undefined;
-  // Scoped to the scene lifetime so identical next-rule progs are cached across all actions.
-  const ctxCache = new Map<string, BuiltContext>();
 
   function drainVisited(): void {
     while (queueHead < queue.length && visited.has(queue[queueHead]!)) {
@@ -153,7 +151,7 @@ export function createSceneExecutor(
     const result = await executeAction(action, currentState, hooks);
     currentState = result.stateAfterMerge;
 
-    const nextIds = evaluateNextRules(action, currentState, result, policy, ctxCache);
+    const nextIds = evaluateNextRules(action, currentState, result, policy);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
     const trace: ActionTrace = {
@@ -255,18 +253,22 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
  *
- * Each next rule builds its own context independently. The previous caching
- * by prog name was incorrect: each `next { compute { prog ... } }` block is
- * an independent prog object with its own bindings and prepare entries, so
- * sharing a context across rules with the same name produces wrong conditions.
+ * Each next rule builds its own context unless an identical prog+prepare pair
+ * appears more than once within a single action's rule list (in which case the
+ * local ctxCache deduplicates the build). The cache is per-invocation so stale
+ * injected values from previous actions (where state or result differ) are never
+ * reused.
  */
 function evaluateNextRules(
   action: ActionModel,
   state: StateManager,
   result: ActionExecutionResult,
   policy: string,
-  ctxCache: Map<string, BuiltContext>,
 ): string[] {
+  // Cache is scoped per invocation: state and result are constant within one
+  // action's next-rule evaluation, so identical progs safely share a context.
+  // A scene-lifetime cache would reuse stale injected values after state mutates.
+  const ctxCache = new Map<string, BuiltContext>();
   const rules = action.next ?? [];
   const matches: string[] = [];
 

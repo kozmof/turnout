@@ -175,10 +175,18 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 	return sm
 }
 
-// lowerStateBlockFromSchema reconstructs a state block from the flat schema map.
-// When order is non-empty it preserves that declaration order; otherwise
-// namespaces and fields are sorted alphabetically for deterministic output.
+// lowerStateBlockFromSchema dispatches to the ordered or alphabetical variant
+// based on whether declaration order was captured by the caller.
 func lowerStateBlockFromSchema(schema state.Schema, order []string) *turnoutpb.StateModel {
+	if len(order) > 0 {
+		return lowerStateBlockFromSchemaOrdered(schema, order)
+	}
+	return lowerStateBlockFromSchemaAlphabetical(schema)
+}
+
+// lowerStateBlockFromSchemaOrdered reconstructs a state block preserving the
+// declaration order supplied by the caller (dotted "ns.field" keys).
+func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turnoutpb.StateModel {
 	type nsEntry struct {
 		name   string
 		fields []*turnoutpb.FieldModel
@@ -200,25 +208,56 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string) *turnoutpb.S
 		})
 	}
 
-	if len(order) > 0 {
-		// Ordered path: caller supplied dotted keys in declaration order.
-		for _, key := range order {
-			meta, ok := schema.Get(key)
-			if !ok {
-				continue
-			}
-			dot := strings.IndexByte(key, '.')
-			if dot < 0 {
-				continue
-			}
-			addField(key[:dot], key[dot+1:], meta)
+	for _, key := range order {
+		meta, ok := schema.Get(key)
+		if !ok {
+			continue
 		}
-	} else {
-		// Unordered path: iterate nested structure in sorted namespace/field order.
-		for _, nsName := range slices.Sorted(maps.Keys(schema)) {
-			for _, fieldName := range slices.Sorted(maps.Keys(schema[nsName])) {
-				addField(nsName, fieldName, schema[nsName][fieldName])
-			}
+		dot := strings.IndexByte(key, '.')
+		if dot < 0 {
+			continue
+		}
+		addField(key[:dot], key[dot+1:], meta)
+	}
+
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsList))}
+	for _, ns := range nsList {
+		sm.Namespaces = append(sm.Namespaces, &turnoutpb.NamespaceModel{
+			Name:   ns.name,
+			Fields: ns.fields,
+		})
+	}
+	return sm
+}
+
+// lowerStateBlockFromSchemaAlphabetical reconstructs a state block from the
+// flat schema map with namespaces and fields sorted alphabetically for
+// deterministic output when no declaration order is available.
+func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
+	type nsEntry struct {
+		name   string
+		fields []*turnoutpb.FieldModel
+	}
+	nsIndex := make(map[string]int)
+	var nsList []nsEntry
+
+	addField := func(nsName, fieldName string, meta state.FieldMeta) {
+		idx, exists := nsIndex[nsName]
+		if !exists {
+			idx = len(nsList)
+			nsList = append(nsList, nsEntry{name: nsName})
+			nsIndex[nsName] = idx
+		}
+		nsList[idx].fields = append(nsList[idx].fields, &turnoutpb.FieldModel{
+			Name:  fieldName,
+			Type:  meta.Type.String(),
+			Value: literalToStructpb(meta.DefaultValue),
+		})
+	}
+
+	for _, nsName := range slices.Sorted(maps.Keys(schema)) {
+		for _, fieldName := range slices.Sorted(maps.Keys(schema[nsName])) {
+			addField(nsName, fieldName, schema[nsName][fieldName])
 		}
 	}
 
@@ -442,16 +481,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
+	case nil:
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct, "binding %q has no RHS", name))
+		return nil
 	default:
-		// Exhaustiveness guard: list every known pre-lowering type explicitly so
-		// that adding a new PreLowerRHS to ast.go surfaces here as a required edit.
-		switch rhs.(type) {
-		case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
-			panic(fmt.Sprintf("lowerBinding: pre-lowering RHS type %T reached default branch for binding %q — add an explicit case above", rhs, name))
-		}
-		*ds = append(*ds, diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
-			diag.CodeUnsupportedConstruct, "unsupported binding RHS for %q", name))
-		bindings = []*turnoutpb.BindingModel{{Name: name, Type: ft.String(), Value: literalToStructpb(zeroLiteralFor(ft))}}
+		panic(fmt.Sprintf("lowerBinding: unhandled BindingRHS type %T for binding %q — add a case above", rhs, name))
 	}
 
 	// Capture sigil for the user-declared binding (matched by name).

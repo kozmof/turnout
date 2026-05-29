@@ -304,9 +304,15 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
+	scope, adj := buildBindingScope(prog, idx, sceneID, actionID, scopeName, ds)
+	detectCycles(prog.Name, adj, prog.Bindings, ds)
+	validateBindingTypes(prog, scope, isTransition, idx, sceneID, actionID, scopeName, ds)
+	return scope
+}
 
-	// Pass 1: register all bindings; detect duplicates; build adjacency map for
-	// cycle detection (avoids a second traversal in the previously separate Pass 1b).
+// buildBindingScope registers all bindings into the scope map, detects duplicate
+// names, records sigils, and builds the adjacency map used by detectCycles.
+func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
 	adj := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
@@ -332,11 +338,13 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 		}
 		adj[b.Name] = refs
 	}
+	return scope, adj
+}
 
-	// Pass 1b: detect reference cycles using the adjacency map built above.
-	detectCycles(prog.Name, adj, prog.Bindings, ds)
-
-	// Pass 2: structural + type checks.
+// validateBindingTypes runs per-binding structural and type checks against the
+// already-built scope. Handles reserved names, transition sigil constraints,
+// literal type conformance, and expr/ext_expr type checking.
+func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
 		ft, _ := ast.FieldTypeFromString(b.Type)
 		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
@@ -381,8 +389,6 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 			}
 		}
 	}
-
-	return scope
 }
 
 // sigilFor looks up the sigil for a binding from the pre-built index.
@@ -1001,7 +1007,7 @@ func validatePattern(bindingName string, pattern ast.LocalCasePattern, subjectTy
 		}
 	case *ast.TupleCasePattern:
 		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: #case tuple patterns are not yet supported", bindingName))
+			"binding %q: #case tuple patterns are not supported; use _ to ignore the subject, or a variable binder (e.g. x) to capture it", bindingName))
 	}
 }
 
@@ -1481,6 +1487,7 @@ func detectCycles(progName string, adj map[string][]string, bindings []*turnoutp
 	)
 	color := make(map[string]int, len(bindings))
 	reported := make(map[string]bool)
+	stack := make([]string, 0, len(bindings))
 	var visit func(name string)
 	visit = func(name string) {
 		switch color[name] {
@@ -1489,15 +1496,26 @@ func detectCycles(progName string, adj map[string][]string, bindings []*turnoutp
 		case inStack:
 			if !reported[name] {
 				reported[name] = true
+				// Find where in the current DFS stack this cycle starts.
+				cycleStart := 0
+				for i, n := range stack {
+					if n == name {
+						cycleStart = i
+						break
+					}
+				}
+				path := append(stack[cycleStart:], name)
 				*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
-					"prog %q: binding %q is part of a reference cycle", progName, name))
+					"prog %q: binding cycle: %s", progName, strings.Join(path, " → ")))
 			}
 			return
 		}
 		color[name] = inStack
+		stack = append(stack, name)
 		for _, dep := range adj[name] {
 			visit(dep)
 		}
+		stack = stack[:len(stack)-1]
 		color[name] = done
 	}
 	for _, b := range bindings {

@@ -784,6 +784,44 @@ scene "test_scene" {
 	}
 }
 
+func TestAnnotationsNotInJSONOutput(t *testing.T) {
+	// Sigil bindings (~>, <~) populate TurnModel.Annotations during lowering.
+	// The emitter must clear them before writing JSON so the TS runtime never
+	// sees the internal sidecar data.
+	src := `state { app { query:str = "" result:str = "" } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" {
+    compute { root = done prog "p" {
+      ~>q:str
+      <~out:str = q
+      done:bool = true
+    } }
+    prepare { q { from_state = app.query } }
+    merge   { out { to_state = app.result } }
+  }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("parse: %v", ds)
+	}
+	schema, ds2 := state.Resolve(tf.StateSource, "")
+	if ds2.HasErrors() {
+		t.Fatalf("state: %v", ds2)
+	}
+	lr, ds3 := lower.Lower(tf, schema)
+	if ds3.HasErrors() {
+		t.Fatalf("lower: %v", ds3)
+	}
+	var sb strings.Builder
+	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
+		t.Fatalf("EmitJSON: %v", err)
+	}
+	if strings.Contains(sb.String(), `"annotations"`) {
+		t.Fatal("emitted JSON must not contain annotations field")
+	}
+}
+
 func TestEmitJSONIncludesLoweredExtExprs(t *testing.T) {
 	src := `state { app { n:number = 0 } }
 scene "test" {
