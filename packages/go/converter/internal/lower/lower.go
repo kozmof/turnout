@@ -184,17 +184,20 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string) *turnoutpb.S
 	return lowerStateBlockFromSchemaAlphabetical(schema)
 }
 
-// lowerStateBlockFromSchemaOrdered reconstructs a state block preserving the
-// declaration order supplied by the caller (dotted "ns.field" keys).
-func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turnoutpb.StateModel {
+// buildStateModel assembles a *turnoutpb.StateModel by calling populate, which
+// must invoke add(nsName, fieldName, meta) for each field in the desired order.
+// Namespace grouping and FieldModel construction are handled here so each
+// ordering variant only supplies the iteration logic.
+func buildStateModel(populate func(add func(nsName, fieldName string, meta state.FieldMeta))) *turnoutpb.StateModel {
 	type nsEntry struct {
 		name   string
 		fields []*turnoutpb.FieldModel
 	}
-	nsIndex := make(map[string]int)
-	var nsList []nsEntry
-
-	addField := func(nsName, fieldName string, meta state.FieldMeta) {
+	var (
+		nsList  []nsEntry
+		nsIndex = make(map[string]int)
+	)
+	add := func(nsName, fieldName string, meta state.FieldMeta) {
 		idx, exists := nsIndex[nsName]
 		if !exists {
 			idx = len(nsList)
@@ -207,19 +210,7 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 			Value: literalToStructpb(meta.DefaultValue),
 		})
 	}
-
-	for _, key := range order {
-		meta, ok := schema.Get(key)
-		if !ok {
-			continue
-		}
-		dot := strings.IndexByte(key, '.')
-		if dot < 0 {
-			continue
-		}
-		addField(key[:dot], key[dot+1:], meta)
-	}
-
+	populate(add)
 	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsList))}
 	for _, ns := range nsList {
 		sm.Namespaces = append(sm.Namespaces, &turnoutpb.NamespaceModel{
@@ -230,45 +221,35 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 	return sm
 }
 
+// lowerStateBlockFromSchemaOrdered reconstructs a state block preserving the
+// declaration order supplied by the caller (dotted "ns.field" keys).
+func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turnoutpb.StateModel {
+	return buildStateModel(func(add func(string, string, state.FieldMeta)) {
+		for _, key := range order {
+			meta, ok := schema.Get(key)
+			if !ok {
+				continue
+			}
+			dot := strings.IndexByte(key, '.')
+			if dot < 0 {
+				continue
+			}
+			add(key[:dot], key[dot+1:], meta)
+		}
+	})
+}
+
 // lowerStateBlockFromSchemaAlphabetical reconstructs a state block from the
 // flat schema map with namespaces and fields sorted alphabetically for
 // deterministic output when no declaration order is available.
 func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
-	type nsEntry struct {
-		name   string
-		fields []*turnoutpb.FieldModel
-	}
-	nsIndex := make(map[string]int)
-	var nsList []nsEntry
-
-	addField := func(nsName, fieldName string, meta state.FieldMeta) {
-		idx, exists := nsIndex[nsName]
-		if !exists {
-			idx = len(nsList)
-			nsList = append(nsList, nsEntry{name: nsName})
-			nsIndex[nsName] = idx
+	return buildStateModel(func(add func(string, string, state.FieldMeta)) {
+		for _, nsName := range slices.Sorted(maps.Keys(schema)) {
+			for _, fieldName := range slices.Sorted(maps.Keys(schema[nsName])) {
+				add(nsName, fieldName, schema[nsName][fieldName])
+			}
 		}
-		nsList[idx].fields = append(nsList[idx].fields, &turnoutpb.FieldModel{
-			Name:  fieldName,
-			Type:  meta.Type.String(),
-			Value: literalToStructpb(meta.DefaultValue),
-		})
-	}
-
-	for _, nsName := range slices.Sorted(maps.Keys(schema)) {
-		for _, fieldName := range slices.Sorted(maps.Keys(schema[nsName])) {
-			addField(nsName, fieldName, schema[nsName][fieldName])
-		}
-	}
-
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsList))}
-	for _, ns := range nsList {
-		sm.Namespaces = append(sm.Namespaces, &turnoutpb.NamespaceModel{
-			Name:   ns.name,
-			Fields: ns.fields,
-		})
-	}
-	return sm
+	})
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -188,36 +188,33 @@ function literalToValue(
   if (raw === null || raw === undefined) {
     return buildNull('missing');
   }
-  // Reassign so the switch below sees the unwrapped primitive.
-  // eslint-disable-next-line no-param-reassign
-  value = raw;
   switch (type) {
     case 'number':
-      if (typeof value !== 'number') throw new Error(`literalToValue: schema type "number" but got ${typeof value} (${JSON.stringify(value)})`);
-      return buildNumber(value);
+      if (typeof raw !== 'number') throw new Error(`literalToValue: schema type "number" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      return buildNumber(raw);
     case 'str':
-      if (typeof value !== 'string') throw new Error(`literalToValue: schema type "str" but got ${typeof value} (${JSON.stringify(value)})`);
-      return buildString(value);
+      if (typeof raw !== 'string') throw new Error(`literalToValue: schema type "str" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      return buildString(raw);
     case 'bool':
-      if (typeof value !== 'boolean') throw new Error(`literalToValue: schema type "bool" but got ${typeof value} (${JSON.stringify(value)})`);
-      return buildBoolean(value);
+      if (typeof raw !== 'boolean') throw new Error(`literalToValue: schema type "bool" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      return buildBoolean(raw);
     case 'arr<number>': {
-      if (!Array.isArray(value)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof value}`);
-      return buildArray(value.map((v) => {
+      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof raw}`);
+      return buildArray(raw.map((v) => {
         if (typeof v !== 'number') throw new Error(`literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildNumber(v);
       }));
     }
     case 'arr<str>': {
-      if (!Array.isArray(value)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof value}`);
-      return buildArray(value.map((v) => {
+      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof raw}`);
+      return buildArray(raw.map((v) => {
         if (typeof v !== 'string') throw new Error(`literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildString(v);
       }));
     }
     case 'arr<bool>': {
-      if (!Array.isArray(value)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof value}`);
-      return buildArray(value.map((v) => {
+      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof raw}`);
+      return buildArray(raw.map((v) => {
         if (typeof v !== 'boolean') throw new Error(`literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildBoolean(v);
       }));

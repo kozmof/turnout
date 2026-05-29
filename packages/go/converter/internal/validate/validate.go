@@ -1393,8 +1393,15 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics
 	}
 }
 
-// isIdentityCombine reports whether c is a canonical identity combine emitted
-// by the lowerer for the single-reference form.
+// isIdentityCombine reports whether c is the canonical identity lowering emitted
+// by the lowerer for a single-reference binding. Each binary function is paired
+// with its algebraic identity element so the expression is a no-op passthrough:
+// f(x, identity) ≡ x. The sentinel values are:
+//
+//	bool_and → true   (x & true  == x)
+//	add      → 0      (x + 0     == x)
+//	str_concat → ""   (x ++ ""   == x)
+//	arr_concat → []   (x ++ []   == x)
 func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
 	identityFns := map[string]bool{"bool_and": true, "add": true, "str_concat": true, "arr_concat": true}
 	if !identityFns[c.Fn] || len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
@@ -1403,16 +1410,16 @@ func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
 	switch c.Fn {
 	case "bool_and":
 		bv, ok := c.Args[1].Lit.Kind.(*structpb.Value_BoolValue)
-		return ok && bv.BoolValue
+		return ok && bv.BoolValue // identity: true
 	case "add":
 		nv, ok := c.Args[1].Lit.Kind.(*structpb.Value_NumberValue)
-		return ok && nv.NumberValue == 0
+		return ok && nv.NumberValue == 0 // identity: 0
 	case "str_concat":
 		sv, ok := c.Args[1].Lit.Kind.(*structpb.Value_StringValue)
-		return ok && sv.StringValue == ""
+		return ok && sv.StringValue == "" // identity: ""
 	case "arr_concat":
 		lv, ok := c.Args[1].Lit.Kind.(*structpb.Value_ListValue)
-		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0) // identity: []
 	}
 	return false
 }
@@ -1504,7 +1511,14 @@ func detectCycles(progName string, adj map[string][]string, bindings []*turnoutp
 						break
 					}
 				}
-				path := append(stack[cycleStart:], name)
+				// Use an explicit allocation so the cycle path never shares backing
+				// memory with `stack`. append(stack[cycleStart:], name) would write
+				// into the original array when cap(stack) > len(stack), corrupting
+				// subsequent DFS frames.
+				cycleLen := len(stack) - cycleStart
+				path := make([]string, cycleLen+1)
+				copy(path, stack[cycleStart:])
+				path[cycleLen] = name
 				*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
 					"prog %q: binding cycle: %s", progName, strings.Join(path, " → ")))
 			}

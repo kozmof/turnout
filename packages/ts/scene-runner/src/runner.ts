@@ -87,6 +87,13 @@ export type Runner = {
    * Throws if execution is not yet complete.
    */
   result(): HarnessResult;
+  /**
+   * Return the StateManager at the current point of execution.
+   * Safe to call at any time — before, during, or after execution, including
+   * after a thrown `SceneRuntimeError`. Returns the state as of the last
+   * successfully completed action (or the initial state if none has run yet).
+   */
+  partialState(): StateManager;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,6 +111,7 @@ function makeRunnerMethods(
   advanceFn: () => Promise<RunnerStepResult>,
   doneFn: () => boolean,
   resultFn: () => HarnessResult,
+  partialStateFn: () => StateManager,
 ): Runner {
   return {
     usePrepareHook(name, handler) { hooks.prepare[name] = handler; return this; },
@@ -130,6 +138,7 @@ function makeRunnerMethods(
       }
     },
     result: resultFn,
+    partialState: partialStateFn,
   };
 }
 
@@ -204,6 +213,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
           model: migratedModel,
         };
       },
+      () => routeStepper.partialState(),
     );
   }
 
@@ -242,5 +252,6 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
         model: migratedModel,
       };
     },
+    () => sceneExecutor.partialState(),
   );
 }
