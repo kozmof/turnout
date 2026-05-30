@@ -21,6 +21,7 @@ export async function executeAction(
   action: ActionModel,
   state: StateManager,
   hooks: HookRegistry,
+  sceneId = '(unknown)',
 ): Promise<ActionExecutionResult> {
   // Actions without a compute block or prog are no-ops (no graph, no merge).
   if (!action.compute?.prog) {
@@ -74,7 +75,7 @@ export async function executeAction(
       if (!Object.hasOwn(updatedTable, valueId)) {
         throw new SceneRuntimeError(
           'OutOfOrderBinding',
-          action.id,
+          sceneId,
           `function binding "${binding.name}" returned no value — bindings may be out of topological order`,
         );
       }

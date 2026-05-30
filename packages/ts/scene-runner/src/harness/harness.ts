@@ -4,6 +4,7 @@ import type { StateManager } from '../state/state-manager.js';
 import { executeScene } from '../executor/scene-executor.js';
 import { executeRoute } from '../executor/route-executor.js';
 import { resolveDispatchTarget } from '../executor/dispatch.js';
+import { migrateModel } from '../migration.js';
 
 /**
  * Universal harness entry point (client + server).
@@ -20,7 +21,7 @@ import { resolveDispatchTarget } from '../executor/dispatch.js';
  *  - no match                         → throws
  */
 export async function runHarness(options: HarnessOptions): Promise<HarnessResult> {
-  const { model } = options;
+  const model = migrateModel(options.model);
 
   // ── 1. Build STATE ────────────────────────────────────────────────────────
   const state: StateManager = model.state
@@ -41,7 +42,7 @@ export async function runHarness(options: HarnessOptions): Promise<HarnessResult
       options.hooks,
       { maxSceneSteps: options.maxSceneSteps, maxRouteTransitions: options.maxRouteTransitions },
     );
-    return { finalState: result.finalState, trace: { kind: 'route', route: result.trace }, model };
+    return { finalState: result.finalState, trace: { kind: 'route', route: result.trace }, model: options.model };
   }
 
   const result = await executeScene(
@@ -54,6 +55,6 @@ export async function runHarness(options: HarnessOptions): Promise<HarnessResult
   return {
     finalState: result.stateAfterScene.snapshot(),
     trace: { kind: 'scene', scene: result.trace },
-    model,
+    model: options.model,
   };
 }

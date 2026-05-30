@@ -148,7 +148,7 @@ export function createSceneExecutor(
     const action = actionMap[actionId];
     if (!action) throw new SceneRuntimeError('UnknownAction', scene.id, `unknown action "${actionId}"`);
 
-    const result = await executeAction(action, currentState, hooks);
+    const result = await executeAction(action, currentState, hooks, scene.id);
     currentState = result.stateAfterMerge;
 
     const nextIds = evaluateNextRules(action, currentState, result, policy);
@@ -158,6 +158,7 @@ export function createSceneExecutor(
       actionId,
       computeRootValue: result.computeRootValue,
       nextActionIds: nextIds,
+      ...(result.publishOutcomes.length > 0 ? { publishOutcomes: result.publishOutcomes } : {}),
     };
     actionTraces.push(trace);
     queue.push(...nextIds);

@@ -78,13 +78,18 @@ export async function executeRoute(
     state = sceneResult.stateAfterScene;
     sceneTraces.push(sceneResult.trace);
 
-    // Append all completed actions to the route history (spec §2.3).
-    for (const actionTrace of sceneResult.trace.actions) {
-      history.push(`${currentSceneId}.${actionTrace.actionId}`);
-    }
+    // Build the current-scene history slice used for pattern matching.
+    // Using only the current visit's actions (not accumulated global history) ensures
+    // that revisited scenes match against their current run, consistent with RouteStepper.
+    const sceneHistory = sceneResult.trace.actions.map(
+      (a) => `${currentSceneId}.${a.actionId}`,
+    );
 
-    // Evaluate match arms against history, restricting to patterns for the current scene.
-    const nextSceneId = selectNextScene(history, parsedArms, currentSceneId);
+    // Append to the global history accumulator (exposed on the result for callers).
+    history.push(...sceneHistory);
+
+    // Evaluate match arms against the current-scene slice only.
+    const nextSceneId = selectNextScene(sceneHistory, parsedArms, currentSceneId);
     if (nextSceneId === null) break; // No arm matched — route completes.
 
     routeTransitionCount++;

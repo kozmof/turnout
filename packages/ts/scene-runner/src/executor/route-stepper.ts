@@ -4,6 +4,7 @@ import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace } from '../types
 import type { ParsedMatchArm } from './route-pattern.js';
 import { selectNextScene } from './route-pattern.js';
 import { createSceneExecutor } from './scene-executor.js';
+import { RouteRuntimeError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -96,8 +97,10 @@ function createRouteSession(
 
       this.transitionCount++;
       if (this.transitionCount > this.maxTransitions) {
-        throw new Error(
-          `RouteStepper: route "${this.routeId}" exceeded ${this.maxTransitions} scene transitions — possible infinite loop`,
+        throw new RouteRuntimeError(
+          'MaxRouteTransitionsExceeded',
+          this.routeId,
+          `exceeded ${this.maxTransitions} scene transitions — possible infinite loop`,
         );
       }
 
@@ -114,7 +117,7 @@ function createRouteSession(
 
 function firstEntryAction(scene: SceneBlock, routeId: string): string {
   const first = scene.entryActions[0];
-  if (!first) throw new Error(`RouteStepper: route "${routeId}" scene "${scene.id}" has no entry actions`);
+  if (!first) throw new RouteRuntimeError('NoEntryAction', routeId, `scene "${scene.id}" has no entry actions`);
   return first;
 }
 
@@ -139,7 +142,7 @@ export function createRouteStepper(
   let done = false;
 
   const initialScene = sceneMap[entrySceneId];
-  if (!initialScene) throw new Error(`RouteStepper: entry scene "${entrySceneId}" not found`);
+  if (!initialScene) throw new RouteRuntimeError('UnknownScene', routeId, `entry scene "${entrySceneId}" not found`);
 
   let sceneExecutor = createSceneExecutor(
     initialScene,
@@ -171,7 +174,7 @@ export function createRouteStepper(
       }
 
       const nextScene = sceneMap[nextSceneId];
-      if (!nextScene) throw new Error(`RouteStepper: unknown scene "${nextSceneId}" referenced by route "${routeId}"`);
+      if (!nextScene) throw new RouteRuntimeError('UnknownScene', routeId, `unknown scene "${nextSceneId}"`);
 
       sceneExecutor = createSceneExecutor(
         nextScene,

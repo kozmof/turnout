@@ -175,7 +175,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
 
   // ── Determine execution mode (route vs scene) ─────────────────────────────
 
-  const target = resolveDispatchTarget(migratedModel, options.entryId);
+  const target = resolveDispatchTarget(migratedModel, options.entryId, sceneMap);
   let done = false;
 
   // Route mode

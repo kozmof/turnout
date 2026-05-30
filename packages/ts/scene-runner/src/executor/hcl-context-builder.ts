@@ -4,9 +4,6 @@ import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'r
 import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
-// Module-level counter ensures __lit_N names are globally unique across
-// buildSpec calls, preventing collisions if buildSpec is ever reused incrementally.
-let _litCounter = 0;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -102,17 +99,11 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
   if (typeof v === 'string') return literalToValue(v, 'str');
   if (typeof v === 'boolean') return literalToValue(v, 'bool');
   if (Array.isArray(v)) {
+    if (v.length === 0) return buildArray([]);
     const first = v[0];
     if (typeof first === 'number') return literalToValue(v, 'arr<number>');
     if (typeof first === 'string') return literalToValue(v, 'arr<str>');
     if (typeof first === 'boolean') return literalToValue(v, 'arr<bool>');
-    // Empty array literal used as an inline function argument is type-ambiguous:
-    // the element type cannot be inferred without a declared binding type.
-    // Use a named binding with a declared type instead (e.g. `x: arr<number> = []`).
-    throw new Error(
-      'empty array literal used as inline function argument is type-ambiguous; ' +
-      'use a named binding with a declared type instead',
-    );
   }
   throw new Error(
     `unrecognized protobuf value kind for inline literal: ${typeof v}`,
@@ -135,6 +126,7 @@ export function buildSpec(
   injectedValues: Record<string, AnyValue>,
   contextId = '(unknown)',
 ): Record<string, unknown> {
+  let litCounter = 0;
   const spec: Record<string, unknown> = {};
 
   // Pre-compute which binding names are function bindings (have expr).
@@ -147,7 +139,7 @@ export function buildSpec(
 
   // Register a synthetic value binding for an inline literal arg.
   function addLitBinding(lit: unknown): string {
-    const name = `__lit_${_litCounter++}`;
+    const name = `__lit_${litCounter++}`;
     spec[name] = inferLiteralAnyValue(lit);
     return name;
   }

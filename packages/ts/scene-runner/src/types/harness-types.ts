@@ -65,6 +65,7 @@ export type ActionTrace = {
   actionId: string;
   computeRootValue: AnyValue;
   nextActionIds: string[];
+  publishOutcomes?: PublishHookOutcome[];
 };
 
 export type SceneTrace = {

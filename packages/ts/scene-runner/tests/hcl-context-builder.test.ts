@@ -506,7 +506,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
     expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
   });
 
-  it('throws immediately for an empty-array inline arg', () => {
+  it('accepts an empty-array inline arg as an untyped empty array (no longer throws)', () => {
     const prog = {
       name: 'empty_arr_prog',
       bindings: [
@@ -517,7 +517,9 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('empty array literal');
+    // Empty array literals are now accepted; any failure comes from the builder/validator,
+    // not from literal inference.
+    expect(() => buildContextFromProg(prog, {})).not.toThrow('empty array literal');
   });
 });
 

@@ -12,15 +12,19 @@ export type DispatchTarget =
  * - If `entryId` matches a scene: returns the scene directly.
  * - If neither: throws.
  */
-export function resolveDispatchTarget(model: TurnModel, entryId: string): DispatchTarget {
-  const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
+export function resolveDispatchTarget(
+  model: TurnModel,
+  entryId: string,
+  sceneMap?: Record<string, SceneBlock>,
+): DispatchTarget {
+  const map = sceneMap ?? Object.fromEntries(model.scenes.map((s) => [s.id, s]));
 
   const route = (model.routes ?? []).find((r) => r.id === entryId);
   if (route) {
     if (!route.entrySceneId) {
       throw new Error(`entry "${entryId}" is a route but has no entry scene declared`);
     }
-    const entryScene = sceneMap[route.entrySceneId];
+    const entryScene = map[route.entrySceneId];
     if (!entryScene) {
       throw new Error(
         `entry "${entryId}" route entry scene "${route.entrySceneId}" is not in the model`,
@@ -29,7 +33,7 @@ export function resolveDispatchTarget(model: TurnModel, entryId: string): Dispat
     return { kind: 'route', route, entryScene };
   }
 
-  const scene = sceneMap[entryId];
+  const scene = map[entryId];
   if (scene) {
     return { kind: 'scene', scene };
   }
