@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { executeGraph, executeGraphSafe } from './executeGraph';
+import { executeCombineFunc } from './executeCombineFunc';
 import { assertValidContext } from '../validateContext';
 import type { ValidatedContext } from '../validateContext';
 import {
@@ -753,5 +754,61 @@ describe('executeGraph', () => {
       value: 100,
       subSymbol: undefined, tags: [],
     });
+  });
+
+  it('should wrap non-Error throws in executeGraphSafe', () => {
+    // Bypasses brand to test non-Error exception handling path in executeGraphSafe.
+    // The `error instanceof Error ? error : undefined` branch (line 64) is hit when
+    // something throws a non-Error value.
+    // We create a broken context where getBinaryFn would throw a string-like object.
+    const context = {
+      valueTable: {
+        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
+      } as any,
+      funcTable: {
+        f1: {
+          kind: 'combine',
+          defId: 'pd1' as CombineDefineId,
+          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
+          returnId: 'v3' as ValueId,
+        },
+      } as any,
+      combineFuncDefTable: {
+        pd1: {
+          name: 'binaryFnNumber::nonExistentOp',  // unknown fn — getBinaryFn will throw
+          transformFn: {
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
+          },
+        },
+      } as any,
+      pipeFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
+    } as unknown as ValidatedContext;
+
+    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
+    expect(result).toBeUndefined();
+    expect(errors).toHaveLength(1);
+    expect(errors[0].kind).toBe('functionExecution');
+  });
+});
+
+describe('executeCombineFunc — guard branch', () => {
+  it('throws when called with a non-combine funcTable entry', () => {
+    // Covers the `if (funcEntry.kind !== 'combine')` guard at executeCombineFunc.ts:22
+    const context = {
+      valueTable: {} as any,
+      funcTable: {
+        f1: { kind: 'pipe', defId: 'td1' as PipeDefineId, argMap: {}, returnId: 'vR' as ValueId },
+      } as any,
+      combineFuncDefTable: {} as any,
+      pipeFuncDefTable: {} as any,
+      condFuncDefTable: {} as any,
+    } as unknown as ExecutionContext;
+
+    expect(() =>
+      executeCombineFunc('f1' as FuncId, 'pd1' as CombineDefineId, context)
+    ).toThrow('executeCombineFunc called with non-combine entry');
   });
 });

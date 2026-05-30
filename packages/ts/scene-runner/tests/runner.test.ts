@@ -145,7 +145,7 @@ describe('createRunner — route mode API', () => {
     expect(runner.isDone()).toBe(true);
 
     const result = runner.result();
-    expect(result.trace.kind).toBe('route');
+    if (result.trace.kind !== 'route') throw new Error('Expected route trace');
     expect(result.trace.route.routeId).toBe('route_api');
   });
 
