@@ -305,3 +305,25 @@ describe('executeRoute — execution limits', () => {
     ).rejects.toThrow('exceeded 0 scene transitions');
   });
 });
+
+
+describe('executeRoute — route-driven entry warnings', () => {
+  it('warns and fires only the first entry action when a scene declares multiple entries', async () => {
+    const first = makePassAction('first', 1, 'entry.first');
+    const second = makePassAction('second', 2, 'entry.second');
+    const scene = {
+      id: 'multi_entry',
+      entryActions: ['first', 'second'],
+      actions: [first, second],
+    } as unknown as SceneBlock;
+    const route = { id: 'r_multi', match: [] } as unknown as RouteModel;
+
+    const result = await executeRoute(route, makeSceneMap(scene), 'multi_entry', stateManagerFromUnchecked({}));
+
+    expect(result.history).toEqual(['multi_entry.first']);
+    expect(result.warnings).toEqual([
+      'route "r_multi" scene "multi_entry": only the first entry action fires in route-driven execution (2 declared)',
+    ]);
+    expect(result.finalState['entry.second']).toBeUndefined();
+  });
+});

@@ -140,6 +140,82 @@ describe('buildSpec — error cases', () => {
   });
 });
 
+
+
+describe('buildSpec — additional edge cases', () => {
+  it('throws for unsupported inline literal object values', () => {
+    const prog = {
+      name: 'bad_lit_prog',
+      bindings: [
+        { name: 'x', type: 'number', value: 1 },
+        {
+          name: 'result',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: { unsupported: true } }] } },
+        },
+      ],
+    } as unknown as ProgModel;
+
+    expect(() => buildSpec(prog, {})).toThrow('unrecognized protobuf value kind for inline literal');
+  });
+
+  it('allows cond conditions to reference a function binding', () => {
+    const prog = {
+      name: 'cond_func_condition_prog',
+      bindings: [
+        { name: 'flag_base', type: 'bool', value: true },
+        { name: 'fallback', type: 'number', value: 0 },
+        {
+          name: 'flag_fn',
+          type: 'bool',
+          expr: { combine: { fn: 'bool_or', args: [{ ref: 'flag_base' }, { lit: false }] } },
+        },
+        {
+          name: 'result',
+          type: 'number',
+          expr: { cond: { condition: { funcRef: 'flag_fn' }, then: { ref: 'fallback' }, elseBranch: { lit: 1 } } },
+        },
+      ],
+    } as unknown as ProgModel;
+
+    const spec = buildSpec(prog, {});
+    expect(spec['result']).toBeDefined();
+  });
+
+  it('allows cond conditions to use inline literals', () => {
+    const prog = {
+      name: 'cond_lit_condition_prog',
+      bindings: [
+        { name: 'x', type: 'number', value: 1 },
+        {
+          name: 'result',
+          type: 'number',
+          expr: { cond: { condition: { lit: true }, then: { ref: 'x' }, elseBranch: { lit: 0 } } },
+        },
+      ],
+    } as unknown as ProgModel;
+
+    const spec = buildSpec(prog, {});
+    expect(Object.keys(spec).some((key) => key.startsWith('__lit_'))).toBe(true);
+  });
+
+  it('rejects cond conditions that cannot resolve to a binding or literal', () => {
+    const prog = {
+      name: 'bad_cond_condition_prog',
+      bindings: [
+        { name: 'x', type: 'number', value: 1 },
+        {
+          name: 'result',
+          type: 'number',
+          expr: { cond: { condition: { stepRef: 0 } as ArgModel, then: { ref: 'x' }, elseBranch: { lit: 0 } } },
+        },
+      ],
+    } as unknown as ProgModel;
+
+    expect(() => buildSpec(prog, {})).toThrow('Cond condition must resolve to a value or function binding');
+  });
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // buildNameToValueId — unit tests (no ProgModel or runtime needed)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -368,6 +444,12 @@ describe('buildContextFromProg — nameToValueId', () => {
     expect(ctx.nameToValueId['v1']).toBeDefined();
     expect(ctx.nameToValueId['v2']).toBeDefined();
     expect(ctx.nameToValueId['f1']).toBeDefined();
+  });
+
+  it('getValueId returns undefined for function bindings', () => {
+    const ctx = buildContextFromProg(prog, {});
+    expect(ctx.getValueId('f1')).toBeUndefined();
+    expect(ctx.getFuncId('v1')).toBeUndefined();
   });
 });
 

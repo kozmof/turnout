@@ -226,3 +226,20 @@ describe('selectNextScene — priority', () => {
     expect(selectNextScene(history, parseMatchArms(arms),'s1')).toBe('first_target');
   });
 });
+
+
+describe('selectNextScene — per-arm best pattern', () => {
+  it('uses the exact pattern when one arm has exact and wildcard matches', () => {
+    const history = ['s1.final'];
+    const arms = [arm('target', 's1.*.final', 's1.final')];
+
+    expect(selectNextScene(history, parseMatchArms(arms), 's1')).toBe('target');
+  });
+
+  it('uses the longer suffix when one arm has equal-wildcard matches', () => {
+    const history = ['s1.intro', 's1.final'];
+    const arms = [arm('target', 's1.*.final', 's1.*.intro.final')];
+
+    expect(selectNextScene(history, parseMatchArms(arms), 's1')).toBe('target');
+  });
+});

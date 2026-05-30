@@ -1,5 +1,22 @@
 import { expect, test, describe } from 'vitest';
-import { isArray, isBoolean, isNull, isNumber, isString, isPure, isPureNumber, isPureString, isPureBoolean, isPureNull, hasTag } from './value';
+import {
+  baseTypeSymbols,
+  createUnknownValue,
+  isArray,
+  isBoolean,
+  isNull,
+  isNumber,
+  isString,
+  isPure,
+  isPureNumber,
+  isPureString,
+  isPureBoolean,
+  isPureNull,
+  hasTag,
+  isTypedArray,
+  isValidValue,
+  nullReasonSubSymbols,
+} from './value';
 
 describe('Check TypeGuard', () => {
   test('Symbol is number (pure)', () => {
@@ -101,4 +118,59 @@ describe('Check TypeGuard', () => {
     expect(isPure(complexVal)).toBe(false);
   });
 
+});
+
+
+describe('value metadata and validation', () => {
+  test('exports base and null reason symbols', () => {
+    expect(baseTypeSymbols).toEqual(['number', 'string', 'boolean', 'array', 'null']);
+    expect(nullReasonSubSymbols).toEqual([
+      'missing',
+      'not-found',
+      'error',
+      'filtered',
+      'redacted',
+      'unknown',
+    ]);
+  });
+
+  test('detects typed arrays separately from untyped arrays', () => {
+    expect(isTypedArray({ symbol: 'array', value: [], subSymbol: 'number', tags: [] })).toBe(true);
+    expect(isTypedArray({ symbol: 'array', value: [], subSymbol: undefined, tags: [] })).toBe(false);
+    expect(isTypedArray({ symbol: 'number', value: 1, subSymbol: undefined, tags: [] })).toBe(false);
+  });
+
+  test('creates unknown values with the requested shape', () => {
+    expect(createUnknownValue('string', 'hello', undefined, ['external'])).toEqual({
+      symbol: 'string',
+      value: 'hello',
+      subSymbol: undefined,
+      tags: ['external'],
+    });
+  });
+
+  test('validates supported value shapes and expected symbols', () => {
+    expect(isValidValue({ symbol: 'number', value: 1, subSymbol: undefined, tags: [] })).toBe(true);
+    expect(isValidValue({ symbol: 'string', value: 'x', subSymbol: undefined, tags: [] }, 'string')).toBe(true);
+    expect(isValidValue({ symbol: 'boolean', value: false, subSymbol: undefined, tags: [] }, 'boolean')).toBe(true);
+    expect(isValidValue({ symbol: 'array', value: [], subSymbol: undefined, tags: [] }, 'array')).toBe(true);
+    expect(isValidValue({ symbol: 'array', value: [], subSymbol: 'null', tags: [] }, 'array', 'null')).toBe(true);
+    expect(isValidValue({ symbol: 'null', value: null, subSymbol: 'redacted', tags: [] }, 'null', 'redacted')).toBe(true);
+  });
+
+  test('rejects malformed values', () => {
+    expect(isValidValue(null)).toBe(false);
+    expect(isValidValue(1)).toBe(false);
+    expect(isValidValue({ symbol: 'number', value: 1, subSymbol: undefined })).toBe(false);
+    expect(isValidValue({ symbol: 1, value: 1, subSymbol: undefined, tags: [] })).toBe(false);
+    expect(isValidValue({ symbol: 'object', value: {}, subSymbol: undefined, tags: [] })).toBe(false);
+    expect(isValidValue({ symbol: 'number', value: 1, subSymbol: 'number', tags: [] })).toBe(false);
+    expect(isValidValue({ symbol: 'array', value: [], subSymbol: 'array', tags: [] })).toBe(false);
+    expect(isValidValue({ symbol: 'null', value: null, subSymbol: undefined, tags: [] })).toBe(false);
+    expect(isValidValue({ symbol: 'null', value: null, subSymbol: 'gone', tags: [] })).toBe(false);
+    expect(isValidValue({ symbol: 'string', value: 'x', subSymbol: undefined, tags: 'tag' })).toBe(false);
+    expect(isValidValue({ symbol: 'string', value: 'x', subSymbol: undefined, tags: ['ok', 1] })).toBe(false);
+    expect(isValidValue({ symbol: 'string', value: 'x', subSymbol: undefined, tags: [] }, 'number')).toBe(false);
+    expect(isValidValue({ symbol: 'array', value: [], subSymbol: 'string', tags: [] }, 'array', 'number')).toBe(false);
+  });
 });

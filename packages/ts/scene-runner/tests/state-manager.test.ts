@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { stateManagerFromUnchecked, stateManagerFromSchema, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
+import { stateManagerFromUnchecked, stateManagerFromSchema, stateManagerFromStrict, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
 import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
 import type { StateModel } from '../src/types/turnout-model_pb.js';
 
@@ -239,5 +239,70 @@ describe('matchesSchemaType — unknown type guard', () => {
     expect(() => sm.write('x.v', buildNumber(1))).toThrow(
       'unknown schema type "invalid_type"',
     );
+  });
+});
+
+
+describe('StateManager — additional validation branches', () => {
+  it('rejects reserved paths on read and write', () => {
+    const sm = stateManagerFromUnchecked({});
+
+    expect(() => sm.read('__proto__')).toThrow('reserved path "__proto__"');
+    expect(() => sm.write('constructor', buildNumber(1))).toThrow('reserved path "constructor"');
+  });
+
+  it('read() rejects unknown paths for schema-backed managers', () => {
+    const sm = stateManagerFromStrict({}, new Set(['known.path']));
+
+    expect(() => sm.read('unknown.path')).toThrow('unknown path "unknown.path"');
+  });
+
+  it('validPaths returns null for unchecked managers and a set for strict managers', () => {
+    expect(stateManagerFromUnchecked({}).validPaths()).toBeNull();
+
+    const paths = new Set(['a.b']);
+    expect(stateManagerFromStrict({}, paths).validPaths()).toBe(paths);
+  });
+
+  it('write() validates primitive schema types', () => {
+    const sm = stateManagerFromStrict({}, new Set(['n', 's', 'b']), new Map([
+      ['n', 'number'],
+      ['s', 'str'],
+      ['b', 'bool'],
+    ]));
+
+    expect(() => sm.write('n', buildString('nope'))).toThrow('expected number, got string');
+    expect(() => sm.write('s', buildNumber(1))).toThrow('expected str, got number');
+    expect(() => sm.write('b', buildNumber(1))).toThrow('expected bool, got number');
+  });
+
+  it('write() validates array schema subtypes while accepting untyped arrays', () => {
+    const sm = stateManagerFromStrict({}, new Set(['nums', 'tags', 'flags']), new Map([
+      ['nums', 'arr<number>'],
+      ['tags', 'arr<str>'],
+      ['flags', 'arr<bool>'],
+    ]));
+
+    expect(() => sm.write('nums', buildString('nope'))).toThrow('expected arr<number>, got string');
+    expect(() => sm.write('nums', literalToValue([], 'arr<number>'))).not.toThrow();
+    expect(() => sm.write('tags', literalToValue([], 'arr<str>'))).not.toThrow();
+    expect(() => sm.write('flags', literalToValue([], 'arr<bool>'))).not.toThrow();
+  });
+
+  it('literalToValue validates scalar bool and array elements', () => {
+    expect(() => literalToValue('true', 'bool')).toThrow('schema type "bool"');
+    expect(() => literalToValue([1, 'bad'], 'arr<number>')).toThrow('arr<number> element is string');
+    expect(() => literalToValue(['ok', 2], 'arr<str>')).toThrow('arr<str> element is number');
+    expect(() => literalToValue([true, 'bad'], 'arr<bool>')).toThrow('arr<bool> element is string');
+  });
+
+  it('protoValueToJs returns nullish inputs unchanged and ignores malformed proto-like objects', () => {
+    expect(protoValueToJs(null)).toBeNull();
+    expect(protoValueToJs(undefined)).toBeUndefined();
+
+    const missingKind = { $typeName: 'google.protobuf.Value' };
+    const missingCase = { $typeName: 'google.protobuf.Value', kind: {} };
+    expect(protoValueToJs(missingKind)).toBe(missingKind);
+    expect(protoValueToJs(missingCase)).toBe(missingCase);
   });
 });

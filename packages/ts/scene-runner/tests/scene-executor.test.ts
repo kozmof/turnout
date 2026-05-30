@@ -425,3 +425,81 @@ describe('executeSceneSafe — failedActionId', () => {
     }
   });
 });
+
+
+describe('createSceneExecutor — all-match duplicate enqueue warnings', () => {
+  it('warns when all-match enqueues an already visited action', async () => {
+    const scene = {
+      id: 'duplicate_enqueue_scene',
+      entryActions: ['start'],
+      nextPolicy: 'all-match',
+      actions: [
+        {
+          ...makePassAction('start', 1, 'step.start'),
+          next: [{ action: 'again' }, { action: 'again' }],
+        },
+        makePassAction('again', 2, 'step.again'),
+      ],
+    } as unknown as SceneBlock;
+
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
+
+    expect(result.trace.actions.map((a) => a.actionId)).toEqual(['start', 'again']);
+    expect(result.trace.warnings).toEqual([
+      'action "again" was enqueued more than once (all-match) but ran only once',
+    ]);
+  });
+});
+
+describe('executeSceneSafe — success result', () => {
+  it('returns ok true when the scene completes', async () => {
+    const scene = {
+      id: 'safe_success_scene',
+      entryActions: ['only'],
+      actions: [makePassAction('only', 3, 'safe.value')],
+    } as unknown as SceneBlock;
+
+    const result = await executeSceneSafe(scene, stateManagerFromUnchecked({}));
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.sceneId).toBe('safe_success_scene');
+      expect(isPureNumber(result.value.stateAfterScene.read('safe.value'))).toBe(true);
+    }
+  });
+});
+
+describe('createSceneExecutor — construction errors', () => {
+  it('throws for duplicate action ids', () => {
+    const duplicateA = makePassAction('dup', 1, 'dup.one');
+    const duplicateB = makePassAction('dup', 2, 'dup.two');
+    const scene = {
+      id: 'duplicate_action_scene',
+      entryActions: ['dup'],
+      actions: [duplicateA, duplicateB],
+    } as unknown as SceneBlock;
+
+    expect(() => createSceneExecutor(scene, stateManagerFromUnchecked({}))).toThrow('duplicate action id "dup"');
+  });
+});
+
+describe('executeScene — next rule compute without prog', () => {
+  it('treats a next rule with missing prog as not matched', async () => {
+    const scene = {
+      id: 'missing_prog_scene',
+      entryActions: ['start'],
+      actions: [
+        {
+          ...makePassAction('start', 1, 'step.start'),
+          next: [{ compute: { condition: 'flag' }, action: 'never' }],
+        },
+        makePassAction('never', 2, 'step.never'),
+      ],
+    } as unknown as SceneBlock;
+
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
+
+    expect(result.trace.actions.map((a) => a.actionId)).toEqual(['start']);
+    expect(result.terminatedAt).toEqual(['start']);
+  });
+});

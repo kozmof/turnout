@@ -65,6 +65,7 @@ describe('preset functions', () => {
 
       expect(bfBoolean.and(a, b).value).toBe(false);
       expect(bfBoolean.or(a, b).value).toBe(true);
+      expect(bfBoolean.or(buildBoolean(false), buildBoolean(false)).value).toBe(false);
       expect(bfBoolean.xor(a, b).value).toBe(true);
 
       expectTagsToContainAll(bfBoolean.or(a, b).tags, ['left', 'right']);
@@ -142,6 +143,22 @@ describe('preset functions', () => {
     });
   });
 
+
+    it('supports additional array helpers and error branches', () => {
+      const item = buildNumber(2, ['item']);
+      const nested = buildArray([buildNumber(9)], ['nested']);
+      const arr = buildArray([buildNumber(1), item], ['array']);
+      const idx = buildNumber(1, ['index']);
+
+      expect(tfArray.pass(arr)).toBe(arr);
+      expect(tfArray.length(arr).value).toBe(2);
+      expect(tfArray.length(arr).tags).toEqual(['array']);
+      expect(bfArray.includes(arr, item).value).toBe(true);
+      expectTagsToContainAll(bfArray.includes(arr, item).tags, ['array', 'item']);
+      expect(() => bfArray.get(arr, buildNumber(99))).toThrow('out of bounds');
+      expect(() => bfArray.get(buildArray([nested]), buildNumber(0))).toThrow('item at that index is an array');
+    });
+
   describe('generic binary functions', () => {
     it('supports isNotEqual with merged tags', () => {
       const a = buildNumber(1, ['left']);
@@ -150,6 +167,16 @@ describe('preset functions', () => {
       const result = bfGeneric.isNotEqual(a, b);
       expect(result.value).toBe(true);
       expectTagsToContainAll(result.tags, ['left', 'right']);
+    });
+
+    it('supports equality for arrays and rejects incomparable values', () => {
+      expect(bfGeneric.isEqual(
+        buildArray([buildNumber(1)], ['left']),
+        buildArray([buildNumber(1)], ['right'])
+      ).value).toBe(true);
+      expect(bfGeneric.isNotEqual(buildString('a'), buildString('a')).value).toBe(false);
+      expect(() => bfGeneric.isEqual(buildNumber(1), buildString('1'))).toThrow();
+      expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString('true'))).toThrow();
     });
   });
 });

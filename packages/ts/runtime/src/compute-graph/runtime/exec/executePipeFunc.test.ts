@@ -3,6 +3,7 @@ import {
   createScopedValueTable,
   createScopedContext,
   validateScopedValueTable,
+  executePipeFunc,
 } from './executePipeFunc';
 import {
   ExecutionContext,
@@ -10,6 +11,8 @@ import {
   FuncArgMap,
   ValueId,
   ValueTable,
+  PipeDefineId,
+  CombineDefineId,
 } from '../../types';
 
 describe('executePipeFunc helpers', () => {
@@ -200,5 +203,135 @@ describe('executePipeFunc helpers', () => {
         v2: { symbol: 'string', value: 'original', subSymbol: undefined, tags: [] },
       });
     });
+  });
+});
+
+
+describe('executePipeFunc', () => {
+  function baseContext(): ExecutionContext {
+    return {
+      valueTable: {
+        v1: { symbol: 'number', value: 2, subSymbol: undefined, tags: [] },
+        v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
+      } as any,
+      funcTable: {
+        pipe1: {
+          kind: 'pipe',
+          defId: 'td_outer' as PipeDefineId,
+          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
+          returnId: 'v_result' as ValueId,
+        },
+      } as any,
+      combineFuncDefTable: {
+        pd_add: {
+          name: 'binaryFnNumber::add',
+          transformFn: {
+            a: ['transformFnNumber::pass'],
+            b: ['transformFnNumber::pass'],
+          },
+          args: { a: 'ia1' as any, b: 'ia2' as any },
+        },
+      } as any,
+      pipeFuncDefTable: {
+        td_outer: {
+          args: { a: 'ia-a', b: 'ia-b' },
+          sequence: [
+            {
+              kind: 'combine',
+              defId: 'pd_add' as CombineDefineId,
+              argBindings: {
+                a: { source: 'input', argName: 'a' },
+                b: { source: 'input', argName: 'b' },
+              },
+            },
+          ],
+        },
+      } as any,
+      condFuncDefTable: {} as any,
+    };
+  }
+
+  it('executes a pipe definition with object args', () => {
+    const context = baseContext();
+
+    const result = executePipeFunc('pipe1' as FuncId, 'td_outer' as PipeDefineId, context);
+
+    expect(result.value.value).toBe(5);
+    expect(result.updatedValueTable['v_result' as ValueId]?.value).toBe(5);
+  });
+
+  it('executes a nested pipe step recursively', () => {
+    const context = baseContext();
+    context.pipeFuncDefTable = {
+      ...context.pipeFuncDefTable,
+      td_inner: {
+        args: { x: 'ia-x', y: 'ia-y' },
+        sequence: [
+          {
+            kind: 'combine',
+            defId: 'pd_add' as CombineDefineId,
+            argBindings: {
+              a: { source: 'input', argName: 'x' },
+              b: { source: 'input', argName: 'y' },
+            },
+          },
+        ],
+      },
+      td_outer: {
+        args: { a: 'ia-a', b: 'ia-b' },
+        sequence: [
+          {
+            kind: 'pipe',
+            defId: 'td_inner' as PipeDefineId,
+            argBindings: {
+              x: { source: 'input', argName: 'a' },
+              y: { source: 'input', argName: 'b' },
+            },
+          },
+          {
+            kind: 'combine',
+            defId: 'pd_add' as CombineDefineId,
+            argBindings: {
+              a: { source: 'step', stepIndex: 0 },
+              b: { source: 'value', id: 'v2' as ValueId },
+            },
+          },
+        ],
+      },
+    } as any;
+
+    const result = executePipeFunc('pipe1' as FuncId, 'td_outer' as PipeDefineId, context);
+
+    expect(result.value.value).toBe(8);
+  });
+
+  it('rejects cond function entries and invalid step references', () => {
+    const context = baseContext();
+    context.funcTable['cond1' as FuncId] = {
+      kind: 'cond',
+      defId: 'cd1' as any,
+      conditionId: { source: 'value', id: 'v1' as ValueId },
+      trueBranchId: 'f_true' as FuncId,
+      falseBranchId: 'f_false' as FuncId,
+      returnId: 'v_cond' as ValueId,
+    } as any;
+
+    expect(() => executePipeFunc('cond1' as FuncId, 'td_outer' as PipeDefineId, context)).toThrow('cond entry');
+
+    context.pipeFuncDefTable['td_outer' as PipeDefineId] = {
+      args: { a: 'ia-a', b: 'ia-b' },
+      sequence: [
+        {
+          kind: 'combine',
+          defId: 'pd_add' as CombineDefineId,
+          argBindings: {
+            a: { source: 'step', stepIndex: 0 },
+            b: { source: 'input', argName: 'b' },
+          },
+        },
+      ],
+    } as any;
+
+    expect(() => executePipeFunc('pipe1' as FuncId, 'td_outer' as PipeDefineId, context)).toThrow('Invalid step reference');
   });
 });

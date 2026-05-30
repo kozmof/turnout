@@ -300,6 +300,34 @@ describe('resolveNextPrepare', () => {
     expect(isArray(result['empty']!)).toBe(true);
   });
 
+
+  it('from_literal converts nullish or object values to unknown null', () => {
+    const state = stateManagerFromUnchecked({});
+    const prevResult = makePrevResult({});
+    const result = resolveNextPrepare(
+      [{ binding: 'unknown', fromLiteral: { nested: 'value' } }] as unknown as NextPrepareEntry[],
+      state,
+      prevResult,
+    );
+    expect(isPureNull(result['unknown']!)).toBe(true);
+  });
+
+  it('rejects from_hook in next prepare entries', () => {
+    const state = stateManagerFromUnchecked({});
+    const prevResult = makePrevResult({});
+    let err: unknown;
+    try {
+      resolveNextPrepare(
+        [{ binding: 'x', fromHook: 'async_prepare' }] as unknown as NextPrepareEntry[],
+        state,
+        prevResult,
+      );
+    } catch (e) { err = e; }
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe('UnregisteredHook');
+    expect((err as Error).message).toContain('from_hook is not supported');
+  });
+
   it('resolves multiple entries with mixed sources', () => {
     const state = stateManagerFromUnchecked({ 'ctx.mode': buildString('fast') });
     const prevResult = makePrevResult({ raw_score: buildNumber(5) });
