@@ -103,6 +103,7 @@ function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
  * typo-safety matters.
  */
 export function stateManagerFromUnchecked(initial: Record<string, AnyValue>): StateManager {
+  for (const key of Object.keys(initial)) assertSafePath(key);
   return make({ ...initial }, null);
 }
 

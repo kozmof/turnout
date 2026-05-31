@@ -251,6 +251,18 @@ describe('StateManager — additional validation branches', () => {
     expect(() => sm.write('constructor', buildNumber(1))).toThrow('reserved path "constructor"');
   });
 
+  it('rejects reserved paths in the initial state passed to stateManagerFromUnchecked', () => {
+    // 'constructor' and 'prototype' are reachable as own enumerable keys via object literals.
+    // '__proto__' in an object literal invokes the prototype setter, not an own property,
+    // so it does not appear in Object.keys; the existing read()/write() guards cover that case.
+    expect(() => stateManagerFromUnchecked({ 'constructor': buildString('x') })).toThrow('reserved path "constructor"');
+    expect(() => stateManagerFromUnchecked({ 'prototype': buildBoolean(true) })).toThrow('reserved path "prototype"');
+    // Via Object.defineProperty, __proto__ can appear as an own enumerable key (e.g. from JSON.parse).
+    const withProto: Record<string, ReturnType<typeof buildNumber>> = {};
+    Object.defineProperty(withProto, '__proto__', { value: buildNumber(1), enumerable: true, configurable: true });
+    expect(() => stateManagerFromUnchecked(withProto)).toThrow('reserved path "__proto__"');
+  });
+
   it('read() rejects unknown paths for schema-backed managers', () => {
     const sm = stateManagerFromStrict({}, new Set(['known.path']));
 

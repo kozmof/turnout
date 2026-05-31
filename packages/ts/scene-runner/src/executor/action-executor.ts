@@ -70,7 +70,7 @@ export async function executeAction(
         treeCache.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
-      mergeValueTable(updatedTable, result.updatedValueTable);
+      mergeValueTableInPlace(updatedTable, result.updatedValueTable);
 
       if (!Object.hasOwn(updatedTable, valueId)) {
         throw new SceneRuntimeError(
@@ -126,7 +126,7 @@ export async function executeAction(
 }
 
 // Mutates accumulator — intentional; this is the local mutable value table for this action's forward pass.
-function mergeValueTable(accumulator: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
+function mergeValueTableInPlace(accumulator: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
   for (const [id, value] of Object.entries(source)) {
     accumulator[id] = value;
   }

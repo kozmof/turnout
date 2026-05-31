@@ -699,17 +699,6 @@ func (l *lex) tryHashKeyword(prefix string, kind TokenKind, ln, co int) bool {
 	return true
 }
 
-// matchPrefix checks if the runes at the current position exactly spell s.
-func (l *lex) matchPrefix(s string) bool {
-	runes := []rune(s)
-	for i, r := range runes {
-		if l.pos+i >= len(l.src) || l.src[l.pos+i] != r {
-			return false
-		}
-	}
-	return true
-}
-
 // ────────────────────────────────────────────────────────────
 // Number literals
 // ────────────────────────────────────────────────────────────

@@ -8,11 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	converter "github.com/kozmof/turnout/packages/go/converter"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
-	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 )
 
 func main() {
@@ -38,39 +35,6 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  turnout validate <input.turn> [-state-file path]")
 }
 
-// compileResult bundles the artifacts of a successful parse→lower→validate run.
-// The resolved STATE schema is available via lr.Schema.
-type compileResult struct {
-	lr *lower.LowerResult
-}
-
-// compile runs parse → state-resolve → lower → validate for inputPath.
-// stateBasePath is used to resolve state_file references. On any error it
-// returns (nil, diags-with-errors); on success it returns (result, warnings).
-func compile(inputPath, stateBasePath string) (*compileResult, diag.Diagnostics) {
-	src, err := os.ReadFile(inputPath)
-	if err != nil {
-		return nil, diag.Diagnostics{diag.Errorf("IOError", "cannot read %s: %v", inputPath, err)}
-	}
-
-	turnFile, ds1 := parser.ParseFile(inputPath, string(src))
-	if ds1.HasErrors() {
-		return nil, ds1
-	}
-
-	lr, ds2 := lower.LowerResolvingState(turnFile, stateBasePath)
-	if ds2.HasErrors() {
-		return nil, ds2
-	}
-
-	ds3 := validate.Validate(lr.Model, lr.Schema)
-	if ds3.HasErrors() {
-		return nil, ds3
-	}
-
-	return &compileResult{lr: lr}, ds3
-}
-
 func runConvert(args []string) int {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
 	output := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
@@ -93,7 +57,7 @@ func runConvert(args []string) int {
 		basePath = *stateFile
 	}
 
-	result, ds := compile(inputPath, basePath)
+	result, ds := converter.Compile(inputPath, basePath)
 	if ds.HasErrors() || result == nil {
 		printDiags(ds)
 		return 1
@@ -105,7 +69,7 @@ func runConvert(args []string) int {
 	}
 
 	// Clear annotations before emission — they are validator-only metadata.
-	result.lr.Model.Annotations = nil
+	result.Model.Annotations = nil
 
 	ext := "." + *format
 	var w io.Writer
@@ -126,14 +90,14 @@ func runConvert(args []string) int {
 	}
 
 	if *format == "json" {
-		if err := emit.EmitJSON(w, result.lr.Model); err != nil {
+		if err := emit.EmitJSON(w, result.Model); err != nil {
 			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
 			return 1
 		}
 		return 0
 	}
 
-	ds5 := emit.Emit(w, result.lr.Model)
+	ds5 := emit.Emit(w, result.Model)
 	if ds5.HasErrors() {
 		printDiags(ds5)
 		return 1
@@ -164,7 +128,7 @@ func runValidate(args []string) int {
 		basePath = *stateFile
 	}
 
-	_, ds := compile(inputPath, basePath)
+	_, ds := converter.Compile(inputPath, basePath)
 	printDiags(ds)
 	if ds.HasErrors() {
 		return 1
@@ -172,7 +136,7 @@ func runValidate(args []string) int {
 	return 0
 }
 
-func printDiags(ds diag.Diagnostics) {
+func printDiags(ds converter.Diagnostics) {
 	for _, d := range ds {
 		fmt.Fprintln(os.Stderr, d.Format())
 	}

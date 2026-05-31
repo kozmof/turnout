@@ -30,15 +30,18 @@ func (p Pos) String() string {
 // ────────────────────────────────────────────────────────────
 
 // FieldType enumerates the six DSL value types.
+// FieldTypeInvalid (-1) is the zero-safe sentinel for uninitialized variables;
+// it is never a valid DSL type. The six valid types start at 0.
 type FieldType int
 
 const (
-	FieldTypeNumber    FieldType = iota // number
-	FieldTypeStr                        // str
-	FieldTypeBool                       // bool
-	FieldTypeArrNumber                  // arr<number>
-	FieldTypeArrStr                     // arr<str>
-	FieldTypeArrBool                    // arr<bool>
+	FieldTypeInvalid   FieldType = iota - 1 // -1: uninitialized / unknown
+	FieldTypeNumber                          //  0: number
+	FieldTypeStr                             //  1: str
+	FieldTypeBool                            //  2: bool
+	FieldTypeArrNumber                       //  3: arr<number>
+	FieldTypeArrStr                          //  4: arr<str>
+	FieldTypeArrBool                         //  5: arr<bool>
 )
 
 var fieldTypeNames = [...]string{
@@ -46,7 +49,10 @@ var fieldTypeNames = [...]string{
 }
 
 func (ft FieldType) String() string {
-	if int(ft) < len(fieldTypeNames) {
+	if ft == FieldTypeInvalid {
+		return "FieldType(invalid)"
+	}
+	if int(ft) >= 0 && int(ft) < len(fieldTypeNames) {
 		return fieldTypeNames[ft]
 	}
 	return fmt.Sprintf("FieldType(%d)", int(ft))
@@ -83,7 +89,7 @@ func LiteralFieldType(lit Literal) (FieldType, bool) {
 		return FieldTypeBool, true
 	case *ArrayLiteral:
 		if len(v.Elements) == 0 {
-			return FieldTypeArrNumber, false
+			return FieldTypeInvalid, false
 		}
 		elemType, ok := LiteralFieldType(v.Elements[0])
 		if !ok {
