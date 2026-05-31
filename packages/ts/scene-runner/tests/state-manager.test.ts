@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { stateManagerFromUnchecked, stateManagerFromSchema, stateManagerFromStrict, literalToValue, protoValueToJs } from '../src/state/state-manager.js';
-import { buildNumber, buildString, buildBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
+import { buildNumber, buildString, buildBoolean, buildArray, buildArrayNumber, buildArrayString, buildArrayBoolean, isPureNumber, isPureString, isPureBoolean, isPureNull, isArray } from 'runtime';
 import type { StateModel } from '../src/types/turnout-model_pb.js';
 
 describe('StateManager', () => {
@@ -316,5 +316,81 @@ describe('StateManager — additional validation branches', () => {
     const missingCase = { $typeName: 'google.protobuf.Value', kind: {} };
     expect(protoValueToJs(missingKind)).toBe(missingKind);
     expect(protoValueToJs(missingCase)).toBe(missingCase);
+  });
+});
+
+describe('Array subtype enforcement — regression tests', () => {
+  // Regression: literalToValue previously used buildArray (subSymbol: undefined)
+  // for all typed array schema fields. It now uses buildArrayNumber / buildArrayString
+  // / buildArrayBoolean so schema defaults carry their declared element type.
+  it('literalToValue produces typed arrays for arr<number>', () => {
+    const v = literalToValue([1, 2, 3], 'arr<number>');
+    expect(v.symbol).toBe('array');
+    expect(v.subSymbol).toBe('number');
+  });
+
+  it('literalToValue produces typed arrays for arr<str>', () => {
+    const v = literalToValue(['a', 'b'], 'arr<str>');
+    expect(v.symbol).toBe('array');
+    expect(v.subSymbol).toBe('string');
+  });
+
+  it('literalToValue produces typed arrays for arr<bool>', () => {
+    const v = literalToValue([true, false], 'arr<bool>');
+    expect(v.symbol).toBe('array');
+    expect(v.subSymbol).toBe('boolean');
+  });
+
+  it('stateManagerFromSchema populates arr<number> defaults with subSymbol number', () => {
+    const schema = {
+      namespaces: [{ name: 'ns', fields: [{ name: 'items', type: 'arr<number>', value: [1, 2, 3] }] }],
+    } as unknown as StateModel;
+    const mgr = stateManagerFromSchema(schema);
+    const v = mgr.read('ns.items');
+    expect(v.symbol).toBe('array');
+    expect(v.subSymbol).toBe('number');
+  });
+
+  // Regression: matchesSchemaType previously allowed any array with
+  // subSymbol === undefined to pass type validation for any arr<T> field,
+  // meaning buildArray([buildBoolean(true)]) could be written to arr<number>.
+  it('write() rejects a non-empty untyped array written to arr<number> field', () => {
+    const sm = stateManagerFromStrict({}, new Set(['ns.items']), new Map([['ns.items', 'arr<number>']]));
+    const wrongArray = buildArray([buildBoolean(true)]);
+    expect(() => sm.write('ns.items', wrongArray)).toThrow('type mismatch');
+  });
+
+  it('write() rejects a non-empty untyped array written to arr<str> field', () => {
+    const sm = stateManagerFromStrict({}, new Set(['ns.tags']), new Map([['ns.tags', 'arr<str>']]));
+    const wrongArray = buildArray([buildNumber(1)]);
+    expect(() => sm.write('ns.tags', wrongArray)).toThrow('type mismatch');
+  });
+
+  it('write() accepts an empty untyped array written to any arr<T> field', () => {
+    const sm = stateManagerFromStrict({}, new Set(['nums', 'tags', 'flags']), new Map([
+      ['nums', 'arr<number>'],
+      ['tags', 'arr<str>'],
+      ['flags', 'arr<bool>'],
+    ]));
+    const emptyUntyped = buildArray([]);
+    expect(() => sm.write('nums', emptyUntyped)).not.toThrow();
+    expect(() => sm.write('tags', emptyUntyped)).not.toThrow();
+    expect(() => sm.write('flags', emptyUntyped)).not.toThrow();
+  });
+
+  it('write() accepts typed array builders for matching arr<T> fields', () => {
+    const sm = stateManagerFromStrict({}, new Set(['nums', 'tags', 'flags']), new Map([
+      ['nums', 'arr<number>'],
+      ['tags', 'arr<str>'],
+      ['flags', 'arr<bool>'],
+    ]));
+    expect(() => sm.write('nums', buildArrayNumber([buildNumber(1)]))).not.toThrow();
+    expect(() => sm.write('tags', buildArrayString([buildString('x')]))).not.toThrow();
+    expect(() => sm.write('flags', buildArrayBoolean([buildBoolean(true)]))).not.toThrow();
+  });
+
+  it('write() rejects mismatched typed arrays (arr<number> into arr<str>)', () => {
+    const sm = stateManagerFromStrict({}, new Set(['tags']), new Map([['tags', 'arr<str>']]));
+    expect(() => sm.write('tags', buildArrayNumber([buildNumber(1)]))).toThrow('type mismatch');
   });
 });

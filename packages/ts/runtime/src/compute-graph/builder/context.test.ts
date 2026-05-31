@@ -355,6 +355,35 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe(42);
     });
 
+    it('should evaluate cond when condition is a forward-referenced combine', () => {
+      // Regression: when cond appears BEFORE the combine it uses as its condition,
+      // the condition was misclassified as source:'value' (causing MissingValueError
+      // at tree-build time). processCondFunc now uses functionKeys from Pass 1
+      // instead of checking state.funcTable, making order irrelevant.
+      const context = ctx({
+        v1: 5,
+        v2: 5,
+        v3: 100,
+        v4: 200,
+        v0: 0,
+
+        // cond declared BEFORE isEqual (the combine it uses as its condition)
+        result: cond('isEqual', { then: 'trueFunc', else: 'falseFunc' }),
+
+        trueFunc: combine('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
+        falseFunc: combine('binaryFnNumber::add', { a: 'v4', b: 'v0' }),
+
+        // isEqual declared AFTER result — forward reference
+        isEqual: combine('binaryFnGeneric::isEqual', { a: 'v1', b: 'v2' }),
+      });
+
+      const result = executeGraph(context.ids.result, assertValidContext(context.exec));
+
+      // isEqual(5, 5) → true → trueFunc → 100
+      expect(result.value.value).toBe(100);
+      expect(result.value.symbol).toBe('number');
+    });
+
     it('should handle nested cond functions', () => {
       const context = ctx({
         outerCondition: true,

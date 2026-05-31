@@ -3,6 +3,9 @@ import {
   buildString,
   buildBoolean,
   buildArray,
+  buildArrayNumber,
+  buildArrayString,
+  buildArrayBoolean,
   buildNull,
 } from 'runtime';
 import type { AnyValue } from 'runtime';
@@ -87,12 +90,25 @@ function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
     case 'number': return value.symbol === 'number';
     case 'str': return value.symbol === 'string';
     case 'bool': return value.symbol === 'boolean';
-    case 'arr<number>': return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'number');
-    case 'arr<str>':    return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'string');
-    case 'arr<bool>':   return value.symbol === 'array' && (value.subSymbol === undefined || value.subSymbol === 'boolean');
+    case 'arr<number>': return value.symbol === 'array' && matchesArraySubtype(value, 'number');
+    case 'arr<str>':    return value.symbol === 'array' && matchesArraySubtype(value, 'string');
+    case 'arr<bool>':   return value.symbol === 'array' && matchesArraySubtype(value, 'boolean');
     default:
       throw new Error(`StateManager: unknown schema type "${schemaType}"`);
   }
+}
+
+/**
+ * Returns true when an array value's subSymbol matches the expected element type.
+ * An untyped empty array (subSymbol === undefined, length === 0) is accepted for
+ * any element type — it carries no conflicting type information. Non-empty arrays
+ * must declare the correct subSymbol.
+ */
+function matchesArraySubtype(value: AnyValue, expected: 'number' | 'string' | 'boolean'): boolean {
+  if (value.subSymbol === expected) return true;
+  // Allow untyped empty arrays: buildArray([]) has subSymbol === undefined but
+  // contains no elements, so there is no actual type conflict.
+  return value.subSymbol === undefined && Array.isArray(value.value) && value.value.length === 0;
 }
 
 /**
@@ -201,21 +217,21 @@ function literalToValue(
       return buildBoolean(raw);
     case 'arr<number>': {
       if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof raw}`);
-      return buildArray(raw.map((v) => {
+      return buildArrayNumber(raw.map((v) => {
         if (typeof v !== 'number') throw new Error(`literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildNumber(v);
       }));
     }
     case 'arr<str>': {
       if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof raw}`);
-      return buildArray(raw.map((v) => {
+      return buildArrayString(raw.map((v) => {
         if (typeof v !== 'string') throw new Error(`literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildString(v);
       }));
     }
     case 'arr<bool>': {
       if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof raw}`);
-      return buildArray(raw.map((v) => {
+      return buildArrayBoolean(raw.map((v) => {
         if (typeof v !== 'boolean') throw new Error(`literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildBoolean(v);
       }));

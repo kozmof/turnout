@@ -319,7 +319,7 @@ function processFunctions(
         referenceIndex.valueKeys,
         referenceIndex.functionKeys
       );
-      processFunction(key, value, state, scope);
+      processFunction(key, value, state, scope, referenceIndex.functionKeys);
     }
   }
 
@@ -657,7 +657,8 @@ function processFunction(
   id: string,
   builder: FunctionBuilder,
   state: FunctionPhaseState,
-  scope: Scope
+  scope: Scope,
+  functionKeys: Set<string>,
 ): void {
   switch (builder.__type) {
     case 'combine':
@@ -667,7 +668,7 @@ function processFunction(
       processPipeFunc(id, builder, state, scope);
       break;
     case 'cond':
-      processCondFunc(id, builder, state, scope);
+      processCondFunc(id, builder, state, scope, functionKeys);
       break;
     default: {
       // Exhaustiveness check - ensures all cases are handled
@@ -1049,7 +1050,8 @@ function processCondFunc(
   funcId: string,
   builder: CondBuilder,
   state: FunctionPhaseState,
-  scope: Scope
+  scope: Scope,
+  functionKeys: Set<string>,
 ): void {
   const defId = IdGenerator.generateCondDefineId();
   const returnId = lookupReturnId(funcId, state);
@@ -1060,8 +1062,10 @@ function processCondFunc(
     returnId,
   };
 
-  // Condition can be either a FuncId or ValueId — discriminate at build time
-  const conditionId = scope.funcId(builder.condition) in state.funcTable
+  // Use functionKeys (built in Pass 1) to discriminate condition source type.
+  // Checking state.funcTable here would silently misclassify conditions that
+  // reference a combine/pipe declared later in the spec (forward reference).
+  const conditionId = functionKeys.has(builder.condition)
     ? { source: 'func' as const, id: scope.funcId(builder.condition) }
     : { source: 'value' as const, id: scope.valueId(builder.condition) };
 
