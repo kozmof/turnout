@@ -65,7 +65,7 @@ function buildCondContext(
     pipeFuncDefTable: {} as any,
     condFuncDefTable: {
       cd_cond1: {
-        conditionId: { source: 'value', id: 'v_condition' as any },
+        conditionId: { kind: 'value', id: 'v_condition' as any },
         trueBranchId: trueBranchFuncId as any,
         falseBranchId: falseBranchFuncId as any,
       },

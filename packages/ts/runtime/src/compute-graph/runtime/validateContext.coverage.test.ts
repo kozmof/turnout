@@ -208,7 +208,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -525,7 +525,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -761,7 +761,7 @@ describe("validateContext — coverage", () => {
       expect(result.errors.some((e) => e.message.includes("Missing or invalid conditionId"))).toBe(true);
     });
 
-    it("detects condDef with conditionId missing source", () => {
+    it("detects condDef with conditionId missing kind", () => {
       const ctx = {
         ...minContext(),
         funcTable: {
@@ -773,7 +773,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { id: "someId" },  // missing source
+            conditionId: { id: "someId" },  // missing kind
             trueBranchId: "fT",
             falseBranchId: "fF",
           },
@@ -781,10 +781,10 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Must include string source and id"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Must include string kind and id"))).toBe(true);
     });
 
-    it("detects condDef with unknown conditionId source", () => {
+    it("detects condDef with unknown conditionId kind", () => {
       const ctx = {
         ...minContext(),
         funcTable: {
@@ -796,7 +796,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "unknown_source", id: "someId" },
+            conditionId: { kind: "unknown_source", id: "someId" },
             trueBranchId: "fT",
             falseBranchId: "fF",
           },
@@ -804,7 +804,7 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('Unknown source "unknown_source"'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('Unknown kind "unknown_source"'))).toBe(true);
     });
 
     it("detects condDef with func condition referencing non-existent FuncId", () => {
@@ -819,7 +819,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "func", id: "fMissing" },  // func doesn't exist
+            conditionId: { kind: "func", id: "fMissing" },  // func doesn't exist
             trueBranchId: "fT",
             falseBranchId: "fF",
           },
@@ -873,7 +873,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "func", id: "fCond" as FuncId },
+            conditionId: { kind: "func", id: "fCond" as FuncId },
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -913,7 +913,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "func", id: "fCond" as FuncId },
+            conditionId: { kind: "func", id: "fCond" as FuncId },
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -940,7 +940,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vNum" as ValueId },  // number value as condition
+            conditionId: { kind: "value", id: "vNum" as ValueId },  // number value as condition
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -965,7 +965,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             // no trueBranchId
             falseBranchId: "fF",
           },
@@ -990,7 +990,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             trueBranchId: "fMissing",  // doesn't exist in funcTable
             falseBranchId: "fF",
           },
@@ -1016,7 +1016,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             trueBranchId: "fT",
             falseBranchId: "fF",
           },
@@ -1080,7 +1080,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -1158,7 +1158,7 @@ describe("validateContext — coverage", () => {
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value", id: "vCond" as ValueId },
+            conditionId: { kind: "value", id: "vCond" as ValueId },
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },

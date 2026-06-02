@@ -503,7 +503,7 @@ describe('executeGraph', () => {
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { source: 'value' as const, id: 'vCondition' as ValueId },
+          conditionId: { kind: 'value' as const, id: 'vCondition' as ValueId },
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
         },
@@ -578,7 +578,7 @@ describe('executeGraph', () => {
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { source: 'value' as const, id: 'vCondition' as ValueId },
+          conditionId: { kind: 'value' as const, id: 'vCondition' as ValueId },
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
         },
@@ -643,7 +643,7 @@ describe('executeGraph', () => {
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { source: 'value' as const, id: 'vCondition' as ValueId },
+          conditionId: { kind: 'value' as const, id: 'vCondition' as ValueId },
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
         },
@@ -738,7 +738,7 @@ describe('executeGraph', () => {
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { source: 'func' as const, id: 'fCondition' as FuncId },
+          conditionId: { kind: 'func' as const, id: 'fCondition' as FuncId },
           trueBranchId: 'fTrue' as FuncId,
           falseBranchId: 'fFalse' as FuncId,
         },

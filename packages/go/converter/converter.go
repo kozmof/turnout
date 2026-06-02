@@ -37,8 +37,8 @@ type CompileResult struct {
 // stateBasePath overrides the directory used to resolve state_file directives.
 // Pass "" to default to the directory of inputPath.
 //
-// Returns (nil, diags) when any stage produces errors; (*CompileResult, warnings)
-// on success. The CLI wraps this function and handles output formatting.
+// Returns (nil, errors) when any stage produces errors. On success returns
+// (*CompileResult, nil); non-fatal diagnostics are in CompileResult.Warnings.
 func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	src, err := os.ReadFile(inputPath)
 	if err != nil {
@@ -69,5 +69,5 @@ func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 		Model:    lr.Model,
 		Schema:   lr.Schema,
 		Warnings: ds3,
-	}, ds3
+	}, nil
 }

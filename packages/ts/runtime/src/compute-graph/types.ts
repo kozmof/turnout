@@ -142,15 +142,15 @@ export type PipeFuncDefTable = {
 };
 
 export type ConditionId =
-  | { readonly source: 'value'; readonly id: ValueId }
-  | { readonly source: 'func'; readonly id: FuncId };
+  | { readonly kind: 'value'; readonly id: ValueId }
+  | { readonly kind: 'func'; readonly id: FuncId };
 
-export function isValueCondition(id: ConditionId): id is Extract<ConditionId, { source: 'value' }> {
-  return id.source === 'value';
+export function isValueCondition(id: ConditionId): id is Extract<ConditionId, { kind: 'value' }> {
+  return id.kind === 'value';
 }
 
-export function isFuncCondition(id: ConditionId): id is Extract<ConditionId, { source: 'func' }> {
-  return id.source === 'func';
+export function isFuncCondition(id: ConditionId): id is Extract<ConditionId, { kind: 'func' }> {
+  return id.kind === 'func';
 }
 
 export type CondFuncDefTable = {

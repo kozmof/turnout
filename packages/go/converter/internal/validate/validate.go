@@ -363,6 +363,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 		}
 
 		if b.ExtExpr != nil {
+			validateNoEmptyArrayLitArgs(b, ds)
 			validateExtExpr(b, protoLocalExprToAST(b.ExtExpr), scope, ds)
 			continue
 		}
@@ -1363,7 +1364,27 @@ func argHasEmptyArrayLit(arg *turnoutpb.ArgModel) bool {
 // Identity combines (e.g. arr_concat(x, [])) are exempt: the lowerer generates
 // them for single-reference array bindings and the [] carries an implicit type
 // from the other operand.
+//
+// For #if/#case/#pipe bindings (b.ExtExpr != nil), the structured local
+// expression tree is walked to catch empty array call-args that are not visible
+// in the flat Expr form (which the caller skips via continue).
 func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics) {
+	if b.ExtExpr != nil {
+		localexpr.WalkProto(b.ExtExpr, func(node *turnoutpb.LocalExprModel) {
+			call, ok := node.Expr.(*turnoutpb.LocalExprModel_Call)
+			if !ok {
+				return
+			}
+			for _, arg := range call.Call.GetArgs() {
+				if isEmptyArrayLocalLit(arg) {
+					*ds = append(*ds, diag.Errorf(diag.CodeEmptyArrayLitArg,
+						"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
+							"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
+				}
+			}
+		})
+		return
+	}
 	if b.Expr == nil {
 		return
 	}
@@ -1393,35 +1414,54 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics
 	}
 }
 
-// isIdentityCombine reports whether c is the canonical identity lowering emitted
-// by the lowerer for a single-reference binding. Each binary function is paired
-// with its algebraic identity element so the expression is a no-op passthrough:
-// f(x, identity) ≡ x. The sentinel values are:
+// isEmptyArrayLocalLit reports whether e is a LocalLitExprModel whose value is
+// an empty array. Used to detect type-ambiguous [] in local expression call args.
+func isEmptyArrayLocalLit(e *turnoutpb.LocalExprModel) bool {
+	if e == nil {
+		return false
+	}
+	litNode, ok := e.Expr.(*turnoutpb.LocalExprModel_Lit)
+	if !ok || litNode.Lit == nil || litNode.Lit.GetValue() == nil {
+		return false
+	}
+	lv, ok := litNode.Lit.GetValue().Kind.(*structpb.Value_ListValue)
+	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+}
+
+// identityElement maps each identity-combine function to a predicate that
+// returns true when a structpb.Value is that function's algebraic identity:
 //
 //	bool_and → true   (x & true  == x)
 //	add      → 0      (x + 0     == x)
 //	str_concat → ""   (x ++ ""   == x)
 //	arr_concat → []   (x ++ []   == x)
+var identityElement = map[string]func(*structpb.Value) bool{
+	"bool_and": func(v *structpb.Value) bool {
+		bv, ok := v.Kind.(*structpb.Value_BoolValue)
+		return ok && bv.BoolValue
+	},
+	"add": func(v *structpb.Value) bool {
+		nv, ok := v.Kind.(*structpb.Value_NumberValue)
+		return ok && nv.NumberValue == 0
+	},
+	"str_concat": func(v *structpb.Value) bool {
+		sv, ok := v.Kind.(*structpb.Value_StringValue)
+		return ok && sv.StringValue == ""
+	},
+	"arr_concat": func(v *structpb.Value) bool {
+		lv, ok := v.Kind.(*structpb.Value_ListValue)
+		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+	},
+}
+
+// isIdentityCombine reports whether c is the canonical identity lowering emitted
+// by the lowerer for a single-reference binding (f(x, identity) ≡ x).
 func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
-	identityFns := map[string]bool{"bool_and": true, "add": true, "str_concat": true, "arr_concat": true}
-	if !identityFns[c.Fn] || len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
+	isIdentity, ok := identityElement[c.Fn]
+	if !ok || len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
 		return false
 	}
-	switch c.Fn {
-	case "bool_and":
-		bv, ok := c.Args[1].Lit.Kind.(*structpb.Value_BoolValue)
-		return ok && bv.BoolValue // identity: true
-	case "add":
-		nv, ok := c.Args[1].Lit.Kind.(*structpb.Value_NumberValue)
-		return ok && nv.NumberValue == 0 // identity: 0
-	case "str_concat":
-		sv, ok := c.Args[1].Lit.Kind.(*structpb.Value_StringValue)
-		return ok && sv.StringValue == "" // identity: ""
-	case "arr_concat":
-		lv, ok := c.Args[1].Lit.Kind.(*structpb.Value_ListValue)
-		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0) // identity: []
-	}
-	return false
+	return isIdentity(c.Args[1].Lit)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -81,6 +81,10 @@ function stableKey(obj: unknown): string {
  * @param maxSteps - Abort after this many action executions to guard against
  *   infinite loops in hand-crafted or malformed JSON models. Defaults to 10 000.
  *
+ * `next()` throws `SceneRuntimeError` for: `MaxStepsExceeded`, `UnknownAction`,
+ * `DuplicateActionId`, `UnknownFunction`, `UnknownArgModel`.
+ * Use `executeSceneSafe` if you need to capture partial state on failure.
+ *
  * @example
  * const executor = createSceneExecutor(scene, state, hooks);
  * while (!executor.isDone()) {

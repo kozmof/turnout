@@ -11,8 +11,6 @@ import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
 export type BuiltContext = {
   exec: ExecutionContext;
-  /** Binding name → FuncId (function binding) or ValueId (value binding). */
-  ids: Record<string, FuncId | ValueId>;
   /** Binding name → ValueId for every binding. Used for from_action lookup. */
   nameToValueId: Record<string, ValueId>;
   /** Returns the FuncId for a function binding, or undefined if it is a value binding. */
@@ -154,7 +152,7 @@ export function buildSpec(
     if (arg.funcRef !== undefined) return arg.funcRef;
     if (arg.lit !== undefined) return addLitBinding(arg.lit);
     if (arg.stepRef !== undefined) {
-      if (!currentPipeName) throw new Error('step_ref used outside of pipe context');
+      if (!currentPipeName) throw new SceneRuntimeError('UnknownArgModel', contextId, 'step_ref used outside of pipe context');
       return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: arg.stepRef };
     }
     if (arg.transform !== undefined) {
@@ -164,7 +162,7 @@ export function buildSpec(
         transformFn: arg.transform.fn,
       };
     }
-    throw new Error('Unknown ArgModel variant encountered in hcl-context-builder');
+    throw new SceneRuntimeError('UnknownArgModel', contextId, 'unknown ArgModel variant encountered in hcl-context-builder');
   }
 
   // `cond()` accepts a binding id for the condition. The runtime builder then
@@ -173,7 +171,7 @@ export function buildSpec(
     if (arg.ref !== undefined) return arg.ref;
     if (arg.funcRef !== undefined) return arg.funcRef;
     if (arg.lit !== undefined) return addLitBinding(arg.lit);
-    throw new Error('Cond condition must resolve to a value or function binding');
+    throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition must resolve to a value or function binding');
   }
 
   // Process each binding in declaration order (converter guarantees topological order).
@@ -279,5 +277,5 @@ export function buildContextFromProg(
   function getValueId(name: string): ValueId | undefined {
     return !funcBindingNames.has(name) ? asValueId(ids[name] as string) : undefined;
   }
-  return { exec: result.exec, ids, nameToValueId, getFuncId, getValueId };
+  return { exec: result.exec, nameToValueId, getFuncId, getValueId };
 }

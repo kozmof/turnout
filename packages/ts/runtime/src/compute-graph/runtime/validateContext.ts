@@ -1178,24 +1178,24 @@ function validateCondDefEntry(
     const conditionId = entry.conditionId;
 
     if (
-      !("source" in conditionId) ||
-      typeof conditionId.source !== "string" ||
+      !("kind" in conditionId) ||
+      typeof conditionId.kind !== "string" ||
       !("id" in conditionId) ||
       typeof conditionId.id !== "string"
     ) {
       state.errors.push({
-        message: `CondFuncDefTable[${defId}].conditionId: Must include string source and id`,
+        message: `CondFuncDefTable[${defId}].conditionId: Must include string kind and id`,
         details: { defId },
       });
     } else if (
-      conditionId.source !== "value" &&
-      conditionId.source !== "func"
+      conditionId.kind !== "value" &&
+      conditionId.kind !== "func"
     ) {
       state.errors.push({
-        message: `CondFuncDefTable[${defId}].conditionId: Unknown source "${conditionId.source}"`,
-        details: { defId, source: conditionId.source },
+        message: `CondFuncDefTable[${defId}].conditionId: Unknown kind "${conditionId.kind}"`,
+        details: { defId, kind: conditionId.kind },
       });
-    } else if (conditionId.source === "value") {
+    } else if (conditionId.kind === "value") {
       const id = conditionId.id;
       if (!valueIdExistsInContext(id, context)) {
         state.errors.push({
@@ -1347,8 +1347,8 @@ function checkFunctionCycles(
         if (
           "conditionId" in condDef &&
           isRecord(condDef.conditionId) &&
-          "source" in condDef.conditionId &&
-          condDef.conditionId.source === "func" &&
+          "kind" in condDef.conditionId &&
+          condDef.conditionId.kind === "func" &&
           "id" in condDef.conditionId &&
           typeof condDef.conditionId.id === "string"
         ) {

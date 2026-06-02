@@ -273,7 +273,7 @@ describe('validateContext integration', () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: 'value' as const, id: 'vCond' as ValueId },
+            conditionId: { kind: 'value' as const, id: 'vCond' as ValueId },
             trueBranchId: 'fTrue' as FuncId,
             falseBranchId: 'fFalse' as FuncId,
           },
@@ -309,7 +309,7 @@ describe('validateContext integration', () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: 'value' as const, id: 'vCond' as ValueId },
+            conditionId: { kind: 'value' as const, id: 'vCond' as ValueId },
             trueBranchId: 'f-invalid-true' as FuncId,
             falseBranchId: 'f-invalid-false' as FuncId,
           },

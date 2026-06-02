@@ -36,6 +36,12 @@ export type RunnerStepResult =
  * parsed `TurnModel`. To load a model from disk, use the server utilities
  * (`runConverter`, `loadJsonModel`) before constructing a Runner.
  *
+ * **Error handling:** `next()` and `run()` can throw `SceneRuntimeError` or
+ * `RouteRuntimeError` for unrecoverable runtime faults. Known `SceneRuntimeError`
+ * codes: `MaxStepsExceeded`, `UnknownAction`, `DuplicateActionId`, `UnknownFunction`,
+ * `UnknownArgModel`. Use `executeSceneSafe` directly if you need partial-state
+ * recovery on failure.
+ *
  * @example
  * const runner = createRunner(model, { entryId: 'checkout', initialState: {} });
  * runner.usePrepareHook('get_cart', (ctx) => ({ items: buildString('a,b') }));
@@ -63,11 +69,17 @@ export type Runner = {
    * completed action.
    *
    * Returns fewer than `steps` entries if execution finishes early.
+   *
+   * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
+   * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
    */
   next(steps?: number): Promise<RunnerStepResult[]>;
   /**
    * Run to completion and return the final result.
    * Equivalent to calling `next()` in a loop until done.
+   *
+   * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
+   * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
    */
   run(): Promise<HarnessResult>;
   /**
@@ -160,6 +172,9 @@ function buildSceneMap(model: ReturnType<typeof migrateModel>) {
  *   - `.run()` — run to completion
  *   - `.isDone()` — check if finished
  *   - `.result()` — get the final HarnessResult
+ *
+ * `next()` and `run()` may throw `SceneRuntimeError` or `RouteRuntimeError`.
+ * Use `executeSceneSafe` if you need partial-state recovery on failure.
  */
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const migratedModel = migrateModel(model);

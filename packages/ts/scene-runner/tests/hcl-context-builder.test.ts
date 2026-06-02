@@ -25,7 +25,9 @@ import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function runProg(ctx: BuiltContext, rootName: string) {
-  const rootId = ctx.ids[rootName] as FuncId;
+  // getFuncId returns undefined for value bindings; fall back to nameToValueId.
+  // executeGraph internally handles both FuncId and ValueId as entry points.
+  const rootId = (ctx.getFuncId(rootName) ?? ctx.nameToValueId[rootName]) as FuncId;
   const validated = assertValidContext(ctx.exec);
   return executeGraph(rootId, validated);
 }
@@ -212,7 +214,7 @@ describe('buildSpec — additional edge cases', () => {
       ],
     } as unknown as ProgModel;
 
-    expect(() => buildSpec(prog, {})).toThrow('Cond condition must resolve to a value or function binding');
+    expect(() => buildSpec(prog, {})).toThrow('cond condition must resolve to a value or function binding');
   });
 });
 
@@ -502,7 +504,7 @@ describe('buildContextFromProg — errors', () => {
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('Unknown ArgModel variant');
+    expect(() => buildContextFromProg(prog, {})).toThrow('unknown ArgModel variant');
   });
 
   it('processes a transform arg before the context is built', () => {
@@ -631,7 +633,7 @@ describe('buildContextFromProg — pipe expr', () => {
     } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
     expect(ctx.nameToValueId['chained']).toBeDefined();
-    expect(ctx.ids['chained']).toBeDefined();
+    expect(ctx.getFuncId('chained')).toBeDefined();
   });
 
   it('builds a context with a multi-step pipe that uses step_ref', () => {

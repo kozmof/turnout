@@ -128,10 +128,13 @@ func runValidate(args []string) int {
 		basePath = *stateFile
 	}
 
-	_, ds := converter.Compile(inputPath, basePath)
+	result, ds := converter.Compile(inputPath, basePath)
 	printDiags(ds)
 	if ds.HasErrors() {
 		return 1
+	}
+	if result != nil {
+		printDiags(result.Warnings)
 	}
 	return 0
 }

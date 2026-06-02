@@ -144,7 +144,7 @@ describe("validateContext", () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value" as const, id: "vCond" as ValueId },
+            conditionId: { kind: "value" as const, id: "vCond" as ValueId },
             trueBranchId: "fTrue" as FuncId,
             falseBranchId: "fFalse" as FuncId,
           },
@@ -431,7 +431,7 @@ describe("validateContext", () => {
         pipeFuncDefTable: {} as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { source: "value" as const, id: "vCond" as ValueId },
+            conditionId: { kind: "value" as const, id: "vCond" as ValueId },
             trueBranchId: "f-nonexistent" as FuncId,
             falseBranchId: "fFalse" as FuncId,
           },
@@ -1019,7 +1019,7 @@ describe("validateContext", () => {
       ).toBe(true);
     });
 
-    it("requires CondFunc conditionId shape and valid source", () => {
+    it("requires CondFunc conditionId shape and valid kind", () => {
       const context = createBaseContext();
       context.funcTable = {
         fTrue: {
@@ -1042,7 +1042,7 @@ describe("validateContext", () => {
       } as any;
       context.condFuncDefTable = {
         cd1: {
-          conditionId: { source: "unknown", id: "vBool" as ValueId } as any,
+          conditionId: { kind: "unknown", id: "vBool" as ValueId } as any,
           trueBranchId: "fTrue" as FuncId,
           falseBranchId: "fFalse" as FuncId,
         },
@@ -1051,7 +1051,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) => e.message.includes("Unknown source")),
+        result.errors.some((e) => e.message.includes("Unknown kind")),
       ).toBe(true);
     });
 
@@ -1078,7 +1078,7 @@ describe("validateContext", () => {
       } as any;
       context.condFuncDefTable = {
         cd1: {
-          conditionId: { source: "value", id: "v1" as ValueId },
+          conditionId: { kind: "value", id: "v1" as ValueId },
           trueBranchId: "fTrue" as FuncId,
           falseBranchId: "fFalse" as FuncId,
         },
@@ -1120,7 +1120,7 @@ describe("validateContext", () => {
       } as any;
       context.condFuncDefTable = {
         cd1: {
-          conditionId: { source: "func", id: "fCond" as FuncId },
+          conditionId: { kind: "func", id: "fCond" as FuncId },
           trueBranchId: "fTrue" as FuncId,
           falseBranchId: "fFalse" as FuncId,
         },

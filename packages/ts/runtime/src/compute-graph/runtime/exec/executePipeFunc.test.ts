@@ -310,7 +310,7 @@ describe('executePipeFunc', () => {
     context.funcTable['cond1' as FuncId] = {
       kind: 'cond',
       defId: 'cd1' as any,
-      conditionId: { source: 'value', id: 'v1' as ValueId },
+      conditionId: { kind: 'value', id: 'v1' as ValueId },
       trueBranchId: 'f_true' as FuncId,
       falseBranchId: 'f_false' as FuncId,
       returnId: 'v_cond' as ValueId,

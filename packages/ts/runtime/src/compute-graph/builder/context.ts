@@ -1066,8 +1066,8 @@ function processCondFunc(
   // Checking state.funcTable here would silently misclassify conditions that
   // reference a combine/pipe declared later in the spec (forward reference).
   const conditionId = functionKeys.has(builder.condition)
-    ? { source: 'func' as const, id: scope.funcId(builder.condition) }
-    : { source: 'value' as const, id: scope.valueId(builder.condition) };
+    ? { kind: 'func' as const, id: scope.funcId(builder.condition) }
+    : { kind: 'value' as const, id: scope.valueId(builder.condition) };
 
   state.condFuncDefTable[defId] = {
     conditionId,

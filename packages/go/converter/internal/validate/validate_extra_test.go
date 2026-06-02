@@ -1495,6 +1495,55 @@ func TestLiteralFieldTypeBoolLiteral(t *testing.T) {
 	}
 }
 
+// ─── EmptyArrayLitArg in local (#if/#case/#pipe) expressions ─────────────────
+
+func TestEmptyArrayLitArgInIf(t *testing.T) {
+	src := min(`        flag:bool = true
+        base:arr<number> = [1, 2]
+        out:arr<number> = #if(flag, arr_concat(base, []), base)
+`)
+	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
+		t.Error("want EmptyArrayLitArg for [] as call arg inside #if branch")
+	}
+}
+
+func TestEmptyArrayLitArgInCase(t *testing.T) {
+	src := min(`        base:arr<number> = [1]
+        n:number = 0
+        out:arr<number> = #case(n, 0 => arr_concat(base, []), _ => base)
+`)
+	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
+		t.Error("want EmptyArrayLitArg for [] as call arg inside #case arm")
+	}
+}
+
+func TestEmptyArrayLitArgInPipe(t *testing.T) {
+	src := min(`        base:arr<number> = [1]
+        out:arr<number> = #pipe(base, arr_concat(#it, []))
+`)
+	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
+		t.Error("want EmptyArrayLitArg for [] as call arg inside #pipe step")
+	}
+}
+
+func TestEmptyArrayBranchValueNotFlagged(t *testing.T) {
+	// [] as the result value of a branch (not a call arg) must NOT emit EmptyArrayLitArg —
+	// the lowerer assigns it the declared binding type, so runtime inference is fine.
+	src := min(`        flag:bool = true
+        base:arr<number> = [1]
+        out:arr<number> = #if(flag, base, arr_concat(base, base))
+`)
+	ds := pipeline(src)
+	if hasCode(ds, diag.CodeEmptyArrayLitArg) {
+		t.Error("unexpected EmptyArrayLitArg for [] as branch result (not a call arg)")
+	}
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
 // ─── Ref not found in resolveArgType ─────────────────────────────────────────
 
 func TestResolveArgTypeRefNotFound(t *testing.T) {

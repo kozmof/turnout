@@ -87,24 +87,24 @@ describe('types', () => {
 
   describe('isValueCondition', () => {
     it('returns true for value conditions', () => {
-      const cond: ConditionId = { source: 'value', id: 'v1' as ValueId };
+      const cond: ConditionId = { kind: 'value', id: 'v1' as ValueId };
       expect(isValueCondition(cond)).toBe(true);
     });
 
     it('returns false for func conditions', () => {
-      const cond: ConditionId = { source: 'func', id: 'f1' as FuncId };
+      const cond: ConditionId = { kind: 'func', id: 'f1' as FuncId };
       expect(isValueCondition(cond)).toBe(false);
     });
   });
 
   describe('isFuncCondition', () => {
     it('returns true for func conditions', () => {
-      const cond: ConditionId = { source: 'func', id: 'f1' as FuncId };
+      const cond: ConditionId = { kind: 'func', id: 'f1' as FuncId };
       expect(isFuncCondition(cond)).toBe(true);
     });
 
     it('returns false for value conditions', () => {
-      const cond: ConditionId = { source: 'value', id: 'v1' as ValueId };
+      const cond: ConditionId = { kind: 'value', id: 'v1' as ValueId };
       expect(isFuncCondition(cond)).toBe(false);
     });
   });
