@@ -61,11 +61,11 @@ func TestEnumStringOutOfBounds(t *testing.T) {
 	}
 }
 
-// TestInfixOpFnAliasDefault covers the default branch in FnAlias() which is
+// TestInfixOpFnAliasRawDefault covers the default branch in fnAliasRaw() which is
 // reached for out-of-range InfixOp values.
-func TestInfixOpFnAliasDefault(t *testing.T) {
+func TestInfixOpFnAliasRawDefault(t *testing.T) {
 	op := InfixOp(999)
-	if got := op.FnAlias(); got != "" {
-		t.Errorf("InfixOp(999).FnAlias() = %q, want empty string", got)
+	if got := op.fnAliasRaw(); got != "" {
+		t.Errorf("InfixOp(999).fnAliasRaw() = %q, want empty string", got)
 	}
 }

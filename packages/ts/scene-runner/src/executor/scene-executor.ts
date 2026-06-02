@@ -160,7 +160,7 @@ export function createSceneExecutor(
     const result = await executeAction(action, currentState, hooks, scene.id);
     currentState = result.stateAfterMerge;
 
-    const nextIds = evaluateNextRules(action, currentState, result, policy);
+    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
     const trace: ActionTrace = {
@@ -168,6 +168,7 @@ export function createSceneExecutor(
       computeRootValue: result.computeRootValue,
       nextActionIds: nextIds,
       ...(result.publishOutcomes.length > 0 ? { publishOutcomes: result.publishOutcomes } : {}),
+      ...(nextWarnings.length > 0 ? { warnings: nextWarnings } : {}),
     };
     actionTraces.push(trace);
     queue.push(...nextIds);
@@ -259,6 +260,8 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
   return map;
 }
 
+type NextRulesResult = { matches: string[]; warnings: string[] };
+
 /**
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
@@ -267,13 +270,16 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
  * appearing more than once in the list (unusual but legal) share a context.
  * The cache is per-invocation so stale injected values from previous actions
  * (where state or result differ) are never reused.
+ *
+ * `warnings` contains a diagnostic message for any condition binding that did
+ * not resolve to a pure boolean — the rule is skipped but no error is thrown.
  */
 function evaluateNextRules(
   action: ActionModel,
   state: StateManager,
   result: ActionExecutionResult,
   policy: string,
-): string[] {
+): NextRulesResult {
   // Cache is scoped per invocation: state and result are constant within one
   // action's next-rule evaluation, so rules that share the same object identity
   // safely share a context. Object-identity keying avoids expensive JSON
@@ -281,6 +287,7 @@ function evaluateNextRules(
   const ctxCache = new WeakMap<NextRuleModel, BuiltContext>();
   const rules = action.next ?? [];
   const matches: string[] = [];
+  const warnings: string[] = [];
 
   for (const rule of rules) {
     let condMet: boolean;
@@ -309,6 +316,12 @@ function evaluateNextRules(
         condValue = validated.valueTable[condValueId];
       }
 
+      if (!isPureBoolean(condValue)) {
+        warnings.push(
+          `action "${action.id}" next-rule condition "${conditionName}" resolved to ` +
+          `${condValue?.symbol ?? 'undefined'} (expected pure boolean) — rule skipped`,
+        );
+      }
       condMet = isPureBoolean(condValue) && condValue.value;
     }
 
@@ -318,5 +331,5 @@ function evaluateNextRules(
     }
   }
 
-  return matches;
+  return { matches, warnings };
 }

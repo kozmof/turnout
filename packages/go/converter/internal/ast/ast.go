@@ -352,10 +352,10 @@ func (op InfixOp) String() string {
 	return fmt.Sprintf("InfixOp(%d)", int(op))
 }
 
-// FnAlias returns the canonical function alias for this infix operator.
-// For InfixPlus, the alias is type-dispatched (number → "add", str → "str_concat");
-// this method returns "" and the lowerer resolves it from the binding's declared type.
-func (op InfixOp) FnAlias() string {
+// fnAliasRaw returns the function alias for operators with a fixed mapping.
+// Returns "" for InfixPlus (type-dispatched) and unknown operators.
+// Unexported — only FnAliasForType should be used outside this package.
+func (op InfixOp) fnAliasRaw() string {
 	switch op {
 	case InfixAnd:
 		return "bool_and"
@@ -374,7 +374,7 @@ func (op InfixOp) FnAlias() string {
 	case InfixNeq:
 		return "neq"
 	case InfixPlus:
-		return "" // type-dispatched: "add" for number, "str_concat" for str
+		return "" // type-dispatched: resolved by FnAliasForType
 	case InfixSub:
 		return "sub"
 	case InfixMul:
@@ -389,12 +389,13 @@ func (op InfixOp) FnAlias() string {
 }
 
 // FnAliasForType returns the resolved function alias for this operator given the
-// binding's declared field type. Unlike FnAlias, it always returns a non-empty
-// string: InfixPlus dispatches to "str_concat" for FieldTypeStr and "add"
-// otherwise. All other operators delegate to FnAlias directly.
+// binding's declared field type. Always returns a non-empty string.
+// InfixPlus dispatches to "str_concat" for FieldTypeStr and "add" otherwise.
+// All other operators return their fixed alias directly.
+// Use this instead of any raw alias lookup — it is the only safe call site.
 func (op InfixOp) FnAliasForType(ft FieldType) string {
 	if op != InfixPlus {
-		return op.FnAlias()
+		return op.fnAliasRaw()
 	}
 	if ft == FieldTypeStr {
 		return "str_concat"

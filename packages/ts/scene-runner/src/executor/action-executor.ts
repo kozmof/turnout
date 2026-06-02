@@ -95,13 +95,16 @@ export async function executeAction(
   const rootValueId = builtCtx.nameToValueId[action.compute.root];
   const computeRootValue = updatedTable[rootValueId] ?? buildNull('missing');
 
-  // Step 5: apply merge entries — each write returns a new StateManager.
+  // Step 5: apply merge entries in a single batch to avoid O(n) intermediate
+  // StateManager allocations when multiple bindings are written back to STATE.
   let mergedState = state;
+  const mergeBatch: Record<string, AnyValue> = {};
   for (const entry of action.merge ?? []) {
     const bindingVal = bindingValues[entry.binding];
-    if (bindingVal !== undefined) {
-      mergedState = mergedState.write(entry.toState, bindingVal);
-    }
+    if (bindingVal !== undefined) mergeBatch[entry.toState] = bindingVal;
+  }
+  if (Object.keys(mergeBatch).length > 0) {
+    mergedState = mergedState.writeBatch(mergeBatch);
   }
 
   // Step 6: invoke publish hooks in declaration order with the final merged state.

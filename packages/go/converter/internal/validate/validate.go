@@ -606,7 +606,7 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 		}
 	}
 
-	var thenType, elseType ast.FieldType
+	var thenType, elseType ast.FieldType = ast.FieldTypeInvalid, ast.FieldTypeInvalid
 	var hasThen, hasElse bool
 
 	if cond.Then != nil && cond.Then.FuncRef != nil && *cond.Then.FuncRef != "" {
@@ -665,7 +665,7 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 // ─────────────────────────────────────────────────────────────────────────────
 
 func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, ds *diag.Diagnostics) {
-	var ret ast.FieldType
+	var ret ast.FieldType = ast.FieldTypeInvalid
 	var known bool
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_IfExpr:
@@ -754,16 +754,13 @@ func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalE
 func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
 	lhsType, lhsOK := validateProtoLocalExpr(bindingName, lhs, scope, itType, itAllowed, ds)
 	rhsType, rhsOK := validateProtoLocalExpr(bindingName, rhs, scope, itType, itAllowed, ds)
-	fn := op.FnAlias()
-	if fn == "" {
-		if lhsOK && rhsOK && lhsType == ast.FieldTypeStr && rhsType == ast.FieldTypeStr {
-			return ast.FieldTypeStr, true
-		}
-		fn = "add"
-	}
+	// FnAliasForType resolves InfixPlus to "str_concat" or "add" based on the
+	// inferred lhs type. For all other operators it returns their fixed alias.
+	// Argument type errors (e.g. lhs str but rhs number for +) are caught below.
+	fn := op.FnAliasForType(lhsType)
 	spec, ok := builtinFns[fn]
 	if !ok {
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	validateLocalCallArgTypes(bindingName, fn, spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK}, ds)
 	return resolveLocalCallReturn(spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK})
@@ -793,7 +790,7 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 
 func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
 	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
-	var ret ast.FieldType
+	var ret ast.FieldType = ast.FieldTypeInvalid
 	retOK := false
 	for _, arm := range arms {
 		armScope := protoPatternScopeBindings(scope, arm.GetPattern(), subjectType, subjectOK)

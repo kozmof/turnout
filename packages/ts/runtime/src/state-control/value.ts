@@ -30,48 +30,6 @@ export type BaseTypeSubSymbol = ArrayElemSubSymbol | NullReasonSubSymbol;
  * User-definable tag symbols for tracking computational properties.
  *
  * Tags represent markers or labels that propagate through value transformations.
- * This enables tracking properties like:
- * - Data provenance (where did this value come from?)
- * - Computational dependencies (what external factors influenced this?)
- * - Quality attributes (is this value cached, deprecated, etc.?)
- *
- * ## Common Tag Examples
- *
- * - `'random'`: Value depends on random number generation
- * - `'network'`: Value depends on network I/O
- * - `'cached'`: Value retrieved from cache
- * - `'io'`: Value depends on file/disk I/O
- * - `'deprecated'`: Value uses deprecated APIs
- * - `'user-input'`: Value originated from user input
- * - `'external-api'`: Value from external API call
- *
- * ## Usage
- *
- * ```typescript
- * // Pure value (no tags)
- * const pure: NumberValue = {
- *   symbol: 'number',
- *   value: 42,
- *   subSymbol: undefined,
- *   tags: []
- * };
- *
- * // Value with single tag
- * const random: NumberValue = {
- *   symbol: 'number',
- *   value: Math.random(),
- *   subSymbol: undefined,
- *   tags: ['random']
- * };
- *
- * // Value with multiple tags
- * const complex: NumberValue = {
- *   symbol: 'number',
- *   value: getCachedRandomValue(),
- *   subSymbol: undefined,
- *   tags: ['random', 'cached']
- * };
- * ```
  */
 export type TagSymbol = string;
 

@@ -37,6 +37,13 @@ export interface StateManager {
    * Does not mutate the current instance.
    */
   write(path: string, value: AnyValue): StateManager;
+  /**
+   * Return a new StateManager with all entries in `batch` applied atomically.
+   * Validates all paths and types before writing — throws on the first violation.
+   * Prefer this over repeated `write()` calls when merging multiple bindings at
+   * once: it allocates a single new state object regardless of batch size.
+   */
+  writeBatch(batch: Record<string, AnyValue>): StateManager;
   /** Return a shallow copy of the current state record. */
   snapshot(): Readonly<Record<string, AnyValue>>;
   /**
@@ -91,6 +98,25 @@ function make(
         }
       }
       return make({ ...state, [path]: value }, validPaths, typeMap);
+    },
+    writeBatch: (batch) => {
+      for (const [path, value] of Object.entries(batch)) {
+        assertSafePath(path);
+        if (validPaths !== null && !validPaths.has(path)) {
+          throw new Error(
+            `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+          );
+        }
+        if (typeMap !== null) {
+          const expectedType = typeMap.get(path);
+          if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
+            throw new Error(
+              `StateManager: type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
+            );
+          }
+        }
+      }
+      return make({ ...state, ...batch }, validPaths, typeMap);
     },
     snapshot: () => ({ ...state }),
     validPaths: () => validPaths,

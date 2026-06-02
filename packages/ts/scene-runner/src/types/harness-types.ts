@@ -66,6 +66,8 @@ export type ActionTrace = {
   computeRootValue: AnyValue;
   nextActionIds: string[];
   publishOutcomes?: PublishHookOutcome[];
+  /** Non-fatal warnings produced while evaluating this action's next rules. */
+  warnings?: string[];
 };
 
 export type SceneTrace = {

@@ -174,8 +174,9 @@ func TestInfixOpString(t *testing.T) {
 	}
 }
 
-func TestInfixOpFnAlias(t *testing.T) {
-	cases := []struct {
+func TestInfixOpFnAliasForType(t *testing.T) {
+	// Fixed-alias operators: FnAliasForType is type-independent.
+	fixedCases := []struct {
 		op   ast.InfixOp
 		want string
 	}{
@@ -187,16 +188,23 @@ func TestInfixOpFnAlias(t *testing.T) {
 		{ast.InfixBoolOr, "bool_or"},
 		{ast.InfixEq, "eq"},
 		{ast.InfixNeq, "neq"},
-		{ast.InfixPlus, ""},  // type-dispatched; lowerer resolves to "add" or "str_concat"
 		{ast.InfixSub, "sub"},
 		{ast.InfixMul, "mul"},
 		{ast.InfixDiv, "div"},
 		{ast.InfixMod, "mod"},
 	}
-	for _, tc := range cases {
-		if got := tc.op.FnAlias(); got != tc.want {
-			t.Errorf("InfixOp(%d).FnAlias() = %q, want %q", int(tc.op), got, tc.want)
+	for _, tc := range fixedCases {
+		if got := tc.op.FnAliasForType(ast.FieldTypeNumber); got != tc.want {
+			t.Errorf("InfixOp(%d).FnAliasForType(number) = %q, want %q", int(tc.op), got, tc.want)
 		}
+	}
+
+	// InfixPlus is type-dispatched.
+	if got := ast.InfixPlus.FnAliasForType(ast.FieldTypeNumber); got != "add" {
+		t.Errorf("InfixPlus.FnAliasForType(number) = %q, want %q", got, "add")
+	}
+	if got := ast.InfixPlus.FnAliasForType(ast.FieldTypeStr); got != "str_concat" {
+		t.Errorf("InfixPlus.FnAliasForType(str) = %q, want %q", got, "str_concat")
 	}
 }
 

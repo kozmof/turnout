@@ -260,10 +260,10 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
     () => done,
     () => {
       if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
-      const sceneTrace = sceneExecutor.result().trace;
+      const res = sceneExecutor.result();
       return {
-        finalState: sceneExecutor.result().stateAfterScene.snapshot(),
-        trace: { kind: 'scene', scene: sceneTrace },
+        finalState: res.stateAfterScene.snapshot(),
+        trace: { kind: 'scene', scene: res.trace },
         model: migratedModel,
       };
     },
