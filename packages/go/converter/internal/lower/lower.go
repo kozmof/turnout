@@ -240,12 +240,7 @@ type dotKey struct{ ns, field string }
 // A single sorted slice of dotKeys replaces two nested slices.Sorted calls,
 // reducing allocations for schemas with many namespaces.
 func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
-	// Count total fields to preallocate.
-	total := 0
-	for _, fields := range schema {
-		total += len(fields)
-	}
-	keys := make([]dotKey, 0, total)
+	keys := make([]dotKey, 0, 16)
 	for nsName, fields := range schema {
 		for fieldName := range fields {
 			keys = append(keys, dotKey{ns: nsName, field: fieldName})
@@ -493,7 +488,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct, "binding %q has no RHS", name))
 		return nil
 	default:
-		panic(fmt.Sprintf("lowerBinding: unhandled BindingRHS type %T for binding %q — add a case above", rhs, name))
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: unhandled RHS type %T — this is a compiler bug; please report it", name, rhs))
+		return nil
 	}
 
 	// Capture sigil for the user-declared binding (matched by name).

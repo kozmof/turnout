@@ -663,7 +663,8 @@ scene "test" {
 	}
 }
 
-func TestLowerTupleCasePatternEmitsDiagnostic(t *testing.T) {
+func TestTupleCasePatternRejectedAtParse(t *testing.T) {
+	// Tuple patterns are rejected by the parser; the error surfaces before lowering.
 	src := minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
@@ -674,9 +675,19 @@ func TestLowerTupleCasePatternEmitsDiagnostic(t *testing.T) {
       }
     }
   }`)
-	ds := lowerWithErrors(t, src)
-	if !hasLowerDiagCode(ds, diag.CodeUnsupportedConstruct) {
-		t.Fatalf("want UnsupportedConstruct diagnostic, got %v", ds)
+	_, ds := parser.ParseFile("test.turn", src)
+	if !ds.HasErrors() {
+		t.Fatal("want parse error for tuple pattern, got none")
+	}
+	found := false
+	for _, d := range ds {
+		if d.Code == "ParseSyntaxError" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("want ParseSyntaxError diagnostic, got %v", ds)
 	}
 }
 

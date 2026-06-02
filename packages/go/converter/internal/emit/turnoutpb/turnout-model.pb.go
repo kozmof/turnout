@@ -2428,7 +2428,6 @@ type LocalCasePatternModel struct {
 	//	*LocalCasePatternModel_Wildcard
 	//	*LocalCasePatternModel_Lit
 	//	*LocalCasePatternModel_VarBinder
-	//	*LocalCasePatternModel_Tuple
 	Pattern       isLocalCasePatternModel_Pattern `protobuf_oneof:"pattern"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2498,15 +2497,6 @@ func (x *LocalCasePatternModel) GetVarBinder() *LocalVarBinderPatternModel {
 	return nil
 }
 
-func (x *LocalCasePatternModel) GetTuple() *LocalTuplePatternModel {
-	if x != nil {
-		if x, ok := x.Pattern.(*LocalCasePatternModel_Tuple); ok {
-			return x.Tuple
-		}
-	}
-	return nil
-}
-
 type isLocalCasePatternModel_Pattern interface {
 	isLocalCasePatternModel_Pattern()
 }
@@ -2523,17 +2513,11 @@ type LocalCasePatternModel_VarBinder struct {
 	VarBinder *LocalVarBinderPatternModel `protobuf:"bytes,3,opt,name=var_binder,json=varBinder,proto3,oneof"`
 }
 
-type LocalCasePatternModel_Tuple struct {
-	Tuple *LocalTuplePatternModel `protobuf:"bytes,4,opt,name=tuple,proto3,oneof"`
-}
-
 func (*LocalCasePatternModel_Wildcard) isLocalCasePatternModel_Pattern() {}
 
 func (*LocalCasePatternModel_Lit) isLocalCasePatternModel_Pattern() {}
 
 func (*LocalCasePatternModel_VarBinder) isLocalCasePatternModel_Pattern() {}
-
-func (*LocalCasePatternModel_Tuple) isLocalCasePatternModel_Pattern() {}
 
 type LocalWildcardPatternModel struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2657,50 +2641,6 @@ func (x *LocalVarBinderPatternModel) GetName() string {
 		return x.Name
 	}
 	return ""
-}
-
-type LocalTuplePatternModel struct {
-	state         protoimpl.MessageState   `protogen:"open.v1"`
-	Elems         []*LocalCasePatternModel `protobuf:"bytes,1,rep,name=elems,proto3" json:"elems,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *LocalTuplePatternModel) Reset() {
-	*x = LocalTuplePatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[41]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *LocalTuplePatternModel) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*LocalTuplePatternModel) ProtoMessage() {}
-
-func (x *LocalTuplePatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[41]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use LocalTuplePatternModel.ProtoReflect.Descriptor instead.
-func (*LocalTuplePatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{41}
-}
-
-func (x *LocalTuplePatternModel) GetElems() []*LocalCasePatternModel {
-	if x != nil {
-		return x.Elems
-	}
-	return nil
 }
 
 var File_turnout_model_proto protoreflect.FileDescriptor
@@ -2885,21 +2825,18 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x04arms\x18\x02 \x03(\v2#.turnout.model.v1.LocalCaseArmModelR\x04arms\"\x88\x01\n" +
 	"\x12LocalPipeExprModel\x12:\n" +
 	"\ainitial\x18\x01 \x01(\v2 .turnout.model.v1.LocalExprModelR\ainitial\x126\n" +
-	"\x05steps\x18\x02 \x03(\v2 .turnout.model.v1.LocalExprModelR\x05steps\"\xba\x02\n" +
+	"\x05steps\x18\x02 \x03(\v2 .turnout.model.v1.LocalExprModelR\x05steps\"\x85\x02\n" +
 	"\x15LocalCasePatternModel\x12I\n" +
 	"\bwildcard\x18\x01 \x01(\v2+.turnout.model.v1.LocalWildcardPatternModelH\x00R\bwildcard\x12:\n" +
 	"\x03lit\x18\x02 \x01(\v2&.turnout.model.v1.LocalLitPatternModelH\x00R\x03lit\x12M\n" +
 	"\n" +
-	"var_binder\x18\x03 \x01(\v2,.turnout.model.v1.LocalVarBinderPatternModelH\x00R\tvarBinder\x12@\n" +
-	"\x05tuple\x18\x04 \x01(\v2(.turnout.model.v1.LocalTuplePatternModelH\x00R\x05tupleB\t\n" +
-	"\apattern\"\x1b\n" +
+	"var_binder\x18\x03 \x01(\v2,.turnout.model.v1.LocalVarBinderPatternModelH\x00R\tvarBinderB\t\n" +
+	"\apatternJ\x04\b\x04\x10\x05R\x05tuple\"\x1b\n" +
 	"\x19LocalWildcardPatternModel\"D\n" +
 	"\x14LocalLitPatternModel\x12,\n" +
 	"\x05value\x18\x01 \x01(\v2\x16.google.protobuf.ValueR\x05value\"0\n" +
 	"\x1aLocalVarBinderPatternModel\x12\x12\n" +
-	"\x04name\x18\x01 \x01(\tR\x04name\"W\n" +
-	"\x16LocalTuplePatternModel\x12=\n" +
-	"\x05elems\x18\x01 \x03(\v2'.turnout.model.v1.LocalCasePatternModelR\x05elems*\xf5\x01\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name*\xf5\x01\n" +
 	"\aInfixOp\x12\x10\n" +
 	"\fINFIX_OP_AND\x10\x00\x12\x10\n" +
 	"\fINFIX_OP_GTE\x10\x01\x12\x10\n" +
@@ -2929,7 +2866,7 @@ func file_turnout_model_proto_rawDescGZIP() []byte {
 }
 
 var file_turnout_model_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
+var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
 var file_turnout_model_proto_goTypes = []any{
 	(InfixOp)(0),                       // 0: turnout.model.v1.InfixOp
 	(*TurnModel)(nil),                  // 1: turnout.model.v1.TurnModel
@@ -2973,8 +2910,7 @@ var file_turnout_model_proto_goTypes = []any{
 	(*LocalWildcardPatternModel)(nil),  // 39: turnout.model.v1.LocalWildcardPatternModel
 	(*LocalLitPatternModel)(nil),       // 40: turnout.model.v1.LocalLitPatternModel
 	(*LocalVarBinderPatternModel)(nil), // 41: turnout.model.v1.LocalVarBinderPatternModel
-	(*LocalTuplePatternModel)(nil),     // 42: turnout.model.v1.LocalTuplePatternModel
-	(*structpb.Value)(nil),             // 43: google.protobuf.Value
+	(*structpb.Value)(nil),             // 42: google.protobuf.Value
 }
 var file_turnout_model_proto_depIdxs = []int32{
 	4,  // 0: turnout.model.v1.TurnModel.state:type_name -> turnout.model.v1.StateModel
@@ -2984,7 +2920,7 @@ var file_turnout_model_proto_depIdxs = []int32{
 	3,  // 4: turnout.model.v1.SigilAnnotations.entries:type_name -> turnout.model.v1.SigilAnnotation
 	5,  // 5: turnout.model.v1.StateModel.namespaces:type_name -> turnout.model.v1.NamespaceModel
 	6,  // 6: turnout.model.v1.NamespaceModel.fields:type_name -> turnout.model.v1.FieldModel
-	43, // 7: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
+	42, // 7: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
 	9,  // 8: turnout.model.v1.SceneBlock.actions:type_name -> turnout.model.v1.ActionModel
 	8,  // 9: turnout.model.v1.SceneBlock.view:type_name -> turnout.model.v1.ViewBlock
 	10, // 10: turnout.model.v1.ActionModel.compute:type_name -> turnout.model.v1.ComputeModel
@@ -2993,7 +2929,7 @@ var file_turnout_model_proto_depIdxs = []int32{
 	23, // 13: turnout.model.v1.ActionModel.next:type_name -> turnout.model.v1.NextRuleModel
 	11, // 14: turnout.model.v1.ComputeModel.prog:type_name -> turnout.model.v1.ProgModel
 	12, // 15: turnout.model.v1.ProgModel.bindings:type_name -> turnout.model.v1.BindingModel
-	43, // 16: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
+	42, // 16: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
 	13, // 17: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
 	28, // 18: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
 	14, // 19: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
@@ -3006,12 +2942,12 @@ var file_turnout_model_proto_depIdxs = []int32{
 	19, // 26: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
 	19, // 27: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
 	19, // 28: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
-	43, // 29: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
+	42, // 29: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
 	20, // 30: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
 	24, // 31: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
 	25, // 32: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
 	11, // 33: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
-	43, // 34: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
+	42, // 34: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
 	27, // 35: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
 	29, // 36: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
 	30, // 37: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
@@ -3021,7 +2957,7 @@ var file_turnout_model_proto_depIdxs = []int32{
 	34, // 41: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
 	36, // 42: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
 	37, // 43: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
-	43, // 44: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
+	42, // 44: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
 	28, // 45: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
 	0,  // 46: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
 	28, // 47: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
@@ -3039,14 +2975,12 @@ var file_turnout_model_proto_depIdxs = []int32{
 	39, // 59: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
 	40, // 60: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
 	41, // 61: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
-	42, // 62: turnout.model.v1.LocalCasePatternModel.tuple:type_name -> turnout.model.v1.LocalTuplePatternModel
-	43, // 63: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
-	38, // 64: turnout.model.v1.LocalTuplePatternModel.elems:type_name -> turnout.model.v1.LocalCasePatternModel
-	65, // [65:65] is the sub-list for method output_type
-	65, // [65:65] is the sub-list for method input_type
-	65, // [65:65] is the sub-list for extension type_name
-	65, // [65:65] is the sub-list for extension extendee
-	0,  // [0:65] is the sub-list for field type_name
+	42, // 62: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
+	63, // [63:63] is the sub-list for method output_type
+	63, // [63:63] is the sub-list for method input_type
+	63, // [63:63] is the sub-list for extension type_name
+	63, // [63:63] is the sub-list for extension extendee
+	0,  // [0:63] is the sub-list for field type_name
 }
 
 func init() { file_turnout_model_proto_init() }
@@ -3076,7 +3010,6 @@ func file_turnout_model_proto_init() {
 		(*LocalCasePatternModel_Wildcard)(nil),
 		(*LocalCasePatternModel_Lit)(nil),
 		(*LocalCasePatternModel_VarBinder)(nil),
-		(*LocalCasePatternModel_Tuple)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3084,7 +3017,7 @@ func file_turnout_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_turnout_model_proto_rawDesc), len(file_turnout_model_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   42,
+			NumMessages:   41,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

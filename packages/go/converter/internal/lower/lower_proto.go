@@ -120,12 +120,6 @@ func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePattern
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Lit{Lit: &turnoutpb.LocalLitPatternModel{Value: literalToStructpb(x.Value)}}}
 	case *ast.VarBinderPattern:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_VarBinder{VarBinder: &turnoutpb.LocalVarBinderPatternModel{Name: x.Name}}}
-	case *ast.TupleCasePattern:
-		elems := make([]*turnoutpb.LocalCasePatternModel, len(x.Elems))
-		for i, elem := range x.Elems {
-			elems[i] = localCasePatternToProto(elem)
-		}
-		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Tuple{Tuple: &turnoutpb.LocalTuplePatternModel{Elems: elems}}}
 	default:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Wildcard{Wildcard: &turnoutpb.LocalWildcardPatternModel{}}}
 	}

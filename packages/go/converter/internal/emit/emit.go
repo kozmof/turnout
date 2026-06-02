@@ -706,12 +706,6 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(x.Lit.GetValue()))
 	case *turnoutpb.LocalCasePatternModel_VarBinder:
 		return fmt.Sprintf(`{ bind = %q }`, x.VarBinder.GetName())
-	case *turnoutpb.LocalCasePatternModel_Tuple:
-		elems := make([]string, len(x.Tuple.GetElems()))
-		for i, e := range x.Tuple.GetElems() {
-			elems[i] = localPatternInline(e)
-		}
-		return fmt.Sprintf(`{ tuple = [%s] }`, strings.Join(elems, ", "))
 	}
 	return `{ wildcard = true }`
 }

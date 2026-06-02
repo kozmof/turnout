@@ -465,7 +465,7 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 // ─── parseRHS ────────────────────────────────────────────────────────────────
 
 // parseRHS parses the right-hand side of a binding declaration.
-func (p *parser) parseRHS(_ string) ast.BindingRHS {
+func (p *parser) parseRHS() ast.BindingRHS {
 	t := p.peek()
 	switch t.Kind {
 	// ── literal forms ──────────────────────────────────────────────────────
@@ -635,7 +635,9 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		p.advance()
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	case lexer.TokLParen:
-		return p.parseTupleCasePattern()
+		p.errorf(t, "tuple patterns are not supported in #case; use _ to match any value or a variable binder (e.g. x) to capture it")
+		p.skipTo(lexer.TokArrow, lexer.TokRParen, lexer.TokComma)
+		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit, lexer.TokMinus:
 		lit := p.parseLiteral()
 		return &ast.LiteralCasePattern{Pos: p.posOf(t), Value: lit}
@@ -646,23 +648,6 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		p.errorf(t, "expected pattern in #case arm, got %s %q", kindName(t.Kind), t.Value)
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	}
-}
-
-func (p *parser) parseTupleCasePattern() *ast.TupleCasePattern {
-	open := p.peek()
-	pos := p.posOf(open)
-	p.advance() // consume (
-	var elems []ast.LocalCasePattern
-	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		elems = append(elems, p.parseCasePattern())
-		if p.peek().Kind == lexer.TokComma {
-			p.advance()
-		} else {
-			break
-		}
-	}
-	p.expect(lexer.TokRParen)
-	return &ast.TupleCasePattern{Pos: pos, Elems: elems}
 }
 
 // ─── #pipe (v1 function-call form) ───────────────────────────────────────────
@@ -879,7 +864,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		if p.peek().Kind == lexer.TokEquals {
 			p.errorf(p.peek(), "input sigil declaration %q must not have a right-hand side; remove '= ...'", nameTok.Value)
 			p.advance()               // consume =
-			p.parseRHS(nameTok.Value) // consume and discard the erroneous RHS
+			p.parseRHS() // consume and discard the erroneous RHS
 		}
 		return &ast.BindingDecl{
 			Pos:   pos,
@@ -891,7 +876,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	}
 
 	p.expect(lexer.TokEquals)
-	rhs := p.parseRHS(nameTok.Value)
+	rhs := p.parseRHS()
 
 	return &ast.BindingDecl{
 		Pos:   pos,

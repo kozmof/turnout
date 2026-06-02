@@ -310,15 +310,16 @@ message LocalPipeExprModel {
 }
 
 message LocalCasePatternModel {
+  // Field 4 (LocalTuplePatternModel tuple) was removed; tuple patterns are
+  // rejected at parse time and were never serialised into valid models.
+  reserved 4; reserved "tuple";
   oneof pattern {
     LocalWildcardPatternModel  wildcard   = 1;
     LocalLitPatternModel       lit        = 2;
     LocalVarBinderPatternModel var_binder = 3;
-    LocalTuplePatternModel     tuple      = 4;
   }
 }
 
 message LocalWildcardPatternModel  {}
 message LocalLitPatternModel       { google.protobuf.Value value = 1; }
 message LocalVarBinderPatternModel { string name = 1; }
-message LocalTuplePatternModel     { repeated LocalCasePatternModel elems = 1; }

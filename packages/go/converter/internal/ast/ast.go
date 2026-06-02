@@ -529,14 +529,6 @@ type VarBinderPattern struct {
 
 func (*VarBinderPattern) localCasePattern() {}
 
-// TupleCasePattern matches a tuple structurally: `(pat1, pat2, ...)`.
-type TupleCasePattern struct {
-	Pos   Pos
-	Elems []LocalCasePattern
-}
-
-func (*TupleCasePattern) localCasePattern() {}
-
 // ────────────────────────────────────────────────────────────
 // v1 binding RHS types
 // ────────────────────────────────────────────────────────────

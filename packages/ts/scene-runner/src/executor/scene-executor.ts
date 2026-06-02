@@ -1,5 +1,5 @@
 import { executeGraph, assertValidContext, isPureBoolean } from 'runtime';
-import type { SceneBlock, ActionModel } from '../types/turnout-model_pb.js';
+import type { SceneBlock, ActionModel, NextRuleModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
@@ -75,15 +75,6 @@ function getActionMap(scene: SceneBlock): Record<string, ActionModel> {
     actionMapCache.set(scene, m);
   }
   return m;
-}
-
-// Produces a deterministic JSON string regardless of object key insertion order.
-function stableKey(obj: unknown): string {
-  return JSON.stringify(obj, (_k, v) =>
-    v !== null && typeof v === 'object' && !Array.isArray(v)
-      ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0))
-      : v,
-  );
 }
 
 /**
@@ -272,11 +263,10 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
  *
- * Each next rule builds its own context unless an identical prog+prepare pair
- * appears more than once within a single action's rule list (in which case the
- * local ctxCache deduplicates the build). The cache is per-invocation so stale
- * injected values from previous actions (where state or result differ) are never
- * reused.
+ * Each next rule builds its own context, keyed by object identity so that rules
+ * appearing more than once in the list (unusual but legal) share a context.
+ * The cache is per-invocation so stale injected values from previous actions
+ * (where state or result differ) are never reused.
  */
 function evaluateNextRules(
   action: ActionModel,
@@ -285,9 +275,10 @@ function evaluateNextRules(
   policy: string,
 ): string[] {
   // Cache is scoped per invocation: state and result are constant within one
-  // action's next-rule evaluation, so identical progs safely share a context.
-  // A scene-lifetime cache would reuse stale injected values after state mutates.
-  const ctxCache = new Map<string, BuiltContext>();
+  // action's next-rule evaluation, so rules that share the same object identity
+  // safely share a context. Object-identity keying avoids expensive JSON
+  // serialisation; the WeakMap is released when this invocation returns.
+  const ctxCache = new WeakMap<NextRuleModel, BuiltContext>();
   const rules = action.next ?? [];
   const matches: string[] = [];
 
@@ -301,11 +292,10 @@ function evaluateNextRules(
       condMet = false;
     } else {
       const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      const fingerprint = `${stableKey(rule.compute.prog)}|${stableKey(rule.prepare ?? [])}`;
-      let builtCtx = ctxCache.get(fingerprint);
+      let builtCtx = ctxCache.get(rule);
       if (!builtCtx) {
         builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
-        ctxCache.set(fingerprint, builtCtx);
+        ctxCache.set(rule, builtCtx);
       }
       const validated = assertValidContext(builtCtx.exec);
 

@@ -841,9 +841,6 @@ func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel
 				"binding %q: #case literal pattern has type %s but subject has type %s",
 				bindingName, patternType, subjectType))
 		}
-	case *turnoutpb.LocalCasePatternModel_Tuple:
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: #case tuple patterns are not supported; use _ to ignore the subject, or a variable binder (e.g. x) to capture it", bindingName))
 	}
 }
 
@@ -870,147 +867,10 @@ func protoPatternScopeBindings(scope map[string]bindingInfo, p *turnoutpb.LocalC
 			if subjectKnown {
 				next[x.VarBinder.GetName()] = bindingInfo{fieldType: subjectType}
 			}
-		case *turnoutpb.LocalCasePatternModel_Tuple:
-			for _, elem := range x.Tuple.GetElems() {
-				add(elem)
-			}
 		}
 	}
 	add(p)
 	return next
-}
-
-func validateLocalExpr(bindingName string, e ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	switch x := e.(type) {
-	case *ast.LocalRefExpr:
-		info, ok := scope[x.Name]
-		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
-				"binding %q: reference %q is not defined", bindingName, x.Name))
-			return 0, false
-		}
-		return info.fieldType, true
-	case *ast.LocalLitExpr:
-		return ast.LiteralFieldType(x.Value)
-	case *ast.LocalItExpr:
-		if !itAllowed {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-				"binding %q: #it is only valid inside #pipe step expressions", bindingName))
-			return 0, false
-		}
-		if itType == 0 {
-			return 0, false
-		}
-		return itType, true
-	case *ast.LocalCallExpr:
-		return validateLocalCall(bindingName, x, scope, itType, itAllowed, ds)
-	case *ast.LocalInfixExpr:
-		return validateLocalInfix(bindingName, x, scope, itType, itAllowed, ds)
-	case *ast.LocalIfExpr:
-		return validateLocalIf(bindingName, x.Cond, x.Then, x.Else, scope, itType, itAllowed, ds)
-	case *ast.LocalCaseExpr:
-		return validateLocalCase(bindingName, x.Subject, x.Arms, scope, itType, itAllowed, ds)
-	case *ast.LocalPipeExpr:
-		return validateLocalPipe(bindingName, x.Initial, x.Steps, scope, itType, itAllowed, ds)
-	default:
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: unsupported local expression %T", bindingName, e))
-		return 0, false
-	}
-}
-
-func validateLocalCall(bindingName string, call *ast.LocalCallExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	spec, ok := builtinFns[call.FnAlias]
-	if !ok {
-		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
-			"binding %q: unknown function alias %q", bindingName, call.FnAlias))
-		return 0, false
-	}
-	argTypes := make([]ast.FieldType, len(call.Args))
-	argKnown := make([]bool, len(call.Args))
-	for i, arg := range call.Args {
-		argTypes[i], argKnown[i] = validateLocalExpr(bindingName, arg, scope, itType, itAllowed, ds)
-	}
-	validateLocalCallArgTypes(bindingName, call.FnAlias, spec, argTypes, argKnown, ds)
-	return resolveLocalCallReturn(spec, argTypes, argKnown)
-}
-
-func validateLocalInfix(bindingName string, infix *ast.LocalInfixExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	lhsType, lhsOK := validateLocalExpr(bindingName, infix.LHS, scope, itType, itAllowed, ds)
-	rhsType, rhsOK := validateLocalExpr(bindingName, infix.RHS, scope, itType, itAllowed, ds)
-	fn := infix.Op.FnAlias()
-	if fn == "" {
-		if lhsOK && rhsOK && lhsType == ast.FieldTypeStr && rhsType == ast.FieldTypeStr {
-			return ast.FieldTypeStr, true
-		}
-		fn = "add"
-	}
-	spec, ok := builtinFns[fn]
-	if !ok {
-		return 0, false
-	}
-	validateLocalCallArgTypes(bindingName, fn, spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK}, ds)
-	return resolveLocalCallReturn(spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK})
-}
-
-func validateLocalIf(bindingName string, cond, thenExpr, elseExpr ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	condType, condOK := validateLocalExpr(bindingName, cond, scope, itType, itAllowed, ds)
-	if condOK && condType != ast.FieldTypeBool {
-		*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
-			"binding %q: #if condition has type %s; bool required", bindingName, condType))
-	}
-	thenType, thenOK := validateLocalExpr(bindingName, thenExpr, scope, itType, itAllowed, ds)
-	elseType, elseOK := validateLocalExpr(bindingName, elseExpr, scope, itType, itAllowed, ds)
-	if thenOK && elseOK && thenType != elseType {
-		*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
-			"binding %q: #if branches return %s and %s", bindingName, thenType, elseType))
-		return 0, false
-	}
-	if thenOK {
-		return thenType, true
-	}
-	if elseOK {
-		return elseType, true
-	}
-	return 0, false
-}
-
-func validateLocalCase(bindingName string, subject ast.LocalExpr, arms []ast.LocalCaseArm, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	subjectType, subjectOK := validateLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
-	var ret ast.FieldType
-	retOK := false
-	for _, arm := range arms {
-		armScope := scopeWithPatternBindings(scope, arm.Pattern, subjectType, subjectOK)
-		validatePattern(bindingName, arm.Pattern, subjectType, subjectOK, ds)
-		if arm.Guard != nil {
-			guardType, guardOK := validateLocalExpr(bindingName, arm.Guard, armScope, itType, itAllowed, ds)
-			if guardOK && guardType != ast.FieldTypeBool {
-				*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
-					"binding %q: #case guard has type %s; bool required", bindingName, guardType))
-			}
-		}
-		armType, armOK := validateLocalExpr(bindingName, arm.Expr, armScope, itType, itAllowed, ds)
-		if !armOK {
-			continue
-		}
-		if retOK && armType != ret {
-			*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
-				"binding %q: #case arms return %s and %s", bindingName, ret, armType))
-			continue
-		}
-		ret = armType
-		retOK = true
-	}
-	return ret, retOK
-}
-
-func validateLocalPipe(bindingName string, initial ast.LocalExpr, steps []ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	current, known := validateLocalExpr(bindingName, initial, scope, itType, itAllowed, ds)
-	for _, step := range steps {
-		stepType, stepOK := validateLocalExpr(bindingName, step, scope, current, true, ds)
-		current, known = stepType, stepOK
-	}
-	return current, known
 }
 
 // validateBinaryArgTypePair checks the two operand types of a binary function
@@ -1086,48 +946,6 @@ func resolveLocalCallReturn(spec fnSpec, types []ast.FieldType, known []bool) (a
 	default:
 		return spec.returnType, true
 	}
-}
-
-func validatePattern(bindingName string, pattern ast.LocalCasePattern, subjectType ast.FieldType, subjectKnown bool, ds *diag.Diagnostics) {
-	switch p := pattern.(type) {
-	case *ast.LiteralCasePattern:
-		patternType, ok := ast.LiteralFieldType(p.Value)
-		if ok && subjectKnown && patternType != subjectType {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: #case literal pattern has type %s but subject has type %s",
-				bindingName, patternType, subjectType))
-		}
-	case *ast.TupleCasePattern:
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: #case tuple patterns are not supported; use _ to ignore the subject, or a variable binder (e.g. x) to capture it", bindingName))
-	}
-}
-
-func scopeWithPatternBindings(scope map[string]bindingInfo, pattern ast.LocalCasePattern, subjectType ast.FieldType, subjectKnown bool) map[string]bindingInfo {
-	next := scope
-	copied := false
-	var add func(ast.LocalCasePattern)
-	add = func(p ast.LocalCasePattern) {
-		switch x := p.(type) {
-		case *ast.VarBinderPattern:
-			if !copied {
-				next = make(map[string]bindingInfo, len(scope)+1)
-				for k, v := range scope {
-					next[k] = v
-				}
-				copied = true
-			}
-			if subjectKnown {
-				next[x.Name] = bindingInfo{fieldType: subjectType}
-			}
-		case *ast.TupleCasePattern:
-			for _, elem := range x.Elems {
-				add(elem)
-			}
-		}
-	}
-	add(pattern)
-	return next
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1613,55 +1431,92 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 // Binding cycle detection
 // ─────────────────────────────────────────────────────────────────────────────
 
-// detectCycles reports a CodeCyclicBinding diagnostic for each binding in
-// bindings that participates in a reference cycle according to adj. Cycles
-// cause infinite recursion in buildExecutionTree on the TypeScript side and
-// must be caught at validation time.
+// detectCycles reports a CodeCyclicBinding diagnostic for each binding that
+// participates in a reference cycle. Cycles cause infinite recursion in the
+// TypeScript runtime's buildExecutionTree and must be caught at validation time.
+//
+// Algorithm: Kahn's topological sort (BFS via in-degree).
+// Nodes that are never dequeued are in cycles. A secondary targeted DFS over
+// those nodes extracts one example cycle path for the error message.
 func detectCycles(progName string, adj map[string][]string, bindings []*turnoutpb.BindingModel, ds *diag.Diagnostics) {
-	const (
-		unvisited = 0
-		inStack   = 1
-		done      = 2
-	)
-	color := make(map[string]int, len(bindings))
+	// --- Phase 1: Kahn's algorithm ---
+	inDegree := make(map[string]int, len(bindings))
+	for _, b := range bindings {
+		if _, ok := inDegree[b.Name]; !ok {
+			inDegree[b.Name] = 0
+		}
+		for _, dep := range adj[b.Name] {
+			inDegree[dep]++
+		}
+	}
+
+	queue := make([]string, 0, len(bindings))
+	for _, b := range bindings {
+		if inDegree[b.Name] == 0 {
+			queue = append(queue, b.Name)
+		}
+	}
+
+	processed := make(map[string]bool, len(bindings))
+	for len(queue) > 0 {
+		n := queue[0]
+		queue = queue[1:]
+		processed[n] = true
+		for _, dep := range adj[n] {
+			inDegree[dep]--
+			if inDegree[dep] == 0 {
+				queue = append(queue, dep)
+			}
+		}
+	}
+
+	// Nodes not processed are in cycles.
+	cyclic := make(map[string]bool)
+	for _, b := range bindings {
+		if !processed[b.Name] {
+			cyclic[b.Name] = true
+		}
+	}
+	if len(cyclic) == 0 {
+		return
+	}
+
+	// --- Phase 2: extract one example cycle path per cycle via targeted DFS ---
 	reported := make(map[string]bool)
-	stack := make([]string, 0, len(bindings))
+	color := make(map[string]int) // 0=unvisited 1=inStack 2=done
+	stack := make([]string, 0, len(cyclic))
+
 	var visit func(name string)
 	visit = func(name string) {
-		switch color[name] {
-		case done:
+		if !cyclic[name] || color[name] == 2 {
 			return
-		case inStack:
+		}
+		if color[name] == 1 {
 			if !reported[name] {
 				reported[name] = true
-				// Find where in the current DFS stack this cycle starts.
-				cycleStart := 0
+				start := 0
 				for i, n := range stack {
 					if n == name {
-						cycleStart = i
+						start = i
 						break
 					}
 				}
-				// Use an explicit allocation so the cycle path never shares backing
-				// memory with `stack`. append(stack[cycleStart:], name) would write
-				// into the original array when cap(stack) > len(stack), corrupting
-				// subsequent DFS frames.
-				cycleLen := len(stack) - cycleStart
+				cycleLen := len(stack) - start
 				path := make([]string, cycleLen+1)
-				copy(path, stack[cycleStart:])
+				copy(path, stack[start:])
 				path[cycleLen] = name
 				*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
 					"prog %q: binding cycle: %s", progName, strings.Join(path, " → ")))
 			}
 			return
 		}
-		color[name] = inStack
+		color[name] = 1
 		stack = append(stack, name)
 		for _, dep := range adj[name] {
 			visit(dep)
 		}
 		stack = stack[:len(stack)-1]
-		color[name] = done
+		color[name] = 2
 	}
 	for _, b := range bindings {
 		visit(b.Name)
