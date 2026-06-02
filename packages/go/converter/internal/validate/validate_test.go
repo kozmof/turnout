@@ -34,7 +34,7 @@ func pipeline(src string) diag.Diagnostics {
 	if lr == nil {
 		return ds
 	}
-	ds4 := validate.Validate(lr.Model, lr.Schema)
+	ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
 	return append(ds, ds4...)
 }
 
@@ -195,7 +195,7 @@ func TestUndefinedFuncRef(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("noSuchFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil), diag.CodeUndefinedFuncRef) {
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef")
 	}
 }
@@ -234,7 +234,7 @@ func TestCondNotBool(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil), diag.CodeCondNotBool) {
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeCondNotBool) {
 		t.Error("want CondNotBool")
 	}
 }
@@ -259,7 +259,7 @@ func TestBranchTypeMismatch(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil), diag.CodeBranchTypeMismatch) {
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeBranchTypeMismatch) {
 		t.Error("want BranchTypeMismatch")
 	}
 }
@@ -276,7 +276,7 @@ func TestStepRefOutOfBounds(t *testing.T) {
 			},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil), diag.CodeStepRefOutOfBounds) {
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodeStepRefOutOfBounds) {
 		t.Error("want StepRefOutOfBounds")
 	}
 }
@@ -295,7 +295,7 @@ func TestPipeArgNotValue(t *testing.T) {
 			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil), diag.CodePipeArgNotValue) {
+	if !hasCode(validate.Validate(model, nil, nil), diag.CodePipeArgNotValue) {
 		t.Error("want PipeArgNotValue")
 	}
 }
@@ -636,7 +636,7 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 			Actions:      []*turnoutpb.ActionModel{},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty actions")
 	}
@@ -655,7 +655,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil)
+	ds := validate.Validate(model, nil, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_actions")
 	}

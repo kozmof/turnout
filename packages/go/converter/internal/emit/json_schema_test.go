@@ -88,7 +88,7 @@ route "main" {
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(lr.Model, lr.Schema); ds4.HasErrors() {
+	if ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 

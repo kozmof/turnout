@@ -27,6 +27,12 @@ export interface StateManager {
    */
   read(path: string): AnyValue;
   /**
+   * Return true if path is a declared valid path (schema-backed managers), or
+   * true for any path in unchecked managers (all paths are valid in that mode).
+   * Use this to check existence without depending on read()'s exception semantics.
+   */
+  has(path: string): boolean;
+  /**
    * Return a new StateManager with the given path set to value.
    * Does not mutate the current instance.
    */
@@ -62,6 +68,12 @@ function make(
         );
       }
       return state[path] ?? buildNull('missing');
+    },
+    has: (path) => {
+      assertSafePath(path);
+      // Unchecked managers treat all paths as valid — always true.
+      if (validPaths === null) return true;
+      return validPaths.has(path);
     },
     write: (path, value) => {
       assertSafePath(path);

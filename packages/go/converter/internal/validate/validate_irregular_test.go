@@ -64,7 +64,7 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ds := validate.Validate(tc.model, irregularSchema())
+			ds := validate.Validate(tc.model, irregularSchema(), nil)
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -125,10 +125,9 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action, annotations := buildIrregularAction(tc.bindings, tc.prepare, tc.merge, tc.next)
+			action, sc := buildIrregularAction(tc.bindings, tc.prepare, tc.merge, tc.next)
 			model := irregularModelWithAction(action)
-			model.Annotations = annotations
-			ds := validate.Validate(model, irregularSchema())
+			ds := validate.Validate(model, irregularSchema(), sc)
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -214,18 +213,13 @@ func TestValidateIrregularNextRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action, actionAnnotations := buildIrregularAction(nil, nil, nil, tc.next)
-			model := irregularModelWithAction(action)
-			// "transition_output_sigil" needs a sigil on binding "out" in next prog.
+			action, sc := buildIrregularAction(nil, nil, nil, tc.next)
+			// "transition_output_sigil" needs a sigil on binding "out" in the next-rule prog.
 			if tc.name == "transition_output_sigil" {
-				if actionAnnotations == nil {
-					actionAnnotations = &turnoutpb.SigilAnnotations{Entries: []*turnoutpb.SigilAnnotation{structuredSigilAnnotation("s", "a", lower.NextScope(0), "n", "out", ast.SigilEgress)}}
-				} else {
-					actionAnnotations.Entries = append(actionAnnotations.Entries, structuredSigilAnnotation("s", "a", lower.NextScope(0), "n", "out", ast.SigilEgress))
-				}
+				sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: lower.NextScope(0), ProgName: "n", BindingName: "out"}, ast.SigilEgress)
 			}
-			model.Annotations = actionAnnotations
-			ds := validate.Validate(model, irregularSchema())
+			model := irregularModelWithAction(action)
+			ds := validate.Validate(model, irregularSchema(), sc)
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -276,8 +270,8 @@ type irrBind struct {
 }
 
 // buildIrregularAction constructs an ActionModel with a "ready:bool = true" base binding
-// plus any additional bindings. Returns the action and the sigil annotations to embed in the model.
-func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *turnoutpb.SigilAnnotations) {
+// plus any additional bindings. Returns the action and a Sidecar with the sigil metadata.
+func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *lower.Sidecar) {
 	progBindings := []*turnoutpb.BindingModel{
 		{Name: "ready", Type: "bool", Value: structpb.NewBoolValue(true)},
 	}
@@ -291,15 +285,11 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		progBindings = append(progBindings, bm)
 	}
 
-	entries := make([]*turnoutpb.SigilAnnotation, 0, len(bindings))
+	sc := lower.NewSidecar()
 	for _, ib := range bindings {
 		if ib.sigil != ast.SigilNone {
-			entries = append(entries, structuredSigilAnnotation("s", "a", lower.ComputeScope(), "p", ib.name, ib.sigil))
+			sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: ib.name}, ib.sigil)
 		}
-	}
-	var annotations *turnoutpb.SigilAnnotations
-	if len(entries) > 0 {
-		annotations = &turnoutpb.SigilAnnotations{Entries: entries}
 	}
 
 	return &turnoutpb.ActionModel{
@@ -314,16 +304,5 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		Prepare: prepare,
 		Merge:   merge,
 		Next:    next,
-	}, annotations
-}
-
-func structuredSigilAnnotation(sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, sigil ast.Sigil) *turnoutpb.SigilAnnotation {
-	return &turnoutpb.SigilAnnotation{
-		SceneId:     sceneID,
-		ActionId:    actionID,
-		Scope:       scope.String(),
-		ProgName:    progName,
-		BindingName: bindingName,
-		Sigil:       int32(sigil),
-	}
+	}, sc
 }

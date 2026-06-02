@@ -443,7 +443,7 @@ func (p *parser) parseBlockArg() ast.Arg {
 // Named-arg form is rejected because calls have positional semantics only.
 func (p *parser) parseFuncArgs() []ast.Arg {
 	p.expect(lexer.TokLParen)
-	var args []ast.Arg
+	args := make([]ast.Arg, 0, 2) // most DSL functions are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
 			nameTok := p.advance() // consume name
@@ -810,7 +810,7 @@ func (p *parser) parseLocalPipeExpr() ast.LocalExpr {
 // Named-arg form is rejected because local calls have positional semantics only.
 func (p *parser) parseLocalArgList() []ast.LocalExpr {
 	p.expect(lexer.TokLParen)
-	var args []ast.LocalExpr
+	args := make([]ast.LocalExpr, 0, 2) // most DSL calls are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
 		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
 			nameTok := p.advance() // consume name
@@ -909,7 +909,10 @@ func (p *parser) parseProgBlock() *ast.ProgBlock {
 	pos := p.posOf(kwTok)
 
 	nameTok, _ := p.expect(lexer.TokStringLit)
-	p.expect(lexer.TokLBrace)
+	if _, ok := p.expect(lexer.TokLBrace); !ok {
+		p.syncToBlockItem(lexer.TokKwProg, lexer.TokRBrace)
+		return &ast.ProgBlock{Pos: pos, Name: nameTok.Value}
+	}
 
 	var bindings []*ast.BindingDecl
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
@@ -928,7 +931,10 @@ func (p *parser) parseProgBlock() *ast.ProgBlock {
 func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 	kwTok, _ := p.expect(lexer.TokKwCompute)
 	pos := p.posOf(kwTok)
-	p.expect(lexer.TokLBrace)
+	if _, ok := p.expect(lexer.TokLBrace); !ok {
+		p.syncToBlockItem(lexer.TokKwCompute, lexer.TokKwAction, lexer.TokKwNext, lexer.TokRBrace)
+		return &ast.ComputeBlock{Pos: pos}
+	}
 
 	var root string
 	var prog *ast.ProgBlock
@@ -1086,7 +1092,10 @@ func (p *parser) parsePublishBlock() *ast.PublishBlock {
 func (p *parser) parseNextBlock() *ast.NextRule {
 	kwTok, _ := p.expect(lexer.TokKwNext)
 	pos := p.posOf(kwTok)
-	p.expect(lexer.TokLBrace)
+	if _, ok := p.expect(lexer.TokLBrace); !ok {
+		p.syncToBlockItem(lexer.TokKwNext, lexer.TokKwAction, lexer.TokRBrace)
+		return &ast.NextRule{Pos: pos}
+	}
 
 	var compute *ast.NextComputeBlock
 	var prepare *ast.NextPrepareBlock
@@ -1205,7 +1214,10 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 	pos := p.posOf(kwTok)
 
 	labelTok, _ := p.expect(lexer.TokStringLit)
-	p.expect(lexer.TokLBrace)
+	if _, ok := p.expect(lexer.TokLBrace); !ok {
+		p.syncToBlockItem(lexer.TokKwAction, lexer.TokKwScene, lexer.TokRBrace)
+		return &ast.ActionBlock{Pos: pos, ID: labelTok.Value}
+	}
 
 	ab := &ast.ActionBlock{Pos: pos, ID: labelTok.Value}
 
@@ -1300,7 +1312,10 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 	pos := p.posOf(kwTok)
 
 	labelTok, _ := p.expect(lexer.TokStringLit)
-	p.expect(lexer.TokLBrace)
+	if _, ok := p.expect(lexer.TokLBrace); !ok {
+		p.syncToBlockItem(lexer.TokKwScene, lexer.TokKwRoute, lexer.TokRBrace)
+		return &ast.SceneBlock{Pos: pos, ID: labelTok.Value}
+	}
 
 	sb := &ast.SceneBlock{Pos: pos, ID: labelTok.Value}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {

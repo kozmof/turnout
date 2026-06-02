@@ -76,9 +76,22 @@ func (s *Sidecar) Merge(other *Sidecar) {
 	}
 }
 
-// ToAnnotations converts the sidecar into a SigilAnnotations proto message
-// suitable for embedding in TurnModel.Annotations. Returns nil when empty.
-// Entries are sorted by key so the output is deterministic across map iterations.
+// ToSigilIndex converts the sidecar into a flat string-keyed map for O(1) lookup
+// during validation. The key format is "sceneID:actionID:scope:progName:bindingName".
+func (s *Sidecar) ToSigilIndex() map[string]ast.Sigil {
+	if s == nil || len(s.sigils) == 0 {
+		return map[string]ast.Sigil{}
+	}
+	idx := make(map[string]ast.Sigil, len(s.sigils))
+	for k, v := range s.sigils {
+		idx[sigilAnnotationKey(k)] = v
+	}
+	return idx
+}
+
+// ToAnnotations converts the sidecar into a SigilAnnotations proto message.
+// Retained for callers that need the proto representation (e.g. JSON emission).
+// Returns nil when empty. Entries are sorted by key so the output is deterministic.
 func (s *Sidecar) ToAnnotations() *turnoutpb.SigilAnnotations {
 	if len(s.sigils) == 0 {
 		return nil

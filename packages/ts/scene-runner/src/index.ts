@@ -22,6 +22,8 @@ export { stateManagerFromUnchecked, stateManagerFromStrict, stateManagerFromSche
 export type { StateManager } from './state/state-manager.js';
 export { executeSceneSafe } from './executor/scene-executor.js';
 export type { SceneResult, SceneExecutionResult } from './executor/scene-executor.js';
+export { executeRouteSafe } from './executor/route-executor.js';
+export type { RouteResult, RouteWarning, RouteExecutionResult } from './executor/route-executor.js';
 
 // Server-only exports (Node.js) — re-exported for convenience.
 // Import from 'turnout-scene-runner/server' to be explicit about the boundary.

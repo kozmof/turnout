@@ -32,6 +32,12 @@ func (p Pos) String() string {
 // FieldType enumerates the six DSL value types.
 // FieldTypeInvalid (-1) is the zero-safe sentinel for uninitialized variables;
 // it is never a valid DSL type. The six valid types start at 0.
+//
+// ZERO-VALUE HAZARD: FieldTypeNumber == 0, so a zero-initialized FieldType
+// variable is silently treated as FieldTypeNumber. Always initialise with
+// FieldTypeInvalid when the value may legitimately be absent, and always
+// check the bool return of FieldTypeFromString / LiteralFieldType before using
+// the returned FieldType.
 type FieldType int
 
 const (
@@ -68,10 +74,25 @@ var fieldTypeByString = map[string]FieldType{
 }
 
 // FieldTypeFromString converts a DSL type string to a FieldType.
-// Returns (0, false) if the string is not a valid type.
+// Returns (FieldTypeInvalid, false) if the string is not a valid type.
 func FieldTypeFromString(s string) (FieldType, bool) {
 	ft, ok := fieldTypeByString[s]
+	if !ok {
+		return FieldTypeInvalid, false
+	}
 	return ft, ok
+}
+
+// MustFieldTypeFromString converts a DSL type string that is guaranteed by the
+// caller to be valid (e.g. a type string produced by the lowerer from a
+// validated AST node). Panics on an unrecognised string so that internal
+// compiler bugs surface immediately rather than silently using FieldTypeNumber.
+func MustFieldTypeFromString(s string) FieldType {
+	ft, ok := fieldTypeByString[s]
+	if !ok {
+		panic("MustFieldTypeFromString: unknown type string " + s)
+	}
+	return ft
 }
 
 // LiteralFieldType infers the FieldType of a Literal value.
@@ -519,6 +540,13 @@ func (*TupleCasePattern) localCasePattern() {}
 // ────────────────────────────────────────────────────────────
 // v1 binding RHS types
 // ────────────────────────────────────────────────────────────
+
+// ErrorRHS is a sentinel produced by the parser when a binding's right-hand side
+// could not be parsed. It satisfies BindingRHS so that downstream stages (lower,
+// validate) can handle it explicitly instead of a nil check.
+type ErrorRHS struct{ ErrPos Pos }
+
+func (*ErrorRHS) bindingRHS() {}
 
 // SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
 // with no right-hand side expression. The value is populated at runtime via prepare.

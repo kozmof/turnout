@@ -86,14 +86,11 @@ var builtinFns = map[string]fnSpec{
 // sigilIndex maps "sceneID:actionID:scope:progName:bindingName" → Sigil.
 type sigilIndex map[string]ast.Sigil
 
-func buildSigilIndex(annotations *turnoutpb.SigilAnnotations) sigilIndex {
-	idx := make(sigilIndex, len(annotations.GetEntries()))
-	for _, e := range annotations.GetEntries() {
-		key := fmt.Sprintf("%s:%s:%s:%s:%s",
-			e.GetSceneId(), e.GetActionId(), e.GetScope(), e.GetProgName(), e.GetBindingName())
-		idx[key] = ast.Sigil(e.GetSigil())
+func buildSigilIndexFromSidecar(sc *lower.Sidecar) sigilIndex {
+	if sc == nil {
+		return sigilIndex{}
 	}
-	return idx
+	return sc.ToSigilIndex()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -101,15 +98,16 @@ func buildSigilIndex(annotations *turnoutpb.SigilAnnotations) sigilIndex {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Validate runs all structural and type validation rules against the proto model.
-// Sigil metadata is read from tm.Annotations (populated by the lowerer).
+// sc is the binding sigil sidecar produced by the lowerer; pass nil to skip sigil
+// checks (e.g. when validating a model loaded from disk without a lowering run).
 // schema may be nil. Returns diagnostics; callers must check HasErrors() before
 // proceeding to emission.
-func Validate(tm *turnoutpb.TurnModel, schema state.Schema) diag.Diagnostics {
+func Validate(tm *turnoutpb.TurnModel, schema state.Schema, sc *lower.Sidecar) diag.Diagnostics {
 	var ds diag.Diagnostics
 	if tm == nil {
 		return ds
 	}
-	idx := buildSigilIndex(tm.Annotations)
+	idx := buildSigilIndexFromSidecar(sc)
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
@@ -323,7 +321,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actio
 		} else {
 			seen[b.Name] = true
 		}
-		ft, _ := ast.FieldTypeFromString(b.Type)
+		ft := ast.MustFieldTypeFromString(b.Type)
 		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
@@ -346,7 +344,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actio
 // literal type conformance, and expr/ext_expr type checking.
 func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
-		ft, _ := ast.FieldTypeFromString(b.Type)
+		ft := ast.MustFieldTypeFromString(b.Type)
 		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
@@ -364,7 +362,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 
 		if b.ExtExpr != nil {
 			validateNoEmptyArrayLitArgs(b, ds)
-			validateExtExpr(b, protoLocalExprToAST(b.ExtExpr), scope, ds)
+			validateExtExprProto(b, b.ExtExpr, scope, ds)
 			continue
 		}
 
@@ -398,109 +396,6 @@ func sigilFor(idx sigilIndex, sceneID, actionID string, scope lower.ProgScope, p
 	return idx[key]
 }
 
-// protoLocalExprToAST converts a proto LocalExprModel back to an ast.LocalExpr
-// so the existing AST-based validation functions can be reused unchanged.
-func protoLocalExprToAST(e *turnoutpb.LocalExprModel) ast.LocalExpr {
-	if e == nil {
-		return nil
-	}
-	switch x := e.Expr.(type) {
-	case *turnoutpb.LocalExprModel_Ref:
-		return &ast.LocalRefExpr{Name: x.Ref.GetName()}
-	case *turnoutpb.LocalExprModel_Lit:
-		return &ast.LocalLitExpr{Value: structpbToLiteral(x.Lit.GetValue())}
-	case *turnoutpb.LocalExprModel_It:
-		return &ast.LocalItExpr{}
-	case *turnoutpb.LocalExprModel_Call:
-		args := make([]ast.LocalExpr, len(x.Call.GetArgs()))
-		for i, a := range x.Call.GetArgs() {
-			args[i] = protoLocalExprToAST(a)
-		}
-		return &ast.LocalCallExpr{FnAlias: x.Call.GetFn(), Args: args}
-	case *turnoutpb.LocalExprModel_Infix:
-		return &ast.LocalInfixExpr{
-			Op:  ast.InfixOp(x.Infix.GetOp()),
-			LHS: protoLocalExprToAST(x.Infix.GetLhs()),
-			RHS: protoLocalExprToAST(x.Infix.GetRhs()),
-		}
-	case *turnoutpb.LocalExprModel_IfExpr:
-		return &ast.LocalIfExpr{
-			Cond: protoLocalExprToAST(x.IfExpr.GetCond()),
-			Then: protoLocalExprToAST(x.IfExpr.GetThen()),
-			Else: protoLocalExprToAST(x.IfExpr.GetElseBranch()),
-		}
-	case *turnoutpb.LocalExprModel_CaseExpr:
-		arms := make([]ast.LocalCaseArm, len(x.CaseExpr.GetArms()))
-		for i, arm := range x.CaseExpr.GetArms() {
-			a := ast.LocalCaseArm{
-				Pattern: protoCasePatternToAST(arm.GetPattern()),
-				Expr:    protoLocalExprToAST(arm.GetExpr()),
-			}
-			if arm.GetGuard() != nil {
-				a.Guard = protoLocalExprToAST(arm.GetGuard())
-			}
-			arms[i] = a
-		}
-		return &ast.LocalCaseExpr{Subject: protoLocalExprToAST(x.CaseExpr.GetSubject()), Arms: arms}
-	case *turnoutpb.LocalExprModel_PipeExpr:
-		steps := make([]ast.LocalExpr, len(x.PipeExpr.GetSteps()))
-		for i, s := range x.PipeExpr.GetSteps() {
-			steps[i] = protoLocalExprToAST(s)
-		}
-		return &ast.LocalPipeExpr{Initial: protoLocalExprToAST(x.PipeExpr.GetInitial()), Steps: steps}
-	default:
-		return nil
-	}
-}
-
-func protoCasePatternToAST(p *turnoutpb.LocalCasePatternModel) ast.LocalCasePattern {
-	if p == nil {
-		return &ast.WildcardCasePattern{}
-	}
-	switch x := p.Pattern.(type) {
-	case *turnoutpb.LocalCasePatternModel_Wildcard:
-		return &ast.WildcardCasePattern{}
-	case *turnoutpb.LocalCasePatternModel_Lit:
-		return &ast.LiteralCasePattern{Value: structpbToLiteral(x.Lit.GetValue())}
-	case *turnoutpb.LocalCasePatternModel_VarBinder:
-		return &ast.VarBinderPattern{Name: x.VarBinder.GetName()}
-	case *turnoutpb.LocalCasePatternModel_Tuple:
-		elems := make([]ast.LocalCasePattern, len(x.Tuple.GetElems()))
-		for i, elem := range x.Tuple.GetElems() {
-			elems[i] = protoCasePatternToAST(elem)
-		}
-		return &ast.TupleCasePattern{Elems: elems}
-	default:
-		return &ast.WildcardCasePattern{}
-	}
-}
-
-func structpbToLiteral(v *structpb.Value) ast.Literal {
-	if v == nil {
-		return nil
-	}
-	switch x := v.Kind.(type) {
-	case *structpb.Value_NumberValue:
-		return &ast.NumberLiteral{Value: x.NumberValue}
-	case *structpb.Value_StringValue:
-		return &ast.StringLiteral{Value: x.StringValue}
-	case *structpb.Value_BoolValue:
-		return &ast.BoolLiteral{Value: x.BoolValue}
-	case *structpb.Value_ListValue:
-		if x.ListValue == nil {
-			return &ast.ArrayLiteral{}
-		}
-		elems := make([]ast.Literal, len(x.ListValue.Values))
-		for i, elem := range x.ListValue.Values {
-			elems[i] = structpbToLiteral(elem)
-		}
-		return &ast.ArrayLiteral{Elements: elems}
-	default:
-		// Null or unrecognised structpb variant; return nil so callers treat it
-		// as "type unknown" rather than silently coercing to numeric zero.
-		return nil
-	}
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Literal / structpb helpers
@@ -609,7 +504,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 				"binding %q: reference %q is not defined", b.Name, refName))
 			return
 		}
-		bFt, _ := ast.FieldTypeFromString(b.Type)
+		bFt := ast.MustFieldTypeFromString(b.Type)
 		if refInfo.fieldType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeSingleRefTypeMismatch,
 				"binding %q: single-reference %q has type %s but binding declares type %s",
@@ -623,7 +518,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	}
 
 	if retType, known := resolveExpectedReturn(spec, c.Args, scope, nil); known {
-		bFt, _ := ast.FieldTypeFromString(b.Type)
+		bFt := ast.MustFieldTypeFromString(b.Type)
 		if retType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: function %q returns %s but binding declares type %s",
@@ -687,7 +582,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 
 	if n := len(p.Steps); n > 0 {
 		if stepKnown[n-1] {
-			bFt, _ := ast.FieldTypeFromString(b.Type)
+			bFt := ast.MustFieldTypeFromString(b.Type)
 			if stepTypes[n-1] != bFt {
 				*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 					"binding %q: pipe last step returns %s but binding declares type %s",
@@ -751,7 +646,7 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 	}
 
 	if hasThen {
-		bFt, _ := ast.FieldTypeFromString(b.Type)
+		bFt := ast.MustFieldTypeFromString(b.Type)
 		if thenType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q cond: branch return type %s does not match declared type %s",
@@ -761,32 +656,228 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extended local expression validation (#if / #case / #pipe / #it sidecar)
+// Extended local expression validation (#if / #case / #pipe / #it)
+//
+// validateExtExprProto walks a proto LocalExprModel directly, avoiding any
+// round-trip allocation through ast.LocalExpr nodes. The scalar type helpers
+// (validateBinaryArgTypePair, resolveLocalCallReturn, etc.) are shared with
+// the AST validators below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateExtExpr(b *turnoutpb.BindingModel, e ast.LocalExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	var ret ast.FieldType
 	var known bool
-	switch r := e.(type) {
-	case *ast.LocalIfExpr:
-		ret, known = validateLocalIf(b.Name, r.Cond, r.Then, r.Else, scope, 0, false, ds)
-	case *ast.LocalCaseExpr:
-		ret, known = validateLocalCase(b.Name, r.Subject, r.Arms, scope, 0, false, ds)
-	case *ast.LocalPipeExpr:
-		ret, known = validateLocalPipe(b.Name, r.Initial, r.Steps, scope, 0, false, ds)
+	switch x := e.Expr.(type) {
+	case *turnoutpb.LocalExprModel_IfExpr:
+		ret, known = validateProtoLocalIf(b.Name, x.IfExpr.GetCond(), x.IfExpr.GetThen(), x.IfExpr.GetElseBranch(), scope, 0, false, ds)
+	case *turnoutpb.LocalExprModel_CaseExpr:
+		ret, known = validateProtoLocalCase(b.Name, x.CaseExpr.GetSubject(), x.CaseExpr.GetArms(), scope, 0, false, ds)
+	case *turnoutpb.LocalExprModel_PipeExpr:
+		ret, known = validateProtoLocalPipe(b.Name, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), scope, 0, false, ds)
+	case *turnoutpb.LocalExprModel_Infix:
+		ret, known = validateProtoLocalInfix(b.Name, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), scope, 0, false, ds)
 	default:
 		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: unsupported extended expression %T", b.Name, e))
+			"binding %q: unsupported extended expression type %T", b.Name, e.Expr))
 		return
 	}
 	if known {
-		bFt, _ := ast.FieldTypeFromString(b.Type)
+		bFt := ast.MustFieldTypeFromString(b.Type)
 		if ret != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: extended expression returns %s but binding declares type %s",
 				b.Name, ret, b.Type))
 		}
 	}
+}
+
+func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	if e == nil {
+		return 0, false
+	}
+	switch x := e.Expr.(type) {
+	case *turnoutpb.LocalExprModel_Ref:
+		name := x.Ref.GetName()
+		info, ok := scope[name]
+		if !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+				"binding %q: reference %q is not defined", bindingName, name))
+			return 0, false
+		}
+		return info.fieldType, true
+	case *turnoutpb.LocalExprModel_Lit:
+		ft, ok := structpbFieldType(x.Lit.GetValue())
+		return ft, ok
+	case *turnoutpb.LocalExprModel_It:
+		if !itAllowed {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+				"binding %q: #it is only valid inside #pipe step expressions", bindingName))
+			return 0, false
+		}
+		if itType == 0 {
+			return 0, false
+		}
+		return itType, true
+	case *turnoutpb.LocalExprModel_Call:
+		return validateProtoLocalCallExpr(bindingName, x.Call.GetFn(), x.Call.GetArgs(), scope, itType, itAllowed, ds)
+	case *turnoutpb.LocalExprModel_Infix:
+		return validateProtoLocalInfix(bindingName, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), scope, itType, itAllowed, ds)
+	case *turnoutpb.LocalExprModel_IfExpr:
+		return validateProtoLocalIf(bindingName, x.IfExpr.GetCond(), x.IfExpr.GetThen(), x.IfExpr.GetElseBranch(), scope, itType, itAllowed, ds)
+	case *turnoutpb.LocalExprModel_CaseExpr:
+		return validateProtoLocalCase(bindingName, x.CaseExpr.GetSubject(), x.CaseExpr.GetArms(), scope, itType, itAllowed, ds)
+	case *turnoutpb.LocalExprModel_PipeExpr:
+		return validateProtoLocalPipe(bindingName, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), scope, itType, itAllowed, ds)
+	default:
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: unsupported local expression type %T", bindingName, e.Expr))
+		return 0, false
+	}
+}
+
+func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	spec, ok := builtinFns[fn]
+	if !ok {
+		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
+			"binding %q: unknown function alias %q", bindingName, fn))
+		return 0, false
+	}
+	types := make([]ast.FieldType, len(args))
+	known := make([]bool, len(args))
+	for i, arg := range args {
+		types[i], known[i] = validateProtoLocalExpr(bindingName, arg, scope, itType, itAllowed, ds)
+	}
+	validateLocalCallArgTypes(bindingName, fn, spec, types, known, ds)
+	return resolveLocalCallReturn(spec, types, known)
+}
+
+func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	lhsType, lhsOK := validateProtoLocalExpr(bindingName, lhs, scope, itType, itAllowed, ds)
+	rhsType, rhsOK := validateProtoLocalExpr(bindingName, rhs, scope, itType, itAllowed, ds)
+	fn := op.FnAlias()
+	if fn == "" {
+		if lhsOK && rhsOK && lhsType == ast.FieldTypeStr && rhsType == ast.FieldTypeStr {
+			return ast.FieldTypeStr, true
+		}
+		fn = "add"
+	}
+	spec, ok := builtinFns[fn]
+	if !ok {
+		return 0, false
+	}
+	validateLocalCallArgTypes(bindingName, fn, spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK}, ds)
+	return resolveLocalCallReturn(spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK})
+}
+
+func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	condType, condOK := validateProtoLocalExpr(bindingName, cond, scope, itType, itAllowed, ds)
+	if condOK && condType != ast.FieldTypeBool {
+		*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+			"binding %q: #if condition has type %s; bool required", bindingName, condType))
+	}
+	thenType, thenOK := validateProtoLocalExpr(bindingName, thenExpr, scope, itType, itAllowed, ds)
+	elseType, elseOK := validateProtoLocalExpr(bindingName, elseExpr, scope, itType, itAllowed, ds)
+	if thenOK && elseOK && thenType != elseType {
+		*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+			"binding %q: #if branches return %s and %s", bindingName, thenType, elseType))
+		return 0, false
+	}
+	if thenOK {
+		return thenType, true
+	}
+	if elseOK {
+		return elseType, true
+	}
+	return 0, false
+}
+
+func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
+	var ret ast.FieldType
+	retOK := false
+	for _, arm := range arms {
+		armScope := protoPatternScopeBindings(scope, arm.GetPattern(), subjectType, subjectOK)
+		validateProtoPattern(bindingName, arm.GetPattern(), subjectType, subjectOK, ds)
+		if arm.GetGuard() != nil {
+			guardType, guardOK := validateProtoLocalExpr(bindingName, arm.GetGuard(), armScope, itType, itAllowed, ds)
+			if guardOK && guardType != ast.FieldTypeBool {
+				*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+					"binding %q: #case guard has type %s; bool required", bindingName, guardType))
+			}
+		}
+		armType, armOK := validateProtoLocalExpr(bindingName, arm.GetExpr(), armScope, itType, itAllowed, ds)
+		if !armOK {
+			continue
+		}
+		if retOK && armType != ret {
+			*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+				"binding %q: #case arms return %s and %s", bindingName, ret, armType))
+			continue
+		}
+		ret = armType
+		retOK = true
+	}
+	return ret, retOK
+}
+
+func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprModel, steps []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	current, known := validateProtoLocalExpr(bindingName, initial, scope, itType, itAllowed, ds)
+	for _, step := range steps {
+		stepType, stepOK := validateProtoLocalExpr(bindingName, step, scope, current, true, ds)
+		current, known = stepType, stepOK
+	}
+	return current, known
+}
+
+func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, ds *diag.Diagnostics) {
+	if p == nil {
+		return
+	}
+	switch x := p.Pattern.(type) {
+	case *turnoutpb.LocalCasePatternModel_Lit:
+		patternType, ok := structpbFieldType(x.Lit.GetValue())
+		if ok && subjectKnown && patternType != subjectType {
+			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+				"binding %q: #case literal pattern has type %s but subject has type %s",
+				bindingName, patternType, subjectType))
+		}
+	case *turnoutpb.LocalCasePatternModel_Tuple:
+		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: #case tuple patterns are not supported; use _ to ignore the subject, or a variable binder (e.g. x) to capture it", bindingName))
+	}
+}
+
+func protoPatternScopeBindings(scope map[string]bindingInfo, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool) map[string]bindingInfo {
+	if p == nil {
+		return scope
+	}
+	next := scope
+	copied := false
+	var add func(*turnoutpb.LocalCasePatternModel)
+	add = func(pat *turnoutpb.LocalCasePatternModel) {
+		if pat == nil {
+			return
+		}
+		switch x := pat.Pattern.(type) {
+		case *turnoutpb.LocalCasePatternModel_VarBinder:
+			if !copied {
+				next = make(map[string]bindingInfo, len(scope)+1)
+				for k, v := range scope {
+					next[k] = v
+				}
+				copied = true
+			}
+			if subjectKnown {
+				next[x.VarBinder.GetName()] = bindingInfo{fieldType: subjectType}
+			}
+		case *turnoutpb.LocalCasePatternModel_Tuple:
+			for _, elem := range x.Tuple.GetElems() {
+				add(elem)
+			}
+		}
+	}
+	add(p)
+	return next
 }
 
 func validateLocalExpr(bindingName string, e ast.LocalExpr, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {

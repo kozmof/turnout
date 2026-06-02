@@ -322,7 +322,7 @@ describe('executeRoute — route-driven entry warnings', () => {
 
     expect(result.history).toEqual(['multi_entry.first']);
     expect(result.warnings).toEqual([
-      'route "r_multi" scene "multi_entry": only the first entry action fires in route-driven execution (2 declared)',
+      { kind: 'multi_entry_action', sceneId: 'multi_entry', entryActions: ['first', 'second'] },
     ]);
     expect(result.finalState['entry.second']).toBeUndefined();
   });

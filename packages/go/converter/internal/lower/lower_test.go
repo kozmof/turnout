@@ -16,8 +16,14 @@ import (
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-// mustLower parses src, resolves state, and lowers to a proto model + sidecar.
+// mustLower parses src, resolves state, and lowers to a proto model.
 func mustLower(t *testing.T, src string) *turnoutpb.TurnModel {
+	t.Helper()
+	return mustLowerResult(t, src).Model
+}
+
+// mustLowerResult is like mustLower but returns the full LowerResult (model + sidecar).
+func mustLowerResult(t *testing.T, src string) *lower.LowerResult {
 	t.Helper()
 	tf, ds := parser.ParseFile("test.turn", src)
 	if ds.HasErrors() {
@@ -40,7 +46,7 @@ func mustLower(t *testing.T, src string) *turnoutpb.TurnModel {
 		}
 		t.Fatalf("lower failed")
 	}
-	return lr.Model
+	return lr
 }
 
 // minimal wraps a scene body in the minimum valid scaffolding.
@@ -579,7 +585,7 @@ func TestLowerIfRHSCall(t *testing.T) {
 // ─── sigil lowering ───────────────────────────────────────────────────────────
 
 func TestLowerSigilIngress(t *testing.T) {
-	tm := mustLower(t, `state {
+	lr := mustLowerResult(t, `state {
   app {
     score:number = 0
   }
@@ -598,7 +604,8 @@ scene "test" {
     }
   }
 }`)
-	assertSigilAnnotation(t, tm, "test", "a", lower.ComputeScope(), "p", "score", ast.SigilIngress)
+	tm := lr.Model
+	assertSigilAnnotation(t, lr.Sidecar, "test", "a", lower.ComputeScope(), "p", "score", ast.SigilIngress)
 	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
@@ -613,7 +620,7 @@ scene "test" {
 }
 
 func TestLowerSigilEgress(t *testing.T) {
-	tm := mustLower(t, `state {
+	lr := mustLowerResult(t, `state {
   app { approved:bool = false }
 }
 scene "test" {
@@ -630,7 +637,8 @@ scene "test" {
     }
   }
 }`)
-	assertSigilAnnotation(t, tm, "test", "a", lower.ComputeScope(), "p", "approved", ast.SigilEgress)
+	tm := lr.Model
+	assertSigilAnnotation(t, lr.Sidecar, "test", "a", lower.ComputeScope(), "p", "approved", ast.SigilEgress)
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
 		t.Fatalf("expected 1 merge entry, got %d", len(mg))
@@ -641,7 +649,7 @@ scene "test" {
 }
 
 func TestLowerSigilBiDir(t *testing.T) {
-	tm := mustLower(t, `state {
+	lr := mustLowerResult(t, `state {
   app { count:number = 0 }
 }
 scene "test" {
@@ -661,7 +669,8 @@ scene "test" {
     }
   }
 }`)
-	assertSigilAnnotation(t, tm, "test", "a", lower.ComputeScope(), "p", "count", ast.SigilBiDir)
+	tm := lr.Model
+	assertSigilAnnotation(t, lr.Sidecar, "test", "a", lower.ComputeScope(), "p", "count", ast.SigilBiDir)
 	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
 		t.Error("expected prepare entries")
 	}
@@ -816,18 +825,16 @@ func TestLowerIdempotency(t *testing.T) {
 	}
 }
 
-func assertSigilAnnotation(t *testing.T, tm *turnoutpb.TurnModel, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, want ast.Sigil) {
+func assertSigilAnnotation(t *testing.T, sc *lower.Sidecar, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, want ast.Sigil) {
 	t.Helper()
-	if tm.Annotations == nil {
-		t.Fatal("missing annotations")
+	if sc == nil {
+		t.Fatal("nil sidecar: no sigil metadata available")
 	}
-	for _, entry := range tm.Annotations.Entries {
-		if entry.SceneId == sceneID && entry.ActionId == actionID && entry.Scope == scope.String() && entry.ProgName == progName && entry.BindingName == bindingName {
-			if ast.Sigil(entry.Sigil) != want {
-				t.Fatalf("sigil = %v, want %v", ast.Sigil(entry.Sigil), want)
-			}
-			return
-		}
+	got, ok := sc.Get(lower.BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: bindingName})
+	if !ok {
+		t.Fatalf("missing sigil for %s:%s:%s:%s:%s", sceneID, actionID, scope, progName, bindingName)
 	}
-	t.Fatalf("missing structured sigil annotation for %s:%s:%s:%s:%s", sceneID, actionID, scope.String(), progName, bindingName)
+	if got != want {
+		t.Fatalf("sigil = %v, want %v", got, want)
+	}
 }

@@ -234,33 +234,39 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 }
 
 // chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
-// content lines will be prefixed with indent. It tries named candidates first,
-// then falls back to a hash-derived suffix derived directly from the content —
-// O(n) in content length, no loop over potential delimiters.
-// Returns an error if no non-colliding delimiter can be found (adversarial input only).
+// content lines will be prefixed with indent. It scans the content lines once
+// per candidate (linear search) rather than building a map, which is faster for
+// the common case where one of the four named candidates succeeds. The hash
+// fallback handles adversarial input.
+// Returns an error only if no non-colliding delimiter can be found.
 func chooseHeredocDelim(text, indent string) (string, error) {
 	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
 	lines := strings.Split(text, "\n")
-	lineSet := make(map[string]struct{}, len(lines))
-	for _, line := range lines {
-		lineSet[indent+line] = struct{}{}
+
+	collides := func(delim string) bool {
+		full := indent + delim
+		for _, line := range lines {
+			if indent+line == full {
+				return true
+			}
+		}
+		return false
 	}
+
 	for _, delim := range candidates {
-		if _, collision := lineSet[indent+delim]; !collision {
+		if !collides(delim) {
 			return delim, nil
 		}
 	}
-	// Hash-first fallback: derive a delimiter from the content directly.
-	// One FNV-1a pass produces a hex suffix; if that collides (content contains
-	// the exact indented "TURN_EOT_<hash>" line), XOR with a counter and retry.
-	// In practice this loop runs at most twice.
+
+	// Hash fallback for adversarial content that contains all four candidates.
 	hfn := fnv.New32a()
 	_, _ = hfn.Write([]byte(text))
 	h := hfn.Sum32()
 	const maxFallbackAttempts = 100
 	for extra := uint32(0); extra < maxFallbackAttempts; extra++ {
 		delim := fmt.Sprintf("TURN_EOT_%08x", h^extra)
-		if _, collision := lineSet[indent+delim]; !collision {
+		if !collides(delim) {
 			return delim, nil
 		}
 	}
@@ -655,7 +661,7 @@ func localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.Call.GetFn(), strings.Join(args, ", "))
 	case *turnoutpb.LocalExprModel_Infix:
 		op := ast.InfixOp(int32(x.Infix.GetOp()))
-		ft, _ := ast.FieldTypeFromString(bindingType)
+		ft := ast.MustFieldTypeFromString(bindingType)
 		fn := op.FnAliasForType(ft)
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn,
 			localExprInline(x.Infix.GetLhs(), bindingType), localExprInline(x.Infix.GetRhs(), bindingType))

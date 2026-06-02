@@ -6,7 +6,6 @@ package lower
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -22,13 +21,14 @@ import (
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// LowerResult bundles the canonical proto model and the resolved STATE schema.
-// Sigil metadata is embedded in Model.Annotations (cleared by the emitter before
-// JSON output). Schema is forwarded to validate.Validate so callers do not need
-// to thread it separately.
+// LowerResult bundles the canonical proto model, the resolved STATE schema, and
+// the binding sigil sidecar. Pass Sidecar directly to validate.Validate so that
+// sigil checks work correctly even on models that were not produced by this
+// lowering run (e.g. loaded from disk, where Annotations would be absent).
 type LowerResult struct {
-	Model  *turnoutpb.TurnModel
-	Schema state.Schema
+	Model   *turnoutpb.TurnModel
+	Schema  state.Schema
+	Sidecar *Sidecar
 }
 
 // LowerResolvingState resolves the STATE schema from basePath (the directory of
@@ -69,10 +69,7 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	// Embed sigil metadata in the proto model so the validator does not need a
-	// separate sidecar parameter. The emitter clears this field before output.
-	tm.Annotations = sc.ToAnnotations()
-	return &LowerResult{Model: tm, Schema: schema}, ds
+	return &LowerResult{Model: tm, Schema: schema, Sidecar: sc}, ds
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -233,16 +230,47 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 	return assembleStateModel(nsList)
 }
 
+// dotKey is a fully-qualified namespace.field key used for sorting.
+type dotKey struct{ ns, field string }
+
 // lowerStateBlockFromSchemaAlphabetical reconstructs a state block from the
 // flat schema map with namespaces and fields sorted alphabetically for
 // deterministic output when no declaration order is available.
+//
+// A single sorted slice of dotKeys replaces two nested slices.Sorted calls,
+// reducing allocations for schemas with many namespaces.
 func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
+	// Count total fields to preallocate.
+	total := 0
+	for _, fields := range schema {
+		total += len(fields)
+	}
+	keys := make([]dotKey, 0, total)
+	for nsName, fields := range schema {
+		for fieldName := range fields {
+			keys = append(keys, dotKey{ns: nsName, field: fieldName})
+		}
+	}
+	slices.SortFunc(keys, func(a, b dotKey) int {
+		if a.ns != b.ns {
+			if a.ns < b.ns {
+				return -1
+			}
+			return 1
+		}
+		if a.field < b.field {
+			return -1
+		}
+		if a.field > b.field {
+			return 1
+		}
+		return 0
+	})
+
 	var nsList []nsEntry
 	nsIndex := make(map[string]int)
-	for _, nsName := range slices.Sorted(maps.Keys(schema)) {
-		for _, fieldName := range slices.Sorted(maps.Keys(schema[nsName])) {
-			appendStateField(&nsList, nsIndex, nsName, fieldName, schema[nsName][fieldName])
-		}
+	for _, k := range keys {
+		appendStateField(&nsList, nsIndex, k.ns, k.field, schema[k.ns][k.field])
 	}
 	return assembleStateModel(nsList)
 }
@@ -457,7 +485,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
+	case *ast.ErrorRHS:
+		// Parser failed to parse this binding's RHS; a diagnostic was already recorded.
+		return nil
 	case nil:
+		// Defensive: should not be reachable via the normal parse path.
 		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct, "binding %q has no RHS", name))
 		return nil
 	default:

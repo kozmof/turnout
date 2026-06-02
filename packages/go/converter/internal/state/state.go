@@ -83,13 +83,7 @@ func inlineOrder(block *ast.InlineStateBlock) []string {
 	return keys
 }
 
-// resolveStateFile loads and parses an external state file, then resolves it.
-func resolveStateFile(d *ast.StateFileDirective, basePath string) (Schema, diag.Diagnostics) {
-	schema, _, ds := resolveStateFileWithOrder(d, basePath)
-	return schema, ds
-}
-
-// resolveStateFileWithOrder is like resolveStateFile but also returns ordered keys.
+// resolveStateFileWithOrder is like Resolve but also returns ordered keys.
 func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Schema, []string, diag.Diagnostics) {
 	path := d.Path
 	if !filepath.IsAbs(path) {

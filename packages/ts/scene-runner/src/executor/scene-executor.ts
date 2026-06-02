@@ -63,6 +63,20 @@ export type SceneExecutor = {
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
 const DEFAULT_MAX_STEPS = 10_000;
 
+// Module-level cache: SceneBlock is immutable once built, so the action map
+// derived from it never changes. Keyed by object identity via WeakMap so the
+// entry is GC'd when the scene is no longer referenced.
+const actionMapCache = new WeakMap<SceneBlock, Record<string, ActionModel>>();
+
+function getActionMap(scene: SceneBlock): Record<string, ActionModel> {
+  let m = actionMapCache.get(scene);
+  if (!m) {
+    m = buildActionMap(scene.actions, scene.id);
+    actionMapCache.set(scene, m);
+  }
+  return m;
+}
+
 // Produces a deterministic JSON string regardless of object key insertion order.
 function stableKey(obj: unknown): string {
   return JSON.stringify(obj, (_k, v) =>
@@ -99,7 +113,7 @@ export function createSceneExecutor(
   entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
 ): SceneExecutor {
-  const actionMap = buildActionMap(scene.actions, scene.id);
+  const actionMap = getActionMap(scene);
   const policy: string = scene.nextPolicy ?? 'first-match';
 
   let currentState = state;

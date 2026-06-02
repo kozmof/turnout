@@ -62,7 +62,14 @@ export async function executeAction(
     const valueId = builtCtx.nameToValueId[binding.name];
 
     if (!Object.hasOwn(updatedTable, valueId) && binding.expr) {
-      const funcId = builtCtx.getFuncId(binding.name)!;
+      const funcId = builtCtx.getFuncId(binding.name);
+      if (funcId == null) {
+        throw new SceneRuntimeError(
+          'OutOfOrderBinding',
+          sceneId,
+          `function binding "${binding.name}" has no funcId — binding may be missing from the execution context`,
+        );
+      }
       const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
       let tree = treeCache.get(funcId);
       if (!tree) {

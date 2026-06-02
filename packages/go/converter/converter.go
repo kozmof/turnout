@@ -60,7 +60,7 @@ func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 		return nil, ds2
 	}
 
-	ds3 := validate.Validate(lr.Model, lr.Schema)
+	ds3 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
 	if ds3.HasErrors() {
 		return nil, ds3
 	}
