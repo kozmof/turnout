@@ -13,9 +13,9 @@ import {
   BaseTypeSymbol,
   BaseTypeSubSymbol,
   NullReasonSubSymbol,
+  nullReasonSubSymbols,
   UnknownValue,
   createUnknownValue,
-  isValidValue,
 } from './value';
 import { createInvalidValueError } from './errors';
 
@@ -71,8 +71,7 @@ function createValueBuilder<
   subSymbol: BaseTypeSubSymbol
 ): (value: unknown, tags?: readonly TagSymbol[]) => TResult {
   return (value: unknown, tags: readonly TagSymbol[] = []): TResult => {
-    // Deduplicate tags
-    const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
+    const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
 
     // createUnknownValue guarantees the required structural fields.
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
@@ -130,18 +129,11 @@ export function buildNull(
   reason: NullReasonSubSymbol,
   tags: readonly TagSymbol[] = []
 ): NullValue<readonly TagSymbol[]> {
-  const uniqueTags = tags.length > 0 ? Array.from(new Set(tags)) : [];
-  const unknownValue = createUnknownValue('null', null, reason, uniqueTags);
-
-  if (isValidValue<NullValue<readonly TagSymbol[]>>(unknownValue, 'null', reason)) {
-    return unknownValue;
+  if (!nullReasonSubSymbols.includes(reason as NullReasonSubSymbol)) {
+    throw createInvalidValueError('null', reason, 'Invalid NullReasonSubSymbol');
   }
-
-  throw createInvalidValueError(
-    'null',
-    reason,
-    'Value failed validation after construction'
-  );
+  const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
+  return createUnknownValue('null', null, reason, uniqueTags) as NullValue<readonly TagSymbol[]>;
 }
 
 /**

@@ -22,6 +22,7 @@ import type {
   ContextBuilder as BuilderState,
   ValueRef,
   ValueInputRef,
+  ValueSourceRef,
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
@@ -93,28 +94,6 @@ const IdFactory = {
     return returnValueId;
   },
 
-  // Lookup helpers to replace parsing
-  getStepMetadata(
-    valueId: ValueId,
-    state: BuilderState
-  ): { parentFuncId: FuncId; stepIndex: number } | null {
-    return state.stepMetadata[valueId] ?? null;
-  },
-
-  getReturnValueSource(
-    valueId: ValueId,
-    state: BuilderState
-  ): FuncId | null {
-    return state.returnValueMetadata[valueId]?.sourceFuncId ?? null;
-  },
-
-  isStepOutput(valueId: ValueId, state: BuilderState): boolean {
-    return valueId in state.stepMetadata;
-  },
-
-  isFunctionOutput(valueId: ValueId, state: BuilderState): boolean {
-    return valueId in state.returnValueMetadata;
-  },
 } as const;
 
 /**
@@ -466,27 +445,20 @@ function validateCombineReferences(
   functionKeys: Set<string>
 ): void {
   for (const [argName, ref] of Object.entries(combine.args)) {
-    // Handle different reference types
-    if (typeof ref === 'string') {
-      // Direct value reference
-      if (!valueKeys.has(ref)) {
-        throw createUndefinedValueReferenceError(funcId, argName, ref);
+    const normalized = normalizeValueRef(ref);
+    if (normalized.__type === 'value') {
+      if (!valueKeys.has(normalized.id)) {
+        throw createUndefinedValueReferenceError(funcId, argName, normalized.id);
       }
-    } else if (ref.__type === 'value') {
-      if (!valueKeys.has(ref.id)) {
-        throw createUndefinedValueReferenceError(funcId, argName, ref.id);
+    } else if (normalized.__type === 'funcOutput') {
+      if (!functionKeys.has(normalized.funcId)) {
+        throw createUndefinedValueReferenceError(funcId, argName, normalized.funcId);
       }
-    } else if (ref.__type === 'funcOutput') {
-      // Function output reference
-      if (!functionKeys.has(ref.funcId)) {
-        throw createUndefinedValueReferenceError(funcId, argName, ref.funcId);
-      }
-    } else if (ref.__type === 'stepOutput') {
-      // Step output reference - validate the pipe function exists
-      if (!functionKeys.has(ref.pipeFuncId)) {
-        throw createUndefinedValueReferenceError(funcId, argName, ref.pipeFuncId);
-      }
+    } else if (normalized.__type === 'stepOutput') {
       // Note: We can't validate stepIndex here as we don't know how many steps the pipe has yet
+      if (!functionKeys.has(normalized.pipeFuncId)) {
+        throw createUndefinedValueReferenceError(funcId, argName, normalized.pipeFuncId);
+      }
     } else if (ref.__type === 'transform') {
       const valueRef = ref.valueRef;
       if (valueRef.__type === 'value') {
@@ -527,35 +499,26 @@ function validatePipeReferences(
     const step = pipe.steps[i];
     if (step.__type === 'combine') {
       for (const [argName, ref] of Object.entries(step.args)) {
-        // Handle different reference types
-        if (typeof ref === 'string') {
-          // Step arguments can reference:
-          // 1. Pipe function arguments
-          // 2. Values from the context
-          const isPipeArg = pipeArgNames.has(ref);
-          const isContextValue = valueKeys.has(ref);
-
+        const normalized = normalizeValueRef(ref);
+        if (normalized.__type === 'value') {
+          // Step arguments can reference pipe function arguments or context values
+          const isPipeArg = pipeArgNames.has(normalized.id);
+          const isContextValue = valueKeys.has(normalized.id);
           if (!isPipeArg && !isContextValue) {
-            throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref);
+            throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.id);
           }
-        } else if (ref.__type === 'value') {
-          const isPipeArg = pipeArgNames.has(ref.id);
-          const isContextValue = valueKeys.has(ref.id);
-          if (!isPipeArg && !isContextValue) {
-            throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.id);
+        } else if (normalized.__type === 'funcOutput') {
+          if (!functionKeys.has(normalized.funcId)) {
+            throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.funcId);
           }
-        } else if (ref.__type === 'funcOutput') {
-          if (!functionKeys.has(ref.funcId)) {
-            throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.funcId);
-          }
-        } else if (ref.__type === 'stepOutput') {
+        } else if (normalized.__type === 'stepOutput') {
           // Step output references are allowed within the same pipe function
           // Validate that it references this pipe function and a previous step
-          if (ref.pipeFuncId !== funcId) {
-            throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${ref.pipeFuncId}'`);
+          if (normalized.pipeFuncId !== funcId) {
+            throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${normalized.pipeFuncId}'`);
           }
-          if (ref.stepIndex >= i) {
-            throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.stepIndex} which is not a previous step`);
+          if (normalized.stepIndex >= i) {
+            throw new Error(`Step ${i} of pipe function '${funcId}' references step ${normalized.stepIndex} which is not a previous step`);
           }
         } else if (ref.__type === 'transform') {
           // Transform reference - validate the inner value
@@ -718,6 +681,16 @@ function isStepOutputRef(ref: ValueInputRef | TransformRef): ref is StepOutputRe
 }
 
 /**
+ * Normalizes a ValueInputRef to ValueSourceRef by wrapping plain string IDs
+ * as ValueObjectRef. This lets internal resolution paths work on a 3-variant
+ * union instead of a 4-variant one (string + 3 object types).
+ */
+function normalizeValueRef(ref: ValueInputRef): ValueSourceRef {
+  if (typeof ref === 'string') return { __type: 'value', id: ref };
+  return ref;
+}
+
+/**
  * Resolves a FuncOutputRef to the actual return ValueId.
  * Looks up the return ID from the metadata table.
  */
@@ -757,20 +730,10 @@ function resolveValueReference(
     return resolveStepOutputRef(valueRef, state);
   }
 
-  if (isFuncOutputRef(ref)) {
-    return resolveFuncOutputRef(ref, state);
-  }
-
-  if (isStepOutputRef(ref)) {
-    return resolveStepOutputRef(ref, state);
-  }
-
-  if (typeof ref === 'object' && ref.__type === 'value') {
-    return scope.valueId(ref.id);
-  }
-
-  // Direct ValueRef string
-  return scope.valueId(ref);
+  const normalized = normalizeValueRef(ref);
+  if (normalized.__type === 'funcOutput') return resolveFuncOutputRef(normalized, state);
+  if (normalized.__type === 'stepOutput') return resolveStepOutputRef(normalized, state);
+  return scope.valueId(normalized.id);
 }
 
 /**
@@ -1125,25 +1088,12 @@ function inferPassTransform(
     throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);
   }
 
-  // Handle ValueObjectRef — valueTable is now keyed by scoped IDs
-  if (typeof ref === 'object' && ref.__type === 'value') {
-    const value = getValueFromTable(scope.valueId(ref.id), state.valueTable);
-    if (value) {
-      return [getPassTransformFn(value.symbol)];
-    }
-    throw new Error(`Value ${ref.id} not found in valueTable`);
-  }
-
-  // Handle ValueRef (string) — valueTable is now keyed by scoped IDs
-  const value = getValueFromTable(scope.valueId(ref), state.valueTable);
-
-  // If value exists in valueTable, use its type
-  if (value) {
-    return [getPassTransformFn(value.symbol)];
-  }
-
-  // Value should exist in table by this point in processing
-  throw new Error(`Value ${ref} not found in valueTable`);
+  // Handle ValueObjectRef or plain string (both reference a pre-defined value)
+  const normalized = normalizeValueRef(ref);
+  const valueId = scope.valueId(normalized.id);
+  const value = getValueFromTable(valueId, state.valueTable);
+  if (value) return [getPassTransformFn(value.symbol)];
+  throw new Error(`Value ${normalized.id} not found in valueTable`);
 }
 
 /**
@@ -1164,7 +1114,7 @@ function createCombineDefSignature(
 ): string {
   const transformA = transformFnMap['a'];
   const transformB = transformFnMap['b'];
-  return `${name}|a:${transformA?.join(',')}|b:${transformB?.join(',')}`;
+  return JSON.stringify([name, transformA ?? [], transformB ?? []]);
 }
 
 function getOrCreateCombineDefinitionId(
@@ -1172,6 +1122,12 @@ function getOrCreateCombineDefinitionId(
   transformFnMap: Record<string, readonly TransformFnNames[]>,
   state: FunctionPhaseState
 ): CombineDefineId {
+  // Array binary functions are only accessible via the HCL pipe path, not the builder API.
+  if (name.startsWith('binaryFnArray::')) {
+    throw new Error(
+      `Array binary functions (${name}) cannot be registered via combine() — use a pipe with arr_* HCL functions instead.`
+    );
+  }
   // Validate at build time — catch unknown names before validateContext
   if (getBinaryFnReturnType(name) === null) {
     throw new Error(

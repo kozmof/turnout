@@ -23,6 +23,7 @@ import type {
   ValueId,
   FuncId,
   CombineDefineId,
+  PipeDefineId,
   BinaryFnNames,
   TransformFnNames,
 } from '../types';
@@ -242,7 +243,6 @@ export function inferValueElemType(
 /**
  * Infers the return type of a function in the FuncTable.
  * This recursively analyzes the function definition to determine its output type.
- * TODO: infer all func type-chains
  */
 export function inferFuncReturnType(
   funcId: FuncId,
@@ -264,36 +264,7 @@ export function inferFuncReturnType(
 
     // Check if it's a PipeFunc
     if (isPipeDefineId(defId, context.pipeFuncDefTable)) {
-      const pipeDef = context.pipeFuncDefTable[defId];
-      if (pipeDef.sequence.length === 0) return null;
-
-      // Return type is the type of the last step in the sequence
-      const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
-      const lastStepDefId = lastStep.defId;
-
-      // Recursively infer the return type of the last step's definition
-      if (isCombineDefineId(lastStepDefId, context.combineFuncDefTable)) {
-        return inferCombineFuncReturnType(lastStepDefId, context);
-      } else if (lastStepDefId in context.pipeFuncDefTable) {
-        // Recursive PipeFunc - we need to create a dummy FuncId to recurse
-        // This is a limitation of the current design where inferFuncReturnType expects FuncId
-        // For now, just recurse on the definition directly by checking its structure
-        if (!isPipeDefineId(lastStepDefId, context.pipeFuncDefTable)) return null;
-        const nestedPipeDef = context.pipeFuncDefTable[lastStepDefId];
-        if (nestedPipeDef.sequence.length === 0) return null;
-        // Continue recursion manually to avoid circular FuncId dependency
-        const nestedLastStep = nestedPipeDef.sequence[nestedPipeDef.sequence.length - 1];
-        if (isCombineDefineId(nestedLastStep.defId, context.combineFuncDefTable)) {
-          return inferCombineFuncReturnType(nestedLastStep.defId, context);
-        }
-        // For deeper nesting, return null (limitation)
-        return null;
-      } else if (lastStepDefId in context.condFuncDefTable) {
-        // CondFunc type inference not yet fully supported
-        return null;
-      }
-
-      return null;
+      return inferPipeDefReturnType(defId, context, new Set());
     }
 
     // Check if it's a CondFunc
@@ -319,6 +290,40 @@ export function inferFuncReturnType(
     return null;
   } finally {
     visited.delete(funcId);
+  }
+}
+
+/**
+ * Infers the return type of a pipe definition by walking to its last step.
+ * Takes a PipeDefineId directly so it can recurse into nested pipes without
+ * requiring a FuncId intermediary.
+ */
+function inferPipeDefReturnType(
+  defId: PipeDefineId,
+  context: ExecutionContext,
+  visited: Set<PipeDefineId>
+): BaseTypeSymbol | null {
+  if (visited.has(defId)) return null;
+  visited.add(defId);
+
+  try {
+    const def = context.pipeFuncDefTable[defId];
+    if (!def || def.sequence.length === 0) return null;
+
+    const lastStep = def.sequence[def.sequence.length - 1];
+    const lastStepDefId = lastStep.defId;
+
+    if (isCombineDefineId(lastStepDefId, context.combineFuncDefTable)) {
+      return inferCombineFuncReturnType(lastStepDefId, context);
+    }
+
+    if (isPipeDefineId(lastStepDefId, context.pipeFuncDefTable)) {
+      return inferPipeDefReturnType(lastStepDefId, context, visited);
+    }
+
+    return null;
+  } finally {
+    visited.delete(defId);
   }
 }
 

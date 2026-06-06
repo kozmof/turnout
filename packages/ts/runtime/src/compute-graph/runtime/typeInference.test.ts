@@ -205,7 +205,7 @@ describe('typeInference values and function inference', () => {
     expect(inferFuncReturnType('f_empty_pipe' as FuncId, context)).toBeNull();
   });
 
-  it('infers one level of nested pipe return types and stops on deeper unsupported nesting', () => {
+  it('infers arbitrarily deep nested pipe return types', () => {
     const context = contextWithTables({
       funcTable: {
         f_nested: { kind: 'pipe', defId: 'td_outer' as PipeDefineId, argMap: {}, returnId: 'v_nested' as ValueId },
@@ -225,7 +225,7 @@ describe('typeInference values and function inference', () => {
     });
 
     expect(inferFuncReturnType('f_nested' as FuncId, context)).toBe('number');
-    expect(inferFuncReturnType('f_deep' as FuncId, context)).toBeNull();
+    expect(inferFuncReturnType('f_deep' as FuncId, context)).toBe('number');
 
     context.funcTable['f_empty_nested' as FuncId] = { kind: 'pipe', defId: 'td_empty_outer' as PipeDefineId, argMap: {}, returnId: 'v_empty_nested' as ValueId } as any;
     context.pipeFuncDefTable['td_empty_outer' as PipeDefineId] = { args: {}, sequence: [{ defId: 'td_empty_inner' as PipeDefineId, argBindings: {} }] } as any;

@@ -84,13 +84,13 @@ export type NullValue<Tags extends readonly TagSymbol[] = readonly []> =
 export type ArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
   Value<AnyValue[], 'array', undefined, Tags>;
 export type ArrayNumberValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<AnyValue[], 'array', 'number', Tags>;
+  Value<NumberValue[], 'array', 'number', Tags>;
 export type ArrayStringValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<AnyValue[], 'array', 'string', Tags>;
+  Value<StringValue[], 'array', 'string', Tags>;
 export type ArrayBooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<AnyValue[], 'array', 'boolean', Tags>;
+  Value<BooleanValue[], 'array', 'boolean', Tags>;
 export type ArrayNullValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<AnyValue[], 'array', 'null', Tags>;
+  Value<NullValue[], 'array', 'null', Tags>;
 
 export type TypedArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
   | ArrayNumberValue<Tags>

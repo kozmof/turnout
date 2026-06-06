@@ -20,12 +20,22 @@ export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap
   return returnIdToFuncId;
 }
 
-export function buildExecutionTree(
+/**
+ * Builds an execution tree rooted at nodeId. The reverse-lookup map is
+ * constructed once internally so callers cannot accidentally trigger a
+ * per-call recomputation.
+ */
+export function buildExecutionTree(nodeId: NodeId, context: ExecutionContext): ExecutionTree {
+  const returnIdToFuncId = buildReturnIdToFuncIdMap(context);
+  return buildExecutionTreeCore(nodeId, context, new Set(), new Map(), returnIdToFuncId);
+}
+
+function buildExecutionTreeCore(
   nodeId: NodeId,
   context: ExecutionContext,
-  visited: Set<NodeId> = new Set(),
-  memo: Map<NodeId, ExecutionTree> = new Map(),
-  returnIdToFuncId: ReadonlyMap<ValueId, FuncId> = buildReturnIdToFuncIdMap(context)
+  visited: Set<NodeId>,
+  memo: Map<NodeId, ExecutionTree>,
+  returnIdToFuncId: ReadonlyMap<ValueId, FuncId>
 ): ExecutionTree {
   // Return cached result for shared DAG nodes (diamond patterns)
   const cached = memo.get(nodeId);
@@ -72,7 +82,7 @@ function buildExecutionTreeInternal(
     // Check if this value is produced by another function
     const producerFuncId = returnIdToFuncId.get(valueId);
     if (producerFuncId !== undefined) {
-      return buildExecutionTree(
+      return buildExecutionTreeCore(
         producerFuncId,
         context,
         visited,
@@ -107,21 +117,21 @@ function buildExecutionTreeInternal(
     const condDef = context.condFuncDefTable[funcEntry.defId];
 
     // Build trees for condition and both branches
-    const conditionTree = buildExecutionTree(
+    const conditionTree = buildExecutionTreeCore(
       condDef.conditionId.id,
       context,
       visited,
       memo,
       returnIdToFuncId
     );
-    const trueBranchTree = buildExecutionTree(
+    const trueBranchTree = buildExecutionTreeCore(
       condDef.trueBranchId,
       context,
       visited,
       memo,
       returnIdToFuncId
     );
-    const falseBranchTree = buildExecutionTree(
+    const falseBranchTree = buildExecutionTreeCore(
       condDef.falseBranchId,
       context,
       visited,
@@ -145,7 +155,7 @@ function buildExecutionTreeInternal(
   const children: ExecutionTree[] = [];
 
   for (const argId of Object.values(funcEntry.argMap)) {
-    const childTree = buildExecutionTree(
+    const childTree = buildExecutionTreeCore(
       argId,
       context,
       visited,

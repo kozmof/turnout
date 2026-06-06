@@ -1,4 +1,4 @@
-import { assertValidContext, buildNull, buildExecutionTree, buildReturnIdToFuncIdMap, executeTree } from 'runtime';
+import { assertValidContext, buildNull, buildExecutionTree, executeTree } from 'runtime';
 import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
@@ -54,8 +54,6 @@ export async function executeAction(
   const updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
 
-  // Build once — funcTable is stable across the loop; only valueTable grows.
-  const returnIdToFuncId = buildReturnIdToFuncIdMap(validatedCtx);
   const treeCache = new Map<FuncId, ExecutionTree>();
 
   for (const binding of action.compute.prog.bindings) {
@@ -73,7 +71,10 @@ export async function executeAction(
       const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
       let tree = treeCache.get(funcId);
       if (!tree) {
-        tree = buildExecutionTree(funcId, bindingCtx, new Set(), new Map(), returnIdToFuncId);
+        // Safe to cache: buildExecutionTree reads only funcTable (stable for the
+        // lifetime of this action), so the tree built on first encounter is
+        // structurally identical across all loop iterations even though valueTable grows.
+        tree = buildExecutionTree(funcId, bindingCtx);
         treeCache.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
