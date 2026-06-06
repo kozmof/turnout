@@ -51,6 +51,12 @@ export interface StateManager {
    * Useful for test introspection and tooling.
    */
   validPaths(): ReadonlySet<string> | null;
+  /**
+   * Like read() but returns undefined when the path is undeclared (schema-backed managers)
+   * or absent (unchecked managers), instead of throwing or returning buildNull('missing').
+   * Use this to distinguish "path not found" from "path found, value is null".
+   */
+  readOrUndefined(path: string): AnyValue | undefined;
 }
 
 const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
@@ -120,6 +126,11 @@ function make(
     },
     snapshot: () => ({ ...state }),
     validPaths: () => validPaths,
+    readOrUndefined: (path) => {
+      assertSafePath(path);
+      if (validPaths !== null && !validPaths.has(path)) return undefined;
+      return state[path];
+    },
   };
 }
 

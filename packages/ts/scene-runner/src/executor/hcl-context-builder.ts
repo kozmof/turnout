@@ -1,6 +1,6 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import { SceneRuntimeError } from './errors.js';
-import type { AnyValue, ExecutionContext, FuncId, ValueId, ContextSpec } from 'runtime';
+import type { AnyValue, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
 import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
@@ -9,14 +9,19 @@ import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type BindingResolution =
+  | { kind: 'func';  id: FuncId }
+  | { kind: 'value'; id: ValueId };
+
 export type BuiltContext = {
   exec: ExecutionContext;
   /** Binding name → ValueId for every binding. Used for from_action lookup. */
   nameToValueId: Record<string, ValueId>;
-  /** Returns the FuncId for a function binding, or undefined if it is a value binding. */
-  getFuncId(name: string): FuncId | undefined;
-  /** Returns the ValueId for a value binding, or undefined if it is a function binding. */
-  getValueId(name: string): ValueId | undefined;
+  /**
+   * Returns the resolution for a binding name, or undefined if the name is unknown.
+   * Use `binding.kind === 'func'` to narrow to a FuncId; `'value'` for a ValueId.
+   */
+  resolve(name: string): BindingResolution | undefined;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -43,7 +48,7 @@ function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
 // HCL function name → runtime BinaryFnNames mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-const FN_MAP: Record<string, string> = {
+export const FN_MAP: Record<string, string> = {
   // Number arithmetic
   add: 'binaryFnNumber::add',
   sub: 'binaryFnNumber::minus',
@@ -171,6 +176,10 @@ export function buildSpec(
     if (arg.ref !== undefined) return arg.ref;
     if (arg.funcRef !== undefined) return arg.funcRef;
     if (arg.lit !== undefined) return addLitBinding(arg.lit);
+    if (arg.stepRef !== undefined)
+      throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition cannot be a step reference');
+    if (arg.transform !== undefined)
+      throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition cannot be a transform reference');
     throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition must resolve to a value or function binding');
   }
 
@@ -229,11 +238,19 @@ export function buildSpec(
 export function buildNameToValueId(
   bindings: ProgModel['bindings'],
   ids: Record<string, FuncId | ValueId>,
-  funcTable: Record<string, { returnId: ValueId }>,
+  funcTable: FuncTable,
+  contextId = '(unknown)',
 ): Record<string, ValueId> {
   const nameToValueId: Record<string, ValueId> = {};
   for (const binding of bindings) {
     const id = ids[binding.name];
+    if (id === undefined) {
+      throw new SceneRuntimeError(
+        'UnknownArgModel',
+        contextId,
+        `binding "${binding.name}" not found in context ID map — this is a compiler bug`,
+      );
+    }
     if (binding.expr) {
       // Function binding: the result lives in the function's return value slot.
       nameToValueId[binding.name] = funcTable[asFuncId(id as string)].returnId;
@@ -268,14 +285,14 @@ export function buildContextFromProg(
   const spec = buildSpec(prog, injectedValues, contextId);
   const result = ctx(spec as ContextSpec); // dynamic spec — branded keys unavailable statically
   const ids = result.ids as Record<string, FuncId | ValueId>; // see asFuncId/asValueId above
-  const funcTable = result.exec.funcTable as unknown as Record<string, { returnId: ValueId }>;
-  const nameToValueId = buildNameToValueId(prog.bindings, ids, funcTable);
+  const funcTable = result.exec.funcTable;
+  const nameToValueId = buildNameToValueId(prog.bindings, ids, funcTable, contextId);
   const funcBindingNames = new Set(prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name));
-  function getFuncId(name: string): FuncId | undefined {
-    return funcBindingNames.has(name) ? asFuncId(ids[name] as string) : undefined;
+  function resolve(name: string): BindingResolution | undefined {
+    if (!Object.prototype.hasOwnProperty.call(ids, name)) return undefined;
+    return funcBindingNames.has(name)
+      ? { kind: 'func',  id: asFuncId(ids[name] as string) }
+      : { kind: 'value', id: asValueId(ids[name] as string) };
   }
-  function getValueId(name: string): ValueId | undefined {
-    return !funcBindingNames.has(name) ? asValueId(ids[name] as string) : undefined;
-  }
-  return { exec: result.exec, nameToValueId, getFuncId, getValueId };
+  return { exec: result.exec, nameToValueId, resolve };
 }

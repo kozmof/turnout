@@ -80,6 +80,7 @@ export {
   buildExecutionTree,
   executeTree,
   buildReturnIdToFuncIdMap,
+  getBinaryFnReturnType,
 } from './compute-graph';
 
 export type { ExecutionResult } from './compute-graph';
@@ -118,6 +119,8 @@ export type {
   PipeArgBinding,
   isValueCondition,
   isFuncCondition,
+  BinaryFnNames,
+  TransformFnNames,
 } from './compute-graph';
 
 export type {

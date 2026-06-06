@@ -6,7 +6,7 @@ import type {
   PipeArgBinding,
   ValueTable,
 } from '../../types';
-import { createPipeArgName, createValueId } from '../../idValidation';
+import { createArgName, createValueId } from '../../idValidation';
 import type { UnvalidatedContext, ValidationState, ValidationError } from './types';
 import { isRecord, isStringAs, hasKey, pipeStepDefIdExistsInContext } from './utils';
 
@@ -126,7 +126,7 @@ function parseBinding(
       return {
         binding: {
           source: 'input',
-          argName: createPipeArgName(binding.argName),
+          argName: createArgName(binding.argName),
         },
       };
     case 'step':

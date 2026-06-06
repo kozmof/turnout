@@ -1,4 +1,5 @@
-import { executeGraph, assertValidContext, isPureBoolean } from 'runtime';
+import { executeGraph, assertValidContext, isPureBoolean, buildNull } from 'runtime';
+import type { AnyValue } from 'runtime';
 import type { SceneBlock, ActionModel, NextRuleModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
@@ -307,13 +308,14 @@ function evaluateNextRules(
       const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;
-      const condFuncId = builtCtx.getFuncId(conditionName);
-      let condValue;
-      if (condFuncId != null) {
-        condValue = executeGraph(condFuncId, validated).value;
+      const condBinding = builtCtx.resolve(conditionName);
+      let condValue: AnyValue;
+      if (condBinding?.kind === 'func') {
+        condValue = executeGraph(condBinding.id, validated).value;
+      } else if (condBinding?.kind === 'value') {
+        condValue = validated.valueTable[condBinding.id] as AnyValue ?? buildNull('missing');
       } else {
-        const condValueId = builtCtx.nameToValueId[conditionName];
-        condValue = validated.valueTable[condValueId];
+        condValue = buildNull('missing');
       }
 
       if (!isPureBoolean(condValue)) {

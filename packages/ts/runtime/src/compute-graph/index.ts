@@ -4,6 +4,9 @@ export { buildExecutionTree, buildReturnIdToFuncIdMap } from './runtime/buildExe
 export { executeTree } from './runtime/executeTree';
 export type { ExecutionResult } from './types';
 
+// Type inference helpers
+export { getBinaryFnReturnType } from './runtime/typeInference';
+
 // Context validation
 export {
   validateContext,
@@ -38,6 +41,8 @@ export type {
   PipeArgBinding,
   isValueCondition,
   isFuncCondition,
+  BinaryFnNames,
+  TransformFnNames,
 } from './types';
 
 export type { GraphExecutionError } from './runtime/errors';

@@ -114,7 +114,7 @@ function resolveArgBinding(
   switch (binding.source) {
     case 'input': {
       // Reference to PipeFunc's input argument
-      const inputValueId = pipeFuncArgMap[binding.argName as unknown as ArgName];
+      const inputValueId = pipeFuncArgMap[binding.argName];
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (inputValueId === undefined) {
         throw new Error(

@@ -25,9 +25,8 @@ import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 // ─────────────────────────────────────────────────────────────────────────────
 
 function runProg(ctx: BuiltContext, rootName: string) {
-  // getFuncId returns undefined for value bindings; fall back to nameToValueId.
-  // executeGraph internally handles both FuncId and ValueId as entry points.
-  const rootId = (ctx.getFuncId(rootName) ?? ctx.nameToValueId[rootName]) as FuncId;
+  const binding = ctx.resolve(rootName);
+  const rootId = (binding?.kind === 'func' ? binding.id : ctx.nameToValueId[rootName]) as FuncId;
   const validated = assertValidContext(ctx.exec);
   return executeGraph(rootId, validated);
 }
@@ -214,7 +213,7 @@ describe('buildSpec — additional edge cases', () => {
       ],
     } as unknown as ProgModel;
 
-    expect(() => buildSpec(prog, {})).toThrow('cond condition must resolve to a value or function binding');
+    expect(() => buildSpec(prog, {})).toThrow('cond condition cannot be a step reference');
   });
 });
 
@@ -448,10 +447,10 @@ describe('buildContextFromProg — nameToValueId', () => {
     expect(ctx.nameToValueId['f1']).toBeDefined();
   });
 
-  it('getValueId returns undefined for function bindings', () => {
+  it('resolve returns kind:value for value bindings and kind:func for function bindings', () => {
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.getValueId('f1')).toBeUndefined();
-    expect(ctx.getFuncId('v1')).toBeUndefined();
+    expect(ctx.resolve('f1')?.kind).toBe('func');
+    expect(ctx.resolve('v1')?.kind).toBe('value');
   });
 });
 
@@ -559,7 +558,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
       ],
     } as unknown as ProgModel;
     // inferLiteralAnyValue([1,2]) runs (covers array branch), then ctx() rejects arr_concat
-    expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
+    expect(() => buildContextFromProg(prog, {})).toThrow('Array binary functions');
   });
 
   it('reaches inferLiteralAnyValue array branch for string arrays before builder throws', () => {
@@ -573,7 +572,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
+    expect(() => buildContextFromProg(prog, {})).toThrow('Array binary functions');
   });
 
   it('reaches inferLiteralAnyValue array branch for bool arrays before builder throws', () => {
@@ -587,7 +586,7 @@ describe('buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('Unknown binary function');
+    expect(() => buildContextFromProg(prog, {})).toThrow('Array binary functions');
   });
 
   it('accepts an empty-array inline arg as an untyped empty array (no longer throws)', () => {
@@ -633,7 +632,7 @@ describe('buildContextFromProg — pipe expr', () => {
     } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
     expect(ctx.nameToValueId['chained']).toBeDefined();
-    expect(ctx.getFuncId('chained')).toBeDefined();
+    expect(ctx.resolve('chained')?.kind).toBe('func');
   });
 
   it('builds a context with a multi-step pipe that uses step_ref', () => {

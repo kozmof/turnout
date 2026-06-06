@@ -227,8 +227,8 @@ describe('typeInference values and function inference', () => {
     expect(inferFuncReturnType('f_nested' as FuncId, context)).toBe('number');
     expect(inferFuncReturnType('f_deep' as FuncId, context)).toBe('number');
 
-    context.funcTable['f_empty_nested' as FuncId] = { kind: 'pipe', defId: 'td_empty_outer' as PipeDefineId, argMap: {}, returnId: 'v_empty_nested' as ValueId } as any;
-    context.pipeFuncDefTable['td_empty_outer' as PipeDefineId] = { args: {}, sequence: [{ defId: 'td_empty_inner' as PipeDefineId, argBindings: {} }] } as any;
+    (context.funcTable as Record<string, unknown>)['f_empty_nested' as FuncId] = { kind: 'pipe', defId: 'td_empty_outer' as PipeDefineId, argMap: {}, returnId: 'v_empty_nested' as ValueId } as any;
+    (context.pipeFuncDefTable as Record<string, unknown>)['td_empty_outer' as PipeDefineId] = { args: {}, sequence: [{ defId: 'td_empty_inner' as PipeDefineId, argBindings: {} }] } as any;
     expect(inferFuncReturnType('f_empty_nested' as FuncId, context)).toBeNull();
   });
 

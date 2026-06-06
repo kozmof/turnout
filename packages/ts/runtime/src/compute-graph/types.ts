@@ -111,7 +111,7 @@ export type CombineFuncDefTable = {
  */
 // Fix 3: 'value' variant field renamed from valueId to id — consistent with ConditionId.
 export type PipeArgBinding =
-  | { source: 'input'; argName: PipeArgName }
+  | { source: 'input'; argName: ArgName }
   | { source: 'step'; stepIndex: number }
   | { source: 'value'; id: ValueId };
 

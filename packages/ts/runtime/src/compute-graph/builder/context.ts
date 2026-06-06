@@ -22,6 +22,7 @@ import type {
   ContextBuilder as BuilderState,
   ValueRef,
   ValueInputRef,
+  ValueObjectRef,
   ValueSourceRef,
   FuncOutputRef,
   StepOutputRef,
@@ -59,7 +60,6 @@ import { IdGenerator } from '../../util/idGenerator';
 import {
   createValueId,
   createFuncId,
-  createPipeArgName,
   createArgName,
 } from '../idValidation';
 
@@ -445,21 +445,7 @@ function validateCombineReferences(
   functionKeys: Set<string>
 ): void {
   for (const [argName, ref] of Object.entries(combine.args)) {
-    const normalized = normalizeValueRef(ref);
-    if (normalized.__type === 'value') {
-      if (!valueKeys.has(normalized.id)) {
-        throw createUndefinedValueReferenceError(funcId, argName, normalized.id);
-      }
-    } else if (normalized.__type === 'funcOutput') {
-      if (!functionKeys.has(normalized.funcId)) {
-        throw createUndefinedValueReferenceError(funcId, argName, normalized.funcId);
-      }
-    } else if (normalized.__type === 'stepOutput') {
-      // Note: We can't validate stepIndex here as we don't know how many steps the pipe has yet
-      if (!functionKeys.has(normalized.pipeFuncId)) {
-        throw createUndefinedValueReferenceError(funcId, argName, normalized.pipeFuncId);
-      }
-    } else if (ref.__type === 'transform') {
+    if (isTransformRef(ref)) {
       const valueRef = ref.valueRef;
       if (valueRef.__type === 'value') {
         if (!valueKeys.has(valueRef.id)) {
@@ -471,6 +457,22 @@ function validateCombineReferences(
         }
       } else if (!functionKeys.has(valueRef.pipeFuncId)) {
         throw createUndefinedValueReferenceError(funcId, argName, valueRef.pipeFuncId);
+      }
+    } else {
+      const normalized = normalizeValueRef(ref);
+      if (normalized.__type === 'value') {
+        if (!valueKeys.has(normalized.id)) {
+          throw createUndefinedValueReferenceError(funcId, argName, normalized.id);
+        }
+      } else if (normalized.__type === 'funcOutput') {
+        if (!functionKeys.has(normalized.funcId)) {
+          throw createUndefinedValueReferenceError(funcId, argName, normalized.funcId);
+        }
+      } else if (normalized.__type === 'stepOutput') {
+        // Note: We can't validate stepIndex here as we don't know how many steps the pipe has yet
+        if (!functionKeys.has(normalized.pipeFuncId)) {
+          throw createUndefinedValueReferenceError(funcId, argName, normalized.pipeFuncId);
+        }
       }
     }
   }
@@ -499,33 +501,11 @@ function validatePipeReferences(
     const step = pipe.steps[i];
     if (step.__type === 'combine') {
       for (const [argName, ref] of Object.entries(step.args)) {
-        const normalized = normalizeValueRef(ref);
-        if (normalized.__type === 'value') {
-          // Step arguments can reference pipe function arguments or context values
-          const isPipeArg = pipeArgNames.has(normalized.id);
-          const isContextValue = valueKeys.has(normalized.id);
-          if (!isPipeArg && !isContextValue) {
-            throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.id);
-          }
-        } else if (normalized.__type === 'funcOutput') {
-          if (!functionKeys.has(normalized.funcId)) {
-            throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.funcId);
-          }
-        } else if (normalized.__type === 'stepOutput') {
-          // Step output references are allowed within the same pipe function
-          // Validate that it references this pipe function and a previous step
-          if (normalized.pipeFuncId !== funcId) {
-            throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${normalized.pipeFuncId}'`);
-          }
-          if (normalized.stepIndex >= i) {
-            throw new Error(`Step ${i} of pipe function '${funcId}' references step ${normalized.stepIndex} which is not a previous step`);
-          }
-        } else if (ref.__type === 'transform') {
+        if (isTransformRef(ref)) {
           // Transform reference - validate the inner value
           if (ref.valueRef.__type === 'value') {
             const isPipeArg = pipeArgNames.has(ref.valueRef.id);
             const isContextValue = valueKeys.has(ref.valueRef.id);
-
             if (!isPipeArg && !isContextValue) {
               throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueRef.id);
             }
@@ -540,6 +520,29 @@ function validatePipeReferences(
             }
             if (ref.valueRef.stepIndex >= i) {
               throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.valueRef.stepIndex} which is not a previous step`);
+            }
+          }
+        } else {
+          const normalized = normalizeValueRef(ref);
+          if (normalized.__type === 'value') {
+            // Step arguments can reference pipe function arguments or context values
+            const isPipeArg = pipeArgNames.has(normalized.id);
+            const isContextValue = valueKeys.has(normalized.id);
+            if (!isPipeArg && !isContextValue) {
+              throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.id);
+            }
+          } else if (normalized.__type === 'funcOutput') {
+            if (!functionKeys.has(normalized.funcId)) {
+              throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.funcId);
+            }
+          } else if (normalized.__type === 'stepOutput') {
+            // Step output references are allowed within the same pipe function
+            // Validate that it references this pipe function and a previous step
+            if (normalized.pipeFuncId !== funcId) {
+              throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${normalized.pipeFuncId}'`);
+            }
+            if (normalized.stepIndex >= i) {
+              throw new Error(`Step ${i} of pipe function '${funcId}' references step ${normalized.stepIndex} which is not a previous step`);
             }
           }
         }
@@ -967,7 +970,7 @@ function resolveArgBinding(
   if (Object.prototype.hasOwnProperty.call(pipeBuilder.argBindings, refStr)) {
     return {
       source: 'input',
-      argName: createPipeArgName(refStr),
+      argName: createArgName(refStr),
     };
   }
 
@@ -1089,7 +1092,9 @@ function inferPassTransform(
   }
 
   // Handle ValueObjectRef or plain string (both reference a pre-defined value)
-  const normalized = normalizeValueRef(ref);
+  // After the funcOutput/stepOutput guards above, ref is string | ValueObjectRef,
+  // so normalizeValueRef returns ValueObjectRef.
+  const normalized = normalizeValueRef(ref) as ValueObjectRef;
   const valueId = scope.valueId(normalized.id);
   const value = getValueFromTable(valueId, state.valueTable);
   if (value) return [getPassTransformFn(value.symbol)];

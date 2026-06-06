@@ -1,5 +1,6 @@
 import type {
   FuncId,
+  ValueId,
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
@@ -81,7 +82,7 @@ export function validateFuncEntry(
     state.referencedDefs.add(defId);
   }
 
-  if (!('returnId' in entry) || !isStringAs(entry.returnId)) {
+  if (!('returnId' in entry) || !isStringAs<ValueId>(entry.returnId)) {
     state.errors.push({
       message: `FuncTable[${funcId}]: Missing or invalid returnId`,
       details: { funcId },
@@ -176,7 +177,7 @@ function validateCombineFuncTypes(
     const expectedType = getTransformFnInputType(transformFnName);
 
     const argId = argMap[argName];
-    if (!isStringAs(argId)) continue;
+    if (!isStringAs<ValueId | FuncId>(argId)) continue;
 
     let actualType = state.typeEnv.get(argId);
 

@@ -262,7 +262,7 @@ describe('executePipeFunc', () => {
 
   it('executes a nested pipe step recursively', () => {
     const context = baseContext();
-    context.pipeFuncDefTable = {
+    (context as { pipeFuncDefTable: typeof context.pipeFuncDefTable }).pipeFuncDefTable = {
       ...context.pipeFuncDefTable,
       td_inner: {
         args: { x: 'ia-x', y: 'ia-y' },
@@ -307,7 +307,7 @@ describe('executePipeFunc', () => {
 
   it('rejects cond function entries and invalid step references', () => {
     const context = baseContext();
-    context.funcTable['cond1' as FuncId] = {
+    (context.funcTable as Record<string, unknown>)['cond1' as FuncId] = {
       kind: 'cond',
       defId: 'cd1' as any,
       conditionId: { kind: 'value', id: 'v1' as ValueId },
@@ -318,7 +318,7 @@ describe('executePipeFunc', () => {
 
     expect(() => executePipeFunc('cond1' as FuncId, 'td_outer' as PipeDefineId, context)).toThrow('cond entry');
 
-    context.pipeFuncDefTable['td_outer' as PipeDefineId] = {
+    (context.pipeFuncDefTable as Record<string, unknown>)['td_outer' as PipeDefineId] = {
       args: { a: 'ia-a', b: 'ia-b' },
       sequence: [
         {
