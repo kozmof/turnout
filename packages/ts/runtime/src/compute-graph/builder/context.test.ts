@@ -270,6 +270,42 @@ describe('Context Builder', () => {
         })
       ).toThrow("Pipe function 'pipeFn' step 0 argument 'a' references undefined: 'missingFunc'");
     });
+
+    it('should infer transformFnBoolean::pass for a step referencing a boolean-returning previous step', () => {
+      // Step 0 returns boolean (and); step 1 uses step 0's output as argument a.
+      // buildStepTransformMap must use inferTransformForBinaryFn('binaryFnBoolean::and')
+      // → transformFnBoolean::pass, not a number pass-transform.
+      const context = ctx({
+        a: true,
+        b: false,
+        pipeFn: pipe(
+          { x: 'a', y: 'b' },
+          [
+            combine('binaryFnBoolean::and', { a: 'x', b: 'y' }),           // step 0: bool
+            combine('binaryFnBoolean::or',  { a: ref.step('pipeFn', 0), b: 'x' }), // step 1: bool
+          ]
+        ),
+      });
+      const result = executeGraph(context.ids.pipeFn, assertValidContext(context.exec));
+      // (true && false) || true = false || true = true
+      expect(result.value.symbol).toBe('boolean');
+      expect(result.value.value).toBe(true);
+    });
+
+    it('should throw a clear error when a nested pipe step is used inside a pipe', () => {
+      expect(() =>
+        ctx({
+          v: 1,
+          outer: pipe(
+            { x: 'v' },
+            [
+              // Nested PipeBuilder inside a pipe — not yet supported
+              pipe({ y: 'x' }, [combine('binaryFnNumber::add', { a: 'y', b: 'y' })]) as never,
+            ]
+          ),
+        })
+      ).toThrow("nested pipe steps are not yet supported");
+    });
   });
 
   describe('CondFunc builder', () => {
@@ -413,6 +449,55 @@ describe('Context Builder', () => {
       // outerCondition is true -> go to innerCond
       // innerCondition is false -> go to innerFalse (v2 = 2)
       expect(result.value.value).toBe(2);
+    });
+  });
+
+  describe('CondFunc forward references', () => {
+    it('should allow a combine to forward-reference a cond declared later in spec', () => {
+      // The combine 'uses' is declared BEFORE the cond 'gate' it references.
+      // Pass 1 must pre-compute gate's return type so inferPassTransform succeeds.
+      const context = ctx({
+        a: 3,
+        b: 0,
+        flag: true,
+
+        // 'uses' references 'gate' which is declared below it
+        uses: combine('binaryFnNumber::add', { a: ref.output('gate'), b: 'b' }),
+
+        trueResult: combine('binaryFnNumber::add', { a: 'a', b: 'b' }),
+        falseResult: combine('binaryFnNumber::add', { a: 'b', b: 'b' }),
+        gate: cond('flag', { then: 'trueResult', else: 'falseResult' }),
+      });
+
+      const result = executeGraph(context.ids.uses, assertValidContext(context.exec));
+      // flag=true → gate → trueResult = 3+0=3; uses = 3+0=3
+      expect(result.value.symbol).toBe('number');
+      expect(result.value.value).toBe(3);
+    });
+
+    it('should resolve a cond-of-cond forward reference chain', () => {
+      // outer references inner which references a combine — all declared
+      // before 'outer' is processed in Pass 1. Fixed-point mini-pass handles
+      // the two-level chain.
+      const context = ctx({
+        x: 10,
+        z: 0,
+        flagInner: true,
+        flagOuter: true,
+
+        // 'sum' is declared AFTER the conds that reference it
+        consumer: combine('binaryFnNumber::add', { a: ref.output('outer'), b: 'z' }),
+        outer: cond('flagOuter', { then: 'inner', else: 'base' }),
+        inner: cond('flagInner', { then: 'trueBranch', else: 'base' }),
+
+        trueBranch: combine('binaryFnNumber::add', { a: 'x', b: 'z' }),
+        base: combine('binaryFnNumber::add', { a: 'z', b: 'z' }),
+      });
+
+      const result = executeGraph(context.ids.consumer, assertValidContext(context.exec));
+      // flagOuter=true → outer → inner; flagInner=true → trueBranch = 10+0=10; consumer = 10+0=10
+      expect(result.value.symbol).toBe('number');
+      expect(result.value.value).toBe(10);
     });
   });
 

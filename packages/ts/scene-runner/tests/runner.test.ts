@@ -120,6 +120,61 @@ describe('createRunner — scene mode API', () => {
   });
 });
 
+describe('createRunner — AbortSignal cancellation', () => {
+  const sceneModel = {
+    scenes: [{ id: 'sc', entryActions: ['a'], actions: [{ id: 'a' }] }],
+    routes: [],
+  } as unknown as TurnModel;
+
+  it('run() throws AbortError immediately when signal is pre-aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const runner = createRunner(sceneModel, { entryId: 'sc', initialState: {}, signal: controller.signal });
+    await expect(runner.run()).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('next() throws AbortError on second call after signal is aborted', async () => {
+    const controller = new AbortController();
+    const twoActionModel = {
+      scenes: [{ id: 'sc2', entryActions: ['a'], actions: [{ id: 'a', next: [{ action: 'b' }] }, { id: 'b' }] }],
+      routes: [],
+    } as unknown as TurnModel;
+    const runner = createRunner(twoActionModel, { entryId: 'sc2', initialState: {}, signal: controller.signal });
+
+    const first = await runner.next();
+    expect(first[0]).toMatchObject({ kind: 'action', actionId: 'a' });
+
+    controller.abort();
+
+    await expect(runner.next()).rejects.toMatchObject({ name: 'AbortError' });
+    expect(runner.isDone()).toBe(false);
+  });
+
+  it('signal is forwarded to prepare hooks', async () => {
+    const controller = new AbortController();
+    let receivedSignal: AbortSignal | undefined;
+
+    const hookModel = {
+      scenes: [{
+        id: 'hs',
+        entryActions: ['a'],
+        actions: [{
+          id: 'a',
+          prepare: [{ binding: 'x', fromHook: 'capture' }],
+          compute: { root: 'x', prog: { name: 'p', bindings: [{ name: 'x', type: 'number', value: 0 }] } },
+        }],
+      }],
+      routes: [],
+    } as unknown as TurnModel;
+
+    await createRunner(hookModel, { entryId: 'hs', initialState: {}, signal: controller.signal })
+      .usePrepareHook('capture', (_ctx, sig) => { receivedSignal = sig; return { x: 1 }; })
+      .run();
+
+    expect(receivedSignal).toBe(controller.signal);
+  });
+});
+
 describe('createRunner — route mode API', () => {
   const routeModel = {
     scenes: [sceneA, sceneB],
@@ -137,11 +192,16 @@ describe('createRunner — route mode API', () => {
 
     const first = await runner.next();
     expect(first).toHaveLength(1);
-    expect(first[0]).toMatchObject({ done: false, sceneId: 's1', actionId: 'a' });
+    expect(first[0]).toMatchObject({ done: false, kind: 'action', sceneId: 's1', actionId: 'a' });
 
-    const rest = await runner.next(3);
-    expect(rest.some((step) => !step.done && step.sceneId === 's2' && step.actionId === 'b')).toBe(true);
-    expect(rest.at(-1)).toEqual({ done: true });
+    // next(1) counts 1 action step: first returns scene-transition then the action
+    const rest = await runner.next(1);
+    expect(rest.some((step) => !step.done && step.kind === 'action' && step.sceneId === 's2' && step.actionId === 'b')).toBe(true);
+    expect(rest.some((step) => !step.done && step.kind === 'scene-transition' && step.fromSceneId === 's1' && step.toSceneId === 's2')).toBe(true);
+    expect(runner.isDone()).toBe(false);
+
+    const done = await runner.next();
+    expect(done.at(-1)).toEqual({ done: true });
     expect(runner.isDone()).toBe(true);
 
     const result = runner.result();
@@ -149,13 +209,17 @@ describe('createRunner — route mode API', () => {
     expect(result.trace.route.routeId).toBe('route_api');
   });
 
-  it('runAsync yields route action steps until completion', async () => {
+  it('runAsync yields scene-transition events between scenes', async () => {
     const runner = createRunner(routeModel, { entryId: 'route_api', initialState: {} });
     const yielded = [];
 
     for await (const step of runner.runAsync()) yielded.push(step);
 
-    expect(yielded.map((step) => step.done ? 'done' : step.sceneId + '.' + step.actionId)).toEqual(['s1.a', 's2.b']);
+    // Expected sequence: action(s1.a), scene-transition(s1→s2), action(s2.b)
+    expect(yielded).toHaveLength(3);
+    expect(yielded[0]).toMatchObject({ kind: 'action', sceneId: 's1', actionId: 'a' });
+    expect(yielded[1]).toMatchObject({ kind: 'scene-transition', fromSceneId: 's1', toSceneId: 's2' });
+    expect(yielded[2]).toMatchObject({ kind: 'action', sceneId: 's2', actionId: 'b' });
     expect(runner.isDone()).toBe(true);
   });
 });

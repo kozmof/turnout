@@ -22,6 +22,7 @@ export async function executeAction(
   state: StateManager,
   hooks: HookRegistry,
   sceneId = '(unknown)',
+  signal: AbortSignal = new AbortController().signal,
 ): Promise<ActionExecutionResult> {
   // Actions without a compute block or prog are no-ops (no graph, no merge).
   if (!action.compute?.prog) {
@@ -35,7 +36,7 @@ export async function executeAction(
   }
 
   // Step 1: resolve prepare entries into injected binding values.
-  const preparedValues = await resolveActionPrepare(action.prepare ?? [], state, hooks, action.id);
+  const preparedValues = await resolveActionPrepare(action.prepare ?? [], state, hooks, action.id, signal);
 
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues, action.id);
@@ -121,7 +122,7 @@ export async function executeAction(
       state: () => finalStateSnapshot,
     };
     try {
-      await hook(ctx);
+      await hook(ctx, signal);
       publishOutcomes.push({ hookName, status: 'ok' });
     } catch (err) {
       publishOutcomes.push({ hookName, status: 'error', message: String(err) });

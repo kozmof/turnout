@@ -3,6 +3,7 @@ import type {
   ValueId,
   FuncId,
   FuncArgMap,
+  ArgName,
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
@@ -365,8 +366,8 @@ function buildReferenceIndexAndRegisterReturns(
       state.returnIdByFuncId[key] = returnId;
       // Pre-compute return type so inferPassTransform can resolve FuncOutputRef args
       // that appear in functions declared BEFORE the referenced function in the spec
-      // (forward references). combine and pipe return types are statically determinable;
-      // cond branches depend on sibling functions and are resolved lazily in Pass 2.
+      // (forward references). combine and pipe return types are statically determinable
+      // from their function name; cond return types are resolved after this loop.
       if (value.__type === 'combine') {
         const rt = getBinaryFnReturnType(value.name);
         if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
@@ -379,6 +380,23 @@ function buildReferenceIndexAndRegisterReturns(
       }
     } else {
       valueKeys.add(key);
+    }
+  }
+
+  // Second mini-pass: pre-compute cond return types from their then-branch.
+  // A cond returns the same type as its then-branch. Iterate to fixed point
+  // to handle cond-of-cond chains, where a cond's then branch is itself a cond.
+  let madeProgress = true;
+  while (madeProgress) {
+    madeProgress = false;
+    for (const [key, value] of Object.entries(spec)) {
+      if (!isFunctionBuilder(value) || value.__type !== 'cond') continue;
+      if (state.returnTypeByFuncKey.has(key)) continue;
+      const thenType = state.returnTypeByFuncKey.get(value.then);
+      if (thenType !== undefined) {
+        state.returnTypeByFuncKey.set(key, thenType);
+        madeProgress = true;
+      }
     }
   }
 
@@ -836,7 +854,12 @@ function buildPipeArguments(
 }
 
 /**
- * Builds the sequence of steps for a pipe function
+ * Builds the sequence of steps for a pipe function.
+ *
+ * Two-pass approach:
+ *   Pass 1 – Register step output IDs and return types for all steps so that
+ *             forward step references within the same pipe are always resolvable.
+ *   Pass 2 – Build the step binding for each step with all metadata available.
  */
 function buildPipeSequence(
   funcId: string,
@@ -844,27 +867,28 @@ function buildPipeSequence(
   state: FunctionPhaseState,
   scope: Scope
 ): PipeStepBinding[] {
-  const sequence: PipeStepBinding[] = [];
-
+  // Pass 1: register all step output IDs and return types
   for (let i = 0; i < builder.steps.length; i++) {
     const step = builder.steps[i];
-
-    if (step.__type === 'combine') {
-      // Create step output ID and track in metadata
-      const stepOutputId = IdFactory.createStepOutput(funcId as FuncId, i, state);
-      state.stepOutputIdByFuncStep[getStepOutputLookupKey(funcId, i)] = stepOutputId;
-
-      // Store the step's return type so inferPassTransform can resolve StepOutputRefs
-      const stepReturnType = getBinaryFnReturnType(step.name);
-      if (stepReturnType !== null) {
-        state.stepMetadata[stepOutputId].returnType = stepReturnType;
-      }
-
-      const stepBinding = buildPipeStepBinding(step, builder, state, scope);
-      sequence.push(stepBinding);
+    if (step.__type !== 'combine') {
+      throw new Error(
+        `Pipe function '${funcId}' step ${i}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe.`,
+      );
+    }
+    const stepOutputId = IdFactory.createStepOutput(funcId as FuncId, i, state);
+    state.stepOutputIdByFuncStep[getStepOutputLookupKey(funcId, i)] = stepOutputId;
+    const stepReturnType = getBinaryFnReturnType(step.name);
+    if (stepReturnType !== null) {
+      state.stepMetadata[stepOutputId].returnType = stepReturnType;
     }
   }
 
+  // Pass 2: build each step binding with all metadata available
+  const sequence: PipeStepBinding[] = [];
+  for (let i = 0; i < builder.steps.length; i++) {
+    const step = builder.steps[i] as CombineBuilder;
+    sequence.push(buildPipeStepBinding(step, builder, state, scope));
+  }
   return sequence;
 }
 
@@ -898,15 +922,16 @@ function buildStepArgBindings(
   pipeBuilder: PipeBuilder,
   state: FunctionPhaseState,
   scope: Scope
-): Record<string, PipeArgBinding> {
-  const argBindings: Record<string, PipeArgBinding> = {};
+): Record<ArgName, PipeArgBinding> {
+  const argBindings = {} as Record<ArgName, PipeArgBinding>;
 
   for (const [argName, ref] of Object.entries(step.args)) {
+    const key = createArgName(argName);
     // Handle StepOutputRef - use step binding
     if (typeof ref === 'object' && ref.__type === 'stepOutput') {
       // Step outputs are referenced by step index, not ValueId
       // The actual ValueId will be created at runtime
-      argBindings[argName] = {
+      argBindings[key] = {
         source: 'step',
         stepIndex: ref.stepIndex,
       };
@@ -916,7 +941,7 @@ function buildStepArgBindings(
     // Handle FuncOutputRef - resolve to actual ValueId
     if (typeof ref === 'object' && ref.__type === 'funcOutput') {
       const id = resolveFuncOutputRef(ref, state);
-      argBindings[argName] = {
+      argBindings[key] = {
         source: 'value',
         id,
       };
@@ -924,7 +949,7 @@ function buildStepArgBindings(
     }
 
     if (typeof ref === 'object' && ref.__type === 'value') {
-      argBindings[argName] = resolveArgBinding(ref.id, pipeBuilder, scope);
+      argBindings[key] = resolveArgBinding(ref.id, pipeBuilder, scope);
       continue;
     }
 
@@ -934,7 +959,7 @@ function buildStepArgBindings(
       if (ref.valueRef.__type === 'value') {
         // Simple string reference - resolve through normal path
         const binding = resolveArgBinding(ref.valueRef.id, pipeBuilder, scope);
-        argBindings[argName] = binding;
+        argBindings[key] = binding;
         continue;
       } else if (ref.valueRef.__type === 'funcOutput') {
         id = resolveFuncOutputRef(ref.valueRef, state);
@@ -942,7 +967,7 @@ function buildStepArgBindings(
         // StepOutputRef in TransformRef
         id = resolveStepOutputRef(ref.valueRef, state);
       }
-      argBindings[argName] = {
+      argBindings[key] = {
         source: 'value',
         id,
       };
@@ -950,7 +975,7 @@ function buildStepArgBindings(
     }
 
     // Plain string reference - pipe arg or context value
-    argBindings[argName] = resolveArgBinding(ref, pipeBuilder, scope);
+    argBindings[key] = resolveArgBinding(ref, pipeBuilder, scope);
   }
 
   return argBindings;
@@ -994,13 +1019,15 @@ function buildStepTransformMap(
     if (isTransformRef(ref)) {
       transformFnMap[argName] = ref.transformFn;
     } else if (isStepOutputRef(ref)) {
-      // Infer transform from the referenced step's return type, not the current step's namespace
+      // Infer transform from the referenced step's return type.
+      // buildPipeSequence guarantees all steps are combine type, so this branch always holds.
       const referencedStep = pipeBuilder.steps[ref.stepIndex];
-      transformFnMap[argName] = [
-        referencedStep?.__type === 'combine'
-          ? inferTransformForBinaryFn(referencedStep.name)
-          : getPassTransformFn('number'), // fallback: nested pipe steps not yet typed
-      ];
+      if (referencedStep?.__type !== 'combine') {
+        throw new Error(
+          `buildStepTransformMap: step ${ref.stepIndex} is not a combine step — nested pipe steps are not supported.`,
+        );
+      }
+      transformFnMap[argName] = [inferTransformForBinaryFn(referencedStep.name)];
     } else {
       transformFnMap[argName] = [inferTransformForBinaryFn(step.name)];
     }
@@ -1072,8 +1099,8 @@ function inferPassTransform(
     if (precomputedType !== undefined) return [getPassTransformFn(precomputedType)];
 
     throw new Error(
-      `Function "${ref.funcId}" not found — forward references to cond functions are not supported; ` +
-      `declare the cond function before functions that reference its output`,
+      `Function "${ref.funcId}" not found — this is likely a bug; ` +
+      `ensure all referenced functions are declared in the same ctx() spec`,
     );
   }
 

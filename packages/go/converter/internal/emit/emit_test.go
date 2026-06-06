@@ -785,9 +785,9 @@ scene "test_scene" {
 }
 
 func TestAnnotationsNotInJSONOutput(t *testing.T) {
-	// Sigil bindings (~>, <~) populate TurnModel.Annotations during lowering.
-	// The emitter must clear them before writing JSON so the TS runtime never
-	// sees the internal sidecar data.
+	// Sigil bindings (~>, <~) populate the in-memory Sidecar but never write
+	// to TurnModel.Annotations. The emitter defensively clears the field anyway
+	// so that any future code path that sets it is still safe to call EmitJSON.
 	src := `state { app { query:str = "" result:str = "" } }
 scene "s" {
   entry_actions = ["a"]

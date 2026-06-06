@@ -23,8 +23,6 @@ type Diagnostics = diag.Diagnostics
 // CompileResult bundles the artifacts of a successful Compile run.
 type CompileResult struct {
 	// Model is the lowered, validated proto model.
-	// Annotations (sigil metadata) are preserved; clear them before calling
-	// emit.EmitJSON if they should not appear in the JSON output.
 	Model *turnoutpb.TurnModel
 	// Schema is the resolved STATE schema, forwarded from the lowering stage.
 	Schema state.Schema
@@ -44,13 +42,24 @@ func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	if err != nil {
 		return nil, Diagnostics{diag.Errorf("IOError", "cannot read %s: %v", inputPath, err)}
 	}
+	return compileBytes(inputPath, src, stateBasePath)
+}
 
+// CompileSource runs parse → state-resolve → lower → validate for an in-memory
+// source string. name is used for error messages and to derive the default
+// stateBasePath (via filepath.Dir(name)); pass a non-empty stateBasePath to
+// override it. Unlike Compile, no file I/O is performed.
+func CompileSource(name, src, stateBasePath string) (*CompileResult, Diagnostics) {
+	return compileBytes(name, []byte(src), stateBasePath)
+}
+
+func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {
 	base := stateBasePath
 	if base == "" {
-		base = filepath.Dir(inputPath)
+		base = filepath.Dir(name)
 	}
 
-	turnFile, ds1 := parser.ParseFile(inputPath, string(src))
+	turnFile, ds1 := parser.ParseFile(name, string(src))
 	if ds1.HasErrors() {
 		return nil, ds1
 	}

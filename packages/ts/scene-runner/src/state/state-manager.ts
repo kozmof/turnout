@@ -27,11 +27,17 @@ export interface StateManager {
    */
   read(path: string): AnyValue;
   /**
-   * Return true if path is a declared valid path (schema-backed managers), or
-   * true for any path in unchecked managers (all paths are valid in that mode).
-   * Use this to check existence without depending on read()'s exception semantics.
+   * Return true if path is declared in the schema (schema-backed managers), or
+   * always true for unchecked managers (all paths are treated as valid).
+   * Use `exists()` to check whether a value has actually been written to `path`.
    */
-  has(path: string): boolean;
+  isDeclared(path: string): boolean;
+  /**
+   * Return true if a value has been written to `path` in the current state.
+   * Unlike `isDeclared()`, this works correctly in both schema-backed and
+   * unchecked managers: it reflects actual written state, not schema membership.
+   */
+  exists(path: string): boolean;
   /**
    * Return a new StateManager with the given path set to value.
    * Does not mutate the current instance.
@@ -82,11 +88,14 @@ function make(
       }
       return state[path] ?? buildNull('missing');
     },
-    has: (path) => {
+    isDeclared: (path) => {
       assertSafePath(path);
-      // Unchecked managers treat all paths as valid — always true.
       if (validPaths === null) return true;
       return validPaths.has(path);
+    },
+    exists: (path) => {
+      assertSafePath(path);
+      return Object.prototype.hasOwnProperty.call(state, path);
     },
     write: (path, value) => {
       assertSafePath(path);

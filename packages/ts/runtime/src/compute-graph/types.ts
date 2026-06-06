@@ -121,9 +121,7 @@ export type PipeArgBinding =
  */
 export type PipeStepBinding = {
   defId: CombineDefineId | PipeDefineId;
-  argBindings: {
-    [argName: string]: PipeArgBinding;
-  };
+  argBindings: Record<ArgName, PipeArgBinding>;
 };
 
 /**

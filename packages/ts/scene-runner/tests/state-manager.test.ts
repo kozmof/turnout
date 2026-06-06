@@ -394,3 +394,40 @@ describe('Array subtype enforcement — regression tests', () => {
     expect(() => sm.write('tags', buildArrayNumber([buildNumber(1)]))).toThrow('type mismatch');
   });
 });
+
+describe('StateManager — isDeclared() and exists()', () => {
+  it('isDeclared() returns true for schema-declared paths', () => {
+    const sm = stateManagerFromStrict({}, new Set(['a.b', 'a.c']));
+    expect(sm.isDeclared('a.b')).toBe(true);
+    expect(sm.isDeclared('a.c')).toBe(true);
+    expect(sm.isDeclared('a.d')).toBe(false);
+  });
+
+  it('isDeclared() always returns true for unchecked managers', () => {
+    const sm = stateManagerFromUnchecked({});
+    expect(sm.isDeclared('anything.goes')).toBe(true);
+  });
+
+  it('exists() returns false before a value is written', () => {
+    const sm = stateManagerFromStrict({}, new Set(['a.b']));
+    expect(sm.exists('a.b')).toBe(false);
+  });
+
+  it('exists() returns true after a value is written', () => {
+    const sm = stateManagerFromStrict({}, new Set(['a.b'])).write('a.b', buildNumber(1));
+    expect(sm.exists('a.b')).toBe(true);
+  });
+
+  it('isDeclared() true but exists() false for unwritten schema paths', () => {
+    const sm = stateManagerFromStrict({}, new Set(['ns.field']));
+    expect(sm.isDeclared('ns.field')).toBe(true);
+    expect(sm.exists('ns.field')).toBe(false);
+  });
+
+  it('exists() false for any unwritten path in unchecked mode', () => {
+    const sm = stateManagerFromUnchecked({});
+    expect(sm.exists('never.written')).toBe(false);
+    const sm2 = sm.write('never.written', buildString('hello'));
+    expect(sm2.exists('never.written')).toBe(true);
+  });
+});

@@ -230,42 +230,38 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 	return assembleStateModel(nsList)
 }
 
-// dotKey is a fully-qualified namespace.field key used for sorting.
-type dotKey struct{ ns, field string }
-
 // lowerStateBlockFromSchemaAlphabetical reconstructs a state block from the
 // flat schema map with namespaces and fields sorted alphabetically for
 // deterministic output when no declaration order is available.
-//
-// A single sorted slice of dotKeys replaces two nested slices.Sorted calls,
-// reducing allocations for schemas with many namespaces.
 func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
-	keys := make([]dotKey, 0, 16)
-	for nsName, fields := range schema {
-		for fieldName := range fields {
-			keys = append(keys, dotKey{ns: nsName, field: fieldName})
-		}
+	nsNames := make([]string, 0, len(schema))
+	for nsName := range schema {
+		nsNames = append(nsNames, nsName)
 	}
-	slices.SortFunc(keys, func(a, b dotKey) int {
-		if a.ns != b.ns {
-			if a.ns < b.ns {
-				return -1
-			}
-			return 1
-		}
-		if a.field < b.field {
-			return -1
-		}
-		if a.field > b.field {
-			return 1
-		}
-		return 0
-	})
+	slices.Sort(nsNames)
 
-	var nsList []nsEntry
-	nsIndex := make(map[string]int)
-	for _, k := range keys {
-		appendStateField(&nsList, nsIndex, k.ns, k.field, schema[k.ns][k.field])
+	nsList := make([]nsEntry, 0, len(nsNames))
+	for _, nsName := range nsNames {
+		fields := schema[nsName]
+		if len(fields) == 0 {
+			continue
+		}
+		fieldNames := make([]string, 0, len(fields))
+		for fieldName := range fields {
+			fieldNames = append(fieldNames, fieldName)
+		}
+		slices.Sort(fieldNames)
+
+		entry := nsEntry{name: nsName, fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
+		for _, fieldName := range fieldNames {
+			meta := fields[fieldName]
+			entry.fields = append(entry.fields, &turnoutpb.FieldModel{
+				Name:  fieldName,
+				Type:  meta.Type.String(),
+				Value: literalToStructpb(meta.DefaultValue),
+			})
+		}
+		nsList = append(nsList, entry)
 	}
 	return assembleStateModel(nsList)
 }

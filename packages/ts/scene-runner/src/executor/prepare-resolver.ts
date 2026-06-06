@@ -19,6 +19,7 @@ export async function resolveActionPrepare(
   state: StateManager,
   hooks: HookRegistry,
   actionId: string,
+  signal: AbortSignal = new AbortController().signal,
 ): Promise<Record<string, AnyValue>> {
   const result: Record<string, AnyValue> = {};
   const hookCache: Record<string, Record<string, AnyValue>> = {};
@@ -38,7 +39,7 @@ export async function resolveActionPrepare(
           hookName,
           get: (binding) => result[binding],
         };
-        hookCache[hookName] = await hook(ctx) as Record<string, AnyValue>;
+        hookCache[hookName] = await hook(ctx, signal) as Record<string, AnyValue>;
       }
       const val = hookCache[hookName][entry.binding];
       if (val === undefined) {

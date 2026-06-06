@@ -104,6 +104,7 @@ export function createSceneExecutor(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
+  signal: AbortSignal = new AbortController().signal,
 ): SceneExecutor {
   const actionMap = getActionMap(scene);
   const policy: string = scene.nextPolicy ?? 'first-match';
@@ -158,7 +159,7 @@ export function createSceneExecutor(
     const action = actionMap[actionId];
     if (!action) throw new SceneRuntimeError('UnknownAction', scene.id, `unknown action "${actionId}"`);
 
-    const result = await executeAction(action, currentState, hooks, scene.id);
+    const result = await executeAction(action, currentState, hooks, scene.id, signal);
     currentState = result.stateAfterMerge;
 
     const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy);

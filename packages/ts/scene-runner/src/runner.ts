@@ -27,7 +27,8 @@ export type RunnerOptions = ExecutionOptions;
 
 export type RunnerStepResult =
   | { done: true }
-  | { done: false; sceneId: string; actionId: string; trace: ActionTrace };
+  | { done: false; kind: 'action'; sceneId: string; actionId: string; trace: ActionTrace }
+  | { done: false; kind: 'scene-transition'; fromSceneId: string; toSceneId: string };
 
 /**
  * Step-by-step execution controller for a TurnModel.
@@ -64,11 +65,12 @@ export type Runner = {
   isDone(): boolean;
   /**
    * Advance by `steps` actions (default: 1).
-   * Scene transitions in route mode are handled automatically and do not
-   * consume a step — each entry in the returned array represents one
-   * completed action.
+   * In route mode, `scene-transition` events are interleaved in the returned
+   * array but do not count against the `steps` budget. Only `kind: 'action'`
+   * results consume a step. The returned array may therefore contain more than
+   * `steps` entries when scene transitions occur.
    *
-   * Returns fewer than `steps` entries if execution finishes early.
+   * Returns fewer than `steps` action entries if execution finishes early.
    *
    * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
    * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
@@ -83,13 +85,15 @@ export type Runner = {
    */
   run(): Promise<HarnessResult>;
   /**
-   * Async generator that yields one `RunnerStepResult` per completed action.
-   * Terminates when execution is complete, allowing the caller to observe
-   * each action incrementally and yield control between steps.
+   * Async generator that yields one `RunnerStepResult` per completed action or
+   * scene transition. In route mode, `scene-transition` events are yielded
+   * between the last action of one scene and the first action of the next.
+   * Terminates when execution is complete.
    *
    * @example
    * for await (const step of runner.runAsync()) {
-   *   console.log(step.actionId, step.trace);
+   *   if (step.kind === 'scene-transition') { ... }
+   *   else { console.log(step.actionId, step.trace); }
    * }
    * const result = runner.result();
    */
@@ -124,26 +128,37 @@ function makeRunnerMethods(
   doneFn: () => boolean,
   resultFn: () => HarnessResult,
   partialStateFn: () => StateManager,
+  signal: AbortSignal,
 ): Runner {
+  function checkAborted(): void {
+    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
+  }
   return {
     usePrepareHook(name, handler) { hooks.prepare[name] = handler; return this; },
     usePublishHook(name, handler) { hooks.publish[name] = handler; return this; },
     isDone: doneFn,
     async next(steps = 1) {
       const results: RunnerStepResult[] = [];
-      for (let i = 0; i < steps; i++) {
+      let actionCount = 0;
+      while (actionCount < steps) {
+        checkAborted();
         const r = await advanceFn();
         results.push(r);
         if (r.done) break;
+        if (r.kind === 'action') actionCount++;
       }
       return results;
     },
     async run() {
-      while (!doneFn()) await advanceFn();
+      while (!doneFn()) {
+        checkAborted();
+        await advanceFn();
+      }
       return resultFn();
     },
     async *runAsync() {
       while (!doneFn()) {
+        checkAborted();
         const r = await advanceFn();
         if (r.done) break;
         yield r;
@@ -180,6 +195,10 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const migratedModel = migrateModel(model);
   const sceneMap = buildSceneMap(migratedModel);
 
+  // Normalize signal: if caller provides none, create a no-op AbortController so
+  // downstream code always receives a valid AbortSignal and never needs to null-check.
+  const signal = options.signal ?? new AbortController().signal;
+
   // hooks is passed by reference so registrations after construction are visible
   // to the executor without needing to recreate it.
   const hooks: HookRegistry = { prepare: {}, publish: {} };
@@ -204,15 +223,35 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       hooks,
       options.maxSceneSteps,
       options.maxRouteTransitions,
+      signal,
     );
 
+    let prevSceneId = target.entryScene.id;
+    let pendingStep: { sceneId: string; trace: ActionTrace } | null = null;
+
     async function advanceRoute(): Promise<RunnerStepResult> {
+      // Return a deferred action step that was stashed while emitting a transition.
+      if (pendingStep !== null) {
+        const step = pendingStep;
+        pendingStep = null;
+        return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
+      }
+
       const step = await routeStepper.next();
       if (step.done) {
         done = true;
         return { done: true };
       }
-      return { done: false, sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
+
+      // Emit a scene-transition event before the first action of a new scene.
+      if (step.sceneId !== prevSceneId) {
+        const fromSceneId = prevSceneId;
+        prevSceneId = step.sceneId;
+        pendingStep = { sceneId: step.sceneId, trace: step.trace };
+        return { done: false, kind: 'scene-transition', fromSceneId, toSceneId: step.sceneId };
+      }
+
+      return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
     }
 
     return makeRunnerMethods(
@@ -229,6 +268,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
         };
       },
       () => routeStepper.partialState(),
+      signal,
     );
   }
 
@@ -239,6 +279,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
     hooks,
     undefined,
     options.maxSceneSteps,
+    signal,
   );
 
   async function advanceScene(): Promise<RunnerStepResult> {
@@ -251,7 +292,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       done = true;
       return { done: true };
     }
-    return { done: false, sceneId: options.entryId, actionId: step.trace.actionId, trace: step.trace };
+    return { done: false, kind: 'action', sceneId: options.entryId, actionId: step.trace.actionId, trace: step.trace };
   }
 
   return makeRunnerMethods(
@@ -268,5 +309,6 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
       };
     },
     () => sceneExecutor.partialState(),
+    signal,
   );
 }

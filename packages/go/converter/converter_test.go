@@ -85,3 +85,35 @@ func TestCompile_parseError(t *testing.T) {
 		t.Fatal("expected errors for invalid syntax")
 	}
 }
+
+func TestCompileSource_success(t *testing.T) {
+	result, ds := converter.CompileSource("inline.turn", simpleTurnSrc, "")
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Logf("diag: %s", d.Format())
+		}
+		t.Fatalf("CompileSource returned errors on a valid input")
+	}
+	if result == nil {
+		t.Fatal("CompileSource returned nil result with no errors")
+	}
+	if result.Model == nil {
+		t.Fatal("CompileResult.Model is nil")
+	}
+	if len(result.Model.Scenes) != 1 {
+		t.Fatalf("expected 1 scene, got %d", len(result.Model.Scenes))
+	}
+	if result.Model.Scenes[0].Id != "start" {
+		t.Fatalf("expected scene id 'start', got %q", result.Model.Scenes[0].Id)
+	}
+}
+
+func TestCompileSource_parseError(t *testing.T) {
+	result, ds := converter.CompileSource("inline.turn", "@@@ not valid turn syntax @@@", "")
+	if result != nil {
+		t.Fatal("expected nil result for invalid syntax")
+	}
+	if !ds.HasErrors() {
+		t.Fatal("expected errors for invalid syntax")
+	}
+}

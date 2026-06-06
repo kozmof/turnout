@@ -68,9 +68,6 @@ func runConvert(args []string) int {
 		return 1
 	}
 
-	// Clear annotations before emission — they are validator-only metadata.
-	result.Model.Annotations = nil
-
 	ext := "." + *format
 	var w io.Writer
 	if *output == "-" {

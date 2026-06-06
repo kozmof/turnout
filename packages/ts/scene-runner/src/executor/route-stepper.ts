@@ -130,6 +130,7 @@ export function createRouteStepper(
   hooks: HookRegistry,
   maxSceneSteps?: number,
   maxRouteTransitions?: number,
+  signal: AbortSignal = new AbortController().signal,
 ): RouteStepper {
   const session = createRouteSession(
     routeId,
@@ -150,6 +151,7 @@ export function createRouteStepper(
     hooks,
     [firstEntryAction(initialScene, routeId)],
     maxSceneSteps,
+    signal,
   );
 
   async function next(): Promise<RouteStepResult> {
@@ -182,6 +184,7 @@ export function createRouteStepper(
         hooks,
         [firstEntryAction(nextScene, routeId)],
         maxSceneSteps,
+        signal,
       );
     }
   }

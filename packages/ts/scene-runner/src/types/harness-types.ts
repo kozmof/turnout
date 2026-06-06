@@ -23,8 +23,8 @@ export type PublishHookOutcome =
   | { hookName: string; status: 'ok' }
   | { hookName: string; status: 'error'; message: string };
 
-export type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Promise<Record<string, unknown>>;
-export type PublishHookImpl  = (ctx: PublishHookContext) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
+export type PrepareHookImpl = (ctx: PrepareHookContext, signal: AbortSignal) => Record<string, unknown> | Promise<Record<string, unknown>>;
+export type PublishHookImpl  = (ctx: PublishHookContext, signal: AbortSignal) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 
 export type HookRegistry = {
   prepare: Record<string, PrepareHookImpl>;
@@ -44,6 +44,12 @@ export type ExecutionOptions = {
   maxSceneSteps?: number;
   /** Maximum scene transitions allowed during route execution. Defaults to 1,000. */
   maxRouteTransitions?: number;
+  /**
+   * Optional cancellation signal. When aborted, `next()`, `run()`, and `runAsync()`
+   * throw a `DOMException` with `name === 'AbortError'`. The signal is also forwarded
+   * to prepare and publish hooks so long-running async hooks can respect it.
+   */
+  signal?: AbortSignal;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
