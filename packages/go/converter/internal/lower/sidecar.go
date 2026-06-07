@@ -101,16 +101,34 @@ func (s *Sidecar) Merge(other *Sidecar) {
 	}
 }
 
-// ToPositionIndex converts the sidecar into a flat string-keyed map of source
-// positions for O(1) lookup during validation.
-// Key format: "sceneID:actionID:scope:progName:bindingName".
-func (s *Sidecar) ToPositionIndex() map[string]ast.Pos {
+// PositionIndex is a read-only view of source positions keyed by binding
+// identity. It is produced by Sidecar.ToPositionIndex() and consumed by the
+// validator to look up positions for positioned diagnostic messages.
+type PositionIndex struct {
+	m map[string]ast.Pos
+}
+
+// EmptyPositionIndex returns a PositionIndex with no entries.
+func EmptyPositionIndex() PositionIndex {
+	return PositionIndex{m: map[string]ast.Pos{}}
+}
+
+// Get returns the source position for the binding identified by the five key
+// components. Returns the zero Pos if no position is recorded for that binding.
+func (idx PositionIndex) Get(sceneID, actionID string, scope ProgScope, progName, bindingName string) ast.Pos {
+	key := fmt.Sprintf("%s:%s:%s:%s:%s", sceneID, actionID, scope, progName, bindingName)
+	return idx.m[key]
+}
+
+// ToPositionIndex converts the sidecar into a PositionIndex for O(1) lookup
+// during validation.
+func (s *Sidecar) ToPositionIndex() PositionIndex {
 	if s == nil || len(s.positions) == 0 {
-		return map[string]ast.Pos{}
+		return EmptyPositionIndex()
 	}
 	idx := make(map[string]ast.Pos, len(s.positions))
 	for k, v := range s.positions {
 		idx[bindingKeyString(k)] = v
 	}
-	return idx
+	return PositionIndex{m: idx}
 }

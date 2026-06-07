@@ -111,6 +111,15 @@ func WarnAt(file string, line, col int, code, format string, args ...any) Diagno
 	}
 }
 
+// Warnf creates a new warning Diagnostic with no position.
+func Warnf(code, format string, args ...any) Diagnostic {
+	return Diagnostic{
+		Severity: SeverityWarning,
+		Code:     code,
+		Message:  fmt.Sprintf(format, args...),
+	}
+}
+
 // MaxDiagnostics is the hard cap on diagnostic count before halting.
 const MaxDiagnostics = 100
 
@@ -184,6 +193,10 @@ const (
 	CodeTransitionMerge          = "TransitionMerge"
 	CodeTransitionHook           = "TransitionHook"
 	CodeTransitionOutputSigil    = "TransitionOutputSigil"
+	// CodeSigilPositionLoss is a warning emitted when Validate is called with a nil
+	// sidecar but the model contains sigil bindings. Sigil-related diagnostics will
+	// be emitted without source-file positions in this case.
+	CodeSigilPositionLoss = "SigilPositionLoss"
 	CodeInvalidTransitionIngress = "InvalidTransitionIngress"
 	CodeInvalidPrepareSource     = "InvalidPrepareSource"
 	CodeUnresolvedPrepareBinding = "UnresolvedPrepareBinding"

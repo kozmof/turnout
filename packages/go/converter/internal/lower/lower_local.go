@@ -148,6 +148,16 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 }
 
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr) {
+	// Operator-only functions are infix-only; direct calls are rejected here just
+	// as they are in lowerFuncCallRHS for top-level bindings.
+	if operatorOnlyFns[call.FnAlias] {
+		c.ds.Append(diag.ErrorAt(call.Pos.File, call.Pos.Line, call.Pos.Col,
+			diag.CodeOperatorOnlyFn,
+			"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",
+			c.target, call.FnAlias, operatorOnlyFnSymbol(call.FnAlias)))
+		c.emitValue(name, ft, zeroLiteralFor(ft))
+		return
+	}
 	args := make([]*turnoutpb.ArgModel, 0, len(call.Args))
 	for i, arg := range call.Args {
 		// Inline simple args directly rather than emitting a temp binding.

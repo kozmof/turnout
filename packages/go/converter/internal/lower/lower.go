@@ -147,7 +147,7 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
 		}
-		return lowerStateBlockFromSchema(schema, order)
+		return lowerStateBlockFromSchema(schema, order, ds)
 	default:
 		return &turnoutpb.StateModel{}
 	}
@@ -174,9 +174,9 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 
 // lowerStateBlockFromSchema dispatches to the ordered or alphabetical variant
 // based on whether declaration order was captured by the caller.
-func lowerStateBlockFromSchema(schema state.Schema, order []string) *turnoutpb.StateModel {
+func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
 	if len(order) > 0 {
-		return lowerStateBlockFromSchemaOrdered(schema, order)
+		return lowerStateBlockFromSchemaOrdered(schema, order, ds)
 	}
 	return lowerStateBlockFromSchemaAlphabetical(schema)
 }
@@ -213,7 +213,7 @@ func assembleStateModel(nsList []nsEntry) *turnoutpb.StateModel {
 
 // lowerStateBlockFromSchemaOrdered reconstructs a state block preserving the
 // declaration order supplied by the caller (dotted "ns.field" keys).
-func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turnoutpb.StateModel {
+func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
 	var nsList []nsEntry
 	nsIndex := make(map[string]int)
 	for _, key := range order {
@@ -223,6 +223,8 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 		}
 		dot := strings.IndexByte(key, '.')
 		if dot < 0 {
+			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+				"lowerStateBlockFromSchemaOrdered: state key %q has no namespace separator (internal error)", key))
 			continue
 		}
 		appendStateField(&nsList, nsIndex, key[:dot], key[dot+1:], meta)
@@ -469,7 +471,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.SingleRefRHS:
 		bindings = []*turnoutpb.BindingModel{lowerSingleRefRHS(name, ft, rhs)}
 	case *ast.FuncCallRHS:
-		bindings = []*turnoutpb.BindingModel{lowerFuncCallRHS(name, ft, rhs, bindingTypes, ds)}
+		if bm := lowerFuncCallRHS(name, ft, rhs, decl.Pos, bindingTypes, ds); bm != nil {
+			bindings = []*turnoutpb.BindingModel{bm}
+		} else {
+			return nil
+		}
 	case *ast.InfixRHS:
 		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:

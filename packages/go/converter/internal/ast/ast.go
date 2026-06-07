@@ -638,10 +638,18 @@ type PrepareBlock struct {
 	Entries []*PrepareEntry
 }
 
+// PrepareSource is the common parent of ActionPrepareSource and NextPrepareSource.
+// It marks a value as a concrete ingress source of some kind.
+// The unexported marker prevents external implementations.
+type PrepareSource interface{ prepareSource() }
+
 // ActionPrepareSource is implemented by *FromState and *FromHook.
 // *FromLiteral is excluded by design: it is only valid in transition prepare blocks.
 // This makes the constraint a compile-time guarantee rather than a runtime check.
-type ActionPrepareSource interface{ actionPrepareSource() }
+type ActionPrepareSource interface {
+	PrepareSource
+	actionPrepareSource()
+}
 
 // PrepareEntry binds a prog binding name to a concrete ingress source.
 type PrepareEntry struct {
@@ -695,7 +703,10 @@ type NextPrepareBlock struct {
 }
 
 // NextPrepareSource is implemented by *FromAction, *FromState, and *FromLiteral.
-type NextPrepareSource interface{ nextPrepareSource() }
+type NextPrepareSource interface {
+	PrepareSource
+	nextPrepareSource()
+}
 
 // NextPrepareEntry binds a binding name to a transition ingress source.
 type NextPrepareEntry struct {
@@ -720,6 +731,7 @@ type FromState struct {
 	Path string
 }
 
+func (*FromState) prepareSource()       {}
 func (*FromState) actionPrepareSource() {}
 func (*FromState) nextPrepareSource()   {}
 
@@ -730,6 +742,7 @@ type FromHook struct {
 	HookName string
 }
 
+func (*FromHook) prepareSource()       {}
 func (*FromHook) actionPrepareSource() {}
 
 // FromLiteral is `from_literal = <value>` — injects a literal value.
@@ -739,6 +752,7 @@ type FromLiteral struct {
 	Value Literal
 }
 
+func (*FromLiteral) prepareSource()     {}
 func (*FromLiteral) nextPrepareSource() {}
 
 // FromAction is `from_action = <binding>` — reads from the action result's binding.
@@ -748,6 +762,7 @@ type FromAction struct {
 	BindingName string
 }
 
+func (*FromAction) prepareSource()     {}
 func (*FromAction) nextPrepareSource() {}
 
 // ────────────────────────────────────────────────────────────

@@ -76,7 +76,8 @@ func TestValidateExtExprItOutsidePipeStep(t *testing.T) {
 }
 
 func TestValidateExtExprPipeStepTypeMismatch(t *testing.T) {
-	src := min(`        out:number = #pipe("s", add(#it, 1))
+	// str_includes expects (str, str); #it has type number from pipe initial 0
+	src := min(`        out:bool = #pipe(0, str_includes(#it, "x"))
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for #pipe step using #it with wrong type")
@@ -1406,13 +1407,13 @@ func TestArrConcatArg1NotArray(t *testing.T) {
 // ─── default case arg type mismatch ──────────────────────────────────────────
 
 func TestDefaultCaseArgTypeMismatch(t *testing.T) {
-	// add(label, score) — label is str but add expects number
+	// max(label, score) — label is str but max expects number
 	src := min(`        label:str = ""
         score:number = 0
-        out:number = add(label, score)
+        out:number = max(label, score)
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
-		t.Error("want ArgTypeMismatch for add with str arg1")
+		t.Error("want ArgTypeMismatch for max with str arg1")
 	}
 }
 
@@ -1552,7 +1553,7 @@ func TestResolveArgTypeRefNotFound(t *testing.T) {
 	// but validateArgRefs already caught UndefinedRef; validateCombineArgTypes won't emit
 	// because ok1 is false. Just verify no panic.
 	src := min(`        x:number = 1
-        out:number = add(ghost, x)
+        out:number = max(ghost, x)
 `)
 	if !hasCode(pipeline(src), diag.CodeUndefinedRef) {
 		t.Error("want UndefinedRef for combine with undefined ref")

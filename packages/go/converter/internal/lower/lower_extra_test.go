@@ -174,8 +174,8 @@ func TestLowerArgFuncRef(t *testing.T) {
       root = result
       prog "p" {
         x:number      = 1
-        thenFn:number = add(x, x)
-        result:number = add({ func_ref = "thenFn" }, x)
+        thenFn:number = max(x, x)
+        result:number = max({ func_ref = "thenFn" }, x)
       }
     }
   }`)
@@ -199,7 +199,7 @@ func TestLowerArgTransform(t *testing.T) {
       root = result
       prog "p" {
         x:number      = 1
-        result:number = add({ transform = { ref = "x" fn = "doThing" } }, x)
+        result:number = max({ transform = { ref = "x" fn = "doThing" } }, x)
       }
     }
   }`)
@@ -318,14 +318,14 @@ scene "test" {
 // ─── lowerArg: LitArg branch ──────────────────────────────────────────────────
 
 func TestLowerArgLit(t *testing.T) {
-	// add(x, 5) — the literal 5 goes through lowerArg LitArg branch.
+	// max(x, 5) — the literal 5 goes through lowerArg LitArg branch.
 	src := minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
         x:number      = 3
-        result:number = add(x, 5)
+        result:number = max(x, 5)
       }
     }
   }`)

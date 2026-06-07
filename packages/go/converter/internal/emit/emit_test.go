@@ -215,7 +215,7 @@ scene "s" {
       prog "p" {
         x:number     = 3
         y:number     = 4
-        result:number = add(x, y)
+        result:number = max(x, y)
       }
     }
   }
@@ -226,8 +226,8 @@ scene "s" {
 	if !strings.Contains(out, `combine = {`) {
 		t.Error("missing combine block")
 	}
-	if !strings.Contains(out, `fn   = "add"`) {
-		t.Error("missing fn = add")
+	if !strings.Contains(out, `fn   = "max"`) {
+		t.Error("missing fn = max")
 	}
 	if !strings.Contains(out, `{ ref = "x" }`) {
 		t.Error("missing ref arg x")
@@ -247,7 +247,7 @@ scene "s" {
       prog "p" {
         x:number      = 3
         y:number      = 4
-        result:number = #pipe(x, add(#it, y))
+        result:number = #pipe(x, max(#it, y))
       }
     }
   }
@@ -273,7 +273,7 @@ scene "s" {
       prog "p" {
         x:number      = 1
         flag:bool     = true
-        thenFn:number = add(x, x)
+        thenFn:number = max(x, x)
         result:number = #if(flag, thenFn, thenFn)
       }
     }

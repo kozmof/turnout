@@ -310,7 +310,7 @@ func TestLowerFuncCallRHS(t *testing.T) {
       prog "p" {
         a:number = 3
         b:number = 4
-        out:number = add(a, b)
+        out:number = max(a, b)
       }
     }
   }`))
@@ -318,7 +318,7 @@ func TestLowerFuncCallRHS(t *testing.T) {
 	if b.Expr == nil || b.Expr.Combine == nil {
 		t.Fatal("expected combine")
 	}
-	if b.Expr.Combine.Fn != "add" {
+	if b.Expr.Combine.Fn != "max" {
 		t.Errorf("fn = %q", b.Expr.Combine.Fn)
 	}
 	if len(b.Expr.Combine.Args) != 2 {
@@ -447,7 +447,7 @@ func TestLowerPipeRHS(t *testing.T) {
       prog "p" {
         x:number = 3
         y:number = 4
-        result:number = #pipe(x, add(#it, y))
+        result:number = #pipe(x, max(#it, y))
       }
     }
   }`))
@@ -467,8 +467,8 @@ func TestLowerPipeRHS(t *testing.T) {
 		t.Errorf("steps = %d, want 1", len(pipeExpr.PipeExpr.GetSteps()))
 	}
 	callExpr, ok := pipeExpr.PipeExpr.GetSteps()[0].Expr.(*turnoutpb.LocalExprModel_Call)
-	if !ok || callExpr.Call.GetFn() != "add" {
-		t.Errorf("step[0] = %T, want Call{add}", pipeExpr.PipeExpr.GetSteps()[0].Expr)
+	if !ok || callExpr.Call.GetFn() != "max" {
+		t.Errorf("step[0] = %T, want Call{max}", pipeExpr.PipeExpr.GetSteps()[0].Expr)
 	}
 }
 
@@ -482,8 +482,8 @@ func TestLowerCondRHS(t *testing.T) {
       root = result
       prog "p" {
         flag:bool     = true
-        thenFn:number = add(x, y)
-        elseFn:number = add(x, y)
+        thenFn:number = max(x, y)
+        elseFn:number = max(x, y)
         result:number = #if(flag, thenFn, elseFn)
       }
     }
@@ -520,8 +520,8 @@ func TestLowerIfRHSBareRef(t *testing.T) {
       root = result
       prog "p" {
         flag:bool     = true
-        thenFn:number = add(x, y)
-        elseFn:number = add(x, y)
+        thenFn:number = max(x, y)
+        elseFn:number = max(x, y)
         result:number = #if(flag, thenFn, elseFn)
       }
     }
@@ -548,17 +548,18 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 }
 
 func TestLowerIfRHSCall(t *testing.T) {
-	// #if(gt(x,y), thenFn, elseFn) with call condition → ExtExpr on binding
+	// #if(arr_includes(items,x), thenFn, elseFn) with call condition → ExtExpr on binding
 	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       root = result
       prog "p" {
-        x:number      = 5
-        y:number      = 3
-        thenFn:number = add(x, y)
-        elseFn:number = add(x, y)
-        result:number = #if(gt(x, y), thenFn, elseFn)
+        x:number          = 5
+        y:number          = 3
+        items:arr<number> = [1, 2, 3]
+        thenFn:number     = max(x, y)
+        elseFn:number     = max(x, y)
+        result:number     = #if(arr_includes(items, x), thenFn, elseFn)
       }
     }
   }`))
@@ -578,8 +579,8 @@ func TestLowerIfRHSCall(t *testing.T) {
 		t.Fatalf("expected IfExpr, got %T", last.ExtExpr.Expr)
 	}
 	callExpr, ok := ifExpr.IfExpr.GetCond().Expr.(*turnoutpb.LocalExprModel_Call)
-	if !ok || callExpr.Call.GetFn() != "gt" {
-		t.Errorf("cond = %v, want Call{gt}", ifExpr.IfExpr.GetCond())
+	if !ok || callExpr.Call.GetFn() != "arr_includes" {
+		t.Errorf("cond = %v, want Call{arr_includes}", ifExpr.IfExpr.GetCond())
 	}
 }
 

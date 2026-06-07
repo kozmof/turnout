@@ -201,10 +201,10 @@ func TestUndefinedFuncRef(t *testing.T) {
 }
 
 func TestArgTypeMismatch(t *testing.T) {
-	// add expects (number, number); passing bool
+	// max expects (number, number); passing bool as second arg
 	src := min(`        x:number = 5
         b:bool   = true
-        out:number = add(x, b)
+        out:number = max(x, b)
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch")
@@ -212,10 +212,10 @@ func TestArgTypeMismatch(t *testing.T) {
 }
 
 func TestReturnTypeMismatch(t *testing.T) {
-	// add returns number but declared type is bool
+	// max returns number but declared type is bool
 	src := min(`        x:number = 1
         y:number = 2
-        out:bool = add(x, y)
+        out:bool = max(x, y)
 `)
 	if !hasCode(pipeline(src), diag.CodeReturnTypeMismatch) {
 		t.Error("want ReturnTypeMismatch")
