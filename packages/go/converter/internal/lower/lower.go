@@ -53,7 +53,7 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnost
 }
 
 func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
-	var ds diag.Diagnostics
+	var ds diag.DiagSink
 	sc := newSidecar()
 
 	stateModel := lowerStateBlock(file.StateSource, schema, schemaOrder, &ds)
@@ -66,10 +66,10 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 
 	tm.Routes = lowerRouteBlocks(file.Routes)
 
-	if ds.HasErrors() {
-		return nil, ds
+	if ds.Diags.HasErrors() {
+		return nil, ds.Diags
 	}
-	return &LowerResult{Model: tm, Schema: schema, Sidecar: sc}, ds
+	return &LowerResult{Model: tm, Schema: schema, Sidecar: sc}, ds.Diags
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,13 +138,13 @@ func pathExprString(pe *ast.PathExpr) string {
 // State block lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, ds *diag.Diagnostics) *turnoutpb.StateModel {
+func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
 	switch s := src.(type) {
 	case *ast.InlineStateBlock:
 		return lowerStateBlockFromAST(s)
 	case *ast.StateFileDirective:
 		if len(schema) == 0 {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
 		}
 		return lowerStateBlockFromSchema(schema, order)
@@ -270,7 +270,7 @@ func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.State
 // Scene / Action lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.SceneBlock {
+func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.SceneBlock {
 	sb := &turnoutpb.SceneBlock{
 		Id:           scene.ID,
 		EntryActions: scene.EntryActions,
@@ -295,7 +295,7 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds
 	return sb
 }
 
-func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ActionModel {
+func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.ActionModel {
 	resolver := newActionPrepareResolver(a.Prepare, schema)
 
 	am := &turnoutpb.ActionModel{Id: a.ID}
@@ -391,7 +391,7 @@ func lowerPublish(pub *ast.PublishBlock) []string {
 // Next rule lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.NextRuleModel {
+func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.NextRuleModel {
 	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
 
 	pbNR := &turnoutpb.NextRuleModel{Action: nr.ActionID}
@@ -431,7 +431,7 @@ func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {
 // Prog / Binding lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.Diagnostics) *turnoutpb.ProgModel {
+func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.ProgModel {
 	if prog == nil {
 		return nil
 	}
@@ -452,7 +452,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
 // Sigils are captured in the sidecar keyed by (sceneID, actionID, progName, bindingName).
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, progName string, sc *Sidecar, ds *diag.Diagnostics, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, progName string, sc *Sidecar, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -481,10 +481,10 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		return nil
 	case nil:
 		// Defensive: should not be reachable via the normal parse path.
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct, "binding %q has no RHS", name))
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct, "binding %q has no RHS", name))
 		return nil
 	default:
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: unhandled RHS type %T — this is a compiler bug; please report it", name, rhs))
 		return nil
 	}
@@ -503,7 +503,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 
 // lowerLocalRHS delegates IfCallRHS / CaseCallRHS / PipeCallRHS to the
 // localLowerer, making the abstraction boundary explicit in the lowerBinding switch.
-func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) []*turnoutpb.BindingModel {
+func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) []*turnoutpb.BindingModel {
 	c := newLocalLowerer(name, ft, bindingTypes, ds)
 	return c.lowerTop(rhs)
 }

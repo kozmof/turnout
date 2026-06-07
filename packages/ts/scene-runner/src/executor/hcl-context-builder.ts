@@ -1,9 +1,19 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import { SceneRuntimeError } from './errors.js';
-import type { AnyValue, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
+import type { AnyValue, BinaryFnNames, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
 import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pure-compute context cache
+//
+// When a prog has no injected values (no prepare entries), its ExecutionContext
+// is fully determined by the ProgModel. We cache it keyed on ProgModel object
+// identity so that repeated calls across turns (e.g. a stateless action executed
+// on every turn) avoid rebuilding the context from scratch each time.
+// ─────────────────────────────────────────────────────────────────────────────
+const pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -16,7 +26,7 @@ export type BindingResolution =
 export type BuiltContext = {
   exec: ExecutionContext;
   /** Binding name → ValueId for every binding. Used for from_action lookup. */
-  nameToValueId: Record<string, ValueId>;
+  nameToValueId: Map<string, ValueId>;
   /**
    * Returns the resolution for a binding name, or undefined if the name is unknown.
    * Use `binding.kind === 'func'` to narrow to a FuncId; `'value'` for a ValueId.
@@ -36,10 +46,6 @@ export type BuiltContext = {
 
 function asFuncId(s: string): FuncId   { return s as FuncId; }
 function asValueId(s: string): ValueId { return s as ValueId; }
-// FN_MAP values are all valid BinaryFnNames by construction; this narrows the string.
-function asBinaryFnName(s: string): Parameters<typeof combine>[0] {
-  return s as Parameters<typeof combine>[0];
-}
 // resolveArg returns unknown; callers that pass the result to combine() know the shape.
 type CombineArgRef = Parameters<typeof combine>[1]['a'];
 function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
@@ -48,7 +54,7 @@ function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
 // HCL function name → runtime BinaryFnNames mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const FN_MAP: Record<string, string> = {
+export const FN_MAP: Record<string, BinaryFnNames> = {
   // Number arithmetic
   add: 'binaryFnNumber::add',
   sub: 'binaryFnNumber::minus',
@@ -80,7 +86,7 @@ export const FN_MAP: Record<string, string> = {
   arr_includes:  'binaryFnArray::includes',
 };
 
-function mapFnName(hclFn: string, contextId: string): Parameters<typeof combine>[0] {
+function mapFnName(hclFn: string, contextId: string): BinaryFnNames {
   const mapped = FN_MAP[hclFn];
   if (!mapped) {
     throw new SceneRuntimeError(
@@ -89,7 +95,7 @@ function mapFnName(hclFn: string, contextId: string): Parameters<typeof combine>
       `unknown HCL function name "${hclFn}" — no runtime mapping exists`,
     );
   }
-  return asBinaryFnName(mapped);
+  return mapped;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -240,8 +246,8 @@ export function buildNameToValueId(
   ids: Record<string, FuncId | ValueId>,
   funcTable: FuncTable,
   contextId = '(unknown)',
-): Record<string, ValueId> {
-  const nameToValueId: Record<string, ValueId> = {};
+): Map<string, ValueId> {
+  const nameToValueId = new Map<string, ValueId>();
   for (const binding of bindings) {
     const id = ids[binding.name];
     if (id === undefined) {
@@ -253,10 +259,10 @@ export function buildNameToValueId(
     }
     if (binding.expr) {
       // Function binding: the result lives in the function's return value slot.
-      nameToValueId[binding.name] = funcTable[asFuncId(id as string)].returnId;
+      nameToValueId.set(binding.name, funcTable[asFuncId(id as string)].returnId);
     } else {
       // Value binding: the id is the ValueId directly.
-      nameToValueId[binding.name] = asValueId(id as string);
+      nameToValueId.set(binding.name, asValueId(id as string));
     }
   }
   return nameToValueId;
@@ -282,6 +288,12 @@ export function buildContextFromProg(
   injectedValues: Record<string, AnyValue>,
   contextId = '(unknown)',
 ): BuiltContext {
+  const hasInjected = Object.keys(injectedValues).length > 0;
+  if (!hasInjected) {
+    const cached = pureProgCtxCache.get(prog);
+    if (cached) return cached;
+  }
+
   const spec = buildSpec(prog, injectedValues, contextId);
   const result = ctx(spec as ContextSpec); // dynamic spec — branded keys unavailable statically
   const ids = result.ids as Record<string, FuncId | ValueId>; // see asFuncId/asValueId above
@@ -294,5 +306,8 @@ export function buildContextFromProg(
       ? { kind: 'func',  id: asFuncId(ids[name] as string) }
       : { kind: 'value', id: asValueId(ids[name] as string) };
   }
-  return { exec: result.exec, nameToValueId, resolve };
+  const builtCtx: BuiltContext = { exec: result.exec, nameToValueId, resolve };
+
+  if (!hasInjected) pureProgCtxCache.set(prog, builtCtx);
+  return builtCtx;
 }

@@ -47,10 +47,26 @@ type DiagSink struct {
 	halted bool
 }
 
-func (s *DiagSink) IsHalted() bool      { return s.halted }
-func (s *DiagSink) AtCap() bool         { return len(s.Diags) >= MaxDiagnostics }
-func (s *DiagSink) Halt()               { s.halted = true }
-func (s *DiagSink) Append(d Diagnostic) { s.Diags = append(s.Diags, d) }
+func (s *DiagSink) IsHalted() bool { return s.halted }
+func (s *DiagSink) AtCap() bool    { return len(s.Diags) >= MaxDiagnostics }
+func (s *DiagSink) Halt()          { s.halted = true }
+
+// Append adds d to the sink. If the sink is already halted, the diagnostic is
+// silently dropped. If this append would exceed MaxDiagnostics, a single
+// TooManyDiagnostics error is appended instead and the sink is halted so that
+// no further diagnostics are accepted.
+func (s *DiagSink) Append(d Diagnostic) {
+	if s.halted {
+		return
+	}
+	if len(s.Diags) >= MaxDiagnostics {
+		s.Diags = append(s.Diags, Errorf(CodeTooManyDiagnostics,
+			"too many diagnostics — further errors suppressed"))
+		s.halted = true
+		return
+	}
+	s.Diags = append(s.Diags, d)
+}
 
 // HasErrors reports whether any diagnostic has SeverityError.
 func (ds Diagnostics) HasErrors() bool {

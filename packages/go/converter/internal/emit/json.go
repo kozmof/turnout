@@ -11,20 +11,27 @@ import (
 
 //go:generate sh -c "PATH=\"$HOME/go/bin:$(go env GOPATH)/bin:$PATH\" buf generate ../../../../../"
 
+// Model compatibility versions written into every emitted JSON file.
+// Bump these when the proto schema or runtime contract changes so that the
+// TypeScript runner's migrateModel() can detect mismatches at load time.
+const (
+	jsonModelVersion   = 1
+	jsonMinVersion     = 1
+	jsonMaxVersion     = 1
+)
+
 // EmitJSON marshals a validated proto model directly to indented JSON.
 // ext_expr fields and annotations are stripped before marshalling — ext_expr is
 // only used by the HCL emitter, and annotations are validator-only metadata;
 // neither should appear in runtime output.
-// version, min_version, and max_version are set to 1 to declare schema and
-// runtime compatibility so the TypeScript runner can detect mismatches at load time.
 func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) error {
 	if tm == nil {
 		tm = &turnoutpb.TurnModel{}
 	}
 	tm = stripExtExpr(tm)
-	tm.Version    = 1
-	tm.MinVersion = 1
-	tm.MaxVersion = 1
+	tm.Version    = jsonModelVersion
+	tm.MinVersion = jsonMinVersion
+	tm.MaxVersion = jsonMaxVersion
 	raw, err := protojson.Marshal(tm)
 	if err != nil {
 		return err

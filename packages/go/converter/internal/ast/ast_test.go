@@ -69,13 +69,13 @@ func TestFieldTypeString(t *testing.T) {
 
 func TestFieldTypeFromString(t *testing.T) {
 	valid := []string{"number", "str", "bool", "arr<number>", "arr<str>", "arr<bool>"}
-	for i, s := range valid {
+	for _, s := range valid {
 		ft, ok := ast.FieldTypeFromString(s)
 		if !ok {
 			t.Errorf("FieldTypeFromString(%q) returned false", s)
 		}
-		if int(ft) != i {
-			t.Errorf("FieldTypeFromString(%q) = %d, want %d", s, int(ft), i)
+		if ft.String() != s {
+			t.Errorf("FieldTypeFromString(%q).String() = %q, want round-trip", s, ft.String())
 		}
 	}
 

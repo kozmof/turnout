@@ -19,7 +19,7 @@ type localLowerer struct {
 	target       string
 	targetType   ast.FieldType
 	bindingTypes map[string]ast.FieldType
-	ds           *diag.Diagnostics
+	ds           *diag.DiagSink
 	counter      int
 	bindings     []*turnoutpb.BindingModel
 	itRef        string
@@ -35,7 +35,7 @@ type pipeContext struct {
 	itAllowed bool
 }
 
-func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *localLowerer {
+func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *localLowerer {
 	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds}
 }
 
@@ -104,7 +104,7 @@ func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalE
 		c.emitValue(name, ft, x.Value)
 	case *ast.LocalRefExpr:
 		if _, known := c.bindingTypes[x.Name]; !known {
-			*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 				diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", c.target, x.Name))
 			c.emitValue(name, ft, zeroLiteralFor(ft))
@@ -113,7 +113,7 @@ func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalE
 		c.emitIdentity(name, ft, x.Name)
 	case *ast.LocalItExpr:
 		if !c.itAllowed {
-			*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 				diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
 			c.emitValue(name, ft, zeroLiteralFor(ft))
 			return
@@ -156,7 +156,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 		switch x := arg.(type) {
 		case *ast.LocalRefExpr:
 			if _, known := c.bindingTypes[x.Name]; !known {
-				*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 					diag.CodeUndefinedRef,
 					"binding %q: reference %q is not defined", name, x.Name))
 				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
@@ -167,7 +167,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 			args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(x.Value)})
 		case *ast.LocalItExpr:
 			if !c.itAllowed {
-				*c.ds = append(*c.ds, diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 					diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
 				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
 			} else {
@@ -226,7 +226,7 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 // is assigned to the outermost arm (i == 0) and is therefore emitted last.
 func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm) {
 	if len(arms) == 0 {
-		*c.ds = append(*c.ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+		c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: #case with no arms always returns zero — add at least one arm or a wildcard (_)", c.target))
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
@@ -238,7 +238,7 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
 	for _, arm := range arms {
 		if seenWildcard {
-			*c.ds = append(*c.ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"binding %q: #case arm is unreachable (wildcard _ must be the last arm)", c.target))
 			break
 		}

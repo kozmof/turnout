@@ -17,7 +17,7 @@ func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *turnou
 	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(rhs.Value)}
 }
 
-func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, diag.CodeMissingPrepareEntry, ds)
 	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
 }
@@ -25,7 +25,7 @@ func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pr
 // lowerBiDirInputRHS resolves the default value for a <~> binding. Missing
 // prepare entries use the bidirectional-specific diagnostic code, but other
 // resolver failures such as unresolved state paths still surface normally.
-func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, diag.CodeBidirMissingPrepareEntry, ds)
 	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
 }
@@ -59,7 +59,7 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *tu
 	}
 }
 
-func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),
@@ -70,7 +70,7 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, bindi
 	}
 }
 
-func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.BindingModel {
+func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),

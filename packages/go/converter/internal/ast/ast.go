@@ -30,24 +30,19 @@ func (p Pos) String() string {
 // ────────────────────────────────────────────────────────────
 
 // FieldType enumerates the six DSL value types.
-// FieldTypeInvalid (-1) is the zero-safe sentinel for uninitialized variables;
-// it is never a valid DSL type. The six valid types start at 0.
-//
-// ZERO-VALUE HAZARD: FieldTypeNumber == 0, so a zero-initialized FieldType
-// variable is silently treated as FieldTypeNumber. Always initialise with
-// FieldTypeInvalid when the value may legitimately be absent, and always
-// check the bool return of FieldTypeFromString / LiteralFieldType before using
-// the returned FieldType.
+// FieldTypeInvalid (0) is the zero value, so any zero-initialized FieldType
+// variable is safely invalid rather than silently treated as a valid type.
+// The six valid types start at 1.
 type FieldType int
 
 const (
-	FieldTypeInvalid   FieldType = iota - 1 // -1: uninitialized / unknown
-	FieldTypeNumber                          //  0: number
-	FieldTypeStr                             //  1: str
-	FieldTypeBool                            //  2: bool
-	FieldTypeArrNumber                       //  3: arr<number>
-	FieldTypeArrStr                          //  4: arr<str>
-	FieldTypeArrBool                         //  5: arr<bool>
+	FieldTypeInvalid   FieldType = iota //  0: zero value → invalid (safe default)
+	FieldTypeNumber                     //  1: number
+	FieldTypeStr                        //  2: str
+	FieldTypeBool                       //  3: bool
+	FieldTypeArrNumber                  //  4: arr<number>
+	FieldTypeArrStr                     //  5: arr<str>
+	FieldTypeArrBool                    //  6: arr<bool>
 )
 
 var fieldTypeNames = [...]string{
@@ -58,8 +53,8 @@ func (ft FieldType) String() string {
 	if ft == FieldTypeInvalid {
 		return "FieldType(invalid)"
 	}
-	if int(ft) >= 0 && int(ft) < len(fieldTypeNames) {
-		return fieldTypeNames[ft]
+	if int(ft) >= 1 && int(ft) <= len(fieldTypeNames) {
+		return fieldTypeNames[ft-1]
 	}
 	return fmt.Sprintf("FieldType(%d)", int(ft))
 }
@@ -97,9 +92,9 @@ func MustFieldTypeFromString(s string) FieldType {
 
 // LiteralFieldType infers the FieldType of a Literal value.
 // For an empty ArrayLiteral, ok is false (element type is unknown); the returned
-// FieldType is FieldTypeArrNumber as a placeholder. Callers MUST check ok before
+// FieldType is FieldTypeInvalid as a placeholder. Callers MUST check ok before
 // using the returned type when the literal may be an empty array.
-// Returns (0, false) for mixed-element arrays.
+// Returns (FieldTypeInvalid, false) for mixed-element arrays.
 func LiteralFieldType(lit Literal) (FieldType, bool) {
 	switch v := lit.(type) {
 	case *NumberLiteral:

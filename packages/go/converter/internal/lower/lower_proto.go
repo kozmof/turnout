@@ -174,10 +174,10 @@ func lookupMethod(method string, inputType ast.FieldType) (qualName string, outp
 	return "", 0, false
 }
 
-func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.ArgModel {
+func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.ArgModel {
 	receiverType, ok := bindingTypes[a.Receiver]
 	if !ok {
-		*ds = append(*ds, diag.Errorf(diag.CodeUnknownMethod,
+		ds.Append(diag.Errorf(diag.CodeUnknownMethod,
 			"method call on %q: binding is not defined or its type is unknown", a.Receiver))
 		return &turnoutpb.ArgModel{Ref: proto.String(a.Receiver)}
 	}
@@ -187,7 +187,7 @@ func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldT
 	for _, method := range a.Methods {
 		qual, outType, found := lookupMethod(method, currentType)
 		if !found {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnknownMethod,
+			ds.Append(diag.Errorf(diag.CodeUnknownMethod,
 				"method %q is not defined for type %q on receiver %q", method, currentType, a.Receiver))
 			return &turnoutpb.ArgModel{Ref: proto.String(a.Receiver)}
 		}
@@ -197,7 +197,7 @@ func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldT
 	return &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{Ref: a.Receiver, Fn: fns}}
 }
 
-func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) *turnoutpb.ArgModel {
+func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.ArgModel {
 	switch a := arg.(type) {
 	case *ast.RefArg:
 		return &turnoutpb.ArgModel{Ref: proto.String(a.Name)}
@@ -216,7 +216,7 @@ func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *d
 	}
 }
 
-func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.Diagnostics) []*turnoutpb.ArgModel {
+func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) []*turnoutpb.ArgModel {
 	result := make([]*turnoutpb.ArgModel, len(args))
 	for i, a := range args {
 		result[i] = lowerArgWithTypes(a, bindingTypes, ds)

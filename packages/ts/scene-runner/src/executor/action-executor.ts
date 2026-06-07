@@ -58,7 +58,14 @@ export async function executeAction(
   const treeCache = new Map<FuncId, ExecutionTree>();
 
   for (const binding of action.compute.prog.bindings) {
-    const valueId = builtCtx.nameToValueId[binding.name];
+    const valueId = builtCtx.nameToValueId.get(binding.name);
+    if (valueId === undefined) {
+      throw new SceneRuntimeError(
+        'OutOfOrderBinding',
+        sceneId,
+        `binding "${binding.name}" not found in nameToValueId — this is a compiler bug`,
+      );
+    }
 
     if (!Object.hasOwn(updatedTable, valueId) && binding.expr) {
       const resolved = builtCtx.resolve(binding.name);
@@ -95,8 +102,8 @@ export async function executeAction(
     if (v !== undefined) bindingValues[binding.name] = v;
   }
 
-  const rootValueId = builtCtx.nameToValueId[action.compute.root];
-  const computeRootValue = updatedTable[rootValueId] ?? buildNull('missing');
+  const rootValueId = builtCtx.nameToValueId.get(action.compute.root);
+  const computeRootValue = (rootValueId !== undefined ? updatedTable[rootValueId] : undefined) ?? buildNull('missing');
 
   // Step 5: apply merge entries in a single batch to avoid O(n) intermediate
   // StateManager allocations when multiple bindings are written back to STATE.

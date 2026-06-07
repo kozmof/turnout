@@ -12,7 +12,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 type prepareResolver interface {
-	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.Diagnostics) ast.Literal
+	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal
 }
 
 // ── Action-level resolver ──
@@ -32,10 +32,10 @@ func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) pr
 	return &actionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.Diagnostics) ast.Literal {
+func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal {
 	src, ok := r.index[name]
 	if !ok {
-		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
+		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 			missingPrepareCode,
 			"binding %q uses placeholder _ but has no prepare entry", name))
 		return zeroLiteralFor(ft)
@@ -67,10 +67,10 @@ func newTransitionPrepareResolver(prepare *ast.NextPrepareBlock, schema state.Sc
 	return &transitionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.Diagnostics) ast.Literal {
+func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal {
 	src, ok := r.index[name]
 	if !ok {
-		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
+		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 			missingPrepareCode,
 			"binding %q uses placeholder _ but has no transition prepare entry", name))
 		return zeroLiteralFor(ft)
@@ -93,10 +93,10 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 
 // resolveFromState looks up path in schema and returns its default value.
 // Emits CodeUnresolvedStatePath and returns a zero literal when path is absent.
-func resolveFromState(path string, schema state.Schema, ft ast.FieldType, pos ast.Pos, ds *diag.Diagnostics) ast.Literal {
+func resolveFromState(path string, schema state.Schema, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) ast.Literal {
 	meta, found := schema.Get(path)
 	if !found {
-		*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col,
+		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 			diag.CodeUnresolvedStatePath,
 			"from_state path %q is not declared in the state schema", path))
 		return zeroLiteralFor(ft)

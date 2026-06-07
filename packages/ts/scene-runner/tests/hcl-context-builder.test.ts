@@ -26,7 +26,7 @@ import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 
 function runProg(ctx: BuiltContext, rootName: string) {
   const binding = ctx.resolve(rootName);
-  const rootId = (binding?.kind === 'func' ? binding.id : ctx.nameToValueId[rootName]) as FuncId;
+  const rootId = (binding?.kind === 'func' ? binding.id : ctx.nameToValueId.get(rootName)) as FuncId;
   const validated = assertValidContext(ctx.exec);
   return executeGraph(rootId, validated);
 }
@@ -226,7 +226,7 @@ describe('buildNameToValueId', () => {
     const fakeValueId = 'val_x' as unknown as ValueId;
     const bindings = [{ name: 'x' }] as unknown as import('../src/types/turnout-model_pb.js').ProgModel['bindings'];
     const result = buildNameToValueId(bindings, { x: fakeValueId }, {});
-    expect(result['x']).toBe(fakeValueId);
+    expect(result.get('x')).toBe(fakeValueId);
   });
 
   it('maps a function binding name to its returnId via funcTable', () => {
@@ -237,7 +237,7 @@ describe('buildNameToValueId', () => {
     ] as unknown as import('../src/types/turnout-model_pb.js').ProgModel['bindings'];
     const funcTable = { fn_f: { returnId: fakeReturnId } };
     const result = buildNameToValueId(bindings, { f: fakeFuncId }, funcTable);
-    expect(result['f']).toBe(fakeReturnId);
+    expect(result.get('f')).toBe(fakeReturnId);
   });
 
   it('handles mixed value and function bindings in one pass', () => {
@@ -250,8 +250,8 @@ describe('buildNameToValueId', () => {
     ] as unknown as import('../src/types/turnout-model_pb.js').ProgModel['bindings'];
     const funcTable = { fn_g: { returnId: fakeRetId } };
     const result = buildNameToValueId(bindings, { v: fakeValId, g: fakeFuncId }, funcTable);
-    expect(result['v']).toBe(fakeValId);
-    expect(result['g']).toBe(fakeRetId);
+    expect(result.get('v')).toBe(fakeValId);
+    expect(result.get('g')).toBe(fakeRetId);
   });
 });
 
@@ -269,16 +269,16 @@ describe('buildContextFromProg — value bindings', () => {
 
   it('uses the literal default when no injection is provided', () => {
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.nameToValueId['x']).toBeDefined();
+    expect(ctx.nameToValueId.get('x')).toBeDefined();
     const result = runProg(ctx, 'x');
-    const val = result.updatedValueTable[ctx.nameToValueId['x']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('x')!];
     expect(isPureNumber(val!) && val.value).toBe(10);
   });
 
   it('injected value overrides the literal default', () => {
     const ctx = buildContextFromProg(prog, { x: buildNumber(99) });
     const result = runProg(ctx, 'x');
-    const val = result.updatedValueTable[ctx.nameToValueId['x']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('x')!];
     expect(isPureNumber(val!) && val.value).toBe(99);
   });
 });
@@ -304,19 +304,19 @@ describe('buildContextFromProg — combine expr', () => {
   it('computes a + b correctly', () => {
     const ctx = buildContextFromProg(prog, {});
     const result = runProg(ctx, 'sum');
-    const val = result.updatedValueTable[ctx.nameToValueId['sum']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('sum')!];
     expect(isPureNumber(val!) && val.value).toBe(7);
   });
 
   it('nameToValueId contains entry for the combine binding', () => {
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.nameToValueId['sum']).toBeDefined();
+    expect(ctx.nameToValueId.get('sum')).toBeDefined();
   });
 
   it('injected value overrides input binding', () => {
     const ctx = buildContextFromProg(prog, { a: buildNumber(10) });
     const result = runProg(ctx, 'sum');
-    const val = result.updatedValueTable[ctx.nameToValueId['sum']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('sum')!];
     expect(isPureNumber(val!) && val.value).toBe(14);
   });
 });
@@ -342,7 +342,7 @@ describe('buildContextFromProg — boolean combine', () => {
   it('bool_and works correctly', () => {
     const ctx = buildContextFromProg(prog, {});
     const result = runProg(ctx, 'p_and_q');
-    const val = result.updatedValueTable[ctx.nameToValueId['p_and_q']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('p_and_q')!];
     expect(isPureBoolean(val!) && val.value).toBe(false);
   });
 });
@@ -385,14 +385,14 @@ describe('buildContextFromProg — cond expr', () => {
   it('cond returns then-branch when condition is true', () => {
     const ctx = buildContextFromProg(prog, {});
     const result = runProg(ctx, 'result');
-    const val = result.updatedValueTable[ctx.nameToValueId['result']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('result')!];
     expect(isPureNumber(val!) && val.value).toBe(1);
   });
 
   it('cond returns else-branch when condition is false', () => {
     const ctx = buildContextFromProg(prog, { flag: buildBoolean(false) });
     const result = runProg(ctx, 'result');
-    const val = result.updatedValueTable[ctx.nameToValueId['result']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('result')!];
     expect(isPureNumber(val!) && val.value).toBe(2);
   });
 });
@@ -417,7 +417,7 @@ describe('buildContextFromProg — lit args', () => {
   it('inline literal arg is resolved as a synthetic value', () => {
     const ctx = buildContextFromProg(prog, {});
     const result = runProg(ctx, 'result');
-    const val = result.updatedValueTable[ctx.nameToValueId['result']];
+    const val = result.updatedValueTable[ctx.nameToValueId.get('result')!];
     expect(isPureNumber(val!) && val.value).toBe(15);
   });
 });
@@ -442,9 +442,9 @@ describe('buildContextFromProg — nameToValueId', () => {
 
   it('nameToValueId contains entries for all bindings', () => {
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.nameToValueId['v1']).toBeDefined();
-    expect(ctx.nameToValueId['v2']).toBeDefined();
-    expect(ctx.nameToValueId['f1']).toBeDefined();
+    expect(ctx.nameToValueId.get('v1')).toBeDefined();
+    expect(ctx.nameToValueId.get('v2')).toBeDefined();
+    expect(ctx.nameToValueId.get('f1')).toBeDefined();
   });
 
   it('resolve returns kind:value for value bindings and kind:func for function bindings', () => {
@@ -631,7 +631,7 @@ describe('buildContextFromProg — pipe expr', () => {
       ],
     } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.nameToValueId['chained']).toBeDefined();
+    expect(ctx.nameToValueId.get('chained')).toBeDefined();
     expect(ctx.resolve('chained')?.kind).toBe('func');
   });
 
@@ -656,6 +656,6 @@ describe('buildContextFromProg — pipe expr', () => {
       ],
     } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.nameToValueId['chained']).toBeDefined();
+    expect(ctx.nameToValueId.get('chained')).toBeDefined();
   });
 });

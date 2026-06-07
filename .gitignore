@@ -1,4 +1,5 @@
 /node_modules
+/packages/go/converter/vendor
 
 .devcontainer
 .pnpm-store
