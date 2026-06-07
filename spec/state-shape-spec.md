@@ -237,7 +237,7 @@ No implicit coercion occurs between STATE types. A `merge` binding writing a `st
 
 ### 4.3 Division results
 
-`div` (`number / number`) may produce a fractional result. Since the STATE field type `number` corresponds to the JavaScript `number` type (which accommodates both integers and fractions), the fractional result is stored as-is. No implicit coercion occurs. Authors who require integer results should apply `.floor()` or `.round()` via a `transformFn` before writing to STATE.
+`div` (`number / number`) may produce a fractional result. Since the STATE field type `number` corresponds to the JavaScript `number` type (which accommodates both integers and fractions), the fractional result is stored as-is. No implicit coercion occurs. Authors who require integer results should bind the division result and apply `.floor()` or `.round()` as a `transformFn` receiver in a later expression before writing to STATE.
 
 ---
 
@@ -703,7 +703,7 @@ scene "loan_flow" {
 | C. Initialization | `S_0` contains all declared fields at their default values before first action |
 | D. Path resolution | `from_state` and `to_state` paths validated against declared schema at convert time |
 | E. Type constraint checking | `StateTypeMismatch` emitted when `merge` source type ≠ STATE field type for any action; checked across all actions in one pass |
-| E2. `number` type accepts fractions | `div` result (possibly fractional) stored in `number` STATE field without error; `.floor()`/`.round()` available for authors who need integer semantics |
+| E2. `number` type accepts fractions | `div` result (possibly fractional) stored in `number` STATE field without error; `.floor()`/`.round()` available through transform receiver syntax for authors who need integer semantics |
 | F. Error paths | All error codes trigger correctly and abort without partial HCL output |
 | G. Merge semantics | `D_n` writes only declared paths; undeclared paths in STATE unchanged |
 | H. Snapshot isolation | `S_n` snapshot used for `prepare`; `S_{n+1}` visible only after merge completes |

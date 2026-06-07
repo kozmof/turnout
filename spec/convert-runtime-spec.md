@@ -173,12 +173,12 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 - The runtime can build a `Scene` from the emitted HCL, mapping each `action "<actionId>"` block to an `Action` entry.
 - The runtime can pass each action's canonical plain HCL `prog` block to `ctx()` to produce the action's `ContextSpec`.
 - The runtime can resolve `prepare.from_state` bindings from the pre-action STATE snapshot into the action's state before the compute graph runs.
-- The runtime can invoke `prepare.from_hook` hooks in declaration order before `executeGraph`, mapping returned object fields into state bindings.
+- The runtime can invoke registered `prepare.from_hook` hooks in declaration order before `executeGraph`, mapping returned object fields into state bindings.
 - The runtime can invoke the same prepare hook once even when multiple bindings reference it, reusing the returned object for all mapping.
 - The runtime can execute each action's `ContextSpec` via `executeGraph` to produce result `R_n` and merge delta `D_n`.
 - The runtime can atomically apply `D_n` to STATE to produce `S_{n+1}`, writing only the declared `merge` output bindings.
 - The runtime can invoke `publish` hooks in declaration order after merge, passing the complete final state.
-- The runtime can silently skip any hook whose name has no registered implementation.
+- The runtime can silently skip unregistered publish hooks. Unregistered prepare hooks fail action prepare with `UnregisteredHook`.
 - The runtime can evaluate each transition's inline `prog` block by building a fresh `ContextSpec` for that transition, resolving ingresses from `R_n` (`fromAction`), `S_{n+1}` (`fromState`), or declared literals.
 - The runtime can apply `first-match` or `all-match` transition policy, defaulting to `first-match` when neither action-level nor scene-level policy is set.
 - When `all-match` selects multiple next actions, the runtime can execute them **sequentially in declaration order**, with each subsequent action seeing the STATE state produced by the prior action's merge.
@@ -247,7 +247,7 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 |---|----------|------------|
 | 1 | Phase 2 constructs in Phase 1 file | **Hard error**: emit `UnsupportedConstruct` diagnostic and abort — no HCL is emitted. |
 | 2 | Duplicate `action` block name labels | **Parse error**: fail with `DuplicateActionLabel` — last-wins is forbidden. |
-| 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should chain `.floor()` or `.round()` after division. |
+| 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
 | 4 | Parallel action scheduling under `all-match` | **Sequential, declaration order**: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
 | 5 | Entry action HCL declaration | `entryActionIds` are emitted as a top-level string-list attribute: `entry_actions = ["<actionId>", ...]` at the top of the scene block. |
 | 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |
@@ -266,7 +266,7 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 | C. Convert — error paths | All converter error codes abort without partial HCL |
 | D. Runtime — scene loading | `action` blocks map to `Action` entries correctly |
 | E. Runtime — prepare phase | `from_state` resolved before compute; `from_hook` invoked and mapped |
-| E2. Runtime — hook execution | Prepare hooks fire before graph; publish hooks fire after merge; unregistered hooks skipped |
+| E2. Runtime — hook execution | Prepare hooks fire before graph; publish hooks fire after merge; unregistered prepare hooks fail with `UnregisteredHook`; unregistered publish hooks are skipped |
 | F. Runtime — execution ordering | prepare → compute → merge → publish ordering enforced |
 | G. Runtime — transition semantics | `first-match`, `all-match`, no-match, sequential ordering |
 | H. Runtime — merge semantics | `replace-by-id` atomicity, unknown mode rejection |
@@ -293,7 +293,7 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 | Two `action` blocks with identical name labels | `DuplicateActionLabel` error |
 | `prepare` binding name not present as a `binding` block | `UnresolvedPrepareBinding` error at convert time |
 | `from_state = "foo..bar"` (empty segment) | `InvalidStatePath` error |
-| `div` binding result stored in `:number` field | Valid; `number` type accepts fractional results — authors may chain `.floor()` or `.round()` if integer semantics needed |
+| `div` binding result stored in `:number` field | Valid; `number` type accepts fractional results — authors may bind the result and use `.floor()` or `.round()` in a later expression if integer semantics are needed |
 | `all-match` selects 0 next actions | Enter terminal `completed` state |
 | `all-match` selects 3 actions; action 2 fails execution | Action 3 does not run; no partial STATE mutation from action 2 |
 | Unknown merge mode in action | Fail pre-execution validation; `invalid_graph` |

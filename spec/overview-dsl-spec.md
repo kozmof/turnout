@@ -57,10 +57,10 @@ scene "loan_flow" {
 | `flow`    | string | yes      | Multi-line flow DSL text (heredoc or quoted string) |
 | `enforce` | string | yes      | Enforcement mode: `"nodes_only"`, `"at_least"`, or `"strict"` |
 
-- `flow` MUST be a non-empty string. An empty or whitespace-only string MUST fail with `OVW_FLOW_EMPTY`.
-- `enforce` MUST be one of the three enumerated values. Any other value MUST fail with `OVW_ENFORCE_UNKNOWN`.
-- A scene MUST NOT contain more than one `view "overview"` block. A duplicate MUST fail with `OVW_DUPLICATE`.
-- The view name MUST be the literal string `"overview"`. Any other name MUST fail with `OVW_UNKNOWN_VIEW`.
+- `flow` MUST be a non-empty string. An empty or whitespace-only string MUST fail with `SCN_OVERVIEW_FLOW_EMPTY`.
+- `enforce` MUST be one of the three enumerated values. Any other value MUST fail with `SCN_OVERVIEW_INVALID_MODE`.
+- A scene MUST NOT contain more than one `view "overview"` block. A duplicate MUST fail with `SCN_OVERVIEW_DUPLICATE`.
+- The view name MUST be the literal string `"overview"`. Any other name MUST fail with `SCN_OVERVIEW_UNKNOWN_VIEW`.
 
 ## 4. Flow DSL Grammar
 
@@ -75,7 +75,7 @@ After splitting the string on newlines, each line is classified as follows (in o
 3. **Chain line** — a line whose content, after trimming leading whitespace, does not start with `|=>` but contains `|=>` as a substring. The line is split on `|=>` (stripping surrounding whitespace from each part) to produce an ordered list of `ActionId` segments.
 4. **Node line** — any non-blank line that does not start with `|=>` and does not contain `|=>`. The entire trimmed content is the source `ActionId`.
 
-> **Why is a line starting with `|=>` always an edge line, never a chain line?** Classification is by the leading characters of the trimmed line. If a line starts with `|=>`, it is unconditionally an edge line regardless of what follows. This means `|=> bar |=> baz` is an edge line whose target is `bar |=> baz` — which then fails `OVW_INVALID_IDENT` because `|` is not a valid `IDENT` character. Authors who want a chain MUST begin with a node identifier.
+> **Why is a line starting with `|=>` always an edge line, never a chain line?** Classification is by the leading characters of the trimmed line. If a line starts with `|=>`, it is unconditionally an edge line regardless of what follows. This means `|=> bar |=> baz` is an edge line whose target is `bar |=> baz` — which then fails `SCN_OVERVIEW_INVALID_IDENT` because `|` is not a valid `IDENT` character. Authors who want a chain MUST begin with a node identifier.
 
 ### 4.2 Parse algorithm
 
@@ -93,19 +93,19 @@ for each line L in flow.split("\n"):
     # --- edge line ---
     target := trimmed.slice(3).trim()
     if target == "":
-      fail OVW_EDGE_NO_TARGET
+      fail SCN_OVERVIEW_EDGE_NO_TARGET
     if current == null:
-      fail OVW_EDGE_WITHOUT_SOURCE
-    validate IDENT(target)            # fail OVW_INVALID_IDENT if not IDENT
+      fail SCN_OVERVIEW_EDGE_WITHOUT_SOURCE
+    validate IDENT(target)            # fail SCN_OVERVIEW_INVALID_IDENT if not IDENT
     edges.add((current, target))
 
   else if trimmed.contains("|=>"):
     # --- chain line ---
     parts := trimmed.split("|=>").map(p => p.trim())
     if parts[last] == "":
-      fail OVW_CHAIN_NO_TARGET
+      fail SCN_OVERVIEW_CHAIN_NO_TARGET
     for each part in parts:
-      validate IDENT(part)            # fail OVW_INVALID_IDENT if not IDENT
+      validate IDENT(part)            # fail SCN_OVERVIEW_INVALID_IDENT if not IDENT
     for i in 0 .. parts.length - 2:
       nodes.add(parts[i])             # all except last become nodes
     for i in 0 .. parts.length - 2:
@@ -115,7 +115,7 @@ for each line L in flow.split("\n"):
   else:
     # --- node line ---
     source := trimmed
-    validate IDENT(source)            # fail OVW_INVALID_IDENT if not IDENT
+    validate IDENT(source)            # fail SCN_OVERVIEW_INVALID_IDENT if not IDENT
     nodes.add(source)
     current := source
 ```
@@ -173,11 +173,11 @@ These sets are computed from the fully-parsed, pre-execution scene model.
 
 Violations:
 
-- **`nodes_only`**: any `overview_node` not in `impl_nodes` → `OVW_NODE_MISSING`
+- **`nodes_only`**: any `overview_node` not in `impl_nodes` → `SCN_OVERVIEW_UNKNOWN_NODE`
 - **`at_least`** (nodes): same as `nodes_only`
-- **`at_least`** (edges): any `overview_data_edge` not in `impl_data_edges` → `OVW_EDGE_MISSING`
-- **`strict`** (nodes): any `overview_node` not in `impl_nodes` → `OVW_NODE_MISSING`; any `impl_node` not in `overview_nodes` → `OVW_NODE_EXTRA`
-- **`strict`** (edges): any `overview_data_edge` not in `impl_data_edges` → `OVW_EDGE_MISSING`; any `impl_data_edge` not in `overview_data_edges` → `OVW_EDGE_EXTRA`
+- **`at_least`** (edges): any `overview_data_edge` not in `impl_data_edges` → `SCN_OVERVIEW_MISSING_EDGE`
+- **`strict`** (nodes): any `overview_node` not in `impl_nodes` → `SCN_OVERVIEW_UNKNOWN_NODE`; any `impl_node` not in `overview_nodes` → `SCN_OVERVIEW_EXTRA_NODE`
+- **`strict`** (edges): any `overview_data_edge` not in `impl_data_edges` → `SCN_OVERVIEW_MISSING_EDGE`; any `impl_data_edge` not in `overview_data_edges` → `SCN_OVERVIEW_EXTRA_EDGE`
 
 All violations are errors (severity `"error"`). Implementations MUST report all violations found before stopping, not just the first.
 
@@ -303,7 +303,7 @@ Parsed:
 
 `decide`, `approve`, and `reject` are edge targets only and are NOT added to `nodes`.
 
-**Inline chaining from a standalone `|=>` line is not possible.** A line whose trimmed content starts with `|=>` is unconditionally an edge line; any `|=>` within it becomes part of the target string, which fails `OVW_INVALID_IDENT`. For example:
+**Inline chaining from a standalone `|=>` line is not possible.** A line whose trimmed content starts with `|=>` is unconditionally an edge line; any `|=>` within it becomes part of the target string, which fails `SCN_OVERVIEW_INVALID_IDENT`. For example:
 
 ```
 analyze |=> score |=> decide
@@ -338,7 +338,7 @@ Parsed:
 - `nodes = {analyze, score}`
 - `edges = {(analyze,score),(score,decide),(decide,approve),(decide,done),(decide,recheck)}`
 
-**Non-ASCII whitespace in indentation is a parse error.** If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|=>`. The remaining content — non-ASCII characters followed by `|=>` — is treated as a chain line whose first segment fails `OVW_INVALID_IDENT`. See §6.9 for an example.
+**Non-ASCII whitespace in indentation is a parse error.** If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|=>`. The remaining content — non-ASCII characters followed by `|=>` — is treated as a chain line whose first segment fails `SCN_OVERVIEW_INVALID_IDENT`. See §6.9 for an example.
 
 ### 6.6 Parse error — edge without source
 
@@ -346,7 +346,7 @@ Parsed:
 |=> orphan
 ```
 
-→ `OVW_EDGE_WITHOUT_SOURCE` because no node line preceded the edge line.
+→ `SCN_OVERVIEW_EDGE_WITHOUT_SOURCE` because no node line preceded the edge line.
 
 ### 6.7 Parse error — empty target
 
@@ -355,7 +355,7 @@ hub
   |=>
 ```
 
-→ `OVW_EDGE_NO_TARGET` because no identifier follows `|=>`.
+→ `SCN_OVERVIEW_EDGE_NO_TARGET` because no identifier follows `|=>`.
 
 ### 6.8 Parse error — chain with no target
 
@@ -363,9 +363,9 @@ hub
 foo |=>
 ```
 
-→ `OVW_CHAIN_NO_TARGET` because the segment after the last `|=>` is empty.
+→ `SCN_OVERVIEW_CHAIN_NO_TARGET` because the segment after the last `|=>` is empty.
 
-Note: `|=> bar |=> baz` starts with `|=>` so it is classified as an edge line (not a chain line), and its target `bar |=> baz` fails `OVW_INVALID_IDENT` because `|` is not a valid `IDENT` character.
+Note: `|=> bar |=> baz` starts with `|=>` so it is classified as an edge line (not a chain line), and its target `bar |=> baz` fails `SCN_OVERVIEW_INVALID_IDENT` because `|` is not a valid `IDENT` character.
 
 ### 6.9 Parse error — non-ASCII whitespace in indentation
 
@@ -375,7 +375,7 @@ analyze |=> score |=> decide
 　　|=> done
 ```
 
-The third line uses ideographic spaces (U+3000) as indentation. After trimming ASCII whitespace only, the leading `　　` characters remain, so the line does not start with `|=>`. It contains `|=>` as a substring, so it is classified as a chain line. The split produces segments `["　　", "done"]`; the first segment `　　` fails `OVW_INVALID_IDENT` → `OVW_INVALID_IDENT`.
+The third line uses ideographic spaces (U+3000) as indentation. After trimming ASCII whitespace only, the leading `　　` characters remain, so the line does not start with `|=>`. It contains `|=>` as a substring, so it is classified as a chain line. The split produces segments `["　　", "done"]`; the first segment `　　` fails `SCN_OVERVIEW_INVALID_IDENT` → `SCN_OVERVIEW_INVALID_IDENT`.
 
 Implementations MUST document which whitespace characters are stripped during trimming. Implementations that strip Unicode whitespace (including U+3000) will instead classify this line as an edge line sourcing from `current` (i.e. `decide`), producing no error but silently ignoring the visual indentation intent. Authors MUST use only ASCII whitespace (U+0020 space or U+0009 tab) for indentation.
 
@@ -388,7 +388,7 @@ The three sub-stages map to diagnostic stage values:
 | Sub-stage   | Stage string          | What can fail |
 |-------------|-----------------------|---------------|
 | Parse       | `"overview_parse"`    | Grammar errors in the `flow` string |
-| Compile     | `"overview_compile"`  | Structural errors after parse (e.g. `OVW_ENFORCE_UNKNOWN`) |
+| Compile     | `"overview_compile"`  | Structural errors after parse (e.g. `SCN_OVERVIEW_INVALID_MODE`) |
 | Enforce     | `"overview_enforce"`  | Node/edge set comparison failures |
 
 Failures at any sub-stage MUST produce `invalid_overview` (not `invalid_graph`) and MUST halt scene execution. Enforcement failures MUST NOT prevent collection of all violations before halting (i.e., report all missing/extra nodes and edges, not just the first).
@@ -413,28 +413,28 @@ The parsed `OverviewGraph` is a compilation artifact; it is not stored in the ru
 
 | Code                      | Condition |
 |---------------------------|-----------|
-| `OVW_FLOW_EMPTY`          | `flow` is empty or whitespace-only |
-| `OVW_EDGE_WITHOUT_SOURCE` | Standalone edge line `|=>` appears before any node or chain line |
-| `OVW_EDGE_NO_TARGET`      | Standalone `|=>` is not followed by an identifier |
-| `OVW_CHAIN_NO_TARGET`     | Chain line ends with `|=>` (segment after the last `|=>` is empty) |
-| `OVW_INVALID_IDENT`       | Any node, edge target, or chain segment fails the `IDENT` pattern |
+| `SCN_OVERVIEW_FLOW_EMPTY`          | `flow` is empty or whitespace-only |
+| `SCN_OVERVIEW_EDGE_WITHOUT_SOURCE` | Standalone edge line `|=>` appears before any node or chain line |
+| `SCN_OVERVIEW_EDGE_NO_TARGET`      | Standalone `|=>` is not followed by an identifier |
+| `SCN_OVERVIEW_CHAIN_NO_TARGET`     | Chain line ends with `|=>` (segment after the last `|=>` is empty) |
+| `SCN_OVERVIEW_INVALID_IDENT`       | Any node, edge target, or chain segment fails the `IDENT` pattern |
 
 ### 9.2 Compile errors (`stage: "overview_compile"`)
 
 | Code                    | Condition |
 |-------------------------|-----------|
-| `OVW_ENFORCE_UNKNOWN`   | `enforce` value is not one of the three valid strings |
-| `OVW_DUPLICATE`         | More than one `view "overview"` block in a scene |
-| `OVW_UNKNOWN_VIEW`      | View block name is not `"overview"` |
+| `SCN_OVERVIEW_INVALID_MODE`   | `enforce` value is not one of the three valid strings |
+| `SCN_OVERVIEW_DUPLICATE`         | More than one `view "overview"` block in a scene |
+| `SCN_OVERVIEW_UNKNOWN_VIEW`      | View block name is not `"overview"` |
 
 ### 9.3 Enforcement errors (`stage: "overview_enforce"`)
 
 | Code               | Mode(s)              | Condition |
 |--------------------|----------------------|-----------|
-| `OVW_NODE_MISSING` | `nodes_only`, `at_least`, `strict` | `overview_node ∉ impl_nodes` |
-| `OVW_NODE_EXTRA`   | `strict`             | `impl_node ∉ overview_nodes` |
-| `OVW_EDGE_MISSING` | `at_least`, `strict` | `overview_edge ∉ impl_data_edges` |
-| `OVW_EDGE_EXTRA`   | `strict`             | `impl_edge ∉ overview_data_edges` |
+| `SCN_OVERVIEW_UNKNOWN_NODE` | `nodes_only`, `at_least`, `strict` | `overview_node ∉ impl_nodes` |
+| `SCN_OVERVIEW_EXTRA_NODE`   | `strict`             | `impl_node ∉ overview_nodes` |
+| `SCN_OVERVIEW_MISSING_EDGE` | `at_least`, `strict` | `overview_edge ∉ impl_data_edges` |
+| `SCN_OVERVIEW_EXTRA_EDGE`   | `strict`             | `impl_edge ∉ overview_data_edges` |
 
 ### 9.4 Diagnostic payload
 
@@ -442,7 +442,7 @@ Overview diagnostics use the same `SceneDiagnostic` shape defined in scene-graph
 
 ```ts
 {
-  code: "OVW_NODE_MISSING",
+  code: "SCN_OVERVIEW_UNKNOWN_NODE",
   severity: "error",
   stage: "overview_enforce",
   message: "overview node 'approve' not found in scene actions",
@@ -450,7 +450,7 @@ Overview diagnostics use the same `SceneDiagnostic` shape defined in scene-graph
 }
 
 {
-  code: "OVW_EDGE_MISSING",
+  code: "SCN_OVERVIEW_MISSING_EDGE",
   severity: "error",
   stage: "overview_enforce",
   message: "overview edge (score → approve) not found in scene next rules",
@@ -461,17 +461,17 @@ Overview diagnostics use the same `SceneDiagnostic` shape defined in scene-graph
 ## 10. Conformance Checklist
 
 1. A scene without a `view` block runs without any overview enforcement.
-2. A `flow` that is empty or whitespace-only fails `OVW_FLOW_EMPTY` at parse stage.
-3. An edge line before any node line fails `OVW_EDGE_WITHOUT_SOURCE`.
-4. A duplicate `view "overview"` block fails `OVW_COMPILE_DUPLICATE`.
+2. A `flow` that is empty or whitespace-only fails `SCN_OVERVIEW_FLOW_EMPTY` at parse stage.
+3. An edge line before any node line fails `SCN_OVERVIEW_EDGE_WITHOUT_SOURCE`.
+4. A duplicate `view "overview"` block fails `SCN_OVERVIEW_DUPLICATE`.
 5. `nodes_only` enforcement passes when `overview_nodes ⊆ impl_nodes`, regardless of edges.
 6. `at_least` enforcement passes when `overview_nodes ⊆ impl_nodes` AND `overview_data_edges ⊆ impl_data_edges`.
 7. `strict` enforcement fails if the scene has actions not listed in the overview, or if the scene has next-rule edges not declared in the flow.
 8. All enforcement violations are collected and reported before halting; implementations MUST NOT stop at the first violation.
 9. Overview failures produce `invalid_overview`, not `invalid_graph`.
-10. An action that appears only as an edge target — via standalone `|=>` or as the last element of a chain — is NOT in `overview_nodes` and triggers `OVW_NODE_EXTRA` under `strict` mode if it exists in `impl_nodes`. Authors MUST declare it as a standalone node line or as a non-terminal chain element to include it in the strict contract.
+10. An action that appears only as an edge target — via standalone `|=>` or as the last element of a chain — is NOT in `overview_nodes` and triggers `SCN_OVERVIEW_EXTRA_NODE` under `strict` mode if it exists in `impl_nodes`. Authors MUST declare it as a standalone node line or as a non-terminal chain element to include it in the strict contract.
 11. Duplicate node lines and duplicate edge pairs in the flow text are silently de-duplicated.
 12. Re-running validation on the same scene model with the same `view` block produces identical enforcement results.
 13. A chain line `a |=> b |=> c` adds `a` and `b` to `nodes`, adds edges `(a,b)` and `(b,c)`, and sets `current` to `c`. `c` is NOT added to `nodes`.
 14. After a chain line, subsequent standalone `|=>` lines add edges from the last chain element (`current`), not from the first.
-15. A chain line ending with `|=>` and no following identifier fails `OVW_CHAIN_NO_TARGET`.
+15. A chain line ending with `|=>` and no following identifier fails `SCN_OVERVIEW_CHAIN_NO_TARGET`.

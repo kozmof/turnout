@@ -12,7 +12,7 @@ A hook is a named extension point declared inside an action's `prepare` or `publ
 - **Prepare hooks** (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs; the hook returns an object whose fields are mapped into runtime state bindings.
 - **Publish hooks** (`publish { hook = "<name>" }`) — fire after merge; the hook receives the entire final state snapshot and cannot mutate it.
 
-Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer via `runtime.hook()`. If no implementation is registered for a hook name, the runtime silently skips it.
+Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer through the runner hook registry. Missing implementations are handled by phase: an unregistered `prepare.from_hook` fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
 
 ```hcl
 action "process_order" {
@@ -41,13 +41,13 @@ action "process_order" {
 ```
 
 ```typescript
-runtime.hook("payload_input", (ctx) => {
-  return { raw_payload: ctx.requestBody() }
-})
-
-runtime.hook("audit_export", (ctx) => {
-  audit.log(ctx.state())
-})
+const runner = createRunner(model, { entryId: "checkout", initialState: {} })
+  .usePrepareHook("payload_input", async (ctx, signal) => {
+    return { raw_payload: await fetchPayload({ signal }) }
+  })
+  .usePublishHook("audit_export", (ctx) => {
+    audit.log(ctx.state())
+  })
 ```
 
 ---
@@ -220,21 +220,22 @@ interface PublishHookContext {
   state(): Record<string, unknown>;
 }
 
-type PrepareHookImpl = (ctx: PrepareHookContext) => Record<string, unknown> | Promise<Record<string, unknown>>;
-type PublishHookImpl = (ctx: PublishHookContext) => void | Promise<void>;
+type PrepareHookImpl = (ctx: PrepareHookContext, signal: AbortSignal) => Record<string, unknown> | Promise<Record<string, unknown>>;
+type PublishHookImpl = (ctx: PublishHookContext, signal: AbortSignal) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 
-// Registration
-runtime.hook(hookName: string, impl: PrepareHookImpl | PublishHookImpl): void;
+// Registration on Runner
+runner.usePrepareHook(hookName: string, impl: PrepareHookImpl): Runner;
+runner.usePublishHook(hookName: string, impl: PublishHookImpl): Runner;
 ```
 
-Consumers call `runtime.hook()` once per hook name before execution begins.
+Consumers register hook implementations before execution begins, using the runner's prepare/publish hook registration API.
 
 ```typescript
-runtime.hook("payload_input", async (ctx) => {
-  return { raw_payload: await fetchPayload() }
+runner.usePrepareHook("payload_input", async (ctx, signal) => {
+  return { raw_payload: await fetchPayload({ signal }) }
 })
 
-runtime.hook("audit_export", (ctx) => {
+runner.usePublishHook("audit_export", (ctx) => {
   audit.log(ctx.state())
 })
 ```
@@ -265,10 +266,7 @@ Publish hooks cannot mutate this state. Any return value is ignored.
 
 ### 3.4 Unregistered hooks
 
-If no implementation has been registered for a hook name when the action executes, the runtime **silently skips** that hook. No error or warning is emitted.
-
-- For a skipped prepare hook, the binding value remains unchanged (whatever was resolved from STATE or the default).
-- For a skipped publish hook, nothing is emitted.
+If no prepare hook implementation has been registered for a `from_hook` name when the action executes, prepare resolution fails with `UnregisteredHook` and the action does not run. If no publish hook implementation has been registered for a `publish.hook` name, the runtime silently skips that publish hook.
 
 ### 3.5 Multiple prepare hooks, same name
 
@@ -289,7 +287,7 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 - The same hook name may appear on multiple `prepare` entries; all matching bindings are collected from the single hook invocation result.
 - Multiple `hook` entries in a `publish` block are valid and execute in declaration order.
 - Two distinct hook names may be declared in the same action.
-- If no implementation is registered for a hook name, the runtime silently skips it.
+- If no publish hook implementation is registered for a publish hook name, the runtime silently skips that publish hook.
 - Prepare hooks fire before the compute graph; the compute graph observes the mapped values.
 - Publish hooks fire after merge; they receive the complete final state.
 
@@ -298,7 +296,7 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 ## 5. CAN'T (NG)
 
 - A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
-- A `from_hook` binding name cannot be absent from the action's `prog` block (`MissingHookField` at runtime; `UnresolvedPrepareBinding` at convert time).
+- A `from_hook` binding name cannot be absent from the action's `prog` block (`UnresolvedPrepareBinding` at convert time).
 - A prepare hook implementation cannot write to state directly; it can only return values via the result object.
 - A publish hook cannot mutate state; return values are ignored.
 - Hook execution order cannot be changed at runtime; it is fixed by declaration order in the emitted HCL.
@@ -310,6 +308,7 @@ When multiple bindings reference the same prepare hook name, the hook executes *
 
 | Error code | Condition |
 |------------|-----------|
+| `UnregisteredHook` | A `from_hook` prepare entry references a hook name with no registered prepare hook implementation |
 | `MissingHookField` | Prepare hook result object is missing a field required by a declared binding |
 
 For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBinding`, see `effect-dsl-spec.md §7`.
@@ -329,7 +328,7 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 | E. Hook deduplication | Multiple bindings on same hook name → hook called once; all fields mapped |
 | F. Publish hook execution | Hook fires after merge; receives full final state; cannot mutate |
 | G. Declaration order | Multiple publish hooks execute in declaration order |
-| H. Unregistered hook | Silently skipped; no error, binding values unchanged |
+| H. Unregistered hooks | Prepare hook fails with `UnregisteredHook`; publish hook is silently skipped |
 | I. Error paths | All error codes trigger correctly and abort without partial output |
 
 ### Critical paths (idempotency)
@@ -339,7 +338,7 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 | 1 | `prepare.from_hook` → emitted HCL `prepare` sub-block | Re-lower same DSL source; emitted HCL is byte-identical |
 | 2 | Prepare hook return value → compute graph observes mapped binding | Same hook impl + same STATE state → identical graph result both runs |
 | 3 | Publish hook receives state after merge | Same action state → identical state delivered to publish hook both runs |
-| 4 | Unregistered hook → no state change | Execute with hook unregistered; assert binding values identical to no-hook run |
+| 4 | Unregistered publish hook → no state change | Execute with publish hook unregistered; assert final STATE is unchanged by the missing hook |
 
 ### Edge cases
 
@@ -351,5 +350,7 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 | `prepare { x { from_hook = "h" } }` where `x` not in `prog` | `UnresolvedPrepareBinding` error at convert time |
 | `publish { hook = "h1"; hook = "h2" }` | Both hooks fire; h1 before h2 |
 | Publish hook impl returns a value | Return value ignored; no state mutation |
-| Hook impl is async and rejects | Runtime error propagated; action execution aborted; STATE not mutated |
-| Prepare hook unregistered; publish hook registered | Prepare skipped silently; publish fires normally |
+| Prepare hook impl is async and rejects | Runtime error propagated; action execution aborted; STATE not mutated |
+| Publish hook impl is async and rejects | Publish outcome records an error; merge remains committed |
+| Prepare hook unregistered; publish hook registered | `UnregisteredHook`; action execution aborted before compute/merge/publish |
+| Publish hook unregistered | Publish hook skipped silently after merge |

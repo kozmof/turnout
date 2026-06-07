@@ -45,7 +45,6 @@ prog "main" {
 | `name:type = literal` | `binding "name" { type = "type" value = literal }` |
 | `name:type = identifier` (single bare identifier; see §2.1 for disambiguation) | `binding "name" { type = "type" expr = { combine = { fn = "<identity-fn>" args = [arg(identifier), arg(identity-rhs)] } } }` where identity-fn and identity-rhs are type-dependent (see identity-combine table below) |
 | `name:type = fn_alias(x, y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
-| `name:type = fn_alias(a: x, b: y)` | `binding "name" { type = "type" expr = { combine = { fn = "fn_alias" args = [arg(x), arg(y)] } } }` |
 | `name:bool = lhs & rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_and" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs >= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "gte" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs <= rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "lte" args = [arg(lhs), arg(rhs)] } } }` |
@@ -138,7 +137,6 @@ prog "main" {
 `arg(x)` normalization:
 
 - Positional call args `(x, y)` -> ordered pair `[arg(x), arg(y)]`
-- Named call args `(a: x, b: y)` -> ordered pair `[arg(x), arg(y)]`
 - Infix `lhs & rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_and"`
 - Infix `lhs >= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "gte"`
 - Infix `lhs <= rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "lte"`
@@ -162,7 +160,6 @@ prog "main" {
 CAN (OK):
 - Authors can use typed keys in DSL (`v1:number = 5`).
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
-- Authors can write explicit named args (`add(a: v1, b: v2)`).
 - Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `big:bool = income > 0`, `small:bool = debt < limit`, `match:bool = a == b`, `diff:bool = a != b`, `either:bool = flag_a | flag_b`, `sum:number = a + b`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`, `remainder:number = total - discount`, `area:number = width * height`, `rate:number = amount / count`, `rem:number = total % count`).
 - Authors can write call-only functions using call syntax (`max(v1, v2)`, `min(v1, v2)`, `str_includes(a, b)`).
 - Authors can write pipes as `#pipe(initial_value, step1, step2, ...)`.
@@ -176,7 +173,7 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
 - Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not part of v1.
-- A single binary call cannot mix positional and named argument forms.
+- Named argument call syntax such as `max(a: v1, b: v2)` is not supported; calls have positional semantics only. The converter emits `NamedArgNotSupported`.
 - Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
 - Infix expressions support only `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, `%`, with exactly two operands.
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
@@ -295,12 +292,11 @@ name:number = lhs % rhs             # mod        — only valid form
 
 ```hcl
 name:type = fn_alias(arg1, arg2)        # positional call
-name:type = fn_alias(a: arg1, b: arg2) # named call
 ```
 
 The parser distinguishes infix from function calls by the token following the first operand identifier: an infix operator (`&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=`) signals an infix expression; `(` signals a function call.
 
-Named calls are normalized during lowering to ordered args `[a, b]`.
+Calls are positional. Named-argument syntax is rejected by the converter instead of being normalized.
 Operator functions are normalized by operator:
 - `lhs & rhs`  -> `bool_and(lhs, rhs)` (only valid for `name:bool`)
 - `lhs >= rhs` -> `gte(lhs, rhs)` (only valid for `name:bool`)
@@ -382,7 +378,7 @@ Functions marked **operator-only** must be written using their DSL operator. The
 | `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be either `(x, y)` or `(a: x, b: y)` (`InvalidBinaryArgShape` otherwise). Infix form must be exactly `name:<type> = lhs OP rhs`; operator/type pairings are enforced: `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` for `name:bool`; `+`/`-`/`*`/`/`/`%` for `name:number`; `+` (only) for `name:str`; `eq`/`neq` (`==`/`!=`) are the sole exceptions — they accept any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
+> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix form must be exactly `name:<type> = lhs OP rhs`; operator/type pairings are enforced: `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` for `name:bool`; `+`/`-`/`*`/`/`/`%` for `name:number`; `+` (only) for `name:str`; `eq`/`neq` (`==`/`!=`) are the sole exceptions — they accept any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
@@ -501,7 +497,6 @@ prog "main" {
 
   route:str = #pipe(
     raw_temp_c,
-    round(#it, 1),
     #case(
       #it,
       t if t < 28 => "warmup",
@@ -518,7 +513,6 @@ prog "main" {
 {
   raw_temp_c: 24.4,
   route: pipeExpr('raw_temp_c', [
-    call('round', [it(), 1]),
     caseExpr(it(), [
       { pattern: bind('t'), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
       { pattern: bind('t'), guard: combine('binaryFnNumber::greaterThan', { a: 't', b: 90 }), expr: 'hold' },
@@ -570,10 +564,11 @@ prog "main" {
 | `DuplicateBinding` | Same `name` declared twice in one `prog` |
 | `ReservedName` | User binding name starts with `__` |
 | `UnknownFnAlias` | Function alias not in the built-in table |
+| `NamedArgNotSupported` | Function call uses named-argument syntax; calls are positional only |
 | `OperatorOnlyFn` | Call-form alias used for a function that requires operator syntax (`bool_and`, `gte`, `lte`, `str_concat`) |
 | `UndefinedRef` | Bare identifier references an unknown binding |
 | `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in v1 source |
-| `InvalidBinaryArgShape` | Binary call is not `(x, y)` and not `(a: ..., b: ...)` |
+| `InvalidBinaryArgShape` | Binary call does not provide the required positional argument shape |
 | `InvalidInfixExpr` | Infix expression is malformed, uses an unsupported operator, or violates operator/type pairing |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |
@@ -730,7 +725,7 @@ ctx({
 | # | Path | Idempotency check |
 |---|------|------------------|
 | 1 | Parse `name:arr<number> = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
-| 2 | `add(v1, v2)` and `add(a: v1, b: v2)` → same `combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })` | Both call forms emit identical ContextSpec |
+| 2 | `max(v1, v2)` → `combine('binaryFnNumber::max', { a: 'v1', b: 'v2' })`; `max(a: v1, b: v2)` | Positional call lowers successfully; named-argument form emits `NamedArgNotSupported` |
 | 3 | Pipe with `#it` in each step → current pipeline value resolved to the prior step result | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `#if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
@@ -749,8 +744,8 @@ ctx({
 | `n:number = #it + 1` outside `#pipe` | `ItOutsidePipe` error |
 | `n:number = _` outside a `#case` pattern | `InvalidWildcardUse` error |
 | Two `prog` blocks in one file | `DuplicateProg` error — a file may contain at most one `prog` block |
-| `add(a: v1)` | `InvalidBinaryArgShape` error (`b` missing) |
-| `add(a: v1, b: v2, c: v3)` | `InvalidBinaryArgShape` error (extra key) |
+| `max(a: v1)` | `NamedArgNotSupported` error |
+| `max(a: v1, b: v2, c: v3)` | `NamedArgNotSupported` error |
 | `go:bool = decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |
 | `go:bool = bool_and(flag_hi, flag_lo)` | `OperatorOnlyFn` error (`bool_and` requires `&` operator) |
 | `ok:bool = gte(income, min)` | `OperatorOnlyFn` error (`gte` requires `>=` operator) |
@@ -775,5 +770,5 @@ ctx({
 
 ### Manual intervention points
 
-- **`div` fractional results**: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should chain `.floor()` or `.round()` after `div`.
+- **`div` fractional results**: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`.
 - **Phase 2 activation**: Phase 2 loop syntax (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 file is a hard parse error that aborts conversion.

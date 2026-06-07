@@ -254,7 +254,7 @@ Each entry inside a transition `prepare` must have exactly one of:
 
 Any one of these may be used per entry; they may be mixed across different entries in the same transition `prepare` block.
 
-> **Note on `from_literal` type validation**: The literal value's type is validated at runtime rather than at convert time. If the literal's type does not match the transition binding's declared type, the runtime will attempt coercion; authors are responsible for ensuring the literal value is compatible with the binding's type.
+> **Note on `from_literal` type validation**: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values; it does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
 ### 4.3 Sigil on transition `prog` bindings
 

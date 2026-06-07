@@ -7,7 +7,7 @@
 
 ## 1. Purpose
 
-This spec defines a routing DSL that evaluates cross-scene execution history within a **route** to determine the next scene to enter. It operates at the layer above `scene-graph.md` (which governs within-scene action transitions).
+This spec defines a routing DSL that evaluates the just-completed scene's route-local action history to determine the next scene to enter. It operates at the layer above `scene-graph.md` (which governs within-scene action transitions).
 
 ---
 
@@ -18,8 +18,9 @@ This spec defines a routing DSL that evaluates cross-scene execution history wit
 A `route "<route_id>"` block defines a **route node** in a higher-level scene graph. A route:
 
 - Groups and coordinates execution across one or more scenes.
-- Maintains a **route history** — the ordered sequence of `scene_id.action_id` entries appended as actions complete.
-- Evaluates its `match` block each time a scene within it reaches a terminal state.
+- Declares an explicit entry scene with `entry "<scene_id>"`.
+- Maintains a route-local **current-scene history** — the ordered sequence of `scene_id.action_id` entries appended while the current scene executes.
+- Evaluates its `match` block each time the current scene reaches a terminal state.
 
 ### 2.2 STATE Sharing
 
@@ -27,9 +28,9 @@ STATE is global within a route. When the route transitions from one scene to ano
 
 ### 2.3 Route History
 
-Each time an action completes within a route, the runtime appends `<scene_id>.<action_id>` to the route's route history. History grows in execution order and is scoped to a single route invocation. **History MUST be reset to empty each time the route is entered; it does not persist across route re-entries.**
+Each time an action completes within the current scene, the runtime appends `<scene_id>.<action_id>` to the route's current-scene history. History is scoped to the active scene visit, not the entire route invocation. It is initialized to empty when a route is entered and cleared immediately after each scene-level route transition is selected.
 
-When a scene is visited more than once within a route (i.e., its actions appear in history non-contiguously), pattern evaluation considers **all** contiguous blocks of that scene's entries in execution order. The **first contiguous block** (earliest in history) that satisfies the pattern determines a match. If no contiguous block matches, the arm does not match.
+Because history is cleared between scene transitions, pattern evaluation only observes the actions from the scene that just reached terminal state. Non-catchall patterns are additionally eligible only when their `scene_id` equals that just-terminated current scene. This prevents patterns from prior scenes from firing again on later route evaluations.
 
 Example history after `scene_1` executes `intro`, `quiz`, then `final_action`:
 
@@ -47,6 +48,8 @@ The `match` block is evaluated when a scene inside the route reaches a **termina
 
 ```
 route "<route_id>" {
+    entry "<scene_id>"
+
     match {
         <path-expr> => <scene_id>,
         ...
@@ -74,7 +77,17 @@ match {
 }
 ```
 
-### 3.1 Pattern Forms
+### 3.1 Entry Scene
+
+A route MUST declare exactly one entry scene:
+
+```
+entry "scene_1"
+```
+
+The entry scene must reference an existing scene. Route execution starts at that scene's first declared `entry_actions` entry.
+
+### 3.2 Pattern Forms
 
 #### Path expression
 
@@ -88,7 +101,7 @@ A **path expression** matches the route history against a single scene's executi
 
 #### Contiguous-block matching
 
-When evaluating a path expression, the runtime identifies the **contiguous block** of history entries that belong to the named scene — the longest uninterrupted run of `scene_id.*` entries ending at the current tail of the history. If entries from other scenes interrupt the sequence, the block ends before that interruption. A `*` wildcard matches zero or more entries within this contiguous block only; it does not match across scene boundaries.
+When evaluating a path expression, the runtime first checks whether the pattern's scene ID is the scene that just reached terminal state. If it is not, the path expression is not eligible. For eligible path expressions, the runtime evaluates the current-scene history block, which contains only entries from the current scene visit because history is cleared after each scene transition. A `*` wildcard matches zero or more actions within this block.
 
 A path expression with a single `*` is permitted. **Multiple `*` wildcards in a single path expression are not permitted** (`MultipleWildcards`).
 
@@ -100,7 +113,7 @@ Multiple path forms can be OR-joined within a single arm using `|`. All branches
 
 The `_` pattern matches any route history unconditionally. It MUST appear at most once per `match` block and SHOULD be the last arm.
 
-### 3.2 Match Result
+### 3.3 Match Result
 
 `=> <scene_id>` specifies the **next scene to enter**. The named scene is entered starting from its **first declared** `entry_actions` entry (per `scene-graph.md §2`). When the target scene declares multiple entry actions, only the first is launched on route-driven entry.
 
@@ -128,6 +141,8 @@ If no pattern matches and no `_` fallback is present, the route enters a **termi
 
 ```
 route "route_1" {
+    entry "scene_1"
+
     match {
         scene_1.*.final_action |
         scene_error.*.action_end
@@ -141,6 +156,8 @@ Equivalent using separate arms:
 
 ```
 route "route_1" {
+    entry "scene_1"
+
     match {
         scene_1.*.final_action   => scene_2,
         scene_error.*.action_end => scene_2,
@@ -164,10 +181,10 @@ Interpretation:
 
 ### CAN (OK)
 
-- A `route` block can contain one `match` block with one or more pattern arms.
+- A `route` block can contain one required `entry` declaration and one `match` block with one or more pattern arms.
 - A path form can use one `*` wildcard before a terminal action_id (`scene_id.*.<action_id>`).
 - Multiple arms (or `|` branches) can target the same scene ID.
-- A narrower arm declared after a broader arm still wins (priority overrides declaration order).
+- A narrower eligible arm declared after a broader eligible arm still wins (priority overrides declaration order).
 - Omitting `_` is valid; the route simply completes if no arm matches.
 - A `|` expression can combine any number of path forms within a single arm.
 
@@ -177,7 +194,10 @@ Interpretation:
 - A path form cannot use bare `scene_id.*` with no terminal action_id (`BareWildcardPath`).
 - A path form cannot use more than one `*` wildcard (`MultipleWildcards`).
 - A path item cannot omit the scene_id prefix; bare action names are invalid (`InvalidPathItem`).
+- A route cannot omit its required entry scene (`MissingEntryScene`).
+- A route entry cannot reference an undefined scene ID (`UnresolvedEntryScene`).
 - A match target cannot reference an undefined scene ID (`UnresolvedScene`).
+- A direct `scene_id.action_id` pattern cannot reference an action missing from that scene (`UnresolvedAction`).
 - A `<~` or `<~>` sigil (from `effect-dsl-spec.md`) has no meaning inside a route pattern; route patterns are read-only against history.
 
 ---
@@ -186,10 +206,13 @@ Interpretation:
 
 Before first route execution, implementations MUST validate:
 
-1. Each `match` block has at most one `_` arm.
-2. All `=> <scene_id>` targets reference scenes that exist in the global scene registry.
-3. All path forms are well-formed (`<scene_id>.<action_id>` or `<scene_id>.*.<action_id>(.<action_id>)*`) with exactly zero or one `*`; bare `<scene_id>.*` and multiple `*` are rejected.
-4. All branches within a `|` expression share a common `=> <scene_id>` target (enforced by syntax).
+1. Each route has exactly one non-empty `entry "<scene_id>"` declaration, and the entry scene exists.
+2. Each `match` block has at most one `_` arm.
+3. All `=> <scene_id>` targets reference scenes that exist in the global scene registry.
+4. All path forms are well-formed (`<scene_id>.<action_id>` or `<scene_id>.*.<action_id>(.<action_id>)*`) with exactly zero or one `*`; bare `<scene_id>.*` and multiple `*` are rejected.
+5. Direct two-segment path forms `<scene_id>.<action_id>` reference actions that exist in the named scene.
+6. Wildcard path terminal action names that do not match any known action ID emit `WildcardTerminalUnresolvable` as a warning.
+7. All branches within a `|` expression share a common `=> <scene_id>` target (enforced by syntax).
 
 Validation failures MUST produce an `invalid_route` diagnostic. Each failure emits a `RouteDiagnostic` (see §10) carrying the applicable specific error code as `code`; `invalid_route` is the top-level `stage` marker on that diagnostic, not a separate emission.
 
@@ -203,7 +226,7 @@ No open questions remain.
 
 | # | Resolution |
 |---|------------|
-| 1 | **Multiple visits**: `scene_id.*.final_action` evaluates all contiguous blocks of `scene_id` entries in execution order. The **first** contiguous block (earliest in history) that satisfies the pattern determines a match. See §2.3 for full semantics. |
+| 1 | **Multiple visits**: route history is scoped to the current scene visit and is cleared after each scene transition. A `scene_id.*.final_action` pattern is eligible only when `scene_id` is the scene that just terminated. See §2.3 for full semantics. |
 | 4 | **`RouteDiagnostic` payload**: `routeId` is required (non-optional); `armIndex` and `patternText` remain optional. |
 | 5 | **Scope of `=> <scene_id>` targets**: A target may reference any scene in the global scene registry; it is not restricted to scenes declared within the same route block. |
 
@@ -233,6 +256,10 @@ type RouteDiagnostic = {
 | `MultipleWildcards` | A path form contains more than one `*` wildcard |
 | `InvalidPathItem` | A pattern path item is missing a scene_id prefix or is otherwise malformed |
 | `UnresolvedScene` | A match target `=> <scene_id>` references a scene that does not exist |
+| `MissingEntryScene` | A route omits the required `entry "<scene_id>"` declaration |
+| `UnresolvedEntryScene` | A route entry references a scene that does not exist |
+| `UnresolvedAction` | A direct `scene_id.action_id` pattern references an action that does not exist in that scene |
+| `WildcardTerminalUnresolvable` | Warning: a wildcard pattern's terminal action name does not match any known action ID |
 
 ---
 

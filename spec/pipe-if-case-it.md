@@ -78,8 +78,8 @@ The design aims to preserve these properties:
 ```turn id="yhvj2h"
 #pipe(
   x,
-  round(#it, 1),
-  clamp(0, 100, #it)
+  #it + 1,
+  #it * 2
 )
 ```
 
@@ -342,9 +342,8 @@ Example:
 ```turn id="xn4d6f"
 #pipe(
   raw_width_mm,
-  round(#it, 1),
-  clamp(0, 5000, #it),
-  between(spec_width_min, spec_width_max, #it)
+  #it + 0,
+  #it < spec_width_max
 )
 ```
 
@@ -354,15 +353,76 @@ Example:
 
 Using `#it` outside `#pipe` is an error.
 
-## 6.6 Examples
+## 6.6 Future Draft: Method-Call Steps
+
+Method-call steps are a proposed extension for applying transform-style operations directly to any local expression, including `#it`. They are not part of the implemented v1 parser.
+
+```turn id="future-pipe-method-chain"
+width_mm:number = #pipe(
+  raw_width_mm,
+  #it.round().clamp(0, 5000)
+)
+```
+
+Proposed syntax:
+
+```turn id="future-method-call-syntax"
+receiver.method()
+receiver.method(arg1, arg2)
+receiver.method1().method2(arg)
+```
+
+Proposed semantics:
+
+* The receiver is any local expression, not only a binding identifier. Examples: `#it.round()`, `(width + margin).floor()`, and `name.trim().toUpperCase()`.
+* Methods are evaluated left to right. The output of each method becomes the receiver for the next method in the chain.
+* Zero-argument methods map to existing unary `transformFn` operations where possible, such as `.round()`, `.floor()`, `.trim()`, and `.not()`.
+* Argument-taking methods such as `.clamp(min, max)` are future local-expression calls. They require either new transform functions with parameters or lowering to equivalent binary/local expression forms.
+* `#it` keeps its existing meaning: inside a `#pipe` step, it is the current pipeline value. Method calls do not introduce a second placeholder.
+* Type checking is staged after each method call. A method can be called only when it is defined for the receiver type produced by the prior stage.
+* Method calls are pure and deterministic. They do not read or write STATE, hooks, or action bindings other than their explicit receiver and arguments.
+
+Proposed examples:
+
+```turn id="future-pipe-method-examples"
+normalized:str = #pipe(
+  raw_label,
+  #it.trim().toLowerCase()
+)
+
+safe_width:number = #pipe(
+  raw_width_mm,
+  #it.round().clamp(spec_width_min, spec_width_max)
+)
+
+route:str = #pipe(
+  raw_temp_c,
+  #it.round(),
+  #case(
+    #it,
+    t if t < 28 => "warmup",
+    t if t > 90 => "hold",
+    _ => "run"
+  )
+)
+```
+
+Open design constraints for this future draft:
+
+* Decide whether method names share the existing `transformFn` namespace, the binary/local function namespace, or a dedicated method namespace.
+* Decide how argument-taking methods such as `.clamp(min, max)` are represented in canonical HCL and the runtime schema.
+* Decide whether method calls are allowed on all parenthesized expressions or only on primary expressions.
+* Preserve the current v1 rule that `_` is not a pipe placeholder.
+
+## 6.7 Examples
 
 ### Numeric normalization
 
 ```turn id="as0m94"
 width_mm:number = #pipe(
   raw_width_mm,
-  round(#it, 1),
-  clamp(0, 5000, #it)
+  #it + 0,
+  #it * 1
 )
 ```
 
@@ -371,7 +431,7 @@ width_mm:number = #pipe(
 ```turn id="ucxnd9"
 band:str = #pipe(
   vibration_mm_s,
-  round(#it, 1),
+  #it + 0,
   #case(
     #it,
     x if x >= 11 => "severe",
@@ -386,7 +446,7 @@ band:str = #pipe(
 ```turn id="6h06j1"
 route:str = #pipe(
   raw_temp_c,
-  round(#it, 1),
+  #it + 0,
   #case(
     #it,
     t if t < 28 => "warmup",
@@ -396,7 +456,7 @@ route:str = #pipe(
 )
 ```
 
-## 6.7 Guidance
+## 6.8 Guidance
 
 Use `#pipe` when:
 
@@ -409,9 +469,8 @@ Do not force `#pipe` into cases where named intermediate bindings are clearer.
 For example, this may be clearer than a pipe:
 
 ```turn id="yb6zdb"
-rounded_width:number = round(raw_width_mm, 1)
-clamped_width:number = clamp(0, 5000, rounded_width)
-width_ok:bool = between(spec_width_min, spec_width_max, clamped_width)
+normalized_width:number = raw_width_mm + 0
+width_ok:bool = normalized_width < spec_width_max
 ```
 
 ---
@@ -425,7 +484,7 @@ These forms are designed to compose.
 ```turn id="831g0m"
 status:str = #pipe(
   raw_temp_c,
-  round(#it, 1),
+  #it + 0,
   #case(
     #it,
     t if t < 28 => "warmup",
@@ -451,7 +510,7 @@ result:str = #case(
 ```turn id="vyfc46"
 temp_state:str = #pipe(
   raw_temp_c,
-  round(#it, 1),
+  #it + 0,
   #if(#it < 28, "cold", "ok")
 )
 ```
@@ -512,7 +571,7 @@ Good:
 ```turn id="ch20gt"
 band:str = #pipe(
   vibration_mm_s,
-  round(#it, 1),
+  #it + 0,
   #case(
     #it,
     x if x >= 11 => "severe",
@@ -548,7 +607,7 @@ scene "boiler_alarm_priority" {
 
         pressure_band:str = #pipe(
           pressure_bar,
-          round(#it, 1),
+          #it + 0,
           #case(
             #it,
             p if p >= 18 => "high",
@@ -615,11 +674,15 @@ PipeExpr      = "#pipe" "(" Expr "," PipeStep { "," PipeStep } ")" ;
 PipeStep      = Expr ;
 
 PipeItExpr    = "#it" ;
+
+(* Future draft, not v1: *)
+MethodCallExpr = Expr "." Identifier "(" [ Expr { "," Expr } ] ")" ;
 ```
 
 Notes:
 
 * `#it` is semantically constrained even if the grammar permits it as an expression token.
+* `MethodCallExpr` is future syntax only; the implemented v1 parser does not accept method calls on `#it` or arbitrary local expressions.
 * Whether identifiers in patterns are syntactically distinguished from value references is left to the final parser/type design.
 
 ---
@@ -674,9 +737,8 @@ route:str = #if(
 ```turn id="wvub3a"
 width_ok:bool = #pipe(
   raw_width_mm,
-  round(#it, 1),
-  clamp(0, 5000, #it),
-  between(spec_width_min, spec_width_max, #it)
+  #it + 0,
+  #it < spec_width_max
 )
 ```
 
@@ -685,7 +747,7 @@ width_ok:bool = #pipe(
 ```turn id="6075jv"
 route:str = #pipe(
   raw_temp_c,
-  round(#it, 1),
+  #it + 0,
   #case(
     #it,
     t if t < 28 => "warmup",
