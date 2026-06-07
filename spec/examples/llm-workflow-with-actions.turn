@@ -1,3 +1,32 @@
+state {
+  request {
+    query:str            = ""
+    doc_hint:str         = ""
+    priority_tier:number = 0
+    need_grounding:bool = false
+  }
+  runtime {
+    kb_enabled:bool = false
+  }
+  workflow {
+    stage:str     = ""
+    context:str   = ""
+    draft:str     = ""
+    status:str    = ""
+    approved:bool = false
+  }
+  moderation {
+    toxicity_score:number = 0
+    pii_score:number      = 0
+  }
+  conversation {
+    last_response:str = ""
+  }
+  review {
+    note:str = ""
+  }
+}
+
 scene "llm_support_workflow" {
   entry_actions     = ["analyze_request"]
   next_policy       = "first-match"
@@ -43,8 +72,8 @@ scene "llm_support_workflow" {
     }
 
     prepare {
-      need_grounding { from_state = request.flags.need_grounding }
-      kb_enabled     { from_state = runtime.features.kb_enabled  }
+      need_grounding { from_state = request.need_grounding }
+      kb_enabled     { from_state = runtime.kb_enabled  }
       priority_tier  { from_state = request.priority_tier        }
     }
 

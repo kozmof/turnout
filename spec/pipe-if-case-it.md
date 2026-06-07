@@ -148,7 +148,6 @@ It is intended for:
 
 * multi-branch routing,
 * reason-code derivation,
-* tuple-based policy rules,
 * threshold banding with guards.
 
 ## 5.2 Syntax
@@ -182,7 +181,6 @@ This draft supports the following patterns:
 * literal patterns
 * wildcard `_`
 * variable binders
-* tuple patterns
 * guarded arms
 
 ### Literal pattern
@@ -211,15 +209,6 @@ A variable binder matches any value and binds it for use in the arm’s guard or
 x => x
 ```
 
-### Tuple pattern
-
-Tuple patterns match tuples structurally.
-
-```turn id="n9mw4q"
-(true, _)
-(false, t)
-```
-
 ### Guard
 
 A guard further filters a structurally matched arm.
@@ -230,7 +219,27 @@ x if x > 10 => "large"
 
 The guard is evaluated only after the pattern has matched.
 
-## 5.5 Examples
+## 5.5 Future draft: tuple patterns
+
+Tuple patterns are a proposed extension for matching multiple subject values structurally. They are not part of the implemented v1 parser.
+
+```turn id="future-tuple-case"
+route:str = #case(
+  (unsafe, spindle_temp_c),
+  (true, _) => "lockout",
+  (false, t) if t < 28 => "warmup",
+  _ => "run"
+)
+```
+
+Proposed semantics:
+
+* The subject expression may evaluate to a tuple with fixed arity.
+* A tuple pattern matches only when it has the same arity as the subject tuple and every element pattern matches.
+* Literal patterns, wildcard `_`, and variable binders keep their scalar meanings inside tuple patterns.
+* Guards run only after the tuple pattern has matched and may reference tuple binders.
+
+## 5.6 Examples
 
 ### Single subject
 
@@ -243,31 +252,29 @@ band:str = #case(
 )
 ```
 
-### Tuple match
-
-```turn id="6zibde"
-route:str = #case(
-  (unsafe, spindle_temp_c),
-  (true, _) => "lockout",
-  (false, t) if t < 28 => "warmup",
-  _ => "run"
-)
-```
-
 ### Reason-code derivation
 
 ```turn id="3t4ghf"
-reason:str = #case(
-  (active_alarm, lube_pressure_ok, door_closed, spindle_temp_c),
-  (true, _, _, _) => "active_alarm",
-  (false, false, _, _) => "lube_pressure",
-  (false, true, false, _) => "door_open",
-  (false, true, true, t) if t < 28 => "spindle_cold",
-  _ => "ready"
+reason:str = #if(
+  active_alarm,
+  "active_alarm",
+  #case(
+    lube_pressure_ok,
+    false => "lube_pressure",
+    _ => #case(
+      door_closed,
+      false => "door_open",
+      _ => #case(
+        spindle_temp_c,
+        t if t < 28 => "spindle_cold",
+        _ => "ready"
+      )
+    )
+  )
 )
 ```
 
-## 5.6 Scope
+## 5.7 Scope
 
 A variable bound in a pattern is visible only within:
 
@@ -276,10 +283,11 @@ A variable bound in a pattern is visible only within:
 
 It is not visible outside the arm.
 
-## 5.7 Restrictions in v1
+## 5.8 Restrictions in v1
 
 This draft does not include:
 
+* tuple patterns (future draft only),
 * object destructuring,
 * OR-patterns,
 * nested alternation patterns,
@@ -490,11 +498,10 @@ status:str = #if(temp_c < 28, "warmup", "run")
 Good:
 
 ```turn id="mwzxpp"
-route:str = #case(
-  (fault, quality_ok),
-  (true, _) => "hold_engineering",
-  (false, false) => "hold_quality",
-  _ => "release"
+route:str = #if(
+  fault,
+  "hold_engineering",
+  #case(quality_ok, false => "hold_quality", _ => "release")
 )
 ```
 
@@ -549,13 +556,18 @@ scene "boiler_alarm_priority" {
           )
         )
 
-        alarm_route:str = #case(
-          (water_level_low, flame_failure, repeat_trips, pressure_band),
-          (true, _, _, _) => "emergency_shutdown",
-          (_, true, _, _) => "emergency_shutdown",
-          (_, _, r, _) if r >= 2 => "maintenance_intervention",
-          (_, _, _, "high") => "maintenance_intervention",
-          _ => "watch"
+        alarm_route:str = #if(
+          water_level_low,
+          "emergency_shutdown",
+          #if(
+            flame_failure,
+            "emergency_shutdown",
+            #case(
+              repeat_trips,
+              r if r >= 2 => "maintenance_intervention",
+              _ => #case(pressure_band, "high" => "maintenance_intervention", _ => "watch")
+            )
+          )
         )
 
         <~alarm_route:str = alarm_route
@@ -592,9 +604,11 @@ Guard         = "if" Expr ;
 
 Pattern       = "_"
               | Literal
-              | Identifier
-              | TuplePattern ;
+              | Identifier ;
 
+(* Future draft, not v1: *)
+FuturePattern = Pattern
+              | TuplePattern ;
 TuplePattern  = "(" Pattern { "," Pattern } ")" ;
 
 PipeExpr      = "#pipe" "(" Expr "," PipeStep { "," PipeStep } ")" ;
@@ -648,11 +662,10 @@ status:str = #if(temp_c < 28, "warmup", "run")
 ### `#case`
 
 ```turn id="s6v7pw"
-route:str = #case(
-  (unsafe, spindle_temp_c),
-  (true, _) => "lockout",
-  (false, t) if t < 28 => "warmup",
-  _ => "run"
+route:str = #if(
+  unsafe,
+  "lockout",
+  #case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
 )
 ```
 

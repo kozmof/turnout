@@ -1,3 +1,42 @@
+state {
+  applicant {
+    age:number = 0
+    is_resident:bool = false
+    sanctioned:bool = false
+    credit_score:number = 0
+    fraud_flag:bool = false
+  }
+  intake {
+    eligible:bool = false
+    passed:bool = false
+  }
+  workflow {
+    phase:str = ""
+    reject_reason:str = ""
+    account_ref:str = ""
+    outcome:str = ""
+    rejection_notice:str = ""
+  }
+  documents {
+    expired:bool = false
+    ocr_confidence:number = 0
+    review_passed:bool = false
+    verified:bool = false
+  }
+  risk {
+    score:number = 0
+    tier:str = ""
+    decision:str = ""
+    needs_review:bool = false
+  }
+  review {
+    reviewer_decision:str = ""
+    reviewer_confidence:number = 0
+    approved:bool = false
+    outcome:str = ""
+  }
+}
+
 # Multi-scene example: Customer Onboarding Flow
 #
 # Route: onboarding_flow
@@ -46,7 +85,8 @@ scene "intake" {
 
         age_ok:bool       = age >= 18
         not_sanctioned:bool = sanctioned == false
-        <~eligible:bool   = age_ok & is_resident & not_sanctioned
+        residency_ok:bool = age_ok & is_resident
+        <~eligible:bool   = residency_ok & not_sanctioned
         <~phase:str       = "intake_collect_info"
       }
     }
@@ -59,7 +99,7 @@ scene "intake" {
 
     merge {
       eligible { to_state = intake.eligible }
-      phase    { to_state = flow.phase      }
+      phase    { to_state = workflow.phase      }
     }
 
     next {
@@ -104,7 +144,7 @@ scene "intake" {
 
     merge {
       intake_passed { to_state = intake.passed  }
-      phase         { to_state = flow.phase     }
+      phase         { to_state = workflow.phase     }
     }
   }
 
@@ -125,9 +165,9 @@ scene "intake" {
     }
 
     merge {
-      reject_reason { to_state = flow.reject_reason }
+      reject_reason { to_state = workflow.reject_reason }
       intake_passed { to_state = intake.passed      }
-      phase         { to_state = flow.phase         }
+      phase         { to_state = workflow.phase         }
     }
   }
 }
@@ -178,7 +218,7 @@ scene "document_review" {
 
     merge {
       docs_ok { to_state = documents.review_passed }
-      phase   { to_state = flow.phase              }
+      phase   { to_state = workflow.phase              }
     }
 
     next {
@@ -223,7 +263,7 @@ scene "document_review" {
 
     merge {
       docs_verified { to_state = documents.verified }
-      phase         { to_state = flow.phase         }
+      phase         { to_state = workflow.phase         }
     }
   }
 
@@ -245,8 +285,8 @@ scene "document_review" {
 
     merge {
       docs_verified { to_state = documents.verified  }
-      reject_reason { to_state = flow.reject_reason  }
-      phase         { to_state = flow.phase          }
+      reject_reason { to_state = workflow.reject_reason  }
+      phase         { to_state = workflow.phase          }
     }
   }
 }
@@ -285,12 +325,14 @@ scene "risk_assessment" {
         ~>fraud_flag:bool
 
         <~risk_score:number    = credit_score
-        <~risk_tier:str        = #case(
-          (credit_score, fraud_flag),
-          (_, true) => "high",
-          (score, false) if score >= 700 => "low",
-          (score, false) if score < 500 => "high",
-          _ => "borderline"
+        <~risk_tier:str        = #if(
+          fraud_flag,
+          "high",
+          #if(
+            credit_score >= 700,
+            "low",
+            #if(credit_score < 500, "high", "borderline")
+          )
         )
         <~phase:str            = "risk_assessment_score"
       }
@@ -304,7 +346,7 @@ scene "risk_assessment" {
     merge {
       risk_score { to_state = risk.score  }
       risk_tier  { to_state = risk.tier   }
-      phase      { to_state = flow.phase  }
+      phase      { to_state = workflow.phase  }
     }
 
     next {
@@ -363,7 +405,7 @@ scene "risk_assessment" {
 
     merge {
       risk_decision { to_state = risk.decision }
-      phase         { to_state = flow.phase    }
+      phase         { to_state = workflow.phase    }
     }
   }
 
@@ -385,8 +427,8 @@ scene "risk_assessment" {
 
     merge {
       risk_decision { to_state = risk.decision   }
-      reject_reason { to_state = flow.reject_reason }
-      phase         { to_state = flow.phase      }
+      reject_reason { to_state = workflow.reject_reason }
+      phase         { to_state = workflow.phase      }
     }
   }
 
@@ -409,7 +451,7 @@ scene "risk_assessment" {
     merge {
       risk_decision { to_state = risk.decision   }
       needs_review  { to_state = risk.needs_review }
-      phase         { to_state = flow.phase      }
+      phase         { to_state = workflow.phase      }
     }
   }
 }
@@ -458,7 +500,7 @@ scene "manual_review" {
 
     merge {
       reviewer_approved { to_state = review.approved }
-      phase             { to_state = flow.phase      }
+      phase             { to_state = workflow.phase      }
     }
 
     next {
@@ -503,7 +545,7 @@ scene "manual_review" {
 
     merge {
       review_outcome { to_state = review.outcome }
-      phase          { to_state = flow.phase     }
+      phase          { to_state = workflow.phase     }
     }
   }
 
@@ -525,8 +567,8 @@ scene "manual_review" {
 
     merge {
       review_outcome { to_state = review.outcome        }
-      reject_reason  { to_state = flow.reject_reason    }
-      phase          { to_state = flow.phase            }
+      reject_reason  { to_state = workflow.reject_reason    }
+      phase          { to_state = workflow.phase            }
     }
   }
 }
@@ -560,9 +602,9 @@ scene "approved" {
     }
 
     merge {
-      account_ref  { to_state = flow.account_ref }
-      flow_outcome { to_state = flow.outcome     }
-      phase        { to_state = flow.phase       }
+      account_ref  { to_state = workflow.account_ref }
+      flow_outcome { to_state = workflow.outcome     }
+      phase        { to_state = workflow.phase       }
     }
   }
 }
@@ -597,13 +639,13 @@ scene "rejected" {
     }
 
     prepare {
-      reject_reason { from_state = flow.reject_reason }
+      reject_reason { from_state = workflow.reject_reason }
     }
 
     merge {
-      rejection_notice { to_state = flow.rejection_notice }
-      flow_outcome     { to_state = flow.outcome          }
-      phase            { to_state = flow.phase            }
+      rejection_notice { to_state = workflow.rejection_notice }
+      flow_outcome     { to_state = workflow.outcome          }
+      phase            { to_state = workflow.phase            }
     }
   }
 }
@@ -622,6 +664,7 @@ scene "rejected" {
 # ---------------------------------------------------------------------------
 
 route "onboarding_flow" {
+  entry "intake"
   match {
     # intake outcomes
     intake.proceed       => document_review,

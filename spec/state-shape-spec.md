@@ -89,7 +89,7 @@ scene "loan_flow" {
 ### 2.1 Grammar
 
 ```
-turn-file       ::= state-source scene-block
+turn-file       ::= state-source scene-block+
 state-source    ::= state-block | state-file-directive
 state-block     ::= 'state' '{' namespace-decl* '}'
 state-file-directive ::= 'state_file' '=' string-literal
@@ -100,7 +100,7 @@ literal         ::= number | string | boolean | array-literal
 IDENT           ::= [A-Za-z_][A-Za-z0-9_]*
 ```
 
-A Turn DSL file MUST contain exactly one `state-source` (either an inline `state` block or a `state_file` directive, not both) and exactly one `scene` block.
+A Turn DSL file MUST contain exactly one `state-source` (either an inline `state` block or a `state_file` directive, not both) and one or more `scene` blocks.
 
 ### 2.2 Default values
 
@@ -342,7 +342,7 @@ scene "loan_flow" {
 }
 ```
 
-One HCL file MUST contain exactly one `state` block and exactly one `scene` block.
+One HCL file MUST contain exactly one `state` block and one or more `scene` blocks.
 
 ---
 

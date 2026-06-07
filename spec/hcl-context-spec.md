@@ -445,11 +445,10 @@ prog "main" {
   unsafe:bool = false
   spindle_temp_c:number = 24
 
-  route:str = #case(
-    (unsafe, spindle_temp_c),
-    (true, _) => "lockout",
-    (false, t) if t < 28 => "warmup",
-    _ => "run"
+  route:str = #if(
+    unsafe,
+    "lockout",
+    #case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
   )
 }
 ```
@@ -460,20 +459,21 @@ prog "main" {
 {
   unsafe: false,
   spindle_temp_c: 24,
-  route: caseExpr(
-    tuple('unsafe', 'spindle_temp_c'),
-    [
-      { pattern: tuple(true, wildcard()), expr: 'lockout' },
-      { pattern: tuple(false, bind('t')), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
+  route: ifExpr(
+    'unsafe',
+    'lockout',
+    caseExpr('spindle_temp_c', [
+      { pattern: bind('t'), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
       { pattern: wildcard(), expr: 'run' },
-    ]
+    ])
   ),
 }
 ```
 
 **Rules:**
 
-- Supported patterns are literals, wildcard `_`, variable binders, tuple patterns, and guarded arms.
+- Supported patterns are literals, wildcard `_`, variable binders, and guarded arms. Tuple patterns are not part of the implemented v1 parser.
+- Future draft: tuple patterns may extend `#case` so a tuple subject such as `(unsafe, spindle_temp_c)` can be matched by tuple arms such as `(true, _)` and `(false, t) if t < 28 => "warmup"`.
 - `_` matches any value and does not bind.
 - Pattern binders are visible only in that arm's guard and expression.
 - If no arm matches and no wildcard arm exists, evaluation fails.
@@ -549,9 +549,9 @@ prog "main" {
 | Namespace | Functions |
 |-----------|-----------|
 | `transformFnNumber` | `pass`, `toStr`, `abs`, `floor`, `ceil`, `round`, `negate` |
-| `transformFnString` | `pass` |
-| `transformFnBoolean` | `pass` |
-| `transformFnArray` | `pass` |
+| `transformFnString` | `pass`, `toNumber`, `trim`, `toLowerCase`, `toUpperCase`, `length` |
+| `transformFnBoolean` | `pass`, `not`, `toStr` |
+| `transformFnArray` | `pass`, `length`, `isEmpty` |
 | `transformFnNull` | `pass` |
 
 > **Note**: The table above lists the internal `pass` identity transform available for all types. The full set of DSL-surface transform methods (e.g. `.toStr()`, `.trim()`, `.abs()`, `.not()`, `.isEmpty()`) is defined in `transform-fn-dsl-spec.md`, which is the authoritative reference for authoring transform expressions.
@@ -735,7 +735,7 @@ ctx({
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `#if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
 | 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
-| 7 | `#case` with guarded tuple arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
+| 7 | `#case` with guarded scalar arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
 
 ### Edge cases
 

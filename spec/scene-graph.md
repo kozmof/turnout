@@ -103,7 +103,6 @@ type PrepareSpec = {
 type PrepareBinding = {
   fromState?: string;    // canonical dotted STATE source path
   fromHook?: string;    // hook name; hook returns object whose field matches binding name
-  fromLiteral?: unknown; // literal ingress source
   required?: boolean;   // default true for fromState
 };
 
@@ -149,11 +148,12 @@ type OverviewView = {
 
 Source and destination rules:
 
-- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromState`, `fromHook`, or `fromLiteral`.
+- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromState` or `fromHook`.
 - For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`; destination key is `toState` if provided, otherwise the binding key.
 - For next-level bindings declared as `~>`, exactly one ingress source MUST be set in the transition `prepare`: `fromAction`, `fromState`, or `fromLiteral`.
 - `fromAction` is only valid inside transition `prepare` bindings.
 - `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
+- Future draft: action-level `prepare` may add `fromLiteral` as a third ingress source alongside `fromState` and `fromHook`; this is reserved future behavior and is not part of the implemented v1 model.
 - Publish hooks in `publish.hooks` fire after merge in declaration order and receive the complete final state.
 
 Action-to-next binding scope:
@@ -305,7 +305,6 @@ For one action invocation with pre-state `S_n`:
 3. Prepare phase:
    - For each `prepare.<binding>` with `fromState`, resolve value from `S_n`.
    - For each `prepare.<binding>` with `fromHook`, invoke the named hook (deduplicating calls for the same hook name); map returned object fields into state bindings.
-   - For each `prepare.<binding>` with `fromLiteral`, assign literal value.
    - If a required source is missing, fail action without executing the graph.
 4. Build runtime graph:
    - Lower HCL program to ContextSpec.

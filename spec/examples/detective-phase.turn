@@ -1,3 +1,43 @@
+state {
+  crime_scene {
+    disturbance_detected:bool = false
+    visibility_score:number = 0
+    camera_online:bool = false
+    camera_timestamp_ok:bool = false
+    last_search_area:str = ""
+  }
+  evidence {
+    fingerprint_match:number = 0
+    blood_trace:bool = false
+    weapon_found:bool = false
+    selected_tag:str = ""
+  }
+  witness {
+    contradiction_detected:bool = false
+    alibi_strength:number = 0
+    statement:str = ""
+  }
+  leads {
+    primary_suspect_name:str = ""
+    confidence_score:number = 0
+  }
+  investigation {
+    phase:str = ""
+    last_note:str = ""
+    scene_hotspot_found:bool = false
+    critical_evidence_found:bool = false
+    evidence_log:str = ""
+    timeline_priority:bool = false
+    interview_note:str = ""
+    ready_to_identify_suspect:bool = false
+    suspect_summary:str = ""
+    case_file_ready:bool = false
+    search_note:str = ""
+    report_line:str = ""
+    closed:bool = false
+  }
+}
+
 scene "detective_evidence_hunt" {
   entry_actions     = ["arrive_crime_scene"]
   next_policy       = "first-match"

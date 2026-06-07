@@ -147,6 +147,25 @@ Examples: `applicant.income`, `workflow.stage`, `session.user_id`, `session.cart
 
 An empty segment (e.g. `foo..bar`), a path starting/ending with `.`, or a single-segment path is invalid (`InvalidStatePath`).
 
+### 2.5 Future draft: `from_literal` at action level
+
+Action-level literal ingress is a proposed extension. It is not part of the implemented v1 action `prepare` grammar, where only `from_state` and `from_hook` are valid.
+
+```
+prepare {
+  retries { from_literal = 0 }
+  mode    { from_literal = "manual" }
+  enabled { from_literal = true }
+}
+```
+
+Proposed semantics:
+
+- `from_literal` would assign the literal directly to the named action binding before the compute graph runs.
+- It would be mutually exclusive with `from_state` and `from_hook`; each action `prepare` entry would still define exactly one source.
+- Literal values would be checked against the target binding type during conversion where the literal type is statically known.
+- This extension would align action-level ingress with transition-level `from_literal`, while preserving the rule that transitions cannot use `from_hook`.
+
 ---
 
 ## 3. `merge` Section — Action Level
@@ -203,7 +222,7 @@ action "score" {
 
 ### 4.1 Structure
 
-Inside a `next { }` block, a `prepare` block declares **ingress bindings** for the transition's compute program. Only `from_action` and `from_state` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
+Inside a `next { }` block, a `prepare` block declares **ingress bindings** for the transition's compute program. Only `from_action`, `from_state`, and `from_literal` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
 
 ```
 next {
@@ -252,7 +271,7 @@ Any one of these may be used per entry; they may be mixed across different entri
 - A `<~>` binding can appear in both `prepare` and `merge` with different STATE paths.
 - The `prepare` and `merge` sections can be omitted entirely when no sigiled bindings are declared.
 - A transition `prepare` entry can use `from_action` and another entry in the same block can use `from_state`.
-- A `~>` binding in a transition `prog` block can have its ingress declared via `from_action` or `from_state`.
+- A `~>` binding in a transition `prog` block can have its ingress declared via `from_action`, `from_state`, or `from_literal`.
 
 ### CAN'T (NG)
 
@@ -386,7 +405,7 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | B. Correspondence | Sigil ↔ `prepare`/`merge` entry matching validated at convert time |
 | C. Bidirectional lowering | `<~>` produces entries in both `prepare` and `merge` |
 | D. Sentinel value | Binding default lowered as `value`/`expr`; no effect on STATE resolution |
-| E. Transition `prepare` | `from_action` and `from_state` entries lower to correct `TransitionIngressBinding` fields |
+| E. Transition `prepare` | `from_action`, `from_state`, and `from_literal` entries lower to correct `TransitionIngressBinding` fields |
 | F. Error paths | All error codes trigger correctly and abort without partial output |
 
 ### Critical paths (idempotency)
@@ -399,6 +418,7 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 | 4 | Action with no `prepare`/`merge` → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
 | 5 | Transition `prepare { from_action }` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
 | 6 | Transition `prepare { from_state }` → `TransitionIngressBinding.fromState` | Field mapping is deterministic for identical input |
+| 7 | Transition `prepare { from_literal }` → `TransitionIngressBinding.fromLiteral` | Field mapping is deterministic for identical input |
 
 ### Edge cases
 

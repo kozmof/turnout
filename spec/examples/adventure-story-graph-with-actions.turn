@@ -1,3 +1,23 @@
+state {
+  story {
+    has_map:bool = false
+    clue_count:number = 0
+    chapter_state:str = ""
+    last_hub:str = ""
+    path:str = ""
+    current_location:str = ""
+    threat_level:number = 0
+    found_hidden_mark:bool = false
+    latest_journal:str = ""
+    chapter_reward:str = ""
+    result:str = ""
+  }
+  party {
+    coins:number = 0
+    lockpick_skill:number = 0
+  }
+}
+
 scene "adventure_story_chapter_1" {
   entry_actions     = ["choose_route"]
   next_policy       = "first-match"
@@ -55,10 +75,10 @@ scene "adventure_story_chapter_1" {
     }
 
     prepare {
-      has_map        { from_state = story.flags.has_map      }
-      clue_count     { from_state = story.clues.count        }
-      coins          { from_state = party.inventory.coins    }
-      lockpick_skill { from_state = party.skills.lockpick    }
+      has_map        { from_state = story.has_map      }
+      clue_count     { from_state = story.clue_count        }
+      coins          { from_state = party.coins    }
+      lockpick_skill { from_state = party.lockpick_skill    }
     }
 
     merge {
@@ -140,7 +160,7 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route  { to_state = "story.route"            }
+      story_route  { to_state = "story.path"            }
       location     { to_state = story.current_location }
       danger_level { to_state = story.threat_level     }
     }
@@ -178,13 +198,13 @@ scene "adventure_story_chapter_1" {
     }
 
     prepare {
-      coins { from_state = party.inventory.coins }
+      coins { from_state = party.coins }
     }
 
     merge {
-      coins_after  { to_state = party.inventory.coins  }
+      coins_after  { to_state = party.coins  }
       location     { to_state = story.current_location }
-      story_route  { to_state = "story.route"            }
+      story_route  { to_state = "story.path"            }
     }
 
     next {
@@ -219,13 +239,13 @@ scene "adventure_story_chapter_1" {
     }
 
     prepare {
-      lockpick_skill { from_state = party.skills.lockpick }
+      lockpick_skill { from_state = party.lockpick_skill }
     }
 
     merge {
-      story_route  { to_state = "story.route"                   }
+      story_route  { to_state = "story.path"                   }
       location     { to_state = story.current_location        }
-      found_mark   { to_state = story.flags.found_hidden_mark }
+      found_mark   { to_state = story.found_hidden_mark }
     }
 
     next {
@@ -258,8 +278,8 @@ scene "adventure_story_chapter_1" {
     }
 
     merge {
-      story_route { to_state = "story.route"            }
-      note        { to_state = story.journal.latest   }
+      story_route { to_state = "story.path"            }
+      note        { to_state = story.latest_journal   }
       location    { to_state = story.current_location }
     }
 
