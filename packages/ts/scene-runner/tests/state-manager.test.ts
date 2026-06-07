@@ -108,10 +108,9 @@ describe('literalToValue', () => {
     expect(() => literalToValue('not-an-array', 'arr<number>')).toThrow('arr<number>');
   });
 
-  it('returns buildNull("unknown") for an unrecognised type', () => {
+  it('throws for an unrecognised type', () => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const val = literalToValue('value', 'unknown' as any);
-    expect(isPureNull(val)).toBe(true);
+    expect(() => literalToValue('value', 'unknown' as any)).toThrow('unknown schema type "unknown"');
   });
 
   it('throws when type "number" receives a non-number value', () => {

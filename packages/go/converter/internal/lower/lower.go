@@ -143,7 +143,7 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 	case *ast.InlineStateBlock:
 		return lowerStateBlockFromAST(s)
 	case *ast.StateFileDirective:
-		if len(schema) == 0 {
+		if len(schema.Namespaces()) == 0 {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
 		}
@@ -234,15 +234,12 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string) *turn
 // flat schema map with namespaces and fields sorted alphabetically for
 // deterministic output when no declaration order is available.
 func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
-	nsNames := make([]string, 0, len(schema))
-	for nsName := range schema {
-		nsNames = append(nsNames, nsName)
-	}
+	nsNames := schema.Namespaces()
 	slices.Sort(nsNames)
 
 	var nsList []nsEntry
 	for _, nsName := range nsNames {
-		fields := schema[nsName]
+		fields, _ := schema.FieldsOf(nsName)
 		if len(fields) == 0 {
 			continue
 		}

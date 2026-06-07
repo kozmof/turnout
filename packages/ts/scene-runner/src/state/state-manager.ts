@@ -295,7 +295,7 @@ function literalToValue(
       }));
     }
     default:
-      return buildNull('unknown');
+      throw new Error(`literalToValue: unknown schema type "${type}"`);
   }
 }
 

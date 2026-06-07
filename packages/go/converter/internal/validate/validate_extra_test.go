@@ -5,6 +5,7 @@ import (
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -322,7 +323,7 @@ func TestInvalidTransitionIngress(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeInvalidTransitionIngress) {
 		t.Error("want InvalidTransitionIngress for next prepare entry with no source")
 	}
@@ -331,7 +332,7 @@ func TestInvalidTransitionIngress(t *testing.T) {
 // ─── Validate(nil, nil, nil) ──────────────────────────────────────────────────
 
 func TestValidateNilModel(t *testing.T) {
-	ds := validate.Validate(nil, nil, nil)
+	ds := validate.Validate(nil, state.Schema{}, nil)
 	if ds.HasErrors() {
 		t.Error("nil model should produce no errors")
 	}
@@ -365,7 +366,7 @@ func TestRoutePatternWildcardFirstSegment(t *testing.T) {
 			},
 		},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeInvalidPathItem) {
 		t.Error("want InvalidPathItem for route pattern starting with *")
 	}
@@ -397,7 +398,7 @@ func TestRoutePatternEmptyFirstSegment(t *testing.T) {
 			},
 		},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeInvalidPathItem) {
 		t.Error("want InvalidPathItem for route pattern with empty first segment")
 	}
@@ -431,7 +432,7 @@ func TestRoutePatternNoActionSegment(t *testing.T) {
 			},
 		},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeBareWildcardPath) {
 		t.Error("want BareWildcardPath for route pattern with no action segment")
 	}
@@ -452,7 +453,7 @@ func TestActionComputeNil(t *testing.T) {
 		}},
 	}
 	// Should not panic; may produce no errors (nil compute is allowed structurally)
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	_ = ds
 }
 
@@ -493,7 +494,7 @@ func TestValidateProgNil(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	// Root "r" won't be found in empty scope → SCNActionRootNotFound
 	if !hasCode(ds, diag.CodeSCNActionRootNotFound) {
 		t.Error("want SCNActionRootNotFound when prog is nil and root is set")
@@ -510,7 +511,7 @@ func TestPipeParamSourceUndefined(t *testing.T) {
 			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUndefinedRef) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeUndefinedRef) {
 		t.Error("want UndefinedRef for pipe param with undefined source")
 	}
 }
@@ -525,7 +526,7 @@ func TestPipeStepUnknownFunction(t *testing.T) {
 			Steps:  []*turnoutpb.PipeStep{{Fn: "unknown_fn", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUnknownFnAlias) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeUnknownFnAlias) {
 		t.Error("want UnknownFnAlias for pipe step with unknown function")
 	}
 }
@@ -541,7 +542,7 @@ func TestPipeLastStepTypeMismatch(t *testing.T) {
 			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeReturnTypeMismatch) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeReturnTypeMismatch) {
 		t.Error("want ReturnTypeMismatch for pipe last step type mismatch")
 	}
 }
@@ -582,7 +583,7 @@ func TestCondConditionRefUndefined(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeUndefinedRef) {
 		t.Error("want UndefinedRef for cond condition reference to undefined name")
 	}
@@ -638,7 +639,7 @@ func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeReturnTypeMismatch) {
 		t.Error("want ReturnTypeMismatch for cond branch type != binding type")
 	}
@@ -884,7 +885,7 @@ func TestNextPrepareFromStateInvalidPath(t *testing.T) {
 			}},
 		}},
 	}
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeInvalidStatePath) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeInvalidStatePath) {
 		t.Error("want InvalidStatePath for next prepare from_state with invalid path")
 	}
 }
@@ -937,7 +938,7 @@ func TestValidateStatePathInvalidPath(t *testing.T) {
 			}},
 		}},
 	}
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeInvalidStatePath) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeInvalidStatePath) {
 		t.Error("want InvalidStatePath for prepare from_state with invalid path")
 	}
 }
@@ -1102,7 +1103,7 @@ func TestFuncRefUndefined(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef for func_ref pointing to undefined name")
 	}
@@ -1145,7 +1146,7 @@ func TestFuncRefOnValueBinding(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef for func_ref pointing to value binding")
 	}
@@ -1187,7 +1188,7 @@ func TestArrConcatNoArgs(t *testing.T) {
 		}},
 	}
 	// Should not panic; validateCombineArgTypes with < 2 args returns early
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	_ = ds
 }
 
@@ -1307,7 +1308,7 @@ func TestResolveArgTypeFuncRef(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	_ = ds
 }
 
@@ -1327,7 +1328,7 @@ func TestResolveArgTypeStepRef(t *testing.T) {
 			},
 		}}},
 	})
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("unexpected error: %s", d.Format())
@@ -1372,7 +1373,7 @@ func TestCombineArgTypesLessThan2Args(t *testing.T) {
 		}},
 	}
 	// Should not panic
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	_ = ds
 }
 
@@ -1474,7 +1475,7 @@ func TestLiteralMatchesFieldTypeArrWithNonArray(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeTypeMismatch) {
 		t.Error("want TypeMismatch for arr<number> binding with NumberValue value")
 	}

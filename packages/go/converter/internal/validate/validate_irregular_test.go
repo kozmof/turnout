@@ -228,13 +228,13 @@ func TestValidateIrregularNextRules(t *testing.T) {
 }
 
 func irregularSchema() state.Schema {
-	return state.Schema{
+	return state.NewSchemaFromMap(map[string]map[string]state.FieldMeta{
 		"app": {
 			"score": {Type: ast.FieldTypeNumber, DefaultValue: nil},
 			"flag":  {Type: ast.FieldTypeBool, DefaultValue: nil},
 			"label": {Type: ast.FieldTypeStr, DefaultValue: nil},
 		},
-	}
+	})
 }
 
 func irregularModelWithRoutes(routes []*turnoutpb.RouteModel) *turnoutpb.TurnModel {

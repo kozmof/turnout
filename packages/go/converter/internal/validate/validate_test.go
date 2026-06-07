@@ -195,7 +195,7 @@ func TestUndefinedFuncRef(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("noSuchFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeUndefinedFuncRef) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef")
 	}
 }
@@ -234,7 +234,7 @@ func TestCondNotBool(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeCondNotBool) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeCondNotBool) {
 		t.Error("want CondNotBool")
 	}
 }
@@ -259,9 +259,104 @@ func TestBranchTypeMismatch(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeBranchTypeMismatch) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeBranchTypeMismatch) {
 		t.Error("want BranchTypeMismatch")
 	}
+}
+
+func TestCondBranchRef(t *testing.T) {
+	// then/else branches expressed as Ref (value binding reference)
+	t.Run("valid", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "a", Type: "number", Value: structpb.NewNumberValue(1)},
+			{Name: "b", Type: "number", Value: structpb.NewNumberValue(2)},
+			{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Ref: proto.String("a")},
+				ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("b")},
+			}}},
+		})
+		if ds := validate.Validate(model, state.Schema{}, nil); ds.HasErrors() {
+			t.Errorf("want no errors, got %v", ds)
+		}
+	})
+
+	t.Run("undefined_then_ref", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "b", Type: "number", Value: structpb.NewNumberValue(2)},
+			{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Ref: proto.String("noSuch")},
+				ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("b")},
+			}}},
+		})
+		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeUndefinedRef) {
+			t.Error("want UndefinedRef for missing then Ref")
+		}
+	})
+
+	t.Run("type_mismatch_branches", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "a", Type: "number", Value: structpb.NewNumberValue(1)},
+			{Name: "s", Type: "str", Value: structpb.NewStringValue("x")},
+			{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Ref: proto.String("a")},
+				ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("s")},
+			}}},
+		})
+		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeBranchTypeMismatch) {
+			t.Error("want BranchTypeMismatch for number vs str Ref branches")
+		}
+	})
+}
+
+func TestCondBranchLit(t *testing.T) {
+	// then/else branches expressed as Lit (inline literal)
+	t.Run("valid", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(1)},
+				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(2)},
+			}}},
+		})
+		if ds := validate.Validate(model, state.Schema{}, nil); ds.HasErrors() {
+			t.Errorf("want no errors, got %v", ds)
+		}
+	})
+
+	t.Run("type_mismatch_branches", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(1)},
+				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewStringValue("x")},
+			}}},
+		})
+		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeBranchTypeMismatch) {
+			t.Error("want BranchTypeMismatch for number vs str Lit branches")
+		}
+	})
+
+	t.Run("return_type_mismatch", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "out", Type: "str", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(42)},
+				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(0)},
+			}}},
+		})
+		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeReturnTypeMismatch) {
+			t.Error("want ReturnTypeMismatch when Lit branch type doesn't match declared type")
+		}
+	})
 }
 
 func TestStepRefOutOfBounds(t *testing.T) {
@@ -276,7 +371,7 @@ func TestStepRefOutOfBounds(t *testing.T) {
 			},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodeStepRefOutOfBounds) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeStepRefOutOfBounds) {
 		t.Error("want StepRefOutOfBounds")
 	}
 }
@@ -295,7 +390,7 @@ func TestPipeArgNotValue(t *testing.T) {
 			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, nil, nil), diag.CodePipeArgNotValue) {
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodePipeArgNotValue) {
 		t.Error("want PipeArgNotValue")
 	}
 }
@@ -636,7 +731,7 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 			Actions:      []*turnoutpb.ActionModel{},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty actions")
 	}
@@ -655,7 +750,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, nil, nil)
+	ds := validate.Validate(model, state.Schema{}, nil)
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_actions")
 	}
@@ -676,6 +771,48 @@ scene "test" {
 	if !hasCode(pipeline(src), diag.CodeSCNActionRootNotFound) {
 		t.Error("want SCN_ACTION_ROOT_NOT_FOUND")
 	}
+}
+
+// ─── Unused binding detection ─────────────────────────────────────────────────
+
+func unusedSrc(progBody string) string {
+	return basicState + `
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = out
+      prog "p" {
+` + progBody + `
+      }
+    }
+  }
+}
+`
+}
+
+func TestUnusedBinding(t *testing.T) {
+	t.Run("unused_binding_emits_warning", func(t *testing.T) {
+		// "dead" is declared but not reachable from root "out".
+		src := unusedSrc(`        dead:number = 1
+        out:bool = true
+`)
+		ds := pipeline(src)
+		if !hasCode(ds, diag.CodeUnusedBinding) {
+			t.Error("want UnusedBinding warning for an unreachable binding")
+		}
+	})
+
+	t.Run("transitive_dep_no_warning", func(t *testing.T) {
+		// "x" is a transitive dependency of root "out" — no warning expected.
+		src := unusedSrc(`        x:number = 5
+        out:number = add(x, x)
+`)
+		ds := pipeline(src)
+		if hasCode(ds, diag.CodeUnusedBinding) {
+			t.Error("want no UnusedBinding warning for a binding that is a transitive dependency of root")
+		}
+	})
 }
 
 // ─── Group E: route validation ────────────────────────────────────────────────
@@ -733,6 +870,25 @@ func TestRouteValidNoErrors(t *testing.T) {
 			t.Errorf("unexpected error: %s", d.Format())
 		}
 	}
+}
+
+func TestWildcardTerminalUnresolvable(t *testing.T) {
+	t.Run("unknown_terminal_emits_warning", func(t *testing.T) {
+		src := routeSrc(`    scene_1.*.no_such_action => scene_1`)
+		ds := pipeline(src)
+		if !hasCode(ds, diag.CodeWildcardTerminalUnresolvable) {
+			t.Error("want WildcardTerminalUnresolvable warning for unknown terminal action")
+		}
+	})
+
+	t.Run("known_terminal_no_warning", func(t *testing.T) {
+		// The only action in scene_1 is "a", so "a" as terminal should not warn.
+		src := routeSrc(`    scene_1.*.a => scene_1`)
+		ds := pipeline(src)
+		if hasCode(ds, diag.CodeWildcardTerminalUnresolvable) {
+			t.Error("want no WildcardTerminalUnresolvable warning when terminal matches a known action")
+		}
+	})
 }
 
 func TestMissingEntryScene(t *testing.T) {

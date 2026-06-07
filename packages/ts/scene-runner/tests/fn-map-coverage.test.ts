@@ -1,23 +1,31 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { describe, it, expect } from 'vitest';
 import { FN_MAP } from '../src/executor/hcl-context-builder.js';
 import { getBinaryFnReturnType } from 'runtime';
 import type { BinaryFnNames } from 'runtime';
 
-// All HCL function names declared in the Go builtinFns registry (validate.go).
-// Update this list when a new function is added to the Go DSL.
-const GO_BUILTIN_FN_NAMES = [
-  'add', 'sub', 'mul', 'div', 'mod', 'max', 'min',
-  'gt', 'gte', 'lt', 'lte',
-  'bool_and', 'bool_or', 'bool_xor',
-  'str_concat', 'str_includes', 'str_starts', 'str_ends',
-  'eq', 'neq',
-  'arr_concat', 'arr_get', 'arr_includes',
-] as const;
+// Load the shared fn-aliases.json fixture from the repo root.
+// This is the single source of truth for the HCL alias ↔ runtime name mapping.
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const fnAliases = JSON.parse(
+  readFileSync(resolve(__dirname, '../../../../spec/fn-aliases.json'), 'utf-8'),
+) as Array<{ hcl: string; runtime: string }>;
 
 describe('FN_MAP coverage', () => {
-  it('covers all Go builtin function names', () => {
-    for (const name of GO_BUILTIN_FN_NAMES) {
-      expect(FN_MAP, `FN_MAP is missing entry for Go builtin "${name}"`).toHaveProperty(name);
+  it('covers all HCL aliases declared in spec/fn-aliases.json', () => {
+    for (const { hcl } of fnAliases) {
+      expect(FN_MAP, `FN_MAP is missing entry for Go builtin "${hcl}"`).toHaveProperty(hcl);
+    }
+  });
+
+  it('FN_MAP entries match exact runtime names in spec/fn-aliases.json', () => {
+    for (const { hcl, runtime } of fnAliases) {
+      expect(
+        FN_MAP[hcl],
+        `FN_MAP["${hcl}"] should be "${runtime}"`,
+      ).toBe(runtime);
     }
   });
 

@@ -16,18 +16,38 @@ type FieldMeta struct {
 	DefaultValue ast.Literal
 }
 
-// Schema is the resolved STATE schema: a nested map from namespace → field → FieldMeta.
-// Use Get("ns.field") for point lookups and Flat() when a dotted-path map is needed.
-type Schema map[string]map[string]FieldMeta
+// Schema is the resolved STATE schema. Use Get("ns.field") for point lookups,
+// Flat() when a dotted-path map is needed, and Namespaces()/FieldsOf() when
+// iterating the structure. The zero value Schema{} is valid and represents an
+// empty (no state declared) schema.
+type Schema struct {
+	namespaces map[string]map[string]FieldMeta
+}
 
-// Get looks up a dotted path "ns.field" in the nested schema.
+// newSchema constructs a Schema with an empty namespace map. Only used within
+// this package during schema resolution.
+func newSchema() Schema {
+	return Schema{namespaces: make(map[string]map[string]FieldMeta)}
+}
+
+// NewSchemaFromMap constructs a Schema from a pre-built namespace map.
+// The map is adopted (not copied). Intended for test helpers and programmatic
+// schema construction when the DSL resolver is not available.
+func NewSchemaFromMap(namespaces map[string]map[string]FieldMeta) Schema {
+	if namespaces == nil {
+		namespaces = make(map[string]map[string]FieldMeta)
+	}
+	return Schema{namespaces: namespaces}
+}
+
+// Get looks up a dotted path "ns.field" in the schema.
 func (s Schema) Get(path string) (FieldMeta, bool) {
 	dot := strings.IndexByte(path, '.')
 	if dot < 0 {
 		return FieldMeta{}, false
 	}
 	ns, field := path[:dot], path[dot+1:]
-	fields, ok := s[ns]
+	fields, ok := s.namespaces[ns]
 	if !ok {
 		return FieldMeta{}, false
 	}
@@ -39,12 +59,28 @@ func (s Schema) Get(path string) (FieldMeta, bool) {
 // Use sparingly — it allocates a new map each call.
 func (s Schema) Flat() map[string]FieldMeta {
 	out := make(map[string]FieldMeta)
-	for ns, fields := range s {
+	for ns, fields := range s.namespaces {
 		for field, meta := range fields {
 			out[ns+"."+field] = meta
 		}
 	}
 	return out
+}
+
+// Namespaces returns the namespace names present in the schema (unordered).
+func (s Schema) Namespaces() []string {
+	names := make([]string, 0, len(s.namespaces))
+	for ns := range s.namespaces {
+		names = append(names, ns)
+	}
+	return names
+}
+
+// FieldsOf returns the field map for the given namespace.
+// The returned map is the internal map; callers must not modify it.
+func (s Schema) FieldsOf(ns string) (map[string]FieldMeta, bool) {
+	fields, ok := s.namespaces[ns]
+	return fields, ok
 }
 
 // Resolve builds a Schema from a StateSource.
@@ -68,7 +104,7 @@ func ResolveWithOrder(source ast.StateSource, basePath string) (Schema, []string
 		schema, order, ds := resolveStateFileWithOrder(s, basePath)
 		return schema, order, ds
 	default:
-		return nil, nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateSource, "no state source")}
+		return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateSource, "no state source")}
 	}
 }
 
@@ -92,7 +128,7 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 
 	src, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
+		return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
 	}
 
 	inline, parseDiags := parser.ParseStateFile(path, string(src))
@@ -105,7 +141,7 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 			}
 			ds = append(ds, diag.Errorf(code, "%s", pd.Message))
 		}
-		return nil, nil, ds
+		return Schema{}, nil, ds
 	}
 
 	schema, ds := resolveInline(inline)
@@ -114,7 +150,7 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 
 // resolveInline builds a Schema from an InlineStateBlock.
 func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
-	schema := make(Schema)
+	schema := newSchema()
 	var ds diag.Diagnostics
 
 	seenNS := make(map[string]bool)
@@ -126,7 +162,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 			continue
 		}
 		seenNS[ns.Name] = true
-		schema[ns.Name] = make(map[string]FieldMeta)
+		schema.namespaces[ns.Name] = make(map[string]FieldMeta)
 
 		seenField := make(map[string]bool)
 		for _, f := range ns.Fields {
@@ -152,7 +188,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 				continue
 			}
 
-			schema[ns.Name][f.Name] = FieldMeta{Type: f.Type, DefaultValue: f.Default}
+			schema.namespaces[ns.Name][f.Name] = FieldMeta{Type: f.Type, DefaultValue: f.Default}
 		}
 	}
 

@@ -145,12 +145,18 @@ func buildKnownScenesAndActions(tm *turnoutpb.TurnModel) (map[string]bool, map[s
 // ─────────────────────────────────────────────────────────────────────────────
 
 func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
+	allKnownActions := make(map[string]bool)
+	for _, actionSet := range knownActions {
+		for actionID := range actionSet {
+			allKnownActions[actionID] = true
+		}
+	}
 	for _, r := range routes {
-		validateRoute(r, knownScenes, knownActions, ds)
+		validateRoute(r, knownScenes, knownActions, allKnownActions, ds)
 	}
 }
 
-func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
+func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.Diagnostics) {
 	if r.EntrySceneId == nil || *r.EntrySceneId == "" {
 		*ds = append(*ds, diag.Errorf(diag.CodeMissingEntryScene,
 			"route %q: missing entry declaration", r.Id))
@@ -173,12 +179,12 @@ func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownAc
 				}
 				continue
 			}
-			validateRoutePattern(r.Id, i, pat, knownActions, ds)
+			validateRoutePattern(r.Id, i, pat, knownActions, allKnownActions, ds)
 		}
 	}
 }
 
-func validateRoutePattern(routeID string, armIdx int, pat string, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
+func validateRoutePattern(routeID string, armIdx int, pat string, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.Diagnostics) {
 	parts := strings.Split(pat, ".")
 
 	if len(parts) < 1 || parts[0] == "" || parts[0] == "*" {
@@ -211,10 +217,21 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 		return
 	}
 
+	// For wildcard patterns (scene_id.*.terminal[...]), cross-check the terminal
+	// action name against all known action IDs across all scenes. The terminal
+	// may live in any scene reached via routing, so we can only warn, not error.
+	if wildcardCount == 1 {
+		terminal := parts[len(parts)-1]
+		if !allKnownActions[terminal] {
+			*ds = append(*ds, diag.WarnAt("", 0, 0, diag.CodeWildcardTerminalUnresolvable,
+				"route %q arm %d: pattern %q terminal action %q does not match any known action ID across all scenes (possible typo)",
+				routeID, armIdx, pat, terminal))
+		}
+		return
+	}
+
 	// Cross-check: for direct scene_id.action_id patterns (exactly 2 segments,
 	// no wildcards), verify the action ID exists in the named scene.
-	// Wildcard patterns (scene_id.*.terminal) are skipped because the terminal
-	// action may live in a downstream scene reached via routing.
 	// Skip if the scene is unknown (already reported as UnresolvedScene).
 	if len(parts) == 2 {
 		sceneID := parts[0]
@@ -269,7 +286,11 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx posInde
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			scope = validateProg(a.Compute.Prog, schema, false, idx, scene.Id, a.Id, lower.ComputeScope(), ds)
+			mergeNames := make([]string, 0, len(a.Merge))
+			for _, m := range a.Merge {
+				mergeNames = append(mergeNames, m.Binding)
+			}
+			scope = validateProg(a.Compute.Prog, schema, false, a.Compute.Root, mergeNames, idx, scene.Id, a.Id, lower.ComputeScope(), ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -300,14 +321,51 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx posInde
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, idx posIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, root string, mergeNames []string, idx posIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
 	scope, adj := buildBindingScope(prog, idx, sceneID, actionID, scopeName, ds)
 	detectCycles(prog.Name, adj, prog.Bindings, ds)
 	validateBindingTypes(prog, scope, isTransition, idx, sceneID, actionID, scopeName, ds)
+	if !isTransition && root != "" {
+		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, adj, ds)
+	}
 	return scope
+}
+
+// detectUnusedBindings warns about bindings that are not reachable from the
+// compute root or any merge/condition exit node. It performs a DFS forward
+// through the dependency graph (adj[b] = list of bindings that b depends on)
+// starting from exit nodes, then flags any binding not reached.
+// Generated internal names (prefixed with __if_ or __local_) are skipped.
+func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, adj map[string][]string, ds *diag.Diagnostics) {
+	reachable := make(map[string]bool, len(bindings))
+	var mark func(string)
+	mark = func(name string) {
+		if reachable[name] {
+			return
+		}
+		reachable[name] = true
+		for _, dep := range adj[name] {
+			mark(dep)
+		}
+	}
+	mark(root)
+	for _, n := range mergeNames {
+		mark(n)
+	}
+	for _, b := range bindings {
+		if reachable[b.Name] {
+			continue
+		}
+		if strings.HasPrefix(b.Name, names.GeneratedIfCondPrefix) ||
+			strings.HasPrefix(b.Name, names.GeneratedLocalPrefix) {
+			continue
+		}
+		*ds = append(*ds, diag.WarnAt("", 0, 0, diag.CodeUnusedBinding,
+			"prog %q: binding %q is declared but never used", progName, b.Name))
+	}
 }
 
 // buildBindingScope registers all bindings into the scope map, detects duplicate
@@ -614,6 +672,46 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 	}
 }
 
+// resolveCondBranch resolves the type of a cond then/else ArgModel branch.
+// It handles all three relevant ArgModel variants: FuncRef (function binding
+// reference), Ref (value binding reference), and Lit (inline literal).
+// Returns (fieldType, true) when the type is known, (Invalid, false) otherwise.
+func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.Diagnostics) (ast.FieldType, bool) {
+	if arg == nil {
+		return ast.FieldTypeInvalid, false
+	}
+	if arg.FuncRef != nil && *arg.FuncRef != "" {
+		ref := *arg.FuncRef
+		info, ok := scope[ref]
+		if !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
+				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
+			return ast.FieldTypeInvalid, false
+		}
+		if !info.isFunc {
+			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
+				"binding %q cond %s: %q is a value binding; a function binding is required", bindingName, branchName, ref))
+			return ast.FieldTypeInvalid, false
+		}
+		return info.fieldType, true
+	}
+	if arg.Ref != nil && *arg.Ref != "" {
+		ref := *arg.Ref
+		info, ok := scope[ref]
+		if !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
+			return ast.FieldTypeInvalid, false
+		}
+		return info.fieldType, true
+	}
+	if arg.Lit != nil {
+		ft, ok := structpbFieldType(arg.Lit)
+		return ft, ok
+	}
+	return ast.FieldTypeInvalid, false
+}
+
 func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	if cond.Condition != nil && cond.Condition.Ref != nil && *cond.Condition.Ref != "" {
 		condRef := *cond.Condition.Ref
@@ -628,38 +726,8 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 		}
 	}
 
-	var thenType, elseType ast.FieldType = ast.FieldTypeInvalid, ast.FieldTypeInvalid
-	var hasThen, hasElse bool
-
-	if cond.Then != nil && cond.Then.FuncRef != nil && *cond.Then.FuncRef != "" {
-		ref := *cond.Then.FuncRef
-		info, ok := scope[ref]
-		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
-				"binding %q cond then: %q is not defined", b.Name, ref))
-		} else if !info.isFunc {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
-				"binding %q cond then: %q is a value binding; a function binding is required", b.Name, ref))
-		} else {
-			thenType = info.fieldType
-			hasThen = true
-		}
-	}
-
-	if cond.ElseBranch != nil && cond.ElseBranch.FuncRef != nil && *cond.ElseBranch.FuncRef != "" {
-		ref := *cond.ElseBranch.FuncRef
-		info, ok := scope[ref]
-		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
-				"binding %q cond else: %q is not defined", b.Name, ref))
-		} else if !info.isFunc {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
-				"binding %q cond else: %q is a value binding; a function binding is required", b.Name, ref))
-		} else {
-			elseType = info.fieldType
-			hasElse = true
-		}
-	}
+	thenType, hasThen := resolveCondBranch(b.Name, "then", cond.Then, scope, ds)
+	elseType, hasElse := resolveCondBranch(b.Name, "else", cond.ElseBranch, scope, ds)
 
 	if hasThen && hasElse && thenType != elseType {
 		*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
@@ -1113,7 +1181,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx posI
 		return
 	}
 
-	nextScope := validateProg(nr.Compute.Prog, schema, true, idx, sceneID, actionID, scopeName, ds)
+	nextScope := validateProg(nr.Compute.Prog, schema, true, "", nil, idx, sceneID, actionID, scopeName, ds)
 
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]
@@ -1459,9 +1527,14 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 // participates in a reference cycle. Cycles cause infinite recursion in the
 // TypeScript runtime's buildExecutionTree and must be caught at validation time.
 //
-// Algorithm: Kahn's topological sort (BFS via in-degree).
-// Nodes that are never dequeued are in cycles. A secondary targeted DFS over
-// those nodes extracts one example cycle path for the error message.
+// Algorithm: Kahn's topological sort on the *dependency* graph.
+// adj[b] = bindings that b depends on, so in-degree counts how many bindings
+// each node is depended upon by. Nodes with in-degree 0 have no dependents
+// and are dequeued first (consumer-first order — reverse of execution order).
+// This direction is non-standard but cycle detection is direction-agnostic:
+// a cycle in the dependency graph is the same cycle in its reverse.
+// Nodes never dequeued are in cycles. A secondary targeted DFS over those
+// nodes extracts one example cycle path for the error message.
 func detectCycles(progName string, adj map[string][]string, bindings []*turnoutpb.BindingModel, ds *diag.Diagnostics) {
 	// --- Phase 1: Kahn's algorithm ---
 	inDegree := make(map[string]int, len(bindings))

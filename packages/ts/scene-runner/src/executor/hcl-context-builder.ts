@@ -1,7 +1,7 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import { SceneRuntimeError } from './errors.js';
 import type { AnyValue, BinaryFnNames, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
-import type { ProgModel, ArgModel } from '../types/turnout-model_pb.js';
+import type { ProgModel, BindingModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
 
@@ -189,6 +189,45 @@ export function buildSpec(
     throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition must resolve to a value or function binding');
   }
 
+  // Named handlers for each expression kind. These are inner functions so they
+  // capture spec, resolveArg, and other builder helpers via closure.
+  function handleCombineBinding(binding: BindingModel): void {
+    const c = binding.expr!.combine!;
+    spec[binding.name] = combine(mapFnName(c.fn, contextId), {
+      a: asCombineArg(resolveArg(c.args[0])),
+      b: asCombineArg(resolveArg(c.args[1])),
+    });
+  }
+
+  function handlePipeBinding(binding: BindingModel): void {
+    const p = binding.expr!.pipe!;
+    const argBindings: Record<string, string> = {};
+    for (const param of p.params) {
+      argBindings[param.paramName] = param.sourceIdent;
+    }
+    const steps = p.steps.map((step) =>
+      combine(mapFnName(step.fn, contextId), {
+        a: asCombineArg(resolveArg(step.args[0], binding.name)),
+        b: asCombineArg(resolveArg(step.args[1], binding.name)),
+      }),
+    );
+    spec[binding.name] = pipe(argBindings, steps);
+  }
+
+  function handleCondBinding(binding: BindingModel): void {
+    const c = binding.expr!.cond!;
+    const conditionRef = c.condition ? resolveCondConditionArg(c.condition) : '';
+    const thenRef = c.then ? (resolveArg(c.then) as string) : '';
+    const elseRef = c.elseBranch ? (resolveArg(c.elseBranch) as string) : '';
+    spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
+  }
+
+  const exprHandlers: Record<string, (binding: BindingModel) => void> = {
+    combine: handleCombineBinding,
+    pipe:    handlePipeBinding,
+    cond:    handleCondBinding,
+  };
+
   // Process each binding in declaration order (converter guarantees topological order).
   for (const binding of prog.bindings) {
     if (!binding.expr) {
@@ -196,31 +235,16 @@ export function buildSpec(
       const injected = injectedValues[binding.name];
       spec[binding.name] =
         injected !== undefined ? injected : literalToValue(binding.value!, binding.type);
-    } else if (binding.expr.combine) {
-      const c = binding.expr.combine;
-      spec[binding.name] = combine(mapFnName(c.fn, contextId), {
-        a: asCombineArg(resolveArg(c.args[0])),
-        b: asCombineArg(resolveArg(c.args[1])),
-      });
-    } else if (binding.expr.pipe) {
-      const p = binding.expr.pipe;
-      const argBindings: Record<string, string> = {};
-      for (const param of p.params) {
-        argBindings[param.paramName] = param.sourceIdent;
+    } else {
+      const kind = binding.expr.combine ? 'combine'
+                 : binding.expr.pipe    ? 'pipe'
+                 : binding.expr.cond    ? 'cond'
+                 : undefined;
+      if (!kind) {
+        throw new SceneRuntimeError('UnknownExprKind', contextId,
+          `binding "${binding.name}": unrecognized expr variant`);
       }
-      const steps = p.steps.map((step) =>
-        combine(mapFnName(step.fn, contextId), {
-          a: asCombineArg(resolveArg(step.args[0], binding.name)),
-          b: asCombineArg(resolveArg(step.args[1], binding.name)),
-        }),
-      );
-      spec[binding.name] = pipe(argBindings, steps);
-    } else if (binding.expr.cond) {
-      const c = binding.expr.cond;
-      const conditionRef = c.condition ? resolveCondConditionArg(c.condition) : '';
-      const thenRef = c.then ? (resolveArg(c.then) as string) : '';
-      const elseRef = c.elseBranch ? (resolveArg(c.elseBranch) as string) : '';
-      spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
+      exprHandlers[kind]!(binding);
     }
   }
 

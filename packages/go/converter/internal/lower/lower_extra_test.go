@@ -515,7 +515,7 @@ scene "test" {
 		t.Fatalf("parse: %v", ds)
 	}
 	// Pass a schema with an empty inner map to verify it produces no namespace entries.
-	schema := state.Schema{"empty": {}}
+	schema := state.NewSchemaFromMap(map[string]map[string]state.FieldMeta{"empty": {}})
 	lr, ds3 := lower.Lower(tf, schema)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)

@@ -144,6 +144,11 @@ const (
 	CodeCrossPipeStepRef      = "CrossPipeStepRef"
 	CodePipeArgNotValue       = "PipeArgNotValue"
 	CodeSingleRefTypeMismatch = "SingleRefTypeMismatch"
+	// CodeUnusedBinding is a warning emitted when a binding in a compute prog is
+	// declared but never reachable from the compute root, merge entries, or next
+	// rule conditions. Such bindings are dead code and likely indicate a typo or
+	// authoring mistake.
+	CodeUnusedBinding = "UnusedBinding"
 )
 
 // Error codes from state-shape-spec.md
@@ -214,6 +219,10 @@ const (
 	CodeUnresolvedAction     = "UnresolvedAction"
 	CodeMissingEntryScene    = "MissingEntryScene"
 	CodeUnresolvedEntryScene = "UnresolvedEntryScene"
+	// CodeWildcardTerminalUnresolvable is a warning emitted when a wildcard
+	// route pattern's terminal action name does not match any known action ID
+	// across all scenes, suggesting a likely typo.
+	CodeWildcardTerminalUnresolvable = "WildcardTerminalUnresolvable"
 )
 
 // Error codes for cross-action validation.
