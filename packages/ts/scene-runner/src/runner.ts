@@ -1,4 +1,4 @@
-import type { TurnModel } from './types/turnout-model_pb.js';
+import type { TurnModel, RouteModel, SceneBlock } from './types/turnout-model_pb.js';
 import type {
   ExecutionOptions,
   HookRegistry,
@@ -169,12 +169,157 @@ function makeRunnerMethods(
   };
 }
 
-function buildSceneMap(model: ReturnType<typeof migrateModel>) {
-  return Object.fromEntries(model.scenes.map((s) => [s.id, s]));
+// ─────────────────────────────────────────────────────────────────────────────
+// Scene factory
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a Runner that executes a single scene.
+ *
+ * Lower-level than `createRunner`: takes a resolved `SceneBlock` directly, so
+ * model migration and dispatch resolution are the caller's responsibility.
+ * Useful for tests that want to exercise a specific scene in isolation.
+ *
+ * `initialState` may be passed pre-built (e.g. from `stateManagerFromSchema`)
+ * to preserve schema validation. When absent, `options.initialState` is used
+ * with `stateManagerFromUnchecked`.
+ */
+export function createSceneRunner(
+  scene: SceneBlock,
+  options: RunnerOptions,
+  initialState?: StateManager,
+): Runner {
+  const signal = options.signal ?? new AbortController().signal;
+  const hooks: HookRegistry = { prepare: {}, publish: {} };
+  const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+
+  const sceneExecutor: SceneExecutor = createSceneExecutor(
+    scene,
+    state,
+    hooks,
+    undefined,
+    options.maxSceneSteps,
+    signal,
+  );
+
+  let done = false;
+
+  async function advanceScene(): Promise<RunnerStepResult> {
+    if (sceneExecutor.isDone()) {
+      done = true;
+      return { done: true };
+    }
+    const step = await sceneExecutor.next();
+    if (step.done) {
+      done = true;
+      return { done: true };
+    }
+    return { done: false, kind: 'action', sceneId: scene.id, actionId: step.trace.actionId, trace: step.trace };
+  }
+
+  return makeRunnerMethods(
+    hooks,
+    advanceScene,
+    () => done,
+    () => {
+      if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
+      const res = sceneExecutor.result();
+      return {
+        finalState: res.stateAfterScene.snapshot(),
+        trace: { kind: 'scene', scene: res.trace },
+      };
+    },
+    () => sceneExecutor.partialState(),
+    signal,
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Factory
+// Route factory
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Create a Runner that executes a route across multiple scenes.
+ *
+ * Lower-level than `createRunner`: takes a resolved `RouteModel`, the entry
+ * scene, and a pre-built scene map. Useful for tests that want to exercise a
+ * specific route without constructing a full `TurnModel`.
+ *
+ * `initialState` may be passed pre-built (e.g. from `stateManagerFromSchema`)
+ * to preserve schema validation. When absent, `options.initialState` is used
+ * with `stateManagerFromUnchecked`.
+ */
+export function createRouteRunner(
+  route: RouteModel,
+  entryScene: SceneBlock,
+  sceneMap: Record<string, SceneBlock>,
+  options: RunnerOptions,
+  initialState?: StateManager,
+): Runner {
+  const signal = options.signal ?? new AbortController().signal;
+  const hooks: HookRegistry = { prepare: {}, publish: {} };
+  const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+
+  const routeStepper: RouteStepper = createRouteStepper(
+    route.id,
+    parseMatchArms(route.match),
+    entryScene.id,
+    sceneMap,
+    state,
+    hooks,
+    options.maxSceneSteps,
+    options.maxRouteTransitions,
+    signal,
+  );
+
+  let done = false;
+  let prevSceneId = entryScene.id;
+  let pendingStep: { sceneId: string; trace: ActionTrace } | null = null;
+
+  async function advanceRoute(): Promise<RunnerStepResult> {
+    // Return a deferred action step that was stashed while emitting a transition.
+    if (pendingStep !== null) {
+      const step = pendingStep;
+      pendingStep = null;
+      return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
+    }
+
+    const step = await routeStepper.next();
+    if (step.done) {
+      done = true;
+      return { done: true };
+    }
+
+    // Emit a scene-transition event before the first action of a new scene.
+    if (step.sceneId !== prevSceneId) {
+      const fromSceneId = prevSceneId;
+      prevSceneId = step.sceneId;
+      pendingStep = { sceneId: step.sceneId, trace: step.trace };
+      return { done: false, kind: 'scene-transition', fromSceneId, toSceneId: step.sceneId };
+    }
+
+    return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
+  }
+
+  return makeRunnerMethods(
+    hooks,
+    advanceRoute,
+    () => done,
+    () => {
+      if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
+      const { finalState, trace } = routeStepper.result();
+      return {
+        finalState: finalState.snapshot(),
+        trace: { kind: 'route', route: trace },
+      };
+    },
+    () => routeStepper.partialState(),
+    signal,
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Full-model factory (thin dispatcher)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -190,125 +335,22 @@ function buildSceneMap(model: ReturnType<typeof migrateModel>) {
  *
  * `next()` and `run()` may throw `SceneRuntimeError` or `RouteRuntimeError`.
  * Use `executeSceneSafe` if you need partial-state recovery on failure.
+ *
+ * For testing individual modes without a full model, use `createSceneRunner` or
+ * `createRouteRunner` directly.
  */
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const migratedModel = migrateModel(model);
-  const sceneMap = buildSceneMap(migratedModel);
-
-  // Normalize signal: if caller provides none, create a no-op AbortController so
-  // downstream code always receives a valid AbortSignal and never needs to null-check.
-  const signal = options.signal ?? new AbortController().signal;
-
-  // hooks is passed by reference so registrations after construction are visible
-  // to the executor without needing to recreate it.
-  const hooks: HookRegistry = { prepare: {}, publish: {} };
+  const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   const initialState: StateManager = migratedModel.state
     ? stateManagerFromSchema(migratedModel.state, options.initialState)
     : stateManagerFromUnchecked(options.initialState);
 
-  // ── Determine execution mode (route vs scene) ─────────────────────────────
-
   const target = resolveDispatchTarget(migratedModel, options.entryId);
-  let done = false;
 
-  // Route mode
   if (target.kind === 'route') {
-    const routeStepper: RouteStepper = createRouteStepper(
-      target.route.id,
-      parseMatchArms(target.route.match),
-      target.entryScene.id,
-      sceneMap,
-      initialState,
-      hooks,
-      options.maxSceneSteps,
-      options.maxRouteTransitions,
-      signal,
-    );
-
-    let prevSceneId = target.entryScene.id;
-    let pendingStep: { sceneId: string; trace: ActionTrace } | null = null;
-
-    async function advanceRoute(): Promise<RunnerStepResult> {
-      // Return a deferred action step that was stashed while emitting a transition.
-      if (pendingStep !== null) {
-        const step = pendingStep;
-        pendingStep = null;
-        return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
-      }
-
-      const step = await routeStepper.next();
-      if (step.done) {
-        done = true;
-        return { done: true };
-      }
-
-      // Emit a scene-transition event before the first action of a new scene.
-      if (step.sceneId !== prevSceneId) {
-        const fromSceneId = prevSceneId;
-        prevSceneId = step.sceneId;
-        pendingStep = { sceneId: step.sceneId, trace: step.trace };
-        return { done: false, kind: 'scene-transition', fromSceneId, toSceneId: step.sceneId };
-      }
-
-      return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
-    }
-
-    return makeRunnerMethods(
-      hooks,
-      advanceRoute,
-      () => done,
-      () => {
-        if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
-        const { finalState, trace } = routeStepper.result();
-        return {
-          finalState: finalState.snapshot(),
-          trace: { kind: 'route', route: trace },
-          model: migratedModel,
-        };
-      },
-      () => routeStepper.partialState(),
-      signal,
-    );
+    return createRouteRunner(target.route, target.entryScene, sceneMap, options, initialState);
   }
-
-  // Scene mode
-  const sceneExecutor: SceneExecutor = createSceneExecutor(
-    target.scene,
-    initialState,
-    hooks,
-    undefined,
-    options.maxSceneSteps,
-    signal,
-  );
-
-  async function advanceScene(): Promise<RunnerStepResult> {
-    if (sceneExecutor.isDone()) {
-      done = true;
-      return { done: true };
-    }
-    const step = await sceneExecutor.next();
-    if (step.done) {
-      done = true;
-      return { done: true };
-    }
-    return { done: false, kind: 'action', sceneId: options.entryId, actionId: step.trace.actionId, trace: step.trace };
-  }
-
-  return makeRunnerMethods(
-    hooks,
-    advanceScene,
-    () => done,
-    () => {
-      if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
-      const res = sceneExecutor.result();
-      return {
-        finalState: res.stateAfterScene.snapshot(),
-        trace: { kind: 'scene', scene: res.trace },
-        model: migratedModel,
-      };
-    },
-    () => sceneExecutor.partialState(),
-    signal,
-  );
+  return createSceneRunner(target.scene, options, initialState);
 }

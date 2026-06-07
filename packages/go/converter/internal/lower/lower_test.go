@@ -3,6 +3,7 @@ package lower_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -605,7 +606,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr.Sidecar, "test", "a", lower.ComputeScope(), "p", "score", ast.SigilIngress)
+	assertSigilAnnotation(t, lr, "test", "a", lower.ComputeScope(), "p", "score", ast.SigilIngress)
 	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
@@ -638,7 +639,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr.Sidecar, "test", "a", lower.ComputeScope(), "p", "approved", ast.SigilEgress)
+	assertSigilAnnotation(t, lr, "test", "a", lower.ComputeScope(), "p", "approved", ast.SigilEgress)
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
 		t.Fatalf("expected 1 merge entry, got %d", len(mg))
@@ -670,7 +671,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr.Sidecar, "test", "a", lower.ComputeScope(), "p", "count", ast.SigilBiDir)
+	assertSigilAnnotation(t, lr, "test", "a", lower.ComputeScope(), "p", "count", ast.SigilBiDir)
 	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
 		t.Error("expected prepare entries")
 	}
@@ -825,16 +826,54 @@ func TestLowerIdempotency(t *testing.T) {
 	}
 }
 
-func assertSigilAnnotation(t *testing.T, sc *lower.Sidecar, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, want ast.Sigil) {
+func assertSigilAnnotation(t *testing.T, lr *lower.LowerResult, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, want ast.Sigil) {
 	t.Helper()
-	if sc == nil {
-		t.Fatal("nil sidecar: no sigil metadata available")
+	if lr == nil || lr.Model == nil {
+		t.Fatal("nil LowerResult: no model available")
 	}
-	got, ok := sc.Get(lower.BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: bindingName})
-	if !ok {
-		t.Fatalf("missing sigil for %s:%s:%s:%s:%s", sceneID, actionID, scope, progName, bindingName)
+	var scene *turnoutpb.SceneBlock
+	for _, s := range lr.Model.Scenes {
+		if s.Id == sceneID {
+			scene = s
+			break
+		}
 	}
+	if scene == nil {
+		t.Fatalf("scene %q not found", sceneID)
+	}
+	var action *turnoutpb.ActionModel
+	for _, a := range scene.Actions {
+		if a.Id == actionID {
+			action = a
+			break
+		}
+	}
+	if action == nil {
+		t.Fatalf("action %q not found in scene %q", actionID, sceneID)
+	}
+	var prog *turnoutpb.ProgModel
+	scopeStr := scope.String()
+	if scopeStr == "compute" {
+		if action.Compute != nil {
+			prog = action.Compute.Prog
+		}
+	} else if strings.HasPrefix(scopeStr, "next:") {
+		idx, err := strconv.Atoi(strings.TrimPrefix(scopeStr, "next:"))
+		if err != nil || idx < 0 || idx >= len(action.Next) {
+			t.Fatalf("invalid scope %q or index out of range (len=%d)", scopeStr, len(action.Next))
+		}
+		if action.Next[idx].Compute != nil {
+			prog = action.Next[idx].Compute.Prog
+		}
+	}
+	if prog == nil {
+		t.Fatalf("prog not found for scope %q", scopeStr)
+	}
+	if _, _ = progName, bindingName; progName != prog.Name {
+		t.Fatalf("prog name = %q, want %q", prog.Name, progName)
+	}
+	got := ast.Sigil(prog.Sigils[bindingName])
 	if got != want {
-		t.Fatalf("sigil = %v, want %v", got, want)
+		t.Fatalf("sigil for binding %q = %v, want %v", bindingName, got, want)
 	}
 }

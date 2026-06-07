@@ -216,7 +216,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			action, sc := buildIrregularAction(nil, nil, nil, tc.next)
 			// "transition_output_sigil" needs a sigil on binding "out" in the next-rule prog.
 			if tc.name == "transition_output_sigil" {
-				sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: lower.NextScope(0), ProgName: "n", BindingName: "out"}, ast.SigilEgress)
+				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": int32(ast.SigilEgress)}
 			}
 			model := irregularModelWithAction(action)
 			ds := validate.Validate(model, irregularSchema(), sc)
@@ -270,11 +270,13 @@ type irrBind struct {
 }
 
 // buildIrregularAction constructs an ActionModel with a "ready:bool = true" base binding
-// plus any additional bindings. Returns the action and a Sidecar with the sigil metadata.
+// plus any additional bindings. Sigils are stored directly in ProgModel.Sigils.
+// Returns the action and an empty Sidecar (for position metadata, which is not needed here).
 func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *lower.Sidecar) {
 	progBindings := []*turnoutpb.BindingModel{
 		{Name: "ready", Type: "bool", Value: structpb.NewBoolValue(true)},
 	}
+	progSigils := make(map[string]int32)
 	for _, ib := range bindings {
 		bm := &turnoutpb.BindingModel{Name: ib.name, Type: ib.ft.String()}
 		if ib.val != nil {
@@ -283,12 +285,8 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 			bm.Expr = ib.expr
 		}
 		progBindings = append(progBindings, bm)
-	}
-
-	sc := lower.NewSidecar()
-	for _, ib := range bindings {
 		if ib.sigil != ast.SigilNone {
-			sc.Set(lower.BindingKey{SceneID: "s", ActionID: "a", Scope: lower.ComputeScope(), ProgName: "p", BindingName: ib.name}, ib.sigil)
+			progSigils[ib.name] = int32(ib.sigil)
 		}
 	}
 
@@ -299,10 +297,11 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 			Prog: &turnoutpb.ProgModel{
 				Name:     "p",
 				Bindings: progBindings,
+				Sigils:   progSigils,
 			},
 		},
 		Prepare: prepare,
 		Merge:   merge,
 		Next:    next,
-	}, sc
+	}, lower.NewSidecar()
 }

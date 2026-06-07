@@ -240,7 +240,7 @@ func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.State
 	}
 	slices.Sort(nsNames)
 
-	nsList := make([]nsEntry, 0, len(nsNames))
+	var nsList []nsEntry
 	for _, nsName := range nsNames {
 		fields := schema[nsName]
 		if len(fields) == 0 {
@@ -442,17 +442,18 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 	pm := &turnoutpb.ProgModel{
 		Name:     prog.Name,
 		Bindings: make([]*turnoutpb.BindingModel, 0, len(prog.Bindings)),
+		Sigils:   make(map[string]int32),
 	}
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, sceneID, actionID, scope, prog.Name, sc, ds, bindingTypes)
+		bindings := lowerBinding(decl, resolver, sceneID, actionID, scope, pm, sc, ds, bindingTypes)
 		pm.Bindings = append(pm.Bindings, bindings...)
 	}
 	return pm
 }
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
-// Sigils are captured in the sidecar keyed by (sceneID, actionID, progName, bindingName).
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, progName string, sc *Sidecar, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
+// Sigils are written directly into pm.Sigils; source positions go into the sidecar.
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, pm *turnoutpb.ProgModel, sc *Sidecar, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -489,12 +490,14 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		return nil
 	}
 
-	// Capture sigil for the user-declared binding (matched by name).
-	// Auto-generated bindings (e.g. __if_X_cond) have different names and keep SigilNone.
+	// Record sigil in proto and source position in sidecar for the user-declared
+	// binding (matched by name). Auto-generated bindings keep SigilNone.
 	if decl.Sigil != ast.SigilNone {
 		for _, b := range bindings {
 			if b.Name == name {
-				sc.Set(BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: progName, BindingName: name}, decl.Sigil)
+				pm.Sigils[name] = int32(decl.Sigil)
+				key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: pm.Name, BindingName: name}
+				sc.SetPos(key, decl.Pos)
 			}
 		}
 	}

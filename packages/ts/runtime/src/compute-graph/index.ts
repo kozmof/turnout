@@ -32,7 +32,6 @@ export type {
   ConditionId,
   FuncId,
   ValueId,
-  PipeArgName,
   ArgName,
   CombineDefineId,
   PipeDefineId,

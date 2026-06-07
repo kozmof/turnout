@@ -1,5 +1,5 @@
 // Universal exports — safe for client and server environments.
-export { createRunner } from './runner.js';
+export { createRunner, createSceneRunner, createRouteRunner } from './runner.js';
 export type { Runner, RunnerOptions, RunnerStepResult } from './runner.js';
 export { runHarness } from './harness/harness.js';
 export type {

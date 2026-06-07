@@ -9,7 +9,6 @@ import {
   makeCondDefineId,
   makeValueId,
   makeFuncId,
-  makePipeArgName,
   makeArgName,
 } from './types';
 import type {
@@ -128,10 +127,6 @@ describe('types', () => {
 
     it('creates a FuncId', () => {
       expect(makeFuncId('f1')).toBe('f1');
-    });
-
-    it('creates a PipeArgName', () => {
-      expect(makePipeArgName('x')).toBe('x');
     });
 
     it('creates an ArgName', () => {

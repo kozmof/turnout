@@ -83,14 +83,16 @@ var builtinFns = map[string]fnSpec{
 // Sigil index — O(1) lookup replacing the prior O(N) linear scan
 // ─────────────────────────────────────────────────────────────────────────────
 
-// sigilIndex maps "sceneID:actionID:scope:progName:bindingName" → Sigil.
-type sigilIndex map[string]ast.Sigil
+// posIndex maps "sceneID:actionID:scope:progName:bindingName" → source position.
+// Sigils are now stored in ProgModel.Sigils (proto field); this index carries
+// only the source positions needed for positioned diagnostic messages.
+type posIndex map[string]ast.Pos
 
-func buildSigilIndexFromSidecar(sc *lower.Sidecar) sigilIndex {
+func buildPosIndexFromSidecar(sc *lower.Sidecar) posIndex {
 	if sc == nil {
-		return sigilIndex{}
+		return posIndex{}
 	}
-	return sc.ToSigilIndex()
+	return posIndex(sc.ToPositionIndex())
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,16 +100,16 @@ func buildSigilIndexFromSidecar(sc *lower.Sidecar) sigilIndex {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Validate runs all structural and type validation rules against the proto model.
-// sc is the binding sigil sidecar produced by the lowerer; pass nil to skip sigil
-// checks (e.g. when validating a model loaded from disk without a lowering run).
-// schema may be nil. Returns diagnostics; callers must check HasErrors() before
-// proceeding to emission.
+// sc carries per-binding source positions from the lowerer for positioned diagnostics;
+// pass nil when validating a model loaded from disk (sigil checks still run via
+// ProgModel.Sigils in the proto). schema may be nil. Returns diagnostics; callers
+// must check HasErrors() before proceeding to emission.
 func Validate(tm *turnoutpb.TurnModel, schema state.Schema, sc *lower.Sidecar) diag.Diagnostics {
 	var ds diag.Diagnostics
 	if tm == nil {
 		return ds
 	}
-	idx := buildSigilIndexFromSidecar(sc)
+	idx := buildPosIndexFromSidecar(sc)
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
@@ -231,7 +233,7 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 // Group D — Scene structural validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx sigilIndex, ds *diag.Diagnostics) {
+func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx posIndex, ds *diag.Diagnostics) {
 	actionIndex := make(map[string]*turnoutpb.ActionModel, len(scene.Actions))
 	for _, a := range scene.Actions {
 		if _, exists := actionIndex[a.Id]; exists {
@@ -298,7 +300,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx sigilIn
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, idx posIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -310,7 +312,7 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 
 // buildBindingScope registers all bindings into the scope map, detects duplicate
 // names, records sigils, and builds the adjacency map used by detectCycles.
-func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
+func buildBindingScope(prog *turnoutpb.ProgModel, idx posIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
 	adj := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
@@ -322,7 +324,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actio
 			seen[b.Name] = true
 		}
 		ft := ast.MustFieldTypeFromString(b.Type)
-		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
+		sigil := ast.Sigil(prog.Sigils[b.Name])
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
 			isFunc:    b.Expr != nil || b.ExtExpr != nil,
@@ -334,6 +336,19 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actio
 		} else if b.ExtExpr != nil {
 			collectLocalExprBindingRefs(b.ExtExpr, &refs)
 		}
+		// Deduplicate refs so that Kahn's in-degree counts each dependency once,
+		// regardless of how many times a binding name appears in function arguments.
+		if len(refs) > 1 {
+			refSeen := make(map[string]struct{}, len(refs))
+			unique := refs[:0]
+			for _, r := range refs {
+				if _, ok := refSeen[r]; !ok {
+					refSeen[r] = struct{}{}
+					unique = append(unique, r)
+				}
+			}
+			refs = unique
+		}
 		adj[b.Name] = refs
 	}
 	return scope, adj
@@ -342,10 +357,10 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx sigilIndex, sceneID, actio
 // validateBindingTypes runs per-binding structural and type checks against the
 // already-built scope. Handles reserved names, transition sigil constraints,
 // literal type conformance, and expr/ext_expr type checking.
-func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
+func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx posIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
 		ft := ast.MustFieldTypeFromString(b.Type)
-		sigil := sigilFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
+		sigil := ast.Sigil(prog.Sigils[b.Name])
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !(strings.HasPrefix(b.Name, names.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, names.GeneratedIfCondSuffix)) &&
@@ -356,8 +371,14 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 		}
 
 		if isTransition && (sigil == ast.SigilEgress || sigil == ast.SigilBiDir) {
-			*ds = append(*ds, diag.Errorf(diag.CodeTransitionOutputSigil,
-				"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
+			pos := posFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
+			if pos.File != "" {
+				*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTransitionOutputSigil,
+					"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
+			} else {
+				*ds = append(*ds, diag.Errorf(diag.CodeTransitionOutputSigil,
+					"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
+			}
 		}
 
 		if b.ExtExpr != nil {
@@ -390,8 +411,9 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 	}
 }
 
-// sigilFor looks up the sigil for a binding from the pre-built index.
-func sigilFor(idx sigilIndex, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Sigil {
+// posFor returns the source position for a binding from the position index.
+// Returns the zero Pos if no position is recorded (e.g. for auto-generated bindings).
+func posFor(idx posIndex, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Pos {
 	key := fmt.Sprintf("%s:%s:%s:%s:%s", sceneID, actionID, scope, progName, bindingName)
 	return idx[key]
 }
@@ -1056,7 +1078,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx sigilIndex, sceneID, actionID string, scopeName lower.ProgScope, actionScope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx posIndex, sceneID, actionID string, scopeName lower.ProgScope, actionScope map[string]bindingInfo, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -1235,6 +1257,11 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 		idx := int(*arg.StepRef)
 		if idx >= 0 && idx < len(stepTypes) && stepTypes[idx] != 0 {
 			return stepTypes[idx], true
+		}
+	}
+	if arg.Transform != nil {
+		if info, ok := scope[arg.Transform.Ref]; ok {
+			return lower.TransformChainOutputType(info.fieldType, arg.Transform.Fn)
 		}
 	}
 	return 0, false

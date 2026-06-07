@@ -98,15 +98,48 @@ type Token struct {
 
 // Tokenize lexes the Turn DSL source src and returns the token stream.
 // file is the source file name used in diagnostic positions.
+//
+// Line endings are normalised before lexing: \r\n pairs and bare \r are both
+// converted to \n so that the rest of the lexer only needs to handle \n and
+// token positions are consistent regardless of the host OS line ending style.
 func Tokenize(file, src string) ([]Token, diag.Diagnostics) {
+	runes := normalizeLineEndings([]rune(src))
 	l := &lex{
 		file: file,
-		src:  []rune(src),
+		src:  runes,
 		line: 1,
 		col:  1,
 	}
 	l.run()
 	return l.toks, l.Diags
+}
+
+// normalizeLineEndings converts \r\n and lone \r to \n in a rune slice.
+// The returned slice may be the same slice as the input (no allocations) when
+// no carriage-return characters are present, which is the common case.
+func normalizeLineEndings(src []rune) []rune {
+	hasCR := false
+	for _, r := range src {
+		if r == '\r' {
+			hasCR = true
+			break
+		}
+	}
+	if !hasCR {
+		return src
+	}
+	out := make([]rune, 0, len(src))
+	for i := 0; i < len(src); i++ {
+		if src[i] == '\r' {
+			out = append(out, '\n')
+			if i+1 < len(src) && src[i+1] == '\n' {
+				i++ // skip the \n in \r\n
+			}
+		} else {
+			out = append(out, src[i])
+		}
+	}
+	return out
 }
 
 // ────────────────────────────────────────────────────────────

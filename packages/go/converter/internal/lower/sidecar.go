@@ -1,12 +1,14 @@
-// sidecar.go carries per-binding sigil metadata outside the proto IR for the validator.
+// sidecar.go carries per-binding source-position metadata outside the proto IR.
+// Sigils are stored directly in ProgModel.Sigils (the proto); positions cannot
+// live in the proto and are held here for use by the validator when emitting
+// positioned diagnostics.
 package lower
 
 import (
 	"fmt"
-	"sort"
+	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
-	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -16,6 +18,11 @@ import (
 // ProgScope is a self-describing key that identifies which prog within an action
 // a binding belongs to. The string form is human-readable and stable across
 // rule reorderings, making it safe to use as a map key.
+//
+// Valid forms (produced only by the two factory functions below):
+//
+//	"compute"   — from ComputeScope()
+//	"next:<N>"  — from NextScope(N), where N is a non-negative integer
 type ProgScope string
 
 // ComputeScope returns the ProgScope for the action's main compute prog.
@@ -26,6 +33,28 @@ func NextScope(i int) ProgScope { return ProgScope(fmt.Sprintf("next:%d", i)) }
 
 func (s ProgScope) String() string { return string(s) }
 
+// ParseProgScope validates and parses a ProgScope from a raw string (e.g. from
+// a serialised proto annotation). Returns (scope, true) for the two valid forms;
+// returns ("", false) for any unrecognised string.
+func ParseProgScope(s string) (ProgScope, bool) {
+	if s == "compute" {
+		return ProgScope(s), true
+	}
+	if strings.HasPrefix(s, "next:") {
+		rest := s[len("next:"):]
+		if len(rest) == 0 {
+			return "", false
+		}
+		for _, ch := range rest {
+			if ch < '0' || ch > '9' {
+				return "", false
+			}
+		}
+		return ProgScope(s), true
+	}
+	return "", false
+}
+
 // BindingKey uniquely identifies a binding within the model.
 // Scope distinguishes the action's main compute prog from each transition prog.
 type BindingKey struct {
@@ -35,85 +64,53 @@ type BindingKey struct {
 	BindingName       string
 }
 
-// sigilAnnotationKey encodes a BindingKey as the canonical map key used in
-// TurnModel.Annotations.Sigils.
-func sigilAnnotationKey(k BindingKey) string {
+// bindingKeyString encodes a BindingKey as a flat string map key.
+// Format: "sceneID:actionID:scope:progName:bindingName".
+func bindingKeyString(k BindingKey) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s", k.SceneID, k.ActionID, k.Scope, k.ProgName, k.BindingName)
 }
 
-// Sidecar carries DSL metadata that is not part of the proto IR:
-//   - Sigil per binding (validator-only)
+// Sidecar carries DSL metadata that cannot live in the proto IR.
+// Currently: source positions per binding, used by the validator to emit
+// positioned diagnostics for sigil-related errors.
+// Sigils are stored directly in ProgModel.Sigils (proto field).
 type Sidecar struct {
-	sigils map[BindingKey]ast.Sigil
+	positions map[BindingKey]ast.Pos
 }
 
 // NewSidecar returns an empty, non-nil Sidecar.
 func NewSidecar() *Sidecar {
-	return &Sidecar{sigils: make(map[BindingKey]ast.Sigil)}
+	return &Sidecar{positions: make(map[BindingKey]ast.Pos)}
 }
 
 // newSidecar is the package-internal alias used by Lower().
 func newSidecar() *Sidecar { return NewSidecar() }
 
-// Set records the sigil for the given binding key.
-func (s *Sidecar) Set(key BindingKey, sigil ast.Sigil) {
-	s.sigils[key] = sigil
+// SetPos records the source position for the given binding key.
+func (s *Sidecar) SetPos(key BindingKey, pos ast.Pos) {
+	s.positions[key] = pos
 }
 
-// Get returns the sigil for the given binding key, or SigilNone if absent.
-func (s *Sidecar) Get(key BindingKey) (ast.Sigil, bool) {
-	v, ok := s.sigils[key]
-	return v, ok
-}
-
-// Merge copies all entries from other into s.
+// Merge copies all position entries from other into s.
 func (s *Sidecar) Merge(other *Sidecar) {
 	if other == nil {
 		return
 	}
-	for k, v := range other.sigils {
-		s.sigils[k] = v
+	for k, v := range other.positions {
+		s.positions[k] = v
 	}
 }
 
-// ToSigilIndex converts the sidecar into a flat string-keyed map for O(1) lookup
-// during validation. The key format is "sceneID:actionID:scope:progName:bindingName".
-func (s *Sidecar) ToSigilIndex() map[string]ast.Sigil {
-	if s == nil || len(s.sigils) == 0 {
-		return map[string]ast.Sigil{}
+// ToPositionIndex converts the sidecar into a flat string-keyed map of source
+// positions for O(1) lookup during validation.
+// Key format: "sceneID:actionID:scope:progName:bindingName".
+func (s *Sidecar) ToPositionIndex() map[string]ast.Pos {
+	if s == nil || len(s.positions) == 0 {
+		return map[string]ast.Pos{}
 	}
-	idx := make(map[string]ast.Sigil, len(s.sigils))
-	for k, v := range s.sigils {
-		idx[sigilAnnotationKey(k)] = v
+	idx := make(map[string]ast.Pos, len(s.positions))
+	for k, v := range s.positions {
+		idx[bindingKeyString(k)] = v
 	}
 	return idx
-}
-
-// ToAnnotations converts the sidecar into a SigilAnnotations proto message.
-// Retained for callers that need the proto representation (e.g. JSON emission).
-// Returns nil when empty. Entries are sorted by key so the output is deterministic.
-func (s *Sidecar) ToAnnotations() *turnoutpb.SigilAnnotations {
-	if len(s.sigils) == 0 {
-		return nil
-	}
-	keys := make([]BindingKey, 0, len(s.sigils))
-	for k := range s.sigils {
-		keys = append(keys, k)
-	}
-	sort.Slice(keys, func(i, j int) bool {
-		return sigilAnnotationKey(keys[i]) < sigilAnnotationKey(keys[j])
-	})
-
-	entries := make([]*turnoutpb.SigilAnnotation, 0, len(keys))
-	for _, k := range keys {
-		entries = append(entries, &turnoutpb.SigilAnnotation{
-			SceneId:     k.SceneID,
-			ActionId:    k.ActionID,
-			Scope:       k.Scope.String(),
-			ProgName:    k.ProgName,
-			BindingName: k.BindingName,
-			Sigil:       int32(s.sigils[k]),
-		})
-	}
-	return &turnoutpb.SigilAnnotations{Entries: entries}
 }

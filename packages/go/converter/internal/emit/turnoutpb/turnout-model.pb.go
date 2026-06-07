@@ -781,9 +781,12 @@ func (x *ComputeModel) GetProg() *ProgModel {
 }
 
 type ProgModel struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Bindings      []*BindingModel        `protobuf:"bytes,2,rep,name=bindings,proto3" json:"bindings,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	Name     string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Bindings []*BindingModel        `protobuf:"bytes,2,rep,name=bindings,proto3" json:"bindings,omitempty"`
+	// sigils carries binding-sigil metadata populated by the lowerer and consumed
+	// by the validator. Cleared before JSON emission; not visible to the runtime.
+	Sigils        map[string]int32 `protobuf:"bytes,3,rep,name=sigils,proto3" json:"sigils,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"varint,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -828,6 +831,13 @@ func (x *ProgModel) GetName() string {
 func (x *ProgModel) GetBindings() []*BindingModel {
 	if x != nil {
 		return x.Bindings
+	}
+	return nil
+}
+
+func (x *ProgModel) GetSigils() map[string]int32 {
+	if x != nil {
+		return x.Sigils
 	}
 	return nil
 }
@@ -2708,10 +2718,14 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x05_text\"S\n" +
 	"\fComputeModel\x12\x12\n" +
 	"\x04root\x18\x01 \x01(\tR\x04root\x12/\n" +
-	"\x04prog\x18\x02 \x01(\v2\x1b.turnout.model.v1.ProgModelR\x04prog\"[\n" +
+	"\x04prog\x18\x02 \x01(\v2\x1b.turnout.model.v1.ProgModelR\x04prog\"\xd7\x01\n" +
 	"\tProgModel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12:\n" +
-	"\bbindings\x18\x02 \x03(\v2\x1e.turnout.model.v1.BindingModelR\bbindings\"\xd2\x01\n" +
+	"\bbindings\x18\x02 \x03(\v2\x1e.turnout.model.v1.BindingModelR\bbindings\x12?\n" +
+	"\x06sigils\x18\x03 \x03(\v2'.turnout.model.v1.ProgModel.SigilsEntryR\x06sigils\x1a9\n" +
+	"\vSigilsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xd2\x01\n" +
 	"\fBindingModel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12,\n" +
@@ -2866,7 +2880,7 @@ func file_turnout_model_proto_rawDescGZIP() []byte {
 }
 
 var file_turnout_model_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 41)
+var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_turnout_model_proto_goTypes = []any{
 	(InfixOp)(0),                       // 0: turnout.model.v1.InfixOp
 	(*TurnModel)(nil),                  // 1: turnout.model.v1.TurnModel
@@ -2910,7 +2924,8 @@ var file_turnout_model_proto_goTypes = []any{
 	(*LocalWildcardPatternModel)(nil),  // 39: turnout.model.v1.LocalWildcardPatternModel
 	(*LocalLitPatternModel)(nil),       // 40: turnout.model.v1.LocalLitPatternModel
 	(*LocalVarBinderPatternModel)(nil), // 41: turnout.model.v1.LocalVarBinderPatternModel
-	(*structpb.Value)(nil),             // 42: google.protobuf.Value
+	nil,                                // 42: turnout.model.v1.ProgModel.SigilsEntry
+	(*structpb.Value)(nil),             // 43: google.protobuf.Value
 }
 var file_turnout_model_proto_depIdxs = []int32{
 	4,  // 0: turnout.model.v1.TurnModel.state:type_name -> turnout.model.v1.StateModel
@@ -2920,7 +2935,7 @@ var file_turnout_model_proto_depIdxs = []int32{
 	3,  // 4: turnout.model.v1.SigilAnnotations.entries:type_name -> turnout.model.v1.SigilAnnotation
 	5,  // 5: turnout.model.v1.StateModel.namespaces:type_name -> turnout.model.v1.NamespaceModel
 	6,  // 6: turnout.model.v1.NamespaceModel.fields:type_name -> turnout.model.v1.FieldModel
-	42, // 7: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
+	43, // 7: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
 	9,  // 8: turnout.model.v1.SceneBlock.actions:type_name -> turnout.model.v1.ActionModel
 	8,  // 9: turnout.model.v1.SceneBlock.view:type_name -> turnout.model.v1.ViewBlock
 	10, // 10: turnout.model.v1.ActionModel.compute:type_name -> turnout.model.v1.ComputeModel
@@ -2929,58 +2944,59 @@ var file_turnout_model_proto_depIdxs = []int32{
 	23, // 13: turnout.model.v1.ActionModel.next:type_name -> turnout.model.v1.NextRuleModel
 	11, // 14: turnout.model.v1.ComputeModel.prog:type_name -> turnout.model.v1.ProgModel
 	12, // 15: turnout.model.v1.ProgModel.bindings:type_name -> turnout.model.v1.BindingModel
-	42, // 16: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
-	13, // 17: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
-	28, // 18: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
-	14, // 19: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
-	15, // 20: turnout.model.v1.ExprModel.pipe:type_name -> turnout.model.v1.PipeExpr
-	18, // 21: turnout.model.v1.ExprModel.cond:type_name -> turnout.model.v1.CondExpr
-	19, // 22: turnout.model.v1.CombineExpr.args:type_name -> turnout.model.v1.ArgModel
-	16, // 23: turnout.model.v1.PipeExpr.params:type_name -> turnout.model.v1.PipeParam
-	17, // 24: turnout.model.v1.PipeExpr.steps:type_name -> turnout.model.v1.PipeStep
-	19, // 25: turnout.model.v1.PipeStep.args:type_name -> turnout.model.v1.ArgModel
-	19, // 26: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
-	19, // 27: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
-	19, // 28: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
-	42, // 29: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
-	20, // 30: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
-	24, // 31: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
-	25, // 32: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
-	11, // 33: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
-	42, // 34: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
-	27, // 35: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
-	29, // 36: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
-	30, // 37: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
-	31, // 38: turnout.model.v1.LocalExprModel.it:type_name -> turnout.model.v1.LocalItExprModel
-	32, // 39: turnout.model.v1.LocalExprModel.call:type_name -> turnout.model.v1.LocalCallExprModel
-	33, // 40: turnout.model.v1.LocalExprModel.infix:type_name -> turnout.model.v1.LocalInfixExprModel
-	34, // 41: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
-	36, // 42: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
-	37, // 43: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
-	42, // 44: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
-	28, // 45: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
-	0,  // 46: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
-	28, // 47: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
-	28, // 48: turnout.model.v1.LocalInfixExprModel.rhs:type_name -> turnout.model.v1.LocalExprModel
-	28, // 49: turnout.model.v1.LocalIfExprModel.cond:type_name -> turnout.model.v1.LocalExprModel
-	28, // 50: turnout.model.v1.LocalIfExprModel.then:type_name -> turnout.model.v1.LocalExprModel
-	28, // 51: turnout.model.v1.LocalIfExprModel.else_branch:type_name -> turnout.model.v1.LocalExprModel
-	38, // 52: turnout.model.v1.LocalCaseArmModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
-	28, // 53: turnout.model.v1.LocalCaseArmModel.guard:type_name -> turnout.model.v1.LocalExprModel
-	28, // 54: turnout.model.v1.LocalCaseArmModel.expr:type_name -> turnout.model.v1.LocalExprModel
-	28, // 55: turnout.model.v1.LocalCaseExprModel.subject:type_name -> turnout.model.v1.LocalExprModel
-	35, // 56: turnout.model.v1.LocalCaseExprModel.arms:type_name -> turnout.model.v1.LocalCaseArmModel
-	28, // 57: turnout.model.v1.LocalPipeExprModel.initial:type_name -> turnout.model.v1.LocalExprModel
-	28, // 58: turnout.model.v1.LocalPipeExprModel.steps:type_name -> turnout.model.v1.LocalExprModel
-	39, // 59: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
-	40, // 60: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
-	41, // 61: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
-	42, // 62: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
-	63, // [63:63] is the sub-list for method output_type
-	63, // [63:63] is the sub-list for method input_type
-	63, // [63:63] is the sub-list for extension type_name
-	63, // [63:63] is the sub-list for extension extendee
-	0,  // [0:63] is the sub-list for field type_name
+	42, // 16: turnout.model.v1.ProgModel.sigils:type_name -> turnout.model.v1.ProgModel.SigilsEntry
+	43, // 17: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
+	13, // 18: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
+	28, // 19: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
+	14, // 20: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
+	15, // 21: turnout.model.v1.ExprModel.pipe:type_name -> turnout.model.v1.PipeExpr
+	18, // 22: turnout.model.v1.ExprModel.cond:type_name -> turnout.model.v1.CondExpr
+	19, // 23: turnout.model.v1.CombineExpr.args:type_name -> turnout.model.v1.ArgModel
+	16, // 24: turnout.model.v1.PipeExpr.params:type_name -> turnout.model.v1.PipeParam
+	17, // 25: turnout.model.v1.PipeExpr.steps:type_name -> turnout.model.v1.PipeStep
+	19, // 26: turnout.model.v1.PipeStep.args:type_name -> turnout.model.v1.ArgModel
+	19, // 27: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
+	19, // 28: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
+	19, // 29: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
+	43, // 30: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
+	20, // 31: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
+	24, // 32: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
+	25, // 33: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
+	11, // 34: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
+	43, // 35: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
+	27, // 36: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
+	29, // 37: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
+	30, // 38: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
+	31, // 39: turnout.model.v1.LocalExprModel.it:type_name -> turnout.model.v1.LocalItExprModel
+	32, // 40: turnout.model.v1.LocalExprModel.call:type_name -> turnout.model.v1.LocalCallExprModel
+	33, // 41: turnout.model.v1.LocalExprModel.infix:type_name -> turnout.model.v1.LocalInfixExprModel
+	34, // 42: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
+	36, // 43: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
+	37, // 44: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
+	43, // 45: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
+	28, // 46: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
+	0,  // 47: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
+	28, // 48: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
+	28, // 49: turnout.model.v1.LocalInfixExprModel.rhs:type_name -> turnout.model.v1.LocalExprModel
+	28, // 50: turnout.model.v1.LocalIfExprModel.cond:type_name -> turnout.model.v1.LocalExprModel
+	28, // 51: turnout.model.v1.LocalIfExprModel.then:type_name -> turnout.model.v1.LocalExprModel
+	28, // 52: turnout.model.v1.LocalIfExprModel.else_branch:type_name -> turnout.model.v1.LocalExprModel
+	38, // 53: turnout.model.v1.LocalCaseArmModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
+	28, // 54: turnout.model.v1.LocalCaseArmModel.guard:type_name -> turnout.model.v1.LocalExprModel
+	28, // 55: turnout.model.v1.LocalCaseArmModel.expr:type_name -> turnout.model.v1.LocalExprModel
+	28, // 56: turnout.model.v1.LocalCaseExprModel.subject:type_name -> turnout.model.v1.LocalExprModel
+	35, // 57: turnout.model.v1.LocalCaseExprModel.arms:type_name -> turnout.model.v1.LocalCaseArmModel
+	28, // 58: turnout.model.v1.LocalPipeExprModel.initial:type_name -> turnout.model.v1.LocalExprModel
+	28, // 59: turnout.model.v1.LocalPipeExprModel.steps:type_name -> turnout.model.v1.LocalExprModel
+	39, // 60: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
+	40, // 61: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
+	41, // 62: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
+	43, // 63: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
+	64, // [64:64] is the sub-list for method output_type
+	64, // [64:64] is the sub-list for method input_type
+	64, // [64:64] is the sub-list for extension type_name
+	64, // [64:64] is the sub-list for extension extendee
+	0,  // [0:64] is the sub-list for field type_name
 }
 
 func init() { file_turnout_model_proto_init() }
@@ -3017,7 +3033,7 @@ func file_turnout_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_turnout_model_proto_rawDesc), len(file_turnout_model_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   41,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

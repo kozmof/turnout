@@ -99,5 +99,7 @@ export type ExecutionTrace =
 export type HarnessResult = {
   finalState: Record<string, AnyValue>;
   trace: ExecutionTrace;
-  model: TurnModel;
+  // model is present when produced by createRunner or runHarness (full-model factories).
+  // createSceneRunner and createRouteRunner omit it since they receive only a fragment.
+  model?: TurnModel;
 };

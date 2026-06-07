@@ -113,6 +113,9 @@ message ComputeModel {
 message ProgModel {
   string name = 1;
   repeated BindingModel bindings = 2;
+  // sigils carries binding-sigil metadata populated by the lowerer and consumed
+  // by the validator. Cleared before JSON emission; not visible to the runtime.
+  map<string, int32> sigils = 3;
 }
 
 message BindingModel {

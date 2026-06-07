@@ -37,7 +37,6 @@ export type PipeDefineId = Brand<string, 'pipeDefineId'>;
 export type CondDefineId = Brand<string, 'condDefineId'>;
 export type ValueId = Brand<string, 'valueId'>;
 export type FuncId = Brand<string, 'funcId'>;
-export type PipeArgName = Brand<string, 'pipeArgName'>;
 export type ArgName = Brand<string, 'argName'>;
 
 /** Typed constructor helpers — centralise `as XxxId` casts to one place. */
@@ -46,7 +45,6 @@ export const makePipeDefineId    = (s: string): PipeDefineId    => s as PipeDefi
 export const makeCondDefineId    = (s: string): CondDefineId    => s as CondDefineId;
 export const makeValueId         = (s: string): ValueId         => s as ValueId;
 export const makeFuncId          = (s: string): FuncId          => s as FuncId;
-export const makePipeArgName     = (s: string): PipeArgName     => s as PipeArgName;
 export const makeArgName         = (s: string): ArgName         => s as ArgName;
 
 /**

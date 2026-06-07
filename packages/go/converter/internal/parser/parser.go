@@ -122,6 +122,21 @@ func (p *parser) expectIdent() (lexer.Token, bool) {
 	return p.expect(lexer.TokIdent)
 }
 
+// skipNamedArg detects a `name:` named-argument prefix at the current position.
+// If found, it consumes the name and colon tokens, records a diagnostic via
+// DiagSink.Append (respecting the cap/halt mechanism), and returns true.
+// Returns false without advancing when no named-arg prefix is present.
+func (p *parser) skipNamedArg() bool {
+	if p.peek().Kind != lexer.TokIdent || p.peekAt(1).Kind != lexer.TokColon {
+		return false
+	}
+	nameTok := p.advance() // consume name
+	p.advance()            // consume ':'
+	p.Append(diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
+		diag.CodeNamedArgNotSupported, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
+	return true
+}
+
 // skipTo advances past tokens until the current token is one of the given
 // kinds (or EOF). Used for error recovery.
 func (p *parser) skipTo(kinds ...lexer.TokenKind) {
@@ -445,12 +460,7 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 	p.expect(lexer.TokLParen)
 	args := make([]ast.Arg, 0, 2) // most DSL functions are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
-			nameTok := p.advance() // consume name
-			p.advance()            // consume ':'
-			p.Diags = append(p.Diags, diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
-				diag.CodeNamedArgNotSupported, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
-		}
+		p.skipNamedArg()
 		args = append(args, p.parseArg())
 		if p.peek().Kind == lexer.TokComma {
 			p.advance()
@@ -797,12 +807,7 @@ func (p *parser) parseLocalArgList() []ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	args := make([]ast.LocalExpr, 0, 2) // most DSL calls are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		if p.peek().Kind == lexer.TokIdent && p.peekAt(1).Kind == lexer.TokColon {
-			nameTok := p.advance() // consume name
-			p.advance()            // consume ':'
-			p.Diags = append(p.Diags, diag.ErrorAt(p.file, nameTok.Line, nameTok.Col,
-				diag.CodeNamedArgNotSupported, "named argument %q is not supported; pass arguments positionally", nameTok.Value))
-		}
+		p.skipNamedArg()
 		args = append(args, p.parseLocalExpr())
 		if p.peek().Kind == lexer.TokComma {
 			p.advance()

@@ -2,6 +2,8 @@
 package lower
 
 import (
+	"strings"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -172,6 +174,26 @@ func lookupMethod(method string, inputType ast.FieldType) (qualName string, outp
 		}
 	}
 	return "", 0, false
+}
+
+// TransformChainOutputType resolves the output FieldType produced by applying
+// a transform chain to a receiver of receiverType. fns is the ordered slice of
+// qualified function names stored in TransformArg.Fn (e.g. "transformFnNumber::toStr").
+// Returns (0, false) if any step cannot be resolved.
+func TransformChainOutputType(receiverType ast.FieldType, fns []string) (ast.FieldType, bool) {
+	current := receiverType
+	for _, fn := range fns {
+		idx := strings.LastIndex(fn, "::")
+		if idx < 0 {
+			return 0, false
+		}
+		_, outType, found := lookupMethod(fn[idx+2:], current)
+		if !found {
+			return 0, false
+		}
+		current = outType
+	}
+	return current, true
 }
 
 func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.ArgModel {
