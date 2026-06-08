@@ -443,8 +443,9 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 		Bindings: make([]*turnoutpb.BindingModel, 0, len(prog.Bindings)),
 		Sigils:   make(map[string]int32),
 	}
+	var localCounter int
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, sceneID, actionID, scope, pm, sc, ds, bindingTypes)
+		bindings := lowerBinding(decl, resolver, sceneID, actionID, scope, pm, sc, ds, bindingTypes, &localCounter)
 		pm.Bindings = append(pm.Bindings, bindings...)
 	}
 	return pm
@@ -452,7 +453,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
 // Sigils are written directly into pm.Sigils; source positions go into the sidecar.
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, pm *turnoutpb.ProgModel, sc *Sidecar, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType) []*turnoutpb.BindingModel {
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, pm *turnoutpb.ProgModel, sc *Sidecar, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType, localCounter *int) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -479,7 +480,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	case *ast.InfixRHS:
 		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
-		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds)
+		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds, localCounter)
 	case *ast.ErrorRHS:
 		// Parser failed to parse this binding's RHS; a diagnostic was already recorded.
 		return nil
@@ -509,7 +510,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 
 // lowerLocalRHS delegates IfCallRHS / CaseCallRHS / PipeCallRHS to the
 // localLowerer, making the abstraction boundary explicit in the lowerBinding switch.
-func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) []*turnoutpb.BindingModel {
-	c := newLocalLowerer(name, ft, bindingTypes, ds)
+func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink, counter *int) []*turnoutpb.BindingModel {
+	c := newLocalLowerer(name, ft, bindingTypes, ds, counter)
 	return c.lowerTop(rhs)
 }

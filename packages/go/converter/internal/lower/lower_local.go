@@ -7,6 +7,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"google.golang.org/protobuf/proto"
 )
@@ -20,7 +21,7 @@ type localLowerer struct {
 	targetType   ast.FieldType
 	bindingTypes map[string]ast.FieldType
 	ds           *diag.DiagSink
-	counter      int
+	counter      *int
 	bindings     []*turnoutpb.BindingModel
 	itRef        string
 	itType       ast.FieldType
@@ -35,8 +36,8 @@ type pipeContext struct {
 	itAllowed bool
 }
 
-func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *localLowerer {
-	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds}
+func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink, counter *int) *localLowerer {
+	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds, counter: counter}
 }
 
 func (c *localLowerer) savePipeCtx() pipeContext {
@@ -74,11 +75,11 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 	return c.bindings
 }
 
-// temp generates a unique temporary binding name. The counter is never reset
-// within a prog, so all generated names are globally unique within that prog.
+// temp generates a unique temporary binding name. The counter is shared across
+// all bindings in a prog, so all generated names are globally unique within that prog.
 func (c *localLowerer) temp(prefix string) string {
-	c.counter++
-	return fmt.Sprintf("%s%s_%s_%d", names.GeneratedLocalPrefix, c.target, prefix, c.counter)
+	*c.counter++
+	return fmt.Sprintf("%s%s_%s_%d", names.GeneratedLocalPrefix, c.target, prefix, *c.counter)
 }
 
 func (c *localLowerer) remember(name string, ft ast.FieldType) {
@@ -150,11 +151,11 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr) {
 	// Operator-only functions are infix-only; direct calls are rejected here just
 	// as they are in lowerFuncCallRHS for top-level bindings.
-	if operatorOnlyFns[call.FnAlias] {
+	if fnmeta.IsOperatorOnly(call.FnAlias) {
 		c.ds.Append(diag.ErrorAt(call.Pos.File, call.Pos.Line, call.Pos.Col,
 			diag.CodeOperatorOnlyFn,
 			"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",
-			c.target, call.FnAlias, operatorOnlyFnSymbol(call.FnAlias)))
+			c.target, call.FnAlias, fnmeta.OperatorSymbol(call.FnAlias)))
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
@@ -201,7 +202,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 
 func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.LocalInfixExpr) {
 	fn := infix.Op.FnAliasForType(ft)
-	leftType, rightType := localOperandTypes(fn, ft)
+	leftType, rightType := fnmeta.OperandTypes(fn, ft)
 	leftRef, _ := c.lowerExprTemp(infix.LHS, "lhs", leftType)
 	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType)
 	c.appendBinding(&turnoutpb.BindingModel{
@@ -370,9 +371,9 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 			return c.itType
 		}
 	case *ast.LocalCallExpr:
-		return localFnReturnType(x.FnAlias, fallback)
+		return fnmeta.ReturnType(x.FnAlias, fallback)
 	case *ast.LocalInfixExpr:
-		return localFnReturnType(x.Op.FnAliasForType(fallback), fallback)
+		return fnmeta.ReturnType(x.Op.FnAliasForType(fallback), fallback)
 	case *ast.LocalIfExpr:
 		return c.inferLocalType(x.Then, fallback)
 	case *ast.LocalCaseExpr:
@@ -390,38 +391,3 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 	return fallback
 }
 
-func localFnReturnType(fn string, fallback ast.FieldType) ast.FieldType {
-	switch fn {
-	case "gt", "gte", "lt", "lte", "eq", "neq", "bool_and", "bool_or", "bool_xor", "str_includes", "str_starts", "str_ends", "arr_includes":
-		return ast.FieldTypeBool
-	case "str_concat":
-		return ast.FieldTypeStr
-	case "arr_concat":
-		return fallback
-	case "arr_get":
-		// arr_get(arr<T>, number) → T; resolve the element type when we know the array type.
-		if fallback.IsArray() {
-			return fallback.ElemType()
-		}
-		return fallback
-	case "add", "sub", "mul", "div", "mod", "max", "min":
-		return ast.FieldTypeNumber
-	default:
-		// Unknown function alias — preserve the declared type context instead of
-		// silently assuming number. The validator will reject the unknown alias.
-		return fallback
-	}
-}
-
-func localOperandTypes(fn string, fallback ast.FieldType) (ast.FieldType, ast.FieldType) {
-	switch fn {
-	case "str_concat", "str_includes", "str_starts", "str_ends":
-		return ast.FieldTypeStr, ast.FieldTypeStr
-	case "bool_and", "bool_or", "bool_xor":
-		return ast.FieldTypeBool, ast.FieldTypeBool
-	case "eq", "neq":
-		return fallback, fallback
-	default:
-		return ast.FieldTypeNumber, ast.FieldTypeNumber
-	}
-}

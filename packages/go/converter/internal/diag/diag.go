@@ -210,6 +210,7 @@ const (
 // Error codes from scene-graph.md
 const (
 	CodeMissingScene                = "MissingScene"
+	CodeDuplicateSceneID            = "DuplicateSceneID"
 	CodeSCNInvalidActionGraph       = "SCN_INVALID_ACTION_GRAPH"
 	CodeSCNActionRootNotFound       = "SCN_ACTION_ROOT_NOT_FOUND"
 	CodeSCNIngressTargetNotValue    = "SCN_INGRESS_TARGET_NOT_VALUE"

@@ -136,7 +136,7 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 		var ds diag.Diagnostics
 		for _, pd := range parseDiags {
 			code := diag.CodeStateFileParseError
-			if pd.Code == "MissingStateBlock" {
+			if pd.Code == diag.CodeMissingStateBlock {
 				code = diag.CodeMissingStateBlock
 			}
 			ds = append(ds, diag.Errorf(code, "%s", pd.Message))

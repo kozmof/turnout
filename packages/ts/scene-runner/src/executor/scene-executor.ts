@@ -124,9 +124,15 @@ export function createSceneExecutor(
       // Under all-match policy the same action may be enqueued by multiple next
       // rules. The visited guard prevents re-execution, but silently dropping
       // the entry can surprise authors. Record a warning so it is visible in the trace.
+      // Under first-match policy a duplicate entry indicates a next rule pointed
+      // to an already-executed action, which is also worth surfacing.
       if (policy === 'all-match') {
         sceneWarnings.push(
           `action "${queue[queueHead]!}" was enqueued more than once (all-match) but ran only once`,
+        );
+      } else if (policy === 'first-match') {
+        sceneWarnings.push(
+          `action "${queue[queueHead]!}" was enqueued but already ran (first-match); next rule points to an already-executed action`,
         );
       }
       queueHead++;

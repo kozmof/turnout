@@ -5,31 +5,10 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
-
-// operatorOnlyFns is the set of built-in function aliases that may only be used
-// via infix operator syntax (e.g. a + b, a > b). Calling them by name directly
-// (e.g. add(a, b)) is a compile error. This mirrors the operatorOnly field in
-// validate.builtinFns; both must be kept in sync if new operator-only functions
-// are added.
-var operatorOnlyFns = map[string]bool{
-	"add":        true,
-	"sub":        true,
-	"mul":        true,
-	"div":        true,
-	"mod":        true,
-	"gt":         true,
-	"gte":        true,
-	"lt":         true,
-	"lte":        true,
-	"str_concat": true,
-	"bool_and":   true,
-	"bool_or":    true,
-	"eq":         true,
-	"neq":        true,
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RHS-specific lowering functions
@@ -87,11 +66,11 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos a
 	// Operator-only functions must be used via infix syntax (e.g. a + b, a > b),
 	// not as direct calls. isIdentityCombine in the validator exempts the
 	// lowerSingleRefRHS identity form; this check fires before the model is built.
-	if operatorOnlyFns[rhs.FnAlias] {
+	if fnmeta.IsOperatorOnly(rhs.FnAlias) {
 		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 			diag.CodeOperatorOnlyFn,
 			"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",
-			name, rhs.FnAlias, operatorOnlyFnSymbol(rhs.FnAlias)))
+			name, rhs.FnAlias, fnmeta.OperatorSymbol(rhs.FnAlias)))
 		return nil
 	}
 	return &turnoutpb.BindingModel{
@@ -101,42 +80,6 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos a
 			Fn:   rhs.FnAlias,
 			Args: lowerArgsWithTypes(rhs.Args, bindingTypes, ds),
 		}},
-	}
-}
-
-// operatorOnlyFnSymbol returns the DSL operator symbol for human-readable error messages.
-func operatorOnlyFnSymbol(fn string) string {
-	switch fn {
-	case "add":
-		return "+"
-	case "sub":
-		return "-"
-	case "mul":
-		return "*"
-	case "div":
-		return "/"
-	case "mod":
-		return "%"
-	case "gt":
-		return ">"
-	case "gte":
-		return ">="
-	case "lt":
-		return "<"
-	case "lte":
-		return "<="
-	case "str_concat":
-		return "+"
-	case "bool_and":
-		return "&"
-	case "bool_or":
-		return "|"
-	case "eq":
-		return "=="
-	case "neq":
-		return "!="
-	default:
-		return fn
 	}
 }
 
@@ -150,4 +93,3 @@ func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingType
 		}},
 	}
 }
-

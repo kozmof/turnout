@@ -25,7 +25,7 @@ type bindingInfo struct {
 }
 
 // fnKind classifies the special dispatch behaviour of a built-in function.
-// The four array/generic variants are mutually exclusive; operatorOnly is orthogonal.
+// The four array/generic variants are mutually exclusive.
 type fnKind int
 
 const (
@@ -37,11 +37,10 @@ const (
 )
 
 type fnSpec struct {
-	arg1Type     ast.FieldType
-	arg2Type     ast.FieldType
-	returnType   ast.FieldType
-	operatorOnly bool
-	kind         fnKind
+	arg1Type   ast.FieldType
+	arg2Type   ast.FieldType
+	returnType ast.FieldType
+	kind       fnKind
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -49,26 +48,26 @@ type fnSpec struct {
 // ─────────────────────────────────────────────────────────────────────────────
 
 var builtinFns = map[string]fnSpec{
-	"add":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"sub":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"mul":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"div":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
-	"mod":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber, operatorOnly: true},
+	"add":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
+	"sub":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
+	"mul":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
+	"div":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
+	"mod":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
 	"max":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
 	"min":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"gt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"gte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"lt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"lte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"str_concat":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeStr, operatorOnly: true},
+	"gt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
+	"gte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
+	"lt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
+	"lte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
+	"str_concat":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeStr},
 	"str_includes": {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
 	"str_starts":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
 	"str_ends":     {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
-	"bool_and":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
-	"bool_or":      {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool, operatorOnly: true},
+	"bool_and":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
+	"bool_or":      {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
 	"bool_xor":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	"eq":           {returnType: ast.FieldTypeBool, operatorOnly: true, kind: fnKindGeneric},
-	"neq":          {returnType: ast.FieldTypeBool, operatorOnly: true, kind: fnKindGeneric},
+	"eq":           {returnType: ast.FieldTypeBool, kind: fnKindGeneric},
+	"neq":          {returnType: ast.FieldTypeBool, kind: fnKindGeneric},
 	"arr_includes": {kind: fnKindArrInc},
 	"arr_get":      {kind: fnKindArrGet},
 	"arr_concat":   {kind: fnKindArrConcat},
@@ -129,7 +128,7 @@ func Validate(tm *turnoutpb.TurnModel, schema state.Schema, sc *lower.Sidecar) d
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
-			ds = append(ds, diag.Errorf("DuplicateSceneID",
+			ds = append(ds, diag.Errorf(diag.CodeDuplicateSceneID,
 				"duplicate scene ID %q", s.Id))
 		}
 		seenSceneIDs[s.Id] = true
