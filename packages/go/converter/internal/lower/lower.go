@@ -147,8 +147,8 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
 		} else if len(order) == 0 {
-			ds.Append(diag.Warnf(diag.CodeDeclarationOrderLost,
-				"state_file %q: field declaration order is not preserved; use LowerResolvingState() to maintain it", s.Path))
+			ds.Append(diag.Errorf(diag.CodeDeclarationOrderLost,
+				"state_file %q: field declaration order cannot be preserved when using Lower(); use LowerResolvingState() instead", s.Path))
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
 	default:
@@ -246,19 +246,18 @@ func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.State
 
 	var nsList []nsEntry
 	for _, nsName := range nsNames {
-		fields, _ := schema.FieldsOf(nsName)
-		if len(fields) == 0 {
+		var fieldNames []string
+		schema.RangeFields(nsName, func(name string, _ state.FieldMeta) {
+			fieldNames = append(fieldNames, name)
+		})
+		if len(fieldNames) == 0 {
 			continue
-		}
-		fieldNames := make([]string, 0, len(fields))
-		for fieldName := range fields {
-			fieldNames = append(fieldNames, fieldName)
 		}
 		slices.Sort(fieldNames)
 
 		entry := nsEntry{name: nsName, fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
 		for _, fieldName := range fieldNames {
-			meta := fields[fieldName]
+			meta, _ := schema.Get(nsName + "." + fieldName)
 			entry.fields = append(entry.fields, &turnoutpb.FieldModel{
 				Name:  fieldName,
 				Type:  meta.Type.String(),

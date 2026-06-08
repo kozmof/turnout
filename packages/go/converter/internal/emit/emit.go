@@ -154,19 +154,12 @@ func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
 	iw.wl("view %q {", v.Name)
 	iw.depth++
 	flow := strings.TrimRight(v.Flow, "\n")
-	ind := iw.tabs()
-	delim, err := chooseHeredocDelim(flow, ind)
-	if err != nil {
+	if err := writeHeredocField(iw, "flow", flow); err != nil {
 		iw.setErr(fmt.Errorf("view %q: %w", v.Name, err))
 		iw.depth--
 		iw.wl("}")
 		return
 	}
-	fmt.Fprintf(iw.out, "%sflow = <<-%s\n", ind, delim)
-	for _, l := range strings.Split(flow, "\n") {
-		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
-	}
-	fmt.Fprintf(iw.out, "%s%s\n", ind, delim)
 	if v.Enforce != nil {
 		iw.wl("enforce = %q", *v.Enforce)
 	}
@@ -284,17 +277,27 @@ func chooseHeredocDelim(text, indent string) (string, error) {
 // iw.tabs(), the strip amount equals iw.tabs(), leaving the original text
 // string intact. The delimiter is chosen to avoid collision with any content line.
 func writeText(iw *iWriter, text string) {
-	ind := iw.tabs()
-	delim, err := chooseHeredocDelim(text, ind)
-	if err != nil {
+	if err := writeHeredocField(iw, "text", text); err != nil {
 		iw.setErr(fmt.Errorf("text field: %w", err))
-		return
 	}
-	fmt.Fprintf(iw.out, "%stext = <<-%s\n", ind, delim)
-	for _, l := range strings.Split(text, "\n") {
+}
+
+// writeHeredocField writes a <<- heredoc assignment for the named field at the
+// current indentation level. The content is written verbatim; the delimiter is
+// chosen automatically to avoid collisions with any content line.
+// Returns a non-nil error only if no safe delimiter can be found.
+func writeHeredocField(iw *iWriter, fieldName, content string) error {
+	ind := iw.tabs()
+	delim, err := chooseHeredocDelim(content, ind)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(iw.out, "%s%s = <<-%s\n", ind, fieldName, delim)
+	for _, l := range strings.Split(content, "\n") {
 		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
 	}
 	fmt.Fprintf(iw.out, "%s%s\n", ind, delim)
+	return nil
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

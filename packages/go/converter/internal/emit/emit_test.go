@@ -632,15 +632,11 @@ scene "s" {
 }
 `
 	// Pipeline for state_file source
-	tf2, ds := parser.ParseFile("test.turn", stateFileSrc)
+	tf2, ds := parser.ParseFile(dir+"/test.turn", stateFileSrc)
 	if ds.HasErrors() {
 		t.Fatalf("parse state_file src: %v", ds)
 	}
-	schema2, ds2 := state.Resolve(tf2.StateSource, dir)
-	if ds2.HasErrors() {
-		t.Fatalf("state_file resolve: %v", ds2)
-	}
-	lr2, ds3 := lower.Lower(tf2, schema2)
+	lr2, ds3 := lower.LowerResolvingState(tf2, dir)
 	if ds3.HasErrors() {
 		t.Fatalf("lower state_file: %v", ds3)
 	}

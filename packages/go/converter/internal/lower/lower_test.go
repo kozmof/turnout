@@ -154,19 +154,15 @@ scene "s" {
   entry_actions = ["a"]
   action "a" { compute { root = v prog "p" { v:bool = true } } }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile(filepath.Join(dir, "test.turn"), src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, dir)
-	if ds2.HasErrors() {
-		t.Fatalf("state: %v", ds2)
-	}
-	lr, ds3 := lower.Lower(tf, schema)
+	lr, ds3 := lower.LowerResolvingState(tf, dir)
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	// state_file directive → state block reconstructed from schema (sorted)
+	// state_file directive → state block reconstructed from schema (declaration order)
 	tm := lr.Model
 	if tm.State == nil || len(tm.State.Namespaces) != 1 {
 		t.Fatalf("want 1 namespace, got %v", tm.State)

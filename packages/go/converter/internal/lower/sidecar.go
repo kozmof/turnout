@@ -121,8 +121,13 @@ func EmptyPositionIndex() PositionIndex {
 // Get returns the source position for the binding identified by the five key
 // components. Returns the zero Pos if no position is recorded for that binding.
 func (idx PositionIndex) Get(sceneID, actionID string, scope ProgScope, progName, bindingName string) ast.Pos {
-	key := fmt.Sprintf("%s:%s:%s:%s:%s", sceneID, actionID, scope, progName, bindingName)
-	return idx.m[key]
+	return idx.m[bindingKeyString(BindingKey{
+		SceneID:     sceneID,
+		ActionID:    actionID,
+		Scope:       scope,
+		ProgName:    progName,
+		BindingName: bindingName,
+	})]
 }
 
 // ToPositionIndex converts the sidecar into a PositionIndex for O(1) lookup

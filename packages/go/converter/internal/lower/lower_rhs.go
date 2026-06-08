@@ -10,6 +10,24 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Shared operator-only guard
+// ─────────────────────────────────────────────────────────────────────────────
+
+// checkOperatorOnly appends a CodeOperatorOnlyFn diagnostic and returns true when
+// fnAlias is restricted to infix syntax. Both lowerFuncCallRHS and
+// localLowerer.lowerCallInto call this; neither encodes the message independently.
+func checkOperatorOnly(bindingName, fnAlias string, pos ast.Pos, ds *diag.DiagSink) bool {
+	if !fnmeta.IsOperatorOnly(fnAlias) {
+		return false
+	}
+	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
+		diag.CodeOperatorOnlyFn,
+		"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",
+		bindingName, fnAlias, fnmeta.OperatorSymbol(fnAlias)))
+	return true
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // RHS-specific lowering functions
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -64,14 +82,7 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *tu
 }
 
 func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos ast.Pos, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
-	// Operator-only functions must be used via infix syntax (e.g. a + b, a > b),
-	// not as direct calls. isIdentityCombine in the validator exempts the
-	// lowerSingleRefRHS identity form; this check fires before the model is built.
-	if fnmeta.IsOperatorOnly(rhs.FnAlias) {
-		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
-			diag.CodeOperatorOnlyFn,
-			"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",
-			name, rhs.FnAlias, fnmeta.OperatorSymbol(rhs.FnAlias)))
+	if checkOperatorOnly(name, rhs.FnAlias, pos, ds) {
 		return nil
 	}
 	return &turnoutpb.BindingModel{

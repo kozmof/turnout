@@ -502,9 +502,9 @@ scene "test" {
 
 // ─── lowerStateBlockFromSchema: empty namespace produces no output ────────────
 
-func TestLowerStateBlockFromSchemaEmptyNamespace(t *testing.T) {
-	// A namespace with no fields produces no namespaces in the state block.
-	// Requires a TurnFile with a state_file directive to reach lowerStateBlockFromSchema.
+func TestLowerWithStateFileDiagnosticOrderLost(t *testing.T) {
+	// Lower() with a state_file directive now emits CodeDeclarationOrderLost as
+	// an error (not a warning). Callers must use LowerResolvingState() instead.
 	src := `state_file = "fake.turn"
 scene "test" {
   entry_actions = ["a"]
@@ -514,15 +514,20 @@ scene "test" {
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	// Pass a schema with an empty inner map to verify it produces no namespace entries.
 	schema := state.NewSchemaFromMap(map[string]map[string]state.FieldMeta{"empty": {}})
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		t.Fatalf("lower: %v", ds3)
+	_, ds3 := lower.Lower(tf, schema)
+	if !ds3.HasErrors() {
+		t.Fatal("expected CodeDeclarationOrderLost error from Lower() with state_file, got none")
 	}
-	// Empty namespace has no fields, so State should have 0 namespaces.
-	if lr.Model.State != nil && len(lr.Model.State.Namespaces) != 0 {
-		t.Errorf("expected 0 namespaces, got %d", len(lr.Model.State.Namespaces))
+	found := false
+	for _, d := range ds3 {
+		if d.Code == diag.CodeDeclarationOrderLost {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected CodeDeclarationOrderLost in diagnostics, got: %v", ds3)
 	}
 }
 

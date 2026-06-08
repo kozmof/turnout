@@ -26,6 +26,13 @@ type FnSpec struct {
 	Kind                           FnKind
 }
 
+// Arity returns the number of arguments the function accepts.
+// All current built-in functions are binary (2), but this method lets callers
+// derive the limit from the table rather than hardcoding it.
+func (s FnSpec) Arity() int {
+	return 2
+}
+
 // BuiltinFn returns the spec for a built-in function alias.
 // Returns (FnSpec{}, false) for unknown names.
 func BuiltinFn(name string) (FnSpec, bool) {

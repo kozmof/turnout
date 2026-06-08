@@ -74,6 +74,17 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 			}
 		}
 	}
+	// Invariant: the root binding must carry ExtExpr whenever it also carries a
+	// flat Expr. The HCL emitter relies on ExtExpr to reproduce the original
+	// #if/#case/#pipe source form; a missing ExtExpr would silently produce
+	// wrong output. Emit a diagnostic instead of letting this pass silently.
+	for _, b := range c.bindings {
+		if b.Name == c.target && b.Expr != nil && b.ExtExpr == nil {
+			c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+				"internal: ext_expr not set on local-RHS root binding %q — compiler bug", c.target))
+			break
+		}
+	}
 	return c.bindings
 }
 
@@ -81,7 +92,7 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 // all bindings in a prog, so all generated names are globally unique within that prog.
 func (c *localLowerer) temp(prefix string) string {
 	*c.counter++
-	return fmt.Sprintf("%s%s_%s_%d", names.GeneratedLocalPrefix, c.target, prefix, *c.counter)
+	return names.LocalName(c.target, prefix, *c.counter)
 }
 
 func (c *localLowerer) remember(name string, ft ast.FieldType) {
@@ -154,11 +165,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 	// Operator-only functions are infix-only outside of #pipe steps. Inside a
 	// pipe step (itAllowed), add(#it, n) / mul(#it, n) etc. are the natural
 	// calling form and are explicitly allowed.
-	if fnmeta.IsOperatorOnly(call.FnAlias) && !c.itAllowed {
-		c.ds.Append(diag.ErrorAt(call.Pos.File, call.Pos.Line, call.Pos.Col,
-			diag.CodeOperatorOnlyFn,
-			"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",
-			c.target, call.FnAlias, fnmeta.OperatorSymbol(call.FnAlias)))
+	if !c.itAllowed && checkOperatorOnly(c.target, call.FnAlias, call.Pos, c.ds) {
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}

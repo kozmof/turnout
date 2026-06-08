@@ -89,6 +89,21 @@ func (s Schema) FieldsOf(ns string) (map[string]FieldMeta, bool) {
 	return out, true
 }
 
+// RangeFields calls fn for each field in the given namespace without allocating
+// a copy of the internal map. Returns false if the namespace is not present.
+// The iteration order is unspecified (map order). Use FieldsOf when a snapshot
+// is needed; use RangeFields in the lowerer's hot path to avoid the copy.
+func (s Schema) RangeFields(ns string, fn func(name string, meta FieldMeta)) bool {
+	fields, ok := s.namespaces[ns]
+	if !ok {
+		return false
+	}
+	for name, meta := range fields {
+		fn(name, meta)
+	}
+	return true
+}
+
 // Resolve builds a Schema from a StateSource.
 // basePath is the directory of the input .turn file, used to resolve relative state_file paths.
 func Resolve(source ast.StateSource, basePath string) (Schema, diag.Diagnostics) {

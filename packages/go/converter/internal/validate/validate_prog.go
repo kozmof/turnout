@@ -55,8 +55,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 		if reachable[b.Name] {
 			continue
 		}
-		if strings.HasPrefix(b.Name, names.GeneratedIfCondPrefix) ||
-			strings.HasPrefix(b.Name, names.GeneratedLocalPrefix) {
+		if names.IsGeneratedIfCondName(b.Name) || names.IsGeneratedLocalName(b.Name) {
 			continue
 		}
 		*ds = append(*ds, diag.WarnAt("", 0, 0, diag.CodeUnusedBinding,
@@ -78,7 +77,12 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 		} else {
 			seen[b.Name] = true
 		}
-		ft := ast.MustFieldTypeFromString(b.Type)
+		ft, ftOK := ast.FieldTypeFromString(b.Type)
+		if !ftOK {
+			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				"binding %q: unknown type string %q", b.Name, b.Type))
+			continue
+		}
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
@@ -114,19 +118,23 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 // literal type conformance, and expr/ext_expr type checking.
 func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
-		ft := ast.MustFieldTypeFromString(b.Type)
+		ft, ftOK := ast.FieldTypeFromString(b.Type)
+		if !ftOK {
+			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				"binding %q: unknown type string %q", b.Name, b.Type))
+			continue
+		}
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
+		pos := posFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
-			if !(strings.HasPrefix(b.Name, names.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, names.GeneratedIfCondSuffix)) &&
-				!strings.HasPrefix(b.Name, names.GeneratedLocalPrefix) {
+			if !names.IsGeneratedIfCondName(b.Name) && !names.IsGeneratedLocalName(b.Name) {
 				*ds = append(*ds, diag.Errorf(diag.CodeReservedName,
 					"binding %q: names starting with __ are reserved", b.Name))
 			}
 		}
 
 		if isTransition && (sigil == ast.SigilEgress || sigil == ast.SigilBiDir) {
-			pos := posFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 			if pos.File != "" {
 				*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTransitionOutputSigil,
 					"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
@@ -144,7 +152,6 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 
 		if b.Value != nil {
 			if !structpbMatchesFieldType(b.Value, ft) {
-				pos := posFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
 				if pos.File != "" {
 					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTypeMismatch,
 						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
@@ -205,7 +212,12 @@ func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel
 		return
 	}
 	if known {
-		bFt := ast.MustFieldTypeFromString(b.Type)
+		bFt, ftOK := ast.FieldTypeFromString(b.Type)
+		if !ftOK {
+			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				"binding %q: unknown type string %q", b.Name, b.Type))
+			return
+		}
 		if ret != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: extended expression returns %s but binding declares type %s",

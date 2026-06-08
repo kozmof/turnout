@@ -212,7 +212,12 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 				"binding %q: reference %q is not defined", b.Name, refName))
 			return
 		}
-		bFt := ast.MustFieldTypeFromString(b.Type)
+		bFt, ftOK := ast.FieldTypeFromString(b.Type)
+		if !ftOK {
+			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				"binding %q: unknown type string %q", b.Name, b.Type))
+			return
+		}
 		if refInfo.fieldType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeSingleRefTypeMismatch,
 				"binding %q: single-reference %q has type %s but binding declares type %s",
@@ -226,7 +231,12 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	}
 
 	if retType, known := resolveExpectedReturn(spec, c.Args, scope, nil); known {
-		bFt := ast.MustFieldTypeFromString(b.Type)
+		bFt, ftOK := ast.FieldTypeFromString(b.Type)
+		if !ftOK {
+			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				"binding %q: unknown type string %q", b.Name, b.Type))
+			return
+		}
 		if retType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: function %q returns %s but binding declares type %s",
@@ -291,7 +301,12 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 
 	if n := len(p.Steps); n > 0 {
 		if stepKnown[n-1] {
-			bFt := ast.MustFieldTypeFromString(b.Type)
+			bFt, ftOK := ast.FieldTypeFromString(b.Type)
+			if !ftOK {
+				*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+					"binding %q: unknown type string %q", b.Name, b.Type))
+				return
+			}
 			if stepTypes[n-1] != bFt {
 				*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 					"binding %q: pipe last step returns %s but binding declares type %s",
@@ -365,7 +380,12 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 	}
 
 	if hasThen {
-		bFt := ast.MustFieldTypeFromString(b.Type)
+		bFt, ftOK := ast.FieldTypeFromString(b.Type)
+		if !ftOK {
+			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				"binding %q: unknown type string %q", b.Name, b.Type))
+			return
+		}
 		if thenType != bFt {
 			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q cond: branch return type %s does not match declared type %s",
@@ -454,12 +474,13 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 }
 
 func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.Diagnostics) {
+	maxArgs := spec.Arity()
+	for i := maxArgs; i < len(args); i++ {
+		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			"binding %q pipe step %d: function %q does not accept more than %d argument(s) (extra arg at index %d)", bindingName, stepIdx, fn, maxArgs, i))
+	}
 	if len(args) < 2 {
 		return
-	}
-	for i := 2; i < len(args); i++ {
-		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-			"binding %q pipe step %d: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, stepIdx, fn, i))
 	}
 	t1, ok1 := resolveArgType(args[0], scope, stepTypes)
 	t2, ok2 := resolveArgType(args[1], scope, stepTypes)
@@ -467,16 +488,17 @@ func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec f
 }
 
 func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+	maxArgs := spec.Arity()
+	for i := maxArgs; i < len(c.Args); i++ {
+		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			"binding %q: function %q does not accept more than %d argument(s) (extra arg at index %d)", bindingName, c.Fn, maxArgs, i))
+	}
 	if len(c.Args) < 2 {
 		return
 	}
 	arg1Type, ok1 := resolveArgType(c.Args[0], scope, nil)
 	arg2Type, ok2 := resolveArgType(c.Args[1], scope, nil)
 	validateBinaryArgTypePair(bindingName, c.Fn, spec, arg1Type, ok1, arg2Type, ok2, ds)
-	for i := range c.Args[2:] {
-		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-			"binding %q: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, c.Fn, i+2))
-	}
 }
 
 // argHasEmptyArrayLit reports whether arg carries an empty array literal.

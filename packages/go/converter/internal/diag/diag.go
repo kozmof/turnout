@@ -49,7 +49,19 @@ type DiagSink struct {
 
 func (s *DiagSink) IsHalted() bool { return s.halted }
 func (s *DiagSink) AtCap() bool    { return len(s.Diags) >= MaxDiagnostics }
-func (s *DiagSink) Halt()          { s.halted = true }
+
+// Halt marks the sink as halted. If the last entry is not already a
+// TooManyDiagnostics sentinel, one is appended so callers always know that
+// truncation occurred when the sink is halted.
+func (s *DiagSink) Halt() {
+	if !s.halted {
+		if len(s.Diags) == 0 || s.Diags[len(s.Diags)-1].Code != CodeTooManyDiagnostics {
+			s.Diags = append(s.Diags, Errorf(CodeTooManyDiagnostics,
+				"too many diagnostics — further errors suppressed"))
+		}
+		s.halted = true
+	}
+}
 
 // Append adds d to the sink. If the sink is already halted, the diagnostic is
 // silently dropped. If this append would exceed MaxDiagnostics, a single

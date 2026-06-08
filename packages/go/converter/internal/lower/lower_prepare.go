@@ -35,10 +35,7 @@ func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) pr
 func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal {
 	src, ok := r.index[name]
 	if !ok {
-		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
-			missingPrepareCode,
-			"binding %q uses placeholder _ but has no prepare entry", name))
-		return zeroLiteralFor(ft)
+		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no prepare entry", ds)
 	}
 	switch s := src.(type) {
 	case *ast.FromState:
@@ -70,10 +67,7 @@ func newTransitionPrepareResolver(prepare *ast.NextPrepareBlock, schema state.Sc
 func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal {
 	src, ok := r.index[name]
 	if !ok {
-		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
-			missingPrepareCode,
-			"binding %q uses placeholder _ but has no transition prepare entry", name))
-		return zeroLiteralFor(ft)
+		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no transition prepare entry", ds)
 	}
 	switch s := src.(type) {
 	case *ast.FromState:
@@ -90,6 +84,16 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
+
+// emitMissingPrepare records a diagnostic for a sigil binding with no prepare
+// entry and returns a zero literal. The detail string distinguishes action-level
+// from transition-level prepare blocks in the error message.
+func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code, detail string, ds *diag.DiagSink) ast.Literal {
+	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
+		code,
+		"binding %q uses placeholder _ but %s", name, detail))
+	return zeroLiteralFor(ft)
+}
 
 // resolveFromState looks up path in schema and returns its default value.
 // Emits CodeUnresolvedStatePath and returns a zero literal when path is absent.
