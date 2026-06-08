@@ -66,6 +66,8 @@ type BindingKey struct {
 
 // bindingKeyString encodes a BindingKey as a flat string map key.
 // Format: "sceneID:actionID:scope:progName:bindingName".
+// The `:` separator is safe because DSL identifiers are restricted to
+// [A-Za-z_][A-Za-z0-9_]* and cannot contain `:`, so keys never collide.
 func bindingKeyString(k BindingKey) string {
 	return fmt.Sprintf("%s:%s:%s:%s:%s", k.SceneID, k.ActionID, k.Scope, k.ProgName, k.BindingName)
 }

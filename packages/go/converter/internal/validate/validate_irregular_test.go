@@ -216,7 +216,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			action, sc := buildIrregularAction(nil, nil, nil, tc.next)
 			// "transition_output_sigil" needs a sigil on binding "out" in the next-rule prog.
 			if tc.name == "transition_output_sigil" {
-				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": int32(ast.SigilEgress)}
+				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": ast.SigilEgress.ToInt32()}
 			}
 			model := irregularModelWithAction(action)
 			ds := validate.Validate(model, irregularSchema(), sc)

@@ -4,7 +4,10 @@
 // encodes function-level facts independently.
 package fnmeta
 
-import "github.com/kozmof/turnout/packages/go/converter/internal/ast"
+import (
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"google.golang.org/protobuf/types/known/structpb"
+)
 
 // IsOperatorOnly reports whether fn must be used via infix syntax only.
 // Calling an operator-only function by name directly (e.g. add(a, b)) is a
@@ -63,6 +66,46 @@ func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.Fie
 	default:
 		return ast.FieldTypeNumber, ast.FieldTypeNumber
 	}
+}
+
+// IdentityValue returns the algebraic neutral element for fn as a *structpb.Value.
+// Returns (nil, false) for functions that are not identity-binary.
+// The four identity-binary functions are: bool_and (true), add (0), str_concat (""), arr_concat ([]).
+func IdentityValue(fn string) (*structpb.Value, bool) {
+	switch fn {
+	case "bool_and":
+		return structpb.NewBoolValue(true), true
+	case "add":
+		return structpb.NewNumberValue(0), true
+	case "str_concat":
+		return structpb.NewStringValue(""), true
+	case "arr_concat":
+		return structpb.NewListValue(&structpb.ListValue{}), true
+	}
+	return nil, false
+}
+
+// IsIdentityValue reports whether v equals the algebraic identity element for fn.
+// Returns false for functions that are not identity-binary or when v is nil.
+func IsIdentityValue(fn string, v *structpb.Value) bool {
+	if v == nil {
+		return false
+	}
+	switch fn {
+	case "bool_and":
+		bv, ok := v.Kind.(*structpb.Value_BoolValue)
+		return ok && bv.BoolValue
+	case "add":
+		nv, ok := v.Kind.(*structpb.Value_NumberValue)
+		return ok && nv.NumberValue == 0
+	case "str_concat":
+		sv, ok := v.Kind.(*structpb.Value_StringValue)
+		return ok && sv.StringValue == ""
+	case "arr_concat":
+		lv, ok := v.Kind.(*structpb.Value_ListValue)
+		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+	}
+	return false
 }
 
 // operatorOnlySymbols maps each operator-only function alias to its DSL infix

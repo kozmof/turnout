@@ -77,7 +77,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 			seen[b.Name] = true
 		}
 		ft := ast.MustFieldTypeFromString(b.Type)
-		sigil := ast.Sigil(prog.Sigils[b.Name])
+		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
 			isFunc:    b.Expr != nil || b.ExtExpr != nil,
@@ -113,7 +113,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
 		ft := ast.MustFieldTypeFromString(b.Type)
-		sigil := ast.Sigil(prog.Sigils[b.Name])
+		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !(strings.HasPrefix(b.Name, names.GeneratedIfCondPrefix) && strings.HasSuffix(b.Name, names.GeneratedIfCondSuffix)) &&

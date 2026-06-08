@@ -499,7 +499,7 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	if decl.Sigil != ast.SigilNone {
 		for _, b := range bindings {
 			if b.Name == name {
-				pm.Sigils[name] = int32(decl.Sigil)
+				pm.Sigils[name] = decl.Sigil.ToInt32()
 				key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: pm.Name, BindingName: name}
 				sc.SetPos(key, decl.Pos)
 			}

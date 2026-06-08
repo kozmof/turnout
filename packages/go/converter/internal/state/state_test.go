@@ -231,3 +231,35 @@ func TestNilSource(t *testing.T) {
 		t.Errorf("want MissingStateSource, got %v", ds)
 	}
 }
+
+// ─── FieldsOf isolation ───────────────────────────────────────────────────────
+
+func TestFieldsOfReturnsCopy(t *testing.T) {
+	schema, ds := state.Resolve(&ast.InlineStateBlock{
+		Namespaces: []*ast.NamespaceDecl{{
+			Name: "ns",
+			Fields: []*ast.FieldDecl{{
+				Pos:     pos(),
+				Name:    "x",
+				Type:    ast.FieldTypeNumber,
+				Default: &ast.NumberLiteral{Value: 0},
+			}},
+		}},
+	}, "")
+	if ds.HasErrors() {
+		t.Fatalf("resolve failed: %v", ds)
+	}
+
+	fields, ok := schema.FieldsOf("ns")
+	if !ok {
+		t.Fatal("namespace ns not found")
+	}
+
+	// Mutate the returned map; the schema must be unaffected.
+	fields["injected"] = state.FieldMeta{}
+
+	fields2, _ := schema.FieldsOf("ns")
+	if _, found := fields2["injected"]; found {
+		t.Error("mutation of FieldsOf result leaked into schema")
+	}
+}

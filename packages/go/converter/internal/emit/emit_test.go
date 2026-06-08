@@ -462,6 +462,9 @@ route "route_1" {
 	if !strings.Contains(out, `route "route_1"`) {
 		t.Error("missing route block")
 	}
+	if !strings.Contains(out, `entry_scene_id = "scene_1"`) {
+		t.Error("missing entry_scene_id")
+	}
 	if !strings.Contains(out, `match {`) {
 		t.Error("missing match block")
 	}
@@ -476,6 +479,39 @@ route "route_1" {
 	}
 	if !strings.Contains(out, `patterns = ["_"]`) {
 		t.Error("missing fallback pattern")
+	}
+}
+
+func TestEmitRouteEntrySceneIdMissingFails(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "scene_1" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}
+route "route_1" {
+  match { _ => scene_1 }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("parse failed: %v", ds)
+	}
+	schema, ds2 := state.Resolve(tf.StateSource, "")
+	if ds2.HasErrors() {
+		t.Fatalf("state resolve failed: %v", ds2)
+	}
+	lr, ds3 := lower.Lower(tf, schema)
+	if ds3.HasErrors() {
+		t.Fatalf("lower failed: %v", ds3)
+	}
+	ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
+	hasMissingEntry := false
+	for _, d := range ds4 {
+		if d.Code == "MissingEntryScene" {
+			hasMissingEntry = true
+		}
+	}
+	if !hasMissingEntry {
+		t.Error("expected MissingEntryScene diagnostic for route without entry declaration")
 	}
 }
 

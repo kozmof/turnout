@@ -1546,6 +1546,25 @@ func TestEmptyArrayBranchValueNotFlagged(t *testing.T) {
 	}
 }
 
+// TestEmptyArrayLitArgInFlatPipe checks that walkExprArgs covers the flat Pipe
+// path in validateNoEmptyArrayLitArgs (as opposed to the ExtExpr/WalkProto path).
+func TestEmptyArrayLitArgInFlatPipe(t *testing.T) {
+	emptyList, _ := structpb.NewList(nil)
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "arr<number>", Value: structpb.NewListValue(&structpb.ListValue{})},
+		{Name: "out", Type: "arr<number>", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+			Steps: []*turnoutpb.PipeStep{{
+				Fn:   "arr_concat",
+				Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Lit: structpb.NewListValue(emptyList)}},
+			}},
+		}}},
+	})
+	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeEmptyArrayLitArg) {
+		t.Error("want EmptyArrayLitArg for [] as flat PipeExpr step arg")
+	}
+}
+
 // ─── Ref not found in resolveArgType ─────────────────────────────────────────
 
 func TestResolveArgTypeRefNotFound(t *testing.T) {

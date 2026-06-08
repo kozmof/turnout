@@ -813,14 +813,19 @@ func TestThreeSegmentPath(t *testing.T) {
 
 // ── example files ─────────────────────────────────────────────────────────────
 
-// parseWithDummyState prepends a minimal state block to scene-only example files.
+// parseWithDummyState parses an example file, prepending a minimal state block
+// only when the file does not already declare one.
 func parseWithDummyState(t *testing.T, path string) *ast.TurnFile {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		t.Skipf("example file not found: %v", err)
 	}
-	src := "state {}\n" + string(data)
+	src := string(data)
+	trimmed := strings.TrimSpace(src)
+	if !strings.HasPrefix(trimmed, "state") {
+		src = "state {}\n" + src
+	}
 	return mustParse(t, src)
 }
 
@@ -844,7 +849,10 @@ func TestExampleDetectivePhase(t *testing.T) {
 	if err != nil {
 		t.Skip("detective example not found")
 	}
-	src := "state {}\n" + string(data)
+	src := string(data)
+	if trimmed := strings.TrimSpace(src); !strings.HasPrefix(trimmed, "state") {
+		src = "state {}\n" + src
+	}
 	tf, diags := parser.ParseFile("detective-phase.turn", src)
 	if diags.HasErrors() {
 		for _, d := range diags {

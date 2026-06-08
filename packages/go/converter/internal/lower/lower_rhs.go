@@ -7,7 +7,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,14 +36,16 @@ func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pre
 func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel) {
 	switch ft {
 	case ast.FieldTypeBool:
-		return "bool_and", &turnoutpb.ArgModel{Lit: structpb.NewBoolValue(true)}
+		fn = "bool_and"
 	case ast.FieldTypeNumber:
-		return "add", &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(0)}
+		fn = "add"
 	case ast.FieldTypeStr:
-		return "str_concat", &turnoutpb.ArgModel{Lit: structpb.NewStringValue("")}
+		fn = "str_concat"
 	default: // arr<number>, arr<str>, arr<bool>
-		return "arr_concat", &turnoutpb.ArgModel{Lit: structpb.NewListValue(&structpb.ListValue{})}
+		fn = "arr_concat"
 	}
+	val, _ := fnmeta.IdentityValue(fn)
+	return fn, &turnoutpb.ArgModel{Lit: val}
 }
 
 // lowerSingleRefRHS lowers `name:type = identifier` to an identity combine:

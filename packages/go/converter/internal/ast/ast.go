@@ -172,6 +172,12 @@ func (s Sigil) String() string {
 	return fmt.Sprintf("Sigil(%d)", int(s))
 }
 
+// ToInt32 encodes a Sigil for storage in a proto Sigils map (map[string]int32).
+func (s Sigil) ToInt32() int32 { return int32(s) }
+
+// SigilFromInt32 decodes a Sigil read from a proto Sigils map.
+func SigilFromInt32(v int32) Sigil { return Sigil(v) }
+
 // ────────────────────────────────────────────────────────────
 // Top-level
 // ────────────────────────────────────────────────────────────
@@ -349,6 +355,9 @@ func (op InfixOp) String() string {
 
 // fnAliasRaw returns the function alias for operators with a fixed mapping.
 // Returns "" for InfixPlus (type-dispatched) and unknown operators.
+// The "" return for InfixPlus is intentional — it is a sentinel meaning "resolve
+// by type." Callers must never use fnAliasRaw for type-dispatched operators;
+// use FnAliasForType instead.
 // Unexported — only FnAliasForType should be used outside this package.
 func (op InfixOp) fnAliasRaw() string {
 	switch op {

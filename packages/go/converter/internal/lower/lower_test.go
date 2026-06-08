@@ -873,7 +873,7 @@ func assertSigilAnnotation(t *testing.T, lr *lower.LowerResult, sceneID, actionI
 	if _, _ = progName, bindingName; progName != prog.Name {
 		t.Fatalf("prog name = %q, want %q", prog.Name, progName)
 	}
-	got := ast.Sigil(prog.Sigils[bindingName])
+	got := ast.SigilFromInt32(prog.Sigils[bindingName])
 	if got != want {
 		t.Fatalf("sigil for binding %q = %v, want %v", bindingName, got, want)
 	}

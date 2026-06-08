@@ -8,6 +8,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"github.com/kozmof/turnout/packages/go/converter/internal/localexpr"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
@@ -522,6 +523,28 @@ func argHasEmptyArrayLit(arg *turnoutpb.ArgModel) bool {
 	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
 }
 
+// walkExprArgs calls fn for every ArgModel leaf in expr, skipping identity
+// combines so callers never need to add that carve-out themselves.
+func walkExprArgs(expr *turnoutpb.ExprModel, fn func(*turnoutpb.ArgModel)) {
+	if c := expr.Combine; c != nil && !isIdentityCombine(c) {
+		for _, arg := range c.Args {
+			fn(arg)
+		}
+	}
+	if p := expr.Pipe; p != nil {
+		for _, step := range p.Steps {
+			for _, arg := range step.Args {
+				fn(arg)
+			}
+		}
+	}
+	if cond := expr.Cond; cond != nil {
+		fn(cond.Condition)
+		fn(cond.Then)
+		fn(cond.ElseBranch)
+	}
+}
+
 // validateNoEmptyArrayLitArgs emits CodeEmptyArrayLitArg for any empty array
 // literal used as an inline function argument. Empty arrays are type-ambiguous
 // at runtime (hcl-context-builder.ts cannot infer the element type), so they
@@ -554,30 +577,13 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics
 	if b.Expr == nil {
 		return
 	}
-	check := func(arg *turnoutpb.ArgModel) {
+	walkExprArgs(b.Expr, func(arg *turnoutpb.ArgModel) {
 		if argHasEmptyArrayLit(arg) {
 			*ds = append(*ds, diag.Errorf(diag.CodeEmptyArrayLitArg,
 				"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
 					"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
 		}
-	}
-	if c := b.Expr.Combine; c != nil && !isIdentityCombine(c) {
-		for _, arg := range c.Args {
-			check(arg)
-		}
-	}
-	if p := b.Expr.Pipe; p != nil {
-		for _, step := range p.Steps {
-			for _, arg := range step.Args {
-				check(arg)
-			}
-		}
-	}
-	if cond := b.Expr.Cond; cond != nil {
-		check(cond.Condition)
-		check(cond.Then)
-		check(cond.ElseBranch)
-	}
+	})
 }
 
 // isEmptyArrayLocalLit reports whether e is a LocalLitExprModel whose value is
@@ -594,40 +600,13 @@ func isEmptyArrayLocalLit(e *turnoutpb.LocalExprModel) bool {
 	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
 }
 
-// identityElement maps each identity-combine function to a predicate that
-// returns true when a structpb.Value is that function's algebraic identity:
-//
-//	bool_and → true   (x & true  == x)
-//	add      → 0      (x + 0     == x)
-//	str_concat → ""   (x ++ ""   == x)
-//	arr_concat → []   (x ++ []   == x)
-var identityElement = map[string]func(*structpb.Value) bool{
-	"bool_and": func(v *structpb.Value) bool {
-		bv, ok := v.Kind.(*structpb.Value_BoolValue)
-		return ok && bv.BoolValue
-	},
-	"add": func(v *structpb.Value) bool {
-		nv, ok := v.Kind.(*structpb.Value_NumberValue)
-		return ok && nv.NumberValue == 0
-	},
-	"str_concat": func(v *structpb.Value) bool {
-		sv, ok := v.Kind.(*structpb.Value_StringValue)
-		return ok && sv.StringValue == ""
-	},
-	"arr_concat": func(v *structpb.Value) bool {
-		lv, ok := v.Kind.(*structpb.Value_ListValue)
-		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
-	},
-}
-
 // isIdentityCombine reports whether c is the canonical identity lowering emitted
 // by lowerSingleRefRHS for a single-reference binding (f(x, identity) ≡ x).
 // Such combines are exempt from operatorOnly enforcement (validateCombine) and
 // the empty-array-arg check (validateNoEmptyArrayLitArgs).
 func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
-	isIdentity, ok := identityElement[c.Fn]
-	if !ok || len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
+	if len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
 		return false
 	}
-	return isIdentity(c.Args[1].Lit)
+	return fnmeta.IsIdentityValue(c.Fn, c.Args[1].Lit)
 }

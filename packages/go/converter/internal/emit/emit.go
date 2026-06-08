@@ -728,6 +728,9 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 func writeRouteBlock(iw *iWriter, r *turnoutpb.RouteModel) {
 	iw.wl("route %q {", r.Id)
 	iw.depth++
+	if r.EntrySceneId != nil {
+		iw.wl("entry_scene_id = %q", *r.EntrySceneId)
+	}
 	iw.wl("match {")
 	iw.depth++
 	for _, arm := range r.Match {

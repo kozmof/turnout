@@ -76,11 +76,17 @@ func (s Schema) Namespaces() []string {
 	return names
 }
 
-// FieldsOf returns the field map for the given namespace.
-// The returned map is the internal map; callers must not modify it.
+// FieldsOf returns a copy of the field map for the given namespace.
 func (s Schema) FieldsOf(ns string) (map[string]FieldMeta, bool) {
 	fields, ok := s.namespaces[ns]
-	return fields, ok
+	if !ok {
+		return nil, false
+	}
+	out := make(map[string]FieldMeta, len(fields))
+	for k, v := range fields {
+		out[k] = v
+	}
+	return out, true
 }
 
 // Resolve builds a Schema from a StateSource.
