@@ -9,6 +9,65 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// FnKind classifies special dispatch behaviour of a built-in function.
+type FnKind int
+
+const (
+	FnKindStandard  FnKind = iota // regular typed binary function
+	FnKindGeneric                 // eq/neq: both operands must share the same type
+	FnKindArrGet                  // arr_get: returns element type of arg1
+	FnKindArrInc                  // arr_includes: returns bool
+	FnKindArrConcat               // arr_concat: returns same array type as arg1
+)
+
+// FnSpec holds the static type metadata for a built-in binary function.
+type FnSpec struct {
+	Arg1Type, Arg2Type, ReturnType ast.FieldType
+	Kind                           FnKind
+}
+
+// BuiltinFn returns the spec for a built-in function alias.
+// Returns (FnSpec{}, false) for unknown names.
+func BuiltinFn(name string) (FnSpec, bool) {
+	spec, ok := builtinFnTable[name]
+	return spec, ok
+}
+
+// BuiltinFnNames returns all registered built-in function alias names.
+func BuiltinFnNames() []string {
+	names := make([]string, 0, len(builtinFnTable))
+	for name := range builtinFnTable {
+		names = append(names, name)
+	}
+	return names
+}
+
+var builtinFnTable = map[string]FnSpec{
+	"add":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"sub":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"mul":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"div":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"mod":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"max":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"min":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
+	"gt":           {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
+	"gte":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
+	"lt":           {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
+	"lte":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
+	"str_concat":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeStr},
+	"str_includes": {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
+	"str_starts":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
+	"str_ends":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
+	"bool_and":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
+	"bool_or":      {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
+	"bool_xor":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
+	"eq":           {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
+	"neq":          {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
+	"arr_includes": {Kind: FnKindArrInc},
+	"arr_get":      {Kind: FnKindArrGet},
+	"arr_concat":   {Kind: FnKindArrConcat},
+}
+
 // IsOperatorOnly reports whether fn must be used via infix syntax only.
 // Calling an operator-only function by name directly (e.g. add(a, b)) is a
 // compile error detected during lowering.

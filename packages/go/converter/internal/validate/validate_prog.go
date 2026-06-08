@@ -6,6 +6,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"github.com/kozmof/turnout/packages/go/converter/internal/localexpr"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/names"
@@ -251,7 +252,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 }
 
 func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
-	spec, ok := builtinFns[fn]
+	spec, ok := fnmeta.BuiltinFn(fn)
 	if !ok {
 		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
 			"binding %q: unknown function alias %q", bindingName, fn))
@@ -273,7 +274,7 @@ func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turno
 	// inferred lhs type. For all other operators it returns their fixed alias.
 	// Argument type errors (e.g. lhs str but rhs number for +) are caught below.
 	fn := op.FnAliasForType(lhsType)
-	spec, ok := builtinFns[fn]
+	spec, ok := fnmeta.BuiltinFn(fn)
 	if !ok {
 		return ast.FieldTypeInvalid, false
 	}
@@ -387,14 +388,14 @@ func protoPatternScopeBindings(scope map[string]bindingInfo, p *turnoutpb.LocalC
 
 // validateBinaryArgTypePair checks the two operand types of a binary function
 // against the fn spec. Shared by validateLocalCallArgTypes and validateCombineArgTypes.
-func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.Diagnostics) {
-	switch spec.kind {
-	case fnKindGeneric:
+func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.Diagnostics) {
+	switch spec.Kind {
+	case fnmeta.FnKindGeneric:
 		if ok1 && ok2 && t1 != t2 {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: %s requires homogeneous operand types, got %s and %s", bindingName, fn, t1, t2))
 		}
-	case fnKindArrGet:
+	case fnmeta.FnKindArrGet:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_get arg1 must be an array type, got %s", bindingName, t1))
@@ -403,7 +404,7 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.Field
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_get arg2 must be number, got %s", bindingName, t2))
 		}
-	case fnKindArrInc:
+	case fnmeta.FnKindArrInc:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_includes arg1 must be an array type, got %s", bindingName, t1))
@@ -413,7 +414,7 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.Field
 				"binding %q: arr_includes arg2 type %s does not match array element type %s",
 				bindingName, t2, t1.ElemType()))
 		}
-	case fnKindArrConcat:
+	case fnmeta.FnKindArrConcat:
 		if ok1 && !t1.IsArray() {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_concat arg1 must be an array type, got %s", bindingName, t1))
@@ -423,40 +424,40 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnSpec, t1 ast.Field
 				"binding %q: arr_concat args must have same array type, got %s and %s", bindingName, t1, t2))
 		}
 	default:
-		if ok1 && t1 != spec.arg1Type {
+		if ok1 && t1 != spec.Arg1Type {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s arg1 expects %s, got %s", bindingName, fn, spec.arg1Type, t1))
+				"binding %q: %s arg1 expects %s, got %s", bindingName, fn, spec.Arg1Type, t1))
 		}
-		if ok2 && t2 != spec.arg2Type {
+		if ok2 && t2 != spec.Arg2Type {
 			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s arg2 expects %s, got %s", bindingName, fn, spec.arg2Type, t2))
+				"binding %q: %s arg2 expects %s, got %s", bindingName, fn, spec.Arg2Type, t2))
 		}
 	}
 }
 
-func validateLocalCallArgTypes(bindingName, fn string, spec fnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
+func validateLocalCallArgTypes(bindingName, fn string, spec fnmeta.FnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
 	if len(types) < 2 {
 		return
 	}
 	validateBinaryArgTypePair(bindingName, fn, spec, types[0], known[0], types[1], known[1], ds)
 }
 
-func resolveLocalCallReturn(spec fnSpec, types []ast.FieldType, known []bool) (ast.FieldType, bool) {
-	switch spec.kind {
-	case fnKindGeneric, fnKindArrInc:
+func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []bool) (ast.FieldType, bool) {
+	switch spec.Kind {
+	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
 		return ast.FieldTypeBool, true
-	case fnKindArrGet:
+	case fnmeta.FnKindArrGet:
 		if len(types) >= 1 && known[0] && types[0].IsArray() {
 			return types[0].ElemType(), true
 		}
 		return 0, false
-	case fnKindArrConcat:
+	case fnmeta.FnKindArrConcat:
 		if len(types) >= 1 && known[0] {
 			return types[0], true
 		}
 		return 0, false
 	default:
-		return spec.returnType, true
+		return spec.ReturnType, true
 	}
 }
 

@@ -25,55 +25,6 @@ type bindingInfo struct {
 	sigil     ast.Sigil
 }
 
-// fnKind classifies the special dispatch behaviour of a built-in function.
-// The four array/generic variants are mutually exclusive.
-type fnKind int
-
-const (
-	fnKindStandard  fnKind = iota // regular typed binary function
-	fnKindGeneric                 // eq/neq: both operands must share the same type
-	fnKindArrGet                  // arr_get: returns element type of arg1
-	fnKindArrInc                  // arr_includes: returns bool
-	fnKindArrConcat               // arr_concat: returns same array type as arg1
-)
-
-type fnSpec struct {
-	arg1Type   ast.FieldType
-	arg2Type   ast.FieldType
-	returnType ast.FieldType
-	kind       fnKind
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Built-in function alias table (hcl-context-spec.md §3.1)
-// ─────────────────────────────────────────────────────────────────────────────
-
-var builtinFns = map[string]fnSpec{
-	"add":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"sub":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"mul":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"div":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"mod":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"max":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"min":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeNumber},
-	"gt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
-	"gte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
-	"lt":           {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
-	"lte":          {arg1Type: ast.FieldTypeNumber, arg2Type: ast.FieldTypeNumber, returnType: ast.FieldTypeBool},
-	"str_concat":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeStr},
-	"str_includes": {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
-	"str_starts":   {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
-	"str_ends":     {arg1Type: ast.FieldTypeStr, arg2Type: ast.FieldTypeStr, returnType: ast.FieldTypeBool},
-	"bool_and":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	"bool_or":      {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	"bool_xor":     {arg1Type: ast.FieldTypeBool, arg2Type: ast.FieldTypeBool, returnType: ast.FieldTypeBool},
-	"eq":           {returnType: ast.FieldTypeBool, kind: fnKindGeneric},
-	"neq":          {returnType: ast.FieldTypeBool, kind: fnKindGeneric},
-	"arr_includes": {kind: fnKindArrInc},
-	"arr_get":      {kind: fnKindArrGet},
-	"arr_concat":   {kind: fnKindArrConcat},
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Position index — O(1) lookup of binding source positions
 // ─────────────────────────────────────────────────────────────────────────────
@@ -246,7 +197,7 @@ func structpbFieldType(v *structpb.Value) (ast.FieldType, bool) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
-	spec, ok := builtinFns[c.Fn]
+	spec, ok := fnmeta.BuiltinFn(c.Fn)
 	if !ok {
 		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
 			"binding %q: unknown function alias %q", b.Name, c.Fn))
@@ -311,7 +262,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 	stepKnown := make([]bool, 0, len(p.Steps))
 
 	for i, step := range p.Steps {
-		spec, ok := builtinFns[step.Fn]
+		spec, ok := fnmeta.BuiltinFn(step.Fn)
 		if !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
 				"binding %q pipe step %d: unknown function alias %q", b.Name, i, step.Fn))
@@ -332,6 +283,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 			}
 		}
 
+		validatePipeStepArgTypes(b.Name, i, step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
 		retType, known := resolveExpectedReturn(spec, step.Args, pipeScope, stepTypes)
 		stepTypes = append(stepTypes, retType)
 		stepKnown = append(stepKnown, known)
@@ -357,6 +309,16 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 	if arg == nil {
 		return ast.FieldTypeInvalid, false
 	}
+	if arg.Ref != nil && *arg.Ref != "" {
+		ref := *arg.Ref
+		info, ok := scope[ref]
+		if !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
+			return ast.FieldTypeInvalid, false
+		}
+		return info.fieldType, true
+	}
 	if arg.FuncRef != nil && *arg.FuncRef != "" {
 		ref := *arg.FuncRef
 		info, ok := scope[ref]
@@ -368,16 +330,6 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 		if !info.isFunc {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q cond %s: %q is a value binding; a function binding is required", bindingName, branchName, ref))
-			return ast.FieldTypeInvalid, false
-		}
-		return info.fieldType, true
-	}
-	if arg.Ref != nil && *arg.Ref != "" {
-		ref := *arg.Ref
-		info, ok := scope[ref]
-		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
-				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
 			return ast.FieldTypeInvalid, false
 		}
 		return info.fieldType, true
@@ -446,11 +398,11 @@ func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[stri
 	}
 }
 
-func resolveExpectedReturn(spec fnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
-	switch spec.kind {
-	case fnKindGeneric, fnKindArrInc:
+func resolveExpectedReturn(spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
+	switch spec.Kind {
+	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
 		return ast.FieldTypeBool, true
-	case fnKindArrGet:
+	case fnmeta.FnKindArrGet:
 		if len(args) >= 1 {
 			t, ok := resolveArgType(args[0], scope, stepTypes)
 			if ok && t.IsArray() {
@@ -458,7 +410,7 @@ func resolveExpectedReturn(spec fnSpec, args []*turnoutpb.ArgModel, scope map[st
 			}
 		}
 		return 0, false
-	case fnKindArrConcat:
+	case fnmeta.FnKindArrConcat:
 		if len(args) >= 1 {
 			t, ok := resolveArgType(args[0], scope, stepTypes)
 			if ok {
@@ -467,7 +419,7 @@ func resolveExpectedReturn(spec fnSpec, args []*turnoutpb.ArgModel, scope map[st
 		}
 		return 0, false
 	default:
-		return spec.returnType, true
+		return spec.ReturnType, true
 	}
 }
 
@@ -501,7 +453,19 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 	return 0, false
 }
 
-func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.Diagnostics) {
+	for i := range args[2:] {
+		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			"binding %q pipe step %d: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, stepIdx, fn, i+2))
+	}
+	if len(args) >= 2 {
+		t1, ok1 := resolveArgType(args[0], scope, stepTypes)
+		t2, ok2 := resolveArgType(args[1], scope, stepTypes)
+		validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
+	}
+}
+
+func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
 	if len(c.Args) < 2 {
 		return
 	}

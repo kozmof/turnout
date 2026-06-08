@@ -219,6 +219,8 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *d
 	for _, key := range order {
 		meta, ok := schema.Get(key)
 		if !ok {
+			ds.Append(diag.Warnf(diag.CodeUnsupportedConstruct,
+				"lowerStateBlockFromSchemaOrdered: state key %q in declaration order not found in schema (stale order?)", key))
 			continue
 		}
 		dot := strings.IndexByte(key, '.')

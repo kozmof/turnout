@@ -60,6 +60,8 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 		panic(fmt.Sprintf("lowerTop: unhandled BindingRHS type %T for binding %q — add a case to the type switch", rhs, c.target))
 	}
 	if len(c.bindings) == 0 {
+		c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q: local expression lowering produced no bindings (compiler bug)", c.target))
 		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
 	}
 	// Attach the structured source expression to the user-declared name binding

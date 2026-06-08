@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"testing"
+
+	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 )
 
 // fnAliasEntry mirrors one entry in spec/fn-aliases.json.
@@ -31,16 +33,16 @@ func TestFnAliasesFixtureVsBuiltinFns(t *testing.T) {
 		fixtureHCL[e.HCL] = e.Runtime
 	}
 
-	// Every key in builtinFns must appear in the fixture.
-	for name := range builtinFns {
+	// Every key in fnmeta.BuiltinFn must appear in the fixture.
+	for _, name := range fnmeta.BuiltinFnNames() {
 		if _, ok := fixtureHCL[name]; !ok {
 			t.Errorf("builtinFns has %q but spec/fn-aliases.json does not", name)
 		}
 	}
 
-	// Every HCL key in the fixture must appear in builtinFns.
+	// Every HCL key in the fixture must appear in fnmeta.BuiltinFn.
 	for hcl := range fixtureHCL {
-		if _, ok := builtinFns[hcl]; !ok {
+		if _, ok := fnmeta.BuiltinFn(hcl); !ok {
 			t.Errorf("spec/fn-aliases.json has %q but builtinFns does not", hcl)
 		}
 	}

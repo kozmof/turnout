@@ -23,36 +23,39 @@ import (
 //
 //	"compute"   — from ComputeScope()
 //	"next:<N>"  — from NextScope(N), where N is a non-negative integer
-type ProgScope string
+//
+// The unexported field prevents arbitrary ProgScope values from being constructed
+// outside this package; all callers must use ComputeScope() or NextScope(i).
+type ProgScope struct{ s string }
 
 // ComputeScope returns the ProgScope for the action's main compute prog.
-func ComputeScope() ProgScope { return "compute" }
+func ComputeScope() ProgScope { return ProgScope{"compute"} }
 
 // NextScope returns the ProgScope for the i-th (0-based) next-rule prog.
-func NextScope(i int) ProgScope { return ProgScope(fmt.Sprintf("next:%d", i)) }
+func NextScope(i int) ProgScope { return ProgScope{fmt.Sprintf("next:%d", i)} }
 
-func (s ProgScope) String() string { return string(s) }
+func (s ProgScope) String() string { return s.s }
 
 // ParseProgScope validates and parses a ProgScope from a raw string (e.g. from
 // a serialised proto annotation). Returns (scope, true) for the two valid forms;
-// returns ("", false) for any unrecognised string.
-func ParseProgScope(s string) (ProgScope, bool) {
-	if s == "compute" {
-		return ProgScope(s), true
+// returns (ProgScope{}, false) for any unrecognised string.
+func ParseProgScope(raw string) (ProgScope, bool) {
+	if raw == "compute" {
+		return ProgScope{raw}, true
 	}
-	if strings.HasPrefix(s, "next:") {
-		rest := s[len("next:"):]
+	if strings.HasPrefix(raw, "next:") {
+		rest := raw[len("next:"):]
 		if len(rest) == 0 {
-			return "", false
+			return ProgScope{}, false
 		}
 		for _, ch := range rest {
 			if ch < '0' || ch > '9' {
-				return "", false
+				return ProgScope{}, false
 			}
 		}
-		return ProgScope(s), true
+		return ProgScope{raw}, true
 	}
-	return "", false
+	return ProgScope{}, false
 }
 
 // BindingKey uniquely identifies a binding within the model.
