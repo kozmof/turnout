@@ -21,21 +21,21 @@ func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition b
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
-	scope, adj := buildBindingScope(prog, idx, sceneID, actionID, scopeName, ds)
-	detectCycles(prog.Name, adj, prog.Bindings, ds)
+	scope, dependencies := buildBindingScope(prog, idx, sceneID, actionID, scopeName, ds)
+	detectCycles(prog.Name, dependencies, prog.Bindings, idx, sceneID, actionID, scopeName, ds)
 	validateBindingTypes(prog, scope, isTransition, idx, sceneID, actionID, scopeName, ds)
 	if !isTransition && root != "" {
-		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, adj, ds)
+		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, ds)
 	}
 	return scope
 }
 
 // detectUnusedBindings warns about bindings that are not reachable from the
 // compute root or any merge/condition exit node. It performs a DFS forward
-// through the dependency graph (adj[b] = list of bindings that b depends on)
+// through the dependency graph (dependencies[b] = list of bindings that b depends on)
 // starting from exit nodes, then flags any binding not reached.
 // Generated internal names (prefixed with __if_ or __local_) are skipped.
-func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, adj map[string][]string, ds *diag.Diagnostics) {
+func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, ds *diag.Diagnostics) {
 	reachable := make(map[string]bool, len(bindings))
 	var mark func(string)
 	mark = func(name string) {
@@ -43,7 +43,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 			return
 		}
 		reachable[name] = true
-		for _, dep := range adj[name] {
+		for _, dep := range dependencies[name] {
 			mark(dep)
 		}
 	}
@@ -65,10 +65,11 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 }
 
 // buildBindingScope registers all bindings into the scope map, detects duplicate
-// names, records sigils, and builds the adjacency map used by detectCycles.
+// names, records sigils, and builds the dependency map used by detectCycles.
+// dependencies[b] is the list of binding names that b directly depends on.
 func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
-	adj := make(map[string][]string, len(prog.Bindings))
+	dependencies := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
 	for _, b := range prog.Bindings {
 		if seen[b.Name] {
@@ -90,7 +91,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 		} else if b.ExtExpr != nil {
 			collectLocalExprBindingRefs(b.ExtExpr, &refs)
 		}
-		// Deduplicate refs so that Kahn's in-degree counts each dependency once,
+		// Deduplicate refs so that Kahn's dependentCount counts each dependency once,
 		// regardless of how many times a binding name appears in function arguments.
 		if len(refs) > 1 {
 			refSeen := make(map[string]struct{}, len(refs))
@@ -103,9 +104,9 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 			}
 			refs = unique
 		}
-		adj[b.Name] = refs
+		dependencies[b.Name] = refs
 	}
-	return scope, adj
+	return scope, dependencies
 }
 
 // validateBindingTypes runs per-binding structural and type checks against the
@@ -143,8 +144,14 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 
 		if b.Value != nil {
 			if !structpbMatchesFieldType(b.Value, ft) {
-				*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
-					"binding %q: literal value does not match declared type %s", b.Name, b.Type))
+				pos := posFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
+				if pos.File != "" {
+					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTypeMismatch,
+						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
+				} else {
+					*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
+				}
 			}
 			if ft.IsArray() {
 				validateArrayLiteral(b.Value, ft, b.Name, ds)
@@ -469,29 +476,29 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 // participates in a reference cycle. Cycles cause infinite recursion in the
 // TypeScript runtime's buildExecutionTree and must be caught at validation time.
 //
-// Algorithm: Kahn's topological sort on the *dependency* graph.
-// adj[b] = bindings that b depends on, so in-degree counts how many bindings
-// each node is depended upon by. Nodes with in-degree 0 have no dependents
-// and are dequeued first (consumer-first order — reverse of execution order).
+// Algorithm: Kahn's topological sort on the dependency graph.
+// dependencies[b] = bindings that b depends on, so dependentCount tracks how
+// many bindings depend on each node. Nodes with dependentCount 0 have no
+// consumers and are dequeued first (consumer-first order — reverse of execution order).
 // This direction is non-standard but cycle detection is direction-agnostic:
 // a cycle in the dependency graph is the same cycle in its reverse.
 // Nodes never dequeued are in cycles. A secondary targeted DFS over those
 // nodes extracts one example cycle path for the error message.
-func detectCycles(progName string, adj map[string][]string, bindings []*turnoutpb.BindingModel, ds *diag.Diagnostics) {
+func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
 	// --- Phase 1: Kahn's algorithm ---
-	inDegree := make(map[string]int, len(bindings))
+	dependentCount := make(map[string]int, len(bindings))
 	for _, b := range bindings {
-		if _, ok := inDegree[b.Name]; !ok {
-			inDegree[b.Name] = 0
+		if _, ok := dependentCount[b.Name]; !ok {
+			dependentCount[b.Name] = 0
 		}
-		for _, dep := range adj[b.Name] {
-			inDegree[dep]++
+		for _, dep := range dependencies[b.Name] {
+			dependentCount[dep]++
 		}
 	}
 
 	queue := make([]string, 0, len(bindings))
 	for _, b := range bindings {
-		if inDegree[b.Name] == 0 {
+		if dependentCount[b.Name] == 0 {
 			queue = append(queue, b.Name)
 		}
 	}
@@ -501,9 +508,9 @@ func detectCycles(progName string, adj map[string][]string, bindings []*turnoutp
 		n := queue[0]
 		queue = queue[1:]
 		processed[n] = true
-		for _, dep := range adj[n] {
-			inDegree[dep]--
-			if inDegree[dep] == 0 {
+		for _, dep := range dependencies[n] {
+			dependentCount[dep]--
+			if dependentCount[dep] == 0 {
 				queue = append(queue, dep)
 			}
 		}
@@ -544,14 +551,21 @@ func detectCycles(progName string, adj map[string][]string, bindings []*turnoutp
 				path := make([]string, cycleLen+1)
 				copy(path, stack[start:])
 				path[cycleLen] = name
-				*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
-					"prog %q: binding cycle: %s", progName, strings.Join(path, " → ")))
+				msg := strings.Join(path, " → ")
+				pos := posFor(idx, sceneID, actionID, scopeName, progName, name)
+				if pos.File != "" {
+					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
+						"prog %q: binding cycle: %s", progName, msg))
+				} else {
+					*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
+						"prog %q: binding cycle: %s", progName, msg))
+				}
 			}
 			return
 		}
 		color[name] = 1
 		stack = append(stack, name)
-		for _, dep := range adj[name] {
+		for _, dep := range dependencies[name] {
 			visit(dep)
 		}
 		stack = stack[:len(stack)-1]

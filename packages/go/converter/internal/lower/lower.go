@@ -146,6 +146,9 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 		if len(schema.Namespaces()) == 0 {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
+		} else if len(order) == 0 {
+			ds.Append(diag.Warnf(diag.CodeDeclarationOrderLost,
+				"state_file %q: field declaration order is not preserved; use LowerResolvingState() to maintain it", s.Path))
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
 	default:
@@ -219,7 +222,7 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *d
 	for _, key := range order {
 		meta, ok := schema.Get(key)
 		if !ok {
-			ds.Append(diag.Warnf(diag.CodeUnsupportedConstruct,
+			ds.Append(diag.Warnf(diag.CodeStaleDeclarationOrder,
 				"lowerStateBlockFromSchemaOrdered: state key %q in declaration order not found in schema (stale order?)", key))
 			continue
 		}
@@ -301,7 +304,7 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 
 	am := &turnoutpb.ActionModel{Id: a.ID}
 
-	if text := lowerActionText(a.Text); text != nil {
+	if text := trimActionText(a.Text); text != nil {
 		am.Text = text
 	}
 
@@ -322,8 +325,8 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	return am
 }
 
-// lowerActionText trims a single trailing newline from the raw string captured
-// from a triple-quoted text literal or heredoc body.
+// trimActionText strips one trailing newline from the raw string captured from
+// a triple-quoted text literal or heredoc body.
 //
 // Scanner invariants:
 //   - heredoc (<<-): body is the joined rawLines with no leading or trailing \n.
@@ -332,7 +335,7 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 //
 // A leading \n is NOT stripped here — doing so would silently eat a genuine
 // blank first line written by the author.
-func lowerActionText(raw *string) *string {
+func trimActionText(raw *string) *string {
 	if raw == nil {
 		return nil
 	}
@@ -496,15 +499,17 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		return nil
 	}
 
-	// Record sigil in proto and source position in sidecar for the user-declared
-	// binding (matched by name). Auto-generated bindings keep SigilNone.
+	// Record sigil in proto for sigil bindings.
 	if decl.Sigil != ast.SigilNone {
-		for _, b := range bindings {
-			if b.Name == name {
-				pm.Sigils[name] = decl.Sigil.ToInt32()
-				key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: pm.Name, BindingName: name}
-				sc.SetPos(key, decl.Pos)
-			}
+		pm.Sigils[name] = decl.Sigil.ToInt32()
+	}
+	// Record source position for ALL user-declared bindings so the validator
+	// can emit file:line:col diagnostics for type-mismatch and cycle errors.
+	for _, b := range bindings {
+		if b.Name == name {
+			key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: pm.Name, BindingName: name}
+			sc.SetPos(key, decl.Pos)
+			break
 		}
 	}
 	return bindings

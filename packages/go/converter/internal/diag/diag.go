@@ -78,6 +78,19 @@ func (ds Diagnostics) HasErrors() bool {
 	return false
 }
 
+// Capped returns ds unchanged when len(ds) <= MaxDiagnostics. When the slice
+// exceeds the cap it returns the first MaxDiagnostics entries followed by a
+// single TooManyDiagnostics sentinel, so callers always receive a bounded slice.
+func (ds Diagnostics) Capped() Diagnostics {
+	if len(ds) <= MaxDiagnostics {
+		return ds
+	}
+	capped := make(Diagnostics, MaxDiagnostics+1)
+	copy(capped, ds[:MaxDiagnostics])
+	capped[MaxDiagnostics] = Errorf(CodeTooManyDiagnostics, "too many diagnostics — further errors suppressed")
+	return capped
+}
+
 // Errorf creates a new error Diagnostic with no position.
 func Errorf(code, format string, args ...any) Diagnostic {
 	return Diagnostic{
@@ -162,7 +175,9 @@ const (
 
 // Error codes from state-shape-spec.md
 const (
-	CodeMissingStateSource            = "MissingStateSource"
+	CodeDeclarationOrderLost  = "DeclarationOrderLost"
+	CodeStaleDeclarationOrder = "StaleDeclarationOrder"
+	CodeMissingStateSource    = "MissingStateSource"
 	CodeConflictingStateSource        = "ConflictingStateSource"
 	CodeStateFileMissing              = "StateFileMissing"
 	CodeStateFileParseError           = "StateFileParseError"

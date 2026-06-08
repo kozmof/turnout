@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	converter "github.com/kozmof/turnout/packages/go/converter"
-	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
 )
 
 func main() {
@@ -57,49 +56,43 @@ func runConvert(args []string) int {
 		basePath = *stateFile
 	}
 
-	result, ds := converter.Compile(inputPath, basePath)
-	if ds.HasErrors() || result == nil {
-		printDiags(ds)
-		return 1
-	}
-
 	if *format != "hcl" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "turnout: unknown format %q (must be hcl or json)\n", *format)
 		return 1
 	}
 
 	ext := "." + *format
-	var w io.Writer
-	if *output == "-" {
-		w = os.Stdout
-	} else {
-		outPath := *output
-		if outPath == "" {
-			outPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ext
-		}
-		f, err := os.Create(outPath)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "turnout: cannot create %s: %v\n", outPath, err)
-			return 1
-		}
-		defer f.Close()
-		w = f
+	outPath := *output
+	if outPath == "" {
+		outPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ext
 	}
 
-	if *format == "json" {
-		if err := emit.EmitJSON(w, result.Model); err != nil {
-			fmt.Fprintf(os.Stderr, "turnout: json emit failed: %v\n", err)
-			return 1
-		}
-		return 0
+	if outPath == "-" {
+		return runConvertToWriter(os.Stdout, inputPath, basePath, *format)
 	}
 
-	ds5 := emit.Emit(w, result.Model)
-	if ds5.HasErrors() {
-		printDiags(ds5)
+	f, err := os.Create(outPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "turnout: cannot create %s: %v\n", outPath, err)
 		return 1
 	}
+	defer f.Close()
+	return runConvertToWriter(f, inputPath, basePath, *format)
+}
 
+func runConvertToWriter(w io.Writer, inputPath, basePath, format string) int {
+	var result *converter.CompileResult
+	var ds converter.Diagnostics
+	if format == "json" {
+		result, ds = converter.CompileToJSON(w, inputPath, basePath)
+	} else {
+		result, ds = converter.CompileToHCL(w, inputPath, basePath)
+	}
+	if ds.HasErrors() || result == nil {
+		printDiags(ds)
+		return 1
+	}
+	printDiags(ds) // emit any warnings
 	return 0
 }
 

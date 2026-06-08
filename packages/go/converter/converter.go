@@ -4,10 +4,12 @@
 package converter
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
@@ -51,6 +53,54 @@ func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 // override it. Unlike Compile, no file I/O is performed.
 func CompileSource(name, src, stateBasePath string) (*CompileResult, Diagnostics) {
 	return compileBytes(name, []byte(src), stateBasePath)
+}
+
+// CompileToHCL runs the full pipeline and writes canonical HCL to w.
+// On success it returns the CompileResult alongside any warnings; on error it
+// returns nil and the error diagnostics without writing to w.
+func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := Compile(inputPath, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	emitDs := emit.Emit(w, result.Model)
+	return result, append(ds, emitDs...)
+}
+
+// CompileToJSON runs the full pipeline and writes JSON to w.
+// On success it returns the CompileResult alongside any warnings; on error it
+// returns nil and the error diagnostics without writing to w.
+func CompileToJSON(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := Compile(inputPath, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	if err := emit.EmitJSON(w, result.Model); err != nil {
+		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
+	}
+	return result, ds
+}
+
+// CompileSourceToHCL is the in-memory equivalent of CompileToHCL.
+func CompileSourceToHCL(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := CompileSource(name, src, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	emitDs := emit.Emit(w, result.Model)
+	return result, append(ds, emitDs...)
+}
+
+// CompileSourceToJSON is the in-memory equivalent of CompileToJSON.
+func CompileSourceToJSON(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := CompileSource(name, src, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	if err := emit.EmitJSON(w, result.Model); err != nil {
+		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
+	}
+	return result, ds
 }
 
 func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {

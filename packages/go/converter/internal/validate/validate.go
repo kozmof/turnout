@@ -90,7 +90,7 @@ func Validate(tm *turnoutpb.TurnModel, schema state.Schema, sc *lower.Sidecar) d
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
 		validateRoutes(tm.Routes, knownScenes, knownActions, &ds)
 	}
-	return ds
+	return ds.Capped()
 }
 
 func buildKnownScenesAndActions(tm *turnoutpb.TurnModel) (map[string]bool, map[string]map[string]bool) {
@@ -454,15 +454,16 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 }
 
 func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.Diagnostics) {
-	for i := range args[2:] {
+	if len(args) < 2 {
+		return
+	}
+	for i := 2; i < len(args); i++ {
 		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-			"binding %q pipe step %d: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, stepIdx, fn, i+2))
+			"binding %q pipe step %d: function %q does not accept more than 2 arguments (extra arg at index %d)", bindingName, stepIdx, fn, i))
 	}
-	if len(args) >= 2 {
-		t1, ok1 := resolveArgType(args[0], scope, stepTypes)
-		t2, ok2 := resolveArgType(args[1], scope, stepTypes)
-		validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
-	}
+	t1, ok1 := resolveArgType(args[0], scope, stepTypes)
+	t2, ok2 := resolveArgType(args[1], scope, stepTypes)
+	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
 }
 
 func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {

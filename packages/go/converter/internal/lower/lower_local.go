@@ -151,9 +151,10 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 }
 
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr) {
-	// Operator-only functions are infix-only; direct calls are rejected here just
-	// as they are in lowerFuncCallRHS for top-level bindings.
-	if fnmeta.IsOperatorOnly(call.FnAlias) {
+	// Operator-only functions are infix-only outside of #pipe steps. Inside a
+	// pipe step (itAllowed), add(#it, n) / mul(#it, n) etc. are the natural
+	// calling form and are explicitly allowed.
+	if fnmeta.IsOperatorOnly(call.FnAlias) && !c.itAllowed {
 		c.ds.Append(diag.ErrorAt(call.Pos.File, call.Pos.Line, call.Pos.Col,
 			diag.CodeOperatorOnlyFn,
 			"binding %q: %q is an operator-only function; use infix syntax instead (e.g. a %s b)",

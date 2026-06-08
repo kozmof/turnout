@@ -45,16 +45,21 @@ const (
 	FieldTypeArrBool                    //  6: arr<bool>
 )
 
-var fieldTypeNames = [...]string{
-	"number", "str", "bool", "arr<number>", "arr<str>", "arr<bool>",
+var fieldTypeNames = map[FieldType]string{
+	FieldTypeNumber:    "number",
+	FieldTypeStr:       "str",
+	FieldTypeBool:      "bool",
+	FieldTypeArrNumber: "arr<number>",
+	FieldTypeArrStr:    "arr<str>",
+	FieldTypeArrBool:   "arr<bool>",
 }
 
 func (ft FieldType) String() string {
 	if ft == FieldTypeInvalid {
 		return "FieldType(invalid)"
 	}
-	if int(ft) >= 1 && int(ft) <= len(fieldTypeNames) {
-		return fieldTypeNames[ft-1]
+	if name, ok := fieldTypeNames[ft]; ok {
+		return name
 	}
 	return fmt.Sprintf("FieldType(%d)", int(ft))
 }
