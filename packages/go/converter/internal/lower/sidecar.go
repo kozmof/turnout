@@ -36,6 +36,10 @@ func NextScope(i int) ProgScope { return ProgScope{fmt.Sprintf("next:%d", i)} }
 
 func (s ProgScope) String() string { return s.s }
 
+// IsValid reports whether s was produced by ComputeScope() or NextScope(i).
+// The zero value ProgScope{} is not valid and should never be used as a key.
+func (s ProgScope) IsValid() bool { return s.s != "" }
+
 // ParseProgScope validates and parses a ProgScope from a raw string (e.g. from
 // a serialised proto annotation). Returns (scope, true) for the two valid forms;
 // returns (ProgScope{}, false) for any unrecognised string.
@@ -71,7 +75,11 @@ type BindingKey struct {
 // Format: "sceneID:actionID:scope:progName:bindingName".
 // The `:` separator is safe because DSL identifiers are restricted to
 // [A-Za-z_][A-Za-z0-9_]* and cannot contain `:`, so keys never collide.
+// Panics when k.Scope is the zero value to catch misuse at the source.
 func bindingKeyString(k BindingKey) string {
+	if !k.Scope.IsValid() {
+		panic("bindingKeyString: ProgScope is the zero value; use ComputeScope() or NextScope(i)")
+	}
 	return fmt.Sprintf("%s:%s:%s:%s:%s", k.SceneID, k.ActionID, k.Scope, k.ProgName, k.BindingName)
 }
 

@@ -284,19 +284,31 @@ func writeText(iw *iWriter, text string) {
 // writeHeredocField writes a <<- heredoc assignment for the named field at the
 // current indentation level. The content is written verbatim; the delimiter is
 // chosen automatically to avoid collisions with any content line.
-// Returns a non-nil error only if no safe delimiter can be found.
+// Returns a non-nil error only if no safe delimiter can be found or an IO error
+// is already recorded on iw.
 func writeHeredocField(iw *iWriter, fieldName, content string) error {
+	if iw.err != nil {
+		return iw.err
+	}
 	ind := iw.tabs()
 	delim, err := chooseHeredocDelim(content, ind)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(iw.out, "%s%s = <<-%s\n", ind, fieldName, delim)
-	for _, l := range strings.Split(content, "\n") {
-		fmt.Fprintf(iw.out, "%s%s\n", ind, l)
+	if _, iw.err = fmt.Fprintf(iw.out, "%s%s = <<-%s\n", ind, fieldName, delim); iw.err != nil {
+		return iw.err
 	}
-	fmt.Fprintf(iw.out, "%s%s\n", ind, delim)
-	return nil
+	for _, l := range strings.Split(content, "\n") {
+		if iw.err != nil {
+			return iw.err
+		}
+		_, iw.err = fmt.Fprintf(iw.out, "%s%s\n", ind, l)
+	}
+	if iw.err != nil {
+		return iw.err
+	}
+	_, iw.err = fmt.Fprintf(iw.out, "%s%s\n", ind, delim)
+	return iw.err
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

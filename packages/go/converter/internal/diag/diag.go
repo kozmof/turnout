@@ -90,6 +90,28 @@ func (ds Diagnostics) HasErrors() bool {
 	return false
 }
 
+// Errors returns a new slice containing only the error-severity diagnostics.
+func (ds Diagnostics) Errors() Diagnostics {
+	var out Diagnostics
+	for _, d := range ds {
+		if d.Severity == SeverityError {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
+// Warnings returns a new slice containing only the warning-severity diagnostics.
+func (ds Diagnostics) Warnings() Diagnostics {
+	var out Diagnostics
+	for _, d := range ds {
+		if d.Severity == SeverityWarning {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 // Capped returns ds unchanged when len(ds) <= MaxDiagnostics. When the slice
 // exceeds the cap it returns the first MaxDiagnostics entries followed by a
 // single TooManyDiagnostics sentinel, so callers always receive a bounded slice.

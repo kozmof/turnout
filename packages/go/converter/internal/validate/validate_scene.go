@@ -52,7 +52,8 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx lower.P
 			for _, m := range a.Merge {
 				mergeNames = append(mergeNames, m.Binding)
 			}
-			scope = validateProg(a.Compute.Prog, schema, false, a.Compute.Root, mergeNames, idx, scene.Id, a.Id, lower.ComputeScope(), ds)
+			computeCtx := progValidateCtx{schema: schema, idx: idx, sceneID: scene.Id, actionID: a.Id, scope: lower.ComputeScope()}
+			scope = validateProg(a.Compute.Prog, computeCtx, false, a.Compute.Root, mergeNames, ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -74,7 +75,8 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx lower.P
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			validateNextRule(nr, schema, idx, scene.Id, a.Id, lower.NextScope(i), scope, ds)
+			nextCtx := progValidateCtx{schema: schema, idx: idx, sceneID: scene.Id, actionID: a.Id, scope: lower.NextScope(i)}
+			validateNextRule(nr, nextCtx, scope, ds)
 		}
 	}
 }

@@ -217,6 +217,10 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 }
 
 // literalMatchesType reports whether lit is compatible with the declared FieldType.
+// See also validate.structpbFieldType, which performs the equivalent check at the
+// proto structpb level. The two functions are intentionally separate to avoid a
+// cross-package dependency; if a shared utility package is ever introduced, both
+// can be migrated.
 func literalMatchesType(lit ast.Literal, ft ast.FieldType) bool {
 	switch ft {
 	case ast.FieldTypeNumber:

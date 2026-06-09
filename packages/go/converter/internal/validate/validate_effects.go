@@ -4,7 +4,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
@@ -119,7 +118,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, actionScope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionScope map[string]bindingInfo, ds *diag.Diagnostics) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -137,7 +136,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx lowe
 				e.Binding, count))
 		}
 		if e.FromState != nil {
-			validateStatePath(*e.FromState, schema, ds)
+			validateStatePath(*e.FromState, ctx.schema, ds)
 		}
 		// 3-A: verify the from_action binding exists in the source action's compute prog.
 		if e.FromAction != nil {
@@ -145,7 +144,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx lowe
 			if _, ok := actionScope[srcName]; !ok {
 				*ds = append(*ds, diag.Errorf(diag.CodeNextPrepareFromActionUnknown,
 					"action %q: next prepare binding %q references from_action %q which does not exist in this action's compute prog",
-					actionID, e.Binding, srcName))
+					ctx.actionID, e.Binding, srcName))
 			}
 		}
 	}
@@ -154,7 +153,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx lowe
 		return
 	}
 
-	nextScope := validateProg(nr.Compute.Prog, schema, true, "", nil, idx, sceneID, actionID, scopeName, ds)
+	nextScope := validateProg(nr.Compute.Prog, ctx, true, "", nil, ds)
 
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]
@@ -178,7 +177,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, schema state.Schema, idx lowe
 		if srcOK && dstOK && srcInfo.fieldType != dstInfo.fieldType {
 			*ds = append(*ds, diag.Errorf(diag.CodeNextPrepareFromActionTypeMismatch,
 				"action %q: next prepare binding %q (type %s) does not match from_action %q (type %s)",
-				actionID, e.Binding, dstInfo.fieldType, srcName, srcInfo.fieldType))
+				ctx.actionID, e.Binding, dstInfo.fieldType, srcName, srcInfo.fieldType))
 		}
 	}
 }

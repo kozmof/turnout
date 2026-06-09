@@ -60,11 +60,7 @@ func CompileSource(name, src, stateBasePath string) (*CompileResult, Diagnostics
 // returns nil and the error diagnostics without writing to w.
 func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := Compile(inputPath, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	emitDs := emit.Emit(w, result.Model)
-	return result, append(ds, emitDs...)
+	return compileAndWrite(w, result, ds, emitHCLFn)
 }
 
 // CompileToJSON runs the full pipeline and writes JSON to w.
@@ -72,35 +68,40 @@ func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult,
 // returns nil and the error diagnostics without writing to w.
 func CompileToJSON(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := Compile(inputPath, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	if err := emit.EmitJSON(w, result.Model); err != nil {
-		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
-	}
-	return result, ds
+	return compileAndWrite(w, result, ds, emitJSONFn)
 }
 
 // CompileSourceToHCL is the in-memory equivalent of CompileToHCL.
 func CompileSourceToHCL(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := CompileSource(name, src, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	emitDs := emit.Emit(w, result.Model)
-	return result, append(ds, emitDs...)
+	return compileAndWrite(w, result, ds, emitHCLFn)
 }
 
 // CompileSourceToJSON is the in-memory equivalent of CompileToJSON.
 func CompileSourceToJSON(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := CompileSource(name, src, stateBasePath)
+	return compileAndWrite(w, result, ds, emitJSONFn)
+}
+
+type emitFn func(io.Writer, *turnoutpb.TurnModel) Diagnostics
+
+func compileAndWrite(w io.Writer, result *CompileResult, ds Diagnostics, fn emitFn) (*CompileResult, Diagnostics) {
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	if err := emit.EmitJSON(w, result.Model); err != nil {
-		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
+	emitDs := fn(w, result.Model)
+	return result, append(ds, emitDs...)
+}
+
+func emitHCLFn(w io.Writer, m *turnoutpb.TurnModel) Diagnostics {
+	return emit.Emit(w, m)
+}
+
+func emitJSONFn(w io.Writer, m *turnoutpb.TurnModel) Diagnostics {
+	if err := emit.EmitJSON(w, m); err != nil {
+		return Diagnostics{diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err)}
 	}
-	return result, ds
+	return nil
 }
 
 func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {
@@ -109,24 +110,28 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 		base = filepath.Dir(name)
 	}
 
+	var accumulated Diagnostics
+
 	turnFile, ds1 := parser.ParseFile(name, string(src))
+	accumulated = append(accumulated, ds1.Warnings()...)
 	if ds1.HasErrors() {
-		return nil, ds1
+		return nil, append(accumulated, ds1.Errors()...)
 	}
 
 	lr, ds2 := lower.LowerResolvingState(turnFile, base)
+	accumulated = append(accumulated, ds2.Warnings()...)
 	if ds2.HasErrors() {
-		return nil, ds2
+		return nil, append(accumulated, ds2.Errors()...)
 	}
 
 	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar})
 	if ds3.HasErrors() {
-		return nil, ds3
+		return nil, append(accumulated, ds3...)
 	}
 
 	return &CompileResult{
 		Model:    lr.Model,
 		Schema:   lr.Schema,
-		Warnings: ds3,
+		Warnings: append(accumulated, ds3...),
 	}, nil
 }

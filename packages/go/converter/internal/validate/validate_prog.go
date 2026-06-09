@@ -17,13 +17,25 @@ import (
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateProg(prog *turnoutpb.ProgModel, schema state.Schema, isTransition bool, root string, mergeNames []string, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) map[string]bindingInfo {
+// progValidateCtx bundles the stable context fields threaded through prog
+// validation: schema, position index, scene/action identity, and the prog scope.
+// Using a struct instead of 5 positional parameters makes call sites resilient
+// to future additions and eliminates argument-order confusion.
+type progValidateCtx struct {
+	schema   state.Schema
+	idx      lower.PositionIndex
+	sceneID  string
+	actionID string
+	scope    lower.ProgScope
+}
+
+func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, mergeNames []string, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
-	scope, dependencies := buildBindingScope(prog, idx, sceneID, actionID, scopeName, ds)
-	detectCycles(prog.Name, dependencies, prog.Bindings, idx, sceneID, actionID, scopeName, ds)
-	validateBindingTypes(prog, scope, isTransition, idx, sceneID, actionID, scopeName, ds)
+	scope, dependencies := buildBindingScope(prog, ctx, ds)
+	detectCycles(prog.Name, dependencies, prog.Bindings, ctx, ds)
+	validateBindingTypes(prog, scope, isTransition, ctx, ds)
 	if !isTransition && root != "" {
 		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, ds)
 	}
@@ -66,7 +78,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 // buildBindingScope registers all bindings into the scope map, detects duplicate
 // names, records sigils, and builds the dependency map used by detectCycles.
 // dependencies[b] is the list of binding names that b directly depends on.
-func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
+func buildBindingScope(prog *turnoutpb.ProgModel, ctx progValidateCtx, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
 	dependencies := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
@@ -86,7 +98,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
 		scope[b.Name] = bindingInfo{
 			fieldType: ft,
-			isFunc:    b.Expr != nil || b.ExtExpr != nil,
+			kind:      bindingKindFor(b),
 			sigil:     sigil,
 		}
 		var refs []string
@@ -99,7 +111,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 		// regardless of how many times a binding name appears in function arguments.
 		if len(refs) > 1 {
 			refSeen := make(map[string]struct{}, len(refs))
-			unique := refs[:0]
+			unique := make([]string, 0, len(refs))
 			for _, r := range refs {
 				if _, ok := refSeen[r]; !ok {
 					refSeen[r] = struct{}{}
@@ -116,7 +128,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, idx lower.PositionIndex, scene
 // validateBindingTypes runs per-binding structural and type checks against the
 // already-built scope. Handles reserved names, transition sigil constraints,
 // literal type conformance, and expr/ext_expr type checking.
-func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
+func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, ctx progValidateCtx, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
 		ft, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
@@ -125,7 +137,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			continue
 		}
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
-		pos := posFor(idx, sceneID, actionID, scopeName, prog.Name, b.Name)
+		pos := posFor(ctx, prog.Name, b.Name)
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !names.IsGeneratedIfCondName(b.Name) && !names.IsGeneratedLocalName(b.Name) {
@@ -181,8 +193,8 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 
 // posFor returns the source position for a binding from the position index.
 // Returns the zero Pos if no position is recorded (e.g. for auto-generated bindings).
-func posFor(idx lower.PositionIndex, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string) ast.Pos {
-	return idx.Get(sceneID, actionID, scope, progName, bindingName)
+func posFor(ctx progValidateCtx, progName, bindingName string) ast.Pos {
+	return ctx.idx.Get(ctx.sceneID, ctx.actionID, ctx.scope, progName, bindingName)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -496,7 +508,7 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 // a cycle in the dependency graph is the same cycle in its reverse.
 // Nodes never dequeued are in cycles. A secondary targeted DFS over those
 // nodes extracts one example cycle path for the error message.
-func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, idx lower.PositionIndex, sceneID, actionID string, scopeName lower.ProgScope, ds *diag.Diagnostics) {
+func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, ctx progValidateCtx, ds *diag.Diagnostics) {
 	// --- Phase 1: Kahn's algorithm ---
 	dependentCount := make(map[string]int, len(bindings))
 	for _, b := range bindings {
@@ -564,7 +576,7 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 				copy(path, stack[start:])
 				path[cycleLen] = name
 				msg := strings.Join(path, " → ")
-				pos := posFor(idx, sceneID, actionID, scopeName, progName, name)
+				pos := posFor(ctx, progName, name)
 				if pos.File != "" {
 					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
 						"prog %q: binding cycle: %s", progName, msg))

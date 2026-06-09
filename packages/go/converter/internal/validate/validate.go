@@ -19,10 +19,27 @@ import (
 // Internal helper types
 // ─────────────────────────────────────────────────────────────────────────────
 
+// BindingKind classifies a binding as a value binding or a function binding.
+// Function bindings have an Expr or ExtExpr; value bindings have a Value.
+type BindingKind int
+
+const (
+	BindingKindValue BindingKind = iota // binding holds a plain value (b.Value != nil)
+	BindingKindFunc                     // binding holds an expression (b.Expr or b.ExtExpr != nil)
+)
+
 type bindingInfo struct {
 	fieldType ast.FieldType
-	isFunc    bool
+	kind      BindingKind
 	sigil     ast.Sigil
+}
+
+// bindingKindFor returns the BindingKind for a BindingModel.
+func bindingKindFor(b *turnoutpb.BindingModel) BindingKind {
+	if b.Expr != nil || b.ExtExpr != nil {
+		return BindingKindFunc
+	}
+	return BindingKindValue
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -167,6 +184,10 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 	return false
 }
 
+// structpbFieldType infers a FieldType from a proto structpb.Value at the validate stage.
+// See also state.literalMatchesType, which performs the equivalent check at the AST
+// level. The two functions are intentionally separate to avoid a cross-package
+// dependency; if a shared utility package is ever introduced, both can be migrated.
 func structpbFieldType(v *structpb.Value) (ast.FieldType, bool) {
 	if v == nil {
 		return 0, false
@@ -266,13 +287,13 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 				"binding %q pipe param %q: source %q is not defined", b.Name, param.ParamName, param.SourceIdent))
 			continue
 		}
-		if srcInfo.isFunc {
+		if srcInfo.kind == BindingKindFunc {
 			*ds = append(*ds, diag.Errorf(diag.CodePipeArgNotValue,
 				"binding %q pipe param %q: source %q is a function binding; pipe params must reference value bindings",
 				b.Name, param.ParamName, param.SourceIdent))
 			continue
 		}
-		pipeScope[param.ParamName] = bindingInfo{fieldType: srcInfo.fieldType, isFunc: false}
+		pipeScope[param.ParamName] = bindingInfo{fieldType: srcInfo.fieldType, kind: BindingKindValue}
 	}
 
 	stepTypes := make([]ast.FieldType, 0, len(p.Steps))
@@ -349,7 +370,7 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
 			return ast.FieldTypeInvalid, false
 		}
-		if !info.isFunc {
+		if info.kind != BindingKindFunc {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q cond %s: %q is a value binding; a function binding is required", bindingName, branchName, ref))
 			return ast.FieldTypeInvalid, false
@@ -417,7 +438,7 @@ func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[stri
 		if !ok {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q: func_ref %q is not defined", bindingName, *arg.FuncRef))
-		} else if !info.isFunc {
+		} else if info.kind != BindingKindFunc {
 			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q: func_ref %q references a value binding; a function binding is required",
 				bindingName, *arg.FuncRef))

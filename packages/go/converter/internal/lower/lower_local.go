@@ -187,7 +187,10 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(pc.itRef)})
 			}
 		default:
-			argType := c.inferLocalType(arg, ft, pc)
+			argType, argTypeOK := c.inferLocalType(arg, ft, pc)
+			if !argTypeOK {
+				argType = ft
+			}
 			ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType, pc)
 			args = append(args, &turnoutpb.ArgModel{Ref: proto.String(ref)})
 		}
@@ -244,7 +247,7 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
-	subjectType := c.inferLocalType(subject, ft, pc)
+	subjectType, _ := c.inferLocalType(subject, ft, pc)
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType, pc)
 	fallbackFn := ""
 	seenWildcard := false
@@ -332,7 +335,7 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 }
 
 func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.LocalExpr, steps []ast.LocalExpr, outerPC pipeContext) {
-	currentType := c.inferLocalType(initial, ft, outerPC)
+	currentType, _ := c.inferLocalType(initial, ft, outerPC)
 	currentRef, _ := c.lowerExprTemp(initial, "pipe_initial", currentType, outerPC)
 	for i, step := range steps {
 		stepName := name
@@ -342,7 +345,7 @@ func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.
 		stepPC := pipeContext{itRef: currentRef, itType: currentType, itAllowed: true}
 		stepType := ft
 		if i < len(steps)-1 {
-			stepType = c.inferLocalType(step, ft, stepPC)
+			stepType, _ = c.inferLocalType(step, ft, stepPC)
 		}
 		c.lowerExprInto(stepName, stepType, step, stepPC)
 		currentRef, currentType = stepName, stepType
@@ -352,34 +355,37 @@ func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.
 	}
 }
 
-func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType, pc pipeContext) ast.FieldType {
+// inferLocalType infers the FieldType of a LocalExpr without lowering it.
+// Returns (type, true) when the type is definitively known from the expression
+// structure; returns (fallback, false) when the type cannot be determined
+// (e.g. undefined reference, unknown literal form). Callers that need to
+// distinguish "inferred" from "fell back" should check the bool.
+func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType, pc pipeContext) (ast.FieldType, bool) {
 	switch x := e.(type) {
 	case *ast.LocalLitExpr:
 		if ft, ok := ast.LiteralFieldType(x.Value); ok {
-			return ft
+			return ft, true
 		}
 	case *ast.LocalRefExpr:
 		if ft, ok := c.bindingTypes[x.Name]; ok {
-			return ft
+			return ft, true
 		}
-		// Unknown refs fall through to `return fallback` below.
-		// The UndefinedRef diagnostic is emitted in lowerExprInto, which also
-		// emits a zero literal instead of a dangling identity binding — this
-		// prevents the cascade of type-mismatch errors that a dangling ref produces.
+		// Unknown ref: UndefinedRef is emitted in lowerExprInto; return false
+		// so callers can avoid cascading type-mismatch errors on top of it.
 	case *ast.LocalItExpr:
 		if pc.itAllowed {
-			return pc.itType
+			return pc.itType, true
 		}
 	case *ast.LocalCallExpr:
-		return fnmeta.ReturnType(x.FnAlias, fallback)
+		return fnmeta.ReturnType(x.FnAlias, fallback), true
 	case *ast.LocalInfixExpr:
-		return fnmeta.ReturnType(x.Op.FnAliasForType(fallback), fallback)
+		return fnmeta.ReturnType(x.Op.FnAliasForType(fallback), fallback), true
 	case *ast.LocalIfExpr:
 		return c.inferLocalType(x.Then, fallback, pc)
 	case *ast.LocalCaseExpr:
 		for _, arm := range x.Arms {
-			if t := c.inferLocalType(arm.Expr, fallback, pc); t != fallback {
-				return t
+			if t, ok := c.inferLocalType(arm.Expr, fallback, pc); ok {
+				return t, true
 			}
 		}
 	case *ast.LocalPipeExpr:
@@ -388,5 +394,5 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType, p
 		}
 		return c.inferLocalType(x.Initial, fallback, pc)
 	}
-	return fallback
+	return fallback, false
 }

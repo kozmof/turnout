@@ -20,20 +20,24 @@ const (
 	FnKindArrConcat               // arr_concat: returns same array type as arg1
 )
 
+// DefaultFnArity is the arity used for built-in functions when FnSpec.MaxArgs is 0.
+// All current built-in functions are binary; a non-zero MaxArgs overrides this.
+const DefaultFnArity = 2
+
 // FnSpec holds the static type metadata for a built-in binary function.
 type FnSpec struct {
 	Arg1Type, Arg2Type, ReturnType ast.FieldType
 	Kind                           FnKind
-	MaxArgs                        int // 0 means 2 (all current builtins are binary)
+	MaxArgs                        int // 0 means DefaultFnArity
 }
 
 // Arity returns the maximum number of arguments the function accepts.
-// Defaults to 2 (all current built-in functions are binary) unless MaxArgs is set.
+// Defaults to DefaultFnArity unless MaxArgs is set explicitly.
 func (s FnSpec) Arity() int {
 	if s.MaxArgs != 0 {
 		return s.MaxArgs
 	}
-	return 2
+	return DefaultFnArity
 }
 
 // BuiltinFn returns the spec for a built-in function alias.
