@@ -113,6 +113,9 @@ export function createSceneExecutor(
   const queue: string[] = [...(entryActions ?? scene.entryActions)];
   let queueHead = 0;
   const visited = new Set<string>();
+  // Maps each action id to the first action that enqueued it. Used to produce
+  // actionable duplicate-enqueue warnings that name the responsible enqueuer.
+  const enqueueSource = new Map<string, string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
   const sceneWarnings: string[] = [];
@@ -121,6 +124,8 @@ export function createSceneExecutor(
 
   function drainVisited(): void {
     while (queueHead < queue.length && visited.has(queue[queueHead]!)) {
+      const dup = queue[queueHead]!;
+      const source = enqueueSource.get(dup) ?? '<entry>';
       // Under all-match policy the same action may be enqueued by multiple next
       // rules. The visited guard prevents re-execution, but silently dropping
       // the entry can surprise authors. Record a warning so it is visible in the trace.
@@ -128,11 +133,11 @@ export function createSceneExecutor(
       // to an already-executed action, which is also worth surfacing.
       if (policy === 'all-match') {
         sceneWarnings.push(
-          `action "${queue[queueHead]!}" was enqueued more than once (all-match) but ran only once`,
+          `action "${dup}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
         );
       } else if (policy === 'first-match') {
         sceneWarnings.push(
-          `action "${queue[queueHead]!}" was enqueued but already ran (first-match); next rule points to an already-executed action`,
+          `action "${dup}" was enqueued by "${source}" but already ran (first-match); next rule points to an already-executed action`,
         );
       }
       queueHead++;
@@ -179,7 +184,10 @@ export function createSceneExecutor(
       ...(nextWarnings.length > 0 ? { warnings: nextWarnings } : {}),
     };
     actionTraces.push(trace);
-    queue.push(...nextIds);
+    for (const nextId of nextIds) {
+      if (!enqueueSource.has(nextId)) enqueueSource.set(nextId, actionId);
+      queue.push(nextId);
+    }
     drainVisited();
 
     currentAction = undefined;
@@ -317,11 +325,12 @@ function evaluateNextRules(
       const conditionName = rule.compute.condition;
       const condBinding = builtCtx.resolve(conditionName);
       let condValue: AnyValue;
-      if (condBinding?.kind === 'func') {
+      if (condBinding.kind === 'func') {
         condValue = executeGraph(condBinding.id, validated).value;
-      } else if (condBinding?.kind === 'value') {
+      } else if (condBinding.kind === 'value') {
         condValue = validated.valueTable[condBinding.id] as AnyValue ?? buildNull('missing');
       } else {
+        // kind === 'missing': condition binding not found in context
         condValue = buildNull('missing');
       }
 

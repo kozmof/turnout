@@ -485,13 +485,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 		// Parser failed to parse this binding's RHS; a diagnostic was already recorded.
 		return nil
 	case nil:
-		// Defensive: should not be reachable via the normal parse path.
-		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct, "binding %q has no RHS", name))
-		return nil
+		panic(fmt.Sprintf("lowerBinding: binding %q has nil RHS — this is a compiler bug", name))
 	default:
-		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: unhandled RHS type %T — this is a compiler bug; please report it", name, rhs))
-		return nil
+		panic(fmt.Sprintf("lowerBinding: unhandled RHS type %T for binding %q — this is a compiler bug", rhs, name))
 	}
 
 	// Record sigil in proto for sigil bindings.

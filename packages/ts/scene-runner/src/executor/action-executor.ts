@@ -69,7 +69,7 @@ export async function executeAction(
 
     if (!Object.hasOwn(updatedTable, valueId) && binding.expr) {
       const resolved = builtCtx.resolve(binding.name);
-      if (resolved?.kind !== 'func') {
+      if (resolved.kind !== 'func') {
         throw new SceneRuntimeError(
           'OutOfOrderBinding',
           sceneId,

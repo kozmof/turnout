@@ -5,6 +5,8 @@
 package validate
 
 import (
+	"fmt"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -184,40 +186,11 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 	return false
 }
 
-// structpbFieldType infers a FieldType from a proto structpb.Value at the validate stage.
-// See also state.literalMatchesType, which performs the equivalent check at the AST
-// level. The two functions are intentionally separate to avoid a cross-package
-// dependency; if a shared utility package is ever introduced, both can be migrated.
+// structpbFieldType is a package-local alias for state.StructpbFieldType.
+// All callers in this package use this alias so the implementation lives
+// in one place (state package) rather than being duplicated here.
 func structpbFieldType(v *structpb.Value) (ast.FieldType, bool) {
-	if v == nil {
-		return 0, false
-	}
-	switch v.Kind.(type) {
-	case *structpb.Value_NumberValue:
-		return ast.FieldTypeNumber, true
-	case *structpb.Value_StringValue:
-		return ast.FieldTypeStr, true
-	case *structpb.Value_BoolValue:
-		return ast.FieldTypeBool, true
-	case *structpb.Value_ListValue:
-		k := v.Kind.(*structpb.Value_ListValue)
-		if k.ListValue == nil || len(k.ListValue.Values) == 0 {
-			return 0, false
-		}
-		elemFT, ok := structpbFieldType(k.ListValue.Values[0])
-		if !ok {
-			return 0, false
-		}
-		switch elemFT {
-		case ast.FieldTypeNumber:
-			return ast.FieldTypeArrNumber, true
-		case ast.FieldTypeStr:
-			return ast.FieldTypeArrStr, true
-		case ast.FieldTypeBool:
-			return ast.FieldTypeArrBool, true
-		}
-	}
-	return 0, false
+	return state.StructpbFieldType(v)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -501,11 +474,23 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 	return 0, false
 }
 
-func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.Diagnostics) {
+// validateBinaryFnArgs validates arity and operand types for a two-argument
+// binary function call. contextLabel is a pre-formatted description of the call
+// site included in diagnostics (e.g. `"binding \"x\""` or
+// `"binding \"x\" pipe step 2"`). stepTypes is nil for combine calls.
+func validateBinaryFnArgs(
+	bindingName, contextLabel, fn string,
+	spec fnmeta.FnSpec,
+	args []*turnoutpb.ArgModel,
+	scope map[string]bindingInfo,
+	stepTypes []ast.FieldType,
+	ds *diag.Diagnostics,
+) {
 	maxArgs := spec.Arity()
 	for i := maxArgs; i < len(args); i++ {
 		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-			"binding %q pipe step %d: function %q does not accept more than %d argument(s) (extra arg at index %d)", bindingName, stepIdx, fn, maxArgs, i))
+			"%s: function %q does not accept more than %d argument(s) (extra arg at index %d)",
+			contextLabel, fn, maxArgs, i))
 	}
 	if len(args) < 2 {
 		return
@@ -515,18 +500,12 @@ func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec f
 	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
 }
 
+func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.Diagnostics) {
+	validateBinaryFnArgs(bindingName, fmt.Sprintf("binding %q pipe step %d", bindingName, stepIdx), fn, spec, args, scope, stepTypes, ds)
+}
+
 func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
-	maxArgs := spec.Arity()
-	for i := maxArgs; i < len(c.Args); i++ {
-		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
-			"binding %q: function %q does not accept more than %d argument(s) (extra arg at index %d)", bindingName, c.Fn, maxArgs, i))
-	}
-	if len(c.Args) < 2 {
-		return
-	}
-	arg1Type, ok1 := resolveArgType(c.Args[0], scope, nil)
-	arg2Type, ok2 := resolveArgType(c.Args[1], scope, nil)
-	validateBinaryArgTypePair(bindingName, c.Fn, spec, arg1Type, ok1, arg2Type, ok2, ds)
+	validateBinaryFnArgs(bindingName, fmt.Sprintf("binding %q", bindingName), c.Fn, spec, c.Args, scope, nil, ds)
 }
 
 // argHasEmptyArrayLit reports whether arg carries an empty array literal.

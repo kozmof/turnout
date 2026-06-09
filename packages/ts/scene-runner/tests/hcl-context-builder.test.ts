@@ -26,7 +26,7 @@ import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 
 function runProg(ctx: BuiltContext, rootName: string) {
   const binding = ctx.resolve(rootName);
-  const rootId = (binding?.kind === 'func' ? binding.id : ctx.nameToValueId.get(rootName)) as FuncId;
+  const rootId = (binding.kind === 'func' ? binding.id : ctx.nameToValueId.get(rootName)) as FuncId;
   const validated = assertValidContext(ctx.exec);
   return executeGraph(rootId, validated);
 }
@@ -449,8 +449,8 @@ describe('buildContextFromProg — nameToValueId', () => {
 
   it('resolve returns kind:value for value bindings and kind:func for function bindings', () => {
     const ctx = buildContextFromProg(prog, {});
-    expect(ctx.resolve('f1')?.kind).toBe('func');
-    expect(ctx.resolve('v1')?.kind).toBe('value');
+    expect(ctx.resolve('f1').kind).toBe('func');
+    expect(ctx.resolve('v1').kind).toBe('value');
   });
 });
 
@@ -632,7 +632,7 @@ describe('buildContextFromProg — pipe expr', () => {
     } as unknown as ProgModel;
     const ctx = buildContextFromProg(prog, {});
     expect(ctx.nameToValueId.get('chained')).toBeDefined();
-    expect(ctx.resolve('chained')?.kind).toBe('func');
+    expect(ctx.resolve('chained').kind).toBe('func');
   });
 
   it('builds a context with a multi-step pipe that uses step_ref', () => {

@@ -446,7 +446,7 @@ describe('createSceneExecutor — all-match duplicate enqueue warnings', () => {
 
     expect(result.trace.actions.map((a) => a.actionId)).toEqual(['start', 'again']);
     expect(result.trace.warnings).toEqual([
-      'action "again" was enqueued more than once (all-match) but ran only once',
+      'action "again" was enqueued more than once (all-match, first enqueued by "start") but ran only once',
     ]);
   });
 });

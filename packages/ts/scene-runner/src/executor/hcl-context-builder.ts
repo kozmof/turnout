@@ -20,18 +20,23 @@ const pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type BindingResolution =
-  | { kind: 'func';  id: FuncId }
-  | { kind: 'value'; id: ValueId };
+  | { kind: 'func';    id: FuncId }
+  | { kind: 'value';   id: ValueId }
+  | { kind: 'missing' };
+
+/** Sentinel returned by `resolve()` when the name is not in the context. */
+export const MISSING_BINDING: BindingResolution = { kind: 'missing' };
 
 export type BuiltContext = {
   exec: ExecutionContext;
   /** Binding name → ValueId for every binding. Used for from_action lookup. */
   nameToValueId: Map<string, ValueId>;
   /**
-   * Returns the resolution for a binding name, or undefined if the name is unknown.
-   * Use `binding.kind === 'func'` to narrow to a FuncId; `'value'` for a ValueId.
+   * Returns the resolution for a binding name.
+   * Returns `{ kind: 'missing' }` when the name is not in the context.
+   * Use `kind === 'func'` / `'value'` / `'missing'` for exhaustive handling.
    */
-  resolve(name: string): BindingResolution | undefined;
+  resolve(name: string): BindingResolution;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -124,6 +129,138 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Builds the plain spec record consumed by the runtime `ctx()` builder from a
+ * `ProgModel` and pre-resolved injected values.
+ *
+ * Encapsulated as a class so that each handler method can be unit-tested
+ * independently and shared mutable state (`spec`, `litCounter`) is explicit.
+ */
+class ContextSpecBuilder {
+  private spec: Record<string, unknown> = {};
+  private litCounter = 0;
+  // Pre-computed set of function-binding names (have expr). When a ref arg
+  // points to a function binding, the builder API requires ref.output(name),
+  // not a bare string (which looks up a non-existent direct value slot).
+  private readonly functionBindingNames: Set<string>;
+
+  constructor(
+    private readonly prog: ProgModel,
+    private readonly injectedValues: Record<string, AnyValue>,
+    private readonly contextId: string,
+  ) {
+    this.functionBindingNames = new Set(
+      prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name),
+    );
+  }
+
+  build(): Record<string, unknown> {
+    for (const binding of this.prog.bindings) {
+      if (!binding.expr) {
+        this.addValueBinding(binding);
+      } else {
+        this.addFuncBinding(binding);
+      }
+    }
+    return this.spec;
+  }
+
+  private addValueBinding(binding: BindingModel): void {
+    // Value binding: use injected value if present, otherwise use the literal default.
+    const injected = this.injectedValues[binding.name];
+    this.spec[binding.name] =
+      injected !== undefined ? injected : literalToValue(binding.value!, binding.type);
+  }
+
+  private addFuncBinding(binding: BindingModel): void {
+    const expr = binding.expr!;
+    if (expr.combine) {
+      this.handleCombineBinding(binding);
+    } else if (expr.pipe) {
+      this.handlePipeBinding(binding);
+    } else if (expr.cond) {
+      this.handleCondBinding(binding);
+    } else {
+      throw new SceneRuntimeError('UnknownExprKind', this.contextId,
+        `binding "${binding.name}": unrecognized expr variant`);
+    }
+  }
+
+  private handleCombineBinding(binding: BindingModel): void {
+    const c = binding.expr!.combine!;
+    this.spec[binding.name] = combine(mapFnName(c.fn, this.contextId), {
+      a: asCombineArg(this.resolveArg(c.args[0])),
+      b: asCombineArg(this.resolveArg(c.args[1])),
+    });
+  }
+
+  private handlePipeBinding(binding: BindingModel): void {
+    const p = binding.expr!.pipe!;
+    const argBindings: Record<string, string> = {};
+    for (const param of p.params) {
+      argBindings[param.paramName] = param.sourceIdent;
+    }
+    const steps = p.steps.map((step) =>
+      combine(mapFnName(step.fn, this.contextId), {
+        a: asCombineArg(this.resolveArg(step.args[0], binding.name)),
+        b: asCombineArg(this.resolveArg(step.args[1], binding.name)),
+      }),
+    );
+    this.spec[binding.name] = pipe(argBindings, steps);
+  }
+
+  private handleCondBinding(binding: BindingModel): void {
+    const c = binding.expr!.cond!;
+    const conditionRef = c.condition ? this.resolveCondArg(c.condition) : '';
+    const thenRef = c.then ? (this.resolveArg(c.then) as string) : '';
+    const elseRef = c.elseBranch ? (this.resolveArg(c.elseBranch) as string) : '';
+    this.spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
+  }
+
+  // Resolve an ArgModel to the appropriate reference type for the builder API.
+  private resolveArg(arg: ArgModel, currentPipeName?: string): unknown {
+    if (arg.ref !== undefined) {
+      // Function-binding outputs must be referenced via ref.output(), not as a
+      // bare string (which looks up a value slot that doesn't exist for funcs).
+      return this.functionBindingNames.has(arg.ref) ? runtimeRef.output(arg.ref) : arg.ref;
+    }
+    if (arg.funcRef !== undefined) return arg.funcRef;
+    if (arg.lit !== undefined) return this.addLitBinding(arg.lit);
+    if (arg.stepRef !== undefined) {
+      if (!currentPipeName) throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'step_ref used outside of pipe context');
+      return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: arg.stepRef };
+    }
+    if (arg.transform !== undefined) {
+      return {
+        __type: 'transform',
+        valueRef: { __type: 'value', id: arg.transform.ref },
+        transformFn: arg.transform.fn,
+      };
+    }
+    throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'unknown ArgModel variant encountered in hcl-context-builder');
+  }
+
+  // `cond()` accepts a binding id for the condition. The runtime builder then
+  // decides whether that id names a value binding or a function binding.
+  private resolveCondArg(arg: ArgModel): string {
+    if (arg.ref !== undefined) return arg.ref;
+    if (arg.funcRef !== undefined) return arg.funcRef;
+    if (arg.lit !== undefined) return this.addLitBinding(arg.lit);
+    if (arg.stepRef !== undefined)
+      throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'cond condition cannot be a step reference');
+    if (arg.transform !== undefined)
+      throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'cond condition cannot be a transform reference');
+    throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'cond condition must resolve to a value or function binding');
+  }
+
+  // Register a synthetic value binding for an inline literal arg.
+  private addLitBinding(lit: unknown): string {
+    const name = `__lit_${this.litCounter++}`;
+    this.spec[name] = inferLiteralAnyValue(lit);
+    return name;
+  }
+}
+
+/**
  * Translate a `ProgModel` and pre-resolved injected values into the plain spec
  * record consumed by the runtime `ctx()` builder.
  *
@@ -135,120 +272,7 @@ export function buildSpec(
   injectedValues: Record<string, AnyValue>,
   contextId = '(unknown)',
 ): Record<string, unknown> {
-  let litCounter = 0;
-  const spec: Record<string, unknown> = {};
-
-  // Pre-compute which binding names are function bindings (have expr).
-  // When a ref arg points to a function binding, the builder API requires
-  // ref.output(name) to reference the function's return value, not a plain
-  // string (which would look up a non-existent direct value slot).
-  const functionBindingNames = new Set(
-    prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name),
-  );
-
-  // Register a synthetic value binding for an inline literal arg.
-  function addLitBinding(lit: unknown): string {
-    const name = `__lit_${litCounter++}`;
-    spec[name] = inferLiteralAnyValue(lit);
-    return name;
-  }
-
-  // Resolve an ArgModel to the appropriate reference type for the builder API.
-  function resolveArg(arg: ArgModel, currentPipeName?: string): unknown {
-    if (arg.ref !== undefined) {
-      // Function-binding outputs must be referenced via ref.output(), not as a
-      // bare string (which looks up a value slot that doesn't exist for funcs).
-      return functionBindingNames.has(arg.ref) ? runtimeRef.output(arg.ref) : arg.ref;
-    }
-    if (arg.funcRef !== undefined) return arg.funcRef;
-    if (arg.lit !== undefined) return addLitBinding(arg.lit);
-    if (arg.stepRef !== undefined) {
-      if (!currentPipeName) throw new SceneRuntimeError('UnknownArgModel', contextId, 'step_ref used outside of pipe context');
-      return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: arg.stepRef };
-    }
-    if (arg.transform !== undefined) {
-      return {
-        __type: 'transform',
-        valueRef: { __type: 'value', id: arg.transform.ref },
-        transformFn: arg.transform.fn,
-      };
-    }
-    throw new SceneRuntimeError('UnknownArgModel', contextId, 'unknown ArgModel variant encountered in hcl-context-builder');
-  }
-
-  // `cond()` accepts a binding id for the condition. The runtime builder then
-  // decides whether that id names a value binding or a function binding.
-  function resolveCondConditionArg(arg: ArgModel): string {
-    if (arg.ref !== undefined) return arg.ref;
-    if (arg.funcRef !== undefined) return arg.funcRef;
-    if (arg.lit !== undefined) return addLitBinding(arg.lit);
-    if (arg.stepRef !== undefined)
-      throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition cannot be a step reference');
-    if (arg.transform !== undefined)
-      throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition cannot be a transform reference');
-    throw new SceneRuntimeError('UnknownArgModel', contextId, 'cond condition must resolve to a value or function binding');
-  }
-
-  // Named handlers for each expression kind. These are inner functions so they
-  // capture spec, resolveArg, and other builder helpers via closure.
-  function handleCombineBinding(binding: BindingModel): void {
-    const c = binding.expr!.combine!;
-    spec[binding.name] = combine(mapFnName(c.fn, contextId), {
-      a: asCombineArg(resolveArg(c.args[0])),
-      b: asCombineArg(resolveArg(c.args[1])),
-    });
-  }
-
-  function handlePipeBinding(binding: BindingModel): void {
-    const p = binding.expr!.pipe!;
-    const argBindings: Record<string, string> = {};
-    for (const param of p.params) {
-      argBindings[param.paramName] = param.sourceIdent;
-    }
-    const steps = p.steps.map((step) =>
-      combine(mapFnName(step.fn, contextId), {
-        a: asCombineArg(resolveArg(step.args[0], binding.name)),
-        b: asCombineArg(resolveArg(step.args[1], binding.name)),
-      }),
-    );
-    spec[binding.name] = pipe(argBindings, steps);
-  }
-
-  function handleCondBinding(binding: BindingModel): void {
-    const c = binding.expr!.cond!;
-    const conditionRef = c.condition ? resolveCondConditionArg(c.condition) : '';
-    const thenRef = c.then ? (resolveArg(c.then) as string) : '';
-    const elseRef = c.elseBranch ? (resolveArg(c.elseBranch) as string) : '';
-    spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
-  }
-
-  const exprHandlers: Record<string, (binding: BindingModel) => void> = {
-    combine: handleCombineBinding,
-    pipe:    handlePipeBinding,
-    cond:    handleCondBinding,
-  };
-
-  // Process each binding in declaration order (converter guarantees topological order).
-  for (const binding of prog.bindings) {
-    if (!binding.expr) {
-      // Value binding: use injected value if present, otherwise use the literal default.
-      const injected = injectedValues[binding.name];
-      spec[binding.name] =
-        injected !== undefined ? injected : literalToValue(binding.value!, binding.type);
-    } else {
-      const kind = binding.expr.combine ? 'combine'
-                 : binding.expr.pipe    ? 'pipe'
-                 : binding.expr.cond    ? 'cond'
-                 : undefined;
-      if (!kind) {
-        throw new SceneRuntimeError('UnknownExprKind', contextId,
-          `binding "${binding.name}": unrecognized expr variant`);
-      }
-      exprHandlers[kind]!(binding);
-    }
-  }
-
-  return spec;
+  return new ContextSpecBuilder(prog, injectedValues, contextId).build();
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -324,8 +348,8 @@ export function buildContextFromProg(
   const funcTable = result.exec.funcTable;
   const nameToValueId = buildNameToValueId(prog.bindings, ids, funcTable, contextId);
   const funcBindingNames = new Set(prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name));
-  function resolve(name: string): BindingResolution | undefined {
-    if (!Object.prototype.hasOwnProperty.call(ids, name)) return undefined;
+  function resolve(name: string): BindingResolution {
+    if (!Object.prototype.hasOwnProperty.call(ids, name)) return MISSING_BINDING;
     return funcBindingNames.has(name)
       ? { kind: 'func',  id: asFuncId(ids[name] as string) }
       : { kind: 'value', id: asValueId(ids[name] as string) };
