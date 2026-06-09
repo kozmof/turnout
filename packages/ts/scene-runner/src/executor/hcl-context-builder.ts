@@ -15,6 +15,20 @@ import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 // ─────────────────────────────────────────────────────────────────────────────
 const pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 
+// Memoises the set of function-binding names per ProgModel. ProgModels are
+// immutable after construction, so the set never changes; caching avoids the
+// filter+map allocation on every ContextSpecBuilder construction.
+const funcBindingNamesCache = new WeakMap<ProgModel, Set<string>>();
+
+function getFuncBindingNames(prog: ProgModel): Set<string> {
+  let s = funcBindingNamesCache.get(prog);
+  if (!s) {
+    s = new Set(prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name));
+    funcBindingNamesCache.set(prog, s);
+  }
+  return s;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,9 +162,7 @@ class ContextSpecBuilder {
     private readonly injectedValues: Record<string, AnyValue>,
     private readonly contextId: string,
   ) {
-    this.functionBindingNames = new Set(
-      prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name),
-    );
+    this.functionBindingNames = getFuncBindingNames(prog);
   }
 
   build(): Record<string, unknown> {
@@ -180,7 +192,7 @@ class ContextSpecBuilder {
     } else if (expr.cond) {
       this.handleCondBinding(binding);
     } else {
-      throw new SceneRuntimeError('UnknownExprKind', this.contextId,
+      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
         `binding "${binding.name}": unrecognized expr variant`);
     }
   }
@@ -211,8 +223,16 @@ class ContextSpecBuilder {
   private handleCondBinding(binding: BindingModel): void {
     const c = binding.expr!.cond!;
     const conditionRef = c.condition ? this.resolveCondArg(c.condition) : '';
-    const thenRef = c.then ? (this.resolveArg(c.then) as string) : '';
-    const elseRef = c.elseBranch ? (this.resolveArg(c.elseBranch) as string) : '';
+    const thenRef = c.then ? this.resolveArg(c.then) : '';
+    if (typeof thenRef !== 'string') {
+      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
+        `cond then-branch resolved to a non-string ref — expected ref or funcRef`);
+    }
+    const elseRef = c.elseBranch ? this.resolveArg(c.elseBranch) : '';
+    if (typeof elseRef !== 'string') {
+      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
+        `cond else-branch resolved to a non-string ref — expected ref or funcRef`);
+    }
     this.spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
   }
 
@@ -347,7 +367,7 @@ export function buildContextFromProg(
   const ids = result.ids as Record<string, FuncId | ValueId>; // see asFuncId/asValueId above
   const funcTable = result.exec.funcTable;
   const nameToValueId = buildNameToValueId(prog.bindings, ids, funcTable, contextId);
-  const funcBindingNames = new Set(prog.bindings.filter((b) => b.expr !== undefined).map((b) => b.name));
+  const funcBindingNames = getFuncBindingNames(prog);
   function resolve(name: string): BindingResolution {
     if (!Object.prototype.hasOwnProperty.call(ids, name)) return MISSING_BINDING;
     return funcBindingNames.has(name)

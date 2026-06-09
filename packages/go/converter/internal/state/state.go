@@ -8,12 +8,13 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // FieldMeta holds the resolved type and default value for a single STATE field.
 type FieldMeta struct {
 	Type         ast.FieldType
-	DefaultValue ast.Literal
+	DefaultValue *structpb.Value
 }
 
 // Schema is the resolved STATE schema. Use Get("ns.field") for point lookups,
@@ -209,7 +210,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 				continue
 			}
 
-			schema.namespaces[ns.Name][f.Name] = FieldMeta{Type: f.Type, DefaultValue: f.Default}
+			schema.namespaces[ns.Name][f.Name] = FieldMeta{Type: f.Type, DefaultValue: ast.LiteralToStructpb(f.Default)}
 		}
 	}
 

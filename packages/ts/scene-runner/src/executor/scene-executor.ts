@@ -1,4 +1,6 @@
 import { executeGraph, assertValidContext, isPureBoolean, buildNull } from 'runtime';
+
+const UNABORTABLE = new AbortController().signal;
 import type { AnyValue } from 'runtime';
 import type { SceneBlock, ActionModel, NextRuleModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
@@ -104,7 +106,7 @@ export function createSceneExecutor(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
-  signal: AbortSignal = new AbortController().signal,
+  signal: AbortSignal = UNABORTABLE,
 ): SceneExecutor {
   const actionMap = getActionMap(scene);
   const policy: string = scene.nextPolicy ?? 'first-match';
@@ -300,7 +302,7 @@ function evaluateNextRules(
   // action's next-rule evaluation, so rules that share the same object identity
   // safely share a context. Object-identity keying avoids expensive JSON
   // serialisation; the WeakMap is released when this invocation returns.
-  const ctxCache = new WeakMap<NextRuleModel, BuiltContext>();
+  const ctxCache = new Map<NextRuleModel, BuiltContext>();
   const rules = action.next ?? [];
   const matches: string[] = [];
   const warnings: string[] = [];

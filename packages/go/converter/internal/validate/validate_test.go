@@ -34,7 +34,7 @@ func pipeline(src string) diag.Diagnostics {
 	if lr == nil {
 		return ds
 	}
-	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar})
+	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
 	return append(ds, ds4...)
 }
 

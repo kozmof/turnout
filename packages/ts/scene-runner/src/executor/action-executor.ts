@@ -1,4 +1,6 @@
 import { assertValidContext, buildNull, buildExecutionTree, executeTree } from 'runtime';
+
+const UNABORTABLE = new AbortController().signal;
 import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
@@ -22,7 +24,7 @@ export async function executeAction(
   state: StateManager,
   hooks: HookRegistry,
   sceneId = '(unknown)',
-  signal: AbortSignal = new AbortController().signal,
+  signal: AbortSignal = UNABORTABLE,
 ): Promise<ActionExecutionResult> {
   // Actions without a compute block or prog are no-ops (no graph, no merge).
   if (!action.compute?.prog) {

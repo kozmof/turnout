@@ -97,7 +97,7 @@ func (c *localLowerer) appendBinding(b *turnoutpb.BindingModel, ft ast.FieldType
 }
 
 func (c *localLowerer) emitValue(name string, ft ast.FieldType, lit ast.Literal) {
-	c.appendBinding(&turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(lit)}, ft)
+	c.appendBinding(&turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: ast.LiteralToStructpb(lit)}, ft)
 }
 
 func (c *localLowerer) emitIdentity(name string, ft ast.FieldType, ref string) {
@@ -172,17 +172,17 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 					diag.CodeUndefinedRef,
 					"binding %q: reference %q is not defined", name, x.Name))
-				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
+				args = append(args, &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))})
 			} else {
 				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(x.Name)})
 			}
 		case *ast.LocalLitExpr:
-			args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(x.Value)})
+			args = append(args, &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(x.Value)})
 		case *ast.LocalItExpr:
 			if !pc.itAllowed {
 				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 					diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
-				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
+				args = append(args, &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))})
 			} else {
 				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(pc.itRef)})
 			}

@@ -5,6 +5,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
+	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -12,7 +13,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 type prepareResolver interface {
-	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal
+	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) *structpb.Value
 }
 
 // ── Action-level resolver ──
@@ -32,7 +33,7 @@ func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) pr
 	return &actionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal {
+func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) *structpb.Value {
 	src, ok := r.index[name]
 	if !ok {
 		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no prepare entry", ds)
@@ -41,9 +42,9 @@ func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, po
 	case *ast.FromState:
 		return resolveFromState(s.Path, r.schema, ft, pos, ds)
 	case *ast.FromHook:
-		return zeroLiteralFor(ft)
+		return zeroStructpbFor(ft)
 	default:
-		return zeroLiteralFor(ft)
+		return zeroStructpbFor(ft)
 	}
 }
 
@@ -64,7 +65,7 @@ func newTransitionPrepareResolver(prepare *ast.NextPrepareBlock, schema state.Sc
 	return &transitionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) ast.Literal {
+func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) *structpb.Value {
 	src, ok := r.index[name]
 	if !ok {
 		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no transition prepare entry", ds)
@@ -73,11 +74,11 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 	case *ast.FromState:
 		return resolveFromState(s.Path, r.schema, ft, pos, ds)
 	case *ast.FromAction:
-		return zeroLiteralFor(ft)
+		return zeroStructpbFor(ft)
 	case *ast.FromLiteral:
-		return s.Value
+		return ast.LiteralToStructpb(s.Value)
 	default:
-		return zeroLiteralFor(ft)
+		return zeroStructpbFor(ft)
 	}
 }
 
@@ -86,26 +87,39 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // ─────────────────────────────────────────────────────────────────────────────
 
 // emitMissingPrepare records a diagnostic for a sigil binding with no prepare
-// entry and returns a zero literal. The detail string distinguishes action-level
+// entry and returns a zero value. The detail string distinguishes action-level
 // from transition-level prepare blocks in the error message.
-func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code, detail string, ds *diag.DiagSink) ast.Literal {
+func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code, detail string, ds *diag.DiagSink) *structpb.Value {
 	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 		code,
 		"binding %q uses placeholder _ but %s", name, detail))
-	return zeroLiteralFor(ft)
+	return zeroStructpbFor(ft)
 }
 
 // resolveFromState looks up path in schema and returns its default value.
-// Emits CodeUnresolvedStatePath and returns a zero literal when path is absent.
-func resolveFromState(path string, schema state.Schema, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) ast.Literal {
+// Emits CodeUnresolvedStatePath and returns a zero value when path is absent.
+func resolveFromState(path string, schema state.Schema, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) *structpb.Value {
 	meta, found := schema.Get(path)
 	if !found {
 		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 			diag.CodeUnresolvedStatePath,
 			"from_state path %q is not declared in the state schema", path))
-		return zeroLiteralFor(ft)
+		return zeroStructpbFor(ft)
 	}
 	return meta.DefaultValue
+}
+
+func zeroStructpbFor(ft ast.FieldType) *structpb.Value {
+	switch ft {
+	case ast.FieldTypeNumber:
+		return structpb.NewNumberValue(0)
+	case ast.FieldTypeStr:
+		return structpb.NewStringValue("")
+	case ast.FieldTypeBool:
+		return structpb.NewBoolValue(false)
+	default:
+		return structpb.NewListValue(&structpb.ListValue{})
+	}
 }
 
 func zeroLiteralFor(ft ast.FieldType) ast.Literal {

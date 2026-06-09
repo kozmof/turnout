@@ -2,11 +2,10 @@
 package lower
 
 import (
-	"strings"
-
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -60,7 +59,7 @@ func localExprToProto(e ast.LocalExpr) *turnoutpb.LocalExprModel {
 	case *ast.LocalRefExpr:
 		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Ref{Ref: &turnoutpb.LocalRefExprModel{Name: x.Name}}}
 	case *ast.LocalLitExpr:
-		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Lit{Lit: &turnoutpb.LocalLitExprModel{Value: literalToStructpb(x.Value)}}}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_Lit{Lit: &turnoutpb.LocalLitExprModel{Value: ast.LiteralToStructpb(x.Value)}}}
 	case *ast.LocalItExpr:
 		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_It{It: &turnoutpb.LocalItExprModel{}}}
 	case *ast.LocalCallExpr:
@@ -119,7 +118,7 @@ func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePattern
 	case *ast.WildcardCasePattern:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Wildcard{Wildcard: &turnoutpb.LocalWildcardPatternModel{}}}
 	case *ast.LiteralCasePattern:
-		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Lit{Lit: &turnoutpb.LocalLitPatternModel{Value: literalToStructpb(x.Value)}}}
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Lit{Lit: &turnoutpb.LocalLitPatternModel{Value: ast.LiteralToStructpb(x.Value)}}}
 	case *ast.VarBinderPattern:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_VarBinder{VarBinder: &turnoutpb.LocalVarBinderPatternModel{Name: x.Name}}}
 	default:
@@ -130,71 +129,6 @@ func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePattern
 // ─────────────────────────────────────────────────────────────────────────────
 // Arg lowering
 // ─────────────────────────────────────────────────────────────────────────────
-
-type methodEntry struct {
-	qualName   string
-	outputType ast.FieldType
-}
-
-var arrayMethods = map[string]methodEntry{
-	"length":  {"transformFnArray::length", ast.FieldTypeNumber},
-	"isEmpty": {"transformFnArray::isEmpty", ast.FieldTypeBool},
-}
-
-// methodMap is keyed by inputType → methodBaseName → entry for O(1) lookup.
-var methodMap = map[ast.FieldType]map[string]methodEntry{
-	ast.FieldTypeNumber: {
-		"toStr":  {"transformFnNumber::toStr", ast.FieldTypeStr},
-		"abs":    {"transformFnNumber::abs", ast.FieldTypeNumber},
-		"floor":  {"transformFnNumber::floor", ast.FieldTypeNumber},
-		"ceil":   {"transformFnNumber::ceil", ast.FieldTypeNumber},
-		"round":  {"transformFnNumber::round", ast.FieldTypeNumber},
-		"negate": {"transformFnNumber::negate", ast.FieldTypeNumber},
-	},
-	ast.FieldTypeStr: {
-		"toNumber":    {"transformFnString::toNumber", ast.FieldTypeNumber},
-		"trim":        {"transformFnString::trim", ast.FieldTypeStr},
-		"toLowerCase": {"transformFnString::toLowerCase", ast.FieldTypeStr},
-		"toUpperCase": {"transformFnString::toUpperCase", ast.FieldTypeStr},
-		"length":      {"transformFnString::length", ast.FieldTypeNumber},
-	},
-	ast.FieldTypeBool: {
-		"not":   {"transformFnBoolean::not", ast.FieldTypeBool},
-		"toStr": {"transformFnBoolean::toStr", ast.FieldTypeStr},
-	},
-	ast.FieldTypeArrNumber: arrayMethods,
-	ast.FieldTypeArrStr:    arrayMethods,
-	ast.FieldTypeArrBool:   arrayMethods,
-}
-
-func lookupMethod(method string, inputType ast.FieldType) (qualName string, outputType ast.FieldType, ok bool) {
-	if byMethod, found := methodMap[inputType]; found {
-		if e, found := byMethod[method]; found {
-			return e.qualName, e.outputType, true
-		}
-	}
-	return "", 0, false
-}
-
-// TransformChainOutputType resolves the output FieldType produced by applying
-// a transform chain to a receiver of receiverType. fns is the ordered slice of
-// qualified function names stored in TransformArg.Fn (e.g. "transformFnNumber::toStr").
-// Returns (0, false) if any step cannot be resolved.
-func TransformChainOutputType(receiverType ast.FieldType, fns []string) (ast.FieldType, bool) {
-	current := receiverType
-	for _, fn := range fns {
-		idx := strings.LastIndex(fn, "::")
-		if idx < 0 {
-			return 0, false
-		}
-		_, outType, found := lookupMethod(fn[idx+2:], current)
-		if !found {
-			return 0, false
-		}
-		current = outType
-	}
-	return current, true
-}
 
 func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.ArgModel {
 	receiverType, ok := bindingTypes[a.Receiver]
@@ -207,7 +141,7 @@ func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldT
 	fns := make([]string, 0, len(a.Methods))
 	currentType := receiverType
 	for _, method := range a.Methods {
-		qual, outType, found := lookupMethod(method, currentType)
+		qual, outType, found := fnmeta.LookupMethod(method, currentType)
 		if !found {
 			ds.Append(diag.Errorf(diag.CodeUnknownMethod,
 				"method %q is not defined for type %q on receiver %q", method, currentType, a.Receiver))
@@ -224,7 +158,7 @@ func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *d
 	case *ast.RefArg:
 		return &turnoutpb.ArgModel{Ref: proto.String(a.Name)}
 	case *ast.LitArg:
-		return &turnoutpb.ArgModel{Lit: literalToStructpb(a.Value)}
+		return &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(a.Value)}
 	case *ast.FuncRefArg:
 		return &turnoutpb.ArgModel{FuncRef: proto.String(a.FnName)}
 	case *ast.StepRefArg:

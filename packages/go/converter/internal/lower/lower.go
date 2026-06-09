@@ -14,21 +14,16 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/structpb"
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Lower — entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// LowerResult bundles the canonical proto model, the resolved STATE schema, and
-// the binding sigil sidecar. Pass Sidecar directly to validate.Validate so that
-// sigil checks work correctly even on models that were not produced by this
-// lowering run (e.g. loaded from disk, where Annotations would be absent).
+// LowerResult bundles the canonical proto model and the resolved STATE schema.
 type LowerResult struct {
-	Model   *turnoutpb.TurnModel
-	Schema  state.Schema
-	Sidecar *Sidecar
+	Model  *turnoutpb.TurnModel
+	Schema state.Schema
 }
 
 // LowerResolvingState resolves the STATE schema from basePath (the directory of
@@ -54,14 +49,13 @@ func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnost
 
 func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
 	var ds diag.DiagSink
-	sc := newSidecar()
 
 	stateModel := lowerStateBlock(file.StateSource, schema, schemaOrder, &ds)
 
 	tm := &turnoutpb.TurnModel{State: stateModel}
 
 	for _, s := range file.Scenes {
-		tm.Scenes = append(tm.Scenes, lowerSceneBlock(s, schema, sc, &ds))
+		tm.Scenes = append(tm.Scenes, lowerSceneBlock(s, schema, &ds))
 	}
 
 	tm.Routes = lowerRouteBlocks(file.Routes)
@@ -69,34 +63,18 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 	if ds.Diags.HasErrors() {
 		return nil, ds.Diags
 	}
-	return &LowerResult{Model: tm, Schema: schema, Sidecar: sc}, ds.Diags
+	return &LowerResult{Model: tm, Schema: schema}, ds.Diags
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Conversion helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// literalToStructpb converts an ast.Literal to a structpb.Value. A nil literal
-// becomes a null value.
-func literalToStructpb(lit ast.Literal) *structpb.Value {
-	if lit == nil {
-		return structpb.NewNullValue()
+func astPosToProto(p ast.Pos) *turnoutpb.SourcePos {
+	if p.File == "" {
+		return nil
 	}
-	switch v := lit.(type) {
-	case *ast.NumberLiteral:
-		return structpb.NewNumberValue(v.Value)
-	case *ast.StringLiteral:
-		return structpb.NewStringValue(v.Value)
-	case *ast.BoolLiteral:
-		return structpb.NewBoolValue(v.Value)
-	case *ast.ArrayLiteral:
-		vals := make([]*structpb.Value, len(v.Elements))
-		for i, e := range v.Elements {
-			vals[i] = literalToStructpb(e)
-		}
-		return structpb.NewListValue(&structpb.ListValue{Values: vals})
-	}
-	panic(fmt.Sprintf("literalToStructpb: unhandled Literal type %T", lit))
+	return &turnoutpb.SourcePos{File: p.File, Line: int32(p.Line), Col: int32(p.Col)}
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -167,7 +145,7 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
 				Name:  f.Name,
 				Type:  f.Type.String(),
-				Value: literalToStructpb(f.Default),
+				Value: ast.LiteralToStructpb(f.Default),
 			})
 		}
 		sm.Namespaces = append(sm.Namespaces, pbNS)
@@ -204,7 +182,7 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 			entry.fields = append(entry.fields, &turnoutpb.FieldModel{
 				Name:  fieldName,
 				Type:  meta.Type.String(),
-				Value: literalToStructpb(meta.DefaultValue),
+				Value: meta.DefaultValue,
 			})
 		}
 		nsList = append(nsList, entry)
@@ -229,7 +207,7 @@ func appendStateField(nsList *[]nsEntry, nsIndex map[string]int, nsName, fieldNa
 	(*nsList)[idx].fields = append((*nsList)[idx].fields, &turnoutpb.FieldModel{
 		Name:  fieldName,
 		Type:  meta.Type.String(),
-		Value: literalToStructpb(meta.DefaultValue),
+		Value: meta.DefaultValue,
 	})
 }
 
@@ -269,7 +247,7 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *d
 // Scene / Action lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.SceneBlock {
+func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.DiagSink) *turnoutpb.SceneBlock {
 	sb := &turnoutpb.SceneBlock{
 		Id:           scene.ID,
 		EntryActions: scene.EntryActions,
@@ -289,12 +267,12 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, sc *Sidecar, ds
 		sb.View = vb
 	}
 	for _, a := range scene.Actions {
-		sb.Actions = append(sb.Actions, lowerAction(a, schema, scene.ID, sc, ds))
+		sb.Actions = append(sb.Actions, lowerAction(a, schema, ds))
 	}
 	return sb
 }
 
-func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.ActionModel {
+func lowerAction(a *ast.ActionBlock, schema state.Schema, ds *diag.DiagSink) *turnoutpb.ActionModel {
 	resolver := newActionPrepareResolver(a.Prepare, schema)
 
 	am := &turnoutpb.ActionModel{Id: a.ID}
@@ -306,7 +284,7 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	if a.Compute != nil {
 		am.Compute = &turnoutpb.ComputeModel{
 			Root: a.Compute.Root,
-			Prog: lowerProgInner(a.Compute.Prog, resolver, sceneID, a.ID, ComputeScope(), sc, ds),
+			Prog: lowerProgInner(a.Compute.Prog, resolver, ds),
 		}
 	}
 
@@ -314,8 +292,8 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, sceneID string, sc *Si
 	am.Merge = lowerMerge(a.Merge)
 	am.Publish = lowerPublish(a.Publish)
 
-	for i, nr := range a.Next {
-		am.Next = append(am.Next, lowerNextRule(nr, schema, sceneID, a.ID, NextScope(i), sc, ds))
+	for _, nr := range a.Next {
+		am.Next = append(am.Next, lowerNextRule(nr, schema, ds))
 	}
 	return am
 }
@@ -390,7 +368,7 @@ func lowerPublish(pub *ast.PublishBlock) []string {
 // Next rule lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.NextRuleModel {
+func lowerNextRule(nr *ast.NextRule, schema state.Schema, ds *diag.DiagSink) *turnoutpb.NextRuleModel {
 	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
 
 	pbNR := &turnoutpb.NextRuleModel{Action: nr.ActionID}
@@ -398,7 +376,7 @@ func lowerNextRule(nr *ast.NextRule, schema state.Schema, sceneID, actionID stri
 	if nr.Compute != nil {
 		pbNR.Compute = &turnoutpb.NextComputeModel{
 			Condition: nr.Compute.Condition,
-			Prog:      lowerProgInner(nr.Compute.Prog, resolver, sceneID, actionID, scope, sc, ds),
+			Prog:      lowerProgInner(nr.Compute.Prog, resolver, ds),
 		}
 	}
 
@@ -419,7 +397,7 @@ func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {
 		case *ast.FromState:
 			entry.FromState = proto.String(s.Path)
 		case *ast.FromLiteral:
-			entry.FromLiteral = literalToStructpb(s.Value)
+			entry.FromLiteral = ast.LiteralToStructpb(s.Value)
 		}
 		entries = append(entries, entry)
 	}
@@ -430,7 +408,7 @@ func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {
 // Prog / Binding lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, actionID string, scope ProgScope, sc *Sidecar, ds *diag.DiagSink) *turnoutpb.ProgModel {
+func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.ProgModel {
 	if prog == nil {
 		return nil
 	}
@@ -445,15 +423,15 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, sceneID, acti
 	}
 	var localCounter int
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, sceneID, actionID, scope, pm, sc, ds, bindingTypes, &localCounter)
+		bindings := lowerBinding(decl, resolver, pm, ds, bindingTypes, &localCounter)
 		pm.Bindings = append(pm.Bindings, bindings...)
 	}
 	return pm
 }
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
-// Sigils are written directly into pm.Sigils; source positions go into the sidecar.
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, actionID string, scope ProgScope, pm *turnoutpb.ProgModel, sc *Sidecar, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType, localCounter *int) []*turnoutpb.BindingModel {
+// Sigils are written directly into pm.Sigils; source positions are set on the binding.
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb.ProgModel, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType, localCounter *int) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -494,12 +472,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, sceneID, acti
 	if decl.Sigil != ast.SigilNone {
 		pm.Sigils[name] = decl.Sigil.ToInt32()
 	}
-	// Record source position for ALL user-declared bindings so the validator
-	// can emit file:line:col diagnostics for type-mismatch and cycle errors.
+	// Record source position directly on the binding so the validator can emit
+	// file:line:col diagnostics for type-mismatch and cycle errors.
 	for _, b := range bindings {
 		if b.Name == name {
-			key := BindingKey{SceneID: sceneID, ActionID: actionID, Scope: scope, ProgName: pm.Name, BindingName: name}
-			sc.SetPos(key, decl.Pos)
+			b.SourcePos = astPosToProto(decl.Pos)
 			break
 		}
 	}

@@ -69,5 +69,6 @@ func stripProgExtExpr(prog *turnoutpb.ProgModel) {
 	prog.Sigils = nil
 	for _, b := range prog.Bindings {
 		b.ExtExpr = nil
+		b.SourcePos = nil
 	}
 }

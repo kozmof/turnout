@@ -58,7 +58,7 @@ scene "test" {
 	}
 }
 
-func TestLowerSidecarExtExprScopesActionAndNext(t *testing.T) {
+func TestLowerExtExprScopesActionAndNext(t *testing.T) {
 	src := `state { app { n:number = 0 } }
 scene "test" {
   entry_actions = ["a"]

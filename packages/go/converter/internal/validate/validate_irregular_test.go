@@ -6,7 +6,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 	"google.golang.org/protobuf/proto"
@@ -125,9 +124,9 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action, sc := buildIrregularAction(tc.bindings, tc.prepare, tc.merge, tc.next)
+			action := buildIrregularAction(tc.bindings, tc.prepare, tc.merge, tc.next)
 			model := irregularModelWithAction(action)
-			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema(), Sidecar: sc})
+			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema()})
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -213,13 +212,13 @@ func TestValidateIrregularNextRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			action, sc := buildIrregularAction(nil, nil, nil, tc.next)
+			action := buildIrregularAction(nil, nil, nil, tc.next)
 			// "transition_output_sigil" needs a sigil on binding "out" in the next-rule prog.
 			if tc.name == "transition_output_sigil" {
 				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": ast.SigilEgress.ToInt32()}
 			}
 			model := irregularModelWithAction(action)
-			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema(), Sidecar: sc})
+			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema()})
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -238,7 +237,7 @@ func irregularSchema() state.Schema {
 }
 
 func irregularModelWithRoutes(routes []*turnoutpb.RouteModel) *turnoutpb.TurnModel {
-	action, _ := buildIrregularAction(nil, nil, nil, nil)
+	action := buildIrregularAction(nil, nil, nil, nil)
 	return &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
@@ -271,8 +270,7 @@ type irrBind struct {
 
 // buildIrregularAction constructs an ActionModel with a "ready:bool = true" base binding
 // plus any additional bindings. Sigils are stored directly in ProgModel.Sigils.
-// Returns the action and an empty Sidecar (for position metadata, which is not needed here).
-func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) (*turnoutpb.ActionModel, *lower.Sidecar) {
+func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry, merge []*turnoutpb.MergeEntry, next []*turnoutpb.NextRuleModel) *turnoutpb.ActionModel {
 	progBindings := []*turnoutpb.BindingModel{
 		{Name: "ready", Type: "bool", Value: structpb.NewBoolValue(true)},
 	}
@@ -303,5 +301,5 @@ func buildIrregularAction(bindings []irrBind, prepare []*turnoutpb.PrepareEntry,
 		Prepare: prepare,
 		Merge:   merge,
 		Next:    next,
-	}, lower.NewSidecar()
+	}
 }

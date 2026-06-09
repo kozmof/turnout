@@ -49,6 +49,18 @@ message SigilAnnotation {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Source position — compile-time metadata, never serialised to JSON
+// ─────────────────────────────────────────────────────────────────────────────
+
+// SourcePos carries the source location of a binding set by the lowerer.
+// Cleared before JSON emission; not visible to the runtime.
+message SourcePos {
+  string file = 1;
+  int32  line  = 2;
+  int32  col   = 3;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // State
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -129,6 +141,9 @@ message BindingModel {
   // Populated by the HCL emitter to round-trip those forms. MUST NOT be set in
   // JSON output; the runtime ignores this field entirely.
   LocalExprModel ext_expr = 5;
+  // source_pos is populated by the lowerer for user-declared bindings.
+  // Cleared before JSON emission; not visible to the runtime.
+  optional SourcePos source_pos = 6;
 }
 
 message ExprModel {

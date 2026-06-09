@@ -32,12 +32,12 @@ func checkOperatorOnly(bindingName, fnAlias string, pos ast.Pos, ds *diag.DiagSi
 // ─────────────────────────────────────────────────────────────────────────────
 
 func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *turnoutpb.BindingModel {
-	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(rhs.Value)}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: ast.LiteralToStructpb(rhs.Value)}
 }
 
 func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, diag.CodeMissingPrepareEntry, ds)
-	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: val}
 }
 
 // lowerBiDirInputRHS resolves the default value for a <~> binding. Missing
@@ -45,7 +45,7 @@ func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pr
 // resolver failures such as unresolved state paths still surface normally.
 func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, diag.CodeBidirMissingPrepareEntry, ds)
-	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: literalToStructpb(val)}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: val}
 }
 
 // identityFnFor returns the identity binary-function name and its neutral-element

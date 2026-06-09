@@ -5,6 +5,8 @@
 package fnmeta
 
 import (
+	"strings"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -179,6 +181,76 @@ func IsIdentityValue(fn string, v *structpb.Value) bool {
 		return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
 	}
 	return false
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transform-chain method resolution
+// ─────────────────────────────────────────────────────────────────────────────
+
+type methodEntry struct {
+	qualName   string
+	outputType ast.FieldType
+}
+
+var arrayMethods = map[string]methodEntry{
+	"length":  {"transformFnArray::length", ast.FieldTypeNumber},
+	"isEmpty": {"transformFnArray::isEmpty", ast.FieldTypeBool},
+}
+
+var methodMap = map[ast.FieldType]map[string]methodEntry{
+	ast.FieldTypeNumber: {
+		"toStr":  {"transformFnNumber::toStr", ast.FieldTypeStr},
+		"abs":    {"transformFnNumber::abs", ast.FieldTypeNumber},
+		"floor":  {"transformFnNumber::floor", ast.FieldTypeNumber},
+		"ceil":   {"transformFnNumber::ceil", ast.FieldTypeNumber},
+		"round":  {"transformFnNumber::round", ast.FieldTypeNumber},
+		"negate": {"transformFnNumber::negate", ast.FieldTypeNumber},
+	},
+	ast.FieldTypeStr: {
+		"toNumber":    {"transformFnString::toNumber", ast.FieldTypeNumber},
+		"trim":        {"transformFnString::trim", ast.FieldTypeStr},
+		"toLowerCase": {"transformFnString::toLowerCase", ast.FieldTypeStr},
+		"toUpperCase": {"transformFnString::toUpperCase", ast.FieldTypeStr},
+		"length":      {"transformFnString::length", ast.FieldTypeNumber},
+	},
+	ast.FieldTypeBool: {
+		"not":   {"transformFnBoolean::not", ast.FieldTypeBool},
+		"toStr": {"transformFnBoolean::toStr", ast.FieldTypeStr},
+	},
+	ast.FieldTypeArrNumber: arrayMethods,
+	ast.FieldTypeArrStr:    arrayMethods,
+	ast.FieldTypeArrBool:   arrayMethods,
+}
+
+// LookupMethod resolves a method name on an input type to its qualified runtime
+// name and output type. Returns ("", 0, false) for unknown method/type combinations.
+func LookupMethod(method string, inputType ast.FieldType) (qualName string, outputType ast.FieldType, ok bool) {
+	if byMethod, found := methodMap[inputType]; found {
+		if e, found := byMethod[method]; found {
+			return e.qualName, e.outputType, true
+		}
+	}
+	return "", 0, false
+}
+
+// TransformChainOutputType resolves the output FieldType produced by applying
+// a transform chain to a receiver of receiverType. fns is the ordered slice of
+// qualified function names stored in TransformArg.Fn.
+// Returns (0, false) if any step cannot be resolved.
+func TransformChainOutputType(receiverType ast.FieldType, fns []string) (ast.FieldType, bool) {
+	current := receiverType
+	for _, fn := range fns {
+		idx := strings.LastIndex(fn, "::")
+		if idx < 0 {
+			return 0, false
+		}
+		_, outType, found := LookupMethod(fn[idx+2:], current)
+		if !found {
+			return 0, false
+		}
+		current = outType
+	}
+	return current, true
 }
 
 // operatorOnlySymbols maps each operator-only function alias to its DSL infix

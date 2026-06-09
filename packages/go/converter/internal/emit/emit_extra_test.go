@@ -29,7 +29,7 @@ func pipelineModel(t *testing.T, src string) *turnoutpb.TurnModel {
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar}); ds4.HasErrors() {
+	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema}); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 	return lr.Model

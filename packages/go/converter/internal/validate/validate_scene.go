@@ -3,7 +3,6 @@ package validate
 import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/overview"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
@@ -12,7 +11,7 @@ import (
 // Group D — Scene structural validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx lower.PositionIndex, ds *diag.Diagnostics) {
+func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, ds *diag.Diagnostics) {
 	actionIndex := make(map[string]*turnoutpb.ActionModel, len(scene.Actions))
 	for _, a := range scene.Actions {
 		if _, exists := actionIndex[a.Id]; exists {
@@ -52,7 +51,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx lower.P
 			for _, m := range a.Merge {
 				mergeNames = append(mergeNames, m.Binding)
 			}
-			computeCtx := progValidateCtx{schema: schema, idx: idx, sceneID: scene.Id, actionID: a.Id, scope: lower.ComputeScope()}
+			computeCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id}
 			scope = validateProg(a.Compute.Prog, computeCtx, false, a.Compute.Root, mergeNames, ds)
 
 			if a.Compute.Root != "" {
@@ -68,14 +67,14 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, idx lower.P
 		}
 		actionScopes[a.Id] = scope
 
-		for i, nr := range a.Next {
+		for _, nr := range a.Next {
 			if nr.Action != "" {
 				if _, ok := actionIndex[nr.Action]; !ok {
 					*ds = append(*ds, diag.Errorf(diag.CodeSCNInvalidActionGraph,
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			nextCtx := progValidateCtx{schema: schema, idx: idx, sceneID: scene.Id, actionID: a.Id, scope: lower.NextScope(i)}
+			nextCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id}
 			validateNextRule(nr, nextCtx, scope, ds)
 		}
 	}

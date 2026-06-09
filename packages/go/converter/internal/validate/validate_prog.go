@@ -8,7 +8,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"github.com/kozmof/turnout/packages/go/converter/internal/localexpr"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
@@ -18,24 +17,21 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // progValidateCtx bundles the stable context fields threaded through prog
-// validation: schema, position index, scene/action identity, and the prog scope.
-// Using a struct instead of 5 positional parameters makes call sites resilient
-// to future additions and eliminates argument-order confusion.
+// validation: schema and scene/action identity.
 type progValidateCtx struct {
 	schema   state.Schema
-	idx      lower.PositionIndex
 	sceneID  string
 	actionID string
-	scope    lower.ProgScope
 }
 
 func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, mergeNames []string, ds *diag.Diagnostics) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
-	scope, dependencies := buildBindingScope(prog, ctx, ds)
-	detectCycles(prog.Name, dependencies, prog.Bindings, ctx, ds)
-	validateBindingTypes(prog, scope, isTransition, ctx, ds)
+	posMap := buildPosMap(prog.Bindings)
+	scope, dependencies := buildBindingScope(prog, ds)
+	detectCycles(prog.Name, dependencies, prog.Bindings, posMap, ds)
+	validateBindingTypes(prog, scope, isTransition, posMap, ds)
 	if !isTransition && root != "" {
 		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, ds)
 	}
@@ -78,7 +74,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 // buildBindingScope registers all bindings into the scope map, detects duplicate
 // names, records sigils, and builds the dependency map used by detectCycles.
 // dependencies[b] is the list of binding names that b directly depends on.
-func buildBindingScope(prog *turnoutpb.ProgModel, ctx progValidateCtx, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
+func buildBindingScope(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
 	dependencies := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
@@ -128,7 +124,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, ctx progValidateCtx, ds *diag.
 // validateBindingTypes runs per-binding structural and type checks against the
 // already-built scope. Handles reserved names, transition sigil constraints,
 // literal type conformance, and expr/ext_expr type checking.
-func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, ctx progValidateCtx, ds *diag.Diagnostics) {
+func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, posMap map[string]ast.Pos, ds *diag.Diagnostics) {
 	for _, b := range prog.Bindings {
 		ft, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
@@ -137,7 +133,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			continue
 		}
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
-		pos := posFor(ctx, prog.Name, b.Name)
+		pos := posMap[b.Name]
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !names.IsGeneratedIfCondName(b.Name) && !names.IsGeneratedLocalName(b.Name) {
@@ -191,10 +187,21 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 	}
 }
 
-// posFor returns the source position for a binding from the position index.
-// Returns the zero Pos if no position is recorded (e.g. for auto-generated bindings).
-func posFor(ctx progValidateCtx, progName, bindingName string) ast.Pos {
-	return ctx.idx.Get(ctx.sceneID, ctx.actionID, ctx.scope, progName, bindingName)
+func posFromProto(sp *turnoutpb.SourcePos) ast.Pos {
+	if sp == nil {
+		return ast.Pos{}
+	}
+	return ast.Pos{File: sp.File, Line: int(sp.Line), Col: int(sp.Col)}
+}
+
+func buildPosMap(bindings []*turnoutpb.BindingModel) map[string]ast.Pos {
+	m := make(map[string]ast.Pos, len(bindings))
+	for _, b := range bindings {
+		if b.SourcePos != nil {
+			m[b.Name] = posFromProto(b.SourcePos)
+		}
+	}
+	return m
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -508,7 +515,7 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 // a cycle in the dependency graph is the same cycle in its reverse.
 // Nodes never dequeued are in cycles. A secondary targeted DFS over those
 // nodes extracts one example cycle path for the error message.
-func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, ctx progValidateCtx, ds *diag.Diagnostics) {
+func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, posMap map[string]ast.Pos, ds *diag.Diagnostics) {
 	// --- Phase 1: Kahn's algorithm ---
 	dependentCount := make(map[string]int, len(bindings))
 	for _, b := range bindings {
@@ -576,7 +583,7 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 				copy(path, stack[start:])
 				path[cycleLen] = name
 				msg := strings.Join(path, " → ")
-				pos := posFor(ctx, progName, name)
+				pos := posMap[name]
 				if pos.File != "" {
 					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
 						"prog %q: binding cycle: %s", progName, msg))

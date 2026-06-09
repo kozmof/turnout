@@ -12,7 +12,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"github.com/kozmof/turnout/packages/go/converter/internal/localexpr"
-	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -45,63 +44,23 @@ func bindingKindFor(b *turnoutpb.BindingModel) BindingKind {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Position index — O(1) lookup of binding source positions
-// ─────────────────────────────────────────────────────────────────────────────
-
-func buildPosIndexFromSidecar(sc *lower.Sidecar) lower.PositionIndex {
-	if sc == nil {
-		return lower.EmptyPositionIndex()
-	}
-	return sc.ToPositionIndex()
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Entry point
 // ─────────────────────────────────────────────────────────────────────────────
 
-// modelHasSigilBindings reports whether any prog in the model declares at least
-// one binding with a non-zero sigil. Used to decide whether a nil-sidecar warning
-// is warranted in Validate.
-func modelHasSigilBindings(tm *turnoutpb.TurnModel) bool {
-	for _, s := range tm.Scenes {
-		for _, a := range s.Actions {
-			if a.Compute != nil && a.Compute.Prog != nil && len(a.Compute.Prog.Sigils) > 0 {
-				return true
-			}
-			for _, nr := range a.Next {
-				if nr.Compute != nil && nr.Compute.Prog != nil && len(nr.Compute.Prog.Sigils) > 0 {
-					return true
-				}
-			}
-		}
-	}
-	return false
-}
-
-// ValidateInput bundles the inputs to Validate. Sidecar may be nil when
-// validating a model loaded from disk; Schema may be the zero value when no
-// state schema is available.
+// ValidateInput bundles the inputs to Validate. Schema may be the zero value
+// when no state schema is available.
 type ValidateInput struct {
-	Model   *turnoutpb.TurnModel
-	Schema  state.Schema
-	Sidecar *lower.Sidecar // nil when loading from disk (sigil positions unavailable)
+	Model  *turnoutpb.TurnModel
+	Schema state.Schema
 }
 
 // Validate runs all structural and type validation rules against the proto model.
-// When Sidecar is nil and the model contains sigil bindings, a CodeSigilPositionLoss
-// warning is emitted so callers are aware that diagnostics for those bindings will
-// lack source positions. Returns diagnostics; callers must check HasErrors() before
-// proceeding to emission.
+// Returns diagnostics; callers must check HasErrors() before proceeding to emission.
 func Validate(in ValidateInput) diag.Diagnostics {
-	tm, schema, sc := in.Model, in.Schema, in.Sidecar
+	tm, schema := in.Model, in.Schema
 	var ds diag.Diagnostics
 	if tm == nil {
 		return ds
-	}
-	idx := buildPosIndexFromSidecar(sc)
-	if sc == nil && modelHasSigilBindings(tm) {
-		ds = append(ds, diag.Warnf(diag.CodeSigilPositionLoss,
-			"validating without a sidecar: sigil diagnostics will lack source positions"))
 	}
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
@@ -110,7 +69,7 @@ func Validate(in ValidateInput) diag.Diagnostics {
 				"duplicate scene ID %q", s.Id))
 		}
 		seenSceneIDs[s.Id] = true
-		validateScene(s, schema, idx, &ds)
+		validateScene(s, schema, &ds)
 	}
 	if len(tm.Routes) > 0 {
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
@@ -468,7 +427,7 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 	}
 	if arg.Transform != nil {
 		if info, ok := scope[arg.Transform.Ref]; ok {
-			return lower.TransformChainOutputType(info.fieldType, arg.Transform.Fn)
+			return fnmeta.TransformChainOutputType(info.fieldType, arg.Transform.Fn)
 		}
 	}
 	return 0, false

@@ -23,7 +23,7 @@ func mustLower(t *testing.T, src string) *turnoutpb.TurnModel {
 	return mustLowerResult(t, src).Model
 }
 
-// mustLowerResult is like mustLower but returns the full LowerResult (model + sidecar).
+// mustLowerResult is like mustLower but returns the full LowerResult.
 func mustLowerResult(t *testing.T, src string) *lower.LowerResult {
 	t.Helper()
 	tf, ds := parser.ParseFile("test.turn", src)
@@ -603,7 +603,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr, "test", "a", lower.ComputeScope(), "p", "score", ast.SigilIngress)
+	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "score", ast.SigilIngress)
 	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
@@ -636,7 +636,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr, "test", "a", lower.ComputeScope(), "p", "approved", ast.SigilEgress)
+	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "approved", ast.SigilEgress)
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
 		t.Fatalf("expected 1 merge entry, got %d", len(mg))
@@ -668,7 +668,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr, "test", "a", lower.ComputeScope(), "p", "count", ast.SigilBiDir)
+	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "count", ast.SigilBiDir)
 	if len(tm.Scenes[0].Actions[0].Prepare) == 0 {
 		t.Error("expected prepare entries")
 	}
@@ -823,7 +823,7 @@ func TestLowerIdempotency(t *testing.T) {
 	}
 }
 
-func assertSigilAnnotation(t *testing.T, lr *lower.LowerResult, sceneID, actionID string, scope lower.ProgScope, progName, bindingName string, want ast.Sigil) {
+func assertSigilAnnotation(t *testing.T, lr *lower.LowerResult, sceneID, actionID, scopeStr, progName, bindingName string, want ast.Sigil) {
 	t.Helper()
 	if lr == nil || lr.Model == nil {
 		t.Fatal("nil LowerResult: no model available")
@@ -849,7 +849,6 @@ func assertSigilAnnotation(t *testing.T, lr *lower.LowerResult, sceneID, actionI
 		t.Fatalf("action %q not found in scene %q", actionID, sceneID)
 	}
 	var prog *turnoutpb.ProgModel
-	scopeStr := scope.String()
 	if scopeStr == "compute" {
 		if action.Compute != nil {
 			prog = action.Compute.Prog

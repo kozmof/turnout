@@ -4,7 +4,11 @@
 // unexported marker methods so the compiler enforces exhaustive type switches.
 package ast
 
-import "fmt"
+import (
+	"fmt"
+
+	"google.golang.org/protobuf/types/known/structpb"
+)
 
 // ────────────────────────────────────────────────────────────
 // Pos — source location
@@ -833,6 +837,29 @@ type ArrayLiteral struct {
 
 func (*ArrayLiteral) literal()       {}
 func (a *ArrayLiteral) Pos() Pos     { return a.LitPos }
+
+// LiteralToStructpb converts an ast.Literal to a *structpb.Value.
+// A nil literal becomes a null value.
+func LiteralToStructpb(lit Literal) *structpb.Value {
+	if lit == nil {
+		return structpb.NewNullValue()
+	}
+	switch v := lit.(type) {
+	case *NumberLiteral:
+		return structpb.NewNumberValue(v.Value)
+	case *StringLiteral:
+		return structpb.NewStringValue(v.Value)
+	case *BoolLiteral:
+		return structpb.NewBoolValue(v.Value)
+	case *ArrayLiteral:
+		vals := make([]*structpb.Value, len(v.Elements))
+		for i, e := range v.Elements {
+			vals[i] = LiteralToStructpb(e)
+		}
+		return structpb.NewListValue(&structpb.ListValue{Values: vals})
+	}
+	panic(fmt.Sprintf("LiteralToStructpb: unhandled Literal type %T", lit))
+}
 
 // ────────────────────────────────────────────────────────────
 // Route / Match
