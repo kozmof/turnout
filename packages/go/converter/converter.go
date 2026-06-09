@@ -119,7 +119,7 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 		return nil, ds2
 	}
 
-	ds3 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
+	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar})
 	if ds3.HasErrors() {
 		return nil, ds3
 	}

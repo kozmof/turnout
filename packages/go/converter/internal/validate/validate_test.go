@@ -34,7 +34,7 @@ func pipeline(src string) diag.Diagnostics {
 	if lr == nil {
 		return ds
 	}
-	ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
+	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar})
 	return append(ds, ds4...)
 }
 
@@ -195,7 +195,7 @@ func TestUndefinedFuncRef(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("noSuchFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeUndefinedFuncRef) {
+	if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeUndefinedFuncRef) {
 		t.Error("want UndefinedFuncRef")
 	}
 }
@@ -234,7 +234,7 @@ func TestCondNotBool(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeCondNotBool) {
+	if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeCondNotBool) {
 		t.Error("want CondNotBool")
 	}
 }
@@ -259,7 +259,7 @@ func TestBranchTypeMismatch(t *testing.T) {
 			ElseBranch: &turnoutpb.ArgModel{FuncRef: proto.String("elseFn")},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeBranchTypeMismatch) {
+	if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeBranchTypeMismatch) {
 		t.Error("want BranchTypeMismatch")
 	}
 }
@@ -277,7 +277,7 @@ func TestCondBranchRef(t *testing.T) {
 				ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("b")},
 			}}},
 		})
-		if ds := validate.Validate(model, state.Schema{}, nil); ds.HasErrors() {
+		if ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}); ds.HasErrors() {
 			t.Errorf("want no errors, got %v", ds)
 		}
 	})
@@ -292,7 +292,7 @@ func TestCondBranchRef(t *testing.T) {
 				ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("b")},
 			}}},
 		})
-		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeUndefinedRef) {
+		if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeUndefinedRef) {
 			t.Error("want UndefinedRef for missing then Ref")
 		}
 	})
@@ -308,7 +308,7 @@ func TestCondBranchRef(t *testing.T) {
 				ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("s")},
 			}}},
 		})
-		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeBranchTypeMismatch) {
+		if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeBranchTypeMismatch) {
 			t.Error("want BranchTypeMismatch for number vs str Ref branches")
 		}
 	})
@@ -325,7 +325,7 @@ func TestCondBranchLit(t *testing.T) {
 				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(2)},
 			}}},
 		})
-		if ds := validate.Validate(model, state.Schema{}, nil); ds.HasErrors() {
+		if ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}); ds.HasErrors() {
 			t.Errorf("want no errors, got %v", ds)
 		}
 	})
@@ -339,7 +339,7 @@ func TestCondBranchLit(t *testing.T) {
 				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewStringValue("x")},
 			}}},
 		})
-		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeBranchTypeMismatch) {
+		if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeBranchTypeMismatch) {
 			t.Error("want BranchTypeMismatch for number vs str Lit branches")
 		}
 	})
@@ -353,7 +353,7 @@ func TestCondBranchLit(t *testing.T) {
 				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(0)},
 			}}},
 		})
-		if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeReturnTypeMismatch) {
+		if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeReturnTypeMismatch) {
 			t.Error("want ReturnTypeMismatch when Lit branch type doesn't match declared type")
 		}
 	})
@@ -371,7 +371,7 @@ func TestStepRefOutOfBounds(t *testing.T) {
 			},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodeStepRefOutOfBounds) {
+	if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeStepRefOutOfBounds) {
 		t.Error("want StepRefOutOfBounds")
 	}
 }
@@ -390,7 +390,7 @@ func TestPipeArgNotValue(t *testing.T) {
 			Steps:  []*turnoutpb.PipeStep{{Fn: "add", Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}, {Ref: proto.String("a")}}}},
 		}}},
 	})
-	if !hasCode(validate.Validate(model, state.Schema{}, nil), diag.CodePipeArgNotValue) {
+	if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodePipeArgNotValue) {
 		t.Error("want PipeArgNotValue")
 	}
 }
@@ -731,7 +731,7 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 			Actions:      []*turnoutpb.ActionModel{},
 		}},
 	}
-	ds := validate.Validate(model, state.Schema{}, nil)
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty actions")
 	}
@@ -750,7 +750,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 			},
 		}},
 	}
-	ds := validate.Validate(model, state.Schema{}, nil)
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
 	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_actions")
 	}

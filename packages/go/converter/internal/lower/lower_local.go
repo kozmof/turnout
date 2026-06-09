@@ -23,13 +23,12 @@ type localLowerer struct {
 	ds           *diag.DiagSink
 	counter      *int
 	bindings     []*turnoutpb.BindingModel
-	itRef        string
-	itType       ast.FieldType
-	itAllowed    bool
 }
 
-// pipeContext captures the three #it-tracking fields together so they can
-// be saved and restored atomically — partial restores are a latent footgun.
+// pipeContext carries the #it tracking state for the current pipe scope.
+// The zero value (itAllowed = false) means "not inside a #pipe step".
+// A new pipeContext is constructed for each pipe step and passed explicitly
+// rather than stored as mutable fields on localLowerer.
 type pipeContext struct {
 	itRef     string
 	itType    ast.FieldType
@@ -40,22 +39,15 @@ func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[s
 	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds, counter: counter}
 }
 
-func (c *localLowerer) savePipeCtx() pipeContext {
-	return pipeContext{c.itRef, c.itType, c.itAllowed}
-}
-
-func (c *localLowerer) restorePipeCtx(prev pipeContext) {
-	c.itRef, c.itType, c.itAllowed = prev.itRef, prev.itType, prev.itAllowed
-}
-
 func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
+	pc := pipeContext{} // no active pipe at the top level
 	switch r := rhs.(type) {
 	case *ast.IfCallRHS:
-		c.lowerIfInto(c.target, c.targetType, r.Cond, r.Then, r.Else)
+		c.lowerIfInto(c.target, c.targetType, r.Cond, r.Then, r.Else, pc)
 	case *ast.CaseCallRHS:
-		c.lowerCaseInto(c.target, c.targetType, r.Subject, r.Arms)
+		c.lowerCaseInto(c.target, c.targetType, r.Subject, r.Arms, pc)
 	case *ast.PipeCallRHS:
-		c.lowerPipeInto(c.target, c.targetType, r.Initial, r.Steps)
+		c.lowerPipeInto(c.target, c.targetType, r.Initial, r.Steps, pc)
 	default:
 		panic(fmt.Sprintf("lowerTop: unhandled BindingRHS type %T for binding %q — add a case to the type switch", rhs, c.target))
 	}
@@ -112,7 +104,7 @@ func (c *localLowerer) emitIdentity(name string, ft ast.FieldType, ref string) {
 	c.appendBinding(lowerSingleRefRHS(name, ft, &ast.SingleRefRHS{RefName: ref}), ft)
 }
 
-func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalExpr) {
+func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalExpr, pc pipeContext) {
 	switch x := e.(type) {
 	case *ast.LocalLitExpr:
 		c.emitValue(name, ft, x.Value)
@@ -126,46 +118,46 @@ func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalE
 		}
 		c.emitIdentity(name, ft, x.Name)
 	case *ast.LocalItExpr:
-		if !c.itAllowed {
+		if !pc.itAllowed {
 			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 				diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
 			c.emitValue(name, ft, zeroLiteralFor(ft))
 			return
 		}
-		c.emitIdentity(name, ft, c.itRef)
+		c.emitIdentity(name, ft, pc.itRef)
 	case *ast.LocalCallExpr:
-		c.lowerCallInto(name, ft, x)
+		c.lowerCallInto(name, ft, x, pc)
 	case *ast.LocalInfixExpr:
-		c.lowerInfixInto(name, ft, x)
+		c.lowerInfixInto(name, ft, x, pc)
 	case *ast.LocalIfExpr:
-		c.lowerIfInto(name, ft, x.Cond, x.Then, x.Else)
+		c.lowerIfInto(name, ft, x.Cond, x.Then, x.Else, pc)
 	case *ast.LocalCaseExpr:
-		c.lowerCaseInto(name, ft, x.Subject, x.Arms)
+		c.lowerCaseInto(name, ft, x.Subject, x.Arms, pc)
 	case *ast.LocalPipeExpr:
-		c.lowerPipeInto(name, ft, x.Initial, x.Steps)
+		c.lowerPipeInto(name, ft, x.Initial, x.Steps, pc)
 	default:
 		panic(fmt.Sprintf("lowerExprInto: unhandled LocalExpr type %T — add a case to the type switch", e))
 	}
 }
 
-func (c *localLowerer) lowerExprTemp(e ast.LocalExpr, hint string, ft ast.FieldType) (string, ast.FieldType) {
+func (c *localLowerer) lowerExprTemp(e ast.LocalExpr, hint string, ft ast.FieldType, pc pipeContext) (string, ast.FieldType) {
 	name := c.temp(hint)
-	c.lowerExprInto(name, ft, e)
+	c.lowerExprInto(name, ft, e, pc)
 	return name, ft
 }
 
-func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldType) string {
-	ref, _ := c.lowerExprTemp(e, hint+"_value", ft)
+func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldType, pc pipeContext) string {
+	ref, _ := c.lowerExprTemp(e, hint+"_value", ft, pc)
 	fnName := c.temp(hint + "_fn")
 	c.emitIdentity(fnName, ft, ref)
 	return fnName
 }
 
-func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr) {
+func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr, pc pipeContext) {
 	// Operator-only functions are infix-only outside of #pipe steps. Inside a
 	// pipe step (itAllowed), add(#it, n) / mul(#it, n) etc. are the natural
 	// calling form and are explicitly allowed.
-	if !c.itAllowed && checkOperatorOnly(c.target, call.FnAlias, call.Pos, c.ds) {
+	if !pc.itAllowed && checkOperatorOnly(c.target, call.FnAlias, call.Pos, c.ds) {
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
@@ -187,16 +179,16 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 		case *ast.LocalLitExpr:
 			args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(x.Value)})
 		case *ast.LocalItExpr:
-			if !c.itAllowed {
+			if !pc.itAllowed {
 				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
 					diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
 				args = append(args, &turnoutpb.ArgModel{Lit: literalToStructpb(zeroLiteralFor(ft))})
 			} else {
-				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(c.itRef)})
+				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(pc.itRef)})
 			}
 		default:
-			argType := c.inferLocalType(arg, ft)
-			ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType)
+			argType := c.inferLocalType(arg, ft, pc)
+			ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType, pc)
 			args = append(args, &turnoutpb.ArgModel{Ref: proto.String(ref)})
 		}
 	}
@@ -210,11 +202,11 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 	}, ft)
 }
 
-func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.LocalInfixExpr) {
+func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.LocalInfixExpr, pc pipeContext) {
 	fn := infix.Op.FnAliasForType(ft)
 	leftType, rightType := fnmeta.OperandTypes(fn, ft)
-	leftRef, _ := c.lowerExprTemp(infix.LHS, "lhs", leftType)
-	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType)
+	leftRef, _ := c.lowerExprTemp(infix.LHS, "lhs", leftType, pc)
+	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType, pc)
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),
@@ -225,10 +217,10 @@ func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.
 	}, ft)
 }
 
-func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr, elseExpr ast.LocalExpr) {
-	condRef, _ := c.lowerExprTemp(cond, "cond", ast.FieldTypeBool)
-	thenFn := c.lowerFuncTemp(thenExpr, "then", ft)
-	elseFn := c.lowerFuncTemp(elseExpr, "else", ft)
+func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr, elseExpr ast.LocalExpr, pc pipeContext) {
+	condRef, _ := c.lowerExprTemp(cond, "cond", ast.FieldTypeBool, pc)
+	thenFn := c.lowerFuncTemp(thenExpr, "then", ft, pc)
+	elseFn := c.lowerFuncTemp(elseExpr, "else", ft, pc)
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),
@@ -245,15 +237,15 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 // references the next arm's binding as its else-branch, so inner arms must be
 // defined before the outer ones that reference them. The user's declared name
 // is assigned to the outermost arm (i == 0) and is therefore emitted last.
-func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm) {
+func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm, pc pipeContext) {
 	if len(arms) == 0 {
 		c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: #case with no arms always returns zero — add at least one arm or a wildcard (_)", c.target))
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
-	subjectType := c.inferLocalType(subject, ft)
-	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType)
+	subjectType := c.inferLocalType(subject, ft, pc)
+	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType, pc)
 	fallbackFn := ""
 	seenWildcard := false
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
@@ -265,19 +257,19 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 		}
 		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
 			seenWildcard = true
-			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft)
+			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft, pc)
 			continue
 		}
 		conditionalArms = append(conditionalArms, arm)
 	}
 	if fallbackFn == "" {
-		fallbackFn = c.lowerFuncTemp(&ast.LocalLitExpr{Value: zeroLiteralFor(ft)}, "case_default", ft)
+		fallbackFn = c.lowerFuncTemp(&ast.LocalLitExpr{Value: zeroLiteralFor(ft)}, "case_default", ft, pc)
 	}
 	nextFn := fallbackFn
 	for i := len(conditionalArms) - 1; i >= 0; i-- {
 		arm := conditionalArms[i]
-		condRef := c.lowerCasePatternCond(subjectRef, subjectType, arm)
-		thenFn := c.lowerFuncTemp(arm.Expr, "case_then", ft)
+		condRef := c.lowerCasePatternCond(subjectRef, subjectType, arm, pc)
+		thenFn := c.lowerFuncTemp(arm.Expr, "case_then", ft, pc)
 		condName := c.temp("case_cond")
 		if i == 0 {
 			condName = name
@@ -298,7 +290,7 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	}
 }
 
-func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.FieldType, arm ast.LocalCaseArm) string {
+func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.FieldType, arm ast.LocalCaseArm, pc pipeContext) string {
 	var condRef string
 	switch p := arm.Pattern.(type) {
 	case *ast.LiteralCasePattern:
@@ -326,7 +318,7 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 	if arm.Guard == nil {
 		return condRef
 	}
-	guardRef, _ := c.lowerExprTemp(arm.Guard, "case_guard", ast.FieldTypeBool)
+	guardRef, _ := c.lowerExprTemp(arm.Guard, "case_guard", ast.FieldTypeBool, pc)
 	combined := c.temp("case_guarded")
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: combined,
@@ -339,30 +331,28 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 	return combined
 }
 
-func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.LocalExpr, steps []ast.LocalExpr) {
-	currentType := c.inferLocalType(initial, ft)
-	currentRef, _ := c.lowerExprTemp(initial, "pipe_initial", currentType)
-	prev := c.savePipeCtx()
+func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.LocalExpr, steps []ast.LocalExpr, outerPC pipeContext) {
+	currentType := c.inferLocalType(initial, ft, outerPC)
+	currentRef, _ := c.lowerExprTemp(initial, "pipe_initial", currentType, outerPC)
 	for i, step := range steps {
 		stepName := name
 		if i < len(steps)-1 {
 			stepName = c.temp("pipe_step")
 		}
-		c.itRef, c.itType, c.itAllowed = currentRef, currentType, true
+		stepPC := pipeContext{itRef: currentRef, itType: currentType, itAllowed: true}
 		stepType := ft
 		if i < len(steps)-1 {
-			stepType = c.inferLocalType(step, ft)
+			stepType = c.inferLocalType(step, ft, stepPC)
 		}
-		c.lowerExprInto(stepName, stepType, step)
+		c.lowerExprInto(stepName, stepType, step, stepPC)
 		currentRef, currentType = stepName, stepType
 	}
-	c.restorePipeCtx(prev)
 	if len(steps) == 0 {
 		c.emitIdentity(name, ft, currentRef)
 	}
 }
 
-func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) ast.FieldType {
+func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType, pc pipeContext) ast.FieldType {
 	switch x := e.(type) {
 	case *ast.LocalLitExpr:
 		if ft, ok := ast.LiteralFieldType(x.Value); ok {
@@ -377,27 +367,26 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType) a
 		// emits a zero literal instead of a dangling identity binding — this
 		// prevents the cascade of type-mismatch errors that a dangling ref produces.
 	case *ast.LocalItExpr:
-		if c.itAllowed {
-			return c.itType
+		if pc.itAllowed {
+			return pc.itType
 		}
 	case *ast.LocalCallExpr:
 		return fnmeta.ReturnType(x.FnAlias, fallback)
 	case *ast.LocalInfixExpr:
 		return fnmeta.ReturnType(x.Op.FnAliasForType(fallback), fallback)
 	case *ast.LocalIfExpr:
-		return c.inferLocalType(x.Then, fallback)
+		return c.inferLocalType(x.Then, fallback, pc)
 	case *ast.LocalCaseExpr:
 		for _, arm := range x.Arms {
-			if t := c.inferLocalType(arm.Expr, fallback); t != fallback {
+			if t := c.inferLocalType(arm.Expr, fallback, pc); t != fallback {
 				return t
 			}
 		}
 	case *ast.LocalPipeExpr:
 		if len(x.Steps) > 0 {
-			return c.inferLocalType(x.Steps[len(x.Steps)-1], fallback)
+			return c.inferLocalType(x.Steps[len(x.Steps)-1], fallback, pc)
 		}
-		return c.inferLocalType(x.Initial, fallback)
+		return c.inferLocalType(x.Initial, fallback, pc)
 	}
 	return fallback
 }
-

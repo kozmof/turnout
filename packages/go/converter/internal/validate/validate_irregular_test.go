@@ -64,7 +64,7 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			ds := validate.Validate(tc.model, irregularSchema(), nil)
+			ds := validate.Validate(validate.ValidateInput{Model: tc.model, Schema: irregularSchema()})
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -127,7 +127,7 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 
 			action, sc := buildIrregularAction(tc.bindings, tc.prepare, tc.merge, tc.next)
 			model := irregularModelWithAction(action)
-			ds := validate.Validate(model, irregularSchema(), sc)
+			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema(), Sidecar: sc})
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
@@ -219,7 +219,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": ast.SigilEgress.ToInt32()}
 			}
 			model := irregularModelWithAction(action)
-			ds := validate.Validate(model, irregularSchema(), sc)
+			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema(), Sidecar: sc})
 			if !hasCode(ds, tc.wantCode) {
 				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}

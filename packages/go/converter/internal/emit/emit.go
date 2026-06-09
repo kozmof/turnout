@@ -236,14 +236,13 @@ func chooseHeredocDelim(text, indent string) (string, error) {
 	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
 	lines := strings.Split(text, "\n")
 
+	// Build a set of indented lines in one pass so each candidate check is O(1).
+	lineSet := make(map[string]bool, len(lines))
+	for _, l := range lines {
+		lineSet[indent+l] = true
+	}
 	collides := func(delim string) bool {
-		full := indent + delim
-		for _, line := range lines {
-			if indent+line == full {
-				return true
-			}
-		}
-		return false
+		return lineSet[indent+delim]
 	}
 
 	for _, delim := range candidates {
@@ -637,6 +636,8 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 		iw.wl("steps   = [%s]", strings.Join(steps, ", "))
 		iw.depth--
 		iw.wl("}")
+	default:
+		panic(fmt.Sprintf("writeExtExpr: unhandled LocalExprModel type %T — add a case here when adding new LocalExprModel variants", e.Expr))
 	}
 	iw.depth--
 	iw.wl("}")
@@ -686,7 +687,7 @@ func localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
 			localExprInline(x.PipeExpr.GetInitial(), bindingType), strings.Join(steps, ", "))
 	}
-	return `{ lit = false }`
+	panic(fmt.Sprintf("localExprInline: unhandled LocalExprModel type %T — add a case here when adding new LocalExprModel variants", e.Expr))
 }
 
 func localCaseArmInline(arm *turnoutpb.LocalCaseArmModel, bindingType string) string {

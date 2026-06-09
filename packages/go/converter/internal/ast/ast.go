@@ -139,19 +139,28 @@ func (ft FieldType) IsArray() bool {
 	return ft == FieldTypeArrNumber || ft == FieldTypeArrStr || ft == FieldTypeArrBool
 }
 
-// ElemType returns the element type of an array FieldType.
-// Panics if called on a non-array type.
-func (ft FieldType) ElemType() FieldType {
+// TryElemType returns the element type of an array FieldType.
+// Returns (FieldTypeInvalid, false) for non-array types.
+func (ft FieldType) TryElemType() (FieldType, bool) {
 	switch ft {
 	case FieldTypeArrNumber:
-		return FieldTypeNumber
+		return FieldTypeNumber, true
 	case FieldTypeArrStr:
-		return FieldTypeStr
+		return FieldTypeStr, true
 	case FieldTypeArrBool:
-		return FieldTypeBool
-	default:
+		return FieldTypeBool, true
+	}
+	return FieldTypeInvalid, false
+}
+
+// ElemType returns the element type of an array FieldType.
+// Panics if called on a non-array type; use TryElemType for a safe variant.
+func (ft FieldType) ElemType() FieldType {
+	et, ok := ft.TryElemType()
+	if !ok {
 		panic(fmt.Sprintf("ElemType called on non-array type %s", ft))
 	}
+	return et
 }
 
 // ────────────────────────────────────────────────────────────

@@ -175,13 +175,41 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 	return sm
 }
 
-// lowerStateBlockFromSchema dispatches to the ordered or alphabetical variant
-// based on whether declaration order was captured by the caller.
+// lowerStateBlockFromSchema reconstructs a state block from the schema.
+// When order is non-empty, fields are emitted in declaration order (preserving
+// the author's source sequence). When order is empty, namespaces and fields are
+// sorted alphabetically for deterministic output.
 func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
 	if len(order) > 0 {
 		return lowerStateBlockFromSchemaOrdered(schema, order, ds)
 	}
-	return lowerStateBlockFromSchemaAlphabetical(schema)
+
+	nsNames := schema.Namespaces()
+	slices.Sort(nsNames)
+
+	var nsList []nsEntry
+	for _, nsName := range nsNames {
+		var fieldNames []string
+		schema.RangeFields(nsName, func(name string, _ state.FieldMeta) {
+			fieldNames = append(fieldNames, name)
+		})
+		if len(fieldNames) == 0 {
+			continue
+		}
+		slices.Sort(fieldNames)
+
+		entry := nsEntry{name: nsName, fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
+		for _, fieldName := range fieldNames {
+			meta, _ := schema.Get(nsName + "." + fieldName)
+			entry.fields = append(entry.fields, &turnoutpb.FieldModel{
+				Name:  fieldName,
+				Type:  meta.Type.String(),
+				Value: literalToStructpb(meta.DefaultValue),
+			})
+		}
+		nsList = append(nsList, entry)
+	}
+	return assembleStateModel(nsList)
 }
 
 // nsEntry groups a namespace name with its accumulated fields for state model construction.
@@ -233,38 +261,6 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *d
 			continue
 		}
 		appendStateField(&nsList, nsIndex, key[:dot], key[dot+1:], meta)
-	}
-	return assembleStateModel(nsList)
-}
-
-// lowerStateBlockFromSchemaAlphabetical reconstructs a state block from the
-// flat schema map with namespaces and fields sorted alphabetically for
-// deterministic output when no declaration order is available.
-func lowerStateBlockFromSchemaAlphabetical(schema state.Schema) *turnoutpb.StateModel {
-	nsNames := schema.Namespaces()
-	slices.Sort(nsNames)
-
-	var nsList []nsEntry
-	for _, nsName := range nsNames {
-		var fieldNames []string
-		schema.RangeFields(nsName, func(name string, _ state.FieldMeta) {
-			fieldNames = append(fieldNames, name)
-		})
-		if len(fieldNames) == 0 {
-			continue
-		}
-		slices.Sort(fieldNames)
-
-		entry := nsEntry{name: nsName, fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
-		for _, fieldName := range fieldNames {
-			meta, _ := schema.Get(nsName + "." + fieldName)
-			entry.fields = append(entry.fields, &turnoutpb.FieldModel{
-				Name:  fieldName,
-				Type:  meta.Type.String(),
-				Value: literalToStructpb(meta.DefaultValue),
-			})
-		}
-		nsList = append(nsList, entry)
 	}
 	return assembleStateModel(nsList)
 }

@@ -122,11 +122,11 @@ func (p *parser) expectIdent() (lexer.Token, bool) {
 	return p.expect(lexer.TokIdent)
 }
 
-// skipNamedArg detects a `name:` named-argument prefix at the current position.
-// If found, it consumes the name and colon tokens, records a diagnostic via
-// DiagSink.Append (respecting the cap/halt mechanism), and returns true.
+// consumeNamedArgIfPresent detects a `name:` named-argument prefix at the current
+// position. If found, it consumes the name and colon tokens, records a diagnostic
+// (named args are unsupported; callers must use positional form), and returns true.
 // Returns false without advancing when no named-arg prefix is present.
-func (p *parser) skipNamedArg() bool {
+func (p *parser) consumeNamedArgIfPresent() bool {
 	if p.peek().Kind != lexer.TokIdent || p.peekAt(1).Kind != lexer.TokColon {
 		return false
 	}
@@ -460,7 +460,7 @@ func (p *parser) parseFuncArgs() []ast.Arg {
 	p.expect(lexer.TokLParen)
 	args := make([]ast.Arg, 0, 2) // most DSL functions are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		p.skipNamedArg()
+		p.consumeNamedArgIfPresent()
 		args = append(args, p.parseArg())
 		if p.peek().Kind == lexer.TokComma {
 			p.advance()
@@ -807,7 +807,7 @@ func (p *parser) parseLocalArgList() []ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	args := make([]ast.LocalExpr, 0, 2) // most DSL calls are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
-		p.skipNamedArg()
+		p.consumeNamedArgIfPresent()
 		args = append(args, p.parseLocalExpr())
 		if p.peek().Kind == lexer.TokComma {
 			p.advance()

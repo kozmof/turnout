@@ -24,12 +24,15 @@ const (
 type FnSpec struct {
 	Arg1Type, Arg2Type, ReturnType ast.FieldType
 	Kind                           FnKind
+	MaxArgs                        int // 0 means 2 (all current builtins are binary)
 }
 
-// Arity returns the number of arguments the function accepts.
-// All current built-in functions are binary (2), but this method lets callers
-// derive the limit from the table rather than hardcoding it.
+// Arity returns the maximum number of arguments the function accepts.
+// Defaults to 2 (all current built-in functions are binary) unless MaxArgs is set.
 func (s FnSpec) Arity() int {
+	if s.MaxArgs != 0 {
+		return s.MaxArgs
+	}
 	return 2
 }
 

@@ -34,7 +34,7 @@ func fullPipeline(t *testing.T, src string) string {
 	if ds3.HasErrors() {
 		t.Fatalf("lower failed: %v", ds3)
 	}
-	ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
+	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar})
 	if ds4.HasErrors() {
 		for _, d := range ds4 {
 			t.Logf("validate: %s", d.Format())
@@ -503,7 +503,7 @@ route "route_1" {
 	if ds3.HasErrors() {
 		t.Fatalf("lower failed: %v", ds3)
 	}
-	ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar)
+	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar})
 	hasMissingEntry := false
 	for _, d := range ds4 {
 		if d.Code == "MissingEntryScene" {
@@ -786,7 +786,7 @@ scene "test_scene" {
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar); ds4.HasErrors() {
+	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar}); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 
@@ -880,7 +880,7 @@ scene "test" {
 	if ds3.HasErrors() {
 		t.Fatalf("lower: %v", ds3)
 	}
-	if ds4 := validate.Validate(lr.Model, lr.Schema, lr.Sidecar); ds4.HasErrors() {
+	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema, Sidecar: lr.Sidecar}); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)
 	}
 	var sb strings.Builder

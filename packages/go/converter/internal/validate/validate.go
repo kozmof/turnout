@@ -59,15 +59,22 @@ func modelHasSigilBindings(tm *turnoutpb.TurnModel) bool {
 	return false
 }
 
+// ValidateInput bundles the inputs to Validate. Sidecar may be nil when
+// validating a model loaded from disk; Schema may be the zero value when no
+// state schema is available.
+type ValidateInput struct {
+	Model   *turnoutpb.TurnModel
+	Schema  state.Schema
+	Sidecar *lower.Sidecar // nil when loading from disk (sigil positions unavailable)
+}
+
 // Validate runs all structural and type validation rules against the proto model.
-// sc carries per-binding source positions from the lowerer for positioned diagnostics;
-// pass nil when validating a model loaded from disk (sigil checks still run via
-// ProgModel.Sigils in the proto, but without file/line/col positions). When sc is nil
-// and the model contains sigil bindings, a CodeSigilPositionLoss warning is emitted
-// so callers are aware that diagnostics for those bindings will lack source positions.
-// schema may be nil. Returns diagnostics; callers must check HasErrors() before
+// When Sidecar is nil and the model contains sigil bindings, a CodeSigilPositionLoss
+// warning is emitted so callers are aware that diagnostics for those bindings will
+// lack source positions. Returns diagnostics; callers must check HasErrors() before
 // proceeding to emission.
-func Validate(tm *turnoutpb.TurnModel, schema state.Schema, sc *lower.Sidecar) diag.Diagnostics {
+func Validate(in ValidateInput) diag.Diagnostics {
+	tm, schema, sc := in.Model, in.Schema, in.Sidecar
 	var ds diag.Diagnostics
 	if tm == nil {
 		return ds
