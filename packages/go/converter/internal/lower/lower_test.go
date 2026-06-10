@@ -11,7 +11,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -33,16 +32,9 @@ func mustLowerResult(t *testing.T, src string) *lower.LowerResult {
 		}
 		t.Fatalf("parse failed")
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
 		for _, d := range ds2 {
-			t.Logf("state diag: %s", d.Format())
-		}
-		t.Fatalf("state resolve failed")
-	}
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		for _, d := range ds3 {
 			t.Logf("lower diag: %s", d.Format())
 		}
 		t.Fatalf("lower failed")

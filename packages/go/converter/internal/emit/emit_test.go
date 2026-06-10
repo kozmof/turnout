@@ -10,7 +10,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 )
 
@@ -26,17 +25,13 @@ func fullPipeline(t *testing.T, src string) string {
 		}
 		t.Fatalf("parse failed")
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
-		t.Fatalf("state resolve failed: %v", ds2)
+		t.Fatalf("lower failed: %v", ds2)
 	}
-	lr, ds3 := lower.Lower(tf, schema)
+	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
 	if ds3.HasErrors() {
-		t.Fatalf("lower failed: %v", ds3)
-	}
-	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
-	if ds4.HasErrors() {
-		for _, d := range ds4 {
+		for _, d := range ds3 {
 			t.Logf("validate: %s", d.Format())
 		}
 		t.Fatalf("validate failed")
@@ -495,13 +490,9 @@ route "route_1" {
 	if ds.HasErrors() {
 		t.Fatalf("parse failed: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
-		t.Fatalf("state resolve failed: %v", ds2)
-	}
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		t.Fatalf("lower failed: %v", ds3)
+		t.Fatalf("lower failed: %v", ds2)
 	}
 	ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
 	hasMissingEntry := false
@@ -697,13 +688,9 @@ func pipelineFromFile(t *testing.T, path string) string {
 		}
 		t.Fatalf("parse failed")
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
-	if ds2.HasErrors() {
-		t.Fatalf("state resolve failed: %v", ds2)
-	}
 	// Use the scene/routes from the AST to produce a partial model for emitting.
 	// We skip validate so type-mismatch against our stub state schema doesn't fail.
-	lr, _ := lower.Lower(tf, schema) // errors expected for missing state paths
+	lr, _ := lower.LowerResolvingState(tf, "") // errors expected for missing state paths
 	if lr == nil {
 		// Lower returned nil — return a placeholder indicating parse passed.
 		return "(parse-only)"
@@ -778,16 +765,12 @@ scene "test_scene" {
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
-		t.Fatalf("state: %v", ds2)
+		t.Fatalf("lower: %v", ds2)
 	}
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		t.Fatalf("lower: %v", ds3)
-	}
-	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema}); ds4.HasErrors() {
-		t.Fatalf("validate: %v", ds4)
+	if ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema}); ds3.HasErrors() {
+		t.Fatalf("validate: %v", ds3)
 	}
 
 	var sb strings.Builder
@@ -837,13 +820,9 @@ scene "s" {
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
-		t.Fatalf("state: %v", ds2)
-	}
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		t.Fatalf("lower: %v", ds3)
+		t.Fatalf("lower: %v", ds2)
 	}
 	var sb strings.Builder
 	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
@@ -872,16 +851,12 @@ scene "test" {
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
-		t.Fatalf("state: %v", ds2)
+		t.Fatalf("lower: %v", ds2)
 	}
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		t.Fatalf("lower: %v", ds3)
-	}
-	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema}); ds4.HasErrors() {
-		t.Fatalf("validate: %v", ds4)
+	if ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema}); ds3.HasErrors() {
+		t.Fatalf("validate: %v", ds3)
 	}
 	var sb strings.Builder
 	if err := emit.EmitJSON(&sb, lr.Model); err != nil {

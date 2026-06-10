@@ -7,7 +7,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -390,19 +389,15 @@ scene "test" {
 
 // ─── error paths: action prepare resolver ────────────────────────────────────
 
-// lowerWithErrors calls lower.Lower and returns diagnostics (without failing on errors).
+// lowerWithErrors parses src and lowers it, returning diagnostics without failing on errors.
 func lowerWithErrors(t *testing.T, src string) diag.Diagnostics {
 	t.Helper()
 	tf, ds := parser.ParseFile("test.turn", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse failed: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
-	if ds2.HasErrors() {
-		t.Fatalf("state resolve failed: %v", ds2)
-	}
-	_, ds3 := lower.Lower(tf, schema)
-	return ds3
+	_, ds2 := lower.LowerResolvingState(tf, "")
+	return ds2
 }
 
 func TestLowerPrepareMissingEntry(t *testing.T) {
@@ -497,37 +492,6 @@ scene "test" {
 	}
 	if !found {
 		t.Errorf("want MissingPrepareEntry diagnostic, got: %v", ds)
-	}
-}
-
-// ─── lowerStateBlockFromSchema: empty namespace produces no output ────────────
-
-func TestLowerWithStateFileDiagnosticOrderLost(t *testing.T) {
-	// Lower() with a state_file directive now emits CodeDeclarationOrderLost as
-	// an error (not a warning). Callers must use LowerResolvingState() instead.
-	src := `state_file = "fake.turn"
-scene "test" {
-  entry_actions = ["a"]
-  action "a" { compute { root = r prog "p" { r:bool = true } } }
-}`
-	tf, ds := parser.ParseFile("test.turn", src)
-	if ds.HasErrors() {
-		t.Fatalf("parse: %v", ds)
-	}
-	schema := state.NewSchemaFromMap(map[string]map[string]state.FieldMeta{"empty": {}})
-	_, ds3 := lower.Lower(tf, schema)
-	if !ds3.HasErrors() {
-		t.Fatal("expected CodeDeclarationOrderLost error from Lower() with state_file, got none")
-	}
-	found := false
-	for _, d := range ds3 {
-		if d.Code == diag.CodeDeclarationOrderLost {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("expected CodeDeclarationOrderLost in diagnostics, got: %v", ds3)
 	}
 }
 
@@ -703,4 +667,67 @@ func hasLowerDiagCode(ds diag.Diagnostics, code string) bool {
 		}
 	}
 	return false
+}
+
+// ─── early unknown-function diagnostic in local expressions ──────────────────
+
+func TestLowerLocalCallUnknownFnEmitsEarlyDiagnostic(t *testing.T) {
+	// An unknown function inside a #if condition should produce CodeUnknownFnAlias
+	// pinned to the call site, not a cascade of type-mismatch errors.
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        x:number = 1
+        result:bool = #if(no_such_fn(x, x), true, false)
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeUnknownFnAlias) {
+		t.Errorf("want CodeUnknownFnAlias from lowerer, got %v", ds)
+	}
+}
+
+func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
+	// An unknown function inside a #pipe step should also produce CodeUnknownFnAlias
+	// from the lowerer — including when inside a pipe step where operator-only
+	// functions are otherwise permitted.
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        x:number = 1
+        result:number = #pipe(x, no_such_fn(#it, x))
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeUnknownFnAlias) {
+		t.Errorf("want CodeUnknownFnAlias from lowerer, got %v", ds)
+	}
+}
+
+func TestLowerLocalCallUnknownFnNoCascadingErrors(t *testing.T) {
+	// The early unknown-function diagnostic must not produce cascading ArgTypeMismatch
+	// errors. The lowerer emits a zero-value binding so downstream type checking sees
+	// a valid (if wrong) value rather than an unresolved reference.
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        x:number = 1
+        result:bool = #if(no_such_fn(x, x), true, false)
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+	for _, d := range ds {
+		if d.Code == diag.CodeArgTypeMismatch || d.Code == diag.CodeUndefinedRef {
+			t.Errorf("unexpected cascading diagnostic %q: %s", d.Code, d.Message)
+		}
+	}
 }

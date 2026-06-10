@@ -154,6 +154,16 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 }
 
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr, pc pipeContext) {
+	// Unknown function: emit a diagnostic immediately so the error is pinned to
+	// the call site rather than surfacing as cascading type-mismatch errors
+	// elsewhere. This mirrors the early exit pattern used by checkOperatorOnly.
+	if _, ok := fnmeta.BuiltinFn(call.FnAlias); !ok {
+		c.ds.Append(diag.ErrorAt(call.Pos.File, call.Pos.Line, call.Pos.Col,
+			diag.CodeUnknownFnAlias,
+			"binding %q: %q is not a known function", c.target, call.FnAlias))
+		c.emitValue(name, ft, zeroLiteralFor(ft))
+		return
+	}
 	// Operator-only functions are infix-only outside of #pipe steps. Inside a
 	// pipe step (itAllowed), add(#it, n) / mul(#it, n) etc. are the natural
 	// calling form and are explicitly allowed.

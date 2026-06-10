@@ -227,25 +227,29 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 }
 
 // chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
-// content lines will be prefixed with indent. It scans the content lines once
-// per candidate (linear search) rather than building a map, which is faster for
-// the common case where one of the four named candidates succeeds. The hash
-// fallback handles adversarial input.
+// content lines will be prefixed with indent. Uses a two-phase approach:
+// Phase 1 checks "EOT" with a linear scan (no allocation) since it almost
+// never collides. Phase 2 builds a line-set only when the common case fails,
+// then checks the remaining candidates and a hash-based fallback.
 // Returns an error only if no non-colliding delimiter can be found.
 func chooseHeredocDelim(text, indent string) (string, error) {
-	candidates := []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"}
-	lines := strings.Split(text, "\n")
+	eotMarker := indent + "EOT"
+	for line := range strings.SplitSeq(text, "\n") {
+		if indent+line == eotMarker {
+			goto slowPath
+		}
+	}
+	return "EOT", nil
 
-	// Build a set of indented lines in one pass so each candidate check is O(1).
+slowPath:
+	lines := strings.Split(text, "\n")
 	lineSet := make(map[string]bool, len(lines))
 	for _, l := range lines {
 		lineSet[indent+l] = true
 	}
-	collides := func(delim string) bool {
-		return lineSet[indent+delim]
-	}
+	collides := func(delim string) bool { return lineSet[indent+delim] }
 
-	for _, delim := range candidates {
+	for _, delim := range []string{"TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"} {
 		if !collides(delim) {
 			return delim, nil
 		}

@@ -9,7 +9,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
 func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
@@ -162,13 +161,8 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 			}
 			tc.mutate(tf)
 
-			schema, ds2 := state.Resolve(tf.StateSource, "")
-			if ds2.HasErrors() {
-				t.Fatalf("state: %v", ds2)
-			}
-
 			assertPanics(t, tc.panicSubstr, func() {
-				lower.Lower(tf, schema) //nolint:errcheck
+				lower.LowerResolvingState(tf, "") //nolint:errcheck
 			})
 		})
 	}
@@ -202,16 +196,11 @@ func lowerDiagnosticsFromSource(t *testing.T, src string, mutate func(*ast.TurnF
 		mutate(tf)
 	}
 
-	schema, ds2 := state.Resolve(tf.StateSource, "")
-	if ds2.HasErrors() {
-		t.Fatalf("state: %v", ds2)
-	}
-
-	lr, ds3 := lower.Lower(tf, schema)
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if lr != nil {
 		t.Fatalf("expected nil result for irregular lowering path, got %#v", lr)
 	}
-	return ds3
+	return ds2
 }
 
 func hasLowerCode(ds diag.Diagnostics, code string) bool {

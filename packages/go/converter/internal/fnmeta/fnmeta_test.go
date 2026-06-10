@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -89,6 +90,99 @@ func TestIdentityValue(t *testing.T) {
 		}
 		if kind != tc.wantKind {
 			t.Errorf("IdentityValue(%q) kind=%q, want %q", tc.fn, kind, tc.wantKind)
+		}
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ReturnType
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestReturnType_KnownFunctions(t *testing.T) {
+	// For each known function, verify ReturnType returns the expected type
+	// regardless of the fallback value passed.
+	const fallback = ast.FieldTypeNumber
+	cases := []struct {
+		fn   string
+		want ast.FieldType
+	}{
+		// Number arithmetic → number
+		{"add", ast.FieldTypeNumber},
+		{"sub", ast.FieldTypeNumber},
+		{"mul", ast.FieldTypeNumber},
+		{"div", ast.FieldTypeNumber},
+		{"mod", ast.FieldTypeNumber},
+		{"max", ast.FieldTypeNumber},
+		{"min", ast.FieldTypeNumber},
+		// Number comparison → bool
+		{"gt", ast.FieldTypeBool},
+		{"gte", ast.FieldTypeBool},
+		{"lt", ast.FieldTypeBool},
+		{"lte", ast.FieldTypeBool},
+		// String → string
+		{"str_concat", ast.FieldTypeStr},
+		// String predicates → bool
+		{"str_includes", ast.FieldTypeBool},
+		{"str_starts", ast.FieldTypeBool},
+		{"str_ends", ast.FieldTypeBool},
+		// Boolean → bool
+		{"bool_and", ast.FieldTypeBool},
+		{"bool_or", ast.FieldTypeBool},
+		{"bool_xor", ast.FieldTypeBool},
+		// Generic equality → bool
+		{"eq", ast.FieldTypeBool},
+		{"neq", ast.FieldTypeBool},
+		// Array predicate → bool
+		{"arr_includes", ast.FieldTypeBool},
+	}
+	for _, tc := range cases {
+		got := fnmeta.ReturnType(tc.fn, fallback)
+		if got != tc.want {
+			t.Errorf("ReturnType(%q, fallback) = %v, want %v", tc.fn, got, tc.want)
+		}
+	}
+}
+
+func TestReturnType_UnknownFunction_ReturnsFallback(t *testing.T) {
+	for _, fallback := range []ast.FieldType{ast.FieldTypeNumber, ast.FieldTypeStr, ast.FieldTypeBool} {
+		got := fnmeta.ReturnType("no_such_fn", fallback)
+		if got != fallback {
+			t.Errorf("ReturnType(unknown, %v) = %v, want fallback %v", fallback, got, fallback)
+		}
+	}
+}
+
+func TestReturnType_ArrConcat_ReturnsFallback(t *testing.T) {
+	// arr_concat returns the same array type as arg1; the lowerer supplies the
+	// declared binding type as fallback, so ReturnType must pass it through unchanged.
+	for _, fallback := range []ast.FieldType{
+		ast.FieldTypeArrNumber,
+		ast.FieldTypeArrStr,
+		ast.FieldTypeArrBool,
+	} {
+		got := fnmeta.ReturnType("arr_concat", fallback)
+		if got != fallback {
+			t.Errorf("ReturnType(arr_concat, %v) = %v, want fallback %v", fallback, got, fallback)
+		}
+	}
+}
+
+func TestReturnType_ArrGet_ReturnsElemType(t *testing.T) {
+	cases := []struct {
+		fallback ast.FieldType
+		want     ast.FieldType
+	}{
+		{ast.FieldTypeArrNumber, ast.FieldTypeNumber},
+		{ast.FieldTypeArrStr, ast.FieldTypeStr},
+		{ast.FieldTypeArrBool, ast.FieldTypeBool},
+		// Non-array fallback: returned unchanged (no elem type to extract).
+		{ast.FieldTypeNumber, ast.FieldTypeNumber},
+		{ast.FieldTypeStr, ast.FieldTypeStr},
+	}
+	for _, tc := range cases {
+		got := fnmeta.ReturnType("arr_get", tc.fallback)
+		if got != tc.want {
+			t.Errorf("ReturnType(arr_get, %v) = %v, want %v", tc.fallback, got, tc.want)
 		}
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
-	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -21,13 +20,9 @@ func pipelineModel(t *testing.T, src string) *turnoutpb.TurnModel {
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	if ds2.HasErrors() {
-		t.Fatalf("state: %v", ds2)
-	}
-	lr, ds3 := lower.Lower(tf, schema)
-	if ds3.HasErrors() {
-		t.Fatalf("lower: %v", ds3)
+		t.Fatalf("lower: %v", ds2)
 	}
 	if ds4 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema}); ds4.HasErrors() {
 		t.Fatalf("validate: %v", ds4)

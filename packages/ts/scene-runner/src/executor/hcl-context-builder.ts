@@ -184,10 +184,18 @@ class ContextSpecBuilder {
   }
 
   private addValueBinding(binding: BindingModel): void {
-    // Value binding: use injected value if present, otherwise use the literal default.
     const injected = this.injectedValues[binding.name];
-    this.spec[binding.name] =
-      injected !== undefined ? injected : literalToValue(binding.value!, binding.type);
+    if (injected !== undefined) {
+      this.spec[binding.name] = injected;
+      return;
+    }
+    if (binding.value === undefined) {
+      throw new SceneRuntimeError(
+        'CompilerBug', this.contextId,
+        `binding "${binding.name}": value binding has no value field — compiler bug or malformed JSON`,
+      );
+    }
+    this.spec[binding.name] = literalToValue(binding.value, binding.type);
   }
 
   private addFuncBinding(binding: BindingModel): void {
@@ -236,17 +244,18 @@ class ContextSpecBuilder {
   private handleCondBinding(binding: BindingModel): void {
     const c = binding.expr!.cond!;
     const conditionRef = c.condition ? this.resolveCondArg(c.condition) : '';
-    const thenRef = c.then ? this.resolveArg(c.then) : '';
-    if (typeof thenRef !== 'string') {
-      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
-        `cond then-branch resolved to a non-string ref — expected ref or funcRef`);
-    }
-    const elseRef = c.elseBranch ? this.resolveArg(c.elseBranch) : '';
-    if (typeof elseRef !== 'string') {
-      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
-        `cond else-branch resolved to a non-string ref — expected ref or funcRef`);
-    }
+    const thenRef = c.then ? this.resolveAsRef(c.then, 'cond then-branch') : '';
+    const elseRef = c.elseBranch ? this.resolveAsRef(c.elseBranch, 'cond else-branch') : '';
     this.spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
+  }
+
+  private resolveAsRef(arg: ArgModel, label: string): string {
+    const result = this.resolveArg(arg);
+    if (typeof result !== 'string') {
+      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
+        `${label} resolved to a non-string ref (got ${typeof result}) — expected ref or funcRef`);
+    }
+    return result;
   }
 
   // Resolve an ArgModel to the appropriate reference type for the builder API.

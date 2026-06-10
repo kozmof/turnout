@@ -24,13 +24,8 @@ func pipeline(src string) diag.Diagnostics {
 	if ds.HasErrors() {
 		return ds
 	}
-	schema, ds2 := state.Resolve(tf.StateSource, "")
+	lr, ds2 := lower.LowerResolvingState(tf, "")
 	ds = append(ds, ds2...)
-	if ds2.HasErrors() {
-		return ds
-	}
-	lr, ds3 := lower.Lower(tf, schema)
-	ds = append(ds, ds3...)
 	if lr == nil {
 		return ds
 	}

@@ -131,3 +131,121 @@ func TestFormatWithoutFileMatchesExpected(t *testing.T) {
 		t.Errorf("Format() = %q, want %q", got, want)
 	}
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DiagSink — cap/halt behaviour
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestDiagSinkIsHaltedStateTransition(t *testing.T) {
+	var s diag.DiagSink
+	if s.IsHalted() {
+		t.Error("new DiagSink should not be halted")
+	}
+	s.Halt()
+	if !s.IsHalted() {
+		t.Error("DiagSink should be halted after Halt()")
+	}
+}
+
+func TestDiagSinkAtCap(t *testing.T) {
+	var s diag.DiagSink
+	for i := range diag.MaxDiagnostics - 1 {
+		s.Append(diag.Errorf("E", "diag %d", i))
+	}
+	if s.AtCap() {
+		t.Errorf("AtCap() should be false at %d entries (cap is %d)", len(s.Diags), diag.MaxDiagnostics)
+	}
+	s.Append(diag.Errorf("E", "diag %d", diag.MaxDiagnostics-1))
+	if !s.AtCap() {
+		t.Errorf("AtCap() should be true at %d entries (cap is %d)", len(s.Diags), diag.MaxDiagnostics)
+	}
+}
+
+func TestDiagSinkAppendAtCap(t *testing.T) {
+	var s diag.DiagSink
+	// Fill to the cap exactly.
+	for i := range diag.MaxDiagnostics {
+		s.Append(diag.Errorf("E", "diag %d", i))
+	}
+	if len(s.Diags) != diag.MaxDiagnostics {
+		t.Fatalf("expected %d diagnostics before cap trigger, got %d", diag.MaxDiagnostics, len(s.Diags))
+	}
+
+	// The next Append should trigger Halt: the new diagnostic is dropped and
+	// the TooManyDiagnostics sentinel is appended instead.
+	s.Append(diag.Errorf("E", "this should be dropped"))
+	if !s.IsHalted() {
+		t.Error("DiagSink should be halted after cap exceeded")
+	}
+	if len(s.Diags) != diag.MaxDiagnostics+1 {
+		t.Errorf("expected %d entries (cap + sentinel), got %d", diag.MaxDiagnostics+1, len(s.Diags))
+	}
+	last := s.Diags[len(s.Diags)-1]
+	if last.Code != diag.CodeTooManyDiagnostics {
+		t.Errorf("last diagnostic code = %q, want %q", last.Code, diag.CodeTooManyDiagnostics)
+	}
+	// The dropped diagnostic must not appear anywhere in the slice.
+	for _, d := range s.Diags {
+		if d.Message == "this should be dropped" {
+			t.Error("dropped diagnostic must not appear in DiagSink.Diags")
+		}
+	}
+}
+
+func TestDiagSinkAppendWhenHalted(t *testing.T) {
+	var s diag.DiagSink
+	s.Halt()
+	before := len(s.Diags)
+	s.Append(diag.Errorf("E", "must be dropped"))
+	if len(s.Diags) != before {
+		t.Errorf("Append after Halt should be a no-op: len was %d, now %d", before, len(s.Diags))
+	}
+}
+
+func TestDiagSinkHaltSentinelNotDuplicated(t *testing.T) {
+	var s diag.DiagSink
+	s.Halt()
+	count1 := countCode(s.Diags, diag.CodeTooManyDiagnostics)
+	s.Halt()
+	count2 := countCode(s.Diags, diag.CodeTooManyDiagnostics)
+	if count1 != 1 {
+		t.Errorf("first Halt() should append sentinel once, got %d sentinels", count1)
+	}
+	if count2 != count1 {
+		t.Errorf("second Halt() must not add another sentinel: count went from %d to %d", count1, count2)
+	}
+}
+
+func TestDiagnosticsCapped(t *testing.T) {
+	ds := make(diag.Diagnostics, diag.MaxDiagnostics+10)
+	for i := range ds {
+		ds[i] = diag.Errorf("E", "diag %d", i)
+	}
+	capped := ds.Capped()
+	want := diag.MaxDiagnostics + 1
+	if len(capped) != want {
+		t.Errorf("Capped() len = %d, want %d", len(capped), want)
+	}
+	last := capped[len(capped)-1]
+	if last.Code != diag.CodeTooManyDiagnostics {
+		t.Errorf("Capped() sentinel code = %q, want %q", last.Code, diag.CodeTooManyDiagnostics)
+	}
+}
+
+func TestDiagnosticsCappedNoOpWhenUnderLimit(t *testing.T) {
+	ds := diag.Diagnostics{diag.Errorf("E", "one"), diag.Errorf("E", "two")}
+	capped := ds.Capped()
+	if len(capped) != len(ds) {
+		t.Errorf("Capped() on under-limit slice: got %d entries, want %d", len(capped), len(ds))
+	}
+}
+
+func countCode(ds diag.Diagnostics, code string) int {
+	n := 0
+	for _, d := range ds {
+		if d.Code == code {
+			n++
+		}
+	}
+	return n
+}

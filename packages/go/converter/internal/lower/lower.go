@@ -39,21 +39,6 @@ func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, dia
 	return lowerCore(file, schema, order)
 }
 
-// Lower converts a parsed TurnFile and a pre-built STATE schema to a LowerResult
-// plus diagnostics. Returns a nil LowerResult when the input has errors.
-//
-// For production callers, use LowerResolvingState: it resolves the schema and
-// preserves declaration order from the state source in a single step. Lower is
-// intended for tests that supply an inline state block and do not depend on
-// field emission order.
-//
-// When file.StateSource is a *ast.StateFileDirective, Lower emits an error
-// (CodeDeclarationOrderLost) because it cannot recover declaration order
-// without re-reading the state file. Use LowerResolvingState instead.
-func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnostics) {
-	return lowerCore(file, schema, nil)
-}
-
 func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
 	var ds diag.DiagSink
 
@@ -130,10 +115,10 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 	case *ast.StateFileDirective:
 		if len(schema.Namespaces()) == 0 {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-				"state_file %q: schema was not pre-loaded; use LowerResolvingState() or call state.Resolve() before Lower()", s.Path))
+				"state_file %q: schema was not pre-loaded; use LowerResolvingState()", s.Path))
 		} else if len(order) == 0 {
 			ds.Append(diag.Errorf(diag.CodeDeclarationOrderLost,
-				"state_file %q: field declaration order cannot be preserved when using Lower(); use LowerResolvingState() instead", s.Path))
+				"state_file %q: field declaration order cannot be preserved; use LowerResolvingState()", s.Path))
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
 	default:

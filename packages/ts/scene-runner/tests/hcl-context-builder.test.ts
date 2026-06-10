@@ -696,4 +696,26 @@ describe('buildContextFromProg — pipe expr', () => {
       'extExpr bindings are not supported at runtime',
     );
   });
+
+  it('throws SceneRuntimeError when a value binding has no value field', () => {
+    const prog = {
+      name: 'missing_value_prog',
+      bindings: [
+        // value binding with no value and no injected override
+        { name: 'broken', type: 'number' },
+      ],
+    } as unknown as ProgModel;
+    expect(() => buildContextFromProg(prog, {})).toThrow(
+      'value binding has no value field',
+    );
+  });
+
+  it('does not throw when a value binding has no value field but is injected', () => {
+    const prog = {
+      name: 'injected_prog',
+      bindings: [{ name: 'x', type: 'number' }],
+    } as unknown as ProgModel;
+    // Injected value supersedes the missing literal — no throw expected.
+    expect(() => buildContextFromProg(prog, { x: buildNumber(42) })).not.toThrow();
+  });
 });
