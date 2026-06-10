@@ -41,8 +41,11 @@ func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, dia
 
 // Lower converts a parsed TurnFile and resolved STATE schema to a LowerResult
 // plus diagnostics. Returns a nil LowerResult when the input has errors.
-// Field ordering in emitted HCL follows alphabetical order for state_file
-// sources; use LowerResolvingState to preserve declaration order.
+//
+// When file.StateSource is a *ast.StateFileDirective, Lower returns an error
+// (CodeDeclarationOrderLost) because it cannot preserve declaration order
+// without re-reading the state file. Use LowerResolvingState in all non-test
+// callers.
 func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnostics) {
 	return lowerCore(file, schema, nil)
 }

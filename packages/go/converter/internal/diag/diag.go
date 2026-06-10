@@ -64,17 +64,14 @@ func (s *DiagSink) Halt() {
 }
 
 // Append adds d to the sink. If the sink is already halted, the diagnostic is
-// silently dropped. If this append would exceed MaxDiagnostics, a single
-// TooManyDiagnostics error is appended instead and the sink is halted so that
-// no further diagnostics are accepted.
+// silently dropped. If this append would exceed MaxDiagnostics, the sink is
+// halted (appending a TooManyDiagnostics sentinel) and d is discarded.
 func (s *DiagSink) Append(d Diagnostic) {
 	if s.halted {
 		return
 	}
 	if len(s.Diags) >= MaxDiagnostics {
-		s.Diags = append(s.Diags, Errorf(CodeTooManyDiagnostics,
-			"too many diagnostics — further errors suppressed"))
-		s.halted = true
+		s.Halt()
 		return
 	}
 	s.Diags = append(s.Diags, d)

@@ -51,18 +51,19 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 				"action %q: merge binding %q not found in prog", a.Id, e.Binding))
 		}
 
-		if e.ToState != "" {
-			if !isValidStatePath(e.ToState) {
-				*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
-					"action %q: to_state %q is not a valid dotted path", a.Id, e.ToState))
-			} else if meta, ok := schema.Get(e.ToState); !ok {
-				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
-					"action %q: to_state %q is not declared in the state schema", a.Id, e.ToState))
-			} else if inScope && srcInfo.fieldType != meta.Type {
-				*ds = append(*ds, diag.Errorf(diag.CodeStateTypeMismatch,
-					"action %q: merge binding %q has type %s but STATE field %q has type %s",
-					a.Id, e.Binding, srcInfo.fieldType, e.ToState, meta.Type))
-			}
+		if e.ToState == "" {
+			*ds = append(*ds, diag.Errorf(diag.CodeMissingStatePath,
+				"action %q: merge entry for binding %q has no to_state path", a.Id, e.Binding))
+		} else if !isValidStatePath(e.ToState) {
+			*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
+				"action %q: to_state %q is not a valid dotted path", a.Id, e.ToState))
+		} else if meta, ok := schema.Get(e.ToState); !ok {
+			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
+				"action %q: to_state %q is not declared in the state schema", a.Id, e.ToState))
+		} else if inScope && srcInfo.fieldType != meta.Type {
+			*ds = append(*ds, diag.Errorf(diag.CodeStateTypeMismatch,
+				"action %q: merge binding %q has type %s but STATE field %q has type %s",
+				a.Id, e.Binding, srcInfo.fieldType, e.ToState, meta.Type))
 		}
 	}
 

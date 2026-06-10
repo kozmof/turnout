@@ -705,6 +705,29 @@ scene "test" {
 	}
 }
 
+func TestMissingStatePath_EmptyMergeEntry(t *testing.T) {
+	// A merge entry block with no to_state should emit CodeMissingStatePath.
+	src := basicState + `
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = score
+      prog "p" {
+        <~score:number = 0
+      }
+    }
+    merge {
+      score { }
+    }
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeMissingStatePath) {
+		t.Error("want MissingStatePath for merge entry with no to_state")
+	}
+}
+
 // ─── Group D: scene structural validation ────────────────────────────────────
 
 func TestDuplicateActionLabel(t *testing.T) {

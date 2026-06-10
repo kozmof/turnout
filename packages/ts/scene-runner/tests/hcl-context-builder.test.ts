@@ -658,4 +658,42 @@ describe('buildContextFromProg — pipe expr', () => {
     const ctx = buildContextFromProg(prog, {});
     expect(ctx.nameToValueId.get('chained')).toBeDefined();
   });
+
+  it('throws SceneRuntimeError when a pipe step has fewer than 2 args', () => {
+    const prog = {
+      name: 'under_arity_pipe',
+      bindings: [
+        { name: 'x', type: 'number', value: 1 },
+        {
+          name: 'out',
+          type: 'number',
+          expr: {
+            pipe: {
+              params: [{ paramName: 'a', sourceIdent: 'x' }],
+              steps: [
+                { fn: 'add', args: [{ ref: 'a' }] }, // only 1 arg — should throw
+              ],
+            },
+          },
+        },
+      ],
+    } as unknown as ProgModel;
+    expect(() => buildContextFromProg(prog, {})).toThrow('pipe step has 1 arg(s); expected 2');
+  });
+
+  it('throws SceneRuntimeError when a binding carries extExpr', () => {
+    const prog = {
+      name: 'ext_expr_prog',
+      bindings: [
+        {
+          name: 'out',
+          type: 'bool',
+          extExpr: { expr: { $case: 'lit', lit: { value: true } } }, // simulated extExpr
+        },
+      ],
+    } as unknown as ProgModel;
+    expect(() => buildContextFromProg(prog, {})).toThrow(
+      'extExpr bindings are not supported at runtime',
+    );
+  });
 });

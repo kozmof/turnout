@@ -33,7 +33,7 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 	detectCycles(prog.Name, dependencies, prog.Bindings, posMap, ds)
 	validateBindingTypes(prog, scope, isTransition, posMap, ds)
 	if !isTransition && root != "" {
-		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, ds)
+		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, posMap, ds)
 	}
 	return scope
 }
@@ -43,7 +43,7 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 // through the dependency graph (dependencies[b] = list of bindings that b depends on)
 // starting from exit nodes, then flags any binding not reached.
 // Generated internal names (prefixed with __if_ or __local_) are skipped.
-func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, ds *diag.Diagnostics) {
+func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, posMap map[string]ast.Pos, ds *diag.Diagnostics) {
 	reachable := make(map[string]bool, len(bindings))
 	var mark func(string)
 	mark = func(name string) {
@@ -66,7 +66,8 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 		if names.IsGeneratedIfCondName(b.Name) || names.IsGeneratedLocalName(b.Name) {
 			continue
 		}
-		*ds = append(*ds, diag.WarnAt("", 0, 0, diag.CodeUnusedBinding,
+		pos := posMap[b.Name]
+		*ds = append(*ds, diag.WarnAt(pos.File, pos.Line, pos.Col, diag.CodeUnusedBinding,
 			"prog %q: binding %q is declared but never used", progName, b.Name))
 	}
 }

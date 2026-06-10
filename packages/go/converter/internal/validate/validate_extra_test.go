@@ -1578,3 +1578,42 @@ func TestResolveArgTypeRefNotFound(t *testing.T) {
 		t.Error("want UndefinedRef for combine with undefined ref")
 	}
 }
+
+// ─── Under-arity binary function call ────────────────────────────────────────
+
+func TestUnderArityBinaryFnCombine(t *testing.T) {
+	// A CombineExpr with only 1 argument should emit CodeInvalidBinaryArgShape.
+	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
+	out := &turnoutpb.BindingModel{
+		Name: "out",
+		Type: "number",
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   "add",
+			Args: []*turnoutpb.ArgModel{{Ref: proto.String("x")}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
+	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
+		t.Error("want InvalidBinaryArgShape for combine with 1 argument")
+	}
+}
+
+func TestUnderArityBinaryFnPipeStep(t *testing.T) {
+	// A PipeExpr step with only 1 argument should emit CodeInvalidBinaryArgShape.
+	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
+	out := &turnoutpb.BindingModel{
+		Name: "out",
+		Type: "number",
+		Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+			Steps: []*turnoutpb.PipeStep{{
+				Fn:   "add",
+				Args: []*turnoutpb.ArgModel{{Ref: proto.String("a")}},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
+	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
+		t.Error("want InvalidBinaryArgShape for pipe step with 1 argument")
+	}
+}

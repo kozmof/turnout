@@ -167,6 +167,13 @@ class ContextSpecBuilder {
 
   build(): Record<string, unknown> {
     for (const binding of this.prog.bindings) {
+      if (binding.extExpr !== undefined) {
+        throw new SceneRuntimeError(
+          'UnsupportedConstruct', this.contextId,
+          `binding "${binding.name}": extExpr bindings are not supported at runtime — ` +
+          `this is a compiler bug (extExpr should never appear in JSON output)`,
+        );
+      }
       if (!binding.expr) {
         this.addValueBinding(binding);
       } else {
@@ -211,12 +218,18 @@ class ContextSpecBuilder {
     for (const param of p.params) {
       argBindings[param.paramName] = param.sourceIdent;
     }
-    const steps = p.steps.map((step) =>
-      combine(mapFnName(step.fn, this.contextId), {
+    const steps = p.steps.map((step) => {
+      if (step.args.length < 2) {
+        throw new SceneRuntimeError(
+          'UnknownArgModel', this.contextId,
+          `binding "${binding.name}" pipe step has ${step.args.length} arg(s); expected 2`,
+        );
+      }
+      return combine(mapFnName(step.fn, this.contextId), {
         a: asCombineArg(this.resolveArg(step.args[0], binding.name)),
         b: asCombineArg(this.resolveArg(step.args[1], binding.name)),
-      }),
-    );
+      });
+    });
     this.spec[binding.name] = pipe(argBindings, steps);
   }
 

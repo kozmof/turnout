@@ -92,7 +92,7 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code, detail string, ds *diag.DiagSink) *structpb.Value {
 	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 		code,
-		"binding %q uses placeholder _ but %s", name, detail))
+		"binding %q uses an ingress sigil (~> or <~>) but %s", name, detail))
 	return zeroStructpbFor(ft)
 }
 

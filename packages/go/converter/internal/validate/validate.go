@@ -451,6 +451,12 @@ func validateBinaryFnArgs(
 			"%s: function %q does not accept more than %d argument(s) (extra arg at index %d)",
 			contextLabel, fn, maxArgs, i))
 	}
+	if len(args) < maxArgs {
+		*ds = append(*ds, diag.Errorf(diag.CodeInvalidBinaryArgShape,
+			"%s: function %q requires %d argument(s), got %d",
+			contextLabel, fn, maxArgs, len(args)))
+		return
+	}
 	if len(args) < 2 {
 		return
 	}
