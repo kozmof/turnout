@@ -2,8 +2,6 @@
 package lower
 
 import (
-	"fmt"
-
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -51,9 +49,9 @@ func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pre
 }
 
 // identityFnFor returns the identity binary-function name and its neutral-element
-// argument for the given field type. Used by lowerSingleRefRHS and emitIdentity
-// to avoid duplicating the type-switch logic.
-func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel) {
+// argument for the given field type. Returns ok=false for FieldTypeInvalid or any
+// unknown type so callers can emit a zero value instead of panicking.
+func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel, ok bool) {
 	switch ft {
 	case ast.FieldTypeBool:
 		fn = "bool_and"
@@ -64,17 +62,21 @@ func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel
 	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
 		fn = "arr_concat"
 	default:
-		panic(fmt.Sprintf("identityFnFor: unhandled FieldType %s — update this switch when adding new types", ft))
+		return "", nil, false
 	}
 	val, _ := fnmeta.IdentityValue(fn)
-	return fn, &turnoutpb.ArgModel{Lit: val}
+	return fn, &turnoutpb.ArgModel{Lit: val}, true
 }
 
 // lowerSingleRefRHS lowers `name:type = identifier` to an identity combine:
 // fn(ref, identity_element). The validator's isIdentityCombine recognises this
 // exact shape and exempts it from operatorOnly and empty-array-arg checks.
+// Returns nil when ft is FieldTypeInvalid (should have been caught upstream).
 func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *turnoutpb.BindingModel {
-	fn, identityArg := identityFnFor(ft)
+	fn, identityArg, ok := identityFnFor(ft)
+	if !ok {
+		return nil
+	}
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),

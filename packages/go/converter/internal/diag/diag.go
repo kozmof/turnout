@@ -65,6 +65,14 @@ func (s *DiagSink) Halt() {
 	}
 }
 
+// AppendAll adds each diagnostic in ds to the sink in order, respecting the
+// halt/cap logic of Append. Equivalent to calling Append for each element.
+func (s *DiagSink) AppendAll(ds Diagnostics) {
+	for _, d := range ds {
+		s.Append(d)
+	}
+}
+
 // Append adds d to the sink. If the sink is already halted, the diagnostic is
 // silently dropped. If this append would exceed MaxDiagnostics, the sink is
 // halted (appending a TooManyDiagnostics sentinel) and d is discarded.

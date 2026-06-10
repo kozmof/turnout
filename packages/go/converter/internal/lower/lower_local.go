@@ -101,7 +101,13 @@ func (c *localLowerer) emitValue(name string, ft ast.FieldType, lit ast.Literal)
 }
 
 func (c *localLowerer) emitIdentity(name string, ft ast.FieldType, ref string) {
-	c.appendBinding(lowerSingleRefRHS(name, ft, &ast.SingleRefRHS{RefName: ref}), ft)
+	bm := lowerSingleRefRHS(name, ft, &ast.SingleRefRHS{RefName: ref})
+	if bm == nil {
+		// ft is FieldTypeInvalid; fall back to a zero-value binding so the prog is well-formed.
+		c.emitValue(name, ast.FieldTypeNumber, &ast.NumberLiteral{Value: 0})
+		return
+	}
+	c.appendBinding(bm, ft)
 }
 
 func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalExpr, pc pipeContext) {
@@ -153,6 +159,41 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 	return fnName
 }
 
+// lowerLocalArgModel converts a single local-expression call argument to an
+// ArgModel. Simple cases (ref, lit, #it) are inlined directly; complex
+// sub-expressions (nested calls, #if, #case, #pipe, infix) are lowered into a
+// temp binding and referenced by name. Centralising this logic removes the
+// duplicate undefined-ref and #it-outside-pipe checks that previously existed
+// in the lowerCallInto argument loop.
+func (c *localLowerer) lowerLocalArgModel(arg ast.LocalExpr, argIdx int, bindingName string, ft ast.FieldType, pc pipeContext) *turnoutpb.ArgModel {
+	switch x := arg.(type) {
+	case *ast.LocalRefExpr:
+		if _, known := c.bindingTypes[x.Name]; !known {
+			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+				diag.CodeUndefinedRef,
+				"binding %q: reference %q is not defined", bindingName, x.Name))
+			return &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))}
+		}
+		return &turnoutpb.ArgModel{Ref: proto.String(x.Name)}
+	case *ast.LocalLitExpr:
+		return &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(x.Value)}
+	case *ast.LocalItExpr:
+		if !pc.itAllowed {
+			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
+				diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
+			return &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))}
+		}
+		return &turnoutpb.ArgModel{Ref: proto.String(pc.itRef)}
+	default:
+		argType, argTypeOK := c.inferLocalType(arg, ft, pc)
+		if !argTypeOK {
+			argType = ft
+		}
+		ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", argIdx), argType, pc)
+		return &turnoutpb.ArgModel{Ref: proto.String(ref)}
+	}
+}
+
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr, pc pipeContext) {
 	// Unknown function: emit a diagnostic immediately so the error is pinned to
 	// the call site rather than surfacing as cascading type-mismatch errors
@@ -173,37 +214,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 	}
 	args := make([]*turnoutpb.ArgModel, 0, len(call.Args))
 	for i, arg := range call.Args {
-		// Inline simple args directly rather than emitting a temp binding.
-		// Only complex sub-expressions (nested calls, #if, #case, #pipe, infix)
-		// need a temp binding.
-		switch x := arg.(type) {
-		case *ast.LocalRefExpr:
-			if _, known := c.bindingTypes[x.Name]; !known {
-				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
-					diag.CodeUndefinedRef,
-					"binding %q: reference %q is not defined", name, x.Name))
-				args = append(args, &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))})
-			} else {
-				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(x.Name)})
-			}
-		case *ast.LocalLitExpr:
-			args = append(args, &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(x.Value)})
-		case *ast.LocalItExpr:
-			if !pc.itAllowed {
-				c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
-					diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
-				args = append(args, &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))})
-			} else {
-				args = append(args, &turnoutpb.ArgModel{Ref: proto.String(pc.itRef)})
-			}
-		default:
-			argType, argTypeOK := c.inferLocalType(arg, ft, pc)
-			if !argTypeOK {
-				argType = ft
-			}
-			ref, _ := c.lowerExprTemp(arg, fmt.Sprintf("arg%d", i), argType, pc)
-			args = append(args, &turnoutpb.ArgModel{Ref: proto.String(ref)})
-		}
+		args = append(args, c.lowerLocalArgModel(arg, i, name, ft, pc))
 	}
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,
@@ -267,19 +278,25 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType, pc)
 	fallbackFn := ""
 	seenWildcard := false
+	wildcardIdx := -1
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
-	for _, arm := range arms {
-		if seenWildcard {
-			c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-				"binding %q: #case arm is unreachable (wildcard _ must be the last arm)", c.target))
-			break
-		}
+	for i, arm := range arms {
 		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
 			seenWildcard = true
+			wildcardIdx = i
 			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft, pc)
 			continue
 		}
+		if seenWildcard {
+			continue // collected below
+		}
 		conditionalArms = append(conditionalArms, arm)
+	}
+	if seenWildcard {
+		for i := wildcardIdx + 1; i < len(arms); i++ {
+			c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+				"binding %q: arm %d is unreachable (wildcard _ must be the last arm)", c.target, i))
+		}
 	}
 	if fallbackFn == "" {
 		fallbackFn = c.lowerFuncTemp(&ast.LocalLitExpr{Value: zeroLiteralFor(ft)}, "case_default", ft, pc)

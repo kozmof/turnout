@@ -11,14 +11,14 @@ import (
 // Group A — State path validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateStatePath(path string, schema state.Schema, ds *diag.Diagnostics) {
+func validateStatePath(path string, schema state.Schema, ds *diag.DiagSink) {
 	if !isValidStatePath(path) {
-		*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
+		ds.Append(diag.Errorf(diag.CodeInvalidStatePath,
 			"state path %q is not a valid dotted path (must be IDENT.IDENT+)", path))
 		return
 	}
 	if _, ok := schema.Get(path); !ok {
-		*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
+		ds.Append(diag.Errorf(diag.CodeUnresolvedStatePath,
 			"state path %q is not declared in the state schema", path))
 	}
 }

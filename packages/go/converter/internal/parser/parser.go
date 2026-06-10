@@ -16,7 +16,7 @@ func ParseFile(file, src string) (*ast.TurnFile, diag.Diagnostics) {
 	if ld.HasErrors() {
 		return nil, ld
 	}
-	p := &parser{tokens: tokens, file: file}
+	p := &parser{tokens: tokens, file: file, requiresScenes: true}
 	tf := p.parseFile()
 	if p.Diags.HasErrors() {
 		return nil, p.Diags
@@ -31,19 +31,11 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 	if ld.HasErrors() {
 		return nil, ld
 	}
-	p := &parser{tokens: tokens, file: file}
+	p := &parser{tokens: tokens, file: file, requiresScenes: false}
 	tf := p.parseFile()
 
-	// Filter out MissingScene — state files legitimately have no scene block.
-	var realDiags diag.Diagnostics
-	for _, d := range p.Diags {
-		if d.Code == diag.CodeMissingScene {
-			continue
-		}
-		realDiags = append(realDiags, d)
-	}
-	if realDiags.HasErrors() {
-		return nil, realDiags
+	if p.Diags.HasErrors() {
+		return nil, p.Diags
 	}
 
 	if tf == nil || tf.StateSource == nil {
@@ -55,15 +47,16 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 		return nil, diag.Diagnostics{diag.Errorf("MissingStateBlock",
 			"state file %q must contain a literal state block, not state_file", file)}
 	}
-	return inline, realDiags
+	return inline, p.Diags
 }
 
 // ─── parser state ────────────────────────────────────────────────────────────
 
 type parser struct {
-	tokens []lexer.Token
-	pos    int
-	file   string
+	tokens         []lexer.Token
+	pos            int
+	file           string
+	requiresScenes bool
 	diag.DiagSink
 }
 
@@ -95,10 +88,8 @@ func (p *parser) errorf(t lexer.Token, format string, args ...any) {
 		return
 	}
 	if p.AtCap() {
-		p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTooManyDiagnostics,
-			"too many parse errors; stopping after %d diagnostics", diag.MaxDiagnostics))
 		p.pos = len(p.tokens) - 1 // stage-specific recovery: skip to end
-		p.Halt()
+		p.Halt()                   // appends TooManyDiagnostics sentinel internally
 		return
 	}
 	p.Append(diag.ErrorAt(p.file, t.Line, t.Col,
@@ -304,7 +295,7 @@ func (p *parser) parseFile() *ast.TurnFile {
 		p.Append(diag.Errorf(diag.CodeMissingStateSource,
 			"Turn DSL file must contain either a state block or state_file directive"))
 	}
-	if len(tf.Scenes) == 0 {
+	if p.requiresScenes && len(tf.Scenes) == 0 {
 		p.Append(diag.Errorf(diag.CodeMissingScene,
 			"Turn DSL file must contain a scene block"))
 	}

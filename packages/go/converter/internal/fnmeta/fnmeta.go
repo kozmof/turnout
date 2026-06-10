@@ -111,25 +111,22 @@ func OperatorSymbol(fn string) string {
 // declared type (fallback). Used by the lowerer when inferring types for local
 // expressions (#if/#case/#pipe). Returns fallback for unknown function names.
 func ReturnType(fn string, fallback ast.FieldType) ast.FieldType {
-	switch fn {
-	case "gt", "gte", "lt", "lte", "eq", "neq",
-		"bool_and", "bool_or", "bool_xor",
-		"str_includes", "str_starts", "str_ends",
-		"arr_includes":
-		return ast.FieldTypeBool
-	case "str_concat":
-		return ast.FieldTypeStr
-	case "arr_concat":
+	spec, ok := BuiltinFn(fn)
+	if !ok {
 		return fallback
-	case "arr_get":
+	}
+	switch spec.Kind {
+	case FnKindGeneric, FnKindArrInc:
+		return ast.FieldTypeBool
+	case FnKindArrGet:
 		if fallback.IsArray() {
 			return fallback.ElemType()
 		}
 		return fallback
-	case "add", "sub", "mul", "div", "mod", "max", "min":
-		return ast.FieldTypeNumber
-	default:
+	case FnKindArrConcat:
 		return fallback
+	default:
+		return spec.ReturnType
 	}
 }
 

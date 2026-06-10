@@ -11,14 +11,14 @@ import (
 // Group C — Effect DSL / sigil validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInfo, schema state.Schema, ds *diag.Diagnostics) {
+func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInfo, schema state.Schema, ds *diag.DiagSink) {
 	preparedNames := map[string]bool{}
 	mergedNames := map[string]bool{}
 
 	seen := map[string]bool{}
 	for _, e := range a.Prepare {
 		if seen[e.Binding] {
-			*ds = append(*ds, diag.Errorf(diag.CodeDuplicatePrepareEntry,
+			ds.Append(diag.Errorf(diag.CodeDuplicatePrepareEntry,
 				"action %q: duplicate prepare entry for binding %q", a.Id, e.Binding))
 			continue
 		}
@@ -26,7 +26,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		preparedNames[e.Binding] = true
 
 		if _, ok := scope[e.Binding]; !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedPrepareBinding,
+			ds.Append(diag.Errorf(diag.CodeUnresolvedPrepareBinding,
 				"action %q: prepare binding %q not found in prog", a.Id, e.Binding))
 		}
 
@@ -38,7 +38,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 	seen = map[string]bool{}
 	for _, e := range a.Merge {
 		if seen[e.Binding] {
-			*ds = append(*ds, diag.Errorf(diag.CodeDuplicateMergeEntry,
+			ds.Append(diag.Errorf(diag.CodeDuplicateMergeEntry,
 				"action %q: duplicate merge entry for binding %q", a.Id, e.Binding))
 			continue
 		}
@@ -47,21 +47,21 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 
 		srcInfo, inScope := scope[e.Binding]
 		if !inScope {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedMergeBinding,
+			ds.Append(diag.Errorf(diag.CodeUnresolvedMergeBinding,
 				"action %q: merge binding %q not found in prog", a.Id, e.Binding))
 		}
 
 		if e.ToState == "" {
-			*ds = append(*ds, diag.Errorf(diag.CodeMissingStatePath,
+			ds.Append(diag.Errorf(diag.CodeMissingStatePath,
 				"action %q: merge entry for binding %q has no to_state path", a.Id, e.Binding))
 		} else if !isValidStatePath(e.ToState) {
-			*ds = append(*ds, diag.Errorf(diag.CodeInvalidStatePath,
+			ds.Append(diag.Errorf(diag.CodeInvalidStatePath,
 				"action %q: to_state %q is not a valid dotted path", a.Id, e.ToState))
 		} else if meta, ok := schema.Get(e.ToState); !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedStatePath,
+			ds.Append(diag.Errorf(diag.CodeUnresolvedStatePath,
 				"action %q: to_state %q is not declared in the state schema", a.Id, e.ToState))
 		} else if inScope && srcInfo.fieldType != meta.Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeStateTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeStateTypeMismatch,
 				"action %q: merge binding %q has type %s but STATE field %q has type %s",
 				a.Id, e.Binding, srcInfo.fieldType, e.ToState, meta.Type))
 		}
@@ -71,27 +71,27 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		switch info.sigil {
 		case ast.SigilIngress:
 			if !preparedNames[name] {
-				*ds = append(*ds, diag.Errorf(diag.CodeMissingPrepareEntry,
+				ds.Append(diag.Errorf(diag.CodeMissingPrepareEntry,
 					"action %q: binding %q has ~> sigil but no prepare entry", a.Id, name))
 			}
 		case ast.SigilEgress:
 			if !mergedNames[name] {
-				*ds = append(*ds, diag.Errorf(diag.CodeMissingMergeEntry,
+				ds.Append(diag.Errorf(diag.CodeMissingMergeEntry,
 					"action %q: binding %q has <~ sigil but no merge entry", a.Id, name))
 			}
 		case ast.SigilBiDir:
 			inPrepare := preparedNames[name]
 			inMerge := mergedNames[name]
 			if !inPrepare && !inMerge {
-				*ds = append(*ds, diag.Errorf(diag.CodeMissingPrepareEntry,
+				ds.Append(diag.Errorf(diag.CodeMissingPrepareEntry,
 					"action %q: binding %q has <~> sigil but no prepare entry", a.Id, name))
-				*ds = append(*ds, diag.Errorf(diag.CodeMissingMergeEntry,
+				ds.Append(diag.Errorf(diag.CodeMissingMergeEntry,
 					"action %q: binding %q has <~> sigil but no merge entry", a.Id, name))
 			} else if inPrepare && !inMerge {
-				*ds = append(*ds, diag.Errorf(diag.CodeBidirMissingMergeEntry,
+				ds.Append(diag.Errorf(diag.CodeBidirMissingMergeEntry,
 					"action %q: binding %q has <~> sigil: appears in prepare but not in merge", a.Id, name))
 			} else if !inPrepare && inMerge {
-				*ds = append(*ds, diag.Errorf(diag.CodeBidirMissingPrepareEntry,
+				ds.Append(diag.Errorf(diag.CodeBidirMissingPrepareEntry,
 					"action %q: binding %q has <~> sigil: appears in merge but not in prepare", a.Id, name))
 			}
 		}
@@ -103,7 +103,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 			continue
 		}
 		if info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
-			*ds = append(*ds, diag.Errorf(diag.CodeSpuriousPrepareEntry,
+			ds.Append(diag.Errorf(diag.CodeSpuriousPrepareEntry,
 				"action %q: prepare entry for %q has no corresponding ~> or <~> sigil in prog", a.Id, name))
 		}
 	}
@@ -113,13 +113,13 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 			continue
 		}
 		if info.sigil != ast.SigilEgress && info.sigil != ast.SigilBiDir {
-			*ds = append(*ds, diag.Errorf(diag.CodeSpuriousMergeEntry,
+			ds.Append(diag.Errorf(diag.CodeSpuriousMergeEntry,
 				"action %q: merge entry for %q has no corresponding <~ or <~> sigil in prog", a.Id, name))
 		}
 	}
 }
 
-func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionScope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionScope map[string]bindingInfo, ds *diag.DiagSink) {
 	for _, e := range nr.Prepare {
 		count := 0
 		if e.FromAction != nil {
@@ -132,7 +132,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 			count++
 		}
 		if count != 1 {
-			*ds = append(*ds, diag.Errorf(diag.CodeInvalidTransitionIngress,
+			ds.Append(diag.Errorf(diag.CodeInvalidTransitionIngress,
 				"transition prepare entry for %q must have exactly one of from_action, from_state, from_literal; got %d",
 				e.Binding, count))
 		}
@@ -143,7 +143,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 		if e.FromAction != nil {
 			srcName := *e.FromAction
 			if _, ok := actionScope[srcName]; !ok {
-				*ds = append(*ds, diag.Errorf(diag.CodeNextPrepareFromActionUnknown,
+				ds.Append(diag.Errorf(diag.CodeNextPrepareFromActionUnknown,
 					"action %q: next prepare binding %q references from_action %q which does not exist in this action's compute prog",
 					ctx.actionID, e.Binding, srcName))
 			}
@@ -159,10 +159,10 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeSCNNextComputeNotBool,
+			ds.Append(diag.Errorf(diag.CodeSCNNextComputeNotBool,
 				"next rule condition %q is not defined in prog", cond))
 		} else if info.fieldType != ast.FieldTypeBool {
-			*ds = append(*ds, diag.Errorf(diag.CodeSCNNextComputeNotBool,
+			ds.Append(diag.Errorf(diag.CodeSCNNextComputeNotBool,
 				"next rule condition %q has type %s; bool required", cond, info.fieldType))
 		}
 	}
@@ -176,7 +176,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 		srcInfo, srcOK := actionScope[srcName]
 		dstInfo, dstOK := nextScope[e.Binding]
 		if srcOK && dstOK && srcInfo.fieldType != dstInfo.fieldType {
-			*ds = append(*ds, diag.Errorf(diag.CodeNextPrepareFromActionTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeNextPrepareFromActionTypeMismatch,
 				"action %q: next prepare binding %q (type %s) does not match from_action %q (type %s)",
 				ctx.actionID, e.Binding, dstInfo.fieldType, srcName, srcInfo.fieldType))
 		}

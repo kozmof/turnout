@@ -24,7 +24,7 @@ type progValidateCtx struct {
 	actionID string
 }
 
-func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, mergeNames []string, ds *diag.Diagnostics) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, mergeNames []string, ds *diag.DiagSink) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -43,7 +43,7 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 // through the dependency graph (dependencies[b] = list of bindings that b depends on)
 // starting from exit nodes, then flags any binding not reached.
 // Generated internal names (prefixed with __if_ or __local_) are skipped.
-func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, posMap map[string]ast.Pos, ds *diag.Diagnostics) {
+func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, posMap map[string]ast.Pos, ds *diag.DiagSink) {
 	reachable := make(map[string]bool, len(bindings))
 	var mark func(string)
 	mark = func(name string) {
@@ -67,7 +67,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 			continue
 		}
 		pos := posMap[b.Name]
-		*ds = append(*ds, diag.WarnAt(pos.File, pos.Line, pos.Col, diag.CodeUnusedBinding,
+		ds.Append(diag.WarnAt(pos.File, pos.Line, pos.Col, diag.CodeUnusedBinding,
 			"prog %q: binding %q is declared but never used", progName, b.Name))
 	}
 }
@@ -75,20 +75,20 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 // buildBindingScope registers all bindings into the scope map, detects duplicate
 // names, records sigils, and builds the dependency map used by detectCycles.
 // dependencies[b] is the list of binding names that b directly depends on.
-func buildBindingScope(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) (map[string]bindingInfo, map[string][]string) {
+func buildBindingScope(prog *turnoutpb.ProgModel, ds *diag.DiagSink) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
 	dependencies := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
 	for _, b := range prog.Bindings {
 		if seen[b.Name] {
-			*ds = append(*ds, diag.Errorf(diag.CodeDuplicateBinding,
+			ds.Append(diag.Errorf(diag.CodeDuplicateBinding,
 				"duplicate binding name %q in prog %q", b.Name, prog.Name))
 		} else {
 			seen[b.Name] = true
 		}
 		ft, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
-			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			continue
 		}
@@ -125,11 +125,11 @@ func buildBindingScope(prog *turnoutpb.ProgModel, ds *diag.Diagnostics) (map[str
 // validateBindingTypes runs per-binding structural and type checks against the
 // already-built scope. Handles reserved names, transition sigil constraints,
 // literal type conformance, and expr/ext_expr type checking.
-func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, posMap map[string]ast.Pos, ds *diag.Diagnostics) {
+func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInfo, isTransition bool, posMap map[string]ast.Pos, ds *diag.DiagSink) {
 	for _, b := range prog.Bindings {
 		ft, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
-			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			continue
 		}
@@ -138,17 +138,17 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 
 		if strings.HasPrefix(b.Name, "__") {
 			if !names.IsGeneratedIfCondName(b.Name) && !names.IsGeneratedLocalName(b.Name) {
-				*ds = append(*ds, diag.Errorf(diag.CodeReservedName,
+				ds.Append(diag.Errorf(diag.CodeReservedName,
 					"binding %q: names starting with __ are reserved", b.Name))
 			}
 		}
 
 		if isTransition && (sigil == ast.SigilEgress || sigil == ast.SigilBiDir) {
 			if pos.File != "" {
-				*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTransitionOutputSigil,
+				ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTransitionOutputSigil,
 					"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
 			} else {
-				*ds = append(*ds, diag.Errorf(diag.CodeTransitionOutputSigil,
+				ds.Append(diag.Errorf(diag.CodeTransitionOutputSigil,
 					"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
 			}
 		}
@@ -162,10 +162,10 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 		if b.Value != nil {
 			if !structpbMatchesFieldType(b.Value, ft) {
 				if pos.File != "" {
-					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTypeMismatch,
+					ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTypeMismatch,
 						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
 				} else {
-					*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+					ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
 				}
 			}
@@ -214,7 +214,7 @@ func buildPosMap(bindings []*turnoutpb.BindingModel) map[string]ast.Pos {
 // the AST validators below.
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, ds *diag.DiagSink) {
 	var ret ast.FieldType = ast.FieldTypeInvalid
 	var known bool
 	switch x := e.Expr.(type) {
@@ -227,26 +227,26 @@ func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel
 	case *turnoutpb.LocalExprModel_Infix:
 		ret, known = validateProtoLocalInfix(b.Name, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), scope, 0, false, ds)
 	default:
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: unsupported extended expression type %T", b.Name, e.Expr))
 		return
 	}
 	if known {
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
-			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			return
 		}
 		if ret != bFt {
-			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: extended expression returns %s but binding declares type %s",
 				b.Name, ret, b.Type))
 		}
 	}
 }
 
-func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	if e == nil {
 		return 0, false
 	}
@@ -255,7 +255,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 		name := x.Ref.GetName()
 		info, ok := scope[name]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", bindingName, name))
 			return 0, false
 		}
@@ -265,7 +265,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 		return ft, ok
 	case *turnoutpb.LocalExprModel_It:
 		if !itAllowed {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"binding %q: #it is only valid inside #pipe step expressions", bindingName))
 			return 0, false
 		}
@@ -284,16 +284,16 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 	case *turnoutpb.LocalExprModel_PipeExpr:
 		return validateProtoLocalPipe(bindingName, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), scope, itType, itAllowed, ds)
 	default:
-		*ds = append(*ds, diag.Errorf(diag.CodeUnsupportedConstruct,
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: unsupported local expression type %T", bindingName, e.Expr))
 		return 0, false
 	}
 }
 
-func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	spec, ok := fnmeta.BuiltinFn(fn)
 	if !ok {
-		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
+		ds.Append(diag.Errorf(diag.CodeUnknownFnAlias,
 			"binding %q: unknown function alias %q", bindingName, fn))
 		return 0, false
 	}
@@ -306,7 +306,7 @@ func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalE
 	return resolveLocalCallReturn(spec, types, known)
 }
 
-func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	lhsType, lhsOK := validateProtoLocalExpr(bindingName, lhs, scope, itType, itAllowed, ds)
 	rhsType, rhsOK := validateProtoLocalExpr(bindingName, rhs, scope, itType, itAllowed, ds)
 	// FnAliasForType resolves InfixPlus to "str_concat" or "add" based on the
@@ -321,16 +321,16 @@ func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turno
 	return resolveLocalCallReturn(spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK})
 }
 
-func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	condType, condOK := validateProtoLocalExpr(bindingName, cond, scope, itType, itAllowed, ds)
 	if condOK && condType != ast.FieldTypeBool {
-		*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+		ds.Append(diag.Errorf(diag.CodeCondNotBool,
 			"binding %q: #if condition has type %s; bool required", bindingName, condType))
 	}
 	thenType, thenOK := validateProtoLocalExpr(bindingName, thenExpr, scope, itType, itAllowed, ds)
 	elseType, elseOK := validateProtoLocalExpr(bindingName, elseExpr, scope, itType, itAllowed, ds)
 	if thenOK && elseOK && thenType != elseType {
-		*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+		ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch,
 			"binding %q: #if branches return %s and %s", bindingName, thenType, elseType))
 		return 0, false
 	}
@@ -343,7 +343,7 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 	return 0, false
 }
 
-func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
 	var ret ast.FieldType = ast.FieldTypeInvalid
 	retOK := false
@@ -353,7 +353,7 @@ func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprMode
 		if arm.GetGuard() != nil {
 			guardType, guardOK := validateProtoLocalExpr(bindingName, arm.GetGuard(), armScope, itType, itAllowed, ds)
 			if guardOK && guardType != ast.FieldTypeBool {
-				*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+				ds.Append(diag.Errorf(diag.CodeCondNotBool,
 					"binding %q: #case guard has type %s; bool required", bindingName, guardType))
 			}
 		}
@@ -362,7 +362,7 @@ func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprMode
 			continue
 		}
 		if retOK && armType != ret {
-			*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch,
 				"binding %q: #case arms return %s and %s", bindingName, ret, armType))
 			continue
 		}
@@ -372,7 +372,7 @@ func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprMode
 	return ret, retOK
 }
 
-func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprModel, steps []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprModel, steps []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	current, known := validateProtoLocalExpr(bindingName, initial, scope, itType, itAllowed, ds)
 	for _, step := range steps {
 		stepType, stepOK := validateProtoLocalExpr(bindingName, step, scope, current, true, ds)
@@ -381,7 +381,7 @@ func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprMode
 	return current, known
 }
 
-func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, ds *diag.Diagnostics) {
+func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, ds *diag.DiagSink) {
 	if p == nil {
 		return
 	}
@@ -389,7 +389,7 @@ func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel
 	case *turnoutpb.LocalCasePatternModel_Lit:
 		patternType, ok := structpbFieldType(x.Lit.GetValue())
 		if ok && subjectKnown && patternType != subjectType {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: #case literal pattern has type %s but subject has type %s",
 				bindingName, patternType, subjectType))
 		}
@@ -427,54 +427,54 @@ func protoPatternScopeBindings(scope map[string]bindingInfo, p *turnoutpb.LocalC
 
 // validateBinaryArgTypePair checks the two operand types of a binary function
 // against the fn spec. Shared by validateLocalCallArgTypes and validateCombineArgTypes.
-func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.Diagnostics) {
+func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.DiagSink) {
 	switch spec.Kind {
 	case fnmeta.FnKindGeneric:
 		if ok1 && ok2 && t1 != t2 {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: %s requires homogeneous operand types, got %s and %s", bindingName, fn, t1, t2))
 		}
 	case fnmeta.FnKindArrGet:
 		if ok1 && !t1.IsArray() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_get arg1 must be an array type, got %s", bindingName, t1))
 		}
 		if ok2 && t2 != ast.FieldTypeNumber {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_get arg2 must be number, got %s", bindingName, t2))
 		}
 	case fnmeta.FnKindArrInc:
 		if ok1 && !t1.IsArray() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_includes arg1 must be an array type, got %s", bindingName, t1))
 		}
 		if ok1 && ok2 && t1.IsArray() && t2 != t1.ElemType() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_includes arg2 type %s does not match array element type %s",
 				bindingName, t2, t1.ElemType()))
 		}
 	case fnmeta.FnKindArrConcat:
 		if ok1 && !t1.IsArray() {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_concat arg1 must be an array type, got %s", bindingName, t1))
 		}
 		if ok1 && ok2 && t1 != t2 {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_concat args must have same array type, got %s and %s", bindingName, t1, t2))
 		}
 	default:
 		if ok1 && t1 != spec.Arg1Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: %s arg1 expects %s, got %s", bindingName, fn, spec.Arg1Type, t1))
 		}
 		if ok2 && t2 != spec.Arg2Type {
-			*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: %s arg2 expects %s, got %s", bindingName, fn, spec.Arg2Type, t2))
 		}
 	}
 }
 
-func validateLocalCallArgTypes(bindingName, fn string, spec fnmeta.FnSpec, types []ast.FieldType, known []bool, ds *diag.Diagnostics) {
+func validateLocalCallArgTypes(bindingName, fn string, spec fnmeta.FnSpec, types []ast.FieldType, known []bool, ds *diag.DiagSink) {
 	if len(types) < 2 {
 		return
 	}
@@ -516,7 +516,7 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 // a cycle in the dependency graph is the same cycle in its reverse.
 // Nodes never dequeued are in cycles. A secondary targeted DFS over those
 // nodes extracts one example cycle path for the error message.
-func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, posMap map[string]ast.Pos, ds *diag.Diagnostics) {
+func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, posMap map[string]ast.Pos, ds *diag.DiagSink) {
 	// --- Phase 1: Kahn's algorithm ---
 	dependentCount := make(map[string]int, len(bindings))
 	for _, b := range bindings {
@@ -586,10 +586,10 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 				msg := strings.Join(path, " → ")
 				pos := posMap[name]
 				if pos.File != "" {
-					*ds = append(*ds, diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
+					ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
 						"prog %q: binding cycle: %s", progName, msg))
 				} else {
-					*ds = append(*ds, diag.Errorf(diag.CodeCyclicBinding,
+					ds.Append(diag.Errorf(diag.CodeCyclicBinding,
 						"prog %q: binding cycle: %s", progName, msg))
 				}
 			}

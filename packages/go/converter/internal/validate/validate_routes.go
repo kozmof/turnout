@@ -11,7 +11,7 @@ import (
 // Group E — Route validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.Diagnostics) {
+func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.DiagSink) {
 	allKnownActions := make(map[string]bool)
 	for _, actionSet := range knownActions {
 		for actionID := range actionSet {
@@ -23,25 +23,25 @@ func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool,
 	}
 }
 
-func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.Diagnostics) {
+func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.DiagSink) {
 	if r.EntrySceneId == nil || *r.EntrySceneId == "" {
-		*ds = append(*ds, diag.Errorf(diag.CodeMissingEntryScene,
+		ds.Append(diag.Errorf(diag.CodeMissingEntryScene,
 			"route %q: missing entry declaration", r.Id))
 	} else if !knownScenes[*r.EntrySceneId] {
-		*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedEntryScene,
+		ds.Append(diag.Errorf(diag.CodeUnresolvedEntryScene,
 			"route %q: entry scene %q is not defined", r.Id, *r.EntrySceneId))
 	}
 	fallbackCount := 0
 	for i, arm := range r.Match {
 		if arm.Target != "" && !knownScenes[arm.Target] {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedScene,
+			ds.Append(diag.Errorf(diag.CodeUnresolvedScene,
 				"route %q arm %d: target scene %q is not defined", r.Id, i, arm.Target))
 		}
 		for _, pat := range arm.Patterns {
 			if pat == "_" {
 				fallbackCount++
 				if fallbackCount > 1 {
-					*ds = append(*ds, diag.Errorf(diag.CodeDuplicateFallback,
+					ds.Append(diag.Errorf(diag.CodeDuplicateFallback,
 						"route %q: match block has more than one _ fallback arm", r.Id))
 				}
 				continue
@@ -51,17 +51,17 @@ func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownAc
 	}
 }
 
-func validateRoutePattern(routeID string, armIdx int, pat string, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.Diagnostics) {
+func validateRoutePattern(routeID string, armIdx int, pat string, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.DiagSink) {
 	parts := strings.Split(pat, ".")
 
 	if len(parts) < 1 || parts[0] == "" || parts[0] == "*" {
-		*ds = append(*ds, diag.Errorf(diag.CodeInvalidPathItem,
+		ds.Append(diag.Errorf(diag.CodeInvalidPathItem,
 			"route %q arm %d: pattern %q has no valid scene_id prefix", routeID, armIdx, pat))
 		return
 	}
 
 	if len(parts) < 2 {
-		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
+		ds.Append(diag.Errorf(diag.CodeBareWildcardPath,
 			"route %q arm %d: pattern %q has no action segment after scene_id", routeID, armIdx, pat))
 		return
 	}
@@ -73,13 +73,13 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 		}
 	}
 	if wildcardCount > 1 {
-		*ds = append(*ds, diag.Errorf(diag.CodeMultipleWildcards,
+		ds.Append(diag.Errorf(diag.CodeMultipleWildcards,
 			"route %q arm %d: pattern %q has more than one * wildcard", routeID, armIdx, pat))
 		return
 	}
 
 	if parts[len(parts)-1] == "*" {
-		*ds = append(*ds, diag.Errorf(diag.CodeBareWildcardPath,
+		ds.Append(diag.Errorf(diag.CodeBareWildcardPath,
 			"route %q arm %d: pattern %q ends with * (terminal action required)", routeID, armIdx, pat))
 		return
 	}
@@ -90,7 +90,7 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 	if wildcardCount == 1 {
 		terminal := parts[len(parts)-1]
 		if !allKnownActions[terminal] {
-			*ds = append(*ds, diag.WarnAt("", 0, 0, diag.CodeWildcardTerminalUnresolvable,
+			ds.Append(diag.WarnAt("", 0, 0, diag.CodeWildcardTerminalUnresolvable,
 				"route %q arm %d: pattern %q terminal action %q does not match any known action ID across all scenes (possible typo)",
 				routeID, armIdx, pat, terminal))
 		}
@@ -105,7 +105,7 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 		actionID := parts[1]
 		if actionSet, sceneKnown := knownActions[sceneID]; sceneKnown {
 			if !actionSet[actionID] {
-				*ds = append(*ds, diag.Errorf(diag.CodeUnresolvedAction,
+				ds.Append(diag.Errorf(diag.CodeUnresolvedAction,
 					"route %q arm %d: pattern %q references action %q which does not exist in scene %q",
 					routeID, armIdx, pat, actionID, sceneID))
 			}

@@ -559,7 +559,10 @@ func (*VarBinderPattern) localCasePattern() {}
 // ErrorRHS is a sentinel produced by the parser when a binding's right-hand side
 // could not be parsed. It satisfies BindingRHS so that downstream stages (lower,
 // validate) can handle it explicitly instead of a nil check.
-type ErrorRHS struct{ ErrPos Pos }
+type ErrorRHS struct {
+	ErrPos  Pos
+	Message string
+}
 
 func (*ErrorRHS) bindingRHS() {}
 

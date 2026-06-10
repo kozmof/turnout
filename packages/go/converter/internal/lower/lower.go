@@ -154,6 +154,11 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 		return lowerStateBlockFromSchemaOrdered(schema, order, ds)
 	}
 
+	if len(schema.Namespaces()) > 0 {
+		ds.Append(diag.Warnf(diag.CodeDeclarationOrderLost,
+			"state schema has fields but no declaration order was provided; emitting fields alphabetically"))
+	}
+
 	nsNames := schema.Namespaces()
 	slices.Sort(nsNames)
 
@@ -441,7 +446,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 			bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 		}
 	case *ast.SingleRefRHS:
-		bindings = []*turnoutpb.BindingModel{lowerSingleRefRHS(name, ft, rhs)}
+		if bm := lowerSingleRefRHS(name, ft, rhs); bm != nil {
+			bindings = []*turnoutpb.BindingModel{bm}
+		} else {
+			return nil
+		}
 	case *ast.FuncCallRHS:
 		if bm := lowerFuncCallRHS(name, ft, rhs, decl.Pos, bindingTypes, ds); bm != nil {
 			bindings = []*turnoutpb.BindingModel{bm}

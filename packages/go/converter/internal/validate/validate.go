@@ -58,14 +58,14 @@ type ValidateInput struct {
 // Returns diagnostics; callers must check HasErrors() before proceeding to emission.
 func Validate(in ValidateInput) diag.Diagnostics {
 	tm, schema := in.Model, in.Schema
-	var ds diag.Diagnostics
+	var ds diag.DiagSink
 	if tm == nil {
-		return ds
+		return nil
 	}
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
-			ds = append(ds, diag.Errorf(diag.CodeDuplicateSceneID,
+			ds.Append(diag.Errorf(diag.CodeDuplicateSceneID,
 				"duplicate scene ID %q", s.Id))
 		}
 		seenSceneIDs[s.Id] = true
@@ -75,7 +75,7 @@ func Validate(in ValidateInput) diag.Diagnostics {
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
 		validateRoutes(tm.Routes, knownScenes, knownActions, &ds)
 	}
-	return ds.Capped()
+	return ds.Diags
 }
 
 func buildKnownScenesAndActions(tm *turnoutpb.TurnModel) (map[string]bool, map[string]map[string]bool) {
@@ -96,7 +96,7 @@ func buildKnownScenesAndActions(tm *turnoutpb.TurnModel) (map[string]bool, map[s
 // Literal / structpb helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateArrayLiteral(v *structpb.Value, ft ast.FieldType, bindingName string, ds *diag.Diagnostics) {
+func validateArrayLiteral(v *structpb.Value, ft ast.FieldType, bindingName string, ds *diag.DiagSink) {
 	lv, ok := v.Kind.(*structpb.Value_ListValue)
 	if !ok {
 		return
@@ -104,12 +104,12 @@ func validateArrayLiteral(v *structpb.Value, ft ast.FieldType, bindingName strin
 	elemFT := ft.ElemType()
 	for _, elem := range lv.ListValue.GetValues() {
 		if _, isArr := elem.Kind.(*structpb.Value_ListValue); isArr {
-			*ds = append(*ds, diag.Errorf(diag.CodeNestedArrayNotAllowed,
+			ds.Append(diag.Errorf(diag.CodeNestedArrayNotAllowed,
 				"binding %q: nested arrays are not allowed in value bindings", bindingName))
 			continue
 		}
 		if !structpbMatchesFieldType(elem, elemFT) {
-			*ds = append(*ds, diag.Errorf(diag.CodeHeterogeneousArray,
+			ds.Append(diag.Errorf(diag.CodeHeterogeneousArray,
 				"binding %q: array element does not match declared element type %s", bindingName, elemFT))
 		}
 	}
@@ -156,10 +156,10 @@ func structpbFieldType(v *structpb.Value) (ast.FieldType, bool) {
 // Combine / Pipe / Cond validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {
 	spec, ok := fnmeta.BuiltinFn(c.Fn)
 	if !ok {
-		*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
+		ds.Append(diag.Errorf(diag.CodeUnknownFnAlias,
 			"binding %q: unknown function alias %q", b.Name, c.Fn))
 		return
 	}
@@ -168,18 +168,18 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		refName := *c.Args[0].Ref
 		refInfo, exists := scope[refName]
 		if !exists {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", b.Name, refName))
 			return
 		}
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
-			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			return
 		}
 		if refInfo.fieldType != bFt {
-			*ds = append(*ds, diag.Errorf(diag.CodeSingleRefTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeSingleRefTypeMismatch,
 				"binding %q: single-reference %q has type %s but binding declares type %s",
 				b.Name, refName, refInfo.fieldType, b.Type))
 		}
@@ -193,12 +193,12 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	if retType, known := resolveExpectedReturn(spec, c.Args, scope, nil); known {
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
-			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			return
 		}
 		if retType != bFt {
-			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q: function %q returns %s but binding declares type %s",
 				b.Name, c.Fn, retType, b.Type))
 		}
@@ -207,7 +207,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	validateCombineArgTypes(b.Name, c, spec, scope, ds)
 }
 
-func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {
 	pipeScope := make(map[string]bindingInfo, len(scope)+len(p.Params))
 	for k, v := range scope {
 		pipeScope[k] = v
@@ -215,12 +215,12 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 	for _, param := range p.Params {
 		srcInfo, ok := scope[param.SourceIdent]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q pipe param %q: source %q is not defined", b.Name, param.ParamName, param.SourceIdent))
 			continue
 		}
 		if srcInfo.kind == BindingKindFunc {
-			*ds = append(*ds, diag.Errorf(diag.CodePipeArgNotValue,
+			ds.Append(diag.Errorf(diag.CodePipeArgNotValue,
 				"binding %q pipe param %q: source %q is a function binding; pipe params must reference value bindings",
 				b.Name, param.ParamName, param.SourceIdent))
 			continue
@@ -234,7 +234,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 	for i, step := range p.Steps {
 		spec, ok := fnmeta.BuiltinFn(step.Fn)
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUnknownFnAlias,
+			ds.Append(diag.Errorf(diag.CodeUnknownFnAlias,
 				"binding %q pipe step %d: unknown function alias %q", b.Name, i, step.Fn))
 			stepTypes = append(stepTypes, 0)
 			stepKnown = append(stepKnown, false)
@@ -244,7 +244,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 		for _, arg := range step.Args {
 			if arg.StepRef != nil {
 				if int(*arg.StepRef) >= i {
-					*ds = append(*ds, diag.Errorf(diag.CodeStepRefOutOfBounds,
+					ds.Append(diag.Errorf(diag.CodeStepRefOutOfBounds,
 						"binding %q pipe step %d: step_ref = %d is out of bounds (must be < %d)",
 						b.Name, i, *arg.StepRef, i))
 				}
@@ -263,12 +263,12 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 		if stepKnown[n-1] {
 			bFt, ftOK := ast.FieldTypeFromString(b.Type)
 			if !ftOK {
-				*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+				ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 					"binding %q: unknown type string %q", b.Name, b.Type))
 				return
 			}
 			if stepTypes[n-1] != bFt {
-				*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+				ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch,
 					"binding %q: pipe last step returns %s but binding declares type %s",
 					b.Name, stepTypes[n-1], b.Type))
 			}
@@ -280,7 +280,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 // It handles all three relevant ArgModel variants: FuncRef (function binding
 // reference), Ref (value binding reference), and Lit (inline literal).
 // Returns (fieldType, true) when the type is known, (Invalid, false) otherwise.
-func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.Diagnostics) (ast.FieldType, bool) {
+func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.DiagSink) (ast.FieldType, bool) {
 	if arg == nil {
 		return ast.FieldTypeInvalid, false
 	}
@@ -288,7 +288,7 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 		ref := *arg.Ref
 		info, ok := scope[ref]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
 			return ast.FieldTypeInvalid, false
 		}
@@ -298,12 +298,12 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 		ref := *arg.FuncRef
 		info, ok := scope[ref]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q cond %s: %q is not defined", bindingName, branchName, ref))
 			return ast.FieldTypeInvalid, false
 		}
 		if info.kind != BindingKindFunc {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q cond %s: %q is a value binding; a function binding is required", bindingName, branchName, ref))
 			return ast.FieldTypeInvalid, false
 		}
@@ -316,15 +316,15 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 	return ast.FieldTypeInvalid, false
 }
 
-func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {
 	if cond.Condition != nil && cond.Condition.Ref != nil && *cond.Condition.Ref != "" {
 		condRef := *cond.Condition.Ref
 		info, ok := scope[condRef]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q cond condition: %q is not defined", b.Name, condRef))
 		} else if info.fieldType != ast.FieldTypeBool {
-			*ds = append(*ds, diag.Errorf(diag.CodeCondNotBool,
+			ds.Append(diag.Errorf(diag.CodeCondNotBool,
 				"binding %q cond condition %q has type %s; bool required",
 				b.Name, condRef, info.fieldType))
 		}
@@ -334,7 +334,7 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 	elseType, hasElse := resolveCondBranch(b.Name, "else", cond.ElseBranch, scope, ds)
 
 	if hasThen && hasElse && thenType != elseType {
-		*ds = append(*ds, diag.Errorf(diag.CodeBranchTypeMismatch,
+		ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch,
 			"binding %q cond: then branch type %s and else branch type %s do not match",
 			b.Name, thenType, elseType))
 	}
@@ -342,12 +342,12 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 	if hasThen {
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
-			*ds = append(*ds, diag.Errorf(diag.CodeTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			return
 		}
 		if thenType != bFt {
-			*ds = append(*ds, diag.Errorf(diag.CodeReturnTypeMismatch,
+			ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch,
 				"binding %q cond: branch return type %s does not match declared type %s",
 				b.Name, thenType, b.Type))
 		}
@@ -358,20 +358,20 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.DiagSink) {
 	if arg.Ref != nil && *arg.Ref != "" {
 		if _, ok := scope[*arg.Ref]; !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", bindingName, *arg.Ref))
 		}
 	}
 	if arg.FuncRef != nil && *arg.FuncRef != "" {
 		info, ok := scope[*arg.FuncRef]
 		if !ok {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q: func_ref %q is not defined", bindingName, *arg.FuncRef))
 		} else if info.kind != BindingKindFunc {
-			*ds = append(*ds, diag.Errorf(diag.CodeUndefinedFuncRef,
+			ds.Append(diag.Errorf(diag.CodeUndefinedFuncRef,
 				"binding %q: func_ref %q references a value binding; a function binding is required",
 				bindingName, *arg.FuncRef))
 		}
@@ -443,16 +443,16 @@ func validateBinaryFnArgs(
 	args []*turnoutpb.ArgModel,
 	scope map[string]bindingInfo,
 	stepTypes []ast.FieldType,
-	ds *diag.Diagnostics,
+	ds *diag.DiagSink,
 ) {
 	maxArgs := spec.Arity()
 	for i := maxArgs; i < len(args); i++ {
-		*ds = append(*ds, diag.Errorf(diag.CodeArgTypeMismatch,
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 			"%s: function %q does not accept more than %d argument(s) (extra arg at index %d)",
 			contextLabel, fn, maxArgs, i))
 	}
 	if len(args) < maxArgs {
-		*ds = append(*ds, diag.Errorf(diag.CodeInvalidBinaryArgShape,
+		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
 			"%s: function %q requires %d argument(s), got %d",
 			contextLabel, fn, maxArgs, len(args)))
 		return
@@ -465,11 +465,11 @@ func validateBinaryFnArgs(
 	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
 }
 
-func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.Diagnostics) {
+func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.DiagSink) {
 	validateBinaryFnArgs(bindingName, fmt.Sprintf("binding %q pipe step %d", bindingName, stepIdx), fn, spec, args, scope, stepTypes, ds)
 }
 
-func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.Diagnostics) {
+func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.DiagSink) {
 	validateBinaryFnArgs(bindingName, fmt.Sprintf("binding %q", bindingName), c.Fn, spec, c.Args, scope, nil, ds)
 }
 
@@ -516,7 +516,7 @@ func walkExprArgs(expr *turnoutpb.ExprModel, fn func(*turnoutpb.ArgModel)) {
 // For #if/#case/#pipe bindings (b.ExtExpr != nil), the structured local
 // expression tree is walked to catch empty array call-args that are not visible
 // in the flat Expr form (which the caller skips via continue).
-func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics) {
+func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.DiagSink) {
 	if b.ExtExpr != nil {
 		localexpr.WalkProto(b.ExtExpr, func(node *turnoutpb.LocalExprModel) {
 			call, ok := node.Expr.(*turnoutpb.LocalExprModel_Call)
@@ -525,7 +525,7 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics
 			}
 			for _, arg := range call.Call.GetArgs() {
 				if isEmptyArrayLocalLit(arg) {
-					*ds = append(*ds, diag.Errorf(diag.CodeEmptyArrayLitArg,
+					ds.Append(diag.Errorf(diag.CodeEmptyArrayLitArg,
 						"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
 							"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
 				}
@@ -538,7 +538,7 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.Diagnostics
 	}
 	walkExprArgs(b.Expr, func(arg *turnoutpb.ArgModel) {
 		if argHasEmptyArrayLit(arg) {
-			*ds = append(*ds, diag.Errorf(diag.CodeEmptyArrayLitArg,
+			ds.Append(diag.Errorf(diag.CodeEmptyArrayLitArg,
 				"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
 					"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
 		}
@@ -564,7 +564,7 @@ func isEmptyArrayLocalLit(e *turnoutpb.LocalExprModel) bool {
 // Such combines are exempt from operatorOnly enforcement (validateCombine) and
 // the empty-array-arg check (validateNoEmptyArrayLitArgs).
 func isIdentityCombine(c *turnoutpb.CombineExpr) bool {
-	if len(c.Args) != 2 || c.Args[0].Ref == nil || c.Args[1].Lit == nil {
+	if len(c.Args) != 2 || c.Args[0].Ref == nil || *c.Args[0].Ref == "" || c.Args[1].Lit == nil {
 		return false
 	}
 	return fnmeta.IsIdentityValue(c.Fn, c.Args[1].Lit)
