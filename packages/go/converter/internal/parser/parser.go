@@ -1323,7 +1323,7 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 		case lexer.TokKwView:
 			parsed := p.parseViewBlock()
 			if sb.View != nil {
-				p.Diags = append(p.Diags, diag.ErrorAt(
+				p.Append(diag.ErrorAt(
 					p.file, parsed.Pos.Line, parsed.Pos.Col,
 					diag.CodeOverviewDuplicate,
 					"scene %q: duplicate view block; only one view \"overview\" block is allowed", sb.ID,
@@ -1613,11 +1613,11 @@ func (p *parser) parseFile() *ast.TurnFile {
 	}
 
 	if !hasState {
-		p.Diags = append(p.Diags, diag.Errorf(diag.CodeMissingStateSource,
+		p.Append(diag.Errorf(diag.CodeMissingStateSource,
 			"Turn DSL file must contain either a state block or state_file directive"))
 	}
 	if len(tf.Scenes) == 0 {
-		p.Diags = append(p.Diags, diag.Errorf(diag.CodeMissingScene,
+		p.Append(diag.Errorf(diag.CodeMissingScene,
 			"Turn DSL file must contain a scene block"))
 	}
 	return tf

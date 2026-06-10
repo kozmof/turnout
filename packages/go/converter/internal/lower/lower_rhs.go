@@ -2,6 +2,8 @@
 package lower
 
 import (
+	"fmt"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -59,8 +61,10 @@ func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel
 		fn = "add"
 	case ast.FieldTypeStr:
 		fn = "str_concat"
-	default: // arr<number>, arr<str>, arr<bool>
+	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
 		fn = "arr_concat"
+	default:
+		panic(fmt.Sprintf("identityFnFor: unhandled FieldType %s — update this switch when adding new types", ft))
 	}
 	val, _ := fnmeta.IdentityValue(fn)
 	return fn, &turnoutpb.ArgModel{Lit: val}

@@ -684,7 +684,9 @@ func (l *lex) scanTripleQuote(ln, co int) {
 		return
 	}
 
-	// Trim one trailing newline per spec
+	// Trim one trailing newline per spec. Note: if the content itself ends with
+	// \n before the closing """, one \n remains after this strip; lower.trimActionText
+	// removes that second trailing \n for action text values.
 	content := sb.String()
 	if strings.HasSuffix(content, "\r\n") {
 		content = content[:len(content)-2]

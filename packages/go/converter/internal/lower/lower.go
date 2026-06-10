@@ -39,13 +39,17 @@ func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, dia
 	return lowerCore(file, schema, order)
 }
 
-// Lower converts a parsed TurnFile and resolved STATE schema to a LowerResult
+// Lower converts a parsed TurnFile and a pre-built STATE schema to a LowerResult
 // plus diagnostics. Returns a nil LowerResult when the input has errors.
 //
-// When file.StateSource is a *ast.StateFileDirective, Lower returns an error
-// (CodeDeclarationOrderLost) because it cannot preserve declaration order
-// without re-reading the state file. Use LowerResolvingState in all non-test
-// callers.
+// For production callers, use LowerResolvingState: it resolves the schema and
+// preserves declaration order from the state source in a single step. Lower is
+// intended for tests that supply an inline state block and do not depend on
+// field emission order.
+//
+// When file.StateSource is a *ast.StateFileDirective, Lower emits an error
+// (CodeDeclarationOrderLost) because it cannot recover declaration order
+// without re-reading the state file. Use LowerResolvingState instead.
 func Lower(file *ast.TurnFile, schema state.Schema) (*LowerResult, diag.Diagnostics) {
 	return lowerCore(file, schema, nil)
 }
@@ -304,11 +308,12 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, ds *diag.DiagSink) *tu
 // trimActionText strips one trailing newline from the raw string captured from
 // a triple-quoted text literal or heredoc body.
 //
-// Scanner invariants:
+// Scanner invariants (see lexer.scanTripleQuote / lexer.scanHeredoc):
 //   - heredoc (<<-): body is the joined rawLines with no leading or trailing \n.
 //   - triple-quote ("""): the scanner strips one leading \n and one trailing \n
 //     at scan time, but if the content itself ends with \n a second one remains.
 //
+// This function removes that second trailing \n for triple-quote action text.
 // A leading \n is NOT stripped here — doing so would silently eat a genuine
 // blank first line written by the author.
 func trimActionText(raw *string) *string {

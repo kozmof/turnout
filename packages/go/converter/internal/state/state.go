@@ -157,17 +157,26 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 	if parseDiags.HasErrors() {
 		var ds diag.Diagnostics
 		for _, pd := range parseDiags {
-			code := diag.CodeStateFileParseError
-			if pd.Code == diag.CodeMissingStateBlock {
-				code = diag.CodeMissingStateBlock
-			}
-			ds = append(ds, diag.Errorf(code, "%s", pd.Message))
+			ds = append(ds, diag.Errorf(stateFileParseCode(pd), "%s", pd.Message))
 		}
 		return Schema{}, nil, ds
 	}
 
 	schema, ds := resolveInline(inline)
 	return schema, inlineOrder(inline), ds
+}
+
+// stateFileParseCode maps a parser diagnostic code to the appropriate
+// state-file-level code. Most codes become CodeStateFileParseError; a small
+// subset (e.g. CodeMissingStateBlock) are preserved so callers can distinguish
+// structural issues from generic parse failures.
+func stateFileParseCode(pd diag.Diagnostic) string {
+	switch pd.Code {
+	case diag.CodeMissingStateBlock:
+		return diag.CodeMissingStateBlock
+	default:
+		return diag.CodeStateFileParseError
+	}
 }
 
 // resolveInline builds a Schema from an InlineStateBlock.

@@ -28,9 +28,15 @@ const DefaultFnArity = 2
 
 // FnSpec holds the static type metadata for a built-in binary function.
 type FnSpec struct {
-	Arg1Type, Arg2Type, ReturnType ast.FieldType
-	Kind                           FnKind
-	MaxArgs                        int // 0 means DefaultFnArity
+	// Arg1Type and Arg2Type are valid only when Kind == FnKindStandard.
+	// For polymorphic kinds (FnKindGeneric, FnKindArrGet, FnKindArrInc,
+	// FnKindArrConcat) these fields are zero; operand type checking must
+	// switch on Kind first (see validate.validateBinaryArgTypePair).
+	Arg1Type, Arg2Type ast.FieldType
+	ReturnType         ast.FieldType
+	Kind               FnKind
+	// MaxArgs overrides DefaultFnArity when non-zero. 0 means DefaultFnArity (2).
+	MaxArgs int
 }
 
 // Arity returns the maximum number of arguments the function accepts.

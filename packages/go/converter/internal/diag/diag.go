@@ -43,6 +43,8 @@ type Diagnostics []Diagnostic
 
 // DiagSink manages a diagnostic slice with a hard error cap.
 type DiagSink struct {
+	// Diags holds collected diagnostics. Use Append() to add new entries so
+	// that the cap and halt logic are applied; direct reads are fine.
 	Diags  Diagnostics
 	halted bool
 }

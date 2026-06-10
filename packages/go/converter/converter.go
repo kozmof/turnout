@@ -22,6 +22,11 @@ import (
 type Diagnostic = diag.Diagnostic
 type Diagnostics = diag.Diagnostics
 
+// Schema and FieldMeta are re-exported so callers can use CompileResult.Schema
+// without importing the internal state package.
+type Schema = state.Schema
+type FieldMeta = state.FieldMeta
+
 // CompileResult bundles the artifacts of a successful Compile run.
 type CompileResult struct {
 	// Model is the lowered, validated proto model.

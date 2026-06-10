@@ -238,8 +238,14 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 // lowerCaseInto emits bindings in reverse arm order (last arm first). This is
 // required to produce topologically sorted output: each CondExpr binding
 // references the next arm's binding as its else-branch, so inner arms must be
-// defined before the outer ones that reference them. The user's declared name
+// defined before the outer arms that reference them. The user's declared name
 // is assigned to the outermost arm (i == 0) and is therefore emitted last.
+//
+// Example for three arms [A, B, C]:
+//
+//	emitted order: C_then, C_cond, B_then, B_cond (else→C_cond), A_then, A_cond (=name, else→B_cond)
+//
+// Inverting this loop would produce forward references that the runtime cannot resolve.
 func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm, pc pipeContext) {
 	if len(arms) == 0 {
 		c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
