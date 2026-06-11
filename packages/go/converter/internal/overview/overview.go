@@ -19,53 +19,45 @@ type Graph struct {
 	Edges []Edge
 }
 
-// Parse parses the flow DSL text for the named scene and returns a Graph.
-// sceneID is used only for error messages.
-func Parse(flow, sceneID string) (Graph, diag.Diagnostics) {
-	var ds diag.Diagnostics
-	nodes, edges, ok := parseFlow(flow, sceneID, &ds)
+// Parse parses the flow DSL text for the named scene and appends any diagnostics
+// to ds. Returns the parsed Graph (empty on parse failure). sceneID is used only
+// for error messages. Returns ok=false if parsing failed.
+func Parse(flow, sceneID string, ds *diag.DiagSink) (Graph, bool) {
+	var localDs diag.Diagnostics
+	nodes, edges, ok := parseFlow(flow, sceneID, &localDs)
+	ds.AppendAll(localDs)
 	if !ok {
-		return Graph{}, ds
+		return Graph{}, false
 	}
-	return Graph{Nodes: nodes, Edges: edges}, ds
+	return Graph{Nodes: nodes, Edges: edges}, true
 }
 
 // Enforce checks the Graph against the scene's actual action IDs and transition
 // edges according to the given mode ("nodes_only", "at_least", or "strict").
-// sceneID is used only for error messages.
-func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID string) diag.Diagnostics {
-	var ds diag.Diagnostics
-
+// Diagnostics are appended directly to ds. sceneID is used only for error messages.
+func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID string, ds *diag.DiagSink) {
 	actionSet := make(map[string]bool, len(actionIDs))
 	for _, id := range actionIDs {
 		actionSet[id] = true
 	}
 
-	// Collect all names referenced by the overview graph in one deduplicated set,
-	// then check membership once — prevents duplicate diagnostics for nodes that
-	// appear in both g.Nodes and as edge endpoints.
-	allReferenced := make(map[string]struct{}, len(g.Nodes)+len(g.Edges)*2)
+	// Per spec §5.2, SCN_OVERVIEW_UNKNOWN_NODE fires only for names in overview_nodes
+	// (g.Nodes). Edge-target-only names are not in overview_nodes and are not subject
+	// to this check; missing edge targets are caught by SCN_OVERVIEW_MISSING_EDGE.
 	for _, node := range g.Nodes {
-		allReferenced[node] = struct{}{}
-	}
-	for _, e := range g.Edges {
-		allReferenced[e.From] = struct{}{}
-		allReferenced[e.To] = struct{}{}
-	}
-	for name := range allReferenced {
-		if !actionSet[name] {
-			ds = append(ds, enforceErr(diag.CodeOverviewUnknownNode,
-				"scene %q: flow references unknown action %q", sceneID, name))
+		if !actionSet[node] {
+			ds.Append(enforceErr(diag.CodeOverviewUnknownNode,
+				"scene %q: flow references unknown action %q", sceneID, node))
 		}
 	}
 
 	if mode == "nodes_only" {
-		return ds
+		return
 	}
 
 	for _, e := range g.Edges {
 		if !implEdges[e] {
-			ds = append(ds, enforceErr(diag.CodeOverviewMissingEdge,
+			ds.Append(enforceErr(diag.CodeOverviewMissingEdge,
 				"scene %q: flow declares edge %s |=> %s but no such next rule exists", sceneID, e.From, e.To))
 		}
 	}
@@ -82,20 +74,18 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 
 		for _, id := range actionIDs {
 			if !flowNodeSet[id] {
-				ds = append(ds, enforceErr(diag.CodeOverviewExtraNode,
+				ds.Append(enforceErr(diag.CodeOverviewExtraNode,
 					"scene %q: action %q exists but is not listed in flow", sceneID, id))
 			}
 		}
 
 		for e := range implEdges {
 			if !flowEdgeSet[e] {
-				ds = append(ds, enforceErr(diag.CodeOverviewExtraEdge,
+				ds.Append(enforceErr(diag.CodeOverviewExtraEdge,
 					"scene %q: next rule %s |=> %s exists but is not declared in flow", sceneID, e.From, e.To))
 			}
 		}
 	}
-
-	return ds
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

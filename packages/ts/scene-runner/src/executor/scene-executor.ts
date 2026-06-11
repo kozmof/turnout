@@ -32,15 +32,15 @@ export type StepResult =
  * Discriminated union returned by `executeSceneSafe`. Callers that prefer
  * throwing semantics should use `executeScene` instead.
  *
- * `error` is `unknown` so that unexpected throws (non-`SceneRuntimeError`)
- * are also captured here rather than re-thrown bare, ensuring `partialState`
- * is always available on failure.
+ * `error` is `SceneRuntimeError | Error`: expected executor errors arrive as
+ * `SceneRuntimeError`; unexpected throws are wrapped in a plain `Error` so
+ * `partialState` is always available on failure.
  */
 export type SceneResult =
   | { ok: true; value: SceneExecutionResult }
   | {
       ok: false;
-      error: unknown;
+      error: SceneRuntimeError | Error;
       /** State at the point of failure (after any successfully completed actions). */
       partialState: StateManager;
       /** ID of the action that was executing when the error occurred. */
@@ -253,9 +253,13 @@ export async function executeSceneSafe(
     while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };
   } catch (err) {
+    const error =
+      err instanceof SceneRuntimeError ? err
+      : err instanceof Error ? err
+      : new Error(String(err));
     return {
       ok: false,
-      error: err,
+      error,
       partialState: executor.partialState(),
       // currentActionId() is set before any guard in next(), so it is always
       // the action that was being attempted when the error was thrown.
@@ -305,6 +309,12 @@ function evaluateNextRules(
   const matches: string[] = [];
   const warnings: string[] = [];
 
+  // Per-invocation cache for next-rule contexts with no prepare entries.
+  // Avoids rebuilding identical contexts when the same ProgModel object appears
+  // in multiple next rules within a single evaluateNextRules call.
+  // Rules with prepare entries are excluded because their injected values vary.
+  const pureCtxCache = new Map<object, BuiltContext>();
+
   for (const rule of rules) {
     let condMet: boolean;
 
@@ -314,8 +324,12 @@ function evaluateNextRules(
     } else if (!rule.compute.prog) {
       condMet = false;
     } else {
-      const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+      const prepare = rule.prepare ?? [];
+      const nextPrepared = resolveNextPrepare(prepare, state, result);
+      const hasNoInject = prepare.length === 0;
+      const cachedCtx = hasNoInject ? pureCtxCache.get(rule.compute.prog) : undefined;
+      const builtCtx = cachedCtx ?? buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+      if (hasNoInject && !cachedCtx) pureCtxCache.set(rule.compute.prog, builtCtx);
       const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;

@@ -102,7 +102,7 @@ export async function executeAction(
       if (updatedTable === validatedCtx.valueTable) {
         updatedTable = { ...validatedCtx.valueTable };
       }
-      mergeValueTableInPlace(updatedTable, result.updatedValueTable);
+      mergeIntoValueTable(updatedTable, result.updatedValueTable);
 
       if (!Object.hasOwn(updatedTable, valueId)) {
         throw new SceneRuntimeError(
@@ -169,7 +169,7 @@ export async function executeAction(
 }
 
 // Mutates accumulator — intentional; this is the local mutable value table for this action's forward pass.
-function mergeValueTableInPlace(accumulator: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
+function mergeIntoValueTable(accumulator: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
   for (const [id, value] of Object.entries(source)) {
     accumulator[id] = value;
   }

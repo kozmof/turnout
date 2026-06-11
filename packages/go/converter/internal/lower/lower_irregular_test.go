@@ -1,8 +1,6 @@
 package lower_test
 
 import (
-	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -122,16 +120,17 @@ scene "test" {
 }
 
 // TestLowerIrregularUnsupportedAstShapes verifies that malformed ASTs that
-// can only arise from compiler bugs (not user input) cause a panic rather than
-// silently emitting a diagnostic that could be mistaken for a user error.
+// can only arise from compiler bugs (not user input) produce a graceful
+// CodeUnsupportedConstruct diagnostic rather than panicking or silently
+// emitting incorrect output.
 func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
-		name        string
-		src         string
-		mutate      func(*ast.TurnFile)
-		panicSubstr string
+		name     string
+		src      string
+		mutate   func(*ast.TurnFile)
+		wantCode string
 	}{
 		{
 			name: "nil_binding_rhs",
@@ -147,7 +146,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 			mutate: func(tf *ast.TurnFile) {
 				tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0].RHS = nil
 			},
-			panicSubstr: "compiler bug",
+			wantCode: diag.CodeUnsupportedConstruct,
 		},
 	}
 
@@ -155,35 +154,14 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			tf, ds := parser.ParseFile("test.turn", tc.src)
-			if ds.HasErrors() {
-				t.Fatalf("parse: %v", ds)
+			ds := lowerDiagnosticsFromSource(t, tc.src, tc.mutate)
+			if !hasLowerCode(ds, tc.wantCode) {
+				t.Fatalf("missing diagnostic code %q in %v", tc.wantCode, ds)
 			}
-			tc.mutate(tf)
-
-			assertPanics(t, tc.panicSubstr, func() {
-				lower.LowerResolvingState(tf, "") //nolint:errcheck
-			})
 		})
 	}
 }
 
-// assertPanics calls f and fails the test if f does not panic, or if the
-// recovered panic value does not contain wantSubstr.
-func assertPanics(t *testing.T, wantSubstr string, f func()) {
-	t.Helper()
-	defer func() {
-		r := recover()
-		if r == nil {
-			t.Fatalf("expected a panic containing %q but function returned normally", wantSubstr)
-		}
-		msg := fmt.Sprintf("%v", r)
-		if wantSubstr != "" && !strings.Contains(msg, wantSubstr) {
-			t.Fatalf("panic message %q does not contain %q", msg, wantSubstr)
-		}
-	}()
-	f()
-}
 
 func lowerDiagnosticsFromSource(t *testing.T, src string, mutate func(*ast.TurnFile)) diag.Diagnostics {
 	t.Helper()

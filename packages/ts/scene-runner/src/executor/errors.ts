@@ -39,6 +39,10 @@ export class SceneRuntimeError extends Error {
   }
 }
 
+export function isSceneRuntimeError(err: unknown): err is SceneRuntimeError {
+  return err instanceof SceneRuntimeError;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type RouteErrorCode = 'UnknownScene' | 'NoEntryAction' | 'MaxRouteTransitionsExceeded';

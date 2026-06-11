@@ -465,7 +465,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 		// Parser failed to parse this binding's RHS; a diagnostic was already recorded.
 		return nil
 	case nil:
-		panic(fmt.Sprintf("lowerBinding: binding %q has nil RHS — the parser must always set RHS (even ErrorRHS) on failure; this is a compiler bug", name))
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q has nil RHS — this is a compiler bug; please report the source file", name))
+		return nil
 	default:
 		panic(fmt.Sprintf("lowerBinding: unhandled RHS type %T for binding %q — this is a compiler bug", rhs, name))
 	}

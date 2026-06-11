@@ -114,9 +114,9 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		return
 	}
 
-	g, parseDiags := overview.Parse(v.Flow, scene.Id)
-	ds.AppendAll(parseDiags)
-	if parseDiags.HasErrors() {
+	preParseCount := len(ds.Diags)
+	g, ok := overview.Parse(v.Flow, scene.Id, ds)
+	if !ok || len(ds.Diags) > preParseCount {
 		return
 	}
 
@@ -131,5 +131,5 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		}
 	}
 
-	ds.AppendAll(overview.Enforce(g, actionIDs, implEdges, enforce, scene.Id))
+	overview.Enforce(g, actionIDs, implEdges, enforce, scene.Id, ds)
 }

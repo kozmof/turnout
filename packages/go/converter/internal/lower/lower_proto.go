@@ -153,7 +153,7 @@ func lowerMethodCallArg(a *ast.MethodCallArg, bindingTypes map[string]ast.FieldT
 	return &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{Ref: a.Receiver, Fn: fns}}
 }
 
-func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.ArgModel {
+func lowerArgWithTypes(arg ast.PreLowerArg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.ArgModel {
 	switch a := arg.(type) {
 	case *ast.RefArg:
 		return &turnoutpb.ArgModel{Ref: proto.String(a.Name)}
@@ -172,7 +172,7 @@ func lowerArgWithTypes(arg ast.Arg, bindingTypes map[string]ast.FieldType, ds *d
 	}
 }
 
-func lowerArgsWithTypes(args []ast.Arg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) []*turnoutpb.ArgModel {
+func lowerArgsWithTypes(args []ast.PreLowerArg, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) []*turnoutpb.ArgModel {
 	result := make([]*turnoutpb.ArgModel, len(args))
 	for i, a := range args {
 		result[i] = lowerArgWithTypes(a, bindingTypes, ds)

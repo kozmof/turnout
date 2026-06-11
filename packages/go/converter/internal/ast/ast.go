@@ -334,9 +334,11 @@ func (*SingleRefRHS) bindingRHS() {}
 
 // FuncCallRHS is `name:type = fn(a, b)` or `fn(a: x, b: y)`.
 // Named-arg form is normalized to ordered Args during parsing.
+// Args holds pre-lowering argument forms; *MethodCallArg may appear here and
+// is resolved to *TransformArg by the lowerer.
 type FuncCallRHS struct {
 	FnAlias string
-	Args    []Arg
+	Args    []PreLowerArg
 }
 
 func (*FuncCallRHS) bindingRHS() {}
@@ -426,10 +428,11 @@ func (op InfixOp) FnAliasForType(ft FieldType) string {
 }
 
 // InfixRHS is `name:type = lhs OP rhs`.
+// LHS and RHS are pre-lowering argument forms.
 type InfixRHS struct {
 	Op  InfixOp
-	LHS Arg
-	RHS Arg
+	LHS PreLowerArg
+	RHS PreLowerArg
 }
 
 func (*InfixRHS) bindingRHS() {}
@@ -619,22 +622,26 @@ type PreLowerArg interface{ preLowerArg() }
 // RefArg is a bare identifier reference: `v` → `{ ref = "v" }` in canonical HCL.
 type RefArg struct{ Name string }
 
-func (*RefArg) arg() {}
+func (*RefArg) arg()         {}
+func (*RefArg) preLowerArg() {}
 
 // LitArg is a literal value: `42` → `{ lit = 42 }` in canonical HCL.
 type LitArg struct{ Value Literal }
 
-func (*LitArg) arg() {}
+func (*LitArg) arg()         {}
+func (*LitArg) preLowerArg() {}
 
 // FuncRefArg is `{ func_ref = "fn_name" }` — reference to a function binding's output.
 type FuncRefArg struct{ FnName string }
 
-func (*FuncRefArg) arg() {}
+func (*FuncRefArg) arg()         {}
+func (*FuncRefArg) preLowerArg() {}
 
 // StepRefArg is `{ step_ref = N }` — reference to step N's output inside a pipe.
 type StepRefArg struct{ Index int }
 
-func (*StepRefArg) arg() {}
+func (*StepRefArg) arg()         {}
+func (*StepRefArg) preLowerArg() {}
 
 // TransformArg is `{ transform = { ref = "v", fn = ["transformFn..."] } }`.
 type TransformArg struct {
@@ -642,21 +649,21 @@ type TransformArg struct {
 	Fn  []string
 }
 
-func (*TransformArg) arg() {}
+func (*TransformArg) arg()         {}
+func (*TransformArg) preLowerArg() {}
 
 // MethodCallArg is the DSL method-call form `receiver.method1().method2()`.
 // Methods holds unqualified method names; the lowerer resolves them to fully
 // qualified transformFn names using the binding type context.
 //
-// This is a pre-lowering form (implements PreLowerArg): it appears in parser
-// output inside []Arg slices and is resolved to TransformArg by lowerMethodCallArg.
-// It is not a valid post-lowering proto-level argument on its own.
+// This is a pre-lowering-only form (implements PreLowerArg but NOT Arg): it
+// appears in parser output inside []PreLowerArg slices and is resolved to
+// TransformArg by lowerMethodCallArg. It must not appear in post-lowering code.
 type MethodCallArg struct {
 	Receiver string
 	Methods  []string
 }
 
-func (*MethodCallArg) arg()         {}
 func (*MethodCallArg) preLowerArg() {}
 
 // ────────────────────────────────────────────────────────────

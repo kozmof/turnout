@@ -14,7 +14,7 @@ import (
 // Valid forms: bare ident (RefArg), literal (LitArg), { step_ref = N },
 // { func_ref = "name" }, { transform = { ref = "v", fn = [...] } },
 // or the DSL method-call form: receiver.method1().method2()
-func (p *parser) parseArg() ast.Arg {
+func (p *parser) parseArg() ast.PreLowerArg {
 	t := p.peek()
 	switch t.Kind {
 	case lexer.TokLBrace:
@@ -35,7 +35,7 @@ func (p *parser) parseArg() ast.Arg {
 
 // parseMethodChain parses `receiver.method1().method2()...` and returns a
 // MethodCallArg. The receiver ident has already been consumed.
-func (p *parser) parseMethodChain(receiver string) ast.Arg {
+func (p *parser) parseMethodChain(receiver string) ast.PreLowerArg {
 	var methods []string
 	for p.peek().Kind == lexer.TokDot {
 		p.advance() // consume .
@@ -54,7 +54,7 @@ func (p *parser) parseMethodChain(receiver string) ast.Arg {
 
 // parseBlockArg parses { step_ref = N }, { func_ref = "fn" }, or
 // { transform = { ref = "v", fn = "..." } }.
-func (p *parser) parseBlockArg() ast.Arg {
+func (p *parser) parseBlockArg() ast.PreLowerArg {
 	p.advance() // consume {
 	key := p.peek()
 	if key.Kind != lexer.TokIdent {
@@ -66,7 +66,7 @@ func (p *parser) parseBlockArg() ast.Arg {
 	p.advance() // consume key ident
 	p.expect(lexer.TokEquals)
 
-	var result ast.Arg
+	var result ast.PreLowerArg
 	switch key.Value {
 	case "step_ref":
 		numTok, _ := p.expect(lexer.TokNumberLit)
@@ -125,9 +125,9 @@ func (p *parser) parseBlockArg() ast.Arg {
 
 // parseFuncArgs parses the positional argument list of a function call: (arg, arg).
 // Named-arg form is rejected because calls have positional semantics only.
-func (p *parser) parseFuncArgs() []ast.Arg {
+func (p *parser) parseFuncArgs() []ast.PreLowerArg {
 	p.expect(lexer.TokLParen)
-	args := make([]ast.Arg, 0, 2) // most DSL functions are binary
+	args := make([]ast.PreLowerArg, 0, 2) // most DSL functions are binary
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
 		p.consumeNamedArgIfPresent()
 		args = append(args, p.parseArg())

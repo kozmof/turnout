@@ -309,6 +309,13 @@ func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalE
 func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	lhsType, lhsOK := validateProtoLocalExpr(bindingName, lhs, scope, itType, itAllowed, ds)
 	rhsType, rhsOK := validateProtoLocalExpr(bindingName, rhs, scope, itType, itAllowed, ds)
+	// InfixPlus dispatches to "str_concat" or "add" based on the LHS type.
+	// When the LHS type is unknown (e.g. undefined ref) we cannot resolve the
+	// dispatch and any arg-type check would use "add" as the default, producing
+	// a spurious ArgTypeMismatch if the RHS happens to be str. Skip validation.
+	if op == ast.InfixPlus && !lhsOK {
+		return 0, false
+	}
 	// FnAliasForType resolves InfixPlus to "str_concat" or "add" based on the
 	// inferred lhs type. For all other operators it returns their fixed alias.
 	// Argument type errors (e.g. lhs str but rhs number for +) are caught below.
@@ -559,52 +566,82 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 		return
 	}
 
-	// --- Phase 2: extract one example cycle path per cycle via targeted DFS ---
+	// --- Phase 2: extract one example cycle path per cycle via iterative DFS ---
+	//
+	// Each frame tracks the node being visited and the index of the next dependency
+	// to explore. On first visit (depIdx == 0) the node is pushed onto pathStack and
+	// coloured inStack. When all deps are exhausted the node is coloured done and
+	// popped from pathStack. A back-edge (dep already inStack) identifies the cycle
+	// entry point; we extract the cycle segment from pathStack at that point.
+	type dfsFrame struct {
+		name   string
+		depIdx int
+	}
+
 	reported := make(map[string]bool)
 	color := make(map[string]int) // 0=unvisited 1=inStack 2=done
-	stack := make([]string, 0, len(cyclic))
+	pathStack := make([]string, 0, len(cyclic))
+	frameStack := make([]dfsFrame, 0, len(cyclic))
 
-	var visit func(name string)
-	visit = func(name string) {
-		if !cyclic[name] || color[name] == 2 {
-			return
+	for _, b := range bindings {
+		if !cyclic[b.Name] || color[b.Name] != 0 {
+			continue
 		}
-		if color[name] == 1 {
-			if !reported[name] {
-				reported[name] = true
-				start := 0
-				for i, n := range stack {
-					if n == name {
-						start = i
-						break
+		frameStack = append(frameStack, dfsFrame{name: b.Name, depIdx: 0})
+		for len(frameStack) > 0 {
+			top := &frameStack[len(frameStack)-1]
+			name := top.name
+			if top.depIdx == 0 {
+				// First visit: mark inStack and push onto path.
+				color[name] = 1
+				pathStack = append(pathStack, name)
+			}
+			deps := dependencies[name]
+			advanced := false
+			for top.depIdx < len(deps) {
+				dep := deps[top.depIdx]
+				top.depIdx++
+				if !cyclic[dep] {
+					continue
+				}
+				if color[dep] == 0 {
+					// Unvisited cyclic node — push and recurse.
+					frameStack = append(frameStack, dfsFrame{name: dep, depIdx: 0})
+					advanced = true
+					break
+				}
+				if color[dep] == 1 && !reported[dep] {
+					// Back edge: dep is already on the path — emit cycle.
+					reported[dep] = true
+					start := 0
+					for i, n := range pathStack {
+						if n == dep {
+							start = i
+							break
+						}
+					}
+					cycleLen := len(pathStack) - start
+					path := make([]string, cycleLen+1)
+					copy(path, pathStack[start:])
+					path[cycleLen] = dep
+					msg := strings.Join(path, " → ")
+					pos := posMap[dep]
+					if pos.File != "" {
+						ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
+							"prog %q: binding cycle: %s", progName, msg))
+					} else {
+						ds.Append(diag.Errorf(diag.CodeCyclicBinding,
+							"prog %q: binding cycle: %s", progName, msg))
 					}
 				}
-				cycleLen := len(stack) - start
-				path := make([]string, cycleLen+1)
-				copy(path, stack[start:])
-				path[cycleLen] = name
-				msg := strings.Join(path, " → ")
-				pos := posMap[name]
-				if pos.File != "" {
-					ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
-						"prog %q: binding cycle: %s", progName, msg))
-				} else {
-					ds.Append(diag.Errorf(diag.CodeCyclicBinding,
-						"prog %q: binding cycle: %s", progName, msg))
-				}
 			}
-			return
+			if !advanced {
+				// All deps exhausted: mark done, pop from path and frame stack.
+				color[name] = 2
+				pathStack = pathStack[:len(pathStack)-1]
+				frameStack = frameStack[:len(frameStack)-1]
+			}
 		}
-		color[name] = 1
-		stack = append(stack, name)
-		for _, dep := range dependencies[name] {
-			visit(dep)
-		}
-		stack = stack[:len(stack)-1]
-		color[name] = 2
-	}
-	for _, b := range bindings {
-		visit(b.Name)
 	}
 }
 
