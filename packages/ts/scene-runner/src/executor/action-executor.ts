@@ -6,10 +6,17 @@ import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, PublishHookContext } from '../types/harness-types.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
+import type { BuiltContext } from './hcl-context-builder.js';
 import { resolveActionPrepare } from './prepare-resolver.js';
 import type { ActionExecutionResult } from './types.js';
 import type { PublishHookOutcome } from '../types/harness-types.js';
 import { SceneRuntimeError } from './errors.js';
+
+// Trees are fully determined by funcTable, which is stable for the lifetime of
+// a given BuiltContext. For pure progs, buildContextFromProg returns the same
+// BuiltContext object on every call (via pureProgCtxCache), so caching trees
+// here avoids rebuilding the execution graph on each action invocation.
+const treesByBuiltCtx = new WeakMap<BuiltContext, Map<FuncId, ExecutionTree>>();
 
 /**
  * Execute a single action:
@@ -58,7 +65,11 @@ export async function executeAction(
   let updatedTable: Record<string, AnyValue> = validatedCtx.valueTable;
   const bindingValues: Record<string, AnyValue> = {};
 
-  const treeCache = new Map<FuncId, ExecutionTree>();
+  let ctxTrees = treesByBuiltCtx.get(builtCtx);
+  if (!ctxTrees) {
+    ctxTrees = new Map();
+    treesByBuiltCtx.set(builtCtx, ctxTrees);
+  }
 
   for (const binding of action.compute.prog.bindings) {
     const valueId = builtCtx.resolveValueId(binding.name);
@@ -81,13 +92,10 @@ export async function executeAction(
       }
       const funcId = resolved.id;
       const bindingCtx = { ...validatedCtx, valueTable: updatedTable };
-      let tree = treeCache.get(funcId);
+      let tree = ctxTrees.get(funcId);
       if (!tree) {
-        // Safe to cache: buildExecutionTree reads only funcTable (stable for the
-        // lifetime of this action), so the tree built on first encounter is
-        // structurally identical across all loop iterations even though valueTable grows.
         tree = buildExecutionTree(funcId, bindingCtx);
-        treeCache.set(funcId, tree);
+        ctxTrees.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
       // Copy on first write so we never mutate validatedCtx.valueTable.

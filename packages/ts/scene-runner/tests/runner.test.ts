@@ -223,3 +223,39 @@ describe('createRunner — route mode API', () => {
     expect(runner.isDone()).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createRunner — onWarning callback
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('createRunner — onWarning callback', () => {
+  const modelNoState = {
+    version: 1,
+    scenes: [{ id: 'w', entryActions: ['a'], actions: [{ id: 'a' }] }],
+    routes: [],
+  } as unknown as TurnModel;
+
+  it('calls onWarning when no STATE schema is present', async () => {
+    const onWarning = vi.fn();
+    const runner = createRunner(modelNoState, { entryId: 'w', initialState: {}, onWarning });
+    await runner.run();
+    expect(onWarning).toHaveBeenCalledOnce();
+    expect(onWarning.mock.calls[0][0]).toContain('No STATE schema');
+  });
+
+  it('does not call console.warn when onWarning is provided', async () => {
+    const warnSpy = vi.spyOn(console, 'warn');
+    const runner = createRunner(modelNoState, { entryId: 'w', initialState: {}, onWarning: () => {} });
+    await runner.run();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('defaults to no-op (no console.warn, no throw) when onWarning is absent', async () => {
+    const warnSpy = vi.spyOn(console, 'warn');
+    const runner = createRunner(modelNoState, { entryId: 'w', initialState: {} });
+    await runner.run();
+    expect(warnSpy).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+});

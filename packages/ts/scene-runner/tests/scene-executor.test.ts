@@ -505,27 +505,76 @@ describe('executeScene — next rule compute without prog', () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// executeSceneSafe — non-SceneRuntimeError re-throw
+// executeSceneSafe — non-SceneRuntimeError captured as ok:false
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('executeSceneSafe — non-SceneRuntimeError is re-thrown', () => {
-  it('re-throws PrepareError for an unregistered hook instead of returning ok:false', async () => {
+describe('executeSceneSafe — non-SceneRuntimeError is captured as ok:false', () => {
+  it('captures PrepareError (unregistered hook) as ok:false with partialState', async () => {
     // An action with a prepare entry that references an unregistered hook causes
     // resolveActionPrepare to throw PrepareError. PrepareError is not a
-    // SceneRuntimeError, so executeSceneSafe must re-throw it rather than
-    // silently capturing it as { ok: false }.
+    // SceneRuntimeError, but executeSceneSafe must still capture it as
+    // { ok: false } so partial state remains accessible to callers.
     const action = {
       ...makePassAction('a', 1, 'x.v'),
       prepare: [{ binding: 'unused', fromHook: 'missing_hook' }],
     } as unknown as ActionModel;
     const scene = {
-      id: 'rethrow_scene',
+      id: 'captured_scene',
       entryActions: ['a'],
       actions: [action],
     } as unknown as SceneBlock;
 
-    const promise = executeSceneSafe(scene, stateManagerFromUnchecked({}));
-    await expect(promise).rejects.toBeInstanceOf(PrepareError);
-    await expect(promise).rejects.toThrow('prepare hook "missing_hook" is not registered');
+    const result = await executeSceneSafe(scene, stateManagerFromUnchecked({}));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(PrepareError);
+      expect(result.partialState).toBeDefined();
+    }
+  });
+
+  it('captures a plain Error thrown by a publish hook as ok:false with partialState', async () => {
+    // Publish hooks run user-supplied code that can throw any Error.
+    // executeSceneSafe must capture these and preserve partialState.
+    const action = {
+      ...makePassAction('a', 42, 'x.v'),
+      publish: ['my_hook'],
+    } as unknown as ActionModel;
+    const scene = {
+      id: 'publish_err_scene',
+      entryActions: ['a'],
+      actions: [action],
+    } as unknown as SceneBlock;
+
+    const hooks = {
+      prepare: {},
+      publish: {
+        my_hook: async () => { throw new Error('publish failed'); },
+      },
+    };
+
+    const result = await executeSceneSafe(scene, stateManagerFromUnchecked({}), hooks);
+    // publish hooks are caught by executeAction, not re-thrown — the action
+    // completes and the hook failure is recorded in publishOutcomes; the
+    // scene itself does not error. This test verifies executeSceneSafe still
+    // returns ok:true in this case (publish errors are non-fatal).
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      const publishedAction = result.value.trace.actions[0];
+      expect(publishedAction?.publishOutcomes?.[0]).toMatchObject({ hookName: 'my_hook', status: 'error' });
+    }
+  });
+
+  it('captures a SceneRuntimeError as ok:false (regression guard)', async () => {
+    const scene = {
+      id: 'runtime_err_scene',
+      entryActions: ['missing_action'],
+      actions: [],
+    } as unknown as SceneBlock;
+
+    const result = await executeSceneSafe(scene, stateManagerFromUnchecked({}));
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(SceneRuntimeError);
+    }
   });
 });

@@ -345,8 +345,10 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   if (!migratedModel.state) {
-    console.warn('[turnout] No STATE schema in model — using unchecked StateManager. ' +
-      'Merge typos will silently produce null values.');
+    (options.onWarning ?? (() => {}))(
+      '[turnout] No STATE schema in model — using unchecked StateManager. ' +
+      'Merge typos will silently produce null values.',
+    );
   }
   const initialState: StateManager = migratedModel.state
     ? stateManagerFromSchema(migratedModel.state, options.initialState)

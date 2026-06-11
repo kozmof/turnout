@@ -2,7 +2,7 @@ import { executeGraph, assertValidContext, isPureBoolean, buildNull } from 'runt
 
 const UNABORTABLE = new AbortController().signal;
 import type { AnyValue } from 'runtime';
-import type { SceneBlock, ActionModel, NextRuleModel } from '../types/turnout-model_pb.js';
+import type { SceneBlock, ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
@@ -253,7 +253,6 @@ export async function executeSceneSafe(
     while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };
   } catch (err) {
-    if (!(err instanceof SceneRuntimeError)) throw err;
     return {
       ok: false,
       error: err,
@@ -303,11 +302,6 @@ function evaluateNextRules(
   const rules = action.next ?? [];
   if (rules.length === 0) return { matches: [], warnings: [] };
 
-  // Cache is scoped per invocation: state and result are constant within one
-  // action's next-rule evaluation, so rules that share the same object identity
-  // safely share a context. Object-identity keying avoids expensive JSON
-  // serialisation; the WeakMap is released when this invocation returns.
-  const ctxCache = new Map<NextRuleModel, BuiltContext>();
   const matches: string[] = [];
   const warnings: string[] = [];
 
@@ -321,11 +315,7 @@ function evaluateNextRules(
       condMet = false;
     } else {
       const nextPrepared = resolveNextPrepare(rule.prepare ?? [], state, result);
-      let builtCtx = ctxCache.get(rule);
-      if (!builtCtx) {
-        builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
-        ctxCache.set(rule, builtCtx);
-      }
+      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
       const validated = assertValidContext(builtCtx.exec);
 
       const conditionName = rule.compute.condition;

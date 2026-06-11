@@ -160,12 +160,12 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 
 	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
 	if ds3.HasErrors() {
-		return nil, append(accumulated, ds3...)
+		return nil, append(accumulated, ds3.Errors()...)
 	}
 
 	return &CompileResult{
 		Model:    lr.Model,
 		Schema:   lr.Schema,
-		Warnings: append(accumulated, ds3...),
+		Warnings: append(accumulated, ds3.Warnings()...),
 	}, nil
 }

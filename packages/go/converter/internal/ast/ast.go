@@ -564,7 +564,8 @@ type ErrorRHS struct {
 	Message string
 }
 
-func (*ErrorRHS) bindingRHS() {}
+func (*ErrorRHS) bindingRHS()  {}
+func (*ErrorRHS) preLowerRHS() {}
 
 // SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
 // with no right-hand side expression. The value is populated at runtime via prepare.

@@ -50,6 +50,11 @@ export type ExecutionOptions = {
    * to prepare and publish hooks so long-running async hooks can respect it.
    */
   signal?: AbortSignal;
+  /**
+   * Optional callback invoked for non-fatal runner warnings (e.g. missing STATE schema).
+   * Defaults to no-op. Pass `(msg) => console.warn(msg)` to restore the previous behaviour.
+   */
+  onWarning?: (msg: string) => void;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
