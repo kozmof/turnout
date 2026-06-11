@@ -178,12 +178,13 @@ export function createSceneExecutor(
     const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
+    const allWarnings = [...(result.mergeWarnings ?? []), ...nextWarnings];
     const trace: ActionTrace = {
       actionId,
       computeRootValue: result.computeRootValue,
       nextActionIds: nextIds,
       ...(result.publishOutcomes.length > 0 ? { publishOutcomes: result.publishOutcomes } : {}),
-      ...(nextWarnings.length > 0 ? { warnings: nextWarnings } : {}),
+      ...(allWarnings.length > 0 ? { warnings: allWarnings } : {}),
     };
     actionTraces.push(trace);
     for (const nextId of nextIds) {

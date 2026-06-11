@@ -277,6 +277,7 @@ export function createRouteRunner(
   let pendingStep: { sceneId: string; trace: ActionTrace } | null = null;
 
   async function advanceRoute(): Promise<RunnerStepResult> {
+    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
     // Return a deferred action step that was stashed while emitting a transition.
     if (pendingStep !== null) {
       const step = pendingStep;

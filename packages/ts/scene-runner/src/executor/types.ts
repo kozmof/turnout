@@ -10,4 +10,6 @@ export type ActionExecutionResult = {
   stateAfterMerge: StateManager;
   /** Outcomes of all publish hooks invoked for this action (empty if none). */
   publishOutcomes: PublishHookOutcome[];
+  /** Non-fatal warnings from applying merge entries (e.g. binding absent from compute result). */
+  mergeWarnings?: string[];
 };

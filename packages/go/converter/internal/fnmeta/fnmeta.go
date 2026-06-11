@@ -236,18 +236,30 @@ func LookupMethod(method string, inputType ast.FieldType) (qualName string, outp
 	return "", 0, false
 }
 
+// SplitQualifiedFn splits a qualified transform function name of the form
+// "namespace::method" into its namespace and method components.
+// Returns ("", "", false) when the separator "::" is absent, which indicates
+// a malformed qualified name (internal compiler bug or tampered model).
+func SplitQualifiedFn(fn string) (ns, method string, ok bool) {
+	idx := strings.LastIndex(fn, "::")
+	if idx < 0 {
+		return "", "", false
+	}
+	return fn[:idx], fn[idx+2:], true
+}
+
 // TransformChainOutputType resolves the output FieldType produced by applying
 // a transform chain to a receiver of receiverType. fns is the ordered slice of
 // qualified function names stored in TransformArg.Fn.
-// Returns (0, false) if any step cannot be resolved.
+// Returns (0, false) if any step cannot be resolved or a name is malformed.
 func TransformChainOutputType(receiverType ast.FieldType, fns []string) (ast.FieldType, bool) {
 	current := receiverType
 	for _, fn := range fns {
-		idx := strings.LastIndex(fn, "::")
-		if idx < 0 {
+		_, method, ok := SplitQualifiedFn(fn)
+		if !ok {
 			return 0, false
 		}
-		_, outType, found := LookupMethod(fn[idx+2:], current)
+		_, outType, found := LookupMethod(method, current)
 		if !found {
 			return 0, false
 		}

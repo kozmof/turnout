@@ -261,6 +261,9 @@ const (
 	CodeUnsupportedConstruct     = "UnsupportedConstruct"
 	CodeCyclicBinding            = "CyclicBinding"
 	CodeEmptyArrayLitArg         = "EmptyArrayLitArg"
+	// CodeDuplicateCasePattern is emitted when two arms of a #case expression
+	// match the same literal value. The second arm is unreachable dead code.
+	CodeDuplicateCasePattern = "DuplicateCasePattern"
 )
 
 // Error codes from scene-graph.md

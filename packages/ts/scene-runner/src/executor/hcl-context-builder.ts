@@ -12,6 +12,11 @@ import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 // is fully determined by the ProgModel. We cache it keyed on ProgModel object
 // identity so that repeated calls across turns (e.g. a stateless action executed
 // on every turn) avoid rebuilding the context from scratch each time.
+//
+// Keyed by ProgModel *object identity*. Cache only hits when the same
+// ProgModel reference is reused across calls (e.g., the model is loaded
+// once and kept in memory). Models deserialized from JSON on each call
+// produce a new reference and will never hit this cache.
 // ─────────────────────────────────────────────────────────────────────────────
 const pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 
@@ -43,8 +48,13 @@ export const MISSING_BINDING: BindingResolution = { kind: 'missing' };
 
 export type BuiltContext = {
   exec: ExecutionContext;
-  /** Binding name → ValueId for every binding. Used for from_action lookup. */
+  /**
+   * @internal Binding name → ValueId for every binding.
+   * Prefer `resolveValueId()` for external access — it is the stable public API.
+   */
   nameToValueId: Map<string, ValueId>;
+  /** Returns the ValueId for a binding name, or `undefined` when not found. */
+  resolveValueId(name: string): ValueId | undefined;
   /**
    * Returns the resolution for a binding name.
    * Returns `{ kind: 'missing' }` when the name is not in the context.
@@ -214,6 +224,12 @@ class ContextSpecBuilder {
 
   private handleCombineBinding(binding: BindingModel): void {
     const c = binding.expr!.combine!;
+    if (c.args.length < 2) {
+      throw new SceneRuntimeError(
+        'CompilerBug', this.contextId,
+        `binding "${binding.name}": combine expr has ${c.args.length} arg(s); expected 2 — malformed model`,
+      );
+    }
     this.spec[binding.name] = combine(mapFnName(c.fn, this.contextId), {
       a: asCombineArg(this.resolveArg(c.args[0])),
       b: asCombineArg(this.resolveArg(c.args[1])),
@@ -226,11 +242,11 @@ class ContextSpecBuilder {
     for (const param of p.params) {
       argBindings[param.paramName] = param.sourceIdent;
     }
-    const steps = p.steps.map((step) => {
+    const steps = p.steps.map((step, i) => {
       if (step.args.length < 2) {
         throw new SceneRuntimeError(
           'UnknownArgModel', this.contextId,
-          `binding "${binding.name}" pipe step has ${step.args.length} arg(s); expected 2`,
+          `binding "${binding.name}" pipe step ${i} ("${step.fn}") has ${step.args.length} arg(s); expected 2`,
         );
       }
       return combine(mapFnName(step.fn, this.contextId), {
@@ -396,7 +412,7 @@ export function buildContextFromProg(
       ? { kind: 'func',  id: asFuncId(ids[name] as string) }
       : { kind: 'value', id: asValueId(ids[name] as string) };
   }
-  const builtCtx: BuiltContext = { exec: result.exec, nameToValueId, resolve };
+  const builtCtx: BuiltContext = { exec: result.exec, nameToValueId, resolveValueId: (name) => nameToValueId.get(name), resolve };
 
   if (!hasInjected) pureProgCtxCache.set(prog, builtCtx);
   return builtCtx;

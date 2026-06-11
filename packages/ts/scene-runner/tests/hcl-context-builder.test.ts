@@ -678,7 +678,7 @@ describe('buildContextFromProg — pipe expr', () => {
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow('pipe step has 1 arg(s); expected 2');
+    expect(() => buildContextFromProg(prog, {})).toThrow('pipe step 0 ("add") has 1 arg(s); expected 2');
   });
 
   it('throws SceneRuntimeError when a binding carries extExpr', () => {

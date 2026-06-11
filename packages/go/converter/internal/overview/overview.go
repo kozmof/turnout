@@ -5,6 +5,7 @@ package overview
 
 import (
 	"strings"
+	"unicode/utf8"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
@@ -203,12 +204,14 @@ func isIdent(s string) bool {
 	if len(s) == 0 {
 		return false
 	}
-	c := s[0]
-	if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+	first, size := utf8.DecodeRuneInString(s)
+	if first == utf8.RuneError && size <= 1 {
 		return false
 	}
-	for i := 1; i < len(s); i++ {
-		c = s[i]
+	if !((first >= 'a' && first <= 'z') || (first >= 'A' && first <= 'Z') || first == '_') {
+		return false
+	}
+	for _, c := range s[size:] {
 		if !((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_' || (c >= '0' && c <= '9')) {
 			return false
 		}

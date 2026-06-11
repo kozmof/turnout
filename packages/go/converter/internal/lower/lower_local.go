@@ -279,6 +279,7 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	fallbackFn := ""
 	seenWildcard := false
 	wildcardIdx := -1
+	seenLiterals := make(map[string]bool)
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
 	for i, arm := range arms {
 		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
@@ -289,6 +290,17 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 		}
 		if seenWildcard {
 			continue // collected below
+		}
+		if p, ok := arm.Pattern.(*ast.LiteralCasePattern); ok {
+			key := caseLiteralKey(p.Value)
+			if seenLiterals[key] {
+				c.ds.Append(diag.ErrorAt(arm.Pos.File, arm.Pos.Line, arm.Pos.Col,
+					diag.CodeDuplicateCasePattern,
+					"binding %q: #case arm %d has the same literal pattern as an earlier arm — arm is unreachable",
+					c.target, i))
+				continue
+			}
+			seenLiterals[key] = true
 		}
 		conditionalArms = append(conditionalArms, arm)
 	}
@@ -428,4 +440,19 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType, p
 		return c.inferLocalType(x.Initial, fallback, pc)
 	}
 	return fallback, false
+}
+
+// caseLiteralKey returns a string key that uniquely identifies an ast.Literal
+// value for use in duplicate-pattern detection within a single #case expression.
+func caseLiteralKey(lit ast.Literal) string {
+	switch v := lit.(type) {
+	case *ast.NumberLiteral:
+		return fmt.Sprintf("number:%v", v.Value)
+	case *ast.StringLiteral:
+		return fmt.Sprintf("str:%q", v.Value)
+	case *ast.BoolLiteral:
+		return fmt.Sprintf("bool:%v", v.Value)
+	default:
+		return fmt.Sprintf("%T:%v", lit, lit)
+	}
 }

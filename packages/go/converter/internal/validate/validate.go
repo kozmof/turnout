@@ -328,6 +328,12 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 				"binding %q cond condition %q has type %s; bool required",
 				b.Name, condRef, info.fieldType))
 		}
+	} else if cond.Condition != nil && cond.Condition.Lit != nil {
+		if ft, ok := structpbFieldType(cond.Condition.Lit); ok && ft != ast.FieldTypeBool {
+			ds.Append(diag.Errorf(diag.CodeCondNotBool,
+				"binding %q cond condition literal has type %s; bool required",
+				b.Name, ft))
+		}
 	}
 
 	thenType, hasThen := resolveCondBranch(b.Name, "then", cond.Then, scope, ds)

@@ -60,7 +60,7 @@ export async function executeAction(
   const treeCache = new Map<FuncId, ExecutionTree>();
 
   for (const binding of action.compute.prog.bindings) {
-    const valueId = builtCtx.nameToValueId.get(binding.name);
+    const valueId = builtCtx.resolveValueId(binding.name);
     if (valueId === undefined) {
       throw new SceneRuntimeError(
         'OutOfOrderBinding',
@@ -111,9 +111,16 @@ export async function executeAction(
   // StateManager allocations when multiple bindings are written back to STATE.
   let mergedState = state;
   const mergeBatch: Record<string, AnyValue> = {};
+  const mergeWarnings: string[] = [];
   for (const entry of action.merge ?? []) {
     const bindingVal = bindingValues[entry.binding];
-    if (bindingVal !== undefined) mergeBatch[entry.toState] = bindingVal;
+    if (bindingVal !== undefined) {
+      mergeBatch[entry.toState] = bindingVal;
+    } else {
+      mergeWarnings.push(
+        `action "${action.id}": merge entry binding "${entry.binding}" → "${entry.toState}" was absent from compute results — state not updated`,
+      );
+    }
   }
   if (Object.keys(mergeBatch).length > 0) {
     mergedState = mergedState.writeBatch(mergeBatch);
@@ -144,6 +151,7 @@ export async function executeAction(
     bindingValues,
     stateAfterMerge: mergedState,
     publishOutcomes,
+    ...(mergeWarnings.length > 0 ? { mergeWarnings } : {}),
   };
 }
 
