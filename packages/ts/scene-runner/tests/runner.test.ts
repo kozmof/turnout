@@ -251,11 +251,12 @@ describe('createRunner — onWarning callback', () => {
     warnSpy.mockRestore();
   });
 
-  it('defaults to no-op (no console.warn, no throw) when onWarning is absent', async () => {
-    const warnSpy = vi.spyOn(console, 'warn');
+  it('defaults to console.warn when onWarning is absent', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const runner = createRunner(modelNoState, { entryId: 'w', initialState: {} });
     await runner.run();
-    expect(warnSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledOnce();
+    expect(warnSpy.mock.calls[0][0]).toContain('No STATE schema');
     warnSpy.mockRestore();
   });
 });

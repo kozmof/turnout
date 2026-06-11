@@ -101,7 +101,10 @@ func validateArrayLiteral(v *structpb.Value, ft ast.FieldType, bindingName strin
 	if !ok {
 		return
 	}
-	elemFT := ft.ElemType()
+	elemFT, ok := ft.TryElemType()
+	if !ok {
+		return
+	}
 	for _, elem := range lv.ListValue.GetValues() {
 		if _, isArr := elem.Kind.(*structpb.Value_ListValue); isArr {
 			ds.Append(diag.Errorf(diag.CodeNestedArrayNotAllowed,

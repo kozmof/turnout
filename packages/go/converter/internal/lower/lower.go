@@ -447,17 +447,20 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 			bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 		}
 	case *ast.SingleRefRHS:
-		if bm := lowerSingleRefRHS(name, ft, rhs); bm != nil {
-			bindings = []*turnoutpb.BindingModel{bm}
-		} else {
+		bm := lowerSingleRefRHS(name, ft, rhs)
+		if bm == nil {
+			ds.Append(diag.ErrorAt(decl.Pos.File, decl.Pos.Line, decl.Pos.Col,
+				diag.CodeTypeMismatch,
+				"binding %q: type %s is not valid for a single-reference binding — this is a compiler bug; please report the source file", name, ft))
 			return nil
 		}
+		bindings = []*turnoutpb.BindingModel{bm}
 	case *ast.FuncCallRHS:
-		if bm := lowerFuncCallRHS(name, ft, rhs, decl.Pos, bindingTypes, ds); bm != nil {
-			bindings = []*turnoutpb.BindingModel{bm}
-		} else {
-			return nil
+		bm := lowerFuncCallRHS(name, ft, rhs, decl.Pos, bindingTypes, ds)
+		if bm == nil {
+			return nil // diagnostic already emitted by lowerFuncCallRHS (operator-only check)
 		}
+		bindings = []*turnoutpb.BindingModel{bm}
 	case *ast.InfixRHS:
 		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:

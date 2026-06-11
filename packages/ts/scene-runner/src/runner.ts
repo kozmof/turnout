@@ -278,6 +278,7 @@ export function createRouteRunner(
 
   async function advanceRoute(): Promise<RunnerStepResult> {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
+    if (done) return { done: true };
     // Return a deferred action step that was stashed while emitting a transition.
     if (pendingStep !== null) {
       const step = pendingStep;
@@ -345,7 +346,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   if (!migratedModel.state) {
-    (options.onWarning ?? (() => {}))(
+    (options.onWarning ?? console.warn)(
       '[turnout] No STATE schema in model — using unchecked StateManager. ' +
       'Merge typos will silently produce null values.',
     );
