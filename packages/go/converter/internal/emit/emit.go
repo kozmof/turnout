@@ -664,7 +664,7 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 // resolve InfixPlus to "str_concat" (str) or "add" (number).
 func localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 	if e == nil {
-		return `{ lit = false }`
+		panic("localExprInline: nil LocalExprModel — this is a compiler bug; every branch of a #if/#case/#pipe must produce a non-nil node")
 	}
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_Ref:

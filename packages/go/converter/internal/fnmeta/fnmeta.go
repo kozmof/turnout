@@ -22,10 +22,6 @@ const (
 	FnKindArrConcat               // arr_concat: returns same array type as arg1
 )
 
-// DefaultFnArity is the arity used for built-in functions when FnSpec.MaxArgs is 0.
-// All current built-in functions are binary; a non-zero MaxArgs overrides this.
-const DefaultFnArity = 2
-
 // FnSpec holds the static type metadata for a built-in binary function.
 type FnSpec struct {
 	// Arg1Type and Arg2Type are valid only when Kind == FnKindStandard.
@@ -35,17 +31,14 @@ type FnSpec struct {
 	Arg1Type, Arg2Type ast.FieldType
 	ReturnType         ast.FieldType
 	Kind               FnKind
-	// MaxArgs overrides DefaultFnArity when non-zero. 0 means DefaultFnArity (2).
+	// MaxArgs is the maximum number of arguments the function accepts.
+	// All current built-in functions are binary (2).
 	MaxArgs int
 }
 
 // Arity returns the maximum number of arguments the function accepts.
-// Defaults to DefaultFnArity unless MaxArgs is set explicitly.
 func (s FnSpec) Arity() int {
-	if s.MaxArgs != 0 {
-		return s.MaxArgs
-	}
-	return DefaultFnArity
+	return s.MaxArgs
 }
 
 // BuiltinFn returns the spec for a built-in function alias.
@@ -65,29 +58,29 @@ func BuiltinFnNames() []string {
 }
 
 var builtinFnTable = map[string]FnSpec{
-	"add":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"sub":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"mul":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"div":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"mod":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"max":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"min":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber},
-	"gt":           {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
-	"gte":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
-	"lt":           {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
-	"lte":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool},
-	"str_concat":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeStr},
-	"str_includes": {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
-	"str_starts":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
-	"str_ends":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
-	"bool_and":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
-	"bool_or":      {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
-	"bool_xor":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
-	"eq":           {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
-	"neq":          {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
-	"arr_includes": {Kind: FnKindArrInc},
-	"arr_get":      {Kind: FnKindArrGet},
-	"arr_concat":   {Kind: FnKindArrConcat},
+	"add":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"sub":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"mul":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"div":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"mod":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"max":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"min":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeNumber, MaxArgs: 2},
+	"gt":           {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"gte":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"lt":           {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"lte":          {Arg1Type: ast.FieldTypeNumber, Arg2Type: ast.FieldTypeNumber, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"str_concat":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeStr, MaxArgs: 2},
+	"str_includes": {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"str_starts":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"str_ends":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"bool_and":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"bool_or":      {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"bool_xor":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool, MaxArgs: 2},
+	"eq":           {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric, MaxArgs: 2},
+	"neq":          {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric, MaxArgs: 2},
+	"arr_includes": {Kind: FnKindArrInc, MaxArgs: 2},
+	"arr_get":      {Kind: FnKindArrGet, MaxArgs: 2},
+	"arr_concat":   {Kind: FnKindArrConcat, MaxArgs: 2},
 }
 
 // IsOperatorOnly reports whether fn must be used via infix syntax only.

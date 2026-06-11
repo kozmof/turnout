@@ -10,7 +10,7 @@ import {
   isPureBoolean,
 } from 'runtime';
 import type { SceneBlock, ActionModel } from '../src/types/turnout-model_pb.js';
-import { SceneRuntimeError } from '../src/executor/errors.js';
+import { SceneRuntimeError, PrepareError } from '../src/executor/errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -501,5 +501,31 @@ describe('executeScene — next rule compute without prog', () => {
 
     expect(result.trace.actions.map((a) => a.actionId)).toEqual(['start']);
     expect(result.terminatedAt).toEqual(['start']);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// executeSceneSafe — non-SceneRuntimeError re-throw
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('executeSceneSafe — non-SceneRuntimeError is re-thrown', () => {
+  it('re-throws PrepareError for an unregistered hook instead of returning ok:false', async () => {
+    // An action with a prepare entry that references an unregistered hook causes
+    // resolveActionPrepare to throw PrepareError. PrepareError is not a
+    // SceneRuntimeError, so executeSceneSafe must re-throw it rather than
+    // silently capturing it as { ok: false }.
+    const action = {
+      ...makePassAction('a', 1, 'x.v'),
+      prepare: [{ binding: 'unused', fromHook: 'missing_hook' }],
+    } as unknown as ActionModel;
+    const scene = {
+      id: 'rethrow_scene',
+      entryActions: ['a'],
+      actions: [action],
+    } as unknown as SceneBlock;
+
+    const promise = executeSceneSafe(scene, stateManagerFromUnchecked({}));
+    await expect(promise).rejects.toBeInstanceOf(PrepareError);
+    await expect(promise).rejects.toThrow('prepare hook "missing_hook" is not registered');
   });
 });

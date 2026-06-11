@@ -461,3 +461,27 @@ func TestEmitJSONNilModel(t *testing.T) {
 		t.Errorf("nil model JSON should not be empty")
 	}
 }
+
+// ─── chooseHeredocDelim: hash-fallback path ───────────────────────────────────
+
+func TestChooseHeredocDelimHashFallback(t *testing.T) {
+	// All four standard candidates appear as bare lines so they all collide.
+	// The fast "EOT" path fires first; the slow-path candidates also collide,
+	// forcing the hash fallback to produce a "TURN_EOT_xxxxxxxx" delimiter.
+	text := "EOT\nTURN_EOT\nTURN_EOT_1\nTURN_EOT_2"
+	delim, err := emit.ChooseHeredocDelim(text, "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if delim == "" {
+		t.Fatal("expected a non-empty delimiter")
+	}
+	for _, known := range []string{"EOT", "TURN_EOT", "TURN_EOT_1", "TURN_EOT_2"} {
+		if delim == known {
+			t.Errorf("hash fallback should not return known candidate %q", known)
+		}
+	}
+	if !strings.HasPrefix(delim, "TURN_EOT_") {
+		t.Errorf("hash-fallback delimiter should start with TURN_EOT_, got %q", delim)
+	}
+}

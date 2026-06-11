@@ -52,6 +52,14 @@ type DiagSink struct {
 func (s *DiagSink) IsHalted() bool { return s.halted }
 func (s *DiagSink) AtCap() bool    { return len(s.Diags) >= MaxDiagnostics }
 
+// Flush returns the collected diagnostics and clears the sink's slice,
+// preventing double-use of the same sink across pipeline stages.
+func (s *DiagSink) Flush() Diagnostics {
+	diags := s.Diags
+	s.Diags = nil
+	return diags
+}
+
 // Halt marks the sink as halted. If the last entry is not already a
 // TooManyDiagnostics sentinel, one is appended so callers always know that
 // truncation occurred when the sink is halted.

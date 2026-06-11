@@ -253,6 +253,7 @@ export async function executeSceneSafe(
     while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };
   } catch (err) {
+    if (!(err instanceof SceneRuntimeError)) throw err;
     return {
       ok: false,
       error: err,
@@ -299,12 +300,14 @@ function evaluateNextRules(
   result: ActionExecutionResult,
   policy: string,
 ): NextRulesResult {
+  const rules = action.next ?? [];
+  if (rules.length === 0) return { matches: [], warnings: [] };
+
   // Cache is scoped per invocation: state and result are constant within one
   // action's next-rule evaluation, so rules that share the same object identity
   // safely share a context. Object-identity keying avoids expensive JSON
   // serialisation; the WeakMap is released when this invocation returns.
   const ctxCache = new Map<NextRuleModel, BuiltContext>();
-  const rules = action.next ?? [];
   const matches: string[] = [];
   const warnings: string[] = [];
 

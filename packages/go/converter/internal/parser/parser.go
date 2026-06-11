@@ -19,9 +19,9 @@ func ParseFile(file, src string) (*ast.TurnFile, diag.Diagnostics) {
 	p := &parser{tokens: tokens, file: file, requiresScenes: true}
 	tf := p.parseFile()
 	if p.Diags.HasErrors() {
-		return nil, p.Diags
+		return nil, p.Flush()
 	}
-	return tf, p.Diags
+	return tf, p.Flush()
 }
 
 // ParseStateFile parses a state-only file (no scene block required).
@@ -35,7 +35,7 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 	tf := p.parseFile()
 
 	if p.Diags.HasErrors() {
-		return nil, p.Diags
+		return nil, p.Flush()
 	}
 
 	if tf == nil || tf.StateSource == nil {
@@ -47,7 +47,7 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 		return nil, diag.Diagnostics{diag.Errorf("MissingStateBlock",
 			"state file %q must contain a literal state block, not state_file", file)}
 	}
-	return inline, p.Diags
+	return inline, p.Flush()
 }
 
 // ─── parser state ────────────────────────────────────────────────────────────

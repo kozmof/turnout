@@ -53,9 +53,9 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 	tm.Routes = lowerRouteBlocks(file.Routes)
 
 	if ds.Diags.HasErrors() {
-		return nil, ds.Diags
+		return nil, ds.Flush()
 	}
-	return &LowerResult{Model: tm, Schema: schema}, ds.Diags
+	return &LowerResult{Model: tm, Schema: schema}, ds.Flush()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

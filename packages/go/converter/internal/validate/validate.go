@@ -75,7 +75,7 @@ func Validate(in ValidateInput) diag.Diagnostics {
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
 		validateRoutes(tm.Routes, knownScenes, knownActions, &ds)
 	}
-	return ds.Diags
+	return ds.Flush()
 }
 
 func buildKnownScenesAndActions(tm *turnoutpb.TurnModel) (map[string]bool, map[string]map[string]bool) {
@@ -204,7 +204,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		}
 	}
 
-	validateCombineArgTypes(b.Name, c, spec, scope, ds)
+	validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q", b.Name), c.Fn, spec, c.Args, scope, nil, ds)
 }
 
 func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {
@@ -253,7 +253,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 			}
 		}
 
-		validatePipeStepArgTypes(b.Name, i, step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
+		validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
 		retType, known := resolveExpectedReturn(spec, step.Args, pipeScope, stepTypes)
 		stepTypes = append(stepTypes, retType)
 		stepKnown = append(stepKnown, known)
@@ -469,14 +469,6 @@ func validateBinaryFnArgs(
 	t1, ok1 := resolveArgType(args[0], scope, stepTypes)
 	t2, ok2 := resolveArgType(args[1], scope, stepTypes)
 	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
-}
-
-func validatePipeStepArgTypes(bindingName string, stepIdx int, fn string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.DiagSink) {
-	validateBinaryFnArgs(bindingName, fmt.Sprintf("binding %q pipe step %d", bindingName, stepIdx), fn, spec, args, scope, stepTypes, ds)
-}
-
-func validateCombineArgTypes(bindingName string, c *turnoutpb.CombineExpr, spec fnmeta.FnSpec, scope map[string]bindingInfo, ds *diag.DiagSink) {
-	validateBinaryFnArgs(bindingName, fmt.Sprintf("binding %q", bindingName), c.Fn, spec, c.Args, scope, nil, ds)
 }
 
 // argHasEmptyArrayLit reports whether arg carries an empty array literal.

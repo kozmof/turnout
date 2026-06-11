@@ -221,6 +221,14 @@ export function stateManagerFromSchema(
       typeMap.set(path, field.type);
     }
   }
+  for (const path of Object.keys(overrides)) {
+    assertSafePath(path);
+    if (!validPaths.has(path)) {
+      throw new Error(
+        `StateManager: unknown override path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+      );
+    }
+  }
   return make({ ...defaults, ...overrides }, validPaths, typeMap);
 }
 

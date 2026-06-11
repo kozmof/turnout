@@ -111,7 +111,7 @@ func Tokenize(file, src string) ([]Token, diag.Diagnostics) {
 		col:  1,
 	}
 	l.run()
-	return l.toks, l.Diags
+	return l.toks, l.Flush()
 }
 
 // normalizeLineEndings converts \r\n and lone \r to \n in a rune slice.

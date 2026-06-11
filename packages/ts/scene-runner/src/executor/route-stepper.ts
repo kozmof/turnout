@@ -158,7 +158,11 @@ export function createRouteStepper(
     for (;;) {
       if (!sceneExecutor.isDone()) {
         const step = await sceneExecutor.next();
-        if (step.done) continue;
+        if (step.done) {
+          throw new Error(
+            'RouteStepper: invariant violated — sceneExecutor.next() returned done=true after isDone()=false',
+          );
+        }
 
         session.recordAction(step.trace.actionId);
         return { done: false, sceneId: session.currentSceneId, trace: step.trace };

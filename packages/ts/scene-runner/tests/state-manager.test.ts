@@ -430,3 +430,33 @@ describe('StateManager — isDeclared() and exists()', () => {
     expect(sm2.exists('never.written')).toBe(true);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// stateManagerFromSchema — override validation
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('stateManagerFromSchema — override key validation', () => {
+  const model = {
+    namespaces: [
+      {
+        name: 'session',
+        fields: [
+          { name: 'count', type: 'number', value: 0 },
+          { name: 'label', type: 'str', value: '' },
+        ],
+      },
+    ],
+  } as unknown as StateModel;
+
+  it('accepts a valid override key', () => {
+    const sm = stateManagerFromSchema(model, { 'session.count': buildNumber(42) });
+    const v = sm.read('session.count');
+    expect(isPureNumber(v) && v.value).toBe(42);
+  });
+
+  it('throws at construction time for an unknown override key', () => {
+    expect(() =>
+      stateManagerFromSchema(model, { 'session.typo': buildString('oops') }),
+    ).toThrow(/unknown override path "session\.typo"/);
+  });
+});

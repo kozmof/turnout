@@ -27,6 +27,10 @@ type Diagnostics = diag.Diagnostics
 type Schema = state.Schema
 type FieldMeta = state.FieldMeta
 
+// LowerResult is re-exported from the internal lower package so callers can
+// use CompileToModel without importing internal paths.
+type LowerResult = lower.LowerResult
+
 // CompileResult bundles the artifacts of a successful Compile run.
 type CompileResult struct {
 	// Model is the lowered, validated proto model.
@@ -58,6 +62,31 @@ func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 // override it. Unlike Compile, no file I/O is performed.
 func CompileSource(name, src, stateBasePath string) (*CompileResult, Diagnostics) {
 	return compileBytes(name, []byte(src), stateBasePath)
+}
+
+// CompileToModel runs parse → state-resolve → lower for an in-memory source
+// string, stopping before the validate and emit stages. This is the entry point
+// for tooling (LSP, incremental checkers) that needs the lowered proto model
+// without the cost of full validation. name and stateBasePath follow the same
+// conventions as CompileSource.
+//
+// Returns (nil, errors) when parse or lower fails. On success the returned
+// *LowerResult contains Model and Schema; non-fatal diagnostics (e.g. unused
+// bindings surfaced by the lowerer) are not included since validation is skipped.
+func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics) {
+	base := stateBasePath
+	if base == "" {
+		base = filepath.Dir(name)
+	}
+	turnFile, ds1 := parser.ParseFile(name, src)
+	if ds1.HasErrors() {
+		return nil, ds1
+	}
+	lr, ds2 := lower.LowerResolvingState(turnFile, base)
+	if ds2.HasErrors() {
+		return nil, ds2
+	}
+	return lr, nil
 }
 
 // CompileToHCL runs the full pipeline and writes canonical HCL to w.
