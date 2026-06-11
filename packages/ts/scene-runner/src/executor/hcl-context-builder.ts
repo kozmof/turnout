@@ -95,6 +95,9 @@ function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
 // HCL function name → runtime BinaryFnNames mapping
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Authoritative source: spec/fn-aliases.json.
+// Kept in sync with the Go builtinFnTable by tests/fn-map-coverage.test.ts.
+// When adding a new built-in: update spec/fn-aliases.json first, then this map.
 export const FN_MAP: Record<string, BinaryFnNames> = {
   // Number arithmetic
   add: 'binaryFnNumber::add',
@@ -143,7 +146,7 @@ function mapFnName(hclFn: string, contextId: string): BinaryFnNames {
 // Literal inference
 // ─────────────────────────────────────────────────────────────────────────────
 
-function inferLiteralAnyValue(lit: unknown): AnyValue {
+function inferLiteralAnyValue(lit: unknown, contextId: string): AnyValue {
   const v = protoValueToJs(lit);
   if (typeof v === 'number') return literalToValue(v, 'number');
   if (typeof v === 'string') return literalToValue(v, 'str');
@@ -153,15 +156,19 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
     const first = v[0];
     const firstType = typeof first;
     if (!v.every((e) => typeof e === firstType)) {
-      throw new Error(
-        `inferLiteralAnyValue: heterogeneous array literal — all elements must share one JS type (first element is ${firstType})`,
+      throw new SceneRuntimeError(
+        'UnknownArgModel',
+        contextId,
+        `heterogeneous array literal — all elements must share one JS type (first element is ${firstType})`,
       );
     }
     if (firstType === 'number') return literalToValue(v, 'arr<number>');
     if (firstType === 'string') return literalToValue(v, 'arr<str>');
     if (firstType === 'boolean') return literalToValue(v, 'arr<bool>');
   }
-  throw new Error(
+  throw new SceneRuntimeError(
+    'UnknownArgModel',
+    contextId,
     `unrecognized protobuf value kind for inline literal: ${typeof v}`,
   );
 }
@@ -350,7 +357,7 @@ class ContextSpecBuilder {
   // Register a synthetic value binding for an inline literal arg.
   private addLitBinding(lit: unknown): string {
     const name = `__lit_${this.litCounter++}`;
-    this.spec[name] = inferLiteralAnyValue(lit);
+    this.spec[name] = inferLiteralAnyValue(lit, this.contextId);
     return name;
   }
 }

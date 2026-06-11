@@ -124,28 +124,6 @@ export function createSceneExecutor(
   let stepCount = 0;
   let currentAction: string | undefined;
 
-  function drainVisited(): void {
-    while (queueHead < queue.length && visited.has(queue[queueHead]!)) {
-      const dup = queue[queueHead]!;
-      const source = enqueueSource.get(dup) ?? '<entry>';
-      // Under all-match policy the same action may be enqueued by multiple next
-      // rules. The visited guard prevents re-execution, but silently dropping
-      // the entry can surprise authors. Record a warning so it is visible in the trace.
-      // Under first-match policy a duplicate entry indicates a next rule pointed
-      // to an already-executed action, which is also worth surfacing.
-      if (policy === 'all-match') {
-        sceneWarnings.push(
-          `action "${dup}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
-        );
-      } else if (policy === 'first-match') {
-        sceneWarnings.push(
-          `action "${dup}" was enqueued by "${source}" but already ran (first-match); next rule points to an already-executed action`,
-        );
-      }
-      queueHead++;
-    }
-  }
-
   function isDone(): boolean {
     return queueHead >= queue.length;
   }
@@ -188,10 +166,34 @@ export function createSceneExecutor(
     };
     actionTraces.push(trace);
     for (const nextId of nextIds) {
-      if (!enqueueSource.has(nextId)) enqueueSource.set(nextId, actionId);
+      if (visited.has(nextId)) {
+        // The action already ran; warn and skip.
+        const source = enqueueSource.get(nextId) ?? '<entry>';
+        if (policy === 'all-match') {
+          sceneWarnings.push(
+            `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
+          );
+        } else if (policy === 'first-match') {
+          sceneWarnings.push(
+            `action "${nextId}" was enqueued by "${source}" but already ran (first-match); next rule points to an already-executed action`,
+          );
+        }
+        continue;
+      }
+      if (enqueueSource.has(nextId)) {
+        // Already queued but not yet visited. For all-match, warn that it will
+        // only run once. For first-match, silently de-dup (the item will run once).
+        if (policy === 'all-match') {
+          const source = enqueueSource.get(nextId)!;
+          sceneWarnings.push(
+            `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
+          );
+        }
+        continue;
+      }
+      enqueueSource.set(nextId, actionId);
       queue.push(nextId);
     }
-    drainVisited();
 
     currentAction = undefined;
     return { done: false, trace };

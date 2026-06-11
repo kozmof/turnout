@@ -338,6 +338,10 @@ export function createRouteRunner(
  * `next()` and `run()` may throw `SceneRuntimeError` or `RouteRuntimeError`.
  * Use `executeSceneSafe` if you need partial-state recovery on failure.
  *
+ * @throws {Error} When the model's version constraints are incompatible with the
+ *   current runtime (version too old, too new, or out of min/max bounds).
+ *   Thrown synchronously before any execution begins.
+ *
  * For testing individual modes without a full model, use `createSceneRunner` or
  * `createRouteRunner` directly.
  */

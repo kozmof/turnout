@@ -92,6 +92,10 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 // CompileToHCL runs the full pipeline and writes canonical HCL to w.
 // On success it returns the CompileResult alongside any warnings; on error it
 // returns nil and the error diagnostics without writing to w.
+//
+// The returned Diagnostics include non-fatal warnings from all pipeline stages
+// (parse, lower, validate, and emit). CompileResult.Warnings holds the same
+// set on success; it is nil on error.
 func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := Compile(inputPath, stateBasePath)
 	return compileAndWrite(w, result, ds, emitHCLFn)
@@ -100,6 +104,10 @@ func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult,
 // CompileToJSON runs the full pipeline and writes JSON to w.
 // On success it returns the CompileResult alongside any warnings; on error it
 // returns nil and the error diagnostics without writing to w.
+//
+// The returned Diagnostics include non-fatal warnings from all pipeline stages
+// (parse, lower, validate, and emit). CompileResult.Warnings holds the same
+// set on success; it is nil on error.
 func CompileToJSON(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := Compile(inputPath, stateBasePath)
 	return compileAndWrite(w, result, ds, emitJSONFn)

@@ -339,7 +339,7 @@ func (l *lex) run() {
 func (l *lex) skipWhitespace() {
 	for !l.atEnd() {
 		c := l.peek()
-		if c == ' ' || c == '\t' || c == '\r' || c == '\n' {
+		if c == ' ' || c == '\t' || c == '\n' {
 			l.advance()
 		} else {
 			break
@@ -546,6 +546,7 @@ func (l *lex) scanHeredoc(ln, co int) {
 
 	// Collect body lines until a line whose trimmed content equals delim
 	var rawLines []string
+	foundDelim := false
 	for !l.atEnd() {
 		var lineBuf strings.Builder
 		for !l.atEnd() && l.peek() != '\n' && l.peek() != '\r' {
@@ -560,9 +561,14 @@ func (l *lex) scanHeredoc(ln, co int) {
 		}
 		lineStr := lineBuf.String()
 		if strings.TrimSpace(lineStr) == delim {
+			foundDelim = true
 			break // end-of-heredoc marker reached
 		}
 		rawLines = append(rawLines, lineStr)
+	}
+	if !foundDelim {
+		l.errorf(ln, co, "unterminated heredoc: reached end of file without closing %q delimiter", delim)
+		return
 	}
 
 	// <<- strips common leading whitespace from body lines.
