@@ -886,7 +886,12 @@ function buildPipeSequence(
   // Pass 2: build each step binding with all metadata available
   const sequence: PipeStepBinding[] = [];
   for (let i = 0; i < builder.steps.length; i++) {
-    const step = builder.steps[i] as CombineBuilder;
+    const step = builder.steps[i];
+    if (step.__type !== 'combine') {
+      throw new Error(
+        `Pipe function '${funcId}' step ${i}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe.`,
+      );
+    }
     sequence.push(buildPipeStepBinding(step, builder, state, scope));
   }
   return sequence;

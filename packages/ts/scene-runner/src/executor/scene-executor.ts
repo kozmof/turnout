@@ -330,7 +330,7 @@ function evaluateNextRules(
       const cachedCtx = hasNoInject ? pureCtxCache.get(rule.compute.prog) : undefined;
       const builtCtx = cachedCtx ?? buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
       if (hasNoInject && !cachedCtx) pureCtxCache.set(rule.compute.prog, builtCtx);
-      const validated = assertValidContext(builtCtx.exec);
+      const validated = assertValidContext(builtCtx.getExec());
 
       const conditionName = rule.compute.condition;
       const condBinding = builtCtx.resolve(conditionName);

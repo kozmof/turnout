@@ -2,7 +2,10 @@
 // stages (lower, validate) to avoid cross-stage import dependencies.
 package names
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 const (
 	GeneratedIfCondPrefix = "__if_"
@@ -22,6 +25,16 @@ func LocalName(target, hint string, counter int) string {
 func IsGeneratedLocalName(name string) bool {
 	return len(name) > len(GeneratedLocalPrefix) &&
 		name[:len(GeneratedLocalPrefix)] == GeneratedLocalPrefix
+}
+
+// SplitStatePath splits a dotted "ns.field" state path into its namespace and
+// field components. Returns ("", "", false) when the separator '.' is absent.
+func SplitStatePath(key string) (ns, field string, ok bool) {
+	dot := strings.IndexByte(key, '.')
+	if dot < 0 {
+		return "", "", false
+	}
+	return key[:dot], key[dot+1:], true
 }
 
 // IsGeneratedIfCondName reports whether name was produced as a compiler-generated

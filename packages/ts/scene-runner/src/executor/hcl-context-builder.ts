@@ -1,6 +1,13 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import { SceneRuntimeError } from './errors.js';
 import type { AnyValue, BinaryFnNames, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
+
+// Local structural aliases for builder API arg shapes. These mirror the types
+// in runtime/src/compute-graph/builder/types.ts. They are not imported from
+// 'runtime' because those types are not part of the public runtime API surface.
+type LocalFuncOutputRef = { readonly __type: 'funcOutput'; readonly funcId: string };
+type LocalStepOutputRef = { readonly __type: 'stepOutput'; readonly pipeFuncId: string; readonly stepIndex: number };
+type LocalTransformRef  = { readonly __type: 'transform'; readonly valueRef: { readonly __type: 'value'; readonly id: string }; readonly transformFn: readonly string[] };
 import type { ProgModel, BindingModel, ArgModel } from '../types/turnout-model_pb.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
@@ -47,7 +54,12 @@ export type BindingResolution =
 export const MISSING_BINDING: BindingResolution = { kind: 'missing' };
 
 export type BuiltContext = {
-  exec: ExecutionContext;
+  /**
+   * Returns the underlying ExecutionContext for passing to `assertValidContext`
+   * or `executeGraph`. This is the only supported way to access the context
+   * outside of this module; direct field access is intentionally absent.
+   */
+  getExec(): ExecutionContext;
   /**
    * @internal Binding name → ValueId for every binding.
    * Prefer `resolveValueId()` for external access — it is the stable public API.
@@ -139,9 +151,15 @@ function inferLiteralAnyValue(lit: unknown): AnyValue {
   if (Array.isArray(v)) {
     if (v.length === 0) return buildArray([]);
     const first = v[0];
-    if (typeof first === 'number') return literalToValue(v, 'arr<number>');
-    if (typeof first === 'string') return literalToValue(v, 'arr<str>');
-    if (typeof first === 'boolean') return literalToValue(v, 'arr<bool>');
+    const firstType = typeof first;
+    if (!v.every((e) => typeof e === firstType)) {
+      throw new Error(
+        `inferLiteralAnyValue: heterogeneous array literal — all elements must share one JS type (first element is ${firstType})`,
+      );
+    }
+    if (firstType === 'number') return literalToValue(v, 'arr<number>');
+    if (firstType === 'string') return literalToValue(v, 'arr<str>');
+    if (firstType === 'boolean') return literalToValue(v, 'arr<bool>');
   }
   throw new Error(
     `unrecognized protobuf value kind for inline literal: ${typeof v}`,
@@ -180,8 +198,9 @@ class ContextSpecBuilder {
       if (binding.extExpr !== undefined) {
         throw new SceneRuntimeError(
           'UnsupportedConstruct', this.contextId,
-          `binding "${binding.name}": extExpr bindings are not supported at runtime — ` +
-          `this is a compiler bug (extExpr should never appear in JSON output)`,
+          `binding "${binding.name}": extExpr is a pre-lowering representation that must not appear in emitted JSON. ` +
+          `This model may have been produced by a pre-release converter that did not lower #if/#case/#pipe expressions. ` +
+          `Re-compile the source with the current converter to fix this.`,
         );
       }
       if (!binding.expr) {
@@ -274,27 +293,45 @@ class ContextSpecBuilder {
     return result;
   }
 
-  // Resolve an ArgModel to the appropriate reference type for the builder API.
+  /**
+   * Dispatch an ArgModel to its typed resolver. Returns `unknown` so the
+   * caller can apply `asCombineArg` at the builder API boundary; each
+   * individual variant is resolved by a typed private method below.
+   */
   private resolveArg(arg: ArgModel, currentPipeName?: string): unknown {
-    if (arg.ref !== undefined) {
-      // Function-binding outputs must be referenced via ref.output(), not as a
-      // bare string (which looks up a value slot that doesn't exist for funcs).
-      return this.functionBindingNames.has(arg.ref) ? runtimeRef.output(arg.ref) : arg.ref;
-    }
+    if (arg.ref !== undefined) return this.resolveRefArg(arg.ref);
     if (arg.funcRef !== undefined) return arg.funcRef;
-    if (arg.lit !== undefined) return this.addLitBinding(arg.lit);
-    if (arg.stepRef !== undefined) {
-      if (!currentPipeName) throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'step_ref used outside of pipe context');
-      return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: arg.stepRef };
-    }
-    if (arg.transform !== undefined) {
-      return {
-        __type: 'transform',
-        valueRef: { __type: 'value', id: arg.transform.ref },
-        transformFn: arg.transform.fn,
-      };
-    }
+    if (arg.lit !== undefined) return this.resolveLitArg(arg.lit);
+    if (arg.stepRef !== undefined) return this.resolveStepRefArg(arg.stepRef, currentPipeName);
+    if (arg.transform !== undefined) return this.resolveTransformArg(arg.transform);
     throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'unknown ArgModel variant encountered in hcl-context-builder');
+  }
+
+  /** Resolves a `ref` arg: plain string for value bindings, FuncOutputRef for function bindings. */
+  private resolveRefArg(ref: string): string | LocalFuncOutputRef {
+    // Function-binding outputs must be referenced via ref.output(), not as a
+    // bare string (which looks up a value slot that doesn't exist for funcs).
+    return this.functionBindingNames.has(ref) ? runtimeRef.output(ref) : ref;
+  }
+
+  /** Resolves a `lit` arg by registering a synthetic value binding and returning its name. */
+  private resolveLitArg(lit: unknown): string {
+    return this.addLitBinding(lit);
+  }
+
+  /** Resolves a `stepRef` arg to a StepOutputRef shape expected by the pipe builder API. */
+  private resolveStepRefArg(stepRef: number, currentPipeName: string | undefined): LocalStepOutputRef {
+    if (!currentPipeName) throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'step_ref used outside of pipe context');
+    return { __type: 'stepOutput', pipeFuncId: currentPipeName, stepIndex: stepRef };
+  }
+
+  /** Resolves a `transform` arg to a TransformRef shape expected by the combine builder API. */
+  private resolveTransformArg(transform: NonNullable<ArgModel['transform']>): LocalTransformRef {
+    return {
+      __type: 'transform',
+      valueRef: { __type: 'value', id: transform.ref },
+      transformFn: transform.fn,
+    };
   }
 
   // `cond()` accepts a binding id for the condition. The runtime builder then
@@ -412,7 +449,8 @@ export function buildContextFromProg(
       ? { kind: 'func',  id: asFuncId(ids[name] as string) }
       : { kind: 'value', id: asValueId(ids[name] as string) };
   }
-  const builtCtx: BuiltContext = { exec: result.exec, nameToValueId, resolveValueId: (name) => nameToValueId.get(name), resolve };
+  const exec = result.exec;
+  const builtCtx: BuiltContext = { getExec: () => exec, nameToValueId, resolveValueId: (name) => nameToValueId.get(name), resolve };
 
   if (!hasInjected) pureProgCtxCache.set(prog, builtCtx);
   return builtCtx;

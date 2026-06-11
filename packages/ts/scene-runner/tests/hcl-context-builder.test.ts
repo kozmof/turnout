@@ -27,7 +27,7 @@ import type { ProgModel, ArgModel } from '../src/types/turnout-model_pb.js';
 function runProg(ctx: BuiltContext, rootName: string) {
   const binding = ctx.resolve(rootName);
   const rootId = (binding.kind === 'func' ? binding.id : ctx.nameToValueId.get(rootName)) as FuncId;
-  const validated = assertValidContext(ctx.exec);
+  const validated = assertValidContext(ctx.getExec());
   return executeGraph(rootId, validated);
 }
 
@@ -693,7 +693,7 @@ describe('buildContextFromProg — pipe expr', () => {
       ],
     } as unknown as ProgModel;
     expect(() => buildContextFromProg(prog, {})).toThrow(
-      'extExpr bindings are not supported at runtime',
+      'extExpr is a pre-lowering representation that must not appear in emitted JSON',
     );
   });
 

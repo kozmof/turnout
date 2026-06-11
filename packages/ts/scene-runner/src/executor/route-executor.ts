@@ -55,7 +55,103 @@ export type RouteResult =
     };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Route executor
+// Mutable progress holder — threads last-committed state/sceneId to catch blocks
+// ─────────────────────────────────────────────────────────────────────────────
+
+type RouteProgress = {
+  currentSceneId: string;
+  currentState: StateManager;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared core loop
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Internal implementation of the route execution loop shared by `executeRoute`
+ * and `executeRouteSafe`. `progress` is mutated on each successful scene
+ * completion so callers can inspect the last committed state/sceneId on error.
+ */
+async function runRouteCore(
+  route: RouteModel,
+  scenes: Record<string, SceneBlock>,
+  hooks: HookRegistry,
+  options: RouteExecutionOptions,
+  progress: RouteProgress,
+): Promise<RouteExecutionResult> {
+  const maxRouteTransitions = options.maxRouteTransitions ?? DEFAULT_MAX_ROUTE_TRANSITIONS;
+  const parsedArms = parseMatchArms(route.match);
+  let routeTransitionCount = 0;
+  const history: string[] = [];
+  const sceneTraces: RouteTrace['scenes'] = [];
+  const warnings: RouteWarning[] = [];
+
+  for (;;) {
+    const scene = scenes[progress.currentSceneId];
+    if (!scene) throw new RouteRuntimeError('UnknownScene', route.id, `unknown scene "${progress.currentSceneId}"`);
+
+    // Route-driven entry: only the first declared entry action fires (spec §route-entry).
+    if (scene.entryActions.length > 1) {
+      warnings.push({
+        kind: 'multi_entry_action',
+        sceneId: progress.currentSceneId,
+        entryActions: scene.entryActions,
+      });
+    }
+    const routeEntry = scene.entryActions[0];
+    if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${progress.currentSceneId}" has no entry actions`);
+
+    const sceneResult = await executeScene(scene, progress.currentState, hooks, [routeEntry], options.maxSceneSteps);
+    // Commit state and record scene id only after a scene fully completes —
+    // partial states stay at the last successfully committed scene boundary.
+    progress.currentState = sceneResult.stateAfterScene;
+    sceneTraces.push(sceneResult.trace);
+
+    // Propagate scene-level warnings into structured route warnings.
+    if (sceneResult.trace.warnings) {
+      for (const msg of sceneResult.trace.warnings) {
+        warnings.push({ kind: 'scene_warning', sceneId: progress.currentSceneId, message: msg });
+      }
+    }
+
+    // Build the current-scene history slice used for pattern matching.
+    // Using only the current visit's actions (not accumulated global history) ensures
+    // that revisited scenes match against their current run, consistent with RouteStepper.
+    const sceneHistory = sceneResult.trace.actions.map(
+      (a) => `${progress.currentSceneId}.${a.actionId}`,
+    );
+
+    // Append to the global history accumulator (exposed on the result for callers).
+    history.push(...sceneHistory);
+
+    // Evaluate match arms against the current-scene slice only.
+    const nextSceneId = selectNextScene(sceneHistory, parsedArms, progress.currentSceneId);
+    if (nextSceneId === null) break; // No arm matched — route completes.
+
+    routeTransitionCount++;
+    if (routeTransitionCount > maxRouteTransitions) {
+      throw new RouteRuntimeError(
+        'MaxRouteTransitionsExceeded',
+        route.id,
+        `exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
+      );
+    }
+
+    progress.currentSceneId = nextSceneId;
+  }
+
+  return {
+    routeId: route.id,
+    finalState: progress.currentState.snapshot(),
+    history,
+    trace: { routeId: route.id, scenes: sceneTraces },
+    status: 'completed',
+    ...(warnings.length > 0 ? { warnings } : {}),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Public API
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -78,73 +174,8 @@ export async function executeRoute(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteExecutionResult> {
-  const maxRouteTransitions = options.maxRouteTransitions ?? DEFAULT_MAX_ROUTE_TRANSITIONS;
-  const parsedArms = parseMatchArms(route.match);
-  let routeTransitionCount = 0;
-  const history: string[] = [];
-  const sceneTraces: RouteTrace['scenes'] = [];
-  const warnings: RouteWarning[] = [];
-  let currentSceneId = entrySceneId;
-
-  for (;;) {
-    const scene = scenes[currentSceneId];
-    if (!scene) throw new RouteRuntimeError('UnknownScene', route.id, `unknown scene "${currentSceneId}"`);
-
-    // Route-driven entry: only the first declared entry action fires (spec §route-entry).
-    if (scene.entryActions.length > 1) {
-      warnings.push({
-        kind: 'multi_entry_action',
-        sceneId: currentSceneId,
-        entryActions: scene.entryActions,
-      });
-    }
-    const routeEntry = scene.entryActions[0];
-    if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${currentSceneId}" has no entry actions`);
-    const sceneResult = await executeScene(scene, state, hooks, [routeEntry], options.maxSceneSteps);
-    state = sceneResult.stateAfterScene;
-    sceneTraces.push(sceneResult.trace);
-
-    // Propagate scene-level warnings into structured route warnings.
-    if (sceneResult.trace.warnings) {
-      for (const msg of sceneResult.trace.warnings) {
-        warnings.push({ kind: 'scene_warning', sceneId: currentSceneId, message: msg });
-      }
-    }
-
-    // Build the current-scene history slice used for pattern matching.
-    // Using only the current visit's actions (not accumulated global history) ensures
-    // that revisited scenes match against their current run, consistent with RouteStepper.
-    const sceneHistory = sceneResult.trace.actions.map(
-      (a) => `${currentSceneId}.${a.actionId}`,
-    );
-
-    // Append to the global history accumulator (exposed on the result for callers).
-    history.push(...sceneHistory);
-
-    // Evaluate match arms against the current-scene slice only.
-    const nextSceneId = selectNextScene(sceneHistory, parsedArms, currentSceneId);
-    if (nextSceneId === null) break; // No arm matched — route completes.
-
-    routeTransitionCount++;
-    if (routeTransitionCount > maxRouteTransitions) {
-      throw new RouteRuntimeError(
-        'MaxRouteTransitionsExceeded',
-        route.id,
-        `exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
-      );
-    }
-
-    currentSceneId = nextSceneId;
-  }
-
-  return {
-    routeId: route.id,
-    finalState: state.snapshot(),
-    history,
-    trace: { routeId: route.id, scenes: sceneTraces },
-    status: 'completed',
-    ...(warnings.length > 0 ? { warnings } : {}),
-  };
+  const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
+  return runRouteCore(route, scenes, hooks, options, progress);
 }
 
 /**
@@ -160,75 +191,15 @@ export async function executeRouteSafe(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteResult> {
-  // Track the current scene id so it is available in the catch block regardless
-  // of where in the loop the error occurred.
-  let currentSceneId = entrySceneId;
-  const maxRouteTransitions = options.maxRouteTransitions ?? DEFAULT_MAX_ROUTE_TRANSITIONS;
-  const parsedArms = parseMatchArms(route.match);
-  let routeTransitionCount = 0;
-  const history: string[] = [];
-  const sceneTraces: RouteTrace['scenes'] = [];
-  const warnings: RouteWarning[] = [];
-  let currentState = state;
-
+  const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
   try {
-    for (;;) {
-      const scene = scenes[currentSceneId];
-      if (!scene) throw new RouteRuntimeError('UnknownScene', route.id, `unknown scene "${currentSceneId}"`);
-
-      if (scene.entryActions.length > 1) {
-        warnings.push({ kind: 'multi_entry_action', sceneId: currentSceneId, entryActions: scene.entryActions });
-      }
-      const routeEntry = scene.entryActions[0];
-      if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${currentSceneId}" has no entry actions`);
-
-      const sceneResult = await executeScene(scene, currentState, hooks, [routeEntry], options.maxSceneSteps);
-      // Update currentState only after a scene fully completes — partial states stay
-      // at the last successfully committed scene boundary.
-      currentState = sceneResult.stateAfterScene;
-      sceneTraces.push(sceneResult.trace);
-
-      if (sceneResult.trace.warnings) {
-        for (const msg of sceneResult.trace.warnings) {
-          warnings.push({ kind: 'scene_warning', sceneId: currentSceneId, message: msg });
-        }
-      }
-
-      const sceneHistory = sceneResult.trace.actions.map((a) => `${currentSceneId}.${a.actionId}`);
-      history.push(...sceneHistory);
-
-      const nextSceneId = selectNextScene(sceneHistory, parsedArms, currentSceneId);
-      if (nextSceneId === null) break;
-
-      routeTransitionCount++;
-      if (routeTransitionCount > maxRouteTransitions) {
-        throw new RouteRuntimeError(
-          'MaxRouteTransitionsExceeded',
-          route.id,
-          `exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
-        );
-      }
-
-      currentSceneId = nextSceneId;
-    }
-
-    return {
-      ok: true,
-      value: {
-        routeId: route.id,
-        finalState: currentState.snapshot(),
-        history,
-        trace: { routeId: route.id, scenes: sceneTraces },
-        status: 'completed',
-        ...(warnings.length > 0 ? { warnings } : {}),
-      },
-    };
+    return { ok: true, value: await runRouteCore(route, scenes, hooks, options, progress) };
   } catch (err) {
     return {
       ok: false,
       error: err,
-      partialState: currentState.snapshot(),
-      failedSceneId: currentSceneId,
+      partialState: progress.currentState.snapshot(),
+      failedSceneId: progress.currentSceneId,
     };
   }
 }

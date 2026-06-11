@@ -12,6 +12,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
+	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/proto"
 )
@@ -122,7 +123,7 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
 	default:
-		return &turnoutpb.StateModel{}
+		panic(fmt.Sprintf("lowerStateBlock: unhandled StateSource type %T — this is a compiler bug", src))
 	}
 }
 
@@ -229,13 +230,13 @@ func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *d
 				"lowerStateBlockFromSchemaOrdered: state key %q in declaration order not found in schema (stale order?)", key))
 			continue
 		}
-		dot := strings.IndexByte(key, '.')
-		if dot < 0 {
+		ns, field, ok := names.SplitStatePath(key)
+		if !ok {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"lowerStateBlockFromSchemaOrdered: state key %q has no namespace separator (internal error)", key))
 			continue
 		}
-		appendStateField(&nsList, nsIndex, key[:dot], key[dot+1:], meta)
+		appendStateField(&nsList, nsIndex, ns, field, meta)
 	}
 	return assembleStateModel(nsList)
 }

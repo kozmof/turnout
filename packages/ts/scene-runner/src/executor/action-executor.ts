@@ -51,7 +51,7 @@ export async function executeAction(
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues, action.id);
 
   // Step 3: validate the execution context.
-  const validatedCtx = assertValidContext(builtCtx.exec);
+  const validatedCtx = assertValidContext(builtCtx.getExec());
 
   // Step 4: execute all bindings in declaration (topological) order.
   // The converter guarantees that each binding's dependencies appear before it,
