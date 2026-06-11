@@ -2,6 +2,8 @@
 package lower
 
 import (
+	"fmt"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
@@ -44,7 +46,8 @@ func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, po
 	case *ast.FromHook:
 		return zeroStructpbFor(ft)
 	default:
-		return zeroStructpbFor(ft)
+		panic(fmt.Sprintf(
+			"actionPrepareResolver.resolveDefault: unhandled ActionPrepareSource type %T for binding %q — compiler bug", s, name))
 	}
 }
 
@@ -78,7 +81,8 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 	case *ast.FromLiteral:
 		return ast.LiteralToStructpb(s.Value)
 	default:
-		return zeroStructpbFor(ft)
+		panic(fmt.Sprintf(
+			"transitionPrepareResolver.resolveDefault: unhandled NextPrepareSource type %T for binding %q — compiler bug", s, name))
 	}
 }
 

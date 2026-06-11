@@ -152,6 +152,9 @@ function inferLiteralAnyValue(lit: unknown, contextId: string): AnyValue {
   if (typeof v === 'string') return literalToValue(v, 'str');
   if (typeof v === 'boolean') return literalToValue(v, 'bool');
   if (Array.isArray(v)) {
+    // An empty array is acceptable here: the Go validator rejects [] as a
+    // function argument (CodeEmptyArrayLitArg), so this path only fires for
+    // value bindings whose type is already known to the runtime from the schema.
     if (v.length === 0) return buildArray([]);
     const first = v[0];
     const firstType = typeof first;

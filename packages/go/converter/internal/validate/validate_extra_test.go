@@ -1617,3 +1617,27 @@ func TestUnderArityBinaryFnPipeStep(t *testing.T) {
 		t.Error("want InvalidBinaryArgShape for pipe step with 1 argument")
 	}
 }
+
+// ─── validatePipe: no params (scope alias path) ─────────────────────────────
+
+func TestValidatePipeNoParams(t *testing.T) {
+	// A pipe binding with no params (only steps that reference named value bindings
+	// from the outer scope) should validate cleanly and not regress the scope-alias
+	// optimisation (len(p.Params)==0 skips the map copy).
+	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(5)}
+	out := &turnoutpb.BindingModel{
+		Name: "out",
+		Type: "number",
+		Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: nil, // no params → scope alias path
+			Steps: []*turnoutpb.PipeStep{{
+				Fn:   "add",
+				Args: []*turnoutpb.ArgModel{{Ref: proto.String("x")}, {Lit: structpb.NewNumberValue(1)}},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
+	if ds.HasErrors() {
+		t.Errorf("expected no errors, got: %v", ds)
+	}
+} 

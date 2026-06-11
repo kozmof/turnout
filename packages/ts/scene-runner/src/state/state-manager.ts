@@ -58,6 +58,12 @@ export interface StateManager {
    */
   validPaths(): ReadonlySet<string> | null;
   /**
+   * Return true when this manager was created from a STATE schema and enforces
+   * path and type validation on every write. Equivalent to `validPaths() !== null`
+   * but reads more clearly at call sites.
+   */
+  isSchemaManaged(): boolean;
+  /**
    * Like read() but returns undefined when the path is undeclared (schema-backed managers)
    * or absent (unchecked managers), instead of throwing or returning buildNull('missing').
    * Use this to distinguish "path not found" from "path found, value is null".
@@ -115,6 +121,7 @@ function make(
       return make({ ...state, [path]: value }, validPaths, typeMap);
     },
     writeBatch: (batch) => {
+      const newState = { ...state };
       for (const [path, value] of Object.entries(batch)) {
         assertSafePath(path);
         if (validPaths !== null && !validPaths.has(path)) {
@@ -130,11 +137,13 @@ function make(
             );
           }
         }
+        newState[path] = value;
       }
-      return make({ ...state, ...batch }, validPaths, typeMap);
+      return make(newState, validPaths, typeMap);
     },
     snapshot: () => ({ ...state }),
     validPaths: () => validPaths,
+    isSchemaManaged: () => validPaths !== null,
     readOrUndefined: (path) => {
       assertSafePath(path);
       if (validPaths !== null && !validPaths.has(path)) return undefined;

@@ -211,9 +211,14 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 }
 
 func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {
-	pipeScope := make(map[string]bindingInfo, len(scope)+len(p.Params))
-	for k, v := range scope {
-		pipeScope[k] = v
+	var pipeScope map[string]bindingInfo
+	if len(p.Params) == 0 {
+		pipeScope = scope
+	} else {
+		pipeScope = make(map[string]bindingInfo, len(scope)+len(p.Params))
+		for k, v := range scope {
+			pipeScope[k] = v
+		}
 	}
 	for _, param := range p.Params {
 		srcInfo, ok := scope[param.SourceIdent]

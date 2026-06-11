@@ -460,3 +460,33 @@ describe('stateManagerFromSchema — override key validation', () => {
     ).toThrow(/unknown override path "session\.typo"/);
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// matchesArraySubtype — empty-array edge cases
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('matchesArraySubtype — empty-array edge cases', () => {
+  // An untyped empty array (buildArray([])) has subSymbol undefined.
+  // Schema-backed managers accept it for any arr<X> field because there is
+  // nothing to check element-wise; the Go validator rejects [] as a fn arg
+  // (CodeEmptyArrayLitArg) so this path only arises for value bindings where
+  // the schema already declares the expected type.
+  const arrSchema = {
+    namespaces: [{ name: 'ns', fields: [{ name: 'nums', type: 'arr<number>', value: [] }] }],
+  } as unknown as StateModel;
+
+  it('write() accepts an untyped empty array for an arr<number> field', () => {
+    const sm = stateManagerFromSchema(arrSchema);
+    expect(() => sm.write('ns.nums', buildArray([]))).not.toThrow();
+  });
+
+  it('write() accepts a typed buildArrayNumber for an arr<number> field', () => {
+    const sm = stateManagerFromSchema(arrSchema);
+    expect(() => sm.write('ns.nums', buildArrayNumber([buildNumber(1)]))).not.toThrow();
+  });
+
+  it('write() rejects a typed buildArrayString for an arr<number> field', () => {
+    const sm = stateManagerFromSchema(arrSchema);
+    expect(() => sm.write('ns.nums', buildArrayString([buildString('a')]))).toThrow(/expected arr<number>/);
+  });
+});

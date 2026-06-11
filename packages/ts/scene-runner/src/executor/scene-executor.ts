@@ -311,12 +311,6 @@ function evaluateNextRules(
   const matches: string[] = [];
   const warnings: string[] = [];
 
-  // Per-invocation cache for next-rule contexts with no prepare entries.
-  // Avoids rebuilding identical contexts when the same ProgModel object appears
-  // in multiple next rules within a single evaluateNextRules call.
-  // Rules with prepare entries are excluded because their injected values vary.
-  const pureCtxCache = new Map<object, BuiltContext>();
-
   for (const rule of rules) {
     let condMet: boolean;
 
@@ -328,10 +322,9 @@ function evaluateNextRules(
     } else {
       const prepare = rule.prepare ?? [];
       const nextPrepared = resolveNextPrepare(prepare, state, result);
-      const hasNoInject = prepare.length === 0;
-      const cachedCtx = hasNoInject ? pureCtxCache.get(rule.compute.prog) : undefined;
-      const builtCtx = cachedCtx ?? buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
-      if (hasNoInject && !cachedCtx) pureCtxCache.set(rule.compute.prog, builtCtx);
+      // buildContextFromProg carries its own module-level WeakMap cache for
+      // pure (no-inject) progs; no additional caching is needed here.
+      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
       const validated = assertValidContext(builtCtx.getExec());
 
       const conditionName = rule.compute.condition;

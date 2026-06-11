@@ -469,6 +469,10 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 		// Parser failed to parse this binding's RHS; a diagnostic was already recorded.
 		return nil
 	case nil:
+		// Compiler-bug sentinel: the parser always sets a non-nil RHS (even ErrorRHS
+		// for parse failures). A nil here means the caller constructed a BindingDecl
+		// incorrectly. CodeUnsupportedConstruct is intentional — there is no
+		// user-authored construct that produces this path.
 		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q has nil RHS — this is a compiler bug; please report the source file", name))
 		return nil
