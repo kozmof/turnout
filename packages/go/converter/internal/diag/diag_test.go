@@ -153,11 +153,11 @@ func TestDiagSinkAtCap(t *testing.T) {
 		s.Append(diag.Errorf("E", "diag %d", i))
 	}
 	if s.AtCap() {
-		t.Errorf("AtCap() should be false at %d entries (cap is %d)", len(s.Diags), diag.MaxDiagnostics)
+		t.Errorf("AtCap() should be false at %d entries (cap is %d)", s.Len(), diag.MaxDiagnostics)
 	}
 	s.Append(diag.Errorf("E", "diag %d", diag.MaxDiagnostics-1))
 	if !s.AtCap() {
-		t.Errorf("AtCap() should be true at %d entries (cap is %d)", len(s.Diags), diag.MaxDiagnostics)
+		t.Errorf("AtCap() should be true at %d entries (cap is %d)", s.Len(), diag.MaxDiagnostics)
 	}
 }
 
@@ -167,8 +167,8 @@ func TestDiagSinkAppendAtCap(t *testing.T) {
 	for i := range diag.MaxDiagnostics {
 		s.Append(diag.Errorf("E", "diag %d", i))
 	}
-	if len(s.Diags) != diag.MaxDiagnostics {
-		t.Fatalf("expected %d diagnostics before cap trigger, got %d", diag.MaxDiagnostics, len(s.Diags))
+	if s.Len() != diag.MaxDiagnostics {
+		t.Fatalf("expected %d diagnostics before cap trigger, got %d", diag.MaxDiagnostics, s.Len())
 	}
 
 	// The next Append should trigger Halt: the new diagnostic is dropped and
@@ -177,17 +177,17 @@ func TestDiagSinkAppendAtCap(t *testing.T) {
 	if !s.IsHalted() {
 		t.Error("DiagSink should be halted after cap exceeded")
 	}
-	if len(s.Diags) != diag.MaxDiagnostics+1 {
-		t.Errorf("expected %d entries (cap + sentinel), got %d", diag.MaxDiagnostics+1, len(s.Diags))
+	if s.Len() != diag.MaxDiagnostics+1 {
+		t.Errorf("expected %d entries (cap + sentinel), got %d", diag.MaxDiagnostics+1, s.Len())
 	}
-	last := s.Diags[len(s.Diags)-1]
+	last := s.Peek()[s.Len()-1]
 	if last.Code != diag.CodeTooManyDiagnostics {
 		t.Errorf("last diagnostic code = %q, want %q", last.Code, diag.CodeTooManyDiagnostics)
 	}
 	// The dropped diagnostic must not appear anywhere in the slice.
-	for _, d := range s.Diags {
+	for _, d := range s.Peek() {
 		if d.Message == "this should be dropped" {
-			t.Error("dropped diagnostic must not appear in DiagSink.Diags")
+			t.Error("dropped diagnostic must not appear in DiagSink")
 		}
 	}
 }
@@ -195,19 +195,19 @@ func TestDiagSinkAppendAtCap(t *testing.T) {
 func TestDiagSinkAppendWhenHalted(t *testing.T) {
 	var s diag.DiagSink
 	s.Halt()
-	before := len(s.Diags)
+	before := s.Len()
 	s.Append(diag.Errorf("E", "must be dropped"))
-	if len(s.Diags) != before {
-		t.Errorf("Append after Halt should be a no-op: len was %d, now %d", before, len(s.Diags))
+	if s.Len() != before {
+		t.Errorf("Append after Halt should be a no-op: len was %d, now %d", before, s.Len())
 	}
 }
 
 func TestDiagSinkHaltSentinelNotDuplicated(t *testing.T) {
 	var s diag.DiagSink
 	s.Halt()
-	count1 := countCode(s.Diags, diag.CodeTooManyDiagnostics)
+	count1 := countCode(s.Peek(), diag.CodeTooManyDiagnostics)
 	s.Halt()
-	count2 := countCode(s.Diags, diag.CodeTooManyDiagnostics)
+	count2 := countCode(s.Peek(), diag.CodeTooManyDiagnostics)
 	if count1 != 1 {
 		t.Errorf("first Halt() should append sentinel once, got %d sentinels", count1)
 	}

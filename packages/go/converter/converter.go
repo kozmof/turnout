@@ -86,7 +86,7 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 	if ds2.HasErrors() {
 		return nil, ds2
 	}
-	return lr, nil
+	return lr, ds2
 }
 
 // CompileToHCL runs the full pipeline and writes canonical HCL to w.

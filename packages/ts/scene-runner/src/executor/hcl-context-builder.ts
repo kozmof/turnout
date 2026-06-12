@@ -60,11 +60,6 @@ export type BuiltContext = {
    * outside of this module; direct field access is intentionally absent.
    */
   getExec(): ExecutionContext;
-  /**
-   * @internal Binding name → ValueId for every binding.
-   * Prefer `resolveValueId()` for external access — it is the stable public API.
-   */
-  nameToValueId: Map<string, ValueId>;
   /** Returns the ValueId for a binding name, or `undefined` when not found. */
   resolveValueId(name: string): ValueId | undefined;
   /**
@@ -460,7 +455,7 @@ export function buildContextFromProg(
       : { kind: 'value', id: asValueId(ids[name] as string) };
   }
   const exec = result.exec;
-  const builtCtx: BuiltContext = { getExec: () => exec, nameToValueId, resolveValueId: (name) => nameToValueId.get(name), resolve };
+  const builtCtx: BuiltContext = { getExec: () => exec, resolveValueId: (name) => nameToValueId.get(name), resolve };
 
   if (!hasInjected) pureProgCtxCache.set(prog, builtCtx);
   return builtCtx;

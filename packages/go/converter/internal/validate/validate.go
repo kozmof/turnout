@@ -144,8 +144,11 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 			}
 		}
 		return true
+	case ast.FieldTypeInvalid:
+		return false
+	default:
+		panic(fmt.Sprintf("structpbMatchesFieldType: unhandled FieldType %d — add a case when adding new FieldType values", ft))
 	}
-	return false
 }
 
 // structpbFieldType is a package-local alias for state.StructpbFieldType.
@@ -251,9 +254,10 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 
 		for _, arg := range step.Args {
 			if arg.StepRef != nil {
-				if int(*arg.StepRef) >= i {
+				idx := int(*arg.StepRef)
+				if idx < 0 || idx >= i {
 					ds.Append(diag.Errorf(diag.CodeStepRefOutOfBounds,
-						"binding %q pipe step %d: step_ref = %d is out of bounds (must be < %d)",
+						"binding %q pipe step %d: step_ref = %d is out of bounds (must be >= 0 and < %d)",
 						b.Name, i, *arg.StepRef, i))
 				}
 			} else {

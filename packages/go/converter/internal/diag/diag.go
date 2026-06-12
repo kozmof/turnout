@@ -42,21 +42,32 @@ func (d Diagnostic) Format() string {
 type Diagnostics []Diagnostic
 
 // DiagSink manages a diagnostic slice with a hard error cap.
+// Use Append/AppendAll to add diagnostics; read via Peek/Len/HasErrors.
+// Direct mutation of the internal slice is intentionally prevented so the cap
+// and halt invariants cannot be bypassed.
 type DiagSink struct {
-	// Diags holds collected diagnostics. Use Append() to add new entries so
-	// that the cap and halt logic are applied; direct reads are fine.
-	Diags  Diagnostics
+	diags  Diagnostics
 	halted bool
 }
 
 func (s *DiagSink) IsHalted() bool { return s.halted }
-func (s *DiagSink) AtCap() bool    { return len(s.Diags) >= MaxDiagnostics }
+func (s *DiagSink) AtCap() bool    { return len(s.diags) >= MaxDiagnostics }
+
+// Peek returns a read-only view of the collected diagnostics.
+// The slice must not be mutated by the caller; use Append/AppendAll instead.
+func (s *DiagSink) Peek() Diagnostics { return s.diags }
+
+// Len returns the number of collected diagnostics.
+func (s *DiagSink) Len() int { return len(s.diags) }
+
+// HasErrors reports whether any collected diagnostic has SeverityError.
+func (s *DiagSink) HasErrors() bool { return s.diags.HasErrors() }
 
 // Flush returns the collected diagnostics and clears the sink's slice,
 // preventing double-use of the same sink across pipeline stages.
 func (s *DiagSink) Flush() Diagnostics {
-	diags := s.Diags
-	s.Diags = nil
+	diags := s.diags
+	s.diags = nil
 	return diags
 }
 
@@ -65,8 +76,8 @@ func (s *DiagSink) Flush() Diagnostics {
 // truncation occurred when the sink is halted.
 func (s *DiagSink) Halt() {
 	if !s.halted {
-		if len(s.Diags) == 0 || s.Diags[len(s.Diags)-1].Code != CodeTooManyDiagnostics {
-			s.Diags = append(s.Diags, Errorf(CodeTooManyDiagnostics,
+		if len(s.diags) == 0 || s.diags[len(s.diags)-1].Code != CodeTooManyDiagnostics {
+			s.diags = append(s.diags, Errorf(CodeTooManyDiagnostics,
 				"too many diagnostics — further errors suppressed"))
 		}
 		s.halted = true
@@ -88,11 +99,11 @@ func (s *DiagSink) Append(d Diagnostic) {
 	if s.halted {
 		return
 	}
-	if len(s.Diags) >= MaxDiagnostics {
+	if len(s.diags) >= MaxDiagnostics {
 		s.Halt()
 		return
 	}
-	s.Diags = append(s.Diags, d)
+	s.diags = append(s.diags, d)
 }
 
 // HasErrors reports whether any diagnostic has SeverityError.

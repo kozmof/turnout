@@ -1,6 +1,7 @@
 package state
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -252,6 +253,9 @@ func literalMatchesType(lit ast.Literal, ft ast.FieldType) bool {
 			}
 		}
 		return true
+	case ast.FieldTypeInvalid:
+		return false
+	default:
+		panic(fmt.Sprintf("literalMatchesType: unhandled FieldType %d — add a case when adding new FieldType values", ft))
 	}
-	return false
 }

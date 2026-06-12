@@ -278,18 +278,22 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType, pc)
 	fallbackFn := ""
 	seenWildcard := false
-	wildcardIdx := -1
 	seenLiterals := make(map[string]bool)
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
 	for i, arm := range arms {
 		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
+			// Emit unreachable-arm diagnostics immediately, before lowering the
+			// wildcard body, so they are never lost if body-lowering halts the sink.
+			for j := i + 1; j < len(arms); j++ {
+				c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+					"binding %q: arm %d is unreachable (wildcard _ must be the last arm)", c.target, j))
+			}
 			seenWildcard = true
-			wildcardIdx = i
 			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft, pc)
 			continue
 		}
 		if seenWildcard {
-			continue // collected below
+			continue
 		}
 		if p, ok := arm.Pattern.(*ast.LiteralCasePattern); ok {
 			key := caseLiteralKey(p.Value)
@@ -303,12 +307,6 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 			seenLiterals[key] = true
 		}
 		conditionalArms = append(conditionalArms, arm)
-	}
-	if seenWildcard {
-		for i := wildcardIdx + 1; i < len(arms); i++ {
-			c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-				"binding %q: arm %d is unreachable (wildcard _ must be the last arm)", c.target, i))
-		}
 	}
 	if fallbackFn == "" {
 		fallbackFn = c.lowerFuncTemp(&ast.LocalLitExpr{Value: zeroLiteralFor(ft)}, "case_default", ft, pc)

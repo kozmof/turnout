@@ -53,7 +53,7 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 
 	tm.Routes = lowerRouteBlocks(file.Routes)
 
-	if ds.Diags.HasErrors() {
+	if ds.HasErrors() {
 		return nil, ds.Flush()
 	}
 	return &LowerResult{Model: tm, Schema: schema}, ds.Flush()
@@ -122,6 +122,10 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 				"state_file %q: field declaration order cannot be preserved; use LowerResolvingState()", s.Path))
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
+	case nil:
+		ds.Append(diag.Errorf(diag.CodeMissingStateSource,
+			"lowerStateBlock: nil StateSource — this is a compiler bug; please report the source file"))
+		return &turnoutpb.StateModel{}
 	default:
 		panic(fmt.Sprintf("lowerStateBlock: unhandled StateSource type %T — this is a compiler bug", src))
 	}

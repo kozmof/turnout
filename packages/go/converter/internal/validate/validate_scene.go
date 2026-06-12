@@ -114,9 +114,9 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 		return
 	}
 
-	preParseCount := len(ds.Diags)
+	preParseCount := ds.Len()
 	g, ok := overview.Parse(v.Flow, scene.Id, ds)
-	if !ok || len(ds.Diags) > preParseCount {
+	if !ok || ds.Len() > preParseCount {
 		return
 	}
 

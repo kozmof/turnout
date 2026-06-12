@@ -18,7 +18,7 @@ func ParseFile(file, src string) (*ast.TurnFile, diag.Diagnostics) {
 	}
 	p := &parser{tokens: tokens, file: file, requiresScenes: true}
 	tf := p.parseFile()
-	if p.Diags.HasErrors() {
+	if p.HasErrors() {
 		return nil, p.Flush()
 	}
 	return tf, p.Flush()
@@ -34,7 +34,7 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 	p := &parser{tokens: tokens, file: file, requiresScenes: false}
 	tf := p.parseFile()
 
-	if p.Diags.HasErrors() {
+	if p.HasErrors() {
 		return nil, p.Flush()
 	}
 

@@ -16,6 +16,39 @@ import (
 // Group B — Prog / binding validation
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Scope lookup abstraction ─────────────────────────────────────────────────
+//
+// scopeLookup is a read-only view of a binding scope. It is implemented by
+// mapScope (a plain map wrapper) and scopeChain (a linked-scope for #case
+// var-binder arms). Using an interface avoids O(n) map copies per arm.
+
+type scopeLookup interface {
+	get(name string) (bindingInfo, bool)
+}
+
+// mapScope wraps a flat map[string]bindingInfo so it satisfies scopeLookup.
+type mapScope map[string]bindingInfo
+
+func (m mapScope) get(name string) (bindingInfo, bool) {
+	v, ok := m[name]
+	return v, ok
+}
+
+// scopeChain extends a parent scopeLookup with a single local binding.
+// It is created by protoPatternScopeBindings for var-binder case arms.
+type scopeChain struct {
+	name   string
+	info   bindingInfo
+	parent scopeLookup
+}
+
+func (c *scopeChain) get(name string) (bindingInfo, bool) {
+	if name == c.name {
+		return c.info, true
+	}
+	return c.parent.get(name)
+}
+
 // progValidateCtx bundles the stable context fields threaded through prog
 // validation: schema and scene/action identity.
 type progValidateCtx struct {
@@ -153,6 +186,11 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			}
 		}
 
+		// For #if/#case/#pipe root bindings the lowerer sets both Expr (consumed
+		// by the TS runtime executor) and ExtExpr (used only for HCL emission).
+		// When ExtExpr is present, validate against the structured tree and skip
+		// the flat-Expr path — the two encode the same semantics and would
+		// produce duplicate diagnostics if both were checked.
 		if b.ExtExpr != nil {
 			validateNoEmptyArrayLitArgs(b, ds)
 			validateExtExprProto(b, b.ExtExpr, scope, ds)
@@ -215,17 +253,18 @@ func buildPosMap(bindings []*turnoutpb.BindingModel) map[string]ast.Pos {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, ds *diag.DiagSink) {
+	sl := mapScope(scope)
 	var ret ast.FieldType = ast.FieldTypeInvalid
 	var known bool
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_IfExpr:
-		ret, known = validateProtoLocalIf(b.Name, x.IfExpr.GetCond(), x.IfExpr.GetThen(), x.IfExpr.GetElseBranch(), scope, 0, false, ds)
+		ret, known = validateProtoLocalIf(b.Name, x.IfExpr.GetCond(), x.IfExpr.GetThen(), x.IfExpr.GetElseBranch(), sl, 0, false, ds)
 	case *turnoutpb.LocalExprModel_CaseExpr:
-		ret, known = validateProtoLocalCase(b.Name, x.CaseExpr.GetSubject(), x.CaseExpr.GetArms(), scope, 0, false, ds)
+		ret, known = validateProtoLocalCase(b.Name, x.CaseExpr.GetSubject(), x.CaseExpr.GetArms(), sl, 0, false, ds)
 	case *turnoutpb.LocalExprModel_PipeExpr:
-		ret, known = validateProtoLocalPipe(b.Name, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), scope, 0, false, ds)
+		ret, known = validateProtoLocalPipe(b.Name, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), sl, 0, false, ds)
 	case *turnoutpb.LocalExprModel_Infix:
-		ret, known = validateProtoLocalInfix(b.Name, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), scope, 0, false, ds)
+		ret, known = validateProtoLocalInfix(b.Name, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), sl, 0, false, ds)
 	default:
 		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: unsupported extended expression type %T", b.Name, e.Expr))
@@ -246,14 +285,14 @@ func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel
 	}
 }
 
-func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	if e == nil {
 		return 0, false
 	}
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_Ref:
 		name := x.Ref.GetName()
-		info, ok := scope[name]
+		info, ok := scope.get(name)
 		if !ok {
 			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", bindingName, name))
@@ -290,7 +329,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 	}
 }
 
-func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalExprModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	spec, ok := fnmeta.BuiltinFn(fn)
 	if !ok {
 		ds.Append(diag.Errorf(diag.CodeUnknownFnAlias,
@@ -306,7 +345,7 @@ func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalE
 	return resolveLocalCallReturn(spec, types, known)
 }
 
-func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turnoutpb.LocalExprModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	lhsType, lhsOK := validateProtoLocalExpr(bindingName, lhs, scope, itType, itAllowed, ds)
 	rhsType, rhsOK := validateProtoLocalExpr(bindingName, rhs, scope, itType, itAllowed, ds)
 	// InfixPlus dispatches to "str_concat" or "add" based on the LHS type.
@@ -328,7 +367,7 @@ func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turno
 	return resolveLocalCallReturn(spec, []ast.FieldType{lhsType, rhsType}, []bool{lhsOK, rhsOK})
 }
 
-func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutpb.LocalExprModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	condType, condOK := validateProtoLocalExpr(bindingName, cond, scope, itType, itAllowed, ds)
 	if condOK && condType != ast.FieldTypeBool {
 		ds.Append(diag.Errorf(diag.CodeCondNotBool,
@@ -350,7 +389,7 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 	return 0, false
 }
 
-func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
 	var ret ast.FieldType = ast.FieldTypeInvalid
 	retOK := false
@@ -379,7 +418,7 @@ func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprMode
 	return ret, retOK
 }
 
-func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprModel, steps []*turnoutpb.LocalExprModel, scope map[string]bindingInfo, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprModel, steps []*turnoutpb.LocalExprModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	current, known := validateProtoLocalExpr(bindingName, initial, scope, itType, itAllowed, ds)
 	for _, step := range steps {
 		stepType, stepOK := validateProtoLocalExpr(bindingName, step, scope, current, true, ds)
@@ -403,33 +442,17 @@ func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel
 	}
 }
 
-func protoPatternScopeBindings(scope map[string]bindingInfo, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool) map[string]bindingInfo {
+func protoPatternScopeBindings(scope scopeLookup, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool) scopeLookup {
 	if p == nil {
 		return scope
 	}
-	next := scope
-	copied := false
-	var add func(*turnoutpb.LocalCasePatternModel)
-	add = func(pat *turnoutpb.LocalCasePatternModel) {
-		if pat == nil {
-			return
-		}
-		switch x := pat.Pattern.(type) {
-		case *turnoutpb.LocalCasePatternModel_VarBinder:
-			if !copied {
-				next = make(map[string]bindingInfo, len(scope)+1)
-				for k, v := range scope {
-					next[k] = v
-				}
-				copied = true
-			}
-			if subjectKnown {
-				next[x.VarBinder.GetName()] = bindingInfo{fieldType: subjectType}
-			}
+	switch x := p.Pattern.(type) {
+	case *turnoutpb.LocalCasePatternModel_VarBinder:
+		if subjectKnown {
+			return &scopeChain{name: x.VarBinder.GetName(), info: bindingInfo{fieldType: subjectType}, parent: scope}
 		}
 	}
-	add(p)
-	return next
+	return scope
 }
 
 // validateBinaryArgTypePair checks the two operand types of a binary function
@@ -543,9 +566,8 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 	}
 
 	processed := make(map[string]bool, len(bindings))
-	for len(queue) > 0 {
-		n := queue[0]
-		queue = queue[1:]
+	for head := 0; head < len(queue); head++ {
+		n := queue[head]
 		processed[n] = true
 		for _, dep := range dependencies[n] {
 			dependentCount[dep]--

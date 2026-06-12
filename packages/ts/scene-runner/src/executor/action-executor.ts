@@ -117,7 +117,7 @@ export async function executeAction(
     if (v !== undefined) bindingValues[binding.name] = v;
   }
 
-  const rootValueId = builtCtx.nameToValueId.get(action.compute.root);
+  const rootValueId = builtCtx.resolveValueId(action.compute.root);
   const computeRootValue = (rootValueId !== undefined ? updatedTable[rootValueId] : undefined) ?? buildNull('missing');
 
   // Step 5: apply merge entries in a single batch to avoid O(n) intermediate

@@ -47,7 +47,15 @@ const (
 	FieldTypeArrNumber                  //  4: arr<number>
 	FieldTypeArrStr                     //  5: arr<str>
 	FieldTypeArrBool                    //  6: arr<bool>
+	fieldTypeSentinel                   // unexported — marks the end of the valid range; add new types above this line
 )
+
+// Valid reports whether ft is a recognised (non-zero, in-range) FieldType.
+// Callers that switch on FieldType exhaustively can use this to guard against
+// future additions without recompiling this package.
+func (ft FieldType) Valid() bool {
+	return ft > FieldTypeInvalid && ft < fieldTypeSentinel
+}
 
 var fieldTypeNames = map[FieldType]string{
 	FieldTypeNumber:    "number",
