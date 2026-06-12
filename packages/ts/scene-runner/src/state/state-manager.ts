@@ -7,6 +7,10 @@ import {
   buildArrayString,
   buildArrayBoolean,
   buildNull,
+  isNumber,
+  isString,
+  isBoolean,
+  isArray,
 } from 'runtime';
 import type { AnyValue } from 'runtime';
 import { toJson } from '@bufbuild/protobuf';
@@ -154,12 +158,12 @@ function make(
 
 function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
   switch (schemaType) {
-    case 'number': return value.symbol === 'number';
-    case 'str': return value.symbol === 'string';
-    case 'bool': return value.symbol === 'boolean';
-    case 'arr<number>': return value.symbol === 'array' && matchesArraySubtype(value, 'number');
-    case 'arr<str>':    return value.symbol === 'array' && matchesArraySubtype(value, 'string');
-    case 'arr<bool>':   return value.symbol === 'array' && matchesArraySubtype(value, 'boolean');
+    case 'number': return isNumber(value);
+    case 'str':    return isString(value);
+    case 'bool':   return isBoolean(value);
+    case 'arr<number>': return isArray(value) && matchesArraySubtype(value, 'number');
+    case 'arr<str>':    return isArray(value) && matchesArraySubtype(value, 'string');
+    case 'arr<bool>':   return isArray(value) && matchesArraySubtype(value, 'boolean');
     default:
       throw new Error(`StateManager: unknown schema type "${schemaType}"`);
   }

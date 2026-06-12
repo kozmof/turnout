@@ -6,7 +6,6 @@ package lower
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -150,47 +149,6 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 	return sm
 }
 
-// lowerStateBlockFromSchema reconstructs a state block from the schema.
-// When order is non-empty, fields are emitted in declaration order (preserving
-// the author's source sequence). When order is empty, namespaces and fields are
-// sorted alphabetically for deterministic output.
-func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
-	if len(order) > 0 {
-		return lowerStateBlockFromSchemaOrdered(schema, order, ds)
-	}
-
-	if len(schema.Namespaces()) > 0 {
-		ds.Append(diag.Warnf(diag.CodeDeclarationOrderLost,
-			"state schema has fields but no declaration order was provided; emitting fields alphabetically"))
-	}
-
-	nsNames := schema.Namespaces()
-	slices.Sort(nsNames)
-
-	var nsList []nsEntry
-	for _, nsName := range nsNames {
-		var fieldNames []string
-		schema.RangeFields(nsName, func(name string, _ state.FieldMeta) {
-			fieldNames = append(fieldNames, name)
-		})
-		if len(fieldNames) == 0 {
-			continue
-		}
-		slices.Sort(fieldNames)
-
-		entry := nsEntry{name: nsName, fields: make([]*turnoutpb.FieldModel, 0, len(fieldNames))}
-		for _, fieldName := range fieldNames {
-			meta, _ := schema.Get(nsName + "." + fieldName)
-			entry.fields = append(entry.fields, &turnoutpb.FieldModel{
-				Name:  fieldName,
-				Type:  meta.Type.String(),
-				Value: meta.DefaultValue,
-			})
-		}
-		nsList = append(nsList, entry)
-	}
-	return assembleStateModel(nsList)
-}
 
 // nsEntry groups a namespace name with its accumulated fields for state model construction.
 type nsEntry struct {
@@ -222,22 +180,22 @@ func assembleStateModel(nsList []nsEntry) *turnoutpb.StateModel {
 	return sm
 }
 
-// lowerStateBlockFromSchemaOrdered reconstructs a state block preserving the
+// lowerStateBlockFromSchema reconstructs a state block preserving the
 // declaration order supplied by the caller (dotted "ns.field" keys).
-func lowerStateBlockFromSchemaOrdered(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
+func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
 	var nsList []nsEntry
 	nsIndex := make(map[string]int)
 	for _, key := range order {
 		meta, ok := schema.Get(key)
 		if !ok {
 			ds.Append(diag.Warnf(diag.CodeStaleDeclarationOrder,
-				"lowerStateBlockFromSchemaOrdered: state key %q in declaration order not found in schema (stale order?)", key))
+				"lowerStateBlockFromSchema: state key %q in declaration order not found in schema (stale order?)", key))
 			continue
 		}
 		ns, field, ok := names.SplitStatePath(key)
 		if !ok {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-				"lowerStateBlockFromSchemaOrdered: state key %q has no namespace separator (internal error)", key))
+				"lowerStateBlockFromSchema: state key %q has no namespace separator (internal error)", key))
 			continue
 		}
 		appendStateField(&nsList, nsIndex, ns, field, meta)

@@ -240,6 +240,19 @@ func TestDiagnosticsCappedNoOpWhenUnderLimit(t *testing.T) {
 	}
 }
 
+func TestDiagSinkFlushPreventsAppend(t *testing.T) {
+	var s diag.DiagSink
+	s.Append(diag.Errorf("E", "before flush"))
+	_ = s.Flush()
+	defer func() {
+		r := recover()
+		if r == nil {
+			t.Fatal("expected panic after Append following Flush, got none")
+		}
+	}()
+	s.Append(diag.Errorf("E", "after flush — should panic"))
+}
+
 func countCode(ds diag.Diagnostics, code string) int {
 	n := 0
 	for _, d := range ds {

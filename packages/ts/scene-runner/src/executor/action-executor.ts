@@ -58,11 +58,7 @@ export async function executeAction(
   // so a single forward pass with an accumulated valueTable is sufficient — no
   // binding is ever executed twice, including side-branch bindings not reachable
   // from the root.
-  //
-  // updatedTable starts as a reference to the validated context's read-only table.
-  // It is copied on first write (copy-on-write) so that progs with only literal
-  // bindings incur no allocation here at all.
-  let updatedTable: Record<string, AnyValue> = validatedCtx.valueTable;
+  let updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
 
   let ctxTrees = treesByBuiltCtx.get(builtCtx);
@@ -98,10 +94,6 @@ export async function executeAction(
         ctxTrees.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
-      // Copy on first write so we never mutate validatedCtx.valueTable.
-      if (updatedTable === validatedCtx.valueTable) {
-        updatedTable = { ...validatedCtx.valueTable };
-      }
       mergeIntoValueTable(updatedTable, result.updatedValueTable);
 
       if (!Object.hasOwn(updatedTable, valueId)) {

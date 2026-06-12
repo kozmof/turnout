@@ -196,7 +196,35 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		validateArgRefs(b.Name, arg, scope, ds)
 	}
 
-	if retType, known := resolveExpectedReturn(spec, c.Args, scope, nil); known {
+	// Resolve arg types once; reuse for both return-type and arg-type checks.
+	var t1, t2 ast.FieldType
+	var ok1, ok2 bool
+	if len(c.Args) >= 1 {
+		t1, ok1 = resolveArgType(c.Args[0], scope, nil)
+	}
+	if len(c.Args) >= 2 {
+		t2, ok2 = resolveArgType(c.Args[1], scope, nil)
+	}
+
+	// Return-type check: polymorphic kinds derive return type from arg[0];
+	// all other kinds use the static ReturnType from FnSpec.
+	retType := ast.FieldTypeInvalid
+	var retKnown bool
+	switch spec.Kind {
+	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
+		retType, retKnown = ast.FieldTypeBool, true
+	case fnmeta.FnKindArrGet:
+		if ok1 && t1.IsArray() {
+			retType, retKnown = t1.ElemType(), true
+		}
+	case fnmeta.FnKindArrConcat:
+		if ok1 {
+			retType, retKnown = t1, true
+		}
+	default:
+		retType, retKnown = spec.ReturnType, true
+	}
+	if retKnown {
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
 			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
@@ -210,7 +238,23 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		}
 	}
 
-	validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q", b.Name), c.Fn, spec, c.Args, scope, nil, ds)
+	// Arity check.
+	contextLabel := fmt.Sprintf("binding %q", b.Name)
+	maxArgs := spec.Arity()
+	if len(c.Args) > maxArgs {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
+			"%s: function %q accepts at most %d argument(s), got %d",
+			contextLabel, c.Fn, maxArgs, len(c.Args)))
+	}
+	if len(c.Args) < maxArgs {
+		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
+			"%s: function %q requires %d argument(s), got %d",
+			contextLabel, c.Fn, maxArgs, len(c.Args)))
+		return
+	}
+	if len(c.Args) >= 2 {
+		validateBinaryArgTypePair(b.Name, c.Fn, spec, t1, ok1, t2, ok2, ds)
+	}
 }
 
 func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {

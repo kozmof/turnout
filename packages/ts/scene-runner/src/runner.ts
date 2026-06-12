@@ -272,31 +272,34 @@ export function createRouteRunner(
     signal,
   );
 
-  let done = false;
-  let prevSceneId = entryScene.id;
-  let pendingStep: { sceneId: string; trace: ActionTrace } | null = null;
+  type RouteAdvanceState =
+    | { kind: 'advancing'; prevSceneId: string }
+    | { kind: 'transition-emitted'; pendingAction: { sceneId: string; trace: ActionTrace } }
+    | { kind: 'done' };
+
+  let advState: RouteAdvanceState = { kind: 'advancing', prevSceneId: entryScene.id };
 
   async function advanceRoute(): Promise<RunnerStepResult> {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
-    if (done) return { done: true };
+    if (advState.kind === 'done') return { done: true };
+
     // Return a deferred action step that was stashed while emitting a transition.
-    if (pendingStep !== null) {
-      const step = pendingStep;
-      pendingStep = null;
-      return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
+    if (advState.kind === 'transition-emitted') {
+      const { pendingAction } = advState;
+      advState = { kind: 'advancing', prevSceneId: pendingAction.sceneId };
+      return { done: false, kind: 'action', sceneId: pendingAction.sceneId, actionId: pendingAction.trace.actionId, trace: pendingAction.trace };
     }
 
     const step = await routeStepper.next();
     if (step.done) {
-      done = true;
+      advState = { kind: 'done' };
       return { done: true };
     }
 
     // Emit a scene-transition event before the first action of a new scene.
-    if (step.sceneId !== prevSceneId) {
-      const fromSceneId = prevSceneId;
-      prevSceneId = step.sceneId;
-      pendingStep = { sceneId: step.sceneId, trace: step.trace };
+    if (step.sceneId !== advState.prevSceneId) {
+      const fromSceneId = advState.prevSceneId;
+      advState = { kind: 'transition-emitted', pendingAction: { sceneId: step.sceneId, trace: step.trace } };
       return { done: false, kind: 'scene-transition', fromSceneId, toSceneId: step.sceneId };
     }
 
@@ -306,9 +309,9 @@ export function createRouteRunner(
   return makeRunnerMethods(
     hooks,
     advanceRoute,
-    () => done,
+    () => advState.kind === 'done',
     () => {
-      if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
+      if (advState.kind !== 'done') throw new Error('Runner: execution is not complete — call run() or step until isDone()');
       const { finalState, trace } = routeStepper.result();
       return {
         finalState: finalState.snapshot(),

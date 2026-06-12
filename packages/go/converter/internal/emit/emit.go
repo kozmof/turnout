@@ -619,6 +619,9 @@ func writeStructpbValue(v *structpb.Value) string {
 // bindingType is the declared DSL type string of the enclosing binding (e.g. "str", "number"),
 // used to resolve the InfixPlus operator to "str_concat" vs "add".
 func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) {
+	if iw.err != nil {
+		return
+	}
 	iw.wl("expr  = {")
 	iw.depth++
 	switch x := e.Expr.(type) {
@@ -665,6 +668,9 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 	if e == nil {
 		panic("localExprInline: nil LocalExprModel — this is a compiler bug; every branch of a #if/#case/#pipe must produce a non-nil node")
+	}
+	if iw.err != nil {
+		return `{ ref = "" }`
 	}
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_Ref:

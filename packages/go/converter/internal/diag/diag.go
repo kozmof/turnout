@@ -46,8 +46,9 @@ type Diagnostics []Diagnostic
 // Direct mutation of the internal slice is intentionally prevented so the cap
 // and halt invariants cannot be bypassed.
 type DiagSink struct {
-	diags  Diagnostics
-	halted bool
+	diags   Diagnostics
+	halted  bool
+	flushed bool
 }
 
 func (s *DiagSink) IsHalted() bool { return s.halted }
@@ -65,9 +66,11 @@ func (s *DiagSink) HasErrors() bool { return s.diags.HasErrors() }
 
 // Flush returns the collected diagnostics and clears the sink's slice,
 // preventing double-use of the same sink across pipeline stages.
+// After Flush is called, any subsequent Append panics.
 func (s *DiagSink) Flush() Diagnostics {
 	diags := s.diags
 	s.diags = nil
+	s.flushed = true
 	return diags
 }
 
@@ -95,7 +98,11 @@ func (s *DiagSink) AppendAll(ds Diagnostics) {
 // Append adds d to the sink. If the sink is already halted, the diagnostic is
 // silently dropped. If this append would exceed MaxDiagnostics, the sink is
 // halted (appending a TooManyDiagnostics sentinel) and d is discarded.
+// Panics if called after Flush — each pipeline stage must use its own DiagSink.
 func (s *DiagSink) Append(d Diagnostic) {
+	if s.flushed {
+		panic("DiagSink: Append called after Flush — this is a compiler bug; create a new DiagSink for each pipeline stage")
+	}
 	if s.halted {
 		return
 	}
@@ -105,6 +112,9 @@ func (s *DiagSink) Append(d Diagnostic) {
 	}
 	s.diags = append(s.diags, d)
 }
+
+// IsEmpty reports whether ds contains no diagnostics (nil or empty slice).
+func (ds Diagnostics) IsEmpty() bool { return len(ds) == 0 }
 
 // HasErrors reports whether any diagnostic has SeverityError.
 func (ds Diagnostics) HasErrors() bool {
