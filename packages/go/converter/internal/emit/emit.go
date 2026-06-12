@@ -590,7 +590,7 @@ func writeStructpbValue(v *structpb.Value) string {
 	}
 	switch k := v.Kind.(type) {
 	case *structpb.Value_NumberValue:
-		return strconv.FormatFloat(k.NumberValue, 'f', -1, 64)
+		return strconv.FormatFloat(k.NumberValue, 'g', -1, 64)
 	case *structpb.Value_StringValue:
 		return fmt.Sprintf("%q", k.StringValue)
 	case *structpb.Value_BoolValue:

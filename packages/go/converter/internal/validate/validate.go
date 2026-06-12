@@ -240,16 +240,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 
 	// Arity check.
 	contextLabel := fmt.Sprintf("binding %q", b.Name)
-	maxArgs := spec.Arity()
-	if len(c.Args) > maxArgs {
-		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-			"%s: function %q accepts at most %d argument(s), got %d",
-			contextLabel, c.Fn, maxArgs, len(c.Args)))
-	}
-	if len(c.Args) < maxArgs {
-		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
-			"%s: function %q requires %d argument(s), got %d",
-			contextLabel, c.Fn, maxArgs, len(c.Args)))
+	if !checkArity(contextLabel, c.Fn, len(c.Args), ds) {
 		return
 	}
 	if len(c.Args) >= 2 {
@@ -507,24 +498,30 @@ func validateBinaryFnArgs(
 	stepTypes []ast.FieldType,
 	ds *diag.DiagSink,
 ) {
-	maxArgs := spec.Arity()
-	if len(args) > maxArgs {
-		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-			"%s: function %q accepts at most %d argument(s), got %d",
-			contextLabel, fn, maxArgs, len(args)))
-	}
-	if len(args) < maxArgs {
-		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
-			"%s: function %q requires %d argument(s), got %d",
-			contextLabel, fn, maxArgs, len(args)))
-		return
-	}
-	if len(args) < 2 {
+	if !checkArity(contextLabel, fn, len(args), ds) {
 		return
 	}
 	t1, ok1 := resolveArgType(args[0], scope, stepTypes)
 	t2, ok2 := resolveArgType(args[1], scope, stepTypes)
 	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
+}
+
+// checkArity reports diagnostics when argCount != fnmeta.BinaryArity.
+// Returns true when arity is correct and the caller may proceed to type checks.
+func checkArity(contextLabel, fn string, argCount int, ds *diag.DiagSink) bool {
+	if argCount > fnmeta.BinaryArity {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
+			"%s: function %q accepts at most %d argument(s), got %d",
+			contextLabel, fn, fnmeta.BinaryArity, argCount))
+		return false
+	}
+	if argCount < fnmeta.BinaryArity {
+		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
+			"%s: function %q requires %d argument(s), got %d",
+			contextLabel, fn, fnmeta.BinaryArity, argCount))
+		return false
+	}
+	return true
 }
 
 // argHasEmptyArrayLit reports whether arg carries an empty array literal.

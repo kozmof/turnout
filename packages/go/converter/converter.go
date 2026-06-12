@@ -41,6 +41,16 @@ type CompileResult struct {
 	Warnings Diagnostics
 }
 
+// WriteHCL writes canonical HCL to w and returns any emit diagnostics.
+func (r *CompileResult) WriteHCL(w io.Writer) Diagnostics {
+	return emit.Emit(w, r.Model)
+}
+
+// WriteJSON writes JSON to w and returns any emit error.
+func (r *CompileResult) WriteJSON(w io.Writer) error {
+	return emit.EmitJSON(w, r.Model)
+}
+
 // Compile runs parse → state-resolve → lower → validate for inputPath.
 //
 // stateBasePath overrides the directory used to resolve state_file directives.
@@ -90,60 +100,53 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 }
 
 // CompileToHCL runs the full pipeline and writes canonical HCL to w.
-// On success it returns the CompileResult alongside any warnings; on error it
-// returns nil and the error diagnostics without writing to w.
 //
-// The returned Diagnostics include non-fatal warnings from all pipeline stages
-// (parse, lower, validate, and emit). CompileResult.Warnings holds the same
-// set on success; it is nil on error.
+// Deprecated: Use Compile followed by CompileResult.WriteHCL.
 func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	result, ds := Compile(inputPath, stateBasePath)
-	return compileAndWrite(w, result, ds, emitHCLFn)
-}
-
-// CompileToJSON runs the full pipeline and writes JSON to w.
-// On success it returns the CompileResult alongside any warnings; on error it
-// returns nil and the error diagnostics without writing to w.
-//
-// The returned Diagnostics include non-fatal warnings from all pipeline stages
-// (parse, lower, validate, and emit). CompileResult.Warnings holds the same
-// set on success; it is nil on error.
-func CompileToJSON(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := Compile(inputPath, stateBasePath)
-	return compileAndWrite(w, result, ds, emitJSONFn)
-}
-
-// CompileSourceToHCL is the in-memory equivalent of CompileToHCL.
-func CompileSourceToHCL(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := CompileSource(name, src, stateBasePath)
-	return compileAndWrite(w, result, ds, emitHCLFn)
-}
-
-// CompileSourceToJSON is the in-memory equivalent of CompileToJSON.
-func CompileSourceToJSON(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := CompileSource(name, src, stateBasePath)
-	return compileAndWrite(w, result, ds, emitJSONFn)
-}
-
-type emitFn func(io.Writer, *turnoutpb.TurnModel) Diagnostics
-
-func compileAndWrite(w io.Writer, result *CompileResult, ds Diagnostics, fn emitFn) (*CompileResult, Diagnostics) {
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	emitDs := fn(w, result.Model)
-	return result, append(ds, emitDs...)
+	return result, append(ds, result.WriteHCL(w)...)
 }
 
-func emitHCLFn(w io.Writer, m *turnoutpb.TurnModel) Diagnostics {
-	return emit.Emit(w, m)
-}
-
-func emitJSONFn(w io.Writer, m *turnoutpb.TurnModel) Diagnostics {
-	if err := emit.EmitJSON(w, m); err != nil {
-		return Diagnostics{diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err)}
+// CompileToJSON runs the full pipeline and writes JSON to w.
+//
+// Deprecated: Use Compile followed by CompileResult.WriteJSON.
+func CompileToJSON(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := Compile(inputPath, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
 	}
-	return nil
+	if err := result.WriteJSON(w); err != nil {
+		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
+	}
+	return result, ds
+}
+
+// CompileSourceToHCL is the in-memory equivalent of CompileToHCL.
+//
+// Deprecated: Use CompileSource followed by CompileResult.WriteHCL.
+func CompileSourceToHCL(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := CompileSource(name, src, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	return result, append(ds, result.WriteHCL(w)...)
+}
+
+// CompileSourceToJSON is the in-memory equivalent of CompileToJSON.
+//
+// Deprecated: Use CompileSource followed by CompileResult.WriteJSON.
+func CompileSourceToJSON(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
+	result, ds := CompileSource(name, src, stateBasePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	if err := result.WriteJSON(w); err != nil {
+		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
+	}
+	return result, ds
 }
 
 func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {

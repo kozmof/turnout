@@ -322,12 +322,12 @@ type BindingDecl struct {
 // BindingRHS is implemented by all RHS node types.
 type BindingRHS interface{ bindingRHS() }
 
-// PreLowerRHS marks binding RHS types that exist only before lowering.
+// SyntaxRHS marks binding RHS types produced by the parser.
 // The lowerer converts these to flat BindingModel entries; encountering
-// a PreLowerRHS in post-lowering code paths is always a compiler bug.
-type PreLowerRHS interface {
+// a SyntaxRHS in post-lowering code paths is always a compiler bug.
+type SyntaxRHS interface {
 	BindingRHS
-	preLowerRHS()
+	syntaxRHS()
 }
 
 // LiteralRHS is `name:type = <literal>`.
@@ -346,7 +346,7 @@ func (*SingleRefRHS) bindingRHS() {}
 // is resolved to *TransformArg by the lowerer.
 type FuncCallRHS struct {
 	FnAlias string
-	Args    []PreLowerArg
+	Args    []SyntaxArg
 }
 
 func (*FuncCallRHS) bindingRHS() {}
@@ -439,8 +439,8 @@ func (op InfixOp) FnAliasForType(ft FieldType) string {
 // LHS and RHS are pre-lowering argument forms.
 type InfixRHS struct {
 	Op  InfixOp
-	LHS PreLowerArg
-	RHS PreLowerArg
+	LHS SyntaxArg
+	RHS SyntaxArg
 }
 
 func (*InfixRHS) bindingRHS() {}
@@ -576,7 +576,7 @@ type ErrorRHS struct {
 }
 
 func (*ErrorRHS) bindingRHS()  {}
-func (*ErrorRHS) preLowerRHS() {}
+func (*ErrorRHS) syntaxRHS() {}
 
 // SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
 // with no right-hand side expression. The value is populated at runtime via prepare.
@@ -591,7 +591,7 @@ type IfCallRHS struct {
 }
 
 func (*IfCallRHS) bindingRHS()    {}
-func (*IfCallRHS) preLowerRHS()  {}
+func (*IfCallRHS) syntaxRHS()  {}
 
 // CaseCallRHS is the v1 `#case(subject, pattern => expr, ..., _ => default)` form.
 type CaseCallRHS struct {
@@ -601,7 +601,7 @@ type CaseCallRHS struct {
 }
 
 func (*CaseCallRHS) bindingRHS()   {}
-func (*CaseCallRHS) preLowerRHS() {}
+func (*CaseCallRHS) syntaxRHS() {}
 
 // PipeCallRHS is the v1 `#pipe(initial, step1, step2, ...)` form.
 type PipeCallRHS struct {
@@ -611,7 +611,7 @@ type PipeCallRHS struct {
 }
 
 func (*PipeCallRHS) bindingRHS()   {}
-func (*PipeCallRHS) preLowerRHS() {}
+func (*PipeCallRHS) syntaxRHS() {}
 
 // ────────────────────────────────────────────────────────────
 // Arg — argument in a function call, infix expression, or pipe step
@@ -621,35 +621,35 @@ func (*PipeCallRHS) preLowerRHS() {}
 // and PipeExpr steps. See LocalExpr for its pre-lowering counterpart.
 type Arg interface{ arg() }
 
-// PreLowerArg is a source-syntax argument resolved during lowering to a
+// SyntaxArg is a source-syntax argument resolved during lowering to a
 // proto-level Arg. Implementors appear in parser output but are not valid
 // in the lowered proto model. Use concrete type switches (e.g. *MethodCallArg)
 // or this interface to identify and handle pre-lowering forms.
-type PreLowerArg interface{ preLowerArg() }
+type SyntaxArg interface{ syntaxArg() }
 
 // RefArg is a bare identifier reference: `v` → `{ ref = "v" }` in canonical HCL.
 type RefArg struct{ Name string }
 
 func (*RefArg) arg()         {}
-func (*RefArg) preLowerArg() {}
+func (*RefArg) syntaxArg() {}
 
 // LitArg is a literal value: `42` → `{ lit = 42 }` in canonical HCL.
 type LitArg struct{ Value Literal }
 
 func (*LitArg) arg()         {}
-func (*LitArg) preLowerArg() {}
+func (*LitArg) syntaxArg() {}
 
 // FuncRefArg is `{ func_ref = "fn_name" }` — reference to a function binding's output.
 type FuncRefArg struct{ FnName string }
 
 func (*FuncRefArg) arg()         {}
-func (*FuncRefArg) preLowerArg() {}
+func (*FuncRefArg) syntaxArg() {}
 
 // StepRefArg is `{ step_ref = N }` — reference to step N's output inside a pipe.
 type StepRefArg struct{ Index int }
 
 func (*StepRefArg) arg()         {}
-func (*StepRefArg) preLowerArg() {}
+func (*StepRefArg) syntaxArg() {}
 
 // TransformArg is `{ transform = { ref = "v", fn = ["transformFn..."] } }`.
 type TransformArg struct {
@@ -658,21 +658,21 @@ type TransformArg struct {
 }
 
 func (*TransformArg) arg()         {}
-func (*TransformArg) preLowerArg() {}
+func (*TransformArg) syntaxArg() {}
 
 // MethodCallArg is the DSL method-call form `receiver.method1().method2()`.
 // Methods holds unqualified method names; the lowerer resolves them to fully
 // qualified transformFn names using the binding type context.
 //
-// This is a pre-lowering-only form (implements PreLowerArg but NOT Arg): it
-// appears in parser output inside []PreLowerArg slices and is resolved to
+// This is a pre-lowering-only form (implements SyntaxArg but NOT Arg): it
+// appears in parser output inside []SyntaxArg slices and is resolved to
 // TransformArg by lowerMethodCallArg. It must not appear in post-lowering code.
 type MethodCallArg struct {
 	Receiver string
 	Methods  []string
 }
 
-func (*MethodCallArg) preLowerArg() {}
+func (*MethodCallArg) syntaxArg() {}
 
 // ────────────────────────────────────────────────────────────
 // Prepare / Merge / Publish
