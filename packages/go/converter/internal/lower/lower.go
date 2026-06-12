@@ -462,7 +462,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 		}
 		bindings = []*turnoutpb.BindingModel{bm}
 	case *ast.InfixRHS:
-		bindings = []*turnoutpb.BindingModel{lowerInfixRHS(name, ft, rhs, bindingTypes, ds)}
+		bm := lowerInfixRHS(name, ft, rhs, bindingTypes, ds)
+		if bm == nil {
+			return nil // diagnostic already emitted by lowerInfixRHS (invalid infix expr)
+		}
+		bindings = []*turnoutpb.BindingModel{bm}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds, localCounter)
 	case *ast.ErrorRHS:

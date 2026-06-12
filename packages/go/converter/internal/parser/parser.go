@@ -243,7 +243,8 @@ func (p *parser) parseFile() *ast.TurnFile {
 		switch t.Kind {
 		case lexer.TokKwState:
 			if hasState {
-				p.errorf(t, "duplicate state source (ConflictingStateSource)")
+				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeConflictingStateSource,
+					"Turn DSL file cannot declare both a state block and a state_file directive"))
 				p.skipBlock()
 				continue
 			}
@@ -252,7 +253,8 @@ func (p *parser) parseFile() *ast.TurnFile {
 
 		case lexer.TokKwStateFile:
 			if hasState {
-				p.errorf(t, "duplicate state source (ConflictingStateSource)")
+				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeConflictingStateSource,
+					"Turn DSL file cannot declare both a state block and a state_file directive"))
 				p.advance()
 				p.expect(lexer.TokEquals)
 				p.advance() // skip path

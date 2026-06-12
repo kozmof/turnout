@@ -27,7 +27,8 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 			// triple-quoted docstring
 			body := p.advance().Value
 			if ab.Text != nil {
-				p.errorf(t, "duplicate text in action %q (SCN_ACTION_TEXT_DUPLICATE)", ab.ID)
+				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeSCNActionTextDuplicate,
+					"action %q: at most one text block allowed; remove the duplicate", ab.ID))
 			} else {
 				ab.Text = &body
 			}
@@ -42,7 +43,8 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 				p.errorf(p.peek(), "expected string after text =")
 			}
 			if ab.Text != nil {
-				p.errorf(t, "duplicate text in action %q (SCN_ACTION_TEXT_DUPLICATE)", ab.ID)
+				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeSCNActionTextDuplicate,
+					"action %q: at most one text block allowed; remove the duplicate", ab.ID))
 			} else {
 				ab.Text = &tv
 			}

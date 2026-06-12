@@ -2,6 +2,7 @@ package parser
 
 import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
@@ -114,6 +115,14 @@ func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 			p.expect(lexer.TokEquals)
 			root = p.parseRefVal()
 		case lexer.TokKwProg:
+			if prog != nil {
+				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeDuplicateProg,
+					"compute block may contain at most one prog block"))
+				p.advance() // consume 'prog'
+				p.advance() // consume name string
+				p.skipBlock()
+				continue
+			}
 			prog = p.parseProgBlock()
 		default:
 			p.errorf(t, "unexpected token %s %q in compute block", kindName(t.Kind), t.Value)
@@ -153,12 +162,23 @@ func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
 			case lexer.TokKwFromState:
 				p.advance()
 				p.expect(lexer.TokEquals)
-				src = &ast.FromState{Pos: p.posOf(fk), Path: p.parseRefVal()}
+				val := p.parseRefVal()
+				if src != nil {
+					p.Append(diag.ErrorAt(p.file, fk.Line, fk.Col, diag.CodeInvalidPrepareSource,
+						"prepare entry %q already has a source; only one of from_state or from_hook is allowed", nameTok.Value))
+				} else {
+					src = &ast.FromState{Pos: p.posOf(fk), Path: val}
+				}
 			case lexer.TokKwFromHook:
 				p.advance()
 				p.expect(lexer.TokEquals)
 				hookTok, _ := p.expect(lexer.TokStringLit)
-				src = &ast.FromHook{Pos: p.posOf(fk), HookName: hookTok.Value}
+				if src != nil {
+					p.Append(diag.ErrorAt(p.file, fk.Line, fk.Col, diag.CodeInvalidPrepareSource,
+						"prepare entry %q already has a source; only one of from_state or from_hook is allowed", nameTok.Value))
+				} else {
+					src = &ast.FromHook{Pos: p.posOf(fk), HookName: hookTok.Value}
+				}
 			case lexer.TokKwFromLiteral:
 				p.errorf(fk, "from_literal is not allowed in action-level prepare; use from_state or from_hook")
 				p.advance()
@@ -280,6 +300,13 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 			p.advance()
 			p.expect(lexer.TokEquals)
 			actionID = p.parseRefVal()
+		case lexer.TokKwMerge, lexer.TokKwPublish:
+			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTransitionMerge,
+				"merge and publish blocks are not allowed inside next { } transition blocks"))
+			p.advance() // consume the keyword
+			if p.peek().Kind == lexer.TokLBrace {
+				p.skipBlock()
+			}
 		default:
 			p.errorf(t, "unexpected token %s in next block", kindName(t.Kind))
 			p.advance()
@@ -354,6 +381,12 @@ func (p *parser) parseNextPrepareBlock() *ast.NextPrepareBlock {
 				p.advance()
 				p.expect(lexer.TokEquals)
 				src = &ast.FromLiteral{Pos: p.posOf(fk), Value: p.parseLiteral()}
+			case lexer.TokKwFromHook:
+				p.Append(diag.ErrorAt(p.file, fk.Line, fk.Col, diag.CodeTransitionHook,
+					"from_hook is not allowed inside transition prepare blocks; use from_state, from_action, or from_literal"))
+				p.advance() // consume from_hook
+				p.expect(lexer.TokEquals)
+				p.advance() // consume the hook name value
 			default:
 				p.errorf(fk, "unexpected token %s in next prepare entry", kindName(fk.Kind))
 				p.syncToBlockItem(lexer.TokKwFromAction, lexer.TokKwFromState, lexer.TokKwFromLiteral)

@@ -101,7 +101,33 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos a
 	}
 }
 
+// infixOpValidForType reports whether op is permitted for the given binding field type.
+// ft is the binding's *declared result type*, not the operand type. Each operator has a
+// fixed result type that must match the binding declaration:
+//   - &, |, >=, <=, >, <, ==, != — result is bool; binding must declare bool
+//   - -, *, /, % — result is number; binding must declare number
+//   - + — type-dispatched: result is number or str; binding must match
+func infixOpValidForType(op ast.InfixOp, ft ast.FieldType) bool {
+	switch op {
+	case ast.InfixAnd, ast.InfixBoolOr,
+		ast.InfixGTE, ast.InfixLTE, ast.InfixGT, ast.InfixLT,
+		ast.InfixEq, ast.InfixNeq:
+		return ft == ast.FieldTypeBool
+	case ast.InfixSub, ast.InfixMul, ast.InfixDiv, ast.InfixMod:
+		return ft == ast.FieldTypeNumber
+	case ast.InfixPlus:
+		return ft == ast.FieldTypeNumber || ft == ast.FieldTypeStr
+	default:
+		return false
+	}
+}
+
 func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
+	if !infixOpValidForType(rhs.Op, ft) {
+		ds.Append(diag.Errorf(diag.CodeInvalidInfixExpr,
+			"binding %q: operator %s is not valid for type %s", name, rhs.Op, ft))
+		return nil
+	}
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.String(),

@@ -251,7 +251,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [ ] `:number` value is a valid numeric literal (`NonIntegerValue` — but decimals are allowed per spec)
 - [x] `arr<T>` elements all of type `T` (`HeterogeneousArray`)
 - [x] No nested arrays in value bindings (`NestedArrayNotAllowed`)
-- [ ] At most one `prog` block per file (`DuplicateProg`)
+- [x] At most one `prog` block per file (`DuplicateProg`)
 - [x] No duplicate binding names within `prog` (`DuplicateBinding`)
 - [x] No user binding name starts with `__` (`ReservedName`)
 - [x] Function alias in built-in table (`UnknownFnAlias`)
@@ -259,7 +259,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] Bare identifier references resolve to declared binding (`UndefinedRef`)
 - [x] `func_ref` / `then` / `else` reference function bindings (`UndefinedFuncRef`)
 - [ ] Binary call args are `(x,y)` or `(a:x,b:y)` (`InvalidBinaryArgShape`)
-- [ ] Infix: valid operator, valid type pairing (`InvalidInfixExpr`)
+- [x] Infix: valid operator, valid type pairing (`InvalidInfixExpr`)
 - [x] Arg types match function param types (`ArgTypeMismatch`)
 - [x] Return type matches declared binding type (`ReturnTypeMismatch`)
 - [x] Condition binding resolves to `bool` (`CondNotBool`)
@@ -279,11 +279,11 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] No duplicate binding name in `merge` (`DuplicateMergeEntry`)
 - [x] `<~>` binding in `prepare` must also be in `merge` (`BidirMissingMergeEntry`)
 - [x] `<~>` binding in `merge` must also be in `prepare` (`BidirMissingPrepareEntry`)
-- [ ] No `merge` or `publish` inside `next {}` (`TransitionMerge`)
-- [ ] No `from_hook` in transition `prepare` (`TransitionHook`)
+- [x] No `merge` or `publish` inside `next {}` (`TransitionMerge`)
+- [x] No `from_hook` in transition `prepare` (`TransitionHook`)
 - [x] No `<~` or `<~>` sigil in transition `prog` (`TransitionOutputSigil`)
 - [x] Transition `prepare` entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`)
-- [ ] No `from_state` + `from_hook` on same `prepare` entry (`InvalidPrepareSource`)
+- [x] No `from_state` + `from_hook` on same `prepare` entry (`InvalidPrepareSource`)
 - [x] Every `prepare` binding name has a matching `binding` in the same `prog` (`UnresolvedPrepareBinding`)
 - [x] Every `merge` binding name has a matching `binding` in the same `prog` (`UnresolvedMergeBinding`)
 - [x] `from_state` / `to_state` values are valid dotted paths (`InvalidStatePath`)
@@ -298,7 +298,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] `compute.root` binding exists in `prog`
 - [x] Every `prepare` / `merge` binding key exists in `prog`
 - [x] `compute.condition` binding resolves to `bool` in each next rule
-- [ ] Action docstring: at most one triple-quoted block; no conflict with `text =` (`SCN_ACTION_TEXT_DUPLICATE`)
+- [x] Action docstring: at most one triple-quoted block; no conflict with `text =` (`SCN_ACTION_TEXT_DUPLICATE`)
 
 ### Phase 2 guard
 

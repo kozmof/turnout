@@ -625,18 +625,18 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 	case *turnoutpb.LocalExprModel_IfExpr:
 		iw.wl("if = {")
 		iw.depth++
-		iw.wl("cond = %s", localExprInline(x.IfExpr.GetCond(), bindingType))
-		iw.wl("then = %s", localExprInline(x.IfExpr.GetThen(), bindingType))
-		iw.wl("else = %s", localExprInline(x.IfExpr.GetElseBranch(), bindingType))
+		iw.wl("cond = %s", iw.localExprInline(x.IfExpr.GetCond(), bindingType))
+		iw.wl("then = %s", iw.localExprInline(x.IfExpr.GetThen(), bindingType))
+		iw.wl("else = %s", iw.localExprInline(x.IfExpr.GetElseBranch(), bindingType))
 		iw.depth--
 		iw.wl("}")
 	case *turnoutpb.LocalExprModel_CaseExpr:
 		iw.wl("case = {")
 		iw.depth++
-		iw.wl("subject = %s", localExprInline(x.CaseExpr.GetSubject(), bindingType))
+		iw.wl("subject = %s", iw.localExprInline(x.CaseExpr.GetSubject(), bindingType))
 		arms := make([]string, len(x.CaseExpr.GetArms()))
 		for i, arm := range x.CaseExpr.GetArms() {
-			arms[i] = localCaseArmInline(arm, bindingType)
+			arms[i] = iw.localCaseArmInline(arm, bindingType)
 		}
 		iw.wl("arms    = [%s]", strings.Join(arms, ", "))
 		iw.depth--
@@ -644,10 +644,10 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 	case *turnoutpb.LocalExprModel_PipeExpr:
 		iw.wl("pipe = {")
 		iw.depth++
-		iw.wl("initial = %s", localExprInline(x.PipeExpr.GetInitial(), bindingType))
+		iw.wl("initial = %s", iw.localExprInline(x.PipeExpr.GetInitial(), bindingType))
 		steps := make([]string, len(x.PipeExpr.GetSteps()))
 		for i, s := range x.PipeExpr.GetSteps() {
-			steps[i] = localExprInline(s, bindingType)
+			steps[i] = iw.localExprInline(s, bindingType)
 		}
 		iw.wl("steps   = [%s]", strings.Join(steps, ", "))
 		iw.depth--
@@ -662,7 +662,7 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 // localExprInline returns the inline HCL representation of a proto LocalExprModel.
 // bindingType is the declared DSL type string of the enclosing binding, used to
 // resolve InfixPlus to "str_concat" (str) or "add" (number).
-func localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
+func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 	if e == nil {
 		panic("localExprInline: nil LocalExprModel — this is a compiler bug; every branch of a #if/#case/#pipe must produce a non-nil node")
 	}
@@ -676,42 +676,46 @@ func localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 	case *turnoutpb.LocalExprModel_Call:
 		args := make([]string, len(x.Call.GetArgs()))
 		for i, a := range x.Call.GetArgs() {
-			args[i] = localExprInline(a, bindingType)
+			args[i] = iw.localExprInline(a, bindingType)
 		}
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.Call.GetFn(), strings.Join(args, ", "))
 	case *turnoutpb.LocalExprModel_Infix:
 		op := ast.InfixOp(int32(x.Infix.GetOp()))
-		ft := ast.MustFieldTypeFromString(bindingType)
+		ft, ok := ast.FieldTypeFromString(bindingType)
+		if !ok {
+			iw.setErr(fmt.Errorf("localExprInline: unknown binding type %q", bindingType))
+			return `{ ref = "" }`
+		}
 		fn := op.FnAliasForType(ft)
 		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn,
-			localExprInline(x.Infix.GetLhs(), bindingType), localExprInline(x.Infix.GetRhs(), bindingType))
+			iw.localExprInline(x.Infix.GetLhs(), bindingType), iw.localExprInline(x.Infix.GetRhs(), bindingType))
 	case *turnoutpb.LocalExprModel_IfExpr:
 		return fmt.Sprintf(`{ if = { cond = %s, then = %s, else = %s } }`,
-			localExprInline(x.IfExpr.GetCond(), bindingType), localExprInline(x.IfExpr.GetThen(), bindingType), localExprInline(x.IfExpr.GetElseBranch(), bindingType))
+			iw.localExprInline(x.IfExpr.GetCond(), bindingType), iw.localExprInline(x.IfExpr.GetThen(), bindingType), iw.localExprInline(x.IfExpr.GetElseBranch(), bindingType))
 	case *turnoutpb.LocalExprModel_CaseExpr:
 		arms := make([]string, len(x.CaseExpr.GetArms()))
 		for i, arm := range x.CaseExpr.GetArms() {
-			arms[i] = localCaseArmInline(arm, bindingType)
+			arms[i] = iw.localCaseArmInline(arm, bindingType)
 		}
 		return fmt.Sprintf(`{ case = { subject = %s, arms = [%s] } }`,
-			localExprInline(x.CaseExpr.GetSubject(), bindingType), strings.Join(arms, ", "))
+			iw.localExprInline(x.CaseExpr.GetSubject(), bindingType), strings.Join(arms, ", "))
 	case *turnoutpb.LocalExprModel_PipeExpr:
 		steps := make([]string, len(x.PipeExpr.GetSteps()))
 		for i, s := range x.PipeExpr.GetSteps() {
-			steps[i] = localExprInline(s, bindingType)
+			steps[i] = iw.localExprInline(s, bindingType)
 		}
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
-			localExprInline(x.PipeExpr.GetInitial(), bindingType), strings.Join(steps, ", "))
+			iw.localExprInline(x.PipeExpr.GetInitial(), bindingType), strings.Join(steps, ", "))
 	}
 	panic(fmt.Sprintf("localExprInline: unhandled LocalExprModel type %T — add a case here when adding new LocalExprModel variants", e.Expr))
 }
 
-func localCaseArmInline(arm *turnoutpb.LocalCaseArmModel, bindingType string) string {
+func (iw *iWriter) localCaseArmInline(arm *turnoutpb.LocalCaseArmModel, bindingType string) string {
 	s := fmt.Sprintf(`{ pattern = %s`, localPatternInline(arm.GetPattern()))
 	if arm.GetGuard() != nil {
-		s += fmt.Sprintf(`, guard = %s`, localExprInline(arm.GetGuard(), bindingType))
+		s += fmt.Sprintf(`, guard = %s`, iw.localExprInline(arm.GetGuard(), bindingType))
 	}
-	s += fmt.Sprintf(`, expr = %s }`, localExprInline(arm.GetExpr(), bindingType))
+	s += fmt.Sprintf(`, expr = %s }`, iw.localExprInline(arm.GetExpr(), bindingType))
 	return s
 }
 

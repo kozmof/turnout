@@ -460,10 +460,10 @@ func validateBinaryFnArgs(
 	ds *diag.DiagSink,
 ) {
 	maxArgs := spec.Arity()
-	for i := maxArgs; i < len(args); i++ {
+	if len(args) > maxArgs {
 		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-			"%s: function %q does not accept more than %d argument(s) (extra arg at index %d)",
-			contextLabel, fn, maxArgs, i))
+			"%s: function %q accepts at most %d argument(s), got %d",
+			contextLabel, fn, maxArgs, len(args)))
 	}
 	if len(args) < maxArgs {
 		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
