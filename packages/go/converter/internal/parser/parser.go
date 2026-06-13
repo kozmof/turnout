@@ -166,7 +166,9 @@ func (p *parser) syncToBlockItem(starters ...lexer.TokenKind) {
 }
 
 // skipBlock skips a balanced { ... } block. Assumes the opening { has NOT yet
-// been consumed.
+// been consumed. Safe because the lexer emits TokLBrace / TokRBrace only for
+// structural braces; brace characters inside string literals are consumed by
+// the lexer as a single TokStringLit token and never reach the parser as brace tokens.
 func (p *parser) skipBlock() {
 	if p.peek().Kind != lexer.TokLBrace {
 		return

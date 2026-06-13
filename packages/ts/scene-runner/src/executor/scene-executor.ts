@@ -1,7 +1,7 @@
-import { executeGraph, assertValidContext, isPureBoolean, buildNull } from 'runtime';
+import { executeGraph, isPureBoolean, buildNull } from 'runtime';
 
 const UNABORTABLE = new AbortController().signal;
-import type { AnyValue } from 'runtime';
+import type { AnyValue, ValidatedContext } from 'runtime';
 import type { SceneBlock, ActionModel, ProgModel } from '../types/turnout-model_pb.js';
 import type { StateManager, StateReader } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
@@ -133,6 +133,11 @@ export function createSceneExecutor(
   const sceneWarnings: string[] = [];
   let stepCount = 0;
   let currentAction: string | undefined;
+  // Per-executor cache for next-rule contexts. Keyed by (ProgModel identity,
+  // serialised prepared values) so identical (prog, prepare) pairs across
+  // multiple action steps reuse the same BuiltContext and ValidatedContext
+  // rather than rebuilding them on each step.
+  const ruleCtxCache = new Map<ProgModel, Map<string, { builtCtx: BuiltContext; validCtx: ValidatedContext }>>();
 
   function isDone(): boolean {
     return queueHead >= queue.length;
@@ -163,7 +168,7 @@ export function createSceneExecutor(
     const result = await executeAction(action, currentState, hooks, scene.id, signal);
     currentState = result.stateAfterMerge;
 
-    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy, signal, scene.id);
+    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy, signal, scene.id, ruleCtxCache);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
     const allWarnings = [...(result.mergeWarnings ?? []), ...nextWarnings];
@@ -324,15 +329,13 @@ function evaluateNextRules(
   policy: string,
   signal: AbortSignal,
   sceneId: string,
+  ruleCtxCache: Map<ProgModel, Map<string, { builtCtx: BuiltContext; validCtx: ValidatedContext }>>,
 ): NextRulesResult {
   const rules = action.next ?? [];
   if (rules.length === 0) return { matches: [], warnings: [] };
 
   const matches: string[] = [];
   const warnings: string[] = [];
-  // Per-invocation cache for rules with prepare entries. The inner key is the
-  // JSON-serialised prepared-values map; the outer key is prog object identity.
-  const ruleCtxCache = new Map<ProgModel, Map<string, BuiltContext>>();
 
   for (const rule of rules) {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
@@ -352,28 +355,30 @@ function evaluateNextRules(
       const nextPrepared = resolveNextPrepare(prepare, state, result);
 
       let builtCtx: BuiltContext;
+      let validated: ValidatedContext;
       if (prepare.length > 0) {
-        // Non-pure: check per-invocation cache before rebuilding.
+        // Non-pure: check per-executor cache before rebuilding. The inner key is
+        // the JSON-serialised prepared-values map; entries are sorted so the key
+        // is stable regardless of resolveNextPrepare iteration order.
         let byPrepare = ruleCtxCache.get(rule.compute.prog);
-        // Sort entries before stringifying so the cache key is stable regardless
-        // of the iteration order of `resolveNextPrepare`.
         const prepKey = JSON.stringify(Object.entries(nextPrepared).sort(([a], [b]) => a < b ? -1 : 1));
         const cached = byPrepare?.get(prepKey);
         if (cached) {
-          builtCtx = cached;
+          ({ builtCtx, validCtx: validated } = cached);
         } else {
           builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+          validated = builtCtx.getValidatedExec();
           if (!byPrepare) {
             byPrepare = new Map();
             ruleCtxCache.set(rule.compute.prog, byPrepare);
           }
-          byPrepare.set(prepKey, builtCtx);
+          byPrepare.set(prepKey, { builtCtx, validCtx: validated });
         }
       } else {
         // Pure: buildContextFromProg already caches via pureProgCtxCache.
         builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+        validated = builtCtx.getValidatedExec();
       }
-      const validated = assertValidContext(builtCtx.getExec());
 
       const conditionName = rule.compute.condition;
       const condBinding = builtCtx.resolve(conditionName);

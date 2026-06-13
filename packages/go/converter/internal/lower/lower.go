@@ -114,6 +114,10 @@ func pathExprString(pe *ast.PathExpr) string {
 	if pe.Fallback {
 		return "_"
 	}
+	if pe.SceneID == "" {
+		// Parser invariant: non-fallback PathExprs always have a SceneID.
+		panic("pathExprString: non-fallback PathExpr has empty SceneID — parser bug")
+	}
 	parts := make([]string, 0, 1+len(pe.Segments))
 	parts = append(parts, pe.SceneID)
 	parts = append(parts, pe.Segments...)

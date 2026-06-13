@@ -1,4 +1,4 @@
-import { assertValidContext, buildNull, buildExecutionTree, executeTree } from 'runtime';
+import { buildNull, buildExecutionTree, executeTree } from 'runtime';
 
 const UNABORTABLE = new AbortController().signal;
 import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
@@ -54,8 +54,8 @@ export async function executeAction(
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues, action.id);
 
-  // Step 3: validate the execution context.
-  const validatedCtx = assertValidContext(builtCtx.getExec());
+  // Step 3: retrieve the pre-validated execution context.
+  const validatedCtx = builtCtx.getValidatedExec();
 
   // Step 4: execute all bindings in declaration (topological) order.
   // The converter guarantees that each binding's dependencies appear before it,

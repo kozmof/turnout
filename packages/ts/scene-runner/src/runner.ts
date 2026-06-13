@@ -60,9 +60,17 @@ export type RunnerStepResult =
  * const result = runner.run();
  */
 export type Runner<R extends HarnessResult = HarnessResult> = {
-  /** Register a prepare hook. Returns the runner for chaining. */
+  /**
+   * Register a prepare hook. Returns the runner for chaining.
+   * Must be called before the first `next()` or `run()` invocation.
+   * Hook registrations after execution has started are silently ignored by the executor.
+   */
   usePrepareHook(name: string, handler: PrepareHookImpl): Runner<R>;
-  /** Register a publish hook. Returns the runner for chaining. */
+  /**
+   * Register a publish hook. Returns the runner for chaining.
+   * Must be called before the first `next()` or `run()` invocation.
+   * Hook registrations after execution has started are silently ignored by the executor.
+   */
   usePublishHook(name: string, handler: PublishHookImpl): Runner<R>;
   /** True when all actions have completed (scene or route finished). */
   isDone(): boolean;

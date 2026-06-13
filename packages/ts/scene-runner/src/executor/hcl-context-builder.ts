@@ -1,6 +1,6 @@
-import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
+import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray, assertValidContext } from 'runtime';
 import { SceneRuntimeError } from './errors.js';
-import type { AnyValue, BinaryFnNames, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
+import type { AnyValue, BinaryFnNames, ExecutionContext, ValidatedContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
 import { FN_MAP } from './fn-map.generated.js';
 
 // Local structural aliases for builder API arg shapes. These mirror the types
@@ -29,12 +29,21 @@ import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 // Recommended pattern: parse the TurnModel once at startup and reuse the same
 // reference across all runner invocations.
 // ─────────────────────────────────────────────────────────────────────────────
-const pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
+let pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 
 // Memoises the set of function-binding names per ProgModel. ProgModels are
 // immutable after construction, so the set never changes; caching avoids the
 // filter+map allocation on every ContextSpecBuilder construction.
-const funcBindingNamesCache = new WeakMap<ProgModel, Set<string>>();
+let funcBindingNamesCache = new WeakMap<ProgModel, Set<string>>();
+
+/**
+ * Replace module-level caches with fresh instances.
+ * For test isolation only — production code must not call this.
+ */
+export function _clearCachesForTesting(): void {
+  pureProgCtxCache = new WeakMap();
+  funcBindingNamesCache = new WeakMap();
+}
 
 function getFuncBindingNames(prog: ProgModel): Set<string> {
   let s = funcBindingNamesCache.get(prog);
@@ -64,6 +73,12 @@ export type BuiltContext = {
    * outside of this module; direct field access is intentionally absent.
    */
   getExec(): ExecutionContext;
+  /**
+   * Returns a pre-validated `ValidatedContext`, avoiding the need for callers
+   * to call `assertValidContext(builtCtx.getExec())` as a separate step.
+   * Validation runs once at context-build time and is cached here.
+   */
+  getValidatedExec(): ValidatedContext;
   /** Returns the ValueId for a binding name, or `undefined` when not found. */
   resolveValueId(name: string): ValueId | undefined;
   /**
@@ -266,9 +281,10 @@ class ContextSpecBuilder {
   private resolveAsRef(arg: ArgModel, label: string): string {
     const result = this.resolveArg(arg);
     if (typeof result !== 'string') {
-      throw new SceneRuntimeError('UnknownArgModel', this.contextId,
+      throw new SceneRuntimeError('CompilerBug', this.contextId,
         `${label} resolved to a non-string ref: ${JSON.stringify(result)} — ` +
-        `only plain value-binding refs and function-binding refs are supported in this position`);
+        `this is a compiler bug; the Go validator rejects non-ref cond branches. ` +
+        `Re-compile the source with the current converter to fix this.`);
     }
     return result;
   }
@@ -441,7 +457,15 @@ export function buildContextFromProg(
       : { kind: 'value', id: asValueId(ids[name] as string) };
   }
   const exec = result.exec;
-  const builtCtx: BuiltContext = { getExec: () => exec, resolveValueId: (name) => nameToValueId.get(name), resolve };
+  // Pre-validate once at build time so callers can use getValidatedExec() without
+  // paying the assertValidContext cost on every call site.
+  const validatedExec = assertValidContext(exec);
+  const builtCtx: BuiltContext = {
+    getExec: () => exec,
+    getValidatedExec: () => validatedExec,
+    resolveValueId: (name) => nameToValueId.get(name),
+    resolve,
+  };
 
   if (!hasInjected) pureProgCtxCache.set(prog, builtCtx);
   return builtCtx;
