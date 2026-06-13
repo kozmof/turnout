@@ -47,7 +47,12 @@ export function migrateModel(model: TurnModel): TurnModel {
   let current: TurnModel = model;
   while (version < CURRENT_VERSION) {
     const migrate = migrations[version];
-    if (!migrate) break;
+    if (!migrate) {
+      throw new Error(
+        `migration: no handler registered for version ${version} → ${version + 1}. ` +
+        `This is a bug in the scene-runner package; a migration step is missing.`,
+      );
+    }
     current = migrate(current);
     version++;
   }

@@ -549,12 +549,12 @@ func checkArity(contextLabel, fn string, argCount int, ds *diag.DiagSink) bool {
 }
 
 // argHasEmptyArrayLit reports whether arg carries an empty array literal.
+// Delegates the structpb check to isEmptyArrayValue.
 func argHasEmptyArrayLit(arg *turnoutpb.ArgModel) bool {
 	if arg == nil || arg.Lit == nil {
 		return false
 	}
-	lv, ok := arg.Lit.Kind.(*structpb.Value_ListValue)
-	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+	return isEmptyArrayValue(arg.Lit)
 }
 
 // walkExprArgs calls fn for every ArgModel leaf in expr, skipping identity
@@ -579,6 +579,17 @@ func walkExprArgs(expr *turnoutpb.ExprModel, fn func(*turnoutpb.ArgModel)) {
 	}
 }
 
+// isEmptyArrayValue reports whether v is an empty array (ListValue with no elements).
+// This is the shared predicate used by both the flat Expr and the local ExtExpr paths
+// in validateNoEmptyArrayLitArgs, ensuring the definition stays in one place.
+func isEmptyArrayValue(v *structpb.Value) bool {
+	if v == nil {
+		return false
+	}
+	lv, ok := v.Kind.(*structpb.Value_ListValue)
+	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+}
+
 // validateNoEmptyArrayLitArgs emits CodeEmptyArrayLitArg for any empty array
 // literal used as an inline function argument. Empty arrays are type-ambiguous
 // at runtime (hcl-context-builder.ts cannot infer the element type), so they
@@ -592,6 +603,11 @@ func walkExprArgs(expr *turnoutpb.ExprModel, fn func(*turnoutpb.ArgModel)) {
 // expression tree is walked to catch empty array call-args that are not visible
 // in the flat Expr form (which the caller skips via continue).
 func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.DiagSink) {
+	appendDiag := func() {
+		ds.Append(diag.Errorf(diag.CodeEmptyArrayLitArg,
+			"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
+				"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
+	}
 	if b.ExtExpr != nil {
 		localexpr.WalkProto(b.ExtExpr, func(node *turnoutpb.LocalExprModel) {
 			call, ok := node.Expr.(*turnoutpb.LocalExprModel_Call)
@@ -600,9 +616,7 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.DiagSink) {
 			}
 			for _, arg := range call.Call.GetArgs() {
 				if isEmptyArrayLocalLit(arg) {
-					ds.Append(diag.Errorf(diag.CodeEmptyArrayLitArg,
-						"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
-							"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
+					appendDiag()
 				}
 			}
 		})
@@ -613,25 +627,22 @@ func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.DiagSink) {
 	}
 	walkExprArgs(b.Expr, func(arg *turnoutpb.ArgModel) {
 		if argHasEmptyArrayLit(arg) {
-			ds.Append(diag.Errorf(diag.CodeEmptyArrayLitArg,
-				"binding %q: empty array literal used as inline function argument is type-ambiguous; "+
-					"use a named binding with a declared type instead (e.g. x: arr<number> = [])", b.Name))
+			appendDiag()
 		}
 	})
 }
 
 // isEmptyArrayLocalLit reports whether e is a LocalLitExprModel whose value is
-// an empty array. Used to detect type-ambiguous [] in local expression call args.
+// an empty array. Delegates the structpb check to isEmptyArrayValue.
 func isEmptyArrayLocalLit(e *turnoutpb.LocalExprModel) bool {
 	if e == nil {
 		return false
 	}
 	litNode, ok := e.Expr.(*turnoutpb.LocalExprModel_Lit)
-	if !ok || litNode.Lit == nil || litNode.Lit.GetValue() == nil {
+	if !ok || litNode.Lit == nil {
 		return false
 	}
-	lv, ok := litNode.Lit.GetValue().Kind.(*structpb.Value_ListValue)
-	return ok && (lv.ListValue == nil || len(lv.ListValue.Values) == 0)
+	return isEmptyArrayValue(litNode.Lit.GetValue())
 }
 
 // isIdentityCombine reports whether c is the canonical identity lowering emitted

@@ -103,6 +103,17 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 	return lr, ds2
 }
 
+// runStage appends warnings from ds into acc and reports whether the stage
+// succeeded (no errors). On failure it appends the errors too and returns false,
+// signalling compileBytes to short-circuit with the accumulated slice.
+func runStage(acc Diagnostics, ds Diagnostics) (Diagnostics, bool) {
+	acc = append(acc, ds.Warnings()...)
+	if ds.HasErrors() {
+		return append(acc, ds.Errors()...), false
+	}
+	return acc, true
+}
+
 func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {
 	base := stateBasePath
 	if base == "" {
@@ -110,23 +121,21 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 	}
 
 	var accumulated Diagnostics
+	var ok bool
 
 	turnFile, ds1 := parser.ParseFile(name, string(src))
-	accumulated = append(accumulated, ds1.Warnings()...)
-	if ds1.HasErrors() {
-		return nil, append(accumulated, ds1.Errors()...)
+	if accumulated, ok = runStage(accumulated, ds1); !ok {
+		return nil, accumulated
 	}
 
 	lr, ds2 := lower.LowerResolvingState(turnFile, base)
-	accumulated = append(accumulated, ds2.Warnings()...)
-	if ds2.HasErrors() {
-		return nil, append(accumulated, ds2.Errors()...)
+	if accumulated, ok = runStage(accumulated, ds2); !ok {
+		return nil, accumulated
 	}
 
 	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
-	accumulated = append(accumulated, ds3.Warnings()...)
-	if ds3.HasErrors() {
-		return nil, append(accumulated, ds3.Errors()...)
+	if accumulated, ok = runStage(accumulated, ds3); !ok {
+		return nil, accumulated
 	}
 
 	lr.Validated = true

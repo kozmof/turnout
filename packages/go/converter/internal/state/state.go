@@ -106,6 +106,17 @@ func (s Schema) RangeFields(ns string, fn func(name string, meta FieldMeta)) boo
 	return true
 }
 
+// RangeAll calls fn for every field across all namespaces without allocating.
+// The iteration order is unspecified (map order). Use instead of Flat() when a
+// snapshot is not needed and full iteration is sufficient.
+func (s Schema) RangeAll(fn func(ns, field string, meta FieldMeta)) {
+	for ns, fields := range s.namespaces {
+		for field, meta := range fields {
+			fn(ns, field, meta)
+		}
+	}
+}
+
 // Resolve builds a Schema from a StateSource.
 // basePath is the directory of the input .turn file, used to resolve relative state_file paths.
 func Resolve(source ast.StateSource, basePath string) (Schema, diag.Diagnostics) {
@@ -183,12 +194,12 @@ func stateFileParseCode(pd diag.Diagnostic) diag.ErrorCode {
 // resolveInline builds a Schema from an InlineStateBlock.
 func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 	schema := newSchema()
-	var ds diag.Diagnostics
+	var ds diag.DiagSink
 
 	seenNS := make(map[string]bool)
 	for _, ns := range block.Namespaces {
 		if seenNS[ns.Name] {
-			ds = append(ds, diag.ErrorAt(ns.Pos.File, ns.Pos.Line, ns.Pos.Col,
+			ds.Append(diag.ErrorAt(ns.Pos.File, ns.Pos.Line, ns.Pos.Col,
 				diag.CodeDuplicateStateNamespace,
 				"duplicate namespace %q", ns.Name))
 			continue
@@ -199,7 +210,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 		seenField := make(map[string]bool)
 		for _, f := range ns.Fields {
 			if seenField[f.Name] {
-				ds = append(ds, diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
+				ds.Append(diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
 					diag.CodeDuplicateStateField,
 					"duplicate field %q in namespace %q", f.Name, ns.Name))
 				continue
@@ -207,14 +218,14 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 			seenField[f.Name] = true
 
 			if f.Default == nil {
-				ds = append(ds, diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
+				ds.Append(diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
 					diag.CodeMissingStateFieldAttr,
 					"field %q.%q has no default value", ns.Name, f.Name))
 				continue
 			}
 
 			if !literalMatchesType(f.Default, f.Type) {
-				ds = append(ds, diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
+				ds.Append(diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
 					diag.CodeStateFieldDefaultTypeMismatch,
 					"field %q.%q: default value does not match declared type %s", ns.Name, f.Name, f.Type))
 				continue
@@ -224,7 +235,7 @@ func resolveInline(block *ast.InlineStateBlock) (Schema, diag.Diagnostics) {
 		}
 	}
 
-	return schema, ds
+	return schema, ds.Flush()
 }
 
 // literalMatchesType reports whether lit is compatible with the declared FieldType.

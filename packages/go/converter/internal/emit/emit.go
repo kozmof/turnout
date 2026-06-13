@@ -580,15 +580,18 @@ func writeArgs(args []*turnoutpb.ArgModel) string {
 }
 
 // writeStructpbValue returns the HCL text representation of a structpb.Value.
+//   - NullValue:   null
 //   - NumberValue: bare number, no trailing ".0" for integers
 //   - StringValue: double-quoted, with Go's %q escaping
-//   - BoolValue: true / false
-//   - ListValue: [] or [v1, v2, ...] (all on one line)
+//   - BoolValue:   true / false
+//   - ListValue:   [] or [v1, v2, ...] (all on one line)
 func writeStructpbValue(v *structpb.Value) string {
 	if v == nil {
 		return "null"
 	}
 	switch k := v.Kind.(type) {
+	case *structpb.Value_NullValue:
+		return "null"
 	case *structpb.Value_NumberValue:
 		return strconv.FormatFloat(k.NumberValue, 'f', -1, 64)
 	case *structpb.Value_StringValue:

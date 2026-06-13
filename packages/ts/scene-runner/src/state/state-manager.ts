@@ -106,6 +106,37 @@ function assertSafePath(path: string): void {
   }
 }
 
+// assertKnownPath combines the safe-path guard with the schema membership check
+// used by read operations. Throws on reserved or undeclared paths.
+function assertKnownPath(path: string, validPaths: ReadonlySet<string> | null): void {
+  assertSafePath(path);
+  if (validPaths !== null && !validPaths.has(path)) {
+    throw new Error(
+      `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+    );
+  }
+}
+
+// assertValidWrite combines the known-path check with the schema type check
+// used by write operations. Throws on reserved paths, undeclared paths, or
+// type mismatches.
+function assertValidWrite(
+  path: string,
+  value: AnyValue,
+  validPaths: ReadonlySet<string> | null,
+  typeMap: ReadonlyMap<string, string> | null,
+): void {
+  assertKnownPath(path, validPaths);
+  if (typeMap !== null) {
+    const expectedType = typeMap.get(path);
+    if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
+      throw new Error(
+        `StateManager: type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
+      );
+    }
+  }
+}
+
 function make(
   state: Record<string, AnyValue>,
   validPaths: ReadonlySet<string> | null,
@@ -113,12 +144,7 @@ function make(
 ): StateManager {
   return {
     read: (path) => {
-      assertSafePath(path);
-      if (validPaths !== null && !validPaths.has(path)) {
-        throw new Error(
-          `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
-        );
-      }
+      assertKnownPath(path, validPaths);
       return state[path] ?? buildNull('missing');
     },
     isDeclared: (path) => {
@@ -131,39 +157,13 @@ function make(
       return Object.prototype.hasOwnProperty.call(state, path);
     },
     write: (path, value) => {
-      assertSafePath(path);
-      if (validPaths !== null && !validPaths.has(path)) {
-        throw new Error(
-          `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
-        );
-      }
-      if (typeMap !== null) {
-        const expectedType = typeMap.get(path);
-        if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
-          throw new Error(
-            `StateManager: type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
-          );
-        }
-      }
+      assertValidWrite(path, value, validPaths, typeMap);
       return make({ ...state, [path]: value }, validPaths, typeMap);
     },
     writeBatch: (batch) => {
       const newState = { ...state };
       for (const [path, value] of Object.entries(batch)) {
-        assertSafePath(path);
-        if (validPaths !== null && !validPaths.has(path)) {
-          throw new Error(
-            `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
-          );
-        }
-        if (typeMap !== null) {
-          const expectedType = typeMap.get(path);
-          if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
-            throw new Error(
-              `StateManager: type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
-            );
-          }
-        }
+        assertValidWrite(path, value, validPaths, typeMap);
         newState[path] = value;
       }
       return make(newState, validPaths, typeMap);
