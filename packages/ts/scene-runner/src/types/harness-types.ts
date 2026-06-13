@@ -101,10 +101,28 @@ export type ExecutionTrace =
 // Harness result
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type HarnessResult = {
+/**
+ * Result returned by full-model factories (`createRunner`, `runHarness`).
+ * `model` is always present because the factory received a complete `TurnModel`.
+ */
+export type FullHarnessResult = {
   finalState: Record<string, AnyValue>;
   trace: ExecutionTrace;
-  // model is present when produced by createRunner or runHarness (full-model factories).
-  // createSceneRunner and createRouteRunner omit it since they receive only a fragment.
-  model?: TurnModel;
+  model: TurnModel;
 };
+
+/**
+ * Result returned by fragment factories (`createSceneRunner`, `createRouteRunner`).
+ * `model` is absent — the factory received only a scene or route fragment, not
+ * a complete `TurnModel`.
+ */
+export type FragmentHarnessResult = {
+  finalState: Record<string, AnyValue>;
+  trace: ExecutionTrace;
+};
+
+/**
+ * Union of all harness result types. Use `FullHarnessResult` or
+ * `FragmentHarnessResult` when the factory is known at the call site.
+ */
+export type HarnessResult = FullHarnessResult | FragmentHarnessResult;

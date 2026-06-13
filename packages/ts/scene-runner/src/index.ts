@@ -6,6 +6,8 @@ export type {
   ExecutionOptions,
   HarnessOptions,
   HarnessResult,
+  FullHarnessResult,
+  FragmentHarnessResult,
   HookRegistry,
   PrepareHookImpl,
   PublishHookImpl,

@@ -250,6 +250,18 @@ describe('StateManager — additional validation branches', () => {
     expect(() => sm.write('constructor', buildNumber(1))).toThrow('reserved path "constructor"');
   });
 
+  it('rejects expanded set of Object built-in property names', () => {
+    const sm = stateManagerFromUnchecked({});
+    const builtins = [
+      'hasOwnProperty', 'toString', 'valueOf',
+      'toLocaleString', 'isPrototypeOf', 'propertyIsEnumerable',
+    ] as const;
+    for (const name of builtins) {
+      expect(() => sm.read(name), `read("${name}")`).toThrow(`reserved path "${name}"`);
+      expect(() => sm.write(name, buildNumber(1)), `write("${name}")`).toThrow(`reserved path "${name}"`);
+    }
+  });
+
   it('rejects reserved paths in the initial state passed to stateManagerFromUnchecked', () => {
     // 'constructor' and 'prototype' are reachable as own enumerable keys via object literals.
     // '__proto__' in an object literal invokes the prototype setter, not an own property,
@@ -488,5 +500,36 @@ describe('matchesArraySubtype — empty-array edge cases', () => {
   it('write() rejects a typed buildArrayString for an arr<number> field', () => {
     const sm = stateManagerFromSchema(arrSchema);
     expect(() => sm.write('ns.nums', buildArrayString([buildString('a')]))).toThrow(/expected arr<number>/);
+  });
+});
+
+describe('StateReader — forEach', () => {
+  it('iterates all written paths without allocating a copy', () => {
+    const sm = stateManagerFromUnchecked({
+      'player.score': buildNumber(42),
+      'player.label': buildString('winner'),
+    });
+    const collected: Array<[string, unknown]> = [];
+    sm.forEach((path, value) => collected.push([path, value]));
+    expect(collected).toHaveLength(2);
+    expect(collected.find(([p]) => p === 'player.score')?.[1]).toMatchObject({ value: 42 });
+    expect(collected.find(([p]) => p === 'player.label')?.[1]).toMatchObject({ value: 'winner' });
+  });
+
+  it('iterates no entries for an empty state', () => {
+    const sm = stateManagerFromUnchecked({});
+    let count = 0;
+    sm.forEach(() => { count++; });
+    expect(count).toBe(0);
+  });
+
+  it('reflects written entries on schema-backed managers', () => {
+    const sm = stateManagerFromStrict(
+      { 'a.x': buildNumber(1) },
+      new Set(['a.x', 'a.y']),
+    );
+    const paths: string[] = [];
+    sm.forEach((p) => paths.push(p));
+    expect(paths).toEqual(['a.x']);
   });
 });

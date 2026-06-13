@@ -7,6 +7,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 )
 
 func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
@@ -162,6 +163,46 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 	}
 }
 
+
+// TestLowerStaleDeclarationOrderIsError verifies that lowerCore emits an error
+// (not a warning) when the declaration-order slice contains a key that is absent
+// from the schema — an internal invariant violation that indicates data loss.
+func TestLowerStaleDeclarationOrderIsError(t *testing.T) {
+	t.Parallel()
+
+	// Build a TurnFile with a state_file directive (so lowerCore uses the schema path).
+	src := `state_file = "fake.turn"
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = v prog "p" { v:bool = true } } }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("parse: %v", ds)
+	}
+
+	// Schema has only "app.score"; order claims an extra key "app.ghost" that
+	// does not exist — the stale-order divergence we want to trigger.
+	schema := state.NewSchemaFromMap(map[string]map[string]state.FieldMeta{
+		"app": {
+			"score": {Type: ast.FieldTypeNumber},
+		},
+	})
+	order := []string{"app.score", "app.ghost"}
+
+	_, ds2 := lower.LowerCoreForTest(tf, schema, order)
+	if !ds2.HasErrors() {
+		t.Fatal("expected error diagnostic for stale declaration-order key, got none")
+	}
+	if !hasLowerCode(ds2, diag.CodeStaleDeclarationOrder) {
+		t.Fatalf("expected CodeStaleDeclarationOrder error, got: %v", ds2)
+	}
+	for _, d := range ds2 {
+		if d.Code == diag.CodeStaleDeclarationOrder && d.Severity == diag.SeverityWarning {
+			t.Fatalf("CodeStaleDeclarationOrder must be an error, got Warning: %s", d.Format())
+		}
+	}
+}
 
 func lowerDiagnosticsFromSource(t *testing.T, src string, mutate func(*ast.TurnFile)) diag.Diagnostics {
 	t.Helper()

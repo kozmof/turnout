@@ -125,6 +125,7 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 		return nil, append(accumulated, ds3.Errors()...)
 	}
 
+	lr.Validated = true
 	return &CompileResult{
 		Model:    lr.Model,
 		Schema:   lr.Schema,

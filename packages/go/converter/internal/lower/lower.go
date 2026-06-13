@@ -20,9 +20,14 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // LowerResult bundles the canonical proto model and the resolved STATE schema.
+// Validated is false when produced by LowerResolvingState alone (the validate
+// stage has not run). compileBytes in the converter package sets it to true
+// after validate.Validate succeeds, allowing callers to distinguish a fully
+// verified model from one that has only been lowered.
 type LowerResult struct {
-	Model  *turnoutpb.TurnModel
-	Schema state.Schema
+	Model     *turnoutpb.TurnModel
+	Schema    state.Schema
+	Validated bool
 }
 
 // LowerResolvingState resolves the STATE schema from basePath (the directory of
@@ -190,8 +195,8 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 	for _, key := range order {
 		meta, ok := schema.Get(key)
 		if !ok {
-			ds.Append(diag.Warnf(diag.CodeStaleDeclarationOrder,
-				"lowerStateBlockFromSchema: state key %q in declaration order not found in schema (stale order?)", key))
+			ds.Append(diag.Errorf(diag.CodeStaleDeclarationOrder,
+				"lowerStateBlockFromSchema: state key %q in declaration order not found in schema (internal error — schema and order are out of sync)", key))
 			continue
 		}
 		ns, field, ok := strings.Cut(key, ".")

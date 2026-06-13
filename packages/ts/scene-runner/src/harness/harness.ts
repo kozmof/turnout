@@ -1,4 +1,4 @@
-import type { HarnessOptions, HarnessResult } from '../types/harness-types.js';
+import type { HarnessOptions, FullHarnessResult } from '../types/harness-types.js';
 import { stateManagerFromUnchecked, stateManagerFromSchema } from '../state/state-manager.js';
 import type { StateManager } from '../state/state-manager.js';
 import { executeScene } from '../executor/scene-executor.js';
@@ -20,7 +20,7 @@ import { migrateModel } from '../migration.js';
  *  - `entryId` matches a `scene.id`  → `executeScene`
  *  - no match                         → throws
  */
-export async function runHarness(options: HarnessOptions): Promise<HarnessResult> {
+export async function runHarness(options: HarnessOptions): Promise<FullHarnessResult> {
   const model = migrateModel(options.model);
 
   // ── 1. Build STATE ────────────────────────────────────────────────────────

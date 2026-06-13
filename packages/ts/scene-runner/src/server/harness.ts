@@ -1,5 +1,5 @@
 // Node.js only — loads models from disk before delegating to the universal harness.
-import type { HarnessResult, HookRegistry } from '../types/harness-types.js';
+import type { FullHarnessResult, HookRegistry } from '../types/harness-types.js';
 import type { AnyValue } from 'runtime';
 import { runConverter, loadJsonModel } from './bridge.js';
 import { runHarness } from '../harness/harness.js';
@@ -31,7 +31,7 @@ export type ServerHarnessOptions = {
  * `child_process` and `fs`. Use `runHarness` directly when the model is
  * already available as a parsed object.
  */
-export async function runServerHarness(options: ServerHarnessOptions): Promise<HarnessResult> {
+export async function runServerHarness(options: ServerHarnessOptions): Promise<FullHarnessResult> {
   let model;
   if (options.turnFile) {
     model = runConverter(options.turnFile);

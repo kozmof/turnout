@@ -5,6 +5,8 @@ import type {
   PrepareHookImpl,
   PublishHookImpl,
   HarnessResult,
+  FullHarnessResult,
+  FragmentHarnessResult,
   ActionTrace,
 } from './types/harness-types.js';
 import { stateManagerFromUnchecked, stateManagerFromSchema } from './state/state-manager.js';
@@ -56,11 +58,11 @@ export type RunnerStepResult =
  * // Or run to completion in one call
  * const result = runner.run();
  */
-export type Runner = {
+export type Runner<R extends HarnessResult = HarnessResult> = {
   /** Register a prepare hook. Returns the runner for chaining. */
-  usePrepareHook(name: string, handler: PrepareHookImpl): Runner;
+  usePrepareHook(name: string, handler: PrepareHookImpl): Runner<R>;
   /** Register a publish hook. Returns the runner for chaining. */
-  usePublishHook(name: string, handler: PublishHookImpl): Runner;
+  usePublishHook(name: string, handler: PublishHookImpl): Runner<R>;
   /** True when all actions have completed (scene or route finished). */
   isDone(): boolean;
   /**
@@ -86,7 +88,7 @@ export type Runner = {
    * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
    * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
    */
-  run(): Promise<HarnessResult>;
+  run(): Promise<R>;
   /**
    * Async generator that yields one `RunnerStepResult` per completed action or
    * scene transition. In route mode, `scene-transition` events are yielded
@@ -105,7 +107,7 @@ export type Runner = {
    * Return the final `HarnessResult`.
    * Throws if execution is not yet complete.
    */
-  result(): HarnessResult;
+  result(): R;
   /**
    * Return the StateManager at the current point of execution.
    * Safe to call at any time — before, during, or after execution, including
@@ -125,14 +127,14 @@ export type Runner = {
  * Both route and scene execution branches call this to avoid duplicating the
  * step-loop, async-generator, and result-accessor logic.
  */
-function makeRunnerMethods(
+function makeRunnerMethods<R extends HarnessResult>(
   hooks: HookRegistry,
   advanceFn: () => Promise<RunnerStepResult>,
   doneFn: () => boolean,
-  resultFn: () => HarnessResult,
+  resultFn: () => R,
   partialStateFn: () => StateManager,
   signal: AbortSignal,
-): Runner {
+): Runner<R> {
   function checkAborted(): void {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
   }
@@ -191,7 +193,7 @@ export function createSceneRunner(
   scene: SceneBlock,
   options: RunnerOptions,
   initialState?: StateManager,
-): Runner {
+): Runner<FragmentHarnessResult> {
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   const state = initialState ?? stateManagerFromUnchecked(options.initialState);
@@ -258,7 +260,7 @@ export function createRouteRunner(
   sceneMap: Record<string, SceneBlock>,
   options: RunnerOptions,
   initialState?: StateManager,
-): Runner {
+): Runner<FragmentHarnessResult> {
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   const state = initialState ?? stateManagerFromUnchecked(options.initialState);
@@ -351,7 +353,7 @@ export function createRouteRunner(
  * For testing individual modes without a full model, use `createSceneRunner` or
  * `createRouteRunner` directly.
  */
-export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
+export function createRunner(model: TurnModel, options: RunnerOptions): Runner<FullHarnessResult> {
   const migratedModel = migrateModel(model);
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
@@ -367,8 +369,21 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
 
   const target = resolveDispatchTarget(migratedModel, options.entryId);
 
-  if (target.kind === 'route') {
-    return createRouteRunner(target.route, target.entryScene, sceneMap, options, initialState);
-  }
-  return createSceneRunner(target.scene, options, initialState);
+  const inner: Runner<FragmentHarnessResult> = target.kind === 'route'
+    ? createRouteRunner(target.route, target.entryScene, sceneMap, options, initialState)
+    : createSceneRunner(target.scene, options, initialState);
+
+  // Promote FragmentHarnessResult → FullHarnessResult by attaching the model.
+  const promote = (r: FragmentHarnessResult): FullHarnessResult => ({ ...r, model: migratedModel });
+  const promoted: Runner<FullHarnessResult> = {
+    usePrepareHook: (name, handler) => { inner.usePrepareHook(name, handler); return promoted; },
+    usePublishHook: (name, handler) => { inner.usePublishHook(name, handler); return promoted; },
+    isDone: () => inner.isDone(),
+    next: (steps) => inner.next(steps),
+    run: async () => promote(await inner.run()),
+    runAsync: () => inner.runAsync(),
+    result: () => promote(inner.result()),
+    partialState: () => inner.partialState(),
+  };
+  return promoted;
 }

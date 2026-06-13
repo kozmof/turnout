@@ -47,6 +47,12 @@ export interface StateReader {
   /** Return a shallow copy of the current state record. */
   snapshot(): Readonly<Record<string, AnyValue>>;
   /**
+   * Invoke `cb` for each path that has a written value in the current state.
+   * Unlike `snapshot()`, this does not allocate a copy of the state record —
+   * prefer it when you only need to iterate without retaining the entries.
+   */
+  forEach(cb: (path: string, value: AnyValue) => void): void;
+  /**
    * Return the set of declared valid paths, or null for unchecked managers.
    */
   validPaths(): ReadonlySet<string> | null;
@@ -86,7 +92,11 @@ export interface StateManager extends StateReader {
   writeBatch(batch: Record<string, AnyValue>): StateManager;
 }
 
-const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+const RESERVED_KEYS = new Set([
+  '__proto__', 'constructor', 'prototype',
+  'hasOwnProperty', 'toString', 'valueOf',
+  'toLocaleString', 'isPrototypeOf', 'propertyIsEnumerable',
+]);
 
 function assertSafePath(path: string): void {
   if (RESERVED_KEYS.has(path)) {
@@ -157,6 +167,11 @@ function make(
       return make(newState, validPaths, typeMap);
     },
     snapshot: () => ({ ...state }),
+    forEach: (cb) => {
+      for (const [path, value] of Object.entries(state)) {
+        cb(path, value as AnyValue);
+      }
+    },
     validPaths: () => validPaths,
     isSchemaManaged: () => validPaths !== null,
     readOrUndefined: (path) => {

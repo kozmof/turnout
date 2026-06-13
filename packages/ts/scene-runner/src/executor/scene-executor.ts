@@ -61,6 +61,13 @@ export type SceneExecutor = {
   readonly partialState: () => StateManager;
   /** ID of the action currently being attempted, if any. */
   readonly currentActionId: () => string | undefined;
+  /**
+   * Returns scene-level warnings accumulated so far (e.g. duplicate-enqueue warnings).
+   * Safe to call at any time — before, during, or after execution.
+   * Callers that exit early via `next()` without calling `result()` can use this
+   * to surface warnings that would otherwise only appear in `SceneTrace.warnings`.
+   */
+  readonly currentWarnings: () => readonly string[];
 };
 
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
@@ -222,7 +229,11 @@ export function createSceneExecutor(
     return currentAction;
   }
 
-  return { isDone, next, result, partialState, currentActionId };
+  function currentWarnings(): readonly string[] {
+    return sceneWarnings;
+  }
+
+  return { isDone, next, result, partialState, currentActionId, currentWarnings };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -329,7 +340,10 @@ function evaluateNextRules(
       // No compute block → unconditional match.
       condMet = true;
     } else if (!rule.compute.prog) {
-      condMet = false;
+        warnings.push(
+          `action "${action.id}" next-rule targeting "${rule.action}" has a compute block but no prog — rule skipped`,
+        );
+        condMet = false;
     } else {
       const prepare = rule.prepare ?? [];
       const nextPrepared = resolveNextPrepare(prepare, state, result);
