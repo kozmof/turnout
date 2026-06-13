@@ -20,14 +20,12 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // LowerResult bundles the canonical proto model and the resolved STATE schema.
-// Validated is false when produced by LowerResolvingState alone (the validate
-// stage has not run). compileBytes in the converter package sets it to true
-// after validate.Validate succeeds, allowing callers to distinguish a fully
-// verified model from one that has only been lowered.
+// The model has NOT been validated — use converter.Compile / CompileSource for
+// the full pipeline including validation, or converter.CompileToModel for
+// tooling paths that skip validation intentionally.
 type LowerResult struct {
-	Model     *turnoutpb.TurnModel
-	Schema    state.Schema
-	Validated bool
+	Model  *turnoutpb.TurnModel
+	Schema state.Schema
 }
 
 // LowerResolvingState resolves the STATE schema from basePath (the directory of
@@ -170,31 +168,39 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 }
 
 
-// nsEntry groups a namespace name with its accumulated fields for state model construction.
-type nsEntry struct {
-	name   string
-	fields []*turnoutpb.FieldModel
+// orderedNsMap accumulates namespace→field entries in insertion order.
+// It replaces the previous dual-variable pattern (nsList + nsIndex).
+type orderedNsMap struct {
+	list  []struct {
+		name   string
+		fields []*turnoutpb.FieldModel
+	}
+	index map[string]int
 }
 
-// appendStateField appends one field to nsList/nsIndex, creating the namespace entry when needed.
-func appendStateField(nsList *[]nsEntry, nsIndex map[string]int, nsName, fieldName string, meta state.FieldMeta) {
-	idx, exists := nsIndex[nsName]
-	if !exists {
-		idx = len(*nsList)
-		*nsList = append(*nsList, nsEntry{name: nsName})
-		nsIndex[nsName] = idx
+func (m *orderedNsMap) appendField(nsName, fieldName string, meta state.FieldMeta) {
+	if m.index == nil {
+		m.index = make(map[string]int)
 	}
-	(*nsList)[idx].fields = append((*nsList)[idx].fields, &turnoutpb.FieldModel{
+	idx, exists := m.index[nsName]
+	if !exists {
+		idx = len(m.list)
+		m.list = append(m.list, struct {
+			name   string
+			fields []*turnoutpb.FieldModel
+		}{name: nsName})
+		m.index[nsName] = idx
+	}
+	m.list[idx].fields = append(m.list[idx].fields, &turnoutpb.FieldModel{
 		Name:  fieldName,
 		Type:  meta.Type.ProtoString(),
 		Value: meta.DefaultValue,
 	})
 }
 
-// assembleStateModel converts a populated nsList into a *turnoutpb.StateModel.
-func assembleStateModel(nsList []nsEntry) *turnoutpb.StateModel {
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(nsList))}
-	for _, ns := range nsList {
+func (m *orderedNsMap) toStateModel() *turnoutpb.StateModel {
+	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(m.list))}
+	for _, ns := range m.list {
 		sm.Namespaces = append(sm.Namespaces, &turnoutpb.NamespaceModel{Name: ns.name, Fields: ns.fields})
 	}
 	return sm
@@ -203,8 +209,7 @@ func assembleStateModel(nsList []nsEntry) *turnoutpb.StateModel {
 // lowerStateBlockFromSchema reconstructs a state block preserving the
 // declaration order supplied by the caller (dotted "ns.field" keys).
 func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
-	var nsList []nsEntry
-	nsIndex := make(map[string]int)
+	var m orderedNsMap
 	for _, key := range order {
 		meta, ok := schema.Get(key)
 		if !ok {
@@ -218,7 +223,7 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 				"lowerStateBlockFromSchema: state key %q has no namespace separator (internal error)", key))
 			continue
 		}
-		appendStateField(&nsList, nsIndex, ns, field, meta)
+		m.appendField(ns, field, meta)
 	}
 	// Do not assemble a partial model when errors were collected; returning nil
 	// causes lowerCore's nil-guard to halt compilation cleanly rather than
@@ -226,7 +231,7 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 	if ds.HasErrors() {
 		return nil
 	}
-	return assembleStateModel(nsList)
+	return m.toStateModel()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

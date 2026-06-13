@@ -6,6 +6,16 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
+// Block-item starter-token sets used by syncToBlockItem for consistent error
+// recovery. Each slice names the keyword tokens that can begin a sibling item
+// within the corresponding block, so recovery stops at the next valid statement
+// rather than skipping to the closing brace.
+var (
+	sceneBlockStarters  = []lexer.TokenKind{lexer.TokKwEntryActions, lexer.TokKwNextPolicy, lexer.TokKwView, lexer.TokKwAction}
+	actionBlockStarters = []lexer.TokenKind{lexer.TokTripleQuote, lexer.TokKwText, lexer.TokKwCompute, lexer.TokKwPrepare, lexer.TokKwMerge, lexer.TokKwPublish, lexer.TokKwNext}
+	viewBlockStarters   = []lexer.TokenKind{lexer.TokKwFlow, lexer.TokKwEnforce}
+)
+
 // ─── parseActionBlock ────────────────────────────────────────────────────────
 
 func (p *parser) parseActionBlock() *ast.ActionBlock {
@@ -60,10 +70,7 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 			ab.Next = append(ab.Next, p.parseNextBlock())
 		default:
 			p.errorf(t, "unexpected token %s %q in action block", kindName(t.Kind), t.Value)
-			p.advance()
-			if p.peek().Kind == lexer.TokLBrace {
-				p.skipBlock()
-			}
+			p.skipUnexpectedItem()
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -99,7 +106,7 @@ func (p *parser) parseViewBlock() *ast.ViewBlock {
 			vb.Enforce = strTok.Value
 		default:
 			p.errorf(t, "unexpected token %s in view block", kindName(t.Kind))
-			p.advance()
+			p.syncToBlockItem(viewBlockStarters...)
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -146,10 +153,7 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 			sb.Actions = append(sb.Actions, p.parseActionBlock())
 		default:
 			p.errorf(t, "unexpected token %s %q in scene block", kindName(t.Kind), t.Value)
-			p.advance()
-			if p.peek().Kind == lexer.TokLBrace {
-				p.skipBlock()
-			}
+			p.syncToBlockItem(sceneBlockStarters...)
 		}
 	}
 	p.expect(lexer.TokRBrace)

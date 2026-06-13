@@ -207,24 +207,9 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		t2, ok2 = resolveArgType(b.Name, c.Args[1], scope, nil, ds)
 	}
 
-	// Return-type check: polymorphic kinds derive return type from arg[0];
-	// all other kinds use the static ReturnType from FnSpec.
-	retType := ast.FieldTypeInvalid
-	var retKnown bool
-	switch spec.Kind {
-	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
-		retType, retKnown = ast.FieldTypeBool, true
-	case fnmeta.FnKindArrGet:
-		if ok1 && t1.IsArray() {
-			retType, retKnown = t1.ElemType(), true
-		}
-	case fnmeta.FnKindArrConcat:
-		if ok1 {
-			retType, retKnown = t1, true
-		}
-	default:
-		retType, retKnown = spec.ReturnType, true
-	}
+	// Return-type check: delegate to resolveExpectedReturn so the inference
+	// logic lives in one place (used identically by validatePipe steps).
+	retType, retKnown := resolveExpectedReturn(spec, t1, ok1)
 	if retKnown {
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {

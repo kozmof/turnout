@@ -31,24 +31,36 @@ type FieldMeta = state.FieldMeta
 // use CompileToModel without importing internal paths.
 type LowerResult = lower.LowerResult
 
+// ValidatedModel wraps a TurnModel that has passed the full validate stage.
+// It can only be obtained from a successful Compile or CompileSource call;
+// the internal constructor is unexported so callers cannot bypass validation.
+// Use Model() to inspect the proto, and WriteHCL / WriteJSON to emit.
+type ValidatedModel struct {
+	model *turnoutpb.TurnModel
+}
+
+// newValidatedModel is the only constructor; called exclusively from compileBytes
+// after validate.Validate succeeds.
+func newValidatedModel(m *turnoutpb.TurnModel) ValidatedModel { return ValidatedModel{model: m} }
+
+// Model returns the underlying proto model for read-only inspection.
+func (vm ValidatedModel) Model() *turnoutpb.TurnModel { return vm.model }
+
+// WriteHCL writes canonical HCL to w and returns any emit diagnostics.
+func (vm ValidatedModel) WriteHCL(w io.Writer) Diagnostics { return emit.Emit(w, vm.model) }
+
+// WriteJSON writes JSON to w and returns any emit diagnostics.
+func (vm ValidatedModel) WriteJSON(w io.Writer) Diagnostics { return emit.EmitJSON(w, vm.model) }
+
 // CompileResult bundles the artifacts of a successful Compile run.
 type CompileResult struct {
-	// Model is the lowered, validated proto model.
-	Model *turnoutpb.TurnModel
+	// ValidatedModel is embedded so WriteHCL / WriteJSON are callable directly
+	// on *CompileResult. Use Model() to inspect the underlying proto.
+	ValidatedModel
 	// Schema is the resolved STATE schema, forwarded from the lowering stage.
 	Schema state.Schema
 	// Warnings holds non-fatal diagnostics (e.g. unused bindings).
 	Warnings Diagnostics
-}
-
-// WriteHCL writes canonical HCL to w and returns any emit diagnostics.
-func (r *CompileResult) WriteHCL(w io.Writer) Diagnostics {
-	return emit.Emit(w, r.Model)
-}
-
-// WriteJSON writes JSON to w and returns any emit diagnostics.
-func (r *CompileResult) WriteJSON(w io.Writer) Diagnostics {
-	return emit.EmitJSON(w, r.Model)
 }
 
 // Compile runs parse → state-resolve → lower → validate for inputPath.
@@ -174,10 +186,9 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 		return nil, accumulated
 	}
 
-	lr.Validated = true
 	return &CompileResult{
-		Model:    lr.Model,
-		Schema:   lr.Schema,
-		Warnings: accumulated,
+		ValidatedModel: newValidatedModel(lr.Model),
+		Schema:         lr.Schema,
+		Warnings:       accumulated,
 	}, nil
 }

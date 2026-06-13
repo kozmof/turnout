@@ -398,6 +398,20 @@ type BindingRHS interface {
 // SyntaxRHS marks binding RHS types produced by the parser.
 // The lowerer converts these to flat BindingModel entries; encountering
 // a SyntaxRHS in post-lowering code paths is always a compiler bug.
+//
+// syntaxRHSCount is the number of SyntaxRHS implementors. The compile-time
+// array below enforces exhaustiveness: add a {} element whenever a new
+// SyntaxRHS type is introduced, then audit every switch on SyntaxRHS.
+// Current implementors: *ErrorRHS, *IfCallRHS, *CaseCallRHS, *PipeCallRHS.
+const syntaxRHSCount = 4
+
+var _ = [syntaxRHSCount]struct{}{
+	{}, // *ErrorRHS
+	{}, // *IfCallRHS
+	{}, // *CaseCallRHS
+	{}, // *PipeCallRHS
+}
+
 type SyntaxRHS interface {
 	BindingRHS
 	syntaxRHS()
@@ -920,39 +934,59 @@ type Literal interface {
 
 // NumberLiteral is an integer or decimal numeric literal.
 type NumberLiteral struct {
-	LitPos Pos
+	litPos Pos
 	Value  float64
 }
 
-func (*NumberLiteral) literal()      {}
-func (n *NumberLiteral) Pos() Pos    { return n.LitPos }
+func (*NumberLiteral) literal()   {}
+func (n *NumberLiteral) Pos() Pos { return n.litPos }
+
+// NewNumberLiteral constructs a NumberLiteral with the given source position.
+func NewNumberLiteral(pos Pos, value float64) *NumberLiteral {
+	return &NumberLiteral{litPos: pos, Value: value}
+}
 
 // StringLiteral is a quoted string literal.
 type StringLiteral struct {
-	LitPos Pos
+	litPos Pos
 	Value  string
 }
 
-func (*StringLiteral) literal()      {}
-func (s *StringLiteral) Pos() Pos    { return s.LitPos }
+func (*StringLiteral) literal()   {}
+func (s *StringLiteral) Pos() Pos { return s.litPos }
+
+// NewStringLiteral constructs a StringLiteral with the given source position.
+func NewStringLiteral(pos Pos, value string) *StringLiteral {
+	return &StringLiteral{litPos: pos, Value: value}
+}
 
 // BoolLiteral is a boolean literal (`true` or `false`).
 type BoolLiteral struct {
-	LitPos Pos
+	litPos Pos
 	Value  bool
 }
 
-func (*BoolLiteral) literal()        {}
-func (b *BoolLiteral) Pos() Pos      { return b.LitPos }
+func (*BoolLiteral) literal()   {}
+func (b *BoolLiteral) Pos() Pos { return b.litPos }
+
+// NewBoolLiteral constructs a BoolLiteral with the given source position.
+func NewBoolLiteral(pos Pos, value bool) *BoolLiteral {
+	return &BoolLiteral{litPos: pos, Value: value}
+}
 
 // ArrayLiteral is an array literal `[e1, e2, ...]`.
 type ArrayLiteral struct {
-	LitPos   Pos
+	litPos   Pos
 	Elements []Literal
 }
 
-func (*ArrayLiteral) literal()       {}
-func (a *ArrayLiteral) Pos() Pos     { return a.LitPos }
+func (*ArrayLiteral) literal()   {}
+func (a *ArrayLiteral) Pos() Pos { return a.litPos }
+
+// NewArrayLiteral constructs an ArrayLiteral with the given source position.
+func NewArrayLiteral(pos Pos, elements []Literal) *ArrayLiteral {
+	return &ArrayLiteral{litPos: pos, Elements: elements}
+}
 
 // LiteralToStructpb converts an ast.Literal to a *structpb.Value.
 // A nil literal becomes a null value.

@@ -110,7 +110,7 @@ func (s *DiagSink) Append(d Diagnostic) {
 	if s.halted {
 		return
 	}
-	if len(s.diags) >= MaxDiagnostics {
+	if s.AtCap() {
 		s.Halt()
 		return
 	}

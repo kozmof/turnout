@@ -186,6 +186,16 @@ func (p *parser) skipBlock() {
 	}
 }
 
+// skipUnexpectedItem advances past one unexpected token (and its following
+// block, if any). Used by block parsers that want per-item error recovery:
+// each bad sibling gets its own diagnostic, and the outer loop retries.
+func (p *parser) skipUnexpectedItem() {
+	p.advance()
+	if p.peek().Kind == lexer.TokLBrace {
+		p.skipBlock()
+	}
+}
+
 // ─── parseRefVal ─────────────────────────────────────────────────────────────
 
 // parseRefVal consumes either a bare identifier or a quoted string and returns

@@ -6,6 +6,11 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
+var (
+	nextBlockStarters    = []lexer.TokenKind{lexer.TokKwCompute, lexer.TokKwPrepare, lexer.TokKwAction}
+	publishBlockStarters = []lexer.TokenKind{lexer.TokKwHook}
+)
+
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
 
 // parseBindingDecl parses one binding declaration inside a prog block:
@@ -268,7 +273,7 @@ func (p *parser) parsePublishBlock() *ast.PublishBlock {
 			hooks = append(hooks, hookTok.Value)
 		} else {
 			p.errorf(t, "unexpected token %s in publish block", kindName(t.Kind))
-			p.advance()
+			p.syncToBlockItem(publishBlockStarters...)
 		}
 	}
 	p.expect(lexer.TokRBrace)
@@ -309,10 +314,7 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 			}
 		default:
 			p.errorf(t, "unexpected token %s in next block", kindName(t.Kind))
-			p.advance()
-			if p.peek().Kind == lexer.TokLBrace {
-				p.skipBlock()
-			}
+			p.skipUnexpectedItem()
 		}
 	}
 	p.expect(lexer.TokRBrace)

@@ -54,14 +54,14 @@ func TestCompile_success(t *testing.T) {
 	if result == nil {
 		t.Fatal("Compile returned nil result with no errors")
 	}
-	if result.Model == nil {
+	if result.Model() == nil {
 		t.Fatal("CompileResult.Model is nil")
 	}
-	if len(result.Model.Scenes) != 1 {
-		t.Fatalf("expected 1 scene, got %d", len(result.Model.Scenes))
+	if len(result.Model().Scenes) != 1 {
+		t.Fatalf("expected 1 scene, got %d", len(result.Model().Scenes))
 	}
-	if result.Model.Scenes[0].Id != "start" {
-		t.Fatalf("expected scene id 'start', got %q", result.Model.Scenes[0].Id)
+	if result.Model().Scenes[0].Id != "start" {
+		t.Fatalf("expected scene id 'start', got %q", result.Model().Scenes[0].Id)
 	}
 }
 
@@ -97,14 +97,14 @@ func TestCompileSource_success(t *testing.T) {
 	if result == nil {
 		t.Fatal("CompileSource returned nil result with no errors")
 	}
-	if result.Model == nil {
+	if result.Model() == nil {
 		t.Fatal("CompileResult.Model is nil")
 	}
-	if len(result.Model.Scenes) != 1 {
-		t.Fatalf("expected 1 scene, got %d", len(result.Model.Scenes))
+	if len(result.Model().Scenes) != 1 {
+		t.Fatalf("expected 1 scene, got %d", len(result.Model().Scenes))
 	}
-	if result.Model.Scenes[0].Id != "start" {
-		t.Fatalf("expected scene id 'start', got %q", result.Model.Scenes[0].Id)
+	if result.Model().Scenes[0].Id != "start" {
+		t.Fatalf("expected scene id 'start', got %q", result.Model().Scenes[0].Id)
 	}
 }
 
@@ -142,10 +142,10 @@ func TestCompileToModelWithSchema(t *testing.T) {
 	}
 
 	// Models must have the same number of scenes and the same scene IDs.
-	if len(lr.Model.Scenes) != len(first.Model.Scenes) {
-		t.Fatalf("scene count mismatch: got %d, want %d", len(lr.Model.Scenes), len(first.Model.Scenes))
+	if len(lr.Model.Scenes) != len(first.Model().Scenes) {
+		t.Fatalf("scene count mismatch: got %d, want %d", len(lr.Model.Scenes), len(first.Model().Scenes))
 	}
-	for i, s := range first.Model.Scenes {
+	for i, s := range first.Model().Scenes {
 		if lr.Model.Scenes[i].Id != s.Id {
 			t.Errorf("scene[%d]: id %q != %q", i, lr.Model.Scenes[i].Id, s.Id)
 		}

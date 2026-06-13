@@ -43,46 +43,46 @@ func (p *parser) parseLiteral() ast.Literal {
 	switch t.Kind {
 	case lexer.TokBoolLit:
 		p.advance()
-		return &ast.BoolLiteral{LitPos: p.posOf(t), Value: t.Value == "true"}
+		return ast.NewBoolLiteral(p.posOf(t), t.Value == "true")
 
 	case lexer.TokNumberLit:
 		p.advance()
 		v, err := strconv.ParseFloat(t.Value, 64)
 		if err != nil {
 			p.errorf(t, "invalid number literal %q: %v", t.Value, err)
-			return &ast.NumberLiteral{LitPos: p.posOf(t)}
+			return ast.NewNumberLiteral(p.posOf(t), 0)
 		}
-		return &ast.NumberLiteral{LitPos: p.posOf(t), Value: v}
+		return ast.NewNumberLiteral(p.posOf(t), v)
 
 	case lexer.TokStringLit:
 		p.advance()
-		return &ast.StringLiteral{LitPos: p.posOf(t), Value: t.Value}
+		return ast.NewStringLiteral(p.posOf(t), t.Value)
 
 	case lexer.TokHeredoc, lexer.TokTripleQuote:
 		p.advance()
-		return &ast.StringLiteral{LitPos: p.posOf(t), Value: t.Value}
+		return ast.NewStringLiteral(p.posOf(t), t.Value)
 
 	case lexer.TokMinus:
 		p.advance() // consume '-'
 		numTok := p.peek()
 		if numTok.Kind != lexer.TokNumberLit {
 			p.errorf(numTok, "expected number after '-', got %s", kindName(numTok.Kind))
-			return &ast.NumberLiteral{LitPos: p.posOf(t)}
+			return ast.NewNumberLiteral(p.posOf(t), 0)
 		}
 		p.advance()
 		v, err := strconv.ParseFloat(numTok.Value, 64)
 		if err != nil {
 			p.errorf(numTok, "invalid number literal %q: %v", numTok.Value, err)
-			return &ast.NumberLiteral{LitPos: p.posOf(t)}
+			return ast.NewNumberLiteral(p.posOf(t), 0)
 		}
-		return &ast.NumberLiteral{LitPos: p.posOf(t), Value: -v}
+		return ast.NewNumberLiteral(p.posOf(t), -v)
 
 	case lexer.TokLBracket:
 		return p.parseArrayLiteral()
 
 	default:
 		p.errorf(t, "expected literal value, got %s %q", kindName(t.Kind), t.Value)
-		return &ast.BoolLiteral{LitPos: p.posOf(t)}
+		return ast.NewBoolLiteral(p.posOf(t), false)
 	}
 }
 
@@ -101,7 +101,7 @@ func (p *parser) parseArrayLiteral() *ast.ArrayLiteral {
 		}
 	}
 	p.expect(lexer.TokRBracket)
-	return &ast.ArrayLiteral{LitPos: pos, Elements: elems}
+	return ast.NewArrayLiteral(pos, elems)
 }
 
 // ─── parseStateBlock / parseNamespace / parseField ──────────────────────────

@@ -168,7 +168,7 @@ Hello world.
 	}
 	sl, ok := rhs.Value.(*ast.StringLiteral)
 	if !ok || sl.Value == "" {
-		t.Errorf("triple-quote: got %T %q", rhs.Value, sl)
+		t.Errorf("triple-quote: got %T %q", rhs.Value, sl.Value)
 	}
 }
 
