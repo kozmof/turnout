@@ -20,6 +20,7 @@ import { parseMatchArms } from './executor/route-pattern.js';
 import { createRouteStepper } from './executor/route-stepper.js';
 import type { RouteStepper } from './executor/route-stepper.js';
 import { resolveDispatchTarget } from './executor/dispatch.js';
+import { validateModel } from './executor/validate-model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -360,6 +361,10 @@ export function createRouteRunner(
  */
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner<FullHarnessResult> {
   const migratedModel = migrateModel(model);
+  const validationErrors = validateModel(migratedModel);
+  if (validationErrors.length > 0) {
+    throw new Error(`[turnout] Invalid model:\n${validationErrors.map((e) => `  • ${e}`).join('\n')}`);
+  }
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   if (!migratedModel.state) {

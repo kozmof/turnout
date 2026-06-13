@@ -314,11 +314,17 @@ export function stateManagerFromSchema(
       typeMap.set(path, field.type);
     }
   }
-  for (const path of Object.keys(overrides)) {
+  for (const [path, value] of Object.entries(overrides)) {
     assertSafePath(path);
     if (!validPaths.has(path)) {
       throw new Error(
         `StateManager: unknown override path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+      );
+    }
+    const expectedType = typeMap.get(path);
+    if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
+      throw new Error(
+        `StateManager: type mismatch in override for "${path}": expected ${expectedType}, got ${value.symbol}`,
       );
     }
   }

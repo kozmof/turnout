@@ -471,6 +471,27 @@ describe('stateManagerFromSchema — override key validation', () => {
       stateManagerFromSchema(model, { 'session.typo': buildString('oops') }),
     ).toThrow(/unknown override path "session\.typo"/);
   });
+
+  it('throws at construction time when override type does not match schema type', () => {
+    expect(() =>
+      stateManagerFromSchema(model, { 'session.count': buildString('not-a-number') }),
+    ).toThrow(/type mismatch in override for "session\.count".*expected number/);
+  });
+
+  it('throws at construction time when str field receives a number override', () => {
+    expect(() =>
+      stateManagerFromSchema(model, { 'session.label': buildNumber(99) }),
+    ).toThrow(/type mismatch in override for "session\.label".*expected str/);
+  });
+
+  it('accepts a correctly typed override for each field type', () => {
+    expect(() =>
+      stateManagerFromSchema(model, {
+        'session.count': buildNumber(7),
+        'session.label': buildString('ok'),
+      }),
+    ).not.toThrow();
+  });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -43,6 +43,15 @@ func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, dia
 	return lowerCore(file, schema, order)
 }
 
+// Lower lowers file using a pre-resolved schema and its declaration order.
+// Use this when the caller has already resolved the schema (e.g. from a prior
+// CompileSource call) and wants to avoid re-reading state_file from disk.
+// schemaOrder must be the ordered dotted-path keys returned by
+// state.ResolveWithOrder or converter.ResolveSchema.
+func Lower(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
+	return lowerCore(file, schema, schemaOrder)
+}
+
 func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
 	var ds diag.DiagSink
 

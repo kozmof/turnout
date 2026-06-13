@@ -176,7 +176,7 @@ function executeStep(
   const { defId, argBindings } = step;
 
   // Resolve all argument bindings to concrete ValueIds
-  const resolvedArgMap: FuncArgMap = {} as FuncArgMap;
+  const resolvedArgMap: Record<ArgName, ValueId> = {} as Record<ArgName, ValueId>;
   for (const [argName, binding] of Object.entries(argBindings)) {
     resolvedArgMap[argName as ArgName] = resolveArgBinding(
       binding,
@@ -202,7 +202,7 @@ function executeStep(
       condFuncDefTable: scopedContext.condFuncDefTable,
       funcTable: {
         ...scopedContext.funcTable,
-        [tempFuncId]: { kind: 'combine', defId, argMap: resolvedArgMap, returnId: stepReturnId },
+        [tempFuncId]: { kind: 'combine', defId, argMap: resolvedArgMap as FuncArgMap, returnId: stepReturnId },
       },
     };
   } else {
@@ -213,7 +213,7 @@ function executeStep(
       condFuncDefTable: scopedContext.condFuncDefTable,
       funcTable: {
         ...scopedContext.funcTable,
-        [tempFuncId]: { kind: 'pipe', defId, argMap: resolvedArgMap, returnId: stepReturnId },
+        [tempFuncId]: { kind: 'pipe', defId, argMap: resolvedArgMap as FuncArgMap, returnId: stepReturnId },
       },
     };
   }

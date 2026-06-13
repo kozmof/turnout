@@ -768,7 +768,7 @@ function buildCombineArguments(
   argMap: FuncArgMap;
   transformFnMap: Record<string, readonly TransformFnNames[]>;
 } {
-  const argMap: FuncArgMap = {} as FuncArgMap;
+  const argMap: Record<ArgName, ValueId> = {} as Record<ArgName, ValueId>;
   const transformFnMap: Record<string, readonly TransformFnNames[]> = {};
 
   for (const [key, ref] of Object.entries(builder.args)) {
@@ -782,7 +782,7 @@ function buildCombineArguments(
     }
   }
 
-  return { argMap, transformFnMap };
+  return { argMap: argMap as FuncArgMap, transformFnMap };
 }
 
 /**
@@ -842,7 +842,7 @@ function buildPipeArguments(
   builder: PipeBuilder,
   scope: Scope
 ): { argMap: FuncArgMap; pipeDefArgs: string[] } {
-  const argMap: FuncArgMap = {} as FuncArgMap;
+  const argMap: Record<ArgName, ValueId> = {} as Record<ArgName, ValueId>;
   const pipeDefArgs: string[] = [];
 
   for (const [argName, valueRef] of Object.entries(builder.argBindings)) {
@@ -850,7 +850,7 @@ function buildPipeArguments(
     pipeDefArgs.push(argName);
   }
 
-  return { argMap, pipeDefArgs };
+  return { argMap: argMap as FuncArgMap, pipeDefArgs };
 }
 
 /**

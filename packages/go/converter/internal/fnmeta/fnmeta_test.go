@@ -293,3 +293,64 @@ func TestIsIdentityValue(t *testing.T) {
 		}
 	}
 }
+
+// TestOperandTypes verifies that OperandTypes agrees with builtinFnTable for
+// every registered function. It exercises both the standard-kind path (where
+// operand types must equal spec.Arg1Type/Arg2Type) and the polymorphic-kind
+// paths (where operand types depend on declaredType).
+func TestOperandTypes(t *testing.T) {
+	// Use arr<number> as a representative declared type for array-kind functions.
+	arrNum := ast.FieldTypeArrNumber
+
+	for _, name := range fnmeta.BuiltinFnNames() {
+		spec, _ := fnmeta.BuiltinFn(name)
+		t.Run(name, func(t *testing.T) {
+			switch spec.Kind {
+			case fnmeta.FnKindStandard:
+				// Standard functions: operand types must come from the table, not
+				// be hard-coded. Any discrepancy means OperandTypes is stale.
+				a1, a2 := fnmeta.OperandTypes(name, ast.FieldTypeNumber)
+				if a1 != spec.Arg1Type {
+					t.Errorf("arg1: got %v, want %v (from builtinFnTable)", a1, spec.Arg1Type)
+				}
+				if a2 != spec.Arg2Type {
+					t.Errorf("arg2: got %v, want %v (from builtinFnTable)", a2, spec.Arg2Type)
+				}
+
+			case fnmeta.FnKindGeneric:
+				// eq/neq: both args must equal declaredType.
+				a1, a2 := fnmeta.OperandTypes(name, ast.FieldTypeStr)
+				if a1 != ast.FieldTypeStr || a2 != ast.FieldTypeStr {
+					t.Errorf("generic fn %q: want (str, str), got (%v, %v)", name, a1, a2)
+				}
+
+			case fnmeta.FnKindArrGet:
+				// arg1 = array, arg2 = number index
+				a1, a2 := fnmeta.OperandTypes(name, arrNum)
+				if a1 != arrNum {
+					t.Errorf("arr_get arg1: got %v, want %v", a1, arrNum)
+				}
+				if a2 != ast.FieldTypeNumber {
+					t.Errorf("arr_get arg2: got %v, want number", a2)
+				}
+
+			case fnmeta.FnKindArrInc:
+				// arg1 = array, arg2 = element type
+				a1, a2 := fnmeta.OperandTypes(name, arrNum)
+				if a1 != arrNum {
+					t.Errorf("arr_includes arg1: got %v, want %v", a1, arrNum)
+				}
+				if a2 != ast.FieldTypeNumber {
+					t.Errorf("arr_includes arg2: got %v, want number (elem type of arr<number>)", a2)
+				}
+
+			case fnmeta.FnKindArrConcat:
+				// both args = same array type
+				a1, a2 := fnmeta.OperandTypes(name, arrNum)
+				if a1 != arrNum || a2 != arrNum {
+					t.Errorf("arr_concat: want (%v, %v), got (%v, %v)", arrNum, arrNum, a1, a2)
+				}
+			}
+		})
+	}
+}

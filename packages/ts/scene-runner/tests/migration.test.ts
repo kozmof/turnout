@@ -95,14 +95,14 @@ describe('checkForExtExpr', () => {
     const scene = makeSceneWithExtExpr(false);
     // Verify the error is thrown at construction time, not during next() / run().
     expect(() =>
-      createSceneRunner(scene, { initialState: {} }, stateManagerFromUnchecked({})),
+      createSceneRunner(scene, { entryId: '', initialState: {} }, stateManagerFromUnchecked({})),
     ).toThrow('extExpr');
   });
 
   it('createSceneRunner throws for extExpr in a next-rule prog', () => {
     const scene = makeSceneWithExtExpr(true);
     expect(() =>
-      createSceneRunner(scene, { initialState: {} }, stateManagerFromUnchecked({})),
+      createSceneRunner(scene, { entryId: '', initialState: {} }, stateManagerFromUnchecked({})),
     ).toThrow('extExpr');
   });
 });

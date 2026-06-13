@@ -5,6 +5,7 @@ import { executeScene } from '../executor/scene-executor.js';
 import { executeRoute } from '../executor/route-executor.js';
 import { resolveDispatchTarget } from '../executor/dispatch.js';
 import { migrateModel } from '../migration.js';
+import { validateModel } from '../executor/validate-model.js';
 
 /**
  * Universal harness entry point (client + server).
@@ -22,6 +23,10 @@ import { migrateModel } from '../migration.js';
  */
 export async function runHarness(options: HarnessOptions): Promise<FullHarnessResult> {
   const model = migrateModel(options.model);
+  const validationErrors = validateModel(model);
+  if (validationErrors.length > 0) {
+    throw new Error(`[turnout] Invalid model:\n${validationErrors.map((e) => `  • ${e}`).join('\n')}`);
+  }
 
   // ── 1. Build STATE ────────────────────────────────────────────────────────
   const state: StateManager = model.state

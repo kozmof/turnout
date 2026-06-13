@@ -5,6 +5,7 @@
 package fnmeta
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
@@ -138,28 +139,35 @@ func ReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 // OperandTypes returns (arg1Type, arg2Type) for fn given the binding's declared
 // type. Used by the lowerer to determine the expected types for infix operands
 // inside local expressions.
+//
+// Panics for unknown function names or unhandled FnKind values so that gaps are
+// caught at development time rather than silently returning wrong types.
 func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.FieldType) {
-	switch fn {
-	case "str_concat", "str_includes", "str_starts", "str_ends":
-		return ast.FieldTypeStr, ast.FieldTypeStr
-	case "bool_and", "bool_or", "bool_xor":
-		return ast.FieldTypeBool, ast.FieldTypeBool
-	case "eq", "neq":
+	spec, ok := BuiltinFn(fn)
+	if !ok {
+		panic("fnmeta.OperandTypes: unknown function " + fn)
+	}
+	switch spec.Kind {
+	case FnKindStandard:
+		// Derive directly from builtinFnTable — no separate encoding needed.
+		return spec.Arg1Type, spec.Arg2Type
+	case FnKindGeneric:
+		// eq/neq: both operands must share the binding's declared type.
 		return declaredType, declaredType
-	case "arr_get":
+	case FnKindArrGet:
 		// arg1 = array, arg2 = numeric index
 		return declaredType, ast.FieldTypeNumber
-	case "arr_includes":
+	case FnKindArrInc:
 		// arg1 = array, arg2 = element of that array's type
 		if et, ok := declaredType.TryElemType(); ok {
 			return declaredType, et
 		}
 		return declaredType, ast.FieldTypeInvalid
-	case "arr_concat":
+	case FnKindArrConcat:
 		// both args must be the same array type
 		return declaredType, declaredType
 	default:
-		return ast.FieldTypeNumber, ast.FieldTypeNumber
+		panic(fmt.Sprintf("fnmeta.OperandTypes: unhandled FnKind %d — add a case when adding new FnKind values", spec.Kind))
 	}
 }
 

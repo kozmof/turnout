@@ -103,6 +103,46 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 	return lr, ds2
 }
 
+// ResolveSchema parses name/src and resolves the STATE schema, returning it
+// alongside its declaration order. The order slice can be passed directly to
+// CompileToModelWithSchema, allowing callers (e.g. LSP, incremental checkers)
+// to resolve the schema once and re-use it across many compile calls without
+// paying the state_file I/O cost each time.
+//
+// name and stateBasePath follow the same conventions as CompileSource.
+func ResolveSchema(name, src, stateBasePath string) (Schema, []string, Diagnostics) {
+	base := stateBasePath
+	if base == "" {
+		base = filepath.Dir(name)
+	}
+	turnFile, ds1 := parser.ParseFile(name, src)
+	if ds1.HasErrors() {
+		return Schema{}, nil, ds1
+	}
+	schema, order, ds2 := state.ResolveWithOrder(turnFile.StateSource, base)
+	return schema, order, ds2
+}
+
+// CompileToModelWithSchema is like CompileToModel but accepts a pre-resolved
+// schema and its declaration order (from ResolveSchema or a prior CompileSource
+// call), skipping state_file I/O entirely. Useful for LSP and incremental
+// tooling that compiles the same file repeatedly as the user edits.
+//
+// schema and order must have been produced from the same state source as the
+// STATE block in src; passing a stale or mismatched schema yields incorrect
+// lowering without an error.
+func CompileToModelWithSchema(name, src string, schema Schema, order []string) (*LowerResult, Diagnostics) {
+	turnFile, ds1 := parser.ParseFile(name, src)
+	if ds1.HasErrors() {
+		return nil, ds1
+	}
+	lr, ds2 := lower.Lower(turnFile, schema, order)
+	if ds2.HasErrors() {
+		return nil, ds2
+	}
+	return lr, ds2
+}
+
 // runStage appends warnings from ds into acc and reports whether the stage
 // succeeded (no errors). On failure it appends the errors too and returns false,
 // signalling compileBytes to short-circuit with the accumulated slice.

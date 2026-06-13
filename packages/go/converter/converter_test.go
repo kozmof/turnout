@@ -117,3 +117,52 @@ func TestCompileSource_parseError(t *testing.T) {
 		t.Fatal("expected errors for invalid syntax")
 	}
 }
+
+// TestCompileToModelWithSchema verifies that CompileToModelWithSchema produces
+// a model identical to CompileSource when given the schema extracted from a
+// prior CompileSource call.
+func TestCompileToModelWithSchema(t *testing.T) {
+	// First pass: full compile to extract schema + order.
+	first, ds := converter.CompileSource("inline.turn", simpleTurnSrc, "")
+	if ds.HasErrors() {
+		t.Fatalf("CompileSource failed: %v", ds)
+	}
+	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	if schemaDiags.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
+	}
+
+	// Second pass: compile using the pre-resolved schema — skips state I/O.
+	lr, ds2 := converter.CompileToModelWithSchema("inline.turn", simpleTurnSrc, schema, order)
+	if ds2.HasErrors() {
+		t.Fatalf("CompileToModelWithSchema returned errors: %v", ds2)
+	}
+	if lr == nil || lr.Model == nil {
+		t.Fatal("CompileToModelWithSchema returned nil model")
+	}
+
+	// Models must have the same number of scenes and the same scene IDs.
+	if len(lr.Model.Scenes) != len(first.Model.Scenes) {
+		t.Fatalf("scene count mismatch: got %d, want %d", len(lr.Model.Scenes), len(first.Model.Scenes))
+	}
+	for i, s := range first.Model.Scenes {
+		if lr.Model.Scenes[i].Id != s.Id {
+			t.Errorf("scene[%d]: id %q != %q", i, lr.Model.Scenes[i].Id, s.Id)
+		}
+	}
+}
+
+// TestResolveSchema verifies that ResolveSchema returns a non-empty schema and
+// order slice for a source that contains a STATE block.
+func TestResolveSchema(t *testing.T) {
+	schema, order, ds := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	if ds.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", ds)
+	}
+	if _, ok := schema.Get("ns.count"); !ok {
+		t.Error("expected schema to contain ns.count")
+	}
+	if len(order) == 0 {
+		t.Error("expected non-empty schema order slice")
+	}
+}

@@ -355,10 +355,9 @@ function evaluateNextRules(
       if (prepare.length > 0) {
         // Non-pure: check per-invocation cache before rebuilding.
         let byPrepare = ruleCtxCache.get(rule.compute.prog);
-        // `resolveNextPrepare` iterates `rule.prepare` in proto declaration order,
-        // so Object.entries(nextPrepared) is always in stable insertion order —
-        // no sort needed.
-        const prepKey = JSON.stringify(Object.entries(nextPrepared));
+        // Sort entries before stringifying so the cache key is stable regardless
+        // of the iteration order of `resolveNextPrepare`.
+        const prepKey = JSON.stringify(Object.entries(nextPrepared).sort(([a], [b]) => a < b ? -1 : 1));
         const cached = byPrepare?.get(prepKey);
         if (cached) {
           builtCtx = cached;
