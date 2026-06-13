@@ -187,6 +187,83 @@ func TestReturnType_ArrGet_ReturnsElemType(t *testing.T) {
 	}
 }
 
+func TestStaticArgTypes(t *testing.T) {
+	t.Run("standard_functions_return_static_types", func(t *testing.T) {
+		standardFns := []struct {
+			name string
+			a1   ast.FieldType
+			a2   ast.FieldType
+		}{
+			{"add", ast.FieldTypeNumber, ast.FieldTypeNumber},
+			{"sub", ast.FieldTypeNumber, ast.FieldTypeNumber},
+			{"str_concat", ast.FieldTypeStr, ast.FieldTypeStr},
+			{"bool_and", ast.FieldTypeBool, ast.FieldTypeBool},
+			{"str_includes", ast.FieldTypeStr, ast.FieldTypeStr},
+		}
+		for _, tc := range standardFns {
+			spec, ok := fnmeta.BuiltinFn(tc.name)
+			if !ok {
+				t.Fatalf("BuiltinFn(%q) not found", tc.name)
+			}
+			a1, a2, staticOK := spec.StaticArgTypes()
+			if !staticOK {
+				t.Errorf("%q: StaticArgTypes ok=false, want true", tc.name)
+				continue
+			}
+			if a1 != tc.a1 {
+				t.Errorf("%q: arg1=%v, want %v", tc.name, a1, tc.a1)
+			}
+			if a2 != tc.a2 {
+				t.Errorf("%q: arg2=%v, want %v", tc.name, a2, tc.a2)
+			}
+		}
+	})
+
+	t.Run("polymorphic_kinds_return_invalid", func(t *testing.T) {
+		polymorphicFns := []string{"eq", "neq", "arr_get", "arr_includes", "arr_concat"}
+		for _, name := range polymorphicFns {
+			spec, ok := fnmeta.BuiltinFn(name)
+			if !ok {
+				t.Fatalf("BuiltinFn(%q) not found", name)
+			}
+			a1, a2, staticOK := spec.StaticArgTypes()
+			if staticOK {
+				t.Errorf("%q: StaticArgTypes ok=true, want false (polymorphic kind)", name)
+			}
+			if a1 != ast.FieldTypeInvalid {
+				t.Errorf("%q: arg1=%v, want FieldTypeInvalid", name, a1)
+			}
+			if a2 != ast.FieldTypeInvalid {
+				t.Errorf("%q: arg2=%v, want FieldTypeInvalid", name, a2)
+			}
+		}
+	})
+}
+
+func TestBuiltinFnNamesSorted(t *testing.T) {
+	names1 := fnmeta.BuiltinFnNames()
+	names2 := fnmeta.BuiltinFnNames()
+
+	if len(names1) == 0 {
+		t.Fatal("BuiltinFnNames returned empty slice")
+	}
+	// Two consecutive calls must return identical slices (deterministic).
+	if len(names1) != len(names2) {
+		t.Fatalf("consecutive calls returned different lengths: %d vs %d", len(names1), len(names2))
+	}
+	for i := range names1 {
+		if names1[i] != names2[i] {
+			t.Errorf("element %d differs: %q vs %q", i, names1[i], names2[i])
+		}
+	}
+	// Slice must be in ascending lexicographic order.
+	for i := 1; i < len(names1); i++ {
+		if names1[i] < names1[i-1] {
+			t.Errorf("not sorted at index %d: %q > %q", i, names1[i-1], names1[i])
+		}
+	}
+}
+
 func TestIsIdentityValue(t *testing.T) {
 	cases := []struct {
 		fn   string

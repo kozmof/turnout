@@ -493,13 +493,20 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 as
 				"binding %q: arr_concat args must have same array type, got %s and %s", bindingName, t1, t2))
 		}
 	default:
-		if ok1 && t1 != spec.Arg1Type {
-			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s arg1 expects %s, got %s", bindingName, fn, spec.Arg1Type, t1))
-		}
-		if ok2 && t2 != spec.Arg2Type {
-			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: %s arg2 expects %s, got %s", bindingName, fn, spec.Arg2Type, t2))
+		// FnKindStandard: operand types are statically declared in the spec.
+		// StaticArgTypes returns (Invalid, Invalid, false) for any unrecognised
+		// future FnKind, causing the checks below to be skipped rather than
+		// silently comparing against FieldTypeInvalid.
+		a1, a2, staticOK := spec.StaticArgTypes()
+		if staticOK {
+			if ok1 && t1 != a1 {
+				ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
+					"binding %q: %s arg1 expects %s, got %s", bindingName, fn, a1, t1))
+			}
+			if ok2 && t2 != a2 {
+				ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
+					"binding %q: %s arg2 expects %s, got %s", bindingName, fn, a2, t2))
+			}
 		}
 	}
 }

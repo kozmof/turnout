@@ -50,6 +50,25 @@ const (
 	fieldTypeSentinel                   // unexported — marks the end of the valid range; add new types above this line
 )
 
+// fieldTypeExhaustiveCheck is a compile-time guard: its size equals the number
+// of valid FieldType values (fieldTypeSentinel - 1). Adding a new FieldType
+// constant without updating this array causes a compile error, forcing every
+// switch site to be audited before the build succeeds again.
+// To add a new type: append a {} element here AND update every switch/map in:
+//
+//	ast.go (fieldTypeNames, fieldTypeByString, LiteralFieldType, IsArray, TryElemType)
+//	state/state.go (literalMatchesType)
+//	validate/validate.go (structpbMatchesFieldType)
+//	lower/lower_rhs.go (identityFnFor)
+var _ = [fieldTypeSentinel - 1]struct{}{
+	{}, // FieldTypeNumber
+	{}, // FieldTypeStr
+	{}, // FieldTypeBool
+	{}, // FieldTypeArrNumber
+	{}, // FieldTypeArrStr
+	{}, // FieldTypeArrBool
+}
+
 // Valid reports whether ft is a recognised (non-zero, in-range) FieldType.
 // Callers that switch on FieldType exhaustively can use this to guard against
 // future additions without recompiling this package.

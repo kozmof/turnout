@@ -5,6 +5,7 @@
 package fnmeta
 
 import (
+	"sort"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -37,6 +38,20 @@ type FnSpec struct {
 	Kind               FnKind
 }
 
+// StaticArgTypes returns (arg1Type, arg2Type, true) for FnKindStandard functions,
+// where both operand types are fixed regardless of the call site.
+// Returns (FieldTypeInvalid, FieldTypeInvalid, false) for polymorphic kinds
+// (FnKindGeneric, FnKindArrGet, FnKindArrInc, FnKindArrConcat), where operand
+// types depend on the arguments and callers must switch on Kind to validate them.
+// Use this instead of direct Arg1Type/Arg2Type field access to make the
+// polymorphic-kind contract explicit at call sites.
+func (s FnSpec) StaticArgTypes() (arg1, arg2 ast.FieldType, ok bool) {
+	if s.Kind != FnKindStandard {
+		return ast.FieldTypeInvalid, ast.FieldTypeInvalid, false
+	}
+	return s.Arg1Type, s.Arg2Type, true
+}
+
 // BuiltinFn returns the spec for a built-in function alias.
 // Returns (FnSpec{}, false) for unknown names.
 func BuiltinFn(name string) (FnSpec, bool) {
@@ -44,12 +59,13 @@ func BuiltinFn(name string) (FnSpec, bool) {
 	return spec, ok
 }
 
-// BuiltinFnNames returns all registered built-in function alias names.
+// BuiltinFnNames returns all registered built-in function alias names in sorted order.
 func BuiltinFnNames() []string {
 	names := make([]string, 0, len(builtinFnTable))
 	for name := range builtinFnTable {
 		names = append(names, name)
 	}
+	sort.Strings(names)
 	return names
 }
 

@@ -354,6 +354,59 @@ func TestCondBranchLit(t *testing.T) {
 	})
 }
 
+func TestCondElseBranchReturnType(t *testing.T) {
+	// When the then branch is absent (nil) and the else branch resolves to a type
+	// that does not match the declared binding type, CodeReturnTypeMismatch must fire.
+	// This covers the gap where hasThen=false && hasElse=true was previously unchecked.
+	t.Run("else_type_mismatch_when_then_absent", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			// declared type is "str" but the only resolvable branch (else) returns number
+			{Name: "out", Type: "str", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       nil, // absent → hasThen=false
+				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(42)},
+			}}},
+		})
+		if !hasCode(validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}), diag.CodeReturnTypeMismatch) {
+			t.Error("want ReturnTypeMismatch for else branch when then is absent and else type mismatches declared type")
+		}
+	})
+
+	t.Run("else_type_matches_declared", func(t *testing.T) {
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "out", Type: "number", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       nil,
+				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(0)},
+			}}},
+		})
+		ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+		if hasCode(ds, diag.CodeReturnTypeMismatch) {
+			t.Error("want no ReturnTypeMismatch when else branch matches declared type")
+		}
+	})
+
+	t.Run("both_branches_checked_independently", func(t *testing.T) {
+		// Both then and else resolve, but both mismatch the declared type.
+		// BranchTypeMismatch fires (then==else, but both wrong), plus ReturnTypeMismatch for each.
+		model := minModel("p", []*turnoutpb.BindingModel{
+			{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+			{Name: "out", Type: "str", Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+				Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+				Then:       &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(1)},
+				ElseBranch: &turnoutpb.ArgModel{Lit: structpb.NewNumberValue(2)},
+			}}},
+		})
+		ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+		// both branches are number, declared is str → ReturnTypeMismatch for both
+		if !hasCode(ds, diag.CodeReturnTypeMismatch) {
+			t.Error("want ReturnTypeMismatch when both branches mismatch declared type")
+		}
+	})
+}
+
 func TestStepRefOutOfBounds(t *testing.T) {
 	// pipe with 2 steps, step_ref = 99 → out of bounds — construct proto directly
 	model := minModel("p", []*turnoutpb.BindingModel{

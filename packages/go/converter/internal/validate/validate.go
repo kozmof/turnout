@@ -391,17 +391,26 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 			b.Name, thenType, elseType))
 	}
 
-	if hasThen {
+	if hasThen || hasElse {
 		bFt, ftOK := ast.FieldTypeFromString(b.Type)
 		if !ftOK {
 			ds.Append(diag.Errorf(diag.CodeTypeMismatch,
 				"binding %q: unknown type string %q", b.Name, b.Type))
 			return
 		}
-		if thenType != bFt {
-			ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch,
-				"binding %q cond: branch return type %s does not match declared type %s",
-				b.Name, thenType, b.Type))
+		for _, branch := range []struct {
+			t     ast.FieldType
+			has   bool
+			label string
+		}{
+			{thenType, hasThen, "then"},
+			{elseType, hasElse, "else"},
+		} {
+			if branch.has && branch.t != bFt {
+				ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch,
+					"binding %q cond: %s branch return type %s does not match declared type %s",
+					b.Name, branch.label, branch.t, b.Type))
+			}
 		}
 	}
 }
