@@ -2,7 +2,7 @@ import { executeGraph, assertValidContext, isPureBoolean, buildNull } from 'runt
 
 const UNABORTABLE = new AbortController().signal;
 import type { AnyValue } from 'runtime';
-import type { SceneBlock, ActionModel } from '../types/turnout-model_pb.js';
+import type { SceneBlock, ActionModel, ProgModel } from '../types/turnout-model_pb.js';
 import type { StateManager, StateReader } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
@@ -294,10 +294,13 @@ type NextRulesResult = { matches: string[]; warnings: string[] };
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
  *
- * Each next rule builds its own context, keyed by object identity so that rules
- * appearing more than once in the list (unusual but legal) share a context.
- * The cache is per-invocation so stale injected values from previous actions
- * (where state or result differ) are never reused.
+ * For pure (no-inject) progs, `buildContextFromProg` handles caching via its
+ * module-level `pureProgCtxCache`. For rules with prepare entries, a
+ * per-invocation cache keyed by `(prog identity, serialised prepared values)`
+ * avoids rebuilding identical contexts when multiple rules share the same prog
+ * and produce equal prepared values (e.g. multiple guards on the same binding).
+ * The cache is local to this call so stale values from previous actions are
+ * never reused.
  *
  * `warnings` contains a diagnostic message for any condition binding that did
  * not resolve to a pure boolean — the rule is skipped but no error is thrown.
@@ -314,6 +317,9 @@ function evaluateNextRules(
 
   const matches: string[] = [];
   const warnings: string[] = [];
+  // Per-invocation cache for rules with prepare entries. The inner key is the
+  // JSON-serialised prepared-values map; the outer key is prog object identity.
+  const ruleCtxCache = new Map<ProgModel, Map<string, BuiltContext>>();
 
   for (const rule of rules) {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
@@ -327,9 +333,27 @@ function evaluateNextRules(
     } else {
       const prepare = rule.prepare ?? [];
       const nextPrepared = resolveNextPrepare(prepare, state, result);
-      // buildContextFromProg carries its own module-level WeakMap cache for
-      // pure (no-inject) progs; no additional caching is needed here.
-      const builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+
+      let builtCtx: BuiltContext;
+      if (prepare.length > 0) {
+        // Non-pure: check per-invocation cache before rebuilding.
+        let byPrepare = ruleCtxCache.get(rule.compute.prog);
+        const prepKey = JSON.stringify(nextPrepared);
+        const cached = byPrepare?.get(prepKey);
+        if (cached) {
+          builtCtx = cached;
+        } else {
+          builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+          if (!byPrepare) {
+            byPrepare = new Map();
+            ruleCtxCache.set(rule.compute.prog, byPrepare);
+          }
+          byPrepare.set(prepKey, builtCtx);
+        }
+      } else {
+        // Pure: buildContextFromProg already caches via pureProgCtxCache.
+        builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+      }
       const validated = assertValidContext(builtCtx.getExec());
 
       const conditionName = rule.compute.condition;

@@ -64,7 +64,10 @@ export type Runner = {
   /** True when all actions have completed (scene or route finished). */
   isDone(): boolean;
   /**
-   * Advance by `steps` actions (default: 1).
+   * Advance by `steps` actions (default: 1). Returns an array of non-terminal
+   * step results — the `{ done: true }` sentinel is never included. Call
+   * `isDone()` to check whether execution completed within this call.
+   *
    * In route mode, `scene-transition` events are interleaved in the returned
    * array but do not count against the `steps` budget. Only `kind: 'action'`
    * results consume a step. The returned array may therefore contain more than
@@ -75,7 +78,7 @@ export type Runner = {
    * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
    * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
    */
-  next(steps?: number): Promise<RunnerStepResult[]>;
+  next(steps?: number): Promise<Array<Exclude<RunnerStepResult, { done: true }>>>;
   /**
    * Run to completion and return the final result.
    * Equivalent to calling `next()` in a loop until done.
@@ -138,13 +141,13 @@ function makeRunnerMethods(
     usePublishHook(name, handler) { hooks.publish[name] = handler; return this; },
     isDone: doneFn,
     async next(steps = 1) {
-      const results: RunnerStepResult[] = [];
+      const results: Array<Exclude<RunnerStepResult, { done: true }>> = [];
       let actionCount = 0;
       while (actionCount < steps) {
         checkAborted();
         const r = await advanceFn();
-        results.push(r);
         if (r.done) break;
+        results.push(r);
         if (r.kind === 'action') actionCount++;
       }
       return results;
@@ -353,7 +356,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner {
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   if (!migratedModel.state) {
-    (options.onWarning ?? console.warn)(
+    (options.onWarning ?? (() => {}))(
       '[turnout] No STATE schema in model — using unchecked StateManager. ' +
       'Merge typos will silently produce null values.',
     );

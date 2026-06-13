@@ -16,7 +16,7 @@ export interface PublishHookContext {
   readonly actionId: string;
   readonly hookName: string;
   /** Read the complete final state snapshot after merge. */
-  state(): Record<string, unknown>;
+  state(): Readonly<Record<string, AnyValue>>;
 }
 
 export type PublishHookOutcome =
@@ -52,7 +52,7 @@ export type ExecutionOptions = {
   signal?: AbortSignal;
   /**
    * Optional callback invoked for non-fatal runner warnings (e.g. missing STATE schema).
-   * Defaults to no-op. Pass `(msg) => console.warn(msg)` to restore the previous behaviour.
+   * Defaults to no-op. Pass `console.warn` to restore console logging.
    */
   onWarning?: (msg: string) => void;
 };

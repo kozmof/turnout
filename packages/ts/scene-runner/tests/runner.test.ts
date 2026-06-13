@@ -88,9 +88,8 @@ describe('createRunner — scene mode API', () => {
 
     const steps = await runner.next(2);
 
-    expect(steps).toHaveLength(2);
+    expect(steps).toHaveLength(1);
     expect(steps[0]).toMatchObject({ done: false, sceneId: 'scene_api', actionId: 'write' });
-    expect(steps[1]).toEqual({ done: true });
     expect(runner.isDone()).toBe(true);
     expect(publish).toHaveBeenCalledTimes(1);
 
@@ -196,12 +195,12 @@ describe('createRunner — route mode API', () => {
 
     // next(1) counts 1 action step: first returns scene-transition then the action
     const rest = await runner.next(1);
-    expect(rest.some((step) => !step.done && step.kind === 'action' && step.sceneId === 's2' && step.actionId === 'b')).toBe(true);
-    expect(rest.some((step) => !step.done && step.kind === 'scene-transition' && step.fromSceneId === 's1' && step.toSceneId === 's2')).toBe(true);
+    expect(rest.some((step) => step.kind === 'action' && step.sceneId === 's2' && step.actionId === 'b')).toBe(true);
+    expect(rest.some((step) => step.kind === 'scene-transition' && step.fromSceneId === 's1' && step.toSceneId === 's2')).toBe(true);
     expect(runner.isDone()).toBe(false);
 
     const done = await runner.next();
-    expect(done.at(-1)).toEqual({ done: true });
+    expect(done).toHaveLength(0);
     expect(runner.isDone()).toBe(true);
 
     const result = runner.result();
@@ -251,12 +250,11 @@ describe('createRunner — onWarning callback', () => {
     warnSpy.mockRestore();
   });
 
-  it('defaults to console.warn when onWarning is absent', async () => {
+  it('does not call console.warn when onWarning is absent (default is no-op)', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const runner = createRunner(modelNoState, { entryId: 'w', initialState: {} });
     await runner.run();
-    expect(warnSpy).toHaveBeenCalledOnce();
-    expect(warnSpy.mock.calls[0][0]).toContain('No STATE schema');
+    expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
   });
 });

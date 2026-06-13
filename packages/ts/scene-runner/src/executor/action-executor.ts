@@ -139,7 +139,7 @@ export async function executeAction(
   }
 
   // Step 6: invoke publish hooks in declaration order with the final merged state.
-  const finalStateSnapshot = mergedState.snapshot();
+  const finalStateSnapshot: Readonly<Record<string, AnyValue>> = mergedState.snapshot();
   const publishOutcomes: PublishHookOutcome[] = [];
   for (const hookName of action.publish ?? []) {
     const hook = hooks.publish[hookName];

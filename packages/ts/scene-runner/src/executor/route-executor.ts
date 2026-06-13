@@ -4,6 +4,7 @@ import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, RouteTrace } from '../types/harness-types.js';
 import { executeScene } from './scene-executor.js';
 import { selectNextScene, parseMatchArms } from './route-pattern.js';
+import type { HistoryEntry } from './route-pattern.js';
 import { RouteRuntimeError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -117,12 +118,12 @@ async function runRouteCore(
     // Build the current-scene history slice used for pattern matching.
     // Using only the current visit's actions (not accumulated global history) ensures
     // that revisited scenes match against their current run, consistent with RouteStepper.
-    const sceneHistory = sceneResult.trace.actions.map(
-      (a) => `${progress.currentSceneId}.${a.actionId}`,
+    const sceneHistory: HistoryEntry[] = sceneResult.trace.actions.map(
+      (a) => ({ sceneId: progress.currentSceneId, actionId: a.actionId }),
     );
 
     // Append to the global history accumulator (exposed on the result for callers).
-    history.push(...sceneHistory);
+    history.push(...sceneHistory.map((e) => `${e.sceneId}.${e.actionId}`));
 
     // Evaluate match arms against the current-scene slice only.
     const nextSceneId = selectNextScene(sceneHistory, parsedArms, progress.currentSceneId);

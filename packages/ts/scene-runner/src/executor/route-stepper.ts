@@ -1,7 +1,7 @@
 import type { SceneBlock } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace } from '../types/harness-types.js';
-import type { ParsedMatchArm } from './route-pattern.js';
+import type { ParsedMatchArm, HistoryEntry } from './route-pattern.js';
 import { selectNextScene } from './route-pattern.js';
 import { createSceneExecutor } from './scene-executor.js';
 import { RouteRuntimeError } from './errors.js';
@@ -45,17 +45,11 @@ const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type RouteSession = {
-  routeId: string;
-  parsedArms: ParsedMatchArm[];
-  history: string[];
-  sceneTraces: SceneTrace[];
-  transitionCount: number;
-  maxTransitions: number;
-  currentSceneId: string;
-
+  /** The ID of the scene currently being executed. */
+  readonly currentSceneId: string;
   recordAction(actionId: string): void;
-  clearHistory(): void;
   saveTrace(trace: SceneTrace): void;
+  getTraces(): SceneTrace[];
   /** Returns the next scene ID or null if route is complete. Throws on limit exceeded. */
   transition(): string | null;
 };
@@ -66,49 +60,47 @@ function createRouteSession(
   entrySceneId: string,
   maxTransitions: number,
 ): RouteSession {
-  const session: RouteSession = {
-    routeId,
-    parsedArms,
-    history: [],
-    sceneTraces: [],
-    transitionCount: 0,
-    maxTransitions,
-    currentSceneId: entrySceneId,
+  let history: HistoryEntry[] = [];
+  const sceneTraces: SceneTrace[] = [];
+  let transitionCount = 0;
+  let currentSceneId = entrySceneId;
+
+  return {
+    get currentSceneId() { return currentSceneId; },
 
     recordAction(actionId) {
-      this.history.push(`${this.currentSceneId}.${actionId}`);
-    },
-
-    clearHistory() {
-      this.history = [];
+      history.push({ sceneId: currentSceneId, actionId });
     },
 
     saveTrace(trace) {
-      this.sceneTraces.push(trace);
+      sceneTraces.push(trace);
+    },
+
+    getTraces() {
+      return sceneTraces;
     },
 
     transition() {
-      const nextSceneId = selectNextScene(this.history, this.parsedArms, this.currentSceneId);
+      const nextSceneId = selectNextScene(history, parsedArms, currentSceneId);
       // History for the finished scene is no longer needed: non-catchall arms only
       // match pattern.sceneId === currentSceneId, so prior scenes can never fire again.
-      this.clearHistory();
+      history = [];
 
       if (nextSceneId === null) return null;
 
-      this.transitionCount++;
-      if (this.transitionCount > this.maxTransitions) {
+      transitionCount++;
+      if (transitionCount > maxTransitions) {
         throw new RouteRuntimeError(
           'MaxRouteTransitionsExceeded',
-          this.routeId,
-          `exceeded ${this.maxTransitions} scene transitions — possible infinite loop`,
+          routeId,
+          `exceeded ${maxTransitions} scene transitions — possible infinite loop`,
         );
       }
 
-      this.currentSceneId = nextSceneId;
+      currentSceneId = nextSceneId;
       return nextSceneId;
     },
   };
-  return session;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -204,7 +196,7 @@ export function createRouteStepper(
       if (!done) throw new Error('RouteStepper: execution is not complete');
       return {
         finalState: currentState,
-        trace: { routeId, scenes: session.sceneTraces },
+        trace: { routeId, scenes: session.getTraces() },
       };
     },
 

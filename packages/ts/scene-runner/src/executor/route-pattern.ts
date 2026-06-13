@@ -4,6 +4,9 @@ import type { MatchArm } from '../types/turnout-model_pb.js';
 // Types
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** One recorded step in the route execution history. */
+export type HistoryEntry = { readonly sceneId: string; readonly actionId: string };
+
 type ParsedPattern =
   | { kind: 'catchall' }
   | { kind: 'exact'; sceneId: string; suffix: string[] }    // 0 wildcards
@@ -35,23 +38,22 @@ function parsePattern(raw: string): ParsedPattern {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Extracts the action IDs (the part after the first `.`) from the FIRST
- * contiguous run of `sceneId.*` entries in `history`.
+ * Extracts the action IDs from the FIRST contiguous run of entries whose
+ * `sceneId` matches the given scene.
  *
  * Returns [] if the scene does not appear in history.
  *
  * Per spec §11 edge cases: only the first contiguous block is used for
  * pattern matching. Later re-visits of the same scene are ignored.
  */
-function extractFirstContiguousBlock(history: string[], sceneId: string): string[] {
-  const prefix = sceneId + '.';
+function extractFirstContiguousBlock(history: readonly HistoryEntry[], sceneId: string): string[] {
   let inBlock = false;
   const block: string[] = [];
 
   for (const entry of history) {
-    if (entry.startsWith(prefix)) {
+    if (entry.sceneId === sceneId) {
       inBlock = true;
-      block.push(entry.slice(prefix.length));
+      block.push(entry.actionId);
     } else if (inBlock) {
       // Block ended — stop; do not consider later re-entries.
       break;
@@ -64,7 +66,7 @@ function extractFirstContiguousBlock(history: string[], sceneId: string): string
 // Pattern matching
 // ─────────────────────────────────────────────────────────────────────────────
 
-function matchParsedPattern(pattern: ParsedPattern, history: string[]): boolean {
+function matchParsedPattern(pattern: ParsedPattern, history: readonly HistoryEntry[]): boolean {
   if (pattern.kind === 'catchall') return true;
 
   const block = extractFirstContiguousBlock(history, pattern.sceneId);
@@ -117,7 +119,7 @@ export function parseMatchArms(arms: readonly MatchArm[]): ParsedMatchArm[] {
  * Returns true if any pattern in `arm.patterns` matches `history` (OR semantics).
  * Does not apply current-scene filtering — use this for per-arm unit testing.
  */
-export function evaluateMatchArm(history: string[], arm: MatchArm): boolean {
+export function evaluateMatchArm(history: readonly HistoryEntry[], arm: MatchArm): boolean {
   return arm.patterns.some((raw) => matchParsedPattern(parsePattern(raw), history));
 }
 
@@ -133,7 +135,7 @@ export function evaluateMatchArm(history: string[], arm: MatchArm): boolean {
  * Returns null if no arm matches (route enters completed state).
  */
 export function selectNextScene(
-  history: string[],
+  history: readonly HistoryEntry[],
   arms: readonly ParsedMatchArm[],
   currentSceneId: string,
 ): string | null {

@@ -167,17 +167,69 @@ function make(
   };
 }
 
+type SchemaTypeEntry = {
+  guard(v: AnyValue): boolean;
+  build(raw: unknown): AnyValue;
+};
+
+const schemaTypeTable: Record<string, SchemaTypeEntry> = {
+  number: {
+    guard: (v) => isNumber(v),
+    build: (raw) => {
+      if (typeof raw !== 'number') throw new Error(`literalToValue: schema type "number" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      return buildNumber(raw);
+    },
+  },
+  str: {
+    guard: (v) => isString(v),
+    build: (raw) => {
+      if (typeof raw !== 'string') throw new Error(`literalToValue: schema type "str" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      return buildString(raw);
+    },
+  },
+  bool: {
+    guard: (v) => isBoolean(v),
+    build: (raw) => {
+      if (typeof raw !== 'boolean') throw new Error(`literalToValue: schema type "bool" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      return buildBoolean(raw);
+    },
+  },
+  'arr<number>': {
+    guard: (v) => isArray(v) && matchesArraySubtype(v, 'number'),
+    build: (raw) => {
+      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof raw}`);
+      return buildArrayNumber(raw.map((v) => {
+        if (typeof v !== 'number') throw new Error(`literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
+        return buildNumber(v);
+      }));
+    },
+  },
+  'arr<str>': {
+    guard: (v) => isArray(v) && matchesArraySubtype(v, 'string'),
+    build: (raw) => {
+      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof raw}`);
+      return buildArrayString(raw.map((v) => {
+        if (typeof v !== 'string') throw new Error(`literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
+        return buildString(v);
+      }));
+    },
+  },
+  'arr<bool>': {
+    guard: (v) => isArray(v) && matchesArraySubtype(v, 'boolean'),
+    build: (raw) => {
+      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof raw}`);
+      return buildArrayBoolean(raw.map((v) => {
+        if (typeof v !== 'boolean') throw new Error(`literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
+        return buildBoolean(v);
+      }));
+    },
+  },
+};
+
 function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
-  switch (schemaType) {
-    case 'number': return isNumber(value);
-    case 'str':    return isString(value);
-    case 'bool':   return isBoolean(value);
-    case 'arr<number>': return isArray(value) && matchesArraySubtype(value, 'number');
-    case 'arr<str>':    return isArray(value) && matchesArraySubtype(value, 'string');
-    case 'arr<bool>':   return isArray(value) && matchesArraySubtype(value, 'boolean');
-    default:
-      throw new Error(`StateManager: unknown schema type "${schemaType}"`);
-  }
+  const entry = schemaTypeTable[schemaType];
+  if (!entry) throw new Error(`StateManager: unknown schema type "${schemaType}"`);
+  return entry.guard(value);
 }
 
 /**
@@ -298,40 +350,9 @@ function literalToValue(
   if (raw === null || raw === undefined) {
     return buildNull('missing');
   }
-  switch (type) {
-    case 'number':
-      if (typeof raw !== 'number') throw new Error(`literalToValue: schema type "number" but got ${typeof raw} (${JSON.stringify(raw)})`);
-      return buildNumber(raw);
-    case 'str':
-      if (typeof raw !== 'string') throw new Error(`literalToValue: schema type "str" but got ${typeof raw} (${JSON.stringify(raw)})`);
-      return buildString(raw);
-    case 'bool':
-      if (typeof raw !== 'boolean') throw new Error(`literalToValue: schema type "bool" but got ${typeof raw} (${JSON.stringify(raw)})`);
-      return buildBoolean(raw);
-    case 'arr<number>': {
-      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof raw}`);
-      return buildArrayNumber(raw.map((v) => {
-        if (typeof v !== 'number') throw new Error(`literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
-        return buildNumber(v);
-      }));
-    }
-    case 'arr<str>': {
-      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof raw}`);
-      return buildArrayString(raw.map((v) => {
-        if (typeof v !== 'string') throw new Error(`literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
-        return buildString(v);
-      }));
-    }
-    case 'arr<bool>': {
-      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof raw}`);
-      return buildArrayBoolean(raw.map((v) => {
-        if (typeof v !== 'boolean') throw new Error(`literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
-        return buildBoolean(v);
-      }));
-    }
-    default:
-      throw new Error(`literalToValue: unknown schema type "${type}"`);
-  }
+  const entry = schemaTypeTable[type];
+  if (!entry) throw new Error(`literalToValue: unknown schema type "${type}"`);
+  return entry.build(raw);
 }
 
 /**

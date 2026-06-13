@@ -42,6 +42,9 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 	var ds diag.DiagSink
 
 	stateModel := lowerStateBlock(file.StateSource, schema, schemaOrder, &ds)
+	if stateModel == nil {
+		return nil, ds.Flush()
+	}
 
 	tm := &turnoutpb.TurnModel{State: stateModel}
 
@@ -123,7 +126,7 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 	case nil:
 		ds.Append(diag.Errorf(diag.CodeMissingStateSource,
 			"lowerStateBlock: nil StateSource — this is a compiler bug; please report the source file"))
-		return &turnoutpb.StateModel{}
+		return nil
 	default:
 		panic(fmt.Sprintf("lowerStateBlock: unhandled StateSource type %T — this is a compiler bug", src))
 	}

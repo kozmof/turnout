@@ -25,13 +25,26 @@ export class PrepareError extends Error {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type SceneErrorCode = 'UnknownAction' | 'IncompleteScene' | 'MaxStepsExceeded' | 'UnknownFunction' | 'OutOfOrderBinding' | 'DuplicateActionId' | 'UnknownArgModel' | 'UnsupportedConstruct' | 'CompilerBug';
+/** Error codes callers are expected to handle — recoverable or routing-relevant conditions. */
+export type SceneErrorCode =
+  | 'UnknownAction'
+  | 'MaxStepsExceeded'
+  | 'UnknownFunction'
+  | 'DuplicateActionId'
+  | 'UnknownArgModel';
+
+/** Error codes that indicate a malformed model or internal invariant violation. */
+export type SceneInternalErrorCode =
+  | 'OutOfOrderBinding'
+  | 'CompilerBug'
+  | 'UnsupportedConstruct'
+  | 'IncompleteScene';
 
 export class SceneRuntimeError extends Error {
-  readonly code: SceneErrorCode;
+  readonly code: SceneErrorCode | SceneInternalErrorCode;
   readonly sceneId: string;
 
-  constructor(code: SceneErrorCode, sceneId: string, detail: string) {
+  constructor(code: SceneErrorCode | SceneInternalErrorCode, sceneId: string, detail: string) {
     super(`Scene "${sceneId}": ${detail}`);
     this.name = 'SceneRuntimeError';
     this.code = code;
