@@ -1772,3 +1772,134 @@ func TestCondStepRefCondition(t *testing.T) {
 		t.Error("want UnsupportedConstruct for cond condition using step_ref")
 	}
 }
+
+// ─── validateCond: Transform and StepRef in then/else branch position ────────
+
+// TestCondTransformBranchValid: then-branch is a Transform whose output type
+// matches the binding's declared type (label.length → number) → no error.
+func TestCondTransformBranchValid(t *testing.T) {
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "out",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+							{Name: "label", Type: "str", Value: structpb.NewStringValue("")},
+							{Name: "zero", Type: "number", Value: structpb.NewNumberValue(0)},
+							{
+								// then = label.length (number) matches out:number → valid
+								Name: "out",
+								Type: "number",
+								Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+									Condition: &turnoutpb.ArgModel{Ref: proto.String("flag")},
+									Then: &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{
+										Ref: "label",
+										Fn:  []string{"transformFnString::length"},
+									}},
+									ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("zero")},
+								}},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+// TestCondTransformBranchTypeMismatch: then-branch is a Transform whose output
+// type (number from label.length) does not match the binding's declared type
+// (bool) → expect CodeReturnTypeMismatch.
+func TestCondTransformBranchTypeMismatch(t *testing.T) {
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "out",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+							{Name: "label", Type: "str", Value: structpb.NewStringValue("")},
+							{Name: "fallback", Type: "bool", Value: structpb.NewBoolValue(false)},
+							{
+								// then = label.length (number) but out:bool → type mismatch
+								Name: "out",
+								Type: "bool",
+								Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+									Condition: &turnoutpb.ArgModel{Ref: proto.String("flag")},
+									Then: &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{
+										Ref: "label",
+										Fn:  []string{"transformFnString::length"},
+									}},
+									ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("fallback")},
+								}},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if !hasCode(ds, diag.CodeReturnTypeMismatch) {
+		t.Error("want ReturnTypeMismatch for cond then-branch transform returning number for bool binding")
+	}
+}
+
+// TestCondStepRefBranch: a step_ref in the then or else branch of a cond is
+// not valid → expect CodeUnsupportedConstruct.
+func TestCondStepRefBranch(t *testing.T) {
+	stepRef := int32(0)
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "out",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+							{Name: "no", Type: "number", Value: structpb.NewNumberValue(0)},
+							{
+								// then = step_ref=0 — illegal in a cond branch
+								Name: "out",
+								Type: "number",
+								Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+									Condition:  &turnoutpb.ArgModel{Ref: proto.String("flag")},
+									Then:       &turnoutpb.ArgModel{StepRef: &stepRef},
+									ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("no")},
+								}},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if !hasCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for cond then-branch using step_ref")
+	}
+}

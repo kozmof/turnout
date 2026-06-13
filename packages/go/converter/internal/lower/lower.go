@@ -149,24 +149,17 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 }
 
 func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
-	sm := &turnoutpb.StateModel{Namespaces: make([]*turnoutpb.NamespaceModel, 0, len(block.Namespaces))}
+	var m orderedNsMap
 	for _, ns := range block.Namespaces {
-		pbNS := &turnoutpb.NamespaceModel{
-			Name:   ns.Name,
-			Fields: make([]*turnoutpb.FieldModel, 0, len(ns.Fields)),
-		}
 		for _, f := range ns.Fields {
-			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
-				Name:  f.Name,
-				Type:  f.Type.ProtoString(),
-				Value: ast.LiteralToStructpb(f.Default),
+			m.appendField(ns.Name, f.Name, state.FieldMeta{
+				Type:         f.Type,
+				DefaultValue: ast.LiteralToStructpb(f.Default),
 			})
 		}
-		sm.Namespaces = append(sm.Namespaces, pbNS)
 	}
-	return sm
+	return m.toStateModel()
 }
-
 
 // orderedNsMap accumulates namespace→field entries in insertion order.
 // It replaces the previous dual-variable pattern (nsList + nsIndex).

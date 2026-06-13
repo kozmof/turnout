@@ -39,12 +39,12 @@ func ParseStateFile(file, src string) (*ast.InlineStateBlock, diag.Diagnostics) 
 	}
 
 	if tf == nil || tf.StateSource == nil {
-		return nil, diag.Diagnostics{diag.Errorf("MissingStateBlock",
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateBlock,
 			"state file %q has no state block", file)}
 	}
 	inline, ok := tf.StateSource.(*ast.InlineStateBlock)
 	if !ok {
-		return nil, diag.Diagnostics{diag.Errorf("MissingStateBlock",
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateBlock,
 			"state file %q must contain a literal state block, not state_file", file)}
 	}
 	return inline, p.Flush()

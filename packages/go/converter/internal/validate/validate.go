@@ -308,8 +308,8 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 }
 
 // resolveCondBranch resolves the type of a cond then/else ArgModel branch.
-// It handles all three relevant ArgModel variants: FuncRef (function binding
-// reference), Ref (value binding reference), and Lit (inline literal).
+// Handles all five ArgModel variants: Ref, FuncRef, Lit, Transform, and StepRef.
+// StepRef is invalid in cond branches and emits CodeUnsupportedConstruct.
 // Returns (fieldType, true) when the type is known, (Invalid, false) otherwise.
 func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, ds *diag.DiagSink) (ast.FieldType, bool) {
 	if arg == nil {
@@ -343,6 +343,14 @@ func resolveCondBranch(bindingName, branchName string, arg *turnoutpb.ArgModel, 
 	if arg.Lit != nil {
 		ft, ok := structpbFieldType(arg.Lit)
 		return ft, ok
+	}
+	if arg.Transform != nil {
+		return resolveTransformArgType(bindingName, arg.Transform, scope, ds)
+	}
+	if arg.StepRef != nil {
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q cond %s: step_ref is not valid in a cond branch", bindingName, branchName))
+		return ast.FieldTypeInvalid, false
 	}
 	return ast.FieldTypeInvalid, false
 }

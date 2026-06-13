@@ -1,6 +1,4 @@
 import { buildNull, buildExecutionTree, executeTree } from 'runtime';
-
-const UNABORTABLE = new AbortController().signal;
 import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
 import type { ActionModel } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
@@ -8,7 +6,7 @@ import type { HookRegistry, PublishHookContext } from '../types/harness-types.js
 import { buildContextFromProg } from './hcl-context-builder.js';
 import type { BuiltContext } from './hcl-context-builder.js';
 import { resolveActionPrepare } from './prepare-resolver.js';
-import type { ActionExecutionResult } from './types.js';
+import { type ActionExecutionResult, UNABORTABLE } from './types.js';
 import type { PublishHookOutcome } from '../types/harness-types.js';
 import { SceneRuntimeError } from './errors.js';
 

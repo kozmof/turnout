@@ -1,6 +1,4 @@
 import { executeGraph, isPureBoolean, buildNull } from 'runtime';
-
-const UNABORTABLE = new AbortController().signal;
 import type { AnyValue, ValidatedContext } from 'runtime';
 import type { SceneBlock, ActionModel, ProgModel } from '../types/turnout-model_pb.js';
 import type { StateManager, StateReader } from '../state/state-manager.js';
@@ -9,7 +7,7 @@ import { executeAction } from './action-executor.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
 import type { BuiltContext } from './hcl-context-builder.js';
 import { resolveNextPrepare } from './prepare-resolver.js';
-import type { ActionExecutionResult } from './types.js';
+import { type ActionExecutionResult, UNABORTABLE } from './types.js';
 import { SceneRuntimeError } from './errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────

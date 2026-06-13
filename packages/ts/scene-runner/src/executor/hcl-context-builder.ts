@@ -36,13 +36,17 @@ let pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 // filter+map allocation on every ContextSpecBuilder construction.
 let funcBindingNamesCache = new WeakMap<ProgModel, Set<string>>();
 
-/**
- * Replace module-level caches with fresh instances.
- * For test isolation only — production code must not call this.
- */
-export function _clearCachesForTesting(): void {
+function clearContextCaches(): void {
   pureProgCtxCache = new WeakMap();
   funcBindingNamesCache = new WeakMap();
+}
+
+/**
+ * Returns test-only hooks for this module. Import this via test-support.ts,
+ * never from production code.
+ */
+export function _testHooks() {
+  return { clearContextCaches };
 }
 
 function getFuncBindingNames(prog: ProgModel): Set<string> {
