@@ -774,8 +774,8 @@ scene "test_scene" {
 	}
 
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, lr.Model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 
@@ -825,8 +825,8 @@ scene "s" {
 		t.Fatalf("lower: %v", ds2)
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, lr.Model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	if strings.Contains(sb.String(), `"annotations"`) {
 		t.Fatal("emitted JSON must not contain annotations field")
@@ -859,8 +859,8 @@ scene "test" {
 		t.Fatalf("validate: %v", ds3)
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, lr.Model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, lr.Model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	for _, want := range []string{`"cond"`, `__local_out_then_fn`, `__local_out_else_fn`} {

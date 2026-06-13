@@ -380,6 +380,15 @@ func validateCond(b *turnoutpb.BindingModel, cond *turnoutpb.CondExpr, scope map
 				"binding %q cond condition literal has type %s; bool required",
 				b.Name, ft))
 		}
+	} else if cond.Condition != nil && cond.Condition.Transform != nil {
+		ft, resolved := resolveTransformArgType(b.Name, cond.Condition.Transform, scope, ds)
+		if resolved && ft != ast.FieldTypeBool {
+			ds.Append(diag.Errorf(diag.CodeCondNotBool,
+				"binding %q cond condition transform chain has output type %s; bool required", b.Name, ft))
+		}
+	} else if cond.Condition != nil && cond.Condition.StepRef != nil {
+		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+			"binding %q cond condition: step_ref is not valid in a cond condition", b.Name))
 	}
 
 	thenType, hasThen := resolveCondBranch(b.Name, "then", cond.Then, scope, ds)

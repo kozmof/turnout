@@ -196,8 +196,8 @@ func TestEmitJSONIrregularSourcePrecedenceAndNulls(t *testing.T) {
 	}
 
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"fromState"`) {

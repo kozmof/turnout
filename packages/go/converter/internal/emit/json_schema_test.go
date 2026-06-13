@@ -88,8 +88,8 @@ route "main" {
 	}
 
 	var buf bytes.Buffer
-	if err := EmitJSON(&buf, lr.Model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := EmitJSON(&buf, lr.Model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 
 	// Unmarshal back via protojson. DiscardUnknown is set because EmitJSON
@@ -112,8 +112,8 @@ route "main" {
 // valid proto JSON that unmarshals without error.
 func TestEmitJSONNilModelProducesValidJSON(t *testing.T) {
 	var buf bytes.Buffer
-	if err := EmitJSON(&buf, nil); err != nil {
-		t.Fatalf("EmitJSON nil: %v", err)
+	if ds := EmitJSON(&buf, nil); ds.HasErrors() {
+		t.Fatalf("EmitJSON nil: %v", ds)
 	}
 	var tm turnoutpb.TurnModel
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(buf.Bytes(), &tm); err != nil {

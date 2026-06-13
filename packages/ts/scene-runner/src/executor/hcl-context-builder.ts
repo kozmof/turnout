@@ -267,7 +267,8 @@ class ContextSpecBuilder {
     const result = this.resolveArg(arg);
     if (typeof result !== 'string') {
       throw new SceneRuntimeError('UnknownArgModel', this.contextId,
-        `${label} resolved to a non-string ref (got ${typeof result}) — expected ref or funcRef`);
+        `${label} resolved to a non-string ref: ${JSON.stringify(result)} — ` +
+        `only plain value-binding refs and function-binding refs are supported in this position`);
     }
     return result;
   }

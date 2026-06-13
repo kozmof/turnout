@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -24,7 +25,7 @@ const (
 // ext_expr fields and annotations are stripped before marshalling — ext_expr is
 // only used by the HCL emitter, and annotations are validator-only metadata;
 // neither should appear in runtime output.
-func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) error {
+func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 	if tm == nil {
 		tm = &turnoutpb.TurnModel{}
 	}
@@ -34,15 +35,17 @@ func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) error {
 	tm.MaxVersion = jsonMaxVersion
 	raw, err := protojson.Marshal(tm)
 	if err != nil {
-		return err
+		return diag.Diagnostics{diag.Errorf(diag.CodeEmitIOError, "JSON emit failed: %v", err)}
 	}
 	var buf []byte
 	if buf, err = json.MarshalIndent(json.RawMessage(raw), "", "  "); err != nil {
-		return err
+		return diag.Diagnostics{diag.Errorf(diag.CodeEmitIOError, "JSON emit failed: %v", err)}
 	}
 	buf = append(buf, '\n')
-	_, err = w.Write(buf)
-	return err
+	if _, err = w.Write(buf); err != nil {
+		return diag.Diagnostics{diag.Errorf(diag.CodeEmitIOError, "JSON emit failed: %v", err)}
+	}
+	return nil
 }
 
 // stripExtExpr returns a deep-cloned TurnModel with all BindingModel.ExtExpr

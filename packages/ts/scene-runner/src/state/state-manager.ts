@@ -289,6 +289,23 @@ export function stateManagerFromStrict(
   validPaths: ReadonlySet<string>,
   typeMap?: ReadonlyMap<string, string>,
 ): StateManager {
+  for (const key of Object.keys(initial)) {
+    assertSafePath(key);
+    if (!validPaths.has(key)) {
+      throw new Error(
+        `StateManager: unknown initial path "${key}". Valid paths: ${[...validPaths].join(', ')}`,
+      );
+    }
+    if (typeMap !== undefined) {
+      const expectedType = typeMap.get(key);
+      const value = initial[key];
+      if (expectedType !== undefined && value !== undefined && !matchesSchemaType(value, expectedType)) {
+        throw new Error(
+          `StateManager: type mismatch in initial state for "${key}": expected ${expectedType}, got ${value.symbol}`,
+        );
+      }
+    }
+  }
   return make({ ...initial }, validPaths, typeMap ?? null);
 }
 

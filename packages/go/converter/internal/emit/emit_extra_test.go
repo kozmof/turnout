@@ -245,8 +245,8 @@ func TestEmitJSONPipeExpr(t *testing.T) {
 		}},
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"pipe"`) {
@@ -297,8 +297,8 @@ func TestEmitJSONCondExpr(t *testing.T) {
 		}},
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"cond"`) {
@@ -323,8 +323,8 @@ route "r1" {
   }
 }`
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, pipelineModel(t, src)); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, pipelineModel(t, src)); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"routes"`) {
@@ -347,8 +347,8 @@ scene "s" {
   action "a" { compute { root = r prog "p" { r:bool = true } } }
 }`
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, pipelineModel(t, src)); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, pipelineModel(t, src)); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"a"`) || !strings.Contains(out, `"b"`) {
@@ -393,8 +393,8 @@ func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 		}},
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"stepRef"`) {
@@ -439,8 +439,8 @@ func TestEmitJSONArgTransform(t *testing.T) {
 		}},
 	}
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, model); err != nil {
-		t.Fatalf("EmitJSON: %v", err)
+	if ds := emit.EmitJSON(&sb, model); ds.HasErrors() {
+		t.Fatalf("EmitJSON: %v", ds)
 	}
 	out := sb.String()
 	if !strings.Contains(out, `"transform"`) {
@@ -453,8 +453,8 @@ func TestEmitJSONArgTransform(t *testing.T) {
 
 func TestEmitJSONNilModel(t *testing.T) {
 	var sb strings.Builder
-	if err := emit.EmitJSON(&sb, nil); err != nil {
-		t.Fatalf("EmitJSON(nil): %v", err)
+	if ds := emit.EmitJSON(&sb, nil); ds.HasErrors() {
+		t.Fatalf("EmitJSON(nil): %v", ds)
 	}
 	out := sb.String()
 	if strings.TrimSpace(out) == "" {

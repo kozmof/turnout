@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 )
 
 // ── compile-time interface checks ─────────────────────────────────────────────
@@ -419,5 +420,36 @@ func TestStateFileDirective(t *testing.T) {
 	var _ ast.StateSource = d
 	if d.Path != "../state/schema.turn" {
 		t.Errorf("Path = %q", d.Path)
+	}
+}
+
+// TestInfixOpMatchesProtoEnum guards the comment-only convention that
+// ast.InfixOp iota values must match the proto InfixOp enum values so that
+// serialized models remain valid after the int32 → enum migration.
+func TestInfixOpMatchesProtoEnum(t *testing.T) {
+	cases := []struct {
+		goVal   ast.InfixOp
+		pbVal   turnoutpb.InfixOp
+		name    string
+	}{
+		{ast.InfixAnd,    turnoutpb.InfixOp_INFIX_OP_AND,     "And"},
+		{ast.InfixGTE,    turnoutpb.InfixOp_INFIX_OP_GTE,     "GTE"},
+		{ast.InfixLTE,    turnoutpb.InfixOp_INFIX_OP_LTE,     "LTE"},
+		{ast.InfixGT,     turnoutpb.InfixOp_INFIX_OP_GT,      "GT"},
+		{ast.InfixLT,     turnoutpb.InfixOp_INFIX_OP_LT,      "LT"},
+		{ast.InfixBoolOr, turnoutpb.InfixOp_INFIX_OP_BOOL_OR, "BoolOr"},
+		{ast.InfixEq,     turnoutpb.InfixOp_INFIX_OP_EQ,      "Eq"},
+		{ast.InfixNeq,    turnoutpb.InfixOp_INFIX_OP_NEQ,     "Neq"},
+		{ast.InfixPlus,   turnoutpb.InfixOp_INFIX_OP_PLUS,    "Plus"},
+		{ast.InfixSub,    turnoutpb.InfixOp_INFIX_OP_SUB,     "Sub"},
+		{ast.InfixMul,    turnoutpb.InfixOp_INFIX_OP_MUL,     "Mul"},
+		{ast.InfixDiv,    turnoutpb.InfixOp_INFIX_OP_DIV,     "Div"},
+		{ast.InfixMod,    turnoutpb.InfixOp_INFIX_OP_MOD,     "Mod"},
+	}
+	for _, c := range cases {
+		if int32(c.goVal) != int32(c.pbVal) {
+			t.Errorf("InfixOp %s: Go iota=%d != proto enum=%d",
+				c.name, int32(c.goVal), int32(c.pbVal))
+		}
 	}
 }

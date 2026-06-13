@@ -47,12 +47,8 @@ func (r *CompileResult) WriteHCL(w io.Writer) Diagnostics {
 }
 
 // WriteJSON writes JSON to w and returns any emit diagnostics.
-// Returns a non-nil Diagnostics slice on failure, matching the WriteHCL contract.
 func (r *CompileResult) WriteJSON(w io.Writer) Diagnostics {
-	if err := emit.EmitJSON(w, r.Model); err != nil {
-		return Diagnostics{diag.Errorf(diag.CodeEmitIOError, "JSON emit failed: %v", err)}
-	}
-	return nil
+	return emit.EmitJSON(w, r.Model)
 }
 
 // Compile runs parse → state-resolve → lower → validate for inputPath.

@@ -1640,4 +1640,135 @@ func TestValidatePipeNoParams(t *testing.T) {
 	if ds.HasErrors() {
 		t.Errorf("expected no errors, got: %v", ds)
 	}
-} 
+}
+
+// ─── validateCond: Transform and StepRef in condition position ───────────────
+
+// TestCondTransformConditionNonBool: cond condition is a transform chain whose
+// output type is number (label.length), not bool → expect CodeCondNotBool.
+func TestCondTransformConditionNonBool(t *testing.T) {
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "out",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "label", Type: "str", Value: structpb.NewStringValue("")},
+							{Name: "yes", Type: "number", Value: structpb.NewNumberValue(1)},
+							{Name: "no", Type: "number", Value: structpb.NewNumberValue(0)},
+							{
+								// cond condition = label.length (returns number, not bool)
+								Name: "out",
+								Type: "number",
+								Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+									Condition: &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{
+										Ref: "label",
+										Fn:  []string{"transformFnString::length"},
+									}},
+									Then:       &turnoutpb.ArgModel{Ref: proto.String("yes")},
+									ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("no")},
+								}},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if !hasCode(ds, diag.CodeCondNotBool) {
+		t.Error("want CondNotBool for cond condition with transform chain returning number")
+	}
+}
+
+// TestCondTransformConditionBool: cond condition is a transform chain whose
+// output type is bool (items.isEmpty) → expect no error.
+func TestCondTransformConditionBool(t *testing.T) {
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "out",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "items", Type: "arr<number>", Value: structpb.NewListValue(&structpb.ListValue{})},
+							{Name: "yes", Type: "number", Value: structpb.NewNumberValue(1)},
+							{Name: "no", Type: "number", Value: structpb.NewNumberValue(0)},
+							{
+								// cond condition = items.isEmpty (returns bool) → valid
+								Name: "out",
+								Type: "number",
+								Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+									Condition: &turnoutpb.ArgModel{Transform: &turnoutpb.TransformArg{
+										Ref: "items",
+										Fn:  []string{"transformFnArray::isEmpty"},
+									}},
+									Then:       &turnoutpb.ArgModel{Ref: proto.String("yes")},
+									ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("no")},
+								}},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+// TestCondStepRefCondition: cond condition uses a step_ref, which is not valid
+// in a cond condition → expect CodeUnsupportedConstruct.
+func TestCondStepRefCondition(t *testing.T) {
+	stepRef := int32(0)
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:           "s",
+			EntryActions: []string{"a"},
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "out",
+					Prog: &turnoutpb.ProgModel{
+						Name: "p",
+						Bindings: []*turnoutpb.BindingModel{
+							{Name: "flag", Type: "bool", Value: structpb.NewBoolValue(true)},
+							{Name: "yes", Type: "number", Value: structpb.NewNumberValue(1)},
+							{Name: "no", Type: "number", Value: structpb.NewNumberValue(0)},
+							{
+								// condition is step_ref=0 — illegal in a cond condition
+								Name: "out",
+								Type: "number",
+								Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
+									Condition:  &turnoutpb.ArgModel{StepRef: &stepRef},
+									Then:       &turnoutpb.ArgModel{Ref: proto.String("yes")},
+									ElseBranch: &turnoutpb.ArgModel{Ref: proto.String("no")},
+								}},
+							},
+						},
+					},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if !hasCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for cond condition using step_ref")
+	}
+}
