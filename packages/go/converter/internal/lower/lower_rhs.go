@@ -2,6 +2,8 @@
 package lower
 
 import (
+	"fmt"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -118,7 +120,7 @@ func infixOpValidForType(op ast.InfixOp, ft ast.FieldType) bool {
 	case ast.InfixPlus:
 		return ft == ast.FieldTypeNumber || ft == ast.FieldTypeStr
 	default:
-		return false
+		panic(fmt.Sprintf("infixOpValidForType: unhandled InfixOp %v — add a case when adding new InfixOp values", op))
 	}
 }
 

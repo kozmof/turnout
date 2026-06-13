@@ -243,9 +243,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	if !checkArity(contextLabel, c.Fn, len(c.Args), ds) {
 		return
 	}
-	if len(c.Args) >= 2 {
-		validateBinaryArgTypePair(b.Name, c.Fn, spec, t1, ok1, t2, ok2, ds)
-	}
+	validateBinaryArgTypePair(b.Name, c.Fn, spec, t1, ok1, t2, ok2, ds)
 }
 
 func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {

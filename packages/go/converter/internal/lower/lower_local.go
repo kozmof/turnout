@@ -281,6 +281,12 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	seenLiterals := make(map[string]bool)
 	conditionalArms := make([]ast.LocalCaseArm, 0, len(arms))
 	for i, arm := range arms {
+		if seenWildcard {
+			// Arms after the first wildcard are unreachable and were already
+			// diagnosed by the first wildcard's j-loop. Skip without re-entering
+			// the wildcard branch, which would otherwise overwrite fallbackFn.
+			continue
+		}
 		if _, ok := arm.Pattern.(*ast.WildcardCasePattern); ok {
 			// Emit unreachable-arm diagnostics immediately, before lowering the
 			// wildcard body, so they are never lost if body-lowering halts the sink.
@@ -290,9 +296,6 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 			}
 			seenWildcard = true
 			fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft, pc)
-			continue
-		}
-		if seenWildcard {
 			continue
 		}
 		if p, ok := arm.Pattern.(*ast.LiteralCasePattern); ok {

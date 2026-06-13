@@ -464,6 +464,44 @@ func TestEmitJSONNilModel(t *testing.T) {
 
 // ─── chooseHeredocDelim: hash-fallback path ───────────────────────────────────
 
+// ─── writeStructpbValue: number format ───────────────────────────────────────
+
+func TestEmitLargeNumberDecimal(t *testing.T) {
+	// A state field default of 1000000 must emit as "1000000" (decimal), not
+	// "1e+06" (scientific notation). The Turn DSL lexer does not accept 'e'.
+	out := fullPipeline(t, `state {
+  ns { big:number = 1000000 }
+}
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}`)
+	if strings.Contains(out, "1e+") || strings.Contains(out, "e+0") {
+		t.Errorf("number value must not use scientific notation, got output containing 'e+': %s", out)
+	}
+	if !strings.Contains(out, "1000000") {
+		t.Errorf("expected decimal 1000000 in output:\n%s", out)
+	}
+}
+
+func TestEmitSmallNumberDecimal(t *testing.T) {
+	// A state field default of 0.00001 must emit as "0.00001" (decimal), not
+	// "1e-05". The Turn DSL lexer does not accept 'e'.
+	out := fullPipeline(t, `state {
+  ns { small:number = 0.00001 }
+}
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}`)
+	if strings.Contains(out, "1e-") || strings.Contains(out, "e-0") {
+		t.Errorf("number value must not use scientific notation, got output containing 'e-': %s", out)
+	}
+	if !strings.Contains(out, "0.00001") {
+		t.Errorf("expected decimal 0.00001 in output:\n%s", out)
+	}
+}
+
 func TestChooseHeredocDelimHashFallback(t *testing.T) {
 	// All four standard candidates appear as bare lines so they all collide.
 	// The fast "EOT" path fires first; the slow-path candidates also collide,

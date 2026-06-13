@@ -107,7 +107,9 @@ func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult,
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	return result, append(ds, result.WriteHCL(w)...)
+	emitDs := result.WriteHCL(w)
+	result.Warnings = append(ds, emitDs...)
+	return result, result.Warnings
 }
 
 // CompileToJSON runs the full pipeline and writes JSON to w.
@@ -132,7 +134,9 @@ func CompileSourceToHCL(w io.Writer, name, src, stateBasePath string) (*CompileR
 	if ds.HasErrors() {
 		return nil, ds
 	}
-	return result, append(ds, result.WriteHCL(w)...)
+	emitDs := result.WriteHCL(w)
+	result.Warnings = append(ds, emitDs...)
+	return result, result.Warnings
 }
 
 // CompileSourceToJSON is the in-memory equivalent of CompileToJSON.

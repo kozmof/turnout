@@ -710,6 +710,43 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 	}
 }
 
+// ─── lowerCaseInto: double wildcard ──────────────────────────────────────────
+
+// TestLowerCaseIntoDoubleWildcard verifies that a #case expression with two
+// wildcard arms does not overwrite the first wildcard's fallback body and does
+// not emit duplicate unreachable-arm diagnostics.
+//
+// Input: [_ => "first", _ => "second", 1 => "third"]  (indices 0, 1, 2)
+// Expected: exactly 2 CodeUnsupportedConstruct diagnostics — "arm 1 unreachable"
+// and "arm 2 unreachable", both emitted by the FIRST wildcard's j-loop.
+//
+// Before the fix the second wildcard re-entered the wildcard branch and emitted
+// an extra "arm 2 unreachable" duplicate, producing 3 diagnostics total.
+func TestLowerCaseIntoDoubleWildcard(t *testing.T) {
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = result
+      prog "p" {
+        x:number = 1
+        result:str = #case(x, _ => "first", _ => "second", 1 => "third")
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+
+	// Exactly 2 unreachable-arm diagnostics (arm 1 and arm 2, not arm 2 twice).
+	unreachable := 0
+	for _, d := range ds {
+		if d.Code == diag.CodeUnsupportedConstruct {
+			unreachable++
+		}
+	}
+	if unreachable != 2 {
+		t.Errorf("expected 2 unreachable-arm diagnostics (arm 1, arm 2), got %d: %v", unreachable, ds)
+	}
+}
+
 func TestLowerLocalCallUnknownFnNoCascadingErrors(t *testing.T) {
 	// The early unknown-function diagnostic must not produce cascading ArgTypeMismatch
 	// errors. The lowerer emits a zero-value binding so downstream type checking sees
