@@ -348,6 +348,13 @@ type BindingDecl struct {
 // It allows switch exhaustiveness checks and tooling introspection without a
 // full type-switch. Add a new constant here whenever a new BindingRHS type is
 // introduced, and implement Kind() on the new type.
+//
+// When adding a new kind:
+//  1. Add a constant above rhsKindSentinel (below).
+//  2. Add a {} element to the rhsKindExhaustiveCheck array.
+//  3. Update every switch on BindingRHSKind — at minimum:
+//     - lower/lower.go  (lowerBinding)
+//     - lower/lower_local.go (lowerTop)
 type BindingRHSKind int
 
 const (
@@ -360,7 +367,25 @@ const (
 	RHSKindCaseCall                         // *CaseCallRHS
 	RHSKindPipeCall                         // *PipeCallRHS
 	RHSKindError                            // *ErrorRHS
+	rhsKindSentinel                         // unexported — marks end of valid range; add new kinds above this line
 )
+
+// rhsKindExhaustiveCheck is a compile-time guard: its size equals the number of
+// valid BindingRHSKind values. Adding a new kind without updating this array
+// causes a compile error, forcing every switch site to be audited.
+// See the FieldType sentinel (fieldTypeSentinel / fieldTypeExhaustiveCheck) for
+// the established pattern this mirrors.
+var _ = [rhsKindSentinel]struct{}{
+	{}, // RHSKindLiteral
+	{}, // RHSKindSigilInput
+	{}, // RHSKindSingleRef
+	{}, // RHSKindFuncCall
+	{}, // RHSKindInfix
+	{}, // RHSKindIfCall
+	{}, // RHSKindCaseCall
+	{}, // RHSKindPipeCall
+	{}, // RHSKindError
+}
 
 // BindingRHS is implemented by all RHS node types.
 // Kind() returns a typed discriminant so callers can build exhaustive switches

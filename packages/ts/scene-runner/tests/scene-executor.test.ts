@@ -602,3 +602,101 @@ describe('executeSceneSafe — non-SceneRuntimeError is captured as ok:false', (
     }
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// evaluateNextRules — per-invocation cache key stability
+//
+// The cache key is built from Object.entries(nextPrepared) without sorting.
+// This test verifies that two executions with identical prepare entries (same
+// order, same values) produce the same result, confirming the stable-order
+// assumption holds and the sort removal did not introduce a bug.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('evaluateNextRules — cache key stability with prepare entries', () => {
+  // Build a next rule with TWO prepare entries (from_state) so the key
+  // has multiple entries and order matters.
+  function makeActionWithTwoPrepareNextRule(): ActionModel {
+    return {
+      id: 'source_action',
+      compute: {
+        root: 'out',
+        prog: {
+          name: 'source_prog',
+          bindings: [
+            { name: 'out', type: 'number', value: 1 },
+          ],
+        },
+      },
+      next: [
+        {
+          prepare: [
+            { binding: 'a', fromState: 'ns.a' },
+            { binding: 'b', fromState: 'ns.b' },
+          ],
+          compute: {
+            condition: 'result',
+            prog: {
+              name: 'next_prog',
+              bindings: [
+                { name: 'a', type: 'number', value: 0 },
+                { name: 'b', type: 'number', value: 0 },
+                {
+                  name: 'result',
+                  type: 'bool',
+                  expr: { combine: { fn: 'gt', args: [{ ref: 'a' }, { ref: 'b' }] } },
+                },
+              ],
+            },
+          },
+          action: 'target_action',
+        },
+      ],
+    } as unknown as ActionModel;
+  }
+
+  it('produces the same next-action list on repeated calls with identical state', async () => {
+    const scene = {
+      id: 'cache_stability_scene',
+      entryActions: ['source_action'],
+      actions: [
+        makeActionWithTwoPrepareNextRule(),
+        makePassAction('target_action', 99, 'ns.result'),
+      ],
+    } as unknown as SceneBlock;
+
+    // ns.a > ns.b → condition is true → target_action fires
+    const state = stateManagerFromUnchecked({
+      'ns.a': buildNumber(10),
+      'ns.b': buildNumber(5),
+    });
+
+    const result1 = await executeScene(scene, state);
+    const result2 = await executeScene(scene, state);
+
+    expect(result1.trace.actions[0]!.nextActionIds).toEqual(['target_action']);
+    expect(result2.trace.actions[0]!.nextActionIds).toEqual(['target_action']);
+  });
+
+  it('correctly evaluates false condition (ns.a <= ns.b) on repeated calls', async () => {
+    const scene = {
+      id: 'cache_stability_false_scene',
+      entryActions: ['source_action'],
+      actions: [
+        makeActionWithTwoPrepareNextRule(),
+        makePassAction('target_action', 99, 'ns.result'),
+      ],
+    } as unknown as SceneBlock;
+
+    const state = stateManagerFromUnchecked({
+      'ns.a': buildNumber(3),
+      'ns.b': buildNumber(7),
+    });
+
+    const result1 = await executeScene(scene, state);
+    const result2 = await executeScene(scene, state);
+
+    // Condition false → no next action → terminates at source_action
+    expect(result1.terminatedAt).toEqual(['source_action']);
+    expect(result2.terminatedAt).toEqual(['source_action']);
+  });
+});

@@ -11,7 +11,7 @@ import type {
 } from './types/harness-types.js';
 import { stateManagerFromUnchecked, stateManagerFromSchema } from './state/state-manager.js';
 import type { StateManager } from './state/state-manager.js';
-import { migrateModel } from './migration.js';
+import { migrateModel, checkSceneForExtExpr } from './migration.js';
 import {
   createSceneExecutor,
   type SceneExecutor,
@@ -198,6 +198,8 @@ export function createSceneRunner(
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   const state = initialState ?? stateManagerFromUnchecked(options.initialState);
 
+  checkSceneForExtExpr(scene);
+
   const sceneExecutor: SceneExecutor = createSceneExecutor(
     scene,
     state,
@@ -264,6 +266,9 @@ export function createRouteRunner(
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+
+  checkSceneForExtExpr(entryScene);
+  for (const s of Object.values(sceneMap)) checkSceneForExtExpr(s);
 
   const routeStepper: RouteStepper = createRouteStepper(
     route.id,

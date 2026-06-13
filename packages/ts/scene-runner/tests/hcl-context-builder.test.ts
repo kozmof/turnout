@@ -101,6 +101,57 @@ describe('buildSpec — inline literal args', () => {
     // Counter is module-level; we only verify two distinct keys were generated.
     expect(new Set(litKeys).size).toBe(2);
   });
+
+  it('deduplicates identical inline literal args into a single __lit binding', () => {
+    // Both combine bindings use the literal 0 as their second arg.
+    // litCache should return the same __lit_N name on the second encounter.
+    const prog = {
+      name: 'dedup_prog',
+      bindings: [
+        { name: 'x', type: 'number', value: 5 },
+        { name: 'y', type: 'number', value: 3 },
+        {
+          name: 'a',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 0 }] } },
+        },
+        {
+          name: 'b',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ ref: 'y' }, { lit: 0 }] } },
+        },
+      ],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const spec = buildSpec(prog, {});
+    const litKeys = Object.keys(spec).filter((k) => k.startsWith('__lit_'));
+    expect(litKeys).toHaveLength(1);
+  });
+
+  it('allocates separate __lit bindings for distinct literals', () => {
+    // Two combine bindings use different literals (0 and 1).
+    // litCache cannot merge them, so both get their own __lit_N binding.
+    const prog = {
+      name: 'distinct_lit_prog',
+      bindings: [
+        { name: 'x', type: 'number', value: 5 },
+        { name: 'y', type: 'number', value: 3 },
+        {
+          name: 'a',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 0 }] } },
+        },
+        {
+          name: 'b',
+          type: 'number',
+          expr: { combine: { fn: 'add', args: [{ ref: 'y' }, { lit: 1 }] } },
+        },
+      ],
+    } as unknown as import('../src/types/turnout-model_pb.js').ProgModel;
+    const spec = buildSpec(prog, {});
+    const litKeys = Object.keys(spec).filter((k) => k.startsWith('__lit_'));
+    expect(litKeys).toHaveLength(2);
+    expect(new Set(litKeys).size).toBe(2);
+  });
 });
 
 describe('buildSpec — error cases', () => {

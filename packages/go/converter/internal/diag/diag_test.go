@@ -253,6 +253,75 @@ func TestDiagSinkFlushPreventsAppend(t *testing.T) {
 	s.Append(diag.Errorf("E", "after flush — should panic"))
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DiagSink — AppendAll behaviour
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestDiagSinkAppendAllOrdering(t *testing.T) {
+	var s diag.DiagSink
+	batch := diag.Diagnostics{
+		diag.Errorf("E1", "first"),
+		diag.Errorf("E2", "second"),
+		diag.Errorf("E3", "third"),
+	}
+	s.AppendAll(batch)
+	got := s.Peek()
+	if len(got) != 3 {
+		t.Fatalf("AppendAll: len = %d, want 3", len(got))
+	}
+	for i, want := range []string{"first", "second", "third"} {
+		if got[i].Message != want {
+			t.Errorf("AppendAll: entry[%d].Message = %q, want %q", i, got[i].Message, want)
+		}
+	}
+}
+
+func TestDiagSinkAppendAllRespectsHalt(t *testing.T) {
+	var s diag.DiagSink
+	s.Halt()
+	lenBefore := s.Len()
+	s.AppendAll(diag.Diagnostics{
+		diag.Errorf("E", "should be dropped"),
+		diag.Errorf("E", "also dropped"),
+	})
+	if s.Len() != lenBefore {
+		t.Errorf("AppendAll after Halt: len went from %d to %d; expected no-op", lenBefore, s.Len())
+	}
+}
+
+func TestDiagSinkAppendAllTriggersHalt(t *testing.T) {
+	var s diag.DiagSink
+	// Fill to one below cap so the next append is the cap-triggering entry.
+	for i := range diag.MaxDiagnostics - 1 {
+		s.Append(diag.Errorf("E", "fill %d", i))
+	}
+	if s.IsHalted() {
+		t.Fatal("sink should not be halted before the triggering AppendAll")
+	}
+
+	// AppendAll with 3 entries: first fills the cap (triggers halt), remaining two are dropped.
+	s.AppendAll(diag.Diagnostics{
+		diag.Errorf("E", "cap-filler"),
+		diag.Errorf("E", "dropped-1"),
+		diag.Errorf("E", "dropped-2"),
+	})
+
+	if !s.IsHalted() {
+		t.Error("sink should be halted after cap was exceeded during AppendAll")
+	}
+	// Sentinel is appended when halted, so total = MaxDiagnostics + 1 (sentinel).
+	wantLen := diag.MaxDiagnostics + 1
+	if s.Len() != wantLen {
+		t.Errorf("AppendAll halt: len = %d, want %d (cap + sentinel)", s.Len(), wantLen)
+	}
+	// The two dropped messages must not appear.
+	for _, d := range s.Peek() {
+		if d.Message == "dropped-1" || d.Message == "dropped-2" {
+			t.Errorf("AppendAll: dropped diagnostic %q must not appear in sink", d.Message)
+		}
+	}
+}
+
 func countCode(ds diag.Diagnostics, code diag.ErrorCode) int {
 	n := 0
 	for _, d := range ds {

@@ -183,6 +183,39 @@ describe('executeAction — no compute', () => {
 });
 
 describe('executeAction — cumulative binding table', () => {
+  it('skips publish hooks when the AbortSignal is already aborted', async () => {
+    const hookCalls: string[] = [];
+    const action = {
+      id: 'publish_abort_action',
+      compute: {
+        root: 'out',
+        prog: {
+          name: 'p',
+          bindings: [{ name: 'out', type: 'number', value: 1 }],
+        },
+      },
+      publish: ['hook_a', 'hook_b'],
+    } as unknown as ActionModel;
+
+    const hooks = {
+      prepare: {},
+      publish: {
+        hook_a: async () => { hookCalls.push('hook_a'); },
+        hook_b: async () => { hookCalls.push('hook_b'); },
+      },
+    };
+
+    const abortController = new AbortController();
+    abortController.abort();
+
+    await expect(
+      executeAction(action, stateManagerFromUnchecked({}), hooks, '(test)', abortController.signal),
+    ).rejects.toThrow('aborted');
+
+    // Neither hook should have been invoked — the abort check fires before the first hook.
+    expect(hookCalls).toEqual([]);
+  });
+
   it('makes earlier computed bindings available to later bindings', async () => {
     const action = {
       id: 'chain_compute',

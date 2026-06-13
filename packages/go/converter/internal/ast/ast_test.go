@@ -46,6 +46,16 @@ var (
 	_ ast.Literal = (*ast.ArrayLiteral)(nil)
 )
 
+// ── Compile-time sentinel notes ───────────────────────────────────────────────
+//
+// ast.go contains two compile-time exhaustiveness sentinels:
+//   - fieldTypeExhaustiveCheck  (FieldType)     — enforces FieldType switch sites
+//   - rhsKindExhaustiveCheck    (BindingRHSKind) — enforces BindingRHSKind switch sites
+//
+// These arrays cause a compile error when a new constant is added without
+// updating the array, forcing the developer to audit all affected switch sites.
+// No runtime test is needed — the build itself is the test.
+
 // ── FieldType ─────────────────────────────────────────────────────────────────
 
 func TestFieldTypeString(t *testing.T) {

@@ -142,6 +142,7 @@ export async function executeAction(
   const finalStateSnapshot: Readonly<Record<string, AnyValue>> = mergedState.snapshot();
   const publishOutcomes: PublishHookOutcome[] = [];
   for (const hookName of action.publish ?? []) {
+    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
     const hook = hooks.publish[hookName];
     if (!hook) continue;
     const ctx: PublishHookContext = {

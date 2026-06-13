@@ -1,4 +1,4 @@
-import type { TurnModel, ProgModel } from './types/turnout-model_pb.js';
+import type { TurnModel, SceneBlock, ProgModel } from './types/turnout-model_pb.js';
 
 type MigrationFn = (model: TurnModel) => TurnModel;
 
@@ -63,11 +63,23 @@ export function migrateModel(model: TurnModel): TurnModel {
 // (at load time) produces a clear, actionable error before execution starts.
 function checkForExtExpr(model: TurnModel): void {
   for (const scene of model.scenes ?? []) {
-    for (const action of scene.actions) {
-      checkProgForExtExpr(action.compute?.prog, action.id, 'action compute');
-      for (const rule of action.next ?? []) {
-        checkProgForExtExpr(rule.compute?.prog, action.id, 'next-rule compute');
-      }
+    checkSceneForExtExpr(scene);
+  }
+}
+
+/**
+ * Scan a single SceneBlock for `extExpr` bindings in action compute and
+ * next-rule compute progs. Throws if any are found.
+ *
+ * Called by `createSceneRunner` and `createRouteRunner` so that direct users
+ * of those lower-level APIs get the same early, actionable error that
+ * `createRunner` (via `migrateModel`) provides.
+ */
+export function checkSceneForExtExpr(scene: SceneBlock): void {
+  for (const action of scene.actions) {
+    checkProgForExtExpr(action.compute?.prog, action.id, 'action compute');
+    for (const rule of action.next ?? []) {
+      checkProgForExtExpr(rule.compute?.prog, action.id, 'next-rule compute');
     }
   }
 }
