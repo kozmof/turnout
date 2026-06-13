@@ -130,6 +130,18 @@ func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.Fie
 		return ast.FieldTypeBool, ast.FieldTypeBool
 	case "eq", "neq":
 		return declaredType, declaredType
+	case "arr_get":
+		// arg1 = array, arg2 = numeric index
+		return declaredType, ast.FieldTypeNumber
+	case "arr_includes":
+		// arg1 = array, arg2 = element of that array's type
+		if et, ok := declaredType.TryElemType(); ok {
+			return declaredType, et
+		}
+		return declaredType, ast.FieldTypeInvalid
+	case "arr_concat":
+		// both args must be the same array type
+		return declaredType, declaredType
 	default:
 		return ast.FieldTypeNumber, ast.FieldTypeNumber
 	}

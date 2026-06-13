@@ -299,8 +299,8 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 			}
 		}
 
-		validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
-		retType, known := resolveExpectedReturn(b.Name, spec, step.Args, pipeScope, stepTypes, ds)
+		t1, _, ok1, _ := validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
+		retType, known := resolveExpectedReturn(spec, t1, ok1)
 		stepTypes = append(stepTypes, retType)
 		stepKnown = append(stepKnown, known)
 	}
@@ -430,24 +430,21 @@ func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[stri
 	}
 }
 
-func resolveExpectedReturn(bindingName string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.DiagSink) (ast.FieldType, bool) {
+// resolveExpectedReturn infers the return FieldType for a pipe step given the
+// pre-resolved first-argument type. Accepts t1/ok1 directly so the caller does
+// not need to re-resolve arg[0] after already resolving it for the arg-type check.
+func resolveExpectedReturn(spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool) (ast.FieldType, bool) {
 	switch spec.Kind {
 	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
 		return ast.FieldTypeBool, true
 	case fnmeta.FnKindArrGet:
-		if len(args) >= 1 {
-			t, ok := resolveArgType(bindingName, args[0], scope, stepTypes, ds)
-			if ok && t.IsArray() {
-				return t.ElemType(), true
-			}
+		if ok1 && t1.IsArray() {
+			return t1.ElemType(), true
 		}
 		return 0, false
 	case fnmeta.FnKindArrConcat:
-		if len(args) >= 1 {
-			t, ok := resolveArgType(bindingName, args[0], scope, stepTypes, ds)
-			if ok {
-				return t, true
-			}
+		if ok1 {
+			return t1, true
 		}
 		return 0, false
 	default:
@@ -504,6 +501,9 @@ func resolveTransformArgType(bindingName string, transform *turnoutpb.TransformA
 // binary function call. contextLabel is a pre-formatted description of the call
 // site included in diagnostics (e.g. `"binding \"x\""` or
 // `"binding \"x\" pipe step 2"`). stepTypes is nil for combine calls.
+// Returns the resolved arg types so the caller can reuse them (e.g. for return-
+// type inference) without a second resolveArgType call. Zero values are returned
+// when the arity check fails.
 func validateBinaryFnArgs(
 	bindingName, contextLabel, fn string,
 	spec fnmeta.FnSpec,
@@ -511,13 +511,14 @@ func validateBinaryFnArgs(
 	scope map[string]bindingInfo,
 	stepTypes []ast.FieldType,
 	ds *diag.DiagSink,
-) {
+) (t1, t2 ast.FieldType, ok1, ok2 bool) {
 	if !checkArity(contextLabel, fn, len(args), ds) {
 		return
 	}
-	t1, ok1 := resolveArgType(bindingName, args[0], scope, stepTypes, ds)
-	t2, ok2 := resolveArgType(bindingName, args[1], scope, stepTypes, ds)
+	t1, ok1 = resolveArgType(bindingName, args[0], scope, stepTypes, ds)
+	t2, ok2 = resolveArgType(bindingName, args[1], scope, stepTypes, ds)
 	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
+	return
 }
 
 // checkArity reports diagnostics when argCount != fnmeta.BinaryArity.

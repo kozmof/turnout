@@ -4,6 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "gen:fn-map": "node --experimental-strip-types ../../../../scripts/gen-fn-map.ts",
     "test": "vitest --run",
     "coverage": "vitest run --coverage"
   },

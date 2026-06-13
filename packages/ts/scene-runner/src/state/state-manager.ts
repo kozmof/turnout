@@ -19,29 +19,49 @@ import type { Value } from '@bufbuild/protobuf/wkt';
 import type { StateModel } from '../types/turnout-model_pb.js';
 
 /**
- * StateManager holds STATE as a flat Record keyed by dotted path
- * ("namespace.field"). All mutations return a new instance, preserving
- * immutability across action boundaries.
+ * Read-only view of STATE. Callers that only need to inspect state (not mutate
+ * it) should accept `StateReader` rather than the full `StateManager` so the
+ * data-flow contract is explicit at each call site.
  */
-export interface StateManager {
+export interface StateReader {
   /**
    * Read a value by dotted path, throwing if the path is unknown in schema-backed managers.
    * For unchecked managers, treats all paths as valid and returns buildNull('missing') when absent.
-   * Use this to distinguish a known-but-absent path from a typo'd path.
    */
   read(path: string): AnyValue;
   /**
+   * Like read() but returns undefined when the path is undeclared (schema-backed managers)
+   * or absent (unchecked managers), instead of throwing or returning buildNull('missing').
+   */
+  readOrUndefined(path: string): AnyValue | undefined;
+  /**
    * Return true if path is declared in the schema (schema-backed managers), or
    * always true for unchecked managers (all paths are treated as valid).
-   * Use `exists()` to check whether a value has actually been written to `path`.
    */
   isDeclared(path: string): boolean;
   /**
    * Return true if a value has been written to `path` in the current state.
-   * Unlike `isDeclared()`, this works correctly in both schema-backed and
-   * unchecked managers: it reflects actual written state, not schema membership.
+   * Unlike `isDeclared()`, this reflects actual written state, not schema membership.
    */
   exists(path: string): boolean;
+  /** Return a shallow copy of the current state record. */
+  snapshot(): Readonly<Record<string, AnyValue>>;
+  /**
+   * Return the set of declared valid paths, or null for unchecked managers.
+   */
+  validPaths(): ReadonlySet<string> | null;
+  /**
+   * Return true when this manager enforces path and type validation on every write.
+   */
+  isSchemaManaged(): boolean;
+}
+
+/**
+ * StateManager holds STATE as a flat Record keyed by dotted path
+ * ("namespace.field"). All mutations return a new instance, preserving
+ * immutability across action boundaries.
+ */
+export interface StateManager extends StateReader {
   /**
    * Return a new StateManager with the given path set to value.
    * Does not mutate the current instance.
@@ -64,25 +84,6 @@ export interface StateManager {
    * });
    */
   writeBatch(batch: Record<string, AnyValue>): StateManager;
-  /** Return a shallow copy of the current state record. */
-  snapshot(): Readonly<Record<string, AnyValue>>;
-  /**
-   * Return the set of declared valid paths, or null for unchecked managers.
-   * Useful for test introspection and tooling.
-   */
-  validPaths(): ReadonlySet<string> | null;
-  /**
-   * Return true when this manager was created from a STATE schema and enforces
-   * path and type validation on every write. Equivalent to `validPaths() !== null`
-   * but reads more clearly at call sites.
-   */
-  isSchemaManaged(): boolean;
-  /**
-   * Like read() but returns undefined when the path is undeclared (schema-backed managers)
-   * or absent (unchecked managers), instead of throwing or returning buildNull('missing').
-   * Use this to distinguish "path not found" from "path found, value is null".
-   */
-  readOrUndefined(path: string): AnyValue | undefined;
 }
 
 const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);

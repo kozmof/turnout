@@ -97,7 +97,7 @@ func (c *localLowerer) appendBinding(b *turnoutpb.BindingModel, ft ast.FieldType
 }
 
 func (c *localLowerer) emitValue(name string, ft ast.FieldType, lit ast.Literal) {
-	c.appendBinding(&turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: ast.LiteralToStructpb(lit)}, ft)
+	c.appendBinding(&turnoutpb.BindingModel{Name: name, Type: ft.ProtoString(), Value: ast.LiteralToStructpb(lit)}, ft)
 }
 
 func (c *localLowerer) emitIdentity(name string, ft ast.FieldType, ref string) {
@@ -218,7 +218,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 	}
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,
-		Type: ft.String(),
+		Type: ft.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   call.FnAlias,
 			Args: args,
@@ -233,7 +233,7 @@ func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.
 	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType, pc)
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,
-		Type: ft.String(),
+		Type: ft.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   fn,
 			Args: []*turnoutpb.ArgModel{{Ref: proto.String(leftRef)}, {Ref: proto.String(rightRef)}},
@@ -247,7 +247,7 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 	elseFn := c.lowerFuncTemp(elseExpr, "else", ft, pc)
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: name,
-		Type: ft.String(),
+		Type: ft.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
 			Condition:  &turnoutpb.ArgModel{Ref: proto.String(condRef)},
 			Then:       &turnoutpb.ArgModel{FuncRef: proto.String(thenFn)},
@@ -325,7 +325,7 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 		}
 		c.appendBinding(&turnoutpb.BindingModel{
 			Name: condName,
-			Type: ft.String(),
+			Type: ft.ProtoString(),
 			Expr: &turnoutpb.ExprModel{Cond: &turnoutpb.CondExpr{
 				Condition:  &turnoutpb.ArgModel{Ref: proto.String(condRef)},
 				Then:       &turnoutpb.ArgModel{FuncRef: proto.String(thenFn)},
@@ -348,7 +348,7 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 		condRef = c.temp("case_match")
 		c.appendBinding(&turnoutpb.BindingModel{
 			Name: condRef,
-			Type: ast.FieldTypeBool.String(),
+			Type: ast.FieldTypeBool.ProtoString(),
 			Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 				Fn:   "eq",
 				Args: []*turnoutpb.ArgModel{{Ref: proto.String(subjectRef)}, {Ref: proto.String(litName)}},
@@ -371,7 +371,7 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 	combined := c.temp("case_guarded")
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: combined,
-		Type: ast.FieldTypeBool.String(),
+		Type: ast.FieldTypeBool.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   "bool_and",
 			Args: []*turnoutpb.ArgModel{{Ref: proto.String(condRef)}, {Ref: proto.String(guardRef)}},

@@ -34,12 +34,12 @@ func checkOperatorOnly(bindingName, fnAlias string, pos ast.Pos, ds *diag.DiagSi
 // ─────────────────────────────────────────────────────────────────────────────
 
 func lowerLiteralRHS(name string, ft ast.FieldType, rhs *ast.LiteralRHS) *turnoutpb.BindingModel {
-	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: ast.LiteralToStructpb(rhs.Value)}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.ProtoString(), Value: ast.LiteralToStructpb(rhs.Value)}
 }
 
 func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, diag.CodeMissingPrepareEntry, ds)
-	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: val}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.ProtoString(), Value: val}
 }
 
 // lowerBiDirInputRHS resolves the default value for a <~> binding. Missing
@@ -47,7 +47,7 @@ func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pr
 // resolver failures such as unresolved state paths still surface normally.
 func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	val := resolver.resolveDefault(name, ft, pos, diag.CodeBidirMissingPrepareEntry, ds)
-	return &turnoutpb.BindingModel{Name: name, Type: ft.String(), Value: val}
+	return &turnoutpb.BindingModel{Name: name, Type: ft.ProtoString(), Value: val}
 }
 
 // identityFnFor returns the identity binary-function name and its neutral-element
@@ -81,7 +81,7 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *tu
 	}
 	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft.String(),
+		Type: ft.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   fn,
 			Args: []*turnoutpb.ArgModel{{Ref: proto.String(rhs.RefName)}, identityArg},
@@ -95,7 +95,7 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos a
 	}
 	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft.String(),
+		Type: ft.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   rhs.FnAlias,
 			Args: lowerArgsWithTypes(rhs.Args, bindingTypes, ds),
@@ -132,7 +132,7 @@ func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingType
 	}
 	return &turnoutpb.BindingModel{
 		Name: name,
-		Type: ft.String(),
+		Type: ft.ProtoString(),
 		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
 			Fn:   rhs.Op.FnAliasForType(ft),
 			Args: []*turnoutpb.ArgModel{lowerArgWithTypes(rhs.LHS, bindingTypes, ds), lowerArgWithTypes(rhs.RHS, bindingTypes, ds)},

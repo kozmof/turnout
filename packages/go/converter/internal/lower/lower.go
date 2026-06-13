@@ -139,7 +139,7 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
 		for _, f := range ns.Fields {
 			pbNS.Fields = append(pbNS.Fields, &turnoutpb.FieldModel{
 				Name:  f.Name,
-				Type:  f.Type.String(),
+				Type:  f.Type.ProtoString(),
 				Value: ast.LiteralToStructpb(f.Default),
 			})
 		}
@@ -165,7 +165,7 @@ func appendStateField(nsList *[]nsEntry, nsIndex map[string]int, nsName, fieldNa
 	}
 	(*nsList)[idx].fields = append((*nsList)[idx].fields, &turnoutpb.FieldModel{
 		Name:  fieldName,
-		Type:  meta.Type.String(),
+		Type:  meta.Type.ProtoString(),
 		Value: meta.DefaultValue,
 	})
 }

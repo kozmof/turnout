@@ -1,7 +1,7 @@
 import { buildNull, buildArray } from 'runtime';
 import type { AnyValue } from 'runtime';
 import type { PrepareEntry, NextPrepareEntry } from '../types/turnout-model_pb.js';
-import type { StateManager } from '../state/state-manager.js';
+import type { StateReader } from '../state/state-manager.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 import type { HookRegistry, PrepareHookContext } from '../types/harness-types.js';
 import type { ActionExecutionResult } from './types.js';
@@ -16,7 +16,7 @@ import { PrepareError } from './errors.js';
  */
 export async function resolveActionPrepare(
   entries: PrepareEntry[],
-  state: StateManager,
+  state: StateReader,
   hooks: HookRegistry,
   actionId: string,
   signal: AbortSignal = new AbortController().signal,
@@ -65,7 +65,7 @@ export async function resolveActionPrepare(
  */
 export function resolveNextPrepare(
   entries: NextPrepareEntry[],
-  state: StateManager,
+  state: StateReader,
   prevResult: ActionExecutionResult,
 ): Record<string, AnyValue> {
   const result: Record<string, AnyValue> = {};

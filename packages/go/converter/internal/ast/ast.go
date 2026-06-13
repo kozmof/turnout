@@ -76,6 +76,12 @@ func (ft FieldType) String() string {
 	return fmt.Sprintf("FieldType(%d)", int(ft))
 }
 
+// ProtoString returns the proto-level serialization key for this FieldType.
+// This MUST match the schema-type strings expected by the TS runtime's
+// state-manager.ts. Equal to String() for valid types; exists as an explicit
+// contract so future DSL renames do not silently break cross-language serialization.
+func (ft FieldType) ProtoString() string { return ft.String() }
+
 var fieldTypeByString = map[string]FieldType{
 	"number":     FieldTypeNumber,
 	"str":        FieldTypeStr,

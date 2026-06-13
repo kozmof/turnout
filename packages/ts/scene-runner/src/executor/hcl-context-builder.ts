@@ -1,6 +1,7 @@
 import { ctx, combine, pipe, cond, ref as runtimeRef, buildArray } from 'runtime';
 import { SceneRuntimeError } from './errors.js';
 import type { AnyValue, BinaryFnNames, ExecutionContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
+import { FN_MAP } from './fn-map.generated.js';
 
 // Local structural aliases for builder API arg shapes. These mirror the types
 // in runtime/src/compute-graph/builder/types.ts. They are not imported from
@@ -89,44 +90,9 @@ function asValueId(s: string): ValueId { return s as ValueId; }
 type CombineArgRef = Parameters<typeof combine>[1]['a'];
 function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HCL function name → runtime BinaryFnNames mapping
-// ─────────────────────────────────────────────────────────────────────────────
-
-// Authoritative source: spec/fn-aliases.json.
-// Kept in sync with the Go builtinFnTable by tests/fn-map-coverage.test.ts.
-// When adding a new built-in: update spec/fn-aliases.json first, then this map.
-export const FN_MAP: Record<string, BinaryFnNames> = {
-  // Number arithmetic
-  add: 'binaryFnNumber::add',
-  sub: 'binaryFnNumber::minus',
-  mul: 'binaryFnNumber::multiply',
-  div: 'binaryFnNumber::divide',
-  mod: 'binaryFnNumber::mod',
-  max: 'binaryFnNumber::max',
-  min: 'binaryFnNumber::min',
-  // Number comparison
-  gt:  'binaryFnNumber::greaterThan',
-  gte: 'binaryFnNumber::greaterThanOrEqual',
-  lt:  'binaryFnNumber::lessThan',
-  lte: 'binaryFnNumber::lessThanOrEqual',
-  // Boolean
-  bool_and: 'binaryFnBoolean::and',
-  bool_or:  'binaryFnBoolean::or',
-  bool_xor: 'binaryFnBoolean::xor',
-  // String
-  str_concat:   'binaryFnString::concat',
-  str_includes: 'binaryFnString::includes',
-  str_starts:   'binaryFnString::startsWith',
-  str_ends:     'binaryFnString::endsWith',
-  // Generic equality
-  eq:  'binaryFnGeneric::isEqual',
-  neq: 'binaryFnGeneric::isNotEqual',
-  // Array
-  arr_concat:    'binaryFnArray::concat',
-  arr_get:       'binaryFnArray::get',
-  arr_includes:  'binaryFnArray::includes',
-};
+// FN_MAP is generated from spec/fn-aliases.json. To add a built-in, update
+// spec/fn-aliases.json and run: node --experimental-strip-types scripts/gen-fn-map.ts
+export { FN_MAP };
 
 function mapFnName(hclFn: string, contextId: string): BinaryFnNames {
   const mapped = FN_MAP[hclFn];
@@ -188,6 +154,10 @@ function inferLiteralAnyValue(lit: unknown, contextId: string): AnyValue {
 class ContextSpecBuilder {
   private spec: Record<string, unknown> = {};
   private litCounter = 0;
+  // Deduplicates inline literal args: maps JSON-serialised literal → synthetic name.
+  // Progs with repeated identity literals (e.g. 0 in multiple add(x, 0) calls)
+  // share a single __lit_N binding instead of allocating one per occurrence.
+  private readonly litCache = new Map<string, string>();
   // Pre-computed set of function-binding names (have expr). When a ref arg
   // points to a function binding, the builder API requires ref.output(name),
   // not a bare string (which looks up a non-existent direct value slot).
@@ -323,9 +293,14 @@ class ContextSpecBuilder {
     return this.functionBindingNames.has(ref) ? runtimeRef.output(ref) : ref;
   }
 
-  /** Resolves a `lit` arg by registering a synthetic value binding and returning its name. */
+  /** Resolves a `lit` arg, reusing an existing synthetic binding for identical literals. */
   private resolveLitArg(lit: unknown): string {
-    return this.addLitBinding(lit);
+    const key = JSON.stringify(lit);
+    const cached = this.litCache.get(key);
+    if (cached !== undefined) return cached;
+    const name = this.addLitBinding(lit);
+    this.litCache.set(key, name);
+    return name;
   }
 
   /** Resolves a `stepRef` arg to a StepOutputRef shape expected by the pipe builder API. */
@@ -348,7 +323,7 @@ class ContextSpecBuilder {
   private resolveCondArg(arg: ArgModel): string {
     if (arg.ref !== undefined) return arg.ref;
     if (arg.funcRef !== undefined) return arg.funcRef;
-    if (arg.lit !== undefined) return this.addLitBinding(arg.lit);
+    if (arg.lit !== undefined) return this.resolveLitArg(arg.lit);
     if (arg.stepRef !== undefined)
       throw new SceneRuntimeError('UnknownArgModel', this.contextId, 'cond condition cannot be a step reference');
     if (arg.transform !== undefined)

@@ -3,7 +3,7 @@ import { executeGraph, assertValidContext, isPureBoolean, buildNull } from 'runt
 const UNABORTABLE = new AbortController().signal;
 import type { AnyValue } from 'runtime';
 import type { SceneBlock, ActionModel } from '../types/turnout-model_pb.js';
-import type { StateManager } from '../state/state-manager.js';
+import type { StateManager, StateReader } from '../state/state-manager.js';
 import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
@@ -304,7 +304,7 @@ type NextRulesResult = { matches: string[]; warnings: string[] };
  */
 function evaluateNextRules(
   action: ActionModel,
-  state: StateManager,
+  state: StateReader,
   result: ActionExecutionResult,
   policy: string,
   signal: AbortSignal,
