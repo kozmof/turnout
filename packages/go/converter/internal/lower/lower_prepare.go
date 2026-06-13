@@ -15,7 +15,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 type prepareResolver interface {
-	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) *structpb.Value
+	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode diag.ErrorCode, ds *diag.DiagSink) *structpb.Value
 }
 
 // ── Action-level resolver ──
@@ -35,7 +35,7 @@ func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) pr
 	return &actionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) *structpb.Value {
+func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode diag.ErrorCode, ds *diag.DiagSink) *structpb.Value {
 	src, ok := r.index[name]
 	if !ok {
 		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no prepare entry", ds)
@@ -68,7 +68,7 @@ func newTransitionPrepareResolver(prepare *ast.NextPrepareBlock, schema state.Sc
 	return &transitionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode string, ds *diag.DiagSink) *structpb.Value {
+func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode diag.ErrorCode, ds *diag.DiagSink) *structpb.Value {
 	src, ok := r.index[name]
 	if !ok {
 		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no transition prepare entry", ds)
@@ -93,7 +93,7 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // emitMissingPrepare records a diagnostic for a sigil binding with no prepare
 // entry and returns a zero value. The detail string distinguishes action-level
 // from transition-level prepare blocks in the error message.
-func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code, detail string, ds *diag.DiagSink) *structpb.Value {
+func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code diag.ErrorCode, detail string, ds *diag.DiagSink) *structpb.Value {
 	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
 		code,
 		"binding %q uses an ingress sigil (~> or <~>) but %s", name, detail))

@@ -660,7 +660,7 @@ func TestTupleCasePatternRejectedAtParse(t *testing.T) {
 	}
 }
 
-func hasLowerDiagCode(ds diag.Diagnostics, code string) bool {
+func hasLowerDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == code {
 			return true

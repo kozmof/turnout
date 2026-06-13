@@ -253,7 +253,7 @@ func TestDiagSinkFlushPreventsAppend(t *testing.T) {
 	s.Append(diag.Errorf("E", "after flush — should panic"))
 }
 
-func countCode(ds diag.Diagnostics, code string) int {
+func countCode(ds diag.Diagnostics, code diag.ErrorCode) int {
 	n := 0
 	for _, d := range ds {
 		if d.Code == code {

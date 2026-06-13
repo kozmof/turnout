@@ -33,7 +33,7 @@ func pipeline(src string) diag.Diagnostics {
 	return append(ds, ds4...)
 }
 
-func hasCode(ds diag.Diagnostics, code string) bool {
+func hasCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == code {
 			return true

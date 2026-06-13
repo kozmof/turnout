@@ -14,19 +14,19 @@ func TestParseIrregularTopLevelErrors(t *testing.T) {
 	cases := []struct {
 		name      string
 		src       string
-		wantCodes []string
+		wantCodes []diag.ErrorCode
 	}{
 		{
 			name:      "empty_file",
 			src:       "",
-			wantCodes: []string{diag.CodeMissingStateSource, "MissingScene"},
+			wantCodes: []diag.ErrorCode{diag.CodeMissingStateSource, "MissingScene"},
 		},
 		{
 			name: "state_only",
 			src: `state {
   ns { v:number = 0 }
 }`,
-			wantCodes: []string{"MissingScene"},
+			wantCodes: []diag.ErrorCode{"MissingScene"},
 		},
 		{
 			name: "scene_only",
@@ -34,12 +34,12 @@ func TestParseIrregularTopLevelErrors(t *testing.T) {
   entry_actions = ["a"]
   action "a" { compute { root = v prog "p" { v:bool = true } } }
 }`,
-			wantCodes: []string{diag.CodeMissingStateSource},
+			wantCodes: []diag.ErrorCode{diag.CodeMissingStateSource},
 		},
 		{
 			name:      "unexpected_top_level_identifier",
 			src:       "foo = 1",
-			wantCodes: []string{"ParseSyntaxError", diag.CodeMissingStateSource, "MissingScene"},
+			wantCodes: []diag.ErrorCode{"ParseSyntaxError", diag.CodeMissingStateSource, "MissingScene"},
 		},
 	}
 
@@ -66,7 +66,7 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 	cases := []struct {
 		name       string
 		src        string
-		wantCode   string
+		wantCode   diag.ErrorCode
 		wantSubstr string
 	}{
 		{
@@ -179,7 +179,7 @@ func TestParseFileParseDiagnosticsAreCapped(t *testing.T) {
 	}
 }
 
-func hasDiagCode(ds diag.Diagnostics, want string) bool {
+func hasDiagCode(ds diag.Diagnostics, want diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == want {
 			return true

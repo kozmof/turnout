@@ -99,60 +99,6 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 	return lr, ds2
 }
 
-// CompileToHCL runs the full pipeline and writes canonical HCL to w.
-//
-// Deprecated: Use Compile followed by CompileResult.WriteHCL.
-func CompileToHCL(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := Compile(inputPath, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	emitDs := result.WriteHCL(w)
-	result.Warnings = append(ds, emitDs...)
-	return result, result.Warnings
-}
-
-// CompileToJSON runs the full pipeline and writes JSON to w.
-//
-// Deprecated: Use Compile followed by CompileResult.WriteJSON.
-func CompileToJSON(w io.Writer, inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := Compile(inputPath, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	if err := result.WriteJSON(w); err != nil {
-		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
-	}
-	return result, ds
-}
-
-// CompileSourceToHCL is the in-memory equivalent of CompileToHCL.
-//
-// Deprecated: Use CompileSource followed by CompileResult.WriteHCL.
-func CompileSourceToHCL(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := CompileSource(name, src, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	emitDs := result.WriteHCL(w)
-	result.Warnings = append(ds, emitDs...)
-	return result, result.Warnings
-}
-
-// CompileSourceToJSON is the in-memory equivalent of CompileToJSON.
-//
-// Deprecated: Use CompileSource followed by CompileResult.WriteJSON.
-func CompileSourceToJSON(w io.Writer, name, src, stateBasePath string) (*CompileResult, Diagnostics) {
-	result, ds := CompileSource(name, src, stateBasePath)
-	if ds.HasErrors() {
-		return nil, ds
-	}
-	if err := result.WriteJSON(w); err != nil {
-		return nil, append(ds, diag.Errorf(diag.CodeEmitIOError, "json emit failed: %v", err))
-	}
-	return result, ds
-}
-
 func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {
 	base := stateBasePath
 	if base == "" {

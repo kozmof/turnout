@@ -171,7 +171,7 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 // state-file-level code. Most codes become CodeStateFileParseError; a small
 // subset (e.g. CodeMissingStateBlock) are preserved so callers can distinguish
 // structural issues from generic parse failures.
-func stateFileParseCode(pd diag.Diagnostic) string {
+func stateFileParseCode(pd diag.Diagnostic) diag.ErrorCode {
 	switch pd.Code {
 	case diag.CodeMissingStateBlock:
 		return diag.CodeMissingStateBlock

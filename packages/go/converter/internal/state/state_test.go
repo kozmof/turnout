@@ -33,7 +33,7 @@ func inlineBlock(nss ...*ast.NamespaceDecl) *ast.InlineStateBlock {
 	return &ast.InlineStateBlock{Pos: pos(), Namespaces: nss}
 }
 
-func hasError(ds diag.Diagnostics, code string) bool {
+func hasError(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == code {
 			return true

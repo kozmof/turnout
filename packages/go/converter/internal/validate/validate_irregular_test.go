@@ -18,7 +18,7 @@ func TestValidateIrregularRouteModels(t *testing.T) {
 	cases := []struct {
 		name     string
 		model    *turnoutpb.TurnModel
-		wantCode string
+		wantCode diag.ErrorCode
 	}{
 		{
 			name: "duplicate_fallback",
@@ -80,8 +80,8 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 		prepare  []*turnoutpb.PrepareEntry
 		merge    []*turnoutpb.MergeEntry
 		next     []*turnoutpb.NextRuleModel
-		wantCode string
-		extra    string // optional extra code check
+		wantCode diag.ErrorCode
+		extra    diag.ErrorCode // optional extra code check
 	}
 
 	cases := []irrCase{
@@ -143,7 +143,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 	cases := []struct {
 		name     string
 		next     []*turnoutpb.NextRuleModel
-		wantCode string
+		wantCode diag.ErrorCode
 	}{
 		{
 			name: "transition_prepare_with_zero_sources",

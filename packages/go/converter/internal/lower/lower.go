@@ -11,7 +11,6 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
-	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/proto"
 )
@@ -192,7 +191,7 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 				"lowerStateBlockFromSchema: state key %q in declaration order not found in schema (stale order?)", key))
 			continue
 		}
-		ns, field, ok := names.SplitStatePath(key)
+		ns, field, ok := strings.Cut(key, ".")
 		if !ok {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"lowerStateBlockFromSchema: state key %q has no namespace separator (internal error)", key))

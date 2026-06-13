@@ -25,7 +25,7 @@ func TestResolveIrregularInlineErrorsAccumulate(t *testing.T) {
 		t.Fatal("expected resolve errors")
 	}
 
-	for _, code := range []string{
+	for _, code := range []diag.ErrorCode{
 		diag.CodeMissingStateFieldAttr,
 		diag.CodeDuplicateStateField,
 		diag.CodeStateFieldDefaultTypeMismatch,
@@ -44,7 +44,7 @@ func TestResolveIrregularStateFileErrorsAreMapped(t *testing.T) {
 	cases := []struct {
 		name     string
 		content  string
-		wantCode string
+		wantCode diag.ErrorCode
 	}{
 		{
 			name:     "lex_error",

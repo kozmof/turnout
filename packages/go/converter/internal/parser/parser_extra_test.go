@@ -1444,7 +1444,7 @@ func TestParseLocalNamedArgsAreErrors(t *testing.T) {
 	}
 }
 
-func hasParserDiagCode(ds diag.Diagnostics, code string) bool {
+func hasParserDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == code {
 			return true

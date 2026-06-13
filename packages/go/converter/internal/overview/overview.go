@@ -92,13 +92,13 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 // Internal: flow string parser
 // ─────────────────────────────────────────────────────────────────────────────
 
-func parseErr(code, sceneID, format string, args ...any) diag.Diagnostic {
+func parseErr(code diag.ErrorCode, sceneID, format string, args ...any) diag.Diagnostic {
 	d := diag.Errorf(code, "scene %q: "+format, append([]any{sceneID}, args...)...)
 	d.Stage = "overview_parse"
 	return d
 }
 
-func enforceErr(code, format string, args ...any) diag.Diagnostic {
+func enforceErr(code diag.ErrorCode, format string, args ...any) diag.Diagnostic {
 	d := diag.Errorf(code, format, args...)
 	d.Stage = "overview_enforce"
 	return d

@@ -88,6 +88,9 @@ function getActionMap(scene: SceneBlock): Record<string, ActionModel> {
  *   route-driven entry where only the first entry action should fire.
  * @param maxSteps - Abort after this many action executions to guard against
  *   infinite loops in hand-crafted or malformed JSON models. Defaults to 10 000.
+ *   @example
+ *   // Limit to 10 steps in a unit test to keep it fast.
+ *   createSceneExecutor(scene, state, hooks, undefined, 10);
  *
  * `next()` throws `SceneRuntimeError` for: `MaxStepsExceeded`, `UnknownAction`,
  * `DuplicateActionId`, `UnknownFunction`, `UnknownArgModel`.
@@ -135,14 +138,14 @@ export function createSceneExecutor(
     // even when MaxStepsExceeded is thrown — callers need it for error reporting.
     currentAction = queue[queueHead]!;
 
-    if (stepCount >= maxSteps) {
+    stepCount++;
+    if (stepCount > maxSteps) {
       throw new SceneRuntimeError(
         'MaxStepsExceeded',
         scene.id,
         `exceeded ${maxSteps} action steps — possible infinite loop in next-rule graph`,
       );
     }
-    stepCount++;
 
     const actionId = queue[queueHead++]!;
     visited.add(actionId);
@@ -153,7 +156,7 @@ export function createSceneExecutor(
     const result = await executeAction(action, currentState, hooks, scene.id, signal);
     currentState = result.stateAfterMerge;
 
-    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy);
+    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy, signal);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
     const allWarnings = [...(result.mergeWarnings ?? []), ...nextWarnings];
@@ -304,6 +307,7 @@ function evaluateNextRules(
   state: StateManager,
   result: ActionExecutionResult,
   policy: string,
+  signal: AbortSignal,
 ): NextRulesResult {
   const rules = action.next ?? [];
   if (rules.length === 0) return { matches: [], warnings: [] };
@@ -312,6 +316,7 @@ function evaluateNextRules(
   const warnings: string[] = [];
 
   for (const rule of rules) {
+    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
     let condMet: boolean;
 
     if (!rule.compute) {

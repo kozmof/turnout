@@ -656,7 +656,13 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 		iw.depth--
 		iw.wl("}")
 	default:
-		panic(fmt.Sprintf("writeExtExpr: unhandled LocalExprModel type %T — add a case here when adding new LocalExprModel variants", e.Expr))
+		panic(fmt.Sprintf(
+			"writeExtExpr: unhandled LocalExprModel type %T — when adding a new variant, update all three touch points: "+
+				"(1) schema/turnout-model.proto (add the proto message), "+
+				"(2) internal/lower/lower_local.go (emit the proto node in lowerTop / lowerIfInto etc.), "+
+				"(3) internal/emit/emit.go writeExtExpr + localExprInline (render the node)",
+			e.Expr,
+		))
 	}
 	iw.depth--
 	iw.wl("}")
@@ -713,7 +719,13 @@ func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType stri
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
 			iw.localExprInline(x.PipeExpr.GetInitial(), bindingType), strings.Join(steps, ", "))
 	}
-	panic(fmt.Sprintf("localExprInline: unhandled LocalExprModel type %T — add a case here when adding new LocalExprModel variants", e.Expr))
+	panic(fmt.Sprintf(
+		"localExprInline: unhandled LocalExprModel type %T — when adding a new variant, update all three touch points: "+
+			"(1) schema/turnout-model.proto (add the proto message), "+
+			"(2) internal/lower/lower_local.go (emit the proto node in lowerTop / lowerIfInto etc.), "+
+			"(3) internal/emit/emit.go writeExtExpr + localExprInline (render the node)",
+		e.Expr,
+	))
 }
 
 func (iw *iWriter) localCaseArmInline(arm *turnoutpb.LocalCaseArmModel, bindingType string) string {

@@ -15,7 +15,7 @@ func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
 	cases := []struct {
 		name     string
 		src      string
-		wantCode string
+		wantCode diag.ErrorCode
 	}{
 		{
 			name: "action_missing_prepare_entry",
@@ -130,7 +130,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 		name     string
 		src      string
 		mutate   func(*ast.TurnFile)
-		wantCode string
+		wantCode diag.ErrorCode
 	}{
 		{
 			name: "nil_binding_rhs",
@@ -181,7 +181,7 @@ func lowerDiagnosticsFromSource(t *testing.T, src string, mutate func(*ast.TurnF
 	return ds2
 }
 
-func hasLowerCode(ds diag.Diagnostics, code string) bool {
+func hasLowerCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == code {
 			return true

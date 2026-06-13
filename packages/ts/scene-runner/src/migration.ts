@@ -1,4 +1,4 @@
-import type { TurnModel } from './types/turnout-model_pb.js';
+import type { TurnModel, ProgModel } from './types/turnout-model_pb.js';
 
 type MigrationFn = (model: TurnModel) => TurnModel;
 
@@ -51,5 +51,36 @@ export function migrateModel(model: TurnModel): TurnModel {
     current = migrate(current);
     version++;
   }
+
+  checkForExtExpr(current);
   return current;
+}
+
+// checkForExtExpr scans all action compute and next-rule progs for extExpr
+// bindings. extExpr is a pre-lowering representation that must never appear in
+// emitted JSON; if found, the model was produced by an old converter that did
+// not expand #if/#case/#pipe expressions at emit time. Detecting this here
+// (at load time) produces a clear, actionable error before execution starts.
+function checkForExtExpr(model: TurnModel): void {
+  for (const scene of model.scenes ?? []) {
+    for (const action of scene.actions) {
+      checkProgForExtExpr(action.compute?.prog, action.id, 'action compute');
+      for (const rule of action.next ?? []) {
+        checkProgForExtExpr(rule.compute?.prog, action.id, 'next-rule compute');
+      }
+    }
+  }
+}
+
+function checkProgForExtExpr(prog: ProgModel | undefined, actionId: string, location: string): void {
+  if (!prog) return;
+  for (const binding of prog.bindings) {
+    if (binding.extExpr !== undefined) {
+      throw new Error(
+        `Action "${actionId}" ${location} binding "${binding.name}" contains an extExpr field, ` +
+        `which is a pre-lowering representation that must not appear in emitted JSON. ` +
+        `Re-compile the source with the current converter to fix this.`,
+      );
+    }
+  }
 }

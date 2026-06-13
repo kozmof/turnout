@@ -13,7 +13,7 @@ func TestIrregularLexMalformedInputs(t *testing.T) {
 	cases := []struct {
 		name       string
 		src        string
-		wantCode   string
+		wantCode   diag.ErrorCode
 		wantSubstr string
 	}{
 		{

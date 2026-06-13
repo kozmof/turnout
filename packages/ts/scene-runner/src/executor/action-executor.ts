@@ -16,6 +16,10 @@ import { SceneRuntimeError } from './errors.js';
 // a given BuiltContext. For pure progs, buildContextFromProg returns the same
 // BuiltContext object on every call (via pureProgCtxCache), so caching trees
 // here avoids rebuilding the execution graph on each action invocation.
+//
+// For progs with injected prepare values, buildContextFromProg constructs a new
+// BuiltContext on every invocation (no cache hit), so this tree cache is also
+// rebuilt per invocation for those progs. That is a known cost, not a bug.
 const treesByBuiltCtx = new WeakMap<BuiltContext, Map<FuncId, ExecutionTree>>();
 
 /**
@@ -58,6 +62,7 @@ export async function executeAction(
   // so a single forward pass with an accumulated valueTable is sufficient — no
   // binding is ever executed twice, including side-branch bindings not reachable
   // from the root.
+  // Forward pass: each binding's result is accumulated into updatedTable for subsequent bindings.
   let updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
   const bindingValues: Record<string, AnyValue> = {};
 
@@ -94,7 +99,9 @@ export async function executeAction(
         ctxTrees.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
-      mergeIntoValueTable(updatedTable, result.updatedValueTable);
+      for (const [id, value] of Object.entries(result.updatedValueTable)) {
+        updatedTable[id] = value;
+      }
 
       if (!Object.hasOwn(updatedTable, valueId)) {
         throw new SceneRuntimeError(
@@ -160,9 +167,3 @@ export async function executeAction(
   };
 }
 
-// Mutates accumulator — intentional; this is the local mutable value table for this action's forward pass.
-function mergeIntoValueTable(accumulator: Record<string, AnyValue>, source: Readonly<Record<string, AnyValue>>): void {
-  for (const [id, value] of Object.entries(source)) {
-    accumulator[id] = value;
-  }
-}

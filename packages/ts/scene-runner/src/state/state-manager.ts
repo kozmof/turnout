@@ -45,6 +45,9 @@ export interface StateManager {
   /**
    * Return a new StateManager with the given path set to value.
    * Does not mutate the current instance.
+   *
+   * @performance Creates a new state object on every call. Prefer `writeBatch()`
+   * when writing multiple fields at once to avoid O(n) intermediate allocations.
    */
   write(path: string, value: AnyValue): StateManager;
   /**
@@ -52,6 +55,13 @@ export interface StateManager {
    * Validates all paths and types before writing — throws on the first violation.
    * Prefer this over repeated `write()` calls when merging multiple bindings at
    * once: it allocates a single new state object regardless of batch size.
+   *
+   * @example
+   * // Merge all action output bindings into state in one allocation:
+   * const nextState = state.writeBatch({
+   *   'player.score': buildNumber(42),
+   *   'player.label': buildString('winner'),
+   * });
    */
   writeBatch(batch: Record<string, AnyValue>): StateManager;
   /** Return a shallow copy of the current state record. */
@@ -242,6 +252,9 @@ export function stateManagerFromSchema(
       );
     }
   }
+  // Freeze defaults so accidental direct mutation of the captured reference
+  // is caught early; make() always spreads into a fresh object on every write.
+  Object.freeze(defaults);
   return make({ ...defaults, ...overrides }, validPaths, typeMap);
 }
 

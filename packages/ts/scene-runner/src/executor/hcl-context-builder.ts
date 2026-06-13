@@ -20,10 +20,13 @@ import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 // identity so that repeated calls across turns (e.g. a stateless action executed
 // on every turn) avoid rebuilding the context from scratch each time.
 //
-// Keyed by ProgModel *object identity*. Cache only hits when the same
-// ProgModel reference is reused across calls (e.g., the model is loaded
-// once and kept in memory). Models deserialized from JSON on each call
-// produce a new reference and will never hit this cache.
+// Keyed by ProgModel *object identity*:
+//   - Cache hits: same ProgModel object reused across calls — the typical case
+//     when the TurnModel is loaded once at startup and kept in memory.
+//   - Cache misses: JSON.parse on every request produces a fresh object graph;
+//     the cache never hits, and each call pays the full build cost.
+// Recommended pattern: parse the TurnModel once at startup and reuse the same
+// reference across all runner invocations.
 // ─────────────────────────────────────────────────────────────────────────────
 const pureProgCtxCache = new WeakMap<ProgModel, BuiltContext>();
 
@@ -205,7 +208,8 @@ class ContextSpecBuilder {
           'UnsupportedConstruct', this.contextId,
           `binding "${binding.name}": extExpr is a pre-lowering representation that must not appear in emitted JSON. ` +
           `This model may have been produced by a pre-release converter that did not lower #if/#case/#pipe expressions. ` +
-          `Re-compile the source with the current converter to fix this.`,
+          `Re-compile the source with the current converter to fix this. ` +
+          `(Earlier detection with an actionable error is available in migration.ts checkForExtExpr.)`,
         );
       }
       if (!binding.expr) {
@@ -430,6 +434,12 @@ export function buildNameToValueId(
  * `contextId` is included in any `SceneRuntimeError` thrown during context
  * construction (e.g. unknown HCL function names). Pass the action ID so errors
  * surface the actual source rather than the generic `'(unknown)'` placeholder.
+ *
+ * @remarks
+ * Results are cached in `pureProgCtxCache` keyed by `ProgModel` object identity
+ * when `injectedValues` is empty. The cache is only effective when the same
+ * `ProgModel` reference is reused across calls — deserializing from JSON on each
+ * request produces a fresh object and bypasses the cache entirely.
  */
 export function buildContextFromProg(
   prog: ProgModel,

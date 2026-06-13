@@ -84,7 +84,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, ds *diag.Di
 // Overview DSL enforcement (scene-graph.md §9)
 // ─────────────────────────────────────────────────────────────────────────────
 
-func compileErr(code, format string, args ...any) diag.Diagnostic {
+func compileErr(code diag.ErrorCode, format string, args ...any) diag.Diagnostic {
 	d := diag.Errorf(code, format, args...)
 	d.Stage = "overview_compile"
 	return d

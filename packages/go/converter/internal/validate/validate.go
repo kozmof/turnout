@@ -6,6 +6,7 @@ package validate
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -200,10 +201,10 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	var t1, t2 ast.FieldType
 	var ok1, ok2 bool
 	if len(c.Args) >= 1 {
-		t1, ok1 = resolveArgType(c.Args[0], scope, nil)
+		t1, ok1 = resolveArgType(b.Name, c.Args[0], scope, nil, ds)
 	}
 	if len(c.Args) >= 2 {
-		t2, ok2 = resolveArgType(c.Args[1], scope, nil)
+		t2, ok2 = resolveArgType(b.Name, c.Args[1], scope, nil, ds)
 	}
 
 	// Return-type check: polymorphic kinds derive return type from arg[0];
@@ -299,7 +300,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 		}
 
 		validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
-		retType, known := resolveExpectedReturn(spec, step.Args, pipeScope, stepTypes)
+		retType, known := resolveExpectedReturn(b.Name, spec, step.Args, pipeScope, stepTypes, ds)
 		stepTypes = append(stepTypes, retType)
 		stepKnown = append(stepKnown, known)
 	}
@@ -429,13 +430,13 @@ func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[stri
 	}
 }
 
-func resolveExpectedReturn(spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
+func resolveExpectedReturn(bindingName string, spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.DiagSink) (ast.FieldType, bool) {
 	switch spec.Kind {
 	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
 		return ast.FieldTypeBool, true
 	case fnmeta.FnKindArrGet:
 		if len(args) >= 1 {
-			t, ok := resolveArgType(args[0], scope, stepTypes)
+			t, ok := resolveArgType(bindingName, args[0], scope, stepTypes, ds)
 			if ok && t.IsArray() {
 				return t.ElemType(), true
 			}
@@ -443,7 +444,7 @@ func resolveExpectedReturn(spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope
 		return 0, false
 	case fnmeta.FnKindArrConcat:
 		if len(args) >= 1 {
-			t, ok := resolveArgType(args[0], scope, stepTypes)
+			t, ok := resolveArgType(bindingName, args[0], scope, stepTypes, ds)
 			if ok {
 				return t, true
 			}
@@ -454,7 +455,7 @@ func resolveExpectedReturn(spec fnmeta.FnSpec, args []*turnoutpb.ArgModel, scope
 	}
 }
 
-func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType) (ast.FieldType, bool) {
+func resolveArgType(bindingName string, arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepTypes []ast.FieldType, ds *diag.DiagSink) (ast.FieldType, bool) {
 	if arg.Ref != nil {
 		if info, ok := scope[*arg.Ref]; ok {
 			return info.fieldType, true
@@ -477,11 +478,26 @@ func resolveArgType(arg *turnoutpb.ArgModel, scope map[string]bindingInfo, stepT
 		}
 	}
 	if arg.Transform != nil {
-		if info, ok := scope[arg.Transform.Ref]; ok {
-			return fnmeta.TransformChainOutputType(info.fieldType, arg.Transform.Fn)
-		}
+		return resolveTransformArgType(bindingName, arg.Transform, scope, ds)
 	}
 	return 0, false
+}
+
+// resolveTransformArgType resolves the output type of a transform-chain arg.
+// Unlike a bare TransformChainOutputType call, it emits CodeUnknownMethod when
+// the chain cannot be resolved, so callers do not silently skip the type check.
+func resolveTransformArgType(bindingName string, transform *turnoutpb.TransformArg, scope map[string]bindingInfo, ds *diag.DiagSink) (ast.FieldType, bool) {
+	info, ok := scope[transform.Ref]
+	if !ok {
+		return 0, false
+	}
+	ft, resolved := fnmeta.TransformChainOutputType(info.fieldType, transform.Fn)
+	if !resolved && ds != nil {
+		ds.Append(diag.Errorf(diag.CodeUnknownMethod,
+			"binding %q: unresolvable transform chain %q on type %s",
+			bindingName, strings.Join(transform.Fn, "."), info.fieldType))
+	}
+	return ft, resolved
 }
 
 // validateBinaryFnArgs validates arity and operand types for a two-argument
@@ -499,8 +515,8 @@ func validateBinaryFnArgs(
 	if !checkArity(contextLabel, fn, len(args), ds) {
 		return
 	}
-	t1, ok1 := resolveArgType(args[0], scope, stepTypes)
-	t2, ok2 := resolveArgType(args[1], scope, stepTypes)
+	t1, ok1 := resolveArgType(bindingName, args[0], scope, stepTypes, ds)
+	t2, ok2 := resolveArgType(bindingName, args[1], scope, stepTypes, ds)
 	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
 }
 

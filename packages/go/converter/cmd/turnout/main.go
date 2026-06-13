@@ -81,18 +81,27 @@ func runConvert(args []string) int {
 }
 
 func runConvertToWriter(w io.Writer, inputPath, basePath, format string) int {
-	var result *converter.CompileResult
-	var ds converter.Diagnostics
-	if format == "json" {
-		result, ds = converter.CompileToJSON(w, inputPath, basePath)
-	} else {
-		result, ds = converter.CompileToHCL(w, inputPath, basePath)
-	}
+	result, ds := converter.Compile(inputPath, basePath)
 	if ds.HasErrors() || result == nil {
 		printDiags(ds)
 		return 1
 	}
-	printDiags(ds) // emit any warnings
+	printDiags(ds) // emit any compile warnings
+
+	var emitDs converter.Diagnostics
+	if format == "json" {
+		if err := result.WriteJSON(w); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+	} else {
+		emitDs = result.WriteHCL(w)
+	}
+	if emitDs.HasErrors() {
+		printDiags(emitDs)
+		return 1
+	}
+	printDiags(emitDs) // emit any HCL emit warnings
 	return 0
 }
 
