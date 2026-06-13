@@ -325,8 +325,31 @@ type BindingDecl struct {
 // BindingRHS — right-hand side of a binding declaration
 // ────────────────────────────────────────────────────────────
 
+// BindingRHSKind is a discriminant for the nine BindingRHS implementations.
+// It allows switch exhaustiveness checks and tooling introspection without a
+// full type-switch. Add a new constant here whenever a new BindingRHS type is
+// introduced, and implement Kind() on the new type.
+type BindingRHSKind int
+
+const (
+	RHSKindLiteral    BindingRHSKind = iota // *LiteralRHS
+	RHSKindSigilInput                       // *SigilInputRHS
+	RHSKindSingleRef                        // *SingleRefRHS
+	RHSKindFuncCall                         // *FuncCallRHS
+	RHSKindInfix                            // *InfixRHS
+	RHSKindIfCall                           // *IfCallRHS
+	RHSKindCaseCall                         // *CaseCallRHS
+	RHSKindPipeCall                         // *PipeCallRHS
+	RHSKindError                            // *ErrorRHS
+)
+
 // BindingRHS is implemented by all RHS node types.
-type BindingRHS interface{ bindingRHS() }
+// Kind() returns a typed discriminant so callers can build exhaustive switches
+// without importing reflect or performing interface-comparison gymnastics.
+type BindingRHS interface {
+	bindingRHS()
+	Kind() BindingRHSKind
+}
 
 // SyntaxRHS marks binding RHS types produced by the parser.
 // The lowerer converts these to flat BindingModel entries; encountering
@@ -339,12 +362,14 @@ type SyntaxRHS interface {
 // LiteralRHS is `name:type = <literal>`.
 type LiteralRHS struct{ Value Literal }
 
-func (*LiteralRHS) bindingRHS() {}
+func (*LiteralRHS) bindingRHS()          {}
+func (*LiteralRHS) Kind() BindingRHSKind { return RHSKindLiteral }
 
 // SingleRefRHS is `name:type = identifier` (bare single-reference form).
 type SingleRefRHS struct{ RefName string }
 
-func (*SingleRefRHS) bindingRHS() {}
+func (*SingleRefRHS) bindingRHS()          {}
+func (*SingleRefRHS) Kind() BindingRHSKind { return RHSKindSingleRef }
 
 // FuncCallRHS is `name:type = fn(a, b)` or `fn(a: x, b: y)`.
 // Named-arg form is normalized to ordered Args during parsing.
@@ -355,7 +380,8 @@ type FuncCallRHS struct {
 	Args    []SyntaxArg
 }
 
-func (*FuncCallRHS) bindingRHS() {}
+func (*FuncCallRHS) bindingRHS()          {}
+func (*FuncCallRHS) Kind() BindingRHSKind { return RHSKindFuncCall }
 
 // InfixOp enumerates the four DSL infix operators.
 type InfixOp int
@@ -449,7 +475,8 @@ type InfixRHS struct {
 	RHS SyntaxArg
 }
 
-func (*InfixRHS) bindingRHS() {}
+func (*InfixRHS) bindingRHS()          {}
+func (*InfixRHS) Kind() BindingRHSKind { return RHSKindInfix }
 
 // ────────────────────────────────────────────────────────────
 // v1 local expression tree
@@ -581,14 +608,16 @@ type ErrorRHS struct {
 	Message string
 }
 
-func (*ErrorRHS) bindingRHS()  {}
-func (*ErrorRHS) syntaxRHS() {}
+func (*ErrorRHS) bindingRHS()          {}
+func (*ErrorRHS) syntaxRHS()           {}
+func (*ErrorRHS) Kind() BindingRHSKind { return RHSKindError }
 
 // SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
 // with no right-hand side expression. The value is populated at runtime via prepare.
 type SigilInputRHS struct{}
 
-func (*SigilInputRHS) bindingRHS() {}
+func (*SigilInputRHS) bindingRHS()          {}
+func (*SigilInputRHS) Kind() BindingRHSKind { return RHSKindSigilInput }
 
 // IfCallRHS is the v1 `#if(cond, then_expr, else_expr)` function-call form.
 type IfCallRHS struct {
@@ -596,8 +625,9 @@ type IfCallRHS struct {
 	Cond, Then, Else LocalExpr
 }
 
-func (*IfCallRHS) bindingRHS()    {}
-func (*IfCallRHS) syntaxRHS()  {}
+func (*IfCallRHS) bindingRHS()          {}
+func (*IfCallRHS) syntaxRHS()           {}
+func (*IfCallRHS) Kind() BindingRHSKind { return RHSKindIfCall }
 
 // CaseCallRHS is the v1 `#case(subject, pattern => expr, ..., _ => default)` form.
 type CaseCallRHS struct {
@@ -606,8 +636,9 @@ type CaseCallRHS struct {
 	Arms    []LocalCaseArm
 }
 
-func (*CaseCallRHS) bindingRHS()   {}
-func (*CaseCallRHS) syntaxRHS() {}
+func (*CaseCallRHS) bindingRHS()          {}
+func (*CaseCallRHS) syntaxRHS()           {}
+func (*CaseCallRHS) Kind() BindingRHSKind { return RHSKindCaseCall }
 
 // PipeCallRHS is the v1 `#pipe(initial, step1, step2, ...)` form.
 type PipeCallRHS struct {
@@ -616,8 +647,9 @@ type PipeCallRHS struct {
 	Steps   []LocalExpr
 }
 
-func (*PipeCallRHS) bindingRHS()   {}
-func (*PipeCallRHS) syntaxRHS() {}
+func (*PipeCallRHS) bindingRHS()          {}
+func (*PipeCallRHS) syntaxRHS()           {}
+func (*PipeCallRHS) Kind() BindingRHSKind { return RHSKindPipeCall }
 
 // ────────────────────────────────────────────────────────────
 // Arg — argument in a function call, infix expression, or pipe step

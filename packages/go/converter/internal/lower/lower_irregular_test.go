@@ -190,7 +190,7 @@ scene "s" {
 	})
 	order := []string{"app.score", "app.ghost"}
 
-	_, ds2 := lower.LowerCoreForTest(tf, schema, order)
+	result, ds2 := lower.LowerCoreForTest(tf, schema, order)
 	if !ds2.HasErrors() {
 		t.Fatal("expected error diagnostic for stale declaration-order key, got none")
 	}
@@ -201,6 +201,11 @@ scene "s" {
 		if d.Code == diag.CodeStaleDeclarationOrder && d.Severity == diag.SeverityWarning {
 			t.Fatalf("CodeStaleDeclarationOrder must be an error, got Warning: %s", d.Format())
 		}
+	}
+	// A stale-order error must halt model assembly; a nil result signals to
+	// downstream stages (validate, emit) that no partial model is available.
+	if result != nil {
+		t.Fatal("expected nil LowerResult when CodeStaleDeclarationOrder is emitted, got non-nil")
 	}
 }
 

@@ -285,7 +285,7 @@ export function createRouteRunner(
   let advState: RouteAdvanceState = { kind: 'advancing', prevSceneId: entryScene.id };
 
   async function advanceRoute(): Promise<RunnerStepResult> {
-    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
+    // Abort is checked by makeRunnerMethods before every advanceFn() call.
     if (advState.kind === 'done') return { done: true };
 
     // Return a deferred action step that was stashed while emitting a transition.

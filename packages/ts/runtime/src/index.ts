@@ -116,11 +116,11 @@ export type {
   CondDefineId,
   PipeStepBinding,
   PipeArgBinding,
-  isValueCondition,
-  isFuncCondition,
   BinaryFnNames,
   TransformFnNames,
 } from './compute-graph';
+
+export { isValueCondition, isFuncCondition } from './compute-graph';
 
 export type {
   GraphExecutionError,

@@ -163,7 +163,7 @@ export function createSceneExecutor(
     const result = await executeAction(action, currentState, hooks, scene.id, signal);
     currentState = result.stateAfterMerge;
 
-    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy, signal);
+    const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy, signal, scene.id);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
     const allWarnings = [...(result.mergeWarnings ?? []), ...nextWarnings];
@@ -264,8 +264,9 @@ export async function executeSceneSafe(
   entryActions?: string[],
   maxSteps?: number,
 ): Promise<SceneResult> {
-  const executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
+  let executor: SceneExecutor | null = null;
   try {
+    executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
     while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };
   } catch (err) {
@@ -276,10 +277,10 @@ export async function executeSceneSafe(
     return {
       ok: false,
       error,
-      partialState: executor.partialState(),
-      // currentActionId() is set before any guard in next(), so it is always
-      // the action that was being attempted when the error was thrown.
-      failedActionId: executor.currentActionId() ?? '<none>',
+      // executor is null when construction itself threw (e.g. DuplicateActionId);
+      // fall back to the pre-construction state and '<none>' as the action id.
+      partialState: executor?.partialState() ?? state,
+      failedActionId: executor?.currentActionId() ?? '<none>',
     };
   }
 }
@@ -322,6 +323,7 @@ function evaluateNextRules(
   result: ActionExecutionResult,
   policy: string,
   signal: AbortSignal,
+  sceneId: string,
 ): NextRulesResult {
   const rules = action.next ?? [];
   if (rules.length === 0) return { matches: [], warnings: [] };
@@ -341,7 +343,8 @@ function evaluateNextRules(
       condMet = true;
     } else if (!rule.compute.prog) {
         warnings.push(
-          `action "${action.id}" next-rule targeting "${rule.action}" has a compute block but no prog — rule skipped`,
+          `scene "${sceneId}" action "${action.id}" next-rule targeting "${rule.action}": ` +
+          `compute block has no prog — rule skipped (model may be malformed)`,
         );
         condMet = false;
     } else {
@@ -352,7 +355,9 @@ function evaluateNextRules(
       if (prepare.length > 0) {
         // Non-pure: check per-invocation cache before rebuilding.
         let byPrepare = ruleCtxCache.get(rule.compute.prog);
-        const prepKey = JSON.stringify(nextPrepared);
+        const prepKey = JSON.stringify(
+          Object.entries(nextPrepared).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+        );
         const cached = byPrepare?.get(prepKey);
         if (cached) {
           builtCtx = cached;

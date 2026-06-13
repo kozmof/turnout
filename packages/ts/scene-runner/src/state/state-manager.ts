@@ -54,6 +54,8 @@ export interface StateReader {
   forEach(cb: (path: string, value: AnyValue) => void): void;
   /**
    * Return the set of declared valid paths, or null for unchecked managers.
+   * Prefer `isSchemaManaged()` to branch on schema presence; use `validPaths()`
+   * only when you need to enumerate the declared path set.
    */
   validPaths(): ReadonlySet<string> | null;
   /**
@@ -320,9 +322,8 @@ export function stateManagerFromSchema(
       );
     }
   }
-  // Freeze defaults so accidental direct mutation of the captured reference
-  // is caught early; make() always spreads into a fresh object on every write.
-  Object.freeze(defaults);
+  // make() spreads into a new object on every write, so the defaults reference
+  // is never exposed to callers — no freeze needed.
   return make({ ...defaults, ...overrides }, validPaths, typeMap);
 }
 

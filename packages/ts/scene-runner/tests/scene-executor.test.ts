@@ -483,6 +483,30 @@ describe('createSceneExecutor — construction errors', () => {
   });
 });
 
+describe('executeSceneSafe — construction errors', () => {
+  it('catches DuplicateActionId thrown during construction', async () => {
+    const duplicateA = makePassAction('dup', 1, 'dup.one');
+    const duplicateB = makePassAction('dup', 2, 'dup.two');
+    const scene = {
+      id: 'duplicate_action_safe_scene',
+      entryActions: ['dup'],
+      actions: [duplicateA, duplicateB],
+    } as unknown as SceneBlock;
+
+    const initialState = stateManagerFromUnchecked({});
+    const result = await executeSceneSafe(scene, initialState);
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toBeInstanceOf(SceneRuntimeError);
+      expect((result.error as SceneRuntimeError).code).toBe('DuplicateActionId');
+      expect(result.failedActionId).toBe('<none>');
+      // partialState falls back to the pre-construction state when executor never started
+      expect(result.partialState).toBe(initialState);
+    }
+  });
+});
+
 describe('executeScene — next rule compute without prog', () => {
   it('treats a next rule with missing prog as not matched', async () => {
     const scene = {

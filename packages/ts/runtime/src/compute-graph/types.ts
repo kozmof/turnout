@@ -51,8 +51,11 @@ export const makeArgName         = (s: string): ArgName         => s as ArgName;
  * Per-instance input wiring for combine and pipe functions.
  * Maps each argument name to the ValueId that holds its current value in the
  * value table. Looked up at execution time so the executor can pull live values.
+ *
+ * `Record<ArgName, ValueId>` (not an index signature) makes the "all args required"
+ * intent explicit: TypeScript will not silently allow a partial map.
  */
-export type FuncArgMap = { [argName in ArgName]: ValueId };
+export type FuncArgMap = Readonly<Record<ArgName, ValueId>>;
 
 /**
  * Discriminated union of runtime function-table entries.

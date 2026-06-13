@@ -90,10 +90,7 @@ func runConvertToWriter(w io.Writer, inputPath, basePath, format string) int {
 
 	var emitDs converter.Diagnostics
 	if format == "json" {
-		if err := result.WriteJSON(w); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return 1
-		}
+		emitDs = result.WriteJSON(w)
 	} else {
 		emitDs = result.WriteHCL(w)
 	}
@@ -101,7 +98,7 @@ func runConvertToWriter(w io.Writer, inputPath, basePath, format string) int {
 		printDiags(emitDs)
 		return 1
 	}
-	printDiags(emitDs) // emit any HCL emit warnings
+	printDiags(emitDs) // emit any warnings from the emitter
 	return 0
 }
 

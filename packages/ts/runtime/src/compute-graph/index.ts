@@ -38,11 +38,11 @@ export type {
   CondDefineId,
   PipeStepBinding,
   PipeArgBinding,
-  isValueCondition,
-  isFuncCondition,
   BinaryFnNames,
   TransformFnNames,
 } from './types';
+
+export { isValueCondition, isFuncCondition } from './types';
 
 export type { GraphExecutionError } from './runtime/errors';
 export {

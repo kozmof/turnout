@@ -207,6 +207,12 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 		}
 		appendStateField(&nsList, nsIndex, ns, field, meta)
 	}
+	// Do not assemble a partial model when errors were collected; returning nil
+	// causes lowerCore's nil-guard to halt compilation cleanly rather than
+	// allowing downstream stages (validate, emit) to operate on incomplete state.
+	if ds.HasErrors() {
+		return nil
+	}
 	return assembleStateModel(nsList)
 }
 
