@@ -290,9 +290,17 @@ const (
 	CodeInvalidPrepareSource     ErrorCode = "InvalidPrepareSource"
 	CodeUnresolvedPrepareBinding ErrorCode = "UnresolvedPrepareBinding"
 	CodeUnresolvedMergeBinding   ErrorCode = "UnresolvedMergeBinding"
-	CodeDuplicateActionLabel     ErrorCode = "DuplicateActionLabel"
-	CodeUnsupportedConstruct     ErrorCode = "UnsupportedConstruct"
-	CodeCyclicBinding            ErrorCode = "CyclicBinding"
+	CodeDuplicateActionLabel ErrorCode = "DuplicateActionLabel"
+	// CodeUnsupportedConstruct is emitted when a user-authored construct exists
+	// in the DSL but is not yet supported or is invalid in the current context
+	// (e.g. #it outside a #pipe step, state_file schema not pre-loaded).
+	CodeUnsupportedConstruct ErrorCode = "UnsupportedConstruct"
+	// CodeInternalError is emitted when the compiler detects an internal
+	// invariant violation that indicates a compiler bug rather than a user
+	// error. These diagnostics should be reported as bugs; they should never
+	// appear for valid input processed by a correct compiler.
+	CodeInternalError ErrorCode = "InternalError"
+	CodeCyclicBinding ErrorCode = "CyclicBinding"
 	CodeEmptyArrayLitArg         ErrorCode = "EmptyArrayLitArg"
 	// CodeDuplicateCasePattern is emitted when two arms of a #case expression
 	// match the same literal value. The second arm is unreachable dead code.

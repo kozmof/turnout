@@ -120,8 +120,8 @@ function enqueueNext(
       continue;
     }
     if (rs.enqueueSource.has(nextId)) {
+      const source = rs.enqueueSource.get(nextId)!;
       if (policy === "all-match") {
-        const source = rs.enqueueSource.get(nextId)!;
         rs.sceneWarnings.push({
           kind: "duplicate_enqueue",
           actionId: nextId,
@@ -129,6 +129,15 @@ function enqueueNext(
           policy,
           alreadyVisited: false,
           message: `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
+        });
+      } else if (policy === "first-match") {
+        rs.sceneWarnings.push({
+          kind: "duplicate_enqueue",
+          actionId: nextId,
+          firstEnqueuedBy: source,
+          policy,
+          alreadyVisited: false,
+          message: `action "${nextId}" was enqueued by "${fromActionId}" but is already pending (first enqueued by "${source}", first-match); second enqueue ignored`,
         });
       }
       continue;
@@ -368,9 +377,13 @@ export async function executeSceneSafe(
       ok: false,
       error,
       // executor is null when construction itself threw (e.g. DuplicateActionId);
-      // fall back to the pre-construction state and '<none>' as the action id.
+      // fall back to the pre-construction state and the structured context from
+      // the error (if available) for a machine-readable action id.
       partialState: executor?.partialState() ?? state,
-      failedActionId: executor?.currentActionId() ?? "<none>",
+      failedActionId:
+        executor?.currentActionId() ??
+        (err instanceof SceneRuntimeError ? err.context?.actionId : undefined) ??
+        "<none>",
     };
   }
 }
@@ -383,7 +396,12 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
   const map: Record<string, ActionModel> = {};
   for (const a of actions) {
     if (map[a.id] !== undefined) {
-      throw new SceneRuntimeError("DuplicateActionId", sceneId, `duplicate action id "${a.id}"`);
+      throw new SceneRuntimeError(
+        "DuplicateActionId",
+        sceneId,
+        `duplicate action id "${a.id}"`,
+        { actionId: a.id },
+      );
     }
     map[a.id] = a;
   }
@@ -451,12 +469,21 @@ function evaluateNextRules(
         // the JSON-serialised prepared-values map; entries are sorted so the key
         // is stable regardless of resolveNextPrepare iteration order.
         let byPrepare = ruleCtxCache.get(rule.compute.prog);
-        const prepKey = JSON.stringify(
-          Object.entries(nextPrepared).sort(([a], [b]) => (a < b ? -1 : 1)),
-        );
-        // Skip the cache when the serialised key is too large — avoids storing
-        // huge strings as Map keys for rules with oversized prepare payloads.
-        if (prepKey.length > MAX_PREP_CACHE_KEY_BYTES) {
+        // Build the cache key. Guard: JSON.stringify can produce "null" for
+        // non-serialisable values (e.g. from future AnyValue extensions),
+        // causing distinct prepared-value maps to collide on the same key.
+        // On serialization failure, skip the cache entirely for this rule.
+        let prepKey: string | null;
+        try {
+          prepKey = JSON.stringify(
+            Object.entries(nextPrepared).sort(([a], [b]) => (a < b ? -1 : 1)),
+          );
+        } catch {
+          prepKey = null;
+        }
+        // Bypass cache when: key is un-serialisable (null) or too large.
+        const bypassCache = prepKey === null || prepKey.length > MAX_PREP_CACHE_KEY_BYTES;
+        if (bypassCache) {
           builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
           validated = builtCtx.getValidatedExec();
         } else {

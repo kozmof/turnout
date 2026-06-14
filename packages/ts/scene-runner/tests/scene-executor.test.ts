@@ -519,7 +519,9 @@ describe("executeSceneSafe — construction errors", () => {
     if (!result.ok) {
       expect(result.error).toBeInstanceOf(SceneRuntimeError);
       expect((result.error as SceneRuntimeError).code).toBe("DuplicateActionId");
-      expect(result.failedActionId).toBe("<none>");
+      // The duplicate action ID is surfaced via SceneRuntimeError.context even
+      // when executor construction throws before the executor is assigned.
+      expect(result.failedActionId).toBe("dup");
       // partialState falls back to the pre-construction state when executor never started
       expect(result.partialState).toBe(initialState);
     }
@@ -827,7 +829,8 @@ describe("scene executor — adversarial", () => {
     const result = await executeSceneSafe(scene, state);
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.failedActionId).toBe("<none>");
+      // Duplicate action "a" — now surfaces via SceneRuntimeError.context.actionId
+      expect(result.failedActionId).toBe("a");
       expect(result.error).toBeInstanceOf(SceneRuntimeError);
     }
   });

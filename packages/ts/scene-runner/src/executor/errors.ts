@@ -44,12 +44,20 @@ export type SceneInternalErrorCode =
 export class SceneRuntimeError extends Error {
   readonly code: SceneErrorCode | SceneInternalErrorCode;
   readonly sceneId: string;
+  /** Optional structured context for callers that need machine-readable details. */
+  readonly context?: { readonly actionId?: string };
 
-  constructor(code: SceneErrorCode | SceneInternalErrorCode, sceneId: string, detail: string) {
+  constructor(
+    code: SceneErrorCode | SceneInternalErrorCode,
+    sceneId: string,
+    detail: string,
+    context?: { readonly actionId?: string },
+  ) {
     super(`Scene "${sceneId}": ${detail}`);
     this.name = "SceneRuntimeError";
     this.code = code;
     this.sceneId = sceneId;
+    if (context !== undefined) this.context = context;
   }
 }
 

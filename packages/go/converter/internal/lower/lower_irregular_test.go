@@ -122,7 +122,7 @@ scene "test" {
 
 // TestLowerIrregularUnsupportedAstShapes verifies that malformed ASTs that
 // can only arise from compiler bugs (not user input) produce a graceful
-// CodeUnsupportedConstruct diagnostic rather than panicking or silently
+// CodeInternalError diagnostic rather than panicking or silently
 // emitting incorrect output.
 func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 	t.Parallel()
@@ -147,7 +147,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 			mutate: func(tf *ast.TurnFile) {
 				tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0].RHS = nil
 			},
-			wantCode: diag.CodeUnsupportedConstruct,
+			wantCode: diag.CodeInternalError,
 		},
 	}
 

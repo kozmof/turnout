@@ -54,7 +54,7 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 	var ds diag.DiagSink
 
 	stateModel := lowerStateBlock(file.StateSource, schema, schemaOrder, &ds)
-	if stateModel == nil {
+	if stateModel == nil || ds.HasErrors() {
 		return nil, ds.Flush()
 	}
 
@@ -64,7 +64,7 @@ func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*
 		tm.Scenes = append(tm.Scenes, lowerSceneBlock(s, schema, &ds))
 	}
 
-	tm.Routes = lowerRouteBlocks(file.Routes)
+	tm.Routes = lowerRouteBlocks(file.Routes, &ds)
 
 	if ds.HasErrors() {
 		return nil, ds.Flush()
@@ -87,7 +87,7 @@ func astPosToProto(p ast.Pos) *turnoutpb.SourcePos {
 // Route block lowering
 // ─────────────────────────────────────────────────────────────────────────────
 
-func lowerRouteBlocks(routes []*ast.RouteBlock) []*turnoutpb.RouteModel {
+func lowerRouteBlocks(routes []*ast.RouteBlock, ds *diag.DiagSink) []*turnoutpb.RouteModel {
 	result := make([]*turnoutpb.RouteModel, 0, len(routes))
 	for _, r := range routes {
 		rm := &turnoutpb.RouteModel{Id: r.ID}
@@ -98,7 +98,9 @@ func lowerRouteBlocks(routes []*ast.RouteBlock) []*turnoutpb.RouteModel {
 			for _, arm := range r.Match.Arms {
 				pbArm := &turnoutpb.MatchArm{Target: arm.Target}
 				for _, branch := range arm.Branches {
-					pbArm.Patterns = append(pbArm.Patterns, pathExprString(branch))
+					if s := pathExprString(branch, ds); s != "" {
+						pbArm.Patterns = append(pbArm.Patterns, s)
+					}
 				}
 				rm.Match = append(rm.Match, pbArm)
 			}
@@ -108,13 +110,17 @@ func lowerRouteBlocks(routes []*ast.RouteBlock) []*turnoutpb.RouteModel {
 	return result
 }
 
-func pathExprString(pe *ast.PathExpr) string {
+func pathExprString(pe *ast.PathExpr, ds *diag.DiagSink) string {
 	if pe.Fallback {
 		return "_"
 	}
 	if pe.SceneID == "" {
 		// Parser invariant: non-fallback PathExprs always have a SceneID.
-		panic("pathExprString: non-fallback PathExpr has empty SceneID — parser bug")
+		// Emit a diagnostic rather than panicking so a future parser regression
+		// produces a recoverable error instead of crashing the compiler.
+		ds.Append(diag.Errorf(diag.CodeInternalError,
+			"pathExprString: non-fallback PathExpr has empty SceneID — this is a compiler bug; please report the source file"))
+		return ""
 	}
 	parts := make([]string, 0, 1+len(pe.Segments))
 	parts = append(parts, pe.SceneID)
@@ -140,7 +146,10 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
 	case nil:
-		ds.Append(diag.Errorf(diag.CodeMissingStateSource,
+		// nil StateSource is always a compiler bug; the parser guarantees
+		// StateSource is non-nil on a successful parse (it emits
+		// CodeMissingStateSource and returns nil before reaching the lowerer).
+		ds.Append(diag.Errorf(diag.CodeInternalError,
 			"lowerStateBlock: nil StateSource — this is a compiler bug; please report the source file"))
 		return nil
 	default:
@@ -212,7 +221,7 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 		}
 		ns, field, ok := strings.Cut(key, ".")
 		if !ok {
-			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+			ds.Append(diag.Errorf(diag.CodeInternalError,
 				"lowerStateBlockFromSchema: state key %q has no namespace separator (internal error)", key))
 			continue
 		}
@@ -459,9 +468,8 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 	case nil:
 		// Compiler-bug sentinel: the parser always sets a non-nil RHS (even ErrorRHS
 		// for parse failures). A nil here means the caller constructed a BindingDecl
-		// incorrectly. CodeUnsupportedConstruct is intentional — there is no
-		// user-authored construct that produces this path.
-		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
+		// incorrectly.
+		ds.Append(diag.Errorf(diag.CodeInternalError,
 			"binding %q has nil RHS — this is a compiler bug; please report the source file", name))
 		return nil
 	default:

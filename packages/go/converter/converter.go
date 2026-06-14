@@ -151,6 +151,66 @@ func CompileToModelWithSchema(name, src string, schema Schema, order []string) (
 	return lr, ds2
 }
 
+// CompileWithSchema is like CompileSource but accepts a pre-resolved schema and
+// its declaration order (from ResolveSchema or a prior Compile call), skipping
+// state_file I/O entirely. Returns (*CompileResult, nil) on success; on any
+// error returns (nil, errors). Warnings are collected in CompileResult.Warnings.
+//
+// schema and order must have been produced from the same state source as the
+// STATE block in src; passing a stale or mismatched schema yields incorrect
+// lowering without an error.
+//
+// Together with ResolveSchema this enables the full LSP incremental path:
+// resolve the schema once on file open, then call CompileWithSchema on every
+// keystroke without re-reading state_file from disk.
+func CompileWithSchema(name, src string, schema Schema, order []string) (*CompileResult, Diagnostics) {
+	turnFile, ds1 := parser.ParseFile(name, src)
+	if ds1.HasErrors() {
+		return nil, ds1
+	}
+
+	var accumulated Diagnostics
+	var ok bool
+
+	lr, ds2 := lower.Lower(turnFile, schema, order)
+	if accumulated, ok = runStage(accumulated, ds2); !ok {
+		return nil, accumulated
+	}
+
+	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
+	if accumulated, ok = runStage(accumulated, ds3); !ok {
+		return nil, accumulated
+	}
+
+	return &CompileResult{
+		ValidatedModel: newValidatedModel(lr.Model),
+		Schema:         lr.Schema,
+		Warnings:       accumulated,
+	}, nil
+}
+
+// ValidateWithSchema parses name/src, lowers with the given pre-resolved schema
+// and declaration order, then runs the full validate stage, returning all
+// diagnostics (errors and warnings combined). Unlike CompileWithSchema, no
+// CompileResult is returned — this is the lightest path for LSP hover-and-
+// validate loops that have already paid the state_file I/O cost once via
+// ResolveSchema.
+//
+// schema and order must have been produced from the same state source as the
+// STATE block in src; the same caveats as CompileWithSchema apply.
+func ValidateWithSchema(name, src string, schema Schema, order []string) Diagnostics {
+	turnFile, ds1 := parser.ParseFile(name, src)
+	if ds1.HasErrors() {
+		return ds1
+	}
+	lr, ds2 := lower.Lower(turnFile, schema, order)
+	if ds2.HasErrors() {
+		return ds2
+	}
+	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
+	return append(ds2, ds3...)
+}
+
 // runStage appends warnings from ds into acc and reports whether the stage
 // succeeded (no errors). On failure it appends the errors too and returns false,
 // signalling compileBytes to short-circuit with the accumulated slice.
