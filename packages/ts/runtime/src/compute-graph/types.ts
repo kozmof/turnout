@@ -102,7 +102,7 @@ export type ArgMapFuncEntry = Extract<FuncTableEntry, { argMap: FuncArgMap }>;
 
 /** Type guard: true when the entry is a combine or pipe entry (the two that carry `argMap`). */
 export function isArgMapEntry(entry: FuncTableEntry): entry is ArgMapFuncEntry {
-  return "argMap" in entry;
+  return entry.kind === "combine" || entry.kind === "pipe";
 }
 
 /** Type guard: true when the entry is a cond entry (no `argMap`; inputs pre-resolved at build time). */

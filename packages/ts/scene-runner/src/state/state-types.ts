@@ -8,7 +8,11 @@ import type { AnyValue } from "runtime";
 export interface StateReader {
   /**
    * Read a value by dotted path, throwing if the path is unknown in schema-backed managers.
-   * For unchecked managers, treats all paths as valid and returns buildNull('missing') when absent.
+   * For unchecked managers, treats all paths as valid and returns `buildNull('missing')` when absent.
+   *
+   * **Important:** `read()` returns `buildNull('missing')` for *both* "path not written" and
+   * "path undeclared" cases. If you need to distinguish them, use `readOrUndefined()` (returns
+   * `undefined` for absent/undeclared paths) or combine `isDeclared()` with `exists()`.
    */
   read(path: string): AnyValue;
   /**
@@ -35,9 +39,15 @@ export interface StateReader {
    */
   forEach(cb: (path: string, value: AnyValue) => void): void;
   /**
-   * Return the set of declared valid paths, or null for unchecked managers.
-   * Prefer `isSchemaManaged()` to branch on schema presence; use `validPaths()`
-   * only when you need to enumerate the declared path set.
+   * Return the set of declared valid paths, or `null` for unchecked (schema-unmanaged) managers.
+   *
+   * `null` means the manager accepts **any** path — no schema was provided. A non-null set
+   * means only the listed paths are valid; writes and reads outside the set throw.
+   *
+   * Prefer `isSchemaManaged()` to branch on schema presence. Use `validPaths()` only when
+   * you specifically need to enumerate or look up the declared path set (e.g. to build a
+   * completion list). Never rely on the `null` vs non-null distinction alone to decide
+   * whether a path exists — use `isDeclared(path)` for that.
    */
   validPaths(): ReadonlySet<string> | null;
   /**

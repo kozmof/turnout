@@ -5,7 +5,7 @@ import type { StateManager } from "../state/state-manager.js";
 import type { HookRegistry, PublishHookContext } from "../types/harness-types.js";
 import { buildContextFromProg } from "./hcl-context-builder.js";
 import type { BuiltContext } from "./hcl-context-builder.js";
-import { resolveActionPrepare } from "./prepare-resolver.js";
+import { resolveActionPrepare, resolveActionPrepareSync, hasHookEntries } from "./prepare-resolver.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
 import type { PublishHookOutcome } from "../types/harness-types.js";
 import { SceneRuntimeError } from "./errors.js";
@@ -47,13 +47,12 @@ export async function executeAction(
   }
 
   // Step 1: resolve prepare entries into injected binding values.
-  const preparedValues = await resolveActionPrepare(
-    action.prepare ?? [],
-    state,
-    hooks,
-    action.id,
-    signal,
-  );
+  // Use the synchronous fast path when no from_hook entries are present to avoid
+  // allocating an extra Promise on every action that is purely from_state driven.
+  const prepareEntries = action.prepare ?? [];
+  const preparedValues = hasHookEntries(prepareEntries)
+    ? await resolveActionPrepare(prepareEntries, state, hooks, action.id, signal)
+    : resolveActionPrepareSync(prepareEntries, state);
 
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues, action.id);

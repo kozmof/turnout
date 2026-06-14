@@ -63,10 +63,10 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 	}
 	posMap := buildPosMap(prog.Bindings)
 	scope, dependencies := buildBindingScope(prog, ds)
-	detectCycles(prog.Name, dependencies, prog.Bindings, posMap, ds)
+	acyclic := detectCycles(prog.Name, dependencies, prog.Bindings, posMap, ds)
 	validateBindingTypes(prog, scope, isTransition, posMap, ds)
 	if !isTransition && root != "" {
-		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, posMap, ds)
+		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, acyclic, posMap, ds)
 	}
 	return scope
 }
@@ -76,7 +76,9 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 // through the dependency graph (dependencies[b] = list of bindings that b depends on)
 // starting from exit nodes, then flags any binding not reached.
 // Generated internal names (prefixed with __if_ or __local_) are skipped.
-func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, posMap map[string]ast.Pos, ds *diag.DiagSink) {
+// acyclic is the set of non-cyclic binding names returned by detectCycles;
+// cyclic bindings are skipped here because they already carry a CodeCyclicBinding error.
+func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, acyclic map[string]bool, posMap map[string]ast.Pos, ds *diag.DiagSink) {
 	reachable := make(map[string]bool, len(bindings))
 	var mark func(string)
 	mark = func(name string) {
@@ -94,6 +96,10 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 	}
 	for _, b := range bindings {
 		if reachable[b.Name] {
+			continue
+		}
+		if !acyclic[b.Name] {
+			// Already reported as a cycle error; suppress the redundant unused warning.
 			continue
 		}
 		if names.IsGeneratedIfCondName(b.Name) || names.IsGeneratedLocalName(b.Name) {
@@ -545,6 +551,10 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 // participates in a reference cycle. Cycles cause infinite recursion in the
 // TypeScript runtime's buildExecutionTree and must be caught at validation time.
 //
+// Returns the set of acyclic binding names (those successfully processed by
+// Kahn's algorithm). Callers can use this set to skip cyclic bindings in
+// subsequent passes (e.g. detectUnusedBindings) without repeating the topology work.
+//
 // Algorithm: Kahn's topological sort on the dependency graph.
 // dependencies[b] = bindings that b depends on, so dependentCount tracks how
 // many bindings depend on each node. Nodes with dependentCount 0 have no
@@ -553,7 +563,7 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 // a cycle in the dependency graph is the same cycle in its reverse.
 // Nodes never dequeued are in cycles. A secondary targeted DFS over those
 // nodes extracts one example cycle path for the error message.
-func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, posMap map[string]ast.Pos, ds *diag.DiagSink) {
+func detectCycles(progName string, dependencies map[string][]string, bindings []*turnoutpb.BindingModel, posMap map[string]ast.Pos, ds *diag.DiagSink) map[string]bool {
 	// --- Phase 1: Kahn's algorithm ---
 	dependentCount := make(map[string]int, len(bindings))
 	for _, b := range bindings {
@@ -592,7 +602,7 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 		}
 	}
 	if len(cyclic) == 0 {
-		return
+		return processed
 	}
 
 	// --- Phase 2: extract one example cycle path per cycle via iterative DFS ---
@@ -672,6 +682,7 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 			}
 		}
 	}
+	return processed
 }
 
 func collectExprBindingRefs(expr *turnoutpb.ExprModel, refs *[]string) {

@@ -8,6 +8,39 @@ import type { ActionExecutionResult } from "./types.js";
 import { PrepareError } from "./errors.js";
 
 /**
+ * Returns true when any prepare entry requires an async hook call.
+ * Use this to select between resolveActionPrepareSync (no hooks) and
+ * resolveActionPrepare (hooks present) to avoid unnecessary Promise allocation.
+ */
+export function hasHookEntries(entries: PrepareEntry[]): boolean {
+  return entries.some((e) => e.fromHook !== undefined);
+}
+
+/**
+ * Synchronous fast path for resolveActionPrepare when all entries are from_state.
+ * Call only after confirming hasHookEntries(entries) === false. Throws PrepareError
+ * if a from_hook entry is encountered (guards against incorrect direct calls).
+ */
+export function resolveActionPrepareSync(
+  entries: PrepareEntry[],
+  state: StateReader,
+): Record<string, AnyValue> {
+  const result: Record<string, AnyValue> = {};
+  for (const entry of entries) {
+    if (entry.fromState !== undefined) {
+      result[entry.binding] = state.read(entry.fromState);
+    } else if (entry.fromHook !== undefined) {
+      throw new PrepareError(
+        "UnregisteredHook",
+        "(sync-path)",
+        `resolveActionPrepareSync called with a from_hook entry (binding "${entry.binding}") — use resolveActionPrepare for hook-containing prepare lists`,
+      );
+    }
+  }
+  return result;
+}
+
+/**
  * Resolve action-level prepare entries into a map of binding name → AnyValue.
  *
  * Supported sources:

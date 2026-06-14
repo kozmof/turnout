@@ -166,3 +166,133 @@ func TestResolveSchema(t *testing.T) {
 		t.Error("expected non-empty schema order slice")
 	}
 }
+
+// TestCompileWithSchema verifies the three cases: success (no errors, warnings
+// is nil), parse error propagation, and validate error propagation.
+func TestCompileWithSchema(t *testing.T) {
+	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	if schemaDiags.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		result, errs := converter.CompileWithSchema("inline.turn", simpleTurnSrc, schema, order)
+		if errs.HasErrors() {
+			t.Fatalf("CompileWithSchema returned errors on valid input: %v", errs)
+		}
+		if result == nil {
+			t.Fatal("CompileWithSchema returned nil result with no errors")
+		}
+		if result.Model() == nil {
+			t.Fatal("CompileResult.Model is nil")
+		}
+		if len(result.Model().Scenes) != 1 {
+			t.Fatalf("expected 1 scene, got %d", len(result.Model().Scenes))
+		}
+	})
+
+	t.Run("parse_error", func(t *testing.T) {
+		result, errs := converter.CompileWithSchema("inline.turn", "@@@ not valid @@@", schema, order)
+		if result != nil {
+			t.Fatal("expected nil result on parse error")
+		}
+		if !errs.HasErrors() {
+			t.Fatal("expected errors on parse error")
+		}
+	})
+
+	t.Run("validate_error", func(t *testing.T) {
+		// Reference an undeclared state path to trigger a validate error.
+		badSrc := `
+state {
+  ns {
+    count:number = 0
+  }
+}
+
+scene "start" {
+  entry_actions = ["init"]
+
+  action "init" {
+    compute {
+      root = "v"
+      prog "p" {
+        <~ v:number = 1
+      }
+    }
+    merge {
+      v { to_state = ns.nonexistent }
+    }
+  }
+}
+`
+		result, errs := converter.CompileWithSchema("inline.turn", badSrc, schema, order)
+		if result != nil {
+			t.Fatal("expected nil result on validate error")
+		}
+		if !errs.HasErrors() {
+			t.Fatal("expected errors on validate error (bad merge path)")
+		}
+	})
+}
+
+// TestValidateWithSchema verifies: success returns (warnings, nil), parse error
+// returns (nil, errors), and validate error returns (nil, errors).
+func TestValidateWithSchema(t *testing.T) {
+	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	if schemaDiags.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
+	}
+
+	t.Run("success", func(t *testing.T) {
+		warnings, errs := converter.ValidateWithSchema("inline.turn", simpleTurnSrc, schema, order)
+		if errs.HasErrors() {
+			t.Fatalf("ValidateWithSchema returned errors on valid input: %v", errs)
+		}
+		// warnings may be nil or empty; both are acceptable
+		_ = warnings
+	})
+
+	t.Run("parse_error", func(t *testing.T) {
+		warnings, errs := converter.ValidateWithSchema("inline.turn", "@@@ not valid @@@", schema, order)
+		if warnings != nil {
+			t.Fatal("expected nil warnings on parse error")
+		}
+		if !errs.HasErrors() {
+			t.Fatal("expected errors on parse error")
+		}
+	})
+
+	t.Run("validate_error", func(t *testing.T) {
+		badSrc := `
+state {
+  ns {
+    count:number = 0
+  }
+}
+
+scene "start" {
+  entry_actions = ["init"]
+
+  action "init" {
+    compute {
+      root = "v"
+      prog "p" {
+        <~ v:number = 1
+      }
+    }
+    merge {
+      v { to_state = ns.nonexistent }
+    }
+  }
+}
+`
+		warnings, errs := converter.ValidateWithSchema("inline.turn", badSrc, schema, order)
+		if warnings != nil {
+			t.Fatal("expected nil warnings on validate error")
+		}
+		if !errs.HasErrors() {
+			t.Fatal("expected errors on validate error (bad merge path)")
+		}
+	})
+}

@@ -2,6 +2,8 @@
 package lower
 
 import (
+	"fmt"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -106,7 +108,7 @@ func localExprToProto(e ast.LocalExpr) *turnoutpb.LocalExprModel {
 			Steps:   steps,
 		}}}
 	default:
-		return nil
+		panic(fmt.Sprintf("localExprToProto: unhandled LocalExpr type %T — compiler bug; update lower_proto.go", e))
 	}
 }
 

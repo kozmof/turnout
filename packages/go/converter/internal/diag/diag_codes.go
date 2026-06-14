@@ -5,6 +5,7 @@ const (
 	CodeTooManyDiagnostics   ErrorCode = "TooManyDiagnostics"
 	CodeNamedArgNotSupported ErrorCode = "NamedArgNotSupported"
 	CodeEmitIOError          ErrorCode = "EmitIOError"
+	CodeIOError              ErrorCode = "IOError"
 )
 
 // Error codes from hcl-context-spec.md

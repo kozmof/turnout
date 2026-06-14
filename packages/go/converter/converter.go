@@ -73,7 +73,7 @@ type CompileResult struct {
 func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 	src, err := os.ReadFile(inputPath)
 	if err != nil {
-		return nil, Diagnostics{diag.Errorf("IOError", "cannot read %s: %v", inputPath, err)}
+		return nil, Diagnostics{diag.Errorf(diag.CodeIOError, "cannot read %s: %v", inputPath, err)}
 	}
 	return compileBytes(inputPath, src, stateBasePath)
 }
@@ -138,7 +138,8 @@ func ResolveSchema(name, src, stateBasePath string) (Schema, []string, Diagnosti
 //
 // schema and order must have been produced from the same state source as the
 // STATE block in src; passing a stale or mismatched schema yields incorrect
-// lowering without an error.
+// lowering without an error. To detect staleness, compare schema.Hash() against
+// a fresh ResolveSchema call: a changed hash means the state source has changed.
 func CompileToModelWithSchema(name, src string, schema Schema, order []string) (*LowerResult, Diagnostics) {
 	turnFile, ds1 := parser.ParseFile(name, src)
 	if ds1.HasErrors() {
@@ -158,7 +159,8 @@ func CompileToModelWithSchema(name, src string, schema Schema, order []string) (
 //
 // schema and order must have been produced from the same state source as the
 // STATE block in src; passing a stale or mismatched schema yields incorrect
-// lowering without an error.
+// lowering without an error. To detect staleness, compare schema.Hash() against
+// a fresh ResolveSchema call: a changed hash means the state source has changed.
 //
 // Together with ResolveSchema this enables the full LSP incremental path:
 // resolve the schema once on file open, then call CompileWithSchema on every
@@ -190,25 +192,38 @@ func CompileWithSchema(name, src string, schema Schema, order []string) (*Compil
 }
 
 // ValidateWithSchema parses name/src, lowers with the given pre-resolved schema
-// and declaration order, then runs the full validate stage, returning all
-// diagnostics (errors and warnings combined). Unlike CompileWithSchema, no
-// CompileResult is returned — this is the lightest path for LSP hover-and-
-// validate loops that have already paid the state_file I/O cost once via
-// ResolveSchema.
+// and declaration order, then runs the full validate stage. It is the lightest
+// path for LSP hover-and-validate loops that have already paid the state_file
+// I/O cost once via ResolveSchema.
+//
+// Returns (warnings, nil) on success; (nil, errors) on the first stage that
+// produces errors. This matches the CompileWithSchema convention: the second
+// return is non-nil only when there are errors, and warnings are always in the
+// first return.
 //
 // schema and order must have been produced from the same state source as the
-// STATE block in src; the same caveats as CompileWithSchema apply.
-func ValidateWithSchema(name, src string, schema Schema, order []string) Diagnostics {
+// STATE block in src; the same caveats as CompileWithSchema apply. To detect
+// staleness, compare schema.Hash() against a fresh ResolveSchema call.
+func ValidateWithSchema(name, src string, schema Schema, order []string) (warnings Diagnostics, errors Diagnostics) {
+	var accumulated Diagnostics
+	var ok bool
+
 	turnFile, ds1 := parser.ParseFile(name, src)
-	if ds1.HasErrors() {
-		return ds1
+	if accumulated, ok = runStage(accumulated, ds1); !ok {
+		return nil, accumulated
 	}
+
 	lr, ds2 := lower.Lower(turnFile, schema, order)
-	if ds2.HasErrors() {
-		return ds2
+	if accumulated, ok = runStage(accumulated, ds2); !ok {
+		return nil, accumulated
 	}
+
 	ds3 := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
-	return append(ds2, ds3...)
+	if accumulated, ok = runStage(accumulated, ds3); !ok {
+		return nil, accumulated
+	}
+
+	return accumulated, nil
 }
 
 // runStage appends warnings from ds into acc and reports whether the stage

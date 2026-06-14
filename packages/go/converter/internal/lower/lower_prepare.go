@@ -46,8 +46,10 @@ func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, po
 	case *ast.FromHook:
 		return zeroStructpbFor(ft)
 	default:
-		panic(fmt.Sprintf(
-			"actionPrepareResolver.resolveDefault: unhandled ActionPrepareSource type %T for binding %q — compiler bug", s, name))
+		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
+			diag.CodeInternalError,
+			"unhandled ActionPrepareSource type %T for binding %q — compiler bug; please report this", s, name))
+		return zeroStructpbFor(ft)
 	}
 }
 
@@ -81,8 +83,10 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 	case *ast.FromLiteral:
 		return ast.LiteralToStructpb(s.Value)
 	default:
-		panic(fmt.Sprintf(
-			"transitionPrepareResolver.resolveDefault: unhandled NextPrepareSource type %T for binding %q — compiler bug", s, name))
+		ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
+			diag.CodeInternalError,
+			"unhandled NextPrepareSource type %T for binding %q — compiler bug; please report this", s, name))
+		return zeroStructpbFor(ft)
 	}
 }
 

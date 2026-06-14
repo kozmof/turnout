@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"hash/fnv"
 	"os"
 	"path/filepath"
 	"strings"
@@ -22,9 +23,21 @@ type FieldMeta struct {
 // Flat() when a dotted-path map is needed, and Namespaces()/FieldsOf() when
 // iterating the structure. The zero value Schema{} is valid and represents an
 // empty (no state declared) schema.
+//
+// Hash() returns a deterministic FNV-64a content hash over the schema's fields
+// (in declaration order). LSP callers can compare Hash() values to detect
+// whether the state source has changed between ResolveSchema calls without
+// re-reading the state file from disk.
 type Schema struct {
 	namespaces map[string]map[string]FieldMeta
+	hash       uint64
 }
+
+// Hash returns a deterministic FNV-64a hash of this schema's content in
+// declaration order. Two schemas with the same fields, types, and defaults in
+// the same declaration order produce the same hash. The zero value (Schema{})
+// and schemas built via NewSchemaFromMap always return 0.
+func (s Schema) Hash() uint64 { return s.hash }
 
 // newSchema constructs a Schema with an empty namespace map. Only used within
 // this package during schema resolution.
@@ -35,11 +48,31 @@ func newSchema() Schema {
 // NewSchemaFromMap constructs a Schema from a pre-built namespace map.
 // The map is adopted (not copied). Intended for test helpers and programmatic
 // schema construction when the DSL resolver is not available.
+// Note: Schema.Hash() returns 0 for schemas built via this constructor because
+// no declaration order is available to produce a deterministic content hash.
 func NewSchemaFromMap(namespaces map[string]map[string]FieldMeta) Schema {
 	if namespaces == nil {
 		namespaces = make(map[string]map[string]FieldMeta)
 	}
 	return Schema{namespaces: namespaces}
+}
+
+// computeSchemaHash returns a deterministic FNV-64a hash over the schema
+// content, visiting each field in the given declaration order. Fields absent
+// from the schema (e.g. due to earlier errors) are silently skipped.
+func computeSchemaHash(schema Schema, order []string) uint64 {
+	h := fnv.New64a()
+	for _, key := range order {
+		meta, ok := schema.Get(key)
+		if !ok {
+			continue
+		}
+		fmt.Fprintf(h, "%s:%s", key, meta.Type.String())
+		if meta.DefaultValue != nil {
+			fmt.Fprintf(h, "=%s", meta.DefaultValue.String())
+		}
+	}
+	return h.Sum64()
 }
 
 // Get looks up a dotted path "ns.field" in the schema.
@@ -133,9 +166,16 @@ func ResolveWithOrder(source ast.StateSource, basePath string) (Schema, []string
 	switch s := source.(type) {
 	case *ast.InlineStateBlock:
 		schema, ds := resolveInline(s)
-		return schema, inlineOrder(s), ds
+		order := inlineOrder(s)
+		if !ds.HasErrors() {
+			schema.hash = computeSchemaHash(schema, order)
+		}
+		return schema, order, ds
 	case *ast.StateFileDirective:
 		schema, order, ds := resolveStateFileWithOrder(s, basePath)
+		if !ds.HasErrors() {
+			schema.hash = computeSchemaHash(schema, order)
+		}
 		return schema, order, ds
 	default:
 		return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeMissingStateSource, "no state source")}
