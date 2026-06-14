@@ -38,7 +38,7 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Check generated proto output
-        run: sh scripts/generate-proto.sh && git diff --exit-code -- packages/go/converter/internal/emit/turnoutpb packages/ts/scene-runner/src/types
+        run: pnpm run check:proto
 
       - name: Check Go FieldType initialization
         run: pnpm run check:fieldtype
