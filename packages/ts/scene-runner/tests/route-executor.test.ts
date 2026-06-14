@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { executeRoute } from "../src/executor/route-executor.js";
+import { executeRoute, executeRouteSafe } from "../src/executor/route-executor.js";
 import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { isPureNumber } from "runtime";
 import type { RouteModel, SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
@@ -445,5 +445,122 @@ describe("executeRoute — route-driven entry warnings", () => {
       { kind: "multi_entry_action", sceneId: "multi_entry", entryActions: ["first", "second"] },
     ]);
     expect(result.finalState["entry.second"]).toBeUndefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// executeRouteSafe — safe wrapper (success and error paths)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("executeRouteSafe — success path", () => {
+  const scene = makeScene("s1", makePassAction("a", 5, "v.a"));
+  const route = { id: "safe_route", match: [] } as unknown as RouteModel;
+
+  it("returns ok:true with a valid result on success", async () => {
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(scene),
+      "s1",
+      stateManagerFromUnchecked({}),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.routeId).toBe("safe_route");
+      expect(result.value.status).toBe("completed");
+    }
+  });
+});
+
+describe("executeRouteSafe — error path (unknown scene)", () => {
+  const scene1 = makeScene("s1", makePassAction("a", 1, "v.a"));
+  // route references s2 which is not in the scene map
+  const route = {
+    id: "err_route",
+    match: [{ patterns: ["s1.a"], target: "s2" }],
+  } as unknown as RouteModel;
+
+  it("returns ok:false with the partial state and failed scene id", async () => {
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(scene1),
+      "s1",
+      stateManagerFromUnchecked({}),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failedSceneId).toBe("s2");
+      expect(result.error).toBeTruthy();
+    }
+  });
+
+  it("partial state reflects state after successfully completed scenes", async () => {
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(scene1),
+      "s1",
+      stateManagerFromUnchecked({}),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      // s1 completed successfully before s2 failed — its state should be present
+      const vA = result.partialState["v.a"];
+      expect(vA).toBeDefined();
+    }
+  });
+});
+
+describe("executeRouteSafe — scene with no entry actions", () => {
+  const emptyScene = {
+    id: "empty",
+    entryActions: [],
+    actions: [],
+  } as unknown as SceneBlock;
+  const route = { id: "r_empty", match: [] } as unknown as RouteModel;
+
+  it("returns ok:false with NoEntryAction error", async () => {
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(emptyScene),
+      "empty",
+      stateManagerFromUnchecked({}),
+    );
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(String(result.error)).toContain("no entry actions");
+    }
+  });
+});
+
+describe("executeRouteSafe — scene warnings propagated as route warnings", () => {
+  // Produce a duplicate_enqueue scene warning by having an all-match action
+  // whose next-rule list contains the same target twice.
+  const actionWithDupeNext = {
+    id: "start",
+    compute: {
+      root: "out",
+      prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+    },
+    next: [{ action: "end" }, { action: "end" }],
+  } as unknown as ActionModel;
+  const scene = {
+    id: "warn_scene",
+    entryActions: ["start"],
+    nextPolicy: "all-match",
+    actions: [actionWithDupeNext, makePassAction("end", 2, "v.end")],
+  } as unknown as SceneBlock;
+  const route = { id: "r_warn", match: [] } as unknown as RouteModel;
+
+  it("propagates scene-level warnings as route warnings with kind scene_warning", async () => {
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(scene),
+      "warn_scene",
+      stateManagerFromUnchecked({}),
+    );
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.value.warnings).toBeDefined();
+      expect(result.value.warnings?.some((w) => w.kind === "scene_warning")).toBe(true);
+    }
   });
 });

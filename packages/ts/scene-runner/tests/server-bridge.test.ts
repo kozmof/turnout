@@ -18,6 +18,7 @@ import {
   runConverter,
   convertToHCL,
 } from "../src/server/bridge.js";
+import { isLoadError, isBridgeError, isHarnessError } from "../src/server/errors.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.fn>;
@@ -253,5 +254,52 @@ describe("BridgeOptions.safeBaseDir", () => {
     await expect(
       convertToHCL("../../escape.turn", { binPath: MOCK_BIN, safeBaseDir: "/base" }),
     ).rejects.toMatchObject({ code: "PathOutsideBase" });
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// is* type guard functions
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
+  it("isLoadError returns true for LoadError instances", () => {
+    mockReadFile.mockImplementation(() => {
+      throw new Error("ENOENT");
+    });
+    let caught: unknown;
+    try {
+      loadTurnFile("missing.turn");
+    } catch (e) {
+      caught = e;
+    }
+    expect(isLoadError(caught)).toBe(true);
+    expect(isLoadError(new Error("plain"))).toBe(false);
+  });
+
+  it("isBridgeError returns true for BridgeError instances", async () => {
+    mockExecFile.mockImplementation(
+      (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+        cb(new Error("exit 1"), Buffer.from(""), Buffer.from(""));
+      },
+    );
+    let caught: unknown;
+    try {
+      await runConverter("my.turn", { binPath: MOCK_BIN });
+    } catch (e) {
+      caught = e;
+    }
+    expect(isBridgeError(caught)).toBe(true);
+    expect(isBridgeError(new Error("plain"))).toBe(false);
+  });
+
+  it("isHarnessError returns true for HarnessError instances", () => {
+    let caught: unknown;
+    try {
+      loadTurnFile("/etc/passwd", { safeBaseDir: "/base" });
+    } catch (e) {
+      caught = e;
+    }
+    expect(isHarnessError(caught)).toBe(true);
+    expect(isHarnessError(new Error("plain"))).toBe(false);
   });
 });

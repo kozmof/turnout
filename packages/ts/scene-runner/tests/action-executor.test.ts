@@ -221,6 +221,52 @@ describe("executeAction — cumulative binding table", () => {
     expect(hookCalls).toEqual([]);
   });
 
+  it("skips a publish hook that is declared in the action but missing from the registry", async () => {
+    const action = {
+      id: "partial_publish",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["registered_hook", "missing_hook"],
+    } as unknown as ActionModel;
+    const called: string[] = [];
+    const hooks = {
+      prepare: {},
+      publish: {
+        registered_hook: async () => {
+          called.push("registered_hook");
+        },
+        // missing_hook intentionally absent
+      },
+    };
+    const result = await executeAction(action, stateManagerFromUnchecked({}), hooks);
+    // registered hook ran; missing hook was silently skipped
+    expect(called).toEqual(["registered_hook"]);
+    expect(result.publishOutcomes).toHaveLength(1);
+    expect(result.publishOutcomes[0]).toMatchObject({ hookName: "registered_hook", status: "ok" });
+  });
+
+  it("records a mergeWarning when a merge binding is absent from compute results", async () => {
+    const action = {
+      id: "absent_binding",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 42 }] },
+      },
+      // "ghost" is not a binding in the prog, so its value will be absent
+      merge: [{ binding: "ghost", toState: "x.val" }],
+    } as unknown as ActionModel;
+    const result = await executeAction(action, stateManagerFromUnchecked({}), {
+      prepare: {},
+      publish: {},
+    });
+    expect(result.mergeWarnings).toBeDefined();
+    expect(result.mergeWarnings?.some((w) => w.includes('"ghost"'))).toBe(true);
+    // State should NOT have been updated since the binding was absent
+    expect(result.stateAfterMerge.snapshot()["x.val"]).toBeUndefined();
+  });
+
   it("makes earlier computed bindings available to later bindings", async () => {
     const action = {
       id: "chain_compute",

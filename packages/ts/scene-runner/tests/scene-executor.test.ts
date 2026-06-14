@@ -841,3 +841,90 @@ describe("parseNextPolicy", () => {
     expect(() => parseNextPolicy("bogus", "test_scene")).toThrow("unsupported next_policy");
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Next-rule: condition binding not present in BuiltContext
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("evaluateNextRules — condition binding not in context (missing binding)", () => {
+  it("emits invalid_next_condition warning and skips rule when condition binding is absent", async () => {
+    const scene = {
+      id: "missing_cond_scene",
+      entryActions: ["a"],
+      actions: [
+        {
+          ...makePassAction("a", 1, "step.a"),
+          // Condition names "nonexistent" which is not a binding in the prog
+          next: [
+            {
+              prepare: [],
+              compute: {
+                condition: "nonexistent",
+                prog: {
+                  name: "cond_prog",
+                  bindings: [{ name: "actual_binding", type: "bool", value: false }],
+                },
+              },
+              action: "b",
+            },
+          ],
+        },
+        makePassAction("b", 2, "step.b"),
+      ],
+    } as unknown as SceneBlock;
+
+    const result = await executeScene(scene, stateManagerFromUnchecked({}));
+    // Rule should be skipped — action b should NOT run
+    expect(result.terminatedAt).toEqual(["a"]);
+    expect(result.trace.actions).toHaveLength(1);
+    // The invalid_next_condition warning should appear in action a's trace
+    const aTrace = result.trace.actions[0];
+    expect(aTrace?.warnings?.some((w) => w.kind === "invalid_next_condition")).toBe(true);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Next-rule: RuleCtxCache hit (shared ProgModel across two next-rules)
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
+  it("reuses a cached context when two next-rules share the same ProgModel object", async () => {
+    // A single ProgModel object shared by two rules forces a cache hit on the
+    // second evaluation (same prog identity + same serialised prepare key).
+    const sharedProg = {
+      name: "shared_cond_prog",
+      bindings: [{ name: "flag", type: "bool", value: false }],
+    };
+
+    const scene = {
+      id: "cache_hit_scene",
+      entryActions: ["start"],
+      nextPolicy: "all-match",
+      actions: [
+        {
+          ...makePassAction("start", 1, "step.start"),
+          next: [
+            {
+              prepare: [{ binding: "flag", fromState: "gate.flag" }],
+              compute: { condition: "flag", prog: sharedProg },
+              action: "branch_a",
+            },
+            {
+              prepare: [{ binding: "flag", fromState: "gate.flag" }],
+              compute: { condition: "flag", prog: sharedProg },
+              action: "branch_b",
+            },
+          ],
+        },
+        makePassAction("branch_a", 10, "step.a"),
+        makePassAction("branch_b", 20, "step.b"),
+      ],
+    } as unknown as SceneBlock;
+
+    // Both rules fire → both branches run; second evaluation is a cache hit
+    const state = stateManagerFromUnchecked({ "gate.flag": buildBoolean(true) });
+    const result = await executeScene(scene, state);
+    expect(result.trace.actions.map((a) => a.actionId)).toContain("branch_a");
+    expect(result.trace.actions.map((a) => a.actionId)).toContain("branch_b");
+  });
+});

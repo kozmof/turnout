@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { createRunner } from "../src/runner.js";
-import { RunnerError } from "../src/executor/errors.js";
+import { RunnerError, ModelValidationError } from "../src/executor/errors.js";
 import { buildNumber, isPureNumber } from "runtime";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
@@ -395,5 +395,99 @@ describe("createRunner — result.model promotion (mapRunnerResult)", () => {
     const result = await runner.run();
     expect(result.model).toBeDefined();
     expect(result.model.scenes[0].id).toBe("promo");
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createRunner — model validation failure
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("createRunner — model validation failure (duplicate action IDs)", () => {
+  it("throws ModelValidationError synchronously before execution begins", () => {
+    const model = {
+      scenes: [
+        {
+          id: "dup_scene",
+          entryActions: ["a"],
+          // Two actions with the same id "a" — validateModel catches this
+          actions: [{ id: "a" }, { id: "a" }],
+        },
+      ],
+      routes: [],
+    } as unknown as TurnModel;
+
+    expect(() => createRunner(model, { entryId: "dup_scene", initialState: {}, onWarning: () => {} })).toThrow(
+      ModelValidationError,
+    );
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// createRunner — route runner partialState
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("createRunner — route runner partialState mid-execution", () => {
+  it("partialState() returns the current state before the route completes", async () => {
+    const writeScene = {
+      id: "write",
+      entryActions: ["w"],
+      actions: [
+        {
+          id: "w",
+          compute: {
+            root: "out",
+            prog: {
+              name: "p",
+              bindings: [
+                { name: "out", type: "number", value: 7 },
+              ],
+            },
+          },
+          merge: [{ binding: "out", toState: "x.val" }],
+        },
+      ],
+    };
+    const readScene = {
+      id: "read",
+      entryActions: ["r"],
+      actions: [{ id: "r" }],
+    };
+    const model = {
+      scenes: [writeScene, readScene],
+      routes: [
+        {
+          id: "route",
+          entrySceneId: "write",
+          match: [{ patterns: ["write.w"], target: "read" }],
+        },
+      ],
+    } as unknown as TurnModel;
+
+    const runner = createRunner(model, { entryId: "route", initialState: {}, onWarning: () => {} });
+
+    // advance one action (the write action in write_scene)
+    await runner.next(1);
+    expect(runner.isDone()).toBe(false);
+
+    // partialState should reflect the state after the write action
+    const partial = runner.partialState();
+    expect(partial).toBeDefined();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// dispatch — route with no entrySceneId
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("createRunner — dispatch rejects route with no entrySceneId", () => {
+  it("throws when the route model has no entrySceneId", () => {
+    const model = {
+      scenes: [{ id: "s", entryActions: ["a"], actions: [{ id: "a" }] }],
+      routes: [{ id: "r_no_entry", match: [] }], // no entrySceneId
+    } as unknown as TurnModel;
+
+    expect(() =>
+      createRunner(model, { entryId: "r_no_entry", initialState: {}, onWarning: () => {} }),
+    ).toThrow("no entry scene declared");
   });
 });
