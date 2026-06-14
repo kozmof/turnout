@@ -23,7 +23,6 @@ import type {
   ContextBuilder as BuilderState,
   ValueRef,
   ValueInputRef,
-  ValueObjectRef,
   ValueSourceRef,
   FuncOutputRef,
   StepOutputRef,
@@ -254,9 +253,7 @@ function collectValues(spec: ContextSpec, scope: Scope): ValuePhaseResult {
  * Used by process*Func functions after the registration pass has populated returnValueMetadata.
  */
 function lookupReturnId(funcId: string, state: FunctionPhaseState): ValueId {
-  const returnId = state.returnIdByFuncId[funcId];
-  if (returnId !== undefined) return returnId;
-  throw new Error(`No pre-registered return ID for function '${funcId}'`);
+  return state.returnIdByFuncId[funcId];
 }
 
 /**
@@ -486,8 +483,8 @@ function validateCombineReferences(
         if (!functionKeys.has(normalized.funcId)) {
           throw createUndefinedValueReferenceError(funcId, argName, normalized.funcId);
         }
-      } else if (normalized.__type === 'stepOutput') {
-        // Note: We can't validate stepIndex here as we don't know how many steps the pipe has yet
+      } else {
+        // StepOutputRef: we can't validate stepIndex here as we don't know how many steps the pipe has yet.
         if (!functionKeys.has(normalized.pipeFuncId)) {
           throw createUndefinedValueReferenceError(funcId, argName, normalized.pipeFuncId);
         }
@@ -531,13 +528,14 @@ function validatePipeReferences(
             if (!functionKeys.has(ref.valueRef.funcId)) {
               throw createUndefinedPipeStepReferenceError(funcId, i, argName, ref.valueRef.funcId);
             }
-          } else if (ref.valueRef.__type === 'stepOutput') {
-            // Validate step output in transform
+          } else {
+            // Step output references are allowed only within the same pipe function
+            // and must point to a previous step.
             if (ref.valueRef.pipeFuncId !== funcId) {
-              throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${ref.valueRef.pipeFuncId}'`);
+              throw new Error(`Step ${String(i)} of pipe function '${funcId}' references step from different pipe function '${ref.valueRef.pipeFuncId}'`);
             }
             if (ref.valueRef.stepIndex >= i) {
-              throw new Error(`Step ${i} of pipe function '${funcId}' references step ${ref.valueRef.stepIndex} which is not a previous step`);
+              throw new Error(`Step ${String(i)} of pipe function '${funcId}' references step ${String(ref.valueRef.stepIndex)} which is not a previous step`);
             }
           }
         } else {
@@ -553,14 +551,14 @@ function validatePipeReferences(
             if (!functionKeys.has(normalized.funcId)) {
               throw createUndefinedPipeStepReferenceError(funcId, i, argName, normalized.funcId);
             }
-          } else if (normalized.__type === 'stepOutput') {
+          } else {
             // Step output references are allowed within the same pipe function
             // Validate that it references this pipe function and a previous step
             if (normalized.pipeFuncId !== funcId) {
-              throw new Error(`Step ${i} of pipe function '${funcId}' references step from different pipe function '${normalized.pipeFuncId}'`);
+              throw new Error(`Step ${String(i)} of pipe function '${funcId}' references step from different pipe function '${normalized.pipeFuncId}'`);
             }
             if (normalized.stepIndex >= i) {
-              throw new Error(`Step ${i} of pipe function '${funcId}' references step ${normalized.stepIndex} which is not a previous step`);
+              throw new Error(`Step ${String(i)} of pipe function '${funcId}' references step ${String(normalized.stepIndex)} which is not a previous step`);
             }
           }
         }
@@ -688,13 +686,6 @@ function processCombineFunc(
 }
 
 /**
- * Type guard to check if a reference is a FuncOutputRef.
- */
-function isFuncOutputRef(ref: ValueInputRef | TransformRef): ref is FuncOutputRef {
-  return typeof ref === 'object' && ref.__type === 'funcOutput';
-}
-
-/**
  * Type guard to check if a reference is a StepOutputRef.
  */
 function isStepOutputRef(ref: ValueInputRef | TransformRef): ref is StepOutputRef {
@@ -716,9 +707,7 @@ function normalizeValueRef(ref: ValueInputRef): ValueSourceRef {
  * Looks up the return ID from the metadata table.
  */
 function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): ValueId {
-  const returnId = state.returnIdByFuncId[ref.funcId];
-  if (returnId !== undefined) return returnId;
-  throw new Error(`Cannot resolve function output reference: function '${ref.funcId}' has no return value`);
+  return state.returnIdByFuncId[ref.funcId];
 }
 
 /**
@@ -726,10 +715,7 @@ function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): Va
  * Looks up the step output ID from the metadata table.
  */
 function resolveStepOutputRef(ref: StepOutputRef, state: FunctionPhaseState): ValueId {
-  const lookupKey = getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex);
-  const stepOutputId = state.stepOutputIdByFuncStep[lookupKey];
-  if (stepOutputId !== undefined) return stepOutputId;
-  throw new Error(`Cannot resolve step output reference: pipe function '${ref.pipeFuncId}' step ${ref.stepIndex} has no output value`);
+  return state.stepOutputIdByFuncStep[getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex)];
 }
 
 /**
@@ -872,10 +858,10 @@ function buildPipeSequence(
     const step = builder.steps[i];
     if (step.__type !== 'combine') {
       throw new Error(
-        `Pipe function '${funcId}' step ${i}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe.`,
+        `Pipe function '${funcId}' step ${String(i)}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe.`,
       );
     }
-    const stepOutputId = IdFactory.createStepOutput(funcId as FuncId, i, state);
+    const stepOutputId = IdFactory.createStepOutput(createFuncId(funcId), i, state);
     state.stepOutputIdByFuncStep[getStepOutputLookupKey(funcId, i)] = stepOutputId;
     const stepReturnType = getBinaryFnReturnType(step.name);
     if (stepReturnType !== null) {
@@ -889,7 +875,7 @@ function buildPipeSequence(
     const step = builder.steps[i];
     if (step.__type !== 'combine') {
       throw new Error(
-        `Pipe function '${funcId}' step ${i}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe.`,
+        `Pipe function '${funcId}' step ${String(i)}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe.`,
       );
     }
     sequence.push(buildPipeStepBinding(step, builder, state, scope));
@@ -959,7 +945,7 @@ function buildStepArgBindings(
     }
 
     // Handle TransformRef
-    if (typeof ref === 'object' && ref.__type === 'transform') {
+    if (isTransformRef(ref)) {
       let id: ValueId;
       if (ref.valueRef.__type === 'value') {
         // Simple string reference - resolve through normal path
@@ -1027,9 +1013,9 @@ function buildStepTransformMap(
       // Infer transform from the referenced step's return type.
       // buildPipeSequence guarantees all steps are combine type, so this branch always holds.
       const referencedStep = pipeBuilder.steps[ref.stepIndex];
-      if (referencedStep?.__type !== 'combine') {
+      if (referencedStep.__type !== 'combine') {
         throw new Error(
-          `buildStepTransformMap: step ${ref.stepIndex} is not a combine step — nested pipe steps are not supported.`,
+          `buildStepTransformMap: step ${String(ref.stepIndex)} is not a combine step — nested pipe steps are not supported.`,
         );
       }
       transformFnMap[argName] = [inferTransformForBinaryFn(referencedStep.name)];
@@ -1114,19 +1100,15 @@ function inferPassTransform(
     const stepOutputId = state.stepOutputIdByFuncStep[
       getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex)
     ];
-    if (stepOutputId !== undefined) {
-      const metadata = state.stepMetadata[stepOutputId];
-      if (metadata?.returnType !== undefined) {
-        return [getPassTransformFn(metadata.returnType)];
-      }
+    const metadata = state.stepMetadata[stepOutputId];
+    if (metadata.returnType !== undefined) {
+      return [getPassTransformFn(metadata.returnType)];
     }
     throw new Error(`Cannot infer transform: no return type recorded for step output (pipe '${ref.pipeFuncId}', step ${String(ref.stepIndex)})`);
   }
 
-  // Handle ValueObjectRef or plain string (both reference a pre-defined value)
-  // After the funcOutput/stepOutput guards above, ref is string | ValueObjectRef,
-  // so normalizeValueRef returns ValueObjectRef.
-  const normalized = normalizeValueRef(ref) as ValueObjectRef;
+  // Handle ValueObjectRef or plain string (both reference a pre-defined value).
+  const normalized = typeof ref === 'string' ? { __type: 'value' as const, id: ref } : ref;
   const valueId = scope.valueId(normalized.id);
   const value = getValueFromTable(valueId, state.valueTable);
   if (value) return [getPassTransformFn(value.symbol)];
@@ -1151,7 +1133,7 @@ function createCombineDefSignature(
 ): string {
   const transformA = transformFnMap['a'];
   const transformB = transformFnMap['b'];
-  return JSON.stringify([name, transformA ?? [], transformB ?? []]);
+  return JSON.stringify([name, transformA, transformB]);
 }
 
 function getOrCreateCombineDefinitionId(

@@ -3,13 +3,9 @@ import { SceneRuntimeError } from './errors.js';
 import type { AnyValue, BinaryFnNames, ExecutionContext, ValidatedContext, FuncId, FuncTable, ValueId, ContextSpec } from 'runtime';
 import { FN_MAP } from './fn-map.generated.js';
 
-// Local structural aliases for builder API arg shapes. These mirror the types
-// in runtime/src/compute-graph/builder/types.ts. They are not imported from
-// 'runtime' because those types are not part of the public runtime API surface.
-type LocalFuncOutputRef = { readonly __type: 'funcOutput'; readonly funcId: string };
-type LocalStepOutputRef = { readonly __type: 'stepOutput'; readonly pipeFuncId: string; readonly stepIndex: number };
-type LocalTransformRef  = { readonly __type: 'transform'; readonly valueRef: { readonly __type: 'value'; readonly id: string }; readonly transformFn: readonly string[] };
 import type { ProgModel, BindingModel, ArgModel } from '../types/turnout-model_pb.js';
+import { toCombineArgRef, toFuncId, toValueId } from './dynamic-boundary.js';
+import type { LocalFuncOutputRef, LocalStepOutputRef, LocalTransformRef } from './dynamic-boundary.js';
 import { literalToValue, protoValueToJs } from '../state/state-manager.js';
 
 
@@ -103,11 +99,6 @@ export type BuiltContext = {
 // escape hatch explicit and keeps the rest of the bridge type-clean.
 // ─────────────────────────────────────────────────────────────────────────────
 
-function asFuncId(s: string): FuncId   { return s as FuncId; }
-function asValueId(s: string): ValueId { return s as ValueId; }
-// resolveArg returns unknown; callers that pass the result to combine() know the shape.
-type CombineArgRef = Parameters<typeof combine>[1]['a'];
-function asCombineArg(x: unknown): CombineArgRef { return x as CombineArgRef; }
 
 // FN_MAP is generated from spec/fn-aliases.json. To add a built-in, update
 // spec/fn-aliases.json and run: node --experimental-strip-types scripts/gen-fn-map.ts
@@ -248,8 +239,8 @@ class ContextSpecBuilder {
       );
     }
     this.spec[binding.name] = combine(mapFnName(c.fn, this.contextId), {
-      a: asCombineArg(this.resolveArg(c.args[0])),
-      b: asCombineArg(this.resolveArg(c.args[1])),
+      a: toCombineArgRef(this.resolveArg(c.args[0])),
+      b: toCombineArgRef(this.resolveArg(c.args[1])),
     });
   }
 
@@ -267,8 +258,8 @@ class ContextSpecBuilder {
         );
       }
       return combine(mapFnName(step.fn, this.contextId), {
-        a: asCombineArg(this.resolveArg(step.args[0], binding.name)),
-        b: asCombineArg(this.resolveArg(step.args[1], binding.name)),
+        a: toCombineArgRef(this.resolveArg(step.args[0], binding.name)),
+        b: toCombineArgRef(this.resolveArg(step.args[1], binding.name)),
       });
     });
     this.spec[binding.name] = pipe(argBindings, steps);
@@ -407,10 +398,10 @@ export function buildNameToValueId(
     }
     if (binding.expr) {
       // Function binding: the result lives in the function's return value slot.
-      nameToValueId.set(binding.name, funcTable[asFuncId(id as string)].returnId);
+      nameToValueId.set(binding.name, funcTable[toFuncId(id as string)].returnId);
     } else {
       // Value binding: the id is the ValueId directly.
-      nameToValueId.set(binding.name, asValueId(id as string));
+      nameToValueId.set(binding.name, toValueId(id as string));
     }
   }
   return nameToValueId;
@@ -457,8 +448,8 @@ export function buildContextFromProg(
   function resolve(name: string): BindingResolution {
     if (!Object.prototype.hasOwnProperty.call(ids, name)) return MISSING_BINDING;
     return funcBindingNames.has(name)
-      ? { kind: 'func',  id: asFuncId(ids[name] as string) }
-      : { kind: 'value', id: asValueId(ids[name] as string) };
+      ? { kind: 'func',  id: toFuncId(ids[name] as string) }
+      : { kind: 'value', id: toValueId(ids[name] as string) };
   }
   const exec = result.exec;
   // Pre-validate once at build time so callers can use getValidatedExec() without

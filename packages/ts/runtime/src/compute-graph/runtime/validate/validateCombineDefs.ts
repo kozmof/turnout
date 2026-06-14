@@ -124,7 +124,7 @@ export function validateFuncEntry(
     });
   }
 
-  const argMap = hasArgMap ? (entry.argMap as Record<string, unknown>) : null;
+  const argMap = 'argMap' in entry && isRecord(entry.argMap) ? entry.argMap : null;
   if (argMap) {
     for (const [argName, argId] of Object.entries(argMap)) {
       if (!isStringAs(argId)) {
@@ -136,7 +136,7 @@ export function validateFuncEntry(
       }
       if (!valueIdExistsInContext(argId, context, state.returnIds)) {
         state.errors.push({
-          message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${argId} does not exist`,
+          message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${String(argId)} does not exist`,
           details: { funcId, argName, argId },
         });
       } else {
@@ -170,7 +170,7 @@ function validateCombineFuncTypes(
 
   for (const [argName, fns] of Object.entries(transformFn)) {
     if (!Array.isArray(fns) || fns.length === 0) continue;
-    const firstFn = fns[0];
+    const firstFn: unknown = fns[0];
     if (!isStringAs<TransformFnNames>(firstFn)) continue;
 
     const transformFnName = firstFn;
@@ -241,7 +241,9 @@ export function validateCombineDefEntry(
       details: { defId, name: entry.name },
     });
   } else {
-    const binaryReturnType = getBinaryFnReturnType(entry.name as BinaryFnNames);
+    const binaryReturnType = isStringAs<BinaryFnNames>(entry.name)
+      ? getBinaryFnReturnType(entry.name)
+      : null;
     if (!binaryReturnType) {
       state.errors.push({
         message: `CombineFuncDefTable[${defId}]: Invalid or unknown binary function "${entry.name}"`,
@@ -269,7 +271,7 @@ export function validateCombineDefEntry(
       continue;
     }
 
-    const fns = transformFn[key] as unknown[];
+    const fns = transformFn[key];
     for (const transformFnName of fns) {
       if (!isStringAs<TransformFnNames>(transformFnName)) {
         state.errors.push({
@@ -321,7 +323,7 @@ function validateBinaryFnCompatibility(
   const [expectedParamA, expectedParamB] = paramTypes;
 
   if ('a' in transformFn && Array.isArray(transformFn.a) && transformFn.a.length > 0) {
-    const lastFn = transformFn.a[transformFn.a.length - 1];
+    const lastFn: unknown = transformFn.a[transformFn.a.length - 1];
     if (isStringAs<TransformFnNames>(lastFn)) {
       const returnType = getTransformFnReturnType(lastFn);
       if (returnType && returnType !== expectedParamA) {
@@ -340,7 +342,7 @@ function validateBinaryFnCompatibility(
   }
 
   if ('b' in transformFn && Array.isArray(transformFn.b) && transformFn.b.length > 0) {
-    const lastFn = transformFn.b[transformFn.b.length - 1];
+    const lastFn: unknown = transformFn.b[transformFn.b.length - 1];
     if (isStringAs<TransformFnNames>(lastFn)) {
       const returnType = getTransformFnReturnType(lastFn);
       if (returnType && returnType !== expectedParamB) {

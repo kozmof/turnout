@@ -23,6 +23,7 @@ import {
   isPipeDefineId,
   createValueId,
   createFuncId,
+  createArgName,
 } from '../../idValidation';
 
 type PipeArgSpec = readonly string[] | Record<string, unknown>;
@@ -41,7 +42,7 @@ export function validateScopedValueTable(
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
   const expectedValueIds = getPipeArgNames(pipeDefArgs).map(
-    argName => argMap[argName as ArgName]
+    argName => argMap[createArgName(argName)]
   );
 
   for (const valueId of expectedValueIds) {
@@ -65,7 +66,7 @@ export function createScopedValueTable(
       throw new Error(`Argument ${argName} is missing from argMap`);
     }
 
-    const valueId = argMap[argName as ArgName];
+    const valueId = argMap[createArgName(argName)];
 
     const value = sourceValueTable[valueId];
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
@@ -178,7 +179,7 @@ function executeStep(
   // Resolve all argument bindings to concrete ValueIds
   const resolvedArgMap: Record<ArgName, ValueId> = {} as Record<ArgName, ValueId>;
   for (const [argName, binding] of Object.entries(argBindings)) {
-    resolvedArgMap[argName as ArgName] = resolveArgBinding(
+    resolvedArgMap[createArgName(argName)] = resolveArgBinding(
       binding,
       pipeFuncArgMap,
       stepResults
@@ -286,7 +287,7 @@ export function executePipeFunc(
 
   // Execute each step in sequence, threading state through via reduce
   const { currentValueTable, stepResults } = def.sequence.reduce<PipeStepAccumulator>(
-    ({ currentValueTable, scopedContext, stepResults }, step, i) => {
+    ({ scopedContext, stepResults }, step, i) => {
       const stepResult = executeStep(
         step,
         i,

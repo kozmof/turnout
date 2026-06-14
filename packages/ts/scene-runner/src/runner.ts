@@ -21,6 +21,7 @@ import { createRouteStepper } from './executor/route-stepper.js';
 import type { RouteStepper } from './executor/route-stepper.js';
 import { resolveDispatchTarget } from './executor/dispatch.js';
 import { validateModel } from './executor/validate-model.js';
+import { ModelValidationError, RunnerError } from './executor/errors.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -63,13 +64,13 @@ export type Runner<R extends HarnessResult = HarnessResult> = {
   /**
    * Register a prepare hook. Returns the runner for chaining.
    * Must be called before the first `next()` or `run()` invocation.
-   * Hook registrations after execution has started are silently ignored by the executor.
+   * Hook registrations after execution has started throw RunnerError with code `LateHookRegistration`.
    */
   usePrepareHook(name: string, handler: PrepareHookImpl): Runner<R>;
   /**
    * Register a publish hook. Returns the runner for chaining.
    * Must be called before the first `next()` or `run()` invocation.
-   * Hook registrations after execution has started are silently ignored by the executor.
+   * Hook registrations after execution has started throw RunnerError with code `LateHookRegistration`.
    */
   usePublishHook(name: string, handler: PublishHookImpl): Runner<R>;
   /** True when all actions have completed (scene or route finished). */
@@ -86,6 +87,7 @@ export type Runner<R extends HarnessResult = HarnessResult> = {
    *
    * Returns fewer than `steps` action entries if execution finishes early.
    *
+   * @throws {RunnerError} `InvalidStepCount` when `steps` is not a positive safe integer.
    * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
    * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
    */
@@ -144,14 +146,46 @@ function makeRunnerMethods<R extends HarnessResult>(
   partialStateFn: () => StateManager,
   signal: AbortSignal,
 ): Runner<R> {
+  let started = false;
+
   function checkAborted(): void {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
   }
+
+  function markStarted(): void {
+    started = true;
+  }
+
+  function assertHooksOpen(): void {
+    if (started) {
+      throw new RunnerError(
+        'LateHookRegistration',
+        'hooks must be registered before next(), run(), or runAsync() starts execution',
+      );
+    }
+  }
+
+  function assertStepCount(steps: number): void {
+    if (!Number.isSafeInteger(steps) || steps < 1) {
+      throw new RunnerError('InvalidStepCount', `next(steps) requires a positive safe integer, got ${steps}`);
+    }
+  }
+
   return {
-    usePrepareHook(name, handler) { hooks.prepare[name] = handler; return this; },
-    usePublishHook(name, handler) { hooks.publish[name] = handler; return this; },
+    usePrepareHook(name, handler) {
+      assertHooksOpen();
+      hooks.prepare[name] = handler;
+      return this;
+    },
+    usePublishHook(name, handler) {
+      assertHooksOpen();
+      hooks.publish[name] = handler;
+      return this;
+    },
     isDone: doneFn,
     async next(steps = 1) {
+      assertStepCount(steps);
+      markStarted();
       const results: Array<Exclude<RunnerStepResult, { done: true }>> = [];
       let actionCount = 0;
       while (actionCount < steps) {
@@ -164,19 +198,23 @@ function makeRunnerMethods<R extends HarnessResult>(
       return results;
     },
     async run() {
+      markStarted();
       while (!doneFn()) {
         checkAborted();
         await advanceFn();
       }
       return resultFn();
     },
-    async *runAsync() {
-      while (!doneFn()) {
-        checkAborted();
-        const r = await advanceFn();
-        if (r.done) break;
-        yield r;
-      }
+    runAsync() {
+      markStarted();
+      return (async function* () {
+        while (!doneFn()) {
+          checkAborted();
+          const r = await advanceFn();
+          if (r.done) break;
+          yield r;
+        }
+      })();
     },
     result: resultFn,
     partialState: partialStateFn,
@@ -238,7 +276,7 @@ export function createSceneRunner(
     advanceScene,
     () => done,
     () => {
-      if (!done) throw new Error('Runner: execution is not complete — call run() or step until isDone()');
+      if (!done) throw new RunnerError('IncompleteExecution', 'execution is not complete — call run() or step until isDone()');
       const res = sceneExecutor.result();
       return {
         finalState: res.stateAfterScene.snapshot(),
@@ -330,7 +368,7 @@ export function createRouteRunner(
     advanceRoute,
     () => advState.kind === 'done',
     () => {
-      if (advState.kind !== 'done') throw new Error('Runner: execution is not complete — call run() or step until isDone()');
+      if (advState.kind !== 'done') throw new RunnerError('IncompleteExecution', 'execution is not complete — call run() or step until isDone()');
       const { finalState, trace } = routeStepper.result();
       return {
         finalState: finalState.snapshot(),
@@ -371,7 +409,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
   const migratedModel = migrateModel(model);
   const validationErrors = validateModel(migratedModel);
   if (validationErrors.length > 0) {
-    throw new Error(`[turnout] Invalid model:\n${validationErrors.map((e) => `  • ${e}`).join('\n')}`);
+    throw new ModelValidationError(validationErrors);
   }
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 

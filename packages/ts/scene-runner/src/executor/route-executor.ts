@@ -1,7 +1,7 @@
 import type { AnyValue } from 'runtime';
 import type { RouteModel, SceneBlock } from '../types/turnout-model_pb.js';
 import type { StateManager } from '../state/state-manager.js';
-import type { HookRegistry, RouteTrace } from '../types/harness-types.js';
+import type { HookRegistry, RouteTrace, SceneWarning } from '../types/harness-types.js';
 import { executeScene } from './scene-executor.js';
 import { selectNextScene, parseMatchArms } from './route-pattern.js';
 import type { HistoryEntry } from './route-pattern.js';
@@ -26,7 +26,7 @@ const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
  */
 export type RouteWarning =
   | { kind: 'multi_entry_action'; sceneId: string; entryActions: string[] }
-  | { kind: 'scene_warning'; sceneId: string; message: string };
+  | { kind: 'scene_warning'; sceneId: string; warning: SceneWarning };
 
 export type RouteExecutionResult = {
   routeId: string;
@@ -110,8 +110,8 @@ async function runRouteCore(
 
     // Propagate scene-level warnings into structured route warnings.
     if (sceneResult.trace.warnings) {
-      for (const msg of sceneResult.trace.warnings) {
-        warnings.push({ kind: 'scene_warning', sceneId: progress.currentSceneId, message: msg });
+      for (const warning of sceneResult.trace.warnings) {
+        warnings.push({ kind: 'scene_warning', sceneId: progress.currentSceneId, warning });
       }
     }
 

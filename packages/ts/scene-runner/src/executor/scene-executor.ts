@@ -2,13 +2,14 @@ import { executeGraph, isPureBoolean, buildNull } from 'runtime';
 import type { AnyValue, ValidatedContext } from 'runtime';
 import type { SceneBlock, ActionModel, ProgModel } from '../types/turnout-model_pb.js';
 import type { StateManager, StateReader } from '../state/state-manager.js';
-import type { HookRegistry, ActionTrace, SceneTrace } from '../types/harness-types.js';
+import type { HookRegistry, ActionTrace, SceneTrace, ActionWarning, SceneWarning, NextPolicy } from '../types/harness-types.js';
 import { executeAction } from './action-executor.js';
 import { buildContextFromProg } from './hcl-context-builder.js';
 import type { BuiltContext } from './hcl-context-builder.js';
 import { resolveNextPrepare } from './prepare-resolver.js';
 import { type ActionExecutionResult, UNABORTABLE } from './types.js';
 import { SceneRuntimeError } from './errors.js';
+import { parseNextPolicy } from './next-policy.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -65,7 +66,7 @@ export type SceneExecutor = {
    * Callers that exit early via `next()` without calling `result()` can use this
    * to surface warnings that would otherwise only appear in `SceneTrace.warnings`.
    */
-  readonly currentWarnings: () => readonly string[];
+  readonly currentWarnings: () => readonly SceneWarning[];
 };
 
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
@@ -117,7 +118,7 @@ export function createSceneExecutor(
   signal: AbortSignal = UNABORTABLE,
 ): SceneExecutor {
   const actionMap = getActionMap(scene);
-  const policy: string = scene.nextPolicy ?? 'first-match';
+  const policy = parseNextPolicy(scene.nextPolicy, scene.id);
 
   let currentState = state;
   const queue: string[] = [...(entryActions ?? scene.entryActions)];
@@ -128,7 +129,7 @@ export function createSceneExecutor(
   const enqueueSource = new Map<string, string>();
   const actionTraces: ActionTrace[] = [];
   const terminatedAt: string[] = [];
-  const sceneWarnings: string[] = [];
+  const sceneWarnings: SceneWarning[] = [];
   let stepCount = 0;
   let currentAction: string | undefined;
   // Per-executor cache for next-rule contexts. Keyed by (ProgModel identity,
@@ -169,7 +170,10 @@ export function createSceneExecutor(
     const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(action, currentState, result, policy, signal, scene.id, ruleCtxCache);
     if (nextIds.length === 0) terminatedAt.push(actionId);
 
-    const allWarnings = [...(result.mergeWarnings ?? []), ...nextWarnings];
+    const allWarnings: ActionWarning[] = [
+      ...(result.mergeWarnings ?? []).map((message): ActionWarning => ({ kind: 'merge_warning', message })),
+      ...nextWarnings,
+    ];
     const trace: ActionTrace = {
       actionId,
       computeRootValue: result.computeRootValue,
@@ -183,13 +187,23 @@ export function createSceneExecutor(
         // The action already ran; warn and skip.
         const source = enqueueSource.get(nextId) ?? '<entry>';
         if (policy === 'all-match') {
-          sceneWarnings.push(
-            `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
-          );
+          sceneWarnings.push({
+            kind: 'duplicate_enqueue',
+            actionId: nextId,
+            firstEnqueuedBy: source,
+            policy,
+            alreadyVisited: true,
+            message: `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
+          });
         } else if (policy === 'first-match') {
-          sceneWarnings.push(
-            `action "${nextId}" was enqueued by "${source}" but already ran (first-match); next rule points to an already-executed action`,
-          );
+          sceneWarnings.push({
+            kind: 'duplicate_enqueue',
+            actionId: nextId,
+            firstEnqueuedBy: source,
+            policy,
+            alreadyVisited: true,
+            message: `action "${nextId}" was enqueued by "${source}" but already ran (first-match); next rule points to an already-executed action`,
+          });
         }
         continue;
       }
@@ -198,9 +212,14 @@ export function createSceneExecutor(
         // only run once. For first-match, silently de-dup (the item will run once).
         if (policy === 'all-match') {
           const source = enqueueSource.get(nextId)!;
-          sceneWarnings.push(
-            `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
-          );
+          sceneWarnings.push({
+            kind: 'duplicate_enqueue',
+            actionId: nextId,
+            firstEnqueuedBy: source,
+            policy,
+            alreadyVisited: false,
+            message: `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
+          });
         }
         continue;
       }
@@ -232,7 +251,7 @@ export function createSceneExecutor(
     return currentAction;
   }
 
-  function currentWarnings(): readonly string[] {
+  function currentWarnings(): readonly SceneWarning[] {
     return sceneWarnings;
   }
 
@@ -303,7 +322,7 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
   return map;
 }
 
-type NextRulesResult = { matches: string[]; warnings: string[] };
+type NextRulesResult = { matches: string[]; warnings: ActionWarning[] };
 
 /**
  * Evaluate the next rules for a completed action and return the IDs of the
@@ -324,7 +343,7 @@ function evaluateNextRules(
   action: ActionModel,
   state: StateReader,
   result: ActionExecutionResult,
-  policy: string,
+  policy: NextPolicy,
   signal: AbortSignal,
   sceneId: string,
   ruleCtxCache: Map<ProgModel, Map<string, { builtCtx: BuiltContext; validCtx: ValidatedContext }>>,
@@ -333,7 +352,7 @@ function evaluateNextRules(
   if (rules.length === 0) return { matches: [], warnings: [] };
 
   const matches: string[] = [];
-  const warnings: string[] = [];
+  const warnings: ActionWarning[] = [];
 
   for (const rule of rules) {
     if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
@@ -343,11 +362,16 @@ function evaluateNextRules(
       // No compute block → unconditional match.
       condMet = true;
     } else if (!rule.compute.prog) {
-        warnings.push(
-          `scene "${sceneId}" action "${action.id}" next-rule targeting "${rule.action}": ` +
-          `compute block has no prog — rule skipped (model may be malformed)`,
-        );
-        condMet = false;
+      warnings.push({
+          kind: 'missing_next_compute_prog',
+          sceneId,
+          actionId: action.id,
+          targetActionId: rule.action,
+          message:
+            `scene "${sceneId}" action "${action.id}" next-rule targeting "${rule.action}": ` +
+            `compute block has no prog — rule skipped (model may be malformed)`,
+      });
+      condMet = false;
     } else {
       const prepare = rule.prepare ?? [];
       const nextPrepared = resolveNextPrepare(prepare, state, result);
@@ -391,10 +415,16 @@ function evaluateNextRules(
       }
 
       if (!isPureBoolean(condValue)) {
-        warnings.push(
-          `action "${action.id}" next-rule condition "${conditionName}" resolved to ` +
-          `${condValue?.symbol ?? 'undefined'} (expected pure boolean) — rule skipped`,
-        );
+        const actualType = condValue?.symbol ?? 'undefined';
+        warnings.push({
+          kind: 'invalid_next_condition',
+          actionId: action.id,
+          conditionName,
+          actualType,
+          message:
+            `action "${action.id}" next-rule condition "${conditionName}" resolved to ` +
+            `${actualType} (expected pure boolean) — rule skipped`,
+        });
       }
       condMet = isPureBoolean(condValue) && condValue.value;
     }

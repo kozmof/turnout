@@ -58,6 +58,71 @@ export function isSceneRuntimeError(err: unknown): err is SceneRuntimeError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
+export type RunnerErrorCode =
+  | 'LateHookRegistration'
+  | 'InvalidStepCount'
+  | 'IncompleteExecution';
+
+export class RunnerError extends Error {
+  readonly code: RunnerErrorCode;
+
+  constructor(code: RunnerErrorCode, detail: string) {
+    super(`Runner: ${detail}`);
+    this.name = 'RunnerError';
+    this.code = code;
+  }
+}
+
+export function isRunnerError(err: unknown): err is RunnerError {
+  return err instanceof RunnerError;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type StateErrorCode =
+  | 'ReservedPath'
+  | 'UnknownPath'
+  | 'TypeMismatch'
+  | 'UnknownSchemaType'
+  | 'InvalidLiteral';
+
+export class StateError extends Error {
+  readonly code: StateErrorCode;
+  readonly path?: string;
+
+  constructor(code: StateErrorCode, detail: string, path?: string) {
+    super(`StateManager: ${detail}`);
+    this.name = 'StateError';
+    this.code = code;
+    this.path = path;
+  }
+}
+
+export function isStateError(err: unknown): err is StateError {
+  return err instanceof StateError;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ModelValidationErrorCode = 'InvalidModel';
+
+export class ModelValidationError extends Error {
+  readonly code: ModelValidationErrorCode = 'InvalidModel';
+  readonly errors: readonly string[];
+
+  constructor(errors: readonly string[]) {
+    super(`[turnout] Invalid model:\n${errors.map((e) => `  • ${e}`).join('\n')}`);
+    this.name = 'ModelValidationError';
+    this.errors = errors;
+  }
+}
+
+export function isModelValidationError(err: unknown): err is ModelValidationError {
+  return err instanceof ModelValidationError;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 export type RouteErrorCode = 'UnknownScene' | 'NoEntryAction' | 'MaxRouteTransitionsExceeded';
 
 export class RouteRuntimeError extends Error {

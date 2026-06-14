@@ -40,11 +40,18 @@ export type FuncId = Brand<string, 'funcId'>;
 export type ArgName = Brand<string, 'argName'>;
 
 /** Typed constructor helpers — centralise `as XxxId` casts to one place. */
+// Branding is compile-time only; these helpers centralise the intentional cast.
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makeCombineDefineId = (s: string): CombineDefineId => s as CombineDefineId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makePipeDefineId    = (s: string): PipeDefineId    => s as PipeDefineId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makeCondDefineId    = (s: string): CondDefineId    => s as CondDefineId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makeValueId         = (s: string): ValueId         => s as ValueId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makeFuncId          = (s: string): FuncId          => s as FuncId;
+// eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makeArgName         = (s: string): ArgName         => s as ArgName;
 
 /**

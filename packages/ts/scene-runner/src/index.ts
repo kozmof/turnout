@@ -24,8 +24,23 @@ export { stateManagerFromUnchecked, stateManagerFromStrict, stateManagerFromSche
 export type { StateManager, StateReader } from './state/state-manager.js';
 export { executeSceneSafe } from './executor/scene-executor.js';
 export type { SceneResult, SceneExecutionResult } from './executor/scene-executor.js';
-export { isSceneRuntimeError } from './executor/errors.js';
-export type { SceneRuntimeError, SceneErrorCode, SceneInternalErrorCode } from './executor/errors.js';
+export {
+  isSceneRuntimeError,
+  isRunnerError,
+  isStateError,
+  isModelValidationError,
+  RunnerError,
+  StateError,
+  ModelValidationError,
+} from './executor/errors.js';
+export type {
+  RunnerErrorCode,
+  StateErrorCode,
+  ModelValidationErrorCode,
+  SceneRuntimeError,
+  SceneErrorCode,
+  SceneInternalErrorCode,
+} from './executor/errors.js';
 export { executeRouteSafe } from './executor/route-executor.js';
 export type { RouteResult, RouteWarning, RouteExecutionResult } from './executor/route-executor.js';
 

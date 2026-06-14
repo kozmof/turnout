@@ -26,6 +26,35 @@ export type PublishHookOutcome =
 export type PrepareHookImpl = (ctx: PrepareHookContext, signal: AbortSignal) => Record<string, unknown> | Promise<Record<string, unknown>>;
 export type PublishHookImpl  = (ctx: PublishHookContext, signal: AbortSignal) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 
+export type NextPolicy = 'first-match' | 'all-match';
+
+export type ActionWarning =
+  | {
+      kind: 'missing_next_compute_prog';
+      sceneId: string;
+      actionId: string;
+      targetActionId: string;
+      message: string;
+    }
+  | {
+      kind: 'invalid_next_condition';
+      actionId: string;
+      conditionName: string;
+      actualType: string;
+      message: string;
+    }
+  | { kind: 'merge_warning'; message: string };
+
+export type SceneWarning =
+  | {
+      kind: 'duplicate_enqueue';
+      actionId: string;
+      firstEnqueuedBy: string;
+      policy: NextPolicy;
+      alreadyVisited: boolean;
+      message: string;
+    };
+
 export type HookRegistry = {
   prepare: Record<string, PrepareHookImpl>;
   publish: Record<string, PublishHookImpl>;
@@ -78,14 +107,14 @@ export type ActionTrace = {
   nextActionIds: string[];
   publishOutcomes?: PublishHookOutcome[];
   /** Non-fatal warnings produced while evaluating this action's next rules. */
-  warnings?: string[];
+  warnings?: ActionWarning[];
 };
 
 export type SceneTrace = {
   sceneId: string;
   actions: ActionTrace[];
   /** Non-fatal warnings produced during scene execution (e.g. skipped duplicate actions). */
-  warnings?: string[];
+  warnings?: SceneWarning[];
 };
 
 export type RouteTrace = {

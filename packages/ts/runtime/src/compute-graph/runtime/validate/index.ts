@@ -291,28 +291,20 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
 
   collectReturnIds(context, state);
 
-  if (context.funcTable) {
-    for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-      validateFuncEntry(funcId, funcEntry, context, state);
-    }
+  for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
+    validateFuncEntry(funcId, funcEntry, context, state);
   }
 
-  if (context.combineFuncDefTable) {
-    for (const [defId, def] of Object.entries(context.combineFuncDefTable)) {
-      validateCombineDefEntry(defId, def, state);
-    }
+  for (const [defId, def] of Object.entries(context.combineFuncDefTable)) {
+    validateCombineDefEntry(defId, def, state);
   }
 
-  if (context.pipeFuncDefTable) {
-    for (const [defId, def] of Object.entries(context.pipeFuncDefTable)) {
-      validatePipeDefEntry(defId, def, context, state);
-    }
+  for (const [defId, def] of Object.entries(context.pipeFuncDefTable)) {
+    validatePipeDefEntry(defId, def, context, state);
   }
 
-  if (context.condFuncDefTable) {
-    for (const [defId, def] of Object.entries(context.condFuncDefTable)) {
-      validateCondDefEntry(defId, def, context, state);
-    }
+  for (const [defId, def] of Object.entries(context.condFuncDefTable)) {
+    validateCondDefEntry(defId, def, context, state);
   }
 
   checkFunctionCycles(context, state);

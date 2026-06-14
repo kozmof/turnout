@@ -22,12 +22,6 @@ type BindingValidationContext = {
   readonly referencedValues: Set<ValueId>;
 };
 
-type BindingValidator = (
-  binding: PipeArgBinding,
-  argName: string,
-  context: BindingValidationContext,
-) => ValidationError | null;
-
 function validateInputBinding(
   binding: Extract<PipeArgBinding, { source: 'input' }>,
   argName: string,
@@ -173,25 +167,19 @@ function parseBinding(
   }
 }
 
-const BINDING_VALIDATORS: Record<PipeArgBinding['source'], BindingValidator> = {
-  input: validateInputBinding as BindingValidator,
-  step: validateStepBinding as BindingValidator,
-  value: validateValueBinding as BindingValidator,
-};
-
 function validateBinding(
   binding: PipeArgBinding,
   argName: string,
   context: BindingValidationContext,
 ): ValidationError | null {
-  const validator = BINDING_VALIDATORS[binding.source];
-  if (!validator) {
-    return {
-      message: `PipeFuncDefTable[${context.defId}].sequence[${String(context.stepIndex)}]: Argument binding for '${argName}' has unknown source "${(binding as { source: string }).source}"`,
-      details: { defId: context.defId, stepIndex: context.stepIndex, argName },
-    };
+  switch (binding.source) {
+    case 'input':
+      return validateInputBinding(binding, argName, context);
+    case 'step':
+      return validateStepBinding(binding, argName, context);
+    case 'value':
+      return validateValueBinding(binding, argName, context);
   }
-  return validator(binding, argName, context);
 }
 
 // ============================================================================
@@ -261,7 +249,7 @@ export function validatePipeDefEntry(
   const pipeDefArgs = new Set(pipeDefArgNames);
 
   for (let i = 0; i < entry.sequence.length; i++) {
-    const step = entry.sequence[i];
+    const step: unknown = entry.sequence[i];
     if (!isRecord(step)) {
       state.errors.push({
         message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Step must be an object`,

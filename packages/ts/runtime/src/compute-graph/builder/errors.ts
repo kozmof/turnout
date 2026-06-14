@@ -166,6 +166,6 @@ export function isBuilderValidationError(
   return (
     error instanceof Error &&
     'kind' in error &&
-    BUILDER_VALIDATION_ERROR_KINDS.has((error as { kind: unknown }).kind as string)
+    BUILDER_VALIDATION_ERROR_KINDS.has(typeof error.kind === 'string' ? error.kind : '')
   );
 }

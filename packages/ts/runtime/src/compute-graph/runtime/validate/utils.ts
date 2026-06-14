@@ -21,6 +21,8 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
 
 export function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
   if (typeof value !== 'string') return false;
+  // Set membership is the runtime proof that the string is a BaseTypeSymbol.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return VALID_BASE_TYPE_SYMBOLS.has(value as BaseTypeSymbol);
 }
 
@@ -37,6 +39,8 @@ export function isCombineDefWithBinaryFnName(
   ) {
     return false;
   }
+  // getBinaryFnReturnType is the runtime proof that the string is a BinaryFnNames member.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return getBinaryFnReturnType(value.name as BinaryFnNames) !== null;
 }
 
@@ -74,6 +78,8 @@ export function hasNameAndTransformFn(
   );
 }
 
+// This helper intentionally brands a runtime-checked string for validation code.
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 export function isStringAs<T>(value: unknown): value is T {
   return typeof value === 'string';
 }
@@ -93,6 +99,8 @@ export function valueIdExistsInContext(
 ): value is ValueId {
   if (typeof value !== 'string') return false;
   const inValueTable = hasKey(context.valueTable, value);
+  // returnIds contains branded ValueIds; membership proves the runtime string belongs to that set.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   const inReturnIds = returnIds && returnIds.has(value as ValueId);
   return !!(inValueTable || inReturnIds);
 }
@@ -110,7 +118,7 @@ export function defineIdExistsInContext(
   context: UnvalidatedContext,
 ): value is CombineDefineId | PipeDefineId | CondDefineId {
   if (typeof value !== 'string') return false;
-  return !!(
+  return (
     hasKey(context.combineFuncDefTable, value) ||
     hasKey(context.pipeFuncDefTable, value) ||
     hasKey(context.condFuncDefTable, value)
@@ -170,7 +178,8 @@ export function inferFuncType(
     if (pipeDef.sequence.length === 0) return null;
     const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
     if (lastStep && typeof lastStep === 'object' && 'defId' in lastStep) {
-      const lastStepDefId = lastStep.defId as string;
+      if (typeof lastStep.defId !== 'string') return null;
+      const lastStepDefId = lastStep.defId;
       const lastStepCombineDef = context.combineFuncDefTable?.[lastStepDefId];
       if (isCombineDefWithBinaryFnName(lastStepCombineDef)) {
         return getBinaryFnReturnType(lastStepCombineDef.name);

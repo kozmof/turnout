@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRunner } from '../src/runner.js';
+import { RunnerError } from '../src/executor/errors.js';
 import { buildNumber, isPureNumber } from 'runtime';
 import type { TurnModel } from '../src/types/turnout-model_pb.js';
 
@@ -116,6 +117,56 @@ describe('createRunner — scene mode API', () => {
 
     const result = await runner.run();
     expect(result.trace.kind).toBe('scene');
+  });
+});
+
+describe('createRunner — API misuse contracts', () => {
+  const model = {
+    scenes: [{ id: 'contract', entryActions: ['a'], actions: [{ id: 'a' }] }],
+    routes: [],
+  } as unknown as TurnModel;
+
+  it('throws a typed error when result is read before completion', () => {
+    const runner = createRunner(model, { entryId: 'contract', initialState: {} });
+
+    expect(() => runner.result()).toThrow(RunnerError);
+    expect(() => runner.result()).toThrow('execution is not complete');
+    try {
+      runner.result();
+    } catch (err) {
+      expect(err).toMatchObject({ name: 'RunnerError', code: 'IncompleteExecution' });
+    }
+  });
+
+  it('rejects invalid next step counts with a typed error', async () => {
+    const runner = createRunner(model, { entryId: 'contract', initialState: {} });
+
+    await expect(runner.next(0)).rejects.toMatchObject({
+      name: 'RunnerError',
+      code: 'InvalidStepCount',
+    });
+    await expect(runner.next(1.5)).rejects.toMatchObject({
+      name: 'RunnerError',
+      code: 'InvalidStepCount',
+    });
+  });
+
+  it('rejects hook registration after next() starts execution', async () => {
+    const runner = createRunner(model, { entryId: 'contract', initialState: {} });
+
+    await runner.next();
+
+    expect(() => runner.usePrepareHook('late', () => ({}))).toThrow(RunnerError);
+    expect(() => runner.usePublishHook('late', () => {})).toThrow(RunnerError);
+  });
+
+  it('rejects hook registration after runAsync() is created', () => {
+    const runner = createRunner(model, { entryId: 'contract', initialState: {} });
+
+    const iterator = runner.runAsync();
+
+    expect(() => runner.usePrepareHook('late', () => ({}))).toThrow(RunnerError);
+    void iterator.return?.(undefined);
   });
 });
 

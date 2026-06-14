@@ -82,28 +82,23 @@ export function getTransformFnReturnType(
   switch (namespace) {
     case 'transformFnBoolean': {
       const meta = metaTfBoolean();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'transformFnNumber': {
       const meta = metaTfNumber();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'transformFnNull': {
       const meta = metaTfNull();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'transformFnString': {
       const meta = metaTfString();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'transformFnArray': {
       const meta = metaTfArray();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     default:
       return null;
@@ -129,18 +124,15 @@ export function getBinaryFnParamTypes(
   switch (namespace) {
     case 'binaryFnBoolean': {
       const meta = metaBfBooleanParams();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnNumber': {
       const meta = metaBfNumberParams();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnString': {
       const meta = metaBfStringParams();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnGeneric': {
       // Generic functions can work with any type, so we can't validate statically
@@ -172,31 +164,26 @@ export function getBinaryFnReturnType(
   switch (namespace) {
     case 'binaryFnBoolean': {
       const meta = metaBfBoolean();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnNumber': {
       const meta = metaBfNumber();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnString': {
       const meta = metaBfString();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnGeneric': {
       const meta = metaBfGeneric();
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case 'binaryFnArray': {
       // Array binary functions require a non-array element type
       // This design does not support nested arrays (array of arrays)
       if (!elemType || elemType === 'array') return null;
       const meta = metaBfArray(elemType);
-      const result = meta[fnName];
-      return result ?? null;
+      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     default:
       return null;
@@ -236,8 +223,16 @@ export function inferValueElemType(
   const subSymbol = value.subSymbol;
   if (!subSymbol) return null;
 
-  // Tags are tracked separately in the tags field
-  return subSymbol as BaseTypeSymbol;
+  // Tags are tracked separately in the tags field.
+  switch (subSymbol) {
+    case 'number':
+    case 'string':
+    case 'boolean':
+    case 'null':
+      return subSymbol;
+    default:
+      return null;
+  }
 }
 
 /**
@@ -308,7 +303,7 @@ function inferPipeDefReturnType(
 
   try {
     const def = context.pipeFuncDefTable[defId];
-    if (!def || def.sequence.length === 0) return null;
+    if (def.sequence.length === 0) return null;
 
     const lastStep = def.sequence[def.sequence.length - 1];
     const lastStepDefId = lastStep.defId;

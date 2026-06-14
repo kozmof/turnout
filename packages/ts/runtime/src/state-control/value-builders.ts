@@ -129,10 +129,12 @@ export function buildNull(
   reason: NullReasonSubSymbol,
   tags: readonly TagSymbol[] = []
 ): NullValue<readonly TagSymbol[]> {
-  if (!nullReasonSubSymbols.includes(reason as NullReasonSubSymbol)) {
+  if (!nullReasonSubSymbols.includes(reason)) {
     throw createInvalidValueError('null', reason, 'Invalid NullReasonSubSymbol');
   }
   const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
+  // createUnknownValue preserves the provided symbol/subSymbol; this narrows the generic value builder result.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return createUnknownValue('null', null, reason, uniqueTags) as NullValue<readonly TagSymbol[]>;
 }
 

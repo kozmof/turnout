@@ -168,6 +168,6 @@ export function isGraphExecutionError(
   return (
     error instanceof Error &&
     'kind' in error &&
-    GRAPH_EXECUTION_ERROR_KINDS.has((error as { kind: unknown }).kind as string)
+    GRAPH_EXECUTION_ERROR_KINDS.has(typeof error.kind === 'string' ? error.kind : '')
   );
 }

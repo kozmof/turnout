@@ -17,6 +17,7 @@ import { toJson } from '@bufbuild/protobuf';
 import { ValueSchema } from '@bufbuild/protobuf/wkt';
 import type { Value } from '@bufbuild/protobuf/wkt';
 import type { StateModel } from '../types/turnout-model_pb.js';
+import { StateError } from '../executor/errors.js';
 
 /**
  * Read-only view of STATE. Callers that only need to inspect state (not mutate
@@ -102,7 +103,7 @@ const RESERVED_KEYS = new Set([
 
 function assertSafePath(path: string): void {
   if (RESERVED_KEYS.has(path)) {
-    throw new Error(`StateManager: reserved path "${path}" is not allowed`);
+    throw new StateError('ReservedPath', `reserved path "${path}" is not allowed`, path);
   }
 }
 
@@ -111,8 +112,10 @@ function assertSafePath(path: string): void {
 function assertKnownPath(path: string, validPaths: ReadonlySet<string> | null): void {
   assertSafePath(path);
   if (validPaths !== null && !validPaths.has(path)) {
-    throw new Error(
-      `StateManager: unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+    throw new StateError(
+      'UnknownPath',
+      `unknown path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+      path,
     );
   }
 }
@@ -130,8 +133,10 @@ function assertValidWrite(
   if (typeMap !== null) {
     const expectedType = typeMap.get(path);
     if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
-      throw new Error(
-        `StateManager: type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
+      throw new StateError(
+        'TypeMismatch',
+        `type mismatch for "${path}": expected ${expectedType}, got ${value.symbol}`,
+        path,
       );
     }
   }
@@ -193,30 +198,30 @@ const schemaTypeTable: Record<string, SchemaTypeEntry> = {
   number: {
     guard: (v) => isNumber(v),
     build: (raw) => {
-      if (typeof raw !== 'number') throw new Error(`literalToValue: schema type "number" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      if (typeof raw !== 'number') throw new StateError('InvalidLiteral', `literalToValue: schema type "number" but got ${typeof raw} (${JSON.stringify(raw)})`);
       return buildNumber(raw);
     },
   },
   str: {
     guard: (v) => isString(v),
     build: (raw) => {
-      if (typeof raw !== 'string') throw new Error(`literalToValue: schema type "str" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      if (typeof raw !== 'string') throw new StateError('InvalidLiteral', `literalToValue: schema type "str" but got ${typeof raw} (${JSON.stringify(raw)})`);
       return buildString(raw);
     },
   },
   bool: {
     guard: (v) => isBoolean(v),
     build: (raw) => {
-      if (typeof raw !== 'boolean') throw new Error(`literalToValue: schema type "bool" but got ${typeof raw} (${JSON.stringify(raw)})`);
+      if (typeof raw !== 'boolean') throw new StateError('InvalidLiteral', `literalToValue: schema type "bool" but got ${typeof raw} (${JSON.stringify(raw)})`);
       return buildBoolean(raw);
     },
   },
   'arr<number>': {
     guard: (v) => isArray(v) && matchesArraySubtype(v, 'number'),
     build: (raw) => {
-      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<number>" but got ${typeof raw}`);
+      if (!Array.isArray(raw)) throw new StateError('InvalidLiteral', `literalToValue: schema type "arr<number>" but got ${typeof raw}`);
       return buildArrayNumber(raw.map((v) => {
-        if (typeof v !== 'number') throw new Error(`literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
+        if (typeof v !== 'number') throw new StateError('InvalidLiteral', `literalToValue: arr<number> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildNumber(v);
       }));
     },
@@ -224,9 +229,9 @@ const schemaTypeTable: Record<string, SchemaTypeEntry> = {
   'arr<str>': {
     guard: (v) => isArray(v) && matchesArraySubtype(v, 'string'),
     build: (raw) => {
-      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<str>" but got ${typeof raw}`);
+      if (!Array.isArray(raw)) throw new StateError('InvalidLiteral', `literalToValue: schema type "arr<str>" but got ${typeof raw}`);
       return buildArrayString(raw.map((v) => {
-        if (typeof v !== 'string') throw new Error(`literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
+        if (typeof v !== 'string') throw new StateError('InvalidLiteral', `literalToValue: arr<str> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildString(v);
       }));
     },
@@ -234,9 +239,9 @@ const schemaTypeTable: Record<string, SchemaTypeEntry> = {
   'arr<bool>': {
     guard: (v) => isArray(v) && matchesArraySubtype(v, 'boolean'),
     build: (raw) => {
-      if (!Array.isArray(raw)) throw new Error(`literalToValue: schema type "arr<bool>" but got ${typeof raw}`);
+      if (!Array.isArray(raw)) throw new StateError('InvalidLiteral', `literalToValue: schema type "arr<bool>" but got ${typeof raw}`);
       return buildArrayBoolean(raw.map((v) => {
-        if (typeof v !== 'boolean') throw new Error(`literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
+        if (typeof v !== 'boolean') throw new StateError('InvalidLiteral', `literalToValue: arr<bool> element is ${typeof v} (${JSON.stringify(v)})`);
         return buildBoolean(v);
       }));
     },
@@ -245,7 +250,7 @@ const schemaTypeTable: Record<string, SchemaTypeEntry> = {
 
 function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
   const entry = schemaTypeTable[schemaType];
-  if (!entry) throw new Error(`StateManager: unknown schema type "${schemaType}"`);
+  if (!entry) throw new StateError('UnknownSchemaType', `unknown schema type "${schemaType}"`);
   return entry.guard(value);
 }
 
@@ -292,16 +297,20 @@ export function stateManagerFromStrict(
   for (const key of Object.keys(initial)) {
     assertSafePath(key);
     if (!validPaths.has(key)) {
-      throw new Error(
-        `StateManager: unknown initial path "${key}". Valid paths: ${[...validPaths].join(', ')}`,
+      throw new StateError(
+        'UnknownPath',
+        `unknown initial path "${key}". Valid paths: ${[...validPaths].join(', ')}`,
+        key,
       );
     }
     if (typeMap !== undefined) {
       const expectedType = typeMap.get(key);
       const value = initial[key];
       if (expectedType !== undefined && value !== undefined && !matchesSchemaType(value, expectedType)) {
-        throw new Error(
-          `StateManager: type mismatch in initial state for "${key}": expected ${expectedType}, got ${value.symbol}`,
+        throw new StateError(
+          'TypeMismatch',
+          `type mismatch in initial state for "${key}": expected ${expectedType}, got ${value.symbol}`,
+          key,
         );
       }
     }
@@ -334,14 +343,18 @@ export function stateManagerFromSchema(
   for (const [path, value] of Object.entries(overrides)) {
     assertSafePath(path);
     if (!validPaths.has(path)) {
-      throw new Error(
-        `StateManager: unknown override path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+      throw new StateError(
+        'UnknownPath',
+        `unknown override path "${path}". Valid paths: ${[...validPaths].join(', ')}`,
+        path,
       );
     }
     const expectedType = typeMap.get(path);
     if (expectedType !== undefined && !matchesSchemaType(value, expectedType)) {
-      throw new Error(
-        `StateManager: type mismatch in override for "${path}": expected ${expectedType}, got ${value.symbol}`,
+      throw new StateError(
+        'TypeMismatch',
+        `type mismatch in override for "${path}": expected ${expectedType}, got ${value.symbol}`,
+        path,
       );
     }
   }
@@ -390,7 +403,7 @@ function literalToValue(
     return buildNull('missing');
   }
   const entry = schemaTypeTable[type];
-  if (!entry) throw new Error(`literalToValue: unknown schema type "${type}"`);
+  if (!entry) throw new StateError('UnknownSchemaType', `literalToValue: unknown schema type "${type}"`);
   return entry.build(raw);
 }
 

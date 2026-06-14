@@ -57,6 +57,6 @@ export function isValueBuilderError(
   return (
     error instanceof Error &&
     'kind' in error &&
-    VALUE_BUILDER_ERROR_KINDS.has((error as { kind: unknown }).kind as string)
+    VALUE_BUILDER_ERROR_KINDS.has(typeof error.kind === 'string' ? error.kind : '')
   );
 }
