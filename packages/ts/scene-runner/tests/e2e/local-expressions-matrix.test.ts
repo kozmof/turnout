@@ -10,7 +10,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { runServerHarness as runHarness } from "../../src/server/index.js";
@@ -49,7 +49,7 @@ beforeAll(() => {
         // GOCACHE is not present in the environment when the go shim injects it
         // via `island run -p go-workspace` — direct binary invocations fall back
         // to ~/.cache/go-build, which is Landlock-restricted in the sandbox.
-        GOCACHE: process.env.GOCACHE ?? resolve(converterDir, "../../../.go-cache"),
+        GOCACHE: process.env.GOCACHE ?? (existsSync("/workspace") ? resolve(converterDir, "../../../.go-cache") : join(homedir(), ".cache", "go-build")),
       },
     },
   );

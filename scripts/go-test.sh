@@ -13,7 +13,16 @@ fi
 # GOCACHE is not injected by island(1). Set it explicitly so builds and tests
 # always use the writable workspace cache instead of ~/.cache/go-build, which
 # is Landlock-restricted in the sandbox.
-export GOCACHE="${GOCACHE:-/workspace/.go-cache}"
+# /workspace is present and writable in the local sandbox but does not exist
+# in CI (GitHub Actions), so fall back to the standard user cache there.
+if [ -z "${GOCACHE:-}" ]; then
+  if [ -w /workspace ]; then
+    GOCACHE=/workspace/.go-cache
+  else
+    GOCACHE="${HOME}/.cache/go-build"
+  fi
+  export GOCACHE
+fi
 
 cd packages/go/converter
 
