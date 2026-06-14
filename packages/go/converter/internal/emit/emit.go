@@ -21,8 +21,15 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 // Emit writes canonical plain HCL to w from the validated proto model.
-// Returns a diagnostic if an IO error occurs during writing.
-func Emit(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
+// Returns a diagnostic if an IO error occurs during writing, or if an internal
+// compiler bug is detected during emission (e.g. an unexpected structpb kind).
+func Emit(w io.Writer, tm *turnoutpb.TurnModel) (ds diag.Diagnostics) {
+	defer func() {
+		if r := recover(); r != nil {
+			ds = diag.Diagnostics{diag.Errorf(diag.CodeInternalError,
+				"emit internal error: %v — this is a compiler bug; please report the source file", r)}
+		}
+	}()
 	if tm == nil {
 		return nil
 	}
@@ -226,6 +233,18 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 	iw.wl("}")
 }
 
+// eotCollides reports whether "EOT" would collide with any indented content line.
+// Used by chooseHeredocDelim's fast path to avoid allocation when EOT is safe.
+func eotCollides(text, indent string) bool {
+	marker := indent + "EOT"
+	for line := range strings.SplitSeq(text, "\n") {
+		if indent+line == marker {
+			return true
+		}
+	}
+	return false
+}
+
 // chooseHeredocDelim picks a safe closing delimiter for a <<- heredoc whose
 // content lines will be prefixed with indent. Uses a two-phase approach:
 // Phase 1 checks "EOT" with a linear scan (no allocation) since it almost
@@ -233,15 +252,10 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 // then checks the remaining candidates and a hash-based fallback.
 // Returns an error only if no non-colliding delimiter can be found.
 func chooseHeredocDelim(text, indent string) (string, error) {
-	eotMarker := indent + "EOT"
-	for line := range strings.SplitSeq(text, "\n") {
-		if indent+line == eotMarker {
-			goto slowPath
-		}
+	if !eotCollides(text, indent) {
+		return "EOT", nil
 	}
-	return "EOT", nil
 
-slowPath:
 	lines := strings.Split(text, "\n")
 	lineSet := make(map[string]bool, len(lines))
 	for _, l := range lines {

@@ -49,7 +49,18 @@ export type ActionWarning =
       actualType: string;
       message: string;
     }
-  | { kind: "merge_warning"; message: string };
+  | { kind: "merge_warning"; message: string }
+  | {
+      /**
+       * Emitted when merge entries write to a StateManager that has no schema
+       * (created via `stateManagerFromUnchecked`). Writes succeed but path and
+       * type correctness are not enforced — typo'd paths silently produce null
+       * reads on subsequent steps.
+       */
+      kind: "unchecked_state_write";
+      writtenPaths: string[];
+      message: string;
+    };
 
 export type SceneWarning = {
   kind: "duplicate_enqueue";

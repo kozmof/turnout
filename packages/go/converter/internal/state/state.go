@@ -209,7 +209,7 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Sche
 	if parseDiags.HasErrors() {
 		var ds diag.Diagnostics
 		for _, pd := range parseDiags {
-			ds = append(ds, diag.Errorf(stateFileParseCode(pd), "%s", pd.Message))
+			ds = append(ds, diag.ErrorAt(pd.File, pd.Line, pd.Col, stateFileParseCode(pd), "%s", pd.Message))
 		}
 		return Schema{}, nil, ds
 	}

@@ -139,10 +139,10 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 	case *ast.StateFileDirective:
 		if len(schema.Namespaces()) == 0 {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-				"state_file %q: schema was not pre-loaded; use LowerResolvingState()", s.Path))
+				"state_file %q: schema was not pre-resolved; the caller must resolve the state schema before lowering", s.Path))
 		} else if len(order) == 0 {
 			ds.Append(diag.Errorf(diag.CodeDeclarationOrderLost,
-				"state_file %q: field declaration order cannot be preserved; use LowerResolvingState()", s.Path))
+				"state_file %q: field declaration order cannot be preserved; the caller must supply the schema order from state.ResolveWithOrder", s.Path))
 		}
 		return lowerStateBlockFromSchema(schema, order, ds)
 	case nil:
@@ -188,6 +188,11 @@ type orderedNsMap struct {
 	seen  map[string]bool // "ns.field" keys appended so far; prevents silent duplicate fields
 }
 
+// appendField adds a field to the ordered namespace map. It is idempotent:
+// a duplicate key is silently dropped. Callers that want to emit a diagnostic
+// for duplicates (e.g. lowerStateBlockFromAST) must check m.seen[key] before
+// calling and emit the diagnostic themselves; this function only guards against
+// double-insertion — it does not produce diagnostics.
 func (m *orderedNsMap) appendField(nsName, fieldName string, meta state.FieldMeta) {
 	key := nsName + "." + fieldName
 	if m.seen[key] {

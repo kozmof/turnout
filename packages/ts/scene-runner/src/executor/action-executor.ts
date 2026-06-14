@@ -138,7 +138,8 @@ export async function executeAction(
       );
     }
   }
-  if (Object.keys(mergeBatch).length > 0) {
+  const mergedPaths = Object.keys(mergeBatch);
+  if (mergedPaths.length > 0) {
     mergedState = mergedState.writeBatch(mergeBatch);
   }
 
@@ -162,6 +163,9 @@ export async function executeAction(
     }
   }
 
+  const uncheckedWritePaths =
+    !state.isSchemaManaged() && mergedPaths.length > 0 ? mergedPaths : undefined;
+
   return {
     actionId: action.id,
     computeRootValue,
@@ -169,5 +173,6 @@ export async function executeAction(
     stateAfterMerge: mergedState,
     publishOutcomes,
     ...(mergeWarnings.length > 0 ? { mergeWarnings } : {}),
+    ...(uncheckedWritePaths !== undefined ? { uncheckedWritePaths } : {}),
   };
 }

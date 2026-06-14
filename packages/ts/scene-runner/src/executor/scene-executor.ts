@@ -67,10 +67,7 @@ type SceneRunState = {
   readonly sceneWarnings: SceneWarning[];
   stepCount: number;
   currentAction: string | undefined;
-  readonly ruleCtxCache: Map<
-    ProgModel,
-    Map<string, { builtCtx: BuiltContext; validCtx: ValidatedContext }>
-  >;
+  readonly ruleCtxCache: RuleCtxCache;
 };
 
 function createRunState(initialState: StateManager, entryActions: string[]): SceneRunState {
@@ -85,7 +82,7 @@ function createRunState(initialState: StateManager, entryActions: string[]): Sce
     sceneWarnings: [],
     stepCount: 0,
     currentAction: undefined,
-    ruleCtxCache: new Map(),
+    ruleCtxCache: new RuleCtxCache(),
   };
 }
 
@@ -287,6 +284,18 @@ export function createSceneExecutor(
       ...(result.mergeWarnings ?? []).map(
         (message): ActionWarning => ({ kind: "merge_warning", message }),
       ),
+      ...(result.uncheckedWritePaths !== undefined
+        ? [
+            {
+              kind: "unchecked_state_write" as const,
+              writtenPaths: result.uncheckedWritePaths,
+              message:
+                `action "${actionId}": merge wrote to ${result.uncheckedWritePaths.length} path(s) ` +
+                `(${result.uncheckedWritePaths.join(", ")}) on an unchecked StateManager — ` +
+                `path and type correctness are not enforced; typo'd paths silently read as null`,
+            } satisfies ActionWarning,
+          ]
+        : []),
       ...nextWarnings,
     ];
     for (const w of allWarnings) {
@@ -413,10 +422,47 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
 
 type NextRulesResult = { matches: string[]; warnings: ActionWarning[] };
 
+type RuleCtxEntry = { builtCtx: BuiltContext; validCtx: ValidatedContext };
+
+/**
+ * Two-level FIFO cache for next-rule execution contexts, keyed by
+ * (ProgModel identity, serialised prepared-values string).
+ *
+ * The inner Map evicts at MAX_RULE_CTX_CACHE_ENTRIES entries per ProgModel;
+ * the outer Map evicts at MAX_RULE_CTX_CACHE_PROGS distinct ProgModels.
+ * Eviction fires before the cap is exceeded so the size never exceeds the limit.
+ */
+class RuleCtxCache {
+  private readonly outer = new Map<ProgModel, Map<string, RuleCtxEntry>>();
+
+  get(prog: ProgModel, key: string): RuleCtxEntry | undefined {
+    return this.outer.get(prog)?.get(key);
+  }
+
+  set(prog: ProgModel, key: string, value: RuleCtxEntry): void {
+    let inner = this.outer.get(prog);
+    if (!inner) {
+      inner = new Map();
+      this.outer.set(prog, inner);
+    }
+    inner.set(key, value);
+    // Evict oldest inner entry (FIFO) when per-ProgModel cap is reached.
+    if (inner.size >= MAX_RULE_CTX_CACHE_ENTRIES) {
+      inner.delete(inner.keys().next().value!);
+    }
+    // Evict oldest outer entry when distinct-ProgModel cap is reached.
+    if (this.outer.size >= MAX_RULE_CTX_CACHE_PROGS) {
+      this.outer.delete(this.outer.keys().next().value!);
+    }
+  }
+}
+
 function makePreparedKey(prepared: Record<string, AnyValue>): string | null {
   try {
     const parts: string[] = [];
-    for (const k of Object.keys(prepared).sort()) {
+    // Object.keys() returns keys in insertion order (the proto's NextPrepareEntry
+    // declaration order, which is stable and deterministic). No sort needed.
+    for (const k of Object.keys(prepared)) {
       const v = prepared[k];
       parts.push(`${k}\x00${v?.symbol ?? "null"}\x00${JSON.stringify(v?.value ?? null)}`);
     }
@@ -448,7 +494,7 @@ function evaluateNextRules(
   policy: NextPolicy,
   signal: AbortSignal,
   sceneId: string,
-  ruleCtxCache: Map<ProgModel, Map<string, { builtCtx: BuiltContext; validCtx: ValidatedContext }>>,
+  ruleCtxCache: RuleCtxCache,
 ): NextRulesResult {
   const rules = action.next ?? [];
   if (rules.length === 0) return { matches: [], warnings: [] };
@@ -481,41 +527,20 @@ function evaluateNextRules(
       let builtCtx: BuiltContext;
       let validated: ValidatedContext;
       if (prepare.length > 0) {
-        // Non-pure: check per-executor cache before rebuilding. The inner key is
-        // a compact encoding of the prepared-values map (see makePreparedKey).
-        let byPrepare = ruleCtxCache.get(rule.compute.prog);
-        // Build a compact, stable cache key. Returns null if serialisation
-        // fails (e.g. non-serialisable AnyValue extensions), in which case
-        // the cache is bypassed for this rule.
+        // Non-pure: check per-executor cache before rebuilding. The key is a
+        // compact encoding of the prepared-values map (see makePreparedKey).
+        // Returns null when serialisation fails or the key is too large — bypass
+        // the cache in those cases so stale entries are never reused.
         const prepKey = makePreparedKey(nextPrepared);
-        // Bypass cache when: key is un-serialisable (null) or too large.
         const bypassCache = prepKey === null || prepKey.length > MAX_PREP_CACHE_KEY_BYTES;
-        if (bypassCache) {
+        const cached = bypassCache ? undefined : ruleCtxCache.get(rule.compute.prog, prepKey!);
+        if (cached) {
+          ({ builtCtx, validCtx: validated } = cached);
+        } else {
           builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
           validated = builtCtx.getValidatedExec();
-        } else {
-          // prepKey is a non-null string here (bypassCache === false guards both null and overflow).
-          const key = prepKey!;
-          const cached = byPrepare?.get(key);
-          if (cached) {
-            ({ builtCtx, validCtx: validated } = cached);
-          } else {
-            builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
-            validated = builtCtx.getValidatedExec();
-            if (!byPrepare) {
-              byPrepare = new Map();
-              ruleCtxCache.set(rule.compute.prog, byPrepare);
-            }
-            byPrepare.set(key, { builtCtx, validCtx: validated });
-            // Evict oldest inner entry (FIFO) when per-ProgModel cap is exceeded.
-            if (byPrepare.size > MAX_RULE_CTX_CACHE_ENTRIES) {
-              byPrepare.delete(byPrepare.keys().next().value!);
-            }
-            // Evict oldest outer entry when the number of distinct ProgModels
-            // tracked exceeds the cap, bounding total executor memory usage.
-            if (ruleCtxCache.size > MAX_RULE_CTX_CACHE_PROGS) {
-              ruleCtxCache.delete(ruleCtxCache.keys().next().value!);
-            }
+          if (!bypassCache) {
+            ruleCtxCache.set(rule.compute.prog, prepKey!, { builtCtx, validCtx: validated });
           }
         }
       } else {

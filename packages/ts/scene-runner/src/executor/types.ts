@@ -15,4 +15,11 @@ export type ActionExecutionResult = {
   publishOutcomes: PublishHookOutcome[];
   /** Non-fatal warnings from applying merge entries (e.g. binding absent from compute result). */
   mergeWarnings?: string[];
+  /**
+   * Dotted-path keys written during this action's merge when the StateManager has no
+   * schema (created via `stateManagerFromUnchecked`). Present only when at least one
+   * path was written. Callers should surface this as an `unchecked_state_write` warning
+   * so trace consumers can detect unvalidated writes.
+   */
+  uncheckedWritePaths?: string[];
 };

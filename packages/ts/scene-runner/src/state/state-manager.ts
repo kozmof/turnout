@@ -125,17 +125,19 @@ export function stateManagerFromSchema(
   stateModel: StateModel,
   overrides: Record<string, AnyValue> = {},
 ): StateManager {
-  const defaults: Record<string, AnyValue> = {};
+  const state: Record<string, AnyValue> = {};
   const validPaths = new Set<string>();
   const typeMap = new Map<string, string>();
   for (const ns of stateModel.namespaces) {
     for (const field of ns.fields) {
       const path = `${ns.name}.${field.name}`;
-      defaults[path] = literalToValue(field.value, field.type);
+      state[path] = literalToValue(field.value, field.type);
       validPaths.add(path);
       typeMap.set(path, field.type);
     }
   }
+  // Validate and apply overrides in a single pass, writing directly into state
+  // so no second spread over overrides is needed.
   for (const [path, value] of Object.entries(overrides)) {
     assertSafePath(path);
     if (!validPaths.has(path)) {
@@ -153,8 +155,7 @@ export function stateManagerFromSchema(
         path,
       );
     }
+    state[path] = value;
   }
-  // make() spreads into a new object on every write, so the defaults reference
-  // is never exposed to callers — no freeze needed.
-  return make({ ...defaults, ...overrides }, validPaths, typeMap);
+  return make(state, validPaths, typeMap);
 }
