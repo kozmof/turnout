@@ -21,6 +21,8 @@ export type ServerHarnessOptions = {
   initialState: Record<string, AnyValue>;
   /** Optional hook implementations for from_hook prepare entries. */
   hooks?: HookRegistry;
+  /** Called instead of console.warn when the model has no STATE schema. */
+  onWarning?: (msg: string) => void;
   /**
    * Optional base directory that turnFile/jsonFile must stay within after path
    * resolution. Set this for request-facing or multi-tenant server usage.
@@ -79,5 +81,6 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
     entryId: options.entryId,
     initialState: options.initialState,
     hooks: options.hooks,
+    onWarning: options.onWarning,
   });
 }
