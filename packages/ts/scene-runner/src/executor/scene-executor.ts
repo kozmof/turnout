@@ -163,6 +163,12 @@ export type SceneExecutor = {
 /** Default maximum number of action steps before aborting to prevent infinite loops. */
 const DEFAULT_MAX_STEPS = 10_000;
 
+/** Maximum number of (prepared-values → context) entries kept per ProgModel in ruleCtxCache. */
+const MAX_RULE_CTX_CACHE_ENTRIES = 256;
+
+/** Serialised prepare-key strings longer than this bypass the cache to avoid huge Map keys. */
+const MAX_PREP_CACHE_KEY_BYTES = 65_536;
+
 // Module-level cache: SceneBlock is immutable once built, so the action map
 // derived from it never changes. Keyed by object identity via WeakMap so the
 // entry is GC'd when the scene is no longer referenced.
@@ -223,8 +229,8 @@ export function createSceneExecutor(
   async function next(): Promise<StepResult> {
     if (rs.queueHead >= rs.queue.length) return { done: true };
 
-    // Peek the next action id before any guard so currentActionId() is accurate
-    // even when MaxStepsExceeded is thrown — callers need it for error reporting.
+    // Peek the next action id before the maxSteps guard so currentActionId() is
+    // accurate when MaxStepsExceeded is thrown — callers need it for error reporting.
     rs.currentAction = rs.queue[rs.queueHead]!;
 
     rs.stepCount++;
@@ -242,6 +248,10 @@ export function createSceneExecutor(
     const action = actionMap[actionId];
     if (!action)
       throw new SceneRuntimeError("UnknownAction", scene.id, `unknown action "${actionId}"`);
+
+    // Confirm currentAction reflects an action that actually exists in the map,
+    // so currentActionId() is unambiguous in error handlers below this point.
+    rs.currentAction = actionId;
 
     const result = await executeAction(action, rs.currentState, hooks, scene.id, signal);
     rs.currentState = result.stateAfterMerge;
@@ -429,17 +439,29 @@ function evaluateNextRules(
         const prepKey = JSON.stringify(
           Object.entries(nextPrepared).sort(([a], [b]) => (a < b ? -1 : 1)),
         );
-        const cached = byPrepare?.get(prepKey);
-        if (cached) {
-          ({ builtCtx, validCtx: validated } = cached);
-        } else {
+        // Skip the cache when the serialised key is too large — avoids storing
+        // huge strings as Map keys for rules with oversized prepare payloads.
+        if (prepKey.length > MAX_PREP_CACHE_KEY_BYTES) {
           builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
           validated = builtCtx.getValidatedExec();
-          if (!byPrepare) {
-            byPrepare = new Map();
-            ruleCtxCache.set(rule.compute.prog, byPrepare);
+        } else {
+          const cached = byPrepare?.get(prepKey);
+          if (cached) {
+            ({ builtCtx, validCtx: validated } = cached);
+          } else {
+            builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
+            validated = builtCtx.getValidatedExec();
+            if (!byPrepare) {
+              byPrepare = new Map();
+              ruleCtxCache.set(rule.compute.prog, byPrepare);
+            }
+            byPrepare.set(prepKey, { builtCtx, validCtx: validated });
+            // Evict oldest entry (FIFO — Map iterates insertion order) when the
+            // cache grows beyond the cap to bound per-executor memory usage.
+            if (byPrepare.size > MAX_RULE_CTX_CACHE_ENTRIES) {
+              byPrepare.delete(byPrepare.keys().next().value!);
+            }
           }
-          byPrepare.set(prepKey, { builtCtx, validCtx: validated });
         }
       } else {
         // Pure: buildContextFromProg already caches via pureProgCtxCache.

@@ -71,13 +71,33 @@ func runConvert(args []string) int {
 		return runConvertToWriter(os.Stdout, inputPath, basePath, *format)
 	}
 
-	f, err := os.Create(outPath)
+	// Write to a temp file in the same directory so os.Rename is atomic on
+	// POSIX (same filesystem). On failure the temp file is removed, leaving
+	// any pre-existing outPath untouched.
+	tmp, err := os.CreateTemp(filepath.Dir(outPath), ".turnout-*.tmp")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "turnout: cannot create %s: %v\n", outPath, err)
 		return 1
 	}
-	defer f.Close()
-	return runConvertToWriter(f, inputPath, basePath, *format)
+	tmpName := tmp.Name()
+	success := false
+	defer func() {
+		if !success {
+			os.Remove(tmpName)
+		}
+	}()
+
+	code := runConvertToWriter(tmp, inputPath, basePath, *format)
+	tmp.Close()
+	if code != 0 {
+		return code
+	}
+	if err := os.Rename(tmpName, outPath); err != nil {
+		fmt.Fprintf(os.Stderr, "turnout: cannot write %s: %v\n", outPath, err)
+		return 1
+	}
+	success = true
+	return 0
 }
 
 func runConvertToWriter(w io.Writer, inputPath, basePath, format string) int {

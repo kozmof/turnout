@@ -149,6 +149,35 @@ scene "s" {
 	}
 }
 
+func TestRunConvertPartialOutputCleanedUpOnConversionError(t *testing.T) {
+	// An invalid .turn file that fails compilation.
+	path := writeTempTurnFile(t, "this is not valid turn syntax @@@")
+	dir := t.TempDir()
+	outPath := filepath.Join(dir, "out.json")
+
+	_, _, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{"-o", outPath, "-format", "json", path})
+	})
+
+	if rc != 1 {
+		t.Fatalf("runConvert() = %d, want 1 (conversion must fail)", rc)
+	}
+	// The output file must not exist — the temp file must have been removed.
+	if _, err := os.Stat(outPath); err == nil {
+		t.Fatalf("output file %q exists after failed conversion, want it absent", outPath)
+	}
+	// No leftover .tmp files in the output directory.
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatalf("ReadDir(%q): %v", dir, err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".tmp") {
+			t.Fatalf("leftover temp file %q found after failed conversion", e.Name())
+		}
+	}
+}
+
 func TestPrintDiagsWritesOneLinePerDiagnostic(t *testing.T) {
 	stdout, stderr, _ := captureProcessIO(t, func() int {
 		printDiags(diag.Diagnostics{
