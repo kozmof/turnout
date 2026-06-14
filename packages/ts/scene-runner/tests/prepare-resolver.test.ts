@@ -312,17 +312,18 @@ describe("resolveNextPrepare", () => {
     expect(isArray(result["flags"]!)).toBe(true);
   });
 
-  it("from_literal handles empty array (no element type to infer)", () => {
+  it("from_literal rejects empty array (element type cannot be inferred)", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
-    const result = resolveNextPrepare(
-      [
-        { binding: "empty", fromLiteral: [] as unknown as number[] },
-      ] as unknown as NextPrepareEntry[],
-      state,
-      prevResult,
-    );
-    expect(isArray(result["empty"]!)).toBe(true);
+    expect(() =>
+      resolveNextPrepare(
+        [
+          { binding: "empty", fromLiteral: [] as unknown as number[] },
+        ] as unknown as NextPrepareEntry[],
+        state,
+        prevResult,
+      ),
+    ).toThrow(expect.objectContaining({ code: "InvalidHookValue" }));
   });
 
   it("from_literal converts nullish or object values to unknown null", () => {

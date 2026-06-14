@@ -3,7 +3,16 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
+    "build": "tsc --project tsconfig.build.json",
     "gen:fn-map": "node --experimental-strip-types ../../../../scripts/gen-fn-map.ts",
     "lint": "oxlint src/",
     "fmt": "oxfmt",

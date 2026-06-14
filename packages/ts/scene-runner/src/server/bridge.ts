@@ -1,10 +1,12 @@
 // Node.js only — uses child_process and fs.
-import { execFileSync } from "node:child_process";
+import { execFile } from "node:child_process";
 import { accessSync, constants, readFileSync } from "node:fs";
+import { sep } from "node:path";
+import { resolve as resolvePath } from "node:path";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
 import { TurnModelSchema } from "../types/turnout-model_pb.js";
-import { LoadError, BridgeError } from "./errors.js";
+import { BridgeError, HarnessError, LoadError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -20,6 +22,64 @@ const CONVERT_TIMEOUT_MS = 60_000;
 const CONVERT_MAX_BUFFER = 64 * 1024 * 1024;
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Public options type
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type BridgeOptions = {
+  /**
+   * Override the `turnout` binary path. When set, binary auto-discovery is
+   * skipped entirely — useful for testing or when the binary is at a known path.
+   */
+  binPath?: string;
+  /**
+   * When `true`, the JSON parser runs in strict mode and emits `console.warn`
+   * for unknown fields in the model. Defaults to `false`.
+   * Pass `true` in development/CI to catch schema-drift early.
+   */
+  strictParse?: boolean;
+  /**
+   * When set, all file paths are resolved against this base directory. Paths
+   * that resolve outside the base throw `HarnessError("PathOutsideBase")`.
+   * Recommended for multi-tenant or request-facing server usage.
+   */
+  safeBaseDir?: string;
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Path safety helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+function assertPathInside(filePath: string, baseDir: string): void {
+  const resolved = resolvePath(filePath);
+  const base = resolvePath(baseDir);
+  if (resolved !== base && !resolved.startsWith(base + sep)) {
+    throw new HarnessError(
+      "PathOutsideBase",
+      `path "${filePath}" is outside allowed base directory "${baseDir}"`,
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Async execFile wrapper
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ExecResult = { stdout: Buffer; stderr: Buffer };
+
+function execFileAsync(
+  bin: string,
+  args: string[],
+  options: { timeout?: number; maxBuffer?: number },
+): Promise<ExecResult> {
+  return new Promise((resolve, reject) => {
+    execFile(bin, args, { ...options, encoding: "buffer" }, (err, stdout, stderr) => {
+      if (err) reject(err);
+      else resolve({ stdout: stdout as Buffer, stderr: stderr as Buffer });
+    });
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // File loading
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -27,11 +87,10 @@ const CONVERT_MAX_BUFFER = 64 * 1024 * 1024;
  * Read a `.turn` file from disk and return its raw content as a string.
  * Server-only (uses Node.js `fs`).
  *
- * @security Callers are responsible for validating `filePath` before passing it
- * here. In a multi-tenant server context, restrict to an allowed base directory
- * using `path.resolve` + `startsWith` before calling this function.
+ * Pass `options.safeBaseDir` to restrict which paths may be read.
  */
-export function loadTurnFile(filePath: string): string {
+export function loadTurnFile(filePath: string, options?: BridgeOptions): string {
+  if (options?.safeBaseDir) assertPathInside(filePath, options.safeBaseDir);
   try {
     return readFileSync(filePath, "utf8");
   } catch (err: unknown) {
@@ -41,56 +100,41 @@ export function loadTurnFile(filePath: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Binary resolution (memoized)
+// Binary resolution (memoized, async)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/**
- * Returns a pair of `[resolveTurnoutBin, resetForTesting]`.
- * The cached path lives inside the closure — no module-level mutable state.
- */
-function makeBinResolver(): [() => string, () => void] {
-  let cached: string | undefined;
+// Cached as a Promise so concurrent callers all await the same discovery run.
+let cachedBin: Promise<string> | undefined;
 
-  function resolve(): string {
-    if (cached !== undefined) return cached;
-    if (process.env.TURNOUT_BIN) {
-      cached = process.env.TURNOUT_BIN;
-      return cached;
-    }
-
-    try {
-      // Check if turnout is on PATH
-      execFileSync("turnout", ["--help"], { stdio: "ignore", timeout: BIN_PROBE_TIMEOUT_MS });
-      cached = "turnout";
-      return cached;
-    } catch {
-      // Fall back to the locally-built binary in the Go converter package.
-      const goConverterDir = new URL("../../../../go/converter", import.meta.url).pathname;
-      const binPath = `${goConverterDir}/cmd/turnout/turnout`;
-      try {
-        accessSync(binPath, constants.X_OK);
-      } catch {
-        throw new BridgeError(
-          "BinaryNotFound",
-          binPath,
-          `turnout binary not found. Run: cd ${goConverterDir} && go build ./cmd/turnout`,
-        );
-      }
-      cached = binPath;
-      return cached;
-    }
+async function discoverBin(): Promise<string> {
+  if (process.env.TURNOUT_BIN) {
+    return process.env.TURNOUT_BIN;
   }
 
-  return [resolve, () => { cached = undefined; }];
+  try {
+    await execFileAsync("turnout", ["--help"], { timeout: BIN_PROBE_TIMEOUT_MS });
+    return "turnout";
+  } catch {
+    // Fall back to the locally-built binary in the Go converter package.
+    const goConverterDir = new URL("../../../../go/converter", import.meta.url).pathname;
+    const binPath = `${goConverterDir}/cmd/turnout/turnout`;
+    try {
+      accessSync(binPath, constants.X_OK);
+    } catch {
+      throw new BridgeError(
+        "BinaryNotFound",
+        binPath,
+        `turnout binary not found. Run: cd ${goConverterDir} && go build ./cmd/turnout`,
+      );
+    }
+    return binPath;
+  }
 }
 
-const [resolveTurnoutBin, _resetBinCacheForTesting] = makeBinResolver();
-
-/**
- * Reset the memoized binary path.
- * Exposed for test isolation only — do not call in production code.
- */
-export { _resetBinCacheForTesting };
+async function resolveTurnoutBin(): Promise<string> {
+  if (cachedBin === undefined) cachedBin = discoverBin();
+  return cachedBin;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Converter invocation
@@ -98,22 +142,24 @@ export { _resetBinCacheForTesting };
 
 /**
  * Invoke the Go converter on a .turn file and return the parsed TurnModel.
- * Requires the `turnout` binary to be on PATH (run `go install` from the
- * converter package, or use `go build` to place it on PATH).
+ * Requires the `turnout` binary to be on PATH, or set `TURNOUT_BIN`, or pass
+ * `options.binPath` to specify the binary directly.
  *
- * @security Callers are responsible for validating `turnFilePath` before passing
- * it here. In a multi-tenant server context, restrict to an allowed base
- * directory using `path.resolve` + `startsWith` before calling this function.
+ * Pass `options.safeBaseDir` to restrict which paths may be converted.
  */
-export function runConverter(turnFilePath: string): TurnModel {
-  const bin = resolveTurnoutBin();
-  let output: Buffer;
+export async function runConverter(
+  turnFilePath: string,
+  options?: BridgeOptions,
+): Promise<TurnModel> {
+  if (options?.safeBaseDir) assertPathInside(turnFilePath, options.safeBaseDir);
+  const bin = options?.binPath ?? (await resolveTurnoutBin());
+  let stdout: Buffer;
   try {
-    output = execFileSync(bin, ["convert", "-o", "-", "-format", "json", turnFilePath], {
-      encoding: "buffer",
-      timeout: CONVERT_TIMEOUT_MS,
-      maxBuffer: CONVERT_MAX_BUFFER,
-    });
+    ({ stdout } = await execFileAsync(
+      bin,
+      ["convert", "-o", "-", "-format", "json", turnFilePath],
+      { timeout: CONVERT_TIMEOUT_MS, maxBuffer: CONVERT_MAX_BUFFER },
+    ));
   } catch (err: unknown) {
     if (err instanceof RangeError) {
       throw new BridgeError(
@@ -129,7 +175,7 @@ export function runConverter(turnFilePath: string): TurnModel {
       `turnout converter failed for "${turnFilePath}": ${msg}`,
     );
   }
-  return parseJSON(output.toString("utf8"), turnFilePath);
+  return parseJSON(stdout.toString("utf8"), turnFilePath, options?.strictParse ?? false);
 }
 
 /**
@@ -137,19 +183,21 @@ export function runConverter(turnFilePath: string): TurnModel {
  * output as a string.
  * Server-only (requires the `turnout` binary and Node.js `child_process`).
  *
- * @security Callers are responsible for validating `turnFilePath` before passing
- * it here. In a multi-tenant server context, restrict to an allowed base
- * directory using `path.resolve` + `startsWith` before calling this function.
+ * Pass `options.safeBaseDir` to restrict which paths may be converted.
  */
-export function convertToHCL(turnFilePath: string): string {
-  const bin = resolveTurnoutBin();
+export async function convertToHCL(
+  turnFilePath: string,
+  options?: BridgeOptions,
+): Promise<string> {
+  if (options?.safeBaseDir) assertPathInside(turnFilePath, options.safeBaseDir);
+  const bin = options?.binPath ?? (await resolveTurnoutBin());
+  let stdout: Buffer;
   try {
-    const output = execFileSync(bin, ["convert", "-o", "-", "-format", "hcl", turnFilePath], {
-      encoding: "buffer",
-      timeout: CONVERT_TIMEOUT_MS,
-      maxBuffer: CONVERT_MAX_BUFFER,
-    });
-    return output.toString("utf8");
+    ({ stdout } = await execFileAsync(
+      bin,
+      ["convert", "-o", "-", "-format", "hcl", turnFilePath],
+      { timeout: CONVERT_TIMEOUT_MS, maxBuffer: CONVERT_MAX_BUFFER },
+    ));
   } catch (err: unknown) {
     if (err instanceof RangeError) {
       throw new BridgeError(
@@ -165,6 +213,7 @@ export function convertToHCL(turnFilePath: string): string {
       `turnout converter failed for "${turnFilePath}": ${msg}`,
     );
   }
+  return stdout.toString("utf8");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -175,12 +224,11 @@ export function convertToHCL(turnFilePath: string): string {
  * Load a pre-converted JSON model file, skipping the Go converter.
  * Useful for faster test runs after the initial conversion.
  *
- * This is the preferred entry point for environments without `child_process`
- * (browsers, edge functions, WASM hosts): convert the model ahead of time with
- * `runConverter` in a Node build step, then use `loadJsonModel` at runtime to
- * deserialize the JSON without spawning any sub-process.
+ * Pass `options.strictParse = true` to surface unknown fields as warnings.
+ * Pass `options.safeBaseDir` to restrict which paths may be read.
  */
-export function loadJsonModel(jsonFilePath: string): TurnModel {
+export function loadJsonModel(jsonFilePath: string, options?: BridgeOptions): TurnModel {
+  if (options?.safeBaseDir) assertPathInside(jsonFilePath, options.safeBaseDir);
   let raw: string;
   try {
     raw = readFileSync(jsonFilePath, "utf8");
@@ -192,18 +240,14 @@ export function loadJsonModel(jsonFilePath: string): TurnModel {
       `Cannot read JSON model "${jsonFilePath}": ${msg}`,
     );
   }
-  return parseJSON(raw, jsonFilePath);
+  return parseJSON(raw, jsonFilePath, options?.strictParse ?? false);
 }
 
-function parseJSON(raw: string, source: string): TurnModel {
-  // In non-production environments, surface unknown fields as warnings so that
-  // schema-migration bugs are visible during development.
-  if (process.env.NODE_ENV !== "production") {
+function parseJSON(raw: string, source: string, strict: boolean): TurnModel {
+  if (strict) {
     try {
       fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject, { ignoreUnknownFields: false });
     } catch (err: unknown) {
-      // Only warn — don't throw here; the strict parse is just for diagnostics.
-      // The lenient re-parse below is the authoritative one.
       if (err instanceof Error && !err.message.includes("SyntaxError")) {
         console.warn(`[turnout] Unknown fields in model from "${source}": ${err.message}`);
       }

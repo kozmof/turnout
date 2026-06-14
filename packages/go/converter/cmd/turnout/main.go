@@ -18,14 +18,28 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "convert":
-		os.Exit(runConvert(os.Args[2:]))
+		os.Exit(safeRun(func() int { return runConvert(os.Args[2:]) }))
 	case "validate":
-		os.Exit(runValidate(os.Args[2:]))
+		os.Exit(safeRun(func() int { return runValidate(os.Args[2:]) }))
 	default:
 		fmt.Fprintf(os.Stderr, "turnout: unknown command %q\n", os.Args[1])
 		printUsage()
 		os.Exit(1)
 	}
+}
+
+// safeRun executes fn and recovers from any panic, printing a user-friendly
+// "internal error" message to stderr and returning exit code 2.
+// Panics in the converter internals indicate compiler bugs; this wrapper
+// prevents them from crashing the process with a raw stack trace.
+func safeRun(fn func() int) (exitCode int) {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Fprintf(os.Stderr, "turnout: internal error (please report this bug): %v\n", r)
+			exitCode = 2
+		}
+	}()
+	return fn()
 }
 
 func printUsage() {

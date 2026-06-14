@@ -126,10 +126,16 @@ function inferLiteralValue(lit: unknown): AnyValue {
   if (typeof v === "boolean") return literalToValue(v, "bool");
   if (Array.isArray(v)) {
     const first = v[0];
+    if (first === undefined) {
+      throw new PrepareError(
+        "InvalidHookValue",
+        "(literal)",
+        "cannot infer element type of empty literal array in from_literal — use a named binding with a declared type instead",
+      );
+    }
     if (typeof first === "number") return literalToValue(v, "arr<number>");
     if (typeof first === "string") return literalToValue(v, "arr<str>");
     if (typeof first === "boolean") return literalToValue(v, "arr<bool>");
-    // Empty array — no element type to infer; return a typed empty array value.
     return buildArray([]);
   }
   return buildNull("unknown");

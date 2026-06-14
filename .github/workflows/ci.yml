@@ -43,6 +43,9 @@ jobs:
       - name: Check Go FieldType initialization
         run: pnpm run check:fieldtype
 
+      - name: Build
+        run: pnpm run build
+
       - name: Typecheck
         run: pnpm run typecheck
 

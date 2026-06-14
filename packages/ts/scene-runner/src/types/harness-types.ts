@@ -86,10 +86,35 @@ export type ExecutionOptions = {
   signal?: AbortSignal;
   /**
    * Optional callback invoked for non-fatal runner warnings (e.g. missing STATE schema).
-   * Defaults to no-op. Pass `console.warn` to restore console logging.
+   * Defaults to `console.warn`. Pass `() => {}` to suppress all warnings.
    */
   onWarning?: (msg: string) => void;
+  /**
+   * Optional structured execution log callback. Called for key lifecycle events:
+   * scene/action start and completion, route transitions, and runtime warnings.
+   * No-op when absent. Wire to your own logger or metrics system.
+   *
+   * @example
+   * createRunner(model, { entryId: 'main', initialState: {}, onLog: console.log });
+   */
+  onLog?: (event: LogEvent) => void;
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Log events
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Discriminated union of structured log events emitted during execution.
+ * Consumed via `ExecutionOptions.onLog`.
+ */
+export type LogEvent =
+  | { kind: "scene-start"; sceneId: string; entryActions: string[] }
+  | { kind: "action-start"; sceneId: string; actionId: string; stepIndex: number }
+  | { kind: "action-complete"; sceneId: string; actionId: string; trace: ActionTrace }
+  | { kind: "scene-complete"; sceneId: string; terminatedAt: string[] }
+  | { kind: "route-transition"; fromSceneId: string; toSceneId: string }
+  | { kind: "warning"; sceneId?: string; actionId?: string; message: string };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Harness options — universal (client + server)

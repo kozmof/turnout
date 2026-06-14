@@ -247,6 +247,8 @@ export function createSceneRunner(
 
   checkSceneForExtExpr(scene);
 
+  const { onLog } = options;
+
   const sceneExecutor: SceneExecutor = createSceneExecutor(
     scene,
     state,
@@ -254,18 +256,28 @@ export function createSceneRunner(
     undefined,
     options.maxSceneSteps,
     signal,
+    onLog,
   );
 
   let done = false;
+  let sceneStartEmitted = false;
 
   async function advanceScene(): Promise<RunnerStepResult> {
+    if (!sceneStartEmitted) {
+      sceneStartEmitted = true;
+      onLog?.({ kind: "scene-start", sceneId: scene.id, entryActions: scene.entryActions });
+    }
     if (sceneExecutor.isDone()) {
       done = true;
+      const res = sceneExecutor.result();
+      onLog?.({ kind: "scene-complete", sceneId: scene.id, terminatedAt: res.terminatedAt });
       return { done: true };
     }
     const step = await sceneExecutor.next();
     if (step.done) {
       done = true;
+      const res = sceneExecutor.result();
+      onLog?.({ kind: "scene-complete", sceneId: scene.id, terminatedAt: res.terminatedAt });
       return { done: true };
     }
     return {
@@ -327,6 +339,8 @@ export function createRouteRunner(
   checkSceneForExtExpr(entryScene);
   for (const s of Object.values(sceneMap)) checkSceneForExtExpr(s);
 
+  const { onLog } = options;
+
   const routeStepper: RouteStepper = createRouteStepper(
     route.id,
     parseMatchArms(route.match),
@@ -337,6 +351,7 @@ export function createRouteRunner(
     options.maxSceneSteps,
     options.maxRouteTransitions,
     signal,
+    onLog,
   );
 
   type RouteAdvanceState =
@@ -372,6 +387,7 @@ export function createRouteRunner(
     // Emit a scene-transition event before the first action of a new scene.
     if (step.sceneId !== advState.prevSceneId) {
       const fromSceneId = advState.prevSceneId;
+      onLog?.({ kind: "route-transition", fromSceneId, toSceneId: step.sceneId });
       advState = {
         kind: "transition-emitted",
         pendingAction: { sceneId: step.sceneId, trace: step.trace },
@@ -443,7 +459,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   if (!migratedModel.state) {
-    (options.onWarning ?? (() => {}))(
+    (options.onWarning ?? console.warn)(
       "[turnout] No STATE schema in model — using unchecked StateManager. " +
         "Merge typos will silently produce null values.",
     );

@@ -3,6 +3,7 @@
     "generate": "sh scripts/generate-proto.sh",
     "check:proto": "sh scripts/check-proto.sh",
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
+    "build": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --project tsconfig.build.json) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --project tsconfig.build.json)",
     "typecheck": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --noEmit) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --noEmit)",
     "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run) && sh scripts/go-test.sh test",
     "lint": "(cd packages/ts/runtime && ./node_modules/.bin/oxlint src/) && (cd packages/ts/scene-runner && ./node_modules/.bin/oxlint src/)",

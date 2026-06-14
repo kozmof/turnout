@@ -36,7 +36,7 @@ describe("runServerHarness", () => {
   });
 
   it("loads model from turnFile via runConverter", async () => {
-    mockRunConverter.mockReturnValue(minimalModel);
+    mockRunConverter.mockResolvedValue(minimalModel);
 
     const result = await runServerHarness({
       turnFile: "my.turn",
@@ -63,7 +63,7 @@ describe("runServerHarness", () => {
   });
 
   it("resolves turnFile within allowedBaseDir before converting", async () => {
-    mockRunConverter.mockReturnValue(minimalModel);
+    mockRunConverter.mockResolvedValue(minimalModel);
 
     const result = await runServerHarness({
       turnFile: "/workspace/models/story.turn",

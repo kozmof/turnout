@@ -6,8 +6,16 @@
   "license": "MIT",
   "author": "",
   "type": "module",
-  "main": "src/index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "scripts": {
+    "build": "tsc --project tsconfig.build.json",
     "test": "vitest --run",
     "coverage": "vitest run --coverage",
     "lint": "oxlint src/",

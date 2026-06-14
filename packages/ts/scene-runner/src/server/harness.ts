@@ -64,7 +64,7 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
   }
 
   if (options.turnFile) {
-    model = runConverter(resolveHarnessPath(options.turnFile, options.allowedBaseDir));
+    model = await runConverter(resolveHarnessPath(options.turnFile, options.allowedBaseDir));
   } else if (options.jsonFile) {
     model = loadJsonModel(resolveHarnessPath(options.jsonFile, options.allowedBaseDir));
   } else {

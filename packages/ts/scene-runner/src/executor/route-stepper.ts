@@ -1,6 +1,6 @@
 import type { SceneBlock } from "../types/turnout-model_pb.js";
 import type { StateManager } from "../state/state-manager.js";
-import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace } from "../types/harness-types.js";
+import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace, LogEvent } from "../types/harness-types.js";
 import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
 import { selectNextScene } from "./route-pattern.js";
 import { createSceneExecutor } from "./scene-executor.js";
@@ -128,6 +128,7 @@ export function createRouteStepper(
   maxSceneSteps?: number,
   maxRouteTransitions?: number,
   signal: AbortSignal = new AbortController().signal,
+  onLog?: (event: LogEvent) => void,
 ): RouteStepper {
   const session = createRouteSession(
     routeId,
@@ -150,7 +151,9 @@ export function createRouteStepper(
     [firstEntryAction(initialScene, routeId)],
     maxSceneSteps,
     signal,
+    onLog,
   );
+  onLog?.({ kind: "scene-start", sceneId: initialScene.id, entryActions: [firstEntryAction(initialScene, routeId)] });
 
   async function next(): Promise<RouteStepResult> {
     for (;;) {
@@ -170,6 +173,7 @@ export function createRouteStepper(
 
       // Scene exhausted — finalise and attempt transition.
       const sceneResult = sceneExecutor.result();
+      onLog?.({ kind: "scene-complete", sceneId: session.currentSceneId, terminatedAt: sceneResult.terminatedAt });
       currentState = sceneResult.stateAfterScene;
       session.saveTrace(sceneResult.trace);
 
@@ -190,7 +194,9 @@ export function createRouteStepper(
         [firstEntryAction(nextScene, routeId)],
         maxSceneSteps,
         signal,
+        onLog,
       );
+      onLog?.({ kind: "scene-start", sceneId: nextScene.id, entryActions: [firstEntryAction(nextScene, routeId)] });
     }
   }
 

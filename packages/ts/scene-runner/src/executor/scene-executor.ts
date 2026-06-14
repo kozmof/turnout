@@ -9,6 +9,7 @@ import type {
   ActionWarning,
   SceneWarning,
   NextPolicy,
+  LogEvent,
 } from "../types/harness-types.js";
 import { executeAction } from "./action-executor.js";
 import { buildContextFromProg } from "./hcl-context-builder.js";
@@ -213,6 +214,7 @@ export function createSceneExecutor(
   entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
   signal: AbortSignal = UNABORTABLE,
+  onLog?: (event: LogEvent) => void,
 ): SceneExecutor {
   const actionMap = getActionMap(scene);
   const policy = parseNextPolicy(scene.nextPolicy, scene.id);
@@ -253,6 +255,8 @@ export function createSceneExecutor(
     // so currentActionId() is unambiguous in error handlers below this point.
     rs.currentAction = actionId;
 
+    onLog?.({ kind: "action-start", sceneId: scene.id, actionId, stepIndex: rs.stepCount });
+
     const result = await executeAction(action, rs.currentState, hooks, scene.id, signal);
     rs.currentState = result.stateAfterMerge;
 
@@ -273,6 +277,11 @@ export function createSceneExecutor(
       ),
       ...nextWarnings,
     ];
+    for (const w of allWarnings) {
+      onLog?.({ kind: "warning", sceneId: scene.id, actionId, message: w.message });
+    }
+
+    const prevSceneWarningCount = rs.sceneWarnings.length;
     const trace: ActionTrace = {
       actionId,
       computeRootValue: result.computeRootValue,
@@ -282,6 +291,12 @@ export function createSceneExecutor(
     };
     rs.actionTraces.push(trace);
     enqueueNext(nextIds, actionId, rs, policy);
+
+    for (let i = prevSceneWarningCount; i < rs.sceneWarnings.length; i++) {
+      onLog?.({ kind: "warning", sceneId: scene.id, message: rs.sceneWarnings[i]!.message });
+    }
+
+    onLog?.({ kind: "action-complete", sceneId: scene.id, actionId, trace });
 
     rs.currentAction = undefined;
     return { done: false, trace };
