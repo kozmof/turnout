@@ -10,6 +10,7 @@ import {
   ValueId,
   PipeStepBinding,
   PipeArgBinding,
+  PipeFuncDefTable,
   isArgMapEntry,
 } from "../../types";
 import {
@@ -39,11 +40,13 @@ export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
   pipeDefArgs: PipeArgSpec,
   argMap: FuncArgMap,
+  extraValueIds: readonly ValueId[] = [],
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
-  const expectedValueIds = getPipeArgNames(pipeDefArgs).map(
-    (argName) => argMap[createArgName(argName)],
-  );
+  const expectedValueIds = [
+    ...getPipeArgNames(pipeDefArgs).map((argName) => argMap[createArgName(argName)]),
+    ...extraValueIds,
+  ];
 
   for (const valueId of expectedValueIds) {
     if (!(valueId in scopedValueTable)) {
@@ -56,6 +59,7 @@ export function createScopedValueTable(
   argMap: FuncArgMap,
   pipeDefArgs: PipeArgSpec,
   sourceValueTable: ValueTable,
+  extraValueIds: readonly ValueId[] = [],
 ): ValueTable {
   const scopedValueTable: Partial<ValueTable> = {};
 
@@ -75,8 +79,16 @@ export function createScopedValueTable(
     scopedValueTable[valueId] = value;
   }
 
+  for (const valueId of extraValueIds) {
+    const value = sourceValueTable[valueId];
+    if (value === undefined) {
+      throw createMissingValueError(valueId);
+    }
+    scopedValueTable[valueId] = value;
+  }
+
   // Validate before returning
-  validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap);
+  validateScopedValueTable(scopedValueTable, pipeDefArgs, argMap, extraValueIds);
 
   return scopedValueTable;
 }
@@ -142,6 +154,37 @@ function resolveArgBinding(
       throw new Error(`Unknown binding source: ${String(_exhaustive)}`);
     }
   }
+}
+
+/**
+ * Collects direct value bindings that must remain visible inside pipe-local execution.
+ */
+function collectPipeValueBindings(
+  defId: PipeDefineId,
+  pipeFuncDefTable: Readonly<PipeFuncDefTable>,
+  visited: ReadonlySet<PipeDefineId> = new Set(),
+): ValueId[] {
+  if (visited.has(defId)) return [];
+  const def = pipeFuncDefTable[defId];
+  if (def === undefined) return [];
+
+  const nextVisited = new Set(visited);
+  nextVisited.add(defId);
+  const valueIds: ValueId[] = [];
+
+  for (const step of def.sequence) {
+    for (const binding of Object.values(step.argBindings)) {
+      if (binding.source === "value") {
+        valueIds.push(binding.id);
+      }
+    }
+
+    if (isPipeDefineId(step.defId, pipeFuncDefTable)) {
+      valueIds.push(...collectPipeValueBindings(step.defId, pipeFuncDefTable, nextVisited));
+    }
+  }
+
+  return [...new Set(valueIds)];
 }
 
 /**
@@ -263,8 +306,13 @@ export function executePipeFunc(
     throw createEmptySequenceError(funcId);
   }
 
-  // Create scoped value table with PipeFunc's input arguments
-  const scopedValueTable = createScopedValueTable(funcEntry.argMap, def.args, context.valueTable);
+  // Create scoped value table with PipeFunc's input arguments and literal value bindings.
+  const scopedValueTable = createScopedValueTable(
+    funcEntry.argMap,
+    def.args,
+    context.valueTable,
+    collectPipeValueBindings(defId, context.pipeFuncDefTable),
+  );
 
   type PipeStepAccumulator = {
     readonly currentValueTable: ValueTable;

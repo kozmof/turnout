@@ -212,18 +212,19 @@ describe("validateContext — coverage", () => {
         ...minContext(),
         valueTable: {
           vCond: { symbol: "boolean", value: true, subSymbol: undefined },
+          v1: { symbol: "number", value: 1, subSymbol: undefined },
         } as any,
         funcTable: {
           fT: {
             kind: "combine",
             defId: "pd1" as CombineDefineId,
-            argMap: {},
+            argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
             returnId: "vRT" as ValueId,
           },
           fF: {
             kind: "combine",
             defId: "pd1" as CombineDefineId,
-            argMap: {},
+            argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
             returnId: "vRF" as ValueId,
           },
           f1: {
@@ -1262,18 +1263,19 @@ describe("validateContext — coverage", () => {
         ...minContext(),
         valueTable: {
           vCond: { symbol: "boolean", value: true, subSymbol: undefined },
+          v1: { symbol: "number", value: 1, subSymbol: undefined },
         } as any,
         funcTable: {
           fT: {
             kind: "combine",
             defId: "pd1" as CombineDefineId,
-            argMap: {},
+            argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
             returnId: "vRT" as ValueId,
           },
           fF: {
             kind: "combine",
             defId: "pd1" as CombineDefineId,
-            argMap: {},
+            argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
             returnId: "vRF" as ValueId,
           },
         } as any,

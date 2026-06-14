@@ -186,6 +186,42 @@ describe("validateContext", () => {
       ).toBe(true);
     });
 
+    it("should detect missing required combine arguments", () => {
+      const context: ExecutionContext = {
+        valueTable: {
+          v1: { symbol: "number", value: 5, subSymbol: undefined },
+        } as any,
+        funcTable: {
+          f1: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: { a: "v1" as ValueId },
+            returnId: "v2" as ValueId,
+          },
+        } as any,
+        combineFuncDefTable: {
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: {
+              a: ["transformFnNumber::pass"],
+              b: ["transformFnNumber::pass"],
+            },
+          },
+        } as any,
+        pipeFuncDefTable: {} as any,
+        condFuncDefTable: {} as any,
+      };
+
+      const result = validateContext(context);
+
+      expect(result.valid).toBe(false);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes('Combine function requires argument "b"'),
+        ),
+      ).toBe(true);
+    });
+
     it("should detect invalid argument ID in argMap", () => {
       const context: ExecutionContext = {
         valueTable: {} as any,
@@ -545,6 +581,45 @@ describe("validateContext", () => {
         expect(result.valid).toBe(false);
         expect(
           result.errors.some((e) => e.message.includes("Invalid or unknown transform function")),
+        ).toBe(true);
+      });
+
+      it("should detect raw argument type mismatch with binary function input", () => {
+        const context: ExecutionContext = {
+          valueTable: {
+            v1: { symbol: "string", value: "5", subSymbol: undefined },
+            v2: { symbol: "number", value: 3, subSymbol: undefined },
+          } as any,
+          funcTable: {
+            f1: {
+              kind: "combine",
+              defId: "pd1" as CombineDefineId,
+              argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+              returnId: "v3" as ValueId,
+            },
+          } as any,
+          combineFuncDefTable: {
+            pd1: {
+              name: "binaryFnNumber::add",
+              transformFn: {
+                a: [],
+                b: [],
+              },
+            },
+          } as any,
+          pipeFuncDefTable: {} as any,
+          condFuncDefTable: {} as any,
+        };
+
+        const result = validateContext(context);
+
+        expect(result.valid).toBe(false);
+        expect(
+          result.errors.some(
+            (e) =>
+              e.message.includes('Argument resolves to type "string"') &&
+              e.message.includes('binary function "binaryFnNumber::add" expects "number"'),
+          ),
         ).toBe(true);
       });
 

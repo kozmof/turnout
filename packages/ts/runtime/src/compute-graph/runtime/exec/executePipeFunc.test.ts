@@ -228,6 +228,37 @@ describe("executePipeFunc", () => {
     expect(result.updatedValueTable["v_result" as ValueId]?.value).toBe(5);
   });
 
+  it("executes a pipe step with a direct value binding outside pipe inputs", () => {
+    const context = baseContext();
+    (context as { valueTable: typeof context.valueTable }).valueTable = {
+      ...context.valueTable,
+      v_const: { symbol: "number", value: 4, subSymbol: undefined, tags: [] },
+    } as any;
+    (context.funcTable as Record<string, unknown>)["pipe1" as FuncId] = {
+      kind: "pipe",
+      defId: "td_outer" as PipeDefineId,
+      argMap: { a: "v1" as ValueId },
+      returnId: "v_result" as ValueId,
+    };
+    (context.pipeFuncDefTable as Record<string, unknown>)["td_outer" as PipeDefineId] = {
+      args: { a: "ia-a" },
+      sequence: [
+        {
+          kind: "combine",
+          defId: "pd_add" as CombineDefineId,
+          argBindings: {
+            a: { source: "input", argName: "a" },
+            b: { source: "value", id: "v_const" as ValueId },
+          },
+        },
+      ],
+    };
+
+    const result = executePipeFunc("pipe1" as FuncId, "td_outer" as PipeDefineId, context);
+
+    expect(result.value.value).toBe(6);
+  });
+
   it("executes a nested pipe step recursively", () => {
     const context = baseContext();
     (context as { pipeFuncDefTable: typeof context.pipeFuncDefTable }).pipeFuncDefTable = {

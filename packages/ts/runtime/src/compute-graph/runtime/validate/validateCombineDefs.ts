@@ -1,12 +1,14 @@
 import type {
   FuncId,
   ValueId,
+  ArgName,
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
   BinaryFnNames,
   TransformFnNames,
 } from "../../types";
+import { createArgName } from "../../idValidation";
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
@@ -139,10 +141,30 @@ export function validateFuncEntry(
         state.referencedValues.add(argId);
       }
     }
+
+    if (entry.kind === "combine") {
+      validateRequiredCombineArgs(funcId, argMap, state);
+    }
   }
 
   if (entry.kind === "combine" && hasKey(context.combineFuncDefTable, defId)) {
     validateCombineFuncTypes(funcId, entry, defId, context, state);
+  }
+}
+
+function validateRequiredCombineArgs(
+  funcId: string,
+  argMap: Record<string, unknown>,
+  state: ValidationState,
+): void {
+  for (const argName of ["a", "b"] as const) {
+    const key: ArgName = createArgName(argName);
+    if (!(key in argMap)) {
+      state.errors.push({
+        message: `FuncTable[${funcId}].argMap: Combine function requires argument "${argName}"`,
+        details: { funcId, argName },
+      });
+    }
   }
 }
 
@@ -162,42 +184,66 @@ function validateCombineFuncTypes(
 
   const transformFn = def.transformFn;
   const argMap = "argMap" in funcEntry && isRecord(funcEntry.argMap) ? funcEntry.argMap : {};
+  const binaryFnName = "name" in def && isStringAs<BinaryFnNames>(def.name) ? def.name : null;
+  const paramTypes = binaryFnName ? getBinaryFnParamTypes(binaryFnName) : null;
 
   for (const [argName, fns] of Object.entries(transformFn)) {
-    if (!Array.isArray(fns) || fns.length === 0) continue;
-    const firstFn: unknown = fns[0];
-    if (!isStringAs<TransformFnNames>(firstFn)) continue;
-
-    const transformFnName = firstFn;
-    const expectedType = getTransformFnInputType(transformFnName);
+    if (argName !== "a" && argName !== "b") continue;
+    if (!Array.isArray(fns)) continue;
 
     const argId = argMap[argName];
     if (!isStringAs<ValueId | FuncId>(argId)) continue;
 
-    let actualType = state.typeEnv.get(argId);
+    let currentType = state.typeEnv.get(argId);
 
-    if (!actualType && isStringAs<FuncId>(argId) && funcIdExistsInContext(argId, context)) {
+    if (!currentType && isStringAs<FuncId>(argId) && funcIdExistsInContext(argId, context)) {
       const inferredType = inferFuncType(argId, context);
       if (inferredType) {
-        actualType = inferredType;
-        state.typeEnv.set(argId, actualType);
+        currentType = inferredType;
+        state.typeEnv.set(argId, currentType);
       }
     }
 
-    if (!actualType) {
+    if (!currentType) {
       state.warnings.push({
         message: `FuncTable[${funcId}].argMap['${argName}']: type of argument "${argId}" could not be inferred, skipping compatibility check`,
-        details: { funcId, argId, argName, transformFn: transformFnName, expectedType },
+        details: { funcId, argId, argName },
       });
-    } else if (expectedType && actualType !== expectedType) {
+      continue;
+    }
+
+    for (const transformFnName of fns) {
+      if (!isStringAs<TransformFnNames>(transformFnName)) continue;
+      const expectedType = getTransformFnInputType(transformFnName);
+      if (expectedType && currentType !== expectedType) {
+        state.errors.push({
+          message: `FuncTable[${funcId}].argMap['${argName}']: Argument has type "${currentType}" but transform function "${transformFnName}" expects "${expectedType}"`,
+          details: {
+            funcId,
+            argId,
+            argType: currentType,
+            transformFn: transformFnName,
+            expectedType,
+          },
+        });
+      }
+
+      const returnType = getTransformFnReturnType(transformFnName);
+      if (returnType) currentType = returnType;
+    }
+
+    if (!paramTypes) continue;
+    const expectedBinaryType = paramTypes[argName === "a" ? 0 : 1];
+    if (currentType !== expectedBinaryType) {
       state.errors.push({
-        message: `FuncTable[${funcId}].argMap['${argName}']: Argument has type "${actualType}" but transform function "${transformFnName}" expects "${expectedType}"`,
+        message: `FuncTable[${funcId}].argMap['${argName}']: Argument resolves to type "${currentType}" but binary function "${binaryFnName}" expects "${expectedBinaryType}"`,
         details: {
           funcId,
           argId,
-          argType: actualType,
-          transformFn: transformFnName,
-          expectedType,
+          argName,
+          argType: currentType,
+          binaryFn: binaryFnName,
+          expectedType: expectedBinaryType,
         },
       });
     }
