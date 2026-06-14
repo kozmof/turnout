@@ -317,6 +317,12 @@ describe("StateManager — additional validation branches", () => {
     expect(stateManagerFromStrict({}, paths).validPaths()).toBe(paths);
   });
 
+  it("readOrUndefined returns undefined for undeclared paths in schema-managed managers", () => {
+    const sm = stateManagerFromStrict({}, new Set(["a.x"]));
+    expect(sm.readOrUndefined("b.y")).toBeUndefined();
+    expect(sm.readOrUndefined("a.x")).toBeUndefined(); // declared but not written
+  });
+
   it("write() validates primitive schema types", () => {
     const sm = stateManagerFromStrict(
       {},

@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { parseNextPolicy } from "../src/executor/next-policy.js";
 import {
   executeScene,
   executeSceneSafe,
@@ -829,5 +830,11 @@ describe("scene executor — adversarial", () => {
       expect(result.failedActionId).toBe("<none>");
       expect(result.error).toBeInstanceOf(SceneRuntimeError);
     }
+  });
+});
+
+describe("parseNextPolicy", () => {
+  it("throws SceneRuntimeError for unsupported next_policy values", () => {
+    expect(() => parseNextPolicy("bogus", "test_scene")).toThrow("unsupported next_policy");
   });
 });

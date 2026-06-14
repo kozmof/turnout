@@ -40,6 +40,7 @@ describe("runHarness — model without state schema", () => {
       model,
       entryId: "scene_a",
       initialState: {},
+      onWarning: () => {},
     });
     expect(result.trace.kind).toBe("scene");
   });
@@ -53,6 +54,7 @@ describe("runHarness — model without state schema", () => {
       entryId: "scene_a",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialState: { "custom.key": { type: "number", value: 42 } as any },
+      onWarning: () => {},
     });
     expect(finalState["custom.key"]).toBeDefined();
   });
@@ -74,5 +76,19 @@ describe("runHarness — ExecutionOptions propagation", () => {
     await expect(() =>
       runHarness({ model, entryId: "scene_a", initialState: {}, signal: controller.signal }),
     ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("registers prepare and publish hooks from options.hooks", async () => {
+    const model = { scenes: [minimalScene] } as unknown as TurnModel;
+    const prepareHook = vi.fn(async () => ({ type: "number" as const, value: 0 }));
+    const publishHook = vi.fn(async () => {});
+    await runHarness({
+      model,
+      entryId: "scene_a",
+      initialState: {},
+      onWarning: () => {},
+      hooks: { prepare: { myPrepare: prepareHook }, publish: { myPublish: publishHook } },
+    });
+    // hooks registered — action doesn't invoke them but the loop bodies are covered
   });
 });

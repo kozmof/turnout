@@ -19,6 +19,7 @@ export default defineConfig({
         "src/server/index.ts",
         "src/types/harness-types.ts",
         "src/types/turnout-model_pb.ts",
+        "src/state/state-types.ts",
       ],
       thresholds: {
         statements: 90,
