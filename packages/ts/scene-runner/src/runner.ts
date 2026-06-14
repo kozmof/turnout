@@ -450,6 +450,35 @@ export function createRouteRunner(
  * For testing individual modes without a full model, use `createSceneRunner` or
  * `createRouteRunner` directly.
  */
+/**
+ * Adapts a `Runner<A>` into a `Runner<B>` by applying `transform` to every
+ * result produced by `run()` and `result()`. The hook-registration methods
+ * delegate to the inner runner and return the outer runner for chaining.
+ * `runAsync`, `next`, `isDone`, and `partialState` are forwarded unchanged.
+ */
+function mapRunnerResult<A extends HarnessResult, B extends HarnessResult>(
+  inner: Runner<A>,
+  transform: (a: A) => B,
+): Runner<B> {
+  const outer: Runner<B> = {
+    usePrepareHook: (name, handler) => {
+      inner.usePrepareHook(name, handler);
+      return outer;
+    },
+    usePublishHook: (name, handler) => {
+      inner.usePublishHook(name, handler);
+      return outer;
+    },
+    isDone: () => inner.isDone(),
+    next: (steps) => inner.next(steps),
+    run: async () => transform(await inner.run()),
+    runAsync: () => inner.runAsync(),
+    result: () => transform(inner.result()),
+    partialState: () => inner.partialState(),
+  };
+  return outer;
+}
+
 export function createRunner(model: TurnModel, options: RunnerOptions): Runner<FullHarnessResult> {
   const migratedModel = migrateModel(model);
   const validationErrors = validateModel(migratedModel);
@@ -475,23 +504,5 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
       ? createRouteRunner(target.route, target.entryScene, sceneMap, options, initialState)
       : createSceneRunner(target.scene, options, initialState);
 
-  // Promote FragmentHarnessResult → FullHarnessResult by attaching the model.
-  const promote = (r: FragmentHarnessResult): FullHarnessResult => ({ ...r, model: migratedModel });
-  const promoted: Runner<FullHarnessResult> = {
-    usePrepareHook: (name, handler) => {
-      inner.usePrepareHook(name, handler);
-      return promoted;
-    },
-    usePublishHook: (name, handler) => {
-      inner.usePublishHook(name, handler);
-      return promoted;
-    },
-    isDone: () => inner.isDone(),
-    next: (steps) => inner.next(steps),
-    run: async () => promote(await inner.run()),
-    runAsync: () => inner.runAsync(),
-    result: () => promote(inner.result()),
-    partialState: () => inner.partialState(),
-  };
-  return promoted;
+  return mapRunnerResult(inner, (r) => ({ ...r, model: migratedModel }));
 }

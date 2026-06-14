@@ -176,6 +176,9 @@ const DEFAULT_MAX_STEPS = 10_000;
 /** Maximum number of (prepared-values → context) entries kept per ProgModel in ruleCtxCache. */
 const MAX_RULE_CTX_CACHE_ENTRIES = 256;
 
+/** Maximum number of distinct ProgModel keys in the outer ruleCtxCache per executor. */
+const MAX_RULE_CTX_CACHE_PROGS = 64;
+
 /** Serialised prepare-key strings longer than this bypass the cache to avoid huge Map keys. */
 const MAX_PREP_CACHE_KEY_BYTES = 65_536;
 
@@ -410,6 +413,19 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
 
 type NextRulesResult = { matches: string[]; warnings: ActionWarning[] };
 
+function makePreparedKey(prepared: Record<string, AnyValue>): string | null {
+  try {
+    const parts: string[] = [];
+    for (const k of Object.keys(prepared).sort()) {
+      const v = prepared[k];
+      parts.push(`${k}\x00${v?.symbol ?? "null"}\x00${JSON.stringify(v?.value ?? null)}`);
+    }
+    return parts.join("\x1f");
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Evaluate the next rules for a completed action and return the IDs of the
  * actions to enqueue, according to the scene's `next_policy`.
@@ -466,28 +482,21 @@ function evaluateNextRules(
       let validated: ValidatedContext;
       if (prepare.length > 0) {
         // Non-pure: check per-executor cache before rebuilding. The inner key is
-        // the JSON-serialised prepared-values map; entries are sorted so the key
-        // is stable regardless of resolveNextPrepare iteration order.
+        // a compact encoding of the prepared-values map (see makePreparedKey).
         let byPrepare = ruleCtxCache.get(rule.compute.prog);
-        // Build the cache key. Guard: JSON.stringify can produce "null" for
-        // non-serialisable values (e.g. from future AnyValue extensions),
-        // causing distinct prepared-value maps to collide on the same key.
-        // On serialization failure, skip the cache entirely for this rule.
-        let prepKey: string | null;
-        try {
-          prepKey = JSON.stringify(
-            Object.entries(nextPrepared).sort(([a], [b]) => (a < b ? -1 : 1)),
-          );
-        } catch {
-          prepKey = null;
-        }
+        // Build a compact, stable cache key. Returns null if serialisation
+        // fails (e.g. non-serialisable AnyValue extensions), in which case
+        // the cache is bypassed for this rule.
+        const prepKey = makePreparedKey(nextPrepared);
         // Bypass cache when: key is un-serialisable (null) or too large.
         const bypassCache = prepKey === null || prepKey.length > MAX_PREP_CACHE_KEY_BYTES;
         if (bypassCache) {
           builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
           validated = builtCtx.getValidatedExec();
         } else {
-          const cached = byPrepare?.get(prepKey);
+          // prepKey is a non-null string here (bypassCache === false guards both null and overflow).
+          const key = prepKey!;
+          const cached = byPrepare?.get(key);
           if (cached) {
             ({ builtCtx, validCtx: validated } = cached);
           } else {
@@ -497,11 +506,15 @@ function evaluateNextRules(
               byPrepare = new Map();
               ruleCtxCache.set(rule.compute.prog, byPrepare);
             }
-            byPrepare.set(prepKey, { builtCtx, validCtx: validated });
-            // Evict oldest entry (FIFO — Map iterates insertion order) when the
-            // cache grows beyond the cap to bound per-executor memory usage.
+            byPrepare.set(key, { builtCtx, validCtx: validated });
+            // Evict oldest inner entry (FIFO) when per-ProgModel cap is exceeded.
             if (byPrepare.size > MAX_RULE_CTX_CACHE_ENTRIES) {
               byPrepare.delete(byPrepare.keys().next().value!);
+            }
+            // Evict oldest outer entry when the number of distinct ProgModels
+            // tracked exceeds the cap, bounding total executor memory usage.
+            if (ruleCtxCache.size > MAX_RULE_CTX_CACHE_PROGS) {
+              ruleCtxCache.delete(ruleCtxCache.keys().next().value!);
             }
           }
         }

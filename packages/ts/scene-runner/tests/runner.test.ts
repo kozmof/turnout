@@ -369,3 +369,31 @@ describe("createRunner — onWarning callback", () => {
     warnSpy.mockRestore();
   });
 });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// mapRunnerResult passthrough — result.model carries the migrated model
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("createRunner — result.model promotion (mapRunnerResult)", () => {
+  const scene = {
+    id: "promo",
+    entryActions: ["a"],
+    actions: [{ id: "a" }],
+  };
+  const model = { scenes: [scene], routes: [] } as unknown as TurnModel;
+
+  it("result() carries the model field after promotion", async () => {
+    const runner = createRunner(model, { entryId: "promo", initialState: {}, onWarning: () => {} });
+    await runner.run();
+    const result = runner.result();
+    expect(result.model).toBeDefined();
+    expect(result.model.scenes[0].id).toBe("promo");
+  });
+
+  it("run() carries the model field after promotion", async () => {
+    const runner = createRunner(model, { entryId: "promo", initialState: {}, onWarning: () => {} });
+    const result = await runner.run();
+    expect(result.model).toBeDefined();
+    expect(result.model.scenes[0].id).toBe("promo");
+  });
+});

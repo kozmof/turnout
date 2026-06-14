@@ -611,7 +611,8 @@ func writeStructpbValue(v *structpb.Value) string {
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
 	}
-	return "null"
+	panic(fmt.Sprintf("writeStructpbValue: unhandled structpb kind %T — "+
+		"struct/map values are not valid in Turn DSL bindings; this is a compiler bug", v.Kind))
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

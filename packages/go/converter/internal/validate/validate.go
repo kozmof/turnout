@@ -201,15 +201,8 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		validateArgRefs(b.Name, arg, scope, ds)
 	}
 
-	// Resolve arg types once; reuse for both return-type and arg-type checks.
-	var t1, t2 ast.FieldType
-	var ok1, ok2 bool
-	if len(c.Args) >= 1 {
-		t1, ok1 = resolveArgType(b.Name, c.Args[0], scope, nil, ds)
-	}
-	if len(c.Args) >= 2 {
-		t2, ok2 = resolveArgType(b.Name, c.Args[1], scope, nil, ds)
-	}
+	contextLabel := fmt.Sprintf("binding %q", b.Name)
+	t1, _, ok1, _ := validateBinaryCall(b.Name, contextLabel, c.Fn, spec, c.Args, scope, nil, ds)
 
 	// Return-type check: delegate to resolveExpectedReturn so the inference
 	// logic lives in one place (used identically by validatePipe steps).
@@ -227,13 +220,6 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 				b.Name, c.Fn, retType, b.Type))
 		}
 	}
-
-	// Arity check.
-	contextLabel := fmt.Sprintf("binding %q", b.Name)
-	if !checkArity(contextLabel, c.Fn, len(c.Args), ds) {
-		return
-	}
-	validateBinaryArgTypePair(b.Name, c.Fn, spec, t1, ok1, t2, ok2, ds)
 }
 
 func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[string]bindingInfo, ds *diag.DiagSink) {
@@ -288,7 +274,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 			}
 		}
 
-		t1, _, ok1, _ := validateBinaryFnArgs(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
+		t1, _, ok1, _ := validateBinaryCall(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
 		retType, known := resolveExpectedReturn(spec, t1, ok1)
 		stepTypes = append(stepTypes, retType)
 		stepKnown = append(stepKnown, known)
@@ -512,14 +498,13 @@ func resolveTransformArgType(bindingName string, transform *turnoutpb.TransformA
 	return ft, resolved
 }
 
-// validateBinaryFnArgs validates arity and operand types for a two-argument
-// binary function call. contextLabel is a pre-formatted description of the call
-// site included in diagnostics (e.g. `"binding \"x\""` or
-// `"binding \"x\" pipe step 2"`). stepTypes is nil for combine calls.
-// Returns the resolved arg types so the caller can reuse them (e.g. for return-
-// type inference) without a second resolveArgType call. Zero values are returned
-// when the arity check fails.
-func validateBinaryFnArgs(
+// validateBinaryCall validates arity, arg types, and the binary-pair constraint
+// for a two-argument function call. contextLabel is a pre-formatted description
+// of the call site included in diagnostics. stepTypes is nil for combine calls;
+// non-nil for pipe step calls. Returns (t1, t2, ok1, ok2) so callers can reuse
+// the resolved types for return-type inference without a second resolveArgType call.
+// Zero values are returned when the arity check fails.
+func validateBinaryCall(
 	bindingName, contextLabel, fn string,
 	spec fnmeta.FnSpec,
 	args []*turnoutpb.ArgModel,

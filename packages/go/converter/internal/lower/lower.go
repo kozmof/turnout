@@ -135,7 +135,7 @@ func pathExprString(pe *ast.PathExpr, ds *diag.DiagSink) string {
 func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, ds *diag.DiagSink) *turnoutpb.StateModel {
 	switch s := src.(type) {
 	case *ast.InlineStateBlock:
-		return lowerStateBlockFromAST(s)
+		return lowerStateBlockFromAST(s, ds)
 	case *ast.StateFileDirective:
 		if len(schema.Namespaces()) == 0 {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
@@ -157,10 +157,17 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 	}
 }
 
-func lowerStateBlockFromAST(block *ast.InlineStateBlock) *turnoutpb.StateModel {
+func lowerStateBlockFromAST(block *ast.InlineStateBlock, ds *diag.DiagSink) *turnoutpb.StateModel {
 	var m orderedNsMap
 	for _, ns := range block.Namespaces {
 		for _, f := range ns.Fields {
+			key := ns.Name + "." + f.Name
+			if m.seen[key] {
+				ds.Append(diag.ErrorAt(f.Pos.File, f.Pos.Line, f.Pos.Col,
+					diag.CodeDuplicateStateField,
+					"duplicate field %q in namespace %q", f.Name, ns.Name))
+				continue
+			}
 			m.appendField(ns.Name, f.Name, state.FieldMeta{
 				Type:         f.Type,
 				DefaultValue: ast.LiteralToStructpb(f.Default),
@@ -178,12 +185,21 @@ type orderedNsMap struct {
 		fields []*turnoutpb.FieldModel
 	}
 	index map[string]int
+	seen  map[string]bool // "ns.field" keys appended so far; prevents silent duplicate fields
 }
 
 func (m *orderedNsMap) appendField(nsName, fieldName string, meta state.FieldMeta) {
+	key := nsName + "." + fieldName
+	if m.seen[key] {
+		return
+	}
 	if m.index == nil {
 		m.index = make(map[string]int)
 	}
+	if m.seen == nil {
+		m.seen = make(map[string]bool)
+	}
+	m.seen[key] = true
 	idx, exists := m.index[nsName]
 	if !exists {
 		idx = len(m.list)

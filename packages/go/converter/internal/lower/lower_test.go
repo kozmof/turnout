@@ -8,9 +8,11 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lower"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -863,5 +865,84 @@ func assertSigilAnnotation(t *testing.T, lr *lower.LowerResult, sceneID, actionI
 	got := ast.SigilFromInt32(prog.Sigils[bindingName])
 	if got != want {
 		t.Fatalf("sigil for binding %q = %v, want %v", bindingName, got, want)
+	}
+}
+
+// ─── duplicate state field tests ─────────────────────────────────────────────
+
+func TestLowerDuplicateStateFieldInAST(t *testing.T) {
+	// A duplicate field name in the same namespace must emit CodeDuplicateStateField.
+	// The lowering halts (returns nil) because the diagnostic is an error.
+	src := `state {
+  ns {
+    x:number = 0
+    x:number = 1
+  }
+}
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("unexpected parse errors: %v", ds)
+	}
+	lr, ds2 := lower.LowerResolvingState(tf, "")
+	if !ds2.HasErrors() {
+		t.Fatal("expected CodeDuplicateStateField error, got none")
+	}
+	found := false
+	for _, d := range ds2 {
+		if d.Code == diag.CodeDuplicateStateField {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("CodeDuplicateStateField not found in diagnostics: %v", ds2)
+	}
+	if lr != nil {
+		t.Error("lower result should be nil when errors are present")
+	}
+}
+
+func TestLowerDuplicateOrderEntryFromSchema(t *testing.T) {
+	// Passing a duplicate key in the declaration order must not panic or corrupt
+	// the model: the field should appear exactly once and no error should be emitted.
+	schema := state.NewSchemaFromMap(map[string]map[string]state.FieldMeta{
+		"ns": {
+			"x": {Type: ast.FieldTypeNumber, DefaultValue: structpb.NewNumberValue(0)},
+		},
+	})
+	order := []string{"ns.x", "ns.x"} // deliberate duplicate
+
+	src := `state_file = "ignored.json"
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = r prog "p" { r:bool = true } } }
+}`
+	tf, ds := parser.ParseFile("test.turn", src)
+	if ds.HasErrors() {
+		t.Fatalf("unexpected parse errors: %v", ds)
+	}
+	lr, ds2 := lower.LowerCoreForTest(tf, schema, order)
+	if ds2.HasErrors() {
+		t.Fatalf("unexpected lower errors with duplicate order: %v", ds2)
+	}
+	if lr == nil {
+		t.Fatal("lower result unexpectedly nil")
+	}
+	if len(lr.Model.State.Namespaces) == 0 {
+		t.Fatal("state model has no namespaces")
+	}
+	ns := lr.Model.State.Namespaces[0]
+	count := 0
+	for _, f := range ns.Fields {
+		if f.Name == "x" {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Errorf("field 'x' appears %d times in model, want 1", count)
 	}
 }

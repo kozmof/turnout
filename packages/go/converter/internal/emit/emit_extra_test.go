@@ -523,3 +523,15 @@ func TestChooseHeredocDelimHashFallback(t *testing.T) {
 		t.Errorf("hash-fallback delimiter should start with TURN_EOT_, got %q", delim)
 	}
 }
+
+func TestChooseHeredocDelimEOTOnlySlowPath(t *testing.T) {
+	// "EOT" appears as a bare line → fast path fails, slow path picks "TURN_EOT".
+	delim, err := emit.ChooseHeredocDelim("EOT", "")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if delim != "TURN_EOT" {
+		t.Errorf("expected TURN_EOT when only EOT collides, got %q", delim)
+	}
+}
+
