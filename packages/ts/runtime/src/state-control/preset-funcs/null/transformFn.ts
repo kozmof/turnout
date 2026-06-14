@@ -1,5 +1,5 @@
-import { type NullValue, type TagSymbol } from "../../value";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { type NullValue, type TagSymbol } from "../../value.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnNull {
   pass: (val: NullValue<readonly TagSymbol[]>) => NullValue<readonly TagSymbol[]>;

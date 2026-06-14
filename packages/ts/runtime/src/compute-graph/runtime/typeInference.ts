@@ -4,20 +4,20 @@ import {
   metaBfString,
   metaBfArray,
   metaBfGeneric,
-} from "../../state-control/meta-chain/binary-fn/metaReturn";
+} from "../../state-control/meta-chain/binary-fn/metaReturn.js";
 import {
   metaBfBooleanParams,
   metaBfNumberParams,
   metaBfStringParams,
-} from "../../state-control/meta-chain/binary-fn/metaParams";
+} from "../../state-control/meta-chain/binary-fn/metaParams.js";
 import {
   metaTfBoolean,
   metaTfNumber,
   metaTfNull,
   metaTfString,
   metaTfArray,
-} from "../../state-control/meta-chain/transform-fn/metaReturn";
-import type { AnyValue, BaseTypeSymbol } from "../../state-control/value";
+} from "../../state-control/meta-chain/transform-fn/metaReturn.js";
+import type { AnyValue, BaseTypeSymbol } from "../../state-control/value.js";
 import type {
   ExecutionContext,
   ValueId,
@@ -26,9 +26,9 @@ import type {
   PipeDefineId,
   BinaryFnNames,
   TransformFnNames,
-} from "../types";
-import { isCondDefineId, isCombineDefineId, isPipeDefineId } from "../idValidation";
-import { splitPairBinaryFnNames, splitPairTranformFnNames } from "../../util/splitPair";
+} from "../types.js";
+import { isCondDefineId, isCombineDefineId, isPipeDefineId } from "../idValidation.js";
+import { splitPairBinaryFnNames, splitPairTranformFnNames } from "../../util/splitPair.js";
 
 /**
  * Type-safe helper to get a value from the ValueTable.

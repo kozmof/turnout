@@ -1,5 +1,5 @@
-import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from "../types";
-import { NodeId } from "./tree-types";
+import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from "../types.js";
+import { NodeId } from "./tree-types.js";
 
 // Define error data types separately for type safety
 type MissingDependencyErrorData = {

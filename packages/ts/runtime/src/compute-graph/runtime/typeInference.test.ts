@@ -8,8 +8,8 @@ import {
   inferFuncReturnType,
   inferValueElemType,
   inferValueType,
-} from "./typeInference";
-import type { CombineDefineId, ExecutionContext, FuncId, PipeDefineId, ValueId } from "../types";
+} from "./typeInference.js";
+import type { CombineDefineId, ExecutionContext, FuncId, PipeDefineId, ValueId } from "../types.js";
 
 function buildCondContext(
   trueBranchFuncId: string,

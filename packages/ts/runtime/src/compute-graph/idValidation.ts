@@ -10,8 +10,8 @@ import type {
   PipeFuncDefTable,
   CondFuncDefTable,
   ValueTable,
-} from "./types";
-import type { NodeId } from "./runtime/tree-types";
+} from "./types.js";
+import type { NodeId } from "./runtime/tree-types.js";
 
 /**
  * Centralized ID validation module.

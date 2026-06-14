@@ -1,10 +1,10 @@
-import { ExecutionContext, type ExecutionResult, type ValueTable } from "../types";
-import { ExecutionTree } from "./tree-types";
-import { isCombineDefineId, isPipeDefineId } from "../idValidation";
-import { createFunctionExecutionError, createMissingValueError } from "./errors";
-import { executeCombineFunc } from "./exec/executeCombineFunc";
-import { executePipeFunc } from "./exec/executePipeFunc";
-import { executeCondFunc } from "./exec/executeCondFunc";
+import { ExecutionContext, type ExecutionResult, type ValueTable } from "../types.js";
+import { ExecutionTree } from "./tree-types.js";
+import { isCombineDefineId, isPipeDefineId } from "../idValidation.js";
+import { createFunctionExecutionError, createMissingValueError } from "./errors.js";
+import { executeCombineFunc } from "./exec/executeCombineFunc.js";
+import { executePipeFunc } from "./exec/executePipeFunc.js";
+import { executeCondFunc } from "./exec/executeCondFunc.js";
 
 /**
  * Executes an execution tree and returns the result along with updated state.

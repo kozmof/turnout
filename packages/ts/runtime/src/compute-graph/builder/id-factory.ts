@@ -1,4 +1,4 @@
-import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId } from "../types";
+import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId } from "../types.js";
 import type {
   ContextBuilder as BuilderState,
   ValueInputRef,
@@ -6,11 +6,11 @@ import type {
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
-} from "./types";
-import type { AnyValue } from "../../state-control/value";
-import { IdGenerator } from "../../util/idGenerator";
-import { createFuncId } from "../idValidation";
-import type { FunctionPhaseState } from "./phase-types";
+} from "./types.js";
+import type { AnyValue } from "../../state-control/value.js";
+import { IdGenerator } from "../../util/idGenerator.js";
+import { createFuncId } from "../idValidation.js";
+import type { FunctionPhaseState } from "./phase-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scope

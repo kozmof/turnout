@@ -3,29 +3,29 @@ import {
   tfArray,
   TransformFnArrayNames,
   TransformFnArrayNameSpace,
-} from "../../state-control/preset-funcs/array/transformFn";
+} from "../../state-control/preset-funcs/array/transformFn.js";
 import {
   tfBoolean,
   TransformFnBooleanNames,
   TransformFnBooleanNameSpace,
-} from "../../state-control/preset-funcs/boolean/transformFn";
-import { TOM } from "../../util/tom";
+} from "../../state-control/preset-funcs/boolean/transformFn.js";
+import { TOM } from "../../util/tom.js";
 import {
   tfNumber,
   TransformFnNumberNames,
   TransformFnNumberNameSpace,
-} from "../../state-control/preset-funcs/number/transformFn";
+} from "../../state-control/preset-funcs/number/transformFn.js";
 import {
   tfNull,
   TransformFnNullNames,
   TransformFnNullNameSpace,
-} from "../../state-control/preset-funcs/null/transformFn";
+} from "../../state-control/preset-funcs/null/transformFn.js";
 import {
   tfString,
   TransformFnStringNames,
   TransformFnStringNameSpace,
-} from "../../state-control/preset-funcs/string/transformFn";
-import { NAMESPACE_DELIMITER } from "../../util/constants";
+} from "../../state-control/preset-funcs/string/transformFn.js";
+import { NAMESPACE_DELIMITER } from "../../util/constants.js";
 
 const transformFnArrayNames = (): LiteralSchema<TransformFnArrayNames, undefined>[] => {
   const namespace: TransformFnArrayNameSpace = "transformFnArray";

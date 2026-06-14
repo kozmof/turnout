@@ -1,8 +1,8 @@
-import { type ReturnMetaTransformFnArray } from "../../preset-funcs/array/transformFn";
-import { type ReturnMetaTransformFnBoolean } from "../../preset-funcs/boolean/transformFn";
-import { type ReturnMetaTransformFnNumber } from "../../preset-funcs/number/transformFn";
-import { type ReturnMetaTransformFnNull } from "../../preset-funcs/null/transformFn";
-import { type ReturnMetaTransformFnString } from "../../preset-funcs/string/transformFn";
+import { type ReturnMetaTransformFnArray } from "../../preset-funcs/array/transformFn.js";
+import { type ReturnMetaTransformFnBoolean } from "../../preset-funcs/boolean/transformFn.js";
+import { type ReturnMetaTransformFnNumber } from "../../preset-funcs/number/transformFn.js";
+import { type ReturnMetaTransformFnNull } from "../../preset-funcs/null/transformFn.js";
+import { type ReturnMetaTransformFnString } from "../../preset-funcs/string/transformFn.js";
 
 type ReturnTypeTransformFnBoolean = ReturnMetaTransformFnBoolean;
 type ReturnTypeTransformFnNumber = ReturnMetaTransformFnNumber;

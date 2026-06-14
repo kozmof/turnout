@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { validateContext, assertValidContext } from "./validateContext";
-import { executeGraph } from "./exec/executeGraph";
+import { validateContext, assertValidContext } from "./validateContext.js";
+import { executeGraph } from "./exec/executeGraph.js";
 import {
   ExecutionContext,
   FuncId,
@@ -8,7 +8,7 @@ import {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from "../types";
+} from "../types.js";
 
 /**
  * Integration tests demonstrating the compile-time validation workflow.

@@ -6,7 +6,7 @@ import {
   createUndefinedPipeStepReferenceError,
   createUndefinedValueReferenceError,
   isBuilderValidationError,
-} from "./errors";
+} from "./errors.js";
 
 describe("builder validation errors", () => {
   it("creates structured undefined condition errors", () => {

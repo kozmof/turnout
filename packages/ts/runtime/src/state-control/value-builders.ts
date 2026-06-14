@@ -16,8 +16,8 @@ import {
   nullReasonSubSymbols,
   UnknownValue,
   createUnknownValue,
-} from "./value";
-import { createInvalidValueError } from "./errors";
+} from "./value.js";
+import { createInvalidValueError } from "./errors.js";
 
 /**
  * Pure builders for creating values with proper tag propagation.

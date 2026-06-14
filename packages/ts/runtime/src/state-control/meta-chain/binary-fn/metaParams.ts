@@ -1,8 +1,8 @@
-import { type ParamsMetaBinaryFnBoolean } from "../../preset-funcs/boolean/binaryFn";
-import { type ParamsMetaBinaryFnGeneric } from "../../preset-funcs/generic/binaryFn";
-import { type ParamsMetaBinaryFnNumber } from "../../preset-funcs/number/binaryFn";
-import { type ParamsMetaBinaryFnString } from "../../preset-funcs/string/binaryFn";
-import { type BaseTypeSymbol } from "../../value";
+import { type ParamsMetaBinaryFnBoolean } from "../../preset-funcs/boolean/binaryFn.js";
+import { type ParamsMetaBinaryFnGeneric } from "../../preset-funcs/generic/binaryFn.js";
+import { type ParamsMetaBinaryFnNumber } from "../../preset-funcs/number/binaryFn.js";
+import { type ParamsMetaBinaryFnString } from "../../preset-funcs/string/binaryFn.js";
+import { type BaseTypeSymbol } from "../../value.js";
 
 type ParamTypesBinaryFnBoolean = ParamsMetaBinaryFnBoolean;
 type ParamTypesBinaryFnNumber = ParamsMetaBinaryFnNumber;

@@ -7,15 +7,15 @@ import type {
   CondDefineId,
   BinaryFnNames,
   TransformFnNames,
-} from "../../types";
-import { createArgName } from "../../idValidation";
+} from "../../types.js";
+import { createArgName } from "../../idValidation.js";
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
   getBinaryFnParamTypes,
   getBinaryFnReturnType,
-} from "../typeInference";
-import type { UnvalidatedContext, ValidationState } from "./types";
+} from "../typeInference.js";
+import type { UnvalidatedContext, ValidationState } from "./types.js";
 import {
   isRecord,
   isStringAs,
@@ -25,7 +25,7 @@ import {
   defineIdExistsInContext,
   valueIdExistsInContext,
   inferFuncType,
-} from "./utils";
+} from "./utils.js";
 
 /**
  * Validates a single FuncTable entry (combine, pipe, or cond kind).

@@ -5,36 +5,36 @@ import type {
   FuncArgMap,
   ArgName,
   TransformFnNames,
-} from "../types";
+} from "../types.js";
 import type {
   ContextSpec,
   BuildResult,
   ValueLiteral,
   FunctionBuilder,
   CombineBuilder,
-} from "./types";
+} from "./types.js";
 import {
   buildNumber,
   buildString,
   buildBoolean,
   buildArray,
-} from "../../state-control/value-builders";
-import type { AnyValue } from "../../state-control/value";
-import { isValidValue } from "../../state-control/value";
-import { getBinaryFnReturnType } from "../runtime/typeInference";
-import { createArgName } from "../idValidation";
-import { IdGenerator } from "../../util/idGenerator";
-import { resolveValueReference, isTransformRef, lookupReturnId, type Scope } from "./id-factory";
-import { inferPassTransform } from "./transform-inference";
+} from "../../state-control/value-builders.js";
+import type { AnyValue } from "../../state-control/value.js";
+import { isValidValue } from "../../state-control/value.js";
+import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { createArgName } from "../idValidation.js";
+import { IdGenerator } from "../../util/idGenerator.js";
+import { resolveValueReference, isTransformRef, lookupReturnId, type Scope } from "./id-factory.js";
+import { inferPassTransform } from "./transform-inference.js";
 import {
   buildReferenceIndexAndRegisterReturns,
   validateFunctionReference,
-} from "./reference-validation";
-import { processPipeFunc, registerCombineDefinition } from "./pipe-builder";
-import { processCondFunc } from "./cond-builder";
-import type { FunctionPhaseState, ValuePhaseResult } from "./phase-types";
-import { createValueId, createFuncId } from "../idValidation";
-import { BuilderInvariantError } from "./errors";
+} from "./reference-validation.js";
+import { processPipeFunc, registerCombineDefinition } from "./pipe-builder.js";
+import { processCondFunc } from "./cond-builder.js";
+import type { FunctionPhaseState, ValuePhaseResult } from "./phase-types.js";
+import { createValueId, createFuncId } from "../idValidation.js";
+import { BuilderInvariantError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public API
@@ -244,7 +244,7 @@ function getOrCreateCombineDefinitionId(
   name: CombineBuilder["name"],
   transformFnMap: Record<string, readonly TransformFnNames[]>,
   state: FunctionPhaseState,
-): import("../types").CombineDefineId {
+): import("../types.js").CombineDefineId {
   // Array binary functions are only accessible via the HCL pipe path, not the builder API.
   if (name.startsWith("binaryFnArray::")) {
     throw new BuilderInvariantError(

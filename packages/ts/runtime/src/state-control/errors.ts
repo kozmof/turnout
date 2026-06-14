@@ -1,4 +1,4 @@
-import { BaseTypeSymbol, BaseTypeSubSymbol } from "./value";
+import { BaseTypeSymbol, BaseTypeSubSymbol } from "./value.js";
 
 // Define error data types separately for type safety
 type InvalidValueErrorData = {

@@ -8,8 +8,8 @@ import type {
   ValueInputRef,
   TransformRef,
   StepBuilder,
-} from "./types";
-import type { BinaryFnNames } from "../types";
+} from "./types.js";
+import type { BinaryFnNames } from "../types.js";
 
 /**
  * Creates a CombineFunc builder.

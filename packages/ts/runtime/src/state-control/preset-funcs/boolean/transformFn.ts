@@ -1,7 +1,7 @@
-import { type BooleanValue, type StringValue, type TagSymbol } from "../../value";
-import { type ToBooleanConversion, type ToStringConversion } from "../convert";
-import { buildString, unaryBooleanOp } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { type BooleanValue, type StringValue, type TagSymbol } from "../../value.js";
+import { type ToBooleanConversion, type ToStringConversion } from "../convert.js";
+import { buildString, unaryBooleanOp } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnBoolean {
   pass: ToBooleanConversion<BooleanValue<readonly TagSymbol[]>>;

@@ -4,14 +4,14 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from "../compute-graph/types";
+} from "../compute-graph/types.js";
 import {
   createValueId,
   createFuncId,
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
-} from "../compute-graph/idValidation";
+} from "../compute-graph/idValidation.js";
 
 /**
  * ID generation strategy using random hex strings with type prefixes.

@@ -1,5 +1,5 @@
-import strEnum from "../util/strEnum";
-import { TOM } from "../util/tom";
+import strEnum from "../util/strEnum.js";
+import { TOM } from "../util/tom.js";
 
 const _baseTypes = strEnum(["number", "string", "boolean", "array", "null"]);
 const _nullReasonSubSymbols = strEnum([

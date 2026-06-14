@@ -1,5 +1,5 @@
 import { expect, test, describe } from "vitest";
-import { isComparable } from "./isComparable";
+import { isComparable } from "./isComparable.js";
 
 describe("Check comparable or not", () => {
   test("Symbol is string (with or without random tag)", () => {

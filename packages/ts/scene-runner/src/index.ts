@@ -48,13 +48,3 @@ export type {
 export { executeRouteSafe } from "./executor/route-executor.js";
 export type { RouteResult, RouteWarning, RouteExecutionResult } from "./executor/route-executor.js";
 
-// Server-only exports (Node.js) — re-exported for convenience.
-// Import from 'turnout-scene-runner/server' to be explicit about the boundary.
-export {
-  runServerHarness,
-  loadTurnFile,
-  convertToHCL,
-  runConverter,
-  loadJsonModel,
-} from "./server/index.js";
-export type { ServerHarnessOptions } from "./server/index.js";

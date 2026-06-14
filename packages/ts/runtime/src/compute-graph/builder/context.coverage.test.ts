@@ -4,12 +4,12 @@
  * Covers branches not exercised by the main context.test.ts.
  */
 import { describe, it, expect } from "vitest";
-import { ctx } from "./context";
-import { combine, pipe, cond } from "./functions";
-import { val, ref } from "./values";
-import { executeGraph } from "../runtime/exec/executeGraph";
-import { assertValidContext } from "../runtime/validateContext";
-import type { ValueObjectRef, FuncOutputRef, StepOutputRef } from "./types";
+import { ctx } from "./context.js";
+import { combine, pipe, cond } from "./functions.js";
+import { val, ref } from "./values.js";
+import { executeGraph } from "../runtime/exec/executeGraph.js";
+import { assertValidContext } from "../runtime/validateContext.js";
+import type { ValueObjectRef, FuncOutputRef, StepOutputRef } from "./types.js";
 
 // --- getPassTransformFn: boolean, null, array branches ---
 

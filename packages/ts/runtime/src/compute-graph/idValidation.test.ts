@@ -5,8 +5,8 @@ import {
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
-} from "./idValidation";
-import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId } from "./types";
+} from "./idValidation.js";
+import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId } from "./types.js";
 
 describe("ID Validation Module", () => {
   describe("Branded ID Creators", () => {

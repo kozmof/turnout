@@ -1,6 +1,6 @@
-import type { ValueId, CombineDefineId } from "../types";
-import type { ContextBuilder as BuilderState } from "./types";
-import type { AnyValue, BaseTypeSymbol } from "../../state-control/value";
+import type { ValueId, CombineDefineId } from "../types.js";
+import type { ContextBuilder as BuilderState } from "./types.js";
+import type { AnyValue, BaseTypeSymbol } from "../../state-control/value.js";
 
 export type ValuePhaseResult = {
   readonly valueTable: Record<string, AnyValue>;

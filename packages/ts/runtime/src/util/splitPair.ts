@@ -1,5 +1,5 @@
-import { BinaryFnNames, TransformFnNames } from "../compute-graph/types";
-import { NAMESPACE_DELIMITER, type NamespaceDelimiter } from "./constants";
+import { BinaryFnNames, TransformFnNames } from "../compute-graph/types.js";
+import { NAMESPACE_DELIMITER, type NamespaceDelimiter } from "./constants.js";
 
 type SplitPair<S extends string> = S extends `${infer Left}${NamespaceDelimiter}${infer Right}`
   ? [Left, Right]

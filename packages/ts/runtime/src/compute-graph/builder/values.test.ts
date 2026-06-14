@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { val, ref } from "./values";
-import { assertNever } from "../../util/brand";
-import { NAMESPACE_DELIMITER } from "../../util/constants";
-import { TOM } from "../../util/tom";
+import { val, ref } from "./values.js";
+import { assertNever } from "../../util/brand.js";
+import { NAMESPACE_DELIMITER } from "../../util/constants.js";
+import { TOM } from "../../util/tom.js";
 
 describe("builder value helpers", () => {
   it("builds primitive and null values", () => {

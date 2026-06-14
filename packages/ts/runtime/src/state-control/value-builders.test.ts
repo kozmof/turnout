@@ -16,7 +16,7 @@ import {
   unaryStringOp,
   unaryBooleanOp,
   convertValue,
-} from "./value-builders";
+} from "./value-builders.js";
 
 describe("Value Builders", () => {
   describe("buildNumber", () => {

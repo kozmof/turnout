@@ -1,5 +1,5 @@
 import { buildNull, buildExecutionTree, executeTree } from "runtime";
-import type { AnyValue, FuncId, ExecutionTree } from "runtime";
+import type { AnyValue, FuncId, ExecutionTree, ValueId } from "runtime";
 import type { ActionModel } from "../types/turnout-model_pb.js";
 import type { StateManager } from "../state/state-manager.js";
 import type { HookRegistry, PublishHookContext } from "../types/harness-types.js";
@@ -102,7 +102,7 @@ export async function executeAction(
         ctxTrees.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
-      for (const [id, value] of Object.entries(result.updatedValueTable)) {
+      for (const [id, value] of Object.entries(result.updatedValueTable) as Array<[ValueId, AnyValue]>) {
         updatedTable[id] = value;
       }
 

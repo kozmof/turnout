@@ -4,7 +4,7 @@
  */
 
 import { describe, it, expect } from "vitest";
-import { validateContext, isValidationSuccess, isValidContext } from "./validateContext";
+import { validateContext, isValidationSuccess, isValidContext } from "./validateContext.js";
 import type {
   ExecutionContext,
   FuncId,
@@ -12,7 +12,7 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from "../types";
+} from "../types.js";
 
 // Helper to build a minimal valid context
 function minContext(): ExecutionContext {

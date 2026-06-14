@@ -5,10 +5,10 @@ import type {
   CondDefineId,
   PipeArgBinding,
   ValueTable,
-} from "../../types";
-import { createArgName, createValueId } from "../../idValidation";
-import type { UnvalidatedContext, ValidationState, ValidationError } from "./types";
-import { isRecord, isStringAs, hasKey, pipeStepDefIdExistsInContext } from "./utils";
+} from "../../types.js";
+import { createArgName, createValueId } from "../../idValidation.js";
+import type { UnvalidatedContext, ValidationState, ValidationError } from "./types.js";
+import { isRecord, isStringAs, hasKey, pipeStepDefIdExistsInContext } from "./utils.js";
 
 // ============================================================================
 // Binding validation

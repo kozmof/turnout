@@ -7,7 +7,7 @@ import {
   createMissingDependencyError,
   createMissingValueError,
   isGraphExecutionError,
-} from "./errors";
+} from "./errors.js";
 
 describe("graph execution errors", () => {
   it("creates typed graph execution errors", () => {

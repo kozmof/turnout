@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { splitPairBinaryFnNames, splitPairTranformFnNames } from "./splitPair";
-import type { BinaryFnNames, TransformFnNames } from "../compute-graph/types";
+import { splitPairBinaryFnNames, splitPairTranformFnNames } from "./splitPair.js";
+import type { BinaryFnNames, TransformFnNames } from "../compute-graph/types.js";
 
 describe("splitPair", () => {
   describe("splitPairBinaryFnNames", () => {

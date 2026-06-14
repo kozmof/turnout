@@ -1,7 +1,7 @@
-import { type BooleanValue, type TagSymbol } from "../../value";
-import { type BooleanToBoolean } from "../convert";
-import { binaryBooleanOp } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { type BooleanValue, type TagSymbol } from "../../value.js";
+import { type BooleanToBoolean } from "../convert.js";
+import { binaryBooleanOp } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface BinaryFnBoolean {
   and: BooleanToBoolean;

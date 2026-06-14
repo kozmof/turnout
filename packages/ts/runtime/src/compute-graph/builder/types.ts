@@ -1,5 +1,5 @@
-import type { ExecutionContext, ValueId, FuncId, BinaryFnNames, TransformFnNames } from "../types";
-import type { AnyValue, BaseTypeSymbol } from "../../state-control/value";
+import type { ExecutionContext, ValueId, FuncId, BinaryFnNames, TransformFnNames } from "../types.js";
+import type { AnyValue, BaseTypeSymbol } from "../../state-control/value.js";
 
 /**
  * Converts a mapped type with branded keys to an index signature type.

@@ -16,7 +16,7 @@ import {
   isTypedArray,
   isValidValue,
   nullReasonSubSymbols,
-} from "./value";
+} from "./value.js";
 
 describe("Check TypeGuard", () => {
   test("Symbol is number (pure)", () => {

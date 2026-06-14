@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validateContext, assertValidContext } from "./validateContext";
+import { validateContext, assertValidContext } from "./validateContext.js";
 import {
   ExecutionContext,
   FuncId,
@@ -7,7 +7,7 @@ import {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from "../types";
+} from "../types.js";
 
 describe("validateContext", () => {
   type MutableExecutionContext = {

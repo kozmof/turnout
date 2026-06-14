@@ -1,11 +1,11 @@
-import { tfArray } from "../../state-control/preset-funcs/array/transformFn";
-import { tfBoolean } from "../../state-control/preset-funcs/boolean/transformFn";
-import { tfNumber } from "../../state-control/preset-funcs/number/transformFn";
-import { tfNull } from "../../state-control/preset-funcs/null/transformFn";
-import { tfString } from "../../state-control/preset-funcs/string/transformFn";
-import { AnyValue } from "../../state-control/value";
-import { splitPairTranformFnNames } from "../../util/splitPair";
-import { TransformFnNames } from "../types";
+import { tfArray } from "../../state-control/preset-funcs/array/transformFn.js";
+import { tfBoolean } from "../../state-control/preset-funcs/boolean/transformFn.js";
+import { tfNumber } from "../../state-control/preset-funcs/number/transformFn.js";
+import { tfNull } from "../../state-control/preset-funcs/null/transformFn.js";
+import { tfString } from "../../state-control/preset-funcs/string/transformFn.js";
+import { AnyValue } from "../../state-control/value.js";
+import { splitPairTranformFnNames } from "../../util/splitPair.js";
+import { TransformFnNames } from "../types.js";
 
 // Runtime execution passes values as AnyValue, so transform lookups are normalized
 // to a single callable contract regardless of each preset's narrower input type.

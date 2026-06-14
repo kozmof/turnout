@@ -5,9 +5,9 @@ import {
   buildNumber,
   buildString,
   buildNull,
-} from "../../state-control/value-builders";
-import { getBinaryFn } from "./getBinaryFn";
-import { getTransformFn } from "./getTranformFn";
+} from "../../state-control/value-builders.js";
+import { getBinaryFn } from "./getBinaryFn.js";
+import { getTransformFn } from "./getTranformFn.js";
 
 describe("call preset lookup", () => {
   it("resolves binary functions for every namespace", () => {

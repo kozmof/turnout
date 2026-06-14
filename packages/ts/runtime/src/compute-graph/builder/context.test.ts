@@ -1,10 +1,10 @@
 /* eslint-disable unicorn/no-thenable */
 import { describe, it, expect } from "vitest";
-import { ctx } from "./context";
-import { combine, pipe, cond } from "./functions";
-import { val, ref } from "./values";
-import { executeGraph } from "../runtime/exec/executeGraph";
-import { assertValidContext } from "../runtime/validateContext";
+import { ctx } from "./context.js";
+import { combine, pipe, cond } from "./functions.js";
+import { val, ref } from "./values.js";
+import { executeGraph } from "../runtime/exec/executeGraph.js";
+import { assertValidContext } from "../runtime/validateContext.js";
 
 describe("Context Builder", () => {
   describe("Simple values", () => {

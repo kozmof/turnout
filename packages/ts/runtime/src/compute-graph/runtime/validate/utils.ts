@@ -5,11 +5,11 @@ import type {
   PipeDefineId,
   CondDefineId,
   BinaryFnNames,
-} from "../../types";
-import type { BaseTypeSymbol } from "../../../state-control/value";
-import { getBinaryFnReturnType } from "../typeInference";
-import type { UnvalidatedContext, TypeEnvironment } from "./types";
-import { VALID_BASE_TYPE_SYMBOLS } from "./types";
+} from "../../types.js";
+import type { BaseTypeSymbol } from "../../../state-control/value.js";
+import { getBinaryFnReturnType } from "../typeInference.js";
+import type { UnvalidatedContext, TypeEnvironment } from "./types.js";
+import { VALID_BASE_TYPE_SYMBOLS } from "./types.js";
 
 // ============================================================================
 // Generic runtime checks

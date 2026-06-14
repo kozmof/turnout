@@ -1,4 +1,4 @@
-import { ValueRef, FuncRef } from "./types";
+import { ValueRef, FuncRef } from "./types.js";
 
 // Define error data types separately for type safety
 type UndefinedConditionErrorData = {

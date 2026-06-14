@@ -1,5 +1,5 @@
-import { FuncId, ExecutionContext, ExecutionResult } from "../../types";
-import { AnyValue } from "../../../state-control/value";
+import { FuncId, ExecutionContext, ExecutionResult } from "../../types.js";
+import { AnyValue } from "../../../state-control/value.js";
 
 /**
  * Executes a CondFunc and returns the result along with updated state.

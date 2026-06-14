@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { safeParse } from "valibot";
-import { binaryFnNames } from "./binaryFnNames";
-import { transformFnNames } from "./transformFnNames";
-import { combineFuncSchema, pipeFuncSchema } from "./schema";
+import { binaryFnNames } from "./binaryFnNames.js";
+import { transformFnNames } from "./transformFnNames.js";
+import { combineFuncSchema, pipeFuncSchema } from "./schema.js";
 
 describe("literal-schema", () => {
   describe("binaryFnNames()", () => {

@@ -1,9 +1,9 @@
-import { type ReturnMetaBinaryFnArray } from "../../preset-funcs/array/binaryFn";
-import { type ReturnMetaBinaryFnBoolean } from "../../preset-funcs/boolean/binaryFn";
-import { type ReturnMetaBinaryFnGeneric } from "../../preset-funcs/generic/binaryFn";
-import { type ReturnMetaBinaryFnNumber } from "../../preset-funcs/number/binaryFn";
-import { type ReturnMetaBinaryFnString } from "../../preset-funcs/string/binaryFn";
-import { type ElemType } from "../types";
+import { type ReturnMetaBinaryFnArray } from "../../preset-funcs/array/binaryFn.js";
+import { type ReturnMetaBinaryFnBoolean } from "../../preset-funcs/boolean/binaryFn.js";
+import { type ReturnMetaBinaryFnGeneric } from "../../preset-funcs/generic/binaryFn.js";
+import { type ReturnMetaBinaryFnNumber } from "../../preset-funcs/number/binaryFn.js";
+import { type ReturnMetaBinaryFnString } from "../../preset-funcs/string/binaryFn.js";
+import { type ElemType } from "../types.js";
 
 // No longer need to remove random symbols since tags are tracked separately
 export type ReturnTypeBinaryFnNumber = ReturnMetaBinaryFnNumber;

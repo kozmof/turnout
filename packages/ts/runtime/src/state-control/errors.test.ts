@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createInvalidValueError, isValueBuilderError } from "./errors";
+import { createInvalidValueError, isValueBuilderError } from "./errors.js";
 
 describe("value builder errors", () => {
   it("creates invalid value errors with and without extra context", () => {

@@ -4,19 +4,19 @@ import type {
   CombineBuilder,
   CondBuilder,
   PipeBuilder,
-} from "./types";
-import { BuilderInvariantError } from "./errors";
+} from "./types.js";
+import { BuilderInvariantError } from "./errors.js";
 import {
   createUndefinedConditionError,
   createUndefinedBranchError,
   createUndefinedValueReferenceError,
   createUndefinedPipeArgumentError,
   createUndefinedPipeStepReferenceError,
-} from "./errors";
-import { getBinaryFnReturnType } from "../runtime/typeInference";
-import { createFuncId } from "../idValidation";
-import { IdFactory, normalizeValueRef, isTransformRef } from "./id-factory";
-import type { FunctionPhaseState, ReferenceIndex } from "./phase-types";
+} from "./errors.js";
+import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { createFuncId } from "../idValidation.js";
+import { IdFactory, normalizeValueRef, isTransformRef } from "./id-factory.js";
+import type { FunctionPhaseState, ReferenceIndex } from "./phase-types.js";
 
 export function buildReferenceIndexAndRegisterReturns(
   spec: ContextSpec,

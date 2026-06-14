@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { executeGraph, executeGraphSafe } from "./executeGraph";
-import { executeCombineFunc } from "./executeCombineFunc";
-import { assertValidContext } from "../validateContext";
-import type { ValidatedContext } from "../validateContext";
+import { executeGraph, executeGraphSafe } from "./executeGraph.js";
+import { executeCombineFunc } from "./executeCombineFunc.js";
+import { assertValidContext } from "../validateContext.js";
+import type { ValidatedContext } from "../validateContext.js";
 import {
   ExecutionContext,
   FuncId,
@@ -10,7 +10,7 @@ import {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from "../../types";
+} from "../../types.js";
 
 describe("executeGraph", () => {
   it("should execute a simple CombineFunc with two number values", () => {

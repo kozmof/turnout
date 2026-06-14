@@ -5,10 +5,10 @@ import {
   type NumberValue,
   type TagSymbol,
   AnyValue,
-} from "../../value";
-import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from "../convert";
-import { buildArray, buildBoolean } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+} from "../../value.js";
+import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from "../convert.js";
+import { buildArray, buildBoolean } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue>;

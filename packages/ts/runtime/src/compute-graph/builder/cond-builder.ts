@@ -1,7 +1,7 @@
-import { IdGenerator } from "../../util/idGenerator";
-import { lookupReturnId, type Scope } from "./id-factory";
-import type { FunctionPhaseState } from "./phase-types";
-import type { CondBuilder } from "./types";
+import { IdGenerator } from "../../util/idGenerator.js";
+import { lookupReturnId, type Scope } from "./id-factory.js";
+import type { FunctionPhaseState } from "./phase-types.js";
+import type { CondBuilder } from "./types.js";
 
 export function processCondFunc(
   funcId: string,

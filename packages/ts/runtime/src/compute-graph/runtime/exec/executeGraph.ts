@@ -1,13 +1,13 @@
-import { FuncId } from "../../types";
+import { FuncId } from "../../types.js";
 import {
   GraphExecutionError,
   createFunctionExecutionError,
   isGraphExecutionError,
-} from "../errors";
-import { buildExecutionTree } from "../buildExecutionTree";
-import { executeTree } from "../executeTree";
-import type { ValidatedContext } from "../validateContext";
-import { type ExecutionResult } from "../../types";
+} from "../errors.js";
+import { buildExecutionTree } from "../buildExecutionTree.js";
+import { executeTree } from "../executeTree.js";
+import type { ValidatedContext } from "../validateContext.js";
+import { type ExecutionResult } from "../../types.js";
 
 /**
  * Executes a computation graph starting from a root function.

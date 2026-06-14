@@ -23,7 +23,7 @@ export type {
   PureArrayValue,
   NonArrayValue,
   AnyValue,
-} from "./state-control/value";
+} from "./state-control/value.js";
 
 export {
   baseTypeSymbols,
@@ -40,7 +40,7 @@ export {
   isPureString,
   isPureBoolean,
   isPureNull,
-} from "./state-control/value";
+} from "./state-control/value.js";
 
 // ── Value builders ────────────────────────────────────────────────────────────
 export {
@@ -60,12 +60,12 @@ export {
   unaryStringOp,
   unaryBooleanOp,
   convertValue,
-} from "./state-control/value-builders";
+} from "./state-control/value-builders.js";
 
 // ── Value error types ─────────────────────────────────────────────────────────
-export type { InvalidValueError, ValueBuilderError } from "./state-control/errors";
+export type { InvalidValueError, ValueBuilderError } from "./state-control/errors.js";
 
-export { createInvalidValueError, isValueBuilderError } from "./state-control/errors";
+export { createInvalidValueError, isValueBuilderError } from "./state-control/errors.js";
 
 // ── Compute-graph runtime ─────────────────────────────────────────────────────
 export {
@@ -75,11 +75,11 @@ export {
   executeTree,
   buildReturnIdToFuncIdMap,
   getBinaryFnReturnType,
-} from "./compute-graph";
+} from "./compute-graph/index.js";
 
-export type { ExecutionResult } from "./compute-graph";
+export type { ExecutionResult } from "./compute-graph/index.js";
 
-export { validateContext, assertValidContext, isValidContext } from "./compute-graph";
+export { validateContext, assertValidContext, isValidContext } from "./compute-graph/index.js";
 
 export type {
   UnvalidatedContext,
@@ -87,7 +87,7 @@ export type {
   ValidationError,
   ValidationWarning,
   ValidationResult,
-} from "./compute-graph";
+} from "./compute-graph/index.js";
 
 // ── Compute-graph types ───────────────────────────────────────────────────────
 export type {
@@ -108,11 +108,11 @@ export type {
   PipeArgBinding,
   BinaryFnNames,
   TransformFnNames,
-} from "./compute-graph";
+} from "./compute-graph/index.js";
 
-export { isValueCondition, isFuncCondition } from "./compute-graph";
+export { isValueCondition, isFuncCondition } from "./compute-graph/index.js";
 
-export type { GraphExecutionError, NodeId, ExecutionTree } from "./compute-graph";
+export type { GraphExecutionError, NodeId, ExecutionTree } from "./compute-graph/index.js";
 
 export {
   createMissingDependencyError,
@@ -121,13 +121,13 @@ export {
   createEmptySequenceError,
   createMissingValueError,
   isGraphExecutionError,
-} from "./compute-graph";
+} from "./compute-graph/index.js";
 
 // ── Exhaustiveness helper ─────────────────────────────────────────────────────
-export { assertNever } from "./util/brand";
+export { assertNever } from "./util/brand.js";
 
 // ── Builder API ───────────────────────────────────────────────────────────────
-export { ctx, combine, pipe, cond, val, ref } from "./compute-graph/builder";
+export { ctx, combine, pipe, cond, val, ref } from "./compute-graph/builder/index.js";
 
 export type {
   ContextBuilder,
@@ -139,6 +139,6 @@ export type {
   UndefinedValueReferenceError,
   UndefinedPipeArgumentError,
   UndefinedPipeStepReferenceError,
-} from "./compute-graph/builder";
+} from "./compute-graph/builder/index.js";
 
-export { isBuilderValidationError } from "./compute-graph/builder";
+export { isBuilderValidationError } from "./compute-graph/builder/index.js";

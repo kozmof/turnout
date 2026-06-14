@@ -12,20 +12,20 @@ import {
   PipeArgBinding,
   PipeFuncDefTable,
   isArgMapEntry,
-} from "../../types";
+} from "../../types.js";
 import {
   createEmptySequenceError,
   createMissingValueError,
   createFunctionExecutionError,
-} from "../errors";
-import { executeCombineFunc } from "./executeCombineFunc";
+} from "../errors.js";
+import { executeCombineFunc } from "./executeCombineFunc.js";
 import {
   isCombineDefineId,
   isPipeDefineId,
   createValueId,
   createFuncId,
   createArgName,
-} from "../../idValidation";
+} from "../../idValidation.js";
 
 type PipeArgSpec = readonly string[] | Record<string, unknown>;
 

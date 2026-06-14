@@ -1,11 +1,11 @@
-import { bfArray } from "../../state-control/preset-funcs/array/binaryFn";
-import { bfBoolean } from "../../state-control/preset-funcs/boolean/binaryFn";
-import { bfGeneric } from "../../state-control/preset-funcs/generic/binaryFn";
-import { bfNumber } from "../../state-control/preset-funcs/number/binaryFn";
-import { bfString } from "../../state-control/preset-funcs/string/binaryFn";
-import { AnyValue } from "../../state-control/value";
-import { splitPairBinaryFnNames } from "../../util/splitPair";
-import { BinaryFnNames } from "../types";
+import { bfArray } from "../../state-control/preset-funcs/array/binaryFn.js";
+import { bfBoolean } from "../../state-control/preset-funcs/boolean/binaryFn.js";
+import { bfGeneric } from "../../state-control/preset-funcs/generic/binaryFn.js";
+import { bfNumber } from "../../state-control/preset-funcs/number/binaryFn.js";
+import { bfString } from "../../state-control/preset-funcs/string/binaryFn.js";
+import { AnyValue } from "../../state-control/value.js";
+import { splitPairBinaryFnNames } from "../../util/splitPair.js";
+import { BinaryFnNames } from "../types.js";
 
 // Runtime execution resolves binary functions dynamically, so we expose a single
 // AnyValue-based contract that works across all namespaced preset implementations.

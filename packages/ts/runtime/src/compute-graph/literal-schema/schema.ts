@@ -1,8 +1,8 @@
 import { any, array, GenericSchema, lazy, literal, object, string, union } from "valibot";
-import { binaryFnNames } from "./binaryFnNames";
-import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from "./input-types";
-import { transformFnNames } from "./transformFnNames";
-import { baseTypeSymbols } from "../../state-control/value";
+import { binaryFnNames } from "./binaryFnNames.js";
+import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from "./input-types.js";
+import { transformFnNames } from "./transformFnNames.js";
+import { baseTypeSymbols } from "../../state-control/value.js";
 
 const combineFuncType: CombineFuncType = "combine";
 const pipeFuncType: PipeFuncType = "pipe";

@@ -1,30 +1,30 @@
 import {
   BinaryFnArrayNames,
   BinaryFnArrayNameSpace,
-} from "../state-control/preset-funcs/array/binaryFn";
-import { TransformFnArrayNames } from "../state-control/preset-funcs/array/transformFn";
+} from "../state-control/preset-funcs/array/binaryFn.js";
+import { TransformFnArrayNames } from "../state-control/preset-funcs/array/transformFn.js";
 import {
   BinaryFnBooleanNames,
   BinaryFnBooleanNameSpace,
-} from "../state-control/preset-funcs/boolean/binaryFn";
-import { TransformFnBooleanNames } from "../state-control/preset-funcs/boolean/transformFn";
+} from "../state-control/preset-funcs/boolean/binaryFn.js";
+import { TransformFnBooleanNames } from "../state-control/preset-funcs/boolean/transformFn.js";
 import {
   BinaryFnGenericNames,
   BinaryFnGenericNameSpace,
-} from "../state-control/preset-funcs/generic/binaryFn";
+} from "../state-control/preset-funcs/generic/binaryFn.js";
 import {
   BinaryFnNumberNames,
   BinaryFnNumberNameSpace,
-} from "../state-control/preset-funcs/number/binaryFn";
-import { TransformFnNumberNames } from "../state-control/preset-funcs/number/transformFn";
-import { TransformFnNullNames } from "../state-control/preset-funcs/null/transformFn";
+} from "../state-control/preset-funcs/number/binaryFn.js";
+import { TransformFnNumberNames } from "../state-control/preset-funcs/number/transformFn.js";
+import { TransformFnNullNames } from "../state-control/preset-funcs/null/transformFn.js";
 import {
   BinaryFnStringNames,
   BinaryFnStringNameSpace,
-} from "../state-control/preset-funcs/string/binaryFn";
-import { TransformFnStringNames } from "../state-control/preset-funcs/string/transformFn";
-import { AnyValue } from "../state-control/value";
-import { Brand } from "../util/brand";
+} from "../state-control/preset-funcs/string/binaryFn.js";
+import { TransformFnStringNames } from "../state-control/preset-funcs/string/transformFn.js";
+import { AnyValue } from "../state-control/value.js";
+import { Brand } from "../util/brand.js";
 
 export type BinaryFnNames =
   | BinaryFnArrayNames

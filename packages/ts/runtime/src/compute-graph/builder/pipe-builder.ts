@@ -5,12 +5,12 @@ import type {
   PipeArgBinding,
   CombineDefineId,
   TransformFnNames,
-} from "../types";
-import { BuilderInvariantError } from "./errors";
-import type { PipeBuilder, CombineBuilder } from "./types";
-import { createArgName, createFuncId } from "../idValidation";
-import { IdGenerator } from "../../util/idGenerator";
-import { getBinaryFnReturnType } from "../runtime/typeInference";
+} from "../types.js";
+import { BuilderInvariantError } from "./errors.js";
+import type { PipeBuilder, CombineBuilder } from "./types.js";
+import { createArgName, createFuncId } from "../idValidation.js";
+import { IdGenerator } from "../../util/idGenerator.js";
+import { getBinaryFnReturnType } from "../runtime/typeInference.js";
 import {
   IdFactory,
   getStepOutputLookupKey,
@@ -20,9 +20,9 @@ import {
   isStepOutputRef,
   lookupReturnId,
   type Scope,
-} from "./id-factory";
-import { inferTransformForBinaryFn } from "./transform-inference";
-import type { FunctionPhaseState } from "./phase-types";
+} from "./id-factory.js";
+import { inferTransformForBinaryFn } from "./transform-inference.js";
+import type { FunctionPhaseState } from "./phase-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Shared combine-definition helpers (also used by context.ts for combine funcs)

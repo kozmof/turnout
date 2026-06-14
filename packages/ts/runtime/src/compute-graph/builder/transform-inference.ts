@@ -1,23 +1,23 @@
-import type { BinaryFnNames, TransformFnNames } from "../types";
-import { BuilderInvariantError } from "./errors";
-import type { ValueInputRef } from "./types";
-import type { BaseTypeSymbol } from "../../state-control/value";
-import { assertNever } from "../../util/brand";
-import { getBinaryFnReturnType } from "../runtime/typeInference";
-import { NAMESPACE_DELIMITER } from "../../util/constants";
-import type { TransformFnBooleanNameSpace } from "../../state-control/preset-funcs/boolean/transformFn";
-import type { TransformFnNullNameSpace } from "../../state-control/preset-funcs/null/transformFn";
-import type { TransformFnNumberNameSpace } from "../../state-control/preset-funcs/number/transformFn";
-import type { TransformFnStringNameSpace } from "../../state-control/preset-funcs/string/transformFn";
-import type { TransformFnArrayNameSpace } from "../../state-control/preset-funcs/array/transformFn";
+import type { BinaryFnNames, TransformFnNames } from "../types.js";
+import { BuilderInvariantError } from "./errors.js";
+import type { ValueInputRef } from "./types.js";
+import type { BaseTypeSymbol } from "../../state-control/value.js";
+import { assertNever } from "../../util/brand.js";
+import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { NAMESPACE_DELIMITER } from "../../util/constants.js";
+import type { TransformFnBooleanNameSpace } from "../../state-control/preset-funcs/boolean/transformFn.js";
+import type { TransformFnNullNameSpace } from "../../state-control/preset-funcs/null/transformFn.js";
+import type { TransformFnNumberNameSpace } from "../../state-control/preset-funcs/number/transformFn.js";
+import type { TransformFnStringNameSpace } from "../../state-control/preset-funcs/string/transformFn.js";
+import type { TransformFnArrayNameSpace } from "../../state-control/preset-funcs/array/transformFn.js";
 import {
   getValueFromTable,
   getFuncFromTable,
   getCombineFuncDefFromTable,
   getStepOutputLookupKey,
   type Scope,
-} from "./id-factory";
-import type { FunctionPhaseState } from "./phase-types";
+} from "./id-factory.js";
+import type { FunctionPhaseState } from "./phase-types.js";
 
 export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
   switch (typeSymbol) {

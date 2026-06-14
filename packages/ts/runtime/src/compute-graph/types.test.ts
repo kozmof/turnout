@@ -10,7 +10,7 @@ import {
   makeValueId,
   makeFuncId,
   makeArgName,
-} from "./types";
+} from "./types.js";
 import type {
   FuncTableEntry,
   ConditionId,
@@ -19,7 +19,7 @@ import type {
   CondDefineId,
   ValueId,
   FuncId,
-} from "./types";
+} from "./types.js";
 
 describe("types", () => {
   describe("isArgMapEntry", () => {

@@ -1,9 +1,9 @@
-import { FuncId, ExecutionContext, ValueId } from "../types";
-import { ExecutionTree, NodeId } from "./tree-types";
-import type { ValueNode, FunctionNode, ConditionalNode } from "./tree-types";
-import { isFuncId } from "../idValidation";
-import { createMissingValueError } from "./errors";
-import { TOM } from "../../util/tom";
+import { FuncId, ExecutionContext, ValueId } from "../types.js";
+import { ExecutionTree, NodeId } from "./tree-types.js";
+import type { ValueNode, FunctionNode, ConditionalNode } from "./tree-types.js";
+import { isFuncId } from "../idValidation.js";
+import { createMissingValueError } from "./errors.js";
+import { TOM } from "../../util/tom.js";
 
 /**
  * Creates a mapping from ValueId to FuncId for functions that produce those values.

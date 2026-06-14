@@ -1,7 +1,7 @@
-import { type BooleanValue, type NumberValue, type TagSymbol } from "../../value";
-import { type NumberToBoolean, type NumberToNumber } from "../convert";
-import { binaryBooleanOp, binaryNumberOp } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { type BooleanValue, type NumberValue, type TagSymbol } from "../../value.js";
+import { type NumberToBoolean, type NumberToNumber } from "../convert.js";
+import { binaryBooleanOp, binaryNumberOp } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface BinaryFnNumber {
   add: NumberToNumber;

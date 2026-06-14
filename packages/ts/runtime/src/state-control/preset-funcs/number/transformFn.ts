@@ -1,7 +1,7 @@
-import { type NumberValue, type StringValue, type TagSymbol } from "../../value";
-import { type ToNumberConversion, type ToStringConversion } from "../convert";
-import { buildString, unaryNumberOp } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { type NumberValue, type StringValue, type TagSymbol } from "../../value.js";
+import { type ToNumberConversion, type ToStringConversion } from "../convert.js";
+import { buildString, unaryNumberOp } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnNumber {
   pass: ToNumberConversion<NumberValue<readonly TagSymbol[]>>;

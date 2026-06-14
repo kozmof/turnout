@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { buildArray, buildBoolean, buildNumber, buildString } from "../value-builders";
-import { bfArray } from "./array/binaryFn";
-import { tfArray } from "./array/transformFn";
-import { bfBoolean } from "./boolean/binaryFn";
-import { tfBoolean } from "./boolean/transformFn";
-import { bfGeneric } from "./generic/binaryFn";
-import { bfNumber } from "./number/binaryFn";
-import { tfNumber } from "./number/transformFn";
-import { bfString } from "./string/binaryFn";
-import { tfString } from "./string/transformFn";
+import { buildArray, buildBoolean, buildNumber, buildString } from "../value-builders.js";
+import { bfArray } from "./array/binaryFn.js";
+import { tfArray } from "./array/transformFn.js";
+import { bfBoolean } from "./boolean/binaryFn.js";
+import { tfBoolean } from "./boolean/transformFn.js";
+import { bfGeneric } from "./generic/binaryFn.js";
+import { bfNumber } from "./number/binaryFn.js";
+import { tfNumber } from "./number/transformFn.js";
+import { bfString } from "./string/binaryFn.js";
+import { tfString } from "./string/transformFn.js";
 
 function expectTagsToContainAll(actual: readonly string[], expected: readonly string[]): void {
   expect(actual).toHaveLength(expected.length);

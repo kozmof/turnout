@@ -1,12 +1,12 @@
-import type { CombineDefineId, PipeDefineId, CondDefineId } from "../../types";
-import type { UnvalidatedContext, ValidationState } from "./types";
+import type { CombineDefineId, PipeDefineId, CondDefineId } from "../../types.js";
+import type { UnvalidatedContext, ValidationState } from "./types.js";
 import {
   isRecord,
   isStringAs,
   valueIdExistsInContext,
   funcIdExistsInContext,
   inferFuncType,
-} from "./utils";
+} from "./utils.js";
 
 /**
  * Validates a CondFuncDefTable entry.

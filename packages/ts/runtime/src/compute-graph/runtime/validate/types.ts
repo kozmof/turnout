@@ -7,9 +7,9 @@ import type {
   CondDefineId,
   ValueTable,
   FuncTable,
-} from "../../types";
-import type { BaseTypeSymbol } from "../../../state-control/value";
-import { baseTypeSymbols } from "../../../state-control/value";
+} from "../../types.js";
+import type { BaseTypeSymbol } from "../../../state-control/value.js";
+import { baseTypeSymbols } from "../../../state-control/value.js";
 
 // ============================================================================
 // Constants

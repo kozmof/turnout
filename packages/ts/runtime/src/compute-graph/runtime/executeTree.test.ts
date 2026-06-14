@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { executeTree } from "./executeTree";
-import type { ExecutionContext } from "../types";
+import { executeTree } from "./executeTree.js";
+import type { ExecutionContext } from "../types.js";
 
 describe("executeTree", () => {
   it("rejects non-boolean conditional results", () => {

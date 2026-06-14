@@ -1,5 +1,5 @@
-import type { TagSymbol, AnyValue, TypedArrayValue } from "../../state-control/value";
-import { assertNever } from "../../util/brand";
+import type { TagSymbol, AnyValue, TypedArrayValue } from "../../state-control/value.js";
+import { assertNever } from "../../util/brand.js";
 import {
   buildNumber,
   buildString,
@@ -9,16 +9,16 @@ import {
   buildArrayString,
   buildArrayBoolean,
   buildArrayNull,
-} from "../../state-control/value-builders";
-import type { NullReasonSubSymbol } from "../../state-control/value";
+} from "../../state-control/value-builders.js";
+import type { NullReasonSubSymbol } from "../../state-control/value.js";
 import type {
   ValueInputRef,
   ValueSourceRef,
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
-} from "./types";
-import type { TransformFnNames } from "../types";
+} from "./types.js";
+import type { TransformFnNames } from "../types.js";
 
 /**
  * Value builders for creating typed values.

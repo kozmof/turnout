@@ -1,5 +1,5 @@
 import { expect, test } from "vitest";
-import strEnum from "./strEnum";
+import strEnum from "./strEnum.js";
 
 // Note: [NML]️ is a normal test. [NEG]️ is a negative test
 

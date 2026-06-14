@@ -3,14 +3,14 @@ import {
   type AnyArrayValue,
   type TagSymbol,
   type BooleanValue,
-} from "../../value";
+} from "../../value.js";
 import {
   type ToArrayConversion,
   type ToNumberConversion,
   type ToBooleanConversion,
-} from "../convert";
-import { buildBoolean, buildNumber } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+} from "../convert.js";
+import { buildBoolean, buildNumber } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnArray {
   pass: ToArrayConversion<AnyArrayValue<readonly TagSymbol[]>>;

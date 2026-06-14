@@ -3,29 +3,29 @@ import {
   bfArray,
   BinaryFnArrayNames,
   BinaryFnArrayNameSpace,
-} from "../../state-control/preset-funcs/array/binaryFn";
+} from "../../state-control/preset-funcs/array/binaryFn.js";
 import {
   bfBoolean,
   BinaryFnBooleanNames,
   BinaryFnBooleanNameSpace,
-} from "../../state-control/preset-funcs/boolean/binaryFn";
-import { TOM } from "../../util/tom";
+} from "../../state-control/preset-funcs/boolean/binaryFn.js";
+import { TOM } from "../../util/tom.js";
 import {
   bfGeneric,
   BinaryFnGenericNames,
   BinaryFnGenericNameSpace,
-} from "../../state-control/preset-funcs/generic/binaryFn";
+} from "../../state-control/preset-funcs/generic/binaryFn.js";
 import {
   bfNumber,
   BinaryFnNumberNames,
   BinaryFnNumberNameSpace,
-} from "../../state-control/preset-funcs/number/binaryFn";
+} from "../../state-control/preset-funcs/number/binaryFn.js";
 import {
   bfString,
   BinaryFnStringNames,
   BinaryFnStringNameSpace,
-} from "../../state-control/preset-funcs/string/binaryFn";
-import { NAMESPACE_DELIMITER } from "../../util/constants";
+} from "../../state-control/preset-funcs/string/binaryFn.js";
+import { NAMESPACE_DELIMITER } from "../../util/constants.js";
 
 const binaryFnArrayNames = (): LiteralSchema<BinaryFnArrayNames, undefined>[] => {
   const namespace: BinaryFnArrayNameSpace = "binaryFnArray";

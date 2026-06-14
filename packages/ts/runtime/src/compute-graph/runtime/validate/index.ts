@@ -1,4 +1,4 @@
-import type { ExecutionContext, ValueId } from "../../types";
+import type { ExecutionContext, ValueId } from "../../types.js";
 import {
   type UnvalidatedContext,
   type ValidationResult,
@@ -9,12 +9,12 @@ import {
   isValidationSuccess,
   createValidatedContext,
   createValidationState,
-} from "./types";
-import { isRecord, isStringAs, hasKey, buildTypeEnvironment } from "./utils";
-import { validateFuncEntry, validateCombineDefEntry } from "./validateCombineDefs";
-import { validatePipeDefEntry } from "./validatePipeDefs";
-import { validateCondDefEntry } from "./validateCondDefs";
-import type { ValidationState } from "./types";
+} from "./types.js";
+import { isRecord, isStringAs, hasKey, buildTypeEnvironment } from "./utils.js";
+import { validateFuncEntry, validateCombineDefEntry } from "./validateCombineDefs.js";
+import { validatePipeDefEntry } from "./validatePipeDefs.js";
+import { validateCondDefEntry } from "./validateCondDefs.js";
+import type { ValidationState } from "./types.js";
 
 export type {
   UnvalidatedContext,

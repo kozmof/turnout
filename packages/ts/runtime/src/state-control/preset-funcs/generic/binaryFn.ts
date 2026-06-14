@@ -1,8 +1,8 @@
-import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from "../../value";
-import { type ToBooleanProcess } from "../convert";
-import { isComparable } from "../util/isComparable";
-import { buildBoolean } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from "../../value.js";
+import { type ToBooleanProcess } from "../convert.js";
+import { isComparable } from "../util/isComparable.js";
+import { buildBoolean } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;

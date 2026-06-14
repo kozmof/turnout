@@ -1,7 +1,7 @@
-import { type BooleanValue, type StringValue, type TagSymbol } from "../../value";
-import { type StringToBoolean, type StringToString } from "../convert";
-import { binaryBooleanOp, binaryStringOp } from "../../value-builders";
-import { type NamespaceDelimiter } from "../../../util/constants";
+import { type BooleanValue, type StringValue, type TagSymbol } from "../../value.js";
+import { type StringToBoolean, type StringToString } from "../convert.js";
+import { binaryBooleanOp, binaryStringOp } from "../../value-builders.js";
+import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface BinaryFnString {
   concat: StringToString;

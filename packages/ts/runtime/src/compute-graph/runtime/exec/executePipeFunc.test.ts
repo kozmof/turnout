@@ -4,7 +4,7 @@ import {
   createScopedContext,
   validateScopedValueTable,
   executePipeFunc,
-} from "./executePipeFunc";
+} from "./executePipeFunc.js";
 import {
   ExecutionContext,
   FuncId,
@@ -13,7 +13,7 @@ import {
   ValueTable,
   PipeDefineId,
   CombineDefineId,
-} from "../../types";
+} from "../../types.js";
 
 describe("executePipeFunc helpers", () => {
   describe("createScopedValueTable", () => {

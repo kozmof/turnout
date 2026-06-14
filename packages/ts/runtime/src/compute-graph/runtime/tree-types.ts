@@ -1,5 +1,5 @@
-import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from "../types";
-import { AnyValue } from "../../state-control/value";
+import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from "../types.js";
+import { AnyValue } from "../../state-control/value.js";
 
 export type NodeId = FuncId | ValueId;
 

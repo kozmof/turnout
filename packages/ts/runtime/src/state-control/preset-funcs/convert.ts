@@ -6,7 +6,7 @@ import {
   type AnyArrayValue,
   type NonArrayValue,
   type TagSymbol,
-} from "../value";
+} from "../value.js";
 
 export type ToStringConversion<T extends AnyValue> = (val: T) => StringValue<readonly TagSymbol[]>;
 export type ToNumberConversion<T extends AnyValue> = (val: T) => NumberValue<readonly TagSymbol[]>;
