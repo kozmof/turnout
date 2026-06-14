@@ -623,7 +623,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
       ],
     } as unknown as ProgModel;
     // inferLiteralAnyValue([1,2]) runs (covers array branch), then ctx() rejects arr_concat
-    expect(() => buildContextFromProg(prog, {})).toThrow("Array binary functions");
+    expect(() => buildContextFromProg(prog, {})).toThrow("array binary functions");
   });
 
   it("reaches inferLiteralAnyValue array branch for string arrays before builder throws", () => {
@@ -637,7 +637,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow("Array binary functions");
+    expect(() => buildContextFromProg(prog, {})).toThrow("array binary functions");
   });
 
   it("reaches inferLiteralAnyValue array branch for bool arrays before builder throws", () => {
@@ -651,7 +651,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow("Array binary functions");
+    expect(() => buildContextFromProg(prog, {})).toThrow("array binary functions");
   });
 
   it("accepts an empty-array inline arg as an untyped empty array (no longer throws)", () => {
