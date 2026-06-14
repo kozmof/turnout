@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("node:fs", () => ({
   readFileSync: vi.fn(),
+  realpathSync: vi.fn((path: string) => path),
   accessSync: vi.fn(),
   constants: { X_OK: 1 },
 }));
@@ -10,7 +11,7 @@ vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { readFileSync } from "node:fs";
+import { readFileSync, realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
 import {
   loadTurnFile,
@@ -22,6 +23,7 @@ import { isLoadError, isBridgeError, isHarnessError } from "../src/server/errors
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.fn>;
+const mockRealpath = vi.mocked(realpathSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecFile = vi.mocked(execFile) as unknown as ReturnType<typeof vi.fn>;
 
 const MOCK_BIN = "/mock/turnout";
@@ -43,6 +45,7 @@ function setupConvert(modelJson = JSON.stringify(minimalModel)): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockRealpath.mockImplementation((path: string) => path);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -107,6 +110,19 @@ describe("loadJsonModel", () => {
   it("wraps invalid JSON with a descriptive message", () => {
     mockReadFile.mockReturnValue("not valid json {{{");
     expect(() => loadJsonModel("bad.json")).toThrow('Invalid JSON from "bad.json"');
+  });
+
+  it("ignores unknown fields by default", () => {
+    mockReadFile.mockReturnValue(JSON.stringify({ ...minimalModel, unknownField: true }));
+    const result = loadJsonModel("model.json");
+    expect(result.scenes).toHaveLength(1);
+  });
+
+  it("rejects unknown fields when strictParse is true", () => {
+    mockReadFile.mockReturnValue(JSON.stringify({ ...minimalModel, unknownField: true }));
+    expect(() => loadJsonModel("model.json", { strictParse: true })).toThrow(
+      expect.objectContaining({ code: "ParseError" }),
+    );
   });
 });
 
@@ -234,6 +250,15 @@ describe("BridgeOptions.safeBaseDir", () => {
 
   it("loadTurnFile rejects paths outside safeBaseDir", () => {
     expect(() => loadTurnFile("/etc/passwd", { safeBaseDir: "/base" })).toThrow(
+      expect.objectContaining({ code: "PathOutsideBase" }),
+    );
+  });
+
+  it("loadTurnFile rejects symlinks that resolve outside safeBaseDir", () => {
+    mockRealpath.mockImplementation((path: string) =>
+      path === "/base/link.turn" ? "/etc/passwd" : path,
+    );
+    expect(() => loadTurnFile("/base/link.turn", { safeBaseDir: "/base" })).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
     );
   });

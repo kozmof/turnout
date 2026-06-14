@@ -1,6 +1,6 @@
 // Node.js only — uses child_process and fs.
 import { execFile } from "node:child_process";
-import { accessSync, constants, readFileSync } from "node:fs";
+import { accessSync, constants, readFileSync, realpathSync } from "node:fs";
 import { sep } from "node:path";
 import { resolve as resolvePath } from "node:path";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
@@ -32,9 +32,8 @@ export type BridgeOptions = {
    */
   binPath?: string;
   /**
-   * When `true`, the JSON parser runs in strict mode and emits `console.warn`
-   * for unknown fields in the model. Defaults to `false`.
-   * Pass `true` in development/CI to catch schema-drift early.
+   * When `true`, the JSON parser rejects unknown fields in the model.
+   * Defaults to `false`. Pass `true` in development/CI to catch schema-drift early.
    */
   strictParse?: boolean;
   /**
@@ -50,8 +49,14 @@ export type BridgeOptions = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function assertPathInside(filePath: string, baseDir: string): void {
-  const resolved = resolvePath(filePath);
-  const base = resolvePath(baseDir);
+  const absolutePath = resolvePath(filePath);
+  const base = realpathSync(resolvePath(baseDir));
+  let resolved: string;
+  try {
+    resolved = realpathSync(absolutePath);
+  } catch {
+    resolved = absolutePath;
+  }
   if (resolved !== base && !resolved.startsWith(base + sep)) {
     throw new HarnessError(
       "PathOutsideBase",
@@ -224,7 +229,7 @@ export async function convertToHCL(
  * Load a pre-converted JSON model file, skipping the Go converter.
  * Useful for faster test runs after the initial conversion.
  *
- * Pass `options.strictParse = true` to surface unknown fields as warnings.
+ * Pass `options.strictParse = true` to reject unknown fields.
  * Pass `options.safeBaseDir` to restrict which paths may be read.
  */
 export function loadJsonModel(jsonFilePath: string, options?: BridgeOptions): TurnModel {
@@ -244,19 +249,10 @@ export function loadJsonModel(jsonFilePath: string, options?: BridgeOptions): Tu
 }
 
 function parseJSON(raw: string, source: string, strict: boolean): TurnModel {
-  if (strict) {
-    try {
-      fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject, { ignoreUnknownFields: false });
-    } catch (err: unknown) {
-      if (err instanceof Error && !err.message.includes("SyntaxError")) {
-        console.warn(`[turnout] Unknown fields in model from "${source}": ${err.message}`);
-      }
-    }
-  }
-
   try {
+    const parsed = JSON.parse(raw) as JsonObject;
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    return fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject, { ignoreUnknownFields: true });
+    return fromJson(TurnModelSchema, parsed, { ignoreUnknownFields: !strict });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     throw new BridgeError("ParseError", source, `Invalid JSON from "${source}": ${msg}`);

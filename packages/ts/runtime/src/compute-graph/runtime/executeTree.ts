@@ -1,7 +1,7 @@
 import { ExecutionContext, type ExecutionResult, type ValueTable } from "../types";
 import { ExecutionTree } from "./tree-types";
 import { isCombineDefineId, isPipeDefineId } from "../idValidation";
-import { createFunctionExecutionError } from "./errors";
+import { createFunctionExecutionError, createMissingValueError } from "./errors";
 import { executeCombineFunc } from "./exec/executeCombineFunc";
 import { executePipeFunc } from "./exec/executePipeFunc";
 import { executeCondFunc } from "./exec/executeCondFunc";
@@ -30,8 +30,12 @@ function executeTreeInternal(
 ): ExecutionResult {
   // Base case: value node (leaf)
   if (tree.nodeType === "value") {
+    const value = valueTable[tree.nodeId];
+    if (value === undefined) {
+      throw createMissingValueError(tree.nodeId);
+    }
     return {
-      value: tree.value,
+      value,
       updatedValueTable: valueTable,
     };
   }
