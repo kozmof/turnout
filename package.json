@@ -1,15 +1,16 @@
 {
   "scripts": {
-    "generate": "PATH=\"$HOME/go/bin:$(go env GOPATH)/bin:$PATH:./node_modules/.bin\" buf generate",
-    "check:proto": "npm run generate && git diff --exit-code -- packages/go/converter/internal/emit/turnoutpb packages/ts/scene-runner/src/types",
+    "generate": "sh scripts/generate-proto.sh",
+    "check:proto": "sh scripts/generate-proto.sh && git diff --exit-code -- packages/go/converter/internal/emit/turnoutpb packages/ts/scene-runner/src/types",
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
     "typecheck": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --noEmit) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --noEmit)",
-    "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && GOCACHE=/workspace/.go-cache ./node_modules/.bin/vitest --run) && (cd packages/go/converter && GOCACHE=/workspace/.go-cache /usr/local/go/bin/go test ./...)",
-    "lint": "pnpm --filter turnout-runtime lint && pnpm --filter turnout-scene-runner lint",
-    "test:coverage": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && GOCACHE=/workspace/.go-cache ./node_modules/.bin/vitest --run --coverage) && (cd packages/go/converter && GOCACHE=/workspace/.go-cache /usr/local/go/bin/go test ./... && GOCACHE=/workspace/.go-cache /usr/local/go/bin/go test -coverprofile=/tmp/turnout-converter.coverage.out ./internal/lexer ./internal/state && /usr/local/go/bin/go tool cover -func=/tmp/turnout-converter.coverage.out)"
+    "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run) && sh scripts/go-test.sh test",
+    "lint": "(cd packages/ts/runtime && ./node_modules/.bin/oxlint src/) && (cd packages/ts/scene-runner && ./node_modules/.bin/oxlint src/)",
+    "test:coverage": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run --coverage) && sh scripts/go-test.sh coverage"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.66.1",
     "@bufbuild/protoc-gen-es": "^2.11.0"
-  }
+  },
+  "packageManager": "pnpm@10.33.0"
 }

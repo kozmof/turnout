@@ -6,4 +6,5 @@
 .npm-cache
 .go-cache
 .claude
-
+.buf-cache
+.tools

@@ -1,1 +1,5 @@
+packages:
+  - "packages/ts/*"
+  - "apps/vscode/*"
+
 minimumReleaseAge: 10080

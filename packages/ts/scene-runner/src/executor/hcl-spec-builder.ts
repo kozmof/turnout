@@ -112,7 +112,7 @@ export class ContextSpecBuilder {
 
   private handleCombineBinding(binding: BindingModel): void {
     const c = binding.expr!.combine!;
-    if (c.args.length < 2) {
+    if (c.args.length !== 2) {
       throw new SceneRuntimeError(
         "CompilerBug",
         this.contextId,
@@ -132,7 +132,7 @@ export class ContextSpecBuilder {
       argBindings[param.paramName] = param.sourceIdent;
     }
     const steps = p.steps.map((step, i) => {
-      if (step.args.length < 2) {
+      if (step.args.length !== 2) {
         throw new SceneRuntimeError(
           "UnknownArgModel",
           this.contextId,
@@ -149,9 +149,30 @@ export class ContextSpecBuilder {
 
   private handleCondBinding(binding: BindingModel): void {
     const c = binding.expr!.cond!;
-    const conditionRef = c.condition ? this.resolveCondArg(c.condition) : "";
-    const thenRef = c.then ? this.resolveAsRef(c.then, "cond then-branch") : "";
-    const elseRef = c.elseBranch ? this.resolveAsRef(c.elseBranch, "cond else-branch") : "";
+    if (!c.condition) {
+      throw new SceneRuntimeError(
+        "CompilerBug",
+        this.contextId,
+        `binding "${binding.name}": cond expr is missing condition — malformed model`,
+      );
+    }
+    if (!c.then) {
+      throw new SceneRuntimeError(
+        "CompilerBug",
+        this.contextId,
+        `binding "${binding.name}": cond expr is missing then branch — malformed model`,
+      );
+    }
+    if (!c.elseBranch) {
+      throw new SceneRuntimeError(
+        "CompilerBug",
+        this.contextId,
+        `binding "${binding.name}": cond expr is missing else branch — malformed model`,
+      );
+    }
+    const conditionRef = this.resolveCondArg(c.condition);
+    const thenRef = this.resolveAsRef(c.then, "cond then-branch");
+    const elseRef = this.resolveAsRef(c.elseBranch, "cond else-branch");
     // eslint-disable-next-line unicorn/no-thenable -- `then` is a required param name in the runtime cond() API, not a Promise thenable
     this.spec[binding.name] = cond(conditionRef, { then: thenRef, else: elseRef });
   }
