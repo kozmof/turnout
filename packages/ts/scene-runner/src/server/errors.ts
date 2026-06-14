@@ -43,7 +43,7 @@ export function isBridgeError(e: unknown): e is BridgeError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type HarnessErrorCode = "MissingEntryPoint";
+export type HarnessErrorCode = "MissingEntryPoint" | "AmbiguousEntryPoint" | "PathOutsideBase";
 
 export class HarnessError extends Error {
   readonly code: HarnessErrorCode;

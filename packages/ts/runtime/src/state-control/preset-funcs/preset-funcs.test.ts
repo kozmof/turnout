@@ -144,8 +144,6 @@ describe("preset functions", () => {
     const item = buildNumber(2, ["item"]);
     const nested = buildArray([buildNumber(9)], ["nested"]);
     const arr = buildArray([buildNumber(1), item], ["array"]);
-    const idx = buildNumber(1, ["index"]);
-
     expect(tfArray.pass(arr)).toBe(arr);
     expect(tfArray.length(arr).value).toBe(2);
     expect(tfArray.length(arr).tags).toEqual(["array"]);

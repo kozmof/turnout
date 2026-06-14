@@ -1373,37 +1373,6 @@ describe("validateContext — coverage", () => {
 
   describe("CombineFunc type inference in validateCombineFuncTypes", () => {
     it("warns when arg type cannot be inferred", () => {
-      const ctx = {
-        ...minContext(),
-        valueTable: {} as any,
-        funcTable: {
-          f1: {
-            kind: "combine",
-            defId: "pd1" as CombineDefineId,
-            argMap: { a: "vReturn" as ValueId, b: "vReturn" as ValueId },
-            returnId: "vR" as ValueId,
-          },
-          f2: {
-            kind: "combine",
-            defId: "pd2" as CombineDefineId,
-            argMap: { a: "vR" as ValueId, b: "vR" as ValueId },
-            returnId: "vResult" as ValueId,
-          },
-        } as any,
-        combineFuncDefTable: {
-          pd1: {
-            name: "binaryFnNumber::add",
-            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
-          },
-          pd2: {
-            name: "binaryFnNumber::add",
-            transformFn: {
-              a: ["transformFnNumber::pass"],
-              b: ["transformFnNumber::pass"],
-            },
-          },
-        } as any,
-      };
       // vReturn refers to f1's returnId; f1 has returnId "vR" which means vReturn is a different value
       // This creates a scenario where we need arg type inference to fail
       // Actually let me use a cond function whose return type can't be inferred

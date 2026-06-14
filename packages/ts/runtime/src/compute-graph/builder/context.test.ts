@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-thenable */
 import { describe, it, expect } from "vitest";
 import { ctx } from "./context";
 import { combine, pipe, cond } from "./functions";

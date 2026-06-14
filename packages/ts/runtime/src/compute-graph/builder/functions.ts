@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-thenable */
 import type {
   CombineBuilder,
   PipeBuilder,

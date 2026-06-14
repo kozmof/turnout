@@ -1,4 +1,5 @@
 // Node.js only — loads models from disk before delegating to the universal harness.
+import { isAbsolute, relative, resolve } from "node:path";
 import type { FullHarnessResult, HookRegistry } from "../types/harness-types.js";
 import type { AnyValue } from "runtime";
 import { runConverter, loadJsonModel } from "./bridge.js";
@@ -20,7 +21,28 @@ export type ServerHarnessOptions = {
   initialState: Record<string, AnyValue>;
   /** Optional hook implementations for from_hook prepare entries. */
   hooks?: HookRegistry;
+  /**
+   * Optional base directory that turnFile/jsonFile must stay within after path
+   * resolution. Set this for request-facing or multi-tenant server usage.
+   */
+  allowedBaseDir?: string;
 };
+
+function resolveHarnessPath(filePath: string, allowedBaseDir: string | undefined): string {
+  if (allowedBaseDir === undefined) return filePath;
+
+  const base = resolve(allowedBaseDir);
+  const candidate = resolve(base, filePath);
+  const rel = relative(base, candidate);
+  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
+    return candidate;
+  }
+
+  throw new HarnessError(
+    "PathOutsideBase",
+    `server harness file path "${filePath}" resolves outside allowedBaseDir "${base}"`,
+  );
+}
 
 /**
  * Server-only harness entry point.
@@ -34,10 +56,17 @@ export type ServerHarnessOptions = {
  */
 export async function runServerHarness(options: ServerHarnessOptions): Promise<FullHarnessResult> {
   let model;
+  if (options.turnFile && options.jsonFile) {
+    throw new HarnessError(
+      "AmbiguousEntryPoint",
+      "runServerHarness: provide either turnFile or jsonFile, not both",
+    );
+  }
+
   if (options.turnFile) {
-    model = runConverter(options.turnFile);
+    model = runConverter(resolveHarnessPath(options.turnFile, options.allowedBaseDir));
   } else if (options.jsonFile) {
-    model = loadJsonModel(options.jsonFile);
+    model = loadJsonModel(resolveHarnessPath(options.jsonFile, options.allowedBaseDir));
   } else {
     throw new HarnessError(
       "MissingEntryPoint",

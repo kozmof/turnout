@@ -1,3 +1,4 @@
+/* eslint-disable unicorn/no-thenable */
 /**
  * Targeted tests to improve branch coverage for context.ts.
  * Covers branches not exercised by the main context.test.ts.
