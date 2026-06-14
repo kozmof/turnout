@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
-import { executeGraph, executeGraphSafe } from './executeGraph';
-import { executeCombineFunc } from './executeCombineFunc';
-import { assertValidContext } from '../validateContext';
-import type { ValidatedContext } from '../validateContext';
+import { describe, it, expect } from "vitest";
+import { executeGraph, executeGraphSafe } from "./executeGraph";
+import { executeCombineFunc } from "./executeCombineFunc";
+import { assertValidContext } from "../validateContext";
+import type { ValidatedContext } from "../validateContext";
 import {
   ExecutionContext,
   FuncId,
@@ -10,34 +10,34 @@ import {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from '../../types';
+} from "../../types";
 
-describe('executeGraph', () => {
-  it('should execute a simple CombineFunc with two number values', () => {
+describe("executeGraph", () => {
+  it("should execute a simple CombineFunc with two number values", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 3, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd1' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v3' as ValueId,
+          defId: "pd1" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v3" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: 'binaryFnNumber::add',
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -46,40 +46,41 @@ describe('executeGraph', () => {
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('f1' as FuncId, validated);
+    const result = executeGraph("f1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 8,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute a boolean CombineFunc', () => {
+  it("should execute a boolean CombineFunc", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'boolean', value: false, subSymbol: undefined, tags: [] },
+        v1: { symbol: "boolean", value: true, subSymbol: undefined, tags: [] },
+        v2: { symbol: "boolean", value: false, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-boolean' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v3' as ValueId,
+          defId: "pd-boolean" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v3" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-boolean': {
-          name: 'binaryFnBoolean::or',
+        "pd-boolean": {
+          name: "binaryFnBoolean::or",
           transformFn: {
-            a: ['transformFnBoolean::pass'],
-            b: ['transformFnBoolean::pass'],
+            a: ["transformFnBoolean::pass"],
+            b: ["transformFnBoolean::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -88,59 +89,60 @@ describe('executeGraph', () => {
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('f1' as FuncId, validated);
+    const result = executeGraph("f1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'boolean',
+      symbol: "boolean",
       value: true,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute nested CombineFuncs with dependencies', () => {
+  it("should execute nested CombineFuncs with dependencies", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
-        v3: { symbol: 'number', value: 2, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
+        v3: { symbol: "number", value: 2, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-add' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v4' as ValueId,
+          defId: "pd-add" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v4" as ValueId,
         },
         f2: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-multiply' as CombineDefineId,
-          argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
-          returnId: 'v5' as ValueId,
+          defId: "pd-multiply" as CombineDefineId,
+          argMap: { a: "v4" as ValueId, b: "v3" as ValueId },
+          returnId: "v5" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-add': {
-          name: 'binaryFnNumber::add',
+        "pd-add": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
-        'pd-multiply': {
-          name: 'binaryFnNumber::multiply',
+        "pd-multiply": {
+          name: "binaryFnNumber::multiply",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -149,48 +151,49 @@ describe('executeGraph', () => {
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('f2' as FuncId, validated);
+    const result = executeGraph("f2" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 30,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute shared definition with multiple instances', () => {
+  it("should execute shared definition with multiple instances", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 4, subSymbol: undefined, tags: [] },
-        v3: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 3, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 4, subSymbol: undefined, tags: [] },
+        v3: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-add' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v4' as ValueId,
+          defId: "pd-add" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v4" as ValueId,
         },
         f2: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-add' as CombineDefineId,
-          argMap: { a: 'v4' as ValueId, b: 'v3' as ValueId },
-          returnId: 'v5' as ValueId,
+          defId: "pd-add" as CombineDefineId,
+          argMap: { a: "v4" as ValueId, b: "v3" as ValueId },
+          returnId: "v5" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-add': {
-          name: 'binaryFnNumber::add',
+        "pd-add": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -199,79 +202,80 @@ describe('executeGraph', () => {
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('f2' as FuncId, validated);
+    const result = executeGraph("f2" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 12,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute PipeFunc with sequence of CombineFuncs', () => {
+  it("should execute PipeFunc with sequence of CombineFuncs", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
-        v3: { symbol: 'number', value: 2, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
+        v3: { symbol: "number", value: 2, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         pipe1: {
-          kind: 'pipe',
+          kind: "pipe",
 
-          defId: 'td1' as PipeDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId, c: 'v3' as ValueId },
-          returnId: 'v6' as ValueId,
+          defId: "td1" as PipeDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId, c: "v3" as ValueId },
+          returnId: "v6" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-add': {
-          name: 'binaryFnNumber::add',
+        "pd-add": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
-        'pd-multiply': {
-          name: 'binaryFnNumber::multiply',
+        "pd-multiply": {
+          name: "binaryFnNumber::multiply",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
       pipeFuncDefTable: {
         td1: {
           args: {
-            a: 'ia-a' as any,
-            b: 'ia-b' as any,
-            c: 'ia-c' as any,
+            a: "ia-a" as any,
+            b: "ia-b" as any,
+            c: "ia-c" as any,
           },
           sequence: [
             {
-              kind: 'combine',
+              kind: "combine",
 
-              defId: 'pd-add' as CombineDefineId,
+              defId: "pd-add" as CombineDefineId,
               argBindings: {
-                a: { source: 'input', argName: 'a' },
-                b: { source: 'input', argName: 'b' },
+                a: { source: "input", argName: "a" },
+                b: { source: "input", argName: "b" },
               },
             },
             {
-              kind: 'combine',
+              kind: "combine",
 
-              defId: 'pd-multiply' as CombineDefineId,
+              defId: "pd-multiply" as CombineDefineId,
               argBindings: {
-                a: { source: 'step', stepIndex: 0 },
-                b: { source: 'input', argName: 'c' },
+                a: { source: "step", stepIndex: 0 },
+                b: { source: "input", argName: "c" },
               },
             },
           ],
@@ -281,40 +285,41 @@ describe('executeGraph', () => {
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('pipe1' as FuncId, validated);
+    const result = executeGraph("pipe1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 30,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute with transform functions (number to string)', () => {
+  it("should execute with transform functions (number to string)", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 42, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'string', value: ' is the answer', subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 42, subSymbol: undefined, tags: [] },
+        v2: { symbol: "string", value: " is the answer", subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd1' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v3' as ValueId,
+          defId: "pd1" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v3" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: 'binaryFnString::concat',
+          name: "binaryFnString::concat",
           transformFn: {
-            a: ['transformFnNumber::toStr'],
-            b: ['transformFnString::pass'],
+            a: ["transformFnNumber::toStr"],
+            b: ["transformFnString::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -323,41 +328,42 @@ describe('executeGraph', () => {
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('f1' as FuncId, validated);
+    const result = executeGraph("f1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'string',
-      value: '42 is the answer',
-      subSymbol: undefined, tags: [],
+      symbol: "string",
+      value: "42 is the answer",
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should handle error: cyclic dependency', () => {
+  it("should handle error: cyclic dependency", () => {
     // Bypasses the brand to test execution-engine behaviour on a structurally
     // broken context (self-referential returnId) that validation would reject.
     const context = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-add' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v2' as ValueId,
+          defId: "pd-add" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v2" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-add': {
-          name: 'binaryFnNumber::add',
+        "pd-add": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -365,41 +371,41 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
+    const { result, errors } = executeGraphSafe("f1" as FuncId, context);
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
     // Cyclic dependencies are caught during tree construction as generic errors
-    expect(errors[0].kind).toBe('functionExecution');
-    expect(errors[0].message).toContain('Cycle detected');
+    expect(errors[0].kind).toBe("functionExecution");
+    expect(errors[0].message).toContain("Cycle detected");
   });
 
-  it('should handle error: missing value', () => {
+  it("should handle error: missing value", () => {
     // Bypasses the brand to test execution-engine behaviour on a context with
     // a missing value reference that validation would reject.
     const context = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd1' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v3' as ValueId,
+          defId: "pd1" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v3" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: 'binaryFnNumber::add',
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
@@ -407,25 +413,25 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
+    const { result, errors } = executeGraphSafe("f1" as FuncId, context);
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe('missingValue');
+    expect(errors[0].kind).toBe("missingValue");
   });
 
-  it('should handle error: empty PipeFunc sequence', () => {
+  it("should handle error: empty PipeFunc sequence", () => {
     // Bypasses the brand to test execution-engine behaviour on a context with
     // an empty pipe sequence that validation would reject.
     const context = {
       valueTable: {} as any,
       funcTable: {
         pipe1: {
-          kind: 'pipe',
+          kind: "pipe",
 
-          defId: 'td1' as PipeDefineId,
+          defId: "td1" as PipeDefineId,
           argMap: {},
-          returnId: 'v1' as ValueId,
+          returnId: "v1" as ValueId,
         },
       } as any,
       combineFuncDefTable: {} as any,
@@ -438,348 +444,352 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('pipe1' as FuncId, context);
+    const { result, errors } = executeGraphSafe("pipe1" as FuncId, context);
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe('emptySequence');
+    expect(errors[0].kind).toBe("emptySequence");
   });
 
-  it('should execute CondFunc with true branch', () => {
+  it("should execute CondFunc with true branch", () => {
     const context: ExecutionContext = {
       valueTable: {
-        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 20, subSymbol: undefined, tags: [] },
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
+        vCondition: { symbol: "boolean", value: true, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 20, subSymbol: undefined, tags: [] },
+        v0: { symbol: "number", value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fTrue: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-pass-true' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vTrueResult' as ValueId,
+          defId: "pd-pass-true" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v0" as ValueId },
+          returnId: "vTrueResult" as ValueId,
         },
         fFalse: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-pass-false' as CombineDefineId,
-          argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vFalseResult' as ValueId,
+          defId: "pd-pass-false" as CombineDefineId,
+          argMap: { a: "v2" as ValueId, b: "v0" as ValueId },
+          returnId: "vFalseResult" as ValueId,
         },
         cond1: {
-          kind: 'cond',
+          kind: "cond",
 
-          defId: 'cd1' as CondDefineId,
+          defId: "cd1" as CondDefineId,
           argMap: {},
-          returnId: 'vCondResult' as ValueId,
+          returnId: "vCondResult" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-pass-true': {
-          name: 'binaryFnNumber::add',
+        "pd-pass-true": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
-        'pd-pass-false': {
-          name: 'binaryFnNumber::add',
+        "pd-pass-false": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { kind: 'value' as const, id: 'vCondition' as ValueId },
-          trueBranchId: 'fTrue' as FuncId,
-          falseBranchId: 'fFalse' as FuncId,
+          conditionId: { kind: "value" as const, id: "vCondition" as ValueId },
+          trueBranchId: "fTrue" as FuncId,
+          falseBranchId: "fFalse" as FuncId,
         },
       } as any,
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('cond1' as FuncId, validated);
+    const result = executeGraph("cond1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 10,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute CondFunc with false branch', () => {
+  it("should execute CondFunc with false branch", () => {
     const context: ExecutionContext = {
       valueTable: {
-        vCondition: { symbol: 'boolean', value: false, subSymbol: undefined, tags: [] },
-        v1: { symbol: 'number', value: 10, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 20, subSymbol: undefined, tags: [] },
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
+        vCondition: { symbol: "boolean", value: false, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 10, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 20, subSymbol: undefined, tags: [] },
+        v0: { symbol: "number", value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fTrue: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-pass-true' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vTrueResult' as ValueId,
+          defId: "pd-pass-true" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v0" as ValueId },
+          returnId: "vTrueResult" as ValueId,
         },
         fFalse: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-pass-false' as CombineDefineId,
-          argMap: { a: 'v2' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vFalseResult' as ValueId,
+          defId: "pd-pass-false" as CombineDefineId,
+          argMap: { a: "v2" as ValueId, b: "v0" as ValueId },
+          returnId: "vFalseResult" as ValueId,
         },
         cond1: {
-          kind: 'cond',
+          kind: "cond",
 
-          defId: 'cd1' as CondDefineId,
+          defId: "cd1" as CondDefineId,
           argMap: {},
-          returnId: 'vCondResult' as ValueId,
+          returnId: "vCondResult" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-pass-true': {
-          name: 'binaryFnNumber::add',
+        "pd-pass-true": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
-        'pd-pass-false': {
-          name: 'binaryFnNumber::add',
+        "pd-pass-false": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { kind: 'value' as const, id: 'vCondition' as ValueId },
-          trueBranchId: 'fTrue' as FuncId,
-          falseBranchId: 'fFalse' as FuncId,
+          conditionId: { kind: "value" as const, id: "vCondition" as ValueId },
+          trueBranchId: "fTrue" as FuncId,
+          falseBranchId: "fFalse" as FuncId,
         },
       } as any,
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('cond1' as FuncId, validated);
+    const result = executeGraph("cond1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 20,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should handle CondFunc branches sharing the same value dependency', () => {
+  it("should handle CondFunc branches sharing the same value dependency", () => {
     // This test verifies the optimization in buildExecutionTree where sibling branches
     // can visit the same nodes without false cycle detection
     const context: ExecutionContext = {
       valueTable: {
-        vCondition: { symbol: 'boolean', value: true, subSymbol: undefined, tags: [] },
-        vShared: { symbol: 'number', value: 42, subSymbol: undefined, tags: [] }, // Used by both branches
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
+        vCondition: { symbol: "boolean", value: true, subSymbol: undefined, tags: [] },
+        vShared: { symbol: "number", value: 42, subSymbol: undefined, tags: [] }, // Used by both branches
+        v0: { symbol: "number", value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fTrue: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-use-shared' as CombineDefineId,
-          argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vTrueResult' as ValueId,
+          defId: "pd-use-shared" as CombineDefineId,
+          argMap: { a: "vShared" as ValueId, b: "v0" as ValueId },
+          returnId: "vTrueResult" as ValueId,
         },
         fFalse: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-use-shared' as CombineDefineId,
-          argMap: { a: 'vShared' as ValueId, b: 'v0' as ValueId }, // Same vShared
-          returnId: 'vFalseResult' as ValueId,
+          defId: "pd-use-shared" as CombineDefineId,
+          argMap: { a: "vShared" as ValueId, b: "v0" as ValueId }, // Same vShared
+          returnId: "vFalseResult" as ValueId,
         },
         cond1: {
-          kind: 'cond',
+          kind: "cond",
 
-          defId: 'cd1' as CondDefineId,
+          defId: "cd1" as CondDefineId,
           argMap: {},
-          returnId: 'vCondResult' as ValueId,
+          returnId: "vCondResult" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-use-shared': {
-          name: 'binaryFnNumber::add',
+        "pd-use-shared": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { kind: 'value' as const, id: 'vCondition' as ValueId },
-          trueBranchId: 'fTrue' as FuncId,
-          falseBranchId: 'fFalse' as FuncId,
+          conditionId: { kind: "value" as const, id: "vCondition" as ValueId },
+          trueBranchId: "fTrue" as FuncId,
+          falseBranchId: "fFalse" as FuncId,
         },
       } as any,
     };
 
     // This should not throw "Cycle detected" error
     const validated = assertValidContext(context);
-    const result = executeGraph('cond1' as FuncId, validated);
+    const result = executeGraph("cond1" as FuncId, validated);
 
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 42, // vShared + 0
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should execute nested CondFunc with computed condition', () => {
+  it("should execute nested CondFunc with computed condition", () => {
     const context: ExecutionContext = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
-        v3: { symbol: 'number', value: 100, subSymbol: undefined, tags: [] },
-        v4: { symbol: 'number', value: 200, subSymbol: undefined, tags: [] },
-        v0: { symbol: 'number', value: 0, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
+        v3: { symbol: "number", value: 100, subSymbol: undefined, tags: [] },
+        v4: { symbol: "number", value: 200, subSymbol: undefined, tags: [] },
+        v0: { symbol: "number", value: 0, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         fCondition: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-eq' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'vCondResult' as ValueId,
+          defId: "pd-eq" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "vCondResult" as ValueId,
         },
         fTrue: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-pass-true' as CombineDefineId,
-          argMap: { a: 'v3' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vTrueResult' as ValueId,
+          defId: "pd-pass-true" as CombineDefineId,
+          argMap: { a: "v3" as ValueId, b: "v0" as ValueId },
+          returnId: "vTrueResult" as ValueId,
         },
         fFalse: {
-          kind: 'combine',
+          kind: "combine",
 
-          defId: 'pd-pass-false' as CombineDefineId,
-          argMap: { a: 'v4' as ValueId, b: 'v0' as ValueId },
-          returnId: 'vFalseResult' as ValueId,
+          defId: "pd-pass-false" as CombineDefineId,
+          argMap: { a: "v4" as ValueId, b: "v0" as ValueId },
+          returnId: "vFalseResult" as ValueId,
         },
         cond1: {
-          kind: 'cond',
+          kind: "cond",
 
-          defId: 'cd1' as CondDefineId,
+          defId: "cd1" as CondDefineId,
           argMap: {},
-          returnId: 'vFinalResult' as ValueId,
+          returnId: "vFinalResult" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
-        'pd-eq': {
-          name: 'binaryFnGeneric::isEqual',
+        "pd-eq": {
+          name: "binaryFnGeneric::isEqual",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
-        'pd-pass-true': {
-          name: 'binaryFnNumber::add',
+        "pd-pass-true": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
-        'pd-pass-false': {
-          name: 'binaryFnNumber::add',
+        "pd-pass-false": {
+          name: "binaryFnNumber::add",
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
           args: {
-            a: 'ia1' as any,
-            b: 'ia2' as any,
+            a: "ia1" as any,
+            b: "ia2" as any,
           },
         },
       } as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {
         cd1: {
-          conditionId: { kind: 'func' as const, id: 'fCondition' as FuncId },
-          trueBranchId: 'fTrue' as FuncId,
-          falseBranchId: 'fFalse' as FuncId,
+          conditionId: { kind: "func" as const, id: "fCondition" as FuncId },
+          trueBranchId: "fTrue" as FuncId,
+          falseBranchId: "fFalse" as FuncId,
         },
       } as any,
     };
 
     const validated = assertValidContext(context);
-    const result = executeGraph('cond1' as FuncId, validated);
+    const result = executeGraph("cond1" as FuncId, validated);
 
     // 5 == 5 is true, so should return 100
     expect(result.value).toEqual({
-      symbol: 'number',
+      symbol: "number",
       value: 100,
-      subSymbol: undefined, tags: [],
+      subSymbol: undefined,
+      tags: [],
     });
   });
 
-  it('should wrap non-Error throws in executeGraphSafe', () => {
+  it("should wrap non-Error throws in executeGraphSafe", () => {
     // Bypasses brand to test non-Error exception handling path in executeGraphSafe.
     // The `error instanceof Error ? error : undefined` branch (line 64) is hit when
     // something throws a non-Error value.
     // We create a broken context where getBinaryFn would throw a string-like object.
     const context = {
       valueTable: {
-        v1: { symbol: 'number', value: 5, subSymbol: undefined, tags: [] },
-        v2: { symbol: 'number', value: 3, subSymbol: undefined, tags: [] },
+        v1: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
+        v2: { symbol: "number", value: 3, subSymbol: undefined, tags: [] },
       } as any,
       funcTable: {
         f1: {
-          kind: 'combine',
-          defId: 'pd1' as CombineDefineId,
-          argMap: { a: 'v1' as ValueId, b: 'v2' as ValueId },
-          returnId: 'v3' as ValueId,
+          kind: "combine",
+          defId: "pd1" as CombineDefineId,
+          argMap: { a: "v1" as ValueId, b: "v2" as ValueId },
+          returnId: "v3" as ValueId,
         },
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: 'binaryFnNumber::nonExistentOp',  // unknown fn — getBinaryFn will throw
+          name: "binaryFnNumber::nonExistentOp", // unknown fn — getBinaryFn will throw
           transformFn: {
-            a: ['transformFnNumber::pass'],
-            b: ['transformFnNumber::pass'],
+            a: ["transformFnNumber::pass"],
+            b: ["transformFnNumber::pass"],
           },
         },
       } as any,
@@ -787,28 +797,28 @@ describe('executeGraph', () => {
       condFuncDefTable: {} as any,
     } as unknown as ValidatedContext;
 
-    const { result, errors } = executeGraphSafe('f1' as FuncId, context);
+    const { result, errors } = executeGraphSafe("f1" as FuncId, context);
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe('functionExecution');
+    expect(errors[0].kind).toBe("functionExecution");
   });
 });
 
-describe('executeCombineFunc — guard branch', () => {
-  it('throws when called with a non-combine funcTable entry', () => {
+describe("executeCombineFunc — guard branch", () => {
+  it("throws when called with a non-combine funcTable entry", () => {
     // Covers the `if (funcEntry.kind !== 'combine')` guard at executeCombineFunc.ts:22
     const context = {
       valueTable: {} as any,
       funcTable: {
-        f1: { kind: 'pipe', defId: 'td1' as PipeDefineId, argMap: {}, returnId: 'vR' as ValueId },
+        f1: { kind: "pipe", defId: "td1" as PipeDefineId, argMap: {}, returnId: "vR" as ValueId },
       } as any,
       combineFuncDefTable: {} as any,
       pipeFuncDefTable: {} as any,
       condFuncDefTable: {} as any,
     } as unknown as ExecutionContext;
 
-    expect(() =>
-      executeCombineFunc('f1' as FuncId, 'pd1' as CombineDefineId, context)
-    ).toThrow('executeCombineFunc called with non-combine entry');
+    expect(() => executeCombineFunc("f1" as FuncId, "pd1" as CombineDefineId, context)).toThrow(
+      "executeCombineFunc called with non-combine entry",
+    );
   });
 });

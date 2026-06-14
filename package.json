@@ -5,6 +5,7 @@
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
     "typecheck": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --noEmit) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --noEmit)",
     "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && GOCACHE=/workspace/.go-cache ./node_modules/.bin/vitest --run) && (cd packages/go/converter && GOCACHE=/workspace/.go-cache /usr/local/go/bin/go test ./...)",
+    "lint": "pnpm --filter turnout-runtime lint && pnpm --filter turnout-scene-runner lint",
     "test:coverage": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && GOCACHE=/workspace/.go-cache ./node_modules/.bin/vitest --run --coverage) && (cd packages/go/converter && GOCACHE=/workspace/.go-cache /usr/local/go/bin/go test ./... && GOCACHE=/workspace/.go-cache /usr/local/go/bin/go test -coverprofile=/tmp/turnout-converter.coverage.out ./internal/lexer ./internal/state && /usr/local/go/bin/go tool cover -func=/tmp/turnout-converter.coverage.out)"
   },
   "devDependencies": {

@@ -1,9 +1,6 @@
-import { describe, it, expect, vi } from 'vitest';
-import {
-  resolveActionPrepare,
-  resolveNextPrepare,
-} from '../src/executor/prepare-resolver.js';
-import { StateManager, stateManagerFromUnchecked } from '../src/state/state-manager.js';
+import { describe, it, expect, vi } from "vitest";
+import { resolveActionPrepare, resolveNextPrepare } from "../src/executor/prepare-resolver.js";
+import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import {
   buildNumber,
   buildString,
@@ -14,55 +11,55 @@ import {
   isPureBoolean,
   isPureNull,
   isArray,
-} from 'runtime';
-import type { ActionExecutionResult } from '../src/executor/types.js';
-import type { HookRegistry, PrepareHookContext } from '../src/types/harness-types.js';
-import type { PrepareEntry, NextPrepareEntry } from '../src/types/turnout-model_pb.js';
-import { PrepareError } from '../src/executor/errors.js';
+} from "runtime";
+import type { ActionExecutionResult } from "../src/executor/types.js";
+import type { HookRegistry, PrepareHookContext } from "../src/types/harness-types.js";
+import type { PrepareEntry, NextPrepareEntry } from "../src/types/turnout-model_pb.js";
+import { PrepareError } from "../src/executor/errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // resolveActionPrepare
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('resolveActionPrepare', () => {
-  it('from_state reads the value from StateManager', async () => {
-    const state = stateManagerFromUnchecked({ 'request.query': buildString('hello') });
+describe("resolveActionPrepare", () => {
+  it("from_state reads the value from StateManager", async () => {
+    const state = stateManagerFromUnchecked({ "request.query": buildString("hello") });
     const result = await resolveActionPrepare(
-      [{ binding: 'query', fromState: 'request.query' }] as unknown as PrepareEntry[],
+      [{ binding: "query", fromState: "request.query" }] as unknown as PrepareEntry[],
       state,
       { prepare: {}, publish: {} },
-      'test_action',
+      "test_action",
     );
-    expect(isPureString(result['query']!) && result['query'].value).toBe('hello');
+    expect(isPureString(result["query"]!) && result["query"].value).toBe("hello");
   });
 
   it('from_state returns buildNull("missing") when an unchecked path is absent', async () => {
     const state = stateManagerFromUnchecked({});
     const result = await resolveActionPrepare(
-      [{ binding: 'missing_val', fromState: 'no.such.path' }] as unknown as PrepareEntry[],
+      [{ binding: "missing_val", fromState: "no.such.path" }] as unknown as PrepareEntry[],
       state,
       { prepare: {}, publish: {} },
-      'test_action',
+      "test_action",
     );
-    expect(isPureNull(result['missing_val']!)).toBe(true);
+    expect(isPureNull(result["missing_val"]!)).toBe(true);
   });
 
-  it('from_hook calls the hook and extracts the binding field', async () => {
+  it("from_hook calls the hook and extracts the binding field", async () => {
     const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
       prepare: { my_hook: (_ctx: PrepareHookContext) => ({ foo: buildNumber(42) }) },
       publish: {},
     };
     const result = await resolveActionPrepare(
-      [{ binding: 'foo', fromHook: 'my_hook' }] as unknown as PrepareEntry[],
+      [{ binding: "foo", fromHook: "my_hook" }] as unknown as PrepareEntry[],
       state,
       hooks,
-      'test_action',
+      "test_action",
     );
-    expect(isPureNumber(result['foo']!) && result['foo'].value).toBe(42);
+    expect(isPureNumber(result["foo"]!) && result["foo"].value).toBe(42);
   });
 
-  it('from_hook supports async hook returning a Promise', async () => {
+  it("from_hook supports async hook returning a Promise", async () => {
     const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
       prepare: {
@@ -74,16 +71,16 @@ describe('resolveActionPrepare', () => {
       publish: {},
     };
     const result = await resolveActionPrepare(
-      [{ binding: 'val', fromHook: 'async_hook' }] as unknown as PrepareEntry[],
+      [{ binding: "val", fromHook: "async_hook" }] as unknown as PrepareEntry[],
       state,
       hooks,
-      'test_action',
+      "test_action",
     );
-    expect(isPureNumber(result['val']!) && result['val'].value).toBe(99);
+    expect(isPureNumber(result["val"]!) && result["val"].value).toBe(99);
   });
 
-  it('from_hook passes PrepareHookContext with actionId, hookName, and get()', async () => {
-    const state = stateManagerFromUnchecked({ 'a.x': buildNumber(7) });
+  it("from_hook passes PrepareHookContext with actionId, hookName, and get()", async () => {
+    const state = stateManagerFromUnchecked({ "a.x": buildNumber(7) });
     let capturedActionId: string | undefined;
     let capturedHookName: string | undefined;
     let capturedGetResult: unknown;
@@ -92,71 +89,73 @@ describe('resolveActionPrepare', () => {
         my_hook: (ctx: PrepareHookContext) => {
           capturedActionId = ctx.actionId;
           capturedHookName = ctx.hookName;
-          capturedGetResult = ctx.get('x_val'); // reads the binding resolved via from_state above
-          return { bar: buildString('from_hook') };
+          capturedGetResult = ctx.get("x_val"); // reads the binding resolved via from_state above
+          return { bar: buildString("from_hook") };
         },
       },
       publish: {},
     };
     await resolveActionPrepare(
       [
-        { binding: 'x_val', fromState: 'a.x' }, // resolved first
-        { binding: 'bar', fromHook: 'my_hook' }, // hook reads x_val via ctx.get()
+        { binding: "x_val", fromState: "a.x" }, // resolved first
+        { binding: "bar", fromHook: "my_hook" }, // hook reads x_val via ctx.get()
       ] as unknown as PrepareEntry[],
       state,
       hooks,
-      'action_42',
+      "action_42",
     );
-    expect(capturedActionId).toBe('action_42');
-    expect(capturedHookName).toBe('my_hook');
-    expect(isPureNumber(capturedGetResult as never) && (capturedGetResult as { value: number }).value).toBe(7);
+    expect(capturedActionId).toBe("action_42");
+    expect(capturedHookName).toBe("my_hook");
+    expect(
+      isPureNumber(capturedGetResult as never) && (capturedGetResult as { value: number }).value,
+    ).toBe(7);
   });
 
-  it('from_hook throws PrepareError(UnregisteredHook) when the hook is not registered', async () => {
+  it("from_hook throws PrepareError(UnregisteredHook) when the hook is not registered", async () => {
     const state = stateManagerFromUnchecked({});
     const err = await resolveActionPrepare(
-      [{ binding: 'foo', fromHook: 'nonexistent_hook' }] as unknown as PrepareEntry[],
+      [{ binding: "foo", fromHook: "nonexistent_hook" }] as unknown as PrepareEntry[],
       state,
       { prepare: {}, publish: {} },
-      'test_action',
+      "test_action",
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PrepareError);
-    expect((err as PrepareError).code).toBe('UnregisteredHook');
-    expect((err as PrepareError).actionId).toBe('test_action');
+    expect((err as PrepareError).code).toBe("UnregisteredHook");
+    expect((err as PrepareError).actionId).toBe("test_action");
   });
 
-  it('from_hook throws PrepareError(MissingHookField) when hook result is missing a declared field', async () => {
+  it("from_hook throws PrepareError(MissingHookField) when hook result is missing a declared field", async () => {
     const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
       prepare: { partial_hook: (_ctx: PrepareHookContext) => ({ other_field: buildNumber(1) }) },
       publish: {},
     };
     const err = await resolveActionPrepare(
-      [{ binding: 'expected_field', fromHook: 'partial_hook' }] as unknown as PrepareEntry[],
+      [{ binding: "expected_field", fromHook: "partial_hook" }] as unknown as PrepareEntry[],
       state,
       hooks,
-      'test_action',
+      "test_action",
     ).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(PrepareError);
-    expect((err as PrepareError).code).toBe('MissingHookField');
+    expect((err as PrepareError).code).toBe("MissingHookField");
   });
 
-  it('resolves multiple entries independently', async () => {
+  it("resolves multiple entries independently", async () => {
     const state = stateManagerFromUnchecked({
-      'a.x': buildNumber(1),
-      'b.y': buildString('two'),
+      "a.x": buildNumber(1),
+      "b.y": buildString("two"),
     });
     const result = await resolveActionPrepare(
       [
-        { binding: 'x_val', fromState: 'a.x' },
-        { binding: 'y_val', fromState: 'b.y' },
+        { binding: "x_val", fromState: "a.x" },
+        { binding: "y_val", fromState: "b.y" },
       ] as unknown as PrepareEntry[],
       state,
       { prepare: {}, publish: {} },
-      'test_action',
+      "test_action",
     );
-    expect(isPureNumber(result['x_val']!) && result['x_val'].value).toBe(1);
-    expect(isPureString(result['y_val']!) && result['y_val'].value).toBe('two');
+    expect(isPureNumber(result["x_val"]!) && result["x_val"].value).toBe(1);
+    expect(isPureString(result["y_val"]!) && result["y_val"].value).toBe("two");
   });
 });
 
@@ -164,184 +163,191 @@ describe('resolveActionPrepare', () => {
 // resolveNextPrepare
 // ─────────────────────────────────────────────────────────────────────────────
 
-function makePrevResult(bindingValues: Record<string, import('runtime').AnyValue>): ActionExecutionResult {
+function makePrevResult(
+  bindingValues: Record<string, import("runtime").AnyValue>,
+): ActionExecutionResult {
   return {
-    actionId: 'prev_action',
-    computeRootValue: buildNull('unknown'),
+    actionId: "prev_action",
+    computeRootValue: buildNull("unknown"),
     bindingValues,
     stateAfterMerge: stateManagerFromUnchecked({}),
     publishOutcomes: [],
   };
 }
 
-describe('resolveNextPrepare', () => {
-  it('from_action reads from prevResult.bindingValues', () => {
+describe("resolveNextPrepare", () => {
+  it("from_action reads from prevResult.bindingValues", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({ score: buildNumber(99) });
     const result = resolveNextPrepare(
-      [{ binding: 'score', fromAction: 'score' }] as unknown as NextPrepareEntry[],
+      [{ binding: "score", fromAction: "score" }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureNumber(result['score']!) && result['score'].value).toBe(99);
+    expect(isPureNumber(result["score"]!) && result["score"].value).toBe(99);
   });
 
-  it('from_action throws PrepareError(MissingActionBinding) when binding is absent in prevResult', () => {
+  it("from_action throws PrepareError(MissingActionBinding) when binding is absent in prevResult", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     let err: unknown;
     try {
       resolveNextPrepare(
-        [{ binding: 'missing', fromAction: 'missing' }] as unknown as NextPrepareEntry[],
+        [{ binding: "missing", fromAction: "missing" }] as unknown as NextPrepareEntry[],
         state,
         prevResult,
       );
-    } catch (e) { err = e; }
+    } catch (e) {
+      err = e;
+    }
     expect(err).toBeInstanceOf(PrepareError);
-    expect((err as PrepareError).code).toBe('MissingActionBinding');
+    expect((err as PrepareError).code).toBe("MissingActionBinding");
   });
 
-  it('from_state reads the post-merge state', () => {
-    const state = stateManagerFromUnchecked({ 'workflow.stage': buildString('review') });
+  it("from_state reads the post-merge state", () => {
+    const state = stateManagerFromUnchecked({ "workflow.stage": buildString("review") });
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'stage', fromState: 'workflow.stage' }] as unknown as NextPrepareEntry[],
+      [{ binding: "stage", fromState: "workflow.stage" }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureString(result['stage']!) && result['stage'].value).toBe('review');
+    expect(isPureString(result["stage"]!) && result["stage"].value).toBe("review");
   });
 
   it('from_state returns buildNull("missing") when an unchecked next path is absent', () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'x', fromState: 'no.path' }] as unknown as NextPrepareEntry[],
+      [{ binding: "x", fromState: "no.path" }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureNull(result['x']!)).toBe(true);
+    expect(isPureNull(result["x"]!)).toBe(true);
   });
 
-  it('from_literal converts number correctly', () => {
+  it("from_literal converts number correctly", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'n', fromLiteral: 42 }] as unknown as NextPrepareEntry[],
+      [{ binding: "n", fromLiteral: 42 }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureNumber(result['n']!) && result['n'].value).toBe(42);
+    expect(isPureNumber(result["n"]!) && result["n"].value).toBe(42);
   });
 
-  it('from_literal converts string correctly', () => {
+  it("from_literal converts string correctly", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'msg', fromLiteral: 'hello' }] as unknown as NextPrepareEntry[],
+      [{ binding: "msg", fromLiteral: "hello" }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureString(result['msg']!) && result['msg'].value).toBe('hello');
+    expect(isPureString(result["msg"]!) && result["msg"].value).toBe("hello");
   });
 
-  it('from_literal converts boolean correctly', () => {
+  it("from_literal converts boolean correctly", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'flag', fromLiteral: true }] as unknown as NextPrepareEntry[],
+      [{ binding: "flag", fromLiteral: true }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureBoolean(result['flag']!) && result['flag'].value).toBe(true);
+    expect(isPureBoolean(result["flag"]!) && result["flag"].value).toBe(true);
   });
 
-  it('from_literal converts number array correctly', () => {
+  it("from_literal converts number array correctly", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'nums', fromLiteral: [1, 2, 3] }] as unknown as NextPrepareEntry[],
+      [{ binding: "nums", fromLiteral: [1, 2, 3] }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isArray(result['nums']!)).toBe(true);
+    expect(isArray(result["nums"]!)).toBe(true);
   });
 
-  it('from_literal converts string array correctly', () => {
+  it("from_literal converts string array correctly", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'tags', fromLiteral: ['a', 'b'] }] as unknown as NextPrepareEntry[],
+      [{ binding: "tags", fromLiteral: ["a", "b"] }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isArray(result['tags']!)).toBe(true);
+    expect(isArray(result["tags"]!)).toBe(true);
   });
 
-  it('from_literal converts bool array correctly', () => {
+  it("from_literal converts bool array correctly", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'flags', fromLiteral: [true, false] }] as unknown as NextPrepareEntry[],
+      [{ binding: "flags", fromLiteral: [true, false] }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isArray(result['flags']!)).toBe(true);
+    expect(isArray(result["flags"]!)).toBe(true);
   });
 
-  it('from_literal handles empty array (no element type to infer)', () => {
+  it("from_literal handles empty array (no element type to infer)", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'empty', fromLiteral: [] as unknown as number[] }] as unknown as NextPrepareEntry[],
+      [
+        { binding: "empty", fromLiteral: [] as unknown as number[] },
+      ] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isArray(result['empty']!)).toBe(true);
+    expect(isArray(result["empty"]!)).toBe(true);
   });
 
-
-  it('from_literal converts nullish or object values to unknown null', () => {
+  it("from_literal converts nullish or object values to unknown null", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     const result = resolveNextPrepare(
-      [{ binding: 'unknown', fromLiteral: { nested: 'value' } }] as unknown as NextPrepareEntry[],
+      [{ binding: "unknown", fromLiteral: { nested: "value" } }] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureNull(result['unknown']!)).toBe(true);
+    expect(isPureNull(result["unknown"]!)).toBe(true);
   });
 
-  it('rejects from_hook in next prepare entries', () => {
+  it("rejects from_hook in next prepare entries", () => {
     const state = stateManagerFromUnchecked({});
     const prevResult = makePrevResult({});
     let err: unknown;
     try {
       resolveNextPrepare(
-        [{ binding: 'x', fromHook: 'async_prepare' }] as unknown as NextPrepareEntry[],
+        [{ binding: "x", fromHook: "async_prepare" }] as unknown as NextPrepareEntry[],
         state,
         prevResult,
       );
-    } catch (e) { err = e; }
+    } catch (e) {
+      err = e;
+    }
     expect(err).toBeInstanceOf(PrepareError);
-    expect((err as PrepareError).code).toBe('UnregisteredHook');
-    expect((err as Error).message).toContain('from_hook is not supported');
+    expect((err as PrepareError).code).toBe("UnregisteredHook");
+    expect((err as Error).message).toContain("from_hook is not supported");
   });
 
-  it('resolves multiple entries with mixed sources', () => {
-    const state = stateManagerFromUnchecked({ 'ctx.mode': buildString('fast') });
+  it("resolves multiple entries with mixed sources", () => {
+    const state = stateManagerFromUnchecked({ "ctx.mode": buildString("fast") });
     const prevResult = makePrevResult({ raw_score: buildNumber(5) });
     const result = resolveNextPrepare(
       [
-        { binding: 'score', fromAction: 'raw_score' },
-        { binding: 'mode', fromState: 'ctx.mode' },
-        { binding: 'threshold', fromLiteral: 3 },
+        { binding: "score", fromAction: "raw_score" },
+        { binding: "mode", fromState: "ctx.mode" },
+        { binding: "threshold", fromLiteral: 3 },
       ] as unknown as NextPrepareEntry[],
       state,
       prevResult,
     );
-    expect(isPureNumber(result['score']!) && result['score'].value).toBe(5);
-    expect(isPureString(result['mode']!) && result['mode'].value).toBe('fast');
-    expect(isPureNumber(result['threshold']!) && result['threshold'].value).toBe(3);
+    expect(isPureNumber(result["score"]!) && result["score"].value).toBe(5);
+    expect(isPureString(result["mode"]!) && result["mode"].value).toBe("fast");
+    expect(isPureNumber(result["threshold"]!) && result["threshold"].value).toBe(3);
   });
 });

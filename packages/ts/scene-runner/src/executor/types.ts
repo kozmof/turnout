@@ -1,6 +1,6 @@
-import type { AnyValue } from 'runtime';
-import type { StateManager } from '../state/state-manager.js';
-import type { PublishHookOutcome } from '../types/harness-types.js';
+import type { AnyValue } from "runtime";
+import type { StateManager } from "../state/state-manager.js";
+import type { PublishHookOutcome } from "../types/harness-types.js";
 
 /** A signal that is never aborted; used as the default AbortSignal for operations that must complete. */
 export const UNABORTABLE: AbortSignal = new AbortController().signal;

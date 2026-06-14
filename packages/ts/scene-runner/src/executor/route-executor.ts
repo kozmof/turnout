@@ -1,11 +1,11 @@
-import type { AnyValue } from 'runtime';
-import type { RouteModel, SceneBlock } from '../types/turnout-model_pb.js';
-import type { StateManager } from '../state/state-manager.js';
-import type { HookRegistry, RouteTrace, SceneWarning } from '../types/harness-types.js';
-import { executeScene } from './scene-executor.js';
-import { selectNextScene, parseMatchArms } from './route-pattern.js';
-import type { HistoryEntry } from './route-pattern.js';
-import { RouteRuntimeError } from './errors.js';
+import type { AnyValue } from "runtime";
+import type { RouteModel, SceneBlock } from "../types/turnout-model_pb.js";
+import type { StateManager } from "../state/state-manager.js";
+import type { HookRegistry, RouteTrace, SceneWarning } from "../types/harness-types.js";
+import { executeScene } from "./scene-executor.js";
+import { selectNextScene, parseMatchArms } from "./route-pattern.js";
+import type { HistoryEntry } from "./route-pattern.js";
+import { RouteRuntimeError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -25,8 +25,8 @@ const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
  * instead of parsing warning strings.
  */
 export type RouteWarning =
-  | { kind: 'multi_entry_action'; sceneId: string; entryActions: string[] }
-  | { kind: 'scene_warning'; sceneId: string; warning: SceneWarning };
+  | { kind: "multi_entry_action"; sceneId: string; entryActions: string[] }
+  | { kind: "scene_warning"; sceneId: string; warning: SceneWarning };
 
 export type RouteExecutionResult = {
   routeId: string;
@@ -34,7 +34,7 @@ export type RouteExecutionResult = {
   history: string[];
   trace: RouteTrace;
   /** Terminal state — route exits when no match arm fires. */
-  status: 'completed';
+  status: "completed";
   /** Structured non-fatal warnings produced during route execution. */
   warnings?: RouteWarning[];
 };
@@ -84,25 +84,41 @@ async function runRouteCore(
   const parsedArms = parseMatchArms(route.match);
   let routeTransitionCount = 0;
   const history: string[] = [];
-  const sceneTraces: RouteTrace['scenes'] = [];
+  const sceneTraces: RouteTrace["scenes"] = [];
   const warnings: RouteWarning[] = [];
 
   for (;;) {
     const scene = scenes[progress.currentSceneId];
-    if (!scene) throw new RouteRuntimeError('UnknownScene', route.id, `unknown scene "${progress.currentSceneId}"`);
+    if (!scene)
+      throw new RouteRuntimeError(
+        "UnknownScene",
+        route.id,
+        `unknown scene "${progress.currentSceneId}"`,
+      );
 
     // Route-driven entry: only the first declared entry action fires (spec §route-entry).
     if (scene.entryActions.length > 1) {
       warnings.push({
-        kind: 'multi_entry_action',
+        kind: "multi_entry_action",
         sceneId: progress.currentSceneId,
         entryActions: scene.entryActions,
       });
     }
     const routeEntry = scene.entryActions[0];
-    if (!routeEntry) throw new RouteRuntimeError('NoEntryAction', route.id, `scene "${progress.currentSceneId}" has no entry actions`);
+    if (!routeEntry)
+      throw new RouteRuntimeError(
+        "NoEntryAction",
+        route.id,
+        `scene "${progress.currentSceneId}" has no entry actions`,
+      );
 
-    const sceneResult = await executeScene(scene, progress.currentState, hooks, [routeEntry], options.maxSceneSteps);
+    const sceneResult = await executeScene(
+      scene,
+      progress.currentState,
+      hooks,
+      [routeEntry],
+      options.maxSceneSteps,
+    );
     // Commit state and record scene id only after a scene fully completes —
     // partial states stay at the last successfully committed scene boundary.
     progress.currentState = sceneResult.stateAfterScene;
@@ -111,16 +127,17 @@ async function runRouteCore(
     // Propagate scene-level warnings into structured route warnings.
     if (sceneResult.trace.warnings) {
       for (const warning of sceneResult.trace.warnings) {
-        warnings.push({ kind: 'scene_warning', sceneId: progress.currentSceneId, warning });
+        warnings.push({ kind: "scene_warning", sceneId: progress.currentSceneId, warning });
       }
     }
 
     // Build the current-scene history slice used for pattern matching.
     // Using only the current visit's actions (not accumulated global history) ensures
     // that revisited scenes match against their current run, consistent with RouteStepper.
-    const sceneHistory: HistoryEntry[] = sceneResult.trace.actions.map(
-      (a) => ({ sceneId: progress.currentSceneId, actionId: a.actionId }),
-    );
+    const sceneHistory: HistoryEntry[] = sceneResult.trace.actions.map((a) => ({
+      sceneId: progress.currentSceneId,
+      actionId: a.actionId,
+    }));
 
     // Append to the global history accumulator (exposed on the result for callers).
     history.push(...sceneHistory.map((e) => `${e.sceneId}.${e.actionId}`));
@@ -132,7 +149,7 @@ async function runRouteCore(
     routeTransitionCount++;
     if (routeTransitionCount > maxRouteTransitions) {
       throw new RouteRuntimeError(
-        'MaxRouteTransitionsExceeded',
+        "MaxRouteTransitionsExceeded",
         route.id,
         `exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
       );
@@ -146,7 +163,7 @@ async function runRouteCore(
     finalState: progress.currentState.snapshot(),
     history,
     trace: { routeId: route.id, scenes: sceneTraces },
-    status: 'completed',
+    status: "completed",
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }

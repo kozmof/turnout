@@ -8,6 +8,6 @@ export default function strEnum<T extends string>(o: T[]): { [K in T]: K } {
       return res;
     },
     // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
-    Object.create(null)
+    Object.create(null),
   );
 }

@@ -7,9 +7,9 @@ import type {
   CondDefineId,
   ValueTable,
   FuncTable,
-} from '../../types';
-import type { BaseTypeSymbol } from '../../../state-control/value';
-import { baseTypeSymbols } from '../../../state-control/value';
+} from "../../types";
+import type { BaseTypeSymbol } from "../../../state-control/value";
+import { baseTypeSymbols } from "../../../state-control/value";
 
 // ============================================================================
 // Constants
@@ -33,7 +33,7 @@ export type UnvalidatedContext = {
 // ValidatedContext — branded, impossible to construct outside this module
 // ============================================================================
 
-const _validatedBrand: unique symbol = Symbol('validatedContext');
+const _validatedBrand: unique symbol = Symbol("validatedContext");
 
 export type ValidatedContext = ExecutionContext & {
   readonly [_validatedBrand]: true;

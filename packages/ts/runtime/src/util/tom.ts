@@ -10,5 +10,5 @@ export const TOM = {
   entries: <T extends Record<string, unknown>>(obj: T): Entries<T> => {
     // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
     return Object.entries(obj) as Entries<T>;
-  }
+  },
 };

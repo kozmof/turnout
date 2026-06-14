@@ -1,38 +1,38 @@
-import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from '../types';
-import { NodeId } from './tree-types';
+import { FuncId, ValueId, CombineDefineId, PipeDefineId, CondDefineId } from "../types";
+import { NodeId } from "./tree-types";
 
 // Define error data types separately for type safety
 type MissingDependencyErrorData = {
-  readonly kind: 'missingDependency';
+  readonly kind: "missingDependency";
   readonly missingId: NodeId;
   readonly dependentId: NodeId;
 };
 
 type MissingDefinitionErrorData = {
-  readonly kind: 'missingDefinition';
+  readonly kind: "missingDefinition";
   readonly missingDefId: CombineDefineId | PipeDefineId | CondDefineId;
   readonly funcId: FuncId;
 };
 
 type FunctionExecutionErrorData = {
-  readonly kind: 'functionExecution';
+  readonly kind: "functionExecution";
   readonly funcId: FuncId;
   readonly message: string;
   readonly cause?: Error;
 };
 
 type EmptySequenceErrorData = {
-  readonly kind: 'emptySequence';
+  readonly kind: "emptySequence";
   readonly funcId: FuncId;
 };
 
 type MissingValueErrorData = {
-  readonly kind: 'missingValue';
+  readonly kind: "missingValue";
   readonly valueId: ValueId;
 };
 
 type InvalidTreeNodeErrorData = {
-  readonly kind: 'invalidTreeNode';
+  readonly kind: "invalidTreeNode";
   readonly nodeId: NodeId;
   readonly message: string;
 };
@@ -56,15 +56,13 @@ export type GraphExecutionError =
 // Factory functions that create Error instances with additional properties
 export function createMissingDependencyError(
   missingId: NodeId,
-  dependentId: NodeId
+  dependentId: NodeId,
 ): MissingDependencyError {
-  const error = new Error(
-    `Missing dependency ${missingId} required by ${dependentId}`
-  );
-  error.name = 'MissingDependencyError';
+  const error = new Error(`Missing dependency ${missingId} required by ${dependentId}`);
+  error.name = "MissingDependencyError";
 
   const errorData: MissingDependencyErrorData = {
-    kind: 'missingDependency',
+    kind: "missingDependency",
     missingId,
     dependentId,
   };
@@ -74,15 +72,13 @@ export function createMissingDependencyError(
 
 export function createMissingDefinitionError(
   missingDefId: CombineDefineId | PipeDefineId | CondDefineId,
-  funcId: FuncId
+  funcId: FuncId,
 ): MissingDefinitionError {
-  const error = new Error(
-    `Missing definition ${missingDefId} for function ${funcId}`
-  );
-  error.name = 'MissingDefinitionError';
+  const error = new Error(`Missing definition ${missingDefId} for function ${funcId}`);
+  error.name = "MissingDefinitionError";
 
   const errorData: MissingDefinitionErrorData = {
-    kind: 'missingDefinition',
+    kind: "missingDefinition",
     missingDefId,
     funcId,
   };
@@ -93,15 +89,13 @@ export function createMissingDefinitionError(
 export function createFunctionExecutionError(
   funcId: FuncId,
   message: string,
-  cause?: Error
+  cause?: Error,
 ): FunctionExecutionError {
-  const error = new Error(
-    `Function ${funcId} execution failed: ${message}`
-  );
-  error.name = 'FunctionExecutionError';
+  const error = new Error(`Function ${funcId} execution failed: ${message}`);
+  error.name = "FunctionExecutionError";
 
   const errorData: FunctionExecutionErrorData = {
-    kind: 'functionExecution',
+    kind: "functionExecution",
     funcId,
     message,
     ...(cause !== undefined && { cause }),
@@ -112,39 +106,34 @@ export function createFunctionExecutionError(
 
 export function createEmptySequenceError(funcId: FuncId): EmptySequenceError {
   const error = new Error(`PipeFunc ${funcId} has empty sequence`);
-  error.name = 'EmptySequenceError';
+  error.name = "EmptySequenceError";
 
   const errorData: EmptySequenceErrorData = {
-    kind: 'emptySequence',
+    kind: "emptySequence",
     funcId,
   };
 
   return Object.assign(error, errorData);
 }
 
-export function createMissingValueError(
-  valueId: ValueId
-): MissingValueError {
+export function createMissingValueError(valueId: ValueId): MissingValueError {
   const error = new Error(`Missing value: ${valueId}`);
-  error.name = 'MissingValueError';
+  error.name = "MissingValueError";
 
   const errorData: MissingValueErrorData = {
-    kind: 'missingValue',
+    kind: "missingValue",
     valueId,
   };
 
   return Object.assign(error, errorData);
 }
 
-export function createInvalidTreeNodeError(
-  nodeId: NodeId,
-  message: string
-): InvalidTreeNodeError {
+export function createInvalidTreeNodeError(nodeId: NodeId, message: string): InvalidTreeNodeError {
   const error = new Error(`Invalid tree node ${nodeId}: ${message}`);
-  error.name = 'InvalidTreeNodeError';
+  error.name = "InvalidTreeNodeError";
 
   const errorData: InvalidTreeNodeErrorData = {
-    kind: 'invalidTreeNode',
+    kind: "invalidTreeNode",
     nodeId,
     message,
   };
@@ -153,21 +142,19 @@ export function createInvalidTreeNodeError(
 }
 
 const GRAPH_EXECUTION_ERROR_KINDS = new Set<string>([
-  'missingDependency',
-  'missingDefinition',
-  'functionExecution',
-  'emptySequence',
-  'missingValue',
-  'invalidTreeNode',
+  "missingDependency",
+  "missingDefinition",
+  "functionExecution",
+  "emptySequence",
+  "missingValue",
+  "invalidTreeNode",
 ]);
 
 // Type guard
-export function isGraphExecutionError(
-  error: unknown
-): error is GraphExecutionError {
+export function isGraphExecutionError(error: unknown): error is GraphExecutionError {
   return (
     error instanceof Error &&
-    'kind' in error &&
-    GRAPH_EXECUTION_ERROR_KINDS.has(typeof error.kind === 'string' ? error.kind : '')
+    "kind" in error &&
+    GRAPH_EXECUTION_ERROR_KINDS.has(typeof error.kind === "string" ? error.kind : "")
   );
 }

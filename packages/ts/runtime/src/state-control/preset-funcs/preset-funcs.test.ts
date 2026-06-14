@@ -1,39 +1,36 @@
-import { describe, expect, it } from 'vitest';
-import { buildArray, buildBoolean, buildNumber, buildString } from '../value-builders';
-import { bfArray } from './array/binaryFn';
-import { tfArray } from './array/transformFn';
-import { bfBoolean } from './boolean/binaryFn';
-import { tfBoolean } from './boolean/transformFn';
-import { bfGeneric } from './generic/binaryFn';
-import { bfNumber } from './number/binaryFn';
-import { tfNumber } from './number/transformFn';
-import { bfString } from './string/binaryFn';
-import { tfString } from './string/transformFn';
+import { describe, expect, it } from "vitest";
+import { buildArray, buildBoolean, buildNumber, buildString } from "../value-builders";
+import { bfArray } from "./array/binaryFn";
+import { tfArray } from "./array/transformFn";
+import { bfBoolean } from "./boolean/binaryFn";
+import { tfBoolean } from "./boolean/transformFn";
+import { bfGeneric } from "./generic/binaryFn";
+import { bfNumber } from "./number/binaryFn";
+import { tfNumber } from "./number/transformFn";
+import { bfString } from "./string/binaryFn";
+import { tfString } from "./string/transformFn";
 
-function expectTagsToContainAll(
-  actual: readonly string[],
-  expected: readonly string[]
-): void {
+function expectTagsToContainAll(actual: readonly string[], expected: readonly string[]): void {
   expect(actual).toHaveLength(expected.length);
   for (const tag of expected) {
     expect(actual).toContain(tag);
   }
 }
 
-describe('preset functions', () => {
-  describe('number binary functions', () => {
-    it('supports arithmetic essentials', () => {
-      const a = buildNumber(10, ['left']);
-      const b = buildNumber(3, ['right']);
+describe("preset functions", () => {
+  describe("number binary functions", () => {
+    it("supports arithmetic essentials", () => {
+      const a = buildNumber(10, ["left"]);
+      const b = buildNumber(3, ["right"]);
 
       expect(bfNumber.mod(a, b).value).toBe(1);
       expect(bfNumber.max(a, b).value).toBe(10);
       expect(bfNumber.min(a, b).value).toBe(3);
     });
 
-    it('supports comparison essentials with merged tags', () => {
-      const a = buildNumber(10, ['left']);
-      const b = buildNumber(3, ['right']);
+    it("supports comparison essentials with merged tags", () => {
+      const a = buildNumber(10, ["left"]);
+      const b = buildNumber(3, ["right"]);
 
       const gt = bfNumber.greaterThan(a, b);
       const gte = bfNumber.greaterThanOrEqual(a, b);
@@ -45,138 +42,141 @@ describe('preset functions', () => {
       expect(lt.value).toBe(false);
       expect(lte.value).toBe(false);
 
-      expectTagsToContainAll(gt.tags, ['left', 'right']);
+      expectTagsToContainAll(gt.tags, ["left", "right"]);
     });
   });
 
-  describe('boolean transform and binary functions', () => {
-    it('supports boolean transforms', () => {
-      const v = buildBoolean(true, ['source']);
+  describe("boolean transform and binary functions", () => {
+    it("supports boolean transforms", () => {
+      const v = buildBoolean(true, ["source"]);
 
       expect(tfBoolean.pass(v).value).toBe(true);
       expect(tfBoolean.not(v).value).toBe(false);
-      expect(tfBoolean.toStr(v).value).toBe('true');
-      expect(tfBoolean.not(v).tags).toEqual(['source']);
+      expect(tfBoolean.toStr(v).value).toBe("true");
+      expect(tfBoolean.not(v).tags).toEqual(["source"]);
     });
 
-    it('supports boolean binary operators with merged tags', () => {
-      const a = buildBoolean(true, ['left']);
-      const b = buildBoolean(false, ['right']);
+    it("supports boolean binary operators with merged tags", () => {
+      const a = buildBoolean(true, ["left"]);
+      const b = buildBoolean(false, ["right"]);
 
       expect(bfBoolean.and(a, b).value).toBe(false);
       expect(bfBoolean.or(a, b).value).toBe(true);
       expect(bfBoolean.or(buildBoolean(false), buildBoolean(false)).value).toBe(false);
       expect(bfBoolean.xor(a, b).value).toBe(true);
 
-      expectTagsToContainAll(bfBoolean.or(a, b).tags, ['left', 'right']);
+      expectTagsToContainAll(bfBoolean.or(a, b).tags, ["left", "right"]);
     });
   });
 
-  describe('number transform functions', () => {
-    it('supports unary number transforms', () => {
-      const v = buildNumber(-2.6, ['source']);
+  describe("number transform functions", () => {
+    it("supports unary number transforms", () => {
+      const v = buildNumber(-2.6, ["source"]);
 
       expect(tfNumber.abs(v).value).toBe(2.6);
       expect(tfNumber.floor(v).value).toBe(-3);
       expect(tfNumber.ceil(v).value).toBe(-2);
       expect(tfNumber.round(v).value).toBe(-3);
       expect(tfNumber.negate(v).value).toBe(2.6);
-      expect(tfNumber.negate(v).tags).toEqual(['source']);
+      expect(tfNumber.negate(v).tags).toEqual(["source"]);
     });
   });
 
-  describe('string transform and binary functions', () => {
-    it('supports essential string transforms', () => {
-      const v = buildString('  HelLo  ', ['source']);
+  describe("string transform and binary functions", () => {
+    it("supports essential string transforms", () => {
+      const v = buildString("  HelLo  ", ["source"]);
 
-      expect(tfString.trim(v).value).toBe('HelLo');
-      expect(tfString.toLowerCase(v).value).toBe('  hello  ');
-      expect(tfString.toUpperCase(v).value).toBe('  HELLO  ');
+      expect(tfString.trim(v).value).toBe("HelLo");
+      expect(tfString.toLowerCase(v).value).toBe("  hello  ");
+      expect(tfString.toUpperCase(v).value).toBe("  HELLO  ");
       expect(tfString.length(v).value).toBe(9);
-      expect(tfString.length(v).tags).toEqual(['source']);
+      expect(tfString.length(v).tags).toEqual(["source"]);
     });
 
-    it('toNumber preserves decimal places', () => {
-      expect(tfString.toNumber(buildString('3.14')).value).toBe(3.14);
-      expect(tfString.toNumber(buildString('42')).value).toBe(42);
-      expect(tfString.toNumber(buildString('-1.5')).value).toBe(-1.5);
+    it("toNumber preserves decimal places", () => {
+      expect(tfString.toNumber(buildString("3.14")).value).toBe(3.14);
+      expect(tfString.toNumber(buildString("42")).value).toBe(42);
+      expect(tfString.toNumber(buildString("-1.5")).value).toBe(-1.5);
     });
 
-    it('supports essential string binary predicates', () => {
-      const a = buildString('turnout-engine', ['left']);
-      const b = buildString('turn', ['right']);
+    it("supports essential string binary predicates", () => {
+      const a = buildString("turnout-engine", ["left"]);
+      const b = buildString("turn", ["right"]);
 
       const includes = bfString.includes(a, b);
       const startsWith = bfString.startsWith(a, b);
-      const endsWith = bfString.endsWith(a, buildString('engine'));
+      const endsWith = bfString.endsWith(a, buildString("engine"));
 
       expect(includes.value).toBe(true);
       expect(startsWith.value).toBe(true);
       expect(endsWith.value).toBe(true);
-      expectTagsToContainAll(includes.tags, ['left', 'right']);
+      expectTagsToContainAll(includes.tags, ["left", "right"]);
     });
   });
 
-  describe('array transform and binary functions', () => {
-    it('supports array emptiness and concat', () => {
-      const arrA = buildArray([buildNumber(1), buildString('x')], ['arr-a']);
-      const arrB = buildArray([buildNumber(2)], ['arr-b']);
+  describe("array transform and binary functions", () => {
+    it("supports array emptiness and concat", () => {
+      const arrA = buildArray([buildNumber(1), buildString("x")], ["arr-a"]);
+      const arrB = buildArray([buildNumber(2)], ["arr-b"]);
 
       const isEmptyA = tfArray.isEmpty(arrA);
-      const isEmptyB = tfArray.isEmpty(buildArray([], ['arr-empty']));
+      const isEmptyB = tfArray.isEmpty(buildArray([], ["arr-empty"]));
       const concat = bfArray.concat(arrA, arrB);
 
       expect(isEmptyA.value).toBe(false);
       expect(isEmptyB.value).toBe(true);
       expect(concat.value).toHaveLength(3);
-      expectTagsToContainAll(concat.tags, ['arr-a', 'arr-b']);
+      expectTagsToContainAll(concat.tags, ["arr-a", "arr-b"]);
     });
 
-    it('keeps get tag propagation behavior', () => {
-      const item = buildString('value', ['item']);
-      const arr = buildArray([item], ['array']);
-      const idx = buildNumber(0, ['index']);
+    it("keeps get tag propagation behavior", () => {
+      const item = buildString("value", ["item"]);
+      const arr = buildArray([item], ["array"]);
+      const idx = buildNumber(0, ["index"]);
 
       const got = bfArray.get(arr, idx);
-      expect(got.value).toBe('value');
-      expectTagsToContainAll(got.tags, ['item', 'array', 'index']);
+      expect(got.value).toBe("value");
+      expectTagsToContainAll(got.tags, ["item", "array", "index"]);
     });
   });
 
+  it("supports additional array helpers and error branches", () => {
+    const item = buildNumber(2, ["item"]);
+    const nested = buildArray([buildNumber(9)], ["nested"]);
+    const arr = buildArray([buildNumber(1), item], ["array"]);
+    const idx = buildNumber(1, ["index"]);
 
-    it('supports additional array helpers and error branches', () => {
-      const item = buildNumber(2, ['item']);
-      const nested = buildArray([buildNumber(9)], ['nested']);
-      const arr = buildArray([buildNumber(1), item], ['array']);
-      const idx = buildNumber(1, ['index']);
+    expect(tfArray.pass(arr)).toBe(arr);
+    expect(tfArray.length(arr).value).toBe(2);
+    expect(tfArray.length(arr).tags).toEqual(["array"]);
+    expect(bfArray.includes(arr, item).value).toBe(true);
+    expectTagsToContainAll(bfArray.includes(arr, item).tags, ["array", "item"]);
+    expect(() => bfArray.get(arr, buildNumber(99))).toThrow("out of bounds");
+    expect(() => bfArray.get(buildArray([nested]), buildNumber(0))).toThrow(
+      "item at that index is an array",
+    );
+  });
 
-      expect(tfArray.pass(arr)).toBe(arr);
-      expect(tfArray.length(arr).value).toBe(2);
-      expect(tfArray.length(arr).tags).toEqual(['array']);
-      expect(bfArray.includes(arr, item).value).toBe(true);
-      expectTagsToContainAll(bfArray.includes(arr, item).tags, ['array', 'item']);
-      expect(() => bfArray.get(arr, buildNumber(99))).toThrow('out of bounds');
-      expect(() => bfArray.get(buildArray([nested]), buildNumber(0))).toThrow('item at that index is an array');
-    });
-
-  describe('generic binary functions', () => {
-    it('supports isNotEqual with merged tags', () => {
-      const a = buildNumber(1, ['left']);
-      const b = buildNumber(2, ['right']);
+  describe("generic binary functions", () => {
+    it("supports isNotEqual with merged tags", () => {
+      const a = buildNumber(1, ["left"]);
+      const b = buildNumber(2, ["right"]);
 
       const result = bfGeneric.isNotEqual(a, b);
       expect(result.value).toBe(true);
-      expectTagsToContainAll(result.tags, ['left', 'right']);
+      expectTagsToContainAll(result.tags, ["left", "right"]);
     });
 
-    it('supports equality for arrays and rejects incomparable values', () => {
-      expect(bfGeneric.isEqual(
-        buildArray([buildNumber(1)], ['left']),
-        buildArray([buildNumber(1)], ['right'])
-      ).value).toBe(true);
-      expect(bfGeneric.isNotEqual(buildString('a'), buildString('a')).value).toBe(false);
-      expect(() => bfGeneric.isEqual(buildNumber(1), buildString('1'))).toThrow();
-      expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString('true'))).toThrow();
+    it("supports equality for arrays and rejects incomparable values", () => {
+      expect(
+        bfGeneric.isEqual(
+          buildArray([buildNumber(1)], ["left"]),
+          buildArray([buildNumber(1)], ["right"]),
+        ).value,
+      ).toBe(true);
+      expect(bfGeneric.isNotEqual(buildString("a"), buildString("a")).value).toBe(false);
+      expect(() => bfGeneric.isEqual(buildNumber(1), buildString("1"))).toThrow();
+      expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString("true"))).toThrow();
     });
   });
 });

@@ -1,8 +1,9 @@
 // Node.js only — loads models from disk before delegating to the universal harness.
-import type { FullHarnessResult, HookRegistry } from '../types/harness-types.js';
-import type { AnyValue } from 'runtime';
-import { runConverter, loadJsonModel } from './bridge.js';
-import { runHarness } from '../harness/harness.js';
+import type { FullHarnessResult, HookRegistry } from "../types/harness-types.js";
+import type { AnyValue } from "runtime";
+import { runConverter, loadJsonModel } from "./bridge.js";
+import { runHarness } from "../harness/harness.js";
+import { HarnessError } from "./errors.js";
 
 export type ServerHarnessOptions = {
   /** Path to a .turn file — the Go converter will be invoked to produce JSON. */
@@ -38,7 +39,10 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
   } else if (options.jsonFile) {
     model = loadJsonModel(options.jsonFile);
   } else {
-    throw new Error('runServerHarness: either turnFile or jsonFile must be provided');
+    throw new HarnessError(
+      "MissingEntryPoint",
+      "runServerHarness: either turnFile or jsonFile must be provided",
+    );
   }
 
   return runHarness({

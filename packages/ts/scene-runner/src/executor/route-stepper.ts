@@ -1,18 +1,16 @@
-import type { SceneBlock } from '../types/turnout-model_pb.js';
-import type { StateManager } from '../state/state-manager.js';
-import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace } from '../types/harness-types.js';
-import type { ParsedMatchArm, HistoryEntry } from './route-pattern.js';
-import { selectNextScene } from './route-pattern.js';
-import { createSceneExecutor } from './scene-executor.js';
-import { RouteRuntimeError } from './errors.js';
+import type { SceneBlock } from "../types/turnout-model_pb.js";
+import type { StateManager } from "../state/state-manager.js";
+import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace } from "../types/harness-types.js";
+import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
+import { selectNextScene } from "./route-pattern.js";
+import { createSceneExecutor } from "./scene-executor.js";
+import { RouteRuntimeError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RouteStepResult =
-  | { done: false; sceneId: string; trace: ActionTrace }
-  | { done: true };
+export type RouteStepResult = { done: false; sceneId: string; trace: ActionTrace } | { done: true };
 
 export type RouteStepperResult = {
   finalState: StateManager;
@@ -66,7 +64,9 @@ function createRouteSession(
   let currentSceneId = entrySceneId;
 
   return {
-    get currentSceneId() { return currentSceneId; },
+    get currentSceneId() {
+      return currentSceneId;
+    },
 
     recordAction(actionId) {
       history.push({ sceneId: currentSceneId, actionId });
@@ -91,7 +91,7 @@ function createRouteSession(
       transitionCount++;
       if (transitionCount > maxTransitions) {
         throw new RouteRuntimeError(
-          'MaxRouteTransitionsExceeded',
+          "MaxRouteTransitionsExceeded",
           routeId,
           `exceeded ${maxTransitions} scene transitions — possible infinite loop`,
         );
@@ -109,7 +109,12 @@ function createRouteSession(
 
 function firstEntryAction(scene: SceneBlock, routeId: string): string {
   const first = scene.entryActions[0];
-  if (!first) throw new RouteRuntimeError('NoEntryAction', routeId, `scene "${scene.id}" has no entry actions`);
+  if (!first)
+    throw new RouteRuntimeError(
+      "NoEntryAction",
+      routeId,
+      `scene "${scene.id}" has no entry actions`,
+    );
   return first;
 }
 
@@ -135,7 +140,8 @@ export function createRouteStepper(
   let done = false;
 
   const initialScene = sceneMap[entrySceneId];
-  if (!initialScene) throw new RouteRuntimeError('UnknownScene', routeId, `entry scene "${entrySceneId}" not found`);
+  if (!initialScene)
+    throw new RouteRuntimeError("UnknownScene", routeId, `entry scene "${entrySceneId}" not found`);
 
   let sceneExecutor = createSceneExecutor(
     initialScene,
@@ -152,7 +158,7 @@ export function createRouteStepper(
         const step = await sceneExecutor.next();
         if (step.done) {
           throw new Error(
-            'RouteStepper: invariant violated — sceneExecutor.next() returned done=true after isDone()=false',
+            "RouteStepper: invariant violated — sceneExecutor.next() returned done=true after isDone()=false",
           );
         }
 
@@ -172,7 +178,8 @@ export function createRouteStepper(
       }
 
       const nextScene = sceneMap[nextSceneId];
-      if (!nextScene) throw new RouteRuntimeError('UnknownScene', routeId, `unknown scene "${nextSceneId}"`);
+      if (!nextScene)
+        throw new RouteRuntimeError("UnknownScene", routeId, `unknown scene "${nextSceneId}"`);
 
       sceneExecutor = createSceneExecutor(
         nextScene,
@@ -193,7 +200,7 @@ export function createRouteStepper(
     next,
 
     result() {
-      if (!done) throw new Error('RouteStepper: execution is not complete');
+      if (!done) throw new Error("RouteStepper: execution is not complete");
       return {
         finalState: currentState,
         trace: { routeId, scenes: session.getTraces() },

@@ -1,7 +1,7 @@
-import { type BooleanValue, type TagSymbol } from '../../value';
-import { type BooleanToBoolean } from '../convert';
-import { binaryBooleanOp } from '../../value-builders';
-import { type NamespaceDelimiter } from '../../../util/constants';
+import { type BooleanValue, type TagSymbol } from "../../value";
+import { type BooleanToBoolean } from "../convert";
+import { binaryBooleanOp } from "../../value-builders";
+import { type NamespaceDelimiter } from "../../../util/constants";
 
 export interface BinaryFnBoolean {
   and: BooleanToBoolean;
@@ -10,28 +10,37 @@ export interface BinaryFnBoolean {
 }
 
 export const bfBoolean: BinaryFnBoolean = {
-  and: (a: BooleanValue<readonly TagSymbol[]>, b: BooleanValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
+  and: (
+    a: BooleanValue<readonly TagSymbol[]>,
+    b: BooleanValue<readonly TagSymbol[]>,
+  ): BooleanValue<readonly TagSymbol[]> => {
     return binaryBooleanOp((x, y) => x && y, a, b);
   },
-  or: (a: BooleanValue<readonly TagSymbol[]>, b: BooleanValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
+  or: (
+    a: BooleanValue<readonly TagSymbol[]>,
+    b: BooleanValue<readonly TagSymbol[]>,
+  ): BooleanValue<readonly TagSymbol[]> => {
     return binaryBooleanOp((x, y) => x || y, a, b);
   },
-  xor: (a: BooleanValue<readonly TagSymbol[]>, b: BooleanValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
+  xor: (
+    a: BooleanValue<readonly TagSymbol[]>,
+    b: BooleanValue<readonly TagSymbol[]>,
+  ): BooleanValue<readonly TagSymbol[]> => {
     return binaryBooleanOp((x, y) => x !== y, a, b);
   },
 } as const;
 
-export type BinaryFnBooleanNameSpace = 'binaryFnBoolean';
+export type BinaryFnBooleanNameSpace = "binaryFnBoolean";
 export type BinaryFnBooleanNames =
   `${BinaryFnBooleanNameSpace}${NamespaceDelimiter}${keyof typeof bfBoolean}`;
 
 export type ReturnMetaBinaryFnBoolean = {
-  [K in keyof BinaryFnBoolean]: ReturnType<BinaryFnBoolean[K]>['symbol'];
+  [K in keyof BinaryFnBoolean]: ReturnType<BinaryFnBoolean[K]>["symbol"];
 };
 
 export type ParamsMetaBinaryFnBoolean = {
   [K in keyof BinaryFnBoolean]: [
-    Parameters<BinaryFnBoolean[K]>[0]['symbol'],
-    Parameters<BinaryFnBoolean[K]>[1]['symbol'],
+    Parameters<BinaryFnBoolean[K]>[0]["symbol"],
+    Parameters<BinaryFnBoolean[K]>[1]["symbol"],
   ];
 };

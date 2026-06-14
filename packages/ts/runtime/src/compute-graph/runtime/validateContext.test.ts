@@ -182,9 +182,7 @@ describe("validateContext", () => {
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThanOrEqual(1);
       expect(
-        result.errors.some((e) =>
-          e.message.includes("Definition pd-missing does not exist"),
-        ),
+        result.errors.some((e) => e.message.includes("Definition pd-missing does not exist")),
       ).toBe(true);
     });
 
@@ -217,9 +215,7 @@ describe("validateContext", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors.length).toBeGreaterThan(0);
-      expect(
-        result.errors.some((e) => e.message.includes("v-nonexistent")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("v-nonexistent"))).toBe(true);
     });
   });
 
@@ -246,9 +242,7 @@ describe("validateContext", () => {
 
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) =>
-          e.message.includes("Invalid or missing function name"),
-        ),
+        result.errors.some((e) => e.message.includes("Invalid or missing function name")),
       ).toBe(true);
     });
 
@@ -270,11 +264,9 @@ describe("validateContext", () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) =>
-          e.message.includes("Missing transform function"),
-        ),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing transform function"))).toBe(
+        true,
+      );
     });
   });
 
@@ -303,9 +295,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("Sequence is empty")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Sequence is empty"))).toBe(true);
     });
 
     it("should detect invalid definition ID in sequence", () => {
@@ -338,9 +328,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("pd-nonexistent")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("pd-nonexistent"))).toBe(true);
     });
   });
 
@@ -394,9 +382,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("conditionId"))).toBe(
-        true,
-      );
+      expect(result.errors.some((e) => e.message.includes("conditionId"))).toBe(true);
     });
 
     it("should detect invalid trueBranchId", () => {
@@ -441,9 +427,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("trueBranchId")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("trueBranchId"))).toBe(true);
     });
   });
 
@@ -480,9 +464,7 @@ describe("validateContext", () => {
 
       expect(result.valid).toBe(true);
       expect(result.warnings.some((w) => w.message.includes("v2"))).toBe(true);
-      expect(
-        result.warnings.some((w) => w.message.includes("never referenced")),
-      ).toBe(true);
+      expect(result.warnings.some((w) => w.message.includes("never referenced"))).toBe(true);
     });
 
     it("should warn about unreferenced definitions", () => {
@@ -524,12 +506,8 @@ describe("validateContext", () => {
       const result = validateContext(context);
 
       expect(result.valid).toBe(true);
-      expect(result.warnings.some((w) => w.message.includes("pd-unused"))).toBe(
-        true,
-      );
-      expect(
-        result.warnings.some((w) => w.message.includes("never used")),
-      ).toBe(true);
+      expect(result.warnings.some((w) => w.message.includes("pd-unused"))).toBe(true);
+      expect(result.warnings.some((w) => w.message.includes("never used"))).toBe(true);
     });
   });
 
@@ -566,9 +544,7 @@ describe("validateContext", () => {
 
         expect(result.valid).toBe(false);
         expect(
-          result.errors.some((e) =>
-            e.message.includes("Invalid or unknown transform function"),
-          ),
+          result.errors.some((e) => e.message.includes("Invalid or unknown transform function")),
         ).toBe(true);
       });
 
@@ -683,8 +659,7 @@ describe("validateContext", () => {
         expect(
           result.errors.some(
             (e) =>
-              e.message.includes('has type "string"') &&
-              e.message.includes('expects "number"'),
+              e.message.includes('has type "string"') && e.message.includes('expects "number"'),
           ),
         ).toBe(true);
       });
@@ -849,11 +824,9 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) =>
-          e.message.includes("valueTable must be an object"),
-        ),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("valueTable must be an object"))).toBe(
+        true,
+      );
     });
 
     it("rejects FuncTable entry missing kind", () => {
@@ -868,11 +841,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) =>
-          e.message.includes("Missing or invalid kind"),
-        ),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing or invalid kind"))).toBe(true);
     });
 
     it("rejects unknown binary function names", () => {
@@ -891,9 +860,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) =>
-          e.message.includes("Invalid or unknown binary function"),
-        ),
+        result.errors.some((e) => e.message.includes("Invalid or unknown binary function")),
       ).toBe(true);
     });
 
@@ -916,9 +883,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("Step must be an object")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Step must be an object"))).toBe(true);
     });
 
     it("rejects missing argBindings in pipe steps", () => {
@@ -940,11 +905,9 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) =>
-          e.message.includes("Missing or invalid argBindings"),
-        ),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing or invalid argBindings"))).toBe(
+        true,
+      );
     });
 
     it("handles unknown binding source without throwing", () => {
@@ -975,9 +938,7 @@ describe("validateContext", () => {
       expect(() => validateContext(context)).not.toThrow();
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("unknown source")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("unknown source"))).toBe(true);
     });
 
     it("rejects non-integer step binding indices", () => {
@@ -1014,9 +975,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("invalid step index")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("invalid step index"))).toBe(true);
     });
 
     it("requires CondFunc conditionId shape and valid kind", () => {
@@ -1050,9 +1009,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("Unknown kind")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Unknown kind"))).toBe(true);
     });
 
     it("rejects non-boolean value-based Cond condition type", () => {
@@ -1086,9 +1043,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("must be boolean")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("must be boolean"))).toBe(true);
     });
 
     it("rejects non-boolean func-based Cond condition type", () => {
@@ -1128,9 +1083,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) => e.message.includes("must return boolean")),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("must return boolean"))).toBe(true);
     });
 
     it("allows forward references to function return IDs in argMap", () => {
@@ -1186,9 +1139,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(true);
-      expect(result.warnings.some((w) => w.message.includes("vConst"))).toBe(
-        false,
-      );
+      expect(result.warnings.some((w) => w.message.includes("vConst"))).toBe(false);
     });
 
     it("detects cycles in function dependencies", () => {
@@ -1210,11 +1161,7 @@ describe("validateContext", () => {
 
       const result = validateContext(context);
       expect(result.valid).toBe(false);
-      expect(
-        result.errors.some((e) =>
-          e.message.includes("FuncTable: Cycle detected"),
-        ),
-      ).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("FuncTable: Cycle detected"))).toBe(true);
     });
 
     it("detects cycles in pipe definition references", () => {
@@ -1251,9 +1198,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) =>
-          e.message.includes("PipeFuncDefTable: Cycle detected"),
-        ),
+        result.errors.some((e) => e.message.includes("PipeFuncDefTable: Cycle detected")),
       ).toBe(true);
     });
   });
@@ -1305,9 +1250,7 @@ describe("validateContext", () => {
         condFuncDefTable: {} as any,
       };
 
-      expect(() => assertValidContext(context)).toThrow(
-        "ExecutionContext validation failed",
-      );
+      expect(() => assertValidContext(context)).toThrow("ExecutionContext validation failed");
     });
   });
 });

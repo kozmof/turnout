@@ -1,8 +1,8 @@
-import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from '../../value';
-import { type ToBooleanProcess } from '../convert';
-import { isComparable } from '../util/isComparable';
-import { buildBoolean } from '../../value-builders';
-import { type NamespaceDelimiter } from '../../../util/constants';
+import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from "../../value";
+import { type ToBooleanProcess } from "../convert";
+import { isComparable } from "../util/isComparable";
+import { buildBoolean } from "../../value-builders";
+import { type NamespaceDelimiter } from "../../../util/constants";
 
 export interface BinaryFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;
@@ -39,19 +39,17 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
   },
 } as const;
 
-export type BinaryFnGenericNameSpace = 'binaryFnGeneric';
+export type BinaryFnGenericNameSpace = "binaryFnGeneric";
 export type BinaryFnGenericNames =
   `${BinaryFnGenericNameSpace}${NamespaceDelimiter}${keyof typeof bfGeneric}`;
 
 export type ReturnMetaBinaryFnGeneric = {
-  [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<
-    BinaryFnGeneric<AnyValue>[K]
-  >['symbol'];
+  [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<BinaryFnGeneric<AnyValue>[K]>["symbol"];
 };
 
 export type ParamsMetaBinaryFnGeneric = {
   [K in keyof BinaryFnGeneric<AnyValue>]: [
-    Parameters<BinaryFnGeneric<AnyValue>[K]>[0]['symbol'],
-    Parameters<BinaryFnGeneric<AnyValue>[K]>[1]['symbol'],
+    Parameters<BinaryFnGeneric<AnyValue>[K]>[0]["symbol"],
+    Parameters<BinaryFnGeneric<AnyValue>[K]>[1]["symbol"],
   ];
 };

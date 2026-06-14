@@ -1,14 +1,14 @@
-import { buildNull, buildExecutionTree, executeTree } from 'runtime';
-import type { AnyValue, FuncId, ExecutionTree } from 'runtime';
-import type { ActionModel } from '../types/turnout-model_pb.js';
-import type { StateManager } from '../state/state-manager.js';
-import type { HookRegistry, PublishHookContext } from '../types/harness-types.js';
-import { buildContextFromProg } from './hcl-context-builder.js';
-import type { BuiltContext } from './hcl-context-builder.js';
-import { resolveActionPrepare } from './prepare-resolver.js';
-import { type ActionExecutionResult, UNABORTABLE } from './types.js';
-import type { PublishHookOutcome } from '../types/harness-types.js';
-import { SceneRuntimeError } from './errors.js';
+import { buildNull, buildExecutionTree, executeTree } from "runtime";
+import type { AnyValue, FuncId, ExecutionTree } from "runtime";
+import type { ActionModel } from "../types/turnout-model_pb.js";
+import type { StateManager } from "../state/state-manager.js";
+import type { HookRegistry, PublishHookContext } from "../types/harness-types.js";
+import { buildContextFromProg } from "./hcl-context-builder.js";
+import type { BuiltContext } from "./hcl-context-builder.js";
+import { resolveActionPrepare } from "./prepare-resolver.js";
+import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
+import type { PublishHookOutcome } from "../types/harness-types.js";
+import { SceneRuntimeError } from "./errors.js";
 
 // Trees are fully determined by funcTable, which is stable for the lifetime of
 // a given BuiltContext. For pure progs, buildContextFromProg returns the same
@@ -32,14 +32,14 @@ export async function executeAction(
   action: ActionModel,
   state: StateManager,
   hooks: HookRegistry,
-  sceneId = '(unknown)',
+  sceneId = "(unknown)",
   signal: AbortSignal = UNABORTABLE,
 ): Promise<ActionExecutionResult> {
   // Actions without a compute block or prog are no-ops (no graph, no merge).
   if (!action.compute?.prog) {
     return {
       actionId: action.id,
-      computeRootValue: buildNull('missing'),
+      computeRootValue: buildNull("missing"),
       bindingValues: {},
       stateAfterMerge: state,
       publishOutcomes: [],
@@ -47,7 +47,13 @@ export async function executeAction(
   }
 
   // Step 1: resolve prepare entries into injected binding values.
-  const preparedValues = await resolveActionPrepare(action.prepare ?? [], state, hooks, action.id, signal);
+  const preparedValues = await resolveActionPrepare(
+    action.prepare ?? [],
+    state,
+    hooks,
+    action.id,
+    signal,
+  );
 
   // Step 2: translate ProgModel + injected values → ExecutionContext.
   const builtCtx = buildContextFromProg(action.compute.prog, preparedValues, action.id);
@@ -74,7 +80,7 @@ export async function executeAction(
     const valueId = builtCtx.resolveValueId(binding.name);
     if (valueId === undefined) {
       throw new SceneRuntimeError(
-        'OutOfOrderBinding',
+        "OutOfOrderBinding",
         sceneId,
         `binding "${binding.name}" not found in nameToValueId — this is a compiler bug`,
       );
@@ -82,9 +88,9 @@ export async function executeAction(
 
     if (!Object.hasOwn(updatedTable, valueId) && binding.expr) {
       const resolved = builtCtx.resolve(binding.name);
-      if (resolved.kind !== 'func') {
+      if (resolved.kind !== "func") {
         throw new SceneRuntimeError(
-          'OutOfOrderBinding',
+          "OutOfOrderBinding",
           sceneId,
           `function binding "${binding.name}" has no funcId — binding may be missing from the execution context`,
         );
@@ -103,7 +109,7 @@ export async function executeAction(
 
       if (!Object.hasOwn(updatedTable, valueId)) {
         throw new SceneRuntimeError(
-          'OutOfOrderBinding',
+          "OutOfOrderBinding",
           sceneId,
           `function binding "${binding.name}" returned no value — bindings may be out of topological order`,
         );
@@ -115,7 +121,8 @@ export async function executeAction(
   }
 
   const rootValueId = builtCtx.resolveValueId(action.compute.root);
-  const computeRootValue = (rootValueId !== undefined ? updatedTable[rootValueId] : undefined) ?? buildNull('missing');
+  const computeRootValue =
+    (rootValueId !== undefined ? updatedTable[rootValueId] : undefined) ?? buildNull("missing");
 
   // Step 5: apply merge entries in a single batch to avoid O(n) intermediate
   // StateManager allocations when multiple bindings are written back to STATE.
@@ -140,7 +147,7 @@ export async function executeAction(
   const finalStateSnapshot: Readonly<Record<string, AnyValue>> = mergedState.snapshot();
   const publishOutcomes: PublishHookOutcome[] = [];
   for (const hookName of action.publish ?? []) {
-    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
+    if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
     const hook = hooks.publish[hookName];
     if (!hook) continue;
     const ctx: PublishHookContext = {
@@ -150,9 +157,9 @@ export async function executeAction(
     };
     try {
       await hook(ctx, signal);
-      publishOutcomes.push({ hookName, status: 'ok' });
+      publishOutcomes.push({ hookName, status: "ok" });
     } catch (err) {
-      publishOutcomes.push({ hookName, status: 'error', message: String(err) });
+      publishOutcomes.push({ hookName, status: "error", message: String(err) });
     }
   }
 
@@ -165,4 +172,3 @@ export async function executeAction(
     ...(mergeWarnings.length > 0 ? { mergeWarnings } : {}),
   };
 }
-

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { executeAction } from '../src/executor/action-executor.js';
-import { StateManager, stateManagerFromUnchecked } from '../src/state/state-manager.js';
+import { describe, it, expect } from "vitest";
+import { executeAction } from "../src/executor/action-executor.js";
+import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import {
   buildNumber,
   buildString,
@@ -10,8 +10,8 @@ import {
   isPureString,
   isPureBoolean,
   isPureNull,
-} from 'runtime';
-import type { ActionModel } from '../src/types/turnout-model_pb.js';
+} from "runtime";
+import type { ActionModel } from "../src/types/turnout-model_pb.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -19,18 +19,18 @@ import type { ActionModel } from '../src/types/turnout-model_pb.js';
 
 /** A simple action: adds two values and merges the result into STATE. */
 const addAction = {
-  id: 'add_action',
+  id: "add_action",
   compute: {
-    root: 'sum',
+    root: "sum",
     prog: {
-      name: 'add_prog',
+      name: "add_prog",
       bindings: [
-        { name: 'a', type: 'number', value: 3 },
-        { name: 'b', type: 'number', value: 4 },
+        { name: "a", type: "number", value: 3 },
+        { name: "b", type: "number", value: 4 },
         {
-          name: 'sum',
-          type: 'number',
-          expr: { combine: { fn: 'add', args: [{ ref: 'a' }, { ref: 'b' }] } },
+          name: "sum",
+          type: "number",
+          expr: { combine: { fn: "add", args: [{ ref: "a" }, { ref: "b" }] } },
         },
       ],
     },
@@ -41,19 +41,19 @@ const addAction = {
 // Basic compute
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('executeAction — compute', () => {
-  it('returns the correct computeRootValue', async () => {
+describe("executeAction — compute", () => {
+  it("returns the correct computeRootValue", async () => {
     const state = stateManagerFromUnchecked({});
     const result = await executeAction(addAction, state, { prepare: {}, publish: {} });
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(7);
   });
 
-  it('populates bindingValues for all prog bindings', async () => {
+  it("populates bindingValues for all prog bindings", async () => {
     const state = stateManagerFromUnchecked({});
     const result = await executeAction(addAction, state, { prepare: {}, publish: {} });
-    expect(isPureNumber(result.bindingValues['a']) && result.bindingValues['a'].value).toBe(3);
-    expect(isPureNumber(result.bindingValues['b']) && result.bindingValues['b'].value).toBe(4);
-    expect(isPureNumber(result.bindingValues['sum']) && result.bindingValues['sum'].value).toBe(7);
+    expect(isPureNumber(result.bindingValues["a"]) && result.bindingValues["a"].value).toBe(3);
+    expect(isPureNumber(result.bindingValues["b"]) && result.bindingValues["b"].value).toBe(4);
+    expect(isPureNumber(result.bindingValues["sum"]) && result.bindingValues["sum"].value).toBe(7);
   });
 });
 
@@ -61,29 +61,29 @@ describe('executeAction — compute', () => {
 // Prepare (from_state)
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('executeAction — prepare', () => {
+describe("executeAction — prepare", () => {
   const actionWithPrepare = {
-    id: 'prepared_action',
-    prepare: [{ binding: 'a', fromState: 'inputs.a' }],
+    id: "prepared_action",
+    prepare: [{ binding: "a", fromState: "inputs.a" }],
     compute: {
-      root: 'sum',
+      root: "sum",
       prog: {
-        name: 'prepared_prog',
+        name: "prepared_prog",
         bindings: [
-          { name: 'a', type: 'number', value: 0 },   // placeholder; will be overridden
-          { name: 'b', type: 'number', value: 10 },
+          { name: "a", type: "number", value: 0 }, // placeholder; will be overridden
+          { name: "b", type: "number", value: 10 },
           {
-            name: 'sum',
-            type: 'number',
-            expr: { combine: { fn: 'add', args: [{ ref: 'a' }, { ref: 'b' }] } },
+            name: "sum",
+            type: "number",
+            expr: { combine: { fn: "add", args: [{ ref: "a" }, { ref: "b" }] } },
           },
         ],
       },
     },
   } as unknown as ActionModel;
 
-  it('from_state injects value from STATE into the prog', async () => {
-    const state = stateManagerFromUnchecked({ 'inputs.a': buildNumber(5) });
+  it("from_state injects value from STATE into the prog", async () => {
+    const state = stateManagerFromUnchecked({ "inputs.a": buildNumber(5) });
     const result = await executeAction(actionWithPrepare, state, { prepare: {}, publish: {} });
     // a is overridden to 5; b is 10 → sum = 15
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(15);
@@ -94,63 +94,64 @@ describe('executeAction — prepare', () => {
 // Merge
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('executeAction — merge', () => {
+describe("executeAction — merge", () => {
   const actionWithMerge = {
-    id: 'merge_action',
+    id: "merge_action",
     compute: {
-      root: 'result',
+      root: "result",
       prog: {
-        name: 'merge_prog',
+        name: "merge_prog",
         bindings: [
-          { name: 'x', type: 'number', value: 42 },
+          { name: "x", type: "number", value: 42 },
           {
-            name: 'result',
-            type: 'number',
-            expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 0 }] } },
+            name: "result",
+            type: "number",
+            expr: { combine: { fn: "add", args: [{ ref: "x" }, { lit: 0 }] } },
           },
         ],
       },
     },
-    merge: [{ binding: 'x', toState: 'output.value' }],
+    merge: [{ binding: "x", toState: "output.value" }],
   } as unknown as ActionModel;
 
-  it('writes merged binding value to STATE', async () => {
+  it("writes merged binding value to STATE", async () => {
     const state = stateManagerFromUnchecked({});
     const result = await executeAction(actionWithMerge, state, { prepare: {}, publish: {} });
-    const stateVal = result.stateAfterMerge.read('output.value');
+    const stateVal = result.stateAfterMerge.read("output.value");
     expect(isPureNumber(stateVal!) && stateVal.value).toBe(42);
   });
 
-  it('does not mutate the input state', async () => {
+  it("does not mutate the input state", async () => {
     const state = stateManagerFromUnchecked({});
     await executeAction(actionWithMerge, state, { prepare: {}, publish: {} });
-    expect(isPureNull(state.read('output.value'))).toBe(true);
+    expect(isPureNull(state.read("output.value"))).toBe(true);
   });
 
-  it('merges multiple entries', async () => {
+  it("merges multiple entries", async () => {
     const action = {
-      id: 'multi_merge',
+      id: "multi_merge",
       compute: {
-        root: 'label',
+        root: "label",
         prog: {
-          name: 'multi_prog',
+          name: "multi_prog",
           bindings: [
-            { name: 'score', type: 'number', value: 99 },
+            { name: "score", type: "number", value: 99 },
             {
-              name: 'label',
-              type: 'str',
-              expr: { combine: { fn: 'str_concat', args: [{ lit: 'score:' }, { lit: 'x' }] } },
+              name: "label",
+              type: "str",
+              expr: { combine: { fn: "str_concat", args: [{ lit: "score:" }, { lit: "x" }] } },
             },
           ],
         },
       },
-      merge: [
-        { binding: 'score', toState: 'result.score' },
-      ],
+      merge: [{ binding: "score", toState: "result.score" }],
     } as unknown as ActionModel;
     const state = stateManagerFromUnchecked({});
     const result = await executeAction(action, state, { prepare: {}, publish: {} });
-    expect(isPureNumber(result.stateAfterMerge.read('result.score')!) && result.stateAfterMerge.read('result.score')!.value).toBe(99);
+    expect(
+      isPureNumber(result.stateAfterMerge.read("result.score")!) &&
+        result.stateAfterMerge.read("result.score")!.value,
+    ).toBe(99);
   });
 });
 
@@ -158,9 +159,9 @@ describe('executeAction — merge', () => {
 // No compute block
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('executeAction — no compute', () => {
+describe("executeAction — no compute", () => {
   const noComputeAction = {
-    id: 'noop',
+    id: "noop",
   } as unknown as ActionModel;
 
   it('returns buildNull("missing") as computeRootValue', async () => {
@@ -169,39 +170,43 @@ describe('executeAction — no compute', () => {
     expect(isPureNull(result.computeRootValue)).toBe(true);
   });
 
-  it('returns empty bindingValues', async () => {
+  it("returns empty bindingValues", async () => {
     const state = stateManagerFromUnchecked({});
     const result = await executeAction(noComputeAction, state, { prepare: {}, publish: {} });
     expect(Object.keys(result.bindingValues)).toHaveLength(0);
   });
 
-  it('returns the original state unchanged', async () => {
-    const state = stateManagerFromUnchecked({ 'a.b': buildString('original') });
+  it("returns the original state unchanged", async () => {
+    const state = stateManagerFromUnchecked({ "a.b": buildString("original") });
     const result = await executeAction(noComputeAction, state, { prepare: {}, publish: {} });
     expect(result.stateAfterMerge).toBe(state);
   });
 });
 
-describe('executeAction — cumulative binding table', () => {
-  it('skips publish hooks when the AbortSignal is already aborted', async () => {
+describe("executeAction — cumulative binding table", () => {
+  it("skips publish hooks when the AbortSignal is already aborted", async () => {
     const hookCalls: string[] = [];
     const action = {
-      id: 'publish_abort_action',
+      id: "publish_abort_action",
       compute: {
-        root: 'out',
+        root: "out",
         prog: {
-          name: 'p',
-          bindings: [{ name: 'out', type: 'number', value: 1 }],
+          name: "p",
+          bindings: [{ name: "out", type: "number", value: 1 }],
         },
       },
-      publish: ['hook_a', 'hook_b'],
+      publish: ["hook_a", "hook_b"],
     } as unknown as ActionModel;
 
     const hooks = {
       prepare: {},
       publish: {
-        hook_a: async () => { hookCalls.push('hook_a'); },
-        hook_b: async () => { hookCalls.push('hook_b'); },
+        hook_a: async () => {
+          hookCalls.push("hook_a");
+        },
+        hook_b: async () => {
+          hookCalls.push("hook_b");
+        },
       },
     };
 
@@ -209,40 +214,43 @@ describe('executeAction — cumulative binding table', () => {
     abortController.abort();
 
     await expect(
-      executeAction(action, stateManagerFromUnchecked({}), hooks, '(test)', abortController.signal),
-    ).rejects.toThrow('aborted');
+      executeAction(action, stateManagerFromUnchecked({}), hooks, "(test)", abortController.signal),
+    ).rejects.toThrow("aborted");
 
     // Neither hook should have been invoked — the abort check fires before the first hook.
     expect(hookCalls).toEqual([]);
   });
 
-  it('makes earlier computed bindings available to later bindings', async () => {
+  it("makes earlier computed bindings available to later bindings", async () => {
     const action = {
-      id: 'chain_compute',
+      id: "chain_compute",
       compute: {
-        root: 'z',
+        root: "z",
         prog: {
-          name: 'chain_prog',
+          name: "chain_prog",
           bindings: [
-            { name: 'x', type: 'number', value: 1 },
+            { name: "x", type: "number", value: 1 },
             {
-              name: 'y',
-              type: 'number',
-              expr: { combine: { fn: 'add', args: [{ ref: 'x' }, { lit: 1 }] } },
+              name: "y",
+              type: "number",
+              expr: { combine: { fn: "add", args: [{ ref: "x" }, { lit: 1 }] } },
             },
             {
-              name: 'z',
-              type: 'number',
-              expr: { combine: { fn: 'add', args: [{ ref: 'y' }, { lit: 1 }] } },
+              name: "z",
+              type: "number",
+              expr: { combine: { fn: "add", args: [{ ref: "y" }, { lit: 1 }] } },
             },
           ],
         },
       },
     } as unknown as ActionModel;
 
-    const result = await executeAction(action, stateManagerFromUnchecked({}), { prepare: {}, publish: {} });
+    const result = await executeAction(action, stateManagerFromUnchecked({}), {
+      prepare: {},
+      publish: {},
+    });
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(3);
-    expect(isPureNumber(result.bindingValues['y']) && result.bindingValues['y'].value).toBe(2);
-    expect(isPureNumber(result.bindingValues['z']) && result.bindingValues['z'].value).toBe(3);
+    expect(isPureNumber(result.bindingValues["y"]) && result.bindingValues["y"].value).toBe(2);
+    expect(isPureNumber(result.bindingValues["z"]) && result.bindingValues["z"].value).toBe(3);
   });
 });

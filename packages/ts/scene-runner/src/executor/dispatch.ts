@@ -1,8 +1,8 @@
-import type { TurnModel, RouteModel, SceneBlock } from '../types/turnout-model_pb.js';
+import type { TurnModel, RouteModel, SceneBlock } from "../types/turnout-model_pb.js";
 
 export type DispatchTarget =
-  | { kind: 'route'; route: RouteModel; entryScene: SceneBlock }
-  | { kind: 'scene'; scene: SceneBlock };
+  | { kind: "route"; route: RouteModel; entryScene: SceneBlock }
+  | { kind: "scene"; scene: SceneBlock };
 
 type ModelIndex = {
   routeMap: Map<string, RouteModel>;
@@ -34,10 +34,7 @@ function getModelIndex(model: TurnModel): ModelIndex {
  *
  * The route/scene index is built once per TurnModel instance and cached.
  */
-export function resolveDispatchTarget(
-  model: TurnModel,
-  entryId: string,
-): DispatchTarget {
+export function resolveDispatchTarget(model: TurnModel, entryId: string): DispatchTarget {
   const { routeMap, sceneMap } = getModelIndex(model);
 
   const route = routeMap.get(entryId);
@@ -51,12 +48,12 @@ export function resolveDispatchTarget(
         `entry "${entryId}" route entry scene "${route.entrySceneId}" is not in the model`,
       );
     }
-    return { kind: 'route', route, entryScene };
+    return { kind: "route", route, entryScene };
   }
 
   const scene = sceneMap.get(entryId);
   if (scene) {
-    return { kind: 'scene', scene };
+    return { kind: "scene", scene };
   }
 
   throw new Error(`entryId "${entryId}" not found as route or scene in the model`);

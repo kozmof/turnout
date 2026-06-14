@@ -1,4 +1,4 @@
-import { isArray, isBoolean, isNull, isNumber, isString, type AnyValue } from '../../value';
+import { isArray, isBoolean, isNull, isNumber, isString, type AnyValue } from "../../value";
 
 export const isComparable = (a: AnyValue, b: AnyValue): boolean => {
   return (

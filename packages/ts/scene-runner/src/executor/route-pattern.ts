@@ -1,4 +1,4 @@
-import type { MatchArm } from '../types/turnout-model_pb.js';
+import type { MatchArm } from "../types/turnout-model_pb.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -8,9 +8,9 @@ import type { MatchArm } from '../types/turnout-model_pb.js';
 export type HistoryEntry = { readonly sceneId: string; readonly actionId: string };
 
 type ParsedPattern =
-  | { kind: 'catchall' }
-  | { kind: 'exact'; sceneId: string; suffix: string[] }    // 0 wildcards
-  | { kind: 'wildcard'; sceneId: string; suffix: string[] } // 1 wildcard before suffix
+  | { kind: "catchall" }
+  | { kind: "exact"; sceneId: string; suffix: string[] } // 0 wildcards
+  | { kind: "wildcard"; sceneId: string; suffix: string[] }; // 1 wildcard before suffix
 
 /** A MatchArm with patterns pre-parsed — build once at model load time. */
 export type ParsedMatchArm = {
@@ -23,14 +23,14 @@ export type ParsedMatchArm = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function parsePattern(raw: string): ParsedPattern {
-  if (raw === '_') return { kind: 'catchall' };
+  if (raw === "_") return { kind: "catchall" };
 
-  const parts = raw.split('.');
+  const parts = raw.split(".");
   const sceneId = parts[0];
-  if (parts[1] === '*') {
-    return { kind: 'wildcard', sceneId, suffix: parts.slice(2) };
+  if (parts[1] === "*") {
+    return { kind: "wildcard", sceneId, suffix: parts.slice(2) };
   }
-  return { kind: 'exact', sceneId, suffix: parts.slice(1) };
+  return { kind: "exact", sceneId, suffix: parts.slice(1) };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,12 +67,12 @@ function extractFirstContiguousBlock(history: readonly HistoryEntry[], sceneId: 
 // ─────────────────────────────────────────────────────────────────────────────
 
 function matchParsedPattern(pattern: ParsedPattern, history: readonly HistoryEntry[]): boolean {
-  if (pattern.kind === 'catchall') return true;
+  if (pattern.kind === "catchall") return true;
 
   const block = extractFirstContiguousBlock(history, pattern.sceneId);
   if (block.length === 0) return false;
 
-  if (pattern.kind === 'exact') {
+  if (pattern.kind === "exact") {
     if (block.length !== pattern.suffix.length) return false;
     return block.every((a, i) => a === pattern.suffix[i]);
   }
@@ -89,13 +89,13 @@ function matchParsedPattern(pattern: ParsedPattern, history: readonly HistoryEnt
 // ─────────────────────────────────────────────────────────────────────────────
 
 function wildcardCount(p: ParsedPattern): number {
-  if (p.kind === 'catchall') return Infinity;
-  if (p.kind === 'wildcard') return 1;
+  if (p.kind === "catchall") return Infinity;
+  if (p.kind === "wildcard") return 1;
   return 0;
 }
 
 function suffixLength(p: ParsedPattern): number {
-  if (p.kind === 'catchall') return 0;
+  if (p.kind === "catchall") return 0;
   return p.suffix.length;
 }
 
@@ -147,8 +147,9 @@ export function selectNextScene(
 
     // Filter patterns to those eligible for the current scene.
     // Catchall (_) is always eligible; scene-specific patterns only when sceneId matches.
-    const eligibleParsed = arm.patterns
-      .filter((p) => p.kind === 'catchall' || p.sceneId === currentSceneId);
+    const eligibleParsed = arm.patterns.filter(
+      (p) => p.kind === "catchall" || p.sceneId === currentSceneId,
+    );
 
     const matchingPatterns = eligibleParsed.filter((p) => matchParsedPattern(p, history));
 

@@ -10,8 +10,8 @@ import type {
   PipeFuncDefTable,
   CondFuncDefTable,
   ValueTable,
-} from './types';
-import type { NodeId } from './runtime/tree-types';
+} from "./types";
+import type { NodeId } from "./runtime/tree-types";
 
 /**
  * Centralized ID validation module.
@@ -48,7 +48,7 @@ import type { NodeId } from './runtime/tree-types';
  * const valueId = createValueId('v1');
  */
 export function createValueId(id: string): ValueId {
-  if (id === '') throw new Error('ValueId cannot be empty');
+  if (id === "") throw new Error("ValueId cannot be empty");
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as ValueId;
 }
@@ -63,7 +63,7 @@ export function createValueId(id: string): ValueId {
  * const funcId = createFuncId('f1');
  */
 export function createFuncId(id: string): FuncId {
-  if (id === '') throw new Error('FuncId cannot be empty');
+  if (id === "") throw new Error("FuncId cannot be empty");
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as FuncId;
 }
@@ -78,7 +78,7 @@ export function createFuncId(id: string): FuncId {
  * const defId = createCombineDefineId('pd_a3f2d8e1');
  */
 export function createCombineDefineId(id: string): CombineDefineId {
-  if (id === '') throw new Error('CombineDefineId cannot be empty');
+  if (id === "") throw new Error("CombineDefineId cannot be empty");
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as CombineDefineId;
 }
@@ -93,7 +93,7 @@ export function createCombineDefineId(id: string): CombineDefineId {
  * const defId = createPipeDefineId('td_a3f2d8e1');
  */
 export function createPipeDefineId(id: string): PipeDefineId {
-  if (id === '') throw new Error('PipeDefineId cannot be empty');
+  if (id === "") throw new Error("PipeDefineId cannot be empty");
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as PipeDefineId;
 }
@@ -108,13 +108,13 @@ export function createPipeDefineId(id: string): PipeDefineId {
  * const defId = createCondDefineId('cd_a3f2d8e1');
  */
 export function createCondDefineId(id: string): CondDefineId {
-  if (id === '') throw new Error('CondDefineId cannot be empty');
+  if (id === "") throw new Error("CondDefineId cannot be empty");
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return id as CondDefineId;
 }
 
 export function createArgName(name: string): ArgName {
-  if (name === '') throw new Error('ArgName cannot be empty');
+  if (name === "") throw new Error("ArgName cannot be empty");
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
   return name as ArgName;
 }
@@ -129,10 +129,7 @@ export function createArgName(name: string): ArgName {
  * @param funcTable - The function table to check against
  * @returns True if the ID exists in the table
  */
-export function isFuncId(
-  id: NodeId,
-  funcTable: FuncTable
-): id is FuncId {
+export function isFuncId(id: NodeId, funcTable: FuncTable): id is FuncId {
   return id in funcTable;
 }
 
@@ -142,10 +139,7 @@ export function isFuncId(
  * @param valueTable - The value table to check against
  * @returns True if the ID exists in the table
  */
-export function isValueId(
-  id: NodeId,
-  valueTable: ValueTable
-): id is ValueId {
+export function isValueId(id: NodeId, valueTable: ValueTable): id is ValueId {
   return id in valueTable;
 }
 
@@ -157,7 +151,7 @@ export function isValueId(
  */
 export function isCombineDefineId(
   id: string,
-  combineFuncDefTable: CombineFuncDefTable
+  combineFuncDefTable: CombineFuncDefTable,
 ): id is CombineDefineId {
   return id in combineFuncDefTable;
 }
@@ -168,10 +162,7 @@ export function isCombineDefineId(
  * @param pipeFuncDefTable - The pipe function definition table to check against
  * @returns True if the ID exists in the table
  */
-export function isPipeDefineId(
-  id: string,
-  pipeFuncDefTable: PipeFuncDefTable
-): id is PipeDefineId {
+export function isPipeDefineId(id: string, pipeFuncDefTable: PipeFuncDefTable): id is PipeDefineId {
   return id in pipeFuncDefTable;
 }
 
@@ -181,9 +172,6 @@ export function isPipeDefineId(
  * @param condFuncDefTable - The conditional function definition table to check against
  * @returns True if the ID exists in the table
  */
-export function isCondDefineId(
-  id: string,
-  condFuncDefTable: CondFuncDefTable
-): id is CondDefineId {
+export function isCondDefineId(id: string, condFuncDefTable: CondFuncDefTable): id is CondDefineId {
   return id in condFuncDefTable;
 }

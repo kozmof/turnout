@@ -1,5 +1,5 @@
-import type { TagSymbol, AnyValue, TypedArrayValue } from '../../state-control/value';
-import { assertNever } from '../../util/brand';
+import type { TagSymbol, AnyValue, TypedArrayValue } from "../../state-control/value";
+import { assertNever } from "../../util/brand";
 import {
   buildNumber,
   buildString,
@@ -9,16 +9,16 @@ import {
   buildArrayString,
   buildArrayBoolean,
   buildArrayNull,
-} from '../../state-control/value-builders';
-import type { NullReasonSubSymbol } from '../../state-control/value';
+} from "../../state-control/value-builders";
+import type { NullReasonSubSymbol } from "../../state-control/value";
 import type {
   ValueInputRef,
   ValueSourceRef,
   FuncOutputRef,
   StepOutputRef,
   TransformRef,
-} from './types';
-import type { TransformFnNames } from '../types';
+} from "./types";
+import type { TransformFnNames } from "../types";
 
 /**
  * Value builders for creating typed values.
@@ -55,7 +55,7 @@ export const val = {
   /**
    * Creates a NullValue with a reason category.
    */
-  null(reason: NullReasonSubSymbol = 'unknown', tags: TagSymbol[] = []): AnyValue {
+  null(reason: NullReasonSubSymbol = "unknown", tags: TagSymbol[] = []): AnyValue {
     return buildNull(reason, tags);
   },
 
@@ -63,18 +63,18 @@ export const val = {
    * Creates a typed ArrayValue.
    */
   array(
-    elemType: 'number' | 'string' | 'boolean' | 'null',
+    elemType: "number" | "string" | "boolean" | "null",
     elements: AnyValue[],
-    tags: TagSymbol[] = []
+    tags: TagSymbol[] = [],
   ): TypedArrayValue<readonly TagSymbol[]> {
     switch (elemType) {
-      case 'number':
+      case "number":
         return buildArrayNumber(elements, tags);
-      case 'string':
+      case "string":
         return buildArrayString(elements, tags);
-      case 'boolean':
+      case "boolean":
         return buildArrayBoolean(elements, tags);
-      case 'null':
+      case "null":
         return buildArrayNull(elements, tags);
       default:
         return assertNever(elemType);
@@ -99,7 +99,7 @@ export const ref = {
    */
   output(funcId: string): FuncOutputRef {
     return {
-      __type: 'funcOutput',
+      __type: "funcOutput",
       funcId,
     };
   },
@@ -111,7 +111,7 @@ export const ref = {
    */
   step(pipeFuncId: string, stepIndex: number): StepOutputRef {
     return {
-      __type: 'stepOutput',
+      __type: "stepOutput",
       pipeFuncId,
       stepIndex,
     };
@@ -120,14 +120,15 @@ export const ref = {
   /**
    * Creates a reference with one or more transform functions applied in sequence.
    */
-  transform(valueRef: ValueInputRef, transformFn: TransformFnNames | readonly TransformFnNames[]): TransformRef {
+  transform(
+    valueRef: ValueInputRef,
+    transformFn: TransformFnNames | readonly TransformFnNames[],
+  ): TransformRef {
     const normalizedValueRef: ValueSourceRef =
-      typeof valueRef === 'string'
-        ? { __type: 'value', id: valueRef }
-        : valueRef;
+      typeof valueRef === "string" ? { __type: "value", id: valueRef } : valueRef;
 
     return {
-      __type: 'transform',
+      __type: "transform",
       valueRef: normalizedValueRef,
       transformFn: Array.isArray(transformFn) ? transformFn : [transformFn],
     };

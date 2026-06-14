@@ -1,8 +1,8 @@
-import { BaseTypeSymbol, BaseTypeSubSymbol } from './value';
+import { BaseTypeSymbol, BaseTypeSubSymbol } from "./value";
 
 // Define error data types separately for type safety
 type InvalidValueErrorData = {
-  readonly kind: 'invalidValue';
+  readonly kind: "invalidValue";
   readonly symbol: BaseTypeSymbol;
   readonly subSymbol: BaseTypeSubSymbol;
   readonly message: string;
@@ -24,17 +24,17 @@ export type ValueBuilderError = InvalidValueError;
 export function createInvalidValueError(
   symbol: BaseTypeSymbol,
   subSymbol: BaseTypeSubSymbol,
-  message?: string
+  message?: string,
 ): InvalidValueError {
   const fullMessage = message
     ? `Invalid value created: symbol=${symbol}, subSymbol=${String(subSymbol)} - ${message}`
     : `Invalid value created: symbol=${symbol}, subSymbol=${String(subSymbol)}`;
 
   const error = new Error(fullMessage);
-  error.name = 'InvalidValueError';
+  error.name = "InvalidValueError";
 
   const errorData: InvalidValueErrorData = {
-    kind: 'invalidValue',
+    kind: "invalidValue",
     symbol,
     subSymbol,
     message: fullMessage,
@@ -49,14 +49,12 @@ export function createInvalidValueError(
  * @param error - The error to check
  * @returns True if the error is a ValueBuilderError
  */
-const VALUE_BUILDER_ERROR_KINDS = new Set<string>(['invalidValue']);
+const VALUE_BUILDER_ERROR_KINDS = new Set<string>(["invalidValue"]);
 
-export function isValueBuilderError(
-  error: unknown
-): error is ValueBuilderError {
+export function isValueBuilderError(error: unknown): error is ValueBuilderError {
   return (
     error instanceof Error &&
-    'kind' in error &&
-    VALUE_BUILDER_ERROR_KINDS.has(typeof error.kind === 'string' ? error.kind : '')
+    "kind" in error &&
+    VALUE_BUILDER_ERROR_KINDS.has(typeof error.kind === "string" ? error.kind : "")
   );
 }

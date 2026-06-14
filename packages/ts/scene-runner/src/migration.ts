@@ -1,4 +1,4 @@
-import type { TurnModel, SceneBlock, ProgModel } from './types/turnout-model_pb.js';
+import type { TurnModel, SceneBlock, ProgModel } from "./types/turnout-model_pb.js";
 
 type MigrationFn = (model: TurnModel) => TurnModel;
 
@@ -27,20 +27,20 @@ export function migrateModel(model: TurnModel): TurnModel {
   if (minVersion > 0 && CURRENT_VERSION < minVersion) {
     throw new Error(
       `Runtime version ${CURRENT_VERSION} is below the model's required minimum version ${minVersion}. ` +
-      `Upgrade the scene-runner package.`,
+        `Upgrade the scene-runner package.`,
     );
   }
   if (maxVersion > 0 && CURRENT_VERSION > maxVersion) {
     throw new Error(
       `Runtime version ${CURRENT_VERSION} exceeds the model's maximum compatible version ${maxVersion}. ` +
-      `Regenerate the model with a compatible converter.`,
+        `Regenerate the model with a compatible converter.`,
     );
   }
 
   if (version > CURRENT_VERSION) {
     throw new Error(
       `Model schema version ${version} is not supported; expected ${CURRENT_VERSION}. ` +
-      `Regenerate the model with a compatible converter.`,
+        `Regenerate the model with a compatible converter.`,
     );
   }
 
@@ -50,7 +50,7 @@ export function migrateModel(model: TurnModel): TurnModel {
     if (!migrate) {
       throw new Error(
         `migration: no handler registered for version ${version} → ${version + 1}. ` +
-        `This is a bug in the scene-runner package; a migration step is missing.`,
+          `This is a bug in the scene-runner package; a migration step is missing.`,
       );
     }
     current = migrate(current);
@@ -82,21 +82,25 @@ function checkForExtExpr(model: TurnModel): void {
  */
 export function checkSceneForExtExpr(scene: SceneBlock): void {
   for (const action of scene.actions) {
-    checkProgForExtExpr(action.compute?.prog, action.id, 'action compute');
+    checkProgForExtExpr(action.compute?.prog, action.id, "action compute");
     for (const rule of action.next ?? []) {
-      checkProgForExtExpr(rule.compute?.prog, action.id, 'next-rule compute');
+      checkProgForExtExpr(rule.compute?.prog, action.id, "next-rule compute");
     }
   }
 }
 
-function checkProgForExtExpr(prog: ProgModel | undefined, actionId: string, location: string): void {
+function checkProgForExtExpr(
+  prog: ProgModel | undefined,
+  actionId: string,
+  location: string,
+): void {
   if (!prog) return;
   for (const binding of prog.bindings) {
     if (binding.extExpr !== undefined) {
       throw new Error(
         `Action "${actionId}" ${location} binding "${binding.name}" contains an extExpr field, ` +
-        `which is a pre-lowering representation that must not appear in emitted JSON. ` +
-        `Re-compile the source with the current converter to fix this.`,
+          `which is a pre-lowering representation that must not appear in emitted JSON. ` +
+          `Re-compile the source with the current converter to fix this.`,
       );
     }
   }

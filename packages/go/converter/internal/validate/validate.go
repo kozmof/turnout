@@ -148,7 +148,11 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 	case ast.FieldTypeInvalid:
 		return false
 	default:
-		panic(fmt.Sprintf("structpbMatchesFieldType: unhandled FieldType %d — add a case when adding new FieldType values", ft))
+		// Unknown FieldType (e.g. from a future proto addition): conservatively
+		// report no match, which surfaces as a type-mismatch diagnostic rather
+		// than a crash. Internal invariants that require a known type are caught
+		// by the parser long before this point.
+		return false
 	}
 }
 

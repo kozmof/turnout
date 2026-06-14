@@ -1,15 +1,30 @@
-import { BinaryFnArrayNames, BinaryFnArrayNameSpace } from '../state-control/preset-funcs/array/binaryFn';
-import { TransformFnArrayNames } from '../state-control/preset-funcs/array/transformFn';
-import { BinaryFnBooleanNames, BinaryFnBooleanNameSpace } from '../state-control/preset-funcs/boolean/binaryFn';
-import { TransformFnBooleanNames } from '../state-control/preset-funcs/boolean/transformFn';
-import { BinaryFnGenericNames, BinaryFnGenericNameSpace } from '../state-control/preset-funcs/generic/binaryFn';
-import { BinaryFnNumberNames, BinaryFnNumberNameSpace } from '../state-control/preset-funcs/number/binaryFn';
-import { TransformFnNumberNames } from '../state-control/preset-funcs/number/transformFn';
-import { TransformFnNullNames } from '../state-control/preset-funcs/null/transformFn';
-import { BinaryFnStringNames, BinaryFnStringNameSpace } from '../state-control/preset-funcs/string/binaryFn';
-import { TransformFnStringNames } from '../state-control/preset-funcs/string/transformFn';
-import { AnyValue } from '../state-control/value';
-import { Brand } from '../util/brand';
+import {
+  BinaryFnArrayNames,
+  BinaryFnArrayNameSpace,
+} from "../state-control/preset-funcs/array/binaryFn";
+import { TransformFnArrayNames } from "../state-control/preset-funcs/array/transformFn";
+import {
+  BinaryFnBooleanNames,
+  BinaryFnBooleanNameSpace,
+} from "../state-control/preset-funcs/boolean/binaryFn";
+import { TransformFnBooleanNames } from "../state-control/preset-funcs/boolean/transformFn";
+import {
+  BinaryFnGenericNames,
+  BinaryFnGenericNameSpace,
+} from "../state-control/preset-funcs/generic/binaryFn";
+import {
+  BinaryFnNumberNames,
+  BinaryFnNumberNameSpace,
+} from "../state-control/preset-funcs/number/binaryFn";
+import { TransformFnNumberNames } from "../state-control/preset-funcs/number/transformFn";
+import { TransformFnNullNames } from "../state-control/preset-funcs/null/transformFn";
+import {
+  BinaryFnStringNames,
+  BinaryFnStringNameSpace,
+} from "../state-control/preset-funcs/string/binaryFn";
+import { TransformFnStringNames } from "../state-control/preset-funcs/string/transformFn";
+import { AnyValue } from "../state-control/value";
+import { Brand } from "../util/brand";
 
 export type BinaryFnNames =
   | BinaryFnArrayNames
@@ -23,7 +38,7 @@ export type BinaryFnNamespaces =
   | BinaryFnBooleanNameSpace
   | BinaryFnGenericNameSpace
   | BinaryFnNumberNameSpace
-  | BinaryFnStringNameSpace
+  | BinaryFnStringNameSpace;
 
 export type TransformFnNames =
   | TransformFnArrayNames
@@ -32,27 +47,27 @@ export type TransformFnNames =
   | TransformFnNullNames
   | TransformFnStringNames;
 
-export type CombineDefineId = Brand<string, 'combineDefineId'>;
-export type PipeDefineId = Brand<string, 'pipeDefineId'>;
-export type CondDefineId = Brand<string, 'condDefineId'>;
-export type ValueId = Brand<string, 'valueId'>;
-export type FuncId = Brand<string, 'funcId'>;
-export type ArgName = Brand<string, 'argName'>;
+export type CombineDefineId = Brand<string, "combineDefineId">;
+export type PipeDefineId = Brand<string, "pipeDefineId">;
+export type CondDefineId = Brand<string, "condDefineId">;
+export type ValueId = Brand<string, "valueId">;
+export type FuncId = Brand<string, "funcId">;
+export type ArgName = Brand<string, "argName">;
 
 /** Typed constructor helpers — centralise `as XxxId` casts to one place. */
 // Branding is compile-time only; these helpers centralise the intentional cast.
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
 export const makeCombineDefineId = (s: string): CombineDefineId => s as CombineDefineId;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-export const makePipeDefineId    = (s: string): PipeDefineId    => s as PipeDefineId;
+export const makePipeDefineId = (s: string): PipeDefineId => s as PipeDefineId;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-export const makeCondDefineId    = (s: string): CondDefineId    => s as CondDefineId;
+export const makeCondDefineId = (s: string): CondDefineId => s as CondDefineId;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-export const makeValueId         = (s: string): ValueId         => s as ValueId;
+export const makeValueId = (s: string): ValueId => s as ValueId;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-export const makeFuncId          = (s: string): FuncId          => s as FuncId;
+export const makeFuncId = (s: string): FuncId => s as FuncId;
 // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-export const makeArgName         = (s: string): ArgName         => s as ArgName;
+export const makeArgName = (s: string): ArgName => s as ArgName;
 
 /**
  * Per-instance input wiring for combine and pipe functions.
@@ -77,24 +92,25 @@ export type FuncArgMap = Readonly<Record<ArgName, ValueId>>;
  * special-casing `cond` directly.
  */
 export type FuncTableEntry =
-  | { kind: 'combine'; defId: CombineDefineId; argMap: FuncArgMap; returnId: ValueId }
-  | { kind: 'pipe';    defId: PipeDefineId;    argMap: FuncArgMap; returnId: ValueId }
+  | { kind: "combine"; defId: CombineDefineId; argMap: FuncArgMap; returnId: ValueId }
+  | { kind: "pipe"; defId: PipeDefineId; argMap: FuncArgMap; returnId: ValueId }
   // No argMap: cond inputs are pre-resolved into condFuncDefTable at build time.
-  | { kind: 'cond';   defId: CondDefineId;                        returnId: ValueId };
+  | { kind: "cond"; defId: CondDefineId; returnId: ValueId };
 
 /** Narrows a FuncTableEntry to the two variants that carry `argMap` (combine | pipe). */
 export type ArgMapFuncEntry = Extract<FuncTableEntry, { argMap: FuncArgMap }>;
 
 /** Type guard: true when the entry is a combine or pipe entry (the two that carry `argMap`). */
 export function isArgMapEntry(entry: FuncTableEntry): entry is ArgMapFuncEntry {
-  return 'argMap' in entry;
+  return "argMap" in entry;
 }
 
 /** Type guard: true when the entry is a cond entry (no `argMap`; inputs pre-resolved at build time). */
-export function isCondEntry(entry: FuncTableEntry): entry is Extract<FuncTableEntry, { kind: 'cond' }> {
-  return entry.kind === 'cond';
+export function isCondEntry(
+  entry: FuncTableEntry,
+): entry is Extract<FuncTableEntry, { kind: "cond" }> {
+  return entry.kind === "cond";
 }
-
 
 export type FuncTable = {
   [id in FuncId]: FuncTableEntry;
@@ -119,9 +135,9 @@ export type CombineFuncDefTable = {
  */
 // Fix 3: 'value' variant field renamed from valueId to id — consistent with ConditionId.
 export type PipeArgBinding =
-  | { source: 'input'; argName: ArgName }
-  | { source: 'step'; stepIndex: number }
-  | { source: 'value'; id: ValueId };
+  | { source: "input"; argName: ArgName }
+  | { source: "step"; stepIndex: number }
+  | { source: "value"; id: ValueId };
 
 /**
  * Defines a single step in a PipeFunc sequence.
@@ -148,15 +164,15 @@ export type PipeFuncDefTable = {
 };
 
 export type ConditionId =
-  | { readonly kind: 'value'; readonly id: ValueId }
-  | { readonly kind: 'func'; readonly id: FuncId };
+  | { readonly kind: "value"; readonly id: ValueId }
+  | { readonly kind: "func"; readonly id: FuncId };
 
-export function isValueCondition(id: ConditionId): id is Extract<ConditionId, { kind: 'value' }> {
-  return id.kind === 'value';
+export function isValueCondition(id: ConditionId): id is Extract<ConditionId, { kind: "value" }> {
+  return id.kind === "value";
 }
 
-export function isFuncCondition(id: ConditionId): id is Extract<ConditionId, { kind: 'func' }> {
-  return id.kind === 'func';
+export function isFuncCondition(id: ConditionId): id is Extract<ConditionId, { kind: "func" }> {
+  return id.kind === "func";
 }
 
 export type CondFuncDefTable = {
@@ -200,6 +216,6 @@ export type ExecutionContext = {
  * distinguish restricted visibility contexts from full root contexts.
  */
 export type ScopedExecutionContext = ExecutionContext & {
-  readonly scope: 'pipe';
+  readonly scope: "pipe";
   readonly visibleValueIds: ReadonlySet<ValueId>;
 };

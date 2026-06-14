@@ -7,8 +7,8 @@ import type {
   ValueInputRef,
   TransformRef,
   StepBuilder,
-} from './types';
-import type { BinaryFnNames } from '../types';
+} from "./types";
+import type { BinaryFnNames } from "../types";
 
 /**
  * Creates a CombineFunc builder.
@@ -30,10 +30,10 @@ export function combine(
   args: {
     a: ValueInputRef | TransformRef;
     b: ValueInputRef | TransformRef;
-  }
+  },
 ): CombineBuilder {
   return {
-    __type: 'combine',
+    __type: "combine",
     name,
     args,
   };
@@ -58,10 +58,10 @@ export function combine(
  */
 export function pipe(
   argBindings: Record<string, ValueRef>,
-  steps: readonly StepBuilder[]
+  steps: readonly StepBuilder[],
 ): PipeBuilder {
   return {
-    __type: 'pipe',
+    __type: "pipe",
     argBindings,
     steps,
   };
@@ -78,12 +78,9 @@ export function pipe(
  * cond('v1', { then: 'f1', else: 'f2' })
  * ```
  */
-export function cond(
-  condition: ValueRef,
-  options: { then: FuncRef; else: FuncRef }
-): CondBuilder {
+export function cond(condition: ValueRef, options: { then: FuncRef; else: FuncRef }): CondBuilder {
   return {
-    __type: 'cond',
+    __type: "cond",
     condition,
     then: options.then,
     else: options.else,

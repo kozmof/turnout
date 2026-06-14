@@ -1,20 +1,11 @@
-import {
-  any,
-  array,
-  GenericSchema,
-  lazy,
-  literal,
-  object,
-  string,
-  union,
-} from 'valibot';
-import { binaryFnNames } from './binaryFnNames';
-import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from './input-types';
-import { transformFnNames } from './transformFnNames';
-import { baseTypeSymbols } from '../../state-control/value';
+import { any, array, GenericSchema, lazy, literal, object, string, union } from "valibot";
+import { binaryFnNames } from "./binaryFnNames";
+import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from "./input-types";
+import { transformFnNames } from "./transformFnNames";
+import { baseTypeSymbols } from "../../state-control/value";
 
-const combineFuncType: CombineFuncType = 'combine';
-const pipeFuncType: PipeFuncType = 'pipe';
+const combineFuncType: CombineFuncType = "combine";
+const pipeFuncType: PipeFuncType = "pipe";
 
 const symbolLiterals = baseTypeSymbols.map((symbol) => literal(symbol));
 

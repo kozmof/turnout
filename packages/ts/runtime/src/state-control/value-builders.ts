@@ -16,8 +16,8 @@ import {
   nullReasonSubSymbols,
   UnknownValue,
   createUnknownValue,
-} from './value';
-import { createInvalidValueError } from './errors';
+} from "./value";
+import { createInvalidValueError } from "./errors";
 
 /**
  * Pure builders for creating values with proper tag propagation.
@@ -65,10 +65,10 @@ function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
  */
 function createValueBuilder<
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  TResult extends UnknownValue
+  TResult extends UnknownValue,
 >(
   symbol: BaseTypeSymbol,
-  subSymbol: BaseTypeSubSymbol
+  subSymbol: BaseTypeSubSymbol,
 ): (value: unknown, tags?: readonly TagSymbol[]) => TResult {
   return (value: unknown, tags: readonly TagSymbol[] = []): TResult => {
     const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
@@ -90,7 +90,10 @@ function createValueBuilder<
  * const pure = buildNumber(42);
  * const withTags = buildNumber(10, { tags: ['random'] } as AnyValue);
  */
-export const buildNumber = createValueBuilder<NumberValue<readonly TagSymbol[]>>('number', undefined);
+export const buildNumber = createValueBuilder<NumberValue<readonly TagSymbol[]>>(
+  "number",
+  undefined,
+);
 
 /**
  * Builds a StringValue with tags propagated from source values.
@@ -103,7 +106,10 @@ export const buildNumber = createValueBuilder<NumberValue<readonly TagSymbol[]>>
  * const greeting = buildString('Hello');
  * const fromNetwork = buildString('data', { tags: ['network'] } as AnyValue);
  */
-export const buildString = createValueBuilder<StringValue<readonly TagSymbol[]>>('string', undefined);
+export const buildString = createValueBuilder<StringValue<readonly TagSymbol[]>>(
+  "string",
+  undefined,
+);
 
 /**
  * Builds a BooleanValue with tags propagated from source values.
@@ -116,7 +122,10 @@ export const buildString = createValueBuilder<StringValue<readonly TagSymbol[]>>
  * const flag = buildBoolean(true);
  * const derived = buildBoolean(false, someValue, anotherValue);
  */
-export const buildBoolean = createValueBuilder<BooleanValue<readonly TagSymbol[]>>('boolean', undefined);
+export const buildBoolean = createValueBuilder<BooleanValue<readonly TagSymbol[]>>(
+  "boolean",
+  undefined,
+);
 
 /**
  * Builds a NullValue with a required reason subSymbol and propagated tags.
@@ -127,15 +136,15 @@ export const buildBoolean = createValueBuilder<BooleanValue<readonly TagSymbol[]
  */
 export function buildNull(
   reason: NullReasonSubSymbol,
-  tags: readonly TagSymbol[] = []
+  tags: readonly TagSymbol[] = [],
 ): NullValue<readonly TagSymbol[]> {
   if (!nullReasonSubSymbols.includes(reason)) {
-    throw createInvalidValueError('null', reason, 'Invalid NullReasonSubSymbol');
+    throw createInvalidValueError("null", reason, "Invalid NullReasonSubSymbol");
   }
   const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
   // createUnknownValue preserves the provided symbol/subSymbol; this narrows the generic value builder result.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return createUnknownValue('null', null, reason, uniqueTags) as NullValue<readonly TagSymbol[]>;
+  return createUnknownValue("null", null, reason, uniqueTags) as NullValue<readonly TagSymbol[]>;
 }
 
 /**
@@ -148,7 +157,7 @@ export function buildNull(
  * @example
  * const arr = buildArray([item1, item2, item3]);
  */
-export const buildArray = createValueBuilder<ArrayValue<readonly TagSymbol[]>>('array', undefined);
+export const buildArray = createValueBuilder<ArrayValue<readonly TagSymbol[]>>("array", undefined);
 
 /**
  * Builds a typed ArrayNumberValue with tags propagated from source values.
@@ -160,7 +169,10 @@ export const buildArray = createValueBuilder<ArrayValue<readonly TagSymbol[]>>('
  * @example
  * const numbers = buildArrayNumber([num1, num2]);
  */
-export const buildArrayNumber = createValueBuilder<ArrayNumberValue<readonly TagSymbol[]>>('array', 'number');
+export const buildArrayNumber = createValueBuilder<ArrayNumberValue<readonly TagSymbol[]>>(
+  "array",
+  "number",
+);
 
 /**
  * Builds a typed ArrayStringValue with tags propagated from source values.
@@ -169,7 +181,10 @@ export const buildArrayNumber = createValueBuilder<ArrayNumberValue<readonly Tag
  * @param sources - Source values whose tags should be propagated
  * @returns ArrayStringValue with merged tags from all sources
  */
-export const buildArrayString = createValueBuilder<ArrayStringValue<readonly TagSymbol[]>>('array', 'string');
+export const buildArrayString = createValueBuilder<ArrayStringValue<readonly TagSymbol[]>>(
+  "array",
+  "string",
+);
 
 /**
  * Builds a typed ArrayBooleanValue with tags propagated from source values.
@@ -178,7 +193,10 @@ export const buildArrayString = createValueBuilder<ArrayStringValue<readonly Tag
  * @param sources - Source values whose tags should be propagated
  * @returns ArrayBooleanValue with merged tags from all sources
  */
-export const buildArrayBoolean = createValueBuilder<ArrayBooleanValue<readonly TagSymbol[]>>('array', 'boolean');
+export const buildArrayBoolean = createValueBuilder<ArrayBooleanValue<readonly TagSymbol[]>>(
+  "array",
+  "boolean",
+);
 
 /**
  * Builds a typed ArrayNullValue with tags propagated from source values.
@@ -187,7 +205,10 @@ export const buildArrayBoolean = createValueBuilder<ArrayBooleanValue<readonly T
  * @param sources - Source values whose tags should be propagated
  * @returns ArrayNullValue with merged tags from all sources
  */
-export const buildArrayNull = createValueBuilder<ArrayNullValue<readonly TagSymbol[]>>('array', 'null');
+export const buildArrayNull = createValueBuilder<ArrayNullValue<readonly TagSymbol[]>>(
+  "array",
+  "null",
+);
 
 /**
  * Helper for binary operations on NumberValues.
@@ -205,7 +226,7 @@ export const buildArrayNull = createValueBuilder<ArrayNullValue<readonly TagSymb
 export function binaryNumberOp(
   op: (a: number, b: number) => number,
   a: NumberValue<readonly TagSymbol[]>,
-  b: NumberValue<readonly TagSymbol[]>
+  b: NumberValue<readonly TagSymbol[]>,
 ): NumberValue<readonly TagSymbol[]> {
   return buildNumber(op(a.value, b.value), mergeTags(a, b));
 }
@@ -225,7 +246,7 @@ export function binaryNumberOp(
 export function binaryStringOp(
   op: (a: string, b: string) => string,
   a: StringValue<readonly TagSymbol[]>,
-  b: StringValue<readonly TagSymbol[]>
+  b: StringValue<readonly TagSymbol[]>,
 ): StringValue<readonly TagSymbol[]> {
   return buildString(op(a.value, b.value), mergeTags(a, b));
 }
@@ -246,7 +267,7 @@ export function binaryStringOp(
 export function binaryBooleanOp<A, B>(
   op: (a: A, b: B) => boolean,
   a: AnyValue & { value: A },
-  b: AnyValue & { value: B }
+  b: AnyValue & { value: B },
 ): BooleanValue<readonly TagSymbol[]> {
   return buildBoolean(op(a.value, b.value), mergeTags(a, b));
 }
@@ -265,7 +286,7 @@ export function binaryBooleanOp<A, B>(
  */
 export function unaryNumberOp(
   transform: (value: number) => number,
-  source: NumberValue<readonly TagSymbol[]>
+  source: NumberValue<readonly TagSymbol[]>,
 ): NumberValue<readonly TagSymbol[]> {
   return buildNumber(transform(source.value), source.tags);
 }
@@ -284,7 +305,7 @@ export function unaryNumberOp(
  */
 export function unaryStringOp(
   transform: (value: string) => string,
-  source: StringValue<readonly TagSymbol[]>
+  source: StringValue<readonly TagSymbol[]>,
 ): StringValue<readonly TagSymbol[]> {
   return buildString(transform(source.value), source.tags);
 }
@@ -302,7 +323,7 @@ export function unaryStringOp(
  */
 export function unaryBooleanOp(
   transform: (value: boolean) => boolean,
-  source: BooleanValue<readonly TagSymbol[]>
+  source: BooleanValue<readonly TagSymbol[]>,
 ): BooleanValue<readonly TagSymbol[]> {
   return buildBoolean(transform(source.value), source.tags);
 }
@@ -322,7 +343,7 @@ export function unaryBooleanOp(
 export function convertValue<TIn, TOut>(
   convert: (value: TIn) => TOut,
   source: AnyValue & { value: TIn },
-  builder: (value: TOut, tags?: readonly TagSymbol[]) => AnyValue & { value: TOut }
+  builder: (value: TOut, tags?: readonly TagSymbol[]) => AnyValue & { value: TOut },
 ): AnyValue & { value: TOut } {
   return builder(convert(source.value), source.tags);
 }

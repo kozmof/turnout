@@ -1,7 +1,7 @@
-import { type BooleanValue, type StringValue, type TagSymbol } from '../../value';
-import { type ToBooleanConversion, type ToStringConversion } from '../convert';
-import { buildString, unaryBooleanOp } from '../../value-builders';
-import { type NamespaceDelimiter } from '../../../util/constants';
+import { type BooleanValue, type StringValue, type TagSymbol } from "../../value";
+import { type ToBooleanConversion, type ToStringConversion } from "../convert";
+import { buildString, unaryBooleanOp } from "../../value-builders";
+import { type NamespaceDelimiter } from "../../../util/constants";
 
 export interface TransformFnBoolean {
   pass: ToBooleanConversion<BooleanValue<readonly TagSymbol[]>>;
@@ -21,14 +21,14 @@ export const tfBoolean: TransformFnBoolean = {
   },
 } as const;
 
-export type TransformFnBooleanNameSpace = 'transformFnBoolean';
+export type TransformFnBooleanNameSpace = "transformFnBoolean";
 export type TransformFnBooleanNames =
   `${TransformFnBooleanNameSpace}${NamespaceDelimiter}${keyof typeof tfBoolean}`;
 
 export type ReturnMetaTransformFnBoolean = {
-  [K in keyof TransformFnBoolean]: ReturnType<TransformFnBoolean[K]>['symbol'];
+  [K in keyof TransformFnBoolean]: ReturnType<TransformFnBoolean[K]>["symbol"];
 };
 
 export type ParamsMetaTransformFnBoolean = {
-  [K in keyof TransformFnBoolean]: [Parameters<TransformFnBoolean[K]>[0]['symbol']];
+  [K in keyof TransformFnBoolean]: [Parameters<TransformFnBoolean[K]>[0]["symbol"]];
 };

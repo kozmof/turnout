@@ -1,35 +1,35 @@
-import { ValueRef, FuncRef } from './types';
+import { ValueRef, FuncRef } from "./types";
 
 // Define error data types separately for type safety
 type UndefinedConditionErrorData = {
-  readonly kind: 'undefinedCondition';
+  readonly kind: "undefinedCondition";
   readonly funcId: string;
   readonly conditionRef: ValueRef;
 };
 
 type UndefinedBranchErrorData = {
-  readonly kind: 'undefinedBranch';
+  readonly kind: "undefinedBranch";
   readonly funcId: string;
-  readonly branchType: 'then' | 'else';
+  readonly branchType: "then" | "else";
   readonly branchRef: FuncRef;
 };
 
 type UndefinedValueReferenceErrorData = {
-  readonly kind: 'undefinedValueReference';
+  readonly kind: "undefinedValueReference";
   readonly funcId: string;
   readonly argName: string;
   readonly valueRef: ValueRef;
 };
 
 type UndefinedPipeArgumentErrorData = {
-  readonly kind: 'undefinedPipeArgument';
+  readonly kind: "undefinedPipeArgument";
   readonly funcId: string;
   readonly argName: string;
   readonly binding: string;
 };
 
 type UndefinedPipeStepReferenceErrorData = {
-  readonly kind: 'undefinedPipeStepReference';
+  readonly kind: "undefinedPipeStepReference";
   readonly funcId: string;
   readonly stepIndex: number;
   readonly argName: string;
@@ -53,15 +53,15 @@ export type BuilderValidationError =
 // Factory functions that create Error instances with additional properties
 export function createUndefinedConditionError(
   funcId: string,
-  conditionRef: ValueRef
+  conditionRef: ValueRef,
 ): UndefinedConditionError {
   const error = new Error(
-    `Cond function '${funcId}' references undefined condition: '${conditionRef}'`
+    `Cond function '${funcId}' references undefined condition: '${conditionRef}'`,
   );
-  error.name = 'UndefinedConditionError';
+  error.name = "UndefinedConditionError";
 
   const errorData: UndefinedConditionErrorData = {
-    kind: 'undefinedCondition',
+    kind: "undefinedCondition",
     funcId,
     conditionRef,
   };
@@ -71,16 +71,16 @@ export function createUndefinedConditionError(
 
 export function createUndefinedBranchError(
   funcId: string,
-  branchType: 'then' | 'else',
-  branchRef: FuncRef
+  branchType: "then" | "else",
+  branchRef: FuncRef,
 ): UndefinedBranchError {
   const error = new Error(
-    `Cond function '${funcId}' references undefined '${branchType}' branch: '${branchRef}'`
+    `Cond function '${funcId}' references undefined '${branchType}' branch: '${branchRef}'`,
   );
-  error.name = 'UndefinedBranchError';
+  error.name = "UndefinedBranchError";
 
   const errorData: UndefinedBranchErrorData = {
-    kind: 'undefinedBranch',
+    kind: "undefinedBranch",
     funcId,
     branchType,
     branchRef,
@@ -92,15 +92,15 @@ export function createUndefinedBranchError(
 export function createUndefinedValueReferenceError(
   funcId: string,
   argName: string,
-  valueRef: ValueRef
+  valueRef: ValueRef,
 ): UndefinedValueReferenceError {
   const error = new Error(
-    `Combine function '${funcId}' argument '${argName}' references undefined value: '${valueRef}'`
+    `Combine function '${funcId}' argument '${argName}' references undefined value: '${valueRef}'`,
   );
-  error.name = 'UndefinedValueReferenceError';
+  error.name = "UndefinedValueReferenceError";
 
   const errorData: UndefinedValueReferenceErrorData = {
-    kind: 'undefinedValueReference',
+    kind: "undefinedValueReference",
     funcId,
     argName,
     valueRef,
@@ -112,15 +112,15 @@ export function createUndefinedValueReferenceError(
 export function createUndefinedPipeArgumentError(
   funcId: string,
   argName: string,
-  binding: string
+  binding: string,
 ): UndefinedPipeArgumentError {
   const error = new Error(
-    `Pipe function '${funcId}' argument '${argName}' references undefined or non-value: '${binding}'`
+    `Pipe function '${funcId}' argument '${argName}' references undefined or non-value: '${binding}'`,
   );
-  error.name = 'UndefinedPipeArgumentError';
+  error.name = "UndefinedPipeArgumentError";
 
   const errorData: UndefinedPipeArgumentErrorData = {
-    kind: 'undefinedPipeArgument',
+    kind: "undefinedPipeArgument",
     funcId,
     argName,
     binding,
@@ -133,15 +133,15 @@ export function createUndefinedPipeStepReferenceError(
   funcId: string,
   stepIndex: number,
   argName: string,
-  reference: string
+  reference: string,
 ): UndefinedPipeStepReferenceError {
   const error = new Error(
-    `Pipe function '${funcId}' step ${String(stepIndex)} argument '${argName}' references undefined: '${reference}'`
+    `Pipe function '${funcId}' step ${String(stepIndex)} argument '${argName}' references undefined: '${reference}'`,
   );
-  error.name = 'UndefinedPipeStepReferenceError';
+  error.name = "UndefinedPipeStepReferenceError";
 
   const errorData: UndefinedPipeStepReferenceErrorData = {
-    kind: 'undefinedPipeStepReference',
+    kind: "undefinedPipeStepReference",
     funcId,
     stepIndex,
     argName,
@@ -151,21 +151,42 @@ export function createUndefinedPipeStepReferenceError(
   return Object.assign(error, errorData);
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// BuilderInvariantError — library-internal invariant violations
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type BuilderInvariantCode =
+  | "ExhaustivenessCheck" // unreachable switch default — unknown discriminant value
+  | "MissingTableEntry" // expected entry absent from an internal state table
+  | "UnsupportedConstruct" // feature not yet implemented by the builder
+  | "UnknownBinaryFn"; // binary function name unknown at build time
+
+export class BuilderInvariantError extends Error {
+  readonly code: BuilderInvariantCode;
+  constructor(code: BuilderInvariantCode, detail: string) {
+    super(`[builder] ${detail}`);
+    this.name = "BuilderInvariantError";
+    this.code = code;
+  }
+}
+
+export function isBuilderInvariantError(e: unknown): e is BuilderInvariantError {
+  return e instanceof BuilderInvariantError;
+}
+
 const BUILDER_VALIDATION_ERROR_KINDS = new Set<string>([
-  'undefinedCondition',
-  'undefinedBranch',
-  'undefinedValueReference',
-  'undefinedPipeArgument',
-  'undefinedPipeStepReference',
+  "undefinedCondition",
+  "undefinedBranch",
+  "undefinedValueReference",
+  "undefinedPipeArgument",
+  "undefinedPipeStepReference",
 ]);
 
 // Type guard
-export function isBuilderValidationError(
-  error: unknown
-): error is BuilderValidationError {
+export function isBuilderValidationError(error: unknown): error is BuilderValidationError {
   return (
     error instanceof Error &&
-    'kind' in error &&
-    BUILDER_VALIDATION_ERROR_KINDS.has(typeof error.kind === 'string' ? error.kind : '')
+    "kind" in error &&
+    BUILDER_VALIDATION_ERROR_KINDS.has(typeof error.kind === "string" ? error.kind : "")
   );
 }

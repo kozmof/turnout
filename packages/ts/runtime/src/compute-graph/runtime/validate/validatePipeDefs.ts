@@ -5,10 +5,10 @@ import type {
   CondDefineId,
   PipeArgBinding,
   ValueTable,
-} from '../../types';
-import { createArgName, createValueId } from '../../idValidation';
-import type { UnvalidatedContext, ValidationState, ValidationError } from './types';
-import { isRecord, isStringAs, hasKey, pipeStepDefIdExistsInContext } from './utils';
+} from "../../types";
+import { createArgName, createValueId } from "../../idValidation";
+import type { UnvalidatedContext, ValidationState, ValidationError } from "./types";
+import { isRecord, isStringAs, hasKey, pipeStepDefIdExistsInContext } from "./utils";
 
 // ============================================================================
 // Binding validation
@@ -23,7 +23,7 @@ type BindingValidationContext = {
 };
 
 function validateInputBinding(
-  binding: Extract<PipeArgBinding, { source: 'input' }>,
+  binding: Extract<PipeArgBinding, { source: "input" }>,
   argName: string,
   context: BindingValidationContext,
 ): ValidationError | null {
@@ -42,7 +42,7 @@ function validateInputBinding(
 }
 
 function validateStepBinding(
-  binding: Extract<PipeArgBinding, { source: 'step' }>,
+  binding: Extract<PipeArgBinding, { source: "step" }>,
   argName: string,
   context: BindingValidationContext,
 ): ValidationError | null {
@@ -65,7 +65,7 @@ function validateStepBinding(
 }
 
 function validateValueBinding(
-  binding: Extract<PipeArgBinding, { source: 'value' }>,
+  binding: Extract<PipeArgBinding, { source: "value" }>,
   argName: string,
   context: BindingValidationContext,
 ): ValidationError | null {
@@ -90,11 +90,7 @@ function parseBinding(
   stepIndex: number,
   argName: string,
 ): { binding?: PipeArgBinding; error?: ValidationError } {
-  if (
-    !isRecord(binding) ||
-    !('source' in binding) ||
-    typeof binding.source !== 'string'
-  ) {
+  if (!isRecord(binding) || !("source" in binding) || typeof binding.source !== "string") {
     return {
       error: {
         message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: Argument binding for '${argName}' is invalid`,
@@ -104,10 +100,10 @@ function parseBinding(
   }
 
   switch (binding.source) {
-    case 'input':
+    case "input":
       if (
-        !('argName' in binding) ||
-        typeof binding.argName !== 'string' ||
+        !("argName" in binding) ||
+        typeof binding.argName !== "string" ||
         binding.argName.length === 0
       ) {
         return {
@@ -119,12 +115,12 @@ function parseBinding(
       }
       return {
         binding: {
-          source: 'input',
+          source: "input",
           argName: createArgName(binding.argName),
         },
       };
-    case 'step':
-      if (!('stepIndex' in binding) || typeof binding.stepIndex !== 'number') {
+    case "step":
+      if (!("stepIndex" in binding) || typeof binding.stepIndex !== "number") {
         return {
           error: {
             message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'step' binding for '${argName}' must include numeric stepIndex`,
@@ -134,16 +130,12 @@ function parseBinding(
       }
       return {
         binding: {
-          source: 'step',
+          source: "step",
           stepIndex: binding.stepIndex,
         },
       };
-    case 'value':
-      if (
-        !('id' in binding) ||
-        typeof binding.id !== 'string' ||
-        binding.id.length === 0
-      ) {
+    case "value":
+      if (!("id" in binding) || typeof binding.id !== "string" || binding.id.length === 0) {
         return {
           error: {
             message: `PipeFuncDefTable[${defId}].sequence[${String(stepIndex)}]: 'value' binding for '${argName}' must include string id`,
@@ -153,7 +145,7 @@ function parseBinding(
       }
       return {
         binding: {
-          source: 'value',
+          source: "value",
           id: createValueId(binding.id),
         },
       };
@@ -173,11 +165,11 @@ function validateBinding(
   context: BindingValidationContext,
 ): ValidationError | null {
   switch (binding.source) {
-    case 'input':
+    case "input":
       return validateInputBinding(binding, argName, context);
-    case 'step':
+    case "step":
       return validateStepBinding(binding, argName, context);
-    case 'value':
+    case "value":
       return validateValueBinding(binding, argName, context);
   }
 }
@@ -205,7 +197,7 @@ export function validatePipeDefEntry(
 
   const entry = def;
 
-  if (!('sequence' in entry) || !Array.isArray(entry.sequence)) {
+  if (!("sequence" in entry) || !Array.isArray(entry.sequence)) {
     state.errors.push({
       message: `PipeFuncDefTable[${defId}]: Missing or invalid sequence`,
       details: { defId },
@@ -222,12 +214,12 @@ export function validatePipeDefEntry(
   }
 
   const pipeDefArgNames: string[] = [];
-  if ('args' in entry) {
+  if ("args" in entry) {
     const rawArgs: unknown = entry.args;
     if (Array.isArray(rawArgs)) {
       for (let i = 0; i < rawArgs.length; i++) {
         const argName: unknown = rawArgs[i];
-        if (typeof argName !== 'string') {
+        if (typeof argName !== "string") {
           state.errors.push({
             message: `PipeFuncDefTable[${defId}].args[${String(i)}]: argument name must be a string`,
             details: { defId, argIndex: i, argName },
@@ -260,7 +252,7 @@ export function validatePipeDefEntry(
 
     const stepObj = step;
 
-    if (!('defId' in stepObj) || typeof stepObj.defId !== 'string') {
+    if (!("defId" in stepObj) || typeof stepObj.defId !== "string") {
       state.errors.push({
         message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Missing step defId`,
         details: { defId, stepIndex: i },
@@ -285,7 +277,7 @@ export function validatePipeDefEntry(
       continue;
     }
 
-    if (!('argBindings' in stepObj) || !isRecord(stepObj.argBindings)) {
+    if (!("argBindings" in stepObj) || !isRecord(stepObj.argBindings)) {
       state.errors.push({
         message: `PipeFuncDefTable[${defId}].sequence[${String(i)}]: Missing or invalid argBindings`,
         details: { defId, stepIndex: i },

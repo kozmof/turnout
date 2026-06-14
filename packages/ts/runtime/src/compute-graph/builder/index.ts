@@ -35,10 +35,10 @@
  * ```
  */
 
-export { ctx } from './context';
-export { combine, pipe, cond } from './functions';
-export { val, ref } from './values';
-export type { ContextBuilder, ContextSpec, BuildResult } from './types';
+export { ctx } from "./context";
+export { combine, pipe, cond } from "./functions";
+export { val, ref } from "./values";
+export type { ContextBuilder, ContextSpec, BuildResult } from "./types";
 export type {
   BuilderValidationError,
   UndefinedConditionError,
@@ -46,5 +46,6 @@ export type {
   UndefinedValueReferenceError,
   UndefinedPipeArgumentError,
   UndefinedPipeStepReferenceError,
-} from './errors';
-export { isBuilderValidationError } from './errors';
+} from "./errors";
+export { isBuilderValidationError, BuilderInvariantError, isBuilderInvariantError } from "./errors";
+export type { BuilderInvariantCode } from "./errors";

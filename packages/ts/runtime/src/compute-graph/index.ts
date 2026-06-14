@@ -1,25 +1,21 @@
 // Main execution engine
-export { executeGraph, executeGraphSafe } from './runtime/exec/executeGraph';
-export { buildExecutionTree, buildReturnIdToFuncIdMap } from './runtime/buildExecutionTree';
-export { executeTree } from './runtime/executeTree';
-export type { ExecutionResult } from './types';
+export { executeGraph, executeGraphSafe } from "./runtime/exec/executeGraph";
+export { buildExecutionTree, buildReturnIdToFuncIdMap } from "./runtime/buildExecutionTree";
+export { executeTree } from "./runtime/executeTree";
+export type { ExecutionResult } from "./types";
 
 // Type inference helpers
-export { getBinaryFnReturnType } from './runtime/typeInference';
+export { getBinaryFnReturnType } from "./runtime/typeInference";
 
 // Context validation
-export {
-  validateContext,
-  assertValidContext,
-  isValidContext,
-} from './runtime/validateContext';
+export { validateContext, assertValidContext, isValidContext } from "./runtime/validateContext";
 export type {
   UnvalidatedContext,
   ValidatedContext,
   ValidationError,
   ValidationWarning,
   ValidationResult,
-} from './runtime/validateContext';
+} from "./runtime/validateContext";
 
 // Types
 export type {
@@ -40,11 +36,11 @@ export type {
   PipeArgBinding,
   BinaryFnNames,
   TransformFnNames,
-} from './types';
+} from "./types";
 
-export { isValueCondition, isFuncCondition } from './types';
+export { isValueCondition, isFuncCondition } from "./types";
 
-export type { GraphExecutionError } from './runtime/errors';
+export type { GraphExecutionError } from "./runtime/errors";
 export {
   createMissingDependencyError,
   createMissingDefinitionError,
@@ -52,6 +48,6 @@ export {
   createEmptySequenceError,
   createMissingValueError,
   isGraphExecutionError,
-} from './runtime/errors';
+} from "./runtime/errors";
 
-export type { NodeId, ExecutionTree } from './runtime/tree-types';
+export type { NodeId, ExecutionTree } from "./runtime/tree-types";

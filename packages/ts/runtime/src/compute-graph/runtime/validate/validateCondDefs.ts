@@ -1,16 +1,12 @@
-import type {
-  CombineDefineId,
-  PipeDefineId,
-  CondDefineId,
-} from '../../types';
-import type { UnvalidatedContext, ValidationState } from './types';
+import type { CombineDefineId, PipeDefineId, CondDefineId } from "../../types";
+import type { UnvalidatedContext, ValidationState } from "./types";
 import {
   isRecord,
   isStringAs,
   valueIdExistsInContext,
   funcIdExistsInContext,
   inferFuncType,
-} from './utils';
+} from "./utils";
 
 /**
  * Validates a CondFuncDefTable entry.
@@ -31,7 +27,7 @@ export function validateCondDefEntry(
 
   const entry = def;
 
-  if (!('conditionId' in entry) || !isRecord(entry.conditionId)) {
+  if (!("conditionId" in entry) || !isRecord(entry.conditionId)) {
     state.errors.push({
       message: `CondFuncDefTable[${defId}]: Missing or invalid conditionId`,
       details: { defId },
@@ -40,21 +36,21 @@ export function validateCondDefEntry(
     const conditionId = entry.conditionId;
 
     if (
-      !('kind' in conditionId) ||
-      typeof conditionId.kind !== 'string' ||
-      !('id' in conditionId) ||
-      typeof conditionId.id !== 'string'
+      !("kind" in conditionId) ||
+      typeof conditionId.kind !== "string" ||
+      !("id" in conditionId) ||
+      typeof conditionId.id !== "string"
     ) {
       state.errors.push({
         message: `CondFuncDefTable[${defId}].conditionId: Must include string kind and id`,
         details: { defId },
       });
-    } else if (conditionId.kind !== 'value' && conditionId.kind !== 'func') {
+    } else if (conditionId.kind !== "value" && conditionId.kind !== "func") {
       state.errors.push({
         message: `CondFuncDefTable[${defId}].conditionId: Unknown kind "${conditionId.kind}"`,
         details: { defId, kind: conditionId.kind },
       });
-    } else if (conditionId.kind === 'value') {
+    } else if (conditionId.kind === "value") {
       const id = conditionId.id;
       if (!valueIdExistsInContext(id, context)) {
         state.errors.push({
@@ -64,7 +60,7 @@ export function validateCondDefEntry(
       } else {
         state.referencedValues.add(id);
         const conditionType = state.typeEnv.get(id);
-        if (conditionType && conditionType !== 'boolean') {
+        if (conditionType && conditionType !== "boolean") {
           state.errors.push({
             message: `CondFuncDefTable[${defId}].conditionId: Condition value must be boolean, got "${conditionType}"`,
             details: { defId, conditionId: id, conditionType },
@@ -80,7 +76,7 @@ export function validateCondDefEntry(
         });
       } else {
         const inferredType = inferFuncType(id, context);
-        if (inferredType && inferredType !== 'boolean') {
+        if (inferredType && inferredType !== "boolean") {
           state.errors.push({
             message: `CondFuncDefTable[${defId}].conditionId: Function condition must return boolean, got "${inferredType}"`,
             details: { defId, conditionId: id, conditionType: inferredType },
@@ -90,8 +86,8 @@ export function validateCondDefEntry(
     }
   }
 
-  for (const branchKey of ['trueBranchId', 'falseBranchId'] as const) {
-    if (!(branchKey in entry) || typeof entry[branchKey] !== 'string') {
+  for (const branchKey of ["trueBranchId", "falseBranchId"] as const) {
+    if (!(branchKey in entry) || typeof entry[branchKey] !== "string") {
       state.errors.push({
         message: `CondFuncDefTable[${defId}].${branchKey}: Missing or invalid FuncId`,
         details: { defId, branchKey },

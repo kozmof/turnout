@@ -1,13 +1,9 @@
-import {
-  FuncId,
-  ExecutionContext,
-  ValueId,
-} from '../types';
-import { ExecutionTree, NodeId } from './tree-types';
-import type { ValueNode, FunctionNode, ConditionalNode } from './tree-types';
-import { isFuncId } from '../idValidation';
-import { createMissingValueError } from './errors';
-import { TOM } from '../../util/tom';
+import { FuncId, ExecutionContext, ValueId } from "../types";
+import { ExecutionTree, NodeId } from "./tree-types";
+import type { ValueNode, FunctionNode, ConditionalNode } from "./tree-types";
+import { isFuncId } from "../idValidation";
+import { createMissingValueError } from "./errors";
+import { TOM } from "../../util/tom";
 
 /**
  * Creates a mapping from ValueId to FuncId for functions that produce those values.
@@ -35,7 +31,7 @@ function buildExecutionTreeCore(
   context: ExecutionContext,
   visited: Set<NodeId>,
   memo: Map<NodeId, ExecutionTree>,
-  returnIdToFuncId: ReadonlyMap<ValueId, FuncId>
+  returnIdToFuncId: ReadonlyMap<ValueId, FuncId>,
 ): ExecutionTree {
   // Return cached result for shared DAG nodes (diamond patterns)
   const cached = memo.get(nodeId);
@@ -51,13 +47,7 @@ function buildExecutionTreeCore(
   visited.add(nodeId);
 
   try {
-    const result = buildExecutionTreeInternal(
-      nodeId,
-      context,
-      visited,
-      memo,
-      returnIdToFuncId
-    );
+    const result = buildExecutionTreeInternal(nodeId, context, visited, memo, returnIdToFuncId);
     memo.set(nodeId, result);
     return result;
   } finally {
@@ -72,9 +62,8 @@ function buildExecutionTreeInternal(
   context: ExecutionContext,
   visited: Set<NodeId>,
   memo: Map<NodeId, ExecutionTree>,
-  returnIdToFuncId: ReadonlyMap<ValueId, FuncId>
+  returnIdToFuncId: ReadonlyMap<ValueId, FuncId>,
 ): ExecutionTree {
-
   // Base case: ValueId (leaf node)
   if (!isFuncId(nodeId, context.funcTable)) {
     const valueId = nodeId;
@@ -82,13 +71,7 @@ function buildExecutionTreeInternal(
     // Check if this value is produced by another function
     const producerFuncId = returnIdToFuncId.get(valueId);
     if (producerFuncId !== undefined) {
-      return buildExecutionTreeCore(
-        producerFuncId,
-        context,
-        visited,
-        memo,
-        returnIdToFuncId
-      );
+      return buildExecutionTreeCore(producerFuncId, context, visited, memo, returnIdToFuncId);
     }
 
     // Otherwise, it's a pre-defined value
@@ -101,7 +84,7 @@ function buildExecutionTreeInternal(
     }
 
     const valueNode: ValueNode = {
-      nodeType: 'value',
+      nodeType: "value",
       nodeId: valueId,
       value,
     };
@@ -113,7 +96,7 @@ function buildExecutionTreeInternal(
   const funcEntry = context.funcTable[funcId];
 
   // Fix 2: use kind discriminant instead of table-lookup guard
-  if (funcEntry.kind === 'cond') {
+  if (funcEntry.kind === "cond") {
     const condDef = context.condFuncDefTable[funcEntry.defId];
 
     // Build trees for condition and both branches
@@ -122,25 +105,25 @@ function buildExecutionTreeInternal(
       context,
       visited,
       memo,
-      returnIdToFuncId
+      returnIdToFuncId,
     );
     const trueBranchTree = buildExecutionTreeCore(
       condDef.trueBranchId,
       context,
       visited,
       memo,
-      returnIdToFuncId
+      returnIdToFuncId,
     );
     const falseBranchTree = buildExecutionTreeCore(
       condDef.falseBranchId,
       context,
       visited,
       memo,
-      returnIdToFuncId
+      returnIdToFuncId,
     );
 
     const conditionalNode: ConditionalNode = {
-      nodeType: 'conditional',
+      nodeType: "conditional",
       nodeId: funcId,
       funcDef: funcEntry.defId,
       returnId: funcEntry.returnId,
@@ -155,19 +138,13 @@ function buildExecutionTreeInternal(
   const children: ExecutionTree[] = [];
 
   for (const argId of Object.values(funcEntry.argMap)) {
-    const childTree = buildExecutionTreeCore(
-      argId,
-      context,
-      visited,
-      memo,
-      returnIdToFuncId
-    );
+    const childTree = buildExecutionTreeCore(argId, context, visited, memo, returnIdToFuncId);
     children.push(childTree);
   }
 
   // Note: For PipeFunc, we do NOT add sequence children here
   const functionNode: FunctionNode = {
-    nodeType: 'function',
+    nodeType: "function",
     nodeId: funcId,
     funcDef: funcEntry.defId,
     returnId: funcEntry.returnId,

@@ -1,4 +1,4 @@
-import type { TurnModel, ProgModel, BindingModel } from '../types/turnout-model_pb.js';
+import type { TurnModel, ProgModel, BindingModel } from "../types/turnout-model_pb.js";
 
 /**
  * Validate the structural invariants of a TurnModel that cannot be caught by
@@ -16,7 +16,7 @@ export function validateModel(model: TurnModel): string[] {
 
   for (const scene of model.scenes) {
     const seenIds = new Set<string>();
-    for (const action of (scene.actions ?? [])) {
+    for (const action of scene.actions ?? []) {
       // Unique action IDs within a scene
       if (seenIds.has(action.id)) {
         errors.push(`scene "${scene.id}": duplicate action id "${action.id}"`);
@@ -34,21 +34,17 @@ export function validateModel(model: TurnModel): string[] {
 
       // Next-rule compute progs — proto repeated fields default to [] but plain
       // objects from tests may omit the field entirely.
-      for (const rule of (action.next ?? [])) {
+      for (const rule of action.next ?? []) {
         const nc = rule.compute;
         if (!nc?.prog) continue;
-        checkProgBindings(
-          nc.prog,
-          `scene "${scene.id}" action "${action.id}" next-rule`,
-          errors,
-        );
+        checkProgBindings(nc.prog, `scene "${scene.id}" action "${action.id}" next-rule`, errors);
         // condition must name a declared binding in the prog
         const bindingNames = new Set(nc.prog.bindings.map((b) => b.name));
         if (nc.condition && !bindingNames.has(nc.condition)) {
           errors.push(
             `scene "${scene.id}" action "${action.id}" next-rule: ` +
-            `condition "${nc.condition}" is not declared in prog bindings ` +
-            `(declared: ${[...bindingNames].join(', ') || '(none)'})`,
+              `condition "${nc.condition}" is not declared in prog bindings ` +
+              `(declared: ${[...bindingNames].join(", ") || "(none)"})`,
           );
         }
       }
@@ -59,7 +55,7 @@ export function validateModel(model: TurnModel): string[] {
 }
 
 function checkProgBindings(prog: ProgModel, location: string, errors: string[]): void {
-  for (const binding of (prog.bindings ?? [])) {
+  for (const binding of prog.bindings ?? []) {
     checkBinding(binding, location, errors);
   }
 }

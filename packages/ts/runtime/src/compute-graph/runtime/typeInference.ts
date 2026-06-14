@@ -4,20 +4,20 @@ import {
   metaBfString,
   metaBfArray,
   metaBfGeneric,
-} from '../../state-control/meta-chain/binary-fn/metaReturn';
+} from "../../state-control/meta-chain/binary-fn/metaReturn";
 import {
   metaBfBooleanParams,
   metaBfNumberParams,
   metaBfStringParams,
-} from '../../state-control/meta-chain/binary-fn/metaParams';
+} from "../../state-control/meta-chain/binary-fn/metaParams";
 import {
   metaTfBoolean,
   metaTfNumber,
   metaTfNull,
   metaTfString,
   metaTfArray,
-} from '../../state-control/meta-chain/transform-fn/metaReturn';
-import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
+} from "../../state-control/meta-chain/transform-fn/metaReturn";
+import type { AnyValue, BaseTypeSymbol } from "../../state-control/value";
 import type {
   ExecutionContext,
   ValueId,
@@ -26,18 +26,15 @@ import type {
   PipeDefineId,
   BinaryFnNames,
   TransformFnNames,
-} from '../types';
-import { isCondDefineId, isCombineDefineId, isPipeDefineId } from '../idValidation';
-import { splitPairBinaryFnNames, splitPairTranformFnNames } from '../../util/splitPair';
+} from "../types";
+import { isCondDefineId, isCombineDefineId, isPipeDefineId } from "../idValidation";
+import { splitPairBinaryFnNames, splitPairTranformFnNames } from "../../util/splitPair";
 
 /**
  * Type-safe helper to get a value from the ValueTable.
  * Returns undefined if the value doesn't exist.
  */
-function getValueFromTable(
-  valueId: ValueId,
-  context: ExecutionContext
-): AnyValue | undefined {
+function getValueFromTable(valueId: ValueId, context: ExecutionContext): AnyValue | undefined {
   return context.valueTable[valueId];
 }
 
@@ -45,24 +42,22 @@ function getValueFromTable(
  * Extracts the expected input type for a transform function.
  * Transform functions are namespaced, e.g., "transformFnNumber::pass"
  */
-export function getTransformFnInputType(
-  transformFnName: TransformFnNames
-): BaseTypeSymbol | null {
+export function getTransformFnInputType(transformFnName: TransformFnNames): BaseTypeSymbol | null {
   const maySplit = splitPairTranformFnNames(transformFnName);
   if (maySplit === null) return null;
-  const namespace = maySplit[0]
+  const namespace = maySplit[0];
 
   switch (namespace) {
-    case 'transformFnBoolean':
-      return 'boolean';
-    case 'transformFnNumber':
-      return 'number';
-    case 'transformFnNull':
-      return 'null';
-    case 'transformFnString':
-      return 'string';
-    case 'transformFnArray':
-      return 'array';
+    case "transformFnBoolean":
+      return "boolean";
+    case "transformFnNumber":
+      return "number";
+    case "transformFnNull":
+      return "null";
+    case "transformFnString":
+      return "string";
+    case "transformFnArray":
+      return "array";
     default:
       return null;
   }
@@ -72,31 +67,29 @@ export function getTransformFnInputType(
  * Gets the return type of a transform function.
  * e.g., "transformFnNumber::toStr" returns "string"
  */
-export function getTransformFnReturnType(
-  transformFnName: TransformFnNames
-): BaseTypeSymbol | null {
-  const maySplit = splitPairTranformFnNames(transformFnName)
-  if(maySplit === null) return null;
+export function getTransformFnReturnType(transformFnName: TransformFnNames): BaseTypeSymbol | null {
+  const maySplit = splitPairTranformFnNames(transformFnName);
+  if (maySplit === null) return null;
   const [namespace, fnName] = maySplit;
 
   switch (namespace) {
-    case 'transformFnBoolean': {
+    case "transformFnBoolean": {
       const meta = metaTfBoolean();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'transformFnNumber': {
+    case "transformFnNumber": {
       const meta = metaTfNumber();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'transformFnNull': {
+    case "transformFnNull": {
       const meta = metaTfNull();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'transformFnString': {
+    case "transformFnString": {
       const meta = metaTfString();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'transformFnArray': {
+    case "transformFnArray": {
       const meta = metaTfArray();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
@@ -115,31 +108,31 @@ export function getTransformFnReturnType(
  * - This design does not support nested arrays (array elements cannot be arrays)
  */
 export function getBinaryFnParamTypes(
-  binaryFnName: BinaryFnNames
+  binaryFnName: BinaryFnNames,
 ): [BaseTypeSymbol, BaseTypeSymbol] | null {
   const mayPair = splitPairBinaryFnNames(binaryFnName);
   if (mayPair === null) return null;
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
-    case 'binaryFnBoolean': {
+    case "binaryFnBoolean": {
       const meta = metaBfBooleanParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnNumber': {
+    case "binaryFnNumber": {
       const meta = metaBfNumberParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnString': {
+    case "binaryFnString": {
       const meta = metaBfStringParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnGeneric': {
+    case "binaryFnGeneric": {
       // Generic functions can work with any type, so we can't validate statically
       // We'd need to check that both params have the same type at runtime
       return null;
     }
-    case 'binaryFnArray': {
+    case "binaryFnArray": {
       // Array functions have complex param types (array + element type)
       // Would need the element type to validate properly
       return null;
@@ -155,33 +148,33 @@ export function getBinaryFnParamTypes(
  */
 export function getBinaryFnReturnType(
   binaryFnName: BinaryFnNames,
-  elemType?: BaseTypeSymbol
+  elemType?: BaseTypeSymbol,
 ): BaseTypeSymbol | null {
   const mayPair = splitPairBinaryFnNames(binaryFnName);
   if (mayPair === null) return null;
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
-    case 'binaryFnBoolean': {
+    case "binaryFnBoolean": {
       const meta = metaBfBoolean();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnNumber': {
+    case "binaryFnNumber": {
       const meta = metaBfNumber();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnString': {
+    case "binaryFnString": {
       const meta = metaBfString();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnGeneric': {
+    case "binaryFnGeneric": {
       const meta = metaBfGeneric();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case 'binaryFnArray': {
+    case "binaryFnArray": {
       // Array binary functions require a non-array element type
       // This design does not support nested arrays (array of arrays)
-      if (!elemType || elemType === 'array') return null;
+      if (!elemType || elemType === "array") return null;
       const meta = metaBfArray(elemType);
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
@@ -195,10 +188,7 @@ export function getBinaryFnReturnType(
  * Returns the base type (for arrays, returns 'array').
  * Use inferValueElemType to get the element type of arrays.
  */
-export function inferValueType(
-  valueId: ValueId,
-  context: ExecutionContext
-): BaseTypeSymbol | null {
+export function inferValueType(valueId: ValueId, context: ExecutionContext): BaseTypeSymbol | null {
   const value = getValueFromTable(valueId, context);
   if (!value) return null;
   return value.symbol;
@@ -210,14 +200,14 @@ export function inferValueType(
  */
 export function inferValueElemType(
   valueId: ValueId,
-  context: ExecutionContext
+  context: ExecutionContext,
 ): BaseTypeSymbol | null {
   const value = getValueFromTable(valueId, context);
   if (!value) return null;
 
   // Only array values have element types
   const valueType = inferValueType(valueId, context);
-  if (valueType !== 'array') return null;
+  if (valueType !== "array") return null;
 
   // Get element type from subSymbol
   const subSymbol = value.subSymbol;
@@ -225,10 +215,10 @@ export function inferValueElemType(
 
   // Tags are tracked separately in the tags field.
   switch (subSymbol) {
-    case 'number':
-    case 'string':
-    case 'boolean':
-    case 'null':
+    case "number":
+    case "string":
+    case "boolean":
+    case "null":
       return subSymbol;
     default:
       return null;
@@ -242,7 +232,7 @@ export function inferValueElemType(
 export function inferFuncReturnType(
   funcId: FuncId,
   context: ExecutionContext,
-  visited: Set<FuncId> = new Set()
+  visited: Set<FuncId> = new Set(),
 ): BaseTypeSymbol | null {
   // Prevent infinite recursion
   if (visited.has(funcId)) return null;
@@ -267,16 +257,8 @@ export function inferFuncReturnType(
       const condDef = context.condFuncDefTable[defId];
 
       // Branches must resolve to the same type to infer a single output type.
-      const trueBranchType = inferFuncReturnType(
-        condDef.trueBranchId,
-        context,
-        new Set(visited)
-      );
-      const falseBranchType = inferFuncReturnType(
-        condDef.falseBranchId,
-        context,
-        new Set(visited)
-      );
+      const trueBranchType = inferFuncReturnType(condDef.trueBranchId, context, new Set(visited));
+      const falseBranchType = inferFuncReturnType(condDef.falseBranchId, context, new Set(visited));
 
       if (trueBranchType === null || falseBranchType === null) return null;
       return trueBranchType === falseBranchType ? trueBranchType : null;
@@ -296,7 +278,7 @@ export function inferFuncReturnType(
 function inferPipeDefReturnType(
   defId: PipeDefineId,
   context: ExecutionContext,
-  visited: Set<PipeDefineId>
+  visited: Set<PipeDefineId>,
 ): BaseTypeSymbol | null {
   if (visited.has(defId)) return null;
   visited.add(defId);
@@ -327,7 +309,7 @@ function inferPipeDefReturnType(
  */
 export function inferCombineFuncReturnType(
   defId: CombineDefineId,
-  context: ExecutionContext
+  context: ExecutionContext,
 ): BaseTypeSymbol | null {
   const def = context.combineFuncDefTable[defId];
 

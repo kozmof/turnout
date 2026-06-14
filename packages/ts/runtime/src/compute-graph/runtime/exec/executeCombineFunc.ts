@@ -1,7 +1,7 @@
-import { FuncId, CombineDefineId, ExecutionContext, ExecutionResult } from '../../types';
-import { createArgName } from '../../idValidation';
-import { getBinaryFn } from '../../call-presets/getBinaryFn';
-import { getTransformFn } from '../../call-presets/getTranformFn';
+import { FuncId, CombineDefineId, ExecutionContext, ExecutionResult } from "../../types";
+import { createArgName } from "../../idValidation";
+import { getBinaryFn } from "../../call-presets/getBinaryFn";
+import { getTransformFn } from "../../call-presets/getTranformFn";
 
 /**
  * Executes a CombineFunc and returns the result along with updated state.
@@ -15,10 +15,10 @@ import { getTransformFn } from '../../call-presets/getTranformFn';
 export function executeCombineFunc(
   funcId: FuncId,
   defId: CombineDefineId,
-  context: ExecutionContext
+  context: ExecutionContext,
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
-  if (funcEntry.kind !== 'combine') {
+  if (funcEntry.kind !== "combine") {
     throw new Error(`executeCombineFunc called with non-combine entry for ${funcId}`);
   }
   const def = context.combineFuncDefTable[defId];
@@ -27,8 +27,8 @@ export function executeCombineFunc(
   const binaryFn = getBinaryFn(def.name);
 
   // Resolve argument values from argMap
-  const argAId = funcEntry.argMap[createArgName('a')];
-  const argBId = funcEntry.argMap[createArgName('b')];
+  const argAId = funcEntry.argMap[createArgName("a")];
+  const argBId = funcEntry.argMap[createArgName("b")];
 
   const valA = context.valueTable[argAId];
   const valB = context.valueTable[argBId];

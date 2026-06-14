@@ -1,9 +1,10 @@
 // Node.js only — uses child_process and fs.
-import { execFileSync, execSync } from 'node:child_process';
-import { accessSync, constants, readFileSync } from 'node:fs';
-import { fromJson, type JsonObject } from '@bufbuild/protobuf';
-import type { TurnModel } from '../types/turnout-model_pb.js';
-import { TurnModelSchema } from '../types/turnout-model_pb.js';
+import { execFileSync, execSync } from "node:child_process";
+import { accessSync, constants, readFileSync } from "node:fs";
+import { fromJson, type JsonObject } from "@bufbuild/protobuf";
+import type { TurnModel } from "../types/turnout-model_pb.js";
+import { TurnModelSchema } from "../types/turnout-model_pb.js";
+import { LoadError, BridgeError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // File loading
@@ -15,10 +16,10 @@ import { TurnModelSchema } from '../types/turnout-model_pb.js';
  */
 export function loadTurnFile(filePath: string): string {
   try {
-    return readFileSync(filePath, 'utf8');
+    return readFileSync(filePath, "utf8");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Cannot read turn file "${filePath}": ${msg}`);
+    throw new LoadError("ReadError", filePath, `Cannot read turn file "${filePath}": ${msg}`);
   }
 }
 
@@ -31,19 +32,18 @@ function resolveTurnoutBin(): string {
 
   try {
     // Check if turnout is on PATH
-    execSync('turnout --help', { stdio: 'ignore' });
-    return 'turnout';
+    execSync("turnout --help", { stdio: "ignore" });
+    return "turnout";
   } catch {
     // Fall back to the locally-built binary in the Go converter package.
-    const goConverterDir = new URL(
-      '../../../../go/converter',
-      import.meta.url,
-    ).pathname;
+    const goConverterDir = new URL("../../../../go/converter", import.meta.url).pathname;
     const binPath = `${goConverterDir}/cmd/turnout/turnout`;
     try {
       accessSync(binPath, constants.X_OK);
     } catch {
-      throw new Error(
+      throw new BridgeError(
+        "BinaryNotFound",
+        binPath,
         `turnout binary not found. Run: cd ${goConverterDir} && go build ./cmd/turnout`,
       );
     }
@@ -60,14 +60,18 @@ export function runConverter(turnFilePath: string): TurnModel {
   const bin = resolveTurnoutBin();
   let output: Buffer;
   try {
-    output = execFileSync(bin, ['convert', '-o', '-', '-format', 'json', turnFilePath], {
-      encoding: 'buffer',
+    output = execFileSync(bin, ["convert", "-o", "-", "-format", "json", turnFilePath], {
+      encoding: "buffer",
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`turnout converter failed for "${turnFilePath}": ${msg}`);
+    throw new BridgeError(
+      "ConverterFailed",
+      turnFilePath,
+      `turnout converter failed for "${turnFilePath}": ${msg}`,
+    );
   }
-  return parseJSON(output.toString('utf8'), turnFilePath);
+  return parseJSON(output.toString("utf8"), turnFilePath);
 }
 
 /**
@@ -78,13 +82,17 @@ export function runConverter(turnFilePath: string): TurnModel {
 export function convertToHCL(turnFilePath: string): string {
   const bin = resolveTurnoutBin();
   try {
-    const output = execFileSync(bin, ['convert', '-o', '-', '-format', 'hcl', turnFilePath], {
-      encoding: 'buffer',
+    const output = execFileSync(bin, ["convert", "-o", "-", "-format", "hcl", turnFilePath], {
+      encoding: "buffer",
     });
-    return output.toString('utf8');
+    return output.toString("utf8");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`turnout converter failed for "${turnFilePath}": ${msg}`);
+    throw new BridgeError(
+      "ConverterFailed",
+      turnFilePath,
+      `turnout converter failed for "${turnFilePath}": ${msg}`,
+    );
   }
 }
 
@@ -100,10 +108,14 @@ export function convertToHCL(turnFilePath: string): string {
 export function loadJsonModel(jsonFilePath: string): TurnModel {
   let raw: string;
   try {
-    raw = readFileSync(jsonFilePath, 'utf8');
+    raw = readFileSync(jsonFilePath, "utf8");
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Cannot read JSON model "${jsonFilePath}": ${msg}`);
+    throw new LoadError(
+      "ReadError",
+      jsonFilePath,
+      `Cannot read JSON model "${jsonFilePath}": ${msg}`,
+    );
   }
   return parseJSON(raw, jsonFilePath);
 }
@@ -114,6 +126,6 @@ function parseJSON(raw: string, source: string): TurnModel {
     return fromJson(TurnModelSchema, JSON.parse(raw) as JsonObject, { ignoreUnknownFields: true });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
-    throw new Error(`Invalid JSON from "${source}": ${msg}`);
+    throw new BridgeError("ParseError", source, `Invalid JSON from "${source}": ${msg}`);
   }
 }

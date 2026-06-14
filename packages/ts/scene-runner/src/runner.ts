@@ -1,4 +1,4 @@
-import type { TurnModel, RouteModel, SceneBlock } from './types/turnout-model_pb.js';
+import type { TurnModel, RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
 import type {
   ExecutionOptions,
   HookRegistry,
@@ -8,20 +8,17 @@ import type {
   FullHarnessResult,
   FragmentHarnessResult,
   ActionTrace,
-} from './types/harness-types.js';
-import { stateManagerFromUnchecked, stateManagerFromSchema } from './state/state-manager.js';
-import type { StateManager } from './state/state-manager.js';
-import { migrateModel, checkSceneForExtExpr } from './migration.js';
-import {
-  createSceneExecutor,
-  type SceneExecutor,
-} from './executor/scene-executor.js';
-import { parseMatchArms } from './executor/route-pattern.js';
-import { createRouteStepper } from './executor/route-stepper.js';
-import type { RouteStepper } from './executor/route-stepper.js';
-import { resolveDispatchTarget } from './executor/dispatch.js';
-import { validateModel } from './executor/validate-model.js';
-import { ModelValidationError, RunnerError } from './executor/errors.js';
+} from "./types/harness-types.js";
+import { stateManagerFromUnchecked, stateManagerFromSchema } from "./state/state-manager.js";
+import type { StateManager } from "./state/state-manager.js";
+import { migrateModel, checkSceneForExtExpr } from "./migration.js";
+import { createSceneExecutor, type SceneExecutor } from "./executor/scene-executor.js";
+import { parseMatchArms } from "./executor/route-pattern.js";
+import { createRouteStepper } from "./executor/route-stepper.js";
+import type { RouteStepper } from "./executor/route-stepper.js";
+import { resolveDispatchTarget } from "./executor/dispatch.js";
+import { validateModel } from "./executor/validate-model.js";
+import { ModelValidationError, RunnerError } from "./executor/errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -31,8 +28,8 @@ export type RunnerOptions = ExecutionOptions;
 
 export type RunnerStepResult =
   | { done: true }
-  | { done: false; kind: 'action'; sceneId: string; actionId: string; trace: ActionTrace }
-  | { done: false; kind: 'scene-transition'; fromSceneId: string; toSceneId: string };
+  | { done: false; kind: "action"; sceneId: string; actionId: string; trace: ActionTrace }
+  | { done: false; kind: "scene-transition"; fromSceneId: string; toSceneId: string };
 
 /**
  * Step-by-step execution controller for a TurnModel.
@@ -149,7 +146,7 @@ function makeRunnerMethods<R extends HarnessResult>(
   let started = false;
 
   function checkAborted(): void {
-    if (signal.aborted) throw new DOMException('Runner aborted', 'AbortError');
+    if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
   }
 
   function markStarted(): void {
@@ -159,15 +156,18 @@ function makeRunnerMethods<R extends HarnessResult>(
   function assertHooksOpen(): void {
     if (started) {
       throw new RunnerError(
-        'LateHookRegistration',
-        'hooks must be registered before next(), run(), or runAsync() starts execution',
+        "LateHookRegistration",
+        "hooks must be registered before next(), run(), or runAsync() starts execution",
       );
     }
   }
 
   function assertStepCount(steps: number): void {
     if (!Number.isSafeInteger(steps) || steps < 1) {
-      throw new RunnerError('InvalidStepCount', `next(steps) requires a positive safe integer, got ${steps}`);
+      throw new RunnerError(
+        "InvalidStepCount",
+        `next(steps) requires a positive safe integer, got ${steps}`,
+      );
     }
   }
 
@@ -193,7 +193,7 @@ function makeRunnerMethods<R extends HarnessResult>(
         const r = await advanceFn();
         if (r.done) break;
         results.push(r);
-        if (r.kind === 'action') actionCount++;
+        if (r.kind === "action") actionCount++;
       }
       return results;
     },
@@ -268,7 +268,13 @@ export function createSceneRunner(
       done = true;
       return { done: true };
     }
-    return { done: false, kind: 'action', sceneId: scene.id, actionId: step.trace.actionId, trace: step.trace };
+    return {
+      done: false,
+      kind: "action",
+      sceneId: scene.id,
+      actionId: step.trace.actionId,
+      trace: step.trace,
+    };
   }
 
   return makeRunnerMethods(
@@ -276,11 +282,15 @@ export function createSceneRunner(
     advanceScene,
     () => done,
     () => {
-      if (!done) throw new RunnerError('IncompleteExecution', 'execution is not complete — call run() or step until isDone()');
+      if (!done)
+        throw new RunnerError(
+          "IncompleteExecution",
+          "execution is not complete — call run() or step until isDone()",
+        );
       const res = sceneExecutor.result();
       return {
         finalState: res.stateAfterScene.snapshot(),
-        trace: { kind: 'scene', scene: res.trace },
+        trace: { kind: "scene", scene: res.trace },
       };
     },
     () => sceneExecutor.partialState(),
@@ -330,49 +340,68 @@ export function createRouteRunner(
   );
 
   type RouteAdvanceState =
-    | { kind: 'advancing'; prevSceneId: string }
-    | { kind: 'transition-emitted'; pendingAction: { sceneId: string; trace: ActionTrace } }
-    | { kind: 'done' };
+    | { kind: "advancing"; prevSceneId: string }
+    | { kind: "transition-emitted"; pendingAction: { sceneId: string; trace: ActionTrace } }
+    | { kind: "done" };
 
-  let advState: RouteAdvanceState = { kind: 'advancing', prevSceneId: entryScene.id };
+  let advState: RouteAdvanceState = { kind: "advancing", prevSceneId: entryScene.id };
 
   async function advanceRoute(): Promise<RunnerStepResult> {
     // Abort is checked by makeRunnerMethods before every advanceFn() call.
-    if (advState.kind === 'done') return { done: true };
+    if (advState.kind === "done") return { done: true };
 
     // Return a deferred action step that was stashed while emitting a transition.
-    if (advState.kind === 'transition-emitted') {
+    if (advState.kind === "transition-emitted") {
       const { pendingAction } = advState;
-      advState = { kind: 'advancing', prevSceneId: pendingAction.sceneId };
-      return { done: false, kind: 'action', sceneId: pendingAction.sceneId, actionId: pendingAction.trace.actionId, trace: pendingAction.trace };
+      advState = { kind: "advancing", prevSceneId: pendingAction.sceneId };
+      return {
+        done: false,
+        kind: "action",
+        sceneId: pendingAction.sceneId,
+        actionId: pendingAction.trace.actionId,
+        trace: pendingAction.trace,
+      };
     }
 
     const step = await routeStepper.next();
     if (step.done) {
-      advState = { kind: 'done' };
+      advState = { kind: "done" };
       return { done: true };
     }
 
     // Emit a scene-transition event before the first action of a new scene.
     if (step.sceneId !== advState.prevSceneId) {
       const fromSceneId = advState.prevSceneId;
-      advState = { kind: 'transition-emitted', pendingAction: { sceneId: step.sceneId, trace: step.trace } };
-      return { done: false, kind: 'scene-transition', fromSceneId, toSceneId: step.sceneId };
+      advState = {
+        kind: "transition-emitted",
+        pendingAction: { sceneId: step.sceneId, trace: step.trace },
+      };
+      return { done: false, kind: "scene-transition", fromSceneId, toSceneId: step.sceneId };
     }
 
-    return { done: false, kind: 'action', sceneId: step.sceneId, actionId: step.trace.actionId, trace: step.trace };
+    return {
+      done: false,
+      kind: "action",
+      sceneId: step.sceneId,
+      actionId: step.trace.actionId,
+      trace: step.trace,
+    };
   }
 
   return makeRunnerMethods(
     hooks,
     advanceRoute,
-    () => advState.kind === 'done',
+    () => advState.kind === "done",
     () => {
-      if (advState.kind !== 'done') throw new RunnerError('IncompleteExecution', 'execution is not complete — call run() or step until isDone()');
+      if (advState.kind !== "done")
+        throw new RunnerError(
+          "IncompleteExecution",
+          "execution is not complete — call run() or step until isDone()",
+        );
       const { finalState, trace } = routeStepper.result();
       return {
         finalState: finalState.snapshot(),
-        trace: { kind: 'route', route: trace },
+        trace: { kind: "route", route: trace },
       };
     },
     () => routeStepper.partialState(),
@@ -415,8 +444,8 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
 
   if (!migratedModel.state) {
     (options.onWarning ?? (() => {}))(
-      '[turnout] No STATE schema in model — using unchecked StateManager. ' +
-      'Merge typos will silently produce null values.',
+      "[turnout] No STATE schema in model — using unchecked StateManager. " +
+        "Merge typos will silently produce null values.",
     );
   }
   const initialState: StateManager = migratedModel.state
@@ -425,15 +454,22 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
 
   const target = resolveDispatchTarget(migratedModel, options.entryId);
 
-  const inner: Runner<FragmentHarnessResult> = target.kind === 'route'
-    ? createRouteRunner(target.route, target.entryScene, sceneMap, options, initialState)
-    : createSceneRunner(target.scene, options, initialState);
+  const inner: Runner<FragmentHarnessResult> =
+    target.kind === "route"
+      ? createRouteRunner(target.route, target.entryScene, sceneMap, options, initialState)
+      : createSceneRunner(target.scene, options, initialState);
 
   // Promote FragmentHarnessResult → FullHarnessResult by attaching the model.
   const promote = (r: FragmentHarnessResult): FullHarnessResult => ({ ...r, model: migratedModel });
   const promoted: Runner<FullHarnessResult> = {
-    usePrepareHook: (name, handler) => { inner.usePrepareHook(name, handler); return promoted; },
-    usePublishHook: (name, handler) => { inner.usePublishHook(name, handler); return promoted; },
+    usePrepareHook: (name, handler) => {
+      inner.usePrepareHook(name, handler);
+      return promoted;
+    },
+    usePublishHook: (name, handler) => {
+      inner.usePublishHook(name, handler);
+      return promoted;
+    },
     isDone: () => inner.isDone(),
     next: (steps) => inner.next(steps),
     run: async () => promote(await inner.run()),

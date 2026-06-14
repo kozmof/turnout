@@ -1,25 +1,17 @@
-import type {
-  ExecutionContext,
-  ValueId,
-  FuncId,
-  BinaryFnNames,
-  TransformFnNames,
-} from '../types';
-import type { AnyValue, BaseTypeSymbol } from '../../state-control/value';
+import type { ExecutionContext, ValueId, FuncId, BinaryFnNames, TransformFnNames } from "../types";
+import type { AnyValue, BaseTypeSymbol } from "../../state-control/value";
 
 /**
  * Converts a mapped type with branded keys to an index signature type.
  * This allows us to build tables progressively with string keys.
  */
-type ToIndexSignature<T> = T extends Record<string, infer V>
-  ? { [key: string]: V }
-  : never;
+type ToIndexSignature<T> = T extends Record<string, infer V> ? { [key: string]: V } : never;
 
 /**
  * Builder for combine functions.
  */
 export type CombineBuilder = {
-  readonly __type: 'combine';
+  readonly __type: "combine";
   readonly name: BinaryFnNames;
   readonly args: {
     readonly a: ValueInputRef | TransformRef;
@@ -31,7 +23,7 @@ export type CombineBuilder = {
  * Builder for pipe functions.
  */
 export type PipeBuilder = {
-  readonly __type: 'pipe';
+  readonly __type: "pipe";
   readonly argBindings: Record<string, ValueRef>; // Single source of truth for pipe arg names and bindings
   readonly steps: readonly StepBuilder[];
 };
@@ -40,7 +32,7 @@ export type PipeBuilder = {
  * Builder for conditional functions.
  */
 export type CondBuilder = {
-  readonly __type: 'cond';
+  readonly __type: "cond";
   readonly condition: ValueRef;
   readonly then: FuncRef;
   readonly else: FuncRef;
@@ -60,7 +52,7 @@ export type FuncRef = string;
  * Reference to a function's output value.
  */
 export type FuncOutputRef = {
-  readonly __type: 'funcOutput';
+  readonly __type: "funcOutput";
   readonly funcId: FuncRef;
 };
 
@@ -68,7 +60,7 @@ export type FuncOutputRef = {
  * Reference to a pipe function step's output value.
  */
 export type StepOutputRef = {
-  readonly __type: 'stepOutput';
+  readonly __type: "stepOutput";
   readonly pipeFuncId: FuncRef;
   readonly stepIndex: number;
 };
@@ -78,7 +70,7 @@ export type StepOutputRef = {
  * Used to normalize value references in contexts where object-only refs are preferred.
  */
 export type ValueObjectRef = {
-  readonly __type: 'value';
+  readonly __type: "value";
   readonly id: ValueRef;
 };
 
@@ -97,7 +89,7 @@ export type ValueInputRef = ValueRef | ValueSourceRef;
  * Reference to a value with one or more transforms applied in sequence.
  */
 export type TransformRef = {
-  readonly __type: 'transform';
+  readonly __type: "transform";
   readonly valueRef: ValueSourceRef;
   readonly transformFn: readonly TransformFnNames[];
 };
@@ -115,12 +107,7 @@ export type ContextSpec = Record<string, ValueLiteral | FunctionBuilder>;
 /**
  * Value literal - JavaScript primitives that map to Value types.
  */
-export type ValueLiteral =
-  | number
-  | string
-  | boolean
-  | AnyValue
-  | readonly AnyValue[];
+export type ValueLiteral = number | string | boolean | AnyValue | readonly AnyValue[];
 
 /**
  * Any function builder.
@@ -140,9 +127,7 @@ export type BuildResult<T extends ContextSpec> = {
    * Typed IDs for values and functions.
    */
   readonly ids: {
-    readonly [K in keyof T]: T[K] extends FunctionBuilder
-      ? FuncId
-      : ValueId;
+    readonly [K in keyof T]: T[K] extends FunctionBuilder ? FuncId : ValueId;
   };
 };
 
@@ -171,11 +156,11 @@ export type ReturnValueMetadataTable = {
  * Uses index signatures instead of branded keys to allow progressive building.
  */
 export type ContextBuilder = {
-  valueTable: ToIndexSignature<ExecutionContext['valueTable']>;
-  funcTable: ToIndexSignature<ExecutionContext['funcTable']>;
-  combineFuncDefTable: ToIndexSignature<ExecutionContext['combineFuncDefTable']>;
-  pipeFuncDefTable: ToIndexSignature<ExecutionContext['pipeFuncDefTable']>;
-  condFuncDefTable: ToIndexSignature<ExecutionContext['condFuncDefTable']>;
+  valueTable: ToIndexSignature<ExecutionContext["valueTable"]>;
+  funcTable: ToIndexSignature<ExecutionContext["funcTable"]>;
+  combineFuncDefTable: ToIndexSignature<ExecutionContext["combineFuncDefTable"]>;
+  pipeFuncDefTable: ToIndexSignature<ExecutionContext["pipeFuncDefTable"]>;
+  condFuncDefTable: ToIndexSignature<ExecutionContext["condFuncDefTable"]>;
 
   // Metadata tables for hash-based IDs
   stepMetadata: StepMetadataTable;

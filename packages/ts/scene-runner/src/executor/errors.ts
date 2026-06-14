@@ -6,10 +6,10 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type PrepareErrorCode =
-  | 'MissingStateBinding'
-  | 'UnregisteredHook'
-  | 'MissingHookField'
-  | 'MissingActionBinding';
+  | "MissingStateBinding"
+  | "UnregisteredHook"
+  | "MissingHookField"
+  | "MissingActionBinding";
 
 export class PrepareError extends Error {
   readonly code: PrepareErrorCode;
@@ -17,7 +17,7 @@ export class PrepareError extends Error {
 
   constructor(code: PrepareErrorCode, actionId: string, detail: string) {
     super(`[action: ${actionId}] ${detail}`);
-    this.name = 'PrepareError';
+    this.name = "PrepareError";
     this.code = code;
     this.actionId = actionId;
   }
@@ -27,18 +27,18 @@ export class PrepareError extends Error {
 
 /** Error codes callers are expected to handle — recoverable or routing-relevant conditions. */
 export type SceneErrorCode =
-  | 'UnknownAction'
-  | 'MaxStepsExceeded'
-  | 'UnknownFunction'
-  | 'DuplicateActionId'
-  | 'UnknownArgModel';
+  | "UnknownAction"
+  | "MaxStepsExceeded"
+  | "UnknownFunction"
+  | "DuplicateActionId"
+  | "UnknownArgModel";
 
 /** Error codes that indicate a malformed model or internal invariant violation. */
 export type SceneInternalErrorCode =
-  | 'OutOfOrderBinding'
-  | 'CompilerBug'
-  | 'UnsupportedConstruct'
-  | 'IncompleteScene';
+  | "OutOfOrderBinding"
+  | "CompilerBug"
+  | "UnsupportedConstruct"
+  | "IncompleteScene";
 
 export class SceneRuntimeError extends Error {
   readonly code: SceneErrorCode | SceneInternalErrorCode;
@@ -46,7 +46,7 @@ export class SceneRuntimeError extends Error {
 
   constructor(code: SceneErrorCode | SceneInternalErrorCode, sceneId: string, detail: string) {
     super(`Scene "${sceneId}": ${detail}`);
-    this.name = 'SceneRuntimeError';
+    this.name = "SceneRuntimeError";
     this.code = code;
     this.sceneId = sceneId;
   }
@@ -58,17 +58,14 @@ export function isSceneRuntimeError(err: unknown): err is SceneRuntimeError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RunnerErrorCode =
-  | 'LateHookRegistration'
-  | 'InvalidStepCount'
-  | 'IncompleteExecution';
+export type RunnerErrorCode = "LateHookRegistration" | "InvalidStepCount" | "IncompleteExecution";
 
 export class RunnerError extends Error {
   readonly code: RunnerErrorCode;
 
   constructor(code: RunnerErrorCode, detail: string) {
     super(`Runner: ${detail}`);
-    this.name = 'RunnerError';
+    this.name = "RunnerError";
     this.code = code;
   }
 }
@@ -80,11 +77,11 @@ export function isRunnerError(err: unknown): err is RunnerError {
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type StateErrorCode =
-  | 'ReservedPath'
-  | 'UnknownPath'
-  | 'TypeMismatch'
-  | 'UnknownSchemaType'
-  | 'InvalidLiteral';
+  | "ReservedPath"
+  | "UnknownPath"
+  | "TypeMismatch"
+  | "UnknownSchemaType"
+  | "InvalidLiteral";
 
 export class StateError extends Error {
   readonly code: StateErrorCode;
@@ -92,7 +89,7 @@ export class StateError extends Error {
 
   constructor(code: StateErrorCode, detail: string, path?: string) {
     super(`StateManager: ${detail}`);
-    this.name = 'StateError';
+    this.name = "StateError";
     this.code = code;
     this.path = path;
   }
@@ -104,15 +101,15 @@ export function isStateError(err: unknown): err is StateError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ModelValidationErrorCode = 'InvalidModel';
+export type ModelValidationErrorCode = "InvalidModel";
 
 export class ModelValidationError extends Error {
-  readonly code: ModelValidationErrorCode = 'InvalidModel';
+  readonly code: ModelValidationErrorCode = "InvalidModel";
   readonly errors: readonly string[];
 
   constructor(errors: readonly string[]) {
-    super(`[turnout] Invalid model:\n${errors.map((e) => `  • ${e}`).join('\n')}`);
-    this.name = 'ModelValidationError';
+    super(`[turnout] Invalid model:\n${errors.map((e) => `  • ${e}`).join("\n")}`);
+    this.name = "ModelValidationError";
     this.errors = errors;
   }
 }
@@ -123,7 +120,7 @@ export function isModelValidationError(err: unknown): err is ModelValidationErro
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RouteErrorCode = 'UnknownScene' | 'NoEntryAction' | 'MaxRouteTransitionsExceeded';
+export type RouteErrorCode = "UnknownScene" | "NoEntryAction" | "MaxRouteTransitionsExceeded";
 
 export class RouteRuntimeError extends Error {
   readonly code: RouteErrorCode;
@@ -131,7 +128,7 @@ export class RouteRuntimeError extends Error {
 
   constructor(code: RouteErrorCode, routeId: string, detail: string) {
     super(`Route "${routeId}": ${detail}`);
-    this.name = 'RouteRuntimeError';
+    this.name = "RouteRuntimeError";
     this.code = code;
     this.routeId = routeId;
   }

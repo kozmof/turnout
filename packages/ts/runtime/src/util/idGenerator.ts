@@ -4,14 +4,14 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-} from '../compute-graph/types';
+} from "../compute-graph/types";
 import {
   createValueId,
   createFuncId,
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
-} from '../compute-graph/idValidation';
+} from "../compute-graph/idValidation";
 
 /**
  * ID generation strategy using random hex strings with type prefixes.
@@ -26,7 +26,7 @@ import {
  * - Avoids encoding semantic information in ID strings
  */
 
-type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ctx';
+type IdPrefix = "v" | "f" | "pd" | "td" | "cd" | "ctx";
 
 /**
  * Generates a random 16-character hex string using crypto.getRandomValues.
@@ -35,7 +35,7 @@ type IdPrefix = 'v' | 'f' | 'pd' | 'td' | 'cd' | 'ctx';
 function generateRandomHex(): string {
   const bytes = new Uint8Array(8);
   globalThis.crypto.getRandomValues(bytes);
-  return Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
 export const IdGenerator = {
@@ -49,26 +49,26 @@ export const IdGenerator = {
   },
 
   generateValueId(): ValueId {
-    return createValueId(IdGenerator.generate('v'));
+    return createValueId(IdGenerator.generate("v"));
   },
 
   generateFuncId(): FuncId {
-    return createFuncId(IdGenerator.generate('f'));
+    return createFuncId(IdGenerator.generate("f"));
   },
 
   generateCombineDefineId(): CombineDefineId {
-    return createCombineDefineId(IdGenerator.generate('pd'));
+    return createCombineDefineId(IdGenerator.generate("pd"));
   },
 
   generatePipeDefineId(): PipeDefineId {
-    return createPipeDefineId(IdGenerator.generate('td'));
+    return createPipeDefineId(IdGenerator.generate("td"));
   },
 
   generateCondDefineId(): CondDefineId {
-    return createCondDefineId(IdGenerator.generate('cd'));
+    return createCondDefineId(IdGenerator.generate("cd"));
   },
 
   generateContextToken(): string {
-    return IdGenerator.generate('ctx');
+    return IdGenerator.generate("ctx");
   },
 } as const;

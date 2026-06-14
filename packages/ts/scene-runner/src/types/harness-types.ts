@@ -1,5 +1,5 @@
-import type { AnyValue } from 'runtime';
-import type { TurnModel } from './turnout-model_pb.js';
+import type { AnyValue } from "runtime";
+import type { TurnModel } from "./turnout-model_pb.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Hook registry
@@ -20,40 +20,45 @@ export interface PublishHookContext {
 }
 
 export type PublishHookOutcome =
-  | { hookName: string; status: 'ok' }
-  | { hookName: string; status: 'error'; message: string };
+  | { hookName: string; status: "ok" }
+  | { hookName: string; status: "error"; message: string };
 
-export type PrepareHookImpl = (ctx: PrepareHookContext, signal: AbortSignal) => Record<string, unknown> | Promise<Record<string, unknown>>;
-export type PublishHookImpl  = (ctx: PublishHookContext, signal: AbortSignal) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
+export type PrepareHookImpl = (
+  ctx: PrepareHookContext,
+  signal: AbortSignal,
+) => Record<string, unknown> | Promise<Record<string, unknown>>;
+export type PublishHookImpl = (
+  ctx: PublishHookContext,
+  signal: AbortSignal,
+) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 
-export type NextPolicy = 'first-match' | 'all-match';
+export type NextPolicy = "first-match" | "all-match";
 
 export type ActionWarning =
   | {
-      kind: 'missing_next_compute_prog';
+      kind: "missing_next_compute_prog";
       sceneId: string;
       actionId: string;
       targetActionId: string;
       message: string;
     }
   | {
-      kind: 'invalid_next_condition';
+      kind: "invalid_next_condition";
       actionId: string;
       conditionName: string;
       actualType: string;
       message: string;
     }
-  | { kind: 'merge_warning'; message: string };
+  | { kind: "merge_warning"; message: string };
 
-export type SceneWarning =
-  | {
-      kind: 'duplicate_enqueue';
-      actionId: string;
-      firstEnqueuedBy: string;
-      policy: NextPolicy;
-      alreadyVisited: boolean;
-      message: string;
-    };
+export type SceneWarning = {
+  kind: "duplicate_enqueue";
+  actionId: string;
+  firstEnqueuedBy: string;
+  policy: NextPolicy;
+  alreadyVisited: boolean;
+  message: string;
+};
 
 export type HookRegistry = {
   prepare: Record<string, PrepareHookImpl>;
@@ -123,8 +128,8 @@ export type RouteTrace = {
 };
 
 export type ExecutionTrace =
-  | { kind: 'scene'; scene: SceneTrace }
-  | { kind: 'route'; route: RouteTrace };
+  | { kind: "scene"; scene: SceneTrace }
+  | { kind: "route"; route: RouteTrace };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Harness result

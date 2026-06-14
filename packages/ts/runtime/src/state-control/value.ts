@@ -1,14 +1,14 @@
-import strEnum from '../util/strEnum';
-import { TOM } from '../util/tom';
+import strEnum from "../util/strEnum";
+import { TOM } from "../util/tom";
 
-const _baseTypes = strEnum(['number', 'string', 'boolean', 'array', 'null']);
+const _baseTypes = strEnum(["number", "string", "boolean", "array", "null"]);
 const _nullReasonSubSymbols = strEnum([
-  'missing',
-  'not-found',
-  'error',
-  'filtered',
-  'redacted',
-  'unknown',
+  "missing",
+  "not-found",
+  "error",
+  "filtered",
+  "redacted",
+  "unknown",
 ]);
 
 export const baseTypeSymbols = TOM.keys(_baseTypes);
@@ -16,7 +16,7 @@ export const nullReasonSubSymbols = TOM.keys(_nullReasonSubSymbols);
 
 export type BaseTypeSymbol = keyof typeof _baseTypes;
 export type NullReasonSubSymbol = keyof typeof _nullReasonSubSymbols;
-export type ArrayElemSubSymbol = Exclude<BaseTypeSymbol, 'array'> | undefined;
+export type ArrayElemSubSymbol = Exclude<BaseTypeSymbol, "array"> | undefined;
 
 /**
  * Valid values for the subSymbol field in Value types.
@@ -73,24 +73,60 @@ export interface Value<
 }
 
 // Base value types without tags
-export type NumberValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<number, 'number', undefined, Tags>;
-export type StringValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<string, 'string', undefined, Tags>;
-export type BooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<boolean, 'boolean', undefined, Tags>;
-export type NullValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<null, 'null', NullReasonSubSymbol, Tags>;
-export type ArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<AnyValue[], 'array', undefined, Tags>;
-export type ArrayNumberValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<NumberValue[], 'array', 'number', Tags>;
-export type ArrayStringValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<StringValue[], 'array', 'string', Tags>;
-export type ArrayBooleanValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<BooleanValue[], 'array', 'boolean', Tags>;
-export type ArrayNullValue<Tags extends readonly TagSymbol[] = readonly []> =
-  Value<NullValue[], 'array', 'null', Tags>;
+export type NumberValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  number,
+  "number",
+  undefined,
+  Tags
+>;
+export type StringValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  string,
+  "string",
+  undefined,
+  Tags
+>;
+export type BooleanValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  boolean,
+  "boolean",
+  undefined,
+  Tags
+>;
+export type NullValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  null,
+  "null",
+  NullReasonSubSymbol,
+  Tags
+>;
+export type ArrayValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  AnyValue[],
+  "array",
+  undefined,
+  Tags
+>;
+export type ArrayNumberValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  NumberValue[],
+  "array",
+  "number",
+  Tags
+>;
+export type ArrayStringValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  StringValue[],
+  "array",
+  "string",
+  Tags
+>;
+export type ArrayBooleanValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  BooleanValue[],
+  "array",
+  "boolean",
+  Tags
+>;
+export type ArrayNullValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  NullValue[],
+  "array",
+  "null",
+  Tags
+>;
 
 export type TypedArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
   | ArrayNumberValue<Tags>
@@ -131,30 +167,26 @@ export type UnknownValue = Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, rea
 
 // Type guards based on base type
 export function isNumber(val: AnyValue): val is NumberValue<readonly TagSymbol[]> {
-  return val.symbol === 'number';
+  return val.symbol === "number";
 }
 
 export function isString(val: AnyValue): val is StringValue<readonly TagSymbol[]> {
-  return val.symbol === 'string';
+  return val.symbol === "string";
 }
 
 export function isBoolean(val: AnyValue): val is BooleanValue<readonly TagSymbol[]> {
-  return val.symbol === 'boolean';
+  return val.symbol === "boolean";
 }
 
 export function isNull(val: AnyValue): val is NullValue<readonly TagSymbol[]> {
-  return val.symbol === 'null';
+  return val.symbol === "null";
 }
 
-export function isArray(
-  val: AnyValue
-): val is AnyArrayValue<readonly TagSymbol[]> {
-  return val.symbol === 'array';
+export function isArray(val: AnyValue): val is AnyArrayValue<readonly TagSymbol[]> {
+  return val.symbol === "array";
 }
 
-export function isTypedArray(
-  val: AnyValue
-): val is TypedArrayValue<readonly TagSymbol[]> {
+export function isTypedArray(val: AnyValue): val is TypedArrayValue<readonly TagSymbol[]> {
   return isArray(val) && val.subSymbol !== undefined;
 }
 
@@ -200,7 +232,7 @@ export function createUnknownValue(
   symbol: BaseTypeSymbol,
   value: unknown,
   subSymbol: BaseTypeSubSymbol,
-  tags: readonly TagSymbol[]
+  tags: readonly TagSymbol[],
 ): UnknownValue {
   return { symbol, value, subSymbol, tags };
 }
@@ -220,10 +252,10 @@ export function createUnknownValue(
 export function isValidValue<T extends UnknownValue>(
   val: unknown,
   expectedSymbol?: BaseTypeSymbol,
-  expectedSubSymbol?: BaseTypeSubSymbol
+  expectedSubSymbol?: BaseTypeSubSymbol,
 ): val is T {
   // Check if val is an object
-  if (typeof val !== 'object' || val === null) {
+  if (typeof val !== "object" || val === null) {
     return false;
   }
 
@@ -231,35 +263,37 @@ export function isValidValue<T extends UnknownValue>(
   const v = val as Record<string, unknown>;
 
   // Check all required fields exist
-  if (!('symbol' in v) || !('value' in v) || !('subSymbol' in v) || !('tags' in v)) {
+  if (!("symbol" in v) || !("value" in v) || !("subSymbol" in v) || !("tags" in v)) {
     return false;
   }
 
   // Validate symbol is a valid BaseTypeSymbol
-  if (typeof v.symbol !== 'string' ||
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      !baseTypeSymbols.includes(v.symbol as BaseTypeSymbol)) {
+  if (
+    typeof v.symbol !== "string" ||
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    !baseTypeSymbols.includes(v.symbol as BaseTypeSymbol)
+  ) {
     return false;
   }
 
   // Validate subSymbol shape based on symbol
-  if (v.symbol === 'number' || v.symbol === 'string' || v.symbol === 'boolean') {
+  if (v.symbol === "number" || v.symbol === "string" || v.symbol === "boolean") {
     if (v.subSymbol !== undefined) {
       return false;
     }
-  } else if (v.symbol === 'array') {
+  } else if (v.symbol === "array") {
     if (
       v.subSymbol !== undefined &&
-      v.subSymbol !== 'number' &&
-      v.subSymbol !== 'string' &&
-      v.subSymbol !== 'boolean' &&
-      v.subSymbol !== 'null'
+      v.subSymbol !== "number" &&
+      v.subSymbol !== "string" &&
+      v.subSymbol !== "boolean" &&
+      v.subSymbol !== "null"
     ) {
       return false;
     }
-  } else if (v.symbol === 'null') {
+  } else if (v.symbol === "null") {
     if (
-      typeof v.subSymbol !== 'string' ||
+      typeof v.subSymbol !== "string" ||
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       !nullReasonSubSymbols.includes(v.subSymbol as NullReasonSubSymbol)
     ) {
@@ -273,7 +307,7 @@ export function isValidValue<T extends UnknownValue>(
   }
 
   // Validate all tags are strings
-  if (!v.tags.every((tag: unknown) => typeof tag === 'string')) {
+  if (!v.tags.every((tag: unknown) => typeof tag === "string")) {
     return false;
   }
 

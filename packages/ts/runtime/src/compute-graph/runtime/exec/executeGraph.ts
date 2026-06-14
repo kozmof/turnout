@@ -1,13 +1,13 @@
-import { FuncId } from '../../types';
+import { FuncId } from "../../types";
 import {
   GraphExecutionError,
   createFunctionExecutionError,
   isGraphExecutionError,
-} from '../errors';
-import { buildExecutionTree } from '../buildExecutionTree';
-import { executeTree } from '../executeTree';
-import type { ValidatedContext } from '../validateContext';
-import { type ExecutionResult } from '../../types';
+} from "../errors";
+import { buildExecutionTree } from "../buildExecutionTree";
+import { executeTree } from "../executeTree";
+import type { ValidatedContext } from "../validateContext";
+import { type ExecutionResult } from "../../types";
 
 /**
  * Executes a computation graph starting from a root function.
@@ -20,10 +20,7 @@ import { type ExecutionResult } from '../../types';
  * @param context - The validated execution context (read-only)
  * @returns Execution result with computed value and updated value table
  */
-export function executeGraph(
-  rootFuncId: FuncId,
-  context: ValidatedContext,
-): ExecutionResult {
+export function executeGraph(rootFuncId: FuncId, context: ValidatedContext): ExecutionResult {
   // 1. Build execution tree
   const tree = buildExecutionTree(rootFuncId, context);
 
@@ -61,8 +58,8 @@ export function executeGraphSafe(
         createFunctionExecutionError(
           rootFuncId,
           String(error),
-          error instanceof Error ? error : undefined
-        )
+          error instanceof Error ? error : undefined,
+        ),
       );
     }
     return { errors };

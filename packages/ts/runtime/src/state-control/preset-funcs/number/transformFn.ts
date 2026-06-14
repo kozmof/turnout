@@ -1,7 +1,7 @@
-import { type NumberValue, type StringValue, type TagSymbol } from '../../value';
-import { type ToNumberConversion, type ToStringConversion } from '../convert';
-import { buildString, unaryNumberOp } from '../../value-builders';
-import { type NamespaceDelimiter } from '../../../util/constants';
+import { type NumberValue, type StringValue, type TagSymbol } from "../../value";
+import { type ToNumberConversion, type ToStringConversion } from "../convert";
+import { buildString, unaryNumberOp } from "../../value-builders";
+import { type NamespaceDelimiter } from "../../../util/constants";
 
 export interface TransformFnNumber {
   pass: ToNumberConversion<NumberValue<readonly TagSymbol[]>>;
@@ -37,16 +37,14 @@ export const tfNumber: TransformFnNumber = {
   },
 } as const;
 
-export type TransformFnNumberNameSpace = 'transformFnNumber';
+export type TransformFnNumberNameSpace = "transformFnNumber";
 export type TransformFnNumberNames =
   `${TransformFnNumberNameSpace}${NamespaceDelimiter}${keyof typeof tfNumber}`;
 
 export type ReturnMetaTransformFnNumber = {
-  [K in keyof TransformFnNumber]: ReturnType<TransformFnNumber[K]>['symbol'];
+  [K in keyof TransformFnNumber]: ReturnType<TransformFnNumber[K]>["symbol"];
 };
 
 export type ParamsMetaTransformFnNumber = {
-  [K in keyof TransformFnNumber]: [
-    Parameters<TransformFnNumber[K]>[0]['symbol'],
-  ];
+  [K in keyof TransformFnNumber]: [Parameters<TransformFnNumber[K]>[0]["symbol"]];
 };

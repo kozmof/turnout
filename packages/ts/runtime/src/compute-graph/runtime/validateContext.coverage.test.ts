@@ -46,7 +46,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("FuncTable[f1]: Invalid entry"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("FuncTable[f1]: Invalid entry"))).toBe(
+        true,
+      );
     });
 
     it("detects funcTable entry with missing kind", () => {
@@ -72,7 +74,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('Unknown kind "unknown_kind"'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('Unknown kind "unknown_kind"'))).toBe(
+        true,
+      );
     });
 
     it("detects funcTable entry with missing defId", () => {
@@ -90,12 +94,17 @@ describe("validateContext — coverage", () => {
         ...minContext(),
         funcTable: { f1: { kind: "combine", defId: "pd1", argMap: {} } } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Missing or invalid returnId"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing or invalid returnId"))).toBe(
+        true,
+      );
     });
 
     it("detects combine func referencing wrong def table (pipe def)", () => {
@@ -115,7 +124,11 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('kind "combine" must reference CombineFuncDefTable'))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes('kind "combine" must reference CombineFuncDefTable'),
+        ),
+      ).toBe(true);
     });
 
     it("detects pipe func referencing wrong def table (combine def)", () => {
@@ -130,12 +143,19 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('kind "pipe" must reference PipeFuncDefTable'))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes('kind "pipe" must reference PipeFuncDefTable'),
+        ),
+      ).toBe(true);
     });
 
     it("detects cond func referencing wrong def table", () => {
@@ -149,12 +169,19 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('kind "cond" must reference CondFuncDefTable'))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes('kind "cond" must reference CondFuncDefTable'),
+        ),
+      ).toBe(true);
     });
 
     it("detects combine/pipe func without argMap", () => {
@@ -169,7 +196,10 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
@@ -204,7 +234,10 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
@@ -216,7 +249,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("cond argMap must be an object"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("cond argMap must be an object"))).toBe(
+        true,
+      );
     });
 
     it("detects argMap with non-string argument ID", () => {
@@ -232,12 +267,17 @@ describe("validateContext — coverage", () => {
         } as any,
         valueTable: { v1: { symbol: "number", value: 5, subSymbol: undefined } } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Argument ID must be a string"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Argument ID must be a string"))).toBe(
+        true,
+      );
     });
 
     it("detects duplicate returnId across functions", () => {
@@ -261,12 +301,17 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('duplicate returnId "sharedReturn"'))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes('duplicate returnId "sharedReturn"')),
+      ).toBe(true);
     });
   });
 
@@ -278,7 +323,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("CombineFuncDefTable[pd1]: Invalid entry"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("CombineFuncDefTable[pd1]: Invalid entry")),
+      ).toBe(true);
     });
 
     it("detects combineDef with missing name property", () => {
@@ -290,7 +337,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Invalid or missing function name"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Invalid or missing function name")),
+      ).toBe(true);
     });
 
     it("detects combineDef with unknown binary function name", () => {
@@ -305,7 +354,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Invalid or unknown binary function"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Invalid or unknown binary function")),
+      ).toBe(true);
     });
 
     it("detects combineDef missing transform 'a'", () => {
@@ -320,7 +371,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Missing transform function 'a'"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing transform function 'a'"))).toBe(
+        true,
+      );
     });
 
     it("detects combineDef missing transform 'b'", () => {
@@ -335,7 +388,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Missing transform function 'b'"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing transform function 'b'"))).toBe(
+        true,
+      );
     });
 
     it("detects combineDef with invalid transform function entry (non-string)", () => {
@@ -365,7 +420,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Invalid or unknown transform function"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Invalid or unknown transform function")),
+      ).toBe(true);
     });
 
     it("warns when combineDef is never used", () => {
@@ -396,7 +453,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Transform function 'a' returns"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Transform function 'a' returns"))).toBe(
+        true,
+      );
     });
   });
 
@@ -408,7 +467,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("PipeFuncDefTable[td1]: Invalid entry"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("PipeFuncDefTable[td1]: Invalid entry")),
+      ).toBe(true);
     });
 
     it("detects pipeDef with missing sequence", () => {
@@ -418,7 +479,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Missing or invalid sequence"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing or invalid sequence"))).toBe(
+        true,
+      );
     });
 
     it("detects pipeDef with empty sequence", () => {
@@ -435,7 +498,10 @@ describe("validateContext — coverage", () => {
       const ctx = {
         ...minContext(),
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
@@ -446,7 +512,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("'args' must be an array of strings"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("'args' must be an array of strings")),
+      ).toBe(true);
     });
 
     it("accepts pipeDef with args as record (backward compat)", () => {
@@ -462,11 +530,14 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
-            args: { x: "ia-x" as any },  // record-style args (backward compat)
+            args: { x: "ia-x" as any }, // record-style args (backward compat)
             sequence: [
               {
                 defId: "pd1",
@@ -487,7 +558,10 @@ describe("validateContext — coverage", () => {
       const ctx = {
         ...minContext(),
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
@@ -498,7 +572,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("argument name must be a string"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("argument name must be a string"))).toBe(
+        true,
+      );
     });
 
     it("detects pipeDef step referencing a cond def", () => {
@@ -506,18 +582,31 @@ describe("validateContext — coverage", () => {
         ...minContext(),
         valueTable: { vCond: { symbol: "boolean", value: true, subSymbol: undefined } } as any,
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
             args: [],
             sequence: [
               {
-                defId: "cd1",  // cond def — not allowed in pipe steps
+                defId: "cd1", // cond def — not allowed in pipe steps
                 argBindings: {},
               },
             ],
@@ -540,27 +629,35 @@ describe("validateContext — coverage", () => {
       const ctx = {
         ...minContext(),
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
             args: [],
             sequence: [
-              { defId: "pd1" },  // no argBindings
+              { defId: "pd1" }, // no argBindings
             ],
           },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Missing or invalid argBindings"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing or invalid argBindings"))).toBe(
+        true,
+      );
     });
 
     it("detects pipeDef step that is not an object", () => {
       const ctx = {
         ...minContext(),
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
@@ -580,7 +677,7 @@ describe("validateContext — coverage", () => {
         pipeFuncDefTable: {
           td1: {
             args: [],
-            sequence: [{ argBindings: {} }],  // no defId
+            sequence: [{ argBindings: {} }], // no defId
           },
         } as any,
       };
@@ -593,7 +690,10 @@ describe("validateContext — coverage", () => {
       const ctx = {
         ...minContext(),
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
@@ -612,7 +712,11 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(true);
-      expect(result.warnings.some((w) => w.message.includes("PipeFuncDefTable[td1]: Definition is never used"))).toBe(true);
+      expect(
+        result.warnings.some((w) =>
+          w.message.includes("PipeFuncDefTable[td1]: Definition is never used"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -630,7 +734,10 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         pipeFuncDefTable: {
           td1: {
@@ -650,84 +757,120 @@ describe("validateContext — coverage", () => {
       const ctx = makeContextWithBinding("not_a_record" as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Argument binding for 'a' is invalid"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Argument binding for 'a' is invalid")),
+      ).toBe(true);
     });
 
     it("detects binding with missing source property", () => {
       const ctx = makeContextWithBinding({ argName: "x" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Argument binding for 'a' is invalid"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Argument binding for 'a' is invalid")),
+      ).toBe(true);
     });
 
     it("detects 'input' binding with missing argName", () => {
       const ctx = makeContextWithBinding({ source: "input" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("'input' binding for 'a' must include string argName"))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes("'input' binding for 'a' must include string argName"),
+        ),
+      ).toBe(true);
     });
 
     it("detects 'input' binding with empty argName", () => {
       const ctx = makeContextWithBinding({ source: "input", argName: "" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("'input' binding for 'a' must include string argName"))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes("'input' binding for 'a' must include string argName"),
+        ),
+      ).toBe(true);
     });
 
     it("detects 'step' binding with missing stepIndex", () => {
       const ctx = makeContextWithBinding({ source: "step" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("'step' binding for 'a' must include numeric stepIndex"))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes("'step' binding for 'a' must include numeric stepIndex"),
+        ),
+      ).toBe(true);
     });
 
     it("detects 'value' binding with missing id", () => {
       const ctx = makeContextWithBinding({ source: "value" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("'value' binding for 'a' must include string id"))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes("'value' binding for 'a' must include string id"),
+        ),
+      ).toBe(true);
     });
 
     it("detects 'value' binding with empty id", () => {
       const ctx = makeContextWithBinding({ source: "value", id: "" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("'value' binding for 'a' must include string id"))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes("'value' binding for 'a' must include string id"),
+        ),
+      ).toBe(true);
     });
 
     it("detects binding with unknown source", () => {
       const ctx = makeContextWithBinding({ source: "bogus_source", data: "x" } as any);
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('has unknown source "bogus_source"'))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes('has unknown source "bogus_source"')),
+      ).toBe(true);
     });
 
     it("detects 'input' binding that references undefined pipe arg", () => {
       const ctx = makeContextWithBinding({ source: "input", argName: "missing_arg" });
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("references undefined PipeFunc input"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("references undefined PipeFunc input")),
+      ).toBe(true);
     });
 
     it("detects 'step' binding with out-of-range stepIndex", () => {
       const ctx = makeContextWithBinding({ source: "step", stepIndex: 5 });
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("references invalid step index 5"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("references invalid step index 5"))).toBe(
+        true,
+      );
     });
 
     it("detects 'step' binding with negative stepIndex", () => {
       const ctx = makeContextWithBinding({ source: "step", stepIndex: -1 });
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("references invalid step index -1"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("references invalid step index -1")),
+      ).toBe(true);
     });
 
     it("detects 'value' binding with non-existent ValueId", () => {
       const ctx = makeContextWithBinding({ source: "value", id: "missing_value" });
       const result = validateContext(ctx as any);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("references non-existent ValueId missing_value"))).toBe(true);
+      expect(
+        result.errors.some((e) =>
+          e.message.includes("references non-existent ValueId missing_value"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -739,18 +882,33 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("CondFuncDefTable[cd1]: Invalid entry"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("CondFuncDefTable[cd1]: Invalid entry")),
+      ).toBe(true);
     });
 
     it("detects condDef with missing conditionId", () => {
       const ctx = {
         ...minContext(),
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: { trueBranchId: "fT", falseBranchId: "fF" },
@@ -758,22 +916,37 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Missing or invalid conditionId"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Missing or invalid conditionId"))).toBe(
+        true,
+      );
     });
 
     it("detects condDef with conditionId missing kind", () => {
       const ctx = {
         ...minContext(),
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { id: "someId" },  // missing kind
+            conditionId: { id: "someId" }, // missing kind
             trueBranchId: "fT",
             falseBranchId: "fF",
           },
@@ -781,18 +954,33 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Must include string kind and id"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Must include string kind and id"))).toBe(
+        true,
+      );
     });
 
     it("detects condDef with unknown conditionId kind", () => {
       const ctx = {
         ...minContext(),
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
@@ -804,22 +992,37 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes('Unknown kind "unknown_source"'))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes('Unknown kind "unknown_source"'))).toBe(
+        true,
+      );
     });
 
     it("detects condDef with func condition referencing non-existent FuncId", () => {
       const ctx = {
         ...minContext(),
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { kind: "func", id: "fMissing" },  // func doesn't exist
+            conditionId: { kind: "func", id: "fMissing" }, // func doesn't exist
             trueBranchId: "fT",
             falseBranchId: "fF",
           },
@@ -827,7 +1030,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Referenced FuncId fMissing does not exist"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Referenced FuncId fMissing does not exist")),
+      ).toBe(true);
     });
 
     it("validates condDef with func condition (func source path)", () => {
@@ -881,7 +1086,11 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       // Validation may have warnings (unused values) but should succeed structurally
-      expect(result.errors.filter((e) => e.message.includes("Cycle") || e.message.includes("does not exist"))).toHaveLength(0);
+      expect(
+        result.errors.filter(
+          (e) => e.message.includes("Cycle") || e.message.includes("does not exist"),
+        ),
+      ).toHaveLength(0);
     });
 
     it("detects condDef with func condition returning non-boolean", () => {
@@ -893,12 +1102,22 @@ describe("validateContext — coverage", () => {
         funcTable: {
           fCond: {
             kind: "combine",
-            defId: "pdNumber" as CombineDefineId,  // returns number, not boolean
+            defId: "pdNumber" as CombineDefineId, // returns number, not boolean
             argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
             returnId: "vCond" as ValueId,
           },
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
           fResult: { kind: "cond", defId: "cd1" as CondDefineId, returnId: "vResult" as ValueId },
         } as any,
         combineFuncDefTable: {
@@ -921,26 +1140,41 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Function condition must return boolean"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Function condition must return boolean")),
+      ).toBe(true);
     });
 
     it("detects condDef with value condition of wrong type", () => {
       const ctx = {
         ...minContext(),
         valueTable: {
-          vNum: { symbol: "number", value: 5, subSymbol: undefined },  // number, not boolean
+          vNum: { symbol: "number", value: 5, subSymbol: undefined }, // number, not boolean
         } as any,
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
           fResult: { kind: "cond", defId: "cd1" as CondDefineId, returnId: "vResult" as ValueId },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
-            conditionId: { kind: "value", id: "vNum" as ValueId },  // number value as condition
+            conditionId: { kind: "value", id: "vNum" as ValueId }, // number value as condition
             trueBranchId: "fT" as FuncId,
             falseBranchId: "fF" as FuncId,
           },
@@ -948,7 +1182,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Condition value must be boolean"))).toBe(true);
+      expect(result.errors.some((e) => e.message.includes("Condition value must be boolean"))).toBe(
+        true,
+      );
     });
 
     it("detects condDef with missing trueBranchId", () => {
@@ -958,10 +1194,18 @@ describe("validateContext — coverage", () => {
           vCond: { symbol: "boolean", value: true, subSymbol: undefined },
         } as any,
         funcTable: {
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
@@ -973,7 +1217,9 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("trueBranchId: Missing or invalid FuncId"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("trueBranchId: Missing or invalid FuncId")),
+      ).toBe(true);
     });
 
     it("detects condDef with non-existent trueBranchId", () => {
@@ -983,22 +1229,32 @@ describe("validateContext — coverage", () => {
           vCond: { symbol: "boolean", value: true, subSymbol: undefined },
         } as any,
         funcTable: {
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
             conditionId: { kind: "value", id: "vCond" as ValueId },
-            trueBranchId: "fMissing",  // doesn't exist in funcTable
+            trueBranchId: "fMissing", // doesn't exist in funcTable
             falseBranchId: "fF",
           },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(false);
-      expect(result.errors.some((e) => e.message.includes("Referenced FuncId fMissing does not exist"))).toBe(true);
+      expect(
+        result.errors.some((e) => e.message.includes("Referenced FuncId fMissing does not exist")),
+      ).toBe(true);
     });
 
     it("warns when condDef is never used", () => {
@@ -1008,11 +1264,24 @@ describe("validateContext — coverage", () => {
           vCond: { symbol: "boolean", value: true, subSymbol: undefined },
         } as any,
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: {}, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: {},
+            returnId: "vRF" as ValueId,
+          },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
@@ -1024,7 +1293,11 @@ describe("validateContext — coverage", () => {
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(true);
-      expect(result.warnings.some((w) => w.message.includes("CondFuncDefTable[cd1]: Definition is never used"))).toBe(true);
+      expect(
+        result.warnings.some((w) =>
+          w.message.includes("CondFuncDefTable[cd1]: Definition is never used"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -1041,7 +1314,10 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
@@ -1076,7 +1352,10 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
         condFuncDefTable: {
           cd1: {
@@ -1135,8 +1414,18 @@ describe("validateContext — coverage", () => {
           v1: { symbol: "number", value: 5, subSymbol: undefined },
         } as any,
         funcTable: {
-          fT: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: { a: "v1" as ValueId, b: "v1" as ValueId }, returnId: "vRT" as ValueId },
-          fF: { kind: "combine", defId: "pd1" as CombineDefineId, argMap: { a: "v1" as ValueId, b: "v1" as ValueId }, returnId: "vRF" as ValueId },
+          fT: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
+            returnId: "vRT" as ValueId,
+          },
+          fF: {
+            kind: "combine",
+            defId: "pd1" as CombineDefineId,
+            argMap: { a: "v1" as ValueId, b: "v1" as ValueId },
+            returnId: "vRF" as ValueId,
+          },
           fCond: { kind: "cond", defId: "cd1" as CondDefineId, returnId: "vCondOut" as ValueId },
           // fUser uses the cond output as an arg to a combine that has a transform
           fUser: {
@@ -1147,7 +1436,10 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
           pd2: {
             name: "binaryFnNumber::add",
             transformFn: {
@@ -1167,7 +1459,12 @@ describe("validateContext — coverage", () => {
       const result = validateContext(condCtx);
       // vCondOut can't be inferred (cond doesn't store return type in type env)
       // This should generate a warning about type not being inferable
-      expect(result.warnings.some((w) => w.message.includes("type of argument") && w.message.includes("could not be inferred"))).toBe(true);
+      expect(
+        result.warnings.some(
+          (w) =>
+            w.message.includes("type of argument") && w.message.includes("could not be inferred"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -1177,7 +1474,7 @@ describe("validateContext — coverage", () => {
         ...minContext(),
         valueTable: {
           v1: { symbol: "number", value: 5, subSymbol: undefined },
-          v2: { symbol: "number", value: 3, subSymbol: undefined },  // never referenced
+          v2: { symbol: "number", value: 3, subSymbol: undefined }, // never referenced
         } as any,
         funcTable: {
           f1: {
@@ -1188,12 +1485,19 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] } },
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
         } as any,
       };
       const result = validateContext(ctx);
       expect(result.valid).toBe(true);
-      expect(result.warnings.some((w) => w.message.includes("v2") && w.message.includes("never referenced"))).toBe(true);
+      expect(
+        result.warnings.some(
+          (w) => w.message.includes("v2") && w.message.includes("never referenced"),
+        ),
+      ).toBe(true);
     });
   });
 
@@ -1238,7 +1542,7 @@ describe("validateContext — coverage", () => {
           },
         } as any,
         combineFuncDefTable: {
-          pd1: null,  // null entry — isCombineDefWithBinaryFnName returns false
+          pd1: null, // null entry — isCombineDefWithBinaryFnName returns false
         } as any,
       } as any);
       expect(result.valid).toBe(false);

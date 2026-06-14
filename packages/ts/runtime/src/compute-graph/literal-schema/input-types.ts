@@ -1,11 +1,11 @@
-import { BinaryFnNames } from '../types';
-import { AnyValue } from '../../state-control/value';
-import { TransformFnNames } from '../types';
+import { BinaryFnNames } from "../types";
+import { AnyValue } from "../../state-control/value";
+import { TransformFnNames } from "../types";
 
-type FuncInterface = { name: string; type: 'value'; value: AnyValue };
+type FuncInterface = { name: string; type: "value"; value: AnyValue };
 
-export type CombineFuncType = 'combine';
-export type PipeFuncType = 'pipe';
+export type CombineFuncType = "combine";
+export type PipeFuncType = "pipe";
 
 export type CombineFunc = {
   name: BinaryFnNames;

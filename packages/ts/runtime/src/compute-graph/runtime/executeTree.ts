@@ -1,10 +1,10 @@
-import { ExecutionContext, type ExecutionResult, type ValueTable } from '../types';
-import { ExecutionTree } from './tree-types';
-import { isCombineDefineId, isPipeDefineId } from '../idValidation';
-import { createFunctionExecutionError } from './errors';
-import { executeCombineFunc } from './exec/executeCombineFunc';
-import { executePipeFunc } from './exec/executePipeFunc';
-import { executeCondFunc } from './exec/executeCondFunc';
+import { ExecutionContext, type ExecutionResult, type ValueTable } from "../types";
+import { ExecutionTree } from "./tree-types";
+import { isCombineDefineId, isPipeDefineId } from "../idValidation";
+import { createFunctionExecutionError } from "./errors";
+import { executeCombineFunc } from "./exec/executeCombineFunc";
+import { executePipeFunc } from "./exec/executePipeFunc";
+import { executeCondFunc } from "./exec/executeCondFunc";
 
 /**
  * Executes an execution tree and returns the result along with updated state.
@@ -14,10 +14,7 @@ import { executeCondFunc } from './exec/executeCondFunc';
  * @param context - The execution context (read-only)
  * @returns Execution result with computed value and updated value table
  */
-export function executeTree(
-  tree: ExecutionTree,
-  context: ExecutionContext
-): ExecutionResult {
+export function executeTree(tree: ExecutionTree, context: ExecutionContext): ExecutionResult {
   return executeTreeInternal(tree, context, context.valueTable);
 }
 
@@ -32,7 +29,7 @@ function executeTreeInternal(
   valueTable: ValueTable,
 ): ExecutionResult {
   // Base case: value node (leaf)
-  if (tree.nodeType === 'value') {
+  if (tree.nodeType === "value") {
     return {
       value: tree.value,
       updatedValueTable: valueTable,
@@ -40,17 +37,17 @@ function executeTreeInternal(
   }
 
   // Conditional node: evaluate condition, then execute only one branch
-  if (tree.nodeType === 'conditional') {
+  if (tree.nodeType === "conditional") {
     const funcId = tree.nodeId;
 
     const conditionResult = executeTreeInternal(tree.conditionTree, context, valueTable);
     valueTable = conditionResult.updatedValueTable;
 
     const conditionValue = conditionResult.value;
-    if (conditionValue.symbol !== 'boolean') {
+    if (conditionValue.symbol !== "boolean") {
       throw createFunctionExecutionError(
         funcId,
-        `Condition must evaluate to boolean, got ${conditionValue.symbol}`
+        `Condition must evaluate to boolean, got ${conditionValue.symbol}`,
       );
     }
 
@@ -82,17 +79,11 @@ function executeTreeInternal(
   } else if (isPipeDefineId(defId, context.pipeFuncDefTable)) {
     return executePipeFunc(funcId, defId, updatedContext);
   } else {
-    throw createFunctionExecutionError(
-      funcId,
-      `Unknown definition type for ${String(defId)}`
-    );
+    throw createFunctionExecutionError(funcId, `Unknown definition type for ${String(defId)}`);
   }
 }
 
-function withValueTable(
-  context: ExecutionContext,
-  valueTable: ValueTable
-): ExecutionContext {
+function withValueTable(context: ExecutionContext, valueTable: ValueTable): ExecutionContext {
   if (context.valueTable === valueTable) return context;
   return {
     valueTable,

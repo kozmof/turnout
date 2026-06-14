@@ -1,5 +1,5 @@
-import { FuncId, ExecutionContext, ExecutionResult } from '../../types';
-import { AnyValue } from '../../../state-control/value';
+import { FuncId, ExecutionContext, ExecutionResult } from "../../types";
+import { AnyValue } from "../../../state-control/value";
 
 /**
  * Executes a CondFunc and returns the result along with updated state.
@@ -13,7 +13,7 @@ import { AnyValue } from '../../../state-control/value';
 export function executeCondFunc(
   funcId: FuncId,
   context: ExecutionContext,
-  selectedValue: AnyValue
+  selectedValue: AnyValue,
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
 

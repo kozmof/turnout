@@ -5,7 +5,7 @@ export {
   assertValidContext,
   isValidContext,
   isValidationSuccess,
-} from './validate/index';
+} from "./validate/index";
 export type {
   UnvalidatedContext,
   ValidatedContext,
@@ -13,4 +13,4 @@ export type {
   ValidationWarning,
   ValidationResult,
   TypeEnvironment,
-} from './validate/index';
+} from "./validate/index";

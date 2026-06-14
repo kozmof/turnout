@@ -6,14 +6,14 @@ import type {
   CondDefineId,
   BinaryFnNames,
   TransformFnNames,
-} from '../../types';
+} from "../../types";
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
   getBinaryFnParamTypes,
   getBinaryFnReturnType,
-} from '../typeInference';
-import type { UnvalidatedContext, ValidationState } from './types';
+} from "../typeInference";
+import type { UnvalidatedContext, ValidationState } from "./types";
 import {
   isRecord,
   isStringAs,
@@ -23,7 +23,7 @@ import {
   defineIdExistsInContext,
   valueIdExistsInContext,
   inferFuncType,
-} from './utils';
+} from "./utils";
 
 /**
  * Validates a single FuncTable entry (combine, pipe, or cond kind).
@@ -44,18 +44,14 @@ export function validateFuncEntry(
 
   const entry = funcEntry;
 
-  if (!('kind' in entry) || typeof entry.kind !== 'string') {
+  if (!("kind" in entry) || typeof entry.kind !== "string") {
     state.errors.push({
       message: `FuncTable[${funcId}]: Missing or invalid kind`,
-      details: { funcId, kind: 'kind' in entry ? entry.kind : undefined },
+      details: { funcId, kind: "kind" in entry ? entry.kind : undefined },
     });
     return;
   }
-  if (
-    entry.kind !== 'combine' &&
-    entry.kind !== 'pipe' &&
-    entry.kind !== 'cond'
-  ) {
+  if (entry.kind !== "combine" && entry.kind !== "pipe" && entry.kind !== "cond") {
     state.errors.push({
       message: `FuncTable[${funcId}]: Unknown kind "${entry.kind}"`,
       details: { funcId, kind: entry.kind },
@@ -63,7 +59,7 @@ export function validateFuncEntry(
     return;
   }
 
-  if (!('defId' in entry) || typeof entry.defId !== 'string') {
+  if (!("defId" in entry) || typeof entry.defId !== "string") {
     state.errors.push({
       message: `FuncTable[${funcId}]: Missing or invalid defId`,
       details: { funcId },
@@ -82,7 +78,7 @@ export function validateFuncEntry(
     state.referencedDefs.add(defId);
   }
 
-  if (!('returnId' in entry) || !isStringAs<ValueId>(entry.returnId)) {
+  if (!("returnId" in entry) || !isStringAs<ValueId>(entry.returnId)) {
     state.errors.push({
       message: `FuncTable[${funcId}]: Missing or invalid returnId`,
       details: { funcId },
@@ -91,40 +87,40 @@ export function validateFuncEntry(
     state.returnIds.add(entry.returnId);
   }
 
-  if (entry.kind === 'combine' && !hasKey(context.combineFuncDefTable, defId)) {
+  if (entry.kind === "combine" && !hasKey(context.combineFuncDefTable, defId)) {
     state.errors.push({
       message: `FuncTable[${funcId}]: kind "combine" must reference CombineFuncDefTable, got ${defId}`,
       details: { funcId, defId, kind: entry.kind },
     });
   }
-  if (entry.kind === 'pipe' && !hasKey(context.pipeFuncDefTable, defId)) {
+  if (entry.kind === "pipe" && !hasKey(context.pipeFuncDefTable, defId)) {
     state.errors.push({
       message: `FuncTable[${funcId}]: kind "pipe" must reference PipeFuncDefTable, got ${defId}`,
       details: { funcId, defId, kind: entry.kind },
     });
   }
-  if (entry.kind === 'cond' && !hasKey(context.condFuncDefTable, defId)) {
+  if (entry.kind === "cond" && !hasKey(context.condFuncDefTable, defId)) {
     state.errors.push({
       message: `FuncTable[${funcId}]: kind "cond" must reference CondFuncDefTable, got ${defId}`,
       details: { funcId, defId, kind: entry.kind },
     });
   }
 
-  const hasArgMap = 'argMap' in entry && isRecord(entry.argMap);
-  if ((entry.kind === 'combine' || entry.kind === 'pipe') && !hasArgMap) {
+  const hasArgMap = "argMap" in entry && isRecord(entry.argMap);
+  if ((entry.kind === "combine" || entry.kind === "pipe") && !hasArgMap) {
     state.errors.push({
       message: `FuncTable[${funcId}]: kind "${entry.kind}" requires argMap`,
       details: { funcId, kind: entry.kind },
     });
   }
-  if (entry.kind === 'cond' && 'argMap' in entry && !isRecord(entry.argMap)) {
+  if (entry.kind === "cond" && "argMap" in entry && !isRecord(entry.argMap)) {
     state.errors.push({
       message: `FuncTable[${funcId}]: cond argMap must be an object when provided`,
       details: { funcId },
     });
   }
 
-  const argMap = 'argMap' in entry && isRecord(entry.argMap) ? entry.argMap : null;
+  const argMap = "argMap" in entry && isRecord(entry.argMap) ? entry.argMap : null;
   if (argMap) {
     for (const [argName, argId] of Object.entries(argMap)) {
       if (!isStringAs(argId)) {
@@ -145,7 +141,7 @@ export function validateFuncEntry(
     }
   }
 
-  if (entry.kind === 'combine' && hasKey(context.combineFuncDefTable, defId)) {
+  if (entry.kind === "combine" && hasKey(context.combineFuncDefTable, defId)) {
     validateCombineFuncTypes(funcId, entry, defId, context, state);
   }
 }
@@ -162,11 +158,10 @@ function validateCombineFuncTypes(
 ): void {
   const def = context.combineFuncDefTable?.[defId];
   if (!isRecord(def)) return;
-  if (!('transformFn' in def) || !isRecord(def.transformFn)) return;
+  if (!("transformFn" in def) || !isRecord(def.transformFn)) return;
 
   const transformFn = def.transformFn;
-  const argMap =
-    'argMap' in funcEntry && isRecord(funcEntry.argMap) ? funcEntry.argMap : {};
+  const argMap = "argMap" in funcEntry && isRecord(funcEntry.argMap) ? funcEntry.argMap : {};
 
   for (const [argName, fns] of Object.entries(transformFn)) {
     if (!Array.isArray(fns) || fns.length === 0) continue;
@@ -181,11 +176,7 @@ function validateCombineFuncTypes(
 
     let actualType = state.typeEnv.get(argId);
 
-    if (
-      !actualType &&
-      isStringAs<FuncId>(argId) &&
-      funcIdExistsInContext(argId, context)
-    ) {
+    if (!actualType && isStringAs<FuncId>(argId) && funcIdExistsInContext(argId, context)) {
       const inferredType = inferFuncType(argId, context);
       if (inferredType) {
         actualType = inferredType;
@@ -216,11 +207,7 @@ function validateCombineFuncTypes(
 /**
  * Validates a CombineFuncDefTable entry.
  */
-export function validateCombineDefEntry(
-  defId: string,
-  def: unknown,
-  state: ValidationState,
-): void {
+export function validateCombineDefEntry(defId: string, def: unknown, state: ValidationState): void {
   if (!isRecord(def)) {
     state.errors.push({
       message: `CombineFuncDefTable[${defId}]: Invalid entry`,
@@ -231,11 +218,7 @@ export function validateCombineDefEntry(
 
   const entry = def;
 
-  if (
-    !('name' in entry) ||
-    typeof entry.name !== 'string' ||
-    entry.name.length === 0
-  ) {
+  if (!("name" in entry) || typeof entry.name !== "string" || entry.name.length === 0) {
     state.errors.push({
       message: `CombineFuncDefTable[${defId}]: Invalid or missing function name`,
       details: { defId, name: entry.name },
@@ -252,7 +235,7 @@ export function validateCombineDefEntry(
     }
   }
 
-  if (!('transformFn' in entry) || !isRecord(entry.transformFn)) {
+  if (!("transformFn" in entry) || !isRecord(entry.transformFn)) {
     state.errors.push({
       message: `CombineFuncDefTable[${defId}]: Missing transform function definitions`,
       details: { defId },
@@ -262,7 +245,7 @@ export function validateCombineDefEntry(
 
   const transformFn = entry.transformFn;
 
-  for (const key of ['a', 'b']) {
+  for (const key of ["a", "b"]) {
     if (!(key in transformFn) || !Array.isArray(transformFn[key])) {
       state.errors.push({
         message: `CombineFuncDefTable[${defId}]: Missing transform function '${key}'`,
@@ -322,7 +305,7 @@ function validateBinaryFnCompatibility(
 
   const [expectedParamA, expectedParamB] = paramTypes;
 
-  if ('a' in transformFn && Array.isArray(transformFn.a) && transformFn.a.length > 0) {
+  if ("a" in transformFn && Array.isArray(transformFn.a) && transformFn.a.length > 0) {
     const lastFn: unknown = transformFn.a[transformFn.a.length - 1];
     if (isStringAs<TransformFnNames>(lastFn)) {
       const returnType = getTransformFnReturnType(lastFn);
@@ -341,7 +324,7 @@ function validateBinaryFnCompatibility(
     }
   }
 
-  if ('b' in transformFn && Array.isArray(transformFn.b) && transformFn.b.length > 0) {
+  if ("b" in transformFn && Array.isArray(transformFn.b) && transformFn.b.length > 0) {
     const lastFn: unknown = transformFn.b[transformFn.b.length - 1];
     if (isStringAs<TransformFnNames>(lastFn)) {
       const returnType = getTransformFnReturnType(lastFn);

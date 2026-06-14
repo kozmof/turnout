@@ -11,26 +11,26 @@ import {
   PipeStepBinding,
   PipeArgBinding,
   isArgMapEntry,
-} from '../../types';
+} from "../../types";
 import {
   createEmptySequenceError,
   createMissingValueError,
   createFunctionExecutionError,
-} from '../errors';
-import { executeCombineFunc } from './executeCombineFunc';
+} from "../errors";
+import { executeCombineFunc } from "./executeCombineFunc";
 import {
   isCombineDefineId,
   isPipeDefineId,
   createValueId,
   createFuncId,
   createArgName,
-} from '../../idValidation';
+} from "../../idValidation";
 
 type PipeArgSpec = readonly string[] | Record<string, unknown>;
 
 function getPipeArgNames(pipeArgSpec: PipeArgSpec): string[] {
   if (Array.isArray(pipeArgSpec)) {
-    return pipeArgSpec.filter((argName): argName is string => typeof argName === 'string');
+    return pipeArgSpec.filter((argName): argName is string => typeof argName === "string");
   }
   return Object.keys(pipeArgSpec);
 }
@@ -38,18 +38,16 @@ function getPipeArgNames(pipeArgSpec: PipeArgSpec): string[] {
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
   pipeDefArgs: PipeArgSpec,
-  argMap: FuncArgMap
+  argMap: FuncArgMap,
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
   const expectedValueIds = getPipeArgNames(pipeDefArgs).map(
-    argName => argMap[createArgName(argName)]
+    (argName) => argMap[createArgName(argName)],
   );
 
   for (const valueId of expectedValueIds) {
     if (!(valueId in scopedValueTable)) {
-      throw new Error(
-        `Scoped value table is incomplete: missing ${valueId}`
-      );
+      throw new Error(`Scoped value table is incomplete: missing ${valueId}`);
     }
   }
 }
@@ -57,7 +55,7 @@ export function validateScopedValueTable(
 export function createScopedValueTable(
   argMap: FuncArgMap,
   pipeDefArgs: PipeArgSpec,
-  sourceValueTable: ValueTable
+  sourceValueTable: ValueTable,
 ): ValueTable {
   const scopedValueTable: Partial<ValueTable> = {};
 
@@ -85,7 +83,7 @@ export function createScopedValueTable(
 
 export function createScopedContext(
   context: ExecutionContext | ScopedExecutionContext,
-  scopedValueTable: ValueTable
+  scopedValueTable: ValueTable,
 ): ScopedExecutionContext {
   const visibleValueIds = new Set<ValueId>();
   for (const valueId of Object.keys(scopedValueTable)) {
@@ -98,7 +96,7 @@ export function createScopedContext(
     combineFuncDefTable: context.combineFuncDefTable,
     pipeFuncDefTable: context.pipeFuncDefTable,
     condFuncDefTable: context.condFuncDefTable,
-    scope: 'pipe',
+    scope: "pipe",
     visibleValueIds,
   };
 }
@@ -110,33 +108,31 @@ export function createScopedContext(
 function resolveArgBinding(
   binding: PipeArgBinding,
   pipeFuncArgMap: FuncArgMap,
-  stepResults: readonly ValueId[]
+  stepResults: readonly ValueId[],
 ): ValueId {
   switch (binding.source) {
-    case 'input': {
+    case "input": {
       // Reference to PipeFunc's input argument
       const inputValueId = pipeFuncArgMap[binding.argName];
       // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
       if (inputValueId === undefined) {
-        throw new Error(
-          `PipeFunc input argument '${binding.argName}' not found in argMap`
-        );
+        throw new Error(`PipeFunc input argument '${binding.argName}' not found in argMap`);
       }
       return inputValueId;
     }
 
-    case 'step': {
+    case "step": {
       // Reference to a previous step's result
       if (binding.stepIndex < 0 || binding.stepIndex >= stepResults.length) {
         throw new Error(
           // eslint-disable-next-line @typescript-eslint/restrict-template-expressions
-          `Invalid step reference: stepIndex ${binding.stepIndex} out of bounds (have ${stepResults.length} results)`
+          `Invalid step reference: stepIndex ${binding.stepIndex} out of bounds (have ${stepResults.length} results)`,
         );
       }
       return stepResults[binding.stepIndex];
     }
 
-    case 'value':
+    case "value":
       // Direct value reference (Fix 3: renamed from valueId to id)
       return binding.id;
 
@@ -148,15 +144,11 @@ function resolveArgBinding(
   }
 }
 
-
 /**
  * Creates a temporary FuncId for executing a step within a PipeFunc.
  * This is an internal implementation detail.
  */
-function createTempFuncId(
-  pipeFuncId: FuncId,
-  stepIndex: number
-): FuncId {
+function createTempFuncId(pipeFuncId: FuncId, stepIndex: number): FuncId {
   const id = `${pipeFuncId}__step${String(stepIndex)}`;
   return createFuncId(id);
 }
@@ -172,7 +164,7 @@ function executeStep(
   pipeFuncId: FuncId,
   pipeFuncArgMap: FuncArgMap,
   stepResults: readonly ValueId[],
-  scopedContext: ScopedExecutionContext
+  scopedContext: ScopedExecutionContext,
 ): { stepReturnId: ValueId; updatedValueTable: ValueTable } {
   const { defId, argBindings } = step;
 
@@ -182,7 +174,7 @@ function executeStep(
     resolvedArgMap[createArgName(argName)] = resolveArgBinding(
       binding,
       pipeFuncArgMap,
-      stepResults
+      stepResults,
     );
   }
 
@@ -203,7 +195,12 @@ function executeStep(
       condFuncDefTable: scopedContext.condFuncDefTable,
       funcTable: {
         ...scopedContext.funcTable,
-        [tempFuncId]: { kind: 'combine', defId, argMap: resolvedArgMap as FuncArgMap, returnId: stepReturnId },
+        [tempFuncId]: {
+          kind: "combine",
+          defId,
+          argMap: resolvedArgMap as FuncArgMap,
+          returnId: stepReturnId,
+        },
       },
     };
   } else {
@@ -214,7 +211,12 @@ function executeStep(
       condFuncDefTable: scopedContext.condFuncDefTable,
       funcTable: {
         ...scopedContext.funcTable,
-        [tempFuncId]: { kind: 'pipe', defId, argMap: resolvedArgMap as FuncArgMap, returnId: stepReturnId },
+        [tempFuncId]: {
+          kind: "pipe",
+          defId,
+          argMap: resolvedArgMap as FuncArgMap,
+          returnId: stepReturnId,
+        },
       },
     };
   }
@@ -223,23 +225,12 @@ function executeStep(
   let execResult: ExecutionResult;
 
   if (isCombineDefineId(defId, scopedContext.combineFuncDefTable)) {
-    execResult = executeCombineFunc(
-      tempFuncId,
-      defId,
-      stepContext
-    );
+    execResult = executeCombineFunc(tempFuncId, defId, stepContext);
   } else if (isPipeDefineId(defId, scopedContext.pipeFuncDefTable)) {
     // Recursive PipeFunc execution
-    execResult = executePipeFunc(
-      tempFuncId,
-      defId,
-      stepContext
-    );
+    execResult = executePipeFunc(tempFuncId, defId, stepContext);
   } else {
-    throw createFunctionExecutionError(
-      tempFuncId,
-      `Unknown definition type: ${String(defId)}`
-    );
+    throw createFunctionExecutionError(tempFuncId, `Unknown definition type: ${String(defId)}`);
   }
 
   return {
@@ -260,7 +251,7 @@ function executeStep(
 export function executePipeFunc(
   funcId: FuncId,
   defId: PipeDefineId,
-  context: ExecutionContext
+  context: ExecutionContext,
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
   if (!isArgMapEntry(funcEntry)) {
@@ -273,11 +264,7 @@ export function executePipeFunc(
   }
 
   // Create scoped value table with PipeFunc's input arguments
-  const scopedValueTable = createScopedValueTable(
-    funcEntry.argMap,
-    def.args,
-    context.valueTable
-  );
+  const scopedValueTable = createScopedValueTable(funcEntry.argMap, def.args, context.valueTable);
 
   type PipeStepAccumulator = {
     readonly currentValueTable: ValueTable;
@@ -288,14 +275,7 @@ export function executePipeFunc(
   // Execute each step in sequence, threading state through via reduce
   const { currentValueTable, stepResults } = def.sequence.reduce<PipeStepAccumulator>(
     ({ scopedContext, stepResults }, step, i) => {
-      const stepResult = executeStep(
-        step,
-        i,
-        funcId,
-        funcEntry.argMap,
-        stepResults,
-        scopedContext
-      );
+      const stepResult = executeStep(step, i, funcId, funcEntry.argMap, stepResults, scopedContext);
       const nextTable = stepResult.updatedValueTable;
       return {
         currentValueTable: nextTable,
@@ -307,7 +287,7 @@ export function executePipeFunc(
       currentValueTable: scopedValueTable,
       scopedContext: createScopedContext(context, scopedValueTable),
       stepResults: [],
-    }
+    },
   );
 
   // Return the last step's result (PipeFunc semantics)

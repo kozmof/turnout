@@ -1,4 +1,4 @@
-import type { ExecutionContext, ValueId } from '../../types';
+import type { ExecutionContext, ValueId } from "../../types";
 import {
   type UnvalidatedContext,
   type ValidationResult,
@@ -9,12 +9,12 @@ import {
   isValidationSuccess,
   createValidatedContext,
   createValidationState,
-} from './types';
-import { isRecord, isStringAs, hasKey, buildTypeEnvironment } from './utils';
-import { validateFuncEntry, validateCombineDefEntry } from './validateCombineDefs';
-import { validatePipeDefEntry } from './validatePipeDefs';
-import { validateCondDefEntry } from './validateCondDefs';
-import type { ValidationState } from './types';
+} from "./types";
+import { isRecord, isStringAs, hasKey, buildTypeEnvironment } from "./utils";
+import { validateFuncEntry, validateCombineDefEntry } from "./validateCombineDefs";
+import { validatePipeDefEntry } from "./validatePipeDefs";
+import { validateCondDefEntry } from "./validateCondDefs";
+import type { ValidationState } from "./types";
 
 export type {
   UnvalidatedContext,
@@ -30,10 +30,7 @@ export { isValidationSuccess };
 // Cross-cutting checks
 // ============================================================================
 
-function checkUnreferencedValues(
-  context: UnvalidatedContext,
-  state: ValidationState,
-): void {
+function checkUnreferencedValues(context: UnvalidatedContext, state: ValidationState): void {
   if (!isRecord(context.valueTable)) return;
   for (const valueId of Object.keys(context.valueTable)) {
     if (isStringAs<ValueId>(valueId) && !state.referencedValues.has(valueId)) {
@@ -45,17 +42,10 @@ function checkUnreferencedValues(
   }
 }
 
-function collectReturnIds(
-  context: UnvalidatedContext,
-  state: ValidationState,
-): void {
+function collectReturnIds(context: UnvalidatedContext, state: ValidationState): void {
   if (!isRecord(context.funcTable)) return;
   for (const [funcId, funcEntry] of Object.entries(context.funcTable)) {
-    if (
-      isRecord(funcEntry) &&
-      'returnId' in funcEntry &&
-      isStringAs<ValueId>(funcEntry.returnId)
-    ) {
+    if (isRecord(funcEntry) && "returnId" in funcEntry && isStringAs<ValueId>(funcEntry.returnId)) {
       const returnId = funcEntry.returnId;
       const existingOwner = state.returnIdToFuncId.get(returnId);
       if (existingOwner !== undefined) {
@@ -71,10 +61,7 @@ function collectReturnIds(
   }
 }
 
-function checkFunctionCycles(
-  context: UnvalidatedContext,
-  state: ValidationState,
-): void {
+function checkFunctionCycles(context: UnvalidatedContext, state: ValidationState): void {
   if (!isRecord(context.funcTable)) return;
 
   // state.returnIdToFuncId is already populated by collectReturnIds (which runs
@@ -85,35 +72,35 @@ function checkFunctionCycles(
     if (!isRecord(funcEntry)) continue;
     const funcDeps = new Set<string>();
 
-    if ('argMap' in funcEntry && isRecord(funcEntry.argMap)) {
+    if ("argMap" in funcEntry && isRecord(funcEntry.argMap)) {
       for (const argId of Object.values(funcEntry.argMap)) {
-        if (typeof argId !== 'string') continue;
+        if (typeof argId !== "string") continue;
         const producer = state.returnIdToFuncId.get(argId);
         if (producer) funcDeps.add(producer);
       }
     }
 
     if (
-      'defId' in funcEntry &&
-      typeof funcEntry.defId === 'string' &&
+      "defId" in funcEntry &&
+      typeof funcEntry.defId === "string" &&
       hasKey(context.condFuncDefTable, funcEntry.defId)
     ) {
       const condDef = context.condFuncDefTable?.[funcEntry.defId];
       if (isRecord(condDef)) {
         if (
-          'conditionId' in condDef &&
+          "conditionId" in condDef &&
           isRecord(condDef.conditionId) &&
-          'kind' in condDef.conditionId &&
-          condDef.conditionId.kind === 'func' &&
-          'id' in condDef.conditionId &&
-          typeof condDef.conditionId.id === 'string'
+          "kind" in condDef.conditionId &&
+          condDef.conditionId.kind === "func" &&
+          "id" in condDef.conditionId &&
+          typeof condDef.conditionId.id === "string"
         ) {
           funcDeps.add(condDef.conditionId.id);
         }
-        if ('trueBranchId' in condDef && typeof condDef.trueBranchId === 'string') {
+        if ("trueBranchId" in condDef && typeof condDef.trueBranchId === "string") {
           funcDeps.add(condDef.trueBranchId);
         }
-        if ('falseBranchId' in condDef && typeof condDef.falseBranchId === 'string') {
+        if ("falseBranchId" in condDef && typeof condDef.falseBranchId === "string") {
           funcDeps.add(condDef.falseBranchId);
         }
       }
@@ -131,7 +118,7 @@ function checkFunctionCycles(
     const inner = cyclePath.slice(0, -1);
     const minIdx = inner.reduce((mi, v, i) => (v < inner[mi] ? i : mi), 0);
     const normalized = [...inner.slice(minIdx), ...inner.slice(0, minIdx), inner[minIdx]];
-    const key = normalized.join(' -> ');
+    const key = normalized.join(" -> ");
     if (reported.has(key)) return;
     reported.add(key);
     state.errors.push({
@@ -166,23 +153,15 @@ function checkFunctionCycles(
   }
 }
 
-function checkPipeDefinitionCycles(
-  context: UnvalidatedContext,
-  state: ValidationState,
-): void {
+function checkPipeDefinitionCycles(context: UnvalidatedContext, state: ValidationState): void {
   if (!isRecord(context.pipeFuncDefTable)) return;
 
   const deps = new Map<string, Set<string>>();
   for (const [defId, def] of Object.entries(context.pipeFuncDefTable)) {
     const defDeps = new Set<string>();
-    if (isRecord(def) && 'sequence' in def && Array.isArray(def.sequence)) {
+    if (isRecord(def) && "sequence" in def && Array.isArray(def.sequence)) {
       for (const step of def.sequence) {
-        if (
-          !isRecord(step) ||
-          !('defId' in step) ||
-          typeof step.defId !== 'string'
-        )
-          continue;
+        if (!isRecord(step) || !("defId" in step) || typeof step.defId !== "string") continue;
         if (hasKey(context.pipeFuncDefTable, step.defId)) {
           defDeps.add(step.defId);
         }
@@ -197,7 +176,7 @@ function checkPipeDefinitionCycles(
   const reported = new Set<string>();
 
   const reportCycle = (cyclePath: string[]): void => {
-    const key = cyclePath.join(' -> ');
+    const key = cyclePath.join(" -> ");
     if (reported.has(key)) return;
     reported.add(key);
     state.errors.push({
@@ -237,11 +216,11 @@ function checkRequiredTables(
   state: ValidationState,
 ): context is ExecutionContext {
   const required = [
-    'valueTable',
-    'funcTable',
-    'combineFuncDefTable',
-    'pipeFuncDefTable',
-    'condFuncDefTable',
+    "valueTable",
+    "funcTable",
+    "combineFuncDefTable",
+    "pipeFuncDefTable",
+    "condFuncDefTable",
   ] as const;
 
   let hasAllRequiredTables = true;
@@ -330,17 +309,13 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
 export function assertValidContext(context: UnvalidatedContext): ValidatedContext {
   const result = validateContext(context);
   if (!result.valid) {
-    const errorMessages = result.errors
-      .map((err) => `  - ${err.message}`)
-      .join('\n');
+    const errorMessages = result.errors.map((err) => `  - ${err.message}`).join("\n");
     throw new Error(`ExecutionContext validation failed:\n${errorMessages}`);
   }
   return result.context;
 }
 
-export function isValidContext(
-  context: UnvalidatedContext,
-): context is ValidatedContext {
+export function isValidContext(context: UnvalidatedContext): context is ValidatedContext {
   const result = validateContext(context);
   return result.valid;
 }

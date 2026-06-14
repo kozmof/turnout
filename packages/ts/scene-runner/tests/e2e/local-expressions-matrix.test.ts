@@ -8,19 +8,19 @@
  *   patterns:   #if, #case, #pipe/#it
  *   complexity: low single-action, medium two-action scene, high two-scene route
  */
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
-import { runServerHarness as runHarness } from '../../src/server/index.js';
-import { buildBoolean, buildNumber, buildString, isPureNumber, isPureString } from 'runtime';
-import type { AnyValue } from 'runtime';
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { beforeAll, describe, expect, it } from "vitest";
+import { runServerHarness as runHarness } from "../../src/server/index.js";
+import { buildBoolean, buildNumber, buildString, isPureNumber, isPureString } from "runtime";
+import type { AnyValue } from "runtime";
 
 type Case = {
   name: string;
-  pattern: '#if' | '#case' | '#pipe';
-  complexity: 'low' | 'medium' | 'high';
+  pattern: "#if" | "#case" | "#pipe";
+  complexity: "low" | "medium" | "high";
   entryId: string;
   src: string;
   initialState: Record<string, AnyValue>;
@@ -28,23 +28,27 @@ type Case = {
   expectValue: number | string;
 };
 
-const converterDir = resolve(__dirname, '../../../../go/converter');
-const tmpRoot = mkdtempSync(join(tmpdir(), 'turnout-local-expr-e2e-'));
-const turnoutBin = join(tmpRoot, 'turnout');
+const converterDir = resolve(__dirname, "../../../../go/converter");
+const tmpRoot = mkdtempSync(join(tmpdir(), "turnout-local-expr-e2e-"));
+const turnoutBin = join(tmpRoot, "turnout");
 
 beforeAll(() => {
-  execFileSync('/usr/local/go/bin/go', ['build', '-buildvcs=false', '-o', turnoutBin, './cmd/turnout'], {
-    cwd: converterDir,
-    stdio: 'pipe',
-  });
+  execFileSync(
+    "/usr/local/go/bin/go",
+    ["build", "-buildvcs=false", "-o", turnoutBin, "./cmd/turnout"],
+    {
+      cwd: converterDir,
+      stdio: "pipe",
+    },
+  );
   process.env.TURNOUT_BIN = turnoutBin;
 });
 
 function boxed(values: Record<string, boolean | number | string>): Record<string, AnyValue> {
   return Object.fromEntries(
     Object.entries(values).map(([key, value]) => {
-      if (typeof value === 'boolean') return [key, buildBoolean(value)];
-      if (typeof value === 'number') return [key, buildNumber(value)];
+      if (typeof value === "boolean") return [key, buildBoolean(value)];
+      if (typeof value === "number") return [key, buildNumber(value)];
       return [key, buildString(value)];
     }),
   );
@@ -59,7 +63,7 @@ function valueOf(v: unknown): number | string | undefined {
 
 function writeTurn(name: string, src: string) {
   const path = join(tmpRoot, `${name}.turn`);
-  writeFileSync(path, src, 'utf8');
+  writeFileSync(path, src, "utf8");
   return path;
 }
 
@@ -78,13 +82,13 @@ const stateBlock = `state {
 
 const cases: Case[] = [
   {
-    name: 'if-low-single-action',
-    pattern: '#if',
-    complexity: 'low',
-    entryId: 'if_low',
-    expectPath: 'work.n',
+    name: "if-low-single-action",
+    pattern: "#if",
+    complexity: "low",
+    entryId: "if_low",
+    expectPath: "work.n",
     expectValue: 14,
-    initialState: boxed({ 'input.n': 4, 'input.flag': true }),
+    initialState: boxed({ "input.n": 4, "input.flag": true }),
     src: `${stateBlock}
 scene "if_low" {
   entry_actions = ["run"]
@@ -106,13 +110,13 @@ scene "if_low" {
 }`,
   },
   {
-    name: 'if-medium-two-action-scene',
-    pattern: '#if',
-    complexity: 'medium',
-    entryId: 'if_medium',
-    expectPath: 'work.n',
+    name: "if-medium-two-action-scene",
+    pattern: "#if",
+    complexity: "medium",
+    entryId: "if_medium",
+    expectPath: "work.n",
     expectValue: 14,
-    initialState: boxed({ 'input.n': 8, 'input.flag': true }),
+    initialState: boxed({ "input.n": 8, "input.flag": true }),
     src: `${stateBlock}
 scene "if_medium" {
   entry_actions = ["first"]
@@ -146,13 +150,13 @@ scene "if_medium" {
 }`,
   },
   {
-    name: 'if-high-two-scene-route',
-    pattern: '#if',
-    complexity: 'high',
-    entryId: 'if_route',
-    expectPath: 'work.final',
-    expectValue: 'large',
-    initialState: boxed({ 'input.n': 6, 'input.flag': true }),
+    name: "if-high-two-scene-route",
+    pattern: "#if",
+    complexity: "high",
+    entryId: "if_route",
+    expectPath: "work.final",
+    expectValue: "large",
+    initialState: boxed({ "input.n": 6, "input.flag": true }),
     src: `${stateBlock}
 scene "if_a" {
   entry_actions = ["done"]
@@ -192,13 +196,13 @@ route "if_route" {
 }`,
   },
   {
-    name: 'case-low-single-action',
-    pattern: '#case',
-    complexity: 'low',
-    entryId: 'case_low',
-    expectPath: 'work.n',
+    name: "case-low-single-action",
+    pattern: "#case",
+    complexity: "low",
+    entryId: "case_low",
+    expectPath: "work.n",
     expectValue: 1,
-    initialState: boxed({ 'input.word': 'red' }),
+    initialState: boxed({ "input.word": "red" }),
     src: `${stateBlock}
 scene "case_low" {
   entry_actions = ["run"]
@@ -216,13 +220,13 @@ scene "case_low" {
 }`,
   },
   {
-    name: 'case-medium-two-action-scene',
-    pattern: '#case',
-    complexity: 'medium',
-    entryId: 'case_medium',
-    expectPath: 'work.final',
-    expectValue: 'priority',
-    initialState: boxed({ 'input.word': 'vip' }),
+    name: "case-medium-two-action-scene",
+    pattern: "#case",
+    complexity: "medium",
+    entryId: "case_medium",
+    expectPath: "work.final",
+    expectValue: "priority",
+    initialState: boxed({ "input.word": "vip" }),
     src: `${stateBlock}
 scene "case_medium" {
   entry_actions = ["classify"]
@@ -252,13 +256,13 @@ scene "case_medium" {
 }`,
   },
   {
-    name: 'case-high-two-scene-route',
-    pattern: '#case',
-    complexity: 'high',
-    entryId: 'case_route',
-    expectPath: 'work.final',
-    expectValue: 'route_warm',
-    initialState: boxed({ 'input.word': 'red' }),
+    name: "case-high-two-scene-route",
+    pattern: "#case",
+    complexity: "high",
+    entryId: "case_route",
+    expectPath: "work.final",
+    expectValue: "route_warm",
+    initialState: boxed({ "input.word": "red" }),
     src: `${stateBlock}
 scene "case_a" {
   entry_actions = ["done"]
@@ -294,13 +298,13 @@ route "case_route" {
 }`,
   },
   {
-    name: 'pipe-low-single-action',
-    pattern: '#pipe',
-    complexity: 'low',
-    entryId: 'pipe_low',
-    expectPath: 'work.n',
+    name: "pipe-low-single-action",
+    pattern: "#pipe",
+    complexity: "low",
+    entryId: "pipe_low",
+    expectPath: "work.n",
     expectValue: 18,
-    initialState: boxed({ 'input.n': 4 }),
+    initialState: boxed({ "input.n": 4 }),
     src: `${stateBlock}
 scene "pipe_low" {
   entry_actions = ["run"]
@@ -318,13 +322,13 @@ scene "pipe_low" {
 }`,
   },
   {
-    name: 'pipe-medium-two-action-scene',
-    pattern: '#pipe',
-    complexity: 'medium',
-    entryId: 'pipe_medium',
-    expectPath: 'work.n',
+    name: "pipe-medium-two-action-scene",
+    pattern: "#pipe",
+    complexity: "medium",
+    entryId: "pipe_medium",
+    expectPath: "work.n",
     expectValue: 36,
-    initialState: boxed({ 'input.n': 2 }),
+    initialState: boxed({ "input.n": 2 }),
     src: `${stateBlock}
 scene "pipe_medium" {
   entry_actions = ["first"]
@@ -354,13 +358,13 @@ scene "pipe_medium" {
 }`,
   },
   {
-    name: 'pipe-high-two-scene-route',
-    pattern: '#pipe',
-    complexity: 'high',
-    entryId: 'pipe_route',
-    expectPath: 'work.n',
+    name: "pipe-high-two-scene-route",
+    pattern: "#pipe",
+    complexity: "high",
+    entryId: "pipe_route",
+    expectPath: "work.n",
     expectValue: 41,
-    initialState: boxed({ 'input.n': 3 }),
+    initialState: boxed({ "input.n": 3 }),
     src: `${stateBlock}
 scene "pipe_a" {
   entry_actions = ["done"]
@@ -397,7 +401,7 @@ route "pipe_route" {
   },
 ];
 
-describe('v1 local expressions — DSL convert runtime output matrix', () => {
+describe("v1 local expressions — DSL convert runtime output matrix", () => {
   for (const tc of cases) {
     it(`${tc.pattern} / ${tc.complexity}`, async () => {
       const turnFile = writeTurn(tc.name, tc.src);

@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
-import { ctx } from './context';
-import { combine, pipe, cond } from './functions';
-import { val, ref } from './values';
-import { executeGraph } from '../runtime/exec/executeGraph';
-import { assertValidContext } from '../runtime/validateContext';
+import { describe, it, expect } from "vitest";
+import { ctx } from "./context";
+import { combine, pipe, cond } from "./functions";
+import { val, ref } from "./values";
+import { executeGraph } from "../runtime/exec/executeGraph";
+import { assertValidContext } from "../runtime/validateContext";
 
-describe('Context Builder', () => {
-  describe('Simple values', () => {
-    it('should create context with number literals', () => {
+describe("Context Builder", () => {
+  describe("Simple values", () => {
+    it("should create context with number literals", () => {
       const context = ctx({
         v1: 5,
         v2: 3,
@@ -19,87 +19,84 @@ describe('Context Builder', () => {
       expect(context.exec.valueTable[context.ids.v2].value).toBe(3);
     });
 
-    it('should create context with string literals', () => {
+    it("should create context with string literals", () => {
       const context = ctx({
-        v1: 'hello',
-        v2: 'world',
+        v1: "hello",
+        v2: "world",
       });
 
-      expect(context.exec.valueTable[context.ids.v1].symbol).toBe('string');
-      expect(context.exec.valueTable[context.ids.v1].value).toBe('hello');
+      expect(context.exec.valueTable[context.ids.v1].symbol).toBe("string");
+      expect(context.exec.valueTable[context.ids.v1].value).toBe("hello");
     });
 
-    it('should create context with boolean literals', () => {
+    it("should create context with boolean literals", () => {
       const context = ctx({
         v1: true,
         v2: false,
       });
 
-      expect(context.exec.valueTable[context.ids.v1].symbol).toBe('boolean');
+      expect(context.exec.valueTable[context.ids.v1].symbol).toBe("boolean");
       expect(context.exec.valueTable[context.ids.v1].value).toBe(true);
     });
   });
 
-  describe('Explicit value builders', () => {
-    it('should create tagged values', () => {
+  describe("Explicit value builders", () => {
+    it("should create tagged values", () => {
       const context = ctx({
-        v1: val.number(42, ['random']),
-        v2: val.string('hello', ['network']),
+        v1: val.number(42, ["random"]),
+        v2: val.string("hello", ["network"]),
       });
 
-      expect(context.exec.valueTable[context.ids.v1].tags).toContain('random');
-      expect(context.exec.valueTable[context.ids.v2].tags).toContain('network');
+      expect(context.exec.valueTable[context.ids.v1].tags).toContain("random");
+      expect(context.exec.valueTable[context.ids.v2].tags).toContain("network");
     });
 
-    it('should create array values', () => {
+    it("should create array values", () => {
       const context = ctx({
         item1: 1,
         item2: 2,
-        arr: val.array('number', [
-          val.number(1),
-          val.number(2),
-        ]),
+        arr: val.array("number", [val.number(1), val.number(2)]),
       });
 
-      expect(context.exec.valueTable[context.ids.arr].symbol).toBe('array');
-      expect(context.exec.valueTable[context.ids.arr].subSymbol).toBe('number');
+      expect(context.exec.valueTable[context.ids.arr].symbol).toBe("array");
+      expect(context.exec.valueTable[context.ids.arr].subSymbol).toBe("number");
     });
   });
 
-  describe('CombineFunc builder', () => {
-    it('should create simple combine function', () => {
+  describe("CombineFunc builder", () => {
+    it("should create simple combine function", () => {
       const context = ctx({
         v1: 5,
         v2: 3,
-        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
       });
 
       expect(context.exec.funcTable).toHaveProperty(context.ids.f1);
       const combineDef = Object.values(context.exec.combineFuncDefTable)[0];
-      expect('args' in combineDef).toBe(false);
+      expect("args" in combineDef).toBe(false);
       // returnId should be a hash-based ID with v_ prefix and 16 hex chars
       expect(context.exec.funcTable[context.ids.f1].returnId).toMatch(/^v_[a-f0-9]{16}$/);
     });
 
-    it('should execute combine function', () => {
+    it("should execute combine function", () => {
       const context = ctx({
         v1: 10,
         v2: 5,
-        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
       });
 
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
 
       expect(result.value.value).toBe(15);
-      expect(result.value.symbol).toBe('number');
+      expect(result.value.symbol).toBe("number");
     });
 
-    it('should reuse identical combine function definitions', () => {
+    it("should reuse identical combine function definitions", () => {
       const context = ctx({
         v1: 10,
         v2: 5,
-        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
-        f2: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+        f2: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
       });
 
       const f1DefId = context.exec.funcTable[context.ids.f1].defId;
@@ -108,13 +105,13 @@ describe('Context Builder', () => {
       expect(Object.keys(context.exec.combineFuncDefTable)).toHaveLength(1);
     });
 
-    it('should handle chained functions', () => {
+    it("should handle chained functions", () => {
       const context = ctx({
         v1: 10,
         v2: 5,
         v3: 2,
-        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
-        f2: combine('binaryFnNumber::multiply', { a: ref.output('f1'), b: 'v3' }),
+        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+        f2: combine("binaryFnNumber::multiply", { a: ref.output("f1"), b: "v3" }),
       });
 
       const result = executeGraph(context.ids.f2, assertValidContext(context.exec));
@@ -124,29 +121,29 @@ describe('Context Builder', () => {
     });
   });
 
-  describe('Transform references', () => {
-    it('should apply transform to value', () => {
+  describe("Transform references", () => {
+    it("should apply transform to value", () => {
       const context = ctx({
         v1: 42,
-        v2: ' is the answer',
-        f1: combine('binaryFnString::concat', {
-          a: ref.transform('v1', 'transformFnNumber::toStr'),
-          b: 'v2',
+        v2: " is the answer",
+        f1: combine("binaryFnString::concat", {
+          a: ref.transform("v1", "transformFnNumber::toStr"),
+          b: "v2",
         }),
       });
 
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
 
-      expect(result.value.symbol).toBe('string');
-      expect(result.value.value).toBe('42 is the answer');
+      expect(result.value.symbol).toBe("string");
+      expect(result.value.value).toBe("42 is the answer");
     });
   });
 
-  describe('Typed IDs', () => {
-    it('should provide typed ID access', () => {
+  describe("Typed IDs", () => {
+    it("should provide typed ID access", () => {
       const context = ctx({
         v1: 5,
-        f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v1' }),
+        f1: combine("binaryFnNumber::add", { a: "v1", b: "v1" }),
       });
 
       // IDs should be accessible via ids property and end with the user key
@@ -155,26 +152,26 @@ describe('Context Builder', () => {
     });
   });
 
-  describe('Complex graphs', () => {
-    it('should build nested computation graph', () => {
+  describe("Complex graphs", () => {
+    it("should build nested computation graph", () => {
       const context = ctx({
         x: 3,
         y: 4,
         z: 5,
 
         // x + y
-        sum: combine('binaryFnNumber::add', { a: 'x', b: 'y' }),
+        sum: combine("binaryFnNumber::add", { a: "x", b: "y" }),
 
         // (x + y) * z
-        product: combine('binaryFnNumber::multiply', {
-          a: ref.output('sum'),
-          b: 'z',
+        product: combine("binaryFnNumber::multiply", {
+          a: ref.output("sum"),
+          b: "z",
         }),
 
         // ((x + y) * z) - x
-        final: combine('binaryFnNumber::minus', {
-          a: ref.output('product'),
-          b: 'x',
+        final: combine("binaryFnNumber::minus", {
+          a: ref.output("product"),
+          b: "x",
         }),
       });
 
@@ -185,48 +182,42 @@ describe('Context Builder', () => {
     });
   });
 
-  describe('PipeFunc builder', () => {
-    it('should create and execute simple pipe function', () => {
+  describe("PipeFunc builder", () => {
+    it("should create and execute simple pipe function", () => {
       const context = ctx({
         v1: 10,
         v2: 5,
         v3: 2,
 
         // PipeFunc: (a + b) * c
-        pipeFn: pipe(
-          { a: 'v1', b: 'v2', c: 'v3' },
-          [
-            combine('binaryFnNumber::add', { a: 'a', b: 'b' }),
-            combine('binaryFnNumber::multiply', { a: ref.step('pipeFn', 0), b: 'c' }),
-          ]
-        ),
+        pipeFn: pipe({ a: "v1", b: "v2", c: "v3" }, [
+          combine("binaryFnNumber::add", { a: "a", b: "b" }),
+          combine("binaryFnNumber::multiply", { a: ref.step("pipeFn", 0), b: "c" }),
+        ]),
       });
 
       const pipeDef = Object.values(context.exec.pipeFuncDefTable)[0];
-      expect(pipeDef.args).toEqual(['a', 'b', 'c']);
+      expect(pipeDef.args).toEqual(["a", "b", "c"]);
 
       const result = executeGraph(context.ids.pipeFn, assertValidContext(context.exec));
 
       // (10 + 5) * 2 = 30
       expect(result.value.value).toBe(30);
-      expect(result.value.symbol).toBe('number');
+      expect(result.value.symbol).toBe("number");
     });
 
-    it('should create pipe function with multiple steps', () => {
+    it("should create pipe function with multiple steps", () => {
       const context = ctx({
         x: 3,
         y: 4,
         z: 5,
 
         // PipeFunc: ((a + b) * c) - a
-        compute: pipe(
-          { a: 'x', b: 'y', c: 'z' },
-          [
-            combine('binaryFnNumber::add', { a: 'a', b: 'b' }),
-            combine('binaryFnNumber::multiply', { a: ref.step('compute', 0), b: 'c' }),
-            combine('binaryFnNumber::minus', { a: ref.step('compute', 1), b: 'a' }),
-          ]
-        ),
+        compute: pipe({ a: "x", b: "y", c: "z" }, [
+          combine("binaryFnNumber::add", { a: "a", b: "b" }),
+          combine("binaryFnNumber::multiply", { a: ref.step("compute", 0), b: "c" }),
+          combine("binaryFnNumber::minus", { a: ref.step("compute", 1), b: "a" }),
+        ]),
       });
 
       const result = executeGraph(context.ids.compute, assertValidContext(context.exec));
@@ -235,81 +226,69 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe(32);
     });
 
-    it('should handle pipe function with string operations', () => {
+    it("should handle pipe function with string operations", () => {
       const context = ctx({
-        str1: 'hello',
-        str2: ' world',
+        str1: "hello",
+        str2: " world",
 
-        concat: pipe(
-          { a: 'str1', b: 'str2' },
-          [
-            combine('binaryFnString::concat', { a: 'a', b: 'b' }),
-          ]
-        ),
+        concat: pipe({ a: "str1", b: "str2" }, [
+          combine("binaryFnString::concat", { a: "a", b: "b" }),
+        ]),
       });
 
       const result = executeGraph(context.ids.concat, assertValidContext(context.exec));
 
-      expect(result.value.value).toBe('hello world');
-      expect(result.value.symbol).toBe('string');
+      expect(result.value.value).toBe("hello world");
+      expect(result.value.symbol).toBe("string");
     });
 
-    it('should reject undefined funcOutput references inside pipe steps', () => {
+    it("should reject undefined funcOutput references inside pipe steps", () => {
       expect(() =>
         ctx({
           v1: 10,
-          pipeFn: pipe(
-            { a: 'v1' },
-            [
-              combine('binaryFnNumber::add', {
-                a: ref.output('missingFunc'),
-                b: 'a',
-              }),
-            ]
-          ),
-        })
+          pipeFn: pipe({ a: "v1" }, [
+            combine("binaryFnNumber::add", {
+              a: ref.output("missingFunc"),
+              b: "a",
+            }),
+          ]),
+        }),
       ).toThrow("Pipe function 'pipeFn' step 0 argument 'a' references undefined: 'missingFunc'");
     });
 
-    it('should infer transformFnBoolean::pass for a step referencing a boolean-returning previous step', () => {
+    it("should infer transformFnBoolean::pass for a step referencing a boolean-returning previous step", () => {
       // Step 0 returns boolean (and); step 1 uses step 0's output as argument a.
       // buildStepTransformMap must use inferTransformForBinaryFn('binaryFnBoolean::and')
       // → transformFnBoolean::pass, not a number pass-transform.
       const context = ctx({
         a: true,
         b: false,
-        pipeFn: pipe(
-          { x: 'a', y: 'b' },
-          [
-            combine('binaryFnBoolean::and', { a: 'x', b: 'y' }),           // step 0: bool
-            combine('binaryFnBoolean::or',  { a: ref.step('pipeFn', 0), b: 'x' }), // step 1: bool
-          ]
-        ),
+        pipeFn: pipe({ x: "a", y: "b" }, [
+          combine("binaryFnBoolean::and", { a: "x", b: "y" }), // step 0: bool
+          combine("binaryFnBoolean::or", { a: ref.step("pipeFn", 0), b: "x" }), // step 1: bool
+        ]),
       });
       const result = executeGraph(context.ids.pipeFn, assertValidContext(context.exec));
       // (true && false) || true = false || true = true
-      expect(result.value.symbol).toBe('boolean');
+      expect(result.value.symbol).toBe("boolean");
       expect(result.value.value).toBe(true);
     });
 
-    it('should throw a clear error when a nested pipe step is used inside a pipe', () => {
+    it("should throw a clear error when a nested pipe step is used inside a pipe", () => {
       expect(() =>
         ctx({
           v: 1,
-          outer: pipe(
-            { x: 'v' },
-            [
-              // Nested PipeBuilder inside a pipe — not yet supported
-              pipe({ y: 'x' }, [combine('binaryFnNumber::add', { a: 'y', b: 'y' })]) as never,
-            ]
-          ),
-        })
+          outer: pipe({ x: "v" }, [
+            // Nested PipeBuilder inside a pipe — not yet supported
+            pipe({ y: "x" }, [combine("binaryFnNumber::add", { a: "y", b: "y" })]) as never,
+          ]),
+        }),
       ).toThrow("nested pipe steps are not yet supported");
     });
   });
 
-  describe('CondFunc builder', () => {
-    it('should create and execute cond function with true branch', () => {
+  describe("CondFunc builder", () => {
+    it("should create and execute cond function with true branch", () => {
       const context = ctx({
         condition: true,
         v1: 10,
@@ -317,32 +296,32 @@ describe('Context Builder', () => {
         v0: 0,
 
         // True branch: returns v1 + 0 = 10
-        trueFunc: combine('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
+        trueFunc: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
 
         // False branch: returns v2 + 0 = 20
-        falseFunc: combine('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
+        falseFunc: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
 
         // Conditional
-        result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
+        result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       expect(result.value.value).toBe(10);
-      expect(result.value.symbol).toBe('number');
+      expect(result.value.symbol).toBe("number");
     });
 
-    it('should create and execute cond function with false branch', () => {
+    it("should create and execute cond function with false branch", () => {
       const context = ctx({
         condition: false,
         v1: 10,
         v2: 20,
         v0: 0,
 
-        trueFunc: combine('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
-        falseFunc: combine('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
+        trueFunc: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
+        falseFunc: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
 
-        result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
+        result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
@@ -350,7 +329,7 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe(20);
     });
 
-    it('should execute cond with computed condition', () => {
+    it("should execute cond with computed condition", () => {
       const context = ctx({
         v1: 5,
         v2: 5,
@@ -359,12 +338,12 @@ describe('Context Builder', () => {
         v0: 0,
 
         // Compute condition: v1 == v2 (true)
-        isEqual: combine('binaryFnGeneric::isEqual', { a: 'v1', b: 'v2' }),
+        isEqual: combine("binaryFnGeneric::isEqual", { a: "v1", b: "v2" }),
 
-        trueFunc: combine('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
-        falseFunc: combine('binaryFnNumber::add', { a: 'v4', b: 'v0' }),
+        trueFunc: combine("binaryFnNumber::add", { a: "v3", b: "v0" }),
+        falseFunc: combine("binaryFnNumber::add", { a: "v4", b: "v0" }),
 
-        result: cond('isEqual', { then: 'trueFunc', else: 'falseFunc' }),
+        result: cond("isEqual", { then: "trueFunc", else: "falseFunc" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
@@ -373,17 +352,17 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe(100);
     });
 
-    it('should execute cond with both branches sharing dependencies', () => {
+    it("should execute cond with both branches sharing dependencies", () => {
       const context = ctx({
         condition: true,
         shared: 42,
         v0: 0,
 
         // Both branches use the same 'shared' value
-        trueFunc: combine('binaryFnNumber::add', { a: 'shared', b: 'v0' }),
-        falseFunc: combine('binaryFnNumber::add', { a: 'shared', b: 'v0' }),
+        trueFunc: combine("binaryFnNumber::add", { a: "shared", b: "v0" }),
+        falseFunc: combine("binaryFnNumber::add", { a: "shared", b: "v0" }),
 
-        result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
+        result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
@@ -391,7 +370,7 @@ describe('Context Builder', () => {
       expect(result.value.value).toBe(42);
     });
 
-    it('should evaluate cond when condition is a forward-referenced combine', () => {
+    it("should evaluate cond when condition is a forward-referenced combine", () => {
       // Regression: when cond appears BEFORE the combine it uses as its condition,
       // the condition was misclassified as source:'value' (causing MissingValueError
       // at tree-build time). processCondFunc now uses functionKeys from Pass 1
@@ -404,23 +383,23 @@ describe('Context Builder', () => {
         v0: 0,
 
         // cond declared BEFORE isEqual (the combine it uses as its condition)
-        result: cond('isEqual', { then: 'trueFunc', else: 'falseFunc' }),
+        result: cond("isEqual", { then: "trueFunc", else: "falseFunc" }),
 
-        trueFunc: combine('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
-        falseFunc: combine('binaryFnNumber::add', { a: 'v4', b: 'v0' }),
+        trueFunc: combine("binaryFnNumber::add", { a: "v3", b: "v0" }),
+        falseFunc: combine("binaryFnNumber::add", { a: "v4", b: "v0" }),
 
         // isEqual declared AFTER result — forward reference
-        isEqual: combine('binaryFnGeneric::isEqual', { a: 'v1', b: 'v2' }),
+        isEqual: combine("binaryFnGeneric::isEqual", { a: "v1", b: "v2" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
 
       // isEqual(5, 5) → true → trueFunc → 100
       expect(result.value.value).toBe(100);
-      expect(result.value.symbol).toBe('number');
+      expect(result.value.symbol).toBe("number");
     });
 
-    it('should handle nested cond functions', () => {
+    it("should handle nested cond functions", () => {
       const context = ctx({
         outerCondition: true,
         innerCondition: false,
@@ -431,17 +410,17 @@ describe('Context Builder', () => {
         v0: 0,
 
         // Inner true branch
-        innerTrue: combine('binaryFnNumber::add', { a: 'v1', b: 'v0' }),
+        innerTrue: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
         // Inner false branch
-        innerFalse: combine('binaryFnNumber::add', { a: 'v2', b: 'v0' }),
+        innerFalse: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
         // Inner cond
-        innerCond: cond('innerCondition', { then: 'innerTrue', else: 'innerFalse' }),
+        innerCond: cond("innerCondition", { then: "innerTrue", else: "innerFalse" }),
 
         // Outer false branch
-        outerFalse: combine('binaryFnNumber::add', { a: 'v3', b: 'v0' }),
+        outerFalse: combine("binaryFnNumber::add", { a: "v3", b: "v0" }),
 
         // Outer cond
-        result: cond('outerCondition', { then: 'innerCond', else: 'outerFalse' }),
+        result: cond("outerCondition", { then: "innerCond", else: "outerFalse" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
@@ -452,8 +431,8 @@ describe('Context Builder', () => {
     });
   });
 
-  describe('CondFunc forward references', () => {
-    it('should allow a combine to forward-reference a cond declared later in spec', () => {
+  describe("CondFunc forward references", () => {
+    it("should allow a combine to forward-reference a cond declared later in spec", () => {
       // The combine 'uses' is declared BEFORE the cond 'gate' it references.
       // Pass 1 must pre-compute gate's return type so inferPassTransform succeeds.
       const context = ctx({
@@ -462,20 +441,20 @@ describe('Context Builder', () => {
         flag: true,
 
         // 'uses' references 'gate' which is declared below it
-        uses: combine('binaryFnNumber::add', { a: ref.output('gate'), b: 'b' }),
+        uses: combine("binaryFnNumber::add", { a: ref.output("gate"), b: "b" }),
 
-        trueResult: combine('binaryFnNumber::add', { a: 'a', b: 'b' }),
-        falseResult: combine('binaryFnNumber::add', { a: 'b', b: 'b' }),
-        gate: cond('flag', { then: 'trueResult', else: 'falseResult' }),
+        trueResult: combine("binaryFnNumber::add", { a: "a", b: "b" }),
+        falseResult: combine("binaryFnNumber::add", { a: "b", b: "b" }),
+        gate: cond("flag", { then: "trueResult", else: "falseResult" }),
       });
 
       const result = executeGraph(context.ids.uses, assertValidContext(context.exec));
       // flag=true → gate → trueResult = 3+0=3; uses = 3+0=3
-      expect(result.value.symbol).toBe('number');
+      expect(result.value.symbol).toBe("number");
       expect(result.value.value).toBe(3);
     });
 
-    it('should resolve a cond-of-cond forward reference chain', () => {
+    it("should resolve a cond-of-cond forward reference chain", () => {
       // outer references inner which references a combine — all declared
       // before 'outer' is processed in Pass 1. Fixed-point mini-pass handles
       // the two-level chain.
@@ -486,45 +465,42 @@ describe('Context Builder', () => {
         flagOuter: true,
 
         // 'sum' is declared AFTER the conds that reference it
-        consumer: combine('binaryFnNumber::add', { a: ref.output('outer'), b: 'z' }),
-        outer: cond('flagOuter', { then: 'inner', else: 'base' }),
-        inner: cond('flagInner', { then: 'trueBranch', else: 'base' }),
+        consumer: combine("binaryFnNumber::add", { a: ref.output("outer"), b: "z" }),
+        outer: cond("flagOuter", { then: "inner", else: "base" }),
+        inner: cond("flagInner", { then: "trueBranch", else: "base" }),
 
-        trueBranch: combine('binaryFnNumber::add', { a: 'x', b: 'z' }),
-        base: combine('binaryFnNumber::add', { a: 'z', b: 'z' }),
+        trueBranch: combine("binaryFnNumber::add", { a: "x", b: "z" }),
+        base: combine("binaryFnNumber::add", { a: "z", b: "z" }),
       });
 
       const result = executeGraph(context.ids.consumer, assertValidContext(context.exec));
       // flagOuter=true → outer → inner; flagInner=true → trueBranch = 10+0=10; consumer = 10+0=10
-      expect(result.value.symbol).toBe('number');
+      expect(result.value.symbol).toBe("number");
       expect(result.value.value).toBe(10);
     });
   });
 
-  describe('Mixed function types', () => {
-    it('should combine combine, pipe, and cond in one graph', () => {
+  describe("Mixed function types", () => {
+    it("should combine combine, pipe, and cond in one graph", () => {
       const context = ctx({
         x: 10,
         y: 5,
         condition: true,
 
         // Simple combine
-        sum: combine('binaryFnNumber::add', { a: 'x', b: 'y' }),
+        sum: combine("binaryFnNumber::add", { a: "x", b: "y" }),
 
         // Pipe function
-        compute: pipe(
-          { a: 'x', b: 'y' },
-          [
-            combine('binaryFnNumber::multiply', { a: 'a', b: 'b' }),
-          ]
-        ),
+        compute: pipe({ a: "x", b: "y" }, [
+          combine("binaryFnNumber::multiply", { a: "a", b: "b" }),
+        ]),
 
         // Cond that uses both
         v0: 0,
-        trueFunc: combine('binaryFnNumber::add', { a: ref.output('sum'), b: 'v0' }),
-        falseFunc: combine('binaryFnNumber::add', { a: 'x', b: 'v0' }),
+        trueFunc: combine("binaryFnNumber::add", { a: ref.output("sum"), b: "v0" }),
+        falseFunc: combine("binaryFnNumber::add", { a: "x", b: "v0" }),
 
-        result: cond('condition', { then: 'trueFunc', else: 'falseFunc' }),
+        result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));

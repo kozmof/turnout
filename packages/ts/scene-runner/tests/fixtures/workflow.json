@@ -81,9 +81,7 @@
   "scenes": [
     {
       "id": "ai_workflow",
-      "entryActions": [
-        "analyze"
-      ],
+      "entryActions": ["analyze"],
       "nextPolicy": "first-match",
       "actions": [
         {

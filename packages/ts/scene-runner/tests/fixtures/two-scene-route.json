@@ -3,15 +3,11 @@
     "namespaces": [
       {
         "name": "input",
-        "fields": [
-          { "name": "value", "type": "number", "value": 0 }
-        ]
+        "fields": [{ "name": "value", "type": "number", "value": 0 }]
       },
       {
         "name": "output",
-        "fields": [
-          { "name": "result", "type": "number", "value": 0 }
-        ]
+        "fields": [{ "name": "result", "type": "number", "value": 0 }]
       }
     ]
   },
@@ -41,12 +37,8 @@
               ]
             }
           },
-          "prepare": [
-            { "binding": "value", "fromState": "input.value" }
-          ],
-          "merge": [
-            { "binding": "doubled", "toState": "output.result" }
-          ]
+          "prepare": [{ "binding": "value", "fromState": "input.value" }],
+          "merge": [{ "binding": "doubled", "toState": "output.result" }]
         }
       ]
     },
@@ -76,12 +68,8 @@
               ]
             }
           },
-          "prepare": [
-            { "binding": "result", "fromState": "output.result" }
-          ],
-          "merge": [
-            { "binding": "final_val", "toState": "output.result" }
-          ]
+          "prepare": [{ "binding": "result", "fromState": "output.result" }],
+          "merge": [{ "binding": "final_val", "toState": "output.result" }]
         }
       ]
     }
@@ -90,9 +78,7 @@
     {
       "id": "main_route",
       "entrySceneId": "scene_a",
-      "match": [
-        { "patterns": ["scene_a.step_a"], "target": "scene_b" }
-      ]
+      "match": [{ "patterns": ["scene_a.step_a"], "target": "scene_b" }]
     }
   ]
 }

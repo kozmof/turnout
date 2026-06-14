@@ -1,11 +1,11 @@
-import { buildNull, buildArray } from 'runtime';
-import type { AnyValue } from 'runtime';
-import type { PrepareEntry, NextPrepareEntry } from '../types/turnout-model_pb.js';
-import type { StateReader } from '../state/state-manager.js';
-import { literalToValue, protoValueToJs } from '../state/state-manager.js';
-import type { HookRegistry, PrepareHookContext } from '../types/harness-types.js';
-import type { ActionExecutionResult } from './types.js';
-import { PrepareError } from './errors.js';
+import { buildNull, buildArray } from "runtime";
+import type { AnyValue } from "runtime";
+import type { PrepareEntry, NextPrepareEntry } from "../types/turnout-model_pb.js";
+import type { StateReader } from "../state/state-manager.js";
+import { literalToValue, protoValueToJs } from "../state/state-manager.js";
+import type { HookRegistry, PrepareHookContext } from "../types/harness-types.js";
+import type { ActionExecutionResult } from "./types.js";
+import { PrepareError } from "./errors.js";
 
 /**
  * Resolve action-level prepare entries into a map of binding name → AnyValue.
@@ -31,7 +31,11 @@ export async function resolveActionPrepare(
       const hookName = entry.fromHook;
       const hook = hooks.prepare[hookName];
       if (!hook) {
-        throw new PrepareError('UnregisteredHook', actionId, `prepare hook "${hookName}" is not registered`);
+        throw new PrepareError(
+          "UnregisteredHook",
+          actionId,
+          `prepare hook "${hookName}" is not registered`,
+        );
       }
       if (!hookCache[hookName]) {
         const ctx: PrepareHookContext = {
@@ -39,11 +43,15 @@ export async function resolveActionPrepare(
           hookName,
           get: (binding) => result[binding],
         };
-        hookCache[hookName] = await hook(ctx, signal) as Record<string, AnyValue>;
+        hookCache[hookName] = (await hook(ctx, signal)) as Record<string, AnyValue>;
       }
       const val = hookCache[hookName][entry.binding];
       if (val === undefined) {
-        throw new PrepareError('MissingHookField', actionId, `prepare hook "${hookName}" did not return field "${entry.binding}"`);
+        throw new PrepareError(
+          "MissingHookField",
+          actionId,
+          `prepare hook "${hookName}" did not return field "${entry.binding}"`,
+        );
       }
       result[entry.binding] = val;
     }
@@ -74,7 +82,11 @@ export function resolveNextPrepare(
     if (entry.fromAction !== undefined) {
       const val = prevResult.bindingValues[entry.fromAction];
       if (val === undefined) {
-        throw new PrepareError('MissingActionBinding', prevResult.actionId, `from_action binding "${entry.fromAction}" was not produced`);
+        throw new PrepareError(
+          "MissingActionBinding",
+          prevResult.actionId,
+          `from_action binding "${entry.fromAction}" was not produced`,
+        );
       }
       result[entry.binding] = val;
     } else if (entry.fromState !== undefined) {
@@ -85,7 +97,7 @@ export function resolveNextPrepare(
       // from_hook requires async execution — not supported in synchronous next-rule evaluate.
       // Use from_action to forward an action binding, or from_state for a state path.
       throw new PrepareError(
-        'UnregisteredHook',
+        "UnregisteredHook",
         prevResult.actionId,
         `from_hook is not supported in next-rule prepare entries (binding "${entry.binding}"); use from_action or from_state instead`,
       );
@@ -101,16 +113,16 @@ export function resolveNextPrepare(
 
 function inferLiteralValue(lit: unknown): AnyValue {
   const v = protoValueToJs(lit);
-  if (typeof v === 'number') return literalToValue(v, 'number');
-  if (typeof v === 'string') return literalToValue(v, 'str');
-  if (typeof v === 'boolean') return literalToValue(v, 'bool');
+  if (typeof v === "number") return literalToValue(v, "number");
+  if (typeof v === "string") return literalToValue(v, "str");
+  if (typeof v === "boolean") return literalToValue(v, "bool");
   if (Array.isArray(v)) {
     const first = v[0];
-    if (typeof first === 'number') return literalToValue(v, 'arr<number>');
-    if (typeof first === 'string') return literalToValue(v, 'arr<str>');
-    if (typeof first === 'boolean') return literalToValue(v, 'arr<bool>');
+    if (typeof first === "number") return literalToValue(v, "arr<number>");
+    if (typeof first === "string") return literalToValue(v, "arr<str>");
+    if (typeof first === "boolean") return literalToValue(v, "arr<bool>");
     // Empty array — no element type to infer; return a typed empty array value.
     return buildArray([]);
   }
-  return buildNull('unknown');
+  return buildNull("unknown");
 }

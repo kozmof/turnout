@@ -1,7 +1,16 @@
-import { type NumberValue, type AnyArrayValue, type TagSymbol, type BooleanValue } from '../../value';
-import { type ToArrayConversion, type ToNumberConversion, type ToBooleanConversion } from '../convert';
-import { buildBoolean, buildNumber } from '../../value-builders';
-import { type NamespaceDelimiter } from '../../../util/constants';
+import {
+  type NumberValue,
+  type AnyArrayValue,
+  type TagSymbol,
+  type BooleanValue,
+} from "../../value";
+import {
+  type ToArrayConversion,
+  type ToNumberConversion,
+  type ToBooleanConversion,
+} from "../convert";
+import { buildBoolean, buildNumber } from "../../value-builders";
+import { type NamespaceDelimiter } from "../../../util/constants";
 
 export interface TransformFnArray {
   pass: ToArrayConversion<AnyArrayValue<readonly TagSymbol[]>>;
@@ -21,14 +30,14 @@ export const tfArray: TransformFnArray = {
   },
 } as const;
 
-export type TransformFnArrayNameSpace = 'transformFnArray';
+export type TransformFnArrayNameSpace = "transformFnArray";
 export type TransformFnArrayNames =
   `${TransformFnArrayNameSpace}${NamespaceDelimiter}${keyof typeof tfArray}`;
 
 export type ReturnMetaTransformFnArray = {
-  [K in keyof TransformFnArray]: ReturnType<TransformFnArray[K]>['symbol'];
+  [K in keyof TransformFnArray]: ReturnType<TransformFnArray[K]>["symbol"];
 };
 
 export type ParamsMetaTransformFnArray = {
-  [K in keyof TransformFnArray]: [Parameters<TransformFnArray[K]>[0]['symbol']];
+  [K in keyof TransformFnArray]: [Parameters<TransformFnArray[K]>[0]["symbol"]];
 };

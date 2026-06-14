@@ -1,12 +1,12 @@
-import type { HarnessOptions, FullHarnessResult } from '../types/harness-types.js';
-import { stateManagerFromUnchecked, stateManagerFromSchema } from '../state/state-manager.js';
-import type { StateManager } from '../state/state-manager.js';
-import { executeScene } from '../executor/scene-executor.js';
-import { executeRoute } from '../executor/route-executor.js';
-import { resolveDispatchTarget } from '../executor/dispatch.js';
-import { migrateModel } from '../migration.js';
-import { validateModel } from '../executor/validate-model.js';
-import { ModelValidationError } from '../executor/errors.js';
+import type { HarnessOptions, FullHarnessResult } from "../types/harness-types.js";
+import { stateManagerFromUnchecked, stateManagerFromSchema } from "../state/state-manager.js";
+import type { StateManager } from "../state/state-manager.js";
+import { executeScene } from "../executor/scene-executor.js";
+import { executeRoute } from "../executor/route-executor.js";
+import { resolveDispatchTarget } from "../executor/dispatch.js";
+import { migrateModel } from "../migration.js";
+import { validateModel } from "../executor/validate-model.js";
+import { ModelValidationError } from "../executor/errors.js";
 
 /**
  * Universal harness entry point (client + server).
@@ -39,7 +39,7 @@ export async function runHarness(options: HarnessOptions): Promise<FullHarnessRe
   const sceneMap = Object.fromEntries(model.scenes.map((s) => [s.id, s]));
 
   // ── 3. Execute ────────────────────────────────────────────────────────────
-  if (target.kind === 'route') {
+  if (target.kind === "route") {
     const result = await executeRoute(
       target.route,
       sceneMap,
@@ -48,7 +48,11 @@ export async function runHarness(options: HarnessOptions): Promise<FullHarnessRe
       options.hooks,
       { maxSceneSteps: options.maxSceneSteps, maxRouteTransitions: options.maxRouteTransitions },
     );
-    return { finalState: result.finalState, trace: { kind: 'route', route: result.trace }, model: options.model };
+    return {
+      finalState: result.finalState,
+      trace: { kind: "route", route: result.trace },
+      model: options.model,
+    };
   }
 
   const result = await executeScene(
@@ -60,7 +64,7 @@ export async function runHarness(options: HarnessOptions): Promise<FullHarnessRe
   );
   return {
     finalState: result.stateAfterScene.snapshot(),
-    trace: { kind: 'scene', scene: result.trace },
+    trace: { kind: "scene", scene: result.trace },
     model: options.model,
   };
 }

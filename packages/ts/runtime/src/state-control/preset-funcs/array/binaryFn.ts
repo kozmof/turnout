@@ -5,14 +5,18 @@ import {
   type NumberValue,
   type TagSymbol,
   AnyValue,
-} from '../../value';
-import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from '../convert';
-import { buildArray, buildBoolean } from '../../value-builders';
-import { type NamespaceDelimiter } from '../../../util/constants';
+} from "../../value";
+import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from "../convert";
+import { buildArray, buildBoolean } from "../../value-builders";
+import { type NamespaceDelimiter } from "../../../util/constants";
 
 export interface BinaryFnArray {
   includes: ToBooleanProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue>;
-  get: ToItemtProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue, NumberValue<readonly TagSymbol[]>>;
+  get: ToItemtProcess<
+    AnyArrayValue<readonly TagSymbol[]>,
+    NonArrayValue,
+    NumberValue<readonly TagSymbol[]>
+  >;
   concat: ArrayToArray;
 }
 
@@ -28,7 +32,7 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
 function mergeItemTags(
   item: NonArrayValue,
   array: AnyArrayValue<readonly TagSymbol[]>,
-  index: NumberValue<readonly TagSymbol[]>
+  index: NumberValue<readonly TagSymbol[]>,
 ): readonly TagSymbol[] {
   const tagsSet = new Set<TagSymbol>();
 
@@ -52,7 +56,7 @@ function mergeItemTags(
 
 function mergeArrayTags(
   a: AnyArrayValue<readonly TagSymbol[]>,
-  b: AnyArrayValue<readonly TagSymbol[]>
+  b: AnyArrayValue<readonly TagSymbol[]>,
 ): readonly TagSymbol[] {
   const tagsSet = new Set<TagSymbol>();
   for (const tag of a.tags) tagsSet.add(tag);
@@ -61,7 +65,10 @@ function mergeArrayTags(
 }
 
 export const bfArray: BinaryFnArray = {
-  includes: (a: AnyArrayValue<readonly TagSymbol[]>, b: NonArrayValue): BooleanValue<readonly TagSymbol[]> => {
+  includes: (
+    a: AnyArrayValue<readonly TagSymbol[]>,
+    b: NonArrayValue,
+  ): BooleanValue<readonly TagSymbol[]> => {
     const contains = a.value.map((val) => val.value).includes(b.value);
 
     // Merge tags from both operands
@@ -72,7 +79,10 @@ export const bfArray: BinaryFnArray = {
 
     return buildBoolean(contains, mergedTags);
   },
-  get: (a: AnyArrayValue<readonly TagSymbol[]>, idx: NumberValue<readonly TagSymbol[]>): NonArrayValue => {
+  get: (
+    a: AnyArrayValue<readonly TagSymbol[]>,
+    idx: NumberValue<readonly TagSymbol[]>,
+  ): NonArrayValue => {
     const item = a.value.at(idx.value);
     if (item !== undefined && isNonArrayValue(item)) {
       // Propagate tags from both the array and the index to the retrieved item
@@ -82,26 +92,29 @@ export const bfArray: BinaryFnArray = {
       };
     } else {
       throw new Error(
-        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)}) or the item at that index is an array`
+        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)}) or the item at that index is an array`,
       );
     }
   },
-  concat: (a: AnyArrayValue<readonly TagSymbol[]>, b: AnyArrayValue<readonly TagSymbol[]>): AnyArrayValue<readonly TagSymbol[]> => {
+  concat: (
+    a: AnyArrayValue<readonly TagSymbol[]>,
+    b: AnyArrayValue<readonly TagSymbol[]>,
+  ): AnyArrayValue<readonly TagSymbol[]> => {
     return buildArray([...a.value, ...b.value], mergeArrayTags(a, b));
   },
 } as const;
 
-export type BinaryFnArrayNameSpace = 'binaryFnArray';
+export type BinaryFnArrayNameSpace = "binaryFnArray";
 export type BinaryFnArrayNames =
   `${BinaryFnArrayNameSpace}${NamespaceDelimiter}${keyof typeof bfArray}`;
 
 export type ReturnMetaBinaryFnArray = {
-  [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>['symbol'];
+  [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>["symbol"];
 };
 
 export type ParamsMetaBinaryFnArray = {
   [K in keyof BinaryFnArray]: [
-    Parameters<BinaryFnArray[K]>[0]['symbol'],
-    Parameters<BinaryFnArray[K]>[1]['symbol'],
+    Parameters<BinaryFnArray[K]>[0]["symbol"],
+    Parameters<BinaryFnArray[K]>[1]["symbol"],
   ];
 };
