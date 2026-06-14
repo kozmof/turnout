@@ -9,7 +9,7 @@
  *   complexity: low single-action, medium two-action scene, high two-scene route
  */
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -31,10 +31,15 @@ type Case = {
 const converterDir = resolve(__dirname, "../../../../go/converter");
 const tmpRoot = mkdtempSync(join(tmpdir(), "turnout-local-expr-e2e-"));
 const turnoutBin = join(tmpRoot, "turnout");
+const goBin = process.env.GOROOT
+  ? join(process.env.GOROOT, "bin", "go")
+  : existsSync("/usr/local/go/bin/go")
+    ? "/usr/local/go/bin/go"
+    : "go";
 
 beforeAll(() => {
   execFileSync(
-    "/usr/local/go/bin/go",
+    goBin,
     ["build", "-buildvcs=false", "-o", turnoutBin, "./cmd/turnout"],
     {
       cwd: converterDir,
