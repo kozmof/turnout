@@ -140,6 +140,26 @@ describe("resolveActionPrepare", () => {
     expect((err as PrepareError).code).toBe("MissingHookField");
   });
 
+  it("from_hook throws PrepareError(InvalidHookValue) when hook returns a raw JS value instead of AnyValue", async () => {
+    const state = stateManagerFromUnchecked({});
+    const hooks: HookRegistry = {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      prepare: { bad_hook: (_ctx: PrepareHookContext) => ({ raw: 42 as any }) },
+      publish: {},
+    };
+    const err = await resolveActionPrepare(
+      [{ binding: "raw", fromHook: "bad_hook" }] as unknown as PrepareEntry[],
+      state,
+      hooks,
+      "test_action",
+    ).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe("InvalidHookValue");
+    expect((err as PrepareError).actionId).toBe("test_action");
+    expect((err as Error).message).toContain("bad_hook");
+    expect((err as Error).message).toContain("raw");
+  });
+
   it("resolves multiple entries independently", async () => {
     const state = stateManagerFromUnchecked({
       "a.x": buildNumber(1),

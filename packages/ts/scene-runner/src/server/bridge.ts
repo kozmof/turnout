@@ -1,5 +1,5 @@
 // Node.js only — uses child_process and fs.
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { accessSync, constants, readFileSync } from "node:fs";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
@@ -60,7 +60,7 @@ function makeBinResolver(): [() => string, () => void] {
 
     try {
       // Check if turnout is on PATH
-      execSync("turnout --help", { stdio: "ignore", timeout: BIN_PROBE_TIMEOUT_MS });
+      execFileSync("turnout", ["--help"], { stdio: "ignore", timeout: BIN_PROBE_TIMEOUT_MS });
       cached = "turnout";
       return cached;
     } catch {

@@ -8,11 +8,10 @@ vi.mock("node:fs", () => ({
 
 vi.mock("node:child_process", () => ({
   execFileSync: vi.fn(),
-  execSync: vi.fn(),
 }));
 
 import { readFileSync } from "node:fs";
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import {
   loadTurnFile,
   loadJsonModel,
@@ -24,11 +23,17 @@ import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecFile = vi.mocked(execFileSync) as unknown as ReturnType<typeof vi.fn>;
-const mockExecSync = vi.mocked(execSync) as unknown as ReturnType<typeof vi.fn>;
 
 const minimalModel = {
   scenes: [{ id: "scene_a", entryActions: [], actions: [] }],
 } as unknown as TurnModel;
+
+/** Returns "" for the PATH probe ("--help") and modelJson for converter calls. */
+function setupPathAndConvert(modelJson = JSON.stringify(minimalModel)): void {
+  mockExecFile.mockImplementation((_bin: string, args: string[]) =>
+    args[0] === "--help" ? Buffer.from("") : Buffer.from(modelJson),
+  );
+}
 
 beforeEach(() => {
   vi.resetAllMocks();
@@ -107,46 +112,47 @@ describe("loadJsonModel", () => {
 
 describe("runConverter", () => {
   it("invokes the turnout binary and returns the parsed model", () => {
-    // execSync succeeds → binary is on PATH
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockReturnValue(Buffer.from(JSON.stringify(minimalModel)));
-
+    setupPathAndConvert();
     const result = runConverter("my.turn");
     expect(result.scenes[0].id).toBe("scene_a");
     expect(mockExecFile).toHaveBeenCalled();
   });
 
-  it("passes timeout and maxBuffer options to execFileSync", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockReturnValue(Buffer.from(JSON.stringify(minimalModel)));
-
+  it("passes timeout and maxBuffer options to the converter execFileSync call", () => {
+    setupPathAndConvert();
     runConverter("my.turn");
 
-    const opts = mockExecFile.mock.calls[0][2] as Record<string, unknown>;
+    // The converter call is the one whose args start with "convert"
+    const converterCall = mockExecFile.mock.calls.find(
+      (c: unknown[]) => (c[1] as string[])[0] === "convert",
+    );
+    const opts = converterCall![2] as Record<string, unknown>;
     expect(opts).toMatchObject({ timeout: expect.any(Number), maxBuffer: expect.any(Number) });
   });
 
-  it("passes timeout option to execSync PATH probe", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockReturnValue(Buffer.from(JSON.stringify(minimalModel)));
-
+  it("passes timeout option to the PATH probe execFileSync call", () => {
+    setupPathAndConvert();
     runConverter("my.turn");
 
-    const opts = mockExecSync.mock.calls[0][1] as Record<string, unknown>;
+    // The probe call is the one whose args start with "--help"
+    const probeCall = mockExecFile.mock.calls.find(
+      (c: unknown[]) => (c[1] as string[])[0] === "--help",
+    );
+    const opts = probeCall![2] as Record<string, unknown>;
     expect(opts).toMatchObject({ timeout: expect.any(Number) });
   });
 
   it("wraps converter failures with a descriptive message", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockImplementation(() => {
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") return Buffer.from("");
       throw new Error("exit code 1");
     });
     expect(() => runConverter("my.turn")).toThrow('turnout converter failed for "my.turn"');
   });
 
   it("wraps non-Error converter failures", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockImplementation(() => {
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") return Buffer.from("");
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw "raw string failure";
     });
@@ -154,8 +160,8 @@ describe("runConverter", () => {
   });
 
   it("throws BufferOverflow BridgeError when stdout exceeds maxBuffer", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockImplementation(() => {
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") return Buffer.from("");
       throw new RangeError("stdout maxBuffer length exceeded");
     });
     expect(() => runConverter("big.turn")).toThrow(
@@ -164,28 +170,33 @@ describe("runConverter", () => {
   });
 
   it("falls back to the built binary when turnout is not on PATH", () => {
-    // execSync throws → turnout not on PATH → falls back to built binary path
-    mockExecSync.mockImplementation(() => {
-      throw new Error("not found");
+    // PATH probe throws → turnout not on PATH → falls back to built binary path
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") throw new Error("not found");
+      return Buffer.from(JSON.stringify(minimalModel));
     });
-    mockExecFile.mockReturnValue(Buffer.from(JSON.stringify(minimalModel)));
 
     const result = runConverter("my.turn");
     expect(result.scenes).toHaveLength(1);
     // execFile should have been called with the fallback binary path (ends with /turnout)
-    const calledBin = mockExecFile.mock.calls[0][0] as string;
+    const converterCall = mockExecFile.mock.calls.find(
+      (c: unknown[]) => (c[1] as string[])[0] === "convert",
+    );
+    const calledBin = converterCall![0] as string;
     expect(calledBin).toMatch(/turnout$/);
   });
 
   it("memoizes the resolved binary path across calls", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockReturnValue(Buffer.from(JSON.stringify(minimalModel)));
+    setupPathAndConvert();
 
     runConverter("first.turn");
     runConverter("second.turn");
 
-    // PATH probe should only fire once even though we called runConverter twice.
-    expect(mockExecSync).toHaveBeenCalledTimes(1);
+    // PATH probe (args[0] === "--help") should fire exactly once across both calls.
+    const probeCalls = mockExecFile.mock.calls.filter(
+      (c: unknown[]) => (c[1] as string[])[0] === "--help",
+    );
+    expect(probeCalls).toHaveLength(1);
   });
 });
 
@@ -195,24 +206,24 @@ describe("runConverter", () => {
 
 describe("convertToHCL", () => {
   it("returns the HCL output as a string", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockReturnValue(Buffer.from("hcl content here"));
-
+    mockExecFile.mockImplementation((_bin: string, args: string[]) =>
+      args[0] === "--help" ? Buffer.from("") : Buffer.from("hcl content here"),
+    );
     const result = convertToHCL("my.turn");
     expect(result).toBe("hcl content here");
   });
 
   it("wraps converter failures with a descriptive message", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockImplementation(() => {
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") return Buffer.from("");
       throw new Error("converter error");
     });
     expect(() => convertToHCL("my.turn")).toThrow('turnout converter failed for "my.turn"');
   });
 
   it("wraps non-Error failures", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockImplementation(() => {
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") return Buffer.from("");
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw 42;
     });
@@ -220,8 +231,8 @@ describe("convertToHCL", () => {
   });
 
   it("throws BufferOverflow BridgeError when stdout exceeds maxBuffer", () => {
-    mockExecSync.mockReturnValue(Buffer.from(""));
-    mockExecFile.mockImplementation(() => {
+    mockExecFile.mockImplementation((_bin: string, args: string[]) => {
+      if ((args as string[])[0] === "--help") return Buffer.from("");
       throw new RangeError("stdout maxBuffer length exceeded");
     });
     expect(() => convertToHCL("big.turn")).toThrow(

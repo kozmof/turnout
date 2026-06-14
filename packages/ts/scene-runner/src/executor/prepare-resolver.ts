@@ -53,6 +53,14 @@ export async function resolveActionPrepare(
           `prepare hook "${hookName}" did not return field "${entry.binding}"`,
         );
       }
+      if (typeof val !== "object" || val === null || !("symbol" in val)) {
+        throw new PrepareError(
+          "InvalidHookValue",
+          actionId,
+          `prepare hook "${hookName}" returned a non-AnyValue for field "${entry.binding}": ` +
+            `expected a typed value (built with buildString/buildNumber/etc), got ${JSON.stringify(val)}`,
+        );
+      }
       result[entry.binding] = val;
     }
   }

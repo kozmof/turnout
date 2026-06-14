@@ -4,7 +4,7 @@ import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace } from "../types
 import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
 import { selectNextScene } from "./route-pattern.js";
 import { createSceneExecutor } from "./scene-executor.js";
-import { RouteRuntimeError } from "./errors.js";
+import { RouteRuntimeError, SceneRuntimeError } from "./errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -157,8 +157,10 @@ export function createRouteStepper(
       if (!sceneExecutor.isDone()) {
         const step = await sceneExecutor.next();
         if (step.done) {
-          throw new Error(
-            "RouteStepper: invariant violated — sceneExecutor.next() returned done=true after isDone()=false",
+          throw new SceneRuntimeError(
+            "CompilerBug",
+            session.currentSceneId,
+            "RouteStepper: sceneExecutor.next() returned done=true after isDone()=false — internal invariant violated",
           );
         }
 
@@ -200,7 +202,12 @@ export function createRouteStepper(
     next,
 
     result() {
-      if (!done) throw new Error("RouteStepper: execution is not complete");
+      if (!done)
+        throw new RouteRuntimeError(
+          "IncompleteExecution",
+          routeId,
+          "result() called before execution is complete — call next() until isDone()",
+        );
       return {
         finalState: currentState,
         trace: { routeId, scenes: session.getTraces() },

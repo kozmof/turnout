@@ -9,7 +9,8 @@ export type PrepareErrorCode =
   | "MissingStateBinding"
   | "UnregisteredHook"
   | "MissingHookField"
-  | "MissingActionBinding";
+  | "MissingActionBinding"
+  | "InvalidHookValue";
 
 export class PrepareError extends Error {
   readonly code: PrepareErrorCode;
@@ -120,7 +121,11 @@ export function isModelValidationError(err: unknown): err is ModelValidationErro
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RouteErrorCode = "UnknownScene" | "NoEntryAction" | "MaxRouteTransitionsExceeded";
+export type RouteErrorCode =
+  | "UnknownScene"
+  | "NoEntryAction"
+  | "MaxRouteTransitionsExceeded"
+  | "IncompleteExecution";
 
 export class RouteRuntimeError extends Error {
   readonly code: RouteErrorCode;

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { runHarness } from "../src/harness/harness.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
@@ -55,5 +55,24 @@ describe("runHarness — model without state schema", () => {
       initialState: { "custom.key": { type: "number", value: 42 } as any },
     });
     expect(finalState["custom.key"]).toBeDefined();
+  });
+});
+
+describe("runHarness — ExecutionOptions propagation", () => {
+  it("forwards onWarning when model has no state schema", async () => {
+    const model = { scenes: [minimalScene] } as unknown as TurnModel;
+    const onWarning = vi.fn();
+    await runHarness({ model, entryId: "scene_a", initialState: {}, onWarning });
+    expect(onWarning).toHaveBeenCalledOnce();
+    expect(onWarning.mock.calls[0]![0]).toContain("No STATE schema");
+  });
+
+  it("forwards signal — throws AbortError when signal is already aborted", async () => {
+    const model = { scenes: [minimalScene] } as unknown as TurnModel;
+    const controller = new AbortController();
+    controller.abort();
+    await expect(() =>
+      runHarness({ model, entryId: "scene_a", initialState: {}, signal: controller.signal }),
+    ).rejects.toMatchObject({ name: "AbortError" });
   });
 });

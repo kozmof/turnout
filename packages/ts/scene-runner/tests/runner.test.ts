@@ -256,7 +256,7 @@ describe("createRunner — AbortSignal cancellation", () => {
     await createRunner(hookModel, { entryId: "hs", initialState: {}, signal: controller.signal })
       .usePrepareHook("capture", (_ctx, sig) => {
         receivedSignal = sig;
-        return { x: 1 };
+        return { x: buildNumber(1) };
       })
       .run();
 

@@ -34,7 +34,7 @@ describe("createRouteStepper", () => {
     );
 
     expect(stepper.currentSceneId()).toBe("s1");
-    expect(() => stepper.result()).toThrow("RouteStepper: execution is not complete");
+    expect(() => stepper.result()).toThrow("result() called before execution is complete");
 
     const first = await stepper.next();
     expect(first).toMatchObject({ done: false, sceneId: "s1" });
