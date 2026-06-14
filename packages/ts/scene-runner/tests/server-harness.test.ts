@@ -29,6 +29,7 @@ describe("runServerHarness", () => {
       jsonFile: "model.json",
       entryId: "scene_a",
       initialState: {},
+      onWarning: () => {},
     });
 
     expect(mockLoadJsonModel).toHaveBeenCalledWith("model.json");
@@ -42,6 +43,7 @@ describe("runServerHarness", () => {
       turnFile: "my.turn",
       entryId: "scene_a",
       initialState: {},
+      onWarning: () => {},
     });
 
     expect(mockRunConverter).toHaveBeenCalledWith("my.turn");
@@ -56,6 +58,7 @@ describe("runServerHarness", () => {
       allowedBaseDir: "/workspace/models",
       entryId: "scene_a",
       initialState: {},
+      onWarning: () => {},
     });
 
     expect(mockLoadJsonModel).toHaveBeenCalledWith("/workspace/models/nested/model.json");
@@ -70,6 +73,7 @@ describe("runServerHarness", () => {
       allowedBaseDir: "/workspace/models",
       entryId: "scene_a",
       initialState: {},
+      onWarning: () => {},
     });
 
     expect(mockRunConverter).toHaveBeenCalledWith("/workspace/models/story.turn");

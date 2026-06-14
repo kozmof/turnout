@@ -16,7 +16,7 @@ describe("runHarness — error cases", () => {
       routes: [{ id: "empty_route", match: [] }],
     } as unknown as TurnModel;
     await expect(() =>
-      runHarness({ model, entryId: "empty_route", initialState: {} }),
+      runHarness({ model, entryId: "empty_route", initialState: {}, onWarning: () => {} }),
     ).rejects.toThrow('entry "empty_route" is a route but has no entry scene declared');
   });
 
@@ -25,7 +25,7 @@ describe("runHarness — error cases", () => {
       scenes: [minimalScene],
     } as unknown as TurnModel;
     await expect(() =>
-      runHarness({ model, entryId: "nonexistent", initialState: {} }),
+      runHarness({ model, entryId: "nonexistent", initialState: {}, onWarning: () => {} }),
     ).rejects.toThrow('entryId "nonexistent" not found as route or scene in the model');
   });
 });
@@ -74,7 +74,7 @@ describe("runHarness — ExecutionOptions propagation", () => {
     const controller = new AbortController();
     controller.abort();
     await expect(() =>
-      runHarness({ model, entryId: "scene_a", initialState: {}, signal: controller.signal }),
+      runHarness({ model, entryId: "scene_a", initialState: {}, signal: controller.signal, onWarning: () => {} }),
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 

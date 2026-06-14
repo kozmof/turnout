@@ -38,6 +38,7 @@ describe("createRunner — route execution limits", () => {
       entryId: "loop",
       initialState: {},
       maxRouteTransitions: 0,
+      onWarning: () => {},
     });
     await expect(() => runner.run()).rejects.toThrow("exceeded 0 scene transitions");
   });
@@ -54,7 +55,7 @@ describe("createRunner — route execution limits", () => {
       ],
     } as unknown as TurnModel;
 
-    const runner = createRunner(model, { entryId: "s", initialState: {}, maxSceneSteps: 1 });
+    const runner = createRunner(model, { entryId: "s", initialState: {}, maxSceneSteps: 1, onWarning: () => {} });
     await expect(() => runner.run()).rejects.toThrow("exceeded 1 action steps");
   });
 });
@@ -91,7 +92,7 @@ describe("createRunner — scene mode API", () => {
 
   it("supports hook registration, next batching, result, and partialState", async () => {
     const publish = vi.fn();
-    const runner = createRunner(model, { entryId: "scene_api", initialState: {} })
+    const runner = createRunner(model, { entryId: "scene_api", initialState: {}, onWarning: () => {} })
       .usePrepareHook("load_value", () => ({ v: buildNumber(4) }))
       .usePublishHook("notify", publish);
 
@@ -116,7 +117,7 @@ describe("createRunner — scene mode API", () => {
   });
 
   it("runAsync yields action steps and lets run finish an already completed runner", async () => {
-    const runner = createRunner(model, { entryId: "scene_api", initialState: {} }).usePrepareHook(
+    const runner = createRunner(model, { entryId: "scene_api", initialState: {}, onWarning: () => {} }).usePrepareHook(
       "load_value",
       () => ({ v: buildNumber(1) }),
     );
@@ -142,7 +143,7 @@ describe("createRunner — API misuse contracts", () => {
   } as unknown as TurnModel;
 
   it("throws a typed error when result is read before completion", () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {} });
+    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
 
     expect(() => runner.result()).toThrow(RunnerError);
     expect(() => runner.result()).toThrow("execution is not complete");
@@ -154,7 +155,7 @@ describe("createRunner — API misuse contracts", () => {
   });
 
   it("rejects invalid next step counts with a typed error", async () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {} });
+    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
 
     await expect(runner.next(0)).rejects.toMatchObject({
       name: "RunnerError",
@@ -167,7 +168,7 @@ describe("createRunner — API misuse contracts", () => {
   });
 
   it("rejects hook registration after next() starts execution", async () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {} });
+    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
 
     await runner.next();
 
@@ -176,7 +177,7 @@ describe("createRunner — API misuse contracts", () => {
   });
 
   it("rejects hook registration after runAsync() is created", () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {} });
+    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
 
     const iterator = runner.runAsync();
 
@@ -198,6 +199,7 @@ describe("createRunner — AbortSignal cancellation", () => {
       entryId: "sc",
       initialState: {},
       signal: controller.signal,
+      onWarning: () => {},
     });
     await expect(runner.run()).rejects.toMatchObject({ name: "AbortError" });
   });
@@ -218,6 +220,7 @@ describe("createRunner — AbortSignal cancellation", () => {
       entryId: "sc2",
       initialState: {},
       signal: controller.signal,
+      onWarning: () => {},
     });
 
     const first = await runner.next();
@@ -253,7 +256,7 @@ describe("createRunner — AbortSignal cancellation", () => {
       routes: [],
     } as unknown as TurnModel;
 
-    await createRunner(hookModel, { entryId: "hs", initialState: {}, signal: controller.signal })
+    await createRunner(hookModel, { entryId: "hs", initialState: {}, signal: controller.signal, onWarning: () => {} })
       .usePrepareHook("capture", (_ctx, sig) => {
         receivedSignal = sig;
         return { x: buildNumber(1) };
@@ -277,7 +280,7 @@ describe("createRunner — route mode API", () => {
   } as unknown as TurnModel;
 
   it("steps across route scenes and returns a route result", async () => {
-    const runner = createRunner(routeModel, { entryId: "route_api", initialState: {} });
+    const runner = createRunner(routeModel, { entryId: "route_api", initialState: {}, onWarning: () => {} });
 
     expect(() => runner.result()).toThrow("execution is not complete");
 
@@ -308,7 +311,7 @@ describe("createRunner — route mode API", () => {
   });
 
   it("runAsync yields scene-transition events between scenes", async () => {
-    const runner = createRunner(routeModel, { entryId: "route_api", initialState: {} });
+    const runner = createRunner(routeModel, { entryId: "route_api", initialState: {}, onWarning: () => {} });
     const yielded = [];
 
     for await (const step of runner.runAsync()) yielded.push(step);
