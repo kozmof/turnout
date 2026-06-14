@@ -9,6 +9,12 @@ else
   go_bin=go
 fi
 
+# When invoking the raw go binary directly (not via the /usr/local/bin/go shim),
+# GOCACHE is not injected by island(1). Set it explicitly so builds and tests
+# always use the writable workspace cache instead of ~/.cache/go-build, which
+# is Landlock-restricted in the sandbox.
+export GOCACHE="${GOCACHE:-/workspace/.go-cache}"
+
 cd packages/go/converter
 
 case "${1:-test}" in

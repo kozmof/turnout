@@ -5,7 +5,10 @@
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
     "build": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --project tsconfig.build.json) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --project tsconfig.build.json)",
     "typecheck": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --noEmit) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --noEmit)",
-    "test": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run) && sh scripts/go-test.sh test",
+    "test": "npm run test:ts && npm run test:go",
+    "test:ts": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run)",
+    "test:go": "sh scripts/go-test.sh test",
+    "test:e2e": "(cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run tests/e2e)",
     "lint": "(cd packages/ts/runtime && ./node_modules/.bin/oxlint src/) && (cd packages/ts/scene-runner && ./node_modules/.bin/oxlint src/)",
     "test:coverage": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run --coverage) && sh scripts/go-test.sh coverage"
   },

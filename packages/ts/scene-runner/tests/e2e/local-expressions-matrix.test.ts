@@ -39,6 +39,13 @@ beforeAll(() => {
     {
       cwd: converterDir,
       stdio: "pipe",
+      env: {
+        ...process.env,
+        // GOCACHE is not present in the environment when the go shim injects it
+        // via `island run -p go-workspace` — direct binary invocations fall back
+        // to ~/.cache/go-build, which is Landlock-restricted in the sandbox.
+        GOCACHE: process.env.GOCACHE ?? resolve(converterDir, "../../../.go-cache"),
+      },
     },
   );
   process.env.TURNOUT_BIN = turnoutBin;
