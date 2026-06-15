@@ -156,7 +156,6 @@ type lex struct {
 	diag.DiagSink
 }
 
-
 // pos snapshot for speculative scanning / backtracking
 type snapshot struct{ pos, line, col int }
 
