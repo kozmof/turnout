@@ -136,36 +136,35 @@ func ReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 	}
 }
 
-// OperandTypes returns (arg1Type, arg2Type) for fn given the binding's declared
-// type. Used by the lowerer to determine the expected types for infix operands
-// inside local expressions.
-//
-// Panics for unknown function names or unhandled FnKind values so that gaps are
-// caught at development time rather than silently returning wrong types.
-func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.FieldType) {
+// OperandTypes returns (arg1Type, arg2Type, true) for fn given the binding's
+// declared type. Returns (declaredType, declaredType, false) when fn is not a
+// known built-in; callers should emit a diagnostic and skip lowering.
+// Panics for unhandled FnKind values so that programmer gaps are caught at
+// development time when a new FnKind is added without updating this switch.
+func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.FieldType, bool) {
 	spec, ok := BuiltinFn(fn)
 	if !ok {
-		panic("fnmeta.OperandTypes: unknown function " + fn)
+		return declaredType, declaredType, false
 	}
 	switch spec.Kind {
 	case FnKindStandard:
 		// Derive directly from builtinFnTable — no separate encoding needed.
-		return spec.Arg1Type, spec.Arg2Type
+		return spec.Arg1Type, spec.Arg2Type, true
 	case FnKindGeneric:
 		// eq/neq: both operands must share the binding's declared type.
-		return declaredType, declaredType
+		return declaredType, declaredType, true
 	case FnKindArrGet:
 		// arg1 = array, arg2 = numeric index
-		return declaredType, ast.FieldTypeNumber
+		return declaredType, ast.FieldTypeNumber, true
 	case FnKindArrInc:
 		// arg1 = array, arg2 = element of that array's type
 		if et, ok := declaredType.TryElemType(); ok {
-			return declaredType, et
+			return declaredType, et, true
 		}
-		return declaredType, ast.FieldTypeInvalid
+		return declaredType, ast.FieldTypeInvalid, true
 	case FnKindArrConcat:
 		// both args must be the same array type
-		return declaredType, declaredType
+		return declaredType, declaredType, true
 	default:
 		panic(fmt.Sprintf("fnmeta.OperandTypes: unhandled FnKind %d — add a case when adding new FnKind values", spec.Kind))
 	}

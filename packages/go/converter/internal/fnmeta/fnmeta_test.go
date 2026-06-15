@@ -309,7 +309,10 @@ func TestOperandTypes(t *testing.T) {
 			case fnmeta.FnKindStandard:
 				// Standard functions: operand types must come from the table, not
 				// be hard-coded. Any discrepancy means OperandTypes is stale.
-				a1, a2 := fnmeta.OperandTypes(name, ast.FieldTypeNumber)
+				a1, a2, ok := fnmeta.OperandTypes(name, ast.FieldTypeNumber)
+				if !ok {
+					t.Fatalf("OperandTypes(%q): got ok=false for known function", name)
+				}
 				if a1 != spec.Arg1Type {
 					t.Errorf("arg1: got %v, want %v (from builtinFnTable)", a1, spec.Arg1Type)
 				}
@@ -319,14 +322,20 @@ func TestOperandTypes(t *testing.T) {
 
 			case fnmeta.FnKindGeneric:
 				// eq/neq: both args must equal declaredType.
-				a1, a2 := fnmeta.OperandTypes(name, ast.FieldTypeStr)
+				a1, a2, ok := fnmeta.OperandTypes(name, ast.FieldTypeStr)
+				if !ok {
+					t.Fatalf("OperandTypes(%q): got ok=false for known function", name)
+				}
 				if a1 != ast.FieldTypeStr || a2 != ast.FieldTypeStr {
 					t.Errorf("generic fn %q: want (str, str), got (%v, %v)", name, a1, a2)
 				}
 
 			case fnmeta.FnKindArrGet:
 				// arg1 = array, arg2 = number index
-				a1, a2 := fnmeta.OperandTypes(name, arrNum)
+				a1, a2, ok := fnmeta.OperandTypes(name, arrNum)
+				if !ok {
+					t.Fatalf("OperandTypes(%q): got ok=false for known function", name)
+				}
 				if a1 != arrNum {
 					t.Errorf("arr_get arg1: got %v, want %v", a1, arrNum)
 				}
@@ -336,7 +345,10 @@ func TestOperandTypes(t *testing.T) {
 
 			case fnmeta.FnKindArrInc:
 				// arg1 = array, arg2 = element type
-				a1, a2 := fnmeta.OperandTypes(name, arrNum)
+				a1, a2, ok := fnmeta.OperandTypes(name, arrNum)
+				if !ok {
+					t.Fatalf("OperandTypes(%q): got ok=false for known function", name)
+				}
 				if a1 != arrNum {
 					t.Errorf("arr_includes arg1: got %v, want %v", a1, arrNum)
 				}
@@ -346,7 +358,10 @@ func TestOperandTypes(t *testing.T) {
 
 			case fnmeta.FnKindArrConcat:
 				// both args = same array type
-				a1, a2 := fnmeta.OperandTypes(name, arrNum)
+				a1, a2, ok := fnmeta.OperandTypes(name, arrNum)
+				if !ok {
+					t.Fatalf("OperandTypes(%q): got ok=false for known function", name)
+				}
 				if a1 != arrNum || a2 != arrNum {
 					t.Errorf("arr_concat: want (%v, %v), got (%v, %v)", arrNum, arrNum, a1, a2)
 				}

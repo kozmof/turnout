@@ -149,7 +149,13 @@ export async function executeAction(
   for (const hookName of action.publish ?? []) {
     if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
     const hook = hooks.publish[hookName];
-    if (!hook) continue;
+    if (!hook)
+      throw new SceneRuntimeError(
+        "UnregisteredPublishHook",
+        sceneId,
+        `publish hook "${hookName}" is not registered`,
+        { actionId: action.id },
+      );
     const ctx: PublishHookContext = {
       actionId: action.id,
       hookName,

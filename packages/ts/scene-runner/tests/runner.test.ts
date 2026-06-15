@@ -117,10 +117,9 @@ describe("createRunner — scene mode API", () => {
   });
 
   it("runAsync yields action steps and lets run finish an already completed runner", async () => {
-    const runner = createRunner(model, { entryId: "scene_api", initialState: {}, onWarning: () => {} }).usePrepareHook(
-      "load_value",
-      () => ({ v: buildNumber(1) }),
-    );
+    const runner = createRunner(model, { entryId: "scene_api", initialState: {}, onWarning: () => {} })
+      .usePrepareHook("load_value", () => ({ v: buildNumber(1) }))
+      .usePublishHook("notify", async () => {});
 
     const yielded = [];
     for await (const step of runner.runAsync()) {

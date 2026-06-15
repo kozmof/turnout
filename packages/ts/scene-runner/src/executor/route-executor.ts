@@ -147,7 +147,7 @@ async function runRouteCore(
     if (nextSceneId === null) break; // No arm matched — route completes.
 
     routeTransitionCount++;
-    if (routeTransitionCount > maxRouteTransitions) {
+    if (routeTransitionCount >= maxRouteTransitions) {
       throw new RouteRuntimeError(
         "MaxRouteTransitionsExceeded",
         route.id,

@@ -49,7 +49,10 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 	case *ast.PipeCallRHS:
 		c.lowerPipeInto(c.target, c.targetType, r.Initial, r.Steps, pc)
 	default:
-		panic(fmt.Sprintf("lowerTop: unhandled BindingRHS type %T for binding %q — add a case to the type switch", rhs, c.target))
+		c.ds.Append(diag.Errorf(diag.CodeInternalError,
+			"binding %q has unhandled RHS type %T — this is a compiler bug; please report the source file", c.target, rhs))
+		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
+		return c.bindings
 	}
 	if len(c.bindings) == 0 {
 		c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
@@ -142,7 +145,9 @@ func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalE
 	case *ast.LocalPipeExpr:
 		c.lowerPipeInto(name, ft, x.Initial, x.Steps, pc)
 	default:
-		panic(fmt.Sprintf("lowerExprInto: unhandled LocalExpr type %T — add a case to the type switch", e))
+		c.ds.Append(diag.Errorf(diag.CodeInternalError,
+			"binding %q: unhandled LocalExpr type %T — this is a compiler bug; please report the source file", c.target, e))
+		c.emitValue(name, ft, zeroLiteralFor(ft))
 	}
 }
 
@@ -234,7 +239,14 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 
 func (c *localLowerer) lowerInfixInto(name string, ft ast.FieldType, infix *ast.LocalInfixExpr, pc pipeContext) {
 	fn := infix.Op.FnAliasForType(ft)
-	leftType, rightType := fnmeta.OperandTypes(fn, ft)
+	leftType, rightType, ok := fnmeta.OperandTypes(fn, ft)
+	if !ok {
+		c.ds.Append(diag.ErrorAt(infix.Pos.File, infix.Pos.Line, infix.Pos.Col,
+			diag.CodeInternalError,
+			"binding %q: infix operator maps to unknown function %q — this is a compiler bug; please report the source file", c.target, fn))
+		c.emitValue(name, ft, zeroLiteralFor(ft))
+		return
+	}
 	leftRef, _ := c.lowerExprTemp(infix.LHS, "lhs", leftType, pc)
 	rightRef, _ := c.lowerExprTemp(infix.RHS, "rhs", rightType, pc)
 	c.appendBinding(&turnoutpb.BindingModel{

@@ -32,7 +32,8 @@ export type SceneErrorCode =
   | "MaxStepsExceeded"
   | "UnknownFunction"
   | "DuplicateActionId"
-  | "UnknownArgModel";
+  | "UnknownArgModel"
+  | "UnregisteredPublishHook";
 
 /** Error codes that indicate a malformed model or internal invariant violation. */
 export type SceneInternalErrorCode =

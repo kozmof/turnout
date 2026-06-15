@@ -5,7 +5,6 @@
 package lower
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
@@ -153,7 +152,9 @@ func lowerStateBlock(src ast.StateSource, schema state.Schema, order []string, d
 			"lowerStateBlock: nil StateSource — this is a compiler bug; please report the source file"))
 		return nil
 	default:
-		panic(fmt.Sprintf("lowerStateBlock: unhandled StateSource type %T — this is a compiler bug", src))
+		ds.Append(diag.Errorf(diag.CodeInternalError,
+			"lowerStateBlock: unhandled StateSource type %T — this is a compiler bug; please report the source file", src))
+		return nil
 	}
 }
 
@@ -494,7 +495,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 			"binding %q has nil RHS — this is a compiler bug; please report the source file", name))
 		return nil
 	default:
-		panic(fmt.Sprintf("lowerBinding: unhandled RHS type %T for binding %q — this is a compiler bug", rhs, name))
+		ds.Append(diag.Errorf(diag.CodeInternalError,
+			"binding %q has unhandled RHS type %T — this is a compiler bug; please report the source file", name, rhs))
+		return nil
 	}
 
 	// Record sigil in proto for sigil bindings.
