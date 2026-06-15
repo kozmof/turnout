@@ -1,8 +1,10 @@
 package converter_test
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	converter "github.com/kozmof/turnout/packages/go/converter"
@@ -62,6 +64,31 @@ func TestCompile_success(t *testing.T) {
 	}
 	if result.Model().Scenes[0].Id != "start" {
 		t.Fatalf("expected scene id 'start', got %q", result.Model().Scenes[0].Id)
+	}
+}
+
+func TestValidatedModelModelReturnsClone(t *testing.T) {
+	result, ds := converter.CompileSource("inline.turn", simpleTurnSrc, "")
+	if ds.HasErrors() || result == nil {
+		t.Fatalf("CompileSource failed: result=%v diagnostics=%v", result, ds)
+	}
+
+	model := result.Model()
+	if model == nil || len(model.Scenes) == 0 {
+		t.Fatal("Model returned no scenes")
+	}
+	model.Scenes[0].Id = "mutated"
+
+	if result.Model().Scenes[0].Id != "start" {
+		t.Fatalf("mutating Model() result changed validated model: got %q", result.Model().Scenes[0].Id)
+	}
+
+	var buf bytes.Buffer
+	if emitDs := result.WriteJSON(&buf); emitDs.HasErrors() {
+		t.Fatalf("WriteJSON returned errors: %v", emitDs)
+	}
+	if strings.Contains(buf.String(), "mutated") {
+		t.Fatalf("WriteJSON used mutated inspection model: %s", buf.String())
 	}
 }
 

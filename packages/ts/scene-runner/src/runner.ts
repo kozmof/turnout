@@ -261,6 +261,16 @@ export function createSceneRunner(
 
   let done = false;
   let sceneStartEmitted = false;
+  let sceneCompleteEmitted = false;
+
+  function finishScene(): void {
+    done = true;
+    if (!sceneCompleteEmitted) {
+      sceneCompleteEmitted = true;
+      const res = sceneExecutor.result();
+      onLog?.({ kind: "scene-complete", sceneId: scene.id, terminatedAt: res.terminatedAt });
+    }
+  }
 
   async function advanceScene(): Promise<RunnerStepResult> {
     if (!sceneStartEmitted) {
@@ -268,25 +278,23 @@ export function createSceneRunner(
       onLog?.({ kind: "scene-start", sceneId: scene.id, entryActions: scene.entryActions });
     }
     if (sceneExecutor.isDone()) {
-      done = true;
-      const res = sceneExecutor.result();
-      onLog?.({ kind: "scene-complete", sceneId: scene.id, terminatedAt: res.terminatedAt });
+      finishScene();
       return { done: true };
     }
     const step = await sceneExecutor.next();
     if (step.done) {
-      done = true;
-      const res = sceneExecutor.result();
-      onLog?.({ kind: "scene-complete", sceneId: scene.id, terminatedAt: res.terminatedAt });
+      finishScene();
       return { done: true };
     }
-    return {
+    const result: RunnerStepResult = {
       done: false,
       kind: "action",
       sceneId: scene.id,
       actionId: step.trace.actionId,
       trace: step.trace,
     };
+    if (sceneExecutor.isDone()) finishScene();
+    return result;
   }
 
   return makeRunnerMethods(
@@ -368,7 +376,9 @@ export function createRouteRunner(
     // Return a deferred action step that was stashed while emitting a transition.
     if (advState.kind === "transition-emitted") {
       const { pendingAction } = advState;
-      advState = { kind: "advancing", prevSceneId: pendingAction.sceneId };
+      advState = routeStepper.isDone()
+        ? { kind: "done" }
+        : { kind: "advancing", prevSceneId: pendingAction.sceneId };
       return {
         done: false,
         kind: "action",
@@ -395,6 +405,7 @@ export function createRouteRunner(
       return { done: false, kind: "scene-transition", fromSceneId, toSceneId: step.sceneId };
     }
 
+    if (routeStepper.isDone()) advState = { kind: "done" };
     return {
       done: false,
       kind: "action",

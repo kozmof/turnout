@@ -102,7 +102,10 @@ func runConvert(args []string) int {
 	}()
 
 	code := runConvertToWriter(tmp, inputPath, basePath, *format)
-	tmp.Close()
+	if err := tmp.Close(); err != nil {
+		fmt.Fprintf(os.Stderr, "turnout: cannot close temporary output for %s: %v\n", outPath, err)
+		return 1
+	}
 	if code != 0 {
 		return code
 	}

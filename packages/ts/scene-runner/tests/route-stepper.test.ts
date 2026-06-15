@@ -42,8 +42,6 @@ describe("createRouteStepper", () => {
     const second = await stepper.next();
     expect(second).toMatchObject({ done: false, sceneId: "s2" });
     expect(stepper.currentSceneId()).toBe("s2");
-
-    expect(await stepper.next()).toEqual({ done: true });
     expect(stepper.isDone()).toBe(true);
     expect(stepper.result().trace.scenes.map((trace) => trace.sceneId)).toEqual(["s1", "s2"]);
   });
@@ -83,7 +81,6 @@ describe("createRouteStepper", () => {
     );
 
     await stepper.next();
-    await stepper.next();
 
     expect(stepper.partialState().read("route.value")).toMatchObject({
       symbol: "number",
@@ -113,7 +110,6 @@ describe("createRouteStepper", () => {
       { prepare: {}, publish: {} },
     );
 
-    await stepper.next();
     await expect(() => stepper.next()).rejects.toThrow('unknown scene "missing"');
   });
 
@@ -142,7 +138,6 @@ describe("createRouteStepper", () => {
       0,
     );
 
-    await stepper.next();
     await expect(() => stepper.next()).rejects.toThrow("exceeded 0 scene transitions");
   });
 });

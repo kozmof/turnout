@@ -1,6 +1,12 @@
 import type { SceneBlock } from "../types/turnout-model_pb.js";
 import type { StateManager } from "../state/state-manager.js";
-import type { HookRegistry, ActionTrace, SceneTrace, RouteTrace, LogEvent } from "../types/harness-types.js";
+import type {
+  HookRegistry,
+  ActionTrace,
+  SceneTrace,
+  RouteTrace,
+  LogEvent,
+} from "../types/harness-types.js";
 import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
 import { selectNextScene } from "./route-pattern.js";
 import { createSceneExecutor } from "./scene-executor.js";
@@ -153,50 +159,70 @@ export function createRouteStepper(
     signal,
     onLog,
   );
-  onLog?.({ kind: "scene-start", sceneId: initialScene.id, entryActions: [firstEntryAction(initialScene, routeId)] });
+  onLog?.({
+    kind: "scene-start",
+    sceneId: initialScene.id,
+    entryActions: [firstEntryAction(initialScene, routeId)],
+  });
+
+  function finishCurrentScene(): void {
+    const completedSceneId = session.currentSceneId;
+    const sceneResult = sceneExecutor.result();
+    onLog?.({
+      kind: "scene-complete",
+      sceneId: completedSceneId,
+      terminatedAt: sceneResult.terminatedAt,
+    });
+    currentState = sceneResult.stateAfterScene;
+    session.saveTrace(sceneResult.trace);
+
+    const nextSceneId = session.transition();
+    if (nextSceneId === null) {
+      done = true;
+      return;
+    }
+
+    const nextScene = sceneMap[nextSceneId];
+    if (!nextScene)
+      throw new RouteRuntimeError("UnknownScene", routeId, `unknown scene "${nextSceneId}"`);
+
+    sceneExecutor = createSceneExecutor(
+      nextScene,
+      currentState,
+      hooks,
+      [firstEntryAction(nextScene, routeId)],
+      maxSceneSteps,
+      signal,
+      onLog,
+    );
+    onLog?.({
+      kind: "scene-start",
+      sceneId: nextScene.id,
+      entryActions: [firstEntryAction(nextScene, routeId)],
+    });
+  }
 
   async function next(): Promise<RouteStepResult> {
     for (;;) {
       if (!sceneExecutor.isDone()) {
+        const actionSceneId = session.currentSceneId;
         const step = await sceneExecutor.next();
         if (step.done) {
           throw new SceneRuntimeError(
             "CompilerBug",
-            session.currentSceneId,
+            actionSceneId,
             "RouteStepper: sceneExecutor.next() returned done=true after isDone()=false — internal invariant violated",
           );
         }
 
         session.recordAction(step.trace.actionId);
-        return { done: false, sceneId: session.currentSceneId, trace: step.trace };
+        if (sceneExecutor.isDone()) finishCurrentScene();
+        return { done: false, sceneId: actionSceneId, trace: step.trace };
       }
 
-      // Scene exhausted — finalise and attempt transition.
-      const sceneResult = sceneExecutor.result();
-      onLog?.({ kind: "scene-complete", sceneId: session.currentSceneId, terminatedAt: sceneResult.terminatedAt });
-      currentState = sceneResult.stateAfterScene;
-      session.saveTrace(sceneResult.trace);
-
-      const nextSceneId = session.transition();
-      if (nextSceneId === null) {
-        done = true;
-        return { done: true };
-      }
-
-      const nextScene = sceneMap[nextSceneId];
-      if (!nextScene)
-        throw new RouteRuntimeError("UnknownScene", routeId, `unknown scene "${nextSceneId}"`);
-
-      sceneExecutor = createSceneExecutor(
-        nextScene,
-        currentState,
-        hooks,
-        [firstEntryAction(nextScene, routeId)],
-        maxSceneSteps,
-        signal,
-        onLog,
-      );
-      onLog?.({ kind: "scene-start", sceneId: nextScene.id, entryActions: [firstEntryAction(nextScene, routeId)] });
+      // Scene exhausted without a prior action return, e.g. an empty entry queue.
+      finishCurrentScene();
+      if (done) return { done: true };
     }
   }
 

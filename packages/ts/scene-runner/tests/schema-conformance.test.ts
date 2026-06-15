@@ -108,6 +108,7 @@ describe("validateModel", () => {
   it("returns no errors for a structurally valid model", () => {
     const model = {
       scenes: [makeScene("s1", [makeAction("a"), makeAction("b")])],
+      routes: [],
     } as unknown as TurnModel;
     expect(validateModel(model)).toHaveLength(0);
   });
@@ -120,6 +121,7 @@ describe("validateModel", () => {
   it("reports duplicate action IDs within a scene", () => {
     const model = {
       scenes: [makeScene("s1", [makeAction("a"), makeAction("a")])],
+      routes: [],
     } as unknown as TurnModel;
     const errors = validateModel(model);
     expect(errors).toHaveLength(1);
@@ -137,7 +139,10 @@ describe("validateModel", () => {
         prog: { name: "p", bindings: [{ name: "out", type: "bool" }] },
       },
     } as unknown as ActionModel;
-    const model = { scenes: [makeScene("s1", [action])] } as unknown as TurnModel;
+    const model = {
+      scenes: [makeScene("s1", [action, makeAction("b")])],
+      routes: [],
+    } as unknown as TurnModel;
     const errors = validateModel(model);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatch(/binding "out" has neither value nor expr/);
@@ -175,7 +180,7 @@ describe("validateModel", () => {
       id: "a",
       next: [
         {
-          action: "_done",
+          action: "b",
           compute: {
             condition: "no_such_binding",
             prog: {
@@ -191,18 +196,21 @@ describe("validateModel", () => {
       merge: [],
       publish: [],
     } as unknown as ActionModel;
-    const model = { scenes: [makeScene("s1", [action])] } as unknown as TurnModel;
+    const model = {
+      scenes: [makeScene("s1", [action, makeAction("b")])],
+      routes: [],
+    } as unknown as TurnModel;
     const errors = validateModel(model);
     expect(errors).toHaveLength(1);
     expect(errors[0]).toMatch(/condition "no_such_binding" is not declared in prog bindings/);
   });
 
-  it("accepts a next-rule whose condition is declared in its prog", () => {
+  it("accepts a next-rule whose condition and target are declared", () => {
     const action = {
       id: "a",
       next: [
         {
-          action: "_done",
+          action: "b",
           compute: {
             condition: "cond",
             prog: {
@@ -218,7 +226,78 @@ describe("validateModel", () => {
       merge: [],
       publish: [],
     } as unknown as ActionModel;
-    const model = { scenes: [makeScene("s1", [action])] } as unknown as TurnModel;
+    const model = {
+      scenes: [makeScene("s1", [action, makeAction("b")])],
+      routes: [],
+    } as unknown as TurnModel;
     expect(validateModel(model)).toHaveLength(0);
+  });
+
+  it("reports duplicate scene and route IDs plus route target errors", () => {
+    const model = {
+      scenes: [makeScene("s1", []), makeScene("s1", [])],
+      routes: [
+        { id: "r", entrySceneId: "missing", match: [{ patterns: ["_"], target: "also_missing" }] },
+        { id: "r", entrySceneId: "s1", match: [] },
+        { id: "s1", entrySceneId: "s1", match: [] },
+      ],
+    } as unknown as TurnModel;
+
+    const errors = validateModel(model);
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        'duplicate scene id "s1"',
+        'duplicate route id "r"',
+        'route "r" entry scene "missing" is not in the model',
+        'route "r" match target "also_missing" is not in the model',
+        'route id "s1" conflicts with a scene id',
+      ]),
+    );
+  });
+
+  it("reports action references that would otherwise fail during execution", () => {
+    const action = {
+      id: "a",
+      next: [{ action: "missing_next" }],
+      merge: [{ binding: "missing_merge", toState: "ns.value" }],
+      compute: {
+        root: "missing_root",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+    } as unknown as ActionModel;
+    const model = {
+      scenes: [{ id: "s", entryActions: ["missing_entry"], actions: [action] }],
+      routes: [],
+    } as unknown as TurnModel;
+
+    const errors = validateModel(model);
+    expect(errors).toEqual(
+      expect.arrayContaining([
+        'scene "s": entry action "missing_entry" is not declared',
+        'scene "s" action "a" compute: root "missing_root" is not declared in prog bindings',
+        'scene "s" action "a" merge: binding "missing_merge" is not declared in compute prog bindings',
+        'scene "s" action "a" next-rule: target action "missing_next" is not declared in the scene',
+      ]),
+    );
+  });
+
+  it("reports duplicate binding names", () => {
+    const action = {
+      id: "a",
+      compute: {
+        root: "out",
+        prog: {
+          name: "p",
+          bindings: [
+            { name: "out", type: "number", value: 1 },
+            { name: "out", type: "number", value: 2 },
+          ],
+        },
+      },
+    } as unknown as ActionModel;
+    const model = { scenes: [makeScene("s", [action])], routes: [] } as unknown as TurnModel;
+
+    const errors = validateModel(model);
+    expect(errors).toContain('scene "s" action "a" compute: duplicate binding "out"');
   });
 });

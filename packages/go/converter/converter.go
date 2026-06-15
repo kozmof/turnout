@@ -15,6 +15,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"github.com/kozmof/turnout/packages/go/converter/internal/state"
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
+	"google.golang.org/protobuf/proto"
 )
 
 // Diagnostic and Diagnostics are re-exported so callers do not need to import
@@ -43,8 +44,15 @@ type ValidatedModel struct {
 // after validate.Validate succeeds.
 func newValidatedModel(m *turnoutpb.TurnModel) ValidatedModel { return ValidatedModel{model: m} }
 
-// Model returns the underlying proto model for read-only inspection.
-func (vm ValidatedModel) Model() *turnoutpb.TurnModel { return vm.model }
+// Model returns a deep copy of the underlying proto model for inspection.
+// Mutating the returned model cannot affect this ValidatedModel's WriteHCL /
+// WriteJSON output or bypass the validation boundary.
+func (vm ValidatedModel) Model() *turnoutpb.TurnModel {
+	if vm.model == nil {
+		return nil
+	}
+	return proto.Clone(vm.model).(*turnoutpb.TurnModel)
+}
 
 // WriteHCL writes canonical HCL to w and returns any emit diagnostics.
 func (vm ValidatedModel) WriteHCL(w io.Writer) Diagnostics { return emit.Emit(w, vm.model) }

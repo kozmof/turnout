@@ -299,10 +299,6 @@ describe("createRunner — route mode API", () => {
           step.kind === "scene-transition" && step.fromSceneId === "s1" && step.toSceneId === "s2",
       ),
     ).toBe(true);
-    expect(runner.isDone()).toBe(false);
-
-    const done = await runner.next();
-    expect(done).toHaveLength(0);
     expect(runner.isDone()).toBe(true);
 
     const result = runner.result();

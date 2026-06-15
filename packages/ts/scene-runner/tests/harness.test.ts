@@ -17,7 +17,7 @@ describe("runHarness — error cases", () => {
     } as unknown as TurnModel;
     await expect(() =>
       runHarness({ model, entryId: "empty_route", initialState: {}, onWarning: () => {} }),
-    ).rejects.toThrow('entry "empty_route" is a route but has no entry scene declared');
+    ).rejects.toThrow('route "empty_route" has no entry scene declared');
   });
 
   it("throws when entryId matches neither a route nor a scene", async () => {
