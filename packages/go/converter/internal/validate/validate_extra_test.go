@@ -1864,6 +1864,152 @@ func TestCondTransformBranchTypeMismatch(t *testing.T) {
 	}
 }
 
+// ─── CrossPipeStepRef: step_ref in combine arg (not inside #pipe step) ───────
+
+// TestCrossPipeStepRefInCombineArg: a step_ref inside a CombineExpr arg is
+// only valid inside a PipeExpr step; using it in a plain combine emits
+// CodeCrossPipeStepRef.
+func TestCrossPipeStepRefInCombineArg(t *testing.T) {
+	stepRef := int32(0)
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "x", Type: "number", Value: structpb.NewNumberValue(1)},
+		{
+			Name: "out",
+			Type: "number",
+			Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+				Fn:   "add",
+				Args: []*turnoutpb.ArgModel{{StepRef: &stepRef}, {Ref: proto.String("x")}},
+			}},
+		},
+	})
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if !hasCode(ds, diag.CodeCrossPipeStepRef) {
+		t.Error("want CrossPipeStepRef for step_ref inside a CombineExpr (outside pipe)")
+	}
+}
+
+// ─── InvalidBinaryArgShape: over-arity in combine and pipe step ───────────────
+
+// TestOverArityBinaryFnCombine: a CombineExpr with 3 arguments should emit
+// CodeInvalidBinaryArgShape (not CodeArgTypeMismatch).
+func TestOverArityBinaryFnCombine(t *testing.T) {
+	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
+	out := &turnoutpb.BindingModel{
+		Name: "out",
+		Type: "number",
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn: "add",
+			Args: []*turnoutpb.ArgModel{
+				{Ref: proto.String("x")},
+				{Ref: proto.String("x")},
+				{Ref: proto.String("x")},
+			},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
+	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
+		t.Error("want InvalidBinaryArgShape for combine with 3 arguments")
+	}
+}
+
+// TestOverArityBinaryFnPipeStep: a PipeExpr step with 3 arguments should emit
+// CodeInvalidBinaryArgShape.
+func TestOverArityBinaryFnPipeStep(t *testing.T) {
+	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
+	out := &turnoutpb.BindingModel{
+		Name: "out",
+		Type: "number",
+		Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "a", SourceIdent: "x"}},
+			Steps: []*turnoutpb.PipeStep{{
+				Fn: "add",
+				Args: []*turnoutpb.ArgModel{
+					{Ref: proto.String("a")},
+					{Ref: proto.String("a")},
+					{Ref: proto.String("a")},
+				},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
+	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
+		t.Error("want InvalidBinaryArgShape for pipe step with 3 arguments")
+	}
+}
+
+// ─── InvalidBinaryArgShape in local ExtExpr path ─────────────────────────────
+
+// TestLocalCallUnderArityInIfBranch: an under-arity call inside a #if branch
+// takes the ExtExpr path (validateLocalCallArgTypes) and should emit
+// CodeInvalidBinaryArgShape.
+func TestLocalCallUnderArityInIfBranch(t *testing.T) {
+	src := min(`        x:number = 1
+        out:number = #if(true, max(x), x)
+`)
+	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
+		t.Error("want InvalidBinaryArgShape for under-arity call inside #if branch (ExtExpr path)")
+	}
+}
+
+// TestLocalCallOverArityInIfBranch: an over-arity call inside a #if branch
+// takes the ExtExpr path and should emit CodeInvalidBinaryArgShape.
+func TestLocalCallOverArityInIfBranch(t *testing.T) {
+	src := min(`        x:number = 1
+        out:number = #if(true, max(x, x, x), x)
+`)
+	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
+		t.Error("want InvalidBinaryArgShape for over-arity call inside #if branch (ExtExpr path)")
+	}
+}
+
+// ─── UnsupportedConstruct for range/map/filter/fold ──────────────────────────
+
+// TestUnsupportedFnRangeFlat: range() in flat DSL form emits UnsupportedConstruct
+// rather than UnknownFnAlias.
+func TestUnsupportedFnRangeFlat(t *testing.T) {
+	src := min(`        x:number = 1
+        out:number = range(x, x)
+`)
+	ds := pipeline(src)
+	if !hasCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for range() in flat combine form")
+	}
+	if hasCode(ds, diag.CodeUnknownFnAlias) {
+		t.Error("got UnknownFnAlias instead of UnsupportedConstruct for range()")
+	}
+}
+
+// TestUnsupportedFnMapLocal: map() inside a #if branch emits UnsupportedConstruct.
+func TestUnsupportedFnMapLocal(t *testing.T) {
+	src := min(`        x:number = 1
+        out:number = #if(true, map(x, x), x)
+`)
+	ds := pipeline(src)
+	if !hasCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for map() inside #if branch")
+	}
+}
+
+// TestUnsupportedFnFilterFlat: filter() in flat combine form emits UnsupportedConstruct.
+func TestUnsupportedFnFilterFlat(t *testing.T) {
+	src := min(`        x:number = 1
+        out:number = filter(x, x)
+`)
+	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for filter() in flat combine form")
+	}
+}
+
+// TestUnsupportedFnFoldLocal: fold() inside a #pipe step emits UnsupportedConstruct.
+func TestUnsupportedFnFoldLocal(t *testing.T) {
+	src := min(`        x:number = 1
+        out:number = #pipe(x, fold(#it, x))
+`)
+	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
+		t.Error("want UnsupportedConstruct for fold() inside #pipe step")
+	}
+}
+
 // TestCondStepRefBranch: a step_ref in the then or else branch of a cond is
 // not valid → expect CodeUnsupportedConstruct.
 func TestCondStepRefBranch(t *testing.T) {

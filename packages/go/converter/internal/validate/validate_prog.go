@@ -518,7 +518,10 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 as
 }
 
 func validateLocalCallArgTypes(bindingName, fn string, spec fnmeta.FnSpec, types []ast.FieldType, known []bool, ds *diag.DiagSink) {
-	if len(types) < 2 {
+	if len(types) != fnmeta.BinaryArity {
+		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
+			"binding %q: function %q requires exactly %d argument(s), got %d",
+			bindingName, fn, fnmeta.BinaryArity, len(types)))
 		return
 	}
 	validateBinaryArgTypePair(bindingName, fn, spec, types[0], known[0], types[1], known[1], ds)

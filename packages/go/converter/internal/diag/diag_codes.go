@@ -6,6 +6,7 @@ const (
 	CodeNamedArgNotSupported ErrorCode = "NamedArgNotSupported"
 	CodeEmitIOError          ErrorCode = "EmitIOError"
 	CodeIOError              ErrorCode = "IOError"
+	CodeParseSyntaxError     ErrorCode = "ParseSyntaxError"
 )
 
 // Error codes from hcl-context-spec.md

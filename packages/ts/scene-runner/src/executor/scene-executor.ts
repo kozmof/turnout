@@ -446,11 +446,12 @@ class RuleCtxCache {
       this.outer.set(prog, inner);
     }
     inner.set(key, value);
-    // Evict oldest inner entry (FIFO) when per-ProgModel cap is exceeded.
+    // Evict the oldest inner entry (FIFO) so the size drops back to the cap.
+    // The check fires after insertion, so size briefly reaches cap+1 before eviction.
     if (inner.size > MAX_RULE_CTX_CACHE_ENTRIES) {
       inner.delete(inner.keys().next().value!);
     }
-    // Evict oldest outer entry when distinct-ProgModel cap is exceeded.
+    // Evict the oldest outer entry when the distinct-ProgModel count exceeds the cap.
     if (this.outer.size > MAX_RULE_CTX_CACHE_PROGS) {
       this.outer.delete(this.outer.keys().next().value!);
     }

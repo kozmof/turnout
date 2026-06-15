@@ -660,6 +660,47 @@ func TestTupleCasePatternRejectedAtParse(t *testing.T) {
 	}
 }
 
+// ─── checkUnsupportedFn: range/map/filter/fold in flat and local forms ────────
+
+func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
+	// range() in flat FuncCallRHS form → CodeUnsupportedConstruct from lowerFuncCallRHS
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = out
+      prog "p" {
+        x:number = 1
+        out:number = range(x, x)
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Errorf("want CodeUnsupportedConstruct from lowerer for range() flat form, got %v", ds)
+	}
+	if hasLowerDiagCode(ds, diag.CodeUnknownFnAlias) {
+		t.Errorf("got CodeUnknownFnAlias instead of UnsupportedConstruct for range()")
+	}
+}
+
+func TestLowerUnsupportedFnMapLocal(t *testing.T) {
+	// map() inside a #if branch → CodeUnsupportedConstruct from lowerCallInto
+	src := minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute {
+      root = out
+      prog "p" {
+        x:number = 1
+        out:number = #if(true, map(x, x), x)
+      }
+    }
+  }`)
+	ds := lowerWithErrors(t, src)
+	if !hasLowerDiagCode(ds, diag.CodeUnsupportedConstruct) {
+		t.Errorf("want CodeUnsupportedConstruct from lowerer for map() in local expr, got %v", ds)
+	}
+}
+
 func hasLowerDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	for _, d := range ds {
 		if d.Code == code {

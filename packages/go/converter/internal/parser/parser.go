@@ -93,7 +93,7 @@ func (p *parser) errorf(t lexer.Token, format string, args ...any) {
 		return
 	}
 	p.Append(diag.ErrorAt(p.file, t.Line, t.Col,
-		"ParseSyntaxError", "%s", fmt.Sprintf(format, args...)))
+		diag.CodeParseSyntaxError, "%s", fmt.Sprintf(format, args...)))
 }
 
 // expect consumes the next token if its kind matches, otherwise records an

@@ -255,17 +255,17 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] No duplicate binding names within `prog` (`DuplicateBinding`)
 - [x] No user binding name starts with `__` (`ReservedName`)
 - [x] Function alias in built-in table (`UnknownFnAlias`)
-- [ ] Operator-only functions not used in call form (`OperatorOnlyFn`): `bool_and`, `gte`, `lte`, `str_concat`
+- [x] Operator-only functions not used in call form (`OperatorOnlyFn`): `bool_and`, `gte`, `lte`, `str_concat`
 - [x] Bare identifier references resolve to declared binding (`UndefinedRef`)
 - [x] `func_ref` / `then` / `else` reference function bindings (`UndefinedFuncRef`)
-- [ ] Binary call args are `(x,y)` or `(a:x,b:y)` (`InvalidBinaryArgShape`)
+- [x] Binary call args are `(x,y)` or `(a:x,b:y)` (`InvalidBinaryArgShape`)
 - [x] Infix: valid operator, valid type pairing (`InvalidInfixExpr`)
 - [x] Arg types match function param types (`ArgTypeMismatch`)
 - [x] Return type matches declared binding type (`ReturnTypeMismatch`)
 - [x] Condition binding resolves to `bool` (`CondNotBool`)
 - [x] `then`/`else` return types match (`BranchTypeMismatch`)
 - [x] `step_ref = N` is within bounds (`StepRefOutOfBounds`)
-- [ ] `step_ref` does not cross pipe boundary (`CrossPipeStepRef`)
+- [x] `step_ref` does not cross pipe boundary (`CrossPipeStepRef`)
 - [x] Pipe param source is a value binding (`PipeArgNotValue`)
 - [x] Single-ref form: referenced binding type matches declared type (`SingleRefTypeMismatch`)
 
@@ -302,7 +302,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 
 ### Phase 2 guard
 
-- [ ] Reject `range`, `map`, `filter`, `fold` constructs with `UnsupportedConstruct`; abort immediately
+- [x] Reject `range`, `map`, `filter`, `fold` constructs with `UnsupportedConstruct`; abort immediately
 
 ---
 

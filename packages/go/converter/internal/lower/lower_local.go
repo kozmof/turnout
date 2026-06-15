@@ -195,6 +195,12 @@ func (c *localLowerer) lowerLocalArgModel(arg ast.LocalExpr, argIdx int, binding
 }
 
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr, pc pipeContext) {
+	// Planned-but-unsupported constructs get a targeted error before the generic
+	// unknown-fn check so the message is clearly actionable.
+	if checkUnsupportedFn(c.target, call.FnAlias, call.Pos, c.ds) {
+		c.emitValue(name, ft, zeroLiteralFor(ft))
+		return
+	}
 	// Unknown function: emit a diagnostic immediately so the error is pinned to
 	// the call site rather than surfacing as cascading type-mismatch errors
 	// elsewhere. This mirrors the early exit pattern used by checkOperatorOnly.

@@ -29,6 +29,31 @@ func checkOperatorOnly(bindingName, fnAlias string, pos ast.Pos, ds *diag.DiagSi
 	return true
 }
 
+// unsupportedFnAliases is the set of function aliases that are reserved for a
+// future DSL version but not yet implemented. They produce CodeUnsupportedConstruct
+// rather than CodeUnknownFnAlias so the error message is clearly actionable.
+// Both lowerFuncCallRHS and localLowerer.lowerCallInto call checkUnsupportedFn.
+var unsupportedFnAliases = map[string]bool{
+	"range":  true,
+	"map":    true,
+	"filter": true,
+	"fold":   true,
+}
+
+// checkUnsupportedFn appends a CodeUnsupportedConstruct diagnostic and returns
+// true when fnAlias is a planned but not-yet-implemented function. Callers must
+// return or emit a zero-value binding when this returns true.
+func checkUnsupportedFn(bindingName, fnAlias string, pos ast.Pos, ds *diag.DiagSink) bool {
+	if !unsupportedFnAliases[fnAlias] {
+		return false
+	}
+	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
+		diag.CodeUnsupportedConstruct,
+		"binding %q: %q is not yet supported; array higher-order functions (range, map, filter, fold) are planned for a future DSL version",
+		bindingName, fnAlias))
+	return true
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // RHS-specific lowering functions
 // ─────────────────────────────────────────────────────────────────────────────
@@ -90,6 +115,9 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *tu
 }
 
 func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos ast.Pos, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
+	if checkUnsupportedFn(name, rhs.FnAlias, pos, ds) {
+		return nil
+	}
 	if checkOperatorOnly(name, rhs.FnAlias, pos, ds) {
 		return nil
 	}

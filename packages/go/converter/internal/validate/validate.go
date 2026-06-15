@@ -429,6 +429,10 @@ func validateArgRefs(bindingName string, arg *turnoutpb.ArgModel, scope map[stri
 				bindingName, *arg.FuncRef))
 		}
 	}
+	if arg.StepRef != nil {
+		ds.Append(diag.Errorf(diag.CodeCrossPipeStepRef,
+			"binding %q: step_ref is only valid inside a pipe step", bindingName))
+	}
 }
 
 // resolveExpectedReturn infers the return FieldType for a pipe step given the
@@ -524,15 +528,9 @@ func validateBinaryCall(
 // checkArity reports diagnostics when argCount != fnmeta.BinaryArity.
 // Returns true when arity is correct and the caller may proceed to type checks.
 func checkArity(contextLabel, fn string, argCount int, ds *diag.DiagSink) bool {
-	if argCount > fnmeta.BinaryArity {
-		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-			"%s: function %q accepts at most %d argument(s), got %d",
-			contextLabel, fn, fnmeta.BinaryArity, argCount))
-		return false
-	}
-	if argCount < fnmeta.BinaryArity {
+	if argCount != fnmeta.BinaryArity {
 		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
-			"%s: function %q requires %d argument(s), got %d",
+			"%s: function %q requires exactly %d argument(s), got %d",
 			contextLabel, fn, fnmeta.BinaryArity, argCount))
 		return false
 	}
