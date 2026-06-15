@@ -50,7 +50,15 @@ export type BridgeOptions = {
 
 function assertPathInside(filePath: string, baseDir: string): void {
   const absolutePath = resolvePath(filePath);
-  const base = realpathSync(resolvePath(baseDir));
+  let base: string;
+  try {
+    base = realpathSync(resolvePath(baseDir));
+  } catch {
+    throw new HarnessError(
+      "PathOutsideBase",
+      `safeBaseDir "${baseDir}" does not exist or is not accessible`,
+    );
+  }
   let resolved: string;
   try {
     resolved = realpathSync(absolutePath);
@@ -110,6 +118,15 @@ export function loadTurnFile(filePath: string, options?: BridgeOptions): string 
 
 // Cached as a Promise so concurrent callers all await the same discovery run.
 let cachedBin: Promise<string> | undefined;
+
+/**
+ * Reset the memoized binary discovery cache. Intended for tests that change
+ * `TURNOUT_BIN` or `options.binPath` between runs and need a fresh lookup.
+ * Not needed in production — the cache is valid for the lifetime of the process.
+ */
+export function resetBinCache(): void {
+  cachedBin = undefined;
+}
 
 async function discoverBin(): Promise<string> {
   if (process.env.TURNOUT_BIN) {

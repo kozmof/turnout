@@ -244,6 +244,14 @@ export function createSceneRunner(
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+  if (initialState === undefined) {
+    options.onWarning?.(
+      "[turnout] No STATE schema — using unchecked StateManager. " +
+        "All merge writes succeed regardless of path; typo'd paths silently read as null " +
+        "on subsequent steps. An 'unchecked_state_write' ActionWarning is emitted in the " +
+        "trace for each action that writes to state.",
+    );
+  }
 
   checkSceneForExtExpr(scene);
 
@@ -343,6 +351,14 @@ export function createRouteRunner(
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+  if (initialState === undefined) {
+    options.onWarning?.(
+      "[turnout] No STATE schema — using unchecked StateManager. " +
+        "All merge writes succeed regardless of path; typo'd paths silently read as null " +
+        "on subsequent steps. An 'unchecked_state_write' ActionWarning is emitted in the " +
+        "trace for each action that writes to state.",
+    );
+  }
 
   checkSceneForExtExpr(entryScene);
   for (const s of Object.values(sceneMap)) checkSceneForExtExpr(s);
