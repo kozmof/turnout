@@ -459,18 +459,23 @@ class RuleCtxCache {
 }
 
 function makePreparedKey(prepared: Record<string, AnyValue>): string | null {
-  try {
-    const parts: string[] = [];
-    // Object.keys() returns keys in insertion order (the proto's NextPrepareEntry
-    // declaration order, which is stable and deterministic). No sort needed.
-    for (const k of Object.keys(prepared)) {
-      const v = prepared[k];
-      parts.push(`${k}\x00${v?.symbol ?? "null"}\x00${JSON.stringify(v?.value ?? null)}`);
+  const parts: string[] = [];
+  // Object.keys() returns keys in insertion order (the proto's NextPrepareEntry
+  // declaration order, which is stable and deterministic). No sort needed.
+  for (const k of Object.keys(prepared)) {
+    const v = prepared[k];
+    let serialized: string;
+    try {
+      serialized = JSON.stringify(v?.value ?? null);
+    } catch {
+      // AnyValue.value should always be JSON-serializable (number, string,
+      // boolean, or array). If serialization fails for a given entry, bypass
+      // the cache so stale entries are never reused.
+      return null;
     }
-    return parts.join("\x1f");
-  } catch {
-    return null;
+    parts.push(`${k}\x00${v?.symbol ?? "null"}\x00${serialized}`);
   }
+  return parts.join("\x1f");
 }
 
 /**
