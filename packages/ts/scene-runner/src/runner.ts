@@ -499,7 +499,7 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
   if (!migratedModel.state) {
-    (options.onWarning ?? console.warn)(
+    options.onWarning?.(
       "[turnout] No STATE schema in model — using unchecked StateManager. " +
         "All merge writes succeed regardless of path; typo'd paths silently read as null " +
         "on subsequent steps. An 'unchecked_state_write' ActionWarning is emitted in the " +

@@ -97,7 +97,7 @@ export type ExecutionOptions = {
   signal?: AbortSignal;
   /**
    * Optional callback invoked for non-fatal runner warnings (e.g. missing STATE schema).
-   * Defaults to `console.warn`. Pass `() => {}` to suppress all warnings.
+   * No-op when absent. Wire to your own logger to surface these warnings.
    */
   onWarning?: (msg: string) => void;
   /**

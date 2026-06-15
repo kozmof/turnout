@@ -90,7 +90,7 @@ func validateRoutePattern(routeID string, armIdx int, pat string, knownActions m
 	if wildcardCount == 1 {
 		terminal := parts[len(parts)-1]
 		if !allKnownActions[terminal] {
-			ds.Append(diag.WarnAt("", 0, 0, diag.CodeWildcardTerminalUnresolvable,
+			ds.Append(diag.Warnf(diag.CodeWildcardTerminalUnresolvable,
 				"route %q arm %d: pattern %q terminal action %q does not match any known action ID across all scenes (possible typo)",
 				routeID, armIdx, pat, terminal))
 		}

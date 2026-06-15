@@ -6,10 +6,22 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 
 	converter "github.com/kozmof/turnout/packages/go/converter"
 )
+
+// buildVersion returns the module version embedded by `go install` or `go build`,
+// falling back to "dev" for local builds that have no VCS or module version info.
+func buildVersion() string {
+	if info, ok := debug.ReadBuildInfo(); ok {
+		if v := info.Main.Version; v != "" && v != "(devel)" {
+			return "turnout " + v
+		}
+	}
+	return "turnout dev"
+}
 
 func main() {
 	if len(os.Args) < 2 {
@@ -21,6 +33,9 @@ func main() {
 		os.Exit(safeRun(func() int { return runConvert(os.Args[2:]) }))
 	case "validate":
 		os.Exit(safeRun(func() int { return runValidate(os.Args[2:]) }))
+	case "version", "--version", "-version":
+		fmt.Println(buildVersion())
+		os.Exit(0)
 	default:
 		fmt.Fprintf(os.Stderr, "turnout: unknown command %q\n", os.Args[1])
 		printUsage()
@@ -46,6 +61,7 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
 	fmt.Fprintln(os.Stderr, "  turnout convert  <input.turn> [-o output.hcl] [-state-file path] [-format hcl|json]")
 	fmt.Fprintln(os.Stderr, "  turnout validate <input.turn> [-state-file path]")
+	fmt.Fprintln(os.Stderr, "  turnout version")
 }
 
 func runConvert(args []string) int {
