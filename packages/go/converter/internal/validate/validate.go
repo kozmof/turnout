@@ -148,10 +148,12 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 	case ast.FieldTypeInvalid:
 		return false
 	default:
-		// Unknown FieldType (e.g. from a future proto addition): conservatively
-		// report no match, which surfaces as a type-mismatch diagnostic rather
-		// than a crash. Internal invariants that require a known type are caught
-		// by the parser long before this point.
+		// Unknown FieldType value not covered by the explicit cases above. This is
+		// only reachable if a new FieldType constant was added to ast.go without
+		// updating this function. Conservatively reporting no match surfaces a
+		// type-mismatch diagnostic rather than panicking, mirroring the behaviour
+		// callers expect when the schema is extended. Internal invariants that
+		// require a known type are caught by the parser long before this point.
 		return false
 	}
 }

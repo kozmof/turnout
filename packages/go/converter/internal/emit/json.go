@@ -22,14 +22,17 @@ const (
 )
 
 // EmitJSON marshals a validated proto model directly to indented JSON.
-// ext_expr fields and annotations are stripped before marshalling — ext_expr is
-// only used by the HCL emitter, and annotations are validator-only metadata;
-// neither should appear in runtime output.
+// Before marshalling, stripNonRuntimeFields clones the model and removes fields
+// that are only meaningful to the compiler, not the runtime:
+//   - ext_expr on each binding (HCL-emission representation; runtime uses expr)
+//   - source_pos on each binding (diagnostics only)
+//   - sigils on each prog (ingress/egress direction; resolved into prepare/merge entries)
+//   - annotations on the model (validator-only metadata)
 func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 	if tm == nil {
 		tm = &turnoutpb.TurnModel{}
 	}
-	tm = stripExtExpr(tm)
+	tm = stripNonRuntimeFields(tm)
 	tm.Version    = jsonModelVersion
 	tm.MinVersion = jsonMinVersion
 	tm.MaxVersion = jsonMaxVersion
@@ -48,24 +51,28 @@ func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 	return nil
 }
 
-// stripExtExpr returns a deep-cloned TurnModel with all BindingModel.ExtExpr
-// fields and the Annotations field set to nil. The runtime ignores ext_expr
-// (only the HCL emitter uses it) and Annotations are validator-only metadata.
-func stripExtExpr(tm *turnoutpb.TurnModel) *turnoutpb.TurnModel {
+// stripNonRuntimeFields returns a deep-cloned TurnModel with all compiler-only
+// fields removed. Specifically:
+//   - Annotations: validator-only metadata, never consumed by the runtime
+//   - Per-binding ExtExpr: HCL re-emission form; the runtime uses Expr
+//   - Per-binding SourcePos: file/line/col for diagnostics; unused at runtime
+//   - Per-prog Sigils: ingress/egress direction annotations resolved into
+//     prepare/merge entries during compilation; the runtime reads those instead
+func stripNonRuntimeFields(tm *turnoutpb.TurnModel) *turnoutpb.TurnModel {
 	clone := proto.Clone(tm).(*turnoutpb.TurnModel)
 	clone.Annotations = nil
 	for _, scene := range clone.Scenes {
 		for _, action := range scene.Actions {
-			stripProgExtExpr(action.GetCompute().GetProg())
+			stripProgNonRuntimeFields(action.GetCompute().GetProg())
 			for _, nr := range action.Next {
-				stripProgExtExpr(nr.GetCompute().GetProg())
+				stripProgNonRuntimeFields(nr.GetCompute().GetProg())
 			}
 		}
 	}
 	return clone
 }
 
-func stripProgExtExpr(prog *turnoutpb.ProgModel) {
+func stripProgNonRuntimeFields(prog *turnoutpb.ProgModel) {
 	if prog == nil {
 		return
 	}

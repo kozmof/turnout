@@ -505,10 +505,11 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 as
 				"binding %q: arr_concat args must have same array type, got %s and %s", bindingName, t1, t2))
 		}
 	default:
-		// FnKindStandard: operand types are statically declared in the spec.
-		// StaticArgTypes returns (Invalid, Invalid, false) for any unrecognised
-		// future FnKind, causing the checks below to be skipped rather than
-		// silently comparing against FieldTypeInvalid.
+		// Handles FnKindStandard (operand types statically declared in the spec)
+		// and any unrecognised FnKind added in future. StaticArgTypes returns
+		// (Invalid, Invalid, false) for all non-Standard kinds, so the checks
+		// below are skipped for unknown kinds rather than silently comparing
+		// against FieldTypeInvalid.
 		a1, a2, staticOK := spec.StaticArgTypes()
 		if staticOK {
 			if ok1 && t1 != a1 {
