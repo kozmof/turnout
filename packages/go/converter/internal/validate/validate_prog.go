@@ -205,11 +205,17 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 
 		if b.Value != nil {
 			if !structpbMatchesFieldType(b.Value, ft) {
+				// NonIntegerValue fires when a non-numeric literal is assigned to a :number
+				// binding; all other type mismatches use the generic TypeMismatch code.
+				code := diag.CodeTypeMismatch
+				if ft == ast.FieldTypeNumber {
+					code = diag.CodeNonIntegerValue
+				}
 				if pos.File != "" {
-					ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTypeMismatch,
+					ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, code,
 						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
 				} else {
-					ds.Append(diag.Errorf(diag.CodeTypeMismatch,
+					ds.Append(diag.Errorf(code,
 						"binding %q: literal value does not match declared type %s", b.Name, b.Type))
 				}
 			}

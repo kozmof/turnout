@@ -226,6 +226,8 @@ func stateFileParseCode(pd diag.Diagnostic) diag.ErrorCode {
 	switch pd.Code {
 	case diag.CodeMissingStateBlock:
 		return diag.CodeMissingStateBlock
+	case diag.CodeInvalidStateFieldType:
+		return diag.CodeInvalidStateFieldType
 	default:
 		return diag.CodeStateFileParseError
 	}

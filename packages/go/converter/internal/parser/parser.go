@@ -84,6 +84,12 @@ func (p *parser) posOf(t lexer.Token) ast.Pos {
 
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
+	p.errorWithCode(t, diag.CodeParseSyntaxError, format, args...)
+}
+
+// errorWithCode appends a diagnostic with a caller-supplied error code.
+// Shares the same halt/cap logic as errorf.
+func (p *parser) errorWithCode(t lexer.Token, code diag.ErrorCode, format string, args ...any) {
 	if p.IsHalted() {
 		return
 	}
@@ -93,7 +99,7 @@ func (p *parser) errorf(t lexer.Token, format string, args ...any) {
 		return
 	}
 	p.Append(diag.ErrorAt(p.file, t.Line, t.Col,
-		diag.CodeParseSyntaxError, "%s", fmt.Sprintf(format, args...)))
+		code, "%s", fmt.Sprintf(format, args...)))
 }
 
 // expect consumes the next token if its kind matches, otherwise records an

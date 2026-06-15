@@ -109,8 +109,8 @@ func TestValidateNoErrorsOnValid(t *testing.T) {
 func TestTypeMismatch(t *testing.T) {
 	src := min(`        n:number = "oops"
 `)
-	if !hasCode(pipeline(src), diag.CodeTypeMismatch) {
-		t.Error("want TypeMismatch")
+	if !hasCode(pipeline(src), diag.CodeNonIntegerValue) {
+		t.Error("want NonIntegerValue")
 	}
 }
 

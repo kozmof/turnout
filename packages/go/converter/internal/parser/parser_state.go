@@ -4,28 +4,32 @@ import (
 	"strconv"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
 // ─── parseFieldType ──────────────────────────────────────────────────────────
 
 // parseFieldType consumes a type token (TokIdent for scalar types, TokType for
-// arr<T>) and returns the corresponding FieldType.
-func (p *parser) parseFieldType() (ast.FieldType, bool) {
+// arr<T>) and returns the corresponding FieldType. typeErrCode is used when the
+// token is syntactically a type position but the value is not a recognised type
+// string — pass CodeInvalidStateFieldType for state field declarations and
+// CodeParseSyntaxError for binding declarations.
+func (p *parser) parseFieldType(typeErrCode diag.ErrorCode) (ast.FieldType, bool) {
 	t := p.peek()
 	switch t.Kind {
 	case lexer.TokType:
 		p.advance()
 		ft, ok := ast.FieldTypeFromString(t.Value)
 		if !ok {
-			p.errorf(t, "unknown array type %q", t.Value)
+			p.errorWithCode(t, typeErrCode, "unknown array type %q", t.Value)
 			return 0, false
 		}
 		return ft, true
 	case lexer.TokIdent:
 		ft, ok := ast.FieldTypeFromString(t.Value)
 		if !ok {
-			p.errorf(t, "unknown type %q; expected number, str, bool, or arr<T>", t.Value)
+			p.errorWithCode(t, typeErrCode, "unknown type %q; expected number, str, bool, or arr<T>", t.Value)
 			return 0, false
 		}
 		p.advance()
@@ -148,7 +152,7 @@ func (p *parser) parseFieldDecl() *ast.FieldDecl {
 	nameTok := p.advance() // ident
 	pos := p.posOf(nameTok)
 	p.expect(lexer.TokColon)
-	ft, _ := p.parseFieldType()
+	ft, _ := p.parseFieldType(diag.CodeInvalidStateFieldType)
 	p.expect(lexer.TokEquals)
 	lit := p.parseLiteral()
 	return &ast.FieldDecl{Pos: pos, Name: nameTok.Value, Type: ft, Default: lit}

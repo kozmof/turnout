@@ -208,7 +208,7 @@ func (l *lex) errorf(line, col int, format string, args ...any) {
 		l.Halt()
 		return
 	}
-	l.Append(diag.ErrorAt(l.file, line, col, "LexError", format, args...))
+	l.Append(diag.ErrorAt(l.file, line, col, diag.CodeLexError, format, args...))
 }
 
 // ────────────────────────────────────────────────────────────

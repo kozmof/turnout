@@ -42,7 +42,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	}
 
 	p.expect(lexer.TokColon)
-	ft, ok := p.parseFieldType()
+	ft, ok := p.parseFieldType(diag.CodeParseSyntaxError)
 	if !ok {
 		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilEgress, lexer.TokSigilIngress)
 		return nil

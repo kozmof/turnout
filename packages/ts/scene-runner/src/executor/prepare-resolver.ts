@@ -5,6 +5,7 @@ import type { StateReader } from "../state/state-manager.js";
 import { literalToValue, protoValueToJs } from "../state/state-manager.js";
 import type { HookRegistry, PrepareHookContext } from "../types/harness-types.js";
 import type { ActionExecutionResult } from "./types.js";
+import { UNABORTABLE } from "./types.js";
 import { PrepareError } from "./errors.js";
 
 /**
@@ -52,7 +53,7 @@ export async function resolveActionPrepare(
   state: StateReader,
   hooks: HookRegistry,
   actionId: string,
-  signal: AbortSignal = new AbortController().signal,
+  signal: AbortSignal = UNABORTABLE,
 ): Promise<Record<string, AnyValue>> {
   const result: Record<string, AnyValue> = {};
   const hookCache: Record<string, Record<string, AnyValue>> = {};

@@ -7,6 +7,7 @@ const (
 	CodeEmitIOError          ErrorCode = "EmitIOError"
 	CodeIOError              ErrorCode = "IOError"
 	CodeParseSyntaxError     ErrorCode = "ParseSyntaxError"
+	CodeLexError             ErrorCode = "LexError"
 )
 
 // Error codes from hcl-context-spec.md
