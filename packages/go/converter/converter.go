@@ -70,7 +70,8 @@ type CompileResult struct {
 //
 // Returns (nil, errors) when any stage produces errors. On success returns
 // (*CompileResult, nil); non-fatal diagnostics are in CompileResult.Warnings.
-func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
+func Compile(inputPath, stateBasePath string) (result *CompileResult, ds Diagnostics) {
+	defer recoverInternalPanic(&result, &ds)
 	src, err := os.ReadFile(inputPath)
 	if err != nil {
 		return nil, Diagnostics{diag.Errorf(diag.CodeIOError, "cannot read %s: %v", inputPath, err)}
@@ -82,7 +83,8 @@ func Compile(inputPath, stateBasePath string) (*CompileResult, Diagnostics) {
 // source string. name is used for error messages and to derive the default
 // stateBasePath (via filepath.Dir(name)); pass a non-empty stateBasePath to
 // override it. Unlike Compile, no file I/O is performed.
-func CompileSource(name, src, stateBasePath string) (*CompileResult, Diagnostics) {
+func CompileSource(name, src, stateBasePath string) (result *CompileResult, ds Diagnostics) {
+	defer recoverInternalPanic(&result, &ds)
 	return compileBytes(name, []byte(src), stateBasePath)
 }
 
@@ -95,7 +97,8 @@ func CompileSource(name, src, stateBasePath string) (*CompileResult, Diagnostics
 // Returns (nil, errors) when parse or lower fails. On success the returned
 // *LowerResult contains Model and Schema; non-fatal diagnostics (e.g. unused
 // bindings surfaced by the lowerer) are not included since validation is skipped.
-func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics) {
+func CompileToModel(name, src, stateBasePath string) (result *LowerResult, ds Diagnostics) {
+	defer recoverInternalPanic(&result, &ds)
 	base := stateBasePath
 	if base == "" {
 		base = filepath.Dir(name)
@@ -118,7 +121,8 @@ func CompileToModel(name, src, stateBasePath string) (*LowerResult, Diagnostics)
 // paying the state_file I/O cost each time.
 //
 // name and stateBasePath follow the same conventions as CompileSource.
-func ResolveSchema(name, src, stateBasePath string) (Schema, []string, Diagnostics) {
+func ResolveSchema(name, src, stateBasePath string) (schema Schema, order []string, ds Diagnostics) {
+	defer recoverSchemaPanic(&schema, &order, &ds)
 	base := stateBasePath
 	if base == "" {
 		base = filepath.Dir(name)
@@ -140,7 +144,8 @@ func ResolveSchema(name, src, stateBasePath string) (Schema, []string, Diagnosti
 // STATE block in src; passing a stale or mismatched schema yields incorrect
 // lowering without an error. To detect staleness, compare schema.Hash() against
 // a fresh ResolveSchema call: a changed hash means the state source has changed.
-func CompileToModelWithSchema(name, src string, schema Schema, order []string) (*LowerResult, Diagnostics) {
+func CompileToModelWithSchema(name, src string, schema Schema, order []string) (result *LowerResult, ds Diagnostics) {
+	defer recoverInternalPanic(&result, &ds)
 	turnFile, ds1 := parser.ParseFile(name, src)
 	if ds1.HasErrors() {
 		return nil, ds1
@@ -165,7 +170,8 @@ func CompileToModelWithSchema(name, src string, schema Schema, order []string) (
 // Together with ResolveSchema this enables the full LSP incremental path:
 // resolve the schema once on file open, then call CompileWithSchema on every
 // keystroke without re-reading state_file from disk.
-func CompileWithSchema(name, src string, schema Schema, order []string) (*CompileResult, Diagnostics) {
+func CompileWithSchema(name, src string, schema Schema, order []string) (result *CompileResult, ds Diagnostics) {
+	defer recoverInternalPanic(&result, &ds)
 	turnFile, ds1 := parser.ParseFile(name, src)
 	if ds1.HasErrors() {
 		return nil, ds1
@@ -205,6 +211,7 @@ func CompileWithSchema(name, src string, schema Schema, order []string) (*Compil
 // STATE block in src; the same caveats as CompileWithSchema apply. To detect
 // staleness, compare schema.Hash() against a fresh ResolveSchema call.
 func ValidateWithSchema(name, src string, schema Schema, order []string) (warnings Diagnostics, errors Diagnostics) {
+	defer recoverValidatePanic(&warnings, &errors)
 	var accumulated Diagnostics
 	var ok bool
 
@@ -266,4 +273,32 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 		Schema:         lr.Schema,
 		Warnings:       accumulated,
 	}, nil
+}
+
+func internalPanicDiagnostics(r any) Diagnostics {
+	return Diagnostics{diag.Errorf(diag.CodeInternalError,
+		"converter internal error (please report this bug): %v", r)}
+}
+
+func recoverInternalPanic[T any](result *T, ds *Diagnostics) {
+	if r := recover(); r != nil {
+		var zero T
+		*result = zero
+		*ds = internalPanicDiagnostics(r)
+	}
+}
+
+func recoverSchemaPanic(schema *Schema, order *[]string, ds *Diagnostics) {
+	if r := recover(); r != nil {
+		*schema = Schema{}
+		*order = nil
+		*ds = internalPanicDiagnostics(r)
+	}
+}
+
+func recoverValidatePanic(warnings *Diagnostics, errors *Diagnostics) {
+	if r := recover(); r != nil {
+		*warnings = nil
+		*errors = internalPanicDiagnostics(r)
+	}
 }

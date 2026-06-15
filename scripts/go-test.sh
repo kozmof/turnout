@@ -31,9 +31,20 @@ case "${1:-test}" in
     "$go_bin" test ./...
     ;;
   coverage)
-    "$go_bin" test ./...
-    "$go_bin" test -coverprofile=/tmp/turnout-converter.coverage.out ./internal/lexer ./internal/state
-    "$go_bin" tool cover -func=/tmp/turnout-converter.coverage.out
+    packages=$(GOFLAGS=-buildvcs=false "$go_bin" list ./... | grep -Ev '/internal/emit/turnoutpb$|/internal/names$|/internal/overview$')
+    profile=${GO_COVERAGE_PROFILE:-/tmp/turnout-converter.coverage.out}
+    threshold=${GO_COVERAGE_THRESHOLD:-75.0}
+
+    GOFLAGS=-buildvcs=false "$go_bin" test -coverprofile="$profile" $packages
+    "$go_bin" tool cover -func="$profile"
+
+    total=$("$go_bin" tool cover -func="$profile" | awk '/^total:/ { sub(/%/, "", $3); print $3 }')
+    awk -v total="$total" -v threshold="$threshold" 'BEGIN {
+      if (total + 0 < threshold + 0) {
+        printf "Go coverage %.1f%% is below threshold %.1f%%\n", total, threshold > "/dev/stderr"
+        exit 1
+      }
+    }'
     ;;
   *)
     echo "usage: sh scripts/go-test.sh [test|coverage]" >&2
