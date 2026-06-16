@@ -13,15 +13,38 @@ export { protoValueToJs, literalToValue } from "./state-proto.js";
 export { matchesSchemaType } from "./schema-types.js";
 export { assertSafePath } from "./state-validation.js";
 
+function cloneValue<T>(value: T): T {
+  if (value === null || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return Object.freeze(value.map((item) => cloneValue(item))) as T;
+  }
+
+  const next: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    next[key] = cloneValue(nested);
+  }
+  return Object.freeze(next) as T;
+}
+
+function cloneState(state: Record<string, AnyValue>): Record<string, AnyValue> {
+  const next: Record<string, AnyValue> = {};
+  for (const [path, value] of Object.entries(state)) {
+    next[path] = cloneValue(value);
+  }
+  return next;
+}
+
 function make(
   state: Record<string, AnyValue>,
   validPaths: ReadonlySet<string> | null,
   typeMap: ReadonlyMap<string, string> | null = null,
 ): StateManager {
+  const frozenState = Object.freeze(cloneState(state));
   return {
     read: (path) => {
       assertKnownPath(path, validPaths);
-      return state[path] ?? buildNull("missing");
+      const value = frozenState[path];
+      return value === undefined ? cloneValue(buildNull("missing")) : cloneValue(value);
     },
     isDeclared: (path) => {
       assertSafePath(path);
@@ -30,24 +53,24 @@ function make(
     },
     exists: (path) => {
       assertSafePath(path);
-      return Object.prototype.hasOwnProperty.call(state, path);
+      return Object.prototype.hasOwnProperty.call(frozenState, path);
     },
     write: (path, value) => {
       assertValidWrite(path, value, validPaths, typeMap);
-      return make({ ...state, [path]: value }, validPaths, typeMap);
+      return make({ ...frozenState, [path]: value }, validPaths, typeMap);
     },
     writeBatch: (batch) => {
-      const newState = { ...state };
+      const newState = { ...frozenState };
       for (const [path, value] of Object.entries(batch)) {
         assertValidWrite(path, value, validPaths, typeMap);
         newState[path] = value;
       }
       return make(newState, validPaths, typeMap);
     },
-    snapshot: () => ({ ...state }),
+    snapshot: () => Object.freeze(cloneState(frozenState)),
     forEach: (cb) => {
-      for (const [path, value] of Object.entries(state)) {
-        cb(path, value as AnyValue);
+      for (const [path, value] of Object.entries(frozenState)) {
+        cb(path, cloneValue(value));
       }
     },
     validPaths: () => validPaths,
@@ -55,7 +78,8 @@ function make(
     readOrUndefined: (path) => {
       assertSafePath(path);
       if (validPaths !== null && !validPaths.has(path)) return undefined;
-      return state[path];
+      const value = frozenState[path];
+      return value === undefined ? undefined : cloneValue(value);
     },
   };
 }

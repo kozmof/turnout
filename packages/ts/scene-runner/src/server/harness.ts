@@ -66,9 +66,17 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
   }
 
   if (options.turnFile) {
-    model = await runConverter(resolveHarnessPath(options.turnFile, options.allowedBaseDir));
+    const turnPath = resolveHarnessPath(options.turnFile, options.allowedBaseDir);
+    model =
+      options.allowedBaseDir === undefined
+        ? await runConverter(turnPath)
+        : await runConverter(turnPath, { safeBaseDir: options.allowedBaseDir });
   } else if (options.jsonFile) {
-    model = loadJsonModel(resolveHarnessPath(options.jsonFile, options.allowedBaseDir));
+    const jsonPath = resolveHarnessPath(options.jsonFile, options.allowedBaseDir);
+    model =
+      options.allowedBaseDir === undefined
+        ? loadJsonModel(jsonPath)
+        : loadJsonModel(jsonPath, { safeBaseDir: options.allowedBaseDir });
   } else {
     throw new HarnessError(
       "MissingEntryPoint",

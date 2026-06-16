@@ -20,6 +20,7 @@ import {
   isPureNull,
   isArray,
 } from "runtime";
+import type { AnyValue } from "runtime";
 import type { StateModel } from "../src/types/turnout-model_pb.js";
 
 describe("StateManager", () => {
@@ -54,6 +55,47 @@ describe("StateManager", () => {
     expect(Object.keys(snap)).toHaveLength(2);
     expect(isPureNumber(snap["a.x"]) && snap["a.x"].value).toBe(7);
     expect(isPureString(snap["b.y"]) && snap["b.y"].value).toBe("hi");
+  });
+
+  it("does not retain caller-owned value references", () => {
+    const source = buildArray([buildNumber(1)]);
+    const sm = stateManagerFromUnchecked({ "a.items": source });
+
+    source.value[0] = buildNumber(99);
+
+    const stored = sm.read("a.items");
+    expect(isArray(stored)).toBe(true);
+    if (isArray(stored)) {
+      const first = stored.value[0];
+      expect(isPureNumber(first) && first.value).toBe(1);
+    }
+  });
+
+  it("returns defensive value copies from read and snapshot", () => {
+    const sm = stateManagerFromUnchecked({ "a.items": buildArray([buildNumber(1)]) });
+
+    const readValue = sm.read("a.items");
+    expect(isArray(readValue)).toBe(true);
+    if (isArray(readValue)) {
+      expect(() => {
+        readValue.value[0] = buildNumber(99);
+      }).toThrow(TypeError);
+    }
+
+    const snapValue = sm.snapshot()["a.items"];
+    expect(isArray(snapValue)).toBe(true);
+    if (isArray(snapValue)) {
+      expect(() => {
+        snapValue.value[0] = buildNumber(42);
+      }).toThrow(TypeError);
+    }
+
+    const stored = sm.read("a.items");
+    expect(isArray(stored)).toBe(true);
+    if (isArray(stored)) {
+      const first = stored.value[0] as AnyValue | undefined;
+      expect(first !== undefined && isPureNumber(first) && first.value).toBe(1);
+    }
   });
 
   describe("fromSchema", () => {

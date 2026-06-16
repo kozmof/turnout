@@ -61,7 +61,9 @@ describe("runServerHarness", () => {
       onWarning: () => {},
     });
 
-    expect(mockLoadJsonModel).toHaveBeenCalledWith("/workspace/models/nested/model.json");
+    expect(mockLoadJsonModel).toHaveBeenCalledWith("/workspace/models/nested/model.json", {
+      safeBaseDir: "/workspace/models",
+    });
     expect(result.trace.kind).toBe("scene");
   });
 
@@ -76,7 +78,9 @@ describe("runServerHarness", () => {
       onWarning: () => {},
     });
 
-    expect(mockRunConverter).toHaveBeenCalledWith("/workspace/models/story.turn");
+    expect(mockRunConverter).toHaveBeenCalledWith("/workspace/models/story.turn", {
+      safeBaseDir: "/workspace/models",
+    });
     expect(result.trace.kind).toBe("scene");
   });
 

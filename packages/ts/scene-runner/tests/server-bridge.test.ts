@@ -145,14 +145,14 @@ describe("runConverter", () => {
     expect(opts).toMatchObject({ timeout: expect.any(Number), maxBuffer: expect.any(Number) });
   });
 
-  it("wraps converter failures with a descriptive message", async () => {
+  it("wraps converter failures with stderr diagnostics", async () => {
     mockExecFile.mockImplementation(
       (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
-        cb(new Error("exit code 1"), Buffer.from(""), Buffer.from(""));
+        cb(new Error("exit code 1"), Buffer.from(""), Buffer.from("line 1: parse error"));
       },
     );
     await expect(runConverter("my.turn", { binPath: MOCK_BIN })).rejects.toThrow(
-      'turnout converter failed for "my.turn"',
+      'turnout converter failed for "my.turn": exit code 1: line 1: parse error',
     );
   });
 

@@ -79,6 +79,41 @@ function assertPathInside(filePath: string, baseDir: string): void {
 
 type ExecResult = { stdout: Buffer; stderr: Buffer };
 
+class ExecFileFailure extends Error {
+  readonly cause: unknown;
+  readonly stdout: Buffer;
+  readonly stderr: Buffer;
+
+  constructor(cause: unknown, stdout: Buffer, stderr: Buffer) {
+    const message = cause instanceof Error ? cause.message : String(cause);
+    super(message);
+    this.name = "ExecFileFailure";
+    this.cause = cause;
+    this.stdout = stdout;
+    this.stderr = stderr;
+  }
+}
+
+const MAX_ERROR_OUTPUT_CHARS = 8_192;
+
+function isBufferOverflow(err: unknown): boolean {
+  return err instanceof RangeError || (err instanceof ExecFileFailure && err.cause instanceof RangeError);
+}
+
+function formatExecFailure(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (!(err instanceof ExecFileFailure)) return message;
+
+  const stderr = err.stderr.toString("utf8").trim();
+  if (stderr.length === 0) return message;
+
+  const clipped =
+    stderr.length > MAX_ERROR_OUTPUT_CHARS
+      ? `${stderr.slice(0, MAX_ERROR_OUTPUT_CHARS)}... [stderr truncated]`
+      : stderr;
+  return `${message}: ${clipped}`;
+}
+
 function execFileAsync(
   bin: string,
   args: string[],
@@ -86,7 +121,7 @@ function execFileAsync(
 ): Promise<ExecResult> {
   return new Promise((resolve, reject) => {
     execFile(bin, args, { ...options, encoding: "buffer" }, (err, stdout, stderr) => {
-      if (err) reject(err);
+      if (err) reject(new ExecFileFailure(err, stdout as Buffer, stderr as Buffer));
       else resolve({ stdout: stdout as Buffer, stderr: stderr as Buffer });
     });
   });
@@ -183,14 +218,14 @@ export async function runConverter(
       { timeout: CONVERT_TIMEOUT_MS, maxBuffer: CONVERT_MAX_BUFFER },
     ));
   } catch (err: unknown) {
-    if (err instanceof RangeError) {
+    if (isBufferOverflow(err)) {
       throw new BridgeError(
         "BufferOverflow",
         turnFilePath,
         `converter output too large for "${turnFilePath}": increase CONVERT_MAX_BUFFER`,
       );
     }
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = formatExecFailure(err);
     throw new BridgeError(
       "ConverterFailed",
       turnFilePath,
@@ -221,14 +256,14 @@ export async function convertToHCL(
       { timeout: CONVERT_TIMEOUT_MS, maxBuffer: CONVERT_MAX_BUFFER },
     ));
   } catch (err: unknown) {
-    if (err instanceof RangeError) {
+    if (isBufferOverflow(err)) {
       throw new BridgeError(
         "BufferOverflow",
         turnFilePath,
         `converter output too large for "${turnFilePath}": increase CONVERT_MAX_BUFFER`,
       );
     }
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = formatExecFailure(err);
     throw new BridgeError(
       "ConverterFailed",
       turnFilePath,
