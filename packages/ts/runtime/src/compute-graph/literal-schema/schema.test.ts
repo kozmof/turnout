@@ -88,6 +88,66 @@ describe("literal-schema", () => {
     const baseValue = { symbol: "number", subSymbol: undefined, value: 5, tags: [] };
     const baseFuncInterface = { name: "x", type: "value", value: baseValue };
 
+    it("validates typed AnyValue payloads recursively", () => {
+      const validFunc = {
+        name: "binaryFnArray::concat",
+        type: "combine",
+        transformFn: {
+          a: { name: "transformFnArray::pass" },
+          b: { name: "transformFnArray::pass" },
+        },
+        args: {
+          a: {
+            name: "a",
+            type: "value",
+            value: {
+              symbol: "array",
+              subSymbol: "number",
+              value: [baseValue],
+              tags: ["source"],
+            },
+          },
+          b: {
+            name: "b",
+            type: "value",
+            value: { symbol: "array", subSymbol: undefined, value: [], tags: [] },
+          },
+        },
+      };
+      expect(safeParse(combineFuncSchema, validFunc).success).toBe(true);
+    });
+
+    it("rejects invalid AnyValue payloads", () => {
+      const makeFunc = (value: unknown) => ({
+        name: "binaryFnNumber::add",
+        type: "combine",
+        transformFn: {
+          a: { name: "transformFnNumber::pass" },
+          b: { name: "transformFnNumber::pass" },
+        },
+        args: { a: { name: "x", type: "value", value }, b: baseFuncInterface },
+      });
+
+      expect(
+        safeParse(
+          combineFuncSchema,
+          makeFunc({ symbol: "number", subSymbol: undefined, value: "5", tags: [] }),
+        ).success,
+      ).toBe(false);
+      expect(
+        safeParse(
+          combineFuncSchema,
+          makeFunc({ symbol: "null", subSymbol: "bogus", value: null, tags: [] }),
+        ).success,
+      ).toBe(false);
+      expect(
+        safeParse(
+          combineFuncSchema,
+          makeFunc({ symbol: "array", subSymbol: undefined, value: ["raw"], tags: [] }),
+        ).success,
+      ).toBe(false);
+    });
+
     it("validates a valid CombineFunc", () => {
       const validFunc = {
         name: "binaryFnNumber::add",

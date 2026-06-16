@@ -928,3 +928,37 @@ describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
     expect(result.trace.actions.map((a) => a.actionId)).toContain("branch_b");
   });
 });
+
+describe("executeScene convenience options", () => {
+  const scene = {
+    id: "options_scene",
+    entryActions: ["only_action"],
+    actions: [makePassAction("only_action", 7, "out.val")],
+  } as unknown as SceneBlock;
+
+  it("throws AbortError when called with a pre-aborted signal", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      executeScene(scene, stateManagerFromUnchecked({}), undefined, undefined, undefined, {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("forwards structured logs through executeSceneSafe", async () => {
+    const events: string[] = [];
+    const result = await executeSceneSafe(
+      scene,
+      stateManagerFromUnchecked({}),
+      undefined,
+      undefined,
+      undefined,
+      { onLog: (event) => events.push(event.kind) },
+    );
+
+    expect(result.ok).toBe(true);
+    expect(events).toEqual(["action-start", "warning", "action-complete"]);
+  });
+});

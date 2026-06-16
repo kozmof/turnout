@@ -27,7 +27,11 @@ export {
 } from "./state/state-manager.js";
 export type { StateManager, StateReader } from "./state/state-manager.js";
 export { executeSceneSafe } from "./executor/scene-executor.js";
-export type { SceneResult, SceneExecutionResult } from "./executor/scene-executor.js";
+export type {
+  SceneResult,
+  SceneExecutionResult,
+  SceneExecutionOptions,
+} from "./executor/scene-executor.js";
 export {
   isSceneRuntimeError,
   isRunnerError,
@@ -47,4 +51,3 @@ export type {
 } from "./executor/errors.js";
 export { executeRouteSafe } from "./executor/route-executor.js";
 export type { RouteResult, RouteWarning, RouteExecutionResult } from "./executor/route-executor.js";
-

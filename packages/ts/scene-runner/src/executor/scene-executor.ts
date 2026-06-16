@@ -33,6 +33,11 @@ export type SceneExecutionResult = {
 
 export type StepResult = { done: false; trace: ActionTrace } | { done: true };
 
+export type SceneExecutionOptions = {
+  signal?: AbortSignal | undefined;
+  onLog?: ((event: LogEvent) => void) | undefined;
+};
+
 /**
  * Discriminated union returned by `executeSceneSafe`. Callers that prefer
  * throwing semantics should use `executeScene` instead.
@@ -239,6 +244,7 @@ export function createSceneExecutor(
 
   async function next(): Promise<StepResult> {
     if (rs.queueHead >= rs.queue.length) return { done: true };
+    if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
 
     // Peek the next action id before the maxSteps guard so currentActionId() is
     // accurate when MaxStepsExceeded is thrown — callers need it for error reporting.
@@ -359,8 +365,17 @@ export async function executeScene(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps?: number,
+  options: SceneExecutionOptions = {},
 ): Promise<SceneExecutionResult> {
-  const executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
+  const executor = createSceneExecutor(
+    scene,
+    state,
+    hooks,
+    entryActions,
+    maxSteps,
+    options.signal,
+    options.onLog,
+  );
   while (!executor.isDone()) await executor.next();
   return executor.result();
 }
@@ -376,10 +391,19 @@ export async function executeSceneSafe(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps?: number,
+  options: SceneExecutionOptions = {},
 ): Promise<SceneResult> {
   let executor: SceneExecutor | null = null;
   try {
-    executor = createSceneExecutor(scene, state, hooks, entryActions, maxSteps);
+    executor = createSceneExecutor(
+      scene,
+      state,
+      hooks,
+      entryActions,
+      maxSteps,
+      options.signal,
+      options.onLog,
+    );
     while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };
   } catch (err) {
@@ -408,12 +432,9 @@ function buildActionMap(actions: ActionModel[], sceneId: string): Record<string,
   const map: Record<string, ActionModel> = {};
   for (const a of actions) {
     if (map[a.id] !== undefined) {
-      throw new SceneRuntimeError(
-        "DuplicateActionId",
-        sceneId,
-        `duplicate action id "${a.id}"`,
-        { actionId: a.id },
-      );
+      throw new SceneRuntimeError("DuplicateActionId", sceneId, `duplicate action id "${a.id}"`, {
+        actionId: a.id,
+      });
     }
     map[a.id] = a;
   }

@@ -1,7 +1,7 @@
 import type { AnyValue } from "runtime";
 import type { RouteModel, SceneBlock } from "../types/turnout-model_pb.js";
 import type { StateManager } from "../state/state-manager.js";
-import type { HookRegistry, RouteTrace, SceneWarning } from "../types/harness-types.js";
+import type { HookRegistry, LogEvent, RouteTrace, SceneWarning } from "../types/harness-types.js";
 import { executeScene } from "./scene-executor.js";
 import { selectNextScene, parseMatchArms } from "./route-pattern.js";
 import type { HistoryEntry } from "./route-pattern.js";
@@ -16,6 +16,10 @@ export type RouteExecutionOptions = {
   maxSceneSteps?: number;
   /** Maximum scene transitions before aborting a route. Defaults to 1,000. */
   maxRouteTransitions?: number;
+  /** Optional cancellation signal forwarded to each scene execution and hook. */
+  signal?: AbortSignal | undefined;
+  /** Optional structured execution log callback forwarded to each scene execution. */
+  onLog?: ((event: LogEvent) => void) | undefined;
 };
 
 const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
@@ -118,6 +122,7 @@ async function runRouteCore(
       hooks,
       [routeEntry],
       options.maxSceneSteps,
+      { signal: options.signal, onLog: options.onLog },
     );
     // Commit state and record scene id only after a scene fully completes —
     // partial states stay at the last successfully committed scene boundary.

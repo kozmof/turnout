@@ -564,3 +564,59 @@ describe("executeRouteSafe — scene warnings propagated as route warnings", () 
     }
   });
 });
+
+describe("executeRoute convenience options", () => {
+  const scene = makeScene("only_scene", makePassAction("step", 7, "out.v"));
+  const route = { id: "r_options", match: [] } as unknown as RouteModel;
+
+  it("forwards AbortSignal into scene execution", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      executeRoute(
+        route,
+        makeSceneMap(scene),
+        "only_scene",
+        stateManagerFromUnchecked({}),
+        undefined,
+        { signal: controller.signal },
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("executeRouteSafe preserves partial state on abort", async () => {
+    const controller = new AbortController();
+    controller.abort();
+
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(scene),
+      "only_scene",
+      stateManagerFromUnchecked({}),
+      undefined,
+      { signal: controller.signal },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.failedSceneId).toBe("only_scene");
+      expect(result.partialState).toEqual({});
+    }
+  });
+
+  it("forwards structured logs into scene execution", async () => {
+    const events: string[] = [];
+
+    await executeRoute(
+      route,
+      makeSceneMap(scene),
+      "only_scene",
+      stateManagerFromUnchecked({}),
+      undefined,
+      { onLog: (event) => events.push(event.kind) },
+    );
+
+    expect(events).toEqual(["action-start", "warning", "action-complete"]);
+  });
+});

@@ -1,24 +1,95 @@
-import { any, array, GenericSchema, lazy, literal, object, string, union } from "valibot";
+import {
+  array,
+  boolean,
+  GenericSchema,
+  lazy,
+  literal,
+  null_,
+  number,
+  object,
+  string,
+  undefined_,
+  union,
+  variant,
+} from "valibot";
 import { binaryFnNames } from "./binaryFnNames.js";
 import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from "./input-types.js";
 import { transformFnNames } from "./transformFnNames.js";
-import { baseTypeSymbols } from "../../state-control/value.js";
+import { nullReasonSubSymbols } from "../../state-control/value.js";
+import type { AnyValue } from "../../state-control/value.js";
 
 const combineFuncType: CombineFuncType = "combine";
 const pipeFuncType: PipeFuncType = "pipe";
 
-const symbolLiterals = baseTypeSymbols.map((symbol) => literal(symbol));
+const nullReasonLiterals = nullReasonSubSymbols.map((symbol) => literal(symbol));
 
-const anyValueSchema = object({
-  symbol: union(symbolLiterals),
-  subSymbol: any(),
-  value: any(),
-  tags: array(string()), // Array of tag strings
+const numberValueSchema = object({
+  symbol: literal("number"),
+  subSymbol: undefined_(),
+  value: number(),
+  tags: array(string()),
 });
+const stringValueSchema = object({
+  symbol: literal("string"),
+  subSymbol: undefined_(),
+  value: string(),
+  tags: array(string()),
+});
+const booleanValueSchema = object({
+  symbol: literal("boolean"),
+  subSymbol: undefined_(),
+  value: boolean(),
+  tags: array(string()),
+});
+const nullValueSchema = object({
+  symbol: literal("null"),
+  subSymbol: union(nullReasonLiterals),
+  value: null_(),
+  tags: array(string()),
+});
+
+const anyValueSchema = lazy(() =>
+  variant("symbol", [
+    numberValueSchema,
+    stringValueSchema,
+    booleanValueSchema,
+    nullValueSchema,
+    object({
+      symbol: literal("array"),
+      subSymbol: undefined_(),
+      value: array(lazy(() => anyValueSchema)),
+      tags: array(string()),
+    }),
+    object({
+      symbol: literal("array"),
+      subSymbol: literal("number"),
+      value: array(numberValueSchema),
+      tags: array(string()),
+    }),
+    object({
+      symbol: literal("array"),
+      subSymbol: literal("string"),
+      value: array(stringValueSchema),
+      tags: array(string()),
+    }),
+    object({
+      symbol: literal("array"),
+      subSymbol: literal("boolean"),
+      value: array(booleanValueSchema),
+      tags: array(string()),
+    }),
+    object({
+      symbol: literal("array"),
+      subSymbol: literal("null"),
+      value: array(nullValueSchema),
+      tags: array(string()),
+    }),
+  ]),
+) as unknown as GenericSchema<AnyValue>;
 
 const funcInterfaceSchema = object({
   name: string(),
-  type: any(),
+  type: literal("value"),
   value: anyValueSchema,
 });
 
