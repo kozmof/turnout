@@ -186,6 +186,31 @@ describe("literal-schema", () => {
       expect(safeParse(combineFuncSchema, outerFunc).success).toBe(true);
     });
 
+    it("validates literal shape without enforcing function/value compatibility", () => {
+      const shapeOnlyFunc = {
+        name: "binaryFnNumber::add",
+        type: "combine",
+        transformFn: {
+          a: { name: "transformFnString::pass" },
+          b: { name: "transformFnString::pass" },
+        },
+        args: {
+          a: {
+            name: "x",
+            type: "value",
+            value: { symbol: "string", subSymbol: undefined, value: "5", tags: [] },
+          },
+          b: {
+            name: "y",
+            type: "value",
+            value: { symbol: "string", subSymbol: undefined, value: "3", tags: [] },
+          },
+        },
+      };
+
+      expect(safeParse(combineFuncSchema, shapeOnlyFunc).success).toBe(true);
+    });
+
     it("rejects invalid combine functions", () => {
       expect(safeParse(combineFuncSchema, { invalid: true }).success).toBe(false);
       expect(safeParse(combineFuncSchema, null).success).toBe(false);
@@ -214,6 +239,34 @@ describe("literal-schema", () => {
         steps: [],
         args: [baseFuncInterface],
       };
+      expect(safeParse(pipeFuncSchema, validFunc).success).toBe(true);
+    });
+
+    it("validates recursive PipeFunc steps", () => {
+      const combineStep = {
+        name: "binaryFnNumber::add",
+        type: "combine",
+        transformFn: {
+          a: { name: "transformFnNumber::pass" },
+          b: { name: "transformFnNumber::pass" },
+        },
+        args: { a: baseFuncInterface, b: baseFuncInterface },
+      };
+      const validFunc = {
+        name: "outerPipe",
+        type: "pipe",
+        steps: [
+          combineStep,
+          {
+            name: "innerPipe",
+            type: "pipe",
+            steps: [combineStep],
+            args: [baseFuncInterface],
+          },
+        ],
+        args: [baseFuncInterface],
+      };
+
       expect(safeParse(pipeFuncSchema, validFunc).success).toBe(true);
     });
 

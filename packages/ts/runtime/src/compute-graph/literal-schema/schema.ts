@@ -48,44 +48,50 @@ const nullValueSchema = object({
   tags: array(string()),
 });
 
-const anyValueSchema = lazy(() =>
-  variant("symbol", [
-    numberValueSchema,
-    stringValueSchema,
-    booleanValueSchema,
-    nullValueSchema,
-    object({
-      symbol: literal("array"),
-      subSymbol: undefined_(),
-      value: array(lazy(() => anyValueSchema)),
-      tags: array(string()),
-    }),
-    object({
-      symbol: literal("array"),
-      subSymbol: literal("number"),
-      value: array(numberValueSchema),
-      tags: array(string()),
-    }),
-    object({
-      symbol: literal("array"),
-      subSymbol: literal("string"),
-      value: array(stringValueSchema),
-      tags: array(string()),
-    }),
-    object({
-      symbol: literal("array"),
-      subSymbol: literal("boolean"),
-      value: array(booleanValueSchema),
-      tags: array(string()),
-    }),
-    object({
-      symbol: literal("array"),
-      subSymbol: literal("null"),
-      value: array(nullValueSchema),
-      tags: array(string()),
-    }),
-  ]),
-) as unknown as GenericSchema<AnyValue>;
+function recursiveValueSchema(): GenericSchema<AnyValue> {
+  // Valibot cannot infer this self-recursive schema precisely. Keep the cast
+  // local to the recursion boundary so exported schemas still expose AnyValue.
+  return lazy(() =>
+    variant("symbol", [
+      numberValueSchema,
+      stringValueSchema,
+      booleanValueSchema,
+      nullValueSchema,
+      object({
+        symbol: literal("array"),
+        subSymbol: undefined_(),
+        value: array(lazy(() => anyValueSchema)),
+        tags: array(string()),
+      }),
+      object({
+        symbol: literal("array"),
+        subSymbol: literal("number"),
+        value: array(numberValueSchema),
+        tags: array(string()),
+      }),
+      object({
+        symbol: literal("array"),
+        subSymbol: literal("string"),
+        value: array(stringValueSchema),
+        tags: array(string()),
+      }),
+      object({
+        symbol: literal("array"),
+        subSymbol: literal("boolean"),
+        value: array(booleanValueSchema),
+        tags: array(string()),
+      }),
+      object({
+        symbol: literal("array"),
+        subSymbol: literal("null"),
+        value: array(nullValueSchema),
+        tags: array(string()),
+      }),
+    ]),
+  ) as unknown as GenericSchema<AnyValue>;
+}
+
+const anyValueSchema = lazy(() => recursiveValueSchema());
 
 const funcInterfaceSchema = object({
   name: string(),
@@ -93,6 +99,8 @@ const funcInterfaceSchema = object({
   value: anyValueSchema,
 });
 
+// These schemas validate literal graph shape only. Function/type compatibility
+// is checked later by compute-graph validation and execution.
 export const combineFuncSchema: GenericSchema<CombineFunc> = object({
   name: binaryFnNames(),
   type: literal(combineFuncType),
