@@ -32,7 +32,8 @@ export type SceneErrorCode =
   | "MaxStepsExceeded"
   | "UnknownFunction"
   | "DuplicateActionId"
-  | "UnknownArgModel";
+  | "UnknownArgModel"
+  | "PublishHookFailed";
 
 /** Error codes that indicate a malformed model or internal invariant violation. */
 export type SceneInternalErrorCode =
@@ -105,7 +106,7 @@ export class StateError extends Error {
     super(`StateManager: ${detail}`);
     this.name = "StateError";
     this.code = code;
-    this.path = path;
+    if (path !== undefined) this.path = path;
   }
 }
 

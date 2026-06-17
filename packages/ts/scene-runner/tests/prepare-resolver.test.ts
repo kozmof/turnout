@@ -1,10 +1,9 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect } from "vitest";
 import { resolveActionPrepare, resolveNextPrepare } from "../src/executor/prepare-resolver.js";
-import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
+import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import {
   buildNumber,
   buildString,
-  buildBoolean,
   buildNull,
   isPureNumber,
   isPureString,

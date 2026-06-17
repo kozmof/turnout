@@ -49,7 +49,7 @@ export function validateScopedValueTable(
   ];
 
   for (const valueId of expectedValueIds) {
-    if (!(valueId in scopedValueTable)) {
+    if (valueId === undefined || !(valueId in scopedValueTable)) {
       throw new Error(`Scoped value table is incomplete: missing ${valueId}`);
     }
   }
@@ -69,9 +69,11 @@ export function createScopedValueTable(
     }
 
     const valueId = argMap[createArgName(argName)];
+    if (valueId === undefined) {
+      throw new Error(`Argument ${argName} is missing from argMap`);
+    }
 
     const value = sourceValueTable[valueId];
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (value === undefined) {
       throw createMissingValueError(valueId);
     }
@@ -141,7 +143,7 @@ function resolveArgBinding(
           `Invalid step reference: stepIndex ${binding.stepIndex} out of bounds (have ${stepResults.length} results)`,
         );
       }
-      return stepResults[binding.stepIndex];
+      return stepResults[binding.stepIndex]!;
     }
 
     case "value":
@@ -297,10 +299,13 @@ export function executePipeFunc(
   context: ExecutionContext,
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
-  if (!isArgMapEntry(funcEntry)) {
+  if (funcEntry === undefined || !isArgMapEntry(funcEntry)) {
     throw new Error(`executePipeFunc called with cond entry for ${funcId}`);
   }
   const def = context.pipeFuncDefTable[defId];
+  if (def === undefined) {
+    throw new Error(`executePipeFunc: missing pipe definition ${defId}`);
+  }
 
   if (def.sequence.length === 0) {
     throw createEmptySequenceError(funcId);
@@ -340,7 +345,13 @@ export function executePipeFunc(
 
   // Return the last step's result (PipeFunc semantics)
   const finalResultId = stepResults[stepResults.length - 1];
+  if (finalResultId === undefined) {
+    throw new Error(`executePipeFunc: pipe ${funcId} produced no step results`);
+  }
   const finalResult = currentValueTable[finalResultId];
+  if (finalResult === undefined) {
+    throw createMissingValueError(finalResultId);
+  }
 
   // Return result with updated value table (immutable update to main context)
   return {

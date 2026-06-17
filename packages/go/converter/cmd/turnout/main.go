@@ -86,6 +86,22 @@ func runConvert(args []string) int {
 		basePath = *stateFile
 	}
 
+	// Read source from stdin when the input path is "-". This lets callers feed
+	// content they have already read (e.g. via a verified file descriptor)
+	// without the converter re-resolving a path that could be symlink-swapped on
+	// a hostile filesystem. state_file directives still resolve relative to
+	// basePath, so pass -state-file when the source references one.
+	fromStdin := inputPath == "-"
+	var stdinSrc []byte
+	if fromStdin {
+		var err error
+		stdinSrc, err = io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "turnout: cannot read stdin: %v\n", err)
+			return 1
+		}
+	}
+
 	if *format != "hcl" && *format != "json" {
 		fmt.Fprintf(os.Stderr, "turnout: unknown format %q (must be hcl or json)\n", *format)
 		return 1
@@ -94,11 +110,15 @@ func runConvert(args []string) int {
 	ext := "." + *format
 	outPath := *output
 	if outPath == "" {
-		outPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ext
+		if fromStdin {
+			outPath = "-" // stdin input has no path to derive an output file from
+		} else {
+			outPath = strings.TrimSuffix(inputPath, filepath.Ext(inputPath)) + ext
+		}
 	}
 
 	if outPath == "-" {
-		return runConvertToWriter(os.Stdout, inputPath, basePath, *format)
+		return runConvertToWriter(os.Stdout, inputPath, basePath, *format, stdinSrc, fromStdin)
 	}
 
 	// Write to a temp file in the same directory so os.Rename is atomic on
@@ -117,7 +137,7 @@ func runConvert(args []string) int {
 		}
 	}()
 
-	code := runConvertToWriter(tmp, inputPath, basePath, *format)
+	code := runConvertToWriter(tmp, inputPath, basePath, *format, stdinSrc, fromStdin)
 	if err := tmp.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "turnout: cannot close temporary output for %s: %v\n", outPath, err)
 		return 1
@@ -133,8 +153,14 @@ func runConvert(args []string) int {
 	return 0
 }
 
-func runConvertToWriter(w io.Writer, inputPath, basePath, format string) int {
-	result, ds := converter.Compile(inputPath, basePath)
+func runConvertToWriter(w io.Writer, inputPath, basePath, format string, src []byte, fromStdin bool) int {
+	var result *converter.CompileResult
+	var ds converter.Diagnostics
+	if fromStdin {
+		result, ds = converter.CompileSource("<stdin>", string(src), basePath)
+	} else {
+		result, ds = converter.Compile(inputPath, basePath)
+	}
 	if ds.HasErrors() || result == nil {
 		printDiags(ds)
 		return 1

@@ -94,10 +94,16 @@ function buildExecutionTreeInternal(
   // Recursive case: FuncId (internal node)
   const funcId = nodeId;
   const funcEntry = context.funcTable[funcId];
+  if (funcEntry === undefined) {
+    throw new Error(`buildExecutionTree: no funcTable entry for ${funcId}`);
+  }
 
   // Fix 2: use kind discriminant instead of table-lookup guard
   if (funcEntry.kind === "cond") {
     const condDef = context.condFuncDefTable[funcEntry.defId];
+    if (condDef === undefined) {
+      throw new Error(`buildExecutionTree: no condFuncDefTable entry for ${funcEntry.defId}`);
+    }
 
     // Build trees for condition and both branches
     const conditionTree = buildExecutionTreeCore(
@@ -148,7 +154,7 @@ function buildExecutionTreeInternal(
     nodeId: funcId,
     funcDef: funcEntry.defId,
     returnId: funcEntry.returnId,
-    children: children.length > 0 ? children : undefined,
+    ...(children.length > 0 && { children }),
   };
   return functionNode;
 }

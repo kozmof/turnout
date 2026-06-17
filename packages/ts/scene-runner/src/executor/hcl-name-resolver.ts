@@ -35,7 +35,15 @@ export function buildNameToValueId(
     }
     if (binding.expr) {
       // Function binding: the result lives in the function's return value slot.
-      nameToValueId.set(binding.name, funcTable[toFuncId(id as string)].returnId);
+      const funcEntry = funcTable[toFuncId(id as string)];
+      if (funcEntry === undefined) {
+        throw new SceneRuntimeError(
+          "UnknownArgModel",
+          contextId,
+          `function binding "${binding.name}" has no funcTable entry — this is a compiler bug`,
+        );
+      }
+      nameToValueId.set(binding.name, funcEntry.returnId);
     } else {
       // Value binding: the id is the ValueId directly.
       nameToValueId.set(binding.name, toValueId(id as string));

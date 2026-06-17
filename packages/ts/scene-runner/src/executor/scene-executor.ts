@@ -36,6 +36,12 @@ export type StepResult = { done: false; trace: ActionTrace } | { done: true };
 export type SceneExecutionOptions = {
   signal?: AbortSignal | undefined;
   onLog?: ((event: LogEvent) => void) | undefined;
+  /**
+   * When `true`, a publish hook that throws aborts execution with a
+   * `SceneRuntimeError("PublishHookFailed")` instead of being recorded as a
+   * failed `publishOutcome` and continuing. Defaults to `false`.
+   */
+  failOnPublishError?: boolean | undefined;
 };
 
 /**
@@ -229,6 +235,7 @@ export function createSceneExecutor(
   maxSteps: number = DEFAULT_MAX_STEPS,
   signal: AbortSignal = UNABORTABLE,
   onLog?: (event: LogEvent) => void,
+  failOnPublishError = false,
 ): SceneExecutor {
   const actionMap = getActionMap(scene);
   const policy = parseNextPolicy(scene.nextPolicy, scene.id);
@@ -272,7 +279,14 @@ export function createSceneExecutor(
 
     onLog?.({ kind: "action-start", sceneId: scene.id, actionId, stepIndex: rs.stepCount });
 
-    const result = await executeAction(action, rs.currentState, hooks, scene.id, signal);
+    const result = await executeAction(
+      action,
+      rs.currentState,
+      hooks,
+      scene.id,
+      signal,
+      failOnPublishError,
+    );
     rs.currentState = result.stateAfterMerge;
 
     const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(
@@ -375,6 +389,7 @@ export async function executeScene(
     maxSteps,
     options.signal,
     options.onLog,
+    options.failOnPublishError,
   );
   while (!executor.isDone()) await executor.next();
   return executor.result();
@@ -403,6 +418,7 @@ export async function executeSceneSafe(
       maxSteps,
       options.signal,
       options.onLog,
+      options.failOnPublishError,
     );
     while (!executor.isDone()) await executor.next();
     return { ok: true, value: executor.result() };

@@ -51,3 +51,5 @@ export type {
 } from "./executor/errors.js";
 export { executeRouteSafe } from "./executor/route-executor.js";
 export type { RouteResult, RouteWarning, RouteExecutionResult } from "./executor/route-executor.js";
+export { collectPublishFailures } from "./trace-utils.js";
+export type { PublishFailure } from "./trace-utils.js";

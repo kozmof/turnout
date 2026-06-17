@@ -376,8 +376,8 @@ describe("executeGraph", () => {
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
     // Cyclic dependencies are caught during tree construction as generic errors
-    expect(errors[0].kind).toBe("functionExecution");
-    expect(errors[0].message).toContain("Cycle detected");
+    expect(errors[0]!.kind).toBe("functionExecution");
+    expect(errors[0]!.message).toContain("Cycle detected");
   });
 
   it("should handle error: missing value", () => {
@@ -417,7 +417,7 @@ describe("executeGraph", () => {
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe("missingValue");
+    expect(errors[0]!.kind).toBe("missingValue");
   });
 
   it("should handle error: empty PipeFunc sequence", () => {
@@ -448,7 +448,7 @@ describe("executeGraph", () => {
 
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe("emptySequence");
+    expect(errors[0]!.kind).toBe("emptySequence");
   });
 
   it("should execute CondFunc with true branch", () => {
@@ -800,7 +800,7 @@ describe("executeGraph", () => {
     const { result, errors } = executeGraphSafe("f1" as FuncId, context);
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
-    expect(errors[0].kind).toBe("functionExecution");
+    expect(errors[0]!.kind).toBe("functionExecution");
   });
 });
 

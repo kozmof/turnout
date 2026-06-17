@@ -116,8 +116,8 @@ function checkFunctionCycles(context: UnvalidatedContext, state: ValidationState
 
   const reportCycle = (cyclePath: string[]): void => {
     const inner = cyclePath.slice(0, -1);
-    const minIdx = inner.reduce((mi, v, i) => (v < inner[mi] ? i : mi), 0);
-    const normalized = [...inner.slice(minIdx), ...inner.slice(0, minIdx), inner[minIdx]];
+    const minIdx = inner.reduce((mi, v, i) => (v < inner[mi]! ? i : mi), 0);
+    const normalized = [...inner.slice(minIdx), ...inner.slice(0, minIdx), inner[minIdx]!];
     const key = normalized.join(" -> ");
     if (reported.has(key)) return;
     reported.add(key);

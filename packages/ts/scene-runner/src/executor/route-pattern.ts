@@ -26,7 +26,7 @@ function parsePattern(raw: string): ParsedPattern {
   if (raw === "_") return { kind: "catchall" };
 
   const parts = raw.split(".");
-  const sceneId = parts[0];
+  const sceneId = parts[0]!; // split always yields at least one element
   if (parts[1] === "*") {
     return { kind: "wildcard", sceneId, suffix: parts.slice(2) };
   }
@@ -143,7 +143,7 @@ export function selectNextScene(
   const candidates: Candidate[] = [];
 
   for (let i = 0; i < arms.length; i++) {
-    const arm = arms[i];
+    const arm = arms[i]!;
 
     // Filter patterns to those eligible for the current scene.
     // Catchall (_) is always eligible; scene-specific patterns only when sceneId matches.
@@ -179,5 +179,5 @@ export function selectNextScene(
     return a.index - b.index; // ASC declaration order
   });
 
-  return candidates[0].target;
+  return candidates[0]!.target;
 }

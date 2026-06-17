@@ -1,10 +1,10 @@
 // Node.js only — loads models from disk before delegating to the universal harness.
-import { isAbsolute, relative, resolve } from "node:path";
 import type { FullHarnessResult, HookRegistry, LogEvent } from "../types/harness-types.js";
 import type { AnyValue } from "runtime";
 import { runConverter, loadJsonModel } from "./bridge.js";
 import { runHarness } from "../harness/harness.js";
 import { HarnessError } from "./errors.js";
+import { containPath } from "./path-safety.js";
 
 export type ServerHarnessOptions = {
   /** Path to a .turn file — the Go converter will be invoked to produce JSON. */
@@ -44,22 +44,17 @@ export type ServerHarnessOptions = {
    * enable in development/CI to catch Go-emitter ↔ TS-schema drift early.
    */
   strictParse?: boolean;
+  /**
+   * When `true`, a publish hook that throws aborts execution with a
+   * `SceneRuntimeError("PublishHookFailed")` instead of being recorded as a
+   * failed `publishOutcome` while execution continues. Defaults to `false`.
+   */
+  failOnPublishError?: boolean;
 };
 
 function resolveHarnessPath(filePath: string, allowedBaseDir: string | undefined): string {
   if (allowedBaseDir === undefined) return filePath;
-
-  const base = resolve(allowedBaseDir);
-  const candidate = resolve(base, filePath);
-  const rel = relative(base, candidate);
-  if (rel === "" || (!rel.startsWith("..") && !isAbsolute(rel))) {
-    return candidate;
-  }
-
-  throw new HarnessError(
-    "PathOutsideBase",
-    `server harness file path "${filePath}" resolves outside allowedBaseDir "${base}"`,
-  );
+  return containPath(filePath, allowedBaseDir);
 }
 
 /**
@@ -103,12 +98,19 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
     model,
     entryId: options.entryId,
     initialState: options.initialState,
-    allowUncheckedState: options.allowUncheckedState,
-    hooks: options.hooks,
-    maxSceneSteps: options.maxSceneSteps,
-    maxRouteTransitions: options.maxRouteTransitions,
-    signal: options.signal,
-    onWarning: options.onWarning,
-    onLog: options.onLog,
+    ...(options.allowUncheckedState !== undefined && {
+      allowUncheckedState: options.allowUncheckedState,
+    }),
+    ...(options.hooks !== undefined && { hooks: options.hooks }),
+    ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
+    ...(options.maxRouteTransitions !== undefined && {
+      maxRouteTransitions: options.maxRouteTransitions,
+    }),
+    ...(options.signal !== undefined && { signal: options.signal }),
+    ...(options.onWarning !== undefined && { onWarning: options.onWarning }),
+    ...(options.onLog !== undefined && { onLog: options.onLog }),
+    ...(options.failOnPublishError !== undefined && {
+      failOnPublishError: options.failOnPublishError,
+    }),
   });
 }

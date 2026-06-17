@@ -352,6 +352,6 @@ describe("typeInference values and function inference", () => {
     expect(inferFuncReturnType("f_cond_unknown" as FuncId, context)).toBeNull();
     expect(inferFuncReturnType("f_cond_null" as FuncId, context)).toBeNull();
     expect(inferFuncReturnType("f_cycle" as FuncId, context)).toBeNull();
-    expect(() => inferFuncReturnType("missing_func" as FuncId, context)).toThrow();
+    expect(inferFuncReturnType("missing_func" as FuncId, context)).toBeNull();
   });
 });

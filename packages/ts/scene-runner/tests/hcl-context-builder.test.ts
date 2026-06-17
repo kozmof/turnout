@@ -9,12 +9,9 @@ import {
   executeGraph,
   assertValidContext,
   buildNumber,
-  buildString,
   buildBoolean,
   isPureNumber,
   isPureBoolean,
-  isPureString,
-  isArray,
   type FuncId,
   type ValueId,
 } from "runtime";

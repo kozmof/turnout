@@ -37,7 +37,7 @@ export function buildReferenceIndexAndRegisterReturns(
         if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
       } else if (value.__type === "pipe" && value.steps.length > 0) {
         const lastStep = value.steps[value.steps.length - 1];
-        if (lastStep.__type === "combine") {
+        if (lastStep !== undefined && lastStep.__type === "combine") {
           const rt = getBinaryFnReturnType(lastStep.name);
           if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
         }
@@ -164,7 +164,7 @@ function validatePipeReferences(
 
   for (let i = 0; i < pipe.steps.length; i++) {
     const step = pipe.steps[i];
-    if (step.__type === "combine") {
+    if (step !== undefined && step.__type === "combine") {
       for (const [argName, ref] of Object.entries(step.args)) {
         if (isTransformRef(ref)) {
           if (ref.valueRef.__type === "value") {

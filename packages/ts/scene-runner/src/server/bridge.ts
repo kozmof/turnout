@@ -1,12 +1,11 @@
 // Node.js only — uses child_process and fs.
 import { execFile } from "node:child_process";
-import { accessSync, constants, readFileSync, realpathSync } from "node:fs";
-import { sep } from "node:path";
-import { resolve as resolvePath } from "node:path";
+import { accessSync, constants, readFileSync } from "node:fs";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
 import { TurnModelSchema } from "../types/turnout-model_pb.js";
 import { BridgeError, HarnessError, LoadError } from "./errors.js";
+import { readContainedFile, resolveBaseDir } from "./path-safety.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -43,35 +42,6 @@ export type BridgeOptions = {
    */
   safeBaseDir?: string;
 };
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Path safety helper
-// ─────────────────────────────────────────────────────────────────────────────
-
-function assertPathInside(filePath: string, baseDir: string): void {
-  const absolutePath = resolvePath(filePath);
-  let base: string;
-  try {
-    base = realpathSync(resolvePath(baseDir));
-  } catch {
-    throw new HarnessError(
-      "PathOutsideBase",
-      `safeBaseDir "${baseDir}" does not exist or is not accessible`,
-    );
-  }
-  let resolved: string;
-  try {
-    resolved = realpathSync(absolutePath);
-  } catch {
-    resolved = absolutePath;
-  }
-  if (resolved !== base && !resolved.startsWith(base + sep)) {
-    throw new HarnessError(
-      "PathOutsideBase",
-      `path "${filePath}" is outside allowed base directory "${baseDir}"`,
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Async execFile wrapper
@@ -117,13 +87,18 @@ function formatExecFailure(err: unknown): string {
 function execFileAsync(
   bin: string,
   args: string[],
-  options: { timeout?: number; maxBuffer?: number },
+  options: { timeout?: number; maxBuffer?: number; input?: Buffer | undefined },
 ): Promise<ExecResult> {
+  const { input, ...execOptions } = options;
   return new Promise((resolve, reject) => {
-    execFile(bin, args, { ...options, encoding: "buffer" }, (err, stdout, stderr) => {
+    const child = execFile(bin, args, { ...execOptions, encoding: "buffer" }, (err, stdout, stderr) => {
       if (err) reject(new ExecFileFailure(err, stdout as Buffer, stderr as Buffer));
       else resolve({ stdout: stdout as Buffer, stderr: stderr as Buffer });
     });
+    // Feed pre-read source via stdin (used when safeBaseDir hardening reads the
+    // file itself and passes "-" as the converter input). `child` may be absent
+    // under test mocks; guard accordingly.
+    if (input !== undefined) child?.stdin?.end(input);
   });
 }
 
@@ -138,10 +113,12 @@ function execFileAsync(
  * Pass `options.safeBaseDir` to restrict which paths may be read.
  */
 export function loadTurnFile(filePath: string, options?: BridgeOptions): string {
-  if (options?.safeBaseDir) assertPathInside(filePath, options.safeBaseDir);
   try {
-    return readFileSync(filePath, "utf8");
+    return options?.safeBaseDir
+      ? readContainedFile(filePath, options.safeBaseDir)
+      : readFileSync(filePath, "utf8");
   } catch (err: unknown) {
+    if (err instanceof HarnessError) throw err; // containment failures pass through
     const msg = err instanceof Error ? err.message : String(err);
     throw new LoadError("ReadError", filePath, `Cannot read turn file "${filePath}": ${msg}`);
   }
@@ -208,30 +185,7 @@ export async function runConverter(
   turnFilePath: string,
   options?: BridgeOptions,
 ): Promise<TurnModel> {
-  if (options?.safeBaseDir) assertPathInside(turnFilePath, options.safeBaseDir);
-  const bin = options?.binPath ?? (await resolveTurnoutBin());
-  let stdout: Buffer;
-  try {
-    ({ stdout } = await execFileAsync(
-      bin,
-      ["convert", "-o", "-", "-format", "json", turnFilePath],
-      { timeout: CONVERT_TIMEOUT_MS, maxBuffer: CONVERT_MAX_BUFFER },
-    ));
-  } catch (err: unknown) {
-    if (isBufferOverflow(err)) {
-      throw new BridgeError(
-        "BufferOverflow",
-        turnFilePath,
-        `converter output too large for "${turnFilePath}": increase CONVERT_MAX_BUFFER`,
-      );
-    }
-    const msg = formatExecFailure(err);
-    throw new BridgeError(
-      "ConverterFailed",
-      turnFilePath,
-      `turnout converter failed for "${turnFilePath}": ${msg}`,
-    );
-  }
+  const stdout = await invokeConverter(turnFilePath, "json", options);
   return parseJSON(stdout.toString("utf8"), turnFilePath, options?.strictParse ?? false);
 }
 
@@ -246,15 +200,48 @@ export async function convertToHCL(
   turnFilePath: string,
   options?: BridgeOptions,
 ): Promise<string> {
-  if (options?.safeBaseDir) assertPathInside(turnFilePath, options.safeBaseDir);
+  const stdout = await invokeConverter(turnFilePath, "hcl", options);
+  return stdout.toString("utf8");
+}
+
+/**
+ * Shared converter invocation for both JSON and HCL output.
+ *
+ * When `safeBaseDir` is set, the `.turn` source is read here (with TOCTOU
+ * hardening via `readContainedFile`) and streamed to the converter over stdin
+ * with `-state-file <realBase>` — the child process never re-resolves the
+ * caller-supplied path, closing the symlink-swap window. (A `state_file`
+ * directive inside the source is still read by the converter relative to the
+ * base; that is the remaining, lower-severity surface.)
+ *
+ * Without `safeBaseDir`, the path is passed directly to the converter as
+ * before — the trusted-deploy fast path.
+ */
+async function invokeConverter(
+  turnFilePath: string,
+  format: "json" | "hcl",
+  options?: BridgeOptions,
+): Promise<Buffer> {
+  let args: string[];
+  let input: Buffer | undefined;
+  if (options?.safeBaseDir) {
+    // Reads + containment-checks before any work; throws HarnessError on escape.
+    const source = readContainedFile(turnFilePath, options.safeBaseDir);
+    const base = resolveBaseDir(options.safeBaseDir);
+    args = ["convert", "-o", "-", "-format", format, "-state-file", base, "-"];
+    input = Buffer.from(source, "utf8");
+  } else {
+    args = ["convert", "-o", "-", "-format", format, turnFilePath];
+  }
+
   const bin = options?.binPath ?? (await resolveTurnoutBin());
-  let stdout: Buffer;
   try {
-    ({ stdout } = await execFileAsync(
-      bin,
-      ["convert", "-o", "-", "-format", "hcl", turnFilePath],
-      { timeout: CONVERT_TIMEOUT_MS, maxBuffer: CONVERT_MAX_BUFFER },
-    ));
+    const { stdout } = await execFileAsync(bin, args, {
+      timeout: CONVERT_TIMEOUT_MS,
+      maxBuffer: CONVERT_MAX_BUFFER,
+      input,
+    });
+    return stdout;
   } catch (err: unknown) {
     if (isBufferOverflow(err)) {
       throw new BridgeError(
@@ -270,7 +257,6 @@ export async function convertToHCL(
       `turnout converter failed for "${turnFilePath}": ${msg}`,
     );
   }
-  return stdout.toString("utf8");
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -285,11 +271,13 @@ export async function convertToHCL(
  * Pass `options.safeBaseDir` to restrict which paths may be read.
  */
 export function loadJsonModel(jsonFilePath: string, options?: BridgeOptions): TurnModel {
-  if (options?.safeBaseDir) assertPathInside(jsonFilePath, options.safeBaseDir);
   let raw: string;
   try {
-    raw = readFileSync(jsonFilePath, "utf8");
+    raw = options?.safeBaseDir
+      ? readContainedFile(jsonFilePath, options.safeBaseDir)
+      : readFileSync(jsonFilePath, "utf8");
   } catch (err: unknown) {
+    if (err instanceof HarnessError) throw err; // containment failures pass through
     const msg = err instanceof Error ? err.message : String(err);
     throw new LoadError(
       "ReadError",

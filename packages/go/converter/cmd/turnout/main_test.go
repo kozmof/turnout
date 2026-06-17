@@ -130,6 +130,60 @@ func TestRunConvertSuccessJSONToStdout(t *testing.T) {
 	}
 }
 
+func TestRunConvertFromStdin(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	go func() {
+		_, _ = w.WriteString(validTurnSrc)
+		_ = w.Close()
+	}()
+
+	oldStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = oldStdin }()
+
+	stdout, stderr, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{"-o", "-", "-format", "json", "-"})
+	})
+
+	if rc != 0 {
+		t.Fatalf("runConvert(stdin) = %d, want 0; stderr: %s", rc, stderr)
+	}
+	if !strings.Contains(stdout, `"scenes"`) {
+		t.Fatalf("stdout = %q, want JSON output containing '\"scenes\"'", stdout)
+	}
+}
+
+func TestRunConvertFromStdinDefaultsToStdout(t *testing.T) {
+	// With "-" input and no -o flag, output should default to stdout rather than
+	// trying to write a "-.json" file.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	go func() {
+		_, _ = w.WriteString(validTurnSrc)
+		_ = w.Close()
+	}()
+
+	oldStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = oldStdin }()
+
+	stdout, stderr, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{"-format", "json", "-"})
+	})
+
+	if rc != 0 {
+		t.Fatalf("runConvert(stdin, no -o) = %d, want 0; stderr: %s", rc, stderr)
+	}
+	if !strings.Contains(stdout, `"scenes"`) {
+		t.Fatalf("stdout = %q, want JSON output containing '\"scenes\"'", stdout)
+	}
+}
+
 func TestRunConvertSuccessToFile(t *testing.T) {
 	path := writeTempTurnFile(t, validTurnSrc)
 	outPath := path + ".json"

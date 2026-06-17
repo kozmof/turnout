@@ -456,7 +456,7 @@ describe("createRunner — onWarning callback", () => {
     });
     await runner.run();
     expect(onWarning).toHaveBeenCalledOnce();
-    expect(onWarning.mock.calls[0][0]).toContain("No STATE schema");
+    expect(onWarning.mock.calls[0]![0]).toContain("No STATE schema");
   });
 
   it("does not call console.warn when onWarning is provided", async () => {
@@ -507,7 +507,7 @@ describe("createRunner — result.model promotion (mapRunnerResult)", () => {
     await runner.run();
     const result = runner.result();
     expect(result.model).toBeDefined();
-    expect(result.model.scenes[0].id).toBe("promo");
+    expect(result.model.scenes[0]!.id).toBe("promo");
   });
 
   it("run() carries the model field after promotion", async () => {
@@ -519,7 +519,7 @@ describe("createRunner — result.model promotion (mapRunnerResult)", () => {
     });
     const result = await runner.run();
     expect(result.model).toBeDefined();
-    expect(result.model.scenes[0].id).toBe("promo");
+    expect(result.model.scenes[0]!.id).toBe("promo");
   });
 });
 

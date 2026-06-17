@@ -240,6 +240,7 @@ export function inferFuncReturnType(
 
   try {
     const funcEntry = context.funcTable[funcId];
+    if (funcEntry === undefined) return null;
     const { defId } = funcEntry;
 
     // Check if it's a CombineFunc
@@ -255,6 +256,7 @@ export function inferFuncReturnType(
     // Check if it's a CondFunc
     if (isCondDefineId(defId, context.condFuncDefTable)) {
       const condDef = context.condFuncDefTable[defId];
+      if (condDef === undefined) return null;
 
       // Branches must resolve to the same type to infer a single output type.
       const trueBranchType = inferFuncReturnType(condDef.trueBranchId, context, new Set(visited));
@@ -285,9 +287,10 @@ function inferPipeDefReturnType(
 
   try {
     const def = context.pipeFuncDefTable[defId];
-    if (def.sequence.length === 0) return null;
+    if (def === undefined || def.sequence.length === 0) return null;
 
     const lastStep = def.sequence[def.sequence.length - 1];
+    if (lastStep === undefined) return null;
     const lastStepDefId = lastStep.defId;
 
     if (isCombineDefineId(lastStepDefId, context.combineFuncDefTable)) {
@@ -312,6 +315,7 @@ export function inferCombineFuncReturnType(
   context: ExecutionContext,
 ): BaseTypeSymbol | null {
   const def = context.combineFuncDefTable[defId];
+  if (def === undefined) return null;
 
   // For array binary functions, we'd need element type info
   // For now, we'll handle simple cases

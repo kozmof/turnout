@@ -4,7 +4,9 @@ vi.mock("node:fs", () => ({
   readFileSync: vi.fn(),
   realpathSync: vi.fn((path: string) => path),
   accessSync: vi.fn(),
-  constants: { X_OK: 1 },
+  openSync: vi.fn(() => 3),
+  closeSync: vi.fn(),
+  constants: { X_OK: 1, O_RDONLY: 0 },
 }));
 
 vi.mock("node:child_process", () => ({
@@ -87,7 +89,7 @@ describe("loadJsonModel", () => {
     mockReadFile.mockReturnValue(JSON.stringify(minimalModel));
     const result = loadJsonModel("model.json");
     expect(result.scenes).toHaveLength(1);
-    expect(result.scenes[0].id).toBe("scene_a");
+    expect(result.scenes[0]!.id).toBe("scene_a");
   });
 
   it("wraps file-read errors with a descriptive message", () => {
@@ -134,7 +136,7 @@ describe("runConverter", () => {
   it("invokes the turnout binary and returns the parsed model", async () => {
     setupConvert();
     const result = await runConverter("my.turn", { binPath: MOCK_BIN });
-    expect(result.scenes[0].id).toBe("scene_a");
+    expect(result.scenes[0]!.id).toBe("scene_a");
     expect(mockExecFile).toHaveBeenCalled();
   });
 

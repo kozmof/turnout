@@ -314,6 +314,7 @@ export function createSceneRunner(
     options.maxSceneSteps,
     signal,
     onLog,
+    options.failOnPublishError,
   );
 
   let done = false;
@@ -425,6 +426,7 @@ export function createRouteRunner(
     options.maxRouteTransitions,
     signal,
     onLog,
+    options.failOnPublishError,
   );
 
   type RouteAdvanceState =

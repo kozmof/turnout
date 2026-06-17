@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { executeRoute, executeRouteSafe } from "../src/executor/route-executor.js";
-import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
+import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { isPureNumber } from "runtime";
 import type { RouteModel, SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
 
@@ -31,7 +31,7 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
 }
 
 function makeScene(id: string, ...actions: ActionModel[]): SceneBlock {
-  return { id, entryActions: [actions[0].id], actions } as unknown as SceneBlock;
+  return { id, entryActions: [actions[0]!.id], actions } as unknown as SceneBlock;
 }
 
 function makeSceneMap(...scenes: SceneBlock[]): Record<string, SceneBlock> {
@@ -64,7 +64,7 @@ describe("executeRoute — single scene, no match arm", () => {
       stateManagerFromUnchecked({}),
     );
     expect(result.trace.scenes).toHaveLength(1);
-    expect(result.trace.scenes[0].sceneId).toBe("only_scene");
+    expect(result.trace.scenes[0]!.sceneId).toBe("only_scene");
   });
 
   it("history has one entry per completed action", async () => {

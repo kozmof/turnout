@@ -120,8 +120,8 @@ export class ContextSpecBuilder {
       );
     }
     this.spec[binding.name] = combine(mapFnName(c.fn, this.contextId), {
-      a: toCombineArgRef(this.resolveArg(c.args[0])),
-      b: toCombineArgRef(this.resolveArg(c.args[1])),
+      a: toCombineArgRef(this.resolveArg(c.args[0]!)),
+      b: toCombineArgRef(this.resolveArg(c.args[1]!)),
     });
   }
 
@@ -140,8 +140,8 @@ export class ContextSpecBuilder {
         );
       }
       return combine(mapFnName(step.fn, this.contextId), {
-        a: toCombineArgRef(this.resolveArg(step.args[0], binding.name)),
-        b: toCombineArgRef(this.resolveArg(step.args[1], binding.name)),
+        a: toCombineArgRef(this.resolveArg(step.args[0]!, binding.name)),
+        b: toCombineArgRef(this.resolveArg(step.args[1]!, binding.name)),
       });
     });
     this.spec[binding.name] = pipe(argBindings, steps);

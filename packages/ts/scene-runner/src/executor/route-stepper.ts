@@ -135,6 +135,7 @@ export function createRouteStepper(
   maxRouteTransitions?: number,
   signal: AbortSignal = new AbortController().signal,
   onLog?: (event: LogEvent) => void,
+  failOnPublishError = false,
 ): RouteStepper {
   const session = createRouteSession(
     routeId,
@@ -158,6 +159,7 @@ export function createRouteStepper(
     maxSceneSteps,
     signal,
     onLog,
+    failOnPublishError,
   );
   onLog?.({
     kind: "scene-start",
@@ -194,6 +196,7 @@ export function createRouteStepper(
       maxSceneSteps,
       signal,
       onLog,
+      failOnPublishError,
     );
     onLog?.({
       kind: "scene-start",

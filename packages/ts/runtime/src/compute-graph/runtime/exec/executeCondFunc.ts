@@ -16,6 +16,9 @@ export function executeCondFunc(
   selectedValue: AnyValue,
 ): ExecutionResult {
   const funcEntry = context.funcTable[funcId];
+  if (funcEntry === undefined) {
+    throw new Error(`executeCondFunc: no funcTable entry for ${funcId}`);
+  }
 
   // Return result with updated value table (immutable update)
   return {

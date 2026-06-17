@@ -10,6 +10,7 @@ import type {
 import type { AnyValue } from "../../state-control/value.js";
 import { IdGenerator } from "../../util/idGenerator.js";
 import { createFuncId } from "../idValidation.js";
+import { BuilderInvariantError } from "./errors.js";
 import type { FunctionPhaseState } from "./phase-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -86,11 +87,25 @@ export function isStepOutputRef(ref: ValueInputRef | TransformRef): ref is StepO
 }
 
 export function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): ValueId {
-  return state.returnIdByFuncId[ref.funcId];
+  const id = state.returnIdByFuncId[ref.funcId];
+  if (id === undefined) {
+    throw new BuilderInvariantError(
+      "MissingTableEntry",
+      `no return id recorded for function '${ref.funcId}'`,
+    );
+  }
+  return id;
 }
 
 export function resolveStepOutputRef(ref: StepOutputRef, state: FunctionPhaseState): ValueId {
-  return state.stepOutputIdByFuncStep[getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex)];
+  const id = state.stepOutputIdByFuncStep[getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex)];
+  if (id === undefined) {
+    throw new BuilderInvariantError(
+      "MissingTableEntry",
+      `no step output id recorded for pipe '${ref.pipeFuncId}' step ${String(ref.stepIndex)}`,
+    );
+  }
+  return id;
 }
 
 export function resolveValueReference(
@@ -112,7 +127,14 @@ export function resolveValueReference(
 }
 
 export function lookupReturnId(funcId: string, state: FunctionPhaseState): ValueId {
-  return state.returnIdByFuncId[funcId];
+  const id = state.returnIdByFuncId[funcId];
+  if (id === undefined) {
+    throw new BuilderInvariantError(
+      "MissingTableEntry",
+      `no return id recorded for function '${funcId}'`,
+    );
+  }
+  return id;
 }
 
 // Re-export createFuncId so callers that import from id-factory can get it.

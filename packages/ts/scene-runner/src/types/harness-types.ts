@@ -116,6 +116,16 @@ export type ExecutionOptions = {
    * createRunner(model, { entryId: 'main', initialState: {}, onLog: console.log });
    */
   onLog?: (event: LogEvent) => void;
+  /**
+   * When `true`, a publish hook that throws aborts execution with a
+   * `SceneRuntimeError("PublishHookFailed")` instead of being swallowed into a
+   * failed `publishOutcome` while execution continues. Defaults to `false` to
+   * preserve the non-throwing trace-only behavior.
+   *
+   * When left `false`, use `collectPublishFailures(result)` after a run to
+   * surface any failed publishes without aborting.
+   */
+  failOnPublishError?: boolean;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

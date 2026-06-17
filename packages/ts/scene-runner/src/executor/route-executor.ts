@@ -20,6 +20,12 @@ export type RouteExecutionOptions = {
   signal?: AbortSignal | undefined;
   /** Optional structured execution log callback forwarded to each scene execution. */
   onLog?: ((event: LogEvent) => void) | undefined;
+  /**
+   * When `true`, a publish hook that throws aborts the route with a
+   * `SceneRuntimeError("PublishHookFailed")` instead of being recorded and
+   * continuing. Forwarded to each scene execution. Defaults to `false`.
+   */
+  failOnPublishError?: boolean | undefined;
 };
 
 const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
@@ -122,7 +128,11 @@ async function runRouteCore(
       hooks,
       [routeEntry],
       options.maxSceneSteps,
-      { signal: options.signal, onLog: options.onLog },
+      {
+        signal: options.signal,
+        onLog: options.onLog,
+        failOnPublishError: options.failOnPublishError,
+      },
     );
     // Commit state and record scene id only after a scene fully completes —
     // partial states stay at the last successfully committed scene boundary.

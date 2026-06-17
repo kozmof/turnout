@@ -1,16 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { executeAction } from "../src/executor/action-executor.js";
-import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
-import {
-  buildNumber,
-  buildString,
-  buildBoolean,
-  buildNull,
-  isPureNumber,
-  isPureString,
-  isPureBoolean,
-  isPureNull,
-} from "runtime";
+import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
+import { buildNumber, buildString, isPureNumber, isPureNull } from "runtime";
 import type { ActionModel } from "../src/types/turnout-model_pb.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,9 +42,9 @@ describe("executeAction — compute", () => {
   it("populates bindingValues for all prog bindings", async () => {
     const state = stateManagerFromUnchecked({});
     const result = await executeAction(addAction, state, { prepare: {}, publish: {} });
-    expect(isPureNumber(result.bindingValues["a"]) && result.bindingValues["a"].value).toBe(3);
-    expect(isPureNumber(result.bindingValues["b"]) && result.bindingValues["b"].value).toBe(4);
-    expect(isPureNumber(result.bindingValues["sum"]) && result.bindingValues["sum"].value).toBe(7);
+    expect(isPureNumber(result.bindingValues["a"]!) && result.bindingValues["a"].value).toBe(3);
+    expect(isPureNumber(result.bindingValues["b"]!) && result.bindingValues["b"].value).toBe(4);
+    expect(isPureNumber(result.bindingValues["sum"]!) && result.bindingValues["sum"].value).toBe(7);
   });
 });
 
@@ -246,6 +237,63 @@ describe("executeAction — cumulative binding table", () => {
     expect(result.publishOutcomes).toEqual([{ hookName: "registered_hook", status: "ok" }]);
   });
 
+  it("records a failed publish hook as an outcome and still succeeds by default", async () => {
+    const action = {
+      id: "failing_publish",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["ok_hook", "bad_hook"],
+    } as unknown as ActionModel;
+    const hooks = {
+      prepare: {},
+      publish: {
+        ok_hook: async () => {},
+        bad_hook: async () => {
+          throw new Error("boom");
+        },
+      },
+    };
+
+    const result = await executeAction(action, stateManagerFromUnchecked({}), hooks);
+
+    expect(result.publishOutcomes).toEqual([
+      { hookName: "ok_hook", status: "ok" },
+      { hookName: "bad_hook", status: "error", message: "Error: boom" },
+    ]);
+  });
+
+  it("throws PublishHookFailed when failOnPublishError is set and a hook throws", async () => {
+    const action = {
+      id: "failing_publish_strict",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["bad_hook"],
+    } as unknown as ActionModel;
+    const hooks = {
+      prepare: {},
+      publish: {
+        bad_hook: async () => {
+          throw new Error("boom");
+        },
+      },
+    };
+
+    await expect(
+      executeAction(
+        action,
+        stateManagerFromUnchecked({}),
+        hooks,
+        "(test)",
+        undefined,
+        /* failOnPublishError */ true,
+      ),
+    ).rejects.toThrow(/bad_hook.*boom/);
+  });
+
   it("records a mergeWarning when a merge binding is absent from compute results", async () => {
     const action = {
       id: "absent_binding",
@@ -295,7 +343,7 @@ describe("executeAction — cumulative binding table", () => {
       publish: {},
     });
     expect(isPureNumber(result.computeRootValue) && result.computeRootValue.value).toBe(3);
-    expect(isPureNumber(result.bindingValues["y"]) && result.bindingValues["y"].value).toBe(2);
-    expect(isPureNumber(result.bindingValues["z"]) && result.bindingValues["z"].value).toBe(3);
+    expect(isPureNumber(result.bindingValues["y"]!) && result.bindingValues["y"].value).toBe(2);
+    expect(isPureNumber(result.bindingValues["z"]!) && result.bindingValues["z"].value).toBe(3);
   });
 });

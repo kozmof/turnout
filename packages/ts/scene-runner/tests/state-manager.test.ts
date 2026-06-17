@@ -53,8 +53,8 @@ describe("StateManager", () => {
     const sm = stateManagerFromUnchecked({ "a.x": buildNumber(7), "b.y": buildString("hi") });
     const snap = sm.snapshot();
     expect(Object.keys(snap)).toHaveLength(2);
-    expect(isPureNumber(snap["a.x"]) && snap["a.x"].value).toBe(7);
-    expect(isPureString(snap["b.y"]) && snap["b.y"].value).toBe("hi");
+    expect(isPureNumber(snap["a.x"]!) && snap["a.x"].value).toBe(7);
+    expect(isPureString(snap["b.y"]!) && snap["b.y"].value).toBe("hi");
   });
 
   it("does not retain caller-owned value references", () => {
@@ -66,7 +66,7 @@ describe("StateManager", () => {
     const stored = sm.read("a.items");
     expect(isArray(stored)).toBe(true);
     if (isArray(stored)) {
-      const first = stored.value[0];
+      const first = stored.value[0]!;
       expect(isPureNumber(first) && first.value).toBe(1);
     }
   });
@@ -82,7 +82,7 @@ describe("StateManager", () => {
       }).toThrow(TypeError);
     }
 
-    const snapValue = sm.snapshot()["a.items"];
+    const snapValue = sm.snapshot()["a.items"]!;
     expect(isArray(snapValue)).toBe(true);
     if (isArray(snapValue)) {
       expect(() => {

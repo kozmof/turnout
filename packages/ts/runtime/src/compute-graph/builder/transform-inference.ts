@@ -81,8 +81,8 @@ export function inferPassTransform(
   if (typeof ref === "object" && ref.__type === "stepOutput") {
     const stepOutputId =
       state.stepOutputIdByFuncStep[getStepOutputLookupKey(ref.pipeFuncId, ref.stepIndex)];
-    const metadata = state.stepMetadata[stepOutputId];
-    if (metadata.returnType !== undefined) {
+    const metadata = stepOutputId !== undefined ? state.stepMetadata[stepOutputId] : undefined;
+    if (metadata?.returnType !== undefined) {
       return [getPassTransformFn(metadata.returnType)];
     }
     throw new BuilderInvariantError(

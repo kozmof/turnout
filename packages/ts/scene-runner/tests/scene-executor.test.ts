@@ -5,15 +5,8 @@ import {
   executeSceneSafe,
   createSceneExecutor,
 } from "../src/executor/scene-executor.js";
-import { StateManager, stateManagerFromUnchecked } from "../src/state/state-manager.js";
-import {
-  buildNumber,
-  buildString,
-  buildBoolean,
-  isPureNumber,
-  isPureString,
-  isPureBoolean,
-} from "runtime";
+import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
+import { buildNumber, buildBoolean, isPureNumber } from "runtime";
 import type { SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
 import { SceneRuntimeError, PrepareError } from "../src/executor/errors.js";
 
@@ -79,8 +72,8 @@ describe("executeScene — single terminal action", () => {
   it("trace contains one action entry", async () => {
     const result = await executeScene(scene, stateManagerFromUnchecked({}));
     expect(result.trace.actions).toHaveLength(1);
-    expect(result.trace.actions[0].actionId).toBe("only_action");
-    expect(result.trace.actions[0].nextActionIds).toEqual([]);
+    expect(result.trace.actions[0]!.actionId).toBe("only_action");
+    expect(result.trace.actions[0]!.nextActionIds).toEqual([]);
   });
 
   it("final state has the merged value", async () => {
@@ -960,5 +953,48 @@ describe("executeScene convenience options", () => {
 
     expect(result.ok).toBe(true);
     expect(events).toEqual(["action-start", "warning", "action-complete"]);
+  });
+});
+
+describe("executeScene — failOnPublishError propagation", () => {
+  function makePublishAction(id: string, hookName: string): ActionModel {
+    return {
+      id,
+      compute: {
+        root: "out",
+        prog: { name: `${id}_prog`, bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: [hookName],
+    } as unknown as ActionModel;
+  }
+
+  const scene = {
+    id: "publish_scene",
+    entryActions: ["pub"],
+    actions: [makePublishAction("pub", "bad_hook")],
+  } as unknown as SceneBlock;
+
+  const hooks = {
+    prepare: {},
+    publish: {
+      bad_hook: async () => {
+        throw new Error("boom");
+      },
+    },
+  };
+
+  it("records the failure as an outcome by default (no throw)", async () => {
+    const result = await executeScene(scene, stateManagerFromUnchecked({}), hooks);
+    expect(result.trace.actions[0]!.publishOutcomes).toEqual([
+      { hookName: "bad_hook", status: "error", message: "Error: boom" },
+    ]);
+  });
+
+  it("aborts with PublishHookFailed when failOnPublishError is set", async () => {
+    await expect(
+      executeScene(scene, stateManagerFromUnchecked({}), hooks, undefined, undefined, {
+        failOnPublishError: true,
+      }),
+    ).rejects.toThrow(/bad_hook.*boom/);
   });
 });

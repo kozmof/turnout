@@ -34,6 +34,7 @@ export async function executeAction(
   hooks: HookRegistry,
   sceneId = "(unknown)",
   signal: AbortSignal = UNABORTABLE,
+  failOnPublishError = false,
 ): Promise<ActionExecutionResult> {
   // Actions without a compute block or prog are no-ops (no graph, no merge).
   if (!action.compute?.prog) {
@@ -160,6 +161,24 @@ export async function executeAction(
       publishOutcomes.push({ hookName, status: "ok" });
     } catch (err) {
       publishOutcomes.push({ hookName, status: "error", message: String(err) });
+    }
+  }
+
+  // When opted in, a failed publish hook is a hard error: the action's state
+  // merge has already been committed, but side effects (emails, webhooks, audit
+  // writes) did not all succeed, so callers that asked to fail-fast must see it.
+  if (failOnPublishError) {
+    const failed = publishOutcomes.filter((o) => o.status === "error");
+    if (failed.length > 0) {
+      const summary = failed
+        .map((o) => `${o.hookName}: ${o.status === "error" ? o.message : ""}`)
+        .join("; ");
+      throw new SceneRuntimeError(
+        "PublishHookFailed",
+        sceneId,
+        `action "${action.id}": ${failed.length} publish hook(s) failed — ${summary}`,
+        { actionId: action.id },
+      );
     }
   }
 

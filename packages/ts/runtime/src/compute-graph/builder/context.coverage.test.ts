@@ -62,7 +62,7 @@ describe("context.ts — coverage", () => {
         arr: [val.number(1), val.number(2)] as unknown as any,
       });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      expect(context.exec.valueTable[context.ids.arr as any].symbol).toBe("array");
+      expect(context.exec.valueTable[context.ids.arr as any]!.symbol).toBe("array");
     });
   });
 

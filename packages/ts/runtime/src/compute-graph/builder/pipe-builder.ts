@@ -120,7 +120,7 @@ function buildPipeSequence(
   // Pass 1: register all step output IDs and return types
   for (let i = 0; i < builder.steps.length; i++) {
     const step = builder.steps[i];
-    if (step.__type !== "combine") {
+    if (step === undefined || step.__type !== "combine") {
       throw new BuilderInvariantError(
         "UnsupportedConstruct",
         `pipe function '${funcId}' step ${String(i)}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe`,
@@ -130,7 +130,8 @@ function buildPipeSequence(
     state.stepOutputIdByFuncStep[getStepOutputLookupKey(funcId, i)] = stepOutputId;
     const stepReturnType = getBinaryFnReturnType(step.name);
     if (stepReturnType !== null) {
-      state.stepMetadata[stepOutputId].returnType = stepReturnType;
+      const meta = state.stepMetadata[stepOutputId];
+      if (meta !== undefined) meta.returnType = stepReturnType;
     }
   }
 
@@ -138,7 +139,7 @@ function buildPipeSequence(
   const sequence: PipeStepBinding[] = [];
   for (let i = 0; i < builder.steps.length; i++) {
     const step = builder.steps[i];
-    if (step.__type !== "combine") {
+    if (step === undefined || step.__type !== "combine") {
       throw new BuilderInvariantError(
         "UnsupportedConstruct",
         `pipe function '${funcId}' step ${String(i)}: nested pipe steps are not yet supported — only combine steps are allowed inside a pipe`,
@@ -224,7 +225,7 @@ function buildStepTransformMap(
       transformFnMap[argName] = ref.transformFn;
     } else if (isStepOutputRef(ref)) {
       const referencedStep = pipeBuilder.steps[ref.stepIndex];
-      if (referencedStep.__type !== "combine") {
+      if (referencedStep === undefined || referencedStep.__type !== "combine") {
         throw new BuilderInvariantError(
           "UnsupportedConstruct",
           `buildStepTransformMap: step ${String(ref.stepIndex)} is not a combine step — nested pipe steps are not supported`,
