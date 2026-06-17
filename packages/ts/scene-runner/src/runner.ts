@@ -144,6 +144,7 @@ function makeRunnerMethods<R extends HarnessResult>(
   signal: AbortSignal,
 ): Runner<R> {
   let started = false;
+  let inFlight = false;
 
   function checkAborted(): void {
     if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
@@ -171,6 +172,20 @@ function makeRunnerMethods<R extends HarnessResult>(
     }
   }
 
+  function beginExecution(): void {
+    if (inFlight) {
+      throw new RunnerError(
+        "ConcurrentExecution",
+        "runner execution is already in progress; await the current next(), run(), or runAsync() step before starting another",
+      );
+    }
+    inFlight = true;
+  }
+
+  function endExecution(): void {
+    inFlight = false;
+  }
+
   return {
     usePrepareHook(name, handler) {
       assertHooksOpen();
@@ -186,33 +201,48 @@ function makeRunnerMethods<R extends HarnessResult>(
     async next(steps = 1) {
       assertStepCount(steps);
       markStarted();
-      const results: Array<Exclude<RunnerStepResult, { done: true }>> = [];
-      let actionCount = 0;
-      while (actionCount < steps) {
-        checkAborted();
-        const r = await advanceFn();
-        if (r.done) break;
-        results.push(r);
-        if (r.kind === "action") actionCount++;
+      beginExecution();
+      try {
+        const results: Array<Exclude<RunnerStepResult, { done: true }>> = [];
+        let actionCount = 0;
+        while (actionCount < steps) {
+          checkAborted();
+          const r = await advanceFn();
+          if (r.done) break;
+          results.push(r);
+          if (r.kind === "action") actionCount++;
+        }
+        return results;
+      } finally {
+        endExecution();
       }
-      return results;
     },
     async run() {
       markStarted();
-      while (!doneFn()) {
-        checkAborted();
-        await advanceFn();
+      beginExecution();
+      try {
+        while (!doneFn()) {
+          checkAborted();
+          await advanceFn();
+        }
+        return resultFn();
+      } finally {
+        endExecution();
       }
-      return resultFn();
     },
     runAsync() {
       markStarted();
       return (async function* () {
-        while (!doneFn()) {
-          checkAborted();
-          const r = await advanceFn();
-          if (r.done) break;
-          yield r;
+        beginExecution();
+        try {
+          while (!doneFn()) {
+            checkAborted();
+            const r = await advanceFn();
+            if (r.done) break;
+            yield r;
+          }
+        } finally {
+          endExecution();
         }
       })();
     },

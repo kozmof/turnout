@@ -221,7 +221,7 @@ describe("executeAction — cumulative binding table", () => {
     expect(hookCalls).toEqual([]);
   });
 
-  it("throws SceneRuntimeError when a publish hook declared in the action is missing from the registry", async () => {
+  it("skips a publish hook declared in the action when it is missing from the registry", async () => {
     const action = {
       id: "partial_publish",
       compute: {
@@ -240,12 +240,10 @@ describe("executeAction — cumulative binding table", () => {
         // missing_hook intentionally absent
       },
     };
-    // registered_hook fires first (declared first), then missing_hook throws
-    await expect(executeAction(action, stateManagerFromUnchecked({}), hooks)).rejects.toMatchObject({
-      name: "SceneRuntimeError",
-      code: "UnregisteredPublishHook",
-    });
+    const result = await executeAction(action, stateManagerFromUnchecked({}), hooks);
+
     expect(called).toEqual(["registered_hook"]);
+    expect(result.publishOutcomes).toEqual([{ hookName: "registered_hook", status: "ok" }]);
   });
 
   it("records a mergeWarning when a merge binding is absent from compute results", async () => {

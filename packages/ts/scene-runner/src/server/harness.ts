@@ -1,6 +1,6 @@
 // Node.js only — loads models from disk before delegating to the universal harness.
 import { isAbsolute, relative, resolve } from "node:path";
-import type { FullHarnessResult, HookRegistry } from "../types/harness-types.js";
+import type { FullHarnessResult, HookRegistry, LogEvent } from "../types/harness-types.js";
 import type { AnyValue } from "runtime";
 import { runConverter, loadJsonModel } from "./bridge.js";
 import { runHarness } from "../harness/harness.js";
@@ -21,8 +21,16 @@ export type ServerHarnessOptions = {
   initialState: Record<string, AnyValue>;
   /** Optional hook implementations for from_hook prepare entries. */
   hooks?: HookRegistry;
+  /** Maximum action steps allowed per scene execution. */
+  maxSceneSteps?: number;
+  /** Maximum scene transitions allowed during route execution. Defaults to 1,000. */
+  maxRouteTransitions?: number;
+  /** Optional cancellation signal forwarded to runner execution and hooks. */
+  signal?: AbortSignal;
   /** Called instead of console.warn when the model has no STATE schema. */
   onWarning?: (msg: string) => void;
+  /** Optional structured execution log callback. */
+  onLog?: (event: LogEvent) => void;
   /**
    * Optional base directory that turnFile/jsonFile must stay within after path
    * resolution. Set this for request-facing or multi-tenant server usage.
@@ -94,6 +102,10 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
     entryId: options.entryId,
     initialState: options.initialState,
     hooks: options.hooks,
+    maxSceneSteps: options.maxSceneSteps,
+    maxRouteTransitions: options.maxRouteTransitions,
+    signal: options.signal,
     onWarning: options.onWarning,
+    onLog: options.onLog,
   });
 }

@@ -32,8 +32,7 @@ export type SceneErrorCode =
   | "MaxStepsExceeded"
   | "UnknownFunction"
   | "DuplicateActionId"
-  | "UnknownArgModel"
-  | "UnregisteredPublishHook";
+  | "UnknownArgModel";
 
 /** Error codes that indicate a malformed model or internal invariant violation. */
 export type SceneInternalErrorCode =
@@ -68,7 +67,11 @@ export function isSceneRuntimeError(err: unknown): err is SceneRuntimeError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type RunnerErrorCode = "LateHookRegistration" | "InvalidStepCount" | "IncompleteExecution";
+export type RunnerErrorCode =
+  | "LateHookRegistration"
+  | "InvalidStepCount"
+  | "IncompleteExecution"
+  | "ConcurrentExecution";
 
 export class RunnerError extends Error {
   readonly code: RunnerErrorCode;

@@ -166,6 +166,55 @@ describe("createRunner — API misuse contracts", () => {
     });
   });
 
+  it("rejects concurrent execution calls with a typed error", async () => {
+    let releaseHook!: (value: { v: ReturnType<typeof buildNumber> }) => void;
+    let hookEntered!: () => void;
+    const enteredHook = new Promise<void>((resolve) => {
+      hookEntered = resolve;
+    });
+    const modelWithHook = {
+      scenes: [
+        {
+          id: "slow",
+          entryActions: ["a"],
+          actions: [
+            {
+              id: "a",
+              prepare: [{ binding: "v", fromHook: "slow_hook" }],
+              compute: {
+                root: "v",
+                prog: { name: "p", bindings: [{ name: "v", type: "number", value: 0 }] },
+              },
+            },
+          ],
+        },
+      ],
+      routes: [],
+    } as unknown as TurnModel;
+
+    const runner = createRunner(modelWithHook, {
+      entryId: "slow",
+      initialState: {},
+      onWarning: () => {},
+    }).usePrepareHook("slow_hook", () => {
+      hookEntered();
+      return new Promise<{ v: ReturnType<typeof buildNumber> }>((resolve) => {
+        releaseHook = resolve;
+      });
+    });
+
+    const firstNext = runner.next();
+    await enteredHook;
+
+    await expect(runner.next()).rejects.toMatchObject({
+      name: "RunnerError",
+      code: "ConcurrentExecution",
+    });
+
+    releaseHook({ v: buildNumber(1) });
+    await firstNext;
+  });
+
   it("rejects hook registration after next() starts execution", async () => {
     const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
 

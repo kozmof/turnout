@@ -84,6 +84,51 @@ describe("runServerHarness", () => {
     expect(result.trace.kind).toBe("scene");
   });
 
+  it("threads runner execution options through", async () => {
+    const onLog = vi.fn();
+    mockLoadJsonModel.mockReturnValue({
+      scenes: [
+        {
+          id: "limited",
+          entryActions: ["a"],
+          actions: [{ id: "a", next: [{ action: "b" }] }, { id: "b" }],
+        },
+      ],
+    } as unknown as TurnModel);
+
+    await expect(
+      runServerHarness({
+        jsonFile: "model.json",
+        entryId: "limited",
+        initialState: {},
+        maxSceneSteps: 1,
+        maxRouteTransitions: 5,
+        onLog,
+        onWarning: () => {},
+      }),
+    ).rejects.toThrow("exceeded 1 action steps");
+
+    expect(onLog).toHaveBeenCalledWith(
+      expect.objectContaining({ kind: "scene-start", sceneId: "limited" }),
+    );
+  });
+
+  it("threads AbortSignal through to runner execution", async () => {
+    mockLoadJsonModel.mockReturnValue(minimalModel);
+    const controller = new AbortController();
+    controller.abort();
+
+    await expect(
+      runServerHarness({
+        jsonFile: "model.json",
+        entryId: "scene_a",
+        initialState: {},
+        signal: controller.signal,
+        onWarning: () => {},
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("threads strictParse through to the bridge", async () => {
     mockRunConverter.mockResolvedValue(minimalModel);
 
