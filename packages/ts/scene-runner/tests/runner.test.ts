@@ -37,6 +37,7 @@ describe("createRunner — route execution limits", () => {
     const runner = createRunner(model, {
       entryId: "loop",
       initialState: {},
+      allowUncheckedState: true,
       maxRouteTransitions: 0,
       onWarning: () => {},
     });
@@ -55,7 +56,13 @@ describe("createRunner — route execution limits", () => {
       ],
     } as unknown as TurnModel;
 
-    const runner = createRunner(model, { entryId: "s", initialState: {}, maxSceneSteps: 1, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "s",
+      initialState: {},
+      allowUncheckedState: true,
+      maxSceneSteps: 1,
+      onWarning: () => {},
+    });
     await expect(() => runner.run()).rejects.toThrow("exceeded 1 action steps");
   });
 });
@@ -92,7 +99,12 @@ describe("createRunner — scene mode API", () => {
 
   it("supports hook registration, next batching, result, and partialState", async () => {
     const publish = vi.fn();
-    const runner = createRunner(model, { entryId: "scene_api", initialState: {}, onWarning: () => {} })
+    const runner = createRunner(model, {
+      entryId: "scene_api",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    })
       .usePrepareHook("load_value", () => ({ v: buildNumber(4) }))
       .usePublishHook("notify", publish);
 
@@ -117,7 +129,12 @@ describe("createRunner — scene mode API", () => {
   });
 
   it("runAsync yields action steps and lets run finish an already completed runner", async () => {
-    const runner = createRunner(model, { entryId: "scene_api", initialState: {}, onWarning: () => {} })
+    const runner = createRunner(model, {
+      entryId: "scene_api",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    })
       .usePrepareHook("load_value", () => ({ v: buildNumber(1) }))
       .usePublishHook("notify", async () => {});
 
@@ -142,7 +159,12 @@ describe("createRunner — API misuse contracts", () => {
   } as unknown as TurnModel;
 
   it("throws a typed error when result is read before completion", () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "contract",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
 
     expect(() => runner.result()).toThrow(RunnerError);
     expect(() => runner.result()).toThrow("execution is not complete");
@@ -154,7 +176,12 @@ describe("createRunner — API misuse contracts", () => {
   });
 
   it("rejects invalid next step counts with a typed error", async () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "contract",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
 
     await expect(runner.next(0)).rejects.toMatchObject({
       name: "RunnerError",
@@ -195,6 +222,7 @@ describe("createRunner — API misuse contracts", () => {
     const runner = createRunner(modelWithHook, {
       entryId: "slow",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     }).usePrepareHook("slow_hook", () => {
       hookEntered();
@@ -216,7 +244,12 @@ describe("createRunner — API misuse contracts", () => {
   });
 
   it("rejects hook registration after next() starts execution", async () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "contract",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
 
     await runner.next();
 
@@ -225,7 +258,12 @@ describe("createRunner — API misuse contracts", () => {
   });
 
   it("rejects hook registration after runAsync() is created", () => {
-    const runner = createRunner(model, { entryId: "contract", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "contract",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
 
     const iterator = runner.runAsync();
 
@@ -246,6 +284,7 @@ describe("createRunner — AbortSignal cancellation", () => {
     const runner = createRunner(sceneModel, {
       entryId: "sc",
       initialState: {},
+      allowUncheckedState: true,
       signal: controller.signal,
       onWarning: () => {},
     });
@@ -267,6 +306,7 @@ describe("createRunner — AbortSignal cancellation", () => {
     const runner = createRunner(twoActionModel, {
       entryId: "sc2",
       initialState: {},
+      allowUncheckedState: true,
       signal: controller.signal,
       onWarning: () => {},
     });
@@ -304,7 +344,13 @@ describe("createRunner — AbortSignal cancellation", () => {
       routes: [],
     } as unknown as TurnModel;
 
-    await createRunner(hookModel, { entryId: "hs", initialState: {}, signal: controller.signal, onWarning: () => {} })
+    await createRunner(hookModel, {
+      entryId: "hs",
+      initialState: {},
+      allowUncheckedState: true,
+      signal: controller.signal,
+      onWarning: () => {},
+    })
       .usePrepareHook("capture", (_ctx, sig) => {
         receivedSignal = sig;
         return { x: buildNumber(1) };
@@ -328,7 +374,12 @@ describe("createRunner — route mode API", () => {
   } as unknown as TurnModel;
 
   it("steps across route scenes and returns a route result", async () => {
-    const runner = createRunner(routeModel, { entryId: "route_api", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(routeModel, {
+      entryId: "route_api",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
 
     expect(() => runner.result()).toThrow("execution is not complete");
 
@@ -355,7 +406,12 @@ describe("createRunner — route mode API", () => {
   });
 
   it("runAsync yields scene-transition events between scenes", async () => {
-    const runner = createRunner(routeModel, { entryId: "route_api", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(routeModel, {
+      entryId: "route_api",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
     const yielded = [];
 
     for await (const step of runner.runAsync()) yielded.push(step);
@@ -384,9 +440,20 @@ describe("createRunner — onWarning callback", () => {
     routes: [],
   } as unknown as TurnModel;
 
+  it("throws when no STATE schema is present without explicit opt-in", () => {
+    expect(() => createRunner(modelNoState, { entryId: "w", initialState: {} })).toThrow(
+      "allowUncheckedState: true",
+    );
+  });
+
   it("calls onWarning when no STATE schema is present", async () => {
     const onWarning = vi.fn();
-    const runner = createRunner(modelNoState, { entryId: "w", initialState: {}, onWarning });
+    const runner = createRunner(modelNoState, {
+      entryId: "w",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning,
+    });
     await runner.run();
     expect(onWarning).toHaveBeenCalledOnce();
     expect(onWarning.mock.calls[0][0]).toContain("No STATE schema");
@@ -397,6 +464,7 @@ describe("createRunner — onWarning callback", () => {
     const runner = createRunner(modelNoState, {
       entryId: "w",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
     await runner.run();
@@ -406,7 +474,11 @@ describe("createRunner — onWarning callback", () => {
 
   it("does not call console.warn when onWarning is absent (no-op by default)", async () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const runner = createRunner(modelNoState, { entryId: "w", initialState: {} });
+    const runner = createRunner(modelNoState, {
+      entryId: "w",
+      initialState: {},
+      allowUncheckedState: true,
+    });
     await runner.run();
     expect(warnSpy).not.toHaveBeenCalled();
     warnSpy.mockRestore();
@@ -426,7 +498,12 @@ describe("createRunner — result.model promotion (mapRunnerResult)", () => {
   const model = { scenes: [scene], routes: [] } as unknown as TurnModel;
 
   it("result() carries the model field after promotion", async () => {
-    const runner = createRunner(model, { entryId: "promo", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "promo",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
     await runner.run();
     const result = runner.result();
     expect(result.model).toBeDefined();
@@ -434,7 +511,12 @@ describe("createRunner — result.model promotion (mapRunnerResult)", () => {
   });
 
   it("run() carries the model field after promotion", async () => {
-    const runner = createRunner(model, { entryId: "promo", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "promo",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
     const result = await runner.run();
     expect(result.model).toBeDefined();
     expect(result.model.scenes[0].id).toBe("promo");
@@ -459,9 +541,14 @@ describe("createRunner — model validation failure (duplicate action IDs)", () 
       routes: [],
     } as unknown as TurnModel;
 
-    expect(() => createRunner(model, { entryId: "dup_scene", initialState: {}, onWarning: () => {} })).toThrow(
-      ModelValidationError,
-    );
+    expect(() =>
+      createRunner(model, {
+        entryId: "dup_scene",
+        initialState: {},
+        allowUncheckedState: true,
+        onWarning: () => {},
+      }),
+    ).toThrow(ModelValidationError);
   });
 });
 
@@ -481,9 +568,7 @@ describe("createRunner — route runner partialState mid-execution", () => {
             root: "out",
             prog: {
               name: "p",
-              bindings: [
-                { name: "out", type: "number", value: 7 },
-              ],
+              bindings: [{ name: "out", type: "number", value: 7 }],
             },
           },
           merge: [{ binding: "out", toState: "x.val" }],
@@ -506,7 +591,12 @@ describe("createRunner — route runner partialState mid-execution", () => {
       ],
     } as unknown as TurnModel;
 
-    const runner = createRunner(model, { entryId: "route", initialState: {}, onWarning: () => {} });
+    const runner = createRunner(model, {
+      entryId: "route",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
 
     // advance one action (the write action in write_scene)
     await runner.next(1);
@@ -530,7 +620,12 @@ describe("createRunner — dispatch rejects route with no entrySceneId", () => {
     } as unknown as TurnModel;
 
     expect(() =>
-      createRunner(model, { entryId: "r_no_entry", initialState: {}, onWarning: () => {} }),
+      createRunner(model, {
+        entryId: "r_no_entry",
+        initialState: {},
+        allowUncheckedState: true,
+        onWarning: () => {},
+      }),
     ).toThrow("no entry scene declared");
   });
 });

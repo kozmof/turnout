@@ -85,6 +85,13 @@ export type ExecutionOptions = {
   entryId: string;
   /** Initial STATE values, keyed by dotted path ("namespace.field"). */
   initialState: Record<string, AnyValue>;
+  /**
+   * Permit executing a model or fragment that has no STATE schema.
+   *
+   * Defaults to `false`. When enabled, merge writes are unchecked: path and
+   * type correctness are not enforced and typo'd paths read back as null.
+   */
+  allowUncheckedState?: boolean;
   /** Maximum action steps allowed per scene execution. */
   maxSceneSteps?: number;
   /** Maximum scene transitions allowed during route execution. Defaults to 1,000. */

@@ -16,7 +16,13 @@ describe("runHarness — error cases", () => {
       routes: [{ id: "empty_route", match: [] }],
     } as unknown as TurnModel;
     await expect(() =>
-      runHarness({ model, entryId: "empty_route", initialState: {}, onWarning: () => {} }),
+      runHarness({
+        model,
+        entryId: "empty_route",
+        initialState: {},
+        allowUncheckedState: true,
+        onWarning: () => {},
+      }),
     ).rejects.toThrow('route "empty_route" has no entry scene declared');
   });
 
@@ -25,7 +31,13 @@ describe("runHarness — error cases", () => {
       scenes: [minimalScene],
     } as unknown as TurnModel;
     await expect(() =>
-      runHarness({ model, entryId: "nonexistent", initialState: {}, onWarning: () => {} }),
+      runHarness({
+        model,
+        entryId: "nonexistent",
+        initialState: {},
+        allowUncheckedState: true,
+        onWarning: () => {},
+      }),
     ).rejects.toThrow('entryId "nonexistent" not found as route or scene in the model');
   });
 });
@@ -40,6 +52,7 @@ describe("runHarness — model without state schema", () => {
       model,
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
     expect(result.trace.kind).toBe("scene");
@@ -54,6 +67,7 @@ describe("runHarness — model without state schema", () => {
       entryId: "scene_a",
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       initialState: { "custom.key": { type: "number", value: 42 } as any },
+      allowUncheckedState: true,
       onWarning: () => {},
     });
     expect(finalState["custom.key"]).toBeDefined();
@@ -64,7 +78,13 @@ describe("runHarness — ExecutionOptions propagation", () => {
   it("forwards onWarning when model has no state schema", async () => {
     const model = { scenes: [minimalScene] } as unknown as TurnModel;
     const onWarning = vi.fn();
-    await runHarness({ model, entryId: "scene_a", initialState: {}, onWarning });
+    await runHarness({
+      model,
+      entryId: "scene_a",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning,
+    });
     expect(onWarning).toHaveBeenCalledOnce();
     expect(onWarning.mock.calls[0]![0]).toContain("No STATE schema");
   });
@@ -74,7 +94,14 @@ describe("runHarness — ExecutionOptions propagation", () => {
     const controller = new AbortController();
     controller.abort();
     await expect(() =>
-      runHarness({ model, entryId: "scene_a", initialState: {}, signal: controller.signal, onWarning: () => {} }),
+      runHarness({
+        model,
+        entryId: "scene_a",
+        initialState: {},
+        allowUncheckedState: true,
+        signal: controller.signal,
+        onWarning: () => {},
+      }),
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
@@ -86,6 +113,7 @@ describe("runHarness — ExecutionOptions propagation", () => {
       model,
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
       hooks: { prepare: { myPrepare: prepareHook }, publish: { myPublish: publishHook } },
     });

@@ -129,6 +129,25 @@ export type Runner<R extends HarnessResult = HarnessResult> = {
 // Internal helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+function assertUncheckedStateAllowed(options: RunnerOptions, detail: string): void {
+  if (options.allowUncheckedState === true) return;
+  throw new RunnerError(
+    "UncheckedStateNotAllowed",
+    detail + ". Pass allowUncheckedState: true to run without STATE schema.",
+  );
+}
+
+function warnUncheckedState(options: RunnerOptions, detail: string): void {
+  options.onWarning?.(
+    "[turnout] " +
+      detail +
+      " - using unchecked StateManager. " +
+      "All merge writes succeed regardless of path; typo'd paths silently read as null " +
+      'on subsequent steps. An "unchecked_state_write" ActionWarning is emitted in the ' +
+      "trace for each action that writes to state.",
+  );
+}
+
 /**
  * Build the shared Runner methods (usePrepareHook, usePublishHook, isDone, next,
  * run, runAsync, result) from three mode-specific callbacks.
@@ -273,14 +292,14 @@ export function createSceneRunner(
 ): Runner<FragmentHarnessResult> {
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
-  const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+  let state: StateManager;
   if (initialState === undefined) {
-    options.onWarning?.(
-      "[turnout] No STATE schema — using unchecked StateManager. " +
-        "All merge writes succeed regardless of path; typo'd paths silently read as null " +
-        "on subsequent steps. An 'unchecked_state_write' ActionWarning is emitted in the " +
-        "trace for each action that writes to state.",
-    );
+    const detail = "No STATE schema supplied to createSceneRunner";
+    assertUncheckedStateAllowed(options, detail);
+    warnUncheckedState(options, detail);
+    state = stateManagerFromUnchecked(options.initialState);
+  } else {
+    state = initialState;
   }
 
   checkSceneForExtExpr(scene);
@@ -380,14 +399,14 @@ export function createRouteRunner(
 ): Runner<FragmentHarnessResult> {
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
-  const state = initialState ?? stateManagerFromUnchecked(options.initialState);
+  let state: StateManager;
   if (initialState === undefined) {
-    options.onWarning?.(
-      "[turnout] No STATE schema — using unchecked StateManager. " +
-        "All merge writes succeed regardless of path; typo'd paths silently read as null " +
-        "on subsequent steps. An 'unchecked_state_write' ActionWarning is emitted in the " +
-        "trace for each action that writes to state.",
-    );
+    const detail = "No STATE schema supplied to createRouteRunner";
+    assertUncheckedStateAllowed(options, detail);
+    warnUncheckedState(options, detail);
+    state = stateManagerFromUnchecked(options.initialState);
+  } else {
+    state = initialState;
   }
 
   checkSceneForExtExpr(entryScene);
@@ -544,19 +563,17 @@ export function createRunner(model: TurnModel, options: RunnerOptions): Runner<F
   }
   const sceneMap = Object.fromEntries(migratedModel.scenes.map((s) => [s.id, s]));
 
-  if (!migratedModel.state) {
-    options.onWarning?.(
-      "[turnout] No STATE schema in model — using unchecked StateManager. " +
-        "All merge writes succeed regardless of path; typo'd paths silently read as null " +
-        "on subsequent steps. An 'unchecked_state_write' ActionWarning is emitted in the " +
-        "trace for each action that writes to state.",
-    );
-  }
-  const initialState: StateManager = migratedModel.state
-    ? stateManagerFromSchema(migratedModel.state, options.initialState)
-    : stateManagerFromUnchecked(options.initialState);
-
   const target = resolveDispatchTarget(migratedModel, options.entryId);
+
+  let initialState: StateManager;
+  if (migratedModel.state) {
+    initialState = stateManagerFromSchema(migratedModel.state, options.initialState);
+  } else {
+    const detail = "No STATE schema in model";
+    assertUncheckedStateAllowed(options, detail);
+    warnUncheckedState(options, detail);
+    initialState = stateManagerFromUnchecked(options.initialState);
+  }
 
   const inner: Runner<FragmentHarnessResult> =
     target.kind === "route"

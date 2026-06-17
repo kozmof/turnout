@@ -44,6 +44,7 @@ const (
 const (
 	CodeDeclarationOrderLost          ErrorCode = "DeclarationOrderLost"
 	CodeStaleDeclarationOrder         ErrorCode = "StaleDeclarationOrder"
+	CodeStaleSchema                   ErrorCode = "StaleSchema"
 	CodeMissingStateSource            ErrorCode = "MissingStateSource"
 	CodeConflictingStateSource        ErrorCode = "ConflictingStateSource"
 	CodeStateFileMissing              ErrorCode = "StateFileMissing"
@@ -92,8 +93,8 @@ const (
 	// invariant violation that indicates a compiler bug rather than a user
 	// error. These diagnostics should be reported as bugs; they should never
 	// appear for valid input processed by a correct compiler.
-	CodeInternalError ErrorCode = "InternalError"
-	CodeCyclicBinding ErrorCode = "CyclicBinding"
+	CodeInternalError    ErrorCode = "InternalError"
+	CodeCyclicBinding    ErrorCode = "CyclicBinding"
 	CodeEmptyArrayLitArg ErrorCode = "EmptyArrayLitArg"
 	// CodeDuplicateCasePattern is emitted when two arms of a #case expression
 	// match the same literal value. The second arm is unreachable dead code.

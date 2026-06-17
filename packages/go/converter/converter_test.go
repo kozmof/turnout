@@ -194,6 +194,25 @@ func TestResolveSchema(t *testing.T) {
 	}
 }
 
+func TestCompileWithSchemaRejectsStaleSchema(t *testing.T) {
+	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	if schemaDiags.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
+	}
+
+	changedSrc := strings.Replace(simpleTurnSrc, "count:number = 0", "count:number = 1", 1)
+	result, errs := converter.CompileWithSchema("inline.turn", changedSrc, schema, order)
+	if result != nil {
+		t.Fatal("expected nil result for stale cached schema")
+	}
+	if !errs.HasErrors() {
+		t.Fatal("expected stale schema error")
+	}
+	if string(errs[0].Code) != "StaleSchema" {
+		t.Fatalf("expected StaleSchema, got %s", errs[0].Code)
+	}
+}
+
 // TestCompileWithSchema verifies the three cases: success (no errors, warnings
 // is nil), parse error propagation, and validate error propagation.
 func TestCompileWithSchema(t *testing.T) {

@@ -13,6 +13,9 @@
     "test:coverage": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run --coverage) && sh scripts/go-test.sh coverage",
     "test:dist": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --project tsconfig.build.json) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --project tsconfig.build.json) && node scripts/smoke-dist.mjs"
   },
+  "engines": {
+    "node": ">=22 <26"
+  },
   "devDependencies": {
     "@bufbuild/buf": "^1.66.1",
     "@bufbuild/protoc-gen-es": "^2.11.0"

@@ -71,7 +71,8 @@ export type RunnerErrorCode =
   | "LateHookRegistration"
   | "InvalidStepCount"
   | "IncompleteExecution"
-  | "ConcurrentExecution";
+  | "ConcurrentExecution"
+  | "UncheckedStateNotAllowed";
 
 export class RunnerError extends Error {
   readonly code: RunnerErrorCode;

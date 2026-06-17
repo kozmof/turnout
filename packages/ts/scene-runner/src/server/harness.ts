@@ -19,6 +19,8 @@ export type ServerHarnessOptions = {
   entryId: string;
   /** Initial STATE values, keyed by dotted path ("namespace.field"). */
   initialState: Record<string, AnyValue>;
+  /** Permit executing a model with no STATE schema. Defaults to false. */
+  allowUncheckedState?: boolean;
   /** Optional hook implementations for from_hook prepare entries. */
   hooks?: HookRegistry;
   /** Maximum action steps allowed per scene execution. */
@@ -101,6 +103,7 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
     model,
     entryId: options.entryId,
     initialState: options.initialState,
+    allowUncheckedState: options.allowUncheckedState,
     hooks: options.hooks,
     maxSceneSteps: options.maxSceneSteps,
     maxRouteTransitions: options.maxRouteTransitions,

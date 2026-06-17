@@ -29,6 +29,7 @@ describe("runServerHarness", () => {
       jsonFile: "model.json",
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
 
@@ -43,6 +44,7 @@ describe("runServerHarness", () => {
       turnFile: "my.turn",
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
 
@@ -58,6 +60,7 @@ describe("runServerHarness", () => {
       allowedBaseDir: "/workspace/models",
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
 
@@ -75,6 +78,7 @@ describe("runServerHarness", () => {
       allowedBaseDir: "/workspace/models",
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
 
@@ -101,6 +105,7 @@ describe("runServerHarness", () => {
         jsonFile: "model.json",
         entryId: "limited",
         initialState: {},
+        allowUncheckedState: true,
         maxSceneSteps: 1,
         maxRouteTransitions: 5,
         onLog,
@@ -123,6 +128,7 @@ describe("runServerHarness", () => {
         jsonFile: "model.json",
         entryId: "scene_a",
         initialState: {},
+        allowUncheckedState: true,
         signal: controller.signal,
         onWarning: () => {},
       }),
@@ -137,6 +143,7 @@ describe("runServerHarness", () => {
       strictParse: true,
       entryId: "scene_a",
       initialState: {},
+      allowUncheckedState: true,
       onWarning: () => {},
     });
 
@@ -150,6 +157,7 @@ describe("runServerHarness", () => {
         allowedBaseDir: "/workspace/models",
         entryId: "scene_a",
         initialState: {},
+        allowUncheckedState: true,
       }),
     ).rejects.toThrow(expect.objectContaining({ code: "PathOutsideBase" }));
     expect(mockLoadJsonModel).not.toHaveBeenCalled();
@@ -162,6 +170,7 @@ describe("runServerHarness", () => {
         allowedBaseDir: "/workspace/models",
         entryId: "scene_a",
         initialState: {},
+        allowUncheckedState: true,
       }),
     ).rejects.toThrow(expect.objectContaining({ code: "PathOutsideBase" }));
     expect(mockRunConverter).not.toHaveBeenCalled();
@@ -174,6 +183,7 @@ describe("runServerHarness", () => {
         jsonFile: "model.json",
         entryId: "scene_a",
         initialState: {},
+        allowUncheckedState: true,
       }),
     ).rejects.toThrow(expect.objectContaining({ code: "AmbiguousEntryPoint" }));
     expect(mockRunConverter).not.toHaveBeenCalled();
@@ -185,6 +195,7 @@ describe("runServerHarness", () => {
       runServerHarness({
         entryId: "scene_a",
         initialState: {},
+        allowUncheckedState: true,
       }),
     ).rejects.toThrow("either turnFile or jsonFile must be provided");
   });

@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
@@ -143,9 +144,41 @@ func ResolveSchema(name, src, stateBasePath string) (schema Schema, order []stri
 	return schema, order, ds2
 }
 
+func sameStringSlice(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+func verifyCachedSchema(source ast.StateSource, basePath string, cached Schema, order []string) Diagnostics {
+	current, currentOrder, ds := state.ResolveWithOrder(source, basePath)
+	if ds.HasErrors() {
+		return ds
+	}
+	if current.Hash() != cached.Hash() {
+		return Diagnostics{diag.Errorf(
+			diag.CodeStaleSchema,
+			"cached schema does not match current STATE source; call ResolveSchema again before compiling with cached schema",
+		)}
+	}
+	if !sameStringSlice(currentOrder, order) {
+		return Diagnostics{diag.Errorf(
+			diag.CodeStaleDeclarationOrder,
+			"cached schema declaration order does not match current STATE source; call ResolveSchema again before compiling with cached schema",
+		)}
+	}
+	return nil
+}
+
 // CompileToModelWithSchema is like CompileToModel but accepts a pre-resolved
 // schema and its declaration order (from ResolveSchema or a prior CompileSource
-// call), skipping state_file I/O entirely. Useful for LSP and incremental
+// call), verifying the current STATE source before lowering. Useful for LSP and incremental
 // tooling that compiles the same file repeatedly as the user edits.
 //
 // schema and order must have been produced from the same state source as the
@@ -157,6 +190,9 @@ func CompileToModelWithSchema(name, src string, schema Schema, order []string) (
 	turnFile, ds1 := parser.ParseFile(name, src)
 	if ds1.HasErrors() {
 		return nil, ds1
+	}
+	if dsSchema := verifyCachedSchema(turnFile.StateSource, filepath.Dir(name), schema, order); dsSchema.HasErrors() {
+		return nil, dsSchema
 	}
 	lr, ds2 := lower.Lower(turnFile, schema, order)
 	if ds2.HasErrors() {
@@ -177,7 +213,7 @@ func CompileToModelWithSchema(name, src string, schema Schema, order []string) (
 //
 // Together with ResolveSchema this enables the full LSP incremental path:
 // resolve the schema once on file open, then call CompileWithSchema on every
-// keystroke without re-reading state_file from disk.
+// keystroke while rejecting stale cached schemas.
 func CompileWithSchema(name, src string, schema Schema, order []string) (result *CompileResult, ds Diagnostics) {
 	defer recoverInternalPanic(&result, &ds)
 	turnFile, ds1 := parser.ParseFile(name, src)
@@ -187,6 +223,10 @@ func CompileWithSchema(name, src string, schema Schema, order []string) (result 
 
 	var accumulated Diagnostics
 	var ok bool
+
+	if dsSchema := verifyCachedSchema(turnFile.StateSource, filepath.Dir(name), schema, order); dsSchema.HasErrors() {
+		return nil, dsSchema
+	}
 
 	lr, ds2 := lower.Lower(turnFile, schema, order)
 	if accumulated, ok = runStage(accumulated, ds2); !ok {
@@ -226,6 +266,10 @@ func ValidateWithSchema(name, src string, schema Schema, order []string) (warnin
 	turnFile, ds1 := parser.ParseFile(name, src)
 	if accumulated, ok = runStage(accumulated, ds1); !ok {
 		return nil, accumulated
+	}
+
+	if dsSchema := verifyCachedSchema(turnFile.StateSource, filepath.Dir(name), schema, order); dsSchema.HasErrors() {
+		return nil, dsSchema
 	}
 
 	lr, ds2 := lower.Lower(turnFile, schema, order)

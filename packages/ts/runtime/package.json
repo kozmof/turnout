@@ -24,6 +24,9 @@
   "dependencies": {
     "valibot": "^1.1.0"
   },
+  "engines": {
+    "node": ">=22 <26"
+  },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.0",
     "oxfmt": "^0.53.0",
