@@ -28,8 +28,8 @@ scene "ai_workflow" {
     compute {
       root = analysis_done
       prog "analyze_prog" {
-        ~>need_grounding:bool = _
-        ~>kb_enabled:bool     = _
+        ~>need_grounding:bool
+        ~>kb_enabled:bool
         retrieve_ready:bool = need_grounding & kb_enabled
         analysis_done:bool  = true
       }
@@ -42,7 +42,7 @@ scene "ai_workflow" {
       compute {
         condition = go_retrieve
         prog "to_retrieve" {
-          ~>retrieve_ready:bool = _
+          ~>retrieve_ready:bool
           go_retrieve:bool = retrieve_ready
         }
       }
@@ -66,7 +66,7 @@ scene "ai_workflow" {
     compute {
       root = context_str
       prog "retrieve_prog" {
-        ~>doc_hint:str = _
+        ~>doc_hint:str
         prefix:str      = "Retrieved: "
         <~context_str:str = prefix + doc_hint
       }
@@ -92,7 +92,7 @@ scene "ai_workflow" {
     compute {
       root = draft_text
       prog "draft_direct_prog" {
-        ~>query:str    = _
+        ~>query:str
         prefix:str      = "Direct answer: "
         <~draft_text:str = prefix + query
       }
@@ -118,8 +118,8 @@ scene "ai_workflow" {
     compute {
       root = draft_text
       prog "draft_ctx_prog" {
-        ~>query:str   = _
-        ~>context:str = _
+        ~>query:str
+        ~>context:str
         sep:str       = " [ctx:"
         close:str     = "]"
         mid:str        = query + sep
@@ -149,7 +149,7 @@ scene "ai_workflow" {
     compute {
       root = safe
       prog "safety_prog" {
-        ~>toxicity:number = _
+        ~>toxicity:number
         threshold:number  = 3
         safe:bool = toxicity <= threshold
       }
@@ -161,14 +161,14 @@ scene "ai_workflow" {
       compute {
         condition = go_publish
         prog "to_publish" {
-          ~>safe:bool = _
+          ~>safe:bool
           go_publish:bool = safe
         }
       }
       prepare {
         safe { from_action = safe }
       }
-      action = publish
+      action = "publish"
     }
     next {
       compute {
@@ -185,7 +185,7 @@ scene "ai_workflow" {
     compute {
       root = final_response
       prog "publish_prog" {
-        ~>draft:str         = _
+        ~>draft:str
         <~final_response:str = draft
         <~status:str         = "sent"
       }
@@ -203,7 +203,7 @@ scene "ai_workflow" {
     compute {
       root = review_note
       prog "review_prog" {
-        ~>draft:str          = _
+        ~>draft:str
         prefix:str           = "Review needed: "
         <~review_note:str    = prefix + draft
         <~status:str         = "awaiting_human"

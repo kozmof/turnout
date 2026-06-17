@@ -28,6 +28,12 @@ export type ServerHarnessOptions = {
    * resolution. Set this for request-facing or multi-tenant server usage.
    */
   allowedBaseDir?: string;
+  /**
+   * When `true`, model parsing rejects unknown proto fields instead of ignoring
+   * them. Leave `false` (the default) in production for forward compatibility;
+   * enable in development/CI to catch Go-emitter ↔ TS-schema drift early.
+   */
+  strictParse?: boolean;
 };
 
 function resolveHarnessPath(filePath: string, allowedBaseDir: string | undefined): string {
@@ -65,18 +71,17 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
     );
   }
 
+  const bridgeOptions = {
+    ...(options.allowedBaseDir !== undefined && { safeBaseDir: options.allowedBaseDir }),
+    ...(options.strictParse !== undefined && { strictParse: options.strictParse }),
+  };
+
   if (options.turnFile) {
     const turnPath = resolveHarnessPath(options.turnFile, options.allowedBaseDir);
-    model =
-      options.allowedBaseDir === undefined
-        ? await runConverter(turnPath)
-        : await runConverter(turnPath, { safeBaseDir: options.allowedBaseDir });
+    model = await runConverter(turnPath, bridgeOptions);
   } else if (options.jsonFile) {
     const jsonPath = resolveHarnessPath(options.jsonFile, options.allowedBaseDir);
-    model =
-      options.allowedBaseDir === undefined
-        ? loadJsonModel(jsonPath)
-        : loadJsonModel(jsonPath, { safeBaseDir: options.allowedBaseDir });
+    model = loadJsonModel(jsonPath, bridgeOptions);
   } else {
     throw new HarnessError(
       "MissingEntryPoint",

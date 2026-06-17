@@ -51,7 +51,9 @@
   "scenes": [
     {
       "id": "loan_flow",
-      "entryActions": ["score"],
+      "entryActions": [
+        "score"
+      ],
       "nextPolicy": "first-match",
       "actions": [
         {
@@ -220,7 +222,8 @@
               },
               "action": "reject"
             }
-          ]
+          ],
+          "text": "    Logic overview:\n    - Read income and debt from STATE into compute inputs.\n    - Evaluate threshold checks and derive `decision`.\n    - Persist approval flag and input snapshot to STATE.\n    - Route to `approve` when decision path is true; otherwise fall through to `reject`.\n    "
         },
         {
           "id": "approve",
@@ -273,7 +276,8 @@
               "binding": "approval_code",
               "toState": "decision.code"
             }
-          ]
+          ],
+          "text": "    Logic overview:\n    - Build a deterministic approval code from a fixed prefix/suffix pair.\n    - Mark decision status as approved and store the generated code.\n    "
         },
         {
           "id": "reject",
@@ -304,9 +308,18 @@
               "binding": "reason",
               "toState": "decision.reason"
             }
-          ]
+          ],
+          "text": "    Logic overview:\n    - Produce a deterministic rejection reason.\n    - Mark decision status as rejected and persist the rejection reason.\n    "
         }
-      ]
+      ],
+      "view": {
+        "name": "overview",
+        "flow": "score\n  |=\u003e approve\n  |=\u003e reject",
+        "enforce": "at_least"
+      }
     }
-  ]
+  ],
+  "version": 1,
+  "minVersion": 1,
+  "maxVersion": 1
 }

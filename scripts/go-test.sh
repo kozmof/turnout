@@ -33,7 +33,7 @@ case "${1:-test}" in
   coverage)
     packages=$(GOFLAGS=-buildvcs=false "$go_bin" list ./... | grep -Ev '/internal/emit/turnoutpb$|/internal/names$|/internal/overview$')
     profile=${GO_COVERAGE_PROFILE:-/tmp/turnout-converter.coverage.out}
-    threshold=${GO_COVERAGE_THRESHOLD:-75.0}
+    threshold=${GO_COVERAGE_THRESHOLD:-79.0}
 
     GOFLAGS=-buildvcs=false "$go_bin" test -coverprofile="$profile" $packages
     "$go_bin" tool cover -func="$profile"

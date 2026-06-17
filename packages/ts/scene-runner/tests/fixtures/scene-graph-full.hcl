@@ -37,6 +37,15 @@ scene "loan_flow" {
   entry_actions = ["score"]
   next_policy   = "first-match"
 
+  view "overview" {
+    flow = <<-EOT
+    score
+      |=> approve
+      |=> reject
+    EOT
+    enforce = "at_least"
+  }
+
   action "score" {
     text = <<-EOT
         Logic overview:

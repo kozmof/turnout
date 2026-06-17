@@ -32,7 +32,7 @@ describe("runServerHarness", () => {
       onWarning: () => {},
     });
 
-    expect(mockLoadJsonModel).toHaveBeenCalledWith("model.json");
+    expect(mockLoadJsonModel).toHaveBeenCalledWith("model.json", {});
     expect(result.trace.kind).toBe("scene");
   });
 
@@ -46,7 +46,7 @@ describe("runServerHarness", () => {
       onWarning: () => {},
     });
 
-    expect(mockRunConverter).toHaveBeenCalledWith("my.turn");
+    expect(mockRunConverter).toHaveBeenCalledWith("my.turn", {});
     expect(result.trace.kind).toBe("scene");
   });
 
@@ -82,6 +82,20 @@ describe("runServerHarness", () => {
       safeBaseDir: "/workspace/models",
     });
     expect(result.trace.kind).toBe("scene");
+  });
+
+  it("threads strictParse through to the bridge", async () => {
+    mockRunConverter.mockResolvedValue(minimalModel);
+
+    await runServerHarness({
+      turnFile: "my.turn",
+      strictParse: true,
+      entryId: "scene_a",
+      initialState: {},
+      onWarning: () => {},
+    });
+
+    expect(mockRunConverter).toHaveBeenCalledWith("my.turn", { strictParse: true });
   });
 
   it("rejects paths that resolve outside allowedBaseDir", async () => {

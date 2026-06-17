@@ -1,9 +1,9 @@
 state {
-  namespace "input" {
-    field "value" { type = number, default = 0 }
+  input {
+    value:number = 0
   }
-  namespace "output" {
-    field "result" { type = number, default = 0 }
+  output {
+    result:number = 0
   }
 }
 
@@ -14,8 +14,8 @@ scene "scene_a" {
     compute {
       root = doubled
       prog "a_prog" {
-        ~>value:number = _
-        doubled:number = value + value
+        ~>value:number
+        <~doubled:number = value + value
       }
     }
 
@@ -36,8 +36,8 @@ scene "scene_b" {
     compute {
       root = final_val
       prog "b_prog" {
-        ~>result:number = _
-        final_val:number = result + 1
+        ~>result:number
+        <~final_val:number = result + 1
       }
     }
 
@@ -52,6 +52,7 @@ scene "scene_b" {
 }
 
 route "main_route" {
+  entry "scene_a"
   match {
     scene_a.step_a => scene_b
   }

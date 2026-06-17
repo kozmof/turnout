@@ -399,6 +399,10 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 }
 
 func (c *localLowerer) lowerPipeInto(name string, ft ast.FieldType, initial ast.LocalExpr, steps []ast.LocalExpr, outerPC pipeContext) {
+	// The inferLocalType "ok" bool is intentionally discarded here and below: on
+	// failure it returns the fallback type, and the underlying lowerExprInto call
+	// emits the real diagnostic (e.g. UndefinedRef). Inference is only used to
+	// thread an `it` type through the pipe, so the fallback is safe.
 	currentType, _ := c.inferLocalType(initial, ft, outerPC)
 	currentRef, _ := c.lowerExprTemp(initial, "pipe_initial", currentType, outerPC)
 	for i, step := range steps {
