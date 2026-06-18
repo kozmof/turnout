@@ -28,6 +28,13 @@ describe("preset functions", () => {
       expect(bfNumber.min(a, b).value).toBe(3);
     });
 
+    it("rejects division and modulo by zero instead of yielding Infinity/NaN", () => {
+      expect(() => bfNumber.divide(buildNumber(1), buildNumber(0))).toThrow("Division by zero");
+      expect(() => bfNumber.mod(buildNumber(1), buildNumber(0))).toThrow("Modulo by zero");
+      // Non-zero divisors still work.
+      expect(bfNumber.divide(buildNumber(6), buildNumber(2)).value).toBe(3);
+    });
+
     it("supports comparison essentials with merged tags", () => {
       const a = buildNumber(10, ["left"]);
       const b = buildNumber(3, ["right"]);
@@ -97,6 +104,15 @@ describe("preset functions", () => {
       expect(tfString.toNumber(buildString("3.14")).value).toBe(3.14);
       expect(tfString.toNumber(buildString("42")).value).toBe(42);
       expect(tfString.toNumber(buildString("-1.5")).value).toBe(-1.5);
+      // Surrounding whitespace is tolerated.
+      expect(tfString.toNumber(buildString("  12  ")).value).toBe(12);
+    });
+
+    it("toNumber rejects malformed input instead of silently parsing a prefix", () => {
+      expect(() => tfString.toNumber(buildString("42abc"))).toThrow("Cannot convert");
+      expect(() => tfString.toNumber(buildString(""))).toThrow("Cannot convert");
+      expect(() => tfString.toNumber(buildString("   "))).toThrow("Cannot convert");
+      expect(() => tfString.toNumber(buildString("Infinity"))).toThrow("Cannot convert");
     });
 
     it("supports essential string binary predicates", () => {
@@ -138,6 +154,14 @@ describe("preset functions", () => {
       expect(got.value).toBe("value");
       expectTagsToContainAll(got.tags, ["item", "array", "index"]);
     });
+
+    it("rejects negative and non-integer indices instead of wrapping from the end", () => {
+      const arr = buildArray([buildString("first"), buildString("last")], []);
+      expect(() => bfArray.get(arr, buildNumber(-1))).toThrow("out of bounds");
+      expect(() => bfArray.get(arr, buildNumber(1.5))).toThrow("out of bounds");
+      // Valid in-range access still works.
+      expect(bfArray.get(arr, buildNumber(1)).value).toBe("last");
+    });
   });
 
   it("supports additional array helpers and error branches", () => {
@@ -175,6 +199,33 @@ describe("preset functions", () => {
       expect(bfGeneric.isNotEqual(buildString("a"), buildString("a")).value).toBe(false);
       expect(() => bfGeneric.isEqual(buildNumber(1), buildString("1"))).toThrow();
       expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString("true"))).toThrow();
+    });
+
+    it("array equality ignores tags, consistent with scalar equality", () => {
+      // Scalars already ignore tags; arrays must too.
+      expect(bfGeneric.isEqual(buildNumber(1, ["a"]), buildNumber(1, ["b"])).value).toBe(true);
+
+      const x = buildArray([buildNumber(1, ["a"])], ["arr-x"]);
+      const y = buildArray([buildNumber(1, ["b"])], ["arr-y"]);
+      expect(bfGeneric.isEqual(x, y).value).toBe(true);
+      expect(bfGeneric.isNotEqual(x, y).value).toBe(false);
+
+      // Different values (and different lengths) are still unequal.
+      expect(
+        bfGeneric.isEqual(buildArray([buildNumber(1)]), buildArray([buildNumber(2)])).value,
+      ).toBe(false);
+      expect(
+        bfGeneric.isEqual(buildArray([buildNumber(1)]), buildArray([buildNumber(1), buildNumber(2)]))
+          .value,
+      ).toBe(false);
+
+      // Nested arrays compare structurally, still tag-insensitively.
+      expect(
+        bfGeneric.isEqual(
+          buildArray([buildArray([buildNumber(1, ["deep-a"])])]),
+          buildArray([buildArray([buildNumber(1, ["deep-b"])])]),
+        ).value,
+      ).toBe(true);
     });
   });
 });

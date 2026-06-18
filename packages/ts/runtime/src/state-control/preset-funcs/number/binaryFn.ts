@@ -40,12 +40,18 @@ export const bfNumber: BinaryFnNumber = {
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
+    if (b.value === 0) {
+      throw new Error("Division by zero");
+    }
     return binaryNumberOp((x, y) => x / y, a, b);
   },
   mod: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
+    if (b.value === 0) {
+      throw new Error("Modulo by zero");
+    }
     return binaryNumberOp((x, y) => x % y, a, b);
   },
   max: (

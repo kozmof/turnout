@@ -83,7 +83,14 @@ export const bfArray: BinaryFnArray = {
     a: AnyArrayValue<readonly TagSymbol[]>,
     idx: NumberValue<readonly TagSymbol[]>,
   ): NonArrayValue => {
-    const item = a.value.at(idx.value);
+    // Only non-negative integers within range are valid. `.at()` would accept
+    // negative indices and silently return from the end, masking out-of-bounds.
+    if (!Number.isInteger(idx.value) || idx.value < 0 || idx.value >= a.value.length) {
+      throw new Error(
+        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)})`,
+      );
+    }
+    const item = a.value[idx.value];
     if (item !== undefined && isNonArrayValue(item)) {
       // Propagate tags from both the array and the index to the retrieved item
       return {

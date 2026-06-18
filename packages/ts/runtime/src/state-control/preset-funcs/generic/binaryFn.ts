@@ -16,10 +16,22 @@ function mergeOperandTags(a: AnyValue, b: AnyValue): readonly TagSymbol[] {
   return Array.from(tagsSet);
 }
 
+/**
+ * Structural, tag-insensitive value equality.
+ *
+ * Scalars compare by their underlying `.value` (matching strict `===` semantics,
+ * so differing base types are unequal). Arrays compare length and then element
+ * for element with the same rule. Tags never participate in equality — this keeps
+ * array equality consistent with scalar equality, which ignores tags entirely.
+ */
 function areValuesEqual(a: AnyValue, b: AnyValue): boolean {
-  return isArray(a) && isArray(b)
-    ? JSON.stringify(a.value) === JSON.stringify(b.value)
-    : a.value === b.value;
+  if (isArray(a) && isArray(b)) {
+    return (
+      a.value.length === b.value.length &&
+      a.value.every((el, i) => areValuesEqual(el, b.value[i] as AnyValue))
+    );
+  }
+  return a.value === b.value;
 }
 
 export const bfGeneric: BinaryFnGeneric<AnyValue> = {

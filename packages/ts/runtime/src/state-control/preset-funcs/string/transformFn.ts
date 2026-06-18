@@ -17,7 +17,14 @@ export const tfString: TransformFnString = {
     return val;
   },
   toNumber: (val: StringValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return buildNumber(parseFloat(val.value), val.tags);
+    // Use strict Number() rather than parseFloat, which accepts trailing garbage
+    // ("42abc" -> 42). Reject empty/whitespace-only and non-finite results.
+    const trimmed = val.value.trim();
+    const n = Number(trimmed);
+    if (trimmed === "" || !Number.isFinite(n)) {
+      throw new Error(`Cannot convert ${JSON.stringify(val.value)} to a number`);
+    }
+    return buildNumber(n, val.tags);
   },
   trim: (val: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
     return unaryStringOp((s) => s.trim(), val);
