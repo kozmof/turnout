@@ -5,8 +5,11 @@ import {
   createCombineDefineId,
   createPipeDefineId,
   createCondDefineId,
+  isValueId,
 } from "./idValidation.js";
-import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId } from "./types.js";
+import { buildNumber } from "../state-control/value-builders.js";
+import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId, ValueTable } from "./types.js";
+import type { NodeId } from "./runtime/tree-types.js";
 
 describe("ID Validation Module", () => {
   describe("Branded ID Creators", () => {
@@ -131,6 +134,20 @@ describe("ID Validation Module", () => {
       expect(_v).toBeDefined();
       expect(_f).toBeDefined();
       expect(_p).toBeDefined();
+    });
+  });
+
+  describe("Table-based guards", () => {
+    describe("isValueId", () => {
+      const valueTable: ValueTable = { [createValueId("v1")]: buildNumber(1) };
+
+      it("returns true for an id present in the value table", () => {
+        expect(isValueId(createValueId("v1") as NodeId, valueTable)).toBe(true);
+      });
+
+      it("returns false for an id absent from the value table", () => {
+        expect(isValueId(createValueId("missing") as NodeId, valueTable)).toBe(false);
+      });
     });
   });
 });

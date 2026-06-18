@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { resolveActionPrepare, resolveNextPrepare } from "../src/executor/prepare-resolver.js";
+import {
+  resolveActionPrepare,
+  resolveActionPrepareSync,
+  resolveNextPrepare,
+} from "../src/executor/prepare-resolver.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import {
   buildNumber,
@@ -369,5 +373,30 @@ describe("resolveNextPrepare", () => {
     expect(isPureNumber(result["score"]!) && result["score"].value).toBe(5);
     expect(isPureString(result["mode"]!) && result["mode"].value).toBe("fast");
     expect(isPureNumber(result["threshold"]!) && result["threshold"].value).toBe(3);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// resolveActionPrepareSync
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("resolveActionPrepareSync", () => {
+  it("reads from_state entries synchronously", () => {
+    const state = stateManagerFromUnchecked({ "ctx.mode": buildString("fast") });
+    const result = resolveActionPrepareSync(
+      [{ binding: "mode", fromState: "ctx.mode" }] as unknown as PrepareEntry[],
+      state,
+    );
+    expect(isPureString(result["mode"]!) && result["mode"].value).toBe("fast");
+  });
+
+  it("rejects from_hook entries because the sync path cannot run hooks", () => {
+    const state = stateManagerFromUnchecked({});
+    expect(() =>
+      resolveActionPrepareSync(
+        [{ binding: "h", fromHook: "someHook" }] as unknown as PrepareEntry[],
+        state,
+      ),
+    ).toThrow(PrepareError);
   });
 });

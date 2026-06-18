@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  BuilderInvariantError,
   createUndefinedBranchError,
   createUndefinedConditionError,
   createUndefinedPipeArgumentError,
   createUndefinedPipeStepReferenceError,
   createUndefinedValueReferenceError,
+  isBuilderInvariantError,
   isBuilderValidationError,
 } from "./errors.js";
 
@@ -56,5 +58,15 @@ describe("builder validation errors", () => {
     expect(isBuilderValidationError(Object.assign(new Error("x"), { kind: "other" }))).toBe(false);
     expect(isBuilderValidationError({ kind: "undefinedBranch" })).toBe(false);
     expect(isBuilderValidationError(new Error("plain"))).toBe(false);
+  });
+
+  it("identifies BuilderInvariantError by instance", () => {
+    const err = new BuilderInvariantError("MissingTableEntry", "missing 'v1'");
+    expect(err.name).toBe("BuilderInvariantError");
+    expect(err.code).toBe("MissingTableEntry");
+    expect(err.message).toContain("[builder] missing 'v1'");
+    expect(isBuilderInvariantError(err)).toBe(true);
+    expect(isBuilderInvariantError(new Error("plain"))).toBe(false);
+    expect(isBuilderInvariantError({ code: "MissingTableEntry" })).toBe(false);
   });
 });
