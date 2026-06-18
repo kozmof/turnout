@@ -20,7 +20,7 @@ fi
 PATH="$tools_bin:$gopath/bin:$HOME/go/bin:$PATH:./node_modules/.bin"
 BUF_CACHE_DIR="${BUF_CACHE_DIR:-$PWD/.buf-cache}"
 XDG_CACHE_HOME="${XDG_CACHE_HOME:-$PWD/.buf-cache/xdg}"
-unset NODE_OPTIONS
-export PATH BUF_CACHE_DIR XDG_CACHE_HOME
+NODE_OPTIONS="--localstorage-file=$tools_bin/node-localstorage"
+export PATH BUF_CACHE_DIR XDG_CACHE_HOME NODE_OPTIONS
 
 buf generate

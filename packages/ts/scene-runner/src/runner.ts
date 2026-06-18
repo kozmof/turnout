@@ -50,12 +50,12 @@ export type RunnerStepResult =
  *
  * // Manual stepping
  * while (!runner.isDone()) {
- *   const [step] = runner.next();
+ *   const [step] = await runner.next();
  * }
  * const result = runner.result();
  *
  * // Or run to completion in one call
- * const result = runner.run();
+ * const result = await runner.run();
  */
 export type Runner<R extends HarnessResult = HarnessResult> = {
   /**
