@@ -40,6 +40,16 @@ func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, dia
 	return lowerCore(file, schema, order)
 }
 
+// LowerResolvingStateContained resolves state_file directives relative to
+// basePath and rejects paths or symlinks that escape that directory.
+func LowerResolvingStateContained(file *ast.TurnFile, basePath string) (*LowerResult, diag.Diagnostics) {
+	schema, order, ds := state.ResolveWithOrderContained(file.StateSource, basePath)
+	if ds.HasErrors() {
+		return nil, ds
+	}
+	return lowerCore(file, schema, order)
+}
+
 // Lower lowers file using a pre-resolved schema and its declaration order.
 // Use this when the caller has already resolved the schema (e.g. from a prior
 // CompileSource call) and wants to avoid re-reading state_file from disk.
@@ -181,7 +191,7 @@ func lowerStateBlockFromAST(block *ast.InlineStateBlock, ds *diag.DiagSink) *tur
 // orderedNsMap accumulates namespace→field entries in insertion order.
 // It replaces the previous dual-variable pattern (nsList + nsIndex).
 type orderedNsMap struct {
-	list  []struct {
+	list []struct {
 		name   string
 		fields []*turnoutpb.FieldModel
 	}

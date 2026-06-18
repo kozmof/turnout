@@ -223,6 +223,44 @@ state {
 	}
 }
 
+func TestStateFileContainedRejectsAbsoluteEscape(t *testing.T) {
+	base := t.TempDir()
+	outside := t.TempDir()
+	absPath := writeFile(t, outside, "abs.turn", `
+state {
+  x {
+    val:number = 7
+  }
+}
+`)
+	d := &ast.StateFileDirective{Pos: pos(), Path: absPath}
+	_, _, ds := state.ResolveWithOrderContained(d, base)
+	if !hasError(ds, diag.CodeStateFileOutsideBase) {
+		t.Errorf("want StateFileOutsideBase, got %v", ds)
+	}
+}
+
+func TestStateFileContainedRejectsSymlinkEscape(t *testing.T) {
+	base := t.TempDir()
+	outside := t.TempDir()
+	target := writeFile(t, outside, "target.turn", `
+state {
+  x {
+    val:number = 7
+  }
+}
+`)
+	link := filepath.Join(base, "link.turn")
+	if err := os.Symlink(target, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	d := &ast.StateFileDirective{Pos: pos(), Path: "link.turn"}
+	_, _, ds := state.ResolveWithOrderContained(d, base)
+	if !hasError(ds, diag.CodeStateFileOutsideBase) {
+		t.Errorf("want StateFileOutsideBase, got %v", ds)
+	}
+}
+
 // ─── nil source ───────────────────────────────────────────────────────────────
 
 func TestNilSource(t *testing.T) {

@@ -48,6 +48,7 @@ const (
 	CodeMissingStateSource            ErrorCode = "MissingStateSource"
 	CodeConflictingStateSource        ErrorCode = "ConflictingStateSource"
 	CodeStateFileMissing              ErrorCode = "StateFileMissing"
+	CodeStateFileOutsideBase          ErrorCode = "StateFileOutsideBase"
 	CodeStateFileParseError           ErrorCode = "StateFileParseError"
 	CodeMissingStateBlock             ErrorCode = "MissingStateBlock"
 	CodeDuplicateStateBlock           ErrorCode = "DuplicateStateBlock"

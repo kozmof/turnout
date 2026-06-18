@@ -37,14 +37,17 @@ export {
   isRunnerError,
   isStateError,
   isModelValidationError,
+  isRouteRuntimeError,
   RunnerError,
   StateError,
   ModelValidationError,
+  RouteRuntimeError,
 } from "./executor/errors.js";
 export type {
   RunnerErrorCode,
   StateErrorCode,
   ModelValidationErrorCode,
+  RouteErrorCode,
   SceneRuntimeError,
   SceneErrorCode,
   SceneInternalErrorCode,

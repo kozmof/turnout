@@ -81,7 +81,7 @@ func runConvert(args []string) int {
 	}
 
 	inputPath := fs.Arg(0)
-	basePath := filepath.Dir(inputPath)
+	basePath := ""
 	if *stateFile != "" {
 		basePath = *stateFile
 	}
@@ -198,7 +198,7 @@ func runValidate(args []string) int {
 	}
 
 	inputPath := fs.Arg(0)
-	basePath := filepath.Dir(inputPath)
+	basePath := ""
 	if *stateFile != "" {
 		basePath = *stateFile
 	}

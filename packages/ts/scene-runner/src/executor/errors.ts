@@ -152,3 +152,7 @@ export class RouteRuntimeError extends Error {
     this.routeId = routeId;
   }
 }
+
+export function isRouteRuntimeError(err: unknown): err is RouteRuntimeError {
+  return err instanceof RouteRuntimeError;
+}

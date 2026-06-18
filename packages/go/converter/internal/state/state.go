@@ -163,6 +163,17 @@ func Resolve(source ast.StateSource, basePath string) (Schema, diag.Diagnostics)
 // when the source uses state_file. Callers that do not need ordering can
 // ignore the second return value.
 func ResolveWithOrder(source ast.StateSource, basePath string) (Schema, []string, diag.Diagnostics) {
+	return resolveWithOrder(source, basePath, false)
+}
+
+// ResolveWithOrderContained is like ResolveWithOrder, but constrains state_file
+// directives to basePath. Relative state_file paths are resolved under basePath;
+// absolute paths and symlinks must also resolve inside basePath.
+func ResolveWithOrderContained(source ast.StateSource, basePath string) (Schema, []string, diag.Diagnostics) {
+	return resolveWithOrder(source, basePath, true)
+}
+
+func resolveWithOrder(source ast.StateSource, basePath string, containStateFile bool) (Schema, []string, diag.Diagnostics) {
 	switch s := source.(type) {
 	case *ast.InlineStateBlock:
 		schema, ds := resolveInline(s)
@@ -172,7 +183,7 @@ func ResolveWithOrder(source ast.StateSource, basePath string) (Schema, []string
 		}
 		return schema, order, ds
 	case *ast.StateFileDirective:
-		schema, order, ds := resolveStateFileWithOrder(s, basePath)
+		schema, order, ds := resolveStateFileWithOrder(s, basePath, containStateFile)
 		if !ds.HasErrors() {
 			schema.hash = computeSchemaHash(schema, order)
 		}
@@ -193,10 +204,46 @@ func inlineOrder(block *ast.InlineStateBlock) []string {
 	return keys
 }
 
-// resolveStateFileWithOrder is like Resolve but also returns ordered keys.
-func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string) (Schema, []string, diag.Diagnostics) {
-	path := d.Path
+func pathInsideBase(path, base string) bool {
+	rel, err := filepath.Rel(base, path)
+	if err != nil {
+		return false
+	}
+	return rel == "." || (rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator)) && !filepath.IsAbs(rel))
+}
+
+func resolveContainedStatePath(rawPath, basePath string) (string, diag.Diagnostics) {
+	base, err := filepath.Abs(basePath)
+	if err != nil {
+		return "", diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase, "cannot resolve state_file base %q: %v", basePath, err)}
+	}
+	path := rawPath
 	if !filepath.IsAbs(path) {
+		path = filepath.Join(base, path)
+	}
+	path = filepath.Clean(path)
+	if !pathInsideBase(path, base) {
+		return "", diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase, "state_file %q resolves outside base directory %q", rawPath, basePath)}
+	}
+
+	realBase, baseErr := filepath.EvalSymlinks(base)
+	realPath, pathErr := filepath.EvalSymlinks(path)
+	if baseErr == nil && pathErr == nil && !pathInsideBase(realPath, realBase) {
+		return "", diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase, "state_file %q resolves outside base directory %q", rawPath, basePath)}
+	}
+	return path, nil
+}
+
+// resolveStateFileWithOrder is like Resolve but also returns ordered keys.
+func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, containStateFile bool) (Schema, []string, diag.Diagnostics) {
+	path := d.Path
+	if containStateFile {
+		var ds diag.Diagnostics
+		path, ds = resolveContainedStatePath(path, basePath)
+		if ds.HasErrors() {
+			return Schema{}, nil, ds
+		}
+	} else if !filepath.IsAbs(path) {
 		path = filepath.Join(basePath, path)
 	}
 

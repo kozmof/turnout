@@ -140,4 +140,21 @@ describe("createRouteStepper", () => {
 
     await expect(() => stepper.next()).rejects.toThrow("exceeded 0 scene transitions");
   });
+
+  it("uses the same maxRouteTransitions boundary as executeRoute", async () => {
+    const s1 = scene("s1", "a");
+    const s2 = scene("s2", "b");
+    const stepper = createRouteStepper(
+      "overflow_one",
+      parseMatchArms([{ patterns: ["s1.a"], target: "s2" }] as any),
+      "s1",
+      sceneMap(s1, s2),
+      stateManagerFromUnchecked({}),
+      { prepare: {}, publish: {} },
+      undefined,
+      1,
+    );
+
+    await expect(() => stepper.next()).rejects.toThrow("exceeded 1 scene transitions");
+  });
 });

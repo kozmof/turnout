@@ -116,7 +116,13 @@ func CompileToModel(name, src, stateBasePath string) (result *LowerResult, ds Di
 	if ds1.HasErrors() {
 		return nil, ds1
 	}
-	lr, ds2 := lower.LowerResolvingState(turnFile, base)
+	var lr *LowerResult
+	var ds2 Diagnostics
+	if stateBasePath == "" {
+		lr, ds2 = lower.LowerResolvingState(turnFile, base)
+	} else {
+		lr, ds2 = lower.LowerResolvingStateContained(turnFile, base)
+	}
 	if ds2.HasErrors() {
 		return nil, ds2
 	}
@@ -140,7 +146,12 @@ func ResolveSchema(name, src, stateBasePath string) (schema Schema, order []stri
 	if ds1.HasErrors() {
 		return Schema{}, nil, ds1
 	}
-	schema, order, ds2 := state.ResolveWithOrder(turnFile.StateSource, base)
+	var ds2 Diagnostics
+	if stateBasePath == "" {
+		schema, order, ds2 = state.ResolveWithOrder(turnFile.StateSource, base)
+	} else {
+		schema, order, ds2 = state.ResolveWithOrderContained(turnFile.StateSource, base)
+	}
 	return schema, order, ds2
 }
 
@@ -310,7 +321,13 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 		return nil, accumulated
 	}
 
-	lr, ds2 := lower.LowerResolvingState(turnFile, base)
+	var lr *LowerResult
+	var ds2 Diagnostics
+	if stateBasePath == "" {
+		lr, ds2 = lower.LowerResolvingState(turnFile, base)
+	} else {
+		lr, ds2 = lower.LowerResolvingStateContained(turnFile, base)
+	}
 	if accumulated, ok = runStage(accumulated, ds2); !ok {
 		return nil, accumulated
 	}

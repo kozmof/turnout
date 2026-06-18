@@ -71,6 +71,27 @@ describe("safeBaseDir converter (stdin hardening)", () => {
       runConverter(link, { binPath: turnoutBin, safeBaseDir: baseDir }),
     ).rejects.toMatchObject({ code: "PathOutsideBase" });
   });
+
+  it("rejects an absolute state_file outside safeBaseDir", async () => {
+    const outsideState = join(tmpRoot, "outside.state.turn");
+    writeFileSync(outsideState, "state { ns { v:number = 0 } }", "utf8");
+    const source = join(baseDir, "absolute-state-file.turn");
+    writeFileSync(
+      source,
+      "state_file = " +
+        JSON.stringify(outsideState) +
+        `
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = "r" prog "p" { r:bool = true } } }
+}`,
+      "utf8",
+    );
+
+    await expect(
+      runConverter(source, { binPath: turnoutBin, safeBaseDir: baseDir }),
+    ).rejects.toThrow("StateFileOutsideBase");
+  });
 });
 
 describe("readContainedFile (fd hardening)", () => {
