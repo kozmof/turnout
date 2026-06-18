@@ -95,7 +95,9 @@ function createRouteSession(
       if (nextSceneId === null) return null;
 
       transitionCount++;
-      if (transitionCount >= maxTransitions) {
+      // `> max`, not `>= max`: maxTransitions: N must permit exactly N
+      // transitions and throw on the (N+1)th. `max: 0` still throws on the first.
+      if (transitionCount > maxTransitions) {
         throw new RouteRuntimeError(
           "MaxRouteTransitionsExceeded",
           routeId,

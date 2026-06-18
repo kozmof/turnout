@@ -162,7 +162,9 @@ async function runRouteCore(
     if (nextSceneId === null) break; // No arm matched — route completes.
 
     routeTransitionCount++;
-    if (routeTransitionCount >= maxRouteTransitions) {
+    // `> max`, not `>= max`: maxRouteTransitions: N must permit exactly N
+    // transitions and throw on the (N+1)th. `max: 0` still throws on the first.
+    if (routeTransitionCount > maxRouteTransitions) {
       throw new RouteRuntimeError(
         "MaxRouteTransitionsExceeded",
         route.id,

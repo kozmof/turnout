@@ -294,6 +294,123 @@ describe("executeAction — cumulative binding table", () => {
     ).rejects.toThrow(/bad_hook.*boom/);
   });
 
+  it("records a hook-returned error outcome and still succeeds by default", async () => {
+    const action = {
+      id: "returned_error_publish",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["ok_hook", "reported_bad_hook"],
+    } as unknown as ActionModel;
+    const hooks = {
+      prepare: {},
+      publish: {
+        ok_hook: async () => {},
+        // Resolves (does not throw) but reports its own failure.
+        reported_bad_hook: async () => ({
+          hookName: "reported_bad_hook",
+          status: "error" as const,
+          message: "downstream rejected",
+        }),
+      },
+    };
+
+    const result = await executeAction(action, stateManagerFromUnchecked({}), hooks);
+
+    expect(result.publishOutcomes).toEqual([
+      { hookName: "ok_hook", status: "ok" },
+      { hookName: "reported_bad_hook", status: "error", message: "downstream rejected" },
+    ]);
+  });
+
+  it("throws PublishHookFailed when failOnPublishError is set and a hook returns an error outcome", async () => {
+    const action = {
+      id: "returned_error_publish_strict",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["reported_bad_hook"],
+    } as unknown as ActionModel;
+    const hooks = {
+      prepare: {},
+      publish: {
+        reported_bad_hook: async () => ({
+          hookName: "reported_bad_hook",
+          status: "error" as const,
+          message: "downstream rejected",
+        }),
+      },
+    };
+
+    await expect(
+      executeAction(
+        action,
+        stateManagerFromUnchecked({}),
+        hooks,
+        "(test)",
+        undefined,
+        /* failOnPublishError */ true,
+      ),
+    ).rejects.toThrow(/reported_bad_hook.*downstream rejected/);
+  });
+
+  it("propagates an AbortError thrown by a publish hook instead of recording a publish failure", async () => {
+    const action = {
+      id: "publish_hook_aborts",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["aborting_hook"],
+    } as unknown as ActionModel;
+    const hooks = {
+      prepare: {},
+      publish: {
+        // Signal is not pre-aborted, so the action's own abort guard passes and
+        // the hook itself rejects with AbortError mid-flight.
+        aborting_hook: async () => {
+          throw new DOMException("hook aborted", "AbortError");
+        },
+      },
+    };
+
+    await expect(
+      executeAction(action, stateManagerFromUnchecked({}), hooks),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
+  it("propagates an AbortError outcome even when failOnPublishError is set", async () => {
+    const action = {
+      id: "publish_hook_aborts_strict",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["aborting_hook"],
+    } as unknown as ActionModel;
+    const hooks = {
+      prepare: {},
+      publish: {
+        aborting_hook: async () => {
+          throw new DOMException("hook aborted", "AbortError");
+        },
+      },
+    };
+
+    await expect(
+      executeAction(
+        action,
+        stateManagerFromUnchecked({}),
+        hooks,
+        "(test)",
+        undefined,
+        /* failOnPublishError */ true,
+      ),
+    ).rejects.toMatchObject({ name: "AbortError" });
+  });
+
   it("records a mergeWarning when a merge binding is absent from compute results", async () => {
     const action = {
       id: "absent_binding",

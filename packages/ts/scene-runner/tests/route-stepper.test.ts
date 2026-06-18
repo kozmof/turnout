@@ -141,11 +141,13 @@ describe("createRouteStepper", () => {
     await expect(() => stepper.next()).rejects.toThrow("exceeded 0 scene transitions");
   });
 
-  it("uses the same maxRouteTransitions boundary as executeRoute", async () => {
+  it("permits exactly maxRouteTransitions transitions before throwing", async () => {
+    // maxTransitions: 1 must allow one transition (s1 → s2) and then complete,
+    // not reject the first transition (off-by-one regression guard).
     const s1 = scene("s1", "a");
     const s2 = scene("s2", "b");
     const stepper = createRouteStepper(
-      "overflow_one",
+      "boundary_one_ok",
       parseMatchArms([{ patterns: ["s1.a"], target: "s2" }] as any),
       "s1",
       sceneMap(s1, s2),
@@ -155,6 +157,34 @@ describe("createRouteStepper", () => {
       1,
     );
 
-    await expect(() => stepper.next()).rejects.toThrow("exceeded 1 scene transitions");
+    expect((await stepper.next()).done).toBe(false); // s1.a
+    expect((await stepper.next()).done).toBe(false); // s2.b (after the one transition)
+    expect(stepper.isDone()).toBe(true);
+    expect(stepper.result().trace.scenes.map((t) => t.sceneId)).toEqual(["s1", "s2"]);
+  });
+
+  it("throws once a route exceeds maxRouteTransitions", async () => {
+    // A two-way loop needs a second transition (s2 → s1), which exceeds max: 1.
+    const s1 = scene("s1", "a");
+    const s2 = scene("s2", "b");
+    const stepper = createRouteStepper(
+      "boundary_one_overflow",
+      parseMatchArms([
+        { patterns: ["s1.a"], target: "s2" },
+        { patterns: ["s2.b"], target: "s1" },
+      ] as any),
+      "s1",
+      sceneMap(s1, s2),
+      stateManagerFromUnchecked({}),
+      { prepare: {}, publish: {} },
+      undefined,
+      1,
+    );
+
+    // s1.a (transition 1 → s2) then s2.b triggers transition 2, which throws.
+    await expect(async () => {
+      await stepper.next();
+      await stepper.next();
+    }).rejects.toThrow("exceeded 1 scene transitions");
   });
 });

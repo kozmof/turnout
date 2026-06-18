@@ -420,6 +420,53 @@ describe("executeRoute — execution limits", () => {
       ),
     ).rejects.toThrow("exceeded 0 scene transitions");
   });
+
+  it("permits exactly maxRouteTransitions transitions before throwing", async () => {
+    // maxRouteTransitions: 1 must allow the single s1 → s2 transition and then
+    // complete — not reject the first transition (off-by-one regression guard).
+    const s1 = makeScene("s1", makePassAction("a", 1, "v.a"));
+    const s2 = makeScene("s2", makePassAction("b", 2, "v.b"));
+    const route = {
+      id: "boundary_one_ok",
+      match: [{ patterns: ["s1.a"], target: "s2" }],
+    } as unknown as RouteModel;
+
+    const result = await executeRoute(
+      route,
+      makeSceneMap(s1, s2),
+      "s1",
+      stateManagerFromUnchecked({}),
+      { prepare: {}, publish: {} },
+      { maxRouteTransitions: 1 },
+    );
+
+    expect(result.status).toBe("completed");
+    expect(result.trace.scenes.map((t) => t.sceneId)).toEqual(["s1", "s2"]);
+  });
+
+  it("throws once a route exceeds maxRouteTransitions", async () => {
+    // A two-way loop needs a second transition (s2 → s1), which exceeds max: 1.
+    const s1 = makeScene("s1", makePassAction("a", 1, "v.a"));
+    const s2 = makeScene("s2", makePassAction("b", 2, "v.b"));
+    const route = {
+      id: "boundary_one_overflow",
+      match: [
+        { patterns: ["s1.a"], target: "s2" },
+        { patterns: ["s2.b"], target: "s1" },
+      ],
+    } as unknown as RouteModel;
+
+    await expect(() =>
+      executeRoute(
+        route,
+        makeSceneMap(s1, s2),
+        "s1",
+        stateManagerFromUnchecked({}),
+        { prepare: {}, publish: {} },
+        { maxRouteTransitions: 1 },
+      ),
+    ).rejects.toThrow("exceeded 1 scene transitions");
+  });
 });
 
 describe("executeRoute — route-driven entry warnings", () => {

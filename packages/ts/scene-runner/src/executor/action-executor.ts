@@ -21,6 +21,21 @@ import { SceneRuntimeError } from "./errors.js";
 const treesByBuiltCtx = new WeakMap<BuiltContext, Map<FuncId, ExecutionTree>>();
 
 /**
+ * True for cancellation errors raised when the run's `AbortSignal` fires. The
+ * runner throws a `DOMException` named "AbortError", but hooks may surface an
+ * abort via a host/polyfill error object, so we match on the `name` property
+ * rather than the concrete class.
+ */
+function isAbortError(err: unknown): boolean {
+  return (
+    typeof err === "object" &&
+    err !== null &&
+    "name" in err &&
+    (err as { name: unknown }).name === "AbortError"
+  );
+}
+
+/**
  * Execute a single action:
  *   1. Resolve prepare entries → injected values
  *   2. Build ExecutionContext from the action's prog
@@ -157,9 +172,21 @@ export async function executeAction(
       state: () => finalStateSnapshot,
     };
     try {
-      await hook(ctx, signal);
-      publishOutcomes.push({ hookName, status: "ok" });
+      // Honor the hook's reported outcome: a returned `{ status: "error" }` is a
+      // publish failure just like a thrown one, so it must reach the
+      // failOnPublishError / collectPublishFailures paths rather than being
+      // silently recorded as success. Normalize on the local `hookName` so the
+      // trace key is authoritative regardless of what the hook returns.
+      const outcome = await hook(ctx, signal);
+      if (outcome && outcome.status === "error") {
+        publishOutcomes.push({ hookName, status: "error", message: outcome.message });
+      } else {
+        publishOutcomes.push({ hookName, status: "ok" });
+      }
     } catch (err) {
+      // An abort forwarded into the hook must surface as AbortError per the
+      // runner's cancellation contract, not be swallowed into a publish failure.
+      if (isAbortError(err)) throw err;
       publishOutcomes.push({ hookName, status: "error", message: String(err) });
     }
   }
