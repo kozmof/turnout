@@ -18,6 +18,28 @@ const sceneB = {
 
 // spec: scene-to-scene.md §route — maxRouteTransitions and maxSceneSteps guards
 describe("createRunner — route execution limits", () => {
+  it.each([
+    ["maxSceneSteps", Number.NaN],
+    ["maxSceneSteps", Number.POSITIVE_INFINITY],
+    ["maxSceneSteps", -1],
+    ["maxSceneSteps", 1.5],
+    ["maxRouteTransitions", Number.NaN],
+    ["maxRouteTransitions", Number.POSITIVE_INFINITY],
+    ["maxRouteTransitions", -1],
+    ["maxRouteTransitions", 1.5],
+  ] as const)("rejects invalid %s value %s", (name, value) => {
+    const model = { scenes: [sceneA], routes: [] } as unknown as TurnModel;
+    expect(() =>
+      createRunner(model, {
+        entryId: "s1",
+        initialState: {},
+        allowUncheckedState: true,
+        onWarning: () => {},
+        [name]: value,
+      }),
+    ).toThrowError(expect.objectContaining({ name: "RunnerError", code: "InvalidExecutionLimit" }));
+  });
+
   // spec: scene-to-scene.md §route — exceeding maxRouteTransitions throws
   it("uses maxRouteTransitions in route mode", async () => {
     const model = {

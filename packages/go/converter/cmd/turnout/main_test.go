@@ -1,7 +1,9 @@
 package main
 
 import (
+	"flag"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 )
@@ -127,6 +129,51 @@ func TestRunConvertSuccessJSONToStdout(t *testing.T) {
 	}
 	if !strings.Contains(stdout, `"scenes"`) {
 		t.Fatalf("stdout = %q, want JSON output containing '\"scenes\"'", stdout)
+	}
+}
+
+func TestRunConvertAcceptsFlagsAfterInput(t *testing.T) {
+	path := writeTempTurnFile(t, validTurnSrc)
+
+	stdout, stderr, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{path, "-o", "-", "-format", "json"})
+	})
+
+	if rc != 0 {
+		t.Fatalf("runConvert() = %d, want 0; stderr: %s", rc, stderr)
+	}
+	if !strings.Contains(stdout, `"scenes"`) {
+		t.Fatalf("stdout = %q, want JSON output", stdout)
+	}
+}
+
+func TestReorderFlagArgsPreservesSeparator(t *testing.T) {
+	fs := flag.NewFlagSet("test", flag.ContinueOnError)
+	fs.String("format", "hcl", "")
+	got := reorderFlagArgs(fs, []string{"-format", "json", "--", "-input.turn"})
+	want := []string{"-format", "json", "--", "-input.turn"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("reorderFlagArgs() = %q, want %q", got, want)
+	}
+}
+
+func TestRunConvertPrintsCompileWarnings(t *testing.T) {
+	src := `state { ns { v:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { root = "r" prog "p" { unused:number = 1 r:bool = true } } }
+}`
+	path := writeTempTurnFile(t, src)
+
+	_, stderr, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{path, "-o", "-"})
+	})
+
+	if rc != 0 {
+		t.Fatalf("runConvert() = %d, want 0; stderr: %s", rc, stderr)
+	}
+	if !strings.Contains(stderr, "[UnusedBinding]") {
+		t.Fatalf("stderr = %q, want UnusedBinding warning", stderr)
 	}
 }
 

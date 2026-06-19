@@ -64,13 +64,44 @@ func printUsage() {
 	fmt.Fprintln(os.Stderr, "  turnout version")
 }
 
+// reorderFlagArgs lets the CLI accept flags before or after the input path.
+// The standard flag package stops parsing at the first positional argument.
+func reorderFlagArgs(fs *flag.FlagSet, args []string) []string {
+	flags := make([]string, 0, len(args))
+	positionals := make([]string, 0, 1)
+	sawSeparator := false
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		if arg == "--" {
+			sawSeparator = true
+			positionals = append(positionals, args[i+1:]...)
+			break
+		}
+		if arg == "-" || !strings.HasPrefix(arg, "-") {
+			positionals = append(positionals, arg)
+			continue
+		}
+
+		flags = append(flags, arg)
+		name := strings.TrimLeft(strings.SplitN(arg, "=", 2)[0], "-")
+		if !strings.Contains(arg, "=") && fs.Lookup(name) != nil && i+1 < len(args) {
+			i++
+			flags = append(flags, args[i])
+		}
+	}
+	if sawSeparator {
+		flags = append(flags, "--")
+	}
+	return append(flags, positionals...)
+}
+
 func runConvert(args []string) int {
 	fs := flag.NewFlagSet("convert", flag.ContinueOnError)
 	output := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
 	format := fs.String("format", "hcl", "output format: hcl or json")
 
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(reorderFlagArgs(fs, args)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
@@ -165,7 +196,7 @@ func runConvertToWriter(w io.Writer, inputPath, basePath, format string, src []b
 		printDiags(ds)
 		return 1
 	}
-	printDiags(ds) // emit any compile warnings
+	printDiags(result.Warnings)
 
 	var emitDs converter.Diagnostics
 	if format == "json" {
@@ -187,7 +218,7 @@ func runValidate(args []string) int {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
 
-	if err := fs.Parse(args); err != nil {
+	if err := fs.Parse(reorderFlagArgs(fs, args)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}

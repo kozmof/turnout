@@ -71,6 +71,7 @@ export function isSceneRuntimeError(err: unknown): err is SceneRuntimeError {
 export type RunnerErrorCode =
   | "LateHookRegistration"
   | "InvalidStepCount"
+  | "InvalidExecutionLimit"
   | "IncompleteExecution"
   | "ConcurrentExecution"
   | "UncheckedStateNotAllowed";

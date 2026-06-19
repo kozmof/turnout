@@ -148,6 +148,20 @@ function warnUncheckedState(options: RunnerOptions, detail: string): void {
   );
 }
 
+function validateExecutionLimits(options: RunnerOptions): void {
+  for (const [name, value] of [
+    ["maxSceneSteps", options.maxSceneSteps],
+    ["maxRouteTransitions", options.maxRouteTransitions],
+  ] as const) {
+    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
+      throw new RunnerError(
+        "InvalidExecutionLimit",
+        `${name} requires a non-negative safe integer, got ${value}`,
+      );
+    }
+  }
+}
+
 /**
  * Build the shared Runner methods (usePrepareHook, usePublishHook, isDone, next,
  * run, runAsync, result) from three mode-specific callbacks.
@@ -290,6 +304,7 @@ export function createSceneRunner(
   options: RunnerOptions,
   initialState?: StateManager,
 ): Runner<FragmentHarnessResult> {
+  validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   let state: StateManager;
@@ -398,6 +413,7 @@ export function createRouteRunner(
   options: RunnerOptions,
   initialState?: StateManager,
 ): Runner<FragmentHarnessResult> {
+  validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
   let state: StateManager;

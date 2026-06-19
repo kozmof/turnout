@@ -92,9 +92,9 @@ export type ExecutionOptions = {
    * type correctness are not enforced and typo'd paths read back as null.
    */
   allowUncheckedState?: boolean;
-  /** Maximum action steps allowed per scene execution. */
+  /** Maximum action steps allowed per scene execution. Must be a non-negative safe integer. */
   maxSceneSteps?: number;
-  /** Maximum scene transitions allowed during route execution. Defaults to 1,000. */
+  /** Maximum scene transitions allowed during route execution. Must be a non-negative safe integer. Defaults to 1,000. */
   maxRouteTransitions?: number;
   /**
    * Optional cancellation signal. When aborted, `next()`, `run()`, and `runAsync()`
