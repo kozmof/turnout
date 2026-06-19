@@ -1,4 +1,10 @@
-import type { ExecutionContext, ValueId, FuncId, BinaryFnNames, TransformFnNames } from "../types.js";
+import type {
+  ExecutionContext,
+  ValueId,
+  FuncId,
+  BinaryFnNames,
+  TransformFnNames,
+} from "../types.js";
 import type { AnyValue, BaseTypeSymbol } from "../../state-control/value.js";
 
 /**

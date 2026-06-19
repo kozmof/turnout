@@ -8,7 +8,14 @@ import {
   isValueId,
 } from "./idValidation.js";
 import { buildNumber } from "../state-control/value-builders.js";
-import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId, ValueTable } from "./types.js";
+import type {
+  ValueId,
+  FuncId,
+  CombineDefineId,
+  PipeDefineId,
+  CondDefineId,
+  ValueTable,
+} from "./types.js";
 import type { NodeId } from "./runtime/tree-types.js";
 
 describe("ID Validation Module", () => {

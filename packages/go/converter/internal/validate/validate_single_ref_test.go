@@ -22,8 +22,8 @@ import (
 // regression.
 func TestIsIdentityCombineRecognisesLowererOutput(t *testing.T) {
 	cases := []struct {
-		name       string
-		fn         string
+		name        string
+		fn          string
 		identityLit *structpb.Value
 	}{
 		{"bool", "bool_and", structpb.NewBoolValue(true)},

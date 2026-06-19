@@ -49,8 +49,8 @@ func TestNamespacesAndRangeAll(t *testing.T) {
 		seen[ns+"."+field] = meta.Type
 	})
 	want := map[string]ast.FieldType{
-		"applicant.income": ast.FieldTypeNumber,
-		"applicant.name":   ast.FieldTypeStr,
+		"applicant.income":  ast.FieldTypeNumber,
+		"applicant.name":    ast.FieldTypeStr,
 		"decision.approved": ast.FieldTypeBool,
 	}
 	if len(seen) != len(want) {
@@ -139,10 +139,10 @@ func TestStructpbFieldType(t *testing.T) {
 	}
 
 	cases := []struct {
-		name    string
-		val     *structpb.Value
-		wantFT  ast.FieldType
-		wantOk  bool
+		name   string
+		val    *structpb.Value
+		wantFT ast.FieldType
+		wantOk bool
 	}{
 		{"nil", nil, ast.FieldTypeInvalid, false},
 		{"number", structpb.NewNumberValue(1), ast.FieldTypeNumber, true},

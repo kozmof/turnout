@@ -22,7 +22,11 @@ export function isLoadError(e: unknown): e is LoadError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type BridgeErrorCode = "BinaryNotFound" | "BufferOverflow" | "ConverterFailed" | "ParseError";
+export type BridgeErrorCode =
+  | "BinaryNotFound"
+  | "BufferOverflow"
+  | "ConverterFailed"
+  | "ParseError";
 
 export class BridgeError extends Error {
   readonly code: BridgeErrorCode;

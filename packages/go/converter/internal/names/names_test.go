@@ -51,9 +51,9 @@ func TestIsGeneratedLocalName(t *testing.T) {
 
 func TestSplitStatePath(t *testing.T) {
 	cases := []struct {
-		key            string
+		key               string
 		wantNs, wantField string
-		wantOk         bool
+		wantOk            bool
 	}{
 		{"ns.field", "ns", "field", true},
 		// first dot only — remainder stays as field

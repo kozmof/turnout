@@ -47,6 +47,9 @@ jobs:
       - name: Check Go FieldType initialization
         run: pnpm run check:fieldtype
 
+      - name: Check formatting
+        run: pnpm run check:format
+
       - name: Build
         run: pnpm run build
 
@@ -55,6 +58,9 @@ jobs:
 
       - name: Lint
         run: pnpm run lint
+
+      - name: Vet and race-test Go
+        run: pnpm run test:go:quality
 
       - name: Test
         run: pnpm test

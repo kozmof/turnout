@@ -8,7 +8,7 @@ package ast
 type ActionBlock struct {
 	Pos     Pos
 	ID      string
-	Text    *string      // from triple-quoted docstring or explicit text = "..."
+	Text    *string // from triple-quoted docstring or explicit text = "..."
 	Compute *ComputeBlock
 	Prepare *PrepareBlock
 	Merge   *MergeBlock

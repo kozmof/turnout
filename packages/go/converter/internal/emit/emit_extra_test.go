@@ -534,4 +534,3 @@ func TestChooseHeredocDelimEOTOnlySlowPath(t *testing.T) {
 		t.Errorf("expected TURN_EOT when only EOT collides, got %q", delim)
 	}
 }
-

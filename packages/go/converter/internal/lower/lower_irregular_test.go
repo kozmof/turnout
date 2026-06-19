@@ -163,7 +163,6 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 	}
 }
 
-
 // TestLowerStaleDeclarationOrderIsError verifies that lowerCore emits an error
 // (not a warning) when the declaration-order slice contains a key that is absent
 // from the schema — an internal invariant violation that indicates data loss.

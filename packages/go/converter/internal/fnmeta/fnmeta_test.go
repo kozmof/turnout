@@ -56,8 +56,8 @@ func TestFnAliasesMatchSpec(t *testing.T) {
 
 func TestIdentityValue(t *testing.T) {
 	cases := []struct {
-		fn      string
-		wantOK  bool
+		fn       string
+		wantOK   bool
 		wantKind string
 	}{
 		{"bool_and", true, "bool"},

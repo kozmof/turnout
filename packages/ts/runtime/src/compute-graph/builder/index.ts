@@ -47,5 +47,9 @@ export type {
   UndefinedPipeArgumentError,
   UndefinedPipeStepReferenceError,
 } from "./errors.js";
-export { isBuilderValidationError, BuilderInvariantError, isBuilderInvariantError } from "./errors.js";
+export {
+  isBuilderValidationError,
+  BuilderInvariantError,
+  isBuilderInvariantError,
+} from "./errors.js";
 export type { BuilderInvariantCode } from "./errors.js";

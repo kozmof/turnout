@@ -5,7 +5,11 @@ import type { StateManager } from "../state/state-manager.js";
 import type { HookRegistry, PublishHookContext } from "../types/harness-types.js";
 import { buildContextFromProg } from "./hcl-context-builder.js";
 import type { BuiltContext } from "./hcl-context-builder.js";
-import { resolveActionPrepare, resolveActionPrepareSync, hasHookEntries } from "./prepare-resolver.js";
+import {
+  resolveActionPrepare,
+  resolveActionPrepareSync,
+  hasHookEntries,
+} from "./prepare-resolver.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
 import type { PublishHookOutcome } from "../types/harness-types.js";
 import { SceneRuntimeError } from "./errors.js";
@@ -118,7 +122,9 @@ export async function executeAction(
         ctxTrees.set(funcId, tree);
       }
       const result = executeTree(tree, bindingCtx);
-      for (const [id, value] of Object.entries(result.updatedValueTable) as Array<[ValueId, AnyValue]>) {
+      for (const [id, value] of Object.entries(result.updatedValueTable) as Array<
+        [ValueId, AnyValue]
+      >) {
         updatedTable[id] = value;
       }
 

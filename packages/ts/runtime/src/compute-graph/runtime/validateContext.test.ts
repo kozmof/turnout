@@ -216,9 +216,7 @@ describe("validateContext", () => {
 
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) =>
-          e.message.includes('Combine function requires argument "b"'),
-        ),
+        result.errors.some((e) => e.message.includes('Combine function requires argument "b"')),
       ).toBe(true);
     });
 

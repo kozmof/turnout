@@ -52,8 +52,8 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	if sigil == ast.SigilIngress || sigil == ast.SigilBiDir {
 		if p.peek().Kind == lexer.TokEquals {
 			p.errorf(p.peek(), "input sigil declaration %q must not have a right-hand side; remove '= ...'", nameTok.Value)
-			p.advance()    // consume =
-			p.parseRHS()   // consume and discard the erroneous RHS
+			p.advance()  // consume =
+			p.parseRHS() // consume and discard the erroneous RHS
 		}
 		return &ast.BindingDecl{
 			Pos:   pos,

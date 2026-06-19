@@ -12,7 +12,7 @@ import { readContainedFile, resolveBaseDir } from "./path-safety.js";
 // Constants
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Timeout for the PATH probe (`turnout --help`). */
+/** Timeout for the PATH probe (`turnout --version`). */
 const BIN_PROBE_TIMEOUT_MS = 10_000;
 
 /** Timeout for a full conversion run. */
@@ -171,7 +171,7 @@ async function discoverBin(signal?: AbortSignal): Promise<string> {
   }
 
   try {
-    await execFileAsync("turnout", ["--help"], { timeout: BIN_PROBE_TIMEOUT_MS, signal });
+    await execFileAsync("turnout", ["--version"], { timeout: BIN_PROBE_TIMEOUT_MS, signal });
     return "turnout";
   } catch {
     // Fall back to the locally-built binary in the Go converter package.

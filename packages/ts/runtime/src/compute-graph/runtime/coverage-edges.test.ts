@@ -23,7 +23,12 @@ import {
 } from "./validate/utils.js";
 import type { ExecutionContext, FuncArgMap, ValueId } from "../types.js";
 
-const numberValue = (value: number) => ({ symbol: "number", value, subSymbol: undefined, tags: [] });
+const numberValue = (value: number) => ({
+  symbol: "number",
+  value,
+  subSymbol: undefined,
+  tags: [],
+});
 
 function emptyContext(): ExecutionContext {
   return {
@@ -73,9 +78,17 @@ describe("runtime coverage edges", () => {
         ...emptyContext(),
         valueTable: { v1: numberValue(1) },
         funcTable: { f1: { kind: "cond", defId: "cd1", returnId: "v2" } },
-        combineFuncDefTable: { pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } } },
+        combineFuncDefTable: {
+          pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+        },
         pipeFuncDefTable: { td1: { args: [], sequence: [] } },
-        condFuncDefTable: { cd1: { conditionId: { kind: "value", id: "v1" }, trueBranchId: "f1", falseBranchId: "f1" } },
+        condFuncDefTable: {
+          cd1: {
+            conditionId: { kind: "value", id: "v1" },
+            trueBranchId: "f1",
+            falseBranchId: "f1",
+          },
+        },
       } as any;
 
       expect(valueIdExistsInContext(1, ctx)).toBe(false);
@@ -96,7 +109,10 @@ describe("runtime coverage edges", () => {
       expect(pipeStepDefIdExistsInContext("pd1", ctx)).toEqual({ exists: true, isCondDef: false });
       expect(pipeStepDefIdExistsInContext("td1", ctx)).toEqual({ exists: true, isCondDef: false });
       expect(pipeStepDefIdExistsInContext("cd1", ctx)).toEqual({ exists: true, isCondDef: true });
-      expect(pipeStepDefIdExistsInContext("missing", ctx)).toEqual({ exists: false, isCondDef: false });
+      expect(pipeStepDefIdExistsInContext("missing", ctx)).toEqual({
+        exists: false,
+        isCondDef: false,
+      });
     });
 
     it("covers type environment and function inference fallbacks", () => {
@@ -109,7 +125,9 @@ describe("runtime coverage edges", () => {
           fPipeBadStep: { kind: "pipe", defId: "tdBad", argMap: {}, returnId: "v3" },
           fNoDef: { kind: "combine", returnId: "v4" },
         },
-        combineFuncDefTable: { pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } } },
+        combineFuncDefTable: {
+          pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+        },
         pipeFuncDefTable: {
           td1: { args: [], sequence: [{ defId: "pd1", argBindings: {} }] },
           tdBad: { args: [], sequence: [{ defId: 42, argBindings: {} }] },
@@ -125,7 +143,16 @@ describe("runtime coverage edges", () => {
       expect(inferFuncType("fPipeBadStep" as any, ctx)).toBeNull();
       expect(inferFuncType("missing" as any, ctx)).toBeNull();
       expect(inferFuncType("fNoDef" as any, ctx)).toBeNull();
-      expect(inferFuncType("cycle" as any, { ...ctx, funcTable: { cycle: { kind: "pipe", defId: "tdEmpty", argMap: {}, returnId: "v" } } } as any, new Set(["cycle" as any]))).toBeNull();
+      expect(
+        inferFuncType(
+          "cycle" as any,
+          {
+            ...ctx,
+            funcTable: { cycle: { kind: "pipe", defId: "tdEmpty", argMap: {}, returnId: "v" } },
+          } as any,
+          new Set(["cycle" as any]),
+        ),
+      ).toBeNull();
     });
   });
 
@@ -137,36 +164,85 @@ describe("runtime coverage edges", () => {
         funcTable: { f1: { kind: "combine", defId: "pd1", argMap: { a: "v1" }, returnId: "vOut" } },
       } as any;
 
-      expect(() => executeCombineFunc("f1" as any, "pd1" as any, base)).toThrow("missing combine definition");
-      expect(() => executeCombineFunc("missing" as any, "pd1" as any, base)).toThrow("non-combine entry");
-      expect(() => executeCombineFunc("f1" as any, "pd1" as any, { ...base, combineFuncDefTable: { pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } } } } as any)).toThrow("missing arg a/b");
-      expect(() => executeCombineFunc("f1" as any, "pd1" as any, { ...base, funcTable: { f1: { kind: "combine", defId: "pd1", argMap: { a: "v1", b: "v2" }, returnId: "vOut" } }, combineFuncDefTable: { pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } } } } as any)).toThrow("missing value table entry");
+      expect(() => executeCombineFunc("f1" as any, "pd1" as any, base)).toThrow(
+        "missing combine definition",
+      );
+      expect(() => executeCombineFunc("missing" as any, "pd1" as any, base)).toThrow(
+        "non-combine entry",
+      );
+      expect(() =>
+        executeCombineFunc(
+          "f1" as any,
+          "pd1" as any,
+          {
+            ...base,
+            combineFuncDefTable: {
+              pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+            },
+          } as any,
+        ),
+      ).toThrow("missing arg a/b");
+      expect(() =>
+        executeCombineFunc(
+          "f1" as any,
+          "pd1" as any,
+          {
+            ...base,
+            funcTable: {
+              f1: { kind: "combine", defId: "pd1", argMap: { a: "v1", b: "v2" }, returnId: "vOut" },
+            },
+            combineFuncDefTable: {
+              pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+            },
+          } as any,
+        ),
+      ).toThrow("missing value table entry");
     });
 
     it("covers cond and pipe executor defensive failures", () => {
-      expect(() => executeCondFunc("missing" as any, emptyContext(), numberValue(1) as any)).toThrow("no funcTable entry");
+      expect(() =>
+        executeCondFunc("missing" as any, emptyContext(), numberValue(1) as any),
+      ).toThrow("no funcTable entry");
 
       const condEntryContext = {
         ...emptyContext(),
         funcTable: { f1: { kind: "cond", defId: "cd1", returnId: "vOut" } },
       } as any;
-      expect(() => executePipeFunc("f1" as any, "td1" as any, condEntryContext)).toThrow("called with cond entry");
+      expect(() => executePipeFunc("f1" as any, "td1" as any, condEntryContext)).toThrow(
+        "called with cond entry",
+      );
 
       const pipeContext = {
         ...emptyContext(),
         valueTable: { v1: numberValue(1) },
         funcTable: { f1: { kind: "pipe", defId: "td1", argMap: { a: "v1" }, returnId: "vOut" } },
       } as any;
-      expect(() => executePipeFunc("f1" as any, "td1" as any, pipeContext)).toThrow("missing pipe definition");
-      expect(() => executePipeFunc("f1" as any, "td1" as any, { ...pipeContext, pipeFuncDefTable: { td1: { args: ["a"], sequence: [] } } } as any)).toThrow("empty sequence");
+      expect(() => executePipeFunc("f1" as any, "td1" as any, pipeContext)).toThrow(
+        "missing pipe definition",
+      );
+      expect(() =>
+        executePipeFunc(
+          "f1" as any,
+          "td1" as any,
+          { ...pipeContext, pipeFuncDefTable: { td1: { args: ["a"], sequence: [] } } } as any,
+        ),
+      ).toThrow("empty sequence");
     });
 
     it("covers record-style pipe args and extra value validation branches", () => {
       const argMap = { a: "v1" as ValueId } as FuncArgMap;
       const values = { v1: numberValue(1), extra: numberValue(2) } as any;
-      expect(createScopedValueTable(argMap, { a: true }, values, ["extra" as ValueId])).toEqual(values);
-      expect(() => validateScopedValueTable({ v1: values.v1 } as any, { a: true }, argMap, ["extra" as ValueId])).toThrow("missing extra");
-      expect(() => createScopedValueTable(argMap, { a: true }, { v1: values.v1 } as any, ["extra" as ValueId])).toThrow("Missing value: extra");
+      expect(createScopedValueTable(argMap, { a: true }, values, ["extra" as ValueId])).toEqual(
+        values,
+      );
+      expect(() =>
+        validateScopedValueTable({ v1: values.v1 } as any, { a: true }, argMap, [
+          "extra" as ValueId,
+        ]),
+      ).toThrow("missing extra");
+      expect(() =>
+        createScopedValueTable(argMap, { a: true }, { v1: values.v1 } as any, ["extra" as ValueId]),
+      ).toThrow("Missing value: extra");
     });
   });
 });

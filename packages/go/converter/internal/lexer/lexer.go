@@ -707,10 +707,18 @@ func (l *lex) scanTripleQuote(ln, co int) {
 // ────────────────────────────────────────────────────────────
 
 func (l *lex) scanHash(ln, co int) {
-	if l.tryHashKeyword("#pipe", TokHashPipe, ln, co) { return }
-	if l.tryHashKeyword("#case", TokHashCase, ln, co) { return }
-	if l.tryHashKeyword("#if",   TokHashIf,   ln, co) { return }
-	if l.tryHashKeyword("#it",   TokHashIt,   ln, co) { return }
+	if l.tryHashKeyword("#pipe", TokHashPipe, ln, co) {
+		return
+	}
+	if l.tryHashKeyword("#case", TokHashCase, ln, co) {
+		return
+	}
+	if l.tryHashKeyword("#if", TokHashIf, ln, co) {
+		return
+	}
+	if l.tryHashKeyword("#it", TokHashIt, ln, co) {
+		return
+	}
 	// Line comment — skip to end of line
 	for !l.atEnd() && l.peek() != '\n' {
 		l.advance()

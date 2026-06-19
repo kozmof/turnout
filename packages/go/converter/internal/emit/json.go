@@ -16,9 +16,9 @@ import (
 // Bump these when the proto schema or runtime contract changes so that the
 // TypeScript runner's migrateModel() can detect mismatches at load time.
 const (
-	jsonModelVersion   = 1
-	jsonMinVersion     = 1
-	jsonMaxVersion     = 1
+	jsonModelVersion = 1
+	jsonMinVersion   = 1
+	jsonMaxVersion   = 1
 )
 
 // EmitJSON marshals a validated proto model directly to indented JSON.
@@ -33,7 +33,7 @@ func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 		tm = &turnoutpb.TurnModel{}
 	}
 	tm = stripNonRuntimeFields(tm)
-	tm.Version    = jsonModelVersion
+	tm.Version = jsonModelVersion
 	tm.MinVersion = jsonMinVersion
 	tm.MaxVersion = jsonMaxVersion
 	raw, err := protojson.Marshal(tm)

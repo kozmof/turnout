@@ -95,7 +95,7 @@ func (p *parser) errorWithCode(t lexer.Token, code diag.ErrorCode, format string
 	}
 	if p.AtCap() {
 		p.pos = len(p.tokens) - 1 // stage-specific recovery: skip to end
-		p.Halt()                   // appends TooManyDiagnostics sentinel internally
+		p.Halt()                  // appends TooManyDiagnostics sentinel internally
 		return
 	}
 	p.Append(diag.ErrorAt(p.file, t.Line, t.Col,

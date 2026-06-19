@@ -30,6 +30,12 @@ case "${1:-test}" in
   test)
     "$go_bin" test ./...
     ;;
+  vet)
+    "$go_bin" vet ./...
+    ;;
+  race)
+    "$go_bin" test -race ./...
+    ;;
   coverage)
     packages=$(GOFLAGS=-buildvcs=false "$go_bin" list ./... | grep -Ev '/internal/emit/turnoutpb$|/internal/names$|/internal/overview$')
     profile=${GO_COVERAGE_PROFILE:-/tmp/turnout-converter.coverage.out}
@@ -47,7 +53,7 @@ case "${1:-test}" in
     }'
     ;;
   *)
-    echo "usage: sh scripts/go-test.sh [test|coverage]" >&2
+    echo "usage: sh scripts/go-test.sh [test|coverage|vet|race]" >&2
     exit 2
     ;;
 esac

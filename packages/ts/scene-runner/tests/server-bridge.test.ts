@@ -15,7 +15,13 @@ vi.mock("node:child_process", () => ({
 
 import { readFileSync, realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
-import { loadTurnFile, loadJsonModel, runConverter, convertToHCL } from "../src/server/bridge.js";
+import {
+  loadTurnFile,
+  loadJsonModel,
+  runConverter,
+  convertToHCL,
+  resetBinCache,
+} from "../src/server/bridge.js";
 import { isLoadError, isBridgeError, isHarnessError } from "../src/server/errors.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
@@ -42,6 +48,7 @@ function setupConvert(modelJson = JSON.stringify(minimalModel)): void {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetBinCache();
   mockRealpath.mockImplementation((path: string) => path);
 });
 
@@ -203,6 +210,38 @@ describe("runConverter", () => {
     expect(mockExecFile).toHaveBeenCalledTimes(1);
     const calledBin = (mockExecFile.mock.calls[0] as unknown[])[0] as string;
     expect(calledBin).toBe(MOCK_BIN);
+  });
+
+  it("discovers an installed turnout binary with --version", async () => {
+    mockExecFile
+      .mockImplementationOnce(
+        (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+          cb(null, Buffer.from("turnout v1.0.0\n"), Buffer.from(""));
+        },
+      )
+      .mockImplementationOnce(
+        (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+          cb(null, Buffer.from(JSON.stringify(minimalModel)), Buffer.from(""));
+        },
+      );
+
+    const result = await runConverter("my.turn");
+
+    expect(result.scenes[0]!.id).toBe("scene_a");
+    expect(mockExecFile).toHaveBeenNthCalledWith(
+      1,
+      "turnout",
+      ["--version"],
+      expect.any(Object),
+      expect.any(Function),
+    );
+    expect(mockExecFile).toHaveBeenNthCalledWith(
+      2,
+      "turnout",
+      expect.arrayContaining(["convert", "my.turn"]),
+      expect.any(Object),
+      expect.any(Function),
+    );
   });
 });
 

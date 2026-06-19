@@ -215,8 +215,10 @@ describe("preset functions", () => {
         bfGeneric.isEqual(buildArray([buildNumber(1)]), buildArray([buildNumber(2)])).value,
       ).toBe(false);
       expect(
-        bfGeneric.isEqual(buildArray([buildNumber(1)]), buildArray([buildNumber(1), buildNumber(2)]))
-          .value,
+        bfGeneric.isEqual(
+          buildArray([buildNumber(1)]),
+          buildArray([buildNumber(1), buildNumber(2)]),
+        ).value,
       ).toBe(false);
 
       // Nested arrays compare structurally, still tag-insensitively.
