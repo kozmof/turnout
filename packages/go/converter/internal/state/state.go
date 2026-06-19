@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 	"hash/fnv"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -234,6 +235,38 @@ func resolveContainedStatePath(rawPath, basePath string) (string, diag.Diagnosti
 	return path, nil
 }
 
+// readOpenedContainedStateFile verifies that f is the same inode currently
+// reached by path and that the resolved path remains inside basePath. Reading
+// from f after this check prevents a later symlink swap from redirecting I/O.
+func readOpenedContainedStateFile(f *os.File, path, basePath string) ([]byte, diag.Diagnostics) {
+	realBase, err := filepath.EvalSymlinks(basePath)
+	if err != nil {
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase,
+			"cannot resolve state_file base %q: %v", basePath, err)}
+	}
+	realPath, err := filepath.EvalSymlinks(path)
+	if err != nil || !pathInsideBase(realPath, realBase) {
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase,
+			"state_file %q no longer resolves inside base directory %q", path, basePath)}
+	}
+	openedInfo, err := f.Stat()
+	if err != nil {
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing,
+			"cannot inspect state file %q: %v", path, err)}
+	}
+	pathInfo, err := os.Stat(realPath)
+	if err != nil || !os.SameFile(openedInfo, pathInfo) {
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase,
+			"state_file %q changed while being opened", path)}
+	}
+	src, err := io.ReadAll(f)
+	if err != nil {
+		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing,
+			"cannot read state file %q: %v", path, err)}
+	}
+	return src, nil
+}
+
 // resolveStateFileWithOrder is like Resolve but also returns ordered keys.
 func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, containStateFile bool) (Schema, []string, diag.Diagnostics) {
 	path := d.Path
@@ -247,9 +280,24 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, conta
 		path = filepath.Join(basePath, path)
 	}
 
-	src, err := os.ReadFile(path)
-	if err != nil {
-		return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
+	var src []byte
+	if containStateFile {
+		f, err := os.Open(path)
+		if err != nil {
+			return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
+		}
+		defer f.Close()
+		var ds diag.Diagnostics
+		src, ds = readOpenedContainedStateFile(f, path, basePath)
+		if ds.HasErrors() {
+			return Schema{}, nil, ds
+		}
+	} else {
+		var err error
+		src, err = os.ReadFile(path)
+		if err != nil {
+			return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
+		}
 	}
 
 	inline, parseDiags := parser.ParseStateFile(path, string(src))

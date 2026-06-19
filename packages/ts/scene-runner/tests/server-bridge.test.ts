@@ -169,6 +169,15 @@ describe("runConverter", () => {
     await expect(conversion).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("preserves AbortError while discovering the converter", async () => {
+    const controller = new AbortController();
+    controller.abort();
+    await expect(runConverter("my.turn", { signal: controller.signal })).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    expect(mockExecFile).not.toHaveBeenCalled();
+  });
+
   it("wraps converter failures with stderr diagnostics", async () => {
     mockExecFile.mockImplementation(
       (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
@@ -214,16 +223,12 @@ describe("runConverter", () => {
 
   it("discovers an installed turnout binary with --version", async () => {
     mockExecFile
-      .mockImplementationOnce(
-        (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
-          cb(null, Buffer.from("turnout v1.0.0\n"), Buffer.from(""));
-        },
-      )
-      .mockImplementationOnce(
-        (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
-          cb(null, Buffer.from(JSON.stringify(minimalModel)), Buffer.from(""));
-        },
-      );
+      .mockImplementationOnce((_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+        cb(null, Buffer.from("turnout v1.0.0\n"), Buffer.from(""));
+      })
+      .mockImplementationOnce((_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+        cb(null, Buffer.from(JSON.stringify(minimalModel)), Buffer.from(""));
+      });
 
     const result = await runConverter("my.turn");
 

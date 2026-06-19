@@ -37,9 +37,9 @@ case "${1:-test}" in
     "$go_bin" test -race ./...
     ;;
   coverage)
-    packages=$(GOFLAGS=-buildvcs=false "$go_bin" list ./... | grep -Ev '/internal/emit/turnoutpb$|/internal/names$|/internal/overview$')
+    packages=$(GOFLAGS=-buildvcs=false "$go_bin" list ./... | grep -Ev '/internal/emit/turnoutpb$')
     profile=${GO_COVERAGE_PROFILE:-/tmp/turnout-converter.coverage.out}
-    threshold=${GO_COVERAGE_THRESHOLD:-79.0}
+    threshold=${GO_COVERAGE_THRESHOLD:-84.0}
 
     GOFLAGS=-buildvcs=false "$go_bin" test -coverprofile="$profile" $packages
     "$go_bin" tool cover -func="$profile"
@@ -51,6 +51,29 @@ case "${1:-test}" in
         exit 1
       }
     }'
+    # Aggregate coverage can hide a large regression in one critical package.
+    # Keep conservative per-package floors alongside the repository-wide gate.
+    while read -r package floor; do
+      output=$(GOFLAGS=-buildvcs=false "$go_bin" test -cover "$package")
+      actual=$(printf '%s\n' "$output" | awk 'match($0, /coverage: [0-9.]+%/) {
+        value = substr($0, RSTART + 10, RLENGTH - 11)
+      } END { print value }')
+      awk -v package="$package" -v actual="$actual" -v floor="$floor" 'BEGIN {
+        if (actual == "" || actual + 0 < floor + 0) {
+          printf "%s coverage %s%% is below package floor %.1f%%\n", package, actual, floor > "/dev/stderr"
+          exit 1
+        }
+      }'
+    done <<'EOF'
+./ 75.0
+./cmd/turnout 75.0
+./internal/emit 80.0
+./internal/lexer 90.0
+./internal/lower 70.0
+./internal/parser 90.0
+./internal/state 90.0
+./internal/validate 90.0
+EOF
     ;;
   *)
     echo "usage: sh scripts/go-test.sh [test|coverage|vet|race]" >&2

@@ -166,6 +166,7 @@ export function resetBinCache(): void {
 }
 
 async function discoverBin(signal?: AbortSignal): Promise<string> {
+  signal?.throwIfAborted();
   if (process.env.TURNOUT_BIN) {
     return process.env.TURNOUT_BIN;
   }
@@ -173,7 +174,9 @@ async function discoverBin(signal?: AbortSignal): Promise<string> {
   try {
     await execFileAsync("turnout", ["--version"], { timeout: BIN_PROBE_TIMEOUT_MS, signal });
     return "turnout";
-  } catch {
+  } catch (err: unknown) {
+    const aborted = abortCause(err);
+    if (aborted !== undefined) throw aborted;
     // Fall back to the locally-built binary in the Go converter package.
     const goConverterDir = fileURLToPath(new URL("../../../../go/converter", import.meta.url));
     const binPath = `${goConverterDir}/cmd/turnout/turnout`;
