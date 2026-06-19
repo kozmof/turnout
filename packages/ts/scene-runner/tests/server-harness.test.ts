@@ -135,6 +135,20 @@ describe("runServerHarness", () => {
     ).rejects.toMatchObject({ name: "AbortError" });
   });
 
+  it("threads AbortSignal through to converter execution", async () => {
+    const controller = new AbortController();
+    mockRunConverter.mockRejectedValue(new DOMException("aborted", "AbortError"));
+    await expect(
+      runServerHarness({
+        turnFile: "my.turn",
+        entryId: "scene_a",
+        initialState: {},
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: "AbortError" });
+    expect(mockRunConverter).toHaveBeenCalledWith("my.turn", { signal: controller.signal });
+  });
+
   it("threads strictParse through to the bridge", async () => {
     mockRunConverter.mockResolvedValue(minimalModel);
 

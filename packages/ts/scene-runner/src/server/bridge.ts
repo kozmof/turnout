@@ -1,6 +1,7 @@
 // Node.js only — uses child_process and fs.
 import { execFile } from "node:child_process";
 import { accessSync, constants, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
 import { TurnModelSchema } from "../types/turnout-model_pb.js";
@@ -41,6 +42,8 @@ export type BridgeOptions = {
    * Recommended for multi-tenant or request-facing server usage.
    */
   safeBaseDir?: string;
+  /** Optional cancellation signal for converter discovery and execution. */
+  signal?: AbortSignal;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -67,7 +70,19 @@ class ExecFileFailure extends Error {
 const MAX_ERROR_OUTPUT_CHARS = 8_192;
 
 function isBufferOverflow(err: unknown): boolean {
-  return err instanceof RangeError || (err instanceof ExecFileFailure && err.cause instanceof RangeError);
+  return (
+    err instanceof RangeError || (err instanceof ExecFileFailure && err.cause instanceof RangeError)
+  );
+}
+
+function abortCause(err: unknown): unknown {
+  const cause = err instanceof ExecFileFailure ? err.cause : err;
+  return typeof cause === "object" &&
+    cause !== null &&
+    "name" in cause &&
+    cause.name === "AbortError"
+    ? cause
+    : undefined;
 }
 
 function formatExecFailure(err: unknown): string {
@@ -87,14 +102,24 @@ function formatExecFailure(err: unknown): string {
 function execFileAsync(
   bin: string,
   args: string[],
-  options: { timeout?: number; maxBuffer?: number; input?: Buffer | undefined },
+  options: {
+    timeout?: number;
+    maxBuffer?: number;
+    input?: Buffer | undefined;
+    signal?: AbortSignal | undefined;
+  },
 ): Promise<ExecResult> {
   const { input, ...execOptions } = options;
   return new Promise((resolve, reject) => {
-    const child = execFile(bin, args, { ...execOptions, encoding: "buffer" }, (err, stdout, stderr) => {
-      if (err) reject(new ExecFileFailure(err, stdout as Buffer, stderr as Buffer));
-      else resolve({ stdout: stdout as Buffer, stderr: stderr as Buffer });
-    });
+    const child = execFile(
+      bin,
+      args,
+      { ...execOptions, encoding: "buffer" },
+      (err, stdout, stderr) => {
+        if (err) reject(new ExecFileFailure(err, stdout as Buffer, stderr as Buffer));
+        else resolve({ stdout: stdout as Buffer, stderr: stderr as Buffer });
+      },
+    );
     // Feed pre-read source via stdin (used when safeBaseDir hardening reads the
     // file itself and passes "-" as the converter input). `child` may be absent
     // under test mocks; guard accordingly.
@@ -140,17 +165,17 @@ export function resetBinCache(): void {
   cachedBin = undefined;
 }
 
-async function discoverBin(): Promise<string> {
+async function discoverBin(signal?: AbortSignal): Promise<string> {
   if (process.env.TURNOUT_BIN) {
     return process.env.TURNOUT_BIN;
   }
 
   try {
-    await execFileAsync("turnout", ["--help"], { timeout: BIN_PROBE_TIMEOUT_MS });
+    await execFileAsync("turnout", ["--help"], { timeout: BIN_PROBE_TIMEOUT_MS, signal });
     return "turnout";
   } catch {
     // Fall back to the locally-built binary in the Go converter package.
-    const goConverterDir = new URL("../../../../go/converter", import.meta.url).pathname;
+    const goConverterDir = fileURLToPath(new URL("../../../../go/converter", import.meta.url));
     const binPath = `${goConverterDir}/cmd/turnout/turnout`;
     try {
       accessSync(binPath, constants.X_OK);
@@ -165,7 +190,8 @@ async function discoverBin(): Promise<string> {
   }
 }
 
-async function resolveTurnoutBin(): Promise<string> {
+async function resolveTurnoutBin(signal?: AbortSignal): Promise<string> {
+  if (signal !== undefined) return discoverBin(signal);
   if (cachedBin === undefined) cachedBin = discoverBin();
   return cachedBin;
 }
@@ -196,10 +222,7 @@ export async function runConverter(
  *
  * Pass `options.safeBaseDir` to restrict which paths may be converted.
  */
-export async function convertToHCL(
-  turnFilePath: string,
-  options?: BridgeOptions,
-): Promise<string> {
+export async function convertToHCL(turnFilePath: string, options?: BridgeOptions): Promise<string> {
   const stdout = await invokeConverter(turnFilePath, "hcl", options);
   return stdout.toString("utf8");
 }
@@ -234,15 +257,18 @@ async function invokeConverter(
     args = ["convert", "-o", "-", "-format", format, turnFilePath];
   }
 
-  const bin = options?.binPath ?? (await resolveTurnoutBin());
+  const bin = options?.binPath ?? (await resolveTurnoutBin(options?.signal));
   try {
     const { stdout } = await execFileAsync(bin, args, {
       timeout: CONVERT_TIMEOUT_MS,
       maxBuffer: CONVERT_MAX_BUFFER,
       input,
+      signal: options?.signal,
     });
     return stdout;
   } catch (err: unknown) {
+    const aborted = abortCause(err);
+    if (aborted !== undefined) throw aborted;
     if (isBufferOverflow(err)) {
       throw new BridgeError(
         "BufferOverflow",

@@ -15,12 +15,7 @@ vi.mock("node:child_process", () => ({
 
 import { readFileSync, realpathSync } from "node:fs";
 import { execFile } from "node:child_process";
-import {
-  loadTurnFile,
-  loadJsonModel,
-  runConverter,
-  convertToHCL,
-} from "../src/server/bridge.js";
+import { loadTurnFile, loadJsonModel, runConverter, convertToHCL } from "../src/server/bridge.js";
 import { isLoadError, isBridgeError, isHarnessError } from "../src/server/errors.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
@@ -145,6 +140,26 @@ describe("runConverter", () => {
     await runConverter("my.turn", { binPath: MOCK_BIN });
     const opts = (mockExecFile.mock.calls[0] as unknown[])[2] as Record<string, unknown>;
     expect(opts).toMatchObject({ timeout: expect.any(Number), maxBuffer: expect.any(Number) });
+  });
+
+  it("passes AbortSignal to the converter and preserves AbortError", async () => {
+    const controller = new AbortController();
+    mockExecFile.mockImplementation(
+      (_bin: string, _args: string[], opts: { signal?: AbortSignal }, cb: ExecFileCb) => {
+        expect(opts.signal).toBe(controller.signal);
+        controller.signal.addEventListener("abort", () => {
+          cb(
+            new DOMException("The operation was aborted", "AbortError"),
+            Buffer.from(""),
+            Buffer.from(""),
+          );
+        });
+        return {};
+      },
+    );
+    const conversion = runConverter("my.turn", { binPath: MOCK_BIN, signal: controller.signal });
+    controller.abort();
+    await expect(conversion).rejects.toMatchObject({ name: "AbortError" });
   });
 
   it("wraps converter failures with stderr diagnostics", async () => {

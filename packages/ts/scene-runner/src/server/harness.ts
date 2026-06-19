@@ -27,7 +27,7 @@ export type ServerHarnessOptions = {
   maxSceneSteps?: number;
   /** Maximum scene transitions allowed during route execution. Defaults to 1,000. */
   maxRouteTransitions?: number;
-  /** Optional cancellation signal forwarded to runner execution and hooks. */
+  /** Optional cancellation signal forwarded to conversion, runner execution, and hooks. */
   signal?: AbortSignal;
   /** Called instead of console.warn when the model has no STATE schema. */
   onWarning?: (msg: string) => void;
@@ -79,6 +79,7 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
   const bridgeOptions = {
     ...(options.allowedBaseDir !== undefined && { safeBaseDir: options.allowedBaseDir }),
     ...(options.strictParse !== undefined && { strictParse: options.strictParse }),
+    ...(options.signal !== undefined && { signal: options.signal }),
   };
 
   if (options.turnFile) {

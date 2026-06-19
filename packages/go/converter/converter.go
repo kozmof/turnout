@@ -167,8 +167,14 @@ func sameStringSlice(a, b []string) bool {
 	return true
 }
 
-func verifyCachedSchema(source ast.StateSource, basePath string, cached Schema, order []string) Diagnostics {
-	current, currentOrder, ds := state.ResolveWithOrder(source, basePath)
+// verifyInlineCachedSchema rejects stale schemas for inline state blocks, which
+// can be resolved without I/O. State-file schemas are trusted: callers use
+// ResolveSchema once, and cached-schema APIs do not re-read the external file.
+func verifyInlineCachedSchema(source ast.StateSource, cached Schema, order []string) Diagnostics {
+	if _, ok := source.(*ast.InlineStateBlock); !ok {
+		return nil
+	}
+	current, currentOrder, ds := state.ResolveWithOrder(source, ".")
 	if ds.HasErrors() {
 		return ds
 	}
@@ -189,20 +195,20 @@ func verifyCachedSchema(source ast.StateSource, basePath string, cached Schema, 
 
 // CompileToModelWithSchema is like CompileToModel but accepts a pre-resolved
 // schema and its declaration order (from ResolveSchema or a prior CompileSource
-// call), verifying the current STATE source before lowering. Useful for LSP and incremental
-// tooling that compiles the same file repeatedly as the user edits.
+// call). Inline state blocks are checked for staleness without I/O; state_file
+// schemas are trusted and are not re-read. Useful for LSP and incremental tooling
+// that compiles the same file repeatedly as the user edits.
 //
-// schema and order must have been produced from the same state source as the
-// STATE block in src; passing a stale or mismatched schema yields incorrect
-// lowering without an error. To detect staleness, compare schema.Hash() against
-// a fresh ResolveSchema call: a changed hash means the state source has changed.
+// schema and order must have been produced from the same state source as src.
+// Inline state blocks are checked automatically. For state_file sources, callers
+// must call ResolveSchema again when the external file may have changed.
 func CompileToModelWithSchema(name, src string, schema Schema, order []string) (result *LowerResult, ds Diagnostics) {
 	defer recoverInternalPanic(&result, &ds)
 	turnFile, ds1 := parser.ParseFile(name, src)
 	if ds1.HasErrors() {
 		return nil, ds1
 	}
-	if dsSchema := verifyCachedSchema(turnFile.StateSource, filepath.Dir(name), schema, order); dsSchema.HasErrors() {
+	if dsSchema := verifyInlineCachedSchema(turnFile.StateSource, schema, order); dsSchema.HasErrors() {
 		return nil, dsSchema
 	}
 	lr, ds2 := lower.Lower(turnFile, schema, order)
@@ -217,10 +223,9 @@ func CompileToModelWithSchema(name, src string, schema Schema, order []string) (
 // state_file I/O entirely. Returns (*CompileResult, nil) on success; on any
 // error returns (nil, errors). Warnings are collected in CompileResult.Warnings.
 //
-// schema and order must have been produced from the same state source as the
-// STATE block in src; passing a stale or mismatched schema yields incorrect
-// lowering without an error. To detect staleness, compare schema.Hash() against
-// a fresh ResolveSchema call: a changed hash means the state source has changed.
+// schema and order must have been produced from the same state source as src.
+// Inline state blocks are checked automatically. For state_file sources, callers
+// must call ResolveSchema again when the external file may have changed.
 //
 // Together with ResolveSchema this enables the full LSP incremental path:
 // resolve the schema once on file open, then call CompileWithSchema on every
@@ -235,7 +240,7 @@ func CompileWithSchema(name, src string, schema Schema, order []string) (result 
 	var accumulated Diagnostics
 	var ok bool
 
-	if dsSchema := verifyCachedSchema(turnFile.StateSource, filepath.Dir(name), schema, order); dsSchema.HasErrors() {
+	if dsSchema := verifyInlineCachedSchema(turnFile.StateSource, schema, order); dsSchema.HasErrors() {
 		return nil, dsSchema
 	}
 
@@ -267,8 +272,9 @@ func CompileWithSchema(name, src string, schema Schema, order []string) (result 
 // first return.
 //
 // schema and order must have been produced from the same state source as the
-// STATE block in src; the same caveats as CompileWithSchema apply. To detect
-// staleness, compare schema.Hash() against a fresh ResolveSchema call.
+// STATE block in src. Inline state blocks are checked automatically. For
+// state_file sources, callers must call ResolveSchema again when the external
+// file may have changed.
 func ValidateWithSchema(name, src string, schema Schema, order []string) (warnings Diagnostics, errors Diagnostics) {
 	defer recoverValidatePanic(&warnings, &errors)
 	var accumulated Diagnostics
@@ -279,7 +285,7 @@ func ValidateWithSchema(name, src string, schema Schema, order []string) (warnin
 		return nil, accumulated
 	}
 
-	if dsSchema := verifyCachedSchema(turnFile.StateSource, filepath.Dir(name), schema, order); dsSchema.HasErrors() {
+	if dsSchema := verifyInlineCachedSchema(turnFile.StateSource, schema, order); dsSchema.HasErrors() {
 		return nil, dsSchema
 	}
 

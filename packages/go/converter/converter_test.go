@@ -213,6 +213,28 @@ func TestCompileWithSchemaRejectsStaleSchema(t *testing.T) {
 	}
 }
 
+func TestCompileWithSchemaDoesNotRereadStateFile(t *testing.T) {
+	dir := t.TempDir()
+	statePath := filepath.Join(dir, "schema.turn")
+	if err := os.WriteFile(statePath, []byte("state { ns { count:number = 0 } }"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := `state_file = "schema.turn"
+scene "start" { entry_actions = ["init"] action "init" {} }`
+	name := filepath.Join(dir, "main.turn")
+	schema, order, ds := converter.ResolveSchema(name, src, "")
+	if ds.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", ds)
+	}
+	if err := os.Remove(statePath); err != nil {
+		t.Fatal(err)
+	}
+	result, errs := converter.CompileWithSchema(name, src, schema, order)
+	if errs.HasErrors() || result == nil {
+		t.Fatalf("CompileWithSchema re-read state_file: result=%v errors=%v", result, errs)
+	}
+}
+
 // TestCompileWithSchema verifies the three cases: success (no errors, warnings
 // is nil), parse error propagation, and validate error propagation.
 func TestCompileWithSchema(t *testing.T) {
