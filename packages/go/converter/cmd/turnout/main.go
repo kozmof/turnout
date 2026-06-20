@@ -51,10 +51,35 @@ func safeRun(fn func() int) (exitCode int) {
 	defer func() {
 		if r := recover(); r != nil {
 			fmt.Fprintf(os.Stderr, "turnout: internal error (please report this bug): %v\n", r)
+			printDebugStack(debug.Stack())
 			exitCode = 2
 		}
 	}()
 	return fn()
+}
+
+func printDebugStack(stack []byte) {
+	if os.Getenv("TURNOUT_DEBUG_STACK") != "" {
+		fmt.Fprintf(os.Stderr, "%s", stack)
+	}
+}
+
+func converterOptions(maxSourceBytes, maxStateFileBytes int64) converter.Options {
+	return converter.Options{
+		Limits:        converter.Limits{MaxSourceBytes: maxSourceBytes, MaxStateFileBytes: maxStateFileBytes},
+		PanicReporter: func(report converter.PanicReport) { printDebugStack(report.Stack) },
+	}
+}
+
+func readLimited(r io.Reader, maxBytes int64) ([]byte, error) {
+	if maxBytes < 1 {
+		return nil, fmt.Errorf("limit must be positive")
+	}
+	b, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err == nil && int64(len(b)) > maxBytes {
+		return nil, fmt.Errorf("input exceeds the %d-byte source limit", maxBytes)
+	}
+	return b, err
 }
 
 func printUsage() {
@@ -100,6 +125,8 @@ func runConvert(args []string) int {
 	output := fs.String("o", "", "output file path (use '-' for stdout; default: input with .hcl/.json extension)")
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
 	format := fs.String("format", "hcl", "output format: hcl or json")
+	maxSourceBytes := fs.Int64("max-source-bytes", converter.DefaultMaxSourceBytes, "maximum input source size in bytes")
+	maxStateFileBytes := fs.Int64("max-state-file-bytes", converter.DefaultMaxStateFileBytes, "maximum state_file size in bytes")
 
 	if err := fs.Parse(reorderFlagArgs(fs, args)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -126,7 +153,7 @@ func runConvert(args []string) int {
 	var stdinSrc []byte
 	if fromStdin {
 		var err error
-		stdinSrc, err = io.ReadAll(os.Stdin)
+		stdinSrc, err = readLimited(os.Stdin, *maxSourceBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "turnout: cannot read stdin: %v\n", err)
 			return 1
@@ -149,7 +176,7 @@ func runConvert(args []string) int {
 	}
 
 	if outPath == "-" {
-		return runConvertToWriter(os.Stdout, inputPath, basePath, *format, stdinSrc, fromStdin)
+		return runConvertToWriter(os.Stdout, inputPath, basePath, *format, stdinSrc, fromStdin, *maxSourceBytes, *maxStateFileBytes)
 	}
 
 	// Write to a temp file in the same directory so os.Rename is atomic on
@@ -168,7 +195,7 @@ func runConvert(args []string) int {
 		}
 	}()
 
-	code := runConvertToWriter(tmp, inputPath, basePath, *format, stdinSrc, fromStdin)
+	code := runConvertToWriter(tmp, inputPath, basePath, *format, stdinSrc, fromStdin, *maxSourceBytes, *maxStateFileBytes)
 	if err := tmp.Close(); err != nil {
 		fmt.Fprintf(os.Stderr, "turnout: cannot close temporary output for %s: %v\n", outPath, err)
 		return 1
@@ -184,13 +211,13 @@ func runConvert(args []string) int {
 	return 0
 }
 
-func runConvertToWriter(w io.Writer, inputPath, basePath, format string, src []byte, fromStdin bool) int {
+func runConvertToWriter(w io.Writer, inputPath, basePath, format string, src []byte, fromStdin bool, maxSourceBytes, maxStateFileBytes int64) int {
 	var result *converter.CompileResult
 	var ds converter.Diagnostics
 	if fromStdin {
-		result, ds = converter.CompileSource("<stdin>", string(src), basePath)
+		result, ds = converter.CompileSourceWithOptions("<stdin>", string(src), basePath, converterOptions(maxSourceBytes, maxStateFileBytes))
 	} else {
-		result, ds = converter.Compile(inputPath, basePath)
+		result, ds = converter.CompileWithOptions(inputPath, basePath, converterOptions(maxSourceBytes, maxStateFileBytes))
 	}
 	if ds.HasErrors() || result == nil {
 		printDiags(ds)
@@ -217,6 +244,8 @@ func runConvertToWriter(w io.Writer, inputPath, basePath, format string, src []b
 func runValidate(args []string) int {
 	fs := flag.NewFlagSet("validate", flag.ContinueOnError)
 	stateFile := fs.String("state-file", "", "override state_file base path resolution")
+	maxSourceBytes := fs.Int64("max-source-bytes", converter.DefaultMaxSourceBytes, "maximum input source size in bytes")
+	maxStateFileBytes := fs.Int64("max-state-file-bytes", converter.DefaultMaxStateFileBytes, "maximum state_file size in bytes")
 
 	if err := fs.Parse(reorderFlagArgs(fs, args)); err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -234,7 +263,7 @@ func runValidate(args []string) int {
 		basePath = *stateFile
 	}
 
-	result, ds := converter.Compile(inputPath, basePath)
+	result, ds := converter.CompileWithOptions(inputPath, basePath, converterOptions(*maxSourceBytes, *maxStateFileBytes))
 	printDiags(ds)
 	if ds.HasErrors() {
 		return 1

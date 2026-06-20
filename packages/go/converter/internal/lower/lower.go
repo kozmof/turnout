@@ -33,7 +33,11 @@ type LowerResult struct {
 // state.Resolve + Lower call sequence that callers otherwise must get right.
 // Declaration order from the state source is preserved in the emitted HCL.
 func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, diag.Diagnostics) {
-	schema, order, ds := state.ResolveWithOrder(file.StateSource, basePath)
+	return LowerResolvingStateWithLimit(file, basePath, state.DefaultMaxStateFileBytes)
+}
+
+func LowerResolvingStateWithLimit(file *ast.TurnFile, basePath string, maxBytes int64) (*LowerResult, diag.Diagnostics) {
+	schema, order, ds := state.ResolveWithOrderLimit(file.StateSource, basePath, maxBytes)
 	if ds.HasErrors() {
 		return nil, ds
 	}
@@ -43,7 +47,11 @@ func LowerResolvingState(file *ast.TurnFile, basePath string) (*LowerResult, dia
 // LowerResolvingStateContained resolves state_file directives relative to
 // basePath and rejects paths or symlinks that escape that directory.
 func LowerResolvingStateContained(file *ast.TurnFile, basePath string) (*LowerResult, diag.Diagnostics) {
-	schema, order, ds := state.ResolveWithOrderContained(file.StateSource, basePath)
+	return LowerResolvingStateContainedWithLimit(file, basePath, state.DefaultMaxStateFileBytes)
+}
+
+func LowerResolvingStateContainedWithLimit(file *ast.TurnFile, basePath string, maxBytes int64) (*LowerResult, diag.Diagnostics) {
+	schema, order, ds := state.ResolveWithOrderContainedLimit(file.StateSource, basePath, maxBytes)
 	if ds.HasErrors() {
 		return nil, ds
 	}

@@ -7,6 +7,7 @@ export {
   runConverter,
   loadJsonModel,
   resetBinCache,
+  DEFAULT_MAX_INPUT_BYTES,
 } from "./bridge.js";
 export type { BridgeOptions } from "./bridge.js";
 export {

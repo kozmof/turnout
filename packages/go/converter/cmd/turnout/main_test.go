@@ -266,3 +266,20 @@ func TestRunConvertDefaultOutputExtensionHCL(t *testing.T) {
 		t.Fatalf("expected output file %q not found: %v", expectedOut, err)
 	}
 }
+
+func TestRunConvertRejectsOversizedStdin(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	go func() { _, _ = w.WriteString("12345"); _ = w.Close() }()
+	oldStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = oldStdin }()
+	_, stderr, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{"-o", "-", "-max-source-bytes", "4", "-"})
+	})
+	if rc != 1 || !strings.Contains(stderr, "exceeds the 4-byte source limit") {
+		t.Fatalf("rc=%d stderr=%q", rc, stderr)
+	}
+}

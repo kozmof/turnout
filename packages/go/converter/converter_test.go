@@ -364,3 +364,22 @@ scene "start" {
 		}
 	})
 }
+
+func TestCompileRejectsOversizedStateFile(t *testing.T) {
+	dir := t.TempDir()
+	schemaPath := filepath.Join(dir, "schema.turn")
+	if err := os.WriteFile(schemaPath, []byte("state { ns { value:number = 0 } }"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(dir, "source.turn")
+	source := "state_file = \"schema.turn\"\nscene \"s\" { entry_actions = [] }"
+	if err := os.WriteFile(sourcePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, ds := converter.CompileWithOptions(sourcePath, "", converter.Options{
+		Limits: converter.Limits{MaxStateFileBytes: 4},
+	})
+	if result != nil || !ds.HasErrors() || string(ds[0].Code) != "StateFileTooLarge" {
+		t.Fatalf("expected StateFileTooLarge, got result=%v diagnostics=%v", result, ds)
+	}
+}

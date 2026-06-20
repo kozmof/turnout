@@ -67,3 +67,24 @@ jobs:
 
       - name: Coverage
         run: pnpm run test:coverage
+
+  fuzz:
+    name: Bounded Go Fuzzing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: packages/go/converter/go.mod
+          cache-dependency-path: packages/go/converter/go.sum
+
+      - name: Fuzz lexer
+        working-directory: packages/go/converter
+        run: go test ./internal/lexer -run='^$' -fuzz=FuzzTokenize -fuzztime=10s
+
+      - name: Fuzz parser
+        working-directory: packages/go/converter
+        run: go test ./internal/parser -run='^$' -fuzz=FuzzParseFile -fuzztime=10s

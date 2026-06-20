@@ -1,6 +1,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"hash/fnv"
 	"io"
@@ -13,6 +14,9 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 	"google.golang.org/protobuf/types/known/structpb"
 )
+
+// DefaultMaxStateFileBytes bounds state_file reads performed by the compiler.
+const DefaultMaxStateFileBytes int64 = 16 * 1024 * 1024
 
 // FieldMeta holds the resolved type and default value for a single STATE field.
 type FieldMeta struct {
@@ -164,17 +168,27 @@ func Resolve(source ast.StateSource, basePath string) (Schema, diag.Diagnostics)
 // when the source uses state_file. Callers that do not need ordering can
 // ignore the second return value.
 func ResolveWithOrder(source ast.StateSource, basePath string) (Schema, []string, diag.Diagnostics) {
-	return resolveWithOrder(source, basePath, false)
+	return ResolveWithOrderLimit(source, basePath, DefaultMaxStateFileBytes)
+}
+
+// ResolveWithOrderLimit is ResolveWithOrder with an explicit state_file byte limit.
+func ResolveWithOrderLimit(source ast.StateSource, basePath string, maxBytes int64) (Schema, []string, diag.Diagnostics) {
+	return resolveWithOrder(source, basePath, false, maxBytes)
 }
 
 // ResolveWithOrderContained is like ResolveWithOrder, but constrains state_file
 // directives to basePath. Relative state_file paths are resolved under basePath;
 // absolute paths and symlinks must also resolve inside basePath.
 func ResolveWithOrderContained(source ast.StateSource, basePath string) (Schema, []string, diag.Diagnostics) {
-	return resolveWithOrder(source, basePath, true)
+	return ResolveWithOrderContainedLimit(source, basePath, DefaultMaxStateFileBytes)
 }
 
-func resolveWithOrder(source ast.StateSource, basePath string, containStateFile bool) (Schema, []string, diag.Diagnostics) {
+// ResolveWithOrderContainedLimit is ResolveWithOrderContained with an explicit byte limit.
+func ResolveWithOrderContainedLimit(source ast.StateSource, basePath string, maxBytes int64) (Schema, []string, diag.Diagnostics) {
+	return resolveWithOrder(source, basePath, true, maxBytes)
+}
+
+func resolveWithOrder(source ast.StateSource, basePath string, containStateFile bool, maxBytes int64) (Schema, []string, diag.Diagnostics) {
 	switch s := source.(type) {
 	case *ast.InlineStateBlock:
 		schema, ds := resolveInline(s)
@@ -184,7 +198,7 @@ func resolveWithOrder(source ast.StateSource, basePath string, containStateFile 
 		}
 		return schema, order, ds
 	case *ast.StateFileDirective:
-		schema, order, ds := resolveStateFileWithOrder(s, basePath, containStateFile)
+		schema, order, ds := resolveStateFileWithOrder(s, basePath, containStateFile, maxBytes)
 		if !ds.HasErrors() {
 			schema.hash = computeSchemaHash(schema, order)
 		}
@@ -239,6 +253,10 @@ func resolveContainedStatePath(rawPath, basePath string) (string, diag.Diagnosti
 // reached by path and that the resolved path remains inside basePath. Reading
 // from f after this check prevents a later symlink swap from redirecting I/O.
 func readOpenedContainedStateFile(f *os.File, path, basePath string) ([]byte, diag.Diagnostics) {
+	return readOpenedContainedStateFileLimit(f, path, basePath, DefaultMaxStateFileBytes)
+}
+
+func readOpenedContainedStateFileLimit(f *os.File, path, basePath string, maxBytes int64) ([]byte, diag.Diagnostics) {
 	realBase, err := filepath.EvalSymlinks(basePath)
 	if err != nil {
 		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase,
@@ -259,8 +277,12 @@ func readOpenedContainedStateFile(f *os.File, path, basePath string) ([]byte, di
 		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileOutsideBase,
 			"state_file %q changed while being opened", path)}
 	}
-	src, err := io.ReadAll(f)
+	src, err := readLimited(f, maxBytes)
 	if err != nil {
+		if errors.Is(err, errFileTooLarge) {
+			return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileTooLarge,
+				"state file %q exceeds the %d-byte limit", path, maxBytes)}
+		}
 		return nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing,
 			"cannot read state file %q: %v", path, err)}
 	}
@@ -268,7 +290,7 @@ func readOpenedContainedStateFile(f *os.File, path, basePath string) ([]byte, di
 }
 
 // resolveStateFileWithOrder is like Resolve but also returns ordered keys.
-func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, containStateFile bool) (Schema, []string, diag.Diagnostics) {
+func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, containStateFile bool, maxBytes int64) (Schema, []string, diag.Diagnostics) {
 	path := d.Path
 	if containStateFile {
 		var ds diag.Diagnostics
@@ -288,14 +310,22 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, conta
 		}
 		defer f.Close()
 		var ds diag.Diagnostics
-		src, ds = readOpenedContainedStateFile(f, path, basePath)
+		src, ds = readOpenedContainedStateFileLimit(f, path, basePath, maxBytes)
 		if ds.HasErrors() {
 			return Schema{}, nil, ds
 		}
 	} else {
-		var err error
-		src, err = os.ReadFile(path)
+		f, err := os.Open(path)
 		if err != nil {
+			return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
+		}
+		defer f.Close()
+		src, err = readLimited(f, maxBytes)
+		if err != nil {
+			if errors.Is(err, errFileTooLarge) {
+				return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileTooLarge,
+					"state file %q exceeds the %d-byte limit", path, maxBytes)}
+			}
 			return Schema{}, nil, diag.Diagnostics{diag.Errorf(diag.CodeStateFileMissing, "cannot read state file %q: %v", path, err)}
 		}
 	}
@@ -311,6 +341,22 @@ func resolveStateFileWithOrder(d *ast.StateFileDirective, basePath string, conta
 
 	schema, ds := resolveInline(inline)
 	return schema, inlineOrder(inline), ds
+}
+
+var errFileTooLarge = errors.New("file exceeds byte limit")
+
+func readLimited(r io.Reader, maxBytes int64) ([]byte, error) {
+	if maxBytes < 1 {
+		return nil, errFileTooLarge
+	}
+	src, err := io.ReadAll(io.LimitReader(r, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(src)) > maxBytes {
+		return nil, errFileTooLarge
+	}
+	return src, nil
 }
 
 // stateFileParseCode maps a parser diagnostic code to the appropriate

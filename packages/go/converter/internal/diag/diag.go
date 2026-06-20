@@ -23,6 +23,8 @@ type Diagnostic struct {
 	File     string
 	Line     int
 	Col      int
+	// DebugStack is populated for recovered InternalError panics and omitted by Format.
+	DebugStack []byte
 }
 
 // Format returns the human-readable string for stderr output.

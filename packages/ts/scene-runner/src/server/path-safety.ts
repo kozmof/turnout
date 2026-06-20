@@ -1,5 +1,13 @@
 // Node.js only — path containment for request-facing / multi-tenant usage.
-import { closeSync, constants, openSync, readFileSync, realpathSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  realpathSync,
+} from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { HarnessError } from "./errors.js";
 
@@ -100,10 +108,16 @@ function fdRealPath(fd: number): string | undefined {
  * Throws `HarnessError("PathOutsideBase")` if the path escapes the base at
  * either stage. I/O errors propagate to the caller for wrapping.
  */
-export function readContainedFile(filePath: string, baseDir: string): string {
+export function readContainedFile(filePath: string, baseDir: string, maxBytes?: number): string {
   const safePath = containPath(filePath, baseDir);
   const fd = openSync(safePath, constants.O_RDONLY);
   try {
+    if (maxBytes !== undefined && fstatSync(fd).size > maxBytes) {
+      throw new HarnessError(
+        "InputTooLarge",
+        `path "${filePath}" exceeds the ${maxBytes}-byte input limit`,
+      );
+    }
     const opened = fdRealPath(fd);
     if (opened !== undefined && !isContained(opened, resolveBaseDir(baseDir))) {
       throw new HarnessError(
@@ -111,7 +125,21 @@ export function readContainedFile(filePath: string, baseDir: string): string {
         `path "${filePath}" resolved outside allowed base directory "${baseDir}" after open`,
       );
     }
-    return readFileSync(fd, "utf8");
+    if (maxBytes === undefined) return readFileSync(fd, "utf8");
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+    while (total <= maxBytes) {
+      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, maxBytes + 1 - total));
+      const count = readSync(fd, chunk, 0, chunk.length, null);
+      if (count === 0) return Buffer.concat(chunks, total).toString("utf8");
+      chunks.push(chunk.subarray(0, count));
+      total += count;
+    }
+    throw new HarnessError(
+      "InputTooLarge",
+      `path "${filePath}" exceeds the ${maxBytes}-byte input limit`,
+    );
   } finally {
     closeSync(fd);
   }

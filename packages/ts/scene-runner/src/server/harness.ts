@@ -29,6 +29,10 @@ export type ServerHarnessOptions = {
   maxRouteTransitions?: number;
   /** Optional cancellation signal forwarded to conversion, runner execution, and hooks. */
   signal?: AbortSignal;
+  /** Maximum source or JSON model size in bytes. Defaults to 16 MiB. */
+  maxInputBytes?: number;
+  /** Maximum external state_file size in bytes. Defaults to 16 MiB. */
+  maxStateFileBytes?: number;
   /** Called instead of console.warn when the model has no STATE schema. */
   onWarning?: (msg: string) => void;
   /** Optional structured execution log callback. */
@@ -80,6 +84,10 @@ export async function runServerHarness(options: ServerHarnessOptions): Promise<F
     ...(options.allowedBaseDir !== undefined && { safeBaseDir: options.allowedBaseDir }),
     ...(options.strictParse !== undefined && { strictParse: options.strictParse }),
     ...(options.signal !== undefined && { signal: options.signal }),
+    ...(options.maxInputBytes !== undefined && { maxInputBytes: options.maxInputBytes }),
+    ...(options.maxStateFileBytes !== undefined && {
+      maxStateFileBytes: options.maxStateFileBytes,
+    }),
   };
 
   if (options.turnFile) {

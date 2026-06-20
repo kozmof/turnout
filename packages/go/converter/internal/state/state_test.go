@@ -301,3 +301,28 @@ func TestFieldsOfReturnsCopy(t *testing.T) {
 		t.Error("mutation of FieldsOf result leaked into schema")
 	}
 }
+
+func TestStateFileSizeLimits(t *testing.T) {
+	dir := t.TempDir()
+	content := "state { ns { value:number = 0 } }"
+	writeFile(t, dir, "state.turn", content)
+	d := &ast.StateFileDirective{Pos: pos(), Path: "state.turn"}
+
+	_, _, ds := state.ResolveWithOrderLimit(d, dir, 4)
+	if !hasError(ds, diag.CodeStateFileTooLarge) {
+		t.Fatalf("ordinary read: want StateFileTooLarge, got %v", ds)
+	}
+
+	_, _, ds = state.ResolveWithOrderContainedLimit(d, dir, 4)
+	if !hasError(ds, diag.CodeStateFileTooLarge) {
+		t.Fatalf("contained read: want StateFileTooLarge, got %v", ds)
+	}
+
+	schema, _, ds := state.ResolveWithOrderLimit(d, dir, int64(len(content)))
+	if ds.HasErrors() {
+		t.Fatalf("exact limit should succeed: %v", ds)
+	}
+	if _, ok := schema.Get("ns.value"); !ok {
+		t.Fatal("exact-limit schema missing ns.value")
+	}
+}

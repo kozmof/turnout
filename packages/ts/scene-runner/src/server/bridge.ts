@@ -1,6 +1,6 @@
 // Node.js only — uses child_process and fs.
 import { execFile } from "node:child_process";
-import { accessSync, constants, readFileSync } from "node:fs";
+import { accessSync, constants, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
@@ -20,6 +20,9 @@ const CONVERT_TIMEOUT_MS = 60_000;
 
 /** Maximum stdout buffer for a conversion run (64 MiB). */
 const CONVERT_MAX_BUFFER = 64 * 1024 * 1024;
+
+/** Default cap for source and model files read by the bridge (16 MiB). */
+export const DEFAULT_MAX_INPUT_BYTES = 16 * 1024 * 1024;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public options type
@@ -44,6 +47,10 @@ export type BridgeOptions = {
   safeBaseDir?: string;
   /** Optional cancellation signal for converter discovery and execution. */
   signal?: AbortSignal;
+  /** Maximum source or JSON model size in bytes. Defaults to 16 MiB. */
+  maxInputBytes?: number;
+  /** Maximum external state_file size passed to the converter. Defaults to 16 MiB. */
+  maxStateFileBytes?: number;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -138,12 +145,14 @@ function execFileAsync(
  * Pass `options.safeBaseDir` to restrict which paths may be read.
  */
 export function loadTurnFile(filePath: string, options?: BridgeOptions): string {
+  const maxBytes = inputLimit(options?.maxInputBytes);
   try {
-    return options?.safeBaseDir
-      ? readContainedFile(filePath, options.safeBaseDir)
-      : readFileSync(filePath, "utf8");
+    const content = options?.safeBaseDir
+      ? readContainedFile(filePath, options.safeBaseDir, maxBytes)
+      : readRegularFileLimited(filePath, maxBytes);
+    return content;
   } catch (err: unknown) {
-    if (err instanceof HarnessError) throw err; // containment failures pass through
+    if (err instanceof HarnessError || err instanceof LoadError) throw err; // structured failures pass through
     const msg = err instanceof Error ? err.message : String(err);
     throw new LoadError("ReadError", filePath, `Cannot read turn file "${filePath}": ${msg}`);
   }
@@ -243,21 +252,82 @@ export async function convertToHCL(turnFilePath: string, options?: BridgeOptions
  * Without `safeBaseDir`, the path is passed directly to the converter as
  * before — the trusted-deploy fast path.
  */
+function inputLimit(value: number | undefined): number {
+  const limit = value ?? DEFAULT_MAX_INPUT_BYTES;
+  if (!Number.isSafeInteger(limit) || limit < 1) {
+    throw new RangeError(`maxInputBytes must be a positive safe integer, got ${limit}`);
+  }
+  return limit;
+}
+
+function stateFileLimit(value: number | undefined): number {
+  const limit = value ?? DEFAULT_MAX_INPUT_BYTES;
+  if (!Number.isSafeInteger(limit) || limit < 1) {
+    throw new RangeError(`maxStateFileBytes must be a positive safe integer, got ${limit}`);
+  }
+  return limit;
+}
+
+function readRegularFileLimited(filePath: string, maxBytes: number): string {
+  if (statSync(filePath).size > maxBytes) {
+    throw new LoadError(
+      "InputTooLarge",
+      filePath,
+      `File "${filePath}" exceeds the ${maxBytes}-byte input limit`,
+    );
+  }
+  const content = readFileSync(filePath, "utf8");
+  if (Buffer.byteLength(content, "utf8") > maxBytes) {
+    throw new LoadError(
+      "InputTooLarge",
+      filePath,
+      `File "${filePath}" exceeds the ${maxBytes}-byte input limit`,
+    );
+  }
+  return content;
+}
+
 async function invokeConverter(
   turnFilePath: string,
   format: "json" | "hcl",
   options?: BridgeOptions,
 ): Promise<Buffer> {
+  const maxInputBytes = inputLimit(options?.maxInputBytes);
+  const maxStateFileBytes = stateFileLimit(options?.maxStateFileBytes);
   let args: string[];
   let input: Buffer | undefined;
   if (options?.safeBaseDir) {
     // Reads + containment-checks before any work; throws HarnessError on escape.
-    const source = readContainedFile(turnFilePath, options.safeBaseDir);
+    const source = readContainedFile(turnFilePath, options.safeBaseDir, maxInputBytes);
     const base = resolveBaseDir(options.safeBaseDir);
-    args = ["convert", "-o", "-", "-format", format, "-state-file", base, "-"];
+    args = [
+      "convert",
+      "-o",
+      "-",
+      "-format",
+      format,
+      "-max-source-bytes",
+      String(maxInputBytes),
+      "-max-state-file-bytes",
+      String(maxStateFileBytes),
+      "-state-file",
+      base,
+      "-",
+    ];
     input = Buffer.from(source, "utf8");
   } else {
-    args = ["convert", "-o", "-", "-format", format, turnFilePath];
+    args = [
+      "convert",
+      "-o",
+      "-",
+      "-format",
+      format,
+      "-max-source-bytes",
+      String(maxInputBytes),
+      "-max-state-file-bytes",
+      String(maxStateFileBytes),
+      turnFilePath,
+    ];
   }
 
   const bin = options?.binPath ?? (await resolveTurnoutBin(options?.signal));
@@ -301,12 +371,13 @@ async function invokeConverter(
  */
 export function loadJsonModel(jsonFilePath: string, options?: BridgeOptions): TurnModel {
   let raw: string;
+  const maxBytes = inputLimit(options?.maxInputBytes);
   try {
     raw = options?.safeBaseDir
-      ? readContainedFile(jsonFilePath, options.safeBaseDir)
-      : readFileSync(jsonFilePath, "utf8");
+      ? readContainedFile(jsonFilePath, options.safeBaseDir, maxBytes)
+      : readRegularFileLimited(jsonFilePath, maxBytes);
   } catch (err: unknown) {
-    if (err instanceof HarnessError) throw err; // containment failures pass through
+    if (err instanceof HarnessError || err instanceof LoadError) throw err; // structured failures pass through
     const msg = err instanceof Error ? err.message : String(err);
     throw new LoadError(
       "ReadError",

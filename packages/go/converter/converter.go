@@ -4,9 +4,11 @@
 package converter
 
 import (
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -18,6 +20,40 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/validate"
 	"google.golang.org/protobuf/proto"
 )
+
+const DefaultMaxSourceBytes int64 = 16 * 1024 * 1024
+const DefaultMaxStateFileBytes int64 = state.DefaultMaxStateFileBytes
+
+// Limits bounds compiler-controlled file reads. Zero values use safe defaults.
+type Limits struct {
+	MaxSourceBytes    int64
+	MaxStateFileBytes int64
+}
+
+// PanicReport contains internal failure details intended for telemetry, not users.
+type PanicReport struct {
+	Value any
+	Stack []byte
+}
+
+// PanicReporter receives recovered internal panics. It must be safe for concurrent use and must not panic.
+type PanicReporter func(PanicReport)
+
+// Options configures resource limits and optional internal-panic telemetry.
+type Options struct {
+	Limits        Limits
+	PanicReporter PanicReporter
+}
+
+func normalizedLimits(l Limits) Limits {
+	if l.MaxSourceBytes == 0 {
+		l.MaxSourceBytes = DefaultMaxSourceBytes
+	}
+	if l.MaxStateFileBytes == 0 {
+		l.MaxStateFileBytes = state.DefaultMaxStateFileBytes
+	}
+	return l
+}
 
 // Diagnostic and Diagnostics are re-exported so callers do not need to import
 // internal paths to inspect compile results.
@@ -80,12 +116,21 @@ type CompileResult struct {
 // Returns (nil, errors) when any stage produces errors. On success returns
 // (*CompileResult, nil); non-fatal diagnostics are in CompileResult.Warnings.
 func Compile(inputPath, stateBasePath string) (result *CompileResult, ds Diagnostics) {
-	defer recoverInternalPanic(&result, &ds)
-	src, err := os.ReadFile(inputPath)
+	return CompileWithOptions(inputPath, stateBasePath, Options{})
+}
+
+// CompileWithOptions is Compile with configurable limits and panic telemetry.
+func CompileWithOptions(inputPath, stateBasePath string, opts Options) (result *CompileResult, ds Diagnostics) {
+	defer recoverInternalPanicWithReporter(&result, &ds, opts.PanicReporter)
+	limits := normalizedLimits(opts.Limits)
+	src, err := readFileLimited(inputPath, limits.MaxSourceBytes)
 	if err != nil {
+		if errors.Is(err, errSourceTooLarge) {
+			return nil, Diagnostics{diag.Errorf(diag.CodeInputTooLarge, "%s exceeds the %d-byte source limit", inputPath, limits.MaxSourceBytes)}
+		}
 		return nil, Diagnostics{diag.Errorf(diag.CodeIOError, "cannot read %s: %v", inputPath, err)}
 	}
-	return compileBytes(inputPath, src, stateBasePath)
+	return compileBytes(inputPath, src, stateBasePath, limits.MaxStateFileBytes)
 }
 
 // CompileSource runs parse → state-resolve → lower → validate for an in-memory
@@ -93,8 +138,17 @@ func Compile(inputPath, stateBasePath string) (result *CompileResult, ds Diagnos
 // stateBasePath (via filepath.Dir(name)); pass a non-empty stateBasePath to
 // override it. Unlike Compile, no file I/O is performed.
 func CompileSource(name, src, stateBasePath string) (result *CompileResult, ds Diagnostics) {
-	defer recoverInternalPanic(&result, &ds)
-	return compileBytes(name, []byte(src), stateBasePath)
+	return CompileSourceWithOptions(name, src, stateBasePath, Options{})
+}
+
+// CompileSourceWithOptions is CompileSource with configurable limits and panic telemetry.
+func CompileSourceWithOptions(name, src, stateBasePath string, opts Options) (result *CompileResult, ds Diagnostics) {
+	defer recoverInternalPanicWithReporter(&result, &ds, opts.PanicReporter)
+	limits := normalizedLimits(opts.Limits)
+	if int64(len(src)) > limits.MaxSourceBytes {
+		return nil, Diagnostics{diag.Errorf(diag.CodeInputTooLarge, "%s exceeds the %d-byte source limit", name, limits.MaxSourceBytes)}
+	}
+	return compileBytes(name, []byte(src), stateBasePath, limits.MaxStateFileBytes)
 }
 
 // CompileToModel runs parse → state-resolve → lower for an in-memory source
@@ -313,7 +367,7 @@ func runStage(acc Diagnostics, ds Diagnostics) (Diagnostics, bool) {
 	return acc, true
 }
 
-func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult, Diagnostics) {
+func compileBytes(name string, src []byte, stateBasePath string, maxStateFileBytes int64) (*CompileResult, Diagnostics) {
 	base := stateBasePath
 	if base == "" {
 		base = filepath.Dir(name)
@@ -330,9 +384,9 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 	var lr *LowerResult
 	var ds2 Diagnostics
 	if stateBasePath == "" {
-		lr, ds2 = lower.LowerResolvingState(turnFile, base)
+		lr, ds2 = lower.LowerResolvingStateWithLimit(turnFile, base, maxStateFileBytes)
 	} else {
-		lr, ds2 = lower.LowerResolvingStateContained(turnFile, base)
+		lr, ds2 = lower.LowerResolvingStateContainedWithLimit(turnFile, base, maxStateFileBytes)
 	}
 	if accumulated, ok = runStage(accumulated, ds2); !ok {
 		return nil, accumulated
@@ -351,12 +405,21 @@ func compileBytes(name string, src []byte, stateBasePath string) (*CompileResult
 }
 
 func internalPanicDiagnostics(r any) Diagnostics {
-	return Diagnostics{diag.Errorf(diag.CodeInternalError,
-		"converter internal error (please report this bug): %v", r)}
+	d := diag.Errorf(diag.CodeInternalError,
+		"converter internal error (please report this bug): %v", r)
+	d.DebugStack = debug.Stack()
+	return Diagnostics{d}
 }
 
 func recoverInternalPanic[T any](result *T, ds *Diagnostics) {
+	recoverInternalPanicWithReporter(result, ds, nil)
+}
+
+func recoverInternalPanicWithReporter[T any](result *T, ds *Diagnostics, reporter PanicReporter) {
 	if r := recover(); r != nil {
+		if reporter != nil {
+			callPanicReporter(reporter, PanicReport{Value: r, Stack: debug.Stack()})
+		}
 		var zero T
 		*result = zero
 		*ds = internalPanicDiagnostics(r)
@@ -376,4 +439,30 @@ func recoverValidatePanic(warnings *Diagnostics, errors *Diagnostics) {
 		*warnings = nil
 		*errors = internalPanicDiagnostics(r)
 	}
+}
+
+func callPanicReporter(reporter PanicReporter, report PanicReport) {
+	defer func() { _ = recover() }()
+	reporter(report)
+}
+
+var errSourceTooLarge = errors.New("source exceeds byte limit")
+
+func readFileLimited(path string, maxBytes int64) ([]byte, error) {
+	if maxBytes < 1 {
+		return nil, errSourceTooLarge
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	src, err := io.ReadAll(io.LimitReader(f, maxBytes+1))
+	if err != nil {
+		return nil, err
+	}
+	if int64(len(src)) > maxBytes {
+		return nil, errSourceTooLarge
+	}
+	return src, nil
 }

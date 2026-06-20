@@ -6,6 +6,7 @@ const (
 	CodeNamedArgNotSupported ErrorCode = "NamedArgNotSupported"
 	CodeEmitIOError          ErrorCode = "EmitIOError"
 	CodeIOError              ErrorCode = "IOError"
+	CodeInputTooLarge        ErrorCode = "InputTooLarge"
 	CodeParseSyntaxError     ErrorCode = "ParseSyntaxError"
 	CodeLexError             ErrorCode = "LexError"
 )
@@ -48,6 +49,7 @@ const (
 	CodeMissingStateSource            ErrorCode = "MissingStateSource"
 	CodeConflictingStateSource        ErrorCode = "ConflictingStateSource"
 	CodeStateFileMissing              ErrorCode = "StateFileMissing"
+	CodeStateFileTooLarge             ErrorCode = "StateFileTooLarge"
 	CodeStateFileOutsideBase          ErrorCode = "StateFileOutsideBase"
 	CodeStateFileParseError           ErrorCode = "StateFileParseError"
 	CodeMissingStateBlock             ErrorCode = "MissingStateBlock"

@@ -2,6 +2,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("node:fs", () => ({
   readFileSync: vi.fn(),
+  readSync: vi.fn(() => 0),
+  statSync: vi.fn(() => ({ size: 0 })),
+  fstatSync: vi.fn(() => ({ size: 0 })),
   realpathSync: vi.fn((path: string) => path),
   accessSync: vi.fn(),
   openSync: vi.fn(() => 3),
@@ -13,7 +16,7 @@ vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { readFileSync, realpathSync } from "node:fs";
+import { readFileSync, realpathSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
 import {
   loadTurnFile,
@@ -26,6 +29,7 @@ import { isLoadError, isBridgeError, isHarnessError } from "../src/server/errors
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.fn>;
+const mockStat = vi.mocked(statSync) as unknown as ReturnType<typeof vi.fn>;
 const mockRealpath = vi.mocked(realpathSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecFile = vi.mocked(execFile) as unknown as ReturnType<typeof vi.fn>;
 
@@ -50,6 +54,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   resetBinCache();
   mockRealpath.mockImplementation((path: string) => path);
+  mockStat.mockReturnValue({ size: 0 });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -387,5 +392,28 @@ describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
     }
     expect(isHarnessError(caught)).toBe(true);
     expect(isHarnessError(new Error("plain"))).toBe(false);
+  });
+});
+
+describe("BridgeOptions input limits", () => {
+  it("rejects an oversized turn file before reading it", () => {
+    mockStat.mockReturnValue({ size: 5 });
+    expect(() => loadTurnFile("large.turn", { maxInputBytes: 4 })).toThrow(
+      expect.objectContaining({ code: "InputTooLarge" }),
+    );
+    expect(mockReadFile).not.toHaveBeenCalled();
+  });
+
+  it("passes configured source and state limits to the converter", async () => {
+    setupConvert();
+    await runConverter("model.turn", {
+      binPath: MOCK_BIN,
+      maxInputBytes: 123,
+      maxStateFileBytes: 456,
+    });
+    const args = (mockExecFile.mock.calls[0] as unknown[])[1] as string[];
+    expect(args).toEqual(
+      expect.arrayContaining(["-max-source-bytes", "123", "-max-state-file-bytes", "456"]),
+    );
   });
 });

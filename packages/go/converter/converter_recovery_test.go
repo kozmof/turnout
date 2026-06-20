@@ -1,6 +1,9 @@
 package converter
 
 import (
+	"bytes"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -20,6 +23,9 @@ func TestRecoverInternalPanic(t *testing.T) {
 	}
 	if !ds.HasErrors() || len(ds) != 1 || ds[0].Code != diag.CodeInternalError {
 		t.Fatalf("expected one InternalError diagnostic, got %#v", ds)
+	}
+	if !bytes.Contains(ds[0].DebugStack, []byte("TestRecoverInternalPanic")) {
+		t.Fatalf("internal diagnostic did not retain a stack: %q", ds[0].DebugStack)
 	}
 }
 
@@ -55,5 +61,36 @@ func TestRecoverValidatePanic(t *testing.T) {
 	}
 	if !errors.HasErrors() || len(errors) != 1 || errors[0].Code != diag.CodeInternalError {
 		t.Fatalf("expected one InternalError diagnostic, got %#v", errors)
+	}
+}
+
+func TestCompileSourceRejectsOversizedInput(t *testing.T) {
+	result, ds := CompileSourceWithOptions("large.turn", "12345", "", Options{Limits: Limits{MaxSourceBytes: 4}})
+	if result != nil || !ds.HasErrors() || ds[0].Code != diag.CodeInputTooLarge {
+		t.Fatalf("expected InputTooLarge, got result=%v diagnostics=%v", result, ds)
+	}
+}
+
+func TestCompileRejectsOversizedFile(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "large.turn")
+	if err := os.WriteFile(path, []byte("12345"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, ds := CompileWithOptions(path, "", Options{Limits: Limits{MaxSourceBytes: 4}})
+	if result != nil || !ds.HasErrors() || ds[0].Code != diag.CodeInputTooLarge {
+		t.Fatalf("expected InputTooLarge, got result=%v diagnostics=%v", result, ds)
+	}
+}
+
+func TestRecoverInternalPanicReportsStack(t *testing.T) {
+	var result string
+	var ds Diagnostics
+	var report PanicReport
+	func() {
+		defer recoverInternalPanicWithReporter(&result, &ds, func(r PanicReport) { report = r })
+		panic("reported boom")
+	}()
+	if report.Value != "reported boom" || !bytes.Contains(report.Stack, []byte("TestRecoverInternalPanicReportsStack")) {
+		t.Fatalf("unexpected panic report: value=%v stack=%q", report.Value, report.Stack)
 	}
 }

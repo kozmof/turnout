@@ -2,7 +2,7 @@
 // Structured error classes for the server (Node.js bridge) layer.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type LoadErrorCode = "FileNotFound" | "ReadError";
+export type LoadErrorCode = "FileNotFound" | "ReadError" | "InputTooLarge";
 
 export class LoadError extends Error {
   readonly code: LoadErrorCode;
@@ -26,6 +26,7 @@ export type BridgeErrorCode =
   | "BinaryNotFound"
   | "BufferOverflow"
   | "ConverterFailed"
+  | "InputTooLarge"
   | "ParseError";
 
 export class BridgeError extends Error {
@@ -47,7 +48,11 @@ export function isBridgeError(e: unknown): e is BridgeError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type HarnessErrorCode = "MissingEntryPoint" | "AmbiguousEntryPoint" | "PathOutsideBase";
+export type HarnessErrorCode =
+  | "MissingEntryPoint"
+  | "AmbiguousEntryPoint"
+  | "PathOutsideBase"
+  | "InputTooLarge";
 
 export class HarnessError extends Error {
   readonly code: HarnessErrorCode;
