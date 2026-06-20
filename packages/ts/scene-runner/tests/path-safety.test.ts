@@ -23,6 +23,12 @@ describe("containPath", () => {
     expect(containPath("sub/file.turn", base)).toBe(resolve(base, "sub/file.turn"));
   });
 
+  it("accepts in-base names that begin with two dots", () => {
+    const base = process.cwd();
+    expect(containPath("..draft.turn", base)).toBe(resolve(base, "..draft.turn"));
+    expect(containPath("..draft/file.turn", base)).toBe(resolve(base, "..draft/file.turn"));
+  });
+
   it("rejects a parent-directory escape", () => {
     expect(() => containPath("../escape.turn", process.cwd())).toThrow(HarnessError);
   });

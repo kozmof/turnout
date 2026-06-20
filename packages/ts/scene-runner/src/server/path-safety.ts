@@ -52,7 +52,7 @@ export function containPath(filePath: string, baseDir: string): string {
   const candidate = isAbsolute(filePath) ? resolve(filePath) : resolve(base, filePath);
 
   const rel = relative(base, candidate);
-  if (rel !== "" && (rel.startsWith("..") || isAbsolute(rel))) {
+  if (rel === ".." || rel.startsWith(`..${sep}`) || isAbsolute(rel)) {
     throw new HarnessError(
       "PathOutsideBase",
       `path "${filePath}" is outside allowed base directory "${baseDir}"`,
