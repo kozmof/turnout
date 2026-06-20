@@ -1,22 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("node:fs", () => ({
-  readFileSync: vi.fn(),
-  readSync: vi.fn(() => 0),
-  statSync: vi.fn(() => ({ size: 0 })),
-  fstatSync: vi.fn(() => ({ size: 0 })),
-  realpathSync: vi.fn((path: string) => path),
-  accessSync: vi.fn(),
-  openSync: vi.fn(() => 3),
-  closeSync: vi.fn(),
-  constants: { X_OK: 1, O_RDONLY: 0 },
-}));
+vi.mock("node:fs", () => {
+  const readFileSync = vi.fn();
+  let content = Buffer.alloc(0);
+  let offset = 0;
+  return {
+    readFileSync,
+    readSync: vi.fn((_fd: number, buffer: Buffer, bufferOffset: number, length: number) => {
+      const count = Math.min(length, content.length - offset);
+      if (count <= 0) return 0;
+      content.copy(buffer, bufferOffset, offset, offset + count);
+      offset += count;
+      return count;
+    }),
+    statSync: vi.fn(() => ({ size: 0, dev: 1, ino: 1 })),
+    fstatSync: vi.fn(() => ({ size: 0, dev: 1, ino: 1 })),
+    realpathSync: vi.fn((path: string) => path),
+    accessSync: vi.fn(),
+    openSync: vi.fn((path: string) => {
+      const raw = readFileSync(path, "utf8") as string | Buffer | undefined;
+      content = raw === undefined ? Buffer.alloc(0) : Buffer.from(raw);
+      offset = 0;
+      return 3;
+    }),
+    closeSync: vi.fn(),
+    constants: { X_OK: 1, O_RDONLY: 0 },
+  };
+});
 
 vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { readFileSync, realpathSync, statSync } from "node:fs";
+import { fstatSync, readFileSync, readSync, realpathSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
 import {
   loadTurnFile,
@@ -29,7 +45,9 @@ import { isLoadError, isBridgeError, isHarnessError } from "../src/server/errors
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 const mockReadFile = vi.mocked(readFileSync) as unknown as ReturnType<typeof vi.fn>;
+const mockRead = vi.mocked(readSync) as unknown as ReturnType<typeof vi.fn>;
 const mockStat = vi.mocked(statSync) as unknown as ReturnType<typeof vi.fn>;
+const mockFstat = vi.mocked(fstatSync) as unknown as ReturnType<typeof vi.fn>;
 const mockRealpath = vi.mocked(realpathSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecFile = vi.mocked(execFile) as unknown as ReturnType<typeof vi.fn>;
 
@@ -53,8 +71,10 @@ function setupConvert(modelJson = JSON.stringify(minimalModel)): void {
 beforeEach(() => {
   vi.clearAllMocks();
   resetBinCache();
+  mockReadFile.mockReset();
   mockRealpath.mockImplementation((path: string) => path);
-  mockStat.mockReturnValue({ size: 0 });
+  mockStat.mockReturnValue({ size: 0, dev: 1, ino: 1 });
+  mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1 });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -329,6 +349,16 @@ describe("BridgeOptions.safeBaseDir", () => {
     );
   });
 
+  it("rejects an opened file whose identity differs when /proc is unavailable", () => {
+    mockReadFile.mockReturnValue("content");
+    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 10 });
+    mockStat.mockReturnValue({ size: 0, dev: 1, ino: 11 });
+
+    expect(() => loadTurnFile("/base/file.turn", { safeBaseDir: "/base" })).toThrow(
+      expect.objectContaining({ code: "PathOutsideBase" }),
+    );
+  });
+
   it("loadJsonModel rejects paths outside safeBaseDir", () => {
     expect(() => loadJsonModel("../../secret.json", { safeBaseDir: "/base" })).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
@@ -397,11 +427,19 @@ describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
 
 describe("BridgeOptions input limits", () => {
   it("rejects an oversized turn file before reading it", () => {
-    mockStat.mockReturnValue({ size: 5 });
+    mockFstat.mockReturnValue({ size: 5, dev: 1, ino: 1 });
     expect(() => loadTurnFile("large.turn", { maxInputBytes: 4 })).toThrow(
       expect.objectContaining({ code: "InputTooLarge" }),
     );
-    expect(mockReadFile).not.toHaveBeenCalled();
+    expect(mockRead).not.toHaveBeenCalled();
+  });
+
+  it("rejects a file that grows beyond the limit after opening", () => {
+    mockReadFile.mockReturnValue("12345");
+    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1 });
+    expect(() => loadTurnFile("growing.turn", { maxInputBytes: 4 })).toThrow(
+      expect.objectContaining({ code: "InputTooLarge" }),
+    );
   });
 
   it("passes configured source and state limits to the converter", async () => {

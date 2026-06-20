@@ -1,6 +1,6 @@
 // Node.js only — uses child_process and fs.
 import { execFile } from "node:child_process";
-import { accessSync, constants, readFileSync, statSync } from "node:fs";
+import { accessSync, closeSync, constants, fstatSync, openSync, readSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
@@ -269,22 +269,29 @@ function stateFileLimit(value: number | undefined): number {
 }
 
 function readRegularFileLimited(filePath: string, maxBytes: number): string {
-  if (statSync(filePath).size > maxBytes) {
-    throw new LoadError(
+  const tooLarge = (): LoadError =>
+    new LoadError(
       "InputTooLarge",
       filePath,
       `File "${filePath}" exceeds the ${maxBytes}-byte input limit`,
     );
+  const fd = openSync(filePath, constants.O_RDONLY);
+  try {
+    if (fstatSync(fd).size > maxBytes) throw tooLarge();
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+    while (total <= maxBytes) {
+      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, maxBytes + 1 - total));
+      const count = readSync(fd, chunk, 0, chunk.length, null);
+      if (count === 0) return Buffer.concat(chunks, total).toString("utf8");
+      chunks.push(chunk.subarray(0, count));
+      total += count;
+    }
+    throw tooLarge();
+  } finally {
+    closeSync(fd);
   }
-  const content = readFileSync(filePath, "utf8");
-  if (Buffer.byteLength(content, "utf8") > maxBytes) {
-    throw new LoadError(
-      "InputTooLarge",
-      filePath,
-      `File "${filePath}" exceeds the ${maxBytes}-byte input limit`,
-    );
-  }
-  return content;
 }
 
 async function invokeConverter(

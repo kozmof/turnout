@@ -1,6 +1,9 @@
+import { mkdtempSync, symlinkSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
-import { resolveBaseDir, containPath } from "../src/server/path-safety.js";
+import { resolveBaseDir, containPath, readContainedFile } from "../src/server/path-safety.js";
 import { HarnessError } from "../src/server/errors.js";
 
 describe("resolveBaseDir", () => {
@@ -35,5 +38,25 @@ describe("containPath", () => {
 
   it("rejects an absolute path outside the base", () => {
     expect(() => containPath("/etc/passwd", process.cwd())).toThrow(/outside allowed base/);
+  });
+});
+
+describe("readContainedFile", () => {
+  it("reads through the verified opened descriptor", () => {
+    const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
+    const file = join(base, "model.turn");
+    writeFileSync(file, "content", "utf8");
+    expect(readContainedFile(file, base, 32)).toBe("content");
+  });
+
+  it("rejects a symlink that resolves outside the base", () => {
+    const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
+    const outside = join(mkdtempSync(join(tmpdir(), "turnout-path-outside-")), "secret.turn");
+    writeFileSync(outside, "secret", "utf8");
+    const link = join(base, "link.turn");
+    symlinkSync(outside, link);
+    expect(() => readContainedFile(link, base, 32)).toThrow(
+      expect.objectContaining({ code: "PathOutsideBase" }),
+    );
   });
 });

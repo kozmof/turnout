@@ -7,7 +7,9 @@ import {
   readFileSync,
   readSync,
   realpathSync,
+  statSync,
 } from "node:fs";
+import type { BigIntStats } from "node:fs";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { HarnessError } from "./errors.js";
 
@@ -98,6 +100,33 @@ function fdRealPath(fd: number): string | undefined {
   }
 }
 
+function isSameFile(
+  opened: Pick<BigIntStats, "dev" | "ino">,
+  current: Pick<BigIntStats, "dev" | "ino">,
+): boolean {
+  return opened.dev === current.dev && opened.ino === current.ino;
+}
+
+/**
+ * Resolve and verify an opened descriptor on platforms without `/proc/self/fd`.
+ * The identity comparison prevents a pathname swapped after `openSync` from
+ * being used to validate a different, in-base file.
+ */
+function verifyOpenedPath(fd: number, safePath: string, baseDir: string): boolean {
+  const realBase = resolveBaseDir(baseDir);
+  const openedPath = fdRealPath(fd);
+  if (openedPath !== undefined) return isContained(openedPath, realBase);
+
+  try {
+    const currentPath = realpathSync(safePath);
+    if (!isContained(currentPath, realBase)) return false;
+    return isSameFile(fstatSync(fd, { bigint: true }), statSync(currentPath, { bigint: true }));
+  } catch {
+    // An unverifiable descriptor is not safe for request-facing containment.
+    return false;
+  }
+}
+
 /**
  * Read a file while keeping it inside `baseDir`, hardened against the
  * check-then-use TOCTOU window. The path is validated with `containPath`, then
@@ -112,14 +141,14 @@ export function readContainedFile(filePath: string, baseDir: string, maxBytes?: 
   const safePath = containPath(filePath, baseDir);
   const fd = openSync(safePath, constants.O_RDONLY);
   try {
-    if (maxBytes !== undefined && fstatSync(fd).size > maxBytes) {
+    const openedInfo = fstatSync(fd);
+    if (maxBytes !== undefined && openedInfo.size > maxBytes) {
       throw new HarnessError(
         "InputTooLarge",
         `path "${filePath}" exceeds the ${maxBytes}-byte input limit`,
       );
     }
-    const opened = fdRealPath(fd);
-    if (opened !== undefined && !isContained(opened, resolveBaseDir(baseDir))) {
+    if (!verifyOpenedPath(fd, safePath, baseDir)) {
       throw new HarnessError(
         "PathOutsideBase",
         `path "${filePath}" resolved outside allowed base directory "${baseDir}" after open`,
