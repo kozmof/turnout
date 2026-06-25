@@ -68,10 +68,10 @@ export class ContextSpecBuilder {
             `(Earlier detection with an actionable error is available in migration.ts checkForExtExpr.)`,
         );
       }
-      if (!binding.expr) {
-        this.addValueBinding(binding);
-      } else {
+      if (binding.expr) {
         this.addFuncBinding(binding);
+      } else {
+        this.addValueBinding(binding);
       }
     }
     return this.spec;

@@ -327,13 +327,20 @@ export function executePipeFunc(
 
   // Execute each step in sequence, threading state through via reduce
   const { currentValueTable, stepResults } = def.sequence.reduce<PipeStepAccumulator>(
-    ({ scopedContext, stepResults }, step, i) => {
-      const stepResult = executeStep(step, i, funcId, funcEntry.argMap, stepResults, scopedContext);
+    ({ scopedContext, stepResults: accStepResults }, step, i) => {
+      const stepResult = executeStep(
+        step,
+        i,
+        funcId,
+        funcEntry.argMap,
+        accStepResults,
+        scopedContext,
+      );
       const nextTable = stepResult.updatedValueTable;
       return {
         currentValueTable: nextTable,
         scopedContext: createScopedContext(scopedContext, nextTable),
-        stepResults: [...stepResults, stepResult.stepReturnId],
+        stepResults: [...accStepResults, stepResult.stepReturnId],
       };
     },
     {

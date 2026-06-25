@@ -52,12 +52,7 @@ export function validateCondDefEntry(
       });
     } else if (conditionId.kind === "value") {
       const id = conditionId.id;
-      if (!valueIdExistsInContext(id, context)) {
-        state.errors.push({
-          message: `CondFuncDefTable[${defId}].conditionId: Referenced ValueId ${id} does not exist`,
-          details: { defId, conditionId: id },
-        });
-      } else {
+      if (valueIdExistsInContext(id, context)) {
         state.referencedValues.add(id);
         const conditionType = state.typeEnv.get(id);
         if (conditionType && conditionType !== "boolean") {
@@ -66,15 +61,15 @@ export function validateCondDefEntry(
             details: { defId, conditionId: id, conditionType },
           });
         }
+      } else {
+        state.errors.push({
+          message: `CondFuncDefTable[${defId}].conditionId: Referenced ValueId ${id} does not exist`,
+          details: { defId, conditionId: id },
+        });
       }
     } else {
       const id = conditionId.id;
-      if (!funcIdExistsInContext(id, context)) {
-        state.errors.push({
-          message: `CondFuncDefTable[${defId}].conditionId: Referenced FuncId ${id} does not exist`,
-          details: { defId, conditionId: id },
-        });
-      } else {
+      if (funcIdExistsInContext(id, context)) {
         const inferredType = inferFuncType(id, context);
         if (inferredType && inferredType !== "boolean") {
           state.errors.push({
@@ -82,6 +77,11 @@ export function validateCondDefEntry(
             details: { defId, conditionId: id, conditionType: inferredType },
           });
         }
+      } else {
+        state.errors.push({
+          message: `CondFuncDefTable[${defId}].conditionId: Referenced FuncId ${id} does not exist`,
+          details: { defId, conditionId: id },
+        });
       }
     }
   }

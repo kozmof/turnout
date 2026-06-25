@@ -71,13 +71,13 @@ export function validateFuncEntry(
 
   const defId = entry.defId;
 
-  if (!defineIdExistsInContext(defId, context)) {
+  if (defineIdExistsInContext(defId, context)) {
+    state.referencedDefs.add(defId);
+  } else {
     state.errors.push({
       message: `FuncTable[${funcId}]: Definition ${defId} does not exist`,
       details: { funcId, defId },
     });
-  } else {
-    state.referencedDefs.add(defId);
   }
 
   if (!("returnId" in entry) || !isStringAs<ValueId>(entry.returnId)) {
@@ -132,13 +132,13 @@ export function validateFuncEntry(
         });
         continue;
       }
-      if (!valueIdExistsInContext(argId, context, state.returnIds)) {
+      if (valueIdExistsInContext(argId, context, state.returnIds)) {
+        state.referencedValues.add(argId);
+      } else {
         state.errors.push({
           message: `FuncTable[${funcId}].argMap['${argName}']: Referenced ID ${String(argId)} does not exist`,
           details: { funcId, argName, argId },
         });
-      } else {
-        state.referencedValues.add(argId);
       }
     }
 

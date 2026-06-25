@@ -1,15 +1,32 @@
 {
   "$schema": "./packages/ts/runtime/node_modules/oxlint/configuration_schema.json",
-  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "plugins": ["typescript", "unicorn", "oxc", "import", "promise"],
   "categories": {
-    "correctness": "error"
+    "correctness": "error",
+    "suspicious": "error"
   },
   "rules": {
     "unicorn/no-thenable": "off",
-    "no-debugger": "error"
+    "no-debugger": "error",
+    "no-underscore-dangle": "off",
+    "unicorn/consistent-function-scoping": "off",
+    "no-negated-condition": "error",
+    "max-depth": ["error", 6],
+    "oxc/branches-sharing-code": "warn",
+    "typescript/no-non-null-assertion": "warn",
+    "typescript/no-explicit-any": "warn"
   },
   "env": {
     "builtin": true
   },
+  "overrides": [
+    {
+      "files": ["**/*.test.ts", "**/tests/**"],
+      "rules": {
+        "typescript/no-explicit-any": "off",
+        "typescript/no-non-null-assertion": "off"
+      }
+    }
+  ],
   "ignorePatterns": ["**/*_pb.ts", "**/*.generated.ts", "**/dist/**", "**/node_modules/**"]
 }

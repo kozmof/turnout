@@ -48,14 +48,14 @@ function collectReturnIds(context: UnvalidatedContext, state: ValidationState): 
     if (isRecord(funcEntry) && "returnId" in funcEntry && isStringAs<ValueId>(funcEntry.returnId)) {
       const returnId = funcEntry.returnId;
       const existingOwner = state.returnIdToFuncId.get(returnId);
-      if (existingOwner !== undefined) {
+      if (existingOwner === undefined) {
+        state.returnIdToFuncId.set(returnId, funcId);
+        state.returnIds.add(returnId);
+      } else {
         state.errors.push({
           message: `FuncTable: duplicate returnId "${returnId}" shared by "${existingOwner}" and "${funcId}"`,
           details: { returnId, firstOwner: existingOwner, secondOwner: funcId },
         });
-      } else {
-        state.returnIdToFuncId.set(returnId, funcId);
-        state.returnIds.add(returnId);
       }
     }
   }

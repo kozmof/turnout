@@ -143,7 +143,7 @@ export async function executeAction(
 
   const rootValueId = builtCtx.resolveValueId(action.compute.root);
   const computeRootValue =
-    (rootValueId !== undefined ? updatedTable[rootValueId] : undefined) ?? buildNull("missing");
+    (rootValueId === undefined ? undefined : updatedTable[rootValueId]) ?? buildNull("missing");
 
   // Step 5: apply merge entries in a single batch to avoid O(n) intermediate
   // StateManager allocations when multiple bindings are written back to STATE.
@@ -152,12 +152,12 @@ export async function executeAction(
   const mergeWarnings: string[] = [];
   for (const entry of action.merge ?? []) {
     const bindingVal = bindingValues[entry.binding];
-    if (bindingVal !== undefined) {
-      mergeBatch[entry.toState] = bindingVal;
-    } else {
+    if (bindingVal === undefined) {
       mergeWarnings.push(
         `action "${action.id}": merge entry binding "${entry.binding}" → "${entry.toState}" was absent from compute results — state not updated`,
       );
+    } else {
+      mergeBatch[entry.toState] = bindingVal;
     }
   }
   const mergedPaths = Object.keys(mergeBatch);
@@ -226,6 +226,6 @@ export async function executeAction(
     stateAfterMerge: mergedState,
     publishOutcomes,
     ...(mergeWarnings.length > 0 ? { mergeWarnings } : {}),
-    ...(uncheckedWritePaths !== undefined ? { uncheckedWritePaths } : {}),
+    ...(uncheckedWritePaths === undefined ? {} : { uncheckedWritePaths }),
   };
 }
