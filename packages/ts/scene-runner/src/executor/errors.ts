@@ -5,6 +5,9 @@
 // but also carry typed fields that callers can inspect without parsing messages.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import type { StateManager } from "../state/state-types.js";
+import type { PublishHookOutcome } from "../types/harness-types.js";
+
 export type PrepareErrorCode =
   | "MissingStateBinding"
   | "UnregisteredHook"
@@ -64,6 +67,32 @@ export class SceneRuntimeError extends Error {
 
 export function isSceneRuntimeError(err: unknown): err is SceneRuntimeError {
   return err instanceof SceneRuntimeError;
+}
+
+/**
+ * A strict publish failure occurs after the action merge has committed.
+ * Carry the committed state and hook outcomes with the error so every executor
+ * layer can preserve an accurate recovery point while still failing fast.
+ */
+export class PublishHookFailedError extends SceneRuntimeError {
+  readonly stateAfterMerge: StateManager;
+  readonly publishOutcomes: readonly PublishHookOutcome[];
+
+  constructor(
+    sceneId: string,
+    detail: string,
+    actionId: string,
+    stateAfterMerge: StateManager,
+    publishOutcomes: readonly PublishHookOutcome[],
+  ) {
+    super("PublishHookFailed", sceneId, detail, { actionId });
+    this.stateAfterMerge = stateAfterMerge;
+    this.publishOutcomes = publishOutcomes;
+  }
+}
+
+export function isPublishHookFailedError(err: unknown): err is PublishHookFailedError {
+  return err instanceof PublishHookFailedError;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

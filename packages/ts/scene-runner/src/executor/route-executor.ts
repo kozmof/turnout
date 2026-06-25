@@ -5,7 +5,7 @@ import type { HookRegistry, LogEvent, RouteTrace, SceneWarning } from "../types/
 import { executeScene } from "./scene-executor.js";
 import { selectNextScene, parseMatchArms } from "./route-pattern.js";
 import type { HistoryEntry } from "./route-pattern.js";
-import { RouteRuntimeError } from "./errors.js";
+import { isPublishHookFailedError, RouteRuntimeError } from "./errors.js";
 import { snapshotModel } from "../model-snapshot.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -123,18 +123,29 @@ async function runRouteCore(
         `scene "${progress.currentSceneId}" has no entry actions`,
       );
 
-    const sceneResult = await executeScene(
-      scene,
-      progress.currentState,
-      hooks,
-      [routeEntry],
-      options.maxSceneSteps,
-      {
-        signal: options.signal,
-        onLog: options.onLog,
-        failOnPublishError: options.failOnPublishError,
-      },
-    );
+    let sceneResult;
+    try {
+      sceneResult = await executeScene(
+        scene,
+        progress.currentState,
+        hooks,
+        [routeEntry],
+        options.maxSceneSteps,
+        {
+          signal: options.signal,
+          onLog: options.onLog,
+          failOnPublishError: options.failOnPublishError,
+        },
+      );
+    } catch (err) {
+      // A strict publish failure commits the current action's merge even though
+      // the scene aborts. Keep route recovery state aligned with the state that
+      // the publish hooks observed.
+      if (isPublishHookFailedError(err)) {
+        progress.currentState = err.stateAfterMerge;
+      }
+      throw err;
+    }
     // Commit state and record scene id only after a scene fully completes —
     // partial states stay at the last successfully committed scene boundary.
     progress.currentState = sceneResult.stateAfterScene;

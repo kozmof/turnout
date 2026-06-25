@@ -12,7 +12,7 @@ import {
 } from "./prepare-resolver.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
 import type { PublishHookOutcome } from "../types/harness-types.js";
-import { SceneRuntimeError } from "./errors.js";
+import { PublishHookFailedError, SceneRuntimeError } from "./errors.js";
 
 // Trees are fully determined by funcTable, which is stable for the lifetime of
 // a given BuiltContext. For pure progs, buildContextFromProg returns the same
@@ -206,11 +206,12 @@ export async function executeAction(
       const summary = failed
         .map((o) => `${o.hookName}: ${o.status === "error" ? o.message : ""}`)
         .join("; ");
-      throw new SceneRuntimeError(
-        "PublishHookFailed",
+      throw new PublishHookFailedError(
         sceneId,
         `action "${action.id}": ${failed.length} publish hook(s) failed — ${summary}`,
-        { actionId: action.id },
+        action.id,
+        mergedState,
+        publishOutcomes,
       );
     }
   }

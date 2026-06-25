@@ -578,6 +578,40 @@ describe("executeRouteSafe — scene with no entry actions", () => {
   });
 });
 
+describe("executeRouteSafe — strict publish failure", () => {
+  const action = {
+    ...makePassAction("publish", 9, "result.value"),
+    publish: ["bad_hook"],
+  } as unknown as ActionModel;
+  const scene = makeScene("publish_scene", action);
+  const route = { id: "publish_route", match: [] } as unknown as RouteModel;
+
+  it("preserves the current scene's committed merge in partial state", async () => {
+    const result = await executeRouteSafe(
+      route,
+      makeSceneMap(scene),
+      "publish_scene",
+      stateManagerFromUnchecked({}),
+      {
+        prepare: {},
+        publish: {
+          bad_hook: async () => {
+            throw new Error("boom");
+          },
+        },
+      },
+      { failOnPublishError: true },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const committed = result.partialState["result.value"];
+      expect(isPureNumber(committed!) && committed.value).toBe(9);
+      expect(result.failedSceneId).toBe("publish_scene");
+    }
+  });
+});
+
 describe("executeRouteSafe — scene warnings propagated as route warnings", () => {
   // Produce a duplicate_enqueue scene warning by having an all-match action
   // whose next-rule list contains the same target twice.

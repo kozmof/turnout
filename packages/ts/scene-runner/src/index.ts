@@ -34,6 +34,7 @@ export type {
 } from "./executor/scene-executor.js";
 export {
   isSceneRuntimeError,
+  isPublishHookFailedError,
   isRunnerError,
   isStateError,
   isModelValidationError,
@@ -49,6 +50,7 @@ export type {
   ModelValidationErrorCode,
   RouteErrorCode,
   SceneRuntimeError,
+  PublishHookFailedError,
   SceneErrorCode,
   SceneInternalErrorCode,
 } from "./executor/errors.js";

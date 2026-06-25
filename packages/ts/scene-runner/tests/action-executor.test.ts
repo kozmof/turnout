@@ -3,6 +3,7 @@ import { executeAction } from "../src/executor/action-executor.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { buildNumber, buildString, isPureNumber, isPureNull } from "runtime";
 import type { ActionModel } from "../src/types/turnout-model_pb.js";
+import { PublishHookFailedError } from "../src/executor/errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures
@@ -292,6 +293,54 @@ describe("executeAction — cumulative binding table", () => {
         /* failOnPublishError */ true,
       ),
     ).rejects.toThrow(/bad_hook.*boom/);
+  });
+
+  it("carries the committed merge state when strict publishing fails", async () => {
+    const action = {
+      id: "failing_publish_after_merge",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 7 }] },
+      },
+      merge: [{ binding: "out", toState: "result.value" }],
+      publish: ["bad_hook"],
+    } as unknown as ActionModel;
+    let hookObserved: number | undefined;
+    const initial = stateManagerFromUnchecked({ "result.value": buildNumber(0) });
+
+    try {
+      await executeAction(
+        action,
+        initial,
+        {
+          prepare: {},
+          publish: {
+            bad_hook: async (ctx) => {
+              const observed = ctx.state()["result.value"];
+              hookObserved = isPureNumber(observed!) ? observed.value : undefined;
+              throw new Error("boom");
+            },
+          },
+        },
+        "publish_scene",
+        undefined,
+        true,
+      );
+      expect.fail("expected strict publish failure");
+    } catch (err) {
+      expect(err).toBeInstanceOf(PublishHookFailedError);
+      if (err instanceof PublishHookFailedError) {
+        const committed = err.stateAfterMerge.read("result.value");
+        expect(isPureNumber(committed) && committed.value).toBe(7);
+        expect(err.publishOutcomes).toEqual([
+          { hookName: "bad_hook", status: "error", message: "Error: boom" },
+        ]);
+      }
+    }
+
+    expect(hookObserved).toBe(7);
+    const original = initial.read("result.value");
+    expect(isPureNumber(original) && original.value).toBe(0);
   });
 
   it("records a hook-returned error outcome and still succeeds by default", async () => {

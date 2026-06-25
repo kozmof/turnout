@@ -16,7 +16,7 @@ import { buildContextFromProg } from "./hcl-context-builder.js";
 import type { BuiltContext } from "./hcl-context-builder.js";
 import { resolveNextPrepare } from "./prepare-resolver.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
-import { SceneRuntimeError } from "./errors.js";
+import { isPublishHookFailedError, SceneRuntimeError } from "./errors.js";
 import { parseNextPolicy } from "./next-policy.js";
 import { snapshotModel } from "../model-snapshot.js";
 
@@ -280,14 +280,25 @@ export function createSceneExecutor(
 
     onLog?.({ kind: "action-start", sceneId: scene.id, actionId, stepIndex: rs.stepCount });
 
-    const result = await executeAction(
-      action,
-      rs.currentState,
-      hooks,
-      scene.id,
-      signal,
-      failOnPublishError,
-    );
+    let result: ActionExecutionResult;
+    try {
+      result = await executeAction(
+        action,
+        rs.currentState,
+        hooks,
+        scene.id,
+        signal,
+        failOnPublishError,
+      );
+    } catch (err) {
+      // Strict publish failures happen after merge. Preserve that committed
+      // state before propagating the failure so partialState() matches the
+      // state that publish hooks observed and callers can retry safely.
+      if (isPublishHookFailedError(err)) {
+        rs.currentState = err.stateAfterMerge;
+      }
+      throw err;
+    }
     rs.currentState = result.stateAfterMerge;
 
     const { matches: nextIds, warnings: nextWarnings } = evaluateNextRules(

@@ -997,4 +997,33 @@ describe("executeScene — failOnPublishError propagation", () => {
       }),
     ).rejects.toThrow(/bad_hook.*boom/);
   });
+
+  it("preserves the committed merge in safe partial state", async () => {
+    const mergedScene = {
+      id: "publish_merge_scene",
+      entryActions: ["pub"],
+      actions: [
+        {
+          ...makePublishAction("pub", "bad_hook"),
+          merge: [{ binding: "out", toState: "result.value" }],
+        },
+      ],
+    } as unknown as SceneBlock;
+
+    const result = await executeSceneSafe(
+      mergedScene,
+      stateManagerFromUnchecked({ "result.value": buildNumber(0) }),
+      hooks,
+      undefined,
+      undefined,
+      { failOnPublishError: true },
+    );
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      const committed = result.partialState.read("result.value");
+      expect(isPureNumber(committed) && committed.value).toBe(1);
+      expect(result.failedActionId).toBe("pub");
+    }
+  });
 });
