@@ -376,9 +376,9 @@ describe("executeAction — cumulative binding table", () => {
       },
     };
 
-    await expect(
-      executeAction(action, stateManagerFromUnchecked({}), hooks),
-    ).rejects.toMatchObject({ name: "AbortError" });
+    await expect(executeAction(action, stateManagerFromUnchecked({}), hooks)).rejects.toMatchObject(
+      { name: "AbortError" },
+    );
   });
 
   it("propagates an AbortError outcome even when failOnPublishError is set", async () => {

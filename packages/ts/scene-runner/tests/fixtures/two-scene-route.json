@@ -26,9 +26,7 @@
   "scenes": [
     {
       "id": "scene_a",
-      "entryActions": [
-        "step_a"
-      ],
+      "entryActions": ["step_a"],
       "actions": [
         {
           "id": "step_a",
@@ -79,9 +77,7 @@
     },
     {
       "id": "scene_b",
-      "entryActions": [
-        "step_b"
-      ],
+      "entryActions": ["step_b"],
       "actions": [
         {
           "id": "step_b",
@@ -136,9 +132,7 @@
       "id": "main_route",
       "match": [
         {
-          "patterns": [
-            "scene_a.step_a"
-          ],
+          "patterns": ["scene_a.step_a"],
           "target": "scene_b"
         }
       ],

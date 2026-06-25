@@ -9,19 +9,19 @@
     "test:ts": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run)",
     "test:go": "sh scripts/go-test.sh test",
     "test:e2e": "(cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run tests/e2e)",
-    "lint": "(cd packages/ts/runtime && ./node_modules/.bin/oxlint src/) && (cd packages/ts/scene-runner && ./node_modules/.bin/oxlint src/)",
+    "lint": "./packages/ts/runtime/node_modules/.bin/oxlint -c .oxlintrc.json packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests scripts",
     "test:coverage": "(cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run --coverage) && sh scripts/go-test.sh coverage",
     "test:dist": "(cd packages/ts/runtime && ./node_modules/.bin/tsc --project tsconfig.build.json) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --project tsconfig.build.json) && node scripts/smoke-dist.mjs",
-    "format": "find packages/go/converter -path \"*/vendor\" -prune -o -name \"*.go\" -print | xargs gofmt -w && ./packages/ts/runtime/node_modules/.bin/oxfmt packages/ts/runtime/src packages/ts/scene-runner/src scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
-    "check:format": "test -z \"$(find packages/go/converter -path '*/vendor' -prune -o -name '*.go' -print | xargs gofmt -l)\" && ./packages/ts/runtime/node_modules/.bin/oxfmt --check packages/ts/runtime/src packages/ts/scene-runner/src scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
+    "format": "find packages/go/converter -path \"*/vendor\" -prune -o -name \"*.go\" -print | xargs gofmt -w && ./packages/ts/runtime/node_modules/.bin/oxfmt packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
+    "check:format": "test -z \"$(find packages/go/converter -path '*/vendor' -prune -o -name '*.go' -print | xargs gofmt -l)\" && ./packages/ts/runtime/node_modules/.bin/oxfmt --check packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
     "test:go:quality": "sh scripts/go-test.sh vet && sh scripts/go-test.sh race"
-  },
-  "engines": {
-    "node": ">=22 <26"
   },
   "devDependencies": {
     "@bufbuild/buf": "^1.66.1",
     "@bufbuild/protoc-gen-es": "^2.11.0"
+  },
+  "engines": {
+    "node": ">=22 <26"
   },
   "packageManager": "pnpm@10.33.0"
 }

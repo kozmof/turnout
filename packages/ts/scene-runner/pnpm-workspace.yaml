@@ -1,5 +1,0 @@
-packages:
-  - "."
-  - "../runtime"
-
-minimumReleaseAge: 10080

@@ -19,6 +19,8 @@ import type { RouteStepper } from "./executor/route-stepper.js";
 import { resolveDispatchTarget } from "./executor/dispatch.js";
 import { validateModel } from "./executor/validate-model.js";
 import { ModelValidationError, RunnerError } from "./executor/errors.js";
+import { snapshotModel } from "./model-snapshot.js";
+import { makeRunnerMethods } from "./runner-methods.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -162,128 +164,6 @@ function validateExecutionLimits(options: RunnerOptions): void {
   }
 }
 
-/**
- * Build the shared Runner methods (usePrepareHook, usePublishHook, isDone, next,
- * run, runAsync, result) from three mode-specific callbacks.
- * Both route and scene execution branches call this to avoid duplicating the
- * step-loop, async-generator, and result-accessor logic.
- */
-function makeRunnerMethods<R extends HarnessResult>(
-  hooks: HookRegistry,
-  advanceFn: () => Promise<RunnerStepResult>,
-  doneFn: () => boolean,
-  resultFn: () => R,
-  partialStateFn: () => StateManager,
-  signal: AbortSignal,
-): Runner<R> {
-  let started = false;
-  let inFlight = false;
-
-  function checkAborted(): void {
-    if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
-  }
-
-  function markStarted(): void {
-    started = true;
-  }
-
-  function assertHooksOpen(): void {
-    if (started) {
-      throw new RunnerError(
-        "LateHookRegistration",
-        "hooks must be registered before next(), run(), or runAsync() starts execution",
-      );
-    }
-  }
-
-  function assertStepCount(steps: number): void {
-    if (!Number.isSafeInteger(steps) || steps < 1) {
-      throw new RunnerError(
-        "InvalidStepCount",
-        `next(steps) requires a positive safe integer, got ${steps}`,
-      );
-    }
-  }
-
-  function beginExecution(): void {
-    if (inFlight) {
-      throw new RunnerError(
-        "ConcurrentExecution",
-        "runner execution is already in progress; await the current next(), run(), or runAsync() step before starting another",
-      );
-    }
-    inFlight = true;
-  }
-
-  function endExecution(): void {
-    inFlight = false;
-  }
-
-  return {
-    usePrepareHook(name, handler) {
-      assertHooksOpen();
-      hooks.prepare[name] = handler;
-      return this;
-    },
-    usePublishHook(name, handler) {
-      assertHooksOpen();
-      hooks.publish[name] = handler;
-      return this;
-    },
-    isDone: doneFn,
-    async next(steps = 1) {
-      assertStepCount(steps);
-      markStarted();
-      beginExecution();
-      try {
-        const results: Array<Exclude<RunnerStepResult, { done: true }>> = [];
-        let actionCount = 0;
-        while (actionCount < steps) {
-          checkAborted();
-          const r = await advanceFn();
-          if (r.done) break;
-          results.push(r);
-          if (r.kind === "action") actionCount++;
-        }
-        return results;
-      } finally {
-        endExecution();
-      }
-    },
-    async run() {
-      markStarted();
-      beginExecution();
-      try {
-        while (!doneFn()) {
-          checkAborted();
-          await advanceFn();
-        }
-        return resultFn();
-      } finally {
-        endExecution();
-      }
-    },
-    runAsync() {
-      markStarted();
-      return (async function* () {
-        beginExecution();
-        try {
-          while (!doneFn()) {
-            checkAborted();
-            const r = await advanceFn();
-            if (r.done) break;
-            yield r;
-          }
-        } finally {
-          endExecution();
-        }
-      })();
-    },
-    result: resultFn,
-    partialState: partialStateFn,
-  };
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Scene factory
 // ─────────────────────────────────────────────────────────────────────────────
@@ -300,10 +180,11 @@ function makeRunnerMethods<R extends HarnessResult>(
  * with `stateManagerFromUnchecked`.
  */
 export function createSceneRunner(
-  scene: SceneBlock,
+  inputScene: SceneBlock,
   options: RunnerOptions,
   initialState?: StateManager,
 ): Runner<FragmentHarnessResult> {
+  const scene = snapshotModel(inputScene);
   validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
@@ -407,12 +288,17 @@ export function createSceneRunner(
  * with `stateManagerFromUnchecked`.
  */
 export function createRouteRunner(
-  route: RouteModel,
-  entryScene: SceneBlock,
-  sceneMap: Record<string, SceneBlock>,
+  inputRoute: RouteModel,
+  inputEntryScene: SceneBlock,
+  inputSceneMap: Record<string, SceneBlock>,
   options: RunnerOptions,
   initialState?: StateManager,
 ): Runner<FragmentHarnessResult> {
+  const { route, entryScene, sceneMap } = snapshotModel({
+    route: inputRoute,
+    entryScene: inputEntryScene,
+    sceneMap: inputSceneMap,
+  });
   validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = { prepare: {}, publish: {} };
@@ -573,8 +459,11 @@ function mapRunnerResult<A extends HarnessResult, B extends HarnessResult>(
   return outer;
 }
 
-export function createRunner(model: TurnModel, options: RunnerOptions): Runner<FullHarnessResult> {
-  const migratedModel = migrateModel(model);
+export function createRunner(
+  inputModel: TurnModel,
+  options: RunnerOptions,
+): Runner<FullHarnessResult> {
+  const migratedModel = migrateModel(snapshotModel(inputModel));
   const validationErrors = validateModel(migratedModel);
   if (validationErrors.length > 0) {
     throw new ModelValidationError(validationErrors);

@@ -651,3 +651,56 @@ describe("createRunner — dispatch rejects route with no entrySceneId", () => {
     ).toThrow("no entry scene declared");
   });
 });
+
+describe("runner model snapshots", () => {
+  it("allows a mutable scene object to be edited and reused between runners", async () => {
+    const scene = {
+      id: "mutable",
+      entryActions: ["before"],
+      actions: [{ id: "before" }],
+    } as unknown as TurnModel["scenes"][number];
+    const options = {
+      entryId: "mutable",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    };
+
+    await createRunner({ scenes: [scene], routes: [] } as unknown as TurnModel, options).run();
+
+    scene.entryActions = ["after"];
+    scene.actions = [{ id: "after" }] as typeof scene.actions;
+
+    const result = await createRunner(
+      { scenes: [scene], routes: [] } as unknown as TurnModel,
+      options,
+    ).run();
+    expect(result.trace).toMatchObject({
+      kind: "scene",
+      scene: { actions: [{ actionId: "after" }] },
+    });
+  });
+
+  it("isolates an active runner from caller mutations after construction", async () => {
+    const scene = {
+      id: "snapshot",
+      entryActions: ["stable"],
+      actions: [{ id: "stable" }],
+    } as unknown as TurnModel["scenes"][number];
+    const runner = createRunner({ scenes: [scene], routes: [] } as unknown as TurnModel, {
+      entryId: "snapshot",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
+
+    scene.entryActions = ["mutated"];
+    scene.actions = [{ id: "mutated" }] as typeof scene.actions;
+
+    const result = await runner.run();
+    expect(result.trace).toMatchObject({
+      kind: "scene",
+      scene: { actions: [{ actionId: "stable" }] },
+    });
+  });
+});

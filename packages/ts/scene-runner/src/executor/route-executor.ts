@@ -6,6 +6,7 @@ import { executeScene } from "./scene-executor.js";
 import { selectNextScene, parseMatchArms } from "./route-pattern.js";
 import type { HistoryEntry } from "./route-pattern.js";
 import { RouteRuntimeError } from "./errors.js";
+import { snapshotModel } from "../model-snapshot.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -202,13 +203,14 @@ async function runRouteCore(
  * @param hooks         - Optional hook registry passed through to each scene execution.
  */
 export async function executeRoute(
-  route: RouteModel,
-  scenes: Record<string, SceneBlock>,
+  inputRoute: RouteModel,
+  inputScenes: Record<string, SceneBlock>,
   entrySceneId: string,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteExecutionResult> {
+  const { route, scenes } = snapshotModel({ route: inputRoute, scenes: inputScenes });
   const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
   return runRouteCore(route, scenes, hooks, options, progress);
 }
@@ -219,13 +221,14 @@ export async function executeRoute(
  * completed scenes so callers can inspect progress up to the failure point.
  */
 export async function executeRouteSafe(
-  route: RouteModel,
-  scenes: Record<string, SceneBlock>,
+  inputRoute: RouteModel,
+  inputScenes: Record<string, SceneBlock>,
   entrySceneId: string,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteResult> {
+  const { route, scenes } = snapshotModel({ route: inputRoute, scenes: inputScenes });
   const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
   try {
     return { ok: true, value: await runRouteCore(route, scenes, hooks, options, progress) };

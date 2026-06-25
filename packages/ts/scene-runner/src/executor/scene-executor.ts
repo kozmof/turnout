@@ -18,6 +18,7 @@ import { resolveNextPrepare } from "./prepare-resolver.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
 import { SceneRuntimeError } from "./errors.js";
 import { parseNextPolicy } from "./next-policy.js";
+import { snapshotModel } from "../model-snapshot.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -374,13 +375,14 @@ export function createSceneExecutor(
 // ─────────────────────────────────────────────────────────────────────────────
 
 export async function executeScene(
-  scene: SceneBlock,
+  inputScene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps?: number,
   options: SceneExecutionOptions = {},
 ): Promise<SceneExecutionResult> {
+  const scene = snapshotModel(inputScene);
   const executor = createSceneExecutor(
     scene,
     state,
@@ -401,13 +403,14 @@ export async function executeScene(
  * failure is preserved in `result.partialState`.
  */
 export async function executeSceneSafe(
-  scene: SceneBlock,
+  inputScene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
   entryActions?: string[],
   maxSteps?: number,
   options: SceneExecutionOptions = {},
 ): Promise<SceneResult> {
+  const scene = snapshotModel(inputScene);
   let executor: SceneExecutor | null = null;
   try {
     executor = createSceneExecutor(

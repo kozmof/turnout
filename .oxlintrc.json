@@ -1,0 +1,15 @@
+{
+  "$schema": "./packages/ts/runtime/node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "unicorn/no-thenable": "off",
+    "no-debugger": "error"
+  },
+  "env": {
+    "builtin": true
+  },
+  "ignorePatterns": ["**/*_pb.ts", "**/*.generated.ts", "**/dist/**", "**/node_modules/**"]
+}

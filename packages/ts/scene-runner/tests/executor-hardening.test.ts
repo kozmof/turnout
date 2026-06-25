@@ -52,15 +52,36 @@ describe("executor hardening", () => {
     const base = { name: "x", type: "number", value: 1 };
     const missingCondition = {
       name: "missing_condition",
-      bindings: [base, { name: "result", type: "number", expr: { cond: { then: { ref: "x" }, elseBranch: { ref: "x" } } } }],
+      bindings: [
+        base,
+        {
+          name: "result",
+          type: "number",
+          expr: { cond: { then: { ref: "x" }, elseBranch: { ref: "x" } } },
+        },
+      ],
     } as unknown as ProgModel;
     const missingThen = {
       name: "missing_then",
-      bindings: [base, { name: "result", type: "number", expr: { cond: { condition: { lit: true }, elseBranch: { ref: "x" } } } }],
+      bindings: [
+        base,
+        {
+          name: "result",
+          type: "number",
+          expr: { cond: { condition: { lit: true }, elseBranch: { ref: "x" } } },
+        },
+      ],
     } as unknown as ProgModel;
     const missingElse = {
       name: "missing_else",
-      bindings: [base, { name: "result", type: "number", expr: { cond: { condition: { lit: true }, then: { ref: "x" } } } }],
+      bindings: [
+        base,
+        {
+          name: "result",
+          type: "number",
+          expr: { cond: { condition: { lit: true }, then: { ref: "x" } } },
+        },
+      ],
     } as unknown as ProgModel;
 
     expect(() => buildSpec(missingCondition, {})).toThrow("cond expr is missing condition");
@@ -91,17 +112,27 @@ describe("executor hardening", () => {
       bindings: [
         { name: "flag", type: "bool", value: true },
         { name: "x", type: "number", value: 1 },
-        { name: "fn", type: "number", expr: { combine: { fn: "add", args: [{ ref: "x" }, { lit: 1 }] } } },
+        {
+          name: "fn",
+          type: "number",
+          expr: { combine: { fn: "add", args: [{ ref: "x" }, { lit: 1 }] } },
+        },
         {
           name: "result",
           type: "number",
-          expr: { cond: { condition: { ref: "flag" }, then: { ref: "fn" }, elseBranch: { ref: "x" } } },
+          expr: {
+            cond: { condition: { ref: "flag" }, then: { ref: "fn" }, elseBranch: { ref: "x" } },
+          },
         },
       ],
     } as unknown as ProgModel;
 
-    expect(() => buildSpec(transformCondition, {})).toThrow("cond condition cannot be a transform reference");
-    expect(() => buildSpec(functionBranchRef, {})).toThrow("cond then-branch resolved to a non-string ref");
+    expect(() => buildSpec(transformCondition, {})).toThrow(
+      "cond condition cannot be a transform reference",
+    );
+    expect(() => buildSpec(functionBranchRef, {})).toThrow(
+      "cond then-branch resolved to a non-string ref",
+    );
   });
 
   it("exercises dynamic boundary guards and casts", () => {
@@ -109,17 +140,23 @@ describe("executor hardening", () => {
     expect(toValueId("value_id")).toBe("value_id");
     expect(toCombineArgRef("arg_id")).toBe("arg_id");
 
-    expect(() => assertBindingHasValue({ name: "v", value: 1 } as unknown as BindingModel, "ctx")).not.toThrow();
-    expect(() => assertBindingHasValue({ name: "f", expr: { combine: {} } } as unknown as BindingModel, "ctx")).not.toThrow();
-    expect(() => assertBindingHasValue({ name: "missing" } as unknown as BindingModel, "ctx")).toThrow(
-      "has neither value nor expr",
-    );
+    expect(() =>
+      assertBindingHasValue({ name: "v", value: 1 } as unknown as BindingModel, "ctx"),
+    ).not.toThrow();
+    expect(() =>
+      assertBindingHasValue({ name: "f", expr: { combine: {} } } as unknown as BindingModel, "ctx"),
+    ).not.toThrow();
+    expect(() =>
+      assertBindingHasValue({ name: "missing" } as unknown as BindingModel, "ctx"),
+    ).toThrow("has neither value nor expr");
 
-    expect(() => assertArgModelVariant({ lit: 1 } as unknown as ArgModel, "ctx", "arg")).not.toThrow();
+    expect(() =>
+      assertArgModelVariant({ lit: 1 } as unknown as ArgModel, "ctx", "arg"),
+    ).not.toThrow();
     expect(() => assertArgModelVariant({} as unknown as ArgModel, "ctx", "arg")).toThrow("found 0");
-    expect(() => assertArgModelVariant({ ref: "x", lit: 1 } as unknown as ArgModel, "ctx", "arg")).toThrow(
-      "found 2",
-    );
+    expect(() =>
+      assertArgModelVariant({ ref: "x", lit: 1 } as unknown as ArgModel, "ctx", "arg"),
+    ).toThrow("found 2");
   });
 
   it("clears executor context caches for test isolation", () => {

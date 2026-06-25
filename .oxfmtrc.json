@@ -1,0 +1,7 @@
+{
+  "ignorePatterns": [
+    "packages/ts/scene-runner/src/types/turnout-model_pb.ts",
+    "packages/ts/scene-runner/dist/**",
+    "packages/ts/runtime/dist/**"
+  ]
+}

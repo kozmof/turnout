@@ -38,21 +38,21 @@ const goBin = process.env.GOROOT
     : "go";
 
 beforeAll(() => {
-  execFileSync(
-    goBin,
-    ["build", "-buildvcs=false", "-o", turnoutBin, "./cmd/turnout"],
-    {
-      cwd: converterDir,
-      stdio: "pipe",
-      env: {
-        ...process.env,
-        // GOCACHE is not present in the environment when the go shim injects it
-        // via `island run -p go-workspace` — direct binary invocations fall back
-        // to ~/.cache/go-build, which is Landlock-restricted in the sandbox.
-        GOCACHE: process.env.GOCACHE ?? (existsSync("/workspace") ? resolve(converterDir, "../../../.go-cache") : join(homedir(), ".cache", "go-build")),
-      },
+  execFileSync(goBin, ["build", "-buildvcs=false", "-o", turnoutBin, "./cmd/turnout"], {
+    cwd: converterDir,
+    stdio: "pipe",
+    env: {
+      ...process.env,
+      // GOCACHE is not present in the environment when the go shim injects it
+      // via `island run -p go-workspace` — direct binary invocations fall back
+      // to ~/.cache/go-build, which is Landlock-restricted in the sandbox.
+      GOCACHE:
+        process.env.GOCACHE ??
+        (existsSync("/workspace")
+          ? resolve(converterDir, "../../../.go-cache")
+          : join(homedir(), ".cache", "go-build")),
     },
-  );
+  });
   process.env.TURNOUT_BIN = turnoutBin;
 });
 

@@ -33,7 +33,9 @@ describe("resolveDispatchTarget", () => {
 
   it("throws when a route's entry scene is not in the model", () => {
     const model = makeModel([{ id: "home" }], [{ id: "r1", entrySceneId: "ghost" }]);
-    expect(() => resolveDispatchTarget(model, "r1")).toThrow(/entry scene "ghost" is not in the model/);
+    expect(() => resolveDispatchTarget(model, "r1")).toThrow(
+      /entry scene "ghost" is not in the model/,
+    );
   });
 
   it("throws when the entry id matches neither route nor scene", () => {
@@ -44,5 +46,15 @@ describe("resolveDispatchTarget", () => {
   it("tolerates a model with no routes field", () => {
     const model = { scenes: [{ id: "only" }] } as unknown as TurnModel;
     expect(resolveDispatchTarget(model, "only").kind).toBe("scene");
+  });
+
+  it("reflects edits when a mutable model object is reused", () => {
+    const model = makeModel([{ id: "before" }], []);
+    expect(resolveDispatchTarget(model, "before").kind).toBe("scene");
+
+    model.scenes = [{ id: "after" }] as SceneBlock[];
+
+    expect(resolveDispatchTarget(model, "after").kind).toBe("scene");
+    expect(() => resolveDispatchTarget(model, "before")).toThrow(/not found as route or scene/);
   });
 });

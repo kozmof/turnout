@@ -18,14 +18,11 @@
     "build": "tsc --project tsconfig.build.json",
     "test": "vitest --run",
     "coverage": "vitest run --coverage",
-    "lint": "oxlint src/",
+    "lint": "oxlint -c ../../../.oxlintrc.json src/",
     "fmt": "oxfmt"
   },
   "dependencies": {
     "valibot": "^1.1.0"
-  },
-  "engines": {
-    "node": ">=22 <26"
   },
   "devDependencies": {
     "@vitest/coverage-v8": "^4.1.0",
@@ -34,5 +31,8 @@
     "typescript": "^5.9.2",
     "vite": "^6.2.0",
     "vitest": "^4.1.0"
+  },
+  "engines": {
+    "node": ">=22 <26"
   }
 }
