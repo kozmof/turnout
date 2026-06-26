@@ -594,7 +594,9 @@ describe("createRunner — route runner partialState mid-execution", () => {
             },
           },
           merge: [{ binding: "out", toState: "x.val" }],
+          next: [{ action: "finish" }],
         },
+        { id: "finish" },
       ],
     };
     const readScene = {
@@ -625,8 +627,10 @@ describe("createRunner — route runner partialState mid-execution", () => {
     expect(runner.isDone()).toBe(false);
 
     // partialState should reflect the state after the write action
-    const partial = runner.partialState();
-    expect(partial).toBeDefined();
+    expect(runner.partialState().read("x.val")).toMatchObject({
+      symbol: "number",
+      value: 7,
+    });
   });
 });
 

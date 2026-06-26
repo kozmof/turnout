@@ -251,6 +251,9 @@ export function createRouteStepper(
       };
     },
 
-    partialState: () => currentState,
+    // The active scene commits state after every successful action, while
+    // currentState advances only when the whole scene completes. Delegate to
+    // the scene executor so callers can recover the latest committed action.
+    partialState: () => sceneExecutor.partialState(),
   };
 }

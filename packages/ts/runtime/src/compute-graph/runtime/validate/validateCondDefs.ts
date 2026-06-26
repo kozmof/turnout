@@ -50,38 +50,39 @@ export function validateCondDefEntry(
         message: `CondFuncDefTable[${defId}].conditionId: Unknown kind "${conditionId.kind}"`,
         details: { defId, kind: conditionId.kind },
       });
-    } else if (conditionId.kind === "value") {
-      const id = conditionId.id;
-      if (valueIdExistsInContext(id, context)) {
-        state.referencedValues.add(id);
-        const conditionType = state.typeEnv.get(id);
-        if (conditionType && conditionType !== "boolean") {
-          state.errors.push({
-            message: `CondFuncDefTable[${defId}].conditionId: Condition value must be boolean, got "${conditionType}"`,
-            details: { defId, conditionId: id, conditionType },
-          });
-        }
-      } else {
-        state.errors.push({
-          message: `CondFuncDefTable[${defId}].conditionId: Referenced ValueId ${id} does not exist`,
-          details: { defId, conditionId: id },
-        });
-      }
     } else {
-      const id = conditionId.id;
-      if (funcIdExistsInContext(id, context)) {
-        const inferredType = inferFuncType(id, context);
-        if (inferredType && inferredType !== "boolean") {
+      const { id } = conditionId;
+      if (conditionId.kind === "value") {
+        if (valueIdExistsInContext(id, context)) {
+          state.referencedValues.add(id);
+          const conditionType = state.typeEnv.get(id);
+          if (conditionType && conditionType !== "boolean") {
+            state.errors.push({
+              message: `CondFuncDefTable[${defId}].conditionId: Condition value must be boolean, got "${conditionType}"`,
+              details: { defId, conditionId: id, conditionType },
+            });
+          }
+        } else {
           state.errors.push({
-            message: `CondFuncDefTable[${defId}].conditionId: Function condition must return boolean, got "${inferredType}"`,
-            details: { defId, conditionId: id, conditionType: inferredType },
+            message: `CondFuncDefTable[${defId}].conditionId: Referenced ValueId ${id} does not exist`,
+            details: { defId, conditionId: id },
           });
         }
       } else {
-        state.errors.push({
-          message: `CondFuncDefTable[${defId}].conditionId: Referenced FuncId ${id} does not exist`,
-          details: { defId, conditionId: id },
-        });
+        if (funcIdExistsInContext(id, context)) {
+          const inferredType = inferFuncType(id, context);
+          if (inferredType && inferredType !== "boolean") {
+            state.errors.push({
+              message: `CondFuncDefTable[${defId}].conditionId: Function condition must return boolean, got "${inferredType}"`,
+              details: { defId, conditionId: id, conditionType: inferredType },
+            });
+          }
+        } else {
+          state.errors.push({
+            message: `CondFuncDefTable[${defId}].conditionId: Referenced FuncId ${id} does not exist`,
+            details: { defId, conditionId: id },
+          });
+        }
       }
     }
   }

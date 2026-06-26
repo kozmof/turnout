@@ -46,7 +46,7 @@ describe("createRouteStepper", () => {
     expect(stepper.result().trace.scenes.map((trace) => trace.sceneId)).toEqual(["s1", "s2"]);
   });
 
-  it("exposes partial state after completed actions", async () => {
+  it("exposes partial state after completed actions within an active scene", async () => {
     const s1 = {
       id: "s1",
       entryActions: ["a"],
@@ -68,7 +68,9 @@ describe("createRouteStepper", () => {
             },
           },
           merge: [{ binding: "out", toState: "route.value" }],
+          next: [{ action: "b" }],
         },
+        { id: "b" },
       ],
     } as unknown as SceneBlock;
     const stepper = createRouteStepper(
@@ -82,6 +84,7 @@ describe("createRouteStepper", () => {
 
     await stepper.next();
 
+    expect(stepper.isDone()).toBe(false);
     expect(stepper.partialState().read("route.value")).toMatchObject({
       symbol: "number",
       value: 7,

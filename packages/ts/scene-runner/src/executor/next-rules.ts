@@ -46,11 +46,13 @@ export class RuleCtxCache {
     // Evict the oldest inner entry (FIFO) so the size drops back to the cap.
     // The check fires after insertion, so size briefly reaches cap+1 before eviction.
     if (inner.size > MAX_RULE_CTX_CACHE_ENTRIES) {
-      inner.delete(inner.keys().next().value!);
+      const oldestKey = inner.keys().next().value;
+      if (oldestKey !== undefined) inner.delete(oldestKey);
     }
     // Evict the oldest outer entry when the distinct-ProgModel count exceeds the cap.
     if (this.outer.size > MAX_RULE_CTX_CACHE_PROGS) {
-      this.outer.delete(this.outer.keys().next().value!);
+      const oldestProg = this.outer.keys().next().value;
+      if (oldestProg !== undefined) this.outer.delete(oldestProg);
     }
   }
 }
@@ -124,15 +126,19 @@ export function evaluateNextRules(
         // Returns null when serialisation fails or the key is too large — bypass
         // the cache in those cases so stale entries are never reused.
         const prepKey = makePreparedKey(nextPrepared);
-        const bypassCache = prepKey === null || prepKey.length > MAX_PREP_CACHE_KEY_BYTES;
-        const cached = bypassCache ? undefined : ruleCtxCache.get(rule.compute.prog, prepKey!);
+        const cacheableKey =
+          prepKey !== null && prepKey.length <= MAX_PREP_CACHE_KEY_BYTES ? prepKey : undefined;
+        const cached =
+          cacheableKey === undefined
+            ? undefined
+            : ruleCtxCache.get(rule.compute.prog, cacheableKey);
         if (cached) {
           ({ builtCtx, validCtx: validated } = cached);
         } else {
           builtCtx = buildContextFromProg(rule.compute.prog, nextPrepared, action.id);
           validated = builtCtx.getValidatedExec();
-          if (!bypassCache) {
-            ruleCtxCache.set(rule.compute.prog, prepKey!, { builtCtx, validCtx: validated });
+          if (cacheableKey !== undefined) {
+            ruleCtxCache.set(rule.compute.prog, cacheableKey, { builtCtx, validCtx: validated });
           }
         }
       } else {

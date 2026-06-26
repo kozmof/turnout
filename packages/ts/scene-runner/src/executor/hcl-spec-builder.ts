@@ -1,6 +1,13 @@
 import { combine, pipe, cond, ref as runtimeRef } from "runtime";
 import type { AnyValue, BinaryFnNames } from "runtime";
-import type { ProgModel, BindingModel, ArgModel } from "../types/turnout-model_pb.js";
+import type {
+  ProgModel,
+  BindingModel,
+  ArgModel,
+  CombineExpr,
+  PipeExpr,
+  CondExpr,
+} from "../types/turnout-model_pb.js";
 import { toCombineArgRef, assertArgModelVariant } from "./dynamic-boundary.js";
 import type {
   LocalFuncOutputRef,
@@ -94,13 +101,20 @@ export class ContextSpecBuilder {
   }
 
   private addFuncBinding(binding: BindingModel): void {
-    const expr = binding.expr!;
+    const { expr } = binding;
+    if (expr === undefined) {
+      throw new SceneRuntimeError(
+        "CompilerBug",
+        this.contextId,
+        `binding "${binding.name}": function binding has no expr — malformed model`,
+      );
+    }
     if (expr.combine) {
-      this.handleCombineBinding(binding);
+      this.handleCombineBinding(binding, expr.combine);
     } else if (expr.pipe) {
-      this.handlePipeBinding(binding);
+      this.handlePipeBinding(binding, expr.pipe);
     } else if (expr.cond) {
-      this.handleCondBinding(binding);
+      this.handleCondBinding(binding, expr.cond);
     } else {
       throw new SceneRuntimeError(
         "UnknownArgModel",
@@ -110,9 +124,9 @@ export class ContextSpecBuilder {
     }
   }
 
-  private handleCombineBinding(binding: BindingModel): void {
-    const c = binding.expr!.combine!;
-    if (c.args.length !== 2) {
+  private handleCombineBinding(binding: BindingModel, c: CombineExpr): void {
+    const [argA, argB] = c.args;
+    if (c.args.length !== 2 || argA === undefined || argB === undefined) {
       throw new SceneRuntimeError(
         "CompilerBug",
         this.contextId,
@@ -120,19 +134,19 @@ export class ContextSpecBuilder {
       );
     }
     this.spec[binding.name] = combine(mapFnName(c.fn, this.contextId), {
-      a: toCombineArgRef(this.resolveArg(c.args[0]!)),
-      b: toCombineArgRef(this.resolveArg(c.args[1]!)),
+      a: toCombineArgRef(this.resolveArg(argA)),
+      b: toCombineArgRef(this.resolveArg(argB)),
     });
   }
 
-  private handlePipeBinding(binding: BindingModel): void {
-    const p = binding.expr!.pipe!;
+  private handlePipeBinding(binding: BindingModel, p: PipeExpr): void {
     const argBindings: Record<string, string> = {};
     for (const param of p.params) {
       argBindings[param.paramName] = param.sourceIdent;
     }
     const steps = p.steps.map((step, i) => {
-      if (step.args.length !== 2) {
+      const [argA, argB] = step.args;
+      if (step.args.length !== 2 || argA === undefined || argB === undefined) {
         throw new SceneRuntimeError(
           "UnknownArgModel",
           this.contextId,
@@ -140,15 +154,14 @@ export class ContextSpecBuilder {
         );
       }
       return combine(mapFnName(step.fn, this.contextId), {
-        a: toCombineArgRef(this.resolveArg(step.args[0]!, binding.name)),
-        b: toCombineArgRef(this.resolveArg(step.args[1]!, binding.name)),
+        a: toCombineArgRef(this.resolveArg(argA, binding.name)),
+        b: toCombineArgRef(this.resolveArg(argB, binding.name)),
       });
     });
     this.spec[binding.name] = pipe(argBindings, steps);
   }
 
-  private handleCondBinding(binding: BindingModel): void {
-    const c = binding.expr!.cond!;
+  private handleCondBinding(binding: BindingModel, c: CondExpr): void {
     if (!c.condition) {
       throw new SceneRuntimeError(
         "CompilerBug",

@@ -143,7 +143,11 @@ function resolveArgBinding(
           `Invalid step reference: stepIndex ${binding.stepIndex} out of bounds (have ${stepResults.length} results)`,
         );
       }
-      return stepResults[binding.stepIndex]!;
+      const stepResult = stepResults[binding.stepIndex];
+      if (stepResult === undefined) {
+        throw new Error(`Missing result for pipe step ${binding.stepIndex}`);
+      }
+      return stepResult;
     }
 
     case "value":

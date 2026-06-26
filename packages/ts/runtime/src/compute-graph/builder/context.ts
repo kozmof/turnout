@@ -228,13 +228,10 @@ function buildCombineArguments(
 
   for (const [key, ref] of Object.entries(builder.args)) {
     const argKey = createArgName(key);
-    if (isTransformRef(ref)) {
-      argMap[argKey] = resolveValueReference(ref, state, scope);
-      transformFnMap[key] = ref.transformFn;
-    } else {
-      argMap[argKey] = resolveValueReference(ref, state, scope);
-      transformFnMap[key] = inferPassTransform(ref, state, scope);
-    }
+    argMap[argKey] = resolveValueReference(ref, state, scope);
+    transformFnMap[key] = isTransformRef(ref)
+      ? ref.transformFn
+      : inferPassTransform(ref, state, scope);
   }
 
   return { argMap: argMap as FuncArgMap, transformFnMap };

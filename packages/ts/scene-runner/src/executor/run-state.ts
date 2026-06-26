@@ -62,8 +62,9 @@ export function enqueueNext(
       }
       continue;
     }
-    if (rs.enqueueSource.has(nextId)) {
-      const source = rs.enqueueSource.get(nextId)!;
+    const pendingSource = rs.enqueueSource.get(nextId);
+    if (pendingSource !== undefined) {
+      const source = pendingSource;
       if (policy === "all-match") {
         rs.sceneWarnings.push({
           kind: "duplicate_enqueue",

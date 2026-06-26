@@ -149,9 +149,11 @@ export function createSceneExecutor(
     if (rs.queueHead >= rs.queue.length) return { done: true };
     if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
 
-    // Peek the next action id before the maxSteps guard so currentActionId() is
+    // Read the next action id before the maxSteps guard so currentActionId() is
     // accurate when MaxStepsExceeded is thrown — callers need it for error reporting.
-    rs.currentAction = rs.queue[rs.queueHead]!;
+    const actionId = rs.queue[rs.queueHead];
+    if (actionId === undefined) return { done: true };
+    rs.currentAction = actionId;
 
     rs.stepCount++;
     if (rs.stepCount > maxSteps) {
@@ -162,7 +164,7 @@ export function createSceneExecutor(
       );
     }
 
-    const actionId = rs.queue[rs.queueHead++]!;
+    rs.queueHead++;
     rs.visited.add(actionId);
 
     const action = actionMap[actionId];
@@ -243,7 +245,10 @@ export function createSceneExecutor(
     enqueueNext(nextIds, actionId, rs, policy);
 
     for (let i = prevSceneWarningCount; i < rs.sceneWarnings.length; i++) {
-      onLog?.({ kind: "warning", sceneId: scene.id, message: rs.sceneWarnings[i]!.message });
+      const warning = rs.sceneWarnings[i];
+      if (warning !== undefined) {
+        onLog?.({ kind: "warning", sceneId: scene.id, message: warning.message });
+      }
     }
 
     onLog?.({ kind: "action-complete", sceneId: scene.id, actionId, trace });
