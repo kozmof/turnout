@@ -45,14 +45,28 @@ type Options struct {
 	PanicReporter PanicReporter
 }
 
-func normalizedLimits(l Limits) Limits {
+func normalizedLimits(l Limits) (Limits, Diagnostics) {
+	if l.MaxSourceBytes < 0 {
+		return Limits{}, Diagnostics{diag.Errorf(
+			diag.CodeInvalidOption,
+			"MaxSourceBytes must be non-negative (zero uses the default), got %d",
+			l.MaxSourceBytes,
+		)}
+	}
+	if l.MaxStateFileBytes < 0 {
+		return Limits{}, Diagnostics{diag.Errorf(
+			diag.CodeInvalidOption,
+			"MaxStateFileBytes must be non-negative (zero uses the default), got %d",
+			l.MaxStateFileBytes,
+		)}
+	}
 	if l.MaxSourceBytes == 0 {
 		l.MaxSourceBytes = DefaultMaxSourceBytes
 	}
 	if l.MaxStateFileBytes == 0 {
 		l.MaxStateFileBytes = state.DefaultMaxStateFileBytes
 	}
-	return l
+	return l, nil
 }
 
 // Diagnostic and Diagnostics are re-exported so callers do not need to import
@@ -122,7 +136,10 @@ func Compile(inputPath, stateBasePath string) (result *CompileResult, ds Diagnos
 // CompileWithOptions is Compile with configurable limits and panic telemetry.
 func CompileWithOptions(inputPath, stateBasePath string, opts Options) (result *CompileResult, ds Diagnostics) {
 	defer recoverInternalPanicWithReporter(&result, &ds, opts.PanicReporter)
-	limits := normalizedLimits(opts.Limits)
+	limits, limitDs := normalizedLimits(opts.Limits)
+	if limitDs.HasErrors() {
+		return nil, limitDs
+	}
 	src, err := readFileLimited(inputPath, limits.MaxSourceBytes)
 	if err != nil {
 		if errors.Is(err, errSourceTooLarge) {
@@ -144,7 +161,10 @@ func CompileSource(name, src, stateBasePath string) (result *CompileResult, ds D
 // CompileSourceWithOptions is CompileSource with configurable limits and panic telemetry.
 func CompileSourceWithOptions(name, src, stateBasePath string, opts Options) (result *CompileResult, ds Diagnostics) {
 	defer recoverInternalPanicWithReporter(&result, &ds, opts.PanicReporter)
-	limits := normalizedLimits(opts.Limits)
+	limits, limitDs := normalizedLimits(opts.Limits)
+	if limitDs.HasErrors() {
+		return nil, limitDs
+	}
 	if int64(len(src)) > limits.MaxSourceBytes {
 		return nil, Diagnostics{diag.Errorf(diag.CodeInputTooLarge, "%s exceeds the %d-byte source limit", name, limits.MaxSourceBytes)}
 	}

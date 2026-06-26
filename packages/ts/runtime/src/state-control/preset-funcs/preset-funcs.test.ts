@@ -197,8 +197,12 @@ describe("preset functions", () => {
         ).value,
       ).toBe(true);
       expect(bfGeneric.isNotEqual(buildString("a"), buildString("a")).value).toBe(false);
-      expect(() => bfGeneric.isEqual(buildNumber(1), buildString("1"))).toThrow();
-      expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString("true"))).toThrow();
+      expect(() => bfGeneric.isEqual(buildNumber(1), buildString("1"))).toThrow(
+        "Cannot compare number and string values for equality",
+      );
+      expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString("true"))).toThrow(
+        "Cannot compare boolean and string values for inequality",
+      );
     });
 
     it("array equality ignores tags, consistent with scalar equality", () => {

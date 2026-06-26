@@ -34,7 +34,9 @@ describe("call preset lookup", () => {
   });
 
   it("rejects malformed binary function names", () => {
-    expect(() => getBinaryFn("not-a-pair" as any)).toThrow();
+    expect(() => getBinaryFn("not-a-pair" as any)).toThrow(
+      "Invalid binary function name: not-a-pair",
+    );
   });
 
   it("resolves transform functions for every namespace", () => {
@@ -50,6 +52,8 @@ describe("call preset lookup", () => {
   });
 
   it("rejects malformed transform function names", () => {
-    expect(() => getTransformFn("not-a-pair" as any)).toThrow();
+    expect(() => getTransformFn("not-a-pair" as any)).toThrow(
+      "Invalid transform function name: not-a-pair",
+    );
   });
 });

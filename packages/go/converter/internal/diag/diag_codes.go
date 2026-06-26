@@ -6,6 +6,7 @@ const (
 	CodeNamedArgNotSupported ErrorCode = "NamedArgNotSupported"
 	CodeEmitIOError          ErrorCode = "EmitIOError"
 	CodeIOError              ErrorCode = "IOError"
+	CodeInvalidOption        ErrorCode = "InvalidOption"
 	CodeInputTooLarge        ErrorCode = "InputTooLarge"
 	CodeParseSyntaxError     ErrorCode = "ParseSyntaxError"
 	CodeLexError             ErrorCode = "LexError"

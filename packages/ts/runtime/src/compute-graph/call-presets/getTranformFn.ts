@@ -13,7 +13,9 @@ type AnyToAny = (val: AnyValue) => AnyValue;
 
 export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
   const mayPair = splitPairTranformFnNames(joinedName);
-  if (mayPair === null) throw new Error();
+  if (mayPair === null) {
+    throw new Error("Invalid transform function name: " + joinedName);
+  }
   const [namespace, fnName] = mayPair;
   switch (namespace) {
     case "transformFnArray":

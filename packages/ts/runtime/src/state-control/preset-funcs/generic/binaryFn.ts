@@ -39,14 +39,14 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
     if (isComparable(a, b)) {
       return buildBoolean(areValuesEqual(a, b), mergeOperandTags(a, b));
     } else {
-      throw new Error();
+      throw new Error("Cannot compare " + a.symbol + " and " + b.symbol + " values for equality");
     }
   },
   isNotEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
     if (isComparable(a, b)) {
       return buildBoolean(!areValuesEqual(a, b), mergeOperandTags(a, b));
     } else {
-      throw new Error();
+      throw new Error("Cannot compare " + a.symbol + " and " + b.symbol + " values for inequality");
     }
   },
 } as const;

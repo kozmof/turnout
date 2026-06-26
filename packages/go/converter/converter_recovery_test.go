@@ -82,6 +82,29 @@ func TestCompileRejectsOversizedFile(t *testing.T) {
 	}
 }
 
+func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
+	tests := []struct {
+		name   string
+		limits Limits
+		field  string
+	}{
+		{name: "source", limits: Limits{MaxSourceBytes: -1}, field: "MaxSourceBytes"},
+		{name: "state file", limits: Limits{MaxStateFileBytes: -1}, field: "MaxStateFileBytes"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result, ds := CompileSourceWithOptions("input.turn", "", "", Options{Limits: tt.limits})
+			if result != nil || !ds.HasErrors() || len(ds) != 1 || ds[0].Code != diag.CodeInvalidOption {
+				t.Fatalf("expected InvalidOption, got result=%v diagnostics=%v", result, ds)
+			}
+			if !bytes.Contains([]byte(ds[0].Message), []byte(tt.field)) {
+				t.Fatalf("expected diagnostic to name %s, got %q", tt.field, ds[0].Message)
+			}
+		})
+	}
+}
+
 func TestRecoverInternalPanicReportsStack(t *testing.T) {
 	var result string
 	var ds Diagnostics

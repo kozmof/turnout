@@ -13,7 +13,9 @@ type AnyToAny = (valA: AnyValue, valB: AnyValue) => AnyValue;
 
 export const getBinaryFn = (joinedName: BinaryFnNames): AnyToAny => {
   const mayPair = splitPairBinaryFnNames(joinedName);
-  if (mayPair === null) throw new Error();
+  if (mayPair === null) {
+    throw new Error("Invalid binary function name: " + joinedName);
+  }
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
