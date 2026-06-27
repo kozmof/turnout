@@ -21,7 +21,20 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	t := p.peek()
 	pos := p.posOf(t)
 
+	// optional binding marker (|^| compute root / |?| transition condition),
+	// written before the sigil
+	var marker ast.BindingMarker
+	switch t.Kind {
+	case lexer.TokMarkerRoot:
+		marker = ast.MarkerRoot
+		p.advance()
+	case lexer.TokMarkerCond:
+		marker = ast.MarkerCond
+		p.advance()
+	}
+
 	// optional sigil
+	t = p.peek()
 	var sigil ast.Sigil
 	switch t.Kind {
 	case lexer.TokSigilBiDir:
@@ -56,11 +69,12 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 			p.parseRHS() // consume and discard the erroneous RHS
 		}
 		return &ast.BindingDecl{
-			Pos:   pos,
-			Sigil: sigil,
-			Name:  nameTok.Value,
-			Type:  ft,
-			RHS:   &ast.SigilInputRHS{},
+			Pos:    pos,
+			Sigil:  sigil,
+			Marker: marker,
+			Name:   nameTok.Value,
+			Type:   ft,
+			RHS:    &ast.SigilInputRHS{},
 		}
 	}
 
@@ -68,11 +82,12 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	rhs := p.parseRHS()
 
 	return &ast.BindingDecl{
-		Pos:   pos,
-		Sigil: sigil,
-		Name:  nameTok.Value,
-		Type:  ft,
-		RHS:   rhs,
+		Pos:    pos,
+		Sigil:  sigil,
+		Marker: marker,
+		Name:   nameTok.Value,
+		Type:   ft,
+		RHS:    rhs,
 	}
 }
 
@@ -110,15 +125,10 @@ func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 		return &ast.ComputeBlock{Pos: pos}
 	}
 
-	var root string
 	var prog *ast.ProgBlock
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
 		switch t.Kind {
-		case lexer.TokKwRoot:
-			p.advance()
-			p.expect(lexer.TokEquals)
-			root = p.parseRefVal()
 		case lexer.TokKwProg:
 			if prog != nil {
 				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeDuplicateProg,
@@ -131,11 +141,66 @@ func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 			prog = p.parseProgBlock()
 		default:
 			p.errorf(t, "unexpected token %s %q in compute block", kindName(t.Kind), t.Value)
-			p.syncToBlockItem(lexer.TokKwRoot, lexer.TokKwProg)
+			p.syncToBlockItem(lexer.TokKwProg)
 		}
 	}
 	p.expect(lexer.TokRBrace)
+	root := p.deriveMarker(prog, ast.MarkerRoot)
 	return &ast.ComputeBlock{Pos: pos, Root: root, Prog: prog}
+}
+
+// deriveMarker scans prog's bindings for the `|^|` (root) / `|?|` (condition)
+// marker and returns the marked binding name, emitting diagnostics when the
+// marker rules are violated. `want` selects which marker is legal in this
+// context (MarkerRoot in action compute, MarkerCond in next compute). The
+// invariant enforced: exactly one marker, of the expected kind, on the last
+// binding of the prog.
+func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) string {
+	missingCode := diag.CodeMissingRootMarker
+	markerStr := ast.MarkerRoot.String()
+	if want == ast.MarkerCond {
+		missingCode = diag.CodeMissingConditionMarker
+		markerStr = ast.MarkerCond.String()
+	}
+
+	if prog == nil || len(prog.Bindings) == 0 {
+		return ""
+	}
+
+	var marked []*ast.BindingDecl
+	for _, b := range prog.Bindings {
+		if b.Marker != ast.MarkerNone {
+			marked = append(marked, b)
+		}
+	}
+
+	if len(marked) == 0 {
+		p.Append(diag.ErrorAt(p.file, prog.Pos.Line, prog.Pos.Col, missingCode,
+			"prog %q: missing %s marker on a binding", prog.Name, markerStr))
+		return ""
+	}
+
+	if len(marked) > 1 {
+		second := marked[1]
+		p.Append(diag.ErrorAt(p.file, second.Pos.Line, second.Pos.Col, diag.CodeDuplicateMarker,
+			"prog %q: at most one marker is allowed per prog; binding %q carries a second marker",
+			prog.Name, second.Name))
+	}
+
+	m := marked[0]
+	if m.Marker != want {
+		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerContext,
+			"prog %q: marker %s on binding %q is not valid here; expected %s",
+			prog.Name, m.Marker, m.Name, markerStr))
+	}
+
+	if last := prog.Bindings[len(prog.Bindings)-1]; last != m {
+		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerNotLast,
+			"prog %q: %s marker must be on the last binding; binding %q is not last",
+			prog.Name, markerStr, m.Name))
+	}
+
+	return m.Name
 }
 
 // ─── parsePrepareBlock (action level) ────────────────────────────────────────
@@ -327,23 +392,19 @@ func (p *parser) parseNextComputeBlock() *ast.NextComputeBlock {
 	pos := p.posOf(kwTok)
 	p.expect(lexer.TokLBrace)
 
-	var condition string
 	var prog *ast.ProgBlock
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
 		switch t.Kind {
-		case lexer.TokKwCondition:
-			p.advance()
-			p.expect(lexer.TokEquals)
-			condition = p.parseRefVal()
 		case lexer.TokKwProg:
 			prog = p.parseProgBlock()
 		default:
 			p.errorf(t, "unexpected token %s in next compute block", kindName(t.Kind))
-			p.syncToBlockItem(lexer.TokKwCondition, lexer.TokKwProg)
+			p.syncToBlockItem(lexer.TokKwProg)
 		}
 	}
 	p.expect(lexer.TokRBrace)
+	condition := p.deriveMarker(prog, ast.MarkerCond)
 	return &ast.NextComputeBlock{Pos: pos, Condition: condition, Prog: prog}
 }
 

@@ -597,7 +597,6 @@ scene "boiler_alarm_priority" {
 
   action "classify_alarm" {
     compute {
-      root = classified
 
       prog "classify_alarm_graph" {
         ~>pressure_bar:number
@@ -630,7 +629,7 @@ scene "boiler_alarm_priority" {
         )
 
         <~alarm_route:str = alarm_route
-        classified:bool = true
+        |^| classified:bool = true
       }
     }
 

@@ -22,6 +22,10 @@ const (
 	TokSigilEgress  // <~
 	TokSigilIngress // ~>
 
+	// Binding markers — designate the compute root / transition condition
+	TokMarkerRoot // |^|  (compute root, action-level)
+	TokMarkerCond // |?|  (transition condition, next-level)
+
 	// Punctuation
 	TokLBrace    // {
 	TokRBrace    // }
@@ -68,8 +72,6 @@ const (
 	TokKwPublish
 	TokKwNext
 	TokKwProg
-	TokKwRoot
-	TokKwCondition
 	TokKwEntryActions
 	TokKwNextPolicy
 	TokKwFromState
@@ -234,8 +236,6 @@ var keywordTable = []keywordEntry{
 	{"publish", TokKwPublish},
 	{"next", TokKwNext},
 	{"prog", TokKwProg},
-	{"root", TokKwRoot},
-	{"condition", TokKwCondition},
 	{"entry_actions", TokKwEntryActions},
 	{"next_policy", TokKwNextPolicy},
 	{"from_state", TokKwFromState},
@@ -272,6 +272,8 @@ func init() {
 		TokSigilBiDir:   "<~>",
 		TokSigilEgress:  "<~",
 		TokSigilIngress: "~>",
+		TokMarkerRoot:   "|^|",
+		TokMarkerCond:   "|?|",
 		TokLBrace:       "{",
 		TokRBrace:       "}",
 		TokLBracket:     "[",
@@ -415,13 +417,35 @@ func (l *lex) scanToken() {
 		l.advance()
 		l.emit(TokAmpersand, "&", ln, co)
 
+	case c == '^':
+		l.advance()
+		l.errorf(ln, co, "unexpected '^' — the compute-root marker is written '|^|'")
+
+	case c == '?':
+		l.advance()
+		l.errorf(ln, co, "unexpected '?' — the transition-condition marker is written '|?|'")
+
 	case c == ':':
 		l.advance()
 		l.emit(TokColon, ":", ln, co)
 
 	case c == '|':
-		l.advance()
-		l.emit(TokPipe, "|", ln, co)
+		// Binding markers |^| (compute root) and |?| (transition condition)
+		// take precedence over the bare pipe operator.
+		if l.peekAt(1) == '^' && l.peekAt(2) == '|' {
+			l.advance()
+			l.advance()
+			l.advance()
+			l.emit(TokMarkerRoot, "|^|", ln, co)
+		} else if l.peekAt(1) == '?' && l.peekAt(2) == '|' {
+			l.advance()
+			l.advance()
+			l.advance()
+			l.emit(TokMarkerCond, "|?|", ln, co)
+		} else {
+			l.advance()
+			l.emit(TokPipe, "|", ln, co)
+		}
 
 	case c == '=':
 		l.advance()

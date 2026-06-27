@@ -402,6 +402,10 @@ scene "ai_workflow" {
           type  = "str"
           value = ""
         }
+        binding "status" {
+          type  = "str"
+          value = "sent"
+        }
         binding "final_response" {
           type  = "str"
           expr  = {
@@ -410,10 +414,6 @@ scene "ai_workflow" {
               args = [{ ref = "draft" }, { lit = "" }]
             }
           }
-        }
-        binding "status" {
-          type  = "str"
-          value = "sent"
         }
       }
     }
@@ -446,6 +446,10 @@ scene "ai_workflow" {
           type  = "str"
           value = "Review needed: "
         }
+        binding "status" {
+          type  = "str"
+          value = "awaiting_human"
+        }
         binding "review_note" {
           type  = "str"
           expr  = {
@@ -454,10 +458,6 @@ scene "ai_workflow" {
               args = [{ ref = "prefix" }, { ref = "draft" }]
             }
           }
-        }
-        binding "status" {
-          type  = "str"
-          value = "awaiting_human"
         }
       }
     }

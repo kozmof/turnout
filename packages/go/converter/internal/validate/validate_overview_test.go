@@ -17,18 +17,16 @@ scene "test" {
 ` + viewBlock + `
   action "a" {
     compute {
-      root = v
-      prog "p" { v:bool = true }
+      prog "p" { |^| v:bool = true }
     }
     next {
-      compute { condition = v  prog "q" { v:bool = true } }
+      compute { prog "q" { |?| v:bool = true } }
       action = b
     }
   }
   action "b" {
     compute {
-      root = v
-      prog "p" { v:bool = true }
+      prog "p" { |^| v:bool = true }
     }
   }
 }
@@ -85,10 +83,10 @@ scene "test" {
     enforce = "nodes_only"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
   action "b" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -131,10 +129,10 @@ scene "test" {
     enforce = "at_least"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
   action "b" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -157,21 +155,21 @@ scene "test" {
     enforce = "at_least"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
     next {
-      compute { condition = v  prog "q" { v:bool = true } }
+      compute { prog "q" { |?| v:bool = true } }
       action = b
     }
     next {
-      compute { condition = v  prog "r" { v:bool = true } }
+      compute { prog "r" { |?| v:bool = true } }
       action = c
     }
   }
   action "b" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
   action "c" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -216,17 +214,17 @@ scene "test" {
     enforce = "strict"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
     next {
-      compute { condition = v  prog "q" { v:bool = true } }
+      compute { prog "q" { |?| v:bool = true } }
       action = b
     }
   }
   action "b" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
   action "c" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -250,21 +248,21 @@ scene "test" {
     enforce = "strict"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
     next {
-      compute { condition = v  prog "q" { v:bool = true } }
+      compute { prog "q" { |?| v:bool = true } }
       action = b
     }
     next {
-      compute { condition = v  prog "r" { v:bool = true } }
+      compute { prog "r" { |?| v:bool = true } }
       action = c
     }
   }
   action "b" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
   action "c" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -357,15 +355,15 @@ scene "test" {
     enforce = "at_least"
   }
   action "foo" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = bar }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = bar }
   }
   action "bar" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = baz }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = baz }
   }
   action "baz" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -390,23 +388,23 @@ scene "test" {
     enforce = "at_least"
   }
   action "analyze" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = score }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = score }
   }
   action "score" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = decide }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = decide }
   }
   action "decide" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = approve }
-    next { compute { condition = v  prog "r" { v:bool = true } }  action = reject }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = approve }
+    next { compute { prog "r" { |?| v:bool = true } }  action = reject }
   }
   action "approve" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
   action "reject" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -431,15 +429,15 @@ scene "test" {
     enforce = "strict"
   }
   action "foo" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = bar }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = bar }
   }
   action "bar" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = baz }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = baz }
   }
   action "baz" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -467,7 +465,7 @@ scene "test" {
     enforce = "nodes_only"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -487,7 +485,7 @@ scene "test" {
     enforce = "nodes_only"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `
@@ -535,20 +533,20 @@ scene "s" {
     enforce = "at_least"
   }
   action "a" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = b }
-    next { compute { condition = v  prog "r" { v:bool = true } }  action = c }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = b }
+    next { compute { prog "r" { |?| v:bool = true } }  action = c }
   }
   action "b" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = d }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = d }
   }
   action "c" {
-    compute { root = v  prog "p" { v:bool = true } }
-    next { compute { condition = v  prog "q" { v:bool = true } }  action = d }
+    compute { prog "p" { |^| v:bool = true } }
+    next { compute { prog "q" { |?| v:bool = true } }  action = d }
   }
   action "d" {
-    compute { root = v  prog "p" { v:bool = true } }
+    compute { prog "p" { |^| v:bool = true } }
   }
 }
 `

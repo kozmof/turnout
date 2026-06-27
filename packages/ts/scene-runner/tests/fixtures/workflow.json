@@ -560,6 +560,11 @@
                   "value": ""
                 },
                 {
+                  "name": "status",
+                  "type": "str",
+                  "value": "sent"
+                },
+                {
                   "name": "final_response",
                   "type": "str",
                   "expr": {
@@ -575,11 +580,6 @@
                       ]
                     }
                   }
-                },
-                {
-                  "name": "status",
-                  "type": "str",
-                  "value": "sent"
                 }
               ]
             }
@@ -619,6 +619,11 @@
                   "value": "Review needed: "
                 },
                 {
+                  "name": "status",
+                  "type": "str",
+                  "value": "awaiting_human"
+                },
+                {
                   "name": "review_note",
                   "type": "str",
                   "expr": {
@@ -634,11 +639,6 @@
                       ]
                     }
                   }
-                },
-                {
-                  "name": "status",
-                  "type": "str",
-                  "value": "awaiting_human"
                 }
               ]
             }

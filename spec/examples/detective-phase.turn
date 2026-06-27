@@ -73,10 +73,9 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = phase
       prog "arrive_crime_scene_graph" {
         <~detective_note:str = "Scene secured. Start collecting clues."
-        <~phase:str = "arrive_crime_scene"
+        |^| <~phase:str = "arrive_crime_scene"
       }
     }
 
@@ -87,9 +86,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_scan_scene" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = scan_scene
@@ -105,7 +103,6 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = scene_hotspot_found
       prog "scan_scene_graph" {
         ~>disturbance_detected:bool
         ~>visibility_score:number
@@ -113,8 +110,8 @@ scene "detective_evidence_hunt" {
 
         clue_candidate:bool = disturbance_detected & camera_online
         search_ready:bool = visibility_score >= 3
-        <~scene_hotspot_found:bool = clue_candidate & search_ready
         <~phase:str = "scan_scene"
+        |^| <~scene_hotspot_found:bool = clue_candidate & search_ready
       }
     }
 
@@ -131,10 +128,9 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = go_collect
         prog "to_collect_physical_evidence" {
           ~>scene_hotspot_found:bool
-          go_collect:bool = scene_hotspot_found
+          |?| go_collect:bool = scene_hotspot_found
         }
       }
       prepare {
@@ -145,9 +141,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_interview_witness_from_scan" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = interview_witness
@@ -163,7 +158,6 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = critical_evidence_found
       prog "collect_physical_evidence_graph" {
         ~>fingerprint_match:number
         ~>blood_trace:bool
@@ -172,10 +166,10 @@ scene "detective_evidence_hunt" {
 
         fp_strong:bool = fingerprint_match >= 6
         trace_and_weapon:bool = blood_trace & weapon_found
-        <~critical_evidence_found:bool = fp_strong & trace_and_weapon
         prefix:str = "Collected evidence: "
         <~evidence_log:str = prefix + evidence_tag
         <~phase:str = "collect_physical_evidence"
+        |^| <~critical_evidence_found:bool = fp_strong & trace_and_weapon
       }
     }
 
@@ -194,9 +188,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_interview_witness_from_collect" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = interview_witness
@@ -212,17 +205,16 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = timeline_priority
       prog "interview_witness_graph" {
         ~>contradiction_detected:bool
         ~>alibi_strength:number
         ~>witness_statement:str
 
         alibi_weak:bool = alibi_strength <= 3
-        <~timeline_priority:bool = contradiction_detected & alibi_weak
         prefix:str = "Witness says: "
         <~interview_note:str = prefix + witness_statement
         <~phase:str = "interview_witness"
+        |^| <~timeline_priority:bool = contradiction_detected & alibi_weak
       }
     }
 
@@ -240,9 +232,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_analyze_timeline" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = analyze_timeline
@@ -258,15 +249,14 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = ready_to_identify_suspect
       prog "analyze_timeline_graph" {
         ~>critical_evidence_found:bool
         ~>timeline_priority:bool
         ~>camera_timestamp_ok:bool
 
         evidence_and_time:bool = critical_evidence_found & camera_timestamp_ok
-        <~ready_to_identify_suspect:bool = evidence_and_time & timeline_priority
         <~phase:str = "analyze_timeline"
+        |^| <~ready_to_identify_suspect:bool = evidence_and_time & timeline_priority
       }
     }
 
@@ -283,10 +273,9 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = go_identify
         prog "to_identify_suspect" {
           ~>ready_to_identify_suspect:bool
-          go_identify:bool = ready_to_identify_suspect
+          |?| go_identify:bool = ready_to_identify_suspect
         }
       }
       prepare {
@@ -297,9 +286,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_search_for_more_evidence" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = search_for_more_evidence
@@ -315,7 +303,6 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = case_file_ready
       prog "identify_suspect_graph" {
         ~>suspect_name:str
         ~>confidence_score:number
@@ -323,8 +310,8 @@ scene "detective_evidence_hunt" {
         high_confidence:bool = confidence_score >= 8
         prefix:str = "Primary suspect: "
         <~suspect_summary:str = prefix + suspect_name
-        <~case_file_ready:bool = high_confidence
         <~phase:str = "identify_suspect"
+        |^| <~case_file_ready:bool = high_confidence
       }
     }
 
@@ -341,9 +328,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_submit_case_file_from_identify" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = submit_case_file
@@ -359,14 +345,13 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = phase
       prog "search_for_more_evidence_graph" {
         ~>last_search_area:str
 
         prefix:str = "Extended search area: "
         <~search_note:str = prefix + last_search_area
         <~case_file_ready:bool = false
-        <~phase:str = "search_for_more_evidence"
+        |^| <~phase:str = "search_for_more_evidence"
       }
     }
 
@@ -382,9 +367,8 @@ scene "detective_evidence_hunt" {
 
     next {
       compute {
-        condition = always
         prog "to_submit_case_file_from_search" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = submit_case_file
@@ -400,15 +384,14 @@ scene "detective_evidence_hunt" {
     """
 
     compute {
-      root     = investigation_closed
       prog "submit_case_file_graph" {
         ~>case_file_ready:bool
         ~>suspect_summary:str
 
         prefix:str = "Filed report: "
         <~report_line:str = prefix + suspect_summary
-        <~investigation_closed:bool = case_file_ready
         <~phase:str = "submit_case_file"
+        |^| <~investigation_closed:bool = case_file_ready
       }
     }
 

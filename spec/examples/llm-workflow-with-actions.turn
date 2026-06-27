@@ -58,7 +58,6 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = analysis_ready
       prog "analyze_request_graph" {
         ~>need_grounding:bool
         ~>kb_enabled:bool
@@ -67,7 +66,7 @@ scene "llm_support_workflow" {
 
         retrieve_ready:bool = need_grounding & kb_enabled
         fast_lane:bool = priority_tier >= 2
-        analysis_ready:bool = true
+        |^| analysis_ready:bool = true
       }
     }
 
@@ -83,10 +82,9 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = go_retrieve
         prog "to_retrieve_context" {
           ~>retrieve_ready:bool
-          go_retrieve:bool = retrieve_ready
+          |?| go_retrieve:bool = retrieve_ready
         }
       }
       prepare {
@@ -97,9 +95,8 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = always
         prog "to_draft_direct" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = draft_direct
@@ -115,7 +112,6 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = retrieval_ready
       prog "retrieve_context_graph" {
         ~>query:str
         ~>doc_hint:str
@@ -123,7 +119,7 @@ scene "llm_support_workflow" {
 
         context_prefix:str = query + " :: "
         <~retrieved_context:str = context_prefix + doc_hint
-        retrieval_ready:bool = true
+        |^| retrieval_ready:bool = true
       }
     }
 
@@ -139,9 +135,8 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = always
         prog "to_draft_with_context" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = draft_with_context
@@ -156,13 +151,12 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = draft_ready
       prog "draft_direct_graph" {
         ~>query:str
         prefix:str = "Direct answer: "
         <~draft_text:str = prefix + query
         <~workflow_stage:str = "drafted_direct"
-        draft_ready:bool = true
+        |^| draft_ready:bool = true
       }
     }
 
@@ -177,9 +171,8 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = always
         prog "to_safety_check_from_direct" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = safety_check
@@ -195,7 +188,6 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = draft_ready
       prog "draft_with_context_graph" {
         ~>query:str
         ~>retrieved_context:str
@@ -203,7 +195,7 @@ scene "llm_support_workflow" {
 
         draft_seed:str = query + " | "
         <~draft_text:str = draft_seed + retrieved_context
-        draft_ready:bool = true
+        |^| draft_ready:bool = true
       }
     }
 
@@ -219,9 +211,8 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = always
         prog "to_safety_check_from_context" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = safety_check
@@ -237,7 +228,6 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = safety_ready
       prog "safety_check_graph" {
         ~>toxicity_score:number
         ~>pii_score:number
@@ -246,7 +236,7 @@ scene "llm_support_workflow" {
         toxicity_ok:bool = toxicity_score <= 2
         pii_ok:bool = pii_score <= 1
         <~approved:bool = toxicity_ok & pii_ok
-        safety_ready:bool = true
+        |^| safety_ready:bool = true
       }
     }
 
@@ -262,10 +252,9 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = go_publish
         prog "to_publish_response" {
           ~>approved:bool
-          go_publish:bool = approved
+          |?| go_publish:bool = approved
         }
       }
       prepare {
@@ -276,9 +265,8 @@ scene "llm_support_workflow" {
 
     next {
       compute {
-        condition = always
         prog "to_human_review" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = human_review
@@ -293,12 +281,11 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = publish_ready
       prog "publish_response_graph" {
         ~>draft_text:str
         <~workflow_status:str = "sent"
         <~final_response:str = draft_text
-        publish_ready:bool = true
+        |^| publish_ready:bool = true
       }
     }
 
@@ -321,13 +308,12 @@ scene "llm_support_workflow" {
     """
 
     compute {
-      root     = handoff_ready
       prog "human_review_graph" {
         ~>draft_text:str
         prefix:str = "Review needed: "
         <~handoff_note:str = prefix + draft_text
         <~workflow_status:str = "awaiting_human"
-        handoff_ready:bool = true
+        |^| handoff_ready:bool = true
       }
     }
 

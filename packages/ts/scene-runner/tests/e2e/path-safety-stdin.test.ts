@@ -27,7 +27,7 @@ const goBin = process.env.GOROOT
 const TURN_SRC = `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = ["a"]
-  action "a" { compute { root = "r" prog "p" { r:bool = true } } }
+  action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`;
 
 let baseDir: string;
@@ -83,7 +83,7 @@ describe("safeBaseDir converter (stdin hardening)", () => {
         `
 scene "s" {
   entry_actions = ["a"]
-  action "a" { compute { root = "r" prog "p" { r:bool = true } } }
+  action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`,
       "utf8",
     );

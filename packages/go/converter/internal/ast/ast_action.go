@@ -32,12 +32,15 @@ type ProgBlock struct {
 
 // BindingDecl is a single binding declaration within a prog block.
 // Sigil is SigilNone for plain compute bindings.
+// Marker is MarkerNone unless the binding is prefixed with `|^|` (compute root)
+// or `|?|` (transition condition).
 type BindingDecl struct {
-	Pos   Pos
-	Sigil Sigil
-	Name  string
-	Type  FieldType
-	RHS   BindingRHS
+	Pos    Pos
+	Sigil  Sigil
+	Marker BindingMarker
+	Name   string
+	Type   FieldType
+	RHS    BindingRHS
 }
 
 // ────────────────────────────────────────────────────────────

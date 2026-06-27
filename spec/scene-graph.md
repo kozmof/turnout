@@ -55,11 +55,10 @@ CAN (OK):
 
 CAN'T (NG):
 
-- An action cannot omit `compute.root`.
-- `compute.root` cannot point to a binding that does not exist in `compute.prog`.
+- An action `compute` prog cannot omit the `|^|` root marker (it derives `compute.root`); a prog cannot carry more than one marker, and the marked binding must be last.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A binding marked as ingress-capable (`~>` or `<~>`) cannot omit its `prepare` entry.
-- A next rule cannot omit `compute.condition` or `compute.prog`.
+- A next rule cannot omit the `|?|` condition marker (it derives `compute.condition`) or `compute.prog`.
 - Next actions cannot reference missing actions.
 
 Correlation:
@@ -173,7 +172,7 @@ Directional binding prefixes are interpreted before ContextSpec lowering:
 - `<~name:type = ...` means egress-only binding.
 - `<~>name:type` means ingress + egress binding.
 
-**Convention — root binding declared last**: The binding named by `compute.root` SHOULD be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable: inputs and intermediate values come first, and the final output that drives the action result appears at the bottom. All example files in this spec follow this convention.
+**Rule — root binding declared last**: The compute root is designated inline with the `|^|` marker on its binding (and the transition condition with `|?|`). The marked binding MUST be the last binding declared in `compute.prog` — bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable: inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the marked binding.
 
 ```hcl
 scene "loan_flow" {
@@ -182,7 +181,6 @@ scene "loan_flow" {
 
   action "score" {
     compute {
-      root     = decision
       prog "score_graph" {
         <~>income:number
         ~>debt:number
@@ -190,7 +188,7 @@ scene "loan_flow" {
         max_debt:number   = 20000
         income_ok:bool   = income >= min_income
         debt_ok:bool     = debt <= max_debt
-        <~decision:bool  = income_ok & debt_ok
+        |^| <~decision:bool  = income_ok & debt_ok
       }
     }
 
@@ -210,11 +208,10 @@ scene "loan_flow" {
 
     next {
       compute {
-        condition = go
         prog "to_approve" {
           ~>decision:bool
           ~>income_ok:bool
-          go:bool = decision & income_ok
+          |?| go:bool = decision & income_ok
         }
       }
       prepare {
@@ -225,9 +222,8 @@ scene "loan_flow" {
     }
     next {
       compute {
-        condition = always
         prog "to_reject" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = reject
@@ -398,7 +394,7 @@ type SceneDiagnostic = {
 
 ## 11. Conformance Checklist
 
-1. A `compute.root` that names a missing binding fails validation (`SCN_ACTION_ROOT_NOT_FOUND`). A `compute.root` that names a value binding is valid and reads the value directly.
+1. `compute.root` is derived from the `|^|`-marked binding, so it always names an existing binding; an action `compute` prog with no `|^|` marker fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
 3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `merge`.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.

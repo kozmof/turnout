@@ -21,10 +21,8 @@ scene "start" {
   entry_actions = ["init"]
 
   action "init" {
-    compute {
-      root = "v"
-      prog "p" {
-        <~ v:number = 1
+    compute { prog "p" {
+        |^| <~ v:number = 1
       }
     }
     merge {
@@ -282,10 +280,8 @@ scene "start" {
   entry_actions = ["init"]
 
   action "init" {
-    compute {
-      root = "v"
-      prog "p" {
-        <~ v:number = 1
+    compute { prog "p" {
+        |^| <~ v:number = 1
       }
     }
     merge {
@@ -343,10 +339,8 @@ scene "start" {
   entry_actions = ["init"]
 
   action "init" {
-    compute {
-      root = "v"
-      prog "p" {
-        <~ v:number = 1
+    compute { prog "p" {
+        |^| <~ v:number = 1
       }
     }
     merge {

@@ -15,11 +15,10 @@ STATE effects in Turn DSL are expressed through two complementary parts that mus
 ```
 action "score" {
   compute {
-    root = decision
     prog "score_graph" {
       ~>income:number                              # ← sigil: input from STATE
-      <~decision:bool = income_ok & debt_ok           # ← sigil: output to STATE
       income_ok:bool  = income >= 50000               # plain compute binding
+      |^| <~decision:bool = income_ok & debt_ok        # ← |^| marks the compute root (last binding)
     }
   }
 
@@ -59,12 +58,30 @@ All references in `prepare` and `merge` use plain canonical binding names.
 ### 1.2 Grammar
 
 ```
-input-decl   ::= ('~>' | '<~>') IDENT ':' type
-output-decl  ::= '<~' IDENT ':' type '=' expr
+binding-decl ::= [marker] [sigil] IDENT ':' type ['=' expr]
+input-decl   ::= [marker] ('~>' | '<~>') IDENT ':' type
+output-decl  ::= [marker] '<~' IDENT ':' type '=' expr
 sigil        ::= '~>' | '<~' | '<~>'
+marker       ::= '|^|' | '|?|'
 ```
 
-The sigil is written immediately before the binding name — no whitespace between sigil and name:
+### 1.2.1 Binding markers
+
+A binding may carry a leading **marker**, written before any sigil:
+
+| Marker | Role | Valid in |
+|--------|------|----------|
+| `|^|`   | Compute **root** — the binding whose resolved value is the action's compute output | action `compute` prog |
+| `|?|`   | Transition **condition** — the boolean binding that gates the transition | `next` `compute` prog |
+
+Rules (all enforced at compile time):
+
+- An action `compute` prog must contain **exactly one** `|^|` marker; a `next` `compute` prog must contain **exactly one** `|?|` marker.
+- The marked binding must be the **last** binding declared in the prog (read like a `return`).
+- A marker of the wrong kind for its context is an error (e.g. `|?|` in an action compute).
+- The marker replaces the former `root = <ident>` / `condition = <ident>` sibling fields, which no longer exist in the DSL. (The lowered canonical HCL and runtime model still carry `compute.root` / `compute.condition` string fields, derived from the marked binding.)
+
+The marker and sigil are written immediately before the binding name — no whitespace within the sigil:
 
 ```
 ~>income:number        # OK
@@ -191,7 +208,6 @@ Rule: `STATE[path] = state[binding]`
 ```
 action "score" {
   compute {
-    root = decision
     prog "score_graph" {
       <~>income:number
       ~>debt:number
@@ -200,7 +216,7 @@ action "score" {
 
       income_ok:bool   = income >= min_income
       debt_ok:bool     = debt <= max_debt
-      <~decision:bool  = income_ok & debt_ok
+      |^| <~decision:bool  = income_ok & debt_ok
     }
   }
 
@@ -227,11 +243,10 @@ Inside a `next { }` block, a `prepare` block declares **ingress bindings** for t
 ```
 next {
   compute {
-    condition = go
     prog "to_approve" {
       ~>decision:bool
       ~>income_ok:bool
-      go:bool = decision & income_ok
+      |?| go:bool = decision & income_ok        # ← |?| marks the transition condition (last binding)
     }
   }
   prepare {
@@ -298,12 +313,11 @@ Sigils are stripped from the canonical binding name during lowering. The sigil i
 ```
 action "score" {
   compute {
-    root = decision
     prog "score_graph" {
       ~>income:number
-      <~decision:bool = income_ok & debt_ok
       income_ok:bool  = income >= min_income
       min_income:number = 50000
+      |^| <~decision:bool = income_ok & debt_ok
     }
   }
   prepare {

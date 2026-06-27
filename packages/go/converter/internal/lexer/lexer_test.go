@@ -98,6 +98,53 @@ func TestSigils(t *testing.T) {
 	}
 }
 
+func TestBindingMarkers(t *testing.T) {
+	cases := []struct {
+		src  string
+		kind TokenKind
+		val  string
+	}{
+		{"|^|", TokMarkerRoot, "|^|"},
+		{"|?|", TokMarkerCond, "|?|"},
+	}
+	for _, tc := range cases {
+		toks := filterEOF(mustTokenize(t, tc.src))
+		if len(toks) != 1 || toks[0].Kind != tc.kind || toks[0].Value != tc.val {
+			t.Errorf("src=%q: got kind=%v val=%q", tc.src, toks[0].Kind, toks[0].Value)
+		}
+	}
+}
+
+func TestBindingMarkerBeforeSigil(t *testing.T) {
+	toks := filterEOF(mustTokenize(t, "|^| <~phase"))
+	if toks[0].Kind != TokMarkerRoot {
+		t.Errorf("tok[0]: got %v, want TokMarkerRoot", toks[0].Kind)
+	}
+	if toks[1].Kind != TokSigilEgress {
+		t.Errorf("tok[1]: got %v, want TokSigilEgress", toks[1].Kind)
+	}
+	if toks[2].Kind != TokIdent || toks[2].Value != "phase" {
+		t.Errorf("tok[2]: got %v %q, want TokIdent(phase)", toks[2].Kind, toks[2].Value)
+	}
+}
+
+func TestBareMarkerCharIsError(t *testing.T) {
+	// '^' and '?' are only valid inside the |^| / |?| markers.
+	for _, src := range []string{"^", "?"} {
+		if _, ds := Tokenize("<test>", src); !ds.HasErrors() {
+			t.Errorf("src=%q: expected lex error for bare marker char", src)
+		}
+	}
+}
+
+func TestBarePipeStillTokenizes(t *testing.T) {
+	// A lone '|' (pipe operator) must not be swallowed by marker detection.
+	toks := filterEOF(mustTokenize(t, "a | b"))
+	if len(toks) != 3 || toks[1].Kind != TokPipe {
+		t.Errorf("got %d toks, tok[1]=%v; want pipe operator preserved", len(toks), toks[1].Kind)
+	}
+}
+
 func TestSigilLongestMatch(t *testing.T) {
 	// <~> must be preferred over <~
 	toks := filterEOF(mustTokenize(t, "<~>income"))
@@ -279,8 +326,6 @@ func TestKeywords(t *testing.T) {
 		{"publish", TokKwPublish},
 		{"next", TokKwNext},
 		{"prog", TokKwProg},
-		{"root", TokKwRoot},
-		{"condition", TokKwCondition},
 		{"entry_actions", TokKwEntryActions},
 		{"next_policy", TokKwNextPolicy},
 		{"from_state", TokKwFromState},

@@ -15,7 +15,7 @@ func FuzzParseFile(f *testing.F) {
 		`@@@ invalid @@@`,
 		"state { ns { x:number = 0 } }\nscene \"s\" {\n  entry_actions = [\"a\"]\n  action \"a\" {\n    compute { root = \"v\" prog \"p\" { <~ v:number = 1 } }\n    merge { v { to_state = ns.x } }\n  }\n}",
 		"state { ns { x:str = \"\" } }\nscene \"s\" { entry_actions = [\"a\"] action \"a\" { text = <<-EOT\nhello\nEOT\n} }",
-		`state { ns { b:bool = false } } scene "s" { entry_actions = ["a"] action "a" { compute { root = "r" prog "p" { v:bool = true r:bool = #if v => v | false } } } }`,
+		`state { ns { b:bool = false } } scene "s" { entry_actions = ["a"] action "a" { compute { prog "p" { v:bool = true |^| r:bool = #if v => v | false } } } }`,
 		"state { ns { n:number = 0 } }\nscene \"s\" { entry_actions = [\"a\"]\n  action \"a\" {\n    compute { root = \"r\"\n      prog \"p\" {\n        x:number = 1\n        r:number = #case x { 1 => 10 _ => 0 }\n      }\n    }\n  }\n}",
 		`{ { { { { {`,
 		`} } } } } }`,

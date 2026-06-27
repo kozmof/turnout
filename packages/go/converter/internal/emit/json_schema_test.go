@@ -36,10 +36,9 @@ scene "s" {
   next_policy   = "first-match"
   action "a" {
     compute {
-      root = done
       prog "p" {
         ~>score:number
-        <~done:bool    = true
+        |^| <~done:bool    = true
       }
     }
     prepare {
@@ -53,10 +52,9 @@ scene "s" {
     }
     next {
       compute {
-        condition = go
         prog "n" {
           ~>score:number
-          go:bool = true
+          |?| go:bool = true
         }
       }
       prepare {
@@ -66,7 +64,7 @@ scene "s" {
     }
   }
   action "b" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
   }
 }
 route "main" {

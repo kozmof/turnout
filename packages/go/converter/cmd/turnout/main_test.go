@@ -11,7 +11,7 @@ import (
 const validTurnSrc = `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = ["a"]
-  action "a" { compute { root = "r" prog "p" { r:bool = true } } }
+  action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`
 
 func TestBuildVersionReturnsTurnoutPrefix(t *testing.T) {
@@ -161,7 +161,7 @@ func TestRunConvertPrintsCompileWarnings(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = ["a"]
-  action "a" { compute { root = "r" prog "p" { unused:number = 1 r:bool = true } } }
+  action "a" { compute { prog "p" { unused:number = 1 |^| r:bool = true } } }
 }`
 	path := writeTempTurnFile(t, src)
 

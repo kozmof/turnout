@@ -34,7 +34,6 @@ scene "loan_flow" {
     """
 
     compute {
-      root     = decision
       prog "score_graph" {
         <~>income:number
         ~>debt:number
@@ -43,7 +42,7 @@ scene "loan_flow" {
 
         income_ok:bool = income >= min_income
         debt_ok:bool = debt <= max_debt
-        <~decision:bool = income_ok & debt_ok
+        |^| <~decision:bool = income_ok & debt_ok
       }
     }
 
@@ -59,11 +58,10 @@ scene "loan_flow" {
 
     next {
       compute {
-        condition = go
         prog "to_approve" {
           ~>decision:bool
           ~>income_ok:bool
-          go:bool = decision & income_ok
+          |?| go:bool = decision & income_ok
         }
       }
       prepare {
@@ -75,9 +73,8 @@ scene "loan_flow" {
 
     next {
       compute {
-        condition = always
         prog "to_reject" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = reject
@@ -92,12 +89,11 @@ scene "loan_flow" {
     """
 
     compute {
-      root     = approval_code
       prog "approve_graph" {
         prefix:str = "APR-"
         suffix:str = "0001"
         <~status:str = "approved"
-        <~approval_code:str = prefix + suffix
+        |^| <~approval_code:str = prefix + suffix
       }
     }
 
@@ -115,10 +111,9 @@ scene "loan_flow" {
     """
 
     compute {
-      root     = reason
       prog "reject_graph" {
         <~status:str = "rejected"
-        <~reason:str = "risk_threshold_not_met"
+        |^| <~reason:str = "risk_threshold_not_met"
       }
     }
 

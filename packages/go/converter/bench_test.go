@@ -22,11 +22,10 @@ scene "main" {
 
   action "init" {
     compute {
-      root = result
       prog "p" {
         a:number = 1
         b:number = 2
-        <~result:number = a + b
+        |^| <~result:number = a + b
       }
     }
     merge {
@@ -39,10 +38,9 @@ scene "main" {
 
   action "check" {
     compute {
-      root = active
       prog "p" {
         ~>cur:number
-        <~active:bool = cur > 0
+        |^| <~active:bool = cur > 0
       }
     }
     prepare {
@@ -53,10 +51,9 @@ scene "main" {
     }
     next {
       compute {
-        condition = cond
         prog "n" {
           ~>cur:number
-          cond:bool = cur > 0
+          |?| cond:bool = cur > 0
         }
       }
       prepare {

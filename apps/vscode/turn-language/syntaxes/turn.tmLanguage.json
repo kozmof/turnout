@@ -9,6 +9,7 @@
     { "include": "#property-assign" },
     { "include": "#named-block" },
     { "include": "#simple-block" },
+    { "include": "#binding-marker" },
     { "include": "#sigil-decl" },
     { "include": "#type-annotation" },
     { "include": "#function-call" },
@@ -57,7 +58,7 @@
 
     "property-assign": {
       "comment": "Named properties on the left-hand side of an assignment. Must come before named-block so 'action =' is caught as a property rather than a block keyword.",
-      "match": "\\b(entry_actions|next_policy|enforce|root|condition|from_state|to_state|from_action|text|flow|action)\\b(?=\\s*=)",
+      "match": "\\b(entry_actions|next_policy|enforce|from_state|to_state|from_action|text|flow|action)\\b(?=\\s*=)",
       "captures": {
         "1": { "name": "keyword.other.property.turn" }
       }
@@ -77,6 +78,14 @@
       "match": "\\b(compute|io|next|in|out)\\b",
       "captures": {
         "1": { "name": "keyword.other.block.turn" }
+      }
+    },
+
+    "binding-marker": {
+      "comment": "Binding markers designating the compute root (|^|) or transition condition (|?|). Written before any sigil on the last binding of a prog.",
+      "match": "(\\|\\^\\||\\|\\?\\|)",
+      "captures": {
+        "1": { "name": "keyword.operator.marker.turn" }
       }
     },
 

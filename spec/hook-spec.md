@@ -17,11 +17,10 @@ Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implem
 ```hcl
 action "process_order" {
   compute {
-    root = receipt
     prog "order_graph" {
       ~>raw_payload:str
       ~>user_id:str
-      <~receipt:str     = build_receipt(raw_payload, user_id)
+      |^| <~receipt:str     = build_receipt(raw_payload, user_id)
     }
   }
 
@@ -129,11 +128,10 @@ Multiple `hook` entries are allowed. Publish hooks fire in declaration order aft
 ```hcl
 action "process_order" {
   compute {
-    root = receipt
     prog "order_graph" {
       ~>raw_payload:str
       ~>user_id:str
-      <~receipt:str     = build_receipt(raw_payload, user_id)
+      |^| <~receipt:str     = build_receipt(raw_payload, user_id)
     }
   }
 

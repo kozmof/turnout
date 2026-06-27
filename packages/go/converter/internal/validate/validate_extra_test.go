@@ -115,12 +115,11 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         a:arr<number> = [1]
         b:arr<str>    = ["x"]
         out:arr<number> = arr_concat(a, b)
-        v:bool = true
+        |^| v:bool = true
       }
     }
   }
@@ -273,12 +272,11 @@ func TestSCNNextComputeNotBool(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
-        condition = score
         prog "n" {
-          score:number = 1
+          |?| score:number = 1
         }
       }
       action = a
@@ -465,7 +463,7 @@ func TestNextRuleUnknownAction(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
     next { action = unknown }
   }
 }
@@ -655,10 +653,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~x:number = 1
-        v:bool = true
+        |^| v:bool = true
       }
     }
     merge {
@@ -679,10 +676,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~x:number = 1
-        v:bool = true
+        |^| v:bool = true
       }
     }
     merge {
@@ -704,10 +700,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         ~>x:number
-        v:bool = true
+        |^| v:bool = true
       }
     }
   }
@@ -726,10 +721,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~>x:number
-        v:bool = true
+        |^| v:bool = true
       }
     }
   }
@@ -748,9 +742,9 @@ func TestNextPrepareFromAction(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:number = 42 } }
+    compute { prog "p" { |^| r:number = 42 } }
     next {
-      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      compute { prog "n" { ~>score:number |?| go:bool = true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -770,9 +764,9 @@ func TestNextPrepareFromState(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
     next {
-      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      compute { prog "n" { ~>score:number |?| go:bool = true } }
       prepare { score { from_state = app.score } }
       action = a
     }
@@ -792,9 +786,9 @@ func TestNextPrepareFromLiteral(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
     next {
-      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      compute { prog "n" { ~>score:number |?| go:bool = true } }
       prepare { score { from_literal = 42 } }
       action = a
     }
@@ -814,9 +808,9 @@ func TestNextPrepareFromActionUnknown(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:number = 42 } }
+    compute { prog "p" { |^| r:number = 42 } }
     next {
-      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      compute { prog "n" { ~>score:number |?| go:bool = true } }
       prepare { score { from_action = missing_binding } }
       action = a
     }
@@ -840,9 +834,9 @@ func TestNextPrepareFromActionTypeMismatch(t *testing.T) {
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
     next {
-      compute { condition = go prog "n" { ~>score:number go:bool = true } }
+      compute { prog "n" { ~>score:number |?| go:bool = true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -891,18 +885,17 @@ func TestNextPrepareFromStateInvalidPath(t *testing.T) {
 	}
 }
 
-// ─── next rule condition not found in prog ────────────────────────────────────
+// ─── next rule condition marks a non-bool binding ────────────────────────────
 
-func TestNextRuleConditionNotInProg(t *testing.T) {
+func TestNextRuleConditionNotBool(t *testing.T) {
 	src := basicState + `
 scene "test" {
   entry_actions = ["a"]
   action "a" {
-    compute { root = r prog "p" { r:bool = true } }
+    compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
-        condition = nonexistent
-        prog "n" { go:bool = true }
+        prog "n" { |?| go:number = 42 }
       }
       action = a
     }
@@ -910,7 +903,7 @@ scene "test" {
 }
 `
 	if !hasCode(pipeline(src), diag.CodeSCNNextComputeNotBool) {
-		t.Error("want SCNNextComputeNotBool for next condition not found in prog")
+		t.Error("want SCNNextComputeNotBool for non-bool condition binding")
 	}
 }
 
@@ -950,10 +943,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         ~>x:number
-        v:bool = true
+        |^| v:bool = true
       }
     }
     prepare {
@@ -976,10 +968,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~score:number = 0
-        v:bool = true
+        |^| v:bool = true
       }
     }
     merge {
@@ -1000,10 +991,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~score:number = 0
-        v:bool = true
+        |^| v:bool = true
       }
     }
     merge {
@@ -1024,10 +1014,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~score:number = 0
-        v:bool = true
+        |^| v:bool = true
       }
     }
     merge {
@@ -1048,10 +1037,9 @@ scene "test" {
   entry_actions = ["a"]
   action "a" {
     compute {
-      root = v
       prog "p" {
         <~score:number = 0
-        v:bool = true
+        |^| v:bool = true
       }
     }
     merge {

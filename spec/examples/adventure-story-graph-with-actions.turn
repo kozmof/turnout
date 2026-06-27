@@ -57,7 +57,6 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = decision_ready
       prog "choose_route_graph" {
         ~>has_map:bool
         ~>clue_count:number
@@ -70,7 +69,7 @@ scene "adventure_story_chapter_1" {
         can_forest:bool = has_map & clue_enough
         can_gate:bool = coins >= 3
         can_sewer:bool = lockpick_skill >= 1
-        decision_ready:bool = true
+        |^| decision_ready:bool = true
       }
     }
 
@@ -88,10 +87,9 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = go_forest
         prog "to_forest" {
           ~>can_forest:bool
-          go_forest:bool = can_forest
+          |?| go_forest:bool = can_forest
         }
       }
       prepare {
@@ -102,10 +100,9 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = go_gate
         prog "to_gate" {
           ~>can_gate:bool
-          go_gate:bool = can_gate
+          |?| go_gate:bool = can_gate
         }
       }
       prepare {
@@ -116,10 +113,9 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = go_sewer
         prog "to_sewer" {
           ~>can_sewer:bool
-          go_sewer:bool = can_sewer
+          |?| go_sewer:bool = can_sewer
         }
       }
       prepare {
@@ -130,9 +126,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_campfire" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = campfire_wait
@@ -148,14 +143,13 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = story_route
       prog "forest_trail_graph" {
         route_name:str = "forest_trail"
         danger:number = 2
 
         <~location:str = "Whispering Forest"
         <~danger_level:number = danger
-        <~story_route:str = route_name
+        |^| <~story_route:str = route_name
       }
     }
 
@@ -167,9 +161,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_shrine_discovery" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = shrine_discovery
@@ -185,7 +178,6 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = story_route
       prog "city_gate_graph" {
         route_name:str = "city_gate"
         <~location:str = "Stonebridge Gate"
@@ -193,7 +185,7 @@ scene "adventure_story_chapter_1" {
         toll:number    = 3
 
         <~coins_after:number = coins - toll
-        <~story_route:str = route_name
+        |^| <~story_route:str = route_name
       }
     }
 
@@ -209,9 +201,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_courtyard_arrival" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = courtyard_arrival
@@ -227,14 +218,13 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = story_route
       prog "sewer_tunnel_graph" {
         route_name:str = "sewer_tunnel"
         <~location:str = "Sunken Tunnel"
         ~>lockpick_skill:number
 
         <~found_mark:bool = lockpick_skill >= 2
-        <~story_route:str = route_name
+        |^| <~story_route:str = route_name
       }
     }
 
@@ -250,9 +240,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_hidden_archive" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = hidden_archive
@@ -268,12 +257,11 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = story_route
       prog "campfire_wait_graph" {
         route_name:str = "campfire_wait"
         <~note:str = "waited_until_dawn"
         <~location:str = "Crossroads Camp"
-        <~story_route:str = route_name
+        |^| <~story_route:str = route_name
       }
     }
 
@@ -285,9 +273,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_chapter_end_after_wait" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = chapter_end
@@ -303,11 +290,10 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = reward
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
         <~location:str = "Ruined Shrine"
-        <~reward:str = relic
+        |^| <~reward:str = relic
       }
     }
 
@@ -318,9 +304,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_chapter_end_after_shrine" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = chapter_end
@@ -336,11 +321,10 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = reward
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
         <~location:str = "Castle Courtyard"
-        <~reward:str = writ
+        |^| <~reward:str = writ
       }
     }
 
@@ -351,9 +335,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_chapter_end_after_courtyard" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = chapter_end
@@ -369,11 +352,10 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = reward
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
         <~location:str = "Hidden Archive"
-        <~reward:str = ledger
+        |^| <~reward:str = ledger
       }
     }
 
@@ -384,9 +366,8 @@ scene "adventure_story_chapter_1" {
 
     next {
       compute {
-        condition = always
         prog "to_chapter_end_after_archive" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = chapter_end
@@ -401,12 +382,11 @@ scene "adventure_story_chapter_1" {
     """
 
     compute {
-      root     = chapter_result
       prog "chapter_end_graph" {
         prefix:str = "chapter_1_"
         suffix:str = "complete"
         <~chapter_state:str = "resolved"
-        <~chapter_result:str = prefix + suffix
+        |^| <~chapter_result:str = prefix + suffix
       }
     }
 

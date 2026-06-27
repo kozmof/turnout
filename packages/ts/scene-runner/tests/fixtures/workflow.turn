@@ -26,12 +26,11 @@ scene "ai_workflow" {
 
   action "analyze" {
     compute {
-      root = analysis_done
       prog "analyze_prog" {
         ~>need_grounding:bool
         ~>kb_enabled:bool
         retrieve_ready:bool = need_grounding & kb_enabled
-        analysis_done:bool  = true
+        |^| analysis_done:bool  = true
       }
     }
     prepare {
@@ -40,10 +39,9 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = go_retrieve
         prog "to_retrieve" {
           ~>retrieve_ready:bool
-          go_retrieve:bool = retrieve_ready
+          |?| go_retrieve:bool = retrieve_ready
         }
       }
       prepare {
@@ -53,9 +51,8 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = always
         prog "to_draft_direct" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = draft_direct
@@ -64,11 +61,10 @@ scene "ai_workflow" {
 
   action "retrieve" {
     compute {
-      root = context_str
       prog "retrieve_prog" {
         ~>doc_hint:str
         prefix:str      = "Retrieved: "
-        <~context_str:str = prefix + doc_hint
+        |^| <~context_str:str = prefix + doc_hint
       }
     }
     prepare {
@@ -79,9 +75,8 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = always
         prog "to_draft_with_ctx" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = draft_with_context
@@ -90,11 +85,10 @@ scene "ai_workflow" {
 
   action "draft_direct" {
     compute {
-      root = draft_text
       prog "draft_direct_prog" {
         ~>query:str
         prefix:str      = "Direct answer: "
-        <~draft_text:str = prefix + query
+        |^| <~draft_text:str = prefix + query
       }
     }
     prepare {
@@ -105,9 +99,8 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = always
         prog "to_safety" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = safety_check
@@ -116,7 +109,6 @@ scene "ai_workflow" {
 
   action "draft_with_context" {
     compute {
-      root = draft_text
       prog "draft_ctx_prog" {
         ~>query:str
         ~>context:str
@@ -124,7 +116,7 @@ scene "ai_workflow" {
         close:str     = "]"
         mid:str        = query + sep
         mid2:str        = mid + context
-        <~draft_text:str = mid2 + close
+        |^| <~draft_text:str = mid2 + close
       }
     }
     prepare {
@@ -136,9 +128,8 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = always
         prog "to_safety2" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = safety_check
@@ -147,11 +138,10 @@ scene "ai_workflow" {
 
   action "safety_check" {
     compute {
-      root = safe
       prog "safety_prog" {
         ~>toxicity:number
         threshold:number  = 3
-        safe:bool = toxicity <= threshold
+        |^| safe:bool = toxicity <= threshold
       }
     }
     prepare {
@@ -159,10 +149,9 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = go_publish
         prog "to_publish" {
           ~>safe:bool
-          go_publish:bool = safe
+          |?| go_publish:bool = safe
         }
       }
       prepare {
@@ -172,9 +161,8 @@ scene "ai_workflow" {
     }
     next {
       compute {
-        condition = always
         prog "to_review" {
-          always:bool = true
+          |?| always:bool = true
         }
       }
       action = human_review
@@ -183,11 +171,10 @@ scene "ai_workflow" {
 
   action "publish" {
     compute {
-      root = final_response
       prog "publish_prog" {
         ~>draft:str
-        <~final_response:str = draft
         <~status:str         = "sent"
+        |^| <~final_response:str = draft
       }
     }
     prepare {
@@ -201,12 +188,11 @@ scene "ai_workflow" {
 
   action "human_review" {
     compute {
-      root = review_note
       prog "review_prog" {
         ~>draft:str
         prefix:str           = "Review needed: "
-        <~review_note:str    = prefix + draft
         <~status:str         = "awaiting_human"
+        |^| <~review_note:str    = prefix + draft
       }
     }
     prepare {

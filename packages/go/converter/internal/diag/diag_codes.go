@@ -12,6 +12,15 @@ const (
 	CodeLexError             ErrorCode = "LexError"
 )
 
+// Binding-marker error codes (`|^|` compute root / `|?|` transition condition).
+const (
+	CodeMissingRootMarker      ErrorCode = "MissingRootMarker"
+	CodeMissingConditionMarker ErrorCode = "MissingConditionMarker"
+	CodeDuplicateMarker        ErrorCode = "DuplicateMarker"
+	CodeMarkerNotLast          ErrorCode = "MarkerNotLast"
+	CodeMarkerContext          ErrorCode = "MarkerContext"
+)
+
 // Error codes from hcl-context-spec.md
 const (
 	CodeTypeMismatch          ErrorCode = "TypeMismatch"
