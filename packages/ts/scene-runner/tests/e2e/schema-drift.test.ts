@@ -48,6 +48,7 @@ const examples = [
   "adventure-story-graph-with-actions.turn",
   "customer-onboarding-multi-scene.turn",
   "detective-phase.turn",
+  "kitchen-sink-support-pipeline.turn",
   "llm-workflow-with-actions.turn",
   "scene-graph-with-actions.turn",
 ];
