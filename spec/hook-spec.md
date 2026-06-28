@@ -9,10 +9,10 @@
 
 A hook is a named extension point declared inside an action's `prepare` or `publish` section. It lets consumers inject TypeScript logic at fixed points in the action execution lifecycle.
 
-- Prepare hooks (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs; the hook returns an object whose fields are mapped into runtime state bindings.
-- Publish hooks (`publish { hook = "<name>" }`) — fire after merge; the hook receives the entire final state snapshot and cannot mutate it.
+- Prepare hooks (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs. The hook returns an object whose fields are mapped into runtime state bindings.
+- Publish hooks (`publish { hook = "<name>" }`) — fire after merge. The hook receives the entire final state snapshot and cannot mutate it.
 
-Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase: an unregistered `prepare.from_hook` fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
+Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase. An unregistered `prepare.from_hook` fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
 
 ```hcl
 action "process_order" {
@@ -190,7 +190,7 @@ action "process_order" {
 ```
 
 Rules:
-- Sigils are stripped from binding names in the `prog` block; direction is encoded structurally by membership in `prepare` or `merge`.
+- Sigils are stripped from binding names in the `prog` block. Direction is encoded structurally by membership in `prepare` or `merge`.
 - Each `prepare` entry becomes `binding "<name>" { from_state = ... }` or `binding "<name>" { from_hook = ... }`.
 - Each `merge` entry becomes `binding "<name>" { to_state = ... }`.
 - Each `publish` hook entry becomes a `hook = "<name>"` attribute (repeated for multiple hooks).
@@ -206,7 +206,7 @@ Rules:
 interface PrepareHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  / Read the current value of a state binding (e.g. from a prior from_state resolution).
+  /** Read the current value of a state binding (e.g. from a prior from_state resolution).
    *  Returns `undefined` if the binding name does not correspond to a resolved state binding. */
   get(binding: string): unknown;
 }
@@ -214,7 +214,7 @@ interface PrepareHookContext {
 interface PublishHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  / Read the entire final state snapshot. */
+  /** Read the entire final state snapshot. */
   state(): Record<string, unknown>;
 }
 
@@ -272,7 +272,7 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 
 ### 3.6 Hook isolation
 
-- Prepare hooks: can read runtime context and optionally read current state via `ctx.get()`. They cannot write state directly; writes occur only through the returned object mapped by the runtime.
+- Prepare hooks: can read runtime context and optionally read current state via `ctx.get()`. They cannot write state directly. Writes occur only through the returned object mapped by the runtime.
 - Publish hooks: can read the full final state via `ctx.state()`. They cannot write state.
 
 ---
@@ -281,13 +281,13 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 
 - `prepare { <binding> { from_hook = "<name>" } }` declares a prepare-phase hook for that binding.
 - `publish { hook = "<name>" }` declares a publish-phase hook for the action.
-- An `prepare` entry may carry `from_state` or `from_hook`; both are valid sources.
-- The same hook name may appear on multiple `prepare` entries; all matching bindings are collected from the single hook invocation result.
+- A `prepare` entry may carry `from_state` or `from_hook`. Both are valid sources.
+- The same hook name may appear on multiple `prepare` entries. All matching bindings are collected from the single hook invocation result.
 - Multiple `hook` entries in a `publish` block are valid and execute in declaration order.
 - Two distinct hook names may be declared in the same action.
 - If no publish hook implementation is registered for a publish hook name, the runtime silently skips that publish hook.
-- Prepare hooks fire before the compute graph; the compute graph observes the mapped values.
-- Publish hooks fire after merge; they receive the complete final state.
+- Prepare hooks fire before the compute graph. The compute graph observes the mapped values.
+- Publish hooks fire after merge. They receive the complete final state.
 
 ---
 
@@ -295,10 +295,10 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 
 - A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
 - A `from_hook` binding name cannot be absent from the action's `prog` block (`UnresolvedPrepareBinding` at convert time).
-- A prepare hook implementation cannot write to state directly; it can only return values via the result object.
-- A publish hook cannot mutate state; return values are ignored.
-- Hook execution order cannot be changed at runtime; it is fixed by declaration order in the emitted HCL.
-- A prepare hook cannot observe compute graph results (the graph has not run yet); only STATE-resolved and default binding values are available via `ctx.get()`.
+- A prepare hook implementation cannot write to state directly. It can only return values via the result object.
+- A publish hook cannot mutate state. Return values are ignored.
+- Hook execution order cannot be changed at runtime. It is fixed by declaration order in the emitted HCL.
+- A prepare hook cannot observe compute graph results (the graph has not run yet). Only STATE-resolved and default binding values are available via `ctx.get()`.
 
 ---
 

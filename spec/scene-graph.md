@@ -55,7 +55,7 @@ CAN (OK):
 
 CAN'T (NG):
 
-- An action `compute` prog cannot omit the `|^|` root marker (it derives `compute.root`); a prog cannot carry more than one marker, and the marked binding must be last.
+- An action `compute` prog cannot omit the `|^|` root marker (it derives `compute.root`). A prog cannot carry more than one marker, and the marked binding must be last.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A binding marked as ingress-capable (`~>` or `<~>`) cannot omit its `prepare` entry.
 - A next rule cannot omit the `|?|` condition marker (it derives `compute.condition`) or `compute.prog`.
@@ -148,11 +148,11 @@ type OverviewView = {
 Source and destination rules:
 
 - For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromState` or `fromHook`.
-- For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`; destination key is `toState` if provided, otherwise the binding key.
+- For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`. The destination key is `toState` if provided, otherwise the binding key.
 - For next-level bindings declared as `~>`, exactly one ingress source MUST be set in the transition `prepare`: `fromAction`, `fromState`, or `fromLiteral`.
 - `fromAction` is only valid inside transition `prepare` bindings.
 - `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
-- Future draft: action-level `prepare` may add `fromLiteral` as a third ingress source alongside `fromState` and `fromHook`; this is reserved future behavior and is not part of the implemented v1 model.
+- Future draft: action-level `prepare` may add `fromLiteral` as a third ingress source alongside `fromState` and `fromHook`. This is reserved future behavior and is not part of the implemented v1 model.
 - Publish hooks in `publish.hooks` fire after merge in declaration order and receive the complete final state.
 
 Action-to-next binding scope:
@@ -164,7 +164,7 @@ Action-to-next binding scope:
 
 This spec standardizes the following scene-level HCL shape:
 
-Reference-style fields below are shown in bare form; per Section 2.3, quoted and bare forms normalize identically.
+Reference-style fields below are shown in bare form. Per Section 2.3, quoted and bare forms normalize identically.
 Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
 Directional binding prefixes are interpreted before ContextSpec lowering:
 
@@ -267,7 +267,7 @@ Lowering and validation rules:
 1. The triple-quoted text block MAY appear at most once per action.
 2. The lowered value MUST be assigned to `action.text` as a string.
 3. If both a triple-quoted block and explicit `text = ...` appear in one action, validation MUST fail (`SCN_ACTION_TEXT_DUPLICATE`).
-4. A single newline immediately after opening `"""` and immediately before closing `"""` MUST be trimmed during lowering; all other content MUST be preserved verbatim.
+4. A single newline immediately after opening `"""` and immediately before closing `"""` MUST be trimmed during lowering. All other content MUST be preserved verbatim.
 
 ## 6. Validation Rules
 
@@ -300,7 +300,7 @@ For one action invocation with pre-state `S_n`:
 2. Load graph template: parse/compile `compute.prog` if not cached.
 3. Prepare phase:
    - For each `prepare.<binding>` with `fromState`, resolve value from `S_n`.
-   - For each `prepare.<binding>` with `fromHook`, invoke the named hook (deduplicating calls for the same hook name); map returned object fields into state bindings.
+   - For each `prepare.<binding>` with `fromHook`, invoke the named hook (deduplicating calls for the same hook name), then map returned object fields into state bindings.
    - If a required source is missing, fail action without executing the graph.
 4. Build runtime graph:
    - Lower HCL program to ContextSpec.
@@ -314,11 +314,11 @@ For one action invocation with pre-state `S_n`:
    - Build action binding namespace `A_n` from this invocation's `compute.prog` context.
 6. Merge phase: build action delta `D_n` from `merge` bindings:
    - For each `merge.<binding>`, read binding value from graph context/output table.
-   - Destination key is `toState` if provided; otherwise binding name.
+   - Destination key is `toState` if provided, otherwise binding name.
    - Merge `D_n` atomically into STATE using `replace-by-id` mode → produces `S_{n+1}`.
 7. Publish phase:
    - For each `hook` in `publish.hooks` (declaration order), invoke the hook passing the complete final state.
-   - Publish hooks are read-only; return values are ignored.
+   - Publish hooks are read-only. Return values are ignored.
 8. Evaluate next rules in declaration order:
    - Build/validate each next-rule `compute` graph.
    - Resolve transition `prepare` bindings from action namespace `A_n` (`fromAction`), post-merge state `S_{n+1}` (`fromState`), and literals.
@@ -349,7 +349,7 @@ Overview DSL behavior is unchanged from `draft-spec/scene-graph.md`:
 
 - `nodes_only`: `overview.nodes ⊆ impl_nodes`
 - `at_least`: `overview.nodes ⊆ impl_nodes` and `overview.data_edges ⊆ impl_data_edges`
-- `strict`: exact equality for nodes and data edges; control edge handling remains mode-dependent
+- `strict`: exact equality for nodes and data edges. Control edge handling remains mode-dependent
 
 Runtime mapping:
 
@@ -394,7 +394,7 @@ type SceneDiagnostic = {
 
 ## 11. Conformance Checklist
 
-1. `compute.root` is derived from the `|^|`-marked binding, so it always names an existing binding; an action `compute` prog with no `|^|` marker fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
+1. `compute.root` is derived from the `|^|`-marked binding, so it always names an existing binding. An action `compute` prog with no `|^|` marker fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
 3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `merge`.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.

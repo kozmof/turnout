@@ -1,6 +1,6 @@
 # HCL ContextSpec — Refined Specification
 
-> Status: Phase 1 ready for implementation; Phase 2 (loops) requires runtime extension.
+> Status: Phase 1 ready for implementation. Phase 2 (loops) requires runtime extension.
 > Target API: `ctx(spec: ContextSpec): BuildResult<T>` in `src/compute-graph/builder/context.ts`
 
 ---
@@ -173,7 +173,7 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
 - Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not part of v1.
-- Named argument call syntax such as `max(a: v1, b: v2)` is not supported; calls have positional semantics only. The converter emits `NamedArgNotSupported`.
+- Named argument call syntax such as `max(a: v1, b: v2)` is not supported. Calls have positional semantics only. The converter emits `NamedArgNotSupported`.
 - Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
 - Infix expressions support only `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, `%`, with exactly two operands.
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
@@ -184,7 +184,7 @@ CAN'T (NG):
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks, reference nodes, and canonical expression nodes to stay parseable and unambiguous in plain HCL.
 - Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker. The parser distinguishes infix from function calls by token lookahead.
-- Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition: every binary function is either call-only or operator-only.
+- Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition. Every binary function is either call-only or operator-only.
 
 ### Runtime value types
 
@@ -209,7 +209,7 @@ prog "main" {
 
 A program is a single `prog "<name>" { ... }` block.
 The `name` label is informational and does not affect the emitted ContextSpec.
-Bindings are order-independent; forward references are allowed (the compiler resolves in two passes, matching `ctx()`'s own two-pass processing).
+Bindings are order-independent. Forward references are allowed (the compiler resolves in two passes, matching `ctx()`'s own two-pass processing).
 
 ---
 
@@ -219,9 +219,9 @@ Bindings are order-independent; forward references are allowed (the compiler res
 name:type = literal
 ```
 
-- `name` must match `[A-Za-z_][A-Za-z0-9_]*`; names starting with `__` are reserved for compiler-generated bindings.
+- `name` must match `[A-Za-z_][A-Za-z0-9_]*`. Names starting with `__` are reserved for compiler-generated bindings.
 - `type` is one of: `number | str | bool | arr<number> | arr<str> | arr<bool>`
-- In the DSL layer, keys are written as `name:type`; the lowering pass splits on the first `:` and emits canonical plain HCL `binding` blocks.
+- In the DSL layer, keys are written as `name:type`. The lowering pass splits on the first `:` and emits canonical plain HCL `binding` blocks.
 
 ### Examples
 
@@ -294,7 +294,7 @@ Call functions have no infix operator and must be written using call syntax:
 name:type = fn_alias(arg1, arg2)        # positional call
 ```
 
-The parser distinguishes infix from function calls by the token following the first operand identifier: an infix operator (`&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=`) signals an infix expression; `(` signals a function call.
+The parser distinguishes infix from function calls by the token following the first operand identifier. An infix operator (`&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=`) signals an infix expression, and `(` signals a function call.
 
 Calls are positional. Named-argument syntax is rejected by the converter instead of being normalized.
 Operator functions are normalized by operator:
@@ -306,7 +306,7 @@ Operator functions are normalized by operator:
 - `lhs | rhs`  -> `bool_or(lhs, rhs)` (only valid for `name:bool`)
 - `lhs == rhs` -> `eq(lhs, rhs)` (only valid for `name:bool`)
 - `lhs != rhs` -> `neq(lhs, rhs)` (only valid for `name:bool`)
-- `lhs + rhs`  -> `add(lhs, rhs)` for `name:number`; `str_concat(lhs, rhs)` for `name:str` (type-dispatched)
+- `lhs + rhs`  -> `add(lhs, rhs)` for `name:number`, `str_concat(lhs, rhs)` for `name:str` (type-dispatched)
 - `lhs - rhs`  -> `sub(lhs, rhs)` (only valid for `name:number`)
 - `lhs * rhs`  -> `mul(lhs, rhs)` (only valid for `name:number`)
 - `lhs / rhs`  -> `div(lhs, rhs)` (only valid for `name:number`)
@@ -378,7 +378,7 @@ Functions marked operator-only must be written using their DSL operator. Their a
 | `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
-> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix form must be exactly `name:<type> = lhs OP rhs`; operator/type pairings are enforced: `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` for `name:bool`; `+`/`-`/`*`/`/`/`%` for `name:number`; `+` (only) for `name:str`; `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
+> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix form must be exactly `name:<type> = lhs OP rhs`. Operator and type pairings are enforced. `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` are valid for `name:bool`, `+`/`-`/`*`/`/`/`%` for `name:number`, and `+` (only) for `name:str`. `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
@@ -417,7 +417,7 @@ Rules:
 - `cond` must resolve to `bool`.
 - `then_expr` and `else_expr` must resolve to the same type.
 - The binding's declared type must match the branch type.
-- `#if` is preferred for short binary decisions; use `#case` for three or more outcomes.
+- `#if` is preferred for short binary decisions. Use `#case` for three or more outcomes.
 
 ---
 

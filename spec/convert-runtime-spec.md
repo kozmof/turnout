@@ -19,9 +19,9 @@ The model separates concerns across four layers:
 | publish | expose final state               |
 
 Key properties:
-- Sigils define directional intent; binding names remain plain canonical identifiers.
-- `prepare` and `merge` operate on individual bindings; `publish` operates on the whole state.
-- Hooks never mutate state directly; state is written only through prepare result mapping.
+- Sigils define directional intent. Binding names remain plain canonical identifiers.
+- `prepare` and `merge` operate on individual bindings. `publish` operates on the whole state.
+- Hooks never mutate state directly. State is written only through prepare result mapping.
 - All STATE paths and hook names are declared explicitly at convert time.
 
 ### Pipeline
@@ -97,13 +97,13 @@ action "checkout" {
 
 ### CAN'T (NG)
 
-- The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output; typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
-- The Go CLI cannot emit bare identifiers in argument positions; all references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
+- The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output. Typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
+- The Go CLI cannot emit bare identifiers in argument positions. All references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
 - The Go CLI cannot accept or emit non-v1 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `#pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
-- The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output; encountering them must produce an `UnsupportedConstruct` error and abort without emitting any HCL.
+- The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output. Encountering them must produce an `UnsupportedConstruct` error and abort without emitting any HCL.
 - The Go CLI cannot emit HCL that is not parseable by a stock HCL parser.
 - The Go CLI cannot emit a file in which two `action` blocks share the same name label.
-- Effect timing cannot be inferred at runtime; it must be fixed in the emitted HCL at convert time as declared in the Turn DSL.
+- Effect timing cannot be inferred at runtime. It must be fixed in the emitted HCL at convert time as declared in the Turn DSL.
 - The Go CLI cannot emit a `prepare` or `merge` binding whose name does not match an existing `binding` block in the same `prog`.
 - The Go CLI cannot emit a `from_state` or `to_state` value that is not a valid dotted identifier path.
 - The Go CLI cannot emit a `prepare` entry with both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
@@ -145,7 +145,7 @@ During execution of one action, the runtime maintains a local state map:
 State = { binding_name → value }
 ```
 
-Binding names are defined by the `prog` block in `compute`; the set of bindings declared there forms the runtime state schema for that action invocation. This state map is distinct from STATE (`S_n` / `S_{n+1}`):
+Binding names are defined by the `prog` block in `compute`. The set of bindings declared there forms the runtime state schema for that action invocation. This state map is distinct from STATE (`S_n` / `S_{n+1}`):
 
 - `prepare` populates state bindings from STATE paths or hook results before the graph runs.
 - `compute` reads and writes state bindings through the program graph.
@@ -166,7 +166,7 @@ Example state during `process_order` execution:
 
 > For the full per-action lifecycle (prepare → compute → merge → publish), see `scene-graph.md §7`. Hook invocation ordering and deduplication rules are in `hook-spec.md §1.4`.
 
-After the publish phase completes, the runtime evaluates transition rules: for each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked to select the next action(s) per the effective next policy (`first-match` or `all-match`).
+After the publish phase completes, the runtime evaluates transition rules. For each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked to select the next action(s) per the effective next policy (`first-match` or `all-match`).
 
 ### CAN (OK)
 
@@ -187,17 +187,17 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 
 ### CAN'T (NG)
 
-- The runtime cannot begin executing actions if any scene structural invariant (per `scene-graph.md` §3.3) fails; it must set run status to `invalid_graph` and stop.
-- The runtime cannot partially mutate STATE on action validation or execution failure; merge must not run if steps 1–4 fail.
-- The runtime cannot allow a transition compute program to reference bindings from its parent action's `prog` block directly; ingress values must be explicitly declared via transition `prepare` entries.
+- The runtime cannot begin executing actions if any scene structural invariant (per `scene-graph.md` §3.3) fails. It must set run status to `invalid_graph` and stop.
+- The runtime cannot partially mutate STATE on action validation or execution failure. Merge must not run if steps 1–4 fail.
+- The runtime cannot allow a transition compute program to reference bindings from its parent action's `prog` block directly. Ingress values must be explicitly declared via transition `prepare` entries.
 - The runtime cannot apply merge deltas out of declaration order within a single action.
-- The runtime cannot accept an unknown merge mode; it must fail pre-execution validation.
+- The runtime cannot accept an unknown merge mode. It must fail pre-execution validation.
 - The runtime cannot skip transition evaluation after a successful action execution.
-- The runtime cannot change effect timing at runtime; timing is fixed by the emitted HCL declarations.
-- The runtime cannot allow a prepare hook to mutate state directly; state writes occur only through the returned object mapped by the runtime.
-- The runtime cannot allow a publish hook to mutate state; publish hooks are read-only with respect to action state.
-- The runtime cannot change hook execution order at runtime; hooks execute in declaration order as emitted in HCL.
-- Under `all-match`, the runtime cannot execute selected next actions concurrently; execution order is declaration order and each action merges before the next begins.
+- The runtime cannot change effect timing at runtime. Timing is fixed by the emitted HCL declarations.
+- The runtime cannot allow a prepare hook to mutate state directly. State writes occur only through the returned object mapped by the runtime.
+- The runtime cannot allow a publish hook to mutate state. Publish hooks are read-only with respect to action state.
+- The runtime cannot change hook execution order at runtime. Hooks execute in declaration order as emitted in HCL.
+- Under `all-match`, the runtime cannot execute selected next actions concurrently. Execution order is declaration order and each action merges before the next begins.
 
 ---
 
@@ -216,16 +216,16 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 
 - An action can declare multiple prepare input bindings, each reading from a distinct STATE dotted path or hook.
 - An action can declare multiple merge output bindings, each writing to a distinct STATE dotted path.
-- An action can declare multiple publish hooks; each receives the full final state.
+- An action can declare multiple publish hooks. Each receives the full final state.
 - Transition ingress can read from action output (`fromAction`) and from post-merge STATE (`fromState`) in the same rule.
 - STATE keys not present in `D_n` remain unchanged after merge.
 
 ### CAN'T (NG)
 
-- An action compute graph cannot mutate STATE directly during execution; all STATE writes must go through the declared merge step.
-- A transition compute program cannot write to STATE; it can only read from `R_n` and `S_{n+1}`.
-- Prepare inputs must not be resolved from `S_{n+1}` (post-merge state); they must use the `S_n` snapshot taken before execution.
-- Effect bindings cannot bypass the convert-time STATE path declarations; the runtime cannot introduce ad-hoc STATE paths not declared in the emitted HCL.
+- An action compute graph cannot mutate STATE directly during execution. All STATE writes must go through the declared merge step.
+- A transition compute program cannot write to STATE. It can only read from `R_n` and `S_{n+1}`.
+- Prepare inputs must not be resolved from `S_{n+1}` (post-merge state). They must use the `S_n` snapshot taken before execution.
+- Effect bindings cannot bypass the convert-time STATE path declarations. The runtime cannot introduce ad-hoc STATE paths not declared in the emitted HCL.
 - Publish hooks cannot mutate state.
 
 ---

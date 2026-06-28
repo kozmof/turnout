@@ -9,7 +9,7 @@
 
 STATE (`S_n`) is the shared mutable store that persists values across action executions. Within a route, STATE is global, so all scenes in a route share the same STATE instance. Actions read from STATE through `prepare` and write back through `merge`, using dotted paths such as `applicant.income` or `decision.approved`.
 
-STATE is declared independently of any action, either at the top level of the same Turn DSL file as `scene`, or in a dedicated file referenced by `state_file`. This separation makes STATE the single authoritative source for the type contract that all actions must satisfy: the declared field types are type constraints enforced at convert time against every action's `merge` bindings.
+STATE is declared independently of any action, either at the top level of the same Turn DSL file as `scene`, or in a dedicated file referenced by `state_file`. This separation makes STATE the single authoritative source for the type contract that all actions must satisfy. The declared field types are type constraints enforced at convert time against every action's `merge` bindings.
 
 This spec defines:
 
@@ -140,7 +140,7 @@ The referenced file MUST contain exactly one top-level `state { ... }` block and
 Rules:
 - `state_file` and `state { ... }` are mutually exclusive. Providing both is an error (`ConflictingStateSource`).
 - The path in `state_file` is resolved relative to the Turn DSL file that declares it.
-- A state file MUST be a valid Turn DSL `state` block source; parse errors in the state file abort conversion (`StateFileParseError`).
+- A state file MUST be a valid Turn DSL `state` block source. Parse errors in the state file abort conversion (`StateFileParseError`).
 - If the referenced file does not exist, the converter aborts with `StateFileMissing`.
 
 ---
@@ -197,7 +197,7 @@ state {
 | Array field `tags:arr<str> = []`     | `field "tags" { type = "arr<str>" value = [] }` block                    |
 | Array field `scores:arr<number> = []`| `field "scores" { type = "arr<number>" value = [] }` block               |
 
-When the DSL uses `state_file`, the converter reads and lowers the referenced file's `state` block using identical lowering rules; the result is indistinguishable from an inline `state` block.
+When the DSL uses `state_file`, the converter reads and lowers the referenced file's `state` block using identical lowering rules. The result is indistinguishable from an inline `state` block.
 
 ### 3.2 Attribute schema per `field` block
 
@@ -227,9 +227,9 @@ The `type` declared for each STATE field is the authoritative type constraint fo
 
 - For every `merge` binding targeting a STATE field, the type of the source binding in `compute.prog` must match the declared `type` of the target STATE field.
 - A mismatch is a convert-time error (`StateTypeMismatch`).
-- No runtime coercion occurs; the declared type is final.
+- No runtime coercion occurs. The declared type is final.
 
-This constraint is checked across all actions simultaneously. The STATE `state` block is the single source of truth; individual action bindings do not override or re-declare field types.
+This constraint is checked across all actions simultaneously. The STATE `state` block is the single source of truth. Individual action bindings do not override or re-declare field types.
 
 ### 4.2 Type coercion
 
@@ -305,7 +305,7 @@ Every declared field is present in `S_0`. No field is absent after initializatio
 
 ### 6.3 Merge semantics
 
-`D_n` is applied atomically using `replace-by-id` merge: each key in `D_n` replaces the corresponding key in `S_n`; keys absent from `D_n` are unchanged. The result is `S_{n+1}`.
+`D_n` is applied atomically using `replace-by-id` merge. Each key in `D_n` replaces the corresponding key in `S_n`, and keys absent from `D_n` are unchanged. The result is `S_{n+1}`.
 
 ```
 S_{n+1} = { ...S_n, ...D_n }
@@ -315,7 +315,7 @@ S_{n+1} = { ...S_n, ...D_n }
 
 ## 7. HCL File Layout
 
-The `state` block and `scene` block are co-located in the same HCL file emitted by the converter. The `state` block appears before the `scene` block. This layout is identical whether the DSL used an inline `state` block or a `state_file` directive; the converter always inlines the resolved state before emitting.
+The `state` block and `scene` block are co-located in the same HCL file emitted by the converter. The `state` block appears before the `scene` block. This layout is identical whether the DSL used an inline `state` block or a `state_file` directive. The converter always inlines the resolved state before emitting.
 
 ```hcl
 state {
@@ -374,28 +374,28 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 
 - A `state` block can be declared at the top level of a Turn DSL file, independently of `scene`.
 - A `state_file` directive can reference an external file containing a standalone `state` block, allowing STATE to be shared across multiple Turn DSL files.
-- A `state` block can declare zero or more namespaces; an empty `state` block is valid for pure-compute scenes with no STATE I/O.
+- A `state` block can declare zero or more namespaces. An empty `state` block is valid for pure-compute scenes with no STATE I/O.
 - A namespace can contain zero or more fields.
 - The same namespace label can appear in multiple `from_state` and `to_state` references across different actions.
 - A STATE field can be both a `from_state` source in one action's `prepare` and a `to_state` destination in another action's `merge`.
 - A `<~>` bidirectional binding can read from one STATE path in `prepare` and write to a different STATE path in `merge`.
 - `S_0` initialization uses the declared `value` defaults for all fields.
-- The runtime can initialize `S_0` before the first entry action fires; no STATE path can be absent after initialization.
+- The runtime can initialize `S_0` before the first entry action fires. No STATE path can be absent after initialization.
 - The converter can check type constraints across all actions simultaneously against the single `state` block declaration.
 
 ### CAN'T (NG)
 
-- A `state` block cannot be declared inside a `scene` or `action` block; it must be top-level.
+- A `state` block cannot be declared inside a `scene` or `action` block. It must be top-level.
 - A Turn DSL file cannot declare both an inline `state` block and a `state_file` directive (`ConflictingStateSource`).
-- A `state_file` cannot contain a `scene` block or another `state_file` directive; it must contain only a `state` block.
+- A `state_file` cannot contain a `scene` block or another `state_file` directive. It must contain only a `state` block.
 - A `state` block cannot declare a path with fewer than two segments (single-segment identifiers are not valid STATE paths).
 - A field cannot be declared without both `type` and `value`.
 - A `from_state` or `to_state` path cannot reference an undeclared field.
-- An action compute graph cannot write to STATE directly during execution; all STATE writes must go through the `merge` step.
+- An action compute graph cannot write to STATE directly during execution. All STATE writes must go through the `merge` step.
 - A transition compute program cannot write to STATE (no `<~` or `<~>` sigils in transition `prog` blocks).
 - The runtime cannot accept a partial `state` block (missing `type` or `value`) without emitting a validation error.
 - A `state` block cannot contain duplicate namespace labels or duplicate field names within one namespace.
-- An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type; this is a convert-time type constraint error (`StateTypeMismatch`). For example, writing a `str` value to a `number` field is a type error.
+- An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type. This is a convert-time type constraint error (`StateTypeMismatch`). For example, writing a `str` value to a `number` field is a type error.
 
 ---
 

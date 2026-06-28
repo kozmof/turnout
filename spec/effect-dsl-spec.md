@@ -76,7 +76,7 @@ A binding may carry a leading marker, written before any sigil:
 
 Rules (all enforced at compile time):
 
-- An action `compute` prog must contain exactly one `|^|` marker; a `next` `compute` prog must contain exactly one `|?|` marker.
+- An action `compute` prog must contain exactly one `|^|` marker. A `next` `compute` prog must contain exactly one `|?|` marker.
 - The marked binding must be the last binding declared in the prog (read like a `return`).
 - A marker of the wrong kind for its context is an error (e.g. `|?|` in an action compute).
 - The marker replaces the former `root = <ident>` / `condition = <ident>` sibling fields, which no longer exist in the DSL. (The lowered canonical HCL and runtime model still carry `compute.root` / `compute.condition` string fields, derived from the marked binding.)
@@ -94,7 +94,7 @@ The marker and sigil are written immediately before the binding name, with no wh
 
 `_` has no meaning in sigil declarations. In local expression forms, `_` is reserved for `#case` wildcard patterns and `#it` is the current-value placeholder for `#pipe` steps.
 
-- All `from_state` entries are `required = true`. A missing STATE path at runtime is an error; the declaration itself is not a fallback value.
+- All `from_state` entries are `required = true`. A missing STATE path at runtime is an error. The declaration itself is not a fallback value.
 - For `from_state`, the converter resolves the initial value from the STATE schema and emits the state-declared default in the canonical `binding` block as `value`, so the compute graph remains well-typed before runtime prepare overwrites it. Other prepare sources use their declared binding type for validation.
 
 ```
@@ -179,7 +179,7 @@ prepare {
 Proposed semantics:
 
 - `from_literal` would assign the literal directly to the named action binding before the compute graph runs.
-- It would be mutually exclusive with `from_state` and `from_hook`; each action `prepare` entry would still define exactly one source.
+- It would be mutually exclusive with `from_state` and `from_hook`. Each action `prepare` entry would still define exactly one source.
 - Literal values would be checked against the target binding type during conversion where the literal type is statically known.
 - This extension would align action-level ingress with transition-level `from_literal`, while preserving the rule that transitions cannot use `from_hook`.
 
@@ -238,7 +238,7 @@ action "score" {
 
 ### 4.1 Structure
 
-Inside a `next { }` block, a `prepare` block declares ingress bindings for the transition's compute program. Only `from_action`, `from_state`, and `from_literal` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
+Inside a `next { }` block, a `prepare` block declares ingress bindings for the transition's compute program. Only `from_action`, `from_state`, and `from_literal` are valid sources inside a transition `prepare`. `from_hook` is prohibited (transitions cannot invoke hooks).
 
 ```
 next {
@@ -267,9 +267,9 @@ Each entry inside a transition `prepare` must have exactly one of:
 | `from_state = <dotted.path>` | Post-merge STATE value after the action's merge |
 | `from_literal = <value>` | A literal value (string, number, or boolean) |
 
-Any one of these may be used per entry; they may be mixed across different entries in the same transition `prepare` block.
+Any one of these may be used per entry. They may be mixed across different entries in the same transition `prepare` block.
 
-> Note on `from_literal` type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values; it does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
+> Note on `from_literal` type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values. It does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
 ### 4.3 Sigil on transition `prog` bindings
 

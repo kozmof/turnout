@@ -107,7 +107,7 @@ A path expression with a single `*` is permitted. Multiple `*` wildcards in a si
 
 #### OR expression `\|`
 
-Multiple path forms can be OR-joined within a single arm using `|`. All branches of a `|` expression must share the same `=> <scene_id>` target. Each branch is evaluated independently; the arm matches if any branch matches.
+Multiple path forms can be OR-joined within a single arm using `|`. All branches of a `|` expression must share the same `=> <scene_id>` target. Each branch is evaluated independently. The arm matches if any branch matches.
 
 #### Fallback `_`
 
@@ -185,7 +185,7 @@ Interpretation:
 - A path form can use one `*` wildcard before a terminal action_id (`scene_id.*.<action_id>`).
 - Multiple arms (or `|` branches) can target the same scene ID.
 - A narrower eligible arm declared after a broader eligible arm still wins (priority overrides declaration order).
-- Omitting `_` is valid; the route simply completes if no arm matches.
+- Omitting `_` is valid. The route simply completes if no arm matches.
 - A `|` expression can combine any number of path forms within a single arm.
 
 ### CAN'T (NG)
@@ -193,12 +193,12 @@ Interpretation:
 - A `match` block cannot have more than one `_` fallback arm (`DuplicateFallback`).
 - A path form cannot use bare `scene_id.*` with no terminal action_id (`BareWildcardPath`).
 - A path form cannot use more than one `*` wildcard (`MultipleWildcards`).
-- A path item cannot omit the scene_id prefix; bare action names are invalid (`InvalidPathItem`).
+- A path item cannot omit the scene_id prefix. Bare action names are invalid (`InvalidPathItem`).
 - A route cannot omit its required entry scene (`MissingEntryScene`).
 - A route entry cannot reference an undefined scene ID (`UnresolvedEntryScene`).
 - A match target cannot reference an undefined scene ID (`UnresolvedScene`).
 - A direct `scene_id.action_id` pattern cannot reference an action missing from that scene (`UnresolvedAction`).
-- A `<~` or `<~>` sigil (from `effect-dsl-spec.md`) has no meaning inside a route pattern; route patterns are read-only against history.
+- A `<~` or `<~>` sigil (from `effect-dsl-spec.md`) has no meaning inside a route pattern. Route patterns are read-only against history.
 
 ---
 
@@ -209,12 +209,12 @@ Before first route execution, implementations MUST validate:
 1. Each route has exactly one non-empty `entry "<scene_id>"` declaration, and the entry scene exists.
 2. Each `match` block has at most one `_` arm.
 3. All `=> <scene_id>` targets reference scenes that exist in the global scene registry.
-4. All path forms are well-formed (`<scene_id>.<action_id>` or `<scene_id>.*.<action_id>(.<action_id>)*`) with exactly zero or one `*`; bare `<scene_id>.*` and multiple `*` are rejected.
+4. All path forms are well-formed (`<scene_id>.<action_id>` or `<scene_id>.*.<action_id>(.<action_id>)*`) with exactly zero or one `*`. Bare `<scene_id>.*` and multiple `*` are rejected.
 5. Direct two-segment path forms `<scene_id>.<action_id>` reference actions that exist in the named scene.
 6. Wildcard path terminal action names that do not match any known action ID emit `WildcardTerminalUnresolvable` as a warning.
 7. All branches within a `|` expression share a common `=> <scene_id>` target (enforced by syntax).
 
-Validation failures MUST produce an `invalid_route` diagnostic. Each failure emits a `RouteDiagnostic` (see §10) carrying the applicable specific error code as `code`; `invalid_route` is the top-level `stage` marker on that diagnostic, not a separate emission.
+Validation failures MUST produce an `invalid_route` diagnostic. Each failure emits a `RouteDiagnostic` (see §10) carrying the applicable specific error code as `code`. `invalid_route` is the top-level `stage` marker on that diagnostic, not a separate emission.
 
 ---
 
@@ -234,7 +234,7 @@ Resolved:
 
 ## 10. Error Catalogue
 
-Each validation or runtime failure emits a `RouteDiagnostic`. The specific error codes below are carried in the `code` field; all route-block validation failures are identified by `stage: "route_validation"`.
+Each validation or runtime failure emits a `RouteDiagnostic`. The specific error codes below are carried in the `code` field. All route-block validation failures are identified by `stage: "route_validation"`.
 
 ```ts
 type RouteDiagnostic = {

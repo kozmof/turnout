@@ -378,7 +378,7 @@ Proposed semantics:
 * Methods are evaluated left to right. The output of each method becomes the receiver for the next method in the chain.
 * Zero-argument methods map to existing unary `transformFn` operations where possible, such as `.round()`, `.floor()`, `.trim()`, and `.not()`.
 * Argument-taking methods such as `.clamp(min, max)` are future local-expression calls. They require either new transform functions with parameters or lowering to equivalent binary/local expression forms.
-* `#it` keeps its existing meaning: inside a `#pipe` step, it is the current pipeline value. Method calls do not introduce a second placeholder.
+* `#it` keeps its existing meaning. Inside a `#pipe` step, it is the current pipeline value. Method calls do not introduce a second placeholder.
 * Type checking is staged after each method call. A method can be called only when it is defined for the receiver type produced by the prior stage.
 * Method calls are pure and deterministic. They do not read or write STATE, hooks, or action bindings other than their explicit receiver and arguments.
 
@@ -681,7 +681,7 @@ MethodCallExpr = Expr "." Identifier "(" [ Expr { "," Expr } ] ")" ;
 Notes:
 
 * `#it` is semantically constrained even if the grammar permits it as an expression token.
-* `MethodCallExpr` is future syntax only; the implemented v1 parser does not accept method calls on `#it` or arbitrary local expressions.
+* `MethodCallExpr` is future syntax only. The implemented v1 parser does not accept method calls on `#it` or arbitrary local expressions.
 * Whether identifiers in patterns are syntactically distinguished from value references is left to the final parser/type design.
 
 ---

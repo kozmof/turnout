@@ -17,7 +17,7 @@ score_text:str = score.abs().toStr() + unit  // number → number → string, th
 
 `pass` is an internal identity function used by the runtime. It is not part of the DSL surface syntax.
 
-For multi-step local expression chains, authors can use `#pipe(initial, step, ...)` from `pipe-if-case-it.md`. Inside a `#pipe` step, `#it` names the current pipeline value; `_` is not a transform placeholder. Transform method calls are not currently parsed on `#it` or on arbitrary local-expression results; `pipe-if-case-it.md §6.6` defines a future draft for syntax such as `#it.round().clamp(0, 5000)`.
+For multi-step local expression chains, authors can use `#pipe(initial, step, ...)` from `pipe-if-case-it.md`. Inside a `#pipe` step, `#it` names the current pipeline value, and `_` is not a transform placeholder. Transform method calls are not currently parsed on `#it` or on arbitrary local-expression results. `pipe-if-case-it.md §6.6` defines a future draft for syntax such as `#it.round().clamp(0, 5000)`.
 
 ---
 
@@ -54,7 +54,7 @@ For multi-step local expression chains, authors can use `#pipe(initial, step, ..
   isActive.abs()        // NG: isActive is boolean; abs is number-only
   name.floor()          // NG: name is string; floor is number-only
   ```
-  This is the direct counterpart of the CAN rule: each method is exclusively permitted on its declared type.
+  This is the direct counterpart of the CAN rule. Each method is exclusively permitted on its declared type.
 - `null` receivers cannot call any DSL method. There are no DSL-visible conversions for `null`.
 - Method-call syntax is not accepted as a standalone binding RHS, on literal receivers, or on local-expression placeholders/results:
   ```
@@ -70,7 +70,7 @@ For multi-step local expression chains, authors can use `#pipe(initial, step, ..
   ```
   income.toStr().round()   // NG: round is number-only; toStr() produced a string
   ```
-  This is the direct counterpart of the chaining CAN rule: chaining is only valid when the intermediate type supports the next method.
+  This is the direct counterpart of the chaining CAN rule. Chaining is only valid when the intermediate type supports the next method.
 - `.toNumber()` on `string` does not guarantee a valid number. Non-numeric strings produce `NaN`. The DSL must not implicitly validate or coerce the parse result. Authors are responsible for ensuring the string is numeric before calling `.toNumber()`.
 - `transformFn` methods cannot accept a second argument. Combining two values requires a `binaryFn` (`combineFunc`), not a `transformFn` method call:
   ```
@@ -81,7 +81,7 @@ For multi-step local expression chains, authors can use `#pipe(initial, step, ..
 
 ## Correlation Between CAN and CAN'T
 
-- Because each method is bound to a single receiver type (CAN), cross-type calls are statically forbidden (CAN'T). The type table is exhaustive; any method not listed for a type is invalid on that type.
+- Because each method is bound to a single receiver type (CAN), cross-type calls are statically forbidden (CAN'T). The type table is exhaustive. Any method not listed for a type is invalid on that type.
 - Because chaining is valid only when intermediate types match (CAN), a chain that crosses a type boundary where the next method is undefined is always invalid (CAN'T).
 - Because `pass` is excluded from DSL (CAN'T), the set of DSL-visible methods for each type is strictly a subset of the runtime `transformFn` implementations. Authors cannot observe or rely on the identity no-op.
 
