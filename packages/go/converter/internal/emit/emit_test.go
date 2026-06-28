@@ -378,7 +378,7 @@ scene "s" {
     }
     next {
       compute {
-        prog "n" { |?| go:bool = true }
+        prog "n" { ready:bool = false   |?| go:bool = ready }
       }
       action = b
     }
@@ -395,6 +395,35 @@ scene "s" {
 	}
 	if !strings.Contains(out, `action = "b"`) {
 		t.Error("missing action target")
+	}
+}
+
+// A deterministic transition (condition is the literal `true`) is normalized to
+// the concise `next { action = ... }` form: no compute block is emitted.
+func TestEmitNextRuleDeterministicOmitsCompute(t *testing.T) {
+	out := fullPipeline(t, `state { ns { v:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      prog "p" { |^| r:bool = true }
+    }
+    next {
+      compute {
+        prog "n" { |?| always:bool = true }
+      }
+      action = b
+    }
+  }
+  action "b" {
+    compute { prog "p" { |^| r:bool = true } }
+  }
+}`)
+	if !strings.Contains(out, `action = "b"`) {
+		t.Error("missing action target")
+	}
+	if strings.Contains(out, "condition") {
+		t.Errorf("deterministic next rule should omit compute/condition, got:\n%s", out)
 	}
 }
 

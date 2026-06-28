@@ -72,11 +72,6 @@ scene "loan_flow" {
     }
 
     next {
-      compute {
-        prog "to_reject" {
-          |?| always:bool = true
-        }
-      }
       action = reject
     }
   }

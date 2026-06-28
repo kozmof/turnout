@@ -160,16 +160,6 @@ scene "loan_flow" {
     }
 
     next {
-      compute {
-        condition = "always"
-        prog "to_reject" {
-          binding "always" {
-            type  = "bool"
-            value = true
-          }
-        }
-      }
-
       action = "reject"
     }
   }

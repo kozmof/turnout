@@ -76,7 +76,7 @@ A binding may carry a leading marker, written before any sigil:
 
 Rules (all enforced at compile time):
 
-- An action `compute` prog must contain exactly one `|^|` marker. A `next` `compute` prog must contain exactly one `|?|` marker.
+- An action `compute` prog must contain exactly one `|^|` marker. A `next` `compute` prog, when present, must contain exactly one `|?|` marker. A `next` rule may omit the `compute` block entirely for a deterministic (unconditional) transition — `next { action = ... }` — which is equivalent to a `|?| c:bool = true` condition; a trivially-true condition is normalized to this concise form during conversion.
 - The marked binding must be the last binding declared in the prog (read like a `return`).
 - A marker of the wrong kind for its context is an error (e.g. `|?|` in an action compute).
 - The marker replaces the former `root = <ident>` / `condition = <ident>` sibling fields, which no longer exist in the DSL. (The lowered canonical HCL and runtime model still carry `compute.root` / `compute.condition` string fields, derived from the marked binding.)

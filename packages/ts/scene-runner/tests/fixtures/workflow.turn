@@ -50,11 +50,6 @@ scene "ai_workflow" {
       action = retrieve
     }
     next {
-      compute {
-        prog "to_draft_direct" {
-          |?| always:bool = true
-        }
-      }
       action = draft_direct
     }
   }
@@ -74,11 +69,6 @@ scene "ai_workflow" {
       context_str { to_state = workflow.context }
     }
     next {
-      compute {
-        prog "to_draft_with_ctx" {
-          |?| always:bool = true
-        }
-      }
       action = draft_with_context
     }
   }
@@ -98,11 +88,6 @@ scene "ai_workflow" {
       draft_text { to_state = workflow.draft }
     }
     next {
-      compute {
-        prog "to_safety" {
-          |?| always:bool = true
-        }
-      }
       action = safety_check
     }
   }
@@ -127,11 +112,6 @@ scene "ai_workflow" {
       draft_text { to_state = workflow.draft }
     }
     next {
-      compute {
-        prog "to_safety2" {
-          |?| always:bool = true
-        }
-      }
       action = safety_check
     }
   }
@@ -160,11 +140,6 @@ scene "ai_workflow" {
       action = "publish"
     }
     next {
-      compute {
-        prog "to_review" {
-          |?| always:bool = true
-        }
-      }
       action = human_review
     }
   }

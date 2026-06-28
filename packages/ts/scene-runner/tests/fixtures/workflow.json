@@ -177,19 +177,6 @@
               "action": "retrieve"
             },
             {
-              "compute": {
-                "condition": "always",
-                "prog": {
-                  "name": "to_draft_direct",
-                  "bindings": [
-                    {
-                      "name": "always",
-                      "type": "bool",
-                      "value": true
-                    }
-                  ]
-                }
-              },
               "action": "draft_direct"
             }
           ]
@@ -245,19 +232,6 @@
           ],
           "next": [
             {
-              "compute": {
-                "condition": "always",
-                "prog": {
-                  "name": "to_draft_with_ctx",
-                  "bindings": [
-                    {
-                      "name": "always",
-                      "type": "bool",
-                      "value": true
-                    }
-                  ]
-                }
-              },
               "action": "draft_with_context"
             }
           ]
@@ -313,19 +287,6 @@
           ],
           "next": [
             {
-              "compute": {
-                "condition": "always",
-                "prog": {
-                  "name": "to_safety",
-                  "bindings": [
-                    {
-                      "name": "always",
-                      "type": "bool",
-                      "value": true
-                    }
-                  ]
-                }
-              },
               "action": "safety_check"
             }
           ]
@@ -429,19 +390,6 @@
           ],
           "next": [
             {
-              "compute": {
-                "condition": "always",
-                "prog": {
-                  "name": "to_safety2",
-                  "bindings": [
-                    {
-                      "name": "always",
-                      "type": "bool",
-                      "value": true
-                    }
-                  ]
-                }
-              },
               "action": "safety_check"
             }
           ]
@@ -530,19 +478,6 @@
               "action": "publish"
             },
             {
-              "compute": {
-                "condition": "always",
-                "prog": {
-                  "name": "to_review",
-                  "bindings": [
-                    {
-                      "name": "always",
-                      "type": "bool",
-                      "value": true
-                    }
-                  ]
-                }
-              },
               "action": "human_review"
             }
           ]

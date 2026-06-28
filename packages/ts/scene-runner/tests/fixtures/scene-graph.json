@@ -205,19 +205,6 @@
               "action": "approve"
             },
             {
-              "compute": {
-                "condition": "always",
-                "prog": {
-                  "name": "to_reject",
-                  "bindings": [
-                    {
-                      "name": "always",
-                      "type": "bool",
-                      "value": true
-                    }
-                  ]
-                }
-              },
               "action": "reject"
             }
           ],

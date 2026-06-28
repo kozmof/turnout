@@ -115,11 +115,6 @@ scene "intake" {
     }
 
     next {
-      compute {
-        prog "to_early_reject" {
-          |?| always:bool = true
-        }
-      }
       action = early_reject
     }
   }
@@ -229,11 +224,6 @@ scene "document_review" {
     }
 
     next {
-      compute {
-        prog "to_mark_invalid" {
-          |?| always:bool = true
-        }
-      }
       action = mark_invalid
     }
   }
@@ -365,11 +355,6 @@ scene "risk_assessment" {
     }
 
     next {
-      compute {
-        prog "to_borderline" {
-          |?| always:bool = true
-        }
-      }
       action = borderline_flag
     }
   }
@@ -499,11 +484,6 @@ scene "manual_review" {
     }
 
     next {
-      compute {
-        prog "to_override_reject" {
-          |?| always:bool = true
-        }
-      }
       action = override_reject
     }
   }

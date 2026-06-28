@@ -94,11 +94,6 @@ scene "llm_support_workflow" {
     }
 
     next {
-      compute {
-        prog "to_draft_direct" {
-          |?| always:bool = true
-        }
-      }
       action = draft_direct
     }
   }
@@ -134,11 +129,6 @@ scene "llm_support_workflow" {
     }
 
     next {
-      compute {
-        prog "to_draft_with_context" {
-          |?| always:bool = true
-        }
-      }
       action = draft_with_context
     }
   }
@@ -170,11 +160,6 @@ scene "llm_support_workflow" {
     }
 
     next {
-      compute {
-        prog "to_safety_check_from_direct" {
-          |?| always:bool = true
-        }
-      }
       action = safety_check
     }
   }
@@ -210,11 +195,6 @@ scene "llm_support_workflow" {
     }
 
     next {
-      compute {
-        prog "to_safety_check_from_context" {
-          |?| always:bool = true
-        }
-      }
       action = safety_check
     }
   }
@@ -264,11 +244,6 @@ scene "llm_support_workflow" {
     }
 
     next {
-      compute {
-        prog "to_human_review" {
-          |?| always:bool = true
-        }
-      }
       action = human_review
     }
   }

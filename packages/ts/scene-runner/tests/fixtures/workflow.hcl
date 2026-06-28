@@ -124,16 +124,6 @@ scene "ai_workflow" {
     }
 
     next {
-      compute {
-        condition = "always"
-        prog "to_draft_direct" {
-          binding "always" {
-            type  = "bool"
-            value = true
-          }
-        }
-      }
-
       action = "draft_direct"
     }
   }
@@ -175,16 +165,6 @@ scene "ai_workflow" {
     }
 
     next {
-      compute {
-        condition = "always"
-        prog "to_draft_with_ctx" {
-          binding "always" {
-            type  = "bool"
-            value = true
-          }
-        }
-      }
-
       action = "draft_with_context"
     }
   }
@@ -226,16 +206,6 @@ scene "ai_workflow" {
     }
 
     next {
-      compute {
-        condition = "always"
-        prog "to_safety" {
-          binding "always" {
-            type  = "bool"
-            value = true
-          }
-        }
-      }
-
       action = "safety_check"
     }
   }
@@ -306,16 +276,6 @@ scene "ai_workflow" {
     }
 
     next {
-      compute {
-        condition = "always"
-        prog "to_safety2" {
-          binding "always" {
-            type  = "bool"
-            value = true
-          }
-        }
-      }
-
       action = "safety_check"
     }
   }
@@ -380,16 +340,6 @@ scene "ai_workflow" {
     }
 
     next {
-      compute {
-        condition = "always"
-        prog "to_review" {
-          binding "always" {
-            type  = "bool"
-            value = true
-          }
-        }
-      }
-
       action = "human_review"
     }
   }

@@ -753,12 +753,14 @@ func TestLowerPublishBlock(t *testing.T) {
 // ─── next rule lowering ───────────────────────────────────────────────────────
 
 func TestLowerNextRule(t *testing.T) {
+	// A condition that depends on another binding is not trivially true, so the
+	// compute block is preserved.
 	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {
     compute { prog "p" { |^| v:bool = true } }
     next {
       compute {
-        prog "n" { |?| go:bool = true }
+        prog "n" { ready:bool = false   |?| go:bool = ready }
       }
       action = b
     }
@@ -776,6 +778,74 @@ func TestLowerNextRule(t *testing.T) {
 	}
 	if nr.Compute == nil || nr.Compute.Condition != "go" {
 		t.Errorf("compute.condition = %q", nr.Compute.Condition)
+	}
+}
+
+// A transition whose condition is the boolean literal `true` is deterministic:
+// it always matches, so the compute block is dropped and the model uses the
+// concise `next { action = ... }` form. The verbose `|?| c:bool = true` shape and
+// the bare concise form must lower to an identical model.
+func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
+	verbose := mustLower(t, minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute { prog "p" { |^| v:bool = true } }
+    next {
+      compute {
+        prog "n" { |?| always:bool = true }
+      }
+      action = b
+    }
+  }
+  action "b" {
+    compute { prog "p" { |^| v:bool = true } }
+  }`))
+	nr := verbose.Scenes[0].Actions[0].Next[0]
+	if nr.Action != "b" {
+		t.Errorf("action = %q, want %q", nr.Action, "b")
+	}
+	if nr.Compute != nil {
+		t.Errorf("deterministic next rule retained compute: %+v", nr.Compute)
+	}
+
+	// The concise form lowers identically.
+	concise := mustLower(t, minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute { prog "p" { |^| v:bool = true } }
+    next {
+      action = b
+    }
+  }
+  action "b" {
+    compute { prog "p" { |^| v:bool = true } }
+  }`))
+	cnr := concise.Scenes[0].Actions[0].Next[0]
+	if cnr.Compute != nil {
+		t.Errorf("concise next rule has compute: %+v", cnr.Compute)
+	}
+	if cnr.Action != nr.Action {
+		t.Errorf("concise action %q != verbose action %q", cnr.Action, nr.Action)
+	}
+}
+
+// A false literal condition never matches, so it is NOT deterministic in the
+// always-true sense and must be preserved verbatim.
+func TestLowerNextRuleFalseConditionPreserved(t *testing.T) {
+	tm := mustLower(t, minimal(`  entry_actions = ["a"]
+  action "a" {
+    compute { prog "p" { |^| v:bool = true } }
+    next {
+      compute {
+        prog "n" { |?| never:bool = false }
+      }
+      action = b
+    }
+  }
+  action "b" {
+    compute { prog "p" { |^| v:bool = true } }
+  }`))
+	nr := tm.Scenes[0].Actions[0].Next[0]
+	if nr.Compute == nil || nr.Compute.Condition != "never" {
+		t.Errorf("false-condition compute was dropped: %+v", nr.Compute)
 	}
 }
 

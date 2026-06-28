@@ -401,9 +401,19 @@ func lowerPublish(pub *ast.PublishBlock) []string {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func lowerNextRule(nr *ast.NextRule, schema state.Schema, ds *diag.DiagSink) *turnoutpb.NextRuleModel {
-	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
-
 	pbNR := &turnoutpb.NextRuleModel{Action: nr.ActionID}
+
+	// A deterministic transition (its condition is unconditionally true) carries
+	// no information at runtime: evaluateNextRules treats a rule with no compute
+	// block as an unconditional match. Drop the trivially-true compute so the
+	// canonical model — and the re-emitted `.turn` — uses the concise
+	// `next { action = ... }` form. The verbose `|?| c:bool = true` shape and the
+	// concise form therefore lower to an identical model.
+	if isDeterministicNext(nr) {
+		return pbNR
+	}
+
+	resolver := newTransitionPrepareResolver(nr.Prepare, schema)
 
 	if nr.Compute != nil {
 		pbNR.Compute = &turnoutpb.NextComputeModel{
@@ -414,6 +424,35 @@ func lowerNextRule(nr *ast.NextRule, schema state.Schema, ds *diag.DiagSink) *tu
 
 	pbNR.Prepare = lowerNextPrepare(nr.Prepare)
 	return pbNR
+}
+
+// isDeterministicNext reports whether a next rule's compute block is the
+// canonical always-true shape — a single condition binding bound directly to the
+// boolean literal `true`, with no prepare block. Such a block always matches, so
+// it is equivalent to omitting the compute block entirely. The check is
+// deliberately syntactic and narrow: it never discards a condition that depends
+// on prepared inputs, references, or expressions.
+func isDeterministicNext(nr *ast.NextRule) bool {
+	if nr.Compute == nil || nr.Compute.Prog == nil {
+		return false
+	}
+	if nr.Prepare != nil && len(nr.Prepare.Entries) > 0 {
+		return false
+	}
+	bindings := nr.Compute.Prog.Bindings
+	if len(bindings) != 1 {
+		return false
+	}
+	b := bindings[0]
+	if b.Sigil != ast.SigilNone || b.Marker != ast.MarkerCond || b.Name != nr.Compute.Condition {
+		return false
+	}
+	lit, ok := b.RHS.(*ast.LiteralRHS)
+	if !ok {
+		return false
+	}
+	boolLit, ok := lit.Value.(*ast.BoolLiteral)
+	return ok && boolLit.Value
 }
 
 func lowerNextPrepare(np *ast.NextPrepareBlock) []*turnoutpb.NextPrepareEntry {

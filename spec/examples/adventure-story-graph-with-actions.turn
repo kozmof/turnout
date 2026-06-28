@@ -125,11 +125,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_campfire" {
-          |?| always:bool = true
-        }
-      }
       action = campfire_wait
     }
   }
@@ -160,11 +155,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_shrine_discovery" {
-          |?| always:bool = true
-        }
-      }
       action = shrine_discovery
     }
   }
@@ -200,11 +190,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_courtyard_arrival" {
-          |?| always:bool = true
-        }
-      }
       action = courtyard_arrival
     }
   }
@@ -239,11 +224,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_hidden_archive" {
-          |?| always:bool = true
-        }
-      }
       action = hidden_archive
     }
   }
@@ -272,11 +252,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_chapter_end_after_wait" {
-          |?| always:bool = true
-        }
-      }
       action = chapter_end
     }
   }
@@ -303,11 +278,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_chapter_end_after_shrine" {
-          |?| always:bool = true
-        }
-      }
       action = chapter_end
     }
   }
@@ -334,11 +304,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_chapter_end_after_courtyard" {
-          |?| always:bool = true
-        }
-      }
       action = chapter_end
     }
   }
@@ -365,11 +330,6 @@ scene "adventure_story_chapter_1" {
     }
 
     next {
-      compute {
-        prog "to_chapter_end_after_archive" {
-          |?| always:bool = true
-        }
-      }
       action = chapter_end
     }
   }
