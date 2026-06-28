@@ -1,7 +1,7 @@
 # Effect DSL Specification — Turn DSL
 
-> **Status**: Draft for implementation
-> **Scope**: Turn DSL syntax for STATE effect declarations (sigils + `prepare`/`merge` sections) and their lowering to canonical HCL
+> Status: Draft for implementation
+> Scope: Turn DSL syntax for STATE effect declarations (sigils + `prepare`/`merge` sections) and their lowering to canonical HCL
 
 ---
 
@@ -9,8 +9,8 @@
 
 STATE effects in Turn DSL are expressed through two complementary parts that must always appear together:
 
-1. **Sigil** — a directional prefix on a binding declaration inside a `prog` block, marking it as STATE-connected and specifying the direction.
-2. **`prepare` / `merge` sections** — sibling blocks to `compute` inside an `action`, declaring the concrete STATE dotted paths for sigiled bindings.
+1. Sigil — a directional prefix on a binding declaration inside a `prog` block, marking it as STATE-connected and specifying the direction.
+2. `prepare` / `merge` sections — sibling blocks to `compute` inside an `action`, declaring the concrete STATE dotted paths for sigiled bindings.
 
 ```
 action "score" {
@@ -32,9 +32,9 @@ action "score" {
 }
 ```
 
-Each part is required when the other is present — a sigiled binding with no corresponding `prepare`/`merge` entry is an error, and a `prepare`/`merge` entry with no matching sigil is an error.
+Each part is required when the other is present. A sigiled binding with no corresponding `prepare`/`merge` entry is an error, and a `prepare`/`merge` entry with no matching sigil is an error.
 
-Sigils are **direction metadata only**. Canonical binding names do not include sigils:
+Sigils are direction metadata only. Canonical binding names do not include sigils:
 
 ```
 income    # canonical name (not ~>income)
@@ -53,7 +53,7 @@ All references in `prepare` and `merge` use plain canonical binding names.
 |-------|-----------|-----------------|
 | `~>`  | Pre-action input: STATE → binding | Must appear in `prepare` exactly once |
 | `<~`  | Post-action output: binding → STATE | Must appear in `merge` exactly once |
-| `<~>` | Bidirectional: STATE→binding pre-action **and** binding→STATE post-action | Must appear in both `prepare` and `merge` exactly once each |
+| `<~>` | Bidirectional: STATE→binding pre-action and binding→STATE post-action | Must appear in both `prepare` and `merge` exactly once each |
 
 ### 1.2 Grammar
 
@@ -67,21 +67,21 @@ marker       ::= '|^|' | '|?|'
 
 ### 1.2.1 Binding markers
 
-A binding may carry a leading **marker**, written before any sigil:
+A binding may carry a leading marker, written before any sigil:
 
 | Marker | Role | Valid in |
 |--------|------|----------|
-| `|^|`   | Compute **root** — the binding whose resolved value is the action's compute output | action `compute` prog |
-| `|?|`   | Transition **condition** — the boolean binding that gates the transition | `next` `compute` prog |
+| `|^|`   | Compute root — the binding whose resolved value is the action's compute output | action `compute` prog |
+| `|?|`   | Transition condition — the boolean binding that gates the transition | `next` `compute` prog |
 
 Rules (all enforced at compile time):
 
-- An action `compute` prog must contain **exactly one** `|^|` marker; a `next` `compute` prog must contain **exactly one** `|?|` marker.
-- The marked binding must be the **last** binding declared in the prog (read like a `return`).
+- An action `compute` prog must contain exactly one `|^|` marker; a `next` `compute` prog must contain exactly one `|?|` marker.
+- The marked binding must be the last binding declared in the prog (read like a `return`).
 - A marker of the wrong kind for its context is an error (e.g. `|?|` in an action compute).
 - The marker replaces the former `root = <ident>` / `condition = <ident>` sibling fields, which no longer exist in the DSL. (The lowered canonical HCL and runtime model still carry `compute.root` / `compute.condition` string fields, derived from the marked binding.)
 
-The marker and sigil are written immediately before the binding name — no whitespace within the sigil:
+The marker and sigil are written immediately before the binding name, with no whitespace within the sigil:
 
 ```
 ~>income:number        # OK
@@ -105,7 +105,7 @@ prepare { income { from_state = applicant.income } }
 
 ### 1.4 Bidirectional sigil
 
-`<~>` signals that the binding is populated from STATE before execution **and** written back to STATE after merge — potentially at **different STATE paths**:
+`<~>` signals that the binding is populated from STATE before execution and written back to STATE after merge, potentially at different STATE paths:
 
 ```
 <~>income:number
@@ -153,7 +153,7 @@ Invokes the named hook, obtains a result object, and assigns `result[bindingName
 
 ### 2.4 STATE path format
 
-`from_state` values are **dotted paths** of two or more segments:
+`from_state` values are dotted paths of two or more segments:
 
 ```
 dotted-path ::= IDENT ('.' IDENT)+
@@ -238,7 +238,7 @@ action "score" {
 
 ### 4.1 Structure
 
-Inside a `next { }` block, a `prepare` block declares **ingress bindings** for the transition's compute program. Only `from_action`, `from_state`, and `from_literal` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
+Inside a `next { }` block, a `prepare` block declares ingress bindings for the transition's compute program. Only `from_action`, `from_state`, and `from_literal` are valid sources inside a transition `prepare`; `from_hook` is prohibited (transitions cannot invoke hooks).
 
 ```
 next {
@@ -269,11 +269,11 @@ Each entry inside a transition `prepare` must have exactly one of:
 
 Any one of these may be used per entry; they may be mixed across different entries in the same transition `prepare` block.
 
-> **Note on `from_literal` type validation**: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values; it does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
+> Note on `from_literal` type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values; it does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
 ### 4.3 Sigil on transition `prog` bindings
 
-`~>` inside a transition `prog` block marks a binding as an ingress binding populated from the transition `prepare` entries. `<~` and `<~>` are **not valid** in transition `prog` blocks (transitions cannot output to STATE).
+`~>` inside a transition `prog` block marks a binding as an ingress binding populated from the transition `prepare` entries. `<~` and `<~>` are not valid in transition `prog` blocks (transitions cannot output to STATE).
 
 ---
 
@@ -309,7 +309,7 @@ Sigils are stripped from the canonical binding name during lowering. The sigil i
 
 ### 6.1 Action-level lowering
 
-**Turn DSL source:**
+Turn DSL source:
 ```
 action "score" {
   compute {
@@ -329,7 +329,7 @@ action "score" {
 }
 ```
 
-**Emitted canonical HCL:**
+Emitted canonical HCL:
 ```hcl
 action "score" {
   compute {
@@ -364,16 +364,16 @@ action "score" {
 
 ### 6.2 Bidirectional (`<~>`) lowering
 
-A `<~>` binding appears in **both** `prepare` and `merge` with their respective paths:
+A `<~>` binding appears in both `prepare` and `merge` with their respective paths:
 
-**Turn DSL:**
+Turn DSL:
 ```
 <~>income:number
 prepare { income { from_state = applicant.income      } }
 merge   { income { to_state   = decision.input_income } }
 ```
 
-**Emitted HCL:**
+Emitted HCL:
 ```hcl
 prepare { binding "income" { from_state = "applicant.income"      } }
 merge   { binding "income" { to_state   = "decision.input_income" } }

@@ -172,7 +172,7 @@ Directional binding prefixes are interpreted before ContextSpec lowering:
 - `<~name:type = ...` means egress-only binding.
 - `<~>name:type` means ingress + egress binding.
 
-**Rule — root binding declared last**: The compute root is designated inline with the `|^|` marker on its binding (and the transition condition with `|?|`). The marked binding MUST be the last binding declared in `compute.prog` — bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable: inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the marked binding.
+Rule, root binding declared last: The compute root is designated inline with the `|^|` marker on its binding (and the transition condition with `|?|`). The marked binding MUST be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the marked binding.
 
 ```hcl
 scene "loan_flow" {
@@ -312,7 +312,7 @@ For one action invocation with pre-state `S_n`:
    - If `compute.root` resolves to a function binding: `R_n = executeGraph(rootBinding as FuncId, validatedContext)`
    - If `compute.root` resolves to a value binding: `R_n = readValue(rootBinding as ValueId, validatedContext)` (identical to how `compute.condition` handles value bindings)
    - Build action binding namespace `A_n` from this invocation's `compute.prog` context.
-6. Merge phase — build action delta `D_n` from `merge` bindings:
+6. Merge phase: build action delta `D_n` from `merge` bindings:
    - For each `merge.<binding>`, read binding value from graph context/output table.
    - Destination key is `toState` if provided; otherwise binding name.
    - Merge `D_n` atomically into STATE using `replace-by-id` mode → produces `S_{n+1}`.

@@ -2,7 +2,7 @@
 
 ## Status
 
-This document is a **draft proposal** for local expression forms inside Turnout compute graphs.
+This document is a draft proposal for local expression forms inside Turnout compute graphs.
 
 It defines four related forms:
 
@@ -89,10 +89,10 @@ The design aims to preserve these properties:
 
 Within these local expression forms, these tokens have distinct roles:
 
-* `_` is reserved for **wildcard matching** in `#case` patterns.
-* `#it` is reserved for **current pipeline value** inside `#pipe` steps.
+* `_` is reserved for wildcard matching in `#case` patterns.
+* `#it` is reserved for current pipeline value inside `#pipe` steps.
 
-This draft intentionally does **not** assign `_` any placeholder meaning in pipe expressions.
+This draft intentionally does not assign `_` any placeholder meaning in pipe expressions.
 
 ---
 
@@ -703,11 +703,11 @@ This draft does not define:
 
 A concise interpretation is:
 
-* `#if` handles **small binary choice**
-* `#case` handles **ordered classification**
-* `#pipe` handles **linear transformation**
-* `#it` names **the current pipeline value**
-* `_` is reserved for **wildcard matching in local expressions**
+* `#if` handles small binary choice
+* `#case` handles ordered classification
+* `#pipe` handles linear transformation
+* `#it` names the current pipeline value
+* `_` is reserved for wildcard matching in local expressions
 
 This division keeps the local language compact, readable, and semantically clear.
 

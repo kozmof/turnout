@@ -1,7 +1,7 @@
 # Convert–Runtime Pipeline Specification
 
-> **Status**: Draft for implementation
-> **Scope**: Two-phase pipeline from Turn DSL authoring to TypeScript runtime execution, including STATE effect semantics
+> Status: Draft for implementation
+> Scope: Two-phase pipeline from Turn DSL authoring to TypeScript runtime execution, including STATE effect semantics
 
 ---
 
@@ -20,7 +20,7 @@ The model separates concerns across four layers:
 
 Key properties:
 - Sigils define directional intent; binding names remain plain canonical identifiers.
-- `prepare` and `merge` operate on **individual bindings**; `publish` operates on the **whole state**.
+- `prepare` and `merge` operate on individual bindings; `publish` operates on the whole state.
 - Hooks never mutate state directly; state is written only through prepare result mapping.
 - All STATE paths and hook names are declared explicitly at convert time.
 
@@ -28,8 +28,8 @@ Key properties:
 
 The pipeline has two sequential phases:
 
-1. **Convert phase** — A Go CLI reads Turn DSL and emits canonical plain HCL files that conform to `hcl-context-spec.md`.
-2. **Runtime phase** — A TypeScript runtime reads the emitted HCL, prepares a `ContextSpec` via `ctx()`, and executes it through the step execution API. Each action's result is merged into STATE at the timing declared in the Turn DSL.
+1. Convert phase — A Go CLI reads Turn DSL and emits canonical plain HCL files that conform to `hcl-context-spec.md`.
+2. Runtime phase — A TypeScript runtime reads the emitted HCL, prepares a `ContextSpec` via `ctx()`, and executes it through the step execution API. Each action's result is merged into STATE at the timing declared in the Turn DSL.
 
 ```
 Turn DSL  ──[Go CLI]──>  HCL file  ──[TypeScript runtime]──>  STATE mutations
@@ -88,7 +88,7 @@ action "checkout" {
 
 - The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function call expressions, parse-safe infix expressions (`=`), `#if`, `#case`, and `#pipe`.
 - The Go CLI can lower all surface DSL forms to canonical plain HCL `binding` blocks, identically to the rules in `hcl-context-spec.md` §2–3.
-- The Go CLI can emit multiple `action` blocks in one HCL file — one per declared action — as long as each block has a distinct name label matching its `actionId`.
+- The Go CLI can emit multiple `action` blocks in one HCL file, one per declared action, as long as each block has a distinct name label matching its `actionId`.
 - The Go CLI can declare STATE effect bindings inside action blocks using `prepare` and `merge` sub-blocks.
 - The Go CLI can emit `publish` sub-blocks with one or more `hook` attributes per action.
 - The Go CLI can emit `prepare` entries with `from_hook` for prepare-phase hook bindings (per `hook-spec.md`).
@@ -100,7 +100,7 @@ action "checkout" {
 - The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output; typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
 - The Go CLI cannot emit bare identifiers in argument positions; all references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
 - The Go CLI cannot accept or emit non-v1 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `#pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
-- The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output; encountering them **must produce an `UnsupportedConstruct` error** and abort without emitting any HCL.
+- The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output; encountering them must produce an `UnsupportedConstruct` error and abort without emitting any HCL.
 - The Go CLI cannot emit HCL that is not parseable by a stock HCL parser.
 - The Go CLI cannot emit a file in which two `action` blocks share the same name label.
 - Effect timing cannot be inferred at runtime; it must be fixed in the emitted HCL at convert time as declared in the Turn DSL.
@@ -132,7 +132,7 @@ For all sigil/`prepare`/`merge`/transition error codes (`InvalidStatePath`, `Mis
 - Parse the emitted HCL and construct a `Scene` (per `scene-graph.md §4`).
 - For each action, pass its `prog` block to `ctx()` to obtain a `ContextSpec`.
 - Validate scene structural invariants (per `scene-graph.md` §3.3) before first execution.
-- Execute actions following the four-phase lifecycle: **prepare → compute → merge → publish**.
+- Execute actions following the four-phase lifecycle: prepare → compute → merge → publish.
 - Atomically merge the action result delta into STATE.
 - Evaluate transition compute programs using post-merge STATE and action output.
 - Enqueue selected next action(s) according to the transition policy.
@@ -145,7 +145,7 @@ During execution of one action, the runtime maintains a local state map:
 State = { binding_name → value }
 ```
 
-Binding names are defined by the `prog` block in `compute`; the set of bindings declared there forms the **runtime state schema** for that action invocation. This state map is distinct from STATE (`S_n` / `S_{n+1}`):
+Binding names are defined by the `prog` block in `compute`; the set of bindings declared there forms the runtime state schema for that action invocation. This state map is distinct from STATE (`S_n` / `S_{n+1}`):
 
 - `prepare` populates state bindings from STATE paths or hook results before the graph runs.
 - `compute` reads and writes state bindings through the program graph.
@@ -181,7 +181,7 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 - The runtime can silently skip unregistered publish hooks. Unregistered prepare hooks fail action prepare with `UnregisteredHook`.
 - The runtime can evaluate each transition's inline `prog` block by building a fresh `ContextSpec` for that transition, resolving ingresses from `R_n` (`fromAction`), `S_{n+1}` (`fromState`), or declared literals.
 - The runtime can apply `first-match` or `all-match` transition policy, defaulting to `first-match` when neither action-level nor scene-level policy is set.
-- When `all-match` selects multiple next actions, the runtime can execute them **sequentially in declaration order**, with each subsequent action seeing the STATE state produced by the prior action's merge.
+- When `all-match` selects multiple next actions, the runtime can execute them sequentially in declaration order, with each subsequent action seeing the STATE state produced by the prior action's merge.
 - The runtime can enter terminal `completed` state when no transition rule matches.
 - The runtime can enforce scene structural invariants and emit `SceneDiagnostic` entries for every failure (per `scene-graph.md` §7).
 
@@ -203,7 +203,7 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 
 ## STATE Effect Semantics
 
-> **See also**: `effect-dsl-spec.md` — full specification of the Turn DSL sigil and `prepare`/`merge` section syntax that authors use to declare STATE effects, and their lowering rules to the canonical HCL shape.
+> See also `effect-dsl-spec.md`, which fully specifies the Turn DSL sigil and `prepare`/`merge` section syntax that authors use to declare STATE effects, and their lowering rules to the canonical HCL shape.
 
 | Phase | Direction | Mechanism |
 |-------|-----------|-----------|
@@ -245,10 +245,10 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 
 | # | Decision | Resolution |
 |---|----------|------------|
-| 1 | Phase 2 constructs in Phase 1 file | **Hard error**: emit `UnsupportedConstruct` diagnostic and abort — no HCL is emitted. |
-| 2 | Duplicate `action` block name labels | **Parse error**: fail with `DuplicateActionLabel` — last-wins is forbidden. |
+| 1 | Phase 2 constructs in Phase 1 file | Hard error: emit `UnsupportedConstruct` diagnostic and abort — no HCL is emitted. |
+| 2 | Duplicate `action` block name labels | Parse error: fail with `DuplicateActionLabel` — last-wins is forbidden. |
 | 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
-| 4 | Parallel action scheduling under `all-match` | **Sequential, declaration order**: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
+| 4 | Parallel action scheduling under `all-match` | Sequential, declaration order: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
 | 5 | Entry action HCL declaration | `entryActionIds` are emitted as a top-level string-list attribute: `entry_actions = ["<actionId>", ...]` at the top of the scene block. |
 | 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |
 
@@ -305,6 +305,6 @@ After the publish phase completes, the runtime evaluates transition rules: for e
 
 ### Resolved points
 
-- **Entry action HCL declaration**: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = ["<actionId>", ...]`.
-- **`fromState` missing-path behavior**: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
-- **`div_floor` alias**: No longer a priority — `number` type natively accepts fractional results. A convenience alias may still be added but is not required for correctness.
+- Entry action HCL declaration: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = ["<actionId>", ...]`.
+- `fromState` missing-path behavior: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
+- `div_floor` alias: no longer a priority, because the `number` type natively accepts fractional results. A convenience alias may still be added but is not required for correctness.

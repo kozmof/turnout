@@ -1,7 +1,7 @@
 # TransformFn DSL Method-Call Specification
 
-> **Status**: Draft for implementation
-> **Scope**: DSL surface syntax for invoking `transformFn` operations as method calls on binding identifiers used as expression arguments (e.g. `income.toStr() + suffix`)
+> Status: Draft for implementation
+> Scope: DSL surface syntax for invoking `transformFn` operations as method calls on binding identifiers used as expression arguments (e.g. `income.toStr() + suffix`)
 
 ---
 
@@ -91,7 +91,7 @@ For multi-step local expression chains, authors can use `#pipe(initial, step, ..
 
 | # | Decision | Resolution |
 |---|----------|------------|
-| 1 | `pass` in DSL | **Excluded**: `pass` is an internal runtime function only; not surfaced in DSL method syntax. |
-| 2 | `null` methods | **None**: no DSL-visible `transformFn` methods are defined for `null`. |
-| 3 | Method arguments | **Forbidden**: all `transformFn` methods are unary; the DSL syntax accepts no argument list. |
-| 4 | `string.toNumber()` on non-numeric input | **Caller responsibility**: produces `NaN`; the DSL does not validate or coerce. |
+| 1 | `pass` in DSL | Excluded: `pass` is an internal runtime function only; not surfaced in DSL method syntax. |
+| 2 | `null` methods | None: no DSL-visible `transformFn` methods are defined for `null`. |
+| 3 | Method arguments | Forbidden: all `transformFn` methods are unary; the DSL syntax accepts no argument list. |
+| 4 | `string.toNumber()` on non-numeric input | Caller responsibility: produces `NaN`; the DSL does not validate or coerce. |

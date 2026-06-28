@@ -1,15 +1,15 @@
 # State Shape Specification
 
-> **Status**: Draft for implementation
-> **Scope**: Declaration of the STATE object in Turn DSL and its canonical HCL shape, including type system, namespace structure, initialization, runtime model, and validation rules
+> Status: Draft for implementation
+> Scope: Declaration of the STATE object in Turn DSL and its canonical HCL shape, including type system, namespace structure, initialization, runtime model, and validation rules
 
 ---
 
 ## Overview
 
-STATE (`S_n`) is the shared mutable store that persists values across action executions. Within a route, STATE is global — all scenes in a route share the same STATE instance. Actions read from STATE through `prepare` and write back through `merge`, using dotted paths such as `applicant.income` or `decision.approved`.
+STATE (`S_n`) is the shared mutable store that persists values across action executions. Within a route, STATE is global, so all scenes in a route share the same STATE instance. Actions read from STATE through `prepare` and write back through `merge`, using dotted paths such as `applicant.income` or `decision.approved`.
 
-STATE is declared **independently of any action**, either at the top level of the same Turn DSL file as `scene`, or in a dedicated file referenced by `state_file`. This separation makes STATE the single authoritative source for the type contract that all actions must satisfy: the declared field types are **type constraints** enforced at convert time against every action's `merge` bindings.
+STATE is declared independently of any action, either at the top level of the same Turn DSL file as `scene`, or in a dedicated file referenced by `state_file`. This separation makes STATE the single authoritative source for the type contract that all actions must satisfy: the declared field types are type constraints enforced at convert time against every action's `merge` bindings.
 
 This spec defines:
 
@@ -28,15 +28,15 @@ This spec defines:
 
 ### 1.1 Namespace and field
 
-STATE is a hierarchical map. Every leaf value lives at a **dotted path** of two or more segments:
+STATE is a hierarchical map. Every leaf value lives at a dotted path of two or more segments:
 
 ```
 <namespace>.<field>
 <namespace>.<sub>.<field>
 ```
 
-- **Namespace** (`ns`) — top-level grouping key. Example: `applicant`, `session`.
-- **Field** (`field`) — leaf key within a namespace. Example: `income`, `cart`.
+- Namespace (`ns`) — top-level grouping key. Example: `applicant`, `session`.
+- Field (`field`) — leaf key within a namespace. Example: `income`, `cart`.
 - Additional intermediate segments are allowed for deeper grouping. Example: `session.cart.items`.
 
 Paths with fewer than two segments are not valid STATE paths.
@@ -53,13 +53,13 @@ At the start of each action execution the runtime takes an immutable snapshot `S
 
 ### 1.3 STATE as a type constraint
 
-The `state` block is the single source of truth for the type of every STATE field. The type declared for a field is an authoritative **type constraint** on all values that any action may write to that field via `merge`. No action may write a value of a different type to a STATE field, and this is verified at convert time rather than at runtime.
+The `state` block is the single source of truth for the type of every STATE field. The type declared for a field is an authoritative type constraint on all values that any action may write to that field via `merge`. No action may write a value of a different type to a STATE field, and this is verified at convert time rather than at runtime.
 
 ---
 
 ## 2. Turn DSL Surface Syntax
 
-A `state` block is declared at the **top level** of a Turn DSL file, independently of and before any `scene` block. It groups STATE fields by namespace using nested blocks.
+A `state` block is declared at the top level of a Turn DSL file, independently of and before any `scene` block. It groups STATE fields by namespace using nested blocks.
 
 ```hcl
 state {
@@ -223,7 +223,7 @@ STATE fields share the same primitive type set as HCL ContextSpec bindings (per 
 
 ### 4.1 Type constraints on actions
 
-The `type` declared for each STATE field is the **authoritative type constraint** for that field. All actions that write to a field via `merge` must produce a value of the matching type. The converter verifies this at convert time:
+The `type` declared for each STATE field is the authoritative type constraint for that field. All actions that write to a field via `merge` must produce a value of the matching type. The converter verifies this at convert time:
 
 - For every `merge` binding targeting a STATE field, the type of the source binding in `compute.prog` must match the declared `type` of the target STATE field.
 - A mismatch is a convert-time error (`StateTypeMismatch`).
@@ -357,7 +357,7 @@ Before first action execution, the runtime MUST validate the STATE schema:
 5. The `type` attribute is one of the six valid type strings (`InvalidStateFieldType`).
 6. The `value` literal is type-compatible with the declared `type` (`StateFieldDefaultTypeMismatch`).
 7. Every dotted path referenced in `prepare.from_state` or `merge.to_state` across all actions is declared in the `state` block (`UnresolvedStatePath`).
-8. The type of each `merge.to_state` target matches the type of the source binding in `compute.prog` across **all** actions (`StateTypeMismatch`).
+8. The type of each `merge.to_state` target matches the type of the source binding in `compute.prog` across all actions (`StateTypeMismatch`).
 
 At convert time, the Go CLI additionally validates:
 
@@ -425,7 +425,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 
 ### 11.1 Inline `state` block (single file)
 
-**Turn DSL source:**
+Turn DSL source:
 
 ```hcl
 state {
@@ -500,7 +500,7 @@ scene "loan_flow" {
 
 ### 11.2 Separate state file
 
-**`loan.state.hcl`:**
+`loan.state.hcl`:
 
 ```hcl
 state {
@@ -518,7 +518,7 @@ state {
 }
 ```
 
-**`loan_flow.hcl`:**
+`loan_flow.hcl`:
 
 ```hcl
 state_file = "loan.state.hcl"
@@ -671,7 +671,7 @@ scene "loan_flow" {
 }
 ```
 
-**Runtime `S_0` after initialization:**
+Runtime `S_0` after initialization:
 
 ```json
 {

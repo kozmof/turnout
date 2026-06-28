@@ -1,7 +1,7 @@
 # Hook Specification — Turn DSL
 
-> **Status**: Draft for implementation
-> **Scope**: Turn DSL `prepare.from_hook` and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
+> Status: Draft for implementation
+> Scope: Turn DSL `prepare.from_hook` and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
 
 ---
 
@@ -9,10 +9,10 @@
 
 A hook is a named extension point declared inside an action's `prepare` or `publish` section. It lets consumers inject TypeScript logic at fixed points in the action execution lifecycle.
 
-- **Prepare hooks** (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs; the hook returns an object whose fields are mapped into runtime state bindings.
-- **Publish hooks** (`publish { hook = "<name>" }`) — fire after merge; the hook receives the entire final state snapshot and cannot mutate it.
+- Prepare hooks (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs; the hook returns an object whose fields are mapped into runtime state bindings.
+- Publish hooks (`publish { hook = "<name>" }`) — fire after merge; the hook receives the entire final state snapshot and cannot mutate it.
 
-Hooks are **declared at convert time** (Turn DSL → canonical HCL) and **implemented at runtime** by the consumer through the runner hook registry. Missing implementations are handled by phase: an unregistered `prepare.from_hook` fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
+Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase: an unregistered `prepare.from_hook` fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
 
 ```hcl
 action "process_order" {
@@ -70,7 +70,7 @@ action "<actionId>" {
 
 Each `prepare` entry must define exactly one source (`from_state` or `from_hook`). They cannot be combined on the same binding.
 
-**Hook invocation and result mapping:**
+Hook invocation and result mapping:
 
 1. The runtime invokes the hook, obtaining a result object.
 2. For each binding that declared `from_hook = "<hookName>"`, the runtime assigns:
@@ -83,7 +83,7 @@ The hook implementation is responsible for returning a field with the correct bi
 
 ### 1.2 Hook deduplication (multiple bindings, same hook name)
 
-If multiple bindings in the same `prepare` section reference the same hook name, the runtime **invokes the hook once** and reuses the returned object for all matching bindings:
+If multiple bindings in the same `prepare` section reference the same hook name, the runtime invokes the hook once and reuses the returned object for all matching bindings:
 
 ```hcl
 prepare {
@@ -110,7 +110,7 @@ publish {
 }
 ```
 
-Multiple `hook` entries are allowed. Publish hooks fire in declaration order after the merge step. Each receives the **entire final action state**.
+Multiple `hook` entries are allowed. Publish hooks fire in declaration order after the merge step. Each receives the entire final action state.
 
 ### 1.4 Execution order within an action
 
@@ -206,7 +206,7 @@ Rules:
 interface PrepareHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  /** Read the current value of a state binding (e.g. from a prior from_state resolution).
+  / Read the current value of a state binding (e.g. from a prior from_state resolution).
    *  Returns `undefined` if the binding name does not correspond to a resolved state binding. */
   get(binding: string): unknown;
 }
@@ -214,7 +214,7 @@ interface PrepareHookContext {
 interface PublishHookContext {
   readonly actionId: string;
   readonly hookName: string;
-  /** Read the entire final state snapshot. */
+  / Read the entire final state snapshot. */
   state(): Record<string, unknown>;
 }
 
@@ -268,7 +268,7 @@ If no prepare hook implementation has been registered for a `from_hook` name whe
 
 ### 3.5 Multiple prepare hooks, same name
 
-When multiple bindings reference the same prepare hook name, the hook executes **once** and the returned object is reused for all matching bindings.
+When multiple bindings reference the same prepare hook name, the hook executes once and the returned object is reused for all matching bindings.
 
 ### 3.6 Hook isolation
 

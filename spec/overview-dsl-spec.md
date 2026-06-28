@@ -7,8 +7,8 @@
 
 The Overview DSL provides a lightweight, author-maintained declaration of the intended action graph structure within a scene. It serves two roles:
 
-1. **Documentation** — the flow block is a human-readable map of which actions exist and how they connect.
-2. **Enforcement** — at scene validation time the declared structure is checked against the actual action graph using one of three configurable enforcement modes.
+1. Documentation — the flow block is a human-readable map of which actions exist and how they connect.
+2. Enforcement — at scene validation time the declared structure is checked against the actual action graph using one of three configurable enforcement modes.
 
 The Overview DSL lives inside a `view "overview" { ... }` block in the HCL scene definition. It is optional; scenes without it run without structural enforcement.
 
@@ -70,12 +70,12 @@ The `flow` attribute value is parsed line-by-line according to the following rul
 
 After splitting the string on newlines, each line is classified as follows (in order of precedence):
 
-1. **Blank line** — a line that, after trimming all leading and trailing whitespace, is empty. Blank lines are silently ignored.
-2. **Edge line** — a line whose content, after trimming leading whitespace, starts with `|=>`. The remainder after `|=>` is trimmed of leading whitespace and treated as the target `ActionId`.
-3. **Chain line** — a line whose content, after trimming leading whitespace, does not start with `|=>` but contains `|=>` as a substring. The line is split on `|=>` (stripping surrounding whitespace from each part) to produce an ordered list of `ActionId` segments.
-4. **Node line** — any non-blank line that does not start with `|=>` and does not contain `|=>`. The entire trimmed content is the source `ActionId`.
+1. Blank line — a line that, after trimming all leading and trailing whitespace, is empty. Blank lines are silently ignored.
+2. Edge line — a line whose content, after trimming leading whitespace, starts with `|=>`. The remainder after `|=>` is trimmed of leading whitespace and treated as the target `ActionId`.
+3. Chain line — a line whose content, after trimming leading whitespace, does not start with `|=>` but contains `|=>` as a substring. The line is split on `|=>` (stripping surrounding whitespace from each part) to produce an ordered list of `ActionId` segments.
+4. Node line — any non-blank line that does not start with `|=>` and does not contain `|=>`. The entire trimmed content is the source `ActionId`.
 
-> **Why is a line starting with `|=>` always an edge line, never a chain line?** Classification is by the leading characters of the trimmed line. If a line starts with `|=>`, it is unconditionally an edge line regardless of what follows. This means `|=> bar |=> baz` is an edge line whose target is `bar |=> baz` — which then fails `SCN_OVERVIEW_INVALID_IDENT` because `|` is not a valid `IDENT` character. Authors who want a chain MUST begin with a node identifier.
+> Why is a line starting with `|=>` always an edge line, never a chain line? Classification is by the leading characters of the trimmed line. If a line starts with `|=>`, it is unconditionally an edge line regardless of what follows. This means `|=> bar |=> baz` is an edge line whose target is `bar |=> baz`. That target then fails `SCN_OVERVIEW_INVALID_IDENT` because `|` is not a valid `IDENT` character. Authors who want a chain MUST begin with a node identifier.
 
 ### 4.2 Parse algorithm
 
@@ -133,11 +133,11 @@ type OverviewGraph = {
 
 - The same `ActionId` MAY appear as a node more than once in the flow text; duplicate node lines MUST be treated as re-setting `current` without adding the node a second time. `nodes` is a set; order is determined by first occurrence.
 - The same `(source, target)` edge pair MAY appear more than once; duplicate edges MUST be silently de-duplicated.
-- An `ActionId` that appears only as an edge target — via a standalone `|=>` line or as the last element of a chain — is NOT automatically added to `nodes`. If enforcement requires node checking, such IDs are not counted as declared nodes.
-- **Chain lines add all elements except the last to `nodes`.** This mirrors the standalone `|=>` behavior: the target of each `|=>` is not a node declaration. In `foo |=> bar |=> baz`, `foo` and `bar` are added to `nodes`; `baz` is the final target and is not.
+- An `ActionId` that appears only as an edge target, via a standalone `|=>` line or as the last element of a chain, is NOT automatically added to `nodes`. If enforcement requires node checking, such IDs are not counted as declared nodes.
+- Chain lines add all elements except the last to `nodes`. This mirrors the standalone `|=>` behavior: the target of each `|=>` is not a node declaration. In `foo |=> bar |=> baz`, `foo` and `bar` are added to `nodes`; `baz` is the final target and is not.
 - After a chain line, `current` is set to the last element. Subsequent `|=>` lines extend edges from that last element, even though it is not in `nodes`.
 
-> **Rationale**: The inline `|=>` chain is purely syntactic sugar for the expanded multi-line form. Each `|=>` in the chain behaves identically to a standalone `|=>` edge line: the right-hand side is a target, not a node declaration. This keeps the two forms strictly equivalent and avoids any special-casing for chain lines in enforcement.
+> Rationale: The inline `|=>` chain is purely syntactic sugar for the expanded multi-line form. Each `|=>` in the chain behaves identically to a standalone `|=>` edge line: the right-hand side is a target, not a node declaration. This keeps the two forms strictly equivalent and avoids any special-casing for chain lines in enforcement.
 
 ### 4.4 Compile step
 
@@ -173,11 +173,11 @@ These sets are computed from the fully-parsed, pre-execution scene model.
 
 Violations:
 
-- **`nodes_only`**: any `overview_node` not in `impl_nodes` → `SCN_OVERVIEW_UNKNOWN_NODE`
-- **`at_least`** (nodes): same as `nodes_only`
-- **`at_least`** (edges): any `overview_data_edge` not in `impl_data_edges` → `SCN_OVERVIEW_MISSING_EDGE`
-- **`strict`** (nodes): any `overview_node` not in `impl_nodes` → `SCN_OVERVIEW_UNKNOWN_NODE`; any `impl_node` not in `overview_nodes` → `SCN_OVERVIEW_EXTRA_NODE`
-- **`strict`** (edges): any `overview_data_edge` not in `impl_data_edges` → `SCN_OVERVIEW_MISSING_EDGE`; any `impl_data_edge` not in `overview_data_edges` → `SCN_OVERVIEW_EXTRA_EDGE`
+- `nodes_only`: any `overview_node` not in `impl_nodes` → `SCN_OVERVIEW_UNKNOWN_NODE`
+- `at_least` (nodes): same as `nodes_only`
+- `at_least` (edges): any `overview_data_edge` not in `impl_data_edges` → `SCN_OVERVIEW_MISSING_EDGE`
+- `strict` (nodes): any `overview_node` not in `impl_nodes` → `SCN_OVERVIEW_UNKNOWN_NODE`; any `impl_node` not in `overview_nodes` → `SCN_OVERVIEW_EXTRA_NODE`
+- `strict` (edges): any `overview_data_edge` not in `impl_data_edges` → `SCN_OVERVIEW_MISSING_EDGE`; any `impl_data_edge` not in `overview_data_edges` → `SCN_OVERVIEW_EXTRA_EDGE`
 
 All violations are errors (severity `"error"`). Implementations MUST report all violations found before stopping, not just the first.
 
@@ -303,7 +303,7 @@ Parsed:
 
 `decide`, `approve`, and `reject` are edge targets only and are NOT added to `nodes`.
 
-**Inline chaining from a standalone `|=>` line is not possible.** A line whose trimmed content starts with `|=>` is unconditionally an edge line; any `|=>` within it becomes part of the target string, which fails `SCN_OVERVIEW_INVALID_IDENT`. For example:
+Inline chaining from a standalone `|=>` line is not possible. A line whose trimmed content starts with `|=>` is unconditionally an edge line; any `|=>` within it becomes part of the target string, which fails `SCN_OVERVIEW_INVALID_IDENT`. For example:
 
 ```
 analyze |=> score |=> decide
@@ -325,7 +325,7 @@ Parsed:
 - `edges = {(analyze,score),(score,decide),(decide,approve),(decide,reject),(approve,done)}`
 - After the `approve` node line, `current = approve`; `|=> done` adds edge `(approve,done)`
 
-**Indentation depth has no semantic meaning.** `current` is updated only by node lines and chain lines, never by edge lines. Extra indentation on a `|=>` line does not change which node it sources from. The following looks like `done` and `recheck` branch from `approve`, but they actually branch from `decide`:
+Indentation depth has no semantic meaning. `current` is updated only by node lines and chain lines, never by edge lines. Extra indentation on a `|=>` line does not change which node it sources from. The following looks like `done` and `recheck` branch from `approve`, but they actually branch from `decide`:
 
 ```
 analyze |=> score |=> decide
@@ -338,7 +338,7 @@ Parsed:
 - `nodes = {analyze, score}`
 - `edges = {(analyze,score),(score,decide),(decide,approve),(decide,done),(decide,recheck)}`
 
-**Non-ASCII whitespace in indentation is a parse error.** If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|=>`. The remaining content — non-ASCII characters followed by `|=>` — is treated as a chain line whose first segment fails `SCN_OVERVIEW_INVALID_IDENT`. See §6.9 for an example.
+Non-ASCII whitespace in indentation is a parse error. If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|=>`. The remaining content, non-ASCII characters followed by `|=>`, is treated as a chain line whose first segment fails `SCN_OVERVIEW_INVALID_IDENT`. See §6.9 for an example.
 
 ### 6.6 Parse error — edge without source
 
@@ -469,7 +469,7 @@ Overview diagnostics use the same `SceneDiagnostic` shape defined in scene-graph
 7. `strict` enforcement fails if the scene has actions not listed in the overview, or if the scene has next-rule edges not declared in the flow.
 8. All enforcement violations are collected and reported before halting; implementations MUST NOT stop at the first violation.
 9. Overview failures produce `invalid_overview`, not `invalid_graph`.
-10. An action that appears only as an edge target — via standalone `|=>` or as the last element of a chain — is NOT in `overview_nodes` and triggers `SCN_OVERVIEW_EXTRA_NODE` under `strict` mode if it exists in `impl_nodes`. Authors MUST declare it as a standalone node line or as a non-terminal chain element to include it in the strict contract.
+10. An action that appears only as an edge target, via standalone `|=>` or as the last element of a chain, is NOT in `overview_nodes` and triggers `SCN_OVERVIEW_EXTRA_NODE` under `strict` mode if it exists in `impl_nodes`. Authors MUST declare it as a standalone node line or as a non-terminal chain element to include it in the strict contract.
 11. Duplicate node lines and duplicate edge pairs in the flow text are silently de-duplicated.
 12. Re-running validation on the same scene model with the same `view` block produces identical enforcement results.
 13. A chain line `a |=> b |=> c` adds `a` and `b` to `nodes`, adds edges `(a,b)` and `(b,c)`, and sets `current` to `c`. `c` is NOT added to `nodes`.

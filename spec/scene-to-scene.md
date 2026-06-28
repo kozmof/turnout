@@ -1,7 +1,7 @@
 # Scene-to-Scene Routing Specification
 
-> **Status**: Draft for implementation
-> **Scope**: Route-level routing — determining which scene to enter next after a scene within a route reaches its terminal state
+> Status: Draft for implementation
+> Scope: Route-level routing that determines which scene to enter next after a scene within a route reaches its terminal state
 
 ---
 
@@ -15,16 +15,16 @@ This spec defines a routing DSL that evaluates the just-completed scene's route-
 
 ### 2.1 Route Node
 
-A `route "<route_id>"` block defines a **route node** in a higher-level scene graph. A route:
+A `route "<route_id>"` block defines a route node in a higher-level scene graph. A route:
 
 - Groups and coordinates execution across one or more scenes.
 - Declares an explicit entry scene with `entry "<scene_id>"`.
-- Maintains a route-local **current-scene history** — the ordered sequence of `scene_id.action_id` entries appended while the current scene executes.
+- Maintains a route-local current-scene history, the ordered sequence of `scene_id.action_id` entries appended while the current scene executes.
 - Evaluates its `match` block each time the current scene reaches a terminal state.
 
 ### 2.2 STATE Sharing
 
-STATE is global within a route. When the route transitions from one scene to another, STATE is not reset — the destination scene starts with the same STATE (`S_n`) that the previous scene left behind. STATE persists across all scene boundaries within a single route invocation.
+STATE is global within a route. When the route transitions from one scene to another, STATE is not reset. The destination scene starts with the same STATE (`S_n`) that the previous scene left behind. STATE persists across all scene boundaries within a single route invocation.
 
 ### 2.3 Route History
 
@@ -40,7 +40,7 @@ Example history after `scene_1` executes `intro`, `quiz`, then `final_action`:
 
 ### 2.4 Trigger
 
-The `match` block is evaluated when a scene inside the route reaches a **terminal state** — i.e., when `first-match` or `all-match` next-action evaluation returns no results (per `scene-graph.md §8`).
+The `match` block is evaluated when a scene inside the route reaches a terminal state, that is, when `first-match` or `all-match` next-action evaluation returns no results (per `scene-graph.md §8`).
 
 ---
 
@@ -91,7 +91,7 @@ The entry scene must reference an existing scene. Route execution starts at that
 
 #### Path expression
 
-A **path expression** matches the route history against a single scene's execution path. The **last segment must always be a specific action_id** — bare `scene_id.*` (with no terminal action) is not permitted, because the runtime cannot determine when to trigger a match without a concrete terminal action.
+A path expression matches the route history against a single scene's execution path. The last segment must always be a specific action_id. Bare `scene_id.*` (with no terminal action) is not permitted, because the runtime cannot determine when to trigger a match without a concrete terminal action.
 
 | Path form | Meaning |
 |---|---|
@@ -103,7 +103,7 @@ A **path expression** matches the route history against a single scene's executi
 
 When evaluating a path expression, the runtime first checks whether the pattern's scene ID is the scene that just reached terminal state. If it is not, the path expression is not eligible. For eligible path expressions, the runtime evaluates the current-scene history block, which contains only entries from the current scene visit because history is cleared after each scene transition. A `*` wildcard matches zero or more actions within this block.
 
-A path expression with a single `*` is permitted. **Multiple `*` wildcards in a single path expression are not permitted** (`MultipleWildcards`).
+A path expression with a single `*` is permitted. Multiple `*` wildcards in a single path expression are not permitted (`MultipleWildcards`).
 
 #### OR expression `\|`
 
@@ -115,17 +115,17 @@ The `_` pattern matches any route history unconditionally. It MUST appear at mos
 
 ### 3.3 Match Result
 
-`=> <scene_id>` specifies the **next scene to enter**. The named scene is entered starting from its **first declared** `entry_actions` entry (per `scene-graph.md §2`). When the target scene declares multiple entry actions, only the first is launched on route-driven entry.
+`=> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its first declared `entry_actions` entry (per `scene-graph.md §2`). When the target scene declares multiple entry actions, only the first is launched on route-driven entry.
 
 ---
 
 ## 4. Priority
 
-When multiple patterns match the same history, the **narrower** pattern wins:
+When multiple patterns match the same history, the narrower pattern wins:
 
-1. **Fewer `*` wildcards = higher priority** (most specific pattern wins).
-2. When two patterns have the same wildcard count, **longer specific suffix = higher priority** — more action segments after the `*` wins (e.g. `scene.*.foo.bar` beats `scene.*.bar`).
-3. When two patterns have the same wildcard count and the same suffix length, **declaration order** (top-to-bottom) determines the winner.
+1. Fewer `*` wildcards = higher priority (most specific pattern wins).
+2. When two patterns have the same wildcard count, the longer specific suffix wins. More action segments after the `*` take priority (e.g. `scene.*.foo.bar` beats `scene.*.bar`).
+3. When two patterns have the same wildcard count and the same suffix length, declaration order (top-to-bottom) determines the winner.
 
 `_` has lowest priority because it contains no path structure and always matches.
 
@@ -133,7 +133,7 @@ When multiple patterns match the same history, the **narrower** pattern wins:
 
 ## 5. Terminal Behavior
 
-If no pattern matches and no `_` fallback is present, the route enters a **terminal `completed` state** — analogous to a scene with no matching next actions.
+If no pattern matches and no `_` fallback is present, the route enters a terminal `completed` state, analogous to a scene with no matching next actions.
 
 ---
 
@@ -222,13 +222,13 @@ Validation failures MUST produce an `invalid_route` diagnostic. Each failure emi
 
 No open questions remain.
 
-**Resolved:**
+Resolved:
 
 | # | Resolution |
 |---|------------|
-| 1 | **Multiple visits**: route history is scoped to the current scene visit and is cleared after each scene transition. A `scene_id.*.final_action` pattern is eligible only when `scene_id` is the scene that just terminated. See §2.3 for full semantics. |
-| 4 | **`RouteDiagnostic` payload**: `routeId` is required (non-optional); `armIndex` and `patternText` remain optional. |
-| 5 | **Scope of `=> <scene_id>` targets**: A target may reference any scene in the global scene registry; it is not restricted to scenes declared within the same route block. |
+| 1 | Multiple visits: route history is scoped to the current scene visit and is cleared after each scene transition. A `scene_id.*.final_action` pattern is eligible only when `scene_id` is the scene that just terminated. See §2.3 for full semantics. |
+| 4 | `RouteDiagnostic` payload: `routeId` is required (non-optional); `armIndex` and `patternText` remain optional. |
+| 5 | Scope of `=> <scene_id>` targets: A target may reference any scene in the global scene registry; it is not restricted to scenes declared within the same route block. |
 
 ---
 

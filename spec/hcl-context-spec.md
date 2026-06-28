@@ -1,7 +1,7 @@
 # HCL ContextSpec — Refined Specification
 
-> **Status**: Phase 1 ready for implementation; Phase 2 (loops) requires runtime extension.
-> **Target API**: `ctx(spec: ContextSpec): BuildResult<T>` in `src/compute-graph/builder/context.ts`
+> Status: Phase 1 ready for implementation; Phase 2 (loops) requires runtime extension.
+> Target API: `ctx(spec: ContextSpec): BuildResult<T>` in `src/compute-graph/builder/context.ts`
 
 ---
 
@@ -14,8 +14,8 @@ The compiler reads DSL input, lowers it to canonical plain HCL syntax, validates
 
 This spec defines two layers:
 
-1. **Surface DSL** (authoring syntax): includes typed keys (`name:type`), function-call expressions (`add(v1, v2)`), infix expressions (`name:bool = lhs >= rhs`, `name:str = lhs + rhs`), and bare references (`v1`).
-2. **Canonical plain HCL** (lowered syntax): uses only standard HCL identifiers/blocks/attributes so a stock HCL parser can parse it.
+1. Surface DSL (authoring syntax): includes typed keys (`name:type`), function-call expressions (`add(v1, v2)`), infix expressions (`name:bool = lhs >= rhs`, `name:str = lhs + rhs`), and bare references (`v1`).
+2. Canonical plain HCL (lowered syntax): uses only standard HCL identifiers/blocks/attributes so a stock HCL parser can parse it.
 
 ### Canonical plain HCL shape
 
@@ -86,7 +86,7 @@ After `name:type =`, the parser selects the form by examining the first and seco
 | numeric literal, string literal, `[` | any | value binding (literal) |
 | bare `IDENT` (not `true`/`false`) | `(` | function call |
 | bare `IDENT` (not `true`/`false`) | `&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=` | infix expression |
-| bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | **single-reference form** |
+| bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | single-reference form |
 | `{` | any | block form (reserved constructs only; not used for v1 function expressions) |
 | `#pipe` | any | pipe form |
 | `#if` | any | if form |
@@ -145,7 +145,7 @@ prog "main" {
 - Infix `lhs | rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "bool_or"`
 - Infix `lhs == rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "eq"`
 - Infix `lhs != rhs` -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "neq"`
-- Infix `lhs + rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "add"` (for `name:number`) or `fn = "str_concat"` (for `name:str`) — type-dispatched
+- Infix `lhs + rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "add"` (for `name:number`) or `fn = "str_concat"` (for `name:str`), dispatched by declared type
 - Infix `lhs - rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "sub"`
 - Infix `lhs * rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "mul"`
 - Infix `lhs / rhs`  -> ordered pair `[arg(lhs), arg(rhs)]` with `fn = "div"`
@@ -179,11 +179,11 @@ CAN'T (NG):
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
 - `#it` cannot appear outside a `#pipe` step.
 - `_` cannot be used as a pipe placeholder or sigil placeholder. It is valid only as a wildcard pattern inside `#case`.
-- The wildcard `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier — they are handled by their own forms.
+- The wildcard `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier. They are handled by their own forms.
 
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks, reference nodes, and canonical expression nodes to stay parseable and unambiguous in plain HCL.
-- Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker — the parser distinguishes infix from function calls by token lookahead.
+- Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker. The parser distinguishes infix from function calls by token lookahead.
 - Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition: every binary function is either call-only or operator-only.
 
 ### Runtime value types
@@ -221,7 +221,7 @@ name:type = literal
 
 - `name` must match `[A-Za-z_][A-Za-z0-9_]*`; names starting with `__` are reserved for compiler-generated bindings.
 - `type` is one of: `number | str | bool | arr<number> | arr<str> | arr<bool>`
-- In the DSL layer, keys are written as `name:type`; the lowering pass splits on the **first** `:` and emits canonical plain HCL `binding` blocks.
+- In the DSL layer, keys are written as `name:type`; the lowering pass splits on the first `:` and emits canonical plain HCL `binding` blocks.
 
 ### Examples
 
@@ -261,7 +261,7 @@ prog "main" {
 ## 3. Function expressions
 
 Function expressions in the Surface DSL use call syntax for binary combine functions, plus a parse-safe infix shorthand.
-There are five forms: **combine** (call expression), **infix** (`= lhs OP rhs`), **#if**, **#case**, and **#pipe**.
+There are five forms: combine (call expression), infix (`= lhs OP rhs`), #if, #case, and #pipe.
 
 ---
 
@@ -269,7 +269,7 @@ There are five forms: **combine** (call expression), **infix** (`= lhs OP rhs`),
 
 Binary functions are divided into two categories based on whether a DSL infix operator is assigned:
 
-**Operator functions** — have an assigned DSL infix operator and **must** be written using it. Call-form alias is forbidden for these:
+Operator functions have an assigned DSL infix operator and must be written using it. Call-form alias is forbidden for these:
 
 ```hcl
 name:bool   = lhs & rhs             # bool_and  — only valid form
@@ -288,7 +288,7 @@ name:number = lhs / rhs             # div        — only valid form
 name:number = lhs % rhs             # mod        — only valid form
 ```
 
-**Call functions** — have no infix operator and **must** be written using call syntax:
+Call functions have no infix operator and must be written using call syntax:
 
 ```hcl
 name:type = fn_alias(arg1, arg2)        # positional call
@@ -315,7 +315,7 @@ Operator functions are normalized by operator:
 All forms are semantically identical after lowering.
 The compiler always lowers to runtime combine args `{ a: <arg1>, b: <arg2> }`.
 
-**Example:**
+Example:
 
 ```hcl
 prog "main" {
@@ -332,7 +332,7 @@ prog "main" {
 }
 ```
 
-**Emitted ContextSpec:**
+Emitted ContextSpec:
 
 ```typescript
 {
@@ -350,35 +350,35 @@ prog "main" {
 
 #### Built-in function alias table
 
-Functions marked **operator-only** must be written using their DSL operator. Their alias cannot be used in call form.
+Functions marked operator-only must be written using their DSL operator. Their alias cannot be used in call form.
 
 | HCL alias      | Runtime `BinaryFnNames`                  | arg1 type | arg2 type | return type | DSL form         |
 |----------------|------------------------------------------|-----------|-----------|-------------|------------------|
-| `add`          | `binaryFnNumber::add`                    | `number`  | `number`  | `number`    | **operator-only** `+` (for `:number`) |
-| `sub`          | `binaryFnNumber::minus`                  | `number`  | `number`  | `number`    | **operator-only** `-` |
-| `mul`          | `binaryFnNumber::multiply`               | `number`  | `number`  | `number`    | **operator-only** `*` |
-| `div`          | `binaryFnNumber::divide`                 | `number`  | `number`  | `number`    | **operator-only** `/` |
-| `mod`          | `binaryFnNumber::mod`                    | `number`  | `number`  | `number`    | **operator-only** `%` |
+| `add`          | `binaryFnNumber::add`                    | `number`  | `number`  | `number`    | operator-only `+` (for `:number`) |
+| `sub`          | `binaryFnNumber::minus`                  | `number`  | `number`  | `number`    | operator-only `-` |
+| `mul`          | `binaryFnNumber::multiply`               | `number`  | `number`  | `number`    | operator-only `*` |
+| `div`          | `binaryFnNumber::divide`                 | `number`  | `number`  | `number`    | operator-only `/` |
+| `mod`          | `binaryFnNumber::mod`                    | `number`  | `number`  | `number`    | operator-only `%` |
 | `max`          | `binaryFnNumber::max`                    | `number`  | `number`  | `number`    | call only        |
 | `min`          | `binaryFnNumber::min`                    | `number`  | `number`  | `number`    | call only        |
-| `gt`           | `binaryFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | **operator-only** `>` |
-| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `number`  | `number`  | `bool`      | **operator-only** `>=` |
-| `lt`           | `binaryFnNumber::lessThan`               | `number`  | `number`  | `bool`      | **operator-only** `<` |
-| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `number`  | `number`  | `bool`      | **operator-only** `<=` |
-| `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       | **operator-only** `+`  |
+| `gt`           | `binaryFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | operator-only `>` |
+| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `number`  | `number`  | `bool`      | operator-only `>=` |
+| `lt`           | `binaryFnNumber::lessThan`               | `number`  | `number`  | `bool`      | operator-only `<` |
+| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `number`  | `number`  | `bool`      | operator-only `<=` |
+| `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       | operator-only `+`  |
 | `str_includes` | `binaryFnString::includes`               | `str`     | `str`     | `bool`      | call only        |
 | `str_starts`   | `binaryFnString::startsWith`             | `str`     | `str`     | `bool`      | call only        |
 | `str_ends`     | `binaryFnString::endsWith`               | `str`     | `str`     | `bool`      | call only        |
-| `bool_and`     | `binaryFnBoolean::and`                   | `bool`    | `bool`    | `bool`      | **operator-only** `&`  |
-| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | **operator-only** `\|` |
+| `bool_and`     | `binaryFnBoolean::and`                   | `bool`    | `bool`    | `bool`      | operator-only `&`  |
+| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | operator-only `\|` |
 | `bool_xor`     | `binaryFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      | call only        |
-| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | **operator-only** `==` |
-| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | **operator-only** `!=` |
+| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | operator-only `==` |
+| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | operator-only `!=` |
 | `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      | call only        |
 | `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
-> **Parse-time checks**: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix form must be exactly `name:<type> = lhs OP rhs`; operator/type pairings are enforced: `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` for `name:bool`; `+`/`-`/`*`/`/`/`%` for `name:number`; `+` (only) for `name:str`; `eq`/`neq` (`==`/`!=`) are the sole exceptions — they accept any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
+> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix form must be exactly `name:<type> = lhs OP rhs`; operator/type pairings are enforced: `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` for `name:bool`; `+`/`-`/`*`/`/`/`%` for `name:number`; `+` (only) for `name:str`; `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
@@ -390,7 +390,7 @@ name:type = #if(cond, then_expr, else_expr)
 
 `#if` selects between two expressions. The condition must resolve to `bool`, and only the selected branch is evaluated.
 
-**Example:**
+Example:
 
 ```hcl
 prog "main" {
@@ -399,7 +399,7 @@ prog "main" {
 }
 ```
 
-**Emitted ContextSpec:**
+Emitted ContextSpec:
 
 ```typescript
 {
@@ -412,7 +412,7 @@ prog "main" {
 }
 ```
 
-**Rules:**
+Rules:
 
 - `cond` must resolve to `bool`.
 - `then_expr` and `else_expr` must resolve to the same type.
@@ -434,7 +434,7 @@ name:type = #case(
 
 `#case` evaluates arms from top to bottom and returns the expression for the first matching pattern whose guard passes.
 
-**Example:**
+Example:
 
 ```hcl
 prog "main" {
@@ -449,7 +449,7 @@ prog "main" {
 }
 ```
 
-**Emitted ContextSpec:**
+Emitted ContextSpec:
 
 ```typescript
 {
@@ -466,7 +466,7 @@ prog "main" {
 }
 ```
 
-**Rules:**
+Rules:
 
 - Supported patterns are literals, wildcard `_`, variable binders, and guarded arms. Tuple patterns are not part of the implemented v1 parser.
 - Future draft: tuple patterns may extend `#case` so a tuple subject such as `(unsafe, spindle_temp_c)` can be matched by tuple arms such as `(true, _)` and `(false, t) if t < 28 => "warmup"`.
@@ -489,7 +489,7 @@ name:type = #pipe(
 
 `#pipe` evaluates `initial_value`, then evaluates each step in order with `#it` bound to the current pipeline value. The final step result is the pipe result.
 
-**Example:**
+Example:
 
 ```hcl
 prog "main" {
@@ -507,7 +507,7 @@ prog "main" {
 }
 ```
 
-**Emitted ContextSpec:**
+Emitted ContextSpec:
 
 ```typescript
 {
@@ -522,7 +522,7 @@ prog "main" {
 }
 ```
 
-**Rules:**
+Rules:
 
 - Each step is a full expression template and may refer to `#it`.
 - `#it` is valid only inside a `#pipe` step.
@@ -548,7 +548,7 @@ prog "main" {
 | `transformFnArray` | `pass`, `length`, `isEmpty` |
 | `transformFnNull` | `pass` |
 
-> **Note**: The table above lists the internal `pass` identity transform available for all types. The full set of DSL-surface transform methods (e.g. `.toStr()`, `.trim()`, `.abs()`, `.not()`, `.isEmpty()`) is defined in `transform-fn-dsl-spec.md`, which is the authoritative reference for authoring transform expressions.
+> Note: The table above lists the internal `pass` identity transform available for all types. The full set of DSL-surface transform methods (e.g. `.toStr()`, `.trim()`, `.abs()`, `.not()`, `.isEmpty()`) is defined in `transform-fn-dsl-spec.md`, which is the authoritative reference for authoring transform expressions.
 
 ---
 
@@ -586,8 +586,8 @@ prog "main" {
 
 The following constructs are syntactically reserved. They cannot be compiled to the current ContextSpec without adding new builder types, because:
 
-1. `range(n)` is a **unary** operation — the current binary function model requires two arguments.
-2. `map`, `filter`, `fold` take a **function reference** as an argument — `AnyValue` cannot hold a `FuncRef` in the current value type system.
+1. `range(n)` is a unary operation, but the current binary function model requires two arguments.
+2. `map`, `filter`, and `fold` take a function reference as an argument, and `AnyValue` cannot hold a `FuncRef` in the current value type system.
 
 ### Reserved syntax (Phase 2)
 
@@ -674,7 +674,7 @@ prog "main" {
 }
 ```
 
-**Emitted ContextSpec:**
+Emitted ContextSpec:
 
 ```typescript
 ctx({
@@ -770,5 +770,5 @@ ctx({
 
 ### Manual intervention points
 
-- **`div` fractional results**: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`.
-- **Phase 2 activation**: Phase 2 loop syntax (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 file is a hard parse error that aborts conversion.
+- `div` fractional results: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`.
+- Phase 2 activation: Phase 2 loop syntax (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 file is a hard parse error that aborts conversion.
