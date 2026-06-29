@@ -1,6 +1,6 @@
 # E2E Test Framework — Implementation Plan
 
-> **Pipeline under test**: `.turn` → Go CLI converter → canonical HCL → TypeScript scene runner → STATE assertions
+> Pipeline under test: `.turn` → Go CLI converter → canonical HCL → TypeScript scene runner → STATE assertions
 
 ---
 
@@ -13,7 +13,7 @@ Route executor          ← cross-scene coordinator (scene-to-scene.md)
               └── executeGraph (packages/ts/runtime)
 ```
 
-**Route** groups one or more scenes, maintains a growing route history (`scene_id.action_id` entries), and evaluates `match` patterns whenever a scene reaches a terminal state to decide the next scene to enter. STATE is shared and never reset across scene boundaries within a route.
+Route groups one or more scenes, maintains a growing route history (`scene_id.action_id` entries), and evaluates `match` patterns whenever a scene reaches a terminal state to decide the next scene to enter. STATE is shared and never reset across scene boundaries within a route.
 
 ---
 
@@ -21,9 +21,9 @@ Route executor          ← cross-scene coordinator (scene-to-scene.md)
 
 The Go converter is complete. The TypeScript runtime has a compute-graph engine (`executeGraph`, `ctx()` builder) but no orchestration above the compute graph. This framework adds all three layers:
 
-1. **JSON output from the Go converter** — TypeScript consumes the parsed model without an HCL parser
-2. **A new `packages/ts/scene-runner/` package** — action/scene/route executors, STATE management, `from_state`/`from_action`/`from_hook` stubs, route history + pattern matching, and a test harness API
-3. **E2E test suite** — covers both single-scene and multi-scene (route) workflows
+1. JSON output from the Go converter — TypeScript consumes the parsed model without an HCL parser
+2. A new `packages/ts/scene-runner/` package — action/scene/route executors, STATE management, `from_state`/`from_action`/`from_hook` stubs, route history + pattern matching, and a test harness API
+3. E2E test suite — covers both single-scene and multi-scene (route) workflows
 
 ---
 
@@ -72,7 +72,7 @@ Notes:
 
 ## Phase 1 — TypeScript Scene Model Types ✅
 
-**Package**: `packages/ts/scene-runner/` (new; depends on `turnout` runtime via `file:../runtime`)
+Package: `packages/ts/scene-runner/` (new; depends on `turnout` runtime via `file:../runtime`)
 
 ### Files created
 
@@ -91,7 +91,7 @@ Notes:
 
 ## Phase 2 — Converter Bridge ✅
 
-**File**: `src/converter/bridge.ts`
+File: `src/converter/bridge.ts`
 
 ```typescript
 function runConverter(turnFilePath: string): TurnModel   // invokes Go CLI, returns parsed model
@@ -106,7 +106,7 @@ function loadJsonModel(jsonFilePath: string): TurnModel  // loads pre-built JSON
 
 ## Phase 3 — State Manager ✅
 
-**File**: `src/state/state-manager.ts`
+File: `src/state/state-manager.ts`
 
 STATE is a flat `Record<string, AnyValue>` keyed by dotted path (`"request.query"`). No nested structures. STATE is shared and carried across scene boundaries within a route; it is never reset between scenes.
 
@@ -122,13 +122,13 @@ class StateManager {
 
 Also exports `literalToValue(value, type)` for use by the prepare resolver.
 
-**Tests**: `tests/state-manager.test.ts` — 7 passing unit tests covering `from`, `fromSchema`, `read`, `write` immutability, `snapshot`, override precedence.
+Tests: `tests/state-manager.test.ts`, 7 passing unit tests covering `from`, `fromSchema`, `read`, `write` immutability, `snapshot`, override precedence.
 
 ---
 
 ## Phase 4 — HCL Context Builder ✅
 
-**File**: `src/executor/hcl-context-builder.ts`
+File: `src/executor/hcl-context-builder.ts`
 
 Translates a `ProgModel` + injected prepare values → `ExecutionContext` using the existing builder API.
 
@@ -147,7 +147,7 @@ function buildContextFromProg(
 
 Lowering rules: value binding → `val()`, combine → `combine()`, pipe → `pipe()`, cond → `cond()`. Injected prepare values override the prog's declared placeholder default.
 
-**Reuses**: `ctx`, `combine`, `pipe`, `cond`, `val`, `ref` from `packages/ts/runtime/src/compute-graph/builder/index.ts`
+Reuses: `ctx`, `combine`, `pipe`, `cond`, `val`, `ref` from `packages/ts/runtime/src/compute-graph/builder/index.ts`
 
 ### Tasks
 
@@ -158,7 +158,7 @@ Lowering rules: value binding → `val()`, combine → `combine()`, pipe → `pi
 
 ## Phase 5 — Prepare Resolver (Stubs) ✅
 
-**File**: `src/executor/prepare-resolver.ts`
+File: `src/executor/prepare-resolver.ts`
 
 ### Action-level prepare (`from_state` | `from_hook`)
 
@@ -172,8 +172,8 @@ function resolveActionPrepare(
 
 | Source | Resolution |
 |--------|-----------|
-| `from_state` | `state.read(path)` — **from_state stub** |
-| `from_hook` | `hooks[hookName](ctx)` → extract field matching binding name — **from_hook stub** |
+| `from_state` | `state.read(path)` — from_state stub |
+| `from_hook` | `hooks[hookName](ctx)` → extract field matching binding name — from_hook stub |
 
 ### Next-rule prepare (`from_action` | `from_state` | `from_literal`)
 
@@ -187,7 +187,7 @@ function resolveNextPrepare(
 
 | Source | Resolution |
 |--------|-----------|
-| `from_action` | `prevResult.bindingValues[name]` — **from_action stub** |
+| `from_action` | `prevResult.bindingValues[name]` — from_action stub |
 | `from_state` | `state.read(path)` (post-merge S_{n+1}) |
 | `from_literal` | `literalToValue(value, bindingType)` |
 
@@ -200,7 +200,7 @@ function resolveNextPrepare(
 
 ## Phase 6 — Action Executor ✅
 
-**File**: `src/executor/action-executor.ts`
+File: `src/executor/action-executor.ts`
 
 ```typescript
 type ActionExecutionResult = {
@@ -219,7 +219,7 @@ function executeAction(
 
 Steps: resolve prepare → build context → `assertValidContext` → `executeGraph` → extract binding values via `nameToValueId` → apply merge to STATE.
 
-**Reuses**: `assertValidContext`, `executeGraph` from `packages/ts/runtime`
+Reuses: `assertValidContext`, `executeGraph` from `packages/ts/runtime`
 
 ### Tasks
 
@@ -230,7 +230,7 @@ Steps: resolve prepare → build context → `assertValidContext` → `executeGr
 
 ## Phase 7 — Scene Executor ✅
 
-**File**: `src/executor/scene-executor.ts`
+File: `src/executor/scene-executor.ts`
 
 ```typescript
 type SceneExecutionResult = {
@@ -262,13 +262,13 @@ Algorithm:
 
 ## Phase 8 — Route History & Pattern Matching ✅
 
-**File**: `src/executor/route-pattern.ts`
+File: `src/executor/route-pattern.ts`
 
 Route history is a `string[]` of `"scene_id.action_id"` entries accumulated across all scenes in a route invocation. It resets each time the route is entered.
 
 ### Contiguous-block extraction
 
-Per spec §2.3: when a scene is visited more than once, the **first** contiguous block (earliest in history) that satisfies the pattern determines a match.
+Per spec §2.3: when a scene is visited more than once, the first contiguous block (earliest in history) that satisfies the pattern determines a match.
 
 ```typescript
 // Returns all contiguous blocks of scene_id entries in history order
@@ -301,7 +301,7 @@ function selectNextScene(history: string[], arms: MatchArm[]): string | null
 
 ## Phase 9 — Route Executor ✅
 
-**File**: `src/executor/route-executor.ts`
+File: `src/executor/route-executor.ts`
 
 ```typescript
 type RouteExecutionResult = {
@@ -335,7 +335,7 @@ Algorithm:
 
 ## Phase 10 — Harness API ✅
 
-**File**: `src/harness/harness.ts`
+File: `src/harness/harness.ts`
 
 ```typescript
 function runHarness(options: HarnessOptions): HarnessResult
@@ -354,7 +354,7 @@ function runHarness(options: HarnessOptions): HarnessResult
 
 ## Phase 11 — E2E Test Suite ✅
 
-**Location**: `packages/ts/scene-runner/tests/e2e/`
+Location: `packages/ts/scene-runner/tests/e2e/`
 
 ### Single-scene tests (current examples, no `route` block)
 

@@ -58,7 +58,7 @@ CAN'T (NG):
 - An action `compute` prog cannot omit the `|^|` root marker (it derives `compute.root`). A prog cannot carry more than one marker, and the marked binding must be last.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A binding marked as ingress-capable (`~>` or `<~>`) cannot omit its `prepare` entry.
-- A next rule that includes a `compute` block cannot omit the `|?|` condition marker (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional): `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { |?| c:bool = true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one — a trivially-true condition is normalized away during conversion.
+- A next rule that includes a `compute` block cannot omit the `|?|` condition marker (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { |?| c:bool = true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
 - Next actions cannot reference missing actions.
 
 Correlation:

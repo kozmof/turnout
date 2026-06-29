@@ -1,7 +1,7 @@
 # Turn DSL → Canonical HCL Converter (Go CLI) — Implementation Plan
 
-> **Scope**: Go CLI that reads `.turn` files and emits canonical plain HCL conforming to all spec files in `spec/`.
-> **Pipeline**: `Turn DSL --[Go CLI]--> HCL file --[TypeScript runtime]--> STATE mutations`
+> Scope: Go CLI that reads `.turn` files and emits canonical plain HCL conforming to all spec files in `spec/`.
+> Pipeline: `Turn DSL --[Go CLI]--> HCL file --[TypeScript runtime]--> STATE mutations`
 
 ---
 
@@ -45,30 +45,30 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [x] **Keywords**: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `root`, `condition`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `view`, `flow`, `enforce`, `text`
-- [x] **Typed key** (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
+- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `root`, `condition`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `view`, `flow`, `enforce`, `text`
+- [x] Typed key (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
-- [x] **Sigil prefixes**: `<~>`, `<~`, `~>` (parse longest-match first)
-- [x] **Infix operators**: `>=`, `<=`, `&`, `+` (distinguish from HCL attribute assignment `=`)
-- [x] **Special forms**: `#pipe`, `#if`
-- [x] **Ingress placeholder**: `_`
-- [x] **Triple-quoted strings**: `"""..."""` (Python-style docstrings on action blocks)
-- [x] **HCL heredoc**: `<<-EOT...EOT`
-- [x] **Literals**: integer, decimal, string (`"`), boolean (`true`/`false`), array (`[...]`)
-- [x] **Punctuation**: `{`, `}`, `[`, `]`, `(`, `,`, `:`, `=`, `.`, `=>`, `|`
-- [x] **Comments**: `#` to end-of-line
+- [x] Sigil prefixes: `<~>`, `<~`, `~>` (parse longest-match first)
+- [x] Infix operators: `>=`, `<=`, `&`, `+` (distinguish from HCL attribute assignment `=`)
+- [x] Special forms: `#pipe`, `#if`
+- [x] Ingress placeholder: `_`
+- [x] Triple-quoted strings: `"""..."""` (Python-style docstrings on action blocks)
+- [x] HCL heredoc: `<<-EOT...EOT`
+- [x] Literals: integer, decimal, string (`"`), boolean (`true`/`false`), array (`[...]`)
+- [x] Punctuation: `{`, `}`, `[`, `]`, `(`, `,`, `:`, `=`, `.`, `=>`, `|`
+- [x] Comments: `#` to end-of-line
 
 ### Disambiguation rules (per `hcl-context-spec.md §2`)
 
 After `name:type =`, the parser selects form by first/second token:
-- keyword literal (`true`/`false`) or numeric/string/`[` → **value binding**
-- bare `IDENT` + `(` → **function call**
-- bare `IDENT` + (`&`, `>=`, `<=`, `+`) → **infix expression**
-- bare `IDENT` + (EOL / `}` / next `IDENT:`) → **single-reference form**
-- `{` → **block form** (cond / #if compat / pipe compat)
-- `#pipe` → **pipe form**
-- `#if` → **if form**
-- sigil + `_` → **ingress placeholder**
+- keyword literal (`true`/`false`) or numeric/string/`[` → value binding
+- bare `IDENT` + `(` → function call
+- bare `IDENT` + (`&`, `>=`, `<=`, `+`) → infix expression
+- bare `IDENT` + (EOL / `}` / next `IDENT:`) → single-reference form
+- `{` → block form (cond / #if compat / pipe compat)
+- `#pipe` → pipe form
+- `#if` → if form
+- sigil + `_` → ingress placeholder
 
 ---
 
