@@ -238,6 +238,24 @@ describe("executeAction — cumulative binding table", () => {
     expect(result.publishOutcomes).toEqual([{ hookName: "registered_hook", status: "ok" }]);
   });
 
+  it("does not invoke inherited prototype properties as publish hooks", async () => {
+    const action = {
+      id: "prototype_publish",
+      compute: {
+        root: "out",
+        prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
+      },
+      publish: ["constructor"],
+    } as unknown as ActionModel;
+
+    const result = await executeAction(action, stateManagerFromUnchecked({}), {
+      prepare: {},
+      publish: {},
+    });
+
+    expect(result.publishOutcomes).toEqual([]);
+  });
+
   it("records a failed publish hook as an outcome and still succeeds by default", async () => {
     const action = {
       id: "failing_publish",

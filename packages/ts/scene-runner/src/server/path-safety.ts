@@ -10,6 +10,7 @@ import {
   statSync,
 } from "node:fs";
 import type { BigIntStats } from "node:fs";
+import { open as openAsync } from "node:fs/promises";
 import { isAbsolute, relative, resolve, sep } from "node:path";
 import { HarnessError } from "./errors.js";
 
@@ -139,9 +140,12 @@ function verifyOpenedPath(fd: number, safePath: string, baseDir: string): boolea
  */
 export function readContainedFile(filePath: string, baseDir: string, maxBytes?: number): string {
   const safePath = containPath(filePath, baseDir);
-  const fd = openSync(safePath, constants.O_RDONLY);
+  const fd = openSync(safePath, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
     const openedInfo = fstatSync(fd);
+    if (!openedInfo.isFile()) {
+      throw new HarnessError("InvalidFileType", `path "${filePath}" is not a regular file`);
+    }
     if (maxBytes !== undefined && openedInfo.size > maxBytes) {
       throw new HarnessError(
         "InputTooLarge",
@@ -171,5 +175,53 @@ export function readContainedFile(filePath: string, baseDir: string, maxBytes?: 
     );
   } finally {
     closeSync(fd);
+  }
+}
+
+/**
+ * Asynchronous counterpart to `readContainedFile` for request-facing paths.
+ * Opening and reading happen off the event loop while retaining the same
+ * descriptor identity and containment checks as the synchronous API.
+ */
+export async function readContainedFileAsync(
+  filePath: string,
+  baseDir: string,
+  maxBytes: number,
+): Promise<string> {
+  const safePath = containPath(filePath, baseDir);
+  const handle = await openAsync(safePath, constants.O_RDONLY | constants.O_NONBLOCK);
+  try {
+    const openedInfo = await handle.stat();
+    if (!openedInfo.isFile()) {
+      throw new HarnessError("InvalidFileType", `path "${filePath}" is not a regular file`);
+    }
+    if (openedInfo.size > maxBytes) {
+      throw new HarnessError(
+        "InputTooLarge",
+        `path "${filePath}" exceeds the ${maxBytes}-byte input limit`,
+      );
+    }
+    if (!verifyOpenedPath(handle.fd, safePath, baseDir)) {
+      throw new HarnessError(
+        "PathOutsideBase",
+        `path "${filePath}" resolved outside allowed base directory "${baseDir}" after open`,
+      );
+    }
+
+    const chunks: Buffer[] = [];
+    let total = 0;
+    while (total <= maxBytes) {
+      const chunk = Buffer.allocUnsafe(Math.min(64 * 1024, maxBytes + 1 - total));
+      const { bytesRead } = await handle.read(chunk, 0, chunk.length, null);
+      if (bytesRead === 0) return Buffer.concat(chunks, total).toString("utf8");
+      chunks.push(chunk.subarray(0, bytesRead));
+      total += bytesRead;
+    }
+    throw new HarnessError(
+      "InputTooLarge",
+      `path "${filePath}" exceeds the ${maxBytes}-byte input limit`,
+    );
+  } finally {
+    await handle.close();
   }
 }

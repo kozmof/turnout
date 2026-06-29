@@ -99,7 +99,9 @@ async function runRouteCore(
   const warnings: RouteWarning[] = [];
 
   for (;;) {
-    const scene = scenes[progress.currentSceneId];
+    const scene = Object.hasOwn(scenes, progress.currentSceneId)
+      ? scenes[progress.currentSceneId]
+      : undefined;
     if (!scene)
       throw new RouteRuntimeError(
         "UnknownScene",

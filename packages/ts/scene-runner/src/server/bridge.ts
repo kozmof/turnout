@@ -6,7 +6,7 @@ import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel } from "../types/turnout-model_pb.js";
 import { TurnModelSchema } from "../types/turnout-model_pb.js";
 import { BridgeError, HarnessError, LoadError } from "./errors.js";
-import { readContainedFile, resolveBaseDir } from "./path-safety.js";
+import { readContainedFile, readContainedFileAsync, resolveBaseDir } from "./path-safety.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -275,9 +275,13 @@ function readRegularFileLimited(filePath: string, maxBytes: number): string {
       filePath,
       `File "${filePath}" exceeds the ${maxBytes}-byte input limit`,
     );
-  const fd = openSync(filePath, constants.O_RDONLY);
+  const fd = openSync(filePath, constants.O_RDONLY | constants.O_NONBLOCK);
   try {
-    if (fstatSync(fd).size > maxBytes) throw tooLarge();
+    const openedInfo = fstatSync(fd);
+    if (!openedInfo.isFile()) {
+      throw new LoadError("InvalidFileType", filePath, `File "${filePath}" is not a regular file`);
+    }
+    if (openedInfo.size > maxBytes) throw tooLarge();
 
     const chunks: Buffer[] = [];
     let total = 0;
@@ -305,7 +309,7 @@ async function invokeConverter(
   let input: Buffer | undefined;
   if (options?.safeBaseDir) {
     // Reads + containment-checks before any work; throws HarnessError on escape.
-    const source = readContainedFile(turnFilePath, options.safeBaseDir, maxInputBytes);
+    const source = await readContainedFileAsync(turnFilePath, options.safeBaseDir, maxInputBytes);
     const base = resolveBaseDir(options.safeBaseDir);
     args = [
       "convert",

@@ -13,8 +13,8 @@ vi.mock("node:fs", () => {
       offset += count;
       return count;
     }),
-    statSync: vi.fn(() => ({ size: 0, dev: 1, ino: 1 })),
-    fstatSync: vi.fn(() => ({ size: 0, dev: 1, ino: 1 })),
+    statSync: vi.fn(() => ({ size: 0, dev: 1, ino: 1, isFile: () => true })),
+    fstatSync: vi.fn(() => ({ size: 0, dev: 1, ino: 1, isFile: () => true })),
     realpathSync: vi.fn((path: string) => path),
     accessSync: vi.fn(),
     openSync: vi.fn((path: string) => {
@@ -24,7 +24,7 @@ vi.mock("node:fs", () => {
       return 3;
     }),
     closeSync: vi.fn(),
-    constants: { X_OK: 1, O_RDONLY: 0 },
+    constants: { X_OK: 1, O_RDONLY: 0, O_NONBLOCK: 2048 },
   };
 });
 
@@ -73,8 +73,8 @@ beforeEach(() => {
   resetBinCache();
   mockReadFile.mockReset();
   mockRealpath.mockImplementation((path: string) => path);
-  mockStat.mockReturnValue({ size: 0, dev: 1, ino: 1 });
-  mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1 });
+  mockStat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => true });
+  mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => true });
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +87,14 @@ describe("loadTurnFile", () => {
     const result = loadTurnFile("test.turn");
     expect(result).toBe("turn file content");
     expect(mockReadFile).toHaveBeenCalledWith("test.turn", "utf8");
+  });
+
+  it("rejects non-regular files", () => {
+    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => false });
+
+    expect(() => loadTurnFile("named-pipe.turn")).toThrow(
+      expect.objectContaining({ code: "InvalidFileType" }),
+    );
   });
 
   it("wraps read errors with a descriptive message", () => {
@@ -351,8 +359,8 @@ describe("BridgeOptions.safeBaseDir", () => {
 
   it("rejects an opened file whose identity differs when /proc is unavailable", () => {
     mockReadFile.mockReturnValue("content");
-    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 10 });
-    mockStat.mockReturnValue({ size: 0, dev: 1, ino: 11 });
+    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 10, isFile: () => true });
+    mockStat.mockReturnValue({ size: 0, dev: 1, ino: 11, isFile: () => true });
 
     expect(() => loadTurnFile("/base/file.turn", { safeBaseDir: "/base" })).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
@@ -427,7 +435,7 @@ describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
 
 describe("BridgeOptions input limits", () => {
   it("rejects an oversized turn file before reading it", () => {
-    mockFstat.mockReturnValue({ size: 5, dev: 1, ino: 1 });
+    mockFstat.mockReturnValue({ size: 5, dev: 1, ino: 1, isFile: () => true });
     expect(() => loadTurnFile("large.turn", { maxInputBytes: 4 })).toThrow(
       expect.objectContaining({ code: "InputTooLarge" }),
     );
@@ -436,7 +444,7 @@ describe("BridgeOptions input limits", () => {
 
   it("rejects a file that grows beyond the limit after opening", () => {
     mockReadFile.mockReturnValue("12345");
-    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1 });
+    mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => true });
     expect(() => loadTurnFile("growing.turn", { maxInputBytes: 4 })).toThrow(
       expect.objectContaining({ code: "InputTooLarge" }),
     );

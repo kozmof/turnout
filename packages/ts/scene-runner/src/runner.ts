@@ -187,7 +187,10 @@ export function createSceneRunner(
   const scene = snapshotModel(inputScene);
   validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
-  const hooks: HookRegistry = { prepare: {}, publish: {} };
+  const hooks: HookRegistry = {
+    prepare: Object.create(null) as HookRegistry["prepare"],
+    publish: Object.create(null) as HookRegistry["publish"],
+  };
   let state: StateManager;
   if (initialState === undefined) {
     const detail = "No STATE schema supplied to createSceneRunner";
@@ -301,7 +304,10 @@ export function createRouteRunner(
   });
   validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
-  const hooks: HookRegistry = { prepare: {}, publish: {} };
+  const hooks: HookRegistry = {
+    prepare: Object.create(null) as HookRegistry["prepare"],
+    publish: Object.create(null) as HookRegistry["publish"],
+  };
   let state: StateManager;
   if (initialState === undefined) {
     const detail = "No STATE schema supplied to createRouteRunner";

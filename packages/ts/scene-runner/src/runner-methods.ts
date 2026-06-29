@@ -50,12 +50,22 @@ export function makeRunnerMethods<R extends HarnessResult>(
   return {
     usePrepareHook(name, handler) {
       assertHooksOpen();
-      hooks.prepare[name] = handler;
+      Object.defineProperty(hooks.prepare, name, {
+        value: handler,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
       return this;
     },
     usePublishHook(name, handler) {
       assertHooksOpen();
-      hooks.publish[name] = handler;
+      Object.defineProperty(hooks.publish, name, {
+        value: handler,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
       return this;
     },
     isDone: doneFn,

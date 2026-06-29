@@ -149,7 +149,7 @@ export function createRouteStepper(
   let currentState = initialState;
   let done = false;
 
-  const initialScene = sceneMap[entrySceneId];
+  const initialScene = Object.hasOwn(sceneMap, entrySceneId) ? sceneMap[entrySceneId] : undefined;
   if (!initialScene)
     throw new RouteRuntimeError("UnknownScene", routeId, `entry scene "${entrySceneId}" not found`);
 
@@ -186,7 +186,7 @@ export function createRouteStepper(
       return;
     }
 
-    const nextScene = sceneMap[nextSceneId];
+    const nextScene = Object.hasOwn(sceneMap, nextSceneId) ? sceneMap[nextSceneId] : undefined;
     if (!nextScene)
       throw new RouteRuntimeError("UnknownScene", routeId, `unknown scene "${nextSceneId}"`);
 

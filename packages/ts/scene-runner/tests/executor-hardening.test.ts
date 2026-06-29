@@ -135,6 +135,35 @@ describe("executor hardening", () => {
     );
   });
 
+  it("supports prototype-named bindings without treating them as injected values", () => {
+    const prog = {
+      name: "prototype_binding",
+      bindings: [{ name: "constructor", type: "number", value: 7 }],
+    } as unknown as ProgModel;
+
+    const spec = buildSpec(prog, {});
+    const built = buildContextFromProg(prog, {});
+
+    expect(Object.hasOwn(spec, "constructor")).toBe(true);
+    expect(built.resolve("constructor").kind).toBe("value");
+  });
+
+  it("rejects inherited prototype names as function aliases", () => {
+    const prog = {
+      name: "prototype_function",
+      bindings: [
+        { name: "x", type: "number", value: 1 },
+        {
+          name: "out",
+          type: "number",
+          expr: { combine: { fn: "constructor", args: [{ ref: "x" }, { lit: 1 }] } },
+        },
+      ],
+    } as unknown as ProgModel;
+
+    expect(() => buildSpec(prog, {})).toThrow("unknown HCL function name");
+  });
+
   it("exercises dynamic boundary guards and casts", () => {
     expect(toFuncId("fn_id")).toBe("fn_id");
     expect(toValueId("value_id")).toBe("value_id");

@@ -3,7 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, it, expect } from "vitest";
 import { resolve } from "node:path";
-import { resolveBaseDir, containPath, readContainedFile } from "../src/server/path-safety.js";
+import {
+  resolveBaseDir,
+  containPath,
+  readContainedFile,
+  readContainedFileAsync,
+} from "../src/server/path-safety.js";
 import { HarnessError } from "../src/server/errors.js";
 
 describe("resolveBaseDir", () => {
@@ -49,6 +54,14 @@ describe("readContainedFile", () => {
     expect(readContainedFile(file, base, 32)).toBe("content");
   });
 
+  it("rejects non-regular files", () => {
+    const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
+
+    expect(() => readContainedFile(base, base, 32)).toThrow(
+      expect.objectContaining({ code: "InvalidFileType" }),
+    );
+  });
+
   it("rejects a symlink that resolves outside the base", () => {
     const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
     const outside = join(mkdtempSync(join(tmpdir(), "turnout-path-outside-")), "secret.turn");
@@ -58,5 +71,23 @@ describe("readContainedFile", () => {
     expect(() => readContainedFile(link, base, 32)).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
     );
+  });
+});
+
+describe("readContainedFileAsync", () => {
+  it("reads through the verified descriptor asynchronously", async () => {
+    const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
+    const file = join(base, "model.turn");
+    writeFileSync(file, "async content", "utf8");
+
+    await expect(readContainedFileAsync(file, base, 32)).resolves.toBe("async content");
+  });
+
+  it("rejects non-regular files", async () => {
+    const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
+
+    await expect(readContainedFileAsync(base, base, 32)).rejects.toMatchObject({
+      code: "InvalidFileType",
+    });
   });
 });

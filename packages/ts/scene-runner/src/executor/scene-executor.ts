@@ -89,9 +89,9 @@ const DEFAULT_MAX_STEPS = 10_000;
 // Module-level cache: SceneBlock is immutable once built, so the action map
 // derived from it never changes. Keyed by object identity via WeakMap so the
 // entry is GC'd when the scene is no longer referenced.
-const actionMapCache = new WeakMap<SceneBlock, Record<string, ActionModel>>();
+const actionMapCache = new WeakMap<SceneBlock, ReadonlyMap<string, ActionModel>>();
 
-function getActionMap(scene: SceneBlock): Record<string, ActionModel> {
+function getActionMap(scene: SceneBlock): ReadonlyMap<string, ActionModel> {
   let m = actionMapCache.get(scene);
   if (!m) {
     m = buildActionMap(scene.actions, scene.id);
@@ -167,7 +167,7 @@ export function createSceneExecutor(
     rs.queueHead++;
     rs.visited.add(actionId);
 
-    const action = actionMap[actionId];
+    const action = actionMap.get(actionId);
     if (!action)
       throw new SceneRuntimeError("UnknownAction", scene.id, `unknown action "${actionId}"`);
 
@@ -360,15 +360,15 @@ export async function executeSceneSafe(
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-function buildActionMap(actions: ActionModel[], sceneId: string): Record<string, ActionModel> {
-  const map: Record<string, ActionModel> = {};
+function buildActionMap(actions: ActionModel[], sceneId: string): ReadonlyMap<string, ActionModel> {
+  const map = new Map<string, ActionModel>();
   for (const a of actions) {
-    if (map[a.id] !== undefined) {
+    if (map.has(a.id)) {
       throw new SceneRuntimeError("DuplicateActionId", sceneId, `duplicate action id "${a.id}"`, {
         actionId: a.id,
       });
     }
-    map[a.id] = a;
+    map.set(a.id, a);
   }
   return map;
 }

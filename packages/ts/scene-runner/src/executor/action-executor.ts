@@ -60,7 +60,7 @@ export async function executeAction(
     return {
       actionId: action.id,
       computeRootValue: buildNull("missing"),
-      bindingValues: {},
+      bindingValues: Object.create(null) as Record<string, AnyValue>,
       stateAfterMerge: state,
       publishOutcomes: [],
     };
@@ -87,7 +87,7 @@ export async function executeAction(
   // from the root.
   // Forward pass: each binding's result is accumulated into updatedTable for subsequent bindings.
   let updatedTable: Record<string, AnyValue> = { ...validatedCtx.valueTable };
-  const bindingValues: Record<string, AnyValue> = {};
+  const bindingValues: Record<string, AnyValue> = Object.create(null) as Record<string, AnyValue>;
 
   let ctxTrees = treesByBuiltCtx.get(builtCtx);
   if (!ctxTrees) {
@@ -151,7 +151,9 @@ export async function executeAction(
   const mergeBatch: Record<string, AnyValue> = {};
   const mergeWarnings: string[] = [];
   for (const entry of action.merge ?? []) {
-    const bindingVal = bindingValues[entry.binding];
+    const bindingVal = Object.hasOwn(bindingValues, entry.binding)
+      ? bindingValues[entry.binding]
+      : undefined;
     if (bindingVal === undefined) {
       mergeWarnings.push(
         `action "${action.id}": merge entry binding "${entry.binding}" → "${entry.toState}" was absent from compute results — state not updated`,
@@ -170,7 +172,7 @@ export async function executeAction(
   const publishOutcomes: PublishHookOutcome[] = [];
   for (const hookName of action.publish ?? []) {
     if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
-    const hook = hooks.publish[hookName];
+    const hook = Object.hasOwn(hooks.publish, hookName) ? hooks.publish[hookName] : undefined;
     if (!hook) continue;
     const ctx: PublishHookContext = {
       actionId: action.id,

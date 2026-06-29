@@ -16,6 +16,29 @@ const sceneB = {
   actions: [{ id: "b" }],
 };
 
+describe("prototype-named runtime identifiers", () => {
+  it("executes an action named constructor", async () => {
+    const model = {
+      version: 1,
+      scenes: [{ id: "s", entryActions: ["constructor"], actions: [{ id: "constructor" }] }],
+      routes: [],
+    } as unknown as TurnModel;
+    const runner = createRunner(model, {
+      entryId: "s",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+    });
+
+    const result = await runner.run();
+
+    expect(result.trace.kind).toBe("scene");
+    expect(result.trace.kind === "scene" && result.trace.scene.actions[0]?.actionId).toBe(
+      "constructor",
+    );
+  });
+});
+
 // spec: scene-to-scene.md §route — maxRouteTransitions and maxSceneSteps guards
 describe("createRunner — route execution limits", () => {
   it.each([

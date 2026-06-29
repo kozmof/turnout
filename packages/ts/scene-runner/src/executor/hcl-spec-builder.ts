@@ -21,7 +21,7 @@ import { literalToValue } from "../state/state-manager.js";
 import { FN_MAP } from "./fn-map.generated.js";
 
 function mapFnName(hclFn: string, contextId: string): BinaryFnNames {
-  const mapped = FN_MAP[hclFn];
+  const mapped = Object.hasOwn(FN_MAP, hclFn) ? FN_MAP[hclFn] : undefined;
   if (!mapped) {
     throw new SceneRuntimeError(
       "UnknownFunction",
@@ -44,7 +44,7 @@ function mapFnName(hclFn: string, contextId: string): BinaryFnNames {
  * independently and shared mutable state (`spec`, `litCounter`) is explicit.
  */
 export class ContextSpecBuilder {
-  private spec: Record<string, unknown> = {};
+  private spec: Record<string, unknown> = Object.create(null) as Record<string, unknown>;
   private litCounter = 0;
   // Deduplicates inline literal args: maps JSON-serialised literal → synthetic name.
   // Progs with repeated identity literals (e.g. 0 in multiple add(x, 0) calls)
@@ -85,7 +85,9 @@ export class ContextSpecBuilder {
   }
 
   private addValueBinding(binding: BindingModel): void {
-    const injected = this.injectedValues[binding.name];
+    const injected = Object.hasOwn(this.injectedValues, binding.name)
+      ? this.injectedValues[binding.name]
+      : undefined;
     if (injected !== undefined) {
       this.spec[binding.name] = injected;
       return;
@@ -140,7 +142,7 @@ export class ContextSpecBuilder {
   }
 
   private handlePipeBinding(binding: BindingModel, p: PipeExpr): void {
-    const argBindings: Record<string, string> = {};
+    const argBindings: Record<string, string> = Object.create(null) as Record<string, string>;
     for (const param of p.params) {
       argBindings[param.paramName] = param.sourceIdent;
     }

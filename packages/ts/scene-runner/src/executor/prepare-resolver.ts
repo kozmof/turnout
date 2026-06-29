@@ -26,7 +26,7 @@ export function resolveActionPrepareSync(
   entries: PrepareEntry[],
   state: StateReader,
 ): Record<string, AnyValue> {
-  const result: Record<string, AnyValue> = {};
+  const result: Record<string, AnyValue> = Object.create(null) as Record<string, AnyValue>;
   for (const entry of entries) {
     if (entry.fromState !== undefined) {
       result[entry.binding] = state.read(entry.fromState);
@@ -55,15 +55,15 @@ export async function resolveActionPrepare(
   actionId: string,
   signal: AbortSignal = UNABORTABLE,
 ): Promise<Record<string, AnyValue>> {
-  const result: Record<string, AnyValue> = {};
-  const hookCache: Record<string, Record<string, AnyValue>> = {};
+  const result: Record<string, AnyValue> = Object.create(null) as Record<string, AnyValue>;
+  const hookCache = new Map<string, Record<string, AnyValue>>();
 
   for (const entry of entries) {
     if (entry.fromState !== undefined) {
       result[entry.binding] = state.read(entry.fromState);
     } else if (entry.fromHook !== undefined) {
       const hookName = entry.fromHook;
-      const hook = hooks.prepare[hookName];
+      const hook = Object.hasOwn(hooks.prepare, hookName) ? hooks.prepare[hookName] : undefined;
       if (!hook) {
         throw new PrepareError(
           "UnregisteredHook",
@@ -71,15 +71,17 @@ export async function resolveActionPrepare(
           `prepare hook "${hookName}" is not registered`,
         );
       }
-      if (!hookCache[hookName]) {
+      let hookResult = hookCache.get(hookName);
+      if (hookResult === undefined) {
         const ctx: PrepareHookContext = {
           actionId,
           hookName,
-          get: (binding) => result[binding],
+          get: (binding) => (Object.hasOwn(result, binding) ? result[binding] : undefined),
         };
-        hookCache[hookName] = (await hook(ctx, signal)) as Record<string, AnyValue>;
+        hookResult = (await hook(ctx, signal)) as Record<string, AnyValue>;
+        hookCache.set(hookName, hookResult);
       }
-      const val = hookCache[hookName][entry.binding];
+      const val = Object.hasOwn(hookResult, entry.binding) ? hookResult[entry.binding] : undefined;
       if (val === undefined) {
         throw new PrepareError(
           "MissingHookField",
@@ -118,11 +120,13 @@ export function resolveNextPrepare(
   state: StateReader,
   prevResult: ActionExecutionResult,
 ): Record<string, AnyValue> {
-  const result: Record<string, AnyValue> = {};
+  const result: Record<string, AnyValue> = Object.create(null) as Record<string, AnyValue>;
 
   for (const entry of entries) {
     if (entry.fromAction !== undefined) {
-      const val = prevResult.bindingValues[entry.fromAction];
+      const val = Object.hasOwn(prevResult.bindingValues, entry.fromAction)
+        ? prevResult.bindingValues[entry.fromAction]
+        : undefined;
       if (val === undefined) {
         throw new PrepareError(
           "MissingActionBinding",

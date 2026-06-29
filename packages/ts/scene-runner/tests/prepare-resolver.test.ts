@@ -127,6 +127,34 @@ describe("resolveActionPrepare", () => {
     expect((err as PrepareError).actionId).toBe("test_action");
   });
 
+  it("treats an inherited prototype name as an unregistered hook", async () => {
+    const state = stateManagerFromUnchecked({});
+    const err = await resolveActionPrepare(
+      [{ binding: "value", fromHook: "constructor" }] as unknown as PrepareEntry[],
+      state,
+      { prepare: {}, publish: {} },
+      "test_action",
+    ).catch((e: unknown) => e);
+
+    expect(err).toBeInstanceOf(PrepareError);
+    expect((err as PrepareError).code).toBe("UnregisteredHook");
+  });
+
+  it("supports an explicitly registered prototype-named hook", async () => {
+    const state = stateManagerFromUnchecked({});
+    const prepare = Object.create(null) as HookRegistry["prepare"];
+    prepare.constructor = () => ({ value: buildNumber(7) });
+
+    const result = await resolveActionPrepare(
+      [{ binding: "value", fromHook: "constructor" }] as unknown as PrepareEntry[],
+      state,
+      { prepare, publish: {} },
+      "test_action",
+    );
+
+    expect(isPureNumber(result.value!) && result.value.value).toBe(7);
+  });
+
   it("from_hook throws PrepareError(MissingHookField) when hook result is missing a declared field", async () => {
     const state = stateManagerFromUnchecked({});
     const hooks: HookRegistry = {
