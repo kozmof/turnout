@@ -191,6 +191,31 @@ describe("resolveActionPrepare", () => {
     expect((err as Error).message).toContain("raw");
   });
 
+  it.each([
+    ["null", null],
+    ["a string", "not an object"],
+  ])(
+    "from_hook throws PrepareError(InvalidHookValue) when hook returns %s instead of an object",
+    async (_label, badResult) => {
+      const state = stateManagerFromUnchecked({});
+      const hooks: HookRegistry = {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        prepare: { malformed_hook: (_ctx: PrepareHookContext) => badResult as any },
+        publish: {},
+      };
+      const err = await resolveActionPrepare(
+        [{ binding: "field", fromHook: "malformed_hook" }] as unknown as PrepareEntry[],
+        state,
+        hooks,
+        "test_action",
+      ).catch((e: unknown) => e);
+      // Must be a structured PrepareError, not a raw TypeError from Object.hasOwn.
+      expect(err).toBeInstanceOf(PrepareError);
+      expect((err as PrepareError).code).toBe("InvalidHookValue");
+      expect((err as Error).message).toContain("malformed_hook");
+    },
+  );
+
   it("resolves multiple entries independently", async () => {
     const state = stateManagerFromUnchecked({
       "a.x": buildNumber(1),

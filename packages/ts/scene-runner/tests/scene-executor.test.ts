@@ -954,6 +954,52 @@ describe("executeScene convenience options", () => {
     expect(result.ok).toBe(true);
     expect(events).toEqual(["action-start", "warning", "action-complete"]);
   });
+
+  it("a throwing onLog does not skip the action or drop its trace", async () => {
+    // A logging sink that throws on action-start used to abort next() after the
+    // action was dequeued but before it executed, finishing with zero traces.
+    const executor = createSceneExecutor(
+      scene,
+      stateManagerFromUnchecked({}),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (event) => {
+        if (event.kind === "action-start") throw new Error("sink boom");
+      },
+    );
+
+    const step = await executor.next();
+    expect(step.done).toBe(false);
+    if (step.done) return;
+    expect(step.trace.actionId).toBe("only_action");
+    expect(executor.isDone()).toBe(true);
+
+    const result = executor.result();
+    expect(result.trace.actions).toHaveLength(1);
+    expect(result.terminatedAt).toEqual(["only_action"]);
+  });
+
+  it("a throwing onLog on action-complete still yields the trace", async () => {
+    const executor = createSceneExecutor(
+      scene,
+      stateManagerFromUnchecked({}),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      (event) => {
+        if (event.kind === "action-complete") throw new Error("sink boom");
+      },
+    );
+
+    const step = await executor.next();
+    expect(step.done).toBe(false);
+    if (step.done) return;
+    expect(step.trace.actionId).toBe("only_action");
+    expect(executor.result().trace.actions).toHaveLength(1);
+  });
 });
 
 describe("executeScene — failOnPublishError propagation", () => {

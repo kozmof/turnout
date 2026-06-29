@@ -78,7 +78,17 @@ export async function resolveActionPrepare(
           hookName,
           get: (binding) => (Object.hasOwn(result, binding) ? result[binding] : undefined),
         };
-        hookResult = (await hook(ctx, signal)) as Record<string, AnyValue>;
+        const raw = await hook(ctx, signal);
+        // Validate before Object.hasOwn below — a null/non-object result would
+        // otherwise leak a raw TypeError instead of a structured PrepareError.
+        if (typeof raw !== "object" || raw === null) {
+          throw new PrepareError(
+            "InvalidHookValue",
+            actionId,
+            `prepare hook "${hookName}" returned a non-object result: got ${JSON.stringify(raw)}`,
+          );
+        }
+        hookResult = raw as Record<string, AnyValue>;
         hookCache.set(hookName, hookResult);
       }
       const val = Object.hasOwn(hookResult, entry.binding) ? hookResult[entry.binding] : undefined;
