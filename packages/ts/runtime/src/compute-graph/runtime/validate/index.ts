@@ -15,6 +15,7 @@ import { validateFuncEntry, validateCombineDefEntry } from "./validateCombineDef
 import { validatePipeDefEntry } from "./validatePipeDefs.js";
 import { validateCondDefEntry } from "./validateCondDefs.js";
 import type { ValidationState } from "./types.js";
+import { MAX_GRAPH_NODES } from "../limits.js";
 
 export type {
   UnvalidatedContext,
@@ -56,6 +57,64 @@ function collectReturnIds(context: UnvalidatedContext, state: ValidationState): 
           message: `FuncTable: duplicate returnId "${returnId}" shared by "${existingOwner}" and "${funcId}"`,
           details: { returnId, firstOwner: existingOwner, secondOwner: funcId },
         });
+      }
+    }
+  }
+}
+
+// Iterative DFS cycle detection shared by the funcTable and pipeFuncDefTable
+// passes. Uses an explicit work stack (one frame per node, each holding an
+// iterator over that node's dependencies) so deep dependency chains cannot
+// overflow the native call stack. The `visited` / `visiting` / `stack` sets are
+// shared across all roots, exactly as in the recursive form this replaces:
+// `visiting` is the current ancestor chain, `stack` records its order for cycle
+// reporting, and `visited` marks fully-explored nodes.
+function detectCycles(
+  deps: ReadonlyMap<string, ReadonlySet<string>>,
+  reportCycle: (cyclePath: string[]) => void,
+): void {
+  const visited = new Set<string>();
+  const visiting = new Set<string>();
+  const stack: string[] = [];
+  const work: { node: string; iter: Iterator<string> }[] = [];
+
+  // Mirrors the head of the former recursive `dfs`: returns true only when a new
+  // frame was pushed (i.e. we descended into `node`). Returns false when `node`
+  // is already fully explored or is a back-edge (cycle), reporting the latter.
+  const enter = (node: string): boolean => {
+    if (visited.has(node)) return false;
+    if (visiting.has(node)) {
+      const start = stack.indexOf(node);
+      const cycle = start >= 0 ? [...stack.slice(start), node] : [node, node];
+      reportCycle(cycle);
+      return false;
+    }
+    visiting.add(node);
+    stack.push(node);
+    work.push({ node, iter: (deps.get(node) ?? new Set<string>()).values() });
+    return true;
+  };
+
+  for (const root of deps.keys()) {
+    enter(root);
+    while (work.length > 0) {
+      const frame = work[work.length - 1];
+      if (frame === undefined) break;
+      let descended = false;
+      let res = frame.iter.next();
+      while (!res.done) {
+        const dep = res.value;
+        if (deps.has(dep) && enter(dep)) {
+          descended = true;
+          break;
+        }
+        res = frame.iter.next();
+      }
+      if (!descended) {
+        work.pop();
+        stack.pop();
+        visiting.delete(frame.node);
+        visited.add(frame.node);
       }
     }
   }
@@ -109,9 +168,6 @@ function checkFunctionCycles(context: UnvalidatedContext, state: ValidationState
     deps.set(funcId, funcDeps);
   }
 
-  const visited = new Set<string>();
-  const visiting = new Set<string>();
-  const stack: string[] = [];
   const reported = new Set<string>();
 
   const reportCycle = (cyclePath: string[]): void => {
@@ -136,30 +192,7 @@ function checkFunctionCycles(context: UnvalidatedContext, state: ValidationState
     });
   };
 
-  const dfs = (funcId: string): void => {
-    if (visited.has(funcId)) return;
-    if (visiting.has(funcId)) {
-      const start = stack.indexOf(funcId);
-      const cycle = start >= 0 ? [...stack.slice(start), funcId] : [funcId, funcId];
-      reportCycle(cycle);
-      return;
-    }
-    visiting.add(funcId);
-    stack.push(funcId);
-    const funcDeps = deps.get(funcId);
-    if (funcDeps) {
-      for (const dep of funcDeps) {
-        if (deps.has(dep)) dfs(dep);
-      }
-    }
-    stack.pop();
-    visiting.delete(funcId);
-    visited.add(funcId);
-  };
-
-  for (const funcId of deps.keys()) {
-    dfs(funcId);
-  }
+  detectCycles(deps, reportCycle);
 }
 
 function checkPipeDefinitionCycles(context: UnvalidatedContext, state: ValidationState): void {
@@ -179,9 +212,6 @@ function checkPipeDefinitionCycles(context: UnvalidatedContext, state: Validatio
     deps.set(defId, defDeps);
   }
 
-  const visited = new Set<string>();
-  const visiting = new Set<string>();
-  const stack: string[] = [];
   const reported = new Set<string>();
 
   const reportCycle = (cyclePath: string[]): void => {
@@ -194,30 +224,7 @@ function checkPipeDefinitionCycles(context: UnvalidatedContext, state: Validatio
     });
   };
 
-  const dfs = (defId: string): void => {
-    if (visited.has(defId)) return;
-    if (visiting.has(defId)) {
-      const start = stack.indexOf(defId);
-      const cycle = start >= 0 ? [...stack.slice(start), defId] : [defId, defId];
-      reportCycle(cycle);
-      return;
-    }
-    visiting.add(defId);
-    stack.push(defId);
-    const defDeps = deps.get(defId);
-    if (defDeps) {
-      for (const dep of defDeps) {
-        if (deps.has(dep)) dfs(dep);
-      }
-    }
-    stack.pop();
-    visiting.delete(defId);
-    visited.add(defId);
-  };
-
-  for (const defId of deps.keys()) {
-    dfs(defId);
-  }
+  detectCycles(deps, reportCycle);
 }
 
 function checkRequiredTables(
@@ -256,6 +263,29 @@ function checkRequiredTables(
   return hasAllRequiredTables;
 }
 
+// Reject models whose total node count exceeds the budget before running any
+// graph traversal. This bounds both the work the validator does and the depth
+// every downstream (iterative) traversal can reach, so a single oversized model
+// cannot exhaust memory. Called only after checkRequiredTables confirms every
+// table is a record.
+function checkGraphSizeBudget(context: ExecutionContext, state: ValidationState): boolean {
+  const totalNodes =
+    Object.keys(context.valueTable).length +
+    Object.keys(context.funcTable).length +
+    Object.keys(context.combineFuncDefTable).length +
+    Object.keys(context.pipeFuncDefTable).length +
+    Object.keys(context.condFuncDefTable).length;
+
+  if (totalNodes > MAX_GRAPH_NODES) {
+    state.errors.push({
+      message: `ExecutionContext is too large: ${totalNodes} total table entries exceeds the limit of ${MAX_GRAPH_NODES}`,
+      details: { totalNodes, limit: MAX_GRAPH_NODES },
+    });
+    return false;
+  }
+  return true;
+}
+
 // ============================================================================
 // Public API
 // ============================================================================
@@ -265,6 +295,15 @@ export function validateContext(context: UnvalidatedContext): ValidationResult {
 
   const hasAllRequiredTables = checkRequiredTables(context, state);
   if (!hasAllRequiredTables || state.errors.length > 0) {
+    return {
+      valid: false,
+      errors: state.errors,
+      warnings: state.warnings,
+    };
+  }
+
+  // Enforce the size budget before any (potentially deep) traversal below.
+  if (!checkGraphSizeBudget(context, state)) {
     return {
       valid: false,
       errors: state.errors,

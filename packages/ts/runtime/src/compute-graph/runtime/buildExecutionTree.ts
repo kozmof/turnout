@@ -1,6 +1,8 @@
 import { FuncId, ExecutionContext, ValueId } from "../types.js";
 import { ExecutionTree, NodeId } from "./tree-types.js";
 import type { ValueNode, FunctionNode, ConditionalNode } from "./tree-types.js";
+import type { AnyValue } from "../../state-control/value.js";
+import type { CombineDefineId, PipeDefineId, CondDefineId } from "../types.js";
 import { isFuncId } from "../idValidation.js";
 import { createMissingValueError } from "./errors.js";
 import { TOM } from "../../util/tom.js";
@@ -17,144 +19,199 @@ export function buildReturnIdToFuncIdMap(context: ExecutionContext): ReadonlyMap
 }
 
 /**
- * Builds an execution tree rooted at nodeId. The reverse-lookup map is
- * constructed once internally so callers cannot accidentally trigger a
- * per-call recomputation.
+ * A node's shape after classification: the (ordered) child node ids it depends
+ * on plus enough captured data to assemble the node once those children have
+ * been built. Splitting classification from assembly lets the iterative driver
+ * schedule children before constructing the parent.
  */
-export function buildExecutionTree(nodeId: NodeId, context: ExecutionContext): ExecutionTree {
-  const returnIdToFuncId = buildReturnIdToFuncIdMap(context);
-  return buildExecutionTreeCore(nodeId, context, new Set(), new Map(), returnIdToFuncId);
-}
+type NodePlan =
+  | { kind: "value"; nodeId: ValueId; value: AnyValue }
+  | { kind: "redirect"; nodeId: ValueId; producer: FuncId }
+  | {
+      kind: "cond";
+      nodeId: FuncId;
+      defId: CondDefineId;
+      returnId: ValueId;
+      condId: NodeId;
+      trueId: NodeId;
+      falseId: NodeId;
+    }
+  | {
+      kind: "func";
+      nodeId: FuncId;
+      defId: CombineDefineId | PipeDefineId;
+      returnId: ValueId;
+      argIds: NodeId[];
+    };
 
-function buildExecutionTreeCore(
+/**
+ * Classifies a node and surfaces its dependencies. Mirrors the body of the
+ * former recursive builder, throwing the same errors for missing table entries.
+ */
+function classifyNode(
   nodeId: NodeId,
   context: ExecutionContext,
-  visited: Set<NodeId>,
-  memo: Map<NodeId, ExecutionTree>,
   returnIdToFuncId: ReadonlyMap<ValueId, FuncId>,
-): ExecutionTree {
-  // Return cached result for shared DAG nodes (diamond patterns)
-  const cached = memo.get(nodeId);
-  if (cached !== undefined) return cached;
-
-  // Detect cycles (shouldn't happen in valid trees, but check anyway)
-  // A cycle exists if we're currently visiting this node (in our ancestor chain)
-  if (visited.has(nodeId)) {
-    throw new Error(`Cycle detected at node ${nodeId}`);
-  }
-
-  // Mark as visiting (will be unmarked when we leave this call)
-  visited.add(nodeId);
-
-  try {
-    const result = buildExecutionTreeInternal(nodeId, context, visited, memo, returnIdToFuncId);
-    memo.set(nodeId, result);
-    return result;
-  } finally {
-    // Clean up: remove from visited set after processing
-    // This allows sibling branches to visit the same node without false cycles
-    visited.delete(nodeId);
-  }
-}
-
-function buildExecutionTreeInternal(
-  nodeId: NodeId,
-  context: ExecutionContext,
-  visited: Set<NodeId>,
-  memo: Map<NodeId, ExecutionTree>,
-  returnIdToFuncId: ReadonlyMap<ValueId, FuncId>,
-): ExecutionTree {
-  // Base case: ValueId (leaf node)
+): NodePlan {
+  // Leaf or redirect: a ValueId either names a pre-defined value or redirects
+  // to the function that produces it.
   if (!isFuncId(nodeId, context.funcTable)) {
     const valueId = nodeId;
-
-    // Check if this value is produced by another function
     const producerFuncId = returnIdToFuncId.get(valueId);
     if (producerFuncId !== undefined) {
-      return buildExecutionTreeCore(producerFuncId, context, visited, memo, returnIdToFuncId);
+      return { kind: "redirect", nodeId: valueId, producer: producerFuncId };
     }
 
-    // Otherwise, it's a pre-defined value
     const value = context.valueTable[valueId];
-
-    // Value must exist in the table
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (value === undefined) {
       throw createMissingValueError(valueId);
     }
-
-    const valueNode: ValueNode = {
-      nodeType: "value",
-      nodeId: valueId,
-      value,
-    };
-    return valueNode;
+    return { kind: "value", nodeId: valueId, value };
   }
 
-  // Recursive case: FuncId (internal node)
   const funcId = nodeId;
   const funcEntry = context.funcTable[funcId];
   if (funcEntry === undefined) {
     throw new Error(`buildExecutionTree: no funcTable entry for ${funcId}`);
   }
 
-  // Fix 2: use kind discriminant instead of table-lookup guard
   if (funcEntry.kind === "cond") {
     const condDef = context.condFuncDefTable[funcEntry.defId];
     if (condDef === undefined) {
       throw new Error(`buildExecutionTree: no condFuncDefTable entry for ${funcEntry.defId}`);
     }
-
-    // Build trees for condition and both branches
-    const conditionTree = buildExecutionTreeCore(
-      condDef.conditionId.id,
-      context,
-      visited,
-      memo,
-      returnIdToFuncId,
-    );
-    const trueBranchTree = buildExecutionTreeCore(
-      condDef.trueBranchId,
-      context,
-      visited,
-      memo,
-      returnIdToFuncId,
-    );
-    const falseBranchTree = buildExecutionTreeCore(
-      condDef.falseBranchId,
-      context,
-      visited,
-      memo,
-      returnIdToFuncId,
-    );
-
-    const conditionalNode: ConditionalNode = {
-      nodeType: "conditional",
+    return {
+      kind: "cond",
       nodeId: funcId,
-      funcDef: funcEntry.defId,
+      defId: funcEntry.defId,
       returnId: funcEntry.returnId,
-      conditionTree,
-      trueBranchTree,
-      falseBranchTree,
+      condId: condDef.conditionId.id,
+      trueId: condDef.trueBranchId,
+      falseId: condDef.falseBranchId,
     };
-    return conditionalNode;
   }
 
   // funcEntry is now narrowed to combine | pipe
-  const children: ExecutionTree[] = [];
+  return {
+    kind: "func",
+    nodeId: funcId,
+    defId: funcEntry.defId,
+    returnId: funcEntry.returnId,
+    argIds: Object.values(funcEntry.argMap),
+  };
+}
 
-  for (const argId of Object.values(funcEntry.argMap)) {
-    const childTree = buildExecutionTreeCore(argId, context, visited, memo, returnIdToFuncId);
-    children.push(childTree);
+/** The node ids that must be built before `plan`'s node can be assembled. */
+function planDeps(plan: NodePlan): readonly NodeId[] {
+  switch (plan.kind) {
+    case "value":
+      return [];
+    case "redirect":
+      return [plan.producer];
+    case "cond":
+      return [plan.condId, plan.trueId, plan.falseId];
+    case "func":
+      return plan.argIds;
+  }
+}
+
+/** Looks up an already-built child tree, treating a miss as a logic error. */
+function built(memo: ReadonlyMap<NodeId, ExecutionTree>, id: NodeId): ExecutionTree {
+  const tree = memo.get(id);
+  if (tree === undefined) {
+    throw new Error(`buildExecutionTree: dependency ${id} was not built before its parent`);
+  }
+  return tree;
+}
+
+/** Assembles a node from its plan once all dependencies are present in `memo`. */
+function assembleNode(plan: NodePlan, memo: ReadonlyMap<NodeId, ExecutionTree>): ExecutionTree {
+  switch (plan.kind) {
+    case "value": {
+      const valueNode: ValueNode = {
+        nodeType: "value",
+        nodeId: plan.nodeId,
+        value: plan.value,
+      };
+      return valueNode;
+    }
+    case "redirect":
+      // The value's tree IS the producing function's tree.
+      return built(memo, plan.producer);
+    case "cond": {
+      const conditionalNode: ConditionalNode = {
+        nodeType: "conditional",
+        nodeId: plan.nodeId,
+        funcDef: plan.defId,
+        returnId: plan.returnId,
+        conditionTree: built(memo, plan.condId),
+        trueBranchTree: built(memo, plan.trueId),
+        falseBranchTree: built(memo, plan.falseId),
+      };
+      return conditionalNode;
+    }
+    case "func": {
+      const children = plan.argIds.map((argId) => built(memo, argId));
+      const functionNode: FunctionNode = {
+        nodeType: "function",
+        nodeId: plan.nodeId,
+        funcDef: plan.defId,
+        returnId: plan.returnId,
+        ...(children.length > 0 && { children }),
+      };
+      return functionNode;
+    }
+  }
+}
+
+/**
+ * Builds an execution tree rooted at nodeId. The reverse-lookup map is
+ * constructed once internally so callers cannot accidentally trigger a
+ * per-call recomputation.
+ *
+ * Traversal is iterative (an explicit work stack rather than native recursion)
+ * so that deep dependency chains cannot overflow the call stack. Each frame is
+ * visited twice: an "enter" pass classifies the node and schedules its
+ * children, and an "exit" pass assembles the node once those children are in
+ * `memo`. Shared DAG nodes (diamonds) are built once and reused via `memo`;
+ * `visiting` tracks the current ancestor chain to detect cycles defensively.
+ */
+export function buildExecutionTree(nodeId: NodeId, context: ExecutionContext): ExecutionTree {
+  const returnIdToFuncId = buildReturnIdToFuncIdMap(context);
+  const memo = new Map<NodeId, ExecutionTree>();
+  const visiting = new Set<NodeId>();
+
+  type Frame = { nodeId: NodeId; plan?: NodePlan };
+  const stack: Frame[] = [{ nodeId }];
+
+  while (stack.length > 0) {
+    const frame = stack[stack.length - 1];
+    if (frame === undefined) break;
+
+    if (frame.plan === undefined) {
+      // Enter: classify and schedule children.
+      const current = frame.nodeId;
+      if (memo.has(current)) {
+        stack.pop();
+        continue;
+      }
+      if (visiting.has(current)) {
+        throw new Error(`Cycle detected at node ${current}`);
+      }
+      visiting.add(current);
+      const plan = classifyNode(current, context, returnIdToFuncId);
+      frame.plan = plan;
+      for (const dep of planDeps(plan)) {
+        stack.push({ nodeId: dep });
+      }
+    } else {
+      // Exit: all dependencies have been built (or were already memoized).
+      memo.set(frame.nodeId, assembleNode(frame.plan, memo));
+      visiting.delete(frame.nodeId);
+      stack.pop();
+    }
   }
 
-  // Note: For PipeFunc, we do NOT add sequence children here
-  const functionNode: FunctionNode = {
-    nodeType: "function",
-    nodeId: funcId,
-    funcDef: funcEntry.defId,
-    returnId: funcEntry.returnId,
-    ...(children.length > 0 && { children }),
-  };
-  return functionNode;
+  return built(memo, nodeId);
 }
