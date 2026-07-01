@@ -11,6 +11,7 @@ import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
 import { selectNextScene } from "./route-pattern.js";
 import { createSceneExecutor } from "./scene-executor.js";
 import { RouteRuntimeError, SceneRuntimeError } from "./errors.js";
+import { safeLog } from "./logging.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -163,7 +164,7 @@ export function createRouteStepper(
     onLog,
     failOnPublishError,
   );
-  onLog?.({
+  safeLog(onLog, {
     kind: "scene-start",
     sceneId: initialScene.id,
     entryActions: [firstEntryAction(initialScene, routeId)],
@@ -172,7 +173,7 @@ export function createRouteStepper(
   function finishCurrentScene(): void {
     const completedSceneId = session.currentSceneId;
     const sceneResult = sceneExecutor.result();
-    onLog?.({
+    safeLog(onLog, {
       kind: "scene-complete",
       sceneId: completedSceneId,
       terminatedAt: sceneResult.terminatedAt,
@@ -200,7 +201,7 @@ export function createRouteStepper(
       onLog,
       failOnPublishError,
     );
-    onLog?.({
+    safeLog(onLog, {
       kind: "scene-start",
       sceneId: nextScene.id,
       entryActions: [firstEntryAction(nextScene, routeId)],
@@ -208,6 +209,8 @@ export function createRouteStepper(
   }
 
   async function next(): Promise<RouteStepResult> {
+    if (done) return { done: true };
+
     for (;;) {
       if (!sceneExecutor.isDone()) {
         const actionSceneId = session.currentSceneId;

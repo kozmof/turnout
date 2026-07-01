@@ -14,6 +14,7 @@ import { isPublishHookFailedError, SceneRuntimeError } from "./errors.js";
 import { parseNextPolicy } from "./next-policy.js";
 import { snapshotModel } from "../model-snapshot.js";
 import { createRunState, enqueueNext } from "./run-state.js";
+import { safeLog } from "./logging.js";
 import { evaluateNextRules } from "./next-rules.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -145,18 +146,6 @@ export function createSceneExecutor(
     return rs.queueHead >= rs.queue.length;
   }
 
-  // Logging is observational, not part of the workflow. A throwing sink must
-  // never abort next() between dequeue and trace bookkeeping — that would
-  // silently skip the in-flight action on retry. Isolate it from executor state.
-  function safeLog(event: LogEvent): void {
-    if (!onLog) return;
-    try {
-      onLog(event);
-    } catch {
-      // Swallow: a logging-sink failure must not corrupt execution state.
-    }
-  }
-
   async function next(): Promise<StepResult> {
     if (rs.queueHead >= rs.queue.length) return { done: true };
     if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
@@ -187,7 +176,7 @@ export function createSceneExecutor(
     // so currentActionId() is unambiguous in error handlers below this point.
     rs.currentAction = actionId;
 
-    safeLog({ kind: "action-start", sceneId: scene.id, actionId, stepIndex: rs.stepCount });
+    safeLog(onLog, { kind: "action-start", sceneId: scene.id, actionId, stepIndex: rs.stepCount });
 
     let execResult: ActionExecutionResult;
     try {
@@ -240,7 +229,7 @@ export function createSceneExecutor(
       ...nextWarnings,
     ];
     for (const w of allWarnings) {
-      safeLog({ kind: "warning", sceneId: scene.id, actionId, message: w.message });
+      safeLog(onLog, { kind: "warning", sceneId: scene.id, actionId, message: w.message });
     }
 
     const prevSceneWarningCount = rs.sceneWarnings.length;
@@ -259,11 +248,11 @@ export function createSceneExecutor(
     for (let i = prevSceneWarningCount; i < rs.sceneWarnings.length; i++) {
       const warning = rs.sceneWarnings[i];
       if (warning !== undefined) {
-        safeLog({ kind: "warning", sceneId: scene.id, message: warning.message });
+        safeLog(onLog, { kind: "warning", sceneId: scene.id, message: warning.message });
       }
     }
 
-    safeLog({ kind: "action-complete", sceneId: scene.id, actionId, trace });
+    safeLog(onLog, { kind: "action-complete", sceneId: scene.id, actionId, trace });
 
     rs.currentAction = undefined;
     return { done: false, trace };

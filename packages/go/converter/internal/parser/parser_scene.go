@@ -11,9 +11,8 @@ import (
 // within the corresponding block, so recovery stops at the next valid statement
 // rather than skipping to the closing brace.
 var (
-	sceneBlockStarters  = []lexer.TokenKind{lexer.TokKwEntryActions, lexer.TokKwNextPolicy, lexer.TokKwView, lexer.TokKwAction}
-	actionBlockStarters = []lexer.TokenKind{lexer.TokTripleQuote, lexer.TokKwText, lexer.TokKwCompute, lexer.TokKwPrepare, lexer.TokKwMerge, lexer.TokKwPublish, lexer.TokKwNext}
-	viewBlockStarters   = []lexer.TokenKind{lexer.TokKwFlow, lexer.TokKwEnforce}
+	sceneBlockStarters = []lexer.TokenKind{lexer.TokKwEntryActions, lexer.TokKwNextPolicy, lexer.TokKwView, lexer.TokKwAction}
+	viewBlockStarters  = []lexer.TokenKind{lexer.TokKwFlow, lexer.TokKwEnforce}
 )
 
 // ─── parseActionBlock ────────────────────────────────────────────────────────

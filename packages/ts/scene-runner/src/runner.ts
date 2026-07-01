@@ -21,6 +21,7 @@ import { validateModel } from "./executor/validate-model.js";
 import { ModelValidationError, RunnerError } from "./executor/errors.js";
 import { snapshotModel } from "./model-snapshot.js";
 import { makeRunnerMethods } from "./runner-methods.js";
+import { safeLog } from "./executor/logging.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -225,14 +226,22 @@ export function createSceneRunner(
     if (!sceneCompleteEmitted) {
       sceneCompleteEmitted = true;
       const res = sceneExecutor.result();
-      onLog?.({ kind: "scene-complete", sceneId: scene.id, terminatedAt: res.terminatedAt });
+      safeLog(onLog, {
+        kind: "scene-complete",
+        sceneId: scene.id,
+        terminatedAt: res.terminatedAt,
+      });
     }
   }
 
   async function advanceScene(): Promise<RunnerStepResult> {
     if (!sceneStartEmitted) {
       sceneStartEmitted = true;
-      onLog?.({ kind: "scene-start", sceneId: scene.id, entryActions: scene.entryActions });
+      safeLog(onLog, {
+        kind: "scene-start",
+        sceneId: scene.id,
+        entryActions: scene.entryActions,
+      });
     }
     if (sceneExecutor.isDone()) {
       finishScene();
@@ -372,7 +381,7 @@ export function createRouteRunner(
     // Emit a scene-transition event before the first action of a new scene.
     if (step.sceneId !== advState.prevSceneId) {
       const fromSceneId = advState.prevSceneId;
-      onLog?.({ kind: "route-transition", fromSceneId, toSceneId: step.sceneId });
+      safeLog(onLog, { kind: "route-transition", fromSceneId, toSceneId: step.sceneId });
       advState = {
         kind: "transition-emitted",
         pendingAction: { sceneId: step.sceneId, trace: step.trace },

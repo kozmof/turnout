@@ -24,14 +24,6 @@ func kinds(toks []Token) []TokenKind {
 	return ks
 }
 
-func values(toks []Token) []string {
-	vs := make([]string, len(toks))
-	for i, tok := range toks {
-		vs[i] = tok.Value
-	}
-	return vs
-}
-
 // filterEOF strips the trailing TokEOF for readability in table tests.
 func filterEOF(toks []Token) []Token {
 	if len(toks) > 0 && toks[len(toks)-1].Kind == TokEOF {

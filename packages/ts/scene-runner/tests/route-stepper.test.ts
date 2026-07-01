@@ -191,3 +191,32 @@ describe("createRouteStepper", () => {
     }).rejects.toThrow("exceeded 1 scene transitions");
   });
 });
+
+describe("createRouteStepper — logging and terminal stability", () => {
+  it("ignores lifecycle logger failures and remains idempotent after completion", async () => {
+    const s1 = scene("s1", "a");
+    const s2 = scene("s2", "b");
+    const stepper = createRouteStepper(
+      "stable_route",
+      parseMatchArms([{ patterns: ["s1.a"], target: "s2" }] as any),
+      "s1",
+      sceneMap(s1, s2),
+      stateManagerFromUnchecked({}),
+      { prepare: {}, publish: {} },
+      undefined,
+      undefined,
+      undefined,
+      () => {
+        throw new Error("logging sink failed");
+      },
+    );
+
+    expect((await stepper.next()).done).toBe(false);
+    expect((await stepper.next()).done).toBe(false);
+    expect(stepper.isDone()).toBe(true);
+
+    expect(await stepper.next()).toEqual({ done: true });
+    expect(await stepper.next()).toEqual({ done: true });
+    expect(stepper.result().trace.scenes.map((trace) => trace.sceneId)).toEqual(["s1", "s2"]);
+  });
+});

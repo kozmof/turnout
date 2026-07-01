@@ -7,7 +7,6 @@ import (
 )
 
 var (
-	nextBlockStarters    = []lexer.TokenKind{lexer.TokKwCompute, lexer.TokKwPrepare, lexer.TokKwAction}
 	publishBlockStarters = []lexer.TokenKind{lexer.TokKwHook}
 )
 

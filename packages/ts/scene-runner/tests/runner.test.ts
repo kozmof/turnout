@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
-import { createRunner } from "../src/runner.js";
+import { createRouteRunner, createRunner, createSceneRunner } from "../src/runner.js";
 import { RunnerError, ModelValidationError } from "../src/executor/errors.js";
 import { buildNumber, isPureNumber } from "runtime";
-import type { TurnModel } from "../src/types/turnout-model_pb.js";
+import type { RouteModel, SceneBlock, TurnModel } from "../src/types/turnout-model_pb.js";
 
 const sceneA = {
   id: "s1",
@@ -729,5 +729,99 @@ describe("runner model snapshots", () => {
       kind: "scene",
       scene: { actions: [{ actionId: "stable" }] },
     });
+  });
+});
+
+describe("createRunner — logging isolation", () => {
+  it("ignores throwing scene lifecycle loggers", async () => {
+    const model = {
+      scenes: [{ id: "scene", entryActions: ["a"], actions: [{ id: "a" }] }],
+      routes: [],
+    } as unknown as TurnModel;
+    const runner = createRunner(model, {
+      entryId: "scene",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+      onLog: () => {
+        throw new Error("logging sink failed");
+      },
+    });
+
+    const result = await runner.run();
+
+    expect(result.trace.kind).toBe("scene");
+    if (result.trace.kind !== "scene") return;
+    expect(result.trace.scene.actions.map((action) => action.actionId)).toEqual(["a"]);
+  });
+
+  it("does not lose or duplicate route progress when a transition logger throws", async () => {
+    const model = {
+      scenes: [sceneA, sceneB],
+      routes: [
+        {
+          id: "route_logging",
+          entrySceneId: "s1",
+          match: [{ patterns: ["s1.a"], target: "s2" }],
+        },
+      ],
+    } as unknown as TurnModel;
+    const runner = createRunner(model, {
+      entryId: "route_logging",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: () => {},
+      onLog: () => {
+        throw new Error("logging sink failed");
+      },
+    });
+    const yielded = [];
+
+    for await (const step of runner.runAsync()) yielded.push(step);
+
+    expect(yielded.map((step) => (step.done ? "done" : step.kind))).toEqual([
+      "action",
+      "scene-transition",
+      "action",
+    ]);
+    const result = runner.result();
+    expect(result.trace.kind).toBe("route");
+    if (result.trace.kind !== "route") return;
+    expect(result.trace.route.scenes.map((trace) => trace.sceneId)).toEqual(["s1", "s2"]);
+    expect(result.trace.route.scenes.map((trace) => trace.actions.length)).toEqual([1, 1]);
+  });
+});
+
+describe("low-level runner factories", () => {
+  it("sets up explicitly opted-in unchecked state", async () => {
+    const lowLevelScene = {
+      id: "low_level",
+      entryActions: ["a"],
+      actions: [{ id: "a" }],
+    } as unknown as SceneBlock;
+    const warnings: string[] = [];
+    const sceneRunner = createSceneRunner(lowLevelScene, {
+      entryId: "low_level",
+      initialState: {},
+      allowUncheckedState: true,
+      onWarning: (message) => warnings.push(message),
+    });
+
+    await sceneRunner.run();
+
+    const routeRunner = createRouteRunner(
+      { id: "low_route", entrySceneId: "low_level", match: [] } as unknown as RouteModel,
+      lowLevelScene,
+      { low_level: lowLevelScene },
+      {
+        entryId: "low_route",
+        initialState: {},
+        allowUncheckedState: true,
+        onWarning: (message) => warnings.push(message),
+      },
+    );
+    await routeRunner.run();
+
+    expect(warnings).toHaveLength(2);
   });
 });

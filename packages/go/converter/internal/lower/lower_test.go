@@ -58,11 +58,6 @@ scene "test" {
 ` + sceneBody + "\n}\n"
 }
 
-// minimalWithState wraps a scene body with a custom state block.
-func minimalWithState(stateBlock, sceneBody string) string {
-	return stateBlock + "\nscene \"test\" {\n" + sceneBody + "\n}\n"
-}
-
 // binding returns the nth binding from the first action's prog.
 func binding(t *testing.T, tm *turnoutpb.TurnModel, n int) *turnoutpb.BindingModel {
 	t.Helper()

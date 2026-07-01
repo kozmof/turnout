@@ -1073,3 +1073,33 @@ describe("executeScene — failOnPublishError propagation", () => {
     }
   });
 });
+
+describe("scene executor warning accessors", () => {
+  it("maps merge warnings into the action trace and exposes current scene warnings", async () => {
+    const scene = {
+      id: "merge_warning_scene",
+      entryActions: ["a"],
+      actions: [
+        {
+          id: "a",
+          compute: {
+            root: "out",
+            prog: {
+              name: "warning_prog",
+              bindings: [{ name: "out", type: "number", value: 1 }],
+            },
+          },
+          merge: [{ binding: "ghost", toState: "output.value" }],
+        },
+      ],
+    } as unknown as SceneBlock;
+    const executor = createSceneExecutor(scene, stateManagerFromUnchecked({}));
+
+    const step = await executor.next();
+
+    expect(step.done).toBe(false);
+    if (step.done) return;
+    expect(step.trace.warnings).toEqual([expect.objectContaining({ kind: "merge_warning" })]);
+    expect(executor.currentWarnings()).toEqual([]);
+  });
+});
