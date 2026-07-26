@@ -1,5 +1,6 @@
 {
   "scripts": {
+    "check": "pnpm run check:proto && pnpm run check:fn-map && pnpm run check:fieldtype && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
     "generate": "sh scripts/generate-proto.sh",
     "generate:fn-map": "node --experimental-strip-types scripts/gen-fn-map.ts",
     "check:proto": "sh scripts/check-proto.sh",
