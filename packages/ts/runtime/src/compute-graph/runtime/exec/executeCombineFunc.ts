@@ -1,7 +1,7 @@
 import { FuncId, CombineDefineId, ExecutionContext, ExecutionResult } from "../../types.js";
 import { createArgName } from "../../idValidation.js";
 import { getBinaryFn } from "../../call-presets/getBinaryFn.js";
-import { getTransformFn } from "../../call-presets/getTranformFn.js";
+import { getTransformFn } from "../../call-presets/getTransformFn.js";
 
 /**
  * Executes a CombineFunc and returns the result along with updated state.

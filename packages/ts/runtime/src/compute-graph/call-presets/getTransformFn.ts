@@ -4,7 +4,7 @@ import { tfNumber } from "../../state-control/preset-funcs/number/transformFn.js
 import { tfNull } from "../../state-control/preset-funcs/null/transformFn.js";
 import { tfString } from "../../state-control/preset-funcs/string/transformFn.js";
 import { AnyValue } from "../../state-control/value.js";
-import { splitPairTranformFnNames } from "../../util/splitPair.js";
+import { splitPairTransformFnNames } from "../../util/splitPair.js";
 import { TransformFnNames } from "../types.js";
 
 // Runtime execution passes values as AnyValue, so transform lookups are normalized
@@ -12,7 +12,7 @@ import { TransformFnNames } from "../types.js";
 type AnyToAny = (val: AnyValue) => AnyValue;
 
 export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
-  const mayPair = splitPairTranformFnNames(joinedName);
+  const mayPair = splitPairTransformFnNames(joinedName);
   if (mayPair === null) {
     throw new Error("Invalid transform function name: " + joinedName);
   }

@@ -369,3 +369,55 @@ func TestOperandTypes(t *testing.T) {
 		})
 	}
 }
+
+func TestOperatorMetadata(t *testing.T) {
+	for fn, symbol := range map[string]string{
+		"add": "+", "sub": "-", "mul": "*", "div": "/", "mod": "%",
+		"gt": ">", "gte": ">=", "lt": "<", "lte": "<=", "eq": "==", "neq": "!=",
+	} {
+		if !fnmeta.IsOperatorOnly(fn) {
+			t.Errorf("IsOperatorOnly(%q) = false", fn)
+		}
+		if got := fnmeta.OperatorSymbol(fn); got != symbol {
+			t.Errorf("OperatorSymbol(%q) = %q, want %q", fn, got, symbol)
+		}
+	}
+	if fnmeta.IsOperatorOnly("max") {
+		t.Error("max unexpectedly reported as operator-only")
+	}
+	if got := fnmeta.OperatorSymbol("unknown"); got != "unknown" {
+		t.Errorf("unknown operator symbol = %q", got)
+	}
+}
+
+func TestTransformMethodResolution(t *testing.T) {
+	qualified, output, ok := fnmeta.LookupMethod("trim", ast.FieldTypeStr)
+	if !ok || qualified != "transformFnString::trim" || output != ast.FieldTypeStr {
+		t.Fatalf("LookupMethod(trim, str) = (%q, %v, %v)", qualified, output, ok)
+	}
+	if _, _, ok := fnmeta.LookupMethod("trim", ast.FieldTypeNumber); ok {
+		t.Error("trim unexpectedly resolved for number")
+	}
+
+	ns, method, ok := fnmeta.SplitQualifiedFn("transformFnString::trim")
+	if !ok || ns != "transformFnString" || method != "trim" {
+		t.Fatalf("SplitQualifiedFn = (%q, %q, %v)", ns, method, ok)
+	}
+	if _, _, ok := fnmeta.SplitQualifiedFn("trim"); ok {
+		t.Error("malformed qualified function unexpectedly accepted")
+	}
+
+	got, ok := fnmeta.TransformChainOutputType(ast.FieldTypeStr, []string{
+		"transformFnString::trim",
+		"transformFnString::length",
+		"transformFnNumber::toStr",
+	})
+	if !ok || got != ast.FieldTypeStr {
+		t.Fatalf("TransformChainOutputType = (%v, %v), want (str, true)", got, ok)
+	}
+	for _, chain := range [][]string{{"malformed"}, {"transformFnString::missing"}} {
+		if _, ok := fnmeta.TransformChainOutputType(ast.FieldTypeStr, chain); ok {
+			t.Errorf("invalid chain %v unexpectedly resolved", chain)
+		}
+	}
+}

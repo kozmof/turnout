@@ -28,7 +28,7 @@ import type {
   TransformFnNames,
 } from "../types.js";
 import { isCondDefineId, isCombineDefineId, isPipeDefineId } from "../idValidation.js";
-import { splitPairBinaryFnNames, splitPairTranformFnNames } from "../../util/splitPair.js";
+import { splitPairBinaryFnNames, splitPairTransformFnNames } from "../../util/splitPair.js";
 
 /**
  * Type-safe helper to get a value from the ValueTable.
@@ -43,7 +43,7 @@ function getValueFromTable(valueId: ValueId, context: ExecutionContext): AnyValu
  * Transform functions are namespaced, e.g., "transformFnNumber::pass"
  */
 export function getTransformFnInputType(transformFnName: TransformFnNames): BaseTypeSymbol | null {
-  const maySplit = splitPairTranformFnNames(transformFnName);
+  const maySplit = splitPairTransformFnNames(transformFnName);
   if (maySplit === null) return null;
   const namespace = maySplit[0];
 
@@ -68,7 +68,7 @@ export function getTransformFnInputType(transformFnName: TransformFnNames): Base
  * e.g., "transformFnNumber::toStr" returns "string"
  */
 export function getTransformFnReturnType(transformFnName: TransformFnNames): BaseTypeSymbol | null {
-  const maySplit = splitPairTranformFnNames(transformFnName);
+  const maySplit = splitPairTransformFnNames(transformFnName);
   if (maySplit === null) return null;
   const [namespace, fnName] = maySplit;
 

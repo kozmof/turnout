@@ -29,7 +29,7 @@ const isBinaryFnName = (pair: string[]): pair is SplitPair<BinaryFnNames> => {
   return true;
 };
 
-export const splitPairTranformFnNames = (
+export const splitPairTransformFnNames = (
   joinedName: TransformFnNames,
 ): SplitPair<TransformFnNames> | null => {
   const pair = joinedName.split(NAMESPACE_DELIMITER);

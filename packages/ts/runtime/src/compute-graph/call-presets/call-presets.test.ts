@@ -7,7 +7,7 @@ import {
   buildNull,
 } from "../../state-control/value-builders.js";
 import { getBinaryFn } from "./getBinaryFn.js";
-import { getTransformFn } from "./getTranformFn.js";
+import { getTransformFn } from "./getTransformFn.js";
 
 describe("call preset lookup", () => {
   it("resolves binary functions for every namespace", () => {

@@ -1,13 +1,10 @@
 import type { TurnModel, RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
 import type {
-  ExecutionOptions,
+  ActionTrace,
   HookRegistry,
-  PrepareHookImpl,
-  PublishHookImpl,
   HarnessResult,
   FullHarnessResult,
   FragmentHarnessResult,
-  ActionTrace,
 } from "./types/harness-types.js";
 import { stateManagerFromUnchecked, stateManagerFromSchema } from "./state/state-manager.js";
 import type { StateManager } from "./state/state-manager.js";
@@ -23,147 +20,14 @@ import { snapshotModel } from "./model-snapshot.js";
 import { makeRunnerMethods } from "./runner-methods.js";
 import { safeLog } from "./executor/logging.js";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Public types
-// ─────────────────────────────────────────────────────────────────────────────
+import type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
+import {
+  assertUncheckedStateAllowed,
+  validateExecutionLimits,
+  warnUncheckedState,
+} from "./runner-validation.js";
 
-export type RunnerOptions = ExecutionOptions;
-
-export type RunnerStepResult =
-  | { done: true }
-  | { done: false; kind: "action"; sceneId: string; actionId: string; trace: ActionTrace }
-  | { done: false; kind: "scene-transition"; fromSceneId: string; toSceneId: string };
-
-/**
- * Step-by-step execution controller for a TurnModel.
- *
- * Works in both server and client environments — it operates on an already-
- * parsed `TurnModel`. To load a model from disk, use the server utilities
- * (`runConverter`, `loadJsonModel`) before constructing a Runner.
- *
- * **Error handling:** `next()` and `run()` can throw `SceneRuntimeError` or
- * `RouteRuntimeError` for unrecoverable runtime faults. Known `SceneRuntimeError`
- * codes: `MaxStepsExceeded`, `UnknownAction`, `DuplicateActionId`, `UnknownFunction`,
- * `UnknownArgModel`. Use `executeSceneSafe` directly if you need partial-state
- * recovery on failure.
- *
- * @example
- * const runner = createRunner(model, { entryId: 'checkout', initialState: {} });
- * runner.usePrepareHook('get_cart', (ctx) => ({ items: buildString('a,b') }));
- *
- * // Manual stepping
- * while (!runner.isDone()) {
- *   const [step] = await runner.next();
- * }
- * const result = runner.result();
- *
- * // Or run to completion in one call
- * const result = await runner.run();
- */
-export type Runner<R extends HarnessResult = HarnessResult> = {
-  /**
-   * Register a prepare hook. Returns the runner for chaining.
-   * Must be called before the first `next()` or `run()` invocation.
-   * Hook registrations after execution has started throw RunnerError with code `LateHookRegistration`.
-   */
-  usePrepareHook(name: string, handler: PrepareHookImpl): Runner<R>;
-  /**
-   * Register a publish hook. Returns the runner for chaining.
-   * Must be called before the first `next()` or `run()` invocation.
-   * Hook registrations after execution has started throw RunnerError with code `LateHookRegistration`.
-   */
-  usePublishHook(name: string, handler: PublishHookImpl): Runner<R>;
-  /** True when all actions have completed (scene or route finished). */
-  isDone(): boolean;
-  /**
-   * Advance by `steps` actions (default: 1). Returns an array of non-terminal
-   * step results — the `{ done: true }` sentinel is never included. Call
-   * `isDone()` to check whether execution completed within this call.
-   *
-   * In route mode, `scene-transition` events are interleaved in the returned
-   * array but do not count against the `steps` budget. Only `kind: 'action'`
-   * results consume a step. The returned array may therefore contain more than
-   * `steps` entries when scene transitions occur.
-   *
-   * Returns fewer than `steps` action entries if execution finishes early.
-   *
-   * @throws {RunnerError} `InvalidStepCount` when `steps` is not a positive safe integer.
-   * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
-   * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
-   */
-  next(steps?: number): Promise<Array<Exclude<RunnerStepResult, { done: true }>>>;
-  /**
-   * Run to completion and return the final result.
-   * Equivalent to calling `next()` in a loop until done.
-   *
-   * @throws {SceneRuntimeError} `MaxStepsExceeded` | `UnknownAction` | `UnknownFunction` | `UnknownArgModel`
-   * @throws {RouteRuntimeError} `MaxRouteTransitionsExceeded` | `UnknownScene`
-   */
-  run(): Promise<R>;
-  /**
-   * Async generator that yields one `RunnerStepResult` per completed action or
-   * scene transition. In route mode, `scene-transition` events are yielded
-   * between the last action of one scene and the first action of the next.
-   * Terminates when execution is complete.
-   *
-   * @example
-   * for await (const step of runner.runAsync()) {
-   *   if (step.kind === 'scene-transition') { ... }
-   *   else { console.log(step.actionId, step.trace); }
-   * }
-   * const result = runner.result();
-   */
-  runAsync(): AsyncGenerator<RunnerStepResult>;
-  /**
-   * Return the final `HarnessResult`.
-   * Throws if execution is not yet complete.
-   */
-  result(): R;
-  /**
-   * Return the StateManager at the current point of execution.
-   * Safe to call at any time — before, during, or after execution, including
-   * after a thrown `SceneRuntimeError`. Returns the state as of the last
-   * successfully completed action (or the initial state if none has run yet).
-   */
-  partialState(): StateManager;
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Internal helpers
-// ─────────────────────────────────────────────────────────────────────────────
-
-function assertUncheckedStateAllowed(options: RunnerOptions, detail: string): void {
-  if (options.allowUncheckedState === true) return;
-  throw new RunnerError(
-    "UncheckedStateNotAllowed",
-    detail + ". Pass allowUncheckedState: true to run without STATE schema.",
-  );
-}
-
-function warnUncheckedState(options: RunnerOptions, detail: string): void {
-  options.onWarning?.(
-    "[turnout] " +
-      detail +
-      " - using unchecked StateManager. " +
-      "All merge writes succeed regardless of path; typo'd paths silently read as null " +
-      'on subsequent steps. An "unchecked_state_write" ActionWarning is emitted in the ' +
-      "trace for each action that writes to state.",
-  );
-}
-
-function validateExecutionLimits(options: RunnerOptions): void {
-  for (const [name, value] of [
-    ["maxSceneSteps", options.maxSceneSteps],
-    ["maxRouteTransitions", options.maxRouteTransitions],
-  ] as const) {
-    if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
-      throw new RunnerError(
-        "InvalidExecutionLimit",
-        `${name} requires a non-negative safe integer, got ${value}`,
-      );
-    }
-  }
-}
+export type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Scene factory
