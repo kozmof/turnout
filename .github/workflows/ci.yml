@@ -44,6 +44,9 @@ jobs:
       - name: Check generated proto output
         run: pnpm run check:proto
 
+      - name: Check generated function map
+        run: pnpm run check:fn-map
+
       - name: Check Go FieldType initialization
         run: pnpm run check:fieldtype
 

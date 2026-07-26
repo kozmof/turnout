@@ -17,7 +17,7 @@
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json",
-    "gen:fn-map": "node --experimental-strip-types ../../../../scripts/gen-fn-map.ts",
+    "gen:fn-map": "node --experimental-strip-types ../../../scripts/gen-fn-map.ts",
     "lint": "oxlint -c ../../../.oxlintrc.json src/ tests/",
     "fmt": "oxfmt",
     "test": "vitest --run",
