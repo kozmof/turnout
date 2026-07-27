@@ -156,12 +156,13 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
 	subjectDecl := subjectDeclaredType(subject, scope)
+	subjectDeclName := subjectDeclaredTypeName(subject, scope)
 	analyzeCaseCoverage(bindingName, subject, arms, scope, ds)
 	var ret ast.FieldType = ast.FieldTypeInvalid
 	retOK := false
 	for _, arm := range arms {
 		armScope := protoPatternScopeBindings(scope, arm.GetPattern(), subjectType, subjectOK, subjectDecl)
-		validateProtoPattern(bindingName, arm.GetPattern(), subjectType, subjectOK, subjectDecl, ds)
+		validateProtoPattern(bindingName, arm.GetPattern(), subjectType, subjectOK, subjectDecl, subjectDeclName, ds)
 		if arm.GetGuard() != nil {
 			guardType, guardOK := validateProtoLocalExpr(bindingName, arm.GetGuard(), armScope, itType, itAllowed, ds)
 			if guardOK && guardType != ast.FieldTypeBool {
@@ -193,7 +194,7 @@ func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprMode
 	return current, known
 }
 
-func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, subjectDecl ast.Type, ds *diag.DiagSink) {
+func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, subjectDecl ast.Type, subjectDeclName string, ds *diag.DiagSink) {
 	if p == nil {
 		return
 	}
@@ -206,19 +207,25 @@ func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel
 				bindingName, patternType, subjectType))
 		}
 	case *turnoutpb.LocalCasePatternModel_Template:
-		validateTemplatePattern(bindingName, x.Template, subjectDecl, ds)
+		validateTemplatePattern(bindingName, x.Template, subjectDecl, subjectDeclName, ds)
 	}
 }
 
 // validateTemplatePattern checks a template destructuring pattern against the
 // subject's template type: every field must name a capture (§12.6), and a
 // literal-constrained field's value must belong to the capture type (§12.7).
-func validateTemplatePattern(bindingName string, tp *turnoutpb.LocalTemplatePatternModel, subjectDecl ast.Type, ds *diag.DiagSink) {
+func validateTemplatePattern(bindingName string, tp *turnoutpb.LocalTemplatePatternModel, subjectDecl ast.Type, subjectDeclName string, ds *diag.DiagSink) {
 	tmpl, ok := templateOfSubject(subjectDecl)
 	if !ok {
 		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 			"binding %q: template pattern %s cannot be used here; the #case subject is not a template literal type",
 			bindingName, tp.GetTypeName()))
+		return
+	}
+	if subjectDeclName == "" || tp.GetTypeName() != subjectDeclName {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
+			"binding %q: template pattern %s does not match subject type %s",
+			bindingName, tp.GetTypeName(), subjectDeclName))
 		return
 	}
 	captureTypes := templateCaptureTypes(tmpl)

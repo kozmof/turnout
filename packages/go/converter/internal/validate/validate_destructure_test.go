@@ -138,3 +138,30 @@ scene "sc" {
 		t.Errorf("expected a type error destructuring a non-template subject, got %v", ds)
 	}
 }
+
+func TestDestructureRejectsDifferentTemplateTypeName(t *testing.T) {
+	src := `
+type Kind = "foo" | "bar"
+type ResourceId = "{kind: Kind}-{sequence: integer}"
+type OtherId = "{kind: Kind}/{sequence: integer}"
+state { app { score:number = 0 } }
+scene "sc" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      prog "p" {
+        rid: ResourceId = "foo-1"
+        |^| r: number = #case(rid, OtherId { kind, sequence } => sequence)
+      }
+    }
+  }
+}
+`
+	ds := pipeline(src)
+	if !hasCode(ds, diag.CodeArgTypeMismatch) {
+		t.Errorf("expected a type error for a mismatched template pattern name, got %v", ds)
+	}
+	if !anyMsgContains(ds, "template pattern OtherId does not match subject type ResourceId") {
+		t.Errorf("expected diagnostic to name both template types, got %v", ds)
+	}
+}

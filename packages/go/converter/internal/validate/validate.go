@@ -37,7 +37,8 @@ type bindingInfo struct {
 	// declaredType is the resolved structured type when the binding was annotated
 	// with a named literal/template type; nil for plain primitive bindings. Used
 	// for assignability and #case coverage analysis.
-	declaredType ast.Type
+	declaredType     ast.Type
+	declaredTypeName string
 }
 
 // bindingKindFor returns the BindingKind for a BindingModel.

@@ -294,3 +294,21 @@ func subjectDeclaredType(subject *turnoutpb.LocalExprModel, scope scopeLookup) a
 	}
 	return info.declaredType
 }
+
+// subjectDeclaredTypeName returns the source-level named type annotation for a
+// direct #case subject reference. Structural template patterns are nominal in
+// the initial implementation, so the pattern must use this exact name.
+func subjectDeclaredTypeName(subject *turnoutpb.LocalExprModel, scope scopeLookup) string {
+	if subject == nil {
+		return ""
+	}
+	ref, ok := subject.Expr.(*turnoutpb.LocalExprModel_Ref)
+	if !ok {
+		return ""
+	}
+	info, ok := scope.get(ref.Ref.GetName())
+	if !ok {
+		return ""
+	}
+	return info.declaredTypeName
+}

@@ -229,6 +229,47 @@ func TestLowerSingleRefBool(t *testing.T) {
 	}
 }
 
+func TestLowerTemplateGuardUsesCaptureBinding(t *testing.T) {
+	tm := mustLower(t, `
+type ResourceId = "foo-{sequence: integer}"
+state { ns { val:number = 0 } }
+scene "test" {
+  entry_actions = ["a"]
+  action "a" {
+    compute {
+      prog "p" {
+        rid: ResourceId = "foo-101"
+        |^| out: number = #case(
+          rid,
+          ResourceId { sequence } if sequence > 100 => sequence,
+          _ => 0
+        )
+      }
+    }
+  }
+}`)
+
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
+	foundCaptureRef := false
+	for _, b := range bindings {
+		if b.Expr == nil || b.Expr.Combine == nil {
+			continue
+		}
+		for _, arg := range b.Expr.Combine.Args {
+			ref := arg.GetRef()
+			if ref == "sequence" {
+				t.Fatalf("lowered guard retained source capture reference %q in binding %q", ref, b.Name)
+			}
+			if strings.Contains(ref, "cap_num") {
+				foundCaptureRef = true
+			}
+		}
+	}
+	if !foundCaptureRef {
+		t.Fatal("lowered template arm did not reference an extracted numeric capture")
+	}
+}
+
 func TestLowerSingleRefNumber(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = ["a"]
   action "a" {

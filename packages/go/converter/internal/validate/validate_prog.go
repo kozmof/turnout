@@ -133,14 +133,19 @@ func buildBindingScope(prog *turnoutpb.ProgModel, types *typeRegistry, ds *diag.
 		}
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
 		var declared ast.Type
+		var declaredName string
 		if types != nil && b.DeclaredType != nil {
 			declared = types.resolveProto(b.DeclaredType)
+			if named := b.DeclaredType.GetNamed(); named != nil {
+				declaredName = named.GetName()
+			}
 		}
 		scope[b.Name] = bindingInfo{
-			fieldType:    ft,
-			kind:         bindingKindFor(b),
-			sigil:        sigil,
-			declaredType: declared,
+			fieldType:        ft,
+			kind:             bindingKindFor(b),
+			sigil:            sigil,
+			declaredType:     declared,
+			declaredTypeName: declaredName,
 		}
 		var refs []string
 		if b.Expr != nil {

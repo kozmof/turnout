@@ -63,8 +63,10 @@ func (c *localLowerer) lowerTemplateCaseInto(name string, ft ast.FieldType, subj
 	for i := len(condArms) - 1; i >= 0; i-- {
 		arm := condArms[i]
 		tp := arm.Pattern.(*ast.TemplateCasePattern)
-		condRef := c.templateArmCond(subjectRef, tmpl, segsJSON, tp, arm.Guard, pc)
-		body := c.bindTemplateCaptures(subjectRef, tmpl, segsJSON, tp, arm.Expr)
+		rename := c.bindTemplateCaptureRefs(subjectRef, tmpl, segsJSON, tp)
+		guard := substituteRefs(arm.Guard, rename)
+		body := substituteRefs(arm.Expr, rename)
+		condRef := c.templateArmCond(subjectRef, tmpl, segsJSON, tp, guard, pc)
 		thenFn := c.lowerFuncTemp(body, "case_then", ft, pc)
 		condName := c.temp("case_cond")
 		if i == 0 {
@@ -157,11 +159,11 @@ func (c *localLowerer) andBool(acc, next string) string {
 	return out
 }
 
-// bindTemplateCaptures emits a capture read (as the capture's runtime type) for
-// each var-binder field and returns a copy of the arm body with the binder names
-// rewritten to the generated binding names, so multiple arms can bind the same
-// capture name without collision.
-func (c *localLowerer) bindTemplateCaptures(subjectRef string, tmpl *ast.TemplateType, segsJSON string, tp *ast.TemplateCasePattern, body ast.LocalExpr) ast.LocalExpr {
+// bindTemplateCaptureRefs emits a capture read (as the capture's runtime type)
+// for each var-binder field and returns the alpha-renaming used by both the arm
+// guard and result expression. Multiple arms may therefore bind the same source
+// name without collision.
+func (c *localLowerer) bindTemplateCaptureRefs(subjectRef string, tmpl *ast.TemplateType, segsJSON string, tp *ast.TemplateCasePattern) map[string]string {
 	captureType := templateCaptureTypeMap(tmpl)
 	rename := make(map[string]string)
 	for _, f := range tp.Fields {
@@ -172,10 +174,7 @@ func (c *localLowerer) bindTemplateCaptures(subjectRef string, tmpl *ast.Templat
 		spec := templateSpecJSON(segsJSON, f.Name)
 		rename[binder.Name] = c.emitCaptureBinder(subjectRef, spec, captureType[f.Name])
 	}
-	if len(rename) == 0 {
-		return body
-	}
-	return substituteRefs(body, rename)
+	return rename
 }
 
 // emitExtract emits a `template_extract(subject, spec)` combine (returning the
@@ -302,6 +301,9 @@ func templateSegType(captureType ast.Type) (string, []string) {
 // of rename replaced by a reference to the renamed binding. The original tree is
 // left unchanged so ext_expr re-emission keeps the source names.
 func substituteRefs(e ast.LocalExpr, rename map[string]string) ast.LocalExpr {
+	if e == nil || len(rename) == 0 {
+		return e
+	}
 	switch x := e.(type) {
 	case *ast.LocalRefExpr:
 		if to, ok := rename[x.Name]; ok {
