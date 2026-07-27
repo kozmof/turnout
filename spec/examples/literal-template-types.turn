@@ -1,42 +1,53 @@
-# Literal and template types
+# Payment webhook routing with literal and template types
 #
-# This example defines a finite literal union, embeds it in a structured string
-# type, constructs a value of that type, and destructures it together with a boolean literal in an exhaustive
-# tuple #case expression. Inside each arm, `sequence` is refined to `integer`.
+# A payment service receives provider-specific webhook IDs, but stores one
+# canonical event number for idempotency. Only verified webhooks advance the
+# checkpoint. The provider and verification flag are finite literal unions, so
+# the converter can prove that the tuple #case is exhaustive.
 
-type ResourceKind = "user" | "team"
-type Enabled = true | false
-type ResourceId = "resource-{kind: ResourceKind}-{sequence: integer}"
+type PaymentProvider = "stripe" | "paypal"
+type VerificationStatus = true | false
+type PaymentEventId = "payment-{provider: PaymentProvider}-{event_number: integer}"
 
 state {
-  app {
-    next_sequence:number = 42
+  payments {
+    last_processed_event:number = 1041
   }
 }
 
-scene "literal_template_types" {
-  entry_actions = ["route_resource"]
+scene "payment_webhook" {
+  entry_actions = ["record_verified_event"]
 
-  action "route_resource" {
+  action "record_verified_event" {
     compute {
-      prog "route_resource_by_kind" {
-        kind: ResourceKind = "team"
-        sequence: integer = 42
+      prog "advance_payment_checkpoint" {
+        ~>last_processed_event:number
 
-        resource_id: ResourceId = ResourceId {
-          kind = kind
-          sequence = sequence
+        provider: PaymentProvider = "paypal"
+        event_number: integer = 1042
+
+        event_id: PaymentEventId = PaymentEventId {
+          provider = provider
+          event_number = event_number
         }
 
-        enabled: Enabled = true
+        verified: VerificationStatus = true
 
-        |^| selected_sequence: integer = #case(
-          (resource_id, enabled),
-          (ResourceId { kind: "user", sequence }, _) => sequence,
-          (ResourceId { kind: "team", sequence }, true) => sequence,
-          (ResourceId { kind: "team", sequence: _ }, false) => 0
+        |^| <~new_checkpoint:number = #case(
+          (event_id, verified),
+          (PaymentEventId { event_number: _ }, false) => last_processed_event,
+          (PaymentEventId { provider: "stripe", event_number }, true) => event_number,
+          (PaymentEventId { provider: "paypal", event_number }, true) => event_number
         )
       }
+    }
+
+    prepare {
+      last_processed_event { from_state = payments.last_processed_event }
+    }
+
+    merge {
+      new_checkpoint { to_state = payments.last_processed_event }
     }
   }
 }
