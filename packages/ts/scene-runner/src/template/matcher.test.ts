@@ -20,6 +20,18 @@ interface Case {
 interface Fixture {
   model: unknown;
   cases: Case[];
+  constructions: Array<{
+    type: string;
+    captures: Record<string, string | number | boolean>;
+    output: string;
+  }>;
+  armSelections: Array<{
+    type: string;
+    input: string;
+    arms: Array<{ capture?: string; equals?: string | number | boolean; default?: boolean }>;
+    selected: number;
+  }>;
+  failures: Array<{ type: string; input: string; diagnostic: string }>;
 }
 
 function loadFixture() {
@@ -189,4 +201,51 @@ describe("template matcher capture types", () => {
     ]);
     expect(templateContains(templateOf(byName, "T"), "xy", registry)).toBe(false);
   });
+});
+
+describe("complete cross-language conformance (§28.8)", () => {
+  const { fixture, registry, byName } = loadFixture();
+
+  for (const c of fixture.constructions) {
+    it(`constructs ${c.type} as ${JSON.stringify(c.output)}`, () => {
+      const template = templateOf(byName, c.type);
+      const output = template.segments
+        .map((segment) => {
+          if (segment.segment.case === "text") return segment.segment.value.value;
+          if (segment.segment.case === "capture") {
+            const value = c.captures[segment.segment.value.name];
+            if (value === undefined)
+              throw new Error(`missing capture ${segment.segment.value.name}`);
+            return String(value);
+          }
+          return "";
+        })
+        .join("");
+      expect(output).toBe(c.output);
+      expect(matchTemplate(template, output, registry)).toEqual({
+        matched: true,
+        captures: c.captures,
+      });
+    });
+  }
+
+  for (const c of fixture.armSelections) {
+    it(`selects ordered arm ${c.selected} for ${JSON.stringify(c.input)}`, () => {
+      const result = matchTemplate(templateOf(byName, c.type), c.input, registry);
+      let selected = -1;
+      if (result.matched) {
+        selected = c.arms.findIndex(
+          (arm) => arm.default === true || result.captures[arm.capture ?? ""] === arm.equals,
+        );
+      }
+      expect(selected).toBe(c.selected);
+    });
+  }
+
+  for (const c of fixture.failures) {
+    it(`reports ${c.diagnostic} for ${JSON.stringify(c.input)}`, () => {
+      const matched = templateContains(templateOf(byName, c.type), c.input, registry);
+      expect(matched ? "" : "InvalidTemplateValue").toBe(c.diagnostic);
+    });
+  }
 });

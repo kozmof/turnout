@@ -312,5 +312,91 @@
       "input": "v1",
       "matched": false
     }
+  ],
+  "constructions": [
+    {
+      "type": "ResourceId",
+      "captures": {
+        "kind": "foo",
+        "sequence": 42
+      },
+      "output": "foo-42"
+    },
+    {
+      "type": "BooleanKey",
+      "captures": {
+        "value": true
+      },
+      "output": "enabled-true"
+    }
+  ],
+  "armSelections": [
+    {
+      "type": "ResourceId",
+      "input": "foo-7",
+      "arms": [
+        {
+          "capture": "kind",
+          "equals": "foo"
+        },
+        {
+          "capture": "kind",
+          "equals": "bar"
+        },
+        {
+          "default": true
+        }
+      ],
+      "selected": 0
+    },
+    {
+      "type": "ResourceId",
+      "input": "bar-9",
+      "arms": [
+        {
+          "capture": "kind",
+          "equals": "foo"
+        },
+        {
+          "capture": "kind",
+          "equals": "bar"
+        },
+        {
+          "default": true
+        }
+      ],
+      "selected": 1
+    },
+    {
+      "type": "ResourceId",
+      "input": "baz-9",
+      "arms": [
+        {
+          "capture": "kind",
+          "equals": "foo"
+        },
+        {
+          "default": true
+        }
+      ],
+      "selected": -1
+    }
+  ],
+  "failures": [
+    {
+      "type": "ResourceId",
+      "input": "baz-1",
+      "diagnostic": "InvalidTemplateValue"
+    },
+    {
+      "type": "ResourceId",
+      "input": "foo-01",
+      "diagnostic": "InvalidTemplateValue"
+    },
+    {
+      "type": "BooleanKey",
+      "input": "enabled-yes",
+      "diagnostic": "InvalidTemplateValue"
+    }
   ]
 }
