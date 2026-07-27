@@ -195,7 +195,7 @@ function parseCanonicalInteger(s: string): number | undefined {
   }
   if (!isCanonicalDigits(digits)) return undefined;
   if (neg && digits === "0") return undefined; // "-0" is not canonical
-  return Number(s);
+  return parseFiniteFloat64(s);
 }
 
 /**
@@ -220,7 +220,14 @@ function parseCanonicalNumber(s: string): number | undefined {
   }
   if (!isCanonicalDigits(digits)) return undefined;
   if (neg && digits === "0" && fracPart === "") return undefined;
-  return Number(s);
+  return parseFiniteFloat64(s);
+}
+
+// Match Go's strconv.ParseFloat(..., 64): reject overflow.
+function parseFiniteFloat64(s: string): number | undefined {
+  const n = Number(s);
+  if (!Number.isFinite(n)) return undefined;
+  return n;
 }
 
 function isCanonicalDigits(s: string): boolean {

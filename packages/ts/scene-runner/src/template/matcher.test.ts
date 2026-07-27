@@ -135,7 +135,8 @@ describe("template matcher capture types", () => {
       captures: { value: -2.5 },
     });
     expect(matchTemplate(t, "r3", registry)).toEqual({ matched: true, captures: { value: 3 } });
-    for (const bad of ["r1.", "r.5", "r1e3", "r007", "rx"]) {
+    const overflow = `r1${"0".repeat(400)}`;
+    for (const bad of ["r1.", "r.5", "r1e3", "r007", "rx", overflow]) {
       expect(templateContains(t, bad, registry)).toBe(false);
     }
   });

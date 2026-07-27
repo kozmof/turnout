@@ -41,6 +41,7 @@ describe("extractCapture", () => {
     const n = JSON.stringify({ want: "v", segs: [{ text: "r" }, { cap: "v", t: "number" }] });
     expect(extractCapture("r1.5", n)).toBe("1.5");
     expect(extractCapture("r1.", n)).toBe("");
+    expect(extractCapture(`r1${"0".repeat(400)}`, n)).toBe("");
   });
 
   it("returns '' for malformed spec JSON", () => {

@@ -1,6 +1,9 @@
 package ast
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func cap(name string, t Type) *CaptureSegment    { return &CaptureSegment{Name: name, CaptureType: t} }
 func text(v string) *TextSegment                 { return &TextSegment{Value: v} }
@@ -100,5 +103,19 @@ func TestTemplateMatchBoolCapture(t *testing.T) {
 	}
 	if TemplateContains(bt, "enabled-yes") {
 		t.Errorf(`"enabled-yes" should not match bool`)
+	}
+}
+
+func TestTemplateMatchRejectsFloat64RangeErrors(t *testing.T) {
+	numberTemplate := NewTemplateType(Pos{}, []TemplateSegment{
+		&TextSegment{Value: "r"},
+		&CaptureSegment{Name: "value", CaptureType: NewPrimitiveType(Pos{}, PrimNumber)},
+	})
+	for _, input := range []string{
+		"r1" + strings.Repeat("0", 400),
+	} {
+		if TemplateContains(numberTemplate, input) {
+			t.Errorf("%q should not match after float64 range loss", input)
+		}
 	}
 }

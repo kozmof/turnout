@@ -81,9 +81,9 @@ function captureAccepts(raw: string, seg: CaptureSpecSeg): boolean {
     case "str":
       return true;
     case "integer":
-      return isCanonicalInteger(raw);
+      return isCanonicalInteger(raw) && isFiniteFloat64(raw);
     case "number":
-      return isCanonicalNumber(raw);
+      return isCanonicalNumber(raw) && isFiniteFloat64(raw);
     case "bool":
       return raw === "true" || raw === "false";
     case "enum":
@@ -121,6 +121,12 @@ function isCanonicalNumber(s: string): boolean {
   }
   if (!isCanonicalDigits(digits)) return false;
   return !(neg && digits === "0" && fracPart === "");
+}
+
+// Match Go's strconv.ParseFloat(..., 64): reject overflow.
+function isFiniteFloat64(s: string): boolean {
+  const n = Number(s);
+  return Number.isFinite(n);
 }
 
 function isCanonicalDigits(s: string): boolean {
