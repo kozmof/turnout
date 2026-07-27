@@ -39,8 +39,15 @@ type BindingDecl struct {
 	Sigil  Sigil
 	Marker BindingMarker
 	Name   string
-	Type   FieldType
-	RHS    BindingRHS
+	// Type is the runtime FieldType the binding serialises as. When DeclaredType
+	// is a named literal/template type, Type is its base FieldType, resolved
+	// during lowering once the type registry is available.
+	Type FieldType
+	// DeclaredType carries the structured type annotation when it is richer than
+	// a plain primitive/array (a named type reference or `integer`). Nil for
+	// plain primitive/array annotations.
+	DeclaredType Type
+	RHS          BindingRHS
 }
 
 // ────────────────────────────────────────────────────────────

@@ -628,7 +628,9 @@ func TestParseFieldTypeInvalidArrayType(t *testing.T) {
 // ── Lines 220-223: parseFieldType TokIdent unknown type name ─────────────────
 
 func TestParseFieldTypeUnknownIdent(t *testing.T) {
-	// v:badtype — identifier that is not a valid type name
+	// v:badtype — an identifier in binding-type position is now parsed as a named
+	// type reference (resolved later); it is no longer a parse-stage error. An
+	// undeclared reference is reported at the validate stage as CodeUnknownType.
 	src := minimalTurnFile(`  entry_actions = ["a"]
   action "a" {
     compute {
@@ -637,7 +639,12 @@ func TestParseFieldTypeUnknownIdent(t *testing.T) {
       }
     }
   }`)
-	mustParseFail(t, src)
+	tf := mustParse(t, src)
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	nt, ok := b.DeclaredType.(*ast.NamedType)
+	if !ok || nt.Name != "badtype" {
+		t.Errorf("expected DeclaredType NamedType(badtype), got %T %v", b.DeclaredType, b.DeclaredType)
+	}
 }
 
 // ── Lines 310-315: parseBlockArg non-ident key ────────────────────────────────

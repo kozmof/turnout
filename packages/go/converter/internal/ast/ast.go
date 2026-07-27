@@ -219,6 +219,7 @@ func (m BindingMarker) String() string {
 // TurnFile is the root AST node for a .turn source file.
 type TurnFile struct {
 	StateSource StateSource // nil only if both are absent (error case)
+	TypeDecls   []*TypeDecl
 	Scenes      []*SceneBlock
 	Routes      []*RouteBlock
 }

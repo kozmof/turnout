@@ -86,14 +86,19 @@ var builtinFnTable = map[string]FnSpec{
 	"str_includes": {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
 	"str_starts":   {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
 	"str_ends":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
-	"bool_and":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
-	"bool_or":      {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
-	"bool_xor":     {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
-	"eq":           {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
-	"neq":          {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
-	"arr_includes": {Kind: FnKindArrInc},
-	"arr_get":      {Kind: FnKindArrGet},
-	"arr_concat":   {Kind: FnKindArrConcat},
+	// template_extract(subject, spec) reads a template capture as raw text;
+	// template_extract_num parses a numeric capture. Emitted only by the lowerer
+	// for template #case destructuring.
+	"template_extract":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeStr},
+	"template_extract_num": {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeNumber},
+	"bool_and":             {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
+	"bool_or":              {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
+	"bool_xor":             {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
+	"eq":                   {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
+	"neq":                  {ReturnType: ast.FieldTypeBool, Kind: FnKindGeneric},
+	"arr_includes":         {Kind: FnKindArrInc},
+	"arr_get":              {Kind: FnKindArrGet},
+	"arr_concat":           {Kind: FnKindArrConcat},
 }
 
 // IsOperatorOnly reports whether fn must be used via infix syntax only.

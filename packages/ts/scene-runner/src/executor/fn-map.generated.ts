@@ -22,6 +22,8 @@ export const FN_MAP: Record<string, BinaryFnNames> = {
   str_includes: "binaryFnString::includes",
   str_starts: "binaryFnString::startsWith",
   str_ends: "binaryFnString::endsWith",
+  template_extract: "binaryFnString::extract",
+  template_extract_num: "binaryFnString::extractNum",
   eq: "binaryFnGeneric::isEqual",
   neq: "binaryFnGeneric::isNotEqual",
   arr_concat: "binaryFnArray::concat",

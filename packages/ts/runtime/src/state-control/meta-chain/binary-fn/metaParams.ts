@@ -39,6 +39,8 @@ export const metaBfStringParams = (): ParamTypesBinaryFnString => {
     includes: ["string", "string"],
     startsWith: ["string", "string"],
     endsWith: ["string", "string"],
+    extract: ["string", "string"],
+    extractNum: ["string", "string"],
   };
 };
 

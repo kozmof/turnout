@@ -18,9 +18,9 @@ describe("migrateModel", () => {
   });
 
   it("rejects models requiring a newer runtime", () => {
-    const model = { version: 1, minVersion: 2 } as TurnModel;
+    const model = { version: 1, minVersion: 3 } as TurnModel;
 
-    expect(() => migrateModel(model)).toThrow(`below the model's required minimum version 2`);
+    expect(() => migrateModel(model)).toThrow(`below the model's required minimum version 3`);
   });
 
   it("rejects models above the maximum compatible runtime", () => {
@@ -30,9 +30,9 @@ describe("migrateModel", () => {
   });
 
   it("rejects future schema versions", () => {
-    const model = { version: 2 } as TurnModel;
+    const model = { version: 3 } as TurnModel;
 
-    expect(() => migrateModel(model)).toThrow("Model schema version 2 is not supported");
+    expect(() => migrateModel(model)).toThrow("Model schema version 3 is not supported");
   });
 });
 

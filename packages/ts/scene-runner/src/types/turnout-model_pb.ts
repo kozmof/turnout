@@ -17,7 +17,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file turnout-model.proto.
  */
 export const file_turnout_model: GenFile = /*@__PURE__*/
-  fileDesc("ChN0dXJub3V0LW1vZGVsLnByb3RvEhB0dXJub3V0Lm1vZGVsLnYxIp0CCglUdXJuTW9kZWwSKwoFc3RhdGUYASABKAsyHC50dXJub3V0Lm1vZGVsLnYxLlN0YXRlTW9kZWwSLAoGc2NlbmVzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5TY2VuZUJsb2NrEiwKBnJvdXRlcxgDIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuUm91dGVNb2RlbBIPCgd2ZXJzaW9uGAQgASgNEjwKC2Fubm90YXRpb25zGAUgASgLMiIudHVybm91dC5tb2RlbC52MS5TaWdpbEFubm90YXRpb25zSACIAQESEwoLbWluX3ZlcnNpb24YBiABKA0SEwoLbWF4X3ZlcnNpb24YByABKA1CDgoMX2Fubm90YXRpb25zIlQKEFNpZ2lsQW5ub3RhdGlvbnMSMgoHZW50cmllcxgCIAMoCzIhLnR1cm5vdXQubW9kZWwudjEuU2lnaWxBbm5vdGF0aW9uSgQIARACUgZzaWdpbHMifQoPU2lnaWxBbm5vdGF0aW9uEhAKCHNjZW5lX2lkGAEgASgJEhEKCWFjdGlvbl9pZBgCIAEoCRINCgVzY29wZRgDIAEoCRIRCglwcm9nX25hbWUYBCABKAkSFAoMYmluZGluZ19uYW1lGAUgASgJEg0KBXNpZ2lsGAYgASgFIjQKCVNvdXJjZVBvcxIMCgRmaWxlGAEgASgJEgwKBGxpbmUYAiABKAUSCwoDY29sGAMgASgFIkIKClN0YXRlTW9kZWwSNAoKbmFtZXNwYWNlcxgBIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTmFtZXNwYWNlTW9kZWwiTAoOTmFtZXNwYWNlTW9kZWwSDAoEbmFtZRgBIAEoCRIsCgZmaWVsZHMYAiADKAsyHC50dXJub3V0Lm1vZGVsLnYxLkZpZWxkTW9kZWwiTwoKRmllbGRNb2RlbBIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSJQoFdmFsdWUYAyABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiwgEKClNjZW5lQmxvY2sSCgoCaWQYASABKAkSFQoNZW50cnlfYWN0aW9ucxgCIAMoCRIYCgtuZXh0X3BvbGljeRgDIAEoCUgAiAEBEi4KB2FjdGlvbnMYBCADKAsyHS50dXJub3V0Lm1vZGVsLnYxLkFjdGlvbk1vZGVsEi4KBHZpZXcYBSABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlZpZXdCbG9ja0gBiAEBQg4KDF9uZXh0X3BvbGljeUIHCgVfdmlldyJJCglWaWV3QmxvY2sSDAoEbmFtZRgBIAEoCRIMCgRmbG93GAIgASgJEhQKB2VuZm9yY2UYAyABKAlIAIgBAUIKCghfZW5mb3JjZSKEAgoLQWN0aW9uTW9kZWwSCgoCaWQYASABKAkSLwoHY29tcHV0ZRgCIAEoCzIeLnR1cm5vdXQubW9kZWwudjEuQ29tcHV0ZU1vZGVsEi8KB3ByZXBhcmUYAyADKAsyHi50dXJub3V0Lm1vZGVsLnYxLlByZXBhcmVFbnRyeRIrCgVtZXJnZRgEIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuTWVyZ2VFbnRyeRIPCgdwdWJsaXNoGAUgAygJEi0KBG5leHQYBiADKAsyHy50dXJub3V0Lm1vZGVsLnYxLk5leHRSdWxlTW9kZWwSEQoEdGV4dBgHIAEoCUgAiAEBQgcKBV90ZXh0IkcKDENvbXB1dGVNb2RlbBIMCgRyb290GAEgASgJEikKBHByb2cYAiABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlByb2dNb2RlbCKzAQoJUHJvZ01vZGVsEgwKBG5hbWUYASABKAkSMAoIYmluZGluZ3MYAiADKAsyHi50dXJub3V0Lm1vZGVsLnYxLkJpbmRpbmdNb2RlbBI3CgZzaWdpbHMYAyADKAsyJy50dXJub3V0Lm1vZGVsLnYxLlByb2dNb2RlbC5TaWdpbHNFbnRyeRotCgtTaWdpbHNFbnRyeRILCgNrZXkYASABKAkSDQoFdmFsdWUYAiABKAU6AjgBIvUBCgxCaW5kaW5nTW9kZWwSDAoEbmFtZRgBIAEoCRIMCgR0eXBlGAIgASgJEiUKBXZhbHVlGAMgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEikKBGV4cHIYBCABKAsyGy50dXJub3V0Lm1vZGVsLnYxLkV4cHJNb2RlbBIyCghleHRfZXhwchgFIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSNAoKc291cmNlX3BvcxgGIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuU291cmNlUG9zSACIAQFCDQoLX3NvdXJjZV9wb3MijwEKCUV4cHJNb2RlbBIuCgdjb21iaW5lGAEgASgLMh0udHVybm91dC5tb2RlbC52MS5Db21iaW5lRXhwchIoCgRwaXBlGAIgASgLMhoudHVybm91dC5tb2RlbC52MS5QaXBlRXhwchIoCgRjb25kGAMgASgLMhoudHVybm91dC5tb2RlbC52MS5Db25kRXhwciJDCgtDb21iaW5lRXhwchIKCgJmbhgBIAEoCRIoCgRhcmdzGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCJiCghQaXBlRXhwchIrCgZwYXJhbXMYASADKAsyGy50dXJub3V0Lm1vZGVsLnYxLlBpcGVQYXJhbRIpCgVzdGVwcxgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuUGlwZVN0ZXAiNQoJUGlwZVBhcmFtEhIKCnBhcmFtX25hbWUYASABKAkSFAoMc291cmNlX2lkZW50GAIgASgJIkAKCFBpcGVTdGVwEgoKAmZuGAEgASgJEigKBGFyZ3MYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsIpQBCghDb25kRXhwchItCgljb25kaXRpb24YASABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsEigKBHRoZW4YAiABKAsyGi50dXJub3V0Lm1vZGVsLnYxLkFyZ01vZGVsEi8KC2Vsc2VfYnJhbmNoGAMgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCLEAQoIQXJnTW9kZWwSEAoDcmVmGAEgASgJSACIAQESIwoDbGl0GAIgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlEhUKCGZ1bmNfcmVmGAMgASgJSAGIAQESFQoIc3RlcF9yZWYYBCABKAVIAogBARIxCgl0cmFuc2Zvcm0YBSABKAsyHi50dXJub3V0Lm1vZGVsLnYxLlRyYW5zZm9ybUFyZ0IGCgRfcmVmQgsKCV9mdW5jX3JlZkILCglfc3RlcF9yZWYiJwoMVHJhbnNmb3JtQXJnEgsKA3JlZhgBIAEoCRIKCgJmbhgCIAMoCSJtCgxQcmVwYXJlRW50cnkSDwoHYmluZGluZxgBIAEoCRIXCgpmcm9tX3N0YXRlGAIgASgJSACIAQESFgoJZnJvbV9ob29rGAMgASgJSAGIAQFCDQoLX2Zyb21fc3RhdGVCDAoKX2Zyb21faG9vayIvCgpNZXJnZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSEAoIdG9fc3RhdGUYAiABKAkiiQEKDU5leHRSdWxlTW9kZWwSMwoHY29tcHV0ZRgBIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTmV4dENvbXB1dGVNb2RlbBIzCgdwcmVwYXJlGAIgAygLMiIudHVybm91dC5tb2RlbC52MS5OZXh0UHJlcGFyZUVudHJ5Eg4KBmFjdGlvbhgDIAEoCSJQChBOZXh0Q29tcHV0ZU1vZGVsEhEKCWNvbmRpdGlvbhgBIAEoCRIpCgRwcm9nGAIgASgLMhsudHVybm91dC5tb2RlbC52MS5Qcm9nTW9kZWwiowEKEE5leHRQcmVwYXJlRW50cnkSDwoHYmluZGluZxgBIAEoCRIYCgtmcm9tX2FjdGlvbhgCIAEoCUgAiAEBEhcKCmZyb21fc3RhdGUYAyABKAlIAYgBARIsCgxmcm9tX2xpdGVyYWwYBCABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWVCDgoMX2Zyb21fYWN0aW9uQg0KC19mcm9tX3N0YXRlInMKClJvdXRlTW9kZWwSCgoCaWQYASABKAkSKQoFbWF0Y2gYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLk1hdGNoQXJtEhsKDmVudHJ5X3NjZW5lX2lkGAMgASgJSACIAQFCEQoPX2VudHJ5X3NjZW5lX2lkIiwKCE1hdGNoQXJtEhAKCHBhdHRlcm5zGAEgAygJEg4KBnRhcmdldBgCIAEoCSLNAwoOTG9jYWxFeHByTW9kZWwSMgoDcmVmGAEgASgLMiMudHVybm91dC5tb2RlbC52MS5Mb2NhbFJlZkV4cHJNb2RlbEgAEjIKA2xpdBgCIAEoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxMaXRFeHByTW9kZWxIABIwCgJpdBgDIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJdEV4cHJNb2RlbEgAEjQKBGNhbGwYBCABKAsyJC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FsbEV4cHJNb2RlbEgAEjYKBWluZml4GAUgASgLMiUudHVybm91dC5tb2RlbC52MS5Mb2NhbEluZml4RXhwck1vZGVsSAASNQoHaWZfZXhwchgGIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJZkV4cHJNb2RlbEgAEjkKCWNhc2VfZXhwchgHIAEoCzIkLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlRXhwck1vZGVsSAASOQoJcGlwZV9leHByGAggASgLMiQudHVybm91dC5tb2RlbC52MS5Mb2NhbFBpcGVFeHByTW9kZWxIAEIGCgRleHByIiEKEUxvY2FsUmVmRXhwck1vZGVsEgwKBG5hbWUYASABKAkiOgoRTG9jYWxMaXRFeHByTW9kZWwSJQoFdmFsdWUYASABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUiEgoQTG9jYWxJdEV4cHJNb2RlbCJQChJMb2NhbENhbGxFeHByTW9kZWwSCgoCZm4YASABKAkSLgoEYXJncxgCIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwimgEKE0xvY2FsSW5maXhFeHByTW9kZWwSJQoCb3AYASABKA4yGS50dXJub3V0Lm1vZGVsLnYxLkluZml4T3ASLQoDbGhzGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBItCgNyaHMYAyABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIqkBChBMb2NhbElmRXhwck1vZGVsEi4KBGNvbmQYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi4KBHRoZW4YAiABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEjUKC2Vsc2VfYnJhbmNoGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKuAQoRTG9jYWxDYXNlQXJtTW9kZWwSOAoHcGF0dGVybhgBIAEoCzInLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlUGF0dGVybk1vZGVsEi8KBWd1YXJkGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIuCgRleHByGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCJ6ChJMb2NhbENhc2VFeHByTW9kZWwSMQoHc3ViamVjdBgBIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSMQoEYXJtcxgCIAMoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxDYXNlQXJtTW9kZWwieAoSTG9jYWxQaXBlRXhwck1vZGVsEjEKB2luaXRpYWwYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEi8KBXN0ZXBzGAIgAygLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCLrAQoVTG9jYWxDYXNlUGF0dGVybk1vZGVsEj8KCHdpbGRjYXJkGAEgASgLMisudHVybm91dC5tb2RlbC52MS5Mb2NhbFdpbGRjYXJkUGF0dGVybk1vZGVsSAASNQoDbGl0GAIgASgLMiYudHVybm91dC5tb2RlbC52MS5Mb2NhbExpdFBhdHRlcm5Nb2RlbEgAEkIKCnZhcl9iaW5kZXIYAyABKAsyLC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsVmFyQmluZGVyUGF0dGVybk1vZGVsSABCCQoHcGF0dGVybkoECAQQBVIFdHVwbGUiGwoZTG9jYWxXaWxkY2FyZFBhdHRlcm5Nb2RlbCI9ChRMb2NhbExpdFBhdHRlcm5Nb2RlbBIlCgV2YWx1ZRgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZSIqChpMb2NhbFZhckJpbmRlclBhdHRlcm5Nb2RlbBIMCgRuYW1lGAEgASgJKvUBCgdJbmZpeE9wEhAKDElORklYX09QX0FORBAAEhAKDElORklYX09QX0dURRABEhAKDElORklYX09QX0xURRACEg8KC0lORklYX09QX0dUEAMSDwoLSU5GSVhfT1BfTFQQBBIUChBJTkZJWF9PUF9CT09MX09SEAUSDwoLSU5GSVhfT1BfRVEQBhIQCgxJTkZJWF9PUF9ORVEQBxIRCg1JTkZJWF9PUF9QTFVTEAgSEAoMSU5GSVhfT1BfU1VCEAkSEAoMSU5GSVhfT1BfTVVMEAoSEAoMSU5GSVhfT1BfRElWEAsSEAoMSU5GSVhfT1BfTU9EEAxCSVpHZ2l0aHViLmNvbS9rb3ptb2YvdHVybm91dC9wYWNrYWdlcy9nby9jb252ZXJ0ZXIvaW50ZXJuYWwvZW1pdC90dXJub3V0cGJiBnByb3RvMw", [file_google_protobuf_struct]);
+  fileDesc("ChN0dXJub3V0LW1vZGVsLnByb3RvEhB0dXJub3V0Lm1vZGVsLnYxItICCglUdXJuTW9kZWwSKwoFc3RhdGUYASABKAsyHC50dXJub3V0Lm1vZGVsLnYxLlN0YXRlTW9kZWwSLAoGc2NlbmVzGAIgAygLMhwudHVybm91dC5tb2RlbC52MS5TY2VuZUJsb2NrEiwKBnJvdXRlcxgDIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuUm91dGVNb2RlbBIPCgd2ZXJzaW9uGAQgASgNEjwKC2Fubm90YXRpb25zGAUgASgLMiIudHVybm91dC5tb2RlbC52MS5TaWdpbEFubm90YXRpb25zSACIAQESEwoLbWluX3ZlcnNpb24YBiABKA0SEwoLbWF4X3ZlcnNpb24YByABKA0SMwoKdHlwZV9kZWNscxgIIAMoCzIfLnR1cm5vdXQubW9kZWwudjEuVHlwZURlY2xNb2RlbEIOCgxfYW5ub3RhdGlvbnMiVAoQU2lnaWxBbm5vdGF0aW9ucxIyCgdlbnRyaWVzGAIgAygLMiEudHVybm91dC5tb2RlbC52MS5TaWdpbEFubm90YXRpb25KBAgBEAJSBnNpZ2lscyJ9Cg9TaWdpbEFubm90YXRpb24SEAoIc2NlbmVfaWQYASABKAkSEQoJYWN0aW9uX2lkGAIgASgJEg0KBXNjb3BlGAMgASgJEhEKCXByb2dfbmFtZRgEIAEoCRIUCgxiaW5kaW5nX25hbWUYBSABKAkSDQoFc2lnaWwYBiABKAUiNAoJU291cmNlUG9zEgwKBGZpbGUYASABKAkSDAoEbGluZRgCIAEoBRILCgNjb2wYAyABKAUiQgoKU3RhdGVNb2RlbBI0CgpuYW1lc3BhY2VzGAEgAygLMiAudHVybm91dC5tb2RlbC52MS5OYW1lc3BhY2VNb2RlbCJMCg5OYW1lc3BhY2VNb2RlbBIMCgRuYW1lGAEgASgJEiwKBmZpZWxkcxgCIAMoCzIcLnR1cm5vdXQubW9kZWwudjEuRmllbGRNb2RlbCJPCgpGaWVsZE1vZGVsEgwKBG5hbWUYASABKAkSDAoEdHlwZRgCIAEoCRIlCgV2YWx1ZRgDIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZSLCAQoKU2NlbmVCbG9jaxIKCgJpZBgBIAEoCRIVCg1lbnRyeV9hY3Rpb25zGAIgAygJEhgKC25leHRfcG9saWN5GAMgASgJSACIAQESLgoHYWN0aW9ucxgEIAMoCzIdLnR1cm5vdXQubW9kZWwudjEuQWN0aW9uTW9kZWwSLgoEdmlldxgFIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuVmlld0Jsb2NrSAGIAQFCDgoMX25leHRfcG9saWN5QgcKBV92aWV3IkkKCVZpZXdCbG9jaxIMCgRuYW1lGAEgASgJEgwKBGZsb3cYAiABKAkSFAoHZW5mb3JjZRgDIAEoCUgAiAEBQgoKCF9lbmZvcmNlIoQCCgtBY3Rpb25Nb2RlbBIKCgJpZBgBIAEoCRIvCgdjb21wdXRlGAIgASgLMh4udHVybm91dC5tb2RlbC52MS5Db21wdXRlTW9kZWwSLwoHcHJlcGFyZRgDIAMoCzIeLnR1cm5vdXQubW9kZWwudjEuUHJlcGFyZUVudHJ5EisKBW1lcmdlGAQgAygLMhwudHVybm91dC5tb2RlbC52MS5NZXJnZUVudHJ5Eg8KB3B1Ymxpc2gYBSADKAkSLQoEbmV4dBgGIAMoCzIfLnR1cm5vdXQubW9kZWwudjEuTmV4dFJ1bGVNb2RlbBIRCgR0ZXh0GAcgASgJSACIAQFCBwoFX3RleHQiRwoMQ29tcHV0ZU1vZGVsEgwKBHJvb3QYASABKAkSKQoEcHJvZxgCIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuUHJvZ01vZGVsIrMBCglQcm9nTW9kZWwSDAoEbmFtZRgBIAEoCRIwCghiaW5kaW5ncxgCIAMoCzIeLnR1cm5vdXQubW9kZWwudjEuQmluZGluZ01vZGVsEjcKBnNpZ2lscxgDIAMoCzInLnR1cm5vdXQubW9kZWwudjEuUHJvZ01vZGVsLlNpZ2lsc0VudHJ5Gi0KC1NpZ2lsc0VudHJ5EgsKA2tleRgBIAEoCRINCgV2YWx1ZRgCIAEoBToCOAEivwIKDEJpbmRpbmdNb2RlbBIMCgRuYW1lGAEgASgJEgwKBHR5cGUYAiABKAkSJQoFdmFsdWUYAyABKAsyFi5nb29nbGUucHJvdG9idWYuVmFsdWUSKQoEZXhwchgEIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuRXhwck1vZGVsEjIKCGV4dF9leHByGAUgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBI0Cgpzb3VyY2VfcG9zGAYgASgLMhsudHVybm91dC5tb2RlbC52MS5Tb3VyY2VQb3NIAIgBARI2Cg1kZWNsYXJlZF90eXBlGAcgASgLMhoudHVybm91dC5tb2RlbC52MS5UeXBlRXhwckgBiAEBQg0KC19zb3VyY2VfcG9zQhAKDl9kZWNsYXJlZF90eXBlIo8BCglFeHByTW9kZWwSLgoHY29tYmluZRgBIAEoCzIdLnR1cm5vdXQubW9kZWwudjEuQ29tYmluZUV4cHISKAoEcGlwZRgCIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuUGlwZUV4cHISKAoEY29uZBgDIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuQ29uZEV4cHIiQwoLQ29tYmluZUV4cHISCgoCZm4YASABKAkSKAoEYXJncxgCIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwiYgoIUGlwZUV4cHISKwoGcGFyYW1zGAEgAygLMhsudHVybm91dC5tb2RlbC52MS5QaXBlUGFyYW0SKQoFc3RlcHMYAiADKAsyGi50dXJub3V0Lm1vZGVsLnYxLlBpcGVTdGVwIjUKCVBpcGVQYXJhbRISCgpwYXJhbV9uYW1lGAEgASgJEhQKDHNvdXJjZV9pZGVudBgCIAEoCSJACghQaXBlU3RlcBIKCgJmbhgBIAEoCRIoCgRhcmdzGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbCKUAQoIQ29uZEV4cHISLQoJY29uZGl0aW9uGAEgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbBIoCgR0aGVuGAIgASgLMhoudHVybm91dC5tb2RlbC52MS5BcmdNb2RlbBIvCgtlbHNlX2JyYW5jaBgDIAEoCzIaLnR1cm5vdXQubW9kZWwudjEuQXJnTW9kZWwixAEKCEFyZ01vZGVsEhAKA3JlZhgBIAEoCUgAiAEBEiMKA2xpdBgCIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZRIVCghmdW5jX3JlZhgDIAEoCUgBiAEBEhUKCHN0ZXBfcmVmGAQgASgFSAKIAQESMQoJdHJhbnNmb3JtGAUgASgLMh4udHVybm91dC5tb2RlbC52MS5UcmFuc2Zvcm1BcmdCBgoEX3JlZkILCglfZnVuY19yZWZCCwoJX3N0ZXBfcmVmIicKDFRyYW5zZm9ybUFyZxILCgNyZWYYASABKAkSCgoCZm4YAiADKAkibQoMUHJlcGFyZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSFwoKZnJvbV9zdGF0ZRgCIAEoCUgAiAEBEhYKCWZyb21faG9vaxgDIAEoCUgBiAEBQg0KC19mcm9tX3N0YXRlQgwKCl9mcm9tX2hvb2siLwoKTWVyZ2VFbnRyeRIPCgdiaW5kaW5nGAEgASgJEhAKCHRvX3N0YXRlGAIgASgJIokBCg1OZXh0UnVsZU1vZGVsEjMKB2NvbXB1dGUYASABKAsyIi50dXJub3V0Lm1vZGVsLnYxLk5leHRDb21wdXRlTW9kZWwSMwoHcHJlcGFyZRgCIAMoCzIiLnR1cm5vdXQubW9kZWwudjEuTmV4dFByZXBhcmVFbnRyeRIOCgZhY3Rpb24YAyABKAkiUAoQTmV4dENvbXB1dGVNb2RlbBIRCgljb25kaXRpb24YASABKAkSKQoEcHJvZxgCIAEoCzIbLnR1cm5vdXQubW9kZWwudjEuUHJvZ01vZGVsIqMBChBOZXh0UHJlcGFyZUVudHJ5Eg8KB2JpbmRpbmcYASABKAkSGAoLZnJvbV9hY3Rpb24YAiABKAlIAIgBARIXCgpmcm9tX3N0YXRlGAMgASgJSAGIAQESLAoMZnJvbV9saXRlcmFsGAQgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlQg4KDF9mcm9tX2FjdGlvbkINCgtfZnJvbV9zdGF0ZSJzCgpSb3V0ZU1vZGVsEgoKAmlkGAEgASgJEikKBW1hdGNoGAIgAygLMhoudHVybm91dC5tb2RlbC52MS5NYXRjaEFybRIbCg5lbnRyeV9zY2VuZV9pZBgDIAEoCUgAiAEBQhEKD19lbnRyeV9zY2VuZV9pZCIsCghNYXRjaEFybRIQCghwYXR0ZXJucxgBIAMoCRIOCgZ0YXJnZXQYAiABKAkizQMKDkxvY2FsRXhwck1vZGVsEjIKA3JlZhgBIAEoCzIjLnR1cm5vdXQubW9kZWwudjEuTG9jYWxSZWZFeHByTW9kZWxIABIyCgNsaXQYAiABKAsyIy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsTGl0RXhwck1vZGVsSAASMAoCaXQYAyABKAsyIi50dXJub3V0Lm1vZGVsLnYxLkxvY2FsSXRFeHByTW9kZWxIABI0CgRjYWxsGAQgASgLMiQudHVybm91dC5tb2RlbC52MS5Mb2NhbENhbGxFeHByTW9kZWxIABI2CgVpbmZpeBgFIAEoCzIlLnR1cm5vdXQubW9kZWwudjEuTG9jYWxJbmZpeEV4cHJNb2RlbEgAEjUKB2lmX2V4cHIYBiABKAsyIi50dXJub3V0Lm1vZGVsLnYxLkxvY2FsSWZFeHByTW9kZWxIABI5CgljYXNlX2V4cHIYByABKAsyJC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZUV4cHJNb2RlbEgAEjkKCXBpcGVfZXhwchgIIAEoCzIkLnR1cm5vdXQubW9kZWwudjEuTG9jYWxQaXBlRXhwck1vZGVsSABCBgoEZXhwciIhChFMb2NhbFJlZkV4cHJNb2RlbBIMCgRuYW1lGAEgASgJIjoKEUxvY2FsTGl0RXhwck1vZGVsEiUKBXZhbHVlGAEgASgLMhYuZ29vZ2xlLnByb3RvYnVmLlZhbHVlIhIKEExvY2FsSXRFeHByTW9kZWwiUAoSTG9jYWxDYWxsRXhwck1vZGVsEgoKAmZuGAEgASgJEi4KBGFyZ3MYAiADKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsIpoBChNMb2NhbEluZml4RXhwck1vZGVsEiUKAm9wGAEgASgOMhkudHVybm91dC5tb2RlbC52MS5JbmZpeE9wEi0KA2xocxgCIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSLQoDcmhzGAMgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbCKpAQoQTG9jYWxJZkV4cHJNb2RlbBIuCgRjb25kGAEgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIuCgR0aGVuGAIgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBI1CgtlbHNlX2JyYW5jaBgDIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwirgEKEUxvY2FsQ2FzZUFybU1vZGVsEjgKB3BhdHRlcm4YASABKAsyJy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZVBhdHRlcm5Nb2RlbBIvCgVndWFyZBgCIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwSLgoEZXhwchgDIAEoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwiegoSTG9jYWxDYXNlRXhwck1vZGVsEjEKB3N1YmplY3QYASABKAsyIC50dXJub3V0Lm1vZGVsLnYxLkxvY2FsRXhwck1vZGVsEjEKBGFybXMYAiADKAsyIy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZUFybU1vZGVsIngKEkxvY2FsUGlwZUV4cHJNb2RlbBIxCgdpbml0aWFsGAEgASgLMiAudHVybm91dC5tb2RlbC52MS5Mb2NhbEV4cHJNb2RlbBIvCgVzdGVwcxgCIAMoCzIgLnR1cm5vdXQubW9kZWwudjEuTG9jYWxFeHByTW9kZWwirAIKFUxvY2FsQ2FzZVBhdHRlcm5Nb2RlbBI/Cgh3aWxkY2FyZBgBIAEoCzIrLnR1cm5vdXQubW9kZWwudjEuTG9jYWxXaWxkY2FyZFBhdHRlcm5Nb2RlbEgAEjUKA2xpdBgCIAEoCzImLnR1cm5vdXQubW9kZWwudjEuTG9jYWxMaXRQYXR0ZXJuTW9kZWxIABJCCgp2YXJfYmluZGVyGAMgASgLMiwudHVybm91dC5tb2RlbC52MS5Mb2NhbFZhckJpbmRlclBhdHRlcm5Nb2RlbEgAEj8KCHRlbXBsYXRlGAUgASgLMisudHVybm91dC5tb2RlbC52MS5Mb2NhbFRlbXBsYXRlUGF0dGVybk1vZGVsSABCCQoHcGF0dGVybkoECAQQBVIFdHVwbGUiGwoZTG9jYWxXaWxkY2FyZFBhdHRlcm5Nb2RlbCI9ChRMb2NhbExpdFBhdHRlcm5Nb2RlbBIlCgV2YWx1ZRgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZSIqChpMb2NhbFZhckJpbmRlclBhdHRlcm5Nb2RlbBIMCgRuYW1lGAEgASgJInAKGUxvY2FsVGVtcGxhdGVQYXR0ZXJuTW9kZWwSEQoJdHlwZV9uYW1lGAEgASgJEkAKBmZpZWxkcxgCIAMoCzIwLnR1cm5vdXQubW9kZWwudjEuTG9jYWxUZW1wbGF0ZUZpZWxkUGF0dGVybk1vZGVsImgKHkxvY2FsVGVtcGxhdGVGaWVsZFBhdHRlcm5Nb2RlbBIMCgRuYW1lGAEgASgJEjgKB3BhdHRlcm4YAiABKAsyJy50dXJub3V0Lm1vZGVsLnYxLkxvY2FsQ2FzZVBhdHRlcm5Nb2RlbCKMAQoNVHlwZURlY2xNb2RlbBIMCgRuYW1lGAEgASgJEigKBHR5cGUYAiABKAsyGi50dXJub3V0Lm1vZGVsLnYxLlR5cGVFeHByEjQKCnNvdXJjZV9wb3MYAyABKAsyGy50dXJub3V0Lm1vZGVsLnYxLlNvdXJjZVBvc0gAiAEBQg0KC19zb3VyY2VfcG9zIp4CCghUeXBlRXhwchI4CglwcmltaXRpdmUYASABKAsyIy50dXJub3V0Lm1vZGVsLnYxLlByaW1pdGl2ZVR5cGVFeHBySAASNAoHbGl0ZXJhbBgCIAEoCzIhLnR1cm5vdXQubW9kZWwudjEuTGl0ZXJhbFR5cGVFeHBySAASMAoFdW5pb24YAyABKAsyHy50dXJub3V0Lm1vZGVsLnYxLlVuaW9uVHlwZUV4cHJIABI2Cgh0ZW1wbGF0ZRgEIAEoCzIiLnR1cm5vdXQubW9kZWwudjEuVGVtcGxhdGVUeXBlRXhwckgAEjAKBW5hbWVkGAUgASgLMh8udHVybm91dC5tb2RlbC52MS5OYW1lZFR5cGVFeHBySABCBgoEdHlwZSIhChFQcmltaXRpdmVUeXBlRXhwchIMCgRuYW1lGAEgASgJIkYKD0xpdGVyYWxUeXBlRXhwchIlCgV2YWx1ZRgBIAEoCzIWLmdvb2dsZS5wcm90b2J1Zi5WYWx1ZRIMCgRiYXNlGAIgASgJIjwKDVVuaW9uVHlwZUV4cHISKwoHbWVtYmVycxgBIAMoCzIaLnR1cm5vdXQubW9kZWwudjEuVHlwZUV4cHIiTAoQVGVtcGxhdGVUeXBlRXhwchI4CghzZWdtZW50cxgBIAMoCzImLnR1cm5vdXQubW9kZWwudjEuVGVtcGxhdGVTZWdtZW50TW9kZWwijwEKFFRlbXBsYXRlU2VnbWVudE1vZGVsEjIKBHRleHQYASABKAsyIi50dXJub3V0Lm1vZGVsLnYxLlRleHRTZWdtZW50TW9kZWxIABI4CgdjYXB0dXJlGAIgASgLMiUudHVybm91dC5tb2RlbC52MS5DYXB0dXJlU2VnbWVudE1vZGVsSABCCQoHc2VnbWVudCIhChBUZXh0U2VnbWVudE1vZGVsEg0KBXZhbHVlGAEgASgJIk0KE0NhcHR1cmVTZWdtZW50TW9kZWwSDAoEbmFtZRgBIAEoCRIoCgR0eXBlGAIgASgLMhoudHVybm91dC5tb2RlbC52MS5UeXBlRXhwciIdCg1OYW1lZFR5cGVFeHByEgwKBG5hbWUYASABKAkq9QEKB0luZml4T3ASEAoMSU5GSVhfT1BfQU5EEAASEAoMSU5GSVhfT1BfR1RFEAESEAoMSU5GSVhfT1BfTFRFEAISDwoLSU5GSVhfT1BfR1QQAxIPCgtJTkZJWF9PUF9MVBAEEhQKEElORklYX09QX0JPT0xfT1IQBRIPCgtJTkZJWF9PUF9FURAGEhAKDElORklYX09QX05FURAHEhEKDUlORklYX09QX1BMVVMQCBIQCgxJTkZJWF9PUF9TVUIQCRIQCgxJTkZJWF9PUF9NVUwQChIQCgxJTkZJWF9PUF9ESVYQCxIQCgxJTkZJWF9PUF9NT0QQDEJJWkdnaXRodWIuY29tL2tvem1vZi90dXJub3V0L3BhY2thZ2VzL2dvL2NvbnZlcnRlci9pbnRlcm5hbC9lbWl0L3R1cm5vdXRwYmIGcHJvdG8z", [file_google_protobuf_struct]);
 
 /**
  * @generated from message turnout.model.v1.TurnModel
@@ -68,6 +68,16 @@ export type TurnModel = Message<"turnout.model.v1.TurnModel"> & {
    * @generated from field: uint32 max_version = 7;
    */
   maxVersion: number;
+
+  /**
+   * type_decls carries the program's named type declarations (literal, union,
+   * and template literal types). Introduced by the literal & template type
+   * feature. Emitting a non-empty list requires a canonical version bump so
+   * older runtimes reject the model rather than ignore the types.
+   *
+   * @generated from field: repeated turnout.model.v1.TypeDeclModel type_decls = 8;
+   */
+  typeDecls: TypeDeclModel[];
 };
 
 /**
@@ -453,6 +463,16 @@ export type BindingModel = Message<"turnout.model.v1.BindingModel"> & {
    * @generated from field: optional turnout.model.v1.SourcePos source_pos = 6;
    */
   sourcePos?: SourcePos;
+
+  /**
+   * declared_type carries the binding's structured type annotation when it is a
+   * named literal/template type (richer than the flat `type` string). Populated
+   * by the lowerer and consumed by the validator for assignability and pattern
+   * analysis. Cleared before JSON emission; the runtime uses `type`.
+   *
+   * @generated from field: optional turnout.model.v1.TypeExpr declared_type = 7;
+   */
+  declaredType?: TypeExpr;
 };
 
 /**
@@ -1146,6 +1166,12 @@ export type LocalCasePatternModel = Message<"turnout.model.v1.LocalCasePatternMo
      */
     value: LocalVarBinderPatternModel;
     case: "varBinder";
+  } | {
+    /**
+     * @generated from field: turnout.model.v1.LocalTemplatePatternModel template = 5;
+     */
+    value: LocalTemplatePatternModel;
+    case: "template";
   } | { case: undefined; value?: undefined };
 };
 
@@ -1202,6 +1228,311 @@ export type LocalVarBinderPatternModel = Message<"turnout.model.v1.LocalVarBinde
  */
 export const LocalVarBinderPatternModelSchema: GenMessage<LocalVarBinderPatternModel> = /*@__PURE__*/
   messageDesc(file_turnout_model, 41);
+
+/**
+ * LocalTemplatePatternModel destructures a template literal value in a #case
+ * arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.
+ *
+ * @generated from message turnout.model.v1.LocalTemplatePatternModel
+ */
+export type LocalTemplatePatternModel = Message<"turnout.model.v1.LocalTemplatePatternModel"> & {
+  /**
+   * @generated from field: string type_name = 1;
+   */
+  typeName: string;
+
+  /**
+   * @generated from field: repeated turnout.model.v1.LocalTemplateFieldPatternModel fields = 2;
+   */
+  fields: LocalTemplateFieldPatternModel[];
+};
+
+/**
+ * Describes the message turnout.model.v1.LocalTemplatePatternModel.
+ * Use `create(LocalTemplatePatternModelSchema)` to create a new message.
+ */
+export const LocalTemplatePatternModelSchema: GenMessage<LocalTemplatePatternModel> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 42);
+
+/**
+ * LocalTemplateFieldPatternModel binds/constrains one capture via a sub-pattern
+ * (wildcard, literal, or var-binder).
+ *
+ * @generated from message turnout.model.v1.LocalTemplateFieldPatternModel
+ */
+export type LocalTemplateFieldPatternModel = Message<"turnout.model.v1.LocalTemplateFieldPatternModel"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: turnout.model.v1.LocalCasePatternModel pattern = 2;
+   */
+  pattern?: LocalCasePatternModel;
+};
+
+/**
+ * Describes the message turnout.model.v1.LocalTemplateFieldPatternModel.
+ * Use `create(LocalTemplateFieldPatternModelSchema)` to create a new message.
+ */
+export const LocalTemplateFieldPatternModelSchema: GenMessage<LocalTemplateFieldPatternModel> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 43);
+
+/**
+ * TypeDeclModel is a single top-level `type Name = TypeExpr` declaration.
+ *
+ * @generated from message turnout.model.v1.TypeDeclModel
+ */
+export type TypeDeclModel = Message<"turnout.model.v1.TypeDeclModel"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: turnout.model.v1.TypeExpr type = 2;
+   */
+  type?: TypeExpr;
+
+  /**
+   * source_pos is populated by the lowerer for diagnostics; cleared before JSON
+   * emission.
+   *
+   * @generated from field: optional turnout.model.v1.SourcePos source_pos = 3;
+   */
+  sourcePos?: SourcePos;
+};
+
+/**
+ * Describes the message turnout.model.v1.TypeDeclModel.
+ * Use `create(TypeDeclModelSchema)` to create a new message.
+ */
+export const TypeDeclModelSchema: GenMessage<TypeDeclModel> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 44);
+
+/**
+ * TypeExpr is the structured type IR: a primitive, a scalar literal, a finite
+ * literal union, a template literal type, or a reference to a named type.
+ *
+ * @generated from message turnout.model.v1.TypeExpr
+ */
+export type TypeExpr = Message<"turnout.model.v1.TypeExpr"> & {
+  /**
+   * @generated from oneof turnout.model.v1.TypeExpr.type
+   */
+  type: {
+    /**
+     * @generated from field: turnout.model.v1.PrimitiveTypeExpr primitive = 1;
+     */
+    value: PrimitiveTypeExpr;
+    case: "primitive";
+  } | {
+    /**
+     * @generated from field: turnout.model.v1.LiteralTypeExpr literal = 2;
+     */
+    value: LiteralTypeExpr;
+    case: "literal";
+  } | {
+    /**
+     * @generated from field: turnout.model.v1.UnionTypeExpr union = 3;
+     */
+    value: UnionTypeExpr;
+    case: "union";
+  } | {
+    /**
+     * @generated from field: turnout.model.v1.TemplateTypeExpr template = 4;
+     */
+    value: TemplateTypeExpr;
+    case: "template";
+  } | {
+    /**
+     * @generated from field: turnout.model.v1.NamedTypeExpr named = 5;
+     */
+    value: NamedTypeExpr;
+    case: "named";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message turnout.model.v1.TypeExpr.
+ * Use `create(TypeExprSchema)` to create a new message.
+ */
+export const TypeExprSchema: GenMessage<TypeExpr> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 45);
+
+/**
+ * PrimitiveTypeExpr names one of "str" | "integer" | "number" | "bool".
+ *
+ * @generated from message turnout.model.v1.PrimitiveTypeExpr
+ */
+export type PrimitiveTypeExpr = Message<"turnout.model.v1.PrimitiveTypeExpr"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message turnout.model.v1.PrimitiveTypeExpr.
+ * Use `create(PrimitiveTypeExprSchema)` to create a new message.
+ */
+export const PrimitiveTypeExprSchema: GenMessage<PrimitiveTypeExpr> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 46);
+
+/**
+ * LiteralTypeExpr is a scalar literal type. value carries the concrete value;
+ * base names the primitive base ("str" | "integer" | "number" | "bool").
+ *
+ * @generated from message turnout.model.v1.LiteralTypeExpr
+ */
+export type LiteralTypeExpr = Message<"turnout.model.v1.LiteralTypeExpr"> & {
+  /**
+   * @generated from field: google.protobuf.Value value = 1;
+   */
+  value?: Value;
+
+  /**
+   * @generated from field: string base = 2;
+   */
+  base: string;
+};
+
+/**
+ * Describes the message turnout.model.v1.LiteralTypeExpr.
+ * Use `create(LiteralTypeExprSchema)` to create a new message.
+ */
+export const LiteralTypeExprSchema: GenMessage<LiteralTypeExpr> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 47);
+
+/**
+ * UnionTypeExpr is a finite union of literal types.
+ *
+ * @generated from message turnout.model.v1.UnionTypeExpr
+ */
+export type UnionTypeExpr = Message<"turnout.model.v1.UnionTypeExpr"> & {
+  /**
+   * @generated from field: repeated turnout.model.v1.TypeExpr members = 1;
+   */
+  members: TypeExpr[];
+};
+
+/**
+ * Describes the message turnout.model.v1.UnionTypeExpr.
+ * Use `create(UnionTypeExprSchema)` to create a new message.
+ */
+export const UnionTypeExprSchema: GenMessage<UnionTypeExpr> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 48);
+
+/**
+ * TemplateTypeExpr is an ordered sequence of static-text and capture segments.
+ *
+ * @generated from message turnout.model.v1.TemplateTypeExpr
+ */
+export type TemplateTypeExpr = Message<"turnout.model.v1.TemplateTypeExpr"> & {
+  /**
+   * @generated from field: repeated turnout.model.v1.TemplateSegmentModel segments = 1;
+   */
+  segments: TemplateSegmentModel[];
+};
+
+/**
+ * Describes the message turnout.model.v1.TemplateTypeExpr.
+ * Use `create(TemplateTypeExprSchema)` to create a new message.
+ */
+export const TemplateTypeExprSchema: GenMessage<TemplateTypeExpr> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 49);
+
+/**
+ * @generated from message turnout.model.v1.TemplateSegmentModel
+ */
+export type TemplateSegmentModel = Message<"turnout.model.v1.TemplateSegmentModel"> & {
+  /**
+   * @generated from oneof turnout.model.v1.TemplateSegmentModel.segment
+   */
+  segment: {
+    /**
+     * @generated from field: turnout.model.v1.TextSegmentModel text = 1;
+     */
+    value: TextSegmentModel;
+    case: "text";
+  } | {
+    /**
+     * @generated from field: turnout.model.v1.CaptureSegmentModel capture = 2;
+     */
+    value: CaptureSegmentModel;
+    case: "capture";
+  } | { case: undefined; value?: undefined };
+};
+
+/**
+ * Describes the message turnout.model.v1.TemplateSegmentModel.
+ * Use `create(TemplateSegmentModelSchema)` to create a new message.
+ */
+export const TemplateSegmentModelSchema: GenMessage<TemplateSegmentModel> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 50);
+
+/**
+ * TextSegmentModel is a run of static text within a template.
+ *
+ * @generated from message turnout.model.v1.TextSegmentModel
+ */
+export type TextSegmentModel = Message<"turnout.model.v1.TextSegmentModel"> & {
+  /**
+   * @generated from field: string value = 1;
+   */
+  value: string;
+};
+
+/**
+ * Describes the message turnout.model.v1.TextSegmentModel.
+ * Use `create(TextSegmentModelSchema)` to create a new message.
+ */
+export const TextSegmentModelSchema: GenMessage<TextSegmentModel> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 51);
+
+/**
+ * CaptureSegmentModel is a named, typed capture within a template.
+ *
+ * @generated from message turnout.model.v1.CaptureSegmentModel
+ */
+export type CaptureSegmentModel = Message<"turnout.model.v1.CaptureSegmentModel"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * @generated from field: turnout.model.v1.TypeExpr type = 2;
+   */
+  type?: TypeExpr;
+};
+
+/**
+ * Describes the message turnout.model.v1.CaptureSegmentModel.
+ * Use `create(CaptureSegmentModelSchema)` to create a new message.
+ */
+export const CaptureSegmentModelSchema: GenMessage<CaptureSegmentModel> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 52);
+
+/**
+ * NamedTypeExpr references a named type declaration by name.
+ *
+ * @generated from message turnout.model.v1.NamedTypeExpr
+ */
+export type NamedTypeExpr = Message<"turnout.model.v1.NamedTypeExpr"> & {
+  /**
+   * @generated from field: string name = 1;
+   */
+  name: string;
+};
+
+/**
+ * Describes the message turnout.model.v1.NamedTypeExpr.
+ * Use `create(NamedTypeExprSchema)` to create a new message.
+ */
+export const NamedTypeExprSchema: GenMessage<NamedTypeExpr> = /*@__PURE__*/
+  messageDesc(file_turnout_model, 53);
 
 /**
  * InfixOp enumerates DSL infix operators. Values match ast.InfixOp iota so

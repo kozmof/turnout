@@ -20,16 +20,17 @@ import "fmt"
 type BindingRHSKind int
 
 const (
-	RHSKindLiteral    BindingRHSKind = iota // *LiteralRHS
-	RHSKindSigilInput                       // *SigilInputRHS
-	RHSKindSingleRef                        // *SingleRefRHS
-	RHSKindFuncCall                         // *FuncCallRHS
-	RHSKindInfix                            // *InfixRHS
-	RHSKindIfCall                           // *IfCallRHS
-	RHSKindCaseCall                         // *CaseCallRHS
-	RHSKindPipeCall                         // *PipeCallRHS
-	RHSKindError                            // *ErrorRHS
-	rhsKindSentinel                         // unexported — marks end of valid range; add new kinds above this line
+	RHSKindLiteral              BindingRHSKind = iota // *LiteralRHS
+	RHSKindSigilInput                                 // *SigilInputRHS
+	RHSKindSingleRef                                  // *SingleRefRHS
+	RHSKindFuncCall                                   // *FuncCallRHS
+	RHSKindInfix                                      // *InfixRHS
+	RHSKindIfCall                                     // *IfCallRHS
+	RHSKindCaseCall                                   // *CaseCallRHS
+	RHSKindPipeCall                                   // *PipeCallRHS
+	RHSKindTemplateConstruction                       // *TemplateConstructionRHS
+	RHSKindError                                      // *ErrorRHS
+	rhsKindSentinel                                   // unexported — marks end of valid range; add new kinds above this line
 )
 
 // rhsKindExhaustiveCheck is a compile-time guard: its size equals the number of
@@ -46,6 +47,7 @@ var _ = [rhsKindSentinel]struct{}{
 	{}, // RHSKindIfCall
 	{}, // RHSKindCaseCall
 	{}, // RHSKindPipeCall
+	{}, // RHSKindTemplateConstruction
 	{}, // RHSKindError
 }
 
@@ -102,6 +104,30 @@ type FuncCallRHS struct {
 
 func (*FuncCallRHS) bindingRHS()          {}
 func (*FuncCallRHS) Kind() BindingRHSKind { return RHSKindFuncCall }
+
+// TemplateConstructionRHS is the typed construction form `TypeName { field = value ... }`
+// (literal-template-types-spec.md §11.3). It is validated and — for all-constant field values —
+// folded to a serialized string during type resolution, before lowering.
+type TemplateConstructionRHS struct {
+	Pos      Pos
+	TypeName string
+	Fields   []ConstructionField
+	// Resolved is set by the type-resolution pass to the construction's template
+	// type once the construction has validated. It is non-nil only for a valid
+	// construction that must be built at runtime (non-constant field values);
+	// constant constructions are folded to a literal and never reach lowering.
+	Resolved *TemplateType
+}
+
+// ConstructionField is one `name = value` entry of a template construction.
+type ConstructionField struct {
+	Pos   Pos
+	Name  string
+	Value SyntaxArg
+}
+
+func (*TemplateConstructionRHS) bindingRHS()          {}
+func (*TemplateConstructionRHS) Kind() BindingRHSKind { return RHSKindTemplateConstruction }
 
 // ────────────────────────────────────────────────────────────
 // InfixOp
@@ -319,6 +345,26 @@ type VarBinderPattern struct {
 }
 
 func (*VarBinderPattern) localCasePattern() {}
+
+// TemplateCasePattern destructures a template literal value (literal-template-types-spec.md §12.6-12.8):
+// `ResourceId { kind: "foo", sequence }`. Omitted captures are unconstrained and
+// unbound. Each field's Sub pattern constrains and/or binds one capture; the
+// shorthand `sequence` desugars to Sub = VarBinderPattern{Name: "sequence"}.
+type TemplateCasePattern struct {
+	Pos      Pos
+	TypeName string
+	Fields   []TemplateFieldPattern
+}
+
+func (*TemplateCasePattern) localCasePattern() {}
+
+// TemplateFieldPattern is one `name[: sub]` entry of a template destructuring
+// pattern. Sub is limited to literal, binder, and wildcard patterns (§12.9).
+type TemplateFieldPattern struct {
+	Pos  Pos
+	Name string
+	Sub  LocalCasePattern
+}
 
 // ────────────────────────────────────────────────────────────
 // v1 binding RHS types

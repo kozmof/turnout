@@ -123,6 +123,17 @@ func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePattern
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Lit{Lit: &turnoutpb.LocalLitPatternModel{Value: ast.LiteralToStructpb(x.Value)}}}
 	case *ast.VarBinderPattern:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_VarBinder{VarBinder: &turnoutpb.LocalVarBinderPatternModel{Name: x.Name}}}
+	case *ast.TemplateCasePattern:
+		fields := make([]*turnoutpb.LocalTemplateFieldPatternModel, len(x.Fields))
+		for i, f := range x.Fields {
+			fields[i] = &turnoutpb.LocalTemplateFieldPatternModel{
+				Name:    f.Name,
+				Pattern: localCasePatternToProto(f.Sub),
+			}
+		}
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Template{
+			Template: &turnoutpb.LocalTemplatePatternModel{TypeName: x.TypeName, Fields: fields},
+		}}
 	default:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Wildcard{Wildcard: &turnoutpb.LocalWildcardPatternModel{}}}
 	}

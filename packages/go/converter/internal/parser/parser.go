@@ -298,6 +298,11 @@ func (p *parser) parseFile() *ast.TurnFile {
 				tf.Routes = append(tf.Routes, rb)
 			}
 
+		case lexer.TokKwType:
+			if td := p.parseTypeDecl(); td != nil {
+				tf.TypeDecls = append(tf.TypeDecls, td)
+			}
+
 		case lexer.TokIdent:
 			p.errorf(t, "unexpected token %s %q at file top level", kindName(t.Kind), t.Value)
 			p.advance()

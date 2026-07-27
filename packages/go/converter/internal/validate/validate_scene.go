@@ -11,7 +11,7 @@ import (
 // Group D — Scene structural validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, ds *diag.DiagSink) {
+func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *typeRegistry, ds *diag.DiagSink) {
 	actionIndex := make(map[string]*turnoutpb.ActionModel, len(scene.Actions))
 	for _, a := range scene.Actions {
 		if _, exists := actionIndex[a.Id]; exists {
@@ -51,7 +51,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, ds *diag.Di
 			for _, m := range a.Merge {
 				mergeNames = append(mergeNames, m.Binding)
 			}
-			computeCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id}
+			computeCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id, types: types}
 			scope = validateProg(a.Compute.Prog, computeCtx, false, a.Compute.Root, mergeNames, ds)
 
 			if a.Compute.Root != "" {
@@ -74,7 +74,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, ds *diag.Di
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
-			nextCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id}
+			nextCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id, types: types}
 			validateNextRule(nr, nextCtx, scope, ds)
 		}
 	}

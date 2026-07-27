@@ -7,9 +7,13 @@ type MigrationFn = (model: TurnModel) => TurnModel;
 const migrations: Record<number, MigrationFn> = {
   // 0 → 1: version 0 predates the version field; semantically identical to v1.
   0: (model) => model,
+  // 1 → 2: v2 adds literal & template type declarations and the template_extract
+  // runtime functions used by template #case destructuring. A v1 model uses none
+  // of these, so the migration is the identity.
+  1: (model) => model,
 };
 
-const CURRENT_VERSION = 1;
+const CURRENT_VERSION = 2;
 
 /**
  * Apply sequential migrations to bring `model` up to `CURRENT_VERSION`.

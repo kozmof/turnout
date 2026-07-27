@@ -175,3 +175,47 @@ const (
 	CodeOverviewExtraNode   ErrorCode = "SCN_OVERVIEW_EXTRA_NODE"
 	CodeOverviewExtraEdge   ErrorCode = "SCN_OVERVIEW_EXTRA_EDGE"
 )
+
+// Error codes for literal & template types and pattern matching (literal-template-types-spec.md §23).
+const (
+	// CodeDuplicateUnionMember: a literal union repeats a member value (§5.2).
+	CodeDuplicateUnionMember ErrorCode = "DuplicateUnionMember"
+	// CodeMixedUnionBase: literal union members do not share a compatible base
+	// type (§5.3).
+	CodeMixedUnionBase ErrorCode = "MixedUnionBase"
+	// CodeCyclicTypeAlias: a named type alias chain forms a cycle (§5.4).
+	CodeCyclicTypeAlias ErrorCode = "CyclicTypeAlias"
+	// CodeUnknownType: a type reference names an undeclared type.
+	CodeUnknownType ErrorCode = "UnknownType"
+	// CodeDuplicateTypeDecl: two top-level type declarations share a name.
+	CodeDuplicateTypeDecl ErrorCode = "DuplicateTypeDecl"
+	// CodeDuplicateCaptureName: a template declares the same capture name twice
+	// (§6.4).
+	CodeDuplicateCaptureName ErrorCode = "DuplicateCaptureName"
+	// CodeAmbiguousTemplate: a template literal type has no unique decoding
+	// (§7.1-§7.3).
+	CodeAmbiguousTemplate ErrorCode = "AmbiguousTemplate"
+	// CodeInvalidCaptureType: a capture declares a type not permitted in
+	// templates (§6.3).
+	CodeInvalidCaptureType ErrorCode = "InvalidCaptureType"
+	// CodeNonExhaustiveMatch: a #case does not cover all values of a finite or
+	// analyzable input type (§14).
+	CodeNonExhaustiveMatch ErrorCode = "NonExhaustiveMatch"
+	// CodeUnreachableArm: a #case arm is fully shadowed by earlier arms (§17).
+	CodeUnreachableArm ErrorCode = "UnreachableArm"
+	// CodeOverlappingPatterns is a warning for arms that partially overlap an
+	// earlier arm; ordered matching keeps behaviour deterministic (§17.6).
+	CodeOverlappingPatterns ErrorCode = "OverlappingPatterns"
+	// CodeInvalidTemplateValue: a literal value is not a member of the template
+	// literal type it is assigned to (§11.1, §23.2).
+	CodeInvalidTemplateValue ErrorCode = "InvalidTemplateValue"
+	// CodeMissingCapture: a template construction omits a required capture
+	// (§11.5).
+	CodeMissingCapture ErrorCode = "MissingCapture"
+	// CodeUnknownCapture: a template construction provides an unknown capture
+	// (§11.6).
+	CodeUnknownCapture ErrorCode = "UnknownCapture"
+	// CodeNotAssignable: a value's type is not assignable to the destination
+	// literal/template type (§10, §23.1).
+	CodeNotAssignable ErrorCode = "NotAssignable"
+)

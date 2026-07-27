@@ -16,9 +16,9 @@ import (
 // Bump these when the proto schema or runtime contract changes so that the
 // TypeScript runner's migrateModel() can detect mismatches at load time.
 const (
-	jsonModelVersion = 1
-	jsonMinVersion   = 1
-	jsonMaxVersion   = 1
+	jsonModelVersion = 2
+	jsonMinVersion   = 2
+	jsonMaxVersion   = 2
 )
 
 // EmitJSON marshals a validated proto model directly to indented JSON.
@@ -61,6 +61,9 @@ func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 func stripNonRuntimeFields(tm *turnoutpb.TurnModel) *turnoutpb.TurnModel {
 	clone := proto.Clone(tm).(*turnoutpb.TurnModel)
 	clone.Annotations = nil
+	for _, td := range clone.TypeDecls {
+		td.SourcePos = nil
+	}
 	for _, scene := range clone.Scenes {
 		for _, action := range scene.Actions {
 			stripProgNonRuntimeFields(action.GetCompute().GetProg())
@@ -80,5 +83,6 @@ func stripProgNonRuntimeFields(prog *turnoutpb.ProgModel) {
 	for _, b := range prog.Bindings {
 		b.ExtExpr = nil
 		b.SourcePos = nil
+		b.DeclaredType = nil
 	}
 }

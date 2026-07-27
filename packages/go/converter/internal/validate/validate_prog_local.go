@@ -155,11 +155,13 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 
 func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
+	subjectDecl := subjectDeclaredType(subject, scope)
+	analyzeCaseCoverage(bindingName, subject, arms, scope, ds)
 	var ret ast.FieldType = ast.FieldTypeInvalid
 	retOK := false
 	for _, arm := range arms {
-		armScope := protoPatternScopeBindings(scope, arm.GetPattern(), subjectType, subjectOK)
-		validateProtoPattern(bindingName, arm.GetPattern(), subjectType, subjectOK, ds)
+		armScope := protoPatternScopeBindings(scope, arm.GetPattern(), subjectType, subjectOK, subjectDecl)
+		validateProtoPattern(bindingName, arm.GetPattern(), subjectType, subjectOK, subjectDecl, ds)
 		if arm.GetGuard() != nil {
 			guardType, guardOK := validateProtoLocalExpr(bindingName, arm.GetGuard(), armScope, itType, itAllowed, ds)
 			if guardOK && guardType != ast.FieldTypeBool {
@@ -191,7 +193,7 @@ func validateProtoLocalPipe(bindingName string, initial *turnoutpb.LocalExprMode
 	return current, known
 }
 
-func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, ds *diag.DiagSink) {
+func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, subjectDecl ast.Type, ds *diag.DiagSink) {
 	if p == nil {
 		return
 	}
@@ -203,10 +205,49 @@ func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel
 				"binding %q: #case literal pattern has type %s but subject has type %s",
 				bindingName, patternType, subjectType))
 		}
+	case *turnoutpb.LocalCasePatternModel_Template:
+		validateTemplatePattern(bindingName, x.Template, subjectDecl, ds)
 	}
 }
 
-func protoPatternScopeBindings(scope scopeLookup, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool) scopeLookup {
+// validateTemplatePattern checks a template destructuring pattern against the
+// subject's template type: every field must name a capture (§12.6), and a
+// literal-constrained field's value must belong to the capture type (§12.7).
+func validateTemplatePattern(bindingName string, tp *turnoutpb.LocalTemplatePatternModel, subjectDecl ast.Type, ds *diag.DiagSink) {
+	tmpl, ok := templateOfSubject(subjectDecl)
+	if !ok {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
+			"binding %q: template pattern %s cannot be used here; the #case subject is not a template literal type",
+			bindingName, tp.GetTypeName()))
+		return
+	}
+	captureTypes := templateCaptureTypes(tmpl)
+	seen := make(map[string]bool)
+	for _, f := range tp.GetFields() {
+		ct, known := captureTypes[f.GetName()]
+		if !known {
+			ds.Append(diag.Errorf(diag.CodeUnknownCapture,
+				"binding %q: unknown capture %q for template pattern %s", bindingName, f.GetName(), tp.GetTypeName()))
+			continue
+		}
+		if seen[f.GetName()] {
+			ds.Append(diag.Errorf(diag.CodeDuplicateCaptureName,
+				"binding %q: capture %q is matched more than once", bindingName, f.GetName()))
+		}
+		seen[f.GetName()] = true
+		// A literal-constrained field must be assignable to the capture type.
+		if lit, ok := f.GetPattern().GetPattern().(*turnoutpb.LocalCasePatternModel_Lit); ok {
+			litVal := structpbToLiteral(lit.Lit.GetValue())
+			if !ast.LiteralInType(litVal, ct) {
+				ds.Append(diag.Errorf(diag.CodeNotAssignable,
+					"binding %q: capture %q constraint %s is not assignable to %s",
+					bindingName, f.GetName(), ast.NewLiteralType(ast.Pos{}, litVal).String(), ct.String()))
+			}
+		}
+	}
+}
+
+func protoPatternScopeBindings(scope scopeLookup, p *turnoutpb.LocalCasePatternModel, subjectType ast.FieldType, subjectKnown bool, subjectDecl ast.Type) scopeLookup {
 	if p == nil {
 		return scope
 	}
@@ -215,8 +256,60 @@ func protoPatternScopeBindings(scope scopeLookup, p *turnoutpb.LocalCasePatternM
 		if subjectKnown {
 			return &scopeChain{name: x.VarBinder.GetName(), info: bindingInfo{fieldType: subjectType}, parent: scope}
 		}
+	case *turnoutpb.LocalCasePatternModel_Template:
+		return templatePatternScope(scope, x.Template, subjectDecl)
 	}
 	return scope
+}
+
+// templatePatternScope adds a binding for each var-binder field of a template
+// pattern, refined to the capture's type (§16.3). Fields whose capture type is
+// unknown fall back to str so arm bodies still resolve.
+func templatePatternScope(scope scopeLookup, tp *turnoutpb.LocalTemplatePatternModel, subjectDecl ast.Type) scopeLookup {
+	tmpl, ok := templateOfSubject(subjectDecl)
+	captureTypes := map[string]ast.Type{}
+	if ok {
+		captureTypes = templateCaptureTypes(tmpl)
+	}
+	result := scope
+	for _, f := range tp.GetFields() {
+		binder, isBinder := f.GetPattern().GetPattern().(*turnoutpb.LocalCasePatternModel_VarBinder)
+		if !isBinder {
+			continue
+		}
+		ft := ast.FieldTypeStr
+		var declared ast.Type
+		if ct, known := captureTypes[f.GetName()]; known {
+			declared = ct
+			if base, ok := ast.BaseFieldType(ct); ok {
+				ft = base
+			}
+		}
+		result = &scopeChain{
+			name:   binder.VarBinder.GetName(),
+			info:   bindingInfo{fieldType: ft, declaredType: declared},
+			parent: result,
+		}
+	}
+	return result
+}
+
+// templateOfSubject resolves a subject's declared type to a template, if any.
+func templateOfSubject(subjectDecl ast.Type) (*ast.TemplateType, bool) {
+	if subjectDecl == nil {
+		return nil, false
+	}
+	tmpl, ok := ast.Resolve(subjectDecl).(*ast.TemplateType)
+	return tmpl, ok
+}
+
+// templateCaptureTypes maps capture name → resolved capture type.
+func templateCaptureTypes(tmpl *ast.TemplateType) map[string]ast.Type {
+	out := make(map[string]ast.Type)
+	for _, c := range tmpl.Captures() {
+		out[c.Name] = c.CaptureType
+	}
+	return out
 }
 
 // validateBinaryArgTypePair checks the two operand types of a binary function

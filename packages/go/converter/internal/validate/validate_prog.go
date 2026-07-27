@@ -54,6 +54,7 @@ type progValidateCtx struct {
 	schema   state.Schema
 	sceneID  string
 	actionID string
+	types    *typeRegistry
 }
 
 func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, mergeNames []string, ds *diag.DiagSink) map[string]bindingInfo {
@@ -61,7 +62,7 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 		return map[string]bindingInfo{}
 	}
 	posMap := buildPosMap(prog.Bindings)
-	scope, dependencies := buildBindingScope(prog, ds)
+	scope, dependencies := buildBindingScope(prog, ctx.types, ds)
 	acyclic := detectCycles(prog.Name, dependencies, prog.Bindings, posMap, ds)
 	validateBindingTypes(prog, scope, isTransition, posMap, ds)
 	if !isTransition && root != "" {
@@ -113,7 +114,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 // buildBindingScope registers all bindings into the scope map, detects duplicate
 // names, records sigils, and builds the dependency map used by detectCycles.
 // dependencies[b] is the list of binding names that b directly depends on.
-func buildBindingScope(prog *turnoutpb.ProgModel, ds *diag.DiagSink) (map[string]bindingInfo, map[string][]string) {
+func buildBindingScope(prog *turnoutpb.ProgModel, types *typeRegistry, ds *diag.DiagSink) (map[string]bindingInfo, map[string][]string) {
 	scope := make(map[string]bindingInfo, len(prog.Bindings))
 	dependencies := make(map[string][]string, len(prog.Bindings))
 	seen := make(map[string]bool, len(prog.Bindings))
@@ -131,10 +132,15 @@ func buildBindingScope(prog *turnoutpb.ProgModel, ds *diag.DiagSink) (map[string
 			continue
 		}
 		sigil := ast.SigilFromInt32(prog.Sigils[b.Name])
+		var declared ast.Type
+		if types != nil && b.DeclaredType != nil {
+			declared = types.resolveProto(b.DeclaredType)
+		}
 		scope[b.Name] = bindingInfo{
-			fieldType: ft,
-			kind:      bindingKindFor(b),
-			sigil:     sigil,
+			fieldType:    ft,
+			kind:         bindingKindFor(b),
+			sigil:        sigil,
+			declaredType: declared,
 		}
 		var refs []string
 		if b.Expr != nil {
@@ -220,6 +226,13 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			}
 			if ft.IsArray() {
 				validateArrayLiteral(b.Value, ft, b.Name, ds)
+			}
+			// Input (ingress / bidirectional) bindings receive their value from
+			// prepare at runtime; their literal/template membership is validated at
+			// the boundary (§24.4), not against the compile-time placeholder.
+			if info, ok := scope[b.Name]; ok && info.declaredType != nil &&
+				info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
+				checkLiteralAssignable(b, info.declaredType, pos, ds)
 			}
 		}
 

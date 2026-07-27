@@ -20,9 +20,13 @@ type localLowerer struct {
 	target       string
 	targetType   ast.FieldType
 	bindingTypes map[string]ast.FieldType
-	ds           *diag.DiagSink
-	counter      *int
-	bindings     []*turnoutpb.BindingModel
+	// declaredTypes maps a prog binding name to its resolved structured type
+	// (nil-safe: absent for plain primitive bindings). Used to recover the
+	// subject's template when lowering template #case destructuring.
+	declaredTypes map[string]ast.Type
+	ds            *diag.DiagSink
+	counter       *int
+	bindings      []*turnoutpb.BindingModel
 }
 
 // pipeContext carries the #it tracking state for the current pipe scope.
@@ -35,8 +39,8 @@ type pipeContext struct {
 	itAllowed bool
 }
 
-func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink, counter *int) *localLowerer {
-	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, ds: ds, counter: counter}
+func newLocalLowerer(target string, targetType ast.FieldType, bindingTypes map[string]ast.FieldType, declaredTypes map[string]ast.Type, ds *diag.DiagSink, counter *int) *localLowerer {
+	return &localLowerer{target: target, targetType: targetType, bindingTypes: bindingTypes, declaredTypes: declaredTypes, ds: ds, counter: counter}
 }
 
 func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
@@ -292,6 +296,15 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
+	// Template destructuring arms are lowered to a template_extract-based
+	// CondExpr chain. If the subject's template type cannot be recovered here
+	// (already reported by the validate stage), fall back to an inert stub.
+	if caseHasTemplatePattern(arms) {
+		if !c.lowerTemplateCaseInto(name, ft, subject, arms, pc) {
+			c.emitValue(name, ft, zeroLiteralFor(ft))
+		}
+		return
+	}
 	subjectType, _ := c.inferLocalType(subject, ft, pc)
 	subjectRef, _ := c.lowerExprTemp(subject, "subject", subjectType, pc)
 	fallbackFn := ""
@@ -463,6 +476,17 @@ func (c *localLowerer) inferLocalType(e ast.LocalExpr, fallback ast.FieldType, p
 		return c.inferLocalType(x.Initial, fallback, pc)
 	}
 	return fallback, false
+}
+
+// caseHasTemplatePattern reports whether any arm uses a template destructuring
+// pattern.
+func caseHasTemplatePattern(arms []ast.LocalCaseArm) bool {
+	for _, arm := range arms {
+		if _, ok := arm.Pattern.(*ast.TemplateCasePattern); ok {
+			return true
+		}
+	}
+	return false
 }
 
 // caseLiteralKey returns a string key that uniquely identifies an ast.Literal

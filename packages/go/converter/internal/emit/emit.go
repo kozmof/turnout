@@ -32,7 +32,14 @@ func Emit(w io.Writer, tm *turnoutpb.TurnModel) (ds diag.Diagnostics) {
 	}
 	iw := &iWriter{out: w}
 	sep := false
+	if len(tm.TypeDecls) > 0 {
+		writeTypeDecls(iw, tm.TypeDecls)
+		sep = true
+	}
 	if tm.State != nil {
+		if sep {
+			iw.nl()
+		}
 		writeStateBlock(iw, tm.State)
 		sep = true
 	}
@@ -365,7 +372,7 @@ func writeProg(iw *iWriter, p *turnoutpb.ProgModel) {
 func writeBinding(iw *iWriter, b *turnoutpb.BindingModel) {
 	iw.wl("binding %q {", b.Name)
 	iw.depth++
-	iw.wl("type  = %q", b.Type)
+	iw.wl("type  = %q", bindingTypeString(b))
 	if b.ExtExpr != nil {
 		writeExtExpr(iw, b.ExtExpr, b.Type)
 		iw.depth--

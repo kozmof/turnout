@@ -19,7 +19,7 @@ import type { AnyValue } from "runtime";
 
 type Case = {
   name: string;
-  pattern: "#if" | "#case" | "#pipe";
+  pattern: "#if" | "#case" | "#pipe" | "construct" | "destructure";
   complexity: "low" | "medium" | "high";
   entryId: string;
   src: string;
@@ -93,6 +93,63 @@ const stateBlock = `state {
 }`;
 
 const cases: Case[] = [
+  {
+    // Template construction from a variable capture lowers to str_concat + toStr
+    // and must execute to the serialized template string.
+    name: "construct-var-single-action",
+    pattern: "construct",
+    complexity: "low",
+    entryId: "construct_low",
+    expectPath: "work.final",
+    expectValue: "m-42",
+    initialState: boxed({ "input.n": 42 }),
+    src: `type Metric = "m-{value: number}"
+${stateBlock}
+scene "construct_low" {
+  entry_actions = ["run"]
+  action "run" {
+    compute {
+      prog "p" {
+        ~>n:number
+        |^| <~out:Metric = Metric { value = n }
+      }
+    }
+    prepare { n { from_state = input.n } }
+    merge { out { to_state = work.final } }
+  }
+}`,
+  },
+  {
+    // Template #case destructuring executes: match the "bar" arm, extract the
+    // integer capture, and compute add(sequence, 100).
+    name: "destructure-single-action",
+    pattern: "destructure",
+    complexity: "low",
+    entryId: "destructure_low",
+    expectPath: "work.n",
+    expectValue: 105,
+    initialState: boxed({ "input.word": "bar-5" }),
+    src: `type Kind = "foo" | "bar"
+type ResourceId = "{kind: Kind}-{sequence: integer}"
+${stateBlock}
+scene "destructure_low" {
+  entry_actions = ["run"]
+  action "run" {
+    compute {
+      prog "p" {
+        ~>rid:ResourceId
+        |^| <~seq:number = #case(
+          rid,
+          ResourceId { kind: "foo", sequence } => sequence,
+          ResourceId { kind: "bar", sequence } => sequence + 100
+        )
+      }
+    }
+    prepare { rid { from_state = input.word } }
+    merge { seq { to_state = work.n } }
+  }
+}`,
+  },
   {
     name: "if-low-single-action",
     pattern: "#if",

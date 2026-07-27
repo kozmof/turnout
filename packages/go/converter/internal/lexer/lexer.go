@@ -87,6 +87,7 @@ const (
 	TokKwRoute
 	TokKwMatch
 	TokKwEntry
+	TokKwType // `type` — top-level type declaration keyword
 )
 
 // Token is a single lexed token.
@@ -251,6 +252,7 @@ var keywordTable = []keywordEntry{
 	{"route", TokKwRoute},
 	{"match", TokKwMatch},
 	{"entry", TokKwEntry},
+	{"type", TokKwType},
 }
 
 // keywords is derived from keywordTable and used by scanIdent.

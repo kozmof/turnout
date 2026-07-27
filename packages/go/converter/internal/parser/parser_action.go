@@ -54,7 +54,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	}
 
 	p.expect(lexer.TokColon)
-	ft, ok := p.parseFieldType(diag.CodeParseSyntaxError)
+	ft, declared, ok := p.parseBindingType()
 	if !ok {
 		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilEgress, lexer.TokSigilIngress)
 		return nil
@@ -68,12 +68,13 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 			p.parseRHS() // consume and discard the erroneous RHS
 		}
 		return &ast.BindingDecl{
-			Pos:    pos,
-			Sigil:  sigil,
-			Marker: marker,
-			Name:   nameTok.Value,
-			Type:   ft,
-			RHS:    &ast.SigilInputRHS{},
+			Pos:          pos,
+			Sigil:        sigil,
+			Marker:       marker,
+			Name:         nameTok.Value,
+			Type:         ft,
+			DeclaredType: declared,
+			RHS:          &ast.SigilInputRHS{},
 		}
 	}
 
@@ -81,12 +82,13 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	rhs := p.parseRHS()
 
 	return &ast.BindingDecl{
-		Pos:    pos,
-		Sigil:  sigil,
-		Marker: marker,
-		Name:   nameTok.Value,
-		Type:   ft,
-		RHS:    rhs,
+		Pos:          pos,
+		Sigil:        sigil,
+		Marker:       marker,
+		Name:         nameTok.Value,
+		Type:         ft,
+		DeclaredType: declared,
+		RHS:          rhs,
 	}
 }
 

@@ -34,6 +34,10 @@ type bindingInfo struct {
 	fieldType ast.FieldType
 	kind      BindingKind
 	sigil     ast.Sigil
+	// declaredType is the resolved structured type when the binding was annotated
+	// with a named literal/template type; nil for plain primitive bindings. Used
+	// for assignability and #case coverage analysis.
+	declaredType ast.Type
 }
 
 // bindingKindFor returns the BindingKind for a BindingModel.
@@ -63,6 +67,7 @@ func Validate(in ValidateInput) diag.Diagnostics {
 	if tm == nil {
 		return nil
 	}
+	reg := validateTypeDecls(tm.TypeDecls, &ds)
 	seenSceneIDs := make(map[string]bool)
 	for _, s := range tm.Scenes {
 		if seenSceneIDs[s.Id] {
@@ -70,7 +75,7 @@ func Validate(in ValidateInput) diag.Diagnostics {
 				"duplicate scene ID %q", s.Id))
 		}
 		seenSceneIDs[s.Id] = true
-		validateScene(s, schema, &ds)
+		validateScene(s, schema, reg, &ds)
 	}
 	if len(tm.Routes) > 0 {
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
@@ -195,6 +200,19 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 			ds.Append(diag.Errorf(diag.CodeSingleRefTypeMismatch,
 				"binding %q: single-reference %q has type %s but binding declares type %s",
 				b.Name, refName, refInfo.fieldType, b.Type))
+			return
+		}
+		// When the destination has a structured (named literal/template) type, the
+		// referenced binding's type must be assignable to it (§10). A reference
+		// with only a primitive type (e.g. a plain str) is not implicitly narrowed
+		// to a literal/template type (§24.3).
+		if bInfo, ok := scope[b.Name]; ok && bInfo.declaredType != nil {
+			refType := effectiveType(refInfo)
+			if refType != nil && !ast.Assignable(refType, bInfo.declaredType) {
+				ds.Append(diag.Errorf(diag.CodeNotAssignable,
+					"binding %q: single-reference %q of type %s is not assignable to %s",
+					b.Name, refName, refType.String(), bInfo.declaredType.String()))
+			}
 		}
 		return
 	}

@@ -1,0 +1,316 @@
+{
+  "_comment": "Cross-language template-matching conformance fixture (literal-template-types-spec.md §28.8). Read identically by the Go converter (ast.TemplateMatch) and the TS runtime (matchTemplate). `model.typeDecls` is canonical protojson emitted by the converter; do not hand-edit — regenerate.",
+  "model": {
+    "typeDecls": [
+      {
+        "name": "Kind",
+        "type": {
+          "union": {
+            "members": [
+              {
+                "literal": {
+                  "value": "foo",
+                  "base": "str"
+                }
+              },
+              {
+                "literal": {
+                  "value": "bar",
+                  "base": "str"
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "ResourceId",
+        "type": {
+          "template": {
+            "segments": [
+              {
+                "capture": {
+                  "name": "kind",
+                  "type": {
+                    "named": {
+                      "name": "Kind"
+                    }
+                  }
+                }
+              },
+              {
+                "text": {
+                  "value": "-"
+                }
+              },
+              {
+                "capture": {
+                  "name": "sequence",
+                  "type": {
+                    "primitive": {
+                      "name": "integer"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Coordinate",
+        "type": {
+          "template": {
+            "segments": [
+              {
+                "capture": {
+                  "name": "x",
+                  "type": {
+                    "primitive": {
+                      "name": "integer"
+                    }
+                  }
+                }
+              },
+              {
+                "text": {
+                  "value": ","
+                }
+              },
+              {
+                "capture": {
+                  "name": "y",
+                  "type": {
+                    "primitive": {
+                      "name": "integer"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "BooleanKey",
+        "type": {
+          "template": {
+            "segments": [
+              {
+                "text": {
+                  "value": "enabled-"
+                }
+              },
+              {
+                "capture": {
+                  "name": "value",
+                  "type": {
+                    "primitive": {
+                      "name": "bool"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Version",
+        "type": {
+          "template": {
+            "segments": [
+              {
+                "text": {
+                  "value": "v"
+                }
+              },
+              {
+                "capture": {
+                  "name": "major",
+                  "type": {
+                    "primitive": {
+                      "name": "integer"
+                    }
+                  }
+                }
+              },
+              {
+                "text": {
+                  "value": "."
+                }
+              },
+              {
+                "capture": {
+                  "name": "minor",
+                  "type": {
+                    "primitive": {
+                      "name": "integer"
+                    }
+                  }
+                }
+              }
+            ]
+          }
+        }
+      },
+      {
+        "name": "Port",
+        "type": {
+          "union": {
+            "members": [
+              {
+                "literal": {
+                  "value": 80,
+                  "base": "integer"
+                }
+              },
+              {
+                "literal": {
+                  "value": 443,
+                  "base": "integer"
+                }
+              }
+            ]
+          }
+        }
+      }
+    ]
+  },
+  "cases": [
+    {
+      "type": "ResourceId",
+      "input": "foo-10",
+      "matched": true,
+      "captures": {
+        "kind": "foo",
+        "sequence": 10
+      }
+    },
+    {
+      "type": "ResourceId",
+      "input": "bar-2",
+      "matched": true,
+      "captures": {
+        "kind": "bar",
+        "sequence": 2
+      }
+    },
+    {
+      "type": "ResourceId",
+      "input": "foo--5",
+      "matched": true,
+      "captures": {
+        "kind": "foo",
+        "sequence": -5
+      }
+    },
+    {
+      "type": "ResourceId",
+      "input": "baz-10",
+      "matched": false
+    },
+    {
+      "type": "ResourceId",
+      "input": "foo-x",
+      "matched": false
+    },
+    {
+      "type": "ResourceId",
+      "input": "foo-",
+      "matched": false
+    },
+    {
+      "type": "ResourceId",
+      "input": "foo-1.5",
+      "matched": false
+    },
+    {
+      "type": "ResourceId",
+      "input": "foo-007",
+      "matched": false
+    },
+    {
+      "type": "ResourceId",
+      "input": "-10",
+      "matched": false
+    },
+    {
+      "type": "Coordinate",
+      "input": "3,4",
+      "matched": true,
+      "captures": {
+        "x": 3,
+        "y": 4
+      }
+    },
+    {
+      "type": "Coordinate",
+      "input": "3,-4",
+      "matched": true,
+      "captures": {
+        "x": 3,
+        "y": -4
+      }
+    },
+    {
+      "type": "Coordinate",
+      "input": "3,",
+      "matched": false
+    },
+    {
+      "type": "Coordinate",
+      "input": "3,4,5",
+      "matched": false
+    },
+    {
+      "type": "BooleanKey",
+      "input": "enabled-true",
+      "matched": true,
+      "captures": {
+        "value": true
+      }
+    },
+    {
+      "type": "BooleanKey",
+      "input": "enabled-false",
+      "matched": true,
+      "captures": {
+        "value": false
+      }
+    },
+    {
+      "type": "BooleanKey",
+      "input": "enabled-yes",
+      "matched": false
+    },
+    {
+      "type": "Version",
+      "input": "v1.2",
+      "matched": true,
+      "captures": {
+        "major": 1,
+        "minor": 2
+      }
+    },
+    {
+      "type": "Version",
+      "input": "v10.20",
+      "matched": true,
+      "captures": {
+        "major": 10,
+        "minor": 20
+      }
+    },
+    {
+      "type": "Version",
+      "input": "v1.2.3",
+      "matched": false
+    },
+    {
+      "type": "Version",
+      "input": "v1",
+      "matched": false
+    }
+  ]
+}

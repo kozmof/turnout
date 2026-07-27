@@ -123,8 +123,13 @@ type TurnModel struct {
 	// min_version / max_version declare the runtime version range this model
 	// requires. Absent (zero) means unconstrained. The TypeScript runner should
 	// reject models where CURRENT_VERSION < min_version or > max_version.
-	MinVersion    uint32 `protobuf:"varint,6,opt,name=min_version,json=minVersion,proto3" json:"min_version,omitempty"`
-	MaxVersion    uint32 `protobuf:"varint,7,opt,name=max_version,json=maxVersion,proto3" json:"max_version,omitempty"`
+	MinVersion uint32 `protobuf:"varint,6,opt,name=min_version,json=minVersion,proto3" json:"min_version,omitempty"`
+	MaxVersion uint32 `protobuf:"varint,7,opt,name=max_version,json=maxVersion,proto3" json:"max_version,omitempty"`
+	// type_decls carries the program's named type declarations (literal, union,
+	// and template literal types). Introduced by the literal & template type
+	// feature. Emitting a non-empty list requires a canonical version bump so
+	// older runtimes reject the model rather than ignore the types.
+	TypeDecls     []*TypeDeclModel `protobuf:"bytes,8,rep,name=type_decls,json=typeDecls,proto3" json:"type_decls,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -206,6 +211,13 @@ func (x *TurnModel) GetMaxVersion() uint32 {
 		return x.MaxVersion
 	}
 	return 0
+}
+
+func (x *TurnModel) GetTypeDecls() []*TypeDeclModel {
+	if x != nil {
+		return x.TypeDecls
+	}
+	return nil
 }
 
 // SigilAnnotations carries sigil metadata for each binding.
@@ -918,7 +930,12 @@ type BindingModel struct {
 	ExtExpr *LocalExprModel `protobuf:"bytes,5,opt,name=ext_expr,json=extExpr,proto3" json:"ext_expr,omitempty"`
 	// source_pos is populated by the lowerer for user-declared bindings.
 	// Cleared before JSON emission; not visible to the runtime.
-	SourcePos     *SourcePos `protobuf:"bytes,6,opt,name=source_pos,json=sourcePos,proto3,oneof" json:"source_pos,omitempty"`
+	SourcePos *SourcePos `protobuf:"bytes,6,opt,name=source_pos,json=sourcePos,proto3,oneof" json:"source_pos,omitempty"`
+	// declared_type carries the binding's structured type annotation when it is a
+	// named literal/template type (richer than the flat `type` string). Populated
+	// by the lowerer and consumed by the validator for assignability and pattern
+	// analysis. Cleared before JSON emission; the runtime uses `type`.
+	DeclaredType  *TypeExpr `protobuf:"bytes,7,opt,name=declared_type,json=declaredType,proto3,oneof" json:"declared_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -991,6 +1008,13 @@ func (x *BindingModel) GetExtExpr() *LocalExprModel {
 func (x *BindingModel) GetSourcePos() *SourcePos {
 	if x != nil {
 		return x.SourcePos
+	}
+	return nil
+}
+
+func (x *BindingModel) GetDeclaredType() *TypeExpr {
+	if x != nil {
+		return x.DeclaredType
 	}
 	return nil
 }
@@ -2510,6 +2534,7 @@ type LocalCasePatternModel struct {
 	//	*LocalCasePatternModel_Wildcard
 	//	*LocalCasePatternModel_Lit
 	//	*LocalCasePatternModel_VarBinder
+	//	*LocalCasePatternModel_Template
 	Pattern       isLocalCasePatternModel_Pattern `protobuf_oneof:"pattern"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -2579,6 +2604,15 @@ func (x *LocalCasePatternModel) GetVarBinder() *LocalVarBinderPatternModel {
 	return nil
 }
 
+func (x *LocalCasePatternModel) GetTemplate() *LocalTemplatePatternModel {
+	if x != nil {
+		if x, ok := x.Pattern.(*LocalCasePatternModel_Template); ok {
+			return x.Template
+		}
+	}
+	return nil
+}
+
 type isLocalCasePatternModel_Pattern interface {
 	isLocalCasePatternModel_Pattern()
 }
@@ -2595,11 +2629,17 @@ type LocalCasePatternModel_VarBinder struct {
 	VarBinder *LocalVarBinderPatternModel `protobuf:"bytes,3,opt,name=var_binder,json=varBinder,proto3,oneof"`
 }
 
+type LocalCasePatternModel_Template struct {
+	Template *LocalTemplatePatternModel `protobuf:"bytes,5,opt,name=template,proto3,oneof"`
+}
+
 func (*LocalCasePatternModel_Wildcard) isLocalCasePatternModel_Pattern() {}
 
 func (*LocalCasePatternModel_Lit) isLocalCasePatternModel_Pattern() {}
 
 func (*LocalCasePatternModel_VarBinder) isLocalCasePatternModel_Pattern() {}
+
+func (*LocalCasePatternModel_Template) isLocalCasePatternModel_Pattern() {}
 
 type LocalWildcardPatternModel struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2725,11 +2765,728 @@ func (x *LocalVarBinderPatternModel) GetName() string {
 	return ""
 }
 
+// LocalTemplatePatternModel destructures a template literal value in a #case
+// arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.
+type LocalTemplatePatternModel struct {
+	state         protoimpl.MessageState            `protogen:"open.v1"`
+	TypeName      string                            `protobuf:"bytes,1,opt,name=type_name,json=typeName,proto3" json:"type_name,omitempty"`
+	Fields        []*LocalTemplateFieldPatternModel `protobuf:"bytes,2,rep,name=fields,proto3" json:"fields,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LocalTemplatePatternModel) Reset() {
+	*x = LocalTemplatePatternModel{}
+	mi := &file_turnout_model_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocalTemplatePatternModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocalTemplatePatternModel) ProtoMessage() {}
+
+func (x *LocalTemplatePatternModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocalTemplatePatternModel.ProtoReflect.Descriptor instead.
+func (*LocalTemplatePatternModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *LocalTemplatePatternModel) GetTypeName() string {
+	if x != nil {
+		return x.TypeName
+	}
+	return ""
+}
+
+func (x *LocalTemplatePatternModel) GetFields() []*LocalTemplateFieldPatternModel {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+// LocalTemplateFieldPatternModel binds/constrains one capture via a sub-pattern
+// (wildcard, literal, or var-binder).
+type LocalTemplateFieldPatternModel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Pattern       *LocalCasePatternModel `protobuf:"bytes,2,opt,name=pattern,proto3" json:"pattern,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LocalTemplateFieldPatternModel) Reset() {
+	*x = LocalTemplateFieldPatternModel{}
+	mi := &file_turnout_model_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LocalTemplateFieldPatternModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LocalTemplateFieldPatternModel) ProtoMessage() {}
+
+func (x *LocalTemplateFieldPatternModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LocalTemplateFieldPatternModel.ProtoReflect.Descriptor instead.
+func (*LocalTemplateFieldPatternModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *LocalTemplateFieldPatternModel) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *LocalTemplateFieldPatternModel) GetPattern() *LocalCasePatternModel {
+	if x != nil {
+		return x.Pattern
+	}
+	return nil
+}
+
+// TypeDeclModel is a single top-level `type Name = TypeExpr` declaration.
+type TypeDeclModel struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type  *TypeExpr              `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	// source_pos is populated by the lowerer for diagnostics; cleared before JSON
+	// emission.
+	SourcePos     *SourcePos `protobuf:"bytes,3,opt,name=source_pos,json=sourcePos,proto3,oneof" json:"source_pos,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TypeDeclModel) Reset() {
+	*x = TypeDeclModel{}
+	mi := &file_turnout_model_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TypeDeclModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TypeDeclModel) ProtoMessage() {}
+
+func (x *TypeDeclModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TypeDeclModel.ProtoReflect.Descriptor instead.
+func (*TypeDeclModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *TypeDeclModel) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *TypeDeclModel) GetType() *TypeExpr {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+func (x *TypeDeclModel) GetSourcePos() *SourcePos {
+	if x != nil {
+		return x.SourcePos
+	}
+	return nil
+}
+
+// TypeExpr is the structured type IR: a primitive, a scalar literal, a finite
+// literal union, a template literal type, or a reference to a named type.
+type TypeExpr struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Type:
+	//
+	//	*TypeExpr_Primitive
+	//	*TypeExpr_Literal
+	//	*TypeExpr_Union
+	//	*TypeExpr_Template
+	//	*TypeExpr_Named
+	Type          isTypeExpr_Type `protobuf_oneof:"type"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TypeExpr) Reset() {
+	*x = TypeExpr{}
+	mi := &file_turnout_model_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TypeExpr) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TypeExpr) ProtoMessage() {}
+
+func (x *TypeExpr) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TypeExpr.ProtoReflect.Descriptor instead.
+func (*TypeExpr) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *TypeExpr) GetType() isTypeExpr_Type {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+func (x *TypeExpr) GetPrimitive() *PrimitiveTypeExpr {
+	if x != nil {
+		if x, ok := x.Type.(*TypeExpr_Primitive); ok {
+			return x.Primitive
+		}
+	}
+	return nil
+}
+
+func (x *TypeExpr) GetLiteral() *LiteralTypeExpr {
+	if x != nil {
+		if x, ok := x.Type.(*TypeExpr_Literal); ok {
+			return x.Literal
+		}
+	}
+	return nil
+}
+
+func (x *TypeExpr) GetUnion() *UnionTypeExpr {
+	if x != nil {
+		if x, ok := x.Type.(*TypeExpr_Union); ok {
+			return x.Union
+		}
+	}
+	return nil
+}
+
+func (x *TypeExpr) GetTemplate() *TemplateTypeExpr {
+	if x != nil {
+		if x, ok := x.Type.(*TypeExpr_Template); ok {
+			return x.Template
+		}
+	}
+	return nil
+}
+
+func (x *TypeExpr) GetNamed() *NamedTypeExpr {
+	if x != nil {
+		if x, ok := x.Type.(*TypeExpr_Named); ok {
+			return x.Named
+		}
+	}
+	return nil
+}
+
+type isTypeExpr_Type interface {
+	isTypeExpr_Type()
+}
+
+type TypeExpr_Primitive struct {
+	Primitive *PrimitiveTypeExpr `protobuf:"bytes,1,opt,name=primitive,proto3,oneof"`
+}
+
+type TypeExpr_Literal struct {
+	Literal *LiteralTypeExpr `protobuf:"bytes,2,opt,name=literal,proto3,oneof"`
+}
+
+type TypeExpr_Union struct {
+	Union *UnionTypeExpr `protobuf:"bytes,3,opt,name=union,proto3,oneof"`
+}
+
+type TypeExpr_Template struct {
+	Template *TemplateTypeExpr `protobuf:"bytes,4,opt,name=template,proto3,oneof"`
+}
+
+type TypeExpr_Named struct {
+	Named *NamedTypeExpr `protobuf:"bytes,5,opt,name=named,proto3,oneof"`
+}
+
+func (*TypeExpr_Primitive) isTypeExpr_Type() {}
+
+func (*TypeExpr_Literal) isTypeExpr_Type() {}
+
+func (*TypeExpr_Union) isTypeExpr_Type() {}
+
+func (*TypeExpr_Template) isTypeExpr_Type() {}
+
+func (*TypeExpr_Named) isTypeExpr_Type() {}
+
+// PrimitiveTypeExpr names one of "str" | "integer" | "number" | "bool".
+type PrimitiveTypeExpr struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PrimitiveTypeExpr) Reset() {
+	*x = PrimitiveTypeExpr{}
+	mi := &file_turnout_model_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PrimitiveTypeExpr) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PrimitiveTypeExpr) ProtoMessage() {}
+
+func (x *PrimitiveTypeExpr) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PrimitiveTypeExpr.ProtoReflect.Descriptor instead.
+func (*PrimitiveTypeExpr) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *PrimitiveTypeExpr) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+// LiteralTypeExpr is a scalar literal type. value carries the concrete value;
+// base names the primitive base ("str" | "integer" | "number" | "bool").
+type LiteralTypeExpr struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         *structpb.Value        `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	Base          string                 `protobuf:"bytes,2,opt,name=base,proto3" json:"base,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LiteralTypeExpr) Reset() {
+	*x = LiteralTypeExpr{}
+	mi := &file_turnout_model_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LiteralTypeExpr) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LiteralTypeExpr) ProtoMessage() {}
+
+func (x *LiteralTypeExpr) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LiteralTypeExpr.ProtoReflect.Descriptor instead.
+func (*LiteralTypeExpr) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *LiteralTypeExpr) GetValue() *structpb.Value {
+	if x != nil {
+		return x.Value
+	}
+	return nil
+}
+
+func (x *LiteralTypeExpr) GetBase() string {
+	if x != nil {
+		return x.Base
+	}
+	return ""
+}
+
+// UnionTypeExpr is a finite union of literal types.
+type UnionTypeExpr struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Members       []*TypeExpr            `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnionTypeExpr) Reset() {
+	*x = UnionTypeExpr{}
+	mi := &file_turnout_model_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnionTypeExpr) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnionTypeExpr) ProtoMessage() {}
+
+func (x *UnionTypeExpr) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnionTypeExpr.ProtoReflect.Descriptor instead.
+func (*UnionTypeExpr) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *UnionTypeExpr) GetMembers() []*TypeExpr {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+// TemplateTypeExpr is an ordered sequence of static-text and capture segments.
+type TemplateTypeExpr struct {
+	state         protoimpl.MessageState  `protogen:"open.v1"`
+	Segments      []*TemplateSegmentModel `protobuf:"bytes,1,rep,name=segments,proto3" json:"segments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateTypeExpr) Reset() {
+	*x = TemplateTypeExpr{}
+	mi := &file_turnout_model_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateTypeExpr) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateTypeExpr) ProtoMessage() {}
+
+func (x *TemplateTypeExpr) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateTypeExpr.ProtoReflect.Descriptor instead.
+func (*TemplateTypeExpr) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *TemplateTypeExpr) GetSegments() []*TemplateSegmentModel {
+	if x != nil {
+		return x.Segments
+	}
+	return nil
+}
+
+type TemplateSegmentModel struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// Types that are valid to be assigned to Segment:
+	//
+	//	*TemplateSegmentModel_Text
+	//	*TemplateSegmentModel_Capture
+	Segment       isTemplateSegmentModel_Segment `protobuf_oneof:"segment"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TemplateSegmentModel) Reset() {
+	*x = TemplateSegmentModel{}
+	mi := &file_turnout_model_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TemplateSegmentModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TemplateSegmentModel) ProtoMessage() {}
+
+func (x *TemplateSegmentModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TemplateSegmentModel.ProtoReflect.Descriptor instead.
+func (*TemplateSegmentModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *TemplateSegmentModel) GetSegment() isTemplateSegmentModel_Segment {
+	if x != nil {
+		return x.Segment
+	}
+	return nil
+}
+
+func (x *TemplateSegmentModel) GetText() *TextSegmentModel {
+	if x != nil {
+		if x, ok := x.Segment.(*TemplateSegmentModel_Text); ok {
+			return x.Text
+		}
+	}
+	return nil
+}
+
+func (x *TemplateSegmentModel) GetCapture() *CaptureSegmentModel {
+	if x != nil {
+		if x, ok := x.Segment.(*TemplateSegmentModel_Capture); ok {
+			return x.Capture
+		}
+	}
+	return nil
+}
+
+type isTemplateSegmentModel_Segment interface {
+	isTemplateSegmentModel_Segment()
+}
+
+type TemplateSegmentModel_Text struct {
+	Text *TextSegmentModel `protobuf:"bytes,1,opt,name=text,proto3,oneof"`
+}
+
+type TemplateSegmentModel_Capture struct {
+	Capture *CaptureSegmentModel `protobuf:"bytes,2,opt,name=capture,proto3,oneof"`
+}
+
+func (*TemplateSegmentModel_Text) isTemplateSegmentModel_Segment() {}
+
+func (*TemplateSegmentModel_Capture) isTemplateSegmentModel_Segment() {}
+
+// TextSegmentModel is a run of static text within a template.
+type TextSegmentModel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Value         string                 `protobuf:"bytes,1,opt,name=value,proto3" json:"value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *TextSegmentModel) Reset() {
+	*x = TextSegmentModel{}
+	mi := &file_turnout_model_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *TextSegmentModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*TextSegmentModel) ProtoMessage() {}
+
+func (x *TextSegmentModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use TextSegmentModel.ProtoReflect.Descriptor instead.
+func (*TextSegmentModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *TextSegmentModel) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+// CaptureSegmentModel is a named, typed capture within a template.
+type CaptureSegmentModel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	Type          *TypeExpr              `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CaptureSegmentModel) Reset() {
+	*x = CaptureSegmentModel{}
+	mi := &file_turnout_model_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CaptureSegmentModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CaptureSegmentModel) ProtoMessage() {}
+
+func (x *CaptureSegmentModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CaptureSegmentModel.ProtoReflect.Descriptor instead.
+func (*CaptureSegmentModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *CaptureSegmentModel) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CaptureSegmentModel) GetType() *TypeExpr {
+	if x != nil {
+		return x.Type
+	}
+	return nil
+}
+
+// NamedTypeExpr references a named type declaration by name.
+type NamedTypeExpr struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NamedTypeExpr) Reset() {
+	*x = NamedTypeExpr{}
+	mi := &file_turnout_model_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NamedTypeExpr) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NamedTypeExpr) ProtoMessage() {}
+
+func (x *NamedTypeExpr) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NamedTypeExpr.ProtoReflect.Descriptor instead.
+func (*NamedTypeExpr) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *NamedTypeExpr) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
 var File_turnout_model_proto protoreflect.FileDescriptor
 
 const file_turnout_model_proto_rawDesc = "" +
 	"\n" +
-	"\x13turnout-model.proto\x12\x10turnout.model.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xe2\x02\n" +
+	"\x13turnout-model.proto\x12\x10turnout.model.v1\x1a\x1cgoogle/protobuf/struct.proto\"\xa2\x03\n" +
 	"\tTurnModel\x122\n" +
 	"\x05state\x18\x01 \x01(\v2\x1c.turnout.model.v1.StateModelR\x05state\x124\n" +
 	"\x06scenes\x18\x02 \x03(\v2\x1c.turnout.model.v1.SceneBlockR\x06scenes\x124\n" +
@@ -2739,7 +3496,9 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\vmin_version\x18\x06 \x01(\rR\n" +
 	"minVersion\x12\x1f\n" +
 	"\vmax_version\x18\a \x01(\rR\n" +
-	"maxVersionB\x0e\n" +
+	"maxVersion\x12>\n" +
+	"\n" +
+	"type_decls\x18\b \x03(\v2\x1f.turnout.model.v1.TypeDeclModelR\ttypeDeclsB\x0e\n" +
 	"\f_annotations\"]\n" +
 	"\x10SigilAnnotations\x12;\n" +
 	"\aentries\x18\x02 \x03(\v2!.turnout.model.v1.SigilAnnotationR\aentriesJ\x04\b\x01\x10\x02R\x06sigils\"\xb5\x01\n" +
@@ -2801,7 +3560,7 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x06sigils\x18\x03 \x03(\v2'.turnout.model.v1.ProgModel.SigilsEntryR\x06sigils\x1a9\n" +
 	"\vSigilsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xa2\x02\n" +
+	"\x05value\x18\x02 \x01(\x05R\x05value:\x028\x01\"\xfa\x02\n" +
 	"\fBindingModel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12,\n" +
@@ -2809,8 +3568,10 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x04expr\x18\x04 \x01(\v2\x1b.turnout.model.v1.ExprModelR\x04expr\x12;\n" +
 	"\bext_expr\x18\x05 \x01(\v2 .turnout.model.v1.LocalExprModelR\aextExpr\x12?\n" +
 	"\n" +
-	"source_pos\x18\x06 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x00R\tsourcePos\x88\x01\x01B\r\n" +
-	"\v_source_pos\"\xa4\x01\n" +
+	"source_pos\x18\x06 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x00R\tsourcePos\x88\x01\x01\x12D\n" +
+	"\rdeclared_type\x18\a \x01(\v2\x1a.turnout.model.v1.TypeExprH\x01R\fdeclaredType\x88\x01\x01B\r\n" +
+	"\v_source_posB\x10\n" +
+	"\x0e_declared_type\"\xa4\x01\n" +
 	"\tExprModel\x127\n" +
 	"\acombine\x18\x01 \x01(\v2\x1d.turnout.model.v1.CombineExprR\acombine\x12.\n" +
 	"\x04pipe\x18\x02 \x01(\v2\x1a.turnout.model.v1.PipeExprR\x04pipe\x12.\n" +
@@ -2918,17 +3679,57 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x04arms\x18\x02 \x03(\v2#.turnout.model.v1.LocalCaseArmModelR\x04arms\"\x88\x01\n" +
 	"\x12LocalPipeExprModel\x12:\n" +
 	"\ainitial\x18\x01 \x01(\v2 .turnout.model.v1.LocalExprModelR\ainitial\x126\n" +
-	"\x05steps\x18\x02 \x03(\v2 .turnout.model.v1.LocalExprModelR\x05steps\"\x85\x02\n" +
+	"\x05steps\x18\x02 \x03(\v2 .turnout.model.v1.LocalExprModelR\x05steps\"\xd0\x02\n" +
 	"\x15LocalCasePatternModel\x12I\n" +
 	"\bwildcard\x18\x01 \x01(\v2+.turnout.model.v1.LocalWildcardPatternModelH\x00R\bwildcard\x12:\n" +
 	"\x03lit\x18\x02 \x01(\v2&.turnout.model.v1.LocalLitPatternModelH\x00R\x03lit\x12M\n" +
 	"\n" +
-	"var_binder\x18\x03 \x01(\v2,.turnout.model.v1.LocalVarBinderPatternModelH\x00R\tvarBinderB\t\n" +
+	"var_binder\x18\x03 \x01(\v2,.turnout.model.v1.LocalVarBinderPatternModelH\x00R\tvarBinder\x12I\n" +
+	"\btemplate\x18\x05 \x01(\v2+.turnout.model.v1.LocalTemplatePatternModelH\x00R\btemplateB\t\n" +
 	"\apatternJ\x04\b\x04\x10\x05R\x05tuple\"\x1b\n" +
 	"\x19LocalWildcardPatternModel\"D\n" +
 	"\x14LocalLitPatternModel\x12,\n" +
 	"\x05value\x18\x01 \x01(\v2\x16.google.protobuf.ValueR\x05value\"0\n" +
 	"\x1aLocalVarBinderPatternModel\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"\x82\x01\n" +
+	"\x19LocalTemplatePatternModel\x12\x1b\n" +
+	"\ttype_name\x18\x01 \x01(\tR\btypeName\x12H\n" +
+	"\x06fields\x18\x02 \x03(\v20.turnout.model.v1.LocalTemplateFieldPatternModelR\x06fields\"w\n" +
+	"\x1eLocalTemplateFieldPatternModel\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12A\n" +
+	"\apattern\x18\x02 \x01(\v2'.turnout.model.v1.LocalCasePatternModelR\apattern\"\xa3\x01\n" +
+	"\rTypeDeclModel\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
+	"\x04type\x18\x02 \x01(\v2\x1a.turnout.model.v1.TypeExprR\x04type\x12?\n" +
+	"\n" +
+	"source_pos\x18\x03 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x00R\tsourcePos\x88\x01\x01B\r\n" +
+	"\v_source_pos\"\xca\x02\n" +
+	"\bTypeExpr\x12C\n" +
+	"\tprimitive\x18\x01 \x01(\v2#.turnout.model.v1.PrimitiveTypeExprH\x00R\tprimitive\x12=\n" +
+	"\aliteral\x18\x02 \x01(\v2!.turnout.model.v1.LiteralTypeExprH\x00R\aliteral\x127\n" +
+	"\x05union\x18\x03 \x01(\v2\x1f.turnout.model.v1.UnionTypeExprH\x00R\x05union\x12@\n" +
+	"\btemplate\x18\x04 \x01(\v2\".turnout.model.v1.TemplateTypeExprH\x00R\btemplate\x127\n" +
+	"\x05named\x18\x05 \x01(\v2\x1f.turnout.model.v1.NamedTypeExprH\x00R\x05namedB\x06\n" +
+	"\x04type\"'\n" +
+	"\x11PrimitiveTypeExpr\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\"S\n" +
+	"\x0fLiteralTypeExpr\x12,\n" +
+	"\x05value\x18\x01 \x01(\v2\x16.google.protobuf.ValueR\x05value\x12\x12\n" +
+	"\x04base\x18\x02 \x01(\tR\x04base\"E\n" +
+	"\rUnionTypeExpr\x124\n" +
+	"\amembers\x18\x01 \x03(\v2\x1a.turnout.model.v1.TypeExprR\amembers\"V\n" +
+	"\x10TemplateTypeExpr\x12B\n" +
+	"\bsegments\x18\x01 \x03(\v2&.turnout.model.v1.TemplateSegmentModelR\bsegments\"\x9e\x01\n" +
+	"\x14TemplateSegmentModel\x128\n" +
+	"\x04text\x18\x01 \x01(\v2\".turnout.model.v1.TextSegmentModelH\x00R\x04text\x12A\n" +
+	"\acapture\x18\x02 \x01(\v2%.turnout.model.v1.CaptureSegmentModelH\x00R\acaptureB\t\n" +
+	"\asegment\"(\n" +
+	"\x10TextSegmentModel\x12\x14\n" +
+	"\x05value\x18\x01 \x01(\tR\x05value\"Y\n" +
+	"\x13CaptureSegmentModel\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
+	"\x04type\x18\x02 \x01(\v2\x1a.turnout.model.v1.TypeExprR\x04type\"#\n" +
+	"\rNamedTypeExpr\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name*\xf5\x01\n" +
 	"\aInfixOp\x12\x10\n" +
 	"\fINFIX_OP_AND\x10\x00\x12\x10\n" +
@@ -2959,125 +3760,155 @@ func file_turnout_model_proto_rawDescGZIP() []byte {
 }
 
 var file_turnout_model_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 43)
+var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 55)
 var file_turnout_model_proto_goTypes = []any{
-	(InfixOp)(0),                       // 0: turnout.model.v1.InfixOp
-	(*TurnModel)(nil),                  // 1: turnout.model.v1.TurnModel
-	(*SigilAnnotations)(nil),           // 2: turnout.model.v1.SigilAnnotations
-	(*SigilAnnotation)(nil),            // 3: turnout.model.v1.SigilAnnotation
-	(*SourcePos)(nil),                  // 4: turnout.model.v1.SourcePos
-	(*StateModel)(nil),                 // 5: turnout.model.v1.StateModel
-	(*NamespaceModel)(nil),             // 6: turnout.model.v1.NamespaceModel
-	(*FieldModel)(nil),                 // 7: turnout.model.v1.FieldModel
-	(*SceneBlock)(nil),                 // 8: turnout.model.v1.SceneBlock
-	(*ViewBlock)(nil),                  // 9: turnout.model.v1.ViewBlock
-	(*ActionModel)(nil),                // 10: turnout.model.v1.ActionModel
-	(*ComputeModel)(nil),               // 11: turnout.model.v1.ComputeModel
-	(*ProgModel)(nil),                  // 12: turnout.model.v1.ProgModel
-	(*BindingModel)(nil),               // 13: turnout.model.v1.BindingModel
-	(*ExprModel)(nil),                  // 14: turnout.model.v1.ExprModel
-	(*CombineExpr)(nil),                // 15: turnout.model.v1.CombineExpr
-	(*PipeExpr)(nil),                   // 16: turnout.model.v1.PipeExpr
-	(*PipeParam)(nil),                  // 17: turnout.model.v1.PipeParam
-	(*PipeStep)(nil),                   // 18: turnout.model.v1.PipeStep
-	(*CondExpr)(nil),                   // 19: turnout.model.v1.CondExpr
-	(*ArgModel)(nil),                   // 20: turnout.model.v1.ArgModel
-	(*TransformArg)(nil),               // 21: turnout.model.v1.TransformArg
-	(*PrepareEntry)(nil),               // 22: turnout.model.v1.PrepareEntry
-	(*MergeEntry)(nil),                 // 23: turnout.model.v1.MergeEntry
-	(*NextRuleModel)(nil),              // 24: turnout.model.v1.NextRuleModel
-	(*NextComputeModel)(nil),           // 25: turnout.model.v1.NextComputeModel
-	(*NextPrepareEntry)(nil),           // 26: turnout.model.v1.NextPrepareEntry
-	(*RouteModel)(nil),                 // 27: turnout.model.v1.RouteModel
-	(*MatchArm)(nil),                   // 28: turnout.model.v1.MatchArm
-	(*LocalExprModel)(nil),             // 29: turnout.model.v1.LocalExprModel
-	(*LocalRefExprModel)(nil),          // 30: turnout.model.v1.LocalRefExprModel
-	(*LocalLitExprModel)(nil),          // 31: turnout.model.v1.LocalLitExprModel
-	(*LocalItExprModel)(nil),           // 32: turnout.model.v1.LocalItExprModel
-	(*LocalCallExprModel)(nil),         // 33: turnout.model.v1.LocalCallExprModel
-	(*LocalInfixExprModel)(nil),        // 34: turnout.model.v1.LocalInfixExprModel
-	(*LocalIfExprModel)(nil),           // 35: turnout.model.v1.LocalIfExprModel
-	(*LocalCaseArmModel)(nil),          // 36: turnout.model.v1.LocalCaseArmModel
-	(*LocalCaseExprModel)(nil),         // 37: turnout.model.v1.LocalCaseExprModel
-	(*LocalPipeExprModel)(nil),         // 38: turnout.model.v1.LocalPipeExprModel
-	(*LocalCasePatternModel)(nil),      // 39: turnout.model.v1.LocalCasePatternModel
-	(*LocalWildcardPatternModel)(nil),  // 40: turnout.model.v1.LocalWildcardPatternModel
-	(*LocalLitPatternModel)(nil),       // 41: turnout.model.v1.LocalLitPatternModel
-	(*LocalVarBinderPatternModel)(nil), // 42: turnout.model.v1.LocalVarBinderPatternModel
-	nil,                                // 43: turnout.model.v1.ProgModel.SigilsEntry
-	(*structpb.Value)(nil),             // 44: google.protobuf.Value
+	(InfixOp)(0),                           // 0: turnout.model.v1.InfixOp
+	(*TurnModel)(nil),                      // 1: turnout.model.v1.TurnModel
+	(*SigilAnnotations)(nil),               // 2: turnout.model.v1.SigilAnnotations
+	(*SigilAnnotation)(nil),                // 3: turnout.model.v1.SigilAnnotation
+	(*SourcePos)(nil),                      // 4: turnout.model.v1.SourcePos
+	(*StateModel)(nil),                     // 5: turnout.model.v1.StateModel
+	(*NamespaceModel)(nil),                 // 6: turnout.model.v1.NamespaceModel
+	(*FieldModel)(nil),                     // 7: turnout.model.v1.FieldModel
+	(*SceneBlock)(nil),                     // 8: turnout.model.v1.SceneBlock
+	(*ViewBlock)(nil),                      // 9: turnout.model.v1.ViewBlock
+	(*ActionModel)(nil),                    // 10: turnout.model.v1.ActionModel
+	(*ComputeModel)(nil),                   // 11: turnout.model.v1.ComputeModel
+	(*ProgModel)(nil),                      // 12: turnout.model.v1.ProgModel
+	(*BindingModel)(nil),                   // 13: turnout.model.v1.BindingModel
+	(*ExprModel)(nil),                      // 14: turnout.model.v1.ExprModel
+	(*CombineExpr)(nil),                    // 15: turnout.model.v1.CombineExpr
+	(*PipeExpr)(nil),                       // 16: turnout.model.v1.PipeExpr
+	(*PipeParam)(nil),                      // 17: turnout.model.v1.PipeParam
+	(*PipeStep)(nil),                       // 18: turnout.model.v1.PipeStep
+	(*CondExpr)(nil),                       // 19: turnout.model.v1.CondExpr
+	(*ArgModel)(nil),                       // 20: turnout.model.v1.ArgModel
+	(*TransformArg)(nil),                   // 21: turnout.model.v1.TransformArg
+	(*PrepareEntry)(nil),                   // 22: turnout.model.v1.PrepareEntry
+	(*MergeEntry)(nil),                     // 23: turnout.model.v1.MergeEntry
+	(*NextRuleModel)(nil),                  // 24: turnout.model.v1.NextRuleModel
+	(*NextComputeModel)(nil),               // 25: turnout.model.v1.NextComputeModel
+	(*NextPrepareEntry)(nil),               // 26: turnout.model.v1.NextPrepareEntry
+	(*RouteModel)(nil),                     // 27: turnout.model.v1.RouteModel
+	(*MatchArm)(nil),                       // 28: turnout.model.v1.MatchArm
+	(*LocalExprModel)(nil),                 // 29: turnout.model.v1.LocalExprModel
+	(*LocalRefExprModel)(nil),              // 30: turnout.model.v1.LocalRefExprModel
+	(*LocalLitExprModel)(nil),              // 31: turnout.model.v1.LocalLitExprModel
+	(*LocalItExprModel)(nil),               // 32: turnout.model.v1.LocalItExprModel
+	(*LocalCallExprModel)(nil),             // 33: turnout.model.v1.LocalCallExprModel
+	(*LocalInfixExprModel)(nil),            // 34: turnout.model.v1.LocalInfixExprModel
+	(*LocalIfExprModel)(nil),               // 35: turnout.model.v1.LocalIfExprModel
+	(*LocalCaseArmModel)(nil),              // 36: turnout.model.v1.LocalCaseArmModel
+	(*LocalCaseExprModel)(nil),             // 37: turnout.model.v1.LocalCaseExprModel
+	(*LocalPipeExprModel)(nil),             // 38: turnout.model.v1.LocalPipeExprModel
+	(*LocalCasePatternModel)(nil),          // 39: turnout.model.v1.LocalCasePatternModel
+	(*LocalWildcardPatternModel)(nil),      // 40: turnout.model.v1.LocalWildcardPatternModel
+	(*LocalLitPatternModel)(nil),           // 41: turnout.model.v1.LocalLitPatternModel
+	(*LocalVarBinderPatternModel)(nil),     // 42: turnout.model.v1.LocalVarBinderPatternModel
+	(*LocalTemplatePatternModel)(nil),      // 43: turnout.model.v1.LocalTemplatePatternModel
+	(*LocalTemplateFieldPatternModel)(nil), // 44: turnout.model.v1.LocalTemplateFieldPatternModel
+	(*TypeDeclModel)(nil),                  // 45: turnout.model.v1.TypeDeclModel
+	(*TypeExpr)(nil),                       // 46: turnout.model.v1.TypeExpr
+	(*PrimitiveTypeExpr)(nil),              // 47: turnout.model.v1.PrimitiveTypeExpr
+	(*LiteralTypeExpr)(nil),                // 48: turnout.model.v1.LiteralTypeExpr
+	(*UnionTypeExpr)(nil),                  // 49: turnout.model.v1.UnionTypeExpr
+	(*TemplateTypeExpr)(nil),               // 50: turnout.model.v1.TemplateTypeExpr
+	(*TemplateSegmentModel)(nil),           // 51: turnout.model.v1.TemplateSegmentModel
+	(*TextSegmentModel)(nil),               // 52: turnout.model.v1.TextSegmentModel
+	(*CaptureSegmentModel)(nil),            // 53: turnout.model.v1.CaptureSegmentModel
+	(*NamedTypeExpr)(nil),                  // 54: turnout.model.v1.NamedTypeExpr
+	nil,                                    // 55: turnout.model.v1.ProgModel.SigilsEntry
+	(*structpb.Value)(nil),                 // 56: google.protobuf.Value
 }
 var file_turnout_model_proto_depIdxs = []int32{
 	5,  // 0: turnout.model.v1.TurnModel.state:type_name -> turnout.model.v1.StateModel
 	8,  // 1: turnout.model.v1.TurnModel.scenes:type_name -> turnout.model.v1.SceneBlock
 	27, // 2: turnout.model.v1.TurnModel.routes:type_name -> turnout.model.v1.RouteModel
 	2,  // 3: turnout.model.v1.TurnModel.annotations:type_name -> turnout.model.v1.SigilAnnotations
-	3,  // 4: turnout.model.v1.SigilAnnotations.entries:type_name -> turnout.model.v1.SigilAnnotation
-	6,  // 5: turnout.model.v1.StateModel.namespaces:type_name -> turnout.model.v1.NamespaceModel
-	7,  // 6: turnout.model.v1.NamespaceModel.fields:type_name -> turnout.model.v1.FieldModel
-	44, // 7: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
-	10, // 8: turnout.model.v1.SceneBlock.actions:type_name -> turnout.model.v1.ActionModel
-	9,  // 9: turnout.model.v1.SceneBlock.view:type_name -> turnout.model.v1.ViewBlock
-	11, // 10: turnout.model.v1.ActionModel.compute:type_name -> turnout.model.v1.ComputeModel
-	22, // 11: turnout.model.v1.ActionModel.prepare:type_name -> turnout.model.v1.PrepareEntry
-	23, // 12: turnout.model.v1.ActionModel.merge:type_name -> turnout.model.v1.MergeEntry
-	24, // 13: turnout.model.v1.ActionModel.next:type_name -> turnout.model.v1.NextRuleModel
-	12, // 14: turnout.model.v1.ComputeModel.prog:type_name -> turnout.model.v1.ProgModel
-	13, // 15: turnout.model.v1.ProgModel.bindings:type_name -> turnout.model.v1.BindingModel
-	43, // 16: turnout.model.v1.ProgModel.sigils:type_name -> turnout.model.v1.ProgModel.SigilsEntry
-	44, // 17: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
-	14, // 18: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
-	29, // 19: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
-	4,  // 20: turnout.model.v1.BindingModel.source_pos:type_name -> turnout.model.v1.SourcePos
-	15, // 21: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
-	16, // 22: turnout.model.v1.ExprModel.pipe:type_name -> turnout.model.v1.PipeExpr
-	19, // 23: turnout.model.v1.ExprModel.cond:type_name -> turnout.model.v1.CondExpr
-	20, // 24: turnout.model.v1.CombineExpr.args:type_name -> turnout.model.v1.ArgModel
-	17, // 25: turnout.model.v1.PipeExpr.params:type_name -> turnout.model.v1.PipeParam
-	18, // 26: turnout.model.v1.PipeExpr.steps:type_name -> turnout.model.v1.PipeStep
-	20, // 27: turnout.model.v1.PipeStep.args:type_name -> turnout.model.v1.ArgModel
-	20, // 28: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
-	20, // 29: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
-	20, // 30: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
-	44, // 31: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
-	21, // 32: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
-	25, // 33: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
-	26, // 34: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
-	12, // 35: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
-	44, // 36: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
-	28, // 37: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
-	30, // 38: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
-	31, // 39: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
-	32, // 40: turnout.model.v1.LocalExprModel.it:type_name -> turnout.model.v1.LocalItExprModel
-	33, // 41: turnout.model.v1.LocalExprModel.call:type_name -> turnout.model.v1.LocalCallExprModel
-	34, // 42: turnout.model.v1.LocalExprModel.infix:type_name -> turnout.model.v1.LocalInfixExprModel
-	35, // 43: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
-	37, // 44: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
-	38, // 45: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
-	44, // 46: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
-	29, // 47: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
-	0,  // 48: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
-	29, // 49: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
-	29, // 50: turnout.model.v1.LocalInfixExprModel.rhs:type_name -> turnout.model.v1.LocalExprModel
-	29, // 51: turnout.model.v1.LocalIfExprModel.cond:type_name -> turnout.model.v1.LocalExprModel
-	29, // 52: turnout.model.v1.LocalIfExprModel.then:type_name -> turnout.model.v1.LocalExprModel
-	29, // 53: turnout.model.v1.LocalIfExprModel.else_branch:type_name -> turnout.model.v1.LocalExprModel
-	39, // 54: turnout.model.v1.LocalCaseArmModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
-	29, // 55: turnout.model.v1.LocalCaseArmModel.guard:type_name -> turnout.model.v1.LocalExprModel
-	29, // 56: turnout.model.v1.LocalCaseArmModel.expr:type_name -> turnout.model.v1.LocalExprModel
-	29, // 57: turnout.model.v1.LocalCaseExprModel.subject:type_name -> turnout.model.v1.LocalExprModel
-	36, // 58: turnout.model.v1.LocalCaseExprModel.arms:type_name -> turnout.model.v1.LocalCaseArmModel
-	29, // 59: turnout.model.v1.LocalPipeExprModel.initial:type_name -> turnout.model.v1.LocalExprModel
-	29, // 60: turnout.model.v1.LocalPipeExprModel.steps:type_name -> turnout.model.v1.LocalExprModel
-	40, // 61: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
-	41, // 62: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
-	42, // 63: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
-	44, // 64: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
-	65, // [65:65] is the sub-list for method output_type
-	65, // [65:65] is the sub-list for method input_type
-	65, // [65:65] is the sub-list for extension type_name
-	65, // [65:65] is the sub-list for extension extendee
-	0,  // [0:65] is the sub-list for field type_name
+	45, // 4: turnout.model.v1.TurnModel.type_decls:type_name -> turnout.model.v1.TypeDeclModel
+	3,  // 5: turnout.model.v1.SigilAnnotations.entries:type_name -> turnout.model.v1.SigilAnnotation
+	6,  // 6: turnout.model.v1.StateModel.namespaces:type_name -> turnout.model.v1.NamespaceModel
+	7,  // 7: turnout.model.v1.NamespaceModel.fields:type_name -> turnout.model.v1.FieldModel
+	56, // 8: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
+	10, // 9: turnout.model.v1.SceneBlock.actions:type_name -> turnout.model.v1.ActionModel
+	9,  // 10: turnout.model.v1.SceneBlock.view:type_name -> turnout.model.v1.ViewBlock
+	11, // 11: turnout.model.v1.ActionModel.compute:type_name -> turnout.model.v1.ComputeModel
+	22, // 12: turnout.model.v1.ActionModel.prepare:type_name -> turnout.model.v1.PrepareEntry
+	23, // 13: turnout.model.v1.ActionModel.merge:type_name -> turnout.model.v1.MergeEntry
+	24, // 14: turnout.model.v1.ActionModel.next:type_name -> turnout.model.v1.NextRuleModel
+	12, // 15: turnout.model.v1.ComputeModel.prog:type_name -> turnout.model.v1.ProgModel
+	13, // 16: turnout.model.v1.ProgModel.bindings:type_name -> turnout.model.v1.BindingModel
+	55, // 17: turnout.model.v1.ProgModel.sigils:type_name -> turnout.model.v1.ProgModel.SigilsEntry
+	56, // 18: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
+	14, // 19: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
+	29, // 20: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
+	4,  // 21: turnout.model.v1.BindingModel.source_pos:type_name -> turnout.model.v1.SourcePos
+	46, // 22: turnout.model.v1.BindingModel.declared_type:type_name -> turnout.model.v1.TypeExpr
+	15, // 23: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
+	16, // 24: turnout.model.v1.ExprModel.pipe:type_name -> turnout.model.v1.PipeExpr
+	19, // 25: turnout.model.v1.ExprModel.cond:type_name -> turnout.model.v1.CondExpr
+	20, // 26: turnout.model.v1.CombineExpr.args:type_name -> turnout.model.v1.ArgModel
+	17, // 27: turnout.model.v1.PipeExpr.params:type_name -> turnout.model.v1.PipeParam
+	18, // 28: turnout.model.v1.PipeExpr.steps:type_name -> turnout.model.v1.PipeStep
+	20, // 29: turnout.model.v1.PipeStep.args:type_name -> turnout.model.v1.ArgModel
+	20, // 30: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
+	20, // 31: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
+	20, // 32: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
+	56, // 33: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
+	21, // 34: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
+	25, // 35: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
+	26, // 36: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
+	12, // 37: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
+	56, // 38: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
+	28, // 39: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
+	30, // 40: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
+	31, // 41: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
+	32, // 42: turnout.model.v1.LocalExprModel.it:type_name -> turnout.model.v1.LocalItExprModel
+	33, // 43: turnout.model.v1.LocalExprModel.call:type_name -> turnout.model.v1.LocalCallExprModel
+	34, // 44: turnout.model.v1.LocalExprModel.infix:type_name -> turnout.model.v1.LocalInfixExprModel
+	35, // 45: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
+	37, // 46: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
+	38, // 47: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
+	56, // 48: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
+	29, // 49: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
+	0,  // 50: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
+	29, // 51: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
+	29, // 52: turnout.model.v1.LocalInfixExprModel.rhs:type_name -> turnout.model.v1.LocalExprModel
+	29, // 53: turnout.model.v1.LocalIfExprModel.cond:type_name -> turnout.model.v1.LocalExprModel
+	29, // 54: turnout.model.v1.LocalIfExprModel.then:type_name -> turnout.model.v1.LocalExprModel
+	29, // 55: turnout.model.v1.LocalIfExprModel.else_branch:type_name -> turnout.model.v1.LocalExprModel
+	39, // 56: turnout.model.v1.LocalCaseArmModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
+	29, // 57: turnout.model.v1.LocalCaseArmModel.guard:type_name -> turnout.model.v1.LocalExprModel
+	29, // 58: turnout.model.v1.LocalCaseArmModel.expr:type_name -> turnout.model.v1.LocalExprModel
+	29, // 59: turnout.model.v1.LocalCaseExprModel.subject:type_name -> turnout.model.v1.LocalExprModel
+	36, // 60: turnout.model.v1.LocalCaseExprModel.arms:type_name -> turnout.model.v1.LocalCaseArmModel
+	29, // 61: turnout.model.v1.LocalPipeExprModel.initial:type_name -> turnout.model.v1.LocalExprModel
+	29, // 62: turnout.model.v1.LocalPipeExprModel.steps:type_name -> turnout.model.v1.LocalExprModel
+	40, // 63: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
+	41, // 64: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
+	42, // 65: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
+	43, // 66: turnout.model.v1.LocalCasePatternModel.template:type_name -> turnout.model.v1.LocalTemplatePatternModel
+	56, // 67: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
+	44, // 68: turnout.model.v1.LocalTemplatePatternModel.fields:type_name -> turnout.model.v1.LocalTemplateFieldPatternModel
+	39, // 69: turnout.model.v1.LocalTemplateFieldPatternModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
+	46, // 70: turnout.model.v1.TypeDeclModel.type:type_name -> turnout.model.v1.TypeExpr
+	4,  // 71: turnout.model.v1.TypeDeclModel.source_pos:type_name -> turnout.model.v1.SourcePos
+	47, // 72: turnout.model.v1.TypeExpr.primitive:type_name -> turnout.model.v1.PrimitiveTypeExpr
+	48, // 73: turnout.model.v1.TypeExpr.literal:type_name -> turnout.model.v1.LiteralTypeExpr
+	49, // 74: turnout.model.v1.TypeExpr.union:type_name -> turnout.model.v1.UnionTypeExpr
+	50, // 75: turnout.model.v1.TypeExpr.template:type_name -> turnout.model.v1.TemplateTypeExpr
+	54, // 76: turnout.model.v1.TypeExpr.named:type_name -> turnout.model.v1.NamedTypeExpr
+	56, // 77: turnout.model.v1.LiteralTypeExpr.value:type_name -> google.protobuf.Value
+	46, // 78: turnout.model.v1.UnionTypeExpr.members:type_name -> turnout.model.v1.TypeExpr
+	51, // 79: turnout.model.v1.TemplateTypeExpr.segments:type_name -> turnout.model.v1.TemplateSegmentModel
+	52, // 80: turnout.model.v1.TemplateSegmentModel.text:type_name -> turnout.model.v1.TextSegmentModel
+	53, // 81: turnout.model.v1.TemplateSegmentModel.capture:type_name -> turnout.model.v1.CaptureSegmentModel
+	46, // 82: turnout.model.v1.CaptureSegmentModel.type:type_name -> turnout.model.v1.TypeExpr
+	83, // [83:83] is the sub-list for method output_type
+	83, // [83:83] is the sub-list for method input_type
+	83, // [83:83] is the sub-list for extension type_name
+	83, // [83:83] is the sub-list for extension extendee
+	0,  // [0:83] is the sub-list for field type_name
 }
 
 func init() { file_turnout_model_proto_init() }
@@ -3108,6 +3939,19 @@ func file_turnout_model_proto_init() {
 		(*LocalCasePatternModel_Wildcard)(nil),
 		(*LocalCasePatternModel_Lit)(nil),
 		(*LocalCasePatternModel_VarBinder)(nil),
+		(*LocalCasePatternModel_Template)(nil),
+	}
+	file_turnout_model_proto_msgTypes[44].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[45].OneofWrappers = []any{
+		(*TypeExpr_Primitive)(nil),
+		(*TypeExpr_Literal)(nil),
+		(*TypeExpr_Union)(nil),
+		(*TypeExpr_Template)(nil),
+		(*TypeExpr_Named)(nil),
+	}
+	file_turnout_model_proto_msgTypes[50].OneofWrappers = []any{
+		(*TemplateSegmentModel_Text)(nil),
+		(*TemplateSegmentModel_Capture)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
@@ -3115,7 +3959,7 @@ func file_turnout_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_turnout_model_proto_rawDesc), len(file_turnout_model_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   43,
+			NumMessages:   55,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

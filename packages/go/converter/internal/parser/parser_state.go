@@ -40,6 +40,46 @@ func (p *parser) parseFieldType(typeErrCode diag.ErrorCode) (ast.FieldType, bool
 	}
 }
 
+// ─── parseBindingType ───────────────────────────────────────────────────────
+
+// parseBindingType parses a binding's type annotation. Unlike parseFieldType
+// (used for state fields), a binding may be annotated with a named literal or
+// template type, or the `integer` primitive. It returns the runtime FieldType
+// and, when the annotation is richer than a plain primitive/array, a structured
+// DeclaredType. For a named type reference the base FieldType is resolved later
+// (during lowering), so FieldTypeInvalid is returned as a placeholder.
+func (p *parser) parseBindingType() (ast.FieldType, ast.Type, bool) {
+	t := p.peek()
+	switch t.Kind {
+	case lexer.TokType:
+		p.advance()
+		ft, ok := ast.FieldTypeFromString(t.Value)
+		if !ok {
+			p.errorWithCode(t, diag.CodeParseSyntaxError, "unknown array type %q", t.Value)
+			return 0, nil, false
+		}
+		return ft, nil, true
+	case lexer.TokIdent:
+		// Plain primitive (str / number / bool) — no structured type needed.
+		if ft, ok := ast.FieldTypeFromString(t.Value); ok {
+			p.advance()
+			return ft, nil, true
+		}
+		// `integer` is a type-system primitive without a distinct FieldType.
+		if kind, ok := ast.PrimitiveKindFromString(t.Value); ok {
+			p.advance()
+			ft, _ := kind.AsFieldType()
+			return ft, ast.NewPrimitiveType(p.posOf(t), kind), true
+		}
+		// Any other identifier is a named type reference, resolved later.
+		p.advance()
+		return ast.FieldTypeInvalid, ast.NewNamedType(p.posOf(t), t.Value), true
+	default:
+		p.errorf(t, "expected type, got %s %q", kindName(t.Kind), t.Value)
+		return 0, nil, false
+	}
+}
+
 // ─── parseLiteral ─────────────────────────────────────────────────────────────
 
 func (p *parser) parseLiteral() ast.Literal {

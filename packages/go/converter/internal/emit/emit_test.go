@@ -48,6 +48,33 @@ func emitModel(tm *turnoutpb.TurnModel) string {
 	return sb.String()
 }
 
+// ─── type declarations ──────────────────────────────────────────────────────
+
+func TestEmitTypeDecls(t *testing.T) {
+	src := `type Kind = "foo" | "bar"
+type ResourceId = "{kind: Kind}-{sequence: integer}"
+state { app { score:number = 0 } }
+scene "s" {
+  entry_actions = ["a"]
+  action "a" { compute { prog "p" { |^| k: Kind = "foo" } } }
+}
+`
+	out := fullPipeline(t, src)
+	if !strings.Contains(out, `type "Kind" {`) {
+		t.Error("missing Kind type decl block")
+	}
+	if !strings.Contains(out, `type "ResourceId" {`) {
+		t.Error("missing ResourceId type decl block")
+	}
+	if !strings.Contains(out, `{kind: Kind}-{sequence: integer}`) {
+		t.Error("missing canonical template def")
+	}
+	// The named binding re-emits with its declared type name, not the base type.
+	if !strings.Contains(out, `type  = "Kind"`) {
+		t.Errorf("binding should re-emit declared type name Kind; got:\n%s", out)
+	}
+}
+
 // ─── state block ─────────────────────────────────────────────────────────────
 
 func TestEmitStateBlock(t *testing.T) {

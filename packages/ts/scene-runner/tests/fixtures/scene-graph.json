@@ -304,7 +304,7 @@
       }
     }
   ],
-  "version": 1,
-  "minVersion": 1,
-  "maxVersion": 1
+  "version": 2,
+  "minVersion": 2,
+  "maxVersion": 2
 }

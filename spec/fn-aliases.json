@@ -17,6 +17,8 @@
   { "hcl": "str_includes", "runtime": "binaryFnString::includes" },
   { "hcl": "str_starts",   "runtime": "binaryFnString::startsWith" },
   { "hcl": "str_ends",     "runtime": "binaryFnString::endsWith" },
+  { "hcl": "template_extract", "runtime": "binaryFnString::extract" },
+  { "hcl": "template_extract_num", "runtime": "binaryFnString::extractNum" },
   { "hcl": "eq",           "runtime": "binaryFnGeneric::isEqual" },
   { "hcl": "neq",          "runtime": "binaryFnGeneric::isNotEqual" },
   { "hcl": "arr_concat",   "runtime": "binaryFnArray::concat" },

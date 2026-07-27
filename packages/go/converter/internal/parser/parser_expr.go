@@ -234,6 +234,10 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 		args := p.parseFuncArgs()
 		return &ast.FuncCallRHS{FnAlias: nameTok.Value, Args: args}
 
+	case lexer.TokLBrace:
+		// typed template construction: TypeName { field = value ... }
+		return p.parseTemplateConstruction(nameTok)
+
 	case lexer.TokAmpersand, lexer.TokGTE, lexer.TokLTE, lexer.TokPlus,
 		lexer.TokMinus, lexer.TokStar, lexer.TokSlash, lexer.TokPercent,
 		lexer.TokGT, lexer.TokLT, lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq:
@@ -322,11 +326,51 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		return &ast.LiteralCasePattern{Pos: p.posOf(t), Value: lit}
 	case lexer.TokIdent:
 		nameTok := p.advance()
+		if p.peek().Kind == lexer.TokLBrace {
+			return p.parseTemplateCasePattern(nameTok)
+		}
 		return &ast.VarBinderPattern{Pos: p.posOf(t), Name: nameTok.Value}
 	default:
 		p.errorf(t, "expected pattern in #case arm, got %s %q", kindName(t.Kind), t.Value)
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	}
+}
+
+// parseTemplateCasePattern parses `TypeName { field[: sub], ... }`. The type name
+// identifier has already been consumed. A field with no `: sub` binds the
+// capture to its own name.
+func (p *parser) parseTemplateCasePattern(nameTok lexer.Token) ast.LocalCasePattern {
+	p.expect(lexer.TokLBrace)
+	var fields []ast.TemplateFieldPattern
+	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
+		fieldTok := p.peek()
+		if fieldTok.Kind != lexer.TokIdent {
+			p.errorf(fieldTok, "expected capture name in pattern %q, got %s", nameTok.Value, kindName(fieldTok.Kind))
+			p.skipTo(lexer.TokRBrace, lexer.TokComma)
+			if p.peek().Kind == lexer.TokComma {
+				p.advance()
+			}
+			continue
+		}
+		p.advance() // consume field name
+		var sub ast.LocalCasePattern
+		if p.peek().Kind == lexer.TokColon {
+			p.advance() // consume ':'
+			sub = p.parseCasePattern()
+		} else {
+			sub = &ast.VarBinderPattern{Pos: p.posOf(fieldTok), Name: fieldTok.Value}
+		}
+		fields = append(fields, ast.TemplateFieldPattern{
+			Pos:  p.posOf(fieldTok),
+			Name: fieldTok.Value,
+			Sub:  sub,
+		})
+		if p.peek().Kind == lexer.TokComma {
+			p.advance()
+		}
+	}
+	p.expect(lexer.TokRBrace)
+	return &ast.TemplateCasePattern{Pos: p.posOf(nameTok), TypeName: nameTok.Value, Fields: fields}
 }
 
 // ─── #pipe (v1 function-call form) ───────────────────────────────────────────

@@ -30,6 +30,11 @@ message TurnModel {
   // reject models where CURRENT_VERSION < min_version or > max_version.
   uint32 min_version = 6;
   uint32 max_version = 7;
+  // type_decls carries the program's named type declarations (literal, union,
+  // and template literal types). Introduced by the literal & template type
+  // feature. Emitting a non-empty list requires a canonical version bump so
+  // older runtimes reject the model rather than ignore the types.
+  repeated TypeDeclModel type_decls = 8;
 }
 
 // SigilAnnotations carries sigil metadata for each binding.
@@ -144,6 +149,11 @@ message BindingModel {
   // source_pos is populated by the lowerer for user-declared bindings.
   // Cleared before JSON emission; not visible to the runtime.
   optional SourcePos source_pos = 6;
+  // declared_type carries the binding's structured type annotation when it is a
+  // named literal/template type (richer than the flat `type` string). Populated
+  // by the lowerer and consumed by the validator for assignability and pattern
+  // analysis. Cleared before JSON emission; the runtime uses `type`.
+  optional TypeExpr declared_type = 7;
 }
 
 message ExprModel {
@@ -335,9 +345,88 @@ message LocalCasePatternModel {
     LocalWildcardPatternModel  wildcard   = 1;
     LocalLitPatternModel       lit        = 2;
     LocalVarBinderPatternModel var_binder = 3;
+    LocalTemplatePatternModel  template   = 5;
   }
 }
 
 message LocalWildcardPatternModel  {}
 message LocalLitPatternModel       { google.protobuf.Value value = 1; }
 message LocalVarBinderPatternModel { string name = 1; }
+
+// LocalTemplatePatternModel destructures a template literal value in a #case
+// arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.
+message LocalTemplatePatternModel {
+  string type_name = 1;
+  repeated LocalTemplateFieldPatternModel fields = 2;
+}
+
+// LocalTemplateFieldPatternModel binds/constrains one capture via a sub-pattern
+// (wildcard, literal, or var-binder).
+message LocalTemplateFieldPatternModel {
+  string name = 1;
+  LocalCasePatternModel pattern = 2;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Type declarations — literal, union, and template literal types.
+//
+// This is the structured canonical representation required by literal-template-types-spec.md §19 and
+// §29.1: a template literal type is stored as ordered text/capture segments,
+// never as a regex string. The runtime derives its matcher from this structure.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// TypeDeclModel is a single top-level `type Name = TypeExpr` declaration.
+message TypeDeclModel {
+  string name = 1;
+  TypeExpr type = 2;
+  // source_pos is populated by the lowerer for diagnostics; cleared before JSON
+  // emission.
+  optional SourcePos source_pos = 3;
+}
+
+// TypeExpr is the structured type IR: a primitive, a scalar literal, a finite
+// literal union, a template literal type, or a reference to a named type.
+message TypeExpr {
+  oneof type {
+    PrimitiveTypeExpr primitive = 1;
+    LiteralTypeExpr   literal   = 2;
+    UnionTypeExpr     union     = 3;
+    TemplateTypeExpr  template  = 4;
+    NamedTypeExpr     named     = 5;
+  }
+}
+
+// PrimitiveTypeExpr names one of "str" | "integer" | "number" | "bool".
+message PrimitiveTypeExpr { string name = 1; }
+
+// LiteralTypeExpr is a scalar literal type. value carries the concrete value;
+// base names the primitive base ("str" | "integer" | "number" | "bool").
+message LiteralTypeExpr {
+  google.protobuf.Value value = 1;
+  string base = 2;
+}
+
+// UnionTypeExpr is a finite union of literal types.
+message UnionTypeExpr { repeated TypeExpr members = 1; }
+
+// TemplateTypeExpr is an ordered sequence of static-text and capture segments.
+message TemplateTypeExpr { repeated TemplateSegmentModel segments = 1; }
+
+message TemplateSegmentModel {
+  oneof segment {
+    TextSegmentModel    text    = 1;
+    CaptureSegmentModel capture = 2;
+  }
+}
+
+// TextSegmentModel is a run of static text within a template.
+message TextSegmentModel { string value = 1; }
+
+// CaptureSegmentModel is a named, typed capture within a template.
+message CaptureSegmentModel {
+  string name = 1;
+  TypeExpr type = 2;
+}
+
+// NamedTypeExpr references a named type declaration by name.
+message NamedTypeExpr { string name = 1; }

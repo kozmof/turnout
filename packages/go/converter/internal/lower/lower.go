@@ -70,12 +70,19 @@ func Lower(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*Lowe
 func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
 	var ds diag.DiagSink
 
+	// Resolve named binding-type annotations to their runtime FieldType, and
+	// validate + fold typed template constructions, before lowering reads
+	// decl.Type / decl.RHS.
+	resolveBindingTypes(file, &ds)
+
 	stateModel := lowerStateBlock(file.StateSource, schema, schemaOrder, &ds)
 	if stateModel == nil || ds.HasErrors() {
 		return nil, ds.Flush()
 	}
 
 	tm := &turnoutpb.TurnModel{State: stateModel}
+
+	tm.TypeDecls = lowerTypeDecls(file.TypeDecls, &ds)
 
 	for _, s := range file.Scenes {
 		tm.Scenes = append(tm.Scenes, lowerSceneBlock(s, schema, &ds))
@@ -484,8 +491,12 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.Diag
 		return nil
 	}
 	bindingTypes := make(map[string]ast.FieldType, len(prog.Bindings))
+	declaredTypes := make(map[string]ast.Type, len(prog.Bindings))
 	for _, decl := range prog.Bindings {
 		bindingTypes[decl.Name] = decl.Type
+		if decl.DeclaredType != nil {
+			declaredTypes[decl.Name] = decl.DeclaredType
+		}
 	}
 	pm := &turnoutpb.ProgModel{
 		Name:     prog.Name,
@@ -494,7 +505,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.Diag
 	}
 	var localCounter int
 	for _, decl := range prog.Bindings {
-		bindings := lowerBinding(decl, resolver, pm, ds, bindingTypes, &localCounter)
+		bindings := lowerBinding(decl, resolver, pm, ds, bindingTypes, declaredTypes, &localCounter)
 		pm.Bindings = append(pm.Bindings, bindings...)
 	}
 	return pm
@@ -502,7 +513,7 @@ func lowerProgInner(prog *ast.ProgBlock, resolver prepareResolver, ds *diag.Diag
 
 // lowerBinding lowers one BindingDecl to one or more BindingModels.
 // Sigils are written directly into pm.Sigils; source positions are set on the binding.
-func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb.ProgModel, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType, localCounter *int) []*turnoutpb.BindingModel {
+func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb.ProgModel, ds *diag.DiagSink, bindingTypes map[string]ast.FieldType, declaredTypes map[string]ast.Type, localCounter *int) []*turnoutpb.BindingModel {
 	name := decl.Name
 	ft := decl.Type
 
@@ -540,7 +551,18 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 		}
 		bindings = []*turnoutpb.BindingModel{bm}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
-		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, ds, localCounter)
+		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, declaredTypes, ds, localCounter)
+	case *ast.TemplateConstructionRHS:
+		// A constant construction is folded to a LiteralRHS during the resolve
+		// pass and never reaches here. A construction with Resolved set is valid
+		// but built at runtime from variable references; anything else is an
+		// invalid construction whose diagnostic was already emitted.
+		if rhs.Resolved == nil {
+			return nil
+		}
+		lc := newLocalLowerer(name, ft, bindingTypes, declaredTypes, ds, localCounter)
+		lc.lowerConstructionInto(name, ft, rhs)
+		bindings = lc.bindings
 	case *ast.ErrorRHS:
 		// Parser failed to parse this binding's RHS; a diagnostic was already recorded.
 		return nil
@@ -570,12 +592,22 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 			b.SourcePos = pos
 		}
 	}
+	// Attach the structured declared type to the binding that carries the user's
+	// name, so the validator can check assignability and pattern coverage.
+	if decl.DeclaredType != nil {
+		for _, b := range bindings {
+			if b.Name == name {
+				b.DeclaredType = lowerTypeExpr(decl.DeclaredType, ds)
+				break
+			}
+		}
+	}
 	return bindings
 }
 
 // lowerLocalRHS delegates IfCallRHS / CaseCallRHS / PipeCallRHS to the
 // localLowerer, making the abstraction boundary explicit in the lowerBinding switch.
-func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink, counter *int) []*turnoutpb.BindingModel {
-	c := newLocalLowerer(name, ft, bindingTypes, ds, counter)
+func lowerLocalRHS(name string, ft ast.FieldType, rhs ast.BindingRHS, bindingTypes map[string]ast.FieldType, declaredTypes map[string]ast.Type, ds *diag.DiagSink, counter *int) []*turnoutpb.BindingModel {
+	c := newLocalLowerer(name, ft, bindingTypes, declaredTypes, ds, counter)
 	return c.lowerTop(rhs)
 }

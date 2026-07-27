@@ -42,6 +42,8 @@ export const metaBfString = (): ReturnTypeBinaryFnString => {
     includes: "boolean",
     startsWith: "boolean",
     endsWith: "boolean",
+    extract: "string",
+    extractNum: "number",
   };
 };
 
