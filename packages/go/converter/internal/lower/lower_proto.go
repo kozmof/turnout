@@ -107,6 +107,12 @@ func localExprToProto(e ast.LocalExpr) *turnoutpb.LocalExprModel {
 			Initial: localExprToProto(x.Initial),
 			Steps:   steps,
 		}}}
+	case *ast.LocalTupleExpr:
+		elems := make([]*turnoutpb.LocalExprModel, len(x.Elems))
+		for i, elem := range x.Elems {
+			elems[i] = localExprToProto(elem)
+		}
+		return &turnoutpb.LocalExprModel{Expr: &turnoutpb.LocalExprModel_TupleExpr{TupleExpr: &turnoutpb.LocalTupleExprModel{Elems: elems}}}
 	default:
 		panic(fmt.Sprintf("localExprToProto: unhandled LocalExpr type %T — compiler bug; update lower_proto.go", e))
 	}
@@ -123,6 +129,12 @@ func localCasePatternToProto(p ast.LocalCasePattern) *turnoutpb.LocalCasePattern
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Lit{Lit: &turnoutpb.LocalLitPatternModel{Value: ast.LiteralToStructpb(x.Value)}}}
 	case *ast.VarBinderPattern:
 		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_VarBinder{VarBinder: &turnoutpb.LocalVarBinderPatternModel{Name: x.Name}}}
+	case *ast.TupleCasePattern:
+		elems := make([]*turnoutpb.LocalCasePatternModel, len(x.Elems))
+		for i, elem := range x.Elems {
+			elems[i] = localCasePatternToProto(elem)
+		}
+		return &turnoutpb.LocalCasePatternModel{Pattern: &turnoutpb.LocalCasePatternModel_Tuple{Tuple: &turnoutpb.LocalTuplePatternModel{Elems: elems}}}
 	case *ast.TemplateCasePattern:
 		fields := make([]*turnoutpb.LocalTemplateFieldPatternModel, len(x.Fields))
 		for i, f := range x.Fields {

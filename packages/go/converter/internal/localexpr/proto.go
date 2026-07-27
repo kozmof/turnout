@@ -38,6 +38,8 @@ func ProtoChildren(e *turnoutpb.LocalExprModel) []*turnoutpb.LocalExprModel {
 		children := compact(x.PipeExpr.GetInitial())
 		children = append(children, x.PipeExpr.GetSteps()...)
 		return children
+	case *turnoutpb.LocalExprModel_TupleExpr:
+		return x.TupleExpr.GetElems()
 	default:
 		return nil
 	}

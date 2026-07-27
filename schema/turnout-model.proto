@@ -279,6 +279,7 @@ message LocalExprModel {
     LocalIfExprModel    if_expr   = 6;
     LocalCaseExprModel  case_expr = 7;
     LocalPipeExprModel  pipe_expr = 8;
+    LocalTupleExprModel tuple_expr = 9;
   }
 }
 
@@ -337,14 +338,14 @@ message LocalPipeExprModel {
   repeated LocalExprModel   steps   = 2;
 }
 
+message LocalTupleExprModel { repeated LocalExprModel elems = 1; }
+
 message LocalCasePatternModel {
-  // Field 4 (LocalTuplePatternModel tuple) was removed; tuple patterns are
-  // rejected at parse time and were never serialised into valid models.
-  reserved 4; reserved "tuple";
   oneof pattern {
     LocalWildcardPatternModel  wildcard   = 1;
     LocalLitPatternModel       lit        = 2;
     LocalVarBinderPatternModel var_binder = 3;
+    LocalTuplePatternModel     tuple      = 4;
     LocalTemplatePatternModel  template   = 5;
   }
 }
@@ -352,6 +353,7 @@ message LocalCasePatternModel {
 message LocalWildcardPatternModel  {}
 message LocalLitPatternModel       { google.protobuf.Value value = 1; }
 message LocalVarBinderPatternModel { string name = 1; }
+message LocalTuplePatternModel     { repeated LocalCasePatternModel elems = 1; }
 
 // LocalTemplatePatternModel destructures a template literal value in a #case
 // arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.

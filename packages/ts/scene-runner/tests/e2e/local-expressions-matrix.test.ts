@@ -19,7 +19,7 @@ import type { AnyValue } from "runtime";
 
 type Case = {
   name: string;
-  pattern: "#if" | "#case" | "#pipe" | "construct" | "destructure";
+  pattern: "#if" | "#case" | "#pipe" | "construct" | "destructure" | "tuple";
   complexity: "low" | "medium" | "high";
   entryId: string;
   src: string;
@@ -146,6 +146,41 @@ scene "destructure_low" {
       }
     }
     prepare { rid { from_state = input.word } }
+    merge { seq { to_state = work.n } }
+  }
+}`,
+  },
+  {
+    name: "tuple-template-single-action",
+    pattern: "tuple",
+    complexity: "low",
+    entryId: "tuple_low",
+    expectPath: "work.n",
+    expectValue: 5,
+    initialState: boxed({ "input.word": "bar-5", "input.flag": true }),
+    src: `type Kind = "foo" | "bar"
+type Enabled = true | false
+type ResourceId = "{kind: Kind}-{sequence: integer}"
+${stateBlock}
+scene "tuple_low" {
+  entry_actions = ["run"]
+  action "run" {
+    compute {
+      prog "p" {
+        ~>rid:ResourceId
+        ~>enabled:Enabled
+        |^| <~seq:number = #case(
+          (rid, enabled),
+          (ResourceId { kind: "foo", sequence }, _) => sequence + 100,
+          (ResourceId { kind: "bar", sequence }, true) => sequence,
+          (ResourceId { kind: "bar", sequence: _ }, false) => 0
+        )
+      }
+    }
+    prepare {
+      rid { from_state = input.word }
+      enabled { from_state = input.flag }
+    }
     merge { seq { to_state = work.n } }
   }
 }`,

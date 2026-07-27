@@ -310,6 +310,14 @@ type LocalPipeExpr struct {
 
 func (*LocalPipeExpr) localExpr() {}
 
+// LocalTupleExpr is a heterogeneous product value: `(left, right, ...)`.
+type LocalTupleExpr struct {
+	Pos   Pos
+	Elems []LocalExpr
+}
+
+func (*LocalTupleExpr) localExpr() {}
+
 // ────────────────────────────────────────────────────────────
 // #case arm and pattern types
 // ────────────────────────────────────────────────────────────
@@ -345,6 +353,14 @@ type VarBinderPattern struct {
 }
 
 func (*VarBinderPattern) localCasePattern() {}
+
+// TupleCasePattern matches a tuple structurally and recursively.
+type TupleCasePattern struct {
+	Pos   Pos
+	Elems []LocalCasePattern
+}
+
+func (*TupleCasePattern) localCasePattern() {}
 
 // TemplateCasePattern destructures a template literal value (literal-template-types-spec.md §12.6-12.8):
 // `ResourceId { kind: "foo", sequence }`. Omitted captures are unconstrained and

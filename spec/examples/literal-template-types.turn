@@ -1,0 +1,42 @@
+# Literal and template types
+#
+# This example defines a finite literal union, embeds it in a structured string
+# type, constructs a value of that type, and destructures it together with a boolean literal in an exhaustive
+# tuple #case expression. Inside each arm, `sequence` is refined to `integer`.
+
+type ResourceKind = "user" | "team"
+type Enabled = true | false
+type ResourceId = "resource-{kind: ResourceKind}-{sequence: integer}"
+
+state {
+  app {
+    next_sequence:number = 42
+  }
+}
+
+scene "literal_template_types" {
+  entry_actions = ["route_resource"]
+
+  action "route_resource" {
+    compute {
+      prog "route_resource_by_kind" {
+        kind: ResourceKind = "team"
+        sequence: integer = 42
+
+        resource_id: ResourceId = ResourceId {
+          kind = kind
+          sequence = sequence
+        }
+
+        enabled: Enabled = true
+
+        |^| selected_sequence: integer = #case(
+          (resource_id, enabled),
+          (ResourceId { kind: "user", sequence }, _) => sequence,
+          (ResourceId { kind: "team", sequence }, true) => sequence,
+          (ResourceId { kind: "team", sequence: _ }, false) => 0
+        )
+      }
+    }
+  }
+}

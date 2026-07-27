@@ -154,6 +154,9 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 }
 
 func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
+	if tuple, ok := subject.GetExpr().(*turnoutpb.LocalExprModel_TupleExpr); ok {
+		return validateProtoTupleCase(bindingName, tuple.TupleExpr, arms, scope, itType, itAllowed, ds)
+	}
 	subjectType, subjectOK := validateProtoLocalExpr(bindingName, subject, scope, itType, itAllowed, ds)
 	subjectDecl := subjectDeclaredType(subject, scope)
 	subjectDeclName := subjectDeclaredTypeName(subject, scope)

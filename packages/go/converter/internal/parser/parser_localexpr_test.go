@@ -67,18 +67,17 @@ func TestRHSCaseArms(t *testing.T) {
 	}
 }
 
-// TestCasePatternTupleError covers the parseCasePattern error branch for tuple
-// patterns, which are not supported.
-func TestCasePatternTupleError(t *testing.T) {
+func TestCasePatternTuple(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        score:number = 1
-        |^| result:str = #case(score, (1, 2) => "tuple", _ => "other")
+        one:number = 1
+        two:number = 2
+        |^| result:str = #case((one, two), (1, 2) => "tuple", _ => "other")
       }
     }
   }`)
-	mustParseFail(t, src)
+	mustParse(t, src)
 }
 
 // TestRHSLocalNestedExprs exercises the nested local-expression primaries:

@@ -614,30 +614,19 @@ scene "test" {
 	}
 }
 
-func TestTupleCasePatternRejectedAtParse(t *testing.T) {
-	// Tuple patterns are rejected by the parser; the error surfaces before lowering.
+func TestTupleCasePatternLowers(t *testing.T) {
 	src := minimal(`  entry_actions = ["a"]
   action "a" {
     compute {
       prog "p" {
-        score:number = 1
-        |^| result:str = #case(score, (1, 2) => "tuple", _ => "other")
+        one:number = 1
+        two:number = 2
+        |^| result:str = #case((one, two), (1, 2) => "tuple", _ => "other")
       }
     }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
-	if !ds.HasErrors() {
-		t.Fatal("want parse error for tuple pattern, got none")
-	}
-	found := false
-	for _, d := range ds {
-		if d.Code == "ParseSyntaxError" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Fatalf("want ParseSyntaxError diagnostic, got %v", ds)
+	if ds := lowerWithErrors(t, src); ds.HasErrors() {
+		t.Fatalf("unexpected tuple lowering errors: %v", ds)
 	}
 }
 

@@ -115,6 +115,12 @@ func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType stri
 		}
 		return fmt.Sprintf(`{ pipe = { initial = %s, steps = [%s] } }`,
 			iw.localExprInline(x.PipeExpr.GetInitial(), bindingType), strings.Join(steps, ", "))
+	case *turnoutpb.LocalExprModel_TupleExpr:
+		elems := make([]string, len(x.TupleExpr.GetElems()))
+		for i, elem := range x.TupleExpr.GetElems() {
+			elems[i] = iw.localExprInline(elem, bindingType)
+		}
+		return fmt.Sprintf(`{ tuple = [%s] }`, strings.Join(elems, ", "))
 	}
 	panic(fmt.Sprintf(
 		"localExprInline: unhandled LocalExprModel type %T — when adding a new variant, update all three touch points: "+
@@ -145,6 +151,18 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(x.Lit.GetValue()))
 	case *turnoutpb.LocalCasePatternModel_VarBinder:
 		return fmt.Sprintf(`{ bind = %q }`, x.VarBinder.GetName())
+	case *turnoutpb.LocalCasePatternModel_Tuple:
+		elems := make([]string, len(x.Tuple.GetElems()))
+		for i, elem := range x.Tuple.GetElems() {
+			elems[i] = localPatternInline(elem)
+		}
+		return fmt.Sprintf(`{ tuple = [%s] }`, strings.Join(elems, ", "))
+	case *turnoutpb.LocalCasePatternModel_Template:
+		fields := make([]string, len(x.Template.GetFields()))
+		for i, field := range x.Template.GetFields() {
+			fields[i] = fmt.Sprintf(`{ name = %q, pattern = %s }`, field.GetName(), localPatternInline(field.GetPattern()))
+		}
+		return fmt.Sprintf(`{ template = { type_name = %q, fields = [%s] } }`, x.Template.GetTypeName(), strings.Join(fields, ", "))
 	}
 	return `{ wildcard = true }`
 }

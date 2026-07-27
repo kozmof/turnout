@@ -296,6 +296,13 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
+	_, tupleSubject := subject.(*ast.LocalTupleExpr)
+	if tupleSubject || caseHasTuplePattern(arms) {
+		if !c.lowerTupleCaseInto(name, ft, subject, arms, pc) {
+			c.emitValue(name, ft, zeroLiteralFor(ft))
+		}
+		return
+	}
 	// Template destructuring arms are lowered to a template_extract-based
 	// CondExpr chain. If the subject's template type cannot be recovered here
 	// (already reported by the validate stage), fall back to an inert stub.

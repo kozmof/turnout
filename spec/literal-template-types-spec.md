@@ -1,7 +1,7 @@
 # Literal & Template Types Specification — Turn DSL
 
 > Status: Implemented
-> Scope: Turn DSL scalar literal types, literal unions, template literal types, typed construction, and `#case` pattern matching (destructuring, exhaustiveness, reachability, refinement) — plus their lowering to the canonical model and runtime execution.
+> Scope: Turn DSL scalar literal types, literal unions, template literal types, typed construction, and `#case` scalar, template, and tuple pattern matching (destructuring, exhaustiveness, reachability, refinement) — plus their lowering to the canonical model and runtime execution.
 
 This is the as-built specification for the literal & template type feature. It is the reference cited by code comments across the Go converter (`packages/go/converter`) and the TypeScript runtime (`packages/ts`). Section numbers are stable so those references stay valid.
 
@@ -21,6 +21,7 @@ The feature provides:
 * match exhaustiveness checking
 * unreachable-pattern detection
 * type refinement inside match arms
+* combined tuple/product patterns
 * deterministic handling of overlapping patterns
 
 Matching is statically decidable and uses no general-purpose regular expressions. See §32 for the implementation status, the concrete decisions made where this document left latitude, and the small set of deliberately deferred items.
@@ -2488,6 +2489,8 @@ A `#case` subject is typed as its template, so runtime membership is guaranteed;
 
 Finite-union `#case` exhaustiveness, duplicate/unreachable-arm detection, and remaining-type refinement are implemented for scalar subjects (§14.1–§14.3, §16.1–§16.2, §17.1–§17.3) and for template subjects via product-domain subtraction over the finite (literal-union) capture domains, with infinite captures unconstrained not blocking exhaustiveness (§14.4–§14.6, §16.3, §17.4). Guards are opaque: a guarded arm neither shadows later arms nor completes coverage (§15.2, §29.5). Capture refinement types each bound var-binder to its capture type inside the arm.
 
+Combined tuple patterns use recursive product-domain analysis. Tuple subjects and patterns may nest, template patterns may appear in tuple positions, tuple arity is checked statically, and binders are refined from the corresponding tuple element. Finite scalar and template discriminants are combined for exhaustiveness and shadowing checks. Tuple cases lower to the same scalar equality, template extraction, boolean conjunction, and ordered conditional graph operations used by existing patterns.
+
 ## 32.7 Canonical model version (§26.4)
 
 The canonical model version is **2**. A model that declares literal/template types or uses `template_extract` is emitted at version 2; older (version 1) runtimes reject it. The TypeScript runtime's current version is 2 with an identity migration from version 1.
@@ -2498,5 +2501,4 @@ The following are recognised but not yet implemented; each is an independent ext
 
 * Structural template equivalence for destructuring across independently-declared templates (§9.4) — plain-string value-set assignment is implemented; structural destructuring requires the declared capture shape.
 * Provable guard reasoning (§15.3) — guards remain opaque.
-* Combined tuple/product patterns (Phase 5 of the original plan) — not implemented.
 * HCL re-emission renders a named binding's declared type name and `type` declaration blocks for inspection, but the HCL form is not re-parsed.

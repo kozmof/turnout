@@ -318,9 +318,7 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		p.advance()
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	case lexer.TokLParen:
-		p.errorf(t, "tuple patterns are not supported in #case; use _ to match any value or a variable binder (e.g. x) to capture it")
-		p.skipTo(lexer.TokArrow, lexer.TokRParen, lexer.TokComma)
-		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
+		return p.parseTupleCasePattern()
 	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit, lexer.TokMinus:
 		lit := p.parseLiteral()
 		return &ast.LiteralCasePattern{Pos: p.posOf(t), Value: lit}
@@ -334,6 +332,20 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		p.errorf(t, "expected pattern in #case arm, got %s %q", kindName(t.Kind), t.Value)
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	}
+}
+
+func (p *parser) parseTupleCasePattern() ast.LocalCasePattern {
+	open := p.advance()
+	var elems []ast.LocalCasePattern
+	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
+		elems = append(elems, p.parseCasePattern())
+		if p.peek().Kind != lexer.TokComma {
+			break
+		}
+		p.advance()
+	}
+	p.expect(lexer.TokRParen)
+	return &ast.TupleCasePattern{Pos: p.posOf(open), Elems: elems}
 }
 
 // parseTemplateCasePattern parses `TypeName { field[: sub], ... }`. The type name
@@ -462,6 +474,8 @@ func (p *parser) parseLocalPrimary() ast.LocalExpr {
 			return &ast.LocalCallExpr{Pos: p.posOf(nameTok), FnAlias: nameTok.Value, Args: args}
 		}
 		return &ast.LocalRefExpr{Pos: p.posOf(nameTok), Name: nameTok.Value}
+	case lexer.TokLParen:
+		return p.parseLocalTupleExpr()
 	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit,
 		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket, lexer.TokMinus:
 		lit := p.parseLiteral()
@@ -470,6 +484,22 @@ func (p *parser) parseLocalPrimary() ast.LocalExpr {
 		p.errorf(t, "expected expression, got %s %q", kindName(t.Kind), t.Value)
 		return &ast.LocalLitExpr{Pos: p.posOf(t), Value: &ast.BoolLiteral{}}
 	}
+}
+
+func (p *parser) parseLocalTupleExpr() ast.LocalExpr {
+	open := p.advance()
+	first := p.parseLocalExpr()
+	if p.peek().Kind != lexer.TokComma {
+		p.expect(lexer.TokRParen)
+		return first
+	}
+	elems := []ast.LocalExpr{first}
+	for p.peek().Kind == lexer.TokComma {
+		p.advance()
+		elems = append(elems, p.parseLocalExpr())
+	}
+	p.expect(lexer.TokRParen)
+	return &ast.LocalTupleExpr{Pos: p.posOf(open), Elems: elems}
 }
 
 func (p *parser) parseLocalIfExpr() ast.LocalExpr {

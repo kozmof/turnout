@@ -4,17 +4,17 @@
 
 This document defines the literal type and pattern matching model for Turnout.
 
-Production scope for `feature/literal-template-types` is Phases 1–4:
+Production scope for `feature/literal-template-types` is Phases 1–5:
 
 * scalar literal types
 * template parsing and validation
 * typed construction
 * template destructuring patterns
+* combined tuple/product patterns
 
-Phase 5 requires tuple values in the expression, canonical-model, and runtime
-type systems. Those value semantics do not exist yet, so combined tuple patterns
-are an explicitly deferred follow-up and are not part of this branch's
-production acceptance criteria. Phase 6 remains future work.
+Phase 5 adds tuple expressions and combined tuple patterns. Tuple subjects are preserved
+in the canonical local-expression model and lowered to ordinary executable graph
+operations, including nested template destructuring. Phase 6 remains future work.
 
 The specification introduces:
 
@@ -2148,11 +2148,7 @@ Implement:
 * remainder refinement
 * template shadowing detection
 
-## Phase 5: Combined patterns (deferred)
-
-This phase is not part of the initial production scope. It must be implemented
-with tuple value semantics across the full compiler/runtime pipeline; tuple
-pattern syntax must remain rejected until that prerequisite exists.
+## Phase 5: Combined patterns
 
 Implement:
 
