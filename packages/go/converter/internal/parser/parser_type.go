@@ -194,9 +194,6 @@ func (p *parser) parseTemplateCapture(runes []rune, start int, pos ast.Pos) (*as
 			depth++
 		case '}':
 			depth--
-			if depth == 0 {
-				break
-			}
 		}
 		if depth == 0 {
 			break
