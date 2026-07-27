@@ -10,3 +10,5 @@
 .buf-cache
 .tools
 .git-home
+
+.codex/
