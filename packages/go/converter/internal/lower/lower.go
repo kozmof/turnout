@@ -28,7 +28,7 @@ type LowerResult struct {
 }
 
 // LowerResolvingState resolves the STATE schema from basePath (the directory of
-// the input .turn file) and then calls Lower. Use this when the source file may
+// the input .tu file) and then calls Lower. Use this when the source file may
 // contain a state_file directive; it avoids the two-step
 // state.Resolve + Lower call sequence that callers otherwise must get right.
 // Declaration order from the state source is preserved in the emitted HCL.
@@ -413,7 +413,7 @@ func lowerNextRule(nr *ast.NextRule, schema state.Schema, ds *diag.DiagSink) *tu
 	// A deterministic transition (its condition is unconditionally true) carries
 	// no information at runtime: evaluateNextRules treats a rule with no compute
 	// block as an unconditional match. Drop the trivially-true compute so the
-	// canonical model — and the re-emitted `.turn` — uses the concise
+	// canonical model — and the re-emitted `.tu` — uses the concise
 	// `next { action = ... }` form. The verbose `|?| c:bool = true` shape and the
 	// concise form therefore lower to an identical model.
 	if isDeterministicNext(nr) {

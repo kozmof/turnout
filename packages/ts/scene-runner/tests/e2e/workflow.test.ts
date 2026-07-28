@@ -1,7 +1,7 @@
 /**
  * E2E: ai_workflow scene
  *
- * Pipeline: workflow.turn → workflow.json → runHarness → STATE assertions.
+ * Pipeline: workflow.tu → workflow.json → runHarness → STATE assertions.
  *
  * Scene: ai_workflow
  *   analyze ─[need_grounding & kb_enabled]→ retrieve → draft_with_context → safety_check

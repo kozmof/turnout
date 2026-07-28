@@ -493,11 +493,11 @@ func TestStandaloneGT(t *testing.T) {
 // ── integration: real example files ──────────────────────────────────────────
 
 func TestExampleFileSceneGraph(t *testing.T) {
-	src, err := os.ReadFile("../../../../../spec/examples/scene-graph-with-actions.turn")
+	src, err := os.ReadFile("../../../../../spec/examples/scene-graph-with-actions.tu")
 	if err != nil {
 		t.Skipf("example file not found: %v", err)
 	}
-	toks, ds := Tokenize("scene-graph-with-actions.turn", string(src))
+	toks, ds := Tokenize("scene-graph-with-actions.tu", string(src))
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("%s", d.Format())
@@ -514,11 +514,11 @@ func TestExampleFileSceneGraph(t *testing.T) {
 }
 
 func TestExampleFileDetective(t *testing.T) {
-	src, err := os.ReadFile("../../../../../spec/examples/detective-phase.turn")
+	src, err := os.ReadFile("../../../../../spec/examples/detective-phase.tu")
 	if err != nil {
 		t.Skipf("example file not found: %v", err)
 	}
-	toks, ds := Tokenize("detective-phase.turn", string(src))
+	toks, ds := Tokenize("detective-phase.tu", string(src))
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("%s", d.Format())

@@ -165,12 +165,12 @@ func TestLowerStaleDeclarationOrderIsError(t *testing.T) {
 	t.Parallel()
 
 	// Build a TurnFile with a state_file directive (so lowerCore uses the schema path).
-	src := `state_file = "fake.turn"
+	src := `state_file = "fake.tu"
 scene "s" {
   entry_actions = ["a"]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
@@ -206,7 +206,7 @@ scene "s" {
 func lowerDiagnosticsFromSource(t *testing.T, src string, mutate func(*ast.TurnFile)) diag.Diagnostics {
 	t.Helper()
 
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}

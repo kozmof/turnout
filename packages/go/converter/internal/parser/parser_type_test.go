@@ -11,7 +11,7 @@ import (
 func parseTypeDecls(t *testing.T, decls string) []*ast.TypeDecl {
 	t.Helper()
 	src := decls + "\n" + minimalStateScene
-	tf, ds := ParseFile("test.turn", src)
+	tf, ds := ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}
@@ -130,7 +130,7 @@ scene "s" {
   }
 }
 `
-	tf, ds := ParseFile("test.turn", src)
+	tf, ds := ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}
@@ -167,7 +167,7 @@ scene "s" {
   }
 }
 `
-	tf, ds := ParseFile("test.turn", src)
+	tf, ds := ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}

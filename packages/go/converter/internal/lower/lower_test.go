@@ -27,7 +27,7 @@ func mustLower(t *testing.T, src string) *turnoutpb.TurnModel {
 // mustLowerResult is like mustLower but returns the full LowerResult.
 func mustLowerResult(t *testing.T, src string) *lower.LowerResult {
 	t.Helper()
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Logf("parse diag: %s", d.Format())
@@ -135,15 +135,15 @@ func TestLowerStateFileProducesSchema(t *testing.T) {
     label:str    = ""
   }
 }`
-	if err := os.WriteFile(filepath.Join(dir, "mystate.turn"), []byte(stateContent), 0o644); err != nil {
+	if err := os.WriteFile(filepath.Join(dir, "mystate.tu"), []byte(stateContent), 0o644); err != nil {
 		t.Fatalf("write state file: %v", err)
 	}
-	src := `state_file = "mystate.turn"
+	src := `state_file = "mystate.tu"
 scene "s" {
   entry_actions = ["a"]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }`
-	tf, ds := parser.ParseFile(filepath.Join(dir, "test.turn"), src)
+	tf, ds := parser.ParseFile(filepath.Join(dir, "test.tu"), src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
@@ -970,7 +970,7 @@ scene "s" {
   entry_actions = ["a"]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}
@@ -1008,7 +1008,7 @@ scene "s" {
   entry_actions = ["a"]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected parse errors: %v", ds)
 	}

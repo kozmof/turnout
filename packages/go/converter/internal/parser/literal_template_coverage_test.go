@@ -39,7 +39,7 @@ func TestMalformedLiteralTemplateSyntaxDiagnostics(t *testing.T) {
 	}
 	for _, decl := range cases {
 		t.Run(decl, func(t *testing.T) {
-			_, ds := ParseFile("bad.turn", decl+"\n"+minimalStateScene)
+			_, ds := ParseFile("bad.tu", decl+"\n"+minimalStateScene)
 			if !ds.HasErrors() {
 				t.Fatal("expected parse diagnostic")
 			}
@@ -55,7 +55,7 @@ scene "s" { action "a" { compute { prog "p" {
   |^| out: T = T { 42 = 1, v = 2 }
 } } } }
 `
-	_, ds := ParseFile("bad.turn", src)
+	_, ds := ParseFile("bad.tu", src)
 	if !ds.HasErrors() {
 		t.Fatal("expected invalid capture-name diagnostic")
 	}

@@ -20,7 +20,7 @@ func TestParseStateFileValid(t *testing.T) {
     active:bool  = false
   }
 }`
-	sb, ds := parser.ParseStateFile("schema.turn", src)
+	sb, ds := parser.ParseStateFile("schema.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected errors: %v", ds)
 	}
@@ -34,7 +34,7 @@ func TestParseStateFileValid(t *testing.T) {
 
 func TestParseStateFileNoStateBlock(t *testing.T) {
 	// A file with no state block → error
-	_, ds := parser.ParseStateFile("empty.turn", "")
+	_, ds := parser.ParseStateFile("empty.tu", "")
 	if !ds.HasErrors() {
 		t.Error("expected error for state file with no state block")
 	}
@@ -42,8 +42,8 @@ func TestParseStateFileNoStateBlock(t *testing.T) {
 
 func TestParseStateFileWithStateFileDirective(t *testing.T) {
 	// state_file directive instead of literal block → error
-	src := `state_file = "other.turn"`
-	_, ds := parser.ParseStateFile("bad.turn", src)
+	src := `state_file = "other.tu"`
+	_, ds := parser.ParseStateFile("bad.tu", src)
 	if !ds.HasErrors() {
 		t.Error("expected error when state file contains state_file directive")
 	}
@@ -51,7 +51,7 @@ func TestParseStateFileWithStateFileDirective(t *testing.T) {
 
 func TestParseStateFileLexError(t *testing.T) {
 	// Invalid token causes lex error → ParseStateFile returns error
-	_, ds := parser.ParseStateFile("bad.turn", `"unterminated`)
+	_, ds := parser.ParseStateFile("bad.tu", `"unterminated`)
 	if !ds.HasErrors() {
 		t.Error("expected error for lex error in state file")
 	}
@@ -78,7 +78,7 @@ scene "test" {
     }
   }
 }`
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if !ds.HasErrors() {
 		t.Fatal("expected keyword-led dotted path to be rejected")
 	}
@@ -319,7 +319,7 @@ scene "test" {
   }
 }`
 	// Parser may recover or fail — we just check it doesn't panic.
-	parser.ParseFile("test.turn", src) //nolint
+	parser.ParseFile("test.tu", src) //nolint
 }
 
 // ── parseBindingDecl error recovery ───────────────────────────────────────────
@@ -427,7 +427,7 @@ func TestParseAllInfixOperators(t *testing.T) {
     }
   }`)
 		}
-		tf, ds := parser.ParseFile("test.turn", src)
+		tf, ds := parser.ParseFile("test.tu", src)
 		if ds.HasErrors() {
 			t.Errorf("op %q: unexpected parse errors: %v", tc.op, ds)
 			continue
@@ -525,7 +525,7 @@ scene "test" {
 // ── Integration: parse example files ──────────────────────────────────────────
 
 func TestParseFromFileExample(t *testing.T) {
-	data, err := os.ReadFile("../../../../../spec/examples/scene-graph-with-actions.turn")
+	data, err := os.ReadFile("../../../../../spec/examples/scene-graph-with-actions.tu")
 	if err != nil {
 		t.Skip("example file not found")
 	}
@@ -534,7 +534,7 @@ func TestParseFromFileExample(t *testing.T) {
 	if !strings.Contains(src, "state {") && !strings.Contains(src, "state_file") {
 		src = "state {}\n" + src
 	}
-	_, ds := parser.ParseFile("example.turn", src)
+	_, ds := parser.ParseFile("example.tu", src)
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("parse error: %s", d.Format())
@@ -551,7 +551,7 @@ func TestParseStateFileFromTemp(t *testing.T) {
     value:str = "default"
   }
 }`
-	path := filepath.Join(dir, "schema.turn")
+	path := filepath.Join(dir, "schema.tu")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("write: %v", err)
 	}
@@ -568,7 +568,7 @@ func TestParseStateFileFromTemp(t *testing.T) {
 // ── Lines 17-19: ParseFile lex error ─────────────────────────────────────────
 
 func TestParseFileLexError(t *testing.T) {
-	_, ds := parser.ParseFile("bad.turn", `"unterminated`)
+	_, ds := parser.ParseFile("bad.tu", `"unterminated`)
 	if !ds.HasErrors() {
 		t.Error("expected lex error")
 	}
@@ -590,7 +590,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — just verify no panic
+	parser.ParseFile("test.tu", src) //nolint — just verify no panic
 }
 
 // ── Lines 193-194: parseRefVal default: number as ref value ───────────────────
@@ -606,7 +606,7 @@ func TestParseRefValNumberLiteral(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 213-216: parseFieldType TokType invalid array element type ──────────
@@ -676,7 +676,7 @@ func TestParseTransformBodyNonIdent(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 345-347: transform body unknown field ───────────────────────────────
@@ -728,7 +728,7 @@ func TestParseCondBlockNonIdentToken(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 546-548: cond block no condExpr (nil → CondExprRef fallback) ────────
@@ -746,7 +746,7 @@ func TestParseCondBlockNoCond(t *testing.T) {
     }
   }`)
 	// Parser should recover (condExpr set to fallback), may or may not produce errors
-	parser.ParseFile("test.turn", src) //nolint
+	parser.ParseFile("test.tu", src) //nolint
 }
 
 // ── Lines 573-576: parsePipeCompatRHS non-ident field name ───────────────────
@@ -762,7 +762,7 @@ func TestParsePipeCompatRHSNonIdentField(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 584-585: parsePipeCompatRHS unknown field ──────────────────────────
@@ -822,7 +822,7 @@ func TestParsePipeStepsListNonIdentFn(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 686-688: parsePipeArgsBlock non-ident param name ───────────────────
@@ -838,7 +838,7 @@ func TestParsePipeArgsBlockNonIdentParam(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 723-726: parseIfBody non-ident token ───────────────────────────────
@@ -856,7 +856,7 @@ func TestParseIfBodyNonIdentToken(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 737-739: parseIfBody unknown field ─────────────────────────────────
@@ -891,7 +891,7 @@ func TestParseCondExprNonIdent(t *testing.T) {
       }
     }
   }`)
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 850-852: parseComputeBlock unexpected token ────────────────────────
@@ -925,7 +925,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 891-895: parsePrepareBlock from_literal ────────────────────────────
@@ -944,7 +944,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — parser accepts, validator may reject
+	parser.ParseFile("test.tu", src) //nolint — parser accepts, validator may reject
 }
 
 // ── Lines 896-899: parsePrepareBlock unexpected token in entry ────────────────
@@ -963,7 +963,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 903-906: parsePrepareBlock no source (empty entry body) ─────────────
@@ -982,7 +982,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 927-930: parseMergeBlock non-ident binding name ────────────────────
@@ -1002,7 +1002,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 943-946: parseMergeBlock unexpected token in merge entry ────────────
@@ -1021,7 +1021,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 975-978: parsePublishBlock unexpected token ────────────────────────
@@ -1038,7 +1038,7 @@ scene "test" {
     publish { unknown = "x" hook = "h" }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1006-1009: parseNextBlock unexpected token ─────────────────────────
@@ -1059,7 +1059,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1032-1035: parseNextComputeBlock unexpected token ──────────────────
@@ -1082,7 +1082,7 @@ scene "test" {
     }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1049-1052: parseNextPrepareBlock non-ident binding name ─────────────
@@ -1109,7 +1109,7 @@ scene "test" {
     compute { prog "p" { |^| v:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1074-1076: parseNextPrepareBlock unknown token in entry ─────────────
@@ -1135,7 +1135,7 @@ scene "test" {
     compute { prog "p" { |^| v:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1081-1084: parseNextPrepareBlock no source ─────────────────────────
@@ -1161,7 +1161,7 @@ scene "test" {
     compute { prog "p" { |^| v:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1112-1116: parseActionBlock duplicate triple-quoted text ────────────
@@ -1177,7 +1177,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1124-1126: parseActionBlock text = with non-string value ────────────
@@ -1192,7 +1192,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1127-1131: parseActionBlock duplicate text = ───────────────────────
@@ -1208,7 +1208,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1142-1145: parseActionBlock unexpected token ───────────────────────
@@ -1223,7 +1223,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1170-1172: parseViewBlock flow with non-string value ───────────────
@@ -1240,7 +1240,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1178-1181: parseViewBlock unexpected token ─────────────────────────
@@ -1258,7 +1258,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1213-1216: parseSceneBlock unexpected token ────────────────────────
@@ -1273,7 +1273,7 @@ scene "test" {
     compute { prog "p" { |^| r:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1251-1254: parseInlineStateBlock non-ident namespace ───────────────
@@ -1290,7 +1290,7 @@ scene "test" {
     compute { prog "p" { |^| v:bool = true } }
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1312-1315: parseRouteBlock unknown token ────────────────────────────
@@ -1310,7 +1310,7 @@ route "r1" {
     test => test
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1380-1383: parsePathExpr invalid first token ───────────────────────
@@ -1329,7 +1329,7 @@ route "r1" {
     42 => test
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1396-1402: parsePathExpr dot followed by invalid segment ────────────
@@ -1348,7 +1348,7 @@ route "r1" {
     test.42 => test
   }
 }`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 // ── Lines 1462-1463: parseFile unexpected ident at top level ─────────────────
@@ -1363,7 +1363,7 @@ scene "s" {
   }
 }
 someident = 1`
-	parser.ParseFile("test.turn", src) //nolint — error recovery test
+	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
 func TestParseNamedArgsAreErrors(t *testing.T) {
@@ -1376,7 +1376,7 @@ func TestParseNamedArgsAreErrors(t *testing.T) {
       }
     }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if !hasParserDiagCode(ds, diag.CodeNamedArgNotSupported) {
 		t.Fatalf("want NamedArgNotSupported error diagnostic, got %v", ds)
 	}
@@ -1392,7 +1392,7 @@ func TestParseLocalNamedArgsAreErrors(t *testing.T) {
       }
     }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if !hasParserDiagCode(ds, diag.CodeNamedArgNotSupported) {
 		t.Fatalf("want NamedArgNotSupported error diagnostic, got %v", ds)
 	}
@@ -1414,7 +1414,7 @@ func TestParserRecoveryReportsSiblingActionBlockErrors(t *testing.T) {
     also_bad { ignored = true }
     compute { prog "p" { |^| v:bool = true } }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if countParserDiagnosticsContaining(ds, "action block") < 2 {
 		t.Fatalf("expected recovery to report both malformed action siblings, got %v", ds)
 	}
@@ -1430,7 +1430,7 @@ func TestParserRecoveryReportsSiblingPrepareEntryErrors(t *testing.T) {
       v { from_state = ns.val }
     }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if countParserDiagnosticsContaining(ds, "prepare block") < 2 {
 		t.Fatalf("expected recovery to report both malformed prepare siblings, got %v", ds)
 	}
@@ -1446,7 +1446,7 @@ func TestParserRecoveryReportsSiblingNextItemErrors(t *testing.T) {
       action = a
     }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if countParserDiagnosticsContaining(ds, "next block") < 2 {
 		t.Fatalf("expected recovery to report both malformed next siblings, got %v", ds)
 	}

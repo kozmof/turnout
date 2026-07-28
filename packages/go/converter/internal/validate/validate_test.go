@@ -20,7 +20,7 @@ import (
 // so that validation errors from validate.Validate() are always reachable
 // even if lower() returns errors too.
 func pipeline(src string) diag.Diagnostics {
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		return ds
 	}

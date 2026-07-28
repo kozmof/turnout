@@ -2,7 +2,7 @@
  * E2E: safeBaseDir path hardening + converter stdin path.
  *
  * Exercises the real Go converter (not mocks) to confirm that, with
- * `safeBaseDir` set, the bridge reads the .turn itself (TOCTOU-hardened) and
+ * `safeBaseDir` set, the bridge reads the .tu itself (TOCTOU-hardened) and
  * streams it to the converter over stdin, producing a model identical to the
  * unhardened path — and that symlink escapes out of the base are rejected.
  */
@@ -48,12 +48,12 @@ beforeAll(() => {
   });
 
   baseDir = mkdtempSync(join(tmpRoot, "base-"));
-  turnPath = join(baseDir, "story.turn");
+  turnPath = join(baseDir, "story.tu");
   writeFileSync(turnPath, TURN_SRC, "utf8");
 });
 
 describe("safeBaseDir converter (stdin hardening)", () => {
-  it("converts a contained .turn via stdin, matching the unhardened path", async () => {
+  it("converts a contained .tu via stdin, matching the unhardened path", async () => {
     const hardened = await runConverter(turnPath, { binPath: turnoutBin, safeBaseDir: baseDir });
     const plain = await runConverter(turnPath, { binPath: turnoutBin });
 
@@ -62,9 +62,9 @@ describe("safeBaseDir converter (stdin hardening)", () => {
   });
 
   it("rejects a symlink inside the base that points outside it", async () => {
-    const secret = join(tmpRoot, "secret.turn");
+    const secret = join(tmpRoot, "secret.tu");
     writeFileSync(secret, TURN_SRC, "utf8");
-    const link = join(baseDir, "escape.turn");
+    const link = join(baseDir, "escape.tu");
     symlinkSync(secret, link);
 
     await expect(
@@ -73,9 +73,9 @@ describe("safeBaseDir converter (stdin hardening)", () => {
   });
 
   it("rejects an absolute state_file outside safeBaseDir", async () => {
-    const outsideState = join(tmpRoot, "outside.state.turn");
+    const outsideState = join(tmpRoot, "outside.state.tu");
     writeFileSync(outsideState, "state { ns { v:number = 0 } }", "utf8");
-    const source = join(baseDir, "absolute-state-file.turn");
+    const source = join(baseDir, "absolute-state-file.tu");
     writeFileSync(
       source,
       "state_file = " +
@@ -135,11 +135,11 @@ describe("loadTurnFile with safeBaseDir", () => {
 
 describe("containPath", () => {
   it("returns the contained absolute path", () => {
-    expect(containPath("story.turn", baseDir)).toBe(turnPath);
+    expect(containPath("story.tu", baseDir)).toBe(turnPath);
   });
 
   it("rejects sibling directories sharing only a name prefix", () => {
-    expect(() => containPath(`${baseDir}-other/x.turn`, baseDir)).toThrow(
+    expect(() => containPath(`${baseDir}-other/x.tu`, baseDir)).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
     );
   });

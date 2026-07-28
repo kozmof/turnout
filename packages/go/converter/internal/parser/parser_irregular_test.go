@@ -47,7 +47,7 @@ func TestParseIrregularTopLevelErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, ds := parser.ParseFile("bad.turn", tc.src)
+			_, ds := parser.ParseFile("bad.tu", tc.src)
 			if !ds.HasErrors() {
 				t.Fatal("expected parse errors")
 			}
@@ -143,7 +143,7 @@ scene "test" {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
-			_, ds := parser.ParseFile("bad.turn", tc.src)
+			_, ds := parser.ParseFile("bad.tu", tc.src)
 			if !ds.HasErrors() {
 				t.Fatal("expected parse errors")
 			}
@@ -164,7 +164,7 @@ func TestParseFileParseDiagnosticsAreCapped(t *testing.T) {
 	for range 1000 {
 		sb.WriteString("foo\n")
 	}
-	_, ds := parser.ParseFile("bad.turn", sb.String())
+	_, ds := parser.ParseFile("bad.tu", sb.String())
 	if !ds.HasErrors() {
 		t.Fatal("expected parse errors")
 	}

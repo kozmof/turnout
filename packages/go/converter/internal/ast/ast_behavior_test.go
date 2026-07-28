@@ -7,7 +7,7 @@ import (
 )
 
 func TestLiteralConstructorsTypesAndProtoConversion(t *testing.T) {
-	pos := Pos{File: "values.turn", Line: 3, Col: 7}
+	pos := Pos{File: "values.tu", Line: 3, Col: 7}
 	number := NewNumberLiteral(pos, 42)
 	str := NewStringLiteral(pos, "ok")
 	boolean := NewBoolLiteral(pos, true)

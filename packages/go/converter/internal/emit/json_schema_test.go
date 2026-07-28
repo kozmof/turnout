@@ -73,7 +73,7 @@ route "main" {
     _ => "s"
   }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}

@@ -84,8 +84,8 @@ func readLimited(r io.Reader, maxBytes int64) ([]byte, error) {
 
 func printUsage() {
 	fmt.Fprintln(os.Stderr, "Usage:")
-	fmt.Fprintln(os.Stderr, "  turnout convert  <input.turn> [-o output.hcl] [-state-file path] [-format hcl|json]")
-	fmt.Fprintln(os.Stderr, "  turnout validate <input.turn> [-state-file path]")
+	fmt.Fprintln(os.Stderr, "  turnout convert  <input.tu> [-o output.hcl] [-state-file path] [-format hcl|json]")
+	fmt.Fprintln(os.Stderr, "  turnout validate <input.tu> [-state-file path]")
 	fmt.Fprintln(os.Stderr, "  turnout version")
 }
 

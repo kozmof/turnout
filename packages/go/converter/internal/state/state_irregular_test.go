@@ -58,7 +58,7 @@ func TestResolveIrregularStateFileErrorsAreMapped(t *testing.T) {
 		},
 		{
 			name:     "state_file_directive_instead_of_state_block",
-			content:  `state_file = "other.turn"`,
+			content:  `state_file = "other.tu"`,
 			wantCode: diag.CodeMissingStateBlock,
 		},
 		{
@@ -73,7 +73,7 @@ func TestResolveIrregularStateFileErrorsAreMapped(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			path := writeFile(t, dir, tc.name+".turn", tc.content)
+			path := writeFile(t, dir, tc.name+".tu", tc.content)
 			d := &ast.StateFileDirective{Pos: pos(), Path: path}
 
 			_, ds := state.Resolve(d, dir)

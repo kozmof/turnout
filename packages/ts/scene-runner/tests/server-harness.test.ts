@@ -41,14 +41,14 @@ describe("runServerHarness", () => {
     mockRunConverter.mockResolvedValue(minimalModel);
 
     const result = await runServerHarness({
-      turnFile: "my.turn",
+      turnFile: "my.tu",
       entryId: "scene_a",
       initialState: {},
       allowUncheckedState: true,
       onWarning: () => {},
     });
 
-    expect(mockRunConverter).toHaveBeenCalledWith("my.turn", {});
+    expect(mockRunConverter).toHaveBeenCalledWith("my.tu", {});
     expect(result.trace.kind).toBe("scene");
   });
 
@@ -74,7 +74,7 @@ describe("runServerHarness", () => {
     mockRunConverter.mockResolvedValue(minimalModel);
 
     const result = await runServerHarness({
-      turnFile: "/workspace/models/story.turn",
+      turnFile: "/workspace/models/story.tu",
       allowedBaseDir: "/workspace/models",
       entryId: "scene_a",
       initialState: {},
@@ -82,7 +82,7 @@ describe("runServerHarness", () => {
       onWarning: () => {},
     });
 
-    expect(mockRunConverter).toHaveBeenCalledWith("/workspace/models/story.turn", {
+    expect(mockRunConverter).toHaveBeenCalledWith("/workspace/models/story.tu", {
       safeBaseDir: "/workspace/models",
     });
     expect(result.trace.kind).toBe("scene");
@@ -140,20 +140,20 @@ describe("runServerHarness", () => {
     mockRunConverter.mockRejectedValue(new DOMException("aborted", "AbortError"));
     await expect(
       runServerHarness({
-        turnFile: "my.turn",
+        turnFile: "my.tu",
         entryId: "scene_a",
         initialState: {},
         signal: controller.signal,
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
-    expect(mockRunConverter).toHaveBeenCalledWith("my.turn", { signal: controller.signal });
+    expect(mockRunConverter).toHaveBeenCalledWith("my.tu", { signal: controller.signal });
   });
 
   it("threads strictParse through to the bridge", async () => {
     mockRunConverter.mockResolvedValue(minimalModel);
 
     await runServerHarness({
-      turnFile: "my.turn",
+      turnFile: "my.tu",
       strictParse: true,
       entryId: "scene_a",
       initialState: {},
@@ -161,7 +161,7 @@ describe("runServerHarness", () => {
       onWarning: () => {},
     });
 
-    expect(mockRunConverter).toHaveBeenCalledWith("my.turn", { strictParse: true });
+    expect(mockRunConverter).toHaveBeenCalledWith("my.tu", { strictParse: true });
   });
 
   it("rejects paths that resolve outside allowedBaseDir", async () => {
@@ -180,7 +180,7 @@ describe("runServerHarness", () => {
   it("rejects sibling directories that only share the base prefix", async () => {
     await expect(
       runServerHarness({
-        turnFile: "/workspace/models-other/story.turn",
+        turnFile: "/workspace/models-other/story.tu",
         allowedBaseDir: "/workspace/models",
         entryId: "scene_a",
         initialState: {},
@@ -193,7 +193,7 @@ describe("runServerHarness", () => {
   it("throws when both turnFile and jsonFile are provided", async () => {
     await expect(
       runServerHarness({
-        turnFile: "story.turn",
+        turnFile: "story.tu",
         jsonFile: "model.json",
         entryId: "scene_a",
         initialState: {},

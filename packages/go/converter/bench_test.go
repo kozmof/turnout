@@ -74,7 +74,7 @@ scene "main" {
 func BenchmarkCompileSource(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		result, ds := converter.CompileSource("bench.turn", benchSrc, "")
+		result, ds := converter.CompileSource("bench.tu", benchSrc, "")
 		if ds.HasErrors() || result == nil {
 			b.Fatalf("compile failed: %v", ds)
 		}
@@ -85,7 +85,7 @@ func BenchmarkCompileSource(b *testing.B) {
 // LSP servers: schema is resolved once, then CompileWithSchema is called on
 // every keystroke without re-reading state_file from disk.
 func BenchmarkCompileWithSchema(b *testing.B) {
-	schema, order, ds := converter.ResolveSchema("bench.turn", benchSrc, "")
+	schema, order, ds := converter.ResolveSchema("bench.tu", benchSrc, "")
 	if ds.HasErrors() {
 		b.Fatalf("ResolveSchema failed: %v", ds)
 	}
@@ -93,7 +93,7 @@ func BenchmarkCompileWithSchema(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		result, errs := converter.CompileWithSchema("bench.turn", benchSrc, schema, order)
+		result, errs := converter.CompileWithSchema("bench.tu", benchSrc, schema, order)
 		if errs.HasErrors() || result == nil {
 			b.Fatalf("compile failed: %v", errs)
 		}
@@ -103,7 +103,7 @@ func BenchmarkCompileWithSchema(b *testing.B) {
 // BenchmarkValidateWithSchema benchmarks the lightest incremental path:
 // parse → lower (with pre-resolved schema) → validate. No emit.
 func BenchmarkValidateWithSchema(b *testing.B) {
-	schema, order, ds := converter.ResolveSchema("bench.turn", benchSrc, "")
+	schema, order, ds := converter.ResolveSchema("bench.tu", benchSrc, "")
 	if ds.HasErrors() {
 		b.Fatalf("ResolveSchema failed: %v", ds)
 	}
@@ -111,7 +111,7 @@ func BenchmarkValidateWithSchema(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		warnings, errs := converter.ValidateWithSchema("bench.turn", benchSrc, schema, order)
+		warnings, errs := converter.ValidateWithSchema("bench.tu", benchSrc, schema, order)
 		if errs.HasErrors() {
 			b.Fatalf("validate failed: %v", errs)
 		}

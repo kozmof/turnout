@@ -1,7 +1,7 @@
 /**
  * E2E: loan_flow scene
  *
- * Pipeline: scene-graph-full.turn → scene-graph.json → runHarness → STATE assertions.
+ * Pipeline: scene-graph-full.tu → scene-graph.json → runHarness → STATE assertions.
  *
  * Scene: loan_flow
  *   score → approve  (income >= 50000 AND debt <= 20000)

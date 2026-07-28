@@ -139,7 +139,7 @@ function execFileAsync(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Read a `.turn` file from disk and return its raw content as a string.
+ * Read a `.tu` file from disk and return its raw content as a string.
  * Server-only (uses Node.js `fs`).
  *
  * Pass `options.safeBaseDir` to restrict which paths may be read.
@@ -213,7 +213,7 @@ async function resolveTurnoutBin(signal?: AbortSignal): Promise<string> {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Invoke the Go converter on a .turn file and return the parsed TurnModel.
+ * Invoke the Go converter on a .tu file and return the parsed TurnModel.
  * Requires the `turnout` binary to be on PATH, or set `TURNOUT_BIN`, or pass
  * `options.binPath` to specify the binary directly.
  *
@@ -228,7 +228,7 @@ export async function runConverter(
 }
 
 /**
- * Invoke the Go converter on a `.turn` file and return the canonical HCL
+ * Invoke the Go converter on a `.tu` file and return the canonical HCL
  * output as a string.
  * Server-only (requires the `turnout` binary and Node.js `child_process`).
  *
@@ -242,7 +242,7 @@ export async function convertToHCL(turnFilePath: string, options?: BridgeOptions
 /**
  * Shared converter invocation for both JSON and HCL output.
  *
- * When `safeBaseDir` is set, the `.turn` source is read here (with TOCTOU
+ * When `safeBaseDir` is set, the `.tu` source is read here (with TOCTOU
  * hardening via `readContainedFile`) and streamed to the converter over stdin
  * with `-state-file <realBase>` — the child process never re-resolves the
  * caller-supplied path, closing the symlink-swap window. (A `state_file`

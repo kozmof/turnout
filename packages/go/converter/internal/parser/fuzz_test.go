@@ -8,7 +8,7 @@ import "testing"
 func FuzzParseFile(f *testing.F) {
 	seeds := []string{
 		`state { ns { count:number = 0 } } scene "s" { entry_actions = ["a"] action "a" {} }`,
-		`state_file = "state.turn" scene "s" { entry_actions = ["a"] }`,
+		`state_file = "state.tu" scene "s" { entry_actions = ["a"] }`,
 		``,
 		`scene "s" {}`,
 		`state {}`,

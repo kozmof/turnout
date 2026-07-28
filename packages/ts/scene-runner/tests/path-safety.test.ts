@@ -28,17 +28,17 @@ describe("resolveBaseDir", () => {
 describe("containPath", () => {
   it("accepts a relative path inside the base", () => {
     const base = process.cwd();
-    expect(containPath("sub/file.turn", base)).toBe(resolve(base, "sub/file.turn"));
+    expect(containPath("sub/file.tu", base)).toBe(resolve(base, "sub/file.tu"));
   });
 
   it("accepts in-base names that begin with two dots", () => {
     const base = process.cwd();
-    expect(containPath("..draft.turn", base)).toBe(resolve(base, "..draft.turn"));
-    expect(containPath("..draft/file.turn", base)).toBe(resolve(base, "..draft/file.turn"));
+    expect(containPath("..draft.tu", base)).toBe(resolve(base, "..draft.tu"));
+    expect(containPath("..draft/file.tu", base)).toBe(resolve(base, "..draft/file.tu"));
   });
 
   it("rejects a parent-directory escape", () => {
-    expect(() => containPath("../escape.turn", process.cwd())).toThrow(HarnessError);
+    expect(() => containPath("../escape.tu", process.cwd())).toThrow(HarnessError);
   });
 
   it("rejects an absolute path outside the base", () => {
@@ -49,7 +49,7 @@ describe("containPath", () => {
 describe("readContainedFile", () => {
   it("reads through the verified opened descriptor", () => {
     const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
-    const file = join(base, "model.turn");
+    const file = join(base, "model.tu");
     writeFileSync(file, "content", "utf8");
     expect(readContainedFile(file, base, 32)).toBe("content");
   });
@@ -64,9 +64,9 @@ describe("readContainedFile", () => {
 
   it("rejects a symlink that resolves outside the base", () => {
     const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
-    const outside = join(mkdtempSync(join(tmpdir(), "turnout-path-outside-")), "secret.turn");
+    const outside = join(mkdtempSync(join(tmpdir(), "turnout-path-outside-")), "secret.tu");
     writeFileSync(outside, "secret", "utf8");
-    const link = join(base, "link.turn");
+    const link = join(base, "link.tu");
     symlinkSync(outside, link);
     expect(() => readContainedFile(link, base, 32)).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
@@ -77,7 +77,7 @@ describe("readContainedFile", () => {
 describe("readContainedFileAsync", () => {
   it("reads through the verified descriptor asynchronously", async () => {
     const base = mkdtempSync(join(tmpdir(), "turnout-path-safe-"));
-    const file = join(base, "model.turn");
+    const file = join(base, "model.tu");
     writeFileSync(file, "async content", "utf8");
 
     await expect(readContainedFileAsync(file, base, 32)).resolves.toBe("async content");

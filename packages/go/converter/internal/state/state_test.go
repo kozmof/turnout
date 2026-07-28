@@ -12,7 +12,7 @@ import (
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-func pos() ast.Pos { return ast.Pos{File: "test.turn", Line: 1, Col: 1} }
+func pos() ast.Pos { return ast.Pos{File: "test.tu", Line: 1, Col: 1} }
 
 func numLit(v float64) *ast.NumberLiteral { return ast.NewNumberLiteral(pos(), v) }
 func strLit(v string) *ast.StringLiteral  { return ast.NewStringLiteral(pos(), v) }
@@ -153,7 +153,7 @@ func writeFile(t *testing.T, dir, name, content string) string {
 }
 
 func TestStateFileMissing(t *testing.T) {
-	d := &ast.StateFileDirective{Pos: pos(), Path: "nonexistent.turn"}
+	d := &ast.StateFileDirective{Pos: pos(), Path: "nonexistent.tu"}
 	_, ds := state.Resolve(d, t.TempDir())
 	if !hasError(ds, diag.CodeStateFileMissing) {
 		t.Errorf("want StateFileMissing, got %v", ds)
@@ -162,7 +162,7 @@ func TestStateFileMissing(t *testing.T) {
 
 func TestStateFileValid(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, dir, "mystate.turn", `
+	writeFile(t, dir, "mystate.tu", `
 state {
   applicant {
     income:number = 0
@@ -170,7 +170,7 @@ state {
   }
 }
 `)
-	d := &ast.StateFileDirective{Pos: pos(), Path: "mystate.turn"}
+	d := &ast.StateFileDirective{Pos: pos(), Path: "mystate.tu"}
 	schema, ds := state.Resolve(d, dir)
 	if ds.HasErrors() {
 		t.Fatalf("unexpected errors: %v", ds)
@@ -185,8 +185,8 @@ state {
 
 func TestStateFileParseError(t *testing.T) {
 	dir := t.TempDir()
-	writeFile(t, dir, "bad.turn", `state { applicant { !!!invalid`)
-	d := &ast.StateFileDirective{Pos: pos(), Path: "bad.turn"}
+	writeFile(t, dir, "bad.tu", `state { applicant { !!!invalid`)
+	d := &ast.StateFileDirective{Pos: pos(), Path: "bad.tu"}
 	_, ds := state.Resolve(d, dir)
 	if !hasError(ds, diag.CodeStateFileParseError) {
 		t.Errorf("want StateFileParseError, got %v", ds)
@@ -196,8 +196,8 @@ func TestStateFileParseError(t *testing.T) {
 func TestStateFileMissingStateBlock(t *testing.T) {
 	dir := t.TempDir()
 	// File with only state_file directive — no inline state block
-	writeFile(t, dir, "nodirect.turn", `state_file = "other.turn"`)
-	d := &ast.StateFileDirective{Pos: pos(), Path: "nodirect.turn"}
+	writeFile(t, dir, "nodirect.tu", `state_file = "other.tu"`)
+	d := &ast.StateFileDirective{Pos: pos(), Path: "nodirect.tu"}
 	_, ds := state.Resolve(d, dir)
 	if !hasError(ds, diag.CodeMissingStateBlock) {
 		t.Errorf("want MissingStateBlock, got %v", ds)
@@ -206,7 +206,7 @@ func TestStateFileMissingStateBlock(t *testing.T) {
 
 func TestStateFileAbsolutePath(t *testing.T) {
 	dir := t.TempDir()
-	absPath := writeFile(t, dir, "abs.turn", `
+	absPath := writeFile(t, dir, "abs.tu", `
 state {
   x {
     val:number = 7
@@ -226,7 +226,7 @@ state {
 func TestStateFileContainedRejectsAbsoluteEscape(t *testing.T) {
 	base := t.TempDir()
 	outside := t.TempDir()
-	absPath := writeFile(t, outside, "abs.turn", `
+	absPath := writeFile(t, outside, "abs.tu", `
 state {
   x {
     val:number = 7
@@ -243,18 +243,18 @@ state {
 func TestStateFileContainedRejectsSymlinkEscape(t *testing.T) {
 	base := t.TempDir()
 	outside := t.TempDir()
-	target := writeFile(t, outside, "target.turn", `
+	target := writeFile(t, outside, "target.tu", `
 state {
   x {
     val:number = 7
   }
 }
 `)
-	link := filepath.Join(base, "link.turn")
+	link := filepath.Join(base, "link.tu")
 	if err := os.Symlink(target, link); err != nil {
 		t.Skipf("symlink unavailable: %v", err)
 	}
-	d := &ast.StateFileDirective{Pos: pos(), Path: "link.turn"}
+	d := &ast.StateFileDirective{Pos: pos(), Path: "link.tu"}
 	_, _, ds := state.ResolveWithOrderContained(d, base)
 	if !hasError(ds, diag.CodeStateFileOutsideBase) {
 		t.Errorf("want StateFileOutsideBase, got %v", ds)
@@ -305,8 +305,8 @@ func TestFieldsOfReturnsCopy(t *testing.T) {
 func TestStateFileSizeLimits(t *testing.T) {
 	dir := t.TempDir()
 	content := "state { ns { value:number = 0 } }"
-	writeFile(t, dir, "state.turn", content)
-	d := &ast.StateFileDirective{Pos: pos(), Path: "state.turn"}
+	writeFile(t, dir, "state.tu", content)
+	d := &ast.StateFileDirective{Pos: pos(), Path: "state.tu"}
 
 	_, _, ds := state.ResolveWithOrderLimit(d, dir, 4)
 	if !hasError(ds, diag.CodeStateFileTooLarge) {

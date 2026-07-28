@@ -150,7 +150,7 @@ scene "s" {
 }
 
 func TestRunConvertPartialOutputCleanedUpOnConversionError(t *testing.T) {
-	// An invalid .turn file that fails compilation.
+	// An invalid .tu file that fails compilation.
 	path := writeTempTurnFile(t, "this is not valid turn syntax @@@")
 	dir := t.TempDir()
 	outPath := filepath.Join(dir, "out.json")
@@ -181,7 +181,7 @@ func TestRunConvertPartialOutputCleanedUpOnConversionError(t *testing.T) {
 func TestPrintDiagsWritesOneLinePerDiagnostic(t *testing.T) {
 	stdout, stderr, _ := captureProcessIO(t, func() int {
 		printDiags(diag.Diagnostics{
-			diag.ErrorAt("a.turn", 1, 2, "Code1", "first"),
+			diag.ErrorAt("a.tu", 1, 2, "Code1", "first"),
 			diag.Errorf("Code2", "second"),
 		})
 		return 0
@@ -194,7 +194,7 @@ func TestPrintDiagsWritesOneLinePerDiagnostic(t *testing.T) {
 	if len(lines) != 2 {
 		t.Fatalf("stderr lines = %d, want 2\nstderr:\n%s", len(lines), stderr)
 	}
-	if !strings.Contains(lines[0], "a.turn:1:2: error [Code1]: first") {
+	if !strings.Contains(lines[0], "a.tu:1:2: error [Code1]: first") {
 		t.Fatalf("first line = %q", lines[0])
 	}
 	if !strings.Contains(lines[1], "error [Code2]: second") {
@@ -205,7 +205,7 @@ func TestPrintDiagsWritesOneLinePerDiagnostic(t *testing.T) {
 func writeTempTurnFile(t *testing.T, src string) string {
 	t.Helper()
 
-	path := filepath.Join(t.TempDir(), "bad.turn")
+	path := filepath.Join(t.TempDir(), "bad.tu")
 	if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
 		t.Fatalf("WriteFile(%q): %v", path, err)
 	}

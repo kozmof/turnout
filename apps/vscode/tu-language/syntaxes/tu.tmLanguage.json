@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Turn",
-  "scopeName": "source.turn",
+  "scopeName": "source.tu",
   "fileTypes": ["turn"],
   "patterns": [
     { "include": "#docstring" },
@@ -25,33 +25,33 @@
     "docstring": {
       "begin": "\"\"\"",
       "end": "\"\"\"",
-      "name": "comment.block.documentation.turn",
+      "name": "comment.block.documentation.tu",
       "beginCaptures": {
-        "0": { "name": "punctuation.definition.comment.turn" }
+        "0": { "name": "punctuation.definition.comment.tu" }
       },
       "endCaptures": {
-        "0": { "name": "punctuation.definition.comment.turn" }
+        "0": { "name": "punctuation.definition.comment.tu" }
       }
     },
 
     "heredoc": {
       "begin": "(<<-EOT)",
       "end": "^(\\s*EOT)\\s*$",
-      "name": "string.unquoted.heredoc.turn",
+      "name": "string.unquoted.heredoc.tu",
       "beginCaptures": {
-        "1": { "name": "keyword.operator.heredoc.begin.turn" }
+        "1": { "name": "keyword.operator.heredoc.begin.tu" }
       },
       "endCaptures": {
-        "1": { "name": "keyword.operator.heredoc.end.turn" }
+        "1": { "name": "keyword.operator.heredoc.end.tu" }
       },
       "patterns": [
         {
           "match": "\\|=>",
-          "name": "keyword.operator.flow.turn"
+          "name": "keyword.operator.flow.tu"
         },
         {
           "match": "\\b[a-zA-Z_][a-zA-Z0-9_]*\\b",
-          "name": "variable.other.turn"
+          "name": "variable.other.tu"
         }
       ]
     },
@@ -60,7 +60,7 @@
       "comment": "Named properties on the left-hand side of an assignment. Must come before named-block so 'action =' is caught as a property rather than a block keyword.",
       "match": "\\b(entry_actions|next_policy|enforce|from_state|to_state|from_action|text|flow|action)\\b(?=\\s*=)",
       "captures": {
-        "1": { "name": "keyword.other.property.turn" }
+        "1": { "name": "keyword.other.property.tu" }
       }
     },
 
@@ -68,8 +68,8 @@
       "comment": "Block keywords that introduce a named (string-labeled) block: scene, view, action, prog.",
       "match": "\\b(scene|action|view|prog)\\b(\\s+(\"[^\"]*\"))?",
       "captures": {
-        "1": { "name": "keyword.declaration.turn" },
-        "3": { "name": "entity.name.section.turn" }
+        "1": { "name": "keyword.declaration.tu" },
+        "3": { "name": "entity.name.section.tu" }
       }
     },
 
@@ -77,7 +77,7 @@
       "comment": "Anonymous block keywords that open a block without a name.",
       "match": "\\b(compute|io|next|in|out)\\b",
       "captures": {
-        "1": { "name": "keyword.other.block.turn" }
+        "1": { "name": "keyword.other.block.tu" }
       }
     },
 
@@ -85,7 +85,7 @@
       "comment": "Binding markers designating the compute root (|^|) or transition condition (|?|). Written before any sigil on the last binding of a prog.",
       "match": "(\\|\\^\\||\\|\\?\\|)",
       "captures": {
-        "1": { "name": "keyword.operator.marker.turn" }
+        "1": { "name": "keyword.operator.marker.tu" }
       }
     },
 
@@ -93,8 +93,8 @@
       "comment": "Variable declarations prefixed with directional sigils: <~> (bidir), ~> (input), <~ (output).",
       "match": "(<~>|~>|<~)([a-zA-Z_][a-zA-Z0-9_]*)",
       "captures": {
-        "1": { "name": "keyword.operator.sigil.turn" },
-        "2": { "name": "variable.other.turn" }
+        "1": { "name": "keyword.operator.sigil.tu" },
+        "2": { "name": "variable.other.tu" }
       }
     },
 
@@ -102,7 +102,7 @@
       "comment": "Type suffix on variable declarations: :bool, :int, :str.",
       "match": ":(bool|int|str)\\b",
       "captures": {
-        "1": { "name": "storage.type.turn" }
+        "1": { "name": "storage.type.tu" }
       }
     },
 
@@ -110,51 +110,51 @@
       "comment": "Built-in function calls such as bool_and(...).",
       "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
       "captures": {
-        "1": { "name": "support.function.turn" }
+        "1": { "name": "support.function.tu" }
       }
     },
 
     "string": {
       "begin": "\"",
       "end": "\"",
-      "name": "string.quoted.double.turn"
+      "name": "string.quoted.double.tu"
     },
 
     "number": {
       "match": "-?\\b[0-9]+\\b",
-      "name": "constant.numeric.turn"
+      "name": "constant.numeric.tu"
     },
 
     "boolean": {
       "match": "\\b(true|false)\\b",
       "captures": {
-        "1": { "name": "constant.language.boolean.turn" }
+        "1": { "name": "constant.language.boolean.tu" }
       }
     },
 
     "flow-arrow": {
       "comment": "|=> flow routing arrows used in view flow.",
       "match": "\\|=>",
-      "name": "keyword.operator.flow.turn"
+      "name": "keyword.operator.flow.tu"
     },
 
     "computed-assign": {
       "comment": "=| computed/derived assignment operator. Must come before plain = to avoid splitting.",
       "match": "=\\|",
-      "name": "keyword.operator.assignment.computed.turn"
+      "name": "keyword.operator.assignment.computed.tu"
     },
 
     "operator": {
       "match": "(>=|<=|=|\\+|-|&|\\|)",
       "captures": {
-        "1": { "name": "keyword.operator.turn" }
+        "1": { "name": "keyword.operator.tu" }
       }
     },
 
     "identifier": {
       "comment": "Catch-all for remaining identifiers and dotted STATE paths.",
       "match": "\\b[a-zA-Z_][a-zA-Z0-9_.]*\\b",
-      "name": "variable.other.turn"
+      "name": "variable.other.tu"
     }
   }
 }

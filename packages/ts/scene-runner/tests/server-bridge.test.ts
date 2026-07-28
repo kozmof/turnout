@@ -84,15 +84,15 @@ beforeEach(() => {
 describe("loadTurnFile", () => {
   it("reads and returns file content as a string", () => {
     mockReadFile.mockReturnValue("turn file content");
-    const result = loadTurnFile("test.turn");
+    const result = loadTurnFile("test.tu");
     expect(result).toBe("turn file content");
-    expect(mockReadFile).toHaveBeenCalledWith("test.turn", "utf8");
+    expect(mockReadFile).toHaveBeenCalledWith("test.tu", "utf8");
   });
 
   it("rejects non-regular files", () => {
     mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => false });
 
-    expect(() => loadTurnFile("named-pipe.turn")).toThrow(
+    expect(() => loadTurnFile("named-pipe.tu")).toThrow(
       expect.objectContaining({ code: "InvalidFileType" }),
     );
   });
@@ -101,8 +101,8 @@ describe("loadTurnFile", () => {
     mockReadFile.mockImplementation(() => {
       throw new Error("ENOENT: no such file");
     });
-    expect(() => loadTurnFile("missing.turn")).toThrow(
-      'Cannot read turn file "missing.turn": ENOENT: no such file',
+    expect(() => loadTurnFile("missing.tu")).toThrow(
+      'Cannot read turn file "missing.tu": ENOENT: no such file',
     );
   });
 
@@ -111,7 +111,7 @@ describe("loadTurnFile", () => {
       // eslint-disable-next-line @typescript-eslint/only-throw-error
       throw "raw string error";
     });
-    expect(() => loadTurnFile("bad.turn")).toThrow("Cannot read turn file");
+    expect(() => loadTurnFile("bad.tu")).toThrow("Cannot read turn file");
   });
 });
 
@@ -170,14 +170,14 @@ describe("loadJsonModel", () => {
 describe("runConverter", () => {
   it("invokes the turnout binary and returns the parsed model", async () => {
     setupConvert();
-    const result = await runConverter("my.turn", { binPath: MOCK_BIN });
+    const result = await runConverter("my.tu", { binPath: MOCK_BIN });
     expect(result.scenes[0]!.id).toBe("scene_a");
     expect(mockExecFile).toHaveBeenCalled();
   });
 
   it("passes timeout and maxBuffer options to the execFile call", async () => {
     setupConvert();
-    await runConverter("my.turn", { binPath: MOCK_BIN });
+    await runConverter("my.tu", { binPath: MOCK_BIN });
     const opts = (mockExecFile.mock.calls[0] as unknown[])[2] as Record<string, unknown>;
     expect(opts).toMatchObject({ timeout: expect.any(Number), maxBuffer: expect.any(Number) });
   });
@@ -197,7 +197,7 @@ describe("runConverter", () => {
         return {};
       },
     );
-    const conversion = runConverter("my.turn", { binPath: MOCK_BIN, signal: controller.signal });
+    const conversion = runConverter("my.tu", { binPath: MOCK_BIN, signal: controller.signal });
     controller.abort();
     await expect(conversion).rejects.toMatchObject({ name: "AbortError" });
   });
@@ -205,7 +205,7 @@ describe("runConverter", () => {
   it("preserves AbortError while discovering the converter", async () => {
     const controller = new AbortController();
     controller.abort();
-    await expect(runConverter("my.turn", { signal: controller.signal })).rejects.toMatchObject({
+    await expect(runConverter("my.tu", { signal: controller.signal })).rejects.toMatchObject({
       name: "AbortError",
     });
     expect(mockExecFile).not.toHaveBeenCalled();
@@ -217,8 +217,8 @@ describe("runConverter", () => {
         cb(new Error("exit code 1"), Buffer.from(""), Buffer.from("line 1: parse error"));
       },
     );
-    await expect(runConverter("my.turn", { binPath: MOCK_BIN })).rejects.toThrow(
-      'turnout converter failed for "my.turn": exit code 1: line 1: parse error',
+    await expect(runConverter("my.tu", { binPath: MOCK_BIN })).rejects.toThrow(
+      'turnout converter failed for "my.tu": exit code 1: line 1: parse error',
     );
   });
 
@@ -229,8 +229,8 @@ describe("runConverter", () => {
         cb(Object.assign(new Error("raw string failure"), {}), Buffer.from(""), Buffer.from(""));
       },
     );
-    await expect(runConverter("my.turn", { binPath: MOCK_BIN })).rejects.toThrow(
-      'turnout converter failed for "my.turn"',
+    await expect(runConverter("my.tu", { binPath: MOCK_BIN })).rejects.toThrow(
+      'turnout converter failed for "my.tu"',
     );
   });
 
@@ -240,14 +240,14 @@ describe("runConverter", () => {
         cb(new RangeError("stdout maxBuffer length exceeded"), Buffer.from(""), Buffer.from(""));
       },
     );
-    await expect(runConverter("big.turn", { binPath: MOCK_BIN })).rejects.toMatchObject({
+    await expect(runConverter("big.tu", { binPath: MOCK_BIN })).rejects.toMatchObject({
       code: "BufferOverflow",
     });
   });
 
   it("uses binPath directly without a PATH probe when binPath is provided", async () => {
     setupConvert();
-    await runConverter("my.turn", { binPath: MOCK_BIN });
+    await runConverter("my.tu", { binPath: MOCK_BIN });
     // Only one execFile call: the conversion itself (no --help probe).
     expect(mockExecFile).toHaveBeenCalledTimes(1);
     const calledBin = (mockExecFile.mock.calls[0] as unknown[])[0] as string;
@@ -263,7 +263,7 @@ describe("runConverter", () => {
         cb(null, Buffer.from(JSON.stringify(minimalModel)), Buffer.from(""));
       });
 
-    const result = await runConverter("my.turn");
+    const result = await runConverter("my.tu");
 
     expect(result.scenes[0]!.id).toBe("scene_a");
     expect(mockExecFile).toHaveBeenNthCalledWith(
@@ -276,7 +276,7 @@ describe("runConverter", () => {
     expect(mockExecFile).toHaveBeenNthCalledWith(
       2,
       "turnout",
-      expect.arrayContaining(["convert", "my.turn"]),
+      expect.arrayContaining(["convert", "my.tu"]),
       expect.any(Object),
       expect.any(Function),
     );
@@ -294,7 +294,7 @@ describe("convertToHCL", () => {
         cb(null, Buffer.from("hcl content here"), Buffer.from(""));
       },
     );
-    const result = await convertToHCL("my.turn", { binPath: MOCK_BIN });
+    const result = await convertToHCL("my.tu", { binPath: MOCK_BIN });
     expect(result).toBe("hcl content here");
   });
 
@@ -304,8 +304,8 @@ describe("convertToHCL", () => {
         cb(new Error("converter error"), Buffer.from(""), Buffer.from(""));
       },
     );
-    await expect(convertToHCL("my.turn", { binPath: MOCK_BIN })).rejects.toThrow(
-      'turnout converter failed for "my.turn"',
+    await expect(convertToHCL("my.tu", { binPath: MOCK_BIN })).rejects.toThrow(
+      'turnout converter failed for "my.tu"',
     );
   });
 
@@ -315,8 +315,8 @@ describe("convertToHCL", () => {
         cb(Object.assign(new Error("42"), {}), Buffer.from(""), Buffer.from(""));
       },
     );
-    await expect(convertToHCL("my.turn", { binPath: MOCK_BIN })).rejects.toThrow(
-      'turnout converter failed for "my.turn"',
+    await expect(convertToHCL("my.tu", { binPath: MOCK_BIN })).rejects.toThrow(
+      'turnout converter failed for "my.tu"',
     );
   });
 
@@ -326,7 +326,7 @@ describe("convertToHCL", () => {
         cb(new RangeError("stdout maxBuffer length exceeded"), Buffer.from(""), Buffer.from(""));
       },
     );
-    await expect(convertToHCL("big.turn", { binPath: MOCK_BIN })).rejects.toMatchObject({
+    await expect(convertToHCL("big.tu", { binPath: MOCK_BIN })).rejects.toMatchObject({
       code: "BufferOverflow",
     });
   });
@@ -339,7 +339,7 @@ describe("convertToHCL", () => {
 describe("BridgeOptions.safeBaseDir", () => {
   it("loadTurnFile allows paths inside safeBaseDir", () => {
     mockReadFile.mockReturnValue("content");
-    expect(() => loadTurnFile("/base/sub/file.turn", { safeBaseDir: "/base" })).not.toThrow();
+    expect(() => loadTurnFile("/base/sub/file.tu", { safeBaseDir: "/base" })).not.toThrow();
   });
 
   it("loadTurnFile rejects paths outside safeBaseDir", () => {
@@ -350,9 +350,9 @@ describe("BridgeOptions.safeBaseDir", () => {
 
   it("loadTurnFile rejects symlinks that resolve outside safeBaseDir", () => {
     mockRealpath.mockImplementation((path: string) =>
-      path === "/base/link.turn" ? "/etc/passwd" : path,
+      path === "/base/link.tu" ? "/etc/passwd" : path,
     );
-    expect(() => loadTurnFile("/base/link.turn", { safeBaseDir: "/base" })).toThrow(
+    expect(() => loadTurnFile("/base/link.tu", { safeBaseDir: "/base" })).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
     );
   });
@@ -362,7 +362,7 @@ describe("BridgeOptions.safeBaseDir", () => {
     mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 10, isFile: () => true });
     mockStat.mockReturnValue({ size: 0, dev: 1, ino: 11, isFile: () => true });
 
-    expect(() => loadTurnFile("/base/file.turn", { safeBaseDir: "/base" })).toThrow(
+    expect(() => loadTurnFile("/base/file.tu", { safeBaseDir: "/base" })).toThrow(
       expect.objectContaining({ code: "PathOutsideBase" }),
     );
   });
@@ -381,7 +381,7 @@ describe("BridgeOptions.safeBaseDir", () => {
 
   it("convertToHCL rejects paths outside safeBaseDir", async () => {
     await expect(
-      convertToHCL("../../escape.turn", { binPath: MOCK_BIN, safeBaseDir: "/base" }),
+      convertToHCL("../../escape.tu", { binPath: MOCK_BIN, safeBaseDir: "/base" }),
     ).rejects.toMatchObject({ code: "PathOutsideBase" });
   });
 });
@@ -397,7 +397,7 @@ describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
     });
     let caught: unknown;
     try {
-      loadTurnFile("missing.turn");
+      loadTurnFile("missing.tu");
     } catch (e) {
       caught = e;
     }
@@ -413,7 +413,7 @@ describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
     );
     let caught: unknown;
     try {
-      await runConverter("my.turn", { binPath: MOCK_BIN });
+      await runConverter("my.tu", { binPath: MOCK_BIN });
     } catch (e) {
       caught = e;
     }
@@ -436,7 +436,7 @@ describe("isLoadError / isBridgeError / isHarnessError type guards", () => {
 describe("BridgeOptions input limits", () => {
   it("rejects an oversized turn file before reading it", () => {
     mockFstat.mockReturnValue({ size: 5, dev: 1, ino: 1, isFile: () => true });
-    expect(() => loadTurnFile("large.turn", { maxInputBytes: 4 })).toThrow(
+    expect(() => loadTurnFile("large.tu", { maxInputBytes: 4 })).toThrow(
       expect.objectContaining({ code: "InputTooLarge" }),
     );
     expect(mockRead).not.toHaveBeenCalled();
@@ -445,14 +445,14 @@ describe("BridgeOptions input limits", () => {
   it("rejects a file that grows beyond the limit after opening", () => {
     mockReadFile.mockReturnValue("12345");
     mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => true });
-    expect(() => loadTurnFile("growing.turn", { maxInputBytes: 4 })).toThrow(
+    expect(() => loadTurnFile("growing.tu", { maxInputBytes: 4 })).toThrow(
       expect.objectContaining({ code: "InputTooLarge" }),
     );
   });
 
   it("passes configured source and state limits to the converter", async () => {
     setupConvert();
-    await runConverter("model.turn", {
+    await runConverter("model.tu", {
       binPath: MOCK_BIN,
       maxInputBytes: 123,
       maxStateFileBytes: 456,

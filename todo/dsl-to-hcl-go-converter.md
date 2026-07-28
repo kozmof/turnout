@@ -1,6 +1,6 @@
 # Turn DSL → Canonical HCL Converter (Go CLI) — Implementation Plan
 
-> Scope: Go CLI that reads `.turn` files and emits canonical plain HCL conforming to all spec files in `spec/`.
+> Scope: Go CLI that reads `.tu` files and emits canonical plain HCL conforming to all spec files in `spec/`.
 > Pipeline: `Turn DSL --[Go CLI]--> HCL file --[TypeScript runtime]--> STATE mutations`
 
 ---
@@ -8,7 +8,7 @@
 ## Architecture Overview
 
 ```
-.turn file
+.tu file
   └── Lexer          → token stream
         └── Parser   → AST
               └── State Resolver   → resolved STATE schema (inline or state_file)
@@ -35,7 +35,7 @@
   - `internal/validate/` — structural + type validation
   - `internal/emit/` — HCL emitter
   - `internal/diag/` — diagnostic / error types
-- [x] CLI flags: `turnout convert <input.turn> [-o output.hcl]`
+- [x] CLI flags: `turnout convert <input.tu> [-o output.hcl]`
 
 ---
 
@@ -378,7 +378,7 @@ scene "<id>" {
 
 ## Phase 9 — CLI Entry Point (`cmd/turnout`)
 
-- [x] Accept positional argument: input `.turn` file path
+- [x] Accept positional argument: input `.tu` file path
 - [x] Accept optional `-o` flag: output `.hcl` file path (default: same name, `.hcl` extension)
 - [x] Exit code `0` on success; `1` on any diagnostic error
 - [x] Print diagnostics to stderr in structured format: `<file>:<line>:<col>: error [<code>]: <message>`
@@ -406,7 +406,7 @@ Lower and validate the `route` block after scene conversion is complete.
 ### Unit tests
 
 - [x] Lexer: all token types, sigil disambiguation, typed key splitting
-- [x] Parser: each AST node type; round-trip parse of all example `.turn` files; route block tests
+- [x] Parser: each AST node type; round-trip parse of all example `.tu` files; route block tests
 - [x] State resolver: inline block, `state_file` load, all error codes
 - [x] Lowering: each DSL form → expected canonical HCL model; idempotency
 - [x] Validation: each error code triggered by its trigger condition

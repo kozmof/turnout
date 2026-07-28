@@ -7,7 +7,7 @@ import { createRunner } from "../runner.js";
  * Accepts a pre-parsed TurnModel, builds STATE, then dispatches to the route
  * or scene executor based on `entryId`.
  *
- * To load a model from a .turn or .json file (Node.js only), use
+ * To load a model from a .tu or .json file (Node.js only), use
  * `runServerHarness` from the server entry point instead.
  *
  * Dispatch rules:

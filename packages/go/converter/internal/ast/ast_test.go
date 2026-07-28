@@ -222,9 +222,9 @@ func TestInfixOpFnAliasForType(t *testing.T) {
 // ── Pos ───────────────────────────────────────────────────────────────────────
 
 func TestPosString(t *testing.T) {
-	p := ast.Pos{File: "foo.turn", Line: 10, Col: 5}
-	if got := p.String(); got != "foo.turn:10:5" {
-		t.Errorf("Pos.String() = %q, want %q", got, "foo.turn:10:5")
+	p := ast.Pos{File: "foo.tu", Line: 10, Col: 5}
+	if got := p.String(); got != "foo.tu:10:5" {
+		t.Errorf("Pos.String() = %q, want %q", got, "foo.tu:10:5")
 	}
 	p2 := ast.Pos{Line: 3, Col: 7}
 	if got := p2.String(); got != "3:7" {
@@ -264,7 +264,7 @@ func TestFromActionNextPrepareOnly(t *testing.T) {
 // ── Construction smoke tests ──────────────────────────────────────────────────
 
 func TestTurnFileConstruction(t *testing.T) {
-	p := ast.Pos{File: "test.turn", Line: 1, Col: 1}
+	p := ast.Pos{File: "test.tu", Line: 1, Col: 1}
 	tf := &ast.TurnFile{
 		StateSource: &ast.InlineStateBlock{
 			Pos: p,
@@ -416,9 +416,9 @@ func TestArrayLiteral(t *testing.T) {
 }
 
 func TestStateFileDirective(t *testing.T) {
-	d := &ast.StateFileDirective{Path: "../state/schema.turn"}
+	d := &ast.StateFileDirective{Path: "../state/schema.tu"}
 	var _ ast.StateSource = d
-	if d.Path != "../state/schema.turn" {
+	if d.Path != "../state/schema.tu" {
 		t.Errorf("Path = %q", d.Path)
 	}
 }

@@ -35,7 +35,7 @@ scene "start" {
 func writeTempFile(t *testing.T, content string) string {
 	t.Helper()
 	dir := t.TempDir()
-	path := filepath.Join(dir, "test.turn")
+	path := filepath.Join(dir, "test.tu")
 	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
 		t.Fatalf("writeTempFile: %v", err)
 	}
@@ -66,7 +66,7 @@ func TestCompile_success(t *testing.T) {
 }
 
 func TestValidatedModelModelReturnsClone(t *testing.T) {
-	result, ds := converter.CompileSource("inline.turn", simpleTurnSrc, "")
+	result, ds := converter.CompileSource("inline.tu", simpleTurnSrc, "")
 	if ds.HasErrors() || result == nil {
 		t.Fatalf("CompileSource failed: result=%v diagnostics=%v", result, ds)
 	}
@@ -91,7 +91,7 @@ func TestValidatedModelModelReturnsClone(t *testing.T) {
 }
 
 func TestCompile_missingFile(t *testing.T) {
-	result, ds := converter.Compile("/nonexistent/path/test.turn", "")
+	result, ds := converter.Compile("/nonexistent/path/test.tu", "")
 	if result != nil {
 		t.Fatal("expected nil result for missing file")
 	}
@@ -112,7 +112,7 @@ func TestCompile_parseError(t *testing.T) {
 }
 
 func TestCompileSource_success(t *testing.T) {
-	result, ds := converter.CompileSource("inline.turn", simpleTurnSrc, "")
+	result, ds := converter.CompileSource("inline.tu", simpleTurnSrc, "")
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Logf("diag: %s", d.Format())
@@ -134,7 +134,7 @@ func TestCompileSource_success(t *testing.T) {
 }
 
 func TestCompileSource_parseError(t *testing.T) {
-	result, ds := converter.CompileSource("inline.turn", "@@@ not valid turn syntax @@@", "")
+	result, ds := converter.CompileSource("inline.tu", "@@@ not valid turn syntax @@@", "")
 	if result != nil {
 		t.Fatal("expected nil result for invalid syntax")
 	}
@@ -148,17 +148,17 @@ func TestCompileSource_parseError(t *testing.T) {
 // prior CompileSource call.
 func TestCompileToModelWithSchema(t *testing.T) {
 	// First pass: full compile to extract schema + order.
-	first, ds := converter.CompileSource("inline.turn", simpleTurnSrc, "")
+	first, ds := converter.CompileSource("inline.tu", simpleTurnSrc, "")
 	if ds.HasErrors() {
 		t.Fatalf("CompileSource failed: %v", ds)
 	}
-	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	schema, order, schemaDiags := converter.ResolveSchema("inline.tu", simpleTurnSrc, "")
 	if schemaDiags.HasErrors() {
 		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
 	}
 
 	// Second pass: compile using the pre-resolved schema — skips state I/O.
-	lr, ds2 := converter.CompileToModelWithSchema("inline.turn", simpleTurnSrc, schema, order)
+	lr, ds2 := converter.CompileToModelWithSchema("inline.tu", simpleTurnSrc, schema, order)
 	if ds2.HasErrors() {
 		t.Fatalf("CompileToModelWithSchema returned errors: %v", ds2)
 	}
@@ -180,7 +180,7 @@ func TestCompileToModelWithSchema(t *testing.T) {
 // TestResolveSchema verifies that ResolveSchema returns a non-empty schema and
 // order slice for a source that contains a STATE block.
 func TestResolveSchema(t *testing.T) {
-	schema, order, ds := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	schema, order, ds := converter.ResolveSchema("inline.tu", simpleTurnSrc, "")
 	if ds.HasErrors() {
 		t.Fatalf("ResolveSchema failed: %v", ds)
 	}
@@ -193,13 +193,13 @@ func TestResolveSchema(t *testing.T) {
 }
 
 func TestCompileWithSchemaRejectsStaleSchema(t *testing.T) {
-	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	schema, order, schemaDiags := converter.ResolveSchema("inline.tu", simpleTurnSrc, "")
 	if schemaDiags.HasErrors() {
 		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
 	}
 
 	changedSrc := strings.Replace(simpleTurnSrc, "count:number = 0", "count:number = 1", 1)
-	result, errs := converter.CompileWithSchema("inline.turn", changedSrc, schema, order)
+	result, errs := converter.CompileWithSchema("inline.tu", changedSrc, schema, order)
 	if result != nil {
 		t.Fatal("expected nil result for stale cached schema")
 	}
@@ -213,13 +213,13 @@ func TestCompileWithSchemaRejectsStaleSchema(t *testing.T) {
 
 func TestCompileWithSchemaDoesNotRereadStateFile(t *testing.T) {
 	dir := t.TempDir()
-	statePath := filepath.Join(dir, "schema.turn")
+	statePath := filepath.Join(dir, "schema.tu")
 	if err := os.WriteFile(statePath, []byte("state { ns { count:number = 0 } }"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	src := `state_file = "schema.turn"
+	src := `state_file = "schema.tu"
 scene "start" { entry_actions = ["init"] action "init" {} }`
-	name := filepath.Join(dir, "main.turn")
+	name := filepath.Join(dir, "main.tu")
 	schema, order, ds := converter.ResolveSchema(name, src, "")
 	if ds.HasErrors() {
 		t.Fatalf("ResolveSchema failed: %v", ds)
@@ -236,13 +236,13 @@ scene "start" { entry_actions = ["init"] action "init" {} }`
 // TestCompileWithSchema verifies the three cases: success (no errors, warnings
 // is nil), parse error propagation, and validate error propagation.
 func TestCompileWithSchema(t *testing.T) {
-	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	schema, order, schemaDiags := converter.ResolveSchema("inline.tu", simpleTurnSrc, "")
 	if schemaDiags.HasErrors() {
 		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
 	}
 
 	t.Run("success", func(t *testing.T) {
-		result, errs := converter.CompileWithSchema("inline.turn", simpleTurnSrc, schema, order)
+		result, errs := converter.CompileWithSchema("inline.tu", simpleTurnSrc, schema, order)
 		if errs.HasErrors() {
 			t.Fatalf("CompileWithSchema returned errors on valid input: %v", errs)
 		}
@@ -258,7 +258,7 @@ func TestCompileWithSchema(t *testing.T) {
 	})
 
 	t.Run("parse_error", func(t *testing.T) {
-		result, errs := converter.CompileWithSchema("inline.turn", "@@@ not valid @@@", schema, order)
+		result, errs := converter.CompileWithSchema("inline.tu", "@@@ not valid @@@", schema, order)
 		if result != nil {
 			t.Fatal("expected nil result on parse error")
 		}
@@ -290,7 +290,7 @@ scene "start" {
   }
 }
 `
-		result, errs := converter.CompileWithSchema("inline.turn", badSrc, schema, order)
+		result, errs := converter.CompileWithSchema("inline.tu", badSrc, schema, order)
 		if result != nil {
 			t.Fatal("expected nil result on validate error")
 		}
@@ -303,13 +303,13 @@ scene "start" {
 // TestValidateWithSchema verifies: success returns (warnings, nil), parse error
 // returns (nil, errors), and validate error returns (nil, errors).
 func TestValidateWithSchema(t *testing.T) {
-	schema, order, schemaDiags := converter.ResolveSchema("inline.turn", simpleTurnSrc, "")
+	schema, order, schemaDiags := converter.ResolveSchema("inline.tu", simpleTurnSrc, "")
 	if schemaDiags.HasErrors() {
 		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
 	}
 
 	t.Run("success", func(t *testing.T) {
-		warnings, errs := converter.ValidateWithSchema("inline.turn", simpleTurnSrc, schema, order)
+		warnings, errs := converter.ValidateWithSchema("inline.tu", simpleTurnSrc, schema, order)
 		if errs.HasErrors() {
 			t.Fatalf("ValidateWithSchema returned errors on valid input: %v", errs)
 		}
@@ -318,7 +318,7 @@ func TestValidateWithSchema(t *testing.T) {
 	})
 
 	t.Run("parse_error", func(t *testing.T) {
-		warnings, errs := converter.ValidateWithSchema("inline.turn", "@@@ not valid @@@", schema, order)
+		warnings, errs := converter.ValidateWithSchema("inline.tu", "@@@ not valid @@@", schema, order)
 		if warnings != nil {
 			t.Fatal("expected nil warnings on parse error")
 		}
@@ -349,7 +349,7 @@ scene "start" {
   }
 }
 `
-		warnings, errs := converter.ValidateWithSchema("inline.turn", badSrc, schema, order)
+		warnings, errs := converter.ValidateWithSchema("inline.tu", badSrc, schema, order)
 		if warnings != nil {
 			t.Fatal("expected nil warnings on validate error")
 		}
@@ -361,12 +361,12 @@ scene "start" {
 
 func TestCompileRejectsOversizedStateFile(t *testing.T) {
 	dir := t.TempDir()
-	schemaPath := filepath.Join(dir, "schema.turn")
+	schemaPath := filepath.Join(dir, "schema.tu")
 	if err := os.WriteFile(schemaPath, []byte("state { ns { value:number = 0 } }"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	sourcePath := filepath.Join(dir, "source.turn")
-	source := "state_file = \"schema.turn\"\nscene \"s\" { entry_actions = [] }"
+	sourcePath := filepath.Join(dir, "source.tu")
+	source := "state_file = \"schema.tu\"\nscene \"s\" { entry_actions = [] }"
 	if err := os.WriteFile(sourcePath, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}

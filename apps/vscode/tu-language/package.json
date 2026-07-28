@@ -1,0 +1,30 @@
+{
+  "name": "tu-language",
+  "displayName": "Tu Language",
+  "description": "Syntax highlighting for .tu scene graph files",
+  "version": "0.1.0",
+  "publisher": "turnout",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "tu",
+        "aliases": ["Tu", "tu"],
+        "extensions": [".tu"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "tu",
+        "scopeName": "source.tu",
+        "path": "./syntaxes/tu.tmLanguage.json"
+      }
+    ]
+  }
+}

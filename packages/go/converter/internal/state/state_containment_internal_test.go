@@ -8,11 +8,11 @@ import (
 
 func TestReadOpenedContainedStateFileRejectsMismatchedInode(t *testing.T) {
 	base := t.TempDir()
-	insidePath := filepath.Join(base, "inside.turn")
+	insidePath := filepath.Join(base, "inside.tu")
 	if err := os.WriteFile(insidePath, []byte("inside"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	outsidePath := filepath.Join(t.TempDir(), "outside.turn")
+	outsidePath := filepath.Join(t.TempDir(), "outside.tu")
 	if err := os.WriteFile(outsidePath, []byte("outside"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -30,7 +30,7 @@ func TestReadOpenedContainedStateFileRejectsMismatchedInode(t *testing.T) {
 
 func TestReadOpenedContainedStateFileReadsPinnedDescriptor(t *testing.T) {
 	base := t.TempDir()
-	path := filepath.Join(base, "state.turn")
+	path := filepath.Join(base, "state.tu")
 	if err := os.WriteFile(path, []byte("safe"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -51,7 +51,7 @@ func TestReadOpenedContainedStateFileReadsPinnedDescriptor(t *testing.T) {
 }
 
 func TestReadOpenedContainedStateFileRejectsInvalidBaseAndOutsidePath(t *testing.T) {
-	outsidePath := filepath.Join(t.TempDir(), "outside.turn")
+	outsidePath := filepath.Join(t.TempDir(), "outside.tu")
 	if err := os.WriteFile(outsidePath, []byte("outside"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestReadOpenedContainedStateFileRejectsInvalidBaseAndOutsidePath(t *testing
 
 func TestReadOpenedContainedStateFileReportsDescriptorAndReadFailures(t *testing.T) {
 	base := t.TempDir()
-	path := filepath.Join(base, "state.turn")
+	path := filepath.Join(base, "state.tu")
 	if err := os.WriteFile(path, []byte("safe"), 0o600); err != nil {
 		t.Fatal(err)
 	}

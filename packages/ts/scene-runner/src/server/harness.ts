@@ -7,7 +7,7 @@ import { HarnessError } from "./errors.js";
 import { containPath } from "./path-safety.js";
 
 export type ServerHarnessOptions = {
-  /** Path to a .turn file — the Go converter will be invoked to produce JSON. */
+  /** Path to a .tu file — the Go converter will be invoked to produce JSON. */
   turnFile?: string;
   /** Path to a pre-converted .json file — skips the converter invocation. */
   jsonFile?: string;
@@ -64,7 +64,7 @@ function resolveHarnessPath(filePath: string, allowedBaseDir: string | undefined
 /**
  * Server-only harness entry point.
  *
- * Loads a TurnModel from a `.turn` file (via Go converter) or a pre-built
+ * Loads a TurnModel from a `.tu` file (via Go converter) or a pre-built
  * `.json` file, then delegates to the universal `runHarness`.
  *
  * Do not use this in browser or edge environments — it requires Node.js

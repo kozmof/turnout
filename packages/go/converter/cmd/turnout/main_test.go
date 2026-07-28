@@ -150,8 +150,8 @@ func TestRunConvertAcceptsFlagsAfterInput(t *testing.T) {
 func TestReorderFlagArgsPreservesSeparator(t *testing.T) {
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	fs.String("format", "hcl", "")
-	got := reorderFlagArgs(fs, []string{"-format", "json", "--", "-input.turn"})
-	want := []string{"-format", "json", "--", "-input.turn"}
+	got := reorderFlagArgs(fs, []string{"-format", "json", "--", "-input.tu"})
+	want := []string{"-format", "json", "--", "-input.tu"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("reorderFlagArgs() = %q, want %q", got, want)
 	}
@@ -253,7 +253,7 @@ func TestRunConvertSuccessToFile(t *testing.T) {
 
 func TestRunConvertDefaultOutputExtensionHCL(t *testing.T) {
 	path := writeTempTurnFile(t, validTurnSrc)
-	expectedOut := strings.TrimSuffix(path, ".turn") + ".hcl"
+	expectedOut := strings.TrimSuffix(path, ".tu") + ".hcl"
 
 	_, _, rc := captureProcessIO(t, func() int {
 		return runConvert([]string{path})

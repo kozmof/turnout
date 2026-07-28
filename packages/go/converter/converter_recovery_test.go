@@ -65,14 +65,14 @@ func TestRecoverValidatePanic(t *testing.T) {
 }
 
 func TestCompileSourceRejectsOversizedInput(t *testing.T) {
-	result, ds := CompileSourceWithOptions("large.turn", "12345", "", Options{Limits: Limits{MaxSourceBytes: 4}})
+	result, ds := CompileSourceWithOptions("large.tu", "12345", "", Options{Limits: Limits{MaxSourceBytes: 4}})
 	if result != nil || !ds.HasErrors() || ds[0].Code != diag.CodeInputTooLarge {
 		t.Fatalf("expected InputTooLarge, got result=%v diagnostics=%v", result, ds)
 	}
 }
 
 func TestCompileRejectsOversizedFile(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "large.turn")
+	path := filepath.Join(t.TempDir(), "large.tu")
 	if err := os.WriteFile(path, []byte("12345"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func TestCompileOptionsRejectNegativeLimits(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, ds := CompileSourceWithOptions("input.turn", "", "", Options{Limits: tt.limits})
+			result, ds := CompileSourceWithOptions("input.tu", "", "", Options{Limits: tt.limits})
 			if result != nil || !ds.HasErrors() || len(ds) != 1 || ds[0].Code != diag.CodeInvalidOption {
 				t.Fatalf("expected InvalidOption, got result=%v diagnostics=%v", result, ds)
 			}

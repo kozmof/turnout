@@ -25,7 +25,7 @@ scene "test" {
 
 func mustParse(t *testing.T, src string) *ast.TurnFile {
 	t.Helper()
-	tf, diags := parser.ParseFile("test.turn", src)
+	tf, diags := parser.ParseFile("test.tu", src)
 	if diags.HasErrors() {
 		for _, d := range diags {
 			t.Logf("diagnostic: %s", d.Format())
@@ -37,7 +37,7 @@ func mustParse(t *testing.T, src string) *ast.TurnFile {
 
 func mustParseFail(t *testing.T, src string) {
 	t.Helper()
-	_, diags := parser.ParseFile("test.turn", src)
+	_, diags := parser.ParseFile("test.tu", src)
 	if !diags.HasErrors() {
 		t.Fatal("expected parse errors but got none")
 	}
@@ -90,7 +90,7 @@ scene "s" {
 }
 
 func TestParseStateFileDirective(t *testing.T) {
-	src := `state_file = "loan.state.turn"
+	src := `state_file = "loan.state.tu"
 
 scene "s" {
   entry_actions = ["a"]
@@ -106,8 +106,8 @@ scene "s" {
 	if !ok {
 		t.Fatalf("expected *StateFileDirective, got %T", tf.StateSource)
 	}
-	if sd.Path != "loan.state.turn" {
-		t.Errorf("path = %q, want %q", sd.Path, "loan.state.turn")
+	if sd.Path != "loan.state.tu" {
+		t.Errorf("path = %q, want %q", sd.Path, "loan.state.tu")
 	}
 }
 
@@ -124,7 +124,7 @@ func TestMissingStateSourceError(t *testing.T) {
 
 func TestConflictingStateSourceError(t *testing.T) {
 	src := `state {}
-state_file = "x.turn"
+state_file = "x.tu"
 scene "s" { entry_actions = ["a"] action "a" { compute { prog "p" { |^| v:bool = true } } } }
 `
 	mustParseFail(t, src)
@@ -390,7 +390,7 @@ func TestRHSNamedFuncCall(t *testing.T) {
       }
     }
   }`)
-	_, ds := parser.ParseFile("test.turn", src)
+	_, ds := parser.ParseFile("test.tu", src)
 	if !ds.HasErrors() {
 		t.Fatal("expected named function call args to be rejected")
 	}
@@ -808,7 +808,7 @@ func parseWithDummyState(t *testing.T, path string) *ast.TurnFile {
 }
 
 func TestExampleSceneGraphWithActions(t *testing.T) {
-	tf := parseWithDummyState(t, "../../../../../spec/examples/scene-graph-with-actions.turn")
+	tf := parseWithDummyState(t, "../../../../../spec/examples/scene-graph-with-actions.tu")
 	if tf.Scenes[0].ID != "loan_flow" {
 		t.Errorf("scene ID = %q", tf.Scenes[0].ID)
 	}
@@ -823,7 +823,7 @@ func TestExampleSceneGraphWithActions(t *testing.T) {
 }
 
 func TestExampleDetectivePhase(t *testing.T) {
-	data, err := os.ReadFile("../../../../../spec/examples/detective-phase.turn")
+	data, err := os.ReadFile("../../../../../spec/examples/detective-phase.tu")
 	if err != nil {
 		t.Skip("detective example not found")
 	}
@@ -831,7 +831,7 @@ func TestExampleDetectivePhase(t *testing.T) {
 	if trimmed := strings.TrimSpace(src); !strings.HasPrefix(trimmed, "state") {
 		src = "state {}\n" + src
 	}
-	tf, diags := parser.ParseFile("detective-phase.turn", src)
+	tf, diags := parser.ParseFile("detective-phase.tu", src)
 	if diags.HasErrors() {
 		for _, d := range diags {
 			t.Logf("diag: %s", d.Format())
@@ -844,14 +844,14 @@ func TestExampleDetectivePhase(t *testing.T) {
 }
 
 func TestExampleAdventureStory(t *testing.T) {
-	tf := parseWithDummyState(t, "../../../../../spec/examples/adventure-story-graph-with-actions.turn")
+	tf := parseWithDummyState(t, "../../../../../spec/examples/adventure-story-graph-with-actions.tu")
 	if tf.Scenes[0] == nil {
 		t.Fatal("scene is nil")
 	}
 }
 
 func TestExampleLLMWorkflow(t *testing.T) {
-	tf := parseWithDummyState(t, "../../../../../spec/examples/llm-workflow-with-actions.turn")
+	tf := parseWithDummyState(t, "../../../../../spec/examples/llm-workflow-with-actions.tu")
 	if tf.Scenes[0] == nil {
 		t.Fatal("scene is nil")
 	}

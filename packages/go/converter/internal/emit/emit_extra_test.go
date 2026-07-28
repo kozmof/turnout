@@ -16,7 +16,7 @@ import (
 // pipelineModel runs parse→state→lower→validate and returns the lowered model.
 func pipelineModel(t *testing.T, src string) *turnoutpb.TurnModel {
 	t.Helper()
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}

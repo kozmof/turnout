@@ -1,6 +1,6 @@
 # E2E Test Framework — Implementation Plan
 
-> Pipeline under test: `.turn` → Go CLI converter → canonical HCL → TypeScript scene runner → STATE assertions
+> Pipeline under test: `.tu` → Go CLI converter → canonical HCL → TypeScript scene runner → STATE assertions
 
 ---
 
@@ -358,7 +358,7 @@ Location: `packages/ts/scene-runner/tests/e2e/`
 
 ### Single-scene tests (current examples, no `route` block)
 
-> Note: example `.turn` files in `spec/examples/` have no `state` block. The bridge must prepend a minimal `state {}` or the tests must supply a state file. The converter requires a state source.
+> Note: example `.tu` files in `spec/examples/` have no `state` block. The bridge must prepend a minimal `state {}` or the tests must supply a state file. The converter requires a state source.
 
 #### `llm-workflow.test.ts`
 
@@ -374,7 +374,7 @@ Similar path-coverage tests (2–3 paths per file).
 
 ### Route-level tests
 
-#### `tests/fixtures/two-scene-route.turn` (to be authored)
+#### `tests/fixtures/two-scene-route.tu` (to be authored)
 
 A minimal two-scene workflow with a `state` block, two scenes, and a `route` block.
 
@@ -431,7 +431,7 @@ packages/ts/scene-runner/        ✅ new package (pnpm, vitest, @types/node)
   tests/
     state-manager.test.ts         ✅ 7 passing unit tests
     fixtures/
-      two-scene-route.turn
+      two-scene-route.tu
     e2e/
       llm-workflow.test.ts
       scene-graph-with-actions.test.ts

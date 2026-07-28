@@ -1,7 +1,7 @@
 /**
  * E2E: v1 local expressions matrix
  *
- * Pipeline: generated .turn DSL -> Go converter -> proto JSON -> scene-runner
+ * Pipeline: generated .tu DSL -> Go converter -> proto JSON -> scene-runner
  * runtime -> STATE/output assertions.
  *
  * Matrix:
@@ -74,7 +74,7 @@ function valueOf(v: unknown): number | string | undefined {
 }
 
 function writeTurn(name: string, src: string) {
-  const path = join(tmpRoot, `${name}.turn`);
+  const path = join(tmpRoot, `${name}.tu`);
   writeFileSync(path, src, "utf8");
   return path;
 }

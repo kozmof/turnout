@@ -18,7 +18,7 @@ import (
 // fullPipeline parses src, lowers, validates, and emits. Returns the HCL string.
 func fullPipeline(t *testing.T, src string) string {
 	t.Helper()
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Logf("parse: %s", d.Format())
@@ -532,7 +532,7 @@ scene "scene_1" {
 route "route_1" {
   match { _ => scene_1 }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse failed: %v", ds)
 	}
@@ -658,17 +658,17 @@ scene "s" {
     score:number = 0
   }
 }`
-	if err := os.WriteFile(dir+"/app.state.turn", []byte(stateFileContent), 0o644); err != nil {
+	if err := os.WriteFile(dir+"/app.state.tu", []byte(stateFileContent), 0o644); err != nil {
 		t.Fatalf("write state file: %v", err)
 	}
-	stateFileSrc := `state_file = "app.state.turn"
+	stateFileSrc := `state_file = "app.state.tu"
 scene "s" {
   entry_actions = ["a"]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 `
 	// Pipeline for state_file source
-	tf2, ds := parser.ParseFile(dir+"/test.turn", stateFileSrc)
+	tf2, ds := parser.ParseFile(dir+"/test.tu", stateFileSrc)
 	if ds.HasErrors() {
 		t.Fatalf("parse state_file src: %v", ds)
 	}
@@ -707,7 +707,7 @@ func hasTopLevelState(src string) bool {
 	return strings.Contains(src, "state_file") || reTopLevelState.MatchString(src)
 }
 
-// pipelineFromFile runs an example .turn file through parse → state-resolve only
+// pipelineFromFile runs an example .tu file through parse → state-resolve only
 // (no lower/validate/emit) to verify the file is well-formed. It returns the
 // parse diagnostics so the caller can assert no errors.
 //
@@ -726,7 +726,7 @@ func pipelineFromFile(t *testing.T, path string) string {
 	if !hasTopLevelState(src) {
 		src = "state {}\n" + src
 	}
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Logf("parse: %s", d.Format())
@@ -748,27 +748,27 @@ func pipelineFromFile(t *testing.T, path string) string {
 const examplesDir = "../../../../../spec/examples"
 
 func TestIntegrationSceneGraphWithActions(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/scene-graph-with-actions.turn")
+	pipelineFromFile(t, examplesDir+"/scene-graph-with-actions.tu")
 }
 
 func TestIntegrationDetectivePhase(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/detective-phase.turn")
+	pipelineFromFile(t, examplesDir+"/detective-phase.tu")
 }
 
 func TestIntegrationAdventureStory(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/adventure-story-graph-with-actions.turn")
+	pipelineFromFile(t, examplesDir+"/adventure-story-graph-with-actions.tu")
 }
 
 func TestIntegrationLLMWorkflow(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/llm-workflow-with-actions.turn")
+	pipelineFromFile(t, examplesDir+"/llm-workflow-with-actions.tu")
 }
 
 func TestIntegrationAllExamplesParseClean(t *testing.T) {
 	examples := []string{
-		examplesDir + "/scene-graph-with-actions.turn",
-		examplesDir + "/detective-phase.turn",
-		examplesDir + "/adventure-story-graph-with-actions.turn",
-		examplesDir + "/llm-workflow-with-actions.turn",
+		examplesDir + "/scene-graph-with-actions.tu",
+		examplesDir + "/detective-phase.tu",
+		examplesDir + "/adventure-story-graph-with-actions.tu",
+		examplesDir + "/llm-workflow-with-actions.tu",
 	}
 	for _, path := range examples {
 		t.Run(path, func(t *testing.T) {
@@ -806,7 +806,7 @@ scene "test_scene" {
     compute { prog "h" { |^| ok:bool = true } }
   }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
@@ -861,7 +861,7 @@ scene "s" {
     merge   { out { to_state = app.result } }
   }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}
@@ -891,7 +891,7 @@ scene "test" {
     }
   }
 }`
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse: %v", ds)
 	}

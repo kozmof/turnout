@@ -1,7 +1,7 @@
 /**
  * E2E: proto schema-drift guard
  *
- * Converts representative .turn fixtures with the freshly-built Go binary and
+ * Converts representative .tu fixtures with the freshly-built Go binary and
  * parses the JSON output with `strictParse: true`, which rejects any unknown
  * proto field. This fails loudly if the Go emitter and the TS-side
  * `TurnModelSchema` drift apart — a class of bug the lenient production default
@@ -45,12 +45,12 @@ beforeAll(() => {
 // Canonical examples spanning scenes, routes, actions, STATE effects, and
 // local expressions — the broadest exercise of the proto surface available.
 const examples = [
-  "adventure-story-graph-with-actions.turn",
-  "customer-onboarding-multi-scene.turn",
-  "detective-phase.turn",
-  "kitchen-sink-support-pipeline.turn",
-  "llm-workflow-with-actions.turn",
-  "scene-graph-with-actions.turn",
+  "adventure-story-graph-with-actions.tu",
+  "customer-onboarding-multi-scene.tu",
+  "detective-phase.tu",
+  "kitchen-sink-support-pipeline.tu",
+  "llm-workflow-with-actions.tu",
+  "scene-graph-with-actions.tu",
 ];
 
 describe("proto schema-drift guard", () => {
@@ -63,16 +63,16 @@ describe("proto schema-drift guard", () => {
   }
 });
 
-// Each committed JSON fixture is the converted output of its .turn source. These
-// can silently rot when the grammar or emitter evolves but the .turn/.json pair
+// Each committed JSON fixture is the converted output of its .tu source. These
+// can silently rot when the grammar or emitter evolves but the .tu/.json pair
 // is not regenerated. Assert the source still converts to the committed artifact.
 const fixturePairs: Array<[turn: string, json: string]> = [
-  ["workflow.turn", "workflow.json"],
-  ["scene-graph-full.turn", "scene-graph.json"],
-  ["two-scene-route.turn", "two-scene-route.json"],
+  ["workflow.tu", "workflow.json"],
+  ["scene-graph-full.tu", "scene-graph.json"],
+  ["two-scene-route.tu", "two-scene-route.json"],
 ];
 
-describe("fixture .turn → committed .json consistency", () => {
+describe("fixture .tu → committed .json consistency", () => {
   for (const [turn, json] of fixturePairs) {
     it(`${turn} converts to the committed ${json}`, async () => {
       const fromSource = await runConverter(join(fixturesDir, turn), { strictParse: true });

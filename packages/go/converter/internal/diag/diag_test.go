@@ -12,12 +12,12 @@ func TestDiagnosticFormatWithFile(t *testing.T) {
 		Severity: diag.SeverityError,
 		Code:     "TestCode",
 		Message:  "something went wrong",
-		File:     "test.turn",
+		File:     "test.tu",
 		Line:     5,
 		Col:      10,
 	}
 	got := d.Format()
-	for _, want := range []string{"test.turn", "5", "TestCode", "something went wrong"} {
+	for _, want := range []string{"test.tu", "5", "TestCode", "something went wrong"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Format() missing %q in %q", want, got)
 		}
@@ -93,9 +93,9 @@ func TestErrorf(t *testing.T) {
 }
 
 func TestErrorAt(t *testing.T) {
-	d := diag.ErrorAt("foo.turn", 3, 7, "ACode", "at %s", "pos")
-	if d.File != "foo.turn" {
-		t.Errorf("File = %q, want foo.turn", d.File)
+	d := diag.ErrorAt("foo.tu", 3, 7, "ACode", "at %s", "pos")
+	if d.File != "foo.tu" {
+		t.Errorf("File = %q, want foo.tu", d.File)
 	}
 	if d.Line != 3 {
 		t.Errorf("Line = %d, want 3", d.Line)
@@ -115,9 +115,9 @@ func TestErrorAt(t *testing.T) {
 }
 
 func TestFormatWithFileMatchesExpected(t *testing.T) {
-	d := diag.ErrorAt("src.turn", 1, 2, "Code1", "msg here")
+	d := diag.ErrorAt("src.tu", 1, 2, "Code1", "msg here")
 	got := d.Format()
-	want := "src.turn:1:2: error [Code1]: msg here"
+	want := "src.tu:1:2: error [Code1]: msg here"
 	if got != want {
 		t.Errorf("Format() = %q, want %q", got, want)
 	}

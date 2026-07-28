@@ -216,7 +216,7 @@ func (m BindingMarker) String() string {
 // Top-level
 // ────────────────────────────────────────────────────────────
 
-// TurnFile is the root AST node for a .turn source file.
+// TurnFile is the root AST node for a .tu source file.
 type TurnFile struct {
 	StateSource StateSource // nil only if both are absent (error case)
 	TypeDecls   []*TypeDecl

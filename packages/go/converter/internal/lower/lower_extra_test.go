@@ -381,7 +381,7 @@ scene "test" {
 // lowerWithErrors parses src and lowers it, returning diagnostics without failing on errors.
 func lowerWithErrors(t *testing.T, src string) diag.Diagnostics {
 	t.Helper()
-	tf, ds := parser.ParseFile("test.turn", src)
+	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
 		t.Fatalf("parse failed: %v", ds)
 	}

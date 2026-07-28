@@ -156,7 +156,7 @@ func (s Schema) RangeAll(fn func(ns, field string, meta FieldMeta)) {
 }
 
 // Resolve builds a Schema from a StateSource.
-// basePath is the directory of the input .turn file, used to resolve relative state_file paths.
+// basePath is the directory of the input .tu file, used to resolve relative state_file paths.
 func Resolve(source ast.StateSource, basePath string) (Schema, diag.Diagnostics) {
 	schema, _, ds := ResolveWithOrder(source, basePath)
 	return schema, ds
