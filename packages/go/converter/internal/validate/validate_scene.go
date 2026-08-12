@@ -25,17 +25,17 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 	validateOverview(scene, actionIndex, ds)
 
 	if len(scene.Actions) == 0 {
-		ds.Append(diag.Errorf(diag.CodeSCNInvalidActionGraph,
+		ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
 			"scene %q has no actions", scene.Id))
 	}
 
 	if len(scene.EntryActions) == 0 {
-		ds.Append(diag.Errorf(diag.CodeSCNInvalidActionGraph,
+		ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
 			"scene %q has no entry actions", scene.Id))
 	}
 	for _, ea := range scene.EntryActions {
 		if _, ok := actionIndex[ea]; !ok {
-			ds.Append(diag.Errorf(diag.CodeSCNInvalidActionGraph,
+			ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
 				"entry action %q not found in scene %q", ea, scene.Id))
 		}
 	}
@@ -56,7 +56,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
-					ds.Append(diag.Errorf(diag.CodeSCNActionRootNotFound,
+					ds.Append(diag.Errorf(diag.CodeActionRootNotFound,
 						"action %q: compute.root %q not found in prog", a.Id, a.Compute.Root))
 				}
 			}
@@ -70,7 +70,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 		for _, nr := range a.Next {
 			if nr.Action != "" {
 				if _, ok := actionIndex[nr.Action]; !ok {
-					ds.Append(diag.Errorf(diag.CodeSCNInvalidActionGraph,
+					ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
 						"action %q: next rule references unknown action %q", a.Id, nr.Action))
 				}
 			}
@@ -96,11 +96,9 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 	}
 	v := scene.View
 
-	if v.Name != "overview" {
-		ds.Append(compileErr(diag.CodeOverviewUnknownView,
-			"scene %q: view name must be \"overview\"; got %q", scene.Id, v.Name))
-		return
-	}
+	// The block is unlabelled as of v2 (NEW_SYNTAX.md 2.2), so its name is always
+	// "overview" and there is no wrong name left to report — which is what retired
+	// SCN_OVERVIEW_UNKNOWN_VIEW.
 
 	enforce := ""
 	if v.Enforce != nil {

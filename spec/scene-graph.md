@@ -176,30 +176,20 @@ Rule, root binding declared last: The compute root is designated inline with the
 
 ```hcl
 scene "loan_flow" {
-  entry_actions      = ["score"]
+  entry_actions      = [score]
   next_policy        = "first-match"
 
   action "score" {
     compute {
       prog "score_graph" {
-        <~>income:number
-        ~>debt:number
+        income:number <~ @applicant.income ~> @decision.input_income
+        debt:number <~ @applicant.debt
         min_income:number = 50000
         max_debt:number   = 20000
         income_ok:bool   = income >= min_income
         debt_ok:bool     = debt <= max_debt
-        |^| <~decision:bool  = income_ok & debt_ok
+        |^| decision:bool = income_ok & debt_ok ~> @decision.approved
       }
-    }
-
-    prepare {
-      income { from_state = applicant.income }
-      debt   { from_state = applicant.debt   }
-    }
-
-    merge {
-      income   { to_state = decision.input_income }
-      decision { to_state = decision.approved     }
     }
 
     publish {
@@ -209,14 +199,10 @@ scene "loan_flow" {
     next {
       compute {
         prog "to_approve" {
-          ~>decision:bool
-          ~>income_ok:bool
+          decision:bool <~ action(decision)
+          income_ok:bool <~ action(income_ok)
           |?| go:bool = decision & income_ok
         }
-      }
-      prepare {
-        decision  { from_action = decision  }
-        income_ok { from_action = income_ok }
       }
       action = approve
     }
@@ -266,7 +252,7 @@ Lowering and validation rules:
 
 1. The triple-quoted text block MAY appear at most once per action.
 2. The lowered value MUST be assigned to `action.text` as a string.
-3. If both a triple-quoted block and explicit `text = ...` appear in one action, validation MUST fail (`SCN_ACTION_TEXT_DUPLICATE`).
+3. If both a triple-quoted block and explicit `text = ...` appear in one action, validation MUST fail (`ActionTextDuplicate`).
 4. A single newline immediately after opening `"""` and immediately before closing `"""` MUST be trimmed during lowering. All other content MUST be preserved verbatim.
 
 ## 6. Validation Rules
@@ -360,16 +346,16 @@ Runtime mapping:
 
 Existing required codes from v0.2 remain required, plus the following:
 
-- `SCN_INVALID_ACTION_GRAPH`
-- `SCN_ACTION_ROOT_NOT_FOUND`
-- `SCN_INGRESS_TARGET_NOT_VALUE`
-- `SCN_INGRESS_SOURCE_MISSING`
-- `SCN_EGRESS_SOURCE_INVALID`
-- `SCN_EGRESS_SOURCE_UNAVAILABLE`
-- `SCN_NEXT_COMPUTE_INVALID`
-- `SCN_NEXT_COMPUTE_NOT_BOOL`
-- `SCN_NEXT_INGRESS_SOURCE_INVALID`
-- `SCN_ACTION_TEXT_DUPLICATE`
+- `InvalidActionGraph`
+- `ActionRootNotFound`
+- `IngressTargetNotValue`
+- `IngressSourceMissing`
+- `EgressSourceInvalid`
+- `EgressSourceUnavailable`
+- `NextComputeInvalid`
+- `NextComputeNotBool`
+- `NextIngressSourceInvalid`
+- `ActionTextDuplicate`
 
 Recommended diagnostic payload:
 

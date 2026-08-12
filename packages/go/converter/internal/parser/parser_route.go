@@ -25,8 +25,12 @@ func (p *parser) parseRouteBlock() *ast.RouteBlock {
 				continue
 			}
 			p.advance() // consume 'entry'
-			idTok, _ := p.expect(lexer.TokStringLit)
-			rb.EntrySceneID = idTok.Value
+			// v2 form is `entry = intake` (NEW_SYNTAX.md 2.3); the block-header
+			// form `entry "intake"` is still accepted for one release.
+			if p.peek().Kind == lexer.TokEquals {
+				p.advance()
+			}
+			rb.EntrySceneID = p.parseRefVal()
 		case lexer.TokKwMatch:
 			if rb.Match != nil {
 				p.errorf(t, "duplicate match block in route %q", rb.ID)

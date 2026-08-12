@@ -44,7 +44,7 @@ Turn DSL  ──[Go CLI]──>  HCL file  ──[TypeScript runtime]──>  ST
 - Parse Turn DSL source.
 - Lower DSL constructs to canonical plain HCL (per `hcl-context-spec.md` lowering rules).
 - Emit one `prog "<actionId>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block.
-- Emit `entry_actions = ["<actionId>", ...]` as a top-level attribute at the top of each scene block to declare the scene's entry action IDs.
+- Emit `entry_actions = [<actionId>, ...]` as a top-level attribute at the top of each scene block to declare the scene's entry action IDs.
 - Emit inline transition `prog` blocks for each next-rule compute program.
 - Emit STATE effect declarations (`prepare` and `merge` sub-blocks) at action level.
 - Emit `publish` sub-block for any publish-phase hook declarations.
@@ -99,7 +99,7 @@ action "checkout" {
 
 - The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output. Typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
 - The Go CLI cannot emit bare identifiers in argument positions. All references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
-- The Go CLI cannot accept or emit non-v1 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `#pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
+- The Go CLI cannot accept or emit non-v1 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
 - The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output. Encountering them must produce an `UnsupportedConstruct` error and abort without emitting any HCL.
 - The Go CLI cannot emit HCL that is not parseable by a stock HCL parser.
 - The Go CLI cannot emit a file in which two `action` blocks share the same name label.
@@ -249,7 +249,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | 2 | Duplicate `action` block name labels | Parse error: fail with `DuplicateActionLabel` — last-wins is forbidden. |
 | 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
 | 4 | Parallel action scheduling under `all-match` | Sequential, declaration order: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
-| 5 | Entry action HCL declaration | `entryActionIds` are emitted as a top-level string-list attribute: `entry_actions = ["<actionId>", ...]` at the top of the scene block. |
+| 5 | Entry action HCL declaration | `entryActionIds` are emitted as a top-level string-list attribute: `entry_actions = [<actionId>, ...]` at the top of the scene block. |
 | 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |
 
 ---
@@ -297,7 +297,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | `all-match` selects 0 next actions | Enter terminal `completed` state |
 | `all-match` selects 3 actions; action 2 fails execution | Action 3 does not run; no partial STATE mutation from action 2 |
 | Unknown merge mode in action | Fail pre-execution validation; `invalid_graph` |
-| Transition `compute.condition` resolves to `int`, not `bool` | `SCN_INVALID_CONTEXT` at scene validation; `invalid_graph` |
+| Transition `compute.condition` resolves to `int`, not `bool` | `NextComputeNotBool` at scene validation; `invalid_graph` |
 | `fromState` path not present in `S_{n+1}` and `required = true` | `MissingStatePath` runtime error; `SceneDiagnostic` carries `path` and `bindingName` in `details` |
 | `all-match` with no transitions declared | Enter terminal `completed` state |
 | Prepare hook unregistered | Silently skipped; binding value remains default or STATE-resolved |
@@ -305,6 +305,6 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 
 ### Resolved points
 
-- Entry action HCL declaration: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = ["<actionId>", ...]`.
+- Entry action HCL declaration: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = [<actionId>, ...]`.
 - `fromState` missing-path behavior: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
 - `div_floor` alias: no longer a priority, because the `number` type natively accepts fractional results. A convenience alias may still be added but is not required for correctness.

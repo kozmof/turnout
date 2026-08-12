@@ -16,9 +16,9 @@ STATE effects in Turn DSL are expressed through two complementary parts that mus
 action "score" {
   compute {
     prog "score_graph" {
-      ~>income:number                              # ← sigil: input from STATE
+      income:number                              # ← sigil: input from STATE
       income_ok:bool  = income >= 50000               # plain compute binding
-      |^| <~decision:bool = income_ok & debt_ok        # ← |^| marks the compute root (last binding)
+      |^| decision:bool = income_ok & debt_ok        # ← |^| marks the compute root (last binding)
     }
   }
 
@@ -84,7 +84,7 @@ Rules (all enforced at compile time):
 The marker and sigil are written immediately before the binding name, with no whitespace within the sigil:
 
 ```
-~>income:number        # OK
+income:number        # OK
 ~ > income:number      # NG — space not allowed
 ```
 
@@ -99,7 +99,7 @@ The marker and sigil are written immediately before the binding name, with no wh
 
 ```
 # If applicant.income is absent in STATE, runtime error — not fallback to state default.
-~>income:number
+income:number
 prepare { income { from_state = applicant.income } }
 ```
 
@@ -108,7 +108,7 @@ prepare { income { from_state = applicant.income } }
 `<~>` signals that the binding is populated from STATE before execution and written back to STATE after merge, potentially at different STATE paths:
 
 ```
-<~>income:number
+income:number
 prepare { income { from_state = applicant.income      } }   # reads from applicant.income
 merge   { income { to_state   = decision.input_income } }   # writes to decision.input_income
 ```
@@ -209,26 +209,17 @@ Rule: `STATE[path] = state[binding]`
 action "score" {
   compute {
     prog "score_graph" {
-      <~>income:number
-      ~>debt:number
+      income:number <~ @applicant.income ~> @decision.input_income
+      debt:number <~ @applicant.debt
       min_income:number = 50000
       max_debt:number   = 20000
 
       income_ok:bool   = income >= min_income
       debt_ok:bool     = debt <= max_debt
-      |^| <~decision:bool  = income_ok & debt_ok
+      |^| decision:bool = income_ok & debt_ok ~> @decision.approved
     }
   }
 
-  prepare {
-    income { from_state = applicant.income }
-    debt   { from_state = applicant.debt   }
-  }
-
-  merge {
-    income   { to_state = decision.input_income }
-    decision { to_state = decision.approved     }
-  }
 }
 ```
 
@@ -244,8 +235,8 @@ Inside a `next { }` block, a `prepare` block declares ingress bindings for the t
 next {
   compute {
     prog "to_approve" {
-      ~>decision:bool
-      ~>income_ok:bool
+      decision:bool
+      income_ok:bool
       |?| go:bool = decision & income_ok        # ← |?| marks the transition condition (last binding)
     }
   }
@@ -314,17 +305,11 @@ Turn DSL source:
 action "score" {
   compute {
     prog "score_graph" {
-      ~>income:number
+      income:number <~ @applicant.income
       income_ok:bool  = income >= min_income
       min_income:number = 50000
-      |^| <~decision:bool = income_ok & debt_ok
+      |^| decision:bool = income_ok & debt_ok ~> @decision.approved
     }
-  }
-  prepare {
-    income { from_state = applicant.income }
-  }
-  merge {
-    decision { to_state = decision.approved }
   }
 }
 ```
@@ -368,7 +353,7 @@ A `<~>` binding appears in both `prepare` and `merge` with their respective path
 
 Turn DSL:
 ```
-<~>income:number
+income:number
 prepare { income { from_state = applicant.income      } }
 merge   { income { to_state   = decision.input_income } }
 ```

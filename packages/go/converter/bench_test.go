@@ -18,18 +18,15 @@ state {
 }
 
 scene "main" {
-  entry_actions = ["init"]
+  entry_actions = [init]
 
   action "init" {
     compute {
       prog "p" {
         a:number = 1
         b:number = 2
-        |^| <~result:number = a + b
+        |^| result:number = a + b ~> @ns.count
       }
-    }
-    merge {
-      result { to_state = ns.count }
     }
     next {
       action = check
@@ -39,25 +36,16 @@ scene "main" {
   action "check" {
     compute {
       prog "p" {
-        ~>cur:number
-        |^| <~active:bool = cur > 0
+        cur:number <~ @ns.count
+        |^| active:bool = cur > 0 ~> @ns.active
       }
-    }
-    prepare {
-      cur { from_state = ns.count }
-    }
-    merge {
-      active { to_state = ns.active }
     }
     next {
       compute {
         prog "n" {
-          ~>cur:number
+          cur:number <~ action(cur)
           |?| cond:bool = cur > 0
         }
-      }
-      prepare {
-        cur { from_action = cur }
       }
       action = done
     }

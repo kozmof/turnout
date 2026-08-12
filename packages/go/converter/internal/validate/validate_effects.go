@@ -159,10 +159,10 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 	if cond := nr.Compute.Condition; cond != "" {
 		info, ok := nextScope[cond]
 		if !ok {
-			ds.Append(diag.Errorf(diag.CodeSCNNextComputeNotBool,
+			ds.Append(diag.Errorf(diag.CodeNextComputeNotBool,
 				"next rule condition %q is not defined in prog", cond))
 		} else if info.fieldType != ast.FieldTypeBool {
-			ds.Append(diag.Errorf(diag.CodeSCNNextComputeNotBool,
+			ds.Append(diag.Errorf(diag.CodeNextComputeNotBool,
 				"next rule condition %q has type %s; bool required", cond, info.fieldType))
 		}
 	}

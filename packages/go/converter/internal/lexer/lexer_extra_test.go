@@ -20,9 +20,9 @@ func TestTildeWithoutGT(t *testing.T) {
 
 // TestUnexpectedCharacter verifies that truly unknown characters produce errors.
 func TestUnexpectedCharacter(t *testing.T) {
-	_, ds := Tokenize("<test>", "@")
+	_, ds := Tokenize("<test>", "$")
 	if !ds.HasErrors() {
-		t.Error("expected lex error for '@'")
+		t.Error("expected lex error for '$'")
 	}
 }
 

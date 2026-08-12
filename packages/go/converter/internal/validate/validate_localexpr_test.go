@@ -27,7 +27,7 @@ func assertClean(t *testing.T, src string) {
 func TestValidateLocalInfixValid(t *testing.T) {
 	src := min(`        flag:bool  = true
         n:number   = 5
-        out:number = #if(flag, n + 1, n - 1)
+        out:number = if(flag, n + 1, n - 1)
 `)
 	assertClean(t, src)
 }
@@ -37,7 +37,7 @@ func TestValidateLocalInfixValid(t *testing.T) {
 func TestValidateLocalInfixStrConcat(t *testing.T) {
 	src := min(`        flag:bool = true
         s:str     = "a"
-        out:str   = #if(flag, s + "b", s)
+        out:str   = if(flag, s + "b", s)
 `)
 	assertClean(t, src)
 }
@@ -47,7 +47,7 @@ func TestValidateLocalInfixStrConcat(t *testing.T) {
 func TestValidateLocalInfixArgTypeMismatch(t *testing.T) {
 	src := min(`        flag:bool  = true
         n:number   = 5
-        out:number = #if(flag, n - "x", n)
+        out:number = if(flag, n - "x", n)
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for `number - str` infix inside #if")
@@ -58,7 +58,7 @@ func TestValidateLocalInfixArgTypeMismatch(t *testing.T) {
 // #if condition, which returns bool and must validate cleanly.
 func TestValidateLocalInfixComparison(t *testing.T) {
 	src := min(`        n:number   = 5
-        out:number = #if(n > 0, n, 0)
+        out:number = if(n > 0, n, 0)
 `)
 	assertClean(t, src)
 }
@@ -70,7 +70,7 @@ func TestValidateLocalInfixComparison(t *testing.T) {
 func TestValidateLocalCaseVarBinder(t *testing.T) {
 	src := min(`        n:number   = 3
         m:number   = 7
-        out:number = #case(n, 1 => 10, x if x > m => x, _ => m)
+        out:number = case(n, 1 => 10, x if x > m => x, _ => m)
 `)
 	assertClean(t, src)
 }
@@ -79,7 +79,7 @@ func TestValidateLocalCaseVarBinder(t *testing.T) {
 // literal-type check: a str pattern against a number subject must error.
 func TestValidateLocalCaseLiteralPatternTypeMismatch(t *testing.T) {
 	src := min(`        n:number   = 3
-        out:number = #case(n, "oops" => 1, _ => 0)
+        out:number = case(n, "oops" => 1, _ => 0)
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for str pattern against number subject")
@@ -90,8 +90,8 @@ func TestValidateLocalCaseLiteralPatternTypeMismatch(t *testing.T) {
 // and collectLocalExprBindingRefs: two ext_expr bindings reference each other.
 func TestValidateExtExprCycle(t *testing.T) {
 	src := min(`        flag:bool  = true
-        a:number   = #if(flag, b, 0)
-        b:number   = #if(flag, a, 0)
+        a:number   = if(flag, b, 0)
+        b:number   = if(flag, a, 0)
 `)
 	if !hasCode(pipeline(src), diag.CodeCyclicBinding) {
 		t.Error("want CyclicBinding for mutually-referencing #if bindings")

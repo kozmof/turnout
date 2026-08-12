@@ -1,5 +1,14 @@
 package validate_test
 
+// Retired with the prefix sigils (NEW_SYNTAX.md 3): a binding's direction is
+// now derived from its inline IO clause or from the prepare / merge entry that
+// names it, which makes these states unrepresentable — an egress binding always
+// has a merge entry, a merge entry always makes its binding egress, and a
+// bidirectional binding always has both halves. The codes stay defined as
+// defensive guards for hand-built models:
+//   MissingMergeEntry, SpuriousMergeEntry,
+//   BidirMissingPrepareEntry, BidirMissingMergeEntry
+
 import (
 	"testing"
 
@@ -46,7 +55,7 @@ func hasCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 func minScene(stateBlock, progBody string) string {
 	return stateBlock + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -127,7 +136,7 @@ func TestNestedArrayNotAllowed(t *testing.T) {
 	// The parser supports nested array literals.
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -457,11 +466,11 @@ func TestMissingPrepareEntry(t *testing.T) {
 	// ~> binding but no prepare entry
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>score:number
+        |^| score:number
       }
     }
   }
@@ -472,30 +481,11 @@ scene "test" {
 	}
 }
 
-func TestMissingMergeEntry(t *testing.T) {
-	// <~ binding but no merge entry
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      prog "p" {
-        |^| <~score:number = 0
-      }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeMissingMergeEntry) {
-		t.Error("want MissingMergeEntry")
-	}
-}
-
 func TestSpuriousPrepareEntry(t *testing.T) {
 	// prepare entry for a non-sigiled binding
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -514,37 +504,14 @@ scene "test" {
 	}
 }
 
-func TestSpuriousMergeEntry(t *testing.T) {
-	// merge entry for a non-sigiled binding
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      prog "p" {
-        plain:bool = true
-        |^| v:bool = true
-      }
-    }
-    merge {
-      plain { to_state = app.active }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeSpuriousMergeEntry) {
-		t.Error("want SpuriousMergeEntry")
-	}
-}
-
 func TestDuplicatePrepareEntry(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>score:number
+        |^| score:number
       }
     }
     prepare {
@@ -562,11 +529,11 @@ scene "test" {
 func TestDuplicateMergeEntry(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| <~score:number = 0
+        |^| score:number = 0
       }
     }
     merge {
@@ -581,61 +548,17 @@ scene "test" {
 	}
 }
 
-func TestBidirMissingPrepareEntry(t *testing.T) {
-	// <~> in merge but not in prepare
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      prog "p" {
-        |^| <~>score:number
-      }
-    }
-    merge {
-      score { to_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeBidirMissingPrepareEntry) {
-		t.Error("want BidirMissingPrepareEntry")
-	}
-}
-
-func TestBidirMissingMergeEntry(t *testing.T) {
-	// <~> in prepare but not in merge
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      prog "p" {
-        |^| <~>score:number
-      }
-    }
-    prepare {
-      score { from_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeBidirMissingMergeEntry) {
-		t.Error("want BidirMissingMergeEntry")
-	}
-}
-
 func TestTransitionOutputSigil(t *testing.T) {
 	// <~ in a next (transition) prog
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| v:bool = true } }
     next {
       compute {
         prog "n" {
-          <~score:number = 0
+          score:number = 0 ~> @app.score
           |?| go:bool = true
         }
       }
@@ -656,7 +579,7 @@ func TestUnresolvedPrepareBinding(t *testing.T) {
 	// prepare entry for "ghost" which isn't in prog
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" { |^| v:bool = true }
@@ -676,7 +599,7 @@ func TestUnresolvedMergeBinding(t *testing.T) {
 	// merge entry for "ghost" which isn't in prog
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" { |^| v:bool = true }
@@ -698,11 +621,11 @@ func TestUnresolvedStatePath(t *testing.T) {
 	// from_state pointing to a path not in schema
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>score:number
+        |^| score:number
       }
     }
     prepare {
@@ -720,11 +643,11 @@ func TestStateTypeMismatch(t *testing.T) {
 	// to_state app.active is bool but binding is number
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| <~score:number = 0
+        |^| score:number = 0
       }
     }
     merge {
@@ -742,11 +665,11 @@ func TestMissingStatePath_EmptyMergeEntry(t *testing.T) {
 	// A merge entry block with no to_state should emit CodeMissingStatePath.
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| <~score:number = 0
+        |^| score:number = 0
       }
     }
     merge {
@@ -765,7 +688,7 @@ scene "test" {
 func TestDuplicateActionLabel(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }
@@ -787,7 +710,7 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
-	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
+	if !hasCode(ds, diag.CodeInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty actions")
 	}
 }
@@ -806,7 +729,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
-	if !hasCode(ds, diag.CodeSCNInvalidActionGraph) {
+	if !hasCode(ds, diag.CodeInvalidActionGraph) {
 		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_actions")
 	}
 }
@@ -844,7 +767,7 @@ func TestMarkerRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     ` + tc.body + `
   }
@@ -860,7 +783,7 @@ scene "test" {
 func TestMissingConditionMarker(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| v:bool = true } }
     next {
@@ -880,7 +803,7 @@ scene "test" {
 func unusedSrc(progBody string) string {
 	return basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -921,11 +844,11 @@ func TestUnusedBinding(t *testing.T) {
 func routeSrc(matchBody string) string {
 	return basicState + `
 scene "scene_1" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }
 route "r1" {
-  entry "scene_1"
+  entry = scene_1
   match {
 ` + matchBody + `
   }
@@ -995,7 +918,7 @@ func TestWildcardTerminalUnresolvable(t *testing.T) {
 func TestMissingEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }
 route "r1" {
@@ -1012,11 +935,11 @@ route "r1" {
 func TestUnresolvedEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }
 route "r1" {
-  entry "undefined_scene"
+  entry = undefined_scene
   match {
     _ => scene_1
   }

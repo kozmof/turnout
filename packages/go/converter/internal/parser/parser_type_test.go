@@ -157,7 +157,7 @@ scene "s" {
     compute {
       prog "p" {
         rid: ResourceId = "foo-1"
-        |^| r: number = #case(
+        |^| r: number = case(
           rid,
           ResourceId { kind: "foo", sequence } => sequence,
           ResourceId { kind, sequence: _ } => 0

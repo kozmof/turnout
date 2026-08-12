@@ -48,6 +48,63 @@ type BindingDecl struct {
 	// plain primitive/array annotations.
 	DeclaredType Type
 	RHS          BindingRHS
+	// Ingress and Egress carry inline IO (NEW_SYNTAX.md 3): `name:type <~ src`
+	// and `expr ~> @ns.field`. The arrow always points at the destination, so
+	// `~>` is egress here — the opposite of the retired prefix sigil, where
+	// STATE was implicitly on the left.
+	//
+	// The lowerer turns these into exactly the Sigil + prepare/merge entries the
+	// block form produces, so nothing downstream distinguishes the two spellings.
+	Ingress InlineIngress
+	Egress  *InlineEgress
+}
+
+// InlineIngress is the source in `name:type <~ <source>`.
+//
+// The four sources are not interchangeable: an action compute accepts a state
+// path or a hook, a next compute accepts a state path, an action binding, or a
+// literal. That asymmetry is enforced in the wire model by PrepareEntry and
+// NextPrepareEntry having disjoint field sets, so the parser rejects the wrong
+// source for its context rather than deferring to validation.
+type InlineIngress interface{ inlineIngress() }
+
+// IngressState is `<~ @ns.field` — reads from STATE.
+type IngressState struct {
+	Pos  Pos
+	Path string
+}
+
+func (*IngressState) inlineIngress() {}
+
+// IngressHook is `<~ hook("name")` — action compute only.
+type IngressHook struct {
+	Pos      Pos
+	HookName string
+}
+
+func (*IngressHook) inlineIngress() {}
+
+// IngressAction is `<~ action(binding)` — next compute only.
+type IngressAction struct {
+	Pos         Pos
+	BindingName string
+}
+
+func (*IngressAction) inlineIngress() {}
+
+// IngressLiteral is `<~ 300` — next compute only. At action level a constant is
+// just an ordinary binding (`ceiling:number = 300`), so there is nothing to add.
+type IngressLiteral struct {
+	Pos   Pos
+	Value Literal
+}
+
+func (*IngressLiteral) inlineIngress() {}
+
+// InlineEgress is `~> @ns.field` — the destination a binding merges into.
+type InlineEgress struct {
+	Pos  Pos
+	Path string
 }
 
 // ────────────────────────────────────────────────────────────

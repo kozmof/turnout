@@ -37,7 +37,9 @@ const (
 	TokColon     // :
 	TokEquals    // =
 	TokDot       // .
+	TokAt        // @ (state path prefix in inline IO)
 	TokArrow     // =>
+	TokFlowArrow // |=> (overview flow edge)
 	TokPipe      // |
 	TokAmpersand // &
 	TokGTE       // >=
@@ -53,11 +55,10 @@ const (
 	TokNeq       // !=
 
 	// Special forms
-	TokHashPipe    // #pipe
-	TokHashIf      // #if
-	TokHashCase    // #case
+	// The if/case/pipe forms dropped their `#` prefix in v2 (NEW_SYNTAX.md 2.1)
+	// and lex as plain identifiers; #it kept its prefix as a placeholder.
 	TokHashIt      // #it
-	TokUnderscore  // _ (wildcard in #case patterns, fallback in route match)
+	TokUnderscore  // _ (wildcard in case patterns, fallback in route match)
 	TokHeredoc     // <<-EOT...EOT  — Value holds stripped body
 	TokTripleQuote // """..."""     — Value holds trimmed body
 
@@ -81,6 +82,7 @@ const (
 	TokKwToState
 	TokKwHook
 	TokKwView
+	TokKwOverview
 	TokKwFlow
 	TokKwEnforce
 	TokKwText
@@ -246,6 +248,7 @@ var keywordTable = []keywordEntry{
 	{"to_state", TokKwToState},
 	{"hook", TokKwHook},
 	{"view", TokKwView},
+	{"overview", TokKwOverview},
 	{"flow", TokKwFlow},
 	{"enforce", TokKwEnforce},
 	{"text", TokKwText},
@@ -286,7 +289,9 @@ func init() {
 		TokColon:        ":",
 		TokEquals:       "=",
 		TokDot:          ".",
+		TokAt:           "@",
 		TokArrow:        "=>",
+		TokFlowArrow:    "|=>",
 		TokPipe:         "|",
 		TokAmpersand:    "&",
 		TokGTE:          ">=",
@@ -300,9 +305,6 @@ func init() {
 		TokPercent:      "%",
 		TokEqEq:         "==",
 		TokNeq:          "!=",
-		TokHashPipe:     "#pipe",
-		TokHashIf:       "#if",
-		TokHashCase:     "#case",
 		TokHashIt:       "#it",
 		TokUnderscore:   "_",
 		TokHeredoc:      "HEREDOC",
@@ -444,6 +446,13 @@ func (l *lex) scanToken() {
 			l.advance()
 			l.advance()
 			l.emit(TokMarkerCond, "|?|", ln, co)
+		} else if l.peekAt(1) == '=' && l.peekAt(2) == '>' {
+			// Flow edge in an overview block (NEW_SYNTAX.md 2.2). Matched before
+			// the bare pipe so `a |=> b` is one edge, not `a | (=> b)`.
+			l.advance()
+			l.advance()
+			l.advance()
+			l.emit(TokFlowArrow, "|=>", ln, co)
 		} else {
 			l.advance()
 			l.emit(TokPipe, "|", ln, co)
@@ -472,6 +481,11 @@ func (l *lex) scanToken() {
 
 	case c == '<':
 		l.scanLAngle(ln, co)
+
+	case c == '@':
+		// State path prefix in inline IO (NEW_SYNTAX.md 3): `@ns.field`.
+		l.advance()
+		l.emit(TokAt, "@", ln, co)
 
 	case c == '~':
 		if l.peekAt(1) == '>' {

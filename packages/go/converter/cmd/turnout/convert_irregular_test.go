@@ -12,7 +12,10 @@ import (
 )
 
 func TestRunConvertLexDiagnosticBurstIsCapped(t *testing.T) {
-	path := writeTempTurnFile(t, strings.Repeat("@", 5000))
+	// `$` has no meaning in the grammar, so each one is its own lex error.
+	// (`@` used to serve here, but it became the state-path prefix for inline
+	// IO — NEW_SYNTAX.md 3 — and now lexes cleanly.)
+	path := writeTempTurnFile(t, strings.Repeat("$", 5000))
 
 	stdout, stderr, rc := captureProcessIO(t, func() int {
 		return runConvert([]string{path, "-o", "-", "-format", "json"})
@@ -107,7 +110,7 @@ func TestRunConvertMissingInput(t *testing.T) {
 func TestRunConvertUnknownFormat(t *testing.T) {
 	path := writeTempTurnFile(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`)
 
@@ -129,7 +132,7 @@ scene "s" {
 func TestRunConvertCreateFailure(t *testing.T) {
 	path := writeTempTurnFile(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`)
 	outPath := filepath.Join(t.TempDir(), "missing", "out.json")

@@ -30,6 +30,8 @@ const (
 	RHSKindPipeCall                                   // *PipeCallRHS
 	RHSKindTemplateConstruction                       // *TemplateConstructionRHS
 	RHSKindError                                      // *ErrorRHS
+	RHSKindNestedInfix                                // *NestedInfixRHS
+	RHSKindTransform                                  // *TransformRHS
 	rhsKindSentinel                                   // unexported — marks end of valid range; add new kinds above this line
 )
 
@@ -49,6 +51,8 @@ var _ = [rhsKindSentinel]struct{}{
 	{}, // RHSKindPipeCall
 	{}, // RHSKindTemplateConstruction
 	{}, // RHSKindError
+	{}, // RHSKindNestedInfix
+	{}, // RHSKindTransform
 }
 
 // BindingRHS is implemented by all RHS node types.
@@ -229,6 +233,63 @@ func (*InfixRHS) bindingRHS()          {}
 func (*InfixRHS) Kind() BindingRHSKind { return RHSKindInfix }
 
 // ────────────────────────────────────────────────────────────
+// Nested infix expressions
+// ────────────────────────────────────────────────────────────
+
+// InfixNode is one node of a nested infix expression tree. Leaves are the same
+// pre-lowering SyntaxArg forms InfixRHS uses, so a single-operator tree carries
+// exactly the operands InfixRHS would have carried.
+//
+// This tree is deliberately separate from LocalExpr: LocalExpr cannot represent
+// a method-call chain (parseLocalPrimary has no '.' branch), and method chains
+// are valid infix operands. Keeping the two apart also means nesting a binding
+// RHS cannot perturb the #if / #case / #pipe lowering paths.
+type InfixNode interface{ infixNode() }
+
+// InfixLeaf wraps a terminal operand.
+type InfixLeaf struct{ Arg SyntaxArg }
+
+func (*InfixLeaf) infixNode() {}
+
+// InfixBranch is an operator applied to two sub-nodes.
+type InfixBranch struct {
+	Pos      Pos
+	Op       InfixOp
+	LHS, RHS InfixNode
+}
+
+func (*InfixBranch) infixNode() {}
+
+// NestedInfixRHS is `name:type = a OP b OP c ...`, i.e. an infix expression with
+// more than one operator, or one whose operands are themselves expressions.
+//
+// The parser normalizes the single-operator, two-leaf case to InfixRHS instead,
+// so this node never represents an expression that the pre-nesting grammar could
+// already express. That normalization is what keeps emitted output unchanged for
+// every binding that parsed before nesting was introduced.
+type NestedInfixRHS struct {
+	Pos  Pos
+	Root *InfixBranch
+}
+
+func (*NestedInfixRHS) bindingRHS()          {}
+func (*NestedInfixRHS) Kind() BindingRHSKind { return RHSKindNestedInfix }
+
+// TransformRHS is `name:type = receiver.method()...` — a transform chain used
+// directly as a binding value, with no surrounding expression.
+//
+// It lowers to the same identity combine that a bare single reference lowers to
+// (see lowerSingleRefRHS), which is what the `+ 0` idiom in earlier revisions of
+// transform-fn-dsl-spec.md was hand-writing.
+type TransformRHS struct {
+	Pos Pos
+	Arg SyntaxArg
+}
+
+func (*TransformRHS) bindingRHS()          {}
+func (*TransformRHS) Kind() BindingRHSKind { return RHSKindTransform }
+
+// ────────────────────────────────────────────────────────────
 // v1 local expression tree
 // ────────────────────────────────────────────────────────────
 
@@ -284,7 +345,7 @@ type LocalInfixExpr struct {
 
 func (*LocalInfixExpr) localExpr() {}
 
-// LocalIfExpr is a nested `#if(cond, then, else)` expression.
+// LocalIfExpr is a nested `if(cond, then, else)` expression.
 type LocalIfExpr struct {
 	Pos              Pos
 	Cond, Then, Else LocalExpr
@@ -292,7 +353,7 @@ type LocalIfExpr struct {
 
 func (*LocalIfExpr) localExpr() {}
 
-// LocalCaseExpr is a nested `#case(subject, arms...)` expression.
+// LocalCaseExpr is a nested `case(subject, arms...)` expression.
 type LocalCaseExpr struct {
 	Pos     Pos
 	Subject LocalExpr
@@ -301,7 +362,7 @@ type LocalCaseExpr struct {
 
 func (*LocalCaseExpr) localExpr() {}
 
-// LocalPipeExpr is a nested `#pipe(initial, steps...)` expression.
+// LocalPipeExpr is a nested `pipe(initial, steps...)` expression.
 type LocalPipeExpr struct {
 	Pos     Pos
 	Initial LocalExpr
@@ -398,14 +459,14 @@ func (*ErrorRHS) bindingRHS()          {}
 func (*ErrorRHS) syntaxRHS()           {}
 func (*ErrorRHS) Kind() BindingRHSKind { return RHSKindError }
 
-// SigilInputRHS marks a sigil-only input declaration (~>name:type or <~>name:type)
+// SigilInputRHS marks a sigil-only input declaration (~>name:type or name:type)
 // with no right-hand side expression. The value is populated at runtime via prepare.
 type SigilInputRHS struct{}
 
 func (*SigilInputRHS) bindingRHS()          {}
 func (*SigilInputRHS) Kind() BindingRHSKind { return RHSKindSigilInput }
 
-// IfCallRHS is the v1 `#if(cond, then_expr, else_expr)` function-call form.
+// IfCallRHS is the v1 `if(cond, then_expr, else_expr)` function-call form.
 type IfCallRHS struct {
 	Pos              Pos
 	Cond, Then, Else LocalExpr
@@ -415,7 +476,7 @@ func (*IfCallRHS) bindingRHS()          {}
 func (*IfCallRHS) syntaxRHS()           {}
 func (*IfCallRHS) Kind() BindingRHSKind { return RHSKindIfCall }
 
-// CaseCallRHS is the v1 `#case(subject, pattern => expr, ..., _ => default)` form.
+// CaseCallRHS is the v1 `case(subject, pattern => expr, ..., _ => default)` form.
 type CaseCallRHS struct {
 	Pos     Pos
 	Subject LocalExpr
@@ -426,7 +487,7 @@ func (*CaseCallRHS) bindingRHS()          {}
 func (*CaseCallRHS) syntaxRHS()           {}
 func (*CaseCallRHS) Kind() BindingRHSKind { return RHSKindCaseCall }
 
-// PipeCallRHS is the v1 `#pipe(initial, step1, step2, ...)` form.
+// PipeCallRHS is the v1 `pipe(initial, step1, step2, ...)` form.
 type PipeCallRHS struct {
 	Pos     Pos
 	Initial LocalExpr

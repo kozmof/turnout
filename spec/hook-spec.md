@@ -18,19 +18,10 @@ Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented 
 action "process_order" {
   compute {
     prog "order_graph" {
-      ~>raw_payload:str
-      ~>user_id:str
-      |^| <~receipt:str     = build_receipt(raw_payload, user_id)
+      raw_payload:str <~ hook("payload_input")
+      user_id:str <~ @session.user_id
+      |^| receipt:str = build_receipt(raw_payload, user_id) ~> @orders.last_receipt
     }
-  }
-
-  prepare {
-    user_id     { from_state = session.user_id }
-    raw_payload { from_hook = "payload_input" }
-  }
-
-  merge {
-    receipt { to_state = orders.last_receipt }
   }
 
   publish {
@@ -129,19 +120,10 @@ Multiple `hook` entries are allowed. Publish hooks fire in declaration order aft
 action "process_order" {
   compute {
     prog "order_graph" {
-      ~>raw_payload:str
-      ~>user_id:str
-      |^| <~receipt:str     = build_receipt(raw_payload, user_id)
+      raw_payload:str <~ hook("payload_input")
+      user_id:str <~ @session.user_id
+      |^| receipt:str = build_receipt(raw_payload, user_id) ~> @orders.last_receipt
     }
-  }
-
-  prepare {
-    user_id     { from_state = session.user_id }
-    raw_payload { from_hook = "payload_input" }
-  }
-
-  merge {
-    receipt { to_state = orders.last_receipt }
   }
 
   publish {

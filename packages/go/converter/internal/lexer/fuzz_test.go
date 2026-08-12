@@ -9,7 +9,7 @@ func FuzzTokenize(f *testing.F) {
 	// lexer paths — sigils, heredocs, triple-quotes, hash keywords, operators.
 	seeds := []string{
 		`state { ns { count:number = 0 } }`,
-		`scene "s" { entry_actions = ["a"] action "a" {} }`,
+		`scene "s" { entry_actions = [a] action "a" {} }`,
 		`<~> v:number = 1`,
 		`~> v:str = "hello"`,
 		`<~ v:bool = true`,

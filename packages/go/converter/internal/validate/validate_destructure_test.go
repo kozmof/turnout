@@ -13,12 +13,12 @@ type Kind = "foo" | "bar"
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         rid: ResourceId = "foo-1"
-        |^| r: ` + rootType + ` = #case(
+        |^| r: ` + rootType + ` = case(
           rid,
           ` + arms + `
         )
@@ -122,12 +122,12 @@ func TestDestructureNonTemplateSubject(t *testing.T) {
 	src := `
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         s: str = "x"
-        |^| r: number = #case(s, ResourceId { kind: "foo", sequence } => sequence)
+        |^| r: number = case(s, ResourceId { kind: "foo", sequence } => sequence)
       }
     }
   }
@@ -146,12 +146,12 @@ type ResourceId = "{kind: Kind}-{sequence: integer}"
 type OtherId = "{kind: Kind}/{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         rid: ResourceId = "foo-1"
-        |^| r: number = #case(rid, OtherId { kind, sequence } => sequence)
+        |^| r: number = case(rid, OtherId { kind, sequence } => sequence)
       }
     }
   }

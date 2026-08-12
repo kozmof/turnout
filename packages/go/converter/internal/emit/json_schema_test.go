@@ -32,20 +32,14 @@ func TestEmitJSONRoundTrip(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   next_policy   = "first-match"
   action "a" {
     compute {
       prog "p" {
-        ~>score:number
-        |^| <~done:bool    = true
+        score:number <~ @user.score
+        |^| done:bool = true ~> @user.active
       }
-    }
-    prepare {
-      score { from_state = user.score }
-    }
-    merge {
-      done { to_state = user.active }
     }
     publish {
       hook = "on_done"
@@ -53,12 +47,9 @@ scene "s" {
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number <~ action(score)
           |?| go:bool = true
         }
-      }
-      prepare {
-        score { from_action = score }
       }
       action = b
     }
@@ -68,7 +59,7 @@ scene "s" {
   }
 }
 route "main" {
-  entry "s"
+  entry = s
   match {
     _ => "s"
   }

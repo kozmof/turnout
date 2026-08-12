@@ -2,24 +2,67 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Turn",
   "scopeName": "source.tu",
-  "fileTypes": ["turn"],
+  "fileTypes": [
+    "turn"
+  ],
   "patterns": [
-    { "include": "#docstring" },
-    { "include": "#heredoc" },
-    { "include": "#property-assign" },
-    { "include": "#named-block" },
-    { "include": "#simple-block" },
-    { "include": "#binding-marker" },
-    { "include": "#sigil-decl" },
-    { "include": "#type-annotation" },
-    { "include": "#function-call" },
-    { "include": "#string" },
-    { "include": "#number" },
-    { "include": "#boolean" },
-    { "include": "#flow-arrow" },
-    { "include": "#computed-assign" },
-    { "include": "#operator" },
-    { "include": "#identifier" }
+    {
+      "include": "#docstring"
+    },
+    {
+      "include": "#heredoc"
+    },
+    {
+      "include": "#property-assign"
+    },
+    {
+      "include": "#overview-block"
+    },
+    {
+      "include": "#dsl-form"
+    },
+    {
+      "include": "#hash-it"
+    },
+    {
+      "include": "#named-block"
+    },
+    {
+      "include": "#simple-block"
+    },
+    {
+      "include": "#binding-marker"
+    },
+    {
+      "include": "#sigil-decl"
+    },
+    {
+      "include": "#type-annotation"
+    },
+    {
+      "include": "#function-call"
+    },
+    {
+      "include": "#string"
+    },
+    {
+      "include": "#number"
+    },
+    {
+      "include": "#boolean"
+    },
+    {
+      "include": "#flow-arrow"
+    },
+    {
+      "include": "#computed-assign"
+    },
+    {
+      "include": "#operator"
+    },
+    {
+      "include": "#identifier"
+    }
   ],
   "repository": {
     "docstring": {
@@ -27,22 +70,29 @@
       "end": "\"\"\"",
       "name": "comment.block.documentation.tu",
       "beginCaptures": {
-        "0": { "name": "punctuation.definition.comment.tu" }
+        "0": {
+          "name": "punctuation.definition.comment.tu"
+        }
       },
       "endCaptures": {
-        "0": { "name": "punctuation.definition.comment.tu" }
+        "0": {
+          "name": "punctuation.definition.comment.tu"
+        }
       }
     },
-
     "heredoc": {
       "begin": "(<<-EOT)",
       "end": "^(\\s*EOT)\\s*$",
       "name": "string.unquoted.heredoc.tu",
       "beginCaptures": {
-        "1": { "name": "keyword.operator.heredoc.begin.tu" }
+        "1": {
+          "name": "keyword.operator.heredoc.begin.tu"
+        }
       },
       "endCaptures": {
-        "1": { "name": "keyword.operator.heredoc.end.tu" }
+        "1": {
+          "name": "keyword.operator.heredoc.end.tu"
+        }
       },
       "patterns": [
         {
@@ -55,106 +105,139 @@
         }
       ]
     },
-
     "property-assign": {
       "comment": "Named properties on the left-hand side of an assignment. Must come before named-block so 'action =' is caught as a property rather than a block keyword.",
-      "match": "\\b(entry_actions|next_policy|enforce|from_state|to_state|from_action|text|flow|action)\\b(?=\\s*=)",
+      "match": "\\b(entry_actions|next_policy|from_state|to_state|from_action|from_literal|from_hook|text|action|entry)\\b(?=\\s*=)",
       "captures": {
-        "1": { "name": "keyword.other.property.tu" }
+        "1": {
+          "name": "keyword.other.property.tu"
+        }
       }
     },
-
     "named-block": {
-      "comment": "Block keywords that introduce a named (string-labeled) block: scene, view, action, prog.",
-      "match": "\\b(scene|action|view|prog)\\b(\\s+(\"[^\"]*\"))?",
+      "comment": "Block keywords that introduce a named (string-labeled) block: scene, action, prog. `overview` takes a bare enforce mode instead of a string label.",
+      "match": "\\b(scene|action|prog)\\b(\\s+(\"[^\"]*\"))?",
       "captures": {
-        "1": { "name": "keyword.declaration.tu" },
-        "3": { "name": "entity.name.section.tu" }
+        "1": {
+          "name": "keyword.declaration.tu"
+        },
+        "3": {
+          "name": "entity.name.section.tu"
+        }
       }
     },
-
     "simple-block": {
       "comment": "Anonymous block keywords that open a block without a name.",
       "match": "\\b(compute|io|next|in|out)\\b",
       "captures": {
-        "1": { "name": "keyword.other.block.tu" }
+        "1": {
+          "name": "keyword.other.block.tu"
+        }
       }
     },
-
     "binding-marker": {
       "comment": "Binding markers designating the compute root (|^|) or transition condition (|?|). Written before any sigil on the last binding of a prog.",
       "match": "(\\|\\^\\||\\|\\?\\|)",
       "captures": {
-        "1": { "name": "keyword.operator.marker.tu" }
+        "1": {
+          "name": "keyword.operator.marker.tu"
+        }
       }
     },
-
     "sigil-decl": {
-      "comment": "Variable declarations prefixed with directional sigils: <~> (bidir), ~> (input), <~ (output).",
-      "match": "(<~>|~>|<~)([a-zA-Z_][a-zA-Z0-9_]*)",
+      "comment": "Inline IO arrows. The arrow follows the binding and points at its destination: <~ reads a source, ~> writes one. State paths are written @ns.field.",
+      "match": "(<~|~>)\\s*(@)?([a-zA-Z_][a-zA-Z0-9_.]*)?",
       "captures": {
-        "1": { "name": "keyword.operator.sigil.tu" },
-        "2": { "name": "variable.other.tu" }
+        "1": {
+          "name": "keyword.operator.sigil.tu"
+        },
+        "2": {
+          "name": "punctuation.definition.statepath.tu"
+        },
+        "3": {
+          "name": "variable.other.statepath.tu"
+        }
       }
     },
-
     "type-annotation": {
       "comment": "Type suffix on variable declarations: :bool, :int, :str.",
       "match": ":(bool|int|str)\\b",
       "captures": {
-        "1": { "name": "storage.type.tu" }
+        "1": {
+          "name": "storage.type.tu"
+        }
       }
     },
-
     "function-call": {
       "comment": "Built-in function calls such as bool_and(...).",
       "match": "\\b([a-zA-Z_][a-zA-Z0-9_]*)(?=\\s*\\()",
       "captures": {
-        "1": { "name": "support.function.tu" }
+        "1": {
+          "name": "support.function.tu"
+        }
       }
     },
-
     "string": {
       "begin": "\"",
       "end": "\"",
       "name": "string.quoted.double.tu"
     },
-
     "number": {
       "match": "-?\\b[0-9]+\\b",
       "name": "constant.numeric.tu"
     },
-
     "boolean": {
       "match": "\\b(true|false)\\b",
       "captures": {
-        "1": { "name": "constant.language.boolean.tu" }
+        "1": {
+          "name": "constant.language.boolean.tu"
+        }
       }
     },
-
     "flow-arrow": {
       "comment": "|=> flow routing arrows used in view flow.",
       "match": "\\|=>",
       "name": "keyword.operator.flow.tu"
     },
-
     "computed-assign": {
       "comment": "=| computed/derived assignment operator. Must come before plain = to avoid splitting.",
       "match": "=\\|",
       "name": "keyword.operator.assignment.computed.tu"
     },
-
     "operator": {
       "match": "(>=|<=|=|\\+|-|&|\\|)",
       "captures": {
-        "1": { "name": "keyword.operator.tu" }
+        "1": {
+          "name": "keyword.operator.tu"
+        }
       }
     },
-
     "identifier": {
       "comment": "Catch-all for remaining identifiers and dotted STATE paths.",
       "match": "\\b[a-zA-Z_][a-zA-Z0-9_.]*\\b",
       "name": "variable.other.tu"
+    },
+    "dsl-form": {
+      "comment": "DSL forms. They dropped their # prefix in v2 (NEW_SYNTAX.md 2.1); #it kept its prefix as a placeholder.",
+      "match": "\\b(if|case|pipe)\\b(?=\\s*\\()",
+      "name": "keyword.control.form.tu"
+    },
+    "overview-block": {
+      "comment": "The unlabelled overview block and its bare enforce mode.",
+      "match": "\\b(overview)\\b(\\s+(nodes_only|at_least|strict))?",
+      "captures": {
+        "1": {
+          "name": "keyword.control.tu"
+        },
+        "3": {
+          "name": "constant.language.tu"
+        }
+      }
+    },
+    "hash-it": {
+      "comment": "#it — the current pipeline value inside a pipe step.",
+      "match": "#it\\b",
+      "name": "variable.language.it.tu"
     }
   }
 }

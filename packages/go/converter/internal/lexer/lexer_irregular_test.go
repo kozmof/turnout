@@ -30,9 +30,9 @@ func TestIrregularLexMalformedInputs(t *testing.T) {
 		},
 		{
 			name:       "unexpected_character",
-			src:        "@",
+			src:        "$",
 			wantCode:   "LexError",
-			wantSubstr: "unexpected character '@'",
+			wantSubstr: "unexpected character '$'",
 		},
 		{
 			name:       "missing_heredoc_delimiter",
@@ -78,7 +78,7 @@ func TestIrregularLexMalformedInputs(t *testing.T) {
 func TestIrregularLexTracksPositionsAcrossLines(t *testing.T) {
 	t.Parallel()
 
-	_, ds := Tokenize("<test>", "@\n@\n!")
+	_, ds := Tokenize("<test>", "$\n$\n!")
 	if len(ds) != 3 {
 		t.Fatalf("diagnostic count = %d, want 3", len(ds))
 	}
@@ -98,10 +98,13 @@ func TestIrregularLexTracksPositionsAcrossLines(t *testing.T) {
 	}
 }
 
+// `$` has no meaning in the grammar. (`@` used to serve here, but it became
+// the state-path prefix for inline IO — NEW_SYNTAX.md 3 — and now lexes fine.)
+
 func TestUnexpectedCharacterBurstIsCapped(t *testing.T) {
 	t.Parallel()
 
-	toks, ds := Tokenize("<test>", strings.Repeat("@", 1000))
+	toks, ds := Tokenize("<test>", strings.Repeat("$", 1000))
 	if !ds.HasErrors() {
 		t.Fatal("expected lex errors")
 	}

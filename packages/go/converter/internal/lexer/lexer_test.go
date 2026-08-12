@@ -149,7 +149,7 @@ func TestSigilLongestMatch(t *testing.T) {
 }
 
 func TestSigilTypedKey(t *testing.T) {
-	// ~>income:number = _
+	// income:number = _
 	toks := filterEOF(mustTokenize(t, "~>income:number = _"))
 	wantKinds := []TokenKind{
 		TokSigilIngress, TokIdent, TokColon, TokIdent, TokEquals, TokUnderscore,
@@ -271,20 +271,6 @@ func TestUnderscorePrefixedIdent(t *testing.T) {
 
 // ── special forms ─────────────────────────────────────────────────────────────
 
-func TestHashPipe(t *testing.T) {
-	toks := filterEOF(mustTokenize(t, "#pipe"))
-	if len(toks) != 1 || toks[0].Kind != TokHashPipe {
-		t.Errorf("expected TokHashPipe, got %v", toks[0].Kind)
-	}
-}
-
-func TestHashIf(t *testing.T) {
-	toks := filterEOF(mustTokenize(t, "#if"))
-	if len(toks) != 1 || toks[0].Kind != TokHashIf {
-		t.Errorf("expected TokHashIf, got %v", toks[0].Kind)
-	}
-}
-
 func TestHashComment(t *testing.T) {
 	// A comment produces no tokens
 	toks := filterEOF(mustTokenize(t, "# this is a comment\nfoo"))
@@ -293,11 +279,67 @@ func TestHashComment(t *testing.T) {
 	}
 }
 
-func TestHashPipeNotComment(t *testing.T) {
-	// #pipe followed by ( is TokHashPipe, not a comment
-	toks := filterEOF(mustTokenize(t, "#pipe(x:v)"))
-	if toks[0].Kind != TokHashPipe {
-		t.Errorf("expected TokHashPipe, got %v", toks[0].Kind)
+// TestFormsAreBareIdents covers NEW_SYNTAX.md 2.1: the if/case/pipe forms lost
+// their `#` prefix and now lex as ordinary identifiers. The parser recognises
+// them contextually when they are followed by `(`.
+func TestFormsAreBareIdents(t *testing.T) {
+	for _, form := range []string{"if", "case", "pipe"} {
+		toks := filterEOF(mustTokenize(t, form+"(x)"))
+		if len(toks) == 0 || toks[0].Kind != TokIdent || toks[0].Value != form {
+			t.Errorf("%q: got %v, want TokIdent(%s)", form, toks, form)
+		}
+	}
+}
+
+// TestHashFormKeywordsAreComments is the point of dropping the prefix: a comment
+// opening with "if", "case", or "pipe" used to lex as that form, because
+// tryHashKeyword rejected a following ident char but not a space.
+func TestHashFormKeywordsAreComments(t *testing.T) {
+	for _, src := range []string{
+		"#if this is a comment\nfoo",
+		"#case sensitive note\nfoo",
+		"#pipe dream\nfoo",
+		"#if(a, b, c)\nfoo",
+	} {
+		toks := filterEOF(mustTokenize(t, src))
+		if len(toks) != 1 || toks[0].Kind != TokIdent || toks[0].Value != "foo" {
+			t.Errorf("%q: got %v, want the line skipped as a comment", src, toks)
+		}
+	}
+}
+
+// TestHashItPlaceholderVsComment covers hashItIsPlaceholder. `#it` keeps its
+// prefix, so it needs its own guard: it is the placeholder when followed by an
+// operator or punctuation, and a comment when followed by a word.
+func TestHashItPlaceholderVsComment(t *testing.T) {
+	for _, src := range []string{"#it.round()", "#it, 1", "#it + 1", "#it)", "#it * 2", "#it < 3"} {
+		toks := filterEOF(mustTokenize(t, src))
+		if len(toks) == 0 || toks[0].Kind != TokHashIt {
+			t.Errorf("%q: got %v, want TokHashIt", src, toks)
+		}
+	}
+	for _, src := range []string{"#it works\nfoo", "#it is a comment\nfoo"} {
+		toks := filterEOF(mustTokenize(t, src))
+		if len(toks) != 1 || toks[0].Kind != TokIdent || toks[0].Value != "foo" {
+			t.Errorf("%q: got %v, want the line skipped as a comment", src, toks)
+		}
+	}
+}
+
+// TestFlowArrowToken covers the `|=>` overview edge token (NEW_SYNTAX.md 2.2),
+// which must win over the bare pipe operator.
+func TestFlowArrowToken(t *testing.T) {
+	toks := filterEOF(mustTokenize(t, "a |=> b"))
+	if len(toks) != 3 || toks[1].Kind != TokFlowArrow || toks[1].Value != "|=>" {
+		t.Errorf("got %v, want ident |=> ident", kinds(toks))
+	}
+}
+
+// TestAtToken covers the `@` state-path prefix used by inline IO (3).
+func TestAtToken(t *testing.T) {
+	toks := filterEOF(mustTokenize(t, "@ns.field"))
+	if len(toks) == 0 || toks[0].Kind != TokAt || toks[0].Value != "@" {
+		t.Errorf("got %v, want a leading TokAt", kinds(toks))
 	}
 }
 

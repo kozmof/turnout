@@ -106,12 +106,12 @@ const cases: Case[] = [
     src: `type Metric = "m-{value: number}"
 ${stateBlock}
 scene "construct_low" {
-  entry_actions = ["run"]
+  entry_actions = [run]
   action "run" {
     compute {
       prog "p" {
-        ~>n:number
-        |^| <~out:Metric = Metric { value = n }
+        n:number
+        |^| out:Metric = Metric { value = n }
       }
     }
     prepare { n { from_state = input.n } }
@@ -133,12 +133,12 @@ scene "construct_low" {
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 ${stateBlock}
 scene "destructure_low" {
-  entry_actions = ["run"]
+  entry_actions = [run]
   action "run" {
     compute {
       prog "p" {
-        ~>rid:ResourceId
-        |^| <~seq:number = #case(
+        rid:ResourceId
+        |^| seq:number = case(
           rid,
           ResourceId { kind: "foo", sequence } => sequence,
           ResourceId { kind: "bar", sequence } => sequence + 100
@@ -163,23 +163,19 @@ type Enabled = true | false
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 ${stateBlock}
 scene "tuple_low" {
-  entry_actions = ["run"]
+  entry_actions = [run]
   action "run" {
     compute {
       prog "p" {
-        ~>rid:ResourceId
-        ~>enabled:Enabled
-        |^| <~seq:number = #case(
+        rid:ResourceId <~ @input.word
+        enabled:Enabled <~ @input.flag
+        |^| seq:number = case(
           (rid, enabled),
           (ResourceId { kind: "foo", sequence }, _) => sequence + 100,
           (ResourceId { kind: "bar", sequence }, true) => sequence,
           (ResourceId { kind: "bar", sequence: _ }, false) => 0
         )
       }
-    }
-    prepare {
-      rid { from_state = input.word }
-      enabled { from_state = input.flag }
     }
     merge { seq { to_state = work.n } }
   }
@@ -195,18 +191,14 @@ scene "tuple_low" {
     initialState: boxed({ "input.n": 4, "input.flag": true }),
     src: `${stateBlock}
 scene "if_low" {
-  entry_actions = ["run"]
+  entry_actions = [run]
   action "run" {
     compute {
       prog "p" {
-        ~>n:number
-        ~>flag:bool
-        |^| <~result:number = #if(flag, n + 10, n - 10)
+        n:number <~ @input.n
+        flag:bool <~ @input.flag
+        |^| result:number = if(flag, n + 10, n - 10)
       }
-    }
-    prepare {
-      n { from_state = input.n }
-      flag { from_state = input.flag }
     }
     merge { result { to_state = work.n } }
   }
@@ -222,18 +214,14 @@ scene "if_low" {
     initialState: boxed({ "input.n": 8, "input.flag": true }),
     src: `${stateBlock}
 scene "if_medium" {
-  entry_actions = ["first"]
+  entry_actions = [first]
   action "first" {
     compute {
       prog "p1" {
-        ~>n:number
-        ~>flag:bool
-        |^| <~staged:number = #if(flag, n + 1, n + 2)
+        n:number <~ @input.n
+        flag:bool <~ @input.flag
+        |^| staged:number = if(flag, n + 1, n + 2)
       }
-    }
-    prepare {
-      n { from_state = input.n }
-      flag { from_state = input.flag }
     }
     merge { staged { to_state = work.n } }
     next { action = second }
@@ -241,8 +229,8 @@ scene "if_medium" {
   action "second" {
     compute {
       prog "p2" {
-        ~>staged:number
-        |^| <~final:number = #if(staged > 10, staged * 2, staged + 5)
+        staged:number
+        |^| final:number = if(staged > 10, staged * 2, staged + 5)
       }
     }
     prepare { staged { from_state = work.n } }
@@ -260,29 +248,25 @@ scene "if_medium" {
     initialState: boxed({ "input.n": 6, "input.flag": true }),
     src: `${stateBlock}
 scene "if_a" {
-  entry_actions = ["done"]
+  entry_actions = [done]
   action "done" {
     compute {
       prog "p1" {
-        ~>n:number
-        ~>flag:bool
-        |^| <~staged:number = #if(flag, n * 2, n + 1)
+        n:number <~ @input.n
+        flag:bool <~ @input.flag
+        |^| staged:number = if(flag, n * 2, n + 1)
       }
-    }
-    prepare {
-      n { from_state = input.n }
-      flag { from_state = input.flag }
     }
     merge { staged { to_state = work.n } }
   }
 }
 scene "if_b" {
-  entry_actions = ["finish"]
+  entry_actions = [finish]
   action "finish" {
     compute {
       prog "p2" {
-        ~>v:number
-        |^| <~final:str = #if(v > 10, "large", "small")
+        v:number
+        |^| final:str = if(v > 10, "large", "small")
       }
     }
     prepare { v { from_state = work.n } }
@@ -290,7 +274,7 @@ scene "if_b" {
   }
 }
 route "if_route" {
-  entry "if_a"
+  entry = if_a
   match { if_a.done => if_b }
 }`,
   },
@@ -304,12 +288,12 @@ route "if_route" {
     initialState: boxed({ "input.word": "red" }),
     src: `${stateBlock}
 scene "case_low" {
-  entry_actions = ["run"]
+  entry_actions = [run]
   action "run" {
     compute {
       prog "p" {
-        ~>word:str
-        |^| <~result:number = #case(word, "red" => 1, "blue" => 2, _ => 0)
+        word:str
+        |^| result:number = case(word, "red" => 1, "blue" => 2, _ => 0)
       }
     }
     prepare { word { from_state = input.word } }
@@ -327,12 +311,12 @@ scene "case_low" {
     initialState: boxed({ "input.word": "vip" }),
     src: `${stateBlock}
 scene "case_medium" {
-  entry_actions = ["classify"]
+  entry_actions = [classify]
   action "classify" {
     compute {
       prog "p1" {
-        ~>word:str
-        |^| <~tier:str = #case(word, "vip" => "gold", "std" => "silver", _ => "bronze")
+        word:str
+        |^| tier:str = case(word, "vip" => "gold", "std" => "silver", _ => "bronze")
       }
     }
     prepare { word { from_state = input.word } }
@@ -342,8 +326,8 @@ scene "case_medium" {
   action "emit" {
     compute {
       prog "p2" {
-        ~>tier:str
-        |^| <~final:str = #case(tier, "gold" => "priority", "silver" => "normal", _ => "slow")
+        tier:str
+        |^| final:str = case(tier, "gold" => "priority", "silver" => "normal", _ => "slow")
       }
     }
     prepare { tier { from_state = work.label } }
@@ -361,12 +345,12 @@ scene "case_medium" {
     initialState: boxed({ "input.word": "red" }),
     src: `${stateBlock}
 scene "case_a" {
-  entry_actions = ["done"]
+  entry_actions = [done]
   action "done" {
     compute {
       prog "p1" {
-        ~>word:str
-        |^| <~tone:str = #case(word, "red" => "warm", "blue" => "cool", _ => "plain")
+        word:str
+        |^| tone:str = case(word, "red" => "warm", "blue" => "cool", _ => "plain")
       }
     }
     prepare { word { from_state = input.word } }
@@ -374,12 +358,12 @@ scene "case_a" {
   }
 }
 scene "case_b" {
-  entry_actions = ["finish"]
+  entry_actions = [finish]
   action "finish" {
     compute {
       prog "p2" {
-        ~>tone:str
-        |^| <~final:str = #case(tone, "warm" => "route_warm", "cool" => "route_cool", _ => "route_plain")
+        tone:str
+        |^| final:str = case(tone, "warm" => "route_warm", "cool" => "route_cool", _ => "route_plain")
       }
     }
     prepare { tone { from_state = work.label } }
@@ -387,7 +371,7 @@ scene "case_b" {
   }
 }
 route "case_route" {
-  entry "case_a"
+  entry = case_a
   match { case_a.done => case_b }
 }`,
   },
@@ -401,12 +385,12 @@ route "case_route" {
     initialState: boxed({ "input.n": 4 }),
     src: `${stateBlock}
 scene "pipe_low" {
-  entry_actions = ["run"]
+  entry_actions = [run]
   action "run" {
     compute {
       prog "p" {
-        ~>n:number
-        |^| <~result:number = #pipe(n, add(#it, 2), mul(#it, 3))
+        n:number
+        |^| result:number = pipe(n, add(#it, 2), mul(#it, 3))
       }
     }
     prepare { n { from_state = input.n } }
@@ -424,12 +408,12 @@ scene "pipe_low" {
     initialState: boxed({ "input.n": 2 }),
     src: `${stateBlock}
 scene "pipe_medium" {
-  entry_actions = ["first"]
+  entry_actions = [first]
   action "first" {
     compute {
       prog "p1" {
-        ~>n:number
-        |^| <~staged:number = #pipe(n, add(#it, 1), mul(#it, 2))
+        n:number
+        |^| staged:number = pipe(n, add(#it, 1), mul(#it, 2))
       }
     }
     prepare { n { from_state = input.n } }
@@ -439,8 +423,8 @@ scene "pipe_medium" {
   action "second" {
     compute {
       prog "p2" {
-        ~>staged:number
-        |^| <~final:number = #pipe(staged, add(#it, 3), mul(#it, 4))
+        staged:number
+        |^| final:number = pipe(staged, add(#it, 3), mul(#it, 4))
       }
     }
     prepare { staged { from_state = work.n } }
@@ -458,12 +442,12 @@ scene "pipe_medium" {
     initialState: boxed({ "input.n": 3 }),
     src: `${stateBlock}
 scene "pipe_a" {
-  entry_actions = ["done"]
+  entry_actions = [done]
   action "done" {
     compute {
       prog "p1" {
-        ~>n:number
-        |^| <~staged:number = #pipe(n, add(#it, 4), mul(#it, 2))
+        n:number
+        |^| staged:number = pipe(n, add(#it, 4), mul(#it, 2))
       }
     }
     prepare { n { from_state = input.n } }
@@ -471,12 +455,12 @@ scene "pipe_a" {
   }
 }
 scene "pipe_b" {
-  entry_actions = ["finish"]
+  entry_actions = [finish]
   action "finish" {
     compute {
       prog "p2" {
-        ~>staged:number
-        |^| <~final:number = #pipe(staged, mul(#it, 3), sub(#it, 1))
+        staged:number
+        |^| final:number = pipe(staged, mul(#it, 3), sub(#it, 1))
       }
     }
     prepare { staged { from_state = work.n } }
@@ -484,7 +468,7 @@ scene "pipe_b" {
   }
 }
 route "pipe_route" {
-  entry "pipe_a"
+  entry = pipe_a
   match { pipe_a.done => pipe_b }
 }`,
   },

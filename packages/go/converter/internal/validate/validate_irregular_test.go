@@ -185,7 +185,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 					},
 				},
 			},
-			wantCode: diag.CodeSCNNextComputeNotBool,
+			wantCode: diag.CodeNextComputeNotBool,
 		},
 		{
 			name: "transition_output_sigil",

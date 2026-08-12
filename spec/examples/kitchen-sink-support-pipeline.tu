@@ -90,20 +90,16 @@ state {
 # ---------------------------------------------------------------------------
 
 scene "triage" {
-  entry_actions = ["intake"]
+  entry_actions = [intake]
   next_policy   = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      intake
-        |=> auto_resolve
-        |=> escalate
-        |=> manual_queue
-      auto_resolve
-      escalate
-      manual_queue
-    EOT
-    enforce = "strict"
+  overview strict {
+    intake |=> auto_resolve
+    intake |=> escalate
+    intake |=> manual_queue
+    auto_resolve
+    escalate
+    manual_queue
   }
 
   action "intake" {
@@ -119,17 +115,17 @@ scene "triage" {
     compute {
       prog "intake_graph" {
         # --- ingress bindings (each needs a prepare entry) ---
-        ~>subject:str
-        ~>body:str
-        <~>priority:number
-        ~>vip:bool
-        ~>toxicity:number
-        ~>spam:bool
-        ~>sentiment:number
-        ~>tags:arr<str>
-        ~>flags:arr<bool>
-        ~>scores:arr<number>
-        ~>live_sentiment:number
+        subject:str <~ @ticket.subject
+        body:str <~ @ticket.body
+        priority:number <~ @ticket.priority ~> @triage.sla_hours
+        vip:bool <~ @ticket.vip
+        toxicity:number <~ @signal.toxicity
+        spam:bool <~ @signal.spam
+        sentiment:number <~ @signal.sentiment
+        tags:arr<str> <~ @ticket.tags
+        flags:arr<bool> <~ @ticket.flags
+        scores:arr<number> <~ @ticket.scores
+        live_sentiment:number <~ hook("sentiment_api")
 
         # --- numeric operators: * + min max - / % ---
         weighted_raw:number = toxicity * 3
@@ -184,7 +180,7 @@ scene "triage" {
         allfirst:str       = arr_get(all_tags, 0)
 
         # --- #pipe with #it ---
-        pipe_score:number = #pipe(
+        pipe_score:number = pipe(
           toxicity,
           #it + 1,
           #it * 2,
@@ -192,14 +188,14 @@ scene "triage" {
         )
 
         # --- #if (nested binary choice) ---
-        band:str = #if(
+        band:str = if(
           floored >= 70,
           "high",
-          #if(floored >= 40, "medium", "low")
+          if(floored >= 40, "medium", "low")
         )
 
         # --- #case (literal arm, guarded variable binders, wildcard) ---
-        route_label:str = #case(
+        route_label:str = case(
           floored,
           0 => "empty",
           hi if hi >= 70 => "urgent",
@@ -239,44 +235,19 @@ scene "triage" {
         c16:number = c15 + pipe_score
 
         # --- egress bindings (each needs a merge entry) ---
-        <~score_out:number   = adjusted
-        <~checksum_out:number = c16 + capped
-        <~band_out:str       = band
-        <~routelabel_out:str = route_label
-        <~normalized_out:str = normalized
+        score_out:number = adjusted ~> @triage.score
+        checksum_out:number = c16 + capped ~> @triage.checksum
+        band_out:str = band ~> @triage.band
+        routelabel_out:str = route_label ~> @triage.route_tag
+        normalized_out:str = normalized ~> @triage.normalized_subject
         audit1:str           = first_tag + " | "
-        <~audit_out:str      = audit1 + allfirst
+        audit_out:str = audit1 + allfirst ~> @triage.audit
         g1:bool              = unsafe | has_urgent
-        <~flagged_out:bool   = g1 | conflicting
+        flagged_out:bool = g1 | conflicting ~> @triage.flagged
 
         # --- compute root: marked binding, declared last ---
         |^| ready:bool = r11 | flags_empty
       }
-    }
-
-    prepare {
-      subject        { from_state = ticket.subject  }
-      body           { from_state = ticket.body     }
-      priority       { from_state = ticket.priority }
-      vip            { from_state = ticket.vip      }
-      toxicity       { from_state = signal.toxicity }
-      spam           { from_state = signal.spam     }
-      sentiment      { from_state = signal.sentiment }
-      tags           { from_state = ticket.tags     }
-      flags          { from_state = ticket.flags    }
-      scores         { from_state = ticket.scores   }
-      live_sentiment { from_hook  = "sentiment_api" }
-    }
-
-    merge {
-      score_out      { to_state = triage.score              }
-      checksum_out   { to_state = triage.checksum           }
-      band_out       { to_state = triage.band               }
-      routelabel_out { to_state = triage.route_tag          }
-      audit_out      { to_state = triage.audit              }
-      normalized_out { to_state = triage.normalized_subject }
-      flagged_out    { to_state = triage.flagged            }
-      priority       { to_state = triage.sla_hours          }
     }
 
     publish {
@@ -288,18 +259,13 @@ scene "triage" {
     next {
       compute {
         prog "to_auto_resolve" {
-          ~>score_in:number
-          ~>threshold:number
-          ~>flagged_in:bool
+          score_in:number <~ action(score_out)
+          threshold:number <~ 40
+          flagged_in:bool <~ @triage.flagged
           cheap:bool = score_in < threshold
           safe:bool  = flagged_in == false
           |?| go_auto:bool = cheap & safe
         }
-      }
-      prepare {
-        score_in   { from_action  = score_out      }
-        threshold  { from_literal = 40             }
-        flagged_in { from_state   = triage.flagged }
       }
       action = auto_resolve
     }
@@ -308,12 +274,9 @@ scene "triage" {
     next {
       compute {
         prog "to_escalate" {
-          ~>flagged_in:bool
+          flagged_in:bool <~ action(flagged_out)
           |?| go_escalate:bool = flagged_in
         }
-      }
-      prepare {
-        flagged_in { from_action = flagged_out }
       }
       action = escalate
     }
@@ -330,13 +293,9 @@ scene "triage" {
     """
     compute {
       prog "auto_resolve_graph" {
-        <~status:str = "auto_resolved"
-        |^| <~notice:str = "closed without human review"
+        status:str = "auto_resolved" ~> @outcome.status
+        |^| notice:str = "closed without human review" ~> @outcome.notice
       }
-    }
-    merge {
-      status { to_state = outcome.status }
-      notice { to_state = outcome.notice }
     }
     publish {
       hook = "emit_metrics"
@@ -349,18 +308,11 @@ scene "triage" {
     """
     compute {
       prog "escalate_graph" {
-        ~>sla:number
+        sla:number <~ @triage.sla_hours
         bumped:number = sla + 4
-        <~status:str  = "escalated"
-        |^| <~hours:number = max(bumped, 24)
+        status:str = "escalated" ~> @outcome.status
+        |^| hours:number = max(bumped, 24) ~> @triage.sla_hours
       }
-    }
-    prepare {
-      sla { from_state = triage.sla_hours }
-    }
-    merge {
-      status { to_state = outcome.status   }
-      hours  { to_state = triage.sla_hours }
     }
   }
 
@@ -370,13 +322,9 @@ scene "triage" {
     """
     compute {
       prog "manual_queue_graph" {
-        <~status:str = "queued"
-        |^| <~owner:str = "support_team"
+        status:str = "queued" ~> @outcome.status
+        |^| owner:str = "support_team" ~> @outcome.handled_by
       }
-    }
-    merge {
-      status { to_state = outcome.status     }
-      owner  { to_state = outcome.handled_by }
     }
   }
 }
@@ -390,16 +338,12 @@ scene "triage" {
 # ---------------------------------------------------------------------------
 
 scene "review" {
-  entry_actions = ["assess"]
+  entry_actions = [assess]
   next_policy   = "all-match"
 
-  view "overview" {
-    flow = <<-EOT
-      assess
-        |=> notify
-        |=> log
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    assess |=> notify
+    assess |=> log
   }
 
   action "assess" {
@@ -410,37 +354,23 @@ scene "review" {
 
     compute {
       prog "assess_graph" {
-        ~>flagged:bool
-        ~>route_tag:str
-        ~>score:number
+        flagged:bool <~ @triage.flagged
+        route_tag:str <~ @triage.route_tag
+        score:number <~ @triage.score
 
         hot:bool       = score >= 70
-        <~note_out:str = route_tag + " review"
-        |^| <~reviewed:bool = flagged | hot
+        note_out:str = route_tag + " review" ~> @review.note
+        |^| reviewed:bool = flagged | hot ~> @review.parallel
       }
-    }
-
-    prepare {
-      flagged   { from_state = triage.flagged   }
-      route_tag { from_state = triage.route_tag }
-      score     { from_state = triage.score     }
-    }
-
-    merge {
-      note_out { to_state = review.note     }
-      reviewed { to_state = review.parallel }
     }
 
     # all-match: this rule fires when the ticket is hot/flagged ...
     next {
       compute {
         prog "to_notify" {
-          ~>hot_in:bool
+          hot_in:bool <~ action(reviewed)
           |?| go_notify:bool = hot_in
         }
-      }
-      prepare {
-        hot_in { from_action = reviewed }
       }
       action = notify
     }
@@ -457,11 +387,8 @@ scene "review" {
     """
     compute {
       prog "notify_graph" {
-        |^| <~reviewer:str = "oncall"
+        |^| reviewer:str = "oncall" ~> @review.reviewer
       }
-    }
-    merge {
-      reviewer { to_state = review.reviewer }
     }
     publish {
       hook = "page_oncall"
@@ -474,15 +401,9 @@ scene "review" {
     """
     compute {
       prog "log_graph" {
-        ~>note:str
-        |^| <~line:str = note + " logged"
+        note:str <~ @review.note
+        |^| line:str = note + " logged" ~> @review.log_line
       }
-    }
-    prepare {
-      note { from_state = review.note }
-    }
-    merge {
-      line { to_state = review.log_line }
     }
   }
 }
@@ -495,15 +416,11 @@ scene "review" {
 # ---------------------------------------------------------------------------
 
 scene "finalize" {
-  entry_actions = ["seal"]
+  entry_actions = [seal]
   next_policy   = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      seal
-        |=> archive
-    EOT
-    enforce = "nodes_only"
+  overview nodes_only {
+    seal |=> archive
   }
 
   action "seal" {
@@ -512,11 +429,8 @@ scene "finalize" {
     """
     compute {
       prog "seal_graph" {
-        |^| <~sealed:bool = true
+        |^| sealed:bool = true ~> @outcome.sealed
       }
-    }
-    merge {
-      sealed { to_state = outcome.sealed }
     }
     next {
       action = archive
@@ -529,17 +443,10 @@ scene "finalize" {
     """
     compute {
       prog "archive_graph" {
-        ~>status:str
-        <~archived:bool = true
-        |^| <~final_notice:str = status + " archived"
+        status:str <~ @outcome.status
+        archived:bool = true ~> @outcome.archived
+        |^| final_notice:str = status + " archived" ~> @outcome.notice
       }
-    }
-    prepare {
-      status { from_state = outcome.status }
-    }
-    merge {
-      archived     { to_state = outcome.archived }
-      final_notice { to_state = outcome.notice   }
     }
   }
 }
@@ -549,7 +456,7 @@ scene "finalize" {
 # ---------------------------------------------------------------------------
 
 scene "closed" {
-  entry_actions = ["close"]
+  entry_actions = [close]
   next_policy   = "first-match"
 
   action "close" {
@@ -558,11 +465,8 @@ scene "closed" {
     """
     compute {
       prog "close_graph" {
-        |^| <~status:str = "closed"
+        |^| status:str = "closed" ~> @outcome.status
       }
-    }
-    merge {
-      status { to_state = outcome.status }
     }
   }
 }
@@ -579,7 +483,7 @@ scene "closed" {
 # ---------------------------------------------------------------------------
 
 route "support_pipeline" {
-  entry "triage"
+  entry = triage
 
   match {
     triage.auto_resolve => finalize,

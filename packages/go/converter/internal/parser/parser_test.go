@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
@@ -57,7 +58,7 @@ func TestParseInlineStateBlock(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" { |^| v:bool = true }
@@ -93,7 +94,7 @@ func TestParseStateFileDirective(t *testing.T) {
 	src := `state_file = "loan.state.tu"
 
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" { |^| v:bool = true }
@@ -113,7 +114,7 @@ scene "s" {
 
 func TestMissingStateSourceError(t *testing.T) {
 	src := `scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| v:bool = true } }
   }
@@ -125,7 +126,7 @@ func TestMissingStateSourceError(t *testing.T) {
 func TestConflictingStateSourceError(t *testing.T) {
 	src := `state {}
 state_file = "x.tu"
-scene "s" { entry_actions = ["a"] action "a" { compute { prog "p" { |^| v:bool = true } } } }
+scene "s" { entry_actions = [a] action "a" { compute { prog "p" { |^| v:bool = true } } } }
 `
 	mustParseFail(t, src)
 }
@@ -135,7 +136,7 @@ scene "s" { entry_actions = ["a"] action "a" { compute { prog "p" { |^| v:bool =
 func TestParseSceneBasic(t *testing.T) {
 	src := `state {}
 scene "loan_flow" {
-  entry_actions = ["score", "init"]
+  entry_actions = [score, init]
   next_policy   = "first-match"
   action "score" {
     compute {
@@ -162,11 +163,8 @@ scene "loan_flow" {
 func TestParseViewBlock(t *testing.T) {
 	src := `state {}
 scene "s" {
-  view "overview" {
-    flow = <<-EOT
-      a |=> b
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    a |=> b
   }
   action "a" {
     compute { prog "p" { |^| v:bool = true } }
@@ -181,8 +179,13 @@ scene "s" {
 	if v.Name != "overview" {
 		t.Errorf("view name = %q", v.Name)
 	}
-	if !strings.Contains(v.Flow, "a |=> b") {
-		t.Errorf("flow = %q", v.Flow)
+	if len(v.Edges) != 1 || v.Edges[0].From != "a" || v.Edges[0].To != "b" {
+		t.Errorf("edges = %v, want one a |=> b", v.Edges)
+	}
+	// Every edge carries a real source position — the reason the flow moved out
+	// of the heredoc (NEW_SYNTAX.md 2.2).
+	if v.Edges[0].Pos.Line == 0 || v.Edges[0].Pos.Col == 0 {
+		t.Errorf("edge position = %+v, want a real line/col", v.Edges[0].Pos)
 	}
 	if v.Enforce != "at_least" {
 		t.Errorf("enforce = %q", v.Enforce)
@@ -227,7 +230,7 @@ func TestParseComputeBlock(t *testing.T) {
     compute {
       prog "score_graph" {
         income:number = 0
-        |^| <~decision:bool = true
+        |^| decision:bool = true
       }
     }
   }`)
@@ -252,18 +255,22 @@ func TestParseComputeBlock(t *testing.T) {
 		t.Errorf("binding[0]: name=%q sigil=%v type=%v", b0.Name, b0.Sigil, b0.Type)
 	}
 	b1 := pg.Bindings[1]
-	if b1.Sigil != ast.SigilEgress || b1.Name != "decision" {
+	if b1.Sigil != ast.SigilNone || b1.Name != "decision" {
 		t.Errorf("binding[1]: sigil=%v name=%q", b1.Sigil, b1.Name)
 	}
 }
 
-func TestParseSigils(t *testing.T) {
+// TestParseInlineIOSigils covers NEW_SYNTAX.md 3: a binding's direction comes
+// from its inline IO clauses, and the arrow points at the destination — so `<~`
+// on the right of the name is input and `~>` is output, the opposite of the
+// retired prefix sigils.
+func TestParseInlineIOSigils(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        ~>a:number
-        <~b:bool   = true
-        <~>c:str
+        a:number <~ @ns.val
+        b:bool   = true ~> @ns.flag
+        c:str    <~ @ns.name ~> @ns.name
         |^| d:number   = 0
       }
     }
@@ -276,7 +283,7 @@ func TestParseSigils(t *testing.T) {
 	}{
 		{"a", ast.SigilIngress},
 		{"b", ast.SigilEgress},
-		{"c", ast.SigilBiDir},
+		{"c", ast.SigilBiDir}, // both arrows replace the retired <~>
 		{"d", ast.SigilNone},
 	}
 	for i, tc := range cases {
@@ -284,6 +291,59 @@ func TestParseSigils(t *testing.T) {
 			t.Errorf("binding[%d]: name=%q sigil=%v, want name=%q sigil=%v",
 				i, bindings[i].Name, bindings[i].Sigil, tc.name, tc.sigil)
 		}
+	}
+	// The state paths are captured on the clauses themselves.
+	in, ok := bindings[0].Ingress.(*ast.IngressState)
+	if !ok || in.Path != "ns.val" {
+		t.Errorf("binding[0] ingress = %v, want @ns.val", bindings[0].Ingress)
+	}
+	if bindings[1].Egress == nil || bindings[1].Egress.Path != "ns.flag" {
+		t.Errorf("binding[1] egress = %v, want @ns.flag", bindings[1].Egress)
+	}
+}
+
+// TestParseLegacySigilPositionReported covers the migration guard: a leading
+// sigil is the pre-v2 spelling, and because the arrows inverted a mis-migrated
+// file could otherwise parse while meaning the opposite thing.
+func TestParseLegacySigilPositionReported(t *testing.T) {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute {
+      prog "p" {
+        |^| ~>a:number
+      }
+    }
+  }`))
+	found := false
+	for _, d := range ds {
+		if d.Code == diag.CodeLegacySigilPosition {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("want LegacySigilPosition, got %v", ds)
+	}
+}
+
+// TestParseBareInputDeclaration covers the block-form spelling: a binding with
+// no RHS and no inline clause is an input whose source lives in `prepare`.
+func TestParseBareInputDeclaration(t *testing.T) {
+	tf := mustParse(t, minimalTurnFile(`  action "a" {
+    compute {
+      prog "p" {
+        a:number
+        |^| d:bool = true
+      }
+    }
+    prepare {
+      a { from_state = ns.val }
+    }
+  }`))
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	if b.Name != "a" {
+		t.Fatalf("binding[0] = %q, want a", b.Name)
+	}
+	if _, ok := b.RHS.(*ast.SigilInputRHS); !ok {
+		t.Errorf("RHS = %T, want *SigilInputRHS", b.RHS)
 	}
 }
 
@@ -332,7 +392,7 @@ func TestRHSPlaceholder(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        |^| ~>v:number
+        |^| v:number
       }
     }
   }`)
@@ -463,7 +523,7 @@ func TestRHSPipe(t *testing.T) {
       prog "p" {
         v1:number = 5
         v2:number = 3
-        |^| result:number = #pipe(v1, add(#it, v2))
+        |^| result:number = pipe(v1, add(#it, v2))
       }
     }
   }`)
@@ -493,7 +553,7 @@ func TestRHSCondBlock(t *testing.T) {
         flag:bool    = true
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = #if(flag, addFn, subFn)
+        |^| result:number = if(flag, addFn, subFn)
       }
     }
   }`)
@@ -525,7 +585,7 @@ func TestRHSIfInlineCall(t *testing.T) {
         v2:number    = 3
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = #if(gt(v1, v2), addFn, subFn)
+        |^| result:number = if(gt(v1, v2), addFn, subFn)
       }
     }
   }`)
@@ -556,7 +616,7 @@ func TestRHSIfBareRef(t *testing.T) {
         flag:bool    = true
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = #if(flag, addFn, subFn)
+        |^| result:number = if(flag, addFn, subFn)
       }
     }
   }`)
@@ -578,7 +638,7 @@ func TestParsePrepareBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        ~>income:number
+        income:number
         |^| v:bool = true
       }
     }
@@ -603,7 +663,7 @@ func TestParsePrepareBlock(t *testing.T) {
 
 func TestParsePrepareFromHook(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { ~>data:str |^| v:bool = true } }
+    compute { prog "p" { data:str |^| v:bool = true } }
     prepare {
       data { from_hook = "score_api" }
     }
@@ -620,7 +680,7 @@ func TestParseMergeBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        <~decision:bool = true
+        decision:bool = true
         |^| v:bool = true
       }
     }
@@ -663,14 +723,14 @@ func TestParseNextBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        <~decision:bool = true
+        decision:bool = true
         |^| v:bool = true
       }
     }
     next {
       compute {
         prog "to_approve" {
-          ~>decision:bool
+          decision:bool
           |?| go:bool = decision
         }
       }
@@ -776,7 +836,7 @@ func TestReferenceNormalization(t *testing.T) {
 
 func TestThreeSegmentPath(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| ~>v:number } }
+    compute { prog "p" { |^| v:number } }
     prepare {
       v { from_state = session.cart.items }
     }
@@ -910,7 +970,7 @@ func TestRHSCompatFuncBlock(t *testing.T) {
 func TestParseRouteBlock(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 route "main" {
@@ -969,7 +1029,7 @@ route "main" {
 func TestParseRouteORBranches(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 route "r" {
@@ -1000,7 +1060,7 @@ route "r" {
 func TestParseRouteFallbackOnly(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 route "r" { match { _ => s } }`
@@ -1017,7 +1077,7 @@ route "r" { match { _ => s } }`
 func TestParseMultipleRoutes(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 route "r1" { match { _ => s } }
@@ -1034,7 +1094,7 @@ route "r2" { match { s.done => s } }`
 func TestParseRouteWildcardSegment(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 route "r" { match { s.*.final => s } }`

@@ -57,6 +57,10 @@ type parser struct {
 	pos            int
 	file           string
 	requiresScenes bool
+	// inNextCompute is true while parsing a prog inside a next rule. Inline IO
+	// sources differ by context (NEW_SYNTAX.md 3), and the two contexts are
+	// distinct parse paths, so tracking it here keeps the check at the token.
+	inNextCompute bool
 	diag.DiagSink
 }
 
@@ -243,8 +247,7 @@ func isKeyword(k lexer.TokenKind) bool {
 		lexer.TokKwNext, lexer.TokKwProg,
 		lexer.TokKwEntryActions, lexer.TokKwNextPolicy,
 		lexer.TokKwFromState, lexer.TokKwFromAction, lexer.TokKwFromHook, lexer.TokKwFromLiteral,
-		lexer.TokKwToState, lexer.TokKwHook, lexer.TokKwView, lexer.TokKwFlow,
-		lexer.TokKwEnforce, lexer.TokKwText, lexer.TokKwRoute, lexer.TokKwMatch, lexer.TokKwEntry:
+		lexer.TokKwToState, lexer.TokKwHook, lexer.TokKwOverview, lexer.TokKwText, lexer.TokKwRoute, lexer.TokKwMatch, lexer.TokKwEntry:
 		return true
 	}
 	return false

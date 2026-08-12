@@ -527,12 +527,12 @@
           ],
           "merge": [
             {
-              "binding": "final_response",
-              "toState": "response.last"
-            },
-            {
               "binding": "status",
               "toState": "workflow.status"
+            },
+            {
+              "binding": "final_response",
+              "toState": "response.last"
             }
           ]
         },
@@ -586,12 +586,12 @@
           ],
           "merge": [
             {
-              "binding": "review_note",
-              "toState": "review.note"
-            },
-            {
               "binding": "status",
               "toState": "workflow.status"
+            },
+            {
+              "binding": "review_note",
+              "toState": "review.note"
             }
           ]
         }

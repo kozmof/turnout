@@ -18,15 +18,12 @@ state {
 }
 
 scene "start" {
-  entry_actions = ["init"]
+  entry_actions = [init]
 
   action "init" {
     compute { prog "p" {
-        |^| <~ v:number = 1
+        |^| v:number = 1 ~> @ns.count
       }
-    }
-    merge {
-      v { to_state = ns.count }
     }
   }
 }
@@ -218,7 +215,7 @@ func TestCompileWithSchemaDoesNotRereadStateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := `state_file = "schema.tu"
-scene "start" { entry_actions = ["init"] action "init" {} }`
+scene "start" { entry_actions = [init] action "init" {} }`
 	name := filepath.Join(dir, "main.tu")
 	schema, order, ds := converter.ResolveSchema(name, src, "")
 	if ds.HasErrors() {
@@ -277,15 +274,12 @@ state {
 }
 
 scene "start" {
-  entry_actions = ["init"]
+  entry_actions = [init]
 
   action "init" {
     compute { prog "p" {
-        |^| <~ v:number = 1
+        |^| v:number = 1 ~> @ns.nonexistent
       }
-    }
-    merge {
-      v { to_state = ns.nonexistent }
     }
   }
 }
@@ -336,15 +330,12 @@ state {
 }
 
 scene "start" {
-  entry_actions = ["init"]
+  entry_actions = [init]
 
   action "init" {
     compute { prog "p" {
-        |^| <~ v:number = 1
+        |^| v:number = 1 ~> @ns.nonexistent
       }
-    }
-    merge {
-      v { to_state = ns.nonexistent }
     }
   }
 }

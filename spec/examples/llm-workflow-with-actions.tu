@@ -28,25 +28,17 @@ state {
 }
 
 scene "llm_support_workflow" {
-  entry_actions     = ["analyze_request"]
+  entry_actions     = [analyze_request]
   next_policy       = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      analyze_request
-        |=> retrieve_context
-        |=> draft_direct
-      retrieve_context
-        |=> draft_with_context
-      draft_direct
-        |=> safety_check
-      draft_with_context
-        |=> safety_check
-      safety_check
-        |=> publish_response
-        |=> human_review
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    analyze_request |=> retrieve_context
+    analyze_request |=> draft_direct
+    retrieve_context |=> draft_with_context
+    draft_direct |=> safety_check
+    draft_with_context |=> safety_check
+    safety_check |=> publish_response
+    safety_check |=> human_review
   }
 
   action "analyze_request" {
@@ -59,10 +51,10 @@ scene "llm_support_workflow" {
 
     compute {
       prog "analyze_request_graph" {
-        ~>need_grounding:bool
-        ~>kb_enabled:bool
-        ~>priority_tier:number
-        <~workflow_stage:str = "analyzed"
+        need_grounding:bool <~ @request.need_grounding
+        kb_enabled:bool <~ @runtime.kb_enabled
+        priority_tier:number <~ @request.priority_tier
+        workflow_stage:str = "analyzed" ~> @workflow.stage
 
         retrieve_ready:bool = need_grounding & kb_enabled
         fast_lane:bool = priority_tier >= 2
@@ -70,25 +62,12 @@ scene "llm_support_workflow" {
       }
     }
 
-    prepare {
-      need_grounding { from_state = request.need_grounding }
-      kb_enabled     { from_state = runtime.kb_enabled  }
-      priority_tier  { from_state = request.priority_tier        }
-    }
-
-    merge {
-      workflow_stage { to_state = workflow.stage }
-    }
-
     next {
       compute {
         prog "to_retrieve_context" {
-          ~>retrieve_ready:bool
+          retrieve_ready:bool <~ action(retrieve_ready)
           |?| go_retrieve:bool = retrieve_ready
         }
-      }
-      prepare {
-        retrieve_ready { from_action = retrieve_ready }
       }
       action = retrieve_context
     }
@@ -108,24 +87,14 @@ scene "llm_support_workflow" {
 
     compute {
       prog "retrieve_context_graph" {
-        ~>query:str
-        ~>doc_hint:str
-        <~workflow_stage:str = "retrieved"
+        query:str <~ @request.query
+        doc_hint:str <~ @request.doc_hint
+        workflow_stage:str = "retrieved" ~> @workflow.stage
 
         context_prefix:str = query + " :: "
-        <~retrieved_context:str = context_prefix + doc_hint
+        retrieved_context:str = context_prefix + doc_hint ~> @workflow.context
         |^| retrieval_ready:bool = true
       }
-    }
-
-    prepare {
-      query    { from_state = request.query    }
-      doc_hint { from_state = request.doc_hint }
-    }
-
-    merge {
-      workflow_stage    { to_state = workflow.stage   }
-      retrieved_context { to_state = workflow.context }
     }
 
     next {
@@ -142,21 +111,12 @@ scene "llm_support_workflow" {
 
     compute {
       prog "draft_direct_graph" {
-        ~>query:str
+        query:str <~ @request.query
         prefix:str = "Direct answer: "
-        <~draft_text:str = prefix + query
-        <~workflow_stage:str = "drafted_direct"
+        draft_text:str = prefix + query ~> @workflow.draft
+        workflow_stage:str = "drafted_direct" ~> @workflow.stage
         |^| draft_ready:bool = true
       }
-    }
-
-    prepare {
-      query { from_state = request.query }
-    }
-
-    merge {
-      draft_text     { to_state = workflow.draft }
-      workflow_stage { to_state = workflow.stage }
     }
 
     next {
@@ -174,24 +134,14 @@ scene "llm_support_workflow" {
 
     compute {
       prog "draft_with_context_graph" {
-        ~>query:str
-        ~>retrieved_context:str
-        <~workflow_stage:str = "drafted_with_context"
+        query:str <~ @request.query
+        retrieved_context:str <~ @workflow.context
+        workflow_stage:str = "drafted_with_context" ~> @workflow.stage
 
         draft_seed:str = query + " | "
-        <~draft_text:str = draft_seed + retrieved_context
+        draft_text:str = draft_seed + retrieved_context ~> @workflow.draft
         |^| draft_ready:bool = true
       }
-    }
-
-    prepare {
-      query             { from_state = request.query    }
-      retrieved_context { from_state = workflow.context }
-    }
-
-    merge {
-      draft_text     { to_state = workflow.draft }
-      workflow_stage { to_state = workflow.stage }
     }
 
     next {
@@ -209,36 +159,23 @@ scene "llm_support_workflow" {
 
     compute {
       prog "safety_check_graph" {
-        ~>toxicity_score:number
-        ~>pii_score:number
-        <~workflow_stage:str = "safety_checked"
+        toxicity_score:number <~ @moderation.toxicity_score
+        pii_score:number <~ @moderation.pii_score
+        workflow_stage:str = "safety_checked" ~> @workflow.stage
 
         toxicity_ok:bool = toxicity_score <= 2
         pii_ok:bool = pii_score <= 1
-        <~approved:bool = toxicity_ok & pii_ok
+        approved:bool = toxicity_ok & pii_ok ~> @workflow.approved
         |^| safety_ready:bool = true
       }
-    }
-
-    prepare {
-      toxicity_score { from_state = moderation.toxicity_score }
-      pii_score      { from_state = moderation.pii_score      }
-    }
-
-    merge {
-      approved       { to_state = workflow.approved }
-      workflow_stage { to_state = workflow.stage    }
     }
 
     next {
       compute {
         prog "to_publish_response" {
-          ~>approved:bool
+          approved:bool <~ action(approved)
           |?| go_publish:bool = approved
         }
-      }
-      prepare {
-        approved { from_action = approved }
       }
       action = publish_response
     }
@@ -257,21 +194,13 @@ scene "llm_support_workflow" {
 
     compute {
       prog "publish_response_graph" {
-        ~>draft_text:str
-        <~workflow_status:str = "sent"
-        <~final_response:str = draft_text
+        draft_text:str <~ @workflow.draft
+        workflow_status:str = "sent" ~> @workflow.status
+        final_response:str = draft_text ~> @conversation.last_response
         |^| publish_ready:bool = true
       }
     }
 
-    prepare {
-      draft_text { from_state = workflow.draft }
-    }
-
-    merge {
-      workflow_status { to_state = workflow.status           }
-      final_response  { to_state = conversation.last_response }
-    }
   }
 
   action "human_review" {
@@ -284,21 +213,13 @@ scene "llm_support_workflow" {
 
     compute {
       prog "human_review_graph" {
-        ~>draft_text:str
+        draft_text:str <~ @workflow.draft
         prefix:str = "Review needed: "
-        <~handoff_note:str = prefix + draft_text
-        <~workflow_status:str = "awaiting_human"
+        handoff_note:str = prefix + draft_text ~> @review.note
+        workflow_status:str = "awaiting_human" ~> @workflow.status
         |^| handoff_ready:bool = true
       }
     }
 
-    prepare {
-      draft_text { from_state = workflow.draft }
-    }
-
-    merge {
-      handoff_note    { to_state = review.note      }
-      workflow_status { to_state = workflow.status  }
-    }
   }
 }

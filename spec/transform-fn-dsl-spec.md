@@ -17,7 +17,7 @@ score_text:str = score.abs().toStr() + unit  // number → number → string, th
 
 `pass` is an internal identity function used by the runtime. It is not part of the DSL surface syntax.
 
-For multi-step local expression chains, authors can use `#pipe(initial, step, ...)` from `pipe-if-case-it.md`. Inside a `#pipe` step, `#it` names the current pipeline value, and `_` is not a transform placeholder. Transform method calls are not currently parsed on `#it` or on arbitrary local-expression results. `pipe-if-case-it.md §6.6` defines a future draft for syntax such as `#it.round().clamp(0, 5000)`.
+For multi-step local expression chains, authors can use `pipe(initial, step, ...)` from `pipe-if-case-it.md`. Inside a `#pipe` step, `#it` names the current pipeline value, and `_` is not a transform placeholder. Transform method calls are not currently parsed on `#it` or on arbitrary local-expression results. `pipe-if-case-it.md §6.6` defines a future draft for syntax such as `#it.round().clamp(0, 5000)`.
 
 ---
 
@@ -36,12 +36,12 @@ For multi-step local expression chains, authors can use `#pipe(initial, step, ..
 ## CAN (OK)
 
 - A DSL author can call any method listed in the table above on a receiver of the matching type.
-- A method call can be applied to a binding identifier whose type is known in the current `prog`, when the method call appears as an argument in an infix or call expression.
+- A method call can be applied to a binding identifier whose type is known in the current `prog`. It is valid as a call argument, as either operand of an infix expression, and as a binding RHS on its own.
 - Method calls can be chained from an identifier receiver: `income.toStr().toUpperCase() + suffix`. Each step is valid as long as the previous step's output type supports the next method.
 - `.toStr()` can be called on both `number` and `boolean` receivers, converting them to their string representation.
 - `.length()` can be called on both `string` (returns character count) and `array` (returns element count) receivers.
 - Tags on the receiver value are preserved on the returned value.
-- To use a transform result as a binding value, place it in an expression context, for example `floored:number = rate.floor() + 0`.
+- A transform result can be used directly as a binding value: `floored:number = rate.floor()`. It lowers to the same identity combine a bare reference lowers to, which is what the older `rate.floor() + 0` idiom produced by hand.
 
 ---
 
@@ -56,11 +56,10 @@ For multi-step local expression chains, authors can use `#pipe(initial, step, ..
   ```
   This is the direct counterpart of the CAN rule. Each method is exclusively permitted on its declared type.
 - `null` receivers cannot call any DSL method. There are no DSL-visible conversions for `null`.
-- Method-call syntax is not accepted as a standalone binding RHS, on literal receivers, or on local-expression placeholders/results:
+- Method-call syntax is not accepted on literal receivers or on local-expression placeholders/results:
   ```
-  floored:number = rate.floor()       // NG: standalone method-call RHS
   label:str = "x".trim()           // NG: literal receiver
-  width:number = #pipe(raw, #it.round()) // NG: #it method receiver
+  width:number = pipe(raw, #it.round()) // NG: #it method receiver
   ```
 - No arguments may be passed to these method calls. All `transformFn` operations are strictly unary:
   ```

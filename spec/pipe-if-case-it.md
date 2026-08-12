@@ -42,7 +42,7 @@ The design aims to preserve these properties:
 `#if` selects between two expressions.
 
 ```turn id="99065p"
-#if(cond, then_expr, else_expr)
+if(cond, then_expr, else_expr)
 ```
 
 ## 2.2 `#case`
@@ -50,7 +50,7 @@ The design aims to preserve these properties:
 `#case` matches a subject value against ordered arms.
 
 ```turn id="lp2x0v"
-#case(
+case(
   subject,
   pattern1 => expr1,
   pattern2 => expr2,
@@ -63,7 +63,7 @@ The design aims to preserve these properties:
 `#pipe` applies a sequence of steps left to right.
 
 ```turn id="mhm7wz"
-#pipe(
+pipe(
   initial_value,
   step1,
   step2,
@@ -76,7 +76,7 @@ The design aims to preserve these properties:
 `#it` denotes the current pipeline value within a step of `#pipe`.
 
 ```turn id="yhvj2h"
-#pipe(
+pipe(
   x,
   #it + 1,
   #it * 2
@@ -106,7 +106,7 @@ It is intended for short binary decisions.
 ## 4.2 Syntax
 
 ```turn id="34qcgo"
-#if(cond, then_expr, else_expr)
+if(cond, then_expr, else_expr)
 ```
 
 ## 4.3 Semantics
@@ -120,11 +120,11 @@ Only the selected branch is evaluated.
 ## 4.4 Examples
 
 ```turn id="bs4xj4"
-status:str = #if(temp_c < 28, "warmup", "run")
+status:str = if(temp_c < 28, "warmup", "run")
 ```
 
 ```turn id="e9kfqk"
-needs_hold:bool = #if(sample_passed, false, true)
+needs_hold:bool = if(sample_passed, false, true)
 ```
 
 ## 4.5 Guidance
@@ -153,7 +153,7 @@ It is intended for:
 ## 5.2 Syntax
 
 ```turn id="u39u5m"
-#case(
+case(
   subject,
   pattern1 => expr1,
   pattern2 => expr2,
@@ -224,7 +224,7 @@ The guard is evaluated only after the pattern has matched.
 Tuple patterns are a proposed extension for matching multiple subject values structurally. They are not part of the implemented v1 parser.
 
 ```turn id="future-tuple-case"
-route:str = #case(
+route:str = case(
   (unsafe, spindle_temp_c),
   (true, _) => "lockout",
   (false, t) if t < 28 => "warmup",
@@ -244,7 +244,7 @@ Proposed semantics:
 ### Single subject
 
 ```turn id="8yprjc"
-band:str = #case(
+band:str = case(
   vibration_mm_s,
   x if x >= 11 => "severe",
   x if x >= 7 => "elevated",
@@ -255,16 +255,16 @@ band:str = #case(
 ### Reason-code derivation
 
 ```turn id="3t4ghf"
-reason:str = #if(
+reason:str = if(
   active_alarm,
   "active_alarm",
-  #case(
+  case(
     lube_pressure_ok,
     false => "lube_pressure",
-    _ => #case(
+    _ => case(
       door_closed,
       false => "door_open",
-      _ => #case(
+      _ => case(
         spindle_temp_c,
         t if t < 28 => "spindle_cold",
         _ => "ready"
@@ -313,7 +313,7 @@ It is intended for:
 ## 6.2 Syntax
 
 ```turn id="ltqfx9"
-#pipe(
+pipe(
   initial_value,
   step1,
   step2,
@@ -340,7 +340,7 @@ Within a `#pipe` step, `#it` denotes the current pipeline value.
 Example:
 
 ```turn id="xn4d6f"
-#pipe(
+pipe(
   raw_width_mm,
   #it + 0,
   #it < spec_width_max
@@ -358,7 +358,7 @@ Using `#it` outside `#pipe` is an error.
 Method-call steps are a proposed extension for applying transform-style operations directly to any local expression, including `#it`. They are not part of the implemented v1 parser.
 
 ```turn id="future-pipe-method-chain"
-width_mm:number = #pipe(
+width_mm:number = pipe(
   raw_width_mm,
   #it.round().clamp(0, 5000)
 )
@@ -385,20 +385,20 @@ Proposed semantics:
 Proposed examples:
 
 ```turn id="future-pipe-method-examples"
-normalized:str = #pipe(
+normalized:str = pipe(
   raw_label,
   #it.trim().toLowerCase()
 )
 
-safe_width:number = #pipe(
+safe_width:number = pipe(
   raw_width_mm,
   #it.round().clamp(spec_width_min, spec_width_max)
 )
 
-route:str = #pipe(
+route:str = pipe(
   raw_temp_c,
   #it.round(),
-  #case(
+  case(
     #it,
     t if t < 28 => "warmup",
     t if t > 90 => "hold",
@@ -419,7 +419,7 @@ Open design constraints for this future draft:
 ### Numeric normalization
 
 ```turn id="as0m94"
-width_mm:number = #pipe(
+width_mm:number = pipe(
   raw_width_mm,
   #it + 0,
   #it * 1
@@ -429,10 +429,10 @@ width_mm:number = #pipe(
 ### Classification pipeline
 
 ```turn id="ucxnd9"
-band:str = #pipe(
+band:str = pipe(
   vibration_mm_s,
   #it + 0,
-  #case(
+  case(
     #it,
     x if x >= 11 => "severe",
     x if x >= 7 => "elevated",
@@ -444,10 +444,10 @@ band:str = #pipe(
 ### Full routing pipeline
 
 ```turn id="6h06j1"
-route:str = #pipe(
+route:str = pipe(
   raw_temp_c,
   #it + 0,
-  #case(
+  case(
     #it,
     t if t < 28 => "warmup",
     t if t > 90 => "hold",
@@ -482,10 +482,10 @@ These forms are designed to compose.
 ## 7.1 `#pipe` with `#case`
 
 ```turn id="831g0m"
-status:str = #pipe(
+status:str = pipe(
   raw_temp_c,
   #it + 0,
-  #case(
+  case(
     #it,
     t if t < 28 => "warmup",
     t if t > 90 => "hold",
@@ -497,9 +497,9 @@ status:str = #pipe(
 ## 7.2 `#case` arm expressions using `#if`
 
 ```turn id="sbp4zm"
-result:str = #case(
+result:str = case(
   severity,
-  "high" => #if(manual_override, "review", "stop"),
+  "high" => if(manual_override, "review", "stop"),
   "medium" => "inspect",
   _ => "monitor"
 )
@@ -508,10 +508,10 @@ result:str = #case(
 ## 7.3 `#if` inside `#pipe`
 
 ```turn id="vyfc46"
-temp_state:str = #pipe(
+temp_state:str = pipe(
   raw_temp_c,
   #it + 0,
-  #if(#it < 28, "cold", "ok")
+  if(#it < 28, "cold", "ok")
 )
 ```
 
@@ -549,7 +549,7 @@ This aligns with Turnout’s broader preference for deterministic authored execu
 Good:
 
 ```turn id="ovzz2v"
-status:str = #if(temp_c < 28, "warmup", "run")
+status:str = if(temp_c < 28, "warmup", "run")
 ```
 
 ## 9.2 Use `#case` for classification
@@ -557,10 +557,10 @@ status:str = #if(temp_c < 28, "warmup", "run")
 Good:
 
 ```turn id="mwzxpp"
-route:str = #if(
+route:str = if(
   fault,
   "hold_engineering",
-  #case(quality_ok, false => "hold_quality", _ => "release")
+  case(quality_ok, false => "hold_quality", _ => "release")
 )
 ```
 
@@ -569,10 +569,10 @@ route:str = #if(
 Good:
 
 ```turn id="ch20gt"
-band:str = #pipe(
+band:str = pipe(
   vibration_mm_s,
   #it + 0,
-  #case(
+  case(
     #it,
     x if x >= 11 => "severe",
     x if x >= 7 => "elevated",
@@ -593,56 +593,46 @@ This example shows all three forms together.
 
 ```hcl id="hsy06y"
 scene "boiler_alarm_priority" {
-  entry_actions = ["classify_alarm"]
+  entry_actions = [classify_alarm]
 
   action "classify_alarm" {
     compute {
 
       prog "classify_alarm_graph" {
-        ~>pressure_bar:number
-        ~>water_level_low:bool
-        ~>flame_failure:bool
-        ~>repeat_trips:number
+        pressure_bar:number <~ @boiler.telemetry.pressure_bar
+        water_level_low:bool <~ @boiler.safety.water_level_low
+        flame_failure:bool <~ @boiler.safety.flame_failure
+        repeat_trips:number <~ @boiler.history.repeat_trips_24h
 
-        pressure_band:str = #pipe(
+        pressure_band:str = pipe(
           pressure_bar,
           #it + 0,
-          #case(
+          case(
             #it,
             p if p >= 18 => "high",
             _ => "normal"
           )
         )
 
-        alarm_route:str = #if(
+        alarm_route:str = if(
           water_level_low,
           "emergency_shutdown",
-          #if(
+          if(
             flame_failure,
             "emergency_shutdown",
-            #case(
+            case(
               repeat_trips,
               r if r >= 2 => "maintenance_intervention",
-              _ => #case(pressure_band, "high" => "maintenance_intervention", _ => "watch")
+              _ => case(pressure_band, "high" => "maintenance_intervention", _ => "watch")
             )
           )
         )
 
-        <~alarm_route:str = alarm_route
+        alarm_route:str = alarm_route ~> @boiler.response.route
         |^| classified:bool = true
       }
     }
 
-    prepare {
-      pressure_bar    { from_state = boiler.telemetry.pressure_bar }
-      water_level_low { from_state = boiler.safety.water_level_low }
-      flame_failure   { from_state = boiler.safety.flame_failure }
-      repeat_trips    { from_state = boiler.history.repeat_trips_24h }
-    }
-
-    merge {
-      alarm_route { to_state = boiler.response.route }
-    }
   }
 }
 ```
@@ -718,23 +708,23 @@ This division keeps the local language compact, readable, and semantically clear
 ### `#if`
 
 ```turn id="8bmc2l"
-status:str = #if(temp_c < 28, "warmup", "run")
+status:str = if(temp_c < 28, "warmup", "run")
 ```
 
 ### `#case`
 
 ```turn id="s6v7pw"
-route:str = #if(
+route:str = if(
   unsafe,
   "lockout",
-  #case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
+  case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
 )
 ```
 
 ### `#pipe`
 
 ```turn id="wvub3a"
-width_ok:bool = #pipe(
+width_ok:bool = pipe(
   raw_width_mm,
   #it + 0,
   #it < spec_width_max
@@ -744,10 +734,10 @@ width_ok:bool = #pipe(
 ### Combined
 
 ```turn id="6075jv"
-route:str = #pipe(
+route:str = pipe(
   raw_temp_c,
   #it + 0,
-  #case(
+  case(
     #it,
     t if t < 28 => "warmup",
     t if t > 90 => "hold",

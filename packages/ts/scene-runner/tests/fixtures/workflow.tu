@@ -21,31 +21,24 @@ state {
 }
 
 scene "ai_workflow" {
-  entry_actions = ["analyze"]
+  entry_actions = [analyze]
   next_policy   = "first-match"
 
   action "analyze" {
     compute {
       prog "analyze_prog" {
-        ~>need_grounding:bool
-        ~>kb_enabled:bool
+        need_grounding:bool <~ @request.need_grounding
+        kb_enabled:bool <~ @request.kb_enabled
         retrieve_ready:bool = need_grounding & kb_enabled
         |^| analysis_done:bool  = true
       }
     }
-    prepare {
-      need_grounding { from_state = request.need_grounding }
-      kb_enabled     { from_state = request.kb_enabled     }
-    }
     next {
       compute {
         prog "to_retrieve" {
-          ~>retrieve_ready:bool
+          retrieve_ready:bool <~ action(retrieve_ready)
           |?| go_retrieve:bool = retrieve_ready
         }
-      }
-      prepare {
-        retrieve_ready { from_action = retrieve_ready }
       }
       action = retrieve
     }
@@ -57,16 +50,10 @@ scene "ai_workflow" {
   action "retrieve" {
     compute {
       prog "retrieve_prog" {
-        ~>doc_hint:str
+        doc_hint:str <~ @request.doc_hint
         prefix:str      = "Retrieved: "
-        |^| <~context_str:str = prefix + doc_hint
+        |^| context_str:str = prefix + doc_hint ~> @workflow.context
       }
-    }
-    prepare {
-      doc_hint { from_state = request.doc_hint }
-    }
-    merge {
-      context_str { to_state = workflow.context }
     }
     next {
       action = draft_with_context
@@ -76,16 +63,10 @@ scene "ai_workflow" {
   action "draft_direct" {
     compute {
       prog "draft_direct_prog" {
-        ~>query:str
+        query:str <~ @request.query
         prefix:str      = "Direct answer: "
-        |^| <~draft_text:str = prefix + query
+        |^| draft_text:str = prefix + query ~> @workflow.draft
       }
-    }
-    prepare {
-      query { from_state = request.query }
-    }
-    merge {
-      draft_text { to_state = workflow.draft }
     }
     next {
       action = safety_check
@@ -95,21 +76,14 @@ scene "ai_workflow" {
   action "draft_with_context" {
     compute {
       prog "draft_ctx_prog" {
-        ~>query:str
-        ~>context:str
+        query:str <~ @request.query
+        context:str <~ @workflow.context
         sep:str       = " [ctx:"
         close:str     = "]"
         mid:str        = query + sep
         mid2:str        = mid + context
-        |^| <~draft_text:str = mid2 + close
+        |^| draft_text:str = mid2 + close ~> @workflow.draft
       }
-    }
-    prepare {
-      query   { from_state = request.query    }
-      context { from_state = workflow.context }
-    }
-    merge {
-      draft_text { to_state = workflow.draft }
     }
     next {
       action = safety_check
@@ -119,23 +93,17 @@ scene "ai_workflow" {
   action "safety_check" {
     compute {
       prog "safety_prog" {
-        ~>toxicity:number
+        toxicity:number <~ @request.toxicity_score
         threshold:number  = 3
         |^| safe:bool = toxicity <= threshold
       }
     }
-    prepare {
-      toxicity { from_state = request.toxicity_score }
-    }
     next {
       compute {
         prog "to_publish" {
-          ~>safe:bool
+          safe:bool <~ action(safe)
           |?| go_publish:bool = safe
         }
-      }
-      prepare {
-        safe { from_action = safe }
       }
       action = "publish"
     }
@@ -147,35 +115,21 @@ scene "ai_workflow" {
   action "publish" {
     compute {
       prog "publish_prog" {
-        ~>draft:str
-        <~status:str         = "sent"
-        |^| <~final_response:str = draft
+        draft:str <~ @workflow.draft
+        status:str = "sent" ~> @workflow.status
+        |^| final_response:str = draft ~> @response.last
       }
-    }
-    prepare {
-      draft { from_state = workflow.draft }
-    }
-    merge {
-      final_response { to_state = response.last    }
-      status         { to_state = workflow.status  }
     }
   }
 
   action "human_review" {
     compute {
       prog "review_prog" {
-        ~>draft:str
+        draft:str <~ @workflow.draft
         prefix:str           = "Review needed: "
-        <~status:str         = "awaiting_human"
-        |^| <~review_note:str    = prefix + draft
+        status:str = "awaiting_human" ~> @workflow.status
+        |^| review_note:str = prefix + draft ~> @review.note
       }
-    }
-    prepare {
-      draft { from_state = workflow.draft }
-    }
-    merge {
-      review_note { to_state = review.note       }
-      status      { to_state = workflow.status   }
     }
   }
 }

@@ -17,18 +17,15 @@ func TestLowerNextPrepareFromState(t *testing.T) {
   app { score:number = 10 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number <~ @app.score
           |?| go:bool = true
         }
-      }
-      prepare {
-        score { from_state = app.score }
       }
       action = a
     }
@@ -59,18 +56,18 @@ scene "test" {
 func TestLowerExtExprScopesActionAndNext(t *testing.T) {
 	src := `state { app { n:number = 0 } }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         flag:bool = true
-        |^| out:number = #if(flag, 1, 0)
+        |^| out:number = if(flag, 1, 0)
       }
     }
     next {
       compute {
         prog "p" {
-          |?| out:bool = #if(true, true, false)
+          |?| out:bool = if(true, true, false)
         }
       }
       action = a
@@ -122,18 +119,15 @@ func TestLowerNextPrepareFromLiteral(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>val:number
+          val:number <~ 99
           |?| go:bool = true
         }
-      }
-      prepare {
-        val { from_literal = 99 }
       }
       action = a
     }
@@ -163,7 +157,7 @@ scene "test" {
 func TestLowerArgFuncRef(t *testing.T) {
 	// Uses { func_ref = "thenFn" } as a function argument, exercising lowerArg(FuncRefArg).
 	// Lower does not type-check; validation is a separate phase.
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -187,7 +181,7 @@ func TestLowerArgFuncRef(t *testing.T) {
 
 func TestLowerArgTransform(t *testing.T) {
 	// Uses { transform = { ref = "x" fn = "doThing" } } as a function argument.
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -216,20 +210,17 @@ func TestLowerArgTransform(t *testing.T) {
 // ─── zeroLiteralFor: all types via from_hook ──────────────────────────────────
 
 func TestLowerZeroLiteralForArrayFromHook(t *testing.T) {
-	// ~>items:arr<number> = _ with from_hook triggers zeroLiteralFor for array types.
+	// items:arr<number> = _ with from_hook triggers zeroLiteralFor for array types.
 	src := `state {
   app { items:arr<number> = [] }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>items:arr<number>
+        |^| items:arr<number> <~ hook("my_hook")
       }
-    }
-    prepare {
-      items { from_hook = "my_hook" }
     }
   }
 }`
@@ -248,20 +239,17 @@ scene "test" {
 }
 
 func TestLowerZeroLiteralForStr(t *testing.T) {
-	// ~>label:str = _ with from_hook → zeroLiteralFor(FieldTypeStr) = StringLiteral{""}
+	// label:str = _ with from_hook → zeroLiteralFor(FieldTypeStr) = StringLiteral{""}
 	src := `state {
   app { label:str = "default" }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>label:str
+        |^| label:str <~ hook("lbl_hook")
       }
-    }
-    prepare {
-      label { from_hook = "lbl_hook" }
     }
   }
 }`
@@ -277,20 +265,17 @@ scene "test" {
 }
 
 func TestLowerZeroLiteralForBool(t *testing.T) {
-	// ~>flag:bool = _ with from_hook → zeroLiteralFor(FieldTypeBool) = BoolLiteral{false}
+	// flag:bool = _ with from_hook → zeroLiteralFor(FieldTypeBool) = BoolLiteral{false}
 	src := `state {
   app { flag:bool = true }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>flag:bool
+        |^| flag:bool <~ hook("flag_hook")
       }
-    }
-    prepare {
-      flag { from_hook = "flag_hook" }
     }
   }
 }`
@@ -309,7 +294,7 @@ scene "test" {
 
 func TestLowerArgLit(t *testing.T) {
 	// max(x, 5) — the literal 5 goes through lowerArg LitArg branch.
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -340,18 +325,15 @@ func TestLowerNextPrepareFromAction(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number <~ action(r)
           |?| go:bool = true
         }
-      }
-      prepare {
-        score { from_action = r }
       }
       action = a
     }
@@ -390,16 +372,16 @@ func lowerWithErrors(t *testing.T, src string) diag.Diagnostics {
 }
 
 func TestLowerPrepareMissingEntry(t *testing.T) {
-	// ~>x:number = _ with no prepare entry → CodeMissingPrepareEntry
+	// x:number = _ with no prepare entry → CodeMissingPrepareEntry
 	src := `state {
   app { x:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>x:number
+        |^| x:number
       }
     }
   }
@@ -423,15 +405,12 @@ func TestLowerPrepareFromStateNotFound(t *testing.T) {
   app { x:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>x:number
+        |^| x:number <~ @app.nonexistent
       }
-    }
-    prepare {
-      x { from_state = app.nonexistent }
     }
   }
 }`
@@ -449,18 +428,18 @@ scene "test" {
 }
 
 func TestLowerTransitionPrepareMissingEntry(t *testing.T) {
-	// ~>score:number = _ in next compute with no next prepare → CodeMissingPrepareEntry
+	// score:number = _ in next compute with no next prepare → CodeMissingPrepareEntry
 	src := `state {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number
           |?| go:bool = true
         }
       }
@@ -487,18 +466,15 @@ func TestLowerTransitionPrepareFromStateNotFound(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number <~ @app.nonexistent
           |?| go:bool = true
         }
-      }
-      prepare {
-        score { from_state = app.nonexistent }
       }
       action = a
     }
@@ -522,12 +498,12 @@ scene "test" {
 // binding name that was emitted earlier (lower index) in the slice, guaranteeing
 // topological order so every reference is defined before it is used.
 func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         score:number = 1
-        |^| result:str = #case(score, 1 => "one", 2 => "two", 3 => "three", _ => "other")
+        |^| result:str = case(score, 1 => "one", 2 => "two", 3 => "three", _ => "other")
       }
     }
   }`)
@@ -570,11 +546,11 @@ func TestLowerBidirMissingPrepareUsesBidirDiagnostic(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| <~>score:number
+        |^| score:number
       }
     }
     merge {
@@ -582,9 +558,14 @@ scene "test" {
     }
   }
 }`
+	// A binding is bidirectional only when it has both an input and an output.
+	// With the prefix sigils retired (NEW_SYNTAX.md 3), direction is derived from
+	// the inline clauses or the prepare/merge entries, so a binding with only a
+	// merge entry is plain egress — and reaching STATE for its initial value is
+	// the ordinary missing-prepare case, not a bidirectional one.
 	ds := lowerWithErrors(t, src)
-	if !hasLowerDiagCode(ds, diag.CodeBidirMissingPrepareEntry) {
-		t.Fatalf("want BidirMissingPrepareEntry diagnostic, got %v", ds)
+	if !hasLowerDiagCode(ds, diag.CodeMissingPrepareEntry) {
+		t.Fatalf("want MissingPrepareEntry diagnostic, got %v", ds)
 	}
 }
 
@@ -593,18 +574,12 @@ func TestLowerBidirFromStateErrorsAreNotSwallowed(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| <~>score:number
+        |^| score:number <~ @app.missing ~> @app.score
       }
-    }
-    prepare {
-      score { from_state = app.missing }
-    }
-    merge {
-      score { to_state = app.score }
     }
   }
 }`
@@ -615,13 +590,13 @@ scene "test" {
 }
 
 func TestTupleCasePatternLowers(t *testing.T) {
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         one:number = 1
         two:number = 2
-        |^| result:str = #case((one, two), (1, 2) => "tuple", _ => "other")
+        |^| result:str = case((one, two), (1, 2) => "tuple", _ => "other")
       }
     }
   }`)
@@ -634,7 +609,7 @@ func TestTupleCasePatternLowers(t *testing.T) {
 
 func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
 	// range() in flat FuncCallRHS form → CodeUnsupportedConstruct from lowerFuncCallRHS
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -654,12 +629,12 @@ func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
 
 func TestLowerUnsupportedFnMapLocal(t *testing.T) {
 	// map() inside a #if branch → CodeUnsupportedConstruct from lowerCallInto
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         x:number = 1
-        |^| out:number = #if(true, map(x, x), x)
+        |^| out:number = if(true, map(x, x), x)
       }
     }
   }`)
@@ -683,12 +658,12 @@ func hasLowerDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 func TestLowerLocalCallUnknownFnEmitsEarlyDiagnostic(t *testing.T) {
 	// An unknown function inside a #if condition should produce CodeUnknownFnAlias
 	// pinned to the call site, not a cascade of type-mismatch errors.
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:bool = #if(no_such_fn(x, x), true, false)
+        |^| result:bool = if(no_such_fn(x, x), true, false)
       }
     }
   }`)
@@ -702,12 +677,12 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 	// An unknown function inside a #pipe step should also produce CodeUnknownFnAlias
 	// from the lowerer — including when inside a pipe step where operator-only
 	// functions are otherwise permitted.
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:number = #pipe(x, no_such_fn(#it, x))
+        |^| result:number = pipe(x, no_such_fn(#it, x))
       }
     }
   }`)
@@ -730,12 +705,12 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 // Before the fix the second wildcard re-entered the wildcard branch and emitted
 // an extra "arm 2 unreachable" duplicate, producing 3 diagnostics total.
 func TestLowerCaseIntoDoubleWildcard(t *testing.T) {
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:str = #case(x, _ => "first", _ => "second", 1 => "third")
+        |^| result:str = case(x, _ => "first", _ => "second", 1 => "third")
       }
     }
   }`)
@@ -757,12 +732,12 @@ func TestLowerLocalCallUnknownFnNoCascadingErrors(t *testing.T) {
 	// The early unknown-function diagnostic must not produce cascading ArgTypeMismatch
 	// errors. The lowerer emits a zero-value binding so downstream type checking sees
 	// a valid (if wrong) value rather than an unresolved reference.
-	src := minimal(`  entry_actions = ["a"]
+	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:bool = #if(no_such_fn(x, x), true, false)
+        |^| result:bool = if(no_such_fn(x, x), true, false)
       }
     }
   }`)

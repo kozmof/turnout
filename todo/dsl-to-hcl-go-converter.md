@@ -160,7 +160,7 @@ Recursive descent parser consuming the token stream.
 - [x] Dispatch RHS parsing by disambiguation rules (see Lexer section)
 - [x] Parse function calls: positional `fn(a, b)` and named `fn(a: x, b: y)`
 - [x] Parse infix expressions: `lhs OP rhs`
-- [x] Parse `#pipe(p:v)[step1, step2]`
+- [x] Parse `pipe(p:v)[step1, step2]`
 - [x] Parse `#if { cond = ...; then = ...; else = ... }`
 - [x] Parse `{ cond = { ... } }` block form
 - [x] Parse `{ step_ref = N }`, `{ func_ref = "..." }`, `{ transform = { ... } }`
@@ -202,7 +202,7 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 - [x] `name:bool = lhs >= rhs` → `combine { fn = "gte" ... }`
 - [x] `name:bool = lhs <= rhs` → `combine { fn = "lte" ... }`
 - [x] `name:str = lhs + rhs` → `combine { fn = "str_concat" ... }`
-- [x] `#pipe(p:v)[step1, step2]` → `pipe { args = { p = ref(v) } steps = [...] }`
+- [x] `pipe(p:v)[step1, step2]` → `pipe { args = { p = ref(v) } steps = [...] }`
 - [x] `{ cond = { condition = c then = t else = e } }` → `cond { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } }`
 - [x] `#if { cond = fn(a,b) then = t else = e }` → auto-generate `__if_<name>_cond` binding + `cond` form
 - [x] `{ transform = { ref = "v", fn = "..." } }` → pass through unchanged
@@ -332,7 +332,7 @@ state {
 
 ```
 scene "<id>" {
-  entry_actions = ["<actionId>", ...]
+  entry_actions = [<actionId>, ...]
   next_policy   = "<policy>"
 
   action "<id>" {

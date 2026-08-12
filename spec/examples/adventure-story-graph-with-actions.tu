@@ -19,32 +19,21 @@ state {
 }
 
 scene "adventure_story_chapter_1" {
-  entry_actions     = ["choose_route"]
+  entry_actions     = [choose_route]
   next_policy       = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      choose_route
-        |=> forest_trail
-        |=> city_gate
-        |=> sewer_tunnel
-        |=> campfire_wait
-      forest_trail
-        |=> shrine_discovery
-      city_gate
-        |=> courtyard_arrival
-      sewer_tunnel
-        |=> hidden_archive
-      campfire_wait
-        |=> chapter_end
-      shrine_discovery
-        |=> chapter_end
-      courtyard_arrival
-        |=> chapter_end
-      hidden_archive
-        |=> chapter_end
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    choose_route |=> forest_trail
+    choose_route |=> city_gate
+    choose_route |=> sewer_tunnel
+    choose_route |=> campfire_wait
+    forest_trail |=> shrine_discovery
+    city_gate |=> courtyard_arrival
+    sewer_tunnel |=> hidden_archive
+    campfire_wait |=> chapter_end
+    shrine_discovery |=> chapter_end
+    courtyard_arrival |=> chapter_end
+    hidden_archive |=> chapter_end
   }
 
   action "choose_route" {
@@ -58,12 +47,12 @@ scene "adventure_story_chapter_1" {
 
     compute {
       prog "choose_route_graph" {
-        ~>has_map:bool
-        ~>clue_count:number
-        ~>coins:number
-        ~>lockpick_skill:number
-        <~chapter_state:str = "route_selected"
-        <~last_hub:str = "crossroads"
+        has_map:bool <~ @story.has_map
+        clue_count:number <~ @story.clue_count
+        coins:number <~ @party.coins
+        lockpick_skill:number <~ @party.lockpick_skill
+        chapter_state:str = "route_selected" ~> @story.chapter_state
+        last_hub:str = "crossroads" ~> @story.last_hub
 
         clue_enough:bool = clue_count >= 2
         can_forest:bool = has_map & clue_enough
@@ -73,27 +62,12 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    prepare {
-      has_map        { from_state = story.has_map      }
-      clue_count     { from_state = story.clue_count        }
-      coins          { from_state = party.coins    }
-      lockpick_skill { from_state = party.lockpick_skill    }
-    }
-
-    merge {
-      chapter_state { to_state = story.chapter_state }
-      last_hub      { to_state = story.last_hub      }
-    }
-
     next {
       compute {
         prog "to_forest" {
-          ~>can_forest:bool
+          can_forest:bool <~ action(can_forest)
           |?| go_forest:bool = can_forest
         }
-      }
-      prepare {
-        can_forest { from_action = can_forest }
       }
       action = forest_trail
     }
@@ -101,12 +75,9 @@ scene "adventure_story_chapter_1" {
     next {
       compute {
         prog "to_gate" {
-          ~>can_gate:bool
+          can_gate:bool <~ action(can_gate)
           |?| go_gate:bool = can_gate
         }
-      }
-      prepare {
-        can_gate { from_action = can_gate }
       }
       action = city_gate
     }
@@ -114,12 +85,9 @@ scene "adventure_story_chapter_1" {
     next {
       compute {
         prog "to_sewer" {
-          ~>can_sewer:bool
+          can_sewer:bool <~ action(can_sewer)
           |?| go_sewer:bool = can_sewer
         }
-      }
-      prepare {
-        can_sewer { from_action = can_sewer }
       }
       action = sewer_tunnel
     }
@@ -142,16 +110,10 @@ scene "adventure_story_chapter_1" {
         route_name:str = "forest_trail"
         danger:number = 2
 
-        <~location:str = "Whispering Forest"
-        <~danger_level:number = danger
-        |^| <~story_route:str = route_name
+        location:str = "Whispering Forest" ~> @story.current_location
+        danger_level:number = danger ~> @story.threat_level
+        |^| story_route:str = route_name ~> @story.path
       }
-    }
-
-    merge {
-      story_route  { to_state = "story.path"            }
-      location     { to_state = story.current_location }
-      danger_level { to_state = story.threat_level     }
     }
 
     next {
@@ -170,23 +132,13 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "city_gate_graph" {
         route_name:str = "city_gate"
-        <~location:str = "Stonebridge Gate"
-        ~>coins:number
+        location:str = "Stonebridge Gate" ~> @story.current_location
+        coins:number <~ @party.coins
         toll:number    = 3
 
-        <~coins_after:number = coins - toll
-        |^| <~story_route:str = route_name
+        coins_after:number = coins - toll ~> @party.coins
+        |^| story_route:str = route_name ~> @story.path
       }
-    }
-
-    prepare {
-      coins { from_state = party.coins }
-    }
-
-    merge {
-      coins_after  { to_state = party.coins  }
-      location     { to_state = story.current_location }
-      story_route  { to_state = "story.path"            }
     }
 
     next {
@@ -205,22 +157,12 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "sewer_tunnel_graph" {
         route_name:str = "sewer_tunnel"
-        <~location:str = "Sunken Tunnel"
-        ~>lockpick_skill:number
+        location:str = "Sunken Tunnel" ~> @story.current_location
+        lockpick_skill:number <~ @party.lockpick_skill
 
-        <~found_mark:bool = lockpick_skill >= 2
-        |^| <~story_route:str = route_name
+        found_mark:bool = lockpick_skill >= 2 ~> @story.found_hidden_mark
+        |^| story_route:str = route_name ~> @story.path
       }
-    }
-
-    prepare {
-      lockpick_skill { from_state = party.lockpick_skill }
-    }
-
-    merge {
-      story_route  { to_state = "story.path"                   }
-      location     { to_state = story.current_location        }
-      found_mark   { to_state = story.found_hidden_mark }
     }
 
     next {
@@ -239,16 +181,10 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "campfire_wait_graph" {
         route_name:str = "campfire_wait"
-        <~note:str = "waited_until_dawn"
-        <~location:str = "Crossroads Camp"
-        |^| <~story_route:str = route_name
+        note:str = "waited_until_dawn" ~> @story.latest_journal
+        location:str = "Crossroads Camp" ~> @story.current_location
+        |^| story_route:str = route_name ~> @story.path
       }
-    }
-
-    merge {
-      story_route { to_state = "story.path"            }
-      note        { to_state = story.latest_journal   }
-      location    { to_state = story.current_location }
     }
 
     next {
@@ -267,14 +203,9 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
-        <~location:str = "Ruined Shrine"
-        |^| <~reward:str = relic
+        location:str = "Ruined Shrine" ~> @story.current_location
+        |^| reward:str = relic ~> @story.chapter_reward
       }
-    }
-
-    merge {
-      reward   { to_state = story.chapter_reward    }
-      location { to_state = story.current_location  }
     }
 
     next {
@@ -293,14 +224,9 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
-        <~location:str = "Castle Courtyard"
-        |^| <~reward:str = writ
+        location:str = "Castle Courtyard" ~> @story.current_location
+        |^| reward:str = writ ~> @story.chapter_reward
       }
-    }
-
-    merge {
-      reward   { to_state = story.chapter_reward   }
-      location { to_state = story.current_location }
     }
 
     next {
@@ -319,14 +245,9 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
-        <~location:str = "Hidden Archive"
-        |^| <~reward:str = ledger
+        location:str = "Hidden Archive" ~> @story.current_location
+        |^| reward:str = ledger ~> @story.chapter_reward
       }
-    }
-
-    merge {
-      reward   { to_state = story.chapter_reward   }
-      location { to_state = story.current_location }
     }
 
     next {
@@ -345,14 +266,10 @@ scene "adventure_story_chapter_1" {
       prog "chapter_end_graph" {
         prefix:str = "chapter_1_"
         suffix:str = "complete"
-        <~chapter_state:str = "resolved"
-        |^| <~chapter_result:str = prefix + suffix
+        chapter_state:str = "resolved" ~> @story.chapter_state
+        |^| chapter_result:str = prefix + suffix ~> @story.result
       }
     }
 
-    merge {
-      chapter_state  { to_state = story.chapter_state }
-      chapter_result { to_state = story.result        }
-    }
   }
 }

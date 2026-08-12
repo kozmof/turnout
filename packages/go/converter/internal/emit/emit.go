@@ -134,7 +134,7 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 	iw.wl("scene %q {", s.Id)
 	iw.depth++
 
-	// entry_actions = ["a", "b"]
+	// entry_actions = [a, b]
 	ea := make([]string, len(s.EntryActions))
 	for i, a := range s.EntryActions {
 		ea[i] = fmt.Sprintf("%q", a)

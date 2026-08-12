@@ -8,6 +8,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/fnmeta"
+	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -166,4 +167,103 @@ func lowerInfixRHS(name string, ft ast.FieldType, rhs *ast.InfixRHS, bindingType
 			Args: []*turnoutpb.ArgModel{lowerArgWithTypes(rhs.LHS, bindingTypes, ds), lowerArgWithTypes(rhs.RHS, bindingTypes, ds)},
 		}},
 	}
+}
+
+// lowerTransformRHS lowers a standalone transform chain to the identity combine
+// fn(transform, identity_element) — the same shape lowerSingleRefRHS produces for
+// a bare reference, and the same shape the `rate.floor() + 0` idiom produced by
+// hand. isIdentityCombine in the validator recognises it and exempts it from the
+// operatorOnly and empty-array-arg checks.
+func lowerTransformRHS(name string, ft ast.FieldType, rhs *ast.TransformRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
+	fn, identityArg, ok := identityFnFor(ft)
+	if !ok {
+		ds.Append(diag.ErrorAt(rhs.Pos.File, rhs.Pos.Line, rhs.Pos.Col,
+			diag.CodeTypeMismatch,
+			"binding %q: type %s is not valid for a standalone transform binding", name, ft))
+		return nil
+	}
+	return &turnoutpb.BindingModel{
+		Name: name,
+		Type: ft.ProtoString(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   fn,
+			Args: []*turnoutpb.ArgModel{lowerArgWithTypes(rhs.Arg, bindingTypes, ds), identityArg},
+		}},
+	}
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Nested infix
+// ─────────────────────────────────────────────────────────────────────────────
+
+// nestedInfixLowerer flattens a NestedInfixRHS tree into a binding sequence.
+// Each operator becomes one binding; operands that are themselves operators are
+// emitted first under a generated name and referenced by it.
+//
+// Synthetic names come from names.LocalName, the same generator the local-expr
+// lowerer uses, so names.IsGeneratedLocalName continues to recognise every
+// compiler-produced binding.
+type nestedInfixLowerer struct {
+	target       string
+	bindingTypes map[string]ast.FieldType
+	ds           *diag.DiagSink
+	counter      *int
+	bindings     []*turnoutpb.BindingModel
+}
+
+func lowerNestedInfixRHS(name string, ft ast.FieldType, rhs *ast.NestedInfixRHS, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink, counter *int) []*turnoutpb.BindingModel {
+	l := &nestedInfixLowerer{target: name, bindingTypes: bindingTypes, ds: ds, counter: counter}
+	l.lowerBranchInto(name, ft, rhs.Root)
+	return l.bindings
+}
+
+func (l *nestedInfixLowerer) temp(hint string) string {
+	name := names.LocalName(l.target, hint, *l.counter)
+	*l.counter++
+	return name
+}
+
+// lowerNodeArg resolves one operand to an ArgModel. Terminal operands inline
+// exactly as they do in lowerInfixRHS; operator operands are lowered into a temp
+// binding first, so the temp is always emitted before the binding referencing it.
+func (l *nestedInfixLowerer) lowerNodeArg(node ast.InfixNode, hint string, ft ast.FieldType) *turnoutpb.ArgModel {
+	switch n := node.(type) {
+	case *ast.InfixLeaf:
+		return lowerArgWithTypes(n.Arg, l.bindingTypes, l.ds)
+	case *ast.InfixBranch:
+		tmp := l.temp(hint)
+		l.lowerBranchInto(tmp, ft, n)
+		return &turnoutpb.ArgModel{Ref: proto.String(tmp)}
+	default:
+		l.ds.Append(diag.Errorf(diag.CodeInternalError,
+			"binding %q: unhandled infix node type %T — this is a compiler bug; please report the source file", l.target, node))
+		return &turnoutpb.ArgModel{}
+	}
+}
+
+func (l *nestedInfixLowerer) lowerBranchInto(name string, ft ast.FieldType, b *ast.InfixBranch) {
+	if !infixOpValidForType(b.Op, ft) {
+		l.ds.Append(diag.ErrorAt(b.Pos.File, b.Pos.Line, b.Pos.Col,
+			diag.CodeInvalidInfixExpr,
+			"binding %q: operator %s is not valid for type %s", l.target, b.Op, ft))
+		return
+	}
+	fn := b.Op.FnAliasForType(ft)
+	leftType, rightType, ok := fnmeta.OperandTypes(fn, ft)
+	if !ok {
+		l.ds.Append(diag.ErrorAt(b.Pos.File, b.Pos.Line, b.Pos.Col,
+			diag.CodeInternalError,
+			"binding %q: infix operator maps to unknown function %q — this is a compiler bug; please report the source file", l.target, fn))
+		return
+	}
+	left := l.lowerNodeArg(b.LHS, "lhs", leftType)
+	right := l.lowerNodeArg(b.RHS, "rhs", rightType)
+	l.bindings = append(l.bindings, &turnoutpb.BindingModel{
+		Name: name,
+		Type: ft.ProtoString(),
+		Expr: &turnoutpb.ExprModel{Combine: &turnoutpb.CombineExpr{
+			Fn:   fn,
+			Args: []*turnoutpb.ArgModel{left, right},
+		}},
+	})
 }

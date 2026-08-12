@@ -24,11 +24,11 @@ func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>score:number
+        |^| score:number
       }
     }
   }
@@ -41,15 +41,12 @@ scene "test" {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        |^| ~>score:number
+        |^| score:number <~ @app.missing
       }
-    }
-    prepare {
-      score { from_state = app.missing }
     }
   }
 }`,
@@ -61,13 +58,13 @@ scene "test" {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number
           |?| go:bool = true
         }
       }
@@ -83,18 +80,15 @@ scene "test" {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number <~ @app.missing
           |?| go:bool = true
         }
-      }
-      prepare {
-        score { from_state = app.missing }
       }
       action = a
     }
@@ -131,7 +125,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 	}{
 		{
 			name: "nil_binding_rhs",
-			src: minimal(`  entry_actions = ["a"]
+			src: minimal(`  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -167,7 +161,7 @@ func TestLowerStaleDeclarationOrderIsError(t *testing.T) {
 	// Build a TurnFile with a state_file directive (so lowerCore uses the schema path).
 	src := `state_file = "fake.tu"
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)

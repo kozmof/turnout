@@ -64,7 +64,7 @@ func TestResolveIrregularStateFileErrorsAreMapped(t *testing.T) {
 		{
 			name: "scene_only_file",
 			content: `scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }`,
 			wantCode: diag.CodeStateFileParseError,

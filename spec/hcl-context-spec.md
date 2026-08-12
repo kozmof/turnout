@@ -59,9 +59,9 @@ prog "main" {
 | `name:bool = lhs \| rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "bool_or" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs == rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "eq" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs != rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "neq" args = [arg(lhs), arg(rhs)] } } }` |
-| `name:type = #if(cond, then_expr, else_expr)` | `binding "name" { type = "type" expr = { if = { cond = expr(cond) then = expr(then_expr) else = expr(else_expr) } } }` |
-| `name:type = #case(subject, pattern => expr, _ => default)` | `binding "name" { type = "type" expr = { case = { subject = expr(subject) arms = [...] } } }` |
-| `name:type = #pipe(initial_value, step1, step2, ...)` | `binding "name" { type = "type" expr = { pipe = { initial = expr(initial_value) steps = [expr(step1), expr(step2), ...] } } }` |
+| `name:type = if(cond, then_expr, else_expr)` | `binding "name" { type = "type" expr = { if = { cond = expr(cond) then = expr(then_expr) else = expr(else_expr) } } }` |
+| `name:type = case(subject, pattern => expr, _ => default)` | `binding "name" { type = "type" expr = { case = { subject = expr(subject) arms = [...] } } }` |
+| `name:type = pipe(initial_value, step1, step2, ...)` | `binding "name" { type = "type" expr = { pipe = { initial = expr(initial_value) steps = [expr(step1), expr(step2), ...] } } }` |
 
 #### Identity-combine table (for single-reference form)
 
@@ -162,10 +162,10 @@ CAN (OK):
 - Authors can use bare identifiers as references in DSL (`add(v1, v2)`).
 - Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `big:bool = income > 0`, `small:bool = debt < limit`, `match:bool = a == b`, `diff:bool = a != b`, `either:bool = flag_a | flag_b`, `sum:number = a + b`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`, `remainder:number = total - discount`, `area:number = width * height`, `rate:number = amount / count`, `rem:number = total % count`).
 - Authors can write call-only functions using call syntax (`max(v1, v2)`, `min(v1, v2)`, `str_includes(a, b)`).
-- Authors can write pipes as `#pipe(initial_value, step1, step2, ...)`.
+- Authors can write pipes as `pipe(initial_value, step1, step2, ...)`.
 - Authors can use `#it` inside a `#pipe` step to refer to the current pipeline value.
-- Authors can write binary choices as `#if(cond, then_expr, else_expr)`.
-- Authors can write ordered classifications as `#case(subject, pattern => expr, _ => default_expr)`.
+- Authors can write binary choices as `if(cond, then_expr, else_expr)`.
+- Authors can write ordered classifications as `case(subject, pattern => expr, _ => default_expr)`.
 - Authors can write a single-reference binding `name:type = identifier` to pass another binding's value through as a function binding. The compiler lowers this to an identity combine per the identity-combine table.
 
 CAN'T (NG):
@@ -385,7 +385,7 @@ Functions marked operator-only must be written using their DSL operator. Their a
 ### 3.2 `#if` — binary conditional expression
 
 ```hcl
-name:type = #if(cond, then_expr, else_expr)
+name:type = if(cond, then_expr, else_expr)
 ```
 
 `#if` selects between two expressions. The condition must resolve to `bool`, and only the selected branch is evaluated.
@@ -395,7 +395,7 @@ Example:
 ```hcl
 prog "main" {
   temp_c:number = 24
-  status:str = #if(temp_c < 28, "warmup", "run")
+  status:str = if(temp_c < 28, "warmup", "run")
 }
 ```
 
@@ -424,7 +424,7 @@ Rules:
 ### 3.3 `#case` — ordered classification
 
 ```hcl
-name:type = #case(
+name:type = case(
   subject,
   pattern1 => expr1,
   pattern2 => expr2,
@@ -441,10 +441,10 @@ prog "main" {
   unsafe:bool = false
   spindle_temp_c:number = 24
 
-  route:str = #if(
+  route:str = if(
     unsafe,
     "lockout",
-    #case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
+    case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
   )
 }
 ```
@@ -480,7 +480,7 @@ Rules:
 ### 3.4 `#pipe` — sequential steps
 
 ```hcl
-name:type = #pipe(
+name:type = pipe(
   initial_value,
   step1,
   step2
@@ -495,9 +495,9 @@ Example:
 prog "main" {
   raw_temp_c:number = 24.4
 
-  route:str = #pipe(
+  route:str = pipe(
     raw_temp_c,
-    #case(
+    case(
       #it,
       t if t < 28 => "warmup",
       t if t > 90 => "hold",
@@ -655,14 +655,14 @@ prog "main" {
   is_big:bool = doubled >= n
 
   # --- Pipe: (n * n) - n ---
-  piped:number = #pipe(
+  piped:number = pipe(
     n,
     #it * #it,
     #it - n
   )
 
   # --- #case classification ---
-  band:str = #case(
+  band:str = case(
     piped,
     x if x >= 80 => "high",
     x if x >= 50 => "medium",
@@ -670,7 +670,7 @@ prog "main" {
   )
 
   # --- #if binary choice ---
-  final:str = #if(piped > doubled, msg + " !", msg + " .")
+  final:str = if(piped > doubled, msg + " !", msg + " .")
 }
 ```
 
@@ -728,7 +728,7 @@ ctx({
 | 2 | `max(v1, v2)` → `combine('binaryFnNumber::max', { a: 'v1', b: 'v2' })`; `max(a: v1, b: v2)` | Positional call lowers successfully; named-argument form emits `NamedArgNotSupported` |
 | 3 | Pipe with `#it` in each step → current pipeline value resolved to the prior step result | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
-| 5 | `#if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
+| 5 | `if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
 | 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
 | 7 | `#case` with guarded scalar arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
 
@@ -738,9 +738,9 @@ ctx({
 |------|--------------------|
 | `n:number = "hello"` | `TypeMismatch` error (string literal assigned to `number` type) |
 | `xs:arr<number> = []` | Emit `val.array('number', [])` — empty array is valid |
-| `#if(flag, 1, "one")` | `BranchTypeMismatch` error |
-| `#case(x, 1 => "one", 2 => 2)` | `CaseArmTypeMismatch` error |
-| `#case(x, 1 => "one")` with subject `2` | `CaseNoMatch` runtime error |
+| `if(flag, 1, "one")` | `BranchTypeMismatch` error |
+| `case(x, 1 => "one", 2 => 2)` | `CaseArmTypeMismatch` error |
+| `case(x, 1 => "one")` with subject `2` | `CaseNoMatch` runtime error |
 | `n:number = #it + 1` outside `#pipe` | `ItOutsidePipe` error |
 | `n:number = _` outside a `#case` pattern | `InvalidWildcardUse` error |
 | Two `prog` blocks in one file | `DuplicateProg` error — a file may contain at most one `prog` block |

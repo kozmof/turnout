@@ -224,22 +224,33 @@ func (l *lex) scanTripleQuote(ln, co int) {
 // ────────────────────────────────────────────────────────────
 
 func (l *lex) scanHash(ln, co int) {
-	if l.tryHashKeyword("#pipe", TokHashPipe, ln, co) {
-		return
-	}
-	if l.tryHashKeyword("#case", TokHashCase, ln, co) {
-		return
-	}
-	if l.tryHashKeyword("#if", TokHashIf, ln, co) {
-		return
-	}
-	if l.tryHashKeyword("#it", TokHashIt, ln, co) {
+	// `#it` is the only remaining hash keyword: the if/case/pipe forms dropped
+	// their prefix in v2 (NEW_SYNTAX.md 2.1), which is what stops a comment
+	// beginning "if"/"case"/"pipe" from lexing as a form.
+	if l.hashItIsPlaceholder() && l.tryHashKeyword("#it", TokHashIt, ln, co) {
 		return
 	}
 	// Line comment — skip to end of line
 	for !l.atEnd() && l.peek() != '\n' {
 		l.advance()
 	}
+}
+
+// hashItIsPlaceholder distinguishes the `#it` pipeline placeholder from a comment
+// that happens to begin with the word "it".
+//
+// Dropping `#` from the if/case/pipe forms closed that trap for three of the four
+// hash keywords; `#it` keeps its prefix because it is a placeholder rather than a
+// reference, so it needs this guard instead. The distinguishing rule is that `#it`
+// is only ever followed by an operator or punctuation — `#it.round()`, `#it + 1`,
+// `add(#it, 1)` — and never by a word, so a following word means the line is prose.
+func (l *lex) hashItIsPlaceholder() bool {
+	const n = len("#it")
+	i := n
+	for l.peekAt(i) == ' ' || l.peekAt(i) == '\t' {
+		i++
+	}
+	return !isIdentStart(l.peekAt(i))
 }
 
 // tryHashKeyword checks whether prefix matches at the current position and is

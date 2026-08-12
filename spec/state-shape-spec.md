@@ -77,7 +77,7 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = ["score"]
+  entry_actions = [score]
   next_policy   = "first-match"
 
   action "score" { ... }
@@ -128,7 +128,7 @@ When STATE is shared across multiple scenes or maintained independently, a Turn 
 state_file = "loan.state.hcl"
 
 scene "loan_flow" {
-  entry_actions = ["score"]
+  entry_actions = [score]
   next_policy   = "first-match"
 
   action "score" { ... }
@@ -333,7 +333,7 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = ["score"]
+  entry_actions = [score]
   next_policy   = "first-match"
 
   action "score" { ... }
@@ -443,28 +443,20 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = ["score"]
+  entry_actions = [score]
   next_policy   = "first-match"
 
   action "score" {
     compute {
       prog "score_graph" {
-        <~>income:number
-        ~>debt:number
+        income:number <~ @applicant.income ~> @decision.input_income
+        debt:number <~ @applicant.debt
         min_income:number  = 50000
         max_debt:number    = 20000
         income_ok:bool  = income >= min_income
         debt_ok:bool    = debt   <= max_debt
-        |^| <~decision:bool = income_ok & debt_ok
+        |^| decision:bool = income_ok & debt_ok ~> @decision.approved
       }
-    }
-    prepare {
-      income { from_state = applicant.income }
-      debt   { from_state = applicant.debt   }
-    }
-    merge {
-      income   { to_state = decision.input_income }
-      decision { to_state = decision.approved     }
     }
   }
 
@@ -473,26 +465,18 @@ scene "loan_flow" {
       prog "approve_graph" {
         prefix:str          = "APR-"
         suffix:str          = "0001"
-        <~status:str        = "approved"
-        |^| <~approval_code:str = prefix + suffix
+        status:str = "approved" ~> @decision.status
+        |^| approval_code:str = prefix + suffix ~> @decision.code
       }
-    }
-    merge {
-      status        { to_state = decision.status }
-      approval_code { to_state = decision.code   }
     }
   }
 
   action "reject" {
     compute {
       prog "reject_graph" {
-        <~status:str = "rejected"
-        |^| <~reason:str = "risk_threshold_not_met"
+        status:str = "rejected" ~> @decision.status
+        |^| reason:str = "risk_threshold_not_met" ~> @decision.reason
       }
-    }
-    merge {
-      status { to_state = decision.status }
-      reason { to_state = decision.reason }
     }
   }
 }
@@ -524,7 +508,7 @@ state {
 state_file = "loan.state.hcl"
 
 scene "loan_flow" {
-  entry_actions = ["score"]
+  entry_actions = [score]
   next_policy   = "first-match"
 
   action "score" { ... }
@@ -574,7 +558,7 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = ["score"]
+  entry_actions = [score]
   next_policy   = "first-match"
 
   action "score" {

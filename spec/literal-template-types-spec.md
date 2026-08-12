@@ -74,7 +74,7 @@ foo-
 A template literal type should support structural destructuring.
 
 ```turn
-#case(
+case(
   resource_id,
   ResourceId { kind: "foo", sequence } => handle_foo(sequence),
   ResourceId { kind: "bar", sequence } => handle_bar(sequence)
@@ -98,7 +98,7 @@ Pattern matching remains ordered.
 The first matching arm is selected.
 
 ```turn
-#case(
+case(
   value,
   PatternA => result_a,
   PatternB => result_b
@@ -987,7 +987,7 @@ For the initial implementation, nesting is limited to:
 ## 13.1 Basic form
 
 ```turn
-result = #case(
+result = case(
   input,
   pattern_1 => expression_1,
   pattern_2 => expression_2,
@@ -1013,7 +1013,7 @@ Bindings created by a pattern are visible only within:
 Example:
 
 ```turn
-result = #case(
+result = case(
   resource_id,
 
   ResourceId {
@@ -1037,7 +1037,7 @@ result = #case(
 All reachable arms must produce compatible result types.
 
 ```turn
-result: str = #case(
+result: str = case(
   status,
   "pending" => "queue",
   "done" => "archive"
@@ -1047,7 +1047,7 @@ result: str = #case(
 Invalid:
 
 ```turn
-result = #case(
+result = case(
   status,
   "pending" => "queue",
   "done" => 42
@@ -1072,7 +1072,7 @@ type Status =
 Exhaustive:
 
 ```turn
-#case(
+case(
   status,
   "pending" => queue(),
   "running" => observe(),
@@ -1083,7 +1083,7 @@ Exhaustive:
 Non-exhaustive:
 
 ```turn
-#case(
+case(
   status,
   "pending" => queue(),
   "done" => archive()
@@ -1104,7 +1104,7 @@ missing:
 A wildcard makes a match exhaustive.
 
 ```turn
-#case(
+case(
   status,
   "pending" => queue(),
   _ => fallback()
@@ -1116,7 +1116,7 @@ A wildcard makes a match exhaustive.
 An unconstrained binder also makes a match exhaustive.
 
 ```turn
-#case(
+case(
   status,
   "pending" => queue(),
   other => handle(other)
@@ -1137,7 +1137,7 @@ type ResourceId =
 Exhaustive:
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1157,7 +1157,7 @@ This is exhaustive because all possible `kind` values are covered and `sequence`
 ## 14.5 Incomplete template match
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1206,7 +1206,7 @@ pattern if condition => result
 Example:
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1237,7 +1237,7 @@ does not cover every foo resource.
 Therefore this is non-exhaustive:
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1298,7 +1298,7 @@ the matched value has type:
 In an ordered case:
 
 ```turn
-#case(
+case(
   status,
   "pending" => ...,
   remaining => ...
@@ -1341,7 +1341,7 @@ sequence: integer
 ## 16.4 Remainder refinement across arms
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1370,7 +1370,7 @@ because `"foo"` was completely handled by the preceding unguarded arm.
 ## 16.5 Guarded arms do not fully subtract coverage
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1402,7 +1402,7 @@ because the guarded first arm did not cover every `"foo"` value.
 ## 17.1 Exact duplicate pattern
 
 ```turn
-#case(
+case(
   status,
   "pending" => a(),
   "pending" => b()
@@ -1422,7 +1422,7 @@ pattern "pending" is fully covered by a previous arm
 ## 17.2 Wildcard shadowing
 
 ```turn
-#case(
+case(
   status,
   _ => fallback(),
   "done" => archive()
@@ -1434,7 +1434,7 @@ The second arm is unreachable.
 ## 17.3 Binder shadowing
 
 ```turn
-#case(
+case(
   status,
   value => handle(value),
   "done" => archive()
@@ -1446,7 +1446,7 @@ The second arm is unreachable.
 ## 17.4 Template shadowing
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1468,7 +1468,7 @@ The second arm is unreachable.
 ## 17.5 Partial overlap
 
 ```turn
-#case(
+case(
   resource_id,
 
   ResourceId {
@@ -1847,7 +1847,7 @@ resource_id: ResourceId = ResourceId {
 ## Matching
 
 ```turn
-result = #case(
+result = case(
   resource_id,
 
   ResourceId {
@@ -1867,7 +1867,7 @@ result = #case(
 ## Fallback
 
 ```turn
-result = #case(
+result = case(
   input,
   ResourceId { kind, sequence } => handle(kind, sequence),
   _ => reject(input)
@@ -2156,7 +2156,7 @@ Implement:
 Example:
 
 ```turn
-#case(
+case(
   (resource_id, enabled),
 
   (
@@ -2341,7 +2341,7 @@ resource_id: ResourceId = ResourceId {
   sequence = 120
 }
 
-result: str = #case(
+result: str = case(
   resource_id,
 
   ResourceId {

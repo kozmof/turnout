@@ -56,16 +56,12 @@ state {
 # ---------------------------------------------------------------------------
 
 scene "intake" {
-  entry_actions = ["collect_info"]
+  entry_actions = [collect_info]
   next_policy   = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      collect_info
-        |=> proceed
-        |=> early_reject
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    collect_info |=> proceed
+    collect_info |=> early_reject
   }
 
   action "collect_info" {
@@ -78,38 +74,24 @@ scene "intake" {
 
     compute {
       prog "collect_info_graph" {
-        ~>age:number
-        ~>is_resident:bool
-        ~>sanctioned:bool
+        age:number <~ @applicant.age
+        is_resident:bool <~ @applicant.is_resident
+        sanctioned:bool <~ @applicant.sanctioned
 
         age_ok:bool       = age >= 18
         not_sanctioned:bool = sanctioned == false
         residency_ok:bool = age_ok & is_resident
-        <~phase:str       = "intake_collect_info"
-        |^| <~eligible:bool   = residency_ok & not_sanctioned
+        phase:str = "intake_collect_info" ~> @workflow.phase
+        |^| eligible:bool = residency_ok & not_sanctioned ~> @intake.eligible
       }
-    }
-
-    prepare {
-      age          { from_state = applicant.age          }
-      is_resident  { from_state = applicant.is_resident  }
-      sanctioned   { from_state = applicant.sanctioned   }
-    }
-
-    merge {
-      eligible { to_state = intake.eligible }
-      phase    { to_state = workflow.phase      }
     }
 
     next {
       compute {
         prog "to_proceed" {
-          ~>eligible:bool
+          eligible:bool <~ action(eligible)
           |?| go_proceed:bool = eligible
         }
-      }
-      prepare {
-        eligible { from_action = eligible }
       }
       action = proceed
     }
@@ -128,15 +110,11 @@ scene "intake" {
 
     compute {
       prog "proceed_graph" {
-        <~intake_passed:bool = true
-        |^| <~phase:str          = "intake_proceed"
+        intake_passed:bool = true ~> @intake.passed
+        |^| phase:str = "intake_proceed" ~> @workflow.phase
       }
     }
 
-    merge {
-      intake_passed { to_state = intake.passed  }
-      phase         { to_state = workflow.phase     }
-    }
   }
 
   action "early_reject" {
@@ -148,17 +126,12 @@ scene "intake" {
 
     compute {
       prog "early_reject_graph" {
-        <~reject_reason:str  = "failed_intake_eligibility"
-        <~intake_passed:bool = false
-        |^| <~phase:str          = "intake_early_reject"
+        reject_reason:str = "failed_intake_eligibility" ~> @workflow.reject_reason
+        intake_passed:bool = false ~> @intake.passed
+        |^| phase:str = "intake_early_reject" ~> @workflow.phase
       }
     }
 
-    merge {
-      reject_reason { to_state = workflow.reject_reason }
-      intake_passed { to_state = intake.passed      }
-      phase         { to_state = workflow.phase         }
-    }
   }
 }
 
@@ -168,16 +141,12 @@ scene "intake" {
 # ---------------------------------------------------------------------------
 
 scene "document_review" {
-  entry_actions = ["check_documents"]
+  entry_actions = [check_documents]
   next_policy   = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      check_documents
-        |=> mark_valid
-        |=> mark_invalid
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    check_documents |=> mark_valid
+    check_documents |=> mark_invalid
   }
 
   action "check_documents" {
@@ -190,35 +159,22 @@ scene "document_review" {
 
     compute {
       prog "check_documents_graph" {
-        ~>doc_expired:bool
-        ~>ocr_confidence:number
+        doc_expired:bool <~ @documents.expired
+        ocr_confidence:number <~ @documents.ocr_confidence
 
         not_expired:bool    = doc_expired == false
         ocr_ok:bool         = ocr_confidence >= 80
-        <~phase:str         = "document_review_check"
-        |^| <~docs_ok:bool      = not_expired & ocr_ok
+        phase:str = "document_review_check" ~> @workflow.phase
+        |^| docs_ok:bool = not_expired & ocr_ok ~> @documents.review_passed
       }
-    }
-
-    prepare {
-      doc_expired     { from_state = documents.expired       }
-      ocr_confidence  { from_state = documents.ocr_confidence }
-    }
-
-    merge {
-      docs_ok { to_state = documents.review_passed }
-      phase   { to_state = workflow.phase              }
     }
 
     next {
       compute {
         prog "to_mark_valid" {
-          ~>docs_ok:bool
+          docs_ok:bool <~ action(docs_ok)
           |?| go_valid:bool  = docs_ok
         }
-      }
-      prepare {
-        docs_ok { from_action = docs_ok }
       }
       action = mark_valid
     }
@@ -237,15 +193,11 @@ scene "document_review" {
 
     compute {
       prog "mark_valid_graph" {
-        <~docs_verified:bool = true
-        |^| <~phase:str          = "document_review_mark_valid"
+        docs_verified:bool = true ~> @documents.verified
+        |^| phase:str = "document_review_mark_valid" ~> @workflow.phase
       }
     }
 
-    merge {
-      docs_verified { to_state = documents.verified }
-      phase         { to_state = workflow.phase         }
-    }
   }
 
   action "mark_invalid" {
@@ -257,17 +209,12 @@ scene "document_review" {
 
     compute {
       prog "mark_invalid_graph" {
-        <~docs_verified:bool = false
-        <~reject_reason:str  = "document_validation_failed"
-        |^| <~phase:str          = "document_review_mark_invalid"
+        docs_verified:bool = false ~> @documents.verified
+        reject_reason:str = "document_validation_failed" ~> @workflow.reject_reason
+        |^| phase:str = "document_review_mark_invalid" ~> @workflow.phase
       }
     }
 
-    merge {
-      docs_verified { to_state = documents.verified  }
-      reject_reason { to_state = workflow.reject_reason  }
-      phase         { to_state = workflow.phase          }
-    }
   }
 }
 
@@ -277,17 +224,13 @@ scene "document_review" {
 # ---------------------------------------------------------------------------
 
 scene "risk_assessment" {
-  entry_actions = ["score_risk"]
+  entry_actions = [score_risk]
   next_policy   = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      score_risk
-        |=> low_risk_pass
-        |=> high_risk_fail
-        |=> borderline_flag
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    score_risk |=> low_risk_pass
+    score_risk |=> high_risk_fail
+    score_risk |=> borderline_flag
   }
 
   action "score_risk" {
@@ -300,43 +243,29 @@ scene "risk_assessment" {
 
     compute {
       prog "score_risk_graph" {
-        ~>credit_score:number
-        ~>fraud_flag:bool
+        credit_score:number <~ @applicant.credit_score
+        fraud_flag:bool <~ @applicant.fraud_flag
 
-        <~risk_score:number    = credit_score
-        <~phase:str            = "risk_assessment_score"
-        |^| <~risk_tier:str        = #if(
+        risk_score:number = credit_score ~> @risk.score
+        phase:str = "risk_assessment_score" ~> @workflow.phase
+        |^| risk_tier:str = if(
           fraud_flag,
           "high",
-          #if(
+          if(
             credit_score >= 700,
             "low",
-            #if(credit_score < 500, "high", "borderline")
+            if(credit_score < 500, "high", "borderline")
           )
-        )
+        ) ~> @risk.tier
       }
-    }
-
-    prepare {
-      credit_score { from_state = applicant.credit_score }
-      fraud_flag   { from_state = applicant.fraud_flag   }
-    }
-
-    merge {
-      risk_score { to_state = risk.score  }
-      risk_tier  { to_state = risk.tier   }
-      phase      { to_state = workflow.phase  }
     }
 
     next {
       compute {
         prog "to_low_risk" {
-          ~>risk_tier:str
+          risk_tier:str <~ action(risk_tier)
           |?| go_low:bool     = risk_tier == "low"
         }
-      }
-      prepare {
-        risk_tier { from_action = risk_tier }
       }
       action = low_risk_pass
     }
@@ -344,12 +273,9 @@ scene "risk_assessment" {
     next {
       compute {
         prog "to_high_risk" {
-          ~>risk_tier:str
+          risk_tier:str <~ action(risk_tier)
           |?| go_high:bool    = risk_tier == "high"
         }
-      }
-      prepare {
-        risk_tier { from_action = risk_tier }
       }
       action = high_risk_fail
     }
@@ -368,15 +294,11 @@ scene "risk_assessment" {
 
     compute {
       prog "low_risk_pass_graph" {
-        <~risk_decision:str  = "low_risk_approved"
-        |^| <~phase:str          = "risk_assessment_low_risk_pass"
+        risk_decision:str = "low_risk_approved" ~> @risk.decision
+        |^| phase:str = "risk_assessment_low_risk_pass" ~> @workflow.phase
       }
     }
 
-    merge {
-      risk_decision { to_state = risk.decision }
-      phase         { to_state = workflow.phase    }
-    }
   }
 
   action "high_risk_fail" {
@@ -388,17 +310,12 @@ scene "risk_assessment" {
 
     compute {
       prog "high_risk_fail_graph" {
-        <~risk_decision:str  = "high_risk_rejected"
-        <~reject_reason:str  = "risk_score_too_high"
-        |^| <~phase:str          = "risk_assessment_high_risk_fail"
+        risk_decision:str = "high_risk_rejected" ~> @risk.decision
+        reject_reason:str = "risk_score_too_high" ~> @workflow.reject_reason
+        |^| phase:str = "risk_assessment_high_risk_fail" ~> @workflow.phase
       }
     }
 
-    merge {
-      risk_decision { to_state = risk.decision   }
-      reject_reason { to_state = workflow.reject_reason }
-      phase         { to_state = workflow.phase      }
-    }
   }
 
   action "borderline_flag" {
@@ -410,17 +327,12 @@ scene "risk_assessment" {
 
     compute {
       prog "borderline_flag_graph" {
-        <~risk_decision:str   = "borderline_manual_review"
-        <~needs_review:bool   = true
-        |^| <~phase:str           = "risk_assessment_borderline_flag"
+        risk_decision:str = "borderline_manual_review" ~> @risk.decision
+        needs_review:bool = true ~> @risk.needs_review
+        |^| phase:str = "risk_assessment_borderline_flag" ~> @workflow.phase
       }
     }
 
-    merge {
-      risk_decision { to_state = risk.decision   }
-      needs_review  { to_state = risk.needs_review }
-      phase         { to_state = workflow.phase      }
-    }
   }
 }
 
@@ -430,16 +342,12 @@ scene "risk_assessment" {
 # ---------------------------------------------------------------------------
 
 scene "manual_review" {
-  entry_actions = ["assign_reviewer"]
+  entry_actions = [assign_reviewer]
   next_policy   = "first-match"
 
-  view "overview" {
-    flow = <<-EOT
-      assign_reviewer
-        |=> override_approve
-        |=> override_reject
-    EOT
-    enforce = "at_least"
+  overview at_least {
+    assign_reviewer |=> override_approve
+    assign_reviewer |=> override_reject
   }
 
   action "assign_reviewer" {
@@ -451,34 +359,21 @@ scene "manual_review" {
 
     compute {
       prog "assign_reviewer_graph" {
-        ~>reviewer_decision:str
-        ~>reviewer_confidence:number
+        reviewer_decision:str <~ @review.reviewer_decision
+        reviewer_confidence:number <~ @review.reviewer_confidence
 
         decision_ok:bool             = reviewer_confidence >= 70
-        <~phase:str                  = "manual_review_assign"
-        |^| <~reviewer_approved:bool     = decision_ok
+        phase:str = "manual_review_assign" ~> @workflow.phase
+        |^| reviewer_approved:bool = decision_ok ~> @review.approved
       }
-    }
-
-    prepare {
-      reviewer_decision    { from_state = review.reviewer_decision    }
-      reviewer_confidence  { from_state = review.reviewer_confidence  }
-    }
-
-    merge {
-      reviewer_approved { to_state = review.approved }
-      phase             { to_state = workflow.phase      }
     }
 
     next {
       compute {
         prog "to_override_approve" {
-          ~>reviewer_approved:bool
+          reviewer_approved:bool <~ action(reviewer_approved)
           |?| go_approve:bool          = reviewer_approved
         }
-      }
-      prepare {
-        reviewer_approved { from_action = reviewer_approved }
       }
       action = override_approve
     }
@@ -497,15 +392,11 @@ scene "manual_review" {
 
     compute {
       prog "override_approve_graph" {
-        <~review_outcome:str = "manual_approved"
-        |^| <~phase:str          = "manual_review_override_approve"
+        review_outcome:str = "manual_approved" ~> @review.outcome
+        |^| phase:str = "manual_review_override_approve" ~> @workflow.phase
       }
     }
 
-    merge {
-      review_outcome { to_state = review.outcome }
-      phase          { to_state = workflow.phase     }
-    }
   }
 
   action "override_reject" {
@@ -517,17 +408,12 @@ scene "manual_review" {
 
     compute {
       prog "override_reject_graph" {
-        <~review_outcome:str = "manual_rejected"
-        <~reject_reason:str  = "manual_review_declined"
-        |^| <~phase:str          = "manual_review_override_reject"
+        review_outcome:str = "manual_rejected" ~> @review.outcome
+        reject_reason:str = "manual_review_declined" ~> @workflow.reject_reason
+        |^| phase:str = "manual_review_override_reject" ~> @workflow.phase
       }
     }
 
-    merge {
-      review_outcome { to_state = review.outcome        }
-      reject_reason  { to_state = workflow.reject_reason    }
-      phase          { to_state = workflow.phase            }
-    }
   }
 }
 
@@ -537,7 +423,7 @@ scene "manual_review" {
 # ---------------------------------------------------------------------------
 
 scene "approved" {
-  entry_actions = ["issue_approval"]
+  entry_actions = [issue_approval]
   next_policy   = "first-match"
 
   action "issue_approval" {
@@ -552,17 +438,12 @@ scene "approved" {
       prog "issue_approval_graph" {
         prefix:str           = "ACC-"
         suffix:str           = "APPROVED"
-        <~flow_outcome:str   = "approved"
-        <~phase:str          = "approved_issue_approval"
-        |^| <~account_ref:str    = prefix + suffix
+        flow_outcome:str = "approved" ~> @workflow.outcome
+        phase:str = "approved_issue_approval" ~> @workflow.phase
+        |^| account_ref:str = prefix + suffix ~> @workflow.account_ref
       }
     }
 
-    merge {
-      account_ref  { to_state = workflow.account_ref }
-      flow_outcome { to_state = workflow.outcome     }
-      phase        { to_state = workflow.phase       }
-    }
   }
 }
 
@@ -572,7 +453,7 @@ scene "approved" {
 # ---------------------------------------------------------------------------
 
 scene "rejected" {
-  entry_actions = ["issue_rejection"]
+  entry_actions = [issue_rejection]
   next_policy   = "first-match"
 
   action "issue_rejection" {
@@ -585,24 +466,15 @@ scene "rejected" {
 
     compute {
       prog "issue_rejection_graph" {
-        ~>reject_reason:str
+        reject_reason:str <~ @workflow.reject_reason
 
         prefix:str           = "Rejected: "
-        <~rejection_notice:str = prefix + reject_reason
-        <~phase:str          = "rejected_issue_rejection"
-        |^| <~flow_outcome:str   = "rejected"
+        rejection_notice:str = prefix + reject_reason ~> @workflow.rejection_notice
+        phase:str = "rejected_issue_rejection" ~> @workflow.phase
+        |^| flow_outcome:str = "rejected" ~> @workflow.outcome
       }
     }
 
-    prepare {
-      reject_reason { from_state = workflow.reject_reason }
-    }
-
-    merge {
-      rejection_notice { to_state = workflow.rejection_notice }
-      flow_outcome     { to_state = workflow.outcome          }
-      phase            { to_state = workflow.phase            }
-    }
   }
 }
 
@@ -620,7 +492,7 @@ scene "rejected" {
 # ---------------------------------------------------------------------------
 
 route "onboarding_flow" {
-  entry "intake"
+  entry = intake
   match {
     # intake outcomes
     intake.proceed       => document_review,

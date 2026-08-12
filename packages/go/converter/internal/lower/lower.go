@@ -299,7 +299,7 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.DiagSi
 	if scene.View != nil {
 		vb := &turnoutpb.ViewBlock{
 			Name: scene.View.Name,
-			Flow: scene.View.Flow,
+			Flow: flowText(scene.View),
 		}
 		if scene.View.Enforce != "" {
 			vb.Enforce = proto.String(scene.View.Enforce)
@@ -313,6 +313,7 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.DiagSi
 }
 
 func lowerAction(a *ast.ActionBlock, schema state.Schema, ds *diag.DiagSink) *turnoutpb.ActionModel {
+	hoistInlineIO(a, ds)
 	resolver := newActionPrepareResolver(a.Prepare, schema)
 
 	am := &turnoutpb.ActionModel{Id: a.ID}
@@ -550,6 +551,17 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 			return nil // diagnostic already emitted by lowerInfixRHS (invalid infix expr)
 		}
 		bindings = []*turnoutpb.BindingModel{bm}
+	case *ast.TransformRHS:
+		bm := lowerTransformRHS(name, ft, rhs, bindingTypes, ds)
+		if bm == nil {
+			return nil // diagnostic already emitted by lowerTransformRHS
+		}
+		bindings = []*turnoutpb.BindingModel{bm}
+	case *ast.NestedInfixRHS:
+		bindings = lowerNestedInfixRHS(name, ft, rhs, bindingTypes, ds, localCounter)
+		if len(bindings) == 0 {
+			return nil // diagnostic already emitted by lowerNestedInfixRHS
+		}
 	case *ast.IfCallRHS, *ast.CaseCallRHS, *ast.PipeCallRHS:
 		bindings = lowerLocalRHS(name, ft, rhs, bindingTypes, declaredTypes, ds, localCounter)
 	case *ast.TemplateConstructionRHS:
@@ -603,6 +615,33 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 		}
 	}
 	return bindings
+}
+
+// flowText renders an overview block back to the canonical flow text the proto
+// carries. The overview block is parsed structurally as of v2 (NEW_SYNTAX.md
+// 2.2), but ViewBlock.flow remains a string in the model, so the edges are
+// serialized one per line. The TypeScript runtime ignores this field entirely;
+// it exists for model fidelity and round-tripping.
+//
+// Nodes with no outgoing edge are emitted as bare node lines so that
+// `enforce = "nodes_only"` still sees them.
+func flowText(v *ast.ViewBlock) string {
+	var b strings.Builder
+	sources := make(map[string]bool, len(v.Edges))
+	for _, e := range v.Edges {
+		sources[e.From] = true
+		b.WriteString(e.From)
+		b.WriteString(" |=> ")
+		b.WriteString(e.To)
+		b.WriteByte('\n')
+	}
+	for _, n := range v.Nodes {
+		if !sources[n] {
+			b.WriteString(n)
+			b.WriteByte('\n')
+		}
+	}
+	return b.String()
 }
 
 // lowerLocalRHS delegates IfCallRHS / CaseCallRHS / PipeCallRHS to the

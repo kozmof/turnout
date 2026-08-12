@@ -8,6 +8,19 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
+// Contextual keywords for the DSL forms. They dropped their `#` prefix in v2
+// (NEW_SYNTAX.md 2.1) and are recognised as bare identifiers followed by `(`.
+// They are not reserved words: an identifier named `if` is still a valid binding
+// reference anywhere a call is not expected.
+//
+// `#it` deliberately kept its prefix — it is a placeholder, not a reference —
+// which is why TokHashIt still exists while TokHashIf/Case/Pipe do not.
+const (
+	formIf   = "if"
+	formCase = "case"
+	formPipe = "pipe"
+)
+
 // ─── parseArg ─────────────────────────────────────────────────────────────────
 
 // parseArg parses one argument in a function call, infix expr, or pipe step.
@@ -150,29 +163,19 @@ func (p *parser) parseRHS() ast.BindingRHS {
 	// ── literal forms ──────────────────────────────────────────────────────
 	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit,
 		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket, lexer.TokMinus:
-		return &ast.LiteralRHS{Value: p.parseLiteral()}
+		// A literal followed by an operator is the left operand of an infix
+		// expression (`100 - discount`); alone it stays a bare literal binding.
+		return p.parseInfixFrom(&ast.InfixLeaf{Arg: &ast.LitArg{Value: p.parseLiteral()}})
 
-	// ── _ is invalid as a binding RHS (v1: only valid in #case patterns) ──
+	// ── _ is invalid as a binding RHS (only valid in case patterns) ──
 	case lexer.TokUnderscore:
-		p.errorf(t, "_ is not a valid binding RHS; it is reserved for #case wildcard patterns")
+		p.errorf(t, "_ is not a valid binding RHS; it is reserved for case wildcard patterns")
 		p.advance()
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
-	// ── #pipe (new function-call form) ────────────────────────────────────
-	case lexer.TokHashPipe:
-		return p.parsePipeCallRHS()
-
-	// ── #if (new function-call form) ──────────────────────────────────────
-	case lexer.TokHashIf:
-		return p.parseIfCallRHS()
-
-	// ── #case ─────────────────────────────────────────────────────────────
-	case lexer.TokHashCase:
-		return p.parseCaseCallRHS()
-
 	// ── block form: rejected in v1 ─────────────────────────────────────────
 	case lexer.TokLBrace:
-		p.errorf(t, "block-form expressions are not supported in v1; use #if(cond, then, else), #case(...), or call syntax fn(args)")
+		p.errorf(t, "block-form expressions are not supported in v1; use if(cond, then, else), case(...), or call syntax fn(args)")
 		p.skipBlock()
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
@@ -230,6 +233,17 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 
 	switch second.Kind {
 	case lexer.TokLParen:
+		// The DSL forms lost their `#` prefix in v2 (NEW_SYNTAX.md 2.1), so they
+		// are bare identifiers that must be recognised before the generic call
+		// dispatch. None of them collides with a builtin in spec/fn-aliases.json.
+		switch nameTok.Value {
+		case formIf:
+			return p.parseIfCallRHS(p.posOf(nameTok))
+		case formCase:
+			return p.parseCaseCallRHS(p.posOf(nameTok))
+		case formPipe:
+			return p.parsePipeCallRHS(p.posOf(nameTok))
+		}
 		// function call: fn_alias(args)
 		args := p.parseFuncArgs()
 		return &ast.FuncCallRHS{FnAlias: nameTok.Value, Args: args}
@@ -238,35 +252,95 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 		// typed template construction: TypeName { field = value ... }
 		return p.parseTemplateConstruction(nameTok)
 
-	case lexer.TokAmpersand, lexer.TokGTE, lexer.TokLTE, lexer.TokPlus,
-		lexer.TokMinus, lexer.TokStar, lexer.TokSlash, lexer.TokPercent,
-		lexer.TokGT, lexer.TokLT, lexer.TokPipe, lexer.TokEqEq, lexer.TokNeq:
-		// infix: lhs OP rhs
-		opTok := p.advance()
-		op, ok := tokenToInfixOp(opTok)
-		if !ok {
-			p.errorf(opTok, "internal error: parseIdentRHS infix switch on unexpected token kind %v", opTok.Kind)
-			return &ast.SingleRefRHS{RefName: nameTok.Value}
-		}
-		rhs := p.parseArg()
-		return &ast.InfixRHS{
-			Op:  op,
-			LHS: &ast.RefArg{Name: nameTok.Value},
-			RHS: rhs,
-		}
+	case lexer.TokDot:
+		// A method-call chain is an ordinary operand: it may stand alone as the
+		// binding value (NEW_SYNTAX.md 1.3) or sit on either side of an operator.
+		// The right operand already reached parseArg, which handles chains; this
+		// case is what lets the left operand be something other than a bare ref.
+		return p.parseInfixFrom(&ast.InfixLeaf{Arg: p.parseMethodChain(nameTok.Value)})
 
 	default:
-		// single-reference form
-		return &ast.SingleRefRHS{RefName: nameTok.Value}
+		// A bare reference, or the left operand of an infix expression.
+		return p.parseInfixFrom(&ast.InfixLeaf{Arg: &ast.RefArg{Name: nameTok.Value}})
+	}
+}
+
+// ─── nested infix ────────────────────────────────────────────────────────────
+
+// parseInfixFrom parses the remainder of an infix expression whose left operand
+// has already been consumed, then normalizes the result.
+//
+// The normalization is what preserves backward compatibility: an expression with
+// exactly one operator and two terminal operands is emitted as the pre-existing
+// InfixRHS, so it takes the pre-existing lowering path and produces byte-identical
+// output. Only genuinely nested expressions — which could not be written before —
+// become NestedInfixRHS.
+func (p *parser) parseInfixFrom(lhs ast.InfixNode) ast.BindingRHS {
+	branch, ok := p.parseInfixPrec(lhs, 0).(*ast.InfixBranch)
+	if !ok {
+		// No operator followed, so the RHS is the operand on its own.
+		return leafToRHS(lhs)
+	}
+	l, lIsLeaf := branch.LHS.(*ast.InfixLeaf)
+	r, rIsLeaf := branch.RHS.(*ast.InfixLeaf)
+	if lIsLeaf && rIsLeaf {
+		return &ast.InfixRHS{Op: branch.Op, LHS: l.Arg, RHS: r.Arg}
+	}
+	return &ast.NestedInfixRHS{Pos: branch.Pos, Root: branch}
+}
+
+// leafToRHS converts a lone operand into the binding RHS it represents. A bare
+// reference and a bare literal keep the node types they have always used; a bare
+// transform chain becomes TransformRHS (NEW_SYNTAX.md 1.3).
+func leafToRHS(node ast.InfixNode) ast.BindingRHS {
+	leaf, ok := node.(*ast.InfixLeaf)
+	if !ok {
+		// A branch is handled by the caller; nothing else can reach here.
+		return &ast.ErrorRHS{}
+	}
+	switch a := leaf.Arg.(type) {
+	case *ast.LitArg:
+		return &ast.LiteralRHS{Value: a.Value}
+	case *ast.RefArg:
+		return &ast.SingleRefRHS{RefName: a.Name}
+	case *ast.MethodCallArg:
+		return &ast.TransformRHS{Arg: a}
+	default:
+		return &ast.ErrorRHS{}
+	}
+}
+
+// parseInfixPrec is precedence climbing over InfixNode operands, seeded with an
+// already-parsed left operand. Precedence comes from infixPrec, the same table
+// used by local expressions, so `a & b & c >= 3` groups identically in both.
+func (p *parser) parseInfixPrec(lhs ast.InfixNode, minPrec int) ast.InfixNode {
+	for {
+		prec, ok := infixPrec(p.peek().Kind)
+		if !ok || prec < minPrec {
+			return lhs
+		}
+		opTok := p.advance()
+		// infixPrec and localInfixOpFromTok are total over the same token set, so
+		// no operator check is needed here — parseLocalPrec relies on the same
+		// invariant.
+		op := localInfixOpFromTok(opTok)
+		var rhs ast.InfixNode = &ast.InfixLeaf{Arg: p.parseArg()}
+		// Pull any tighter-binding operators into the right operand.
+		for {
+			nextPrec, ok := infixPrec(p.peek().Kind)
+			if !ok || nextPrec <= prec {
+				break
+			}
+			rhs = p.parseInfixPrec(rhs, prec+1)
+		}
+		lhs = &ast.InfixBranch{Pos: p.posOf(opTok), Op: op, LHS: lhs, RHS: rhs}
 	}
 }
 
 // ─── #if (v1 function-call form) ─────────────────────────────────────────────
 
-// parseIfCallRHS parses `#if(cond_expr, then_expr, else_expr)`.
-func (p *parser) parseIfCallRHS() ast.BindingRHS {
-	pos := p.posOf(p.peek())
-	p.advance() // consume #if
+// parseIfCallRHS parses `if(cond_expr, then_expr, else_expr)`.
+func (p *parser) parseIfCallRHS(pos ast.Pos) ast.BindingRHS {
 	p.expect(lexer.TokLParen)
 	cond := p.parseLocalExpr()
 	p.expect(lexer.TokComma)
@@ -279,10 +353,8 @@ func (p *parser) parseIfCallRHS() ast.BindingRHS {
 
 // ─── #case (v1 form) ──────────────────────────────────────────────────────────
 
-// parseCaseCallRHS parses `#case(subject, pattern => expr, ..., _ => default)`.
-func (p *parser) parseCaseCallRHS() ast.BindingRHS {
-	pos := p.posOf(p.peek())
-	p.advance() // consume #case
+// parseCaseCallRHS parses `case(subject, pattern => expr, ..., _ => default)`.
+func (p *parser) parseCaseCallRHS(pos ast.Pos) ast.BindingRHS {
 	p.expect(lexer.TokLParen)
 	subject := p.parseLocalExpr()
 	var arms []ast.LocalCaseArm
@@ -387,10 +459,8 @@ func (p *parser) parseTemplateCasePattern(nameTok lexer.Token) ast.LocalCasePatt
 
 // ─── #pipe (v1 function-call form) ───────────────────────────────────────────
 
-// parsePipeCallRHS parses `#pipe(initial_expr, step1_expr, step2_expr, ...)`.
-func (p *parser) parsePipeCallRHS() ast.BindingRHS {
-	pos := p.posOf(p.peek())
-	p.advance() // consume #pipe
+// parsePipeCallRHS parses `pipe(initial_expr, step1_expr, step2_expr, ...)`.
+func (p *parser) parsePipeCallRHS(pos ast.Pos) ast.BindingRHS {
 	p.expect(lexer.TokLParen)
 	initial := p.parseLocalExpr()
 	var steps []ast.LocalExpr
@@ -458,18 +528,22 @@ func (p *parser) parseLocalPrec(minPrec int) ast.LocalExpr {
 func (p *parser) parseLocalPrimary() ast.LocalExpr {
 	t := p.peek()
 	switch t.Kind {
-	case lexer.TokHashIf:
-		return p.parseLocalIfExpr()
-	case lexer.TokHashCase:
-		return p.parseLocalCaseExpr()
-	case lexer.TokHashPipe:
-		return p.parseLocalPipeExpr()
 	case lexer.TokHashIt:
 		p.advance()
 		return &ast.LocalItExpr{Pos: p.posOf(t)}
 	case lexer.TokIdent:
 		nameTok := p.advance()
 		if p.peek().Kind == lexer.TokLParen {
+			// Bare DSL forms take precedence over the generic call form; see the
+			// matching dispatch in parseIdentRHS.
+			switch nameTok.Value {
+			case formIf:
+				return p.parseLocalIfExpr(p.posOf(nameTok))
+			case formCase:
+				return p.parseLocalCaseExpr(p.posOf(nameTok))
+			case formPipe:
+				return p.parseLocalPipeExpr(p.posOf(nameTok))
+			}
 			args := p.parseLocalArgList()
 			return &ast.LocalCallExpr{Pos: p.posOf(nameTok), FnAlias: nameTok.Value, Args: args}
 		}
@@ -502,9 +576,7 @@ func (p *parser) parseLocalTupleExpr() ast.LocalExpr {
 	return &ast.LocalTupleExpr{Pos: p.posOf(open), Elems: elems}
 }
 
-func (p *parser) parseLocalIfExpr() ast.LocalExpr {
-	pos := p.posOf(p.peek())
-	p.advance() // consume #if
+func (p *parser) parseLocalIfExpr(pos ast.Pos) ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	cond := p.parseLocalExpr()
 	p.expect(lexer.TokComma)
@@ -515,9 +587,7 @@ func (p *parser) parseLocalIfExpr() ast.LocalExpr {
 	return &ast.LocalIfExpr{Pos: pos, Cond: cond, Then: then, Else: els}
 }
 
-func (p *parser) parseLocalCaseExpr() ast.LocalExpr {
-	pos := p.posOf(p.peek())
-	p.advance() // consume #case
+func (p *parser) parseLocalCaseExpr(pos ast.Pos) ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	subject := p.parseLocalExpr()
 	var arms []ast.LocalCaseArm
@@ -530,9 +600,7 @@ func (p *parser) parseLocalCaseExpr() ast.LocalExpr {
 	return &ast.LocalCaseExpr{Pos: pos, Subject: subject, Arms: arms}
 }
 
-func (p *parser) parseLocalPipeExpr() ast.LocalExpr {
-	pos := p.posOf(p.peek())
-	p.advance() // consume #pipe
+func (p *parser) parseLocalPipeExpr(pos ast.Pos) ast.LocalExpr {
 	p.expect(lexer.TokLParen)
 	initial := p.parseLocalExpr()
 	var steps []ast.LocalExpr

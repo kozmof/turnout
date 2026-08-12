@@ -8,49 +8,35 @@ state {
 }
 
 scene "scene_a" {
-  entry_actions = ["step_a"]
+  entry_actions = [step_a]
 
   action "step_a" {
     compute {
       prog "a_prog" {
-        ~>value:number
-        |^| <~doubled:number = value + value
+        value:number <~ @input.value
+        |^| doubled:number = value + value ~> @output.result
       }
     }
 
-    prepare {
-      value { from_state = input.value }
-    }
-
-    merge {
-      doubled { to_state = output.result }
-    }
   }
 }
 
 scene "scene_b" {
-  entry_actions = ["step_b"]
+  entry_actions = [step_b]
 
   action "step_b" {
     compute {
       prog "b_prog" {
-        ~>result:number
-        |^| <~final_val:number = result + 1
+        result:number <~ @output.result
+        |^| final_val:number = result + 1 ~> @output.result
       }
     }
 
-    prepare {
-      result { from_state = output.result }
-    }
-
-    merge {
-      final_val { to_state = output.result }
-    }
   }
 }
 
 route "main_route" {
-  entry "scene_a"
+  entry = scene_a
   match {
     scene_a.step_a => scene_b
   }

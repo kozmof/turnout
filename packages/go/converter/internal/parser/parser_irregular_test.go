@@ -31,7 +31,7 @@ func TestParseIrregularTopLevelErrors(t *testing.T) {
 		{
 			name: "scene_only",
 			src: `scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| v:bool = true } } }
 }`,
 			wantCodes: []diag.ErrorCode{diag.CodeMissingStateSource},
@@ -71,7 +71,7 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 	}{
 		{
 			name: "binding_rhs_closing_brace",
-			src: minimalTurnFile(`  entry_actions = ["a"]
+			src: minimalTurnFile(`  entry_actions = [a]
   action "a" {
     compute { prog "p" {
         |^| v:bool = }
@@ -97,9 +97,9 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| ~>v:number } }
+    compute { prog "p" { |^| v:number } }
     prepare {
       v { from_state = }
     }
@@ -112,7 +112,7 @@ scene "test" {
 			name: "invalid_route_path_prefix",
 			src: `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
   }
@@ -129,7 +129,7 @@ route "r1" {
 			name: "missing_scene_closing_brace",
 			src: `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
   }

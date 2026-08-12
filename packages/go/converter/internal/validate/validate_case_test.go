@@ -13,13 +13,13 @@ func caseProgram(typeDecls, subjectDecl, arms string) string {
 	return typeDecls + `
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
         n: number = 1
         ` + subjectDecl + `
-        |^| r: str = #case(
+        |^| r: str = case(
           s,
           ` + arms + `
         )

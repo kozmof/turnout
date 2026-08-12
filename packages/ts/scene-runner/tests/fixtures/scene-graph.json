@@ -299,7 +299,7 @@
       ],
       "view": {
         "name": "overview",
-        "flow": "score\n  |=\u003e approve\n  |=\u003e reject",
+        "flow": "score |=\u003e approve\nscore |=\u003e reject\n",
         "enforce": "at_least"
       }
     }

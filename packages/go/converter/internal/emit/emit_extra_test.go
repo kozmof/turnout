@@ -37,7 +37,7 @@ func TestEmitLiteralNonEmptyArray(t *testing.T) {
   ns { items:arr<number> = [1, 2, 3] }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`)
 	if !strings.Contains(out, `value = [1, 2, 3]`) {
@@ -50,7 +50,7 @@ func TestEmitLiteralBoolFalse(t *testing.T) {
   ns { flag:bool = false }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`)
 	if !strings.Contains(out, `value = false`) {
@@ -155,18 +155,15 @@ func TestEmitNextPrepareFromState(t *testing.T) {
   app { score:number = 10 }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>score:number
+          score:number <~ @app.score
           |?| go:bool = true
         }
-      }
-      prepare {
-        score { from_state = app.score }
       }
       action = a
     }
@@ -182,18 +179,15 @@ func TestEmitNextPrepareFromLiteral(t *testing.T) {
   app { val:number = 0 }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
       compute {
         prog "n" {
-          ~>val:number
+          val:number <~ 42
           |?| go:bool = true
         }
-      }
-      prepare {
-        val { from_literal = 42 }
       }
       action = a
     }
@@ -310,11 +304,11 @@ func TestEmitJSONCondExpr(t *testing.T) {
 func TestEmitJSONRoute(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "scene_1" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }
 route "r1" {
-  entry "scene_1"
+  entry = scene_1
   match {
     scene_1.*.final => scene_1,
     _ => scene_1
@@ -341,7 +335,7 @@ func TestEmitJSONLitToJSONArray(t *testing.T) {
   ns { tags:arr<str> = ["a", "b"] }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`
 	var sb strings.Builder
@@ -471,7 +465,7 @@ func TestEmitLargeNumberDecimal(t *testing.T) {
   ns { big:number = 1000000 }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`)
 	if strings.Contains(out, "1e+") || strings.Contains(out, "e+0") {
@@ -489,7 +483,7 @@ func TestEmitSmallNumberDecimal(t *testing.T) {
   ns { small:number = 0.00001 }
 }
 scene "s" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" { compute { prog "p" { |^| r:bool = true } } }
 }`)
 	if strings.Contains(out, "1e-") || strings.Contains(out, "e-0") {

@@ -88,7 +88,17 @@ const (
 	CodeBidirMissingMergeEntry   ErrorCode = "BidirMissingMergeEntry"
 	CodeTransitionMerge          ErrorCode = "TransitionMerge"
 	CodeTransitionHook           ErrorCode = "TransitionHook"
-	CodeTransitionOutputSigil    ErrorCode = "TransitionOutputSigil"
+	// CodeLegacySigilPosition is emitted when a sigil appears before the binding
+	// name, the pre-v2 spelling. It is its own code because a mis-migrated file
+	// can still parse: the arrows inverted when they moved to infix position
+	// (NEW_SYNTAX.md 3), so a generic syntax error would understate the risk.
+	CodeLegacySigilPosition ErrorCode = "LegacySigilPosition"
+	// CodeDuplicateInlineIO is emitted when a binding declares its input or
+	// output both inline and in a prepare/merge block. Both spellings stay legal
+	// (NEW_SYNTAX.md 3), but not for the same binding: they could disagree about
+	// the destination, and silently preferring one would hide the conflict.
+	CodeDuplicateInlineIO     ErrorCode = "DuplicateInlineIO"
+	CodeTransitionOutputSigil ErrorCode = "TransitionOutputSigil"
 	// CodeSigilPositionLoss is a warning emitted when Validate is called with a nil
 	// sidecar but the model contains sigil bindings. Sigil-related diagnostics will
 	// be emitted without source-file positions in this case.
@@ -116,18 +126,18 @@ const (
 
 // Error codes from scene-graph.md
 const (
-	CodeMissingScene                ErrorCode = "MissingScene"
-	CodeDuplicateSceneID            ErrorCode = "DuplicateSceneID"
-	CodeSCNInvalidActionGraph       ErrorCode = "SCN_INVALID_ACTION_GRAPH"
-	CodeSCNActionRootNotFound       ErrorCode = "SCN_ACTION_ROOT_NOT_FOUND"
-	CodeSCNIngressTargetNotValue    ErrorCode = "SCN_INGRESS_TARGET_NOT_VALUE"
-	CodeSCNIngressSourceMissing     ErrorCode = "SCN_INGRESS_SOURCE_MISSING"
-	CodeSCNEgressSourceInvalid      ErrorCode = "SCN_EGRESS_SOURCE_INVALID"
-	CodeSCNEgressSourceUnavailable  ErrorCode = "SCN_EGRESS_SOURCE_UNAVAILABLE"
-	CodeSCNNextComputeInvalid       ErrorCode = "SCN_NEXT_COMPUTE_INVALID"
-	CodeSCNNextComputeNotBool       ErrorCode = "SCN_NEXT_COMPUTE_NOT_BOOL"
-	CodeSCNNextIngressSourceInvalid ErrorCode = "SCN_NEXT_INGRESS_SOURCE_INVALID"
-	CodeSCNActionTextDuplicate      ErrorCode = "SCN_ACTION_TEXT_DUPLICATE"
+	CodeMissingScene             ErrorCode = "MissingScene"
+	CodeDuplicateSceneID         ErrorCode = "DuplicateSceneID"
+	CodeInvalidActionGraph       ErrorCode = "InvalidActionGraph"
+	CodeActionRootNotFound       ErrorCode = "ActionRootNotFound"
+	CodeIngressTargetNotValue    ErrorCode = "IngressTargetNotValue"
+	CodeIngressSourceMissing     ErrorCode = "IngressSourceMissing"
+	CodeEgressSourceInvalid      ErrorCode = "EgressSourceInvalid"
+	CodeEgressSourceUnavailable  ErrorCode = "EgressSourceUnavailable"
+	CodeNextComputeInvalid       ErrorCode = "NextComputeInvalid"
+	CodeNextComputeNotBool       ErrorCode = "NextComputeNotBool"
+	CodeNextIngressSourceInvalid ErrorCode = "NextIngressSourceInvalid"
+	CodeActionTextDuplicate      ErrorCode = "ActionTextDuplicate"
 )
 
 // Error codes from scene-to-scene.md
@@ -160,20 +170,21 @@ const (
 // Error codes from overview-dsl-spec.md §9 (Overview DSL)
 const (
 	// parse stage (§9.1)
-	CodeOverviewFlowEmpty         ErrorCode = "SCN_OVERVIEW_FLOW_EMPTY"
-	CodeOverviewEdgeWithoutSource ErrorCode = "SCN_OVERVIEW_EDGE_WITHOUT_SOURCE"
-	CodeOverviewEdgeNoTarget      ErrorCode = "SCN_OVERVIEW_EDGE_NO_TARGET"
-	CodeOverviewChainNoTarget     ErrorCode = "SCN_OVERVIEW_CHAIN_NO_TARGET"
-	CodeOverviewInvalidIdent      ErrorCode = "SCN_OVERVIEW_INVALID_IDENT"
+	CodeOverviewFlowEmpty         ErrorCode = "OverviewFlowEmpty"
+	CodeOverviewEdgeWithoutSource ErrorCode = "OverviewEdgeWithoutSource"
+	CodeOverviewEdgeNoTarget      ErrorCode = "OverviewEdgeNoTarget"
+	CodeOverviewChainNoTarget     ErrorCode = "OverviewChainNoTarget"
+	CodeOverviewInvalidIdent      ErrorCode = "OverviewInvalidIdent"
 	// compile stage (§9.2)
-	CodeOverviewInvalidMode ErrorCode = "SCN_OVERVIEW_INVALID_MODE"
-	CodeOverviewDuplicate   ErrorCode = "SCN_OVERVIEW_DUPLICATE"
-	CodeOverviewUnknownView ErrorCode = "SCN_OVERVIEW_UNKNOWN_VIEW"
+	CodeOverviewInvalidMode ErrorCode = "OverviewInvalidMode"
+	CodeOverviewDuplicate   ErrorCode = "OverviewDuplicate"
+	// SCN_OVERVIEW_UNKNOWN_VIEW was retired in v2 (NEW_SYNTAX.md 2.2): the
+	// overview block is unlabelled, so there is no view name left to get wrong.
 	// enforce stage (§9.3)
-	CodeOverviewUnknownNode ErrorCode = "SCN_OVERVIEW_UNKNOWN_NODE"
-	CodeOverviewMissingEdge ErrorCode = "SCN_OVERVIEW_MISSING_EDGE"
-	CodeOverviewExtraNode   ErrorCode = "SCN_OVERVIEW_EXTRA_NODE"
-	CodeOverviewExtraEdge   ErrorCode = "SCN_OVERVIEW_EXTRA_EDGE"
+	CodeOverviewUnknownNode ErrorCode = "OverviewUnknownNode"
+	CodeOverviewMissingEdge ErrorCode = "OverviewMissingEdge"
+	CodeOverviewExtraNode   ErrorCode = "OverviewExtraNode"
+	CodeOverviewExtraEdge   ErrorCode = "OverviewExtraEdge"
 )
 
 // Error codes for literal & template types and pattern matching (literal-template-types-spec.md §23).
@@ -219,3 +230,56 @@ const (
 	// literal/template type (§10, §23.1).
 	CodeNotAssignable ErrorCode = "NotAssignable"
 )
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy code aliases
+// ─────────────────────────────────────────────────────────────────────────────
+
+// legacyAliases maps each current error code to the SCN_SCREAMING_SNAKE name it
+// shipped under before v2 unified the catalogue on PascalCase (NEW_SYNTAX.md
+// 2.4). Two conventions were in use — 21 SCN_* codes against 106 PascalCase —
+// and the minority was retired.
+//
+// The old names are kept here, not merely deleted, so that tooling and saved
+// baselines that match on them can still be resolved. SCN_OVERVIEW_UNKNOWN_VIEW
+// has no entry: it was retired outright with the view label (2.2).
+var legacyAliases = map[ErrorCode]string{
+	CodeInvalidActionGraph:        "SCN_INVALID_ACTION_GRAPH",
+	CodeActionRootNotFound:        "SCN_ACTION_ROOT_NOT_FOUND",
+	CodeIngressTargetNotValue:     "SCN_INGRESS_TARGET_NOT_VALUE",
+	CodeIngressSourceMissing:      "SCN_INGRESS_SOURCE_MISSING",
+	CodeEgressSourceInvalid:       "SCN_EGRESS_SOURCE_INVALID",
+	CodeEgressSourceUnavailable:   "SCN_EGRESS_SOURCE_UNAVAILABLE",
+	CodeNextComputeInvalid:        "SCN_NEXT_COMPUTE_INVALID",
+	CodeNextComputeNotBool:        "SCN_NEXT_COMPUTE_NOT_BOOL",
+	CodeNextIngressSourceInvalid:  "SCN_NEXT_INGRESS_SOURCE_INVALID",
+	CodeActionTextDuplicate:       "SCN_ACTION_TEXT_DUPLICATE",
+	CodeOverviewFlowEmpty:         "SCN_OVERVIEW_FLOW_EMPTY",
+	CodeOverviewEdgeWithoutSource: "SCN_OVERVIEW_EDGE_WITHOUT_SOURCE",
+	CodeOverviewEdgeNoTarget:      "SCN_OVERVIEW_EDGE_NO_TARGET",
+	CodeOverviewChainNoTarget:     "SCN_OVERVIEW_CHAIN_NO_TARGET",
+	CodeOverviewInvalidIdent:      "SCN_OVERVIEW_INVALID_IDENT",
+	CodeOverviewInvalidMode:       "SCN_OVERVIEW_INVALID_MODE",
+	CodeOverviewDuplicate:         "SCN_OVERVIEW_DUPLICATE",
+	CodeOverviewUnknownNode:       "SCN_OVERVIEW_UNKNOWN_NODE",
+	CodeOverviewMissingEdge:       "SCN_OVERVIEW_MISSING_EDGE",
+	CodeOverviewExtraNode:         "SCN_OVERVIEW_EXTRA_NODE",
+	CodeOverviewExtraEdge:         "SCN_OVERVIEW_EXTRA_EDGE",
+}
+
+// LegacyName returns the pre-v2 SCN_* name for code, if it had one.
+func LegacyName(code ErrorCode) (string, bool) {
+	name, ok := legacyAliases[code]
+	return name, ok
+}
+
+// CodeForLegacyName resolves a pre-v2 SCN_* name back to its current code, so
+// callers holding an old name can still match current diagnostics.
+func CodeForLegacyName(legacy string) (ErrorCode, bool) {
+	for code, name := range legacyAliases {
+		if name == legacy {
+			return code, true
+		}
+	}
+	return "", false
+}

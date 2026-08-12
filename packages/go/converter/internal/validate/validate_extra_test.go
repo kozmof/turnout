@@ -1,5 +1,14 @@
 package validate_test
 
+// Retired with the prefix sigils (NEW_SYNTAX.md 3): a binding's direction is
+// now derived from its inline IO clause or from the prepare / merge entry that
+// names it, which makes these states unrepresentable — an egress binding always
+// has a merge entry, a merge entry always makes its binding egress, and a
+// bidirectional binding always has both halves. The codes stay defined as
+// defensive guards for hand-built models:
+//   MissingMergeEntry, SpuriousMergeEntry,
+//   BidirMissingPrepareEntry, BidirMissingMergeEntry
+
 import (
 	"testing"
 
@@ -51,7 +60,7 @@ func TestArrIncludesValid(t *testing.T) {
 
 func TestValidateExtExprUndefinedRef(t *testing.T) {
 	src := min(`        flag:bool = true
-        out:number = #if(flag, missing_ref, 1)
+        out:number = if(flag, missing_ref, 1)
 `)
 	if !hasCode(pipeline(src), diag.CodeUndefinedRef) {
 		t.Error("want UndefinedRef for missing ref inside #if sidecar expression")
@@ -60,7 +69,7 @@ func TestValidateExtExprUndefinedRef(t *testing.T) {
 
 func TestValidateExtExprBranchTypeMismatch(t *testing.T) {
 	src := min(`        flag:bool = true
-        out:number = #if(flag, 1, "oops")
+        out:number = if(flag, 1, "oops")
 `)
 	if !hasCode(pipeline(src), diag.CodeBranchTypeMismatch) {
 		t.Error("want BranchTypeMismatch for mismatched #if local branches")
@@ -68,7 +77,7 @@ func TestValidateExtExprBranchTypeMismatch(t *testing.T) {
 }
 
 func TestValidateExtExprItOutsidePipeStep(t *testing.T) {
-	src := min(`        out:number = #if(true, #it, 1)
+	src := min(`        out:number = if(true, #it, 1)
 `)
 	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
 		t.Error("want UnsupportedConstruct for #it outside #pipe step")
@@ -77,7 +86,7 @@ func TestValidateExtExprItOutsidePipeStep(t *testing.T) {
 
 func TestValidateExtExprPipeStepTypeMismatch(t *testing.T) {
 	// str_includes expects (str, str); #it has type number from pipe initial 0
-	src := min(`        out:bool = #pipe(0, str_includes(#it, "x"))
+	src := min(`        out:bool = pipe(0, str_includes(#it, "x"))
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for #pipe step using #it with wrong type")
@@ -112,7 +121,7 @@ func TestArrConcatArgTypeMismatch(t *testing.T) {
 	// arr_concat args must have matching array types
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
@@ -270,7 +279,7 @@ func TestSCNNextComputeNotBool(t *testing.T) {
 	// next compute condition bound to a number binding — must be bool
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
@@ -284,7 +293,7 @@ scene "test" {
   }
 }
 `
-	if !hasCode(pipeline(src), diag.CodeSCNNextComputeNotBool) {
+	if !hasCode(pipeline(src), diag.CodeNextComputeNotBool) {
 		t.Error("want SCNNextComputeNotBool for non-bool condition")
 	}
 }
@@ -461,14 +470,14 @@ func TestActionComputeNil(t *testing.T) {
 func TestNextRuleUnknownAction(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next { action = unknown }
   }
 }
 `
-	if !hasCode(pipeline(src), diag.CodeSCNInvalidActionGraph) {
+	if !hasCode(pipeline(src), diag.CodeInvalidActionGraph) {
 		t.Error("want SCNInvalidActionGraph for next rule referencing unknown action")
 	}
 }
@@ -495,7 +504,7 @@ func TestValidateProgNil(t *testing.T) {
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
 	// Root "r" won't be found in empty scope → SCNActionRootNotFound
-	if !hasCode(ds, diag.CodeSCNActionRootNotFound) {
+	if !hasCode(ds, diag.CodeActionRootNotFound) {
 		t.Error("want SCNActionRootNotFound when prog is nil and root is set")
 	}
 }
@@ -650,11 +659,11 @@ func TestMergeToStateInvalidPath(t *testing.T) {
 	// to_state = "nodot" has no dot → InvalidStatePath
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        <~x:number = 1
+        x:number = 1
         |^| v:bool = true
       }
     }
@@ -673,11 +682,11 @@ func TestMergeToStateNotInSchema(t *testing.T) {
 	// to_state = "app.nonexistent" → UnresolvedStatePath
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        <~x:number = 1
+        x:number = 1
         |^| v:bool = true
       }
     }
@@ -697,11 +706,11 @@ scene "test" {
 func TestSigilIngressNoPrepare(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        ~>x:number
+        x:number
         |^| v:bool = true
       }
     }
@@ -715,36 +724,16 @@ scene "test" {
 
 // ─── SigilBiDir with neither prepare nor merge ───────────────────────────────
 
-func TestSigilBiDirNoPrepareNoMerge(t *testing.T) {
-	src := basicState + `
-scene "test" {
-  entry_actions = ["a"]
-  action "a" {
-    compute {
-      prog "p" {
-        <~>x:number
-        |^| v:bool = true
-      }
-    }
-  }
-}
-`
-	ds := pipeline(src)
-	if !hasCode(ds, diag.CodeBidirMissingPrepareEntry) {
-		t.Error("want BidirMissingPrepareEntry for <~> with no prepare")
-	}
-}
-
 // ─── next prepare FromAction/FromState/FromLiteral ───────────────────────────
 
 func TestNextPrepareFromAction(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:number = 42 } }
     next {
-      compute { prog "n" { ~>score:number |?| go:bool = true } }
+      compute { prog "n" { score:number |?| go:bool = true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -762,11 +751,11 @@ scene "test" {
 func TestNextPrepareFromState(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
-      compute { prog "n" { ~>score:number |?| go:bool = true } }
+      compute { prog "n" { score:number |?| go:bool = true } }
       prepare { score { from_state = app.score } }
       action = a
     }
@@ -784,11 +773,11 @@ scene "test" {
 func TestNextPrepareFromLiteral(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
-      compute { prog "n" { ~>score:number |?| go:bool = true } }
+      compute { prog "n" { score:number |?| go:bool = true } }
       prepare { score { from_literal = 42 } }
       action = a
     }
@@ -806,11 +795,11 @@ scene "test" {
 func TestNextPrepareFromActionUnknown(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:number = 42 } }
     next {
-      compute { prog "n" { ~>score:number |?| go:bool = true } }
+      compute { prog "n" { score:number |?| go:bool = true } }
       prepare { score { from_action = missing_binding } }
       action = a
     }
@@ -832,11 +821,11 @@ scene "test" {
 func TestNextPrepareFromActionTypeMismatch(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
-      compute { prog "n" { ~>score:number |?| go:bool = true } }
+      compute { prog "n" { score:number |?| go:bool = true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -890,7 +879,7 @@ func TestNextPrepareFromStateInvalidPath(t *testing.T) {
 func TestNextRuleConditionNotBool(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute { prog "p" { |^| r:bool = true } }
     next {
@@ -902,7 +891,7 @@ scene "test" {
   }
 }
 `
-	if !hasCode(pipeline(src), diag.CodeSCNNextComputeNotBool) {
+	if !hasCode(pipeline(src), diag.CodeNextComputeNotBool) {
 		t.Error("want SCNNextComputeNotBool for non-bool condition binding")
 	}
 }
@@ -940,11 +929,11 @@ func TestValidateStatePathInvalidPath(t *testing.T) {
 func TestValidateStatePathNotInSchema(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        ~>x:number
+        x:number
         |^| v:bool = true
       }
     }
@@ -965,11 +954,11 @@ func TestIsValidStatePathTooShort(t *testing.T) {
 	// "nodot" → only one segment after split → len < 2 → invalid
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        <~score:number = 0
+        score:number = 0
         |^| v:bool = true
       }
     }
@@ -988,11 +977,11 @@ func TestIsValidStatePathInvalidIdentFirst(t *testing.T) {
 	// "1app.score" — first segment starts with digit → invalid ident
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        <~score:number = 0
+        score:number = 0
         |^| v:bool = true
       }
     }
@@ -1011,11 +1000,11 @@ func TestIsValidStatePathInvalidIdentSubsequent(t *testing.T) {
 	// "a-b.score" — hyphen is invalid in subsequent chars
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        <~score:number = 0
+        score:number = 0
         |^| v:bool = true
       }
     }
@@ -1034,11 +1023,11 @@ func TestIsValidStatePathEmptySegment(t *testing.T) {
 	// "." → parts ["",""] → empty string → isIdent("") returns false
 	src := basicState + `
 scene "test" {
-  entry_actions = ["a"]
+  entry_actions = [a]
   action "a" {
     compute {
       prog "p" {
-        <~score:number = 0
+        score:number = 0
         |^| v:bool = true
       }
     }
@@ -1490,7 +1479,7 @@ func TestLiteralFieldTypeBoolLiteral(t *testing.T) {
 func TestEmptyArrayLitArgInIf(t *testing.T) {
 	src := min(`        flag:bool = true
         base:arr<number> = [1, 2]
-        out:arr<number> = #if(flag, arr_concat(base, []), base)
+        out:arr<number> = if(flag, arr_concat(base, []), base)
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
 		t.Error("want EmptyArrayLitArg for [] as call arg inside #if branch")
@@ -1500,7 +1489,7 @@ func TestEmptyArrayLitArgInIf(t *testing.T) {
 func TestEmptyArrayLitArgInCase(t *testing.T) {
 	src := min(`        base:arr<number> = [1]
         n:number = 0
-        out:arr<number> = #case(n, 0 => arr_concat(base, []), _ => base)
+        out:arr<number> = case(n, 0 => arr_concat(base, []), _ => base)
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
 		t.Error("want EmptyArrayLitArg for [] as call arg inside #case arm")
@@ -1509,7 +1498,7 @@ func TestEmptyArrayLitArgInCase(t *testing.T) {
 
 func TestEmptyArrayLitArgInPipe(t *testing.T) {
 	src := min(`        base:arr<number> = [1]
-        out:arr<number> = #pipe(base, arr_concat(#it, []))
+        out:arr<number> = pipe(base, arr_concat(#it, []))
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
 		t.Error("want EmptyArrayLitArg for [] as call arg inside #pipe step")
@@ -1521,7 +1510,7 @@ func TestEmptyArrayBranchValueNotFlagged(t *testing.T) {
 	// the lowerer assigns it the declared binding type, so runtime inference is fine.
 	src := min(`        flag:bool = true
         base:arr<number> = [1]
-        out:arr<number> = #if(flag, base, arr_concat(base, base))
+        out:arr<number> = if(flag, base, arr_concat(base, base))
 `)
 	ds := pipeline(src)
 	if hasCode(ds, diag.CodeEmptyArrayLitArg) {
@@ -1932,7 +1921,7 @@ func TestOverArityBinaryFnPipeStep(t *testing.T) {
 // CodeInvalidBinaryArgShape.
 func TestLocalCallUnderArityInIfBranch(t *testing.T) {
 	src := min(`        x:number = 1
-        out:number = #if(true, max(x), x)
+        out:number = if(true, max(x), x)
 `)
 	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
 		t.Error("want InvalidBinaryArgShape for under-arity call inside #if branch (ExtExpr path)")
@@ -1943,7 +1932,7 @@ func TestLocalCallUnderArityInIfBranch(t *testing.T) {
 // takes the ExtExpr path and should emit CodeInvalidBinaryArgShape.
 func TestLocalCallOverArityInIfBranch(t *testing.T) {
 	src := min(`        x:number = 1
-        out:number = #if(true, max(x, x, x), x)
+        out:number = if(true, max(x, x, x), x)
 `)
 	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
 		t.Error("want InvalidBinaryArgShape for over-arity call inside #if branch (ExtExpr path)")
@@ -1970,7 +1959,7 @@ func TestUnsupportedFnRangeFlat(t *testing.T) {
 // TestUnsupportedFnMapLocal: map() inside a #if branch emits UnsupportedConstruct.
 func TestUnsupportedFnMapLocal(t *testing.T) {
 	src := min(`        x:number = 1
-        out:number = #if(true, map(x, x), x)
+        out:number = if(true, map(x, x), x)
 `)
 	ds := pipeline(src)
 	if !hasCode(ds, diag.CodeUnsupportedConstruct) {
@@ -1991,7 +1980,7 @@ func TestUnsupportedFnFilterFlat(t *testing.T) {
 // TestUnsupportedFnFoldLocal: fold() inside a #pipe step emits UnsupportedConstruct.
 func TestUnsupportedFnFoldLocal(t *testing.T) {
 	src := min(`        x:number = 1
-        out:number = #pipe(x, fold(#it, x))
+        out:number = pipe(x, fold(#it, x))
 `)
 	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
 		t.Error("want UnsupportedConstruct for fold() inside #pipe step")

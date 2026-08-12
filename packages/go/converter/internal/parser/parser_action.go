@@ -4,11 +4,98 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
+	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 )
 
 var (
 	publishBlockStarters = []lexer.TokenKind{lexer.TokKwHook}
 )
+
+// parseInlineIngress parses the `<~ <source>` clause, or returns nil if absent.
+//
+// Which sources are legal depends on the enclosing compute block, and the two
+// contexts are parsed by different functions, so the check lands on the exact
+// token with the same precision as the block-form diagnostics it replaces:
+//
+//	action compute: <~ @ns.field | <~ hook("name")
+//	next compute:   <~ @ns.field | <~ action(binding) | <~ 300
+func (p *parser) parseInlineIngress() ast.InlineIngress {
+	if p.peek().Kind != lexer.TokSigilEgress {
+		return nil
+	}
+	arrow := p.advance() // consume <~
+	pos := p.posOf(arrow)
+
+	switch t := p.peek(); {
+	case t.Kind == lexer.TokAt:
+		p.advance()
+		return &ast.IngressState{Pos: pos, Path: p.parseStatePath()}
+
+	case t.Kind == lexer.TokKwHook:
+		p.advance()
+		p.expect(lexer.TokLParen)
+		nameTok, _ := p.expect(lexer.TokStringLit)
+		p.expect(lexer.TokRParen)
+		if p.inNextCompute {
+			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTransitionHook,
+				"hook() is not allowed inside a transition compute; use @state.path, action(binding), or a literal"))
+			return &ast.IngressState{Pos: pos}
+		}
+		return &ast.IngressHook{Pos: pos, HookName: nameTok.Value}
+
+	case t.Kind == lexer.TokKwAction:
+		p.advance()
+		p.expect(lexer.TokLParen)
+		refTok, _ := p.expectIdent()
+		p.expect(lexer.TokRParen)
+		if !p.inNextCompute {
+			p.errorf(t, "action() is only valid inside a transition compute; an action-level binding reads from @state.path or hook()")
+			return &ast.IngressState{Pos: pos}
+		}
+		return &ast.IngressAction{Pos: pos, BindingName: refTok.Value}
+
+	default:
+		lit := p.parseLiteral()
+		if !p.inNextCompute {
+			p.errorf(t, "a literal ingress is only valid inside a transition compute; at action level write `%s = <literal>` as an ordinary binding", "name:type")
+			return &ast.IngressState{Pos: pos}
+		}
+		return &ast.IngressLiteral{Pos: pos, Value: lit}
+	}
+}
+
+// parseInlineEgress parses the `~> @ns.field` clause, or returns nil if absent.
+func (p *parser) parseInlineEgress() *ast.InlineEgress {
+	if p.peek().Kind != lexer.TokSigilIngress {
+		return nil
+	}
+	arrow := p.advance() // consume ~>
+	pos := p.posOf(arrow)
+	if p.peek().Kind != lexer.TokAt {
+		p.errorf(p.peek(), "expected a state path after ~>, e.g. `~> @investigation.phase`")
+		return &ast.InlineEgress{Pos: pos}
+	}
+	p.advance() // consume @
+	return &ast.InlineEgress{Pos: pos, Path: p.parseStatePath()}
+}
+
+// parseStatePath parses the dotted path after `@`, e.g. `investigation.phase`.
+func (p *parser) parseStatePath() string {
+	nsTok, ok := p.expectIdent()
+	if !ok {
+		return ""
+	}
+	path := nsTok.Value
+	for p.peek().Kind == lexer.TokDot {
+		p.advance()
+		fieldTok, ok := p.expectIdent()
+		if !ok {
+			return path
+		}
+		path += "." + fieldTok.Value
+	}
+	return path
+}
 
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
 
@@ -32,18 +119,14 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		p.advance()
 	}
 
-	// optional sigil
-	t = p.peek()
-	var sigil ast.Sigil
-	switch t.Kind {
-	case lexer.TokSigilBiDir:
-		sigil = ast.SigilBiDir
-		p.advance()
-	case lexer.TokSigilEgress:
-		sigil = ast.SigilEgress
-		p.advance()
-	case lexer.TokSigilIngress:
-		sigil = ast.SigilIngress
+	// A sigil in the leading position is the pre-v2 spelling. It cannot simply be
+	// reported as a syntax error: the arrows inverted when they moved to infix
+	// position (`~>` was ingress, and with `@path` on the right it is egress), so
+	// a half-migrated file can still parse while meaning the opposite thing.
+	// Name the migration explicitly instead.
+	if t := p.peek(); t.Kind == lexer.TokSigilIngress || t.Kind == lexer.TokSigilEgress || t.Kind == lexer.TokSigilBiDir {
+		p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacySigilPosition,
+			"old sigil position: %s now follows the binding and points at its destination — write `name:type <~ @ns.field` for input and `name:type = expr ~> @ns.field` for output; see migration notes", t.Value))
 		p.advance()
 	}
 
@@ -60,30 +143,47 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		return nil
 	}
 
-	// Input sigils (~> and <~>) have no RHS.
-	if sigil == ast.SigilIngress || sigil == ast.SigilBiDir {
+	// Inline IO: `name:type <~ <source>` and/or `= expr ~> @ns.field`.
+	ingress := p.parseInlineIngress()
+
+	var rhs ast.BindingRHS
+	if ingress != nil {
+		// An ingress binding takes its value from the source, so a RHS would be
+		// a second, conflicting definition.
 		if p.peek().Kind == lexer.TokEquals {
-			p.errorf(p.peek(), "input sigil declaration %q must not have a right-hand side; remove '= ...'", nameTok.Value)
-			p.advance()  // consume =
-			p.parseRHS() // consume and discard the erroneous RHS
+			p.errorf(p.peek(), "binding %q takes its value from its `<~` source; remove '= ...'", nameTok.Value)
+			p.advance()
+			p.parseRHS() // consume and discard
 		}
-		return &ast.BindingDecl{
-			Pos:          pos,
-			Sigil:        sigil,
-			Marker:       marker,
-			Name:         nameTok.Value,
-			Type:         ft,
-			DeclaredType: declared,
-			RHS:          &ast.SigilInputRHS{},
-		}
+		rhs = &ast.SigilInputRHS{}
+	} else if p.peek().Kind != lexer.TokEquals {
+		// A bare `name:type` is an input declaration whose source lives in the
+		// action's prepare block. With the prefix sigils retired, this is what the
+		// block form looks like; a missing prepare entry is caught downstream by
+		// the same check that always covered it.
+		rhs = &ast.SigilInputRHS{}
+	} else {
+		p.expect(lexer.TokEquals)
+		rhs = p.parseRHS()
 	}
 
-	p.expect(lexer.TokEquals)
-	rhs := p.parseRHS()
+	egress := p.parseInlineEgress()
+
+	sigil := ast.SigilNone
+	switch {
+	case ingress != nil && egress != nil:
+		sigil = ast.SigilBiDir
+	case ingress != nil:
+		sigil = ast.SigilIngress
+	case egress != nil:
+		sigil = ast.SigilEgress
+	}
 
 	return &ast.BindingDecl{
 		Pos:          pos,
 		Sigil:        sigil,
+		Ingress:      ingress,
+		Egress:       egress,
 		Marker:       marker,
 		Name:         nameTok.Value,
 		Type:         ft,
@@ -351,6 +451,11 @@ func (p *parser) parsePublishBlock() *ast.PublishBlock {
 func (p *parser) parseNextBlock() *ast.NextRule {
 	kwTok, _ := p.expect(lexer.TokKwNext)
 	pos := p.posOf(kwTok)
+	// Sugar form (NEW_SYNTAX.md 1.4): `next <action>` / `next <action> if <cond>`,
+	// distinguished from the block form by the absence of an opening brace.
+	if p.peek().Kind == lexer.TokIdent || p.peek().Kind == lexer.TokStringLit {
+		return p.parseNextSugar(pos)
+	}
 	if _, ok := p.expect(lexer.TokLBrace); !ok {
 		p.syncToBlockItem(lexer.TokKwNext, lexer.TokKwAction, lexer.TokRBrace)
 		return &ast.NextRule{Pos: pos}
@@ -388,9 +493,74 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 	return &ast.NextRule{Pos: pos, Compute: compute, Prepare: prepare, ActionID: actionID}
 }
 
+// parseNextSugar parses `next <action>` and `next <action> if <cond>`, expanding
+// the conditional form into exactly the block form it abbreviates: a synthesized
+// prog holding the ingress binding and the `|?|` condition, plus the from_action
+// prepare entry that feeds it. Lowering sees no difference between the two.
+//
+// The condition must be a bare boolean binding of the enclosing action's prog;
+// richer conditions keep the block form.
+func (p *parser) parseNextSugar(pos ast.Pos) *ast.NextRule {
+	actionID := p.parseRefVal()
+	rule := &ast.NextRule{Pos: pos, ActionID: actionID}
+
+	// `if` is not a keyword token at this stage, so match it contextually.
+	if t := p.peek(); t.Kind != lexer.TokIdent || t.Value != "if" {
+		return rule
+	}
+	p.advance() // consume `if`
+
+	condTok, ok := p.expect(lexer.TokIdent)
+	if !ok {
+		return rule
+	}
+	condPos := p.posOf(condTok)
+	cond := condTok.Value
+	// The synthesized condition binding needs a name that cannot collide with a
+	// user binding; names.LocalName is the established generator for that.
+	goName := names.LocalName(actionID, "go", 0)
+
+	rule.Compute = &ast.NextComputeBlock{
+		Pos:       pos,
+		Condition: goName,
+		Prog: &ast.ProgBlock{
+			Pos:  pos,
+			Name: names.LocalName(actionID, "next", 0),
+			Bindings: []*ast.BindingDecl{
+				{
+					Pos:   condPos,
+					Sigil: ast.SigilIngress,
+					Name:  cond,
+					Type:  ast.FieldTypeBool,
+					RHS:   &ast.SigilInputRHS{},
+				},
+				{
+					Pos:    condPos,
+					Marker: ast.MarkerCond,
+					Name:   goName,
+					Type:   ast.FieldTypeBool,
+					RHS:    &ast.SingleRefRHS{RefName: cond},
+				},
+			},
+		},
+	}
+	rule.Prepare = &ast.NextPrepareBlock{
+		Pos: pos,
+		Entries: []*ast.NextPrepareEntry{{
+			Pos:         condPos,
+			BindingName: cond,
+			Source:      &ast.FromAction{Pos: condPos, BindingName: cond},
+		}},
+	}
+	return rule
+}
+
 func (p *parser) parseNextComputeBlock() *ast.NextComputeBlock {
 	kwTok, _ := p.expect(lexer.TokKwCompute)
 	pos := p.posOf(kwTok)
+	// Inline IO accepts a different set of ingress sources inside a transition.
+	p.inNextCompute = true
+	defer func() { p.inNextCompute = false }()
 	p.expect(lexer.TokLBrace)
 
 	var prog *ast.ProgBlock

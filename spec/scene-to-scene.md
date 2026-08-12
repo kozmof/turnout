@@ -82,7 +82,7 @@ match {
 A route MUST declare exactly one entry scene:
 
 ```
-entry "scene_1"
+entry = scene_1
 ```
 
 The entry scene must reference an existing scene. Route execution starts at that scene's first declared `entry_actions` entry.
@@ -141,7 +141,7 @@ If no pattern matches and no `_` fallback is present, the route enters a termina
 
 ```
 route "route_1" {
-    entry "scene_1"
+    entry = scene_1
 
     match {
         scene_1.*.final_action |
@@ -156,7 +156,7 @@ Equivalent using separate arms:
 
 ```
 route "route_1" {
-    entry "scene_1"
+    entry = scene_1
 
     match {
         scene_1.*.final_action   => scene_2,
