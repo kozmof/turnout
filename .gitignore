@@ -2,6 +2,8 @@
 /packages/go/converter/vendor
 /packages/ts/*/dist
 
+/tmp
+
 .devcontainer
 .pnpm-store
 .npm-cache
