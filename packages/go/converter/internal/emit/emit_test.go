@@ -2,7 +2,7 @@ package emit_test
 
 import (
 	"os"
-	"regexp"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -694,82 +694,52 @@ scene "s" {
 
 // ─── integration: example files ──────────────────────────────────────────────
 
-// reTopLevelState matches a top-level "state {" that begins at column 0.
-var reTopLevelState = regexp.MustCompile(`(?m)^state \{`)
-
-// hasTopLevelState returns true when src has a top-level state block or
-// state_file directive. Uses a line-anchored regex to avoid false positives
-// from embedded identifiers like "chapter_state {".
-func hasTopLevelState(src string) bool {
-	return strings.Contains(src, "state_file") || reTopLevelState.MatchString(src)
-}
-
-// pipelineFromFile runs an example .tu file through parse → state-resolve only
-// (no lower/validate/emit) to verify the file is well-formed. It returns the
-// parse diagnostics so the caller can assert no errors.
-//
-// Full lower+validate+emit integration is not run for example files because
-// they assume a real state schema (with typed fields) that we do not replicate
-// in test fixtures. The emit unit tests cover every emitter feature with
-// self-contained, self-describing state blocks.
-func pipelineFromFile(t *testing.T, path string) string {
+// compileExample runs an example through the full parse → state-resolve → lower
+// → validate pipeline. Every checked-in example carries its own state schema,
+// so reference, IO, and STATE type errors can be caught here rather than by a
+// parse-only smoke test.
+func compileExample(t *testing.T, path string) {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Skipf("example file not found: %v", err)
-		return ""
+		t.Fatalf("read example: %v", err)
 	}
-	src := string(data)
-	if !hasTopLevelState(src) {
-		src = "state {}\n" + src
-	}
-	tf, ds := parser.ParseFile("test.tu", src)
+	tf, ds := parser.ParseFile(path, string(data))
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Logf("parse: %s", d.Format())
 		}
 		t.Fatalf("parse failed")
 	}
-	// Use the scene/routes from the AST to produce a partial model for emitting.
-	// We skip validate so type-mismatch against our stub state schema doesn't fail.
-	lr, _ := lower.LowerResolvingState(tf, "") // errors expected for missing state paths
-	if lr == nil {
-		// Lower returned nil — return a placeholder indicating parse passed.
-		return "(parse-only)"
+	lr, lowerDs := lower.LowerResolvingState(tf, filepath.Dir(path))
+	if lowerDs.HasErrors() || lr == nil {
+		for _, d := range lowerDs {
+			t.Logf("lower: %s", d.Format())
+		}
+		t.Fatalf("lower failed")
 	}
-	var sb strings.Builder
-	emit.Emit(&sb, lr.Model)
-	return sb.String()
+	validateDs := validate.Validate(validate.ValidateInput{Model: lr.Model, Schema: lr.Schema})
+	if validateDs.HasErrors() {
+		for _, d := range validateDs {
+			t.Logf("validate: %s", d.Format())
+		}
+		t.Fatalf("validate failed")
+	}
 }
 
 const examplesDir = "../../../../../spec/examples"
 
-func TestIntegrationSceneGraphWithActions(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/scene-graph-with-actions.tu")
-}
-
-func TestIntegrationDetectivePhase(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/detective-phase.tu")
-}
-
-func TestIntegrationAdventureStory(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/adventure-story-graph-with-actions.tu")
-}
-
-func TestIntegrationLLMWorkflow(t *testing.T) {
-	pipelineFromFile(t, examplesDir+"/llm-workflow-with-actions.tu")
-}
-
-func TestIntegrationAllExamplesParseClean(t *testing.T) {
-	examples := []string{
-		examplesDir + "/scene-graph-with-actions.tu",
-		examplesDir + "/detective-phase.tu",
-		examplesDir + "/adventure-story-graph-with-actions.tu",
-		examplesDir + "/llm-workflow-with-actions.tu",
+func TestIntegrationAllExamplesCompileClean(t *testing.T) {
+	examples, err := filepath.Glob(filepath.Join(examplesDir, "*.tu"))
+	if err != nil {
+		t.Fatalf("glob examples: %v", err)
+	}
+	if len(examples) == 0 {
+		t.Fatalf("no .tu examples found in %s", examplesDir)
 	}
 	for _, path := range examples {
-		t.Run(path, func(t *testing.T) {
-			pipelineFromFile(t, path) // fatals on parse error
+		t.Run(filepath.Base(path), func(t *testing.T) {
+			compileExample(t, path)
 		})
 	}
 }

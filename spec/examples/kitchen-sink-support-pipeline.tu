@@ -235,15 +235,15 @@ scene "triage" {
         c16:number = c15 + pipe_score
 
         # --- egress bindings (each needs a merge entry) ---
-        score_out:number = adjusted ~> @triage.score
-        checksum_out:number = c16 + capped ~> @triage.checksum
-        band_out:str = band ~> @triage.band
-        routelabel_out:str = route_label ~> @triage.route_tag
-        normalized_out:str = normalized ~> @triage.normalized_subject
+        score:number = adjusted ~> @triage.score
+        checksum:number = c16 + capped ~> @triage.checksum
+        classified_band:str = band ~> @triage.band
+        route_tag:str = route_label ~> @triage.route_tag
+        normalized_subject:str = normalized ~> @triage.normalized_subject
         audit1:str           = first_tag + " | "
-        audit_out:str = audit1 + allfirst ~> @triage.audit
+        audit:str = audit1 + allfirst ~> @triage.audit
         g1:bool              = unsafe | has_urgent
-        flagged_out:bool = g1 | conflicting ~> @triage.flagged
+        flagged:bool = g1 | conflicting ~> @triage.flagged
 
         # --- compute root: marked binding, declared last ---
         |^| ready:bool = r11 | flags_empty
@@ -259,11 +259,11 @@ scene "triage" {
     next {
       compute {
         prog "to_auto_resolve" {
-          score_in:number <~ action(score_out)
+          score:number <~ action(score)
           threshold:number <~ 40
-          flagged_in:bool <~ @triage.flagged
-          cheap:bool = score_in < threshold
-          safe:bool  = flagged_in == false
+          flagged:bool <~ @triage.flagged
+          cheap:bool = score < threshold
+          safe:bool  = flagged == false
           |?| go_auto:bool = cheap & safe
         }
       }
@@ -274,8 +274,8 @@ scene "triage" {
     next {
       compute {
         prog "to_escalate" {
-          flagged_in:bool <~ action(flagged_out)
-          |?| go_escalate:bool = flagged_in
+          flagged:bool <~ action(flagged)
+          |?| go_escalate:bool = flagged
         }
       }
       action = escalate
@@ -359,7 +359,7 @@ scene "review" {
         score:number <~ @triage.score
 
         hot:bool       = score >= 70
-        note_out:str = route_tag + " review" ~> @review.note
+        note:str = route_tag + " review" ~> @review.note
         |^| reviewed:bool = flagged | hot ~> @review.parallel
       }
     }
@@ -368,8 +368,8 @@ scene "review" {
     next {
       compute {
         prog "to_notify" {
-          hot_in:bool <~ action(reviewed)
-          |?| go_notify:bool = hot_in
+          reviewed:bool <~ action(reviewed)
+          |?| go_notify:bool = reviewed
         }
       }
       action = notify
