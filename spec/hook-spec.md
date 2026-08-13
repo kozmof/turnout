@@ -20,7 +20,7 @@ action "process_order" {
     prog "order_graph" {
       raw_payload:str <~ hook("payload_input")
       user_id:str <~ @session.user_id
-      |^| receipt:str = build_receipt(raw_payload, user_id) ~> @orders.last_receipt
+      |^| receipt:str = (build_receipt(raw_payload, user_id)) ~> @orders.last_receipt
     }
   }
 
@@ -122,7 +122,7 @@ action "process_order" {
     prog "order_graph" {
       raw_payload:str <~ hook("payload_input")
       user_id:str <~ @session.user_id
-      |^| receipt:str = build_receipt(raw_payload, user_id) ~> @orders.last_receipt
+      |^| receipt:str = (build_receipt(raw_payload, user_id)) ~> @orders.last_receipt
     }
   }
 

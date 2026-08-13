@@ -16,7 +16,7 @@ func TestInlineIOMatchesBlockForm(t *testing.T) {
     compute {
       prog "p" {
         income:number <~ @ns.val
-        |^| out:number = income ~> @ns.val
+        |^| out:number = (income) ~> @ns.val
       }
     }
   }`))
@@ -48,7 +48,7 @@ func TestInlineIOSynthesizesEntries(t *testing.T) {
     compute {
       prog "p" {
         income:number <~ @ns.val
-        |^| out:number = income ~> @ns.val
+        |^| out:number = (income) ~> @ns.val
       }
     }
   }`))
@@ -149,7 +149,7 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
   action "a" {
     compute {
       prog "p" {
-        |^| out:number = 1 ~> @ns.val
+        |^| out:number = (1) ~> @ns.val
       }
     }
     merge {
@@ -171,7 +171,7 @@ func TestInlineEgressInTransitionRejected(t *testing.T) {
     next {
       compute {
         prog "n" {
-          x:number = 1 ~> @ns.val
+          x:number = (1) ~> @ns.val
           |?| go:bool = true
         }
       }

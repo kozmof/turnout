@@ -51,8 +51,8 @@ scene "adventure_story_chapter_1" {
         clue_count:number <~ @story.clue_count
         coins:number <~ @party.coins
         lockpick_skill:number <~ @party.lockpick_skill
-        chapter_state:str = "route_selected" ~> @story.chapter_state
-        last_hub:str = "crossroads" ~> @story.last_hub
+        chapter_state:str = ("route_selected") ~> @story.chapter_state
+        last_hub:str = ("crossroads") ~> @story.last_hub
 
         clue_enough:bool = clue_count >= 2
         can_forest:bool = has_map & clue_enough
@@ -110,9 +110,9 @@ scene "adventure_story_chapter_1" {
         route_name:str = "forest_trail"
         danger:number = 2
 
-        location:str = "Whispering Forest" ~> @story.current_location
-        danger_level:number = danger ~> @story.threat_level
-        |^| story_route:str = route_name ~> @story.path
+        location:str = ("Whispering Forest") ~> @story.current_location
+        danger_level:number = (danger) ~> @story.threat_level
+        |^| story_route:str = (route_name) ~> @story.path
       }
     }
 
@@ -132,12 +132,12 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "city_gate_graph" {
         route_name:str = "city_gate"
-        location:str = "Stonebridge Gate" ~> @story.current_location
+        location:str = ("Stonebridge Gate") ~> @story.current_location
         coins:number <~ @party.coins
         toll:number    = 3
 
-        coins_after:number = coins - toll ~> @party.coins
-        |^| story_route:str = route_name ~> @story.path
+        coins_after:number = (coins - toll) ~> @party.coins
+        |^| story_route:str = (route_name) ~> @story.path
       }
     }
 
@@ -157,11 +157,11 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "sewer_tunnel_graph" {
         route_name:str = "sewer_tunnel"
-        location:str = "Sunken Tunnel" ~> @story.current_location
+        location:str = ("Sunken Tunnel") ~> @story.current_location
         lockpick_skill:number <~ @party.lockpick_skill
 
-        found_mark:bool = lockpick_skill >= 2 ~> @story.found_hidden_mark
-        |^| story_route:str = route_name ~> @story.path
+        found_mark:bool = (lockpick_skill >= 2) ~> @story.found_hidden_mark
+        |^| story_route:str = (route_name) ~> @story.path
       }
     }
 
@@ -181,9 +181,9 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "campfire_wait_graph" {
         route_name:str = "campfire_wait"
-        note:str = "waited_until_dawn" ~> @story.latest_journal
-        location:str = "Crossroads Camp" ~> @story.current_location
-        |^| story_route:str = route_name ~> @story.path
+        note:str = ("waited_until_dawn") ~> @story.latest_journal
+        location:str = ("Crossroads Camp") ~> @story.current_location
+        |^| story_route:str = (route_name) ~> @story.path
       }
     }
 
@@ -203,8 +203,8 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
-        location:str = "Ruined Shrine" ~> @story.current_location
-        |^| reward:str = relic ~> @story.chapter_reward
+        location:str = ("Ruined Shrine") ~> @story.current_location
+        |^| reward:str = (relic) ~> @story.chapter_reward
       }
     }
 
@@ -224,8 +224,8 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
-        location:str = "Castle Courtyard" ~> @story.current_location
-        |^| reward:str = writ ~> @story.chapter_reward
+        location:str = ("Castle Courtyard") ~> @story.current_location
+        |^| reward:str = (writ) ~> @story.chapter_reward
       }
     }
 
@@ -245,8 +245,8 @@ scene "adventure_story_chapter_1" {
     compute {
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
-        location:str = "Hidden Archive" ~> @story.current_location
-        |^| reward:str = ledger ~> @story.chapter_reward
+        location:str = ("Hidden Archive") ~> @story.current_location
+        |^| reward:str = (ledger) ~> @story.chapter_reward
       }
     }
 
@@ -266,8 +266,8 @@ scene "adventure_story_chapter_1" {
       prog "chapter_end_graph" {
         prefix:str = "chapter_1_"
         suffix:str = "complete"
-        chapter_state:str = "resolved" ~> @story.chapter_state
-        |^| chapter_result:str = prefix + suffix ~> @story.result
+        chapter_state:str = ("resolved") ~> @story.chapter_state
+        |^| chapter_result:str = (prefix + suffix) ~> @story.result
       }
     }
 

@@ -148,7 +148,7 @@ type OverviewView = {
 Source and destination rules:
 
 - An action-level input is declared inline with `name:type <~ source` or structurally by a `prepare` entry naming a bare `name:type` binding. Its source is STATE or a hook.
-- An action-level output is declared inline with `name:type = expr ~> @state.path` or structurally by a `merge` entry. Its destination is a STATE path.
+- An action-level output is declared inline with `name:type = (expr) ~> @state.path`, anonymously as `(expr) ~> @state.path`, or structurally by a `merge` entry. Its destination is a STATE path.
 - A transition input is declared inline with `name:type <~ source` or structurally by a transition `prepare` entry. Its source is an action binding, post-merge STATE, or a literal.
 - `fromAction` is only valid inside transition `prepare` bindings.
 - `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
@@ -169,7 +169,7 @@ Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool =
 IO direction is declared by inline clauses that point toward their destination, or by structural `prepare`/`merge` entries:
 
 - `name:type <~ @state.path` declares an input.
-- `name:type = expr ~> @state.path` declares an output.
+- `name:type = (expr) ~> @state.path` declares a named output; `(expr) ~> @state.path` declares a write-only anonymous output whose type is inferred from STATE.
 - `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
 - A bare `name:type` may be paired with a `prepare` entry; a computed binding may be paired with a `merge` entry. Inline and structural IO must not be mixed for the same direction on one binding.
 
@@ -189,7 +189,7 @@ scene "loan_flow" {
         max_debt:number   = 20000
         income_ok:bool   = income >= min_income
         debt_ok:bool     = debt <= max_debt
-        |^| decision:bool = income_ok & debt_ok ~> @decision.approved
+        |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
       }
     }
 

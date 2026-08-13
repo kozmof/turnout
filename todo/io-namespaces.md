@@ -15,7 +15,10 @@ what they mean or compute rather than append `_in` or `_out`.
 
 ```hcl
 cost:number <~ @billing.cost
-total_cost:number = cost + fee ~> @billing.cost
+total_cost:number = (cost + fee) ~> @billing.cost
+
+# If the computed value is write-only, omit the binding entirely:
+(cost + fee) ~> @billing.cost
 ```
 
 For a value that is read and written unchanged, the existing bidirectional form

@@ -70,6 +70,8 @@ func Lower(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*Lowe
 func lowerCore(file *ast.TurnFile, schema state.Schema, schemaOrder []string) (*LowerResult, diag.Diagnostics) {
 	var ds diag.DiagSink
 
+	materializeAnonymousEgresses(file, schema)
+
 	// Resolve named binding-type annotations to their runtime FieldType, and
 	// validate + fold typed template constructions, before lowering reads
 	// decl.Type / decl.RHS.

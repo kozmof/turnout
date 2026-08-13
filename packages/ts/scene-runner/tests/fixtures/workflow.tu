@@ -52,7 +52,7 @@ scene "ai_workflow" {
       prog "retrieve_prog" {
         doc_hint:str <~ @request.doc_hint
         prefix:str      = "Retrieved: "
-        |^| context_str:str = prefix + doc_hint ~> @workflow.context
+        |^| context_str:str = (prefix + doc_hint) ~> @workflow.context
       }
     }
     next {
@@ -65,7 +65,7 @@ scene "ai_workflow" {
       prog "draft_direct_prog" {
         query:str <~ @request.query
         prefix:str      = "Direct answer: "
-        |^| draft_text:str = prefix + query ~> @workflow.draft
+        |^| draft_text:str = (prefix + query) ~> @workflow.draft
       }
     }
     next {
@@ -82,7 +82,7 @@ scene "ai_workflow" {
         close:str     = "]"
         mid:str        = query + sep
         mid2:str        = mid + context
-        |^| draft_text:str = mid2 + close ~> @workflow.draft
+        |^| draft_text:str = (mid2 + close) ~> @workflow.draft
       }
     }
     next {
@@ -116,8 +116,8 @@ scene "ai_workflow" {
     compute {
       prog "publish_prog" {
         draft:str <~ @workflow.draft
-        status:str = "sent" ~> @workflow.status
-        |^| final_response:str = draft ~> @response.last
+        status:str = ("sent") ~> @workflow.status
+        |^| final_response:str = (draft) ~> @response.last
       }
     }
   }
@@ -127,8 +127,8 @@ scene "ai_workflow" {
       prog "review_prog" {
         draft:str <~ @workflow.draft
         prefix:str           = "Review needed: "
-        status:str = "awaiting_human" ~> @workflow.status
-        |^| review_note:str = prefix + draft ~> @review.note
+        status:str = ("awaiting_human") ~> @workflow.status
+        |^| review_note:str = (prefix + draft) ~> @review.note
       }
     }
   }

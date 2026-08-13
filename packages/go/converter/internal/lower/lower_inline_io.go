@@ -10,7 +10,7 @@ import (
 // indistinguishable from the block form by the time anything else looks at it.
 //
 // `camera_online:bool <~ @crime_scene.camera_online` becomes a prepare entry,
-// and `phase:str = "scan" ~> @investigation.phase` becomes a merge entry. The
+// and `phase:str = ("scan") ~> @investigation.phase` becomes a merge entry. The
 // binding's Sigil was already set by the parser, so the existing prepare/merge
 // validation applies unchanged to both spellings.
 //

@@ -49,6 +49,21 @@ func TestIsGeneratedLocalName(t *testing.T) {
 	}
 }
 
+func TestEgressName(t *testing.T) {
+	if got := names.EgressName(3); got != "__egress_3" {
+		t.Fatalf("EgressName(3) = %q, want __egress_3", got)
+	}
+	for input, want := range map[string]bool{
+		"__egress_1": true,
+		"__egress_":  false,
+		"egress_1":   false,
+	} {
+		if got := names.IsGeneratedEgressName(input); got != want {
+			t.Errorf("IsGeneratedEgressName(%q) = %v, want %v", input, got, want)
+		}
+	}
+}
+
 func TestSplitStatePath(t *testing.T) {
 	cases := []struct {
 		key               string

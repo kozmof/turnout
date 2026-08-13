@@ -15,7 +15,7 @@ action "score" {
     prog "score_graph" {
       income:number <~ @applicant.income
       income_ok:bool = income >= 50000
-      |^| decision:bool = income_ok & debt_ok ~> @decision.approved
+      |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
     }
   }
 }
@@ -49,7 +49,8 @@ A binding may use inline or structural IO for a given direction, never both. Inl
 |------|-----------|-------------------|
 | `name:type <~ @state.path` | STATE → binding | `prepare.from_state` |
 | `name:type <~ hook("name")` | hook → binding | `prepare.from_hook` |
-| `name:type = expr ~> @state.path` | binding → STATE | `merge.to_state` |
+| `name:type = (expr) ~> @state.path` | named binding → STATE | `merge.to_state` |
+| `(expr) ~> @state.path` | anonymous write-only result → STATE | generated binding + `merge.to_state` |
 | `name:type <~ @input.path ~> @output.path` | STATE → binding → STATE | both `prepare` and `merge` |
 
 Transition inputs additionally accept `action(binding)` and literals after `<~`; transition outputs are forbidden.
@@ -57,15 +58,19 @@ Transition inputs additionally accept `action(binding)` and literals after `<~`;
 ### 1.2 Grammar
 
 ```
+prog-item     ::= binding-decl | anonymous-egress
 binding-decl  ::= [marker] IDENT ':' type (input-rhs | computed-rhs)
 input-rhs     ::= ['<~' ingress-source] ['~>' state-path]
-computed-rhs  ::= '=' expr ['~>' state-path]
+computed-rhs  ::= '=' expr | '=' '(' expr ')' '~>' state-path
+anonymous-egress ::= '(' expr ')' '~>' state-path
 ingress-source ::= state-path | hook-call | action-call | literal
 state-path    ::= '@' IDENT ('.' IDENT)+
 marker        ::= '|^|' | '|?|'
 ```
 
-A bare `name:type` is a structural input declaration and must be named by a matching `prepare` entry. A computed binding with no inline output may be named by `merge`.
+A bare `name:type` is a structural input declaration and must be named by a matching `prepare` entry. A computed binding with no inline output may be named by `merge`. Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
+
+Anonymous egress is valid only in an action prog and is intended for results that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot carry a root/condition marker or be referenced through `action(...)`.
 
 ### 1.3 Binding markers
 
@@ -185,7 +190,7 @@ action "score" {
 
       income_ok:bool   = income >= min_income
       debt_ok:bool     = debt <= max_debt
-      |^| decision:bool = income_ok & debt_ok ~> @decision.approved
+      |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
     }
   }
 
@@ -270,7 +275,7 @@ action "score" {
       income:number <~ @applicant.income
       income_ok:bool  = income >= min_income
       min_income:number = 50000
-      |^| decision:bool = income_ok & debt_ok ~> @decision.approved
+      |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
     }
   }
 }
@@ -374,7 +379,7 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | # | Path | Idempotency check |
 |---|------|------------------|
 | 1 | Inline `<~ @state.path` input → `prepare` block with `from_state` | Re-lower same DSL source; emitted HCL is byte-identical |
-| 2 | Inline `~> @state.path` output → `merge` block with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 2 | Named or anonymous inline `~> @state.path` output → `merge` block with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
 | 3 | Combined `<~ @input.path ~> @output.path` binding → both sub-blocks | Both paths preserved; independent of declaration order |
 | 4 | Action with no `prepare`/`merge` → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
 | 5 | Transition `prepare { from_action }` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
@@ -393,7 +398,9 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | Transition `prepare` entry with no `from_action`, `from_state`, or `from_literal` | `InvalidTransitionIngress` |
 | Transition `prepare` entry with more than one of `from_action`, `from_state`, `from_literal` | `InvalidTransitionIngress` |
 | `from_hook` inside a transition `prepare` | `TransitionHook` |
-| `phase:str = expr ~> @state.phase` inside a transition `prog` block | `TransitionOutputSigil` |
+| `phase:str = (expr) ~> @state.phase` or `(expr) ~> @state.phase` inside a transition `prog` block | `TransitionOutputSigil` |
+| `phase:str = expr ~> @state.phase` | `ParseSyntaxError` requiring the complete RHS to be parenthesized |
+| `phase:str = (expr)` | `ParseSyntaxError`; top-level parentheses are reserved for egress |
 | `from_state = "applicant..income"` (empty segment) | `InvalidStatePath` |
 | `from_state = ".income"` (leading dot) | `InvalidStatePath` |
 | Same binding name twice in `prepare` | `DuplicatePrepareEntry` |

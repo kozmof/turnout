@@ -126,7 +126,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	// Name the migration explicitly instead.
 	if t := p.peek(); t.Kind == lexer.TokSigilIngress || t.Kind == lexer.TokSigilEgress || t.Kind == lexer.TokSigilBiDir {
 		p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacySigilPosition,
-			"old sigil position: %s now follows the binding and points at its destination — write `name:type <~ @ns.field` for input and `name:type = expr ~> @ns.field` for output; see migration notes", t.Value))
+			"old sigil position: %s now follows the binding and points at its destination — write `name:type <~ @ns.field` for input and `name:type = (expr) ~> @ns.field` for output; see migration notes", t.Value))
 		p.advance()
 	}
 
@@ -143,10 +143,11 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		return nil
 	}
 
-	// Inline IO: `name:type <~ <source>` and/or `= expr ~> @ns.field`.
+	// Inline IO: `name:type <~ <source>` and/or `= (expr) ~> @ns.field`.
 	ingress := p.parseInlineIngress()
 
 	var rhs ast.BindingRHS
+	wrappedEgressRHS := false
 	if ingress != nil {
 		// An ingress binding takes its value from the source, so a RHS would be
 		// a second, conflicting definition.
@@ -164,10 +165,27 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		rhs = &ast.SigilInputRHS{}
 	} else {
 		p.expect(lexer.TokEquals)
-		rhs = p.parseRHS()
+		if p.peek().Kind == lexer.TokLParen {
+			wrappedEgressRHS = true
+			p.advance()
+			rhs = p.parseRHS()
+			p.expect(lexer.TokRParen)
+		} else {
+			rhs = p.parseRHS()
+		}
 	}
 
 	egress := p.parseInlineEgress()
+	if egress != nil && !wrappedEgressRHS && ingress == nil {
+		p.Append(diag.ErrorAt(p.file, egress.Pos.Line, egress.Pos.Col, diag.CodeParseSyntaxError,
+			"computed egress binding %q must parenthesize its complete RHS; write `%s:%s = (expr) ~> @state.path`",
+			nameTok.Value, nameTok.Value, ft))
+	}
+	if wrappedEgressRHS && egress == nil {
+		p.Append(diag.ErrorAt(p.file, pos.Line, pos.Col, diag.CodeParseSyntaxError,
+			"top-level parenthesized RHS is reserved for computed egress; write `%s:%s = expr` or `%s:%s = (expr) ~> @state.path`",
+			nameTok.Value, ft, nameTok.Value, ft))
+	}
 
 	sigil := ast.SigilNone
 	switch {
@@ -192,6 +210,27 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	}
 }
 
+// parseAnonymousEgress parses a write-only prog item: `(expr) ~> @ns.field`.
+// Its type and compiler-reserved binding name are assigned during lowering.
+func (p *parser) parseAnonymousEgress() *ast.BindingDecl {
+	open := p.advance()
+	rhs := p.parseRHS()
+	p.expect(lexer.TokRParen)
+	egress := p.parseInlineEgress()
+	if egress == nil {
+		p.Append(diag.ErrorAt(p.file, open.Line, open.Col, diag.CodeParseSyntaxError,
+			"anonymous parenthesized expression must write to STATE; add `~> @state.path`"))
+	}
+	return &ast.BindingDecl{
+		Pos:       p.posOf(open),
+		Sigil:     ast.SigilEgress,
+		Anonymous: true,
+		Type:      ast.FieldTypeInvalid,
+		RHS:       rhs,
+		Egress:    egress,
+	}
+}
+
 // ─── parseProgBlock ──────────────────────────────────────────────────────────
 
 func (p *parser) parseProgBlock() *ast.ProgBlock {
@@ -206,7 +245,12 @@ func (p *parser) parseProgBlock() *ast.ProgBlock {
 
 	var bindings []*ast.BindingDecl
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		bd := p.parseBindingDecl()
+		var bd *ast.BindingDecl
+		if p.peek().Kind == lexer.TokLParen {
+			bd = p.parseAnonymousEgress()
+		} else {
+			bd = p.parseBindingDecl()
+		}
 		if bd != nil {
 			bindings = append(bindings, bd)
 		}

@@ -81,8 +81,8 @@ scene "intake" {
         age_ok:bool       = age >= 18
         not_sanctioned:bool = sanctioned == false
         residency_ok:bool = age_ok & is_resident
-        phase:str = "intake_collect_info" ~> @workflow.phase
-        |^| eligible:bool = residency_ok & not_sanctioned ~> @intake.eligible
+        phase:str = ("intake_collect_info") ~> @workflow.phase
+        |^| eligible:bool = (residency_ok & not_sanctioned) ~> @intake.eligible
       }
     }
 
@@ -110,8 +110,8 @@ scene "intake" {
 
     compute {
       prog "proceed_graph" {
-        intake_passed:bool = true ~> @intake.passed
-        |^| phase:str = "intake_proceed" ~> @workflow.phase
+        intake_passed:bool = (true) ~> @intake.passed
+        |^| phase:str = ("intake_proceed") ~> @workflow.phase
       }
     }
 
@@ -126,9 +126,9 @@ scene "intake" {
 
     compute {
       prog "early_reject_graph" {
-        reject_reason:str = "failed_intake_eligibility" ~> @workflow.reject_reason
-        intake_passed:bool = false ~> @intake.passed
-        |^| phase:str = "intake_early_reject" ~> @workflow.phase
+        reject_reason:str = ("failed_intake_eligibility") ~> @workflow.reject_reason
+        intake_passed:bool = (false) ~> @intake.passed
+        |^| phase:str = ("intake_early_reject") ~> @workflow.phase
       }
     }
 
@@ -164,8 +164,8 @@ scene "document_review" {
 
         not_expired:bool    = doc_expired == false
         ocr_ok:bool         = ocr_confidence >= 80
-        phase:str = "document_review_check" ~> @workflow.phase
-        |^| docs_ok:bool = not_expired & ocr_ok ~> @documents.review_passed
+        phase:str = ("document_review_check") ~> @workflow.phase
+        |^| docs_ok:bool = (not_expired & ocr_ok) ~> @documents.review_passed
       }
     }
 
@@ -193,8 +193,8 @@ scene "document_review" {
 
     compute {
       prog "mark_valid_graph" {
-        docs_verified:bool = true ~> @documents.verified
-        |^| phase:str = "document_review_mark_valid" ~> @workflow.phase
+        docs_verified:bool = (true) ~> @documents.verified
+        |^| phase:str = ("document_review_mark_valid") ~> @workflow.phase
       }
     }
 
@@ -209,9 +209,9 @@ scene "document_review" {
 
     compute {
       prog "mark_invalid_graph" {
-        docs_verified:bool = false ~> @documents.verified
-        reject_reason:str = "document_validation_failed" ~> @workflow.reject_reason
-        |^| phase:str = "document_review_mark_invalid" ~> @workflow.phase
+        docs_verified:bool = (false) ~> @documents.verified
+        reject_reason:str = ("document_validation_failed") ~> @workflow.reject_reason
+        |^| phase:str = ("document_review_mark_invalid") ~> @workflow.phase
       }
     }
 
@@ -246,9 +246,9 @@ scene "risk_assessment" {
         credit_score:number <~ @applicant.credit_score
         fraud_flag:bool <~ @applicant.fraud_flag
 
-        risk_score:number = credit_score ~> @risk.score
-        phase:str = "risk_assessment_score" ~> @workflow.phase
-        |^| risk_tier:str = if(
+        risk_score:number = (credit_score) ~> @risk.score
+        phase:str = ("risk_assessment_score") ~> @workflow.phase
+        |^| risk_tier:str = (if(
           fraud_flag,
           "high",
           if(
@@ -256,7 +256,7 @@ scene "risk_assessment" {
             "low",
             if(credit_score < 500, "high", "borderline")
           )
-        ) ~> @risk.tier
+        )) ~> @risk.tier
       }
     }
 
@@ -294,8 +294,8 @@ scene "risk_assessment" {
 
     compute {
       prog "low_risk_pass_graph" {
-        risk_decision:str = "low_risk_approved" ~> @risk.decision
-        |^| phase:str = "risk_assessment_low_risk_pass" ~> @workflow.phase
+        risk_decision:str = ("low_risk_approved") ~> @risk.decision
+        |^| phase:str = ("risk_assessment_low_risk_pass") ~> @workflow.phase
       }
     }
 
@@ -310,9 +310,9 @@ scene "risk_assessment" {
 
     compute {
       prog "high_risk_fail_graph" {
-        risk_decision:str = "high_risk_rejected" ~> @risk.decision
-        reject_reason:str = "risk_score_too_high" ~> @workflow.reject_reason
-        |^| phase:str = "risk_assessment_high_risk_fail" ~> @workflow.phase
+        risk_decision:str = ("high_risk_rejected") ~> @risk.decision
+        reject_reason:str = ("risk_score_too_high") ~> @workflow.reject_reason
+        |^| phase:str = ("risk_assessment_high_risk_fail") ~> @workflow.phase
       }
     }
 
@@ -327,9 +327,9 @@ scene "risk_assessment" {
 
     compute {
       prog "borderline_flag_graph" {
-        risk_decision:str = "borderline_manual_review" ~> @risk.decision
-        needs_review:bool = true ~> @risk.needs_review
-        |^| phase:str = "risk_assessment_borderline_flag" ~> @workflow.phase
+        risk_decision:str = ("borderline_manual_review") ~> @risk.decision
+        needs_review:bool = (true) ~> @risk.needs_review
+        |^| phase:str = ("risk_assessment_borderline_flag") ~> @workflow.phase
       }
     }
 
@@ -363,8 +363,8 @@ scene "manual_review" {
         reviewer_confidence:number <~ @review.reviewer_confidence
 
         decision_ok:bool             = reviewer_confidence >= 70
-        phase:str = "manual_review_assign" ~> @workflow.phase
-        |^| reviewer_approved:bool = decision_ok ~> @review.approved
+        phase:str = ("manual_review_assign") ~> @workflow.phase
+        |^| reviewer_approved:bool = (decision_ok) ~> @review.approved
       }
     }
 
@@ -392,8 +392,8 @@ scene "manual_review" {
 
     compute {
       prog "override_approve_graph" {
-        review_outcome:str = "manual_approved" ~> @review.outcome
-        |^| phase:str = "manual_review_override_approve" ~> @workflow.phase
+        review_outcome:str = ("manual_approved") ~> @review.outcome
+        |^| phase:str = ("manual_review_override_approve") ~> @workflow.phase
       }
     }
 
@@ -408,9 +408,9 @@ scene "manual_review" {
 
     compute {
       prog "override_reject_graph" {
-        review_outcome:str = "manual_rejected" ~> @review.outcome
-        reject_reason:str = "manual_review_declined" ~> @workflow.reject_reason
-        |^| phase:str = "manual_review_override_reject" ~> @workflow.phase
+        review_outcome:str = ("manual_rejected") ~> @review.outcome
+        reject_reason:str = ("manual_review_declined") ~> @workflow.reject_reason
+        |^| phase:str = ("manual_review_override_reject") ~> @workflow.phase
       }
     }
 
@@ -438,9 +438,9 @@ scene "approved" {
       prog "issue_approval_graph" {
         prefix:str           = "ACC-"
         suffix:str           = "APPROVED"
-        flow_outcome:str = "approved" ~> @workflow.outcome
-        phase:str = "approved_issue_approval" ~> @workflow.phase
-        |^| account_ref:str = prefix + suffix ~> @workflow.account_ref
+        flow_outcome:str = ("approved") ~> @workflow.outcome
+        phase:str = ("approved_issue_approval") ~> @workflow.phase
+        |^| account_ref:str = (prefix + suffix) ~> @workflow.account_ref
       }
     }
 
@@ -469,9 +469,9 @@ scene "rejected" {
         reject_reason:str <~ @workflow.reject_reason
 
         prefix:str           = "Rejected: "
-        rejection_notice:str = prefix + reject_reason ~> @workflow.rejection_notice
-        phase:str = "rejected_issue_rejection" ~> @workflow.phase
-        |^| flow_outcome:str = "rejected" ~> @workflow.outcome
+        rejection_notice:str = (prefix + reject_reason) ~> @workflow.rejection_notice
+        phase:str = ("rejected_issue_rejection") ~> @workflow.phase
+        |^| flow_outcome:str = ("rejected") ~> @workflow.outcome
       }
     }
 

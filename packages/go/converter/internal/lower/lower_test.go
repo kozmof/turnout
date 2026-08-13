@@ -634,7 +634,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| approved:bool = true ~> @app.approved
+        |^| approved:bool = (true) ~> @app.approved
       }
     }
   }

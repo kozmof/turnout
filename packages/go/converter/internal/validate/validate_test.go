@@ -169,6 +169,22 @@ func TestReservedName(t *testing.T) {
 	}
 }
 
+func TestAnonymousEgressInfersDestinationType(t *testing.T) {
+	valid := min(`        x:number = 1
+        (x + 1) ~> @app.score
+`)
+	if ds := pipeline(valid); ds.HasErrors() {
+		t.Fatalf("valid anonymous egress: %v", ds)
+	}
+
+	mismatch := min(`        flag:bool = true
+        (flag) ~> @app.score
+`)
+	if !hasCode(pipeline(mismatch), diag.CodeSingleRefTypeMismatch) {
+		t.Error("want SingleRefTypeMismatch from destination-derived number type")
+	}
+}
+
 func TestUnknownFnAlias(t *testing.T) {
 	src := min(`        x:number = 1
         out:number = nonexistent_fn(x, x)
@@ -558,7 +574,7 @@ scene "test" {
     next {
       compute {
         prog "n" {
-          score:number = 0 ~> @app.score
+          score:number = (0) ~> @app.score
           |?| go:bool = true
         }
       }

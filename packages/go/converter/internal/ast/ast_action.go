@@ -38,7 +38,11 @@ type BindingDecl struct {
 	Pos    Pos
 	Sigil  Sigil
 	Marker BindingMarker
-	Name   string
+	// Anonymous marks a write-only declaration written as `(expr) ~> @ns.field`.
+	// The lowerer replaces it with a deterministic compiler-generated name and
+	// derives its runtime type from the destination STATE field.
+	Anonymous bool
+	Name      string
 	// Type is the runtime FieldType the binding serialises as. When DeclaredType
 	// is a named literal/template type, Type is its base FieldType, resolved
 	// during lowering once the type registry is available.

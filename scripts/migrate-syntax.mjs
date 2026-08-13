@@ -93,6 +93,10 @@ const transforms = [
       ),
   },
   {
+    name: "4 parenthesize computed egress",
+    apply: wrapComputedEgress,
+  },
+  {
     // References become bare identifiers; quoted strings stay for real strings.
     name: "2.3 bare references",
     apply: (src) =>
@@ -117,6 +121,55 @@ const transforms = [
       ),
   },
 ];
+
+// Wraps the complete RHS of every computed inline egress. The declaration may
+// be single-line or may contain a multiline call/construction; delimiter depth
+// identifies the line where that expression ends and the egress arrow begins.
+function wrapComputedEgress(src) {
+  const lines = src.split("\n");
+  const declaration = /^(\s*(?:\|\^\|\s*|\|\?\|\s*)?[A-Za-z_]\w*\s*:\s*[^=\s]+\s*=\s*)(.*)$/;
+
+  for (let i = 0; i < lines.length; i++) {
+    const comment = commentStart(lines[i]);
+    const code = comment < 0 ? lines[i] : lines[i].slice(0, comment);
+    const match = declaration.exec(code);
+    if (!match) continue;
+    const [, prefix, firstRhs] = match;
+    if (firstRhs.trimStart().startsWith("(")) continue; // already migrated
+
+    let depth = delimiterDelta(firstRhs);
+    for (let j = i; j < lines.length; j++) {
+      const currentComment = commentStart(lines[j]);
+      const currentCode = currentComment < 0 ? lines[j] : lines[j].slice(0, currentComment);
+      if (j > i) depth += delimiterDelta(currentCode);
+      if (depth > 0) continue;
+
+      const arrow = currentCode.indexOf("~>");
+      if (arrow < 0) break;
+      const beforeArrow = currentCode.slice(0, arrow).trimEnd();
+      const afterArrow = lines[j].slice(arrow);
+      if (i === j) {
+        const rhsBeforeArrow = currentCode.slice(prefix.length, arrow).trimEnd();
+        lines[i] = `${prefix}(${rhsBeforeArrow}) ${afterArrow}`;
+      } else {
+        lines[i] = `${prefix}(${firstRhs}`;
+        lines[j] = `${beforeArrow}) ${afterArrow}`;
+      }
+      i = j;
+      break;
+    }
+  }
+  return lines.join("\n");
+}
+
+function delimiterDelta(text) {
+  let depth = 0;
+  for (const ch of stripStrings(text)) {
+    if (ch === "(" || ch === "{" || ch === "[") depth++;
+    else if (ch === ")" || ch === "}" || ch === "]") depth--;
+  }
+  return depth;
+}
 
 /** Applies a rewrite only before an unquoted DSL comment on each line. */
 function rewriteCodeLines(src, rewrite) {

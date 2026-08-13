@@ -25,7 +25,7 @@ scene "main" {
       prog "p" {
         a:number = 1
         b:number = 2
-        |^| result:number = a + b ~> @ns.count
+        |^| result:number = (a + b) ~> @ns.count
       }
     }
     next {
@@ -37,7 +37,7 @@ scene "main" {
     compute {
       prog "p" {
         cur:number <~ @ns.count
-        |^| active:bool = cur > 0 ~> @ns.active
+        |^| active:bool = (cur > 0) ~> @ns.active
       }
     }
     next {

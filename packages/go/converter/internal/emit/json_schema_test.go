@@ -38,7 +38,7 @@ scene "s" {
     compute {
       prog "p" {
         score:number <~ @user.score
-        |^| done:bool = true ~> @user.active
+        |^| done:bool = (true) ~> @user.active
       }
     }
     publish {

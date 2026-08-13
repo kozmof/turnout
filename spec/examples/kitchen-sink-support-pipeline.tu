@@ -235,15 +235,15 @@ scene "triage" {
         c16:number = c15 + pipe_score
 
         # --- egress bindings (each needs a merge entry) ---
-        score:number = adjusted ~> @triage.score
-        checksum:number = c16 + capped ~> @triage.checksum
-        classified_band:str = band ~> @triage.band
-        route_tag:str = route_label ~> @triage.route_tag
-        normalized_subject:str = normalized ~> @triage.normalized_subject
+        score:number = (adjusted) ~> @triage.score
+        (c16 + capped) ~> @triage.checksum
+        (band) ~> @triage.band
+        (route_label) ~> @triage.route_tag
+        (normalized) ~> @triage.normalized_subject
         audit1:str           = first_tag + " | "
-        audit:str = audit1 + allfirst ~> @triage.audit
+        (audit1 + allfirst) ~> @triage.audit
         g1:bool              = unsafe | has_urgent
-        flagged:bool = g1 | conflicting ~> @triage.flagged
+        flagged:bool = (g1 | conflicting) ~> @triage.flagged
 
         # --- compute root: marked binding, declared last ---
         |^| ready:bool = r11 | flags_empty
@@ -293,8 +293,8 @@ scene "triage" {
     """
     compute {
       prog "auto_resolve_graph" {
-        status:str = "auto_resolved" ~> @outcome.status
-        |^| notice:str = "closed without human review" ~> @outcome.notice
+        status:str = ("auto_resolved") ~> @outcome.status
+        |^| notice:str = ("closed without human review") ~> @outcome.notice
       }
     }
     publish {
@@ -310,8 +310,8 @@ scene "triage" {
       prog "escalate_graph" {
         sla:number <~ @triage.sla_hours
         bumped:number = sla + 4
-        status:str = "escalated" ~> @outcome.status
-        |^| hours:number = max(bumped, 24) ~> @triage.sla_hours
+        status:str = ("escalated") ~> @outcome.status
+        |^| hours:number = (max(bumped, 24)) ~> @triage.sla_hours
       }
     }
   }
@@ -322,8 +322,8 @@ scene "triage" {
     """
     compute {
       prog "manual_queue_graph" {
-        status:str = "queued" ~> @outcome.status
-        |^| owner:str = "support_team" ~> @outcome.handled_by
+        status:str = ("queued") ~> @outcome.status
+        |^| owner:str = ("support_team") ~> @outcome.handled_by
       }
     }
   }
@@ -359,8 +359,8 @@ scene "review" {
         score:number <~ @triage.score
 
         hot:bool       = score >= 70
-        note:str = route_tag + " review" ~> @review.note
-        |^| reviewed:bool = flagged | hot ~> @review.parallel
+        (route_tag + " review") ~> @review.note
+        |^| reviewed:bool = (flagged | hot) ~> @review.parallel
       }
     }
 
@@ -387,7 +387,7 @@ scene "review" {
     """
     compute {
       prog "notify_graph" {
-        |^| reviewer:str = "oncall" ~> @review.reviewer
+        |^| reviewer:str = ("oncall") ~> @review.reviewer
       }
     }
     publish {
@@ -402,7 +402,7 @@ scene "review" {
     compute {
       prog "log_graph" {
         note:str <~ @review.note
-        |^| line:str = note + " logged" ~> @review.log_line
+        |^| line:str = (note + " logged") ~> @review.log_line
       }
     }
   }
@@ -429,7 +429,7 @@ scene "finalize" {
     """
     compute {
       prog "seal_graph" {
-        |^| sealed:bool = true ~> @outcome.sealed
+        |^| sealed:bool = (true) ~> @outcome.sealed
       }
     }
     next {
@@ -444,8 +444,8 @@ scene "finalize" {
     compute {
       prog "archive_graph" {
         status:str <~ @outcome.status
-        archived:bool = true ~> @outcome.archived
-        |^| final_notice:str = status + " archived" ~> @outcome.notice
+        archived:bool = (true) ~> @outcome.archived
+        |^| final_notice:str = (status + " archived") ~> @outcome.notice
       }
     }
   }
@@ -465,7 +465,7 @@ scene "closed" {
     """
     compute {
       prog "close_graph" {
-        |^| status:str = "closed" ~> @outcome.status
+        |^| status:str = ("closed") ~> @outcome.status
       }
     }
   }

@@ -725,6 +725,13 @@ func compileExample(t *testing.T, path string) {
 		}
 		t.Fatalf("validate failed")
 	}
+	var out strings.Builder
+	if emitDs := emit.Emit(&out, lr.Model); emitDs.HasErrors() {
+		for _, d := range emitDs {
+			t.Logf("emit: %s", d.Format())
+		}
+		t.Fatalf("emit failed")
+	}
 }
 
 const examplesDir = "../../../../../spec/examples"

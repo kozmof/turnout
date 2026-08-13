@@ -11,7 +11,16 @@ const (
 	GeneratedIfCondPrefix = "__if_"
 	GeneratedIfCondSuffix = "_cond"
 	GeneratedLocalPrefix  = "__local_"
+	GeneratedEgressPrefix = "__egress_"
 )
+
+// EgressName constructs the generated binding name for an anonymous egress.
+func EgressName(counter int) string { return fmt.Sprintf("%s%d", GeneratedEgressPrefix, counter) }
+
+// IsGeneratedEgressName reports whether name belongs to an anonymous egress.
+func IsGeneratedEgressName(name string) bool {
+	return len(name) > len(GeneratedEgressPrefix) && strings.HasPrefix(name, GeneratedEgressPrefix)
+}
 
 // LocalName constructs a generated local-expr binding name from its components.
 // Format: __local_{target}_{hint}_{counter}. The localLowerer.temp() method is

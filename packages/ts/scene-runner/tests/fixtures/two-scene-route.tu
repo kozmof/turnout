@@ -14,7 +14,7 @@ scene "scene_a" {
     compute {
       prog "a_prog" {
         value:number <~ @input.value
-        |^| doubled:number = value + value ~> @output.result
+        |^| doubled:number = (value + value) ~> @output.result
       }
     }
 
@@ -28,7 +28,7 @@ scene "scene_b" {
     compute {
       prog "b_prog" {
         result:number <~ @output.result
-        |^| final_val:number = result + 1 ~> @output.result
+        |^| final_val:number = (result + 1) ~> @output.result
       }
     }
 

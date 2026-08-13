@@ -34,3 +34,28 @@ test("still migrates references and sigils in DSL code", () => {
     ["entry = start", "action = finish", "entry_actions = [start, finish]", "value:str"].join("\n"),
   );
 });
+
+test("parenthesizes single-line and multiline computed egress idempotently", () => {
+  const source = [
+    "result:number = foo + bar ~> @billing.total",
+    'status:str = "done" ~> @workflow.status',
+    "tier:str = if(",
+    "  flag,",
+    '  "high",',
+    '  "low"',
+    ") ~> @risk.tier",
+    "copy:number <~ @source.value ~> @snapshot.value",
+  ].join("\n");
+  const expected = [
+    "result:number = (foo + bar) ~> @billing.total",
+    'status:str = ("done") ~> @workflow.status',
+    "tier:str = (if(",
+    "  flag,",
+    '  "high",',
+    '  "low"',
+    ")) ~> @risk.tier",
+    "copy:number <~ @source.value ~> @snapshot.value",
+  ].join("\n");
+  assert.equal(migrate(source).out, expected);
+  assert.equal(migrate(expected).out, expected);
+});

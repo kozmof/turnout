@@ -96,9 +96,42 @@ func TestInlineIngressSourcesByContext(t *testing.T) {
 // TestInlineEgressRequiresStatePath covers the `~>` error branch: the arrow
 // points at a destination, and the only destination is a state path.
 func TestInlineEgressRequiresStatePath(t *testing.T) {
-	codes := codesFor(t, actionCompute(`        |^| x:number = 1 ~> notapath`))
+	codes := codesFor(t, actionCompute(`        |^| x:number = (1) ~> notapath`))
 	if !hasErrorCode(codes, diag.CodeParseSyntaxError) {
 		t.Errorf("got %v, want a syntax error", codes)
+	}
+}
+
+func TestComputedEgressRequiresParenthesizedRHS(t *testing.T) {
+	if codes := codesFor(t, actionCompute(`        |^| x:number = 1 ~> @ns.val`)); !hasErrorCode(codes, diag.CodeParseSyntaxError) {
+		t.Errorf("unparenthesized egress: got %v, want ParseSyntaxError", codes)
+	}
+	tf := mustParse(t, actionCompute(`        |^| x:number = (left + right) ~> @ns.val`))
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	if b.Egress == nil || b.Egress.Path != "ns.val" {
+		t.Fatalf("egress = %v, want ns.val", b.Egress)
+	}
+	if _, ok := b.RHS.(*ast.InfixRHS); !ok {
+		t.Fatalf("RHS = %T, want *ast.InfixRHS", b.RHS)
+	}
+}
+
+func TestTopLevelParenthesesAreEgressOnly(t *testing.T) {
+	codes := codesFor(t, actionCompute(`        |^| x:number = (1)`))
+	if !hasErrorCode(codes, diag.CodeParseSyntaxError) {
+		t.Errorf("got %v, want ParseSyntaxError", codes)
+	}
+}
+
+func TestAnonymousEgressParses(t *testing.T) {
+	tf := mustParse(t, actionCompute(`        (left + right) ~> @ns.val
+        |^| done:bool = true`))
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	if !b.Anonymous || b.Name != "" || b.Type != ast.FieldTypeInvalid {
+		t.Fatalf("anonymous binding = %#v", b)
+	}
+	if b.Egress == nil || b.Egress.Path != "ns.val" {
+		t.Fatalf("egress = %v, want ns.val", b.Egress)
 	}
 }
 

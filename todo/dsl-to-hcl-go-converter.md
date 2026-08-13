@@ -69,7 +69,7 @@ After `name:type =`, the parser selects form by first/second token:
 - bare `pipe(` → pipe form
 - bare `if(` → conditional form
 - bare `case(` → case form
-- `<~ source` after the type → inline input; `~> @path` after an expression → inline output
+- `<~ source` after the type → inline input; `(expr) ~> @path` → inline output, optionally preceded by `name:type =`
 
 ---
 

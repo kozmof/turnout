@@ -269,7 +269,7 @@ func TestParseInlineIOSigils(t *testing.T) {
     compute {
       prog "p" {
         a:number <~ @ns.val
-        b:bool   = true ~> @ns.flag
+        b:bool   = (true) ~> @ns.flag
         c:str    <~ @ns.name ~> @ns.name
         |^| d:number   = 0
       }
