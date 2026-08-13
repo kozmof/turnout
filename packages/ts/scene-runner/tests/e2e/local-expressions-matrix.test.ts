@@ -5,7 +5,7 @@
  * runtime -> STATE/output assertions.
  *
  * Matrix:
- *   patterns:   #if, #case, #pipe/#it
+ *   patterns:   if, case, pipe/#it
  *   complexity: low single-action, medium two-action scene, high two-scene route
  */
 import { execFileSync } from "node:child_process";
@@ -19,7 +19,7 @@ import type { AnyValue } from "runtime";
 
 type Case = {
   name: string;
-  pattern: "#if" | "#case" | "#pipe" | "construct" | "destructure" | "tuple";
+  pattern: "if" | "case" | "pipe" | "construct" | "destructure" | "tuple";
   complexity: "low" | "medium" | "high";
   entryId: string;
   src: string;
@@ -120,7 +120,7 @@ scene "construct_low" {
 }`,
   },
   {
-    // Template #case destructuring executes: match the "bar" arm, extract the
+    // Template case destructuring executes: match the "bar" arm, extract the
     // integer capture, and compute add(sequence, 100).
     name: "destructure-single-action",
     pattern: "destructure",
@@ -183,7 +183,7 @@ scene "tuple_low" {
   },
   {
     name: "if-low-single-action",
-    pattern: "#if",
+    pattern: "if",
     complexity: "low",
     entryId: "if_low",
     expectPath: "work.n",
@@ -206,7 +206,7 @@ scene "if_low" {
   },
   {
     name: "if-medium-two-action-scene",
-    pattern: "#if",
+    pattern: "if",
     complexity: "medium",
     entryId: "if_medium",
     expectPath: "work.n",
@@ -240,7 +240,7 @@ scene "if_medium" {
   },
   {
     name: "if-high-two-scene-route",
-    pattern: "#if",
+    pattern: "if",
     complexity: "high",
     entryId: "if_route",
     expectPath: "work.final",
@@ -280,7 +280,7 @@ route "if_route" {
   },
   {
     name: "case-low-single-action",
-    pattern: "#case",
+    pattern: "case",
     complexity: "low",
     entryId: "case_low",
     expectPath: "work.n",
@@ -303,7 +303,7 @@ scene "case_low" {
   },
   {
     name: "case-medium-two-action-scene",
-    pattern: "#case",
+    pattern: "case",
     complexity: "medium",
     entryId: "case_medium",
     expectPath: "work.final",
@@ -337,7 +337,7 @@ scene "case_medium" {
   },
   {
     name: "case-high-two-scene-route",
-    pattern: "#case",
+    pattern: "case",
     complexity: "high",
     entryId: "case_route",
     expectPath: "work.final",
@@ -377,7 +377,7 @@ route "case_route" {
   },
   {
     name: "pipe-low-single-action",
-    pattern: "#pipe",
+    pattern: "pipe",
     complexity: "low",
     entryId: "pipe_low",
     expectPath: "work.n",
@@ -400,7 +400,7 @@ scene "pipe_low" {
   },
   {
     name: "pipe-medium-two-action-scene",
-    pattern: "#pipe",
+    pattern: "pipe",
     complexity: "medium",
     entryId: "pipe_medium",
     expectPath: "work.n",
@@ -434,7 +434,7 @@ scene "pipe_medium" {
   },
   {
     name: "pipe-high-two-scene-route",
-    pattern: "#pipe",
+    pattern: "pipe",
     complexity: "high",
     entryId: "pipe_route",
     expectPath: "work.n",

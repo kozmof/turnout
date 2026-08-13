@@ -10,9 +10,9 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// #case coverage analysis (literal-template-types-spec.md §14, §16, §17)
+// case coverage analysis (literal-template-types-spec.md §14, §16, §17)
 //
-// Ordered, value-set based analysis over the arms of a #case:
+// Ordered, value-set based analysis over the arms of a case:
 //   - reachability: an arm fully shadowed by earlier arms is unreachable
 //     (duplicate literal, or any arm after an unguarded catch-all) — §17.1-§17.3
 //   - exhaustiveness: when the subject has a finite literal type, every member
@@ -46,7 +46,7 @@ func analyzeCaseCoverage(bindingName string, subject *turnoutpb.LocalExprModel, 
 		case *turnoutpb.LocalCasePatternModel_Wildcard, *turnoutpb.LocalCasePatternModel_VarBinder:
 			if catchAll {
 				ds.Append(diag.Errorf(diag.CodeUnreachableArm,
-					"binding %q: unreachable #case arm; a previous arm already matches every value", bindingName))
+					"binding %q: unreachable case arm; a previous arm already matches every value", bindingName))
 				continue
 			}
 			if !guard {
@@ -56,13 +56,13 @@ func analyzeCaseCoverage(bindingName string, subject *turnoutpb.LocalExprModel, 
 			val := ast.NewLiteralType(ast.Pos{}, structpbToLiteral(x.Lit.GetValue())).String()
 			if catchAll {
 				ds.Append(diag.Errorf(diag.CodeUnreachableArm,
-					"binding %q: unreachable #case arm for %s; a previous arm already matches every value",
+					"binding %q: unreachable case arm for %s; a previous arm already matches every value",
 					bindingName, val))
 				continue
 			}
 			if covered[val] {
 				ds.Append(diag.Errorf(diag.CodeDuplicateCasePattern,
-					"binding %q: unreachable #case arm; pattern %s is fully covered by a previous arm",
+					"binding %q: unreachable case arm; pattern %s is fully covered by a previous arm",
 					bindingName, val))
 				continue
 			}
@@ -84,7 +84,7 @@ func analyzeCaseCoverage(bindingName string, subject *turnoutpb.LocalExprModel, 
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		ds.Append(diag.Errorf(diag.CodeNonExhaustiveMatch,
-			"binding %q: non-exhaustive #case\n\nmissing:\n- %s",
+			"binding %q: non-exhaustive case\n\nmissing:\n- %s",
 			bindingName, strings.Join(missing, "\n- ")))
 	}
 }
@@ -99,7 +99,7 @@ func caseHasTemplateArm(arms []*turnoutpb.LocalCaseArmModel) bool {
 }
 
 // analyzeTemplateCoverage performs reachability and exhaustiveness analysis for
-// a #case that destructures a template subject (literal-template-types-spec.md
+// a case that destructures a template subject (literal-template-types-spec.md
 // §14.4-14.6, §17.4). It works over the product of the subject's finite capture
 // domains (literal unions); infinite captures (str/integer/number) do not
 // prevent exhaustiveness when left unconstrained (§14.6).
@@ -121,7 +121,7 @@ func analyzeTemplateCoverage(bindingName string, subject *turnoutpb.LocalExprMod
 		case *turnoutpb.LocalCasePatternModel_Wildcard, *turnoutpb.LocalCasePatternModel_VarBinder:
 			if catchAll {
 				ds.Append(diag.Errorf(diag.CodeUnreachableArm,
-					"binding %q: unreachable #case arm; a previous arm already matches every value", bindingName))
+					"binding %q: unreachable case arm; a previous arm already matches every value", bindingName))
 				continue
 			}
 			if !guard {
@@ -131,7 +131,7 @@ func analyzeTemplateCoverage(bindingName string, subject *turnoutpb.LocalExprMod
 			combos, fully := armFiniteCombos(x.Template, finite)
 			if catchAll {
 				ds.Append(diag.Errorf(diag.CodeUnreachableArm,
-					"binding %q: unreachable #case arm; a previous arm already matches every value", bindingName))
+					"binding %q: unreachable case arm; a previous arm already matches every value", bindingName))
 				continue
 			}
 			if guard || !fully {
@@ -142,7 +142,7 @@ func analyzeTemplateCoverage(bindingName string, subject *turnoutpb.LocalExprMod
 			}
 			if allCovered(combos, covered) {
 				ds.Append(diag.Errorf(diag.CodeUnreachableArm,
-					"binding %q: unreachable #case arm; pattern is fully covered by earlier arms", bindingName))
+					"binding %q: unreachable case arm; pattern is fully covered by earlier arms", bindingName))
 				continue
 			}
 			for _, k := range combos {
@@ -163,7 +163,7 @@ func analyzeTemplateCoverage(bindingName string, subject *turnoutpb.LocalExprMod
 	if len(missing) > 0 {
 		sort.Strings(missing)
 		ds.Append(diag.Errorf(diag.CodeNonExhaustiveMatch,
-			"binding %q: non-exhaustive #case for template subject\n\nuncovered:\n- %s",
+			"binding %q: non-exhaustive case for template subject\n\nuncovered:\n- %s",
 			bindingName, strings.Join(missing, "\n- ")))
 	}
 }
@@ -278,7 +278,7 @@ func caseSubjectValueSet(subject *turnoutpb.LocalExprModel, scope scopeLookup) (
 	return values, true
 }
 
-// subjectDeclaredType returns the resolved declared type of a #case subject when
+// subjectDeclaredType returns the resolved declared type of a case subject when
 // the subject is a direct reference to a binding carrying a declared type.
 func subjectDeclaredType(subject *turnoutpb.LocalExprModel, scope scopeLookup) ast.Type {
 	if subject == nil {
@@ -296,7 +296,7 @@ func subjectDeclaredType(subject *turnoutpb.LocalExprModel, scope scopeLookup) a
 }
 
 // subjectDeclaredTypeName returns the source-level named type annotation for a
-// direct #case subject reference. Structural template patterns are nominal in
+// direct case subject reference. Structural template patterns are nominal in
 // the initial implementation, so the pattern must use this exact name.
 func subjectDeclaredTypeName(subject *turnoutpb.LocalExprModel, scope scopeLookup) string {
 	if subject == nil {

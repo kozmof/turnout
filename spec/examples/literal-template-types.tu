@@ -3,7 +3,7 @@
 # A payment service receives provider-specific webhook IDs, but stores one
 # canonical event number for idempotency. Only verified webhooks advance the
 # checkpoint. The provider and verification flag are finite literal unions, so
-# the converter can prove that the tuple #case is exhaustive.
+# the converter can prove that the tuple case is exhaustive.
 
 type PaymentProvider = "stripe" | "paypal"
 type VerificationStatus = true | false

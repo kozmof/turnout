@@ -924,7 +924,7 @@ type BindingModel struct {
 	// Exactly one of value or expr is present.
 	Value *structpb.Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	Expr  *ExprModel      `protobuf:"bytes,4,opt,name=expr,proto3" json:"expr,omitempty"`
-	// ext_expr carries the structured source expression for #if/#case/#pipe bindings.
+	// ext_expr carries the structured source expression for if/case/pipe bindings.
 	// Populated by the HCL emitter to round-trip those forms. MUST NOT be set in
 	// JSON output; the runtime ignores this field entirely.
 	ExtExpr *LocalExprModel `protobuf:"bytes,5,opt,name=ext_expr,json=extExpr,proto3" json:"ext_expr,omitempty"`
@@ -2885,7 +2885,7 @@ func (x *LocalTuplePatternModel) GetElems() []*LocalCasePatternModel {
 	return nil
 }
 
-// LocalTemplatePatternModel destructures a template literal value in a #case
+// LocalTemplatePatternModel destructures a template literal value in a case
 // arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.
 type LocalTemplatePatternModel struct {
 	state         protoimpl.MessageState            `protogen:"open.v1"`

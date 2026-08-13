@@ -1,4 +1,4 @@
-// lower_local.go lowers #if / #case / #pipe LocalExpr trees to flat binding sequences.
+// lower_local.go lowers if / case / pipe LocalExpr trees to flat binding sequences.
 package lower
 
 import (
@@ -13,7 +13,7 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Local expression lowering (#if / #case / #pipe / #it)
+// Local expression lowering (if / case / pipe / #it)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type localLowerer struct {
@@ -22,7 +22,7 @@ type localLowerer struct {
 	bindingTypes map[string]ast.FieldType
 	// declaredTypes maps a prog binding name to its resolved structured type
 	// (nil-safe: absent for plain primitive bindings). Used to recover the
-	// subject's template when lowering template #case destructuring.
+	// subject's template when lowering template case destructuring.
 	declaredTypes map[string]ast.Type
 	ds            *diag.DiagSink
 	counter       *int
@@ -30,7 +30,7 @@ type localLowerer struct {
 }
 
 // pipeContext carries the #it tracking state for the current pipe scope.
-// The zero value (itAllowed = false) means "not inside a #pipe step".
+// The zero value (itAllowed = false) means "not inside a pipe step".
 // A new pipeContext is constructed for each pipe step and passed explicitly
 // rather than stored as mutable fields on localLowerer.
 type pipeContext struct {
@@ -64,7 +64,7 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 		c.emitValue(c.target, c.targetType, zeroLiteralFor(c.targetType))
 	}
 	// Attach the structured source expression to the user-declared name binding
-	// so the HCL emitter can reproduce the original #if/#case/#pipe form.
+	// so the HCL emitter can reproduce the original if/case/pipe form.
 	if extExpr := bindingRHSToProto(rhs); extExpr != nil {
 		for _, b := range c.bindings {
 			if b.Name == c.target {
@@ -75,7 +75,7 @@ func (c *localLowerer) lowerTop(rhs ast.BindingRHS) []*turnoutpb.BindingModel {
 	}
 	// Invariant: the root binding must carry ExtExpr whenever it also carries a
 	// flat Expr. The HCL emitter relies on ExtExpr to reproduce the original
-	// #if/#case/#pipe source form; a missing ExtExpr would silently produce
+	// if/case/pipe source form; a missing ExtExpr would silently produce
 	// wrong output. Emit a diagnostic instead of letting this pass silently.
 	for _, b := range c.bindings {
 		if b.Name == c.target && b.Expr != nil && b.ExtExpr == nil {
@@ -133,7 +133,7 @@ func (c *localLowerer) lowerExprInto(name string, ft ast.FieldType, e ast.LocalE
 	case *ast.LocalItExpr:
 		if !pc.itAllowed {
 			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
-				diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
+				diag.CodeUnsupportedConstruct, "#it is only valid inside pipe step expressions"))
 			c.emitValue(name, ft, zeroLiteralFor(ft))
 			return
 		}
@@ -170,7 +170,7 @@ func (c *localLowerer) lowerFuncTemp(e ast.LocalExpr, hint string, ft ast.FieldT
 
 // lowerLocalArgModel converts a single local-expression call argument to an
 // ArgModel. Simple cases (ref, lit, #it) are inlined directly; complex
-// sub-expressions (nested calls, #if, #case, #pipe, infix) are lowered into a
+// sub-expressions (nested calls, if, case, pipe, infix) are lowered into a
 // temp binding and referenced by name. Centralising this logic removes the
 // duplicate undefined-ref and #it-outside-pipe checks that previously existed
 // in the lowerCallInto argument loop.
@@ -189,7 +189,7 @@ func (c *localLowerer) lowerLocalArgModel(arg ast.LocalExpr, argIdx int, binding
 	case *ast.LocalItExpr:
 		if !pc.itAllowed {
 			c.ds.Append(diag.ErrorAt(x.Pos.File, x.Pos.Line, x.Pos.Col,
-				diag.CodeUnsupportedConstruct, "#it is only valid inside #pipe step expressions"))
+				diag.CodeUnsupportedConstruct, "#it is only valid inside pipe step expressions"))
 			return &turnoutpb.ArgModel{Lit: ast.LiteralToStructpb(zeroLiteralFor(ft))}
 		}
 		return &turnoutpb.ArgModel{Ref: proto.String(pc.itRef)}
@@ -220,7 +220,7 @@ func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.Lo
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
-	// Operator-only functions are infix-only outside of #pipe steps. Inside a
+	// Operator-only functions are infix-only outside of pipe steps. Inside a
 	// pipe step (itAllowed), add(#it, n) / mul(#it, n) etc. are the natural
 	// calling form and are explicitly allowed.
 	if !pc.itAllowed && checkOperatorOnly(c.target, call.FnAlias, call.Pos, c.ds) {
@@ -292,7 +292,7 @@ func (c *localLowerer) lowerIfInto(name string, ft ast.FieldType, cond, thenExpr
 func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.LocalExpr, arms []ast.LocalCaseArm, pc pipeContext) {
 	if len(arms) == 0 {
 		c.ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-			"binding %q: #case with no arms always returns zero — add at least one arm or a wildcard (_)", c.target))
+			"binding %q: case with no arms always returns zero — add at least one arm or a wildcard (_)", c.target))
 		c.emitValue(name, ft, zeroLiteralFor(ft))
 		return
 	}
@@ -341,7 +341,7 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 			if seenLiterals[key] {
 				c.ds.Append(diag.ErrorAt(arm.Pos.File, arm.Pos.Line, arm.Pos.Col,
 					diag.CodeDuplicateCasePattern,
-					"binding %q: #case arm %d has the same literal pattern as an earlier arm — arm is unreachable",
+					"binding %q: case arm %d has the same literal pattern as an earlier arm — arm is unreachable",
 					c.target, i))
 				continue
 			}
@@ -497,7 +497,7 @@ func caseHasTemplatePattern(arms []ast.LocalCaseArm) bool {
 }
 
 // caseLiteralKey returns a string key that uniquely identifies an ast.Literal
-// value for use in duplicate-pattern detection within a single #case expression.
+// value for use in duplicate-pattern detection within a single case expression.
 func caseLiteralKey(lit ast.Literal) string {
 	switch v := lit.(type) {
 	case *ast.NumberLiteral:

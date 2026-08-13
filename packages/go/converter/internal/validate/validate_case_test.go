@@ -8,7 +8,7 @@ import (
 )
 
 // caseProgram assembles a program with the given type declarations, a subject
-// binding `s`, and a root #case binding over `s` with the given arm text.
+// binding `s`, and a root case binding over `s` with the given arm text.
 func caseProgram(typeDecls, subjectDecl, arms string) string {
 	return typeDecls + `
 state { app { score:number = 0 } }

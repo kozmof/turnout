@@ -520,7 +520,7 @@ func TestLowerCondRHS(t *testing.T) {
 	}
 }
 
-// ─── #if RHS ──────────────────────────────────────────────────────────────────
+// ─── if RHS ──────────────────────────────────────────────────────────────────
 
 func TestLowerIfRHSBareRef(t *testing.T) {
 	// if(flag, thenFn, elseFn) with bare ref condition → ExtExpr on binding

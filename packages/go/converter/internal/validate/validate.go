@@ -36,7 +36,7 @@ type bindingInfo struct {
 	sigil     ast.Sigil
 	// declaredType is the resolved structured type when the binding was annotated
 	// with a named literal/template type; nil for plain primitive bindings. Used
-	// for assignability and #case coverage analysis.
+	// for assignability and case coverage analysis.
 	declaredType     ast.Type
 	declaredTypeName string
 }
@@ -609,7 +609,7 @@ func isEmptyArrayValue(v *structpb.Value) bool {
 // them for single-reference array bindings and the [] carries an implicit type
 // from the other operand.
 //
-// For #if/#case/#pipe bindings (b.ExtExpr != nil), the structured local
+// For if/case/pipe bindings (b.ExtExpr != nil), the structured local
 // expression tree is walked to catch empty array call-args that are not visible
 // in the flat Expr form (which the caller skips via continue).
 func validateNoEmptyArrayLitArgs(b *turnoutpb.BindingModel, ds *diag.DiagSink) {

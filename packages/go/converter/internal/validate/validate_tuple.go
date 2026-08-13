@@ -42,7 +42,7 @@ func validateProtoTupleCase(bindingName string, subject *turnoutpb.LocalTupleExp
 		if arm.GetGuard() != nil {
 			gt, ok := validateProtoLocalExpr(bindingName, arm.GetGuard(), armScope, itType, itAllowed, ds)
 			if ok && gt != ast.FieldTypeBool {
-				ds.Append(diag.Errorf(diag.CodeCondNotBool, "binding %q: #case guard has type %s; bool required", bindingName, gt))
+				ds.Append(diag.Errorf(diag.CodeCondNotBool, "binding %q: case guard has type %s; bool required", bindingName, gt))
 			}
 		}
 		at, ok := validateProtoLocalExpr(bindingName, arm.GetExpr(), armScope, itType, itAllowed, ds)
@@ -50,7 +50,7 @@ func validateProtoTupleCase(bindingName string, subject *turnoutpb.LocalTupleExp
 			continue
 		}
 		if retOK && at != ret {
-			ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch, "binding %q: #case arms return %s and %s", bindingName, ret, at))
+			ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch, "binding %q: case arms return %s and %s", bindingName, ret, at))
 			continue
 		}
 		ret, retOK = at, true
@@ -202,7 +202,7 @@ func analyzeTupleCoverage(bindingName string, root tupleValueInfo, arms []*turno
 			continue
 		}
 		if len(vals) != 0 && allCovered(vals, covered) {
-			ds.Append(diag.Errorf(diag.CodeUnreachableArm, "binding %q: unreachable #case arm; tuple pattern is fully covered by earlier arms", bindingName))
+			ds.Append(diag.Errorf(diag.CodeUnreachableArm, "binding %q: unreachable case arm; tuple pattern is fully covered by earlier arms", bindingName))
 			continue
 		}
 		for _, v := range vals {
@@ -217,6 +217,6 @@ func analyzeTupleCoverage(bindingName string, root tupleValueInfo, arms []*turno
 	}
 	if len(missing) != 0 {
 		sort.Strings(missing)
-		ds.Append(diag.Errorf(diag.CodeNonExhaustiveMatch, "binding %q: non-exhaustive #case for tuple subject\n\nuncovered:\n- %s", bindingName, strings.Join(missing, "\n- ")))
+		ds.Append(diag.Errorf(diag.CodeNonExhaustiveMatch, "binding %q: non-exhaustive case for tuple subject\n\nuncovered:\n- %s", bindingName, strings.Join(missing, "\n- ")))
 	}
 }

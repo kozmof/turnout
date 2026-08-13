@@ -87,14 +87,15 @@ After `name:type =`, the parser selects the form by examining the first and seco
 | bare `IDENT` (not `true`/`false`) | `(` | function call |
 | bare `IDENT` (not `true`/`false`) | `&`, `>=`, `<=`, `+`, `-`, `*`, `/`, `%`, `>`, `<`, `|`, `==`, `!=` | infix expression |
 | bare `IDENT` (not `true`/`false`) | end-of-line, `}`, or next `IDENT:` | single-reference form |
-| `{` | any | block form (reserved constructs only; not used for v1 function expressions) |
-| `#pipe` | any | pipe form |
-| `#if` | any | if form |
-| `#case` | any | case form |
-| `#it` | any | valid only inside a `#pipe` step |
-| no RHS after directional sigil `~>` / `<~>` | any | STATE-populated input declaration |
+| `{` | any | legacy block expression; rejected by the current parser |
+| bare `pipe` followed by `(` | any | pipe form |
+| bare `if` followed by `(` | any | conditional form |
+| bare `case` followed by `(` | any | case form |
+| `#it` | any | valid only inside a `pipe` step |
+| inline `<~ source` after the type | any | input declaration |
+| no RHS after `name:type` | any | input declaration whose source must be provided by `prepare` |
 
-`_` is not a bare identifier and must not match the single-reference form. It is valid only as a `#case` wildcard pattern.
+`_` is not a bare identifier and must not match the single-reference form. It is valid only as a `case` wildcard pattern.
 
 ### End-to-end lowering example
 
@@ -153,7 +154,7 @@ prog "main" {
 - Single-reference form `name:type = identifier` -> identity combine args per the identity-combine table above
 - DSL bare identifier `v` -> `{ ref = "v" }`
 - DSL literal (`"s"`, `1`, `true`, `[1,2]`) -> `{ lit = <literal> }`
-- `#it` inside a `#pipe` step -> reference to the current pipeline value for that step
+- `#it` inside a `pipe` step -> reference to the current pipeline value for that step
 
 ### Balance rules (CAN / CAN'T)
 
@@ -163,7 +164,7 @@ CAN (OK):
 - Authors can write operator-only functions using their assigned DSL operator (`income_ok:bool = income >= min_income`, `big:bool = income > 0`, `small:bool = debt < limit`, `match:bool = a == b`, `diff:bool = a != b`, `either:bool = flag_a | flag_b`, `sum:number = a + b`, `approval_code:str = prefix + suffix`, `go:bool = flag_hi & flag_lo`, `remainder:number = total - discount`, `area:number = width * height`, `rate:number = amount / count`, `rem:number = total % count`).
 - Authors can write call-only functions using call syntax (`max(v1, v2)`, `min(v1, v2)`, `str_includes(a, b)`).
 - Authors can write pipes as `pipe(initial_value, step1, step2, ...)`.
-- Authors can use `#it` inside a `#pipe` step to refer to the current pipeline value.
+- Authors can use `#it` inside a `pipe` step to refer to the current pipeline value.
 - Authors can write binary choices as `if(cond, then_expr, else_expr)`.
 - Authors can write ordered classifications as `case(subject, pattern => expr, _ => default_expr)`.
 - Authors can write a single-reference binding `name:type = identifier` to pass another binding's value through as a function binding. The compiler lowers this to an identity combine per the identity-combine table.
@@ -172,13 +173,13 @@ CAN'T (NG):
 - Lowered plain HCL cannot keep `name:type` as an attribute key.
 - Lowered plain HCL cannot keep bare references in argument positions.
 - Lowered plain HCL cannot encode branch references as untyped strings.
-- Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not part of v1.
+- Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not supported by the current syntax.
 - Named argument call syntax such as `max(a: v1, b: v2)` is not supported. Calls have positional semantics only. The converter emits `NamedArgNotSupported`.
 - Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
-- Infix expressions support only `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, `%`, with exactly two operands.
+- Infix expressions support `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, and `%`. Expressions may nest; standard precedence is applied and operators at the same precedence associate left-to-right.
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
-- `#it` cannot appear outside a `#pipe` step.
-- `_` cannot be used as a pipe placeholder or sigil placeholder. It is valid only as a wildcard pattern inside `#case`.
+- `#it` cannot appear outside a `pipe` step.
+- ``_` cannot be used as a pipe or IO placeholder. It is valid only as a wildcard pattern inside `case`.
 - The wildcard `_` and the keyword literals `true`/`false` are not valid as the single-reference identifier. They are handled by their own forms.
 
 Correlation between CAN and CAN'T:
@@ -261,7 +262,7 @@ prog "main" {
 ## 3. Function expressions
 
 Function expressions in the Surface DSL use call syntax for binary combine functions, plus a parse-safe infix shorthand.
-There are five forms: combine (call expression), infix (`= lhs OP rhs`), #if, #case, and #pipe.
+There are five forms: combine (call expression), infix (`= lhs OP rhs`), if, case, and pipe.
 
 ---
 
@@ -378,17 +379,17 @@ Functions marked operator-only must be written using their DSL operator. Their a
 | `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
-> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix form must be exactly `name:<type> = lhs OP rhs`. Operator and type pairings are enforced. `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` are valid for `name:bool`, `+`/`-`/`*`/`/`/`%` for `name:number`, and `+` (only) for `name:str`. `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
+> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix expressions are parsed with precedence climbing and may contain nested operators. Operator and type pairings are enforced at every branch. `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` are valid for `name:bool`, `+`/`-`/`*`/`/`/`%` for `name:number`, and `+` (only) for `name:str`. `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
-### 3.2 `#if` — binary conditional expression
+### 3.2 `if` — binary conditional expression
 
 ```hcl
 name:type = if(cond, then_expr, else_expr)
 ```
 
-`#if` selects between two expressions. The condition must resolve to `bool`, and only the selected branch is evaluated.
+`if` selects between two expressions. The condition must resolve to `bool`, and only the selected branch is evaluated.
 
 Example:
 
@@ -417,11 +418,11 @@ Rules:
 - `cond` must resolve to `bool`.
 - `then_expr` and `else_expr` must resolve to the same type.
 - The binding's declared type must match the branch type.
-- `#if` is preferred for short binary decisions. Use `#case` for three or more outcomes.
+- `if` is preferred for short binary decisions. Use `case` for three or more outcomes.
 
 ---
 
-### 3.3 `#case` — ordered classification
+### 3.3 `case` — ordered classification
 
 ```hcl
 name:type = case(
@@ -432,7 +433,7 @@ name:type = case(
 )
 ```
 
-`#case` evaluates arms from top to bottom and returns the expression for the first matching pattern whose guard passes.
+`case` evaluates arms from top to bottom and returns the expression for the first matching pattern whose guard passes.
 
 Example:
 
@@ -468,8 +469,8 @@ Emitted ContextSpec:
 
 Rules:
 
-- Supported patterns are literals, wildcard `_`, variable binders, and guarded arms. Tuple patterns are not part of the implemented v1 parser.
-- Future draft: tuple patterns may extend `#case` so a tuple subject such as `(unsafe, spindle_temp_c)` can be matched by tuple arms such as `(true, _)` and `(false, t) if t < 28 => "warmup"`.
+- Supported patterns are literals, wildcard `_`, variable binders, guarded arms, tuple patterns, and template destructuring patterns.
+- A tuple subject such as `(unsafe, spindle_temp_c)` can be matched by tuple arms such as `(true, _)` and `(false, t) if t < 28 => "warmup"`.
 - `_` matches any value and does not bind.
 - Pattern binders are visible only in that arm's guard and expression.
 - If no arm matches and no wildcard arm exists, evaluation fails.
@@ -477,7 +478,7 @@ Rules:
 
 ---
 
-### 3.4 `#pipe` — sequential steps
+### 3.4 `pipe` — sequential steps
 
 ```hcl
 name:type = pipe(
@@ -487,7 +488,7 @@ name:type = pipe(
 )
 ```
 
-`#pipe` evaluates `initial_value`, then evaluates each step in order with `#it` bound to the current pipeline value. The final step result is the pipe result.
+`pipe` evaluates `initial_value`, then evaluates each step in order with `#it` bound to the current pipeline value. The final step result is the pipe result.
 
 Example:
 
@@ -525,7 +526,7 @@ Emitted ContextSpec:
 Rules:
 
 - Each step is a full expression template and may refer to `#it`.
-- `#it` is valid only inside a `#pipe` step.
+- `#it` is valid only inside a `pipe` step.
 - `_` is not a pipe placeholder.
 - The binding's declared type must match the return type of the final step.
 ---
@@ -535,8 +536,8 @@ Rules:
 | HCL form | Emits | Valid in |
 |----------|-------|----------|
 | Bare identifier `v_name` | `'v_name'` (`ValueRef` string) | expressions and call args |
-| `#it` | current pipeline value reference | `#pipe` steps only |
-| `_` | wildcard pattern | `#case` patterns only |
+| `#it` | current pipeline value reference | `pipe` steps only |
+| `_` | wildcard pattern | `case` patterns only |
 
 #### Available transform function names (fully-qualified)
 
@@ -567,17 +568,17 @@ Rules:
 | `NamedArgNotSupported` | Function call uses named-argument syntax; calls are positional only |
 | `OperatorOnlyFn` | Call-form alias used for a function that requires operator syntax (`bool_and`, `gte`, `lte`, `str_concat`) |
 | `UndefinedRef` | Bare identifier references an unknown binding |
-| `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in v1 source |
+| `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in source |
 | `InvalidBinaryArgShape` | Binary call does not provide the required positional argument shape |
 | `InvalidInfixExpr` | Infix expression is malformed, uses an unsupported operator, or violates operator/type pairing |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |
 | `CondNotBool` | `condition` binding does not resolve to `bool` |
 | `BranchTypeMismatch` | `then` and `else` return types differ |
-| `CaseArmTypeMismatch` | `#case` arm expressions do not resolve to a common type |
-| `CaseNoMatch` | `#case` evaluation reaches no matching arm and no `_` wildcard arm exists |
-| `ItOutsidePipe` | `#it` appears outside a `#pipe` step |
-| `InvalidWildcardUse` | `_` appears anywhere other than a `#case` wildcard pattern |
+| `CaseArmTypeMismatch` | `case` arm expressions do not resolve to a common type |
+| `CaseNoMatch` | `case` evaluation reaches no matching arm and no `_` wildcard arm exists |
+| `ItOutsidePipe` | `#it` appears outside a `pipe` step |
+| `InvalidWildcardUse` | `_` appears anywhere other than a `case` wildcard pattern |
 | `SingleRefTypeMismatch` | Single-reference form `name:type = identifier` where `identifier` resolves to a different type than `type` |
 
 ---
@@ -661,7 +662,7 @@ prog "main" {
     #it - n
   )
 
-  # --- #case classification ---
+  # --- case classification ---
   band:str = case(
     piped,
     x if x >= 80 => "high",
@@ -669,7 +670,7 @@ prog "main" {
     _ => "low"
   )
 
-  # --- #if binary choice ---
+  # --- if binary choice ---
   final:str = if(piped > doubled, msg + " !", msg + " .")
 }
 ```
@@ -716,8 +717,8 @@ ctx({
 | C. Reference resolver | Two-pass forward-reference resolution |
 | D. Combine emitter | All 24 function aliases |
 | E. Pipe emitter | `#it` scoping and ordered step evaluation |
-| F. `#if` emitter | condition/branch type checking and selected-branch evaluation |
-| G. `#case` emitter | ordered pattern matching, guards, wildcard fallback |
+| F. `if` emitter | condition/branch type checking and selected-branch evaluation |
+| G. `case` emitter | ordered pattern matching, guards, wildcard fallback |
 | H. Error paths | All error codes |
 
 ### Critical paths
@@ -730,7 +731,7 @@ ctx({
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
 | 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
-| 7 | `#case` with guarded scalar arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
+| 7 | `case` with guarded scalar arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
 
 ### Edge cases
 
@@ -741,8 +742,8 @@ ctx({
 | `if(flag, 1, "one")` | `BranchTypeMismatch` error |
 | `case(x, 1 => "one", 2 => 2)` | `CaseArmTypeMismatch` error |
 | `case(x, 1 => "one")` with subject `2` | `CaseNoMatch` runtime error |
-| `n:number = #it + 1` outside `#pipe` | `ItOutsidePipe` error |
-| `n:number = _` outside a `#case` pattern | `InvalidWildcardUse` error |
+| `n:number = #it + 1` outside `pipe` | `ItOutsidePipe` error |
+| `n:number = _` outside a `case` pattern | `InvalidWildcardUse` error |
 | Two `prog` blocks in one file | `DuplicateProg` error — a file may contain at most one `prog` block |
 | `max(a: v1)` | `NamedArgNotSupported` error |
 | `max(a: v1, b: v2, c: v3)` | `NamedArgNotSupported` error |

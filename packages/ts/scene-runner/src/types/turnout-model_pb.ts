@@ -448,7 +448,7 @@ export type BindingModel = Message<"turnout.model.v1.BindingModel"> & {
   expr?: ExprModel;
 
   /**
-   * ext_expr carries the structured source expression for #if/#case/#pipe bindings.
+   * ext_expr carries the structured source expression for if/case/pipe bindings.
    * Populated by the HCL emitter to round-trip those forms. MUST NOT be set in
    * JSON output; the runtime ignores this field entirely.
    *
@@ -1276,7 +1276,7 @@ export const LocalTuplePatternModelSchema: GenMessage<LocalTuplePatternModel> = 
   messageDesc(file_turnout_model, 43);
 
 /**
- * LocalTemplatePatternModel destructures a template literal value in a #case
+ * LocalTemplatePatternModel destructures a template literal value in a case
  * arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.
  *
  * @generated from message turnout.model.v1.LocalTemplatePatternModel

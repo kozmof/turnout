@@ -82,7 +82,7 @@ func TestCasePatternTuple(t *testing.T) {
 
 // TestRHSLocalNestedExprs exercises the nested local-expression primaries:
 // parseLocalIfExpr, parseLocalCaseExpr, and parseLocalPipeExpr. Each appears as
-// an operand of an outer #if, which is the only context that drives these.
+// an operand of an outer if, which is the only context that drives these.
 func TestRHSLocalNestedExprs(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {

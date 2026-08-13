@@ -9,7 +9,7 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extended expression emitters (#if / #case / #pipe from proto ext_expr)
+// Extended expression emitters (if / case / pipe from proto ext_expr)
 // ─────────────────────────────────────────────────────────────────────────────
 
 // writeExtExpr writes `expr  = { if/case/pipe = { ... } }` from the proto LocalExprModel.
@@ -70,7 +70,7 @@ func writeExtExpr(iw *iWriter, e *turnoutpb.LocalExprModel, bindingType string) 
 // resolve InfixPlus to "str_concat" (str) or "add" (number).
 func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType string) string {
 	if e == nil {
-		panic("localExprInline: nil LocalExprModel — this is a compiler bug; every branch of a #if/#case/#pipe must produce a non-nil node")
+		panic("localExprInline: nil LocalExprModel — this is a compiler bug; every branch of a if/case/pipe must produce a non-nil node")
 	}
 	if iw.err != nil {
 		return `{ ref = "" }`

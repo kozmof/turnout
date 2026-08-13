@@ -1,11 +1,11 @@
 # Literal & Template Types Specification — Turn DSL
 
 > Status: Implemented
-> Scope: Turn DSL scalar literal types, literal unions, template literal types, typed construction, and `#case` scalar, template, and tuple pattern matching (destructuring, exhaustiveness, reachability, refinement) — plus their lowering to the canonical model and runtime execution.
+> Scope: Turn DSL scalar literal types, literal unions, template literal types, typed construction, and `case` scalar, template, and tuple pattern matching (destructuring, exhaustiveness, reachability, refinement) — plus their lowering to the canonical model and runtime execution.
 
 This is the as-built specification for the literal & template type feature. It is the reference cited by code comments across the Go converter (`packages/go/converter`) and the TypeScript runtime (`packages/ts`). Section numbers are stable so those references stay valid.
 
-Related specs: `pipe-if-case-it.md` (the `#case`/`#if`/`#pipe` local-expression forms this feature extends), `transform-fn-dsl-spec.md` (the transform method calls reused by construction/extraction), `convert-runtime-spec.md` (the canonical model and runtime), and `state-shape-spec.md` (the primitive `FieldType` layer). Cross-language conformance fixtures live in `spec/conformance/template-matching.json`.
+Related specs: `pipe-if-case-it.md` (the `case`/`if`/`pipe` local-expression forms this feature extends), `transform-fn-dsl-spec.md` (the transform method calls reused by construction/extraction), `convert-runtime-spec.md` (the canonical model and runtime), and `state-shape-spec.md` (the primitive `FieldType` layer). Cross-language conformance fixtures live in `spec/conformance/template-matching.json`.
 
 ## 1. Status
 
@@ -982,7 +982,7 @@ For the initial implementation, nesting is limited to:
 
 ---
 
-# 13. `#case` semantics
+# 13. `case` semantics
 
 ## 13.1 Basic form
 
@@ -1774,7 +1774,7 @@ CaptureDeclaration =
   "}" ;
 
 CaseExpression =
-  "#case"
+  "case"
   "("
   Expression
   ","
@@ -2039,7 +2039,7 @@ This prevents runtime implementation changes from altering model meaning.
 
 # 26. Compatibility and migration
 
-## 26.1 Existing `#case`
+## 26.1 Existing `case`
 
 Existing literal, wildcard, binder, and guard behavior should remain valid.
 
@@ -2476,9 +2476,9 @@ Both construction forms are implemented:
 
 The `{name}` interpolation-string form of §11.2 is not a separate surface syntax; the constructor form `TypeName { field = value }` (§11.3, §22) is canonical and covers both cases.
 
-## 32.5 `#case` template destructuring runtime (§12, §19)
+## 32.5 `case` template destructuring runtime (§12, §19)
 
-A `#case` subject is typed as its template, so runtime membership is guaranteed; only capture extraction is required, and constraint checks and arm selection reuse the existing equality/boolean/conditional functions. Destructuring lowers to the same ordered `CondExpr` chain as a scalar `#case`:
+A `case` subject is typed as its template, so runtime membership is guaranteed; only capture extraction is required, and constraint checks and arm selection reuse the existing equality/boolean/conditional functions. Destructuring lowers to the same ordered `CondExpr` chain as a scalar `case`:
 
 * a literal-constrained field (`kind: "foo"`) becomes `eq(template_extract(subject, spec), "foo")`;
 * a bound capture becomes `template_extract` (string), `template_extract_num` (number), or `eq(extract, "true")` (boolean), referenced by the arm body under a fresh alpha-renamed binding so multiple arms may bind the same capture name without collision.
@@ -2487,7 +2487,7 @@ A `#case` subject is typed as its template, so runtime membership is guaranteed;
 
 ## 32.6 Static analysis (§14, §16, §17)
 
-Finite-union `#case` exhaustiveness, duplicate/unreachable-arm detection, and remaining-type refinement are implemented for scalar subjects (§14.1–§14.3, §16.1–§16.2, §17.1–§17.3) and for template subjects via product-domain subtraction over the finite (literal-union) capture domains, with infinite captures unconstrained not blocking exhaustiveness (§14.4–§14.6, §16.3, §17.4). Guards are opaque: a guarded arm neither shadows later arms nor completes coverage (§15.2, §29.5). Capture refinement types each bound var-binder to its capture type inside the arm.
+Finite-union `case` exhaustiveness, duplicate/unreachable-arm detection, and remaining-type refinement are implemented for scalar subjects (§14.1–§14.3, §16.1–§16.2, §17.1–§17.3) and for template subjects via product-domain subtraction over the finite (literal-union) capture domains, with infinite captures unconstrained not blocking exhaustiveness (§14.4–§14.6, §16.3, §17.4). Guards are opaque: a guarded arm neither shadows later arms nor completes coverage (§15.2, §29.5). Capture refinement types each bound var-binder to its capture type inside the arm.
 
 Combined tuple patterns use recursive product-domain analysis. Tuple subjects and patterns may nest, template patterns may appear in tuple positions, tuple arity is checked statically, and binders are refined from the corresponding tuple element. Finite scalar and template discriminants are combined for exhaustiveness and shadowing checks. Tuple cases lower to the same scalar equality, template extraction, boolean conjunction, and ordered conditional graph operations used by existing patterns.
 

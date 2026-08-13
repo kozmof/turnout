@@ -198,7 +198,7 @@ Interpretation:
 - A route entry cannot reference an undefined scene ID (`UnresolvedEntryScene`).
 - A match target cannot reference an undefined scene ID (`UnresolvedScene`).
 - A direct `scene_id.action_id` pattern cannot reference an action missing from that scene (`UnresolvedAction`).
-- A `<~` or `<~>` sigil (from `effect-dsl-spec.md`) has no meaning inside a route pattern. Route patterns are read-only against history.
+- Inline IO arrows (from `effect-dsl-spec.md`) have no meaning inside a route pattern. Route patterns are read-only against history.
 
 ---
 

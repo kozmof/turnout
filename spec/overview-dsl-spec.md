@@ -350,7 +350,7 @@ Implementations MUST document which whitespace characters are stripped during tr
 
 ## 7. Validation Lifecycle
 
-Overview validation occurs as part of scene-level validation (Section 6 of scene-graph.md), specifically as item 15: *"If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode."*
+Overview validation occurs as part of scene-level validation (Section 6 of scene-graph.md), specifically as item 15: *"If an `overview` block exists, overview parsing, compilation, and enforcement succeed for the selected mode."*
 
 The three sub-stages map to diagnostic stage values:
 
@@ -428,7 +428,7 @@ Overview diagnostics use the same `SceneDiagnostic` shape defined in scene-graph
 
 ## 10. Conformance Checklist
 
-1. A scene without a `view` block runs without any overview enforcement.
+1. A scene without an `overview` block runs without any overview enforcement.
 2. A `flow` that is empty or whitespace-only fails `OverviewFlowEmpty` at parse stage.
 3. An edge line before any node line fails `OverviewEdgeWithoutSource`.
 4. A duplicate `overview` block fails `OverviewDuplicate`.

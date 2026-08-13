@@ -18,7 +18,7 @@ import (
 // ── Scope lookup abstraction ─────────────────────────────────────────────────
 //
 // scopeLookup is a read-only view of a binding scope. It is implemented by
-// mapScope (a plain map wrapper) and scopeChain (a linked-scope for #case
+// mapScope (a plain map wrapper) and scopeChain (a linked-scope for case
 // var-binder arms). Using an interface avoids O(n) map copies per arm.
 
 type scopeLookup interface {
@@ -202,7 +202,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			}
 		}
 
-		// For #if/#case/#pipe root bindings the lowerer sets both Expr (consumed
+		// For if/case/pipe root bindings the lowerer sets both Expr (consumed
 		// by the TS runtime executor) and ExtExpr (used only for HCL emission).
 		// When ExtExpr is present, validate against the structured tree and skip
 		// the flat-Expr path — the two encode the same semantics and would

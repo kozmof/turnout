@@ -70,7 +70,7 @@ export class ContextSpecBuilder {
           "UnsupportedConstruct",
           this.contextId,
           `binding "${binding.name}": extExpr is a pre-lowering representation that must not appear in emitted JSON. ` +
-            `This model may have been produced by a pre-release converter that did not lower #if/#case/#pipe expressions. ` +
+            `This model may have been produced by a pre-release converter that did not lower if/case/pipe expressions. ` +
             `Re-compile the source with the current converter to fix this. ` +
             `(Earlier detection with an actionable error is available in migration.ts checkForExtExpr.)`,
         );

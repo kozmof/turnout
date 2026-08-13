@@ -378,7 +378,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 - A namespace can contain zero or more fields.
 - The same namespace label can appear in multiple `from_state` and `to_state` references across different actions.
 - A STATE field can be both a `from_state` source in one action's `prepare` and a `to_state` destination in another action's `merge`.
-- A `<~>` bidirectional binding can read from one STATE path in `prepare` and write to a different STATE path in `merge`.
+- A bidirectional binding can read from one STATE path and write to a different STATE path, inline or through `prepare` and `merge`.
 - `S_0` initialization uses the declared `value` defaults for all fields.
 - The runtime can initialize `S_0` before the first entry action fires. No STATE path can be absent after initialization.
 - The converter can check type constraints across all actions simultaneously against the single `state` block declaration.
@@ -392,7 +392,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 - A field cannot be declared without both `type` and `value`.
 - A `from_state` or `to_state` path cannot reference an undeclared field.
 - An action compute graph cannot write to STATE directly during execution. All STATE writes must go through the `merge` step.
-- A transition compute program cannot write to STATE (no `<~` or `<~>` sigils in transition `prog` blocks).
+- A transition compute program cannot write to STATE; inline `~> @state.path` is rejected in transition `prog` blocks.
 - The runtime cannot accept a partial `state` block (missing `type` or `value`) without emitting a validation error.
 - A `state` block cannot contain duplicate namespace labels or duplicate field names within one namespace.
 - An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type. This is a convert-time type constraint error (`StateTypeMismatch`). For example, writing a `str` value to a `number` field is a type error.
@@ -721,5 +721,5 @@ Runtime `S_0` after initialization:
 | `field "income" { type = "number" }` with no `value` | `MissingStateFieldAttr` |
 | HCL file with no `state` block | `MissingStateBlock` |
 | HCL file with two `state` blocks | `DuplicateStateBlock` |
-| `<~>income` reads from `applicant.income`, writes to `decision.input_income` | Both paths must be declared; types must match source binding type |
+| `income:number <~ @applicant.income ~> @decision.input_income` | Both paths must be declared; types must match source binding type |
 | `state_file` path is absolute | Converter resolves it as-is (absolute path) |

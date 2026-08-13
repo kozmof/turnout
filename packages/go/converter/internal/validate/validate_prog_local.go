@@ -8,7 +8,7 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extended local expression validation (#if / #case / #pipe / #it)
+// Extended local expression validation (if / case / pipe / #it)
 //
 // validateExtExprProto walks a proto LocalExprModel directly, avoiding any
 // round-trip allocation through ast.LocalExpr nodes. The scalar type helpers
@@ -69,7 +69,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 	case *turnoutpb.LocalExprModel_It:
 		if !itAllowed {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
-				"binding %q: #it is only valid inside #pipe step expressions", bindingName))
+				"binding %q: #it is only valid inside pipe step expressions", bindingName))
 			return 0, false
 		}
 		if itType == 0 {
@@ -135,13 +135,13 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 	condType, condOK := validateProtoLocalExpr(bindingName, cond, scope, itType, itAllowed, ds)
 	if condOK && condType != ast.FieldTypeBool {
 		ds.Append(diag.Errorf(diag.CodeCondNotBool,
-			"binding %q: #if condition has type %s; bool required", bindingName, condType))
+			"binding %q: if condition has type %s; bool required", bindingName, condType))
 	}
 	thenType, thenOK := validateProtoLocalExpr(bindingName, thenExpr, scope, itType, itAllowed, ds)
 	elseType, elseOK := validateProtoLocalExpr(bindingName, elseExpr, scope, itType, itAllowed, ds)
 	if thenOK && elseOK && thenType != elseType {
 		ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch,
-			"binding %q: #if branches return %s and %s", bindingName, thenType, elseType))
+			"binding %q: if branches return %s and %s", bindingName, thenType, elseType))
 		return 0, false
 	}
 	if thenOK {
@@ -170,7 +170,7 @@ func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprMode
 			guardType, guardOK := validateProtoLocalExpr(bindingName, arm.GetGuard(), armScope, itType, itAllowed, ds)
 			if guardOK && guardType != ast.FieldTypeBool {
 				ds.Append(diag.Errorf(diag.CodeCondNotBool,
-					"binding %q: #case guard has type %s; bool required", bindingName, guardType))
+					"binding %q: case guard has type %s; bool required", bindingName, guardType))
 			}
 		}
 		armType, armOK := validateProtoLocalExpr(bindingName, arm.GetExpr(), armScope, itType, itAllowed, ds)
@@ -179,7 +179,7 @@ func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprMode
 		}
 		if retOK && armType != ret {
 			ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch,
-				"binding %q: #case arms return %s and %s", bindingName, ret, armType))
+				"binding %q: case arms return %s and %s", bindingName, ret, armType))
 			continue
 		}
 		ret = armType
@@ -206,7 +206,7 @@ func validateProtoPattern(bindingName string, p *turnoutpb.LocalCasePatternModel
 		patternType, ok := structpbFieldType(x.Lit.GetValue())
 		if ok && subjectKnown && patternType != subjectType {
 			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-				"binding %q: #case literal pattern has type %s but subject has type %s",
+				"binding %q: case literal pattern has type %s but subject has type %s",
 				bindingName, patternType, subjectType))
 		}
 	case *turnoutpb.LocalCasePatternModel_Template:
@@ -221,7 +221,7 @@ func validateTemplatePattern(bindingName string, tp *turnoutpb.LocalTemplatePatt
 	tmpl, ok := templateOfSubject(subjectDecl)
 	if !ok {
 		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
-			"binding %q: template pattern %s cannot be used here; the #case subject is not a template literal type",
+			"binding %q: template pattern %s cannot be used here; the case subject is not a template literal type",
 			bindingName, tp.GetTypeName()))
 		return
 	}

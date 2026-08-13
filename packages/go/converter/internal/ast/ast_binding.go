@@ -243,7 +243,7 @@ func (*InfixRHS) Kind() BindingRHSKind { return RHSKindInfix }
 // This tree is deliberately separate from LocalExpr: LocalExpr cannot represent
 // a method-call chain (parseLocalPrimary has no '.' branch), and method chains
 // are valid infix operands. Keeping the two apart also means nesting a binding
-// RHS cannot perturb the #if / #case / #pipe lowering paths.
+// RHS cannot perturb the if / case / pipe lowering paths.
 type InfixNode interface{ infixNode() }
 
 // InfixLeaf wraps a terminal operand.
@@ -290,11 +290,11 @@ func (*TransformRHS) bindingRHS()          {}
 func (*TransformRHS) Kind() BindingRHSKind { return RHSKindTransform }
 
 // ────────────────────────────────────────────────────────────
-// v1 local expression tree
+// Local expression tree
 // ────────────────────────────────────────────────────────────
 
-// LocalExpr is the pre-lowering expression tree used inside #if, #case, and
-// #pipe blocks. It is parsed and walked by the lowerer and validator, then
+// LocalExpr is the pre-lowering expression tree used inside if, case, and
+// pipe blocks. It is parsed and walked by the lowerer and validator, then
 // discarded after lowering produces flat BindingModel / ExprModel proto nodes.
 //
 // Arg (below) is the post-lowering, proto-level argument type used inside
@@ -303,7 +303,7 @@ func (*TransformRHS) Kind() BindingRHSKind { return RHSKindTransform }
 // conflated: LocalExpr nodes carry source positions and richer structure;
 // Arg nodes map 1-to-1 onto proto ArgModel fields.
 //
-// LocalExpr is a recursive expression node used inside #if, #case, and #pipe.
+// LocalExpr is a recursive expression node used inside if, case, and pipe.
 type LocalExpr interface{ localExpr() }
 
 // LocalRefExpr is a bare identifier reference: `v` → `{ ref = "v" }`.
@@ -322,7 +322,7 @@ type LocalLitExpr struct {
 
 func (*LocalLitExpr) localExpr() {}
 
-// LocalItExpr is `#it` — the current pipeline value; valid only inside #pipe steps.
+// LocalItExpr is `#it` — the current pipeline value; valid only inside pipe steps.
 type LocalItExpr struct{ Pos Pos }
 
 func (*LocalItExpr) localExpr() {}
@@ -380,10 +380,10 @@ type LocalTupleExpr struct {
 func (*LocalTupleExpr) localExpr() {}
 
 // ────────────────────────────────────────────────────────────
-// #case arm and pattern types
+// case arm and pattern types
 // ────────────────────────────────────────────────────────────
 
-// LocalCaseArm is one arm of a #case expression.
+// LocalCaseArm is one arm of a case expression.
 type LocalCaseArm struct {
 	Pos     Pos
 	Pattern LocalCasePattern
@@ -391,7 +391,7 @@ type LocalCaseArm struct {
 	Expr    LocalExpr
 }
 
-// LocalCasePattern is a pattern in a #case arm.
+// LocalCasePattern is a pattern in a case arm.
 type LocalCasePattern interface{ localCasePattern() }
 
 // WildcardCasePattern matches any value without binding: `_`.
@@ -444,7 +444,7 @@ type TemplateFieldPattern struct {
 }
 
 // ────────────────────────────────────────────────────────────
-// v1 binding RHS types
+// Binding RHS types
 // ────────────────────────────────────────────────────────────
 
 // ErrorRHS is a sentinel produced by the parser when a binding's right-hand side
@@ -466,7 +466,7 @@ type SigilInputRHS struct{}
 func (*SigilInputRHS) bindingRHS()          {}
 func (*SigilInputRHS) Kind() BindingRHSKind { return RHSKindSigilInput }
 
-// IfCallRHS is the v1 `if(cond, then_expr, else_expr)` function-call form.
+// IfCallRHS is the `if(cond, then_expr, else_expr)` function-call form.
 type IfCallRHS struct {
 	Pos              Pos
 	Cond, Then, Else LocalExpr
@@ -476,7 +476,7 @@ func (*IfCallRHS) bindingRHS()          {}
 func (*IfCallRHS) syntaxRHS()           {}
 func (*IfCallRHS) Kind() BindingRHSKind { return RHSKindIfCall }
 
-// CaseCallRHS is the v1 `case(subject, pattern => expr, ..., _ => default)` form.
+// CaseCallRHS is the `case(subject, pattern => expr, ..., _ => default)` form.
 type CaseCallRHS struct {
 	Pos     Pos
 	Subject LocalExpr
@@ -487,7 +487,7 @@ func (*CaseCallRHS) bindingRHS()          {}
 func (*CaseCallRHS) syntaxRHS()           {}
 func (*CaseCallRHS) Kind() BindingRHSKind { return RHSKindCaseCall }
 
-// PipeCallRHS is the v1 `pipe(initial, step1, step2, ...)` form.
+// PipeCallRHS is the `pipe(initial, step1, step2, ...)` form.
 type PipeCallRHS struct {
 	Pos     Pos
 	Initial LocalExpr

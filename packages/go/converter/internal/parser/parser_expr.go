@@ -173,9 +173,9 @@ func (p *parser) parseRHS() ast.BindingRHS {
 		p.advance()
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
-	// ── block form: rejected in v1 ─────────────────────────────────────────
+	// ── block form: unsupported ─────────────────────────────────────────
 	case lexer.TokLBrace:
-		p.errorf(t, "block-form expressions are not supported in v1; use if(cond, then, else), case(...), or call syntax fn(args)")
+		p.errorf(t, "block-form expressions are not supported; use if(cond, then, else), case(...), or call syntax fn(args)")
 		p.skipBlock()
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 
@@ -337,7 +337,7 @@ func (p *parser) parseInfixPrec(lhs ast.InfixNode, minPrec int) ast.InfixNode {
 	}
 }
 
-// ─── #if (v1 function-call form) ─────────────────────────────────────────────
+// ─── if function-call form ─────────────────────────────────────────────
 
 // parseIfCallRHS parses `if(cond_expr, then_expr, else_expr)`.
 func (p *parser) parseIfCallRHS(pos ast.Pos) ast.BindingRHS {
@@ -351,7 +351,7 @@ func (p *parser) parseIfCallRHS(pos ast.Pos) ast.BindingRHS {
 	return &ast.IfCallRHS{Pos: pos, Cond: cond, Then: then, Else: els}
 }
 
-// ─── #case (v1 form) ──────────────────────────────────────────────────────────
+// ─── case function-call form ──────────────────────────────────────────────────────────
 
 // parseCaseCallRHS parses `case(subject, pattern => expr, ..., _ => default)`.
 func (p *parser) parseCaseCallRHS(pos ast.Pos) ast.BindingRHS {
@@ -401,7 +401,7 @@ func (p *parser) parseCasePattern() ast.LocalCasePattern {
 		}
 		return &ast.VarBinderPattern{Pos: p.posOf(t), Name: nameTok.Value}
 	default:
-		p.errorf(t, "expected pattern in #case arm, got %s %q", kindName(t.Kind), t.Value)
+		p.errorf(t, "expected pattern in case arm, got %s %q", kindName(t.Kind), t.Value)
 		return &ast.WildcardCasePattern{Pos: p.posOf(t)}
 	}
 }
@@ -457,7 +457,7 @@ func (p *parser) parseTemplateCasePattern(nameTok lexer.Token) ast.LocalCasePatt
 	return &ast.TemplateCasePattern{Pos: p.posOf(nameTok), TypeName: nameTok.Value, Fields: fields}
 }
 
-// ─── #pipe (v1 function-call form) ───────────────────────────────────────────
+// ─── pipe function-call form ───────────────────────────────────────────
 
 // parsePipeCallRHS parses `pipe(initial_expr, step1_expr, step2_expr, ...)`.
 func (p *parser) parsePipeCallRHS(pos ast.Pos) ast.BindingRHS {

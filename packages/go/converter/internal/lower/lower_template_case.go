@@ -10,17 +10,17 @@ import (
 )
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Template #case destructuring lowering (literal-template-types-spec.md §12, §19)
+// Template case destructuring lowering (literal-template-types-spec.md §12, §19)
 //
 // A template destructuring arm is lowered to the same ordered CondExpr chain as
-// a scalar #case, but each arm's condition and capture bindings are expressed
+// a scalar case, but each arm's condition and capture bindings are expressed
 // with the `template_extract` runtime function (which reads a capture's raw text
 // from a template value). A literal-constrained field becomes an equality check
 // on the extracted text; a bound capture becomes an extract (converted to the
 // capture's runtime type) referenced by the arm body under a fresh name.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// lowerTemplateCaseInto lowers a #case that destructures a template subject.
+// lowerTemplateCaseInto lowers a case that destructures a template subject.
 // Returns false when the subject's template type cannot be recovered, so the
 // caller falls back to the inert stub (the validate stage has already reported
 // the underlying error).
@@ -89,7 +89,7 @@ func (c *localLowerer) lowerTemplateCaseInto(name string, ft ast.FieldType, subj
 	return true
 }
 
-// subjectTemplate recovers the resolved template type of a #case subject when it
+// subjectTemplate recovers the resolved template type of a case subject when it
 // is a direct reference to a binding declared with a template type.
 func (c *localLowerer) subjectTemplate(subject ast.LocalExpr) (*ast.TemplateType, bool) {
 	ref, ok := subject.(*ast.LocalRefExpr)

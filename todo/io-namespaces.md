@@ -11,7 +11,7 @@ The suffix carries no meaning the compiler uses. It exists only to keep two name
 
 ## Why this was gated behind Phase 3
 
-Inline IO changed how a binding name is read. Before:
+Inline IO changed how a binding name is read. Before v2:
 
 ```hcl
 ~>cost_in:number

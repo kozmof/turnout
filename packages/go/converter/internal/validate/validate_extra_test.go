@@ -63,7 +63,7 @@ func TestValidateExtExprUndefinedRef(t *testing.T) {
         out:number = if(flag, missing_ref, 1)
 `)
 	if !hasCode(pipeline(src), diag.CodeUndefinedRef) {
-		t.Error("want UndefinedRef for missing ref inside #if sidecar expression")
+		t.Error("want UndefinedRef for missing ref inside if sidecar expression")
 	}
 }
 
@@ -72,7 +72,7 @@ func TestValidateExtExprBranchTypeMismatch(t *testing.T) {
         out:number = if(flag, 1, "oops")
 `)
 	if !hasCode(pipeline(src), diag.CodeBranchTypeMismatch) {
-		t.Error("want BranchTypeMismatch for mismatched #if local branches")
+		t.Error("want BranchTypeMismatch for mismatched if local branches")
 	}
 }
 
@@ -80,7 +80,7 @@ func TestValidateExtExprItOutsidePipeStep(t *testing.T) {
 	src := min(`        out:number = if(true, #it, 1)
 `)
 	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
-		t.Error("want UnsupportedConstruct for #it outside #pipe step")
+		t.Error("want UnsupportedConstruct for #it outside pipe step")
 	}
 }
 
@@ -89,7 +89,7 @@ func TestValidateExtExprPipeStepTypeMismatch(t *testing.T) {
 	src := min(`        out:bool = pipe(0, str_includes(#it, "x"))
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
-		t.Error("want ArgTypeMismatch for #pipe step using #it with wrong type")
+		t.Error("want ArgTypeMismatch for pipe step using #it with wrong type")
 	}
 }
 
@@ -1474,7 +1474,7 @@ func TestLiteralFieldTypeBoolLiteral(t *testing.T) {
 	}
 }
 
-// ─── EmptyArrayLitArg in local (#if/#case/#pipe) expressions ─────────────────
+// ─── EmptyArrayLitArg in local (if/case/pipe) expressions ─────────────────
 
 func TestEmptyArrayLitArgInIf(t *testing.T) {
 	src := min(`        flag:bool = true
@@ -1482,7 +1482,7 @@ func TestEmptyArrayLitArgInIf(t *testing.T) {
         out:arr<number> = if(flag, arr_concat(base, []), base)
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
-		t.Error("want EmptyArrayLitArg for [] as call arg inside #if branch")
+		t.Error("want EmptyArrayLitArg for [] as call arg inside if branch")
 	}
 }
 
@@ -1492,7 +1492,7 @@ func TestEmptyArrayLitArgInCase(t *testing.T) {
         out:arr<number> = case(n, 0 => arr_concat(base, []), _ => base)
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
-		t.Error("want EmptyArrayLitArg for [] as call arg inside #case arm")
+		t.Error("want EmptyArrayLitArg for [] as call arg inside case arm")
 	}
 }
 
@@ -1501,7 +1501,7 @@ func TestEmptyArrayLitArgInPipe(t *testing.T) {
         out:arr<number> = pipe(base, arr_concat(#it, []))
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
-		t.Error("want EmptyArrayLitArg for [] as call arg inside #pipe step")
+		t.Error("want EmptyArrayLitArg for [] as call arg inside pipe step")
 	}
 }
 
@@ -1841,7 +1841,7 @@ func TestCondTransformBranchTypeMismatch(t *testing.T) {
 	}
 }
 
-// ─── CrossPipeStepRef: step_ref in combine arg (not inside #pipe step) ───────
+// ─── CrossPipeStepRef: step_ref in combine arg (not inside pipe step) ───────
 
 // TestCrossPipeStepRefInCombineArg: a step_ref inside a CombineExpr arg is
 // only valid inside a PipeExpr step; using it in a plain combine emits
@@ -1916,7 +1916,7 @@ func TestOverArityBinaryFnPipeStep(t *testing.T) {
 
 // ─── InvalidBinaryArgShape in local ExtExpr path ─────────────────────────────
 
-// TestLocalCallUnderArityInIfBranch: an under-arity call inside a #if branch
+// TestLocalCallUnderArityInIfBranch: an under-arity call inside a if branch
 // takes the ExtExpr path (validateLocalCallArgTypes) and should emit
 // CodeInvalidBinaryArgShape.
 func TestLocalCallUnderArityInIfBranch(t *testing.T) {
@@ -1924,18 +1924,18 @@ func TestLocalCallUnderArityInIfBranch(t *testing.T) {
         out:number = if(true, max(x), x)
 `)
 	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for under-arity call inside #if branch (ExtExpr path)")
+		t.Error("want InvalidBinaryArgShape for under-arity call inside if branch (ExtExpr path)")
 	}
 }
 
-// TestLocalCallOverArityInIfBranch: an over-arity call inside a #if branch
+// TestLocalCallOverArityInIfBranch: an over-arity call inside a if branch
 // takes the ExtExpr path and should emit CodeInvalidBinaryArgShape.
 func TestLocalCallOverArityInIfBranch(t *testing.T) {
 	src := min(`        x:number = 1
         out:number = if(true, max(x, x, x), x)
 `)
 	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for over-arity call inside #if branch (ExtExpr path)")
+		t.Error("want InvalidBinaryArgShape for over-arity call inside if branch (ExtExpr path)")
 	}
 }
 
@@ -1956,14 +1956,14 @@ func TestUnsupportedFnRangeFlat(t *testing.T) {
 	}
 }
 
-// TestUnsupportedFnMapLocal: map() inside a #if branch emits UnsupportedConstruct.
+// TestUnsupportedFnMapLocal: map() inside a if branch emits UnsupportedConstruct.
 func TestUnsupportedFnMapLocal(t *testing.T) {
 	src := min(`        x:number = 1
         out:number = if(true, map(x, x), x)
 `)
 	ds := pipeline(src)
 	if !hasCode(ds, diag.CodeUnsupportedConstruct) {
-		t.Error("want UnsupportedConstruct for map() inside #if branch")
+		t.Error("want UnsupportedConstruct for map() inside if branch")
 	}
 }
 
@@ -1977,13 +1977,13 @@ func TestUnsupportedFnFilterFlat(t *testing.T) {
 	}
 }
 
-// TestUnsupportedFnFoldLocal: fold() inside a #pipe step emits UnsupportedConstruct.
+// TestUnsupportedFnFoldLocal: fold() inside a pipe step emits UnsupportedConstruct.
 func TestUnsupportedFnFoldLocal(t *testing.T) {
 	src := min(`        x:number = 1
         out:number = pipe(x, fold(#it, x))
 `)
 	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
-		t.Error("want UnsupportedConstruct for fold() inside #pipe step")
+		t.Error("want UnsupportedConstruct for fold() inside pipe step")
 	}
 }
 

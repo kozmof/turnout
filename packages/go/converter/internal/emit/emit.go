@@ -146,7 +146,7 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 		iw.wl("next_policy   = %q", *s.NextPolicy)
 	}
 
-	// view block (omit if absent)
+	// overview block (omit if absent; the wire field retains its legacy name)
 	if s.View != nil {
 		iw.nl()
 		writeViewBlock(iw, s.View)

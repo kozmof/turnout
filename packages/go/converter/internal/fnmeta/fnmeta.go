@@ -88,7 +88,7 @@ var builtinFnTable = map[string]FnSpec{
 	"str_ends":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeBool},
 	// template_extract(subject, spec) reads a template capture as raw text;
 	// template_extract_num parses a numeric capture. Emitted only by the lowerer
-	// for template #case destructuring.
+	// for template case destructuring.
 	"template_extract":     {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeStr},
 	"template_extract_num": {Arg1Type: ast.FieldTypeStr, Arg2Type: ast.FieldTypeStr, ReturnType: ast.FieldTypeNumber},
 	"bool_and":             {Arg1Type: ast.FieldTypeBool, Arg2Type: ast.FieldTypeBool, ReturnType: ast.FieldTypeBool},
@@ -120,7 +120,7 @@ func OperatorSymbol(fn string) string {
 
 // ReturnType returns the inferred return FieldType for fn given the binding's
 // declared type (fallback). Used by the lowerer when inferring types for local
-// expressions (#if/#case/#pipe). Returns fallback for unknown function names.
+// expressions (if/case/pipe). Returns fallback for unknown function names.
 func ReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 	spec, ok := BuiltinFn(fn)
 	if !ok {

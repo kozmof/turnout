@@ -17,7 +17,7 @@ score_text:str = score.abs().toStr() + unit  // number → number → string, th
 
 `pass` is an internal identity function used by the runtime. It is not part of the DSL surface syntax.
 
-For multi-step local expression chains, authors can use `pipe(initial, step, ...)` from `pipe-if-case-it.md`. Inside a `#pipe` step, `#it` names the current pipeline value, and `_` is not a transform placeholder. Transform method calls are not currently parsed on `#it` or on arbitrary local-expression results. `pipe-if-case-it.md §6.6` defines a future draft for syntax such as `#it.round().clamp(0, 5000)`.
+For multi-step local expression chains, authors can use `pipe(initial, step, ...)` from `pipe-if-case-it.md`. Inside a `pipe` step, `#it` names the current pipeline value, and `_` is not a transform placeholder. Transform method calls are not currently parsed on `#it` or on arbitrary local-expression results. `pipe-if-case-it.md §6.6` defines a future draft for syntax such as `#it.round().clamp(0, 5000)`.
 
 ---
 

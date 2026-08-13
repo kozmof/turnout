@@ -47,7 +47,7 @@ CAN (OK):
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
 - An action can declare STATE inputs under `prepare` and STATE outputs under `merge`.
-- An action can define inbound/outbound direction per binding in `compute.prog` using sigils.
+- An action can define IO inline in `compute.prog` or structurally with `prepare` and `merge`.
 - An action can define next actions using per-next `compute` `prog` blocks.
 - A next `prepare` input entry can source any value binding defined by the current action `compute.prog` via `from_action`.
 - An action can declare one or more publish hooks under `publish`.
@@ -57,13 +57,13 @@ CAN'T (NG):
 
 - An action `compute` prog cannot omit the `|^|` root marker (it derives `compute.root`). A prog cannot carry more than one marker, and the marked binding must be last.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
-- A binding marked as ingress-capable (`~>` or `<~>`) cannot omit its `prepare` entry.
+- A structural input binding cannot omit its `prepare` entry.
 - A next rule that includes a `compute` block cannot omit the `|?|` condition marker (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { |?| c:bool = true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
 - Next actions cannot reference missing actions.
 
 Correlation:
 
-- Because `root` accepts both value and function bindings (matching `compute.condition` semantics), a `<~ root` or `<~> root` binding is always available as a deterministic emission source regardless of whether `root` resolves to a value or function binding.
+- Because the root accepts both value and function bindings, a root with an inline `~> @state.path` output or structural `merge` entry is always available as a deterministic emission source.
 - Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
 - Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.prepare.<binding>.from_action` mapping.
 
@@ -147,12 +147,12 @@ type OverviewView = {
 
 Source and destination rules:
 
-- For action-level bindings declared as `~>` or `<~>`, exactly one ingress source MUST be set in `prepare`: `fromState` or `fromHook`.
-- For action-level bindings declared as `<~` or `<~>`, a destination mapping MUST be declared in `merge`. The destination key is `toState` if provided, otherwise the binding key.
-- For next-level bindings declared as `~>`, exactly one ingress source MUST be set in the transition `prepare`: `fromAction`, `fromState`, or `fromLiteral`.
+- An action-level input is declared inline with `name:type <~ source` or structurally by a `prepare` entry naming a bare `name:type` binding. Its source is STATE or a hook.
+- An action-level output is declared inline with `name:type = expr ~> @state.path` or structurally by a `merge` entry. Its destination is a STATE path.
+- A transition input is declared inline with `name:type <~ source` or structurally by a transition `prepare` entry. Its source is an action binding, post-merge STATE, or a literal.
 - `fromAction` is only valid inside transition `prepare` bindings.
 - `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
-- Future draft: action-level `prepare` may add `fromLiteral` as a third ingress source alongside `fromState` and `fromHook`. This is reserved future behavior and is not part of the implemented v1 model.
+- Future draft: action-level `prepare` may add `fromLiteral` as a third ingress source alongside `fromState` and `fromHook`. This is reserved future behavior and is not part of the current model.
 - Publish hooks in `publish.hooks` fire after merge in declaration order and receive the complete final state.
 
 Action-to-next binding scope:
@@ -164,13 +164,14 @@ Action-to-next binding scope:
 
 This spec standardizes the following scene-level HCL shape:
 
-Reference-style fields below are shown in bare form. Per Section 2.3, quoted and bare forms normalize identically.
+Reference-style fields below use the canonical bare form. Quoted references are accepted only as a temporary compatibility aid and should not be authored in new files.
 Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
-Directional binding prefixes are interpreted before ContextSpec lowering:
+IO direction is declared by inline clauses that point toward their destination, or by structural `prepare`/`merge` entries:
 
-- `~>name:type` means ingress-only binding.
-- `<~name:type = ...` means egress-only binding.
-- `<~>name:type` means ingress + egress binding.
+- `name:type <~ @state.path` declares an input.
+- `name:type = expr ~> @state.path` declares an output.
+- `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
+- A bare `name:type` may be paired with a `prepare` entry; a computed binding may be paired with a `merge` entry. Inline and structural IO must not be mixed for the same direction on one binding.
 
 Rule, root binding declared last: The compute root is designated inline with the `|^|` marker on its binding (and the transition condition with `|?|`). The marked binding MUST be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the marked binding.
 
@@ -267,13 +268,13 @@ Before first action execution, implementations MUST validate:
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program (value or function binding).
 8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`.
-9. For every binding declared `~>` or `<~>`, exactly one ingress source is set in `prepare`.
-10. For every binding declared `<~` or `<~>`, a `merge` entry exists.
+9. Every input binding has exactly one ingress source, declared inline or in `prepare`.
+10. Every output binding has exactly one STATE destination, declared inline or in `merge`.
 11. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 12. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
 13. For each next rule, every transition `prepare` binding key exists and resolves to a value binding in that next-rule `compute.prog`.
 14. For each next binding with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
-15. If `view` exists, overview parsing/compilation/enforcement succeeds for selected mode.
+15. If an `overview` block exists, overview parsing, compilation, and enforcement succeed for the selected mode.
 16. For action docstring sugar, each action has at most one triple-quoted text block and no conflict with explicit `text`.
 
 Validation failures MUST produce `invalid_graph` except overview failures, which MUST produce `invalid_overview`.
@@ -382,7 +383,7 @@ type SceneDiagnostic = {
 
 1. `compute.root` is derived from the `|^|`-marked binding, so it always names an existing binding. An action `compute` prog with no `|^|` marker fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
-3. A `<~ root` or `<~> root` binding writes exactly the executed root result when mapped through `merge`.
+3. A root binding with inline output or a structural `merge` entry writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.condition` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.

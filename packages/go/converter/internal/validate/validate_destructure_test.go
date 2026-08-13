@@ -6,7 +6,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
 
-// destructureProg builds a #case that destructures a ResourceId template subject.
+// destructureProg builds a case that destructures a ResourceId template subject.
 func destructureProg(rootType, arms string) string {
 	return `
 type Kind = "foo" | "bar"
@@ -29,7 +29,7 @@ scene "sc" {
 `
 }
 
-// A valid, exhaustive template #case now compiles cleanly (destructuring is
+// A valid, exhaustive template case now compiles cleanly (destructuring is
 // executable at runtime — see the e2e test).
 func TestDestructureCompilesClean(t *testing.T) {
 	ds := pipeline(destructureProg("number",

@@ -831,7 +831,7 @@ func TestParsePipeArgsBlockNonIdentParam(t *testing.T) {
 // ── Lines 723-726: parseIfBody non-ident token ───────────────────────────────
 
 func TestParseIfBodyNonIdentToken(t *testing.T) {
-	// v:bool = #if { 42 cond = flag then = tf else = ef } — number inside #if block
+	// v:bool = if { 42 cond = flag then = tf else = ef } — number inside if block
 	src := minimalTurnFile(`  entry_actions = [a]
   action "a" {
     compute {
@@ -849,7 +849,7 @@ func TestParseIfBodyNonIdentToken(t *testing.T) {
 // ── Lines 737-739: parseIfBody unknown field ─────────────────────────────────
 
 func TestParseIfBodyUnknownField(t *testing.T) {
-	// v:bool = #if { unknown_key = x cond = flag then = tf else = ef }
+	// v:bool = if { unknown_key = x cond = flag then = tf else = ef }
 	src := minimalTurnFile(`  entry_actions = [a]
   action "a" {
     compute {
@@ -867,7 +867,7 @@ func TestParseIfBodyUnknownField(t *testing.T) {
 // ── Lines 751-754: parseCondExpr non-ident ───────────────────────────────────
 
 func TestParseCondExprNonIdent(t *testing.T) {
-	// v:bool = #if { cond = 42 then = tf else = ef } — number as condition expression
+	// v:bool = if { cond = 42 then = tf else = ef } — number as condition expression
 	src := minimalTurnFile(`  entry_actions = [a]
   action "a" {
     compute {

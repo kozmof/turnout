@@ -45,13 +45,13 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `root`, `condition`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `view`, `flow`, `enforce`, `text`
+- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`
 - [x] Typed key (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
-- [x] Sigil prefixes: `<~>`, `<~`, `~>` (parse longest-match first)
-- [x] Infix operators: `>=`, `<=`, `&`, `+` (distinguish from HCL attribute assignment `=`)
-- [x] Special forms: `#pipe`, `#if`
-- [x] Ingress placeholder: `_`
+- [x] Inline IO arrows: `<~` and `~>`; legacy `<~>` is tokenized only for migration diagnostics
+- [x] Infix operators: `>=`, `<=`, `>`, `<`, `==`, `!=`, `&`, `|`, `+`, `-`, `*`, `/`, `%`
+- [x] Special forms: `pipe`, `if`, and `case`
+- [x] Pipeline placeholder: `#it`; wildcard pattern: `_`
 - [x] Triple-quoted strings: `"""..."""` (Python-style docstrings on action blocks)
 - [x] HCL heredoc: `<<-EOT...EOT`
 - [x] Literals: integer, decimal, string (`"`), boolean (`true`/`false`), array (`[...]`)
@@ -65,10 +65,11 @@ After `name:type =`, the parser selects form by first/second token:
 - bare `IDENT` + `(` → function call
 - bare `IDENT` + (`&`, `>=`, `<=`, `+`) → infix expression
 - bare `IDENT` + (EOL / `}` / next `IDENT:`) → single-reference form
-- `{` → block form (cond / #if compat / pipe compat)
-- `#pipe` → pipe form
-- `#if` → if form
-- sigil + `_` → ingress placeholder
+- `{` → unsupported legacy block form
+- bare `pipe(` → pipe form
+- bare `if(` → conditional form
+- bare `case(` → case form
+- `<~ source` after the type → inline input; `~> @path` after an expression → inline output
 
 ---
 
@@ -156,12 +157,12 @@ Recursive descent parser consuming the token stream.
 ### Prog parsing
 
 - [x] Parse `prog "<name>" { ... }` block with binding declarations
-- [x] Handle sigil prefix before typed key: `<~>income:number = _`
+- [x] Parse inline IO after the binding: `income:number <~ @app.income ~> @decision.income`
 - [x] Dispatch RHS parsing by disambiguation rules (see Lexer section)
 - [x] Parse function calls: positional `fn(a, b)` and named `fn(a: x, b: y)`
 - [x] Parse infix expressions: `lhs OP rhs`
-- [x] Parse `pipe(p:v)[step1, step2]`
-- [x] Parse `#if { cond = ...; then = ...; else = ... }`
+- [x] Parse `pipe(initial, step1, step2)`
+- [x] Parse `if(cond, then_expr, else_expr)`
 - [x] Parse `{ cond = { ... } }` block form
 - [x] Parse `{ step_ref = N }`, `{ func_ref = "..." }`, `{ transform = { ... } }`
 
@@ -202,17 +203,17 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 - [x] `name:bool = lhs >= rhs` → `combine { fn = "gte" ... }`
 - [x] `name:bool = lhs <= rhs` → `combine { fn = "lte" ... }`
 - [x] `name:str = lhs + rhs` → `combine { fn = "str_concat" ... }`
-- [x] `pipe(p:v)[step1, step2]` → `pipe { args = { p = ref(v) } steps = [...] }`
+- [x] `pipe(initial, step1, step2)` → structured local pipe expression
 - [x] `{ cond = { condition = c then = t else = e } }` → `cond { condition = { ref = "c" } then = { func_ref = "t" } else = { func_ref = "e" } }`
-- [x] `#if { cond = fn(a,b) then = t else = e }` → auto-generate `__if_<name>_cond` binding + `cond` form
+- [x] `if(cond, then_expr, else_expr)` → structured local conditional expression and generated bindings
 - [x] `{ transform = { ref = "v", fn = "..." } }` → pass through unchanged
 
 ### Sigil lowering (per `effect-dsl-spec.md §6`)
 
-- [x] Strip sigil from binding name in canonical `binding` block
-- [x] `~>name:type = _` with STATE schema → resolve default value from STATE schema; emit `binding "name" { type = "type" value = <default> }`
-- [x] `~>` / `<~>` bindings → emit entry in `prepare { binding "name" { from_state = "..." } }`
-- [x] `<~` / `<~>` bindings → emit entry in `merge { binding "name" { to_state = "..." } }`
+- [x] Hoist inline IO into canonical `prepare`/`merge` entries; binding names contain no arrows
+- [x] `name:type <~ @state.path` → emit the input binding and matching `prepare` entry
+- [x] Inline `<~` inputs and structural input declarations → emit `prepare` entries
+- [x] Inline `~>` outputs and structural output declarations → emit `merge` entries
 - [x] `from_hook = "..."` → emit `binding "name" { from_hook = "..." }` in `prepare`
 
 ### Docstring lowering (per `scene-graph.md §5.1`)
@@ -271,17 +272,17 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 
 ### Effect DSL validation (per `effect-dsl-spec.md §5`, `convert-runtime-spec.md §Phase1`)
 
-- [x] Each `~>` / `<~>` binding has a `prepare` entry (`MissingPrepareEntry`)
-- [x] Each `<~` / `<~>` binding has a `merge` entry (`MissingMergeEntry`)
-- [x] No `prepare` entry for non-sigiled binding (`SpuriousPrepareEntry`)
-- [x] No `merge` entry for non-sigiled binding (`SpuriousMergeEntry`)
+- [x] Each structural input binding has a `prepare` entry (`MissingPrepareEntry`)
+- [x] Each internally marked output binding has a `merge` entry (`MissingMergeEntry`)
+- [x] No `prepare` entry for a binding that computes its own RHS (`SpuriousPrepareEntry`)
+- [x] No spurious `merge` entry (`SpuriousMergeEntry`)
 - [x] No duplicate binding name in `prepare` (`DuplicatePrepareEntry`)
 - [x] No duplicate binding name in `merge` (`DuplicateMergeEntry`)
-- [x] `<~>` binding in `prepare` must also be in `merge` (`BidirMissingMergeEntry`)
-- [x] `<~>` binding in `merge` must also be in `prepare` (`BidirMissingPrepareEntry`)
+- [x] Hand-built bidirectional model in `prepare` must also be in `merge` (`BidirMissingMergeEntry`)
+- [x] Hand-built bidirectional model in `merge` must also be in `prepare` (`BidirMissingPrepareEntry`)
 - [x] No `merge` or `publish` inside `next {}` (`TransitionMerge`)
 - [x] No `from_hook` in transition `prepare` (`TransitionHook`)
-- [x] No `<~` or `<~>` sigil in transition `prog` (`TransitionOutputSigil`)
+- [x] No inline `~> @state.path` output in transition `prog` (`TransitionOutputSigil`)
 - [x] Transition `prepare` entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`)
 - [x] No `from_state` + `from_hook` on same `prepare` entry (`InvalidPrepareSource`)
 - [x] Every `prepare` binding name has a matching `binding` in the same `prog` (`UnresolvedPrepareBinding`)
@@ -405,7 +406,7 @@ Lower and validate the `route` block after scene conversion is complete.
 
 ### Unit tests
 
-- [x] Lexer: all token types, sigil disambiguation, typed key splitting
+- [x] Lexer: all token types, inline-arrow disambiguation, typed key splitting
 - [x] Parser: each AST node type; round-trip parse of all example `.tu` files; route block tests
 - [x] State resolver: inline block, `state_file` load, all error codes
 - [x] Lowering: each DSL form → expected canonical HCL model; idempotency

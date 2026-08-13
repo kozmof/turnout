@@ -72,27 +72,27 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		case ast.SigilIngress:
 			if !preparedNames[name] {
 				ds.Append(diag.Errorf(diag.CodeMissingPrepareEntry,
-					"action %q: binding %q has ~> sigil but no prepare entry", a.Id, name))
+					"action %q: binding %q is marked as input but has no prepare entry", a.Id, name))
 			}
 		case ast.SigilEgress:
 			if !mergedNames[name] {
 				ds.Append(diag.Errorf(diag.CodeMissingMergeEntry,
-					"action %q: binding %q has <~ sigil but no merge entry", a.Id, name))
+					"action %q: binding %q is marked as output but has no merge entry", a.Id, name))
 			}
 		case ast.SigilBiDir:
 			inPrepare := preparedNames[name]
 			inMerge := mergedNames[name]
 			if !inPrepare && !inMerge {
 				ds.Append(diag.Errorf(diag.CodeMissingPrepareEntry,
-					"action %q: binding %q has <~> sigil but no prepare entry", a.Id, name))
+					"action %q: binding %q is marked as bidirectional but has no prepare entry", a.Id, name))
 				ds.Append(diag.Errorf(diag.CodeMissingMergeEntry,
-					"action %q: binding %q has <~> sigil but no merge entry", a.Id, name))
+					"action %q: binding %q is marked as bidirectional but has no merge entry", a.Id, name))
 			} else if inPrepare && !inMerge {
 				ds.Append(diag.Errorf(diag.CodeBidirMissingMergeEntry,
-					"action %q: binding %q has <~> sigil: appears in prepare but not in merge", a.Id, name))
+					"action %q: binding %q is marked as bidirectional but appears only in prepare", a.Id, name))
 			} else if !inPrepare && inMerge {
 				ds.Append(diag.Errorf(diag.CodeBidirMissingPrepareEntry,
-					"action %q: binding %q has <~> sigil: appears in merge but not in prepare", a.Id, name))
+					"action %q: binding %q is marked as bidirectional but appears only in merge", a.Id, name))
 			}
 		}
 	}

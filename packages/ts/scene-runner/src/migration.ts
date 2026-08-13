@@ -8,7 +8,7 @@ const migrations: Record<number, MigrationFn> = {
   // 0 → 1: version 0 predates the version field; semantically identical to v1.
   0: (model) => model,
   // 1 → 2: v2 adds literal & template type declarations and the template_extract
-  // runtime functions used by template #case destructuring. A v1 model uses none
+  // runtime functions used by template case destructuring. A v1 model uses none
   // of these, so the migration is the identity.
   1: (model) => model,
 };
@@ -68,7 +68,7 @@ export function migrateModel(model: TurnModel): TurnModel {
 // checkForExtExpr scans all action compute and next-rule progs for extExpr
 // bindings. extExpr is a pre-lowering representation that must never appear in
 // emitted JSON; if found, the model was produced by an old converter that did
-// not expand #if/#case/#pipe expressions at emit time. Detecting this here
+// not expand if/case/pipe expressions at emit time. Detecting this here
 // (at load time) produces a clear, actionable error before execution starts.
 function checkForExtExpr(model: TurnModel): void {
   for (const scene of model.scenes ?? []) {

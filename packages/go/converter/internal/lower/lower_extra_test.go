@@ -628,7 +628,7 @@ func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
 }
 
 func TestLowerUnsupportedFnMapLocal(t *testing.T) {
-	// map() inside a #if branch → CodeUnsupportedConstruct from lowerCallInto
+	// map() inside a if branch → CodeUnsupportedConstruct from lowerCallInto
 	src := minimal(`  entry_actions = [a]
   action "a" {
     compute {
@@ -656,7 +656,7 @@ func hasLowerDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 // ─── early unknown-function diagnostic in local expressions ──────────────────
 
 func TestLowerLocalCallUnknownFnEmitsEarlyDiagnostic(t *testing.T) {
-	// An unknown function inside a #if condition should produce CodeUnknownFnAlias
+	// An unknown function inside a if condition should produce CodeUnknownFnAlias
 	// pinned to the call site, not a cascade of type-mismatch errors.
 	src := minimal(`  entry_actions = [a]
   action "a" {
@@ -674,7 +674,7 @@ func TestLowerLocalCallUnknownFnEmitsEarlyDiagnostic(t *testing.T) {
 }
 
 func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
-	// An unknown function inside a #pipe step should also produce CodeUnknownFnAlias
+	// An unknown function inside a pipe step should also produce CodeUnknownFnAlias
 	// from the lowerer — including when inside a pipe step where operator-only
 	// functions are otherwise permitted.
 	src := minimal(`  entry_actions = [a]
@@ -694,7 +694,7 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 
 // ─── lowerCaseInto: double wildcard ──────────────────────────────────────────
 
-// TestLowerCaseIntoDoubleWildcard verifies that a #case expression with two
+// TestLowerCaseIntoDoubleWildcard verifies that a case expression with two
 // wildcard arms does not overwrite the first wildcard's fallback body and does
 // not emit duplicate unreachable-arm diagnostics.
 //

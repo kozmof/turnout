@@ -137,7 +137,7 @@ action "process_order" {
 
 ## 2. HCL Lowering
 
-`prepare.from_hook` entries and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block continues to use plain `binding` declarations (sigils stripped).
+`prepare.from_hook` entries and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations; inline IO has already been hoisted into `prepare` and `merge`.
 
 ### 2.1 Shape
 

@@ -1,4 +1,4 @@
-# Turnout Draft Spec: `#if`, `#case`, `#pipe`, and `#it`
+# Turnout Draft Spec: `if`, `case`, `pipe`, and `#it`
 
 ## Status
 
@@ -6,10 +6,10 @@ This document is a draft proposal for local expression forms inside Turnout comp
 
 It defines four related forms:
 
-* `#if` — binary conditional expression
-* `#case` — ordered pattern-match expression
-* `#pipe` — left-to-right transformation chain
-* `#it` — current pipeline value within a `#pipe` step
+* `if` — binary conditional expression
+* `case` — ordered pattern-match expression
+* `pipe` — left-to-right transformation chain
+* `#it` — current pipeline value within a `pipe` step
 
 This draft is intentionally small.
 Its goal is to improve readability of local decision logic without expanding Turnout into a general-purpose programming language.
@@ -37,17 +37,17 @@ The design aims to preserve these properties:
 
 ## 2. Summary
 
-## 2.1 `#if`
+## 2.1 `if`
 
-`#if` selects between two expressions.
+`if` selects between two expressions.
 
 ```turn id="99065p"
 if(cond, then_expr, else_expr)
 ```
 
-## 2.2 `#case`
+## 2.2 `case`
 
-`#case` matches a subject value against ordered arms.
+`case` matches a subject value against ordered arms.
 
 ```turn id="lp2x0v"
 case(
@@ -58,9 +58,9 @@ case(
 )
 ```
 
-## 2.3 `#pipe`
+## 2.3 `pipe`
 
-`#pipe` applies a sequence of steps left to right.
+`pipe` applies a sequence of steps left to right.
 
 ```turn id="mhm7wz"
 pipe(
@@ -73,7 +73,7 @@ pipe(
 
 ## 2.4 `#it`
 
-`#it` denotes the current pipeline value within a step of `#pipe`.
+`#it` denotes the current pipeline value within a step of `pipe`.
 
 ```turn id="yhvj2h"
 pipe(
@@ -89,18 +89,18 @@ pipe(
 
 Within these local expression forms, these tokens have distinct roles:
 
-* `_` is reserved for wildcard matching in `#case` patterns.
-* `#it` is reserved for current pipeline value inside `#pipe` steps.
+* `_` is reserved for wildcard matching in `case` patterns.
+* `#it` is reserved for current pipeline value inside `pipe` steps.
 
 This draft intentionally does not assign `_` any placeholder meaning in pipe expressions.
 
 ---
 
-## 4. `#if`
+## 4. `if`
 
 ## 4.1 Purpose
 
-`#if` is the simplest conditional form.
+`if` is the simplest conditional form.
 It is intended for short binary decisions.
 
 ## 4.2 Syntax
@@ -129,21 +129,21 @@ needs_hold:bool = if(sample_passed, false, true)
 
 ## 4.5 Guidance
 
-Use `#if` when:
+Use `if` when:
 
 * there are only two outcomes,
 * the condition is short,
 * nesting does not become the dominant visual structure.
 
-When three or more outcomes are present, `#case` is usually preferred.
+When three or more outcomes are present, `case` is usually preferred.
 
 ---
 
-## 5. `#case`
+## 5. `case`
 
 ## 5.1 Purpose
 
-`#case` is an ordered classification form.
+`case` is an ordered classification form.
 It is intended for:
 
 * multi-branch routing,
@@ -174,7 +174,7 @@ Arms are evaluated from top to bottom.
    * if a wildcard `_` arm exists, use it,
    * otherwise evaluation fails.
 
-## 5.4 Pattern forms in v1
+## 5.4 Pattern forms
 
 This draft supports the following patterns:
 
@@ -221,7 +221,7 @@ The guard is evaluated only after the pattern has matched.
 
 ## 5.5 Future draft: tuple patterns
 
-Tuple patterns are a proposed extension for matching multiple subject values structurally. They are not part of the implemented v1 parser.
+Tuple patterns are a proposed extension for matching multiple subject values structurally. They are not part of the current parser.
 
 ```turn id="future-tuple-case"
 route:str = case(
@@ -283,7 +283,7 @@ A variable bound in a pattern is visible only within:
 
 It is not visible outside the arm.
 
-## 5.8 Restrictions in v1
+## 5.8 Restrictions
 
 This draft does not include:
 
@@ -296,11 +296,11 @@ This draft does not include:
 
 ---
 
-## 6. `#pipe`
+## 6. `pipe`
 
 ## 6.1 Purpose
 
-`#pipe` expresses a linear transformation chain.
+`pipe` expresses a linear transformation chain.
 
 It is intended for:
 
@@ -335,7 +335,7 @@ Each step is an expression template that may refer to `#it`.
 
 ## 6.4 `#it`
 
-Within a `#pipe` step, `#it` denotes the current pipeline value.
+Within a `pipe` step, `#it` denotes the current pipeline value.
 
 Example:
 
@@ -349,13 +349,13 @@ pipe(
 
 ## 6.5 Validity of `#it`
 
-`#it` is valid only inside a step of `#pipe`.
+`#it` is valid only inside a step of `pipe`.
 
-Using `#it` outside `#pipe` is an error.
+Using `#it` outside `pipe` is an error.
 
 ## 6.6 Future Draft: Method-Call Steps
 
-Method-call steps are a proposed extension for applying transform-style operations directly to any local expression, including `#it`. They are not part of the implemented v1 parser.
+Method-call steps are a proposed extension for applying transform-style operations directly to any local expression, including `#it`. They are not part of the current parser.
 
 ```turn id="future-pipe-method-chain"
 width_mm:number = pipe(
@@ -378,7 +378,7 @@ Proposed semantics:
 * Methods are evaluated left to right. The output of each method becomes the receiver for the next method in the chain.
 * Zero-argument methods map to existing unary `transformFn` operations where possible, such as `.round()`, `.floor()`, `.trim()`, and `.not()`.
 * Argument-taking methods such as `.clamp(min, max)` are future local-expression calls. They require either new transform functions with parameters or lowering to equivalent binary/local expression forms.
-* `#it` keeps its existing meaning. Inside a `#pipe` step, it is the current pipeline value. Method calls do not introduce a second placeholder.
+* `#it` keeps its existing meaning. Inside a `pipe` step, it is the current pipeline value. Method calls do not introduce a second placeholder.
 * Type checking is staged after each method call. A method can be called only when it is defined for the receiver type produced by the prior stage.
 * Method calls are pure and deterministic. They do not read or write STATE, hooks, or action bindings other than their explicit receiver and arguments.
 
@@ -412,7 +412,7 @@ Open design constraints for this future draft:
 * Decide whether method names share the existing `transformFn` namespace, the binary/local function namespace, or a dedicated method namespace.
 * Decide how argument-taking methods such as `.clamp(min, max)` are represented in canonical HCL and the runtime schema.
 * Decide whether method calls are allowed on all parenthesized expressions or only on primary expressions.
-* Preserve the current v1 rule that `_` is not a pipe placeholder.
+* Preserve the current rule that `_` is not a pipe placeholder.
 
 ## 6.7 Examples
 
@@ -458,13 +458,13 @@ route:str = pipe(
 
 ## 6.8 Guidance
 
-Use `#pipe` when:
+Use `pipe` when:
 
 * logic is naturally left-to-right,
 * each step conceptually transforms one value into another,
 * intermediate names are not needed for clarity.
 
-Do not force `#pipe` into cases where named intermediate bindings are clearer.
+Do not force `pipe` into cases where named intermediate bindings are clearer.
 
 For example, this may be clearer than a pipe:
 
@@ -479,7 +479,7 @@ width_ok:bool = normalized_width < spec_width_max
 
 These forms are designed to compose.
 
-## 7.1 `#pipe` with `#case`
+## 7.1 `pipe` with `case`
 
 ```turn id="831g0m"
 status:str = pipe(
@@ -494,7 +494,7 @@ status:str = pipe(
 )
 ```
 
-## 7.2 `#case` arm expressions using `#if`
+## 7.2 `case` arm expressions using `if`
 
 ```turn id="sbp4zm"
 result:str = case(
@@ -505,7 +505,7 @@ result:str = case(
 )
 ```
 
-## 7.3 `#if` inside `#pipe`
+## 7.3 `if` inside `pipe`
 
 ```turn id="vyfc46"
 temp_state:str = pipe(
@@ -515,7 +515,7 @@ temp_state:str = pipe(
 )
 ```
 
-This is valid, but if the logic becomes multi-branch, `#case` is preferred.
+This is valid, but if the logic becomes multi-branch, `case` is preferred.
 
 ---
 
@@ -527,16 +527,16 @@ These forms are intended to remain expression-pure.
 
 This draft assumes:
 
-* `#if`, `#case`, and `#pipe` do not introduce side effects by themselves,
+* `if`, `case`, and `pipe` do not introduce side effects by themselves,
 * their role is expression evaluation only.
 
 ### 8.2 Determinism
 
 All evaluation order is explicit:
 
-* `#if` chooses exactly one branch,
-* `#case` checks arms in declaration order,
-* `#pipe` evaluates steps in declaration order.
+* `if` chooses exactly one branch,
+* `case` checks arms in declaration order,
+* `pipe` evaluates steps in declaration order.
 
 This aligns with Turnout’s broader preference for deterministic authored execution.
 
@@ -544,7 +544,7 @@ This aligns with Turnout’s broader preference for deterministic authored execu
 
 ## 9. Style guidance
 
-## 9.1 Use `#if` for small binary choice
+## 9.1 Use `if` for small binary choice
 
 Good:
 
@@ -552,7 +552,7 @@ Good:
 status:str = if(temp_c < 28, "warmup", "run")
 ```
 
-## 9.2 Use `#case` for classification
+## 9.2 Use `case` for classification
 
 Good:
 
@@ -564,7 +564,7 @@ route:str = if(
 )
 ```
 
-## 9.3 Use `#pipe` for linear staged transforms
+## 9.3 Use `pipe` for linear staged transforms
 
 Good:
 
@@ -581,7 +581,7 @@ band:str = pipe(
 )
 ```
 
-## 9.4 Avoid overusing `#pipe`
+## 9.4 Avoid overusing `pipe`
 
 Prefer named intermediates when they improve readability.
 
@@ -644,9 +644,9 @@ scene "boiler_alarm_priority" {
 This is a draft grammar sketch only.
 
 ```ebnf id="hsqadg"
-IfExpr        = "#if" "(" Expr "," Expr "," Expr ")" ;
+IfExpr        = "if" "(" Expr "," Expr "," Expr ")" ;
 
-CaseExpr      = "#case" "(" Expr "," CaseArm { "," CaseArm } ")" ;
+CaseExpr      = "case" "(" Expr "," CaseArm { "," CaseArm } ")" ;
 CaseArm       = Pattern [ Guard ] "=>" Expr ;
 Guard         = "if" Expr ;
 
@@ -654,24 +654,24 @@ Pattern       = "_"
               | Literal
               | Identifier ;
 
-(* Future draft, not v1: *)
+(* Future draft, not currently implemented: *)
 FuturePattern = Pattern
               | TuplePattern ;
 TuplePattern  = "(" Pattern { "," Pattern } ")" ;
 
-PipeExpr      = "#pipe" "(" Expr "," PipeStep { "," PipeStep } ")" ;
+PipeExpr      = "pipe" "(" Expr "," PipeStep { "," PipeStep } ")" ;
 PipeStep      = Expr ;
 
 PipeItExpr    = "#it" ;
 
-(* Future draft, not v1: *)
+(* Future draft, not currently implemented: *)
 MethodCallExpr = Expr "." Identifier "(" [ Expr { "," Expr } ] ")" ;
 ```
 
 Notes:
 
 * `#it` is semantically constrained even if the grammar permits it as an expression token.
-* `MethodCallExpr` is future syntax only. The implemented v1 parser does not accept method calls on `#it` or arbitrary local expressions.
+* `MethodCallExpr` is future syntax only. The current parser does not accept method calls on `#it` or arbitrary local expressions.
 * Whether identifiers in patterns are syntactically distinguished from value references is left to the final parser/type design.
 
 ---
@@ -682,7 +682,7 @@ This draft does not define:
 
 * object or map destructuring,
 * user-defined pattern constructors,
-* partial application syntax beyond `#pipe`,
+* partial application syntax beyond `pipe`,
 * anonymous functions,
 * advanced exhaustiveness analysis,
 * effectful semantics inside these expressions.
@@ -693,9 +693,9 @@ This draft does not define:
 
 A concise interpretation is:
 
-* `#if` handles small binary choice
-* `#case` handles ordered classification
-* `#pipe` handles linear transformation
+* `if` handles small binary choice
+* `case` handles ordered classification
+* `pipe` handles linear transformation
 * `#it` names the current pipeline value
 * `_` is reserved for wildcard matching in local expressions
 
@@ -705,13 +705,13 @@ This division keeps the local language compact, readable, and semantically clear
 
 ## 14. Short example set
 
-### `#if`
+### `if`
 
 ```turn id="8bmc2l"
 status:str = if(temp_c < 28, "warmup", "run")
 ```
 
-### `#case`
+### `case`
 
 ```turn id="s6v7pw"
 route:str = if(
@@ -721,7 +721,7 @@ route:str = if(
 )
 ```
 
-### `#pipe`
+### `pipe`
 
 ```turn id="wvub3a"
 width_ok:bool = pipe(

@@ -9,14 +9,14 @@
 #   * overview     — all three enforce modes (strict, at_least, nodes_only),
 #                    plus a scene with no overview block at all
 #   * actions      — docstring sugar (""" """) AND explicit text = <<-EOT
-#   * compute      — every sigil (~>, <~, <~>) and both markers (|^|, |?|)
+#   * compute      — inline input/output arrows (<~, ~>) and both markers (|^|, |?|)
 #   * expressions  — every infix operator (+ - * / % > >= < <= == != & |),
 #                    every callable binary fn (max, min, bool_xor, str_*,
 #                    arr_*), transform-method chains used as call arguments
 #                    (.trim().toLowerCase(), .length(), .isEmpty(), .toStr(),
 #                    .abs(), .floor(), .ceil(), .round(), .negate(),
 #                    .toNumber(), .toUpperCase(), .not()), and the local
-#                    forms #if / #case / #pipe / #it
+#                    forms if / case / pipe / #it
 #   * effects      — prepare (from_state, from_hook), merge (to_state),
 #                    publish (multiple hooks)
 #   * transitions  — conditional next, deterministic next, and all three
@@ -179,7 +179,7 @@ scene "triage" {
         all_tags:arr<str>  = arr_concat(tags, seed_tags)
         allfirst:str       = arr_get(all_tags, 0)
 
-        # --- #pipe with #it ---
+        # --- pipe with #it ---
         pipe_score:number = pipe(
           toxicity,
           #it + 1,
@@ -187,14 +187,14 @@ scene "triage" {
           #it - 1
         )
 
-        # --- #if (nested binary choice) ---
+        # --- if (nested binary choice) ---
         band:str = if(
           floored >= 70,
           "high",
           if(floored >= 40, "medium", "low")
         )
 
-        # --- #case (literal arm, guarded variable binders, wildcard) ---
+        # --- case (literal arm, guarded variable binders, wildcard) ---
         route_label:str = case(
           floored,
           0 => "empty",

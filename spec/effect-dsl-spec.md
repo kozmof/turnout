@@ -1,119 +1,88 @@
 # Effect DSL Specification — Turn DSL
 
 > Status: Draft for implementation
-> Scope: Turn DSL syntax for STATE effect declarations (sigils + `prepare`/`merge` sections) and their lowering to canonical HCL
+> Scope: Turn DSL syntax for STATE effect declarations (inline IO + `prepare`/`merge` sections) and their lowering to canonical HCL
 
 ---
 
 ## Overview
 
-STATE effects in Turn DSL are expressed through two complementary parts that must always appear together:
+STATE effects can be written inline on a binding or structurally with sibling `prepare` and `merge` blocks. The two spellings lower to the same canonical model:
 
-1. Sigil — a directional prefix on a binding declaration inside a `prog` block, marking it as STATE-connected and specifying the direction.
-2. `prepare` / `merge` sections — sibling blocks to `compute` inside an `action`, declaring the concrete STATE dotted paths for sigiled bindings.
-
-```
+```turn
 action "score" {
   compute {
     prog "score_graph" {
-      income:number                              # ← sigil: input from STATE
-      income_ok:bool  = income >= 50000               # plain compute binding
-      |^| decision:bool = income_ok & debt_ok        # ← |^| marks the compute root (last binding)
+      income:number <~ @applicant.income
+      income_ok:bool = income >= 50000
+      |^| decision:bool = income_ok & debt_ok ~> @decision.approved
     }
-  }
-
-  prepare {
-    income { from_state = applicant.income }    # ← STATE path for ~>income
-  }
-
-  merge {
-    decision { to_state = decision.approved }   # ← STATE path for <~decision
   }
 }
 ```
 
-Each part is required when the other is present. A sigiled binding with no corresponding `prepare`/`merge` entry is an error, and a `prepare`/`merge` entry with no matching sigil is an error.
+The equivalent structural spelling is:
 
-Sigils are direction metadata only. Canonical binding names do not include sigils:
-
+```turn
+action "score" {
+  compute {
+    prog "score_graph" {
+      income:number
+      income_ok:bool = income >= 50000
+      |^| decision:bool = income_ok & debt_ok
+    }
+  }
+  prepare { income { from_state = applicant.income } }
+  merge { decision { to_state = decision.approved } }
+}
 ```
-income    # canonical name (not ~>income)
-decision  # canonical name (not <~decision)
-```
 
-All references in `prepare` and `merge` use plain canonical binding names.
+A binding may use inline or structural IO for a given direction, never both. Inline clauses point toward their destination: `<~` points from the source into the binding, and `~>` points from the binding to STATE. Canonical binding names never contain arrows.
 
 ---
 
-## 1. Sigil Syntax
+## 1. Inline IO Syntax
 
-### 1.1 Sigil forms
+### 1.1 Forms
 
-| Sigil | Direction | Required section |
-|-------|-----------|-----------------|
-| `~>`  | Pre-action input: STATE → binding | Must appear in `prepare` exactly once |
-| `<~`  | Post-action output: binding → STATE | Must appear in `merge` exactly once |
-| `<~>` | Bidirectional: STATE→binding pre-action and binding→STATE post-action | Must appear in both `prepare` and `merge` exactly once each |
+| Form | Direction | Lowered structure |
+|------|-----------|-------------------|
+| `name:type <~ @state.path` | STATE → binding | `prepare.from_state` |
+| `name:type <~ hook("name")` | hook → binding | `prepare.from_hook` |
+| `name:type = expr ~> @state.path` | binding → STATE | `merge.to_state` |
+| `name:type <~ @input.path ~> @output.path` | STATE → binding → STATE | both `prepare` and `merge` |
+
+Transition inputs additionally accept `action(binding)` and literals after `<~`; transition outputs are forbidden.
 
 ### 1.2 Grammar
 
 ```
-binding-decl ::= [marker] [sigil] IDENT ':' type ['=' expr]
-input-decl   ::= [marker] ('~>' | '<~>') IDENT ':' type
-output-decl  ::= [marker] '<~' IDENT ':' type '=' expr
-sigil        ::= '~>' | '<~' | '<~>'
-marker       ::= '|^|' | '|?|'
+binding-decl  ::= [marker] IDENT ':' type (input-rhs | computed-rhs)
+input-rhs     ::= ['<~' ingress-source] ['~>' state-path]
+computed-rhs  ::= '=' expr ['~>' state-path]
+ingress-source ::= state-path | hook-call | action-call | literal
+state-path    ::= '@' IDENT ('.' IDENT)+
+marker        ::= '|^|' | '|?|'
 ```
 
-### 1.2.1 Binding markers
+A bare `name:type` is a structural input declaration and must be named by a matching `prepare` entry. A computed binding with no inline output may be named by `merge`.
 
-A binding may carry a leading marker, written before any sigil:
+### 1.3 Binding markers
+
+A binding may carry a leading marker:
 
 | Marker | Role | Valid in |
 |--------|------|----------|
-| `|^|`   | Compute root — the binding whose resolved value is the action's compute output | action `compute` prog |
-| `|?|`   | Transition condition — the boolean binding that gates the transition | `next` `compute` prog |
+| `|^|` | Compute root—the action's compute output | action `compute` prog |
+| `|?|` | Boolean transition condition | `next` `compute` prog |
 
-Rules (all enforced at compile time):
+An action compute prog requires exactly one `|^|`; a transition compute prog requires exactly one `|?|`. The marked binding must be last. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`.
 
-- An action `compute` prog must contain exactly one `|^|` marker. A `next` `compute` prog, when present, must contain exactly one `|?|` marker. A `next` rule may omit the `compute` block entirely for a deterministic (unconditional) transition. The form `next { action = ... }` is equivalent to a `|?| c:bool = true` condition, and a trivially-true condition is normalized to this concise form during conversion.
-- The marked binding must be the last binding declared in the prog (read like a `return`).
-- A marker of the wrong kind for its context is an error (e.g. `|?|` in an action compute).
-- The marker replaces the former `root = <ident>` / `condition = <ident>` sibling fields, which no longer exist in the DSL. (The lowered canonical HCL and runtime model still carry `compute.root` / `compute.condition` string fields, derived from the marked binding.)
+### 1.4 Input and bidirectional declarations
 
-The marker and sigil are written immediately before the binding name, with no whitespace within the sigil:
+Inputs have no computed RHS; their value comes from the inline source or structural `prepare` entry. STATE inputs are required at runtime. A combined `<~ source ~> destination` declaration writes the prepared value to its output destination after execution. An input cannot also use `= expr`.
 
-```
-income:number        # OK
-~ > income:number      # NG — space not allowed
-```
-
-### 1.3 Input declarations
-
-`~>` and `<~>` declarations do not have a right-hand side. Their value is supplied by the corresponding `prepare` entry before the compute graph runs.
-
-`_` has no meaning in sigil declarations. In local expression forms, `_` is reserved for `#case` wildcard patterns and `#it` is the current-value placeholder for `#pipe` steps.
-
-- All `from_state` entries are `required = true`. A missing STATE path at runtime is an error. The declaration itself is not a fallback value.
-- For `from_state`, the converter resolves the initial value from the STATE schema and emits the state-declared default in the canonical `binding` block as `value`, so the compute graph remains well-typed before runtime prepare overwrites it. Other prepare sources use their declared binding type for validation.
-
-```
-# If applicant.income is absent in STATE, runtime error — not fallback to state default.
-income:number
-prepare { income { from_state = applicant.income } }
-```
-
-### 1.4 Bidirectional sigil
-
-`<~>` signals that the binding is populated from STATE before execution and written back to STATE after merge, potentially at different STATE paths:
-
-```
-income:number
-prepare { income { from_state = applicant.income      } }   # reads from applicant.income
-merge   { income { to_state   = decision.input_income } }   # writes to decision.input_income
-```
-
----
+`_` is only a `case` wildcard. `#it` is only the current-value placeholder inside `pipe` steps.
 
 ## 2. `prepare` Section — Action Level
 
@@ -166,7 +135,7 @@ An empty segment (e.g. `foo..bar`), a path starting/ending with `.`, or a single
 
 ### 2.5 Future draft: `from_literal` at action level
 
-Action-level literal ingress is a proposed extension. It is not part of the implemented v1 action `prepare` grammar, where only `from_state` and `from_hook` are valid.
+Action-level literal ingress is a proposed extension. It is not part of the current action `prepare` grammar, where only `from_state` and `from_hook` are valid.
 
 ```
 prepare {
@@ -262,41 +231,34 @@ Any one of these may be used per entry. They may be mixed across different entri
 
 > Note on `from_literal` type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values. It does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
-### 4.3 Sigil on transition `prog` bindings
+### 4.3 Transition `prog` IO
 
-`~>` inside a transition `prog` block marks a binding as an ingress binding populated from the transition `prepare` entries. `<~` and `<~>` are not valid in transition `prog` blocks (transitions cannot output to STATE).
-
----
+A transition input can be declared inline with `name:type <~ action(binding)`, `<~ @state.path`, or `<~ literal`, or structurally with a bare input binding and one transition `prepare` entry. `hook()` is not valid in transitions. A `~>` output clause is rejected because transitions cannot write to STATE.
 
 ## 5. Correspondence Rules
 
 ### CAN (OK)
 
-- A `~>` binding can appear in `prepare` with a `from_state` path.
-- A `<~` binding can appear in `merge` with a `to_state` path.
-- A `<~>` binding can appear in both `prepare` and `merge` with different STATE paths.
-- The `prepare` and `merge` sections can be omitted entirely when no sigiled bindings are declared.
-- A transition `prepare` entry can use `from_action` and another entry in the same block can use `from_state`.
-- A `~>` binding in a transition `prog` block can have its ingress declared via `from_action`, `from_state`, or `from_literal`.
+- Inline and structural IO are equivalent after lowering.
+- An action input may read from STATE or a prepare hook.
+- An action output may write to a STATE path.
+- A binding may be bidirectional, with different input and output STATE paths.
+- Transition inputs may read from the current action, post-merge STATE, or a literal.
+- Pure-compute actions may omit both `prepare` and `merge`.
 
 ### CAN'T (NG)
 
-- A sigiled binding (`~>`, `<~`, `<~>`) cannot lack a corresponding `prepare` or `merge` entry.
-- A `prepare` or `merge` entry cannot reference a binding name that has no sigil in the corresponding `prog` block.
-- The same binding name cannot appear twice in `prepare` or twice in `merge`.
-- A `<~>` binding cannot be present in `prepare` but absent from `merge`, or vice versa.
-- A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding.
-- `merge` or `publish` cannot appear inside a `next { }` transition block.
-- A transition `prepare` entry cannot have none of `from_action`, `from_state`, or `from_literal`.
-- A transition `prepare` entry cannot have more than one of `from_action`, `from_state`, and `from_literal` simultaneously.
-- `<~` or `<~>` sigils cannot appear inside a transition `prog` block.
-- A plain (no-sigil) binding cannot appear in `prepare` or `merge`.
-
----
+- The same binding direction cannot be declared both inline and structurally (`DuplicateInlineIO`).
+- An inline input cannot also have a computed RHS.
+- A structural input cannot omit its matching `prepare` entry.
+- A structural `prepare` entry cannot name a binding that computes its own RHS.
+- A `merge` entry cannot reference an unknown binding, and duplicate entries are invalid.
+- A transition cannot use `hook()`, declare output with `~>`, or contain `merge`/`publish`.
+- A leading arrow is retired syntax and produces `LegacySigilPosition`.
 
 ## 6. Lowering Rules (Turn DSL → Canonical HCL)
 
-Sigils are stripped from the canonical binding name during lowering. The sigil information is encoded structurally by membership in `prepare` (input) or `merge` (output) sections in the emitted action block.
+Inline IO is hoisted into structural `prepare` and `merge` entries before validation and lowering. The canonical binding name contains no arrows.
 
 ### 6.1 Action-level lowering
 
@@ -347,9 +309,9 @@ action "score" {
 }
 ```
 
-### 6.2 Bidirectional (`<~>`) lowering
+### 6.2 Bidirectional lowering
 
-A `<~>` binding appears in both `prepare` and `merge` with their respective paths:
+A combined `income:number <~ @applicant.income ~> @decision.input_income` declaration appears in both `prepare` and `merge`:
 
 Turn DSL:
 ```
@@ -367,7 +329,7 @@ binding "income" { type = "number" value = 0 }
 
 ### 6.3 Transition-level lowering
 
-Transition `prepare` entries lower to `TransitionIngressBinding` records in the scene model. The transition `prog` block is lowered to canonical HCL the same as an action prog (sigils stripped, bindings emitted), with no `prepare`/`merge` sub-blocks.
+Transition inline inputs are hoisted to transition `prepare` entries, which lower to `TransitionIngressBinding` records. The transition `prog` lowers like an action prog, with no transition `merge` or `publish`.
 
 ---
 
@@ -375,18 +337,18 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 
 | Error code | Trigger condition |
 |------------|------------------|
-| `MissingPrepareEntry` | A `~>` or `<~>` binding has no matching entry in `prepare` |
-| `MissingMergeEntry` | A `<~` or `<~>` binding has no matching entry in `merge` |
-| `SpuriousPrepareEntry` | A `prepare` entry references a binding that has no sigil in the `prog` block |
-| `SpuriousMergeEntry` | A `merge` entry references a binding that has no sigil in the `prog` block |
+| `MissingPrepareEntry` | A structural input binding has no matching entry in `prepare` |
+| `MissingMergeEntry` | An internally marked output binding has no matching entry in `merge` |
+| `SpuriousPrepareEntry` | A `prepare` entry references a binding that computes its own value |
+| `SpuriousMergeEntry` | A `merge` entry does not correspond to an output binding |
 | `DuplicatePrepareEntry` | The same binding name appears more than once in `prepare` |
 | `DuplicateMergeEntry` | The same binding name appears more than once in `merge` |
-| `BidirMissingPrepareEntry` | A `<~>` binding appears in `merge` but not in `prepare` |
-| `BidirMissingMergeEntry` | A `<~>` binding appears in `prepare` but not in `merge` |
+| `BidirMissingPrepareEntry` | A hand-built bidirectional model has output structure but no input structure |
+| `BidirMissingMergeEntry` | A hand-built bidirectional model has input structure but no output structure |
 | `TransitionMerge` | A `merge` or `publish` block is present inside a `next { }` transition |
 | `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
 | `TransitionHook` | A `from_hook` source appears inside a transition `prepare` block |
-| `TransitionOutputSigil` | A `<~` or `<~>` sigil appears in a transition `prog` block |
+| `TransitionOutputSigil` | A `~> @state.path` output clause appears in a transition `prog` |
 | `InvalidStatePath` | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
 | `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
 | `UnresolvedPrepareBinding` | A `prepare` binding name has no matching `binding` block in the same `prog` |
@@ -400,9 +362,9 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 
 | Domain | Coverage target |
 |--------|----------------|
-| A. Sigil parsing | All three sigil forms (`~>`, `<~`, `<~>`) correctly identified |
-| B. Correspondence | Sigil ↔ `prepare`/`merge` entry matching validated at convert time |
-| C. Bidirectional lowering | `<~>` produces entries in both `prepare` and `merge` |
+| A. Inline IO parsing | Input (`<~`), output (`~>`), and combined inline clauses are correctly identified |
+| B. Correspondence | Inline IO and `prepare`/`merge` declarations are validated at convert time |
+| C. Bidirectional lowering | Combined `<~ source ~> destination` clauses produce entries in both `prepare` and `merge` |
 | D. Sentinel value | Binding default lowered as `value`/`expr`; no effect on STATE resolution |
 | E. Transition `prepare` | `from_action`, `from_state`, and `from_literal` entries lower to correct `TransitionIngressBinding` fields |
 | F. Error paths | All error codes trigger correctly and abort without partial output |
@@ -411,9 +373,9 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | `~>` binding + `prepare` → `prepare` block with `from_state` | Re-lower same DSL source; emitted HCL is byte-identical |
-| 2 | `<~` binding + `merge` → `merge` block with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
-| 3 | `<~>` binding + `prepare` + `merge` (different paths) → both sub-blocks | Both paths preserved; independent of declaration order |
+| 1 | Inline `<~ @state.path` input → `prepare` block with `from_state` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 2 | Inline `~> @state.path` output → `merge` block with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 3 | Combined `<~ @input.path ~> @output.path` binding → both sub-blocks | Both paths preserved; independent of declaration order |
 | 4 | Action with no `prepare`/`merge` → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
 | 5 | Transition `prepare { from_action }` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
 | 6 | Transition `prepare { from_state }` → `TransitionIngressBinding.fromState` | Field mapping is deterministic for identical input |
@@ -423,18 +385,18 @@ Transition `prepare` entries lower to `TransitionIngressBinding` records in the 
 
 | Case | Expected behaviour |
 |------|--------------------|
-| `~>income:number` with no `prepare` block at all | `MissingPrepareEntry` |
-| `prepare { income { from_state = ... } }` where `income` has no sigil | `SpuriousPrepareEntry` |
-| `<~>income` appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
-| `<~>income` appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
+| Bare input `income:number` with no matching `prepare` entry | `MissingPrepareEntry` |
+| `prepare { income { from_state = ... } }` where `income` computes its own RHS | `SpuriousPrepareEntry` |
+| A hand-built bidirectional model appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
+| A hand-built bidirectional model appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
 | `merge` present inside a `next { }` block | `TransitionMerge` |
 | Transition `prepare` entry with no `from_action`, `from_state`, or `from_literal` | `InvalidTransitionIngress` |
 | Transition `prepare` entry with more than one of `from_action`, `from_state`, `from_literal` | `InvalidTransitionIngress` |
 | `from_hook` inside a transition `prepare` | `TransitionHook` |
-| `<~phase` sigil inside a transition `prog` block | `TransitionOutputSigil` |
+| `phase:str = expr ~> @state.phase` inside a transition `prog` block | `TransitionOutputSigil` |
 | `from_state = "applicant..income"` (empty segment) | `InvalidStatePath` |
 | `from_state = ".income"` (leading dot) | `InvalidStatePath` |
 | Same binding name twice in `prepare` | `DuplicatePrepareEntry` |
 | `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` |
-| Action with `prepare` only and no `merge` | Valid — only `~>` bindings required |
-| Action with `merge` only and no `prepare` | Valid — only `<~` bindings required |
+| Action with `prepare` only and no `merge` | Valid — it may contain inputs without outputs |
+| Action with `merge` only and no `prepare` | Valid — it may contain outputs without inputs |

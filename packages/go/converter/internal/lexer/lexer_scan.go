@@ -220,7 +220,7 @@ func (l *lex) scanTripleQuote(ln, co int) {
 }
 
 // ────────────────────────────────────────────────────────────
-// # — comment, #pipe, #if
+// # — comments and the #it placeholder
 // ────────────────────────────────────────────────────────────
 
 func (l *lex) scanHash(ln, co int) {
@@ -254,8 +254,8 @@ func (l *lex) hashItIsPlaceholder() bool {
 }
 
 // tryHashKeyword checks whether prefix matches at the current position and is
-// not followed by an identifier character (preventing "#ifoo" from being lexed
-// as TokHashIf + "oo"). On match it advances past the prefix, emits kind, and
+// not followed by an identifier character. It is currently used for `#it`; the
+// generic helper retains the boundary check so `#item` remains an ordinary comment. On match it advances past the prefix, emits kind, and
 // returns true. The check and advance are merged into one pass over the runes.
 func (l *lex) tryHashKeyword(prefix string, kind TokenKind, ln, co int) bool {
 	runes := []rune(prefix)

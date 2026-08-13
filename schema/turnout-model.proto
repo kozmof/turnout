@@ -142,7 +142,7 @@ message BindingModel {
   // Exactly one of value or expr is present.
   google.protobuf.Value value = 3;
   ExprModel expr = 4;
-  // ext_expr carries the structured source expression for #if/#case/#pipe bindings.
+  // ext_expr carries the structured source expression for if/case/pipe bindings.
   // Populated by the HCL emitter to round-trip those forms. MUST NOT be set in
   // JSON output; the runtime ignores this field entirely.
   LocalExprModel ext_expr = 5;
@@ -265,7 +265,7 @@ message MatchArm {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Local expression — structured form stored alongside flat bindings for
-// HCL re-emission. Present only on #if / #case / #pipe user bindings.
+// HCL re-emission. Present only on if / case / pipe user bindings.
 // The runtime ignores this field; it executes only the flat ExprModel bindings.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -355,7 +355,7 @@ message LocalLitPatternModel       { google.protobuf.Value value = 1; }
 message LocalVarBinderPatternModel { string name = 1; }
 message LocalTuplePatternModel     { repeated LocalCasePatternModel elems = 1; }
 
-// LocalTemplatePatternModel destructures a template literal value in a #case
+// LocalTemplatePatternModel destructures a template literal value in a case
 // arm (literal-template-types-spec.md §12.6-12.8). Omitted captures are unconstrained and unbound.
 message LocalTemplatePatternModel {
   string type_name = 1;

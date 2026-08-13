@@ -82,11 +82,11 @@ action "checkout" {
 }
 ```
 
-> For the full sigil, `prepare`/`merge`/`publish` DSL rules and lowering details, see `effect-dsl-spec.md §1–6` and `hook-spec.md §2`.
+> For the full inline IO, `prepare`/`merge`/`publish` DSL rules and lowering details, see `effect-dsl-spec.md §1–6` and `hook-spec.md §2`.
 
 ### CAN (OK)
 
-- The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function call expressions, parse-safe infix expressions (`=`), `#if`, `#case`, and `#pipe`.
+- The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function calls, nested infix expressions, `if`, `case`, `pipe`, transform chains, bare references, transition sugar, structured overview blocks, and inline IO.
 - The Go CLI can lower all surface DSL forms to canonical plain HCL `binding` blocks, identically to the rules in `hcl-context-spec.md` §2–3.
 - The Go CLI can emit multiple `action` blocks in one HCL file, one per declared action, as long as each block has a distinct name label matching its `actionId`.
 - The Go CLI can declare STATE effect bindings inside action blocks using `prepare` and `merge` sub-blocks.
@@ -99,7 +99,7 @@ action "checkout" {
 
 - The Go CLI cannot emit `name:type` as attribute keys in the canonical HCL output. Typed keys must be lowered to `binding "<name>" { type = "..." ... }` blocks.
 - The Go CLI cannot emit bare identifiers in argument positions. All references must be lowered to explicit reference or expression nodes such as `{ ref = "name" }`, or the canonical `if`/`case`/`pipe` expression shapes from `hcl-context-spec.md`.
-- The Go CLI cannot accept or emit non-v1 forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `pipe(x:v)[...]`, block-style `cond`, or block-style `#if`.
+- The Go CLI cannot accept or emit unsupported legacy forms such as `{ fn = [x, y] }`, `pipe(...)[...]`, `pipe(x:v)[...]`, block-style `cond`, or block-style conditionals.
 - The Go CLI cannot emit Phase 2 loop constructs (`range`, `map`, `filter`, `fold`) in Phase 1 output. Encountering them must produce an `UnsupportedConstruct` error and abort without emitting any HCL.
 - The Go CLI cannot emit HCL that is not parseable by a stock HCL parser.
 - The Go CLI cannot emit a file in which two `action` blocks share the same name label.
@@ -119,7 +119,7 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 | `UnsupportedConstruct` | Phase 2 loop construct (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 DSL file |
 | `DuplicateActionLabel` | Two `action` blocks with the same name label in one emitted HCL file |
 
-For all sigil/`prepare`/`merge`/transition error codes (`InvalidStatePath`, `MissingPrepareEntry`, `MissingMergeEntry`, `SpuriousPrepareEntry`, `SpuriousMergeEntry`, `BidirMissingPrepareEntry`, `BidirMissingMergeEntry`, `TransitionMerge`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`, `InvalidPrepareSource`, `UnresolvedPrepareBinding`, `UnresolvedMergeBinding`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
+For all IO/`prepare`/`merge`/transition error codes (`InvalidStatePath`, `MissingPrepareEntry`, `MissingMergeEntry`, `SpuriousPrepareEntry`, `SpuriousMergeEntry`, `BidirMissingPrepareEntry`, `BidirMissingMergeEntry`, `TransitionMerge`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`, `InvalidPrepareSource`, `UnresolvedPrepareBinding`, `UnresolvedMergeBinding`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
 
 ---
 
@@ -203,7 +203,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 
 ## STATE Effect Semantics
 
-> See also `effect-dsl-spec.md`, which fully specifies the Turn DSL sigil and `prepare`/`merge` section syntax that authors use to declare STATE effects, and their lowering rules to the canonical HCL shape.
+> See also `effect-dsl-spec.md`, which fully specifies the Turn DSL inline IO and `prepare`/`merge` section syntax that authors use to declare STATE effects, and their lowering rules to the canonical HCL shape.
 
 | Phase | Direction | Mechanism |
 |-------|-----------|-----------|

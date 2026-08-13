@@ -38,7 +38,7 @@ func SplitStatePath(key string) (ns, field string, ok bool) {
 }
 
 // IsGeneratedIfCondName reports whether name was produced as a compiler-generated
-// #if / #case condition binding (prefix __if_ AND suffix _cond).
+// if / case condition binding (prefix __if_ AND suffix _cond).
 func IsGeneratedIfCondName(name string) bool {
 	return len(name) > len(GeneratedIfCondPrefix)+len(GeneratedIfCondSuffix) &&
 		name[:len(GeneratedIfCondPrefix)] == GeneratedIfCondPrefix &&

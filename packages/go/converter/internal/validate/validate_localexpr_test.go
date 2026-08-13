@@ -22,7 +22,7 @@ func assertClean(t *testing.T, src string) {
 }
 
 // TestValidateLocalInfixValid exercises validateProtoLocalInfix for the common
-// arithmetic operators nested inside an #if expression. `n + 1` / `n - 1` are
+// arithmetic operators nested inside an if expression. `n + 1` / `n - 1` are
 // LocalInfixExpr operands of the then/else branches.
 func TestValidateLocalInfixValid(t *testing.T) {
 	src := min(`        flag:bool  = true
@@ -50,12 +50,12 @@ func TestValidateLocalInfixArgTypeMismatch(t *testing.T) {
         out:number = if(flag, n - "x", n)
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
-		t.Error("want ArgTypeMismatch for `number - str` infix inside #if")
+		t.Error("want ArgTypeMismatch for `number - str` infix inside if")
 	}
 }
 
 // TestValidateLocalInfixComparison covers a comparison operator (`>`) used as the
-// #if condition, which returns bool and must validate cleanly.
+// if condition, which returns bool and must validate cleanly.
 func TestValidateLocalInfixComparison(t *testing.T) {
 	src := min(`        n:number   = 5
         out:number = if(n > 0, n, 0)
@@ -94,13 +94,13 @@ func TestValidateExtExprCycle(t *testing.T) {
         b:number   = if(flag, a, 0)
 `)
 	if !hasCode(pipeline(src), diag.CodeCyclicBinding) {
-		t.Error("want CyclicBinding for mutually-referencing #if bindings")
+		t.Error("want CyclicBinding for mutually-referencing if bindings")
 	}
 }
 
 // TestExtExprOnlyCycle covers collectLocalExprBindingRefs, the dependency-edge
 // collector for bindings that carry only ExtExpr (no flat Expr). The normal
-// pipeline always emits both, so the model is built by hand. The two #if
+// pipeline always emits both, so the model is built by hand. The two if
 // ext_exprs reference each other, forming a cycle.
 func TestExtExprOnlyCycle(t *testing.T) {
 	ref := func(n string) *turnoutpb.LocalExprModel {

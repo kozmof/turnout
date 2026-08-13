@@ -110,7 +110,7 @@ const (
 	CodeDuplicateActionLabel     ErrorCode = "DuplicateActionLabel"
 	// CodeUnsupportedConstruct is emitted when a user-authored construct exists
 	// in the DSL but is not yet supported or is invalid in the current context
-	// (e.g. #it outside a #pipe step, state_file schema not pre-loaded).
+	// (e.g. #it outside a pipe step, state_file schema not pre-loaded).
 	CodeUnsupportedConstruct ErrorCode = "UnsupportedConstruct"
 	// CodeInternalError is emitted when the compiler detects an internal
 	// invariant violation that indicates a compiler bug rather than a user
@@ -119,7 +119,7 @@ const (
 	CodeInternalError    ErrorCode = "InternalError"
 	CodeCyclicBinding    ErrorCode = "CyclicBinding"
 	CodeEmptyArrayLitArg ErrorCode = "EmptyArrayLitArg"
-	// CodeDuplicateCasePattern is emitted when two arms of a #case expression
+	// CodeDuplicateCasePattern is emitted when two arms of a case expression
 	// match the same literal value. The second arm is unreachable dead code.
 	CodeDuplicateCasePattern ErrorCode = "DuplicateCasePattern"
 )
@@ -209,10 +209,10 @@ const (
 	// CodeInvalidCaptureType: a capture declares a type not permitted in
 	// templates (§6.3).
 	CodeInvalidCaptureType ErrorCode = "InvalidCaptureType"
-	// CodeNonExhaustiveMatch: a #case does not cover all values of a finite or
+	// CodeNonExhaustiveMatch: a case does not cover all values of a finite or
 	// analyzable input type (§14).
 	CodeNonExhaustiveMatch ErrorCode = "NonExhaustiveMatch"
-	// CodeUnreachableArm: a #case arm is fully shadowed by earlier arms (§17).
+	// CodeUnreachableArm: a case arm is fully shadowed by earlier arms (§17).
 	CodeUnreachableArm ErrorCode = "UnreachableArm"
 	// CodeOverlappingPatterns is a warning for arms that partially overlap an
 	// earlier arm; ordered matching keeps behaviour deterministic (§17.6).
