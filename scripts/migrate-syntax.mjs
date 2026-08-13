@@ -15,6 +15,7 @@
 //        placeholder rather than a reference. `#` comments are untouched too.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 
 // Reserved words that cannot appear as a bare reference. An action or scene
 // whose id collides with one of these keeps its quotes — `action = "publish"`
@@ -64,7 +65,8 @@ function bareRef(quoted) {
 const transforms = [
   {
     name: "2.1 drop # on forms",
-    apply: (src) => src.replace(/#(if|case|pipe)\(/g, "$1("),
+    apply: (src) =>
+      rewriteCodeLines(src, (code) => replaceOutsideStrings(code, /#(if|case|pipe)\(/g, "$1(")),
   },
   {
     name: "2.2 overview block",
@@ -85,31 +87,88 @@ const transforms = [
     name: "3 strip leftover prefix sigils",
     // [ \t]* rather than \s*: a sigil must not be paired with an identifier on
     // a following line, or a trailing `<~` in a comment swallows the next line.
-    apply: (src) => src.replace(/(^|[ \t{])(?:<~>|<~|~>)[ \t]*([A-Za-z_]\w*[ \t]*:)/gm, "$1$2"),
+    apply: (src) =>
+      rewriteCodeLines(src, (code) =>
+        replaceOutsideStrings(code, /(^|[ \t{])(?:<~>|<~|~>)[ \t]*([A-Za-z_]\w*[ \t]*:)/g, "$1$2"),
+      ),
   },
   {
     // References become bare identifiers; quoted strings stay for real strings.
     name: "2.3 bare references",
     apply: (src) =>
-      src
-        .replace(/\bentry_actions(\s*)=(\s*)\[([^\]]*)\]/g, (m, s1, s2, items) => {
-          const bare = items
-            .split(",")
-            .map((s) => s.trim())
-            .filter(Boolean)
-            .map(bareRef);
-          return `entry_actions${s1}=${s2}[${bare.join(", ")}]`;
-        })
-        .replace(
-          /\bentry(\s+)"([A-Za-z_][A-Za-z0-9_]*)"/g,
-          (m, _s, name) => `entry = ${bareRef(`"${name}"`)}`,
-        )
-        .replace(
-          /\baction(\s*)=(\s*)"([A-Za-z_][A-Za-z0-9_]*)"/g,
-          (m, s1, s2, name) => `action${s1}=${s2}${bareRef(`"${name}"`)}`,
-        ),
+      rewriteCodeLines(src, (code) =>
+        code
+          .replace(/\bentry_actions(\s*)=(\s*)\[([^\]]*)\]/g, (m, s1, s2, items) => {
+            const bare = items
+              .split(",")
+              .map((s) => s.trim())
+              .filter(Boolean)
+              .map(bareRef);
+            return `entry_actions${s1}=${s2}[${bare.join(", ")}]`;
+          })
+          .replace(
+            /\bentry(\s+)"([A-Za-z_][A-Za-z0-9_]*)"/g,
+            (m, _s, name) => `entry = ${bareRef(`"${name}"`)}`,
+          )
+          .replace(
+            /\baction(\s*)=(\s*)"([A-Za-z_][A-Za-z0-9_]*)"/g,
+            (m, s1, s2, name) => `action${s1}=${s2}${bareRef(`"${name}"`)}`,
+          ),
+      ),
   },
 ];
+
+/** Applies a rewrite only before an unquoted DSL comment on each line. */
+function rewriteCodeLines(src, rewrite) {
+  return src
+    .split("\n")
+    .map((line) => {
+      const comment = commentStart(line);
+      return comment < 0 ? rewrite(line) : rewrite(line.slice(0, comment)) + line.slice(comment);
+    })
+    .join("\n");
+}
+
+function commentStart(line) {
+  let quoted = false;
+  let escaped = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') quoted = false;
+    } else if (ch === '"') quoted = true;
+    else if (ch === "#" && !/^(?:#(?:if|case|pipe)\(|#it\b)/.test(line.slice(i))) return i;
+    else if (ch === "/" && line[i + 1] === "/") return i;
+  }
+  return -1;
+}
+
+/** Applies a replacement outside double-quoted DSL string literals. */
+function replaceOutsideStrings(code, pattern, replacement) {
+  let out = "";
+  let start = 0;
+  let i = 0;
+  while (i < code.length) {
+    if (code[i] !== '"') {
+      i++;
+      continue;
+    }
+    out += code.slice(start, i).replace(pattern, replacement);
+    const quoteStart = i++;
+    let escaped = false;
+    while (i < code.length) {
+      const ch = code[i++];
+      if (escaped) escaped = false;
+      else if (ch === "\\") escaped = true;
+      else if (ch === '"') break;
+    }
+    out += code.slice(quoteStart, i);
+    start = i;
+  }
+  return out + code.slice(start).replace(pattern, replacement);
+}
 
 // rewriteOverview converts
 //
@@ -172,7 +231,7 @@ function rewriteOverview(src) {
   });
 }
 
-function migrate(src, { keepBlocks = false } = {}) {
+export function migrate(src, { keepBlocks = false } = {}) {
   let out = src;
   const applied = [];
   for (const t of transforms) {
@@ -209,7 +268,9 @@ function main(argv) {
   return check && changed > 0 ? 1 : 0;
 }
 
-process.exit(main(process.argv.slice(2)));
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  process.exit(main(process.argv.slice(2)));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 3 — inline IO
