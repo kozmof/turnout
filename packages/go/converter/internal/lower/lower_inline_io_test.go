@@ -16,7 +16,7 @@ func TestInlineIOMatchesBlockForm(t *testing.T) {
     compute {
       prog "p" {
         income:number <~ @ns.val
-        |^| out:number = (income) ~> @ns.val
+        out:number := (income) ~> @ns.val
       }
     }
   }`))
@@ -25,7 +25,7 @@ func TestInlineIOMatchesBlockForm(t *testing.T) {
     compute {
       prog "p" {
         income:number
-        |^| out:number = income
+        out:number := income
       }
     }
     prepare {
@@ -48,7 +48,7 @@ func TestInlineIOSynthesizesEntries(t *testing.T) {
     compute {
       prog "p" {
         income:number <~ @ns.val
-        |^| out:number = (income) ~> @ns.val
+        out:number := (income) ~> @ns.val
       }
     }
   }`))
@@ -68,7 +68,7 @@ func TestInlineIOHookSource(t *testing.T) {
     compute {
       prog "p" {
         line:str <~ hook("manifest_feed")
-        |^| out:str = line
+        out:str := line
       }
     }
   }`))
@@ -85,7 +85,7 @@ func TestInlineIONextSources(t *testing.T) {
   action "a" {
     compute {
       prog "p" {
-        |^| ready:bool = true
+        ready:bool := true
       }
     }
     next {
@@ -94,14 +94,14 @@ func TestInlineIONextSources(t *testing.T) {
           from_act:bool <~ action(ready)
           ceiling:number <~ 300
           from_st:bool <~ @ns.flag
-          |?| go:bool = from_act
+          go:bool := from_act
         }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "q" { |^| v:bool = true } }
+    compute { prog "q" { v:bool := true } }
   }`))
 	entries := tm.Scenes[0].Actions[0].Next[0].Prepare
 	if len(entries) != 3 {
@@ -132,7 +132,7 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
     compute {
       prog "p" {
         income:number <~ @ns.val
-        |^| out:number = income
+        out:number := income
       }
     }
     prepare {
@@ -149,7 +149,7 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
   action "a" {
     compute {
       prog "p" {
-        |^| out:number = (1) ~> @ns.val
+        out:number := (1) ~> @ns.val
       }
     }
     merge {
@@ -167,19 +167,19 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
 func TestInlineEgressInTransitionRejected(t *testing.T) {
 	ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
     next {
       compute {
         prog "n" {
           x:number = (1) ~> @ns.val
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "q" { |^| v:bool = true } }
+    compute { prog "q" { v:bool := true } }
   }`))
 	if !hasLowerDiagCode(ds, diag.CodeTransitionOutputSigil) {
 		t.Errorf("want TransitionOutputSigil, got %v", ds)

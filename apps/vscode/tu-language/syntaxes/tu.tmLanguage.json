@@ -29,7 +29,7 @@
       "include": "#simple-block"
     },
     {
-      "include": "#binding-marker"
+      "include": "#result-operator"
     },
     {
       "include": "#sigil-decl"
@@ -133,9 +133,9 @@
         }
       }
     },
-    "binding-marker": {
-      "comment": "Binding markers designating the compute root (|^|) or transition condition (|?|). Written before any sigil on the last binding of a prog.",
-      "match": "(\\|\\^\\||\\|\\?\\|)",
+    "result-operator": {
+      "comment": "Contextual prog result operator: an action root or transition condition, on the final binding.",
+      "match": "(:=)",
       "captures": {
         "1": {
           "name": "keyword.operator.marker.tu"

@@ -11,7 +11,7 @@ func overviewOf(t *testing.T, block string) *ast.ViewBlock {
 	t.Helper()
 	tf := mustParse(t, minimalTurnFile(block+`
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }`))
 	return tf.Scenes[0].View
 }
@@ -92,7 +92,7 @@ func TestOverviewBlockNonIdentStatement(t *testing.T) {
     42
   }
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }`))
 }
 
@@ -100,7 +100,7 @@ func TestOverviewBlockNonIdentStatement(t *testing.T) {
 func TestOverviewBlockMissingBrace(t *testing.T) {
 	mustParseFail(t, minimalTurnFile(`  overview strict
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }`))
 }
 
@@ -112,8 +112,8 @@ func TestEntryActionsBareAndQuoted(t *testing.T) {
 		tf := mustParse(t, `state { ns { val:number = 0 } }
 scene "test" {
   entry_actions = `+list+`
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
-  action "b" { compute { prog "q" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
+  action "b" { compute { prog "q" { v:bool := true } } }
 }
 `)
 		got := tf.Scenes[0].EntryActions
@@ -128,7 +128,7 @@ func TestEntryActionsRejectsNonReference(t *testing.T) {
 	mustParseFail(t, `state { ns { val:number = 0 } }
 scene "test" {
   entry_actions = [42]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 `)
 }

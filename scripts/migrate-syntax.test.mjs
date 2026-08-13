@@ -59,3 +59,20 @@ test("parenthesizes single-line and multiline computed egress idempotently", () 
   assert.equal(migrate(source).out, expected);
   assert.equal(migrate(expected).out, expected);
 });
+
+test("replaces root and condition markers with contextual result assignment", () => {
+  const source = [
+    "|^| result:number = foo + bar",
+    "|?| go:bool = ready",
+    "|^| current:number <~ @counter.value",
+    "|^| prepared:number",
+  ].join("\n");
+  const expected = [
+    "result:number := foo + bar",
+    "go:bool := ready",
+    "current:number := <~ @counter.value",
+    "prepared:number :=",
+  ].join("\n");
+  assert.equal(migrate(source).out, expected);
+  assert.equal(migrate(expected).out, expected);
+});

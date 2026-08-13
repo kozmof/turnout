@@ -32,7 +32,7 @@ func TestParseIrregularTopLevelErrors(t *testing.T) {
 			name: "scene_only",
 			src: `scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }`,
 			wantCodes: []diag.ErrorCode{diag.CodeMissingStateSource},
 		},
@@ -74,7 +74,7 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 			src: minimalTurnFile(`  entry_actions = [a]
   action "a" {
     compute { prog "p" {
-        |^| v:bool = }
+        v:bool := }
       }
     }
   }`),
@@ -86,7 +86,7 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 			src: minimalTurnFile(`  action "a" {
     """
     open text
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }`),
 			wantCode:   "LexError",
 			wantSubstr: "unterminated triple-quoted string",
@@ -99,7 +99,7 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| v:number } }
+    compute { prog "p" { v:number := } }
     prepare {
       v { from_state = }
     }
@@ -114,7 +114,7 @@ scene "test" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 }
 route "r1" {
@@ -131,7 +131,7 @@ route "r1" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 `,
 			wantCode:   "ParseSyntaxError",

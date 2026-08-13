@@ -58,7 +58,7 @@ scene "llm_support_workflow" {
 
         retrieve_ready:bool = need_grounding & kb_enabled
         fast_lane:bool = priority_tier >= 2
-        |^| analysis_ready:bool = true
+        analysis_ready:bool := true
       }
     }
 
@@ -66,7 +66,7 @@ scene "llm_support_workflow" {
       compute {
         prog "to_retrieve_context" {
           retrieve_ready:bool <~ action(retrieve_ready)
-          |?| go_retrieve:bool = retrieve_ready
+          go_retrieve:bool := retrieve_ready
         }
       }
       action = retrieve_context
@@ -93,7 +93,7 @@ scene "llm_support_workflow" {
 
         context_prefix:str = query + " :: "
         retrieved_context:str = (context_prefix + doc_hint) ~> @workflow.context
-        |^| retrieval_ready:bool = true
+        retrieval_ready:bool := true
       }
     }
 
@@ -115,7 +115,7 @@ scene "llm_support_workflow" {
         prefix:str = "Direct answer: "
         draft_text:str = (prefix + query) ~> @workflow.draft
         workflow_stage:str = ("drafted_direct") ~> @workflow.stage
-        |^| draft_ready:bool = true
+        draft_ready:bool := true
       }
     }
 
@@ -140,7 +140,7 @@ scene "llm_support_workflow" {
 
         draft_seed:str = query + " | "
         draft_text:str = (draft_seed + retrieved_context) ~> @workflow.draft
-        |^| draft_ready:bool = true
+        draft_ready:bool := true
       }
     }
 
@@ -166,7 +166,7 @@ scene "llm_support_workflow" {
         toxicity_ok:bool = toxicity_score <= 2
         pii_ok:bool = pii_score <= 1
         approved:bool = (toxicity_ok & pii_ok) ~> @workflow.approved
-        |^| safety_ready:bool = true
+        safety_ready:bool := true
       }
     }
 
@@ -174,7 +174,7 @@ scene "llm_support_workflow" {
       compute {
         prog "to_publish_response" {
           approved:bool <~ action(approved)
-          |?| go_publish:bool = approved
+          go_publish:bool := approved
         }
       }
       action = publish_response
@@ -197,7 +197,7 @@ scene "llm_support_workflow" {
         draft_text:str <~ @workflow.draft
         workflow_status:str = ("sent") ~> @workflow.status
         final_response:str = (draft_text) ~> @conversation.last_response
-        |^| publish_ready:bool = true
+        publish_ready:bool := true
       }
     }
 
@@ -217,7 +217,7 @@ scene "llm_support_workflow" {
         prefix:str = "Review needed: "
         handoff_note:str = (prefix + draft_text) ~> @review.note
         workflow_status:str = ("awaiting_human") ~> @workflow.status
-        |^| handoff_ready:bool = true
+        handoff_ready:bool := true
       }
     }
 

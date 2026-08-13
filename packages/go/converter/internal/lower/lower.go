@@ -417,7 +417,7 @@ func lowerNextRule(nr *ast.NextRule, schema state.Schema, ds *diag.DiagSink) *tu
 	// no information at runtime: evaluateNextRules treats a rule with no compute
 	// block as an unconditional match. Drop the trivially-true compute so the
 	// canonical model — and the re-emitted `.tu` — uses the concise
-	// `next { action = ... }` form. The verbose `|?| c:bool = true` shape and the
+	// `next { action = ... }` form. The verbose `c:bool := true` shape and the
 	// concise form therefore lower to an identical model.
 	if isDeterministicNext(nr) {
 		return pbNR

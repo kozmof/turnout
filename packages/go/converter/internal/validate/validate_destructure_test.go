@@ -18,7 +18,7 @@ scene "sc" {
     compute {
       prog "p" {
         rid: ResourceId = "foo-1"
-        |^| r: ` + rootType + ` = case(
+        r: ` + rootType + ` := case(
           rid,
           ` + arms + `
         )
@@ -127,7 +127,7 @@ scene "sc" {
     compute {
       prog "p" {
         s: str = "x"
-        |^| r: number = case(s, ResourceId { kind: "foo", sequence } => sequence)
+        r: number := case(s, ResourceId { kind: "foo", sequence } => sequence)
       }
     }
   }
@@ -151,7 +151,7 @@ scene "sc" {
     compute {
       prog "p" {
         rid: ResourceId = "foo-1"
-        |^| r: number = case(rid, OtherId { kind, sequence } => sequence)
+        r: number := case(rid, OtherId { kind, sequence } => sequence)
       }
     }
   }

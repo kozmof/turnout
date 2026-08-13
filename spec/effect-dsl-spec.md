@@ -15,7 +15,7 @@ action "score" {
     prog "score_graph" {
       income:number <~ @applicant.income
       income_ok:bool = income >= 50000
-      |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
+      decision:bool := (income_ok & debt_ok) ~> @decision.approved
     }
   }
 }
@@ -29,7 +29,7 @@ action "score" {
     prog "score_graph" {
       income:number
       income_ok:bool = income >= 50000
-      |^| decision:bool = income_ok & debt_ok
+      decision:bool := income_ok & debt_ok
     }
   }
   prepare { income { from_state = applicant.income } }
@@ -59,29 +59,29 @@ Transition inputs additionally accept `action(binding)` and literals after `<~`;
 
 ```
 prog-item     ::= binding-decl | anonymous-egress
-binding-decl  ::= [marker] IDENT ':' type (input-rhs | computed-rhs)
+binding-decl  ::= IDENT ':' type (ordinary-rhs | result-rhs)
+ordinary-rhs  ::= input-rhs | '=' expr | '=' '(' expr ')' '~>' state-path
+result-rhs    ::= ':=' (input-rhs | expr | '(' expr ')' '~>' state-path)
 input-rhs     ::= ['<~' ingress-source] ['~>' state-path]
-computed-rhs  ::= '=' expr | '=' '(' expr ')' '~>' state-path
 anonymous-egress ::= '(' expr ')' '~>' state-path
 ingress-source ::= state-path | hook-call | action-call | literal
 state-path    ::= '@' IDENT ('.' IDENT)+
-marker        ::= '|^|' | '|?|'
 ```
 
 A bare `name:type` is a structural input declaration and must be named by a matching `prepare` entry. A computed binding with no inline output may be named by `merge`. Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
 
-Anonymous egress is valid only in an action prog and is intended for results that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot carry a root/condition marker or be referenced through `action(...)`.
+Anonymous egress is valid only in an action prog and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be the contextual prog result or be referenced through `action(...)`.
 
-### 1.3 Binding markers
+### 1.3 Contextual prog result
 
-A binding may carry a leading marker:
+The `:=` operator designates the prog's final result:
 
-| Marker | Role | Valid in |
-|--------|------|----------|
-| `|^|` | Compute root—the action's compute output | action `compute` prog |
-| `|?|` | Boolean transition condition | `next` `compute` prog |
+| Context | Role |
+|---------|------|
+| action `compute` prog | Compute root—the action's compute output |
+| `next` `compute` prog | Boolean transition condition |
 
-An action compute prog requires exactly one `|^|`; a transition compute prog requires exactly one `|?|`. The marked binding must be last. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`.
+Each compute prog requires exactly one `:=` binding, and that binding must be last. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`.
 
 ### 1.4 Input and bidirectional declarations
 
@@ -190,7 +190,7 @@ action "score" {
 
       income_ok:bool   = income >= min_income
       debt_ok:bool     = debt <= max_debt
-      |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
+      decision:bool := (income_ok & debt_ok) ~> @decision.approved
     }
   }
 
@@ -211,7 +211,7 @@ next {
     prog "to_approve" {
       decision:bool
       income_ok:bool
-      |?| go:bool = decision & income_ok        # ← |?| marks the transition condition (last binding)
+      go:bool := decision & income_ok        # := marks the transition condition (last binding)
     }
   }
   prepare {
@@ -275,7 +275,7 @@ action "score" {
       income:number <~ @applicant.income
       income_ok:bool  = income >= min_income
       min_income:number = 50000
-      |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
+      decision:bool := (income_ok & debt_ok) ~> @decision.approved
     }
   }
 }

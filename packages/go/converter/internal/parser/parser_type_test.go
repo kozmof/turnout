@@ -28,7 +28,7 @@ scene "s" {
   action "a" {
     compute {
       prog "p" {
-        |^| out: number = 1
+        out: number := 1
       }
     }
   }
@@ -121,7 +121,7 @@ scene "s" {
   action "a" {
     compute {
       prog "p" {
-        |^| id: ResourceId = ResourceId {
+        id: ResourceId := ResourceId {
           kind = "foo"
           sequence = 42
         }
@@ -157,7 +157,7 @@ scene "s" {
     compute {
       prog "p" {
         rid: ResourceId = "foo-1"
-        |^| r: number = case(
+        r: number := case(
           rid,
           ResourceId { kind: "foo", sequence } => sequence,
           ResourceId { kind, sequence: _ } => 0

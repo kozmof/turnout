@@ -22,10 +22,6 @@ const (
 	TokSigilEgress  // <~
 	TokSigilIngress // ~>
 
-	// Binding markers — designate the compute root / transition condition
-	TokMarkerRoot // |^|  (compute root, action-level)
-	TokMarkerCond // |?|  (transition condition, next-level)
-
 	// Punctuation
 	TokLBrace    // {
 	TokRBrace    // }
@@ -35,6 +31,7 @@ const (
 	TokRParen    // )
 	TokComma     // ,
 	TokColon     // :
+	TokResult    // := (contextual prog result)
 	TokEquals    // =
 	TokDot       // .
 	TokAt        // @ (state path prefix in inline IO)
@@ -277,8 +274,6 @@ func init() {
 		TokSigilBiDir:   "<~>",
 		TokSigilEgress:  "<~",
 		TokSigilIngress: "~>",
-		TokMarkerRoot:   "|^|",
-		TokMarkerCond:   "|?|",
 		TokLBrace:       "{",
 		TokRBrace:       "}",
 		TokLBracket:     "[",
@@ -287,6 +282,7 @@ func init() {
 		TokRParen:       ")",
 		TokComma:        ",",
 		TokColon:        ":",
+		TokResult:       ":=",
 		TokEquals:       "=",
 		TokDot:          ".",
 		TokAt:           "@",
@@ -421,32 +417,17 @@ func (l *lex) scanToken() {
 		l.advance()
 		l.emit(TokAmpersand, "&", ln, co)
 
-	case c == '^':
-		l.advance()
-		l.errorf(ln, co, "unexpected '^' — the compute-root marker is written '|^|'")
-
-	case c == '?':
-		l.advance()
-		l.errorf(ln, co, "unexpected '?' — the transition-condition marker is written '|?|'")
-
 	case c == ':':
 		l.advance()
-		l.emit(TokColon, ":", ln, co)
+		if l.peek() == '=' {
+			l.advance()
+			l.emit(TokResult, ":=", ln, co)
+		} else {
+			l.emit(TokColon, ":", ln, co)
+		}
 
 	case c == '|':
-		// Binding markers |^| (compute root) and |?| (transition condition)
-		// take precedence over the bare pipe operator.
-		if l.peekAt(1) == '^' && l.peekAt(2) == '|' {
-			l.advance()
-			l.advance()
-			l.advance()
-			l.emit(TokMarkerRoot, "|^|", ln, co)
-		} else if l.peekAt(1) == '?' && l.peekAt(2) == '|' {
-			l.advance()
-			l.advance()
-			l.advance()
-			l.emit(TokMarkerCond, "|?|", ln, co)
-		} else if l.peekAt(1) == '=' && l.peekAt(2) == '>' {
+		if l.peekAt(1) == '=' && l.peekAt(2) == '>' {
 			// Flow edge in an overview block (NEW_SYNTAX.md 2.2). Matched before
 			// the bare pipe so `a |=> b` is one edge, not `a | (=> b)`.
 			l.advance()

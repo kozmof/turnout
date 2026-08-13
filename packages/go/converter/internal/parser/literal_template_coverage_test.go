@@ -52,7 +52,7 @@ func TestMalformedTemplateConstructionRecovers(t *testing.T) {
 type T = "x-{v: integer}"
 state { ns { x: number = 0 } }
 scene "s" { action "a" { compute { prog "p" {
-  |^| out: T = T { 42 = 1, v = 2 }
+  out: T := T { 42 = 1, v = 2 }
 } } } }
 `
 	_, ds := ParseFile("bad.tu", src)

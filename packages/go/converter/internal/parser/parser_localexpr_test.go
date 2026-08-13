@@ -22,7 +22,7 @@ func TestRHSCaseArms(t *testing.T) {
     compute {
       prog "p" {
         score:number = 1
-        |^| result:str = case(score, 1 => "one", x if gt(x, 5) => "big", _ => "other")
+        result:str := case(score, 1 => "one", x if gt(x, 5) => "big", _ => "other")
       }
     }
   }`)
@@ -73,7 +73,7 @@ func TestCasePatternTuple(t *testing.T) {
       prog "p" {
         one:number = 1
         two:number = 2
-        |^| result:str = case((one, two), (1, 2) => "tuple", _ => "other")
+        result:str := case((one, two), (1, 2) => "tuple", _ => "other")
       }
     }
   }`)
@@ -92,7 +92,7 @@ func TestRHSLocalNestedExprs(t *testing.T) {
         v1:number   = 1
         v2:number   = 2
         result2:number = if(flag, case(v1, 1 => v1, _ => v2), v2)
-        |^| result:number = if(flag, if(flag2, v1, v2), pipe(v1, add(#it, v2)))
+        result:number := if(flag, if(flag2, v1, v2), pipe(v1, add(#it, v2)))
       }
     }
   }`)
@@ -138,7 +138,7 @@ func TestRHSLocalInfix(t *testing.T) {
         v3:number = 3
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = if(v1 + v2 * v3, addFn, subFn)
+        result:number := if(v1 + v2 * v3, addFn, subFn)
       }
     }
   }`)
@@ -168,7 +168,7 @@ func TestArgMethodChain(t *testing.T) {
     compute {
       prog "p" {
         name:str = "hi"
-        |^| result:str = id(name.upper().trim())
+        result:str := id(name.upper().trim())
       }
     }
   }`)
@@ -199,7 +199,7 @@ func TestMethodChainMissingMethodName(t *testing.T) {
     compute {
       prog "p" {
         name:str = "hi"
-        |^| result:str = id(name.())
+        result:str := id(name.())
       }
     }
   }`)

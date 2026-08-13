@@ -128,7 +128,7 @@ scene "test" {
         a:arr<number> = [1]
         b:arr<str>    = ["x"]
         out:arr<number> = arr_concat(a, b)
-        |^| v:bool = true
+        v:bool := true
       }
     }
   }
@@ -281,11 +281,11 @@ func TestSCNNextComputeNotBool(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
-          |?| score:number = 1
+          score:number := 1
         }
       }
       action = a
@@ -472,7 +472,7 @@ func TestNextRuleUnknownAction(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next { action = unknown }
   }
 }
@@ -664,7 +664,7 @@ scene "test" {
     compute {
       prog "p" {
         x:number = 1
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {
@@ -687,7 +687,7 @@ scene "test" {
     compute {
       prog "p" {
         x:number = 1
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {
@@ -711,7 +711,7 @@ scene "test" {
     compute {
       prog "p" {
         x:number
-        |^| v:bool = true
+        v:bool := true
       }
     }
   }
@@ -731,9 +731,9 @@ func TestNextPrepareFromAction(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:number = 42 } }
+    compute { prog "p" { r:number := 42 } }
     next {
-      compute { prog "n" { score:number |?| go:bool = true } }
+      compute { prog "n" { score:number go:bool := true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -753,9 +753,9 @@ func TestNextPrepareFromState(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
-      compute { prog "n" { score:number |?| go:bool = true } }
+      compute { prog "n" { score:number go:bool := true } }
       prepare { score { from_state = app.score } }
       action = a
     }
@@ -775,9 +775,9 @@ func TestNextPrepareFromLiteral(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
-      compute { prog "n" { score:number |?| go:bool = true } }
+      compute { prog "n" { score:number go:bool := true } }
       prepare { score { from_literal = 42 } }
       action = a
     }
@@ -797,9 +797,9 @@ func TestNextPrepareFromActionUnknown(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:number = 42 } }
+    compute { prog "p" { r:number := 42 } }
     next {
-      compute { prog "n" { score:number |?| go:bool = true } }
+      compute { prog "n" { score:number go:bool := true } }
       prepare { score { from_action = missing_binding } }
       action = a
     }
@@ -823,9 +823,9 @@ func TestNextPrepareFromActionTypeMismatch(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
-      compute { prog "n" { score:number |?| go:bool = true } }
+      compute { prog "n" { score:number go:bool := true } }
       prepare { score { from_action = r } }
       action = a
     }
@@ -881,10 +881,10 @@ func TestNextRuleConditionNotBool(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
-        prog "n" { |?| go:number = 42 }
+        prog "n" { go:number := 42 }
       }
       action = a
     }
@@ -934,7 +934,7 @@ scene "test" {
     compute {
       prog "p" {
         x:number
-        |^| v:bool = true
+        v:bool := true
       }
     }
     prepare {
@@ -959,7 +959,7 @@ scene "test" {
     compute {
       prog "p" {
         score:number = 0
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {
@@ -982,7 +982,7 @@ scene "test" {
     compute {
       prog "p" {
         score:number = 0
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {
@@ -1005,7 +1005,7 @@ scene "test" {
     compute {
       prog "p" {
         score:number = 0
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {
@@ -1028,7 +1028,7 @@ scene "test" {
     compute {
       prog "p" {
         score:number = 0
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {

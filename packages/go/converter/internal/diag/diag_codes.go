@@ -12,7 +12,7 @@ const (
 	CodeLexError             ErrorCode = "LexError"
 )
 
-// Binding-marker error codes (`|^|` compute root / `|?|` transition condition).
+// Contextual prog-result error codes. Names are retained for API compatibility.
 const (
 	CodeMissingRootMarker      ErrorCode = "MissingRootMarker"
 	CodeMissingConditionMarker ErrorCode = "MissingConditionMarker"

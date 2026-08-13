@@ -18,7 +18,7 @@ scene "s" {
       foo:number = 1
       bar:number = 2
       (foo + bar) ~> @billing.total
-      |^| done:bool = true
+      done:bool := true
     } }
   }
 }`
@@ -53,16 +53,16 @@ func TestAnonymousEgressInTransitionRejected(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| done:bool = true } }
+    compute { prog "p" { done:bool := true } }
     next {
       compute { prog "n" {
         (true) ~> @app.active
-        |?| go:bool = true
+        go:bool := true
       } }
       action = b
     }
   }
-  action "b" { compute { prog "q" { |^| done:bool = true } } }
+  action "b" { compute { prog "q" { done:bool := true } } }
 }`
 	tf, parseDs := parser.ParseFile("test.tu", src)
 	if parseDs.HasErrors() {

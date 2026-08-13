@@ -38,7 +38,7 @@ scene "s" {
     compute {
       prog "p" {
         score:number <~ @user.score
-        |^| done:bool = (true) ~> @user.active
+        done:bool := (true) ~> @user.active
       }
     }
     publish {
@@ -48,14 +48,14 @@ scene "s" {
       compute {
         prog "n" {
           score:number <~ action(score)
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 }
 route "main" {

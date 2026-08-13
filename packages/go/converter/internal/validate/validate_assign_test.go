@@ -1,6 +1,7 @@
 package validate_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -9,6 +10,7 @@ import (
 // assignProg builds a program whose root binding is annotated with the given
 // named type and initialised to the given literal RHS.
 func assignProg(typeDecls, decl string) string {
+	decl = strings.Replace(decl, " = ", " := ", 1)
 	return typeDecls + `
 state { app { score:number = 0 } }
 scene "sc" {
@@ -16,7 +18,7 @@ scene "sc" {
   action "a" {
     compute {
       prog "p" {
-        |^| ` + decl + `
+        ` + decl + `
       }
     }
   }
@@ -107,7 +109,7 @@ scene "sc" {
     compute {
       prog "p" {
         f: Foo = "foo"
-        |^| k: Kind = f
+        k: Kind := f
       }
     }
   }
@@ -132,7 +134,7 @@ scene "sc" {
     compute {
       prog "p" {
         s: str = "foo"
-        |^| k: Kind = s
+        k: Kind := s
       }
     }
   }

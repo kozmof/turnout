@@ -28,7 +28,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number
+        score:number :=
       }
     }
   }
@@ -45,7 +45,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number <~ @app.missing
+        score:number := <~ @app.missing
       }
     }
   }
@@ -60,12 +60,12 @@ scene "test" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -82,12 +82,12 @@ scene "test" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number <~ @app.missing
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -129,7 +129,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
   action "a" {
     compute {
       prog "p" {
-        |^| v:bool = true
+        v:bool := true
       }
     }
   }`),
@@ -162,7 +162,7 @@ func TestLowerStaleDeclarationOrderIsError(t *testing.T) {
 	src := `state_file = "fake.tu"
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {

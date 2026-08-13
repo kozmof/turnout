@@ -192,20 +192,19 @@ func SigilFromInt32(v int32) Sigil { return Sigil(v) }
 // BindingMarker — compute root / transition condition designation
 // ────────────────────────────────────────────────────────────
 
-// BindingMarker designates a binding's special role within its prog block:
-// the compute root (`|^|`, action-level) or the transition condition (`|?|`,
-// next-level). It is parser-only metadata: the parser derives ComputeBlock.Root
-// and NextComputeBlock.Condition from the marked binding and the marker is not
+// BindingMarker records the contextual role designated by `:=`. It is
+// parser-only metadata: the parser derives ComputeBlock.Root or
+// NextComputeBlock.Condition from the result binding, and the marker is not
 // carried into the lowered proto model.
 type BindingMarker int
 
 const (
 	MarkerNone BindingMarker = iota // no marker (ordinary binding)
-	MarkerRoot                      // |^|  (compute root)
-	MarkerCond                      // |?|  (transition condition)
+	MarkerRoot                      // := in an action compute
+	MarkerCond                      // := in a transition compute
 )
 
-var markerNames = [...]string{"", "|^|", "|?|"}
+var markerNames = [...]string{"", ":=", ":="}
 
 func (m BindingMarker) String() string {
 	if int(m) < len(markerNames) {

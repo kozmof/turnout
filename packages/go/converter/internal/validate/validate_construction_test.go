@@ -1,6 +1,7 @@
 package validate_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
@@ -8,6 +9,7 @@ import (
 
 // constructProg builds a program whose root binding constructs a template value.
 func constructProg(rootDecl string) string {
+	rootDecl = strings.Replace(rootDecl, " = ", " := ", 1)
 	return `
 type Kind = "foo" | "bar"
 type ResourceId = "{kind: Kind}-{sequence: integer}"
@@ -17,7 +19,7 @@ scene "sc" {
   action "a" {
     compute {
       prog "p" {
-        |^| ` + rootDecl + `
+        ` + rootDecl + `
       }
     }
   }
@@ -96,7 +98,7 @@ scene "sc" {
       prog "p" {
         k: Kind = "foo"
         n: integer = 7
-        |^| id: ResourceId = ResourceId { kind = k sequence = n }
+        id: ResourceId := ResourceId { kind = k sequence = n }
       }
     }
   }
@@ -122,7 +124,7 @@ scene "sc" {
     compute {
       prog "p" {
         n: number = 7
-        |^| id: ResourceId = ResourceId { kind = "foo" sequence = n }
+        id: ResourceId := ResourceId { kind = "foo" sequence = n }
       }
     }
   }

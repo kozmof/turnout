@@ -38,7 +38,7 @@ func TestEmitLiteralNonEmptyArray(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }`)
 	if !strings.Contains(out, `value = [1, 2, 3]`) {
 		t.Errorf("missing non-empty array literal in output:\n%s", out)
@@ -51,7 +51,7 @@ func TestEmitLiteralBoolFalse(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }`)
 	if !strings.Contains(out, `value = false`) {
 		t.Errorf("missing bool false literal in output:\n%s", out)
@@ -157,12 +157,12 @@ func TestEmitNextPrepareFromState(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number <~ @app.score
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -181,12 +181,12 @@ func TestEmitNextPrepareFromLiteral(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           val:number <~ 42
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -305,7 +305,7 @@ func TestEmitJSONRoute(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r1" {
   entry = scene_1
@@ -336,7 +336,7 @@ func TestEmitJSONLitToJSONArray(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }`
 	var sb strings.Builder
 	if ds := emit.EmitJSON(&sb, pipelineModel(t, src)); ds.HasErrors() {
@@ -466,7 +466,7 @@ func TestEmitLargeNumberDecimal(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }`)
 	if strings.Contains(out, "1e+") || strings.Contains(out, "e+0") {
 		t.Errorf("number value must not use scientific notation, got output containing 'e+': %s", out)
@@ -484,7 +484,7 @@ func TestEmitSmallNumberDecimal(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }`)
 	if strings.Contains(out, "1e-") || strings.Contains(out, "e-0") {
 		t.Errorf("number value must not use scientific notation, got output containing 'e-': %s", out)

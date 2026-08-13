@@ -100,24 +100,12 @@ func (p *parser) parseStatePath() string {
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
 
 // parseBindingDecl parses one binding declaration inside a prog block:
-// [marker] name ':' type (input | computed | computed-egress)
+// name ':' type ('=' ordinary | ':=' result)
 // Inputs use `<~ source` and have no RHS. Computed egress requires the complete
-// RHS wrapper `= (expr) ~> @path`; ordinary computed bindings use `= expr`.
+// RHS wrapper `(expr) ~> @path` after either assignment operator.
 func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	t := p.peek()
 	pos := p.posOf(t)
-
-	// optional binding marker (|^| compute root / |?| transition condition),
-	// written before the sigil
-	var marker ast.BindingMarker
-	switch t.Kind {
-	case lexer.TokMarkerRoot:
-		marker = ast.MarkerRoot
-		p.advance()
-	case lexer.TokMarkerCond:
-		marker = ast.MarkerCond
-		p.advance()
-	}
 
 	// A sigil in the leading position is the pre-v2 spelling. It cannot simply be
 	// reported as a syntax error: the arrows inverted when they moved to infix
@@ -143,7 +131,17 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		return nil
 	}
 
-	// Inline IO: `name:type <~ <source>` and/or `= (expr) ~> @ns.field`.
+	marker := ast.MarkerNone
+	result := p.peek().Kind == lexer.TokResult
+	if result {
+		p.advance()
+		marker = ast.MarkerRoot
+		if p.inNextCompute {
+			marker = ast.MarkerCond
+		}
+	}
+
+	// Inline IO: `name:type <~ <source>` and/or an assigned `(expr) ~> @ns.field`.
 	ingress := p.parseInlineIngress()
 
 	var rhs ast.BindingRHS
@@ -157,14 +155,19 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 			p.parseRHS() // consume and discard
 		}
 		rhs = &ast.SigilInputRHS{}
-	} else if p.peek().Kind != lexer.TokEquals {
+	} else if !result && p.peek().Kind != lexer.TokEquals {
 		// A bare `name:type` is an input declaration whose source lives in the
 		// action's prepare block. With the prefix sigils retired, this is what the
 		// block form looks like; a missing prepare entry is caught downstream by
 		// the same check that always covered it.
 		rhs = &ast.SigilInputRHS{}
+	} else if result && p.peek().Kind == lexer.TokRBrace {
+		// A block-backed input may be the prog result without an inline source.
+		rhs = &ast.SigilInputRHS{}
 	} else {
-		p.expect(lexer.TokEquals)
+		if !result {
+			p.expect(lexer.TokEquals)
+		}
 		if p.peek().Kind == lexer.TokLParen {
 			wrappedEgressRHS = true
 			p.advance()
@@ -176,15 +179,19 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	}
 
 	egress := p.parseInlineEgress()
+	assignment := "="
+	if result {
+		assignment = ":="
+	}
 	if egress != nil && !wrappedEgressRHS && ingress == nil {
 		p.Append(diag.ErrorAt(p.file, egress.Pos.Line, egress.Pos.Col, diag.CodeParseSyntaxError,
-			"computed egress binding %q must parenthesize its complete RHS; write `%s:%s = (expr) ~> @state.path`",
-			nameTok.Value, nameTok.Value, ft))
+			"computed egress binding %q must parenthesize its complete RHS; write `%s:%s %s (expr) ~> @state.path`",
+			nameTok.Value, nameTok.Value, ft, assignment))
 	}
 	if wrappedEgressRHS && egress == nil {
 		p.Append(diag.ErrorAt(p.file, pos.Line, pos.Col, diag.CodeParseSyntaxError,
-			"top-level parenthesized RHS is reserved for computed egress; write `%s:%s = expr` or `%s:%s = (expr) ~> @state.path`",
-			nameTok.Value, ft, nameTok.Value, ft))
+			"top-level parenthesized RHS is reserved for computed egress; write `%s:%s %s expr` or `%s:%s %s (expr) ~> @state.path`",
+			nameTok.Value, ft, assignment, nameTok.Value, ft, assignment))
 	}
 
 	sigil := ast.SigilNone
@@ -294,12 +301,12 @@ func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 	return &ast.ComputeBlock{Pos: pos, Root: root, Prog: prog}
 }
 
-// deriveMarker scans prog's bindings for the `|^|` (root) / `|?|` (condition)
-// marker and returns the marked binding name, emitting diagnostics when the
-// marker rules are violated. `want` selects which marker is legal in this
+// deriveMarker scans prog's bindings for the `:=` result and returns its
+// binding name, emitting diagnostics when the result rules are violated.
+// `want` selects the contextual role used in this
 // context (MarkerRoot in action compute, MarkerCond in next compute). The
-// invariant enforced: exactly one marker, of the expected kind, on the last
-// binding of the prog.
+// invariant enforced: exactly one result, with the expected contextual role,
+// on the last binding of the prog.
 func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) string {
 	missingCode := diag.CodeMissingRootMarker
 	markerStr := ast.MarkerRoot.String()
@@ -321,14 +328,14 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 
 	if len(marked) == 0 {
 		p.Append(diag.ErrorAt(p.file, prog.Pos.Line, prog.Pos.Col, missingCode,
-			"prog %q: missing %s marker on a binding", prog.Name, markerStr))
+			"prog %q: missing := result binding", prog.Name))
 		return ""
 	}
 
 	if len(marked) > 1 {
 		second := marked[1]
 		p.Append(diag.ErrorAt(p.file, second.Pos.Line, second.Pos.Col, diag.CodeDuplicateMarker,
-			"prog %q: at most one marker is allowed per prog; binding %q carries a second marker",
+			"prog %q: at most one := result is allowed per prog; binding %q is a second result",
 			prog.Name, second.Name))
 	}
 
@@ -341,8 +348,8 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 
 	if last := prog.Bindings[len(prog.Bindings)-1]; last != m {
 		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerNotLast,
-			"prog %q: %s marker must be on the last binding; binding %q is not last",
-			prog.Name, markerStr, m.Name))
+			"prog %q: := must designate the last binding; binding %q is not last",
+			prog.Name, m.Name))
 	}
 
 	return m.Name
@@ -539,7 +546,7 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 
 // parseNextSugar parses `next <action>` and `next <action> if <cond>`, expanding
 // the conditional form into exactly the block form it abbreviates: a synthesized
-// prog holding the ingress binding and the `|?|` condition, plus the from_action
+// prog holding the ingress binding and the `:=` condition, plus the from_action
 // prepare entry that feeds it. Lowering sees no difference between the two.
 //
 // The condition must be a bare boolean binding of the enclosing action's prog;

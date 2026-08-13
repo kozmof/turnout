@@ -55,10 +55,10 @@ CAN (OK):
 
 CAN'T (NG):
 
-- An action `compute` prog cannot omit the `|^|` root marker (it derives `compute.root`). A prog cannot carry more than one marker, and the marked binding must be last.
+- An action `compute` prog cannot omit its `:=` result binding (it derives `compute.root`). A prog cannot carry more than one result, and the result binding must be last.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A structural input binding cannot omit its `prepare` entry.
-- A next rule that includes a `compute` block cannot omit the `|?|` condition marker (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { |?| c:bool = true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
+- A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { c:bool := true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
 - Next actions cannot reference missing actions.
 
 Correlation:
@@ -173,7 +173,7 @@ IO direction is declared by inline clauses that point toward their destination, 
 - `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
 - A bare `name:type` may be paired with a `prepare` entry; a computed binding may be paired with a `merge` entry. Inline and structural IO must not be mixed for the same direction on one binding.
 
-Rule, root binding declared last: The compute root is designated inline with the `|^|` marker on its binding (and the transition condition with `|?|`). The marked binding MUST be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the root last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the marked binding.
+Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
 
 ```hcl
 scene "loan_flow" {
@@ -189,7 +189,7 @@ scene "loan_flow" {
         max_debt:number   = 20000
         income_ok:bool   = income >= min_income
         debt_ok:bool     = debt <= max_debt
-        |^| decision:bool = (income_ok & debt_ok) ~> @decision.approved
+        decision:bool := (income_ok & debt_ok) ~> @decision.approved
       }
     }
 
@@ -202,7 +202,7 @@ scene "loan_flow" {
         prog "to_approve" {
           decision:bool <~ action(decision)
           income_ok:bool <~ action(income_ok)
-          |?| go:bool = decision & income_ok
+          go:bool := decision & income_ok
         }
       }
       action = approve
@@ -210,7 +210,7 @@ scene "loan_flow" {
     next {
       compute {
         prog "to_reject" {
-          |?| always:bool = true
+          always:bool := true
         }
       }
       action = reject
@@ -381,7 +381,7 @@ type SceneDiagnostic = {
 
 ## 11. Conformance Checklist
 
-1. `compute.root` is derived from the `|^|`-marked binding, so it always names an existing binding. An action `compute` prog with no `|^|` marker fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
+1. `compute.root` is derived from the `:=` result binding, so it always names an existing binding. An action `compute` prog with no `:=` result fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
 3. A root binding with inline output or a structural `merge` entry writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.

@@ -97,6 +97,10 @@ const transforms = [
     apply: wrapComputedEgress,
   },
   {
+    name: "5 contextual prog result",
+    apply: rewriteResultMarkers,
+  },
+  {
     // References become bare identifiers; quoted strings stay for real strings.
     name: "2.3 bare references",
     apply: (src) =>
@@ -121,6 +125,19 @@ const transforms = [
       ),
   },
 ];
+
+// Replaces the retired context-specific prefix markers with the contextual
+// result operator. The RHS separator becomes :=; inline and structural inputs
+// place := immediately after the declared type.
+function rewriteResultMarkers(src) {
+  return rewriteCodeLines(src, (code) =>
+    replaceOutsideStrings(
+      code,
+      /(^|[ \t{])(?:\|\^\||\|\?\|)[ \t]+([A-Za-z_]\w*[ \t]*:[ \t]*(?:arr<[^>\n]+>|[A-Za-z_]\w*))[ \t]*(=|<~)?/g,
+      (_match, lead, decl, rhs) => `${lead}${decl} :=${rhs === "<~" ? " <~" : ""}`,
+    ),
+  );
+}
 
 // Wraps the complete RHS of every computed inline egress. The declaration may
 // be single-line or may contain a multiline call/construction; delimiter depth

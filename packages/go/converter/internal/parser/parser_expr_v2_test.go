@@ -16,7 +16,7 @@ func rhsOf(t *testing.T, ty, expr string) ast.BindingRHS {
         b:number = 2
         c:number = 3
         f:bool = true
-        |^| result:` + ty + ` = ` + expr + `
+        result:` + ty + ` := ` + expr + `
       }
     }
   }`)
@@ -121,7 +121,7 @@ func nextRulesOf(t *testing.T, nextClauses string) []*ast.NextRule {
 	tf := mustParse(t, minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        |^| ready:bool = true
+        ready:bool := true
       }
     }
 `+nextClauses+`
@@ -130,7 +130,7 @@ func nextRulesOf(t *testing.T, nextClauses string) []*ast.NextRule {
 }
 
 // TestNextSugarConditional covers 1.4: `next X if cond` expands to the block
-// form — a synthesized prog with the ingress binding and the `|?|` condition,
+// form — a synthesized prog with the ingress binding and the `:=` condition,
 // plus the from_action prepare entry feeding it.
 func TestNextSugarConditional(t *testing.T) {
 	rules := nextRulesOf(t, `    next b if ready`)
@@ -184,7 +184,7 @@ func TestNextSugarQuotedAction(t *testing.T) {
 // followed by an identifier.
 func TestNextSugarMissingCondition(t *testing.T) {
 	mustParseFail(t, minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| ready:bool = true } }
+    compute { prog "p" { ready:bool := true } }
     next b if 42
   }`))
 }

@@ -19,7 +19,7 @@ scene "sc" {
       prog "p" {
         n: number = 1
         ` + subjectDecl + `
-        |^| r: str = case(
+        r: str := case(
           s,
           ` + arms + `
         )

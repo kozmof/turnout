@@ -58,6 +58,7 @@ func TestOperators(t *testing.T) {
 		val  string
 	}{
 		{"=", TokEquals, "="},
+		{":=", TokResult, ":="},
 		{"=>", TokArrow, "=>"},
 		{">=", TokGTE, ">="},
 		{"<=", TokLTE, "<="},
@@ -90,27 +91,10 @@ func TestSigils(t *testing.T) {
 	}
 }
 
-func TestBindingMarkers(t *testing.T) {
-	cases := []struct {
-		src  string
-		kind TokenKind
-		val  string
-	}{
-		{"|^|", TokMarkerRoot, "|^|"},
-		{"|?|", TokMarkerCond, "|?|"},
-	}
-	for _, tc := range cases {
-		toks := filterEOF(mustTokenize(t, tc.src))
-		if len(toks) != 1 || toks[0].Kind != tc.kind || toks[0].Value != tc.val {
-			t.Errorf("src=%q: got kind=%v val=%q", tc.src, toks[0].Kind, toks[0].Value)
-		}
-	}
-}
-
-func TestBindingMarkerBeforeSigil(t *testing.T) {
-	toks := filterEOF(mustTokenize(t, "|^| <~phase"))
-	if toks[0].Kind != TokMarkerRoot {
-		t.Errorf("tok[0]: got %v, want TokMarkerRoot", toks[0].Kind)
+func TestResultBeforeSigil(t *testing.T) {
+	toks := filterEOF(mustTokenize(t, ":= <~phase"))
+	if toks[0].Kind != TokResult {
+		t.Errorf("tok[0]: got %v, want TokResult", toks[0].Kind)
 	}
 	if toks[1].Kind != TokSigilEgress {
 		t.Errorf("tok[1]: got %v, want TokSigilEgress", toks[1].Kind)
@@ -120,8 +104,7 @@ func TestBindingMarkerBeforeSigil(t *testing.T) {
 	}
 }
 
-func TestBareMarkerCharIsError(t *testing.T) {
-	// '^' and '?' are only valid inside the |^| / |?| markers.
+func TestRetiredMarkerCharsAreErrors(t *testing.T) {
 	for _, src := range []string{"^", "?"} {
 		if _, ds := Tokenize("<test>", src); !ds.HasErrors() {
 			t.Errorf("src=%q: expected lex error for bare marker char", src)

@@ -30,14 +30,14 @@ scene "ai_workflow" {
         need_grounding:bool <~ @request.need_grounding
         kb_enabled:bool <~ @request.kb_enabled
         retrieve_ready:bool = need_grounding & kb_enabled
-        |^| analysis_done:bool  = true
+        analysis_done:bool := true
       }
     }
     next {
       compute {
         prog "to_retrieve" {
           retrieve_ready:bool <~ action(retrieve_ready)
-          |?| go_retrieve:bool = retrieve_ready
+          go_retrieve:bool := retrieve_ready
         }
       }
       action = retrieve
@@ -52,7 +52,7 @@ scene "ai_workflow" {
       prog "retrieve_prog" {
         doc_hint:str <~ @request.doc_hint
         prefix:str      = "Retrieved: "
-        |^| context_str:str = (prefix + doc_hint) ~> @workflow.context
+        context_str:str := (prefix + doc_hint) ~> @workflow.context
       }
     }
     next {
@@ -65,7 +65,7 @@ scene "ai_workflow" {
       prog "draft_direct_prog" {
         query:str <~ @request.query
         prefix:str      = "Direct answer: "
-        |^| draft_text:str = (prefix + query) ~> @workflow.draft
+        draft_text:str := (prefix + query) ~> @workflow.draft
       }
     }
     next {
@@ -82,7 +82,7 @@ scene "ai_workflow" {
         close:str     = "]"
         mid:str        = query + sep
         mid2:str        = mid + context
-        |^| draft_text:str = (mid2 + close) ~> @workflow.draft
+        draft_text:str := (mid2 + close) ~> @workflow.draft
       }
     }
     next {
@@ -95,14 +95,14 @@ scene "ai_workflow" {
       prog "safety_prog" {
         toxicity:number <~ @request.toxicity_score
         threshold:number  = 3
-        |^| safe:bool = toxicity <= threshold
+        safe:bool := toxicity <= threshold
       }
     }
     next {
       compute {
         prog "to_publish" {
           safe:bool <~ action(safe)
-          |?| go_publish:bool = safe
+          go_publish:bool := safe
         }
       }
       action = "publish"
@@ -117,7 +117,7 @@ scene "ai_workflow" {
       prog "publish_prog" {
         draft:str <~ @workflow.draft
         status:str = ("sent") ~> @workflow.status
-        |^| final_response:str = (draft) ~> @response.last
+        final_response:str := (draft) ~> @response.last
       }
     }
   }
@@ -128,7 +128,7 @@ scene "ai_workflow" {
         draft:str <~ @workflow.draft
         prefix:str           = "Review needed: "
         status:str = ("awaiting_human") ~> @workflow.status
-        |^| review_note:str = (prefix + draft) ~> @review.note
+        review_note:str := (prefix + draft) ~> @review.note
       }
     }
   }

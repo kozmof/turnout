@@ -61,7 +61,7 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| v:bool = true }
+      prog "p" { v:bool := true }
     }
   }
 }
@@ -97,7 +97,7 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| v:bool = true }
+      prog "p" { v:bool := true }
     }
   }
 }
@@ -116,7 +116,7 @@ func TestMissingStateSourceError(t *testing.T) {
 	src := `scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }
 }
 `
@@ -126,7 +126,7 @@ func TestMissingStateSourceError(t *testing.T) {
 func TestConflictingStateSourceError(t *testing.T) {
 	src := `state {}
 state_file = "x.tu"
-scene "s" { entry_actions = [a] action "a" { compute { prog "p" { |^| v:bool = true } } } }
+scene "s" { entry_actions = [a] action "a" { compute { prog "p" { v:bool := true } } } }
 `
 	mustParseFail(t, src)
 }
@@ -140,7 +140,7 @@ scene "loan_flow" {
   next_policy   = "first-match"
   action "score" {
     compute {
-      prog "p" { |^| decision:bool = true }
+      prog "p" { decision:bool := true }
     }
   }
 }
@@ -167,7 +167,7 @@ scene "s" {
     a |=> b
   }
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }
 }
 `
@@ -199,7 +199,7 @@ func TestParseActionTripleQuoteDocstring(t *testing.T) {
     """
     Hello, world.
     """
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }`)
 	tf := mustParse(t, src)
 	ab := tf.Scenes[0].Actions[0]
@@ -214,7 +214,7 @@ func TestParseActionTripleQuoteDocstring(t *testing.T) {
 func TestParseActionExplicitText(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     text = "explicit text"
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }`)
 	tf := mustParse(t, src)
 	ab := tf.Scenes[0].Actions[0]
@@ -230,7 +230,7 @@ func TestParseComputeBlock(t *testing.T) {
     compute {
       prog "score_graph" {
         income:number = 0
-        |^| decision:bool = true
+        decision:bool := true
       }
     }
   }`)
@@ -271,7 +271,7 @@ func TestParseInlineIOSigils(t *testing.T) {
         a:number <~ @ns.val
         b:bool   = (true) ~> @ns.flag
         c:str    <~ @ns.name ~> @ns.name
-        |^| d:number   = 0
+        d:number := 0
       }
     }
   }`)
@@ -309,7 +309,7 @@ func TestParseLegacySigilPositionReported(t *testing.T) {
 	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        |^| ~>a:number
+        ~>a:number :=
       }
     }
   }`))
@@ -331,7 +331,7 @@ func TestParseBareInputDeclaration(t *testing.T) {
     compute {
       prog "p" {
         a:number
-        |^| d:bool = true
+        d:bool := true
       }
     }
     prepare {
@@ -356,7 +356,7 @@ func TestRHSLiteralForms(t *testing.T) {
         n:number       = 42
         s:str          = "hello"
         b:bool         = false
-        |^| xs:arr<number> = [1, 2, 3]
+        xs:arr<number> := [1, 2, 3]
       }
     }
   }`)
@@ -392,7 +392,7 @@ func TestRHSPlaceholder(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute {
       prog "p" {
-        |^| v:number
+        v:number :=
       }
     }
   }`)
@@ -408,7 +408,7 @@ func TestRHSSingleRef(t *testing.T) {
     compute {
       prog "p" {
         v:number = 5
-        |^| out:number = v
+        out:number := v
       }
     }
   }`)
@@ -425,7 +425,7 @@ func TestRHSFuncCall(t *testing.T) {
       prog "p" {
         v1:number = 5
         v2:number = 3
-        |^| out:number = add(v1, v2)
+        out:number := add(v1, v2)
       }
     }
   }`)
@@ -446,7 +446,7 @@ func TestRHSNamedFuncCall(t *testing.T) {
       prog "p" {
         v1:number = 5
         v2:number = 3
-        |^| out:number = add(a: v1, b: v2)
+        out:number := add(a: v1, b: v2)
       }
     }
   }`)
@@ -478,7 +478,7 @@ func TestRHSInfixForms(t *testing.T) {
         p:str      = "prefix"
         q:str      = "suffix"
         cat:str    = p + q
-        |^| out:bool   = true
+        out:bool := true
       }
     }
   }`)
@@ -523,7 +523,7 @@ func TestRHSPipe(t *testing.T) {
       prog "p" {
         v1:number = 5
         v2:number = 3
-        |^| result:number = pipe(v1, add(#it, v2))
+        result:number := pipe(v1, add(#it, v2))
       }
     }
   }`)
@@ -553,7 +553,7 @@ func TestRHSCondBlock(t *testing.T) {
         flag:bool    = true
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = if(flag, addFn, subFn)
+        result:number := if(flag, addFn, subFn)
       }
     }
   }`)
@@ -585,7 +585,7 @@ func TestRHSIfInlineCall(t *testing.T) {
         v2:number    = 3
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = if(gt(v1, v2), addFn, subFn)
+        result:number := if(gt(v1, v2), addFn, subFn)
       }
     }
   }`)
@@ -616,7 +616,7 @@ func TestRHSIfBareRef(t *testing.T) {
         flag:bool    = true
         addFn:number = add(v1, v2)
         subFn:number = add(v1, v2)
-        |^| result:number = if(flag, addFn, subFn)
+        result:number := if(flag, addFn, subFn)
       }
     }
   }`)
@@ -639,7 +639,7 @@ func TestParsePrepareBlock(t *testing.T) {
     compute {
       prog "p" {
         income:number
-        |^| v:bool = true
+        v:bool := true
       }
     }
     prepare {
@@ -663,7 +663,7 @@ func TestParsePrepareBlock(t *testing.T) {
 
 func TestParsePrepareFromHook(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { data:str |^| v:bool = true } }
+    compute { prog "p" { data:str v:bool := true } }
     prepare {
       data { from_hook = "score_api" }
     }
@@ -681,7 +681,7 @@ func TestParseMergeBlock(t *testing.T) {
     compute {
       prog "p" {
         decision:bool = true
-        |^| v:bool = true
+        v:bool := true
       }
     }
     merge {
@@ -701,7 +701,7 @@ func TestParseMergeBlock(t *testing.T) {
 
 func TestParsePublishBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
     publish {
       hook = "audit_hook"
       hook = "notify_hook"
@@ -724,14 +724,14 @@ func TestParseNextBlock(t *testing.T) {
     compute {
       prog "p" {
         decision:bool = true
-        |^| v:bool = true
+        v:bool := true
       }
     }
     next {
       compute {
         prog "to_approve" {
           decision:bool
-          |?| go:bool = decision
+          go:bool := decision
         }
       }
       prepare {
@@ -764,9 +764,9 @@ func TestParseNextBlock(t *testing.T) {
 
 func TestParseNextFromState(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
     next {
-      compute { prog "n" { |?| always:bool = true } }
+      compute { prog "n" { always:bool := true } }
       prepare {
         x { from_state = ns.field }
       }
@@ -783,9 +783,9 @@ func TestParseNextFromState(t *testing.T) {
 
 func TestParseNextFromLiteral(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
     next {
-      compute { prog "n" { |?| always:bool = true } }
+      compute { prog "n" { always:bool := true } }
       prepare {
         x { from_literal = 42 }
       }
@@ -810,12 +810,12 @@ func TestReferenceNormalization(t *testing.T) {
 	// Both bare and quoted forms should produce the same string.
 	srcBare := minimalTurnFile(`  action "a" {
     compute {
-      prog "p" { |^| decision:bool = true }
+      prog "p" { decision:bool := true }
     }
     merge { decision { to_state = ns.field } }
   }`)
 	srcQuoted := minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| decision:bool = true }
+    compute { prog "p" { decision:bool := true }
     }
     merge { decision { to_state = "ns.field" } }
   }`)
@@ -836,7 +836,7 @@ func TestReferenceNormalization(t *testing.T) {
 
 func TestThreeSegmentPath(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { |^| v:number } }
+    compute { prog "p" { v:number := } }
     prepare {
       v { from_state = session.cart.items }
     }
@@ -928,7 +928,7 @@ func TestArrTypeInStateField(t *testing.T) {
   }
 }
 scene "s" {
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 `
 	tf := mustParse(t, src)
@@ -953,7 +953,7 @@ func TestRHSCompatFuncBlock(t *testing.T) {
       prog "p" {
         v1:number = 5
         v2:number = 3
-        |^| out:number = add(v1, v2)
+        out:number := add(v1, v2)
       }
     }
   }`)
@@ -971,7 +971,7 @@ func TestParseRouteBlock(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "main" {
   match {
@@ -1030,7 +1030,7 @@ func TestParseRouteORBranches(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r" {
   match {
@@ -1061,7 +1061,7 @@ func TestParseRouteFallbackOnly(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r" { match { _ => s } }`
 	tf := mustParse(t, src)
@@ -1078,7 +1078,7 @@ func TestParseMultipleRoutes(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r1" { match { _ => s } }
 route "r2" { match { s.done => s } }`
@@ -1095,7 +1095,7 @@ func TestParseRouteWildcardSegment(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r" { match { s.*.final => s } }`
 	tf := mustParse(t, src)

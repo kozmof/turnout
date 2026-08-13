@@ -22,7 +22,7 @@ scene "start" {
 
   action "init" {
     compute { prog "p" {
-        |^| v:number = (1) ~> @ns.count
+        v:number := (1) ~> @ns.count
       }
     }
   }
@@ -278,7 +278,7 @@ scene "start" {
 
   action "init" {
     compute { prog "p" {
-        |^| v:number = (1) ~> @ns.nonexistent
+        v:number := (1) ~> @ns.nonexistent
       }
     }
   }
@@ -334,7 +334,7 @@ scene "start" {
 
   action "init" {
     compute { prog "p" {
-        |^| v:number = (1) ~> @ns.nonexistent
+        v:number := (1) ~> @ns.nonexistent
       }
     }
   }

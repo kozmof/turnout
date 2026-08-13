@@ -33,7 +33,7 @@ scene "payment_webhook" {
 
         verified: VerificationStatus = true
 
-        |^| new_checkpoint:number = (case(
+        new_checkpoint:number := (case(
           (event_id, verified),
           (PaymentEventId { event_number: _ }, false) => last_processed_event,
           (PaymentEventId { provider: "stripe", event_number }, true) => event_number,

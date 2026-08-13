@@ -60,7 +60,7 @@ scene "test" {
     compute {
       prog "p" {
 ` + progBody + `
-        |^| v:bool = true
+        v:bool := true
       }
     }
   }
@@ -141,7 +141,7 @@ scene "test" {
     compute {
       prog "p" {
         xs:arr<number> = [[1, 2]]
-        |^| v:bool = true
+        v:bool := true
       }
     }
   }
@@ -486,7 +486,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number
+        score:number :=
       }
     }
   }
@@ -506,7 +506,7 @@ scene "test" {
     compute {
       prog "p" {
         plain:number = 0
-        |^| v:bool = true
+        v:bool := true
       }
     }
     prepare {
@@ -527,7 +527,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number
+        score:number :=
       }
     }
     prepare {
@@ -549,7 +549,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number = 0
+        score:number := 0
       }
     }
     merge {
@@ -570,19 +570,19 @@ func TestTransitionOutputSigil(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
     next {
       compute {
         prog "n" {
           score:number = (0) ~> @app.score
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
   }
 }
 `
@@ -598,7 +598,7 @@ scene "test" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| v:bool = true }
+      prog "p" { v:bool := true }
     }
     prepare {
       ghost { from_state = app.score }
@@ -618,7 +618,7 @@ scene "test" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| v:bool = true }
+      prog "p" { v:bool := true }
     }
     merge {
       ghost { to_state = app.score }
@@ -641,7 +641,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number
+        score:number :=
       }
     }
     prepare {
@@ -663,7 +663,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number = 0
+        score:number := 0
       }
     }
     merge {
@@ -685,7 +685,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number = 0
+        score:number := 0
       }
     }
     merge {
@@ -705,8 +705,8 @@ func TestDuplicateActionLabel(t *testing.T) {
 	src := basicState + `
 scene "test" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 `
 	if !hasCode(pipeline(src), diag.CodeDuplicateActionLabel) {
@@ -750,7 +750,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 	}
 }
 
-// ─── Binding marker rules (|^| root / |?| condition) ──────────────────────────
+// ─── Contextual result rules (:= root / condition) ────────────────────────────
 
 func TestMarkerRules(t *testing.T) {
 	cases := []struct {
@@ -765,18 +765,13 @@ func TestMarkerRules(t *testing.T) {
 		},
 		{
 			name: "root_marker_not_last",
-			body: `compute { prog "p" { |^| a:bool = true  b:bool = true } }`,
+			body: `compute { prog "p" { a:bool := true  b:bool = true } }`,
 			code: diag.CodeMarkerNotLast,
 		},
 		{
 			name: "duplicate_marker",
-			body: `compute { prog "p" { |^| a:bool = true  |^| b:bool = true } }`,
+			body: `compute { prog "p" { a:bool := true  b:bool := true } }`,
 			code: diag.CodeDuplicateMarker,
-		},
-		{
-			name: "condition_marker_in_action_compute",
-			body: `compute { prog "p" { |?| v:bool = true } }`,
-			code: diag.CodeMarkerContext,
 		},
 	}
 	for _, tc := range cases {
@@ -801,7 +796,7 @@ func TestMissingConditionMarker(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| v:bool = true } }
+    compute { prog "p" { v:bool := true } }
     next {
       compute { prog "n" { go:bool = true } }
       action = a
@@ -835,7 +830,7 @@ func TestUnusedBinding(t *testing.T) {
 	t.Run("unused_binding_emits_warning", func(t *testing.T) {
 		// "dead" is declared but not reachable from root "out".
 		src := unusedSrc(`        dead:number = 1
-        |^| out:bool = true
+        out:bool := true
 `)
 		ds := pipeline(src)
 		if !hasCode(ds, diag.CodeUnusedBinding) {
@@ -846,7 +841,7 @@ func TestUnusedBinding(t *testing.T) {
 	t.Run("transitive_dep_no_warning", func(t *testing.T) {
 		// "x" is a transitive dependency of root "out" — no warning expected.
 		src := unusedSrc(`        x:number = 5
-        |^| out:number = add(x, x)
+        out:number := add(x, x)
 `)
 		ds := pipeline(src)
 		if hasCode(ds, diag.CodeUnusedBinding) {
@@ -861,7 +856,7 @@ func routeSrc(matchBody string) string {
 	return basicState + `
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 route "r1" {
   entry = scene_1
@@ -935,7 +930,7 @@ func TestMissingEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 route "r1" {
   match {
@@ -952,7 +947,7 @@ func TestUnresolvedEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 route "r1" {
   entry = undefined_scene

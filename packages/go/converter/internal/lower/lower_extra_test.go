@@ -19,12 +19,12 @@ func TestLowerNextPrepareFromState(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number <~ @app.score
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -61,13 +61,13 @@ scene "test" {
     compute {
       prog "p" {
         flag:bool = true
-        |^| out:number = if(flag, 1, 0)
+        out:number := if(flag, 1, 0)
       }
     }
     next {
       compute {
         prog "p" {
-          |?| out:bool = if(true, true, false)
+          out:bool := if(true, true, false)
         }
       }
       action = a
@@ -121,12 +121,12 @@ func TestLowerNextPrepareFromLiteral(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           val:number <~ 99
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -163,7 +163,7 @@ func TestLowerArgFuncRef(t *testing.T) {
       prog "p" {
         x:number      = 1
         thenFn:number = max(x, x)
-        |^| result:number = max({ func_ref = "thenFn" }, x)
+        result:number := max({ func_ref = "thenFn" }, x)
       }
     }
   }`)
@@ -186,7 +186,7 @@ func TestLowerArgTransform(t *testing.T) {
     compute {
       prog "p" {
         x:number      = 1
-        |^| result:number = max({ transform = { ref = "x" fn = "doThing" } }, x)
+        result:number := max({ transform = { ref = "x" fn = "doThing" } }, x)
       }
     }
   }`)
@@ -219,7 +219,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| items:arr<number> <~ hook("my_hook")
+        items:arr<number> := <~ hook("my_hook")
       }
     }
   }
@@ -248,7 +248,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| label:str <~ hook("lbl_hook")
+        label:str := <~ hook("lbl_hook")
       }
     }
   }
@@ -274,7 +274,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| flag:bool <~ hook("flag_hook")
+        flag:bool := <~ hook("flag_hook")
       }
     }
   }
@@ -299,7 +299,7 @@ func TestLowerArgLit(t *testing.T) {
     compute {
       prog "p" {
         x:number      = 3
-        |^| result:number = max(x, 5)
+        result:number := max(x, 5)
       }
     }
   }`)
@@ -327,12 +327,12 @@ func TestLowerNextPrepareFromAction(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number <~ action(r)
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -381,7 +381,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| x:number
+        x:number :=
       }
     }
   }
@@ -409,7 +409,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| x:number <~ @app.nonexistent
+        x:number := <~ @app.nonexistent
       }
     }
   }
@@ -435,12 +435,12 @@ func TestLowerTransitionPrepareMissingEntry(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -468,12 +468,12 @@ func TestLowerTransitionPrepareFromStateNotFound(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     next {
       compute {
         prog "n" {
           score:number <~ @app.nonexistent
-          |?| go:bool = true
+          go:bool := true
         }
       }
       action = a
@@ -503,7 +503,7 @@ func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
     compute {
       prog "p" {
         score:number = 1
-        |^| result:str = case(score, 1 => "one", 2 => "two", 3 => "three", _ => "other")
+        result:str := case(score, 1 => "one", 2 => "two", 3 => "three", _ => "other")
       }
     }
   }`)
@@ -550,7 +550,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number
+        score:number :=
       }
     }
     merge {
@@ -578,7 +578,7 @@ scene "test" {
   action "a" {
     compute {
       prog "p" {
-        |^| score:number <~ @app.missing ~> @app.score
+        score:number := <~ @app.missing ~> @app.score
       }
     }
   }
@@ -596,7 +596,7 @@ func TestTupleCasePatternLowers(t *testing.T) {
       prog "p" {
         one:number = 1
         two:number = 2
-        |^| result:str = case((one, two), (1, 2) => "tuple", _ => "other")
+        result:str := case((one, two), (1, 2) => "tuple", _ => "other")
       }
     }
   }`)
@@ -614,7 +614,7 @@ func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
     compute {
       prog "p" {
         x:number = 1
-        |^| out:number = range(x, x)
+        out:number := range(x, x)
       }
     }
   }`)
@@ -634,7 +634,7 @@ func TestLowerUnsupportedFnMapLocal(t *testing.T) {
     compute {
       prog "p" {
         x:number = 1
-        |^| out:number = if(true, map(x, x), x)
+        out:number := if(true, map(x, x), x)
       }
     }
   }`)
@@ -663,7 +663,7 @@ func TestLowerLocalCallUnknownFnEmitsEarlyDiagnostic(t *testing.T) {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:bool = if(no_such_fn(x, x), true, false)
+        result:bool := if(no_such_fn(x, x), true, false)
       }
     }
   }`)
@@ -682,7 +682,7 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:number = pipe(x, no_such_fn(#it, x))
+        result:number := pipe(x, no_such_fn(#it, x))
       }
     }
   }`)
@@ -710,7 +710,7 @@ func TestLowerCaseIntoDoubleWildcard(t *testing.T) {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:str = case(x, _ => "first", _ => "second", 1 => "third")
+        result:str := case(x, _ => "first", _ => "second", 1 => "third")
       }
     }
   }`)
@@ -737,7 +737,7 @@ func TestLowerLocalCallUnknownFnNoCascadingErrors(t *testing.T) {
     compute {
       prog "p" {
         x:number = 1
-        |^| result:bool = if(no_such_fn(x, x), true, false)
+        result:bool := if(no_such_fn(x, x), true, false)
       }
     }
   }`)

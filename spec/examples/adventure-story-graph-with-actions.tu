@@ -58,7 +58,7 @@ scene "adventure_story_chapter_1" {
         can_forest:bool = has_map & clue_enough
         can_gate:bool = coins >= 3
         can_sewer:bool = lockpick_skill >= 1
-        |^| decision_ready:bool = true
+        decision_ready:bool := true
       }
     }
 
@@ -66,7 +66,7 @@ scene "adventure_story_chapter_1" {
       compute {
         prog "to_forest" {
           can_forest:bool <~ action(can_forest)
-          |?| go_forest:bool = can_forest
+          go_forest:bool := can_forest
         }
       }
       action = forest_trail
@@ -76,7 +76,7 @@ scene "adventure_story_chapter_1" {
       compute {
         prog "to_gate" {
           can_gate:bool <~ action(can_gate)
-          |?| go_gate:bool = can_gate
+          go_gate:bool := can_gate
         }
       }
       action = city_gate
@@ -86,7 +86,7 @@ scene "adventure_story_chapter_1" {
       compute {
         prog "to_sewer" {
           can_sewer:bool <~ action(can_sewer)
-          |?| go_sewer:bool = can_sewer
+          go_sewer:bool := can_sewer
         }
       }
       action = sewer_tunnel
@@ -112,7 +112,7 @@ scene "adventure_story_chapter_1" {
 
         location:str = ("Whispering Forest") ~> @story.current_location
         danger_level:number = (danger) ~> @story.threat_level
-        |^| story_route:str = (route_name) ~> @story.path
+        story_route:str := (route_name) ~> @story.path
       }
     }
 
@@ -137,7 +137,7 @@ scene "adventure_story_chapter_1" {
         toll:number    = 3
 
         coins_after:number = (coins - toll) ~> @party.coins
-        |^| story_route:str = (route_name) ~> @story.path
+        story_route:str := (route_name) ~> @story.path
       }
     }
 
@@ -161,7 +161,7 @@ scene "adventure_story_chapter_1" {
         lockpick_skill:number <~ @party.lockpick_skill
 
         found_mark:bool = (lockpick_skill >= 2) ~> @story.found_hidden_mark
-        |^| story_route:str = (route_name) ~> @story.path
+        story_route:str := (route_name) ~> @story.path
       }
     }
 
@@ -183,7 +183,7 @@ scene "adventure_story_chapter_1" {
         route_name:str = "campfire_wait"
         note:str = ("waited_until_dawn") ~> @story.latest_journal
         location:str = ("Crossroads Camp") ~> @story.current_location
-        |^| story_route:str = (route_name) ~> @story.path
+        story_route:str := (route_name) ~> @story.path
       }
     }
 
@@ -204,7 +204,7 @@ scene "adventure_story_chapter_1" {
       prog "shrine_discovery_graph" {
         relic:str = "Moon Sigil"
         location:str = ("Ruined Shrine") ~> @story.current_location
-        |^| reward:str = (relic) ~> @story.chapter_reward
+        reward:str := (relic) ~> @story.chapter_reward
       }
     }
 
@@ -225,7 +225,7 @@ scene "adventure_story_chapter_1" {
       prog "courtyard_arrival_graph" {
         writ:str = "Guest Writ"
         location:str = ("Castle Courtyard") ~> @story.current_location
-        |^| reward:str = (writ) ~> @story.chapter_reward
+        reward:str := (writ) ~> @story.chapter_reward
       }
     }
 
@@ -246,7 +246,7 @@ scene "adventure_story_chapter_1" {
       prog "hidden_archive_graph" {
         ledger:str = "Old Kingdom Ledger"
         location:str = ("Hidden Archive") ~> @story.current_location
-        |^| reward:str = (ledger) ~> @story.chapter_reward
+        reward:str := (ledger) ~> @story.chapter_reward
       }
     }
 
@@ -267,7 +267,7 @@ scene "adventure_story_chapter_1" {
         prefix:str = "chapter_1_"
         suffix:str = "complete"
         chapter_state:str = ("resolved") ~> @story.chapter_state
-        |^| chapter_result:str = (prefix + suffix) ~> @story.result
+        chapter_result:str := (prefix + suffix) ~> @story.result
       }
     }
 

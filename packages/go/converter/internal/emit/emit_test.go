@@ -56,7 +56,7 @@ type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| k: Kind = "foo" } } }
+  action "a" { compute { prog "p" { k: Kind := "foo" } } }
 }
 `
 	out := fullPipeline(t, src)
@@ -88,7 +88,7 @@ func TestEmitStateBlock(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| v:bool = true } } }
+  action "a" { compute { prog "p" { v:bool := true } } }
 }
 `
 	out := fullPipeline(t, src)
@@ -124,7 +124,7 @@ func TestEmitStateBeforeScene(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| x:bool = true } } }
+  action "a" { compute { prog "p" { x:bool := true } } }
 }`)
 	stateIdx := strings.Index(out, "state {")
 	sceneIdx := strings.Index(out, "scene ")
@@ -143,8 +143,8 @@ func TestEmitSceneBlock(t *testing.T) {
 scene "loan_flow" {
   entry_actions = [score, init]
   next_policy   = "first-match"
-  action "score" { compute { prog "p" { |^| r:bool = true } } }
-  action "init"  { compute { prog "p" { |^| r:bool = true } } }
+  action "score" { compute { prog "p" { r:bool := true } } }
+  action "init"  { compute { prog "p" { r:bool := true } } }
 }`)
 	if !strings.Contains(out, `scene "loan_flow"`) {
 		t.Error("missing scene label")
@@ -161,7 +161,7 @@ func TestEmitNextPolicyOmittedWhenEmpty(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }`)
 	if strings.Contains(out, "nextPolicy") {
 		t.Error("next_policy should be omitted when empty")
@@ -178,7 +178,7 @@ scene "s" {
     """
     Review the application.
     """
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 }`)
 	if !strings.Contains(out, "text = <<-EOT") {
@@ -201,7 +201,7 @@ scene "s" {
   action "a" {
     compute {
       prog "score_graph" {
-        |^| result:number = 42
+        result:number := 42
       }
     }
   }
@@ -235,7 +235,7 @@ scene "s" {
       prog "p" {
         x:number     = 3
         y:number     = 4
-        |^| result:number = max(x, y)
+        result:number := max(x, y)
       }
     }
   }
@@ -266,7 +266,7 @@ scene "s" {
       prog "p" {
         x:number      = 3
         y:number      = 4
-        |^| result:number = pipe(x, max(#it, y))
+        result:number := pipe(x, max(#it, y))
       }
     }
   }
@@ -292,7 +292,7 @@ scene "s" {
         x:number      = 1
         flag:bool     = true
         thenFn:number = max(x, x)
-        |^| result:number = if(flag, thenFn, thenFn)
+        result:number := if(flag, thenFn, thenFn)
       }
     }
   }
@@ -318,7 +318,7 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| score:number }
+      prog "p" { score:number := }
     }
     prepare {
       score { from_state = app.score }
@@ -341,7 +341,7 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| data:str }
+      prog "p" { data:str := }
     }
     prepare {
       data { from_hook = "api_hook" }
@@ -361,7 +361,7 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| approved:bool = true }
+      prog "p" { approved:bool := true }
     }
     merge {
       approved { to_state = app.approved }
@@ -381,7 +381,7 @@ func TestEmitPublishBlock(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
     publish {
       hook = "audit"
       hook = "notify"
@@ -401,17 +401,17 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| r:bool = true }
+      prog "p" { r:bool := true }
     }
     next {
       compute {
-        prog "n" { ready:bool = false   |?| go:bool = ready }
+        prog "n" { ready:bool = false   go:bool := ready }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 }`)
 	if !strings.Contains(out, `next {`) {
@@ -433,17 +433,17 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute {
-      prog "p" { |^| r:bool = true }
+      prog "p" { r:bool := true }
     }
     next {
       compute {
-        prog "n" { |?| always:bool = true }
+        prog "n" { always:bool := true }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 }`)
 	if !strings.Contains(out, `action = "b"`) {
@@ -460,20 +460,20 @@ scene "s" {
   entry_actions = [a]
   action "a" {
     compute { prog "p" {
-      |^| decision:bool = true
+      decision:bool := true
     } }
     next {
       compute {
         prog "n" {
           decision:bool <~ action(decision)
-          |?| go:bool = decision
+          go:bool := decision
         }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { |^| r:bool = true } }
+    compute { prog "p" { r:bool := true } }
   }
 }`)
 	if !strings.Contains(out, `from_action  = "decision"`) {
@@ -487,7 +487,7 @@ func TestEmitRouteBlock(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "route_1" {
   entry = scene_1
@@ -524,7 +524,7 @@ func TestEmitRouteEntrySceneIdMissingFails(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "route_1" {
   match { _ => scene_1 }
@@ -553,7 +553,7 @@ func TestEmitRouteAfterScene(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r1" { entry = s match { _ => s } }`)
 	sceneIdx := strings.Index(out, "scene ")
@@ -570,7 +570,7 @@ func TestEmitRouteORBranches(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 route "r1" {
   entry = scene_1
@@ -613,7 +613,7 @@ scene "loan_flow" {
       prog "score_graph" {
         income:number   = 50000
         threshold:number = 30000
-        |^| decision:bool   = income >= threshold
+        decision:bool := income >= threshold
       }
     }
   }
@@ -644,7 +644,7 @@ func TestEmitStateFileVsInline(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 `
 	// state_file equivalent
@@ -661,7 +661,7 @@ scene "s" {
 	stateFileSrc := `state_file = "app.state.tu"
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { |^| r:bool = true } } }
+  action "a" { compute { prog "p" { r:bool := true } } }
 }
 `
 	// Pipeline for state_file source
@@ -768,17 +768,17 @@ scene "test_scene" {
     compute { prog "g" {
       q:str
       out:str = q
-      |^| done:bool = true
+      done:bool := true
     } }
     prepare { q { from_state = request.query } }
     merge   { out { to_state = request.query } }
     next {
-      compute { prog "to_b" { |?| done:bool = true } }
+      compute { prog "to_b" { done:bool := true } }
       action = act_b
     }
   }
   action "act_b" {
-    compute { prog "h" { |^| ok:bool = true } }
+    compute { prog "h" { ok:bool := true } }
   }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
@@ -830,7 +830,7 @@ scene "s" {
     compute { prog "p" {
       q:str
       out:str = q
-      |^| done:bool = true
+      done:bool := true
     } }
     prepare { q { from_state = app.query } }
     merge   { out { to_state = app.result } }
@@ -861,7 +861,7 @@ scene "test" {
     compute {
       prog "p" {
         flag:bool = true
-        |^| out:number = if(flag, 1, 0)
+        out:number := if(flag, 1, 0)
       }
     }
   }

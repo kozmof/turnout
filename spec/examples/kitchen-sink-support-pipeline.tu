@@ -9,7 +9,7 @@
 #   * overview     — all three enforce modes (strict, at_least, nodes_only),
 #                    plus a scene with no overview block at all
 #   * actions      — docstring sugar (""" """) AND explicit text = <<-EOT
-#   * compute      — inline input/output arrows (<~, ~>) and both markers (|^|, |?|)
+#   * compute      — inline input/output arrows (<~, ~>) and contextual results (:=)
 #   * expressions  — every infix operator (+ - * / % > >= < <= == != & |),
 #                    every callable binary fn (max, min, bool_xor, str_*,
 #                    arr_*), transform-method chains used as call arguments
@@ -31,7 +31,7 @@
 #     and no parentheses.
 #   - Transform methods (.trim(), .length(), ...) are only valid INSIDE a
 #     function-call argument, e.g. `max(subject.length(), 0)`.
-#   - The |^|-marked compute root (and |?|-marked transition condition) must be
+#   - The := compute root (or transition condition) must be
 #     the LAST binding in its prog.
 #   - `route`, `state`, `scene`, `action`, etc. are reserved words and cannot
 #     be used as field or binding identifiers.
@@ -245,8 +245,8 @@ scene "triage" {
         g1:bool              = unsafe | has_urgent
         flagged:bool = (g1 | conflicting) ~> @triage.flagged
 
-        # --- compute root: marked binding, declared last ---
-        |^| ready:bool = r11 | flags_empty
+        # --- compute result: := binding, declared last ---
+        ready:bool := r11 | flags_empty
       }
     }
 
@@ -264,7 +264,7 @@ scene "triage" {
           flagged:bool <~ @triage.flagged
           cheap:bool = score < threshold
           safe:bool  = flagged == false
-          |?| go_auto:bool = cheap & safe
+          go_auto:bool := cheap & safe
         }
       }
       action = auto_resolve
@@ -275,7 +275,7 @@ scene "triage" {
       compute {
         prog "to_escalate" {
           flagged:bool <~ action(flagged)
-          |?| go_escalate:bool = flagged
+          go_escalate:bool := flagged
         }
       }
       action = escalate
@@ -294,7 +294,7 @@ scene "triage" {
     compute {
       prog "auto_resolve_graph" {
         status:str = ("auto_resolved") ~> @outcome.status
-        |^| notice:str = ("closed without human review") ~> @outcome.notice
+        notice:str := ("closed without human review") ~> @outcome.notice
       }
     }
     publish {
@@ -311,7 +311,7 @@ scene "triage" {
         sla:number <~ @triage.sla_hours
         bumped:number = sla + 4
         status:str = ("escalated") ~> @outcome.status
-        |^| hours:number = (max(bumped, 24)) ~> @triage.sla_hours
+        hours:number := (max(bumped, 24)) ~> @triage.sla_hours
       }
     }
   }
@@ -323,7 +323,7 @@ scene "triage" {
     compute {
       prog "manual_queue_graph" {
         status:str = ("queued") ~> @outcome.status
-        |^| owner:str = ("support_team") ~> @outcome.handled_by
+        owner:str := ("support_team") ~> @outcome.handled_by
       }
     }
   }
@@ -360,7 +360,7 @@ scene "review" {
 
         hot:bool       = score >= 70
         (route_tag + " review") ~> @review.note
-        |^| reviewed:bool = (flagged | hot) ~> @review.parallel
+        reviewed:bool := (flagged | hot) ~> @review.parallel
       }
     }
 
@@ -369,7 +369,7 @@ scene "review" {
       compute {
         prog "to_notify" {
           reviewed:bool <~ action(reviewed)
-          |?| go_notify:bool = reviewed
+          go_notify:bool := reviewed
         }
       }
       action = notify
@@ -387,7 +387,7 @@ scene "review" {
     """
     compute {
       prog "notify_graph" {
-        |^| reviewer:str = ("oncall") ~> @review.reviewer
+        reviewer:str := ("oncall") ~> @review.reviewer
       }
     }
     publish {
@@ -402,7 +402,7 @@ scene "review" {
     compute {
       prog "log_graph" {
         note:str <~ @review.note
-        |^| line:str = (note + " logged") ~> @review.log_line
+        line:str := (note + " logged") ~> @review.log_line
       }
     }
   }
@@ -429,7 +429,7 @@ scene "finalize" {
     """
     compute {
       prog "seal_graph" {
-        |^| sealed:bool = (true) ~> @outcome.sealed
+        sealed:bool := (true) ~> @outcome.sealed
       }
     }
     next {
@@ -445,7 +445,7 @@ scene "finalize" {
       prog "archive_graph" {
         status:str <~ @outcome.status
         archived:bool = (true) ~> @outcome.archived
-        |^| final_notice:str = (status + " archived") ~> @outcome.notice
+        final_notice:str := (status + " archived") ~> @outcome.notice
       }
     }
   }
@@ -465,7 +465,7 @@ scene "closed" {
     """
     compute {
       prog "close_graph" {
-        |^| status:str = ("closed") ~> @outcome.status
+        status:str := ("closed") ~> @outcome.status
       }
     }
   }

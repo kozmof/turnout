@@ -629,7 +629,7 @@ scene "boiler_alarm_priority" {
         )
 
         alarm_route:str = (alarm_route) ~> @boiler.response.route
-        |^| classified:bool = true
+        classified:bool := true
       }
     }
 
