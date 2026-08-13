@@ -273,7 +273,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 ### Effect DSL validation (per `effect-dsl-spec.md §5`, `convert-runtime-spec.md §Phase1`)
 
 - [x] Each structural input binding has a `prepare` entry (`MissingPrepareEntry`)
-- [x] Each internally marked output binding has a `merge` entry (`MissingMergeEntry`)
+- [x] Each binding internally classified as output has a `merge` entry (`MissingMergeEntry`)
 - [x] No `prepare` entry for a binding that computes its own RHS (`SpuriousPrepareEntry`)
 - [x] No spurious `merge` entry (`SpuriousMergeEntry`)
 - [x] No duplicate binding name in `prepare` (`DuplicatePrepareEntry`)

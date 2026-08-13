@@ -149,7 +149,7 @@ func TestNextSugarConditional(t *testing.T) {
 		t.Errorf("binding[0] = %v %q, want an ingress `ready`", bs[0].Sigil, bs[0].Name)
 	}
 	if bs[1].Marker != ast.MarkerCond || r.Compute.Condition != bs[1].Name {
-		t.Errorf("condition = %q, marker = %v", r.Compute.Condition, bs[1].Marker)
+		t.Errorf("condition = %q, result role = %v", r.Compute.Condition, bs[1].Marker)
 	}
 	if r.Prepare == nil || len(r.Prepare.Entries) != 1 {
 		t.Fatalf("prepare = %v, want one entry", r.Prepare)

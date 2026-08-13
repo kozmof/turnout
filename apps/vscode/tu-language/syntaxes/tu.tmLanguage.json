@@ -138,7 +138,7 @@
       "match": "(:=)",
       "captures": {
         "1": {
-          "name": "keyword.operator.marker.tu"
+          "name": "keyword.operator.assignment.result.tu"
         }
       }
     },

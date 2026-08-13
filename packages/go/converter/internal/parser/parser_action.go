@@ -342,7 +342,7 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 	m := marked[0]
 	if m.Marker != want {
 		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerContext,
-			"prog %q: marker %s on binding %q is not valid here; expected %s",
+			"prog %q: result role %s on binding %q is not valid here; expected %s",
 			prog.Name, m.Marker, m.Name, markerStr))
 	}
 

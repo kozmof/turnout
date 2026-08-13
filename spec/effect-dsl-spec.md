@@ -343,7 +343,7 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | Error code | Trigger condition |
 |------------|------------------|
 | `MissingPrepareEntry` | A structural input binding has no matching entry in `prepare` |
-| `MissingMergeEntry` | An internally marked output binding has no matching entry in `merge` |
+| `MissingMergeEntry` | A binding internally classified as output has no matching entry in `merge` |
 | `SpuriousPrepareEntry` | A `prepare` entry references a binding that computes its own value |
 | `SpuriousMergeEntry` | A `merge` entry does not correspond to an output binding |
 | `DuplicatePrepareEntry` | The same binding name appears more than once in `prepare` |

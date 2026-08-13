@@ -104,16 +104,16 @@ func TestResultBeforeSigil(t *testing.T) {
 	}
 }
 
-func TestRetiredMarkerCharsAreErrors(t *testing.T) {
+func TestRetiredResultSymbolsAreErrors(t *testing.T) {
 	for _, src := range []string{"^", "?"} {
 		if _, ds := Tokenize("<test>", src); !ds.HasErrors() {
-			t.Errorf("src=%q: expected lex error for bare marker char", src)
+			t.Errorf("src=%q: expected lex error for retired result symbol", src)
 		}
 	}
 }
 
 func TestBarePipeStillTokenizes(t *testing.T) {
-	// A lone '|' (pipe operator) must not be swallowed by marker detection.
+	// A lone '|' remains the pipe operator after the old result markers retire.
 	toks := filterEOF(mustTokenize(t, "a | b"))
 	if len(toks) != 3 || toks[1].Kind != TokPipe {
 		t.Errorf("got %d toks, tok[1]=%v; want pipe operator preserved", len(toks), toks[1].Kind)
