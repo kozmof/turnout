@@ -459,7 +459,8 @@ func (*ErrorRHS) bindingRHS()          {}
 func (*ErrorRHS) syntaxRHS()           {}
 func (*ErrorRHS) Kind() BindingRHSKind { return RHSKindError }
 
-// SigilInputRHS marks a sigil-only input declaration (~>name:type or name:type)
+// SigilInputRHS marks an input declaration (`name:type <~ source` or the bare
+// structural form `name:type`). The retired prefix form was `~>name:type`.
 // with no right-hand side expression. The value is populated at runtime via prepare.
 type SigilInputRHS struct{}
 

@@ -37,7 +37,7 @@ action "score" {
 }
 ```
 
-A binding may use inline or structural IO for a given direction, never both. Inline clauses point toward their destination: `<~` points from the source into the binding, and `~>` points from the binding to STATE. Canonical binding names never contain arrows.
+A named binding may use inline or structural IO for a given direction, never both. An anonymous egress has no structural spelling because there is no author-visible name for a `merge` entry. Inline clauses point toward their destination: `<~` points from the source into the binding, and `~>` points from a named or anonymous result to STATE. Canonical binding names never contain arrows.
 
 ---
 
@@ -263,7 +263,7 @@ A transition input can be declared inline with `name:type <~ action(binding)`, `
 
 ## 6. Lowering Rules (Turn DSL → Canonical HCL)
 
-Inline IO is hoisted into structural `prepare` and `merge` entries before validation and lowering. The canonical binding name contains no arrows.
+Inline IO is hoisted into structural `prepare` and `merge` entries before validation and lowering. Named declarations keep their binding name; anonymous egress receives a reserved generated name. Canonical binding names contain no arrows.
 
 ### 6.1 Action-level lowering
 

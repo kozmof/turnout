@@ -234,7 +234,7 @@ scene "triage" {
         c15:number = c14 + neg_v
         c16:number = c15 + pipe_score
 
-        # --- egress bindings (each needs a merge entry) ---
+        # --- named egress values plus anonymous write-only egresses ---
         score:number = (adjusted) ~> @triage.score
         (c16 + capped) ~> @triage.checksum
         (band) ~> @triage.band

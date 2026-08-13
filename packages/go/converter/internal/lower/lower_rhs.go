@@ -68,7 +68,7 @@ func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pr
 	return &turnoutpb.BindingModel{Name: name, Type: ft.ProtoString(), Value: val}
 }
 
-// lowerBiDirInputRHS resolves the default value for a <~> binding. Missing
+// lowerBiDirInputRHS resolves the default value for a bidirectional binding. Missing
 // prepare entries use the bidirectional-specific diagnostic code, but other
 // resolver failures such as unresolved state paths still surface normally.
 func lowerBiDirInputRHS(name string, ft ast.FieldType, pos ast.Pos, resolver prepareResolver, ds *diag.DiagSink) *turnoutpb.BindingModel {

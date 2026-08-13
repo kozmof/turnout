@@ -157,7 +157,7 @@ Recursive descent parser consuming the token stream.
 ### Prog parsing
 
 - [x] Parse `prog "<name>" { ... }` block with binding declarations
-- [x] Parse inline IO after the binding: `income:number <~ @app.income ~> @decision.income`
+- [x] Parse inline IO after a binding and anonymous write-only output: `income:number <~ @app.income ~> @decision.income`, `(expr) ~> @decision.total`
 - [x] Dispatch RHS parsing by disambiguation rules (see Lexer section)
 - [x] Parse function calls: positional `fn(a, b)` and named `fn(a: x, b: y)`
 - [x] Parse infix expressions: `lhs OP rhs`

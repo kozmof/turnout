@@ -695,9 +695,10 @@ scene "s" {
 // ─── integration: example files ──────────────────────────────────────────────
 
 // compileExample runs an example through the full parse → state-resolve → lower
-// → validate pipeline. Every checked-in example carries its own state schema,
-// so reference, IO, and STATE type errors can be caught here rather than by a
-// parse-only smoke test.
+// → validate → emit pipeline. Every checked-in example carries its own state
+// schema, so reference, IO, and STATE type errors can be caught here rather
+// than by a parse-only smoke test. Emission also exercises generated anonymous
+// egress bindings in the canonical HCL representation.
 func compileExample(t *testing.T, path string) {
 	t.Helper()
 	data, err := os.ReadFile(path)

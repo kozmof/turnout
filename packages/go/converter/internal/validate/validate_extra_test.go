@@ -718,7 +718,7 @@ scene "test" {
 }
 `
 	if !hasCode(pipeline(src), diag.CodeMissingPrepareEntry) {
-		t.Error("want MissingPrepareEntry for ~> with no prepare block")
+		t.Error("want MissingPrepareEntry for inline input with no prepare block")
 	}
 }
 

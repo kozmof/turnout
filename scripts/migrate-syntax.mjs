@@ -334,7 +334,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
  *
  *   compute { prog "p" {           compute { prog "p" {
  *     ~>a:bool                       a:bool <~ @ns.f
- *     <~b:str = "v"          =>      b:str = "v" ~> @ns.h
+ *     <~b:str = "v"          =>      b:str = ("v") ~> @ns.h
  *     <~>c:number                    c:number <~ @ns.g ~> @ns.i
  *   } }                            } }
  *   prepare { a { from_state = ns.f } ... }

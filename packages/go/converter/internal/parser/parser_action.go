@@ -100,9 +100,9 @@ func (p *parser) parseStatePath() string {
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
 
 // parseBindingDecl parses one binding declaration inside a prog block:
-// [sigil] name ':' type ['=' rhs]
-// Ingress (~>) and bidirectional (<~>) sigils are input-only declarations with no RHS.
-// Egress (<~) and plain bindings require '=' followed by an RHS.
+// [marker] name ':' type (input | computed | computed-egress)
+// Inputs use `<~ source` and have no RHS. Computed egress requires the complete
+// RHS wrapper `= (expr) ~> @path`; ordinary computed bindings use `= expr`.
 func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	t := p.peek()
 	pos := p.posOf(t)

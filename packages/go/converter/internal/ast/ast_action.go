@@ -52,8 +52,9 @@ type BindingDecl struct {
 	// plain primitive/array annotations.
 	DeclaredType Type
 	RHS          BindingRHS
-	// Ingress and Egress carry inline IO (NEW_SYNTAX.md 3): `name:type <~ src`
-	// and `expr ~> @ns.field`. The arrow always points at the destination, so
+	// Ingress and Egress carry inline IO: `name:type <~ src` and
+	// `name:type = (expr) ~> @ns.field`. Anonymous egress uses the same Egress
+	// field with Anonymous set. The arrow always points at the destination, so
 	// `~>` is egress here — the opposite of the retired prefix sigil, where
 	// STATE was implicitly on the left.
 	//

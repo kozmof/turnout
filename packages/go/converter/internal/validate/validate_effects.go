@@ -104,7 +104,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		}
 		if info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
 			ds.Append(diag.Errorf(diag.CodeSpuriousPrepareEntry,
-				"action %q: prepare entry for %q has no corresponding ~> or <~> sigil in prog", a.Id, name))
+				"action %q: prepare entry for %q has no corresponding `<~` input declaration in prog", a.Id, name))
 		}
 	}
 	for name := range mergedNames {
@@ -114,7 +114,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		}
 		if info.sigil != ast.SigilEgress && info.sigil != ast.SigilBiDir {
 			ds.Append(diag.Errorf(diag.CodeSpuriousMergeEntry,
-				"action %q: merge entry for %q has no corresponding <~ or <~> sigil in prog", a.Id, name))
+				"action %q: merge entry for %q has no corresponding `~>` output declaration in prog", a.Id, name))
 		}
 	}
 }

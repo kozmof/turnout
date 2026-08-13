@@ -479,7 +479,7 @@ func TestSingleRefTypeMismatch(t *testing.T) {
 // ─── Group B: effect DSL validation ──────────────────────────────────────────
 
 func TestMissingPrepareEntry(t *testing.T) {
-	// ~> binding but no prepare entry
+	// Hand-built internal ingress sigil but no prepare entry.
 	src := basicState + `
 scene "test" {
   entry_actions = [a]

@@ -269,7 +269,7 @@ Before first action execution, implementations MUST validate:
 7. `compute.root` exists in the program (value or function binding).
 8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`.
 9. Every input binding has exactly one ingress source, declared inline or in `prepare`.
-10. Every output binding has exactly one STATE destination, declared inline or in `merge`.
+10. Every named output binding has exactly one STATE destination, declared inline or in `merge`; every anonymous egress declares its destination inline and lowers to one generated output binding.
 11. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 12. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
 13. For each next rule, every transition `prepare` binding key exists and resolves to a value binding in that next-rule `compute.prog`.

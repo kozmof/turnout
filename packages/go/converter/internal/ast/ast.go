@@ -165,10 +165,12 @@ func (ft FieldType) ElemType() FieldType {
 type Sigil int
 
 const (
-	SigilNone    Sigil = iota // no sigil (plain compute binding)
-	SigilIngress              // ~>  (STATE → binding, pre-action)
-	SigilEgress               // <~  (binding → STATE, post-action)
-	SigilBiDir                // <~> (both directions)
+	SigilNone Sigil = iota // no sigil (plain compute binding)
+	// Internal historical names retained for wire compatibility. Surface input
+	// is `<~`; surface output is `~>`; bidirectional IO writes both arrows.
+	SigilIngress
+	SigilEgress
+	SigilBiDir
 )
 
 var sigilNames = [...]string{"", "~>", "<~", "<~>"}
