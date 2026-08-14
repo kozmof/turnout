@@ -64,14 +64,13 @@ scene "detective_evidence_hunt" {
 
     compute {
       prog "arrive_crime_scene_graph" {
-        detective_note:str = ("Scene secured. Start collecting clues.") ~> @investigation.last_note
+        ("Scene secured. Start collecting clues.") ~> @investigation.last_note
+
         phase:str := ("arrive_crime_scene") ~> @investigation.phase
       }
     }
 
-    next {
-      action = scan_scene
-    }
+    next scan_scene
   }
 
   action "scan_scene" {
@@ -88,26 +87,16 @@ scene "detective_evidence_hunt" {
         visibility_score:number <~ @crime_scene.visibility_score
         camera_online:bool <~ @crime_scene.camera_online
 
-        clue_candidate:bool = disturbance_detected & camera_online
-        search_ready:bool = visibility_score >= 3
-        phase:str = ("scan_scene") ~> @investigation.phase
-        scene_hotspot_found:bool := (clue_candidate & search_ready) ~> @investigation.scene_hotspot_found
+        ("scan_scene") ~> @investigation.phase
+
+        scene_hotspot_found:bool := (
+          disturbance_detected & camera_online & visibility_score >= 3
+        ) ~> @investigation.scene_hotspot_found
       }
     }
 
-    next {
-      compute {
-        prog "to_collect_physical_evidence" {
-          scene_hotspot_found:bool <~ action(scene_hotspot_found)
-          go_collect:bool := scene_hotspot_found
-        }
-      }
-      action = collect_physical_evidence
-    }
-
-    next {
-      action = interview_witness
-    }
+    next collect_physical_evidence if scene_hotspot_found
+    next interview_witness
   }
 
   action "collect_physical_evidence" {
@@ -125,18 +114,16 @@ scene "detective_evidence_hunt" {
         weapon_found:bool <~ @evidence.weapon_found
         evidence_tag:str <~ @evidence.selected_tag
 
-        fp_strong:bool = fingerprint_match >= 6
-        trace_and_weapon:bool = blood_trace & weapon_found
-        prefix:str = "Collected evidence: "
-        evidence_log:str = (prefix + evidence_tag) ~> @investigation.evidence_log
-        phase:str = ("collect_physical_evidence") ~> @investigation.phase
-        critical_evidence_found:bool := (fp_strong & trace_and_weapon) ~> @investigation.critical_evidence_found
+        ("Collected evidence: " + evidence_tag) ~> @investigation.evidence_log
+        ("collect_physical_evidence") ~> @investigation.phase
+
+        critical_evidence_found:bool := (
+          fingerprint_match >= 6 & blood_trace & weapon_found
+        ) ~> @investigation.critical_evidence_found
       }
     }
 
-    next {
-      action = interview_witness
-    }
+    next interview_witness
   }
 
   action "interview_witness" {
@@ -153,17 +140,16 @@ scene "detective_evidence_hunt" {
         alibi_strength:number <~ @witness.alibi_strength
         witness_statement:str <~ @witness.statement
 
-        alibi_weak:bool = alibi_strength <= 3
-        prefix:str = "Witness says: "
-        interview_note:str = (prefix + witness_statement) ~> @investigation.interview_note
-        phase:str = ("interview_witness") ~> @investigation.phase
-        timeline_priority:bool := (contradiction_detected & alibi_weak) ~> @investigation.timeline_priority
+        ("Witness says: " + witness_statement) ~> @investigation.interview_note
+        ("interview_witness") ~> @investigation.phase
+
+        timeline_priority:bool := (
+          contradiction_detected & alibi_strength <= 3
+        ) ~> @investigation.timeline_priority
       }
     }
 
-    next {
-      action = analyze_timeline
-    }
+    next analyze_timeline
   }
 
   action "analyze_timeline" {
@@ -180,25 +166,16 @@ scene "detective_evidence_hunt" {
         timeline_priority:bool <~ @investigation.timeline_priority
         camera_timestamp_ok:bool <~ @crime_scene.camera_timestamp_ok
 
-        evidence_and_time:bool = critical_evidence_found & camera_timestamp_ok
-        phase:str = ("analyze_timeline") ~> @investigation.phase
-        ready_to_identify_suspect:bool := (evidence_and_time & timeline_priority) ~> @investigation.ready_to_identify_suspect
+        ("analyze_timeline") ~> @investigation.phase
+
+        ready_to_identify_suspect:bool := (
+          critical_evidence_found & camera_timestamp_ok & timeline_priority
+        ) ~> @investigation.ready_to_identify_suspect
       }
     }
 
-    next {
-      compute {
-        prog "to_identify_suspect" {
-          ready_to_identify_suspect:bool <~ action(ready_to_identify_suspect)
-          go_identify:bool := ready_to_identify_suspect
-        }
-      }
-      action = identify_suspect
-    }
-
-    next {
-      action = search_for_more_evidence
-    }
+    next identify_suspect if ready_to_identify_suspect
+    next search_for_more_evidence
   }
 
   action "identify_suspect" {
@@ -214,17 +191,14 @@ scene "detective_evidence_hunt" {
         suspect_name:str <~ @leads.primary_suspect_name
         confidence_score:number <~ @leads.confidence_score
 
-        high_confidence:bool = confidence_score >= 8
-        prefix:str = "Primary suspect: "
-        suspect_summary:str = (prefix + suspect_name) ~> @investigation.suspect_summary
-        phase:str = ("identify_suspect") ~> @investigation.phase
-        case_file_ready:bool := (high_confidence) ~> @investigation.case_file_ready
+        ("Primary suspect: " + suspect_name) ~> @investigation.suspect_summary
+        ("identify_suspect") ~> @investigation.phase
+
+        case_file_ready:bool := (confidence_score >= 8) ~> @investigation.case_file_ready
       }
     }
 
-    next {
-      action = submit_case_file
-    }
+    next submit_case_file
   }
 
   action "search_for_more_evidence" {
@@ -239,16 +213,14 @@ scene "detective_evidence_hunt" {
       prog "search_for_more_evidence_graph" {
         last_search_area:str <~ @crime_scene.last_search_area
 
-        prefix:str = "Extended search area: "
-        search_note:str = (prefix + last_search_area) ~> @investigation.search_note
-        case_file_ready:bool = (false) ~> @investigation.case_file_ready
+        ("Extended search area: " + last_search_area) ~> @investigation.search_note
+        (false) ~> @investigation.case_file_ready
+
         phase:str := ("search_for_more_evidence") ~> @investigation.phase
       }
     }
 
-    next {
-      action = submit_case_file
-    }
+    next submit_case_file
   }
 
   action "submit_case_file" {
@@ -264,9 +236,9 @@ scene "detective_evidence_hunt" {
         case_file_ready:bool <~ @investigation.case_file_ready
         suspect_summary:str <~ @investigation.suspect_summary
 
-        prefix:str = "Filed report: "
-        report_line:str = (prefix + suspect_summary) ~> @investigation.report_line
-        phase:str = ("submit_case_file") ~> @investigation.phase
+        ("Filed report: " + suspect_summary) ~> @investigation.report_line
+        ("submit_case_file") ~> @investigation.phase
+
         investigation_closed:bool := (case_file_ready) ~> @investigation.closed
       }
     }

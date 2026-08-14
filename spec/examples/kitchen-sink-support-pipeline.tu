@@ -9,29 +9,28 @@
 #   * overview     — all three enforce modes (strict, at_least, nodes_only),
 #                    plus a scene with no overview block at all
 #   * actions      — docstring sugar (""" """) AND explicit text = <<-EOT
-#   * compute      — inline input/output arrows (<~, ~>) and contextual results (:=)
+#   * compute      — inline IO: `<~` ingress from STATE and from a hook, `~>`
+#                    egress, both arrows on one bidirectional line, anonymous
+#                    write-only egress, and the `:=` result binding
 #   * expressions  — every infix operator (+ - * / % > >= < <= == != & |),
-#                    every callable binary fn (max, min, bool_xor, str_*,
-#                    arr_*), transform-method chains used as call arguments
-#                    (.trim().toLowerCase(), .length(), .isEmpty(), .toStr(),
-#                    .abs(), .floor(), .ceil(), .round(), .negate(),
-#                    .toNumber(), .toUpperCase(), .not()), and the local
-#                    forms if / case / pipe / #it
-#   * effects      — prepare (from_state, from_hook), merge (to_state),
-#                    publish (multiple hooks)
-#   * transitions  — conditional next, deterministic next, and all three
-#                    transition ingress sources (from_action, from_state,
-#                    from_literal)
+#                    nested infix, every callable binary fn (max, min,
+#                    bool_xor, str_*, arr_*), transform methods used four ways
+#                    (standalone, chained, as a call argument, and as the left
+#                    operand of an infix), and the local forms if/case/pipe/#it
+#   * effects      — hook ingress and publish (multiple hooks)
+#   * transitions  — the `next <action> if <flag>` sugar, the bare
+#                    deterministic `next <action>`, and the block form with all
+#                    three transition ingress sources (action, literal, STATE)
 #   * route        — entry, direct/wildcard/multi-segment paths, OR (|), _
 #
 # Grammar reminders this file follows (enforced by the converter):
-#   - A binding RHS is at most ONE binary operator, and its LEFT operand must
-#     be a reference (the right operand may be a literal). Compound logic is
-#     built from named intermediate bindings — there is no operator chaining
-#     and no parentheses.
-#   - Transform methods (.trim(), .length(), ...) are only valid INSIDE a
-#     function-call argument, e.g. `max(subject.length(), 0)`.
-#   - The := compute root (or transition condition) must be
+#   - Infix expressions nest, and standard precedence applies: comparisons
+#     bind tighter than `&` and `|`. Parentheses around a complete RHS are
+#     reserved for egress, so a named intermediate binding is still the way to
+#     force a different grouping.
+#   - A call argument is a reference, a literal, or a transform chain. An
+#     infix expression inside one — `min(a + b, 100)` — does not parse.
+#   - The `:=` result binding (compute root, or transition condition) must be
 #     the LAST binding in its prog.
 #   - `route`, `state`, `scene`, `action`, etc. are reserved words and cannot
 #     be used as field or binding identifiers.
@@ -106,7 +105,7 @@ scene "triage" {
     """
     Logic overview:
     - Pull ticket text, counters, arrays, and live signals from STATE
-      (and one value, live_sentiment, from a prepare hook).
+      (and one value, live_sentiment, from the sentiment_api hook).
     - Normalize text, score the ticket, and classify it into a band/route.
     - Persist the derived fields, then branch first-match to one of three
       terminal actions.
@@ -114,7 +113,7 @@ scene "triage" {
 
     compute {
       prog "intake_graph" {
-        # --- ingress bindings (each needs a prepare entry) ---
+        # --- inline ingress: STATE reads, one bidirectional pair, one hook ---
         subject:str <~ @ticket.subject
         body:str <~ @ticket.body
         priority:number <~ @ticket.priority ~> @triage.sla_hours
@@ -127,15 +126,13 @@ scene "triage" {
         scores:arr<number> <~ @ticket.scores
         live_sentiment:number <~ hook("sentiment_api")
 
-        # --- numeric operators: * + min max - / % ---
-        weighted_raw:number = toxicity * 3
-        tox_plus:number     = weighted_raw + priority
-        capped:number       = min(tox_plus, 100)
+        # --- numeric operators: * + - / %, with min/max as calls ---
+        weighted_raw:number = toxicity * 3 + priority
+        capped:number       = min(weighted_raw, 100)
         floored:number      = max(capped, 0)
         gap:number          = capped - floored
         half:number         = floored / 2
         bucket:number       = floored % 10
-        mood:number         = live_sentiment + 0
         adjusted:number     = floored + live_sentiment
 
         # --- comparison + boolean operators: >= < > <= != == | xor & ---
@@ -149,30 +146,31 @@ scene "triage" {
         conflicting:bool = bool_xor(risky, spam)
         vip_clean:bool   = vip & clean
 
-        # --- string builtins + transform-method chains (inside call args) ---
-        normalized:str   = subject + "!"
-        has_clean_kw:bool = str_includes(subject.trim().toLowerCase(), "urgent")
-        reply_flag:bool   = str_starts(subject.toUpperCase(), "RE:")
-        ends_flag:bool    = str_ends(normalized, "!")
-        refund_flag:bool  = str_includes(body, "refund")
+        # --- string builtins; transform chains as call arguments ---
+        normalized:str     = subject + "!"
+        has_clean_kw:bool  = str_includes(subject.trim().toLowerCase(), "urgent")
+        reply_flag:bool    = str_starts(subject.toUpperCase(), "RE:")
+        ends_flag:bool     = str_ends(normalized, "!")
+        refund_flag:bool   = str_includes(body, "refund")
         tox_text_flag:bool = str_includes(toxicity.toStr(), "7")
-        spam_text:bool    = str_includes(spam.toStr(), "true")
-        subj_len:number   = max(subject.length(), 0)
-        body_num:number   = min(body.toNumber(), 100)
+        spam_text:bool     = str_includes(spam.toStr(), "true")
 
-        # --- number/bool transform methods (inside call args) ---
-        abs_v:number   = max(sentiment.abs(), 0)
-        floor_v:number = max(half.floor(), 0)
-        ceil_v:number  = max(half.ceil(), 0)
-        round_v:number = max(half.round(), 0)
-        neg_v:number   = min(priority.negate(), 0)
-        not_spam:bool  = bool_xor(spam.not(), spam)
+        # --- transform methods standalone, and as an infix left operand ---
+        subj_len:number   = subject.length()
+        body_num:number   = body.toNumber()
+        abs_v:number      = sentiment.abs()
+        floor_v:number    = half.floor()
+        ceil_v:number     = half.ceil()
+        round_v:number    = half.round()
+        neg_v:number      = priority.negate()
+        not_spam:bool     = spam.not()
+        long_subject:bool = subject.length() > 20
 
         # --- array builtins + array transform methods ---
         seed_tags:arr<str> = ["audit"]
-        tag_count:number   = max(tags.length(), 0)
-        score_count:number = max(scores.length(), 0)
-        flags_empty:bool   = bool_xor(flags.isEmpty(), spam)
+        tag_count:number   = tags.length()
+        score_count:number = scores.length()
+        flags_empty:bool   = flags.isEmpty()
         has_urgent:bool    = arr_includes(tags, "urgent")
         first_tag:str      = arr_get(tags, 0)
         top_score:number   = arr_get(scores, 0)
@@ -203,50 +201,27 @@ scene "triage" {
           _ => "light"
         )
 
-        # --- fold the boolean features into one deterministic readiness flag ---
-        r1:bool  = low_tox | mid
-        r2:bool  = r1 | within
-        r3:bool  = r2 | is_zero
-        r4:bool  = r3 | vip_clean
-        r5:bool  = r4 | has_clean_kw
-        r6:bool  = r5 | reply_flag
-        r7:bool  = r6 | ends_flag
-        r8:bool  = r7 | refund_flag
-        r9:bool  = r8 | tox_text_flag
-        r10:bool = r9 | spam_text
-        r11:bool = r10 | not_spam
-
-        # --- fold the numeric features into one deterministic checksum ---
-        c1:number  = weighted_raw + tox_plus
-        c2:number  = c1 + gap
-        c3:number  = c2 + half
-        c4:number  = c3 + bucket
-        c5:number  = c4 + mood
-        c6:number  = c5 + subj_len
-        c7:number  = c6 + body_num
-        c8:number  = c7 + tag_count
-        c9:number  = c8 + score_count
-        c10:number = c9 + top_score
-        c11:number = c10 + abs_v
-        c12:number = c11 + floor_v
-        c13:number = c12 + ceil_v
-        c14:number = c13 + round_v
-        c15:number = c14 + neg_v
-        c16:number = c15 + pipe_score
-
         # --- named egress values plus anonymous write-only egresses ---
+        # `score` and `flagged` keep their names because the transitions below
+        # read them back through action(...); an anonymous egress cannot be.
         score:number = (adjusted) ~> @triage.score
-        (c16 + capped) ~> @triage.checksum
+        flagged:bool = (unsafe | has_urgent | conflicting) ~> @triage.flagged
+
         (band) ~> @triage.band
         (route_label) ~> @triage.route_tag
         (normalized) ~> @triage.normalized_subject
-        audit1:str           = first_tag + " | "
-        (audit1 + allfirst) ~> @triage.audit
-        g1:bool              = unsafe | has_urgent
-        flagged:bool = (g1 | conflicting) ~> @triage.flagged
+        (first_tag + " | " + allfirst) ~> @triage.audit
 
-        # --- compute result: := binding, declared last ---
-        ready:bool := r11 | flags_empty
+        # --- fold the numeric features into one checksum (nested infix) ---
+        raw_metrics:number    = weighted_raw + capped + gap + half + bucket + adjusted + pipe_score
+        text_metrics:number   = subj_len + body_num + tag_count + score_count + top_score
+        number_metrics:number = abs_v + floor_v + ceil_v + round_v + neg_v
+        (raw_metrics + text_metrics + number_metrics) ~> @triage.checksum
+
+        # --- fold the boolean features into the := result, declared last ---
+        ready_text:bool = has_clean_kw | reply_flag | ends_flag | refund_flag | long_subject
+        ready_meta:bool = tox_text_flag | spam_text | not_spam | flags_empty
+        ready:bool := low_tox | mid | within | is_zero | vip_clean | ready_text | ready_meta
       }
     }
 
@@ -255,36 +230,25 @@ scene "triage" {
       hook = "emit_metrics"
     }
 
-    # conditional transition: mixes from_action, from_literal, and from_state
+    # conditional transition, block form: mixes all three transition ingress
+    # sources — action(...), a literal, and post-merge STATE.
     next {
       compute {
         prog "to_auto_resolve" {
           score:number <~ action(score)
           threshold:number <~ 40
           flagged:bool <~ @triage.flagged
-          cheap:bool = score < threshold
-          safe:bool  = flagged == false
-          go_auto:bool := cheap & safe
+          go_auto:bool := score < threshold & flagged == false
         }
       }
       action = auto_resolve
     }
 
-    # conditional transition: from_action only
-    next {
-      compute {
-        prog "to_escalate" {
-          flagged:bool <~ action(flagged)
-          go_escalate:bool := flagged
-        }
-      }
-      action = escalate
-    }
+    # conditional transition, sugar form: a bare bool binding of this action
+    next escalate if flagged
 
-    # deterministic transition: no compute block (always-true fallthrough)
-    next {
-      action = manual_queue
-    }
+    # deterministic transition: no condition at all (always-true fallthrough)
+    next manual_queue
   }
 
   action "auto_resolve" {
@@ -293,7 +257,8 @@ scene "triage" {
     """
     compute {
       prog "auto_resolve_graph" {
-        status:str = ("auto_resolved") ~> @outcome.status
+        ("auto_resolved") ~> @outcome.status
+
         notice:str := ("closed without human review") ~> @outcome.notice
       }
     }
@@ -310,7 +275,9 @@ scene "triage" {
       prog "escalate_graph" {
         sla:number <~ @triage.sla_hours
         bumped:number = sla + 4
-        status:str = ("escalated") ~> @outcome.status
+
+        ("escalated") ~> @outcome.status
+
         hours:number := (max(bumped, 24)) ~> @triage.sla_hours
       }
     }
@@ -322,7 +289,8 @@ scene "triage" {
     """
     compute {
       prog "manual_queue_graph" {
-        status:str = ("queued") ~> @outcome.status
+        ("queued") ~> @outcome.status
+
         owner:str := ("support_team") ~> @outcome.handled_by
       }
     }
@@ -358,27 +326,17 @@ scene "review" {
         route_tag:str <~ @triage.route_tag
         score:number <~ @triage.score
 
-        hot:bool       = score >= 70
         (route_tag + " review") ~> @review.note
-        reviewed:bool := (flagged | hot) ~> @review.parallel
+
+        reviewed:bool := (flagged | score >= 70) ~> @review.parallel
       }
     }
 
     # all-match: this rule fires when the ticket is hot/flagged ...
-    next {
-      compute {
-        prog "to_notify" {
-          reviewed:bool <~ action(reviewed)
-          go_notify:bool := reviewed
-        }
-      }
-      action = notify
-    }
+    next notify if reviewed
 
     # ... and this deterministic rule always fires, so both can be selected.
-    next {
-      action = log
-    }
+    next log
   }
 
   action "notify" {
@@ -402,6 +360,7 @@ scene "review" {
     compute {
       prog "log_graph" {
         note:str <~ @review.note
+
         line:str := (note + " logged") ~> @review.log_line
       }
     }
@@ -432,9 +391,7 @@ scene "finalize" {
         sealed:bool := (true) ~> @outcome.sealed
       }
     }
-    next {
-      action = archive
-    }
+    next archive
   }
 
   action "archive" {
@@ -444,7 +401,9 @@ scene "finalize" {
     compute {
       prog "archive_graph" {
         status:str <~ @outcome.status
-        archived:bool = (true) ~> @outcome.archived
+
+        (true) ~> @outcome.archived
+
         final_notice:str := (status + " archived") ~> @outcome.notice
       }
     }

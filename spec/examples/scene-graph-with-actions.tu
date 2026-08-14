@@ -54,9 +54,7 @@ scene "loan_flow" {
       action = approve
     }
 
-    next {
-      action = reject
-    }
+    next reject
   }
 
   action "approve" {
@@ -70,7 +68,9 @@ scene "loan_flow" {
       prog "approve_graph" {
         prefix:str = "APR-"
         suffix:str = "0001"
-        status:str = ("approved") ~> @decision.status
+
+        ("approved") ~> @decision.status
+
         approval_code:str := (prefix + suffix) ~> @decision.code
       }
     }
@@ -86,7 +86,8 @@ scene "loan_flow" {
 
     compute {
       prog "reject_graph" {
-        status:str = ("rejected") ~> @decision.status
+        ("rejected") ~> @decision.status
+
         reason:str := ("risk_threshold_not_met") ~> @decision.reason
       }
     }

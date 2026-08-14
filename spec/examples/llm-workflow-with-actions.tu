@@ -53,28 +53,15 @@ scene "llm_support_workflow" {
       prog "analyze_request_graph" {
         need_grounding:bool <~ @request.need_grounding
         kb_enabled:bool <~ @runtime.kb_enabled
-        priority_tier:number <~ @request.priority_tier
-        workflow_stage:str = ("analyzed") ~> @workflow.stage
 
-        retrieve_ready:bool = need_grounding & kb_enabled
-        fast_lane:bool = priority_tier >= 2
-        analysis_ready:bool := true
+        ("analyzed") ~> @workflow.stage
+
+        retrieve_ready:bool := need_grounding & kb_enabled
       }
     }
 
-    next {
-      compute {
-        prog "to_retrieve_context" {
-          retrieve_ready:bool <~ action(retrieve_ready)
-          go_retrieve:bool := retrieve_ready
-        }
-      }
-      action = retrieve_context
-    }
-
-    next {
-      action = draft_direct
-    }
+    next retrieve_context if retrieve_ready
+    next draft_direct
   }
 
   action "retrieve_context" {
@@ -89,17 +76,14 @@ scene "llm_support_workflow" {
       prog "retrieve_context_graph" {
         query:str <~ @request.query
         doc_hint:str <~ @request.doc_hint
-        workflow_stage:str = ("retrieved") ~> @workflow.stage
 
-        context_prefix:str = query + " :: "
-        retrieved_context:str = (context_prefix + doc_hint) ~> @workflow.context
-        retrieval_ready:bool := true
+        ("retrieved") ~> @workflow.stage
+
+        retrieved_context:str := (query + " :: " + doc_hint) ~> @workflow.context
       }
     }
 
-    next {
-      action = draft_with_context
-    }
+    next draft_with_context
   }
 
   action "draft_direct" {
@@ -112,16 +96,14 @@ scene "llm_support_workflow" {
     compute {
       prog "draft_direct_graph" {
         query:str <~ @request.query
-        prefix:str = "Direct answer: "
-        draft_text:str = (prefix + query) ~> @workflow.draft
-        workflow_stage:str = ("drafted_direct") ~> @workflow.stage
-        draft_ready:bool := true
+
+        ("drafted_direct") ~> @workflow.stage
+
+        draft_text:str := ("Direct answer: " + query) ~> @workflow.draft
       }
     }
 
-    next {
-      action = safety_check
-    }
+    next safety_check
   }
 
   action "draft_with_context" {
@@ -136,17 +118,14 @@ scene "llm_support_workflow" {
       prog "draft_with_context_graph" {
         query:str <~ @request.query
         retrieved_context:str <~ @workflow.context
-        workflow_stage:str = ("drafted_with_context") ~> @workflow.stage
 
-        draft_seed:str = query + " | "
-        draft_text:str = (draft_seed + retrieved_context) ~> @workflow.draft
-        draft_ready:bool := true
+        ("drafted_with_context") ~> @workflow.stage
+
+        draft_text:str := (query + " | " + retrieved_context) ~> @workflow.draft
       }
     }
 
-    next {
-      action = safety_check
-    }
+    next safety_check
   }
 
   action "safety_check" {
@@ -161,28 +140,17 @@ scene "llm_support_workflow" {
       prog "safety_check_graph" {
         toxicity_score:number <~ @moderation.toxicity_score
         pii_score:number <~ @moderation.pii_score
-        workflow_stage:str = ("safety_checked") ~> @workflow.stage
 
-        toxicity_ok:bool = toxicity_score <= 2
-        pii_ok:bool = pii_score <= 1
-        approved:bool = (toxicity_ok & pii_ok) ~> @workflow.approved
-        safety_ready:bool := true
+        ("safety_checked") ~> @workflow.stage
+
+        approved:bool := (
+          toxicity_score <= 2 & pii_score <= 1
+        ) ~> @workflow.approved
       }
     }
 
-    next {
-      compute {
-        prog "to_publish_response" {
-          approved:bool <~ action(approved)
-          go_publish:bool := approved
-        }
-      }
-      action = publish_response
-    }
-
-    next {
-      action = human_review
-    }
+    next publish_response if approved
+    next human_review
   }
 
   action "publish_response" {
@@ -195,9 +163,10 @@ scene "llm_support_workflow" {
     compute {
       prog "publish_response_graph" {
         draft_text:str <~ @workflow.draft
-        workflow_status:str = ("sent") ~> @workflow.status
-        final_response:str = (draft_text) ~> @conversation.last_response
-        publish_ready:bool := true
+
+        ("sent") ~> @workflow.status
+
+        final_response:str := (draft_text) ~> @conversation.last_response
       }
     }
 
@@ -214,10 +183,10 @@ scene "llm_support_workflow" {
     compute {
       prog "human_review_graph" {
         draft_text:str <~ @workflow.draft
-        prefix:str = "Review needed: "
-        handoff_note:str = (prefix + draft_text) ~> @review.note
-        workflow_status:str = ("awaiting_human") ~> @workflow.status
-        handoff_ready:bool := true
+
+        ("awaiting_human") ~> @workflow.status
+
+        handoff_note:str := ("Review needed: " + draft_text) ~> @review.note
       }
     }
 
