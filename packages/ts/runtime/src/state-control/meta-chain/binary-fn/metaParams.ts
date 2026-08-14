@@ -1,13 +1,10 @@
 import { type ParamsMetaBinaryFnBoolean } from "../../preset-funcs/boolean/binaryFn.js";
-import { type ParamsMetaBinaryFnGeneric } from "../../preset-funcs/generic/binaryFn.js";
 import { type ParamsMetaBinaryFnNumber } from "../../preset-funcs/number/binaryFn.js";
 import { type ParamsMetaBinaryFnString } from "../../preset-funcs/string/binaryFn.js";
-import { type BaseTypeSymbol } from "../../value.js";
 
 type ParamTypesBinaryFnBoolean = ParamsMetaBinaryFnBoolean;
 type ParamTypesBinaryFnNumber = ParamsMetaBinaryFnNumber;
 type ParamTypesBinaryFnString = ParamsMetaBinaryFnString;
-type ParamTypesBinaryFnGeneric = ParamsMetaBinaryFnGeneric;
 
 export const metaBfBooleanParams = (): ParamTypesBinaryFnBoolean => {
   return {
@@ -41,12 +38,5 @@ export const metaBfStringParams = (): ParamTypesBinaryFnString => {
     endsWith: ["string", "string"],
     extract: ["string", "string"],
     extractNum: ["string", "string"],
-  };
-};
-
-export const metaBfGenericParams = (symbol: BaseTypeSymbol): ParamTypesBinaryFnGeneric => {
-  return {
-    isEqual: [symbol, symbol],
-    isNotEqual: [symbol, symbol],
   };
 };

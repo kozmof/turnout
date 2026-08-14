@@ -229,19 +229,15 @@ describe("runtime coverage edges", () => {
       ).toThrow("empty sequence");
     });
 
-    it("covers record-style pipe args and extra value validation branches", () => {
+    it("covers extra value validation branches", () => {
       const argMap = { a: "v1" as ValueId } as FuncArgMap;
       const values = { v1: numberValue(1), extra: numberValue(2) } as any;
-      expect(createScopedValueTable(argMap, { a: true }, values, ["extra" as ValueId])).toEqual(
-        values,
-      );
+      expect(createScopedValueTable(argMap, ["a"], values, ["extra" as ValueId])).toEqual(values);
       expect(() =>
-        validateScopedValueTable({ v1: values.v1 } as any, { a: true }, argMap, [
-          "extra" as ValueId,
-        ]),
+        validateScopedValueTable({ v1: values.v1 } as any, ["a"], argMap, ["extra" as ValueId]),
       ).toThrow("missing extra");
       expect(() =>
-        createScopedValueTable(argMap, { a: true }, { v1: values.v1 } as any, ["extra" as ValueId]),
+        createScopedValueTable(argMap, ["a"], { v1: values.v1 } as any, ["extra" as ValueId]),
       ).toThrow("Missing value: extra");
     });
   });

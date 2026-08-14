@@ -206,7 +206,7 @@ describe("executePipeFunc", () => {
       } as any,
       pipeFuncDefTable: {
         td_outer: {
-          args: { a: "ia-a", b: "ia-b" },
+          args: ["a", "b"],
           sequence: [
             {
               kind: "combine",
@@ -245,7 +245,7 @@ describe("executePipeFunc", () => {
       returnId: "v_result" as ValueId,
     };
     (context.pipeFuncDefTable as Record<string, unknown>)["td_outer" as PipeDefineId] = {
-      args: { a: "ia-a" },
+      args: ["a"],
       sequence: [
         {
           kind: "combine",
@@ -268,7 +268,7 @@ describe("executePipeFunc", () => {
     (context as { pipeFuncDefTable: typeof context.pipeFuncDefTable }).pipeFuncDefTable = {
       ...context.pipeFuncDefTable,
       td_inner: {
-        args: { x: "ia-x", y: "ia-y" },
+        args: ["x", "y"],
         sequence: [
           {
             kind: "combine",
@@ -281,7 +281,7 @@ describe("executePipeFunc", () => {
         ],
       },
       td_outer: {
-        args: { a: "ia-a", b: "ia-b" },
+        args: ["a", "b"],
         sequence: [
           {
             kind: "pipe",
@@ -324,7 +324,7 @@ describe("executePipeFunc", () => {
     );
 
     (context.pipeFuncDefTable as Record<string, unknown>)["td_outer" as PipeDefineId] = {
-      args: { a: "ia-a", b: "ia-b" },
+      args: ["a", "b"],
       sequence: [
         {
           kind: "combine",

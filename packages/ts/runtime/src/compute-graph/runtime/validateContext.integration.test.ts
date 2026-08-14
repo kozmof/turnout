@@ -162,7 +162,7 @@ describe("validateContext integration", () => {
         } as any,
         pipeFuncDefTable: {
           td1: {
-            args: { x: "ia-x" as any, y: "ia-y" as any },
+            args: ["x", "y"],
             sequence: [
               {
                 kind: "combine",
@@ -205,7 +205,7 @@ describe("validateContext integration", () => {
         combineFuncDefTable: {} as any,
         pipeFuncDefTable: {
           td1: {
-            args: {},
+            args: [],
             sequence: [
               {
                 kind: "combine",

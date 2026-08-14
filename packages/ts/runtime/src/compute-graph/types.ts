@@ -1,27 +1,12 @@
-import {
-  BinaryFnArrayNames,
-  BinaryFnArrayNameSpace,
-} from "../state-control/preset-funcs/array/binaryFn.js";
+import { BinaryFnArrayNames } from "../state-control/preset-funcs/array/binaryFn.js";
 import { TransformFnArrayNames } from "../state-control/preset-funcs/array/transformFn.js";
-import {
-  BinaryFnBooleanNames,
-  BinaryFnBooleanNameSpace,
-} from "../state-control/preset-funcs/boolean/binaryFn.js";
+import { BinaryFnBooleanNames } from "../state-control/preset-funcs/boolean/binaryFn.js";
 import { TransformFnBooleanNames } from "../state-control/preset-funcs/boolean/transformFn.js";
-import {
-  BinaryFnGenericNames,
-  BinaryFnGenericNameSpace,
-} from "../state-control/preset-funcs/generic/binaryFn.js";
-import {
-  BinaryFnNumberNames,
-  BinaryFnNumberNameSpace,
-} from "../state-control/preset-funcs/number/binaryFn.js";
+import { BinaryFnGenericNames } from "../state-control/preset-funcs/generic/binaryFn.js";
+import { BinaryFnNumberNames } from "../state-control/preset-funcs/number/binaryFn.js";
 import { TransformFnNumberNames } from "../state-control/preset-funcs/number/transformFn.js";
 import { TransformFnNullNames } from "../state-control/preset-funcs/null/transformFn.js";
-import {
-  BinaryFnStringNames,
-  BinaryFnStringNameSpace,
-} from "../state-control/preset-funcs/string/binaryFn.js";
+import { BinaryFnStringNames } from "../state-control/preset-funcs/string/binaryFn.js";
 import { TransformFnStringNames } from "../state-control/preset-funcs/string/transformFn.js";
 import { AnyValue } from "../state-control/value.js";
 import { Brand } from "../util/brand.js";
@@ -32,13 +17,6 @@ export type BinaryFnNames =
   | BinaryFnGenericNames
   | BinaryFnNumberNames
   | BinaryFnStringNames;
-
-export type BinaryFnNamespaces =
-  | BinaryFnArrayNameSpace
-  | BinaryFnBooleanNameSpace
-  | BinaryFnGenericNameSpace
-  | BinaryFnNumberNameSpace
-  | BinaryFnStringNameSpace;
 
 export type TransformFnNames =
   | TransformFnArrayNames

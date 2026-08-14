@@ -28,7 +28,3 @@ export type TransformFnBooleanNames =
 export type ReturnMetaTransformFnBoolean = {
   [K in keyof TransformFnBoolean]: ReturnType<TransformFnBoolean[K]>["symbol"];
 };
-
-export type ParamsMetaTransformFnBoolean = {
-  [K in keyof TransformFnBoolean]: [Parameters<TransformFnBoolean[K]>[0]["symbol"]];
-};

@@ -44,7 +44,3 @@ export type TransformFnNumberNames =
 export type ReturnMetaTransformFnNumber = {
   [K in keyof TransformFnNumber]: ReturnType<TransformFnNumber[K]>["symbol"];
 };
-
-export type ParamsMetaTransformFnNumber = {
-  [K in keyof TransformFnNumber]: [Parameters<TransformFnNumber[K]>[0]["symbol"]];
-};

@@ -213,10 +213,10 @@ describe("typeInference values and function inference", () => {
       } as any,
       pipeFuncDefTable: {
         td_pipe: {
-          args: {},
+          args: [],
           sequence: [{ defId: "pd_concat" as CombineDefineId, argBindings: {} }],
         },
-        td_empty: { args: {}, sequence: [] },
+        td_empty: { args: [], sequence: [] },
       } as any,
     });
 
@@ -246,21 +246,21 @@ describe("typeInference values and function inference", () => {
         pd_add: { name: "binaryFnNumber::add" },
       } as any,
       pipeFuncDefTable: {
-        td_outer: { args: {}, sequence: [{ defId: "td_inner" as PipeDefineId, argBindings: {} }] },
-        td_inner: { args: {}, sequence: [{ defId: "pd_add" as CombineDefineId, argBindings: {} }] },
+        td_outer: { args: [], sequence: [{ defId: "td_inner" as PipeDefineId, argBindings: {} }] },
+        td_inner: { args: [], sequence: [{ defId: "pd_add" as CombineDefineId, argBindings: {} }] },
         td_deep_outer: {
-          args: {},
+          args: [],
           sequence: [{ defId: "td_deep_middle" as PipeDefineId, argBindings: {} }],
         },
         td_deep_middle: {
-          args: {},
+          args: [],
           sequence: [{ defId: "td_deep_inner" as PipeDefineId, argBindings: {} }],
         },
         td_deep_inner: {
-          args: {},
+          args: [],
           sequence: [{ defId: "pd_add" as CombineDefineId, argBindings: {} }],
         },
-        td_empty_inner: { args: {}, sequence: [] },
+        td_empty_inner: { args: [], sequence: [] },
       } as any,
     });
 
@@ -274,7 +274,7 @@ describe("typeInference values and function inference", () => {
       returnId: "v_empty_nested" as ValueId,
     } as any;
     (context.pipeFuncDefTable as Record<string, unknown>)["td_empty_outer" as PipeDefineId] = {
-      args: {},
+      args: [],
       sequence: [{ defId: "td_empty_inner" as PipeDefineId, argBindings: {} }],
     } as any;
     expect(inferFuncReturnType("f_empty_nested" as FuncId, context)).toBeNull();
@@ -298,9 +298,9 @@ describe("typeInference values and function inference", () => {
       } as any,
       combineFuncDefTable: {},
       pipeFuncDefTable: {
-        td_cond_last: { args: {}, sequence: [{ defId: "cd_cond" as any, argBindings: {} }] },
+        td_cond_last: { args: [], sequence: [{ defId: "cd_cond" as any, argBindings: {} }] },
         td_unknown_last: {
-          args: {},
+          args: [],
           sequence: [{ defId: "not_registered" as any, argBindings: {} }],
         },
       } as any,

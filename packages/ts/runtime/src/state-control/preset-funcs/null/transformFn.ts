@@ -18,7 +18,3 @@ export type TransformFnNullNames =
 export type ReturnMetaTransformFnNull = {
   [K in keyof TransformFnNull]: ReturnType<TransformFnNull[K]>["symbol"];
 };
-
-export type ParamsMetaTransformFnNull = {
-  [K in keyof TransformFnNull]: [Parameters<TransformFnNull[K]>[0]["symbol"]];
-};

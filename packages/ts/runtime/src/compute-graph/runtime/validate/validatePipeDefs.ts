@@ -228,9 +228,6 @@ export function validatePipeDefEntry(
         }
         pipeDefArgNames.push(argName);
       }
-    } else if (isRecord(rawArgs)) {
-      // Backward compatibility: accept legacy map-shaped args and treat keys as arg names.
-      pipeDefArgNames.push(...Object.keys(rawArgs));
     } else {
       state.errors.push({
         message: `PipeFuncDefTable[${defId}]: 'args' must be an array of strings`,

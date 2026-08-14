@@ -58,10 +58,3 @@ export type BinaryFnGenericNames =
 export type ReturnMetaBinaryFnGeneric = {
   [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<BinaryFnGeneric<AnyValue>[K]>["symbol"];
 };
-
-export type ParamsMetaBinaryFnGeneric = {
-  [K in keyof BinaryFnGeneric<AnyValue>]: [
-    Parameters<BinaryFnGeneric<AnyValue>[K]>[0]["symbol"],
-    Parameters<BinaryFnGeneric<AnyValue>[K]>[1]["symbol"],
-  ];
-};

@@ -83,7 +83,7 @@ describe("validateContext", () => {
         } as any,
         pipeFuncDefTable: {
           td1: {
-            args: { x: "ia-x" as any },
+            args: ["x"],
             sequence: [
               {
                 kind: "combine",
@@ -319,7 +319,7 @@ describe("validateContext", () => {
         combineFuncDefTable: {} as any,
         pipeFuncDefTable: {
           td1: {
-            args: {},
+            args: [],
             sequence: [], // Empty sequence
           },
         } as any,
@@ -346,7 +346,7 @@ describe("validateContext", () => {
         combineFuncDefTable: {} as any,
         pipeFuncDefTable: {
           td1: {
-            args: {},
+            args: [],
             sequence: [
               {
                 kind: "combine",
@@ -949,7 +949,7 @@ describe("validateContext", () => {
       } as any;
       context.pipeFuncDefTable = {
         td1: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [42 as any],
         },
       } as any;
@@ -971,7 +971,7 @@ describe("validateContext", () => {
       } as any;
       context.pipeFuncDefTable = {
         td1: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [{ defId: "pd1" as CombineDefineId }],
         },
       } as any;
@@ -995,7 +995,7 @@ describe("validateContext", () => {
       } as any;
       context.pipeFuncDefTable = {
         td1: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [
             {
               defId: "pd1" as CombineDefineId,
@@ -1026,7 +1026,7 @@ describe("validateContext", () => {
       } as any;
       context.pipeFuncDefTable = {
         td1: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [
             {
               defId: "pd1" as CombineDefineId,
@@ -1197,7 +1197,7 @@ describe("validateContext", () => {
       } as any;
       context.pipeFuncDefTable = {
         td1: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [
             {
               defId: "pd1" as CombineDefineId,
@@ -1249,7 +1249,7 @@ describe("validateContext", () => {
       } as any;
       context.pipeFuncDefTable = {
         td1: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [
             {
               defId: "td2" as PipeDefineId,
@@ -1258,7 +1258,7 @@ describe("validateContext", () => {
           ],
         },
         td2: {
-          args: { x: "ia-x" as any },
+          args: ["x"],
           sequence: [
             {
               defId: "td1" as PipeDefineId,

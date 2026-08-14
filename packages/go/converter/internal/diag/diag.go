@@ -119,9 +119,6 @@ func (s *DiagSink) Append(d Diagnostic) {
 	s.diags = append(s.diags, d)
 }
 
-// IsEmpty reports whether ds contains no diagnostics (nil or empty slice).
-func (ds Diagnostics) IsEmpty() bool { return len(ds) == 0 }
-
 // HasErrors reports whether any diagnostic has SeverityError.
 func (ds Diagnostics) HasErrors() bool {
 	for _, d := range ds {

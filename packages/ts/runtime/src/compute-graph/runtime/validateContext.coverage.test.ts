@@ -518,7 +518,33 @@ describe("validateContext — coverage", () => {
       ).toBe(true);
     });
 
-    it("accepts pipeDef with args as record (backward compat)", () => {
+    // The record shape was once accepted as a legacy alias for the array form.
+    // It is now rejected like any other non-array, so a stale model fails loudly
+    // at validation instead of silently taking its keys as argument names.
+    it("rejects record-shaped pipeDef args", () => {
+      const ctx = {
+        ...minContext(),
+        combineFuncDefTable: {
+          pd1: {
+            name: "binaryFnNumber::add",
+            transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
+          },
+        } as any,
+        pipeFuncDefTable: {
+          td1: {
+            args: { x: "ia-x" } as any,
+            sequence: [{ defId: "pd1", argBindings: {} }],
+          },
+        } as any,
+      };
+      const result = validateContext(ctx);
+      expect(result.valid).toBe(false);
+      expect(
+        result.errors.some((e) => e.message.includes("'args' must be an array of strings")),
+      ).toBe(true);
+    });
+
+    it("accepts a pipeDef whose steps bind the same input to both combine args", () => {
       const ctx = {
         ...minContext(),
         valueTable: { v1: { symbol: "number", value: 5, subSymbol: undefined } } as any,
@@ -538,7 +564,7 @@ describe("validateContext — coverage", () => {
         } as any,
         pipeFuncDefTable: {
           td1: {
-            args: { x: "ia-x" as any }, // record-style args (backward compat)
+            args: ["x"],
             sequence: [
               {
                 defId: "pd1",

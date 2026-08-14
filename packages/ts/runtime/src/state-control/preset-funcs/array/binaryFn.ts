@@ -118,10 +118,3 @@ export type BinaryFnArrayNames =
 export type ReturnMetaBinaryFnArray = {
   [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>["symbol"];
 };
-
-export type ParamsMetaBinaryFnArray = {
-  [K in keyof BinaryFnArray]: [
-    Parameters<BinaryFnArray[K]>[0]["symbol"],
-    Parameters<BinaryFnArray[K]>[1]["symbol"],
-  ];
-};

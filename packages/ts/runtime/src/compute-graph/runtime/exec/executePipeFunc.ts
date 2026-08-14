@@ -28,24 +28,15 @@ import {
   createArgName,
 } from "../../idValidation.js";
 
-type PipeArgSpec = readonly string[] | Record<string, unknown>;
-
-function getPipeArgNames(pipeArgSpec: PipeArgSpec): string[] {
-  if (Array.isArray(pipeArgSpec)) {
-    return pipeArgSpec.filter((argName): argName is string => typeof argName === "string");
-  }
-  return Object.keys(pipeArgSpec);
-}
-
 export function validateScopedValueTable(
   scopedValueTable: Partial<ValueTable>,
-  pipeDefArgs: PipeArgSpec,
+  pipeDefArgs: readonly string[],
   argMap: FuncArgMap,
   extraValueIds: readonly ValueId[] = [],
 ): asserts scopedValueTable is ValueTable {
   // Verify that all expected arguments are present in the scoped table
   const expectedValueIds = [
-    ...getPipeArgNames(pipeDefArgs).map((argName) => argMap[createArgName(argName)]),
+    ...pipeDefArgs.map((argName) => argMap[createArgName(argName)]),
     ...extraValueIds,
   ];
 
@@ -58,13 +49,13 @@ export function validateScopedValueTable(
 
 export function createScopedValueTable(
   argMap: FuncArgMap,
-  pipeDefArgs: PipeArgSpec,
+  pipeDefArgs: readonly string[],
   sourceValueTable: ValueTable,
   extraValueIds: readonly ValueId[] = [],
 ): ValueTable {
   const scopedValueTable: Partial<ValueTable> = {};
 
-  for (const argName of getPipeArgNames(pipeDefArgs)) {
+  for (const argName of pipeDefArgs) {
     if (!Object.hasOwn(argMap, argName)) {
       throw new Error(`Argument ${argName} is missing from argMap`);
     }

@@ -254,11 +254,7 @@ describe("executeGraph", () => {
       } as any,
       pipeFuncDefTable: {
         td1: {
-          args: {
-            a: "ia-a" as any,
-            b: "ia-b" as any,
-            c: "ia-c" as any,
-          },
+          args: ["a", "b", "c"],
           sequence: [
             {
               kind: "combine",
@@ -437,7 +433,7 @@ describe("executeGraph", () => {
       combineFuncDefTable: {} as any,
       pipeFuncDefTable: {
         td1: {
-          args: {},
+          args: [],
           sequence: [],
         },
       } as any,

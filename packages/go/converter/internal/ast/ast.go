@@ -116,18 +116,6 @@ func FieldTypeFromString(s string) (FieldType, bool) {
 	return ft, ok
 }
 
-// MustFieldTypeFromString converts a DSL type string that is guaranteed by the
-// caller to be valid (e.g. a type string produced by the lowerer from a
-// validated AST node). Panics on an unrecognised string so that internal
-// compiler bugs surface immediately rather than silently using FieldTypeNumber.
-func MustFieldTypeFromString(s string) FieldType {
-	ft, ok := fieldTypeByString[s]
-	if !ok {
-		panic("MustFieldTypeFromString: unknown type string " + s)
-	}
-	return ft
-}
-
 // IsArray reports whether the type is an array type.
 func (ft FieldType) IsArray() bool {
 	return ft == FieldTypeArrNumber || ft == FieldTypeArrStr || ft == FieldTypeArrBool

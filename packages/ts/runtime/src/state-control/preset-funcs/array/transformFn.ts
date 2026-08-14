@@ -37,7 +37,3 @@ export type TransformFnArrayNames =
 export type ReturnMetaTransformFnArray = {
   [K in keyof TransformFnArray]: ReturnType<TransformFnArray[K]>["symbol"];
 };
-
-export type ParamsMetaTransformFnArray = {
-  [K in keyof TransformFnArray]: [Parameters<TransformFnArray[K]>[0]["symbol"]];
-};
