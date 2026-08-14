@@ -32,7 +32,7 @@ vi.mock("node:child_process", () => ({
   execFile: vi.fn(),
 }));
 
-import { fstatSync, readFileSync, readSync, realpathSync, statSync } from "node:fs";
+import { accessSync, fstatSync, readFileSync, readSync, realpathSync, statSync } from "node:fs";
 import { execFile } from "node:child_process";
 import {
   loadTurnFile,
@@ -49,6 +49,7 @@ const mockRead = vi.mocked(readSync) as unknown as ReturnType<typeof vi.fn>;
 const mockStat = vi.mocked(statSync) as unknown as ReturnType<typeof vi.fn>;
 const mockFstat = vi.mocked(fstatSync) as unknown as ReturnType<typeof vi.fn>;
 const mockRealpath = vi.mocked(realpathSync) as unknown as ReturnType<typeof vi.fn>;
+const mockAccess = vi.mocked(accessSync) as unknown as ReturnType<typeof vi.fn>;
 const mockExecFile = vi.mocked(execFile) as unknown as ReturnType<typeof vi.fn>;
 
 const MOCK_BIN = "/mock/turnout";
@@ -73,6 +74,9 @@ beforeEach(() => {
   resetBinCache();
   mockReadFile.mockReset();
   mockRealpath.mockImplementation((path: string) => path);
+  // clearAllMocks clears calls but not implementations; reset access explicitly
+  // so a test that makes discovery fail cannot leak into later tests.
+  mockAccess.mockImplementation(() => undefined);
   mockStat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => true });
   mockFstat.mockReturnValue({ size: 0, dev: 1, ino: 1, isFile: () => true });
 });
@@ -209,6 +213,42 @@ describe("runConverter", () => {
       name: "AbortError",
     });
     expect(mockExecFile).not.toHaveBeenCalled();
+  });
+
+  // Passing a signal must not disable binary memoization. Request-facing callers
+  // are told to thread an AbortSignal, and re-running discovery per conversion
+  // would spawn a `turnout --version` probe (10s timeout) on every request.
+  it("reuses the discovered binary across signal-carrying conversions", async () => {
+    delete process.env.TURNOUT_BIN;
+    setupConvert();
+    const controller = new AbortController();
+
+    await runConverter("a.tu", { signal: controller.signal });
+    await runConverter("b.tu", { signal: controller.signal });
+
+    // One probe (`--version`) plus one `convert` per conversion — not two probes.
+    const probes = mockExecFile.mock.calls.filter((call) =>
+      (call[1] as string[]).includes("--version"),
+    );
+    expect(probes).toHaveLength(1);
+  });
+
+  it("retries discovery after a failed probe rather than caching the failure", async () => {
+    delete process.env.TURNOUT_BIN;
+    mockAccess.mockImplementation(() => {
+      throw new Error("not executable");
+    });
+    mockExecFile.mockImplementation(
+      (_bin: string, _args: string[], _opts: unknown, cb: ExecFileCb) => {
+        cb(new Error("command not found"), Buffer.from(""), Buffer.from(""));
+      },
+    );
+    await expect(runConverter("a.tu")).rejects.toMatchObject({ name: "BridgeError" });
+
+    // Second attempt must re-probe, not replay the cached rejection.
+    mockAccess.mockImplementation(() => undefined);
+    setupConvert();
+    await expect(runConverter("b.tu")).resolves.toBeDefined();
   });
 
   it("wraps converter failures with stderr diagnostics", async () => {

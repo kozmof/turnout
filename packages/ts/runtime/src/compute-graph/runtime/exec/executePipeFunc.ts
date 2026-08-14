@@ -11,6 +11,7 @@ import {
   PipeStepBinding,
   PipeArgBinding,
   PipeFuncDefTable,
+  FuncTableEntry,
   isArgMapEntry,
 } from "../../types.js";
 import {
@@ -49,7 +50,7 @@ export function validateScopedValueTable(
   ];
 
   for (const valueId of expectedValueIds) {
-    if (valueId === undefined || !(valueId in scopedValueTable)) {
+    if (valueId === undefined || !Object.hasOwn(scopedValueTable, valueId)) {
       throw new Error(`Scoped value table is incomplete: missing ${valueId}`);
     }
   }
@@ -64,7 +65,7 @@ export function createScopedValueTable(
   const scopedValueTable: Partial<ValueTable> = {};
 
   for (const argName of getPipeArgNames(pipeDefArgs)) {
-    if (!(argName in argMap)) {
+    if (!Object.hasOwn(argMap, argName)) {
       throw new Error(`Argument ${argName} is missing from argMap`);
     }
 
@@ -99,11 +100,6 @@ export function createScopedContext(
   context: ExecutionContext | ScopedExecutionContext,
   scopedValueTable: ValueTable,
 ): ScopedExecutionContext {
-  const visibleValueIds = new Set<ValueId>();
-  for (const valueId of Object.keys(scopedValueTable)) {
-    visibleValueIds.add(createValueId(valueId));
-  }
-
   return {
     valueTable: scopedValueTable,
     funcTable: context.funcTable,
@@ -111,7 +107,6 @@ export function createScopedContext(
     pipeFuncDefTable: context.pipeFuncDefTable,
     condFuncDefTable: context.condFuncDefTable,
     scope: "pipe",
-    visibleValueIds,
   };
 }
 
@@ -194,12 +189,34 @@ function collectPipeValueBindings(
 }
 
 /**
+ * Separator for synthetic per-step ids.
+ *
+ * `::` is deliberate: the DSL's identifier grammar (isIdentStart / isIdentChar in
+ * the Go lexer) admits only `[A-Za-z_][A-Za-z0-9_]*`, so no user binding name can
+ * contain a colon, and no id derived from one can collide with the ids minted
+ * below. An earlier `__step` scheme was collidable — the Go validator reserves the
+ * `__` namespace by *prefix* only (`strings.HasPrefix(name, "__")`), so a binding
+ * legitimately named `foo__step0__result` produced exactly the ValueId this
+ * function mints for step 0 of pipe `foo`, silently clobbering it in the threaded
+ * value table. Matches the `::` convention already used by
+ * builder/id-factory.ts `getStepOutputLookupKey`.
+ */
+const STEP_ID_SEP = "::";
+
+/**
  * Creates a temporary FuncId for executing a step within a PipeFunc.
  * This is an internal implementation detail.
  */
 function createTempFuncId(pipeFuncId: FuncId, stepIndex: number): FuncId {
-  const id = `${pipeFuncId}__step${String(stepIndex)}`;
-  return createFuncId(id);
+  return createFuncId(`${pipeFuncId}${STEP_ID_SEP}step${String(stepIndex)}`);
+}
+
+/**
+ * Creates the ValueId holding a step's result. Shares STEP_ID_SEP with
+ * createTempFuncId so both synthetic namespaces are unreachable from user names.
+ */
+function createStepReturnId(pipeFuncId: FuncId, stepIndex: number): ValueId {
+  return createValueId(`${pipeFuncId}${STEP_ID_SEP}step${String(stepIndex)}${STEP_ID_SEP}result`);
 }
 
 /**
@@ -227,65 +244,41 @@ function executeStep(
     );
   }
 
-  // Create a return ValueId for this step
-  const stepReturnIdStr = `${pipeFuncId}__step${String(stepIndex)}__result`;
-  const stepReturnId = createValueId(stepReturnIdStr);
-
-  // Create a temporary FuncId for this step execution
+  const stepReturnId = createStepReturnId(pipeFuncId, stepIndex);
   const tempFuncId = createTempFuncId(pipeFuncId, stepIndex);
 
-  // Create context with temporary function entry (Fix 2: include kind discriminant)
-  let stepContext: ExecutionContext;
+  // The step's context differs from the scoped context only in funcTable, which
+  // gains a synthetic entry for this step; the def tables are shared by reference.
+  // Built here so the combine and pipe branches below cannot drift apart.
+  const withStepEntry = (entry: FuncTableEntry): ExecutionContext => ({
+    valueTable: scopedContext.valueTable,
+    combineFuncDefTable: scopedContext.combineFuncDefTable,
+    pipeFuncDefTable: scopedContext.pipeFuncDefTable,
+    condFuncDefTable: scopedContext.condFuncDefTable,
+    funcTable: { ...scopedContext.funcTable, [tempFuncId]: entry },
+  });
+
+  const argMap = resolvedArgMap as FuncArgMap;
+
+  // Each branch keeps its type-guard call inline so `defId` narrows to the
+  // matching branded id for the executor it dispatches to.
   if (isCombineDefineId(defId, scopedContext.combineFuncDefTable)) {
-    stepContext = {
-      valueTable: scopedContext.valueTable,
-      combineFuncDefTable: scopedContext.combineFuncDefTable,
-      pipeFuncDefTable: scopedContext.pipeFuncDefTable,
-      condFuncDefTable: scopedContext.condFuncDefTable,
-      funcTable: {
-        ...scopedContext.funcTable,
-        [tempFuncId]: {
-          kind: "combine",
-          defId,
-          argMap: resolvedArgMap as FuncArgMap,
-          returnId: stepReturnId,
-        },
-      },
-    };
-  } else {
-    stepContext = {
-      valueTable: scopedContext.valueTable,
-      combineFuncDefTable: scopedContext.combineFuncDefTable,
-      pipeFuncDefTable: scopedContext.pipeFuncDefTable,
-      condFuncDefTable: scopedContext.condFuncDefTable,
-      funcTable: {
-        ...scopedContext.funcTable,
-        [tempFuncId]: {
-          kind: "pipe",
-          defId,
-          argMap: resolvedArgMap as FuncArgMap,
-          returnId: stepReturnId,
-        },
-      },
+    const stepContext = withStepEntry({ kind: "combine", defId, argMap, returnId: stepReturnId });
+    return {
+      stepReturnId,
+      updatedValueTable: executeCombineFunc(tempFuncId, defId, stepContext).updatedValueTable,
     };
   }
 
-  // Execute based on definition type and get result
-  let execResult: ExecutionResult;
-
-  if (isCombineDefineId(defId, scopedContext.combineFuncDefTable)) {
-    execResult = executeCombineFunc(tempFuncId, defId, stepContext);
-  } else if (isPipeDefineId(defId, scopedContext.pipeFuncDefTable)) {
-    // Recursive PipeFunc execution
-    execResult = executePipeFunc(tempFuncId, defId, stepContext);
-  } else {
-    throw createFunctionExecutionError(tempFuncId, `Unknown definition type: ${String(defId)}`);
+  if (isPipeDefineId(defId, scopedContext.pipeFuncDefTable)) {
+    const stepContext = withStepEntry({ kind: "pipe", defId, argMap, returnId: stepReturnId });
+    return {
+      stepReturnId,
+      updatedValueTable: executePipeFunc(tempFuncId, defId, stepContext).updatedValueTable,
+    };
   }
 
-  return {
-    stepReturnId,
-    updatedValueTable: execResult.updatedValueTable,
-  };
+  throw createFunctionExecutionError(tempFuncId, `Unknown definition type: ${String(defId)}`);
 }
 
 /**
@@ -323,36 +316,20 @@ export function executePipeFunc(
     collectPipeValueBindings(defId, context.pipeFuncDefTable),
   );
 
-  type PipeStepAccumulator = {
-    readonly currentValueTable: ValueTable;
-    readonly scopedContext: ScopedExecutionContext;
-    readonly stepResults: readonly ValueId[];
-  };
+  // Execute each step in sequence, threading the value table forward. A loop
+  // rather than a reduce: the previous form rebuilt the accumulated step-result
+  // array on every iteration (`[...acc, id]`), making an n-step pipe O(n²) in
+  // copies for no gain — the accumulator was never observed between steps.
+  let currentValueTable: ValueTable = scopedValueTable;
+  let scopedContext: ScopedExecutionContext = createScopedContext(context, scopedValueTable);
+  const stepResults: ValueId[] = [];
 
-  // Execute each step in sequence, threading state through via reduce
-  const { currentValueTable, stepResults } = def.sequence.reduce<PipeStepAccumulator>(
-    ({ scopedContext, stepResults: accStepResults }, step, i) => {
-      const stepResult = executeStep(
-        step,
-        i,
-        funcId,
-        funcEntry.argMap,
-        accStepResults,
-        scopedContext,
-      );
-      const nextTable = stepResult.updatedValueTable;
-      return {
-        currentValueTable: nextTable,
-        scopedContext: createScopedContext(scopedContext, nextTable),
-        stepResults: [...accStepResults, stepResult.stepReturnId],
-      };
-    },
-    {
-      currentValueTable: scopedValueTable,
-      scopedContext: createScopedContext(context, scopedValueTable),
-      stepResults: [],
-    },
-  );
+  for (const [i, step] of def.sequence.entries()) {
+    const stepResult = executeStep(step, i, funcId, funcEntry.argMap, stepResults, scopedContext);
+    currentValueTable = stepResult.updatedValueTable;
+    scopedContext = createScopedContext(scopedContext, currentValueTable);
+    stepResults.push(stepResult.stepReturnId);
+  }
 
   // Return the last step's result (PipeFunc semantics)
   const finalResultId = stepResults[stepResults.length - 1];

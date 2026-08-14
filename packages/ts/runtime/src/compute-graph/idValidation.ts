@@ -32,6 +32,17 @@ import type { NodeId } from "./runtime/tree-types.js";
  *
  * IDs are arbitrary non-empty strings. No structural validation is performed.
  * Prefixes (v_, f_, pd_, td_, cd_) are for debugging/readability only, not enforced.
+ *
+ * ## Own-property lookups
+ *
+ * Every table guard uses `Object.hasOwn`, never the `in` operator. The tables are
+ * built as plain object literals (see builder/context.ts) and spread with `{...t}`,
+ * so they inherit Object.prototype: `"toString" in funcTable` is true even though
+ * the table has no such entry. With `in`, an id that happens to name a prototype
+ * method would narrow to a branded type and the caller would then read
+ * `Function.prototype.toString.argMap` — an unstructured TypeError instead of a
+ * clean "missing entry" error. `Object.hasOwn` closes that class of bug regardless
+ * of how the table was constructed.
  */
 
 // ============================================================================
@@ -130,7 +141,7 @@ export function createArgName(name: string): ArgName {
  * @returns True if the ID exists in the table
  */
 export function isFuncId(id: NodeId, funcTable: FuncTable): id is FuncId {
-  return id in funcTable;
+  return Object.hasOwn(funcTable, id);
 }
 
 /**
@@ -140,7 +151,7 @@ export function isFuncId(id: NodeId, funcTable: FuncTable): id is FuncId {
  * @returns True if the ID exists in the table
  */
 export function isValueId(id: NodeId, valueTable: ValueTable): id is ValueId {
-  return id in valueTable;
+  return Object.hasOwn(valueTable, id);
 }
 
 /**
@@ -153,7 +164,7 @@ export function isCombineDefineId(
   id: string,
   combineFuncDefTable: CombineFuncDefTable,
 ): id is CombineDefineId {
-  return id in combineFuncDefTable;
+  return Object.hasOwn(combineFuncDefTable, id);
 }
 
 /**
@@ -163,7 +174,7 @@ export function isCombineDefineId(
  * @returns True if the ID exists in the table
  */
 export function isPipeDefineId(id: string, pipeFuncDefTable: PipeFuncDefTable): id is PipeDefineId {
-  return id in pipeFuncDefTable;
+  return Object.hasOwn(pipeFuncDefTable, id);
 }
 
 /**
@@ -173,5 +184,5 @@ export function isPipeDefineId(id: string, pipeFuncDefTable: PipeFuncDefTable): 
  * @returns True if the ID exists in the table
  */
 export function isCondDefineId(id: string, condFuncDefTable: CondFuncDefTable): id is CondDefineId {
-  return id in condFuncDefTable;
+  return Object.hasOwn(condFuncDefTable, id);
 }

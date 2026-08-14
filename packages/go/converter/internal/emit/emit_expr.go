@@ -31,7 +31,7 @@ func writeExpr(iw *iWriter, expr *turnoutpb.ExprModel) {
 func writeCombine(iw *iWriter, c *turnoutpb.CombineExpr) {
 	iw.wl("combine = {")
 	iw.depth++
-	iw.wl("fn   = %q", c.Fn)
+	iw.wl("fn   = %s", hclQuote(c.Fn))
 	iw.wl("args = %s", writeArgs(c.Args))
 	iw.depth--
 	iw.wl("}")
@@ -47,7 +47,7 @@ func writePipe(iw *iWriter, p *turnoutpb.PipeExpr) {
 	} else {
 		parts := make([]string, len(p.Params))
 		for i, param := range p.Params {
-			parts[i] = fmt.Sprintf("%s = { ref = %q }", param.ParamName, param.SourceIdent)
+			parts[i] = fmt.Sprintf("%s = { ref = %s }", param.ParamName, hclQuote(param.SourceIdent))
 		}
 		iw.wl("args  = { %s }", strings.Join(parts, ", "))
 	}
@@ -59,7 +59,7 @@ func writePipe(iw *iWriter, p *turnoutpb.PipeExpr) {
 		iw.wl("steps = [")
 		iw.depth++
 		for _, step := range p.Steps {
-			iw.wl("{ fn = %q, args = %s },", step.Fn, writeArgs(step.Args))
+			iw.wl("{ fn = %s, args = %s },", hclQuote(step.Fn), writeArgs(step.Args))
 		}
 		iw.depth--
 		iw.wl("]")
@@ -93,19 +93,19 @@ func writeCond(iw *iWriter, c *turnoutpb.CondExpr) {
 func writeArg(arg *turnoutpb.ArgModel) string {
 	switch {
 	case arg.Ref != nil:
-		return fmt.Sprintf(`{ ref = %q }`, *arg.Ref)
+		return fmt.Sprintf(`{ ref = %s }`, hclQuote(*arg.Ref))
 	case arg.Lit != nil:
 		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(arg.Lit))
 	case arg.FuncRef != nil:
-		return fmt.Sprintf(`{ func_ref = %q }`, *arg.FuncRef)
+		return fmt.Sprintf(`{ func_ref = %s }`, hclQuote(*arg.FuncRef))
 	case arg.StepRef != nil:
 		return fmt.Sprintf(`{ step_ref = %d }`, *arg.StepRef)
 	case arg.Transform != nil:
 		fnParts := make([]string, len(arg.Transform.Fn))
 		for i, f := range arg.Transform.Fn {
-			fnParts[i] = fmt.Sprintf("%q", f)
+			fnParts[i] = hclQuote(f)
 		}
-		return fmt.Sprintf(`{ transform = { ref = %q, fn = [%s] } }`, arg.Transform.Ref, strings.Join(fnParts, ", "))
+		return fmt.Sprintf(`{ transform = { ref = %s, fn = [%s] } }`, hclQuote(arg.Transform.Ref), strings.Join(fnParts, ", "))
 	}
 	return `{}`
 }
@@ -125,7 +125,7 @@ func writeArgs(args []*turnoutpb.ArgModel) string {
 // writeStructpbValue returns the HCL text representation of a structpb.Value.
 //   - NullValue:   null
 //   - NumberValue: bare number, no trailing ".0" for integers
-//   - StringValue: double-quoted, with Go's %q escaping
+//   - StringValue: double-quoted via hclQuote (HCL escaping, not Go's %q)
 //   - BoolValue:   true / false
 //   - ListValue:   [] or [v1, v2, ...] (all on one line)
 func writeStructpbValue(v *structpb.Value) string {
@@ -138,7 +138,7 @@ func writeStructpbValue(v *structpb.Value) string {
 	case *structpb.Value_NumberValue:
 		return strconv.FormatFloat(k.NumberValue, 'f', -1, 64)
 	case *structpb.Value_StringValue:
-		return fmt.Sprintf("%q", k.StringValue)
+		return hclQuote(k.StringValue)
 	case *structpb.Value_BoolValue:
 		if k.BoolValue {
 			return "true"

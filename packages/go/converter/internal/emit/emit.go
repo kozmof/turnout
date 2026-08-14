@@ -109,12 +109,12 @@ func writeStateBlock(iw *iWriter, s *turnoutpb.StateModel) {
 	iw.wl("state {")
 	iw.depth++
 	for _, ns := range s.Namespaces {
-		iw.wl("namespace %q {", ns.Name)
+		iw.wl("namespace %s {", hclQuote(ns.Name))
 		iw.depth++
 		for _, f := range ns.Fields {
-			iw.wl("field %q {", f.Name)
+			iw.wl("field %s {", hclQuote(f.Name))
 			iw.depth++
-			iw.wl("type  = %q", f.Type)
+			iw.wl("type  = %s", hclQuote(f.Type))
 			iw.wl("value = %s", writeStructpbValue(f.Value))
 			iw.depth--
 			iw.wl("}")
@@ -131,19 +131,19 @@ func writeStateBlock(iw *iWriter, s *turnoutpb.StateModel) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
-	iw.wl("scene %q {", s.Id)
+	iw.wl("scene %s {", hclQuote(s.Id))
 	iw.depth++
 
 	// entry_actions = [a, b]
 	ea := make([]string, len(s.EntryActions))
 	for i, a := range s.EntryActions {
-		ea[i] = fmt.Sprintf("%q", a)
+		ea[i] = hclQuote(a)
 	}
 	iw.wl("entry_actions = [%s]", strings.Join(ea, ", "))
 
 	// next_policy = "..." (omit if absent)
 	if s.NextPolicy != nil {
-		iw.wl("next_policy   = %q", *s.NextPolicy)
+		iw.wl("next_policy   = %s", hclQuote(*s.NextPolicy))
 	}
 
 	// overview block (omit if absent; the wire field retains its legacy name)
@@ -162,7 +162,7 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 }
 
 func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
-	iw.wl("view %q {", v.Name)
+	iw.wl("view %s {", hclQuote(v.Name))
 	iw.depth++
 	flow := strings.TrimRight(v.Flow, "\n")
 	if err := writeHeredocField(iw, "flow", flow); err != nil {
@@ -172,7 +172,7 @@ func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
 		return
 	}
 	if v.Enforce != nil {
-		iw.wl("enforce = %q", *v.Enforce)
+		iw.wl("enforce = %s", hclQuote(*v.Enforce))
 	}
 	iw.depth--
 	iw.wl("}")
@@ -183,7 +183,7 @@ func writeViewBlock(iw *iWriter, v *turnoutpb.ViewBlock) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
-	iw.wl("action %q {", a.Id)
+	iw.wl("action %s {", hclQuote(a.Id))
 	iw.depth++
 
 	sep := false
@@ -340,7 +340,7 @@ func writeHeredocField(iw *iWriter, fieldName, content string) error {
 func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel) {
 	iw.wl("compute {")
 	iw.depth++
-	iw.wl("root = %q", c.Root)
+	iw.wl("root = %s", hclQuote(c.Root))
 	if c.Prog != nil {
 		writeProg(iw, c.Prog)
 	}
@@ -351,7 +351,7 @@ func writeCompute(iw *iWriter, c *turnoutpb.ComputeModel) {
 func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel) {
 	iw.wl("compute {")
 	iw.depth++
-	iw.wl("condition = %q", c.Condition)
+	iw.wl("condition = %s", hclQuote(c.Condition))
 	if c.Prog != nil {
 		writeProg(iw, c.Prog)
 	}
@@ -360,7 +360,7 @@ func writeNextCompute(iw *iWriter, c *turnoutpb.NextComputeModel) {
 }
 
 func writeProg(iw *iWriter, p *turnoutpb.ProgModel) {
-	iw.wl("prog %q {", p.Name)
+	iw.wl("prog %s {", hclQuote(p.Name))
 	iw.depth++
 	for _, b := range p.Bindings {
 		writeBinding(iw, b)
@@ -370,9 +370,9 @@ func writeProg(iw *iWriter, p *turnoutpb.ProgModel) {
 }
 
 func writeBinding(iw *iWriter, b *turnoutpb.BindingModel) {
-	iw.wl("binding %q {", b.Name)
+	iw.wl("binding %s {", hclQuote(b.Name))
 	iw.depth++
-	iw.wl("type  = %q", bindingTypeString(b))
+	iw.wl("type  = %s", hclQuote(bindingTypeString(b)))
 	if b.ExtExpr != nil {
 		writeExtExpr(iw, b.ExtExpr, b.Type)
 		iw.depth--
@@ -396,12 +396,12 @@ func writePrepare(iw *iWriter, entries []*turnoutpb.PrepareEntry) {
 	iw.wl("prepare {")
 	iw.depth++
 	for _, e := range entries {
-		iw.wl("binding %q {", e.Binding)
+		iw.wl("binding %s {", hclQuote(e.Binding))
 		iw.depth++
 		if e.FromState != nil {
-			iw.wl("from_state = %q", *e.FromState)
+			iw.wl("from_state = %s", hclQuote(*e.FromState))
 		} else if e.FromHook != nil {
-			iw.wl("from_hook  = %q", *e.FromHook)
+			iw.wl("from_hook  = %s", hclQuote(*e.FromHook))
 		}
 		iw.depth--
 		iw.wl("}")
@@ -414,9 +414,9 @@ func writeMerge(iw *iWriter, entries []*turnoutpb.MergeEntry) {
 	iw.wl("merge {")
 	iw.depth++
 	for _, e := range entries {
-		iw.wl("binding %q {", e.Binding)
+		iw.wl("binding %s {", hclQuote(e.Binding))
 		iw.depth++
-		iw.wl("to_state = %q", e.ToState)
+		iw.wl("to_state = %s", hclQuote(e.ToState))
 		iw.depth--
 		iw.wl("}")
 	}
@@ -427,7 +427,7 @@ func writeMerge(iw *iWriter, entries []*turnoutpb.MergeEntry) {
 func writePublish(iw *iWriter, hooks []string) {
 	quoted := make([]string, len(hooks))
 	for i, h := range hooks {
-		quoted[i] = fmt.Sprintf("%q", h)
+		quoted[i] = hclQuote(h)
 	}
 	iw.wl("publish = [%s]", strings.Join(quoted, ", "))
 }
@@ -458,7 +458,7 @@ func writeNextRule(iw *iWriter, nr *turnoutpb.NextRuleModel) {
 	if sep {
 		iw.nl()
 	}
-	iw.wl("action = %q", nr.Action)
+	iw.wl("action = %s", hclQuote(nr.Action))
 
 	iw.depth--
 	iw.wl("}")
@@ -468,12 +468,12 @@ func writeNextPrepare(iw *iWriter, entries []*turnoutpb.NextPrepareEntry) {
 	iw.wl("prepare {")
 	iw.depth++
 	for _, e := range entries {
-		iw.wl("binding %q {", e.Binding)
+		iw.wl("binding %s {", hclQuote(e.Binding))
 		iw.depth++
 		if e.FromAction != nil {
-			iw.wl("from_action  = %q", *e.FromAction)
+			iw.wl("from_action  = %s", hclQuote(*e.FromAction))
 		} else if e.FromState != nil {
-			iw.wl("from_state   = %q", *e.FromState)
+			iw.wl("from_state   = %s", hclQuote(*e.FromState))
 		} else if e.FromLiteral != nil {
 			iw.wl("from_literal = %s", writeStructpbValue(e.FromLiteral))
 		}
@@ -500,10 +500,10 @@ func writeNextPrepare(iw *iWriter, entries []*turnoutpb.NextPrepareEntry) {
 //	  }
 //	}
 func writeRouteBlock(iw *iWriter, r *turnoutpb.RouteModel) {
-	iw.wl("route %q {", r.Id)
+	iw.wl("route %s {", hclQuote(r.Id))
 	iw.depth++
 	if r.EntrySceneId != nil {
-		iw.wl("entry_scene_id = %q", *r.EntrySceneId)
+		iw.wl("entry_scene_id = %s", hclQuote(*r.EntrySceneId))
 	}
 	iw.wl("match {")
 	iw.depth++
@@ -513,10 +513,10 @@ func writeRouteBlock(iw *iWriter, r *turnoutpb.RouteModel) {
 		// patterns = ["p1", "p2"]
 		quoted := make([]string, len(arm.Patterns))
 		for i, p := range arm.Patterns {
-			quoted[i] = fmt.Sprintf("%q", p)
+			quoted[i] = hclQuote(p)
 		}
 		iw.wl("patterns = [%s]", strings.Join(quoted, ", "))
-		iw.wl("target   = %q", arm.Target)
+		iw.wl("target   = %s", hclQuote(arm.Target))
 		iw.depth--
 		iw.wl("}")
 	}

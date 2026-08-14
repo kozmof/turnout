@@ -71,8 +71,13 @@ export function isStringAs<T>(value: unknown): value is T {
   return typeof value === "string";
 }
 
+// Own-property check, not `in`: context tables are plain object literals that
+// inherit Object.prototype, so `"toString" in table` is true for every table.
+// Using `in` here would let a definition id that names a prototype method pass
+// validation and then blow up in the executor. See idValidation.ts for the same
+// rule applied to the branded-id guards.
 export function hasKey(table: unknown, key: string): boolean {
-  return isRecord(table) && key in table;
+  return isRecord(table) && Object.hasOwn(table, key);
 }
 
 // ============================================================================

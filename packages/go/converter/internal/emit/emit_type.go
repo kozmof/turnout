@@ -12,9 +12,9 @@ import (
 // is not re-parsed; it exists so the emitted HCL faithfully shows authored types.
 func writeTypeDecls(iw *iWriter, decls []*turnoutpb.TypeDeclModel) {
 	for _, d := range decls {
-		iw.wl("type %q {", d.GetName())
+		iw.wl("type %s {", hclQuote(d.GetName()))
 		iw.depth++
-		iw.wl("def = %q", typeExprString(d.GetType()))
+		iw.wl("def = %s", hclQuote(typeExprString(d.GetType())))
 		iw.depth--
 		iw.wl("}")
 	}

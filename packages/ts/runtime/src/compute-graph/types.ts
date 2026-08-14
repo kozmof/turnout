@@ -212,10 +212,15 @@ export type ExecutionContext = {
 /**
  * Pipe-local scoped execution context.
  *
- * Scope is explicit at the type level so Pipe execution code can
- * distinguish restricted visibility contexts from full root contexts.
+ * Scope is explicit at the type level so Pipe execution code can distinguish
+ * restricted visibility contexts from full root contexts.
+ *
+ * Visibility is enforced by `valueTable` itself: `createScopedValueTable` copies
+ * in only the pipe's declared arguments and its literal `value` bindings, so ids
+ * outside that set are simply absent and resolve to a MissingValueError. There is
+ * deliberately no separate `visibleValueIds` set — a second copy of the same
+ * information would be a set nothing consults and a claim nothing enforces.
  */
 export type ScopedExecutionContext = ExecutionContext & {
   readonly scope: "pipe";
-  readonly visibleValueIds: ReadonlySet<ValueId>;
 };

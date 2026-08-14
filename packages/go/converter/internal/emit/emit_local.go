@@ -77,7 +77,7 @@ func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType stri
 	}
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_Ref:
-		return fmt.Sprintf(`{ ref = %q }`, x.Ref.GetName())
+		return fmt.Sprintf(`{ ref = %s }`, hclQuote(x.Ref.GetName()))
 	case *turnoutpb.LocalExprModel_Lit:
 		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(x.Lit.GetValue()))
 	case *turnoutpb.LocalExprModel_It:
@@ -87,7 +87,7 @@ func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType stri
 		for i, a := range x.Call.GetArgs() {
 			args[i] = iw.localExprInline(a, bindingType)
 		}
-		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s] } }`, x.Call.GetFn(), strings.Join(args, ", "))
+		return fmt.Sprintf(`{ combine = { fn = %s, args = [%s] } }`, hclQuote(x.Call.GetFn()), strings.Join(args, ", "))
 	case *turnoutpb.LocalExprModel_Infix:
 		op := ast.InfixOp(int32(x.Infix.GetOp()))
 		ft, ok := ast.FieldTypeFromString(bindingType)
@@ -96,7 +96,7 @@ func (iw *iWriter) localExprInline(e *turnoutpb.LocalExprModel, bindingType stri
 			return `{ ref = "" }`
 		}
 		fn := op.FnAliasForType(ft)
-		return fmt.Sprintf(`{ combine = { fn = %q, args = [%s, %s] } }`, fn,
+		return fmt.Sprintf(`{ combine = { fn = %s, args = [%s, %s] } }`, hclQuote(fn),
 			iw.localExprInline(x.Infix.GetLhs(), bindingType), iw.localExprInline(x.Infix.GetRhs(), bindingType))
 	case *turnoutpb.LocalExprModel_IfExpr:
 		return fmt.Sprintf(`{ if = { cond = %s, then = %s, else = %s } }`,
@@ -150,7 +150,7 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 	case *turnoutpb.LocalCasePatternModel_Lit:
 		return fmt.Sprintf(`{ lit = %s }`, writeStructpbValue(x.Lit.GetValue()))
 	case *turnoutpb.LocalCasePatternModel_VarBinder:
-		return fmt.Sprintf(`{ bind = %q }`, x.VarBinder.GetName())
+		return fmt.Sprintf(`{ bind = %s }`, hclQuote(x.VarBinder.GetName()))
 	case *turnoutpb.LocalCasePatternModel_Tuple:
 		elems := make([]string, len(x.Tuple.GetElems()))
 		for i, elem := range x.Tuple.GetElems() {
@@ -160,9 +160,9 @@ func localPatternInline(p *turnoutpb.LocalCasePatternModel) string {
 	case *turnoutpb.LocalCasePatternModel_Template:
 		fields := make([]string, len(x.Template.GetFields()))
 		for i, field := range x.Template.GetFields() {
-			fields[i] = fmt.Sprintf(`{ name = %q, pattern = %s }`, field.GetName(), localPatternInline(field.GetPattern()))
+			fields[i] = fmt.Sprintf(`{ name = %s, pattern = %s }`, hclQuote(field.GetName()), localPatternInline(field.GetPattern()))
 		}
-		return fmt.Sprintf(`{ template = { type_name = %q, fields = [%s] } }`, x.Template.GetTypeName(), strings.Join(fields, ", "))
+		return fmt.Sprintf(`{ template = { type_name = %s, fields = [%s] } }`, hclQuote(x.Template.GetTypeName()), strings.Join(fields, ", "))
 	}
 	return `{ wildcard = true }`
 }

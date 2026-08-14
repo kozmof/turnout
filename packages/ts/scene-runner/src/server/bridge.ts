@@ -202,9 +202,32 @@ async function discoverBin(signal?: AbortSignal): Promise<string> {
   }
 }
 
+/**
+ * Resolve the converter binary, memoizing the result across calls.
+ *
+ * The signal is honoured for the discovery run itself (which may spawn a
+ * `turnout --version` probe with a 10s timeout), but it does not disable the
+ * cache: a caller that threads an AbortSignal — the recommended pattern for
+ * request-facing use — would otherwise re-probe on every single conversion,
+ * which is exactly the hot path the cache exists for.
+ *
+ * A failed discovery is not cached, so a later call can retry.
+ */
 async function resolveTurnoutBin(signal?: AbortSignal): Promise<string> {
-  if (signal !== undefined) return discoverBin(signal);
-  if (cachedBin === undefined) cachedBin = discoverBin();
+  signal?.throwIfAborted();
+  if (cachedBin === undefined) {
+    const pending = discoverBin(signal);
+    cachedBin = pending;
+    try {
+      return await pending;
+    } catch (err: unknown) {
+      // Discovery failed (or was aborted). Drop the rejected promise so the next
+      // caller retries instead of inheriting this failure forever — and so an
+      // abort on one request cannot poison discovery for every later one.
+      if (cachedBin === pending) cachedBin = undefined;
+      throw err;
+    }
+  }
   return cachedBin;
 }
 

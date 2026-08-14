@@ -126,7 +126,8 @@ export type StateErrorCode =
   | "UnknownPath"
   | "TypeMismatch"
   | "UnknownSchemaType"
-  | "InvalidLiteral";
+  | "InvalidLiteral"
+  | "ValueTooDeep";
 
 export class StateError extends Error {
   readonly code: StateErrorCode;

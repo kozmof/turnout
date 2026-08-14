@@ -21,7 +21,10 @@
  *     [
  *       combine('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
  *       combine('binaryFnNumber::add', {
- *         a: ref.output('compute__step0'),
+ *         // ref.step(pipeKey, stepIndex) references an earlier step's output.
+ *         // (ref.output() takes a *function* key, not a synthesised step name —
+ *         // step ids are internal and not addressable from a spec.)
+ *         a: ref.step('compute', 0),
  *         b: 'x'
  *       })
  *     ]

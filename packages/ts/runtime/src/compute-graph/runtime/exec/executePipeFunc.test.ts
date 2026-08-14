@@ -164,7 +164,11 @@ describe("executePipeFunc helpers", () => {
       expect(scopedContext.pipeFuncDefTable).toBe(originalContext.pipeFuncDefTable);
       expect(scopedContext.condFuncDefTable).toBe(originalContext.condFuncDefTable);
       expect(scopedContext.scope).toBe("pipe");
-      expect(scopedContext.visibleValueIds.has("v3" as ValueId)).toBe(true);
+      // Visibility is the scoped valueTable itself — ids outside it are absent,
+      // not merely unlisted. v1/v2 from the root context must not leak in.
+      expect(Object.hasOwn(scopedContext.valueTable, "v3")).toBe(true);
+      expect(Object.hasOwn(scopedContext.valueTable, "v1")).toBe(false);
+      expect(Object.hasOwn(scopedContext.valueTable, "v2")).toBe(false);
 
       // Original context should not be mutated
       expect(originalContext.valueTable).toEqual({
@@ -336,5 +340,52 @@ describe("executePipeFunc", () => {
     expect(() => executePipeFunc("pipe1" as FuncId, "td_outer" as PipeDefineId, context)).toThrow(
       "Invalid step reference",
     );
+  });
+
+  // Regression: synthetic per-step ids must not be reachable from user-derived
+  // names. The Go validator reserves the `__` namespace by prefix only, so a
+  // binding named `pipe1__step0__result` is legal DSL, and the old id scheme
+  // minted exactly that ValueId for step 0 of pipe `pipe1`.
+  //
+  // The clobber does not escape the pipe (executePipeFunc returns a table spread
+  // from the *original* context.valueTable), so it takes two steps to observe:
+  // step 0 overwrites the colliding id, and step 1 then reads the overwritten
+  // value instead of the literal the author wrote. Synthetic ids now use `::`,
+  // which the DSL's identifier grammar cannot produce.
+  it("does not let a step result shadow a value id matching the old __step scheme", () => {
+    const context = baseContext();
+    const collidingId = "pipe1__step0__result" as ValueId;
+    (context.valueTable as Record<string, unknown>)[collidingId] = {
+      symbol: "number",
+      value: 999,
+      subSymbol: undefined,
+      tags: [],
+    };
+    (context.pipeFuncDefTable as Record<string, unknown>)["td_outer" as PipeDefineId] = {
+      args: ["a", "b"],
+      sequence: [
+        {
+          // 2 + 999 = 1001, written to step 0's synthetic return id.
+          defId: "pd_add" as CombineDefineId,
+          argBindings: {
+            a: { source: "input", argName: "a" },
+            b: { source: "value", id: collidingId },
+          },
+        },
+        {
+          // 1001 + 999 = 2000. Under the old scheme step 0's result had landed on
+          // collidingId, so this read saw 1001 and produced 2002.
+          defId: "pd_add" as CombineDefineId,
+          argBindings: {
+            a: { source: "step", stepIndex: 0 },
+            b: { source: "value", id: collidingId },
+          },
+        },
+      ],
+    };
+
+    const result = executePipeFunc("pipe1" as FuncId, "td_outer" as PipeDefineId, context);
+
+    expect(result.value.value).toBe(2000);
   });
 });

@@ -159,7 +159,7 @@ function validateRequiredCombineArgs(
 ): void {
   for (const argName of ["a", "b"] as const) {
     const key: ArgName = createArgName(argName);
-    if (!(key in argMap)) {
+    if (!Object.hasOwn(argMap, key)) {
       state.errors.push({
         message: `FuncTable[${funcId}].argMap: Combine function requires argument "${argName}"`,
         details: { funcId, argName },

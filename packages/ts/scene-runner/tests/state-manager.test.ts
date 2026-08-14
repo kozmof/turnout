@@ -722,3 +722,25 @@ describe("stateManagerFromStrict — adversarial", () => {
     expect(sm.read("a.x")).toMatchObject({ value: 1 });
   });
 });
+
+describe("StateManager — value nesting depth", () => {
+  /** Builds an array value nested `depth` levels deep. */
+  function nest(depth: number): AnyValue {
+    let value: AnyValue = buildNumber(1);
+    for (let i = 0; i < depth; i++) value = buildArray([value]);
+    return value;
+  }
+
+  it("accepts deeply-but-legally nested values", () => {
+    // Each buildArray level costs 2 clone levels (the Value object, then its
+    // `value` array), so 20 levels stays comfortably inside the cap.
+    const sm = stateManagerFromUnchecked({ "a.x": nest(20) });
+    expect(sm.read("a.x")).toBeDefined();
+  });
+
+  it("rejects a pathologically nested value with a structured error, not a RangeError", () => {
+    expect(() => stateManagerFromUnchecked({ "a.x": nest(500) })).toThrow(
+      /exceeds the maximum nesting depth/,
+    );
+  });
+});
