@@ -822,6 +822,59 @@ func TestUnusedBinding(t *testing.T) {
 			t.Error("want no UnusedBinding warning for a binding that is a transitive dependency of root")
 		}
 	})
+
+	// A binding a transition reads leaves the prog through a from_action prepare
+	// entry, so it is used even though nothing inside the prog references it.
+	// This is the shape of every `next <flag> -> <action>` guard and every
+	// `next on (...) match { }` subject, so missing it warned on idiomatic code.
+	t.Run("transition_from_action_consumer_no_warning", func(t *testing.T) {
+		src := basicState + `
+scene "test" {
+  entry_action = a
+  action "a" {
+    compute "p" {
+      guard:bool = true
+      out:bool := true
+    }
+    next guard -> b
+    next b
+  }
+  action "b" {
+    compute "q" { done:bool := true }
+  }
+}
+`
+		ds := pipeline(src)
+		if hasCode(ds, diag.CodeUnusedBinding) {
+			for _, d := range ds {
+				t.Logf("diag: %s", d.Format())
+			}
+			t.Error("want no UnusedBinding warning for a binding read by a transition")
+		}
+	})
+
+	t.Run("transition_consumer_does_not_mask_a_real_orphan", func(t *testing.T) {
+		src := basicState + `
+scene "test" {
+  entry_action = a
+  action "a" {
+    compute "p" {
+      guard:bool = true
+      dead:number = 1
+      out:bool := true
+    }
+    next guard -> b
+    next b
+  }
+  action "b" {
+    compute "q" { done:bool := true }
+  }
+}
+`
+		if !hasCode(pipeline(src), diag.CodeUnusedBinding) {
+			t.Error("want UnusedBinding warning for a binding no transition reads either")
+		}
+	})
 }
 
 // ─── Group E: route validation ────────────────────────────────────────────────

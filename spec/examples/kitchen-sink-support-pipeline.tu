@@ -19,8 +19,10 @@
 #                    operand of an infix), and the local forms if/case/pipe/#it
 #   * effects      — hook ingress and publish (multiple hooks)
 #   * transitions  — the `next <flag> -> <action>` sugar, the bare
-#                    deterministic `next <action>`, and the block form with all
-#                    three transition ingress sources (action, literal, STATE)
+#                    deterministic `next <action>`, the block form with all
+#                    three transition ingress sources (action, literal, STATE),
+#                    and the `next on (...) match { }` form for a decision over
+#                    values rather than one flag per branch
 #   * route        — entry, direct/wildcard/multi-segment paths, OR (|), _
 #
 # Grammar reminders this file follows (enforced by the converter):
@@ -354,8 +356,8 @@ scene "review" {
 # ---------------------------------------------------------------------------
 # Scene 3: finalize  (next_policy = first-match, overview enforce = nodes_only)
 #
-# A deterministic two-step chain (seal -> archive). nodes_only enforcement
-# checks only that the named node exists; edges are not pinned.
+# Seal, then pick an archive lane from two values at once. nodes_only
+# enforcement checks only that the named node exists; edges are not pinned.
 # ---------------------------------------------------------------------------
 
 scene "finalize" {
@@ -364,16 +366,43 @@ scene "finalize" {
 
   overview nodes_only {
     seal |=> archive
+    seal |=> expedite_archive
   }
 
   action "seal" {
     """
-    Seal the case, then chain unconditionally to archive.
+    Seal the case, then choose the archive lane from the triage band and
+    whether the requester is a VIP.
     """
     compute "seal_graph" {
+      band:str <~ @triage.band
+      vip:bool <~ @ticket.vip
+
       sealed:bool := (true) ~> @outcome.sealed
     }
-    next archive
+
+    # transition, match form: one rule per arm, evaluated in arm order under
+    # first-match. This is sugar — each arm expands to exactly the next { }
+    # block it abbreviates, and the `_` arm to a bare `next expedite_archive`.
+    # The form earns its place when the decision is over values; a decision
+    # that is already one bool per branch stays clearer as `next <flag> -> x`.
+    next on (band, vip) match {
+      ("heavy", false) => archive,
+      ("heavy", true)  => expedite_archive,
+      (_, true)        => expedite_archive,
+      _ => archive
+    }
+  }
+
+  action "expedite_archive" {
+    """
+    Terminal: archive on the fast lane, skipping the retention notice.
+    """
+    compute "expedite_archive_graph" {
+      (true) ~> @outcome.archived
+
+      notice:str := ("expedited") ~> @outcome.notice
+    }
   }
 
   action "archive" {
@@ -431,7 +460,9 @@ route "support_pipeline" {
     review.*.log
       => finalize,
 
-    finalize.*.seal.archive => closed,
+    finalize.*.seal.archive |
+    finalize.*.seal.expedite_archive
+      => closed,
 
     _ => closed
   }

@@ -26,6 +26,9 @@
       "include": "#named-block"
     },
     {
+      "include": "#next-match-header"
+    },
+    {
       "include": "#simple-block"
     },
     {
@@ -56,10 +59,16 @@
       "include": "#transition-arrow"
     },
     {
+      "include": "#match-arrow"
+    },
+    {
       "include": "#computed-assign"
     },
     {
       "include": "#operator"
+    },
+    {
+      "include": "#wildcard"
     },
     {
       "include": "#identifier"
@@ -127,9 +136,21 @@
         }
       }
     },
+    "next-match-header": {
+      "comment": "`next on <subjects> match` transition match header. `on` is contextual — an ordinary identifier everywhere else — so it is highlighted only between `next` and the subject list.",
+      "match": "\\b(next)\\s+(on)\\b",
+      "captures": {
+        "1": {
+          "name": "keyword.other.block.tu"
+        },
+        "2": {
+          "name": "keyword.other.block.tu"
+        }
+      }
+    },
     "simple-block": {
-      "comment": "Anonymous block keywords that open a block without a name.",
-      "match": "\\b(io|next|in|out)\\b",
+      "comment": "Anonymous block keywords that open a block without a name. `match` opens both a route match block and a transition match block.",
+      "match": "\\b(io|next|in|out|match)\\b",
       "captures": {
         "1": {
           "name": "keyword.other.block.tu"
@@ -204,6 +225,16 @@
       "comment": "-> transition guard arrow in `next <condition> -> <action>`. Must come before the plain operator rule, whose bare - would split it.",
       "match": "->",
       "name": "keyword.operator.transition.tu"
+    },
+    "match-arrow": {
+      "comment": "=> arm arrow in route match blocks and `next on (...) match { }`. Must come before the plain operator rule, whose bare = would split it.",
+      "match": "=>",
+      "name": "keyword.operator.match.tu"
+    },
+    "wildcard": {
+      "comment": "_ wildcard: a match-arm fallback, or an unconstrained element of a tuple pattern.",
+      "match": "(?<![a-zA-Z0-9_])_(?![a-zA-Z0-9_])",
+      "name": "constant.language.wildcard.tu"
     },
     "computed-assign": {
       "comment": "=| computed/derived assignment operator. Must come before plain = to avoid splitting.",

@@ -496,17 +496,24 @@ func (p *parser) parsePublishBlock() *ast.PublishBlock {
 
 // ─── parseNextBlock ──────────────────────────────────────────────────────────
 
-func (p *parser) parseNextBlock() *ast.NextRule {
+// parseNextBlock parses one `next` item of an action. It returns a slice
+// because the match form abbreviates a whole run of rules; the block and sugar
+// forms return one.
+func (p *parser) parseNextBlock() []*ast.NextRule {
 	kwTok, _ := p.expect(lexer.TokKwNext)
 	pos := p.posOf(kwTok)
+	// Match form: `next on <subjects> match { ... }` — one rule per arm.
+	if p.atNextMatch() {
+		return p.parseNextMatchBlock(pos)
+	}
 	// Sugar form (NEW_SYNTAX.md 1.4): `next <action>` / `next <cond> -> <action>`,
 	// distinguished from the block form by the absence of an opening brace.
 	if p.peek().Kind == lexer.TokIdent || p.peek().Kind == lexer.TokStringLit {
-		return p.parseNextSugar(pos)
+		return []*ast.NextRule{p.parseNextSugar(pos)}
 	}
 	if _, ok := p.expect(lexer.TokLBrace); !ok {
 		p.syncToBlockItem(lexer.TokKwNext, lexer.TokKwAction, lexer.TokRBrace)
-		return &ast.NextRule{Pos: pos}
+		return []*ast.NextRule{{Pos: pos}}
 	}
 
 	var compute *ast.NextComputeBlock
@@ -538,7 +545,7 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 	}
 	p.expect(lexer.TokRBrace)
 
-	return &ast.NextRule{Pos: pos, Compute: compute, Prepare: prepare, ActionID: actionID}
+	return []*ast.NextRule{{Pos: pos, Compute: compute, Prepare: prepare, ActionID: actionID}}
 }
 
 // parseNextSugar parses `next <action>` and `next <cond> -> <action>`, expanding

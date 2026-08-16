@@ -65,7 +65,7 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 		case lexer.TokKwPublish:
 			ab.Publish = p.parsePublishBlock()
 		case lexer.TokKwNext:
-			ab.Next = append(ab.Next, p.parseNextBlock())
+			ab.Next = append(ab.Next, p.parseNextBlock()...)
 		default:
 			p.errorf(t, "unexpected token %s %q in action block", kindName(t.Kind), t.Value)
 			p.skipUnexpectedItem()
@@ -192,5 +192,33 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 		}
 	}
 	p.expect(lexer.TokRBrace)
+	p.checkMatchPolicy(sb)
 	return sb
+}
+
+// checkMatchPolicy rejects a match block in an all-match scene. Arm order is
+// what makes arms exclusive; all-match selects every true rule and so fires the
+// `_` arm alongside whichever arm actually matched.
+//
+// It runs here rather than at expansion time because `next_policy` may be
+// declared after the action that uses the block, so this is the first point
+// where both are known. An action-level policy override has no surface syntax
+// (ast.ActionBlock carries no NextPolicy), which makes the scene-level check
+// complete.
+func (p *parser) checkMatchPolicy(sb *ast.SceneBlock) {
+	if sb.NextPolicy != "all-match" {
+		return
+	}
+	for _, a := range sb.Actions {
+		reported := map[ast.Pos]bool{}
+		for _, nr := range a.Next {
+			if !nr.FromMatch || reported[nr.MatchPos] {
+				continue
+			}
+			reported[nr.MatchPos] = true
+			p.Append(diag.ErrorAt(p.file, nr.MatchPos.Line, nr.MatchPos.Col, diag.CodeNextMatchPolicy,
+				"scene %q: action %q uses a next match block, which requires first-match; "+
+					"this scene declares next_policy = \"all-match\"", sb.ID, a.ID))
+		}
+	}
 }

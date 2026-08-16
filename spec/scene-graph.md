@@ -61,6 +61,9 @@ CAN'T (NG):
 - A structural input binding cannot omit its `prepare` entry.
 - A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or its label. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute "..." { c:bool := true }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
 - A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding and returns it as the `:=` condition, and whose `prepare` feeds it via `from_action`. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
+- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> match { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> => <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains and returns their conjoined equality test as the `:=` condition, with a `prepare` entry feeding each via `from_action`; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
+- A match block MUST contain exactly one unconditional arm — a bare `_`, or a tuple whose elements are all `_` — and it MUST be the last arm. A block with none is an error (`NonExhaustiveMatch`), because falling through every arm schedules no transition at all and silently ends the scene; a second one is `DuplicateFallback`, and any arm after it is `UnreachableArm`.
+- A match block requires an effective next policy of `first-match` (`NextMatchPolicy`). Arm order is what makes arms mutually exclusive; under `all-match` every true rule is selected, so the `_` arm would fire alongside whichever arm matched.
 - Next actions cannot reference missing actions.
 
 Correlation:
@@ -215,6 +218,38 @@ scene "loan_flow" {
 }
 ```
 
+### 5.0.1 Transition Match Blocks
+
+When several transitions branch on the same values, the run may be written as one match block. This is surface syntax only: it expands into the next rules below it, so the two spell the same model.
+
+```hcl
+// one rule per arm, evaluated in arm order
+next on (band, vip) match {
+  ("heavy", false) => archive,
+  ("heavy", true)  => expedite_archive,
+  (_, true)        => expedite_archive,
+  _ => archive
+}
+
+// what the first arm abbreviates
+next {
+  compute "..." {
+    band:str
+    vip:bool
+    go:bool := band == "heavy" & vip == false
+  }
+  prepare {
+    band { from_action = band }
+    vip  { from_action = vip }
+  }
+  action = archive
+}
+```
+
+A `_` column is not ingressed, so the third arm's rule reads only `vip`. The `_` arm abbreviates the bare `next archive`.
+
+Reach for this form when the decision is over values. A decision that is already one `bool` per branch stays clearer as a run of `next <flag> -> <action>` lines.
+
 ### 5.1 Action Docstring Sugar (`"""..."""`)
 
 For authoring convenience, an action MAY contain one Python-style triple-quoted text block at action-block top level:
@@ -325,6 +360,7 @@ Failure semantics:
 - `first-match`: select first true rule.
 - `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
+- A `next on <subjects> match { }` block expands to one rule per arm in arm order, so its arms are exclusive only under `first-match`. An action carrying one in an `all-match` scene fails validation (`NextMatchPolicy`).
 
 ## 9. Overview DSL Enforcement
 
@@ -353,6 +389,8 @@ Existing required codes from v0.2 remain required, plus the following:
 - `NextComputeNotBool`
 - `NextIngressSourceInvalid`
 - `ActionTextDuplicate`
+- `NextMatchArity`
+- `NextMatchPolicy`
 
 Recommended diagnostic payload:
 

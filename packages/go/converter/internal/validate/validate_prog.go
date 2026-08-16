@@ -57,7 +57,7 @@ type progValidateCtx struct {
 	types    *typeRegistry
 }
 
-func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, mergeNames []string, ds *diag.DiagSink) map[string]bindingInfo {
+func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition bool, root string, exitNames []string, ds *diag.DiagSink) map[string]bindingInfo {
 	if prog == nil {
 		return map[string]bindingInfo{}
 	}
@@ -66,19 +66,25 @@ func validateProg(prog *turnoutpb.ProgModel, ctx progValidateCtx, isTransition b
 	acyclic := detectCycles(prog.Name, dependencies, prog.Bindings, posMap, ds)
 	validateBindingTypes(prog, scope, isTransition, posMap, ds)
 	if !isTransition && root != "" {
-		detectUnusedBindings(prog.Name, root, mergeNames, prog.Bindings, dependencies, acyclic, posMap, ds)
+		detectUnusedBindings(prog.Name, root, exitNames, prog.Bindings, dependencies, acyclic, posMap, ds)
 	}
 	return scope
 }
 
 // detectUnusedBindings warns about bindings that are not reachable from the
-// compute root or any merge/condition exit node. It performs a DFS forward
+// compute root or any other exit node. It performs a DFS forward
 // through the dependency graph (dependencies[b] = list of bindings that b depends on)
 // starting from exit nodes, then flags any binding not reached.
 // Generated internal names (prefixed with __if_ or __local_) are skipped.
 // acyclic is the set of non-cyclic binding names returned by detectCycles;
 // cyclic bindings are skipped here because they already carry a CodeCyclicBinding error.
-func detectUnusedBindings(progName, root string, mergeNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, acyclic map[string]bool, posMap map[string]ast.Pos, ds *diag.DiagSink) {
+//
+// exitNames carries every consumer of the prog that is not the root: merge
+// destinations, and the transition `from_action` sources of the action's next
+// rules. A binding read only by a transition leaves the prog through that
+// prepare entry, so it is used even though nothing inside the prog references
+// it — the case every `next <flag> -> <action>` guard falls into.
+func detectUnusedBindings(progName, root string, exitNames []string, bindings []*turnoutpb.BindingModel, dependencies map[string][]string, acyclic map[string]bool, posMap map[string]ast.Pos, ds *diag.DiagSink) {
 	reachable := make(map[string]bool, len(bindings))
 	var mark func(string)
 	mark = func(name string) {
@@ -91,7 +97,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 		}
 	}
 	mark(root)
-	for _, n := range mergeNames {
+	for _, n := range exitNames {
 		mark(n)
 	}
 	for _, b := range bindings {

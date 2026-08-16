@@ -52,9 +52,13 @@ const (
 	CodePipeArgNotValue       ErrorCode = "PipeArgNotValue"
 	CodeSingleRefTypeMismatch ErrorCode = "SingleRefTypeMismatch"
 	// CodeUnusedBinding is a warning emitted when a binding in a compute block is
-	// declared but never reachable from the compute root, merge entries, or next
-	// rule conditions. Such bindings are dead code and likely indicate a typo or
-	// authoring mistake.
+	// declared but never reachable from the compute root, its merge entries, or
+	// the `from_action` sources of its next rules. Such bindings are dead code
+	// and likely indicate a typo or authoring mistake.
+	//
+	// The transition sources are what make a `next <flag> -> <action>` guard, or
+	// a `next on (...) match { }` subject, count as used: nothing inside the prog
+	// references them, and they leave it through a transition prepare entry.
 	CodeUnusedBinding ErrorCode = "UnusedBinding"
 )
 
@@ -148,6 +152,13 @@ const (
 	// CodeLegacyTransitionIf is emitted when a transition uses the removed
 	// `next <action> if <condition>` form instead of `next <condition> -> <action>`.
 	CodeLegacyTransitionIf ErrorCode = "LegacyTransitionIf"
+	// CodeNextMatchArity is emitted when an arm of `next on (...) match { }`
+	// carries a different number of pattern elements than the subject list.
+	CodeNextMatchArity ErrorCode = "NextMatchArity"
+	// CodeNextMatchPolicy is emitted when a scene containing a
+	// `next on (...) match { }` block declares `next_policy = "all-match"`.
+	// Arm order is what makes arms exclusive, and all-match discards it.
+	CodeNextMatchPolicy ErrorCode = "NextMatchPolicy"
 )
 
 // Error codes from scene-to-scene.md

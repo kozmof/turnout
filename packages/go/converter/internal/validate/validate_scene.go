@@ -44,12 +44,8 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 		var scope map[string]bindingInfo
 
 		if a.Compute != nil {
-			mergeNames := make([]string, 0, len(a.Merge))
-			for _, m := range a.Merge {
-				mergeNames = append(mergeNames, m.Binding)
-			}
 			computeCtx := progValidateCtx{schema: schema, sceneID: scene.Id, actionID: a.Id, types: types}
-			scope = validateProg(a.Compute.Prog, computeCtx, false, a.Compute.Root, mergeNames, ds)
+			scope = validateProg(a.Compute.Prog, computeCtx, false, a.Compute.Root, actionExitNames(a), ds)
 
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
@@ -75,6 +71,30 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 			validateNextRule(nr, nextCtx, scope, ds)
 		}
 	}
+}
+
+// actionExitNames lists every binding of an action's compute prog that is read
+// from outside the prog: merge destinations, and the `from_action` sources of
+// its transitions. These are the exit nodes unused-binding detection starts
+// from, alongside the compute root.
+//
+// The transitions matter because a binding a transition reads is often not
+// referenced anywhere inside the prog — a `next <flag> -> <action>` guard and
+// every `next on (...) match { }` subject are exactly that shape. Without them
+// the binding looks orphaned and draws a spurious UnusedBinding warning.
+func actionExitNames(a *turnoutpb.ActionModel) []string {
+	names := make([]string, 0, len(a.Merge)+len(a.Next))
+	for _, m := range a.Merge {
+		names = append(names, m.Binding)
+	}
+	for _, nr := range a.Next {
+		for _, e := range nr.Prepare {
+			if e.FromAction != nil {
+				names = append(names, *e.FromAction)
+			}
+		}
+	}
+	return names
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

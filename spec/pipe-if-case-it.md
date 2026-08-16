@@ -239,6 +239,8 @@ Proposed semantics:
 * Literal patterns, wildcard `_`, and variable binders keep their scalar meanings inside tuple patterns.
 * Guards run only after the tuple pattern has matched and may reference tuple binders.
 
+Tuple patterns also appear outside expressions, in the transition match block `next on (a, b) match { ... }` (`scene-graph.md §5.0.1`). That form shares this pattern syntax but accepts only literals and `_`: an arm selects an action rather than evaluating an expression, so binders have nothing to bind to and guards have nowhere to run.
+
 ## 5.6 Examples
 
 ### Single subject
