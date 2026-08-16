@@ -57,7 +57,7 @@ type parser struct {
 	pos            int
 	file           string
 	requiresScenes bool
-	// inNextCompute is true while parsing a prog inside a next rule. Inline IO
+	// inNextCompute is true while parsing a compute block inside a next rule. Inline IO
 	// sources differ by context (NEW_SYNTAX.md 3), and the two contexts are
 	// distinct parse paths, so tracking it here keeps the check at the token.
 	inNextCompute bool

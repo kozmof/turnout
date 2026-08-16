@@ -27,7 +27,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 
 		if _, ok := scope[e.Binding]; !ok {
 			ds.Append(diag.Errorf(diag.CodeUnresolvedPrepareBinding,
-				"action %q: prepare binding %q not found in prog", a.Id, e.Binding))
+				"action %q: prepare binding %q not found in its compute block", a.Id, e.Binding))
 		}
 
 		if e.FromState != nil {
@@ -48,7 +48,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		srcInfo, inScope := scope[e.Binding]
 		if !inScope {
 			ds.Append(diag.Errorf(diag.CodeUnresolvedMergeBinding,
-				"action %q: merge binding %q not found in prog", a.Id, e.Binding))
+				"action %q: merge binding %q not found in its compute block", a.Id, e.Binding))
 		}
 
 		if e.ToState == "" {
@@ -104,7 +104,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		}
 		if info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
 			ds.Append(diag.Errorf(diag.CodeSpuriousPrepareEntry,
-				"action %q: prepare entry for %q has no corresponding `<~` input declaration in prog", a.Id, name))
+				"action %q: prepare entry for %q has no corresponding `<~` input declaration in its compute block", a.Id, name))
 		}
 	}
 	for name := range mergedNames {
@@ -114,7 +114,7 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		}
 		if info.sigil != ast.SigilEgress && info.sigil != ast.SigilBiDir {
 			ds.Append(diag.Errorf(diag.CodeSpuriousMergeEntry,
-				"action %q: merge entry for %q has no corresponding `~>` output declaration in prog", a.Id, name))
+				"action %q: merge entry for %q has no corresponding `~>` output declaration in its compute block", a.Id, name))
 		}
 	}
 }
@@ -139,7 +139,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 		if e.FromState != nil {
 			validateStatePath(*e.FromState, ctx.schema, ds)
 		}
-		// 3-A: verify the from_action binding exists in the source action's compute prog.
+		// 3-A: verify the from_action binding exists in the source action's compute block.
 		if e.FromAction != nil {
 			srcName := *e.FromAction
 			if _, ok := actionScope[srcName]; !ok {
@@ -160,7 +160,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 		info, ok := nextScope[cond]
 		if !ok {
 			ds.Append(diag.Errorf(diag.CodeNextComputeNotBool,
-				"next rule condition %q is not defined in prog", cond))
+				"next rule condition %q is not defined in the transition compute block", cond))
 		} else if info.fieldType != ast.FieldTypeBool {
 			ds.Append(diag.Errorf(diag.CodeNextComputeNotBool,
 				"next rule condition %q has type %s; bool required", cond, info.fieldType))

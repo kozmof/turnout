@@ -101,7 +101,7 @@ func (p *parser) parseStatePath() string {
 
 // ─── parseBindingDecl ────────────────────────────────────────────────────────
 
-// parseBindingDecl parses one binding declaration inside a prog block:
+// parseBindingDecl parses one binding declaration inside a compute block:
 // name ':' type ('=' ordinary | ':=' result)
 // Inputs use `<~ source` and have no RHS. Computed egress requires the complete
 // RHS wrapper `(expr) ~> @path` after either assignment operator.
@@ -164,7 +164,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 		// the same check that always covered it.
 		rhs = &ast.SigilInputRHS{}
 	} else if result && p.peek().Kind == lexer.TokRBrace {
-		// A block-backed input may be the prog result without an inline source.
+		// A block-backed input may be the compute result without an inline source.
 		rhs = &ast.SigilInputRHS{}
 	} else {
 		if !result {
@@ -325,27 +325,27 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 
 	if len(marked) == 0 {
 		p.Append(diag.ErrorAt(p.file, prog.Pos.Line, prog.Pos.Col, missingCode,
-			"prog %q: missing := result binding", prog.Name))
+			"compute %q: missing := result binding", prog.Name))
 		return ""
 	}
 
 	if len(marked) > 1 {
 		second := marked[1]
 		p.Append(diag.ErrorAt(p.file, second.Pos.Line, second.Pos.Col, diag.CodeDuplicateMarker,
-			"prog %q: at most one := result is allowed per prog; binding %q is a second result",
+			"compute %q: at most one := result is allowed per compute block; binding %q is a second result",
 			prog.Name, second.Name))
 	}
 
 	m := marked[0]
 	if m.Marker != want {
 		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerContext,
-			"prog %q: result role %s on binding %q is not valid here; expected %s",
+			"compute %q: result role %s on binding %q is not valid here; expected %s",
 			prog.Name, m.Marker, m.Name, markerStr))
 	}
 
 	if last := prog.Bindings[len(prog.Bindings)-1]; last != m {
 		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerNotLast,
-			"prog %q: := must designate the last binding; binding %q is not last",
+			"compute %q: := must designate the last binding; binding %q is not last",
 			prog.Name, m.Name))
 	}
 

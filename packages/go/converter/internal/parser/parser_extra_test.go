@@ -802,15 +802,17 @@ func TestParseCondExprNonIdent(t *testing.T) {
 	parser.ParseFile("test.tu", src) //nolint — error recovery test
 }
 
-// ── Lines 850-852: parseComputeBlock unexpected token ────────────────────────
+// ── parseComputeBlock: unexpected token in the binding body ──────────────────
 
 func TestParseComputeBlockUnexpectedToken(t *testing.T) {
-	// compute { unknown_field = v prog "p" { ... } }
+	// compute "p" { unknown_field = v  r:bool := true }
+	// `unknown_field = v` is not a binding declaration: no `:type` follows the
+	// name, so it fails where a binding was expected.
 	src := minimalTurnFile(`  entry_actions = [a]
   action "a" {
-    compute {
+    compute "p" {
       unknown_field = v
-      prog "p" { r:bool := true }
+      r:bool := true
     }
   }`)
 	mustParseFail(t, src)
@@ -973,7 +975,7 @@ scene "test" {
 // ── Lines 1032-1035: parseNextComputeBlock unexpected token ──────────────────
 
 func TestParseNextComputeBlockUnexpectedToken(t *testing.T) {
-	// next { compute { unknown = x condition = go prog "n" { ... } } action = a }
+	// next { compute "n" { unknown = bad  go:bool := true } action = a }
 	src := `state {
   app { score:number = 0 }
 }
@@ -982,9 +984,9 @@ scene "test" {
   action "a" {
     compute "p" { v:bool := true }
     next {
-      compute {
+      compute "n" {
         unknown = bad
-        prog "n" { go:bool := true }
+        go:bool := true
       }
       action = a
     }

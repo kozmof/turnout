@@ -16,24 +16,28 @@ type ActionBlock struct {
 	Next    []*NextRule
 }
 
-// ComputeBlock is the `compute { root = <id> prog "<name>" { ... } }` block.
+// ComputeBlock is a `compute "<name>" { ... }` block. Root is derived from the
+// `:=` binding rather than written; the lowered model keeps the compute/prog
+// split that the surface no longer spells out.
 type ComputeBlock struct {
 	Pos  Pos
 	Root string
 	Prog *ProgBlock
 }
 
-// ProgBlock is a `prog "<name>" { ... }` block containing binding declarations.
+// ProgBlock holds the bindings of one compute block. It has no surface block of
+// its own: Name is the enclosing compute label, and it exists because the
+// lowered model and the canonical ContextSpec still carry a `prog` level.
 type ProgBlock struct {
 	Pos      Pos
 	Name     string
 	Bindings []*BindingDecl
 }
 
-// BindingDecl is a single binding declaration within a prog block.
+// BindingDecl is a single binding declaration within a compute block.
 // Sigil is SigilNone for plain compute bindings.
 // Marker is MarkerNone unless `:=` designates the binding as the contextual
-// prog result (an action root or transition condition).
+// compute result (an action root or transition condition).
 type BindingDecl struct {
 	Pos    Pos
 	Sigil  Sigil
@@ -173,7 +177,8 @@ type NextRule struct {
 	ActionID string
 }
 
-// NextComputeBlock is the `compute { condition = <id> prog "<name>" { ... } }` inside a next block.
+// NextComputeBlock is a `compute "<name>" { ... }` block inside a next block.
+// Condition is derived from the `:=` binding rather than written.
 type NextComputeBlock struct {
 	Pos       Pos
 	Condition string

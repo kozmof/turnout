@@ -57,7 +57,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 			if a.Compute.Root != "" {
 				if _, ok := scope[a.Compute.Root]; !ok {
 					ds.Append(diag.Errorf(diag.CodeActionRootNotFound,
-						"action %q: compute.root %q not found in prog", a.Id, a.Compute.Root))
+						"action %q: compute.root %q not found in its compute block", a.Id, a.Compute.Root))
 				}
 			}
 

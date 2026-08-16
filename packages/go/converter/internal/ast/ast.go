@@ -149,7 +149,7 @@ func (ft FieldType) ElemType() FieldType {
 // Sigil — binding direction
 // ────────────────────────────────────────────────────────────
 
-// Sigil marks the directional intent of a binding in a prog block.
+// Sigil marks the directional intent of a binding in a compute block.
 type Sigil int
 
 const (

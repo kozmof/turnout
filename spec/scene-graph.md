@@ -66,7 +66,7 @@ Correlation:
 
 - Because the root accepts both value and function bindings, a root with an inline `~> @state.path` output or structural `merge` entry is always available as a deterministic emission source.
 - Because an action and each of its next rules carry separate `compute` blocks, output mapping and branching logic are explicitly separated.
-- Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.prepare.<binding>.from_action` mapping.
+- Because next-rule inputs are ingress-driven, action `compute` values are usable in a next rule's `compute` only through explicit `next.prepare.<binding>.from_action` mapping.
 
 ## 4. Runtime Data Model
 
@@ -376,7 +376,7 @@ type SceneDiagnostic = {
 
 ## 11. Conformance Checklist
 
-1. `compute.root` is derived from the `:=` result binding, so it always names an existing binding. An action `compute` prog with no `:=` result fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
+1. `compute.root` is derived from the `:=` result binding, so it always names an existing binding. An action `compute` block with no `:=` result fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
 3. A root binding with inline output or a structural `merge` entry writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.

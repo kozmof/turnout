@@ -51,7 +51,7 @@ func hasCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 	return false
 }
 
-// minScene wraps a prog body in minimal scaffolding with the given state block.
+// minScene wraps binding declarations in minimal scaffolding with the given state block.
 func minScene(stateBlock, progBody string) string {
 	return stateBlock + `
 scene "test" {

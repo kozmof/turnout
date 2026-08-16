@@ -28,7 +28,7 @@ func hasErrorCode(codes []diag.ErrorCode, want diag.ErrorCode) bool {
 	return false
 }
 
-// actionCompute wraps a prog body in an action-level compute block.
+// actionCompute wraps binding declarations in an action-level compute block.
 func actionCompute(body string) string {
 	return minimalTurnFile(`  action "a" {
     compute "p" {
@@ -37,7 +37,7 @@ func actionCompute(body string) string {
   }`)
 }
 
-// nextCompute wraps a prog body in a transition compute block.
+// nextCompute wraps binding declarations in a transition compute block.
 func nextCompute(body string) string {
 	return minimalTurnFile(`  action "a" {
     compute "p" { v:bool := true }

@@ -12,7 +12,7 @@ const (
 	CodeLexError             ErrorCode = "LexError"
 )
 
-// Contextual prog-result error codes. Names are retained for API compatibility.
+// Contextual compute-result error codes. Names are retained for API compatibility.
 const (
 	CodeMissingRootMarker      ErrorCode = "MissingRootMarker"
 	CodeMissingConditionMarker ErrorCode = "MissingConditionMarker"
@@ -51,7 +51,7 @@ const (
 	CodeCrossPipeStepRef      ErrorCode = "CrossPipeStepRef"
 	CodePipeArgNotValue       ErrorCode = "PipeArgNotValue"
 	CodeSingleRefTypeMismatch ErrorCode = "SingleRefTypeMismatch"
-	// CodeUnusedBinding is a warning emitted when a binding in a compute prog is
+	// CodeUnusedBinding is a warning emitted when a binding in a compute block is
 	// declared but never reachable from the compute root, merge entries, or next
 	// rule conditions. Such bindings are dead code and likely indicate a typo or
 	// authoring mistake.
@@ -170,7 +170,7 @@ const (
 const (
 	// CodeNextPrepareFromActionUnknown is emitted when a from_action source
 	// references a binding name that does not exist in the source action's
-	// compute prog output.
+	// compute block output.
 	CodeNextPrepareFromActionUnknown ErrorCode = "NextPrepareFromActionUnknown"
 	// CodeNextPrepareFromActionTypeMismatch is emitted when the type of the
 	// from_action source binding does not match the target binding's declared type.

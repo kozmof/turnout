@@ -107,7 +107,7 @@ func detectUnusedBindings(progName, root string, mergeNames []string, bindings [
 		}
 		pos := posMap[b.Name]
 		ds.Append(diag.WarnAt(pos.File, pos.Line, pos.Col, diag.CodeUnusedBinding,
-			"prog %q: binding %q is declared but never used", progName, b.Name))
+			"compute %q: binding %q is declared but never used", progName, b.Name))
 	}
 }
 
@@ -121,7 +121,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, types *typeRegistry, ds *diag.
 	for _, b := range prog.Bindings {
 		if seen[b.Name] {
 			ds.Append(diag.Errorf(diag.CodeDuplicateBinding,
-				"duplicate binding name %q in prog %q", b.Name, prog.Name))
+				"duplicate binding name %q in compute %q", b.Name, prog.Name))
 		} else {
 			seen[b.Name] = true
 		}
@@ -396,10 +396,10 @@ func detectCycles(progName string, dependencies map[string][]string, bindings []
 					pos := posMap[dep]
 					if pos.File != "" {
 						ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeCyclicBinding,
-							"prog %q: binding cycle: %s", progName, msg))
+							"compute %q: binding cycle: %s", progName, msg))
 					} else {
 						ds.Append(diag.Errorf(diag.CodeCyclicBinding,
-							"prog %q: binding cycle: %s", progName, msg))
+							"compute %q: binding cycle: %s", progName, msg))
 					}
 				}
 			}
