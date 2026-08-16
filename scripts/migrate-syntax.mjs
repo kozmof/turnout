@@ -9,7 +9,8 @@
 // suites carry DSL inside string literals, and the transformations here are
 // textual, so both work).
 //
-// Transformations, in the order the phases land:
+// The `transforms` array below is the authoritative list — each entry carries
+// its name, the rule it applies, and why. One that is easy to misread:
 //   2.1  #if( / #case( / #pipe(  ->  if( / case( / pipe(
 //        `#it` is deliberately untouched: it keeps its prefix because it is a
 //        placeholder rather than a reference. `#` comments are untouched too.

@@ -113,8 +113,10 @@ function getActionMap(scene: SceneBlock): ReadonlyMap<string, ActionModel> {
  *   // Limit to 10 steps in a unit test to keep it fast.
  *   createSceneExecutor(scene, state, hooks, 10);
  *
- * `next()` throws `SceneRuntimeError` for: `MaxStepsExceeded`, `UnknownAction`,
- * `DuplicateActionId`, `UnknownFunction`, `UnknownArgModel`.
+ * Throws `SceneRuntimeError("NoEntryAction")` at construction when the scene
+ * declares no entry action, and `next()` throws `SceneRuntimeError` for:
+ * `MaxStepsExceeded`, `UnknownAction`, `DuplicateActionId`, `UnknownFunction`,
+ * `UnknownArgModel`.
  * Use `executeSceneSafe` if you need to capture partial state on failure.
  *
  * @example

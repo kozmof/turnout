@@ -115,7 +115,7 @@ The `_` pattern matches any route history unconditionally. It MUST appear at mos
 
 ### 3.3 Match Result
 
-`=> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its declared `entry_action` (per `scene-graph.md §2`). A scene declares exactly one entry action, so route-driven entry and standalone scene execution always start from the same place.
+`=> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its declared `entry_action` (per `scene-graph.md §4`). A scene declares exactly one entry action, so route-driven entry and standalone scene execution always start from the same place.
 
 ---
 

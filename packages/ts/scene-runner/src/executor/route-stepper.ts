@@ -239,7 +239,11 @@ export function createRouteStepper(
         return { done: false, sceneId: actionSceneId, trace: step.trace };
       }
 
-      // Scene exhausted without a prior action return, e.g. an empty entry queue.
+      // Defensive: a scene executor that reports done before yielding an action.
+      // Not reachable today — a scene's queue is seeded with its single entry
+      // action, and `entryActionOf` rejects a scene that declares none before
+      // the executor is built — but the loop keeps the stepper from wedging if
+      // that ever stops holding.
       finishCurrentScene();
       if (done) return { done: true };
     }

@@ -38,7 +38,14 @@ export type SceneErrorCode =
   | "UnknownArgModel"
   | "PublishHookFailed";
 
-/** Error codes that indicate a malformed model or internal invariant violation. */
+/**
+ * Error codes that indicate a malformed model or internal invariant violation.
+ *
+ * `NoEntryAction` is deliberately shared with `RouteErrorCode`: the same
+ * malformed scene raises it as a `SceneRuntimeError` when executed on its own
+ * and as a `RouteRuntimeError` when a route enters it, so each carries the
+ * identifier its caller can act on (scene id vs route id).
+ */
 export type SceneInternalErrorCode =
   | "OutOfOrderBinding"
   | "CompilerBug"

@@ -32,6 +32,7 @@ For reference-style DSL attributes, implementations MUST normalize HCL syntax to
 - Bare reference form and quoted string form are both allowed and MUST be treated equivalently:
   - Example: `to_state = decision.reason` and `to_state = "decision.reason"` normalize to the same runtime string.
 - Reference-style attributes include:
+  - `scene.entry_action`
   - `action.compute.root`
   - `next.compute.condition`
   - `action.prepare.<binding>.from_state`

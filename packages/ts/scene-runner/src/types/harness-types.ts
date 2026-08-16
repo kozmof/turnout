@@ -116,6 +116,10 @@ export type ExecutionOptions = {
   /**
    * Optional callback invoked for non-fatal runner warnings (e.g. missing STATE schema).
    * No-op when absent. Wire to your own logger to surface these warnings.
+   *
+   * These are setup-time warnings about the run itself, and are distinct from
+   * the execution warnings a scene raises while running, which arrive as
+   * `ExecutionWarning`s on the result and as `onLog` events of kind `warning`.
    */
   onWarning?: (msg: string) => void;
   /**
