@@ -71,6 +71,17 @@ export type SceneWarning = {
   message: string;
 };
 
+/**
+ * A `SceneWarning` tagged with the scene that produced it, so warnings from a
+ * multi-scene run stay attributable after they are flattened into one list.
+ * Use `kind` to filter programmatically instead of parsing warning strings.
+ */
+export type ExecutionWarning = {
+  kind: "scene_warning";
+  sceneId: string;
+  warning: SceneWarning;
+};
+
 export type HookRegistry = {
   prepare: Record<string, PrepareHookImpl>;
   publish: Record<string, PublishHookImpl>;
@@ -196,6 +207,12 @@ export type FullHarnessResult = {
   finalState: Record<string, AnyValue>;
   trace: ExecutionTrace;
   model: TurnModel;
+  /**
+   * Non-fatal warnings from every scene the run touched, flattened in
+   * completion order. Absent when the run produced none. The same warnings
+   * remain available per scene on `SceneTrace.warnings`.
+   */
+  warnings?: ExecutionWarning[];
 };
 
 /**
@@ -206,6 +223,12 @@ export type FullHarnessResult = {
 export type FragmentHarnessResult = {
   finalState: Record<string, AnyValue>;
   trace: ExecutionTrace;
+  /**
+   * Non-fatal warnings from every scene the run touched, flattened in
+   * completion order. Absent when the run produced none. The same warnings
+   * remain available per scene on `SceneTrace.warnings`.
+   */
+  warnings?: ExecutionWarning[];
 };
 
 /**

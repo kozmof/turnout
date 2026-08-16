@@ -18,6 +18,8 @@ export type {
   SceneTrace,
   RouteTrace,
   ExecutionTrace,
+  ExecutionWarning,
+  SceneWarning,
 } from "./types/harness-types.js";
 export type { TurnModel } from "./types/turnout-model_pb.js";
 export {
@@ -55,6 +57,6 @@ export type {
   SceneInternalErrorCode,
 } from "./executor/errors.js";
 export { executeRouteSafe } from "./executor/route-executor.js";
-export type { RouteResult, RouteWarning, RouteExecutionResult } from "./executor/route-executor.js";
+export type { RouteResult, RouteExecutionResult } from "./executor/route-executor.js";
 export { collectPublishFailures } from "./trace-utils.js";
 export type { PublishFailure } from "./trace-utils.js";

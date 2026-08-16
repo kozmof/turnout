@@ -18,6 +18,7 @@ import { validateModel } from "./executor/validate-model.js";
 import { ModelValidationError, RunnerError } from "./executor/errors.js";
 import { snapshotModel } from "./model-snapshot.js";
 import { makeRunnerMethods } from "./runner-methods.js";
+import { collectSceneWarnings } from "./executor/collect-warnings.js";
 import { safeLog } from "./executor/logging.js";
 
 import type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
@@ -137,9 +138,11 @@ export function createSceneRunner(
           "execution is not complete — call run() or step until isDone()",
         );
       const res = sceneExecutor.result();
+      const warnings = collectSceneWarnings([res.trace]);
       return {
         finalState: res.stateAfterScene.snapshot(),
         trace: { kind: "scene", scene: res.trace },
+        ...(warnings.length > 0 ? { warnings } : {}),
       };
     },
     () => sceneExecutor.partialState(),
@@ -272,10 +275,11 @@ export function createRouteRunner(
           "IncompleteExecution",
           "execution is not complete — call run() or step until isDone()",
         );
-      const { finalState, trace } = routeStepper.result();
+      const { finalState, trace, warnings } = routeStepper.result();
       return {
         finalState: finalState.snapshot(),
         trace: { kind: "route", route: trace },
+        ...(warnings ? { warnings } : {}),
       };
     },
     () => routeStepper.partialState(),

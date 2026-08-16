@@ -6,7 +6,9 @@ import type {
   SceneTrace,
   RouteTrace,
   LogEvent,
+  ExecutionWarning,
 } from "../types/harness-types.js";
+import { collectSceneWarnings } from "./collect-warnings.js";
 import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
 import { selectNextScene } from "./route-pattern.js";
 import { createSceneExecutor } from "./scene-executor.js";
@@ -22,6 +24,12 @@ export type RouteStepResult = { done: false; sceneId: string; trace: ActionTrace
 export type RouteStepperResult = {
   finalState: StateManager;
   trace: RouteTrace;
+  /**
+   * Structured non-fatal warnings from every scene the route touched, flattened
+   * in completion order. Absent when the route produced none. Mirrors
+   * `RouteExecutionResult.warnings` so both route drivers report alike.
+   */
+  warnings?: ExecutionWarning[];
 };
 
 /**
@@ -251,9 +259,12 @@ export function createRouteStepper(
           routeId,
           "result() called before execution is complete — call next() until isDone()",
         );
+      const sceneTraces = session.getTraces();
+      const warnings = collectSceneWarnings(sceneTraces);
       return {
         finalState: currentState,
-        trace: { routeId, scenes: session.getTraces() },
+        trace: { routeId, scenes: sceneTraces },
+        ...(warnings.length > 0 ? { warnings } : {}),
       };
     },
 

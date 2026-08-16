@@ -1,7 +1,13 @@
 import type { AnyValue } from "runtime";
 import type { RouteModel, SceneBlock } from "../types/turnout-model_pb.js";
 import type { StateManager } from "../state/state-manager.js";
-import type { HookRegistry, LogEvent, RouteTrace, SceneWarning } from "../types/harness-types.js";
+import type {
+  ExecutionWarning,
+  HookRegistry,
+  LogEvent,
+  RouteTrace,
+} from "../types/harness-types.js";
+import { collectSceneWarnings } from "./collect-warnings.js";
 import { executeScene } from "./scene-executor.js";
 import { selectNextScene, parseMatchArms } from "./route-pattern.js";
 import type { HistoryEntry } from "./route-pattern.js";
@@ -31,12 +37,6 @@ export type RouteExecutionOptions = {
 
 const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
 
-/**
- * Structured warning type for route execution. Use `kind` to filter programmatically
- * instead of parsing warning strings.
- */
-export type RouteWarning = { kind: "scene_warning"; sceneId: string; warning: SceneWarning };
-
 export type RouteExecutionResult = {
   routeId: string;
   finalState: Record<string, AnyValue>;
@@ -45,7 +45,7 @@ export type RouteExecutionResult = {
   /** Terminal state — route exits when no match arm fires. */
   status: "completed";
   /** Structured non-fatal warnings produced during route execution. */
-  warnings?: RouteWarning[];
+  warnings?: ExecutionWarning[];
 };
 
 /**
@@ -94,7 +94,6 @@ async function runRouteCore(
   let routeTransitionCount = 0;
   const history: string[] = [];
   const sceneTraces: RouteTrace["scenes"] = [];
-  const warnings: RouteWarning[] = [];
 
   for (;;) {
     const scene = Object.hasOwn(scenes, progress.currentSceneId)
@@ -135,13 +134,6 @@ async function runRouteCore(
     progress.currentState = sceneResult.stateAfterScene;
     sceneTraces.push(sceneResult.trace);
 
-    // Propagate scene-level warnings into structured route warnings.
-    if (sceneResult.trace.warnings) {
-      for (const warning of sceneResult.trace.warnings) {
-        warnings.push({ kind: "scene_warning", sceneId: progress.currentSceneId, warning });
-      }
-    }
-
     // Build the current-scene history slice used for pattern matching.
     // Using only the current visit's actions (not accumulated global history) ensures
     // that revisited scenes match against their current run, consistent with RouteStepper.
@@ -171,6 +163,7 @@ async function runRouteCore(
     progress.currentSceneId = nextSceneId;
   }
 
+  const warnings = collectSceneWarnings(sceneTraces);
   return {
     routeId: route.id,
     finalState: progress.currentState.snapshot(),

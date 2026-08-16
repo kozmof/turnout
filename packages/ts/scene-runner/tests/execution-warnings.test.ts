@@ -1,0 +1,163 @@
+import { describe, it, expect } from "vitest";
+import { executeRoute } from "../src/executor/route-executor.js";
+import { createRouteStepper } from "../src/executor/route-stepper.js";
+import { parseMatchArms } from "../src/executor/route-pattern.js";
+import { createSceneRunner, createRouteRunner } from "../src/runner.js";
+import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
+import type { RouteModel, SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
+import type { ExecutionWarning } from "../src/types/harness-types.js";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A minimal pass-through action: merges a fixed number into STATE. */
+function makePassAction(id: string, value: number, toState: string): ActionModel {
+  return {
+    id,
+    compute: {
+      root: "out",
+      prog: {
+        name: `${id}_prog`,
+        bindings: [
+          { name: "v", type: "number", value },
+          {
+            name: "out",
+            type: "number",
+            expr: { combine: { fn: "add", args: [{ ref: "v" }, { lit: 0 }] } },
+          },
+        ],
+      },
+    },
+    merge: [{ binding: "v", toState }],
+  } as unknown as ActionModel;
+}
+
+/**
+ * A scene whose entry action enqueues the same follow-up twice under
+ * `all-match`, which is what raises a `duplicate_enqueue` scene warning.
+ */
+function makeWarningScene(id: string): SceneBlock {
+  return {
+    id,
+    entryAction: "start",
+    nextPolicy: "all-match",
+    actions: [
+      {
+        ...makePassAction("start", 1, `${id}.start`),
+        next: [{ action: "again" }, { action: "again" }],
+      },
+      makePassAction("again", 2, `${id}.again`),
+    ],
+  } as unknown as SceneBlock;
+}
+
+function expectedWarning(sceneId: string): ExecutionWarning {
+  return {
+    kind: "scene_warning",
+    sceneId,
+    warning: {
+      kind: "duplicate_enqueue",
+      actionId: "again",
+      firstEnqueuedBy: "start",
+      policy: "all-match",
+      alreadyVisited: false,
+      message:
+        'action "again" was enqueued more than once (all-match, first enqueued by "start") but ran only once',
+    },
+  };
+}
+
+// `entryId` is required by ExecutionOptions but unused by the fragment
+// factories, which are handed their entry scene or route directly.
+const runnerOptions = {
+  entryId: "unused",
+  initialState: {},
+  allowUncheckedState: true,
+  onWarning: () => {},
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Parity across every driver
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe("execution warnings — driver parity", () => {
+  it("executeRoute flattens scene warnings onto the result", async () => {
+    const scene = makeWarningScene("s1");
+    const route = { id: "r", match: [] } as unknown as RouteModel;
+
+    const result = await executeRoute(route, { s1: scene }, "s1", stateManagerFromUnchecked({}));
+
+    expect(result.warnings).toEqual([expectedWarning("s1")]);
+  });
+
+  it("createRouteStepper reports the same warnings executeRoute does", async () => {
+    const scene = makeWarningScene("s1");
+    const stepper = createRouteStepper(
+      "r",
+      parseMatchArms([]),
+      "s1",
+      { s1: scene },
+      stateManagerFromUnchecked({}),
+      { prepare: {}, publish: {} },
+    );
+
+    while (!stepper.isDone()) await stepper.next();
+
+    expect(stepper.result().warnings).toEqual([expectedWarning("s1")]);
+  });
+
+  it("createRouteRunner surfaces warnings on its harness result", async () => {
+    const scene = makeWarningScene("s1");
+    const route = { id: "r", match: [] } as unknown as RouteModel;
+
+    const result = await createRouteRunner(route, scene, { s1: scene }, runnerOptions).run();
+
+    expect(result.warnings).toEqual([expectedWarning("s1")]);
+  });
+
+  it("createSceneRunner surfaces warnings on its harness result", async () => {
+    const result = await createSceneRunner(makeWarningScene("solo"), runnerOptions).run();
+
+    expect(result.warnings).toEqual([expectedWarning("solo")]);
+  });
+});
+
+describe("execution warnings — shape", () => {
+  it("omits the field entirely when a run produces no warnings", async () => {
+    const scene = {
+      id: "quiet",
+      entryAction: "only",
+      actions: [makePassAction("only", 1, "quiet.only")],
+    } as unknown as SceneBlock;
+
+    const result = await createSceneRunner(scene, runnerOptions).run();
+
+    expect(result.warnings).toBeUndefined();
+    expect("warnings" in result).toBe(false);
+  });
+
+  it("tags each warning with the scene that raised it, in completion order", async () => {
+    const s1 = makeWarningScene("s1");
+    const s2 = makeWarningScene("s2");
+    const route = {
+      id: "r",
+      match: [{ patterns: ["s1.*.again"], target: "s2" }],
+    } as unknown as RouteModel;
+
+    const result = await executeRoute(route, { s1, s2 }, "s1", stateManagerFromUnchecked({}));
+
+    expect(result.warnings).toEqual([expectedWarning("s1"), expectedWarning("s2")]);
+  });
+
+  it("keeps warnings readable per scene on the trace as well", async () => {
+    const scene = makeWarningScene("s1");
+    const route = { id: "r", match: [] } as unknown as RouteModel;
+
+    const result = await createRouteRunner(route, scene, { s1: scene }, runnerOptions).run();
+
+    expect(result.trace.kind).toBe("route");
+    if (result.trace.kind !== "route") return;
+    expect(result.trace.route.scenes[0]?.warnings).toEqual([expectedWarning("s1").warning]);
+  });
+});
