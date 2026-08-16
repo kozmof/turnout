@@ -481,9 +481,9 @@ scene "test" {
 // ── Integration: parse example files ──────────────────────────────────────────
 
 func TestParseFromFileExample(t *testing.T) {
-	data, err := os.ReadFile("../../../../../spec/examples/scene-graph-with-actions.tu")
+	data, err := os.ReadFile("../../../../../spec/examples/01-vending-machine.tu")
 	if err != nil {
-		t.Skip("example file not found")
+		t.Fatalf("example not found — retarget this test if it was renamed: %v", err)
 	}
 	src := string(data)
 	// Prepend a minimal state block if the file lacks one, so ParseFile succeeds.

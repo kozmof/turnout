@@ -808,67 +808,107 @@ func TestThreeSegmentPath(t *testing.T) {
 
 // parseWithDummyState parses an example file, prepending a minimal state block
 // only when the file does not already declare one.
+//
+// A missing file fails rather than skips: the examples are committed alongside
+// this test, so "not found" means one was renamed or deleted and this test
+// stopped covering anything — which a skip would hide behind a green run.
 func parseWithDummyState(t *testing.T, path string) *ast.TurnFile {
 	t.Helper()
 	data, err := os.ReadFile(path)
 	if err != nil {
-		t.Skipf("example file not found: %v", err)
+		t.Fatalf("example not found — retarget this test if it was renamed: %v", err)
 	}
-	src := string(data)
-	trimmed := strings.TrimSpace(src)
-	if !strings.HasPrefix(trimmed, "state") {
-		src = "state {}\n" + src
-	}
-	return mustParse(t, src)
+	return mustParse(t, withDummyState(string(data)))
 }
 
-func TestExampleSceneGraphWithActions(t *testing.T) {
-	tf := parseWithDummyState(t, "../../../../../spec/examples/scene-graph-with-actions.tu")
-	if tf.Scenes[0].ID != "loan_flow" {
-		t.Errorf("scene ID = %q", tf.Scenes[0].ID)
+// withDummyState prepends a minimal state block only when src declares no state
+// source of its own.
+//
+// The check is containment rather than a leading-token match: a file may open
+// with a header comment, and prepending a second state block to one that
+// already has one is a hard parse error.
+func withDummyState(src string) string {
+	if strings.Contains(src, "state {") || strings.Contains(src, "state_file") {
+		return src
 	}
-	if len(tf.Scenes[0].Actions) != 3 {
-		t.Errorf("action count = %d, want 3", len(tf.Scenes[0].Actions))
+	return "state {}\n" + src
+}
+
+func TestExampleVendingMachine(t *testing.T) {
+	tf := parseWithDummyState(t, "../../../../../spec/examples/01-vending-machine.tu")
+	if tf.Scenes[0].ID != "vend" {
+		t.Errorf("scene ID = %q, want vend", tf.Scenes[0].ID)
 	}
-	// verify nested next rules
-	score := tf.Scenes[0].Actions[0]
-	if len(score.Next) != 2 {
-		t.Errorf("score next count = %d, want 2", len(score.Next))
+	if len(tf.Scenes[0].Actions) != 4 {
+		t.Errorf("action count = %d, want 4", len(tf.Scenes[0].Actions))
+	}
+	// The entry action carries both transition spellings: a guarded sugar rule
+	// and the bare fallthrough.
+	check := tf.Scenes[0].Actions[0]
+	if len(check.Next) != 2 {
+		t.Errorf("check_availability next count = %d, want 2", len(check.Next))
 	}
 }
 
-func TestExampleDetectivePhase(t *testing.T) {
-	data, err := os.ReadFile("../../../../../spec/examples/detective-phase.tu")
+func TestExampleIncidentTriage(t *testing.T) {
+	data, err := os.ReadFile("../../../../../spec/examples/02-incident-triage.tu")
 	if err != nil {
-		t.Skip("detective example not found")
+		t.Fatalf("example not found — retarget this test if it was renamed: %v", err)
 	}
-	src := string(data)
-	if trimmed := strings.TrimSpace(src); !strings.HasPrefix(trimmed, "state") {
-		src = "state {}\n" + src
-	}
-	tf, diags := parser.ParseFile("detective-phase.tu", src)
+	tf, diags := parser.ParseFile("02-incident-triage.tu", withDummyState(string(data)))
 	if diags.HasErrors() {
 		for _, d := range diags {
 			t.Logf("diag: %s", d.Format())
 		}
 		t.Fatalf("parse failed")
 	}
-	if tf.Scenes[0].ID != "detective_evidence_hunt" {
-		t.Errorf("scene ID = %q", tf.Scenes[0].ID)
+	if tf.Scenes[0].ID != "incident_response" {
+		t.Errorf("scene ID = %q, want incident_response", tf.Scenes[0].ID)
+	}
+	// The five-arm match block expands to five next rules, all flagged as
+	// match-derived; nothing else in the file sets FromMatch on the entry action.
+	classify := tf.Scenes[0].Actions[0]
+	if len(classify.Next) != 5 {
+		t.Fatalf("classify_incident next count = %d, want 5", len(classify.Next))
+	}
+	for i, nr := range classify.Next {
+		if !nr.FromMatch {
+			t.Errorf("next[%d] is not match-derived", i)
+		}
 	}
 }
 
-func TestExampleAdventureStory(t *testing.T) {
-	tf := parseWithDummyState(t, "../../../../../spec/examples/adventure-story-graph-with-actions.tu")
-	if tf.Scenes[0] == nil {
-		t.Fatal("scene is nil")
+func TestExampleWarehouseRoute(t *testing.T) {
+	tf := parseWithDummyState(t, "../../../../../spec/examples/03-warehouse-route.tu")
+	if len(tf.Scenes) != 4 {
+		t.Errorf("scene count = %d, want 4", len(tf.Scenes))
+	}
+	if len(tf.Routes) != 1 {
+		t.Fatalf("route count = %d, want 1", len(tf.Routes))
+	}
+	if tf.Routes[0].EntrySceneID != "picking" {
+		t.Errorf("route entry = %q, want picking", tf.Routes[0].EntrySceneID)
 	}
 }
 
-func TestExampleLLMWorkflow(t *testing.T) {
-	tf := parseWithDummyState(t, "../../../../../spec/examples/llm-workflow-with-actions.tu")
+func TestExampleSensorCalibration(t *testing.T) {
+	tf := parseWithDummyState(t, "../../../../../spec/examples/04-sensor-calibration.tu")
 	if tf.Scenes[0] == nil {
 		t.Fatal("scene is nil")
+	}
+	if tf.Scenes[0].NextPolicy != "all-match" {
+		t.Errorf("next policy = %q, want all-match", tf.Scenes[0].NextPolicy)
+	}
+}
+
+func TestExampleTicketTypes(t *testing.T) {
+	tf := parseWithDummyState(t, "../../../../../spec/examples/05-ticket-types.tu")
+	if tf.Scenes[0] == nil {
+		t.Fatal("scene is nil")
+	}
+	// Three top-level type declarations: two unions and one template.
+	if len(tf.TypeDecls) != 3 {
+		t.Errorf("type decl count = %d, want 3", len(tf.TypeDecls))
 	}
 }
 

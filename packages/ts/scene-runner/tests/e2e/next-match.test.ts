@@ -1,7 +1,7 @@
 /**
  * E2E: transition match blocks (`next on (...) match { }`)
  *
- * Pipeline: shipping-dispatch-match.tu → Go converter → runHarness → trace and
+ * Pipeline: 02-incident-triage.tu → Go converter → runHarness → trace and
  * STATE assertions.
  *
  * The form is surface sugar that expands, in the parser, to one next rule per
@@ -13,7 +13,7 @@
  *
  * That is what this file covers — the runtime has no idea the form exists, so
  * the only way to see it work is to drive real inputs through and watch which
- * lane comes out.
+ * action comes out.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync } from "node:fs";
@@ -23,6 +23,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { runConverter, resetBinCache } from "../../src/server/bridge.js";
 import { runHarness } from "../../src/harness/harness.js";
 import { buildNumber, buildBoolean, buildString, isPureString } from "runtime";
+import type { HookRegistry } from "../../src/types/harness-types.js";
 import type { TurnModel } from "../../src/types/turnout-model_pb.js";
 
 const converterDir = resolve(__dirname, "../../../../go/converter");
@@ -36,6 +37,22 @@ const goBin = process.env.GOROOT
     : "go";
 
 let model: TurnModel;
+
+// The example takes one prepare hook and publishes to several others. Publish
+// hooks are read-only and their return values ignored, so no-ops are enough.
+const hooks: HookRegistry = {
+  prepare: {
+    // Hook fields must be typed values, not bare JS primitives.
+    oncall_roster: () => ({ oncall_owner: buildString("ada") }),
+  },
+  publish: {
+    incident_timeline: () => {},
+    metrics: () => {},
+    pager: () => {},
+    exec_bridge: () => {},
+    ticket_tracker: () => {},
+  },
+};
 
 beforeAll(async () => {
   execFileSync(goBin, ["build", "-buildvcs=false", "-o", turnoutBin, "./cmd/turnout"], {
@@ -52,138 +69,161 @@ beforeAll(async () => {
   });
   resetBinCache();
   process.env.TURNOUT_BIN = turnoutBin;
-  model = await runConverter(join(examplesDir, "shipping-dispatch-match.tu"), {
+  model = await runConverter(join(examplesDir, "02-incident-triage.tu"), {
     strictParse: true,
   });
 });
 
-type Parcel = {
-  zone: string;
-  weightKg: number;
-  fragile: boolean;
-  declaredValue?: number;
+type Incident = {
+  severity: number;
+  affectedServices: number;
+  customerFacing: boolean;
 };
 
-function state(p: Parcel) {
-  return {
-    "parcel.zone": buildString(p.zone),
-    "parcel.weight_kg": buildNumber(p.weightKg),
-    "parcel.fragile": buildBoolean(p.fragile),
-    "parcel.declared_value": buildNumber(p.declaredValue ?? 0),
-  };
-}
-
-async function dispatch(p: Parcel) {
+async function triage(i: Incident) {
   const result = await runHarness({
     model,
-    entryId: "dispatch_router",
-    initialState: state(p),
+    entryId: "incident_response",
+    initialState: {
+      "incident.severity": buildNumber(i.severity),
+      "incident.affected_services": buildNumber(i.affectedServices),
+      "incident.customer_facing": buildBoolean(i.customerFacing),
+      "incident.summary": buildString(""),
+    },
+    hooks,
   });
   if (result.trace.kind !== "scene") throw new Error("expected scene trace");
 
-  const lane = result.finalState["dispatch.lane"];
+  const tier = result.finalState["triage.tier"];
   return {
     visited: result.trace.scene.actions.map((a) => a.actionId),
-    lane: lane && isPureString(lane) ? lane.value : undefined,
-    finalState: result.finalState,
+    tier: tier && isPureString(tier) ? tier.value : undefined,
   };
 }
 
 // ── arms select in order ─────────────────────────────────────────────────────
 
 describe("next match — each arm selects its own action", () => {
-  it("takes arm 1 for a light, sturdy domestic parcel", async () => {
-    const { visited, lane } = await dispatch({ zone: "domestic", weightKg: 1, fragile: false });
-    expect(visited).toEqual(["classify_parcel", "air_express"]);
-    expect(lane).toBe("air_express");
+  it("takes arm 1: a wide, customer-facing critical incident wakes leadership", async () => {
+    const { visited, tier } = await triage({
+      severity: 9,
+      affectedServices: 5,
+      customerFacing: true,
+    });
+    expect(tier).toBe("critical");
+    expect(visited).toEqual(["classify_incident", "page_leadership"]);
   });
 
-  it("takes arm 2 for a heavy, sturdy domestic parcel", async () => {
-    const { visited, lane } = await dispatch({ zone: "domestic", weightKg: 40, fragile: false });
-    expect(visited).toEqual(["classify_parcel", "ground_standard"]);
-    expect(lane).toBe("ground_standard");
+  it("takes arm 2: a contained, customer-facing critical incident pages on-call", async () => {
+    const { visited } = await triage({
+      severity: 9,
+      affectedServices: 1,
+      customerFacing: true,
+    });
+    expect(visited.slice(0, 2)).toEqual(["classify_incident", "page_oncall"]);
   });
 
-  it("takes arm 4 for a light, sturdy export parcel", async () => {
-    const { visited, lane } = await dispatch({ zone: "export", weightKg: 2, fragile: false });
-    expect(visited).toEqual(["classify_parcel", "air_express"]);
-    expect(lane).toBe("air_express");
+  it("takes arm 4: a wide, customer-facing major incident pages on-call", async () => {
+    const { visited, tier } = await triage({
+      severity: 6,
+      affectedServices: 5,
+      customerFacing: true,
+    });
+    expect(tier).toBe("major");
+    expect(visited.slice(0, 2)).toEqual(["classify_incident", "page_oncall"]);
   });
 });
 
 // ── a `_` column is genuinely unconstrained ──────────────────────────────────
 
 describe("next match — a wildcard column matches every value", () => {
-  // Arm 3 is `(_, _, true) => white_glove`: only `fragile` is read, so any
-  // zone/weight combination reaches it as long as nothing above matched.
+  // Arm 3 is `("critical", _, false) => page_oncall`: the blast column is not
+  // read at all, so a non-customer-facing critical incident reaches it whether
+  // it is wide or contained.
   it.each([
-    ["domestic", 1],
-    ["domestic", 40],
-    ["export", 2],
-    ["transit", 12],
-  ])("routes a fragile %s parcel of %ikg to white_glove", async (zone, weightKg) => {
-    const { visited, lane } = await dispatch({ zone, weightKg, fragile: true });
-    expect(visited).toEqual(["classify_parcel", "white_glove"]);
-    expect(lane).toBe("white_glove");
+    ["contained", 1],
+    ["wide", 5],
+    ["wider", 12],
+  ])("routes a %s internal critical incident to page_oncall", async (_label, affectedServices) => {
+    const { visited } = await triage({
+      severity: 9,
+      affectedServices,
+      customerFacing: false,
+    });
+    expect(visited.slice(0, 2)).toEqual(["classify_incident", "page_oncall"]);
   });
 });
 
 // ── arm order decides overlaps ───────────────────────────────────────────────
 
 describe("next match — the first matching arm wins", () => {
-  // A light, sturdy domestic parcel matches arm 1. A light FRAGILE domestic
-  // parcel skips arm 1 on the third column and falls to arm 3. Same first two
-  // columns, different lane — which is the ordering doing the work.
+  // A wide critical incident matches arm 1 when customer-facing and arm 3 when
+  // not. Same first two columns, different action — the ordering doing the work.
   it("prefers the earlier arm when a later one also matches", async () => {
-    const sturdy = await dispatch({ zone: "domestic", weightKg: 1, fragile: false });
-    const fragile = await dispatch({ zone: "domestic", weightKg: 1, fragile: true });
+    const external = await triage({ severity: 9, affectedServices: 5, customerFacing: true });
+    const internal = await triage({ severity: 9, affectedServices: 5, customerFacing: false });
 
-    expect(sturdy.lane).toBe("air_express");
-    expect(fragile.lane).toBe("white_glove");
+    expect(external.visited[1]).toBe("page_leadership");
+    expect(internal.visited[1]).toBe("page_oncall");
   });
 });
 
 // ── the `_` arm catches the rest ─────────────────────────────────────────────
 
 describe("next match — the `_` arm is the fallback", () => {
-  it("holds a medium domestic parcel, which no arm names", async () => {
-    // "medium" appears in no arm, so arms 1, 2 and 4 miss on the weight band
-    // and arm 3 misses on fragile.
-    const { visited } = await dispatch({ zone: "domestic", weightKg: 10, fragile: false });
-    expect(visited[0]).toBe("classify_parcel");
-    expect(visited[1]).toBe("hold_review");
+  it("watches a minor incident, which no arm names", async () => {
+    const { visited, tier } = await triage({
+      severity: 2,
+      affectedServices: 1,
+      customerFacing: true,
+    });
+    expect(tier).toBe("minor");
+    expect(visited.slice(0, 2)).toEqual(["classify_incident", "watch_only"]);
   });
 
-  it("holds an unknown zone", async () => {
-    const { visited } = await dispatch({ zone: "interplanetary", weightKg: 1, fragile: false });
-    expect(visited[1]).toBe("hold_review");
+  it("watches a contained major incident, which misses arm 4 on blast", async () => {
+    const { visited } = await triage({
+      severity: 6,
+      affectedServices: 1,
+      customerFacing: true,
+    });
+    expect(visited.slice(0, 2)).toEqual(["classify_incident", "watch_only"]);
   });
 });
 
 // ── the single-subject form ──────────────────────────────────────────────────
 
-describe("next match — single-subject form in hold_review", () => {
-  it("defaults a low-value held parcel onto the ground lane", async () => {
-    const { visited, lane } = await dispatch({
-      zone: "interplanetary",
-      weightKg: 1,
-      fragile: false,
-      declaredValue: 10,
+describe("next match — single-subject form in watch_only", () => {
+  it("opens a ticket when a watched incident is spreading", async () => {
+    const { visited } = await triage({
+      severity: 2,
+      affectedServices: 5,
+      customerFacing: true,
     });
-    expect(visited).toEqual(["classify_parcel", "hold_review", "ground_standard"]);
-    expect(lane).toBe("ground_standard");
+    expect(visited).toEqual(["classify_incident", "watch_only", "open_ticket"]);
   });
 
-  it("sends a high-value held parcel to the manual desk", async () => {
-    const { visited, finalState } = await dispatch({
-      zone: "interplanetary",
-      weightKg: 1,
-      fragile: false,
-      declaredValue: 5000,
+  it("stops at watch_only_end when a watched incident is steady", async () => {
+    const { visited } = await triage({
+      severity: 2,
+      affectedServices: 1,
+      customerFacing: true,
     });
-    expect(visited).toEqual(["classify_parcel", "hold_review", "manual_desk"]);
+    expect(visited).toEqual(["classify_incident", "watch_only", "watch_only_end"]);
+  });
+});
 
-    const manifest = finalState["dispatch.manifest"];
-    expect(manifest && isPureString(manifest) && manifest.value).toBe("manual: light");
+// ── the block form still behaves ─────────────────────────────────────────────
+
+describe("next match — a match block coexists with a block-form transition", () => {
+  // page_oncall's follow-up is a plain `next { }` rule guarded by a comparison,
+  // which the match form cannot express. It fires only above the ticket floor.
+  it("files a follow-up ticket for a severe paged incident", async () => {
+    const { visited } = await triage({
+      severity: 9,
+      affectedServices: 1,
+      customerFacing: true,
+    });
+    expect(visited).toEqual(["classify_incident", "page_oncall", "open_ticket"]);
   });
 });

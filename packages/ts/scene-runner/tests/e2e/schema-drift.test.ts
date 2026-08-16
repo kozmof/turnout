@@ -45,13 +45,11 @@ beforeAll(() => {
 // Canonical examples spanning scenes, routes, actions, STATE effects, and
 // local expressions — the broadest exercise of the proto surface available.
 const examples = [
-  "adventure-story-graph-with-actions.tu",
-  "customer-onboarding-multi-scene.tu",
-  "detective-phase.tu",
-  "kitchen-sink-support-pipeline.tu",
-  "llm-workflow-with-actions.tu",
-  "scene-graph-with-actions.tu",
-  "shipping-dispatch-match.tu",
+  "01-vending-machine.tu",
+  "02-incident-triage.tu",
+  "03-warehouse-route.tu",
+  "04-sensor-calibration.tu",
+  "05-ticket-types.tu",
 ];
 
 describe("proto schema-drift guard", () => {

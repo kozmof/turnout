@@ -552,12 +552,18 @@ func TestStandaloneGT(t *testing.T) {
 
 // ── integration: real example files ──────────────────────────────────────────
 
-func TestExampleFileSceneGraph(t *testing.T) {
-	src, err := os.ReadFile("../../../../../spec/examples/scene-graph-with-actions.tu")
+// tokenizeExample lexes a checked-in example and returns its tokens.
+//
+// A missing file is a failure rather than a skip: the examples are committed
+// alongside this test, so "not found" means one was renamed or deleted and the
+// coverage here silently evaporated — which is exactly what a skip would hide.
+func tokenizeExample(t *testing.T, name string) []Token {
+	t.Helper()
+	src, err := os.ReadFile("../../../../../spec/examples/" + name)
 	if err != nil {
-		t.Skipf("example file not found: %v", err)
+		t.Fatalf("example %s not found — retarget this test if it was renamed: %v", name, err)
 	}
-	toks, ds := Tokenize("scene-graph-with-actions.tu", string(src))
+	toks, ds := Tokenize(name, string(src))
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("%s", d.Format())
@@ -567,28 +573,25 @@ func TestExampleFileSceneGraph(t *testing.T) {
 	if len(toks) == 0 {
 		t.Fatal("no tokens produced")
 	}
-	// Spot-check: last token is EOF
 	if toks[len(toks)-1].Kind != TokEOF {
 		t.Errorf("last token is not TokEOF: %v", toks[len(toks)-1].Kind)
 	}
+	return toks
 }
 
-func TestExampleFileDetective(t *testing.T) {
-	src, err := os.ReadFile("../../../../../spec/examples/detective-phase.tu")
-	if err != nil {
-		t.Skipf("example file not found: %v", err)
-	}
-	toks, ds := Tokenize("detective-phase.tu", string(src))
-	if ds.HasErrors() {
-		for _, d := range ds {
-			t.Errorf("%s", d.Format())
-		}
-		t.FailNow()
-	}
-	if len(toks) == 0 {
-		t.Fatal("no tokens produced")
-	}
-	if toks[len(toks)-1].Kind != TokEOF {
-		t.Errorf("last token is not TokEOF: %v", toks[len(toks)-1].Kind)
-	}
+// TestExampleFileVendingMachine lexes the smallest complete example.
+func TestExampleFileVendingMachine(t *testing.T) {
+	tokenizeExample(t, "01-vending-machine.tu")
+}
+
+// TestExampleFileSensorCalibration lexes the token-densest example — every
+// infix operator, transform chains, pipe/#it, and array types.
+func TestExampleFileSensorCalibration(t *testing.T) {
+	tokenizeExample(t, "04-sensor-calibration.tu")
+}
+
+// TestExampleFileTicketTypes lexes the type-system example, which is the only
+// one carrying top-level `type` declarations and template literal strings.
+func TestExampleFileTicketTypes(t *testing.T) {
+	tokenizeExample(t, "05-ticket-types.tu")
 }
