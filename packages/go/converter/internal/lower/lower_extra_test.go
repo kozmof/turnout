@@ -17,7 +17,7 @@ func TestLowerNextPrepareFromState(t *testing.T) {
   app { score:number = 10 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -54,7 +54,7 @@ scene "test" {
 func TestLowerExtExprScopesActionAndNext(t *testing.T) {
 	src := `state { app { n:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       flag:bool = true
@@ -113,7 +113,7 @@ func TestLowerNextPrepareFromLiteral(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -149,7 +149,7 @@ scene "test" {
 func TestLowerArgFuncRef(t *testing.T) {
 	// Uses { func_ref = "thenFn" } as a function argument, exercising lowerArg(FuncRefArg).
 	// Lower does not type-check; validation is a separate phase.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 1
@@ -171,7 +171,7 @@ func TestLowerArgFuncRef(t *testing.T) {
 
 func TestLowerArgTransform(t *testing.T) {
 	// Uses { transform = { ref = "x" fn = "doThing" } } as a function argument.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 1
@@ -203,7 +203,7 @@ func TestLowerZeroLiteralForArrayFromHook(t *testing.T) {
   app { items:arr<number> = [] }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       items:arr<number> := <~ hook("my_hook")
@@ -230,7 +230,7 @@ func TestLowerZeroLiteralForStr(t *testing.T) {
   app { label:str = "default" }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       label:str := <~ hook("lbl_hook")
@@ -254,7 +254,7 @@ func TestLowerZeroLiteralForBool(t *testing.T) {
   app { flag:bool = true }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       flag:bool := <~ hook("flag_hook")
@@ -276,7 +276,7 @@ scene "test" {
 
 func TestLowerArgLit(t *testing.T) {
 	// max(x, 5) — the literal 5 goes through lowerArg LitArg branch.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 3
@@ -305,7 +305,7 @@ func TestLowerNextPrepareFromAction(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -355,7 +355,7 @@ func TestLowerPrepareMissingEntry(t *testing.T) {
   app { x:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number :=
@@ -381,7 +381,7 @@ func TestLowerPrepareFromStateNotFound(t *testing.T) {
   app { x:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number := <~ @app.nonexistent
@@ -407,7 +407,7 @@ func TestLowerTransitionPrepareMissingEntry(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -438,7 +438,7 @@ func TestLowerTransitionPrepareFromStateNotFound(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -468,7 +468,7 @@ scene "test" {
 // binding name that was emitted earlier (lower index) in the slice, guaranteeing
 // topological order so every reference is defined before it is used.
 func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       score:number = 1
@@ -514,7 +514,7 @@ func TestLowerBidirMissingPrepareUsesBidirDiagnostic(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number :=
@@ -540,7 +540,7 @@ func TestLowerBidirFromStateErrorsAreNotSwallowed(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number := <~ @app.missing ~> @app.score
@@ -554,7 +554,7 @@ scene "test" {
 }
 
 func TestTupleCasePatternLowers(t *testing.T) {
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       one:number = 1
@@ -571,7 +571,7 @@ func TestTupleCasePatternLowers(t *testing.T) {
 
 func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
 	// range() in flat FuncCallRHS form → CodeUnsupportedConstruct from lowerFuncCallRHS
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -589,7 +589,7 @@ func TestLowerUnsupportedFnRangeFlat(t *testing.T) {
 
 func TestLowerUnsupportedFnMapLocal(t *testing.T) {
 	// map() inside a if branch → CodeUnsupportedConstruct from lowerCallInto
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -616,7 +616,7 @@ func hasLowerDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 func TestLowerLocalCallUnknownFnEmitsEarlyDiagnostic(t *testing.T) {
 	// An unknown function inside a if condition should produce CodeUnknownFnAlias
 	// pinned to the call site, not a cascade of type-mismatch errors.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -633,7 +633,7 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 	// An unknown function inside a pipe step should also produce CodeUnknownFnAlias
 	// from the lowerer — including when inside a pipe step where operator-only
 	// functions are otherwise permitted.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -659,7 +659,7 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 // Before the fix the second wildcard re-entered the wildcard branch and emitted
 // an extra "arm 2 unreachable" duplicate, producing 3 diagnostics total.
 func TestLowerCaseIntoDoubleWildcard(t *testing.T) {
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -684,7 +684,7 @@ func TestLowerLocalCallUnknownFnNoCascadingErrors(t *testing.T) {
 	// The early unknown-function diagnostic must not produce cascading ArgTypeMismatch
 	// errors. The lowerer emits a zero-value binding so downstream type checking sees
 	// a valid (if wrong) value rather than an unresolved reference.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1

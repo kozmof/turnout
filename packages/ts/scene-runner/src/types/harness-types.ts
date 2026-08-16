@@ -137,7 +137,7 @@ export type ExecutionOptions = {
  * Consumed via `ExecutionOptions.onLog`.
  */
 export type LogEvent =
-  | { kind: "scene-start"; sceneId: string; entryActions: string[] }
+  | { kind: "scene-start"; sceneId: string; entryAction: string }
   | { kind: "action-start"; sceneId: string; actionId: string; stepIndex: number }
   | { kind: "action-complete"; sceneId: string; actionId: string; trace: ActionTrace }
   | { kind: "scene-complete"; sceneId: string; terminatedAt: string[] }

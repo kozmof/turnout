@@ -16,7 +16,7 @@ state {
 }
 
 scene "payment_webhook" {
-  entry_actions = [record_verified_event]
+  entry_action = record_verified_event
 
   action "record_verified_event" {
     compute "advance_payment_checkpoint" {

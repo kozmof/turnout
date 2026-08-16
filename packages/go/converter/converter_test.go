@@ -18,7 +18,7 @@ state {
 }
 
 scene "start" {
-  entry_actions = [init]
+  entry_action = init
 
   action "init" {
     compute "p" {
@@ -214,7 +214,7 @@ func TestCompileWithSchemaDoesNotRereadStateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	src := `state_file = "schema.tu"
-scene "start" { entry_actions = [init] action "init" {} }`
+scene "start" { entry_action = init action "init" {} }`
 	name := filepath.Join(dir, "main.tu")
 	schema, order, ds := converter.ResolveSchema(name, src, "")
 	if ds.HasErrors() {
@@ -273,7 +273,7 @@ state {
 }
 
 scene "start" {
-  entry_actions = [init]
+  entry_action = init
 
   action "init" {
     compute "p" {
@@ -328,7 +328,7 @@ state {
 }
 
 scene "start" {
-  entry_actions = [init]
+  entry_action = init
 
   action "init" {
     compute "p" {
@@ -354,7 +354,7 @@ func TestCompileRejectsOversizedStateFile(t *testing.T) {
 		t.Fatal(err)
 	}
 	sourcePath := filepath.Join(dir, "source.tu")
-	source := "state_file = \"schema.tu\"\nscene \"s\" { entry_actions = [] }"
+	source := "state_file = \"schema.tu\"\nscene \"s\" { entry_action = a }"
 	if err := os.WriteFile(sourcePath, []byte(source), 0o644); err != nil {
 		t.Fatal(err)
 	}

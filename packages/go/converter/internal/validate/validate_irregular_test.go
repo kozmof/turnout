@@ -241,9 +241,9 @@ func irregularModelWithRoutes(routes []*turnoutpb.RouteModel) *turnoutpb.TurnMod
 	return &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
-			Actions:      []*turnoutpb.ActionModel{action},
+			Id:          "s",
+			EntryAction: "a",
+			Actions:     []*turnoutpb.ActionModel{action},
 		}},
 		Routes: routes,
 	}
@@ -253,9 +253,9 @@ func irregularModelWithAction(action *turnoutpb.ActionModel) *turnoutpb.TurnMode
 	return &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
-			Actions:      []*turnoutpb.ActionModel{action},
+			Id:          "s",
+			EntryAction: "a",
+			Actions:     []*turnoutpb.ActionModel{action},
 		}},
 	}
 }

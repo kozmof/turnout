@@ -91,7 +91,7 @@ message FieldModel {
 
 message SceneBlock {
   string id = 1;
-  repeated string entry_actions = 2;
+  string entry_action = 2;
   // next_policy is one of: "first-match" | "all-match". Absent means first-match.
   optional string next_policy = 3;
   repeated ActionModel actions = 4;

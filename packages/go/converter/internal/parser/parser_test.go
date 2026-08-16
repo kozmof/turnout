@@ -58,7 +58,7 @@ func TestParseInlineStateBlock(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -92,7 +92,7 @@ func TestParseStateFileDirective(t *testing.T) {
 	src := `state_file = "loan.state.tu"
 
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -110,7 +110,7 @@ scene "s" {
 
 func TestMissingStateSourceError(t *testing.T) {
 	src := `scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -122,7 +122,7 @@ func TestMissingStateSourceError(t *testing.T) {
 func TestConflictingStateSourceError(t *testing.T) {
 	src := `state {}
 state_file = "x.tu"
-scene "s" { entry_actions = [a] action "a" { compute "p" { v:bool := true } } }
+scene "s" { entry_action = a action "a" { compute "p" { v:bool := true } } }
 `
 	mustParseFail(t, src)
 }
@@ -132,8 +132,8 @@ scene "s" { entry_actions = [a] action "a" { compute "p" { v:bool := true } } }
 func TestParseSceneBasic(t *testing.T) {
 	src := `state {}
 scene "loan_flow" {
-  entry_actions = [score, init]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
   action "score" {
     compute "p" { decision:bool := true }
   }
@@ -144,8 +144,8 @@ scene "loan_flow" {
 	if sb.ID != "loan_flow" {
 		t.Errorf("scene ID = %q", sb.ID)
 	}
-	if len(sb.EntryActions) != 2 || sb.EntryActions[0] != "score" {
-		t.Errorf("entry_actions = %v", sb.EntryActions)
+	if sb.EntryAction != "score" {
+		t.Errorf("entry_action = %q", sb.EntryAction)
 	}
 	if sb.NextPolicy != "first-match" {
 		t.Errorf("next_policy = %q", sb.NextPolicy)
@@ -923,7 +923,7 @@ func TestRHSCompatFuncBlock(t *testing.T) {
 func TestParseRouteBlock(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "main" {
@@ -982,7 +982,7 @@ route "main" {
 func TestParseRouteORBranches(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r" {
@@ -1013,7 +1013,7 @@ route "r" {
 func TestParseRouteFallbackOnly(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r" { match { _ => s } }`
@@ -1030,7 +1030,7 @@ route "r" { match { _ => s } }`
 func TestParseMultipleRoutes(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r1" { match { _ => s } }
@@ -1047,7 +1047,7 @@ route "r2" { match { s.done => s } }`
 func TestParseRouteWildcardSegment(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r" { match { s.*.final => s } }`

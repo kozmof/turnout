@@ -43,7 +43,8 @@ export type SceneInternalErrorCode =
   | "OutOfOrderBinding"
   | "CompilerBug"
   | "UnsupportedConstruct"
-  | "IncompleteScene";
+  | "IncompleteScene"
+  | "NoEntryAction";
 
 export class SceneRuntimeError extends Error {
   readonly code: SceneErrorCode | SceneInternalErrorCode;

@@ -16,10 +16,10 @@ export type SceneRunState = {
   readonly ruleCtxCache: RuleCtxCache;
 };
 
-export function createRunState(initialState: StateManager, entryActions: string[]): SceneRunState {
+export function createRunState(initialState: StateManager, entryAction: string): SceneRunState {
   return {
     currentState: initialState,
-    queue: [...entryActions],
+    queue: [entryAction],
     queueHead: 0,
     visited: new Set(),
     enqueueSource: new Map(),

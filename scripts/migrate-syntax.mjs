@@ -31,7 +31,7 @@ const RESERVED = new Set([
   "publish",
   "next",
   "prog",
-  "entry_actions",
+  "entry_action",
   "next_policy",
   "from_state",
   "from_action",
@@ -122,6 +122,27 @@ const transforms = [
             /\baction(\s*)=(\s*)"([A-Za-z_][A-Za-z0-9_]*)"/g,
             (m, s1, s2, name) => `action${s1}=${s2}${bareRef(`"${name}"`)}`,
           ),
+      ),
+  },
+  {
+    // A scene declares exactly one entry action, so the list collapses to a
+    // single reference. Route-driven entry only ever launched the first entry,
+    // but a standalone scene run seeded its queue with all of them — so any
+    // dropped entry is flagged in place rather than removed silently.
+    name: "6 singular entry action",
+    apply: (src) =>
+      rewriteCodeLines(src, (code) =>
+        code.replace(/\bentry_actions(\s*)=(\s*)\[([^\]]*)\]/g, (m, s1, s2, items) => {
+          const refs = items
+            .split(",")
+            .map((s) => s.trim())
+            .filter(Boolean);
+          const [first, ...rest] = refs;
+          const line = `entry_action${s1}=${s2}${first ?? ""}`;
+          return rest.length === 0
+            ? line
+            : `${line}  # migration: dropped ${rest.join(", ")} — a scene now has one entry action`;
+        }),
       ),
   },
   {

@@ -6,13 +6,13 @@ import type { RouteModel, SceneBlock, TurnModel } from "../src/types/turnout-mod
 
 const sceneA = {
   id: "s1",
-  entryActions: ["a"],
+  entryAction: "a",
   actions: [{ id: "a" }],
 };
 
 const sceneB = {
   id: "s2",
-  entryActions: ["b"],
+  entryAction: "b",
   actions: [{ id: "b" }],
 };
 
@@ -20,7 +20,7 @@ describe("prototype-named runtime identifiers", () => {
   it("executes an action named constructor", async () => {
     const model = {
       version: 1,
-      scenes: [{ id: "s", entryActions: ["constructor"], actions: [{ id: "constructor" }] }],
+      scenes: [{ id: "s", entryAction: "constructor", actions: [{ id: "constructor" }] }],
       routes: [],
     } as unknown as TurnModel;
     const runner = createRunner(model, {
@@ -95,7 +95,7 @@ describe("createRunner — route execution limits", () => {
       scenes: [
         {
           id: "s",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [{ id: "a", next: [{ action: "b" }] }, { id: "b" }],
         },
       ],
@@ -115,7 +115,7 @@ describe("createRunner — route execution limits", () => {
 describe("createRunner — scene mode API", () => {
   const scene = {
     id: "scene_api",
-    entryActions: ["write"],
+    entryAction: "write",
     actions: [
       {
         id: "write",
@@ -199,7 +199,7 @@ describe("createRunner — scene mode API", () => {
 
 describe("createRunner — API misuse contracts", () => {
   const model = {
-    scenes: [{ id: "contract", entryActions: ["a"], actions: [{ id: "a" }] }],
+    scenes: [{ id: "contract", entryAction: "a", actions: [{ id: "a" }] }],
     routes: [],
   } as unknown as TurnModel;
 
@@ -248,7 +248,7 @@ describe("createRunner — API misuse contracts", () => {
       scenes: [
         {
           id: "slow",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [
             {
               id: "a",
@@ -319,7 +319,7 @@ describe("createRunner — API misuse contracts", () => {
 
 describe("createRunner — AbortSignal cancellation", () => {
   const sceneModel = {
-    scenes: [{ id: "sc", entryActions: ["a"], actions: [{ id: "a" }] }],
+    scenes: [{ id: "sc", entryAction: "a", actions: [{ id: "a" }] }],
     routes: [],
   } as unknown as TurnModel;
 
@@ -342,7 +342,7 @@ describe("createRunner — AbortSignal cancellation", () => {
       scenes: [
         {
           id: "sc2",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [{ id: "a", next: [{ action: "b" }] }, { id: "b" }],
         },
       ],
@@ -373,7 +373,7 @@ describe("createRunner — AbortSignal cancellation", () => {
       scenes: [
         {
           id: "hs",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [
             {
               id: "a",
@@ -481,7 +481,7 @@ describe("createRunner — route mode API", () => {
 describe("createRunner — onWarning callback", () => {
   const modelNoState = {
     version: 1,
-    scenes: [{ id: "w", entryActions: ["a"], actions: [{ id: "a" }] }],
+    scenes: [{ id: "w", entryAction: "a", actions: [{ id: "a" }] }],
     routes: [],
   } as unknown as TurnModel;
 
@@ -537,7 +537,7 @@ describe("createRunner — onWarning callback", () => {
 describe("createRunner — result.model promotion (mapRunnerResult)", () => {
   const scene = {
     id: "promo",
-    entryActions: ["a"],
+    entryAction: "a",
     actions: [{ id: "a" }],
   };
   const model = { scenes: [scene], routes: [] } as unknown as TurnModel;
@@ -578,7 +578,7 @@ describe("createRunner — model validation failure (duplicate action IDs)", () 
       scenes: [
         {
           id: "dup_scene",
-          entryActions: ["a"],
+          entryAction: "a",
           // Two actions with the same id "a" — validateModel catches this
           actions: [{ id: "a" }, { id: "a" }],
         },
@@ -605,7 +605,7 @@ describe("createRunner — route runner partialState mid-execution", () => {
   it("partialState() returns the current state before the route completes", async () => {
     const writeScene = {
       id: "write",
-      entryActions: ["w"],
+      entryAction: "w",
       actions: [
         {
           id: "w",
@@ -624,7 +624,7 @@ describe("createRunner — route runner partialState mid-execution", () => {
     };
     const readScene = {
       id: "read",
-      entryActions: ["r"],
+      entryAction: "r",
       actions: [{ id: "r" }],
     };
     const model = {
@@ -664,7 +664,7 @@ describe("createRunner — route runner partialState mid-execution", () => {
 describe("createRunner — dispatch rejects route with no entrySceneId", () => {
   it("throws when the route model has no entrySceneId", () => {
     const model = {
-      scenes: [{ id: "s", entryActions: ["a"], actions: [{ id: "a" }] }],
+      scenes: [{ id: "s", entryAction: "a", actions: [{ id: "a" }] }],
       routes: [{ id: "r_no_entry", match: [] }], // no entrySceneId
     } as unknown as TurnModel;
 
@@ -683,7 +683,7 @@ describe("runner model snapshots", () => {
   it("allows a mutable scene object to be edited and reused between runners", async () => {
     const scene = {
       id: "mutable",
-      entryActions: ["before"],
+      entryAction: "before",
       actions: [{ id: "before" }],
     } as unknown as TurnModel["scenes"][number];
     const options = {
@@ -695,7 +695,7 @@ describe("runner model snapshots", () => {
 
     await createRunner({ scenes: [scene], routes: [] } as unknown as TurnModel, options).run();
 
-    scene.entryActions = ["after"];
+    scene.entryAction = "after";
     scene.actions = [{ id: "after" }] as typeof scene.actions;
 
     const result = await createRunner(
@@ -711,7 +711,7 @@ describe("runner model snapshots", () => {
   it("isolates an active runner from caller mutations after construction", async () => {
     const scene = {
       id: "snapshot",
-      entryActions: ["stable"],
+      entryAction: "stable",
       actions: [{ id: "stable" }],
     } as unknown as TurnModel["scenes"][number];
     const runner = createRunner({ scenes: [scene], routes: [] } as unknown as TurnModel, {
@@ -721,7 +721,7 @@ describe("runner model snapshots", () => {
       onWarning: () => {},
     });
 
-    scene.entryActions = ["mutated"];
+    scene.entryAction = "mutated";
     scene.actions = [{ id: "mutated" }] as typeof scene.actions;
 
     const result = await runner.run();
@@ -735,7 +735,7 @@ describe("runner model snapshots", () => {
 describe("createRunner — logging isolation", () => {
   it("ignores throwing scene lifecycle loggers", async () => {
     const model = {
-      scenes: [{ id: "scene", entryActions: ["a"], actions: [{ id: "a" }] }],
+      scenes: [{ id: "scene", entryAction: "a", actions: [{ id: "a" }] }],
       routes: [],
     } as unknown as TurnModel;
     const runner = createRunner(model, {
@@ -796,7 +796,7 @@ describe("low-level runner factories", () => {
   it("sets up explicitly opted-in unchecked state", async () => {
     const lowLevelScene = {
       id: "low_level",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [{ id: "a" }],
     } as unknown as SceneBlock;
     const warnings: string[] = [];

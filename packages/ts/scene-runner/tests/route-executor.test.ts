@@ -31,7 +31,7 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
 }
 
 function makeScene(id: string, ...actions: ActionModel[]): SceneBlock {
-  return { id, entryActions: [actions[0]!.id], actions } as unknown as SceneBlock;
+  return { id, entryAction: actions[0]!.id, actions } as unknown as SceneBlock;
 }
 
 function makeSceneMap(...scenes: SceneBlock[]): Record<string, SceneBlock> {
@@ -180,7 +180,7 @@ describe('executeRoute — wildcard pattern match "scene_1.*.terminal"', () => {
   const terminal = makePassAction("terminal", 2, "s1.term");
   const scene1 = {
     id: "scene_1",
-    entryActions: ["intro"],
+    entryAction: "intro",
     actions: [{ ...intro, next: [{ action: "terminal" }] }, terminal],
   } as unknown as SceneBlock;
   const scene2 = makeScene("scene_2", makePassAction("final", 100, "s2.out"));
@@ -260,7 +260,7 @@ describe("executeRoute — STATE propagates from scene_1 to scene_2", () => {
   const writeAction = makePassAction("write", 55, "shared.val");
   const scene1 = {
     id: "scene_1",
-    entryActions: ["write"],
+    entryAction: "write",
     actions: [writeAction],
   } as unknown as SceneBlock;
 
@@ -286,7 +286,7 @@ describe("executeRoute — STATE propagates from scene_1 to scene_2", () => {
   } as unknown as ActionModel;
   const scene2 = {
     id: "scene_2",
-    entryActions: ["read_double"],
+    entryAction: "read_double",
     actions: [readAction],
   } as unknown as SceneBlock;
 
@@ -380,7 +380,7 @@ describe("executeRoute — execution limits", () => {
   const second = makePassAction("second", 2, "step.second");
   const longScene = {
     id: "long_scene",
-    entryActions: ["first"],
+    entryAction: "first",
     actions: [first, second],
   } as unknown as SceneBlock;
 
@@ -469,28 +469,26 @@ describe("executeRoute — execution limits", () => {
   });
 });
 
-describe("executeRoute — route-driven entry warnings", () => {
-  it("warns and fires only the first entry action when a scene declares multiple entries", async () => {
+describe("executeRoute — scene entry", () => {
+  it("fires only the declared entry action, leaving unreachable actions alone", async () => {
     const first = makePassAction("first", 1, "entry.first");
     const second = makePassAction("second", 2, "entry.second");
     const scene = {
-      id: "multi_entry",
-      entryActions: ["first", "second"],
+      id: "single_entry",
+      entryAction: "first",
       actions: [first, second],
     } as unknown as SceneBlock;
-    const route = { id: "r_multi", match: [] } as unknown as RouteModel;
+    const route = { id: "r_single", match: [] } as unknown as RouteModel;
 
     const result = await executeRoute(
       route,
       makeSceneMap(scene),
-      "multi_entry",
+      "single_entry",
       stateManagerFromUnchecked({}),
     );
 
-    expect(result.history).toEqual(["multi_entry.first"]);
-    expect(result.warnings).toEqual([
-      { kind: "multi_entry_action", sceneId: "multi_entry", entryActions: ["first", "second"] },
-    ]);
+    expect(result.history).toEqual(["single_entry.first"]);
+    expect(result.warnings).toBeUndefined();
     expect(result.finalState["entry.second"]).toBeUndefined();
   });
 });
@@ -556,10 +554,10 @@ describe("executeRouteSafe — error path (unknown scene)", () => {
   });
 });
 
-describe("executeRouteSafe — scene with no entry actions", () => {
+describe("executeRouteSafe — scene with no entry action", () => {
   const emptyScene = {
     id: "empty",
-    entryActions: [],
+    entryAction: "",
     actions: [],
   } as unknown as SceneBlock;
   const route = { id: "r_empty", match: [] } as unknown as RouteModel;
@@ -573,7 +571,7 @@ describe("executeRouteSafe — scene with no entry actions", () => {
     );
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(String(result.error)).toContain("no entry actions");
+      expect(String(result.error)).toContain("no entry action");
     }
   });
 });
@@ -625,7 +623,7 @@ describe("executeRouteSafe — scene warnings propagated as route warnings", () 
   } as unknown as ActionModel;
   const scene = {
     id: "warn_scene",
-    entryActions: ["start"],
+    entryAction: "start",
     nextPolicy: "all-match",
     actions: [actionWithDupeNext, makePassAction("end", 2, "v.end")],
   } as unknown as SceneBlock;

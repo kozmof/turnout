@@ -55,7 +55,7 @@ func hasCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 func minScene(stateBlock, progBody string) string {
 	return stateBlock + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
 ` + progBody + `
@@ -85,8 +85,8 @@ func minModel(progName string, bindings []*turnoutpb.BindingModel) *turnoutpb.Tu
 	return &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -134,7 +134,7 @@ func TestNestedArrayNotAllowed(t *testing.T) {
 	// The parser supports nested array literals.
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       xs:arr<number> = [[1, 2]]
@@ -478,7 +478,7 @@ func TestMissingPrepareEntry(t *testing.T) {
 	// Hand-built internal ingress sigil but no prepare entry.
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number :=
@@ -495,7 +495,7 @@ func TestSpuriousPrepareEntry(t *testing.T) {
 	// prepare entry for a non-sigiled binding
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       plain:number = 0
@@ -515,7 +515,7 @@ scene "test" {
 func TestDuplicatePrepareEntry(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number :=
@@ -535,7 +535,7 @@ scene "test" {
 func TestDuplicateMergeEntry(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number := 0
@@ -556,7 +556,7 @@ func TestTransitionOutputSigil(t *testing.T) {
 	// <~ in a next (transition) prog
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -581,7 +581,7 @@ func TestUnresolvedPrepareBinding(t *testing.T) {
 	// prepare entry for "ghost" which isn't in prog
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     prepare {
@@ -599,7 +599,7 @@ func TestUnresolvedMergeBinding(t *testing.T) {
 	// merge entry for "ghost" which isn't in prog
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     merge {
@@ -619,7 +619,7 @@ func TestUnresolvedStatePath(t *testing.T) {
 	// from_state pointing to a path not in schema
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number :=
@@ -639,7 +639,7 @@ func TestStateTypeMismatch(t *testing.T) {
 	// to_state app.active is bool but binding is number
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number := 0
@@ -659,7 +659,7 @@ func TestMissingStatePath_EmptyMergeEntry(t *testing.T) {
 	// A merge entry block with no to_state should emit CodeMissingStatePath.
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number := 0
@@ -680,7 +680,7 @@ scene "test" {
 func TestDuplicateActionLabel(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
   action "a" { compute "p" { v:bool := true } }
 }
@@ -696,9 +696,9 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
-			Actions:      []*turnoutpb.ActionModel{},
+			Id:          "s",
+			EntryAction: "a",
+			Actions:     []*turnoutpb.ActionModel{},
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
@@ -707,12 +707,12 @@ func TestSCNInvalidActionGraph_NoActions(t *testing.T) {
 	}
 }
 
-func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
+func TestSCNInvalidActionGraph_NoEntryAction(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{},
+			Id:          "s",
+			EntryAction: "",
 			Actions: []*turnoutpb.ActionModel{
 				{Id: "a", Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{Name: "p", Bindings: []*turnoutpb.BindingModel{
 					{Name: "v", Type: "bool", Value: structpb.NewBoolValue(true)},
@@ -722,7 +722,7 @@ func TestSCNInvalidActionGraph_NoEntryActions(t *testing.T) {
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
 	if !hasCode(ds, diag.CodeInvalidActionGraph) {
-		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_actions")
+		t.Error("want SCN_INVALID_ACTION_GRAPH for empty entry_action")
 	}
 }
 
@@ -754,7 +754,7 @@ func TestMarkerRules(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     ` + tc.body + `
   }
@@ -770,7 +770,7 @@ scene "test" {
 func TestMissingConditionMarker(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -790,7 +790,7 @@ scene "test" {
 func unusedSrc(progBody string) string {
 	return basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
 ` + progBody + `
@@ -829,7 +829,7 @@ func TestUnusedBinding(t *testing.T) {
 func routeSrc(matchBody string) string {
 	return basicState + `
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {
@@ -903,7 +903,7 @@ func TestWildcardTerminalUnresolvable(t *testing.T) {
 func TestMissingEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {
@@ -920,7 +920,7 @@ route "r1" {
 func TestUnresolvedEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {

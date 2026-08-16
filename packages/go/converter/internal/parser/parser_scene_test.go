@@ -104,30 +104,28 @@ func TestOverviewBlockMissingBrace(t *testing.T) {
   }`))
 }
 
-// TestEntryActionsBareAndQuoted covers parseRefArray: references are bare
-// identifiers as of v2 (NEW_SYNTAX.md 2.3), with the quoted form still accepted
+// TestEntryActionBareAndQuoted covers the entry_action reference: it is a bare
+// identifier as of v2 (NEW_SYNTAX.md 2.3), with the quoted form still accepted
 // for one release.
-func TestEntryActionsBareAndQuoted(t *testing.T) {
-	for _, list := range []string{`[a, b]`, `["a", "b"]`, `[a, "b"]`} {
+func TestEntryActionBareAndQuoted(t *testing.T) {
+	for _, ref := range []string{`a`, `"a"`} {
 		tf := mustParse(t, `state { ns { val:number = 0 } }
 scene "test" {
-  entry_actions = `+list+`
+  entry_action = `+ref+`
   action "a" { compute "p" { v:bool := true } }
-  action "b" { compute "q" { v:bool := true } }
 }
 `)
-		got := tf.Scenes[0].EntryActions
-		if len(got) != 2 || got[0] != "a" || got[1] != "b" {
-			t.Errorf("%s: entry_actions = %v, want [a b]", list, got)
+		if got := tf.Scenes[0].EntryAction; got != "a" {
+			t.Errorf("%s: entry_action = %q, want %q", ref, got, "a")
 		}
 	}
 }
 
-// TestEntryActionsRejectsNonReference covers parseRefArray's error branch.
-func TestEntryActionsRejectsNonReference(t *testing.T) {
+// TestEntryActionRejectsNonReference covers parseRefVal's error branch.
+func TestEntryActionRejectsNonReference(t *testing.T) {
 	mustParseFail(t, `state { ns { val:number = 0 } }
 scene "test" {
-  entry_actions = [42]
+  entry_action = 42
   action "a" { compute "p" { v:bool := true } }
 }
 `)

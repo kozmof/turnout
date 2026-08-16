@@ -106,7 +106,7 @@ const cases: Case[] = [
     src: `type Metric = "m-{value: number}"
 ${stateBlock}
 scene "construct_low" {
-  entry_actions = [run]
+  entry_action = run
   action "run" {
     compute "p" {
       n:number
@@ -131,7 +131,7 @@ scene "construct_low" {
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 ${stateBlock}
 scene "destructure_low" {
-  entry_actions = [run]
+  entry_action = run
   action "run" {
     compute "p" {
       rid:ResourceId
@@ -159,7 +159,7 @@ type Enabled = true | false
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 ${stateBlock}
 scene "tuple_low" {
-  entry_actions = [run]
+  entry_action = run
   action "run" {
     compute "p" {
       rid:ResourceId <~ @input.word
@@ -185,7 +185,7 @@ scene "tuple_low" {
     initialState: boxed({ "input.n": 4, "input.flag": true }),
     src: `${stateBlock}
 scene "if_low" {
-  entry_actions = [run]
+  entry_action = run
   action "run" {
     compute "p" {
       n:number <~ @input.n
@@ -206,7 +206,7 @@ scene "if_low" {
     initialState: boxed({ "input.n": 8, "input.flag": true }),
     src: `${stateBlock}
 scene "if_medium" {
-  entry_actions = [first]
+  entry_action = first
   action "first" {
     compute "p1" {
       n:number <~ @input.n
@@ -236,7 +236,7 @@ scene "if_medium" {
     initialState: boxed({ "input.n": 6, "input.flag": true }),
     src: `${stateBlock}
 scene "if_a" {
-  entry_actions = [done]
+  entry_action = done
   action "done" {
     compute "p1" {
       n:number <~ @input.n
@@ -247,7 +247,7 @@ scene "if_a" {
   }
 }
 scene "if_b" {
-  entry_actions = [finish]
+  entry_action = finish
   action "finish" {
     compute "p2" {
       v:number
@@ -272,7 +272,7 @@ route "if_route" {
     initialState: boxed({ "input.word": "red" }),
     src: `${stateBlock}
 scene "case_low" {
-  entry_actions = [run]
+  entry_action = run
   action "run" {
     compute "p" {
       word:str
@@ -293,7 +293,7 @@ scene "case_low" {
     initialState: boxed({ "input.word": "vip" }),
     src: `${stateBlock}
 scene "case_medium" {
-  entry_actions = [classify]
+  entry_action = classify
   action "classify" {
     compute "p1" {
       word:str
@@ -323,7 +323,7 @@ scene "case_medium" {
     initialState: boxed({ "input.word": "red" }),
     src: `${stateBlock}
 scene "case_a" {
-  entry_actions = [done]
+  entry_action = done
   action "done" {
     compute "p1" {
       word:str
@@ -334,7 +334,7 @@ scene "case_a" {
   }
 }
 scene "case_b" {
-  entry_actions = [finish]
+  entry_action = finish
   action "finish" {
     compute "p2" {
       tone:str
@@ -359,7 +359,7 @@ route "case_route" {
     initialState: boxed({ "input.n": 4 }),
     src: `${stateBlock}
 scene "pipe_low" {
-  entry_actions = [run]
+  entry_action = run
   action "run" {
     compute "p" {
       n:number
@@ -380,7 +380,7 @@ scene "pipe_low" {
     initialState: boxed({ "input.n": 2 }),
     src: `${stateBlock}
 scene "pipe_medium" {
-  entry_actions = [first]
+  entry_action = first
   action "first" {
     compute "p1" {
       n:number
@@ -410,7 +410,7 @@ scene "pipe_medium" {
     initialState: boxed({ "input.n": 3 }),
     src: `${stateBlock}
 scene "pipe_a" {
-  entry_actions = [done]
+  entry_action = done
   action "done" {
     compute "p1" {
       n:number
@@ -421,7 +421,7 @@ scene "pipe_a" {
   }
 }
 scene "pipe_b" {
-  entry_actions = [finish]
+  entry_action = finish
   action "finish" {
     compute "p2" {
       staged:number

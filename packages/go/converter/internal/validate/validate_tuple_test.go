@@ -13,7 +13,7 @@ type Enabled = true | false
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" {
     rid: ResourceId = "foo-1"
     enabled: Enabled = true
@@ -62,7 +62,7 @@ func TestNestedTuplePattern(t *testing.T) {
 	src := `
 type Toggle = true | false
 state { app { score:number = 0 } }
-scene "sc" { entry_actions = [a] action "a" { compute "p" {
+scene "sc" { entry_action = a action "a" { compute "p" {
   a: Toggle = true
   b: Toggle = false
   n: number = 3
@@ -75,7 +75,7 @@ scene "sc" { entry_actions = [a] action "a" { compute "p" {
 
 func TestTupleWholeBinderRejected(t *testing.T) {
 	src := `state { app { score:number = 0 } }
-scene "sc" { entry_actions = [a] action "a" { compute "p" {
+scene "sc" { entry_action = a action "a" { compute "p" {
   a: bool = true
   b: number = 1
   result:number := case((a, b), both => 1)
@@ -87,7 +87,7 @@ scene "sc" { entry_actions = [a] action "a" { compute "p" {
 
 func TestTupleGuardMustBeBool(t *testing.T) {
 	src := `state { app { score:number = 0 } }
-scene "sc" { entry_actions = [a] action "a" { compute "p" {
+scene "sc" { entry_action = a action "a" { compute "p" {
   a: bool = true
   b: number = 1
   result:number := case((a, b), (true, n) if n => n, _ => 0)

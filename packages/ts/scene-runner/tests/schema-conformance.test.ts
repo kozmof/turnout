@@ -50,7 +50,7 @@ describe("inline TurnModel type conformance", () => {
       scenes: [
         {
           id: "test",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [
             {
               id: "a",
@@ -75,7 +75,7 @@ describe("inline TurnModel type conformance", () => {
       scenes: [
         {
           id: "s",
-          entryActions: ["a"],
+          entryAction: "a",
           nextPolicy: "first-match",
           actions: [{ id: "a" } as unknown as ActionModel],
         } as unknown as SceneBlock,
@@ -98,7 +98,7 @@ describe("inline TurnModel type conformance", () => {
 
 describe("validateModel", () => {
   function makeScene(id: string, actions: ActionModel[]): SceneBlock {
-    return { id, entryActions: [], actions } as unknown as SceneBlock;
+    return { id, entryAction: "", actions } as unknown as SceneBlock;
   }
 
   function makeAction(id: string): ActionModel {
@@ -266,7 +266,7 @@ describe("validateModel", () => {
       },
     } as unknown as ActionModel;
     const model = {
-      scenes: [{ id: "s", entryActions: ["missing_entry"], actions: [action] }],
+      scenes: [{ id: "s", entryAction: "missing_entry", actions: [action] }],
       routes: [],
     } as unknown as TurnModel;
 

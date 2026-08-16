@@ -5,7 +5,7 @@
 # Turnout in one coherent program:
 #
 #   * state block  — all six field types (number/str/bool + arr<...> variants)
-#   * scenes       — entry_actions, both next policies (first-match, all-match)
+#   * scenes       — entry_action, both next policies (first-match, all-match)
 #   * overview     — all three enforce modes (strict, at_least, nodes_only),
 #                    plus a scene with no overview block at all
 #   * actions      — docstring sugar (""" """) AND explicit text = <<-EOT
@@ -89,8 +89,8 @@ state {
 # ---------------------------------------------------------------------------
 
 scene "triage" {
-  entry_actions = [intake]
-  next_policy   = "first-match"
+  entry_action = intake
+  next_policy  = "first-match"
 
   overview strict {
     intake |=> auto_resolve
@@ -296,8 +296,8 @@ scene "triage" {
 # ---------------------------------------------------------------------------
 
 scene "review" {
-  entry_actions = [assess]
-  next_policy   = "all-match"
+  entry_action = assess
+  next_policy  = "all-match"
 
   overview at_least {
     assess |=> notify
@@ -359,8 +359,8 @@ scene "review" {
 # ---------------------------------------------------------------------------
 
 scene "finalize" {
-  entry_actions = [seal]
-  next_policy   = "first-match"
+  entry_action = seal
+  next_policy  = "first-match"
 
   overview nodes_only {
     seal |=> archive
@@ -395,8 +395,8 @@ scene "finalize" {
 # ---------------------------------------------------------------------------
 
 scene "closed" {
-  entry_actions = [close]
-  next_policy   = "first-match"
+  entry_action = close
+  next_policy  = "first-match"
 
   action "close" {
     """

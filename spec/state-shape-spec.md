@@ -77,8 +77,8 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = [score]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
 
   action "score" { ... }
   action "approve" { ... }
@@ -128,8 +128,8 @@ When STATE is shared across multiple scenes or maintained independently, a Turn 
 state_file = "loan.state.hcl"
 
 scene "loan_flow" {
-  entry_actions = [score]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
 
   action "score" { ... }
 }
@@ -333,8 +333,8 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = [score]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
 
   action "score" { ... }
   action "approve" { ... }
@@ -443,8 +443,8 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = [score]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
 
   action "score" {
     compute "score_graph" {
@@ -502,8 +502,8 @@ state {
 state_file = "loan.state.hcl"
 
 scene "loan_flow" {
-  entry_actions = [score]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
 
   action "score" { ... }
   action "approve" { ... }
@@ -552,8 +552,8 @@ state {
 }
 
 scene "loan_flow" {
-  entry_actions = [score]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
 
   action "score" {
     compute {

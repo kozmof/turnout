@@ -14,7 +14,7 @@ func assignProg(typeDecls, decl string) string {
 	return typeDecls + `
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       ` + decl + `
@@ -102,7 +102,7 @@ type Foo = "foo"
 type Kind = "foo" | "bar"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       f: Foo = "foo"
@@ -125,7 +125,7 @@ func TestAssignSingleRefInvalid(t *testing.T) {
 type Kind = "foo" | "bar"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       s: str = "foo"

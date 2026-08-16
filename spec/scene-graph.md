@@ -74,7 +74,7 @@ Correlation:
 type Scene = {
   sceneId: string;
   actions: Action[];
-  entryActionIds: ActionId[];
+  entryActionId: ActionId;
   nextPolicy?: "first-match" | "all-match"; // default: first-match
   view?: OverviewView;
 };
@@ -178,8 +178,8 @@ Rule, result binding declared last: The compute root is designated by `:=` on it
 
 ```hcl
 scene "loan_flow" {
-  entry_actions      = [score]
-  next_policy        = "first-match"
+  entry_action      = score
+  next_policy       = "first-match"
 
   action "score" {
     compute "score_graph" {
@@ -256,7 +256,7 @@ Lowering and validation rules:
 Before first action execution, implementations MUST validate:
 
 1. `actions` is non-empty.
-2. `entryActionIds` is non-empty and all entries exist.
+2. `entryActionId` is non-empty and the action it names exists.
 3. Every `actionId` is unique.
 4. All next actions exist.
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.

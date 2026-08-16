@@ -45,7 +45,7 @@ Add `-format json` flag to the CLI so the converter emits the lowered model as J
   "scenes": [
     {
       "id": "scene_1",
-      "entry_actions": ["analyze_request"],
+      "entry_action": "analyze_request",
       "next_policy": "first-match",
       "actions": [ { "id": "...", "compute": {...}, "prepare": [...], "merge": [...], "next": [...] } ]
     }
@@ -248,7 +248,7 @@ function executeScene(
 ```
 
 Algorithm:
-1. `queue = [...scene.entry_actions]`
+1. `queue = [scene.entry_action]`
 2. While non-empty: dequeue action → `executeAction` → update state → evaluate next rules → route per `next_policy`
 3. For each next rule: build & execute its `compute.prog` with `resolveNextPrepare` injected → condition bool → collect matches
 4. `first-match`: push first match and break; `all-match`: push all matches

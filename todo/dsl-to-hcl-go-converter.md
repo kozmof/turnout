@@ -45,7 +45,7 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `entry_actions`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`
+- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `entry_action`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`
 - [x] Typed key (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
 - [x] Inline IO arrows: `<~` and `~>`; legacy `<~>` is tokenized only for migration diagnostics
@@ -92,7 +92,7 @@ Define Go structs for every DSL construct.
 
 ### Scene block
 
-- [x] `SceneBlock { ID string; EntryActions []string; NextPolicy string; View *ViewBlock; Actions []*ActionBlock }`
+- [x] `SceneBlock { ID string; EntryAction string; NextPolicy string; View *ViewBlock; Actions []*ActionBlock }`
 - [x] `ViewBlock { Name string; Flow string; Enforce string }`
 
 ### Action block
@@ -148,7 +148,7 @@ Recursive descent parser consuming the token stream.
 ### Scene parsing
 
 - [x] Parse `scene "<id>" { ... }` block
-- [x] Parse `entry_actions`, `next_policy`, `view`, actions
+- [x] Parse `entry_action`, `next_policy`, `view`, actions
 - [x] Parse `action "<id>" { ... }` blocks
 - [x] Parse optional triple-quoted docstring at action top level → `text`
 - [x] Error on duplicate docstring + explicit `text` (`SCN_ACTION_TEXT_DUPLICATE`)
@@ -293,7 +293,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 ### Scene structural validation (per `scene-graph.md §6`)
 
 - [x] `actions` is non-empty
-- [x] `entryActionIds` non-empty; all referenced actions exist
+- [x] `entryActionId` non-empty; the referenced action exists
 - [x] All `actionId`s are unique
 - [x] All `next.action` references exist in scene
 - [x] `compute.root` binding exists in `prog`
@@ -333,8 +333,8 @@ state {
 
 ```
 scene "<id>" {
-  entry_actions = [<actionId>, ...]
-  next_policy   = "<policy>"
+  entry_action = <actionId>
+  next_policy  = "<policy>"
 
   action "<id>" {
     text = <<-EOT
@@ -362,7 +362,7 @@ scene "<id>" {
 }
 ```
 
-- [x] `entry_actions` as string list attribute
+- [x] `entry_action` as string attribute
 - [x] `next_policy` as string attribute
 - [x] Each action block with unique label
 - [x] `compute.root` and `next.compute.condition` as quoted strings

@@ -55,7 +55,7 @@ func TestEmitTypeDecls(t *testing.T) {
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { k: Kind := "foo" } }
 }
 `
@@ -87,7 +87,7 @@ func TestEmitStateBlock(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }
 `
@@ -123,7 +123,7 @@ scene "s" {
 func TestEmitStateBeforeScene(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { x:bool := true } }
 }`)
 	stateIdx := strings.Index(out, "state {")
@@ -141,18 +141,18 @@ scene "s" {
 func TestEmitSceneBlock(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "loan_flow" {
-  entry_actions = [score, init]
-  next_policy   = "first-match"
+  entry_action = score
+  next_policy  = "first-match"
   action "score" { compute "p" { r:bool := true } }
   action "init"  { compute "p" { r:bool := true } }
 }`)
 	if !strings.Contains(out, `scene "loan_flow"`) {
 		t.Error("missing scene label")
 	}
-	if !strings.Contains(out, `entry_actions = ["score", "init"]`) {
-		t.Error("missing entry_actions")
+	if !strings.Contains(out, `entry_action = "score"`) {
+		t.Error("missing entry_action")
 	}
-	if !strings.Contains(out, `next_policy   = "first-match"`) {
+	if !strings.Contains(out, `next_policy  = "first-match"`) {
 		t.Error("missing next_policy")
 	}
 }
@@ -160,7 +160,7 @@ scene "loan_flow" {
 func TestEmitNextPolicyOmittedWhenEmpty(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`)
 	if strings.Contains(out, "nextPolicy") {
@@ -173,7 +173,7 @@ scene "s" {
 func TestEmitActionText(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     """
     Review the application.
@@ -197,7 +197,7 @@ scene "s" {
 func TestEmitValueBinding(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "score_graph" {
       result:number := 42
@@ -227,7 +227,7 @@ scene "s" {
 func TestEmitCombineExpr(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number     = 3
@@ -256,7 +256,7 @@ scene "s" {
 func TestEmitPipeExpr(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 3
@@ -279,7 +279,7 @@ scene "s" {
 func TestEmitCondExpr(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 1
@@ -307,7 +307,7 @@ func TestEmitPrepareFromState(t *testing.T) {
   app { score:number = 0 }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { score:number := }
     prepare {
@@ -328,7 +328,7 @@ func TestEmitPrepareFromHook(t *testing.T) {
   app { data:str = "" }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { data:str := }
     prepare {
@@ -346,7 +346,7 @@ func TestEmitMergeBlock(t *testing.T) {
   app { approved:bool = false }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { approved:bool := true }
     merge {
@@ -365,7 +365,7 @@ scene "s" {
 func TestEmitPublishBlock(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     publish {
@@ -384,7 +384,7 @@ scene "s" {
 func TestEmitNextRule(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -412,7 +412,7 @@ scene "s" {
 func TestEmitNextRuleDeterministicOmitsCompute(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -435,7 +435,7 @@ scene "s" {
 func TestEmitNextPrepareFromAction(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       decision:bool := true
@@ -462,7 +462,7 @@ scene "s" {
 func TestEmitRouteBlock(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "route_1" {
@@ -499,7 +499,7 @@ route "route_1" {
 func TestEmitRouteEntrySceneIdMissingFails(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "route_1" {
@@ -528,7 +528,7 @@ route "route_1" {
 func TestEmitRouteAfterScene(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r1" { entry = s match { _ => s } }`)
@@ -545,7 +545,7 @@ route "r1" { entry = s match { _ => s } }`)
 func TestEmitRouteORBranches(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r1" {
@@ -579,7 +579,7 @@ func TestEmitIdempotency(t *testing.T) {
   }
 }
 scene "loan_flow" {
-  entry_actions = [score]
+  entry_action = score
   next_policy   = "first-match"
   action "score" {
     """
@@ -617,7 +617,7 @@ func TestEmitStateFileVsInline(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 `
@@ -634,7 +634,7 @@ scene "s" {
 	}
 	stateFileSrc := `state_file = "app.state.tu"
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 `
@@ -736,7 +736,7 @@ func TestEmitJSONBasic(t *testing.T) {
   }
 }
 scene "test_scene" {
-  entry_actions = [act_a]
+  entry_action = act_a
   next_policy   = "first-match"
   action "act_a" {
     compute "g" {
@@ -776,7 +776,7 @@ scene "test_scene" {
 	checks := []string{
 		`"scenes"`,
 		`"test_scene"`,
-		`"entryActions"`,
+		`"entryAction"`,
 		`"act_a"`,
 		`"prepare"`,
 		`"fromState"`,
@@ -799,7 +799,7 @@ func TestAnnotationsNotInJSONOutput(t *testing.T) {
 	// it is still safe to call EmitJSON.
 	src := `state { app { query:str = "" result:str = "" } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       q:str
@@ -830,7 +830,7 @@ scene "s" {
 func TestEmitJSONIncludesLoweredExtExprs(t *testing.T) {
 	src := `state { app { n:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       flag:bool = true

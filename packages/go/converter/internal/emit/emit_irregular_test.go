@@ -16,8 +16,8 @@ func TestEmitIrregularPreparePrefersFromStateOverFromHook(t *testing.T) {
 
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -43,8 +43,8 @@ func TestEmitIrregularNextPreparePrefersFromActionOverOtherSources(t *testing.T)
 
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -80,8 +80,8 @@ func TestEmitIrregularEmptyArgEmitsEmptyObject(t *testing.T) {
 
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -174,8 +174,8 @@ func TestEmitJSONIrregularSourcePrecedenceAndNulls(t *testing.T) {
 			},
 		},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",

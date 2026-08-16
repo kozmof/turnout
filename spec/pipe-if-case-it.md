@@ -593,7 +593,7 @@ This example shows all three forms together.
 
 ```hcl id="hsy06y"
 scene "boiler_alarm_priority" {
-  entry_actions = [classify_alarm]
+  entry_action = classify_alarm
 
   action "classify_alarm" {
     compute "classify_alarm_graph" {

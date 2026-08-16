@@ -12,7 +12,7 @@ import (
 func TestAnonymousEgressLowersToSyntheticBindingAndMerge(t *testing.T) {
 	src := `state { billing { total:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       foo:number = 1
@@ -51,7 +51,7 @@ scene "s" {
 func TestAnonymousEgressInTransitionRejected(t *testing.T) {
 	src := `state { app { active:bool = false } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { done:bool := true }
     next {

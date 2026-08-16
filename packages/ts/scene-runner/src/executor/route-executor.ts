@@ -35,9 +35,7 @@ const DEFAULT_MAX_ROUTE_TRANSITIONS = 1_000;
  * Structured warning type for route execution. Use `kind` to filter programmatically
  * instead of parsing warning strings.
  */
-export type RouteWarning =
-  | { kind: "multi_entry_action"; sceneId: string; entryActions: string[] }
-  | { kind: "scene_warning"; sceneId: string; warning: SceneWarning };
+export type RouteWarning = { kind: "scene_warning"; sceneId: string; warning: SceneWarning };
 
 export type RouteExecutionResult = {
   routeId: string;
@@ -109,36 +107,20 @@ async function runRouteCore(
         `unknown scene "${progress.currentSceneId}"`,
       );
 
-    // Route-driven entry: only the first declared entry action fires (spec §route-entry).
-    if (scene.entryActions.length > 1) {
-      warnings.push({
-        kind: "multi_entry_action",
-        sceneId: progress.currentSceneId,
-        entryActions: scene.entryActions,
-      });
-    }
-    const routeEntry = scene.entryActions[0];
-    if (!routeEntry)
+    if (!scene.entryAction)
       throw new RouteRuntimeError(
         "NoEntryAction",
         route.id,
-        `scene "${progress.currentSceneId}" has no entry actions`,
+        `scene "${progress.currentSceneId}" has no entry action`,
       );
 
     let sceneResult;
     try {
-      sceneResult = await executeScene(
-        scene,
-        progress.currentState,
-        hooks,
-        [routeEntry],
-        options.maxSceneSteps,
-        {
-          signal: options.signal,
-          onLog: options.onLog,
-          failOnPublishError: options.failOnPublishError,
-        },
-      );
+      sceneResult = await executeScene(scene, progress.currentState, hooks, options.maxSceneSteps, {
+        signal: options.signal,
+        onLog: options.onLog,
+        failOnPublishError: options.failOnPublishError,
+      });
     } catch (err) {
       // A strict publish failure commits the current action's merge even though
       // the scene aborts. Keep route recovery state aligned with the state that

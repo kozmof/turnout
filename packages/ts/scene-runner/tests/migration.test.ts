@@ -56,7 +56,7 @@ describe("checkForExtExpr", () => {
       : { id: "act", compute: { root: "x", prog } };
     return {
       id: "test_scene",
-      entryActions: ["act"],
+      entryAction: "act",
       actions: [action],
     } as unknown as SceneBlock;
   }
@@ -85,7 +85,7 @@ describe("checkForExtExpr", () => {
       scenes: [
         {
           id: "clean_scene",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [
             {
               id: "a",

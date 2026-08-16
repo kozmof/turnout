@@ -56,8 +56,8 @@ state {
 # ---------------------------------------------------------------------------
 
 scene "intake" {
-  entry_actions = [collect_info]
-  next_policy   = "first-match"
+  entry_action = collect_info
+  next_policy  = "first-match"
 
   overview at_least {
     collect_info |=> proceed
@@ -126,8 +126,8 @@ scene "intake" {
 # ---------------------------------------------------------------------------
 
 scene "document_review" {
-  entry_actions = [check_documents]
-  next_policy   = "first-match"
+  entry_action = check_documents
+  next_policy  = "first-match"
 
   overview at_least {
     check_documents |=> mark_valid
@@ -195,8 +195,8 @@ scene "document_review" {
 # ---------------------------------------------------------------------------
 
 scene "risk_assessment" {
-  entry_actions = [score_risk]
-  next_policy   = "first-match"
+  entry_action = score_risk
+  next_policy  = "first-match"
 
   overview at_least {
     score_risk |=> low_risk_pass
@@ -305,8 +305,8 @@ scene "risk_assessment" {
 # ---------------------------------------------------------------------------
 
 scene "manual_review" {
-  entry_actions = [assign_reviewer]
-  next_policy   = "first-match"
+  entry_action = assign_reviewer
+  next_policy  = "first-match"
 
   overview at_least {
     assign_reviewer |=> override_approve
@@ -370,8 +370,8 @@ scene "manual_review" {
 # ---------------------------------------------------------------------------
 
 scene "approved" {
-  entry_actions = [issue_approval]
-  next_policy   = "first-match"
+  entry_action = issue_approval
+  next_policy  = "first-match"
 
   action "issue_approval" {
     """
@@ -400,8 +400,8 @@ scene "approved" {
 # ---------------------------------------------------------------------------
 
 scene "rejected" {
-  entry_actions = [issue_rejection]
-  next_policy   = "first-match"
+  entry_action = issue_rejection
+  next_policy  = "first-match"
 
   action "issue_rejection" {
     """

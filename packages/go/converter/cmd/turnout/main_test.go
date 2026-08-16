@@ -10,7 +10,7 @@ import (
 
 const validTurnSrc = `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`
 
@@ -160,7 +160,7 @@ func TestReorderFlagArgsPreservesSeparator(t *testing.T) {
 func TestRunConvertPrintsCompileWarnings(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { unused:number = 1 r:bool := true } }
 }`
 	path := writeTempTurnFile(t, src)

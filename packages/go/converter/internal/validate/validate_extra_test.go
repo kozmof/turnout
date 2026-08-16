@@ -121,7 +121,7 @@ func TestArrConcatArgTypeMismatch(t *testing.T) {
 	// arr_concat args must have matching array types
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       a:arr<number> = [1]
@@ -277,7 +277,7 @@ func TestSCNNextComputeNotBool(t *testing.T) {
 	// next compute condition bound to a number binding — must be bool
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -301,8 +301,8 @@ func TestInvalidTransitionIngress(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -349,8 +349,8 @@ func TestRoutePatternWildcardFirstSegment(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "scene_1",
-			EntryActions: []string{"a"},
+			Id:          "scene_1",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{
@@ -381,8 +381,8 @@ func TestRoutePatternEmptyFirstSegment(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "scene_1",
-			EntryActions: []string{"a"},
+			Id:          "scene_1",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{
@@ -415,8 +415,8 @@ func TestRoutePatternNoActionSegment(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "scene_1",
-			EntryActions: []string{"a"},
+			Id:          "scene_1",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{Root: "v", Prog: &turnoutpb.ProgModel{
@@ -449,8 +449,8 @@ func TestActionComputeNil(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{Id: "a", Compute: nil},
 			},
@@ -466,7 +466,7 @@ func TestActionComputeNil(t *testing.T) {
 func TestNextRuleUnknownAction(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next { action = unknown }
@@ -485,8 +485,8 @@ func TestValidateProgNil(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -558,8 +558,8 @@ func TestCondConditionRefUndefined(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -601,8 +601,8 @@ func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -655,7 +655,7 @@ func TestMergeToStateInvalidPath(t *testing.T) {
 	// to_state = "nodot" has no dot → InvalidStatePath
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -676,7 +676,7 @@ func TestMergeToStateNotInSchema(t *testing.T) {
 	// to_state = "app.nonexistent" → UnresolvedStatePath
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -698,7 +698,7 @@ scene "test" {
 func TestSigilIngressNoPrepare(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number
@@ -719,7 +719,7 @@ scene "test" {
 func TestNextPrepareFromAction(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:number := 42 }
     next {
@@ -741,7 +741,7 @@ scene "test" {
 func TestNextPrepareFromState(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -763,7 +763,7 @@ scene "test" {
 func TestNextPrepareFromLiteral(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -785,7 +785,7 @@ scene "test" {
 func TestNextPrepareFromActionUnknown(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:number := 42 }
     next {
@@ -811,7 +811,7 @@ scene "test" {
 func TestNextPrepareFromActionTypeMismatch(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -841,8 +841,8 @@ func TestNextPrepareFromStateInvalidPath(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "test",
-			EntryActions: []string{"a"},
+			Id:          "test",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -869,7 +869,7 @@ func TestNextPrepareFromStateInvalidPath(t *testing.T) {
 func TestNextRuleConditionNotBool(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -891,8 +891,8 @@ func TestValidateStatePathInvalidPath(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "test",
-			EntryActions: []string{"a"},
+			Id:          "test",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -917,7 +917,7 @@ func TestValidateStatePathInvalidPath(t *testing.T) {
 func TestValidateStatePathNotInSchema(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       x:number
@@ -940,7 +940,7 @@ func TestIsValidStatePathTooShort(t *testing.T) {
 	// "nodot" → only one segment after split → len < 2 → invalid
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number = 0
@@ -961,7 +961,7 @@ func TestIsValidStatePathInvalidIdentFirst(t *testing.T) {
 	// "1app.score" — first segment starts with digit → invalid ident
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number = 0
@@ -982,7 +982,7 @@ func TestIsValidStatePathInvalidIdentSubsequent(t *testing.T) {
 	// "a-b.score" — hyphen is invalid in subsequent chars
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number = 0
@@ -1003,7 +1003,7 @@ func TestIsValidStatePathEmptySegment(t *testing.T) {
 	// "." → parts ["",""] → empty string → isIdent("") returns false
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number = 0
@@ -1027,8 +1027,8 @@ func TestFuncRefUndefined(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -1070,8 +1070,8 @@ func TestFuncRefOnValueBinding(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -1115,8 +1115,8 @@ func TestArrConcatNoArgs(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -1220,8 +1220,8 @@ func TestResolveArgTypeFuncRef(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -1299,8 +1299,8 @@ func TestCombineArgTypesLessThan2Args(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -1407,8 +1407,8 @@ func TestLiteralMatchesFieldTypeArrWithNonArray(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -1605,8 +1605,8 @@ func TestCondTransformConditionNonBool(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -1648,8 +1648,8 @@ func TestCondTransformConditionBool(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -1694,8 +1694,8 @@ func TestCondStepRefCondition(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -1736,8 +1736,8 @@ func TestCondTransformBranchValid(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -1782,8 +1782,8 @@ func TestCondTransformBranchTypeMismatch(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -1972,8 +1972,8 @@ func TestCondStepRefBranch(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		State: &turnoutpb.StateModel{},
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{

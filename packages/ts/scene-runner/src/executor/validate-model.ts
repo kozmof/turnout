@@ -52,10 +52,8 @@ export function validateModel(model: TurnModel): string[] {
       actionIds.add(action.id);
     }
 
-    for (const entryAction of scene.entryActions ?? []) {
-      if (!actionIds.has(entryAction)) {
-        errors.push(`scene "${scene.id}": entry action "${entryAction}" is not declared`);
-      }
+    if (scene.entryAction && !actionIds.has(scene.entryAction)) {
+      errors.push(`scene "${scene.id}": entry action "${scene.entryAction}" is not declared`);
     }
 
     for (const action of scene.actions ?? []) {

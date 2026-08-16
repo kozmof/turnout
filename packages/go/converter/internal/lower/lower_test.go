@@ -93,7 +93,7 @@ func TestLowerStateBlockInline(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -140,7 +140,7 @@ func TestLowerStateFileProducesSchema(t *testing.T) {
 	}
 	src := `state_file = "mystate.tu"
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }`
 	tf, ds := parser.ParseFile(filepath.Join(dir, "test.tu"), src)
@@ -164,7 +164,7 @@ scene "s" {
 // ─── literal RHS ──────────────────────────────────────────────────────────────
 
 func TestLowerLiteralRHS(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       n:number       = 99
@@ -203,7 +203,7 @@ func TestLowerLiteralRHS(t *testing.T) {
 // ─── single-ref RHS (identity combine) ────────────────────────────────────────
 
 func TestLowerSingleRefBool(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       src:bool = true
@@ -230,7 +230,7 @@ func TestLowerTemplateGuardUsesCaptureBinding(t *testing.T) {
 type ResourceId = "foo-{sequence: integer}"
 state { ns { val:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       rid: ResourceId = "foo-101"
@@ -265,7 +265,7 @@ scene "test" {
 }
 
 func TestLowerSingleRefNumber(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       src:number = 5
@@ -282,7 +282,7 @@ func TestLowerSingleRefNumber(t *testing.T) {
 }
 
 func TestLowerSingleRefStr(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       src:str = "x"
@@ -296,7 +296,7 @@ func TestLowerSingleRefStr(t *testing.T) {
 }
 
 func TestLowerSingleRefArr(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       src:arr<number> = []
@@ -312,7 +312,7 @@ func TestLowerSingleRefArr(t *testing.T) {
 // ─── func-call RHS ────────────────────────────────────────────────────────────
 
 func TestLowerFuncCallRHS(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       a:number = 3
@@ -339,7 +339,7 @@ func TestLowerFuncCallRHS(t *testing.T) {
 // ─── infix RHS ────────────────────────────────────────────────────────────────
 
 func TestLowerInfixBoolAnd(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       p:bool = true
@@ -354,7 +354,7 @@ func TestLowerInfixBoolAnd(t *testing.T) {
 }
 
 func TestLowerInfixGTE(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
@@ -369,7 +369,7 @@ func TestLowerInfixGTE(t *testing.T) {
 }
 
 func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -384,7 +384,7 @@ func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
 }
 
 func TestLowerInfixPlusStrIsConcat(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       p:str = "a"
@@ -408,7 +408,7 @@ func TestLowerPlaceholderWithState(t *testing.T) {
   }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       income:number := <~ @applicant.income
@@ -428,7 +428,7 @@ scene "test" {
 
 func TestLowerPipeRHS(t *testing.T) {
 	// pipe(initial, step1, ...) stores structured form in binding.ExtExpr.
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 3
@@ -461,7 +461,7 @@ func TestLowerPipeRHS(t *testing.T) {
 
 func TestLowerCondRHS(t *testing.T) {
 	// if(cond, then, else) stores structured form in binding.ExtExpr.
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       flag:bool     = true
@@ -496,7 +496,7 @@ func TestLowerCondRHS(t *testing.T) {
 
 func TestLowerIfRHSBareRef(t *testing.T) {
 	// if(flag, thenFn, elseFn) with bare ref condition → ExtExpr on binding
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       flag:bool     = true
@@ -528,7 +528,7 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 
 func TestLowerIfRHSCall(t *testing.T) {
 	// if(arr_includes(items,x), thenFn, elseFn) with call condition → ExtExpr on binding
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number          = 5
@@ -569,7 +569,7 @@ func TestLowerSigilIngress(t *testing.T) {
   }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number := <~ @app.score
@@ -596,7 +596,7 @@ func TestLowerSigilEgress(t *testing.T) {
   app { approved:bool = false }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       approved:bool := (true) ~> @app.approved
@@ -619,7 +619,7 @@ func TestLowerSigilBiDir(t *testing.T) {
   app { count:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       count:number := <~ @app.count ~> @app.count
@@ -639,7 +639,7 @@ scene "test" {
 // ─── docstring lowering ───────────────────────────────────────────────────────
 
 func TestLowerDocstringTrimming(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     """
     Hello world.
@@ -669,7 +669,7 @@ func TestLowerDocstringTrimming(t *testing.T) {
 func TestLowerRouteBlock(t *testing.T) {
 	tm := mustLower(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }
 route "route_1" {
@@ -716,7 +716,7 @@ route "route_1" {
 // ─── publish lowering ─────────────────────────────────────────────────────────
 
 func TestLowerPublishBlock(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     publish {
@@ -738,7 +738,7 @@ func TestLowerPublishBlock(t *testing.T) {
 func TestLowerNextRule(t *testing.T) {
 	// A condition that depends on another binding is not trivially true, so the
 	// compute block is preserved.
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -767,7 +767,7 @@ func TestLowerNextRule(t *testing.T) {
 // concise `next { action = ... }` form. The verbose `c:bool := true` shape and
 // the bare concise form must lower to an identical model.
 func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
-	verbose := mustLower(t, minimal(`  entry_actions = [a]
+	verbose := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -787,7 +787,7 @@ func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
 	}
 
 	// The concise form lowers identically.
-	concise := mustLower(t, minimal(`  entry_actions = [a]
+	concise := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -809,7 +809,7 @@ func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
 // A false literal condition never matches, so it is NOT deterministic in the
 // always-true sense and must be preserved verbatim.
 func TestLowerNextRuleFalseConditionPreserved(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -831,7 +831,7 @@ func TestLowerNextRuleFalseConditionPreserved(t *testing.T) {
 func TestLowerIdempotency(t *testing.T) {
 	// Lower the same source twice; check struct equality at the string level
 	// by rendering the scene ID and action count.
-	src := minimal(`  entry_actions = [a]
+	src := minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }`)
@@ -908,7 +908,7 @@ func TestLowerDuplicateStateFieldInAST(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
@@ -946,7 +946,7 @@ func TestLowerDuplicateOrderEntryFromSchema(t *testing.T) {
 
 	src := `state_file = "ignored.json"
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)

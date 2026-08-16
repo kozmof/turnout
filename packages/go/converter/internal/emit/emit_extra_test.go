@@ -37,7 +37,7 @@ func TestEmitLiteralNonEmptyArray(t *testing.T) {
   ns { items:arr<number> = [1, 2, 3] }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`)
 	if !strings.Contains(out, `value = [1, 2, 3]`) {
@@ -50,7 +50,7 @@ func TestEmitLiteralBoolFalse(t *testing.T) {
   ns { flag:bool = false }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`)
 	if !strings.Contains(out, `value = false`) {
@@ -63,8 +63,8 @@ scene "s" {
 func TestEmitArgTransform(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -109,8 +109,8 @@ func TestEmitArgTransform(t *testing.T) {
 func TestEmitArgStepRef(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -155,7 +155,7 @@ func TestEmitNextPrepareFromState(t *testing.T) {
   app { score:number = 10 }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -177,7 +177,7 @@ func TestEmitNextPrepareFromLiteral(t *testing.T) {
   app { val:number = 0 }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -200,8 +200,8 @@ func TestEmitJSONPipeExpr(t *testing.T) {
 	// Construct proto model directly to test that PipeExpr serializes to JSON.
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -252,8 +252,8 @@ func TestEmitJSONCondExpr(t *testing.T) {
 	// Construct proto model directly to test that CondExpr serializes to JSON.
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{{
 				Id: "a",
 				Compute: &turnoutpb.ComputeModel{
@@ -300,7 +300,7 @@ func TestEmitJSONCondExpr(t *testing.T) {
 func TestEmitJSONRoute(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "scene_1" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
 route "r1" {
@@ -331,7 +331,7 @@ func TestEmitJSONLitToJSONArray(t *testing.T) {
   ns { tags:arr<str> = ["a", "b"] }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`
 	var sb strings.Builder
@@ -347,8 +347,8 @@ scene "s" {
 func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -396,8 +396,8 @@ func TestEmitJSONArgStepRefAndLit(t *testing.T) {
 func TestEmitJSONArgTransform(t *testing.T) {
 	model := &turnoutpb.TurnModel{
 		Scenes: []*turnoutpb.SceneBlock{{
-			Id:           "s",
-			EntryActions: []string{"a"},
+			Id:          "s",
+			EntryAction: "a",
 			Actions: []*turnoutpb.ActionModel{
 				{
 					Id: "a",
@@ -461,7 +461,7 @@ func TestEmitLargeNumberDecimal(t *testing.T) {
   ns { big:number = 1000000 }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`)
 	if strings.Contains(out, "1e+") || strings.Contains(out, "e+0") {
@@ -479,7 +479,7 @@ func TestEmitSmallNumberDecimal(t *testing.T) {
   ns { small:number = 0.00001 }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }`)
 	if strings.Contains(out, "1e-") || strings.Contains(out, "e-0") {

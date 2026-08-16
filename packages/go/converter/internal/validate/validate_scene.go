@@ -29,15 +29,12 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 			"scene %q has no actions", scene.Id))
 	}
 
-	if len(scene.EntryActions) == 0 {
+	if scene.EntryAction == "" {
 		ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
-			"scene %q has no entry actions", scene.Id))
-	}
-	for _, ea := range scene.EntryActions {
-		if _, ok := actionIndex[ea]; !ok {
-			ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
-				"entry action %q not found in scene %q", ea, scene.Id))
-		}
+			"scene %q has no entry action", scene.Id))
+	} else if _, ok := actionIndex[scene.EntryAction]; !ok {
+		ds.Append(diag.Errorf(diag.CodeInvalidActionGraph,
+			"entry action %q not found in scene %q", scene.EntryAction, scene.Id))
 	}
 
 	// Build a map of action ID → compute scope for from_action cross-checks (3-A, 3-B).

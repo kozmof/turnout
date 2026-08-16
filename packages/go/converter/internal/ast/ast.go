@@ -257,12 +257,12 @@ type FieldDecl struct {
 
 // SceneBlock is the top-level `scene "<id>" { ... }` block.
 type SceneBlock struct {
-	Pos          Pos
-	ID           string
-	EntryActions []string
-	NextPolicy   string
-	View         *ViewBlock
-	Actions      []*ActionBlock
+	Pos         Pos
+	ID          string
+	EntryAction string
+	NextPolicy  string
+	View        *ViewBlock
+	Actions     []*ActionBlock
 }
 
 // ViewBlock is the `overview <mode> { a |=> b }` sub-block of a scene.

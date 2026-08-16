@@ -284,10 +284,10 @@ func TestTurnFileConstruction(t *testing.T) {
 			},
 		},
 		Scenes: []*ast.SceneBlock{{
-			Pos:          p,
-			ID:           "loan_flow",
-			EntryActions: []string{"score"},
-			NextPolicy:   "first-match",
+			Pos:         p,
+			ID:          "loan_flow",
+			EntryAction: "score",
+			NextPolicy:  "first-match",
 		}},
 	}
 

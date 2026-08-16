@@ -15,7 +15,7 @@ type Kind = "foo" | "bar"
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       ` + rootDecl + `
@@ -90,7 +90,7 @@ type Kind = "foo" | "bar"
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       k: Kind = "foo"
@@ -115,7 +115,7 @@ type Kind = "foo" | "bar"
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       n: number = 7

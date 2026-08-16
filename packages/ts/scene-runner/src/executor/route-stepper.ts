@@ -116,15 +116,14 @@ function createRouteSession(
 // Factory
 // ─────────────────────────────────────────────────────────────────────────────
 
-function firstEntryAction(scene: SceneBlock, routeId: string): string {
-  const first = scene.entryActions[0];
-  if (!first)
+function entryActionOf(scene: SceneBlock, routeId: string): string {
+  if (!scene.entryAction)
     throw new RouteRuntimeError(
       "NoEntryAction",
       routeId,
-      `scene "${scene.id}" has no entry actions`,
+      `scene "${scene.id}" has no entry action`,
     );
-  return first;
+  return scene.entryAction;
 }
 
 export function createRouteStepper(
@@ -154,11 +153,14 @@ export function createRouteStepper(
   if (!initialScene)
     throw new RouteRuntimeError("UnknownScene", routeId, `entry scene "${entrySceneId}" not found`);
 
+  // Resolved before construction so a scene with no entry action fails with
+  // NoEntryAction rather than as an unknown action mid-step.
+  const initialEntryAction = entryActionOf(initialScene, routeId);
+
   let sceneExecutor = createSceneExecutor(
     initialScene,
     currentState,
     hooks,
-    [firstEntryAction(initialScene, routeId)],
     maxSceneSteps,
     signal,
     onLog,
@@ -167,7 +169,7 @@ export function createRouteStepper(
   safeLog(onLog, {
     kind: "scene-start",
     sceneId: initialScene.id,
-    entryActions: [firstEntryAction(initialScene, routeId)],
+    entryAction: initialEntryAction,
   });
 
   function finishCurrentScene(): void {
@@ -191,11 +193,12 @@ export function createRouteStepper(
     if (!nextScene)
       throw new RouteRuntimeError("UnknownScene", routeId, `unknown scene "${nextSceneId}"`);
 
+    const nextEntryAction = entryActionOf(nextScene, routeId);
+
     sceneExecutor = createSceneExecutor(
       nextScene,
       currentState,
       hooks,
-      [firstEntryAction(nextScene, routeId)],
       maxSceneSteps,
       signal,
       onLog,
@@ -204,7 +207,7 @@ export function createRouteStepper(
     safeLog(onLog, {
       kind: "scene-start",
       sceneId: nextScene.id,
-      entryActions: [firstEntryAction(nextScene, routeId)],
+      entryAction: nextEntryAction,
     });
   }
 

@@ -5,7 +5,7 @@ import type { TurnModel } from "../src/types/turnout-model_pb.js";
 // Minimal scene fixture — no compute, just an empty action so execution terminates.
 const minimalScene = {
   id: "scene_a",
-  entryActions: ["act_a"],
+  entryAction: "act_a",
   actions: [{ id: "act_a" }],
 };
 

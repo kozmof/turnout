@@ -11,7 +11,7 @@ import (
 // within the corresponding block, so recovery stops at the next valid statement
 // rather than skipping to the closing brace.
 var (
-	sceneBlockStarters = []lexer.TokenKind{lexer.TokKwEntryActions, lexer.TokKwNextPolicy, lexer.TokKwOverview, lexer.TokKwAction}
+	sceneBlockStarters = []lexer.TokenKind{lexer.TokKwEntryAction, lexer.TokKwNextPolicy, lexer.TokKwOverview, lexer.TokKwAction}
 )
 
 // ─── parseActionBlock ────────────────────────────────────────────────────────
@@ -164,10 +164,10 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
 		switch t.Kind {
-		case lexer.TokKwEntryActions:
+		case lexer.TokKwEntryAction:
 			p.advance()
 			p.expect(lexer.TokEquals)
-			sb.EntryActions = p.parseRefArray()
+			sb.EntryAction = p.parseRefVal()
 		case lexer.TokKwNextPolicy:
 			p.advance()
 			p.expect(lexer.TokEquals)
@@ -193,30 +193,4 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 	}
 	p.expect(lexer.TokRBrace)
 	return sb
-}
-
-// parseRefArray parses a bracketed list of references: `[classify, hold]`.
-//
-// References are bare identifiers as of v2 (NEW_SYNTAX.md 2.3) — quoted strings
-// are reserved for genuine strings such as hook names. The quoted form is still
-// accepted for one release so that a partially migrated file keeps parsing.
-func (p *parser) parseRefArray() []string {
-	p.expect(lexer.TokLBracket)
-	var result []string
-	for p.peek().Kind != lexer.TokRBracket && p.peek().Kind != lexer.TokEOF {
-		switch p.peek().Kind {
-		case lexer.TokIdent, lexer.TokStringLit:
-			result = append(result, p.advance().Value)
-		default:
-			p.errorf(p.peek(), "expected an action reference, got %s %q", kindName(p.peek().Kind), p.peek().Value)
-			p.advance()
-		}
-		if p.peek().Kind == lexer.TokComma {
-			p.advance()
-		} else {
-			break
-		}
-	}
-	p.expect(lexer.TokRBracket)
-	return result
 }

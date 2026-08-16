@@ -14,7 +14,7 @@ const mockRunConverter = vi.mocked(runConverter);
 const mockLoadJsonModel = vi.mocked(loadJsonModel);
 
 const minimalModel = {
-  scenes: [{ id: "scene_a", entryActions: ["act_a"], actions: [{ id: "act_a" }] }],
+  scenes: [{ id: "scene_a", entryAction: "act_a", actions: [{ id: "act_a" }] }],
 } as unknown as TurnModel;
 
 beforeEach(() => {
@@ -94,7 +94,7 @@ describe("runServerHarness", () => {
       scenes: [
         {
           id: "limited",
-          entryActions: ["a"],
+          entryAction: "a",
           actions: [{ id: "a", next: [{ action: "b" }] }, { id: "b" }],
         },
       ],

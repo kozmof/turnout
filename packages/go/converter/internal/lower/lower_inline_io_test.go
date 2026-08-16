@@ -11,14 +11,14 @@ import (
 // inline IO is a spelling, not a semantic change. The two forms must lower to
 // the same action model, so migrating a file cannot alter its behaviour.
 func TestInlineIOMatchesBlockForm(t *testing.T) {
-	inline := mustLower(t, minimal(`  entry_actions = [a]
+	inline := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       income:number <~ @ns.val
       out:number := (income) ~> @ns.val
     }
   }`))
-	block := mustLower(t, minimal(`  entry_actions = [a]
+	block := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       income:number
@@ -39,7 +39,7 @@ func TestInlineIOMatchesBlockForm(t *testing.T) {
 
 // TestInlineIOSynthesizesEntries pins the shape the hoisting produces.
 func TestInlineIOSynthesizesEntries(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       income:number <~ @ns.val
@@ -57,7 +57,7 @@ func TestInlineIOSynthesizesEntries(t *testing.T) {
 
 // TestInlineIOHookSource covers a hook ingress reaching the prepare entry.
 func TestInlineIOHookSource(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       line:str <~ hook("manifest_feed")
@@ -73,7 +73,7 @@ func TestInlineIOHookSource(t *testing.T) {
 // TestInlineIONextSources covers the transition-only ingress sources reaching
 // the next rule's prepare entries.
 func TestInlineIONextSources(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       ready:bool := true
@@ -115,7 +115,7 @@ func TestInlineIONextSources(t *testing.T) {
 // disagree about the destination.
 func TestInlineAndBlockIOConflict(t *testing.T) {
 	t.Run("input", func(t *testing.T) {
-		ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
+		ds := lowerWithErrors(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       income:number <~ @ns.val
@@ -131,7 +131,7 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
 	})
 
 	t.Run("output", func(t *testing.T) {
-		ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
+		ds := lowerWithErrors(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       out:number := (1) ~> @ns.val
@@ -149,7 +149,7 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
 // TestInlineEgressInTransitionRejected covers the transition rule: a STATE write
 // belongs to the action, not to the transition that selects it.
 func TestInlineEgressInTransitionRejected(t *testing.T) {
-	ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
+	ds := lowerWithErrors(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {

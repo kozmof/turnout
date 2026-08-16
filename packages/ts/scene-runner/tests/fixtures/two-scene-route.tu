@@ -8,7 +8,7 @@ state {
 }
 
 scene "scene_a" {
-  entry_actions = [step_a]
+  entry_action = step_a
 
   action "step_a" {
     compute "a_prog" {
@@ -20,7 +20,7 @@ scene "scene_a" {
 }
 
 scene "scene_b" {
-  entry_actions = [step_b]
+  entry_action = step_b
 
   action "step_b" {
     compute "b_prog" {

@@ -54,8 +54,8 @@ state {
 }
 
 scene "ai_workflow" {
-  entry_actions = ["analyze"]
-  next_policy   = "first-match"
+  entry_action = "analyze"
+  next_policy  = "first-match"
 
   action "analyze" {
     compute {

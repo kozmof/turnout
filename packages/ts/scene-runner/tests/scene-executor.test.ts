@@ -60,7 +60,7 @@ function makeBoolCondNextRule(condStatePath: string, nextActionId: string): Acti
 describe("executeScene — single terminal action", () => {
   const scene = {
     id: "single_scene",
-    entryActions: ["only_action"],
+    entryAction: "only_action",
     actions: [makePassAction("only_action", 7, "out.val")],
   } as unknown as SceneBlock;
 
@@ -90,7 +90,7 @@ describe("executeScene — single terminal action", () => {
 describe("executeScene — two-action chain (first-match)", () => {
   const scene = {
     id: "chain_scene",
-    entryActions: ["action_a"],
+    entryAction: "action_a",
     nextPolicy: "first-match",
     actions: [
       {
@@ -125,7 +125,7 @@ describe("executeScene — two-action chain (first-match)", () => {
 describe("executeScene — unconditional next rule", () => {
   const scene = {
     id: "unconditional_scene",
-    entryActions: ["first"],
+    entryAction: "first",
     actions: [
       {
         ...makePassAction("first", 10, "step.first"),
@@ -149,7 +149,7 @@ describe("executeScene — unconditional next rule", () => {
 describe("executeScene — all-match policy", () => {
   const scene = {
     id: "all_match_scene",
-    entryActions: ["start"],
+    entryAction: "start",
     nextPolicy: "all-match",
     actions: [
       {
@@ -228,7 +228,7 @@ describe("executeScene — state propagation", () => {
 
   const scene = {
     id: "propagation_scene",
-    entryActions: ["action_a"],
+    entryAction: "action_a",
     actions: [actionA, actionB],
   } as unknown as SceneBlock;
 
@@ -247,7 +247,7 @@ describe("executeScene — state propagation", () => {
 describe("executeScene — cycle guard", () => {
   const scene = {
     id: "cycle_scene",
-    entryActions: ["a"],
+    entryAction: "a",
     actions: [
       {
         ...makePassAction("a", 1, "step.a"),
@@ -270,7 +270,7 @@ describe("executeScene — cycle guard", () => {
 describe("createSceneExecutor — isDone / next / result", () => {
   const scene = {
     id: "step_scene",
-    entryActions: ["only_action"],
+    entryAction: "only_action",
     actions: [makePassAction("only_action", 7, "out.val")],
   } as unknown as SceneBlock;
 
@@ -325,7 +325,7 @@ describe("createSceneExecutor — isDone / next / result", () => {
 describe("createSceneExecutor — step-by-step trace", () => {
   const scene = {
     id: "chain_step_scene",
-    entryActions: ["first"],
+    entryAction: "first",
     actions: [
       {
         ...makePassAction("first", 10, "step.first"),
@@ -373,7 +373,7 @@ describe("createSceneExecutor — step-by-step trace", () => {
 describe("createSceneExecutor — cycle guard", () => {
   const scene = {
     id: "cycle_step_scene",
-    entryActions: ["a"],
+    entryAction: "a",
     actions: [
       {
         ...makePassAction("a", 1, "step.a"),
@@ -392,7 +392,7 @@ describe("createSceneExecutor — cycle guard", () => {
 describe("executeSceneSafe — failedActionId", () => {
   const scene = {
     id: "safe_failure_scene",
-    entryActions: ["first"],
+    entryAction: "first",
     actions: [
       {
         ...makePassAction("first", 1, "step.first"),
@@ -433,7 +433,7 @@ describe("createSceneExecutor — all-match duplicate enqueue warnings", () => {
   it("warns when all-match enqueues an already visited action", async () => {
     const scene = {
       id: "duplicate_enqueue_scene",
-      entryActions: ["start"],
+      entryAction: "start",
       nextPolicy: "all-match",
       actions: [
         {
@@ -465,7 +465,7 @@ describe("executeSceneSafe — success result", () => {
   it("returns ok true when the scene completes", async () => {
     const scene = {
       id: "safe_success_scene",
-      entryActions: ["only"],
+      entryAction: "only",
       actions: [makePassAction("only", 3, "safe.value")],
     } as unknown as SceneBlock;
 
@@ -485,7 +485,7 @@ describe("createSceneExecutor — construction errors", () => {
     const duplicateB = makePassAction("dup", 2, "dup.two");
     const scene = {
       id: "duplicate_action_scene",
-      entryActions: ["dup"],
+      entryAction: "dup",
       actions: [duplicateA, duplicateB],
     } as unknown as SceneBlock;
 
@@ -501,7 +501,7 @@ describe("executeSceneSafe — construction errors", () => {
     const duplicateB = makePassAction("dup", 2, "dup.two");
     const scene = {
       id: "duplicate_action_safe_scene",
-      entryActions: ["dup"],
+      entryAction: "dup",
       actions: [duplicateA, duplicateB],
     } as unknown as SceneBlock;
 
@@ -525,7 +525,7 @@ describe("executeScene — next rule compute without prog", () => {
   it("treats a next rule with missing prog as not matched", async () => {
     const scene = {
       id: "missing_prog_scene",
-      entryActions: ["start"],
+      entryAction: "start",
       actions: [
         {
           ...makePassAction("start", 1, "step.start"),
@@ -558,7 +558,7 @@ describe("executeSceneSafe — non-SceneRuntimeError is captured as ok:false", (
     } as unknown as ActionModel;
     const scene = {
       id: "captured_scene",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [action],
     } as unknown as SceneBlock;
 
@@ -579,7 +579,7 @@ describe("executeSceneSafe — non-SceneRuntimeError is captured as ok:false", (
     } as unknown as ActionModel;
     const scene = {
       id: "publish_err_scene",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [action],
     } as unknown as SceneBlock;
 
@@ -610,7 +610,7 @@ describe("executeSceneSafe — non-SceneRuntimeError is captured as ok:false", (
   it("captures a SceneRuntimeError as ok:false (regression guard)", async () => {
     const scene = {
       id: "runtime_err_scene",
-      entryActions: ["missing_action"],
+      entryAction: "missing_action",
       actions: [],
     } as unknown as SceneBlock;
 
@@ -674,7 +674,7 @@ describe("evaluateNextRules — cache key stability with prepare entries", () =>
   it("produces the same next-action list on repeated calls with identical state", async () => {
     const scene = {
       id: "cache_stability_scene",
-      entryActions: ["source_action"],
+      entryAction: "source_action",
       actions: [
         makeActionWithTwoPrepareNextRule(),
         makePassAction("target_action", 99, "ns.result"),
@@ -697,7 +697,7 @@ describe("evaluateNextRules — cache key stability with prepare entries", () =>
   it("correctly evaluates false condition (ns.a <= ns.b) on repeated calls", async () => {
     const scene = {
       id: "cache_stability_false_scene",
-      entryActions: ["source_action"],
+      entryAction: "source_action",
       actions: [
         makeActionWithTwoPrepareNextRule(),
         makePassAction("target_action", 99, "ns.result"),
@@ -725,7 +725,7 @@ describe("scene executor — adversarial", () => {
     const scene = {
       id: "dup_scene",
       nextPolicy: "",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [
         makePassAction("a", 1, "ns.x"),
         makePassAction("a", 2, "ns.x"), // duplicate
@@ -742,7 +742,7 @@ describe("scene executor — adversarial", () => {
     const scene = {
       id: "max_steps_scene",
       nextPolicy: "first-match",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [
         { ...makePassAction("a", 1, "ns.x"), next: aToB },
         { ...makePassAction("b", 2, "ns.x"), next: bToC },
@@ -750,7 +750,7 @@ describe("scene executor — adversarial", () => {
       ],
     } as unknown as SceneBlock;
     const state = stateManagerFromUnchecked({ "ns.x": buildNumber(0) });
-    const executor = createSceneExecutor(scene, state, undefined, undefined, 2);
+    const executor = createSceneExecutor(scene, state, undefined, 2);
     await expect(async () => {
       while (!executor.isDone()) await executor.next();
     }).rejects.toThrow("exceeded 2 action steps");
@@ -761,7 +761,7 @@ describe("scene executor — adversarial", () => {
     const scene = {
       id: "num_cond_scene",
       nextPolicy: "first-match",
-      entryActions: ["start"],
+      entryAction: "start",
       actions: [
         {
           ...makePassAction("start", 5, "ns.x"),
@@ -797,7 +797,7 @@ describe("scene executor — adversarial", () => {
     const scene = {
       id: "dup_enqueue_scene",
       nextPolicy: "all-match",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [{ ...makePassAction("a", 1, "ns.x"), next: aNext }, makePassAction("b", 2, "ns.x")],
     } as unknown as SceneBlock;
     const state = stateManagerFromUnchecked({ "ns.x": buildNumber(0) });
@@ -812,7 +812,7 @@ describe("scene executor — adversarial", () => {
     const scene = {
       id: "dup_scene",
       nextPolicy: "",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [
         makePassAction("a", 1, "ns.x"),
         makePassAction("a", 2, "ns.x"), // duplicate — throws in createSceneExecutor
@@ -843,7 +843,7 @@ describe("evaluateNextRules — condition binding not in context (missing bindin
   it("emits invalid_next_condition warning and skips rule when condition binding is absent", async () => {
     const scene = {
       id: "missing_cond_scene",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [
         {
           ...makePassAction("a", 1, "step.a"),
@@ -891,7 +891,7 @@ describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
 
     const scene = {
       id: "cache_hit_scene",
-      entryActions: ["start"],
+      entryAction: "start",
       nextPolicy: "all-match",
       actions: [
         {
@@ -925,7 +925,7 @@ describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
 describe("executeScene convenience options", () => {
   const scene = {
     id: "options_scene",
-    entryActions: ["only_action"],
+    entryAction: "only_action",
     actions: [makePassAction("only_action", 7, "out.val")],
   } as unknown as SceneBlock;
 
@@ -934,7 +934,7 @@ describe("executeScene convenience options", () => {
     controller.abort();
 
     await expect(
-      executeScene(scene, stateManagerFromUnchecked({}), undefined, undefined, undefined, {
+      executeScene(scene, stateManagerFromUnchecked({}), undefined, undefined, {
         signal: controller.signal,
       }),
     ).rejects.toMatchObject({ name: "AbortError" });
@@ -945,7 +945,6 @@ describe("executeScene convenience options", () => {
     const result = await executeSceneSafe(
       scene,
       stateManagerFromUnchecked({}),
-      undefined,
       undefined,
       undefined,
       { onLog: (event) => events.push(event.kind) },
@@ -961,7 +960,6 @@ describe("executeScene convenience options", () => {
     const executor = createSceneExecutor(
       scene,
       stateManagerFromUnchecked({}),
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -985,7 +983,6 @@ describe("executeScene convenience options", () => {
     const executor = createSceneExecutor(
       scene,
       stateManagerFromUnchecked({}),
-      undefined,
       undefined,
       undefined,
       undefined,
@@ -1016,7 +1013,7 @@ describe("executeScene — failOnPublishError propagation", () => {
 
   const scene = {
     id: "publish_scene",
-    entryActions: ["pub"],
+    entryAction: "pub",
     actions: [makePublishAction("pub", "bad_hook")],
   } as unknown as SceneBlock;
 
@@ -1038,7 +1035,7 @@ describe("executeScene — failOnPublishError propagation", () => {
 
   it("aborts with PublishHookFailed when failOnPublishError is set", async () => {
     await expect(
-      executeScene(scene, stateManagerFromUnchecked({}), hooks, undefined, undefined, {
+      executeScene(scene, stateManagerFromUnchecked({}), hooks, undefined, {
         failOnPublishError: true,
       }),
     ).rejects.toThrow(/bad_hook.*boom/);
@@ -1047,7 +1044,7 @@ describe("executeScene — failOnPublishError propagation", () => {
   it("preserves the committed merge in safe partial state", async () => {
     const mergedScene = {
       id: "publish_merge_scene",
-      entryActions: ["pub"],
+      entryAction: "pub",
       actions: [
         {
           ...makePublishAction("pub", "bad_hook"),
@@ -1060,7 +1057,6 @@ describe("executeScene — failOnPublishError propagation", () => {
       mergedScene,
       stateManagerFromUnchecked({ "result.value": buildNumber(0) }),
       hooks,
-      undefined,
       undefined,
       { failOnPublishError: true },
     );
@@ -1078,7 +1074,7 @@ describe("scene executor warning accessors", () => {
   it("maps merge warnings into the action trace and exposes current scene warnings", async () => {
     const scene = {
       id: "merge_warning_scene",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [
         {
           id: "a",

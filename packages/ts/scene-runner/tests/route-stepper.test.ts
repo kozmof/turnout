@@ -11,7 +11,7 @@ function scene(
 ): SceneBlock {
   return {
     id,
-    entryActions: [entry],
+    entryAction: entry,
     actions: [{ id: entry, next }],
   } as unknown as SceneBlock;
 }
@@ -49,7 +49,7 @@ describe("createRouteStepper", () => {
   it("exposes partial state after completed actions within an active scene", async () => {
     const s1 = {
       id: "s1",
-      entryActions: ["a"],
+      entryAction: "a",
       actions: [
         {
           id: "a",
@@ -122,11 +122,11 @@ describe("createRouteStepper", () => {
         "no_entry",
         parseMatchArms([]),
         "s1",
-        { s1: { id: "s1", entryActions: [], actions: [] } as unknown as SceneBlock },
+        { s1: { id: "s1", entryAction: "", actions: [] } as unknown as SceneBlock },
         stateManagerFromUnchecked({}),
         { prepare: {}, publish: {} },
       ),
-    ).toThrow("has no entry actions");
+    ).toThrow("has no entry action");
 
     const s1 = scene("s1", "a");
     const s2 = scene("s2", "b");

@@ -32,7 +32,7 @@ func TestEmitJSONRoundTrip(t *testing.T) {
   }
 }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   next_policy   = "first-match"
   action "a" {
     compute "p" {

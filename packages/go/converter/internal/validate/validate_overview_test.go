@@ -13,7 +13,7 @@ import (
 func twoActionScene(viewBlock string) string {
 	return basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
 ` + viewBlock + `
   action "a" {
     compute "p" { v:bool := true }
@@ -63,7 +63,7 @@ func TestOverviewNodesOnlyIgnoresMissingEdge(t *testing.T) {
 	// flow declares a→b but implementation has no next rule from a to b
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   overview nodes_only {
     a |=> b
   }
@@ -101,7 +101,7 @@ func TestOverviewAtLeastMissingEdge(t *testing.T) {
 	// flow declares a→b but implementation has no next from a
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   overview at_least {
     a |=> b
   }
@@ -123,7 +123,7 @@ func TestOverviewAtLeastAllowsExtraImplEdge(t *testing.T) {
 	// flow declares only a→b; impl also has a→c — that is fine for at_least
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   overview at_least {
     a |=> b
   }
@@ -173,7 +173,7 @@ func TestOverviewStrictExtraNode(t *testing.T) {
 	// impl has action "c" not listed in flow
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   overview strict {
     a |=> b
     b
@@ -202,7 +202,7 @@ func TestOverviewStrictExtraEdge(t *testing.T) {
 	// impl has a→c but flow only declares a→b
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   overview strict {
     a |=> b
     b
@@ -309,7 +309,7 @@ func TestOverviewChainLinear(t *testing.T) {
 	// §6.4: foo |=> bar |=> baz parses as nodes={foo,bar}, edges={(foo,bar),(bar,baz)}, current=baz
 	src := basicState + `
 scene "test" {
-  entry_actions = [foo]
+  entry_action = foo
   overview at_least {
     foo |=> bar |=> baz
   }
@@ -337,7 +337,7 @@ func TestOverviewChainContinuation(t *testing.T) {
 	// §6.5: chain line sets current; subsequent |=> lines extend from the last chain element
 	src := basicState + `
 scene "test" {
-  entry_actions = [analyze]
+  entry_action = analyze
   overview at_least {
     analyze |=> score |=> decide
     decide |=> approve
@@ -376,7 +376,7 @@ func TestOverviewChainTargetNotInNodes(t *testing.T) {
 	// must require it to exist in impl_nodes via OVW_NODE_EXTRA when absent from flow.
 	src := basicState + `
 scene "test" {
-  entry_actions = [foo]
+  entry_action = foo
   overview strict {
     foo |=> bar |=> baz
     baz
@@ -404,7 +404,7 @@ scene "test" {
 func TestOverviewDuplicateView(t *testing.T) {
 	src := basicState + `
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   overview nodes_only {
     a
   }
@@ -442,7 +442,7 @@ func TestOverviewInvalidMode(t *testing.T) {
 func TestOverviewAdventureStoryAtLeast(t *testing.T) {
 	src := basicState + `
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   overview at_least {
     a |=> b
     a |=> c

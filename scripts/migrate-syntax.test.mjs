@@ -31,8 +31,17 @@ test("still migrates references and sigils in DSL code", () => {
   ].join("\n");
   assert.equal(
     migrate(source).out,
-    ["entry = start", "action = finish", "entry_actions = [start, finish]", "value:str"].join("\n"),
+    [
+      "entry = start",
+      "action = finish",
+      "entry_action = start  # migration: dropped finish — a scene now has one entry action",
+      "value:str",
+    ].join("\n"),
   );
+});
+
+test("collapses a single-element entry_actions list without a migration note", () => {
+  assert.equal(migrate('entry_actions = ["start"]').out, "entry_action = start");
 });
 
 test("parenthesizes single-line and multiline computed egress idempotently", () => {

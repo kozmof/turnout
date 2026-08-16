@@ -13,7 +13,7 @@ type Kind = "foo" | "bar"
 type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       rid: ResourceId = "foo-1"
@@ -120,7 +120,7 @@ func TestDestructureNonTemplateSubject(t *testing.T) {
 	src := `
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       s: str = "x"
@@ -142,7 +142,7 @@ type ResourceId = "{kind: Kind}-{sequence: integer}"
 type OtherId = "{kind: Kind}/{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       rid: ResourceId = "foo-1"

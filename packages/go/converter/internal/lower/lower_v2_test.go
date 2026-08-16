@@ -12,7 +12,7 @@ import (
 // final binding. `x + y + z` associates left, so the inner `x + y` becomes a
 // generated binding that the outer add references.
 func TestLowerNestedInfix(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -44,7 +44,7 @@ func TestLowerNestedInfix(t *testing.T) {
 // TestLowerNestedInfixPrecedence checks the tighter-binding operator is the one
 // lowered into a temp.
 func TestLowerNestedInfixPrecedence(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -65,7 +65,7 @@ func TestLowerNestedInfixPrecedence(t *testing.T) {
 // TestLowerSingleInfixUnchanged is the counterpart to the parser normalization
 // test: a single-operator expression still lowers to exactly one binding.
 func TestLowerSingleInfixUnchanged(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -87,7 +87,7 @@ func TestLowerSingleInfixUnchanged(t *testing.T) {
 // file cannot change its graph.
 func TestLowerStandaloneTransformMatchesPlusZero(t *testing.T) {
 	prog := func(expr string) string {
-		return minimal(`  entry_actions = [a]
+		return minimal(`  entry_action = a
   action "a" {
     compute "p" {
       rate:number = 1
@@ -109,7 +109,7 @@ func TestLowerStandaloneTransformMatchesPlusZero(t *testing.T) {
 // same NextRuleModel as the block form, apart from the generated names.
 func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
 	body := func(next string) string {
-		return minimal(`  entry_actions = [a]
+		return minimal(`  entry_action = a
   action "a" {
     compute "p" {
       ready:bool := true
@@ -154,7 +154,7 @@ func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
 // TestLowerNextSugarUnconditional covers `next <action>`, which carries no
 // compute block — the canonical shape for an unconditional transition.
 func TestLowerNextSugarUnconditional(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" { ready:bool := true }
     next b
@@ -173,7 +173,7 @@ func TestLowerNextSugarUnconditional(t *testing.T) {
 // come first, then any node with no outgoing edge, so nodes_only enforcement
 // still sees terminal actions.
 func TestLowerOverviewFlowText(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   overview strict {
     a |=> b
     b
@@ -200,7 +200,7 @@ func TestLowerOverviewFlowText(t *testing.T) {
 // TestLowerOverviewFlowTextEdgesOnly covers the branch where every node is an
 // edge source, so no bare node lines are appended.
 func TestLowerOverviewFlowTextEdgesOnly(t *testing.T) {
-	tm := mustLower(t, minimal(`  entry_actions = [a]
+	tm := mustLower(t, minimal(`  entry_action = a
   overview at_least {
     a |=> b
   }

@@ -51,7 +51,7 @@
   "scenes": [
     {
       "id": "loan_flow",
-      "entryActions": ["score"],
+      "entryAction": "score",
       "nextPolicy": "first-match",
       "actions": [
         {

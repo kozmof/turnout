@@ -291,9 +291,9 @@ func lowerStateBlockFromSchema(schema state.Schema, order []string, ds *diag.Dia
 
 func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.DiagSink) *turnoutpb.SceneBlock {
 	sb := &turnoutpb.SceneBlock{
-		Id:           scene.ID,
-		EntryActions: scene.EntryActions,
-		Actions:      make([]*turnoutpb.ActionModel, 0, len(scene.Actions)),
+		Id:          scene.ID,
+		EntryAction: scene.EntryAction,
+		Actions:     make([]*turnoutpb.ActionModel, 0, len(scene.Actions)),
 	}
 	if scene.NextPolicy != "" {
 		sb.NextPolicy = proto.String(scene.NextPolicy)

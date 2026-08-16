@@ -28,8 +28,8 @@ state {
 }
 
 scene "llm_support_workflow" {
-  entry_actions     = [analyze_request]
-  next_policy       = "first-match"
+  entry_action     = analyze_request
+  next_policy      = "first-match"
 
   overview at_least {
     analyze_request |=> retrieve_context

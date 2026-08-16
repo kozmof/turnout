@@ -74,7 +74,6 @@ export function createSceneRunner(
     scene,
     state,
     hooks,
-    undefined,
     options.maxSceneSteps,
     signal,
     onLog,
@@ -104,7 +103,7 @@ export function createSceneRunner(
       safeLog(onLog, {
         kind: "scene-start",
         sceneId: scene.id,
-        entryActions: scene.entryActions,
+        entryAction: scene.entryAction,
       });
     }
     if (sceneExecutor.isDone()) {

@@ -18,7 +18,7 @@ state {
 }
 
 scene "main" {
-  entry_actions = [init]
+  entry_action = init
 
   action "init" {
     compute "p" {

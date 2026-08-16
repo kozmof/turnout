@@ -24,7 +24,7 @@ func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number :=
@@ -39,7 +39,7 @@ scene "test" {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       score:number := <~ @app.missing
@@ -54,7 +54,7 @@ scene "test" {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -74,7 +74,7 @@ scene "test" {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
     next {
@@ -117,7 +117,7 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 	}{
 		{
 			name: "nil_binding_rhs",
-			src: minimal(`  entry_actions = [a]
+			src: minimal(`  entry_action = a
   action "a" {
     compute "p" {
       v:bool := true
@@ -151,7 +151,7 @@ func TestLowerStaleDeclarationOrderIsError(t *testing.T) {
 	// Build a TurnFile with a state_file directive (so lowerCore uses the schema path).
 	src := `state_file = "fake.tu"
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" { compute "p" { v:bool := true } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)

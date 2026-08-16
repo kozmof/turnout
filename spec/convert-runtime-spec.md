@@ -44,7 +44,7 @@ Turn DSL  ──[Go CLI]──>  HCL file  ──[TypeScript runtime]──>  ST
 - Parse Turn DSL source.
 - Lower DSL constructs to canonical plain HCL (per `hcl-context-spec.md` lowering rules).
 - Emit one `prog "<computeLabel>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block. The prog name is the author's `compute` label, not the action ID; the two are independent.
-- Emit `entry_actions = [<actionId>, ...]` as a top-level attribute at the top of each scene block to declare the scene's entry action IDs.
+- Emit `entry_action = <actionId>` as a top-level attribute at the top of each scene block to declare the scene's entry action ID.
 - Emit inline transition `prog` blocks for each next-rule compute program.
 - Emit STATE effect declarations (`prepare` and `merge` sub-blocks) at action level.
 - Emit `publish` sub-block for any publish-phase hook declarations.
@@ -249,7 +249,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | 2 | Duplicate `action` block name labels | Parse error: fail with `DuplicateActionLabel` — last-wins is forbidden. |
 | 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
 | 4 | Parallel action scheduling under `all-match` | Sequential, declaration order: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
-| 5 | Entry action HCL declaration | `entryActionIds` are emitted as a top-level string-list attribute: `entry_actions = [<actionId>, ...]` at the top of the scene block. |
+| 5 | Entry action HCL declaration | `entryActionId` is emitted as a top-level string attribute: `entry_action = <actionId>` at the top of the scene block. |
 | 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |
 
 ---
@@ -305,6 +305,6 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 
 ### Resolved points
 
-- Entry action HCL declaration: `entryActionIds` are emitted as a top-level string-list attribute at the top of the scene block: `entry_actions = [<actionId>, ...]`.
+- Entry action HCL declaration: `entryActionId` is emitted as a top-level string attribute at the top of the scene block: `entry_action = <actionId>`.
 - `fromState` missing-path behavior: When a dotted STATE path does not exist in `S_{n+1}` and `required = true`, the runtime emits a `MissingStatePath` error. The `SceneDiagnostic` for this error carries `path` (the missing dotted path string) and `bindingName` (the binding that declared it) in the `details` field.
 - `div_floor` alias: no longer a priority, because the `number` type natively accepts fractional results. A convenience alias may still be added but is not required for correctness.

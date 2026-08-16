@@ -55,7 +55,7 @@ const mockExecFile = vi.mocked(execFile) as unknown as ReturnType<typeof vi.fn>;
 const MOCK_BIN = "/mock/turnout";
 
 const minimalModel = {
-  scenes: [{ id: "scene_a", entryActions: [], actions: [] }],
+  scenes: [{ id: "scene_a", entryAction: "", actions: [] }],
 } as unknown as TurnModel;
 
 type ExecFileCb = (err: Error | null, stdout: Buffer, stderr: Buffer) => void;

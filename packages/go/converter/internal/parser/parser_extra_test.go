@@ -66,7 +66,7 @@ func TestParseRefValKeywordDottedPathIsError(t *testing.T) {
   }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" {
       v:number := <~ @state.score
@@ -83,7 +83,7 @@ scene "test" {
 
 func TestParseFieldTypeError(t *testing.T) {
 	// A number literal where a type is expected → parse error
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:42 := true
@@ -104,7 +104,7 @@ func TestParseLiteralHeredocInStateDef(t *testing.T) {
   }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -120,7 +120,7 @@ scene "test" {
 
 func TestParseLiteralTripleQuoteInProg(t *testing.T) {
 	// Triple-quoted string as binding RHS (exercises parseLiteral TokTripleQuote branch)
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       greeting:str = """
@@ -148,7 +148,7 @@ Hello world.
 
 func TestParseBlockArgFuncRef(t *testing.T) {
 	// { func_ref = "fn1" } as a function argument exercises the func_ref parsing branch.
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:number = 3
@@ -173,7 +173,7 @@ func TestParseBlockArgFuncRef(t *testing.T) {
 
 func TestParseBlockArgTransform(t *testing.T) {
 	// { transform = { ref = "v" fn = "to_str" } } exercises the transform branch
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:number = 3
@@ -197,7 +197,7 @@ func TestParseBlockArgTransform(t *testing.T) {
 
 func TestParseBlockArgUnknownKey(t *testing.T) {
 	// { bogus = x } exercises the default/unknown key branch → parse error
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:number = 3
@@ -211,7 +211,7 @@ func TestParseBlockArgUnknownKey(t *testing.T) {
 
 func TestParsePipeCompatRHS(t *testing.T) {
 	// New pipe(initial, step1, ...) form: pipe(x, add(#it, x))
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
@@ -241,7 +241,7 @@ func TestParsePipeCompatRHS(t *testing.T) {
 
 func TestParseIfCompatRHS(t *testing.T) {
 	// New if(cond, then, else) call form
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       flag:bool     = true
@@ -274,7 +274,7 @@ func TestParseIfCompatRHS(t *testing.T) {
 
 func TestParseRHSUnexpectedToken(t *testing.T) {
 	// A closing brace where an RHS is expected → parse error
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
         v:bool := }
@@ -293,7 +293,7 @@ func TestSkipBlockOnNamespaceError(t *testing.T) {
   }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -306,7 +306,7 @@ scene "test" {
 
 func TestParseBindingDeclNameError(t *testing.T) {
 	// Non-ident where binding name is expected → error + recovery
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       42:bool = true
@@ -320,7 +320,7 @@ func TestParseBindingDeclNameError(t *testing.T) {
 
 func TestParseBlockRHSNonIdentKey(t *testing.T) {
 	// Non-ident as block RHS key → parse error
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:bool := { 42 = x }
@@ -333,7 +333,7 @@ func TestParseBlockRHSNonIdentKey(t *testing.T) {
 
 func TestParseFnCompatRHS(t *testing.T) {
 	// Function call form: add(x, y)
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 3
@@ -378,7 +378,7 @@ func TestParseAllInfixOperators(t *testing.T) {
 		{"%", ast.InfixMod},
 	}
 	for _, tc := range cases {
-		src := minimalTurnFile(`  entry_actions = [a]
+		src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       a:number = 1
@@ -388,7 +388,7 @@ func TestParseAllInfixOperators(t *testing.T) {
   }`)
 		// For bool operators, adjust types
 		if tc.op == "&" || tc.op == "|" {
-			src = minimalTurnFile(`  entry_actions = [a]
+			src = minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       a:bool = true
@@ -421,7 +421,7 @@ func TestParseNextPrepareFromState(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -449,7 +449,7 @@ scene "test" {
 func TestParseNextPrepareFromLiteral(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -538,7 +538,7 @@ func TestParseRefValDotNonIdent(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     prepare {
@@ -553,7 +553,7 @@ scene "test" {
 
 func TestParseRefValNumberLiteral(t *testing.T) {
 	// root = 42 — number literal where an ident ref is expected
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute {
       root = 42
@@ -569,7 +569,7 @@ func TestParseRefValNumberLiteral(t *testing.T) {
 
 func TestParseFieldTypeInvalidArrayType(t *testing.T) {
 	// v:arr<invalid_element_type> — TokType but FieldTypeFromString fails
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       r:bool = true
@@ -585,7 +585,7 @@ func TestParseFieldTypeUnknownIdent(t *testing.T) {
 	// v:badtype — an identifier in binding-type position is now parsed as a named
 	// type reference (resolved later); it is no longer a parse-stage error. An
 	// undeclared reference is reported at the validate stage as CodeUnknownType.
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:badtype := true
@@ -603,7 +603,7 @@ func TestParseFieldTypeUnknownIdent(t *testing.T) {
 
 func TestParseBlockArgNonIdentKey(t *testing.T) {
 	// { 42 = v } — number literal as key inside block arg
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:number = 3
@@ -617,7 +617,7 @@ func TestParseBlockArgNonIdentKey(t *testing.T) {
 
 func TestParseTransformBodyNonIdent(t *testing.T) {
 	// { transform = { 42 = x fn = "f" } } — number inside transform body
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:number = 3
@@ -631,7 +631,7 @@ func TestParseTransformBodyNonIdent(t *testing.T) {
 
 func TestParseTransformBodyUnknownField(t *testing.T) {
 	// { transform = { ref = "v" unknown_key = "x" fn = "f" } }
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       v:number = 3
@@ -645,7 +645,7 @@ func TestParseTransformBodyUnknownField(t *testing.T) {
 
 func TestParseCondBlockUnknownField(t *testing.T) {
 	// { cond = { unknown_key = x then = tf else = ef } }
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       tf:number = 1
@@ -661,7 +661,7 @@ func TestParseCondBlockUnknownField(t *testing.T) {
 
 func TestParseCondBlockNonIdentToken(t *testing.T) {
 	// { cond = { 42 then = tf else = ef } } — number inside cond block
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       tf:number = 1
@@ -677,7 +677,7 @@ func TestParseCondBlockNonIdentToken(t *testing.T) {
 
 func TestParseCondBlockNoCond(t *testing.T) {
 	// { cond = { then = tf else = ef } } — no condition field, should use CondExprRef{}
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       tf:number = 1
@@ -693,7 +693,7 @@ func TestParseCondBlockNoCond(t *testing.T) {
 
 func TestParsePipeCompatRHSNonIdentField(t *testing.T) {
 	// { pipe = { 42 = bad args = {} steps = [...] } } — number as field name in pipe block
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
@@ -707,7 +707,7 @@ func TestParsePipeCompatRHSNonIdentField(t *testing.T) {
 
 func TestParsePipeCompatRHSUnknownField(t *testing.T) {
 	// { pipe = { args = { a = x } steps = [...] unknown_field = x } }
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
@@ -721,7 +721,7 @@ func TestParsePipeCompatRHSUnknownField(t *testing.T) {
 
 func TestParseCompatArgListNamedKeys(t *testing.T) {
 	// Function call with two ref args: add(x, y)
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number      = 3
@@ -747,7 +747,7 @@ func TestParseCompatArgListNamedKeys(t *testing.T) {
 
 func TestParsePipeStepsListNonIdentFn(t *testing.T) {
 	// pipe(a:x)[42(a, a), add(a, a)] — number literal as function name in pipe steps
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
@@ -761,7 +761,7 @@ func TestParsePipeStepsListNonIdentFn(t *testing.T) {
 
 func TestParsePipeArgsBlockNonIdentParam(t *testing.T) {
 	// { pipe = { args = { 42 = x } steps = [...] } } — number as param name
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
@@ -775,7 +775,7 @@ func TestParsePipeArgsBlockNonIdentParam(t *testing.T) {
 
 func TestParseIfBodyNonIdentToken(t *testing.T) {
 	// v:bool = if { 42 cond = flag then = tf else = ef } — number inside if block
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       flag:bool   = true
@@ -791,7 +791,7 @@ func TestParseIfBodyNonIdentToken(t *testing.T) {
 
 func TestParseCondExprNonIdent(t *testing.T) {
 	// v:bool = if { cond = 42 then = tf else = ef } — number as condition expression
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       tf:number   = 1
@@ -808,7 +808,7 @@ func TestParseComputeBlockUnexpectedToken(t *testing.T) {
 	// compute "p" { unknown_field = v  r:bool := true }
 	// `unknown_field = v` is not a binding declaration: no `:type` follows the
 	// name, so it fails where a binding was expected.
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       unknown_field = v
@@ -826,7 +826,7 @@ func TestParsePrepareBlockNonIdentName(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     prepare {
@@ -846,7 +846,7 @@ func TestParsePrepareBlockFromLiteral(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     prepare {
@@ -865,7 +865,7 @@ func TestParsePrepareBlockUnknownField(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     prepare {
@@ -884,7 +884,7 @@ func TestParsePrepareBlockNoSource(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     prepare {
@@ -903,7 +903,7 @@ func TestParseMergeBlockNonIdentName(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     merge {
@@ -923,7 +923,7 @@ func TestParseMergeBlockUnknownField(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:number := _ }
     merge {
@@ -942,7 +942,7 @@ func TestParsePublishBlockUnexpectedToken(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     publish { unknown = "x" hook = "h" }
@@ -959,7 +959,7 @@ func TestParseNextBlockUnexpectedToken(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -980,7 +980,7 @@ func TestParseNextComputeBlockUnexpectedToken(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -1003,7 +1003,7 @@ func TestParseNextPrepareBlockNonIdentName(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -1030,7 +1030,7 @@ func TestParseNextPrepareBlockUnknownField(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -1056,7 +1056,7 @@ func TestParseNextPrepareBlockNoSource(t *testing.T) {
   app { score:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {
@@ -1080,7 +1080,7 @@ func TestParseActionBlockDuplicateTripleQuote(t *testing.T) {
 	// action "a" { """first""" """second""" compute { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     """first text"""
     """second text"""
@@ -1096,7 +1096,7 @@ func TestParseActionBlockTextNonString(t *testing.T) {
 	// action "a" { text = 42 compute { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     text = 42
     compute "p" { r:bool := true }
@@ -1111,7 +1111,7 @@ func TestParseActionBlockDuplicateText(t *testing.T) {
 	// action "a" { text = "first" text = "second" compute { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     text = "first"
     text = "second"
@@ -1127,7 +1127,7 @@ func TestParseActionBlockUnexpectedToken(t *testing.T) {
 	// action "a" { unknown_field = x compute { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     unknown_field = bad
     compute "p" { r:bool := true }
@@ -1142,7 +1142,7 @@ func TestParseViewBlockFlowNonString(t *testing.T) {
 	// view "v" { flow = 42 }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   view "v" {
     flow = 42
   }
@@ -1159,7 +1159,7 @@ func TestParseViewBlockUnexpectedToken(t *testing.T) {
 	// view "v" { unknown = x flow = "abc" }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   view "v" {
     unknown = bad
     flow = "abc"
@@ -1174,11 +1174,11 @@ scene "test" {
 // ── Lines 1213-1216: parseSceneBlock unexpected token ────────────────────────
 
 func TestParseSceneBlockUnexpectedToken(t *testing.T) {
-	// scene "s" { 42 = bad entry_actions = [a] action "a" { ... } }
+	// scene "s" { 42 = bad entry_action = a action "a" { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
   42 = bad
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
   }
@@ -1195,7 +1195,7 @@ func TestParseInlineStateBlockNonIdentNamespace(t *testing.T) {
   app { x:number = 0 }
 }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
   }
@@ -1209,7 +1209,7 @@ func TestParseRouteBlockUnexpectedToken(t *testing.T) {
 	// route "r1" { unknown = x match { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
   }
@@ -1229,7 +1229,7 @@ func TestParsePathExprInvalidFirstToken(t *testing.T) {
 	// route "r1" { match { 42 => s } } — number as scene_id in path
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
   }
@@ -1248,7 +1248,7 @@ func TestParsePathExprDotInvalidSegment(t *testing.T) {
 	// A path like "scene.42" — dot followed by number
 	src := `state { ns { v:number = 0 } }
 scene "test" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
   }
@@ -1267,7 +1267,7 @@ func TestParseFileUnexpectedTopLevelIdent(t *testing.T) {
 	// someident = 1 at top level (not state/scene/route)
 	src := `state { app { x:number = 0 } }
 scene "s" {
-  entry_actions = [a]
+  entry_action = a
   action "a" {
     compute "p" { r:bool := true }
   }
@@ -1277,7 +1277,7 @@ someident = 1`
 }
 
 func TestParseNamedArgsAreErrors(t *testing.T) {
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -1291,7 +1291,7 @@ func TestParseNamedArgsAreErrors(t *testing.T) {
 }
 
 func TestParseLocalNamedArgsAreErrors(t *testing.T) {
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 1
@@ -1314,7 +1314,7 @@ func hasParserDiagCode(ds diag.Diagnostics, code diag.ErrorCode) bool {
 }
 
 func TestParserRecoveryReportsSiblingActionBlockErrors(t *testing.T) {
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     garbage { nested { ignored = true } }
     also_bad { ignored = true }
@@ -1327,7 +1327,7 @@ func TestParserRecoveryReportsSiblingActionBlockErrors(t *testing.T) {
 }
 
 func TestParserRecoveryReportsSiblingPrepareEntryErrors(t *testing.T) {
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" { v:number := }
     prepare {
@@ -1343,7 +1343,7 @@ func TestParserRecoveryReportsSiblingPrepareEntryErrors(t *testing.T) {
 }
 
 func TestParserRecoveryReportsSiblingNextItemErrors(t *testing.T) {
-	src := minimalTurnFile(`  entry_actions = [a]
+	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" { v:bool := true }
     next {

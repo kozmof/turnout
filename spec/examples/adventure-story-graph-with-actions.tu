@@ -19,8 +19,8 @@ state {
 }
 
 scene "adventure_story_chapter_1" {
-  entry_actions     = [choose_route]
-  next_policy       = "first-match"
+  entry_action     = choose_route
+  next_policy      = "first-match"
 
   overview at_least {
     choose_route |=> forest_trail

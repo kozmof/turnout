@@ -570,9 +570,9 @@ func (x *FieldModel) GetValue() *structpb.Value {
 }
 
 type SceneBlock struct {
-	state        protoimpl.MessageState `protogen:"open.v1"`
-	Id           string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	EntryActions []string               `protobuf:"bytes,2,rep,name=entry_actions,json=entryActions,proto3" json:"entry_actions,omitempty"`
+	state       protoimpl.MessageState `protogen:"open.v1"`
+	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntryAction string                 `protobuf:"bytes,2,opt,name=entry_action,json=entryAction,proto3" json:"entry_action,omitempty"`
 	// next_policy is one of: "first-match" | "all-match". Absent means first-match.
 	NextPolicy    *string        `protobuf:"bytes,3,opt,name=next_policy,json=nextPolicy,proto3,oneof" json:"next_policy,omitempty"`
 	Actions       []*ActionModel `protobuf:"bytes,4,rep,name=actions,proto3" json:"actions,omitempty"`
@@ -618,11 +618,11 @@ func (x *SceneBlock) GetId() string {
 	return ""
 }
 
-func (x *SceneBlock) GetEntryActions() []string {
+func (x *SceneBlock) GetEntryAction() string {
 	if x != nil {
-		return x.EntryActions
+		return x.EntryAction
 	}
-	return nil
+	return ""
 }
 
 func (x *SceneBlock) GetNextPolicy() string {
@@ -3645,11 +3645,11 @@ const file_turnout_model_proto_rawDesc = "" +
 	"FieldModel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12,\n" +
-	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value\"\xef\x01\n" +
+	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value\"\xed\x01\n" +
 	"\n" +
 	"SceneBlock\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12#\n" +
-	"\rentry_actions\x18\x02 \x03(\tR\fentryActions\x12$\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
+	"\fentry_action\x18\x02 \x01(\tR\ventryAction\x12$\n" +
 	"\vnext_policy\x18\x03 \x01(\tH\x00R\n" +
 	"nextPolicy\x88\x01\x01\x127\n" +
 	"\aactions\x18\x04 \x03(\v2\x1d.turnout.model.v1.ActionModelR\aactions\x124\n" +

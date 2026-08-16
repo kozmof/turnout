@@ -85,7 +85,7 @@ A route MUST declare exactly one entry scene:
 entry = scene_1
 ```
 
-The entry scene must reference an existing scene. Route execution starts at that scene's first declared `entry_actions` entry.
+The entry scene must reference an existing scene. Route execution starts at that scene's declared `entry_action`.
 
 ### 3.2 Pattern Forms
 
@@ -115,7 +115,7 @@ The `_` pattern matches any route history unconditionally. It MUST appear at mos
 
 ### 3.3 Match Result
 
-`=> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its first declared `entry_actions` entry (per `scene-graph.md §2`). When the target scene declares multiple entry actions, only the first is launched on route-driven entry.
+`=> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its declared `entry_action` (per `scene-graph.md §2`). A scene declares exactly one entry action, so route-driven entry and standalone scene execution always start from the same place.
 
 ---
 
@@ -276,7 +276,7 @@ type RouteDiagnostic = {
 | E. OR expression | `path1 \| path2` arm matches when either branch matches |
 | F. Priority resolution | Narrower patterns (fewer `*`) win; declaration order breaks ties among equal-wildcard patterns |
 | G. Fallback | `_` selected when no specific pattern matches; absent `_` → `completed` |
-| H. Match result | `=> <scene_id>` causes entry from first declared `entry_actions` of target scene |
+| H. Match result | `=> <scene_id>` causes entry from the declared `entry_action` of target scene |
 | I. Error paths | All error codes trigger correctly and abort without partial state |
 | J. Contiguous-block matching | Interleaved actions from another scene break the contiguous block; pattern does not match across the break |
 

@@ -104,14 +104,14 @@ function getActionMap(scene: SceneBlock): ReadonlyMap<string, ActionModel> {
 /**
  * Creates a scene executor that advances one action at a time via `next()`.
  *
- * @param entryActions - Override which actions seed the initial queue.
- *   Defaults to `scene.entryActions`. Pass a single-element array for
- *   route-driven entry where only the first entry action should fire.
+ * The initial queue is seeded with `scene.entryAction`, so scene-driven and
+ * route-driven entry always start from the same action.
+ *
  * @param maxSteps - Abort after this many action executions to guard against
  *   infinite loops in hand-crafted or malformed JSON models. Defaults to 10 000.
  *   @example
  *   // Limit to 10 steps in a unit test to keep it fast.
- *   createSceneExecutor(scene, state, hooks, undefined, 10);
+ *   createSceneExecutor(scene, state, hooks, 10);
  *
  * `next()` throws `SceneRuntimeError` for: `MaxStepsExceeded`, `UnknownAction`,
  * `DuplicateActionId`, `UnknownFunction`, `UnknownArgModel`.
@@ -128,19 +128,20 @@ export function createSceneExecutor(
   scene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
-  entryActions?: string[],
   maxSteps: number = DEFAULT_MAX_STEPS,
   signal: AbortSignal = UNABORTABLE,
   onLog?: (event: LogEvent) => void,
   failOnPublishError = false,
 ): SceneExecutor {
+  if (!scene.entryAction)
+    throw new SceneRuntimeError("NoEntryAction", scene.id, "scene declares no entry action");
   const actionMap = getActionMap(scene);
   const policy = parseNextPolicy(scene.nextPolicy, scene.id);
   // Per-executor cache for next-rule contexts. Keyed by (ProgModel identity,
   // serialised prepared values) so identical (prog, prepare) pairs across
   // multiple action steps reuse the same BuiltContext and ValidatedContext
   // rather than rebuilding them on each step.
-  const rs = createRunState(state, entryActions ?? scene.entryActions);
+  const rs = createRunState(state, scene.entryAction);
 
   function isDone(): boolean {
     return rs.queueHead >= rs.queue.length;
@@ -292,7 +293,6 @@ export async function executeScene(
   inputScene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
-  entryActions?: string[],
   maxSteps?: number,
   options: SceneExecutionOptions = {},
 ): Promise<SceneExecutionResult> {
@@ -301,7 +301,6 @@ export async function executeScene(
     scene,
     state,
     hooks,
-    entryActions,
     maxSteps,
     options.signal,
     options.onLog,
@@ -320,7 +319,6 @@ export async function executeSceneSafe(
   inputScene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, publish: {} },
-  entryActions?: string[],
   maxSteps?: number,
   options: SceneExecutionOptions = {},
 ): Promise<SceneResult> {
@@ -331,7 +329,6 @@ export async function executeSceneSafe(
       scene,
       state,
       hooks,
-      entryActions,
       maxSteps,
       options.signal,
       options.onLog,

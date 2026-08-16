@@ -39,8 +39,8 @@ state {
 }
 
 scene "detective_evidence_hunt" {
-  entry_actions     = [arrive_crime_scene]
-  next_policy       = "first-match"
+  entry_action     = arrive_crime_scene
+  next_policy      = "first-match"
 
   overview at_least {
     arrive_crime_scene |=> scan_scene

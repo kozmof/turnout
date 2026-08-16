@@ -71,7 +71,7 @@ const (
 	TokKwPublish
 	TokKwNext
 	TokKwProg
-	TokKwEntryActions
+	TokKwEntryAction
 	TokKwNextPolicy
 	TokKwFromState
 	TokKwFromAction
@@ -237,7 +237,7 @@ var keywordTable = []keywordEntry{
 	{"publish", TokKwPublish},
 	{"next", TokKwNext},
 	{"prog", TokKwProg},
-	{"entry_actions", TokKwEntryActions},
+	{"entry_action", TokKwEntryAction},
 	{"next_policy", TokKwNextPolicy},
 	{"from_state", TokKwFromState},
 	{"from_action", TokKwFromAction},

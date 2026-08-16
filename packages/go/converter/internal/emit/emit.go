@@ -134,16 +134,12 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 	iw.wl("scene %s {", hclQuote(s.Id))
 	iw.depth++
 
-	// entry_actions = [a, b]
-	ea := make([]string, len(s.EntryActions))
-	for i, a := range s.EntryActions {
-		ea[i] = hclQuote(a)
-	}
-	iw.wl("entry_actions = [%s]", strings.Join(ea, ", "))
+	// entry_action = "a"
+	iw.wl("entry_action = %s", hclQuote(s.EntryAction))
 
 	// next_policy = "..." (omit if absent)
 	if s.NextPolicy != nil {
-		iw.wl("next_policy   = %s", hclQuote(*s.NextPolicy))
+		iw.wl("next_policy  = %s", hclQuote(*s.NextPolicy))
 	}
 
 	// overview block (omit if absent; the wire field retains its legacy name)
