@@ -268,20 +268,25 @@ func TestNextMatchMultiColumnBuildsAndOverEq(t *testing.T) {
 	}
 }
 
-// TestNextMatchScalarPatternAgainstOneSubject covers the 1-tuple normalization:
-// with a single subject, `"gold" =>` and `("gold") =>` mean the same thing, and
-// the subject list may be written with or without parentheses.
+// TestNextMatchScalarPatternAgainstOneSubject covers the 1-tuple normalization.
+// With a single subject the parentheses are optional on the subject list and on
+// the pattern, independently, so all four spellings of the same rule must
+// produce the same expansion.
 func TestNextMatchScalarPatternAgainstOneSubject(t *testing.T) {
 	for name, block := range map[string]string{
 		"bare subject, scalar pattern": `    next on tier match {
       "gold" => escalate,
       _ => archive
     }`,
-		"paren subject, tuple pattern": `    next on (tier) match {
+		"bare subject, tuple pattern": `    next on tier match {
       ("gold") => escalate,
       _ => archive
     }`,
-		"bare subject, tuple pattern": `    next on tier match {
+		"paren subject, scalar pattern": `    next on (tier) match {
+      "gold" => escalate,
+      _ => archive
+    }`,
+		"paren subject, tuple pattern": `    next on (tier) match {
       ("gold") => escalate,
       _ => archive
     }`,
@@ -291,10 +296,87 @@ func TestNextMatchScalarPatternAgainstOneSubject(t *testing.T) {
 			if len(rules) != 2 {
 				t.Fatalf("rules = %d, want 2", len(rules))
 			}
-			if rules[0].Compute == nil || len(rules[0].Compute.Prog.Bindings) != 2 {
-				t.Fatalf("arm 0 prog = %v, want one ingress plus one condition", rules[0].Compute)
+
+			prog := rules[0].Compute.Prog
+			got := matchBindingNames(prog)
+			if len(got) != 2 || got[0] != "tier" {
+				t.Fatalf("bindings = %v, want [tier <condition>]", got)
+			}
+			// One constrained column normalizes to InfixRHS rather than a
+			// one-branch NestedInfixRHS, so every spelling lowers through the
+			// same path a hand-written rule does.
+			if _, ok := prog.Bindings[1].RHS.(*ast.InfixRHS); !ok {
+				t.Errorf("condition RHS = %T, want *ast.InfixRHS", prog.Bindings[1].RHS)
+			}
+			if n := len(rules[0].Prepare.Entries); n != 1 {
+				t.Errorf("prepare entries = %d, want 1", n)
+			}
+			if rules[1].Compute != nil {
+				t.Error("the `_` arm produced a compute block; want an unconditional rule")
 			}
 		})
+	}
+}
+
+// TestNextMatchColumnTypeInference covers the three literal kinds a column can
+// hold. A subject's type is never written down — it is read off the literals in
+// its column — so each kind needs to land on the right FieldType, and a column
+// left wildcard everywhere must produce no binding at all.
+func TestNextMatchColumnTypeInference(t *testing.T) {
+	rules := matchRulesOf(t, `    next on (tier, region, urgent) match {
+      ("gold", _, true) => escalate,
+      _ => archive
+    }`)
+
+	// `region` is wildcard in every arm, so it is neither typed nor ingressed.
+	prog := rules[0].Compute.Prog
+	for _, b := range prog.Bindings {
+		if b.Name == "region" {
+			t.Error("a column that is wildcard in every arm was still ingressed")
+		}
+	}
+
+	want := map[string]ast.FieldType{"tier": ast.FieldTypeStr, "urgent": ast.FieldTypeBool}
+	for _, b := range prog.Bindings[:2] {
+		if b.Type != want[b.Name] {
+			t.Errorf("binding %q: type = %v, want %v", b.Name, b.Type, want[b.Name])
+		}
+	}
+}
+
+// TestNextMatchNumberColumn covers a number-typed subject, the one literal kind
+// the other tests reach only through a type-mismatch case.
+func TestNextMatchNumberColumn(t *testing.T) {
+	src := `state {
+  routing { retries:number = 0 }
+}
+scene "s" {
+  entry_action = classify
+
+  action "classify" {
+    compute "c" {
+      retries:number <~ @routing.retries
+      ready:bool := true
+    }
+
+    next on retries match {
+      0 => escalate,
+      3 => archive,
+      _ => archive
+    }
+  }
+
+  action "escalate" { compute "e" { done:bool := true } }
+  action "archive"  { compute "a" { done:bool := true } }
+}
+`
+	tf := mustParse(t, src)
+	rules := tf.Scenes[0].Actions[0].Next
+	if len(rules) != 3 {
+		t.Fatalf("rules = %d, want 3", len(rules))
+	}
+	if got := rules[0].Compute.Prog.Bindings[0].Type; got != ast.FieldTypeNumber {
+		t.Errorf("retries type = %v, want number", got)
 	}
 }
 

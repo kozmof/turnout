@@ -51,6 +51,7 @@ const examples = [
   "kitchen-sink-support-pipeline.tu",
   "llm-workflow-with-actions.tu",
   "scene-graph-with-actions.tu",
+  "shipping-dispatch-match.tu",
 ];
 
 describe("proto schema-drift guard", () => {
