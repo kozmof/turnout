@@ -72,18 +72,16 @@ scene "intake" {
     - Branch to `proceed` when eligible; fall through to `early_reject`.
     """
 
-    compute {
-      prog "collect_info_graph" {
-        age:number <~ @applicant.age
-        is_resident:bool <~ @applicant.is_resident
-        sanctioned:bool <~ @applicant.sanctioned
+    compute "collect_info_graph" {
+      age:number <~ @applicant.age
+      is_resident:bool <~ @applicant.is_resident
+      sanctioned:bool <~ @applicant.sanctioned
 
-        ("intake_collect_info") ~> @workflow.phase
+      ("intake_collect_info") ~> @workflow.phase
 
-        eligible:bool := (
-          age >= 18 & is_resident & sanctioned == false
-        ) ~> @intake.eligible
-      }
+      eligible:bool := (
+        age >= 18 & is_resident & sanctioned == false
+      ) ~> @intake.eligible
     }
 
     next eligible -> proceed
@@ -97,12 +95,10 @@ scene "intake" {
     - No next actions — scene terminates here, routing hands off to the route match block.
     """
 
-    compute {
-      prog "proceed_graph" {
-        (true) ~> @intake.passed
+    compute "proceed_graph" {
+      (true) ~> @intake.passed
 
-        phase:str := ("intake_proceed") ~> @workflow.phase
-      }
+      phase:str := ("intake_proceed") ~> @workflow.phase
     }
 
   }
@@ -114,13 +110,11 @@ scene "intake" {
     - No next actions — scene terminates here.
     """
 
-    compute {
-      prog "early_reject_graph" {
-        ("failed_intake_eligibility") ~> @workflow.reject_reason
-        (false) ~> @intake.passed
+    compute "early_reject_graph" {
+      ("failed_intake_eligibility") ~> @workflow.reject_reason
+      (false) ~> @intake.passed
 
-        phase:str := ("intake_early_reject") ~> @workflow.phase
-      }
+      phase:str := ("intake_early_reject") ~> @workflow.phase
     }
 
   }
@@ -148,17 +142,15 @@ scene "document_review" {
     - Branch to mark_valid or mark_invalid.
     """
 
-    compute {
-      prog "check_documents_graph" {
-        doc_expired:bool <~ @documents.expired
-        ocr_confidence:number <~ @documents.ocr_confidence
+    compute "check_documents_graph" {
+      doc_expired:bool <~ @documents.expired
+      ocr_confidence:number <~ @documents.ocr_confidence
 
-        ("document_review_check") ~> @workflow.phase
+      ("document_review_check") ~> @workflow.phase
 
-        docs_ok:bool := (
-          doc_expired == false & ocr_confidence >= 80
-        ) ~> @documents.review_passed
-      }
+      docs_ok:bool := (
+        doc_expired == false & ocr_confidence >= 80
+      ) ~> @documents.review_passed
     }
 
     next docs_ok -> mark_valid
@@ -172,12 +164,10 @@ scene "document_review" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "mark_valid_graph" {
-        (true) ~> @documents.verified
+    compute "mark_valid_graph" {
+      (true) ~> @documents.verified
 
-        phase:str := ("document_review_mark_valid") ~> @workflow.phase
-      }
+      phase:str := ("document_review_mark_valid") ~> @workflow.phase
     }
 
   }
@@ -189,13 +179,11 @@ scene "document_review" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "mark_invalid_graph" {
-        (false) ~> @documents.verified
-        ("document_validation_failed") ~> @workflow.reject_reason
+    compute "mark_invalid_graph" {
+      (false) ~> @documents.verified
+      ("document_validation_failed") ~> @workflow.reject_reason
 
-        phase:str := ("document_review_mark_invalid") ~> @workflow.phase
-      }
+      phase:str := ("document_review_mark_invalid") ~> @workflow.phase
     }
 
   }
@@ -224,44 +212,38 @@ scene "risk_assessment" {
     - Branch on tier.
     """
 
-    compute {
-      prog "score_risk_graph" {
-        credit_score:number <~ @applicant.credit_score
-        fraud_flag:bool <~ @applicant.fraud_flag
+    compute "score_risk_graph" {
+      credit_score:number <~ @applicant.credit_score
+      fraud_flag:bool <~ @applicant.fraud_flag
 
-        (credit_score) ~> @risk.score
-        ("risk_assessment_score") ~> @workflow.phase
+      (credit_score) ~> @risk.score
+      ("risk_assessment_score") ~> @workflow.phase
 
-        risk_tier:str := (if(
-          fraud_flag,
-          "high",
-          if(
-            credit_score >= 700,
-            "low",
-            if(credit_score < 500, "high", "borderline")
-          )
-        )) ~> @risk.tier
-      }
+      risk_tier:str := (if(
+        fraud_flag,
+        "high",
+        if(
+          credit_score >= 700,
+          "low",
+          if(credit_score < 500, "high", "borderline")
+        )
+      )) ~> @risk.tier
     }
 
     # `next <flag> -> <action>` sugar carries a bare bool binding only, so a
     # comparison against the action result keeps the transition block form.
     next {
-      compute {
-        prog "to_low_risk" {
-          risk_tier:str <~ action(risk_tier)
-          go_low:bool := risk_tier == "low"
-        }
+      compute "to_low_risk" {
+        risk_tier:str <~ action(risk_tier)
+        go_low:bool := risk_tier == "low"
       }
       action = low_risk_pass
     }
 
     next {
-      compute {
-        prog "to_high_risk" {
-          risk_tier:str <~ action(risk_tier)
-          go_high:bool := risk_tier == "high"
-        }
+      compute "to_high_risk" {
+        risk_tier:str <~ action(risk_tier)
+        go_high:bool := risk_tier == "high"
       }
       action = high_risk_fail
     }
@@ -276,12 +258,10 @@ scene "risk_assessment" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "low_risk_pass_graph" {
-        ("low_risk_approved") ~> @risk.decision
+    compute "low_risk_pass_graph" {
+      ("low_risk_approved") ~> @risk.decision
 
-        phase:str := ("risk_assessment_low_risk_pass") ~> @workflow.phase
-      }
+      phase:str := ("risk_assessment_low_risk_pass") ~> @workflow.phase
     }
 
   }
@@ -293,13 +273,11 @@ scene "risk_assessment" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "high_risk_fail_graph" {
-        ("high_risk_rejected") ~> @risk.decision
-        ("risk_score_too_high") ~> @workflow.reject_reason
+    compute "high_risk_fail_graph" {
+      ("high_risk_rejected") ~> @risk.decision
+      ("risk_score_too_high") ~> @workflow.reject_reason
 
-        phase:str := ("risk_assessment_high_risk_fail") ~> @workflow.phase
-      }
+      phase:str := ("risk_assessment_high_risk_fail") ~> @workflow.phase
     }
 
   }
@@ -311,13 +289,11 @@ scene "risk_assessment" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "borderline_flag_graph" {
-        ("borderline_manual_review") ~> @risk.decision
-        (true) ~> @risk.needs_review
+    compute "borderline_flag_graph" {
+      ("borderline_manual_review") ~> @risk.decision
+      (true) ~> @risk.needs_review
 
-        phase:str := ("risk_assessment_borderline_flag") ~> @workflow.phase
-      }
+      phase:str := ("risk_assessment_borderline_flag") ~> @workflow.phase
     }
 
   }
@@ -344,14 +320,12 @@ scene "manual_review" {
     - Branch on reviewer outcome.
     """
 
-    compute {
-      prog "assign_reviewer_graph" {
-        reviewer_confidence:number <~ @review.reviewer_confidence
+    compute "assign_reviewer_graph" {
+      reviewer_confidence:number <~ @review.reviewer_confidence
 
-        ("manual_review_assign") ~> @workflow.phase
+      ("manual_review_assign") ~> @workflow.phase
 
-        reviewer_approved:bool := (reviewer_confidence >= 70) ~> @review.approved
-      }
+      reviewer_approved:bool := (reviewer_confidence >= 70) ~> @review.approved
     }
 
     next reviewer_approved -> override_approve
@@ -365,12 +339,10 @@ scene "manual_review" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "override_approve_graph" {
-        ("manual_approved") ~> @review.outcome
+    compute "override_approve_graph" {
+      ("manual_approved") ~> @review.outcome
 
-        phase:str := ("manual_review_override_approve") ~> @workflow.phase
-      }
+      phase:str := ("manual_review_override_approve") ~> @workflow.phase
     }
 
   }
@@ -382,13 +354,11 @@ scene "manual_review" {
     - Terminal action — scene ends here.
     """
 
-    compute {
-      prog "override_reject_graph" {
-        ("manual_rejected") ~> @review.outcome
-        ("manual_review_declined") ~> @workflow.reject_reason
+    compute "override_reject_graph" {
+      ("manual_rejected") ~> @review.outcome
+      ("manual_review_declined") ~> @workflow.reject_reason
 
-        phase:str := ("manual_review_override_reject") ~> @workflow.phase
-      }
+      phase:str := ("manual_review_override_reject") ~> @workflow.phase
     }
 
   }
@@ -411,16 +381,14 @@ scene "approved" {
     - Terminal action — no next actions.
     """
 
-    compute {
-      prog "issue_approval_graph" {
-        prefix:str = "ACC-"
-        suffix:str = "APPROVED"
+    compute "issue_approval_graph" {
+      prefix:str = "ACC-"
+      suffix:str = "APPROVED"
 
-        ("approved") ~> @workflow.outcome
-        ("approved_issue_approval") ~> @workflow.phase
+      ("approved") ~> @workflow.outcome
+      ("approved_issue_approval") ~> @workflow.phase
 
-        account_ref:str := (prefix + suffix) ~> @workflow.account_ref
-      }
+      account_ref:str := (prefix + suffix) ~> @workflow.account_ref
     }
 
   }
@@ -443,15 +411,13 @@ scene "rejected" {
     - Terminal action — no next actions.
     """
 
-    compute {
-      prog "issue_rejection_graph" {
-        reject_reason:str <~ @workflow.reject_reason
+    compute "issue_rejection_graph" {
+      reject_reason:str <~ @workflow.reject_reason
 
-        ("Rejected: " + reject_reason) ~> @workflow.rejection_notice
-        ("rejected_issue_rejection") ~> @workflow.phase
+      ("Rejected: " + reject_reason) ~> @workflow.rejection_notice
+      ("rejected_issue_rejection") ~> @workflow.phase
 
-        flow_outcome:str := ("rejected") ~> @workflow.outcome
-      }
+      flow_outcome:str := ("rejected") ~> @workflow.outcome
     }
 
   }

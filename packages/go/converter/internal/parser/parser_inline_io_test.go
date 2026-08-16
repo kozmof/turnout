@@ -31,10 +31,8 @@ func hasErrorCode(codes []diag.ErrorCode, want diag.ErrorCode) bool {
 // actionCompute wraps a prog body in an action-level compute block.
 func actionCompute(body string) string {
 	return minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
+    compute "p" {
 ` + body + `
-      }
     }
   }`)
 }
@@ -42,18 +40,16 @@ func actionCompute(body string) string {
 // nextCompute wraps a prog body in a transition compute block.
 func nextCompute(body string) string {
 	return minimalTurnFile(`  action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute {
-        prog "n" {
+      compute "n" {
 ` + body + `
-        }
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "q" { v:bool := true } }
+    compute "q" { v:bool := true }
   }`)
 }
 

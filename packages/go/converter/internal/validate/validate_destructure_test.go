@@ -15,14 +15,12 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        rid: ResourceId = "foo-1"
-        r: ` + rootType + ` := case(
-          rid,
-          ` + arms + `
-        )
-      }
+    compute "p" {
+      rid: ResourceId = "foo-1"
+      r: ` + rootType + ` := case(
+        rid,
+        ` + arms + `
+      )
     }
   }
 }
@@ -124,11 +122,9 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        s: str = "x"
-        r: number := case(s, ResourceId { kind: "foo", sequence } => sequence)
-      }
+    compute "p" {
+      s: str = "x"
+      r: number := case(s, ResourceId { kind: "foo", sequence } => sequence)
     }
   }
 }
@@ -148,11 +144,9 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        rid: ResourceId = "foo-1"
-        r: number := case(rid, OtherId { kind, sequence } => sequence)
-      }
+    compute "p" {
+      rid: ResourceId = "foo-1"
+      r: number := case(rid, OtherId { kind, sequence } => sequence)
     }
   }
 }

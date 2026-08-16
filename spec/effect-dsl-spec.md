@@ -11,12 +11,10 @@ STATE effects can be written inline on a binding or structurally with sibling `p
 
 ```turn
 action "score" {
-  compute {
-    prog "score_graph" {
-      income:number <~ @applicant.income
-      income_ok:bool = income >= 50000
-      decision:bool := (income_ok & debt_ok) ~> @decision.approved
-    }
+  compute "score_graph" {
+    income:number <~ @applicant.income
+    income_ok:bool = income >= 50000
+    decision:bool := (income_ok & debt_ok) ~> @decision.approved
   }
 }
 ```
@@ -25,12 +23,10 @@ The equivalent structural spelling is:
 
 ```turn
 action "score" {
-  compute {
-    prog "score_graph" {
-      income:number
-      income_ok:bool = income >= 50000
-      decision:bool := income_ok & debt_ok
-    }
+  compute "score_graph" {
+    income:number
+    income_ok:bool = income >= 50000
+    decision:bool := income_ok & debt_ok
   }
   prepare { income { from_state = applicant.income } }
   merge { decision { to_state = decision.approved } }
@@ -58,7 +54,7 @@ Transition inputs additionally accept `action(binding)` and literals after `<~`;
 ### 1.2 Grammar
 
 ```
-prog-item     ::= binding-decl | anonymous-egress
+compute-item  ::= binding-decl | anonymous-egress
 binding-decl  ::= IDENT ':' type (ordinary-rhs | result-rhs)
 ordinary-rhs  ::= input-rhs | '=' expr | '=' '(' expr ')' '~>' state-path
 result-rhs    ::= ':=' (input-rhs | expr | '(' expr ')' '~>' state-path)
@@ -70,18 +66,18 @@ state-path    ::= '@' IDENT ('.' IDENT)+
 
 A bare `name:type` is a structural input declaration and must be named by a matching `prepare` entry. A computed binding with no inline output may be named by `merge`. Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
 
-Anonymous egress is valid only in an action prog and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be the contextual prog result or be referenced through `action(...)`.
+Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be the contextual compute result or be referenced through `action(...)`.
 
-### 1.3 Contextual prog result
+### 1.3 Contextual compute result
 
-The `:=` operator designates the prog's final result:
+The `:=` operator designates the compute block's final result:
 
 | Context | Role |
 |---------|------|
-| action `compute` prog | Compute root—the action's compute output |
-| `next` `compute` prog | Boolean transition condition |
+| action `compute` block | Compute root—the action's compute output |
+| `next` `compute` block | Boolean transition condition |
 
-Each compute prog requires exactly one `:=` binding, and that binding must be last. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's prog may be written `next condition -> action_id`; see `scene-graph.md §3`.
+Each `compute` block requires exactly one `:=` binding, and that binding must be last. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's `compute` block may be written `next condition -> action_id`; see `scene-graph.md §3`.
 
 ### 1.4 Input and bidirectional declarations
 
@@ -181,17 +177,15 @@ Rule: `STATE[path] = state[binding]`
 
 ```
 action "score" {
-  compute {
-    prog "score_graph" {
-      income:number <~ @applicant.income ~> @decision.input_income
-      debt:number <~ @applicant.debt
-      min_income:number = 50000
-      max_debt:number   = 20000
+  compute "score_graph" {
+    income:number <~ @applicant.income ~> @decision.input_income
+    debt:number <~ @applicant.debt
+    min_income:number = 50000
+    max_debt:number   = 20000
 
-      income_ok:bool   = income >= min_income
-      debt_ok:bool     = debt <= max_debt
-      decision:bool := (income_ok & debt_ok) ~> @decision.approved
-    }
+    income_ok:bool   = income >= min_income
+    debt_ok:bool     = debt <= max_debt
+    decision:bool := (income_ok & debt_ok) ~> @decision.approved
   }
 
 }
@@ -207,12 +201,10 @@ Inside a `next { }` block, a `prepare` block declares ingress bindings for the t
 
 ```
 next {
-  compute {
-    prog "to_approve" {
-      decision:bool
-      income_ok:bool
-      go:bool := decision & income_ok        # := marks the transition condition (last binding)
-    }
+  compute "to_approve" {
+    decision:bool
+    income_ok:bool
+    go:bool := decision & income_ok        # := marks the transition condition (last binding)
   }
   prepare {
     decision  { from_action = decision  }
@@ -236,7 +228,7 @@ Any one of these may be used per entry. They may be mixed across different entri
 
 > Note on `from_literal` type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values. It does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
-### 4.3 Transition `prog` IO
+### 4.3 Transition `compute` IO
 
 A transition input can be declared inline with `name:type <~ action(binding)`, `<~ @state.path`, or `<~ literal`, or structurally with a bare input binding and one transition `prepare` entry. `hook()` is not valid in transitions. A `~>` output clause is rejected because transitions cannot write to STATE.
 
@@ -270,13 +262,11 @@ Inline IO is hoisted into structural `prepare` and `merge` entries before valida
 Turn DSL source:
 ```
 action "score" {
-  compute {
-    prog "score_graph" {
-      income:number <~ @applicant.income
-      income_ok:bool  = income >= min_income
-      min_income:number = 50000
-      decision:bool := (income_ok & debt_ok) ~> @decision.approved
-    }
+  compute "score_graph" {
+    income:number <~ @applicant.income
+    income_ok:bool  = income >= min_income
+    min_income:number = 50000
+    decision:bool := (income_ok & debt_ok) ~> @decision.approved
   }
 }
 ```
@@ -334,7 +324,7 @@ binding "income" { type = "number" value = 0 }
 
 ### 6.3 Transition-level lowering
 
-Transition inline inputs are hoisted to transition `prepare` entries, which lower to `TransitionIngressBinding` records. The transition `prog` lowers like an action prog, with no transition `merge` or `publish`.
+Transition inline inputs are hoisted to transition `prepare` entries, which lower to `TransitionIngressBinding` records. The transition `compute` block lowers like an action `compute` block, with no transition `merge` or `publish`.
 
 ---
 
@@ -353,11 +343,11 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | `TransitionMerge` | A `merge` or `publish` block is present inside a `next { }` transition |
 | `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
 | `TransitionHook` | A `from_hook` source appears inside a transition `prepare` block |
-| `TransitionOutputSigil` | A `~> @state.path` output clause appears in a transition `prog` |
+| `TransitionOutputSigil` | A `~> @state.path` output clause appears in a transition `compute` block |
 | `InvalidStatePath` | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
 | `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
-| `UnresolvedPrepareBinding` | A `prepare` binding name has no matching `binding` block in the same `prog` |
-| `UnresolvedMergeBinding` | A `merge` binding name has no matching `binding` block in the same `prog` |
+| `UnresolvedPrepareBinding` | A `prepare` binding name has no matching binding in the same `compute` block |
+| `UnresolvedMergeBinding` | A `merge` binding name has no matching binding in the same `compute` block |
 
 ---
 
@@ -398,7 +388,7 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | Transition `prepare` entry with no `from_action`, `from_state`, or `from_literal` | `InvalidTransitionIngress` |
 | Transition `prepare` entry with more than one of `from_action`, `from_state`, `from_literal` | `InvalidTransitionIngress` |
 | `from_hook` inside a transition `prepare` | `TransitionHook` |
-| `phase:str = (expr) ~> @state.phase` or `(expr) ~> @state.phase` inside a transition `prog` block | `TransitionOutputSigil` |
+| `phase:str = (expr) ~> @state.phase` or `(expr) ~> @state.phase` inside a transition `compute` block | `TransitionOutputSigil` |
 | `phase:str = expr ~> @state.phase` | `ParseSyntaxError` requiring the complete RHS to be parenthesized |
 | `phase:str = (expr)` | `ParseSyntaxError`; top-level parentheses are reserved for egress |
 | `from_state = "applicant..income"` (empty segment) | `InvalidStatePath` |

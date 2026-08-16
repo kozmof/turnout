@@ -11,11 +11,9 @@ scene "scene_a" {
   entry_actions = [step_a]
 
   action "step_a" {
-    compute {
-      prog "a_prog" {
-        value:number <~ @input.value
-        doubled:number := (value + value) ~> @output.result
-      }
+    compute "a_prog" {
+      value:number <~ @input.value
+      doubled:number := (value + value) ~> @output.result
     }
 
   }
@@ -25,11 +23,9 @@ scene "scene_b" {
   entry_actions = [step_b]
 
   action "step_b" {
-    compute {
-      prog "b_prog" {
-        result:number <~ @output.result
-        final_val:number := (result + 1) ~> @output.result
-      }
+    compute "b_prog" {
+      result:number <~ @output.result
+      final_val:number := (result + 1) ~> @output.result
     }
 
   }

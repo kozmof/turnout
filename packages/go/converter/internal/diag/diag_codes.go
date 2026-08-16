@@ -27,7 +27,14 @@ const (
 	CodeNonIntegerValue       ErrorCode = "NonIntegerValue"
 	CodeHeterogeneousArray    ErrorCode = "HeterogeneousArray"
 	CodeNestedArrayNotAllowed ErrorCode = "NestedArrayNotAllowed"
-	CodeDuplicateProg         ErrorCode = "DuplicateProg"
+	// CodeDuplicateProg applies to the canonical ContextSpec layer, where a
+	// file may hold at most one prog block. The Turn DSL surface cannot express
+	// it: prog is not a surface block, it is the compute label.
+	CodeDuplicateProg ErrorCode = "DuplicateProg"
+	// CodeLegacyProgBlock reports the pre-merge spelling that nested a prog
+	// block inside compute. The two blocks were merged: the prog label is now
+	// the compute label.
+	CodeLegacyProgBlock       ErrorCode = "LegacyProgBlock"
 	CodeDuplicateBinding      ErrorCode = "DuplicateBinding"
 	CodeReservedName          ErrorCode = "ReservedName"
 	CodeUnknownFnAlias        ErrorCode = "UnknownFnAlias"

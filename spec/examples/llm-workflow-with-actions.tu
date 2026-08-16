@@ -49,15 +49,13 @@ scene "llm_support_workflow" {
     - Persist workflow stage metadata.
     """
 
-    compute {
-      prog "analyze_request_graph" {
-        need_grounding:bool <~ @request.need_grounding
-        kb_enabled:bool <~ @runtime.kb_enabled
+    compute "analyze_request_graph" {
+      need_grounding:bool <~ @request.need_grounding
+      kb_enabled:bool <~ @runtime.kb_enabled
 
-        ("analyzed") ~> @workflow.stage
+      ("analyzed") ~> @workflow.stage
 
-        retrieve_ready:bool := need_grounding & kb_enabled
-      }
+      retrieve_ready:bool := need_grounding & kb_enabled
     }
 
     next retrieve_ready -> retrieve_context
@@ -72,15 +70,13 @@ scene "llm_support_workflow" {
     - Persist context payload and stage metadata.
     """
 
-    compute {
-      prog "retrieve_context_graph" {
-        query:str <~ @request.query
-        doc_hint:str <~ @request.doc_hint
+    compute "retrieve_context_graph" {
+      query:str <~ @request.query
+      doc_hint:str <~ @request.doc_hint
 
-        ("retrieved") ~> @workflow.stage
+      ("retrieved") ~> @workflow.stage
 
-        retrieved_context:str := (query + " :: " + doc_hint) ~> @workflow.context
-      }
+      retrieved_context:str := (query + " :: " + doc_hint) ~> @workflow.context
     }
 
     next draft_with_context
@@ -93,14 +89,12 @@ scene "llm_support_workflow" {
     - Persist draft and stage metadata.
     """
 
-    compute {
-      prog "draft_direct_graph" {
-        query:str <~ @request.query
+    compute "draft_direct_graph" {
+      query:str <~ @request.query
 
-        ("drafted_direct") ~> @workflow.stage
+      ("drafted_direct") ~> @workflow.stage
 
-        draft_text:str := ("Direct answer: " + query) ~> @workflow.draft
-      }
+      draft_text:str := ("Direct answer: " + query) ~> @workflow.draft
     }
 
     next safety_check
@@ -114,15 +108,13 @@ scene "llm_support_workflow" {
     - Persist draft and stage metadata.
     """
 
-    compute {
-      prog "draft_with_context_graph" {
-        query:str <~ @request.query
-        retrieved_context:str <~ @workflow.context
+    compute "draft_with_context_graph" {
+      query:str <~ @request.query
+      retrieved_context:str <~ @workflow.context
 
-        ("drafted_with_context") ~> @workflow.stage
+      ("drafted_with_context") ~> @workflow.stage
 
-        draft_text:str := (query + " | " + retrieved_context) ~> @workflow.draft
-      }
+      draft_text:str := (query + " | " + retrieved_context) ~> @workflow.draft
     }
 
     next safety_check
@@ -136,17 +128,15 @@ scene "llm_support_workflow" {
     - Persist approval result and stage metadata.
     """
 
-    compute {
-      prog "safety_check_graph" {
-        toxicity_score:number <~ @moderation.toxicity_score
-        pii_score:number <~ @moderation.pii_score
+    compute "safety_check_graph" {
+      toxicity_score:number <~ @moderation.toxicity_score
+      pii_score:number <~ @moderation.pii_score
 
-        ("safety_checked") ~> @workflow.stage
+      ("safety_checked") ~> @workflow.stage
 
-        approved:bool := (
-          toxicity_score <= 2 & pii_score <= 1
-        ) ~> @workflow.approved
-      }
+      approved:bool := (
+        toxicity_score <= 2 & pii_score <= 1
+      ) ~> @workflow.approved
     }
 
     next approved -> publish_response
@@ -160,14 +150,12 @@ scene "llm_support_workflow" {
     - Publish final response and update workflow status.
     """
 
-    compute {
-      prog "publish_response_graph" {
-        draft_text:str <~ @workflow.draft
+    compute "publish_response_graph" {
+      draft_text:str <~ @workflow.draft
 
-        ("sent") ~> @workflow.status
+      ("sent") ~> @workflow.status
 
-        final_response:str := (draft_text) ~> @conversation.last_response
-      }
+      final_response:str := (draft_text) ~> @conversation.last_response
     }
 
   }
@@ -180,14 +168,12 @@ scene "llm_support_workflow" {
     - Persist review note and workflow status.
     """
 
-    compute {
-      prog "human_review_graph" {
-        draft_text:str <~ @workflow.draft
+    compute "human_review_graph" {
+      draft_text:str <~ @workflow.draft
 
-        ("awaiting_human") ~> @workflow.status
+      ("awaiting_human") ~> @workflow.status
 
-        handoff_note:str := ("Review needed: " + draft_text) ~> @review.note
-      }
+      handoff_note:str := ("Review needed: " + draft_text) ~> @review.note
     }
 
   }

@@ -13,20 +13,16 @@ import (
 func TestInlineIOMatchesBlockForm(t *testing.T) {
 	inline := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        income:number <~ @ns.val
-        out:number := (income) ~> @ns.val
-      }
+    compute "p" {
+      income:number <~ @ns.val
+      out:number := (income) ~> @ns.val
     }
   }`))
 	block := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        income:number
-        out:number := income
-      }
+    compute "p" {
+      income:number
+      out:number := income
     }
     prepare {
       income { from_state = ns.val }
@@ -45,11 +41,9 @@ func TestInlineIOMatchesBlockForm(t *testing.T) {
 func TestInlineIOSynthesizesEntries(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        income:number <~ @ns.val
-        out:number := (income) ~> @ns.val
-      }
+    compute "p" {
+      income:number <~ @ns.val
+      out:number := (income) ~> @ns.val
     }
   }`))
 	a := tm.Scenes[0].Actions[0]
@@ -65,11 +59,9 @@ func TestInlineIOSynthesizesEntries(t *testing.T) {
 func TestInlineIOHookSource(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        line:str <~ hook("manifest_feed")
-        out:str := line
-      }
+    compute "p" {
+      line:str <~ hook("manifest_feed")
+      out:str := line
     }
   }`))
 	p := tm.Scenes[0].Actions[0].Prepare
@@ -83,25 +75,21 @@ func TestInlineIOHookSource(t *testing.T) {
 func TestInlineIONextSources(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        ready:bool := true
-      }
+    compute "p" {
+      ready:bool := true
     }
     next {
-      compute {
-        prog "n" {
-          from_act:bool <~ action(ready)
-          ceiling:number <~ 300
-          from_st:bool <~ @ns.flag
-          go:bool := from_act
-        }
+      compute "n" {
+        from_act:bool <~ action(ready)
+        ceiling:number <~ 300
+        from_st:bool <~ @ns.flag
+        go:bool := from_act
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "q" { v:bool := true } }
+    compute "q" { v:bool := true }
   }`))
 	entries := tm.Scenes[0].Actions[0].Next[0].Prepare
 	if len(entries) != 3 {
@@ -129,11 +117,9 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
 	t.Run("input", func(t *testing.T) {
 		ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        income:number <~ @ns.val
-        out:number := income
-      }
+    compute "p" {
+      income:number <~ @ns.val
+      out:number := income
     }
     prepare {
       income { from_state = ns.val }
@@ -147,10 +133,8 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
 	t.Run("output", func(t *testing.T) {
 		ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        out:number := (1) ~> @ns.val
-      }
+    compute "p" {
+      out:number := (1) ~> @ns.val
     }
     merge {
       out { to_state = ns.val }
@@ -167,19 +151,17 @@ func TestInlineAndBlockIOConflict(t *testing.T) {
 func TestInlineEgressInTransitionRejected(t *testing.T) {
 	ds := lowerWithErrors(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute {
-        prog "n" {
-          x:number = (1) ~> @ns.val
-          go:bool := true
-        }
+      compute "n" {
+        x:number = (1) ~> @ns.val
+        go:bool := true
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "q" { v:bool := true } }
+    compute "q" { v:bool := true }
   }`))
 	if !hasLowerDiagCode(ds, diag.CodeTransitionOutputSigil) {
 		t.Errorf("want TransitionOutputSigil, got %v", ds)

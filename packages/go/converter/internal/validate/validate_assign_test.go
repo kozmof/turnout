@@ -16,10 +16,8 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        ` + decl + `
-      }
+    compute "p" {
+      ` + decl + `
     }
   }
 }
@@ -106,11 +104,9 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        f: Foo = "foo"
-        k: Kind := f
-      }
+    compute "p" {
+      f: Foo = "foo"
+      k: Kind := f
     }
   }
 }
@@ -131,11 +127,9 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        s: str = "foo"
-        k: Kind := s
-      }
+    compute "p" {
+      s: str = "foo"
+      k: Kind := s
     }
   }
 }

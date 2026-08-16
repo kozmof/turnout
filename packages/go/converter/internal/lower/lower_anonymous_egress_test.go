@@ -14,12 +14,12 @@ func TestAnonymousEgressLowersToSyntheticBindingAndMerge(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" {
+    compute "p" {
       foo:number = 1
       bar:number = 2
       (foo + bar) ~> @billing.total
       done:bool := true
-    } }
+    }
   }
 }`
 	tf, parseDs := parser.ParseFile("test.tu", src)
@@ -53,16 +53,16 @@ func TestAnonymousEgressInTransitionRejected(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { done:bool := true } }
+    compute "p" { done:bool := true }
     next {
-      compute { prog "n" {
+      compute "n" {
         (true) ~> @app.active
         go:bool := true
-      } }
+      }
       action = b
     }
   }
-  action "b" { compute { prog "q" { done:bool := true } } }
+  action "b" { compute "q" { done:bool := true } }
 }`
 	tf, parseDs := parser.ParseFile("test.tu", src)
 	if parseDs.HasErrors() {

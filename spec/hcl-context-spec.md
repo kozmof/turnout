@@ -561,7 +561,7 @@ Rules:
 | `NonIntegerValue` | Non-numeric literal assigned to `:number` binding |
 | `HeterogeneousArray` | Mixed element types in `arr<T>` literal |
 | `NestedArrayNotAllowed` | Array literal contains a sub-array in a value binding |
-| `DuplicateProg` | More than one `prog` block declared in one file |
+| `DuplicateProg` | More than one `prog` block declared in one canonical ContextSpec file. Not reachable from Turn DSL source, where `prog` is not a block: it is the `compute` label |
 | `DuplicateBinding` | Same `name` declared twice in one `prog` |
 | `ReservedName` | User binding name starts with `__` |
 | `UnknownFnAlias` | Function alias not in the built-in table |
@@ -744,7 +744,7 @@ ctx({
 | `case(x, 1 => "one")` with subject `2` | `CaseNoMatch` runtime error |
 | `n:number = #it + 1` outside `pipe` | `ItOutsidePipe` error |
 | `n:number = _` outside a `case` pattern | `InvalidWildcardUse` error |
-| Two `prog` blocks in one file | `DuplicateProg` error — a file may contain at most one `prog` block |
+| Two `prog` blocks in one canonical ContextSpec file | `DuplicateProg` error — such a file may contain at most one `prog` block |
 | `max(a: v1)` | `NamedArgNotSupported` error |
 | `max(a: v1, b: v2, c: v3)` | `NamedArgNotSupported` error |
 | `go:bool = decision && income_ok` | `InvalidInfixExpr` error (unsupported operator token) |

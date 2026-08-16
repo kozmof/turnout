@@ -47,25 +47,25 @@ CAN (OK):
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
 - An action can declare STATE inputs under `prepare` and STATE outputs under `merge`.
-- An action can define IO inline in `compute.prog` or structurally with `prepare` and `merge`.
-- An action can define next actions using per-next `compute` `prog` blocks.
-- A next `prepare` input entry can source any value binding defined by the current action `compute.prog` via `from_action`.
+- An action can define IO inline in its `compute` block or structurally with `prepare` and `merge`.
+- An action can define next actions using per-next `compute` blocks.
+- A next `prepare` input entry can source any value binding defined by the current action `compute` block via `from_action`.
 - An action can declare one or more publish hooks under `publish`.
 - An action can include optional narrative text (`text`) as a string.
 
 CAN'T (NG):
 
-- An action `compute` prog cannot omit its `:=` result binding (it derives `compute.root`). A prog cannot carry more than one result, and the result binding must be last.
+- An action `compute` block cannot omit its `:=` result binding (it derives `compute.root`). A compute block cannot carry more than one result, and the result binding must be last.
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A structural input binding cannot omit its `prepare` entry.
-- A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { c:bool := true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
-- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute.prog`. It is exactly equivalent to a block whose `compute.prog` ingresses that binding and returns it as the `:=` condition, and whose `prepare` feeds it via `from_action`. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's prog — cannot use this form and keeps the block form.
+- A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or its label. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute "..." { c:bool := true }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
+- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding and returns it as the `:=` condition, and whose `prepare` feeds it via `from_action`. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
 - Next actions cannot reference missing actions.
 
 Correlation:
 
 - Because the root accepts both value and function bindings, a root with an inline `~> @state.path` output or structural `merge` entry is always available as a deterministic emission source.
-- Because action `compute` and next-rule `compute` use separate `prog` blocks, output mapping and branching logic are explicitly separated.
+- Because an action and each of its next rules carry separate `compute` blocks, output mapping and branching logic are explicitly separated.
 - Because next-rule inputs are ingress-driven, action `compute.prog` values are usable in `next.compute` only through explicit `next.prepare.<binding>.from_action` mapping.
 
 ## 4. Runtime Data Model
@@ -92,7 +92,7 @@ type Action = {
 };
 
 type ActionComputeGraph = {
-  prog: string; // canonical source of one inline `prog "<name>" { ... }` block
+  prog: string; // canonical `prog "<name>" { ... }` block lowered from the compute body
   root: string; // canonical binding key from DSL `compute.root`; resolves to a value or function binding
 };
 
@@ -136,7 +136,7 @@ type NextPrepareBinding = {
 };
 
 type NextComputeGraph = {
-  prog: string; // canonical source of one inline `prog "<name>" { ... }` block
+  prog: string; // canonical `prog "<name>" { ... }` block lowered from the compute body
   condition: string; // canonical bool binding key from DSL `next.compute.condition`
 };
 
@@ -166,7 +166,7 @@ Action-to-next binding scope:
 This spec standardizes the following scene-level HCL shape:
 
 Reference-style fields below use the canonical bare form. Quoted references are accepted only as a temporary compatibility aid and should not be authored in new files.
-Within `compute.prog`, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
+Within a `compute` block, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
 IO direction is declared by inline clauses that point toward their destination, or by structural `prepare`/`merge` entries:
 
 - `name:type <~ @state.path` declares an input.
@@ -174,7 +174,7 @@ IO direction is declared by inline clauses that point toward their destination, 
 - `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
 - A bare `name:type` may be paired with a `prepare` entry; a computed binding may be paired with a `merge` entry. Inline and structural IO must not be mixed for the same direction on one binding.
 
-Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in `compute.prog`. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
+Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in the `compute` block. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
 
 ```hcl
 scene "loan_flow" {
@@ -182,16 +182,14 @@ scene "loan_flow" {
   next_policy        = "first-match"
 
   action "score" {
-    compute {
-      prog "score_graph" {
-        income:number <~ @applicant.income ~> @decision.input_income
-        debt:number <~ @applicant.debt
-        min_income:number = 50000
-        max_debt:number   = 20000
-        income_ok:bool   = income >= min_income
-        debt_ok:bool     = debt <= max_debt
-        decision:bool := (income_ok & debt_ok) ~> @decision.approved
-      }
+    compute "score_graph" {
+      income:number <~ @applicant.income ~> @decision.input_income
+      debt:number <~ @applicant.debt
+      min_income:number = 50000
+      max_debt:number   = 20000
+      income_ok:bool   = income >= min_income
+      debt_ok:bool     = debt <= max_debt
+      decision:bool := (income_ok & debt_ok) ~> @decision.approved
     }
 
     publish {
@@ -199,20 +197,16 @@ scene "loan_flow" {
     }
 
     next {
-      compute {
-        prog "to_approve" {
-          decision:bool <~ action(decision)
-          income_ok:bool <~ action(income_ok)
-          go:bool := decision & income_ok
-        }
+      compute "to_approve" {
+        decision:bool <~ action(decision)
+        income_ok:bool <~ action(income_ok)
+        go:bool := decision & income_ok
       }
       action = approve
     }
     next {
-      compute {
-        prog "to_reject" {
-          always:bool := true
-        }
+      compute "to_reject" {
+        always:bool := true
       }
       action = reject
     }

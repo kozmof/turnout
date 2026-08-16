@@ -29,26 +29,22 @@ scene "loan_flow" {
     - Route to `approve` when decision path is true; otherwise fall through to `reject`.
     """
 
-    compute {
-      prog "score_graph" {
-        income:number <~ @applicant.income ~> @decision.input_income
-        debt:number <~ @applicant.debt
-        min_income:number = 50000
-        max_debt:number   = 20000
+    compute "score_graph" {
+      income:number <~ @applicant.income ~> @decision.input_income
+      debt:number <~ @applicant.debt
+      min_income:number = 50000
+      max_debt:number   = 20000
 
-        income_ok:bool = income >= min_income
-        debt_ok:bool = debt <= max_debt
-        decision:bool := (income_ok & debt_ok) ~> @decision.approved
-      }
+      income_ok:bool = income >= min_income
+      debt_ok:bool = debt <= max_debt
+      decision:bool := (income_ok & debt_ok) ~> @decision.approved
     }
 
     next {
-      compute {
-        prog "to_approve" {
-          decision:bool <~ action(decision)
-          income_ok:bool <~ action(income_ok)
-          go:bool := decision & income_ok
-        }
+      compute "to_approve" {
+        decision:bool <~ action(decision)
+        income_ok:bool <~ action(income_ok)
+        go:bool := decision & income_ok
       }
       action = approve
     }
@@ -65,13 +61,11 @@ scene "loan_flow" {
     - Mark decision status as approved and store the generated code.
     """
 
-    compute {
-      prog "approve_graph" {
-        prefix:str = "APR-"
-        suffix:str = "0001"
-        status:str = ("approved") ~> @decision.status
-        approval_code:str := (prefix + suffix) ~> @decision.code
-      }
+    compute "approve_graph" {
+      prefix:str = "APR-"
+      suffix:str = "0001"
+      status:str = ("approved") ~> @decision.status
+      approval_code:str := (prefix + suffix) ~> @decision.code
     }
 
   }
@@ -83,11 +77,9 @@ scene "loan_flow" {
     - Mark decision status as rejected and persist the rejection reason.
     """
 
-    compute {
-      prog "reject_graph" {
-        status:str = ("rejected") ~> @decision.status
-        reason:str := ("risk_threshold_not_met") ~> @decision.reason
-      }
+    compute "reject_graph" {
+      status:str = ("rejected") ~> @decision.status
+      reason:str := ("risk_threshold_not_met") ~> @decision.reason
     }
 
   }

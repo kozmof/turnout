@@ -123,13 +123,11 @@ func TestArrConcatArgTypeMismatch(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        a:arr<number> = [1]
-        b:arr<str>    = ["x"]
-        out:arr<number> = arr_concat(a, b)
-        v:bool := true
-      }
+    compute "p" {
+      a:arr<number> = [1]
+      b:arr<str>    = ["x"]
+      out:arr<number> = arr_concat(a, b)
+      v:bool := true
     }
   }
 }
@@ -281,12 +279,10 @@ func TestSCNNextComputeNotBool(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute {
-        prog "n" {
-          score:number := 1
-        }
+      compute "n" {
+        score:number := 1
       }
       action = a
     }
@@ -472,7 +468,7 @@ func TestNextRuleUnknownAction(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next { action = unknown }
   }
 }
@@ -661,11 +657,9 @@ func TestMergeToStateInvalidPath(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 1
-        v:bool := true
-      }
+    compute "p" {
+      x:number = 1
+      v:bool := true
     }
     merge {
       x { to_state = "nodot" }
@@ -684,11 +678,9 @@ func TestMergeToStateNotInSchema(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 1
-        v:bool := true
-      }
+    compute "p" {
+      x:number = 1
+      v:bool := true
     }
     merge {
       x { to_state = "app.nonexistent" }
@@ -708,11 +700,9 @@ func TestSigilIngressNoPrepare(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number
-        v:bool := true
-      }
+    compute "p" {
+      x:number
+      v:bool := true
     }
   }
 }
@@ -731,9 +721,9 @@ func TestNextPrepareFromAction(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:number := 42 } }
+    compute "p" { r:number := 42 }
     next {
-      compute { prog "n" { score:number go:bool := true } }
+      compute "n" { score:number go:bool := true }
       prepare { score { from_action = r } }
       action = a
     }
@@ -753,9 +743,9 @@ func TestNextPrepareFromState(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute { prog "n" { score:number go:bool := true } }
+      compute "n" { score:number go:bool := true }
       prepare { score { from_state = app.score } }
       action = a
     }
@@ -775,9 +765,9 @@ func TestNextPrepareFromLiteral(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute { prog "n" { score:number go:bool := true } }
+      compute "n" { score:number go:bool := true }
       prepare { score { from_literal = 42 } }
       action = a
     }
@@ -797,9 +787,9 @@ func TestNextPrepareFromActionUnknown(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:number := 42 } }
+    compute "p" { r:number := 42 }
     next {
-      compute { prog "n" { score:number go:bool := true } }
+      compute "n" { score:number go:bool := true }
       prepare { score { from_action = missing_binding } }
       action = a
     }
@@ -823,9 +813,9 @@ func TestNextPrepareFromActionTypeMismatch(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute { prog "n" { score:number go:bool := true } }
+      compute "n" { score:number go:bool := true }
       prepare { score { from_action = r } }
       action = a
     }
@@ -881,11 +871,9 @@ func TestNextRuleConditionNotBool(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute {
-        prog "n" { go:number := 42 }
-      }
+      compute "n" { go:number := 42 }
       action = a
     }
   }
@@ -931,11 +919,9 @@ func TestValidateStatePathNotInSchema(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number
-        v:bool := true
-      }
+    compute "p" {
+      x:number
+      v:bool := true
     }
     prepare {
       x { from_state = app.nonexistent }
@@ -956,11 +942,9 @@ func TestIsValidStatePathTooShort(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number = 0
-        v:bool := true
-      }
+    compute "p" {
+      score:number = 0
+      v:bool := true
     }
     merge {
       score { to_state = "nodot" }
@@ -979,11 +963,9 @@ func TestIsValidStatePathInvalidIdentFirst(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number = 0
-        v:bool := true
-      }
+    compute "p" {
+      score:number = 0
+      v:bool := true
     }
     merge {
       score { to_state = "1app.score" }
@@ -1002,11 +984,9 @@ func TestIsValidStatePathInvalidIdentSubsequent(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number = 0
-        v:bool := true
-      }
+    compute "p" {
+      score:number = 0
+      v:bool := true
     }
     merge {
       score { to_state = "a-b.score" }
@@ -1025,11 +1005,9 @@ func TestIsValidStatePathEmptySegment(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number = 0
-        v:bool := true
-      }
+    compute "p" {
+      score:number = 0
+      v:bool := true
     }
     merge {
       score { to_state = "." }

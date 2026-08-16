@@ -111,7 +111,7 @@ func TestRunConvertUnknownFormat(t *testing.T) {
 	path := writeTempTurnFile(t, `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }`)
 
 	stdout, stderr, rc := captureProcessIO(t, func() int {
@@ -133,7 +133,7 @@ func TestRunConvertCreateFailure(t *testing.T) {
 	path := writeTempTurnFile(t, `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }`)
 	outPath := filepath.Join(t.TempDir(), "missing", "out.json")
 

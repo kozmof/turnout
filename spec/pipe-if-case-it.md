@@ -596,41 +596,38 @@ scene "boiler_alarm_priority" {
   entry_actions = [classify_alarm]
 
   action "classify_alarm" {
-    compute {
+    compute "classify_alarm_graph" {
+      pressure_bar:number <~ @boiler.telemetry.pressure_bar
+      water_level_low:bool <~ @boiler.safety.water_level_low
+      flame_failure:bool <~ @boiler.safety.flame_failure
+      repeat_trips:number <~ @boiler.history.repeat_trips_24h
 
-      prog "classify_alarm_graph" {
-        pressure_bar:number <~ @boiler.telemetry.pressure_bar
-        water_level_low:bool <~ @boiler.safety.water_level_low
-        flame_failure:bool <~ @boiler.safety.flame_failure
-        repeat_trips:number <~ @boiler.history.repeat_trips_24h
-
-        pressure_band:str = pipe(
-          pressure_bar,
-          #it + 0,
-          case(
-            #it,
-            p if p >= 18 => "high",
-            _ => "normal"
-          )
+      pressure_band:str = pipe(
+        pressure_bar,
+        #it + 0,
+        case(
+          #it,
+          p if p >= 18 => "high",
+          _ => "normal"
         )
+      )
 
-        alarm_route:str = if(
-          water_level_low,
+      alarm_route:str = if(
+        water_level_low,
+        "emergency_shutdown",
+        if(
+          flame_failure,
           "emergency_shutdown",
-          if(
-            flame_failure,
-            "emergency_shutdown",
-            case(
-              repeat_trips,
-              r if r >= 2 => "maintenance_intervention",
-              _ => case(pressure_band, "high" => "maintenance_intervention", _ => "watch")
-            )
+          case(
+            repeat_trips,
+            r if r >= 2 => "maintenance_intervention",
+            _ => case(pressure_band, "high" => "maintenance_intervention", _ => "watch")
           )
         )
+      )
 
-        alarm_route:str = (alarm_route) ~> @boiler.response.route
-        classified:bool := true
-      }
+      alarm_route:str = (alarm_route) ~> @boiler.response.route
+      classified:bool := true
     }
 
   }

@@ -26,10 +26,8 @@ func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number :=
-      }
+    compute "p" {
+      score:number :=
     }
   }
 }`,
@@ -43,10 +41,8 @@ scene "test" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number := <~ @app.missing
-      }
+    compute "p" {
+      score:number := <~ @app.missing
     }
   }
 }`,
@@ -60,13 +56,11 @@ scene "test" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute {
-        prog "n" {
-          score:number
-          go:bool := true
-        }
+      compute "n" {
+        score:number
+        go:bool := true
       }
       action = a
     }
@@ -82,13 +76,11 @@ scene "test" {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
     next {
-      compute {
-        prog "n" {
-          score:number <~ @app.missing
-          go:bool := true
-        }
+      compute "n" {
+        score:number <~ @app.missing
+        go:bool := true
       }
       action = a
     }
@@ -127,10 +119,8 @@ func TestLowerIrregularUnsupportedAstShapes(t *testing.T) {
 			name: "nil_binding_rhs",
 			src: minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        v:bool := true
-      }
+    compute "p" {
+      v:bool := true
     }
   }`),
 			mutate: func(tf *ast.TurnFile) {
@@ -162,7 +152,7 @@ func TestLowerStaleDeclarationOrderIsError(t *testing.T) {
 	src := `state_file = "fake.tu"
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {

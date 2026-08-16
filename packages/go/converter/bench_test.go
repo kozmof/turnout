@@ -21,12 +21,10 @@ scene "main" {
   entry_actions = [init]
 
   action "init" {
-    compute {
-      prog "p" {
-        a:number = 1
-        b:number = 2
-        result:number := (a + b) ~> @ns.count
-      }
+    compute "p" {
+      a:number = 1
+      b:number = 2
+      result:number := (a + b) ~> @ns.count
     }
     next {
       action = check
@@ -34,18 +32,14 @@ scene "main" {
   }
 
   action "check" {
-    compute {
-      prog "p" {
-        cur:number <~ @ns.count
-        active:bool := (cur > 0) ~> @ns.active
-      }
+    compute "p" {
+      cur:number <~ @ns.count
+      active:bool := (cur > 0) ~> @ns.active
     }
     next {
-      compute {
-        prog "n" {
-          cur:number <~ action(cur)
-          cond:bool := cur > 0
-        }
+      compute "n" {
+        cur:number <~ action(cur)
+        cond:bool := cur > 0
       }
       action = done
     }

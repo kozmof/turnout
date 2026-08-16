@@ -45,22 +45,20 @@ scene "adventure_story_chapter_1" {
     - Take the first eligible route: forest, gate, sewer, then campfire fallback.
     """
 
-    compute {
-      prog "choose_route_graph" {
-        has_map:bool <~ @story.has_map
-        clue_count:number <~ @story.clue_count
-        coins:number <~ @party.coins
-        lockpick_skill:number <~ @party.lockpick_skill
+    compute "choose_route_graph" {
+      has_map:bool <~ @story.has_map
+      clue_count:number <~ @story.clue_count
+      coins:number <~ @party.coins
+      lockpick_skill:number <~ @party.lockpick_skill
 
-        ("route_selected") ~> @story.chapter_state
-        ("crossroads") ~> @story.last_hub
+      ("route_selected") ~> @story.chapter_state
+      ("crossroads") ~> @story.last_hub
 
-        can_forest:bool = has_map & clue_count >= 2
-        can_gate:bool = coins >= 3
-        can_sewer:bool = lockpick_skill >= 1
+      can_forest:bool = has_map & clue_count >= 2
+      can_gate:bool = coins >= 3
+      can_sewer:bool = lockpick_skill >= 1
 
-        route_available:bool := can_forest | can_gate | can_sewer
-      }
+      route_available:bool := can_forest | can_gate | can_sewer
     }
 
     next can_forest -> forest_trail
@@ -77,13 +75,11 @@ scene "adventure_story_chapter_1" {
     - Always continue to `shrine_discovery`.
     """
 
-    compute {
-      prog "forest_trail_graph" {
-        ("Whispering Forest") ~> @story.current_location
-        (2) ~> @story.threat_level
+    compute "forest_trail_graph" {
+      ("Whispering Forest") ~> @story.current_location
+      (2) ~> @story.threat_level
 
-        story_route:str := ("forest_trail") ~> @story.path
-      }
+      story_route:str := ("forest_trail") ~> @story.path
     }
 
     next shrine_discovery
@@ -97,16 +93,14 @@ scene "adventure_story_chapter_1" {
     - Always continue to `courtyard_arrival`.
     """
 
-    compute {
-      prog "city_gate_graph" {
-        coins:number <~ @party.coins
-        toll:number = 3
+    compute "city_gate_graph" {
+      coins:number <~ @party.coins
+      toll:number = 3
 
-        ("Stonebridge Gate") ~> @story.current_location
-        (coins - toll) ~> @party.coins
+      ("Stonebridge Gate") ~> @story.current_location
+      (coins - toll) ~> @party.coins
 
-        story_route:str := ("city_gate") ~> @story.path
-      }
+      story_route:str := ("city_gate") ~> @story.path
     }
 
     next courtyard_arrival
@@ -120,15 +114,13 @@ scene "adventure_story_chapter_1" {
     - Always continue to `hidden_archive`.
     """
 
-    compute {
-      prog "sewer_tunnel_graph" {
-        lockpick_skill:number <~ @party.lockpick_skill
+    compute "sewer_tunnel_graph" {
+      lockpick_skill:number <~ @party.lockpick_skill
 
-        ("Sunken Tunnel") ~> @story.current_location
-        (lockpick_skill >= 2) ~> @story.found_hidden_mark
+      ("Sunken Tunnel") ~> @story.current_location
+      (lockpick_skill >= 2) ~> @story.found_hidden_mark
 
-        story_route:str := ("sewer_tunnel") ~> @story.path
-      }
+      story_route:str := ("sewer_tunnel") ~> @story.path
     }
 
     next hidden_archive
@@ -142,13 +134,11 @@ scene "adventure_story_chapter_1" {
     - Always continue to `chapter_end`.
     """
 
-    compute {
-      prog "campfire_wait_graph" {
-        ("waited_until_dawn") ~> @story.latest_journal
-        ("Crossroads Camp") ~> @story.current_location
+    compute "campfire_wait_graph" {
+      ("waited_until_dawn") ~> @story.latest_journal
+      ("Crossroads Camp") ~> @story.current_location
 
-        story_route:str := ("campfire_wait") ~> @story.path
-      }
+      story_route:str := ("campfire_wait") ~> @story.path
     }
 
     next chapter_end
@@ -162,12 +152,10 @@ scene "adventure_story_chapter_1" {
     - Always continue to `chapter_end`.
     """
 
-    compute {
-      prog "shrine_discovery_graph" {
-        ("Ruined Shrine") ~> @story.current_location
+    compute "shrine_discovery_graph" {
+      ("Ruined Shrine") ~> @story.current_location
 
-        reward:str := ("Moon Sigil") ~> @story.chapter_reward
-      }
+      reward:str := ("Moon Sigil") ~> @story.chapter_reward
     }
 
     next chapter_end
@@ -181,12 +169,10 @@ scene "adventure_story_chapter_1" {
     - Always continue to `chapter_end`.
     """
 
-    compute {
-      prog "courtyard_arrival_graph" {
-        ("Castle Courtyard") ~> @story.current_location
+    compute "courtyard_arrival_graph" {
+      ("Castle Courtyard") ~> @story.current_location
 
-        reward:str := ("Guest Writ") ~> @story.chapter_reward
-      }
+      reward:str := ("Guest Writ") ~> @story.chapter_reward
     }
 
     next chapter_end
@@ -200,12 +186,10 @@ scene "adventure_story_chapter_1" {
     - Always continue to `chapter_end`.
     """
 
-    compute {
-      prog "hidden_archive_graph" {
-        ("Hidden Archive") ~> @story.current_location
+    compute "hidden_archive_graph" {
+      ("Hidden Archive") ~> @story.current_location
 
-        reward:str := ("Old Kingdom Ledger") ~> @story.chapter_reward
-      }
+      reward:str := ("Old Kingdom Ledger") ~> @story.chapter_reward
     }
 
     next chapter_end
@@ -218,15 +202,13 @@ scene "adventure_story_chapter_1" {
     - Mark chapter state as resolved and store the final result string.
     """
 
-    compute {
-      prog "chapter_end_graph" {
-        prefix:str = "chapter_1_"
-        suffix:str = "complete"
+    compute "chapter_end_graph" {
+      prefix:str = "chapter_1_"
+      suffix:str = "complete"
 
-        ("resolved") ~> @story.chapter_state
+      ("resolved") ~> @story.chapter_state
 
-        chapter_result:str := (prefix + suffix) ~> @story.result
-      }
+      chapter_result:str := (prefix + suffix) ~> @story.result
     }
 
   }

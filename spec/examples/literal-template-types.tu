@@ -19,27 +19,25 @@ scene "payment_webhook" {
   entry_actions = [record_verified_event]
 
   action "record_verified_event" {
-    compute {
-      prog "advance_payment_checkpoint" {
-        last_processed_event:number <~ @payments.last_processed_event
+    compute "advance_payment_checkpoint" {
+      last_processed_event:number <~ @payments.last_processed_event
 
-        provider: PaymentProvider = "paypal"
-        event_number: integer = 1042
+      provider: PaymentProvider = "paypal"
+      event_number: integer = 1042
 
-        event_id: PaymentEventId = PaymentEventId {
-          provider = provider
-          event_number = event_number
-        }
-
-        verified: VerificationStatus = true
-
-        new_checkpoint:number := (case(
-          (event_id, verified),
-          (PaymentEventId { event_number: _ }, false) => last_processed_event,
-          (PaymentEventId { provider: "stripe", event_number }, true) => event_number,
-          (PaymentEventId { provider: "paypal", event_number }, true) => event_number
-        )) ~> @payments.last_processed_event
+      event_id: PaymentEventId = PaymentEventId {
+        provider = provider
+        event_number = event_number
       }
+
+      verified: VerificationStatus = true
+
+      new_checkpoint:number := (case(
+        (event_id, verified),
+        (PaymentEventId { event_number: _ }, false) => last_processed_event,
+        (PaymentEventId { provider: "stripe", event_number }, true) => event_number,
+        (PaymentEventId { provider: "paypal", event_number }, true) => event_number
+      )) ~> @payments.last_processed_event
     }
 
   }

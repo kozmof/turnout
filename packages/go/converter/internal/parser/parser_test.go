@@ -60,9 +60,7 @@ func TestParseInlineStateBlock(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" { v:bool := true }
-    }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -96,9 +94,7 @@ func TestParseStateFileDirective(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" { v:bool := true }
-    }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -116,7 +112,7 @@ func TestMissingStateSourceError(t *testing.T) {
 	src := `scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -126,7 +122,7 @@ func TestMissingStateSourceError(t *testing.T) {
 func TestConflictingStateSourceError(t *testing.T) {
 	src := `state {}
 state_file = "x.tu"
-scene "s" { entry_actions = [a] action "a" { compute { prog "p" { v:bool := true } } } }
+scene "s" { entry_actions = [a] action "a" { compute "p" { v:bool := true } } }
 `
 	mustParseFail(t, src)
 }
@@ -139,9 +135,7 @@ scene "loan_flow" {
   entry_actions = [score, init]
   next_policy   = "first-match"
   action "score" {
-    compute {
-      prog "p" { decision:bool := true }
-    }
+    compute "p" { decision:bool := true }
   }
 }
 `
@@ -167,7 +161,7 @@ scene "s" {
     a |=> b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -199,7 +193,7 @@ func TestParseActionTripleQuoteDocstring(t *testing.T) {
     """
     Hello, world.
     """
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`)
 	tf := mustParse(t, src)
 	ab := tf.Scenes[0].Actions[0]
@@ -214,7 +208,7 @@ func TestParseActionTripleQuoteDocstring(t *testing.T) {
 func TestParseActionExplicitText(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     text = "explicit text"
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`)
 	tf := mustParse(t, src)
 	ab := tf.Scenes[0].Actions[0]
@@ -227,11 +221,9 @@ func TestParseActionExplicitText(t *testing.T) {
 
 func TestParseComputeBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "score" {
-    compute {
-      prog "score_graph" {
-        income:number = 0
-        decision:bool := true
-      }
+    compute "score_graph" {
+      income:number = 0
+      decision:bool := true
     }
   }`)
 	tf := mustParse(t, src)
@@ -266,13 +258,11 @@ func TestParseComputeBlock(t *testing.T) {
 // retired prefix sigils.
 func TestParseInlineIOSigils(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        a:number <~ @ns.val
-        b:bool   = (true) ~> @ns.flag
-        c:str    <~ @ns.name ~> @ns.name
-        d:number := 0
-      }
+    compute "p" {
+      a:number <~ @ns.val
+      b:bool   = (true) ~> @ns.flag
+      c:str    <~ @ns.name ~> @ns.name
+      d:number := 0
     }
   }`)
 	tf := mustParse(t, src)
@@ -307,10 +297,8 @@ func TestParseInlineIOSigils(t *testing.T) {
 // file could otherwise parse while meaning the opposite thing.
 func TestParseLegacySigilPositionReported(t *testing.T) {
 	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        ~>a:number :=
-      }
+    compute "p" {
+      ~>a:number :=
     }
   }`))
 	found := false
@@ -328,11 +316,9 @@ func TestParseLegacySigilPositionReported(t *testing.T) {
 // no RHS and no inline clause is an input whose source lives in `prepare`.
 func TestParseBareInputDeclaration(t *testing.T) {
 	tf := mustParse(t, minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        a:number
-        d:bool := true
-      }
+    compute "p" {
+      a:number
+      d:bool := true
     }
     prepare {
       a { from_state = ns.val }
@@ -351,13 +337,11 @@ func TestParseBareInputDeclaration(t *testing.T) {
 
 func TestRHSLiteralForms(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        n:number       = 42
-        s:str          = "hello"
-        b:bool         = false
-        xs:arr<number> := [1, 2, 3]
-      }
+    compute "p" {
+      n:number       = 42
+      s:str          = "hello"
+      b:bool         = false
+      xs:arr<number> := [1, 2, 3]
     }
   }`)
 	tf := mustParse(t, src)
@@ -390,10 +374,8 @@ func TestRHSLiteralForms(t *testing.T) {
 
 func TestRHSPlaceholder(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v:number :=
-      }
+    compute "p" {
+      v:number :=
     }
   }`)
 	tf := mustParse(t, src)
@@ -405,11 +387,9 @@ func TestRHSPlaceholder(t *testing.T) {
 
 func TestRHSSingleRef(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v:number = 5
-        out:number := v
-      }
+    compute "p" {
+      v:number = 5
+      out:number := v
     }
   }`)
 	tf := mustParse(t, src)
@@ -421,12 +401,10 @@ func TestRHSSingleRef(t *testing.T) {
 
 func TestRHSFuncCall(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v1:number = 5
-        v2:number = 3
-        out:number := add(v1, v2)
-      }
+    compute "p" {
+      v1:number = 5
+      v2:number = 3
+      out:number := add(v1, v2)
     }
   }`)
 	tf := mustParse(t, src)
@@ -442,12 +420,10 @@ func TestRHSFuncCall(t *testing.T) {
 
 func TestRHSNamedFuncCall(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v1:number = 5
-        v2:number = 3
-        out:number := add(a: v1, b: v2)
-      }
+    compute "p" {
+      v1:number = 5
+      v2:number = 3
+      out:number := add(a: v1, b: v2)
     }
   }`)
 	_, ds := parser.ParseFile("test.tu", src)
@@ -458,28 +434,26 @@ func TestRHSNamedFuncCall(t *testing.T) {
 
 func TestRHSInfixForms(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        a:number   = 5
-        b:number   = 3
-        ge:bool    = a >= b
-        le:bool    = a <= b
-        gt:bool    = a > b
-        lt:bool    = a < b
-        and:bool   = ge & le
-        or:bool    = ge | le
-        eq:bool    = ge == le
-        neq:bool   = ge != le
-        sum:number = a + b
-        diff:number = a - b
-        prod:number = a * b
-        quot:number = a / b
-        rem:number  = a % b
-        p:str      = "prefix"
-        q:str      = "suffix"
-        cat:str    = p + q
-        out:bool := true
-      }
+    compute "p" {
+      a:number   = 5
+      b:number   = 3
+      ge:bool    = a >= b
+      le:bool    = a <= b
+      gt:bool    = a > b
+      lt:bool    = a < b
+      and:bool   = ge & le
+      or:bool    = ge | le
+      eq:bool    = ge == le
+      neq:bool   = ge != le
+      sum:number = a + b
+      diff:number = a - b
+      prod:number = a * b
+      quot:number = a / b
+      rem:number  = a % b
+      p:str      = "prefix"
+      q:str      = "suffix"
+      cat:str    = p + q
+      out:bool := true
     }
   }`)
 	tf := mustParse(t, src)
@@ -519,12 +493,10 @@ func TestRHSInfixForms(t *testing.T) {
 
 func TestRHSPipe(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v1:number = 5
-        v2:number = 3
-        result:number := pipe(v1, add(#it, v2))
-      }
+    compute "p" {
+      v1:number = 5
+      v2:number = 3
+      result:number := pipe(v1, add(#it, v2))
     }
   }`)
 	tf := mustParse(t, src)
@@ -548,13 +520,11 @@ func TestRHSPipe(t *testing.T) {
 
 func TestRHSCondBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        flag:bool    = true
-        addFn:number = add(v1, v2)
-        subFn:number = add(v1, v2)
-        result:number := if(flag, addFn, subFn)
-      }
+    compute "p" {
+      flag:bool    = true
+      addFn:number = add(v1, v2)
+      subFn:number = add(v1, v2)
+      result:number := if(flag, addFn, subFn)
     }
   }`)
 	tf := mustParse(t, src)
@@ -579,14 +549,12 @@ func TestRHSCondBlock(t *testing.T) {
 
 func TestRHSIfInlineCall(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v1:number    = 10
-        v2:number    = 3
-        addFn:number = add(v1, v2)
-        subFn:number = add(v1, v2)
-        result:number := if(gt(v1, v2), addFn, subFn)
-      }
+    compute "p" {
+      v1:number    = 10
+      v2:number    = 3
+      addFn:number = add(v1, v2)
+      subFn:number = add(v1, v2)
+      result:number := if(gt(v1, v2), addFn, subFn)
     }
   }`)
 	tf := mustParse(t, src)
@@ -611,13 +579,11 @@ func TestRHSIfInlineCall(t *testing.T) {
 
 func TestRHSIfBareRef(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        flag:bool    = true
-        addFn:number = add(v1, v2)
-        subFn:number = add(v1, v2)
-        result:number := if(flag, addFn, subFn)
-      }
+    compute "p" {
+      flag:bool    = true
+      addFn:number = add(v1, v2)
+      subFn:number = add(v1, v2)
+      result:number := if(flag, addFn, subFn)
     }
   }`)
 	tf := mustParse(t, src)
@@ -636,11 +602,9 @@ func TestRHSIfBareRef(t *testing.T) {
 
 func TestParsePrepareBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        income:number
-        v:bool := true
-      }
+    compute "p" {
+      income:number
+      v:bool := true
     }
     prepare {
       income { from_state = applicant.income }
@@ -663,7 +627,7 @@ func TestParsePrepareBlock(t *testing.T) {
 
 func TestParsePrepareFromHook(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { data:str v:bool := true } }
+    compute "p" { data:str v:bool := true }
     prepare {
       data { from_hook = "score_api" }
     }
@@ -678,11 +642,9 @@ func TestParsePrepareFromHook(t *testing.T) {
 
 func TestParseMergeBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        decision:bool = true
-        v:bool := true
-      }
+    compute "p" {
+      decision:bool = true
+      v:bool := true
     }
     merge {
       decision { to_state = decision.approved }
@@ -701,7 +663,7 @@ func TestParseMergeBlock(t *testing.T) {
 
 func TestParsePublishBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     publish {
       hook = "audit_hook"
       hook = "notify_hook"
@@ -721,18 +683,14 @@ func TestParsePublishBlock(t *testing.T) {
 
 func TestParseNextBlock(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        decision:bool = true
-        v:bool := true
-      }
+    compute "p" {
+      decision:bool = true
+      v:bool := true
     }
     next {
-      compute {
-        prog "to_approve" {
-          decision:bool
-          go:bool := decision
-        }
+      compute "to_approve" {
+        decision:bool
+        go:bool := decision
       }
       prepare {
         decision { from_action = decision }
@@ -764,9 +722,9 @@ func TestParseNextBlock(t *testing.T) {
 
 func TestParseNextFromState(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "n" { always:bool := true } }
+      compute "n" { always:bool := true }
       prepare {
         x { from_state = ns.field }
       }
@@ -783,9 +741,9 @@ func TestParseNextFromState(t *testing.T) {
 
 func TestParseNextFromLiteral(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "n" { always:bool := true } }
+      compute "n" { always:bool := true }
       prepare {
         x { from_literal = 42 }
       }
@@ -809,14 +767,11 @@ func TestParseNextFromLiteral(t *testing.T) {
 func TestReferenceNormalization(t *testing.T) {
 	// Both bare and quoted forms should produce the same string.
 	srcBare := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" { decision:bool := true }
-    }
+    compute "p" { decision:bool := true }
     merge { decision { to_state = ns.field } }
   }`)
 	srcQuoted := minimalTurnFile(`  action "a" {
-    compute { prog "p" { decision:bool := true }
-    }
+    compute "p" { decision:bool := true }
     merge { decision { to_state = "ns.field" } }
   }`)
 
@@ -836,7 +791,7 @@ func TestReferenceNormalization(t *testing.T) {
 
 func TestThreeSegmentPath(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute { prog "p" { v:number := } }
+    compute "p" { v:number := }
     prepare {
       v { from_state = session.cart.items }
     }
@@ -928,7 +883,7 @@ func TestArrTypeInStateField(t *testing.T) {
   }
 }
 scene "s" {
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }
 `
 	tf := mustParse(t, src)
@@ -949,12 +904,10 @@ scene "s" {
 func TestRHSCompatFuncBlock(t *testing.T) {
 	// Old block form { add = [v1, v2] } is now rejected; use function call syntax instead.
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v1:number = 5
-        v2:number = 3
-        out:number := add(v1, v2)
-      }
+    compute "p" {
+      v1:number = 5
+      v2:number = 3
+      out:number := add(v1, v2)
     }
   }`)
 	tf := mustParse(t, src)
@@ -971,7 +924,7 @@ func TestParseRouteBlock(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }
 route "main" {
   match {
@@ -1030,7 +983,7 @@ func TestParseRouteORBranches(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }
 route "r" {
   match {
@@ -1061,7 +1014,7 @@ func TestParseRouteFallbackOnly(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }
 route "r" { match { _ => s } }`
 	tf := mustParse(t, src)
@@ -1078,7 +1031,7 @@ func TestParseMultipleRoutes(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }
 route "r1" { match { _ => s } }
 route "r2" { match { s.done => s } }`
@@ -1095,7 +1048,7 @@ func TestParseRouteWildcardSegment(t *testing.T) {
 	src := `state { ns { v:number = 0 } }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }
 route "r" { match { s.*.final => s } }`
 	tf := mustParse(t, src)

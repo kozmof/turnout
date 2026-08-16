@@ -16,18 +16,14 @@ scene "test" {
   entry_actions = [a]
 ` + viewBlock + `
   action "a" {
-    compute {
-      prog "p" { v:bool := true }
-    }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "q" { v:bool := true } }
+      compute "q" { v:bool := true }
       action = b
     }
   }
   action "b" {
-    compute {
-      prog "p" { v:bool := true }
-    }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -72,10 +68,10 @@ scene "test" {
     a |=> b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -110,10 +106,10 @@ scene "test" {
     a |=> b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -132,21 +128,21 @@ scene "test" {
     a |=> b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "q" { v:bool := true } }
+      compute "q" { v:bool := true }
       action = b
     }
     next {
-      compute { prog "r" { v:bool := true } }
+      compute "r" { v:bool := true }
       action = c
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
   action "c" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -183,17 +179,17 @@ scene "test" {
     b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "q" { v:bool := true } }
+      compute "q" { v:bool := true }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
   action "c" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -213,21 +209,21 @@ scene "test" {
     c
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "q" { v:bool := true } }
+      compute "q" { v:bool := true }
       action = b
     }
     next {
-      compute { prog "r" { v:bool := true } }
+      compute "r" { v:bool := true }
       action = c
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
   action "c" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -318,15 +314,15 @@ scene "test" {
     foo |=> bar |=> baz
   }
   action "foo" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = bar }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = bar }
   }
   action "bar" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = baz }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = baz }
   }
   action "baz" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -348,23 +344,23 @@ scene "test" {
     decide |=> reject
   }
   action "analyze" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = score }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = score }
   }
   action "score" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = decide }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = decide }
   }
   action "decide" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = approve }
-    next { compute { prog "r" { v:bool := true } }  action = reject }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = approve }
+    next { compute "r" { v:bool := true }  action = reject }
   }
   action "approve" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
   action "reject" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -386,15 +382,15 @@ scene "test" {
     baz
   }
   action "foo" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = bar }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = bar }
   }
   action "bar" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = baz }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = baz }
   }
   action "baz" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -416,7 +412,7 @@ scene "test" {
     a
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -455,20 +451,20 @@ scene "s" {
     d
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = b }
-    next { compute { prog "r" { v:bool := true } }  action = c }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = b }
+    next { compute "r" { v:bool := true }  action = c }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = d }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = d }
   }
   action "c" {
-    compute { prog "p" { v:bool := true } }
-    next { compute { prog "q" { v:bool := true } }  action = d }
+    compute "p" { v:bool := true }
+    next { compute "q" { v:bool := true }  action = d }
   }
   action "d" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `

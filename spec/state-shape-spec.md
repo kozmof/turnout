@@ -392,7 +392,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 - A field cannot be declared without both `type` and `value`.
 - A `from_state` or `to_state` path cannot reference an undeclared field.
 - An action compute graph cannot write to STATE directly during execution. All STATE writes must go through the `merge` step.
-- A transition compute program cannot write to STATE; inline `~> @state.path` is rejected in transition `prog` blocks.
+- A transition compute program cannot write to STATE; inline `~> @state.path` is rejected in transition `compute` blocks.
 - The runtime cannot accept a partial `state` block (missing `type` or `value`) without emitting a validation error.
 - A `state` block cannot contain duplicate namespace labels or duplicate field names within one namespace.
 - An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type. This is a convert-time type constraint error (`StateTypeMismatch`). For example, writing a `str` value to a `number` field is a type error.
@@ -447,36 +447,30 @@ scene "loan_flow" {
   next_policy   = "first-match"
 
   action "score" {
-    compute {
-      prog "score_graph" {
-        income:number <~ @applicant.income ~> @decision.input_income
-        debt:number <~ @applicant.debt
-        min_income:number  = 50000
-        max_debt:number    = 20000
-        income_ok:bool  = income >= min_income
-        debt_ok:bool    = debt   <= max_debt
-        decision:bool := (income_ok & debt_ok) ~> @decision.approved
-      }
+    compute "score_graph" {
+      income:number <~ @applicant.income ~> @decision.input_income
+      debt:number <~ @applicant.debt
+      min_income:number  = 50000
+      max_debt:number    = 20000
+      income_ok:bool  = income >= min_income
+      debt_ok:bool    = debt   <= max_debt
+      decision:bool := (income_ok & debt_ok) ~> @decision.approved
     }
   }
 
   action "approve" {
-    compute {
-      prog "approve_graph" {
-        prefix:str          = "APR-"
-        suffix:str          = "0001"
-        status:str = ("approved") ~> @decision.status
-        approval_code:str := (prefix + suffix) ~> @decision.code
-      }
+    compute "approve_graph" {
+      prefix:str          = "APR-"
+      suffix:str          = "0001"
+      status:str = ("approved") ~> @decision.status
+      approval_code:str := (prefix + suffix) ~> @decision.code
     }
   }
 
   action "reject" {
-    compute {
-      prog "reject_graph" {
-        status:str = ("rejected") ~> @decision.status
-        reason:str := ("risk_threshold_not_met") ~> @decision.reason
-      }
+    compute "reject_graph" {
+      status:str = ("rejected") ~> @decision.status
+      reason:str := ("risk_threshold_not_met") ~> @decision.reason
     }
   }
 }

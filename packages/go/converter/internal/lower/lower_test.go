@@ -95,7 +95,7 @@ func TestLowerStateBlockInline(t *testing.T) {
 scene "s" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }`)
 	if tm.State == nil {
@@ -141,7 +141,7 @@ func TestLowerStateFileProducesSchema(t *testing.T) {
 	src := `state_file = "mystate.tu"
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }`
 	tf, ds := parser.ParseFile(filepath.Join(dir, "test.tu"), src)
 	if ds.HasErrors() {
@@ -166,14 +166,12 @@ scene "s" {
 func TestLowerLiteralRHS(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        n:number       = 99
-        s:str          = "hi"
-        b:bool         = true
-        xs:arr<number> = [1, 2]
-        v:bool := true
-      }
+    compute "p" {
+      n:number       = 99
+      s:str          = "hi"
+      b:bool         = true
+      xs:arr<number> = [1, 2]
+      v:bool := true
     }
   }`))
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -207,11 +205,9 @@ func TestLowerLiteralRHS(t *testing.T) {
 func TestLowerSingleRefBool(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        src:bool = true
-        out:bool := src
-      }
+    compute "p" {
+      src:bool = true
+      out:bool := src
     }
   }`))
 	b := binding(t, tm, 1)
@@ -236,15 +232,13 @@ state { ns { val:number = 0 } }
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        rid: ResourceId = "foo-101"
-        out: number := case(
-          rid,
-          ResourceId { sequence } if sequence > 100 => sequence,
-          _ => 0
-        )
-      }
+    compute "p" {
+      rid: ResourceId = "foo-101"
+      out: number := case(
+        rid,
+        ResourceId { sequence } if sequence > 100 => sequence,
+        _ => 0
+      )
     }
   }
 }`)
@@ -273,11 +267,9 @@ scene "test" {
 func TestLowerSingleRefNumber(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        src:number = 5
-        out:number := src
-      }
+    compute "p" {
+      src:number = 5
+      out:number := src
     }
   }`))
 	b := binding(t, tm, 1)
@@ -292,11 +284,9 @@ func TestLowerSingleRefNumber(t *testing.T) {
 func TestLowerSingleRefStr(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        src:str = "x"
-        out:str := src
-      }
+    compute "p" {
+      src:str = "x"
+      out:str := src
     }
   }`))
 	b := binding(t, tm, 1)
@@ -308,11 +298,9 @@ func TestLowerSingleRefStr(t *testing.T) {
 func TestLowerSingleRefArr(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        src:arr<number> = []
-        out:arr<number> := src
-      }
+    compute "p" {
+      src:arr<number> = []
+      out:arr<number> := src
     }
   }`))
 	b := binding(t, tm, 1)
@@ -326,12 +314,10 @@ func TestLowerSingleRefArr(t *testing.T) {
 func TestLowerFuncCallRHS(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        a:number = 3
-        b:number = 4
-        out:number := max(a, b)
-      }
+    compute "p" {
+      a:number = 3
+      b:number = 4
+      out:number := max(a, b)
     }
   }`))
 	b := binding(t, tm, 2)
@@ -355,12 +341,10 @@ func TestLowerFuncCallRHS(t *testing.T) {
 func TestLowerInfixBoolAnd(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        p:bool = true
-        q:bool = false
-        out:bool := p & q
-      }
+    compute "p" {
+      p:bool = true
+      q:bool = false
+      out:bool := p & q
     }
   }`))
 	b := binding(t, tm, 2)
@@ -372,12 +356,10 @@ func TestLowerInfixBoolAnd(t *testing.T) {
 func TestLowerInfixGTE(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 5
-        y:number = 3
-        out:bool := x >= y
-      }
+    compute "p" {
+      x:number = 5
+      y:number = 3
+      out:bool := x >= y
     }
   }`))
 	b := binding(t, tm, 2)
@@ -389,12 +371,10 @@ func TestLowerInfixGTE(t *testing.T) {
 func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 1
-        y:number = 2
-        out:number := x + y
-      }
+    compute "p" {
+      x:number = 1
+      y:number = 2
+      out:number := x + y
     }
   }`))
 	b := binding(t, tm, 2)
@@ -406,12 +386,10 @@ func TestLowerInfixPlusNumberIsAdd(t *testing.T) {
 func TestLowerInfixPlusStrIsConcat(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        p:str = "a"
-        q:str = "b"
-        out:str := p + q
-      }
+    compute "p" {
+      p:str = "a"
+      q:str = "b"
+      out:str := p + q
     }
   }`))
 	b := binding(t, tm, 2)
@@ -432,10 +410,8 @@ func TestLowerPlaceholderWithState(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        income:number := <~ @applicant.income
-      }
+    compute "p" {
+      income:number := <~ @applicant.income
     }
   }
 }`)
@@ -454,12 +430,10 @@ func TestLowerPipeRHS(t *testing.T) {
 	// pipe(initial, step1, ...) stores structured form in binding.ExtExpr.
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 3
-        y:number = 4
-        result:number := pipe(x, max(#it, y))
-      }
+    compute "p" {
+      x:number = 3
+      y:number = 4
+      result:number := pipe(x, max(#it, y))
     }
   }`))
 	result := findBinding(t, tm.Scenes[0].Actions[0].Compute.Prog.Bindings, "result")
@@ -489,13 +463,11 @@ func TestLowerCondRHS(t *testing.T) {
 	// if(cond, then, else) stores structured form in binding.ExtExpr.
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        flag:bool     = true
-        thenFn:number = max(x, y)
-        elseFn:number = max(x, y)
-        result:number := if(flag, thenFn, elseFn)
-      }
+    compute "p" {
+      flag:bool     = true
+      thenFn:number = max(x, y)
+      elseFn:number = max(x, y)
+      result:number := if(flag, thenFn, elseFn)
     }
   }`))
 	result := findBinding(t, tm.Scenes[0].Actions[0].Compute.Prog.Bindings, "result")
@@ -526,13 +498,11 @@ func TestLowerIfRHSBareRef(t *testing.T) {
 	// if(flag, thenFn, elseFn) with bare ref condition → ExtExpr on binding
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        flag:bool     = true
-        thenFn:number = max(x, y)
-        elseFn:number = max(x, y)
-        result:number := if(flag, thenFn, elseFn)
-      }
+    compute "p" {
+      flag:bool     = true
+      thenFn:number = max(x, y)
+      elseFn:number = max(x, y)
+      result:number := if(flag, thenFn, elseFn)
     }
   }`))
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -560,15 +530,13 @@ func TestLowerIfRHSCall(t *testing.T) {
 	// if(arr_includes(items,x), thenFn, elseFn) with call condition → ExtExpr on binding
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number          = 5
-        y:number          = 3
-        items:arr<number> = [1, 2, 3]
-        thenFn:number     = max(x, y)
-        elseFn:number     = max(x, y)
-        result:number := if(arr_includes(items, x), thenFn, elseFn)
-      }
+    compute "p" {
+      x:number          = 5
+      y:number          = 3
+      items:arr<number> = [1, 2, 3]
+      thenFn:number     = max(x, y)
+      elseFn:number     = max(x, y)
+      result:number := if(arr_includes(items, x), thenFn, elseFn)
     }
   }`))
 	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -603,10 +571,8 @@ func TestLowerSigilIngress(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number := <~ @app.score
-      }
+    compute "p" {
+      score:number := <~ @app.score
     }
   }
 }`)
@@ -632,10 +598,8 @@ func TestLowerSigilEgress(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        approved:bool := (true) ~> @app.approved
-      }
+    compute "p" {
+      approved:bool := (true) ~> @app.approved
     }
   }
 }`)
@@ -657,10 +621,8 @@ func TestLowerSigilBiDir(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        count:number := <~ @app.count ~> @app.count
-      }
+    compute "p" {
+      count:number := <~ @app.count ~> @app.count
     }
   }
 }`)
@@ -682,7 +644,7 @@ func TestLowerDocstringTrimming(t *testing.T) {
     """
     Hello world.
     """
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`))
 	if len(tm.Scenes) == 0 || len(tm.Scenes[0].Actions) == 0 {
 		t.Fatal("no actions in lowered model")
@@ -708,7 +670,7 @@ func TestLowerRouteBlock(t *testing.T) {
 	tm := mustLower(t, `state { ns { v:number = 0 } }
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }
 route "route_1" {
   entry = scene_1
@@ -756,7 +718,7 @@ route "route_1" {
 func TestLowerPublishBlock(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     publish {
       hook = "hook_a"
       hook = "hook_b"
@@ -778,16 +740,14 @@ func TestLowerNextRule(t *testing.T) {
 	// compute block is preserved.
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute {
-        prog "n" { ready:bool = false   go:bool := ready }
-      }
+      compute "n" { ready:bool = false   go:bool := ready }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`))
 	rules := tm.Scenes[0].Actions[0].Next
 	if len(rules) != 1 {
@@ -809,16 +769,14 @@ func TestLowerNextRule(t *testing.T) {
 func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
 	verbose := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute {
-        prog "n" { always:bool := true }
-      }
+      compute "n" { always:bool := true }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`))
 	nr := verbose.Scenes[0].Actions[0].Next[0]
 	if nr.Action != "b" {
@@ -831,13 +789,13 @@ func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
 	// The concise form lowers identically.
 	concise := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`))
 	cnr := concise.Scenes[0].Actions[0].Next[0]
 	if cnr.Compute != nil {
@@ -853,16 +811,14 @@ func TestLowerNextRuleDeterministicDropsCompute(t *testing.T) {
 func TestLowerNextRuleFalseConditionPreserved(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute {
-        prog "n" { never:bool := false }
-      }
+      compute "n" { never:bool := false }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`))
 	nr := tm.Scenes[0].Actions[0].Next[0]
 	if nr.Compute == nil || nr.Compute.Condition != "never" {
@@ -877,7 +833,7 @@ func TestLowerIdempotency(t *testing.T) {
 	// by rendering the scene ID and action count.
 	src := minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }`)
 	m1 := mustLower(t, src)
 	m2 := mustLower(t, src)
@@ -953,7 +909,7 @@ func TestLowerDuplicateStateFieldInAST(t *testing.T) {
 }
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
@@ -991,7 +947,7 @@ func TestLowerDuplicateOrderEntryFromSchema(t *testing.T) {
 	src := `state_file = "ignored.json"
 scene "s" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { r:bool := true } } }
+  action "a" { compute "p" { r:bool := true } }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {

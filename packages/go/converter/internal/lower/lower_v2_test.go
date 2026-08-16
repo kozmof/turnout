@@ -14,13 +14,11 @@ import (
 func TestLowerNestedInfix(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 1
-        y:number = 2
-        z:number = 3
-        out:number := x + y + z
-      }
+    compute "p" {
+      x:number = 1
+      y:number = 2
+      z:number = 3
+      out:number := x + y + z
     }
   }`))
 	bs := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -48,13 +46,11 @@ func TestLowerNestedInfix(t *testing.T) {
 func TestLowerNestedInfixPrecedence(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 1
-        y:number = 2
-        z:number = 3
-        out:number := x + y * z
-      }
+    compute "p" {
+      x:number = 1
+      y:number = 2
+      z:number = 3
+      out:number := x + y * z
     }
   }`))
 	bs := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -71,12 +67,10 @@ func TestLowerNestedInfixPrecedence(t *testing.T) {
 func TestLowerSingleInfixUnchanged(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        x:number = 1
-        y:number = 2
-        out:number := x + y
-      }
+    compute "p" {
+      x:number = 1
+      y:number = 2
+      out:number := x + y
     }
   }`))
 	bs := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -95,11 +89,9 @@ func TestLowerStandaloneTransformMatchesPlusZero(t *testing.T) {
 	prog := func(expr string) string {
 		return minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        rate:number = 1
-        out:number := ` + expr + `
-      }
+    compute "p" {
+      rate:number = 1
+      out:number := ` + expr + `
     }
   }`)
 	}
@@ -119,24 +111,20 @@ func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
 	body := func(next string) string {
 		return minimal(`  entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        ready:bool := true
-      }
+    compute "p" {
+      ready:bool := true
     }
 ` + next + `
   }
   action "b" {
-    compute { prog "q" { done:bool := true } }
+    compute "q" { done:bool := true }
   }`)
 	}
 	sugar := mustLower(t, body(`    next ready -> b`))
 	block := mustLower(t, body(`    next {
-      compute {
-        prog "to_b" {
-          ready:bool
-          go_b:bool := ready
-        }
+      compute "to_b" {
+        ready:bool
+        go_b:bool := ready
       }
       prepare {
         ready { from_action = ready }
@@ -168,11 +156,11 @@ func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
 func TestLowerNextSugarUnconditional(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_actions = [a]
   action "a" {
-    compute { prog "p" { ready:bool := true } }
+    compute "p" { ready:bool := true }
     next b
   }
   action "b" {
-    compute { prog "q" { done:bool := true } }
+    compute "q" { done:bool := true }
   }`))
 	r := tm.Scenes[0].Actions[0].Next[0]
 	if r.Action != "b" || r.Compute != nil {
@@ -191,11 +179,11 @@ func TestLowerOverviewFlowText(t *testing.T) {
     b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next b
   }
   action "b" {
-    compute { prog "q" { v:bool := true } }
+    compute "q" { v:bool := true }
   }`))
 	v := tm.Scenes[0].View
 	if v == nil {
@@ -217,11 +205,11 @@ func TestLowerOverviewFlowTextEdgesOnly(t *testing.T) {
     a |=> b
   }
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next b
   }
   action "b" {
-    compute { prog "q" { v:bool := true } }
+    compute "q" { v:bool := true }
   }`))
 	if got, want := tm.Scenes[0].View.Flow, "a |=> b\n"; got != want {
 		t.Errorf("flow = %q, want %q", got, want)

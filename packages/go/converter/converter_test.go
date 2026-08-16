@@ -21,9 +21,8 @@ scene "start" {
   entry_actions = [init]
 
   action "init" {
-    compute { prog "p" {
+    compute "p" {
         v:number := (1) ~> @ns.count
-      }
     }
   }
 }
@@ -277,9 +276,8 @@ scene "start" {
   entry_actions = [init]
 
   action "init" {
-    compute { prog "p" {
+    compute "p" {
         v:number := (1) ~> @ns.nonexistent
-      }
     }
   }
 }
@@ -333,9 +331,8 @@ scene "start" {
   entry_actions = [init]
 
   action "init" {
-    compute { prog "p" {
+    compute "p" {
         v:number := (1) ~> @ns.nonexistent
-      }
     }
   }
 }

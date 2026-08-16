@@ -16,12 +16,10 @@ Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented 
 
 ```hcl
 action "process_order" {
-  compute {
-    prog "order_graph" {
-      raw_payload:str <~ hook("payload_input")
-      user_id:str <~ @session.user_id
-      receipt:str := (build_receipt(raw_payload, user_id)) ~> @orders.last_receipt
-    }
+  compute "order_graph" {
+    raw_payload:str <~ hook("payload_input")
+    user_id:str <~ @session.user_id
+    receipt:str := (build_receipt(raw_payload, user_id)) ~> @orders.last_receipt
   }
 
   publish {
@@ -118,12 +116,10 @@ Multiple `hook` entries are allowed. Publish hooks fire in declaration order aft
 
 ```hcl
 action "process_order" {
-  compute {
-    prog "order_graph" {
-      raw_payload:str <~ hook("payload_input")
-      user_id:str <~ @session.user_id
-      receipt:str := (build_receipt(raw_payload, user_id)) ~> @orders.last_receipt
-    }
+  compute "order_graph" {
+    raw_payload:str <~ hook("payload_input")
+    user_id:str <~ @session.user_id
+    receipt:str := (build_receipt(raw_payload, user_id)) ~> @orders.last_receipt
   }
 
   publish {
@@ -172,11 +168,11 @@ action "process_order" {
 ```
 
 Rules:
-- Sigils are stripped from binding names in the `prog` block. Direction is encoded structurally by membership in `prepare` or `merge`.
+- Sigils are stripped from binding names in the `compute` block. Direction is encoded structurally by membership in `prepare` or `merge`.
 - Each `prepare` entry becomes `binding "<name>" { from_state = ... }` or `binding "<name>" { from_hook = ... }`.
 - Each `merge` entry becomes `binding "<name>" { to_state = ... }`.
 - Each `publish` hook entry becomes a `hook = "<name>"` attribute (repeated for multiple hooks).
-- Binding names inside `prepare` and `merge` must match an existing binding declared in the `prog` block.
+- Binding names inside `prepare` and `merge` must match an existing binding declared in the `compute` block.
 
 ---
 
@@ -276,7 +272,7 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 ## 5. CAN'T (NG)
 
 - A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
-- A `from_hook` binding name cannot be absent from the action's `prog` block (`UnresolvedPrepareBinding` at convert time).
+- A `from_hook` binding name cannot be absent from the action's `compute` block (`UnresolvedPrepareBinding` at convert time).
 - A prepare hook implementation cannot write to state directly. It can only return values via the result object.
 - A publish hook cannot mutate state. Return values are ignored.
 - Hook execution order cannot be changed at runtime. It is fixed by declaration order in the emitted HCL.
@@ -303,7 +299,7 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 |--------|----------------|
 | A. DSL parsing | `prepare` entries with `from_hook` correctly parsed; `publish` `hook` entries collected |
 | B. HCL lowering | `prepare`/`merge`/`publish` sub-blocks emitted in declaration order |
-| C. Binding validation | `from_hook` and `merge` binding names validated against `prog` bindings at convert time |
+| C. Binding validation | `from_hook` and `merge` binding names validated against `compute` bindings at convert time |
 | D. Prepare hook execution | Hook fires before graph; returned field value visible to compute graph |
 | E. Hook deduplication | Multiple bindings on same hook name → hook called once; all fields mapped |
 | F. Publish hook execution | Hook fires after merge; receives full final state; cannot mutate |
@@ -327,7 +323,7 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 | Same hook name on multiple `prepare` entries | Hook called once; result fields mapped to all declaring bindings |
 | Hook result missing a declared binding field | `MissingHookField` error; action execution aborted |
 | `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` error at convert time |
-| `prepare { x { from_hook = "h" } }` where `x` not in `prog` | `UnresolvedPrepareBinding` error at convert time |
+| `prepare { x { from_hook = "h" } }` where `x` not in `compute` | `UnresolvedPrepareBinding` error at convert time |
 | `publish { hook = "h1"; hook = "h2" }` | Both hooks fire; h1 before h2 |
 | Publish hook impl returns a value | Return value ignored; no state mutation |
 | Prepare hook impl is async and rejects | Runtime error propagated; action execution aborted; STATE not mutated |

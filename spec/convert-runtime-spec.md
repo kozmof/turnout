@@ -43,7 +43,7 @@ Turn DSL  ──[Go CLI]──>  HCL file  ──[TypeScript runtime]──>  ST
 
 - Parse Turn DSL source.
 - Lower DSL constructs to canonical plain HCL (per `hcl-context-spec.md` lowering rules).
-- Emit one `prog "<actionId>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block.
+- Emit one `prog "<computeLabel>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block. The prog name is the author's `compute` label, not the action ID; the two are independent.
 - Emit `entry_actions = [<actionId>, ...]` as a top-level attribute at the top of each scene block to declare the scene's entry action IDs.
 - Emit inline transition `prog` blocks for each next-rule compute program.
 - Emit STATE effect declarations (`prepare` and `merge` sub-blocks) at action level.

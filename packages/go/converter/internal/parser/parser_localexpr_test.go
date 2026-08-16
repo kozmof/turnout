@@ -19,11 +19,9 @@ func progBindings(t *testing.T, src string) []*ast.BindingDecl {
 // variable binder, and wildcard.
 func TestRHSCaseArms(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        score:number = 1
-        result:str := case(score, 1 => "one", x if gt(x, 5) => "big", _ => "other")
-      }
+    compute "p" {
+      score:number = 1
+      result:str := case(score, 1 => "one", x if gt(x, 5) => "big", _ => "other")
     }
   }`)
 	bindings := progBindings(t, src)
@@ -69,12 +67,10 @@ func TestRHSCaseArms(t *testing.T) {
 
 func TestCasePatternTuple(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        one:number = 1
-        two:number = 2
-        result:str := case((one, two), (1, 2) => "tuple", _ => "other")
-      }
+    compute "p" {
+      one:number = 1
+      two:number = 2
+      result:str := case((one, two), (1, 2) => "tuple", _ => "other")
     }
   }`)
 	mustParse(t, src)
@@ -85,15 +81,13 @@ func TestCasePatternTuple(t *testing.T) {
 // an operand of an outer if, which is the only context that drives these.
 func TestRHSLocalNestedExprs(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        flag:bool   = true
-        flag2:bool  = false
-        v1:number   = 1
-        v2:number   = 2
-        result2:number = if(flag, case(v1, 1 => v1, _ => v2), v2)
-        result:number := if(flag, if(flag2, v1, v2), pipe(v1, add(#it, v2)))
-      }
+    compute "p" {
+      flag:bool   = true
+      flag2:bool  = false
+      v1:number   = 1
+      v2:number   = 2
+      result2:number = if(flag, case(v1, 1 => v1, _ => v2), v2)
+      result:number := if(flag, if(flag2, v1, v2), pipe(v1, add(#it, v2)))
     }
   }`)
 	bindings := progBindings(t, src)
@@ -131,15 +125,13 @@ func TestRHSLocalNestedExprs(t *testing.T) {
 // `v1 + (v2 * v3)` because `*` binds tighter than `+`.
 func TestRHSLocalInfix(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        v1:number = 1
-        v2:number = 2
-        v3:number = 3
-        addFn:number = add(v1, v2)
-        subFn:number = add(v1, v2)
-        result:number := if(v1 + v2 * v3, addFn, subFn)
-      }
+    compute "p" {
+      v1:number = 1
+      v2:number = 2
+      v3:number = 3
+      addFn:number = add(v1, v2)
+      subFn:number = add(v1, v2)
+      result:number := if(v1 + v2 * v3, addFn, subFn)
     }
   }`)
 	bindings := progBindings(t, src)
@@ -165,11 +157,9 @@ func TestRHSLocalInfix(t *testing.T) {
 // form `receiver.method1().method2()` inside a function call.
 func TestArgMethodChain(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        name:str = "hi"
-        result:str := id(name.upper().trim())
-      }
+    compute "p" {
+      name:str = "hi"
+      result:str := id(name.upper().trim())
     }
   }`)
 	bindings := progBindings(t, src)
@@ -196,11 +186,9 @@ func TestArgMethodChain(t *testing.T) {
 // `.` is not followed by an identifier.
 func TestMethodChainMissingMethodName(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        name:str = "hi"
-        result:str := id(name.())
-      }
+    compute "p" {
+      name:str = "hi"
+      result:str := id(name.())
     }
   }`)
 	mustParseFail(t, src)

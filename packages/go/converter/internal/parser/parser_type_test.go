@@ -26,10 +26,8 @@ state {
 }
 scene "s" {
   action "a" {
-    compute {
-      prog "p" {
-        out: number := 1
-      }
+    compute "p" {
+      out: number := 1
     }
   }
 }
@@ -119,12 +117,10 @@ type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { ns { x: number = 0 } }
 scene "s" {
   action "a" {
-    compute {
-      prog "p" {
-        id: ResourceId := ResourceId {
-          kind = "foo"
-          sequence = 42
-        }
+    compute "p" {
+      id: ResourceId := ResourceId {
+        kind = "foo"
+        sequence = 42
       }
     }
   }
@@ -154,15 +150,13 @@ type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { ns { x: number = 0 } }
 scene "s" {
   action "a" {
-    compute {
-      prog "p" {
-        rid: ResourceId = "foo-1"
-        r: number := case(
-          rid,
-          ResourceId { kind: "foo", sequence } => sequence,
-          ResourceId { kind, sequence: _ } => 0
-        )
-      }
+    compute "p" {
+      rid: ResourceId = "foo-1"
+      r: number := case(
+        rid,
+        ResourceId { kind: "foo", sequence } => sequence,
+        ResourceId { kind, sequence: _ } => 0
+      )
     }
   }
 }

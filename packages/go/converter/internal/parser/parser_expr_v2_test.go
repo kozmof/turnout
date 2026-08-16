@@ -12,14 +12,12 @@ import (
 func rhsOf(t *testing.T, ty, expr string) ast.BindingRHS {
 	t.Helper()
 	src := minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        a:number = 1
-        b:number = 2
-        c:number = 3
-        f:bool = true
-        result:` + ty + ` := ` + expr + `
-      }
+    compute "p" {
+      a:number = 1
+      b:number = 2
+      c:number = 3
+      f:bool = true
+      result:` + ty + ` := ` + expr + `
     }
   }`)
 	bindings := progBindings(t, src)
@@ -121,10 +119,8 @@ func TestInfixPrecedenceGrouping(t *testing.T) {
 func nextRulesOf(t *testing.T, nextClauses string) []*ast.NextRule {
 	t.Helper()
 	tf := mustParse(t, minimalTurnFile(`  action "a" {
-    compute {
-      prog "p" {
-        ready:bool := true
-      }
+    compute "p" {
+      ready:bool := true
     }
 `+nextClauses+`
   }`))
@@ -186,7 +182,7 @@ func TestNextSugarQuotedAction(t *testing.T) {
 // by an action reference.
 func TestNextSugarMissingTarget(t *testing.T) {
 	mustParseFail(t, minimalTurnFile(`  action "a" {
-    compute { prog "p" { ready:bool := true } }
+    compute "p" { ready:bool := true }
     next ready -> 42
   }`))
 }
@@ -196,7 +192,7 @@ func TestNextSugarMissingTarget(t *testing.T) {
 // pre-arrow source hits this path.
 func TestNextSugarLegacyIfForm(t *testing.T) {
 	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
-    compute { prog "p" { ready:bool := true } }
+    compute "p" { ready:bool := true }
     next b if ready
   }`))
 	if !hasParserDiagCode(ds, diag.CodeLegacyTransitionIf) {
@@ -209,7 +205,7 @@ func TestNextSugarLegacyIfForm(t *testing.T) {
 // binding of this action's own prog.
 func TestNextSugarDottedCondition(t *testing.T) {
 	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
-    compute { prog "p" { ready:bool := true } }
+    compute "p" { ready:bool := true }
     next ns.ready -> b
   }`))
 	if !hasParserDiagCode(ds, diag.CodeNextComputeInvalid) {

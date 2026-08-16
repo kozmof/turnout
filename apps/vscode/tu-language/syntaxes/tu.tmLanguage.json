@@ -116,8 +116,8 @@
       }
     },
     "named-block": {
-      "comment": "Block keywords that introduce a named (string-labeled) block: scene, action, prog. `overview` takes a bare enforce mode instead of a string label.",
-      "match": "\\b(scene|action|prog)\\b(\\s+(\"[^\"]*\"))?",
+      "comment": "Block keywords that introduce a named (string-labeled) block: scene, action, compute. `overview` takes a bare enforce mode instead of a string label.",
+      "match": "\\b(scene|action|compute)\\b(\\s+(\"[^\"]*\"))?",
       "captures": {
         "1": {
           "name": "keyword.declaration.tu"
@@ -129,7 +129,7 @@
     },
     "simple-block": {
       "comment": "Anonymous block keywords that open a block without a name.",
-      "match": "\\b(compute|io|next|in|out)\\b",
+      "match": "\\b(io|next|in|out)\\b",
       "captures": {
         "1": {
           "name": "keyword.other.block.tu"
@@ -137,7 +137,7 @@
       }
     },
     "result-operator": {
-      "comment": "Contextual prog result operator: an action root or transition condition, on the final binding.",
+      "comment": "Contextual compute result operator: an action root or transition condition, on the final binding.",
       "match": "(:=)",
       "captures": {
         "1": {

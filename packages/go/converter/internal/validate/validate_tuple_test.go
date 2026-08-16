@@ -14,11 +14,11 @@ type ResourceId = "{kind: Kind}-{sequence: integer}"
 state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
-  action "a" { compute { prog "p" {
+  action "a" { compute "p" {
     rid: ResourceId = "foo-1"
     enabled: Enabled = true
     result:number := case((rid, enabled), ` + arms + `)
-  } } }
+  } }
 }`
 }
 
@@ -62,12 +62,12 @@ func TestNestedTuplePattern(t *testing.T) {
 	src := `
 type Toggle = true | false
 state { app { score:number = 0 } }
-scene "sc" { entry_actions = [a] action "a" { compute { prog "p" {
+scene "sc" { entry_actions = [a] action "a" { compute "p" {
   a: Toggle = true
   b: Toggle = false
   n: number = 3
   result:number := case(((a, b), n), ((true, false), value) => value, _ => 0)
-} } } }`
+} } }`
 	if ds := pipeline(src); ds.HasErrors() {
 		t.Fatalf("unexpected nested tuple errors: %v", ds)
 	}
@@ -75,11 +75,11 @@ scene "sc" { entry_actions = [a] action "a" { compute { prog "p" {
 
 func TestTupleWholeBinderRejected(t *testing.T) {
 	src := `state { app { score:number = 0 } }
-scene "sc" { entry_actions = [a] action "a" { compute { prog "p" {
+scene "sc" { entry_actions = [a] action "a" { compute "p" {
   a: bool = true
   b: number = 1
   result:number := case((a, b), both => 1)
-} } } }`
+} } }`
 	if ds := pipeline(src); !hasCode(ds, diag.CodeUnsupportedConstruct) {
 		t.Fatalf("expected UnsupportedConstruct, got %v", ds)
 	}
@@ -87,11 +87,11 @@ scene "sc" { entry_actions = [a] action "a" { compute { prog "p" {
 
 func TestTupleGuardMustBeBool(t *testing.T) {
 	src := `state { app { score:number = 0 } }
-scene "sc" { entry_actions = [a] action "a" { compute { prog "p" {
+scene "sc" { entry_actions = [a] action "a" { compute "p" {
   a: bool = true
   b: number = 1
   result:number := case((a, b), (true, n) if n => n, _ => 0)
-} } } }`
+} } }`
 	if ds := pipeline(src); !hasCode(ds, diag.CodeCondNotBool) {
 		t.Fatalf("expected CondNotBool, got %v", ds)
 	}

@@ -35,27 +35,23 @@ scene "s" {
   entry_actions = [a]
   next_policy   = "first-match"
   action "a" {
-    compute {
-      prog "p" {
-        score:number <~ @user.score
-        done:bool := (true) ~> @user.active
-      }
+    compute "p" {
+      score:number <~ @user.score
+      done:bool := (true) ~> @user.active
     }
     publish {
       hook = "on_done"
     }
     next {
-      compute {
-        prog "n" {
-          score:number <~ action(score)
-          go:bool := true
-        }
+      compute "n" {
+        score:number <~ action(score)
+        go:bool := true
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { r:bool := true } }
+    compute "p" { r:bool := true }
   }
 }
 route "main" {

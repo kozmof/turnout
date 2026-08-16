@@ -17,10 +17,8 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        ` + rootDecl + `
-      }
+    compute "p" {
+      ` + rootDecl + `
     }
   }
 }
@@ -94,12 +92,10 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        k: Kind = "foo"
-        n: integer = 7
-        id: ResourceId := ResourceId { kind = k sequence = n }
-      }
+    compute "p" {
+      k: Kind = "foo"
+      n: integer = 7
+      id: ResourceId := ResourceId { kind = k sequence = n }
     }
   }
 }
@@ -121,11 +117,9 @@ state { app { score:number = 0 } }
 scene "sc" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        n: number = 7
-        id: ResourceId := ResourceId { kind = "foo" sequence = n }
-      }
+    compute "p" {
+      n: number = 7
+      id: ResourceId := ResourceId { kind = "foo" sequence = n }
     }
   }
 }

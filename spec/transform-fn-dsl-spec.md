@@ -36,7 +36,7 @@ For multi-step local expression chains, authors can use `pipe(initial, step, ...
 ## CAN (OK)
 
 - A DSL author can call any method listed in the table above on a receiver of the matching type.
-- A method call can be applied to a binding identifier whose type is known in the current `prog`. It is valid as a call argument, as either operand of an infix expression, and as a binding RHS on its own.
+- A method call can be applied to a binding identifier whose type is known in the current `compute` block. It is valid as a call argument, as either operand of an infix expression, and as a binding RHS on its own.
 - Method calls can be chained from an identifier receiver: `income.toStr().toUpperCase() + suffix`. Each step is valid as long as the previous step's output type supports the next method.
 - `.toStr()` can be called on both `number` and `boolean` receivers, converting them to their string representation.
 - `.length()` can be called on both `string` (returns character count) and `array` (returns element count) receivers.

@@ -57,11 +57,9 @@ func minScene(stateBlock, progBody string) string {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
+    compute "p" {
 ` + progBody + `
-        v:bool := true
-      }
+      v:bool := true
     }
   }
 }
@@ -138,11 +136,9 @@ func TestNestedArrayNotAllowed(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        xs:arr<number> = [[1, 2]]
-        v:bool := true
-      }
+    compute "p" {
+      xs:arr<number> = [[1, 2]]
+      v:bool := true
     }
   }
 }
@@ -484,10 +480,8 @@ func TestMissingPrepareEntry(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number :=
-      }
+    compute "p" {
+      score:number :=
     }
   }
 }
@@ -503,11 +497,9 @@ func TestSpuriousPrepareEntry(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        plain:number = 0
-        v:bool := true
-      }
+    compute "p" {
+      plain:number = 0
+      v:bool := true
     }
     prepare {
       plain { from_state = app.score }
@@ -525,10 +517,8 @@ func TestDuplicatePrepareEntry(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number :=
-      }
+    compute "p" {
+      score:number :=
     }
     prepare {
       score { from_state = app.score }
@@ -547,10 +537,8 @@ func TestDuplicateMergeEntry(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number := 0
-      }
+    compute "p" {
+      score:number := 0
     }
     merge {
       score { to_state = app.score }
@@ -570,19 +558,17 @@ func TestTransitionOutputSigil(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute {
-        prog "n" {
-          score:number = (0) ~> @app.score
-          go:bool := true
-        }
+      compute "n" {
+        score:number = (0) ~> @app.score
+        go:bool := true
       }
       action = b
     }
   }
   action "b" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
   }
 }
 `
@@ -597,9 +583,7 @@ func TestUnresolvedPrepareBinding(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" { v:bool := true }
-    }
+    compute "p" { v:bool := true }
     prepare {
       ghost { from_state = app.score }
     }
@@ -617,9 +601,7 @@ func TestUnresolvedMergeBinding(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" { v:bool := true }
-    }
+    compute "p" { v:bool := true }
     merge {
       ghost { to_state = app.score }
     }
@@ -639,10 +621,8 @@ func TestUnresolvedStatePath(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number :=
-      }
+    compute "p" {
+      score:number :=
     }
     prepare {
       score { from_state = nonexistent.path }
@@ -661,10 +641,8 @@ func TestStateTypeMismatch(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number := 0
-      }
+    compute "p" {
+      score:number := 0
     }
     merge {
       score { to_state = app.active }
@@ -683,10 +661,8 @@ func TestMissingStatePath_EmptyMergeEntry(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
-        score:number := 0
-      }
+    compute "p" {
+      score:number := 0
     }
     merge {
       score { }
@@ -705,8 +681,8 @@ func TestDuplicateActionLabel(t *testing.T) {
 	src := basicState + `
 scene "test" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
+  action "a" { compute "p" { v:bool := true } }
 }
 `
 	if !hasCode(pipeline(src), diag.CodeDuplicateActionLabel) {
@@ -760,17 +736,17 @@ func TestMarkerRules(t *testing.T) {
 	}{
 		{
 			name: "missing_root_marker",
-			body: `compute { prog "p" { v:bool = true } }`,
+			body: `compute "p" { v:bool = true }`,
 			code: diag.CodeMissingRootMarker,
 		},
 		{
 			name: "root_marker_not_last",
-			body: `compute { prog "p" { a:bool := true  b:bool = true } }`,
+			body: `compute "p" { a:bool := true  b:bool = true }`,
 			code: diag.CodeMarkerNotLast,
 		},
 		{
 			name: "duplicate_marker",
-			body: `compute { prog "p" { a:bool := true  b:bool := true } }`,
+			body: `compute "p" { a:bool := true  b:bool := true }`,
 			code: diag.CodeDuplicateMarker,
 		},
 	}
@@ -796,9 +772,9 @@ func TestMissingConditionMarker(t *testing.T) {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute { prog "p" { v:bool := true } }
+    compute "p" { v:bool := true }
     next {
-      compute { prog "n" { go:bool = true } }
+      compute "n" { go:bool = true }
       action = a
     }
   }
@@ -816,10 +792,8 @@ func unusedSrc(progBody string) string {
 scene "test" {
   entry_actions = [a]
   action "a" {
-    compute {
-      prog "p" {
+    compute "p" {
 ` + progBody + `
-      }
     }
   }
 }
@@ -856,7 +830,7 @@ func routeSrc(matchBody string) string {
 	return basicState + `
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {
   entry = scene_1
@@ -930,7 +904,7 @@ func TestMissingEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {
   match {
@@ -947,7 +921,7 @@ func TestUnresolvedEntryScene(t *testing.T) {
 	src := basicState + `
 scene "scene_1" {
   entry_actions = [a]
-  action "a" { compute { prog "p" { v:bool := true } } }
+  action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {
   entry = undefined_scene

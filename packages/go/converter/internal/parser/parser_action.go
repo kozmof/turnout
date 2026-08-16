@@ -240,20 +240,32 @@ func (p *parser) parseAnonymousEgress() *ast.BindingDecl {
 	}
 }
 
-// ─── parseProgBlock ──────────────────────────────────────────────────────────
+// ─── parseProgBody ───────────────────────────────────────────────────────────
 
-func (p *parser) parseProgBlock() *ast.ProgBlock {
-	kwTok, _ := p.expect(lexer.TokKwProg)
-	pos := p.posOf(kwTok)
-
-	nameTok, _ := p.expect(lexer.TokStringLit)
-	if _, ok := p.expect(lexer.TokLBrace); !ok {
-		p.syncToBlockItem(lexer.TokKwProg, lexer.TokRBrace)
-		return &ast.ProgBlock{Pos: pos, Name: nameTok.Value}
-	}
-
+// parseProgBody parses the `{ <binding-decl>... }` body of a compute block and
+// returns the ProgBlock the model still expects. `pos` and `name` come from the
+// enclosing compute header — the surface language has no separate prog block,
+// but the lowered model keeps the compute/prog split.
+func (p *parser) parseProgBody(pos ast.Pos, name string) *ast.ProgBlock {
 	var bindings []*ast.BindingDecl
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
+		if t := p.peek(); t.Kind == lexer.TokKwProg {
+			// The old nested spelling. Name the replacement in the message,
+			// reusing the prog's own label when it has one.
+			label := name
+			if lbl := p.peekAt(1); lbl.Kind == lexer.TokStringLit {
+				label = lbl.Value
+			}
+			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacyProgBlock,
+				"prog blocks were merged into compute; write compute %q { ... } "+
+					"with the bindings directly inside", label))
+			p.advance() // consume 'prog'
+			if p.peek().Kind == lexer.TokStringLit {
+				p.advance() // consume name string
+			}
+			p.skipBlock()
+			continue
+		}
 		var bd *ast.BindingDecl
 		if p.peek().Kind == lexer.TokLParen {
 			bd = p.parseAnonymousEgress()
@@ -266,7 +278,7 @@ func (p *parser) parseProgBlock() *ast.ProgBlock {
 	}
 	p.expect(lexer.TokRBrace)
 
-	return &ast.ProgBlock{Pos: pos, Name: nameTok.Value, Bindings: bindings}
+	return &ast.ProgBlock{Pos: pos, Name: name, Bindings: bindings}
 }
 
 // ─── parseComputeBlock ───────────────────────────────────────────────────────
@@ -274,31 +286,14 @@ func (p *parser) parseProgBlock() *ast.ProgBlock {
 func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 	kwTok, _ := p.expect(lexer.TokKwCompute)
 	pos := p.posOf(kwTok)
+
+	nameTok, _ := p.expect(lexer.TokStringLit)
 	if _, ok := p.expect(lexer.TokLBrace); !ok {
 		p.syncToBlockItem(lexer.TokKwCompute, lexer.TokKwAction, lexer.TokKwNext, lexer.TokRBrace)
 		return &ast.ComputeBlock{Pos: pos}
 	}
 
-	var prog *ast.ProgBlock
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		t := p.peek()
-		switch t.Kind {
-		case lexer.TokKwProg:
-			if prog != nil {
-				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeDuplicateProg,
-					"compute block may contain at most one prog block"))
-				p.advance() // consume 'prog'
-				p.advance() // consume name string
-				p.skipBlock()
-				continue
-			}
-			prog = p.parseProgBlock()
-		default:
-			p.errorf(t, "unexpected token %s %q in compute block", kindName(t.Kind), t.Value)
-			p.syncToBlockItem(lexer.TokKwProg)
-		}
-	}
-	p.expect(lexer.TokRBrace)
+	prog := p.parseProgBody(pos, nameTok.Value)
 	root := p.deriveMarker(prog, ast.MarkerRoot)
 	return &ast.ComputeBlock{Pos: pos, Root: root, Prog: prog}
 }
@@ -645,20 +640,14 @@ func (p *parser) parseNextComputeBlock() *ast.NextComputeBlock {
 	// Inline IO accepts a different set of ingress sources inside a transition.
 	p.inNextCompute = true
 	defer func() { p.inNextCompute = false }()
-	p.expect(lexer.TokLBrace)
 
-	var prog *ast.ProgBlock
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		t := p.peek()
-		switch t.Kind {
-		case lexer.TokKwProg:
-			prog = p.parseProgBlock()
-		default:
-			p.errorf(t, "unexpected token %s in next compute block", kindName(t.Kind))
-			p.syncToBlockItem(lexer.TokKwProg)
-		}
+	nameTok, _ := p.expect(lexer.TokStringLit)
+	if _, ok := p.expect(lexer.TokLBrace); !ok {
+		p.syncToBlockItem(lexer.TokKwCompute, lexer.TokKwAction, lexer.TokKwNext, lexer.TokRBrace)
+		return &ast.NextComputeBlock{Pos: pos}
 	}
-	p.expect(lexer.TokRBrace)
+
+	prog := p.parseProgBody(pos, nameTok.Value)
 	condition := p.deriveMarker(prog, ast.MarkerCond)
 	return &ast.NextComputeBlock{Pos: pos, Condition: condition, Prog: prog}
 }
