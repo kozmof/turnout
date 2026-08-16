@@ -265,7 +265,12 @@ func (p *parser) parseFile() *ast.TurnFile {
 		case lexer.TokKwState:
 			if hasState {
 				p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeConflictingStateSource,
-					"Turn DSL file cannot declare both a state block and a state_file directive"))
+					"Turn DSL file declares STATE more than once; remove the duplicate state block or state_file directive"))
+				// The `state` keyword must be consumed before skipping the block:
+				// skipBlock expects to be sitting on the opening brace and returns
+				// without advancing otherwise, which spun this loop forever on any
+				// file carrying two state blocks.
+				p.advance()
 				p.skipBlock()
 				continue
 			}

@@ -3,6 +3,7 @@ package parser_test
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
@@ -285,4 +286,48 @@ func hasDiagCode(ds diag.Diagnostics, want diag.ErrorCode) bool {
 		}
 	}
 	return false
+}
+
+// TestDuplicateStateBlockTerminates covers two `state` blocks in one file.
+//
+// This case used to hang the parser forever: the duplicate branch called
+// skipBlock while still sitting on the `state` keyword, and skipBlock returns
+// without advancing unless the current token is `{`, so the top-level loop saw
+// the same token on every iteration. The sibling state/state_file pair was
+// tested and takes a branch that does advance, which is how the hang survived.
+//
+// The parse runs on its own goroutine so a regression fails in seconds rather
+// than stalling the whole package until the 10-minute test timeout.
+func TestDuplicateStateBlockTerminates(t *testing.T) {
+	t.Parallel()
+
+	src := `state {}
+state {
+  ns { v:number = 0 }
+}
+scene "s" { entry_action = a action "a" { compute "p" { v:bool := true } } }
+`
+	done := make(chan diag.Diagnostics, 1)
+	go func() {
+		_, ds := parser.ParseFile("dup-state.tu", src)
+		done <- ds
+	}()
+
+	select {
+	case ds := <-done:
+		if !ds.HasErrors() {
+			t.Fatal("want an error for a file declaring two state blocks")
+		}
+		found := false
+		for _, d := range ds {
+			if d.Code == diag.CodeConflictingStateSource {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("diagnostics = %v, want one with code ConflictingStateSource", ds)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("parsing a file with two state blocks did not terminate")
+	}
 }
