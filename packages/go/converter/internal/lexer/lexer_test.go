@@ -318,6 +318,41 @@ func TestFlowArrowToken(t *testing.T) {
 	}
 }
 
+// TestTransArrowToken covers the `->` transition guard token, which must win
+// over the bare minus the same way `|=>` wins over the bare pipe.
+func TestTransArrowToken(t *testing.T) {
+	toks := filterEOF(mustTokenize(t, "cond -> action_b"))
+	if len(toks) != 3 || toks[1].Kind != TokTransArrow || toks[1].Value != "->" {
+		t.Errorf("got %v, want ident -> ident", kinds(toks))
+	}
+}
+
+// TestMinusStillLexesAlone guards the arrow's lookahead: subtraction, negative
+// literals, and comparisons must be unaffected by it.
+func TestMinusStillLexesAlone(t *testing.T) {
+	cases := []struct {
+		src  string
+		want []TokenKind
+	}{
+		{"a - b", []TokenKind{TokIdent, TokMinus, TokIdent}},
+		{"a > -1", []TokenKind{TokIdent, TokGT, TokMinus, TokNumberLit}},
+		{"a - -1", []TokenKind{TokIdent, TokMinus, TokMinus, TokNumberLit}},
+		{"a >= b", []TokenKind{TokIdent, TokGTE, TokIdent}},
+	}
+	for _, tc := range cases {
+		toks := filterEOF(mustTokenize(t, tc.src))
+		if len(toks) != len(tc.want) {
+			t.Errorf("src=%q: got %v, want %v", tc.src, kinds(toks), tc.want)
+			continue
+		}
+		for i, k := range tc.want {
+			if toks[i].Kind != k {
+				t.Errorf("src=%q tok[%d]: got %v, want %v", tc.src, i, toks[i].Kind, k)
+			}
+		}
+	}
+}
+
 // TestAtToken covers the `@` state-path prefix used by inline IO (3).
 func TestAtToken(t *testing.T) {
 	toks := filterEOF(mustTokenize(t, "@ns.field"))

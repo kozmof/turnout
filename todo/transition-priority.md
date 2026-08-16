@@ -13,7 +13,7 @@ Under `next_policy = "first-match"`, which transition wins is decided entirely b
 
 The chain is: source order → `repeated NextRuleModel next` order in the model → evaluation order at runtime. `next-rules.ts:190` breaks out of its loop on the first match in array order, and `NextRuleModel` (`schema/turnout-model.proto:229`) has no field that records intent.
 
-The transition sugar added in 1.4 (`next collect if scene_hotspot_found`) makes the clauses shorter and therefore easier to reorder casually, which raises the stakes slightly.
+The transition sugar added in 1.4 (`next scene_hotspot_found -> collect`) makes the clauses shorter and therefore easier to reorder casually, which raises the stakes slightly.
 
 ## The decision this proposal must make
 
@@ -30,11 +30,13 @@ Whichever is chosen, the proposal must state it explicitly, because "explicit tr
 ## Sketch of the surface (option A)
 
 ```hcl
-next collect if scene_hotspot_found     priority 10
+next scene_hotspot_found -> collect     priority 10
 next interview_witness                  priority 20
 ```
 
 Open questions for the proposal to settle:
+
+- **Reading against the arrow.** The sugar now ends at the target action, so a trailing `priority` puts a second, unrelated clause after it and the line stops reading as one thought. Worth checking whether the annotation belongs before the guard, or in a form other than a trailing word, before committing to this surface.
 
 - **Partial annotation.** If some clauses carry a priority and others do not, is that an error, or do unannotated clauses keep their relative textual order after the annotated ones? An error is simpler to explain and to diagnose.
 - **Ties.** Two clauses with the same priority are exactly the ambiguity this feature exists to remove, so they should be an error rather than a silent fall back to textual order.

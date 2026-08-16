@@ -81,7 +81,7 @@ The `:=` operator designates the prog's final result:
 | action `compute` prog | Compute root—the action's compute output |
 | `next` `compute` prog | Boolean transition condition |
 
-Each compute prog requires exactly one `:=` binding, and that binding must be last. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`.
+Each compute prog requires exactly one `:=` binding, and that binding must be last. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's prog may be written `next condition -> action_id`; see `scene-graph.md §3`.
 
 ### 1.4 Input and bidirectional declarations
 

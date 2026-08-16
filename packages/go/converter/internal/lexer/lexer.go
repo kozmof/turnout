@@ -23,33 +23,34 @@ const (
 	TokSigilIngress // ~>
 
 	// Punctuation
-	TokLBrace    // {
-	TokRBrace    // }
-	TokLBracket  // [
-	TokRBracket  // ]
-	TokLParen    // (
-	TokRParen    // )
-	TokComma     // ,
-	TokColon     // :
-	TokResult    // := (contextual prog result)
-	TokEquals    // =
-	TokDot       // .
-	TokAt        // @ (state path prefix in inline IO)
-	TokArrow     // =>
-	TokFlowArrow // |=> (overview flow edge)
-	TokPipe      // |
-	TokAmpersand // &
-	TokGTE       // >=
-	TokLTE       // <=
-	TokPlus      // +
-	TokMinus     // -
-	TokStar      // *
-	TokSlash     // /
-	TokPercent   // %
-	TokGT        // >  (standalone, not >=)
-	TokLT        // <  (standalone, not <=, <~, <~>, <<-)
-	TokEqEq      // ==
-	TokNeq       // !=
+	TokLBrace     // {
+	TokRBrace     // }
+	TokLBracket   // [
+	TokRBracket   // ]
+	TokLParen     // (
+	TokRParen     // )
+	TokComma      // ,
+	TokColon      // :
+	TokResult     // := (contextual prog result)
+	TokEquals     // =
+	TokDot        // .
+	TokAt         // @ (state path prefix in inline IO)
+	TokArrow      // =>
+	TokFlowArrow  // |=> (overview flow edge)
+	TokTransArrow // -> (transition guard: `next <cond> -> <action>`)
+	TokPipe       // |
+	TokAmpersand  // &
+	TokGTE        // >=
+	TokLTE        // <=
+	TokPlus       // +
+	TokMinus      // -
+	TokStar       // *
+	TokSlash      // /
+	TokPercent    // %
+	TokGT         // >  (standalone, not >=)
+	TokLT         // <  (standalone, not <=, <~, <~>, <<-)
+	TokEqEq       // ==
+	TokNeq        // !=
 
 	// Special forms
 	// The if/case/pipe forms dropped their `#` prefix in v2 (NEW_SYNTAX.md 2.1)
@@ -288,6 +289,7 @@ func init() {
 		TokAt:           "@",
 		TokArrow:        "=>",
 		TokFlowArrow:    "|=>",
+		TokTransArrow:   "->",
 		TokPipe:         "|",
 		TokAmpersand:    "&",
 		TokGTE:          ">=",
@@ -390,7 +392,16 @@ func (l *lex) scanToken() {
 
 	case c == '-':
 		l.advance()
-		l.emit(TokMinus, "-", ln, co)
+		if l.peek() == '>' {
+			// Transition guard arrow. Matched before the bare minus so
+			// `cond -> action` is one arrow, not `cond - (> action)`; no
+			// expression can put `-` immediately before `>`, since a bare `>`
+			// needs a left operand.
+			l.advance()
+			l.emit(TokTransArrow, "->", ln, co)
+		} else {
+			l.emit(TokMinus, "-", ln, co)
+		}
 
 	case c == '*':
 		l.advance()

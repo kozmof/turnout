@@ -95,7 +95,7 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    next collect_physical_evidence if scene_hotspot_found
+    next scene_hotspot_found -> collect_physical_evidence
     next interview_witness
   }
 
@@ -174,7 +174,7 @@ scene "detective_evidence_hunt" {
       }
     }
 
-    next identify_suspect if ready_to_identify_suspect
+    next ready_to_identify_suspect -> identify_suspect
     next search_for_more_evidence
   }
 

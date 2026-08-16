@@ -1,6 +1,8 @@
 package parser
 
 import (
+	"strings"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
@@ -502,7 +504,7 @@ func (p *parser) parsePublishBlock() *ast.PublishBlock {
 func (p *parser) parseNextBlock() *ast.NextRule {
 	kwTok, _ := p.expect(lexer.TokKwNext)
 	pos := p.posOf(kwTok)
-	// Sugar form (NEW_SYNTAX.md 1.4): `next <action>` / `next <action> if <cond>`,
+	// Sugar form (NEW_SYNTAX.md 1.4): `next <action>` / `next <cond> -> <action>`,
 	// distinguished from the block form by the absence of an opening brace.
 	if p.peek().Kind == lexer.TokIdent || p.peek().Kind == lexer.TokStringLit {
 		return p.parseNextSugar(pos)
@@ -544,29 +546,60 @@ func (p *parser) parseNextBlock() *ast.NextRule {
 	return &ast.NextRule{Pos: pos, Compute: compute, Prepare: prepare, ActionID: actionID}
 }
 
-// parseNextSugar parses `next <action>` and `next <action> if <cond>`, expanding
+// parseNextSugar parses `next <action>` and `next <cond> -> <action>`, expanding
 // the conditional form into exactly the block form it abbreviates: a synthesized
 // prog holding the ingress binding and the `:=` condition, plus the from_action
 // prepare entry that feeds it. Lowering sees no difference between the two.
 //
+// The guard reads in evaluation order, matching `|=>` in overview blocks and
+// `=>` in route match arms. Which form a line takes only becomes clear at the
+// token after the first reference, so the head is parsed before it is known
+// whether it named the condition or the target.
+//
 // The condition must be a bare boolean binding of the enclosing action's prog;
 // richer conditions keep the block form.
 func (p *parser) parseNextSugar(pos ast.Pos) *ast.NextRule {
+	// A quoted head can only be a target: a condition names a binding, and
+	// binding names are never written as strings.
+	if p.peek().Kind == lexer.TokStringLit {
+		return &ast.NextRule{Pos: pos, ActionID: p.parseRefVal()}
+	}
+
+	condPos := p.posOf(p.peek())
+	head := p.parseRefVal()
+
+	if t := p.peek(); t.Kind != lexer.TokTransArrow {
+		// The `if` form this replaced is still what a reader reaches for, and
+		// `if` is a plain identifier to the lexer, so catch it by value and say
+		// what to write instead rather than reporting an unexpected token.
+		if t.Kind == lexer.TokIdent && t.Value == "if" {
+			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacyTransitionIf,
+				"the `next <action> if <condition>` form was removed; write `next <condition> -> <action>`"))
+			p.advance() // consume `if`
+			// Drop the trailing condition too, so the rest of the action still
+			// parses and the author sees every error in the file at once.
+			if p.peek().Kind == lexer.TokIdent {
+				p.advance()
+			}
+		}
+		return &ast.NextRule{Pos: pos, ActionID: head}
+	}
+	p.advance() // consume `->`
+
+	cond := head
+	if strings.Contains(cond, ".") {
+		p.Append(diag.ErrorAt(p.file, condPos.Line, condPos.Col, diag.CodeNextComputeInvalid,
+			"transition condition %q must be a bare binding of this action's compute prog; "+
+				"richer conditions need the next { } block form", cond))
+		return &ast.NextRule{Pos: pos, ActionID: p.parseRefVal()}
+	}
+
 	actionID := p.parseRefVal()
+	if actionID == "" {
+		return &ast.NextRule{Pos: pos}
+	}
 	rule := &ast.NextRule{Pos: pos, ActionID: actionID}
 
-	// `if` is not a keyword token at this stage, so match it contextually.
-	if t := p.peek(); t.Kind != lexer.TokIdent || t.Value != "if" {
-		return rule
-	}
-	p.advance() // consume `if`
-
-	condTok, ok := p.expect(lexer.TokIdent)
-	if !ok {
-		return rule
-	}
-	condPos := p.posOf(condTok)
-	cond := condTok.Value
 	// The synthesized condition binding needs a name that cannot collide with a
 	// user binding; names.LocalName is the established generator for that.
 	goName := names.LocalName(actionID, "go", 0)

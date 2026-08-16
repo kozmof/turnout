@@ -18,7 +18,7 @@
 #                    (standalone, chained, as a call argument, and as the left
 #                    operand of an infix), and the local forms if/case/pipe/#it
 #   * effects      — hook ingress and publish (multiple hooks)
-#   * transitions  — the `next <action> if <flag>` sugar, the bare
+#   * transitions  — the `next <flag> -> <action>` sugar, the bare
 #                    deterministic `next <action>`, and the block form with all
 #                    three transition ingress sources (action, literal, STATE)
 #   * route        — entry, direct/wildcard/multi-segment paths, OR (|), _
@@ -245,7 +245,7 @@ scene "triage" {
     }
 
     # conditional transition, sugar form: a bare bool binding of this action
-    next escalate if flagged
+    next flagged -> escalate
 
     # deterministic transition: no condition at all (always-true fallthrough)
     next manual_queue
@@ -333,7 +333,7 @@ scene "review" {
     }
 
     # all-match: this rule fires when the ticket is hot/flagged ...
-    next notify if reviewed
+    next reviewed -> notify
 
     # ... and this deterministic rule always fires, so both can be selected.
     next log

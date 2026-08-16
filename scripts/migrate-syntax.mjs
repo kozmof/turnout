@@ -124,6 +124,21 @@ const transforms = [
           ),
       ),
   },
+  {
+    // The conditional transition sugar now reads in evaluation order, so the
+    // guard moves ahead of the target it selects. Both operands are plain
+    // identifiers in the old form, which is what makes the swap safe to do
+    // textually. `next <action>` on its own is unchanged.
+    name: "1.4 transition arrow",
+    apply: (src) =>
+      rewriteCodeLines(src, (code) =>
+        replaceOutsideStrings(
+          code,
+          /\bnext(\s+)([A-Za-z_]\w*)\s+if\s+([A-Za-z_]\w*)\b/g,
+          (_match, gap, action, cond) => `next${gap}${cond} -> ${action}`,
+        ),
+      ),
+  },
 ];
 
 // Replaces the retired context-specific prefix markers with the contextual

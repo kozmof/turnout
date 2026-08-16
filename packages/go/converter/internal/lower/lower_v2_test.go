@@ -113,7 +113,7 @@ func TestLowerStandaloneTransformMatchesPlusZero(t *testing.T) {
 	}
 }
 
-// TestLowerNextSugarMatchesBlockForm covers 1.4: `next X if cond` lowers to the
+// TestLowerNextSugarMatchesBlockForm covers 1.4: `next cond -> X` lowers to the
 // same NextRuleModel as the block form, apart from the generated names.
 func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
 	body := func(next string) string {
@@ -130,7 +130,7 @@ func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
     compute { prog "q" { done:bool := true } }
   }`)
 	}
-	sugar := mustLower(t, body(`    next b if ready`))
+	sugar := mustLower(t, body(`    next ready -> b`))
 	block := mustLower(t, body(`    next {
       compute {
         prog "to_b" {

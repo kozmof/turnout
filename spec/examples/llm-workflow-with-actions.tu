@@ -60,7 +60,7 @@ scene "llm_support_workflow" {
       }
     }
 
-    next retrieve_context if retrieve_ready
+    next retrieve_ready -> retrieve_context
     next draft_direct
   }
 
@@ -149,7 +149,7 @@ scene "llm_support_workflow" {
       }
     }
 
-    next publish_response if approved
+    next approved -> publish_response
     next human_review
   }
 

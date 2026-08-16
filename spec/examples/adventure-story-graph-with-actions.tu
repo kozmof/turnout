@@ -63,9 +63,9 @@ scene "adventure_story_chapter_1" {
       }
     }
 
-    next forest_trail if can_forest
-    next city_gate if can_gate
-    next sewer_tunnel if can_sewer
+    next can_forest -> forest_trail
+    next can_gate -> city_gate
+    next can_sewer -> sewer_tunnel
     next campfire_wait
   }
 

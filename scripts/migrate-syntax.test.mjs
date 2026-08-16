@@ -76,3 +76,20 @@ test("replaces root and condition markers with contextual result assignment", ()
   assert.equal(migrate(source).out, expected);
   assert.equal(migrate(expected).out, expected);
 });
+
+test("flips the conditional transition sugar to the arrow form", () => {
+  const source = [
+    "    next collect if scene_hotspot_found",
+    "    next interview_witness",
+    "    next escalate if flagged # was: next escalate if flagged",
+    '    note:str = "next escalate if flagged"',
+  ].join("\n");
+  const expected = [
+    "    next scene_hotspot_found -> collect",
+    "    next interview_witness",
+    "    next flagged -> escalate # was: next escalate if flagged",
+    '    note:str = "next escalate if flagged"',
+  ].join("\n");
+  assert.equal(migrate(source).out, expected);
+  assert.equal(migrate(expected).out, expected);
+});

@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
 // rhsOf parses a one-binding prog and returns the last binding's RHS.
@@ -129,11 +131,11 @@ func nextRulesOf(t *testing.T, nextClauses string) []*ast.NextRule {
 	return tf.Scenes[0].Actions[0].Next
 }
 
-// TestNextSugarConditional covers 1.4: `next X if cond` expands to the block
+// TestNextSugarConditional covers 1.4: `next cond -> X` expands to the block
 // form — a synthesized prog with the ingress binding and the `:=` condition,
 // plus the from_action prepare entry feeding it.
 func TestNextSugarConditional(t *testing.T) {
-	rules := nextRulesOf(t, `    next b if ready`)
+	rules := nextRulesOf(t, `    next ready -> b`)
 	if len(rules) != 1 {
 		t.Fatalf("rule count = %d, want 1", len(rules))
 	}
@@ -180,13 +182,39 @@ func TestNextSugarQuotedAction(t *testing.T) {
 	}
 }
 
-// TestNextSugarMissingCondition covers the error branch where `if` is not
-// followed by an identifier.
-func TestNextSugarMissingCondition(t *testing.T) {
+// TestNextSugarMissingTarget covers the error branch where `->` is not followed
+// by an action reference.
+func TestNextSugarMissingTarget(t *testing.T) {
 	mustParseFail(t, minimalTurnFile(`  action "a" {
     compute { prog "p" { ready:bool := true } }
-    next b if 42
+    next ready -> 42
   }`))
+}
+
+// TestNextSugarLegacyIfForm covers the removed `next X if cond` spelling. It
+// must name its replacement rather than report an unexpected token, since every
+// pre-arrow source hits this path.
+func TestNextSugarLegacyIfForm(t *testing.T) {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute { prog "p" { ready:bool := true } }
+    next b if ready
+  }`))
+	if !hasParserDiagCode(ds, diag.CodeLegacyTransitionIf) {
+		t.Fatalf("want LegacyTransitionIf diagnostic, got %v", ds)
+	}
+}
+
+// TestNextSugarDottedCondition rejects a path where a bare binding is required.
+// The condition is fed by a from_action prepare entry, which can only name a
+// binding of this action's own prog.
+func TestNextSugarDottedCondition(t *testing.T) {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute { prog "p" { ready:bool := true } }
+    next ns.ready -> b
+  }`))
+	if !hasParserDiagCode(ds, diag.CodeNextComputeInvalid) {
+		t.Fatalf("want NextComputeInvalid diagnostic, got %v", ds)
+	}
 }
 
 // TestNextBlockFormStillParses guards the sugar's lookahead: a `next` followed

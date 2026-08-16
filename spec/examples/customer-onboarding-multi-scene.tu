@@ -86,7 +86,7 @@ scene "intake" {
       }
     }
 
-    next proceed if eligible
+    next eligible -> proceed
     next early_reject
   }
 
@@ -161,7 +161,7 @@ scene "document_review" {
       }
     }
 
-    next mark_valid if docs_ok
+    next docs_ok -> mark_valid
     next mark_invalid
   }
 
@@ -244,7 +244,7 @@ scene "risk_assessment" {
       }
     }
 
-    # `next <action> if <flag>` sugar carries a bare bool binding only, so a
+    # `next <flag> -> <action>` sugar carries a bare bool binding only, so a
     # comparison against the action result keeps the transition block form.
     next {
       compute {
@@ -354,7 +354,7 @@ scene "manual_review" {
       }
     }
 
-    next override_approve if reviewer_approved
+    next reviewer_approved -> override_approve
     next override_reject
   }
 

@@ -138,6 +138,9 @@ const (
 	CodeNextComputeNotBool       ErrorCode = "NextComputeNotBool"
 	CodeNextIngressSourceInvalid ErrorCode = "NextIngressSourceInvalid"
 	CodeActionTextDuplicate      ErrorCode = "ActionTextDuplicate"
+	// CodeLegacyTransitionIf is emitted when a transition uses the removed
+	// `next <action> if <condition>` form instead of `next <condition> -> <action>`.
+	CodeLegacyTransitionIf ErrorCode = "LegacyTransitionIf"
 )
 
 // Error codes from scene-to-scene.md

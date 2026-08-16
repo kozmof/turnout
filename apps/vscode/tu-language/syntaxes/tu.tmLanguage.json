@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
   "name": "Turn",
   "scopeName": "source.tu",
-  "fileTypes": ["turn"],
+  "fileTypes": ["tu"],
   "patterns": [
     {
       "include": "#docstring"
@@ -51,6 +51,9 @@
     },
     {
       "include": "#flow-arrow"
+    },
+    {
+      "include": "#transition-arrow"
     },
     {
       "include": "#computed-assign"
@@ -196,6 +199,11 @@
       "comment": "|=> flow routing arrows used in view flow.",
       "match": "\\|=>",
       "name": "keyword.operator.flow.tu"
+    },
+    "transition-arrow": {
+      "comment": "-> transition guard arrow in `next <condition> -> <action>`. Must come before the plain operator rule, whose bare - would split it.",
+      "match": "->",
+      "name": "keyword.operator.transition.tu"
     },
     "computed-assign": {
       "comment": "=| computed/derived assignment operator. Must come before plain = to avoid splitting.",

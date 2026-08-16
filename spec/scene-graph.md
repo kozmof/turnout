@@ -59,6 +59,7 @@ CAN'T (NG):
 - A `prepare` or `merge` binding key cannot reference an undefined binding.
 - A structural input binding cannot omit its `prepare` entry.
 - A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or `compute.prog`. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute { prog "..." { c:bool := true } }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
+- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute.prog`. It is exactly equivalent to a block whose `compute.prog` ingresses that binding and returns it as the `:=` condition, and whose `prepare` feeds it via `from_action`. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's prog — cannot use this form and keeps the block form.
 - Next actions cannot reference missing actions.
 
 Correlation:
