@@ -35,6 +35,7 @@ Because ingress has no other spelling, a bare `name:type` with no `<~` clause an
 | `name:type <~ hook("name")` | hook → binding | `prepare.from_hook` |
 | `name:type = (expr) ~> @state.path` | named binding → STATE | `merge.to_state` |
 | `(expr) ~> @state.path` | anonymous write-only result → STATE | generated binding + `merge.to_state` |
+| `(expr) ~> @state.path` as the last item of a block with no `:=` | anonymous result → STATE | `__result` binding + `merge.to_state` + `compute.root` |
 | `name:type <~ @input.path ~> @output.path` | STATE → binding → STATE | both `prepare` and `merge` |
 
 Transition inputs additionally accept `action(binding)` and literals after `<~`; transition outputs are forbidden.
@@ -54,7 +55,7 @@ state-path    ::= '@' IDENT ('.' IDENT)+
 
 A bare `name:type` declares no value and is invalid (`MissingBindingSource`). Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
 
-Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be the contextual compute result or be referenced through `action(...)`.
+Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be referenced through `action(...)`. It may be the contextual compute result, but only as the last item of a block that has no `:=` at all; see §1.3.
 
 ### 1.3 Contextual compute result
 
@@ -65,7 +66,18 @@ The `:=` operator designates the compute block's final result:
 | action `compute` block | Compute root—the action's compute output |
 | `next` `compute` block | Boolean transition condition |
 
-Each `compute` block requires exactly one `:=` binding, and that binding must be last. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's `compute` block may be written `next condition -> action_id`; see `scene-graph.md §3`.
+Each `compute` block designates exactly one result, and it must be the last item. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's `compute` block may be written `next condition -> action_id`; see `scene-graph.md §3`.
+
+An action `compute` block whose result is written to STATE and never read back may omit `:=` and end in an anonymous egress instead. The last item is then the result:
+
+```turn
+(true) ~> @triage.paged                     # what the author writes
+__result:bool := (true) ~> @triage.paged    # exactly what it means
+```
+
+The promoted item is an ordinary result binding named `__result`, typed from its destination STATE field, and it appears under that name in the emitted binding, merge entry, and `compute.root`. The shorthand applies only when the block carries no `:=` anywhere: with one present, the ordinary "result must be last" rule stands and a trailing anonymous egress is `MarkerNotLast`, not a second result. A transition `compute` block always requires its `:=` — a transition cannot write to STATE, so it has no trailing egress to promote.
+
+Use the named form when the result is read by name: another binding in the same block, a transition's `<~ action(binding)`, a `next <condition> -> <action>` guard, or a `next on <subjects> match` subject. The name is also the only way to give the result a named literal/template type, which a destination STATE field cannot supply.
 
 ### 1.4 Input and bidirectional declarations
 
@@ -132,6 +144,7 @@ name:type = (expr) ~> @<namespace>.<field>     # named computed output
 name:type := (expr) ~> @<namespace>.<field>    # the compute result, also written out
 name:type <~ @<in.path> ~> @<out.path>         # bidirectional
 (expr) ~> @<namespace>.<field>                 # write-only, no author-visible name
+(expr) ~> @<namespace>.<field>                 # ...and the compute result, when last in a block with no :=
 ```
 
 - Egress belongs to the binding that produces the value; a pure-compute action declares none.

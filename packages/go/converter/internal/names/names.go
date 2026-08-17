@@ -12,6 +12,15 @@ const (
 	GeneratedIfCondSuffix = "_cond"
 	GeneratedLocalPrefix  = "__local_"
 	GeneratedEgressPrefix = "__egress_"
+	// GeneratedResultName is the binding name given to a compute result written
+	// without one — a trailing `(expr) ~> @ns.field` that an action compute block
+	// promotes to its result. It needs no counter: a prog carries exactly one
+	// result and binding names are prog-scoped.
+	//
+	// It is deliberately not drawn from the GeneratedEgressPrefix sequence, which
+	// is positional: a write inserted above the result would renumber it, and the
+	// root name (plus its binding and merge entry) would move with it.
+	GeneratedResultName = "__result"
 )
 
 // EgressName constructs the generated binding name for an anonymous egress.
@@ -20,6 +29,22 @@ func EgressName(counter int) string { return fmt.Sprintf("%s%d", GeneratedEgress
 // IsGeneratedEgressName reports whether name belongs to an anonymous egress.
 func IsGeneratedEgressName(name string) bool {
 	return len(name) > len(GeneratedEgressPrefix) && strings.HasPrefix(name, GeneratedEgressPrefix)
+}
+
+// IsGeneratedResultName reports whether name is the generated name of a promoted
+// compute result.
+func IsGeneratedResultName(name string) bool { return name == GeneratedResultName }
+
+// IsGenerated reports whether name was produced by any of this package's
+// generators. Callers that treat compiler-generated bindings as a single class —
+// the __ reserved-name gate and the unused-binding warning both do — should use
+// this rather than spelling out the individual predicates, so a new generator
+// only has to be registered here.
+func IsGenerated(name string) bool {
+	return IsGeneratedIfCondName(name) ||
+		IsGeneratedLocalName(name) ||
+		IsGeneratedEgressName(name) ||
+		IsGeneratedResultName(name)
 }
 
 // LocalName constructs a generated local-expr binding name from its components.

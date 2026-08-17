@@ -5,6 +5,7 @@ import (
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
+	"github.com/kozmof/turnout/packages/go/converter/internal/names"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
 
@@ -175,5 +176,79 @@ func TestHookIngressName(t *testing.T) {
 	h, ok := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0].Ingress.(*ast.IngressHook)
 	if !ok || h.HookName != "manifest_feed" {
 		t.Errorf("ingress = %v, want hook(manifest_feed)", tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0].Ingress)
+	}
+}
+
+// ─── promoted result: a trailing anonymous egress ────────────────────────────
+
+// TestTrailingEgressBecomesResult covers the shorthand for a result nothing
+// reads: an action compute block with no `:=` whose last item is an anonymous
+// egress means `__result:<dest type> := (expr) ~> @ns.field`. The binding stays
+// Anonymous, which is what tells lowering to take its type from the destination.
+func TestTrailingEgressBecomesResult(t *testing.T) {
+	tf := mustParse(t, actionCompute(`        (1) ~> @ns.val`))
+	c := tf.Scenes[0].Actions[0].Compute
+	if c.Root != names.GeneratedResultName {
+		t.Errorf("root = %q, want %q", c.Root, names.GeneratedResultName)
+	}
+	b := c.Prog.Bindings[0]
+	if b.Name != names.GeneratedResultName || b.Marker != ast.MarkerRoot || !b.Anonymous {
+		t.Errorf("promoted binding = %#v", b)
+	}
+}
+
+// TestTrailingEgressPromotesOnlyTheLastItem checks that the earlier writes are
+// untouched: they stay unnamed for lowering to number, and only the last one
+// carries the result marker.
+func TestTrailingEgressPromotesOnlyTheLastItem(t *testing.T) {
+	tf := mustParse(t, actionCompute(`        (1) ~> @ns.val
+        (2) ~> @ns.val`))
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
+	if bindings[0].Name != "" || bindings[0].Marker != ast.MarkerNone {
+		t.Errorf("first write = %#v, want unnamed and unmarked", bindings[0])
+	}
+	if bindings[1].Name != names.GeneratedResultName {
+		t.Errorf("last write = %q, want %q", bindings[1].Name, names.GeneratedResultName)
+	}
+}
+
+// TestExplicitResultSuppressesPromotion covers the ordering rule the shorthand
+// leaves alone: with a `:=` present the trailing write is not a second result,
+// and the block is the same MarkerNotLast error it was before.
+func TestExplicitResultSuppressesPromotion(t *testing.T) {
+	codes := codesFor(t, actionCompute(`        done:bool := true
+        (1) ~> @ns.val`))
+	if !hasErrorCode(codes, diag.CodeMarkerNotLast) {
+		t.Errorf("got %v, want MarkerNotLast", codes)
+	}
+	// A promotion here would have marked the trailing write as a second result.
+	if hasErrorCode(codes, diag.CodeDuplicateMarker) {
+		t.Errorf("got %v, want no DuplicateMarker: the trailing write must not be promoted", codes)
+	}
+}
+
+// TestTrailingEgressNotPromotedWhenNotLast keeps the MissingRootMarker error for
+// a block that holds an anonymous egress somewhere other than its last line.
+func TestTrailingEgressNotPromotedWhenNotLast(t *testing.T) {
+	codes := codesFor(t, actionCompute(`        (1) ~> @ns.val
+        x:bool = true`))
+	if !hasErrorCode(codes, diag.CodeMissingRootMarker) {
+		t.Errorf("got %v, want MissingRootMarker", codes)
+	}
+}
+
+// TestTrailingEgressNotPromotedInTransition covers the scope limit: a transition
+// result is a branch condition, and a transition cannot write to STATE, so the
+// missing-condition error stands rather than accepting the write and rejecting it
+// one stage later.
+func TestTrailingEgressNotPromotedInTransition(t *testing.T) {
+	codes := codesFor(t, nextCompute(`        (true) ~> @ns.val`))
+	if !hasErrorCode(codes, diag.CodeMissingConditionMarker) {
+		t.Errorf("got %v, want MissingConditionMarker", codes)
+	}
+	// Promoting here would have produced a result whose role is wrong for a
+	// transition instead of naming the real problem.
+	if hasErrorCode(codes, diag.CodeMarkerContext) {
+		t.Errorf("got %v, want no MarkerContext: the write must not be promoted", codes)
 	}
 }

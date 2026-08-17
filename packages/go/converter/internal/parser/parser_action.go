@@ -311,6 +311,10 @@ func (p *parser) parseComputeBlock() *ast.ComputeBlock {
 // context (MarkerRoot in action compute, MarkerCond in next compute). The
 // invariant enforced: exactly one result, with the expected contextual role,
 // on the last binding of the prog.
+//
+// An action compute block with no `:=` at all may end in an anonymous egress
+// instead; promoteTrailingEgress turns that into the result before the scan, so
+// everything below applies to it unchanged.
 func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) string {
 	missingCode := diag.CodeMissingRootMarker
 	markerStr := ast.MarkerRoot.String()
@@ -331,8 +335,11 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 	}
 
 	if len(marked) == 0 {
+		if promoted := promoteTrailingEgress(prog, want); promoted != nil {
+			return promoted.Name
+		}
 		p.Append(diag.ErrorAt(p.file, prog.Pos.Line, prog.Pos.Col, missingCode,
-			"compute %q: missing := result binding", prog.Name))
+			"compute %q: missing := result binding%s", prog.Name, missingResultHint(prog, want)))
 		return ""
 	}
 
@@ -351,12 +358,74 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 	}
 
 	if last := prog.Bindings[len(prog.Bindings)-1]; last != m {
+		hint := ""
+		if isAnonymousEgress(last) {
+			// The trailing write would have been the result had the block carried no
+			// `:=` at all, so the fix is a choice between two spellings rather than
+			// only "move the marked binding down".
+			hint = "; a trailing `(expr) ~> @ns.field` is the result only when the block has no := at all"
+		}
 		p.Append(diag.ErrorAt(p.file, m.Pos.Line, m.Pos.Col, diag.CodeMarkerNotLast,
-			"compute %q: := must designate the last binding; binding %q is not last",
-			prog.Name, m.Name))
+			"compute %q: := must designate the last binding; binding %q is not last%s",
+			prog.Name, m.Name, hint))
 	}
 
 	return m.Name
+}
+
+// promoteTrailingEgress makes a trailing anonymous egress the compute result:
+// `(true) ~> @triage.paged` as the last item of an action compute block means
+// `__result:bool := (true) ~> @triage.paged`. It returns the promoted binding, or
+// nil when the block does not qualify.
+//
+// The binding keeps Anonymous set — that is what tells lowering to take its type
+// from the destination STATE field — but it is named here rather than in
+// lowering, because compute.root is derived from a name at parse time.
+//
+// A transition compute is never promoted, which is what `want` decides. Its
+// result is a branch condition and an egress writes to STATE, which a transition
+// may not do, so promoting would accept the result and then reject the write; the
+// missing-condition diagnostic is the more direct answer.
+func promoteTrailingEgress(prog *ast.ProgBlock, want ast.BindingMarker) *ast.BindingDecl {
+	if want != ast.MarkerRoot {
+		return nil
+	}
+	last := prog.Bindings[len(prog.Bindings)-1]
+	if !isAnonymousEgress(last) {
+		return nil
+	}
+	last.Marker = ast.MarkerRoot
+	last.Name = names.GeneratedResultName
+	return last
+}
+
+// isAnonymousEgress reports whether b is a write-only `(expr) ~> @ns.field` item
+// with a destination. A missing destination is already reported by
+// parseAnonymousEgress, and promoting one would name a binding that has nowhere
+// to write.
+func isAnonymousEgress(b *ast.BindingDecl) bool {
+	return b.Anonymous && b.Egress != nil && b.Egress.Path != ""
+}
+
+// missingResultHint names the shorthand when the block looks like it was reaching
+// for it — it holds an anonymous egress, just not as its last item. In a
+// transition it says why that shorthand is not on offer at all, which is the
+// question an author who just used it in an action will have.
+func missingResultHint(prog *ast.ProgBlock, want ast.BindingMarker) string {
+	held := false
+	for _, b := range prog.Bindings {
+		if isAnonymousEgress(b) {
+			held = true
+			break
+		}
+	}
+	if !held {
+		return ""
+	}
+	if want == ast.MarkerCond {
+		return "; a transition cannot write to STATE, so a `(expr) ~> @ns.field` write cannot be its condition"
+	}
+	return "; mark one with `:=`, or move a `(expr) ~> @ns.field` write last to make it the result"
 }
 
 // ─── legacy effect blocks ────────────────────────────────────────────────────

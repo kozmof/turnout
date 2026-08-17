@@ -95,7 +95,7 @@ scene "ticket_intake" {
       (serial) ~> @helpdesk.last_serial
       (open_tickets + 1) ~> @helpdesk.open_tickets
 
-      minted:str := (reference) ~> @routing.reference
+      (reference) ~> @routing.reference
     }
 
     # The queue is a three-member union, so every arm below names a real
@@ -117,7 +117,7 @@ scene "ticket_intake" {
       # bidirectional binding is for — see the generalist action below.
       assignee:str <~ @routing.assignee ~> @routing.assignee
 
-      priority:number := (1) ~> @routing.priority
+      (1) ~> @routing.priority
     }
   }
 
@@ -130,7 +130,7 @@ scene "ticket_intake" {
       # always points at the destination, so `<~` is input and `~>` output.
       assignee:str <~ @routing.assignee ~> @routing.assignee
 
-      priority:number := (3) ~> @routing.priority
+      (3) ~> @routing.priority
     }
   }
 }

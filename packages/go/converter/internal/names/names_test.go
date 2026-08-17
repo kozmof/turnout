@@ -116,3 +116,34 @@ func TestIsGeneratedIfCondName(t *testing.T) {
 		}
 	}
 }
+
+func TestIsGeneratedResultName(t *testing.T) {
+	for input, want := range map[string]bool{
+		"__result":   true,
+		"__result_1": false,
+		"result":     false,
+		"__results":  false,
+	} {
+		if got := names.IsGeneratedResultName(input); got != want {
+			t.Errorf("IsGeneratedResultName(%q) = %v, want %v", input, got, want)
+		}
+	}
+}
+
+// TestIsGenerated is the gate the __ reserved-name check and the unused-binding
+// warning both consult, so every generator this package has must be recognised by
+// it — a name it misses is reported to the author as their own mistake.
+func TestIsGenerated(t *testing.T) {
+	for input, want := range map[string]bool{
+		names.GeneratedResultName:       true,
+		names.EgressName(2):             true,
+		names.LocalName("a", "cond", 1): true,
+		"__if_x_cond":                   true,
+		"__mine":                        false,
+		"income":                        false,
+	} {
+		if got := names.IsGenerated(input); got != want {
+			t.Errorf("IsGenerated(%q) = %v, want %v", input, got, want)
+		}
+	}
+}

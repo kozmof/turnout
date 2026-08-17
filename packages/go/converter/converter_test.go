@@ -365,3 +365,49 @@ func TestCompileRejectsOversizedStateFile(t *testing.T) {
 		t.Fatalf("expected StateFileTooLarge, got result=%v diagnostics=%v", result, ds)
 	}
 }
+
+// TestCompileSourcePromotedResult drives the shorthand through the whole
+// pipeline. The unit tests pin the promotion and the lowered model; this is the
+// check that `__result` clears validation's `__` reserved-name gate, which is the
+// one stage that would reject a generated name it has not been told about.
+func TestCompileSourcePromotedResult(t *testing.T) {
+	const src = `
+state {
+  ns {
+    count:number = 0
+    done:bool    = false
+  }
+}
+
+scene "start" {
+  entry_action = init
+
+  action "init" {
+    compute "p" {
+      (1) ~> @ns.count
+      (true) ~> @ns.done
+    }
+  }
+}
+`
+	result, ds := converter.CompileSource("inline.tu", src, "")
+	for _, d := range ds {
+		t.Logf("diagnostic: %s", d.Format())
+	}
+	if ds.HasErrors() {
+		t.Fatalf("CompileSource rejected the promoted-result form")
+	}
+	if result == nil {
+		t.Fatal("CompileSource returned nil result with no errors")
+	}
+
+	var out bytes.Buffer
+	if emitDs := result.WriteHCL(&out); emitDs.HasErrors() {
+		t.Fatalf("WriteHCL: %v", emitDs)
+	}
+	for _, want := range []string{`root = "__result"`, `binding "__result"`, `binding "__egress_1"`} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("emitted HCL missing %q\n%s", want, out.String())
+		}
+	}
+}

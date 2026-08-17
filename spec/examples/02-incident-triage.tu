@@ -84,7 +84,7 @@ scene "incident_response" {
       (blast) ~> @triage.blast
       (oncall_owner) ~> @triage.owner
 
-      triaged:bool := (true) ~> @triage.paged
+      (true) ~> @triage.paged
     }
 
     publish {
@@ -128,7 +128,7 @@ scene "incident_response" {
       owner:str <~ @triage.owner
       severity:number <~ @incident.severity
 
-      note:str := ("paged " + owner) ~> @triage.note
+      ("paged " + owner) ~> @triage.note
     }
     publish {
       hook = "pager"
@@ -159,7 +159,7 @@ scene "incident_response" {
 
       (escalations + 1) ~> @triage.escalations
 
-      note:str := ("paged " + owner + " and leadership") ~> @triage.note
+      ("paged " + owner + " and leadership") ~> @triage.note
     }
     publish {
       hook = "pager"
@@ -181,7 +181,7 @@ scene "incident_response" {
 
       (trend) ~> @triage.note
 
-      watched:bool := (true) ~> @triage.paged
+      (true) ~> @triage.paged
     }
 
     # The single-subject form: one subject, and the parentheses are optional
@@ -200,7 +200,7 @@ scene "incident_response" {
       tier:str <~ @triage.tier
       blast:str <~ @triage.blast
 
-      note:str := ("ticket: " + tier + "/" + blast) ~> @triage.note
+      ("ticket: " + tier + "/" + blast) ~> @triage.note
     }
     publish {
       hook = "ticket_tracker"
@@ -212,7 +212,7 @@ scene "incident_response" {
     Terminal: logged and left alone.
     """
     compute "watch_end_graph" {
-      note:str := ("monitoring") ~> @triage.note
+      ("monitoring") ~> @triage.note
     }
   }
 }

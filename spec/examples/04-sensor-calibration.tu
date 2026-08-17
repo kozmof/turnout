@@ -150,10 +150,12 @@ scene "calibration_rig" {
       checksum:number = floored + rounded + ceiling + inverted + remainder + normalized + spread + all_label_count + serial_len + serial_number
       (checksum) ~> @calibration.checksum
 
-      # ── the result binding, declared last ──────────────────────────────
+      # ── the result, declared last ──────────────────────────────────────
+      # Nothing reads it by name, so it is written as a trailing write and the
+      # block needs no `:=` at all.
       in_tolerance:bool = capped < 150 & has_zero == false
 
-      within:bool := (in_tolerance & exactly_one_marker == false | mentions_rev) ~> @calibration.within_tolerance
+      (in_tolerance & exactly_one_marker == false | mentions_rev) ~> @calibration.within_tolerance
     }
 
     # all-match: BOTH of these are evaluated, and both fire when true.
@@ -188,7 +190,7 @@ scene "calibration_rig" {
       # RHS, then point the arrow at its destination.
       line:str = (band + " @ " + score.toStr()) ~> @calibration.report
 
-      logged:bool := (true) ~> @calibration.logged
+      (true) ~> @calibration.logged
     }
   }
 
@@ -201,7 +203,7 @@ scene "calibration_rig" {
 
       (serial + " queued for service") ~> @calibration.report
 
-      needs_service:bool := (true) ~> @calibration.needs_service
+      (true) ~> @calibration.needs_service
     }
   }
 }

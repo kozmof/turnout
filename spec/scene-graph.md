@@ -53,7 +53,7 @@ CAN (OK):
 
 CAN'T (NG):
 
-- An action `compute` block cannot omit its `:=` result binding (it derives `compute.root`). A compute block cannot carry more than one result, and the result binding must be last.
+- An action `compute` block cannot omit its `:=` result binding (it derives `compute.root`) unless its last item is an anonymous egress, which is then the result: `(true) ~> @triage.paged` as the last line means `__result:bool := (true) ~> @triage.paged`, and `compute.root` is `__result`. A compute block cannot carry more than one result, and the result binding must be last — with a `:=` present, a trailing anonymous egress is `MarkerNotLast` rather than a second result.
 - A binding cannot omit its source: no `<~` clause and no computed RHS is `MissingBindingSource`. Author-written `prepare` and `merge` blocks are retired (`LegacyEffectBlock`).
 - A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or its label. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute "..." { c:bool := true }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
 - A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding with `<~ action(binding)` and returns it as the `:=` condition. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
@@ -174,7 +174,7 @@ IO direction is declared by inline clauses that point toward their destination:
 - `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
 - A bare `name:type` declares no value and is rejected (`MissingBindingSource`).
 
-Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in the `compute` block. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
+Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in the `compute` block. An action `compute` block with no `:=` at all designates its last binding instead, and only when that binding is an anonymous egress: `(true) ~> @triage.paged` written last is the result, named `__result`. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
 
 ```hcl
 scene "loan_flow" {
@@ -407,7 +407,7 @@ type SceneDiagnostic = {
 
 ## 11. Conformance Checklist
 
-1. `compute.root` is derived from the `:=` result binding, so it always names an existing binding. An action `compute` block with no `:=` result fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
+1. `compute.root` is derived from the `:=` result binding, or from a trailing anonymous egress promoted in its place, so it always names an existing binding. An action `compute` block with neither fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
 3. A root binding with an inline `~>` output writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.

@@ -108,7 +108,7 @@ func detectUnusedBindings(progName, root string, exitNames []string, bindings []
 			// Already reported as a cycle error; suppress the redundant unused warning.
 			continue
 		}
-		if names.IsGeneratedIfCondName(b.Name) || names.IsGeneratedLocalName(b.Name) || names.IsGeneratedEgressName(b.Name) {
+		if names.IsGenerated(b.Name) {
 			continue
 		}
 		pos := posMap[b.Name]
@@ -192,7 +192,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 		pos := posMap[b.Name]
 
 		if strings.HasPrefix(b.Name, "__") {
-			if !names.IsGeneratedIfCondName(b.Name) && !names.IsGeneratedLocalName(b.Name) && !names.IsGeneratedEgressName(b.Name) {
+			if !names.IsGenerated(b.Name) {
 				ds.Append(diag.Errorf(diag.CodeReservedName,
 					"binding %q: names starting with __ are reserved", b.Name))
 			}

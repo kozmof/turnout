@@ -76,7 +76,7 @@ scene "picking" {
     compute "pick_complete_graph" {
       tote_id:str <~ @pick.tote_id
 
-      status:str := ("picked " + tote_id) ~> @ship.status
+      ("picked " + tote_id) ~> @ship.status
     }
   }
 
@@ -87,7 +87,7 @@ scene "picking" {
     compute "pick_short_graph" {
       picked_count:number <~ @pick.picked_count
 
-      status:str := ("short by count " + picked_count.toStr()) ~> @ship.status
+      ("short by count " + picked_count.toStr()) ~> @ship.status
     }
   }
 }
@@ -118,7 +118,7 @@ scene "packing" {
 
       (carton) ~> @pack.carton
 
-      weight:number := (line_count * 2) ~> @pack.weight_kg
+      (line_count * 2) ~> @pack.weight_kg
     }
 
     next seal_carton
@@ -133,7 +133,7 @@ scene "packing" {
 
       (true) ~> @pack.sealed
 
-      status:str := ("packed in " + carton) ~> @ship.status
+      ("packed in " + carton) ~> @ship.status
     }
   }
 }
@@ -165,7 +165,7 @@ scene "shipping" {
 
       (carrier) ~> @ship.carrier
 
-      ready:bool := (true) ~> @pack.sealed
+      (true) ~> @pack.sealed
     }
 
     next on (carrier) match {
@@ -183,7 +183,7 @@ scene "shipping" {
 
       ("EXP-" + carrier.toUpperCase()) ~> @ship.label
 
-      status:str := ("labelled express") ~> @ship.status
+      ("labelled express") ~> @ship.status
     }
   }
 
@@ -196,7 +196,7 @@ scene "shipping" {
 
       ("STD-" + carrier.toUpperCase()) ~> @ship.label
 
-      status:str := ("labelled standard") ~> @ship.status
+      ("labelled standard") ~> @ship.status
     }
   }
 }
@@ -216,7 +216,7 @@ scene "handoff" {
     compute "release_graph" {
       label:str <~ @ship.label
 
-      status:str := ("released " + label) ~> @ship.status
+      ("released " + label) ~> @ship.status
     }
   }
 }

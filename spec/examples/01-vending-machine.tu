@@ -5,8 +5,9 @@
 # Start here.
 #
 # Covers: inline STATE input (`<~ @ns.field`), named and anonymous output
-# (`~> @ns.field`), the `:=` compute result, docstring text, the guarded
-# transition sugar `next <flag> -> <action>`, and a strict overview.
+# (`~> @ns.field`), the `:=` compute result and the trailing write that stands in
+# for it, docstring text, the guarded transition sugar `next <flag> -> <action>`,
+# and a strict overview.
 # ===========================================================================
 
 state {
@@ -52,7 +53,9 @@ scene "vend" {
       paid:bool     = coin_balance >= price
 
       # A named output: the binding keeps its name so a transition can read it
-      # back, and its value is also written to STATE.
+      # back, and its value is also written to STATE. That name is why this
+      # result is written out in full — `next can_vend -> dispense` below needs
+      # something to point at. Compare `dispense`, whose result nothing reads.
       can_vend:bool := (in_stock & paid) ~> @machine.dispensed
     }
 
@@ -79,10 +82,13 @@ scene "vend" {
       (stock_count - 1) ~> @machine.stock_count
       (coin_balance - price) ~> @machine.coin_balance
 
-      released:bool := (true) ~> @machine.dispensed
-
-      # NOTE: the := result must be the last binding in the block. Everything
-      # above it reads as setup; the result reads as a return.
+      # The last one is also this action's result. A block with no `:=` at all
+      # promotes its trailing write, so this line means
+      # `__result:bool := (true) ~> @machine.dispensed` — worth spelling out only
+      # when something reads the result by name, as `check_availability` above
+      # does. Everything before the last line reads as setup; the last line
+      # reads as a return.
+      (true) ~> @machine.dispensed
     }
 
     next thank_customer
@@ -98,7 +104,7 @@ scene "vend" {
 
       sold_out:bool = stock_count == 0
 
-      reason:str := (if(sold_out, "sold out", "insufficient payment")) ~> @machine.message
+      (if(sold_out, "sold out", "insufficient payment")) ~> @machine.message
     }
   }
 
@@ -110,7 +116,7 @@ scene "vend" {
     compute "thanks_graph" {
       slot:str <~ @selection.slot
 
-      note:str := ("enjoy your " + slot) ~> @machine.message
+      ("enjoy your " + slot) ~> @machine.message
     }
   }
 }
