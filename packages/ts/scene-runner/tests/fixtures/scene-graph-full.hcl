@@ -35,7 +35,6 @@ state {
 
 scene "loan_flow" {
   entry_action = "score"
-  next_policy  = "first-match"
 
   view "overview" {
     flow = <<-EOT

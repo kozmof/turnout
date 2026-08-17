@@ -33,7 +33,6 @@ func TestEmitJSONRoundTrip(t *testing.T) {
 }
 scene "s" {
   entry_action = a
-  next_policy   = "first-match"
   action "a" {
     compute "p" {
       score:number <~ @user.score

@@ -78,7 +78,6 @@ state {
 
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   action "score" { ... }
   action "approve" { ... }
@@ -129,7 +128,6 @@ state_file = "loan.state.hcl"
 
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   action "score" { ... }
 }
@@ -334,7 +332,6 @@ state {
 
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   action "score" { ... }
   action "approve" { ... }
@@ -444,7 +441,6 @@ state {
 
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   action "score" {
     compute "score_graph" {
@@ -503,7 +499,6 @@ state_file = "loan.state.hcl"
 
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   action "score" { ... }
   action "approve" { ... }
@@ -553,7 +548,6 @@ state {
 
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   action "score" {
     compute {

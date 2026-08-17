@@ -151,10 +151,6 @@ const (
 	// CodeNextMatchArity is emitted when an arm of `next on (...) match { }`
 	// carries a different number of pattern elements than the subject list.
 	CodeNextMatchArity ErrorCode = "NextMatchArity"
-	// CodeNextMatchPolicy is emitted when a scene containing a
-	// `next on (...) match { }` block declares `next_policy = "all-match"`.
-	// Arm order is what makes arms exclusive, and all-match discards it.
-	CodeNextMatchPolicy ErrorCode = "NextMatchPolicy"
 )
 
 // Error codes from scene-to-scene.md

@@ -137,11 +137,6 @@ func writeSceneBlock(iw *iWriter, s *turnoutpb.SceneBlock) {
 	// entry_action = "a"
 	iw.wl("entry_action = %s", hclQuote(s.EntryAction))
 
-	// next_policy = "..." (omit if absent)
-	if s.NextPolicy != nil {
-		iw.wl("next_policy  = %s", hclQuote(*s.NextPolicy))
-	}
-
 	// overview block (omit if absent; the wire field retains its legacy name)
 	if s.View != nil {
 		iw.nl()

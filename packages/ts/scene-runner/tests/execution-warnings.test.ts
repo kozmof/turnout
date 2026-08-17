@@ -34,20 +34,22 @@ function makePassAction(id: string, value: number, toState: string): ActionModel
 }
 
 /**
- * A scene whose entry action enqueues the same follow-up twice under
- * `all-match`, which is what raises a `duplicate_enqueue` scene warning.
+ * A scene whose second action points back at the entry action, which has
+ * already run — the graph that raises a `duplicate_enqueue` scene warning.
  */
 function makeWarningScene(id: string): SceneBlock {
   return {
     id,
     entryAction: "start",
-    nextPolicy: "all-match",
     actions: [
       {
         ...makePassAction("start", 1, `${id}.start`),
-        next: [{ action: "again" }, { action: "again" }],
+        next: [{ action: "again" }],
       },
-      makePassAction("again", 2, `${id}.again`),
+      {
+        ...makePassAction("again", 2, `${id}.again`),
+        next: [{ action: "start" }],
+      },
     ],
   } as unknown as SceneBlock;
 }
@@ -58,12 +60,10 @@ function expectedWarning(sceneId: string): ExecutionWarning {
     sceneId,
     warning: {
       kind: "duplicate_enqueue",
-      actionId: "again",
-      firstEnqueuedBy: "start",
-      policy: "all-match",
-      alreadyVisited: false,
+      actionId: "start",
+      firstEnqueuedBy: "<entry>",
       message:
-        'action "again" was enqueued more than once (all-match, first enqueued by "start") but ran only once',
+        'action "start" was enqueued by "again" but already ran (first enqueued by "<entry>"); next rule points to an already-executed action',
     },
   };
 }

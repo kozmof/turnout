@@ -2,7 +2,7 @@ import { executeGraph, isPureBoolean, buildNull } from "runtime";
 import type { AnyValue, ValidatedContext } from "runtime";
 import type { ActionModel, ProgModel } from "../types/turnout-model_pb.js";
 import type { StateReader } from "../state/state-manager.js";
-import type { ActionWarning, NextPolicy } from "../types/harness-types.js";
+import type { ActionWarning } from "../types/harness-types.js";
 import { buildContextFromProg } from "./hcl-context-builder.js";
 import type { BuiltContext } from "./hcl-context-builder.js";
 import { resolveNextPrepare } from "./prepare-resolver.js";
@@ -79,7 +79,8 @@ function makePreparedKey(prepared: Record<string, AnyValue>): string | null {
 
 /**
  * Evaluate the next rules for a completed action and return the IDs of the
- * actions to enqueue, according to the scene's `next_policy`.
+ * actions to enqueue. Rules are evaluated in declaration order and the first
+ * whose condition holds wins, so at most one action is returned.
  *
  * For pure (no-inject) progs, `buildContextFromProg` handles caching via its
  * module-level `pureProgCtxCache`. For rules with prepare entries, a
@@ -96,7 +97,6 @@ export function evaluateNextRules(
   action: ActionModel,
   state: StateReader,
   result: ActionExecutionResult,
-  policy: NextPolicy,
   signal: AbortSignal,
   sceneId: string,
   ruleCtxCache: RuleCtxCache,
@@ -187,7 +187,7 @@ export function evaluateNextRules(
 
     if (condMet) {
       matches.push(rule.action);
-      if (policy === "first-match") break;
+      break;
     }
   }
 

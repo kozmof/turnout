@@ -133,7 +133,6 @@ func TestParseSceneBasic(t *testing.T) {
 	src := `state {}
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
   action "score" {
     compute "p" { decision:bool := true }
   }
@@ -146,9 +145,6 @@ scene "loan_flow" {
 	}
 	if sb.EntryAction != "score" {
 		t.Errorf("entry_action = %q", sb.EntryAction)
-	}
-	if sb.NextPolicy != "first-match" {
-		t.Errorf("next_policy = %q", sb.NextPolicy)
 	}
 }
 
@@ -884,16 +880,11 @@ func TestExampleIncidentTriage(t *testing.T) {
 	if tf.Scenes[0].ID != "incident_response" {
 		t.Errorf("scene ID = %q, want incident_response", tf.Scenes[0].ID)
 	}
-	// The five-arm match block expands to five next rules, all flagged as
-	// match-derived; nothing else in the file sets FromMatch on the entry action.
+	// The five-arm match block expands to five next rules; the entry action
+	// declares no other transition.
 	classify := tf.Scenes[0].Actions[0]
 	if len(classify.Next) != 5 {
 		t.Fatalf("classify_incident next count = %d, want 5", len(classify.Next))
-	}
-	for i, nr := range classify.Next {
-		if !nr.FromMatch {
-			t.Errorf("next[%d] is not match-derived", i)
-		}
 	}
 }
 
@@ -915,8 +906,8 @@ func TestExampleSensorCalibration(t *testing.T) {
 	if tf.Scenes[0] == nil {
 		t.Fatal("scene is nil")
 	}
-	if tf.Scenes[0].NextPolicy != "all-match" {
-		t.Errorf("next policy = %q, want all-match", tf.Scenes[0].NextPolicy)
+	if tf.Scenes[0].EntryAction != "evaluate_array" {
+		t.Errorf("entry action = %q, want evaluate_array", tf.Scenes[0].EntryAction)
 	}
 }
 

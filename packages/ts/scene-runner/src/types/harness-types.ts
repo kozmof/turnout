@@ -32,8 +32,6 @@ export type PublishHookImpl = (
   signal: AbortSignal,
 ) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 
-export type NextPolicy = "first-match" | "all-match";
-
 export type ActionWarning =
   | {
       kind: "missing_next_compute_prog";
@@ -66,8 +64,6 @@ export type SceneWarning = {
   kind: "duplicate_enqueue";
   actionId: string;
   firstEnqueuedBy: string;
-  policy: NextPolicy;
-  alreadyVisited: boolean;
   message: string;
 };
 

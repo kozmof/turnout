@@ -295,9 +295,6 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.DiagSi
 		EntryAction: scene.EntryAction,
 		Actions:     make([]*turnoutpb.ActionModel, 0, len(scene.Actions)),
 	}
-	if scene.NextPolicy != "" {
-		sb.NextPolicy = proto.String(scene.NextPolicy)
-	}
 	if scene.View != nil {
 		vb := &turnoutpb.ViewBlock{
 			Name: scene.View.Name,

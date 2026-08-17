@@ -11,7 +11,7 @@ import (
 // within the corresponding block, so recovery stops at the next valid statement
 // rather than skipping to the closing brace.
 var (
-	sceneBlockStarters = []lexer.TokenKind{lexer.TokKwEntryAction, lexer.TokKwNextPolicy, lexer.TokKwOverview, lexer.TokKwAction}
+	sceneBlockStarters = []lexer.TokenKind{lexer.TokKwEntryAction, lexer.TokKwOverview, lexer.TokKwAction}
 )
 
 // ─── parseActionBlock ────────────────────────────────────────────────────────
@@ -168,11 +168,6 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 			p.advance()
 			p.expect(lexer.TokEquals)
 			sb.EntryAction = p.parseRefVal()
-		case lexer.TokKwNextPolicy:
-			p.advance()
-			p.expect(lexer.TokEquals)
-			strTok, _ := p.expect(lexer.TokStringLit)
-			sb.NextPolicy = strTok.Value
 		case lexer.TokKwOverview:
 			parsed := p.parseOverviewBlock()
 			if sb.View != nil {
@@ -192,33 +187,5 @@ func (p *parser) parseSceneBlock() *ast.SceneBlock {
 		}
 	}
 	p.expect(lexer.TokRBrace)
-	p.checkMatchPolicy(sb)
 	return sb
-}
-
-// checkMatchPolicy rejects a match block in an all-match scene. Arm order is
-// what makes arms exclusive; all-match selects every true rule and so fires the
-// `_` arm alongside whichever arm actually matched.
-//
-// It runs here rather than at expansion time because `next_policy` may be
-// declared after the action that uses the block, so this is the first point
-// where both are known. An action-level policy override has no surface syntax
-// (ast.ActionBlock carries no NextPolicy), which makes the scene-level check
-// complete.
-func (p *parser) checkMatchPolicy(sb *ast.SceneBlock) {
-	if sb.NextPolicy != "all-match" {
-		return
-	}
-	for _, a := range sb.Actions {
-		reported := map[ast.Pos]bool{}
-		for _, nr := range a.Next {
-			if !nr.FromMatch || reported[nr.MatchPos] {
-				continue
-			}
-			reported[nr.MatchPos] = true
-			p.Append(diag.ErrorAt(p.file, nr.MatchPos.Line, nr.MatchPos.Col, diag.CodeNextMatchPolicy,
-				"scene %q: action %q uses a next match block, which requires first-match; "+
-					"this scene declares next_policy = \"all-match\"", sb.ID, a.ID))
-		}
-	}
 }

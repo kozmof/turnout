@@ -42,7 +42,6 @@ state {
 
 scene "picking" {
   entry_action = start_pick
-  next_policy  = "first-match"
 
   overview at_least {
     start_pick |=> pick_complete
@@ -98,7 +97,6 @@ scene "picking" {
 
 scene "packing" {
   entry_action = choose_carton
-  next_policy  = "first-match"
 
   overview nodes_only {
     choose_carton |=> seal_carton
@@ -144,7 +142,6 @@ scene "packing" {
 
 scene "shipping" {
   entry_action = select_carrier
-  next_policy  = "first-match"
 
   action "select_carrier" {
     """
@@ -207,7 +204,6 @@ scene "shipping" {
 
 scene "handoff" {
   entry_action = release_to_carrier
-  next_policy  = "first-match"
 
   action "release_to_carrier" {
     """

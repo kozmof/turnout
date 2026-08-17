@@ -31,11 +31,10 @@ state {
 
 scene "incident_response" {
   entry_action = classify_incident
-  next_policy  = "first-match"
 
-  # A match block requires first-match: arm order is what makes the arms
-  # mutually exclusive, and all-match would fire the `_` arm alongside
-  # whichever arm actually matched.
+  # Arm order is what makes the arms mutually exclusive: rules are evaluated
+  # in declaration order and the first true one wins, so the `_` arm fires
+  # only when no arm above it matched.
 
   overview at_least {
     classify_incident |=> page_leadership

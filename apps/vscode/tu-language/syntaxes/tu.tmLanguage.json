@@ -117,7 +117,7 @@
     },
     "property-assign": {
       "comment": "Named properties on the left-hand side of an assignment. Must come before named-block so 'action =' is caught as a property rather than a block keyword.",
-      "match": "\\b(entry_action|next_policy|hook|text|action|entry)\\b(?=\\s*=)",
+      "match": "\\b(entry_action|hook|text|action|entry)\\b(?=\\s*=)",
       "captures": {
         "1": {
           "name": "keyword.other.property.tu"

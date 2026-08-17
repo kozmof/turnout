@@ -142,7 +142,6 @@ func TestEmitSceneBlock(t *testing.T) {
 	out := fullPipeline(t, `state { ns { v:number = 0 } }
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
   action "score" { compute "p" { r:bool := true } }
   action "init"  { compute "p" { r:bool := true } }
 }`)
@@ -152,19 +151,10 @@ scene "loan_flow" {
 	if !strings.Contains(out, `entry_action = "score"`) {
 		t.Error("missing entry_action")
 	}
-	if !strings.Contains(out, `next_policy  = "first-match"`) {
-		t.Error("missing next_policy")
-	}
-}
-
-func TestEmitNextPolicyOmittedWhenEmpty(t *testing.T) {
-	out := fullPipeline(t, `state { ns { v:number = 0 } }
-scene "s" {
-  entry_action = a
-  action "a" { compute "p" { r:bool := true } }
-}`)
-	if strings.Contains(out, "nextPolicy") {
-		t.Error("next_policy should be omitted when empty")
+	// `next_policy` was removed from the language; emitting it would produce a
+	// file the converter can no longer read back.
+	if strings.Contains(out, "next_policy") || strings.Contains(out, "nextPolicy") {
+		t.Error("emitted a next_policy attribute")
 	}
 }
 
@@ -571,7 +561,6 @@ func TestEmitIdempotency(t *testing.T) {
 }
 scene "loan_flow" {
   entry_action = score
-  next_policy   = "first-match"
   action "score" {
     """
     Score the application.
@@ -728,7 +717,6 @@ func TestEmitJSONBasic(t *testing.T) {
 }
 scene "test_scene" {
   entry_action = act_a
-  next_policy   = "first-match"
   action "act_a" {
     compute "g" {
       q:str <~ @request.query

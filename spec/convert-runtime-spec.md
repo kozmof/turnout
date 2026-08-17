@@ -166,7 +166,7 @@ Example state during `process_order` execution:
 
 > For the full per-action lifecycle (prepare → compute → merge → publish), see `scene-graph.md §7`. Hook invocation ordering and deduplication rules are in `hook-spec.md §1.4`.
 
-After the publish phase completes, the runtime evaluates transition rules. For each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked to select the next action(s) per the effective next policy (`first-match` or `all-match`).
+After the publish phase completes, the runtime evaluates transition rules. For each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked; the first rule whose condition holds selects the next action, and evaluation stops there.
 
 ### CAN (OK)
 
@@ -180,8 +180,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 - The runtime can invoke `publish` hooks in declaration order after merge, passing the complete final state.
 - The runtime can silently skip unregistered publish hooks. Unregistered prepare hooks fail action prepare with `UnregisteredHook`.
 - The runtime can evaluate each transition's inline `prog` block by building a fresh `ContextSpec` for that transition, resolving ingresses from `R_n` (`fromAction`), `S_{n+1}` (`fromState`), or declared literals.
-- The runtime can apply `first-match` or `all-match` transition policy, defaulting to `first-match` when neither action-level nor scene-level policy is set.
-- When `all-match` selects multiple next actions, the runtime can execute them sequentially in declaration order, with each subsequent action seeing the STATE state produced by the prior action's merge.
+- The runtime can select the first transition rule whose condition holds, evaluating rules in declaration order and scheduling at most one next action.
 - The runtime can enter terminal `completed` state when no transition rule matches.
 - The runtime can enforce scene structural invariants and emit `SceneDiagnostic` entries for every failure (per `scene-graph.md` §7).
 
@@ -197,7 +196,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 - The runtime cannot allow a prepare hook to mutate state directly. State writes occur only through the returned object mapped by the runtime.
 - The runtime cannot allow a publish hook to mutate state. Publish hooks are read-only with respect to action state.
 - The runtime cannot change hook execution order at runtime. Hooks execute in declaration order as emitted in HCL.
-- Under `all-match`, the runtime cannot execute selected next actions concurrently. Execution order is declaration order and each action merges before the next begins.
+- The runtime cannot schedule more than one next action per action run. Rules after the first true one are not evaluated.
 
 ---
 
@@ -236,7 +235,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 - Because effect timing is fixed in the emitted HCL (`prepare`/`merge`/`publish` sub-blocks), the runtime enforces a strict `prepare → compute → merge → publish` ordering without needing to inspect DSL intent at runtime.
 - Because STATE merge is atomic and the runtime must not partially mutate on failure, retry safety holds without distributed coordination.
 - Because transition compute programs are isolated `prog` blocks with explicit ingress declarations, they can be validated independently at convert time.
-- Because `all-match` sequential execution applies one merge at a time, STATE ordering is deterministic.
+- Because an action schedules at most one successor and each merge completes before the next action begins, STATE ordering is deterministic.
 - Because publish hooks are read-only, state integrity after merge is guaranteed regardless of publish hook behavior.
 
 ---
@@ -248,7 +247,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | 1 | Phase 2 constructs in Phase 1 file | Hard error: emit `UnsupportedConstruct` diagnostic and abort — no HCL is emitted. |
 | 2 | Duplicate `action` block name labels | Parse error: fail with `DuplicateActionLabel` — last-wins is forbidden. |
 | 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
-| 4 | Parallel action scheduling under `all-match` | Sequential, declaration order: selected next actions run one at a time; each sees the STATE state produced by the previous action's merge. |
+| 4 | Parallel action scheduling | Not available: selection stops at the first true rule, so one action schedules at most one successor and actions run one at a time. Work that must follow another step is chained behind it. |
 | 5 | Entry action HCL declaration | `entryActionId` is emitted as a top-level string attribute: `entry_action = <actionId>` at the top of the scene block. |
 | 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |
 
@@ -268,7 +267,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | E. Runtime — prepare phase | `from_state` resolved before compute; `from_hook` invoked and mapped |
 | E2. Runtime — hook execution | Prepare hooks fire before graph; publish hooks fire after merge; unregistered prepare hooks fail with `UnregisteredHook`; unregistered publish hooks are skipped |
 | F. Runtime — execution ordering | prepare → compute → merge → publish ordering enforced |
-| G. Runtime — transition semantics | `first-match`, `all-match`, no-match, sequential ordering |
+| G. Runtime — transition semantics | First-match selection, no-match termination, sequential ordering |
 | H. Runtime — merge semantics | `replace-by-id` atomicity, unknown mode rejection |
 | I. Runtime — structural invariants | All `scene-graph.md §3.3` invariants trigger `invalid_graph` |
 
@@ -279,7 +278,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | 1 | Turn DSL → Convert → HCL → Runtime → STATE | Re-run identical DSL input, compare final STATE state byte-for-byte |
 | 2 | Prepare `from_state` path resolves from `S_n`, not `S_{n+1}` | Execute action twice with same `S_n`; assert identical state bindings both times |
 | 3 | Merge is atomic: either all `D_n` keys written or none | Inject failure after partial write; assert STATE unchanged |
-| 4 | `all-match` sequential ordering: action B sees A's merge | Assert STATE after A is visible to B; assert B's delta builds on A's output |
+| 4 | Chained ordering: action B sees A's merge | Assert STATE after A is visible to B; assert B's delta builds on A's output |
 | 5 | Transition ingress uses `S_{n+1}` (post-merge), not `S_n` | Verify `fromState` reflects A's merged output, not pre-merge snapshot |
 | 6 | Same preconditions produce identical `R_n`, `D_n`, next action IDs | Re-execute scene from same `S_n` and inputs; assert identical outputs |
 | 7 | Prepare hook return value → state binding visible to compute graph | Same hook impl + same `S_n` → identical graph input and result both runs |
@@ -295,12 +294,12 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | Retired `prepare` or `merge` block in the source | `LegacyEffectBlock` error naming the inline replacement |
 | `from_state = "foo..bar"` (empty segment) | `InvalidStatePath` error |
 | `div` binding result stored in `:number` field | Valid; `number` type accepts fractional results — authors may bind the result and use `.floor()` or `.round()` in a later expression if integer semantics are needed |
-| `all-match` selects 0 next actions | Enter terminal `completed` state |
-| `all-match` selects 3 actions; action 2 fails execution | Action 3 does not run; no partial STATE mutation from action 2 |
+| No transition rule condition holds | Enter terminal `completed` state |
+| A chained action fails execution | Its successors do not run; no partial STATE mutation from the failed action |
 | Unknown merge mode in action | Fail pre-execution validation; `invalid_graph` |
 | Transition `compute.condition` resolves to `int`, not `bool` | `NextComputeNotBool` at scene validation; `invalid_graph` |
 | `fromState` path not present in `S_{n+1}` and `required = true` | `MissingStatePath` runtime error; `SceneDiagnostic` carries `path` and `bindingName` in `details` |
-| `all-match` with no transitions declared | Enter terminal `completed` state |
+| Action with no transitions declared | Enter terminal `completed` state |
 | Prepare hook unregistered | Silently skipped; binding value remains default or STATE-resolved |
 | Publish hook returns a value | Return value ignored; state unchanged |
 

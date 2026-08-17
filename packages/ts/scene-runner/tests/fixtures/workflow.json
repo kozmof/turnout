@@ -82,7 +82,6 @@
     {
       "id": "ai_workflow",
       "entryAction": "analyze",
-      "nextPolicy": "first-match",
       "actions": [
         {
           "id": "analyze",

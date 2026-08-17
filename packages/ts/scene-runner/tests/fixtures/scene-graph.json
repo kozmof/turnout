@@ -52,7 +52,6 @@
     {
       "id": "loan_flow",
       "entryAction": "score",
-      "nextPolicy": "first-match",
       "actions": [
         {
           "id": "score",

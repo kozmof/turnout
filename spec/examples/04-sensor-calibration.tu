@@ -8,8 +8,7 @@
 # Covers: every infix operator with its precedence, the binary function
 # catalogue (max/min/bool_xor/str_*/arr_*), transform-method chains on all
 # four receiver types, `pipe` with the `#it` placeholder, `if` and `case`
-# local forms, array state fields, and `next_policy = "all-match"`, which
-# selects EVERY true rule rather than the first.
+# local forms, and array state fields.
 # ===========================================================================
 
 state {
@@ -34,17 +33,15 @@ state {
 
 scene "calibration_rig" {
   entry_action = evaluate_array
-  next_policy  = "all-match"
 
-  # all-match selects every rule whose condition is true, in declaration
-  # order, so `evaluate_array` can enqueue both follow-ups in one step. This
-  # is also why a `next on (...) match { }` block is rejected in an all-match
-  # scene: arm order is what makes match arms exclusive, and all-match
-  # discards it.
+  # Transitions are evaluated in declaration order and the first true rule
+  # wins, so a step schedules exactly one follow-up. Work that has to happen
+  # after another step is chained behind it rather than declared alongside it:
+  # servicing is decided by `file_report`, which runs first and writes the
+  # record the technician is dispatched against.
 
   overview at_least {
-    evaluate_array |=> file_report
-    evaluate_array |=> schedule_service
+    evaluate_array |=> file_report |=> schedule_service
   }
 
   action "evaluate_array" {
@@ -158,7 +155,10 @@ scene "calibration_rig" {
       (in_tolerance & exactly_one_marker == false | mentions_rev) ~> @calibration.within_tolerance
     }
 
-    # all-match: BOTH of these are evaluated, and both fire when true.
+    # A nominal band is the only outcome that files nothing: any other band
+    # means there is something to record. A score high enough to need service
+    # always lands in the `severe` band, so the service decision can wait for
+    # the report rather than race it.
     next {
       compute "to_report" {
         band:str <~ action(band)
@@ -167,20 +167,11 @@ scene "calibration_rig" {
       }
       action = file_report
     }
-
-    next {
-      compute "to_service" {
-        score:number <~ action(floored_at)
-        service_floor:number <~ 400
-        go:bool := score >= service_floor
-      }
-      action = schedule_service
-    }
   }
 
   action "file_report" {
     """
-    Terminal: write the calibration record.
+    Write the calibration record, then decide whether a technician is needed.
     """
     compute "file_report_graph" {
       band:str <~ @calibration.band
@@ -191,6 +182,15 @@ scene "calibration_rig" {
       line:str = (band + " @ " + score.toStr()) ~> @calibration.report
 
       (true) ~> @calibration.logged
+    }
+
+    next {
+      compute "to_service" {
+        score:number <~ action(score)
+        service_floor:number <~ 400
+        go:bool := score >= service_floor
+      }
+      action = schedule_service
     }
   }
 

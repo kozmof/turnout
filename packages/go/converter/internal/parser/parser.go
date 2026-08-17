@@ -245,7 +245,7 @@ func isKeyword(k lexer.TokenKind) bool {
 	case lexer.TokKwState, lexer.TokKwStateFile, lexer.TokKwScene, lexer.TokKwAction,
 		lexer.TokKwCompute, lexer.TokKwPrepare, lexer.TokKwMerge, lexer.TokKwPublish,
 		lexer.TokKwNext, lexer.TokKwProg,
-		lexer.TokKwEntryAction, lexer.TokKwNextPolicy,
+		lexer.TokKwEntryAction,
 		lexer.TokKwHook, lexer.TokKwOverview, lexer.TokKwText, lexer.TokKwRoute, lexer.TokKwMatch, lexer.TokKwEntry:
 		return true
 	}

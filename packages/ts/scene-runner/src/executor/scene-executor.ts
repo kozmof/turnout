@@ -11,7 +11,6 @@ import type {
 import { executeAction } from "./action-executor.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
 import { isPublishHookFailedError, SceneRuntimeError } from "./errors.js";
-import { parseNextPolicy } from "./next-policy.js";
 import { snapshotModel } from "../model-snapshot.js";
 import { createRunState, enqueueNext } from "./run-state.js";
 import { safeLog } from "./logging.js";
@@ -138,7 +137,6 @@ export function createSceneExecutor(
   if (!scene.entryAction)
     throw new SceneRuntimeError("NoEntryAction", scene.id, "scene declares no entry action");
   const actionMap = getActionMap(scene);
-  const policy = parseNextPolicy(scene.nextPolicy, scene.id);
   // Per-executor cache for next-rule contexts. Keyed by (ProgModel identity,
   // serialised prepared values) so identical (prog, prepare) pairs across
   // multiple action steps reuse the same BuiltContext and ValidatedContext
@@ -206,7 +204,6 @@ export function createSceneExecutor(
       action,
       rs.currentState,
       execResult,
-      policy,
       signal,
       scene.id,
       rs.ruleCtxCache,
@@ -246,7 +243,7 @@ export function createSceneExecutor(
       ...(allWarnings.length > 0 ? { warnings: allWarnings } : {}),
     };
     rs.actionTraces.push(trace);
-    enqueueNext(nextIds, actionId, rs, policy);
+    enqueueNext(nextIds, actionId, rs);
 
     for (let i = prevSceneWarningCount; i < rs.sceneWarnings.length; i++) {
       const warning = rs.sceneWarnings[i];

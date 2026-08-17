@@ -40,7 +40,7 @@ Example history after `scene_1` executes `intro`, `quiz`, then `final_action`:
 
 ### 2.4 Trigger
 
-The `match` block is evaluated when a scene inside the route reaches a terminal state, that is, when `first-match` or `all-match` next-action evaluation returns no results (per `scene-graph.md §8`).
+The `match` block is evaluated when a scene inside the route reaches a terminal state, that is, when next-action evaluation selects no rule (per `scene-graph.md §8`).
 
 ---
 

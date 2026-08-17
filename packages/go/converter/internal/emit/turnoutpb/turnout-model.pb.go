@@ -570,13 +570,11 @@ func (x *FieldModel) GetValue() *structpb.Value {
 }
 
 type SceneBlock struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	Id          string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	EntryAction string                 `protobuf:"bytes,2,opt,name=entry_action,json=entryAction,proto3" json:"entry_action,omitempty"`
-	// next_policy is one of: "first-match" | "all-match". Absent means first-match.
-	NextPolicy    *string        `protobuf:"bytes,3,opt,name=next_policy,json=nextPolicy,proto3,oneof" json:"next_policy,omitempty"`
-	Actions       []*ActionModel `protobuf:"bytes,4,rep,name=actions,proto3" json:"actions,omitempty"`
-	View          *ViewBlock     `protobuf:"bytes,5,opt,name=view,proto3,oneof" json:"view,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	EntryAction   string                 `protobuf:"bytes,2,opt,name=entry_action,json=entryAction,proto3" json:"entry_action,omitempty"`
+	Actions       []*ActionModel         `protobuf:"bytes,4,rep,name=actions,proto3" json:"actions,omitempty"`
+	View          *ViewBlock             `protobuf:"bytes,5,opt,name=view,proto3,oneof" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -621,13 +619,6 @@ func (x *SceneBlock) GetId() string {
 func (x *SceneBlock) GetEntryAction() string {
 	if x != nil {
 		return x.EntryAction
-	}
-	return ""
-}
-
-func (x *SceneBlock) GetNextPolicy() string {
-	if x != nil && x.NextPolicy != nil {
-		return *x.NextPolicy
 	}
 	return ""
 }
@@ -3645,17 +3636,14 @@ const file_turnout_model_proto_rawDesc = "" +
 	"FieldModel\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12,\n" +
-	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value\"\xed\x01\n" +
+	"\x05value\x18\x03 \x01(\v2\x16.google.protobuf.ValueR\x05value\"\xca\x01\n" +
 	"\n" +
 	"SceneBlock\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12!\n" +
-	"\fentry_action\x18\x02 \x01(\tR\ventryAction\x12$\n" +
-	"\vnext_policy\x18\x03 \x01(\tH\x00R\n" +
-	"nextPolicy\x88\x01\x01\x127\n" +
+	"\fentry_action\x18\x02 \x01(\tR\ventryAction\x127\n" +
 	"\aactions\x18\x04 \x03(\v2\x1d.turnout.model.v1.ActionModelR\aactions\x124\n" +
-	"\x04view\x18\x05 \x01(\v2\x1b.turnout.model.v1.ViewBlockH\x01R\x04view\x88\x01\x01B\x0e\n" +
-	"\f_next_policyB\a\n" +
-	"\x05_view\"^\n" +
+	"\x04view\x18\x05 \x01(\v2\x1b.turnout.model.v1.ViewBlockH\x00R\x04view\x88\x01\x01B\a\n" +
+	"\x05_viewJ\x04\b\x03\x10\x04R\vnext_policy\"^\n" +
 	"\tViewBlock\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04flow\x18\x02 \x01(\tR\x04flow\x12\x1d\n" +

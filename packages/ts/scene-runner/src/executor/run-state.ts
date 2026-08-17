@@ -1,5 +1,5 @@
 import type { StateManager } from "../state/state-manager.js";
-import type { ActionTrace, SceneWarning, NextPolicy } from "../types/harness-types.js";
+import type { ActionTrace, SceneWarning } from "../types/harness-types.js";
 import { RuleCtxCache } from "./next-rules.js";
 
 export type SceneRunState = {
@@ -32,58 +32,26 @@ export function createRunState(initialState: StateManager, entryAction: string):
   };
 }
 
-export function enqueueNext(
-  nextIds: string[],
-  fromActionId: string,
-  rs: SceneRunState,
-  policy: NextPolicy,
-): void {
+/**
+ * Queue the actions selected by the current action's next rules.
+ *
+ * Selection stops at the first true rule, so `nextIds` holds at most one id and
+ * an action already recorded in `enqueueSource` has necessarily run — the step
+ * loop marks an action visited as it dequeues it, before this is ever called
+ * again. A repeat enqueue is therefore always a rule pointing back at a
+ * completed action, which is a graph the author probably did not intend, so it
+ * is reported rather than silently ignored.
+ */
+export function enqueueNext(nextIds: string[], fromActionId: string, rs: SceneRunState): void {
   for (const nextId of nextIds) {
-    if (rs.visited.has(nextId)) {
-      const source = rs.enqueueSource.get(nextId) ?? "<entry>";
-      if (policy === "all-match") {
-        rs.sceneWarnings.push({
-          kind: "duplicate_enqueue",
-          actionId: nextId,
-          firstEnqueuedBy: source,
-          policy,
-          alreadyVisited: true,
-          message: `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
-        });
-      } else if (policy === "first-match") {
-        rs.sceneWarnings.push({
-          kind: "duplicate_enqueue",
-          actionId: nextId,
-          firstEnqueuedBy: source,
-          policy,
-          alreadyVisited: true,
-          message: `action "${nextId}" was enqueued by "${source}" but already ran (first-match); next rule points to an already-executed action`,
-        });
-      }
-      continue;
-    }
-    const pendingSource = rs.enqueueSource.get(nextId);
-    if (pendingSource !== undefined) {
-      const source = pendingSource;
-      if (policy === "all-match") {
-        rs.sceneWarnings.push({
-          kind: "duplicate_enqueue",
-          actionId: nextId,
-          firstEnqueuedBy: source,
-          policy,
-          alreadyVisited: false,
-          message: `action "${nextId}" was enqueued more than once (all-match, first enqueued by "${source}") but ran only once`,
-        });
-      } else if (policy === "first-match") {
-        rs.sceneWarnings.push({
-          kind: "duplicate_enqueue",
-          actionId: nextId,
-          firstEnqueuedBy: source,
-          policy,
-          alreadyVisited: false,
-          message: `action "${nextId}" was enqueued by "${fromActionId}" but is already pending (first enqueued by "${source}", first-match); second enqueue ignored`,
-        });
-      }
+    const source = rs.enqueueSource.get(nextId);
+    if (source !== undefined || rs.visited.has(nextId)) {
+      rs.sceneWarnings.push({
+        kind: "duplicate_enqueue",
+        actionId: nextId,
+        firstEnqueuedBy: source ?? "<entry>",
+        message: `action "${nextId}" was enqueued by "${fromActionId}" but already ran (first enqueued by "${source ?? "<entry>"}"); next rule points to an already-executed action`,
+      });
       continue;
     }
     rs.enqueueSource.set(nextId, fromActionId);

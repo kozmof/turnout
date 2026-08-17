@@ -45,7 +45,7 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `publish`, `next`, `entry_action`, `next_policy`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`. `prepare`, `merge`, and `prog` remain keywords with no grammar: they carry the diagnostic that names their replacement.
+- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `publish`, `next`, `entry_action`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`. `prepare`, `merge`, and `prog` remain keywords with no grammar: they carry the diagnostic that names their replacement.
 - [x] Typed key (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
 - [x] Inline IO arrows: `<~` and `~>`; legacy `<~>` is tokenized only for migration diagnostics
@@ -92,7 +92,7 @@ Define Go structs for every DSL construct.
 
 ### Scene block
 
-- [x] `SceneBlock { ID string; EntryAction string; NextPolicy string; View *ViewBlock; Actions []*ActionBlock }`
+- [x] `SceneBlock { ID string; EntryAction string; View *ViewBlock; Actions []*ActionBlock }`
 - [x] `ViewBlock { Name string; Flow string; Enforce string }`
 
 ### Action block
@@ -148,7 +148,7 @@ Recursive descent parser consuming the token stream.
 ### Scene parsing
 
 - [x] Parse `scene "<id>" { ... }` block
-- [x] Parse `entry_action`, `next_policy`, `view`, actions
+- [x] Parse `entry_action`, `view`, actions
 - [x] Parse `action "<id>" { ... }` blocks
 - [x] Parse optional triple-quoted docstring at action top level → `text`
 - [x] Error on duplicate docstring + explicit `text` (`SCN_ACTION_TEXT_DUPLICATE`)
@@ -325,7 +325,6 @@ state {
 ```
 scene "<id>" {
   entry_action = <actionId>
-  next_policy  = "<policy>"
 
   action "<id>" {
     text = <<-EOT
@@ -354,7 +353,6 @@ scene "<id>" {
 ```
 
 - [x] `entry_action` as string attribute
-- [x] `next_policy` as string attribute
 - [x] Each action block with unique label
 - [x] `compute.root` and `next.compute.condition` as quoted strings
 - [x] `prog` block with `binding` blocks (not `name:type` keys)

@@ -25,7 +25,6 @@ state {
 
 scene "vend" {
   entry_action = check_availability
-  next_policy  = "first-match"
 
   # `strict` pins the graph exactly: every node and edge below must exist in
   # the implementation, and every implemented one must appear here. A terminal

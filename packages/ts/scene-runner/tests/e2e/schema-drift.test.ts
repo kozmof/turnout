@@ -8,7 +8,7 @@
  * (`ignoreUnknownFields`) silently tolerates.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
@@ -65,6 +65,31 @@ describe("proto schema-drift guard", () => {
       expect(model.scenes.length + model.routes.length).toBeGreaterThan(0);
     });
   }
+});
+
+// `next_policy` was removed from SceneBlock (field 3 is reserved). A model
+// emitted before the removal still carries it, so pin what happens to one: the
+// lenient production default drops the field, and only strict parsing rejects
+// it. This is the single externally visible break in the removal.
+describe("retired next_policy field", () => {
+  const legacyModel = {
+    scenes: [{ id: "s", entryAction: "a", nextPolicy: "first-match", actions: [{ id: "a" }] }],
+  };
+  const legacyPath = join(tmpRoot, "legacy-next-policy.json");
+
+  beforeAll(() => {
+    writeFileSync(legacyPath, JSON.stringify(legacyModel));
+  });
+
+  it("is ignored when parsing leniently", () => {
+    const model = loadJsonModel(legacyPath);
+    expect(model.scenes[0]?.id).toBe("s");
+    expect("nextPolicy" in (model.scenes[0] as object)).toBe(false);
+  });
+
+  it("is rejected when parsing strictly", () => {
+    expect(() => loadJsonModel(legacyPath, { strictParse: true })).toThrow();
+  });
 });
 
 // Each committed JSON fixture is the converted output of its .tu source. These

@@ -1,5 +1,4 @@
 import { describe, it, expect } from "vitest";
-import { parseNextPolicy } from "../src/executor/next-policy.js";
 import {
   executeScene,
   executeSceneSafe,
@@ -91,7 +90,6 @@ describe("executeScene — two-action chain (first-match)", () => {
   const scene = {
     id: "chain_scene",
     entryAction: "action_a",
-    nextPolicy: "first-match",
     actions: [
       {
         ...makePassAction("action_a", 1, "step.a"),
@@ -143,20 +141,19 @@ describe("executeScene — unconditional next rule", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// all-match policy
+// Selection stops at the first true rule
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("executeScene — all-match policy", () => {
+describe("executeScene — first true rule wins", () => {
   const scene = {
-    id: "all_match_scene",
+    id: "two_branch_scene",
     entryAction: "start",
-    nextPolicy: "all-match",
     actions: [
       {
         ...makePassAction("start", 0, "step.start"),
         next: [
           { action: "branch_a" }, // unconditional
-          { action: "branch_b" }, // unconditional
+          { action: "branch_b" }, // unconditional, never reached
         ],
       },
       makePassAction("branch_a", 100, "step.a"),
@@ -164,19 +161,18 @@ describe("executeScene — all-match policy", () => {
     ],
   } as unknown as SceneBlock;
 
-  it("enqueues all matching branches", async () => {
+  it("enqueues only the first matching branch", async () => {
     const result = await executeScene(scene, stateManagerFromUnchecked({}));
     const ran = result.trace.actions.map((t) => t.actionId);
     expect(ran).toContain("branch_a");
-    expect(ran).toContain("branch_b");
-    expect(result.terminatedAt).toContain("branch_a");
-    expect(result.terminatedAt).toContain("branch_b");
+    expect(ran).not.toContain("branch_b");
+    expect(result.terminatedAt).toEqual(["branch_a"]);
   });
 
-  it("start action has both nextActionIds", async () => {
+  it("start action has exactly one nextActionId", async () => {
     const result = await executeScene(scene, stateManagerFromUnchecked({}));
     const startTrace = result.trace.actions.find((t) => t.actionId === "start")!;
-    expect(startTrace.nextActionIds).toEqual(["branch_a", "branch_b"]);
+    expect(startTrace.nextActionIds).toEqual(["branch_a"]);
   });
 });
 
@@ -429,18 +425,22 @@ describe("executeSceneSafe — failedActionId", () => {
   });
 });
 
-describe("createSceneExecutor — all-match duplicate enqueue warnings", () => {
-  it("warns when all-match enqueues an already visited action", async () => {
+describe("createSceneExecutor — duplicate enqueue warnings", () => {
+  it("warns when a next rule points back at an action that already ran", async () => {
+    // start → again → start. The second enqueue of "start" cannot run, because
+    // an action runs at most once per scene, so the rule is reported instead.
     const scene = {
       id: "duplicate_enqueue_scene",
       entryAction: "start",
-      nextPolicy: "all-match",
       actions: [
         {
           ...makePassAction("start", 1, "step.start"),
-          next: [{ action: "again" }, { action: "again" }],
+          next: [{ action: "again" }],
         },
-        makePassAction("again", 2, "step.again"),
+        {
+          ...makePassAction("again", 2, "step.again"),
+          next: [{ action: "start" }],
+        },
       ],
     } as unknown as SceneBlock;
 
@@ -450,12 +450,10 @@ describe("createSceneExecutor — all-match duplicate enqueue warnings", () => {
     expect(result.trace.warnings).toEqual([
       {
         kind: "duplicate_enqueue",
-        actionId: "again",
-        firstEnqueuedBy: "start",
-        policy: "all-match",
-        alreadyVisited: false,
+        actionId: "start",
+        firstEnqueuedBy: "<entry>",
         message:
-          'action "again" was enqueued more than once (all-match, first enqueued by "start") but ran only once',
+          'action "start" was enqueued by "again" but already ran (first enqueued by "<entry>"); next rule points to an already-executed action',
       },
     ]);
   });
@@ -724,7 +722,6 @@ describe("scene executor — adversarial", () => {
   it("throws DuplicateActionId when a scene has two actions with the same id", () => {
     const scene = {
       id: "dup_scene",
-      nextPolicy: "",
       entryAction: "a",
       actions: [
         makePassAction("a", 1, "ns.x"),
@@ -741,7 +738,6 @@ describe("scene executor — adversarial", () => {
     const bToC: ActionModel["next"] = [{ action: "c" }] as ActionModel["next"];
     const scene = {
       id: "max_steps_scene",
-      nextPolicy: "first-match",
       entryAction: "a",
       actions: [
         { ...makePassAction("a", 1, "ns.x"), next: aToB },
@@ -760,7 +756,6 @@ describe("scene executor — adversarial", () => {
     // Next-rule condition binding is a number, not a boolean.
     const scene = {
       id: "num_cond_scene",
-      nextPolicy: "first-match",
       entryAction: "start",
       actions: [
         {
@@ -791,14 +786,17 @@ describe("scene executor — adversarial", () => {
     expect(condWarn?.actualType).toBe("number");
   });
 
-  it("produces duplicate_enqueue scene warning for all-match policy", async () => {
-    // a → [b, b]; with all-match, b should get a duplicate_enqueue warning
-    const aNext: ActionModel["next"] = [{ action: "b" }, { action: "b" }] as ActionModel["next"];
+  it("produces duplicate_enqueue scene warning when a rule targets a completed action", async () => {
+    // a → b → b: b's own rule points back at itself, which already ran.
+    const aNext: ActionModel["next"] = [{ action: "b" }] as ActionModel["next"];
+    const bNext: ActionModel["next"] = [{ action: "b" }] as ActionModel["next"];
     const scene = {
       id: "dup_enqueue_scene",
-      nextPolicy: "all-match",
       entryAction: "a",
-      actions: [{ ...makePassAction("a", 1, "ns.x"), next: aNext }, makePassAction("b", 2, "ns.x")],
+      actions: [
+        { ...makePassAction("a", 1, "ns.x"), next: aNext },
+        { ...makePassAction("b", 2, "ns.x"), next: bNext },
+      ],
     } as unknown as SceneBlock;
     const state = stateManagerFromUnchecked({ "ns.x": buildNumber(0) });
     const result = await executeScene(scene, state);
@@ -811,7 +809,6 @@ describe("scene executor — adversarial", () => {
   it('executeSceneSafe returns failedActionId as "<none>" when construction throws', async () => {
     const scene = {
       id: "dup_scene",
-      nextPolicy: "",
       entryAction: "a",
       actions: [
         makePassAction("a", 1, "ns.x"),
@@ -826,12 +823,6 @@ describe("scene executor — adversarial", () => {
       expect(result.failedActionId).toBe("a");
       expect(result.error).toBeInstanceOf(SceneRuntimeError);
     }
-  });
-});
-
-describe("parseNextPolicy", () => {
-  it("throws SceneRuntimeError for unsupported next_policy values", () => {
-    expect(() => parseNextPolicy("bogus", "test_scene")).toThrow("unsupported next_policy");
   });
 });
 
@@ -884,6 +875,8 @@ describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
   it("reuses a cached context when two next-rules share the same ProgModel object", async () => {
     // A single ProgModel object shared by two rules forces a cache hit on the
     // second evaluation (same prog identity + same serialised prepare key).
+    // The first rule has to evaluate false for the second to be reached at all,
+    // since selection stops at the first true rule.
     const sharedProg = {
       name: "shared_cond_prog",
       bindings: [{ name: "flag", type: "bool", value: false }],
@@ -892,7 +885,6 @@ describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
     const scene = {
       id: "cache_hit_scene",
       entryAction: "start",
-      nextPolicy: "all-match",
       actions: [
         {
           ...makePassAction("start", 1, "step.start"),
@@ -914,11 +906,13 @@ describe("evaluateNextRules — RuleCtxCache hit on shared ProgModel", () => {
       ],
     } as unknown as SceneBlock;
 
-    // Both rules fire → both branches run; second evaluation is a cache hit
-    const state = stateManagerFromUnchecked({ "gate.flag": buildBoolean(true) });
+    // Both rules are evaluated because neither condition holds; the second
+    // evaluation reuses the context built for the first, and the action
+    // terminates with nothing scheduled.
+    const state = stateManagerFromUnchecked({ "gate.flag": buildBoolean(false) });
     const result = await executeScene(scene, state);
-    expect(result.trace.actions.map((a) => a.actionId)).toContain("branch_a");
-    expect(result.trace.actions.map((a) => a.actionId)).toContain("branch_b");
+    expect(result.trace.actions.map((a) => a.actionId)).toEqual(["start"]);
+    expect(result.terminatedAt).toEqual(["start"]);
   });
 });
 

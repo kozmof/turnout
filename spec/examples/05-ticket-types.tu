@@ -40,7 +40,6 @@ state {
 
 scene "ticket_intake" {
   entry_action = mint_reference
-  next_policy  = "first-match"
 
   overview at_least {
     mint_reference |=> assign_specialist

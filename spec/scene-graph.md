@@ -13,7 +13,7 @@ Primary goals:
 1. A scene must be able to define actions declaratively.
 2. Each action must be able to declare its computation graph inline.
 3. IO values and merge deltas must be explicit and deterministic.
-4. Next-action behavior must remain deterministic (`first-match` or `all-match`).
+4. Next-action behavior must remain deterministic: rules are evaluated in declaration order and the first true one is selected.
 
 ## 2. Conventions
 
@@ -59,7 +59,6 @@ CAN'T (NG):
 - A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding with `<~ action(binding)` and returns it as the `:=` condition. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
 - A run of transitions that all branch on the same values MAY be written as one `next on <subjects> match { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> => <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains, each with `<~ action(binding)`, and returns their conjoined equality test as the `:=` condition; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
 - A match block MUST contain exactly one unconditional arm — a bare `_`, or a tuple whose elements are all `_` — and it MUST be the last arm. A block with none is an error (`NonExhaustiveMatch`), because falling through every arm schedules no transition at all and silently ends the scene; a second one is `DuplicateFallback`, and any arm after it is `UnreachableArm`.
-- A match block requires an effective next policy of `first-match` (`NextMatchPolicy`). Arm order is what makes arms mutually exclusive; under `all-match` every true rule is selected, so the `_` arm would fire alongside whichever arm matched.
 - Next actions cannot reference missing actions.
 
 Correlation:
@@ -75,7 +74,6 @@ type Scene = {
   sceneId: string;
   actions: Action[];
   entryActionId: ActionId;
-  nextPolicy?: "first-match" | "all-match"; // default: first-match
   view?: OverviewView;
 };
 
@@ -87,7 +85,6 @@ type Action = {
   merge?: MergeSpec;
   publish?: PublishSpec;
   next?: NextRule[]; // default: []
-  nextPolicy?: "first-match" | "all-match";
   // Merge mode is always "replace-by-id"; not author-configurable.
 };
 
@@ -179,7 +176,6 @@ Rule, result binding declared last: The compute root is designated by `:=` on it
 ```hcl
 scene "loan_flow" {
   entry_action      = score
-  next_policy       = "first-match"
 
   action "score" {
     compute "score_graph" {
@@ -345,14 +341,11 @@ Failure semantics:
 
 ## 8. Next Semantics
 
-- Effective next policy: action-level override, else scene-level, else `first-match`.
-- Evaluation order is declaration order.
+- Selection is first-match and is not configurable: rules are evaluated in declaration order and the first true rule is selected. At most one next action is scheduled per action run.
 - Each rule's `compute` graph is evaluated independently and must resolve `compute.condition` to boolean.
 - `fromAction` in transition `prepare` reads from the current action `compute.prog` binding namespace (`A_n`).
-- `first-match`: select first true rule.
-- `all-match`: select all true rules in declaration order.
 - No matches: action run terminates with no next action scheduled.
-- A `next on <subjects> match { }` block expands to one rule per arm in arm order, so its arms are exclusive only under `first-match`. An action carrying one in an `all-match` scene fails validation (`NextMatchPolicy`).
+- A `next on <subjects> match { }` block expands to one rule per arm in arm order, which is what makes its arms mutually exclusive: the `_` arm is reached only when no arm above it matched.
 
 ## 9. Overview DSL Enforcement
 
@@ -382,7 +375,6 @@ Existing required codes from v0.2 remain required, plus the following:
 - `NextIngressSourceInvalid`
 - `ActionTextDuplicate`
 - `NextMatchArity`
-- `NextMatchPolicy`
 
 Recommended diagnostic payload:
 
@@ -412,7 +404,7 @@ type SceneDiagnostic = {
 3. A root binding with an inline `~>` output writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.condition` must resolve to `bool`, else validation fails.
-6. `first-match` and `all-match` selection behavior is deterministic.
+6. First-match selection is deterministic: the same rules and inputs always select the same next action.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same prepare inputs and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.

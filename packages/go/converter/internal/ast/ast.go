@@ -260,7 +260,6 @@ type SceneBlock struct {
 	Pos         Pos
 	ID          string
 	EntryAction string
-	NextPolicy  string
 	View        *ViewBlock
 	Actions     []*ActionBlock
 }

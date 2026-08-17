@@ -287,7 +287,6 @@ func TestTurnFileConstruction(t *testing.T) {
 			Pos:         p,
 			ID:          "loan_flow",
 			EntryAction: "score",
-			NextPolicy:  "first-match",
 		}},
 	}
 

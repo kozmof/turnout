@@ -20,7 +20,6 @@ state {
 
 scene "support" {
   entry_action = classify
-  next_policy  = "first-match"
 
   action "classify" {
     compute "classify_graph" {
@@ -54,7 +53,6 @@ state {
 
 scene "support" {
   entry_action = classify
-  next_policy  = "first-match"
 
   action "classify" {
     compute "classify_graph" {

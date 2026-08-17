@@ -175,14 +175,6 @@ type NextRule struct {
 	Compute  *NextComputeBlock
 	Prepare  *NextPrepareBlock
 	ActionID string
-	// FromMatch marks a rule the parser expanded out of a
-	// `next on (...) match { }` block, and MatchPos points at that block's `next`
-	// keyword. Both are parser-internal: nothing in lower or emit reads them, so
-	// a match block and the rules it abbreviates emit an identical model. The
-	// only consumer is the scene-level next_policy check, which cannot run at
-	// expansion time because `next_policy` may be declared after the action.
-	FromMatch bool
-	MatchPos  Pos
 }
 
 // NextComputeBlock is a `compute "<name>" { ... }` block inside a next block.

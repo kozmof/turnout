@@ -21,7 +21,6 @@ func matchScene(nextBlock string) string {
 }
 scene "s" {
   entry_action = classify
-  next_policy  = "first-match"
 
   action "classify" {
     compute "classify_graph" {
@@ -77,9 +76,6 @@ func TestNextMatchExpandsOneRulePerArm(t *testing.T) {
 	for i, want := range []string{"escalate", "review", "archive"} {
 		if rules[i].ActionID != want {
 			t.Errorf("rules[%d].ActionID = %q, want %q", i, rules[i].ActionID, want)
-		}
-		if !rules[i].FromMatch {
-			t.Errorf("rules[%d].FromMatch = false, want true", i)
 		}
 	}
 
@@ -543,54 +539,10 @@ func TestNextMatchDiagnostics(t *testing.T) {
 	}
 }
 
-// TestNextMatchRequiresFirstMatch covers the policy check. Arm order is what
-// makes arms exclusive; under all-match the `_` arm fires alongside whichever
-// arm matched, so the combination is rejected.
-func TestNextMatchRequiresFirstMatch(t *testing.T) {
-	src := `state {
-  routing { tier:str = "" }
-}
-scene "s" {
-  entry_action = classify
-  next_policy  = "all-match"
-
-  action "classify" {
-    compute "c" {
-      tier:str <~ @routing.tier
-      ready:bool := true
-    }
-
-    next on tier match {
-      "gold" => escalate,
-      _ => archive
-    }
-  }
-
-  action "escalate" { compute "e" { done:bool := true } }
-  action "archive"  { compute "a" { done:bool := true } }
-}
-`
-	codes := codesFor(t, src)
-	if !hasErrorCode(codes, diag.CodeNextMatchPolicy) {
-		t.Errorf("codes = %v, want NextMatchPolicy", codes)
-	}
-
-	// One diagnostic per match block, not one per expanded rule.
-	n := 0
-	for _, c := range codes {
-		if c == diag.CodeNextMatchPolicy {
-			n++
-		}
-	}
-	if n != 1 {
-		t.Errorf("NextMatchPolicy reported %d times, want 1", n)
-	}
-}
-
-// TestNextMatchPolicyDeclaredAfterAction covers the ordering the check was
-// placed at scene level for: `next_policy` may be written below the action that
-// uses the match block, so the check cannot run at expansion time.
-func TestNextMatchPolicyDeclaredAfterAction(t *testing.T) {
+// TestNextMatchNeedsNoPolicy pins that a match block converts on its own. It
+// once required `first-match`, which was the only policy left before
+// `next_policy` was removed; nothing constrains it now.
+func TestNextMatchNeedsNoPolicy(t *testing.T) {
 	src := `state {
   routing { tier:str = "" }
 }
@@ -611,12 +563,10 @@ scene "s" {
 
   action "escalate" { compute "e" { done:bool := true } }
   action "archive"  { compute "a" { done:bool := true } }
-
-  next_policy = "all-match"
 }
 `
-	if !hasErrorCode(codesFor(t, src), diag.CodeNextMatchPolicy) {
-		t.Error("a match block was accepted in an all-match scene declaring its policy last")
+	if codes := codesFor(t, src); len(codes) != 0 {
+		t.Errorf("codes = %v, want none", codes)
 	}
 }
 
@@ -635,9 +585,6 @@ func TestNextMatchLeavesOtherFormsAlone(t *testing.T) {
 			rules := matchRulesOf(t, block)
 			if len(rules) != 1 {
 				t.Fatalf("rules = %d, want 1", len(rules))
-			}
-			if rules[0].FromMatch {
-				t.Error("FromMatch = true, want false for a non-match form")
 			}
 			if rules[0].ActionID != "archive" {
 				t.Errorf("ActionID = %q, want archive", rules[0].ActionID)

@@ -611,21 +611,24 @@ describe("executeRouteSafe — strict publish failure", () => {
 });
 
 describe("executeRouteSafe — scene warnings propagated as route warnings", () => {
-  // Produce a duplicate_enqueue scene warning by having an all-match action
-  // whose next-rule list contains the same target twice.
+  // Produce a duplicate_enqueue scene warning with a next rule that points back
+  // at the entry action, which has already run by the time the rule fires.
   const actionWithDupeNext = {
     id: "start",
     compute: {
       root: "out",
       prog: { name: "p", bindings: [{ name: "out", type: "number", value: 1 }] },
     },
-    next: [{ action: "end" }, { action: "end" }],
+    next: [{ action: "end" }],
+  } as unknown as ActionModel;
+  const endLoopingBack = {
+    ...makePassAction("end", 2, "v.end"),
+    next: [{ action: "start" }],
   } as unknown as ActionModel;
   const scene = {
     id: "warn_scene",
     entryAction: "start",
-    nextPolicy: "all-match",
-    actions: [actionWithDupeNext, makePassAction("end", 2, "v.end")],
+    actions: [actionWithDupeNext, endLoopingBack],
   } as unknown as SceneBlock;
   const route = { id: "r_warn", match: [] } as unknown as RouteModel;
 

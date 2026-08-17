@@ -5,7 +5,7 @@
 
 ## The problem
 
-Under `next_policy = "first-match"`, which transition wins is decided entirely by the textual order of the `next` clauses in the source. Nothing names that ordering, so:
+Selection is first-match, so which transition wins is decided entirely by the textual order of the `next` clauses in the source. Nothing names that ordering, so:
 
 - the real semantics are carried by something invisible
 - reordering two `next` clauses changes behaviour without changing any value a reviewer can point at, and the diff shows only moved lines
@@ -41,7 +41,6 @@ Open questions for the proposal to settle:
 - **Partial annotation.** If some clauses carry a priority and others do not, is that an error, or do unannotated clauses keep their relative textual order after the annotated ones? An error is simpler to explain and to diagnose.
 - **Ties.** Two clauses with the same priority are exactly the ambiguity this feature exists to remove, so they should be an error rather than a silent fall back to textual order.
 - **Direction.** Lower-number-first matches "priority 1" intuitions; the proposal should pick one and say so, since both conventions are common.
-- **Interaction with `all-match`.** Priority is meaningless when every matching rule fires. Either reject it under `all-match` or define it as purely documentary there.
 
 ## Verification
 

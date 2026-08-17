@@ -76,7 +76,6 @@ describe("inline TurnModel type conformance", () => {
         {
           id: "s",
           entryAction: "a",
-          nextPolicy: "first-match",
           actions: [{ id: "a" } as unknown as ActionModel],
         } as unknown as SceneBlock,
       ],

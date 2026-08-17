@@ -276,10 +276,8 @@ func (p *parser) expandMatchArms(pos ast.Pos, subjects []matchSubject, arms []ma
 	rules := make([]*ast.NextRule, 0, len(arms))
 	for i, arm := range arms {
 		rule := &ast.NextRule{
-			Pos:       arm.Pos,
-			ActionID:  arm.ActionID,
-			FromMatch: true,
-			MatchPos:  pos,
+			Pos:      arm.Pos,
+			ActionID: arm.ActionID,
 		}
 		if !arm.Uncond {
 			p.buildMatchRule(rule, i, subjects, colTypes, arm)

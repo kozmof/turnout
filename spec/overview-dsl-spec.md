@@ -28,12 +28,11 @@ This spec extends [scene-graph.md](scene-graph.md). All terms defined there (`Ac
 
 ## 3. HCL Surface Syntax
 
-The overview block appears at scene level, alongside `entry_action`, `next_policy`, and `action` blocks:
+The overview block appears at scene level, alongside `entry_action` and `action` blocks:
 
 ```hcl
 scene "loan_flow" {
   entry_action = score
-  next_policy  = "first-match"
 
   overview at_least {
     score |=> approve

@@ -4,7 +4,33 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
+	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
 )
+
+// TestNextPolicyRejected covers the removal of `next_policy`. Selection is
+// always first-match now, so the attribute has no meaning — and it must fail
+// loudly rather than be skipped, or a file that still writes it would keep
+// converting while saying something the language no longer has a word for.
+func TestNextPolicyRejected(t *testing.T) {
+	for _, policy := range []string{"first-match", "all-match"} {
+		t.Run(policy, func(t *testing.T) {
+			src := minimalTurnFile(`  entry_action = a
+  next_policy  = "` + policy + `"
+  action "a" {
+    compute "p" { v:bool := true }
+  }`)
+			_, diags := parser.ParseFile("test.tu", src)
+			if !diags.HasErrors() {
+				t.Fatal("next_policy was accepted; it must be an error")
+			}
+			// A positioned diagnostic is the point: the author has to be able to
+			// find the line to delete it.
+			if diags[0].Line == 0 || diags[0].Col == 0 {
+				t.Errorf("diagnostic has no position: %s", diags[0].Format())
+			}
+		})
+	}
+}
 
 // overviewOf parses a scene carrying the given overview block and returns it.
 func overviewOf(t *testing.T, block string) *ast.ViewBlock {
