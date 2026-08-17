@@ -21,9 +21,25 @@ var (
 //
 //	action compute: <~ @ns.field | <~ hook("name")
 //	next compute:   <~ @ns.field | <~ action(binding) | <~ 300
+//
+// Like egress, the clause must continue the line its binding is declared on;
+// see parseInlineEgress for why an arrow opening a line is ambiguous.
 func (p *parser) parseInlineIngress() ast.InlineIngress {
 	if p.peek().Kind != lexer.TokSigilEgress {
 		return nil
+	}
+	// `<~ name:type` is a sigil leading the *next* binding, not this binding's
+	// ingress clause: no ingress source is a bare identifier. Leaving it
+	// unconsumed hands it to parseBindingDecl, which reports it against the
+	// binding that carries it.
+	if p.peekAt(1).Kind == lexer.TokIdent && p.peekAt(2).Kind == lexer.TokColon {
+		return nil
+	}
+	// A source opening its own line is the shape both readings fit. It is taken
+	// as this binding's ingress, since that is what it would mean were the line
+	// joined, but not silently: nothing else recovers the intent.
+	if !p.continuesLine(p.peek()) {
+		p.errorf(p.peek(), "`<~` must be on the same line as the binding it feeds")
 	}
 	arrow := p.advance() // consume <~
 	pos := p.posOf(arrow)
@@ -67,9 +83,28 @@ func (p *parser) parseInlineIngress() ast.InlineIngress {
 }
 
 // parseInlineEgress parses the `~> @ns.field` clause, or returns nil if absent.
+//
+// The clause must continue the line its binding's value ends on. Everywhere
+// else the grammar ignores newlines, but `~>` also leads a binding in the
+// retired spelling, so an arrow opening a line is ambiguous: it reads as this
+// binding's destination and as the next binding's sigil, and the two mean
+// opposite things. The line settles it.
 func (p *parser) parseInlineEgress() *ast.InlineEgress {
 	if p.peek().Kind != lexer.TokSigilIngress {
 		return nil
+	}
+	// `~> name:type` is a sigil leading the *next* binding, not this binding's
+	// egress clause: an egress destination is always a state path. Leaving it
+	// unconsumed hands it to parseBindingDecl, which reports it against the
+	// binding that carries it.
+	if p.peekAt(1).Kind == lexer.TokIdent && p.peekAt(2).Kind == lexer.TokColon {
+		return nil
+	}
+	// A `~> @ns.field` opening its own line is the shape both readings fit. It
+	// is taken as this binding's egress, since that is what it would mean were
+	// the line joined, but not silently: nothing else recovers the intent.
+	if !p.continuesLine(p.peek()) {
+		p.errorf(p.peek(), "`~>` must be on the same line as the binding it writes from")
 	}
 	arrow := p.advance() // consume ~>
 	pos := p.posOf(arrow)
@@ -109,14 +144,11 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	t := p.peek()
 	pos := p.posOf(t)
 
-	// A sigil in the leading position is the pre-v2 spelling. It cannot simply be
-	// reported as a syntax error: the arrows inverted when they moved to infix
-	// position (`~>` was ingress, and with `@path` on the right it is egress), so
-	// a half-migrated file can still parse while meaning the opposite thing.
-	// Name the migration explicitly instead.
-	if t := p.peek(); t.Kind == lexer.TokSigilIngress || t.Kind == lexer.TokSigilEgress || t.Kind == lexer.TokSigilBiDir {
-		p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacySigilPosition,
-			"old sigil position: %s now follows the binding and points at its destination — write `name:type <~ @ns.field` for input and `name:type = (expr) ~> @ns.field` for output; see migration notes", t.Value))
+	// A sigil belongs after the binding it applies to. Consume a leading one so
+	// the binding itself still parses and the rest of the block is checked in
+	// the same pass.
+	if t.Kind == lexer.TokSigilIngress || t.Kind == lexer.TokSigilEgress || t.Kind == lexer.TokSigilBiDir {
+		p.errorf(t, "unexpected %s before binding name", kindName(t.Kind))
 		p.advance()
 	}
 
@@ -257,15 +289,10 @@ func (p *parser) parseProgBody(pos ast.Pos, name string) *ast.ProgBlock {
 	var bindings []*ast.BindingDecl
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		if t := p.peek(); t.Kind == lexer.TokKwProg {
-			// The old nested spelling. Name the replacement in the message,
-			// reusing the prog's own label when it has one.
-			label := name
-			if lbl := p.peekAt(1); lbl.Kind == lexer.TokStringLit {
-				label = lbl.Value
-			}
-			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacyProgBlock,
-				"prog blocks were merged into compute; write compute %q { ... } "+
-					"with the bindings directly inside", label))
+			// prog is not a surface block: its bindings belong directly inside
+			// compute. Skip it whole so its bindings do not parse as items of a
+			// block that cannot hold them.
+			p.errorf(t, "unexpected prog block inside compute")
 			p.advance() // consume 'prog'
 			if p.peek().Kind == lexer.TokStringLit {
 				p.advance() // consume name string
@@ -428,21 +455,6 @@ func missingResultHint(prog *ast.ProgBlock, want ast.BindingMarker) string {
 	return "; mark one with `:=`, or move a `(expr) ~> @ns.field` write last to make it the result"
 }
 
-// ─── legacy effect blocks ────────────────────────────────────────────────────
-
-// legacyEffectBlock reports a retired `prepare` or `merge` block and skips it.
-// Both directions are now written inline on the binding itself, which is the
-// only spelling: an entry naming a binding could disagree with the binding's own
-// inline clause, and one destination per binding is all either form expressed.
-func (p *parser) legacyEffectBlock(replacement string) {
-	t := p.advance() // consume the keyword
-	p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacyEffectBlock,
-		"%s blocks were retired; declare IO inline on the binding — %s", t.Value, replacement))
-	if p.peek().Kind == lexer.TokLBrace {
-		p.skipBlock()
-	}
-}
-
 // ─── parsePublishBlock ───────────────────────────────────────────────────────
 
 func (p *parser) parsePublishBlock() *ast.PublishBlock {
@@ -501,10 +513,6 @@ func (p *parser) parseNextBlock() []*ast.NextRule {
 			p.advance()
 			p.expect(lexer.TokEquals)
 			actionID = p.parseRefVal()
-		case lexer.TokKwPrepare:
-			p.legacyEffectBlock("write `name:type <~ action(binding)`, `<~ @ns.field`, or `<~ <literal>` in this transition's compute block")
-		case lexer.TokKwMerge:
-			p.legacyEffectBlock("a transition cannot write to STATE at all; move the write to the action's compute block")
 		case lexer.TokKwPublish:
 			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTransitionPublish,
 				"publish blocks are not allowed inside next { } transition blocks"))
@@ -545,12 +553,11 @@ func (p *parser) parseNextSugar(pos ast.Pos) *ast.NextRule {
 	head := p.parseRefVal()
 
 	if t := p.peek(); t.Kind != lexer.TokTransArrow {
-		// The `if` form this replaced is still what a reader reaches for, and
-		// `if` is a plain identifier to the lexer, so catch it by value and say
-		// what to write instead rather than reporting an unexpected token.
+		// `if` is a plain identifier to the lexer, so catch it by value: it
+		// reads as a guard, and reporting it as an unexpected identifier would
+		// leave its condition to parse as a binding of the enclosing action.
 		if t.Kind == lexer.TokIdent && t.Value == "if" {
-			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacyTransitionIf,
-				"the `next <action> if <condition>` form was removed; write `next <condition> -> <action>`"))
+			p.errorf(t, "unexpected if in next; write `next <condition> -> <action>`")
 			p.advance() // consume `if`
 			// Drop the trailing condition too, so the rest of the action still
 			// parses and the author sees every error in the file at once.

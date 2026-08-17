@@ -119,7 +119,7 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 | `UnsupportedConstruct` | Phase 2 loop construct (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 DSL file |
 | `DuplicateActionLabel` | Two `action` blocks with the same name label in one emitted HCL file |
 
-For all IO and transition error codes (`MissingBindingSource`, `LegacyEffectBlock`, `InvalidStatePath`, `TransitionPublish`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
+For all IO and transition error codes (`MissingBindingSource`, `InvalidStatePath`, `TransitionPublish`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
 
 ---
 
@@ -291,7 +291,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 | Turn DSL contains `range(n)` (Phase 2) | `UnsupportedConstruct` error, no HCL emitted |
 | Two `action` blocks with identical name labels | `DuplicateActionLabel` error |
 | Binding with no `<~` source and no computed RHS | `MissingBindingSource` error at convert time |
-| Retired `prepare` or `merge` block in the source | `LegacyEffectBlock` error naming the inline replacement |
+| Retired `prepare` or `merge` block in the source | `ParseSyntaxError`; the block is skipped whole |
 | `from_state = "foo..bar"` (empty segment) | `InvalidStatePath` error |
 | `div` binding result stored in `:number` field | Valid; `number` type accepts fractional results — authors may bind the result and use `.floor()` or `.round()` in a later expression if integer semantics are needed |
 | No transition rule condition holds | Enter terminal `completed` state |

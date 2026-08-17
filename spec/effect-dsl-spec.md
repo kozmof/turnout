@@ -19,7 +19,7 @@ action "score" {
 }
 ```
 
-Author-written `prepare` and `merge` blocks are retired (`LegacyEffectBlock`). Inline IO expresses every shape they did — a named computed output, a write-only result, a bidirectional binding, a hook source — and one destination per binding is the limit either spelling could express. `prepare` and `merge` survive only as the canonical HCL the converter emits and the runtime reads; §6 gives that shape. Canonical binding names never contain arrows.
+Author-written `prepare` and `merge` blocks are retired (`ParseSyntaxError`). Inline IO expresses every shape they did — a named computed output, a write-only result, a bidirectional binding, a hook source — and one destination per binding is the limit either spelling could express. `prepare` and `merge` survive only as the canonical HCL the converter emits and the runtime reads; §6 gives that shape. Canonical binding names never contain arrows.
 
 Because ingress has no other spelling, a bare `name:type` with no `<~` clause and no computed RHS has no value at all. It is rejected at parse time (`MissingBindingSource`) rather than lowered to the type's zero value.
 
@@ -54,6 +54,8 @@ state-path    ::= '@' IDENT ('.' IDENT)+
 ```
 
 A bare `name:type` declares no value and is invalid (`MissingBindingSource`). Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
+
+The grammar is newline-insensitive with one exception: an inline IO clause must continue the line its binding is on, rather than open a line of its own. This holds for `<~` and `~>` alike. Both arrows also led a binding in the retired spelling, so an arrow opening a line fits two readings — this binding's clause, and the next binding's sigil — which mean opposite things. The line settles it (`ParseSyntaxError`). For `~>` the anchor is where the value ends, which matters when the right-hand side spans lines; see §3.1.
 
 Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be referenced through `action(...)`. It may be the contextual compute result, but only as the last item of a block that has no `:=` at all; see §1.3.
 
@@ -149,6 +151,7 @@ name:type <~ @<in.path> ~> @<out.path>         # bidirectional
 
 - Egress belongs to the binding that produces the value; a pure-compute action declares none.
 - One destination per binding. Two `~>` clauses on one binding do not parse, and the lowered model rejects two entries for one binding.
+- The `~>` clause must be on the same line as the end of the value it writes from (§1.2). A right-hand side may span lines, and the clause follows its closing line; what it may not do is open a line of its own.
 
 Rule: `STATE[path] = state[binding]`
 
@@ -223,8 +226,8 @@ A `~>` output clause is rejected because transitions cannot write to STATE (`Tra
 - An inline input cannot also have a computed RHS.
 - A binding cannot declare two ingress or two egress clauses.
 - A transition cannot use `hook()` or declare output with `~>`, and cannot contain a `publish` block (`TransitionPublish`).
-- `prepare` and `merge` blocks are retired syntax and produce `LegacyEffectBlock`.
-- A leading arrow is retired syntax and produces `LegacySigilPosition`.
+- `prepare` and `merge` blocks are retired syntax and produce `ParseSyntaxError`.
+- A leading arrow is retired syntax and produces `ParseSyntaxError`.
 
 ## 6. Lowering Rules (Turn DSL → Canonical HCL)
 
@@ -304,7 +307,7 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | Error code | Trigger condition |
 |------------|------------------|
 | `MissingBindingSource` | A binding declares neither a `<~` source nor a computed RHS |
-| `LegacyEffectBlock` | A retired `prepare` or `merge` block appears in an action or a `next { }` transition |
+| `ParseSyntaxError` | Retired syntax appears in the source: a `prepare` or `merge` block in an action or a `next { }` transition, or an arrow before the binding name |
 | `TransitionPublish` | A `publish` block is present inside a `next { }` transition |
 | `TransitionHook` | `<~ hook(...)` appears inside a transition `compute` block |
 | `TransitionOutputSigil` | A `~> @state.path` output clause appears in a transition `compute` block |
@@ -344,13 +347,16 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 |------|--------------------|
 | Bare `income:number` with no `<~` clause and no RHS | `MissingBindingSource` |
 | `income:number :=` with nothing after the marker | `MissingBindingSource` |
-| `prepare { ... }` or `merge { ... }` in an action | `LegacyEffectBlock` naming the inline replacement |
-| `prepare { ... }` or `merge { ... }` inside a `next { }` block | `LegacyEffectBlock` |
+| `prepare { ... }` or `merge { ... }` in an action | `ParseSyntaxError`; the block is skipped whole |
+| `prepare { ... }` or `merge { ... }` inside a `next { }` block | `ParseSyntaxError` |
 | `publish { ... }` inside a `next { }` block | `TransitionPublish` |
 | `<~ hook("h")` inside a transition `compute` block | `TransitionHook` |
 | `phase:str = (expr) ~> @state.phase` or `(expr) ~> @state.phase` inside a transition `compute` block | `TransitionOutputSigil` |
 | `phase:str = expr ~> @state.phase` | `ParseSyntaxError` requiring the complete RHS to be parenthesized |
 | `phase:str = (expr)` | `ParseSyntaxError`; top-level parentheses are reserved for egress |
+| `~> @state.phase` opening its own line, below the binding it writes from | `ParseSyntaxError`; the clause continues the line its value ends on |
+| `~> @state.phase` following a multi-line RHS, on the line that closes it | Valid; the anchor is where the value ends, not where the binding starts |
+| `<~ @state.phase` opening its own line, below the binding it feeds | `ParseSyntaxError`; the clause continues its binding's line |
 | `~> @nodot` (single segment) | `InvalidStatePath` |
 | `<~ 300` at action level | `ParseSyntaxError`; write `name:number = 300` |
 | Action with ingress only | Valid — it may read without writing |

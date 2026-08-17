@@ -288,23 +288,131 @@ func TestParseInlineIOSigils(t *testing.T) {
 	}
 }
 
-// TestParseLegacySigilPositionReported covers the migration guard: a leading
-// sigil is the pre-v2 spelling, and because the arrows inverted a mis-migrated
-// file could otherwise parse while meaning the opposite thing.
-func TestParseLegacySigilPositionReported(t *testing.T) {
+// TestParseLeadingSigilRejected covers a sigil written before the binding name.
+// The sigil follows the binding it applies to, so the leading position is a
+// syntax error like any other.
+func TestParseLeadingSigilRejected(t *testing.T) {
 	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
     compute "p" {
       ~>a:number :=
     }
   }`))
-	found := false
+	if !hasSyntaxError(ds, "unexpected ~> before binding name") {
+		t.Errorf("want leading-sigil syntax error, got %v", ds)
+	}
+}
+
+// TestParseLeadingSigilAfterBinding covers the same spelling one line down.
+// `~>` is also this DSL's egress clause and the grammar is newline-insensitive,
+// so a leading arrow here could be read as the previous binding's egress and
+// reported against a binding its author never wrote.
+func TestParseLeadingSigilAfterBinding(t *testing.T) {
+	src := minimalTurnFile(`  action "a" {
+    compute "p" {
+      x:number = 5
+      ~>out:bool = true
+      d:bool := true
+    }
+  }`)
+	_, ds := parser.ParseFile("test.tu", src)
+	if !hasSyntaxError(ds, "unexpected ~> before binding name") {
+		t.Fatalf("want leading-sigil syntax error, got %v", ds)
+	}
+	wantLine := lineOf(t, src, "~>out:bool")
 	for _, d := range ds {
-		if d.Code == diag.CodeLegacySigilPosition {
-			found = true
+		if d.Line != wantLine {
+			t.Errorf("diagnostic %q on line %d, want all on line %d (the arrow)", d.Message, d.Line, wantLine)
 		}
 	}
-	if !found {
-		t.Errorf("want LegacySigilPosition, got %v", ds)
+}
+
+// TestParseEgressOnOwnLine covers `~> @ns.field` opening a line. Both readings
+// fit it — this binding's destination, or the retired leading sigil of the next
+// binding — and they mean opposite things, so it is reported rather than
+// silently attached to the binding above.
+func TestParseEgressOnOwnLine(t *testing.T) {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute "p" {
+      d:bool := (true)
+      ~> @ns.val
+    }
+  }`))
+	if !hasSyntaxError(ds, "must be on the same line as the binding it writes from") {
+		t.Errorf("want same-line egress error, got %v", ds)
+	}
+}
+
+// TestParseEgressAfterMultilineRHS pins what the same-line rule anchors on: the
+// line the binding's value ends on, not the line it starts on. An RHS may span
+// lines, and the arrow still follows it.
+func TestParseEgressAfterMultilineRHS(t *testing.T) {
+	tf := mustParse(t, minimalTurnFile(`  action "a" {
+    compute "p" {
+      x:number = 5
+      d:number := (pipe(
+        x,
+        max(#it, 0)
+      )) ~> @ns.val
+    }
+  }`))
+	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
+	last := bindings[len(bindings)-1]
+	if last.Egress == nil || last.Egress.Path != "ns.val" {
+		t.Errorf("binding %q egress = %v, want @ns.val", last.Name, last.Egress)
+	}
+}
+
+// TestParseIngressOnOwnLine is the ingress half of the same-line rule. A source
+// opening a line reads both as this binding's source and as the leading sigil
+// of the next one, so it is reported rather than silently attached.
+func TestParseIngressOnOwnLine(t *testing.T) {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute "p" {
+      a:number
+      <~ @ns.val
+      d:bool := true
+    }
+  }`))
+	if !hasSyntaxError(ds, "must be on the same line as the binding it feeds") {
+		t.Errorf("want same-line ingress error, got %v", ds)
+	}
+}
+
+// TestParseLeadingIngressSigilAfterBinding covers the retired spelling one line
+// below a binding that would otherwise take the arrow as its own source: no
+// ingress source is a bare identifier, so `<~ name:type` belongs to the binding
+// it names.
+func TestParseLeadingIngressSigilAfterBinding(t *testing.T) {
+	src := minimalTurnFile(`  action "a" {
+    compute "p" {
+      a:number
+      <~debt:number
+      d:bool := true
+    }
+  }`)
+	_, ds := parser.ParseFile("test.tu", src)
+	if !hasSyntaxError(ds, "unexpected <~ before binding name") {
+		t.Fatalf("want leading-sigil syntax error, got %v", ds)
+	}
+	wantLine := lineOf(t, src, "<~debt:number")
+	for _, d := range ds {
+		if d.Code == diag.CodeParseSyntaxError && d.Line != wantLine {
+			t.Errorf("syntax error %q on line %d, want line %d (the arrow)", d.Message, d.Line, wantLine)
+		}
+	}
+}
+
+// TestParseEgressMissingStatePath keeps the arrow attached to its own binding
+// when what follows is not a binding at all: a missing `@` is this binding's
+// typo, not the next binding's sigil.
+func TestParseEgressMissingStatePath(t *testing.T) {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute "p" {
+      d:bool := (true) ~> ns.val
+    }
+  }`))
+	if !hasSyntaxError(ds, "expected a state path after ~>") {
+		t.Errorf("want missing-state-path syntax error, got %v", ds)
 	}
 }
 
@@ -323,8 +431,10 @@ func TestParseBareInputDeclaration(t *testing.T) {
 	}
 }
 
-// TestParseRetiredEffectBlocks covers both retired blocks. The keywords survive
-// only to carry this diagnostic, which has to name the inline replacement.
+// TestParseRetiredEffectBlocks covers both retired blocks, in an action and in
+// a transition. No parser rule accepts them, so each falls to its block's
+// default branch and is skipped whole — one diagnostic, nothing trailing from
+// the entries inside.
 func TestParseRetiredEffectBlocks(t *testing.T) {
 	t.Run("prepare", func(t *testing.T) {
 		_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
@@ -336,8 +446,8 @@ func TestParseRetiredEffectBlocks(t *testing.T) {
       a { from_state = ns.val }
     }
   }`))
-		if !hasDiagCode(ds, diag.CodeLegacyEffectBlock) {
-			t.Errorf("want LegacyEffectBlock, got %v", ds)
+		if !hasSyntaxError(ds, "unexpected token prepare") {
+			t.Errorf("want prepare-block syntax error, got %v", ds)
 		}
 	})
 
@@ -350,8 +460,8 @@ func TestParseRetiredEffectBlocks(t *testing.T) {
       d { to_state = ns.val }
     }
   }`))
-		if !hasDiagCode(ds, diag.CodeLegacyEffectBlock) {
-			t.Errorf("want LegacyEffectBlock, got %v", ds)
+		if !hasSyntaxError(ds, "unexpected token merge") {
+			t.Errorf("want merge-block syntax error, got %v", ds)
 		}
 	})
 
@@ -364,8 +474,8 @@ func TestParseRetiredEffectBlocks(t *testing.T) {
       action = a
     }
   }`))
-		if !hasDiagCode(ds, diag.CodeLegacyEffectBlock) {
-			t.Errorf("want LegacyEffectBlock, got %v", ds)
+		if !hasSyntaxError(ds, "unexpected token prepare") {
+			t.Errorf("want prepare-block syntax error, got %v", ds)
 		}
 	})
 }

@@ -187,16 +187,16 @@ func TestNextSugarMissingTarget(t *testing.T) {
   }`))
 }
 
-// TestNextSugarLegacyIfForm covers the removed `next X if cond` spelling. It
-// must name its replacement rather than report an unexpected token, since every
-// pre-arrow source hits this path.
-func TestNextSugarLegacyIfForm(t *testing.T) {
+// TestNextSugarIfForm covers `next X if cond`, which is not the guard spelling.
+// It is caught by value so its condition does not go on to parse as a binding
+// of the enclosing action.
+func TestNextSugarIfForm(t *testing.T) {
 	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
     compute "p" { ready:bool := true }
     next b if ready
   }`))
-	if !hasParserDiagCode(ds, diag.CodeLegacyTransitionIf) {
-		t.Fatalf("want LegacyTransitionIf diagnostic, got %v", ds)
+	if !hasSyntaxError(ds, "unexpected if in next") {
+		t.Fatalf("want if-form syntax error, got %v", ds)
 	}
 }
 

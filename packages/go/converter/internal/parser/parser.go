@@ -86,6 +86,16 @@ func (p *parser) posOf(t lexer.Token) ast.Pos {
 	return ast.Pos{File: p.file, Line: t.Line, Col: t.Col}
 }
 
+// continuesLine reports whether t sits on the same source line as the token
+// before the cursor. The grammar is otherwise newline-insensitive; this is for
+// the few clauses that must stay attached to what precedes them.
+func (p *parser) continuesLine(t lexer.Token) bool {
+	if p.pos == 0 {
+		return false
+	}
+	return p.tokens[p.pos-1].Line == t.Line
+}
+
 // errorf appends a parse-syntax-error diagnostic.
 func (p *parser) errorf(t lexer.Token, format string, args ...any) {
 	p.errorWithCode(t, diag.CodeParseSyntaxError, format, args...)

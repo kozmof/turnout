@@ -66,9 +66,9 @@ const (
 	TokKwScene
 	TokKwAction
 	TokKwCompute
-	// prepare and merge are retired surface syntax. They keep their keyword so a
-	// file still carrying the blocks gets a named diagnostic naming the inline
-	// replacement rather than an unexpected-identifier error; nothing parses them.
+	// prepare and merge are retired surface syntax. They keep their keyword so
+	// the diagnostic names the block rather than an identifier, and so neither
+	// can be taken for a binding name; no parser rule accepts them.
 	TokKwPrepare
 	TokKwMerge
 	TokKwPublish

@@ -106,8 +106,8 @@ scene "test" {
     }
   }
 }`,
-			wantCode:   "LegacyEffectBlock",
-			wantSubstr: "declare IO inline on the binding",
+			wantCode:   "ParseSyntaxError",
+			wantSubstr: "unexpected token prepare",
 		},
 		{
 			name: "invalid_route_path_prefix",
@@ -158,11 +158,10 @@ scene "test" {
 	}
 }
 
-// TestParseLegacyProgBlock covers the pre-merge nested prog spelling at both
-// compute sites. The nested block is rejected with a message
-// naming its replacement, and skipped cleanly — one diagnostic, with no syntax
-// errors trailing from the skipped bindings.
-func TestParseLegacyProgBlock(t *testing.T) {
+// TestParseNestedProgBlock covers a prog block nested inside compute at both
+// compute sites. It is rejected and skipped cleanly — one diagnostic, with no
+// syntax errors trailing from the skipped bindings.
+func TestParseNestedProgBlock(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct {
@@ -209,11 +208,10 @@ func TestParseLegacyProgBlock(t *testing.T) {
 			if len(ds) != 1 {
 				t.Fatalf("diag count = %d, want 1: %v", len(ds), ds)
 			}
-			if ds[0].Code != diag.CodeLegacyProgBlock {
-				t.Fatalf("diagnostic code = %q, want %q", ds[0].Code, diag.CodeLegacyProgBlock)
+			if ds[0].Code != diag.CodeParseSyntaxError {
+				t.Fatalf("diagnostic code = %q, want %q", ds[0].Code, diag.CodeParseSyntaxError)
 			}
-			// The message names the replacement, reusing the prog's own label.
-			if want := `compute "score_graph"`; !strings.Contains(ds[0].Message, want) {
+			if want := "unexpected prog block inside compute"; !strings.Contains(ds[0].Message, want) {
 				t.Fatalf("diagnostic = %q, want substring %q", ds[0].Message, want)
 			}
 			wantLine := lineOf(t, tc.src, `prog "score_graph"`)
@@ -277,6 +275,18 @@ func lineOf(t *testing.T, src, want string) int {
 	}
 	t.Fatalf("source does not contain %q", want)
 	return 0
+}
+
+// hasSyntaxError reports whether ds holds a ParseSyntaxError whose message
+// contains want. Retired syntax is reported as an ordinary syntax error, so the
+// message is what tells it apart from any other error on the same input.
+func hasSyntaxError(ds diag.Diagnostics, want string) bool {
+	for _, d := range ds {
+		if d.Code == diag.CodeParseSyntaxError && strings.Contains(d.Message, want) {
+			return true
+		}
+	}
+	return false
 }
 
 func hasDiagCode(ds diag.Diagnostics, want diag.ErrorCode) bool {

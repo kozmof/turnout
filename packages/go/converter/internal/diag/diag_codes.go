@@ -30,11 +30,7 @@ const (
 	// CodeDuplicateProg applies to the canonical ContextSpec layer, where a
 	// file may hold at most one prog block. The Turn DSL surface cannot express
 	// it: prog is not a surface block, it is the compute label.
-	CodeDuplicateProg ErrorCode = "DuplicateProg"
-	// CodeLegacyProgBlock reports the pre-merge spelling that nested a prog
-	// block inside compute. The two blocks were merged: the prog label is now
-	// the compute label.
-	CodeLegacyProgBlock       ErrorCode = "LegacyProgBlock"
+	CodeDuplicateProg         ErrorCode = "DuplicateProg"
 	CodeDuplicateBinding      ErrorCode = "DuplicateBinding"
 	CodeReservedName          ErrorCode = "ReservedName"
 	CodeUnknownFnAlias        ErrorCode = "UnknownFnAlias"
@@ -93,18 +89,9 @@ const (
 	// IO is the only spelling for ingress, so a binding with neither a `<~`
 	// source nor a computed RHS has no value; lowering would hand it the type's
 	// zero value instead of failing.
-	CodeMissingBindingSource ErrorCode = "MissingBindingSource"
-	CodeTransitionPublish    ErrorCode = "TransitionPublish"
-	CodeTransitionHook       ErrorCode = "TransitionHook"
-	// CodeLegacySigilPosition is emitted when a sigil appears before the binding
-	// name, the pre-v2 spelling. It is its own code because a mis-migrated file
-	// can still parse: the arrows inverted when they moved to infix position
-	// (NEW_SYNTAX.md 3), so a generic syntax error would understate the risk.
-	CodeLegacySigilPosition ErrorCode = "LegacySigilPosition"
-	// CodeLegacyEffectBlock is emitted for a `prepare` or `merge` block. Both
-	// were retired once inline IO covered every shape they expressed; the
-	// keywords survive only so the diagnostic can name the inline replacement.
-	CodeLegacyEffectBlock     ErrorCode = "LegacyEffectBlock"
+	CodeMissingBindingSource  ErrorCode = "MissingBindingSource"
+	CodeTransitionPublish     ErrorCode = "TransitionPublish"
+	CodeTransitionHook        ErrorCode = "TransitionHook"
 	CodeTransitionOutputSigil ErrorCode = "TransitionOutputSigil"
 	// CodeSigilPositionLoss is a warning emitted when Validate is called with a nil
 	// sidecar but the model contains sigil bindings. Sigil-related diagnostics will
@@ -145,9 +132,6 @@ const (
 	CodeNextComputeNotBool       ErrorCode = "NextComputeNotBool"
 	CodeNextIngressSourceInvalid ErrorCode = "NextIngressSourceInvalid"
 	CodeActionTextDuplicate      ErrorCode = "ActionTextDuplicate"
-	// CodeLegacyTransitionIf is emitted when a transition uses the removed
-	// `next <action> if <condition>` form instead of `next <condition> -> <action>`.
-	CodeLegacyTransitionIf ErrorCode = "LegacyTransitionIf"
 	// CodeNextMatchArity is emitted when an arm of `next on (...) match { }`
 	// carries a different number of pattern elements than the subject list.
 	CodeNextMatchArity ErrorCode = "NextMatchArity"
