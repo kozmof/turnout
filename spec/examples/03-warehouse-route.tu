@@ -238,7 +238,7 @@ route "fulfilment" {
   entry = picking
 
   match {
-    # direct two-segment path: the scene's block is exactly this one action
+    # direct two-segment path: the whole scene block is exactly this one action
     picking.pick_short => shipping,
 
     # single wildcard: any number of actions, ending at this one

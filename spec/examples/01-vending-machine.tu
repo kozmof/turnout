@@ -60,7 +60,7 @@ scene "vend" {
     }
 
     # Guard first, so the line reads in evaluation order. `can_vend` must be a
-    # plain bool binding of this action's own compute block.
+    # plain bool binding from the compute block of this same action.
     next can_vend -> dispense
 
     # No condition at all: the fallthrough, taken when the guard above is false.
@@ -82,7 +82,7 @@ scene "vend" {
       (stock_count - 1) ~> @machine.stock_count
       (coin_balance - price) ~> @machine.coin_balance
 
-      # The last one is also this action's result. A block with no `:=` at all
+      # The last one is also the result of this action. A block with no `:=` at all
       # promotes its trailing write, so this line means
       # `__result:bool := (true) ~> @machine.dispensed` — worth spelling out only
       # when something reads the result by name, as `check_availability` above

@@ -67,7 +67,7 @@ scene "ticket_intake" {
       serial: integer = last_serial + 1
 
       # Construction by type name. Every capture must be supplied, and each
-      # value must satisfy that capture's declared type. This lowers to the
+      # value must satisfy the declared type of that capture. This lowers to the
       # decoded string "TKT-technical-4471" without any string reparsing.
       reference: TicketRef = TicketRef {
         queue = queue

@@ -95,7 +95,7 @@ scene "incident_response" {
     # ── the transition match block ─────────────────────────────────────────
     #
     # Five arms, evaluated in order. A `_` column is not read at all, so the
-    # third arm's generated transition reads only `tier`.
+    # transition generated for the third arm reads only `tier`.
     next on (tier, blast, customer_facing) match {
       ("critical", "wide",      true)  => page_leadership,
       ("critical", "contained", true)  => page_oncall,
@@ -139,7 +139,7 @@ scene "incident_response" {
     # sources at once — a hook is the one source a transition cannot use.
     next {
       compute "to_ticket" {
-        severity:number <~ action(severity)     # from this action's compute
+        severity:number <~ action(severity)     # from the compute above
         ticket_floor:number <~ 6                # a literal
         paged:bool <~ @triage.paged             # post-merge STATE
         go:bool := severity >= ticket_floor & paged
