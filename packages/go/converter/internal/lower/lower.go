@@ -525,13 +525,9 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 	case *ast.LiteralRHS:
 		bindings = []*turnoutpb.BindingModel{lowerLiteralRHS(name, ft, rhs)}
 	case *ast.SigilInputRHS:
-		// Ingress: same "resolve or error" behavior as old PlaceholderRHS.
-		// Bidirectional IO uses the bidirectional-specific missing-prepare diagnostic.
-		if decl.Sigil == ast.SigilBiDir {
-			bindings = []*turnoutpb.BindingModel{lowerBiDirInputRHS(name, ft, decl.Pos, resolver, ds)}
-		} else {
-			bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
-		}
+		// Ingress: the binding's value arrives from its `<~` source, so what is
+		// lowered here is the default the graph starts from.
+		bindings = []*turnoutpb.BindingModel{lowerPlaceholderRHS(name, ft, decl.Pos, resolver, ds)}
 	case *ast.SingleRefRHS:
 		bm := lowerSingleRefRHS(name, ft, rhs)
 		if bm == nil {

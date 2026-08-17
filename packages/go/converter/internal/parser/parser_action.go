@@ -148,6 +148,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 
 	var rhs ast.BindingRHS
 	wrappedEgressRHS := false
+	bare := false
 	if ingress != nil {
 		// An ingress binding takes its value from the source, so a RHS would be
 		// a second, conflicting definition.
@@ -157,15 +158,21 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 			p.parseRHS() // consume and discard
 		}
 		rhs = &ast.SigilInputRHS{}
-	} else if !result && p.peek().Kind != lexer.TokEquals {
-		// A bare `name:type` is an input declaration whose source lives in the
-		// action's prepare block. With the prefix sigils retired, this is what the
-		// block form looks like; a missing prepare entry is caught downstream by
-		// the same check that always covered it.
+	} else if (!result && p.peek().Kind != lexer.TokEquals) ||
+		(result && p.peek().Kind == lexer.TokRBrace) {
+		// A bare `name:type` used to be an input fed by the action's prepare
+		// block. With the blocks retired it has no source at all, and lowering
+		// would give it the type's zero value — a silent wrong answer at runtime
+		// rather than a parse failure. Name it here, where the position is exact.
+		bare = true
 		rhs = &ast.SigilInputRHS{}
-	} else if result && p.peek().Kind == lexer.TokRBrace {
-		// A block-backed input may be the compute result without an inline source.
-		rhs = &ast.SigilInputRHS{}
+		source := "`<~ @ns.field` or `<~ hook(\"name\")`"
+		if p.inNextCompute {
+			source = "`<~ action(binding)`, `<~ @ns.field`, or `<~ <literal>`"
+		}
+		p.Append(diag.ErrorAt(p.file, pos.Line, pos.Col, diag.CodeMissingBindingSource,
+			"binding %q has no value: give it a source with %s, or compute one with `= expr`",
+			nameTok.Value, source))
 	} else {
 		if !result {
 			p.expect(lexer.TokEquals)
@@ -185,7 +192,7 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	if result {
 		assignment = ":="
 	}
-	if egress != nil && !wrappedEgressRHS && ingress == nil {
+	if egress != nil && !wrappedEgressRHS && ingress == nil && !bare {
 		p.Append(diag.ErrorAt(p.file, egress.Pos.Line, egress.Pos.Col, diag.CodeParseSyntaxError,
 			"computed egress binding %q must parenthesize its complete RHS; write `%s:%s %s (expr) ~> @state.path`",
 			nameTok.Value, nameTok.Value, ft, assignment))
@@ -352,122 +359,19 @@ func (p *parser) deriveMarker(prog *ast.ProgBlock, want ast.BindingMarker) strin
 	return m.Name
 }
 
-// ─── parsePrepareBlock (action level) ────────────────────────────────────────
+// ─── legacy effect blocks ────────────────────────────────────────────────────
 
-func (p *parser) parsePrepareBlock() *ast.PrepareBlock {
-	kwTok, _ := p.expect(lexer.TokKwPrepare)
-	pos := p.posOf(kwTok)
-	p.expect(lexer.TokLBrace)
-
-	var entries []*ast.PrepareEntry
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		t := p.peek()
-		if t.Kind != lexer.TokIdent {
-			p.errorf(t, "expected binding name in prepare block, got %s", kindName(t.Kind))
-			p.advance()
-			if p.peek().Kind == lexer.TokLBrace {
-				p.skipBlock()
-			}
-			continue
-		}
-		nameTok := p.advance()
-		entryPos := p.posOf(nameTok)
-		p.expect(lexer.TokLBrace)
-
-		var src ast.ActionPrepareSource
-		for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-			fk := p.peek()
-			switch fk.Kind {
-			case lexer.TokKwFromState:
-				p.advance()
-				p.expect(lexer.TokEquals)
-				val := p.parseRefVal()
-				if src != nil {
-					p.Append(diag.ErrorAt(p.file, fk.Line, fk.Col, diag.CodeInvalidPrepareSource,
-						"prepare entry %q already has a source; only one of from_state or from_hook is allowed", nameTok.Value))
-				} else {
-					src = &ast.FromState{Pos: p.posOf(fk), Path: val}
-				}
-			case lexer.TokKwFromHook:
-				p.advance()
-				p.expect(lexer.TokEquals)
-				hookTok, _ := p.expect(lexer.TokStringLit)
-				if src != nil {
-					p.Append(diag.ErrorAt(p.file, fk.Line, fk.Col, diag.CodeInvalidPrepareSource,
-						"prepare entry %q already has a source; only one of from_state or from_hook is allowed", nameTok.Value))
-				} else {
-					src = &ast.FromHook{Pos: p.posOf(fk), HookName: hookTok.Value}
-				}
-			case lexer.TokKwFromLiteral:
-				p.errorf(fk, "from_literal is not allowed in action-level prepare; use from_state or from_hook")
-				p.advance()
-				p.expect(lexer.TokEquals)
-				p.parseLiteral() // consume and discard
-			default:
-				p.errorf(fk, "unexpected token %s in prepare entry", kindName(fk.Kind))
-				p.syncToBlockItem(lexer.TokKwFromState, lexer.TokKwFromHook, lexer.TokKwFromLiteral)
-			}
-		}
-		p.expect(lexer.TokRBrace)
-
-		if src == nil {
-			p.errorf(nameTok, "prepare entry %q has no source (from_state or from_hook)", nameTok.Value)
-			src = &ast.FromState{}
-		}
-		entries = append(entries, &ast.PrepareEntry{
-			Pos:         entryPos,
-			BindingName: nameTok.Value,
-			Source:      src,
-		})
+// legacyEffectBlock reports a retired `prepare` or `merge` block and skips it.
+// Both directions are now written inline on the binding itself, which is the
+// only spelling: an entry naming a binding could disagree with the binding's own
+// inline clause, and one destination per binding is all either form expressed.
+func (p *parser) legacyEffectBlock(replacement string) {
+	t := p.advance() // consume the keyword
+	p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeLegacyEffectBlock,
+		"%s blocks were retired; declare IO inline on the binding — %s", t.Value, replacement))
+	if p.peek().Kind == lexer.TokLBrace {
+		p.skipBlock()
 	}
-	p.expect(lexer.TokRBrace)
-	return &ast.PrepareBlock{Pos: pos, Entries: entries}
-}
-
-// ─── parseMergeBlock ─────────────────────────────────────────────────────────
-
-func (p *parser) parseMergeBlock() *ast.MergeBlock {
-	kwTok, _ := p.expect(lexer.TokKwMerge)
-	pos := p.posOf(kwTok)
-	p.expect(lexer.TokLBrace)
-
-	var entries []*ast.MergeEntry
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		t := p.peek()
-		if t.Kind != lexer.TokIdent {
-			p.errorf(t, "expected binding name in merge block, got %s", kindName(t.Kind))
-			p.advance()
-			if p.peek().Kind == lexer.TokLBrace {
-				p.skipBlock()
-			}
-			continue
-		}
-		nameTok := p.advance()
-		entryPos := p.posOf(nameTok)
-		p.expect(lexer.TokLBrace)
-
-		var toState string
-		for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-			fk := p.peek()
-			if fk.Kind == lexer.TokKwToState {
-				p.advance()
-				p.expect(lexer.TokEquals)
-				toState = p.parseRefVal()
-			} else {
-				p.errorf(fk, "unexpected token %s in merge entry", kindName(fk.Kind))
-				p.syncToBlockItem(lexer.TokKwToState)
-			}
-		}
-		p.expect(lexer.TokRBrace)
-
-		entries = append(entries, &ast.MergeEntry{
-			Pos:         entryPos,
-			BindingName: nameTok.Value,
-			ToState:     toState,
-		})
-	}
-	p.expect(lexer.TokRBrace)
-	return &ast.MergeBlock{Pos: pos, Entries: entries}
 }
 
 // ─── parsePublishBlock ───────────────────────────────────────────────────────
@@ -517,7 +421,6 @@ func (p *parser) parseNextBlock() []*ast.NextRule {
 	}
 
 	var compute *ast.NextComputeBlock
-	var prepare *ast.NextPrepareBlock
 	var actionID string
 
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
@@ -525,15 +428,17 @@ func (p *parser) parseNextBlock() []*ast.NextRule {
 		switch t.Kind {
 		case lexer.TokKwCompute:
 			compute = p.parseNextComputeBlock()
-		case lexer.TokKwPrepare:
-			prepare = p.parseNextPrepareBlock()
 		case lexer.TokKwAction:
 			p.advance()
 			p.expect(lexer.TokEquals)
 			actionID = p.parseRefVal()
-		case lexer.TokKwMerge, lexer.TokKwPublish:
-			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTransitionMerge,
-				"merge and publish blocks are not allowed inside next { } transition blocks"))
+		case lexer.TokKwPrepare:
+			p.legacyEffectBlock("write `name:type <~ action(binding)`, `<~ @ns.field`, or `<~ <literal>` in this transition's compute block")
+		case lexer.TokKwMerge:
+			p.legacyEffectBlock("a transition cannot write to STATE at all; move the write to the action's compute block")
+		case lexer.TokKwPublish:
+			p.Append(diag.ErrorAt(p.file, t.Line, t.Col, diag.CodeTransitionPublish,
+				"publish blocks are not allowed inside next { } transition blocks"))
 			p.advance() // consume the keyword
 			if p.peek().Kind == lexer.TokLBrace {
 				p.skipBlock()
@@ -545,7 +450,7 @@ func (p *parser) parseNextBlock() []*ast.NextRule {
 	}
 	p.expect(lexer.TokRBrace)
 
-	return []*ast.NextRule{{Pos: pos, Compute: compute, Prepare: prepare, ActionID: actionID}}
+	return []*ast.NextRule{{Pos: pos, Compute: compute, ActionID: actionID}}
 }
 
 // parseNextSugar parses `next <action>` and `next <cond> -> <action>`, expanding
@@ -657,67 +562,4 @@ func (p *parser) parseNextComputeBlock() *ast.NextComputeBlock {
 	prog := p.parseProgBody(pos, nameTok.Value)
 	condition := p.deriveMarker(prog, ast.MarkerCond)
 	return &ast.NextComputeBlock{Pos: pos, Condition: condition, Prog: prog}
-}
-
-func (p *parser) parseNextPrepareBlock() *ast.NextPrepareBlock {
-	kwTok, _ := p.expect(lexer.TokKwPrepare)
-	pos := p.posOf(kwTok)
-	p.expect(lexer.TokLBrace)
-
-	var entries []*ast.NextPrepareEntry
-	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-		t := p.peek()
-		if t.Kind != lexer.TokIdent {
-			p.errorf(t, "expected binding name in next prepare block, got %s", kindName(t.Kind))
-			p.advance()
-			if p.peek().Kind == lexer.TokLBrace {
-				p.skipBlock()
-			}
-			continue
-		}
-		nameTok := p.advance()
-		entryPos := p.posOf(nameTok)
-		p.expect(lexer.TokLBrace)
-
-		var src ast.NextPrepareSource
-		for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
-			fk := p.peek()
-			switch fk.Kind {
-			case lexer.TokKwFromAction:
-				p.advance()
-				p.expect(lexer.TokEquals)
-				src = &ast.FromAction{Pos: p.posOf(fk), BindingName: p.parseRefVal()}
-			case lexer.TokKwFromState:
-				p.advance()
-				p.expect(lexer.TokEquals)
-				src = &ast.FromState{Pos: p.posOf(fk), Path: p.parseRefVal()}
-			case lexer.TokKwFromLiteral:
-				p.advance()
-				p.expect(lexer.TokEquals)
-				src = &ast.FromLiteral{Pos: p.posOf(fk), Value: p.parseLiteral()}
-			case lexer.TokKwFromHook:
-				p.Append(diag.ErrorAt(p.file, fk.Line, fk.Col, diag.CodeTransitionHook,
-					"from_hook is not allowed inside transition prepare blocks; use from_state, from_action, or from_literal"))
-				p.advance() // consume from_hook
-				p.expect(lexer.TokEquals)
-				p.advance() // consume the hook name value
-			default:
-				p.errorf(fk, "unexpected token %s in next prepare entry", kindName(fk.Kind))
-				p.syncToBlockItem(lexer.TokKwFromAction, lexer.TokKwFromState, lexer.TokKwFromLiteral)
-			}
-		}
-		p.expect(lexer.TokRBrace)
-
-		if src == nil {
-			p.errorf(nameTok, "next prepare entry %q has no source", nameTok.Value)
-			src = &ast.FromState{}
-		}
-		entries = append(entries, &ast.NextPrepareEntry{
-			Pos:         entryPos,
-			BindingName: nameTok.Value,
-			Source:      src,
-		})
-	}
-	p.expect(lexer.TokRBrace)
-	return &ast.NextPrepareBlock{Pos: pos, Entries: entries}
 }

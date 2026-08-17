@@ -349,32 +349,6 @@ func lowerWithErrors(t *testing.T, src string) diag.Diagnostics {
 	return ds2
 }
 
-func TestLowerPrepareMissingEntry(t *testing.T) {
-	// x:number = _ with no prepare entry → CodeMissingPrepareEntry
-	src := `state {
-  app { x:number = 0 }
-}
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      x:number :=
-    }
-  }
-}`
-	ds := lowerWithErrors(t, src)
-	found := false
-	for _, d := range ds {
-		if d.Code == diag.CodeMissingPrepareEntry {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("want MissingPrepareEntry diagnostic, got: %v", ds)
-	}
-}
-
 func TestLowerPrepareFromStateNotFound(t *testing.T) {
 	// from_state pointing to nonexistent path → CodeUnresolvedStatePath
 	src := `state {
@@ -398,37 +372,6 @@ scene "test" {
 	}
 	if !found {
 		t.Errorf("want UnresolvedStatePath diagnostic, got: %v", ds)
-	}
-}
-
-func TestLowerTransitionPrepareMissingEntry(t *testing.T) {
-	// score:number = _ in next compute with no next prepare → CodeMissingPrepareEntry
-	src := `state {
-  app { score:number = 0 }
-}
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" { r:bool := true }
-    next {
-      compute "n" {
-        score:number
-        go:bool := true
-      }
-      action = a
-    }
-  }
-}`
-	ds := lowerWithErrors(t, src)
-	found := false
-	for _, d := range ds {
-		if d.Code == diag.CodeMissingPrepareEntry {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("want MissingPrepareEntry diagnostic, got: %v", ds)
 	}
 }
 
@@ -506,32 +449,6 @@ func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
 				"want it defined before this binding (topological order violation)",
 				i, b.Name, elseRef, elseIdx, i)
 		}
-	}
-}
-
-func TestLowerBidirMissingPrepareUsesBidirDiagnostic(t *testing.T) {
-	src := `state {
-  app { score:number = 0 }
-}
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number :=
-    }
-    merge {
-      score { to_state = app.score }
-    }
-  }
-}`
-	// A binding is bidirectional only when it has both an input and an output.
-	// With the prefix sigils retired (NEW_SYNTAX.md 3), direction is derived from
-	// the inline clauses or the prepare/merge entries, so a binding with only a
-	// merge entry is plain egress — and reaching STATE for its initial value is
-	// the ordinary missing-prepare case, not a bidirectional one.
-	ds := lowerWithErrors(t, src)
-	if !hasLowerDiagCode(ds, diag.CodeMissingPrepareEntry) {
-		t.Fatalf("want MissingPrepareEntry diagnostic, got %v", ds)
 	}
 }
 

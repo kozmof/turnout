@@ -86,22 +86,14 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 
 	cases := []irrCase{
 		{
-			name: "missing_prepare_entry",
+			name: "prepare_entry_invalid_path",
 			bindings: []irrBind{
-				{name: "score", ft: ast.FieldTypeNumber, sigil: ast.SigilIngress, val: structpb.NewNumberValue(0)},
-			},
-			wantCode: diag.CodeMissingPrepareEntry,
-		},
-		{
-			name: "spurious_prepare_entry_and_invalid_path",
-			bindings: []irrBind{
-				{name: "plain", ft: ast.FieldTypeNumber, val: structpb.NewNumberValue(0)},
+				{name: "plain", ft: ast.FieldTypeNumber, sigil: ast.SigilIngress, val: structpb.NewNumberValue(0)},
 			},
 			prepare: []*turnoutpb.PrepareEntry{
 				{Binding: "plain", FromState: proto.String("bad")},
 			},
-			wantCode: diag.CodeSpuriousPrepareEntry,
-			extra:    diag.CodeInvalidStatePath,
+			wantCode: diag.CodeInvalidStatePath,
 		},
 		{
 			name: "state_type_mismatch",
@@ -112,11 +104,6 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 				{Binding: "flag", ToState: "app.score"},
 			},
 			wantCode: diag.CodeStateTypeMismatch,
-		},
-		{
-			name:     "unresolved_merge_binding",
-			merge:    []*turnoutpb.MergeEntry{{Binding: "ghost", ToState: "app.score"}},
-			wantCode: diag.CodeUnresolvedMergeBinding,
 		},
 	}
 

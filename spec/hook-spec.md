@@ -1,18 +1,18 @@
 # Hook Specification — Turn DSL
 
 > Status: Draft for implementation
-> Scope: Turn DSL `prepare.from_hook` and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
+> Scope: Turn DSL `<~ hook(...)` ingress and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
 
 ---
 
 ## Overview
 
-A hook is a named extension point declared inside an action's `prepare` or `publish` section. It lets consumers inject TypeScript logic at fixed points in the action execution lifecycle.
+A hook is a named extension point. It lets consumers inject TypeScript logic at fixed points in the action execution lifecycle.
 
-- Prepare hooks (`prepare { <binding> { from_hook = "<name>" } }`) — fire before the compute graph runs. The hook returns an object whose fields are mapped into runtime state bindings.
+- Prepare hooks (`<binding>:<type> <~ hook("<name>")`) — fire before the compute graph runs. The hook returns an object whose fields are mapped into runtime state bindings.
 - Publish hooks (`publish { hook = "<name>" }`) — fire after merge. The hook receives the entire final state snapshot and cannot mutate it.
 
-Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase. An unregistered `prepare.from_hook` fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
+Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase. An unregistered prepare hook fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
 
 ```hcl
 action "process_order" {
@@ -44,25 +44,24 @@ const runner = createRunner(model, { entryId: "checkout", initialState: {} })
 
 ### 1.1 Prepare hooks
 
-A prepare hook is declared by setting `from_hook` on a binding entry inside the `prepare` section:
+A prepare hook is declared with a `hook(...)` ingress clause on the binding that receives its value:
 
 ```
 action "<actionId>" {
-  compute { ... }
-
-  prepare {
-    <bindingName> { from_state = <path> }         # STATE input
-    <bindingName> { from_hook = "<hookName>" }   # hook input
+  compute "<label>" {
+    <bindingName>:<type> <~ @<namespace>.<field>   # STATE input
+    <bindingName>:<type> <~ hook("<hookName>")     # hook input
+    ...
   }
 }
 ```
 
-Each `prepare` entry must define exactly one source (`from_state` or `from_hook`). They cannot be combined on the same binding.
+A binding has exactly one source: STATE or a hook, never both.
 
 Hook invocation and result mapping:
 
 1. The runtime invokes the hook, obtaining a result object.
-2. For each binding that declared `from_hook = "<hookName>"`, the runtime assigns:
+2. For each binding that declared `<~ hook("<hookName>")`, the runtime assigns:
 
 ```
 state[bindingName] = hookResult[bindingName]
@@ -72,13 +71,11 @@ The hook implementation is responsible for returning a field with the correct bi
 
 ### 1.2 Hook deduplication (multiple bindings, same hook name)
 
-If multiple bindings in the same `prepare` section reference the same hook name, the runtime invokes the hook once and reuses the returned object for all matching bindings:
+If multiple bindings in the same action reference the same hook name, the runtime invokes the hook once and reuses the returned object for all matching bindings:
 
 ```hcl
-prepare {
-  raw_payload { from_hook = "request_context" }
-  user_agent  { from_hook = "request_context" }
-}
+raw_payload:str <~ hook("request_context")
+user_agent:str  <~ hook("request_context")
 ```
 
 Mapping:
@@ -133,7 +130,7 @@ action "process_order" {
 
 ## 2. HCL Lowering
 
-`prepare.from_hook` entries and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations; inline IO has already been hoisted into `prepare` and `merge`.
+Hook ingress and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations; inline IO has already been hoisted into `prepare` and `merge`, which exist only in the emitted model and are never author-written.
 
 ### 2.1 Shape
 
@@ -168,11 +165,11 @@ action "process_order" {
 ```
 
 Rules:
-- Sigils are stripped from binding names in the `compute` block. Direction is encoded structurally by membership in `prepare` or `merge`.
-- Each `prepare` entry becomes `binding "<name>" { from_state = ... }` or `binding "<name>" { from_hook = ... }`.
-- Each `merge` entry becomes `binding "<name>" { to_state = ... }`.
+- Inline clauses are stripped from the `compute` block. Direction is encoded structurally by membership in `prepare` or `merge`.
+- Each `<~` clause becomes `binding "<name>" { from_state = ... }` or `binding "<name>" { from_hook = ... }` under `prepare`.
+- Each `~>` clause becomes `binding "<name>" { to_state = ... }` under `merge`.
 - Each `publish` hook entry becomes a `hook = "<name>"` attribute (repeated for multiple hooks).
-- Binding names inside `prepare` and `merge` must match an existing binding declared in the `compute` block.
+- Binding names inside `prepare` and `merge` name the binding the clause was written on, so they always match a `compute` binding.
 
 ---
 
@@ -242,7 +239,7 @@ Publish hooks cannot mutate this state. Any return value is ignored.
 
 ### 3.4 Unregistered hooks
 
-If no prepare hook implementation has been registered for a `from_hook` name when the action executes, prepare resolution fails with `UnregisteredHook` and the action does not run. If no publish hook implementation has been registered for a `publish.hook` name, the runtime silently skips that publish hook.
+If no prepare hook implementation has been registered for a hook name when the action executes, prepare resolution fails with `UnregisteredHook` and the action does not run. If no publish hook implementation has been registered for a `publish.hook` name, the runtime silently skips that publish hook.
 
 ### 3.5 Multiple prepare hooks, same name
 
@@ -257,10 +254,10 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 
 ## 4. CAN (OK)
 
-- `prepare { <binding> { from_hook = "<name>" } }` declares a prepare-phase hook for that binding.
+- `<binding>:<type> <~ hook("<name>")` declares a prepare-phase hook for that binding.
 - `publish { hook = "<name>" }` declares a publish-phase hook for the action.
-- A `prepare` entry may carry `from_state` or `from_hook`. Both are valid sources.
-- The same hook name may appear on multiple `prepare` entries. All matching bindings are collected from the single hook invocation result.
+- An action binding may read from STATE or from a hook. Both are valid sources.
+- The same hook name may appear on multiple bindings. All matching bindings are collected from the single hook invocation result.
 - Multiple `hook` entries in a `publish` block are valid and execute in declaration order.
 - Two distinct hook names may be declared in the same action.
 - If no publish hook implementation is registered for a publish hook name, the runtime silently skips that publish hook.
@@ -271,8 +268,8 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 
 ## 5. CAN'T (NG)
 
-- A `prepare` entry cannot carry both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
-- A `from_hook` binding name cannot be absent from the action's `compute` block (`UnresolvedPrepareBinding` at convert time).
+- A binding cannot carry two ingress clauses: a second `<~` does not parse.
+- `hook()` cannot appear in a transition `compute` block (`TransitionHook`).
 - A prepare hook implementation cannot write to state directly. It can only return values via the result object.
 - A publish hook cannot mutate state. Return values are ignored.
 - Hook execution order cannot be changed at runtime. It is fixed by declaration order in the emitted HCL.
@@ -284,10 +281,10 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 
 | Error code | Condition |
 |------------|-----------|
-| `UnregisteredHook` | A `from_hook` prepare entry references a hook name with no registered prepare hook implementation |
+| `UnregisteredHook` | A `<~ hook(...)` ingress references a hook name with no registered prepare hook implementation |
 | `MissingHookField` | Prepare hook result object is missing a field required by a declared binding |
 
-For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBinding`, see `effect-dsl-spec.md §7`.
+For `TransitionHook` and the other IO codes, see `effect-dsl-spec.md §7`.
 
 ---
 
@@ -297,9 +294,9 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 
 | Domain | Coverage target |
 |--------|----------------|
-| A. DSL parsing | `prepare` entries with `from_hook` correctly parsed; `publish` `hook` entries collected |
+| A. DSL parsing | `<~ hook(...)` ingress correctly parsed; `publish` `hook` entries collected |
 | B. HCL lowering | `prepare`/`merge`/`publish` sub-blocks emitted in declaration order |
-| C. Binding validation | `from_hook` and `merge` binding names validated against `compute` bindings at convert time |
+| C. Binding validation | Hoisted `prepare` and `merge` entries name the binding their clause was written on |
 | D. Prepare hook execution | Hook fires before graph; returned field value visible to compute graph |
 | E. Hook deduplication | Multiple bindings on same hook name → hook called once; all fields mapped |
 | F. Publish hook execution | Hook fires after merge; receives full final state; cannot mutate |
@@ -311,7 +308,7 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | `prepare.from_hook` → emitted HCL `prepare` sub-block | Re-lower same DSL source; emitted HCL is byte-identical |
+| 1 | `<~ hook(...)` → emitted HCL `prepare` sub-block with `from_hook` | Re-lower same DSL source; emitted HCL is byte-identical |
 | 2 | Prepare hook return value → compute graph observes mapped binding | Same hook impl + same STATE state → identical graph result both runs |
 | 3 | Publish hook receives state after merge | Same action state → identical state delivered to publish hook both runs |
 | 4 | Unregistered publish hook → no state change | Execute with publish hook unregistered; assert final STATE is unchanged by the missing hook |
@@ -320,10 +317,9 @@ For `InvalidPrepareSource`, `UnresolvedPrepareBinding`, and `UnresolvedMergeBind
 
 | Case | Expected behaviour |
 |------|--------------------|
-| Same hook name on multiple `prepare` entries | Hook called once; result fields mapped to all declaring bindings |
+| Same hook name on multiple bindings | Hook called once; result fields mapped to all declaring bindings |
 | Hook result missing a declared binding field | `MissingHookField` error; action execution aborted |
-| `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` error at convert time |
-| `prepare { x { from_hook = "h" } }` where `x` not in `compute` | `UnresolvedPrepareBinding` error at convert time |
+| `x:str <~ hook("h")` inside a transition `compute` block | `TransitionHook` error at convert time |
 | `publish { hook = "h1"; hook = "h2" }` | Both hooks fire; h1 before h2 |
 | Publish hook impl returns a value | Return value ignored; no state mutation |
 | Prepare hook impl is async and rejects | Runtime error propagated; action execution aborted; STATE not mutated |

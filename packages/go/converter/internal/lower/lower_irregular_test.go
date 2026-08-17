@@ -19,21 +19,6 @@ func TestLowerIrregularPlaceholderResolutionErrors(t *testing.T) {
 		wantCode diag.ErrorCode
 	}{
 		{
-			name: "action_missing_prepare_entry",
-			src: `state {
-  app { score:number = 0 }
-}
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number :=
-    }
-  }
-}`,
-			wantCode: diag.CodeMissingPrepareEntry,
-		},
-		{
 			name: "action_unresolved_state_path",
 			src: `state {
   app { score:number = 0 }
@@ -47,26 +32,6 @@ scene "test" {
   }
 }`,
 			wantCode: diag.CodeUnresolvedStatePath,
-		},
-		{
-			name: "transition_missing_prepare_entry",
-			src: `state {
-  app { score:number = 0 }
-}
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" { r:bool := true }
-    next {
-      compute "n" {
-        score:number
-        go:bool := true
-      }
-      action = a
-    }
-  }
-}`,
-			wantCode: diag.CodeMissingPrepareEntry,
 		},
 		{
 			name: "transition_unresolved_state_path",

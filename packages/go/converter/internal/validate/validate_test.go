@@ -474,84 +474,6 @@ func TestSingleRefTypeMismatch(t *testing.T) {
 
 // ─── Group B: effect DSL validation ──────────────────────────────────────────
 
-func TestMissingPrepareEntry(t *testing.T) {
-	// Hand-built internal ingress sigil but no prepare entry.
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number :=
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeMissingPrepareEntry) {
-		t.Error("want MissingPrepareEntry")
-	}
-}
-
-func TestSpuriousPrepareEntry(t *testing.T) {
-	// prepare entry for a non-sigiled binding
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      plain:number = 0
-      v:bool := true
-    }
-    prepare {
-      plain { from_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeSpuriousPrepareEntry) {
-		t.Error("want SpuriousPrepareEntry")
-	}
-}
-
-func TestDuplicatePrepareEntry(t *testing.T) {
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number :=
-    }
-    prepare {
-      score { from_state = app.score }
-      score { from_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeDuplicatePrepareEntry) {
-		t.Error("want DuplicatePrepareEntry")
-	}
-}
-
-func TestDuplicateMergeEntry(t *testing.T) {
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number := 0
-    }
-    merge {
-      score { to_state = app.score }
-      score { to_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeDuplicateMergeEntry) {
-		t.Error("want DuplicateMergeEntry")
-	}
-}
-
 func TestTransitionOutputSigil(t *testing.T) {
 	// <~ in a next (transition) prog
 	src := basicState + `
@@ -577,55 +499,16 @@ scene "test" {
 	}
 }
 
-func TestUnresolvedPrepareBinding(t *testing.T) {
-	// prepare entry for "ghost" which isn't in prog
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" { v:bool := true }
-    prepare {
-      ghost { from_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeUnresolvedPrepareBinding) {
-		t.Error("want UnresolvedPrepareBinding")
-	}
-}
-
-func TestUnresolvedMergeBinding(t *testing.T) {
-	// merge entry for "ghost" which isn't in prog
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" { v:bool := true }
-    merge {
-      ghost { to_state = app.score }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeUnresolvedMergeBinding) {
-		t.Error("want UnresolvedMergeBinding")
-	}
-}
-
 // ─── Group C: state validation ────────────────────────────────────────────────
 
 func TestUnresolvedStatePath(t *testing.T) {
-	// from_state pointing to a path not in schema
+	// `<~` reading a path not in the schema
 	src := basicState + `
 scene "test" {
   entry_action = a
   action "a" {
     compute "p" {
-      score:number :=
-    }
-    prepare {
-      score { from_state = nonexistent.path }
+      score:number := <~ @nonexistent.path
     }
   }
 }
@@ -636,16 +519,13 @@ scene "test" {
 }
 
 func TestStateTypeMismatch(t *testing.T) {
-	// to_state app.active is bool but binding is number
+	// `~>` destination app.active is bool but the binding is number
 	src := basicState + `
 scene "test" {
   entry_action = a
   action "a" {
     compute "p" {
-      score:number := 0
-    }
-    merge {
-      score { to_state = app.active }
+      score:number := (0) ~> @app.active
     }
   }
 }
@@ -656,21 +536,29 @@ scene "test" {
 }
 
 func TestMissingStatePath_EmptyMergeEntry(t *testing.T) {
-	// A merge entry block with no to_state should emit CodeMissingStatePath.
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number := 0
-    }
-    merge {
-      score { }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeMissingStatePath) {
+	// Every merge entry is hoisted from a `~>` clause that carries a path, so
+	// this guards the model shape rather than anything an author can write: a
+	// hand-built or externally produced model with an empty to_state.
+	model := &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:          "s",
+			EntryAction: "a",
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "score",
+					Prog: &turnoutpb.ProgModel{
+						Name:     "p",
+						Bindings: []*turnoutpb.BindingModel{{Name: "score", Type: "number", Value: structpb.NewNumberValue(0)}},
+					},
+				},
+				Merge: []*turnoutpb.MergeEntry{{Binding: "score", ToState: ""}},
+			}},
+		}},
+	}
+	ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}})
+	if !hasCode(ds, diag.CodeMissingStatePath) {
 		t.Error("want MissingStatePath for merge entry with no to_state")
 	}
 }

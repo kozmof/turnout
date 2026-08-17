@@ -30,15 +30,13 @@ The key words `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` are to be in
 For reference-style DSL attributes, implementations MUST normalize HCL syntax to canonical runtime strings before validation/execution.
 
 - Bare reference form and quoted string form are both allowed and MUST be treated equivalently:
-  - Example: `to_state = decision.reason` and `to_state = "decision.reason"` normalize to the same runtime string.
+  - Example: `action = approve` and `action = "approve"` normalize to the same runtime string.
 - Reference-style attributes include:
   - `scene.entry_action`
   - `action.compute.root`
   - `next.compute.condition`
-  - `action.prepare.<binding>.from_state`
-  - `action.merge.<binding>.to_state`
   - `next.action`
-  - `next.prepare.<binding>.from_action`, `next.prepare.<binding>.from_state`
+- The STATE paths carried by `action.prepare.<binding>.from_state`, `action.merge.<binding>.to_state`, and the transition ingress fields are written in source as `@ns.field`. They reach the model already normalized, since `@` paths are lexed as identifiers.
 - Literal-style attributes (for example `from_literal`) MUST preserve literal values and are not reference-normalized.
 
 ## 3. Balance Rules (CAN / CAN'T)
@@ -47,30 +45,28 @@ CAN (OK):
 
 - A scene can contain multiple actions.
 - An action can embed one HCL ContextSpec program.
-- An action can declare STATE inputs under `prepare` and STATE outputs under `merge`.
-- An action can define IO inline in its `compute` block or structurally with `prepare` and `merge`.
+- An action can declare STATE inputs with `<~` and STATE outputs with `~>`, inline in its `compute` block. These lower to the model's `prepare` and `merge` entries.
 - An action can define next actions using per-next `compute` blocks.
-- A next `prepare` input entry can source any value binding defined by the current action `compute` block via `from_action`.
+- A transition input can source any value binding defined by the current action `compute` block via `<~ action(binding)`.
 - An action can declare one or more publish hooks under `publish`.
 - An action can include optional narrative text (`text`) as a string.
 
 CAN'T (NG):
 
 - An action `compute` block cannot omit its `:=` result binding (it derives `compute.root`). A compute block cannot carry more than one result, and the result binding must be last.
-- A `prepare` or `merge` binding key cannot reference an undefined binding.
-- A structural input binding cannot omit its `prepare` entry.
+- A binding cannot omit its source: no `<~` clause and no computed RHS is `MissingBindingSource`. Author-written `prepare` and `merge` blocks are retired (`LegacyEffectBlock`).
 - A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or its label. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute "..." { c:bool := true }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
-- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding and returns it as the `:=` condition, and whose `prepare` feeds it via `from_action`. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
-- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> match { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> => <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains and returns their conjoined equality test as the `:=` condition, with a `prepare` entry feeding each via `from_action`; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
+- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding with `<~ action(binding)` and returns it as the `:=` condition. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
+- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> match { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> => <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains, each with `<~ action(binding)`, and returns their conjoined equality test as the `:=` condition; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
 - A match block MUST contain exactly one unconditional arm — a bare `_`, or a tuple whose elements are all `_` — and it MUST be the last arm. A block with none is an error (`NonExhaustiveMatch`), because falling through every arm schedules no transition at all and silently ends the scene; a second one is `DuplicateFallback`, and any arm after it is `UnreachableArm`.
 - A match block requires an effective next policy of `first-match` (`NextMatchPolicy`). Arm order is what makes arms mutually exclusive; under `all-match` every true rule is selected, so the `_` arm would fire alongside whichever arm matched.
 - Next actions cannot reference missing actions.
 
 Correlation:
 
-- Because the root accepts both value and function bindings, a root with an inline `~> @state.path` output or structural `merge` entry is always available as a deterministic emission source.
+- Because the root accepts both value and function bindings, a root with an inline `~> @state.path` output is always available as a deterministic emission source.
 - Because an action and each of its next rules carry separate `compute` blocks, output mapping and branching logic are explicitly separated.
-- Because next-rule inputs are ingress-driven, action `compute` values are usable in a next rule's `compute` only through explicit `next.prepare.<binding>.from_action` mapping.
+- Because next-rule inputs are ingress-driven, action `compute` values are usable in a next rule's `compute` only through an explicit `<~ action(binding)` clause.
 
 ## 4. Runtime Data Model
 
@@ -152,17 +148,17 @@ type OverviewView = {
 
 Source and destination rules:
 
-- An action-level input is declared inline with `name:type <~ source` or structurally by a `prepare` entry naming a bare `name:type` binding. Its source is STATE or a hook.
-- An action-level output is declared inline with `name:type = (expr) ~> @state.path`, anonymously as `(expr) ~> @state.path`, or structurally by a `merge` entry. Its destination is a STATE path.
-- A transition input is declared inline with `name:type <~ source` or structurally by a transition `prepare` entry. Its source is an action binding, post-merge STATE, or a literal.
-- `fromAction` is only valid inside transition `prepare` bindings.
-- `fromHook` is only valid inside action-level `prepare` bindings (not transition-level).
-- Future draft: action-level `prepare` may add `fromLiteral` as a third ingress source alongside `fromState` and `fromHook`. This is reserved future behavior and is not part of the current model.
+- An action-level input is declared inline with `name:type <~ source`. Its source is STATE or a hook.
+- An action-level output is declared inline with `name:type = (expr) ~> @state.path`, or anonymously as `(expr) ~> @state.path`. Its destination is a STATE path.
+- A transition input is declared inline with `name:type <~ source`. Its source is an action binding, post-merge STATE, or a literal.
+- `fromAction` is only valid for transition ingress.
+- `fromHook` is only valid for action-level ingress (not transition-level).
+- `fromLiteral` is only valid for transition ingress. At action level a constant is an ordinary binding, `name:type = <literal>`.
 - Publish hooks in `publish.hooks` fire after merge in declaration order and receive the complete final state.
 
 Action-to-next binding scope:
 
-- For one action invocation, `next.prepare.<binding>.fromAction` MUST resolve against that action's `compute.prog` binding namespace.
+- For one action invocation, a transition's `fromAction` ingress MUST resolve against that action's `compute.prog` binding namespace.
 - Implementations MAY resolve these bindings lazily, but observable behavior MUST match eager availability of all value bindings declared in action `compute.prog`.
 
 ## 5. HCL Scene DSL
@@ -171,12 +167,12 @@ This spec standardizes the following scene-level HCL shape:
 
 Reference-style fields below use the canonical bare form. Quoted references are accepted only as a temporary compatibility aid and should not be authored in new files.
 Within a `compute` block, parse-safe infix shorthand (for example `income_ok:bool = income >= min_income`, `go:bool = decision & income_ok`) follows HCL ContextSpec lowering rules.
-IO direction is declared by inline clauses that point toward their destination, or by structural `prepare`/`merge` entries:
+IO direction is declared by inline clauses that point toward their destination:
 
 - `name:type <~ @state.path` declares an input.
 - `name:type = (expr) ~> @state.path` declares a named output; `(expr) ~> @state.path` declares a write-only anonymous output whose type is inferred from STATE.
 - `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
-- A bare `name:type` may be paired with a `prepare` entry; a computed binding may be paired with a `merge` entry. Inline and structural IO must not be mixed for the same direction on one binding.
+- A bare `name:type` declares no value and is rejected (`MissingBindingSource`).
 
 Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in the `compute` block. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
 
@@ -234,13 +230,9 @@ next on (band, vip) match {
 // what the first arm abbreviates
 next {
   compute "..." {
-    band:str
-    vip:bool
+    band:str <~ action(band)
+    vip:bool <~ action(vip)
     go:bool := band == "heavy" & vip == false
-  }
-  prepare {
-    band { from_action = band }
-    vip  { from_action = vip }
   }
   action = archive
 }
@@ -298,12 +290,12 @@ Before first action execution, implementations MUST validate:
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program (value or function binding).
-8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`.
-9. Every input binding has exactly one ingress source, declared inline or in `prepare`.
-10. Every named output binding has exactly one STATE destination, declared inline or in `merge`; every anonymous egress declares its destination inline and lowers to one generated output binding.
+8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`. Conversion satisfies this by construction: each entry is generated from the binding that carries the inline clause.
+9. Every input binding has exactly one ingress source.
+10. Every named output binding has exactly one STATE destination; every anonymous egress declares its destination inline and lowers to one generated output binding.
 11. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 12. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
-13. For each next rule, every transition `prepare` binding key exists and resolves to a value binding in that next-rule `compute.prog`.
+13. For each next rule, every transition ingress binding key exists and resolves to a value binding in that next-rule `compute.prog`.
 14. For each next binding with `fromAction`, the source binding exists in the current action `compute.prog` binding namespace.
 15. If an `overview` block exists, overview parsing, compilation, and enforcement succeed for the selected mode.
 16. For action docstring sugar, each action has at most one triple-quoted text block and no conflict with explicit `text`.
@@ -417,13 +409,13 @@ type SceneDiagnostic = {
 
 1. `compute.root` is derived from the `:=` result binding, so it always names an existing binding. An action `compute` block with no `:=` result fails validation (`MissingRootMarker`). A root that names a value binding is valid and reads the value directly.
 2. Missing STATE ingress path with required ingress fails action without merge.
-3. A root binding with inline output or a structural `merge` entry writes exactly the executed root result.
+3. A root binding with an inline `~>` output writes exactly the executed root result.
 4. Next-rule `compute.prog` parse/validation failures stop scheduling and emit next diagnostics.
 5. `next.compute.condition` must resolve to `bool`, else validation fails.
 6. `first-match` and `all-match` selection behavior is deterministic.
 7. Overview enforcement modes behave as defined.
 8. Re-running with same prepare inputs and snapshot yields identical `result`, `delta`, and selected next actions.
 9. Reference-style DSL fields produce identical runtime strings for quoted vs bare forms.
-10. A transition `prepare.<binding>.fromAction` can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
+10. A transition `<~ action(binding)` ingress can consume a non-root value binding from action `compute.prog` and make it available in `next.compute`.
 11. Triple-quoted action text and explicit `text` assignment produce identical runtime `action.text`.
 12. Publish hooks fire after merge in declaration order and receive the complete final state.

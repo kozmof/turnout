@@ -1,13 +1,13 @@
 # Effect DSL Specification — Turn DSL
 
 > Status: Draft for implementation
-> Scope: Turn DSL syntax for STATE effect declarations (inline IO + `prepare`/`merge` sections) and their lowering to canonical HCL
+> Scope: Turn DSL syntax for STATE effect declarations (inline IO) and their lowering to canonical HCL
 
 ---
 
 ## Overview
 
-STATE effects can be written inline on a binding or structurally with sibling `prepare` and `merge` blocks. The two spellings lower to the same canonical model:
+STATE effects are declared inline on the binding they belong to. Inline clauses point toward their destination: `<~` points from the source into the binding, and `~>` points from a named or anonymous result to STATE.
 
 ```turn
 action "score" {
@@ -19,21 +19,9 @@ action "score" {
 }
 ```
 
-The equivalent structural spelling is:
+Author-written `prepare` and `merge` blocks are retired (`LegacyEffectBlock`). Inline IO expresses every shape they did — a named computed output, a write-only result, a bidirectional binding, a hook source — and one destination per binding is the limit either spelling could express. `prepare` and `merge` survive only as the canonical HCL the converter emits and the runtime reads; §6 gives that shape. Canonical binding names never contain arrows.
 
-```turn
-action "score" {
-  compute "score_graph" {
-    income:number
-    income_ok:bool = income >= 50000
-    decision:bool := income_ok & debt_ok
-  }
-  prepare { income { from_state = applicant.income } }
-  merge { decision { to_state = decision.approved } }
-}
-```
-
-A named binding may use inline or structural IO for a given direction, never both. An anonymous egress has no structural spelling because there is no author-visible name for a `merge` entry. Inline clauses point toward their destination: `<~` points from the source into the binding, and `~>` points from a named or anonymous result to STATE. Canonical binding names never contain arrows.
+Because ingress has no other spelling, a bare `name:type` with no `<~` clause and no computed RHS has no value at all. It is rejected at parse time (`MissingBindingSource`) rather than lowered to the type's zero value.
 
 ---
 
@@ -64,7 +52,7 @@ ingress-source ::= state-path | hook-call | action-call | literal
 state-path    ::= '@' IDENT ('.' IDENT)+
 ```
 
-A bare `name:type` is a structural input declaration and must be named by a matching `prepare` entry. A computed binding with no inline output may be named by `merge`. Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
+A bare `name:type` declares no value and is invalid (`MissingBindingSource`). Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
 
 Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be the contextual compute result or be referenced through `action(...)`.
 
@@ -81,49 +69,38 @@ Each `compute` block requires exactly one `:=` binding, and that binding must be
 
 ### 1.4 Input and bidirectional declarations
 
-Inputs have no computed RHS; their value comes from the inline source or structural `prepare` entry. STATE inputs are required at runtime. A combined `<~ source ~> destination` declaration writes the prepared value to its output destination after execution. An input cannot also use `= expr`.
+Inputs have no computed RHS; their value comes from the inline source. STATE inputs are required at runtime. A combined `<~ source ~> destination` declaration writes the prepared value to its output destination after execution. An input cannot also use `= expr`.
 
 `_` is only a `case` wildcard. `#it` is only the current-value placeholder inside `pipe` steps.
 
-## 2. `prepare` Section — Action Level
+## 2. Action-Level Ingress
 
-### 2.1 Structure
+### 2.1 Sources
 
-```
-prepare {
-  <binding_name> {
-    from_state = <dotted.path>
-  }
-  <binding_name> {
-    from_hook = "<hookName>"
-  }
-  ...
-}
-```
-
-- `prepare` is a sibling of `compute` inside `action`.
-- `prepare` may be omitted entirely for pure-compute actions with no STATE inputs.
-- Each entry must define exactly one source: `from_state` or `from_hook`.
-
-### 2.2 `from_state` — reads from STATE
+An action binding reads from STATE or from a hook:
 
 ```
-<binding_name> { from_state = <dotted.path> }
+name:type <~ @<namespace>.<field>
+name:type <~ hook("<hookName>")
 ```
 
-Reads a value from STATE before the compute graph runs and assigns it to the named binding.
+- Every input declares its source on the binding. There is no block form.
+- A pure-compute action declares no ingress at all.
+- A binding has exactly one source: a second `<~` on the same binding does not parse.
 
-### 2.3 `from_hook` — reads from a hook result
+### 2.2 `<~ @path` — reads from STATE
 
-```
-<binding_name> { from_hook = "<hookName>" }
-```
+Reads a value from STATE before the compute graph runs and assigns it to the binding. Lowers to `prepare.from_state`.
 
-Invokes the named hook, obtains a result object, and assigns `result[bindingName]` to `state[bindingName]`. See `hook-spec.md` for full semantics.
+### 2.3 `<~ hook(...)` — reads from a hook result
+
+Invokes the named hook, obtains a result object, and assigns `result[bindingName]` to `state[bindingName]`. Lowers to `prepare.from_hook`. See `hook-spec.md` for full semantics.
+
+A literal ingress (`<~ 300`) is not valid at action level: a constant is an ordinary binding, `name:type = 300`.
 
 ### 2.4 STATE path format
 
-`from_state` values are dotted paths of two or more segments:
+State paths are dotted paths of two or more segments:
 
 ```
 dotted-path ::= IDENT ('.' IDENT)+
@@ -134,42 +111,31 @@ Examples: `applicant.income`, `workflow.stage`, `session.user_id`, `session.cart
 
 An empty segment (e.g. `foo..bar`), a path starting/ending with `.`, or a single-segment path is invalid (`InvalidStatePath`).
 
-### 2.5 Future draft: `from_literal` at action level
+### 2.5 Why there is no action-level literal ingress
 
-Action-level literal ingress is a proposed extension. It is not part of the current action `prepare` grammar, where only `from_state` and `from_hook` are valid.
+A constant at action level is already a binding in the compute block:
 
 ```
-prepare {
-  retries { from_literal = 0 }
-  mode    { from_literal = "manual" }
-  enabled { from_literal = true }
-}
+ceiling:number = 300
 ```
 
-Proposed semantics:
-
-- `from_literal` would assign the literal directly to the named action binding before the compute graph runs.
-- It would be mutually exclusive with `from_state` and `from_hook`. Each action `prepare` entry would still define exactly one source.
-- Literal values would be checked against the target binding type during conversion where the literal type is statically known.
-- This extension would align action-level ingress with transition-level `from_literal`, while preserving the rule that transitions cannot use `from_hook`.
+`from_literal` exists at transition level because a next compute is a separate program whose inputs arrive only through ingress. At action level it would buy nothing, so `<~ <literal>` is rejected there.
 
 ---
 
-## 3. `merge` Section — Action Level
+## 3. Action-Level Egress
 
-### 3.1 Structure
+### 3.1 Forms
 
 ```
-merge {
-  <binding_name> {
-    to_state = <dotted.path>
-  }
-  ...
-}
+name:type = (expr) ~> @<namespace>.<field>     # named computed output
+name:type := (expr) ~> @<namespace>.<field>    # the compute result, also written out
+name:type <~ @<in.path> ~> @<out.path>         # bidirectional
+(expr) ~> @<namespace>.<field>                 # write-only, no author-visible name
 ```
 
-- `merge` is a sibling of `compute` inside `action`.
-- `merge` may be omitted entirely for pure-compute actions with no STATE outputs.
+- Egress belongs to the binding that produces the value; a pure-compute action declares none.
+- One destination per binding. Two `~>` clauses on one binding do not parse, and the lowered model rejects two entries for one binding.
 
 Rule: `STATE[path] = state[binding]`
 
@@ -193,69 +159,63 @@ action "score" {
 
 ---
 
-## 4. Transition-Level `prepare`
+## 4. Transition-Level Ingress
 
 ### 4.1 Structure
 
-Inside a `next { }` block, a `prepare` block declares ingress bindings for the transition's compute program. Only `from_action`, `from_state`, and `from_literal` are valid sources inside a transition `prepare`. `from_hook` is prohibited (transitions cannot invoke hooks).
+Inside a `next { }` block, the transition's compute program declares its inputs inline, on the binding:
 
 ```
 next {
   compute "to_approve" {
-    decision:bool
-    income_ok:bool
+    decision:bool  <~ action(decision)
+    income_ok:bool <~ action(income_ok)
     go:bool := decision & income_ok        # := marks the transition condition (last binding)
-  }
-  prepare {
-    decision  { from_action = decision  }
-    income_ok { from_action = income_ok }
   }
   action = approve
 }
 ```
 
-### 4.2 Ingress source attributes
+### 4.2 Ingress sources
 
-Each entry inside a transition `prepare` must have exactly one of:
+A transition input has exactly one of:
 
-| Attribute | Source |
-|-----------|--------|
-| `from_action = <binding>` | Value of the named binding from the action's result |
-| `from_state = <dotted.path>` | Post-merge STATE value after the action's merge |
-| `from_literal = <value>` | A literal value (string, number, or boolean) |
+| Clause | Source |
+|--------|--------|
+| `<~ action(<binding>)` | Value of the named binding from the action's result |
+| `<~ @<dotted.path>` | Post-merge STATE value after the action's merge |
+| `<~ <literal>` | A literal value (string, number, or boolean) |
 
-Any one of these may be used per entry. They may be mixed across different entries in the same transition `prepare` block.
+They may be mixed across the bindings of one transition compute block. `hook()` is rejected here (`TransitionHook`): hooks are effectful and consumer-supplied, so making them branch-dependent would take control flow out of STATE.
 
-> Note on `from_literal` type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values. It does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
+> Note on literal type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values. It does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
-### 4.3 Transition `compute` IO
+### 4.3 Transition `compute` egress
 
-A transition input can be declared inline with `name:type <~ action(binding)`, `<~ @state.path`, or `<~ literal`, or structurally with a bare input binding and one transition `prepare` entry. `hook()` is not valid in transitions. A `~>` output clause is rejected because transitions cannot write to STATE.
+A `~>` output clause is rejected because transitions cannot write to STATE (`TransitionOutputSigil`).
 
 ## 5. Correspondence Rules
 
 ### CAN (OK)
 
-- Inline and structural IO are equivalent after lowering.
 - An action input may read from STATE or a prepare hook.
 - An action output may write to a STATE path.
 - A binding may be bidirectional, with different input and output STATE paths.
 - Transition inputs may read from the current action, post-merge STATE, or a literal.
-- Pure-compute actions may omit both `prepare` and `merge`.
+- Pure-compute actions declare no IO at all.
 
 ### CAN'T (NG)
 
-- The same binding direction cannot be declared both inline and structurally (`DuplicateInlineIO`).
+- A binding cannot omit its source: no `<~` clause and no computed RHS is `MissingBindingSource`.
 - An inline input cannot also have a computed RHS.
-- A structural input cannot omit its matching `prepare` entry.
-- A structural `prepare` entry cannot name a binding that computes its own RHS.
-- A `merge` entry cannot reference an unknown binding, and duplicate entries are invalid.
-- A transition cannot use `hook()`, declare output with `~>`, or contain `merge`/`publish`.
+- A binding cannot declare two ingress or two egress clauses.
+- A transition cannot use `hook()` or declare output with `~>`, and cannot contain a `publish` block (`TransitionPublish`).
+- `prepare` and `merge` blocks are retired syntax and produce `LegacyEffectBlock`.
 - A leading arrow is retired syntax and produces `LegacySigilPosition`.
 
 ## 6. Lowering Rules (Turn DSL → Canonical HCL)
 
-Inline IO is hoisted into structural `prepare` and `merge` entries before validation and lowering. Named declarations keep their binding name; anonymous egress receives a reserved generated name. Canonical binding names contain no arrows.
+Inline IO is hoisted into `prepare` and `merge` entries before validation and lowering. These blocks exist only from this point on — they are the wire shape the runtime reads, not something an author writes. Every entry is generated from one binding: named declarations keep their binding name, anonymous egress receives a reserved generated name, and canonical binding names contain no arrows.
 
 ### 6.1 Action-level lowering
 
@@ -306,13 +266,11 @@ action "score" {
 
 ### 6.2 Bidirectional lowering
 
-A combined `income:number <~ @applicant.income ~> @decision.input_income` declaration appears in both `prepare` and `merge`:
+A combined declaration appears in both `prepare` and `merge`:
 
 Turn DSL:
 ```
-income:number
-prepare { income { from_state = applicant.income      } }
-merge   { income { to_state   = decision.input_income } }
+income:number <~ @applicant.income ~> @decision.input_income
 ```
 
 Emitted HCL:
@@ -332,22 +290,13 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 
 | Error code | Trigger condition |
 |------------|------------------|
-| `MissingPrepareEntry` | A structural input binding has no matching entry in `prepare` |
-| `MissingMergeEntry` | A binding internally classified as output has no matching entry in `merge` |
-| `SpuriousPrepareEntry` | A `prepare` entry references a binding that computes its own value |
-| `SpuriousMergeEntry` | A `merge` entry does not correspond to an output binding |
-| `DuplicatePrepareEntry` | The same binding name appears more than once in `prepare` |
-| `DuplicateMergeEntry` | The same binding name appears more than once in `merge` |
-| `BidirMissingPrepareEntry` | A hand-built bidirectional model has output structure but no input structure |
-| `BidirMissingMergeEntry` | A hand-built bidirectional model has input structure but no output structure |
-| `TransitionMerge` | A `merge` or `publish` block is present inside a `next { }` transition |
-| `InvalidTransitionIngress` | A transition `prepare` entry has none of `from_action`, `from_state`, or `from_literal`, or has more than one of them |
-| `TransitionHook` | A `from_hook` source appears inside a transition `prepare` block |
+| `MissingBindingSource` | A binding declares neither a `<~` source nor a computed RHS |
+| `LegacyEffectBlock` | A retired `prepare` or `merge` block appears in an action or a `next { }` transition |
+| `TransitionPublish` | A `publish` block is present inside a `next { }` transition |
+| `TransitionHook` | `<~ hook(...)` appears inside a transition `compute` block |
 | `TransitionOutputSigil` | A `~> @state.path` output clause appears in a transition `compute` block |
-| `InvalidStatePath` | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
-| `InvalidPrepareSource` | A `prepare` entry carries both `from_state` and `from_hook` |
-| `UnresolvedPrepareBinding` | A `prepare` binding name has no matching binding in the same `compute` block |
-| `UnresolvedMergeBinding` | A `merge` binding name has no matching binding in the same `compute` block |
+| `InvalidStatePath` | A state path has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
+| `InvalidTransitionIngress` | A transition ingress entry in the model has none of `from_action`, `from_state`, or `from_literal`, or has more than one — reachable only for a model this converter did not produce |
 
 ---
 
@@ -358,42 +307,38 @@ Transition inline inputs are hoisted to transition `prepare` entries, which lowe
 | Domain | Coverage target |
 |--------|----------------|
 | A. Inline IO parsing | Input (`<~`), output (`~>`), and combined inline clauses are correctly identified |
-| B. Correspondence | Inline IO and `prepare`/`merge` declarations are validated at convert time |
+| B. Hoisting | Each inline clause produces exactly one `prepare` or `merge` entry, named for its binding |
 | C. Bidirectional lowering | Combined `<~ source ~> destination` clauses produce entries in both `prepare` and `merge` |
 | D. Sentinel value | Binding default lowered as `value`/`expr`; no effect on STATE resolution |
-| E. Transition `prepare` | `from_action`, `from_state`, and `from_literal` entries lower to correct `TransitionIngressBinding` fields |
+| E. Transition ingress | `action(...)`, `@path`, and literal clauses lower to correct `TransitionIngressBinding` fields |
 | F. Error paths | All error codes trigger correctly and abort without partial output |
 
 ### Critical paths (idempotency)
 
 | # | Path | Idempotency check |
 |---|------|------------------|
-| 1 | Inline `<~ @state.path` input → `prepare` block with `from_state` | Re-lower same DSL source; emitted HCL is byte-identical |
-| 2 | Named or anonymous inline `~> @state.path` output → `merge` block with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 1 | Inline `<~ @state.path` input → `prepare` entry with `from_state` | Re-lower same DSL source; emitted HCL is byte-identical |
+| 2 | Named or anonymous inline `~> @state.path` output → `merge` entry with `to_state` | Re-lower same DSL source; emitted HCL is byte-identical |
 | 3 | Combined `<~ @input.path ~> @output.path` binding → both sub-blocks | Both paths preserved; independent of declaration order |
-| 4 | Action with no `prepare`/`merge` → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
-| 5 | Transition `prepare { from_action }` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
-| 6 | Transition `prepare { from_state }` → `TransitionIngressBinding.fromState` | Field mapping is deterministic for identical input |
-| 7 | Transition `prepare { from_literal }` → `TransitionIngressBinding.fromLiteral` | Field mapping is deterministic for identical input |
+| 4 | Action with no inline IO → no sub-blocks emitted | Pure-compute action emits clean `prog` block |
+| 5 | `<~ action(binding)` → `TransitionIngressBinding.fromAction` | Field mapping is deterministic for identical input |
+| 6 | `<~ @state.path` in a transition → `TransitionIngressBinding.fromState` | Field mapping is deterministic for identical input |
+| 7 | `<~ <literal>` in a transition → `TransitionIngressBinding.fromLiteral` | Field mapping is deterministic for identical input |
 
 ### Edge cases
 
 | Case | Expected behaviour |
 |------|--------------------|
-| Bare input `income:number` with no matching `prepare` entry | `MissingPrepareEntry` |
-| `prepare { income { from_state = ... } }` where `income` computes its own RHS | `SpuriousPrepareEntry` |
-| A hand-built bidirectional model appears in `merge` but not in `prepare` | `BidirMissingPrepareEntry` |
-| A hand-built bidirectional model appears in `prepare` but not in `merge` | `BidirMissingMergeEntry` |
-| `merge` present inside a `next { }` block | `TransitionMerge` |
-| Transition `prepare` entry with no `from_action`, `from_state`, or `from_literal` | `InvalidTransitionIngress` |
-| Transition `prepare` entry with more than one of `from_action`, `from_state`, `from_literal` | `InvalidTransitionIngress` |
-| `from_hook` inside a transition `prepare` | `TransitionHook` |
+| Bare `income:number` with no `<~` clause and no RHS | `MissingBindingSource` |
+| `income:number :=` with nothing after the marker | `MissingBindingSource` |
+| `prepare { ... }` or `merge { ... }` in an action | `LegacyEffectBlock` naming the inline replacement |
+| `prepare { ... }` or `merge { ... }` inside a `next { }` block | `LegacyEffectBlock` |
+| `publish { ... }` inside a `next { }` block | `TransitionPublish` |
+| `<~ hook("h")` inside a transition `compute` block | `TransitionHook` |
 | `phase:str = (expr) ~> @state.phase` or `(expr) ~> @state.phase` inside a transition `compute` block | `TransitionOutputSigil` |
 | `phase:str = expr ~> @state.phase` | `ParseSyntaxError` requiring the complete RHS to be parenthesized |
 | `phase:str = (expr)` | `ParseSyntaxError`; top-level parentheses are reserved for egress |
-| `from_state = "applicant..income"` (empty segment) | `InvalidStatePath` |
-| `from_state = ".income"` (leading dot) | `InvalidStatePath` |
-| Same binding name twice in `prepare` | `DuplicatePrepareEntry` |
-| `prepare { x { from_state = p, from_hook = "h" } }` | `InvalidPrepareSource` |
-| Action with `prepare` only and no `merge` | Valid — it may contain inputs without outputs |
-| Action with `merge` only and no `prepare` | Valid — it may contain outputs without inputs |
+| `~> @nodot` (single segment) | `InvalidStatePath` |
+| `<~ 300` at action level | `ParseSyntaxError`; write `name:number = 300` |
+| Action with ingress only | Valid — it may read without writing |
+| Action with egress only | Valid — it may write without reading |

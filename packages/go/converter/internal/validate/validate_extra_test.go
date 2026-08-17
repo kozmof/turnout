@@ -652,50 +652,44 @@ func TestCondBranchTypeMismatchVsBinding(t *testing.T) {
 // ─── to_state invalid path ────────────────────────────────────────────────────
 
 func TestMergeToStateInvalidPath(t *testing.T) {
-	// to_state = "nodot" has no dot → InvalidStatePath
+	// `~> @nodot` is a single segment → InvalidStatePath
 	src := basicState + `
 scene "test" {
   entry_action = a
   action "a" {
     compute "p" {
-      x:number = 1
+      x:number = (1) ~> @nodot
       v:bool := true
-    }
-    merge {
-      x { to_state = "nodot" }
     }
   }
 }
 `
 	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
-		t.Error("want InvalidStatePath for merge to_state without dot")
+		t.Error("want InvalidStatePath for egress path without dot")
 	}
 }
 
 func TestMergeToStateNotInSchema(t *testing.T) {
-	// to_state = "app.nonexistent" → UnresolvedStatePath
+	// `~> @app.nonexistent` → UnresolvedStatePath
 	src := basicState + `
 scene "test" {
   entry_action = a
   action "a" {
     compute "p" {
-      x:number = 1
+      x:number = (1) ~> @app.nonexistent
       v:bool := true
-    }
-    merge {
-      x { to_state = "app.nonexistent" }
     }
   }
 }
 `
 	if !hasCode(pipeline(src), diag.CodeUnresolvedStatePath) {
-		t.Error("want UnresolvedStatePath for merge to_state not in schema")
+		t.Error("want UnresolvedStatePath for egress path not in schema")
 	}
 }
 
-// ─── SigilIngress with no prepare ────────────────────────────────────────────
+// ─── input binding with no source ────────────────────────────────────────────
 
-func TestSigilIngressNoPrepare(t *testing.T) {
+func TestBareBindingHasNoSource(t *testing.T) {
 	src := basicState + `
 scene "test" {
   entry_action = a
@@ -707,14 +701,12 @@ scene "test" {
   }
 }
 `
-	if !hasCode(pipeline(src), diag.CodeMissingPrepareEntry) {
-		t.Error("want MissingPrepareEntry for inline input with no prepare block")
+	if !hasCode(pipeline(src), diag.CodeMissingBindingSource) {
+		t.Error("want MissingBindingSource for a binding with neither `<~` nor a computed RHS")
 	}
 }
 
-// ─── SigilBiDir with neither prepare nor merge ───────────────────────────────
-
-// ─── next prepare FromAction/FromState/FromLiteral ───────────────────────────
+// ─── next ingress from action / state / literal ──────────────────────────────
 
 func TestNextPrepareFromAction(t *testing.T) {
 	src := basicState + `
@@ -723,8 +715,7 @@ scene "test" {
   action "a" {
     compute "p" { r:number := 42 }
     next {
-      compute "n" { score:number go:bool := true }
-      prepare { score { from_action = r } }
+      compute "n" { score:number <~ action(r) go:bool := true }
       action = a
     }
   }
@@ -745,8 +736,7 @@ scene "test" {
   action "a" {
     compute "p" { r:bool := true }
     next {
-      compute "n" { score:number go:bool := true }
-      prepare { score { from_state = app.score } }
+      compute "n" { score:number <~ @app.score go:bool := true }
       action = a
     }
   }
@@ -767,8 +757,7 @@ scene "test" {
   action "a" {
     compute "p" { r:bool := true }
     next {
-      compute "n" { score:number go:bool := true }
-      prepare { score { from_literal = 42 } }
+      compute "n" { score:number <~ 42 go:bool := true }
       action = a
     }
   }
@@ -789,8 +778,7 @@ scene "test" {
   action "a" {
     compute "p" { r:number := 42 }
     next {
-      compute "n" { score:number go:bool := true }
-      prepare { score { from_action = missing_binding } }
+      compute "n" { score:number <~ action(missing_binding) go:bool := true }
       action = a
     }
   }
@@ -815,8 +803,7 @@ scene "test" {
   action "a" {
     compute "p" { r:bool := true }
     next {
-      compute "n" { score:number go:bool := true }
-      prepare { score { from_action = r } }
+      compute "n" { score:number <~ action(r) go:bool := true }
       action = a
     }
   }
@@ -920,103 +907,61 @@ scene "test" {
   entry_action = a
   action "a" {
     compute "p" {
-      x:number
+      x:number <~ @app.nonexistent
       v:bool := true
-    }
-    prepare {
-      x { from_state = app.nonexistent }
     }
   }
 }
 `
 	if !hasCode(pipeline(src), diag.CodeUnresolvedStatePath) {
-		t.Error("want UnresolvedStatePath for prepare from_state not in schema")
+		t.Error("want UnresolvedStatePath for `<~` path not in schema")
 	}
 }
 
 // ─── isValidStatePath: len<2 and invalid ident ───────────────────────────────
 
-func TestIsValidStatePathTooShort(t *testing.T) {
-	// "nodot" → only one segment after split → len < 2 → invalid
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number = 0
-      v:bool := true
-    }
-    merge {
-      score { to_state = "nodot" }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
-		t.Error("want InvalidStatePath for to_state with no dot")
+// modelWithToState builds a one-action model whose single merge entry writes to
+// path. `@` paths are lexed as identifiers, so a malformed path cannot be
+// written in source any more; these cases reach the checker through the model,
+// which is also where a path produced by anything but this converter arrives.
+func modelWithToState(path string) *turnoutpb.TurnModel {
+	return &turnoutpb.TurnModel{
+		State: &turnoutpb.StateModel{},
+		Scenes: []*turnoutpb.SceneBlock{{
+			Id:          "test",
+			EntryAction: "a",
+			Actions: []*turnoutpb.ActionModel{{
+				Id: "a",
+				Compute: &turnoutpb.ComputeModel{
+					Root: "score",
+					Prog: &turnoutpb.ProgModel{
+						Name:     "p",
+						Bindings: []*turnoutpb.BindingModel{{Name: "score", Type: "number", Value: structpb.NewNumberValue(0)}},
+					},
+				},
+				Merge: []*turnoutpb.MergeEntry{{Binding: "score", ToState: path}},
+			}},
+		}},
 	}
 }
 
-func TestIsValidStatePathInvalidIdentFirst(t *testing.T) {
-	// "1app.score" — first segment starts with digit → invalid ident
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number = 0
-      v:bool := true
-    }
-    merge {
-      score { to_state = "1app.score" }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
-		t.Error("want InvalidStatePath for to_state with invalid first ident")
+func TestIsValidStatePathRejectsMalformed(t *testing.T) {
+	cases := []struct {
+		name string
+		path string
+	}{
+		{"too_short", "nodot"},         // one segment after split → len < 2
+		{"ident_first", "1app.score"},  // first segment starts with a digit
+		{"ident_subsequent", "a-b.sc"}, // hyphen is invalid in an ident
+		{"empty_segment", "."},         // parts ["",""] → isIdent("") is false
 	}
-}
-
-func TestIsValidStatePathInvalidIdentSubsequent(t *testing.T) {
-	// "a-b.score" — hyphen is invalid in subsequent chars
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number = 0
-      v:bool := true
-    }
-    merge {
-      score { to_state = "a-b.score" }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
-		t.Error("want InvalidStatePath for to_state with hyphen in ident")
-	}
-}
-
-func TestIsValidStatePathEmptySegment(t *testing.T) {
-	// "." → parts ["",""] → empty string → isIdent("") returns false
-	src := basicState + `
-scene "test" {
-  entry_action = a
-  action "a" {
-    compute "p" {
-      score:number = 0
-      v:bool := true
-    }
-    merge {
-      score { to_state = "." }
-    }
-  }
-}
-`
-	if !hasCode(pipeline(src), diag.CodeInvalidStatePath) {
-		t.Error("want InvalidStatePath for to_state = \".\"")
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ds := validate.Validate(validate.ValidateInput{Model: modelWithToState(tc.path), Schema: state.Schema{}})
+			if !hasCode(ds, diag.CodeInvalidStatePath) {
+				t.Errorf("want InvalidStatePath for to_state %q, got %v", tc.path, ds)
+			}
+		})
 	}
 }
 

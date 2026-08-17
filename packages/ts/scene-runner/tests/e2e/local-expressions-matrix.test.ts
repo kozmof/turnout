@@ -109,11 +109,9 @@ scene "construct_low" {
   entry_action = run
   action "run" {
     compute "p" {
-      n:number
-      out:Metric := Metric { value = n }
+      n:number <~ @input.n
+      out:Metric := (Metric { value = n }) ~> @work.final
     }
-    prepare { n { from_state = input.n } }
-    merge { out { to_state = work.final } }
   }
 }`,
   },
@@ -134,15 +132,13 @@ scene "destructure_low" {
   entry_action = run
   action "run" {
     compute "p" {
-      rid:ResourceId
-      seq:number := case(
+      rid:ResourceId <~ @input.word
+      seq:number := (case(
         rid,
         ResourceId { kind: "foo", sequence } => sequence,
         ResourceId { kind: "bar", sequence } => sequence + 100
-      )
+      )) ~> @work.n
     }
-    prepare { rid { from_state = input.word } }
-    merge { seq { to_state = work.n } }
   }
 }`,
   },
@@ -164,14 +160,13 @@ scene "tuple_low" {
     compute "p" {
       rid:ResourceId <~ @input.word
       enabled:Enabled <~ @input.flag
-      seq:number := case(
+      seq:number := (case(
         (rid, enabled),
         (ResourceId { kind: "foo", sequence }, _) => sequence + 100,
         (ResourceId { kind: "bar", sequence }, true) => sequence,
         (ResourceId { kind: "bar", sequence: _ }, false) => 0
-      )
+      )) ~> @work.n
     }
-    merge { seq { to_state = work.n } }
   }
 }`,
   },
@@ -190,9 +185,8 @@ scene "if_low" {
     compute "p" {
       n:number <~ @input.n
       flag:bool <~ @input.flag
-      result:number := if(flag, n + 10, n - 10)
+      result:number := (if(flag, n + 10, n - 10)) ~> @work.n
     }
-    merge { result { to_state = work.n } }
   }
 }`,
   },
@@ -211,18 +205,15 @@ scene "if_medium" {
     compute "p1" {
       n:number <~ @input.n
       flag:bool <~ @input.flag
-      staged:number := if(flag, n + 1, n + 2)
+      staged:number := (if(flag, n + 1, n + 2)) ~> @work.n
     }
-    merge { staged { to_state = work.n } }
     next { action = second }
   }
   action "second" {
     compute "p2" {
-      staged:number
-      final:number := if(staged > 10, staged * 2, staged + 5)
+      staged:number <~ @work.n
+      final:number := (if(staged > 10, staged * 2, staged + 5)) ~> @work.n
     }
-    prepare { staged { from_state = work.n } }
-    merge { final { to_state = work.n } }
   }
 }`,
   },
@@ -241,20 +232,17 @@ scene "if_a" {
     compute "p1" {
       n:number <~ @input.n
       flag:bool <~ @input.flag
-      staged:number := if(flag, n * 2, n + 1)
+      staged:number := (if(flag, n * 2, n + 1)) ~> @work.n
     }
-    merge { staged { to_state = work.n } }
   }
 }
 scene "if_b" {
   entry_action = finish
   action "finish" {
     compute "p2" {
-      v:number
-      final:str := if(v > 10, "large", "small")
+      v:number <~ @work.n
+      final:str := (if(v > 10, "large", "small")) ~> @work.final
     }
-    prepare { v { from_state = work.n } }
-    merge { final { to_state = work.final } }
   }
 }
 route "if_route" {
@@ -275,11 +263,9 @@ scene "case_low" {
   entry_action = run
   action "run" {
     compute "p" {
-      word:str
-      result:number := case(word, "red" => 1, "blue" => 2, _ => 0)
+      word:str <~ @input.word
+      result:number := (case(word, "red" => 1, "blue" => 2, _ => 0)) ~> @work.n
     }
-    prepare { word { from_state = input.word } }
-    merge { result { to_state = work.n } }
   }
 }`,
   },
@@ -296,20 +282,16 @@ scene "case_medium" {
   entry_action = classify
   action "classify" {
     compute "p1" {
-      word:str
-      tier:str := case(word, "vip" => "gold", "std" => "silver", _ => "bronze")
+      word:str <~ @input.word
+      tier:str := (case(word, "vip" => "gold", "std" => "silver", _ => "bronze")) ~> @work.label
     }
-    prepare { word { from_state = input.word } }
-    merge { tier { to_state = work.label } }
     next { action = emit }
   }
   action "emit" {
     compute "p2" {
-      tier:str
-      final:str := case(tier, "gold" => "priority", "silver" => "normal", _ => "slow")
+      tier:str <~ @work.label
+      final:str := (case(tier, "gold" => "priority", "silver" => "normal", _ => "slow")) ~> @work.final
     }
-    prepare { tier { from_state = work.label } }
-    merge { final { to_state = work.final } }
   }
 }`,
   },
@@ -326,22 +308,18 @@ scene "case_a" {
   entry_action = done
   action "done" {
     compute "p1" {
-      word:str
-      tone:str := case(word, "red" => "warm", "blue" => "cool", _ => "plain")
+      word:str <~ @input.word
+      tone:str := (case(word, "red" => "warm", "blue" => "cool", _ => "plain")) ~> @work.label
     }
-    prepare { word { from_state = input.word } }
-    merge { tone { to_state = work.label } }
   }
 }
 scene "case_b" {
   entry_action = finish
   action "finish" {
     compute "p2" {
-      tone:str
-      final:str := case(tone, "warm" => "route_warm", "cool" => "route_cool", _ => "route_plain")
+      tone:str <~ @work.label
+      final:str := (case(tone, "warm" => "route_warm", "cool" => "route_cool", _ => "route_plain")) ~> @work.final
     }
-    prepare { tone { from_state = work.label } }
-    merge { final { to_state = work.final } }
   }
 }
 route "case_route" {
@@ -362,11 +340,9 @@ scene "pipe_low" {
   entry_action = run
   action "run" {
     compute "p" {
-      n:number
-      result:number := pipe(n, add(#it, 2), mul(#it, 3))
+      n:number <~ @input.n
+      result:number := (pipe(n, add(#it, 2), mul(#it, 3))) ~> @work.n
     }
-    prepare { n { from_state = input.n } }
-    merge { result { to_state = work.n } }
   }
 }`,
   },
@@ -383,20 +359,16 @@ scene "pipe_medium" {
   entry_action = first
   action "first" {
     compute "p1" {
-      n:number
-      staged:number := pipe(n, add(#it, 1), mul(#it, 2))
+      n:number <~ @input.n
+      staged:number := (pipe(n, add(#it, 1), mul(#it, 2))) ~> @work.n
     }
-    prepare { n { from_state = input.n } }
-    merge { staged { to_state = work.n } }
     next { action = second }
   }
   action "second" {
     compute "p2" {
-      staged:number
-      final:number := pipe(staged, add(#it, 3), mul(#it, 4))
+      staged:number <~ @work.n
+      final:number := (pipe(staged, add(#it, 3), mul(#it, 4))) ~> @work.n
     }
-    prepare { staged { from_state = work.n } }
-    merge { final { to_state = work.n } }
   }
 }`,
   },
@@ -413,22 +385,18 @@ scene "pipe_a" {
   entry_action = done
   action "done" {
     compute "p1" {
-      n:number
-      staged:number := pipe(n, add(#it, 4), mul(#it, 2))
+      n:number <~ @input.n
+      staged:number := (pipe(n, add(#it, 4), mul(#it, 2))) ~> @work.n
     }
-    prepare { n { from_state = input.n } }
-    merge { staged { to_state = work.n } }
   }
 }
 scene "pipe_b" {
   entry_action = finish
   action "finish" {
     compute "p2" {
-      staged:number
-      final:number := pipe(staged, mul(#it, 3), sub(#it, 1))
+      staged:number <~ @work.n
+      final:number := (pipe(staged, mul(#it, 3), sub(#it, 1))) ~> @work.n
     }
-    prepare { staged { from_state = work.n } }
-    merge { final { to_state = work.n } }
   }
 }
 route "pipe_route" {

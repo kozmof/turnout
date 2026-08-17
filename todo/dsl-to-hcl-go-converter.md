@@ -45,7 +45,7 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `prepare`, `merge`, `publish`, `next`, `prog`, `entry_action`, `next_policy`, `from_state`, `from_action`, `from_hook`, `from_literal`, `to_state`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`
+- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `publish`, `next`, `entry_action`, `next_policy`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`. `prepare`, `merge`, and `prog` remain keywords with no grammar: they carry the diagnostic that names their replacement.
 - [x] Typed key (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
 - [x] Inline IO arrows: `<~` and `~>`; legacy `<~>` is tokenized only for migration diagnostics
@@ -152,7 +152,7 @@ Recursive descent parser consuming the token stream.
 - [x] Parse `action "<id>" { ... }` blocks
 - [x] Parse optional triple-quoted docstring at action top level → `text`
 - [x] Error on duplicate docstring + explicit `text` (`SCN_ACTION_TEXT_DUPLICATE`)
-- [x] Parse `compute`, `prepare`, `merge`, `publish`, `next` sub-blocks
+- [x] Parse `compute`, `publish`, `next` sub-blocks
 
 ### Prog parsing
 
@@ -212,9 +212,9 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 
 - [x] Hoist inline IO into canonical `prepare`/`merge` entries; binding names contain no arrows
 - [x] `name:type <~ @state.path` → emit the input binding and matching `prepare` entry
-- [x] Inline `<~` inputs and structural input declarations → emit `prepare` entries
-- [x] Inline `~>` outputs and structural output declarations → emit `merge` entries
-- [x] `from_hook = "..."` → emit `binding "name" { from_hook = "..." }` in `prepare`
+- [x] Inline `<~` inputs → emit `prepare` entries
+- [x] Inline `~>` outputs → emit `merge` entries
+- [x] `<~ hook("...")` → emit `binding "name" { from_hook = "..." }` in `prepare`
 
 ### Docstring lowering (per `scene-graph.md §5.1`)
 
@@ -272,21 +272,12 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 
 ### Effect DSL validation (per `effect-dsl-spec.md §5`, `convert-runtime-spec.md §Phase1`)
 
-- [x] Each structural input binding has a `prepare` entry (`MissingPrepareEntry`)
-- [x] Each binding internally classified as output has a `merge` entry (`MissingMergeEntry`)
-- [x] No `prepare` entry for a binding that computes its own RHS (`SpuriousPrepareEntry`)
-- [x] No spurious `merge` entry (`SpuriousMergeEntry`)
-- [x] No duplicate binding name in `prepare` (`DuplicatePrepareEntry`)
-- [x] No duplicate binding name in `merge` (`DuplicateMergeEntry`)
-- [x] Hand-built bidirectional model in `prepare` must also be in `merge` (`BidirMissingMergeEntry`)
-- [x] Hand-built bidirectional model in `merge` must also be in `prepare` (`BidirMissingPrepareEntry`)
-- [x] No `merge` or `publish` inside `next {}` (`TransitionMerge`)
-- [x] No `from_hook` in transition `prepare` (`TransitionHook`)
+- [x] Each binding declares a source: a `<~` clause or a computed RHS (`MissingBindingSource`)
+- [x] Retired `prepare` / `merge` blocks are rejected, in actions and in `next {}` (`LegacyEffectBlock`)
+- [x] No `publish` inside `next {}` (`TransitionPublish`)
+- [x] No `<~ hook(...)` in a transition `compute` (`TransitionHook`)
 - [x] No inline `~> @state.path` output in transition `prog` (`TransitionOutputSigil`)
-- [x] Transition `prepare` entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`)
-- [x] No `from_state` + `from_hook` on same `prepare` entry (`InvalidPrepareSource`)
-- [x] Every `prepare` binding name has a matching `binding` in the same `prog` (`UnresolvedPrepareBinding`)
-- [x] Every `merge` binding name has a matching `binding` in the same `prog` (`UnresolvedMergeBinding`)
+- [x] Transition ingress entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`) — a model-shape guard; hoisting always produces exactly one
 - [x] `from_state` / `to_state` values are valid dotted paths (`InvalidStatePath`)
 - [x] No duplicate `action` block names in one HCL file (`DuplicateActionLabel`)
 
@@ -455,7 +446,7 @@ All error codes that the converter must emit, grouped by spec source:
 `MissingStateSource`, `ConflictingStateSource`, `StateFileMissing`, `StateFileParseError`, `MissingStateBlock`, `DuplicateStateBlock`, `DuplicateStateNamespace`, `DuplicateStateField`, `MissingStateFieldAttr`, `InvalidStateFieldType`, `StateFieldDefaultTypeMismatch`, `UnresolvedStatePath`, `StateTypeMismatch`, `InvalidStatePath`, `MissingStatePath`
 
 ### `effect-dsl-spec.md` + `convert-runtime-spec.md`
-`MissingPrepareEntry`, `MissingMergeEntry`, `SpuriousPrepareEntry`, `SpuriousMergeEntry`, `DuplicatePrepareEntry`, `DuplicateMergeEntry`, `BidirMissingPrepareEntry`, `BidirMissingMergeEntry`, `TransitionMerge`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`, `InvalidPrepareSource`, `UnresolvedPrepareBinding`, `UnresolvedMergeBinding`, `DuplicateActionLabel`, `UnsupportedConstruct`
+`MissingBindingSource`, `LegacyEffectBlock`, `TransitionPublish`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`, `DuplicateActionLabel`, `UnsupportedConstruct`
 
 ### `scene-graph.md`
 `SCN_INVALID_ACTION_GRAPH`, `SCN_ACTION_ROOT_NOT_FOUND`, `SCN_INGRESS_TARGET_NOT_VALUE`, `SCN_INGRESS_SOURCE_MISSING`, `SCN_EGRESS_SOURCE_INVALID`, `SCN_EGRESS_SOURCE_UNAVAILABLE`, `SCN_NEXT_COMPUTE_INVALID`, `SCN_NEXT_COMPUTE_NOT_BOOL`, `SCN_NEXT_INGRESS_SOURCE_INVALID`, `SCN_ACTION_TEXT_DUPLICATE`

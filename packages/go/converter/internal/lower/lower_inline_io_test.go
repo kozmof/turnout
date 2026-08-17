@@ -4,38 +4,7 @@ import (
 	"testing"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
-	"google.golang.org/protobuf/proto"
 )
-
-// TestInlineIOMatchesBlockForm is the central contract of NEW_SYNTAX.md 3:
-// inline IO is a spelling, not a semantic change. The two forms must lower to
-// the same action model, so migrating a file cannot alter its behaviour.
-func TestInlineIOMatchesBlockForm(t *testing.T) {
-	inline := mustLower(t, minimal(`  entry_action = a
-  action "a" {
-    compute "p" {
-      income:number <~ @ns.val
-      out:number := (income) ~> @ns.val
-    }
-  }`))
-	block := mustLower(t, minimal(`  entry_action = a
-  action "a" {
-    compute "p" {
-      income:number
-      out:number := income
-    }
-    prepare {
-      income { from_state = ns.val }
-    }
-    merge {
-      out { to_state = ns.val }
-    }
-  }`))
-	if !proto.Equal(inline.Scenes[0].Actions[0], block.Scenes[0].Actions[0]) {
-		t.Errorf("inline and block forms lowered differently:\ninline: %v\nblock:  %v",
-			inline.Scenes[0].Actions[0], block.Scenes[0].Actions[0])
-	}
-}
 
 // TestInlineIOSynthesizesEntries pins the shape the hoisting produces.
 func TestInlineIOSynthesizesEntries(t *testing.T) {
@@ -110,40 +79,27 @@ func TestInlineIONextSources(t *testing.T) {
 	}
 }
 
-// TestInlineAndBlockIOConflict covers the precedence rule: a binding declares
-// its input or output inline or in a block, never both, because the two could
-// disagree about the destination.
-func TestInlineAndBlockIOConflict(t *testing.T) {
-	t.Run("input", func(t *testing.T) {
-		ds := lowerWithErrors(t, minimal(`  entry_action = a
+// TestBidirInlineIOSynthesizesBothEntries covers `<~ src ~> dst` on one binding:
+// the shape that used to need matching prepare and merge entries.
+func TestBidirInlineIOSynthesizesBothEntries(t *testing.T) {
+	tm := mustLower(t, `state { ns { val:number = 0  snapshot:number = 0 } }
+scene "test" {
+  entry_action = a
   action "a" {
     compute "p" {
-      income:number <~ @ns.val
+      income:number <~ @ns.val ~> @ns.snapshot
       out:number := income
     }
-    prepare {
-      income { from_state = ns.val }
-    }
-  }`))
-		if !hasLowerDiagCode(ds, diag.CodeDuplicateInlineIO) {
-			t.Errorf("want DuplicateInlineIO, got %v", ds)
-		}
-	})
-
-	t.Run("output", func(t *testing.T) {
-		ds := lowerWithErrors(t, minimal(`  entry_action = a
-  action "a" {
-    compute "p" {
-      out:number := (1) ~> @ns.val
-    }
-    merge {
-      out { to_state = ns.val }
-    }
-  }`))
-		if !hasLowerDiagCode(ds, diag.CodeDuplicateInlineIO) {
-			t.Errorf("want DuplicateInlineIO, got %v", ds)
-		}
-	})
+  }
+}
+`)
+	a := tm.Scenes[0].Actions[0]
+	if len(a.Prepare) != 1 || a.Prepare[0].Binding != "income" || a.Prepare[0].GetFromState() != "ns.val" {
+		t.Errorf("prepare = %v, want one from_state entry for income", a.Prepare)
+	}
+	if len(a.Merge) != 1 || a.Merge[0].Binding != "income" || a.Merge[0].ToState != "ns.snapshot" {
+		t.Errorf("merge = %v, want one to_state entry for income", a.Merge)
+	}
 }
 
 // TestInlineEgressInTransitionRejected covers the transition rule: a STATE write

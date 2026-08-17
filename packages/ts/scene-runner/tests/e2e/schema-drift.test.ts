@@ -8,11 +8,16 @@
  * (`ignoreUnknownFields`) silently tolerates.
  */
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
 import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
-import { runConverter, loadJsonModel, resetBinCache } from "../../src/server/bridge.js";
+import {
+  convertToHCL,
+  runConverter,
+  loadJsonModel,
+  resetBinCache,
+} from "../../src/server/bridge.js";
 
 const converterDir = resolve(__dirname, "../../../../go/converter");
 const examplesDir = resolve(__dirname, "../../../../../spec/examples");
@@ -77,6 +82,26 @@ describe("fixture .tu → committed .json consistency", () => {
       const fromSource = await runConverter(join(fixturesDir, turn), { strictParse: true });
       const committed = loadJsonModel(join(fixturesDir, json), { strictParse: true });
       expect(fromSource).toEqual(committed);
+    });
+  }
+});
+
+// The .hcl fixtures rot more quietly than the .json ones: no test loads them,
+// so nothing fails when the emitter's output moves. Both had drifted — merge
+// entries reordered, and the overview flow re-rendered — before this guard
+// existed. Compare bytes rather than a parsed model: these files exist to show
+// what the emitter writes, so formatting is part of what they pin.
+const hclPairs: Array<[turn: string, hcl: string]> = [
+  ["workflow.tu", "workflow.hcl"],
+  ["scene-graph-full.tu", "scene-graph-full.hcl"],
+];
+
+describe("fixture .tu → committed .hcl consistency", () => {
+  for (const [turn, hcl] of hclPairs) {
+    it(`${turn} converts to the committed ${hcl}`, async () => {
+      const fromSource = await convertToHCL(join(fixturesDir, turn));
+      const committed = readFileSync(join(fixturesDir, hcl), "utf8");
+      expect(fromSource).toBe(committed);
     });
   }
 });

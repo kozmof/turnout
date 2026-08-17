@@ -123,11 +123,8 @@ func TestLowerNextSugarMatchesBlockForm(t *testing.T) {
 	sugar := mustLower(t, body(`    next ready -> b`))
 	block := mustLower(t, body(`    next {
       compute "to_b" {
-        ready:bool
+        ready:bool <~ action(ready)
         go_b:bool := ready
-      }
-      prepare {
-        ready { from_action = ready }
       }
       action = b
     }`))

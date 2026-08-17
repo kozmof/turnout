@@ -11,45 +11,19 @@ import (
 // Group C — Effect DSL / sigil validation
 // ─────────────────────────────────────────────────────────────────────────────
 
+// validateActionEffects checks the prepare and merge entries hoisted from the
+// action's inline IO clauses. Every entry was generated from one binding of this
+// action's compute block, so what is left to check is the STATE side: the paths
+// exist, and the value written matches the field's declared type.
 func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInfo, schema state.Schema, ds *diag.DiagSink) {
-	preparedNames := map[string]bool{}
-	mergedNames := map[string]bool{}
-
-	seen := map[string]bool{}
 	for _, e := range a.Prepare {
-		if seen[e.Binding] {
-			ds.Append(diag.Errorf(diag.CodeDuplicatePrepareEntry,
-				"action %q: duplicate prepare entry for binding %q", a.Id, e.Binding))
-			continue
-		}
-		seen[e.Binding] = true
-		preparedNames[e.Binding] = true
-
-		if _, ok := scope[e.Binding]; !ok {
-			ds.Append(diag.Errorf(diag.CodeUnresolvedPrepareBinding,
-				"action %q: prepare binding %q not found in its compute block", a.Id, e.Binding))
-		}
-
 		if e.FromState != nil {
 			validateStatePath(*e.FromState, schema, ds)
 		}
 	}
 
-	seen = map[string]bool{}
 	for _, e := range a.Merge {
-		if seen[e.Binding] {
-			ds.Append(diag.Errorf(diag.CodeDuplicateMergeEntry,
-				"action %q: duplicate merge entry for binding %q", a.Id, e.Binding))
-			continue
-		}
-		seen[e.Binding] = true
-		mergedNames[e.Binding] = true
-
 		srcInfo, inScope := scope[e.Binding]
-		if !inScope {
-			ds.Append(diag.Errorf(diag.CodeUnresolvedMergeBinding,
-				"action %q: merge binding %q not found in its compute block", a.Id, e.Binding))
-		}
 
 		if e.ToState == "" {
 			ds.Append(diag.Errorf(diag.CodeMissingStatePath,
@@ -64,57 +38,6 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 			ds.Append(diag.Errorf(diag.CodeStateTypeMismatch,
 				"action %q: merge binding %q has type %s but STATE field %q has type %s",
 				a.Id, e.Binding, srcInfo.fieldType, e.ToState, meta.Type))
-		}
-	}
-
-	for name, info := range scope {
-		switch info.sigil {
-		case ast.SigilIngress:
-			if !preparedNames[name] {
-				ds.Append(diag.Errorf(diag.CodeMissingPrepareEntry,
-					"action %q: binding %q is marked as input but has no prepare entry", a.Id, name))
-			}
-		case ast.SigilEgress:
-			if !mergedNames[name] {
-				ds.Append(diag.Errorf(diag.CodeMissingMergeEntry,
-					"action %q: binding %q is marked as output but has no merge entry", a.Id, name))
-			}
-		case ast.SigilBiDir:
-			inPrepare := preparedNames[name]
-			inMerge := mergedNames[name]
-			if !inPrepare && !inMerge {
-				ds.Append(diag.Errorf(diag.CodeMissingPrepareEntry,
-					"action %q: binding %q is marked as bidirectional but has no prepare entry", a.Id, name))
-				ds.Append(diag.Errorf(diag.CodeMissingMergeEntry,
-					"action %q: binding %q is marked as bidirectional but has no merge entry", a.Id, name))
-			} else if inPrepare && !inMerge {
-				ds.Append(diag.Errorf(diag.CodeBidirMissingMergeEntry,
-					"action %q: binding %q is marked as bidirectional but appears only in prepare", a.Id, name))
-			} else if !inPrepare && inMerge {
-				ds.Append(diag.Errorf(diag.CodeBidirMissingPrepareEntry,
-					"action %q: binding %q is marked as bidirectional but appears only in merge", a.Id, name))
-			}
-		}
-	}
-
-	for name := range preparedNames {
-		info, ok := scope[name]
-		if !ok {
-			continue
-		}
-		if info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
-			ds.Append(diag.Errorf(diag.CodeSpuriousPrepareEntry,
-				"action %q: prepare entry for %q has no corresponding `<~` input declaration in its compute block", a.Id, name))
-		}
-	}
-	for name := range mergedNames {
-		info, ok := scope[name]
-		if !ok {
-			continue
-		}
-		if info.sigil != ast.SigilEgress && info.sigil != ast.SigilBiDir {
-			ds.Append(diag.Errorf(diag.CodeSpuriousMergeEntry,
-				"action %q: merge entry for %q has no corresponding `~>` output declaration in its compute block", a.Id, name))
 		}
 	}
 }

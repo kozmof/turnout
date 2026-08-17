@@ -184,14 +184,11 @@ scene "calibration_rig" {
       band:str <~ @calibration.band
       score:number <~ @calibration.score
 
-      line:str = band + " @ " + score.toStr()
+      # A named computed value that is also written out: parenthesize the whole
+      # RHS, then point the arrow at its destination.
+      line:str = (band + " @ " + score.toStr()) ~> @calibration.report
 
       logged:bool := (true) ~> @calibration.logged
-
-      # NOTE: `line` is consumed by the egress below via the report field.
-    }
-    merge {
-      line { to_state = calibration.report }
     }
   }
 

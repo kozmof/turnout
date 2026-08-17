@@ -312,25 +312,66 @@ func TestParseLegacySigilPositionReported(t *testing.T) {
 	}
 }
 
-// TestParseBareInputDeclaration covers the block-form spelling: a binding with
-// no RHS and no inline clause is an input whose source lives in `prepare`.
+// TestParseBareInputDeclaration covers a binding with no RHS and no inline
+// clause. It used to be an input fed by `prepare`; with the blocks retired it
+// has no source, and a silent zero value is worse than a diagnostic.
 func TestParseBareInputDeclaration(t *testing.T) {
-	tf := mustParse(t, minimalTurnFile(`  action "a" {
+	_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
     compute "p" {
       a:number
+      d:bool := true
+    }
+  }`))
+	if !hasDiagCode(ds, diag.CodeMissingBindingSource) {
+		t.Errorf("want MissingBindingSource, got %v", ds)
+	}
+}
+
+// TestParseRetiredEffectBlocks covers both retired blocks. The keywords survive
+// only to carry this diagnostic, which has to name the inline replacement.
+func TestParseRetiredEffectBlocks(t *testing.T) {
+	t.Run("prepare", func(t *testing.T) {
+		_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute "p" {
+      a:number <~ @ns.val
       d:bool := true
     }
     prepare {
       a { from_state = ns.val }
     }
   }`))
-	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	if b.Name != "a" {
-		t.Fatalf("binding[0] = %q, want a", b.Name)
-	}
-	if _, ok := b.RHS.(*ast.SigilInputRHS); !ok {
-		t.Errorf("RHS = %T, want *SigilInputRHS", b.RHS)
-	}
+		if !hasDiagCode(ds, diag.CodeLegacyEffectBlock) {
+			t.Errorf("want LegacyEffectBlock, got %v", ds)
+		}
+	})
+
+	t.Run("merge", func(t *testing.T) {
+		_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute "p" {
+      d:number := 1
+    }
+    merge {
+      d { to_state = ns.val }
+    }
+  }`))
+		if !hasDiagCode(ds, diag.CodeLegacyEffectBlock) {
+			t.Errorf("want LegacyEffectBlock, got %v", ds)
+		}
+	})
+
+	t.Run("transition_prepare", func(t *testing.T) {
+		_, ds := parser.ParseFile("test.tu", minimalTurnFile(`  action "a" {
+    compute "p" { d:bool := true }
+    next {
+      compute "n" { go:bool := true }
+      prepare { d { from_action = d } }
+      action = a
+    }
+  }`))
+		if !hasDiagCode(ds, diag.CodeLegacyEffectBlock) {
+			t.Errorf("want LegacyEffectBlock, got %v", ds)
+		}
+	})
 }
 
 // ── RHS forms ─────────────────────────────────────────────────────────────────
@@ -375,7 +416,7 @@ func TestRHSLiteralForms(t *testing.T) {
 func TestRHSPlaceholder(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute "p" {
-      v:number :=
+      v:number := <~ @ns.val
     }
   }`)
 	tf := mustParse(t, src)
@@ -598,66 +639,55 @@ func TestRHSIfBareRef(t *testing.T) {
 	}
 }
 
-// ── prepare / merge / publish ─────────────────────────────────────────────────
+// ── inline IO / publish ───────────────────────────────────────────────────────
 
-func TestParsePrepareBlock(t *testing.T) {
+func TestParseInlineStateIngress(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute "p" {
-      income:number
+      income:number <~ @applicant.income
       v:bool := true
-    }
-    prepare {
-      income { from_state = applicant.income }
     }
   }`)
 	tf := mustParse(t, src)
-	pb := tf.Scenes[0].Actions[0].Prepare
-	if pb == nil || len(pb.Entries) != 1 {
-		t.Fatalf("prepare entries = %v", pb)
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	if b.Name != "income" || b.Sigil != ast.SigilIngress {
+		t.Fatalf("binding = %q sigil = %v", b.Name, b.Sigil)
 	}
-	e := pb.Entries[0]
-	if e.BindingName != "income" {
-		t.Errorf("binding name = %q", e.BindingName)
-	}
-	fs, ok := e.Source.(*ast.FromState)
-	if !ok || fs.Path != "applicant.income" {
-		t.Errorf("source: got %T %v", e.Source, e.Source)
+	in, ok := b.Ingress.(*ast.IngressState)
+	if !ok || in.Path != "applicant.income" {
+		t.Errorf("ingress: got %T %v", b.Ingress, b.Ingress)
 	}
 }
 
-func TestParsePrepareFromHook(t *testing.T) {
+func TestParseInlineHookIngress(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute "p" { data:str v:bool := true }
-    prepare {
-      data { from_hook = "score_api" }
+    compute "p" {
+      data:str <~ hook("score_api")
+      v:bool := true
     }
   }`)
 	tf := mustParse(t, src)
-	e := tf.Scenes[0].Actions[0].Prepare.Entries[0]
-	fh, ok := e.Source.(*ast.FromHook)
-	if !ok || fh.HookName != "score_api" {
-		t.Errorf("source: got %T %v", e.Source, e.Source)
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	in, ok := b.Ingress.(*ast.IngressHook)
+	if !ok || in.HookName != "score_api" {
+		t.Errorf("ingress: got %T %v", b.Ingress, b.Ingress)
 	}
 }
 
-func TestParseMergeBlock(t *testing.T) {
+func TestParseInlineEgress(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute "p" {
-      decision:bool = true
+      decision:bool = (true) ~> @decision.approved
       v:bool := true
-    }
-    merge {
-      decision { to_state = decision.approved }
     }
   }`)
 	tf := mustParse(t, src)
-	mb := tf.Scenes[0].Actions[0].Merge
-	if mb == nil || len(mb.Entries) != 1 {
-		t.Fatalf("merge entries = %v", mb)
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	if b.Sigil != ast.SigilEgress {
+		t.Fatalf("sigil = %v, want egress", b.Sigil)
 	}
-	e := mb.Entries[0]
-	if e.BindingName != "decision" || e.ToState != "decision.approved" {
-		t.Errorf("entry: name=%q toState=%q", e.BindingName, e.ToState)
+	if b.Egress == nil || b.Egress.Path != "decision.approved" {
+		t.Errorf("egress = %v", b.Egress)
 	}
 }
 
@@ -689,11 +719,8 @@ func TestParseNextBlock(t *testing.T) {
     }
     next {
       compute "to_approve" {
-        decision:bool
+        decision:bool <~ action(decision)
         go:bool := decision
-      }
-      prepare {
-        decision { from_action = decision }
       }
       action = approve
     }
@@ -710,13 +737,9 @@ func TestParseNextBlock(t *testing.T) {
 	if r.Compute == nil || r.Compute.Condition != "go" {
 		t.Errorf("compute.condition = %q", r.Compute.Condition)
 	}
-	if r.Prepare == nil || len(r.Prepare.Entries) != 1 {
-		t.Fatalf("prepare entries = %v", r.Prepare)
-	}
-	pe := r.Prepare.Entries[0]
-	fa, ok := pe.Source.(*ast.FromAction)
-	if !ok || fa.BindingName != "decision" {
-		t.Errorf("source: got %T %v", pe.Source, pe.Source)
+	in, ok := r.Compute.Prog.Bindings[0].Ingress.(*ast.IngressAction)
+	if !ok || in.BindingName != "decision" {
+		t.Errorf("ingress: got %T %v", r.Compute.Prog.Bindings[0].Ingress, r.Compute.Prog.Bindings[0].Ingress)
 	}
 }
 
@@ -724,18 +747,18 @@ func TestParseNextFromState(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute "p" { v:bool := true }
     next {
-      compute "n" { always:bool := true }
-      prepare {
-        x { from_state = ns.field }
+      compute "n" {
+        x:bool <~ @ns.field
+        always:bool := x
       }
       action = b
     }
   }`)
 	tf := mustParse(t, src)
-	pe := tf.Scenes[0].Actions[0].Next[0].Prepare.Entries[0]
-	fs, ok := pe.Source.(*ast.FromState)
-	if !ok || fs.Path != "ns.field" {
-		t.Errorf("source: got %T %v", pe.Source, pe.Source)
+	b := tf.Scenes[0].Actions[0].Next[0].Compute.Prog.Bindings[0]
+	in, ok := b.Ingress.(*ast.IngressState)
+	if !ok || in.Path != "ns.field" {
+		t.Errorf("ingress: got %T %v", b.Ingress, b.Ingress)
 	}
 }
 
@@ -743,22 +766,22 @@ func TestParseNextFromLiteral(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute "p" { v:bool := true }
     next {
-      compute "n" { always:bool := true }
-      prepare {
-        x { from_literal = 42 }
+      compute "n" {
+        x:number <~ 42
+        always:bool := true
       }
       action = b
     }
   }`)
 	tf := mustParse(t, src)
-	pe := tf.Scenes[0].Actions[0].Next[0].Prepare.Entries[0]
-	fl, ok := pe.Source.(*ast.FromLiteral)
+	b := tf.Scenes[0].Actions[0].Next[0].Compute.Prog.Bindings[0]
+	in, ok := b.Ingress.(*ast.IngressLiteral)
 	if !ok {
-		t.Fatalf("source: got %T", pe.Source)
+		t.Fatalf("ingress: got %T", b.Ingress)
 	}
-	n, ok := fl.Value.(*ast.NumberLiteral)
+	n, ok := in.Value.(*ast.NumberLiteral)
 	if !ok || n.Value != 42 {
-		t.Errorf("literal: got %T %v", fl.Value, fl.Value)
+		t.Errorf("literal: got %T %v", in.Value, in.Value)
 	}
 }
 
@@ -768,11 +791,11 @@ func TestReferenceNormalization(t *testing.T) {
 	// Both bare and quoted forms should produce the same string.
 	srcBare := minimalTurnFile(`  action "a" {
     compute "p" { decision:bool := true }
-    merge { decision { to_state = ns.field } }
+    next { compute "n" { go:bool := true } action = b }
   }`)
 	srcQuoted := minimalTurnFile(`  action "a" {
     compute "p" { decision:bool := true }
-    merge { decision { to_state = "ns.field" } }
+    next { compute "n" { go:bool := true } action = "b" }
   }`)
 
 	tf1 := mustParse(t, srcBare)
@@ -783,24 +806,20 @@ func TestReferenceNormalization(t *testing.T) {
 			tf1.Scenes[0].Actions[0].Compute.Root,
 			tf2.Scenes[0].Actions[0].Compute.Root)
 	}
-	if tf1.Scenes[0].Actions[0].Merge.Entries[0].ToState !=
-		tf2.Scenes[0].Actions[0].Merge.Entries[0].ToState {
-		t.Error("to_state differs")
+	if tf1.Scenes[0].Actions[0].Next[0].ActionID != tf2.Scenes[0].Actions[0].Next[0].ActionID {
+		t.Error("action reference differs")
 	}
 }
 
 func TestThreeSegmentPath(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
-    compute "p" { v:number := }
-    prepare {
-      v { from_state = session.cart.items }
-    }
+    compute "p" { v:number := <~ @session.cart.items }
   }`)
 	tf := mustParse(t, src)
-	e := tf.Scenes[0].Actions[0].Prepare.Entries[0]
-	fs, ok := e.Source.(*ast.FromState)
-	if !ok || fs.Path != "session.cart.items" {
-		t.Errorf("path: got %q", fs.Path)
+	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
+	in, ok := b.Ingress.(*ast.IngressState)
+	if !ok || in.Path != "session.cart.items" {
+		t.Errorf("path: got %T %v", b.Ingress, b.Ingress)
 	}
 }
 

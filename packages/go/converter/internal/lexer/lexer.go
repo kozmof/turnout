@@ -66,6 +66,9 @@ const (
 	TokKwScene
 	TokKwAction
 	TokKwCompute
+	// prepare and merge are retired surface syntax. They keep their keyword so a
+	// file still carrying the blocks gets a named diagnostic naming the inline
+	// replacement rather than an unexpected-identifier error; nothing parses them.
 	TokKwPrepare
 	TokKwMerge
 	TokKwPublish
@@ -73,11 +76,6 @@ const (
 	TokKwProg
 	TokKwEntryAction
 	TokKwNextPolicy
-	TokKwFromState
-	TokKwFromAction
-	TokKwFromHook
-	TokKwFromLiteral
-	TokKwToState
 	TokKwHook
 	TokKwView
 	TokKwOverview
@@ -239,11 +237,6 @@ var keywordTable = []keywordEntry{
 	{"prog", TokKwProg},
 	{"entry_action", TokKwEntryAction},
 	{"next_policy", TokKwNextPolicy},
-	{"from_state", TokKwFromState},
-	{"from_action", TokKwFromAction},
-	{"from_hook", TokKwFromHook},
-	{"from_literal", TokKwFromLiteral},
-	{"to_state", TokKwToState},
 	{"hook", TokKwHook},
 	{"view", TokKwView},
 	{"overview", TokKwOverview},

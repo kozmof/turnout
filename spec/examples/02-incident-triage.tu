@@ -108,15 +108,10 @@ scene "incident_response" {
     #
     #   next {
     #     compute "..." {
-    #       tier:str
-    #       blast:str
-    #       customer_facing:bool
+    #       tier:str             <~ action(tier)
+    #       blast:str            <~ action(blast)
+    #       customer_facing:bool <~ action(customer_facing)
     #       go:bool := tier == "critical" & blast == "wide" & customer_facing == true
-    #     }
-    #     prepare {
-    #       tier            { from_action = tier }
-    #       blast           { from_action = blast }
-    #       customer_facing { from_action = customer_facing }
     #     }
     #     action = page_leadership
     #   }

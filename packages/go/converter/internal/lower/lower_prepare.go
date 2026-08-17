@@ -15,7 +15,7 @@ import (
 // ─────────────────────────────────────────────────────────────────────────────
 
 type prepareResolver interface {
-	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, missingPrepareCode diag.ErrorCode, ds *diag.DiagSink) *structpb.Value
+	resolveDefault(bindingName string, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) *structpb.Value
 }
 
 // ── Action-level resolver ──
@@ -35,10 +35,10 @@ func newActionPrepareResolver(prepare *ast.PrepareBlock, schema state.Schema) pr
 	return &actionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode diag.ErrorCode, ds *diag.DiagSink) *structpb.Value {
+func (r *actionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) *structpb.Value {
 	src, ok := r.index[name]
 	if !ok {
-		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no prepare entry", ds)
+		return emitMissingSource(name, ft, pos, ds)
 	}
 	switch s := src.(type) {
 	case *ast.FromState:
@@ -70,10 +70,10 @@ func newTransitionPrepareResolver(prepare *ast.NextPrepareBlock, schema state.Sc
 	return &transitionPrepareResolver{index: index, schema: schema}
 }
 
-func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, missingPrepareCode diag.ErrorCode, ds *diag.DiagSink) *structpb.Value {
+func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) *structpb.Value {
 	src, ok := r.index[name]
 	if !ok {
-		return emitMissingPrepare(name, ft, pos, missingPrepareCode, "has no transition prepare entry", ds)
+		return emitMissingSource(name, ft, pos, ds)
 	}
 	switch s := src.(type) {
 	case *ast.FromState:
@@ -94,13 +94,14 @@ func (r *transitionPrepareResolver) resolveDefault(name string, ft ast.FieldType
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-// emitMissingPrepare records a diagnostic for a sigil binding with no prepare
-// entry and returns a zero value. The detail string distinguishes action-level
-// from transition-level prepare blocks in the error message.
-func emitMissingPrepare(name string, ft ast.FieldType, pos ast.Pos, code diag.ErrorCode, detail string, ds *diag.DiagSink) *structpb.Value {
+// emitMissingSource records a diagnostic for an input binding whose source did
+// not survive hoisting, and returns a zero value. Every `<~` clause hoists to an
+// entry, so reaching this means an earlier diagnostic already fired on the same
+// binding; the zero value keeps lowering going to collect the rest of the file.
+func emitMissingSource(name string, ft ast.FieldType, pos ast.Pos, ds *diag.DiagSink) *structpb.Value {
 	ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col,
-		code,
-		"binding %q declares inline input (`<~`) but %s", name, detail))
+		diag.CodeMissingBindingSource,
+		"binding %q is an input but has no resolved source", name))
 	return zeroStructpbFor(ft)
 }
 

@@ -309,10 +309,7 @@ func TestEmitPrepareFromState(t *testing.T) {
 scene "s" {
   entry_action = a
   action "a" {
-    compute "p" { score:number := }
-    prepare {
-      score { from_state = app.score }
-    }
+    compute "p" { score:number := <~ @app.score }
   }
 }`)
 	if !strings.Contains(out, `prepare {`) {
@@ -330,10 +327,7 @@ func TestEmitPrepareFromHook(t *testing.T) {
 scene "s" {
   entry_action = a
   action "a" {
-    compute "p" { data:str := }
-    prepare {
-      data { from_hook = "api_hook" }
-    }
+    compute "p" { data:str := <~ hook("api_hook") }
   }
 }`)
 	if !strings.Contains(out, `from_hook  = "api_hook"`) {
@@ -348,10 +342,7 @@ func TestEmitMergeBlock(t *testing.T) {
 scene "s" {
   entry_action = a
   action "a" {
-    compute "p" { approved:bool := true }
-    merge {
-      approved { to_state = app.approved }
-    }
+    compute "p" { approved:bool := (true) ~> @app.approved }
   }
 }`)
 	if !strings.Contains(out, `merge {`) {
@@ -740,12 +731,10 @@ scene "test_scene" {
   next_policy   = "first-match"
   action "act_a" {
     compute "g" {
-      q:str
-      out:str = q
+      q:str <~ @request.query
+      out:str = (q) ~> @request.query
       done:bool := true
     }
-    prepare { q { from_state = request.query } }
-    merge   { out { to_state = request.query } }
     next {
       compute "to_b" { done:bool := true }
       action = act_b
@@ -802,12 +791,10 @@ scene "s" {
   entry_action = a
   action "a" {
     compute "p" {
-      q:str
-      out:str = q
+      q:str <~ @app.query
+      out:str = (q) ~> @app.result
       done:bool := true
     }
-    prepare { q { from_state = app.query } }
-    merge   { out { to_state = app.result } }
   }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)

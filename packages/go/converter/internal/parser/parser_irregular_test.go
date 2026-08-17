@@ -79,8 +79,8 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
       }
     }
   }`),
-			wantCode:   "ParseSyntaxError",
-			wantSubstr: "unexpected token }",
+			wantCode:   "MissingBindingSource",
+			wantSubstr: "has no value",
 		},
 		{
 			name: "unterminated_action_docstring",
@@ -93,21 +93,21 @@ func TestParseIrregularMalformedDslShapes(t *testing.T) {
 			wantSubstr: "unterminated triple-quoted string",
 		},
 		{
-			name: `prepare_missing_source_value`,
+			name: `retired_prepare_block`,
 			src: `state {
   app { score:number = 0 }
 }
 scene "test" {
   entry_action = a
   action "a" {
-    compute "p" { v:number := }
+    compute "p" { v:number := 1 }
     prepare {
-      v { from_state = }
+      v { from_state = app.score }
     }
   }
 }`,
-			wantCode:   "ParseSyntaxError",
-			wantSubstr: "expected identifier or string for reference value",
+			wantCode:   "LegacyEffectBlock",
+			wantSubstr: "declare IO inline on the binding",
 		},
 		{
 			name: "invalid_route_path_prefix",

@@ -375,11 +375,11 @@ scene "ai_workflow" {
     }
 
     merge {
-      binding "final_response" {
-        to_state = "response.last"
-      }
       binding "status" {
         to_state = "workflow.status"
+      }
+      binding "final_response" {
+        to_state = "response.last"
       }
     }
   }
@@ -419,11 +419,11 @@ scene "ai_workflow" {
     }
 
     merge {
-      binding "review_note" {
-        to_state = "review.note"
-      }
       binding "status" {
         to_state = "workflow.status"
+      }
+      binding "review_note" {
+        to_state = "review.note"
       }
     }
   }

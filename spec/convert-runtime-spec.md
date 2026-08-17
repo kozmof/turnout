@@ -89,7 +89,7 @@ action "checkout" {
 - The Go CLI can accept Turn DSL surface syntax including typed keys (`name:type`), function calls, nested infix expressions, `if`, `case`, `pipe`, transform chains, bare references, transition sugar, structured overview blocks, and inline IO.
 - The Go CLI can lower all surface DSL forms to canonical plain HCL `binding` blocks, identically to the rules in `hcl-context-spec.md` §2–3.
 - The Go CLI can emit multiple `action` blocks in one HCL file, one per declared action, as long as each block has a distinct name label matching its `actionId`.
-- The Go CLI can declare STATE effect bindings inside action blocks using `prepare` and `merge` sub-blocks.
+- The Go CLI can emit STATE effect bindings inside action blocks as `prepare` and `merge` sub-blocks, hoisted from the source's inline `<~` and `~>` clauses.
 - The Go CLI can emit `publish` sub-blocks with one or more `hook` attributes per action.
 - The Go CLI can emit `prepare` entries with `from_hook` for prepare-phase hook bindings (per `hook-spec.md`).
 - The Go CLI can report parse and type errors (per the error catalogue in `hcl-context-spec.md` §5 and the extended catalogue below) and abort without emitting partial HCL.
@@ -106,7 +106,7 @@ action "checkout" {
 - Effect timing cannot be inferred at runtime. It must be fixed in the emitted HCL at convert time as declared in the Turn DSL.
 - The Go CLI cannot emit a `prepare` or `merge` binding whose name does not match an existing `binding` block in the same `prog`.
 - The Go CLI cannot emit a `from_state` or `to_state` value that is not a valid dotted identifier path.
-- The Go CLI cannot emit a `prepare` entry with both `from_state` and `from_hook` on the same binding (`InvalidPrepareSource`).
+- The Go CLI cannot emit a `prepare` entry with both `from_state` and `from_hook` on the same binding. A binding carries one ingress clause, so the surface cannot express it.
 - The Go CLI cannot emit a `from_hook` binding name in a transition `prepare` block (`TransitionHook`).
 - The Go CLI cannot emit `merge` or `publish` blocks inside a transition `next` block.
 
@@ -119,7 +119,7 @@ In addition to the error codes in `hcl-context-spec.md` §5, the converter must 
 | `UnsupportedConstruct` | Phase 2 loop construct (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 DSL file |
 | `DuplicateActionLabel` | Two `action` blocks with the same name label in one emitted HCL file |
 
-For all IO/`prepare`/`merge`/transition error codes (`InvalidStatePath`, `MissingPrepareEntry`, `MissingMergeEntry`, `SpuriousPrepareEntry`, `SpuriousMergeEntry`, `BidirMissingPrepareEntry`, `BidirMissingMergeEntry`, `TransitionMerge`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`, `InvalidPrepareSource`, `UnresolvedPrepareBinding`, `UnresolvedMergeBinding`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
+For all IO and transition error codes (`MissingBindingSource`, `LegacyEffectBlock`, `InvalidStatePath`, `TransitionPublish`, `TransitionHook`, `TransitionOutputSigil`, `InvalidTransitionIngress`), see `effect-dsl-spec.md §7`. For hook-specific codes (`MissingHookField`), see `hook-spec.md §6`.
 
 ---
 
@@ -291,7 +291,8 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 |------|--------------------|
 | Turn DSL contains `range(n)` (Phase 2) | `UnsupportedConstruct` error, no HCL emitted |
 | Two `action` blocks with identical name labels | `DuplicateActionLabel` error |
-| `prepare` binding name not present as a `binding` block | `UnresolvedPrepareBinding` error at convert time |
+| Binding with no `<~` source and no computed RHS | `MissingBindingSource` error at convert time |
+| Retired `prepare` or `merge` block in the source | `LegacyEffectBlock` error naming the inline replacement |
 | `from_state = "foo..bar"` (empty segment) | `InvalidStatePath` error |
 | `div` binding result stored in `:number` field | Valid; `number` type accepts fractional results — authors may bind the result and use `.floor()` or `.round()` in a later expression if integer semantics are needed |
 | `all-match` selects 0 next actions | Enter terminal `completed` state |

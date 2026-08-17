@@ -113,15 +113,11 @@ scene "ticket_intake" {
     Terminal: an escalated technical ticket goes to the on-call rota.
     """
     compute "specialist_graph" {
-      assignee:str <~ @routing.assignee
+      # `assignee` is read back out to STATE unchanged, which is what a
+      # bidirectional binding is for — see the generalist action below.
+      assignee:str <~ @routing.assignee ~> @routing.assignee
 
       priority:number := (1) ~> @routing.priority
-
-      # NOTE: `assignee` is read back out to STATE unchanged, which is what a
-      # bidirectional binding is for — see the generalist action below.
-    }
-    merge {
-      assignee { to_state = routing.assignee }
     }
   }
 

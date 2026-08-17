@@ -66,27 +66,18 @@ scene "support" {
 
     next {
       compute "__local_escalate_match_0" {
-        tier:str
-        region:str
-        urgent:bool
+        tier:str <~ action(tier)
+        region:str <~ action(region)
+        urgent:bool <~ action(urgent)
         __local_escalate_go_0:bool := tier == "gold" & region == "eu" & urgent == true
-      }
-      prepare {
-        tier   { from_action = tier }
-        region { from_action = region }
-        urgent { from_action = urgent }
       }
       action = escalate
     }
     next {
       compute "__local_review_match_1" {
-        tier:str
-        urgent:bool
+        tier:str <~ action(tier)
+        urgent:bool <~ action(urgent)
         __local_review_go_1:bool := tier == "gold" & urgent == false
-      }
-      prepare {
-        tier   { from_action = tier }
-        urgent { from_action = urgent }
       }
       action = review
     }

@@ -88,36 +88,32 @@ const (
 
 // Error codes from effect-dsl-spec.md + convert-runtime-spec.md
 const (
-	CodeUnknownMethod            ErrorCode = "UnknownMethod"
-	CodeMissingPrepareEntry      ErrorCode = "MissingPrepareEntry"
-	CodeMissingMergeEntry        ErrorCode = "MissingMergeEntry"
-	CodeSpuriousPrepareEntry     ErrorCode = "SpuriousPrepareEntry"
-	CodeSpuriousMergeEntry       ErrorCode = "SpuriousMergeEntry"
-	CodeDuplicatePrepareEntry    ErrorCode = "DuplicatePrepareEntry"
-	CodeDuplicateMergeEntry      ErrorCode = "DuplicateMergeEntry"
-	CodeBidirMissingPrepareEntry ErrorCode = "BidirMissingPrepareEntry"
-	CodeBidirMissingMergeEntry   ErrorCode = "BidirMissingMergeEntry"
-	CodeTransitionMerge          ErrorCode = "TransitionMerge"
-	CodeTransitionHook           ErrorCode = "TransitionHook"
+	CodeUnknownMethod ErrorCode = "UnknownMethod"
+	// CodeMissingBindingSource is emitted for a bare `name:type` binding. Inline
+	// IO is the only spelling for ingress, so a binding with neither a `<~`
+	// source nor a computed RHS has no value; lowering would hand it the type's
+	// zero value instead of failing.
+	CodeMissingBindingSource ErrorCode = "MissingBindingSource"
+	CodeTransitionPublish    ErrorCode = "TransitionPublish"
+	CodeTransitionHook       ErrorCode = "TransitionHook"
 	// CodeLegacySigilPosition is emitted when a sigil appears before the binding
 	// name, the pre-v2 spelling. It is its own code because a mis-migrated file
 	// can still parse: the arrows inverted when they moved to infix position
 	// (NEW_SYNTAX.md 3), so a generic syntax error would understate the risk.
 	CodeLegacySigilPosition ErrorCode = "LegacySigilPosition"
-	// CodeDuplicateInlineIO is emitted when a binding declares its input or
-	// output both inline and in a prepare/merge block. Both spellings stay legal
-	// (NEW_SYNTAX.md 3), but not for the same binding: they could disagree about
-	// the destination, and silently preferring one would hide the conflict.
-	CodeDuplicateInlineIO     ErrorCode = "DuplicateInlineIO"
+	// CodeLegacyEffectBlock is emitted for a `prepare` or `merge` block. Both
+	// were retired once inline IO covered every shape they expressed; the
+	// keywords survive only so the diagnostic can name the inline replacement.
+	CodeLegacyEffectBlock     ErrorCode = "LegacyEffectBlock"
 	CodeTransitionOutputSigil ErrorCode = "TransitionOutputSigil"
 	// CodeSigilPositionLoss is a warning emitted when Validate is called with a nil
 	// sidecar but the model contains sigil bindings. Sigil-related diagnostics will
 	// be emitted without source-file positions in this case.
-	CodeSigilPositionLoss        ErrorCode = "SigilPositionLoss"
+	CodeSigilPositionLoss ErrorCode = "SigilPositionLoss"
+	// CodeInvalidTransitionIngress guards the wire shape of a transition ingress
+	// entry: exactly one source. Hoisting always produces one, so this fires only
+	// for a model that did not come from this converter.
 	CodeInvalidTransitionIngress ErrorCode = "InvalidTransitionIngress"
-	CodeInvalidPrepareSource     ErrorCode = "InvalidPrepareSource"
-	CodeUnresolvedPrepareBinding ErrorCode = "UnresolvedPrepareBinding"
-	CodeUnresolvedMergeBinding   ErrorCode = "UnresolvedMergeBinding"
 	CodeDuplicateActionLabel     ErrorCode = "DuplicateActionLabel"
 	// CodeUnsupportedConstruct is emitted when a user-authored construct exists
 	// in the DSL but is not yet supported or is invalid in the current context

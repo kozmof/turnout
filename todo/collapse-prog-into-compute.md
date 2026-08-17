@@ -81,8 +81,6 @@ action "score" {
     debt:number   <~ @applicant.debt
     ok:bool       := income >= 50000
   }
-  prepare { ... }
-  merge   { ... }
 
   next {
     action = approve

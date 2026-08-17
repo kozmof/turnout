@@ -59,9 +59,9 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 		case lexer.TokKwCompute:
 			ab.Compute = p.parseComputeBlock()
 		case lexer.TokKwPrepare:
-			ab.Prepare = p.parsePrepareBlock()
+			p.legacyEffectBlock("write `name:type <~ @ns.field` or `name:type <~ hook(\"name\")` in the compute block")
 		case lexer.TokKwMerge:
-			ab.Merge = p.parseMergeBlock()
+			p.legacyEffectBlock("write `name:type = (expr) ~> @ns.field`, or `(expr) ~> @ns.field` for a write-only value")
 		case lexer.TokKwPublish:
 			ab.Publish = p.parsePublishBlock()
 		case lexer.TokKwNext:

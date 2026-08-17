@@ -2002,11 +2002,7 @@ Values returned by prepare hooks may be broad runtime types.
 Example:
 
 ```turn
-prepare {
-  resource_id {
-    from_hook = "request_context"
-  }
-}
+resource_id:ResourceId <~ hook("request_context")
 ```
 
 If the destination field expects `ResourceId`, runtime validation must occur before computation.
