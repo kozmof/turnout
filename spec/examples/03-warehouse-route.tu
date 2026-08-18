@@ -1,38 +1,27 @@
 # ===========================================================================
 # 03 — Warehouse pick-pack-ship, across three scenes
-#
-# One route tying three scenes together. A scene runs until no transition
-# matches — that is what "terminal" means — and the route then reads the
-# action path the scene just took and decides which scene comes next.
-#
-# STATE is global to the route: it is not reset at a scene boundary, so the
-# scene entered next starts from exactly the STATE its predecessor left.
-#
-# Covers: multi-scene files, the `route` block, and every route path form —
-# a direct two-segment path, a single-wildcard path, a multi-segment suffix,
-# OR-joined branches sharing one target, and the `_` fallback.
 # ===========================================================================
 
 state {
   order {
-    line_count:number = 0
-    priority:bool = false
-    address_valid:bool = false
+    line_count:number   = 0
+    priority:bool       = false
+    address_valid:bool  = false
   }
   pick {
     picked_count:number = 0
-    short_picked:bool = false
-    tote_id:str = ""
+    short_picked:bool   = false
+    tote_id:str         = ""
   }
   pack {
-    carton:str = ""
-    weight_kg:number = 0
-    sealed:bool = false
+    carton:str        = ""
+    weight_kg:number  = 0
+    sealed:bool       = false
   }
   ship {
     carrier:str = ""
-    label:str = ""
-    status:str = ""
+    label:str   = ""
+    status:str  = ""
   }
 }
 
@@ -53,14 +42,13 @@ scene "picking" {
     Walk the pick list and count what actually came off the shelf.
     """
     compute "start_pick_graph" {
-      line_count:number <~ @order.line_count
+      line_count:number   <~ @order.line_count
       picked_count:number <~ @pick.picked_count
 
       complete:bool = picked_count >= line_count
 
-      ("TOTE-A") ~> @pick.tote_id
-
-      short:bool := (complete.not()) ~> @pick.short_picked
+      ("TOTE-A")                      ~> @pick.tote_id
+      short:bool := (complete.not())  ~> @pick.short_picked
     }
 
     next short -> pick_short
@@ -73,8 +61,7 @@ scene "picking" {
     sends this path onward to packing.
     """
     compute "pick_complete_graph" {
-      tote_id:str <~ @pick.tote_id
-
+      tote_id:str           <~ @pick.tote_id
       ("picked " + tote_id) ~> @ship.status
     }
   }
@@ -84,9 +71,8 @@ scene "picking" {
     Terminal for this scene: the tote is short. The route diverts this path.
     """
     compute "pick_short_graph" {
-      picked_count:number <~ @pick.picked_count
-
-      ("short by count " + picked_count.toStr()) ~> @ship.status
+      picked_count:number                         <~ @pick.picked_count
+      ("short by count " + picked_count.toStr())  ~> @ship.status
     }
   }
 }
@@ -109,14 +95,11 @@ scene "packing" {
     """
     compute "choose_carton_graph" {
       line_count:number <~ @order.line_count
-
       large:bool = line_count >= 10
-
       carton:str = if(large, "L", "S")
 
-      (carton) ~> @pack.carton
-
-      (line_count * 2) ~> @pack.weight_kg
+      (carton)          ~> @pack.carton
+      (line_count * 2)  ~> @pack.weight_kg
     }
 
     next seal_carton
@@ -127,10 +110,8 @@ scene "packing" {
     Terminal for this scene: tape it shut.
     """
     compute "seal_carton_graph" {
-      carton:str <~ @pack.carton
-
-      (true) ~> @pack.sealed
-
+      carton:str  <~ @pack.carton
+      (true)      ~> @pack.sealed
       ("packed in " + carton) ~> @ship.status
     }
   }
@@ -148,8 +129,8 @@ scene "shipping" {
     Choose a carrier from priority and parcel weight.
     """
     compute "select_carrier_graph" {
-      priority:bool <~ @order.priority
-      weight_kg:number <~ @pack.weight_kg
+      priority:bool     <~ @order.priority
+      weight_kg:number  <~ @pack.weight_kg
 
       heavy:bool = weight_kg >= 20
 
@@ -161,13 +142,12 @@ scene "shipping" {
       )
 
       (carrier) ~> @ship.carrier
-
-      (true) ~> @pack.sealed
+      (true)    ~> @pack.sealed
     }
 
     next on (carrier) match {
       "air" => print_express_label,
-      _ => print_standard_label
+      _     => print_standard_label
     }
   }
 
@@ -176,11 +156,9 @@ scene "shipping" {
     Terminal: express label, ready for the priority sort.
     """
     compute "express_label_graph" {
-      carrier:str <~ @ship.carrier
-
-      ("EXP-" + carrier.toUpperCase()) ~> @ship.label
-
-      ("labelled express") ~> @ship.status
+      carrier:str                       <~ @ship.carrier
+      ("EXP-" + carrier.toUpperCase())  ~> @ship.label
+      ("labelled express")              ~> @ship.status
     }
   }
 
@@ -189,11 +167,9 @@ scene "shipping" {
     Terminal: standard label.
     """
     compute "standard_label_graph" {
-      carrier:str <~ @ship.carrier
-
-      ("STD-" + carrier.toUpperCase()) ~> @ship.label
-
-      ("labelled standard") ~> @ship.status
+      carrier:str                       <~ @ship.carrier
+      ("STD-" + carrier.toUpperCase())  ~> @ship.label
+      ("labelled standard")             ~> @ship.status
     }
   }
 }
@@ -210,8 +186,7 @@ scene "handoff" {
     Terminal for the whole route: the parcel leaves the building.
     """
     compute "release_graph" {
-      label:str <~ @ship.label
-
+      label:str             <~ @ship.label
       ("released " + label) ~> @ship.status
     }
   }
@@ -219,34 +194,17 @@ scene "handoff" {
 
 # ---------------------------------------------------------------------------
 # The route
-#
-# Each arm matches the action path the just-terminated scene took. The last
-# segment is always a concrete action id — a bare `scene.*` is rejected,
-# because the runtime would have no way to know when to fire it.
-#
-# A route COMPLETES when no arm matches. That is why there is no `_` arm here:
-# `_` matches unconditionally, so a route carrying one never finishes on its
-# own and runs until the transition cap. Ending a route means leaving its last
-# scene unmatched — here, nothing matches a terminated `handoff`.
 # ---------------------------------------------------------------------------
 
 route "fulfilment" {
   entry = picking
 
   match {
-    # direct two-segment path: the whole scene block is exactly this one action
-    picking.pick_short => shipping,
-
-    # single wildcard: any number of actions, ending at this one
-    picking.*.pick_complete => packing,
-
-    # multi-segment suffix: the block ends with this action sequence
+    picking.pick_short                  => shipping,
+    picking.*.pick_complete             => packing,
     packing.*.choose_carton.seal_carton => shipping,
-
-    # OR-joined branches sharing one target; every branch must share the
-    # same `=>` scene
     shipping.*.print_express_label |
     shipping.*.print_standard_label
-      => handoff
+                                        => handoff
   }
 }

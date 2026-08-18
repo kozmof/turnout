@@ -1,30 +1,20 @@
 # ===========================================================================
 # 02 — Incident triage
-#
-# A paging system that decides who to wake up. The decision is over VALUES —
-# severity, blast radius, whether the service is customer-facing — so it is
-# written as one transition match block instead of a boolean flag per lane.
-#
-# Covers: `next on (...) match { }` in both its multi-subject and
-# single-subject forms, `_` as a whole-arm fallback and as an unconstrained
-# column, `case` and `if` local expressions, hook input (`<~ hook(...)`),
-# publish hooks, and a block-form transition mixing all three transition
-# ingress sources.
 # ===========================================================================
 
 state {
   incident {
-    severity:number = 0
-    affected_services:number = 0
-    customer_facing:bool = false
-    summary:str = ""
+    severity:number           = 0
+    affected_services:number  = 0
+    customer_facing:bool      = false
+    summary:str               = ""
   }
   triage {
-    tier:str = ""
-    blast:str = ""
-    owner:str = ""
-    paged:bool = false
-    note:str = ""
+    tier:str    = ""
+    blast:str   = ""
+    owner:str   = ""
+    paged:bool  = false
+    note:str    = ""
     escalations:number = 0
   }
 }
@@ -32,17 +22,13 @@ state {
 scene "incident_response" {
   entry_action = classify_incident
 
-  # Arm order is what makes the arms mutually exclusive: rules are evaluated
-  # in declaration order and the first true one wins, so the `_` arm fires
-  # only when no arm above it matched.
-
   overview at_least {
     classify_incident |=> page_leadership
     classify_incident |=> page_oncall
     classify_incident |=> watch_only
-    page_oncall |=> open_ticket
-    watch_only |=> open_ticket
-    watch_only |=> watch_only_end
+    page_oncall       |=> open_ticket
+    watch_only        |=> open_ticket
+    watch_only        |=> watch_only_end
   }
 
   action "classify_incident" {
@@ -53,18 +39,11 @@ scene "incident_response" {
     """
 
     compute "classify_graph" {
-      severity:number <~ @incident.severity
-      affected_services:number <~ @incident.affected_services
-      customer_facing:bool <~ @incident.customer_facing
+      severity:number           <~ @incident.severity
+      affected_services:number  <~ @incident.affected_services
+      customer_facing:bool      <~ @incident.customer_facing
+      oncall_owner:str          <~ hook("oncall_roster")
 
-      # A hook is external input, resolved before the graph runs. Hook ingress
-      # is action-level only — a transition cannot call one, because control
-      # flow has to stay derivable from STATE.
-      oncall_owner:str <~ hook("oncall_roster")
-
-      # `case` classifies a value into a band. Its arms produce values; the
-      # match block below has arms that produce transitions. Same pattern
-      # syntax, different jobs.
       critical:bool = severity >= 8
       major:bool    = severity >= 5
 
@@ -76,12 +55,11 @@ scene "incident_response" {
       )
 
       widespread:bool = affected_services >= 3
+      blast:str       = if(widespread, "wide", "contained")
 
-      blast:str = if(widespread, "wide", "contained")
-
-      (tier) ~> @triage.tier
-      (blast) ~> @triage.blast
-      (oncall_owner) ~> @triage.owner
+      (tier)          ~> @triage.tier
+      (blast)         ~> @triage.blast
+      (oncall_owner)  ~> @triage.owner
 
       (true) ~> @triage.paged
     }
@@ -91,10 +69,6 @@ scene "incident_response" {
       hook = "metrics"
     }
 
-    # ── the transition match block ─────────────────────────────────────────
-    #
-    # Five arms, evaluated in order. A `_` column is not read at all, so the
-    # transition generated for the third arm reads only `tier`.
     next on (tier, blast, customer_facing) match {
       ("critical", "wide",      true)  => page_leadership,
       ("critical", "contained", true)  => page_oncall,
@@ -124,23 +98,19 @@ scene "incident_response" {
     severe enough to need a written record.
     """
     compute "page_oncall_graph" {
-      owner:str <~ @triage.owner
-      severity:number <~ @incident.severity
-
-      ("paged " + owner) ~> @triage.note
+      owner:str           <~ @triage.owner
+      severity:number     <~ @incident.severity
+      ("paged " + owner)  ~> @triage.note
     }
     publish {
       hook = "pager"
     }
 
-    # The block form, used here because the condition is a comparison rather
-    # than a plain bool binding. It also shows all three transition ingress
-    # sources at once — a hook is the one source a transition cannot use.
     next {
       compute "to_ticket" {
-        severity:number <~ action(severity)     # from the compute above
-        ticket_floor:number <~ 6                # a literal
-        paged:bool <~ @triage.paged             # post-merge STATE
+        severity:number     <~ action(severity)     # from the compute above
+        ticket_floor:number <~ 6                    # a literal
+        paged:bool          <~ @triage.paged        # post-merge STATE
         go:bool := severity >= ticket_floor & paged
       }
       action = open_ticket
@@ -153,11 +123,9 @@ scene "incident_response" {
     commander.
     """
     compute "page_leadership_graph" {
-      owner:str <~ @triage.owner
-      escalations:number <~ @triage.escalations
-
-      (escalations + 1) ~> @triage.escalations
-
+      owner:str           <~ @triage.owner
+      escalations:number  <~ @triage.escalations
+      (escalations + 1)   ~> @triage.escalations
       ("paged " + owner + " and leadership") ~> @triage.note
     }
     publish {
@@ -173,21 +141,16 @@ scene "incident_response" {
     """
     compute "watch_graph" {
       affected_services:number <~ @incident.affected_services
-
       spreading:bool = affected_services >= 2
-
       trend:str = if(spreading, "spreading", "steady")
 
       (trend) ~> @triage.note
-
-      (true) ~> @triage.paged
+      (true)  ~> @triage.paged
     }
 
-    # The single-subject form: one subject, and the parentheses are optional
-    # on both the subject and the patterns.
     next on trend match {
       "spreading" => open_ticket,
-      _ => watch_only_end
+      _           => watch_only_end
     }
   }
 
@@ -196,9 +159,8 @@ scene "incident_response" {
     Terminal: no page, but somebody should look at this during business hours.
     """
     compute "open_ticket_graph" {
-      tier:str <~ @triage.tier
+      tier:str  <~ @triage.tier
       blast:str <~ @triage.blast
-
       ("ticket: " + tier + "/" + blast) ~> @triage.note
     }
     publish {
