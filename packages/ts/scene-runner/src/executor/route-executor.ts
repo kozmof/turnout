@@ -12,7 +12,7 @@ import { executeScene } from "./scene-executor.js";
 import { selectNextScene, parseMatchArms } from "./route-pattern.js";
 import type { HistoryEntry } from "./route-pattern.js";
 import { isPublishHookFailedError, RouteRuntimeError } from "./errors.js";
-import { snapshotModel } from "../model-snapshot.js";
+import { snapshotModel, snapshotRecord } from "../model-snapshot.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types
@@ -198,7 +198,10 @@ export async function executeRoute(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteExecutionResult> {
-  const { route, scenes } = snapshotModel({ route: inputRoute, scenes: inputScenes });
+  // Per argument, not as one wrapper: the wrapper is always fresh, so snapshotting
+  // it would re-clone scenes a caller already snapshotted, breaking cache identity.
+  const route = snapshotModel(inputRoute);
+  const scenes = snapshotRecord(inputScenes);
   const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
   return runRouteCore(route, scenes, hooks, options, progress);
 }
@@ -216,7 +219,10 @@ export async function executeRouteSafe(
   hooks: HookRegistry = { prepare: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteResult> {
-  const { route, scenes } = snapshotModel({ route: inputRoute, scenes: inputScenes });
+  // Per argument, not as one wrapper: the wrapper is always fresh, so snapshotting
+  // it would re-clone scenes a caller already snapshotted, breaking cache identity.
+  const route = snapshotModel(inputRoute);
+  const scenes = snapshotRecord(inputScenes);
   const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
   try {
     return { ok: true, value: await runRouteCore(route, scenes, hooks, options, progress) };

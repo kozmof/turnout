@@ -16,7 +16,7 @@ import type { RouteStepper } from "./executor/route-stepper.js";
 import { resolveDispatchTarget } from "./executor/dispatch.js";
 import { validateModel } from "./executor/validate-model.js";
 import { ModelValidationError, RunnerError } from "./executor/errors.js";
-import { snapshotModel } from "./model-snapshot.js";
+import { snapshotModel, snapshotRecord } from "./model-snapshot.js";
 import { makeRunnerMethods } from "./runner-methods.js";
 import { collectSceneWarnings } from "./executor/collect-warnings.js";
 import { safeLog } from "./executor/logging.js";
@@ -172,11 +172,13 @@ export function createRouteRunner(
   options: RunnerOptions,
   initialState?: StateManager,
 ): Runner<FragmentHarnessResult> {
-  const { route, entryScene, sceneMap } = snapshotModel({
-    route: inputRoute,
-    entryScene: inputEntryScene,
-    sceneMap: inputSceneMap,
-  });
+  // Snapshotted per argument rather than as one wrapper object: the wrapper is
+  // always fresh, so snapshotting it would deep-clone scenes that `createRunner`
+  // has already snapshotted — and change their identity out from under the
+  // executor's per-`ProgModel` context cache.
+  const route = snapshotModel(inputRoute);
+  const entryScene = snapshotModel(inputEntryScene);
+  const sceneMap = snapshotRecord(inputSceneMap);
   validateExecutionLimits(options);
   const signal = options.signal ?? new AbortController().signal;
   const hooks: HookRegistry = {
