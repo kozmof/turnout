@@ -238,7 +238,7 @@ already computes reachability, and `actionExitNames`
 (`validate_scene.go:85`) already collects exactly the reference sources that make
 a result name load-bearing: other bindings in the prog, and transition
 `from_action` entries, which is where the `next cond -> target` sugar and
-`next on (...) match` arms both land after expansion. The result's own merge
+`next on (...) to` arms both land after expansion. The result's own merge
 entry must not count, or every result would look used.
 
 It is left out of this proposal because it would fire on 23 of the 25 result

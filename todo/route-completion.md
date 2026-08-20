@@ -40,7 +40,7 @@ The deleted `kitchen-sink-support-pipeline.tu` ended its route with `_ => closed
 route "fulfilment" {
   entry = picking
 
-  match {
+  to {
     picking.*.pick_complete => packing,
     packing.*.seal_carton   => shipping,
     _ => done

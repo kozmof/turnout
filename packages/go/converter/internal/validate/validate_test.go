@@ -714,7 +714,7 @@ func TestUnusedBinding(t *testing.T) {
 	// A binding a transition reads leaves the prog through a from_action prepare
 	// entry, so it is used even though nothing inside the prog references it.
 	// This is the shape of every `next <flag> -> <action>` guard and every
-	// `next on (...) match { }` subject, so missing it warned on idiomatic code.
+	// `next on (...) to { }` subject, so missing it warned on idiomatic code.
 	t.Run("transition_from_action_consumer_no_warning", func(t *testing.T) {
 		src := basicState + `
 scene "test" {
@@ -775,7 +775,7 @@ scene "scene_1" {
 }
 route "r1" {
   entry = scene_1
-  match {
+  to {
 ` + matchBody + `
   }
 }
@@ -848,7 +848,7 @@ scene "scene_1" {
   action "a" { compute "p" { v:bool := true } }
 }
 route "r1" {
-  match {
+  to {
     _ => scene_1
   }
 }
@@ -866,7 +866,7 @@ scene "scene_1" {
 }
 route "r1" {
   entry = undefined_scene
-  match {
+  to {
     _ => scene_1
   }
 }

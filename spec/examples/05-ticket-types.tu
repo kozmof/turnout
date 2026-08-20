@@ -61,7 +61,7 @@ scene "ticket_intake" {
       (reference)         ~> @routing.reference
     }
 
-    next on (queue, escalated) match {
+    next on (queue, escalated) to {
       ("technical", true)  => assign_specialist,
       ("billing",   _)     => assign_generalist,
       ("account",   _)     => assign_generalist,

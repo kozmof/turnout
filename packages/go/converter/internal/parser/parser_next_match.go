@@ -11,7 +11,7 @@ import (
 
 // ─── next … match ────────────────────────────────────────────────────────────
 //
-// `next on (foo, bar, baz) match { ("yes", "cat", _) => act, _ => other }`
+// `next on (foo, bar, baz) to { ("yes", "cat", _) => act, _ => other }`
 // abbreviates one `next { }` rule per arm. Selecting among sibling actions
 // otherwise needs one boolean flag per target, computed in the action's prog
 // only to be named by a transition; the flags hide the fact that the branches
@@ -43,7 +43,7 @@ type matchArm struct {
 	Uncond   bool
 }
 
-// atNextMatch reports whether the tokens after `next` open a match block.
+// atNextMatch reports whether the tokens after `next` open a `to` block.
 //
 // `on` is deliberately not a keyword: adding it to keywordTable would rename
 // every existing binding called `on`. Matching it by value here costs one
@@ -57,8 +57,8 @@ func (p *parser) atNextMatch() bool {
 	case lexer.TokLParen:
 		return true
 	case lexer.TokIdent:
-		// `next on foo match { ... }` — a single bare subject.
-		return p.peekAt(2).Kind == lexer.TokKwMatch
+		// `next on foo to { ... }` — a single bare subject.
+		return p.peekAt(2).Kind == lexer.TokIdent && p.peekAt(2).Value == "to"
 	}
 	return false
 }
@@ -67,10 +67,12 @@ func (p *parser) parseNextMatchBlock(pos ast.Pos) []*ast.NextRule {
 	p.advance() // consume `on`
 
 	subjects := p.parseNextMatchSubjects()
-	if _, ok := p.expect(lexer.TokKwMatch); !ok {
+	if p.peek().Kind != lexer.TokIdent || p.peek().Value != "to" {
+		p.errorf(p.peek(), "expected 'to' after next subjects, got %s %q", kindName(p.peek().Kind), p.peek().Value)
 		p.syncToBlockItem(lexer.TokKwNext, lexer.TokKwAction, lexer.TokRBrace)
 		return nil
 	}
+	p.advance() // consume contextual `to`
 	if _, ok := p.expect(lexer.TokLBrace); !ok {
 		p.syncToBlockItem(lexer.TokKwNext, lexer.TokKwAction, lexer.TokRBrace)
 		return nil

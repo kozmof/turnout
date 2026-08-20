@@ -57,7 +57,7 @@ CAN'T (NG):
 - A binding cannot omit its source: no `<~` clause and no computed RHS is `MissingBindingSource`. Author-written `prepare` and `merge` blocks are retired (`ParseSyntaxError`).
 - A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or its label. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute "..." { c:bool := true }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
 - A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding with `<~ action(binding)` and returns it as the `:=` condition. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
-- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> match { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> => <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains, each with `<~ action(binding)`, and returns their conjoined equality test as the `:=` condition; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
+- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> to { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> => <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains, each with `<~ action(binding)`, and returns their conjoined equality test as the `:=` condition; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
 - A match block MUST contain exactly one unconditional arm — a bare `_`, or a tuple whose elements are all `_` — and it MUST be the last arm. A block with none is an error (`NonExhaustiveMatch`), because falling through every arm schedules no transition at all and silently ends the scene; a second one is `DuplicateFallback`, and any arm after it is `UnreachableArm`.
 - Next actions cannot reference missing actions.
 
@@ -216,7 +216,7 @@ When several transitions branch on the same values, the run may be written as on
 
 ```hcl
 // one rule per arm, evaluated in arm order
-next on (band, vip) match {
+next on (band, vip) to {
   ("heavy", false) => archive,
   ("heavy", true)  => expedite_archive,
   (_, true)        => expedite_archive,
@@ -345,7 +345,7 @@ Failure semantics:
 - Each rule's `compute` graph is evaluated independently and must resolve `compute.condition` to boolean.
 - `fromAction` in transition `prepare` reads from the current action `compute.prog` binding namespace (`A_n`).
 - No matches: action run terminates with no next action scheduled.
-- A `next on <subjects> match { }` block expands to one rule per arm in arm order, which is what makes its arms mutually exclusive: the `_` arm is reached only when no arm above it matched.
+- A `next on <subjects> to { }` block expands to one rule per arm in arm order, which is what makes its arms mutually exclusive: the `_` arm is reached only when no arm above it matched.
 
 ## 9. Overview DSL Enforcement
 

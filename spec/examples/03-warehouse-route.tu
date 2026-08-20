@@ -145,7 +145,7 @@ scene "shipping" {
       (true)    ~> @pack.sealed
     }
 
-    next on (carrier) match {
+    next on (carrier) to {
       "air" => print_express_label,
       _     => print_standard_label
     }
@@ -199,7 +199,7 @@ scene "handoff" {
 route "fulfilment" {
   entry = picking
 
-  match {
+  to {
     picking.pick_short                  => shipping,
     picking.*.pick_complete             => packing,
     packing.*.choose_carton.seal_carton => shipping,

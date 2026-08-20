@@ -137,7 +137,7 @@
       }
     },
     "next-match-header": {
-      "comment": "`next on <subjects> match` transition match header. `on` is contextual — an ordinary identifier everywhere else — so it is highlighted only between `next` and the subject list.",
+      "comment": "`next on <subjects> to` transition header. `on` is contextual — an ordinary identifier everywhere else — so it is highlighted only between `next` and the subject list.",
       "match": "\\b(next)\\s+(on)\\b",
       "captures": {
         "1": {
@@ -149,8 +149,8 @@
       }
     },
     "simple-block": {
-      "comment": "Anonymous block keywords that open a block without a name. `match` opens both a route match block and a transition match block.",
-      "match": "\\b(io|next|in|out|match)\\b",
+      "comment": "Anonymous block keywords that open a block without a name. `to` opens route and transition dispatch blocks.",
+      "match": "\\b(io|next|in|out|to)\\b",
       "captures": {
         "1": {
           "name": "keyword.other.block.tu"
@@ -227,7 +227,7 @@
       "name": "keyword.operator.transition.tu"
     },
     "match-arrow": {
-      "comment": "=> arm arrow in route match blocks and `next on (...) match { }`. Must come before the plain operator rule, whose bare = would split it.",
+      "comment": "=> arm arrow in route `to` blocks and `next on (...) to { }`. Must come before the plain operator rule, whose bare = would split it.",
       "match": "=>",
       "name": "keyword.operator.match.tu"
     },

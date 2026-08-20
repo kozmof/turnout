@@ -53,7 +53,7 @@ const (
 	// and likely indicate a typo or authoring mistake.
 	//
 	// The transition sources are what make a `next <flag> -> <action>` guard, or
-	// a `next on (...) match { }` subject, count as used: nothing inside the prog
+	// a `next on (...) to { }` subject, count as used: nothing inside the prog
 	// references them, and they leave it through a transition prepare entry.
 	CodeUnusedBinding ErrorCode = "UnusedBinding"
 )
@@ -132,7 +132,7 @@ const (
 	CodeNextComputeNotBool       ErrorCode = "NextComputeNotBool"
 	CodeNextIngressSourceInvalid ErrorCode = "NextIngressSourceInvalid"
 	CodeActionTextDuplicate      ErrorCode = "ActionTextDuplicate"
-	// CodeNextMatchArity is emitted when an arm of `next on (...) match { }`
+	// CodeNextMatchArity is emitted when an arm of `next on (...) to { }`
 	// carries a different number of pattern elements than the subject list.
 	CodeNextMatchArity ErrorCode = "NextMatchArity"
 )

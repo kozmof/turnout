@@ -119,7 +119,7 @@ scene "test" {
   }
 }
 route "r1" {
-  match {
+  to {
     42 => test
   }
 }`,

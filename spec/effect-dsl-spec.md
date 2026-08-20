@@ -79,7 +79,7 @@ __result:bool := (true) ~> @triage.paged    # exactly what it means
 
 The promoted item is an ordinary result binding named `__result`, typed from its destination STATE field, and it appears under that name in the emitted binding, merge entry, and `compute.root`. The shorthand applies only when the block carries no `:=` anywhere: with one present, the ordinary "result must be last" rule stands and a trailing anonymous egress is `MarkerNotLast`, not a second result. A transition `compute` block always requires its `:=` — a transition cannot write to STATE, so it has no trailing egress to promote.
 
-Use the named form when the result is read by name: another binding in the same block, a transition's `<~ action(binding)`, a `next <condition> -> <action>` guard, or a `next on <subjects> match` subject. The name is also the only way to give the result a named literal/template type, which a destination STATE field cannot supply.
+Use the named form when the result is read by name: another binding in the same block, a transition's `<~ action(binding)`, a `next <condition> -> <action>` guard, or a `next on <subjects> to` subject. The name is also the only way to give the result a named literal/template type, which a destination STATE field cannot supply.
 
 ### 1.4 Input and bidirectional declarations
 

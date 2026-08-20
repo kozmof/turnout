@@ -1,5 +1,5 @@
 /**
- * E2E: transition match blocks (`next on (...) match { }`)
+ * E2E: transition match blocks (`next on (...) to { }`)
  *
  * Pipeline: 02-incident-triage.tu → Go converter → runHarness → trace and
  * STATE assertions.

@@ -4,7 +4,7 @@ package ast
 // Route / Match
 // ────────────────────────────────────────────────────────────
 
-// RouteBlock is the `route "<id>" { entry "<scene_id>" match { ... } }` top-level block.
+// RouteBlock is the `route "<id>" { entry "<scene_id>" to { ... } }` top-level block.
 type RouteBlock struct {
 	Pos          Pos
 	ID           string
@@ -12,7 +12,7 @@ type RouteBlock struct {
 	Match        *MatchBlock
 }
 
-// MatchBlock is the `match { <arms...> }` inside a route block.
+// MatchBlock is the `to { <arms...> }` inside a route block.
 type MatchBlock struct {
 	Pos  Pos
 	Arms []*MatchArm

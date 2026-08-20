@@ -80,7 +80,7 @@ func validateScene(scene *turnoutpb.SceneBlock, schema state.Schema, types *type
 //
 // The transitions matter because a binding a transition reads is often not
 // referenced anywhere inside the prog — a `next <flag> -> <action>` guard and
-// every `next on (...) match { }` subject are exactly that shape. Without them
+// every `next on (...) to { }` subject are exactly that shape. Without them
 // the binding looks orphaned and draws a spurious UnusedBinding warning.
 func actionExitNames(a *turnoutpb.ActionModel) []string {
 	names := make([]string, 0, len(a.Merge)+len(a.Next))

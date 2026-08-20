@@ -448,7 +448,7 @@ scene "scene_1" {
 }
 route "route_1" {
   entry = scene_1
-  match {
+  to {
     scene_1.*.final_action => scene_1,
     _ => scene_1
   }
@@ -484,7 +484,7 @@ scene "scene_1" {
   action "a" { compute "p" { r:bool := true } }
 }
 route "route_1" {
-  match { _ => scene_1 }
+  to { _ => scene_1 }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)
 	if ds.HasErrors() {
@@ -512,7 +512,7 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r1" { entry = s match { _ => s } }`)
+route "r1" { entry = s to { _ => s } }`)
 	sceneIdx := strings.Index(out, "scene ")
 	routeIdx := strings.Index(out, "route ")
 	if sceneIdx < 0 || routeIdx < 0 {
@@ -531,7 +531,7 @@ scene "scene_1" {
 }
 route "r1" {
   entry = scene_1
-  match {
+  to {
     scene_1.*.end |
     scene_1.a
       => scene_1

@@ -227,7 +227,7 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 
 ### Route DSL lowering (per `scene-to-scene.md §3`)
 
-- [x] `route "<id>" { match { path => scene_id, ... } }` → canonical HCL `route` block (deferred to Phase 8)
+- [x] `route "<id>" { to { path => scene_id, ... } }` → canonical HCL `route` block (deferred to Phase 8)
 
 ---
 
@@ -381,7 +381,7 @@ scene "<id>" {
 
 Lower and validate the `route` block after scene conversion is complete.
 
-- [x] Parse `route "<id>" { match { ... } }` block
+- [x] Parse `route "<id>" { to { ... } }` block
 - [x] Parse pattern arms: path expressions, `|` OR, `_` fallback
 - [x] Validate: at most one `_` (`DuplicateFallback`)
 - [x] Validate: no bare `scene_id.*` (`BareWildcardPath`)

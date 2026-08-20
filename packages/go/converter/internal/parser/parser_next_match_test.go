@@ -64,7 +64,7 @@ func matchBindingNames(prog *ast.ProgBlock) []string {
 // surface sugar that produces exactly the next rules an author would write by
 // hand, in arm order, which is evaluation order under first-match.
 func TestNextMatchExpandsOneRulePerArm(t *testing.T) {
-	rules := matchRulesOf(t, `    next on (tier, region, urgent) match {
+	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
       ("gold", "eu", true) => escalate,
       ("gold", _, false)   => review,
       _ => archive
@@ -144,7 +144,7 @@ func TestNextMatchExpandsOneRulePerArm(t *testing.T) {
 // constrains nothing, so it costs no binding, no prepare entry, and no term in
 // the condition.
 func TestNextMatchWildcardColumnIsNotIngressed(t *testing.T) {
-	rules := matchRulesOf(t, `    next on (tier, region, urgent) match {
+	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
       ("gold", _, false) => review,
       _ => archive
     }`)
@@ -168,7 +168,7 @@ func TestNextMatchWildcardColumnIsNotIngressed(t *testing.T) {
 // TestNextMatchFallbackIsUnconditional covers the `_` arm: it abbreviates the
 // bare `next <action>` rule, which carries no compute at all.
 func TestNextMatchFallbackIsUnconditional(t *testing.T) {
-	rules := matchRulesOf(t, `    next on tier match {
+	rules := matchRulesOf(t, `    next on tier to {
       "gold" => escalate,
       _ => archive
     }`)
@@ -189,7 +189,7 @@ func TestNextMatchFallbackIsUnconditional(t *testing.T) {
 // nothing, so it is the same rule as a bare `_` and is held to the same
 // placement rules.
 func TestNextMatchAllWildcardTupleIsFallback(t *testing.T) {
-	rules := matchRulesOf(t, `    next on (tier, region) match {
+	rules := matchRulesOf(t, `    next on (tier, region) to {
       ("gold", "eu") => escalate,
       (_, _) => archive
     }`)
@@ -207,7 +207,7 @@ func TestNextMatchAllWildcardTupleIsFallback(t *testing.T) {
 // column must emit InfixRHS, not a one-branch NestedInfixRHS, so a match arm and
 // a hand-written rule lower through the same path.
 func TestNextMatchSingleColumnNormalizesToInfixRHS(t *testing.T) {
-	rules := matchRulesOf(t, `    next on tier match {
+	rules := matchRulesOf(t, `    next on tier to {
       "gold" => escalate,
       _ => archive
     }`)
@@ -234,7 +234,7 @@ func TestNextMatchSingleColumnNormalizesToInfixRHS(t *testing.T) {
 // above `==` by shape and the comparison-vs-and precedence question never
 // arises.
 func TestNextMatchMultiColumnBuildsAndOverEq(t *testing.T) {
-	rules := matchRulesOf(t, `    next on (tier, region, urgent) match {
+	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
       ("gold", "eu", true) => escalate,
       _ => archive
     }`)
@@ -270,19 +270,19 @@ func TestNextMatchMultiColumnBuildsAndOverEq(t *testing.T) {
 // produce the same expansion.
 func TestNextMatchScalarPatternAgainstOneSubject(t *testing.T) {
 	for name, block := range map[string]string{
-		"bare subject, scalar pattern": `    next on tier match {
+		"bare subject, scalar pattern": `    next on tier to {
       "gold" => escalate,
       _ => archive
     }`,
-		"bare subject, tuple pattern": `    next on tier match {
+		"bare subject, tuple pattern": `    next on tier to {
       ("gold") => escalate,
       _ => archive
     }`,
-		"paren subject, scalar pattern": `    next on (tier) match {
+		"paren subject, scalar pattern": `    next on (tier) to {
       "gold" => escalate,
       _ => archive
     }`,
-		"paren subject, tuple pattern": `    next on (tier) match {
+		"paren subject, tuple pattern": `    next on (tier) to {
       ("gold") => escalate,
       _ => archive
     }`,
@@ -319,7 +319,7 @@ func TestNextMatchScalarPatternAgainstOneSubject(t *testing.T) {
 // its column — so each kind needs to land on the right FieldType, and a column
 // left wildcard everywhere must produce no binding at all.
 func TestNextMatchColumnTypeInference(t *testing.T) {
-	rules := matchRulesOf(t, `    next on (tier, region, urgent) match {
+	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
       ("gold", _, true) => escalate,
       _ => archive
     }`)
@@ -355,7 +355,7 @@ scene "s" {
       ready:bool := true
     }
 
-    next on retries match {
+    next on retries to {
       0 => escalate,
       3 => archive,
       _ => archive
@@ -380,7 +380,7 @@ scene "s" {
 // same action: the generated prog and condition names are keyed by arm index,
 // so they cannot collide.
 func TestNextMatchRepeatedTargetGetsDistinctNames(t *testing.T) {
-	rules := matchRulesOf(t, `    next on (tier, region) match {
+	rules := matchRulesOf(t, `    next on (tier, region) to {
       ("gold", "eu") => escalate,
       ("gold", "us") => escalate,
       _ => archive
@@ -397,7 +397,7 @@ func TestNextMatchRepeatedTargetGetsDistinctNames(t *testing.T) {
 
 // TestNextMatchTrailingComma covers the optional comma after the last arm.
 func TestNextMatchTrailingComma(t *testing.T) {
-	rules := matchRulesOf(t, `    next on tier match {
+	rules := matchRulesOf(t, `    next on tier to {
       "gold" => escalate,
       _ => archive,
     }`)
@@ -416,7 +416,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 	}{
 		{
 			name: "arm wider than the subject list",
-			block: `    next on (tier, region) match {
+			block: `    next on (tier, region) to {
       ("gold", "eu", true) => escalate,
       _ => archive
     }`,
@@ -424,7 +424,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "arm narrower than the subject list",
-			block: `    next on (tier, region) match {
+			block: `    next on (tier, region) to {
       "gold" => escalate,
       _ => archive
     }`,
@@ -432,7 +432,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "variable binder",
-			block: `    next on tier match {
+			block: `    next on tier to {
       x => escalate,
       _ => archive
     }`,
@@ -440,7 +440,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "nested tuple pattern",
-			block: `    next on (tier, region) match {
+			block: `    next on (tier, region) to {
       ("gold", ("eu", "us")) => escalate,
       _ => archive
     }`,
@@ -448,7 +448,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "template pattern",
-			block: `    next on tier match {
+			block: `    next on tier to {
       Sku { region: "eu" } => escalate,
       _ => archive
     }`,
@@ -456,7 +456,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "guard",
-			block: `    next on (tier, region) match {
+			block: `    next on (tier, region) to {
       ("gold", "eu") if urgent => escalate,
       _ => archive
     }`,
@@ -464,7 +464,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "column literals disagree on type",
-			block: `    next on tier match {
+			block: `    next on tier to {
       "gold" => escalate,
       3 => review,
       _ => archive
@@ -473,14 +473,14 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "no fallback arm",
-			block: `    next on tier match {
+			block: `    next on tier to {
       "gold" => escalate
     }`,
 			want: diag.CodeNonExhaustiveMatch,
 		},
 		{
 			name: "two fallback arms",
-			block: `    next on tier match {
+			block: `    next on tier to {
       "gold" => escalate,
       _ => archive,
       _ => review
@@ -489,7 +489,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "arm after the fallback",
-			block: `    next on tier match {
+			block: `    next on tier to {
       _ => archive,
       "gold" => escalate
     }`,
@@ -497,7 +497,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "repeated subject",
-			block: `    next on (tier, tier) match {
+			block: `    next on (tier, tier) to {
       ("gold", "silver") => escalate,
       _ => archive
     }`,
@@ -505,7 +505,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "dotted subject",
-			block: `    next on (routing.tier) match {
+			block: `    next on (routing.tier) to {
       "gold" => escalate,
       _ => archive
     }`,
@@ -513,7 +513,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "subject is not a name",
-			block: `    next on ("tier") match {
+			block: `    next on ("tier") to {
       "gold" => escalate,
       _ => archive
     }`,
@@ -521,7 +521,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		},
 		{
 			name: "missing arrow",
-			block: `    next on tier match {
+			block: `    next on tier to {
       "gold" escalate,
       _ => archive
     }`,
@@ -555,7 +555,7 @@ scene "s" {
       ready:bool := true
     }
 
-    next on tier match {
+    next on tier to {
       "gold" => escalate,
       _ => archive
     }

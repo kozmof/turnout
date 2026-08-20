@@ -55,7 +55,7 @@ scene "s" {
 }
 route "main" {
   entry = s
-  match {
+  to {
     _ => "s"
   }
 }`

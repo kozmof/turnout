@@ -1090,7 +1090,7 @@ scene "test" {
 // ── Lines 1312-1315: parseRouteBlock unknown token ────────────────────────────
 
 func TestParseRouteBlockUnexpectedToken(t *testing.T) {
-	// route "r1" { unknown = x match { ... } }
+	// route "r1" { unknown = x to { ... } }
 	src := `state { ns { v:number = 0 } }
 scene "test" {
   entry_action = a
@@ -1100,7 +1100,7 @@ scene "test" {
 }
 route "r1" {
   unknown = bad
-  match {
+  to {
     test => test
   }
 }`
@@ -1110,7 +1110,7 @@ route "r1" {
 // ── Lines 1380-1383: parsePathExpr invalid first token ───────────────────────
 
 func TestParsePathExprInvalidFirstToken(t *testing.T) {
-	// route "r1" { match { 42 => s } } — number as scene_id in path
+	// route "r1" { to { 42 => s } } — number as scene_id in path
 	src := `state { ns { v:number = 0 } }
 scene "test" {
   entry_action = a
@@ -1119,7 +1119,7 @@ scene "test" {
   }
 }
 route "r1" {
-  match {
+  to {
     42 => test
   }
 }`
@@ -1138,7 +1138,7 @@ scene "test" {
   }
 }
 route "r1" {
-  match {
+  to {
     test.42 => test
   }
 }`

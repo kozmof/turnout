@@ -1087,7 +1087,7 @@ scene "s1" {
   action "a" { compute "p" { r:bool := true } }
 }
 route "main" {
-  match {
+  to {
     s1.*.done => s1,
     _ => s1
   }
@@ -1146,7 +1146,7 @@ scene "s1" {
   action "a" { compute "p" { r:bool := true } }
 }
 route "r" {
-  match {
+  to {
     s1.start | s1.*.end => s1
   }
 }`
@@ -1176,7 +1176,7 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r" { match { _ => s } }`
+route "r" { to { _ => s } }`
 	tf := mustParse(t, src)
 	arm := tf.Routes[0].Match.Arms[0]
 	if !arm.Branches[0].Fallback {
@@ -1193,8 +1193,8 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r1" { match { _ => s } }
-route "r2" { match { s.done => s } }`
+route "r1" { to { _ => s } }
+route "r2" { to { s.done => s } }`
 	tf := mustParse(t, src)
 	if len(tf.Routes) != 2 {
 		t.Fatalf("expected 2 routes, got %d", len(tf.Routes))
@@ -1210,7 +1210,7 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r" { match { s.*.final => s } }`
+route "r" { to { s.*.final => s } }`
 	tf := mustParse(t, src)
 	pe := tf.Routes[0].Match.Arms[0].Branches[0]
 	if len(pe.Segments) != 2 || pe.Segments[0] != "*" || pe.Segments[1] != "final" {

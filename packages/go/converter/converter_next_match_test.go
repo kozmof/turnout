@@ -29,7 +29,7 @@ scene "support" {
       ready:bool := true
     }
 
-    next on (tier, region, urgent) match {
+    next on (tier, region, urgent) to {
       ("gold", "eu", true) => escalate,
       ("gold", _, false)   => review,
       _ => archive

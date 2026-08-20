@@ -674,7 +674,7 @@ scene "scene_1" {
 }
 route "route_1" {
   entry = scene_1
-  match {
+  to {
     scene_1.*.final_action |
     scene_other.*.end
       => scene_1,

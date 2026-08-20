@@ -482,12 +482,12 @@ func (p *parser) parsePublishBlock() *ast.PublishBlock {
 // ─── parseNextBlock ──────────────────────────────────────────────────────────
 
 // parseNextBlock parses one `next` item of an action. It returns a slice
-// because the match form abbreviates a whole run of rules; the block and sugar
+// because the `on ... to` form abbreviates a whole run of rules; the block and sugar
 // forms return one.
 func (p *parser) parseNextBlock() []*ast.NextRule {
 	kwTok, _ := p.expect(lexer.TokKwNext)
 	pos := p.posOf(kwTok)
-	// Match form: `next on <subjects> match { ... }` — one rule per arm.
+	// Dispatch form: `next on <subjects> to { ... }` — one rule per arm.
 	if p.atNextMatch() {
 		return p.parseNextMatchBlock(pos)
 	}

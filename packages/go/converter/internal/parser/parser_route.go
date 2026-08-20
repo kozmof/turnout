@@ -7,7 +7,7 @@ import (
 
 // ─── Route block parsing ──────────────────────────────────────────────────────
 
-// parseRouteBlock parses `route "<id>" { match { ... } }`.
+// parseRouteBlock parses `route "<id>" { to { ... } }`.
 func (p *parser) parseRouteBlock() *ast.RouteBlock {
 	pos := p.posOf(p.peek())
 	p.advance() // consume the route keyword
@@ -16,8 +16,8 @@ func (p *parser) parseRouteBlock() *ast.RouteBlock {
 	rb := &ast.RouteBlock{Pos: pos, ID: idTok.Value}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
 		t := p.peek()
-		switch t.Kind {
-		case lexer.TokKwEntry:
+		switch {
+		case t.Kind == lexer.TokKwEntry:
 			if rb.EntrySceneID != "" {
 				p.errorf(t, "duplicate entry declaration in route %q", rb.ID)
 				p.advance()
@@ -31,15 +31,15 @@ func (p *parser) parseRouteBlock() *ast.RouteBlock {
 				p.advance()
 			}
 			rb.EntrySceneID = p.parseRefVal()
-		case lexer.TokKwMatch:
+		case t.Kind == lexer.TokIdent && t.Value == "to":
 			if rb.Match != nil {
-				p.errorf(t, "duplicate match block in route %q", rb.ID)
+				p.errorf(t, "duplicate to block in route %q", rb.ID)
 				p.skipBlock()
 				continue
 			}
 			rb.Match = p.parseMatchBlock()
 		default:
-			p.errorf(t, "expected 'entry' or 'match' in route block, got %s %q", kindName(t.Kind), t.Value)
+			p.errorf(t, "expected 'entry' or 'to' in route block, got %s %q", kindName(t.Kind), t.Value)
 			p.advance()
 		}
 	}
@@ -47,10 +47,10 @@ func (p *parser) parseRouteBlock() *ast.RouteBlock {
 	return rb
 }
 
-// parseMatchBlock parses `match { <arm>... }`.
+// parseMatchBlock parses `to { <arm>... }`.
 func (p *parser) parseMatchBlock() *ast.MatchBlock {
 	pos := p.posOf(p.peek())
-	p.advance() // consume the match keyword
+	p.advance() // consume contextual `to`
 	p.expect(lexer.TokLBrace)
 	mb := &ast.MatchBlock{Pos: pos}
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {

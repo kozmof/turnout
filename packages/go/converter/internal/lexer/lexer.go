@@ -82,7 +82,6 @@ const (
 	TokKwEnforce
 	TokKwText
 	TokKwRoute
-	TokKwMatch
 	TokKwEntry
 	TokKwType // `type` — top-level type declaration keyword
 )
@@ -242,7 +241,6 @@ var keywordTable = []keywordEntry{
 	{"enforce", TokKwEnforce},
 	{"text", TokKwText},
 	{"route", TokKwRoute},
-	{"match", TokKwMatch},
 	{"entry", TokKwEntry},
 	{"type", TokKwType},
 }

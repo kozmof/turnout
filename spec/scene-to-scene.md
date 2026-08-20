@@ -50,7 +50,7 @@ The `match` block is evaluated when a scene inside the route reaches a terminal 
 route "<route_id>" {
     entry "<scene_id>"
 
-    match {
+    to {
         <path-expr> => <scene_id>,
         ...
         _ => <scene_id>
@@ -61,7 +61,7 @@ route "<route_id>" {
 A `<path-expr>` is either a single path or multiple paths joined with `|`:
 
 ```
-match {
+to {
     scene_1.*.action_foo => scene_2,
     scene_error.*.action_end => scene_2,
     _ => scene_other
@@ -69,7 +69,7 @@ match {
 ```
 
 ```
-match {
+to {
     scene_1.*.action_foo |
     scene_error.*.action_end
         => scene_2,
@@ -143,7 +143,7 @@ If no pattern matches and no `_` fallback is present, the route enters a termina
 route "route_1" {
     entry = scene_1
 
-    match {
+    to {
         scene_1.*.final_action |
         scene_error.*.action_end
             => scene_2,
@@ -158,7 +158,7 @@ Equivalent using separate arms:
 route "route_1" {
     entry = scene_1
 
-    match {
+    to {
         scene_1.*.final_action   => scene_2,
         scene_error.*.action_end => scene_2,
         _                        => scene_other

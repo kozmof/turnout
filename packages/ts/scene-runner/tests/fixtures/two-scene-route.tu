@@ -33,7 +33,7 @@ scene "scene_b" {
 
 route "main_route" {
   entry = scene_a
-  match {
+  to {
     scene_a.step_a => scene_b
   }
 }

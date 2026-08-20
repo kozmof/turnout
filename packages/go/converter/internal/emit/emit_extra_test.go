@@ -305,7 +305,7 @@ scene "scene_1" {
 }
 route "r1" {
   entry = scene_1
-  match {
+  to {
     scene_1.*.final => scene_1,
     _ => scene_1
   }

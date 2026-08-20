@@ -69,7 +69,7 @@ scene "incident_response" {
       hook = "metrics"
     }
 
-    next on (tier, blast, customer_facing) match {
+    next on (tier, blast, customer_facing) to {
       ("critical", "wide",      true)  => page_leadership,
       ("critical", "contained", true)  => page_oncall,
       ("critical", _,           false) => page_oncall,
@@ -148,7 +148,7 @@ scene "incident_response" {
       (true)  ~> @triage.paged
     }
 
-    next on trend match {
+    next on trend to {
       "spreading" => open_ticket,
       _           => watch_only_end
     }
