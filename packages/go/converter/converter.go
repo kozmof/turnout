@@ -379,12 +379,17 @@ func ValidateWithSchema(name, src string, schema Schema, order []string) (warnin
 // runStage appends warnings from ds into acc and reports whether the stage
 // succeeded (no errors). On failure it appends the errors too and returns false,
 // signalling compileBytes to short-circuit with the accumulated slice.
+//
+// Each stage caps its own DiagSink at MaxDiagnostics, but the accumulator spans
+// stages, so a source that warns heavily in several of them can exceed the cap
+// even though no single stage did. Capped is applied on every path to keep the
+// bound the public API advertises a real one; it is a no-op below the cap.
 func runStage(acc Diagnostics, ds Diagnostics) (Diagnostics, bool) {
 	acc = append(acc, ds.Warnings()...)
 	if ds.HasErrors() {
-		return append(acc, ds.Errors()...), false
+		return append(acc, ds.Errors()...).Capped(), false
 	}
-	return acc, true
+	return acc.Capped(), true
 }
 
 func compileBytes(name string, src []byte, stateBasePath string, maxStateFileBytes int64) (*CompileResult, Diagnostics) {

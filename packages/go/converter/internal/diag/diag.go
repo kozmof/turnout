@@ -154,6 +154,10 @@ func (ds Diagnostics) Warnings() Diagnostics {
 // Capped returns ds unchanged when len(ds) <= MaxDiagnostics. When the slice
 // exceeds the cap it returns the first MaxDiagnostics entries followed by a
 // single TooManyDiagnostics sentinel, so callers always receive a bounded slice.
+//
+// DiagSink caps a single stage; this caps a slice assembled from several of
+// them. The converter applies it in runStage, which is the only place where
+// diagnostics from more than one stage accumulate.
 func (ds Diagnostics) Capped() Diagnostics {
 	if len(ds) <= MaxDiagnostics {
 		return ds

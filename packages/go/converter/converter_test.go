@@ -2,12 +2,14 @@ package converter_test
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	converter "github.com/kozmof/turnout/packages/go/converter"
+	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
 
 const simpleTurnSrc = `
@@ -408,6 +410,52 @@ scene "start" {
 	for _, want := range []string{`root = "__result"`, `binding "__result"`, `binding "__egress_1"`} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("emitted HCL missing %q\n%s", want, out.String())
+		}
+	}
+}
+
+// TestCompileDiagnosticsAreCapped pins the bound the public API advertises for
+// the slice callers actually receive.
+//
+// Today the bound also happens to hold one level down, because each stage caps
+// its own sink and only one stage emits warnings — so nothing accumulates far
+// enough to overflow. That is a property of the current rule set, not of the
+// pipeline: runStage concatenates diagnostics across stages, and the moment a
+// second stage starts warning the per-stage caps stop being sufficient. runStage
+// applies Diagnostics.Capped for that reason, and this test guards the invariant
+// rather than the arithmetic that currently satisfies it.
+func TestCompileDiagnosticsAreCapped(t *testing.T) {
+	// Far more distinct errors than the cap, all in one stage so the source stays
+	// simple; the assertion is about the slice Compile hands back.
+	var b strings.Builder
+	b.WriteString("state {\n  app {\n    n:number = 0\n  }\n}\n")
+	for i := 0; i < diag.MaxDiagnostics*3; i++ {
+		fmt.Fprintf(&b, "!!!bad%d!!!\n", i)
+	}
+
+	_, ds := converter.CompileSource("capped.tu", b.String(), "")
+	if !ds.HasErrors() {
+		t.Fatal("want errors from a source full of syntax garbage")
+	}
+	if len(ds) > diag.MaxDiagnostics+1 {
+		t.Errorf("Compile returned %d diagnostics; the cap is %d (+1 sentinel)",
+			len(ds), diag.MaxDiagnostics)
+	}
+	if last := ds[len(ds)-1]; last.Code != diag.CodeTooManyDiagnostics {
+		t.Errorf("a truncated result must end with %s, got %s",
+			diag.CodeTooManyDiagnostics, last.Code)
+	}
+}
+
+// A source under the cap must come back whole, with no sentinel appended.
+func TestCompileDiagnosticsUnderCapAreNotTruncated(t *testing.T) {
+	_, ds := converter.CompileSource("small.tu", "@@@ not valid turn syntax @@@", "")
+	if !ds.HasErrors() {
+		t.Fatal("want errors")
+	}
+	for _, d := range ds {
+		if d.Code == diag.CodeTooManyDiagnostics {
+			t.Errorf("a short diagnostic list must not be marked truncated: %s", d.Format())
 		}
 	}
 }
