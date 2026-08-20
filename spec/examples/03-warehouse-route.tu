@@ -33,8 +33,8 @@ scene "picking" {
   entry_action = start_pick
 
   overview at_least {
-    start_pick |=> pick_complete
-    start_pick |=> pick_short
+    start_pick |-> pick_complete
+    start_pick |-> pick_short
   }
 
   action "start_pick" {
@@ -85,7 +85,7 @@ scene "packing" {
   entry_action = choose_carton
 
   overview nodes_only {
-    choose_carton |=> seal_carton
+    choose_carton |-> seal_carton
     seal_carton
   }
 
@@ -136,9 +136,9 @@ scene "shipping" {
 
       carrier:str = case(
         (priority, heavy),
-        (true, _)  => "air",
-        (_, true)  => "freight",
-        _ => "ground"
+        (true, _)  -> "air",
+        (_, true)  -> "freight",
+        _ -> "ground"
       )
 
       (carrier) ~> @ship.carrier
@@ -146,8 +146,8 @@ scene "shipping" {
     }
 
     next on (carrier) to {
-      "air" => print_express_label,
-      _     => print_standard_label
+      "air" -> print_express_label,
+      _     -> print_standard_label
     }
   }
 
@@ -200,11 +200,11 @@ route "fulfilment" {
   entry = picking
 
   to {
-    picking.pick_short                  => shipping,
-    picking.*.pick_complete             => packing,
-    packing.*.choose_carton.seal_carton => shipping,
+    picking.pick_short                  -> shipping,
+    picking.*.pick_complete             -> packing,
+    packing.*.choose_carton.seal_carton -> shipping,
     shipping.*.print_express_label |
     shipping.*.print_standard_label
-                                        => handoff
+                                        -> handoff
   }
 }

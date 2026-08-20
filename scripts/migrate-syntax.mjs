@@ -282,16 +282,16 @@ function replaceOutsideStrings(code, pattern, replacement) {
 //   view "overview" {
 //     flow = <<-EOT
 //       a
-//         |=> b
+//         |-> b
 //     EOT
 //     enforce = "strict"
 //   }
 //
-// into `overview strict { a |=> b }`.
+// into `overview strict { a |-> b }`.
 //
-// The heredoc's leading-`|=>` continuation lines are expanded against the
+// The heredoc's leading-`|->` continuation lines are expanded against the
 // current source node, because the block form has no notion of "the previous
-// line". Chain lines (`a |=> b |=> c`) carry over unchanged — the parser wires
+// line". Chain lines (`a |-> b |-> c`) carry over unchanged — the parser wires
 // them sequentially exactly as the flow text did.
 function rewriteOverview(src) {
   const viewRe =
@@ -307,15 +307,15 @@ function rewriteOverview(src) {
     for (const raw of body.split("\n")) {
       const line = raw.trim();
       if (line === "") continue;
-      if (line.startsWith("|=>")) {
+      if (line.startsWith("|->")) {
         const target = line.slice(3).trim();
         // An edge line sources from the node most recently named.
-        if (current !== null) statements.push(`${current} |=> ${target}`);
+        if (current !== null) statements.push(`${current} |-> ${target}`);
         continue;
       }
-      if (line.includes("|=>")) {
-        const parts = line.split("|=>").map((s) => s.trim());
-        statements.push(parts.join(" |=> "));
+      if (line.includes("|->")) {
+        const parts = line.split("|->").map((s) => s.trim());
+        statements.push(parts.join(" |-> "));
         current = parts[parts.length - 1];
         continue;
       }
@@ -328,9 +328,9 @@ function rewriteOverview(src) {
     // A bare node line that later gained edges is redundant: the edge statements
     // already declare it as a source.
     const sources = new Set(
-      statements.filter((s) => s.includes("|=>")).map((s) => s.split("|=>")[0].trim()),
+      statements.filter((s) => s.includes("|->")).map((s) => s.split("|->")[0].trim()),
     );
-    const kept = statements.filter((s) => s.includes("|=>") || !sources.has(s));
+    const kept = statements.filter((s) => s.includes("|->") || !sources.has(s));
 
     const inner = kept.map((s) => `${indent}  ${s}`).join("\n");
     const head = mode ? `overview ${mode} {` : "overview {";

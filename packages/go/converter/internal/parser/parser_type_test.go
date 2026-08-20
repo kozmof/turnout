@@ -154,8 +154,8 @@ scene "s" {
       rid: ResourceId = "foo-1"
       r: number := case(
         rid,
-        ResourceId { kind: "foo", sequence } => sequence,
-        ResourceId { kind, sequence: _ } => 0
+        ResourceId { kind: "foo", sequence } -> sequence,
+        ResourceId { kind, sequence: _ } -> 0
       )
     }
   }

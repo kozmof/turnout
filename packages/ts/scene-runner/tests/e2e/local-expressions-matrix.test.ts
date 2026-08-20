@@ -135,8 +135,8 @@ scene "destructure_low" {
       rid:ResourceId <~ @input.word
       seq:number := (case(
         rid,
-        ResourceId { kind: "foo", sequence } => sequence,
-        ResourceId { kind: "bar", sequence } => sequence + 100
+        ResourceId { kind: "foo", sequence } -> sequence,
+        ResourceId { kind: "bar", sequence } -> sequence + 100
       )) ~> @work.n
     }
   }
@@ -162,9 +162,9 @@ scene "tuple_low" {
       enabled:Enabled <~ @input.flag
       seq:number := (case(
         (rid, enabled),
-        (ResourceId { kind: "foo", sequence }, _) => sequence + 100,
-        (ResourceId { kind: "bar", sequence }, true) => sequence,
-        (ResourceId { kind: "bar", sequence: _ }, false) => 0
+        (ResourceId { kind: "foo", sequence }, _) -> sequence + 100,
+        (ResourceId { kind: "bar", sequence }, true) -> sequence,
+        (ResourceId { kind: "bar", sequence: _ }, false) -> 0
       )) ~> @work.n
     }
   }
@@ -247,7 +247,7 @@ scene "if_b" {
 }
 route "if_route" {
   entry = if_a
-  to { if_a.done => if_b }
+  to { if_a.done -> if_b }
 }`,
   },
   {
@@ -264,7 +264,7 @@ scene "case_low" {
   action "run" {
     compute "p" {
       word:str <~ @input.word
-      result:number := (case(word, "red" => 1, "blue" => 2, _ => 0)) ~> @work.n
+      result:number := (case(word, "red" -> 1, "blue" -> 2, _ -> 0)) ~> @work.n
     }
   }
 }`,
@@ -283,14 +283,14 @@ scene "case_medium" {
   action "classify" {
     compute "p1" {
       word:str <~ @input.word
-      tier:str := (case(word, "vip" => "gold", "std" => "silver", _ => "bronze")) ~> @work.label
+      tier:str := (case(word, "vip" -> "gold", "std" -> "silver", _ -> "bronze")) ~> @work.label
     }
     next { action = emit }
   }
   action "emit" {
     compute "p2" {
       tier:str <~ @work.label
-      final:str := (case(tier, "gold" => "priority", "silver" => "normal", _ => "slow")) ~> @work.final
+      final:str := (case(tier, "gold" -> "priority", "silver" -> "normal", _ -> "slow")) ~> @work.final
     }
   }
 }`,
@@ -309,7 +309,7 @@ scene "case_a" {
   action "done" {
     compute "p1" {
       word:str <~ @input.word
-      tone:str := (case(word, "red" => "warm", "blue" => "cool", _ => "plain")) ~> @work.label
+      tone:str := (case(word, "red" -> "warm", "blue" -> "cool", _ -> "plain")) ~> @work.label
     }
   }
 }
@@ -318,13 +318,13 @@ scene "case_b" {
   action "finish" {
     compute "p2" {
       tone:str <~ @work.label
-      final:str := (case(tone, "warm" => "route_warm", "cool" => "route_cool", _ => "route_plain")) ~> @work.final
+      final:str := (case(tone, "warm" -> "route_warm", "cool" -> "route_cool", _ -> "route_plain")) ~> @work.final
     }
   }
 }
 route "case_route" {
   entry = case_a
-  to { case_a.done => case_b }
+  to { case_a.done -> case_b }
 }`,
   },
   {
@@ -401,7 +401,7 @@ scene "pipe_b" {
 }
 route "pipe_route" {
   entry = pipe_a
-  to { pipe_a.done => pipe_b }
+  to { pipe_a.done -> pipe_b }
 }`,
   },
 ];

@@ -65,9 +65,9 @@ func matchBindingNames(prog *ast.ProgBlock) []string {
 // hand, in arm order, which is evaluation order under first-match.
 func TestNextMatchExpandsOneRulePerArm(t *testing.T) {
 	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
-      ("gold", "eu", true) => escalate,
-      ("gold", _, false)   => review,
-      _ => archive
+      ("gold", "eu", true) -> escalate,
+      ("gold", _, false)   -> review,
+      _ -> archive
     }`)
 
 	if len(rules) != 3 {
@@ -145,8 +145,8 @@ func TestNextMatchExpandsOneRulePerArm(t *testing.T) {
 // the condition.
 func TestNextMatchWildcardColumnIsNotIngressed(t *testing.T) {
 	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
-      ("gold", _, false) => review,
-      _ => archive
+      ("gold", _, false) -> review,
+      _ -> archive
     }`)
 
 	prog := rules[0].Compute.Prog
@@ -169,8 +169,8 @@ func TestNextMatchWildcardColumnIsNotIngressed(t *testing.T) {
 // bare `next <action>` rule, which carries no compute at all.
 func TestNextMatchFallbackIsUnconditional(t *testing.T) {
 	rules := matchRulesOf(t, `    next on tier to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`)
 
 	last := rules[len(rules)-1]
@@ -190,8 +190,8 @@ func TestNextMatchFallbackIsUnconditional(t *testing.T) {
 // placement rules.
 func TestNextMatchAllWildcardTupleIsFallback(t *testing.T) {
 	rules := matchRulesOf(t, `    next on (tier, region) to {
-      ("gold", "eu") => escalate,
-      (_, _) => archive
+      ("gold", "eu") -> escalate,
+      (_, _) -> archive
     }`)
 
 	if len(rules) != 2 {
@@ -208,8 +208,8 @@ func TestNextMatchAllWildcardTupleIsFallback(t *testing.T) {
 // a hand-written rule lower through the same path.
 func TestNextMatchSingleColumnNormalizesToInfixRHS(t *testing.T) {
 	rules := matchRulesOf(t, `    next on tier to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`)
 
 	prog := rules[0].Compute.Prog
@@ -235,8 +235,8 @@ func TestNextMatchSingleColumnNormalizesToInfixRHS(t *testing.T) {
 // arises.
 func TestNextMatchMultiColumnBuildsAndOverEq(t *testing.T) {
 	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
-      ("gold", "eu", true) => escalate,
-      _ => archive
+      ("gold", "eu", true) -> escalate,
+      _ -> archive
     }`)
 
 	prog := rules[0].Compute.Prog
@@ -271,20 +271,20 @@ func TestNextMatchMultiColumnBuildsAndOverEq(t *testing.T) {
 func TestNextMatchScalarPatternAgainstOneSubject(t *testing.T) {
 	for name, block := range map[string]string{
 		"bare subject, scalar pattern": `    next on tier to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`,
 		"bare subject, tuple pattern": `    next on tier to {
-      ("gold") => escalate,
-      _ => archive
+      ("gold") -> escalate,
+      _ -> archive
     }`,
 		"paren subject, scalar pattern": `    next on (tier) to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`,
 		"paren subject, tuple pattern": `    next on (tier) to {
-      ("gold") => escalate,
-      _ => archive
+      ("gold") -> escalate,
+      _ -> archive
     }`,
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -320,8 +320,8 @@ func TestNextMatchScalarPatternAgainstOneSubject(t *testing.T) {
 // left wildcard everywhere must produce no binding at all.
 func TestNextMatchColumnTypeInference(t *testing.T) {
 	rules := matchRulesOf(t, `    next on (tier, region, urgent) to {
-      ("gold", _, true) => escalate,
-      _ => archive
+      ("gold", _, true) -> escalate,
+      _ -> archive
     }`)
 
 	// `region` is wildcard in every arm, so it is neither typed nor ingressed.
@@ -356,9 +356,9 @@ scene "s" {
     }
 
     next on retries to {
-      0 => escalate,
-      3 => archive,
-      _ => archive
+      0 -> escalate,
+      3 -> archive,
+      _ -> archive
     }
   }
 
@@ -381,9 +381,9 @@ scene "s" {
 // so they cannot collide.
 func TestNextMatchRepeatedTargetGetsDistinctNames(t *testing.T) {
 	rules := matchRulesOf(t, `    next on (tier, region) to {
-      ("gold", "eu") => escalate,
-      ("gold", "us") => escalate,
-      _ => archive
+      ("gold", "eu") -> escalate,
+      ("gold", "us") -> escalate,
+      _ -> archive
     }`)
 
 	a, b := rules[0].Compute, rules[1].Compute
@@ -398,8 +398,8 @@ func TestNextMatchRepeatedTargetGetsDistinctNames(t *testing.T) {
 // TestNextMatchTrailingComma covers the optional comma after the last arm.
 func TestNextMatchTrailingComma(t *testing.T) {
 	rules := matchRulesOf(t, `    next on tier to {
-      "gold" => escalate,
-      _ => archive,
+      "gold" -> escalate,
+      _ -> archive,
     }`)
 	if len(rules) != 2 {
 		t.Fatalf("rules = %d, want 2", len(rules))
@@ -417,105 +417,105 @@ func TestNextMatchDiagnostics(t *testing.T) {
 		{
 			name: "arm wider than the subject list",
 			block: `    next on (tier, region) to {
-      ("gold", "eu", true) => escalate,
-      _ => archive
+      ("gold", "eu", true) -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeNextMatchArity,
 		},
 		{
 			name: "arm narrower than the subject list",
 			block: `    next on (tier, region) to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeNextMatchArity,
 		},
 		{
 			name: "variable binder",
 			block: `    next on tier to {
-      x => escalate,
-      _ => archive
+      x -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeUnsupportedConstruct,
 		},
 		{
 			name: "nested tuple pattern",
 			block: `    next on (tier, region) to {
-      ("gold", ("eu", "us")) => escalate,
-      _ => archive
+      ("gold", ("eu", "us")) -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeUnsupportedConstruct,
 		},
 		{
 			name: "template pattern",
 			block: `    next on tier to {
-      Sku { region: "eu" } => escalate,
-      _ => archive
+      Sku { region: "eu" } -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeUnsupportedConstruct,
 		},
 		{
 			name: "guard",
 			block: `    next on (tier, region) to {
-      ("gold", "eu") if urgent => escalate,
-      _ => archive
+      ("gold", "eu") if urgent -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeUnsupportedConstruct,
 		},
 		{
 			name: "column literals disagree on type",
 			block: `    next on tier to {
-      "gold" => escalate,
-      3 => review,
-      _ => archive
+      "gold" -> escalate,
+      3 -> review,
+      _ -> archive
     }`,
 			want: diag.CodeArgTypeMismatch,
 		},
 		{
 			name: "no fallback arm",
 			block: `    next on tier to {
-      "gold" => escalate
+      "gold" -> escalate
     }`,
 			want: diag.CodeNonExhaustiveMatch,
 		},
 		{
 			name: "two fallback arms",
 			block: `    next on tier to {
-      "gold" => escalate,
-      _ => archive,
-      _ => review
+      "gold" -> escalate,
+      _ -> archive,
+      _ -> review
     }`,
 			want: diag.CodeDuplicateFallback,
 		},
 		{
 			name: "arm after the fallback",
 			block: `    next on tier to {
-      _ => archive,
-      "gold" => escalate
+      _ -> archive,
+      "gold" -> escalate
     }`,
 			want: diag.CodeUnreachableArm,
 		},
 		{
 			name: "repeated subject",
 			block: `    next on (tier, tier) to {
-      ("gold", "silver") => escalate,
-      _ => archive
+      ("gold", "silver") -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeDuplicateBinding,
 		},
 		{
 			name: "dotted subject",
 			block: `    next on (routing.tier) to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeNextComputeInvalid,
 		},
 		{
 			name: "subject is not a name",
 			block: `    next on ("tier") to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }`,
 			want: diag.CodeParseSyntaxError,
 		},
@@ -523,7 +523,7 @@ func TestNextMatchDiagnostics(t *testing.T) {
 			name: "missing arrow",
 			block: `    next on tier to {
       "gold" escalate,
-      _ => archive
+      _ -> archive
     }`,
 			want: diag.CodeParseSyntaxError,
 		},
@@ -556,8 +556,8 @@ scene "s" {
     }
 
     next on tier to {
-      "gold" => escalate,
-      _ => archive
+      "gold" -> escalate,
+      _ -> archive
     }
   }
 

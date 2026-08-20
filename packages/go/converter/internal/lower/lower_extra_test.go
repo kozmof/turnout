@@ -415,7 +415,7 @@ func TestLowerCaseIntoTopologicalOrder(t *testing.T) {
   action "a" {
     compute "p" {
       score:number = 1
-      result:str := case(score, 1 => "one", 2 => "two", 3 => "three", _ => "other")
+      result:str := case(score, 1 -> "one", 2 -> "two", 3 -> "three", _ -> "other")
     }
   }`)
 	tm := mustLower(t, src)
@@ -476,7 +476,7 @@ func TestTupleCasePatternLowers(t *testing.T) {
     compute "p" {
       one:number = 1
       two:number = 2
-      result:str := case((one, two), (1, 2) => "tuple", _ => "other")
+      result:str := case((one, two), (1, 2) -> "tuple", _ -> "other")
     }
   }`)
 	if ds := lowerWithErrors(t, src); ds.HasErrors() {
@@ -569,7 +569,7 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
 // wildcard arms does not overwrite the first wildcard's fallback body and does
 // not emit duplicate unreachable-arm diagnostics.
 //
-// Input: [_ => "first", _ => "second", 1 => "third"]  (indices 0, 1, 2)
+// Input: [_ -> "first", _ -> "second", 1 -> "third"]  (indices 0, 1, 2)
 // Expected: exactly 2 CodeUnsupportedConstruct diagnostics — "arm 1 unreachable"
 // and "arm 2 unreachable", both emitted by the FIRST wildcard's j-loop.
 //
@@ -580,7 +580,7 @@ func TestLowerCaseIntoDoubleWildcard(t *testing.T) {
   action "a" {
     compute "p" {
       x:number = 1
-      result:str := case(x, _ => "first", _ => "second", 1 => "third")
+      result:str := case(x, _ -> "first", _ -> "second", 1 -> "third")
     }
   }`)
 	ds := lowerWithErrors(t, src)

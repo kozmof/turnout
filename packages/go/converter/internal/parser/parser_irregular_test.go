@@ -120,7 +120,7 @@ scene "test" {
 }
 route "r1" {
   to {
-    42 => test
+    42 -> test
   }
 }`,
 			wantCode:   "ParseSyntaxError",

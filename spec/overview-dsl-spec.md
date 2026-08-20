@@ -35,8 +35,8 @@ scene "loan_flow" {
   entry_action = score
 
   overview at_least {
-    score |=> approve
-    score |=> reject
+    score |-> approve
+    score |-> reject
   }
 
   action "score" { ... }
@@ -66,11 +66,11 @@ The `flow` attribute value is parsed line-by-line according to the following rul
 After splitting the string on newlines, each line is classified as follows (in order of precedence):
 
 1. Blank line — a line that, after trimming all leading and trailing whitespace, is empty. Blank lines are silently ignored.
-2. Edge line — a line whose content, after trimming leading whitespace, starts with `|=>`. The remainder after `|=>` is trimmed of leading whitespace and treated as the target `ActionId`.
-3. Chain line — a line whose content, after trimming leading whitespace, does not start with `|=>` but contains `|=>` as a substring. The line is split on `|=>` (stripping surrounding whitespace from each part) to produce an ordered list of `ActionId` segments.
-4. Node line — any non-blank line that does not start with `|=>` and does not contain `|=>`. The entire trimmed content is the source `ActionId`.
+2. Edge line — a line whose content, after trimming leading whitespace, starts with `|->`. The remainder after `|->` is trimmed of leading whitespace and treated as the target `ActionId`.
+3. Chain line — a line whose content, after trimming leading whitespace, does not start with `|->` but contains `|->` as a substring. The line is split on `|->` (stripping surrounding whitespace from each part) to produce an ordered list of `ActionId` segments.
+4. Node line — any non-blank line that does not start with `|->` and does not contain `|->`. The entire trimmed content is the source `ActionId`.
 
-> Why is a line starting with `|=>` always an edge line, never a chain line? Classification is by the leading characters of the trimmed line. If a line starts with `|=>`, it is unconditionally an edge line regardless of what follows. This means `|=> bar |=> baz` is an edge line whose target is `bar |=> baz`. That target then fails `OverviewInvalidIdent` because `|` is not a valid `IDENT` character. Authors who want a chain MUST begin with a node identifier.
+> Why is a line starting with `|->` always an edge line, never a chain line? Classification is by the leading characters of the trimmed line. If a line starts with `|->`, it is unconditionally an edge line regardless of what follows. This means `|-> bar |-> baz` is an edge line whose target is `bar |-> baz`. That target then fails `OverviewInvalidIdent` because `|` is not a valid `IDENT` character. Authors who want a chain MUST begin with a node identifier.
 
 ### 4.2 Parse algorithm
 
@@ -84,7 +84,7 @@ for each line L in flow.split("\n"):
   if trimmed == "":
     continue                          # blank — skip
 
-  if trimmed.startsWith("|=>"):
+  if trimmed.startsWith("|->"):
     # --- edge line ---
     target := trimmed.slice(3).trim()
     if target == "":
@@ -94,9 +94,9 @@ for each line L in flow.split("\n"):
     validate IDENT(target)            # fail OverviewInvalidIdent if not IDENT
     edges.add((current, target))
 
-  else if trimmed.contains("|=>"):
+  else if trimmed.contains("|->"):
     # --- chain line ---
-    parts := trimmed.split("|=>").map(p => p.trim())
+    parts := trimmed.split("|->").map(p => p.trim())
     if parts[last] == "":
       fail OverviewChainNoTarget
     for each part in parts:
@@ -128,11 +128,11 @@ type OverviewGraph = {
 
 - The same `ActionId` MAY appear as a node more than once in the flow text. Duplicate node lines MUST be treated as re-setting `current` without adding the node a second time. `nodes` is a set. Order is determined by first occurrence.
 - The same `(source, target)` edge pair MAY appear more than once. Duplicate edges MUST be silently de-duplicated.
-- An `ActionId` that appears only as an edge target, via a standalone `|=>` line or as the last element of a chain, is NOT automatically added to `nodes`. If enforcement requires node checking, such IDs are not counted as declared nodes.
-- Chain lines add all elements except the last to `nodes`. This mirrors the standalone `|=>` behavior. The target of each `|=>` is not a node declaration. In `foo |=> bar |=> baz`, `foo` and `bar` are added to `nodes`. `baz` is the final target and is not.
-- After a chain line, `current` is set to the last element. Subsequent `|=>` lines extend edges from that last element, even though it is not in `nodes`.
+- An `ActionId` that appears only as an edge target, via a standalone `|->` line or as the last element of a chain, is NOT automatically added to `nodes`. If enforcement requires node checking, such IDs are not counted as declared nodes.
+- Chain lines add all elements except the last to `nodes`. This mirrors the standalone `|->` behavior. The target of each `|->` is not a node declaration. In `foo |-> bar |-> baz`, `foo` and `bar` are added to `nodes`. `baz` is the final target and is not.
+- After a chain line, `current` is set to the last element. Subsequent `|->` lines extend edges from that last element, even though it is not in `nodes`.
 
-> Rationale: The inline `|=>` chain is purely syntactic sugar for the expanded multi-line form. Each `|=>` in the chain behaves identically to a standalone `|=>` edge line. The right-hand side is a target, not a node declaration. This keeps the two forms strictly equivalent and avoids any special-casing for chain lines in enforcement.
+> Rationale: The inline `|->` chain is purely syntactic sugar for the expanded multi-line form. Each `|->` in the chain behaves identically to a standalone `|->` edge line. The right-hand side is a target, not a node declaration. This keeps the two forms strictly equivalent and avoids any special-casing for chain lines in enforcement.
 
 ### 4.4 Compile step
 
@@ -190,8 +190,8 @@ All violations are errors (severity `"error"`). Implementations MUST report all 
 
 ```hcl
 overview at_least {
-  score |=> approve
-  score |=> reject
+  score |-> approve
+  score |-> reject
 }
 ```
 
@@ -203,17 +203,17 @@ Valid if the scene has an action `score` with at least two `next` entries target
 
 ```hcl
 overview at_least {
-  choose_route |=> forest_trail
-  choose_route |=> city_gate
-  choose_route |=> sewer_tunnel
-  choose_route |=> campfire_wait
-  forest_trail |=> shrine_discovery
-  city_gate |=> courtyard_arrival
-  sewer_tunnel |=> hidden_archive
-  campfire_wait |=> chapter_end
-  shrine_discovery |=> chapter_end
-  courtyard_arrival |=> chapter_end
-  hidden_archive |=> chapter_end
+  choose_route |-> forest_trail
+  choose_route |-> city_gate
+  choose_route |-> sewer_tunnel
+  choose_route |-> campfire_wait
+  forest_trail |-> shrine_discovery
+  city_gate |-> courtyard_arrival
+  sewer_tunnel |-> hidden_archive
+  campfire_wait |-> chapter_end
+  shrine_discovery |-> chapter_end
+  courtyard_arrival |-> chapter_end
+  hidden_archive |-> chapter_end
 }
 ```
 
@@ -225,7 +225,7 @@ Parsed:
 
 ```hcl
 overview strict {
-  start |=> end
+  start |-> end
 }
 ```
 
@@ -237,7 +237,7 @@ A chain condenses a linear sequence into a single line. This:
 
 ```hcl
 overview at_least {
-  foo |=> bar |=> baz
+  foo |-> bar |-> baz
 }
 ```
 
@@ -245,8 +245,8 @@ is exactly equivalent to:
 
 ```hcl
 overview at_least {
-  foo |=> bar
-  bar |=> baz
+  foo |-> bar
+  bar |-> baz
 }
 ```
 
@@ -254,64 +254,64 @@ Parsed: `nodes = {foo, bar}`, `edges = {(foo,bar),(bar,baz)}`, `current = baz`.
 
 `baz` is the final edge target and is NOT added to `nodes`, exactly as it would not be in the expanded form.
 
-### 6.5 Chain syntax — continuing with `|=>` after a chain
+### 6.5 Chain syntax — continuing with `|->` after a chain
 
-`current` is set to the last chain element, so standalone `|=>` lines after a chain extend from it:
+`current` is set to the last chain element, so standalone `|->` lines after a chain extend from it:
 
 ```
-analyze |=> score |=> decide
-  |=> approve
-  |=> reject
+analyze |-> score |-> decide
+  |-> approve
+  |-> reject
 ```
 
 Parsed:
 - `nodes = {analyze, score}`
 - `edges = {(analyze,score),(score,decide),(decide,approve),(decide,reject)}`
-- `current = decide` after the chain line. `|=>` lines add edges from `decide`
+- `current = decide` after the chain line. `|->` lines add edges from `decide`
 
 `decide`, `approve`, and `reject` are edge targets only and are NOT added to `nodes`.
 
-Inline chaining from a standalone `|=>` line is not possible. A line whose trimmed content starts with `|=>` is unconditionally an edge line. Any `|=>` within it becomes part of the target string, which fails `OverviewInvalidIdent`. For example:
+Inline chaining from a standalone `|->` line is not possible. A line whose trimmed content starts with `|->` is unconditionally an edge line. Any `|->` within it becomes part of the target string, which fails `OverviewInvalidIdent`. For example:
 
 ```
-analyze |=> score |=> decide
-  |=> approve |=> done     ← ERROR: edge line, target is "approve |=> done"
+analyze |-> score |-> decide
+  |-> approve |-> done     ← ERROR: edge line, target is "approve |-> done"
 ```
 
 To continue chaining from a branch target, re-declare it as a standalone node line and then use edge lines or a new chain:
 
 ```
-analyze |=> score |=> decide
-  |=> approve
-  |=> reject
+analyze |-> score |-> decide
+  |-> approve
+  |-> reject
 approve
-  |=> done
+  |-> done
 ```
 
 Parsed:
 - `nodes = {analyze, score, approve}`
 - `edges = {(analyze,score),(score,decide),(decide,approve),(decide,reject),(approve,done)}`
-- After the `approve` node line, `current = approve`. `|=> done` adds edge `(approve,done)`
+- After the `approve` node line, `current = approve`. `|-> done` adds edge `(approve,done)`
 
-Indentation depth has no semantic meaning. `current` is updated only by node lines and chain lines, never by edge lines. Extra indentation on a `|=>` line does not change which node it sources from. The following looks like `done` and `recheck` branch from `approve`, but they actually branch from `decide`:
+Indentation depth has no semantic meaning. `current` is updated only by node lines and chain lines, never by edge lines. Extra indentation on a `|->` line does not change which node it sources from. The following looks like `done` and `recheck` branch from `approve`, but they actually branch from `decide`:
 
 ```
-analyze |=> score |=> decide
-  |=> approve
-    |=> done       ← sources from decide, not approve
-    |=> recheck    ← sources from decide, not approve
+analyze |-> score |-> decide
+  |-> approve
+    |-> done       ← sources from decide, not approve
+    |-> recheck    ← sources from decide, not approve
 ```
 
 Parsed:
 - `nodes = {analyze, score}`
 - `edges = {(analyze,score),(score,decide),(decide,approve),(decide,done),(decide,recheck)}`
 
-Non-ASCII whitespace in indentation is a parse error. If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|=>`. The remaining content, non-ASCII characters followed by `|=>`, is treated as a chain line whose first segment fails `OverviewInvalidIdent`. See §6.9 for an example.
+Non-ASCII whitespace in indentation is a parse error. If leading whitespace contains characters outside the ASCII whitespace set (e.g. the ideographic space U+3000), implementations that trim only ASCII whitespace will not recognize the line as starting with `|->`. The remaining content, non-ASCII characters followed by `|->`, is treated as a chain line whose first segment fails `OverviewInvalidIdent`. See §6.9 for an example.
 
 ### 6.6 Parse error — edge without source
 
 ```
-|=> orphan
+|-> orphan
 ```
 
 → `OverviewEdgeWithoutSource` because no node line preceded the edge line.
@@ -320,30 +320,30 @@ Non-ASCII whitespace in indentation is a parse error. If leading whitespace cont
 
 ```
 hub
-  |=>
+  |->
 ```
 
-→ `OverviewEdgeNoTarget` because no identifier follows `|=>`.
+→ `OverviewEdgeNoTarget` because no identifier follows `|->`.
 
 ### 6.8 Parse error — chain with no target
 
 ```
-foo |=>
+foo |->
 ```
 
-→ `OverviewChainNoTarget` because the segment after the last `|=>` is empty.
+→ `OverviewChainNoTarget` because the segment after the last `|->` is empty.
 
-Note: `|=> bar |=> baz` starts with `|=>` so it is classified as an edge line (not a chain line), and its target `bar |=> baz` fails `OverviewInvalidIdent` because `|` is not a valid `IDENT` character.
+Note: `|-> bar |-> baz` starts with `|->` so it is classified as an edge line (not a chain line), and its target `bar |-> baz` fails `OverviewInvalidIdent` because `|` is not a valid `IDENT` character.
 
 ### 6.9 Parse error — non-ASCII whitespace in indentation
 
 ```
-analyze |=> score |=> decide
-  |=> approve
-　　|=> done
+analyze |-> score |-> decide
+  |-> approve
+　　|-> done
 ```
 
-The third line uses ideographic spaces (U+3000) as indentation. After trimming ASCII whitespace only, the leading `　　` characters remain, so the line does not start with `|=>`. It contains `|=>` as a substring, so it is classified as a chain line. The split produces segments `["　　", "done"]`. The first segment `　　` fails `OverviewInvalidIdent`.
+The third line uses ideographic spaces (U+3000) as indentation. After trimming ASCII whitespace only, the leading `　　` characters remain, so the line does not start with `|->`. It contains `|->` as a substring, so it is classified as a chain line. The split produces segments `["　　", "done"]`. The first segment `　　` fails `OverviewInvalidIdent`.
 
 Implementations MUST document which whitespace characters are stripped during trimming. Implementations that strip Unicode whitespace (including U+3000) will instead classify this line as an edge line sourcing from `current` (i.e. `decide`), producing no error but silently ignoring the visual indentation intent. Authors MUST use only ASCII whitespace (U+0020 space or U+0009 tab) for indentation.
 
@@ -382,9 +382,9 @@ The parsed `OverviewGraph` is a compilation artifact. It is not stored in the ru
 | Code                      | Condition |
 |---------------------------|-----------|
 | `OverviewFlowEmpty`          | `flow` is empty or whitespace-only |
-| `OverviewEdgeWithoutSource` | Standalone edge line `|=>` appears before any node or chain line |
-| `OverviewEdgeNoTarget`      | Standalone `|=>` is not followed by an identifier |
-| `OverviewChainNoTarget`     | Chain line ends with `|=>` (segment after the last `|=>` is empty) |
+| `OverviewEdgeWithoutSource` | Standalone edge line `|->` appears before any node or chain line |
+| `OverviewEdgeNoTarget`      | Standalone `|->` is not followed by an identifier |
+| `OverviewChainNoTarget`     | Chain line ends with `|->` (segment after the last `|->` is empty) |
 | `OverviewInvalidIdent`       | Any node, edge target, or chain segment fails the `IDENT` pattern |
 
 ### 9.2 Compile errors (`stage: "overview_compile"`)
@@ -436,9 +436,9 @@ Overview diagnostics use the same `SceneDiagnostic` shape defined in scene-graph
 7. `strict` enforcement fails if the scene has actions not listed in the overview, or if the scene has next-rule edges not declared in the flow.
 8. All enforcement violations are collected and reported before halting. Implementations MUST NOT stop at the first violation.
 9. Overview failures produce `invalid_overview`, not `invalid_graph`.
-10. An action that appears only as an edge target, via standalone `|=>` or as the last element of a chain, is NOT in `overview_nodes` and triggers `OverviewExtraNode` under `strict` mode if it exists in `impl_nodes`. Authors MUST declare it as a standalone node line or as a non-terminal chain element to include it in the strict contract.
+10. An action that appears only as an edge target, via standalone `|->` or as the last element of a chain, is NOT in `overview_nodes` and triggers `OverviewExtraNode` under `strict` mode if it exists in `impl_nodes`. Authors MUST declare it as a standalone node line or as a non-terminal chain element to include it in the strict contract.
 11. Duplicate node lines and duplicate edge pairs in the flow text are silently de-duplicated.
 12. Re-running validation on the same scene model with the same `overview` block produces identical enforcement results.
-13. A chain line `a |=> b |=> c` adds `a` and `b` to `nodes`, adds edges `(a,b)` and `(b,c)`, and sets `current` to `c`. `c` is NOT added to `nodes`.
-14. After a chain line, subsequent standalone `|=>` lines add edges from the last chain element (`current`), not from the first.
-15. A chain line ending with `|=>` and no following identifier fails `OverviewChainNoTarget`.
+13. A chain line `a |-> b |-> c` adds `a` and `b` to `nodes`, adds edges `(a,b)` and `(b,c)`, and sets `current` to `c`. `c` is NOT added to `nodes`.
+14. After a chain line, subsequent standalone `|->` lines add edges from the last chain element (`current`), not from the first.
+15. A chain line ending with `|->` and no following identifier fails `OverviewChainNoTarget`.

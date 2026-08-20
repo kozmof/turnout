@@ -783,37 +783,37 @@ route "r1" {
 }
 
 func TestDuplicateFallback(t *testing.T) {
-	src := routeSrc(`    _ => scene_1,
-    _ => scene_1`)
+	src := routeSrc(`    _ -> scene_1,
+    _ -> scene_1`)
 	if !hasCode(pipeline(src), diag.CodeDuplicateFallback) {
 		t.Error("want DuplicateFallback")
 	}
 }
 
 func TestBareWildcardPath(t *testing.T) {
-	src := routeSrc(`    scene_1.* => scene_1`)
+	src := routeSrc(`    scene_1.* -> scene_1`)
 	if !hasCode(pipeline(src), diag.CodeBareWildcardPath) {
 		t.Error("want BareWildcardPath")
 	}
 }
 
 func TestMultipleWildcards(t *testing.T) {
-	src := routeSrc(`    scene_1.*.*.final => scene_1`)
+	src := routeSrc(`    scene_1.*.*.final -> scene_1`)
 	if !hasCode(pipeline(src), diag.CodeMultipleWildcards) {
 		t.Error("want MultipleWildcards")
 	}
 }
 
 func TestUnresolvedScene(t *testing.T) {
-	src := routeSrc(`    scene_1.*.final => undefined_scene`)
+	src := routeSrc(`    scene_1.*.final -> undefined_scene`)
 	if !hasCode(pipeline(src), diag.CodeUnresolvedScene) {
 		t.Error("want UnresolvedScene")
 	}
 }
 
 func TestRouteValidNoErrors(t *testing.T) {
-	src := routeSrc(`    scene_1.*.final_action => scene_1,
-    _ => scene_1`)
+	src := routeSrc(`    scene_1.*.final_action -> scene_1,
+    _ -> scene_1`)
 	ds := pipeline(src)
 	if ds.HasErrors() {
 		for _, d := range ds {
@@ -824,7 +824,7 @@ func TestRouteValidNoErrors(t *testing.T) {
 
 func TestWildcardTerminalUnresolvable(t *testing.T) {
 	t.Run("unknown_terminal_emits_warning", func(t *testing.T) {
-		src := routeSrc(`    scene_1.*.no_such_action => scene_1`)
+		src := routeSrc(`    scene_1.*.no_such_action -> scene_1`)
 		ds := pipeline(src)
 		if !hasCode(ds, diag.CodeWildcardTerminalUnresolvable) {
 			t.Error("want WildcardTerminalUnresolvable warning for unknown terminal action")
@@ -833,7 +833,7 @@ func TestWildcardTerminalUnresolvable(t *testing.T) {
 
 	t.Run("known_terminal_no_warning", func(t *testing.T) {
 		// The only action in scene_1 is "a", so "a" as terminal should not warn.
-		src := routeSrc(`    scene_1.*.a => scene_1`)
+		src := routeSrc(`    scene_1.*.a -> scene_1`)
 		ds := pipeline(src)
 		if hasCode(ds, diag.CodeWildcardTerminalUnresolvable) {
 			t.Error("want no WildcardTerminalUnresolvable warning when terminal matches a known action")
@@ -849,7 +849,7 @@ scene "scene_1" {
 }
 route "r1" {
   to {
-    _ => scene_1
+    _ -> scene_1
   }
 }
 `
@@ -867,7 +867,7 @@ scene "scene_1" {
 route "r1" {
   entry = undefined_scene
   to {
-    _ => scene_1
+    _ -> scene_1
   }
 }
 `

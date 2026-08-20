@@ -2,7 +2,7 @@
  * E2E: two-scene route (hand-crafted JSON fixture)
  *
  * Route: main_route
- *   to { scene_a.step_a => scene_b }
+ *   to { scene_a.step_a -> scene_b }
  *
  * scene_a: step_a reads input.value, writes output.result = value * 2
  * scene_b: step_b reads output.result, writes output.result = result + 1

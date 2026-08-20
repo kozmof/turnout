@@ -154,7 +154,7 @@ func TestParseViewBlock(t *testing.T) {
 	src := `state {}
 scene "s" {
   overview at_least {
-    a |=> b
+    a |-> b
   }
   action "a" {
     compute "p" { v:bool := true }
@@ -170,7 +170,7 @@ scene "s" {
 		t.Errorf("view name = %q", v.Name)
 	}
 	if len(v.Edges) != 1 || v.Edges[0].From != "a" || v.Edges[0].To != "b" {
-		t.Errorf("edges = %v, want one a |=> b", v.Edges)
+		t.Errorf("edges = %v, want one a |-> b", v.Edges)
 	}
 	// Every edge carries a real source position — the reason the flow moved out
 	// of the heredoc (NEW_SYNTAX.md 2.2).
@@ -1088,8 +1088,8 @@ scene "s1" {
 }
 route "main" {
   to {
-    s1.*.done => s1,
-    _ => s1
+    s1.*.done -> s1,
+    _ -> s1
   }
 }`
 	tf := mustParse(t, src)
@@ -1107,7 +1107,7 @@ route "main" {
 		t.Fatalf("expected 2 arms, got %d", len(r.Match.Arms))
 	}
 
-	// First arm: s1.*.done => s1
+	// First arm: s1.*.done -> s1
 	arm0 := r.Match.Arms[0]
 	if len(arm0.Branches) != 1 {
 		t.Fatalf("arm0: expected 1 branch, got %d", len(arm0.Branches))
@@ -1126,7 +1126,7 @@ route "main" {
 		t.Errorf("arm0 Target = %q, want %q", arm0.Target, "s1")
 	}
 
-	// Second arm: _ => s1
+	// Second arm: _ -> s1
 	arm1 := r.Match.Arms[1]
 	if len(arm1.Branches) != 1 {
 		t.Fatalf("arm1: expected 1 branch, got %d", len(arm1.Branches))
@@ -1147,7 +1147,7 @@ scene "s1" {
 }
 route "r" {
   to {
-    s1.start | s1.*.end => s1
+    s1.start | s1.*.end -> s1
   }
 }`
 	tf := mustParse(t, src)
@@ -1176,7 +1176,7 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r" { to { _ => s } }`
+route "r" { to { _ -> s } }`
 	tf := mustParse(t, src)
 	arm := tf.Routes[0].Match.Arms[0]
 	if !arm.Branches[0].Fallback {
@@ -1193,8 +1193,8 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r1" { to { _ => s } }
-route "r2" { to { s.done => s } }`
+route "r1" { to { _ -> s } }
+route "r2" { to { s.done -> s } }`
 	tf := mustParse(t, src)
 	if len(tf.Routes) != 2 {
 		t.Fatalf("expected 2 routes, got %d", len(tf.Routes))
@@ -1210,7 +1210,7 @@ scene "s" {
   entry_action = a
   action "a" { compute "p" { r:bool := true } }
 }
-route "r" { to { s.*.final => s } }`
+route "r" { to { s.*.final -> s } }`
 	tf := mustParse(t, src)
 	pe := tf.Routes[0].Match.Arms[0].Branches[0]
 	if len(pe.Segments) != 2 || pe.Segments[0] != "*" || pe.Segments[1] != "final" {

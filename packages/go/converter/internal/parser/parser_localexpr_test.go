@@ -21,7 +21,7 @@ func TestRHSCaseArms(t *testing.T) {
 	src := minimalTurnFile(`  action "a" {
     compute "p" {
       score:number = 1
-      result:str := case(score, 1 => "one", x if gt(x, 5) => "big", _ => "other")
+      result:str := case(score, 1 -> "one", x if gt(x, 5) -> "big", _ -> "other")
     }
   }`)
 	bindings := progBindings(t, src)
@@ -70,7 +70,7 @@ func TestCasePatternTuple(t *testing.T) {
     compute "p" {
       one:number = 1
       two:number = 2
-      result:str := case((one, two), (1, 2) => "tuple", _ => "other")
+      result:str := case((one, two), (1, 2) -> "tuple", _ -> "other")
     }
   }`)
 	mustParse(t, src)
@@ -86,7 +86,7 @@ func TestRHSLocalNestedExprs(t *testing.T) {
       flag2:bool  = false
       v1:number   = 1
       v2:number   = 2
-      result2:number = if(flag, case(v1, 1 => v1, _ => v2), v2)
+      result2:number = if(flag, case(v1, 1 -> v1, _ -> v2), v2)
       result:number := if(flag, if(flag2, v1, v2), pipe(v1, add(#it, v2)))
     }
   }`)

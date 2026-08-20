@@ -60,7 +60,7 @@ prog "main" {
 | `name:bool = lhs == rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "eq" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:bool = lhs != rhs` | `binding "name" { type = "bool" expr = { combine = { fn = "neq" args = [arg(lhs), arg(rhs)] } } }` |
 | `name:type = if(cond, then_expr, else_expr)` | `binding "name" { type = "type" expr = { if = { cond = expr(cond) then = expr(then_expr) else = expr(else_expr) } } }` |
-| `name:type = case(subject, pattern => expr, _ => default)` | `binding "name" { type = "type" expr = { case = { subject = expr(subject) arms = [...] } } }` |
+| `name:type = case(subject, pattern -> expr, _ -> default)` | `binding "name" { type = "type" expr = { case = { subject = expr(subject) arms = [...] } } }` |
 | `name:type = pipe(initial_value, step1, step2, ...)` | `binding "name" { type = "type" expr = { pipe = { initial = expr(initial_value) steps = [expr(step1), expr(step2), ...] } } }` |
 
 #### Identity-combine table (for single-reference form)
@@ -166,7 +166,7 @@ CAN (OK):
 - Authors can write pipes as `pipe(initial_value, step1, step2, ...)`.
 - Authors can use `#it` inside a `pipe` step to refer to the current pipeline value.
 - Authors can write binary choices as `if(cond, then_expr, else_expr)`.
-- Authors can write ordered classifications as `case(subject, pattern => expr, _ => default_expr)`.
+- Authors can write ordered classifications as `case(subject, pattern -> expr, _ -> default_expr)`.
 - Authors can write a single-reference binding `name:type = identifier` to pass another binding's value through as a function binding. The compiler lowers this to an identity combine per the identity-combine table.
 
 CAN'T (NG):
@@ -427,9 +427,9 @@ Rules:
 ```hcl
 name:type = case(
   subject,
-  pattern1 => expr1,
-  pattern2 => expr2,
-  _ => default_expr
+  pattern1 -> expr1,
+  pattern2 -> expr2,
+  _ -> default_expr
 )
 ```
 
@@ -445,7 +445,7 @@ prog "main" {
   route:str = if(
     unsafe,
     "lockout",
-    case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
+    case(spindle_temp_c, t if t < 28 -> "warmup", _ -> "run")
   )
 }
 ```
@@ -470,7 +470,7 @@ Emitted ContextSpec:
 Rules:
 
 - Supported patterns are literals, wildcard `_`, variable binders, guarded arms, tuple patterns, and template destructuring patterns.
-- A tuple subject such as `(unsafe, spindle_temp_c)` can be matched by tuple arms such as `(true, _)` and `(false, t) if t < 28 => "warmup"`.
+- A tuple subject such as `(unsafe, spindle_temp_c)` can be matched by tuple arms such as `(true, _)` and `(false, t) if t < 28 -> "warmup"`.
 - `_` matches any value and does not bind.
 - Pattern binders are visible only in that arm's guard and expression.
 - If no arm matches and no wildcard arm exists, evaluation fails.
@@ -500,9 +500,9 @@ prog "main" {
     raw_temp_c,
     case(
       #it,
-      t if t < 28 => "warmup",
-      t if t > 90 => "hold",
-      _ => "run"
+      t if t < 28 -> "warmup",
+      t if t > 90 -> "hold",
+      _ -> "run"
     )
   )
 }
@@ -665,9 +665,9 @@ prog "main" {
   # --- case classification ---
   band:str = case(
     piped,
-    x if x >= 80 => "high",
-    x if x >= 50 => "medium",
-    _ => "low"
+    x if x >= 80 -> "high",
+    x if x >= 50 -> "medium",
+    _ -> "low"
   )
 
   # --- if binary choice ---
@@ -740,8 +740,8 @@ ctx({
 | `n:number = "hello"` | `TypeMismatch` error (string literal assigned to `number` type) |
 | `xs:arr<number> = []` | Emit `val.array('number', [])` — empty array is valid |
 | `if(flag, 1, "one")` | `BranchTypeMismatch` error |
-| `case(x, 1 => "one", 2 => 2)` | `CaseArmTypeMismatch` error |
-| `case(x, 1 => "one")` with subject `2` | `CaseNoMatch` runtime error |
+| `case(x, 1 -> "one", 2 -> 2)` | `CaseArmTypeMismatch` error |
+| `case(x, 1 -> "one")` with subject `2` | `CaseNoMatch` runtime error |
 | `n:number = #it + 1` outside `pipe` | `ItOutsidePipe` error |
 | `n:number = _` outside a `case` pattern | `InvalidWildcardUse` error |
 | Two `prog` blocks in one canonical ContextSpec file | `DuplicateProg` error — such a file may contain at most one `prog` block |

@@ -19,9 +19,9 @@ scene "vend" {
   entry_action = check_availability
 
   overview strict {
-    check_availability  |=> dispense
-    check_availability  |=> refuse
-    dispense            |=> thank_customer
+    check_availability  |-> dispense
+    check_availability  |-> refuse
+    dispense            |-> thank_customer
     refuse
     thank_customer
   }

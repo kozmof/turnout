@@ -23,8 +23,8 @@ scene "ticket_intake" {
   entry_action = mint_reference
 
   overview at_least {
-    mint_reference |=> assign_specialist
-    mint_reference |=> assign_generalist
+    mint_reference |-> assign_specialist
+    mint_reference |-> assign_generalist
   }
 
   action "mint_reference" {
@@ -48,10 +48,10 @@ scene "ticket_intake" {
 
       assignee:str = case(
         (reference, escalated),
-        (TicketRef { queue: "billing", serial }, _) => "billing_desk",
-        (TicketRef { queue: "technical", serial }, true) => "sre_oncall",
-        (TicketRef { queue: "technical", serial }, false) => "support_tier2",
-        (TicketRef { queue: "account", serial }, _) => "account_manager"
+        (TicketRef { queue: "billing", serial }, _) -> "billing_desk",
+        (TicketRef { queue: "technical", serial }, true) -> "sre_oncall",
+        (TicketRef { queue: "technical", serial }, false) -> "support_tier2",
+        (TicketRef { queue: "account", serial }, _) -> "account_manager"
       )
 
       (assignee)          ~> @routing.assignee
@@ -62,10 +62,10 @@ scene "ticket_intake" {
     }
 
     next on (queue, escalated) to {
-      ("technical", true)  => assign_specialist,
-      ("billing",   _)     => assign_generalist,
-      ("account",   _)     => assign_generalist,
-      _                    => assign_generalist
+      ("technical", true)  -> assign_specialist,
+      ("billing",   _)     -> assign_generalist,
+      ("account",   _)     -> assign_generalist,
+      _                    -> assign_generalist
     }
   }
 

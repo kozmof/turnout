@@ -23,34 +23,33 @@ const (
 	TokSigilIngress // ~>
 
 	// Punctuation
-	TokLBrace     // {
-	TokRBrace     // }
-	TokLBracket   // [
-	TokRBracket   // ]
-	TokLParen     // (
-	TokRParen     // )
-	TokComma      // ,
-	TokColon      // :
-	TokResult     // := (contextual prog result)
-	TokEquals     // =
-	TokDot        // .
-	TokAt         // @ (state path prefix in inline IO)
-	TokArrow      // =>
-	TokFlowArrow  // |=> (overview flow edge)
-	TokTransArrow // -> (transition guard: `next <cond> -> <action>`)
-	TokPipe       // |
-	TokAmpersand  // &
-	TokGTE        // >=
-	TokLTE        // <=
-	TokPlus       // +
-	TokMinus      // -
-	TokStar       // *
-	TokSlash      // /
-	TokPercent    // %
-	TokGT         // >  (standalone, not >=)
-	TokLT         // <  (standalone, not <=, <~, <~>, <<-)
-	TokEqEq       // ==
-	TokNeq        // !=
+	TokLBrace    // {
+	TokRBrace    // }
+	TokLBracket  // [
+	TokRBracket  // ]
+	TokLParen    // (
+	TokRParen    // )
+	TokComma     // ,
+	TokColon     // :
+	TokResult    // := (contextual prog result)
+	TokEquals    // =
+	TokDot       // .
+	TokAt        // @ (state path prefix in inline IO)
+	TokFlowArrow // |-> (overview flow edge)
+	TokArrow     // -> (transition guard and match arm: `next <cond> -> <action>`)
+	TokPipe      // |
+	TokAmpersand // &
+	TokGTE       // >=
+	TokLTE       // <=
+	TokPlus      // +
+	TokMinus     // -
+	TokStar      // *
+	TokSlash     // /
+	TokPercent   // %
+	TokGT        // >  (standalone, not >=)
+	TokLT        // <  (standalone, not <=, <~, <~>, <<-)
+	TokEqEq      // ==
+	TokNeq       // !=
 
 	// Special forms
 	// The if/case/pipe forms dropped their `#` prefix in v2 (NEW_SYNTAX.md 2.1)
@@ -276,9 +275,8 @@ func init() {
 		TokEquals:       "=",
 		TokDot:          ".",
 		TokAt:           "@",
-		TokArrow:        "=>",
-		TokFlowArrow:    "|=>",
-		TokTransArrow:   "->",
+		TokFlowArrow:    "|->",
+		TokArrow:        "->",
 		TokPipe:         "|",
 		TokAmpersand:    "&",
 		TokGTE:          ">=",
@@ -387,7 +385,7 @@ func (l *lex) scanToken() {
 			// expression can put `-` immediately before `>`, since a bare `>`
 			// needs a left operand.
 			l.advance()
-			l.emit(TokTransArrow, "->", ln, co)
+			l.emit(TokArrow, "->", ln, co)
 		} else {
 			l.emit(TokMinus, "-", ln, co)
 		}
@@ -427,13 +425,13 @@ func (l *lex) scanToken() {
 		}
 
 	case c == '|':
-		if l.peekAt(1) == '=' && l.peekAt(2) == '>' {
+		if l.peekAt(1) == '-' && l.peekAt(2) == '>' {
 			// Flow edge in an overview block (NEW_SYNTAX.md 2.2). Matched before
-			// the bare pipe so `a |=> b` is one edge, not `a | (=> b)`.
+			// the bare pipe so `a |-> b` is one edge, not `a | (-> b)`.
 			l.advance()
 			l.advance()
 			l.advance()
-			l.emit(TokFlowArrow, "|=>", ln, co)
+			l.emit(TokFlowArrow, "|->", ln, co)
 		} else {
 			l.advance()
 			l.emit(TokPipe, "|", ln, co)
@@ -441,10 +439,7 @@ func (l *lex) scanToken() {
 
 	case c == '=':
 		l.advance()
-		if l.peek() == '>' {
-			l.advance()
-			l.emit(TokArrow, "=>", ln, co)
-		} else if l.peek() == '=' {
+		if l.peek() == '=' {
 			l.advance()
 			l.emit(TokEqEq, "==", ln, co)
 		} else {

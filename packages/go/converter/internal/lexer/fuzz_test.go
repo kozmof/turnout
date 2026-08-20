@@ -16,7 +16,7 @@ func FuzzTokenize(f *testing.F) {
 		"<<-EOT\nhello world\nEOT",
 		`"""multi\nline"""`,
 		`#pipe #if #case #it`,
-		`=> >= <= == != + - * / %`,
+		`-> >= <= == != + - * / %`,
 		`arr<number> arr<str> arr<bool>`,
 		``,
 		"\x00\x01\x02\x03\x04\x05\x06\x07",

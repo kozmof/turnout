@@ -626,7 +626,7 @@ func flowText(v *ast.ViewBlock) string {
 	for _, e := range v.Edges {
 		sources[e.From] = true
 		b.WriteString(e.From)
-		b.WriteString(" |=> ")
+		b.WriteString(" |-> ")
 		b.WriteString(e.To)
 		b.WriteByte('\n')
 	}

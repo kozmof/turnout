@@ -31,7 +31,7 @@ scene "sc" {
 // executable at runtime — see the e2e test).
 func TestDestructureCompilesClean(t *testing.T) {
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo", sequence } => sequence, ResourceId { kind: "bar", sequence } => sequence`))
+		`ResourceId { kind: "foo", sequence } -> sequence, ResourceId { kind: "bar", sequence } -> sequence`))
 	if ds.HasErrors() {
 		for _, d := range ds {
 			t.Errorf("unexpected error: %s", d.Format())
@@ -41,7 +41,7 @@ func TestDestructureCompilesClean(t *testing.T) {
 
 func TestDestructureExhaustive(t *testing.T) {
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo", sequence } => sequence, ResourceId { kind: "bar", sequence } => sequence`))
+		`ResourceId { kind: "foo", sequence } -> sequence, ResourceId { kind: "bar", sequence } -> sequence`))
 	if hasCode(ds, diag.CodeNonExhaustiveMatch) {
 		t.Errorf("covering foo and bar should be exhaustive: %v", ds)
 	}
@@ -52,7 +52,7 @@ func TestDestructureExhaustive(t *testing.T) {
 
 func TestDestructureNonExhaustive(t *testing.T) {
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo", sequence } => sequence`))
+		`ResourceId { kind: "foo", sequence } -> sequence`))
 	if !hasCode(ds, diag.CodeNonExhaustiveMatch) {
 		t.Errorf("expected NonExhaustiveMatch (bar uncovered), got %v", ds)
 	}
@@ -65,7 +65,7 @@ func TestDestructureOmittedCaptureExhaustive(t *testing.T) {
 	// Omitting `sequence` leaves it unconstrained (§12.8); covering both kinds is
 	// still exhaustive.
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo" } => 1, ResourceId { kind: "bar" } => 2`))
+		`ResourceId { kind: "foo" } -> 1, ResourceId { kind: "bar" } -> 2`))
 	if hasCode(ds, diag.CodeNonExhaustiveMatch) {
 		t.Errorf("omitted sequence + both kinds should be exhaustive: %v", ds)
 	}
@@ -73,7 +73,7 @@ func TestDestructureOmittedCaptureExhaustive(t *testing.T) {
 
 func TestDestructureWildcardCompletes(t *testing.T) {
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo", sequence } => sequence, _ => 0`))
+		`ResourceId { kind: "foo", sequence } -> sequence, _ -> 0`))
 	if hasCode(ds, diag.CodeNonExhaustiveMatch) {
 		t.Errorf("wildcard should complete the match: %v", ds)
 	}
@@ -82,7 +82,7 @@ func TestDestructureWildcardCompletes(t *testing.T) {
 func TestDestructureShadowing(t *testing.T) {
 	// The first arm binds kind unconstrained (covers all); the second is shadowed.
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind, sequence } => sequence, ResourceId { kind: "foo", sequence } => sequence`))
+		`ResourceId { kind, sequence } -> sequence, ResourceId { kind: "foo", sequence } -> sequence`))
 	if !hasCode(ds, diag.CodeUnreachableArm) {
 		t.Errorf("expected UnreachableArm for the shadowed foo arm, got %v", ds)
 	}
@@ -90,7 +90,7 @@ func TestDestructureShadowing(t *testing.T) {
 
 func TestDestructureUnknownCapture(t *testing.T) {
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo", bogus } => 0, ResourceId { kind: "bar" } => 1`))
+		`ResourceId { kind: "foo", bogus } -> 0, ResourceId { kind: "bar" } -> 1`))
 	if !hasCode(ds, diag.CodeUnknownCapture) {
 		t.Errorf("expected UnknownCapture for bogus, got %v", ds)
 	}
@@ -98,7 +98,7 @@ func TestDestructureUnknownCapture(t *testing.T) {
 
 func TestDestructureConstraintNotAssignable(t *testing.T) {
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "baz", sequence } => sequence, ResourceId { kind: "bar", sequence } => sequence`))
+		`ResourceId { kind: "baz", sequence } -> sequence, ResourceId { kind: "bar", sequence } -> sequence`))
 	if !hasCode(ds, diag.CodeNotAssignable) {
 		t.Errorf("expected NotAssignable for kind: baz, got %v", ds)
 	}
@@ -108,7 +108,7 @@ func TestDestructureCaptureRefinementTyped(t *testing.T) {
 	// sequence refines to a number; using it in a numeric context must type-check
 	// (no arg/return mismatch beyond the runtime gate).
 	ds := pipeline(destructureProg("number",
-		`ResourceId { kind: "foo", sequence } => add(sequence, 1), ResourceId { kind: "bar", sequence } => sequence`))
+		`ResourceId { kind: "foo", sequence } -> add(sequence, 1), ResourceId { kind: "bar", sequence } -> sequence`))
 	if hasCode(ds, diag.CodeArgTypeMismatch) || hasCode(ds, diag.CodeUndefinedRef) ||
 		hasCode(ds, diag.CodeReturnTypeMismatch) {
 		t.Errorf("refined sequence should be a usable number: %v", ds)
@@ -124,7 +124,7 @@ scene "sc" {
   action "a" {
     compute "p" {
       s: str = "x"
-      r: number := case(s, ResourceId { kind: "foo", sequence } => sequence)
+      r: number := case(s, ResourceId { kind: "foo", sequence } -> sequence)
     }
   }
 }
@@ -146,7 +146,7 @@ scene "sc" {
   action "a" {
     compute "p" {
       rid: ResourceId = "foo-1"
-      r: number := case(rid, OtherId { kind, sequence } => sequence)
+      r: number := case(rid, OtherId { kind, sequence } -> sequence)
     }
   }
 }

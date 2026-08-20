@@ -535,8 +535,8 @@ func (p *parser) parseNextBlock() []*ast.NextRule {
 // prog holding the ingress binding and the `:=` condition, plus the from_action
 // prepare entry that feeds it. Lowering sees no difference between the two.
 //
-// The guard reads in evaluation order, matching `|=>` in overview blocks and
-// `=>` in route match arms. Which form a line takes only becomes clear at the
+// The guard reads in evaluation order, matching `|->` in overview blocks and
+// `->` in route match arms. Which form a line takes only becomes clear at the
 // token after the first reference, so the head is parsed before it is known
 // whether it named the condition or the target.
 //
@@ -552,7 +552,7 @@ func (p *parser) parseNextSugar(pos ast.Pos) *ast.NextRule {
 	condPos := p.posOf(p.peek())
 	head := p.parseRefVal()
 
-	if t := p.peek(); t.Kind != lexer.TokTransArrow {
+	if t := p.peek(); t.Kind != lexer.TokArrow {
 		// `if` is a plain identifier to the lexer, so catch it by value: it
 		// reads as a guard, and reporting it as an unexpected identifier would
 		// leave its condition to parse as a binding of the enclosing action.

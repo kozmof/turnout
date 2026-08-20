@@ -15,8 +15,8 @@ scene "loan_flow" {
   entry_action     = score
 
   overview at_least {
-    score |=> approve
-    score |=> reject
+    score |-> approve
+    score |-> reject
   }
 
   action "score" {

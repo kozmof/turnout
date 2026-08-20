@@ -353,7 +353,7 @@ func (p *parser) parseIfCallRHS(pos ast.Pos) ast.BindingRHS {
 
 // ─── case function-call form ──────────────────────────────────────────────────────────
 
-// parseCaseCallRHS parses `case(subject, pattern => expr, ..., _ => default)`.
+// parseCaseCallRHS parses `case(subject, pattern -> expr, ..., _ -> default)`.
 func (p *parser) parseCaseCallRHS(pos ast.Pos) ast.BindingRHS {
 	p.expect(lexer.TokLParen)
 	subject := p.parseLocalExpr()
@@ -372,7 +372,7 @@ func (p *parser) parseCaseArm() ast.LocalCaseArm {
 	pattern := p.parseCasePattern()
 
 	var guard ast.LocalExpr
-	// Guard: `if <expr>` before `=>`
+	// Guard: `if <expr>` before `->`
 	if p.peek().Kind == lexer.TokIdent && p.peek().Value == "if" {
 		p.advance() // consume "if"
 		guard = p.parseLocalExpr()

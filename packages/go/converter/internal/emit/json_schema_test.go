@@ -56,7 +56,7 @@ scene "s" {
 route "main" {
   entry = s
   to {
-    _ => "s"
+    _ -> "s"
   }
 }`
 	tf, ds := parser.ParseFile("test.tu", src)

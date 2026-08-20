@@ -59,9 +59,6 @@
       "include": "#transition-arrow"
     },
     {
-      "include": "#match-arrow"
-    },
-    {
       "include": "#computed-assign"
     },
     {
@@ -106,7 +103,7 @@
       },
       "patterns": [
         {
-          "match": "\\|=>",
+          "match": "\\|->",
           "name": "keyword.operator.flow.tu"
         },
         {
@@ -217,19 +214,14 @@
       }
     },
     "flow-arrow": {
-      "comment": "|=> flow routing arrows used in view flow.",
-      "match": "\\|=>",
+      "comment": "|-> flow routing arrows used in view flow.",
+      "match": "\\|->",
       "name": "keyword.operator.flow.tu"
     },
     "transition-arrow": {
-      "comment": "-> transition guard arrow in `next <condition> -> <action>`. Must come before the plain operator rule, whose bare - would split it.",
+      "comment": "-> routing arrow used by transitions and match arms. Must come before the plain operator rule, whose bare - would split it.",
       "match": "->",
       "name": "keyword.operator.transition.tu"
-    },
-    "match-arrow": {
-      "comment": "=> arm arrow in route `to` blocks and `next on (...) to { }`. Must come before the plain operator rule, whose bare = would split it.",
-      "match": "=>",
-      "name": "keyword.operator.match.tu"
     },
     "wildcard": {
       "comment": "_ wildcard: a match-arm fallback, or an unconstrained element of a tuple pattern.",

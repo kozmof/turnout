@@ -10,9 +10,9 @@
 ```hcl
 band:str = case(
   v,
-  x if x >= 10 => "high",
-  x if x >= 5  => "mid",
-  _ => "low"
+  x if x >= 10 -> "high",
+  x if x >= 5  -> "mid",
+  _ -> "low"
 )
 ```
 
@@ -30,9 +30,9 @@ hi:bool  = v >= 10
 mid:bool = v >= 5
 band:str = case(
   (hi, mid),
-  (true, _) => "high",
-  (_, true) => "mid",
-  _ => "low"
+  (true, _) -> "high",
+  (_, true) -> "mid",
+  _ -> "low"
 )
 ```
 

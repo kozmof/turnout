@@ -453,7 +453,7 @@ type IfCallRHS struct {
 func (*IfCallRHS) bindingRHS()          {}
 func (*IfCallRHS) Kind() BindingRHSKind { return RHSKindIfCall }
 
-// CaseCallRHS is the `case(subject, pattern => expr, ..., _ => default)` form.
+// CaseCallRHS is the `case(subject, pattern -> expr, ..., _ -> default)` form.
 type CaseCallRHS struct {
 	Pos     Pos
 	Subject LocalExpr

@@ -306,8 +306,8 @@ scene "scene_1" {
 route "r1" {
   entry = scene_1
   to {
-    scene_1.*.final => scene_1,
-    _ => scene_1
+    scene_1.*.final -> scene_1,
+    _ -> scene_1
   }
 }`
 	var sb strings.Builder

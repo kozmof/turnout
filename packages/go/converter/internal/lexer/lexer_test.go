@@ -59,7 +59,7 @@ func TestOperators(t *testing.T) {
 	}{
 		{"=", TokEquals, "="},
 		{":=", TokResult, ":="},
-		{"=>", TokArrow, "=>"},
+		{"->", TokArrow, "->"},
 		{">=", TokGTE, ">="},
 		{"<=", TokLTE, "<="},
 	}
@@ -309,20 +309,20 @@ func TestHashItPlaceholderVsComment(t *testing.T) {
 	}
 }
 
-// TestFlowArrowToken covers the `|=>` overview edge token (NEW_SYNTAX.md 2.2),
+// TestFlowArrowToken covers the `|->` overview edge token (NEW_SYNTAX.md 2.2),
 // which must win over the bare pipe operator.
 func TestFlowArrowToken(t *testing.T) {
-	toks := filterEOF(mustTokenize(t, "a |=> b"))
-	if len(toks) != 3 || toks[1].Kind != TokFlowArrow || toks[1].Value != "|=>" {
-		t.Errorf("got %v, want ident |=> ident", kinds(toks))
+	toks := filterEOF(mustTokenize(t, "a |-> b"))
+	if len(toks) != 3 || toks[1].Kind != TokFlowArrow || toks[1].Value != "|->" {
+		t.Errorf("got %v, want ident |-> ident", kinds(toks))
 	}
 }
 
-// TestTransArrowToken covers the `->` transition guard token, which must win
-// over the bare minus the same way `|=>` wins over the bare pipe.
-func TestTransArrowToken(t *testing.T) {
+// TestArrowToken covers the `->` transition guard token, which must win
+// over the bare minus the same way `|->` wins over the bare pipe.
+func TestArrowToken(t *testing.T) {
 	toks := filterEOF(mustTokenize(t, "cond -> action_b"))
-	if len(toks) != 3 || toks[1].Kind != TokTransArrow || toks[1].Value != "->" {
+	if len(toks) != 3 || toks[1].Kind != TokArrow || toks[1].Value != "->" {
 		t.Errorf("got %v, want ident -> ident", kinds(toks))
 	}
 }

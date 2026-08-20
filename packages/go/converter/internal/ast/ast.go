@@ -264,7 +264,7 @@ type SceneBlock struct {
 	Actions     []*ActionBlock
 }
 
-// ViewBlock is the `overview <mode> { a |=> b }` sub-block of a scene.
+// ViewBlock is the `overview <mode> { a |-> b }` sub-block of a scene.
 //
 // It replaced `view "overview" { flow = <<-EOT ... EOT enforce = "..." }` in v2
 // (NEW_SYNTAX.md 2.2). Name is retained because the lowered proto still carries
@@ -274,7 +274,7 @@ type ViewBlock struct {
 	Pos  Pos
 	Name string
 	// Edges are the parsed flow edges, each carrying the source position of its
-	// `|=>`. Positions are the reason the flow moved out of the heredoc: as an
+	// `|->`. Positions are the reason the flow moved out of the heredoc: as an
 	// opaque string it produced diagnostics with no file:line:col at all.
 	Edges []FlowEdge
 	// Nodes lists every action named in the flow, in first-appearance order,
@@ -283,7 +283,7 @@ type ViewBlock struct {
 	Enforce string
 }
 
-// FlowEdge is a single `from |=> to` edge in an overview block.
+// FlowEdge is a single `from |-> to` edge in an overview block.
 type FlowEdge struct {
 	Pos      Pos
 	From, To string

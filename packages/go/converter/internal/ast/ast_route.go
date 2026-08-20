@@ -18,7 +18,7 @@ type MatchBlock struct {
 	Arms []*MatchArm
 }
 
-// MatchArm is one `<path-expr> => <scene_id>` arm (possibly OR-joined branches).
+// MatchArm is one `<path-expr> -> <scene_id>` arm (possibly OR-joined branches).
 type MatchArm struct {
 	Pos      Pos
 	Branches []*PathExpr // one or more branches joined with |

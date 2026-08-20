@@ -63,7 +63,7 @@ func (p *parser) parseMatchBlock() *ast.MatchBlock {
 	return mb
 }
 
-// parseMatchArm parses one arm: `<branch> (| <branch>)* => <scene_id>,`
+// parseMatchArm parses one arm: `<branch> (| <branch>)* -> <scene_id>,`
 func (p *parser) parseMatchArm() *ast.MatchArm {
 	pos := p.posOf(p.peek())
 	arm := &ast.MatchArm{Pos: pos}
@@ -76,7 +76,7 @@ func (p *parser) parseMatchArm() *ast.MatchArm {
 			p.skipTo(lexer.TokArrow, lexer.TokComma, lexer.TokRBrace)
 			if p.peek().Kind == lexer.TokArrow {
 				// Try to recover by consuming the rest of the arm.
-				p.advance() // consume =>
+				p.advance() // consume ->
 				arm.Target = p.parseRefVal()
 				if p.peek().Kind == lexer.TokComma {
 					p.advance()
@@ -94,7 +94,7 @@ func (p *parser) parseMatchArm() *ast.MatchArm {
 		break
 	}
 
-	p.expect(lexer.TokArrow) // =>
+	p.expect(lexer.TokArrow) // ->
 	arm.Target = p.parseRefVal()
 
 	// optional trailing comma

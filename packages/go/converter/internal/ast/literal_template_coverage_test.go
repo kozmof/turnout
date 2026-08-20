@@ -120,7 +120,7 @@ func TestTemplateMatchScalarKindsAndFailures(t *testing.T) {
 		tmpl := NewTemplateType(p, []TemplateSegment{&CaptureSegment{Name: "v", CaptureType: tc.typ}})
 		caps, ok := TemplateMatch(tmpl, tc.good)
 		if !ok || caps["v"] != tc.want {
-			t.Errorf("good %q => %#v,%v", tc.good, caps, ok)
+			t.Errorf("good %q -> %#v,%v", tc.good, caps, ok)
 		}
 		if TemplateContains(tmpl, tc.bad) {
 			t.Errorf("accepted %q", tc.bad)

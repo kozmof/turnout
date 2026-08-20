@@ -52,9 +52,9 @@ if(cond, then_expr, else_expr)
 ```turn id="lp2x0v"
 case(
   subject,
-  pattern1 => expr1,
-  pattern2 => expr2,
-  _ => default_expr
+  pattern1 -> expr1,
+  pattern2 -> expr2,
+  _ -> default_expr
 )
 ```
 
@@ -155,9 +155,9 @@ It is intended for:
 ```turn id="u39u5m"
 case(
   subject,
-  pattern1 => expr1,
-  pattern2 => expr2,
-  _ => default_expr
+  pattern1 -> expr1,
+  pattern2 -> expr2,
+  _ -> default_expr
 )
 ```
 
@@ -198,7 +198,7 @@ true
 `_` matches any value and does not bind.
 
 ```turn id="gyjocr"
-_ => "default"
+_ -> "default"
 ```
 
 ### Variable binder
@@ -206,7 +206,7 @@ _ => "default"
 A variable binder matches any value and binds it for use in the arm’s guard or expression.
 
 ```turn id="mu39bf"
-x => x
+x -> x
 ```
 
 ### Guard
@@ -214,7 +214,7 @@ x => x
 A guard further filters a structurally matched arm.
 
 ```turn id="gevv47"
-x if x > 10 => "large"
+x if x > 10 -> "large"
 ```
 
 The guard is evaluated only after the pattern has matched.
@@ -226,9 +226,9 @@ Tuple patterns are a proposed extension for matching multiple subject values str
 ```turn id="future-tuple-case"
 route:str = case(
   (unsafe, spindle_temp_c),
-  (true, _) => "lockout",
-  (false, t) if t < 28 => "warmup",
-  _ => "run"
+  (true, _) -> "lockout",
+  (false, t) if t < 28 -> "warmup",
+  _ -> "run"
 )
 ```
 
@@ -248,9 +248,9 @@ Tuple patterns also appear outside expressions, in the transition match block `n
 ```turn id="8yprjc"
 band:str = case(
   vibration_mm_s,
-  x if x >= 11 => "severe",
-  x if x >= 7 => "elevated",
-  _ => "normal"
+  x if x >= 11 -> "severe",
+  x if x >= 7 -> "elevated",
+  _ -> "normal"
 )
 ```
 
@@ -262,14 +262,14 @@ reason:str = if(
   "active_alarm",
   case(
     lube_pressure_ok,
-    false => "lube_pressure",
-    _ => case(
+    false -> "lube_pressure",
+    _ -> case(
       door_closed,
-      false => "door_open",
-      _ => case(
+      false -> "door_open",
+      _ -> case(
         spindle_temp_c,
-        t if t < 28 => "spindle_cold",
-        _ => "ready"
+        t if t < 28 -> "spindle_cold",
+        _ -> "ready"
       )
     )
   )
@@ -402,9 +402,9 @@ route:str = pipe(
   #it.round(),
   case(
     #it,
-    t if t < 28 => "warmup",
-    t if t > 90 => "hold",
-    _ => "run"
+    t if t < 28 -> "warmup",
+    t if t > 90 -> "hold",
+    _ -> "run"
   )
 )
 ```
@@ -436,9 +436,9 @@ band:str = pipe(
   #it + 0,
   case(
     #it,
-    x if x >= 11 => "severe",
-    x if x >= 7 => "elevated",
-    _ => "normal"
+    x if x >= 11 -> "severe",
+    x if x >= 7 -> "elevated",
+    _ -> "normal"
   )
 )
 ```
@@ -451,9 +451,9 @@ route:str = pipe(
   #it + 0,
   case(
     #it,
-    t if t < 28 => "warmup",
-    t if t > 90 => "hold",
-    _ => "run"
+    t if t < 28 -> "warmup",
+    t if t > 90 -> "hold",
+    _ -> "run"
   )
 )
 ```
@@ -489,9 +489,9 @@ status:str = pipe(
   #it + 0,
   case(
     #it,
-    t if t < 28 => "warmup",
-    t if t > 90 => "hold",
-    _ => "run"
+    t if t < 28 -> "warmup",
+    t if t > 90 -> "hold",
+    _ -> "run"
   )
 )
 ```
@@ -501,9 +501,9 @@ status:str = pipe(
 ```turn id="sbp4zm"
 result:str = case(
   severity,
-  "high" => if(manual_override, "review", "stop"),
-  "medium" => "inspect",
-  _ => "monitor"
+  "high" -> if(manual_override, "review", "stop"),
+  "medium" -> "inspect",
+  _ -> "monitor"
 )
 ```
 
@@ -562,7 +562,7 @@ Good:
 route:str = if(
   fault,
   "hold_engineering",
-  case(quality_ok, false => "hold_quality", _ => "release")
+  case(quality_ok, false -> "hold_quality", _ -> "release")
 )
 ```
 
@@ -576,9 +576,9 @@ band:str = pipe(
   #it + 0,
   case(
     #it,
-    x if x >= 11 => "severe",
-    x if x >= 7 => "elevated",
-    _ => "normal"
+    x if x >= 11 -> "severe",
+    x if x >= 7 -> "elevated",
+    _ -> "normal"
   )
 )
 ```
@@ -609,8 +609,8 @@ scene "boiler_alarm_priority" {
         #it + 0,
         case(
           #it,
-          p if p >= 18 => "high",
-          _ => "normal"
+          p if p >= 18 -> "high",
+          _ -> "normal"
         )
       )
 
@@ -622,8 +622,8 @@ scene "boiler_alarm_priority" {
           "emergency_shutdown",
           case(
             repeat_trips,
-            r if r >= 2 => "maintenance_intervention",
-            _ => case(pressure_band, "high" => "maintenance_intervention", _ => "watch")
+            r if r >= 2 -> "maintenance_intervention",
+            _ -> case(pressure_band, "high" -> "maintenance_intervention", _ -> "watch")
           )
         )
       )
@@ -646,7 +646,7 @@ This is a draft grammar sketch only.
 IfExpr        = "if" "(" Expr "," Expr "," Expr ")" ;
 
 CaseExpr      = "case" "(" Expr "," CaseArm { "," CaseArm } ")" ;
-CaseArm       = Pattern [ Guard ] "=>" Expr ;
+CaseArm       = Pattern [ Guard ] "->" Expr ;
 Guard         = "if" Expr ;
 
 Pattern       = "_"
@@ -716,7 +716,7 @@ status:str = if(temp_c < 28, "warmup", "run")
 route:str = if(
   unsafe,
   "lockout",
-  case(spindle_temp_c, t if t < 28 => "warmup", _ => "run")
+  case(spindle_temp_c, t if t < 28 -> "warmup", _ -> "run")
 )
 ```
 
@@ -738,9 +738,9 @@ route:str = pipe(
   #it + 0,
   case(
     #it,
-    t if t < 28 => "warmup",
-    t if t > 90 => "hold",
-    _ => "run"
+    t if t < 28 -> "warmup",
+    t if t > 90 -> "hold",
+    _ -> "run"
   )
 )
 ```

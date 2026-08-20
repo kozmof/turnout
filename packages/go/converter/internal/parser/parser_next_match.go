@@ -11,7 +11,7 @@ import (
 
 // ─── next … match ────────────────────────────────────────────────────────────
 //
-// `next on (foo, bar, baz) to { ("yes", "cat", _) => act, _ => other }`
+// `next on (foo, bar, baz) to { ("yes", "cat", _) -> act, _ -> other }`
 // abbreviates one `next { }` rule per arm. Selecting among sibling actions
 // otherwise needs one boolean flag per target, computed in the action's prog
 // only to be named by a transition; the flags hide the fact that the branches
@@ -34,7 +34,7 @@ type matchElem struct {
 	Lit ast.Literal
 }
 
-// matchArm is one `<pattern> => <action>` row. Elems is nil when the arm is
+// matchArm is one `<pattern> -> <action>` row. Elems is nil when the arm is
 // unconditional — either the bare `_` fallback or a tuple of all wildcards.
 type matchArm struct {
 	Pos      ast.Pos
@@ -161,7 +161,7 @@ func (p *parser) parseNextMatchSubject() (matchSubject, bool) {
 	return matchSubject{Pos: subPos, Name: name}, true
 }
 
-// parseNextMatchArm parses one `<pattern> => <action>` row. arity is the subject
+// parseNextMatchArm parses one `<pattern> -> <action>` row. arity is the subject
 // count, against which every arm is checked; it is negative when the subject
 // list itself failed to parse, which suppresses a cascade of arity errors that
 // would bury the real one.
@@ -174,7 +174,7 @@ func (p *parser) parseNextMatchArm(arity int) (matchArm, bool) {
 		arm.Uncond = true
 	} else {
 		// A scalar pattern is a 1-tuple, so a one-subject list can be written
-		// `"yes" => act` as well as `("yes") => act`.
+		// `"yes" -> act` as well as `("yes") -> act`.
 		sub := []ast.LocalCasePattern{pattern}
 		if tuple, ok := pattern.(*ast.TupleCasePattern); ok {
 			sub = tuple.Elems

@@ -1412,7 +1412,7 @@ func TestEmptyArrayLitArgInIf(t *testing.T) {
 func TestEmptyArrayLitArgInCase(t *testing.T) {
 	src := min(`        base:arr<number> = [1]
         n:number = 0
-        out:arr<number> = case(n, 0 => arr_concat(base, []), _ => base)
+        out:arr<number> = case(n, 0 -> arr_concat(base, []), _ -> base)
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
 		t.Error("want EmptyArrayLitArg for [] as call arg inside case arm")

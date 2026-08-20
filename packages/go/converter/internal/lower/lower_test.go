@@ -236,8 +236,8 @@ scene "test" {
       rid: ResourceId = "foo-101"
       out: number := case(
         rid,
-        ResourceId { sequence } if sequence > 100 => sequence,
-        _ => 0
+        ResourceId { sequence } if sequence > 100 -> sequence,
+        _ -> 0
       )
     }
   }
@@ -677,8 +677,8 @@ route "route_1" {
   to {
     scene_1.*.final_action |
     scene_other.*.end
-      => scene_1,
-    _ => scene_1
+      -> scene_1,
+    _ -> scene_1
   }
 }`)
 	if len(tm.Routes) != 1 {

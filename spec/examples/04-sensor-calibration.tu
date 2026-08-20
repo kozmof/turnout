@@ -26,7 +26,7 @@ scene "calibration_rig" {
   entry_action = evaluate_array
 
   overview at_least {
-    evaluate_array |=> file_report |=> schedule_service
+    evaluate_array |-> file_report |-> schedule_service
   }
 
   action "evaluate_array" {
@@ -86,15 +86,15 @@ scene "calibration_rig" {
 
       band:str = case(
         (severe_level, elevated_level),
-        (true, _) => "severe",
-        (_, true) => "elevated",
-        _         => "nominal"
+        (true, _) -> "severe",
+        (_, true) -> "elevated",
+        _         -> "nominal"
       )
 
       array_note:str = case(
         reading_count,
-        n if n >= 8 => "full array",
-        _           => "partial array"
+        n if n >= 8 -> "full array",
+        _           -> "partial array"
       )
 
       label_note:str = if(no_flags, "clean", "flagged")

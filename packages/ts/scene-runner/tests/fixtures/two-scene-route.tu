@@ -34,6 +34,6 @@ scene "scene_b" {
 route "main_route" {
   entry = scene_a
   to {
-    scene_a.step_a => scene_b
+    scene_a.step_a -> scene_b
   }
 }

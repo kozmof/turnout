@@ -51,9 +51,9 @@ route "<route_id>" {
     entry "<scene_id>"
 
     to {
-        <path-expr> => <scene_id>,
+        <path-expr> -> <scene_id>,
         ...
-        _ => <scene_id>
+        _ -> <scene_id>
     }
 }
 ```
@@ -62,9 +62,9 @@ A `<path-expr>` is either a single path or multiple paths joined with `|`:
 
 ```
 to {
-    scene_1.*.action_foo => scene_2,
-    scene_error.*.action_end => scene_2,
-    _ => scene_other
+    scene_1.*.action_foo -> scene_2,
+    scene_error.*.action_end -> scene_2,
+    _ -> scene_other
 }
 ```
 
@@ -72,8 +72,8 @@ to {
 to {
     scene_1.*.action_foo |
     scene_error.*.action_end
-        => scene_2,
-    _ => scene_other
+        -> scene_2,
+    _ -> scene_other
 }
 ```
 
@@ -107,7 +107,7 @@ A path expression with a single `*` is permitted. Multiple `*` wildcards in a si
 
 #### OR expression `\|`
 
-Multiple path forms can be OR-joined within a single arm using `|`. All branches of a `|` expression must share the same `=> <scene_id>` target. Each branch is evaluated independently. The arm matches if any branch matches.
+Multiple path forms can be OR-joined within a single arm using `|`. All branches of a `|` expression must share the same `-> <scene_id>` target. Each branch is evaluated independently. The arm matches if any branch matches.
 
 #### Fallback `_`
 
@@ -115,7 +115,7 @@ The `_` pattern matches any route history unconditionally. It MUST appear at mos
 
 ### 3.3 Match Result
 
-`=> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its declared `entry_action` (per `scene-graph.md §4`). A scene declares exactly one entry action, so route-driven entry and standalone scene execution always start from the same place.
+`-> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its declared `entry_action` (per `scene-graph.md §4`). A scene declares exactly one entry action, so route-driven entry and standalone scene execution always start from the same place.
 
 ---
 
@@ -146,8 +146,8 @@ route "route_1" {
     to {
         scene_1.*.final_action |
         scene_error.*.action_end
-            => scene_2,
-        _ => scene_other
+            -> scene_2,
+        _ -> scene_other
     }
 }
 ```
@@ -159,9 +159,9 @@ route "route_1" {
     entry = scene_1
 
     to {
-        scene_1.*.final_action   => scene_2,
-        scene_error.*.action_end => scene_2,
-        _                        => scene_other
+        scene_1.*.final_action   -> scene_2,
+        scene_error.*.action_end -> scene_2,
+        _                        -> scene_other
     }
 }
 ```
@@ -208,11 +208,11 @@ Before first route execution, implementations MUST validate:
 
 1. Each route has exactly one non-empty `entry "<scene_id>"` declaration, and the entry scene exists.
 2. Each `match` block has at most one `_` arm.
-3. All `=> <scene_id>` targets reference scenes that exist in the global scene registry.
+3. All `-> <scene_id>` targets reference scenes that exist in the global scene registry.
 4. All path forms are well-formed (`<scene_id>.<action_id>` or `<scene_id>.*.<action_id>(.<action_id>)*`) with exactly zero or one `*`. Bare `<scene_id>.*` and multiple `*` are rejected.
 5. Direct two-segment path forms `<scene_id>.<action_id>` reference actions that exist in the named scene.
 6. Wildcard path terminal action names that do not match any known action ID emit `WildcardTerminalUnresolvable` as a warning.
-7. All branches within a `|` expression share a common `=> <scene_id>` target (enforced by syntax).
+7. All branches within a `|` expression share a common `-> <scene_id>` target (enforced by syntax).
 
 Validation failures MUST produce an `invalid_route` diagnostic. Each failure emits a `RouteDiagnostic` (see §10) carrying the applicable specific error code as `code`. `invalid_route` is the top-level `stage` marker on that diagnostic, not a separate emission.
 
@@ -228,7 +228,7 @@ Resolved:
 |---|------------|
 | 1 | Multiple visits: route history is scoped to the current scene visit and is cleared after each scene transition. A `scene_id.*.final_action` pattern is eligible only when `scene_id` is the scene that just terminated. See §2.3 for full semantics. |
 | 4 | `RouteDiagnostic` payload: `routeId` is required (non-optional); `armIndex` and `patternText` remain optional. |
-| 5 | Scope of `=> <scene_id>` targets: A target may reference any scene in the global scene registry; it is not restricted to scenes declared within the same route block. |
+| 5 | Scope of `-> <scene_id>` targets: A target may reference any scene in the global scene registry; it is not restricted to scenes declared within the same route block. |
 
 ---
 
@@ -255,7 +255,7 @@ type RouteDiagnostic = {
 | `BareWildcardPath` | A path form uses `scene_id.*` with no terminal action_id |
 | `MultipleWildcards` | A path form contains more than one `*` wildcard |
 | `InvalidPathItem` | A pattern path item is missing a scene_id prefix or is otherwise malformed |
-| `UnresolvedScene` | A match target `=> <scene_id>` references a scene that does not exist |
+| `UnresolvedScene` | A match target `-> <scene_id>` references a scene that does not exist |
 | `MissingEntryScene` | A route omits the required `entry "<scene_id>"` declaration |
 | `UnresolvedEntryScene` | A route entry references a scene that does not exist |
 | `UnresolvedAction` | A direct `scene_id.action_id` pattern references an action that does not exist in that scene |
@@ -276,7 +276,7 @@ type RouteDiagnostic = {
 | E. OR expression | `path1 \| path2` arm matches when either branch matches |
 | F. Priority resolution | Narrower patterns (fewer `*`) win; declaration order breaks ties among equal-wildcard patterns |
 | G. Fallback | `_` selected when no specific pattern matches; absent `_` → `completed` |
-| H. Match result | `=> <scene_id>` causes entry from the declared `entry_action` of target scene |
+| H. Match result | `-> <scene_id>` causes entry from the declared `entry_action` of target scene |
 | I. Error paths | All error codes trigger correctly and abort without partial state |
 | J. Contiguous-block matching | Interleaved actions from another scene break the contiguous block; pattern does not match across the break |
 
@@ -298,7 +298,7 @@ type RouteDiagnostic = {
 | Two patterns with equal wildcard count | Declaration order: first arm wins |
 | No `_` and no pattern matches | Route enters `completed` state |
 | `_` declared before a more specific arm | Specific arm still wins (priority overrides order) |
-| `=> target` where target scene is undefined | `UnresolvedScene` at compile/validate time |
+| `-> target` where target scene is undefined | `UnresolvedScene` at compile/validate time |
 | `DuplicateFallback`: two `_` arms | Validation error; no route evaluates |
 | Bare `scene_id.*` with no terminal action | `BareWildcardPath` validation error |
 | Path with two `*` wildcards | `MultipleWildcards` validation error |

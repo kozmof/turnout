@@ -1101,7 +1101,7 @@ scene "test" {
 route "r1" {
   unknown = bad
   to {
-    test => test
+    test -> test
   }
 }`
 	parser.ParseFile("test.tu", src) //nolint — error recovery test
@@ -1110,7 +1110,7 @@ route "r1" {
 // ── Lines 1380-1383: parsePathExpr invalid first token ───────────────────────
 
 func TestParsePathExprInvalidFirstToken(t *testing.T) {
-	// route "r1" { to { 42 => s } } — number as scene_id in path
+	// route "r1" { to { 42 -> s } } — number as scene_id in path
 	src := `state { ns { v:number = 0 } }
 scene "test" {
   entry_action = a
@@ -1120,7 +1120,7 @@ scene "test" {
 }
 route "r1" {
   to {
-    42 => test
+    42 -> test
   }
 }`
 	parser.ParseFile("test.tu", src) //nolint — error recovery test
@@ -1139,7 +1139,7 @@ scene "test" {
 }
 route "r1" {
   to {
-    test.42 => test
+    test.42 -> test
   }
 }`
 	parser.ParseFile("test.tu", src) //nolint — error recovery test

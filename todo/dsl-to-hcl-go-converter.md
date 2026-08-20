@@ -55,7 +55,7 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 - [x] Triple-quoted strings: `"""..."""` (Python-style docstrings on action blocks)
 - [x] HCL heredoc: `<<-EOT...EOT`
 - [x] Literals: integer, decimal, string (`"`), boolean (`true`/`false`), array (`[...]`)
-- [x] Punctuation: `{`, `}`, `[`, `]`, `(`, `,`, `:`, `=`, `.`, `=>`, `|`
+- [x] Punctuation: `{`, `}`, `[`, `]`, `(`, `,`, `:`, `=`, `.`, `->`, `|`
 - [x] Comments: `#` to end-of-line
 
 ### Disambiguation rules (per `hcl-context-spec.md §2`)
@@ -227,7 +227,7 @@ Lower every DSL surface construct to the canonical HCL model (an intermediate Go
 
 ### Route DSL lowering (per `scene-to-scene.md §3`)
 
-- [x] `route "<id>" { to { path => scene_id, ... } }` → canonical HCL `route` block (deferred to Phase 8)
+- [x] `route "<id>" { to { path -> scene_id, ... } }` → canonical HCL `route` block (deferred to Phase 8)
 
 ---
 
@@ -386,7 +386,7 @@ Lower and validate the `route` block after scene conversion is complete.
 - [x] Validate: at most one `_` (`DuplicateFallback`)
 - [x] Validate: no bare `scene_id.*` (`BareWildcardPath`)
 - [x] Validate: at most one `*` per path form (`MultipleWildcards`)
-- [x] Validate: all `=> <scene_id>` targets exist (`UnresolvedScene`)
+- [x] Validate: all `-> <scene_id>` targets exist (`UnresolvedScene`)
 - [x] Emit canonical HCL `route` block
 
 ---

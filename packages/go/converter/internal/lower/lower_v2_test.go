@@ -172,7 +172,7 @@ func TestLowerNextSugarUnconditional(t *testing.T) {
 func TestLowerOverviewFlowText(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_action = a
   overview strict {
-    a |=> b
+    a |-> b
     b
   }
   action "a" {
@@ -186,7 +186,7 @@ func TestLowerOverviewFlowText(t *testing.T) {
 	if v == nil {
 		t.Fatal("view is nil")
 	}
-	if got, want := v.Flow, "a |=> b\nb\n"; got != want {
+	if got, want := v.Flow, "a |-> b\nb\n"; got != want {
 		t.Errorf("flow = %q, want %q", got, want)
 	}
 	if v.Enforce == nil || *v.Enforce != "strict" {
@@ -199,7 +199,7 @@ func TestLowerOverviewFlowText(t *testing.T) {
 func TestLowerOverviewFlowTextEdgesOnly(t *testing.T) {
 	tm := mustLower(t, minimal(`  entry_action = a
   overview at_least {
-    a |=> b
+    a |-> b
   }
   action "a" {
     compute "p" { v:bool := true }
@@ -208,7 +208,7 @@ func TestLowerOverviewFlowTextEdgesOnly(t *testing.T) {
   action "b" {
     compute "q" { v:bool := true }
   }`))
-	if got, want := tm.Scenes[0].View.Flow, "a |=> b\n"; got != want {
+	if got, want := tm.Scenes[0].View.Flow, "a |-> b\n"; got != want {
 		t.Errorf("flow = %q, want %q", got, want)
 	}
 }

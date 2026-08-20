@@ -58,7 +58,7 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 	for _, e := range g.Edges {
 		if !implEdges[e] {
 			ds.Append(enforceErr(diag.CodeOverviewMissingEdge,
-				"scene %q: flow declares edge %s |=> %s but no such next rule exists", sceneID, e.From, e.To))
+				"scene %q: flow declares edge %s |-> %s but no such next rule exists", sceneID, e.From, e.To))
 		}
 	}
 
@@ -82,7 +82,7 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 		for e := range implEdges {
 			if !flowEdgeSet[e] {
 				ds.Append(enforceErr(diag.CodeOverviewExtraEdge,
-					"scene %q: next rule %s |=> %s exists but is not declared in flow", sceneID, e.From, e.To))
+					"scene %q: next rule %s |-> %s exists but is not declared in flow", sceneID, e.From, e.To))
 			}
 		}
 	}
@@ -134,11 +134,11 @@ func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, 
 			continue
 		}
 
-		if strings.HasPrefix(line, "|=>") {
+		if strings.HasPrefix(line, "|->") {
 			// Edge line — sources from current.
 			target := strings.TrimSpace(line[3:])
 			if target == "" {
-				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeNoTarget, sceneID, "edge line |=> has no target identifier"))
+				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeNoTarget, sceneID, "edge line |-> has no target identifier"))
 				return nil, nil, false
 			}
 			if !isIdent(target) {
@@ -146,20 +146,20 @@ func parseFlow(flowText, sceneID string, ds *diag.Diagnostics) (nodes []string, 
 				return nil, nil, false
 			}
 			if current == "" {
-				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeWithoutSource, sceneID, "edge |=> %q appears before any source node", target))
+				*ds = append(*ds, parseErr(diag.CodeOverviewEdgeWithoutSource, sceneID, "edge |-> %q appears before any source node", target))
 				return nil, nil, false
 			}
 			addEdge(current, target)
 			// target is NOT added to nodes (spec §4.3)
 
-		} else if strings.Contains(line, "|=>") {
+		} else if strings.Contains(line, "|->") {
 			// Chain line — split into segments and wire them sequentially.
-			parts := strings.Split(line, "|=>")
+			parts := strings.Split(line, "|->")
 			for i, seg := range parts {
 				parts[i] = strings.TrimSpace(seg)
 			}
 			if parts[len(parts)-1] == "" {
-				*ds = append(*ds, parseErr(diag.CodeOverviewChainNoTarget, sceneID, "chain line ends with |=> and has no target"))
+				*ds = append(*ds, parseErr(diag.CodeOverviewChainNoTarget, sceneID, "chain line ends with |-> and has no target"))
 				return nil, nil, false
 			}
 			for _, seg := range parts {

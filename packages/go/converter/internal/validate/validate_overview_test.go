@@ -34,7 +34,7 @@ scene "test" {
 func TestOverviewNodesOnlyValid(t *testing.T) {
 	src := twoActionScene(`
   overview nodes_only {
-    a |=> b
+    a |-> b
   }
 `)
 	if ds := pipeline(src); ds.HasErrors() {
@@ -65,7 +65,7 @@ func TestOverviewNodesOnlyIgnoresMissingEdge(t *testing.T) {
 scene "test" {
   entry_action = a
   overview nodes_only {
-    a |=> b
+    a |-> b
   }
   action "a" {
     compute "p" { v:bool := true }
@@ -87,7 +87,7 @@ scene "test" {
 func TestOverviewAtLeastValid(t *testing.T) {
 	src := twoActionScene(`
   overview at_least {
-    a |=> b
+    a |-> b
   }
 `)
 	if ds := pipeline(src); ds.HasErrors() {
@@ -103,7 +103,7 @@ func TestOverviewAtLeastMissingEdge(t *testing.T) {
 scene "test" {
   entry_action = a
   overview at_least {
-    a |=> b
+    a |-> b
   }
   action "a" {
     compute "p" { v:bool := true }
@@ -125,7 +125,7 @@ func TestOverviewAtLeastAllowsExtraImplEdge(t *testing.T) {
 scene "test" {
   entry_action = a
   overview at_least {
-    a |=> b
+    a |-> b
   }
   action "a" {
     compute "p" { v:bool := true }
@@ -158,7 +158,7 @@ scene "test" {
 func TestOverviewStrictValid(t *testing.T) {
 	src := twoActionScene(`
   overview strict {
-    a |=> b
+    a |-> b
     b
   }
 `)
@@ -175,7 +175,7 @@ func TestOverviewStrictExtraNode(t *testing.T) {
 scene "test" {
   entry_action = a
   overview strict {
-    a |=> b
+    a |-> b
     b
   }
   action "a" {
@@ -204,7 +204,7 @@ func TestOverviewStrictExtraEdge(t *testing.T) {
 scene "test" {
   entry_action = a
   overview strict {
-    a |=> b
+    a |-> b
     b
     c
   }
@@ -245,7 +245,7 @@ scene "test" {
 func TestOverviewEdgeBeforeSourceIsParseError(t *testing.T) {
 	src := twoActionScene(`
   overview nodes_only {
-    |=> b
+    |-> b
   }
 `)
 	if !hasCode(pipeline(src), diag.CodeParseSyntaxError) {
@@ -256,7 +256,7 @@ func TestOverviewEdgeBeforeSourceIsParseError(t *testing.T) {
 func TestOverviewBadEdgeTarget(t *testing.T) {
 	src := twoActionScene(`
   overview nodes_only {
-    a |=> 123bad
+    a |-> 123bad
   }
 `)
 	if !hasCode(pipeline(src), diag.CodeOverviewEdgeNoTarget) {
@@ -277,7 +277,7 @@ func TestOverviewFlowEmpty(t *testing.T) {
 func TestOverviewEdgeNoTarget(t *testing.T) {
 	src := twoActionScene(`
   overview nodes_only {
-    a |=>
+    a |->
   }
 `)
 	if !hasCode(pipeline(src), diag.CodeOverviewEdgeNoTarget) {
@@ -291,7 +291,7 @@ func TestOverviewEdgeNoTarget(t *testing.T) {
 func TestOverviewEdgesCarryPositions(t *testing.T) {
 	src := twoActionScene(`
   overview nodes_only {
-    a |=> 123bad
+    a |-> 123bad
   }
 `)
 	for _, d := range pipeline(src) {
@@ -306,12 +306,12 @@ func TestOverviewEdgesCarryPositions(t *testing.T) {
 }
 
 func TestOverviewChainLinear(t *testing.T) {
-	// §6.4: foo |=> bar |=> baz parses as nodes={foo,bar}, edges={(foo,bar),(bar,baz)}, current=baz
+	// §6.4: foo |-> bar |-> baz parses as nodes={foo,bar}, edges={(foo,bar),(bar,baz)}, current=baz
 	src := basicState + `
 scene "test" {
   entry_action = foo
   overview at_least {
-    foo |=> bar |=> baz
+    foo |-> bar |-> baz
   }
   action "foo" {
     compute "p" { v:bool := true }
@@ -334,14 +334,14 @@ scene "test" {
 }
 
 func TestOverviewChainContinuation(t *testing.T) {
-	// §6.5: chain line sets current; subsequent |=> lines extend from the last chain element
+	// §6.5: chain line sets current; subsequent |-> lines extend from the last chain element
 	src := basicState + `
 scene "test" {
   entry_action = analyze
   overview at_least {
-    analyze |=> score |=> decide
-    decide |=> approve
-    decide |=> reject
+    analyze |-> score |-> decide
+    decide |-> approve
+    decide |-> reject
   }
   action "analyze" {
     compute "p" { v:bool := true }
@@ -378,7 +378,7 @@ func TestOverviewChainTargetNotInNodes(t *testing.T) {
 scene "test" {
   entry_action = foo
   overview strict {
-    foo |=> bar |=> baz
+    foo |-> bar |-> baz
     baz
   }
   action "foo" {
@@ -444,10 +444,10 @@ func TestOverviewAdventureStoryAtLeast(t *testing.T) {
 scene "s" {
   entry_action = a
   overview at_least {
-    a |=> b
-    a |=> c
-    b |=> d
-    c |=> d
+    a |-> b
+    a |-> c
+    b |-> d
+    c |-> d
     d
   }
   action "a" {

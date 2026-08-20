@@ -70,7 +70,7 @@ func TestValidateLocalInfixComparison(t *testing.T) {
 func TestValidateLocalCaseVarBinder(t *testing.T) {
 	src := min(`        n:number   = 3
         m:number   = 7
-        out:number = case(n, 1 => 10, x if x > m => x, _ => m)
+        out:number = case(n, 1 -> 10, x if x > m -> x, _ -> m)
 `)
 	assertClean(t, src)
 }
@@ -79,7 +79,7 @@ func TestValidateLocalCaseVarBinder(t *testing.T) {
 // literal-type check: a str pattern against a number subject must error.
 func TestValidateLocalCaseLiteralPatternTypeMismatch(t *testing.T) {
 	src := min(`        n:number   = 3
-        out:number = case(n, "oops" => 1, _ => 0)
+        out:number = case(n, "oops" -> 1, _ -> 0)
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for str pattern against number subject")

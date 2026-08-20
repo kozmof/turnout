@@ -65,7 +65,7 @@ func TestParseTwoNodes(t *testing.T) {
 }
 
 func TestParseEdgeLine(t *testing.T) {
-	g := mustParse(t, "foo\n|=> bar")
+	g := mustParse(t, "foo\n|-> bar")
 	if !nodeSliceEq(g.Nodes, []string{"foo"}) {
 		t.Errorf("Nodes = %v; want [foo]", g.Nodes)
 	}
@@ -77,7 +77,7 @@ func TestParseEdgeLine(t *testing.T) {
 
 func TestParseChainLine(t *testing.T) {
 	// All but last become nodes; edges wire sequentially.
-	g := mustParse(t, "foo |=> bar |=> baz")
+	g := mustParse(t, "foo |-> bar |-> baz")
 	// "foo" and "bar" become nodes; "baz" is edge-target-only (not a node).
 	if !nodeSliceEq(g.Nodes, []string{"foo", "bar"}) {
 		t.Errorf("Nodes = %v; want [foo bar]", g.Nodes)
@@ -102,7 +102,7 @@ func TestParseDuplicateNodeDeduplicated(t *testing.T) {
 
 func TestParseDuplicateEdgeDeduplicated(t *testing.T) {
 	// Edge foo→bar appears via chain then again via an edge line.
-	g := mustParse(t, "foo |=> bar\nfoo\n|=> bar")
+	g := mustParse(t, "foo |-> bar\nfoo\n|-> bar")
 	if len(g.Edges) != 1 {
 		t.Errorf("Edges = %v; want exactly 1 edge", g.Edges)
 	}
@@ -143,7 +143,7 @@ func TestParseWhitespaceOnlyFlow(t *testing.T) {
 
 func TestParseEdgeBeforeSource(t *testing.T) {
 	var ds diag.DiagSink
-	_, ok := overview.Parse("|=> bar", "scene", &ds)
+	_, ok := overview.Parse("|-> bar", "scene", &ds)
 	if ok {
 		t.Fatal("expected ok=false")
 	}
@@ -154,7 +154,7 @@ func TestParseEdgeBeforeSource(t *testing.T) {
 
 func TestParseEdgeNoTarget(t *testing.T) {
 	var ds diag.DiagSink
-	_, ok := overview.Parse("foo\n|=>", "scene", &ds)
+	_, ok := overview.Parse("foo\n|->", "scene", &ds)
 	if ok {
 		t.Fatal("expected ok=false")
 	}
@@ -165,7 +165,7 @@ func TestParseEdgeNoTarget(t *testing.T) {
 
 func TestParseEdgeInvalidTargetIdent(t *testing.T) {
 	var ds diag.DiagSink
-	_, ok := overview.Parse("foo\n|=> 123", "scene", &ds)
+	_, ok := overview.Parse("foo\n|-> 123", "scene", &ds)
 	if ok {
 		t.Fatal("expected ok=false")
 	}
@@ -176,7 +176,7 @@ func TestParseEdgeInvalidTargetIdent(t *testing.T) {
 
 func TestParseChainNoTarget(t *testing.T) {
 	var ds diag.DiagSink
-	_, ok := overview.Parse("foo |=>", "scene", &ds)
+	_, ok := overview.Parse("foo |->", "scene", &ds)
 	if ok {
 		t.Fatal("expected ok=false")
 	}
@@ -229,7 +229,7 @@ func TestEnforceNodesOnlyExtraActionIgnored(t *testing.T) {
 }
 
 func TestEnforceNodesOnlyEdgesIgnored(t *testing.T) {
-	g := mustParse(t, "foo |=> bar")
+	g := mustParse(t, "foo |-> bar")
 	// implEdges is empty — nodes_only should not care.
 	var ds diag.DiagSink
 	overview.Enforce(g, []string{"foo"}, map[overview.Edge]bool{}, "nodes_only", "scene", &ds)
@@ -243,7 +243,7 @@ func TestEnforceNodesOnlyEdgesIgnored(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestEnforceAtLeastAllPresent(t *testing.T) {
-	g := mustParse(t, "foo |=> bar")
+	g := mustParse(t, "foo |-> bar")
 	impl := map[overview.Edge]bool{{From: "foo", To: "bar"}: true}
 	var ds diag.DiagSink
 	overview.Enforce(g, []string{"foo"}, impl, "at_least", "scene", &ds)
@@ -253,7 +253,7 @@ func TestEnforceAtLeastAllPresent(t *testing.T) {
 }
 
 func TestEnforceAtLeastMissingEdge(t *testing.T) {
-	g := mustParse(t, "foo |=> bar")
+	g := mustParse(t, "foo |-> bar")
 	var ds diag.DiagSink
 	overview.Enforce(g, []string{"foo"}, map[overview.Edge]bool{}, "at_least", "scene", &ds)
 	if !hasCode(flush(&ds), diag.CodeOverviewMissingEdge) {
@@ -285,7 +285,7 @@ func TestEnforceAtLeastUnknownNodeStillFires(t *testing.T) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 func TestEnforceStrictExactMatch(t *testing.T) {
-	g := mustParse(t, "foo |=> bar")
+	g := mustParse(t, "foo |-> bar")
 	impl := map[overview.Edge]bool{{From: "foo", To: "bar"}: true}
 	var ds diag.DiagSink
 	// "foo" is in the graph; "bar" is edge-target-only (not a graph node).
@@ -315,7 +315,7 @@ func TestEnforceStrictExtraImplEdge(t *testing.T) {
 }
 
 func TestEnforceStrictMissingEdge(t *testing.T) {
-	g := mustParse(t, "foo |=> bar")
+	g := mustParse(t, "foo |-> bar")
 	var ds diag.DiagSink
 	overview.Enforce(g, []string{"foo"}, map[overview.Edge]bool{}, "strict", "scene", &ds)
 	if !hasCode(flush(&ds), diag.CodeOverviewMissingEdge) {
@@ -325,7 +325,7 @@ func TestEnforceStrictMissingEdge(t *testing.T) {
 
 func TestEnforceStrictMultipleErrorsCollected(t *testing.T) {
 	// Both an unknown node and a missing edge fire in a single pass.
-	g := mustParse(t, "ghost |=> bar")
+	g := mustParse(t, "ghost |-> bar")
 	var ds diag.DiagSink
 	overview.Enforce(g, []string{"foo"}, map[overview.Edge]bool{}, "strict", "scene", &ds)
 	ds2 := flush(&ds)

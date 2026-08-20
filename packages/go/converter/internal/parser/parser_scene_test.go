@@ -42,12 +42,12 @@ func overviewOf(t *testing.T, block string) *ast.ViewBlock {
 	return tf.Scenes[0].View
 }
 
-// TestOverviewBlockChain covers the chain form: `a |=> b |=> c` wires
+// TestOverviewBlockChain covers the chain form: `a |-> b |-> c` wires
 // sequentially and every segment but the last becomes a node, matching the
 // heredoc flow rules that migrated files rely on (NEW_SYNTAX.md 2.2).
 func TestOverviewBlockChain(t *testing.T) {
 	v := overviewOf(t, `  overview strict {
-    a |=> b |=> c
+    a |-> b |-> c
   }`)
 	if v == nil {
 		t.Fatal("overview block is nil")
@@ -74,7 +74,7 @@ func TestOverviewBlockChain(t *testing.T) {
 // is how a terminal action gets into the strict-mode contract.
 func TestOverviewBlockBareNode(t *testing.T) {
 	v := overviewOf(t, `  overview nodes_only {
-    a |=> b
+    a |-> b
     b
   }`)
 	if len(v.Nodes) != 2 || v.Nodes[1] != "b" {
@@ -85,8 +85,8 @@ func TestOverviewBlockBareNode(t *testing.T) {
 // TestOverviewBlockDedup covers the dedup of repeated nodes and edges.
 func TestOverviewBlockDedup(t *testing.T) {
 	v := overviewOf(t, `  overview nodes_only {
-    a |=> b
-    a |=> b
+    a |-> b
+    a |-> b
     a
   }`)
 	if len(v.Edges) != 1 {
@@ -101,7 +101,7 @@ func TestOverviewBlockDedup(t *testing.T) {
 // rejects the empty mode rather than the parser.
 func TestOverviewBlockNoMode(t *testing.T) {
 	v := overviewOf(t, `  overview {
-    a |=> b
+    a |-> b
   }`)
 	if v.Enforce != "" {
 		t.Errorf("enforce = %q, want empty", v.Enforce)

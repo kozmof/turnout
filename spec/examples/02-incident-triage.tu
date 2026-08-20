@@ -23,12 +23,12 @@ scene "incident_response" {
   entry_action = classify_incident
 
   overview at_least {
-    classify_incident |=> page_leadership
-    classify_incident |=> page_oncall
-    classify_incident |=> watch_only
-    page_oncall       |=> open_ticket
-    watch_only        |=> open_ticket
-    watch_only        |=> watch_only_end
+    classify_incident |-> page_leadership
+    classify_incident |-> page_oncall
+    classify_incident |-> watch_only
+    page_oncall       |-> open_ticket
+    watch_only        |-> open_ticket
+    watch_only        |-> watch_only_end
   }
 
   action "classify_incident" {
@@ -49,9 +49,9 @@ scene "incident_response" {
 
       tier:str = case(
         (critical, major),
-        (true, _) => "critical",
-        (_, true) => "major",
-        _ => "minor"
+        (true, _) -> "critical",
+        (_, true) -> "major",
+        _ -> "minor"
       )
 
       widespread:bool = affected_services >= 3
@@ -70,11 +70,11 @@ scene "incident_response" {
     }
 
     next on (tier, blast, customer_facing) to {
-      ("critical", "wide",      true)  => page_leadership,
-      ("critical", "contained", true)  => page_oncall,
-      ("critical", _,           false) => page_oncall,
-      ("major",    "wide",      true)  => page_oncall,
-      _ => watch_only
+      ("critical", "wide",      true)  -> page_leadership,
+      ("critical", "contained", true)  -> page_oncall,
+      ("critical", _,           false) -> page_oncall,
+      ("major",    "wide",      true)  -> page_oncall,
+      _ -> watch_only
     }
 
     # The first arm above is shorthand for exactly this:
@@ -149,8 +149,8 @@ scene "incident_response" {
     }
 
     next on trend to {
-      "spreading" => open_ticket,
-      _           => watch_only_end
+      "spreading" -> open_ticket,
+      _           -> watch_only_end
     }
   }
 

@@ -73,7 +73,7 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 
 // ─── parseViewBlock ──────────────────────────────────────────────────────────
 
-// parseOverviewBlock parses `overview <mode> { a |=> b  a |=> c }`.
+// parseOverviewBlock parses `overview <mode> { a |-> b  a |-> c }`.
 //
 // The flow is a real part of the token stream rather than a heredoc string, so
 // every edge carries a source position and the whole block is highlightable.
@@ -109,7 +109,7 @@ func (p *parser) parseOverviewBlock() *ast.ViewBlock {
 		}
 	}
 
-	// Each statement is a chain `a |=> b |=> c`, or a bare node. Chains wire
+	// Each statement is a chain `a |-> b |-> c`, or a bare node. Chains wire
 	// sequentially (a→b, b→c) and every segment but the last becomes a node —
 	// the same rules the heredoc flow used, so migrated files keep their graph.
 	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
@@ -131,7 +131,7 @@ func (p *parser) parseOverviewBlock() *ast.ViewBlock {
 			if toTok.Kind != lexer.TokIdent {
 				p.Append(diag.ErrorAt(p.file, arrowTok.Line, arrowTok.Col,
 					diag.CodeOverviewEdgeNoTarget,
-					"overview edge |=> has no target action name"))
+					"overview edge |-> has no target action name"))
 				return vb
 			}
 			p.advance()

@@ -76,8 +76,8 @@ A template literal type should support structural destructuring.
 ```turn
 case(
   resource_id,
-  ResourceId { kind: "foo", sequence } => handle_foo(sequence),
-  ResourceId { kind: "bar", sequence } => handle_bar(sequence)
+  ResourceId { kind: "foo", sequence } -> handle_foo(sequence),
+  ResourceId { kind: "bar", sequence } -> handle_bar(sequence)
 )
 ```
 
@@ -100,8 +100,8 @@ The first matching arm is selected.
 ```turn
 case(
   value,
-  PatternA => result_a,
-  PatternB => result_b
+  PatternA -> result_a,
+  PatternB -> result_b
 )
 ```
 
@@ -989,9 +989,9 @@ For the initial implementation, nesting is limited to:
 ```turn
 result = case(
   input,
-  pattern_1 => expression_1,
-  pattern_2 => expression_2,
-  _ => fallback
+  pattern_1 -> expression_1,
+  pattern_2 -> expression_2,
+  _ -> fallback
 )
 ```
 
@@ -1019,13 +1019,13 @@ result = case(
   ResourceId {
     kind: "foo",
     sequence
-  } if sequence > 100 =>
+  } if sequence > 100 ->
     handle_large_foo(sequence),
 
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     handle_foo(sequence)
 )
 ```
@@ -1039,8 +1039,8 @@ All reachable arms must produce compatible result types.
 ```turn
 result: str = case(
   status,
-  "pending" => "queue",
-  "done" => "archive"
+  "pending" -> "queue",
+  "done" -> "archive"
 )
 ```
 
@@ -1049,8 +1049,8 @@ Invalid:
 ```turn
 result = case(
   status,
-  "pending" => "queue",
-  "done" => 42
+  "pending" -> "queue",
+  "done" -> 42
 )
 ```
 
@@ -1074,9 +1074,9 @@ Exhaustive:
 ```turn
 case(
   status,
-  "pending" => queue(),
-  "running" => observe(),
-  "done" => archive()
+  "pending" -> queue(),
+  "running" -> observe(),
+  "done" -> archive()
 )
 ```
 
@@ -1085,8 +1085,8 @@ Non-exhaustive:
 ```turn
 case(
   status,
-  "pending" => queue(),
-  "done" => archive()
+  "pending" -> queue(),
+  "done" -> archive()
 )
 ```
 
@@ -1106,8 +1106,8 @@ A wildcard makes a match exhaustive.
 ```turn
 case(
   status,
-  "pending" => queue(),
-  _ => fallback()
+  "pending" -> queue(),
+  _ -> fallback()
 )
 ```
 
@@ -1118,8 +1118,8 @@ An unconstrained binder also makes a match exhaustive.
 ```turn
 case(
   status,
-  "pending" => queue(),
-  other => handle(other)
+  "pending" -> queue(),
+  other -> handle(other)
 )
 ```
 
@@ -1143,12 +1143,12 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } => handle_foo(sequence),
+  } -> handle_foo(sequence),
 
   ResourceId {
     kind: "bar",
     sequence
-  } => handle_bar(sequence)
+  } -> handle_bar(sequence)
 )
 ```
 
@@ -1163,7 +1163,7 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } => handle_foo(sequence)
+  } -> handle_foo(sequence)
 )
 ```
 
@@ -1200,7 +1200,7 @@ Exhaustiveness becomes undecidable or incomplete when an infinite capture is div
 A pattern arm may include a guard.
 
 ```turn
-pattern if condition => result
+pattern if condition -> result
 ```
 
 Example:
@@ -1212,13 +1212,13 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } if sequence > 1000 =>
+  } if sequence > 1000 ->
     handle_large(sequence),
 
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     handle_normal(sequence)
 )
 ```
@@ -1243,13 +1243,13 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } if sequence > 1000 =>
+  } if sequence > 1000 ->
     handle_large(sequence),
 
   ResourceId {
     kind: "bar",
     sequence
-  } =>
+  } ->
     handle_bar(sequence)
 )
 ```
@@ -1284,7 +1284,7 @@ type Status = "pending" | "running" | "done"
 inside:
 
 ```turn
-"pending" => ...
+"pending" -> ...
 ```
 
 the matched value has type:
@@ -1300,8 +1300,8 @@ In an ordered case:
 ```turn
 case(
   status,
-  "pending" => ...,
-  remaining => ...
+  "pending" -> ...,
+  remaining -> ...
 )
 ```
 
@@ -1347,13 +1347,13 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     handle_foo(sequence),
 
   ResourceId {
     kind,
     sequence
-  } =>
+  } ->
     handle_other(kind, sequence)
 )
 ```
@@ -1376,13 +1376,13 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } if sequence > 100 =>
+  } if sequence > 100 ->
     large(sequence),
 
   ResourceId {
     kind,
     sequence
-  } =>
+  } ->
     fallback(kind, sequence)
 )
 ```
@@ -1404,8 +1404,8 @@ because the guarded first arm did not cover every `"foo"` value.
 ```turn
 case(
   status,
-  "pending" => a(),
-  "pending" => b()
+  "pending" -> a(),
+  "pending" -> b()
 )
 ```
 
@@ -1424,8 +1424,8 @@ pattern "pending" is fully covered by a previous arm
 ```turn
 case(
   status,
-  _ => fallback(),
-  "done" => archive()
+  _ -> fallback(),
+  "done" -> archive()
 )
 ```
 
@@ -1436,8 +1436,8 @@ The second arm is unreachable.
 ```turn
 case(
   status,
-  value => handle(value),
-  "done" => archive()
+  value -> handle(value),
+  "done" -> archive()
 )
 ```
 
@@ -1452,13 +1452,13 @@ case(
   ResourceId {
     kind,
     sequence
-  } =>
+  } ->
     handle_all(kind, sequence),
 
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     handle_foo(sequence)
 )
 ```
@@ -1474,13 +1474,13 @@ case(
   ResourceId {
     kind: "foo",
     sequence
-  } if sequence > 100 =>
+  } if sequence > 100 ->
     large_foo(sequence),
 
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     foo(sequence)
 )
 ```
@@ -1785,7 +1785,7 @@ CaseExpression =
 CaseArm =
   Pattern
   [ "if" Expression ]
-  "=>"
+  "->"
   Expression ;
 
 Pattern =
@@ -1853,13 +1853,13 @@ result = case(
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     handle_foo(sequence),
 
   ResourceId {
     kind: "bar",
     sequence
-  } =>
+  } ->
     handle_bar(sequence)
 )
 ```
@@ -1869,8 +1869,8 @@ result = case(
 ```turn
 result = case(
   input,
-  ResourceId { kind, sequence } => handle(kind, sequence),
-  _ => reject(input)
+  ResourceId { kind, sequence } -> handle(kind, sequence),
+  _ -> reject(input)
 )
 ```
 
@@ -2161,10 +2161,10 @@ case(
       sequence
     },
     true
-  ) =>
+  ) ->
     run(sequence),
 
-  _ =>
+  _ ->
     stop()
 )
 ```
@@ -2343,19 +2343,19 @@ result: str = case(
   ResourceId {
     kind: "foo",
     sequence
-  } if sequence > 100 =>
+  } if sequence > 100 ->
     "large-foo",
 
   ResourceId {
     kind: "foo",
     sequence
-  } =>
+  } ->
     "foo",
 
   ResourceId {
     kind: "bar",
     sequence
-  } =>
+  } ->
     "bar"
 )
 ```

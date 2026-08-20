@@ -38,8 +38,8 @@ scene "loan_flow" {
 
   view "overview" {
     flow = <<-EOT
-    score |=> approve
-    score |=> reject
+    score |-> approve
+    score |-> reject
     EOT
     enforce = "at_least"
   }

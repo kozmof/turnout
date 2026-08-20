@@ -24,7 +24,7 @@ Nothing there suggests that adding one forecloses completion. `_` reads exactly 
 
 ## Evidence this is a real trap
 
-The deleted `kitchen-sink-support-pipeline.tu` ended its route with `_ => closed`, where scene `closed` had a single terminal action. Once `closed` finished, nothing matched `closed.*`, so `_` matched again and re-entered `closed` — indefinitely. The example was checked in, exercised by the schema-drift converter test, and never run through the route executor, so the loop was never observed.
+The deleted `kitchen-sink-support-pipeline.tu` ended its route with `_ -> closed`, where scene `closed` had a single terminal action. Once `closed` finished, nothing matched `closed.*`, so `_` matched again and re-entered `closed` — indefinitely. The example was checked in, exercised by the schema-drift converter test, and never run through the route executor, so the loop was never observed.
 
 `spec/examples/03-warehouse-route.tu` therefore omits `_` on purpose and explains why in a comment. That is the right shape for the example, but it means the file demonstrates four of the five route path forms and has to editorialise about the fifth.
 
@@ -41,20 +41,20 @@ route "fulfilment" {
   entry = picking
 
   to {
-    picking.*.pick_complete => packing,
-    packing.*.seal_carton   => shipping,
-    _ => done
+    picking.*.pick_complete -> packing,
+    packing.*.seal_carton   -> shipping,
+    _ -> done
   }
 }
 ```
 
-`done` (or `end`, or `_ => .`) would be a reserved target meaning "complete the route", making `_` safe and termination visible at the point of decision. This is the only option that lets a reader see where a route ends without reasoning about which paths are unmatched.
+`done` (or `end`, or `_ -> .`) would be a reserved target meaning "complete the route", making `_` safe and termination visible at the point of decision. This is the only option that lets a reader see where a route ends without reasoning about which paths are unmatched.
 
 **C is the recommended direction**, with A done immediately regardless, because the documentation is wrong-by-omission today and that is true under every option.
 
 Whoever picks up C must settle:
 
-- **Where the terminal lives.** A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ => end`, with `end` a keyword) avoids collisions at the cost of a lexer entry.
+- **Where the terminal lives.** A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ -> end`, with `end` a keyword) avoids collisions at the cost of a lexer entry.
 - **Wire model.** `MatchArm.target` is a string today. A reserved value keeps the proto unchanged; a separate `terminal` flag does not. Prefer the former, consistent with the "no proto churn for surface features" line the recent syntax work held.
 - **Runtime.** `selectNextScene` returns `string | null` and null already means complete, so the executor needs no new state — the arm resolution just maps the terminal target to null. That is a small, well-isolated change.
 - **Interaction with B.** With C available, a `_` arm that targets a real scene becomes clearly suspicious, and the diagnostic in B gets much easier to justify.
