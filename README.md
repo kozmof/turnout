@@ -1,12 +1,12 @@
 # Turnout
 
-Turnout is a small language for writing branching, stateful flows. You describe
-scenes, the actions inside them, and how state moves between them. A compiler
-checks the whole thing and hands a runtime an executable model.
+Turnout is a small language for writing branching, stateful flows. A source file
+describes scenes, the actions inside them, and how state moves between them. A
+compiler checks the whole thing and hands a runtime an executable model.
 
 Flows like this usually end up as hand-wired conditionals. Turnout makes the
 shape explicit, so a wrong state path or an unreachable action is a compile
-error instead of a bug you find in production.
+error instead of a production bug.
 
 ## Status
 
@@ -19,8 +19,8 @@ in `spec/` are marked draft or proposed rather than settled. `todo/` mixes
 finished work with open design questions and a known bug.
 
 Reading the code, running the examples, and filing what looks wrong are all
-useful right now. Building anything you need to keep is not. Pin a commit if you
-try it anyway.
+useful right now. Building anything durable on it is not. Pin a commit before
+trying it anyway.
 
 ## The language
 
@@ -105,9 +105,9 @@ Three commands are available.
 - `turnout validate <input.tu> [-state-file path]` — type-check without writing output
 - `turnout version` — print the build version
 
-Use `-format hcl` for canonical HCL you can read and diff. Use `-format json`
-for the model the TypeScript runtime consumes. Both come from the same
-validated model.
+Use `-format hcl` for canonical HCL that reads and diffs cleanly. Use
+`-format json` for the model the TypeScript runtime consumes. Both come from
+the same validated model.
 
 Errors report a file, line, and column.
 
@@ -128,7 +128,7 @@ const result = await runner.run();
 console.log(result.finalState);
 ```
 
-Step through it instead when you need to inspect each action as it runs.
+Step through it instead to inspect each action as it runs.
 
 ```ts
 for await (const step of runner.runAsync()) {
@@ -136,8 +136,8 @@ for await (const step of runner.runAsync()) {
 }
 ```
 
-`runner.next(steps)` advances by a fixed number of actions and returns the steps
-it took, which suits a caller driving the flow from outside.
+`runner.next(steps)` advances by a fixed number of actions, one by default, and
+returns the steps it took. Use it when something outside the flow drives it.
 
 Hooks let an action pull values from outside the model or publish state
 somewhere else. Register them before running.
@@ -148,7 +148,7 @@ runner.usePublishHook("emit_receipt", async (ctx) => { await send(ctx.state()); 
 ```
 
 A prepare hook returns the bindings it resolved. A publish hook reads the final
-state and returns nothing.
+state and returns either nothing or an outcome recording whether it succeeded.
 
 For a single call that wires hooks and runs to completion, use `runHarness`.
 For the Node-only bridge that shells out to the `turnout` binary, import from
@@ -196,8 +196,9 @@ pnpm check
 ```
 
 `pnpm check` is the full gate. It regenerates the protobuf and function-map
-bindings and fails if either drifted, then formats, type-checks, lints, and runs
-both test suites with coverage floors.
+bindings and fails if either drifted, then checks formatting, type-checks,
+lints, runs `go vet` and the race detector, and runs both test suites with
+coverage floors.
 
 Narrower commands are available while working.
 
