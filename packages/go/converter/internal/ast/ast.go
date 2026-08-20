@@ -278,13 +278,22 @@ type ViewBlock struct {
 	// opaque string it produced diagnostics with no file:line:col at all.
 	Edges []FlowEdge
 	// Nodes lists every action named in the flow, in first-appearance order,
-	// including those that appear only as an edge endpoint.
-	Nodes   []string
+	// each carrying the source position of the name token. Positions are what
+	// let `OverviewUnknownNode` point at the offending line instead of naming
+	// the scene and leaving the author to find it.
+	Nodes   []FlowNode
 	Enforce string
 }
 
 // FlowEdge is a single `from |-> to` edge in an overview block.
+// Pos is the position of the `|->` token.
 type FlowEdge struct {
 	Pos      Pos
 	From, To string
+}
+
+// FlowNode is a single action name declared in an overview block.
+type FlowNode struct {
+	Pos  Pos
+	Name string
 }

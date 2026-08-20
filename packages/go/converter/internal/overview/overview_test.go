@@ -49,8 +49,8 @@ func nodeSliceEq(a, b []string) bool {
 
 func TestParseNodeOnly(t *testing.T) {
 	g := mustParse(t, "foo")
-	if !nodeSliceEq(g.Nodes, []string{"foo"}) {
-		t.Errorf("Nodes = %v; want [foo]", g.Nodes)
+	if !nodeSliceEq(g.NodeIDs(), []string{"foo"}) {
+		t.Errorf("Nodes = %v; want [foo]", g.NodeIDs())
 	}
 	if len(g.Edges) != 0 {
 		t.Errorf("Edges = %v; want []", g.Edges)
@@ -59,15 +59,15 @@ func TestParseNodeOnly(t *testing.T) {
 
 func TestParseTwoNodes(t *testing.T) {
 	g := mustParse(t, "foo\nbar")
-	if !nodeSliceEq(g.Nodes, []string{"foo", "bar"}) {
-		t.Errorf("Nodes = %v; want [foo bar]", g.Nodes)
+	if !nodeSliceEq(g.NodeIDs(), []string{"foo", "bar"}) {
+		t.Errorf("Nodes = %v; want [foo bar]", g.NodeIDs())
 	}
 }
 
 func TestParseEdgeLine(t *testing.T) {
 	g := mustParse(t, "foo\n|-> bar")
-	if !nodeSliceEq(g.Nodes, []string{"foo"}) {
-		t.Errorf("Nodes = %v; want [foo]", g.Nodes)
+	if !nodeSliceEq(g.NodeIDs(), []string{"foo"}) {
+		t.Errorf("Nodes = %v; want [foo]", g.NodeIDs())
 	}
 	want := []overview.Edge{{From: "foo", To: "bar"}}
 	if len(g.Edges) != 1 || g.Edges[0] != want[0] {
@@ -79,8 +79,8 @@ func TestParseChainLine(t *testing.T) {
 	// All but last become nodes; edges wire sequentially.
 	g := mustParse(t, "foo |-> bar |-> baz")
 	// "foo" and "bar" become nodes; "baz" is edge-target-only (not a node).
-	if !nodeSliceEq(g.Nodes, []string{"foo", "bar"}) {
-		t.Errorf("Nodes = %v; want [foo bar]", g.Nodes)
+	if !nodeSliceEq(g.NodeIDs(), []string{"foo", "bar"}) {
+		t.Errorf("Nodes = %v; want [foo bar]", g.NodeIDs())
 	}
 	wantEdges := []overview.Edge{{From: "foo", To: "bar"}, {From: "bar", To: "baz"}}
 	if len(g.Edges) != len(wantEdges) {
@@ -95,8 +95,8 @@ func TestParseChainLine(t *testing.T) {
 
 func TestParseDuplicateNodeDeduplicated(t *testing.T) {
 	g := mustParse(t, "foo\nfoo")
-	if !nodeSliceEq(g.Nodes, []string{"foo"}) {
-		t.Errorf("Nodes = %v; want [foo]", g.Nodes)
+	if !nodeSliceEq(g.NodeIDs(), []string{"foo"}) {
+		t.Errorf("Nodes = %v; want [foo]", g.NodeIDs())
 	}
 }
 
@@ -110,8 +110,8 @@ func TestParseDuplicateEdgeDeduplicated(t *testing.T) {
 
 func TestParseEmptyLinesSkipped(t *testing.T) {
 	g := mustParse(t, "\n\nfoo\n\nbar\n\n")
-	if !nodeSliceEq(g.Nodes, []string{"foo", "bar"}) {
-		t.Errorf("Nodes = %v; want [foo bar]", g.Nodes)
+	if !nodeSliceEq(g.NodeIDs(), []string{"foo", "bar"}) {
+		t.Errorf("Nodes = %v; want [foo bar]", g.NodeIDs())
 	}
 }
 

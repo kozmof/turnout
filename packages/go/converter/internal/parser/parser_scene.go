@@ -95,10 +95,10 @@ func (p *parser) parseOverviewBlock() *ast.ViewBlock {
 
 	seenNodes := make(map[string]bool)
 	seenEdges := make(map[ast.FlowEdge]bool)
-	addNode := func(name string) {
-		if !seenNodes[name] {
-			seenNodes[name] = true
-			vb.Nodes = append(vb.Nodes, name)
+	addNode := func(tok lexer.Token) {
+		if !seenNodes[tok.Value] {
+			seenNodes[tok.Value] = true
+			vb.Nodes = append(vb.Nodes, ast.FlowNode{Pos: p.posOf(tok), Name: tok.Value})
 		}
 	}
 	addEdge := func(e ast.FlowEdge) {
@@ -122,7 +122,7 @@ func (p *parser) parseOverviewBlock() *ast.ViewBlock {
 		p.advance()
 
 		if p.peek().Kind != lexer.TokFlowArrow {
-			addNode(fromTok.Value) // bare node statement
+			addNode(fromTok) // bare node statement
 			continue
 		}
 		for p.peek().Kind == lexer.TokFlowArrow {
@@ -135,7 +135,7 @@ func (p *parser) parseOverviewBlock() *ast.ViewBlock {
 				return vb
 			}
 			p.advance()
-			addNode(fromTok.Value) // every segment but the last is a node
+			addNode(fromTok) // every segment but the last is a node
 			addEdge(ast.FlowEdge{Pos: p.posOf(arrowTok), From: fromTok.Value, To: toTok.Value})
 			fromTok = toTok
 		}

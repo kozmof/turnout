@@ -640,10 +640,24 @@ func (x *SceneBlock) GetView() *ViewBlock {
 // ViewBlock carries the authoring-time overview annotation for a scene.
 // name must be "overview". enforce is one of: "nodes_only" | "at_least" | "strict".
 type ViewBlock struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Name          string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Flow          string                 `protobuf:"bytes,2,opt,name=flow,proto3" json:"flow,omitempty"`
-	Enforce       *string                `protobuf:"bytes,3,opt,name=enforce,proto3,oneof" json:"enforce,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// flow is the canonical flow text, kept for HCL round-tripping. It is a lossy
+	// rendering of nodes/edges: it carries no source positions. Prefer nodes and
+	// edges below when they are populated; flow is the fallback for models that
+	// predate them (or were hand-written).
+	Flow    string  `protobuf:"bytes,2,opt,name=flow,proto3" json:"flow,omitempty"`
+	Enforce *string `protobuf:"bytes,3,opt,name=enforce,proto3,oneof" json:"enforce,omitempty"`
+	// nodes and edges are the structured overview graph, each element carrying the
+	// source position of the token it was parsed from so that overview diagnostics
+	// can point at a file:line:col. Populated by the lowerer and consumed by the
+	// validator. Cleared before JSON emission; the runtime ignores the view block.
+	Nodes []*FlowNodeModel `protobuf:"bytes,4,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Edges []*FlowEdgeModel `protobuf:"bytes,5,rep,name=edges,proto3" json:"edges,omitempty"`
+	// source_pos is the position of the `overview` keyword. It anchors the
+	// diagnostics that report something missing *from* the block, which have no
+	// token of their own to point at.
+	SourcePos     *SourcePos `protobuf:"bytes,6,opt,name=source_pos,json=sourcePos,proto3,oneof" json:"source_pos,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -699,6 +713,142 @@ func (x *ViewBlock) GetEnforce() string {
 	return ""
 }
 
+func (x *ViewBlock) GetNodes() []*FlowNodeModel {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *ViewBlock) GetEdges() []*FlowEdgeModel {
+	if x != nil {
+		return x.Edges
+	}
+	return nil
+}
+
+func (x *ViewBlock) GetSourcePos() *SourcePos {
+	if x != nil {
+		return x.SourcePos
+	}
+	return nil
+}
+
+// FlowNodeModel is a single action name declared in an overview block.
+type FlowNodeModel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	SourcePos     *SourcePos             `protobuf:"bytes,2,opt,name=source_pos,json=sourcePos,proto3,oneof" json:"source_pos,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FlowNodeModel) Reset() {
+	*x = FlowNodeModel{}
+	mi := &file_turnout_model_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FlowNodeModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlowNodeModel) ProtoMessage() {}
+
+func (x *FlowNodeModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlowNodeModel.ProtoReflect.Descriptor instead.
+func (*FlowNodeModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *FlowNodeModel) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *FlowNodeModel) GetSourcePos() *SourcePos {
+	if x != nil {
+		return x.SourcePos
+	}
+	return nil
+}
+
+// FlowEdgeModel is a single `from |-> to` edge declared in an overview block.
+// source_pos is the position of the `|->` token.
+type FlowEdgeModel struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	From          string                 `protobuf:"bytes,1,opt,name=from,proto3" json:"from,omitempty"`
+	To            string                 `protobuf:"bytes,2,opt,name=to,proto3" json:"to,omitempty"`
+	SourcePos     *SourcePos             `protobuf:"bytes,3,opt,name=source_pos,json=sourcePos,proto3,oneof" json:"source_pos,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *FlowEdgeModel) Reset() {
+	*x = FlowEdgeModel{}
+	mi := &file_turnout_model_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *FlowEdgeModel) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*FlowEdgeModel) ProtoMessage() {}
+
+func (x *FlowEdgeModel) ProtoReflect() protoreflect.Message {
+	mi := &file_turnout_model_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use FlowEdgeModel.ProtoReflect.Descriptor instead.
+func (*FlowEdgeModel) Descriptor() ([]byte, []int) {
+	return file_turnout_model_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *FlowEdgeModel) GetFrom() string {
+	if x != nil {
+		return x.From
+	}
+	return ""
+}
+
+func (x *FlowEdgeModel) GetTo() string {
+	if x != nil {
+		return x.To
+	}
+	return ""
+}
+
+func (x *FlowEdgeModel) GetSourcePos() *SourcePos {
+	if x != nil {
+		return x.SourcePos
+	}
+	return nil
+}
+
 type ActionModel struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	Id      string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -715,7 +865,7 @@ type ActionModel struct {
 
 func (x *ActionModel) Reset() {
 	*x = ActionModel{}
-	mi := &file_turnout_model_proto_msgTypes[9]
+	mi := &file_turnout_model_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -727,7 +877,7 @@ func (x *ActionModel) String() string {
 func (*ActionModel) ProtoMessage() {}
 
 func (x *ActionModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[9]
+	mi := &file_turnout_model_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -740,7 +890,7 @@ func (x *ActionModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionModel.ProtoReflect.Descriptor instead.
 func (*ActionModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{9}
+	return file_turnout_model_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ActionModel) GetId() string {
@@ -803,7 +953,7 @@ type ComputeModel struct {
 
 func (x *ComputeModel) Reset() {
 	*x = ComputeModel{}
-	mi := &file_turnout_model_proto_msgTypes[10]
+	mi := &file_turnout_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -815,7 +965,7 @@ func (x *ComputeModel) String() string {
 func (*ComputeModel) ProtoMessage() {}
 
 func (x *ComputeModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[10]
+	mi := &file_turnout_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -828,7 +978,7 @@ func (x *ComputeModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ComputeModel.ProtoReflect.Descriptor instead.
 func (*ComputeModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{10}
+	return file_turnout_model_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ComputeModel) GetRoot() string {
@@ -858,7 +1008,7 @@ type ProgModel struct {
 
 func (x *ProgModel) Reset() {
 	*x = ProgModel{}
-	mi := &file_turnout_model_proto_msgTypes[11]
+	mi := &file_turnout_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -870,7 +1020,7 @@ func (x *ProgModel) String() string {
 func (*ProgModel) ProtoMessage() {}
 
 func (x *ProgModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[11]
+	mi := &file_turnout_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -883,7 +1033,7 @@ func (x *ProgModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProgModel.ProtoReflect.Descriptor instead.
 func (*ProgModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{11}
+	return file_turnout_model_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ProgModel) GetName() string {
@@ -933,7 +1083,7 @@ type BindingModel struct {
 
 func (x *BindingModel) Reset() {
 	*x = BindingModel{}
-	mi := &file_turnout_model_proto_msgTypes[12]
+	mi := &file_turnout_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -945,7 +1095,7 @@ func (x *BindingModel) String() string {
 func (*BindingModel) ProtoMessage() {}
 
 func (x *BindingModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[12]
+	mi := &file_turnout_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -958,7 +1108,7 @@ func (x *BindingModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BindingModel.ProtoReflect.Descriptor instead.
 func (*BindingModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{12}
+	return file_turnout_model_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *BindingModel) GetName() string {
@@ -1022,7 +1172,7 @@ type ExprModel struct {
 
 func (x *ExprModel) Reset() {
 	*x = ExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[13]
+	mi := &file_turnout_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1034,7 +1184,7 @@ func (x *ExprModel) String() string {
 func (*ExprModel) ProtoMessage() {}
 
 func (x *ExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[13]
+	mi := &file_turnout_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1047,7 +1197,7 @@ func (x *ExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExprModel.ProtoReflect.Descriptor instead.
 func (*ExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{13}
+	return file_turnout_model_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ExprModel) GetCombine() *CombineExpr {
@@ -1081,7 +1231,7 @@ type CombineExpr struct {
 
 func (x *CombineExpr) Reset() {
 	*x = CombineExpr{}
-	mi := &file_turnout_model_proto_msgTypes[14]
+	mi := &file_turnout_model_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1093,7 +1243,7 @@ func (x *CombineExpr) String() string {
 func (*CombineExpr) ProtoMessage() {}
 
 func (x *CombineExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[14]
+	mi := &file_turnout_model_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1106,7 +1256,7 @@ func (x *CombineExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CombineExpr.ProtoReflect.Descriptor instead.
 func (*CombineExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{14}
+	return file_turnout_model_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *CombineExpr) GetFn() string {
@@ -1133,7 +1283,7 @@ type PipeExpr struct {
 
 func (x *PipeExpr) Reset() {
 	*x = PipeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[15]
+	mi := &file_turnout_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1145,7 +1295,7 @@ func (x *PipeExpr) String() string {
 func (*PipeExpr) ProtoMessage() {}
 
 func (x *PipeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[15]
+	mi := &file_turnout_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1158,7 +1308,7 @@ func (x *PipeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PipeExpr.ProtoReflect.Descriptor instead.
 func (*PipeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{15}
+	return file_turnout_model_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PipeExpr) GetParams() []*PipeParam {
@@ -1185,7 +1335,7 @@ type PipeParam struct {
 
 func (x *PipeParam) Reset() {
 	*x = PipeParam{}
-	mi := &file_turnout_model_proto_msgTypes[16]
+	mi := &file_turnout_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1197,7 +1347,7 @@ func (x *PipeParam) String() string {
 func (*PipeParam) ProtoMessage() {}
 
 func (x *PipeParam) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[16]
+	mi := &file_turnout_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1210,7 +1360,7 @@ func (x *PipeParam) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PipeParam.ProtoReflect.Descriptor instead.
 func (*PipeParam) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{16}
+	return file_turnout_model_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *PipeParam) GetParamName() string {
@@ -1237,7 +1387,7 @@ type PipeStep struct {
 
 func (x *PipeStep) Reset() {
 	*x = PipeStep{}
-	mi := &file_turnout_model_proto_msgTypes[17]
+	mi := &file_turnout_model_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1249,7 +1399,7 @@ func (x *PipeStep) String() string {
 func (*PipeStep) ProtoMessage() {}
 
 func (x *PipeStep) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[17]
+	mi := &file_turnout_model_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1262,7 +1412,7 @@ func (x *PipeStep) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PipeStep.ProtoReflect.Descriptor instead.
 func (*PipeStep) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{17}
+	return file_turnout_model_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PipeStep) GetFn() string {
@@ -1292,7 +1442,7 @@ type CondExpr struct {
 
 func (x *CondExpr) Reset() {
 	*x = CondExpr{}
-	mi := &file_turnout_model_proto_msgTypes[18]
+	mi := &file_turnout_model_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1304,7 +1454,7 @@ func (x *CondExpr) String() string {
 func (*CondExpr) ProtoMessage() {}
 
 func (x *CondExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[18]
+	mi := &file_turnout_model_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1317,7 +1467,7 @@ func (x *CondExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CondExpr.ProtoReflect.Descriptor instead.
 func (*CondExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{18}
+	return file_turnout_model_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *CondExpr) GetCondition() *ArgModel {
@@ -1356,7 +1506,7 @@ type ArgModel struct {
 
 func (x *ArgModel) Reset() {
 	*x = ArgModel{}
-	mi := &file_turnout_model_proto_msgTypes[19]
+	mi := &file_turnout_model_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1368,7 +1518,7 @@ func (x *ArgModel) String() string {
 func (*ArgModel) ProtoMessage() {}
 
 func (x *ArgModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[19]
+	mi := &file_turnout_model_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1381,7 +1531,7 @@ func (x *ArgModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ArgModel.ProtoReflect.Descriptor instead.
 func (*ArgModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{19}
+	return file_turnout_model_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ArgModel) GetRef() string {
@@ -1429,7 +1579,7 @@ type TransformArg struct {
 
 func (x *TransformArg) Reset() {
 	*x = TransformArg{}
-	mi := &file_turnout_model_proto_msgTypes[20]
+	mi := &file_turnout_model_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1441,7 +1591,7 @@ func (x *TransformArg) String() string {
 func (*TransformArg) ProtoMessage() {}
 
 func (x *TransformArg) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[20]
+	mi := &file_turnout_model_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1454,7 +1604,7 @@ func (x *TransformArg) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TransformArg.ProtoReflect.Descriptor instead.
 func (*TransformArg) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{20}
+	return file_turnout_model_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *TransformArg) GetRef() string {
@@ -1483,7 +1633,7 @@ type PrepareEntry struct {
 
 func (x *PrepareEntry) Reset() {
 	*x = PrepareEntry{}
-	mi := &file_turnout_model_proto_msgTypes[21]
+	mi := &file_turnout_model_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1495,7 +1645,7 @@ func (x *PrepareEntry) String() string {
 func (*PrepareEntry) ProtoMessage() {}
 
 func (x *PrepareEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[21]
+	mi := &file_turnout_model_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1508,7 +1658,7 @@ func (x *PrepareEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrepareEntry.ProtoReflect.Descriptor instead.
 func (*PrepareEntry) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{21}
+	return file_turnout_model_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *PrepareEntry) GetBinding() string {
@@ -1542,7 +1692,7 @@ type MergeEntry struct {
 
 func (x *MergeEntry) Reset() {
 	*x = MergeEntry{}
-	mi := &file_turnout_model_proto_msgTypes[22]
+	mi := &file_turnout_model_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1554,7 +1704,7 @@ func (x *MergeEntry) String() string {
 func (*MergeEntry) ProtoMessage() {}
 
 func (x *MergeEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[22]
+	mi := &file_turnout_model_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1567,7 +1717,7 @@ func (x *MergeEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MergeEntry.ProtoReflect.Descriptor instead.
 func (*MergeEntry) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{22}
+	return file_turnout_model_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *MergeEntry) GetBinding() string {
@@ -1595,7 +1745,7 @@ type NextRuleModel struct {
 
 func (x *NextRuleModel) Reset() {
 	*x = NextRuleModel{}
-	mi := &file_turnout_model_proto_msgTypes[23]
+	mi := &file_turnout_model_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1607,7 +1757,7 @@ func (x *NextRuleModel) String() string {
 func (*NextRuleModel) ProtoMessage() {}
 
 func (x *NextRuleModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[23]
+	mi := &file_turnout_model_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1620,7 +1770,7 @@ func (x *NextRuleModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NextRuleModel.ProtoReflect.Descriptor instead.
 func (*NextRuleModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{23}
+	return file_turnout_model_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *NextRuleModel) GetCompute() *NextComputeModel {
@@ -1655,7 +1805,7 @@ type NextComputeModel struct {
 
 func (x *NextComputeModel) Reset() {
 	*x = NextComputeModel{}
-	mi := &file_turnout_model_proto_msgTypes[24]
+	mi := &file_turnout_model_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1667,7 +1817,7 @@ func (x *NextComputeModel) String() string {
 func (*NextComputeModel) ProtoMessage() {}
 
 func (x *NextComputeModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[24]
+	mi := &file_turnout_model_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1680,7 +1830,7 @@ func (x *NextComputeModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NextComputeModel.ProtoReflect.Descriptor instead.
 func (*NextComputeModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{24}
+	return file_turnout_model_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *NextComputeModel) GetCondition() string {
@@ -1710,7 +1860,7 @@ type NextPrepareEntry struct {
 
 func (x *NextPrepareEntry) Reset() {
 	*x = NextPrepareEntry{}
-	mi := &file_turnout_model_proto_msgTypes[25]
+	mi := &file_turnout_model_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1722,7 +1872,7 @@ func (x *NextPrepareEntry) String() string {
 func (*NextPrepareEntry) ProtoMessage() {}
 
 func (x *NextPrepareEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[25]
+	mi := &file_turnout_model_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1735,7 +1885,7 @@ func (x *NextPrepareEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NextPrepareEntry.ProtoReflect.Descriptor instead.
 func (*NextPrepareEntry) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{25}
+	return file_turnout_model_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *NextPrepareEntry) GetBinding() string {
@@ -1777,7 +1927,7 @@ type RouteModel struct {
 
 func (x *RouteModel) Reset() {
 	*x = RouteModel{}
-	mi := &file_turnout_model_proto_msgTypes[26]
+	mi := &file_turnout_model_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1789,7 +1939,7 @@ func (x *RouteModel) String() string {
 func (*RouteModel) ProtoMessage() {}
 
 func (x *RouteModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[26]
+	mi := &file_turnout_model_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1802,7 +1952,7 @@ func (x *RouteModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteModel.ProtoReflect.Descriptor instead.
 func (*RouteModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{26}
+	return file_turnout_model_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *RouteModel) GetId() string {
@@ -1838,7 +1988,7 @@ type MatchArm struct {
 
 func (x *MatchArm) Reset() {
 	*x = MatchArm{}
-	mi := &file_turnout_model_proto_msgTypes[27]
+	mi := &file_turnout_model_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1850,7 +2000,7 @@ func (x *MatchArm) String() string {
 func (*MatchArm) ProtoMessage() {}
 
 func (x *MatchArm) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[27]
+	mi := &file_turnout_model_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1863,7 +2013,7 @@ func (x *MatchArm) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MatchArm.ProtoReflect.Descriptor instead.
 func (*MatchArm) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{27}
+	return file_turnout_model_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *MatchArm) GetPatterns() []string {
@@ -1900,7 +2050,7 @@ type LocalExprModel struct {
 
 func (x *LocalExprModel) Reset() {
 	*x = LocalExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[28]
+	mi := &file_turnout_model_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1912,7 +2062,7 @@ func (x *LocalExprModel) String() string {
 func (*LocalExprModel) ProtoMessage() {}
 
 func (x *LocalExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[28]
+	mi := &file_turnout_model_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1925,7 +2075,7 @@ func (x *LocalExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalExprModel.ProtoReflect.Descriptor instead.
 func (*LocalExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{28}
+	return file_turnout_model_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *LocalExprModel) GetExpr() isLocalExprModel_Expr {
@@ -2083,7 +2233,7 @@ type LocalRefExprModel struct {
 
 func (x *LocalRefExprModel) Reset() {
 	*x = LocalRefExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[29]
+	mi := &file_turnout_model_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2095,7 +2245,7 @@ func (x *LocalRefExprModel) String() string {
 func (*LocalRefExprModel) ProtoMessage() {}
 
 func (x *LocalRefExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[29]
+	mi := &file_turnout_model_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2108,7 +2258,7 @@ func (x *LocalRefExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalRefExprModel.ProtoReflect.Descriptor instead.
 func (*LocalRefExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{29}
+	return file_turnout_model_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *LocalRefExprModel) GetName() string {
@@ -2127,7 +2277,7 @@ type LocalLitExprModel struct {
 
 func (x *LocalLitExprModel) Reset() {
 	*x = LocalLitExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[30]
+	mi := &file_turnout_model_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2139,7 +2289,7 @@ func (x *LocalLitExprModel) String() string {
 func (*LocalLitExprModel) ProtoMessage() {}
 
 func (x *LocalLitExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[30]
+	mi := &file_turnout_model_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2152,7 +2302,7 @@ func (x *LocalLitExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalLitExprModel.ProtoReflect.Descriptor instead.
 func (*LocalLitExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{30}
+	return file_turnout_model_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *LocalLitExprModel) GetValue() *structpb.Value {
@@ -2170,7 +2320,7 @@ type LocalItExprModel struct {
 
 func (x *LocalItExprModel) Reset() {
 	*x = LocalItExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[31]
+	mi := &file_turnout_model_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2182,7 +2332,7 @@ func (x *LocalItExprModel) String() string {
 func (*LocalItExprModel) ProtoMessage() {}
 
 func (x *LocalItExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[31]
+	mi := &file_turnout_model_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2195,7 +2345,7 @@ func (x *LocalItExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalItExprModel.ProtoReflect.Descriptor instead.
 func (*LocalItExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{31}
+	return file_turnout_model_proto_rawDescGZIP(), []int{33}
 }
 
 type LocalCallExprModel struct {
@@ -2208,7 +2358,7 @@ type LocalCallExprModel struct {
 
 func (x *LocalCallExprModel) Reset() {
 	*x = LocalCallExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[32]
+	mi := &file_turnout_model_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2220,7 +2370,7 @@ func (x *LocalCallExprModel) String() string {
 func (*LocalCallExprModel) ProtoMessage() {}
 
 func (x *LocalCallExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[32]
+	mi := &file_turnout_model_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2233,7 +2383,7 @@ func (x *LocalCallExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalCallExprModel.ProtoReflect.Descriptor instead.
 func (*LocalCallExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{32}
+	return file_turnout_model_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *LocalCallExprModel) GetFn() string {
@@ -2261,7 +2411,7 @@ type LocalInfixExprModel struct {
 
 func (x *LocalInfixExprModel) Reset() {
 	*x = LocalInfixExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[33]
+	mi := &file_turnout_model_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2273,7 +2423,7 @@ func (x *LocalInfixExprModel) String() string {
 func (*LocalInfixExprModel) ProtoMessage() {}
 
 func (x *LocalInfixExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[33]
+	mi := &file_turnout_model_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2286,7 +2436,7 @@ func (x *LocalInfixExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalInfixExprModel.ProtoReflect.Descriptor instead.
 func (*LocalInfixExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{33}
+	return file_turnout_model_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *LocalInfixExprModel) GetOp() InfixOp {
@@ -2321,7 +2471,7 @@ type LocalIfExprModel struct {
 
 func (x *LocalIfExprModel) Reset() {
 	*x = LocalIfExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[34]
+	mi := &file_turnout_model_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2333,7 +2483,7 @@ func (x *LocalIfExprModel) String() string {
 func (*LocalIfExprModel) ProtoMessage() {}
 
 func (x *LocalIfExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[34]
+	mi := &file_turnout_model_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2346,7 +2496,7 @@ func (x *LocalIfExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalIfExprModel.ProtoReflect.Descriptor instead.
 func (*LocalIfExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{34}
+	return file_turnout_model_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *LocalIfExprModel) GetCond() *LocalExprModel {
@@ -2381,7 +2531,7 @@ type LocalCaseArmModel struct {
 
 func (x *LocalCaseArmModel) Reset() {
 	*x = LocalCaseArmModel{}
-	mi := &file_turnout_model_proto_msgTypes[35]
+	mi := &file_turnout_model_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2393,7 +2543,7 @@ func (x *LocalCaseArmModel) String() string {
 func (*LocalCaseArmModel) ProtoMessage() {}
 
 func (x *LocalCaseArmModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[35]
+	mi := &file_turnout_model_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2406,7 +2556,7 @@ func (x *LocalCaseArmModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalCaseArmModel.ProtoReflect.Descriptor instead.
 func (*LocalCaseArmModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{35}
+	return file_turnout_model_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *LocalCaseArmModel) GetPattern() *LocalCasePatternModel {
@@ -2440,7 +2590,7 @@ type LocalCaseExprModel struct {
 
 func (x *LocalCaseExprModel) Reset() {
 	*x = LocalCaseExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[36]
+	mi := &file_turnout_model_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2452,7 +2602,7 @@ func (x *LocalCaseExprModel) String() string {
 func (*LocalCaseExprModel) ProtoMessage() {}
 
 func (x *LocalCaseExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[36]
+	mi := &file_turnout_model_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2465,7 +2615,7 @@ func (x *LocalCaseExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalCaseExprModel.ProtoReflect.Descriptor instead.
 func (*LocalCaseExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{36}
+	return file_turnout_model_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *LocalCaseExprModel) GetSubject() *LocalExprModel {
@@ -2492,7 +2642,7 @@ type LocalPipeExprModel struct {
 
 func (x *LocalPipeExprModel) Reset() {
 	*x = LocalPipeExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[37]
+	mi := &file_turnout_model_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2504,7 +2654,7 @@ func (x *LocalPipeExprModel) String() string {
 func (*LocalPipeExprModel) ProtoMessage() {}
 
 func (x *LocalPipeExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[37]
+	mi := &file_turnout_model_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2517,7 +2667,7 @@ func (x *LocalPipeExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalPipeExprModel.ProtoReflect.Descriptor instead.
 func (*LocalPipeExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{37}
+	return file_turnout_model_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *LocalPipeExprModel) GetInitial() *LocalExprModel {
@@ -2543,7 +2693,7 @@ type LocalTupleExprModel struct {
 
 func (x *LocalTupleExprModel) Reset() {
 	*x = LocalTupleExprModel{}
-	mi := &file_turnout_model_proto_msgTypes[38]
+	mi := &file_turnout_model_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2555,7 +2705,7 @@ func (x *LocalTupleExprModel) String() string {
 func (*LocalTupleExprModel) ProtoMessage() {}
 
 func (x *LocalTupleExprModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[38]
+	mi := &file_turnout_model_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2568,7 +2718,7 @@ func (x *LocalTupleExprModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalTupleExprModel.ProtoReflect.Descriptor instead.
 func (*LocalTupleExprModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{38}
+	return file_turnout_model_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *LocalTupleExprModel) GetElems() []*LocalExprModel {
@@ -2594,7 +2744,7 @@ type LocalCasePatternModel struct {
 
 func (x *LocalCasePatternModel) Reset() {
 	*x = LocalCasePatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[39]
+	mi := &file_turnout_model_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2606,7 +2756,7 @@ func (x *LocalCasePatternModel) String() string {
 func (*LocalCasePatternModel) ProtoMessage() {}
 
 func (x *LocalCasePatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[39]
+	mi := &file_turnout_model_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2619,7 +2769,7 @@ func (x *LocalCasePatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalCasePatternModel.ProtoReflect.Descriptor instead.
 func (*LocalCasePatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{39}
+	return file_turnout_model_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *LocalCasePatternModel) GetPattern() isLocalCasePatternModel_Pattern {
@@ -2716,7 +2866,7 @@ type LocalWildcardPatternModel struct {
 
 func (x *LocalWildcardPatternModel) Reset() {
 	*x = LocalWildcardPatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[40]
+	mi := &file_turnout_model_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2728,7 +2878,7 @@ func (x *LocalWildcardPatternModel) String() string {
 func (*LocalWildcardPatternModel) ProtoMessage() {}
 
 func (x *LocalWildcardPatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[40]
+	mi := &file_turnout_model_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2741,7 +2891,7 @@ func (x *LocalWildcardPatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalWildcardPatternModel.ProtoReflect.Descriptor instead.
 func (*LocalWildcardPatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{40}
+	return file_turnout_model_proto_rawDescGZIP(), []int{42}
 }
 
 type LocalLitPatternModel struct {
@@ -2753,7 +2903,7 @@ type LocalLitPatternModel struct {
 
 func (x *LocalLitPatternModel) Reset() {
 	*x = LocalLitPatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[41]
+	mi := &file_turnout_model_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2765,7 +2915,7 @@ func (x *LocalLitPatternModel) String() string {
 func (*LocalLitPatternModel) ProtoMessage() {}
 
 func (x *LocalLitPatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[41]
+	mi := &file_turnout_model_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2778,7 +2928,7 @@ func (x *LocalLitPatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalLitPatternModel.ProtoReflect.Descriptor instead.
 func (*LocalLitPatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{41}
+	return file_turnout_model_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *LocalLitPatternModel) GetValue() *structpb.Value {
@@ -2797,7 +2947,7 @@ type LocalVarBinderPatternModel struct {
 
 func (x *LocalVarBinderPatternModel) Reset() {
 	*x = LocalVarBinderPatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[42]
+	mi := &file_turnout_model_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2809,7 +2959,7 @@ func (x *LocalVarBinderPatternModel) String() string {
 func (*LocalVarBinderPatternModel) ProtoMessage() {}
 
 func (x *LocalVarBinderPatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[42]
+	mi := &file_turnout_model_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2822,7 +2972,7 @@ func (x *LocalVarBinderPatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalVarBinderPatternModel.ProtoReflect.Descriptor instead.
 func (*LocalVarBinderPatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{42}
+	return file_turnout_model_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *LocalVarBinderPatternModel) GetName() string {
@@ -2841,7 +2991,7 @@ type LocalTuplePatternModel struct {
 
 func (x *LocalTuplePatternModel) Reset() {
 	*x = LocalTuplePatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[43]
+	mi := &file_turnout_model_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2853,7 +3003,7 @@ func (x *LocalTuplePatternModel) String() string {
 func (*LocalTuplePatternModel) ProtoMessage() {}
 
 func (x *LocalTuplePatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[43]
+	mi := &file_turnout_model_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2866,7 +3016,7 @@ func (x *LocalTuplePatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalTuplePatternModel.ProtoReflect.Descriptor instead.
 func (*LocalTuplePatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{43}
+	return file_turnout_model_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *LocalTuplePatternModel) GetElems() []*LocalCasePatternModel {
@@ -2888,7 +3038,7 @@ type LocalTemplatePatternModel struct {
 
 func (x *LocalTemplatePatternModel) Reset() {
 	*x = LocalTemplatePatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[44]
+	mi := &file_turnout_model_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2900,7 +3050,7 @@ func (x *LocalTemplatePatternModel) String() string {
 func (*LocalTemplatePatternModel) ProtoMessage() {}
 
 func (x *LocalTemplatePatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[44]
+	mi := &file_turnout_model_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2913,7 +3063,7 @@ func (x *LocalTemplatePatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalTemplatePatternModel.ProtoReflect.Descriptor instead.
 func (*LocalTemplatePatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{44}
+	return file_turnout_model_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *LocalTemplatePatternModel) GetTypeName() string {
@@ -2942,7 +3092,7 @@ type LocalTemplateFieldPatternModel struct {
 
 func (x *LocalTemplateFieldPatternModel) Reset() {
 	*x = LocalTemplateFieldPatternModel{}
-	mi := &file_turnout_model_proto_msgTypes[45]
+	mi := &file_turnout_model_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2954,7 +3104,7 @@ func (x *LocalTemplateFieldPatternModel) String() string {
 func (*LocalTemplateFieldPatternModel) ProtoMessage() {}
 
 func (x *LocalTemplateFieldPatternModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[45]
+	mi := &file_turnout_model_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2967,7 +3117,7 @@ func (x *LocalTemplateFieldPatternModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LocalTemplateFieldPatternModel.ProtoReflect.Descriptor instead.
 func (*LocalTemplateFieldPatternModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{45}
+	return file_turnout_model_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *LocalTemplateFieldPatternModel) GetName() string {
@@ -2998,7 +3148,7 @@ type TypeDeclModel struct {
 
 func (x *TypeDeclModel) Reset() {
 	*x = TypeDeclModel{}
-	mi := &file_turnout_model_proto_msgTypes[46]
+	mi := &file_turnout_model_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3010,7 +3160,7 @@ func (x *TypeDeclModel) String() string {
 func (*TypeDeclModel) ProtoMessage() {}
 
 func (x *TypeDeclModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[46]
+	mi := &file_turnout_model_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3023,7 +3173,7 @@ func (x *TypeDeclModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypeDeclModel.ProtoReflect.Descriptor instead.
 func (*TypeDeclModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{46}
+	return file_turnout_model_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *TypeDeclModel) GetName() string {
@@ -3065,7 +3215,7 @@ type TypeExpr struct {
 
 func (x *TypeExpr) Reset() {
 	*x = TypeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[47]
+	mi := &file_turnout_model_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3077,7 +3227,7 @@ func (x *TypeExpr) String() string {
 func (*TypeExpr) ProtoMessage() {}
 
 func (x *TypeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[47]
+	mi := &file_turnout_model_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3090,7 +3240,7 @@ func (x *TypeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TypeExpr.ProtoReflect.Descriptor instead.
 func (*TypeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{47}
+	return file_turnout_model_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *TypeExpr) GetType() isTypeExpr_Type {
@@ -3189,7 +3339,7 @@ type PrimitiveTypeExpr struct {
 
 func (x *PrimitiveTypeExpr) Reset() {
 	*x = PrimitiveTypeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[48]
+	mi := &file_turnout_model_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3201,7 +3351,7 @@ func (x *PrimitiveTypeExpr) String() string {
 func (*PrimitiveTypeExpr) ProtoMessage() {}
 
 func (x *PrimitiveTypeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[48]
+	mi := &file_turnout_model_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3214,7 +3364,7 @@ func (x *PrimitiveTypeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PrimitiveTypeExpr.ProtoReflect.Descriptor instead.
 func (*PrimitiveTypeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{48}
+	return file_turnout_model_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *PrimitiveTypeExpr) GetName() string {
@@ -3236,7 +3386,7 @@ type LiteralTypeExpr struct {
 
 func (x *LiteralTypeExpr) Reset() {
 	*x = LiteralTypeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[49]
+	mi := &file_turnout_model_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3248,7 +3398,7 @@ func (x *LiteralTypeExpr) String() string {
 func (*LiteralTypeExpr) ProtoMessage() {}
 
 func (x *LiteralTypeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[49]
+	mi := &file_turnout_model_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3261,7 +3411,7 @@ func (x *LiteralTypeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LiteralTypeExpr.ProtoReflect.Descriptor instead.
 func (*LiteralTypeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{49}
+	return file_turnout_model_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *LiteralTypeExpr) GetValue() *structpb.Value {
@@ -3288,7 +3438,7 @@ type UnionTypeExpr struct {
 
 func (x *UnionTypeExpr) Reset() {
 	*x = UnionTypeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[50]
+	mi := &file_turnout_model_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3300,7 +3450,7 @@ func (x *UnionTypeExpr) String() string {
 func (*UnionTypeExpr) ProtoMessage() {}
 
 func (x *UnionTypeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[50]
+	mi := &file_turnout_model_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3313,7 +3463,7 @@ func (x *UnionTypeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnionTypeExpr.ProtoReflect.Descriptor instead.
 func (*UnionTypeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{50}
+	return file_turnout_model_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *UnionTypeExpr) GetMembers() []*TypeExpr {
@@ -3333,7 +3483,7 @@ type TemplateTypeExpr struct {
 
 func (x *TemplateTypeExpr) Reset() {
 	*x = TemplateTypeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[51]
+	mi := &file_turnout_model_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3345,7 +3495,7 @@ func (x *TemplateTypeExpr) String() string {
 func (*TemplateTypeExpr) ProtoMessage() {}
 
 func (x *TemplateTypeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[51]
+	mi := &file_turnout_model_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3358,7 +3508,7 @@ func (x *TemplateTypeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplateTypeExpr.ProtoReflect.Descriptor instead.
 func (*TemplateTypeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{51}
+	return file_turnout_model_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *TemplateTypeExpr) GetSegments() []*TemplateSegmentModel {
@@ -3381,7 +3531,7 @@ type TemplateSegmentModel struct {
 
 func (x *TemplateSegmentModel) Reset() {
 	*x = TemplateSegmentModel{}
-	mi := &file_turnout_model_proto_msgTypes[52]
+	mi := &file_turnout_model_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3393,7 +3543,7 @@ func (x *TemplateSegmentModel) String() string {
 func (*TemplateSegmentModel) ProtoMessage() {}
 
 func (x *TemplateSegmentModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[52]
+	mi := &file_turnout_model_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3406,7 +3556,7 @@ func (x *TemplateSegmentModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TemplateSegmentModel.ProtoReflect.Descriptor instead.
 func (*TemplateSegmentModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{52}
+	return file_turnout_model_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *TemplateSegmentModel) GetSegment() isTemplateSegmentModel_Segment {
@@ -3460,7 +3610,7 @@ type TextSegmentModel struct {
 
 func (x *TextSegmentModel) Reset() {
 	*x = TextSegmentModel{}
-	mi := &file_turnout_model_proto_msgTypes[53]
+	mi := &file_turnout_model_proto_msgTypes[55]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3472,7 +3622,7 @@ func (x *TextSegmentModel) String() string {
 func (*TextSegmentModel) ProtoMessage() {}
 
 func (x *TextSegmentModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[53]
+	mi := &file_turnout_model_proto_msgTypes[55]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3485,7 +3635,7 @@ func (x *TextSegmentModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TextSegmentModel.ProtoReflect.Descriptor instead.
 func (*TextSegmentModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{53}
+	return file_turnout_model_proto_rawDescGZIP(), []int{55}
 }
 
 func (x *TextSegmentModel) GetValue() string {
@@ -3506,7 +3656,7 @@ type CaptureSegmentModel struct {
 
 func (x *CaptureSegmentModel) Reset() {
 	*x = CaptureSegmentModel{}
-	mi := &file_turnout_model_proto_msgTypes[54]
+	mi := &file_turnout_model_proto_msgTypes[56]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3518,7 +3668,7 @@ func (x *CaptureSegmentModel) String() string {
 func (*CaptureSegmentModel) ProtoMessage() {}
 
 func (x *CaptureSegmentModel) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[54]
+	mi := &file_turnout_model_proto_msgTypes[56]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3531,7 +3681,7 @@ func (x *CaptureSegmentModel) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CaptureSegmentModel.ProtoReflect.Descriptor instead.
 func (*CaptureSegmentModel) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{54}
+	return file_turnout_model_proto_rawDescGZIP(), []int{56}
 }
 
 func (x *CaptureSegmentModel) GetName() string {
@@ -3558,7 +3708,7 @@ type NamedTypeExpr struct {
 
 func (x *NamedTypeExpr) Reset() {
 	*x = NamedTypeExpr{}
-	mi := &file_turnout_model_proto_msgTypes[55]
+	mi := &file_turnout_model_proto_msgTypes[57]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3570,7 +3720,7 @@ func (x *NamedTypeExpr) String() string {
 func (*NamedTypeExpr) ProtoMessage() {}
 
 func (x *NamedTypeExpr) ProtoReflect() protoreflect.Message {
-	mi := &file_turnout_model_proto_msgTypes[55]
+	mi := &file_turnout_model_proto_msgTypes[57]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3583,7 +3733,7 @@ func (x *NamedTypeExpr) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NamedTypeExpr.ProtoReflect.Descriptor instead.
 func (*NamedTypeExpr) Descriptor() ([]byte, []int) {
-	return file_turnout_model_proto_rawDescGZIP(), []int{55}
+	return file_turnout_model_proto_rawDescGZIP(), []int{57}
 }
 
 func (x *NamedTypeExpr) GetName() string {
@@ -3643,13 +3793,29 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\fentry_action\x18\x02 \x01(\tR\ventryAction\x127\n" +
 	"\aactions\x18\x04 \x03(\v2\x1d.turnout.model.v1.ActionModelR\aactions\x124\n" +
 	"\x04view\x18\x05 \x01(\v2\x1b.turnout.model.v1.ViewBlockH\x00R\x04view\x88\x01\x01B\a\n" +
-	"\x05_viewJ\x04\b\x03\x10\x04R\vnext_policy\"^\n" +
+	"\x05_viewJ\x04\b\x03\x10\x04R\vnext_policy\"\x9c\x02\n" +
 	"\tViewBlock\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x12\n" +
 	"\x04flow\x18\x02 \x01(\tR\x04flow\x12\x1d\n" +
-	"\aenforce\x18\x03 \x01(\tH\x00R\aenforce\x88\x01\x01B\n" +
+	"\aenforce\x18\x03 \x01(\tH\x00R\aenforce\x88\x01\x01\x125\n" +
+	"\x05nodes\x18\x04 \x03(\v2\x1f.turnout.model.v1.FlowNodeModelR\x05nodes\x125\n" +
+	"\x05edges\x18\x05 \x03(\v2\x1f.turnout.model.v1.FlowEdgeModelR\x05edges\x12?\n" +
 	"\n" +
-	"\b_enforce\"\xb6\x02\n" +
+	"source_pos\x18\x06 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x01R\tsourcePos\x88\x01\x01B\n" +
+	"\n" +
+	"\b_enforceB\r\n" +
+	"\v_source_pos\"o\n" +
+	"\rFlowNodeModel\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12?\n" +
+	"\n" +
+	"source_pos\x18\x02 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x00R\tsourcePos\x88\x01\x01B\r\n" +
+	"\v_source_pos\"\x83\x01\n" +
+	"\rFlowEdgeModel\x12\x12\n" +
+	"\x04from\x18\x01 \x01(\tR\x04from\x12\x0e\n" +
+	"\x02to\x18\x02 \x01(\tR\x02to\x12?\n" +
+	"\n" +
+	"source_pos\x18\x03 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x00R\tsourcePos\x88\x01\x01B\r\n" +
+	"\v_source_pos\"\xb6\x02\n" +
 	"\vActionModel\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x128\n" +
 	"\acompute\x18\x02 \x01(\v2\x1e.turnout.model.v1.ComputeModelR\acompute\x128\n" +
@@ -3875,7 +4041,7 @@ func file_turnout_model_proto_rawDescGZIP() []byte {
 }
 
 var file_turnout_model_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 57)
+var file_turnout_model_proto_msgTypes = make([]protoimpl.MessageInfo, 59)
 var file_turnout_model_proto_goTypes = []any{
 	(InfixOp)(0),                           // 0: turnout.model.v1.InfixOp
 	(*TurnModel)(nil),                      // 1: turnout.model.v1.TurnModel
@@ -3887,149 +4053,156 @@ var file_turnout_model_proto_goTypes = []any{
 	(*FieldModel)(nil),                     // 7: turnout.model.v1.FieldModel
 	(*SceneBlock)(nil),                     // 8: turnout.model.v1.SceneBlock
 	(*ViewBlock)(nil),                      // 9: turnout.model.v1.ViewBlock
-	(*ActionModel)(nil),                    // 10: turnout.model.v1.ActionModel
-	(*ComputeModel)(nil),                   // 11: turnout.model.v1.ComputeModel
-	(*ProgModel)(nil),                      // 12: turnout.model.v1.ProgModel
-	(*BindingModel)(nil),                   // 13: turnout.model.v1.BindingModel
-	(*ExprModel)(nil),                      // 14: turnout.model.v1.ExprModel
-	(*CombineExpr)(nil),                    // 15: turnout.model.v1.CombineExpr
-	(*PipeExpr)(nil),                       // 16: turnout.model.v1.PipeExpr
-	(*PipeParam)(nil),                      // 17: turnout.model.v1.PipeParam
-	(*PipeStep)(nil),                       // 18: turnout.model.v1.PipeStep
-	(*CondExpr)(nil),                       // 19: turnout.model.v1.CondExpr
-	(*ArgModel)(nil),                       // 20: turnout.model.v1.ArgModel
-	(*TransformArg)(nil),                   // 21: turnout.model.v1.TransformArg
-	(*PrepareEntry)(nil),                   // 22: turnout.model.v1.PrepareEntry
-	(*MergeEntry)(nil),                     // 23: turnout.model.v1.MergeEntry
-	(*NextRuleModel)(nil),                  // 24: turnout.model.v1.NextRuleModel
-	(*NextComputeModel)(nil),               // 25: turnout.model.v1.NextComputeModel
-	(*NextPrepareEntry)(nil),               // 26: turnout.model.v1.NextPrepareEntry
-	(*RouteModel)(nil),                     // 27: turnout.model.v1.RouteModel
-	(*MatchArm)(nil),                       // 28: turnout.model.v1.MatchArm
-	(*LocalExprModel)(nil),                 // 29: turnout.model.v1.LocalExprModel
-	(*LocalRefExprModel)(nil),              // 30: turnout.model.v1.LocalRefExprModel
-	(*LocalLitExprModel)(nil),              // 31: turnout.model.v1.LocalLitExprModel
-	(*LocalItExprModel)(nil),               // 32: turnout.model.v1.LocalItExprModel
-	(*LocalCallExprModel)(nil),             // 33: turnout.model.v1.LocalCallExprModel
-	(*LocalInfixExprModel)(nil),            // 34: turnout.model.v1.LocalInfixExprModel
-	(*LocalIfExprModel)(nil),               // 35: turnout.model.v1.LocalIfExprModel
-	(*LocalCaseArmModel)(nil),              // 36: turnout.model.v1.LocalCaseArmModel
-	(*LocalCaseExprModel)(nil),             // 37: turnout.model.v1.LocalCaseExprModel
-	(*LocalPipeExprModel)(nil),             // 38: turnout.model.v1.LocalPipeExprModel
-	(*LocalTupleExprModel)(nil),            // 39: turnout.model.v1.LocalTupleExprModel
-	(*LocalCasePatternModel)(nil),          // 40: turnout.model.v1.LocalCasePatternModel
-	(*LocalWildcardPatternModel)(nil),      // 41: turnout.model.v1.LocalWildcardPatternModel
-	(*LocalLitPatternModel)(nil),           // 42: turnout.model.v1.LocalLitPatternModel
-	(*LocalVarBinderPatternModel)(nil),     // 43: turnout.model.v1.LocalVarBinderPatternModel
-	(*LocalTuplePatternModel)(nil),         // 44: turnout.model.v1.LocalTuplePatternModel
-	(*LocalTemplatePatternModel)(nil),      // 45: turnout.model.v1.LocalTemplatePatternModel
-	(*LocalTemplateFieldPatternModel)(nil), // 46: turnout.model.v1.LocalTemplateFieldPatternModel
-	(*TypeDeclModel)(nil),                  // 47: turnout.model.v1.TypeDeclModel
-	(*TypeExpr)(nil),                       // 48: turnout.model.v1.TypeExpr
-	(*PrimitiveTypeExpr)(nil),              // 49: turnout.model.v1.PrimitiveTypeExpr
-	(*LiteralTypeExpr)(nil),                // 50: turnout.model.v1.LiteralTypeExpr
-	(*UnionTypeExpr)(nil),                  // 51: turnout.model.v1.UnionTypeExpr
-	(*TemplateTypeExpr)(nil),               // 52: turnout.model.v1.TemplateTypeExpr
-	(*TemplateSegmentModel)(nil),           // 53: turnout.model.v1.TemplateSegmentModel
-	(*TextSegmentModel)(nil),               // 54: turnout.model.v1.TextSegmentModel
-	(*CaptureSegmentModel)(nil),            // 55: turnout.model.v1.CaptureSegmentModel
-	(*NamedTypeExpr)(nil),                  // 56: turnout.model.v1.NamedTypeExpr
-	nil,                                    // 57: turnout.model.v1.ProgModel.SigilsEntry
-	(*structpb.Value)(nil),                 // 58: google.protobuf.Value
+	(*FlowNodeModel)(nil),                  // 10: turnout.model.v1.FlowNodeModel
+	(*FlowEdgeModel)(nil),                  // 11: turnout.model.v1.FlowEdgeModel
+	(*ActionModel)(nil),                    // 12: turnout.model.v1.ActionModel
+	(*ComputeModel)(nil),                   // 13: turnout.model.v1.ComputeModel
+	(*ProgModel)(nil),                      // 14: turnout.model.v1.ProgModel
+	(*BindingModel)(nil),                   // 15: turnout.model.v1.BindingModel
+	(*ExprModel)(nil),                      // 16: turnout.model.v1.ExprModel
+	(*CombineExpr)(nil),                    // 17: turnout.model.v1.CombineExpr
+	(*PipeExpr)(nil),                       // 18: turnout.model.v1.PipeExpr
+	(*PipeParam)(nil),                      // 19: turnout.model.v1.PipeParam
+	(*PipeStep)(nil),                       // 20: turnout.model.v1.PipeStep
+	(*CondExpr)(nil),                       // 21: turnout.model.v1.CondExpr
+	(*ArgModel)(nil),                       // 22: turnout.model.v1.ArgModel
+	(*TransformArg)(nil),                   // 23: turnout.model.v1.TransformArg
+	(*PrepareEntry)(nil),                   // 24: turnout.model.v1.PrepareEntry
+	(*MergeEntry)(nil),                     // 25: turnout.model.v1.MergeEntry
+	(*NextRuleModel)(nil),                  // 26: turnout.model.v1.NextRuleModel
+	(*NextComputeModel)(nil),               // 27: turnout.model.v1.NextComputeModel
+	(*NextPrepareEntry)(nil),               // 28: turnout.model.v1.NextPrepareEntry
+	(*RouteModel)(nil),                     // 29: turnout.model.v1.RouteModel
+	(*MatchArm)(nil),                       // 30: turnout.model.v1.MatchArm
+	(*LocalExprModel)(nil),                 // 31: turnout.model.v1.LocalExprModel
+	(*LocalRefExprModel)(nil),              // 32: turnout.model.v1.LocalRefExprModel
+	(*LocalLitExprModel)(nil),              // 33: turnout.model.v1.LocalLitExprModel
+	(*LocalItExprModel)(nil),               // 34: turnout.model.v1.LocalItExprModel
+	(*LocalCallExprModel)(nil),             // 35: turnout.model.v1.LocalCallExprModel
+	(*LocalInfixExprModel)(nil),            // 36: turnout.model.v1.LocalInfixExprModel
+	(*LocalIfExprModel)(nil),               // 37: turnout.model.v1.LocalIfExprModel
+	(*LocalCaseArmModel)(nil),              // 38: turnout.model.v1.LocalCaseArmModel
+	(*LocalCaseExprModel)(nil),             // 39: turnout.model.v1.LocalCaseExprModel
+	(*LocalPipeExprModel)(nil),             // 40: turnout.model.v1.LocalPipeExprModel
+	(*LocalTupleExprModel)(nil),            // 41: turnout.model.v1.LocalTupleExprModel
+	(*LocalCasePatternModel)(nil),          // 42: turnout.model.v1.LocalCasePatternModel
+	(*LocalWildcardPatternModel)(nil),      // 43: turnout.model.v1.LocalWildcardPatternModel
+	(*LocalLitPatternModel)(nil),           // 44: turnout.model.v1.LocalLitPatternModel
+	(*LocalVarBinderPatternModel)(nil),     // 45: turnout.model.v1.LocalVarBinderPatternModel
+	(*LocalTuplePatternModel)(nil),         // 46: turnout.model.v1.LocalTuplePatternModel
+	(*LocalTemplatePatternModel)(nil),      // 47: turnout.model.v1.LocalTemplatePatternModel
+	(*LocalTemplateFieldPatternModel)(nil), // 48: turnout.model.v1.LocalTemplateFieldPatternModel
+	(*TypeDeclModel)(nil),                  // 49: turnout.model.v1.TypeDeclModel
+	(*TypeExpr)(nil),                       // 50: turnout.model.v1.TypeExpr
+	(*PrimitiveTypeExpr)(nil),              // 51: turnout.model.v1.PrimitiveTypeExpr
+	(*LiteralTypeExpr)(nil),                // 52: turnout.model.v1.LiteralTypeExpr
+	(*UnionTypeExpr)(nil),                  // 53: turnout.model.v1.UnionTypeExpr
+	(*TemplateTypeExpr)(nil),               // 54: turnout.model.v1.TemplateTypeExpr
+	(*TemplateSegmentModel)(nil),           // 55: turnout.model.v1.TemplateSegmentModel
+	(*TextSegmentModel)(nil),               // 56: turnout.model.v1.TextSegmentModel
+	(*CaptureSegmentModel)(nil),            // 57: turnout.model.v1.CaptureSegmentModel
+	(*NamedTypeExpr)(nil),                  // 58: turnout.model.v1.NamedTypeExpr
+	nil,                                    // 59: turnout.model.v1.ProgModel.SigilsEntry
+	(*structpb.Value)(nil),                 // 60: google.protobuf.Value
 }
 var file_turnout_model_proto_depIdxs = []int32{
 	5,  // 0: turnout.model.v1.TurnModel.state:type_name -> turnout.model.v1.StateModel
 	8,  // 1: turnout.model.v1.TurnModel.scenes:type_name -> turnout.model.v1.SceneBlock
-	27, // 2: turnout.model.v1.TurnModel.routes:type_name -> turnout.model.v1.RouteModel
+	29, // 2: turnout.model.v1.TurnModel.routes:type_name -> turnout.model.v1.RouteModel
 	2,  // 3: turnout.model.v1.TurnModel.annotations:type_name -> turnout.model.v1.SigilAnnotations
-	47, // 4: turnout.model.v1.TurnModel.type_decls:type_name -> turnout.model.v1.TypeDeclModel
+	49, // 4: turnout.model.v1.TurnModel.type_decls:type_name -> turnout.model.v1.TypeDeclModel
 	3,  // 5: turnout.model.v1.SigilAnnotations.entries:type_name -> turnout.model.v1.SigilAnnotation
 	6,  // 6: turnout.model.v1.StateModel.namespaces:type_name -> turnout.model.v1.NamespaceModel
 	7,  // 7: turnout.model.v1.NamespaceModel.fields:type_name -> turnout.model.v1.FieldModel
-	58, // 8: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
-	10, // 9: turnout.model.v1.SceneBlock.actions:type_name -> turnout.model.v1.ActionModel
+	60, // 8: turnout.model.v1.FieldModel.value:type_name -> google.protobuf.Value
+	12, // 9: turnout.model.v1.SceneBlock.actions:type_name -> turnout.model.v1.ActionModel
 	9,  // 10: turnout.model.v1.SceneBlock.view:type_name -> turnout.model.v1.ViewBlock
-	11, // 11: turnout.model.v1.ActionModel.compute:type_name -> turnout.model.v1.ComputeModel
-	22, // 12: turnout.model.v1.ActionModel.prepare:type_name -> turnout.model.v1.PrepareEntry
-	23, // 13: turnout.model.v1.ActionModel.merge:type_name -> turnout.model.v1.MergeEntry
-	24, // 14: turnout.model.v1.ActionModel.next:type_name -> turnout.model.v1.NextRuleModel
-	12, // 15: turnout.model.v1.ComputeModel.prog:type_name -> turnout.model.v1.ProgModel
-	13, // 16: turnout.model.v1.ProgModel.bindings:type_name -> turnout.model.v1.BindingModel
-	57, // 17: turnout.model.v1.ProgModel.sigils:type_name -> turnout.model.v1.ProgModel.SigilsEntry
-	58, // 18: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
-	14, // 19: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
-	29, // 20: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
-	4,  // 21: turnout.model.v1.BindingModel.source_pos:type_name -> turnout.model.v1.SourcePos
-	48, // 22: turnout.model.v1.BindingModel.declared_type:type_name -> turnout.model.v1.TypeExpr
-	15, // 23: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
-	16, // 24: turnout.model.v1.ExprModel.pipe:type_name -> turnout.model.v1.PipeExpr
-	19, // 25: turnout.model.v1.ExprModel.cond:type_name -> turnout.model.v1.CondExpr
-	20, // 26: turnout.model.v1.CombineExpr.args:type_name -> turnout.model.v1.ArgModel
-	17, // 27: turnout.model.v1.PipeExpr.params:type_name -> turnout.model.v1.PipeParam
-	18, // 28: turnout.model.v1.PipeExpr.steps:type_name -> turnout.model.v1.PipeStep
-	20, // 29: turnout.model.v1.PipeStep.args:type_name -> turnout.model.v1.ArgModel
-	20, // 30: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
-	20, // 31: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
-	20, // 32: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
-	58, // 33: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
-	21, // 34: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
-	25, // 35: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
-	26, // 36: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
-	12, // 37: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
-	58, // 38: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
-	28, // 39: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
-	30, // 40: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
-	31, // 41: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
-	32, // 42: turnout.model.v1.LocalExprModel.it:type_name -> turnout.model.v1.LocalItExprModel
-	33, // 43: turnout.model.v1.LocalExprModel.call:type_name -> turnout.model.v1.LocalCallExprModel
-	34, // 44: turnout.model.v1.LocalExprModel.infix:type_name -> turnout.model.v1.LocalInfixExprModel
-	35, // 45: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
-	37, // 46: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
-	38, // 47: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
-	39, // 48: turnout.model.v1.LocalExprModel.tuple_expr:type_name -> turnout.model.v1.LocalTupleExprModel
-	58, // 49: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
-	29, // 50: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
-	0,  // 51: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
-	29, // 52: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
-	29, // 53: turnout.model.v1.LocalInfixExprModel.rhs:type_name -> turnout.model.v1.LocalExprModel
-	29, // 54: turnout.model.v1.LocalIfExprModel.cond:type_name -> turnout.model.v1.LocalExprModel
-	29, // 55: turnout.model.v1.LocalIfExprModel.then:type_name -> turnout.model.v1.LocalExprModel
-	29, // 56: turnout.model.v1.LocalIfExprModel.else_branch:type_name -> turnout.model.v1.LocalExprModel
-	40, // 57: turnout.model.v1.LocalCaseArmModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
-	29, // 58: turnout.model.v1.LocalCaseArmModel.guard:type_name -> turnout.model.v1.LocalExprModel
-	29, // 59: turnout.model.v1.LocalCaseArmModel.expr:type_name -> turnout.model.v1.LocalExprModel
-	29, // 60: turnout.model.v1.LocalCaseExprModel.subject:type_name -> turnout.model.v1.LocalExprModel
-	36, // 61: turnout.model.v1.LocalCaseExprModel.arms:type_name -> turnout.model.v1.LocalCaseArmModel
-	29, // 62: turnout.model.v1.LocalPipeExprModel.initial:type_name -> turnout.model.v1.LocalExprModel
-	29, // 63: turnout.model.v1.LocalPipeExprModel.steps:type_name -> turnout.model.v1.LocalExprModel
-	29, // 64: turnout.model.v1.LocalTupleExprModel.elems:type_name -> turnout.model.v1.LocalExprModel
-	41, // 65: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
-	42, // 66: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
-	43, // 67: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
-	44, // 68: turnout.model.v1.LocalCasePatternModel.tuple:type_name -> turnout.model.v1.LocalTuplePatternModel
-	45, // 69: turnout.model.v1.LocalCasePatternModel.template:type_name -> turnout.model.v1.LocalTemplatePatternModel
-	58, // 70: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
-	40, // 71: turnout.model.v1.LocalTuplePatternModel.elems:type_name -> turnout.model.v1.LocalCasePatternModel
-	46, // 72: turnout.model.v1.LocalTemplatePatternModel.fields:type_name -> turnout.model.v1.LocalTemplateFieldPatternModel
-	40, // 73: turnout.model.v1.LocalTemplateFieldPatternModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
-	48, // 74: turnout.model.v1.TypeDeclModel.type:type_name -> turnout.model.v1.TypeExpr
-	4,  // 75: turnout.model.v1.TypeDeclModel.source_pos:type_name -> turnout.model.v1.SourcePos
-	49, // 76: turnout.model.v1.TypeExpr.primitive:type_name -> turnout.model.v1.PrimitiveTypeExpr
-	50, // 77: turnout.model.v1.TypeExpr.literal:type_name -> turnout.model.v1.LiteralTypeExpr
-	51, // 78: turnout.model.v1.TypeExpr.union:type_name -> turnout.model.v1.UnionTypeExpr
-	52, // 79: turnout.model.v1.TypeExpr.template:type_name -> turnout.model.v1.TemplateTypeExpr
-	56, // 80: turnout.model.v1.TypeExpr.named:type_name -> turnout.model.v1.NamedTypeExpr
-	58, // 81: turnout.model.v1.LiteralTypeExpr.value:type_name -> google.protobuf.Value
-	48, // 82: turnout.model.v1.UnionTypeExpr.members:type_name -> turnout.model.v1.TypeExpr
-	53, // 83: turnout.model.v1.TemplateTypeExpr.segments:type_name -> turnout.model.v1.TemplateSegmentModel
-	54, // 84: turnout.model.v1.TemplateSegmentModel.text:type_name -> turnout.model.v1.TextSegmentModel
-	55, // 85: turnout.model.v1.TemplateSegmentModel.capture:type_name -> turnout.model.v1.CaptureSegmentModel
-	48, // 86: turnout.model.v1.CaptureSegmentModel.type:type_name -> turnout.model.v1.TypeExpr
-	87, // [87:87] is the sub-list for method output_type
-	87, // [87:87] is the sub-list for method input_type
-	87, // [87:87] is the sub-list for extension type_name
-	87, // [87:87] is the sub-list for extension extendee
-	0,  // [0:87] is the sub-list for field type_name
+	10, // 11: turnout.model.v1.ViewBlock.nodes:type_name -> turnout.model.v1.FlowNodeModel
+	11, // 12: turnout.model.v1.ViewBlock.edges:type_name -> turnout.model.v1.FlowEdgeModel
+	4,  // 13: turnout.model.v1.ViewBlock.source_pos:type_name -> turnout.model.v1.SourcePos
+	4,  // 14: turnout.model.v1.FlowNodeModel.source_pos:type_name -> turnout.model.v1.SourcePos
+	4,  // 15: turnout.model.v1.FlowEdgeModel.source_pos:type_name -> turnout.model.v1.SourcePos
+	13, // 16: turnout.model.v1.ActionModel.compute:type_name -> turnout.model.v1.ComputeModel
+	24, // 17: turnout.model.v1.ActionModel.prepare:type_name -> turnout.model.v1.PrepareEntry
+	25, // 18: turnout.model.v1.ActionModel.merge:type_name -> turnout.model.v1.MergeEntry
+	26, // 19: turnout.model.v1.ActionModel.next:type_name -> turnout.model.v1.NextRuleModel
+	14, // 20: turnout.model.v1.ComputeModel.prog:type_name -> turnout.model.v1.ProgModel
+	15, // 21: turnout.model.v1.ProgModel.bindings:type_name -> turnout.model.v1.BindingModel
+	59, // 22: turnout.model.v1.ProgModel.sigils:type_name -> turnout.model.v1.ProgModel.SigilsEntry
+	60, // 23: turnout.model.v1.BindingModel.value:type_name -> google.protobuf.Value
+	16, // 24: turnout.model.v1.BindingModel.expr:type_name -> turnout.model.v1.ExprModel
+	31, // 25: turnout.model.v1.BindingModel.ext_expr:type_name -> turnout.model.v1.LocalExprModel
+	4,  // 26: turnout.model.v1.BindingModel.source_pos:type_name -> turnout.model.v1.SourcePos
+	50, // 27: turnout.model.v1.BindingModel.declared_type:type_name -> turnout.model.v1.TypeExpr
+	17, // 28: turnout.model.v1.ExprModel.combine:type_name -> turnout.model.v1.CombineExpr
+	18, // 29: turnout.model.v1.ExprModel.pipe:type_name -> turnout.model.v1.PipeExpr
+	21, // 30: turnout.model.v1.ExprModel.cond:type_name -> turnout.model.v1.CondExpr
+	22, // 31: turnout.model.v1.CombineExpr.args:type_name -> turnout.model.v1.ArgModel
+	19, // 32: turnout.model.v1.PipeExpr.params:type_name -> turnout.model.v1.PipeParam
+	20, // 33: turnout.model.v1.PipeExpr.steps:type_name -> turnout.model.v1.PipeStep
+	22, // 34: turnout.model.v1.PipeStep.args:type_name -> turnout.model.v1.ArgModel
+	22, // 35: turnout.model.v1.CondExpr.condition:type_name -> turnout.model.v1.ArgModel
+	22, // 36: turnout.model.v1.CondExpr.then:type_name -> turnout.model.v1.ArgModel
+	22, // 37: turnout.model.v1.CondExpr.else_branch:type_name -> turnout.model.v1.ArgModel
+	60, // 38: turnout.model.v1.ArgModel.lit:type_name -> google.protobuf.Value
+	23, // 39: turnout.model.v1.ArgModel.transform:type_name -> turnout.model.v1.TransformArg
+	27, // 40: turnout.model.v1.NextRuleModel.compute:type_name -> turnout.model.v1.NextComputeModel
+	28, // 41: turnout.model.v1.NextRuleModel.prepare:type_name -> turnout.model.v1.NextPrepareEntry
+	14, // 42: turnout.model.v1.NextComputeModel.prog:type_name -> turnout.model.v1.ProgModel
+	60, // 43: turnout.model.v1.NextPrepareEntry.from_literal:type_name -> google.protobuf.Value
+	30, // 44: turnout.model.v1.RouteModel.match:type_name -> turnout.model.v1.MatchArm
+	32, // 45: turnout.model.v1.LocalExprModel.ref:type_name -> turnout.model.v1.LocalRefExprModel
+	33, // 46: turnout.model.v1.LocalExprModel.lit:type_name -> turnout.model.v1.LocalLitExprModel
+	34, // 47: turnout.model.v1.LocalExprModel.it:type_name -> turnout.model.v1.LocalItExprModel
+	35, // 48: turnout.model.v1.LocalExprModel.call:type_name -> turnout.model.v1.LocalCallExprModel
+	36, // 49: turnout.model.v1.LocalExprModel.infix:type_name -> turnout.model.v1.LocalInfixExprModel
+	37, // 50: turnout.model.v1.LocalExprModel.if_expr:type_name -> turnout.model.v1.LocalIfExprModel
+	39, // 51: turnout.model.v1.LocalExprModel.case_expr:type_name -> turnout.model.v1.LocalCaseExprModel
+	40, // 52: turnout.model.v1.LocalExprModel.pipe_expr:type_name -> turnout.model.v1.LocalPipeExprModel
+	41, // 53: turnout.model.v1.LocalExprModel.tuple_expr:type_name -> turnout.model.v1.LocalTupleExprModel
+	60, // 54: turnout.model.v1.LocalLitExprModel.value:type_name -> google.protobuf.Value
+	31, // 55: turnout.model.v1.LocalCallExprModel.args:type_name -> turnout.model.v1.LocalExprModel
+	0,  // 56: turnout.model.v1.LocalInfixExprModel.op:type_name -> turnout.model.v1.InfixOp
+	31, // 57: turnout.model.v1.LocalInfixExprModel.lhs:type_name -> turnout.model.v1.LocalExprModel
+	31, // 58: turnout.model.v1.LocalInfixExprModel.rhs:type_name -> turnout.model.v1.LocalExprModel
+	31, // 59: turnout.model.v1.LocalIfExprModel.cond:type_name -> turnout.model.v1.LocalExprModel
+	31, // 60: turnout.model.v1.LocalIfExprModel.then:type_name -> turnout.model.v1.LocalExprModel
+	31, // 61: turnout.model.v1.LocalIfExprModel.else_branch:type_name -> turnout.model.v1.LocalExprModel
+	42, // 62: turnout.model.v1.LocalCaseArmModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
+	31, // 63: turnout.model.v1.LocalCaseArmModel.guard:type_name -> turnout.model.v1.LocalExprModel
+	31, // 64: turnout.model.v1.LocalCaseArmModel.expr:type_name -> turnout.model.v1.LocalExprModel
+	31, // 65: turnout.model.v1.LocalCaseExprModel.subject:type_name -> turnout.model.v1.LocalExprModel
+	38, // 66: turnout.model.v1.LocalCaseExprModel.arms:type_name -> turnout.model.v1.LocalCaseArmModel
+	31, // 67: turnout.model.v1.LocalPipeExprModel.initial:type_name -> turnout.model.v1.LocalExprModel
+	31, // 68: turnout.model.v1.LocalPipeExprModel.steps:type_name -> turnout.model.v1.LocalExprModel
+	31, // 69: turnout.model.v1.LocalTupleExprModel.elems:type_name -> turnout.model.v1.LocalExprModel
+	43, // 70: turnout.model.v1.LocalCasePatternModel.wildcard:type_name -> turnout.model.v1.LocalWildcardPatternModel
+	44, // 71: turnout.model.v1.LocalCasePatternModel.lit:type_name -> turnout.model.v1.LocalLitPatternModel
+	45, // 72: turnout.model.v1.LocalCasePatternModel.var_binder:type_name -> turnout.model.v1.LocalVarBinderPatternModel
+	46, // 73: turnout.model.v1.LocalCasePatternModel.tuple:type_name -> turnout.model.v1.LocalTuplePatternModel
+	47, // 74: turnout.model.v1.LocalCasePatternModel.template:type_name -> turnout.model.v1.LocalTemplatePatternModel
+	60, // 75: turnout.model.v1.LocalLitPatternModel.value:type_name -> google.protobuf.Value
+	42, // 76: turnout.model.v1.LocalTuplePatternModel.elems:type_name -> turnout.model.v1.LocalCasePatternModel
+	48, // 77: turnout.model.v1.LocalTemplatePatternModel.fields:type_name -> turnout.model.v1.LocalTemplateFieldPatternModel
+	42, // 78: turnout.model.v1.LocalTemplateFieldPatternModel.pattern:type_name -> turnout.model.v1.LocalCasePatternModel
+	50, // 79: turnout.model.v1.TypeDeclModel.type:type_name -> turnout.model.v1.TypeExpr
+	4,  // 80: turnout.model.v1.TypeDeclModel.source_pos:type_name -> turnout.model.v1.SourcePos
+	51, // 81: turnout.model.v1.TypeExpr.primitive:type_name -> turnout.model.v1.PrimitiveTypeExpr
+	52, // 82: turnout.model.v1.TypeExpr.literal:type_name -> turnout.model.v1.LiteralTypeExpr
+	53, // 83: turnout.model.v1.TypeExpr.union:type_name -> turnout.model.v1.UnionTypeExpr
+	54, // 84: turnout.model.v1.TypeExpr.template:type_name -> turnout.model.v1.TemplateTypeExpr
+	58, // 85: turnout.model.v1.TypeExpr.named:type_name -> turnout.model.v1.NamedTypeExpr
+	60, // 86: turnout.model.v1.LiteralTypeExpr.value:type_name -> google.protobuf.Value
+	50, // 87: turnout.model.v1.UnionTypeExpr.members:type_name -> turnout.model.v1.TypeExpr
+	55, // 88: turnout.model.v1.TemplateTypeExpr.segments:type_name -> turnout.model.v1.TemplateSegmentModel
+	56, // 89: turnout.model.v1.TemplateSegmentModel.text:type_name -> turnout.model.v1.TextSegmentModel
+	57, // 90: turnout.model.v1.TemplateSegmentModel.capture:type_name -> turnout.model.v1.CaptureSegmentModel
+	50, // 91: turnout.model.v1.CaptureSegmentModel.type:type_name -> turnout.model.v1.TypeExpr
+	92, // [92:92] is the sub-list for method output_type
+	92, // [92:92] is the sub-list for method input_type
+	92, // [92:92] is the sub-list for extension type_name
+	92, // [92:92] is the sub-list for extension extendee
+	0,  // [0:92] is the sub-list for field type_name
 }
 
 func init() { file_turnout_model_proto_init() }
@@ -4041,12 +4214,14 @@ func file_turnout_model_proto_init() {
 	file_turnout_model_proto_msgTypes[7].OneofWrappers = []any{}
 	file_turnout_model_proto_msgTypes[8].OneofWrappers = []any{}
 	file_turnout_model_proto_msgTypes[9].OneofWrappers = []any{}
-	file_turnout_model_proto_msgTypes[12].OneofWrappers = []any{}
-	file_turnout_model_proto_msgTypes[19].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[10].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[11].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[14].OneofWrappers = []any{}
 	file_turnout_model_proto_msgTypes[21].OneofWrappers = []any{}
-	file_turnout_model_proto_msgTypes[25].OneofWrappers = []any{}
-	file_turnout_model_proto_msgTypes[26].OneofWrappers = []any{}
-	file_turnout_model_proto_msgTypes[28].OneofWrappers = []any{
+	file_turnout_model_proto_msgTypes[23].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[27].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[28].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[30].OneofWrappers = []any{
 		(*LocalExprModel_Ref)(nil),
 		(*LocalExprModel_Lit)(nil),
 		(*LocalExprModel_It)(nil),
@@ -4057,22 +4232,22 @@ func file_turnout_model_proto_init() {
 		(*LocalExprModel_PipeExpr)(nil),
 		(*LocalExprModel_TupleExpr)(nil),
 	}
-	file_turnout_model_proto_msgTypes[39].OneofWrappers = []any{
+	file_turnout_model_proto_msgTypes[41].OneofWrappers = []any{
 		(*LocalCasePatternModel_Wildcard)(nil),
 		(*LocalCasePatternModel_Lit)(nil),
 		(*LocalCasePatternModel_VarBinder)(nil),
 		(*LocalCasePatternModel_Tuple)(nil),
 		(*LocalCasePatternModel_Template)(nil),
 	}
-	file_turnout_model_proto_msgTypes[46].OneofWrappers = []any{}
-	file_turnout_model_proto_msgTypes[47].OneofWrappers = []any{
+	file_turnout_model_proto_msgTypes[48].OneofWrappers = []any{}
+	file_turnout_model_proto_msgTypes[49].OneofWrappers = []any{
 		(*TypeExpr_Primitive)(nil),
 		(*TypeExpr_Literal)(nil),
 		(*TypeExpr_Union)(nil),
 		(*TypeExpr_Template)(nil),
 		(*TypeExpr_Named)(nil),
 	}
-	file_turnout_model_proto_msgTypes[52].OneofWrappers = []any{
+	file_turnout_model_proto_msgTypes[54].OneofWrappers = []any{
 		(*TemplateSegmentModel_Text)(nil),
 		(*TemplateSegmentModel_Capture)(nil),
 	}
@@ -4082,7 +4257,7 @@ func file_turnout_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_turnout_model_proto_rawDesc), len(file_turnout_model_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   57,
+			NumMessages:   59,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

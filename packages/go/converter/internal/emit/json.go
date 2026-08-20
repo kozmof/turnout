@@ -56,6 +56,8 @@ func EmitJSON(w io.Writer, tm *turnoutpb.TurnModel) diag.Diagnostics {
 //   - Annotations: validator-only metadata, never consumed by the runtime
 //   - Per-binding ExtExpr: HCL re-emission form; the runtime uses Expr
 //   - Per-binding SourcePos: file/line/col for diagnostics; unused at runtime
+//   - Per-view Nodes/Edges/SourcePos: overview graph positions used only by the
+//     validator; ViewBlock.flow still carries the graph for round-tripping
 //   - Per-prog Sigils: ingress/egress direction annotations resolved into
 //     prepare/merge entries during compilation; the runtime reads those instead
 func stripNonRuntimeFields(tm *turnoutpb.TurnModel) *turnoutpb.TurnModel {
@@ -65,6 +67,7 @@ func stripNonRuntimeFields(tm *turnoutpb.TurnModel) *turnoutpb.TurnModel {
 		td.SourcePos = nil
 	}
 	for _, scene := range clone.Scenes {
+		stripViewNonRuntimeFields(scene.GetView())
 		for _, action := range scene.Actions {
 			stripProgNonRuntimeFields(action.GetCompute().GetProg())
 			for _, nr := range action.Next {
@@ -73,6 +76,20 @@ func stripNonRuntimeFields(tm *turnoutpb.TurnModel) *turnoutpb.TurnModel {
 		}
 	}
 	return clone
+}
+
+// stripViewNonRuntimeFields removes the structured overview graph. It exists
+// purely so the validator can anchor overview diagnostics at a source position;
+// the runtime ignores the view block entirely, and ViewBlock.flow still carries
+// the same graph for round-tripping. Dropping it keeps emitted JSON unchanged by
+// the addition of nodes/edges.
+func stripViewNonRuntimeFields(view *turnoutpb.ViewBlock) {
+	if view == nil {
+		return
+	}
+	view.Nodes = nil
+	view.Edges = nil
+	view.SourcePos = nil
 }
 
 func stripProgNonRuntimeFields(prog *turnoutpb.ProgModel) {

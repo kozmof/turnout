@@ -297,8 +297,11 @@ func lowerSceneBlock(scene *ast.SceneBlock, schema state.Schema, ds *diag.DiagSi
 	}
 	if scene.View != nil {
 		vb := &turnoutpb.ViewBlock{
-			Name: scene.View.Name,
-			Flow: flowText(scene.View),
+			Name:      scene.View.Name,
+			Flow:      flowText(scene.View),
+			Nodes:     lowerFlowNodes(scene.View.Nodes),
+			Edges:     lowerFlowEdges(scene.View.Edges),
+			SourcePos: astPosToProto(scene.View.Pos),
 		}
 		if scene.View.Enforce != "" {
 			vb.Enforce = proto.String(scene.View.Enforce)
@@ -612,11 +615,11 @@ func lowerBinding(decl *ast.BindingDecl, resolver prepareResolver, pm *turnoutpb
 	return bindings
 }
 
-// flowText renders an overview block back to the canonical flow text the proto
-// carries. The overview block is parsed structurally as of v2 (NEW_SYNTAX.md
-// 2.2), but ViewBlock.flow remains a string in the model, so the edges are
-// serialized one per line. The TypeScript runtime ignores this field entirely;
-// it exists for model fidelity and round-tripping.
+// flowText renders an overview block back to the canonical flow text carried by
+// ViewBlock.flow, which exists so the HCL emitter can round-trip the block as a
+// heredoc. It is deliberately lossy: positions do not survive it, which is why
+// the validator reads ViewBlock.nodes / .edges instead and treats flow as the
+// fallback for models that carry no structured graph.
 //
 // Nodes with no outgoing edge are emitted as bare node lines so that
 // `enforce = "nodes_only"` still sees them.
@@ -631,12 +634,37 @@ func flowText(v *ast.ViewBlock) string {
 		b.WriteByte('\n')
 	}
 	for _, n := range v.Nodes {
-		if !sources[n] {
-			b.WriteString(n)
+		if !sources[n.Name] {
+			b.WriteString(n.Name)
 			b.WriteByte('\n')
 		}
 	}
 	return b.String()
+}
+
+// lowerFlowNodes and lowerFlowEdges carry the overview graph into the model with
+// each element's source position attached, so overview diagnostics raised during
+// validation can name a file:line:col rather than only the scene.
+func lowerFlowNodes(nodes []ast.FlowNode) []*turnoutpb.FlowNodeModel {
+	if len(nodes) == 0 {
+		return nil
+	}
+	out := make([]*turnoutpb.FlowNodeModel, 0, len(nodes))
+	for _, n := range nodes {
+		out = append(out, &turnoutpb.FlowNodeModel{Id: n.Name, SourcePos: astPosToProto(n.Pos)})
+	}
+	return out
+}
+
+func lowerFlowEdges(edges []ast.FlowEdge) []*turnoutpb.FlowEdgeModel {
+	if len(edges) == 0 {
+		return nil
+	}
+	out := make([]*turnoutpb.FlowEdgeModel, 0, len(edges))
+	for _, e := range edges {
+		out = append(out, &turnoutpb.FlowEdgeModel{From: e.From, To: e.To, SourcePos: astPosToProto(e.Pos)})
+	}
+	return out
 }
 
 // lowerLocalRHS delegates IfCallRHS / CaseCallRHS / PipeCallRHS to the

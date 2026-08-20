@@ -150,6 +150,7 @@ func buildBindingScope(prog *turnoutpb.ProgModel, types *typeRegistry, ds *diag.
 			fieldType:        ft,
 			kind:             bindingKindFor(b),
 			sigil:            sigil,
+			pos:              b.SourcePos,
 			declaredType:     declared,
 			declaredTypeName: declaredName,
 		}

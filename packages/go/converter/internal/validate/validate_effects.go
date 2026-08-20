@@ -11,6 +11,20 @@ import (
 // Group C — Effect DSL / sigil validation
 // ─────────────────────────────────────────────────────────────────────────────
 
+// errAtBinding builds an error anchored at a binding's source position, falling
+// back to a position-less diagnostic when the model carries none.
+//
+// Prepare and merge entries are hoisted out of the compute block during
+// lowering, so by the time they are validated they name a binding without
+// pointing at one. The binding's own position, carried on bindingInfo, is what
+// lets these errors name the line the author actually wrote.
+func errAtBinding(info bindingInfo, code diag.ErrorCode, format string, args ...any) diag.Diagnostic {
+	if p := info.pos; p != nil {
+		return diag.ErrorAt(p.File, int(p.Line), int(p.Col), code, format, args...)
+	}
+	return diag.Errorf(code, format, args...)
+}
+
 // validateActionEffects checks the prepare and merge entries hoisted from the
 // action's inline IO clauses. Every entry was generated from one binding of this
 // action's compute block, so what is left to check is the STATE side: the paths
@@ -26,16 +40,16 @@ func validateActionEffects(a *turnoutpb.ActionModel, scope map[string]bindingInf
 		srcInfo, inScope := scope[e.Binding]
 
 		if e.ToState == "" {
-			ds.Append(diag.Errorf(diag.CodeMissingStatePath,
+			ds.Append(errAtBinding(srcInfo, diag.CodeMissingStatePath,
 				"action %q: merge entry for binding %q has no to_state path", a.Id, e.Binding))
 		} else if !isValidStatePath(e.ToState) {
-			ds.Append(diag.Errorf(diag.CodeInvalidStatePath,
+			ds.Append(errAtBinding(srcInfo, diag.CodeInvalidStatePath,
 				"action %q: to_state %q is not a valid dotted path", a.Id, e.ToState))
 		} else if meta, ok := schema.Get(e.ToState); !ok {
-			ds.Append(diag.Errorf(diag.CodeUnresolvedStatePath,
+			ds.Append(errAtBinding(srcInfo, diag.CodeUnresolvedStatePath,
 				"action %q: to_state %q is not declared in the state schema", a.Id, e.ToState))
 		} else if inScope && srcInfo.fieldType != meta.Type {
-			ds.Append(diag.Errorf(diag.CodeStateTypeMismatch,
+			ds.Append(errAtBinding(srcInfo, diag.CodeStateTypeMismatch,
 				"action %q: merge binding %q has type %s but STATE field %q has type %s",
 				a.Id, e.Binding, srcInfo.fieldType, e.ToState, meta.Type))
 		}
@@ -66,7 +80,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 		if e.FromAction != nil {
 			srcName := *e.FromAction
 			if _, ok := actionScope[srcName]; !ok {
-				ds.Append(diag.Errorf(diag.CodeNextPrepareFromActionUnknown,
+				ds.Append(errAtBinding(actionScope[srcName], diag.CodeNextPrepareFromActionUnknown,
 					"action %q: next prepare binding %q references from_action %q which does not exist in this action's compute prog",
 					ctx.actionID, e.Binding, srcName))
 			}
@@ -85,7 +99,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 			ds.Append(diag.Errorf(diag.CodeNextComputeNotBool,
 				"next rule condition %q is not defined in the transition compute block", cond))
 		} else if info.fieldType != ast.FieldTypeBool {
-			ds.Append(diag.Errorf(diag.CodeNextComputeNotBool,
+			ds.Append(errAtBinding(info, diag.CodeNextComputeNotBool,
 				"next rule condition %q has type %s; bool required", cond, info.fieldType))
 		}
 	}
@@ -99,7 +113,7 @@ func validateNextRule(nr *turnoutpb.NextRuleModel, ctx progValidateCtx, actionSc
 		srcInfo, srcOK := actionScope[srcName]
 		dstInfo, dstOK := nextScope[e.Binding]
 		if srcOK && dstOK && srcInfo.fieldType != dstInfo.fieldType {
-			ds.Append(diag.Errorf(diag.CodeNextPrepareFromActionTypeMismatch,
+			ds.Append(errAtBinding(dstInfo, diag.CodeNextPrepareFromActionTypeMismatch,
 				"action %q: next prepare binding %q (type %s) does not match from_action %q (type %s)",
 				ctx.actionID, e.Binding, dstInfo.fieldType, srcName, srcInfo.fieldType))
 		}

@@ -1,6 +1,8 @@
 package validate
 
 import (
+	"strings"
+
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 	"github.com/kozmof/turnout/packages/go/converter/internal/overview"
@@ -130,7 +132,7 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 	}
 
 	preParseCount := ds.Len()
-	g, ok := overview.Parse(v.Flow, scene.Id, ds)
+	g, ok := overviewGraph(v, scene.Id, ds)
 	if !ok || ds.Len() > preParseCount {
 		return
 	}
@@ -147,4 +149,53 @@ func validateOverview(scene *turnoutpb.SceneBlock, actionIndex map[string]*turno
 	}
 
 	overview.Enforce(g, actionIDs, implEdges, enforce, scene.Id, ds)
+}
+
+// overviewGraph builds the overview graph for v, preferring the structured
+// nodes/edges the lowerer populates because those carry source positions. It
+// falls back to re-parsing the flow string only for models that have no
+// structured graph — a hand-written model, or one produced before ViewBlock
+// carried one. The fallback yields the same graph with no positions attached.
+func overviewGraph(v *turnoutpb.ViewBlock, sceneID string, ds *diag.DiagSink) (overview.Graph, bool) {
+	if len(v.Nodes) == 0 && len(v.Edges) == 0 {
+		if strings.TrimSpace(v.Flow) != "" {
+			return overview.Parse(v.Flow, sceneID, ds)
+		}
+		// No structured graph and no flow text: the block declared nothing.
+		d := diag.Errorf(diag.CodeOverviewFlowEmpty, "scene %q: flow is empty or whitespace-only", sceneID)
+		if p := v.GetSourcePos(); p != nil {
+			d = diag.ErrorAt(p.File, int(p.Line), int(p.Col), diag.CodeOverviewFlowEmpty,
+				"scene %q: flow is empty or whitespace-only", sceneID)
+		}
+		d.Stage = "overview_parse"
+		ds.Append(d)
+		return overview.Graph{}, false
+	}
+
+	g := overview.Graph{
+		Pos:     protoPosToOverview(v.GetSourcePos()),
+		Nodes:   make([]overview.Node, 0, len(v.Nodes)),
+		Edges:   make([]overview.Edge, 0, len(v.Edges)),
+		EdgePos: make(map[overview.Edge]overview.Pos, len(v.Edges)),
+	}
+	for _, n := range v.Nodes {
+		g.Nodes = append(g.Nodes, overview.Node{ID: n.Id, Pos: protoPosToOverview(n.GetSourcePos())})
+	}
+	for _, e := range v.Edges {
+		edge := overview.Edge{From: e.From, To: e.To}
+		g.Edges = append(g.Edges, edge)
+		// Duplicate edges are already collapsed by the parser; if one somehow
+		// survives, the first position wins so the report points at the earliest.
+		if _, seen := g.EdgePos[edge]; !seen {
+			g.EdgePos[edge] = protoPosToOverview(e.GetSourcePos())
+		}
+	}
+	return g, true
+}
+
+func protoPosToOverview(p *turnoutpb.SourcePos) overview.Pos {
+	if p == nil {
+		return overview.Pos{}
+	}
+	return overview.Pos{File: p.File, Line: int(p.Line), Col: int(p.Col)}
 }

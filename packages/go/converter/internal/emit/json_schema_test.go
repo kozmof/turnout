@@ -107,3 +107,82 @@ func TestEmitJSONNilModelProducesValidJSON(t *testing.T) {
 		t.Errorf("expected 0 scenes, got %d", len(tm.Scenes))
 	}
 }
+
+// TestEmitJSONStripsOverviewGraph pins that the structured overview graph stays
+// out of the runtime JSON. Nodes and edges exist only so the validator can put a
+// file:line:col on overview diagnostics; the runtime ignores the view block, and
+// ViewBlock.flow still carries the same graph for round-tripping. Emitting them
+// would leak compiler-internal source paths into the model and, for consumers
+// parsing strictly, look like schema drift.
+func TestEmitJSONStripsOverviewGraph(t *testing.T) {
+	const src = `state {
+  app {
+    n:number = 0
+  }
+}
+
+scene "s" {
+  entry_action = a
+
+  overview at_least {
+    a |-> b
+  }
+
+  action "a" {
+    compute "ca" { r:bool := true }
+    next { action = b }
+  }
+
+  action "b" {
+    compute "cb" { r:bool := true }
+  }
+}
+`
+	tf, ds := parser.ParseFile("strip.tu", src)
+	if ds.HasErrors() {
+		t.Fatalf("parse: %v", ds)
+	}
+	lr, ds2 := lower.LowerResolvingState(tf, "")
+	if ds2.HasErrors() {
+		t.Fatalf("lower: %v", ds2)
+	}
+
+	// The lowerer must populate the graph — otherwise this test would pass for
+	// the wrong reason.
+	view := lr.Model.Scenes[0].GetView()
+	if len(view.GetNodes()) == 0 || len(view.GetEdges()) == 0 {
+		t.Fatalf("lowerer produced no structured overview graph: %v", view)
+	}
+	if view.GetSourcePos() == nil {
+		t.Fatal("lowerer produced no overview block position")
+	}
+
+	var buf bytes.Buffer
+	if ds3 := EmitJSON(&buf, lr.Model); ds3.HasErrors() {
+		t.Fatalf("emit: %v", ds3)
+	}
+
+	var got turnoutpb.TurnModel
+	if err := protojson.Unmarshal(buf.Bytes(), &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	emitted := got.Scenes[0].GetView()
+	if len(emitted.GetNodes()) != 0 {
+		t.Errorf("view.nodes leaked into JSON: %v", emitted.GetNodes())
+	}
+	if len(emitted.GetEdges()) != 0 {
+		t.Errorf("view.edges leaked into JSON: %v", emitted.GetEdges())
+	}
+	if emitted.GetSourcePos() != nil {
+		t.Errorf("view.source_pos leaked into JSON: %v", emitted.GetSourcePos())
+	}
+	// flow still carries the graph, so nothing was actually lost.
+	if emitted.GetFlow() == "" {
+		t.Error("view.flow must survive; it is the runtime-visible rendering")
+	}
+
+	// Stripping must not mutate the caller's model.
+	if len(view.GetNodes()) == 0 {
+		t.Error("EmitJSON mutated the input model's view block")
+	}
+}

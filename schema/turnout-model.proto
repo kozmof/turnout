@@ -101,8 +101,36 @@ message SceneBlock {
 // name must be "overview". enforce is one of: "nodes_only" | "at_least" | "strict".
 message ViewBlock {
   string name = 1;
+  // flow is the canonical flow text, kept for HCL round-tripping. It is a lossy
+  // rendering of nodes/edges: it carries no source positions. Prefer nodes and
+  // edges below when they are populated; flow is the fallback for models that
+  // predate them (or were hand-written).
   string flow = 2;
   optional string enforce = 3;
+  // nodes and edges are the structured overview graph, each element carrying the
+  // source position of the token it was parsed from so that overview diagnostics
+  // can point at a file:line:col. Populated by the lowerer and consumed by the
+  // validator. Cleared before JSON emission; the runtime ignores the view block.
+  repeated FlowNodeModel nodes = 4;
+  repeated FlowEdgeModel edges = 5;
+  // source_pos is the position of the `overview` keyword. It anchors the
+  // diagnostics that report something missing *from* the block, which have no
+  // token of their own to point at.
+  optional SourcePos source_pos = 6;
+}
+
+// FlowNodeModel is a single action name declared in an overview block.
+message FlowNodeModel {
+  string id = 1;
+  optional SourcePos source_pos = 2;
+}
+
+// FlowEdgeModel is a single `from |-> to` edge declared in an overview block.
+// source_pos is the position of the `|->` token.
+message FlowEdgeModel {
+  string from = 1;
+  string to = 2;
+  optional SourcePos source_pos = 3;
 }
 
 message ActionModel {

@@ -4,24 +4,68 @@
 package overview
 
 import (
+	"sort"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 )
 
-// Edge represents a directed action-to-action transition declared in a flow string.
+// Pos is the source location of a flow element. The zero value means "no
+// position available", which is the case for graphs recovered from a flow string
+// rather than from the structured model. It mirrors ast.Pos without importing
+// the AST, keeping this package independent of both the AST and the proto model.
+type Pos struct {
+	File string
+	Line int
+	Col  int
+}
+
+// Known reports whether p carries a usable source location.
+func (p Pos) Known() bool { return p.File != "" && p.Line > 0 }
+
+// Edge represents a directed action-to-action transition declared in a flow
+// string. It deliberately carries no position so that it stays comparable and
+// can be used as a map key when diffing declared edges against implemented
+// ones; positions live in Graph.EdgePos.
 type Edge struct{ From, To string }
 
-// Graph is the result of parsing a flow string: a set of node names and edges.
+// Node is a single action name declared in an overview block, with the position
+// of the name token when one is available.
+type Node struct {
+	ID  string
+	Pos Pos
+}
+
+// Graph is an overview block's declared structure: its node names and edges.
+//
+// Pos is the position of the `overview` keyword and anchors diagnostics that
+// report something missing from the block. EdgePos maps each edge to the
+// position of its `|->` token; reads of an absent edge yield the zero Pos, so a
+// nil map is safe and simply means "no positions known".
 type Graph struct {
-	Nodes []string
-	Edges []Edge
+	Nodes   []Node
+	Edges   []Edge
+	Pos     Pos
+	EdgePos map[Edge]Pos
+}
+
+// NodeIDs returns the node names in declaration order.
+func (g Graph) NodeIDs() []string {
+	ids := make([]string, 0, len(g.Nodes))
+	for _, n := range g.Nodes {
+		ids = append(ids, n.ID)
+	}
+	return ids
 }
 
 // Parse parses the flow DSL text for the named scene and appends any diagnostics
 // to ds. Returns the parsed Graph (empty on parse failure). sceneID is used only
 // for error messages. Returns ok=false if parsing failed.
+//
+// The flow string carries no positions, so the returned Graph has none either.
+// This is the fallback path for models with no structured nodes/edges; prefer
+// building a Graph from those when they are present.
 func Parse(flow, sceneID string, ds *diag.DiagSink) (Graph, bool) {
 	var localDs diag.Diagnostics
 	nodes, edges, ok := parseFlow(flow, sceneID, &localDs)
@@ -29,7 +73,11 @@ func Parse(flow, sceneID string, ds *diag.DiagSink) (Graph, bool) {
 	if !ok {
 		return Graph{}, false
 	}
-	return Graph{Nodes: nodes, Edges: edges}, true
+	g := Graph{Edges: edges}
+	for _, n := range nodes {
+		g.Nodes = append(g.Nodes, Node{ID: n})
+	}
+	return g, true
 }
 
 // Enforce checks the Graph against the scene's actual action IDs and transition
@@ -45,9 +93,9 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 	// (g.Nodes). Edge-target-only names are not in overview_nodes and are not subject
 	// to this check; missing edge targets are caught by SCN_OVERVIEW_MISSING_EDGE.
 	for _, node := range g.Nodes {
-		if !actionSet[node] {
-			ds.Append(enforceErr(diag.CodeOverviewUnknownNode,
-				"scene %q: flow references unknown action %q", sceneID, node))
+		if !actionSet[node.ID] {
+			ds.Append(enforceErrAt(node.Pos, diag.CodeOverviewUnknownNode,
+				"scene %q: flow references unknown action %q", sceneID, node.ID))
 		}
 	}
 
@@ -57,7 +105,7 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 
 	for _, e := range g.Edges {
 		if !implEdges[e] {
-			ds.Append(enforceErr(diag.CodeOverviewMissingEdge,
+			ds.Append(enforceErrAt(g.EdgePos[e], diag.CodeOverviewMissingEdge,
 				"scene %q: flow declares edge %s |-> %s but no such next rule exists", sceneID, e.From, e.To))
 		}
 	}
@@ -65,27 +113,48 @@ func Enforce(g Graph, actionIDs []string, implEdges map[Edge]bool, mode, sceneID
 	if mode == "strict" {
 		flowNodeSet := make(map[string]bool, len(g.Nodes))
 		for _, n := range g.Nodes {
-			flowNodeSet[n] = true
+			flowNodeSet[n.ID] = true
 		}
 		flowEdgeSet := make(map[Edge]bool, len(g.Edges))
 		for _, e := range g.Edges {
 			flowEdgeSet[e] = true
 		}
 
+		// Both loops report something absent from the overview block, so there is
+		// no token of their own to point at; they anchor on the block itself,
+		// which is where the author has to add the missing line.
 		for _, id := range actionIDs {
 			if !flowNodeSet[id] {
-				ds.Append(enforceErr(diag.CodeOverviewExtraNode,
+				ds.Append(enforceErrAt(g.Pos, diag.CodeOverviewExtraNode,
 					"scene %q: action %q exists but is not listed in flow", sceneID, id))
 			}
 		}
 
-		for e := range implEdges {
+		// implEdges is a map, so it is walked in sorted order: diagnostic order
+		// must not vary between runs on identical input.
+		for _, e := range sortedEdges(implEdges) {
 			if !flowEdgeSet[e] {
-				ds.Append(enforceErr(diag.CodeOverviewExtraEdge,
+				ds.Append(enforceErrAt(g.Pos, diag.CodeOverviewExtraEdge,
 					"scene %q: next rule %s |-> %s exists but is not declared in flow", sceneID, e.From, e.To))
 			}
 		}
 	}
+}
+
+// sortedEdges returns the keys of set ordered by From then To, so that callers
+// iterating a map still emit diagnostics in a stable order.
+func sortedEdges(set map[Edge]bool) []Edge {
+	edges := make([]Edge, 0, len(set))
+	for e := range set {
+		edges = append(edges, e)
+	}
+	sort.Slice(edges, func(i, j int) bool {
+		if edges[i].From != edges[j].From {
+			return edges[i].From < edges[j].From
+		}
+		return edges[i].To < edges[j].To
+	})
+	return edges
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -98,8 +167,16 @@ func parseErr(code diag.ErrorCode, sceneID, format string, args ...any) diag.Dia
 	return d
 }
 
-func enforceErr(code diag.ErrorCode, format string, args ...any) diag.Diagnostic {
-	d := diag.Errorf(code, format, args...)
+// enforceErrAt builds an enforcement diagnostic anchored at p, falling back to a
+// position-less diagnostic when p is unknown — which happens only for graphs
+// recovered from a flow string.
+func enforceErrAt(p Pos, code diag.ErrorCode, format string, args ...any) diag.Diagnostic {
+	var d diag.Diagnostic
+	if p.Known() {
+		d = diag.ErrorAt(p.File, p.Line, p.Col, code, format, args...)
+	} else {
+		d = diag.Errorf(code, format, args...)
+	}
 	d.Stage = "overview_enforce"
 	return d
 }

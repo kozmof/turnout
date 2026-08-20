@@ -65,7 +65,7 @@ func TestOverviewBlockChain(t *testing.T) {
 		t.Errorf("edge[1] = %v, want b→c", v.Edges[1])
 	}
 	// The final segment is a target, not a declared node.
-	if len(v.Nodes) != 2 || v.Nodes[0] != "a" || v.Nodes[1] != "b" {
+	if len(v.Nodes) != 2 || v.Nodes[0].Name != "a" || v.Nodes[1].Name != "b" {
 		t.Errorf("nodes = %v, want [a b]", v.Nodes)
 	}
 }
@@ -77,7 +77,7 @@ func TestOverviewBlockBareNode(t *testing.T) {
     a |-> b
     b
   }`)
-	if len(v.Nodes) != 2 || v.Nodes[1] != "b" {
+	if len(v.Nodes) != 2 || v.Nodes[1].Name != "b" {
 		t.Errorf("nodes = %v, want [a b]", v.Nodes)
 	}
 }

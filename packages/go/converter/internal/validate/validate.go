@@ -34,6 +34,11 @@ type bindingInfo struct {
 	fieldType ast.FieldType
 	kind      BindingKind
 	sigil     ast.Sigil
+	// pos is the binding's source location, carried so that diagnostics raised
+	// about a binding from outside its prog — the prepare and merge effects, which
+	// see only a binding name — can still point at where it was written. Nil when
+	// the binding is synthetic or came from a model with no positions.
+	pos *turnoutpb.SourcePos
 	// declaredType is the resolved structured type when the binding was annotated
 	// with a named literal/template type; nil for plain primitive bindings. Used
 	// for assignability and case coverage analysis.
