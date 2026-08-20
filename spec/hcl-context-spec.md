@@ -176,7 +176,7 @@ CAN'T (NG):
 - Object-form function calls such as `{ add = [v1, v2] }`, block-style conditionals, and bracket-style pipe forms are not supported by the current syntax.
 - Named argument call syntax such as `max(a: v1, b: v2)` is not supported. Calls have positional semantics only. The converter emits `NamedArgNotSupported`.
 - Operator-only functions (`bool_and`, `gte`, `lte`, `gt`, `lt`, `bool_or`, `eq`, `neq`, `add`, `str_concat`, `sub`, `mul`, `div`, `mod`) cannot be written in call form. Calling any of them by alias emits `OperatorOnlyFn`.
-- Infix expressions support `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, and `%`. Expressions may nest; standard precedence is applied and operators at the same precedence associate left-to-right.
+- Infix expressions support `&`, `>=`, `<=`, `>`, `<`, `|`, `==`, `!=`, `+`, `-`, `*`, `/`, and `%`. Expressions may nest. Standard precedence is applied, and operators at the same precedence associate left-to-right.
 - The single-reference form cannot reference a binding of a different type (`SingleRefTypeMismatch`).
 - `#it` cannot appear outside a `pipe` step.
 - ``_` cannot be used as a pipe or IO placeholder. It is valid only as a wildcard pattern inside `case`.

@@ -29,7 +29,7 @@ For multi-step local expression chains, authors can use `pipe(initial, step, ...
 | `str` | `.toNumber()`, `.trim()`, `.toLowerCase()`, `.toUpperCase()`, `.length()` |
 | `bool` | `.not()`, `.toStr()` |
 | `arr` | `.length()`, `.isEmpty()` |
-| `null` | *(none)* |
+| `null` | none |
 
 ---
 
@@ -90,7 +90,7 @@ For multi-step local expression chains, authors can use `pipe(initial, step, ...
 
 | # | Decision | Resolution |
 |---|----------|------------|
-| 1 | `pass` in DSL | Excluded: `pass` is an internal runtime function only; not surfaced in DSL method syntax. |
-| 2 | `null` methods | None: no DSL-visible `transformFn` methods are defined for `null`. |
-| 3 | Method arguments | Forbidden: all `transformFn` methods are unary; the DSL syntax accepts no argument list. |
-| 4 | `string.toNumber()` on non-numeric input | Caller responsibility: produces `NaN`; the DSL does not validate or coerce. |
+| 1 | `pass` in DSL | Excluded. `pass` is an internal runtime function and is not surfaced in DSL method syntax. |
+| 2 | `null` methods | None. No DSL-visible `transformFn` methods are defined for `null`. |
+| 3 | Method arguments | Forbidden. All `transformFn` methods are unary, and the DSL syntax accepts no argument list. |
+| 4 | `string.toNumber()` on non-numeric input | Caller responsibility. A non-numeric string produces `NaN`, and the DSL neither validates nor coerces. |

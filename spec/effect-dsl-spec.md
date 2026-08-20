@@ -7,7 +7,7 @@
 
 ## Overview
 
-STATE effects are declared inline on the binding they belong to. Inline clauses point toward their destination: `<~` points from the source into the binding, and `~>` points from a named or anonymous result to STATE.
+STATE effects are declared inline on the binding they belong to. Inline clauses point toward their destination. `<~` points from the source into the binding, and `~>` points from a named or anonymous result to STATE.
 
 ```turn
 action "score" {
@@ -19,7 +19,7 @@ action "score" {
 }
 ```
 
-Author-written `prepare` and `merge` blocks are retired (`ParseSyntaxError`). Inline IO expresses every shape they did — a named computed output, a write-only result, a bidirectional binding, a hook source — and one destination per binding is the limit either spelling could express. `prepare` and `merge` survive only as the canonical HCL the converter emits and the runtime reads; §6 gives that shape. Canonical binding names never contain arrows.
+Author-written `prepare` and `merge` blocks are retired (`ParseSyntaxError`). Inline IO expresses every shape they did, namely a named computed output, a write-only result, a bidirectional binding, and a hook source. One destination per binding is the limit either spelling could express. `prepare` and `merge` survive only as the canonical HCL the converter emits and the runtime reads. §6 gives that shape. Canonical binding names never contain arrows.
 
 Because ingress has no other spelling, a bare `name:type` with no `<~` clause and no computed RHS has no value at all. It is rejected at parse time (`MissingBindingSource`) rather than lowered to the type's zero value.
 
@@ -38,7 +38,7 @@ Because ingress has no other spelling, a bare `name:type` with no `<~` clause an
 | `(expr) ~> @state.path` as the last item of a block with no `:=` | anonymous result → STATE | `__result` binding + `merge.to_state` + `compute.root` |
 | `name:type <~ @input.path ~> @output.path` | STATE → binding → STATE | both `prepare` and `merge` |
 
-Transition inputs additionally accept `action(binding)` and literals after `<~`; transition outputs are forbidden.
+Transition inputs additionally accept `action(binding)` and literals after `<~`. Transition outputs are forbidden.
 
 ### 1.2 Grammar
 
@@ -53,11 +53,11 @@ ingress-source ::= state-path | hook-call | action-call | literal
 state-path    ::= '@' IDENT ('.' IDENT)+
 ```
 
-A bare `name:type` declares no value and is invalid (`MissingBindingSource`). Parentheses around the complete top-level RHS are reserved for inline egress; `name:type = (expr)` without `~>` is invalid.
+A bare `name:type` declares no value and is invalid (`MissingBindingSource`). Parentheses around the complete top-level RHS are reserved for inline egress. `name:type = (expr)` without `~>` is invalid.
 
-The grammar is newline-insensitive with one exception: an inline IO clause must continue the line its binding is on, rather than open a line of its own. This holds for `<~` and `~>` alike. Both arrows also led a binding in the retired spelling, so an arrow opening a line fits two readings — this binding's clause, and the next binding's sigil — which mean opposite things. The line settles it (`ParseSyntaxError`). For `~>` the anchor is where the value ends, which matters when the right-hand side spans lines; see §3.1.
+The grammar is newline-insensitive with one exception. An inline IO clause must continue the line its binding is on, rather than open a line of its own. This holds for `<~` and `~>` alike. Both arrows also led a binding in the retired spelling, so an arrow opening a line fits two readings, this binding's clause and the next binding's sigil, which mean opposite things. The line settles it (`ParseSyntaxError`). For `~>` the anchor is where the value ends, which matters when the right-hand side spans lines. See §3.1.
 
-Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be referenced through `action(...)`. It may be the contextual compute result, but only as the last item of a block that has no `:=` at all; see §1.3.
+Anonymous egress is valid only in an action `compute` block and is intended for values that are written to STATE but never referenced by name. Its type comes from the destination STATE field. Lowering assigns a deterministic reserved name (`__egress_1`, `__egress_2`, ...) and emits an ordinary binding and merge entry. Anonymous egress cannot be referenced through `action(...)`. It may be the contextual compute result, but only as the last item of a block that has no `:=` at all. See §1.3.
 
 ### 1.3 Contextual compute result
 
@@ -68,7 +68,7 @@ The `:=` operator designates the compute block's final result:
 | action `compute` block | Compute root—the action's compute output |
 | `next` `compute` block | Boolean transition condition |
 
-Each `compute` block designates exactly one result, and it must be the last item. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's `compute` block may be written `next condition -> action_id`; see `scene-graph.md §3`.
+Each `compute` block designates exactly one result, and it must be the last item. A transition result must have type `bool`. A deterministic transition may omit compute entirely and use `next action_id` or `next { action = action_id }`. A transition guarded by a single `bool` binding of the enclosing action's `compute` block may be written `next condition -> action_id`. See `scene-graph.md §3`.
 
 An action `compute` block whose result is written to STATE and never read back may omit `:=` and end in an anonymous egress instead. The last item is then the result:
 
@@ -77,13 +77,13 @@ An action `compute` block whose result is written to STATE and never read back m
 __result:bool := (true) ~> @triage.paged    # exactly what it means
 ```
 
-The promoted item is an ordinary result binding named `__result`, typed from its destination STATE field, and it appears under that name in the emitted binding, merge entry, and `compute.root`. The shorthand applies only when the block carries no `:=` anywhere: with one present, the ordinary "result must be last" rule stands and a trailing anonymous egress is `MarkerNotLast`, not a second result. A transition `compute` block always requires its `:=` — a transition cannot write to STATE, so it has no trailing egress to promote.
+The promoted item is an ordinary result binding named `__result`, typed from its destination STATE field, and it appears under that name in the emitted binding, merge entry, and `compute.root`. The shorthand applies only when the block carries no `:=` anywhere. With one present, the ordinary "result must be last" rule stands and a trailing anonymous egress is `MarkerNotLast`, not a second result. A transition `compute` block always requires its `:=`, because a transition cannot write to STATE and so has no trailing egress to promote.
 
 Use the named form when the result is read by name: another binding in the same block, a transition's `<~ action(binding)`, a `next <condition> -> <action>` guard, or a `next on <subjects> to` subject. The name is also the only way to give the result a named literal/template type, which a destination STATE field cannot supply.
 
 ### 1.4 Input and bidirectional declarations
 
-Inputs have no computed RHS; their value comes from the inline source. STATE inputs are required at runtime. A combined `<~ source ~> destination` declaration writes the prepared value to its output destination after execution. An input cannot also use `= expr`.
+Inputs have no computed RHS. Their value comes from the inline source. STATE inputs are required at runtime. A combined `<~ source ~> destination` declaration writes the prepared value to its output destination after execution. An input cannot also use `= expr`.
 
 `_` is only a `case` wildcard. `#it` is only the current-value placeholder inside `pipe` steps.
 
@@ -110,7 +110,7 @@ Reads a value from STATE before the compute graph runs and assigns it to the bin
 
 Invokes the named hook, obtains a result object, and assigns `result[bindingName]` to `state[bindingName]`. Lowers to `prepare.from_hook`. See `hook-spec.md` for full semantics.
 
-A literal ingress (`<~ 300`) is not valid at action level: a constant is an ordinary binding, `name:type = 300`.
+A literal ingress (`<~ 300`) is not valid at action level. A constant is an ordinary binding, `name:type = 300`.
 
 ### 2.4 STATE path format
 
@@ -149,9 +149,9 @@ name:type <~ @<in.path> ~> @<out.path>         # bidirectional
 (expr) ~> @<namespace>.<field>                 # ...and the compute result, when last in a block with no :=
 ```
 
-- Egress belongs to the binding that produces the value; a pure-compute action declares none.
+- Egress belongs to the binding that produces the value, and a pure-compute action declares none.
 - One destination per binding. Two `~>` clauses on one binding do not parse, and the lowered model rejects two entries for one binding.
-- The `~>` clause must be on the same line as the end of the value it writes from (§1.2). A right-hand side may span lines, and the clause follows its closing line; what it may not do is open a line of its own.
+- The `~>` clause must be on the same line as the end of the value it writes from (§1.2). A right-hand side may span lines, and the clause follows its closing line. What it may not do is open a line of its own.
 
 Rule: `STATE[path] = state[binding]`
 
@@ -202,7 +202,7 @@ A transition input has exactly one of:
 | `<~ @<dotted.path>` | Post-merge STATE value after the action's merge |
 | `<~ <literal>` | A literal value (string, number, or boolean) |
 
-They may be mixed across the bindings of one transition compute block. `hook()` is rejected here (`TransitionHook`): hooks are effectful and consumer-supplied, so making them branch-dependent would take control flow out of STATE.
+They may be mixed across the bindings of one transition compute block. `hook()` is rejected here (`TransitionHook`), because hooks are effectful and consumer-supplied, so making them branch-dependent would take control flow out of STATE.
 
 > Note on literal type validation: The literal value's type is inferred at runtime rather than checked against the transition binding at convert time. The runtime converts primitive and homogeneous array literals to typed runtime values. It does not perform author-visible coercion to the target binding type, so authors are responsible for ensuring the literal is compatible with the binding's declared type.
 
@@ -231,7 +231,7 @@ A `~>` output clause is rejected because transitions cannot write to STATE (`Tra
 
 ## 6. Lowering Rules (Turn DSL → Canonical HCL)
 
-Inline IO is hoisted into `prepare` and `merge` entries before validation and lowering. These blocks exist only from this point on — they are the wire shape the runtime reads, not something an author writes. Every entry is generated from one binding: named declarations keep their binding name, anonymous egress receives a reserved generated name, and canonical binding names contain no arrows.
+Inline IO is hoisted into `prepare` and `merge` entries before validation and lowering. These blocks exist only from this point on. They are the wire shape the runtime reads, not something an author writes. Every entry is generated from one binding: named declarations keep their binding name, anonymous egress receives a reserved generated name, and canonical binding names contain no arrows.
 
 ### 6.1 Action-level lowering
 

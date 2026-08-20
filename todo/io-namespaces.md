@@ -52,7 +52,7 @@ justify that semantic and implementation cost.
 
 - Binding declarations remain order-independent and may reference bindings
   declared later in the same `prog`.
-- A binding name is declared at most once per `prog`; violations produce
+- A binding name is declared at most once per `prog`, and violations produce
   `DuplicateBinding`.
 - `prepare`, `merge`, action roots, transition conditions, and `from_action`
   references continue to address the single binding namespace.

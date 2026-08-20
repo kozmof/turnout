@@ -2,6 +2,11 @@
 
 > Pipeline under test: `.tu` → Go CLI converter → canonical HCL → TypeScript scene runner → STATE assertions
 
+Every phase below is done. This is kept as a record of the plan as written, so
+the signatures and file names in it show what was intended rather than what
+shipped. Several drifted during implementation. Read the source for the current
+API and treat this document as history.
+
 ---
 
 ## Architecture: Three Layers
@@ -27,7 +32,7 @@ The Go converter is complete. The TypeScript runtime has a compute-graph engine 
 
 ---
 
-## Phase 0 — Extend Go Converter: JSON Output ✅
+## Phase 0 — Extend Go Converter: JSON Output (done)
 
 Add `-format json` flag to the CLI so the converter emits the lowered model as JSON alongside the existing `-format hcl` default.
 
@@ -62,14 +67,14 @@ Add `-format json` flag to the CLI so the converter emits the lowered model as J
 ```
 
 Notes:
-- `scenes` is always an array; the current converter emits one scene per file (single-element array)
+- `scenes` is always an array, and the current converter emits one scene per file (single-element array)
 - `routes` is omitted when absent
 - Route patterns are raw strings (`"_"`, `"scene.action"`, `"scene.*.action.action"`) — parsed by the TypeScript side
 - `step_ref` uses a JSON pointer so `step_ref=0` serialises correctly as `0`
 
 ---
 
-## Phase 1 — TypeScript Scene Model Types ✅
+## Phase 1 — TypeScript Scene Model Types (done)
 
 Package: `packages/ts/scene-runner/` (new; depends on `turnout` runtime via `file:../runtime`)
 
@@ -88,7 +93,7 @@ Package: `packages/ts/scene-runner/` (new; depends on `turnout` runtime via `fil
 
 ---
 
-## Phase 2 — Converter Bridge ✅
+## Phase 2 — Converter Bridge (done)
 
 File: `src/converter/bridge.ts`
 
@@ -103,11 +108,11 @@ function loadJsonModel(jsonFilePath: string): TurnModel  // loads pre-built JSON
 
 ---
 
-## Phase 3 — State Manager ✅
+## Phase 3 — State Manager (done)
 
 File: `src/state/state-manager.ts`
 
-STATE is a flat `Record<string, AnyValue>` keyed by dotted path (`"request.query"`). No nested structures. STATE is shared and carried across scene boundaries within a route; it is never reset between scenes.
+STATE is a flat `Record<string, AnyValue>` keyed by dotted path (`"request.query"`). No nested structures. STATE is shared and carried across scene boundaries within a route, and it is never reset between scenes.
 
 ```typescript
 class StateManager {
@@ -125,7 +130,7 @@ Tests: `tests/state-manager.test.ts`, 7 passing unit tests covering `from`, `fro
 
 ---
 
-## Phase 4 — HCL Context Builder ✅
+## Phase 4 — HCL Context Builder (done)
 
 File: `src/executor/hcl-context-builder.ts`
 
@@ -155,7 +160,7 @@ Reuses: `ctx`, `combine`, `pipe`, `cond`, `val`, `ref` from `packages/ts/runtime
 
 ---
 
-## Phase 5 — Prepare Resolver (Stubs) ✅
+## Phase 5 — Prepare Resolver (Stubs) (done)
 
 File: `src/executor/prepare-resolver.ts`
 
@@ -197,7 +202,7 @@ function resolveNextPrepare(
 
 ---
 
-## Phase 6 — Action Executor ✅
+## Phase 6 — Action Executor (done)
 
 File: `src/executor/action-executor.ts`
 
@@ -227,7 +232,7 @@ Reuses: `assertValidContext`, `executeGraph` from `packages/ts/runtime`
 
 ---
 
-## Phase 7 — Scene Executor ✅
+## Phase 7 — Scene Executor (done)
 
 File: `src/executor/scene-executor.ts`
 
@@ -259,7 +264,7 @@ Algorithm:
 
 ---
 
-## Phase 8 — Route History & Pattern Matching ✅
+## Phase 8 — Route History & Pattern Matching (done)
 
 File: `src/executor/route-pattern.ts`
 
@@ -298,7 +303,7 @@ function selectNextScene(history: string[], arms: MatchArm[]): string | null
 
 ---
 
-## Phase 9 — Route Executor ✅
+## Phase 9 — Route Executor (done)
 
 File: `src/executor/route-executor.ts`
 
@@ -332,7 +337,7 @@ Algorithm:
 
 ---
 
-## Phase 10 — Harness API ✅
+## Phase 10 — Harness API (done)
 
 File: `src/harness/harness.ts`
 
@@ -351,7 +356,7 @@ function runHarness(options: HarnessOptions): HarnessResult
 
 ---
 
-## Phase 11 — E2E Test Suite ✅
+## Phase 11 — E2E Test Suite (done)
 
 Location: `packages/ts/scene-runner/tests/e2e/`
 
@@ -400,46 +405,33 @@ A minimal two-scene workflow with a `state` block, two scenes, and a `route` blo
 
 ## File Map
 
+Every phase above landed, so this records the shape the work produced rather
+than a plan. Each directory is listed with the job it does. The real tree has
+grown past what this plan anticipated, so read it for the current file list.
+
 ```
 packages/go/converter/
-  internal/emit/
-    emit.go                        (existing — HCL emitter)
-    json.go                     ✅ EmitJSON() — JSON emitter
-  cmd/turnout/main.go             ✅ -format hcl|json flag
+  internal/emit/emit.go        HCL emitter (predates this plan)
+  internal/emit/json.go        EmitJSON, added here
+  cmd/turnout/main.go          -format hcl|json flag, added here
 
-packages/ts/scene-runner/        ✅ new package (pnpm, vitest, @types/node)
-  src/
-    types/
-      scene-model.ts              ✅ TurnModel, SceneBlock, RouteModel, ArgModel, etc.
-      harness-types.ts            ✅ HarnessOptions, HarnessResult, ExecutionTrace
-    converter/
-      bridge.ts                   ✅ runConverter(), loadJsonModel()
-    state/
-      state-manager.ts            ✅ StateManager (flat KV, immutable writes, fromSchema)
-    executor/
-      types.ts                    ✅ ActionExecutionResult (shared type)
-      hcl-context-builder.ts      ✅ ProgModel → ExecutionContext
-      prepare-resolver.ts         ✅ from_state / from_action / from_hook stubs
-      action-executor.ts          ✅ executeAction()
-      scene-executor.ts           ✅ executeScene()
-      route-pattern.ts            ✅ history extraction, pattern matching, priority
-      route-executor.ts           ✅ executeRoute()
-    harness/
-      harness.ts                     runHarness()
-    index.ts
-  tests/
-    state-manager.test.ts         ✅ 7 passing unit tests
-    fixtures/
-      two-scene-route.tu
-    e2e/
-      llm-workflow.test.ts
-      scene-graph-with-actions.test.ts
-      detective-phase.test.ts
-      adventure-story-graph-with-actions.test.ts
-      route-execution.test.ts
-  package.json                    ✅
-  tsconfig.json                   ✅
+packages/ts/scene-runner/      new package
+  src/types/                   generated model types and harness types
+  src/server/                  Node-only converter bridge and path containment
+  src/state/                   StateManager, schema types, proto conversion
+  src/executor/                action, scene, and route execution, HCL context building
+  src/harness/                 runHarness
+  src/runner.ts                Runner factories
+  tests/                       unit tests
+  tests/fixtures/              .tu sources with their compiled .hcl and .json
+  tests/e2e/                   end-to-end suites driving the whole pipeline
 ```
+
+Two names in the original plan did not survive. `src/types/scene-model.ts`
+became `src/types/turnout-model_pb.ts`, generated from
+`schema/turnout-model.proto` rather than hand-written. `src/converter/bridge.ts`
+became `src/server/bridge.ts`, which is where the Node-only code was quarantined
+so the package stays importable in a browser.
 
 ---
 

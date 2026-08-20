@@ -349,7 +349,7 @@ Implementations MUST document which whitespace characters are stripped during tr
 
 ## 7. Validation Lifecycle
 
-Overview validation occurs as part of scene-level validation (Section 6 of scene-graph.md), specifically as item 15: *"If an `overview` block exists, overview parsing, compilation, and enforcement succeed for the selected mode."*
+Overview validation occurs as part of scene-level validation (Section 6 of scene-graph.md), specifically as item 15, "If an `overview` block exists, overview parsing, compilation, and enforcement succeed for the selected mode."
 
 The three sub-stages map to diagnostic stage values:
 
@@ -360,6 +360,20 @@ The three sub-stages map to diagnostic stage values:
 | Enforce     | `"overview_enforce"`  | Node/edge set comparison failures |
 
 Failures at any sub-stage MUST produce `invalid_overview` (not `invalid_graph`) and MUST halt scene execution. Enforcement failures MUST NOT prevent collection of all violations before halting (i.e., report all missing/extra nodes and edges, not just the first).
+
+### 7.1 Diagnostic positions
+
+Overview diagnostics SHOULD carry the source position of the element they
+report. `OverviewUnknownNode` anchors at the node name, `OverviewMissingEdge` at
+the `|->` token of the declared edge, and `OverviewExtraNode` and
+`OverviewExtraEdge` at the `overview` keyword, since both report something
+absent from the block and have no token of their own.
+
+Positions require a model that carries the structured graph. An implementation
+that recovers the graph by re-parsing the `flow` string cannot supply them,
+because the string records no positions, and MUST still report the diagnostic
+without one. Enforcement order MUST NOT depend on map iteration, so that two
+runs over the same input report the same violations in the same order.
 
 ## 8. Runtime Data Model
 

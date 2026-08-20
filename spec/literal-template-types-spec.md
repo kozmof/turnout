@@ -2451,50 +2451,50 @@ This section records the as-built behaviour where the sections above left latitu
 
 ## 32.1 Type representation
 
-The structured type IR is `TypeExpr` in the canonical model (`schema/turnout-model.proto`): a `oneof` over `primitive`, `literal`, `union`, `template`, and `named` (§19). Named type declarations are carried on `TurnModel.type_decls`. The IR is a superset of the flat `FieldType` (`state-shape-spec.md`): every scalar `FieldType` has an equivalent primitive, and `integer` is tracked distinctly from `number` (§24.2), collapsing to `number` only when bridged to the flat runtime layer. `FieldType` remains the runtime carrier; the structured type is used for all literal/template reasoning.
+The structured type IR is `TypeExpr` in the canonical model (`schema/turnout-model.proto`), a `oneof` over `primitive`, `literal`, `union`, `template`, and `named` (§19). Named type declarations are carried on `TurnModel.type_decls`. The IR is a superset of the flat `FieldType` (`state-shape-spec.md`). Every scalar `FieldType` has an equivalent primitive, and `integer` is tracked distinctly from `number` (§24.2), collapsing to `number` only when bridged to the flat runtime layer. `FieldType` remains the runtime carrier, and the structured type is used for all literal/template reasoning.
 
 ## 32.2 Template determinism (§7)
 
-The initial-version determinism rules are enforced exactly as: no two captures may be adjacent with no separator between them (§7.2), and an unconstrained `str` capture must be the final segment of the template so its extent is unambiguous (§7.1, §7.3). Numeric ambiguity is deferred to value-validation time (§7.4). A capture whose type resolves to a template is rejected (recursive templates are a non-goal, §3).
+The initial-version determinism rules are enforced exactly as written. No two captures may be adjacent with no separator between them (§7.2), and an unconstrained `str` capture must be the final segment of the template so its extent is unambiguous (§7.1, §7.3). Numeric ambiguity is deferred to value-validation time (§7.4). A capture whose type resolves to a template is rejected (recursive templates are a non-goal, §3).
 
 ## 32.3 Template matching and capture decoding (§8, §19)
 
-Matching is a deterministic left-to-right scan with no regex and no greediness. Because adjacent captures are rejected, every capture is either the final segment or is followed by static text; a bounded capture tries each boundary and accepts the unique split whose value is a valid member of the capture type. Decoded captures use their runtime types: `integer`/`number` → number, `bool` → boolean, `str`/string-literal → string. The reference implementation is the Go converter's `ast.TemplateMatch`; the TypeScript runtime mirror is `matchTemplate`. Both are exercised by the shared conformance fixtures (§28.8, `spec/conformance/template-matching.json`).
+Matching is a deterministic left-to-right scan with no regex and no greediness. Because adjacent captures are rejected, every capture is either the final segment or is followed by static text. A bounded capture tries each boundary and accepts the unique split whose value is a valid member of the capture type. Decoded captures use their runtime types, so `integer`/`number` become number, `bool` becomes boolean, and `str`/string-literal become string. The reference implementation is the Go converter's `ast.TemplateMatch`, mirrored in the TypeScript runtime by `matchTemplate`. Both are exercised by the shared conformance fixtures (§28.8, `spec/conformance/template-matching.json`).
 
-Numeric grammar (§28.4): an integer is `-?(0 | [1-9][0-9]*)` with no `-0`; a number additionally allows `.[0-9]+`. Leading zeros, a leading `+`, a trailing/leading `.`, and exponents are rejected.
+Numeric grammar (§28.4): an integer is `-?(0 | [1-9][0-9]*)` with no `-0`, and a number additionally allows `.[0-9]+`. Leading zeros, a leading `+`, a trailing/leading `.`, and exponents are rejected.
 
 ## 32.4 Typed construction (§11)
 
 Both construction forms are implemented:
 
-* Constant construction (all field values are literals) is validated and **folded at compile time** to the serialized template string, then checked for membership (§11.3).
-* Construction from variable references is **built at runtime**: it lowers to a `str_concat` chain, with numeric and boolean captures serialized via a `toStr` transform (`transform-fn-dsl-spec.md`). Field reference types are checked against capture types (§10, §24.2/§24.3 — a `number` reference is not assignable to an `integer` capture).
+* Constant construction (all field values are literals) is validated and folded at compile time to the serialized template string, then checked for membership (§11.3).
+* Construction from variable references is built at runtime. It lowers to a `str_concat` chain, with numeric and boolean captures serialized via a `toStr` transform (`transform-fn-dsl-spec.md`). Field reference types are checked against capture types (§10, §24.2/§24.3), so a `number` reference is not assignable to an `integer` capture.
 
-The `{name}` interpolation-string form of §11.2 is not a separate surface syntax; the constructor form `TypeName { field = value }` (§11.3, §22) is canonical and covers both cases.
+The `{name}` interpolation-string form of §11.2 is not a separate surface syntax. The constructor form `TypeName { field = value }` (§11.3, §22) is canonical and covers both cases.
 
 ## 32.5 `case` template destructuring runtime (§12, §19)
 
-A `case` subject is typed as its template, so runtime membership is guaranteed; only capture extraction is required, and constraint checks and arm selection reuse the existing equality/boolean/conditional functions. Destructuring lowers to the same ordered `CondExpr` chain as a scalar `case`:
+A `case` subject is typed as its template, so runtime membership is guaranteed. Only capture extraction is required, and constraint checks and arm selection reuse the existing equality/boolean/conditional functions. Destructuring lowers to the same ordered `CondExpr` chain as a scalar `case`:
 
-* a literal-constrained field (`kind: "foo"`) becomes `eq(template_extract(subject, spec), "foo")`;
+* a literal-constrained field (`kind: "foo"`) becomes `eq(template_extract(subject, spec), "foo")`.
 * a bound capture becomes `template_extract` (string), `template_extract_num` (number), or `eq(extract, "true")` (boolean), referenced by the arm body under a fresh alpha-renamed binding so multiple arms may bind the same capture name without collision.
 
-`template_extract` / `template_extract_num` are built-in binary functions `(subject, spec) → value`; `spec` is a JSON descriptor of the fully-resolved template and the target capture, so the runtime needs no type registry. The structured pattern is preserved in the model's `ext_expr` for static analysis; static analysis is unaffected by the runtime lowering.
+`template_extract` / `template_extract_num` are built-in binary functions `(subject, spec) → value`. `spec` is a JSON descriptor of the fully-resolved template and the target capture, so the runtime needs no type registry. The structured pattern is preserved in the model's `ext_expr` for static analysis, which the runtime lowering does not affect.
 
 ## 32.6 Static analysis (§14, §16, §17)
 
-Finite-union `case` exhaustiveness, duplicate/unreachable-arm detection, and remaining-type refinement are implemented for scalar subjects (§14.1–§14.3, §16.1–§16.2, §17.1–§17.3) and for template subjects via product-domain subtraction over the finite (literal-union) capture domains, with infinite captures unconstrained not blocking exhaustiveness (§14.4–§14.6, §16.3, §17.4). Guards are opaque: a guarded arm neither shadows later arms nor completes coverage (§15.2, §29.5). Capture refinement types each bound var-binder to its capture type inside the arm.
+Finite-union `case` exhaustiveness, duplicate/unreachable-arm detection, and remaining-type refinement are implemented for scalar subjects (§14.1–§14.3, §16.1–§16.2, §17.1–§17.3) and for template subjects via product-domain subtraction over the finite (literal-union) capture domains, with infinite captures unconstrained not blocking exhaustiveness (§14.4–§14.6, §16.3, §17.4). Guards are opaque, so a guarded arm neither shadows later arms nor completes coverage (§15.2, §29.5). Capture refinement types each bound var-binder to its capture type inside the arm.
 
 Combined tuple patterns use recursive product-domain analysis. Tuple subjects and patterns may nest, template patterns may appear in tuple positions, tuple arity is checked statically, and binders are refined from the corresponding tuple element. Finite scalar and template discriminants are combined for exhaustiveness and shadowing checks. Tuple cases lower to the same scalar equality, template extraction, boolean conjunction, and ordered conditional graph operations used by existing patterns.
 
 ## 32.7 Canonical model version (§26.4)
 
-The canonical model version is **2**. A model that declares literal/template types or uses `template_extract` is emitted at version 2; older (version 1) runtimes reject it. The TypeScript runtime's current version is 2 with an identity migration from version 1.
+The canonical model version is 2. A model that declares literal/template types or uses `template_extract` is emitted at version 2, and older (version 1) runtimes reject it. The TypeScript runtime's current version is 2 with an identity migration from version 1.
 
 ## 32.8 Deferred items
 
-The following are recognised but not yet implemented; each is an independent extension:
+The following are recognised but not yet implemented. Each is an independent extension.
 
-* Structural template equivalence for destructuring across independently-declared templates (§9.4) — plain-string value-set assignment is implemented; structural destructuring requires the declared capture shape.
+* Structural template equivalence for destructuring across independently-declared templates (§9.4). Plain-string value-set assignment is implemented, while structural destructuring requires the declared capture shape.
 * Provable guard reasoning (§15.3) — guards remain opaque.
 * HCL re-emission renders a named binding's declared type name and `type` declaration blocks for inspection, but the HCL form is not re-parsed.

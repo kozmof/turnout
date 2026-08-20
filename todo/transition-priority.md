@@ -19,11 +19,11 @@ The transition sugar added in 1.4 (`next scene_hotspot_found -> collect`) makes 
 
 There are two ways to give priority a name, and they differ in whether the wire model changes:
 
-**A. Resolve to list order at emit time.** The DSL gains a priority annotation; the converter sorts the `next` list by it before emitting. `NextRuleModel` is untouched, the runtime is untouched, and the emitted model for an already-correct file is byte-identical. Priority becomes a source-level assertion about an ordering that still lives in the array.
+A. Resolve to list order at emit time. The DSL gains a priority annotation, and the converter sorts the `next` list by it before emitting. `NextRuleModel` is untouched, the runtime is untouched, and the emitted model for an already-correct file is byte-identical. Priority becomes a source-level assertion about an ordering that still lives in the array.
 
-**B. Add a `priority` field to `NextRuleModel`.** The ordering becomes explicit in the model, and the runtime sorts. This changes the proto and the TypeScript runtime, and every existing model gains a field.
+B. Add a `priority` field to `NextRuleModel`. The ordering becomes explicit in the model, and the runtime sorts. This changes the proto and the TypeScript runtime, and every existing model gains a field.
 
-**A is the recommended option**, because it keeps the guarantee that Phases 0–3 established — that this whole line of syntax work leaves `turnout-model.proto` and the runtime alone — while still removing the invisible-semantics problem at the level where authors work. B is only worth it if some consumer other than the converter needs to reason about priority, which nothing does today.
+A is the recommended option, because it keeps the guarantee that Phases 0–3 established, that this whole line of syntax work leaves `turnout-model.proto` and the runtime alone, while still removing the invisible-semantics problem at the level where authors work. B is only worth it if some consumer other than the converter needs to reason about priority, which nothing does today.
 
 Whichever is chosen, the proposal must state it explicitly, because "explicit transition priority" reads as though it implies B.
 
@@ -36,11 +36,11 @@ next interview_witness                  priority 20
 
 Open questions for the proposal to settle:
 
-- **Reading against the arrow.** The sugar now ends at the target action, so a trailing `priority` puts a second, unrelated clause after it and the line stops reading as one thought. Worth checking whether the annotation belongs before the guard, or in a form other than a trailing word, before committing to this surface.
+- Reading against the arrow. The sugar now ends at the target action, so a trailing `priority` puts a second, unrelated clause after it and the line stops reading as one thought. Worth checking whether the annotation belongs before the guard, or in a form other than a trailing word, before committing to this surface.
 
-- **Partial annotation.** If some clauses carry a priority and others do not, is that an error, or do unannotated clauses keep their relative textual order after the annotated ones? An error is simpler to explain and to diagnose.
-- **Ties.** Two clauses with the same priority are exactly the ambiguity this feature exists to remove, so they should be an error rather than a silent fall back to textual order.
-- **Direction.** Lower-number-first matches "priority 1" intuitions; the proposal should pick one and say so, since both conventions are common.
+- Partial annotation. If some clauses carry a priority and others do not, is that an error, or do unannotated clauses keep their relative textual order after the annotated ones? An error is simpler to explain and to diagnose.
+- Ties. Two clauses with the same priority are exactly the ambiguity this feature exists to remove, so they should be an error rather than a silent fall back to textual order.
+- Direction. Lower-number-first matches "priority 1" intuitions. The proposal should pick one and say so, since both conventions are common.
 
 ## Verification
 

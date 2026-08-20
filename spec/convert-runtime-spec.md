@@ -43,7 +43,7 @@ Turn DSL  ──[Go CLI]──>  HCL file  ──[TypeScript runtime]──>  ST
 
 - Parse Turn DSL source.
 - Lower DSL constructs to canonical plain HCL (per `hcl-context-spec.md` lowering rules).
-- Emit one `prog "<computeLabel>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block. The prog name is the author's `compute` label, not the action ID; the two are independent.
+- Emit one `prog "<computeLabel>" { ... }` block per declared action compute graph, nested inside an `action "<actionId>" { compute { ... } prepare { ... } merge { ... } publish { ... } }` block. The prog name is the author's `compute` label, not the action ID, and the two are independent.
 - Emit `entry_action = <actionId>` as a top-level attribute at the top of each scene block to declare the scene's entry action ID.
 - Emit inline transition `prog` blocks for each next-rule compute program.
 - Emit STATE effect declarations (`prepare` and `merge` sub-blocks) at action level.
@@ -166,7 +166,7 @@ Example state during `process_order` execution:
 
 > For the full per-action lifecycle (prepare → compute → merge → publish), see `scene-graph.md §7`. Hook invocation ordering and deduplication rules are in `hook-spec.md §1.4`.
 
-After the publish phase completes, the runtime evaluates transition rules. For each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked; the first rule whose condition holds selects the next action, and evaluation stops there.
+After the publish phase completes, the runtime evaluates transition rules. For each next rule in declaration order, the transition `compute` graph is resolved and `compute.condition` is checked. The first rule whose condition holds selects the next action, and evaluation stops there.
 
 ### CAN (OK)
 

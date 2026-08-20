@@ -56,7 +56,7 @@ action "<actionId>" {
 }
 ```
 
-A binding has exactly one source: STATE or a hook, never both.
+A binding has exactly one source, either STATE or a hook, never both.
 
 Hook invocation and result mapping:
 
@@ -130,7 +130,7 @@ action "process_order" {
 
 ## 2. HCL Lowering
 
-Hook ingress and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations; inline IO has already been hoisted into `prepare` and `merge`, which exist only in the emitted model and are never author-written.
+Hook ingress and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations. Inline IO has already been hoisted into `prepare` and `merge`, which exist only in the emitted model and are never author-written.
 
 ### 2.1 Shape
 

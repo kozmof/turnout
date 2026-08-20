@@ -53,12 +53,12 @@ CAN (OK):
 
 CAN'T (NG):
 
-- An action `compute` block cannot omit its `:=` result binding (it derives `compute.root`) unless its last item is an anonymous egress, which is then the result: `(true) ~> @triage.paged` as the last line means `__result:bool := (true) ~> @triage.paged`, and `compute.root` is `__result`. A compute block cannot carry more than one result, and the result binding must be last — with a `:=` present, a trailing anonymous egress is `MarkerNotLast` rather than a second result.
+- An action `compute` block cannot omit its `:=` result binding (it derives `compute.root`) unless its last item is an anonymous egress, which is then the result. Writing `(true) ~> @triage.paged` as the last line means `__result:bool := (true) ~> @triage.paged`, and `compute.root` is `__result`. A compute block cannot carry more than one result, and the result binding must be last. With a `:=` present, a trailing anonymous egress is `MarkerNotLast` rather than a second result.
 - A binding cannot omit its source: no `<~` clause and no computed RHS is `MissingBindingSource`. Author-written `prepare` and `merge` blocks are retired (`ParseSyntaxError`).
 - A next rule that includes a `compute` block cannot omit its `:=` condition result (it derives `compute.condition`) or its label. A next rule MAY omit the `compute` block entirely when the transition is deterministic (unconditional). The form `next { action = ... }` is shorthand for an always-true condition, equivalent to `compute "..." { c:bool := true }`. The two forms lower to an identical model, and the canonical form is the concise compute-less one. A trivially-true condition is normalized away during conversion.
-- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding with `<~ action(binding)` and returns it as the `:=` condition. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding — a comparison, a negation, or a value from anywhere but this action's `compute` block — cannot use this form and keeps the block form.
-- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> to { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> -> <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order: an arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains, each with `<~ action(binding)`, and returns their conjoined equality test as the `:=` condition; the `_` arm becomes an unconditional rule. Arms accept only literals and `_` — a variable binder has nothing to bind to, since an arm selects an action rather than evaluating an expression, and guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column; a column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
-- A match block MUST contain exactly one unconditional arm — a bare `_`, or a tuple whose elements are all `_` — and it MUST be the last arm. A block with none is an error (`NonExhaustiveMatch`), because falling through every arm schedules no transition at all and silently ends the scene; a second one is `DuplicateFallback`, and any arm after it is `UnreachableArm`.
+- A conditional transition MAY be written as `next <condition> -> <action>`, where `<condition>` names a `bool` binding of the enclosing action's own `compute` block. It is exactly equivalent to a next rule whose `compute` block ingresses that binding with `<~ action(binding)` and returns it as the `:=` condition. The guard is written first so the line reads in evaluation order. A condition that is not a single bare binding cannot use this form and keeps the block form. That covers a comparison, a negation, and a value from anywhere but this action's own `compute` block.
+- A run of transitions that all branch on the same values MAY be written as one `next on <subjects> to { ... }` block. `<subjects>` is a bare binding name or a parenthesized list of them, each naming a value binding of the enclosing action's own `compute` block. Each arm is `<pattern> -> <action>`, where `<pattern>` is `_`, a literal, or a parenthesized list of literals and `_` whose length equals the subject count. A single subject may be written without parentheses on either side. Every arm expands to exactly the next rule it abbreviates, in arm order. An arm with at least one literal becomes a rule whose `compute` ingresses only the subjects that arm constrains, each with `<~ action(binding)`, and returns their conjoined equality test as the `:=` condition. The `_` arm becomes an unconditional rule. Arms accept only literals and `_`, because a variable binder has nothing to bind to when an arm selects an action rather than evaluating an expression. Guards, template patterns, and nested tuples keep the block form. Each subject's type is inferred from the literals written in its column. A column whose literals disagree is an error (`ArgTypeMismatch`), as is an arm whose width differs from the subject list (`NextMatchArity`).
+- A match block MUST contain exactly one unconditional arm, either a bare `_` or a tuple whose elements are all `_`, and it MUST be the last arm. A block with none is an error (`NonExhaustiveMatch`), because falling through every arm schedules no transition at all and silently ends the scene. A second one is `DuplicateFallback`, and any arm after it is `UnreachableArm`.
 - Next actions cannot reference missing actions.
 
 Correlation:
@@ -167,11 +167,11 @@ Within a `compute` block, parse-safe infix shorthand (for example `income_ok:boo
 IO direction is declared by inline clauses that point toward their destination:
 
 - `name:type <~ @state.path` declares an input.
-- `name:type = (expr) ~> @state.path` declares a named output; `(expr) ~> @state.path` declares a write-only anonymous output whose type is inferred from STATE.
+- `name:type = (expr) ~> @state.path` declares a named output. `(expr) ~> @state.path` declares a write-only anonymous output whose type is inferred from STATE.
 - `name:type <~ @input.path ~> @output.path` declares bidirectional IO.
 - A bare `name:type` declares no value and is rejected (`MissingBindingSource`).
 
-Rule, result binding declared last: The compute root is designated by `:=` on its binding; the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in the `compute` block. An action `compute` block with no `:=` at all designates its last binding instead, and only when that binding is an anonymous egress: `(true) ~> @triage.paged` written last is the result, named `__result`. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
+Rule, result binding declared last: The compute root is designated by `:=` on its binding, and the same operator designates a transition condition in a next compute. The result binding MUST be the last binding declared in the `compute` block. An action `compute` block with no `:=` at all designates its last binding instead, and only when that binding is an anonymous egress. Written last, `(true) ~> @triage.paged` is the result, named `__result`. Bindings are order-independent at runtime, but placing the result last makes the data-flow direction immediately readable. Inputs and intermediate values come first, and the final output that drives the action result appears at the bottom (read like a `return`). The lowered model still exposes `compute.root` / `compute.condition` as string fields, derived from the result binding.
 
 ```hcl
 scene "loan_flow" {
@@ -212,7 +212,7 @@ scene "loan_flow" {
 
 ### 5.0.1 Transition Match Blocks
 
-When several transitions branch on the same values, the run may be written as one match block. This is surface syntax only: it expands into the next rules below it, so the two spell the same model.
+When several transitions branch on the same values, the run may be written as one match block. This is surface syntax only. It expands into the next rules below it, so the two spell the same model.
 
 ```hcl
 // one rule per arm, evaluated in arm order
@@ -286,9 +286,9 @@ Before first action execution, implementations MUST validate:
 5. `compute` language is implicit and MUST be treated as `hcl-context/v1`.
 6. For each action, `compute.prog` parses under HCL ContextSpec v1.
 7. `compute.root` exists in the program (value or function binding).
-8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`. Conversion satisfies this by construction: each entry is generated from the binding that carries the inline clause.
+8. Every `prepare` and `merge` binding key exists and resolves to a value binding in `compute.prog`. Conversion satisfies this by construction. Each entry is generated from the binding that carries the inline clause.
 9. Every input binding has exactly one ingress source.
-10. Every named output binding has exactly one STATE destination; every anonymous egress declares its destination inline and lowers to one generated output binding.
+10. Every named output binding has exactly one STATE destination. Every anonymous egress declares its destination inline and lowers to one generated output binding.
 11. For each next rule, `compute.prog` parses under HCL ContextSpec v1.
 12. For each next rule, `compute.condition` exists and resolves to a `bool` binding (value or function output).
 13. For each next rule, every transition ingress binding key exists and resolves to a value binding in that next-rule `compute.prog`.
@@ -345,7 +345,7 @@ Failure semantics:
 - Each rule's `compute` graph is evaluated independently and must resolve `compute.condition` to boolean.
 - `fromAction` in transition `prepare` reads from the current action `compute.prog` binding namespace (`A_n`).
 - No matches: action run terminates with no next action scheduled.
-- A `next on <subjects> to { }` block expands to one rule per arm in arm order, which is what makes its arms mutually exclusive: the `_` arm is reached only when no arm above it matched.
+- A `next on <subjects> to { }` block expands to one rule per arm in arm order, which is what makes its arms mutually exclusive. The `_` arm is reached only when no arm above it matched.
 
 ## 9. Overview DSL Enforcement
 

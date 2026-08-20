@@ -45,7 +45,7 @@ Tokenize the Turn DSL surface syntax. The lexer must handle constructs that a st
 
 ### Token types
 
-- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `publish`, `next`, `entry_action`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`. `prepare`, `merge`, and `prog` remain keywords with no grammar: they carry the diagnostic that names their replacement.
+- [x] Keywords: `state`, `state_file`, `scene`, `action`, `compute`, `publish`, `next`, `entry_action`, `hook`, `overview`, `text`, `route`, `match`, `entry`, `type`. `prepare`, `merge`, and `prog` remain keywords with no grammar, so they carry the diagnostic that names their replacement.
 - [x] Typed key (`name:type`): split on first `:` to produce `IDENT` + `TYPE` tokens
   - Types: `number`, `str`, `bool`, `arr<number>`, `arr<str>`, `arr<bool>`
 - [x] Inline IO arrows: `<~` and `~>`; legacy `<~>` is tokenized only for migration diagnostics
@@ -277,7 +277,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] No `publish` inside `next {}` (`TransitionPublish`)
 - [x] No `<~ hook(...)` in a transition `compute` (`TransitionHook`)
 - [x] No inline `~> @state.path` output in transition `prog` (`TransitionOutputSigil`)
-- [x] Transition ingress entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`) — a model-shape guard; hoisting always produces exactly one
+- [x] Transition ingress entry has exactly one of `from_action`, `from_state`, `from_literal` (`InvalidTransitionIngress`), a model-shape guard, since hoisting always produces exactly one
 - [x] `from_state` / `to_state` values are valid dotted paths (`InvalidStatePath`)
 - [x] No duplicate `action` block names in one HCL file (`DuplicateActionLabel`)
 

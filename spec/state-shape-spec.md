@@ -389,7 +389,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 - A field cannot be declared without both `type` and `value`.
 - A `from_state` or `to_state` path cannot reference an undeclared field.
 - An action compute graph cannot write to STATE directly during execution. All STATE writes must go through the `merge` step.
-- A transition compute program cannot write to STATE; inline `~> @state.path` is rejected in transition `compute` blocks.
+- A transition compute program cannot write to STATE. Inline `~> @state.path` is rejected in transition `compute` blocks.
 - The runtime cannot accept a partial `state` block (missing `type` or `value`) without emitting a validation error.
 - A `state` block cannot contain duplicate namespace labels or duplicate field names within one namespace.
 - An action's `merge` binding cannot write a value of a type different from the target STATE field's declared type. This is a convert-time type constraint error (`StateTypeMismatch`). For example, writing a `str` value to a `number` field is a type error.
@@ -414,7 +414,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 | `UnresolvedStatePath`          | A `from_state` or `to_state` path references a namespace or field not declared in the `state` block        |
 | `StateTypeMismatch`            | The type of a `merge` source binding does not match the declared type of the target STATE field            |
 | `InvalidStatePath`             | A `from_state` or `to_state` value has fewer than two segments, contains an empty segment, a leading/trailing dot, or uses invalid identifier characters |
-| `MissingStatePath`             | *(runtime)* A `from_state` path is declared and `required = true`, but the dotted path is absent from STATE at resolution time; `SceneDiagnostic.details` carries `path` and `bindingName` |
+| `MissingStatePath`             | (runtime) A `from_state` path is declared and `required = true`, but the dotted path is absent from STATE at resolution time; `SceneDiagnostic.details` carries `path` and `bindingName` |
 
 ---
 
