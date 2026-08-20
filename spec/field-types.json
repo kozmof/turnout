@@ -1,0 +1,8 @@
+[
+  { "dsl": "number", "element": null },
+  { "dsl": "str", "element": null },
+  { "dsl": "bool", "element": null },
+  { "dsl": "arr<number>", "element": "number" },
+  { "dsl": "arr<str>", "element": "str" },
+  { "dsl": "arr<bool>", "element": "bool" }
+]
