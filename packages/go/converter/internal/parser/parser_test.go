@@ -1216,3 +1216,33 @@ route "r" { to { s.*.final -> s } }`
 		t.Errorf("segments = %v, want [* final]", pe.Segments)
 	}
 }
+
+func TestParseRecordStateField(t *testing.T) {
+	tf := mustParse(t, `state {
+  cache { counters:Record<str, number> = {} }
+}
+scene "s" {
+  entry_action = a
+  action "a" { compute "p" { ok:bool := true } }
+}
+`)
+	block := tf.StateSource.(*ast.InlineStateBlock)
+	field := block.Namespaces[0].Fields[0]
+	if field.Type != ast.FieldTypeRecordStrNumber {
+		t.Fatalf("type = %v", field.Type)
+	}
+	if _, ok := field.Default.(*ast.RecordLiteral); !ok {
+		t.Fatalf("default = %T", field.Default)
+	}
+}
+
+func TestExampleRecordState(t *testing.T) {
+	tf := parseWithDummyState(t, "../../../../../spec/examples/06-record-state.tu")
+	if len(tf.Scenes) != 1 {
+		t.Fatalf("scenes = %d, want 1", len(tf.Scenes))
+	}
+	fields := tf.StateSource.(*ast.InlineStateBlock).Namespaces[0].Fields
+	if fields[0].Type != ast.FieldTypeRecordStrNumber || fields[1].Type != ast.FieldTypeRecordNumberStr {
+		t.Fatalf("record field types = %v, %v", fields[0].Type, fields[1].Type)
+	}
+}

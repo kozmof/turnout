@@ -359,6 +359,16 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 as
 			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_concat args must have same array type, got %s and %s", bindingName, t1, t2))
 		}
+	case fnmeta.FnKindRecordGet:
+		if ok1 && !t1.IsRecord() {
+			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch, "binding %q: record_get arg1 must be a Record type, got %s", bindingName, t1))
+		}
+		if ok1 && ok2 && t1.IsRecord() {
+			key, _ := t1.RecordKeyType()
+			if t2 != key {
+				ds.Append(diag.Errorf(diag.CodeArgTypeMismatch, "binding %q: record_get key expects %s, got %s", bindingName, key, t2))
+			}
+		}
 	default:
 		// Handles FnKindStandard (operand types statically declared in the spec)
 		// and any unrecognised FnKind added in future. StaticArgTypes returns
@@ -379,7 +389,33 @@ func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 as
 	}
 }
 
+func validateRecordSetTypes(bindingName string, types []ast.FieldType, known []bool, ds *diag.DiagSink) {
+	if known[0] && !types[0].IsRecord() {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch, "binding %q: record_set arg1 must be a Record type, got %s", bindingName, types[0]))
+		return
+	}
+	if !known[0] || !types[0].IsRecord() {
+		return
+	}
+	key, _ := types[0].RecordKeyType()
+	value, _ := types[0].RecordValueType()
+	if known[1] && types[1] != key {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch, "binding %q: record_set key expects %s, got %s", bindingName, key, types[1]))
+	}
+	if known[2] && types[2] != value {
+		ds.Append(diag.Errorf(diag.CodeArgTypeMismatch, "binding %q: record_set value expects %s, got %s", bindingName, value, types[2]))
+	}
+}
+
 func validateLocalCallArgTypes(bindingName, fn string, spec fnmeta.FnSpec, types []ast.FieldType, known []bool, ds *diag.DiagSink) {
+	if spec.Kind == fnmeta.FnKindRecordSet {
+		if len(types) != 3 {
+			ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape, "binding %q: function %q requires exactly 3 argument(s), got %d", bindingName, fn, len(types)))
+			return
+		}
+		validateRecordSetTypes(bindingName, types, known, ds)
+		return
+	}
 	if len(types) != fnmeta.BinaryArity {
 		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
 			"binding %q: function %q requires exactly %d argument(s), got %d",
@@ -399,6 +435,19 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 		}
 		return 0, false
 	case fnmeta.FnKindArrConcat:
+		if len(types) >= 1 && known[0] {
+			return types[0], true
+		}
+		return 0, false
+	case fnmeta.FnKindRecordGet:
+		if spec.ReturnType.Valid() {
+			return spec.ReturnType, true
+		}
+		if len(types) >= 1 && known[0] {
+			return types[0].RecordValueType()
+		}
+		return 0, false
+	case fnmeta.FnKindRecordSet:
 		if len(types) >= 1 && known[0] {
 			return types[0], true
 		}

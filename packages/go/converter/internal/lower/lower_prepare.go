@@ -128,6 +128,8 @@ func zeroStructpbFor(ft ast.FieldType) *structpb.Value {
 		return structpb.NewBoolValue(false)
 	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
 		return structpb.NewListValue(&structpb.ListValue{})
+	case ast.FieldTypeRecordStrNumber, ast.FieldTypeRecordStrStr, ast.FieldTypeRecordStrBool, ast.FieldTypeRecordNumberNumber, ast.FieldTypeRecordNumberStr, ast.FieldTypeRecordNumberBool:
+		return structpb.NewStructValue(&structpb.Struct{})
 	default:
 		panic(fmt.Sprintf("zeroStructpbFor: unhandled FieldType %v — add a case when adding new FieldType constants", ft))
 	}
@@ -143,6 +145,8 @@ func zeroLiteralFor(ft ast.FieldType) ast.Literal {
 		return &ast.BoolLiteral{Value: false}
 	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
 		return &ast.ArrayLiteral{}
+	case ast.FieldTypeRecordStrNumber, ast.FieldTypeRecordStrStr, ast.FieldTypeRecordStrBool, ast.FieldTypeRecordNumberNumber, ast.FieldTypeRecordNumberStr, ast.FieldTypeRecordNumberBool:
+		return &ast.RecordLiteral{}
 	default:
 		panic(fmt.Sprintf("zeroLiteralFor: unhandled FieldType %v — add a case when adding new FieldType constants", ft))
 	}

@@ -23,5 +23,10 @@
   { "hcl": "neq",          "runtime": "binaryFnGeneric::isNotEqual" },
   { "hcl": "arr_concat",   "runtime": "binaryFnArray::concat" },
   { "hcl": "arr_get",      "runtime": "binaryFnArray::get" },
-  { "hcl": "arr_includes", "runtime": "binaryFnArray::includes" }
+  { "hcl": "arr_includes", "runtime": "binaryFnArray::includes" },
+  { "hcl": "record_get", "runtime": "binaryFnRecord::getNumber" },
+  { "hcl": "record_get_number", "runtime": "binaryFnRecord::getNumber" },
+  { "hcl": "record_get_str", "runtime": "binaryFnRecord::getString" },
+  { "hcl": "record_get_bool", "runtime": "binaryFnRecord::getBoolean" },
+  { "hcl": "record_set", "runtime": "binaryFnRecord::set" }
 ]

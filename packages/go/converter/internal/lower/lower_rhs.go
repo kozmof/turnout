@@ -107,6 +107,22 @@ func lowerSingleRefRHS(name string, ft ast.FieldType, rhs *ast.SingleRefRHS) *tu
 	}
 }
 
+func loweredRecordFn(fn string, resultType ast.FieldType) string {
+	if fn != "record_get" {
+		return fn
+	}
+	switch resultType {
+	case ast.FieldTypeNumber:
+		return "record_get_number"
+	case ast.FieldTypeStr:
+		return "record_get_str"
+	case ast.FieldTypeBool:
+		return "record_get_bool"
+	default:
+		return fn
+	}
+}
+
 func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos ast.Pos, bindingTypes map[string]ast.FieldType, ds *diag.DiagSink) *turnoutpb.BindingModel {
 	if checkUnsupportedFn(name, rhs.FnAlias, pos, ds) {
 		return nil
@@ -114,6 +130,7 @@ func lowerFuncCallRHS(name string, ft ast.FieldType, rhs *ast.FuncCallRHS, pos a
 	if checkOperatorOnly(name, rhs.FnAlias, pos, ds) {
 		return nil
 	}
+	rhs.FnAlias = loweredRecordFn(rhs.FnAlias, ft)
 	return &turnoutpb.BindingModel{
 		Name: name,
 		Type: ft.ProtoString(),

@@ -1,7 +1,7 @@
 import strEnum from "../util/strEnum.js";
 import { TOM } from "../util/tom.js";
 
-const _baseTypes = strEnum(["number", "string", "boolean", "array", "null"]);
+const _baseTypes = strEnum(["number", "string", "boolean", "array", "record", "null"]);
 const _nullReasonSubSymbols = strEnum([
   "missing",
   "not-found",
@@ -16,7 +16,7 @@ export const nullReasonSubSymbols = TOM.keys(_nullReasonSubSymbols);
 
 export type BaseTypeSymbol = keyof typeof _baseTypes;
 export type NullReasonSubSymbol = keyof typeof _nullReasonSubSymbols;
-export type ArrayElemSubSymbol = Exclude<BaseTypeSymbol, "array"> | undefined;
+export type ArrayElemSubSymbol = Exclude<BaseTypeSymbol, "array" | "record"> | undefined;
 
 /**
  * Valid values for the subSymbol field in Value types.
@@ -127,6 +127,12 @@ export type ArrayNullValue<Tags extends readonly TagSymbol[] = readonly []> = Va
   "null",
   Tags
 >;
+export type RecordValue<Tags extends readonly TagSymbol[] = readonly []> = Value<
+  Record<string, AnyValue>,
+  "record",
+  undefined,
+  Tags
+>;
 
 export type TypedArrayValue<Tags extends readonly TagSymbol[] = readonly []> =
   | ArrayNumberValue<Tags>
@@ -144,6 +150,7 @@ export type PureStringValue = StringValue;
 export type PureBooleanValue = BooleanValue;
 export type PureNullValue = NullValue;
 export type PureArrayValue = ArrayValue;
+export type PureRecordValue = RecordValue;
 
 export type NonArrayValue =
   | NumberValue<readonly TagSymbol[]>
@@ -156,7 +163,8 @@ export type AnyValue =
   | StringValue<readonly TagSymbol[]>
   | BooleanValue<readonly TagSymbol[]>
   | NullValue<readonly TagSymbol[]>
-  | AnyArrayValue<readonly TagSymbol[]>;
+  | AnyArrayValue<readonly TagSymbol[]>
+  | RecordValue<readonly TagSymbol[]>;
 
 /**
  * A Value with fully generic type parameters.
@@ -184,6 +192,10 @@ export function isNull(val: AnyValue): val is NullValue<readonly TagSymbol[]> {
 
 export function isArray(val: AnyValue): val is AnyArrayValue<readonly TagSymbol[]> {
   return val.symbol === "array";
+}
+
+export function isRecord(val: AnyValue): val is RecordValue<readonly TagSymbol[]> {
+  return val.symbol === "record";
 }
 
 export function isTypedArray(val: AnyValue): val is TypedArrayValue<readonly TagSymbol[]> {

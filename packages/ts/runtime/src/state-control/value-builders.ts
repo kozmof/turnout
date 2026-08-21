@@ -8,6 +8,7 @@ import {
   ArrayStringValue,
   ArrayBooleanValue,
   ArrayNullValue,
+  RecordValue,
   AnyValue,
   TagSymbol,
   BaseTypeSymbol,
@@ -158,6 +159,38 @@ export function buildNull(
  * const arr = buildArray([item1, item2, item3]);
  */
 export const buildArray = createValueBuilder<ArrayValue<readonly TagSymbol[]>>("array", undefined);
+
+export const buildRecord = createValueBuilder<RecordValue<readonly TagSymbol[]>>(
+  "record",
+  undefined,
+);
+
+export function recordGet(
+  record: RecordValue<readonly TagSymbol[]>,
+  key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+): AnyValue {
+  const normalized = String(key.value);
+  const value = record.value[normalized];
+  if (value === undefined) throw new Error(`Record key "${normalized}" was not found`);
+  return {
+    ...value,
+    tags: Array.from(new Set([...value.tags, ...record.tags, ...key.tags])),
+  } as AnyValue;
+}
+
+export function recordSet(
+  record: RecordValue<readonly TagSymbol[]>,
+  key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+  value: AnyValue,
+): RecordValue<readonly TagSymbol[]> {
+  const normalized = String(key.value);
+  if (["__proto__", "constructor", "prototype"].includes(normalized))
+    throw new Error(`Reserved record key "${normalized}" is not allowed`);
+  return buildRecord(
+    { ...record.value, [normalized]: value },
+    Array.from(new Set([...record.tags, ...key.tags, ...value.tags])),
+  );
+}
 
 /**
  * Builds a typed ArrayNumberValue with tags propagated from source values.

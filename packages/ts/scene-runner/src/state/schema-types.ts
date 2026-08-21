@@ -5,10 +5,12 @@ import {
   buildArrayNumber,
   buildArrayString,
   buildArrayBoolean,
+  buildRecord,
   isNumber,
   isString,
   isBoolean,
   isArray,
+  isRecord,
 } from "runtime";
 import type { AnyValue } from "runtime";
 import { StateError } from "../executor/errors.js";
@@ -114,8 +116,61 @@ export const schemaTypeTable: Record<string, SchemaTypeEntry> = {
   },
 };
 
+function recordEntry(schemaType: string): SchemaTypeEntry | undefined {
+  const match = /^Record<(str|number), (number|str|bool)>$/.exec(schemaType);
+  if (!match) return undefined;
+  const keyType = match[1];
+  const valueType = match[2];
+  const symbol = valueType === "str" ? "string" : valueType === "bool" ? "boolean" : "number";
+  const validKey = (key: string) => keyType === "str" || /^-?(?:0|[1-9]\d*)(?:\.\d+)?$/.test(key);
+  return {
+    guard: (v) =>
+      isRecord(v) &&
+      Object.entries(v.value).every(([key, item]) => validKey(key) && item.symbol === symbol),
+    build: (raw) => {
+      if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+        throw new StateError(
+          "InvalidLiteral",
+          `literalToValue: schema type "${schemaType}" requires an object`,
+        );
+      }
+      const values: Record<string, AnyValue> = {};
+      for (const [key, item] of Object.entries(raw)) {
+        if (!validKey(key))
+          throw new StateError("InvalidLiteral", `invalid ${keyType} record key "${key}"`);
+        if (symbol === "number" && typeof item === "number") values[key] = buildNumber(item);
+        else if (symbol === "string" && typeof item === "string") values[key] = buildString(item);
+        else if (symbol === "boolean" && typeof item === "boolean")
+          values[key] = buildBoolean(item);
+        else
+          throw new StateError(
+            "InvalidLiteral",
+            `record value at "${key}" does not match ${valueType}`,
+          );
+      }
+      return buildRecord(values);
+    },
+  };
+}
+
+for (const type of [
+  "Record<str, number>",
+  "Record<str, str>",
+  "Record<str, bool>",
+  "Record<number, number>",
+  "Record<number, str>",
+  "Record<number, bool>",
+]) {
+  const entry = recordEntry(type);
+  if (entry) schemaTypeTable[type] = entry;
+}
+
+export function getSchemaTypeEntry(schemaType: string): SchemaTypeEntry | undefined {
+  return schemaTypeTable[schemaType] ?? recordEntry(schemaType);
+}
+
 export function matchesSchemaType(value: AnyValue, schemaType: string): boolean {
-  const entry = schemaTypeTable[schemaType];
+  const entry = getSchemaTypeEntry(schemaType);
   if (!entry) throw new StateError("UnknownSchemaType", `unknown schema type "${schemaType}"`);
   return entry.guard(value);
 }

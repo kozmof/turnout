@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { buildArray, buildBoolean, buildNumber, buildString } from "../value-builders.js";
-import { bfArray } from "./array/binaryFn.js";
+import {
+  buildArray,
+  buildBoolean,
+  buildNumber,
+  buildRecord,
+  buildString,
+} from "../value-builders.js";
+import { bfArray, bfRecord } from "./array/binaryFn.js";
 import { tfArray } from "./array/transformFn.js";
 import { bfBoolean } from "./boolean/binaryFn.js";
 import { tfBoolean } from "./boolean/transformFn.js";
@@ -177,6 +183,22 @@ describe("preset functions", () => {
     expect(() => bfArray.get(buildArray([nested]), buildNumber(0))).toThrow(
       "item at that index is an array",
     );
+  });
+
+  describe("record functions", () => {
+    it("gets values and returns an immutable updated record", () => {
+      const original = buildRecord({ visits: buildNumber(1) }, ["record"]);
+      const updated = bfRecord.set(
+        original,
+        buildString("visits", ["key"]),
+        buildNumber(2, ["value"]),
+      );
+
+      expect(bfRecord.getNumber(original, buildString("visits")).value).toBe(1);
+      expect(bfRecord.getNumber(updated, buildString("visits")).value).toBe(2);
+      expect(updated).not.toBe(original);
+      expectTagsToContainAll(updated.tags, ["record", "key", "value"]);
+    });
   });
 
   describe("generic binary functions", () => {

@@ -137,6 +137,8 @@ export function getBinaryFnParamTypes(
       // Would need the element type to validate properly
       return null;
     }
+    case "binaryFnRecord":
+      return null;
     default:
       return null;
   }
@@ -174,10 +176,16 @@ export function getBinaryFnReturnType(
     case "binaryFnArray": {
       // Array binary functions require a non-array element type
       // This design does not support nested arrays (array of arrays)
-      if (!elemType || elemType === "array") return null;
+      if (!elemType || elemType === "array" || elemType === "record") return null;
       const meta = metaBfArray(elemType);
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
+    case "binaryFnRecord":
+      if (fnName === "set") return "record";
+      if (fnName === "getNumber") return "number";
+      if (fnName === "getString") return "string";
+      if (fnName === "getBoolean") return "boolean";
+      return null;
     default:
       return null;
   }

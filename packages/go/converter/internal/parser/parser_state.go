@@ -123,6 +123,13 @@ func (p *parser) parseLiteral() ast.Literal {
 
 	case lexer.TokLBracket:
 		return p.parseArrayLiteral()
+	case lexer.TokLBrace:
+		open := p.advance()
+		if p.peek().Kind != lexer.TokRBrace {
+			p.errorf(p.peek(), "record literals currently support only the empty form {}")
+		}
+		p.expect(lexer.TokRBrace)
+		return ast.NewRecordLiteral(p.posOf(open))
 
 	default:
 		p.errorf(t, "expected literal value, got %s %q", kindName(t.Kind), t.Value)

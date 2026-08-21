@@ -22,6 +22,7 @@ export type CombineBuilder = {
   readonly args: {
     readonly a: ValueInputRef | TransformRef;
     readonly b: ValueInputRef | TransformRef;
+    readonly c?: ValueInputRef | TransformRef;
   };
 };
 

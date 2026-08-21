@@ -313,6 +313,13 @@ func (l *lex) scanIdent(ln, co int) {
 		}
 	}
 
+	if value == "Record" && !l.atEnd() && l.peek() == '<' {
+		if typ := l.tryScanRecordType(); typ != "" {
+			l.emit(TokType, typ, ln, co)
+			return
+		}
+	}
+
 	// Bool literals
 	if value == "true" || value == "false" {
 		l.emit(TokBoolLit, value, ln, co)
@@ -354,6 +361,31 @@ func (l *lex) tryScanTypeParam() string {
 // ────────────────────────────────────────────────────────────
 // Character classification helpers
 // ────────────────────────────────────────────────────────────
+
+func (l *lex) tryScanRecordType() string {
+	snap := l.save()
+	l.advance()
+	var inner strings.Builder
+	for !l.atEnd() && l.peek() != '>' && l.peek() != '\n' {
+		inner.WriteRune(l.advance())
+	}
+	if l.atEnd() || l.peek() != '>' {
+		l.restore(snap)
+		return ""
+	}
+	parts := strings.Split(inner.String(), ",")
+	if len(parts) != 2 {
+		l.restore(snap)
+		return ""
+	}
+	key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
+	if (key != "str" && key != "number") || (value != "number" && value != "str" && value != "bool") {
+		l.restore(snap)
+		return ""
+	}
+	l.advance()
+	return "Record<" + key + ", " + value + ">"
+}
 
 func isDigit(c rune) bool {
 	return c >= '0' && c <= '9'

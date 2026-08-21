@@ -127,6 +127,22 @@ export class ContextSpecBuilder {
   }
 
   private handleCombineBinding(binding: BindingModel, c: CombineExpr): void {
+    if (c.fn === "record_set") {
+      const [record, key, value] = c.args;
+      if (c.args.length !== 3 || record === undefined || key === undefined || value === undefined) {
+        throw new SceneRuntimeError(
+          "CompilerBug",
+          this.contextId,
+          `binding "": record_set requires exactly 3 arguments`,
+        );
+      }
+      this.spec[binding.name] = combine(mapFnName(c.fn, this.contextId), {
+        a: toCombineArgRef(this.resolveArg(record)),
+        b: toCombineArgRef(this.resolveArg(key)),
+        c: toCombineArgRef(this.resolveArg(value)),
+      });
+      return;
+    }
     const [argA, argB] = c.args;
     if (c.args.length !== 2 || argA === undefined || argB === undefined) {
       throw new SceneRuntimeError(

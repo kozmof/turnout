@@ -326,3 +326,15 @@ func TestStateFileSizeLimits(t *testing.T) {
 		t.Fatal("exact-limit schema missing ns.value")
 	}
 }
+
+func TestInlineRecordType(t *testing.T) {
+	block := inlineBlock(ns("cache", field("counters", ast.FieldTypeRecordStrNumber, ast.NewRecordLiteral(pos()))))
+	schema, ds := state.Resolve(block, "")
+	if ds.HasErrors() {
+		t.Fatalf("unexpected errors: %v", ds)
+	}
+	meta, ok := schema.Get("cache.counters")
+	if !ok || meta.Type != ast.FieldTypeRecordStrNumber {
+		t.Fatalf("meta = %+v, found=%v", meta, ok)
+	}
+}

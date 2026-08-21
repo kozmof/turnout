@@ -2,6 +2,7 @@ package emit
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -128,6 +129,7 @@ func writeArgs(args []*turnoutpb.ArgModel) string {
 //   - StringValue: double-quoted via hclQuote (HCL escaping, not Go's %q)
 //   - BoolValue:   true / false
 //   - ListValue:   [] or [v1, v2, ...] (all on one line)
+//   - StructValue: {} or {"key" = value, ...} (keys sorted)
 func writeStructpbValue(v *structpb.Value) string {
 	if v == nil {
 		return "null"
@@ -153,6 +155,20 @@ func writeStructpbValue(v *structpb.Value) string {
 			parts[i] = writeStructpbValue(e)
 		}
 		return "[" + strings.Join(parts, ", ") + "]"
+	case *structpb.Value_StructValue:
+		if k.StructValue == nil || len(k.StructValue.Fields) == 0 {
+			return "{}"
+		}
+		keys := make([]string, 0, len(k.StructValue.Fields))
+		for key := range k.StructValue.Fields {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		parts := make([]string, len(keys))
+		for i, key := range keys {
+			parts[i] = hclQuote(key) + " = " + writeStructpbValue(k.StructValue.Fields[key])
+		}
+		return "{" + strings.Join(parts, ", ") + "}"
 	}
 	panic(fmt.Sprintf("writeStructpbValue: unhandled structpb kind %T — "+
 		"struct/map values are not valid in Turn DSL bindings; this is a compiler bug", v.Kind))

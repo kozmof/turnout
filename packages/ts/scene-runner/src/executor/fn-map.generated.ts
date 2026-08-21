@@ -29,4 +29,9 @@ export const FN_MAP: Record<string, BinaryFnNames> = {
   arr_concat: "binaryFnArray::concat",
   arr_get: "binaryFnArray::get",
   arr_includes: "binaryFnArray::includes",
+  record_get: "binaryFnRecord::getNumber",
+  record_get_number: "binaryFnRecord::getNumber",
+  record_get_str: "binaryFnRecord::getString",
+  record_get_bool: "binaryFnRecord::getBoolean",
+  record_set: "binaryFnRecord::set",
 };

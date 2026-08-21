@@ -156,6 +156,10 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 			}
 		}
 		return true
+	case ast.FieldTypeRecordStrNumber, ast.FieldTypeRecordStrStr, ast.FieldTypeRecordStrBool,
+		ast.FieldTypeRecordNumberNumber, ast.FieldTypeRecordNumberStr, ast.FieldTypeRecordNumberBool:
+		_, ok := v.Kind.(*structpb.Value_StructValue)
+		return ok
 	case ast.FieldTypeInvalid:
 		return false
 	default:
@@ -228,6 +232,25 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	}
 
 	contextLabel := fmt.Sprintf("binding %q", b.Name)
+	if spec.Kind == fnmeta.FnKindRecordSet {
+		if len(c.Args) != 3 {
+			ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape, "%s: function %q requires exactly 3 argument(s), got %d", contextLabel, c.Fn, len(c.Args)))
+			return
+		}
+		types := make([]ast.FieldType, 3)
+		known := make([]bool, 3)
+		for i, arg := range c.Args {
+			types[i], known[i] = resolveArgType(b.Name, arg, scope, nil, ds)
+		}
+		validateRecordSetTypes(b.Name, types, known, ds)
+		if known[0] {
+			bFt, ftOK := ast.FieldTypeFromString(b.Type)
+			if ftOK && types[0] != bFt {
+				ds.Append(diag.Errorf(diag.CodeReturnTypeMismatch, "binding %q: function %q returns %s but binding declares type %s", b.Name, c.Fn, types[0], b.Type))
+			}
+		}
+		return
+	}
 	t1, _, ok1, _ := validateBinaryCall(b.Name, contextLabel, c.Fn, spec, c.Args, scope, nil, ds)
 
 	// Return-type check: delegate to resolveExpectedReturn so the inference
@@ -300,8 +323,25 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 			}
 		}
 
-		t1, _, ok1, _ := validateBinaryCall(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
-		retType, known := resolveExpectedReturn(spec, t1, ok1)
+		var retType ast.FieldType
+		var known bool
+		if spec.Kind == fnmeta.FnKindRecordSet {
+			contextLabel := fmt.Sprintf("binding %q pipe step %d", b.Name, i)
+			if len(step.Args) != 3 {
+				ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape, "%s: function %q requires exactly 3 argument(s), got %d", contextLabel, step.Fn, len(step.Args)))
+			} else {
+				types := make([]ast.FieldType, 3)
+				argKnown := make([]bool, 3)
+				for j, arg := range step.Args {
+					types[j], argKnown[j] = resolveArgType(b.Name, arg, pipeScope, stepTypes, ds)
+				}
+				validateRecordSetTypes(b.Name, types, argKnown, ds)
+				retType, known = types[0], argKnown[0]
+			}
+		} else {
+			t1, _, ok1, _ := validateBinaryCall(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
+			retType, known = resolveExpectedReturn(spec, t1, ok1)
+		}
 		stepTypes = append(stepTypes, retType)
 		stepKnown = append(stepKnown, known)
 	}
@@ -474,6 +514,19 @@ func resolveExpectedReturn(spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool) (ast.
 		}
 		return 0, false
 	case fnmeta.FnKindArrConcat:
+		if ok1 {
+			return t1, true
+		}
+		return 0, false
+	case fnmeta.FnKindRecordGet:
+		if spec.ReturnType.Valid() {
+			return spec.ReturnType, true
+		}
+		if ok1 && t1.IsRecord() {
+			return t1.RecordValueType()
+		}
+		return 0, false
+	case fnmeta.FnKindRecordSet:
 		if ok1 {
 			return t1, true
 		}

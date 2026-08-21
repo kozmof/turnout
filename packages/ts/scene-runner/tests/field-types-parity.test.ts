@@ -98,6 +98,13 @@ function sampleFor(dsl: string): unknown {
       return ["x"];
     case "arr<bool>":
       return [true];
+    case "Record<str, number>":
+    case "Record<str, str>":
+    case "Record<str, bool>":
+    case "Record<number, number>":
+    case "Record<number, str>":
+    case "Record<number, bool>":
+      return {};
     default:
       throw new Error(
         `spec/field-types.json declares "${dsl}", which this test has no sample for — ` +

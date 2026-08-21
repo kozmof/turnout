@@ -1,8 +1,10 @@
 import { literal, LiteralSchema, union } from "valibot";
 import {
   bfArray,
+  bfRecord,
   BinaryFnArrayNames,
   BinaryFnArrayNameSpace,
+  BinaryFnRecordNames,
 } from "../../state-control/preset-funcs/array/binaryFn.js";
 import {
   bfBoolean,
@@ -33,6 +35,12 @@ const binaryFnArrayNames = (): LiteralSchema<BinaryFnArrayNames, undefined>[] =>
   return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
+const binaryFnRecordNames = (): LiteralSchema<BinaryFnRecordNames, undefined>[] => {
+  return TOM.keys(bfRecord).map((fnName) =>
+    literal(("binaryFnRecord::" + fnName) as BinaryFnRecordNames),
+  );
+};
+
 const binaryFnGenericNames = (): LiteralSchema<BinaryFnGenericNames, undefined>[] => {
   const namespace: BinaryFnGenericNameSpace = "binaryFnGeneric";
   const fnNames = TOM.keys(bfGeneric);
@@ -60,6 +68,7 @@ const binaryFnStringNames = (): LiteralSchema<BinaryFnStringNames, undefined>[] 
 export const binaryFnNames = () => {
   return union([
     ...binaryFnArrayNames(),
+    ...binaryFnRecordNames(),
     ...binaryFnBooleanNames(),
     ...binaryFnGenericNames(),
     ...binaryFnNumberNames(),

@@ -3,11 +3,13 @@ import {
   type AnyArrayValue,
   type NonArrayValue,
   type NumberValue,
+  type StringValue,
+  type RecordValue,
   type TagSymbol,
   AnyValue,
 } from "../../value.js";
 import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from "../convert.js";
-import { buildArray, buildBoolean } from "../../value-builders.js";
+import { buildArray, buildBoolean, recordGet, recordSet } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface BinaryFnArray {
@@ -118,3 +120,28 @@ export type BinaryFnArrayNames =
 export type ReturnMetaBinaryFnArray = {
   [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>["symbol"];
 };
+
+export const bfRecord = {
+  getNumber: (
+    record: RecordValue<readonly TagSymbol[]>,
+    key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+  ) => recordGet(record, key),
+  getString: (
+    record: RecordValue<readonly TagSymbol[]>,
+    key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+  ) => recordGet(record, key),
+  getBoolean: (
+    record: RecordValue<readonly TagSymbol[]>,
+    key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+  ) => recordGet(record, key),
+  set: (
+    record: RecordValue<readonly TagSymbol[]>,
+    key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+    value: AnyValue,
+  ) => recordSet(record, key, value),
+} as const;
+export type BinaryFnRecordNames =
+  | "binaryFnRecord::getNumber"
+  | "binaryFnRecord::getString"
+  | "binaryFnRecord::getBoolean"
+  | "binaryFnRecord::set";

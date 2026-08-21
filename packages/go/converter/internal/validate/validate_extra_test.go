@@ -1949,3 +1949,25 @@ func TestCondStepRefBranch(t *testing.T) {
 		t.Error("want UnsupportedConstruct for cond then-branch using step_ref")
 	}
 }
+
+func TestRecordGetSetValid(t *testing.T) {
+	src := minScene(`state { cache { counters:Record<str, number> = {} } }`, `        counters:Record<str, number> <~ @cache.counters
+        updated:Record<str, number> = record_set(counters, "visits", 1)
+        visits:number = record_get(updated, "visits")
+`)
+	ds := pipeline(src)
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+func TestRecordSetRejectsWrongValueType(t *testing.T) {
+	src := minScene(`state { cache { counters:Record<str, number> = {} } }`, `        counters:Record<str, number> <~ @cache.counters
+        updated:Record<str, number> = record_set(counters, "visits", "wrong")
+`)
+	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
+		t.Error("want ArgTypeMismatch for record_set value")
+	}
+}

@@ -4,7 +4,7 @@ import { toJson } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import type { Value } from "@bufbuild/protobuf/wkt";
 import { StateError } from "../executor/errors.js";
-import { schemaTypeTable } from "./schema-types.js";
+import { getSchemaTypeEntry } from "./schema-types.js";
 
 /**
  * Unwrap a protobuf `google.protobuf.Value` message to a plain JS primitive.
@@ -37,7 +37,7 @@ export function literalToValue(value: unknown, type: string): AnyValue {
   if (raw === null || raw === undefined) {
     return buildNull("missing");
   }
-  const entry = schemaTypeTable[type];
+  const entry = getSchemaTypeEntry(type);
   if (!entry)
     throw new StateError("UnknownSchemaType", `literalToValue: unknown schema type "${type}"`);
   return entry.build(raw);

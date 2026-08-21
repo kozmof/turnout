@@ -45,7 +45,18 @@ export function executeCombineFunc(
   // Apply the transform chain for each arg: each fn in the array is applied in order.
   const transformedA = def.transformFn.a.reduce((v, fn) => getTransformFn(fn)(v), valA);
   const transformedB = def.transformFn.b.reduce((v, fn) => getTransformFn(fn)(v), valB);
-  const result = binaryFn(transformedA, transformedB);
+  let result;
+  if (def.name === "binaryFnRecord::set") {
+    const argCId = funcEntry.argMap[createArgName("c")];
+    if (argCId === undefined) throw new Error(`executeCombineFunc: record set  is missing arg c`);
+    const valC = context.valueTable[argCId];
+    if (valC === undefined)
+      throw new Error(`executeCombineFunc: missing value table entry for arg c of `);
+    const transformedC = (def.transformFn.c ?? []).reduce((v, fn) => getTransformFn(fn)(v), valC);
+    result = binaryFn(transformedA, transformedB, transformedC);
+  } else {
+    result = binaryFn(transformedA, transformedB);
+  }
 
   // Return result with updated value table (immutable update)
   return {

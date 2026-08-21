@@ -72,6 +72,12 @@ func NewArrayLiteral(pos Pos, elements []Literal) *ArrayLiteral {
 	return &ArrayLiteral{litPos: pos, Elements: elements}
 }
 
+type RecordLiteral struct{ litPos Pos }
+
+func (*RecordLiteral) literal()               {}
+func (r *RecordLiteral) Pos() Pos             { return r.litPos }
+func NewRecordLiteral(pos Pos) *RecordLiteral { return &RecordLiteral{litPos: pos} }
+
 // LiteralFieldType infers the FieldType of a Literal value.
 // For an empty ArrayLiteral, ok is false (element type is unknown); the returned
 // FieldType is FieldTypeInvalid as a placeholder. Callers MUST check ok before
@@ -130,6 +136,8 @@ func LiteralToStructpb(lit Literal) *structpb.Value {
 			vals[i] = LiteralToStructpb(e)
 		}
 		return structpb.NewListValue(&structpb.ListValue{Values: vals})
+	case *RecordLiteral:
+		return structpb.NewStructValue(&structpb.Struct{})
 	}
 	panic(fmt.Sprintf("LiteralToStructpb: unhandled Literal type %T", lit))
 }

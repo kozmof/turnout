@@ -341,7 +341,7 @@ scene "pipe_low" {
   action "run" {
     compute "p" {
       n:number <~ @input.n
-      result:number := (pipe(n, add(#it, 2), mul(#it, 3))) ~> @work.n
+      result:number := (n |> add(#it, 2) |> mul(#it, 3)) ~> @work.n
     }
   }
 }`,
@@ -360,14 +360,14 @@ scene "pipe_medium" {
   action "first" {
     compute "p1" {
       n:number <~ @input.n
-      staged:number := (pipe(n, add(#it, 1), mul(#it, 2))) ~> @work.n
+      staged:number := (n |> add(#it, 1) |> mul(#it, 2)) ~> @work.n
     }
     next { action = second }
   }
   action "second" {
     compute "p2" {
       staged:number <~ @work.n
-      final:number := (pipe(staged, add(#it, 3), mul(#it, 4))) ~> @work.n
+      final:number := (staged |> add(#it, 3) |> mul(#it, 4)) ~> @work.n
     }
   }
 }`,
@@ -386,7 +386,7 @@ scene "pipe_a" {
   action "done" {
     compute "p1" {
       n:number <~ @input.n
-      staged:number := (pipe(n, add(#it, 4), mul(#it, 2))) ~> @work.n
+      staged:number := (n |> add(#it, 4) |> mul(#it, 2)) ~> @work.n
     }
   }
 }
@@ -395,7 +395,7 @@ scene "pipe_b" {
   action "finish" {
     compute "p2" {
       staged:number <~ @work.n
-      final:number := (pipe(staged, mul(#it, 3), sub(#it, 1))) ~> @work.n
+      final:number := (staged |> mul(#it, 3) |> sub(#it, 1)) ~> @work.n
     }
   }
 }

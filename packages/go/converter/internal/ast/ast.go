@@ -43,7 +43,13 @@ const (
 	FieldTypeArrNumber                  //  4: arr<number>
 	FieldTypeArrStr                     //  5: arr<str>
 	FieldTypeArrBool                    //  6: arr<bool>
-	fieldTypeSentinel                   // unexported — marks the end of the valid range; add new types above this line
+	FieldTypeRecordStrNumber
+	FieldTypeRecordStrStr
+	FieldTypeRecordStrBool
+	FieldTypeRecordNumberNumber
+	FieldTypeRecordNumberStr
+	FieldTypeRecordNumberBool
+	fieldTypeSentinel // unexported — marks the end of the valid range; add new types above this line
 )
 
 // fieldTypeExhaustiveCheck is a compile-time guard: its size equals the number
@@ -63,6 +69,7 @@ var _ = [fieldTypeSentinel - 1]struct{}{
 	{}, // FieldTypeArrNumber
 	{}, // FieldTypeArrStr
 	{}, // FieldTypeArrBool
+	{}, {}, {}, {}, {}, {},
 }
 
 // Valid reports whether ft is a recognised (non-zero, in-range) FieldType.
@@ -73,12 +80,18 @@ func (ft FieldType) Valid() bool {
 }
 
 var fieldTypeNames = map[FieldType]string{
-	FieldTypeNumber:    "number",
-	FieldTypeStr:       "str",
-	FieldTypeBool:      "bool",
-	FieldTypeArrNumber: "arr<number>",
-	FieldTypeArrStr:    "arr<str>",
-	FieldTypeArrBool:   "arr<bool>",
+	FieldTypeNumber:             "number",
+	FieldTypeStr:                "str",
+	FieldTypeBool:               "bool",
+	FieldTypeArrNumber:          "arr<number>",
+	FieldTypeArrStr:             "arr<str>",
+	FieldTypeArrBool:            "arr<bool>",
+	FieldTypeRecordStrNumber:    "Record<str, number>",
+	FieldTypeRecordStrStr:       "Record<str, str>",
+	FieldTypeRecordStrBool:      "Record<str, bool>",
+	FieldTypeRecordNumberNumber: "Record<number, number>",
+	FieldTypeRecordNumberStr:    "Record<number, str>",
+	FieldTypeRecordNumberBool:   "Record<number, bool>",
 }
 
 func (ft FieldType) String() string {
@@ -98,12 +111,18 @@ func (ft FieldType) String() string {
 func (ft FieldType) ProtoString() string { return ft.String() }
 
 var fieldTypeByString = map[string]FieldType{
-	"number":      FieldTypeNumber,
-	"str":         FieldTypeStr,
-	"bool":        FieldTypeBool,
-	"arr<number>": FieldTypeArrNumber,
-	"arr<str>":    FieldTypeArrStr,
-	"arr<bool>":   FieldTypeArrBool,
+	"number":                 FieldTypeNumber,
+	"str":                    FieldTypeStr,
+	"bool":                   FieldTypeBool,
+	"arr<number>":            FieldTypeArrNumber,
+	"arr<str>":               FieldTypeArrStr,
+	"arr<bool>":              FieldTypeArrBool,
+	"Record<str, number>":    FieldTypeRecordStrNumber,
+	"Record<str, str>":       FieldTypeRecordStrStr,
+	"Record<str, bool>":      FieldTypeRecordStrBool,
+	"Record<number, number>": FieldTypeRecordNumberNumber,
+	"Record<number, str>":    FieldTypeRecordNumberStr,
+	"Record<number, bool>":   FieldTypeRecordNumberBool,
 }
 
 // FieldTypeFromString converts a DSL type string to a FieldType.
@@ -117,6 +136,32 @@ func FieldTypeFromString(s string) (FieldType, bool) {
 }
 
 // IsArray reports whether the type is an array type.
+func (ft FieldType) IsRecord() bool {
+	return ft >= FieldTypeRecordStrNumber && ft <= FieldTypeRecordNumberBool
+}
+
+func (ft FieldType) RecordKeyType() (FieldType, bool) {
+	switch ft {
+	case FieldTypeRecordStrNumber, FieldTypeRecordStrStr, FieldTypeRecordStrBool:
+		return FieldTypeStr, true
+	case FieldTypeRecordNumberNumber, FieldTypeRecordNumberStr, FieldTypeRecordNumberBool:
+		return FieldTypeNumber, true
+	}
+	return FieldTypeInvalid, false
+}
+
+func (ft FieldType) RecordValueType() (FieldType, bool) {
+	switch ft {
+	case FieldTypeRecordStrNumber, FieldTypeRecordNumberNumber:
+		return FieldTypeNumber, true
+	case FieldTypeRecordStrStr, FieldTypeRecordNumberStr:
+		return FieldTypeStr, true
+	case FieldTypeRecordStrBool, FieldTypeRecordNumberBool:
+		return FieldTypeBool, true
+	}
+	return FieldTypeInvalid, false
+}
+
 func (ft FieldType) IsArray() bool {
 	return ft == FieldTypeArrNumber || ft == FieldTypeArrStr || ft == FieldTypeArrBool
 }

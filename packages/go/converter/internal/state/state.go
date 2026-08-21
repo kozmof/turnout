@@ -447,6 +447,10 @@ func literalMatchesType(lit ast.Literal, ft ast.FieldType) bool {
 			}
 		}
 		return true
+	case ast.FieldTypeRecordStrNumber, ast.FieldTypeRecordStrStr, ast.FieldTypeRecordStrBool,
+		ast.FieldTypeRecordNumberNumber, ast.FieldTypeRecordNumberStr, ast.FieldTypeRecordNumberBool:
+		_, ok := lit.(*ast.RecordLiteral)
+		return ok
 	case ast.FieldTypeInvalid:
 		return false
 	default:

@@ -9,6 +9,9 @@ import {
   buildArrayString,
   buildArrayBoolean,
   buildArrayNull,
+  buildRecord,
+  recordGet,
+  recordSet,
   binaryNumberOp,
   binaryStringOp,
   binaryBooleanOp,
@@ -311,6 +314,15 @@ describe("Value Builders", () => {
       expect(result.tags).toContain("b");
       expect(result.tags).toContain("c");
       expect(result.tags).toContain("d");
+    });
+  });
+  describe("records", () => {
+    it("gets and immutably sets values", () => {
+      const empty = buildRecord({});
+      const updated = recordSet(empty, buildString("visits"), buildNumber(1));
+      expect(recordGet(updated, buildString("visits")).value).toBe(1);
+      expect(() => recordGet(empty, buildString("visits"))).toThrow("not found");
+      expect(empty.value).toEqual({});
     });
   });
 });

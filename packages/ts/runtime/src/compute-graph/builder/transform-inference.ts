@@ -41,6 +41,11 @@ export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames
       const namespace: TransformFnArrayNameSpace = "transformFnArray";
       return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
+    case "record":
+      throw new BuilderInvariantError(
+        "UnsupportedConstruct",
+        "record values do not support transform inference",
+      );
     default:
       return assertNever(typeSymbol);
   }

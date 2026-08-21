@@ -31,6 +31,7 @@ export function combine(
   args: {
     a: ValueInputRef | TransformRef;
     b: ValueInputRef | TransformRef;
+    c?: ValueInputRef | TransformRef;
   },
 ): CombineBuilder {
   return {

@@ -14,6 +14,8 @@ import {
   buildArrayNumber,
   buildArrayString,
   buildArrayBoolean,
+  buildRecord,
+  isRecord,
   isPureNumber,
   isPureString,
   isPureBoolean,
@@ -741,6 +743,28 @@ describe("StateManager — value nesting depth", () => {
   it("rejects a pathologically nested value with a structured error, not a RangeError", () => {
     expect(() => stateManagerFromUnchecked({ "a.x": nest(500) })).toThrow(
       /exceeds the maximum nesting depth/,
+    );
+  });
+});
+
+describe("Record schema types", () => {
+  it("builds and validates Record<str, number>", () => {
+    const value = literalToValue({ visits: 1 }, "Record<str, number>");
+    expect(isRecord(value)).toBe(true);
+    expect(value.value).toEqual({ visits: buildNumber(1) });
+    expect(() => literalToValue({ visits: "bad" }, "Record<str, number>")).toThrow(
+      "does not match number",
+    );
+  });
+
+  it("validates record writes against their declared value type", () => {
+    const manager = stateManagerFromStrict(
+      { counters: buildRecord({ visits: buildNumber(1) }) },
+      new Set(["counters"]),
+      new Map([["counters", "Record<str, number>"]]),
+    );
+    expect(() => manager.write("counters", buildRecord({ visits: buildString("bad") }))).toThrow(
+      "type mismatch",
     );
   });
 });

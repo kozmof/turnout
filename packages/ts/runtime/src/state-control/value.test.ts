@@ -177,7 +177,7 @@ describe("Check TypeGuard", () => {
 
 describe("value metadata and validation", () => {
   test("exports base and null reason symbols", () => {
-    expect(baseTypeSymbols).toEqual(["number", "string", "boolean", "array", "null"]);
+    expect(baseTypeSymbols).toEqual(["number", "string", "boolean", "array", "record", "null"]);
     expect(nullReasonSubSymbols).toEqual([
       "missing",
       "not-found",

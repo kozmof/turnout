@@ -1,4 +1,7 @@
-import { BinaryFnArrayNames } from "../state-control/preset-funcs/array/binaryFn.js";
+import {
+  BinaryFnArrayNames,
+  BinaryFnRecordNames,
+} from "../state-control/preset-funcs/array/binaryFn.js";
 import { TransformFnArrayNames } from "../state-control/preset-funcs/array/transformFn.js";
 import { BinaryFnBooleanNames } from "../state-control/preset-funcs/boolean/binaryFn.js";
 import { TransformFnBooleanNames } from "../state-control/preset-funcs/boolean/transformFn.js";
@@ -13,6 +16,7 @@ import { Brand } from "../util/brand.js";
 
 export type BinaryFnNames =
   | BinaryFnArrayNames
+  | BinaryFnRecordNames
   | BinaryFnBooleanNames
   | BinaryFnGenericNames
   | BinaryFnNumberNames
@@ -101,6 +105,7 @@ export type CombineFuncDefTable = {
     transformFn: {
       a: readonly TransformFnNames[];
       b: readonly TransformFnNames[];
+      c?: readonly TransformFnNames[];
     };
   };
 };

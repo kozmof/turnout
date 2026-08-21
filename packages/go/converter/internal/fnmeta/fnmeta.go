@@ -22,6 +22,8 @@ const (
 	FnKindArrGet                  // arr_get: returns element type of arg1
 	FnKindArrInc                  // arr_includes: returns bool
 	FnKindArrConcat               // arr_concat: returns same array type as arg1
+	FnKindRecordGet               // record_get: returns record value type
+	FnKindRecordSet               // record_set: returns updated record
 )
 
 // BinaryArity is the fixed arity of all built-in functions.
@@ -99,6 +101,11 @@ var builtinFnTable = map[string]FnSpec{
 	"arr_includes":         {Kind: FnKindArrInc},
 	"arr_get":              {Kind: FnKindArrGet},
 	"arr_concat":           {Kind: FnKindArrConcat},
+	"record_get":           {Kind: FnKindRecordGet},
+	"record_get_number":    {Kind: FnKindRecordGet, ReturnType: ast.FieldTypeNumber},
+	"record_get_str":       {Kind: FnKindRecordGet, ReturnType: ast.FieldTypeStr},
+	"record_get_bool":      {Kind: FnKindRecordGet, ReturnType: ast.FieldTypeBool},
+	"record_set":           {Kind: FnKindRecordSet},
 }
 
 // IsOperatorOnly reports whether fn must be used via infix syntax only.
@@ -136,6 +143,8 @@ func ReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 		return fallback
 	case FnKindArrConcat:
 		return fallback
+	case FnKindRecordGet, FnKindRecordSet:
+		return fallback
 	default:
 		return spec.ReturnType
 	}
@@ -170,6 +179,10 @@ func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.Fie
 	case FnKindArrConcat:
 		// both args must be the same array type
 		return declaredType, declaredType, true
+	case FnKindRecordGet:
+		return ast.FieldTypeInvalid, ast.FieldTypeInvalid, true
+	case FnKindRecordSet:
+		return declaredType, ast.FieldTypeInvalid, true
 	default:
 		panic(fmt.Sprintf("fnmeta.OperandTypes: unhandled FnKind %d — add a case when adding new FnKind values", spec.Kind))
 	}

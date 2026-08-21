@@ -204,6 +204,7 @@ func (c *localLowerer) lowerLocalArgModel(arg ast.LocalExpr, argIdx int, binding
 }
 
 func (c *localLowerer) lowerCallInto(name string, ft ast.FieldType, call *ast.LocalCallExpr, pc pipeContext) {
+	call.FnAlias = loweredRecordFn(call.FnAlias, ft)
 	// Planned-but-unsupported constructs get a targeted error before the generic
 	// unknown-fn check so the message is clearly actionable.
 	if checkUnsupportedFn(c.target, call.FnAlias, call.Pos, c.ds) {

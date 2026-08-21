@@ -1,4 +1,4 @@
-import { bfArray } from "../../state-control/preset-funcs/array/binaryFn.js";
+import { bfArray, bfRecord } from "../../state-control/preset-funcs/array/binaryFn.js";
 import { bfBoolean } from "../../state-control/preset-funcs/boolean/binaryFn.js";
 import { bfGeneric } from "../../state-control/preset-funcs/generic/binaryFn.js";
 import { bfNumber } from "../../state-control/preset-funcs/number/binaryFn.js";
@@ -9,7 +9,7 @@ import { BinaryFnNames } from "../types.js";
 
 // Runtime execution resolves binary functions dynamically, so we expose a single
 // AnyValue-based contract that works across all namespaced preset implementations.
-type AnyToAny = (valA: AnyValue, valB: AnyValue) => AnyValue;
+type AnyToAny = (...values: AnyValue[]) => AnyValue;
 
 export const getBinaryFn = (joinedName: BinaryFnNames): AnyToAny => {
   const mayPair = splitPairBinaryFnNames(joinedName);
@@ -24,6 +24,8 @@ export const getBinaryFn = (joinedName: BinaryFnNames): AnyToAny => {
       // above ensures this cast matches the selected preset implementation.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return bfArray[fnName] as AnyToAny;
+    case "binaryFnRecord":
+      return bfRecord[fnName] as unknown as AnyToAny;
     case "binaryFnBoolean":
       // String-keyed lookup widens the function type; namespace/function parsing
       // above ensures this cast matches the selected preset implementation.
