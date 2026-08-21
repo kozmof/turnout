@@ -234,7 +234,7 @@
       "name": "keyword.operator.assignment.computed.tu"
     },
     "operator": {
-      "match": "(>=|<=|=|\\+|-|&|\\|)",
+      "match": "(>=|<=|\\|>|=|\\+|-|&|\\|)",
       "captures": {
         "1": {
           "name": "keyword.operator.tu"
@@ -247,8 +247,8 @@
       "name": "variable.other.tu"
     },
     "dsl-form": {
-      "comment": "DSL forms. They dropped their # prefix in v2 (NEW_SYNTAX.md 2.1); #it kept its prefix as a placeholder.",
-      "match": "\\b(if|case|pipe)\\b(?=\\s*\\()",
+      "comment": "Call-style DSL forms.",
+      "match": "\\b(if|case)\\b(?=\\s*\\()",
       "name": "keyword.control.form.tu"
     },
     "overview-block": {

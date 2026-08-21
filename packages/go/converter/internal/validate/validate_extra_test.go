@@ -86,7 +86,7 @@ func TestValidateExtExprItOutsidePipeStep(t *testing.T) {
 
 func TestValidateExtExprPipeStepTypeMismatch(t *testing.T) {
 	// str_includes expects (str, str); #it has type number from pipe initial 0
-	src := min(`        out:bool = pipe(0, str_includes(#it, "x"))
+	src := min(`        out:bool = 0 |> str_includes(#it, "x")
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for pipe step using #it with wrong type")
@@ -1421,7 +1421,7 @@ func TestEmptyArrayLitArgInCase(t *testing.T) {
 
 func TestEmptyArrayLitArgInPipe(t *testing.T) {
 	src := min(`        base:arr<number> = [1]
-        out:arr<number> = pipe(base, arr_concat(#it, []))
+        out:arr<number> = base |> arr_concat(#it, [])
 `)
 	if !hasCode(pipeline(src), diag.CodeEmptyArrayLitArg) {
 		t.Error("want EmptyArrayLitArg for [] as call arg inside pipe step")
@@ -1903,7 +1903,7 @@ func TestUnsupportedFnFilterFlat(t *testing.T) {
 // TestUnsupportedFnFoldLocal: fold() inside a pipe step emits UnsupportedConstruct.
 func TestUnsupportedFnFoldLocal(t *testing.T) {
 	src := min(`        x:number = 1
-        out:number = pipe(x, fold(#it, x))
+        out:number = x |> fold(#it, x)
 `)
 	if !hasCode(pipeline(src), diag.CodeUnsupportedConstruct) {
 		t.Error("want UnsupportedConstruct for fold() inside pipe step")

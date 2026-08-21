@@ -75,11 +75,9 @@ scene "calibration_rig" {
 
       exactly_one_marker:bool = bool_xor(has_prefix, has_suffix)
 
-      normalized:number = pipe(
-        first_reading,
-        max(#it, 0),
-        min(#it, 1000)
-      )
+      normalized:number = first_reading
+        |> max(#it, 0)
+        |> min(#it, 1000)
 
       severe_level:bool   = capped >= 400
       elevated_level:bool = capped >= 150

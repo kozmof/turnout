@@ -340,7 +340,7 @@ type LocalCaseExpr struct {
 
 func (*LocalCaseExpr) localExpr() {}
 
-// LocalPipeExpr is a nested `pipe(initial, steps...)` expression.
+// LocalPipeExpr is a nested `initial |> step |> ...` expression.
 type LocalPipeExpr struct {
 	Pos     Pos
 	Initial LocalExpr
@@ -463,7 +463,7 @@ type CaseCallRHS struct {
 func (*CaseCallRHS) bindingRHS()          {}
 func (*CaseCallRHS) Kind() BindingRHSKind { return RHSKindCaseCall }
 
-// PipeCallRHS is the `pipe(initial, step1, step2, ...)` form.
+// PipeCallRHS is the `initial |> step1 |> step2` form.
 type PipeCallRHS struct {
 	Pos     Pos
 	Initial LocalExpr

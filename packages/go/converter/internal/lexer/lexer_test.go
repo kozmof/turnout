@@ -120,6 +120,13 @@ func TestBarePipeStillTokenizes(t *testing.T) {
 	}
 }
 
+func TestPipeForwardLongestMatch(t *testing.T) {
+	toks := filterEOF(mustTokenize(t, "a |> max(#it, 0)"))
+	if len(toks) < 2 || toks[1].Kind != TokPipeForward {
+		t.Fatalf("tok[1] = %v, want TokPipeForward", toks[1].Kind)
+	}
+}
+
 func TestSigilLongestMatch(t *testing.T) {
 	// <~> must be preferred over <~
 	toks := filterEOF(mustTokenize(t, "<~>income"))

@@ -87,7 +87,7 @@ func TestRHSLocalNestedExprs(t *testing.T) {
       v1:number   = 1
       v2:number   = 2
       result2:number = if(flag, case(v1, 1 -> v1, _ -> v2), v2)
-      result:number := if(flag, if(flag2, v1, v2), pipe(v1, add(#it, v2)))
+      result:number := if(flag, if(flag2, v1, v2), v1 |> add(#it, v2))
     }
   }`)
 	bindings := progBindings(t, src)

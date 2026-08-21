@@ -23,33 +23,34 @@ const (
 	TokSigilIngress // ~>
 
 	// Punctuation
-	TokLBrace    // {
-	TokRBrace    // }
-	TokLBracket  // [
-	TokRBracket  // ]
-	TokLParen    // (
-	TokRParen    // )
-	TokComma     // ,
-	TokColon     // :
-	TokResult    // := (contextual prog result)
-	TokEquals    // =
-	TokDot       // .
-	TokAt        // @ (state path prefix in inline IO)
-	TokFlowArrow // |-> (overview flow edge)
-	TokArrow     // -> (transition guard and match arm: `next <cond> -> <action>`)
-	TokPipe      // |
-	TokAmpersand // &
-	TokGTE       // >=
-	TokLTE       // <=
-	TokPlus      // +
-	TokMinus     // -
-	TokStar      // *
-	TokSlash     // /
-	TokPercent   // %
-	TokGT        // >  (standalone, not >=)
-	TokLT        // <  (standalone, not <=, <~, <~>, <<-)
-	TokEqEq      // ==
-	TokNeq       // !=
+	TokLBrace      // {
+	TokRBrace      // }
+	TokLBracket    // [
+	TokRBracket    // ]
+	TokLParen      // (
+	TokRParen      // )
+	TokComma       // ,
+	TokColon       // :
+	TokResult      // := (contextual prog result)
+	TokEquals      // =
+	TokDot         // .
+	TokAt          // @ (state path prefix in inline IO)
+	TokFlowArrow   // |-> (overview flow edge)
+	TokArrow       // -> (transition guard and match arm: `next <cond> -> <action>`)
+	TokPipeForward // |> (local-expression pipeline)
+	TokPipe        // |
+	TokAmpersand   // &
+	TokGTE         // >=
+	TokLTE         // <=
+	TokPlus        // +
+	TokMinus       // -
+	TokStar        // *
+	TokSlash       // /
+	TokPercent     // %
+	TokGT          // >  (standalone, not >=)
+	TokLT          // <  (standalone, not <=, <~, <~>, <<-)
+	TokEqEq        // ==
+	TokNeq         // !=
 
 	// Special forms
 	// The if/case/pipe forms dropped their `#` prefix in v2 (NEW_SYNTAX.md 2.1)
@@ -277,6 +278,7 @@ func init() {
 		TokAt:           "@",
 		TokFlowArrow:    "|->",
 		TokArrow:        "->",
+		TokPipeForward:  "|>",
 		TokPipe:         "|",
 		TokAmpersand:    "&",
 		TokGTE:          ">=",
@@ -432,6 +434,10 @@ func (l *lex) scanToken() {
 			l.advance()
 			l.advance()
 			l.emit(TokFlowArrow, "|->", ln, co)
+		} else if l.peekAt(1) == '>' {
+			l.advance()
+			l.advance()
+			l.emit(TokPipeForward, "|>", ln, co)
 		} else {
 			l.advance()
 			l.emit(TokPipe, "|", ln, co)

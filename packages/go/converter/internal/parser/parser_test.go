@@ -349,10 +349,9 @@ func TestParseEgressAfterMultilineRHS(t *testing.T) {
 	tf := mustParse(t, minimalTurnFile(`  action "a" {
     compute "p" {
       x:number = 5
-      d:number := (pipe(
-        x,
+      d:number := (x |>
         max(#it, 0)
-      )) ~> @ns.val
+      ) ~> @ns.val
     }
   }`))
 	bindings := tf.Scenes[0].Actions[0].Compute.Prog.Bindings
@@ -643,7 +642,7 @@ func TestRHSPipe(t *testing.T) {
     compute "p" {
       v1:number = 5
       v2:number = 3
-      result:number := pipe(v1, add(#it, v2))
+      result:number := v1 |> add(#it, v2)
     }
   }`)
 	tf := mustParse(t, src)

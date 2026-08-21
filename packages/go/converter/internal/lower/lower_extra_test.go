@@ -554,7 +554,7 @@ func TestLowerLocalCallUnknownFnInPipeEmitsEarlyDiagnostic(t *testing.T) {
   action "a" {
     compute "p" {
       x:number = 1
-      result:number := pipe(x, no_such_fn(#it, x))
+      result:number := x |> no_such_fn(#it, x)
     }
   }`)
 	ds := lowerWithErrors(t, src)

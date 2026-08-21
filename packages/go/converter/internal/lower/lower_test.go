@@ -427,13 +427,13 @@ scene "test" {
 // ─── pipe RHS ─────────────────────────────────────────────────────────────────
 
 func TestLowerPipeRHS(t *testing.T) {
-	// pipe(initial, step1, ...) stores structured form in binding.ExtExpr.
+	// initial |> step1 |> ... stores structured form in binding.ExtExpr.
 	tm := mustLower(t, minimal(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 3
       y:number = 4
-      result:number := pipe(x, max(#it, y))
+      result:number := x |> max(#it, y)
     }
   }`))
 	result := findBinding(t, tm.Scenes[0].Actions[0].Compute.Prog.Bindings, "result")

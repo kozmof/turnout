@@ -251,7 +251,7 @@ scene "s" {
     compute "p" {
       x:number      = 3
       y:number      = 4
-      result:number := pipe(x, max(#it, y))
+      result:number := x |> max(#it, y)
     }
   }
 }`)

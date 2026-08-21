@@ -209,13 +209,13 @@ func TestParseBlockArgUnknownKey(t *testing.T) {
 
 // ── parsePipeCompatRHS (block form { pipe = { ... } }) ─────────────────────────
 
-func TestParsePipeCompatRHS(t *testing.T) {
-	// New pipe(initial, step1, ...) form: pipe(x, add(#it, x))
+func TestParsePipeForwardRHS(t *testing.T) {
+	// Pipe-forward form: x |> add(#it, x)
 	src := minimalTurnFile(`  entry_action = a
   action "a" {
     compute "p" {
       x:number = 5
-      result:number := pipe(x, add(#it, x))
+      result:number := x |> add(#it, x)
     }
   }`)
 	tf := mustParse(t, src)

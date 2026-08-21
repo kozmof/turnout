@@ -18,7 +18,7 @@ import (
 const (
 	formIf   = "if"
 	formCase = "case"
-	formPipe = "pipe"
+	formPipe = "pipe" // retired spelling, retained for a targeted diagnostic
 )
 
 // ─── parseArg ─────────────────────────────────────────────────────────────────
@@ -158,6 +158,15 @@ func (p *parser) parseFuncArgs() []ast.SyntaxArg {
 
 // parseRHS parses the right-hand side of a binding declaration.
 func (p *parser) parseRHS() ast.BindingRHS {
+	if p.hasPipeForwardInRHS() {
+		expr := p.parseLocalExpr()
+		pipe, ok := expr.(*ast.LocalPipeExpr)
+		if !ok {
+			p.errorf(p.peek(), "expected a pipeline expression")
+			return &ast.ErrorRHS{}
+		}
+		return &ast.PipeCallRHS{Pos: pipe.Pos, Initial: pipe.Initial, Steps: pipe.Steps}
+	}
 	t := p.peek()
 	switch t.Kind {
 	// ── literal forms ──────────────────────────────────────────────────────
@@ -186,6 +195,32 @@ func (p *parser) parseRHS() ast.BindingRHS {
 	default:
 		p.errorf(t, "unexpected token %s %q at start of binding RHS", kindName(t.Kind), t.Value)
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
+	}
+}
+
+func (p *parser) hasPipeForwardInRHS() bool {
+	depth := 0
+	startLine := p.peek().Line
+	for i := 0; ; i++ {
+		t := p.peekAt(i)
+		if t.Kind == lexer.TokEOF || (depth == 0 && t.Kind == lexer.TokRBrace) {
+			return false
+		}
+		if depth == 0 && t.Line > startLine && t.Kind != lexer.TokPipeForward {
+			return false
+		}
+		switch t.Kind {
+		case lexer.TokLParen, lexer.TokLBracket:
+			depth++
+		case lexer.TokRParen, lexer.TokRBracket:
+			if depth > 0 {
+				depth--
+			}
+		case lexer.TokPipeForward:
+			if depth == 0 {
+				return true
+			}
+		}
 	}
 }
 
@@ -242,7 +277,8 @@ func (p *parser) parseIdentRHS() ast.BindingRHS {
 		case formCase:
 			return p.parseCaseCallRHS(p.posOf(nameTok))
 		case formPipe:
-			return p.parsePipeCallRHS(p.posOf(nameTok))
+			p.errorf(nameTok, "pipe(...) syntax has been removed; write initial |> step instead")
+			return &ast.ErrorRHS{}
 		}
 		// function call: fn_alias(args)
 		args := p.parseFuncArgs()
@@ -508,7 +544,16 @@ func infixPrec(k lexer.TokenKind) (int, bool) {
 // parseLocalExpr parses a local expression using precedence climbing so that
 // operator precedence is respected: e.g. `a + b * c` parses as `a + (b * c)`.
 func (p *parser) parseLocalExpr() ast.LocalExpr {
-	return p.parseLocalPrec(0)
+	initial := p.parseLocalPrec(0)
+	if p.peek().Kind != lexer.TokPipeForward {
+		return initial
+	}
+	pipe := &ast.LocalPipeExpr{Pos: p.posOf(p.peek()), Initial: initial}
+	for p.peek().Kind == lexer.TokPipeForward {
+		p.advance()
+		pipe.Steps = append(pipe.Steps, p.parseLocalPrec(0))
+	}
+	return pipe
 }
 
 func (p *parser) parseLocalPrec(minPrec int) ast.LocalExpr {
@@ -542,7 +587,8 @@ func (p *parser) parseLocalPrimary() ast.LocalExpr {
 			case formCase:
 				return p.parseLocalCaseExpr(p.posOf(nameTok))
 			case formPipe:
-				return p.parseLocalPipeExpr(p.posOf(nameTok))
+				p.errorf(nameTok, "pipe(...) syntax has been removed; write initial |> step instead")
+				return &ast.LocalLitExpr{Pos: p.posOf(nameTok), Value: &ast.BoolLiteral{}}
 			}
 			args := p.parseLocalArgList()
 			return &ast.LocalCallExpr{Pos: p.posOf(nameTok), FnAlias: nameTok.Value, Args: args}
@@ -598,18 +644,6 @@ func (p *parser) parseLocalCaseExpr(pos ast.Pos) ast.LocalExpr {
 	}
 	p.expect(lexer.TokRParen)
 	return &ast.LocalCaseExpr{Pos: pos, Subject: subject, Arms: arms}
-}
-
-func (p *parser) parseLocalPipeExpr(pos ast.Pos) ast.LocalExpr {
-	p.expect(lexer.TokLParen)
-	initial := p.parseLocalExpr()
-	var steps []ast.LocalExpr
-	for p.peek().Kind == lexer.TokComma {
-		p.advance()
-		steps = append(steps, p.parseLocalExpr())
-	}
-	p.expect(lexer.TokRParen)
-	return &ast.LocalPipeExpr{Pos: pos, Initial: initial, Steps: steps}
 }
 
 // parseLocalArgList parses `(expr, expr, ...)` as positional local expressions.
