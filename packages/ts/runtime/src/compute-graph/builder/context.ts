@@ -242,13 +242,6 @@ function getOrCreateCombineDefinitionId(
   transformFnMap: Record<string, readonly TransformFnNames[]>,
   state: FunctionPhaseState,
 ): import("../types.js").CombineDefineId {
-  // Array combine functions are only accessible via the HCL pipe path, not the builder API.
-  if (name.startsWith("combineFnArray::")) {
-    throw new BuilderInvariantError(
-      "UnsupportedConstruct",
-      `array combine functions (${name}) cannot be registered via combine() — use a pipe with arr_* HCL functions instead`,
-    );
-  }
   if (getCombineFnReturnType(name) === null) {
     throw new BuilderInvariantError(
       "UnknownCombineFn",

@@ -51,6 +51,11 @@ export const metaCfArray = (elemType: ElemType): ReturnTypeCombineFnArray => {
   return {
     includes: "boolean",
     get: elemType,
+    getNumber: "number",
+    getString: "string",
+    getBoolean: "boolean",
+    getArray: "array",
+    getRecord: "record",
     concat: "array",
   };
 };

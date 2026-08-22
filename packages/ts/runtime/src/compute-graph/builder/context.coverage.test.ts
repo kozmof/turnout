@@ -653,10 +653,7 @@ describe("context.ts — coverage", () => {
       ).toThrow();
     });
 
-    it("throws in inferTransformForCombineFn when function has no return type (array fn in pipe step)", () => {
-      // combineFnArray::concat returns null from getCombineFnReturnType without elemType.
-      // buildStepTransformMap calls inferTransformForCombineFn before getOrCreateCombineDefinitionId,
-      // so this triggers branch 112 arm 0 (returnType === null).
+    it("supports array combine functions in pipe steps", () => {
       expect(() =>
         ctx({
           v1: val.array("number", [val.number(1)]),
@@ -665,7 +662,7 @@ describe("context.ts — coverage", () => {
             combine("combineFnArray::concat" as any, { a: "a", b: "b" }),
           ]),
         }),
-      ).toThrow();
+      ).not.toThrow();
     });
   });
 });

@@ -177,7 +177,13 @@ export function getCombineFnReturnType(
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnArray": {
-      // Array combine functions require element type information
+      if (fnName === "includes") return "boolean";
+      if (fnName === "concat") return "array";
+      if (fnName === "getNumber") return "number";
+      if (fnName === "getString") return "string";
+      if (fnName === "getBoolean") return "boolean";
+      if (fnName === "getArray") return "array";
+      if (fnName === "getRecord") return "record";
       if (!elemType || elemType === "null") return null;
       const meta = metaCfArray(elemType);
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;

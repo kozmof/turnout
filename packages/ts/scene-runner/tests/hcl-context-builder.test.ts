@@ -603,12 +603,9 @@ describe("buildContextFromProg — errors", () => {
 // Array literal args (inferLiteralAnyValue coverage)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Note: combineFnArray functions are not yet registered in the context builder's
-// type-inference layer (getCombineFnReturnType), so ctx() throws after inferLiteralAnyValue
-// has already executed. These tests cover the inferLiteralAnyValue array branches
-// (lines 67-73) and document the current builder limitation.
+// Array combine functions are registered directly; these cases exercise literal-array inference and successful context construction.
 describe("buildContextFromProg — array literal args (inferLiteralAnyValue coverage)", () => {
-  it("reaches inferLiteralAnyValue array branch for number arrays before builder throws", () => {
+  it("builds number-array combine arguments", () => {
     const prog = {
       name: "num_arr_prog",
       bindings: [
@@ -619,11 +616,10 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    // inferLiteralAnyValue([1,2]) runs (covers array branch), then ctx() rejects arr_concat
-    expect(() => buildContextFromProg(prog, {})).toThrow("array combine functions");
+    expect(() => buildContextFromProg(prog, {})).not.toThrow();
   });
 
-  it("reaches inferLiteralAnyValue array branch for string arrays before builder throws", () => {
+  it("builds string-array combine arguments", () => {
     const prog = {
       name: "str_arr_prog",
       bindings: [
@@ -634,10 +630,10 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow("array combine functions");
+    expect(() => buildContextFromProg(prog, {})).not.toThrow();
   });
 
-  it("reaches inferLiteralAnyValue array branch for bool arrays before builder throws", () => {
+  it("builds boolean-array combine arguments", () => {
     const prog = {
       name: "bool_arr_prog",
       bindings: [
@@ -648,7 +644,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow("array combine functions");
+    expect(() => buildContextFromProg(prog, {})).not.toThrow();
   });
 
   it("accepts an empty-array inline arg as an untyped empty array (no longer throws)", () => {

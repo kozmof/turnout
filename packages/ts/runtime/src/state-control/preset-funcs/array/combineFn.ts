@@ -18,6 +18,26 @@ export interface CombineFnArray {
     array: AnyArrayValue<readonly TagSymbol[]>,
     index: NumberValue<readonly TagSymbol[]>,
   ) => AnyValue;
+  getNumber: (
+    array: AnyArrayValue<readonly TagSymbol[]>,
+    index: NumberValue<readonly TagSymbol[]>,
+  ) => AnyValue;
+  getString: (
+    array: AnyArrayValue<readonly TagSymbol[]>,
+    index: NumberValue<readonly TagSymbol[]>,
+  ) => AnyValue;
+  getBoolean: (
+    array: AnyArrayValue<readonly TagSymbol[]>,
+    index: NumberValue<readonly TagSymbol[]>,
+  ) => AnyValue;
+  getArray: (
+    array: AnyArrayValue<readonly TagSymbol[]>,
+    index: NumberValue<readonly TagSymbol[]>,
+  ) => AnyValue;
+  getRecord: (
+    array: AnyArrayValue<readonly TagSymbol[]>,
+    index: NumberValue<readonly TagSymbol[]>,
+  ) => AnyValue;
   concat: ArrayToArray;
 }
 
@@ -26,6 +46,32 @@ export interface CombineFnArray {
  * This is specific to array get operations where we need to combine
  * the item's own tags with tags from accessing it.
  */
+function getArrayItem(
+  array: AnyArrayValue<readonly TagSymbol[]>,
+  index: NumberValue<readonly TagSymbol[]>,
+): AnyValue {
+  if (!Number.isInteger(index.value) || index.value < 0 || index.value >= array.value.length) {
+    throw new Error(
+      "Array index " +
+        String(index.value) +
+        " is out of bounds (length: " +
+        String(array.value.length) +
+        ")",
+    );
+  }
+  const item = array.value[index.value];
+  if (item === undefined) {
+    throw new Error(
+      "Array index " +
+        String(index.value) +
+        " is out of bounds (length: " +
+        String(array.value.length) +
+        ")",
+    );
+  }
+  return { ...item, tags: mergeItemTags(item, array, index) };
+}
+
 function mergeItemTags(
   item: AnyValue,
   array: AnyArrayValue<readonly TagSymbol[]>,
@@ -76,29 +122,12 @@ export const cfArray: CombineFnArray = {
 
     return buildBoolean(contains, mergedTags);
   },
-  get: (
-    a: AnyArrayValue<readonly TagSymbol[]>,
-    idx: NumberValue<readonly TagSymbol[]>,
-  ): AnyValue => {
-    // Only non-negative integers within range are valid. `.at()` would accept
-    // negative indices and silently return from the end, masking out-of-bounds.
-    if (!Number.isInteger(idx.value) || idx.value < 0 || idx.value >= a.value.length) {
-      throw new Error(
-        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)})`,
-      );
-    }
-    const item = a.value[idx.value];
-    if (item === undefined) {
-      throw new Error(
-        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)})`,
-      );
-    }
-    // Propagate tags from both the array and the index to the retrieved item.
-    return {
-      ...item,
-      tags: mergeItemTags(item, a, idx),
-    };
-  },
+  get: getArrayItem,
+  getNumber: getArrayItem,
+  getString: getArrayItem,
+  getBoolean: getArrayItem,
+  getArray: getArrayItem,
+  getRecord: getArrayItem,
   concat: (
     a: AnyArrayValue<readonly TagSymbol[]>,
     b: AnyArrayValue<readonly TagSymbol[]>,
