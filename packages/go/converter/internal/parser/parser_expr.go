@@ -493,22 +493,6 @@ func (p *parser) parseTemplateCasePattern(nameTok lexer.Token) ast.LocalCasePatt
 	return &ast.TemplateCasePattern{Pos: p.posOf(nameTok), TypeName: nameTok.Value, Fields: fields}
 }
 
-// ─── pipe function-call form ───────────────────────────────────────────
-
-// parsePipeCallRHS parses `pipe(initial_expr, step1_expr, step2_expr, ...)`.
-func (p *parser) parsePipeCallRHS(pos ast.Pos) ast.BindingRHS {
-	p.expect(lexer.TokLParen)
-	initial := p.parseLocalExpr()
-	var steps []ast.LocalExpr
-	for p.peek().Kind == lexer.TokComma {
-		p.advance() // consume comma
-		step := p.parseLocalExpr()
-		steps = append(steps, step)
-	}
-	p.expect(lexer.TokRParen)
-	return &ast.PipeCallRHS{Pos: pos, Initial: initial, Steps: steps}
-}
-
 // ─── Local expression parser ──────────────────────────────────────────────────
 
 // infixPrec returns the binding precedence for an infix token (higher binds tighter).
