@@ -68,7 +68,7 @@ func lowerPlaceholderRHS(name string, ft ast.FieldType, pos ast.Pos, resolver pr
 	return &turnoutpb.BindingModel{Name: name, Type: ft.ProtoString(), Value: val}
 }
 
-// identityFnFor returns the identity binary-function name and its neutral-element
+// identityFnFor returns the identity combine-function name and its neutral-element
 // argument for the given field type. Returns ok=false for FieldTypeInvalid or any
 // unknown type so callers can emit a zero value instead of panicking.
 func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel, ok bool) {

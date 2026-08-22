@@ -140,7 +140,7 @@ func (p *parser) parseBlockArg() ast.SyntaxArg {
 // Named-arg form is rejected because calls have positional semantics only.
 func (p *parser) parseFuncArgs() []ast.SyntaxArg {
 	p.expect(lexer.TokLParen)
-	args := make([]ast.SyntaxArg, 0, 2) // most DSL functions are binary
+	args := make([]ast.SyntaxArg, 0, 2) // most DSL functions take two arguments
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
 		p.consumeNamedArgIfPresent()
 		args = append(args, p.parseArg())
@@ -650,7 +650,7 @@ func (p *parser) parseLocalCaseExpr(pos ast.Pos) ast.LocalExpr {
 // Named-arg form is rejected because local calls have positional semantics only.
 func (p *parser) parseLocalArgList() []ast.LocalExpr {
 	p.expect(lexer.TokLParen)
-	args := make([]ast.LocalExpr, 0, 2) // most DSL calls are binary
+	args := make([]ast.LocalExpr, 0, 2) // most DSL calls take two arguments
 	for p.peek().Kind != lexer.TokRParen && p.peek().Kind != lexer.TokEOF {
 		p.consumeNamedArgIfPresent()
 		args = append(args, p.parseLocalExpr())

@@ -244,19 +244,19 @@ export const buildArrayNull = createValueBuilder<ArrayNullValue<readonly TagSymb
 );
 
 /**
- * Helper for binary operations on NumberValues.
+ * Helper for combine operations on NumberValues.
  * Applies the operation and automatically propagates tags.
  *
- * @param op - Binary operation on raw number values
+ * @param op - Combine operation on raw number values
  * @param a - First NumberValue operand
  * @param b - Second NumberValue operand
  * @returns NumberValue with operation result and merged tags
  *
  * @example
- * const add = (a, b) => binaryNumberOp((x, y) => x + y, a, b);
- * const multiply = (a, b) => binaryNumberOp((x, y) => x * y, a, b);
+ * const add = (a, b) => combineNumberOp((x, y) => x + y, a, b);
+ * const multiply = (a, b) => combineNumberOp((x, y) => x * y, a, b);
  */
-export function binaryNumberOp(
+export function combineNumberOp(
   op: (a: number, b: number) => number,
   a: NumberValue<readonly TagSymbol[]>,
   b: NumberValue<readonly TagSymbol[]>,
@@ -265,18 +265,18 @@ export function binaryNumberOp(
 }
 
 /**
- * Helper for binary operations on StringValues.
+ * Helper for combine operations on StringValues.
  * Applies the operation and automatically propagates tags.
  *
- * @param op - Binary operation on raw string values
+ * @param op - Combine operation on raw string values
  * @param a - First StringValue operand
  * @param b - Second StringValue operand
  * @returns StringValue with operation result and merged tags
  *
  * @example
- * const concat = (a, b) => binaryStringOp((x, y) => x + y, a, b);
+ * const concat = (a, b) => combineStringOp((x, y) => x + y, a, b);
  */
-export function binaryStringOp(
+export function combineStringOp(
   op: (a: string, b: string) => string,
   a: StringValue<readonly TagSymbol[]>,
   b: StringValue<readonly TagSymbol[]>,
@@ -285,19 +285,19 @@ export function binaryStringOp(
 }
 
 /**
- * Helper for binary operations that produce BooleanValues.
+ * Helper for combine operations that produce BooleanValues.
  * Applies the operation and automatically propagates tags.
  *
- * @param op - Binary operation that returns a boolean
+ * @param op - Combine operation that returns a boolean
  * @param a - First operand
  * @param b - Second operand
  * @returns BooleanValue with operation result and merged tags
  *
  * @example
- * const equals = (a, b) => binaryBooleanOp((x, y) => x === y, a, b);
- * const lessThan = (a, b) => binaryBooleanOp((x, y) => x < y, a, b);
+ * const equals = (a, b) => combineBooleanOp((x, y) => x === y, a, b);
+ * const lessThan = (a, b) => combineBooleanOp((x, y) => x < y, a, b);
  */
-export function binaryBooleanOp<A, B>(
+export function combineBooleanOp<A, B>(
   op: (a: A, b: B) => boolean,
   a: AnyValue & { value: A },
   b: AnyValue & { value: B },

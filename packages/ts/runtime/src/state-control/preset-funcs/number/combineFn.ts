@@ -1,6 +1,6 @@
 import { type BooleanValue, type NumberValue, type TagSymbol } from "../../value.js";
 import { type NumberToBoolean, type NumberToNumber } from "../convert.js";
-import { binaryBooleanOp, binaryNumberOp } from "../../value-builders.js";
+import { combineBooleanOp, combineNumberOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface CombineFnNumber {
@@ -22,19 +22,19 @@ export const cfNumber: CombineFnNumber = {
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
-    return binaryNumberOp((x, y) => x + y, a, b);
+    return combineNumberOp((x, y) => x + y, a, b);
   },
   minus: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
-    return binaryNumberOp((x, y) => x - y, a, b);
+    return combineNumberOp((x, y) => x - y, a, b);
   },
   multiply: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
-    return binaryNumberOp((x, y) => x * y, a, b);
+    return combineNumberOp((x, y) => x * y, a, b);
   },
   divide: (
     a: NumberValue<readonly TagSymbol[]>,
@@ -43,7 +43,7 @@ export const cfNumber: CombineFnNumber = {
     if (b.value === 0) {
       throw new Error("Division by zero");
     }
-    return binaryNumberOp((x, y) => x / y, a, b);
+    return combineNumberOp((x, y) => x / y, a, b);
   },
   mod: (
     a: NumberValue<readonly TagSymbol[]>,
@@ -52,43 +52,43 @@ export const cfNumber: CombineFnNumber = {
     if (b.value === 0) {
       throw new Error("Modulo by zero");
     }
-    return binaryNumberOp((x, y) => x % y, a, b);
+    return combineNumberOp((x, y) => x % y, a, b);
   },
   max: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
-    return binaryNumberOp((x, y) => Math.max(x, y), a, b);
+    return combineNumberOp((x, y) => Math.max(x, y), a, b);
   },
   min: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): NumberValue<readonly TagSymbol[]> => {
-    return binaryNumberOp((x, y) => Math.min(x, y), a, b);
+    return combineNumberOp((x, y) => Math.min(x, y), a, b);
   },
   greaterThan: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x > y, a, b);
+    return combineBooleanOp((x, y) => x > y, a, b);
   },
   greaterThanOrEqual: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x >= y, a, b);
+    return combineBooleanOp((x, y) => x >= y, a, b);
   },
   lessThan: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x < y, a, b);
+    return combineBooleanOp((x, y) => x < y, a, b);
   },
   lessThanOrEqual: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x <= y, a, b);
+    return combineBooleanOp((x, y) => x <= y, a, b);
   },
 } as const;
 

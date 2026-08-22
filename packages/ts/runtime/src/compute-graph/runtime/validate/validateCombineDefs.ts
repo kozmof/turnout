@@ -233,17 +233,17 @@ function validateCombineFuncTypes(
     }
 
     if (!paramTypes) continue;
-    const expectedBinaryType = paramTypes[argName === "a" ? 0 : 1];
-    if (currentType !== expectedBinaryType) {
+    const expectedCombineType = paramTypes[argName === "a" ? 0 : 1];
+    if (currentType !== expectedCombineType) {
       state.errors.push({
-        message: `FuncTable[${funcId}].argMap['${argName}']: Argument resolves to type "${currentType}" but combine function "${combineFnName}" expects "${expectedBinaryType}"`,
+        message: `FuncTable[${funcId}].argMap['${argName}']: Argument resolves to type "${currentType}" but combine function "${combineFnName}" expects "${expectedCombineType}"`,
         details: {
           funcId,
           argId,
           argName,
           argType: currentType,
           combineFn: combineFnName,
-          expectedType: expectedBinaryType,
+          expectedType: expectedCombineType,
         },
       });
     }

@@ -234,7 +234,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 	contextLabel := fmt.Sprintf("binding %q", b.Name)
 	if spec.Kind == fnmeta.FnKindRecordSet {
 		if len(c.Args) != 3 {
-			ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape, "%s: function %q requires exactly 3 argument(s), got %d", contextLabel, c.Fn, len(c.Args)))
+			ds.Append(diag.Errorf(diag.CodeInvalidCombineArgShape, "%s: function %q requires exactly 3 argument(s), got %d", contextLabel, c.Fn, len(c.Args)))
 			return
 		}
 		types := make([]ast.FieldType, 3)
@@ -251,7 +251,7 @@ func validateCombine(b *turnoutpb.BindingModel, c *turnoutpb.CombineExpr, scope 
 		}
 		return
 	}
-	t1, _, ok1, _ := validateBinaryCall(b.Name, contextLabel, c.Fn, spec, c.Args, scope, nil, ds)
+	t1, _, ok1, _ := validateTwoArgCombineCall(b.Name, contextLabel, c.Fn, spec, c.Args, scope, nil, ds)
 
 	// Return-type check: delegate to resolveExpectedReturn so the inference
 	// logic lives in one place (used identically by validatePipe steps).
@@ -328,7 +328,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 		if spec.Kind == fnmeta.FnKindRecordSet {
 			contextLabel := fmt.Sprintf("binding %q pipe step %d", b.Name, i)
 			if len(step.Args) != 3 {
-				ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape, "%s: function %q requires exactly 3 argument(s), got %d", contextLabel, step.Fn, len(step.Args)))
+				ds.Append(diag.Errorf(diag.CodeInvalidCombineArgShape, "%s: function %q requires exactly 3 argument(s), got %d", contextLabel, step.Fn, len(step.Args)))
 			} else {
 				types := make([]ast.FieldType, 3)
 				argKnown := make([]bool, 3)
@@ -339,7 +339,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 				retType, known = types[0], argKnown[0]
 			}
 		} else {
-			t1, _, ok1, _ := validateBinaryCall(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
+			t1, _, ok1, _ := validateTwoArgCombineCall(b.Name, fmt.Sprintf("binding %q pipe step %d", b.Name, i), step.Fn, spec, step.Args, pipeScope, stepTypes, ds)
 			retType, known = resolveExpectedReturn(spec, t1, ok1)
 		}
 		stepTypes = append(stepTypes, retType)
@@ -581,13 +581,13 @@ func resolveTransformArgType(bindingName string, transform *turnoutpb.TransformA
 	return ft, resolved
 }
 
-// validateBinaryCall validates arity, arg types, and the binary-pair constraint
+// validateTwoArgCombineCall validates arity, argument types, and the two-argument constraint
 // for a two-argument function call. contextLabel is a pre-formatted description
 // of the call site included in diagnostics. stepTypes is nil for combine calls;
 // non-nil for pipe step calls. Returns (t1, t2, ok1, ok2) so callers can reuse
 // the resolved types for return-type inference without a second resolveArgType call.
 // Zero values are returned when the arity check fails.
-func validateBinaryCall(
+func validateTwoArgCombineCall(
 	bindingName, contextLabel, fn string,
 	spec fnmeta.FnSpec,
 	args []*turnoutpb.ArgModel,
@@ -600,17 +600,17 @@ func validateBinaryCall(
 	}
 	t1, ok1 = resolveArgType(bindingName, args[0], scope, stepTypes, ds)
 	t2, ok2 = resolveArgType(bindingName, args[1], scope, stepTypes, ds)
-	validateBinaryArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
+	validateCombineArgTypePair(bindingName, fn, spec, t1, ok1, t2, ok2, ds)
 	return
 }
 
-// checkArity reports diagnostics when argCount != fnmeta.BinaryArity.
+// checkArity reports diagnostics when argCount != fnmeta.DefaultCombineArity.
 // Returns true when arity is correct and the caller may proceed to type checks.
 func checkArity(contextLabel, fn string, argCount int, ds *diag.DiagSink) bool {
-	if argCount != fnmeta.BinaryArity {
-		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
+	if argCount != fnmeta.DefaultCombineArity {
+		ds.Append(diag.Errorf(diag.CodeInvalidCombineArgShape,
 			"%s: function %q requires exactly %d argument(s), got %d",
-			contextLabel, fn, fnmeta.BinaryArity, argCount))
+			contextLabel, fn, fnmeta.DefaultCombineArity, argCount))
 		return false
 	}
 	return true

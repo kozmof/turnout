@@ -259,7 +259,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] Operator-only functions not used in call form (`OperatorOnlyFn`): `bool_and`, `gte`, `lte`, `str_concat`
 - [x] Bare identifier references resolve to declared binding (`UndefinedRef`)
 - [x] `func_ref` / `then` / `else` reference function bindings (`UndefinedFuncRef`)
-- [x] Binary call args are `(x,y)` or `(a:x,b:y)` (`InvalidBinaryArgShape`)
+- [x] Combine-function call args are `(x,y)` or `(a:x,b:y)` (`InvalidCombineArgShape`)
 - [x] Infix: valid operator, valid type pairing (`InvalidInfixExpr`)
 - [x] Arg types match function param types (`ArgTypeMismatch`)
 - [x] Return type matches declared binding type (`ReturnTypeMismatch`)
@@ -438,7 +438,7 @@ Lower and validate the `route` block after scene conversion is complete.
 All error codes that the converter must emit, grouped by spec source:
 
 ### `hcl-context-spec.md`
-`TypeMismatch`, `NonIntegerValue`, `HeterogeneousArray`, `NestedArrayNotAllowed`, `DuplicateProg`, `DuplicateBinding`, `ReservedName`, `UnknownFnAlias`, `OperatorOnlyFn`, `UndefinedRef`, `UndefinedFuncRef`, `InvalidBinaryArgShape`, `InvalidInfixExpr`, `ArgTypeMismatch`, `ReturnTypeMismatch`, `CondNotBool`, `BranchTypeMismatch`, `StepRefOutOfBounds`, `CrossPipeStepRef`, `PipeArgNotValue`, `SingleRefTypeMismatch`
+`TypeMismatch`, `NonIntegerValue`, `HeterogeneousArray`, `NestedArrayNotAllowed`, `DuplicateProg`, `DuplicateBinding`, `ReservedName`, `UnknownFnAlias`, `OperatorOnlyFn`, `UndefinedRef`, `UndefinedFuncRef`, `InvalidCombineArgShape`, `InvalidInfixExpr`, `ArgTypeMismatch`, `ReturnTypeMismatch`, `CondNotBool`, `BranchTypeMismatch`, `StepRefOutOfBounds`, `CrossPipeStepRef`, `PipeArgNotValue`, `SingleRefTypeMismatch`
 
 ### `state-shape-spec.md`
 `MissingStateSource`, `ConflictingStateSource`, `StateFileMissing`, `StateFileParseError`, `MissingStateBlock`, `DuplicateStateBlock`, `DuplicateStateNamespace`, `DuplicateStateField`, `MissingStateFieldAttr`, `InvalidStateFieldType`, `StateFieldDefaultTypeMismatch`, `UnresolvedStatePath`, `StateTypeMismatch`, `InvalidStatePath`, `MissingStatePath`

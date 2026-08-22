@@ -69,7 +69,7 @@ describe("preset functions", () => {
       expect(tfBoolean.not(v).tags).toEqual(["source"]);
     });
 
-    it("supports boolean binary operators with merged tags", () => {
+    it("supports boolean combine operators with merged tags", () => {
       const a = buildBoolean(true, ["left"]);
       const b = buildBoolean(false, ["right"]);
 
@@ -121,7 +121,7 @@ describe("preset functions", () => {
       expect(() => tfString.toNumber(buildString("Infinity"))).toThrow("Cannot convert");
     });
 
-    it("supports essential string binary predicates", () => {
+    it("supports essential string combine predicates", () => {
       const a = buildString("turnout-engine", ["left"]);
       const b = buildString("turn", ["right"]);
 

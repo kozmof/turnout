@@ -379,7 +379,7 @@ Proposed semantics:
 * The receiver is any local expression, not only a binding identifier. Examples: `#it.round()`, `(width + margin).floor()`, and `name.trim().toUpperCase()`.
 * Methods are evaluated left to right. The output of each method becomes the receiver for the next method in the chain.
 * Zero-argument methods map to existing unary `transformFn` operations where possible, such as `.round()`, `.floor()`, `.trim()`, and `.not()`.
-* Argument-taking methods such as `.clamp(min, max)` are future local-expression calls. They require either new transform functions with parameters or lowering to equivalent binary/local expression forms.
+* Argument-taking methods such as `.clamp(min, max)` are future local-expression calls. They require either new transform functions with parameters or lowering to equivalent combine/local expression forms.
 * `#it` keeps its existing meaning. Inside a `pipe` step, it is the current pipeline value. Method calls do not introduce a second placeholder.
 * Type checking is staged after each method call. A method can be called only when it is defined for the receiver type produced by the prior stage.
 * Method calls are pure and deterministic. They do not read or write STATE, hooks, or action bindings other than their explicit receiver and arguments.
@@ -411,7 +411,7 @@ route:str = pipe(
 
 Open design constraints for this future draft:
 
-* Decide whether method names share the existing `transformFn` namespace, the binary/local function namespace, or a dedicated method namespace.
+* Decide whether method names share the existing `transformFn` namespace, the combine/local function namespace, or a dedicated method namespace.
 * Decide how argument-taking methods such as `.clamp(min, max)` are represented in canonical HCL and the runtime schema.
 * Decide whether method calls are allowed on all parenthesized expressions or only on primary expressions.
 * Preserve the current rule that `_` is not a pipe placeholder.

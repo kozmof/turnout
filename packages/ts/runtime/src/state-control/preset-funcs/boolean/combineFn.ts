@@ -1,6 +1,6 @@
 import { type BooleanValue, type TagSymbol } from "../../value.js";
 import { type BooleanToBoolean } from "../convert.js";
-import { binaryBooleanOp } from "../../value-builders.js";
+import { combineBooleanOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface CombineFnBoolean {
@@ -14,19 +14,19 @@ export const cfBoolean: CombineFnBoolean = {
     a: BooleanValue<readonly TagSymbol[]>,
     b: BooleanValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x && y, a, b);
+    return combineBooleanOp((x, y) => x && y, a, b);
   },
   or: (
     a: BooleanValue<readonly TagSymbol[]>,
     b: BooleanValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x || y, a, b);
+    return combineBooleanOp((x, y) => x || y, a, b);
   },
   xor: (
     a: BooleanValue<readonly TagSymbol[]>,
     b: BooleanValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x !== y, a, b);
+    return combineBooleanOp((x, y) => x !== y, a, b);
   },
 } as const;
 

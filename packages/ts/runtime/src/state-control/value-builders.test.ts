@@ -12,9 +12,9 @@ import {
   buildRecord,
   recordGet,
   recordSet,
-  binaryNumberOp,
-  binaryStringOp,
-  binaryBooleanOp,
+  combineNumberOp,
+  combineStringOp,
+  combineBooleanOp,
   unaryNumberOp,
   unaryStringOp,
   unaryBooleanOp,
@@ -177,12 +177,12 @@ describe("Value Builders", () => {
     });
   });
 
-  describe("binaryNumberOp", () => {
+  describe("combineNumberOp", () => {
     it("applies operation and propagates tags", () => {
       const a = buildNumber(5, ["random"]);
       const b = buildNumber(3, ["cached"]);
 
-      const result = binaryNumberOp((x, y) => x + y, a, b);
+      const result = combineNumberOp((x, y) => x + y, a, b);
 
       expect(result.value).toBe(8);
       expect(result.tags).toHaveLength(2);
@@ -194,31 +194,31 @@ describe("Value Builders", () => {
       const a = buildNumber(10);
       const b = buildNumber(4);
 
-      const result = binaryNumberOp((x, y) => x - y, a, b);
+      const result = combineNumberOp((x, y) => x - y, a, b);
 
       expect(result.value).toBe(6);
       expect(result.tags).toEqual([]);
     });
   });
 
-  describe("binaryStringOp", () => {
+  describe("combineStringOp", () => {
     it("applies operation and propagates tags", () => {
       const a = buildString("Hello", ["network"]);
       const b = buildString(" World");
 
-      const result = binaryStringOp((x, y) => x + y, a, b);
+      const result = combineStringOp((x, y) => x + y, a, b);
 
       expect(result.value).toBe("Hello World");
       expect(result.tags).toEqual(["network"]);
     });
   });
 
-  describe("binaryBooleanOp", () => {
+  describe("combineBooleanOp", () => {
     it("applies comparison and propagates tags", () => {
       const a = buildNumber(5, ["random"]);
       const b = buildNumber(3);
 
-      const result = binaryBooleanOp((x, y) => x > y, a, b);
+      const result = combineBooleanOp((x, y) => x > y, a, b);
 
       expect(result.symbol).toBe("boolean");
       expect(result.value).toBe(true);
@@ -229,7 +229,7 @@ describe("Value Builders", () => {
       const a = buildString("hello");
       const b = buildString("world");
 
-      const result = binaryBooleanOp((x, y) => x === y, a, b);
+      const result = combineBooleanOp((x, y) => x === y, a, b);
 
       expect(result.value).toBe(false);
     });

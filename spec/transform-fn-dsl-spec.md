@@ -73,7 +73,7 @@ For multi-step local expression chains, authors can use `pipe(initial, step, ...
 - `.toNumber()` on `string` does not guarantee a valid number. Non-numeric strings produce `NaN`. The DSL must not implicitly validate or coerce the parse result. Authors are responsible for ensuring the string is numeric before calling `.toNumber()`.
 - `transformFn` methods cannot accept a second argument. Combining two values requires a `combineFn` (`combineFunc`), not a `transformFn` method call:
   ```
-  a.add(b)   // NG: binary operations are not expressed as transformFn method calls
+  a.add(b)   // NG: combine operations are not expressed as transformFn method calls
   ```
 
 ---

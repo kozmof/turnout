@@ -261,12 +261,12 @@ prog "main" {
 
 ## 3. Function expressions
 
-Function expressions in the Surface DSL use call syntax for binary combine functions, plus a parse-safe infix shorthand.
+Function expressions in the Surface DSL use call syntax for combine functions, plus a parse-safe infix shorthand.
 There are five forms: combine (call expression), infix (`= lhs OP rhs`), if, case, and pipe.
 
 ---
 
-### 3.1 Combine — binary operation
+### 3.1 Combine — function application
 
 Combine functions are divided into two categories based on whether a DSL infix operator is assigned:
 
@@ -379,7 +379,7 @@ Functions marked operator-only must be written using their DSL operator. Their a
 | `arr_get`      | `combineFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
 | `arr_concat`   | `combineFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
-> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix expressions are parsed with precedence climbing and may contain nested operators. Operator and type pairings are enforced at every branch. `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` are valid for `name:bool`, `+`/`-`/`*`/`/`/`%` for `name:number`, and `+` (only) for `name:str`. `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
+> Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Combine-function call args must be positional `(x, y)` (`InvalidCombineArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix expressions are parsed with precedence climbing and may contain nested operators. Operator and type pairings are enforced at every branch. `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` are valid for `name:bool`, `+`/`-`/`*`/`/`/`%` for `name:number`, and `+` (only) for `name:str`. `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
 ---
 
@@ -569,7 +569,7 @@ Rules:
 | `OperatorOnlyFn` | Call-form alias used for a function that requires operator syntax (`bool_and`, `gte`, `lte`, `str_concat`) |
 | `UndefinedRef` | Bare identifier references an unknown binding |
 | `UnsupportedBlockExpression` | Object-form function calls, block-style conditionals, or bracket-style pipe blocks appear in source |
-| `InvalidBinaryArgShape` | Binary call does not provide the required positional argument shape |
+| `InvalidCombineArgShape` | Combine-function call does not provide the required positional argument shape |
 | `InvalidInfixExpr` | Infix expression is malformed, uses an unsupported operator, or violates operator/type pairing |
 | `ArgTypeMismatch` | Argument value type does not match the function's expected parameter type |
 | `ReturnTypeMismatch` | Function alias return type does not match binding's declared type |

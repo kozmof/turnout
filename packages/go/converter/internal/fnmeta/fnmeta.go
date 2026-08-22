@@ -17,7 +17,7 @@ import (
 type FnKind int
 
 const (
-	FnKindStandard  FnKind = iota // regular typed binary function
+	FnKindStandard  FnKind = iota // regular typed two-argument combine function
 	FnKindGeneric                 // eq/neq: both operands must share the same type
 	FnKindArrGet                  // arr_get: returns element type of arg1
 	FnKindArrInc                  // arr_includes: returns bool
@@ -26,16 +26,16 @@ const (
 	FnKindRecordSet               // record_set: returns updated record
 )
 
-// BinaryArity is the fixed arity of all built-in functions.
+// DefaultCombineArity is the default arity of two-argument combine functions.
 // Variadic functions are not currently supported.
-const BinaryArity = 2
+const DefaultCombineArity = 2
 
-// FnSpec holds the static type metadata for a built-in binary function.
+// FnSpec holds the static type metadata for a built-in combine function.
 type FnSpec struct {
 	// Arg1Type and Arg2Type are valid only when Kind == FnKindStandard.
 	// For polymorphic kinds (FnKindGeneric, FnKindArrGet, FnKindArrInc,
 	// FnKindArrConcat) these fields are zero; operand type checking must
-	// switch on Kind first (see validate.validateBinaryArgTypePair).
+	// switch on Kind first (see validate.validateCombineArgTypePair).
 	Arg1Type, Arg2Type ast.FieldType
 	ReturnType         ast.FieldType
 	Kind               FnKind
@@ -189,8 +189,8 @@ func OperandTypes(fn string, declaredType ast.FieldType) (ast.FieldType, ast.Fie
 }
 
 // IdentityValue returns the algebraic neutral element for fn as a *structpb.Value.
-// Returns (nil, false) for functions that are not identity-binary.
-// The four identity-binary functions are: bool_and (true), add (0), str_concat (""), arr_concat ([]).
+// Returns (nil, false) for functions that are not identity combine.
+// The four identity combine functions are: bool_and (true), add (0), str_concat (""), arr_concat ([]).
 func IdentityValue(fn string) (*structpb.Value, bool) {
 	switch fn {
 	case "bool_and":
@@ -206,7 +206,7 @@ func IdentityValue(fn string) (*structpb.Value, bool) {
 }
 
 // IsIdentityValue reports whether v equals the algebraic identity element for fn.
-// Returns false for functions that are not identity-binary or when v is nil.
+// Returns false for functions that are not identity combine or when v is nil.
 func IsIdentityValue(fn string, v *structpb.Value) bool {
 	if v == nil {
 		return false

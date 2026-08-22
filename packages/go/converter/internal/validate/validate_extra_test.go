@@ -1479,10 +1479,10 @@ func TestResolveArgTypeRefNotFound(t *testing.T) {
 	}
 }
 
-// ─── Under-arity binary function call ────────────────────────────────────────
+// ─── Under-arity combine-function call ────────────────────────────────────────
 
-func TestUnderArityBinaryFnCombine(t *testing.T) {
-	// A CombineExpr with only 1 argument should emit CodeInvalidBinaryArgShape.
+func TestUnderArityCombineFnCombine(t *testing.T) {
+	// A CombineExpr with only 1 argument should emit CodeInvalidCombineArgShape.
 	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
 	out := &turnoutpb.BindingModel{
 		Name: "out",
@@ -1493,13 +1493,13 @@ func TestUnderArityBinaryFnCombine(t *testing.T) {
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
-	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for combine with 1 argument")
+	if !hasCode(ds, diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for combine with 1 argument")
 	}
 }
 
-func TestUnderArityBinaryFnPipeStep(t *testing.T) {
-	// A PipeExpr step with only 1 argument should emit CodeInvalidBinaryArgShape.
+func TestUnderArityCombineFnPipeStep(t *testing.T) {
+	// A PipeExpr step with only 1 argument should emit CodeInvalidCombineArgShape.
 	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
 	out := &turnoutpb.BindingModel{
 		Name: "out",
@@ -1513,8 +1513,8 @@ func TestUnderArityBinaryFnPipeStep(t *testing.T) {
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
-	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for pipe step with 1 argument")
+	if !hasCode(ds, diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for pipe step with 1 argument")
 	}
 }
 
@@ -1788,11 +1788,11 @@ func TestCrossPipeStepRefInCombineArg(t *testing.T) {
 	}
 }
 
-// ─── InvalidBinaryArgShape: over-arity in combine and pipe step ───────────────
+// ─── InvalidCombineArgShape: over-arity in combine and pipe step ───────────────
 
-// TestOverArityBinaryFnCombine: a CombineExpr with 3 arguments should emit
-// CodeInvalidBinaryArgShape (not CodeArgTypeMismatch).
-func TestOverArityBinaryFnCombine(t *testing.T) {
+// TestOverArityCombineFnCombine: a CombineExpr with 3 arguments should emit
+// CodeInvalidCombineArgShape (not CodeArgTypeMismatch).
+func TestOverArityCombineFnCombine(t *testing.T) {
 	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
 	out := &turnoutpb.BindingModel{
 		Name: "out",
@@ -1807,14 +1807,14 @@ func TestOverArityBinaryFnCombine(t *testing.T) {
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
-	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for combine with 3 arguments")
+	if !hasCode(ds, diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for combine with 3 arguments")
 	}
 }
 
-// TestOverArityBinaryFnPipeStep: a PipeExpr step with 3 arguments should emit
-// CodeInvalidBinaryArgShape.
-func TestOverArityBinaryFnPipeStep(t *testing.T) {
+// TestOverArityCombineFnPipeStep: a PipeExpr step with 3 arguments should emit
+// CodeInvalidCombineArgShape.
+func TestOverArityCombineFnPipeStep(t *testing.T) {
 	x := &turnoutpb.BindingModel{Name: "x", Type: "number", Value: structpb.NewNumberValue(0)}
 	out := &turnoutpb.BindingModel{
 		Name: "out",
@@ -1832,33 +1832,33 @@ func TestOverArityBinaryFnPipeStep(t *testing.T) {
 		}},
 	}
 	ds := validate.Validate(validate.ValidateInput{Model: minModel("p", []*turnoutpb.BindingModel{x, out})})
-	if !hasCode(ds, diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for pipe step with 3 arguments")
+	if !hasCode(ds, diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for pipe step with 3 arguments")
 	}
 }
 
-// ─── InvalidBinaryArgShape in local ExtExpr path ─────────────────────────────
+// ─── InvalidCombineArgShape in local ExtExpr path ─────────────────────────────
 
 // TestLocalCallUnderArityInIfBranch: an under-arity call inside a if branch
 // takes the ExtExpr path (validateLocalCallArgTypes) and should emit
-// CodeInvalidBinaryArgShape.
+// CodeInvalidCombineArgShape.
 func TestLocalCallUnderArityInIfBranch(t *testing.T) {
 	src := min(`        x:number = 1
         out:number = if(true, max(x), x)
 `)
-	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for under-arity call inside if branch (ExtExpr path)")
+	if !hasCode(pipeline(src), diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for under-arity call inside if branch (ExtExpr path)")
 	}
 }
 
 // TestLocalCallOverArityInIfBranch: an over-arity call inside a if branch
-// takes the ExtExpr path and should emit CodeInvalidBinaryArgShape.
+// takes the ExtExpr path and should emit CodeInvalidCombineArgShape.
 func TestLocalCallOverArityInIfBranch(t *testing.T) {
 	src := min(`        x:number = 1
         out:number = if(true, max(x, x, x), x)
 `)
-	if !hasCode(pipeline(src), diag.CodeInvalidBinaryArgShape) {
-		t.Error("want InvalidBinaryArgShape for over-arity call inside if branch (ExtExpr path)")
+	if !hasCode(pipeline(src), diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for over-arity call inside if branch (ExtExpr path)")
 	}
 }
 

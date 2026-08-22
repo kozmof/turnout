@@ -135,7 +135,7 @@ describe("typeInference metadata helpers", () => {
     expect(getTransformFnReturnType("bad-name" as any)).toBeNull();
   });
 
-  it("resolves binary parameter and return types across namespaces", () => {
+  it("resolves combine-function parameter and return types across namespaces", () => {
     expect(getCombineFnParamTypes("combineFnBoolean::and" as any)).toEqual(["boolean", "boolean"]);
     expect(getCombineFnParamTypes("combineFnNumber::add" as any)).toEqual(["number", "number"]);
     expect(getCombineFnParamTypes("combineFnString::concat" as any)).toEqual(["string", "string"]);

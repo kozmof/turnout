@@ -12,7 +12,7 @@ import (
 //
 // validateExtExprProto walks a proto LocalExprModel directly, avoiding any
 // round-trip allocation through ast.LocalExpr nodes. The scalar type helpers
-// (validateBinaryArgTypePair, resolveLocalCallReturn, etc.) are shared with
+// (validateCombineArgTypePair, resolveLocalCallReturn, etc.) are shared with
 // the AST validators below.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -322,9 +322,9 @@ func templateCaptureTypes(tmpl *ast.TemplateType) map[string]ast.Type {
 	return out
 }
 
-// validateBinaryArgTypePair checks the two operand types of a binary function
+// validateCombineArgTypePair checks the operand types of a two-argument combine function
 // against the fn spec. Shared by validateLocalCallArgTypes and validateCombineArgTypes.
-func validateBinaryArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.DiagSink) {
+func validateCombineArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool, t2 ast.FieldType, ok2 bool, ds *diag.DiagSink) {
 	switch spec.Kind {
 	case fnmeta.FnKindGeneric:
 		if ok1 && ok2 && t1 != t2 {
@@ -410,19 +410,19 @@ func validateRecordSetTypes(bindingName string, types []ast.FieldType, known []b
 func validateLocalCallArgTypes(bindingName, fn string, spec fnmeta.FnSpec, types []ast.FieldType, known []bool, ds *diag.DiagSink) {
 	if spec.Kind == fnmeta.FnKindRecordSet {
 		if len(types) != 3 {
-			ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape, "binding %q: function %q requires exactly 3 argument(s), got %d", bindingName, fn, len(types)))
+			ds.Append(diag.Errorf(diag.CodeInvalidCombineArgShape, "binding %q: function %q requires exactly 3 argument(s), got %d", bindingName, fn, len(types)))
 			return
 		}
 		validateRecordSetTypes(bindingName, types, known, ds)
 		return
 	}
-	if len(types) != fnmeta.BinaryArity {
-		ds.Append(diag.Errorf(diag.CodeInvalidBinaryArgShape,
+	if len(types) != fnmeta.DefaultCombineArity {
+		ds.Append(diag.Errorf(diag.CodeInvalidCombineArgShape,
 			"binding %q: function %q requires exactly %d argument(s), got %d",
-			bindingName, fn, fnmeta.BinaryArity, len(types)))
+			bindingName, fn, fnmeta.DefaultCombineArity, len(types)))
 		return
 	}
-	validateBinaryArgTypePair(bindingName, fn, spec, types[0], known[0], types[1], known[1], ds)
+	validateCombineArgTypePair(bindingName, fn, spec, types[0], known[0], types[1], known[1], ds)
 }
 
 func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []bool) (ast.FieldType, bool) {

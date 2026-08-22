@@ -5,7 +5,7 @@ import {
   type TagSymbol,
 } from "../../value.js";
 import { type StringToBoolean, type StringToString } from "../convert.js";
-import { binaryBooleanOp, binaryStringOp, buildNumber } from "../../value-builders.js";
+import { combineBooleanOp, combineStringOp, buildNumber } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 import { extractCapture } from "./templateExtract.js";
 
@@ -30,31 +30,31 @@ export const cfString: CombineFnString = {
     a: StringValue<readonly TagSymbol[]>,
     b: StringValue<readonly TagSymbol[]>,
   ): StringValue<readonly TagSymbol[]> => {
-    return binaryStringOp((x, y) => x + y, a, b);
+    return combineStringOp((x, y) => x + y, a, b);
   },
   includes: (
     a: StringValue<readonly TagSymbol[]>,
     b: StringValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x.includes(y), a, b);
+    return combineBooleanOp((x, y) => x.includes(y), a, b);
   },
   startsWith: (
     a: StringValue<readonly TagSymbol[]>,
     b: StringValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x.startsWith(y), a, b);
+    return combineBooleanOp((x, y) => x.startsWith(y), a, b);
   },
   endsWith: (
     a: StringValue<readonly TagSymbol[]>,
     b: StringValue<readonly TagSymbol[]>,
   ): BooleanValue<readonly TagSymbol[]> => {
-    return binaryBooleanOp((x, y) => x.endsWith(y), a, b);
+    return combineBooleanOp((x, y) => x.endsWith(y), a, b);
   },
   extract: (
     a: StringValue<readonly TagSymbol[]>,
     b: StringValue<readonly TagSymbol[]>,
   ): StringValue<readonly TagSymbol[]> => {
-    return binaryStringOp((subject, spec) => extractCapture(subject, spec), a, b);
+    return combineStringOp((subject, spec) => extractCapture(subject, spec), a, b);
   },
   extractNum: (
     a: StringValue<readonly TagSymbol[]>,

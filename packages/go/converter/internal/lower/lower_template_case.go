@@ -237,7 +237,7 @@ func templateCaptureTypeMap(tmpl *ast.TemplateType) map[string]ast.Type {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Extract-spec JSON (consumed by the runtime binaryFnString::extract)
+// Extract-spec JSON (consumed by the runtime combineFnString::extract)
 // ─────────────────────────────────────────────────────────────────────────────
 
 type specSegment struct {
