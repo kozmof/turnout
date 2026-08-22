@@ -259,6 +259,8 @@ var methodMap = map[ast.FieldType]map[string]methodEntry{
 		"negate": {"transformFnNumber::negate", ast.FieldTypeNumber},
 	},
 	ast.FieldTypeStr: {
+		"pass":        {"transformFnString::pass", ast.FieldTypeStr},
+		"toStr":       {"transformFnString::pass", ast.FieldTypeStr},
 		"toNumber":    {"transformFnString::toNumber", ast.FieldTypeNumber},
 		"trim":        {"transformFnString::trim", ast.FieldTypeStr},
 		"toLowerCase": {"transformFnString::toLowerCase", ast.FieldTypeStr},

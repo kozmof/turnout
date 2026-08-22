@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
@@ -170,7 +171,9 @@ func (p *parser) parseRHS() ast.BindingRHS {
 	t := p.peek()
 	switch t.Kind {
 	// ── literal forms ──────────────────────────────────────────────────────
-	case lexer.TokBoolLit, lexer.TokNumberLit, lexer.TokStringLit,
+	case lexer.TokStringLit:
+		return p.parseStringRHS()
+	case lexer.TokBoolLit, lexer.TokNumberLit,
 		lexer.TokHeredoc, lexer.TokTripleQuote, lexer.TokLBracket, lexer.TokMinus:
 		// A literal followed by an operator is the left operand of an infix
 		// expression (`100 - discount`); alone it stays a bare literal binding.
@@ -196,6 +199,72 @@ func (p *parser) parseRHS() ast.BindingRHS {
 		p.errorf(t, "unexpected token %s %q at start of binding RHS", kindName(t.Kind), t.Value)
 		return &ast.LiteralRHS{Value: &ast.BoolLiteral{}}
 	}
+}
+
+func (p *parser) parseStringRHS() ast.BindingRHS {
+	tok := p.advance()
+	raw := tok.Value
+	parts := make([]ast.InfixNode, 0, 3)
+	var text strings.Builder
+	interpolated := false
+	flushText := func() {
+		parts = append(parts, &ast.InfixLeaf{Arg: &ast.LitArg{Value: ast.NewStringLiteral(p.posOf(tok), text.String())}})
+		text.Reset()
+	}
+
+	for i := 0; i < len(raw); {
+		if strings.HasPrefix(raw[i:], `\${`) {
+			text.WriteString("${")
+			i += 3
+			continue
+		}
+		if !strings.HasPrefix(raw[i:], "${") {
+			text.WriteByte(raw[i])
+			i++
+			continue
+		}
+
+		close := strings.IndexByte(raw[i+2:], '}')
+		if close < 0 {
+			p.errorf(tok, "unterminated string interpolation; expected } after ${")
+			return &ast.ErrorRHS{}
+		}
+		name := raw[i+2 : i+2+close]
+		if !validInterpolationName(name) {
+			p.errorf(tok, "invalid string interpolation name %q; expected an identifier", name)
+			return &ast.ErrorRHS{}
+		}
+		flushText()
+		parts = append(parts, &ast.InfixLeaf{Arg: &ast.MethodCallArg{Receiver: name, Methods: []string{"toStr"}}})
+		interpolated = true
+		i += close + 3
+	}
+	flushText()
+
+	if !interpolated {
+		return p.parseInfixFrom(parts[0])
+	}
+	node := parts[0]
+	for _, part := range parts[1:] {
+		node = &ast.InfixBranch{Pos: p.posOf(tok), Op: ast.InfixPlus, LHS: node, RHS: part}
+	}
+	return &ast.NestedInfixRHS{Pos: p.posOf(tok), Root: node.(*ast.InfixBranch)}
+}
+
+func validInterpolationName(name string) bool {
+	if name == "" || !isInterpolationIdentStart(name[0]) {
+		return false
+	}
+	for i := 1; i < len(name); i++ {
+		if !isInterpolationIdentStart(name[i]) && (name[i] < '0' || name[i] > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func isInterpolationIdentStart(c byte) bool {
+	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z'
 }
 
 func (p *parser) hasPipeForwardInRHS() bool {

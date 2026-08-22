@@ -125,3 +125,21 @@ func TestExtExprOnlyCycle(t *testing.T) {
 		t.Error("want CyclicBinding for mutually-referencing ext_expr-only bindings")
 	}
 }
+
+func TestStringInterpolationValidatesPrimitiveBindings(t *testing.T) {
+	src := min(`        foo:str = "left"
+        count:number = 7
+        enabled:bool = true
+        out:str = "${foo}-${count}-${enabled}"
+`)
+	assertClean(t, src)
+}
+
+func TestStringInterpolationRejectsContainerBindings(t *testing.T) {
+	src := min(`        values:arr<number> = [1]
+        out:str = "${values}"
+`)
+	if !hasCode(pipeline(src), diag.CodeUnknownMethod) {
+		t.Error("want UnknownMethod when interpolating a non-primitive binding")
+	}
+}

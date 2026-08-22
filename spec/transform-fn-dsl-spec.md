@@ -21,12 +21,27 @@ For multi-step local expression chains, authors can use `pipe(initial, step, ...
 
 ---
 
+
+## String interpolation
+
+Double-quoted binding values support JavaScript-style `${name}` interpolation:
+
+```turn
+label:str = "${prefix}-${count}-${enabled}"
+```
+
+Interpolated `str`, `number`, and `bool` bindings are converted to strings automatically. The compiler lowers the expression to a `str_concat` chain; numeric and boolean values use their existing `.toStr()` transforms, while strings use the internal identity transform. Arrays and records cannot be interpolated. Write `\${name}` to produce the literal text `${name}`.
+
+Interpolation placeholders contain one binding identifier, not an arbitrary expression. Compute an expression in a separate binding before interpolating it.
+
+---
+
 ## Available Methods per Type
 
 | Receiver type | DSL methods |
 |---|---|
 | `number` | `.toStr()`, `.abs()`, `.floor()`, `.ceil()`, `.round()`, `.negate()` |
-| `str` | `.toNumber()`, `.trim()`, `.toLowerCase()`, `.toUpperCase()`, `.length()` |
+| `str` | `.toStr()`, `.toNumber()`, `.trim()`, `.toLowerCase()`, `.toUpperCase()`, `.length()` |
 | `bool` | `.not()`, `.toStr()` |
 | `arr` | `.length()`, `.isEmpty()` |
 | `null` | none |
@@ -38,7 +53,7 @@ For multi-step local expression chains, authors can use `pipe(initial, step, ...
 - A DSL author can call any method listed in the table above on a receiver of the matching type.
 - A method call can be applied to a binding identifier whose type is known in the current `compute` block. It is valid as a call argument, as either operand of an infix expression, and as a binding RHS on its own.
 - Method calls can be chained from an identifier receiver: `income.toStr().toUpperCase() + suffix`. Each step is valid as long as the previous step's output type supports the next method.
-- `.toStr()` can be called on both `number` and `boolean` receivers, converting them to their string representation.
+- `.toStr()` can be called on `number` and `boolean` receivers, converting them to their string representation. On `str`, it is an identity operation used by interpolation lowering.
 - `.length()` can be called on both `string` (returns character count) and `array` (returns element count) receivers.
 - Tags on the receiver value are preserved on the returned value.
 - A transform result can be used directly as a binding value: `floored:number = rate.floor()`. It lowers to the same identity combine a bare reference lowers to, which is what the older `rate.floor() + 0` idiom produced by hand.

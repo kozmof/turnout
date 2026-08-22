@@ -974,3 +974,53 @@ scene "s" {
 		t.Errorf("field 'x' appears %d times in model, want 1", count)
 	}
 }
+
+func TestLowerPrimitiveStringInterpolation(t *testing.T) {
+	tm := mustLower(t, minimal(`  entry_action = a
+  action "a" {
+    compute "p" {
+      foo:str = "left"
+      bar:number = 7
+      enabled:bool = true
+      label:str := "${foo}-${bar}-${enabled}"
+    }
+  }`))
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
+	var label *turnoutpb.BindingModel
+	transforms := map[string]string{}
+	for _, b := range bindings {
+		if b.Name == "label" {
+			label = b
+		}
+		if b.Expr == nil || b.Expr.Combine == nil {
+			continue
+		}
+		for _, arg := range b.Expr.Combine.Args {
+			if arg.Transform != nil && len(arg.Transform.Fn) == 1 {
+				transforms[arg.Transform.Ref] = arg.Transform.Fn[0]
+			}
+		}
+	}
+	if label == nil || label.Expr == nil || label.Expr.Combine.GetFn() != "str_concat" {
+		t.Fatalf("label binding was not lowered to str_concat: %#v", label)
+	}
+	want := map[string]string{"foo": "transformFnString::pass", "bar": "transformFnNumber::toStr", "enabled": "transformFnBoolean::toStr"}
+	for ref, fn := range want {
+		if transforms[ref] != fn {
+			t.Errorf("transform for %s = %q, want %q", ref, transforms[ref], fn)
+		}
+	}
+}
+
+func TestLowerEscapedStringInterpolation(t *testing.T) {
+	tm := mustLower(t, minimal(`  entry_action = a
+  action "a" {
+    compute "p" {
+      out:str := "\${foo}"
+    }
+  }`))
+	b := binding(t, tm, 0)
+	if got := b.GetValue().GetStringValue(); got != "${foo}" {
+		t.Fatalf("escaped interpolation = %q, want %q", got, "${foo}")
+	}
+}

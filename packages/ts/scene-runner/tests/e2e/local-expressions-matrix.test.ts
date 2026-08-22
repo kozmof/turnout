@@ -19,7 +19,7 @@ import type { AnyValue } from "runtime";
 
 type Case = {
   name: string;
-  pattern: "if" | "case" | "pipe" | "construct" | "destructure" | "tuple";
+  pattern: "if" | "case" | "pipe" | "interpolation" | "construct" | "destructure" | "tuple";
   complexity: "low" | "medium" | "high";
   entryId: string;
   src: string;
@@ -93,6 +93,28 @@ const stateBlock = `state {
 }`;
 
 const cases: Case[] = [
+  {
+    name: "primitive-string-interpolation",
+    pattern: "interpolation",
+    complexity: "low",
+    entryId: "interpolation_low",
+    expectPath: "work.final",
+    expectValue: "alpha-42-true",
+    initialState: boxed({ "input.word": "alpha", "input.n": 42, "input.flag": true }),
+    src: `${stateBlock}
+scene "interpolation_low" {
+  entry_action = run
+  action "run" {
+    compute "p" {
+      word:str <~ @input.word
+      n:number <~ @input.n
+      flag:bool <~ @input.flag
+      formatted:str = "\${word}-\${n}-\${flag}"
+      out:str := (formatted) ~> @work.final
+    }
+  }
+}`,
+  },
   {
     // Template construction from a variable capture lowers to str_concat + toStr
     // and must execute to the serialized template string.
