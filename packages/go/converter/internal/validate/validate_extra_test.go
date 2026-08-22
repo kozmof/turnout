@@ -1963,6 +1963,54 @@ func TestRecordGetSetValid(t *testing.T) {
 	}
 }
 
+func TestRecordSetPipelineValid(t *testing.T) {
+	src := minScene(`state { cache { counters:rec<str, number> = {} } }`, `        counters:rec<str, number> <~ @cache.counters
+        updated:rec<str, number> = counters |> record_set(#it, "visits", 1)
+`)
+	if ds := pipeline(src); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
+func TestRecordSetPipelineRejectsWrongArity(t *testing.T) {
+	src := minScene(`state { cache { counters:rec<str, number> = {} } }`, `        counters:rec<str, number> <~ @cache.counters
+        updated:rec<str, number> = counters |> record_set(#it, "visits")
+`)
+	if !hasCode(pipeline(src), diag.CodeInvalidCombineArgShape) {
+		t.Error("want InvalidCombineArgShape for record_set pipeline arity")
+	}
+}
+
+func TestRecordSetPipelineChecksReturnType(t *testing.T) {
+	src := minScene(`state { cache { counters:rec<str, number> = {} } }`, `        counters:rec<str, number> <~ @cache.counters
+        updated:number = counters |> record_set(#it, "visits", 1)
+`)
+	if !hasCode(pipeline(src), diag.CodeReturnTypeMismatch) {
+		t.Error("want ReturnTypeMismatch for record_set pipeline result")
+	}
+}
+
+func TestRecordSetFlatPipeExprValid(t *testing.T) {
+	model := minModel("p", []*turnoutpb.BindingModel{
+		{Name: "counters", Type: "rec<str, number>", Value: structpb.NewStructValue(&structpb.Struct{})},
+		{Name: "updated", Type: "rec<str, number>", Expr: &turnoutpb.ExprModel{Pipe: &turnoutpb.PipeExpr{
+			Params: []*turnoutpb.PipeParam{{ParamName: "record", SourceIdent: "counters"}},
+			Steps: []*turnoutpb.PipeStep{{Fn: "record_set", Args: []*turnoutpb.ArgModel{
+				{Ref: proto.String("record")},
+				{Lit: structpb.NewStringValue("visits")},
+				{Lit: structpb.NewNumberValue(1)},
+			}}},
+		}}},
+	})
+	if ds := validate.Validate(validate.ValidateInput{Model: model, Schema: state.Schema{}}); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
 func TestNestedRecordArrayTypesValid(t *testing.T) {
 	src := minScene(`state {
   cache {

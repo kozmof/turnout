@@ -124,6 +124,7 @@ describe("typeInference metadata helpers", () => {
     expect(getTransformFnInputType("transformFnNull::pass" as any)).toBe("null");
     expect(getTransformFnInputType("transformFnString::trim" as any)).toBe("string");
     expect(getTransformFnInputType("transformFnArray::length" as any)).toBe("array");
+    expect(getTransformFnInputType("transformFnRecord::pass" as any)).toBe("record");
     expect(getTransformFnInputType("bad-name" as any)).toBeNull();
 
     expect(getTransformFnReturnType("transformFnBoolean::toStr" as any)).toBe("string");
@@ -131,6 +132,8 @@ describe("typeInference metadata helpers", () => {
     expect(getTransformFnReturnType("transformFnNull::pass" as any)).toBe("null");
     expect(getTransformFnReturnType("transformFnString::length" as any)).toBe("number");
     expect(getTransformFnReturnType("transformFnArray::isEmpty" as any)).toBe("boolean");
+    expect(getTransformFnReturnType("transformFnRecord::pass" as any)).toBe("record");
+    expect(getTransformFnReturnType("transformFnRecord::missing" as any)).toBeNull();
     expect(getTransformFnReturnType("transformFnNumber::missing" as any)).toBeNull();
     expect(getTransformFnReturnType("bad-name" as any)).toBeNull();
   });
@@ -141,6 +144,7 @@ describe("typeInference metadata helpers", () => {
     expect(getCombineFnParamTypes("combineFnString::concat" as any)).toEqual(["string", "string"]);
     expect(getCombineFnParamTypes("combineFnGeneric::isEqual" as any)).toBeNull();
     expect(getCombineFnParamTypes("combineFnArray::get" as any)).toBeNull();
+    expect(getCombineFnParamTypes("combineFnRecord::getNumber" as any)).toBeNull();
     expect(getCombineFnParamTypes("combineFnNumber::missing" as any)).toBeNull();
     expect(getCombineFnParamTypes("bad-name" as any)).toBeNull();
     expect(getCombineFnParamTypes("combineFnBogus::x" as any)).toBeNull();
@@ -153,6 +157,20 @@ describe("typeInference metadata helpers", () => {
     expect(getCombineFnReturnType("combineFnArray::get" as any)).toBeNull();
     expect(getCombineFnReturnType("combineFnArray::get" as any, "array")).toBe("array");
     expect(getCombineFnReturnType("combineFnArray::get" as any, "record")).toBe("record");
+    expect(getCombineFnReturnType("combineFnArray::includes" as any)).toBe("boolean");
+    expect(getCombineFnReturnType("combineFnArray::concat" as any)).toBe("array");
+    expect(getCombineFnReturnType("combineFnArray::getNumber" as any)).toBe("number");
+    expect(getCombineFnReturnType("combineFnArray::getString" as any)).toBe("string");
+    expect(getCombineFnReturnType("combineFnArray::getBoolean" as any)).toBe("boolean");
+    expect(getCombineFnReturnType("combineFnArray::getArray" as any)).toBe("array");
+    expect(getCombineFnReturnType("combineFnArray::getRecord" as any)).toBe("record");
+    expect(getCombineFnReturnType("combineFnRecord::set" as any)).toBe("record");
+    expect(getCombineFnReturnType("combineFnRecord::getNumber" as any)).toBe("number");
+    expect(getCombineFnReturnType("combineFnRecord::getString" as any)).toBe("string");
+    expect(getCombineFnReturnType("combineFnRecord::getBoolean" as any)).toBe("boolean");
+    expect(getCombineFnReturnType("combineFnRecord::getArray" as any)).toBe("array");
+    expect(getCombineFnReturnType("combineFnRecord::getRecord" as any)).toBe("record");
+    expect(getCombineFnReturnType("combineFnRecord::missing" as any)).toBeNull();
     expect(getCombineFnReturnType("combineFnNumber::missing" as any)).toBeNull();
     expect(getCombineFnReturnType("bad-name" as any)).toBeNull();
     expect(getCombineFnReturnType("combineFnBogus::x" as any)).toBeNull();

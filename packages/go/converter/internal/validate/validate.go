@@ -318,7 +318,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 			}
 		}
 
-		var retType ast.FieldType
+		retType := ast.FieldTypeInvalid
 		var known bool
 		if spec.Kind == fnmeta.FnKindRecordSet {
 			contextLabel := fmt.Sprintf("binding %q pipe step %d", b.Name, i)
