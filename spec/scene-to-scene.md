@@ -234,7 +234,7 @@ Resolved:
 
 ## 10. Error Catalogue
 
-Each validation or runtime failure emits a `RouteDiagnostic`. The specific error codes below are carried in the `code` field. All route-block validation failures are identified by `stage: "route_validation"`.
+Each validation or runtime failure emits a `RouteDiagnostic`. The specific error codes below are carried in the `code` field. All route-block validation failures are assigned the stage value `route_validation`.
 
 ```ts
 type RouteDiagnostic = {

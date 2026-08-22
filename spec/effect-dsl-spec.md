@@ -121,7 +121,7 @@ dotted-path ::= IDENT ('.' IDENT)+
 IDENT       ::= [A-Za-z_][A-Za-z0-9_]*
 ```
 
-Examples: `applicant.income`, `workflow.stage`, `session.user_id`, `session.cart.items`.
+Examples include `applicant.income`, `workflow.stage`, `session.user_id`, and `session.cart.items`.
 
 An empty segment (e.g. `foo..bar`), a path starting/ending with `.`, or a single-segment path is invalid (`InvalidStatePath`).
 
@@ -153,7 +153,7 @@ name:type <~ @<in.path> ~> @<out.path>         # bidirectional
 - One destination per binding. Two `~>` clauses on one binding do not parse, and the lowered model rejects two entries for one binding.
 - The `~>` clause must be on the same line as the end of the value it writes from (§1.2). A right-hand side may span lines, and the clause follows its closing line. What it may not do is open a line of its own.
 
-Rule: `STATE[path] = state[binding]`
+The rule is `STATE[path] = state[binding]`.
 
 ### 3.2 Complete action-level example
 
@@ -231,7 +231,7 @@ A `~>` output clause is rejected because transitions cannot write to STATE (`Tra
 
 ## 6. Lowering Rules (Turn DSL → Canonical HCL)
 
-Inline IO is hoisted into `prepare` and `merge` entries before validation and lowering. These blocks exist only from this point on. They are the wire shape the runtime reads, not something an author writes. Every entry is generated from one binding: named declarations keep their binding name, anonymous egress receives a reserved generated name, and canonical binding names contain no arrows.
+Inline IO is hoisted into `prepare` and `merge` entries before validation and lowering. These blocks exist only from this point on. They are the wire shape the runtime reads, not something an author writes. Every entry is generated from one binding. Named declarations keep their binding name, anonymous egress receives a reserved generated name, and canonical binding names contain no arrows.
 
 ### 6.1 Action-level lowering
 

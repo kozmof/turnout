@@ -20,7 +20,7 @@ The key words `MUST`, `MUST NOT`, `SHOULD`, `SHOULD NOT`, and `MAY` are to be in
 
 ### 2.2 Identifiers
 
-Action IDs in the flow string use the same identifier rule as the scene graph: `IDENT = [A-Za-z_][A-Za-z0-9_]*`.
+Action IDs in the flow string use the same identifier rule as the scene graph, `IDENT = [A-Za-z_][A-Za-z0-9_]*`.
 
 ### 2.3 Relationship to scene-graph.md
 
@@ -195,7 +195,7 @@ overview at_least {
 }
 ```
 
-Parsed: `nodes = {score}`, `edges = {(score,approve),(score,reject)}`
+This parses as `nodes = {score}`, `edges = {(score,approve),(score,reject)}`
 
 Valid if the scene has an action `score` with at least two `next` entries targeting `approve` and `reject`. Actions `approve` and `reject` are referenced as edge targets but are NOT required to be in `overview_nodes`. However, they must exist in `impl_nodes` (validated separately by scene-graph rules).
 
@@ -250,7 +250,7 @@ overview at_least {
 }
 ```
 
-Parsed: `nodes = {foo, bar}`, `edges = {(foo,bar),(bar,baz)}`, `current = baz`.
+This parses as `nodes = {foo, bar}`, `edges = {(foo,bar),(bar,baz)}`, `current = baz`.
 
 `baz` is the final edge target and is NOT added to `nodes`, exactly as it would not be in the expanded form.
 
@@ -333,7 +333,7 @@ foo |->
 
 → `OverviewChainNoTarget` because the segment after the last `|->` is empty.
 
-Note: `|-> bar |-> baz` starts with `|->` so it is classified as an edge line (not a chain line), and its target `bar |-> baz` fails `OverviewInvalidIdent` because `|` is not a valid `IDENT` character.
+`|-> bar |-> baz` starts with `|->`, so it is classified as an edge line rather than a chain line, and its target `bar |-> baz` fails `OverviewInvalidIdent` because `|` is not a valid `IDENT` character.
 
 ### 6.9 Parse error — non-ASCII whitespace in indentation
 

@@ -2461,7 +2461,7 @@ The initial-version determinism rules are enforced exactly as written. No two ca
 
 Matching is a deterministic left-to-right scan with no regex and no greediness. Because adjacent captures are rejected, every capture is either the final segment or is followed by static text. A bounded capture tries each boundary and accepts the unique split whose value is a valid member of the capture type. Decoded captures use their runtime types, so `integer`/`number` become number, `bool` becomes boolean, and `str`/string-literal become string. The reference implementation is the Go converter's `ast.TemplateMatch`, mirrored in the TypeScript runtime by `matchTemplate`. Both are exercised by the shared conformance fixtures (§28.8, `spec/conformance/template-matching.json`).
 
-Numeric grammar (§28.4): an integer is `-?(0 | [1-9][0-9]*)` with no `-0`, and a number additionally allows `.[0-9]+`. Leading zeros, a leading `+`, a trailing/leading `.`, and exponents are rejected.
+Under the numeric grammar in §28.4, an integer is `-?(0 | [1-9][0-9]*)` with no `-0`. A number additionally allows `.[0-9]+`. Leading zeros, a leading `+`, a trailing/leading `.`, and exponents are rejected.
 
 ## 32.4 Typed construction (§11)
 

@@ -30,7 +30,7 @@ Double-quoted binding values support JavaScript-style `${name}` interpolation:
 label:str = "${prefix}-${count}-${enabled}"
 ```
 
-Interpolated `str`, `number`, and `bool` bindings are converted to strings automatically. The compiler lowers the expression to a `str_concat` chain; numeric and boolean values use their existing `.toStr()` transforms, while strings use the internal identity transform. Arrays and records cannot be interpolated. Write `\${name}` to produce the literal text `${name}`.
+Interpolated `str`, `number`, and `bool` bindings are converted to strings automatically. The compiler lowers the expression to a `str_concat` chain. Numeric and boolean values use their existing `.toStr()` transforms, while strings use the internal identity transform. Arrays and records cannot be interpolated. Write `\${name}` to produce the literal text `${name}`.
 
 Interpolation placeholders contain one binding identifier, not an arbitrary expression. Compute an expression in a separate binding before interpolating it.
 

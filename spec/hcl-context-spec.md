@@ -261,7 +261,7 @@ prog "main" {
 ## 3. Function expressions
 
 Function expressions in the Surface DSL use call syntax for combine functions, plus a parse-safe infix shorthand.
-There are five forms: combine (call expression), infix (`= lhs OP rhs`), if, case, and pipe.
+There are five forms. They are combine (call expression), infix (`= lhs OP rhs`), if, case, and pipe.
 
 ---
 
@@ -313,7 +313,7 @@ Operator functions are normalized by operator:
 - `lhs % rhs`  -> `mod(lhs, rhs)` (only valid for `name:number`)
 
 All forms are semantically identical after lowering.
-The compiler always lowers to runtime combine args `{ a: <arg1>, b: <arg2> }`.
+The compiler always lowers to runtime combine arguments in the form `{ a: <arg1>, b: <arg2> }`.
 
 Example:
 
