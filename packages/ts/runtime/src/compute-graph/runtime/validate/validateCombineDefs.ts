@@ -5,15 +5,15 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  BinaryFnNames,
+  CombineFnNames,
   TransformFnNames,
 } from "../../types.js";
 import { createArgName } from "../../idValidation.js";
 import {
   getTransformFnInputType,
   getTransformFnReturnType,
-  getBinaryFnParamTypes,
-  getBinaryFnReturnType,
+  getCombineFnParamTypes,
+  getCombineFnReturnType,
 } from "../typeInference.js";
 import type { UnvalidatedContext, ValidationState } from "./types.js";
 import {
@@ -184,8 +184,8 @@ function validateCombineFuncTypes(
 
   const transformFn = def.transformFn;
   const argMap = "argMap" in funcEntry && isRecord(funcEntry.argMap) ? funcEntry.argMap : {};
-  const binaryFnName = "name" in def && isStringAs<BinaryFnNames>(def.name) ? def.name : null;
-  const paramTypes = binaryFnName ? getBinaryFnParamTypes(binaryFnName) : null;
+  const combineFnName = "name" in def && isStringAs<CombineFnNames>(def.name) ? def.name : null;
+  const paramTypes = combineFnName ? getCombineFnParamTypes(combineFnName) : null;
 
   for (const [argName, fns] of Object.entries(transformFn)) {
     if (argName !== "a" && argName !== "b") continue;
@@ -236,13 +236,13 @@ function validateCombineFuncTypes(
     const expectedBinaryType = paramTypes[argName === "a" ? 0 : 1];
     if (currentType !== expectedBinaryType) {
       state.errors.push({
-        message: `FuncTable[${funcId}].argMap['${argName}']: Argument resolves to type "${currentType}" but binary function "${binaryFnName}" expects "${expectedBinaryType}"`,
+        message: `FuncTable[${funcId}].argMap['${argName}']: Argument resolves to type "${currentType}" but combine function "${combineFnName}" expects "${expectedBinaryType}"`,
         details: {
           funcId,
           argId,
           argName,
           argType: currentType,
-          binaryFn: binaryFnName,
+          combineFn: combineFnName,
           expectedType: expectedBinaryType,
         },
       });
@@ -270,13 +270,13 @@ export function validateCombineDefEntry(defId: string, def: unknown, state: Vali
       details: { defId, name: entry.name },
     });
   } else {
-    const binaryReturnType = isStringAs<BinaryFnNames>(entry.name)
-      ? getBinaryFnReturnType(entry.name)
+    const combineReturnType = isStringAs<CombineFnNames>(entry.name)
+      ? getCombineFnReturnType(entry.name)
       : null;
-    if (!binaryReturnType) {
+    if (!combineReturnType) {
       state.errors.push({
-        message: `CombineFuncDefTable[${defId}]: Invalid or unknown binary function "${entry.name}"`,
-        details: { defId, binaryFn: entry.name },
+        message: `CombineFuncDefTable[${defId}]: Invalid or unknown combine function "${entry.name}"`,
+        details: { defId, combineFn: entry.name },
       });
     }
   }
@@ -321,7 +321,7 @@ export function validateCombineDefEntry(defId: string, def: unknown, state: Vali
   }
 
   if (hasNameAndTransformFn(entry)) {
-    validateBinaryFnCompatibility(defId, entry.name, transformFn, state);
+    validateCombineFnCompatibility(defId, entry.name, transformFn, state);
   }
 
   if (
@@ -336,17 +336,17 @@ export function validateCombineDefEntry(defId: string, def: unknown, state: Vali
 }
 
 /**
- * Validates that transform function outputs match binary function inputs.
+ * Validates that transform function outputs match combine function inputs.
  */
-function validateBinaryFnCompatibility(
+function validateCombineFnCompatibility(
   defId: string,
-  binaryFnName: string,
+  combineFnName: string,
   transformFn: Record<string, unknown>,
   state: ValidationState,
 ): void {
-  if (!isStringAs<BinaryFnNames>(binaryFnName)) return;
+  if (!isStringAs<CombineFnNames>(combineFnName)) return;
 
-  const paramTypes = getBinaryFnParamTypes(binaryFnName);
+  const paramTypes = getCombineFnParamTypes(combineFnName);
   if (!paramTypes) return;
 
   const [expectedParamA, expectedParamB] = paramTypes;
@@ -357,12 +357,12 @@ function validateBinaryFnCompatibility(
       const returnType = getTransformFnReturnType(lastFn);
       if (returnType && returnType !== expectedParamA) {
         state.errors.push({
-          message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamA}" for first parameter`,
+          message: `CombineFuncDefTable[${defId}]: Transform function 'a' returns "${returnType}" but combine function "${combineFnName}" expects "${expectedParamA}" for first parameter`,
           details: {
             defId,
             transformFn: lastFn,
             transformReturnType: returnType,
-            binaryFn: binaryFnName,
+            combineFn: combineFnName,
             expectedType: expectedParamA,
           },
         });
@@ -376,12 +376,12 @@ function validateBinaryFnCompatibility(
       const returnType = getTransformFnReturnType(lastFn);
       if (returnType && returnType !== expectedParamB) {
         state.errors.push({
-          message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but binary function "${binaryFnName}" expects "${expectedParamB}" for second parameter`,
+          message: `CombineFuncDefTable[${defId}]: Transform function 'b' returns "${returnType}" but combine function "${combineFnName}" expects "${expectedParamB}" for second parameter`,
           details: {
             defId,
             transformFn: lastFn,
             transformReturnType: returnType,
-            binaryFn: binaryFnName,
+            combineFn: combineFnName,
             expectedType: expectedParamB,
           },
         });

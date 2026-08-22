@@ -80,7 +80,7 @@ export {
   buildExecutionTree,
   executeTree,
   buildReturnIdToFuncIdMap,
-  getBinaryFnReturnType,
+  getCombineFnReturnType,
 } from "./compute-graph/index.js";
 
 export type { ExecutionResult } from "./compute-graph/index.js";
@@ -112,7 +112,7 @@ export type {
   CondDefineId,
   PipeStepBinding,
   PipeArgBinding,
-  BinaryFnNames,
+  CombineFnNames,
   TransformFnNames,
 } from "./compute-graph/index.js";
 

@@ -31,7 +31,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -73,7 +73,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -133,7 +133,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -201,7 +201,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -233,7 +233,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -286,7 +286,7 @@ describe("validateContext", () => {
         funcTable: {} as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: undefined as any, // Missing transform functions
             args: { a: "ia1" as any, b: "ia2" as any },
           },
@@ -392,7 +392,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -440,7 +440,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -482,7 +482,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -516,7 +516,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -525,7 +525,7 @@ describe("validateContext", () => {
           },
           "pd-unused": {
             // Unreferenced definition
-            name: "binaryFnNumber::multiply",
+            name: "combineFnNumber::multiply",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -562,7 +562,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::add",
+              name: "combineFnNumber::add",
               transformFn: {
                 a: ["invalidNamespace::unknown" as any],
                 b: ["transformFnNumber::pass"],
@@ -582,7 +582,7 @@ describe("validateContext", () => {
         ).toBe(true);
       });
 
-      it("should detect raw argument type mismatch with binary function input", () => {
+      it("should detect raw argument type mismatch with combine function input", () => {
         const context: ExecutionContext = {
           valueTable: {
             v1: { symbol: "string", value: "5", subSymbol: undefined },
@@ -598,7 +598,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::add",
+              name: "combineFnNumber::add",
               transformFn: {
                 a: [],
                 b: [],
@@ -616,12 +616,12 @@ describe("validateContext", () => {
           result.errors.some(
             (e) =>
               e.message.includes('Argument resolves to type "string"') &&
-              e.message.includes('binary function "binaryFnNumber::add" expects "number"'),
+              e.message.includes('combine function "combineFnNumber::add" expects "number"'),
           ),
         ).toBe(true);
       });
 
-      it("should detect transform function output type mismatch with binary function input", () => {
+      it("should detect transform function output type mismatch with combine function input", () => {
         const context: ExecutionContext = {
           valueTable: {
             v1: { symbol: "number", value: 5, subSymbol: undefined },
@@ -636,7 +636,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::add", // Expects number, number
+              name: "combineFnNumber::add", // Expects number, number
               transformFn: {
                 a: ["transformFnNumber::toStr"], // Returns string
                 b: ["transformFnNumber::pass"], // Returns number
@@ -654,13 +654,13 @@ describe("validateContext", () => {
         expect(
           result.errors.some(
             (e) =>
-              e.message.includes('returns "string" but binary function') &&
+              e.message.includes('returns "string" but combine function') &&
               e.message.includes('expects "number"'),
           ),
         ).toBe(true);
       });
 
-      it("should validate correct transform and binary function types", () => {
+      it("should validate correct transform and combine function types", () => {
         const context: ExecutionContext = {
           valueTable: {
             v1: { symbol: "number", value: 5, subSymbol: undefined },
@@ -675,7 +675,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnString::concat", // Expects string, string
+              name: "combineFnString::concat", // Expects string, string
               transformFn: {
                 a: ["transformFnNumber::toStr"], // Returns string
                 b: ["transformFnNumber::toStr"], // Returns string
@@ -714,7 +714,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::add",
+              name: "combineFnNumber::add",
               transformFn: {
                 a: ["transformFnNumber::pass"], // Expects number
                 b: ["transformFnNumber::pass"], // Expects number
@@ -756,7 +756,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::multiply",
+              name: "combineFnNumber::multiply",
               transformFn: {
                 a: ["transformFnNumber::pass"], // Expects number
                 b: ["transformFnNumber::pass"], // Expects number
@@ -798,7 +798,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::add",
+              name: "combineFnNumber::add",
               transformFn: {
                 a: ["transformFnNumber::pass"], // Expects number
                 b: ["transformFnNumber::pass"], // Expects number
@@ -835,7 +835,7 @@ describe("validateContext", () => {
           } as any,
           combineFuncDefTable: {
             pd1: {
-              name: "binaryFnNumber::add", // Expects number, number
+              name: "combineFnNumber::add", // Expects number, number
               transformFn: {
                 a: ["transformFnString::toNumber"], // string -> number (correct)
                 b: ["transformFnString::toNumber"], // string -> number (correct)
@@ -873,7 +873,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -917,11 +917,11 @@ describe("validateContext", () => {
       expect(result.errors.some((e) => e.message.includes("Missing or invalid kind"))).toBe(true);
     });
 
-    it("rejects unknown binary function names", () => {
+    it("rejects unknown combine function names", () => {
       const context = createBaseContext();
       context.combineFuncDefTable = {
         pd1: {
-          name: "binaryFnNumber::doesNotExist" as any,
+          name: "combineFnNumber::doesNotExist" as any,
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -933,7 +933,7 @@ describe("validateContext", () => {
       const result = validateContext(context);
       expect(result.valid).toBe(false);
       expect(
-        result.errors.some((e) => e.message.includes("Invalid or unknown binary function")),
+        result.errors.some((e) => e.message.includes("Invalid or unknown combine function")),
       ).toBe(true);
     });
 
@@ -1292,7 +1292,7 @@ describe("validateContext", () => {
         } as any,
         combineFuncDefTable: {
           pd1: {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],

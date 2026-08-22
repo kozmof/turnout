@@ -13,7 +13,7 @@ import {
   createUndefinedPipeArgumentError,
   createUndefinedPipeStepReferenceError,
 } from "./errors.js";
-import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { getCombineFnReturnType } from "../runtime/typeInference.js";
 import { createFuncId } from "../idValidation.js";
 import { IdFactory, normalizeValueRef, isTransformRef } from "./id-factory.js";
 import type { FunctionPhaseState, ReferenceIndex } from "./phase-types.js";
@@ -33,12 +33,12 @@ export function buildReferenceIndexAndRegisterReturns(
       const returnId = IdFactory.createReturnValue(createFuncId(key), state);
       state.returnIdByFuncId[key] = returnId;
       if (value.__type === "combine") {
-        const rt = getBinaryFnReturnType(value.name);
+        const rt = getCombineFnReturnType(value.name);
         if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
       } else if (value.__type === "pipe" && value.steps.length > 0) {
         const lastStep = value.steps[value.steps.length - 1];
         if (lastStep !== undefined && lastStep.__type === "combine") {
-          const rt = getBinaryFnReturnType(lastStep.name);
+          const rt = getCombineFnReturnType(lastStep.name);
           if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
         }
       }

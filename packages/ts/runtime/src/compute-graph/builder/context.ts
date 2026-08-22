@@ -21,7 +21,7 @@ import {
 } from "../../state-control/value-builders.js";
 import type { AnyValue } from "../../state-control/value.js";
 import { isValidValue } from "../../state-control/value.js";
-import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { getCombineFnReturnType } from "../runtime/typeInference.js";
 import { createArgName } from "../idValidation.js";
 import { IdGenerator } from "../../util/idGenerator.js";
 import { resolveValueReference, isTransformRef, lookupReturnId, type Scope } from "./id-factory.js";
@@ -51,7 +51,7 @@ import { BuilderInvariantError } from "./errors.js";
  * const context = ctx({
  *   v1: 5,
  *   v2: 3,
- *   f1: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+ *   f1: combine('combineFnNumber::add', { a: 'v1', b: 'v2' }),
  * });
  *
  * executeGraph(context.ids.f1, context.exec);
@@ -242,17 +242,17 @@ function getOrCreateCombineDefinitionId(
   transformFnMap: Record<string, readonly TransformFnNames[]>,
   state: FunctionPhaseState,
 ): import("../types.js").CombineDefineId {
-  // Array binary functions are only accessible via the HCL pipe path, not the builder API.
-  if (name.startsWith("binaryFnArray::")) {
+  // Array combine functions are only accessible via the HCL pipe path, not the builder API.
+  if (name.startsWith("combineFnArray::")) {
     throw new BuilderInvariantError(
       "UnsupportedConstruct",
-      `array binary functions (${name}) cannot be registered via combine() — use a pipe with arr_* HCL functions instead`,
+      `array combine functions (${name}) cannot be registered via combine() — use a pipe with arr_* HCL functions instead`,
     );
   }
-  if (getBinaryFnReturnType(name) === null) {
+  if (getCombineFnReturnType(name) === null) {
     throw new BuilderInvariantError(
-      "UnknownBinaryFn",
-      `unknown binary function '${name}' — verify the function name and namespace prefix`,
+      "UnknownCombineFn",
+      `unknown combine function '${name}' — verify the function name and namespace prefix`,
     );
   }
   return registerCombineDefinition(name, transformFnMap, state);

@@ -1,24 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { splitPairBinaryFnNames, splitPairTransformFnNames } from "./splitPair.js";
-import type { BinaryFnNames, TransformFnNames } from "../compute-graph/types.js";
+import { splitPairCombineFnNames, splitPairTransformFnNames } from "./splitPair.js";
+import type { CombineFnNames, TransformFnNames } from "../compute-graph/types.js";
 
 describe("splitPair", () => {
-  describe("splitPairBinaryFnNames", () => {
-    it("splits a valid binary function name", () => {
-      const result = splitPairBinaryFnNames("binaryFnNumber::add" as BinaryFnNames);
-      expect(result).toEqual(["binaryFnNumber", "add"]);
+  describe("splitPairCombineFnNames", () => {
+    it("splits a valid combine function name", () => {
+      const result = splitPairCombineFnNames("combineFnNumber::add" as CombineFnNames);
+      expect(result).toEqual(["combineFnNumber", "add"]);
     });
 
     it("returns null when namespace part is empty", () => {
-      expect(splitPairBinaryFnNames("::add" as any)).toBeNull();
+      expect(splitPairCombineFnNames("::add" as any)).toBeNull();
     });
 
     it("returns null when name part is empty", () => {
-      expect(splitPairBinaryFnNames("binaryFnNumber::" as any)).toBeNull();
+      expect(splitPairCombineFnNames("combineFnNumber::" as any)).toBeNull();
     });
 
     it("returns null when no delimiter present", () => {
-      expect(splitPairBinaryFnNames("invalidName" as any)).toBeNull();
+      expect(splitPairCombineFnNames("invalidName" as any)).toBeNull();
     });
   });
 

@@ -10,7 +10,7 @@ import { BuilderInvariantError } from "./errors.js";
 import type { PipeBuilder, CombineBuilder } from "./types.js";
 import { createArgName, createFuncId } from "../idValidation.js";
 import { IdGenerator } from "../../util/idGenerator.js";
-import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { getCombineFnReturnType } from "../runtime/typeInference.js";
 import {
   IdFactory,
   getStepOutputLookupKey,
@@ -21,7 +21,7 @@ import {
   lookupReturnId,
   type Scope,
 } from "./id-factory.js";
-import { inferTransformForBinaryFn } from "./transform-inference.js";
+import { inferTransformForCombineFn } from "./transform-inference.js";
 import type { FunctionPhaseState } from "./phase-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -128,7 +128,7 @@ function buildPipeSequence(
     }
     const stepOutputId = IdFactory.createStepOutput(createFuncId(funcId), i, state);
     state.stepOutputIdByFuncStep[getStepOutputLookupKey(funcId, i)] = stepOutputId;
-    const stepReturnType = getBinaryFnReturnType(step.name);
+    const stepReturnType = getCombineFnReturnType(step.name);
     if (stepReturnType !== null) {
       const meta = state.stepMetadata[stepOutputId];
       if (meta !== undefined) meta.returnType = stepReturnType;
@@ -231,9 +231,9 @@ function buildStepTransformMap(
           `buildStepTransformMap: step ${String(ref.stepIndex)} is not a combine step — nested pipe steps are not supported`,
         );
       }
-      transformFnMap[argName] = [inferTransformForBinaryFn(referencedStep.name)];
+      transformFnMap[argName] = [inferTransformForCombineFn(referencedStep.name)];
     } else {
-      transformFnMap[argName] = [inferTransformForBinaryFn(step.name)];
+      transformFnMap[argName] = [inferTransformForCombineFn(step.name)];
     }
   }
 

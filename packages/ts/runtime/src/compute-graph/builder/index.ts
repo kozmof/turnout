@@ -13,14 +13,14 @@
  *   v2: 3,
  *
  *   // Simple combine function
- *   sum: combine('binaryFnNumber::add', { a: 'v1', b: 'v2' }),
+ *   sum: combine('combineFnNumber::add', { a: 'v1', b: 'v2' }),
  *
  *   // Pipe function with simplified API - no need for type annotations!
  *   compute: pipe(
  *     { x: 'v1', y: 'v2' },
  *     [
- *       combine('binaryFnNumber::multiply', { a: 'x', b: 'y' }),
- *       combine('binaryFnNumber::add', {
+ *       combine('combineFnNumber::multiply', { a: 'x', b: 'y' }),
+ *       combine('combineFnNumber::add', {
  *         // ref.step(pipeKey, stepIndex) references an earlier step's output.
  *         // (ref.output() takes a *function* key, not a synthesised step name —
  *         // step ids are internal and not addressable from a spec.)

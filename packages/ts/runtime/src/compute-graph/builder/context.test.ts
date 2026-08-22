@@ -69,7 +69,7 @@ describe("Context Builder", () => {
       const context = ctx({
         v1: 5,
         v2: 3,
-        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
       });
 
       expect(context.exec.funcTable).toHaveProperty(context.ids.f1);
@@ -83,7 +83,7 @@ describe("Context Builder", () => {
       const context = ctx({
         v1: 10,
         v2: 5,
-        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
       });
 
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
@@ -96,8 +96,8 @@ describe("Context Builder", () => {
       const context = ctx({
         v1: 10,
         v2: 5,
-        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
-        f2: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
+        f2: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
       });
 
       const f1DefId = context.exec.funcTable[context.ids.f1]!.defId;
@@ -111,8 +111,8 @@ describe("Context Builder", () => {
         v1: 10,
         v2: 5,
         v3: 2,
-        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
-        f2: combine("binaryFnNumber::multiply", { a: ref.output("f1"), b: "v3" }),
+        f1: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
+        f2: combine("combineFnNumber::multiply", { a: ref.output("f1"), b: "v3" }),
       });
 
       const result = executeGraph(context.ids.f2, assertValidContext(context.exec));
@@ -127,7 +127,7 @@ describe("Context Builder", () => {
       const context = ctx({
         v1: 42,
         v2: " is the answer",
-        f1: combine("binaryFnString::concat", {
+        f1: combine("combineFnString::concat", {
           a: ref.transform("v1", "transformFnNumber::toStr"),
           b: "v2",
         }),
@@ -144,7 +144,7 @@ describe("Context Builder", () => {
     it("should provide typed ID access", () => {
       const context = ctx({
         v1: 5,
-        f1: combine("binaryFnNumber::add", { a: "v1", b: "v1" }),
+        f1: combine("combineFnNumber::add", { a: "v1", b: "v1" }),
       });
 
       // IDs should be accessible via ids property and end with the user key
@@ -161,16 +161,16 @@ describe("Context Builder", () => {
         z: 5,
 
         // x + y
-        sum: combine("binaryFnNumber::add", { a: "x", b: "y" }),
+        sum: combine("combineFnNumber::add", { a: "x", b: "y" }),
 
         // (x + y) * z
-        product: combine("binaryFnNumber::multiply", {
+        product: combine("combineFnNumber::multiply", {
           a: ref.output("sum"),
           b: "z",
         }),
 
         // ((x + y) * z) - x
-        final: combine("binaryFnNumber::minus", {
+        final: combine("combineFnNumber::minus", {
           a: ref.output("product"),
           b: "x",
         }),
@@ -192,8 +192,8 @@ describe("Context Builder", () => {
 
         // PipeFunc: (a + b) * c
         pipeFn: pipe({ a: "v1", b: "v2", c: "v3" }, [
-          combine("binaryFnNumber::add", { a: "a", b: "b" }),
-          combine("binaryFnNumber::multiply", { a: ref.step("pipeFn", 0), b: "c" }),
+          combine("combineFnNumber::add", { a: "a", b: "b" }),
+          combine("combineFnNumber::multiply", { a: ref.step("pipeFn", 0), b: "c" }),
         ]),
       });
 
@@ -215,9 +215,9 @@ describe("Context Builder", () => {
 
         // PipeFunc: ((a + b) * c) - a
         compute: pipe({ a: "x", b: "y", c: "z" }, [
-          combine("binaryFnNumber::add", { a: "a", b: "b" }),
-          combine("binaryFnNumber::multiply", { a: ref.step("compute", 0), b: "c" }),
-          combine("binaryFnNumber::minus", { a: ref.step("compute", 1), b: "a" }),
+          combine("combineFnNumber::add", { a: "a", b: "b" }),
+          combine("combineFnNumber::multiply", { a: ref.step("compute", 0), b: "c" }),
+          combine("combineFnNumber::minus", { a: ref.step("compute", 1), b: "a" }),
         ]),
       });
 
@@ -233,7 +233,7 @@ describe("Context Builder", () => {
         str2: " world",
 
         concat: pipe({ a: "str1", b: "str2" }, [
-          combine("binaryFnString::concat", { a: "a", b: "b" }),
+          combine("combineFnString::concat", { a: "a", b: "b" }),
         ]),
       });
 
@@ -248,7 +248,7 @@ describe("Context Builder", () => {
         ctx({
           v1: 10,
           pipeFn: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", {
               a: ref.output("missingFunc"),
               b: "a",
             }),
@@ -259,14 +259,14 @@ describe("Context Builder", () => {
 
     it("should infer transformFnBoolean::pass for a step referencing a boolean-returning previous step", () => {
       // Step 0 returns boolean (and); step 1 uses step 0's output as argument a.
-      // buildStepTransformMap must use inferTransformForBinaryFn('binaryFnBoolean::and')
+      // buildStepTransformMap must use inferTransformForCombineFn('combineFnBoolean::and')
       // → transformFnBoolean::pass, not a number pass-transform.
       const context = ctx({
         a: true,
         b: false,
         pipeFn: pipe({ x: "a", y: "b" }, [
-          combine("binaryFnBoolean::and", { a: "x", b: "y" }), // step 0: bool
-          combine("binaryFnBoolean::or", { a: ref.step("pipeFn", 0), b: "x" }), // step 1: bool
+          combine("combineFnBoolean::and", { a: "x", b: "y" }), // step 0: bool
+          combine("combineFnBoolean::or", { a: ref.step("pipeFn", 0), b: "x" }), // step 1: bool
         ]),
       });
       const result = executeGraph(context.ids.pipeFn, assertValidContext(context.exec));
@@ -281,7 +281,7 @@ describe("Context Builder", () => {
           v: 1,
           outer: pipe({ x: "v" }, [
             // Nested PipeBuilder inside a pipe — not yet supported
-            pipe({ y: "x" }, [combine("binaryFnNumber::add", { a: "y", b: "y" })]) as never,
+            pipe({ y: "x" }, [combine("combineFnNumber::add", { a: "y", b: "y" })]) as never,
           ]),
         }),
       ).toThrow("nested pipe steps are not yet supported");
@@ -297,10 +297,10 @@ describe("Context Builder", () => {
         v0: 0,
 
         // True branch: returns v1 + 0 = 10
-        trueFunc: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
+        trueFunc: combine("combineFnNumber::add", { a: "v1", b: "v0" }),
 
         // False branch: returns v2 + 0 = 20
-        falseFunc: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
+        falseFunc: combine("combineFnNumber::add", { a: "v2", b: "v0" }),
 
         // Conditional
         result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
@@ -319,8 +319,8 @@ describe("Context Builder", () => {
         v2: 20,
         v0: 0,
 
-        trueFunc: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
-        falseFunc: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
+        trueFunc: combine("combineFnNumber::add", { a: "v1", b: "v0" }),
+        falseFunc: combine("combineFnNumber::add", { a: "v2", b: "v0" }),
 
         result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });
@@ -339,10 +339,10 @@ describe("Context Builder", () => {
         v0: 0,
 
         // Compute condition: v1 == v2 (true)
-        isEqual: combine("binaryFnGeneric::isEqual", { a: "v1", b: "v2" }),
+        isEqual: combine("combineFnGeneric::isEqual", { a: "v1", b: "v2" }),
 
-        trueFunc: combine("binaryFnNumber::add", { a: "v3", b: "v0" }),
-        falseFunc: combine("binaryFnNumber::add", { a: "v4", b: "v0" }),
+        trueFunc: combine("combineFnNumber::add", { a: "v3", b: "v0" }),
+        falseFunc: combine("combineFnNumber::add", { a: "v4", b: "v0" }),
 
         result: cond("isEqual", { then: "trueFunc", else: "falseFunc" }),
       });
@@ -360,8 +360,8 @@ describe("Context Builder", () => {
         v0: 0,
 
         // Both branches use the same 'shared' value
-        trueFunc: combine("binaryFnNumber::add", { a: "shared", b: "v0" }),
-        falseFunc: combine("binaryFnNumber::add", { a: "shared", b: "v0" }),
+        trueFunc: combine("combineFnNumber::add", { a: "shared", b: "v0" }),
+        falseFunc: combine("combineFnNumber::add", { a: "shared", b: "v0" }),
 
         result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });
@@ -386,11 +386,11 @@ describe("Context Builder", () => {
         // cond declared BEFORE isEqual (the combine it uses as its condition)
         result: cond("isEqual", { then: "trueFunc", else: "falseFunc" }),
 
-        trueFunc: combine("binaryFnNumber::add", { a: "v3", b: "v0" }),
-        falseFunc: combine("binaryFnNumber::add", { a: "v4", b: "v0" }),
+        trueFunc: combine("combineFnNumber::add", { a: "v3", b: "v0" }),
+        falseFunc: combine("combineFnNumber::add", { a: "v4", b: "v0" }),
 
         // isEqual declared AFTER result — forward reference
-        isEqual: combine("binaryFnGeneric::isEqual", { a: "v1", b: "v2" }),
+        isEqual: combine("combineFnGeneric::isEqual", { a: "v1", b: "v2" }),
       });
 
       const result = executeGraph(context.ids.result, assertValidContext(context.exec));
@@ -411,14 +411,14 @@ describe("Context Builder", () => {
         v0: 0,
 
         // Inner true branch
-        innerTrue: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
+        innerTrue: combine("combineFnNumber::add", { a: "v1", b: "v0" }),
         // Inner false branch
-        innerFalse: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
+        innerFalse: combine("combineFnNumber::add", { a: "v2", b: "v0" }),
         // Inner cond
         innerCond: cond("innerCondition", { then: "innerTrue", else: "innerFalse" }),
 
         // Outer false branch
-        outerFalse: combine("binaryFnNumber::add", { a: "v3", b: "v0" }),
+        outerFalse: combine("combineFnNumber::add", { a: "v3", b: "v0" }),
 
         // Outer cond
         result: cond("outerCondition", { then: "innerCond", else: "outerFalse" }),
@@ -442,10 +442,10 @@ describe("Context Builder", () => {
         flag: true,
 
         // 'uses' references 'gate' which is declared below it
-        uses: combine("binaryFnNumber::add", { a: ref.output("gate"), b: "b" }),
+        uses: combine("combineFnNumber::add", { a: ref.output("gate"), b: "b" }),
 
-        trueResult: combine("binaryFnNumber::add", { a: "a", b: "b" }),
-        falseResult: combine("binaryFnNumber::add", { a: "b", b: "b" }),
+        trueResult: combine("combineFnNumber::add", { a: "a", b: "b" }),
+        falseResult: combine("combineFnNumber::add", { a: "b", b: "b" }),
         gate: cond("flag", { then: "trueResult", else: "falseResult" }),
       });
 
@@ -466,12 +466,12 @@ describe("Context Builder", () => {
         flagOuter: true,
 
         // 'sum' is declared AFTER the conds that reference it
-        consumer: combine("binaryFnNumber::add", { a: ref.output("outer"), b: "z" }),
+        consumer: combine("combineFnNumber::add", { a: ref.output("outer"), b: "z" }),
         outer: cond("flagOuter", { then: "inner", else: "base" }),
         inner: cond("flagInner", { then: "trueBranch", else: "base" }),
 
-        trueBranch: combine("binaryFnNumber::add", { a: "x", b: "z" }),
-        base: combine("binaryFnNumber::add", { a: "z", b: "z" }),
+        trueBranch: combine("combineFnNumber::add", { a: "x", b: "z" }),
+        base: combine("combineFnNumber::add", { a: "z", b: "z" }),
       });
 
       const result = executeGraph(context.ids.consumer, assertValidContext(context.exec));
@@ -489,17 +489,17 @@ describe("Context Builder", () => {
         condition: true,
 
         // Simple combine
-        sum: combine("binaryFnNumber::add", { a: "x", b: "y" }),
+        sum: combine("combineFnNumber::add", { a: "x", b: "y" }),
 
         // Pipe function
         compute: pipe({ a: "x", b: "y" }, [
-          combine("binaryFnNumber::multiply", { a: "a", b: "b" }),
+          combine("combineFnNumber::multiply", { a: "a", b: "b" }),
         ]),
 
         // Cond that uses both
         v0: 0,
-        trueFunc: combine("binaryFnNumber::add", { a: ref.output("sum"), b: "v0" }),
-        falseFunc: combine("binaryFnNumber::add", { a: "x", b: "v0" }),
+        trueFunc: combine("combineFnNumber::add", { a: ref.output("sum"), b: "v0" }),
+        falseFunc: combine("combineFnNumber::add", { a: "x", b: "v0" }),
 
         result: cond("condition", { then: "trueFunc", else: "falseFunc" }),
       });

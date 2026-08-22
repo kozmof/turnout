@@ -12,7 +12,7 @@ import {
   union,
   variant,
 } from "valibot";
-import { binaryFnNames } from "./binaryFnNames.js";
+import { combineFnNames } from "./combineFnNames.js";
 import { CombineFuncType, CombineFunc, PipeFuncType, PipeFunc } from "./input-types.js";
 import { transformFnNames } from "./transformFnNames.js";
 import { nullReasonSubSymbols } from "../../state-control/value.js";
@@ -102,7 +102,7 @@ const funcInterfaceSchema = object({
 // These schemas validate literal graph shape only. Function/type compatibility
 // is checked later by compute-graph validation and execution.
 export const combineFuncSchema: GenericSchema<CombineFunc> = object({
-  name: binaryFnNames(),
+  name: combineFnNames(),
   type: literal(combineFuncType),
   transformFn: object({
     a: object({ name: transformFnNames() }),

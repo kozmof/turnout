@@ -1,45 +1,45 @@
 import { describe, it, expect } from "vitest";
 import { safeParse } from "valibot";
-import { binaryFnNames } from "./binaryFnNames.js";
+import { combineFnNames } from "./combineFnNames.js";
 import { transformFnNames } from "./transformFnNames.js";
 import { combineFuncSchema, pipeFuncSchema } from "./schema.js";
 
 describe("literal-schema", () => {
-  describe("binaryFnNames()", () => {
-    it("validates number binary function names", () => {
-      const schema = binaryFnNames();
-      expect(safeParse(schema, "binaryFnNumber::add").success).toBe(true);
-      expect(safeParse(schema, "binaryFnNumber::multiply").success).toBe(true);
-      expect(safeParse(schema, "binaryFnNumber::greaterThan").success).toBe(true);
+  describe("combineFnNames()", () => {
+    it("validates number combine function names", () => {
+      const schema = combineFnNames();
+      expect(safeParse(schema, "combineFnNumber::add").success).toBe(true);
+      expect(safeParse(schema, "combineFnNumber::multiply").success).toBe(true);
+      expect(safeParse(schema, "combineFnNumber::greaterThan").success).toBe(true);
     });
 
-    it("validates boolean binary function names", () => {
-      const schema = binaryFnNames();
-      expect(safeParse(schema, "binaryFnBoolean::and").success).toBe(true);
-      expect(safeParse(schema, "binaryFnBoolean::or").success).toBe(true);
-      expect(safeParse(schema, "binaryFnBoolean::xor").success).toBe(true);
+    it("validates boolean combine function names", () => {
+      const schema = combineFnNames();
+      expect(safeParse(schema, "combineFnBoolean::and").success).toBe(true);
+      expect(safeParse(schema, "combineFnBoolean::or").success).toBe(true);
+      expect(safeParse(schema, "combineFnBoolean::xor").success).toBe(true);
     });
 
-    it("validates generic binary function names", () => {
-      const schema = binaryFnNames();
-      expect(safeParse(schema, "binaryFnGeneric::isEqual").success).toBe(true);
-      expect(safeParse(schema, "binaryFnGeneric::isNotEqual").success).toBe(true);
+    it("validates generic combine function names", () => {
+      const schema = combineFnNames();
+      expect(safeParse(schema, "combineFnGeneric::isEqual").success).toBe(true);
+      expect(safeParse(schema, "combineFnGeneric::isNotEqual").success).toBe(true);
     });
 
-    it("validates array binary function names", () => {
-      const schema = binaryFnNames();
-      expect(safeParse(schema, "binaryFnArray::concat").success).toBe(true);
-      expect(safeParse(schema, "binaryFnArray::includes").success).toBe(true);
+    it("validates array combine function names", () => {
+      const schema = combineFnNames();
+      expect(safeParse(schema, "combineFnArray::concat").success).toBe(true);
+      expect(safeParse(schema, "combineFnArray::includes").success).toBe(true);
     });
 
-    it("validates string binary function names", () => {
-      const schema = binaryFnNames();
-      expect(safeParse(schema, "binaryFnString::concat").success).toBe(true);
-      expect(safeParse(schema, "binaryFnString::includes").success).toBe(true);
+    it("validates string combine function names", () => {
+      const schema = combineFnNames();
+      expect(safeParse(schema, "combineFnString::concat").success).toBe(true);
+      expect(safeParse(schema, "combineFnString::includes").success).toBe(true);
     });
 
     it("rejects invalid function names", () => {
-      const schema = binaryFnNames();
+      const schema = combineFnNames();
       expect(safeParse(schema, "invalid").success).toBe(false);
       expect(safeParse(schema, "").success).toBe(false);
       expect(safeParse(schema, 42).success).toBe(false);
@@ -90,7 +90,7 @@ describe("literal-schema", () => {
 
     it("validates typed AnyValue payloads recursively", () => {
       const validFunc = {
-        name: "binaryFnArray::concat",
+        name: "combineFnArray::concat",
         type: "combine",
         transformFn: {
           a: { name: "transformFnArray::pass" },
@@ -119,7 +119,7 @@ describe("literal-schema", () => {
 
     it("rejects invalid AnyValue payloads", () => {
       const makeFunc = (value: unknown) => ({
-        name: "binaryFnNumber::add",
+        name: "combineFnNumber::add",
         type: "combine",
         transformFn: {
           a: { name: "transformFnNumber::pass" },
@@ -150,7 +150,7 @@ describe("literal-schema", () => {
 
     it("validates a valid CombineFunc", () => {
       const validFunc = {
-        name: "binaryFnNumber::add",
+        name: "combineFnNumber::add",
         type: "combine",
         transformFn: {
           a: { name: "transformFnNumber::pass" },
@@ -166,7 +166,7 @@ describe("literal-schema", () => {
 
     it("validates a nested CombineFunc (recursive arg)", () => {
       const innerFunc = {
-        name: "binaryFnNumber::multiply",
+        name: "combineFnNumber::multiply",
         type: "combine",
         transformFn: {
           a: { name: "transformFnNumber::pass" },
@@ -175,7 +175,7 @@ describe("literal-schema", () => {
         args: { a: baseFuncInterface, b: baseFuncInterface },
       };
       const outerFunc = {
-        name: "binaryFnNumber::add",
+        name: "combineFnNumber::add",
         type: "combine",
         transformFn: {
           a: { name: "transformFnNumber::pass" },
@@ -188,7 +188,7 @@ describe("literal-schema", () => {
 
     it("validates literal shape without enforcing function/value compatibility", () => {
       const shapeOnlyFunc = {
-        name: "binaryFnNumber::add",
+        name: "combineFnNumber::add",
         type: "combine",
         transformFn: {
           a: { name: "transformFnString::pass" },
@@ -244,7 +244,7 @@ describe("literal-schema", () => {
 
     it("validates recursive PipeFunc steps", () => {
       const combineStep = {
-        name: "binaryFnNumber::add",
+        name: "combineFnNumber::add",
         type: "combine",
         transformFn: {
           a: { name: "transformFnNumber::pass" },

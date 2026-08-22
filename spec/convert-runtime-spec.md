@@ -246,7 +246,7 @@ After the publish phase completes, the runtime evaluates transition rules. For e
 |---|----------|------------|
 | 1 | Phase 2 constructs in Phase 1 file | Hard error: emit `UnsupportedConstruct` diagnostic and abort — no HCL is emitted. |
 | 2 | Duplicate `action` block name labels | Parse error: fail with `DuplicateActionLabel` — last-wins is forbidden. |
-| 3 | `div` fractional results | `binaryFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
+| 3 | `div` fractional results | `combineFnNumber::divide` may produce a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), the result is stored as-is. Authors who require integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`. |
 | 4 | Parallel action scheduling | Not available: selection stops at the first true rule, so one action schedules at most one successor and actions run one at a time. Work that must follow another step is chained behind it. |
 | 5 | Entry action HCL declaration | `entryActionId` is emitted as a top-level string attribute: `entry_action = <actionId>` at the top of the scene block. |
 | 6 | Missing STATE path at runtime | Error code `MissingStatePath`. `SceneDiagnostic` carries `path` (the missing dotted path) and `bindingName` in the `details` field. |

@@ -1,12 +1,12 @@
-import { type ParamsMetaBinaryFnBoolean } from "../../preset-funcs/boolean/binaryFn.js";
-import { type ParamsMetaBinaryFnNumber } from "../../preset-funcs/number/binaryFn.js";
-import { type ParamsMetaBinaryFnString } from "../../preset-funcs/string/binaryFn.js";
+import { type ParamsMetaCombineFnBoolean } from "../../preset-funcs/boolean/combineFn.js";
+import { type ParamsMetaCombineFnNumber } from "../../preset-funcs/number/combineFn.js";
+import { type ParamsMetaCombineFnString } from "../../preset-funcs/string/combineFn.js";
 
-type ParamTypesBinaryFnBoolean = ParamsMetaBinaryFnBoolean;
-type ParamTypesBinaryFnNumber = ParamsMetaBinaryFnNumber;
-type ParamTypesBinaryFnString = ParamsMetaBinaryFnString;
+type ParamTypesCombineFnBoolean = ParamsMetaCombineFnBoolean;
+type ParamTypesCombineFnNumber = ParamsMetaCombineFnNumber;
+type ParamTypesCombineFnString = ParamsMetaCombineFnString;
 
-export const metaBfBooleanParams = (): ParamTypesBinaryFnBoolean => {
+export const metaBfBooleanParams = (): ParamTypesCombineFnBoolean => {
   return {
     and: ["boolean", "boolean"],
     or: ["boolean", "boolean"],
@@ -14,7 +14,7 @@ export const metaBfBooleanParams = (): ParamTypesBinaryFnBoolean => {
   };
 };
 
-export const metaBfNumberParams = (): ParamTypesBinaryFnNumber => {
+export const metaBfNumberParams = (): ParamTypesCombineFnNumber => {
   return {
     add: ["number", "number"],
     minus: ["number", "number"],
@@ -30,7 +30,7 @@ export const metaBfNumberParams = (): ParamTypesBinaryFnNumber => {
   };
 };
 
-export const metaBfStringParams = (): ParamTypesBinaryFnString => {
+export const metaBfStringParams = (): ParamTypesCombineFnString => {
   return {
     concat: ["string", "string"],
     includes: ["string", "string"],

@@ -196,7 +196,7 @@ describe("executePipeFunc", () => {
       } as any,
       combineFuncDefTable: {
         pd_add: {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],

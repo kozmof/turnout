@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bfString } from "./binaryFn.js";
+import { cfString } from "./combineFn.js";
 import { buildString } from "../../value-builders.js";
 import { extractCapture } from "./templateExtract.js";
 
@@ -53,19 +53,19 @@ describe("extractCapture", () => {
   });
 });
 
-describe("bfString.extract / extractNum binary fns", () => {
+describe("cfString.extract / extractNum combine fns", () => {
   const S = (v: string) => buildString(v, []);
 
   it("extract returns the raw captured text as a StringValue", () => {
-    expect(bfString.extract(S("foo-42"), S(ridSpec("kind"))).value).toBe("foo");
+    expect(cfString.extract(S("foo-42"), S(ridSpec("kind"))).value).toBe("foo");
   });
 
   it("extractNum returns the parsed number", () => {
-    expect(bfString.extractNum(S("foo-42"), S(ridSpec("sequence"))).value).toBe(42);
+    expect(cfString.extractNum(S("foo-42"), S(ridSpec("sequence"))).value).toBe(42);
   });
 
   it("extractNum returns 0 when the capture is absent or non-numeric", () => {
-    expect(bfString.extractNum(S("baz-42"), S(ridSpec("sequence"))).value).toBe(0);
-    expect(bfString.extractNum(S("foo-42"), S(ridSpec("kind"))).value).toBe(0);
+    expect(cfString.extractNum(S("baz-42"), S(ridSpec("sequence"))).value).toBe(0);
+    expect(cfString.extractNum(S("foo-42"), S(ridSpec("kind"))).value).toBe(0);
   });
 });

@@ -12,7 +12,7 @@ import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from ".
 import { buildArray, buildBoolean, recordGet, recordSet } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
-export interface BinaryFnArray {
+export interface CombineFnArray {
   includes: ToBooleanProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue>;
   get: ToItemtProcess<
     AnyArrayValue<readonly TagSymbol[]>,
@@ -66,7 +66,7 @@ function mergeArrayTags(
   return Array.from(tagsSet);
 }
 
-export const bfArray: BinaryFnArray = {
+export const cfArray: CombineFnArray = {
   includes: (
     a: AnyArrayValue<readonly TagSymbol[]>,
     b: NonArrayValue,
@@ -113,15 +113,15 @@ export const bfArray: BinaryFnArray = {
   },
 } as const;
 
-export type BinaryFnArrayNameSpace = "binaryFnArray";
-export type BinaryFnArrayNames =
-  `${BinaryFnArrayNameSpace}${NamespaceDelimiter}${keyof typeof bfArray}`;
+export type CombineFnArrayNameSpace = "combineFnArray";
+export type CombineFnArrayNames =
+  `${CombineFnArrayNameSpace}${NamespaceDelimiter}${keyof typeof cfArray}`;
 
-export type ReturnMetaBinaryFnArray = {
-  [K in keyof BinaryFnArray]: ReturnType<BinaryFnArray[K]>["symbol"];
+export type ReturnMetaCombineFnArray = {
+  [K in keyof CombineFnArray]: ReturnType<CombineFnArray[K]>["symbol"];
 };
 
-export const bfRecord = {
+export const cfRecord = {
   getNumber: (
     record: RecordValue<readonly TagSymbol[]>,
     key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
@@ -140,8 +140,8 @@ export const bfRecord = {
     value: AnyValue,
   ) => recordSet(record, key, value),
 } as const;
-export type BinaryFnRecordNames =
-  | "binaryFnRecord::getNumber"
-  | "binaryFnRecord::getString"
-  | "binaryFnRecord::getBoolean"
-  | "binaryFnRecord::set";
+export type CombineFnRecordNames =
+  | "combineFnRecord::getNumber"
+  | "combineFnRecord::getString"
+  | "combineFnRecord::getBoolean"
+  | "combineFnRecord::set";

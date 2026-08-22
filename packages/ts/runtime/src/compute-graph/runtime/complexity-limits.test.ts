@@ -60,7 +60,7 @@ describe("compute-graph complexity limits", () => {
       funcTable,
       combineFuncDefTable: {
         add: {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
           args: { a: "ia1", b: "ia2" },
         },
@@ -91,7 +91,7 @@ describe("compute-graph complexity limits", () => {
       funcTable,
       combineFuncDefTable: {
         add: {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
           args: { a: "ia1", b: "ia2" },
         },
@@ -119,7 +119,7 @@ describe("compute-graph complexity limits", () => {
       },
       combineFuncDefTable: {
         add: {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnNumber::pass"] },
           args: { a: "ia1", b: "ia2" },
         },

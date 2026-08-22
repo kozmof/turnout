@@ -4,7 +4,7 @@ import { isComparable } from "../util/isComparable.js";
 import { buildBoolean } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
-export interface BinaryFnGeneric<T extends AnyValue> {
+export interface CombineFnGeneric<T extends AnyValue> {
   isEqual: ToBooleanProcess<T, T>;
   isNotEqual: ToBooleanProcess<T, T>;
 }
@@ -34,7 +34,7 @@ function areValuesEqual(a: AnyValue, b: AnyValue): boolean {
   return a.value === b.value;
 }
 
-export const bfGeneric: BinaryFnGeneric<AnyValue> = {
+export const cfGeneric: CombineFnGeneric<AnyValue> = {
   isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
     if (isComparable(a, b)) {
       return buildBoolean(areValuesEqual(a, b), mergeOperandTags(a, b));
@@ -51,10 +51,10 @@ export const bfGeneric: BinaryFnGeneric<AnyValue> = {
   },
 } as const;
 
-export type BinaryFnGenericNameSpace = "binaryFnGeneric";
-export type BinaryFnGenericNames =
-  `${BinaryFnGenericNameSpace}${NamespaceDelimiter}${keyof typeof bfGeneric}`;
+export type CombineFnGenericNameSpace = "combineFnGeneric";
+export type CombineFnGenericNames =
+  `${CombineFnGenericNameSpace}${NamespaceDelimiter}${keyof typeof cfGeneric}`;
 
-export type ReturnMetaBinaryFnGeneric = {
-  [K in keyof BinaryFnGeneric<AnyValue>]: ReturnType<BinaryFnGeneric<AnyValue>[K]>["symbol"];
+export type ReturnMetaCombineFnGeneric = {
+  [K in keyof CombineFnGeneric<AnyValue>]: ReturnType<CombineFnGeneric<AnyValue>[K]>["symbol"];
 };

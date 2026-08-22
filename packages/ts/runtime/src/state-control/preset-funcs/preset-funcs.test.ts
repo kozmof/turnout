@@ -6,14 +6,14 @@ import {
   buildRecord,
   buildString,
 } from "../value-builders.js";
-import { bfArray, bfRecord } from "./array/binaryFn.js";
+import { cfArray, cfRecord } from "./array/combineFn.js";
 import { tfArray } from "./array/transformFn.js";
-import { bfBoolean } from "./boolean/binaryFn.js";
+import { cfBoolean } from "./boolean/combineFn.js";
 import { tfBoolean } from "./boolean/transformFn.js";
-import { bfGeneric } from "./generic/binaryFn.js";
-import { bfNumber } from "./number/binaryFn.js";
+import { cfGeneric } from "./generic/combineFn.js";
+import { cfNumber } from "./number/combineFn.js";
 import { tfNumber } from "./number/transformFn.js";
-import { bfString } from "./string/binaryFn.js";
+import { cfString } from "./string/combineFn.js";
 import { tfString } from "./string/transformFn.js";
 
 function expectTagsToContainAll(actual: readonly string[], expected: readonly string[]): void {
@@ -24,31 +24,31 @@ function expectTagsToContainAll(actual: readonly string[], expected: readonly st
 }
 
 describe("preset functions", () => {
-  describe("number binary functions", () => {
+  describe("number combine functions", () => {
     it("supports arithmetic essentials", () => {
       const a = buildNumber(10, ["left"]);
       const b = buildNumber(3, ["right"]);
 
-      expect(bfNumber.mod(a, b).value).toBe(1);
-      expect(bfNumber.max(a, b).value).toBe(10);
-      expect(bfNumber.min(a, b).value).toBe(3);
+      expect(cfNumber.mod(a, b).value).toBe(1);
+      expect(cfNumber.max(a, b).value).toBe(10);
+      expect(cfNumber.min(a, b).value).toBe(3);
     });
 
     it("rejects division and modulo by zero instead of yielding Infinity/NaN", () => {
-      expect(() => bfNumber.divide(buildNumber(1), buildNumber(0))).toThrow("Division by zero");
-      expect(() => bfNumber.mod(buildNumber(1), buildNumber(0))).toThrow("Modulo by zero");
+      expect(() => cfNumber.divide(buildNumber(1), buildNumber(0))).toThrow("Division by zero");
+      expect(() => cfNumber.mod(buildNumber(1), buildNumber(0))).toThrow("Modulo by zero");
       // Non-zero divisors still work.
-      expect(bfNumber.divide(buildNumber(6), buildNumber(2)).value).toBe(3);
+      expect(cfNumber.divide(buildNumber(6), buildNumber(2)).value).toBe(3);
     });
 
     it("supports comparison essentials with merged tags", () => {
       const a = buildNumber(10, ["left"]);
       const b = buildNumber(3, ["right"]);
 
-      const gt = bfNumber.greaterThan(a, b);
-      const gte = bfNumber.greaterThanOrEqual(a, b);
-      const lt = bfNumber.lessThan(a, b);
-      const lte = bfNumber.lessThanOrEqual(a, b);
+      const gt = cfNumber.greaterThan(a, b);
+      const gte = cfNumber.greaterThanOrEqual(a, b);
+      const lt = cfNumber.lessThan(a, b);
+      const lte = cfNumber.lessThanOrEqual(a, b);
 
       expect(gt.value).toBe(true);
       expect(gte.value).toBe(true);
@@ -59,7 +59,7 @@ describe("preset functions", () => {
     });
   });
 
-  describe("boolean transform and binary functions", () => {
+  describe("boolean transform and combine functions", () => {
     it("supports boolean transforms", () => {
       const v = buildBoolean(true, ["source"]);
 
@@ -73,12 +73,12 @@ describe("preset functions", () => {
       const a = buildBoolean(true, ["left"]);
       const b = buildBoolean(false, ["right"]);
 
-      expect(bfBoolean.and(a, b).value).toBe(false);
-      expect(bfBoolean.or(a, b).value).toBe(true);
-      expect(bfBoolean.or(buildBoolean(false), buildBoolean(false)).value).toBe(false);
-      expect(bfBoolean.xor(a, b).value).toBe(true);
+      expect(cfBoolean.and(a, b).value).toBe(false);
+      expect(cfBoolean.or(a, b).value).toBe(true);
+      expect(cfBoolean.or(buildBoolean(false), buildBoolean(false)).value).toBe(false);
+      expect(cfBoolean.xor(a, b).value).toBe(true);
 
-      expectTagsToContainAll(bfBoolean.or(a, b).tags, ["left", "right"]);
+      expectTagsToContainAll(cfBoolean.or(a, b).tags, ["left", "right"]);
     });
   });
 
@@ -95,7 +95,7 @@ describe("preset functions", () => {
     });
   });
 
-  describe("string transform and binary functions", () => {
+  describe("string transform and combine functions", () => {
     it("supports essential string transforms", () => {
       const v = buildString("  HelLo  ", ["source"]);
 
@@ -125,9 +125,9 @@ describe("preset functions", () => {
       const a = buildString("turnout-engine", ["left"]);
       const b = buildString("turn", ["right"]);
 
-      const includes = bfString.includes(a, b);
-      const startsWith = bfString.startsWith(a, b);
-      const endsWith = bfString.endsWith(a, buildString("engine"));
+      const includes = cfString.includes(a, b);
+      const startsWith = cfString.startsWith(a, b);
+      const endsWith = cfString.endsWith(a, buildString("engine"));
 
       expect(includes.value).toBe(true);
       expect(startsWith.value).toBe(true);
@@ -136,14 +136,14 @@ describe("preset functions", () => {
     });
   });
 
-  describe("array transform and binary functions", () => {
+  describe("array transform and combine functions", () => {
     it("supports array emptiness and concat", () => {
       const arrA = buildArray([buildNumber(1), buildString("x")], ["arr-a"]);
       const arrB = buildArray([buildNumber(2)], ["arr-b"]);
 
       const isEmptyA = tfArray.isEmpty(arrA);
       const isEmptyB = tfArray.isEmpty(buildArray([], ["arr-empty"]));
-      const concat = bfArray.concat(arrA, arrB);
+      const concat = cfArray.concat(arrA, arrB);
 
       expect(isEmptyA.value).toBe(false);
       expect(isEmptyB.value).toBe(true);
@@ -156,17 +156,17 @@ describe("preset functions", () => {
       const arr = buildArray([item], ["array"]);
       const idx = buildNumber(0, ["index"]);
 
-      const got = bfArray.get(arr, idx);
+      const got = cfArray.get(arr, idx);
       expect(got.value).toBe("value");
       expectTagsToContainAll(got.tags, ["item", "array", "index"]);
     });
 
     it("rejects negative and non-integer indices instead of wrapping from the end", () => {
       const arr = buildArray([buildString("first"), buildString("last")], []);
-      expect(() => bfArray.get(arr, buildNumber(-1))).toThrow("out of bounds");
-      expect(() => bfArray.get(arr, buildNumber(1.5))).toThrow("out of bounds");
+      expect(() => cfArray.get(arr, buildNumber(-1))).toThrow("out of bounds");
+      expect(() => cfArray.get(arr, buildNumber(1.5))).toThrow("out of bounds");
       // Valid in-range access still works.
-      expect(bfArray.get(arr, buildNumber(1)).value).toBe("last");
+      expect(cfArray.get(arr, buildNumber(1)).value).toBe("last");
     });
   });
 
@@ -177,10 +177,10 @@ describe("preset functions", () => {
     expect(tfArray.pass(arr)).toBe(arr);
     expect(tfArray.length(arr).value).toBe(2);
     expect(tfArray.length(arr).tags).toEqual(["array"]);
-    expect(bfArray.includes(arr, item).value).toBe(true);
-    expectTagsToContainAll(bfArray.includes(arr, item).tags, ["array", "item"]);
-    expect(() => bfArray.get(arr, buildNumber(99))).toThrow("out of bounds");
-    expect(() => bfArray.get(buildArray([nested]), buildNumber(0))).toThrow(
+    expect(cfArray.includes(arr, item).value).toBe(true);
+    expectTagsToContainAll(cfArray.includes(arr, item).tags, ["array", "item"]);
+    expect(() => cfArray.get(arr, buildNumber(99))).toThrow("out of bounds");
+    expect(() => cfArray.get(buildArray([nested]), buildNumber(0))).toThrow(
       "item at that index is an array",
     );
   });
@@ -188,60 +188,60 @@ describe("preset functions", () => {
   describe("record functions", () => {
     it("gets values and returns an immutable updated record", () => {
       const original = buildRecord({ visits: buildNumber(1) }, ["record"]);
-      const updated = bfRecord.set(
+      const updated = cfRecord.set(
         original,
         buildString("visits", ["key"]),
         buildNumber(2, ["value"]),
       );
 
-      expect(bfRecord.getNumber(original, buildString("visits")).value).toBe(1);
-      expect(bfRecord.getNumber(updated, buildString("visits")).value).toBe(2);
+      expect(cfRecord.getNumber(original, buildString("visits")).value).toBe(1);
+      expect(cfRecord.getNumber(updated, buildString("visits")).value).toBe(2);
       expect(updated).not.toBe(original);
       expectTagsToContainAll(updated.tags, ["record", "key", "value"]);
     });
   });
 
-  describe("generic binary functions", () => {
+  describe("generic combine functions", () => {
     it("supports isNotEqual with merged tags", () => {
       const a = buildNumber(1, ["left"]);
       const b = buildNumber(2, ["right"]);
 
-      const result = bfGeneric.isNotEqual(a, b);
+      const result = cfGeneric.isNotEqual(a, b);
       expect(result.value).toBe(true);
       expectTagsToContainAll(result.tags, ["left", "right"]);
     });
 
     it("supports equality for arrays and rejects incomparable values", () => {
       expect(
-        bfGeneric.isEqual(
+        cfGeneric.isEqual(
           buildArray([buildNumber(1)], ["left"]),
           buildArray([buildNumber(1)], ["right"]),
         ).value,
       ).toBe(true);
-      expect(bfGeneric.isNotEqual(buildString("a"), buildString("a")).value).toBe(false);
-      expect(() => bfGeneric.isEqual(buildNumber(1), buildString("1"))).toThrow(
+      expect(cfGeneric.isNotEqual(buildString("a"), buildString("a")).value).toBe(false);
+      expect(() => cfGeneric.isEqual(buildNumber(1), buildString("1"))).toThrow(
         "Cannot compare number and string values for equality",
       );
-      expect(() => bfGeneric.isNotEqual(buildBoolean(true), buildString("true"))).toThrow(
+      expect(() => cfGeneric.isNotEqual(buildBoolean(true), buildString("true"))).toThrow(
         "Cannot compare boolean and string values for inequality",
       );
     });
 
     it("array equality ignores tags, consistent with scalar equality", () => {
       // Scalars already ignore tags; arrays must too.
-      expect(bfGeneric.isEqual(buildNumber(1, ["a"]), buildNumber(1, ["b"])).value).toBe(true);
+      expect(cfGeneric.isEqual(buildNumber(1, ["a"]), buildNumber(1, ["b"])).value).toBe(true);
 
       const x = buildArray([buildNumber(1, ["a"])], ["arr-x"]);
       const y = buildArray([buildNumber(1, ["b"])], ["arr-y"]);
-      expect(bfGeneric.isEqual(x, y).value).toBe(true);
-      expect(bfGeneric.isNotEqual(x, y).value).toBe(false);
+      expect(cfGeneric.isEqual(x, y).value).toBe(true);
+      expect(cfGeneric.isNotEqual(x, y).value).toBe(false);
 
       // Different values (and different lengths) are still unequal.
       expect(
-        bfGeneric.isEqual(buildArray([buildNumber(1)]), buildArray([buildNumber(2)])).value,
+        cfGeneric.isEqual(buildArray([buildNumber(1)]), buildArray([buildNumber(2)])).value,
       ).toBe(false);
       expect(
-        bfGeneric.isEqual(
+        cfGeneric.isEqual(
           buildArray([buildNumber(1)]),
           buildArray([buildNumber(1), buildNumber(2)]),
         ).value,
@@ -249,7 +249,7 @@ describe("preset functions", () => {
 
       // Nested arrays compare structurally, still tag-insensitively.
       expect(
-        bfGeneric.isEqual(
+        cfGeneric.isEqual(
           buildArray([buildArray([buildNumber(1, ["deep-a"])])]),
           buildArray([buildArray([buildNumber(1, ["deep-b"])])]),
         ).value,

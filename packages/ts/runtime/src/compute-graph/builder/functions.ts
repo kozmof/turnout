@@ -9,25 +9,25 @@ import type {
   TransformRef,
   StepBuilder,
 } from "./types.js";
-import type { BinaryFnNames } from "../types.js";
+import type { CombineFnNames } from "../types.js";
 
 /**
  * Creates a CombineFunc builder.
  *
- * @param name - Namespaced binary function name (e.g., 'binaryFnNumber::add')
+ * @param name - Namespaced combine function name (e.g., 'combineFnNumber::add')
  * @param args - Arguments mapping to value references
  *
  * @example
  * ```typescript
- * combine('binaryFnNumber::add', { a: 'v1', b: 'v2' })
- * combine('binaryFnString::concat', {
+ * combine('combineFnNumber::add', { a: 'v1', b: 'v2' })
+ * combine('combineFnString::concat', {
  *   a: ref('v1').transform('transformFnNumber::toStr'),
  *   b: 'v2'
  * })
  * ```
  */
 export function combine(
-  name: BinaryFnNames,
+  name: CombineFnNames,
   args: {
     a: ValueInputRef | TransformRef;
     b: ValueInputRef | TransformRef;
@@ -52,8 +52,8 @@ export function combine(
  * pipe(
  *   { x: 'v1', y: 'v2' },
  *   [
- *     combine('binaryFnNumber::add', { a: 'x', b: 'y' }),
- *     combine('binaryFnNumber::multiply', { a: ref.output('step0'), b: 'x' })
+ *     combine('combineFnNumber::add', { a: 'x', b: 'y' }),
+ *     combine('combineFnNumber::multiply', { a: ref.output('step0'), b: 'x' })
  *   ]
  * )
  * ```

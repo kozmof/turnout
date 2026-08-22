@@ -2,7 +2,7 @@ import type {
   ExecutionContext,
   ValueId,
   FuncId,
-  BinaryFnNames,
+  CombineFnNames,
   TransformFnNames,
 } from "../types.js";
 import type { AnyValue, BaseTypeSymbol } from "../../state-control/value.js";
@@ -18,7 +18,7 @@ type ToIndexSignature<T> = T extends Record<string, infer V> ? { [key: string]: 
  */
 export type CombineBuilder = {
   readonly __type: "combine";
-  readonly name: BinaryFnNames;
+  readonly name: CombineFnNames;
   readonly args: {
     readonly a: ValueInputRef | TransformRef;
     readonly b: ValueInputRef | TransformRef;

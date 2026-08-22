@@ -9,7 +9,7 @@ import { binaryBooleanOp, binaryStringOp, buildNumber } from "../../value-builde
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 import { extractCapture } from "./templateExtract.js";
 
-export interface BinaryFnString {
+export interface CombineFnString {
   concat: StringToString;
   includes: StringToBoolean;
   startsWith: StringToBoolean;
@@ -25,7 +25,7 @@ export interface BinaryFnString {
   ) => NumberValue<readonly TagSymbol[]>;
 }
 
-export const bfString: BinaryFnString = {
+export const cfString: CombineFnString = {
   concat: (
     a: StringValue<readonly TagSymbol[]>,
     b: StringValue<readonly TagSymbol[]>,
@@ -66,17 +66,17 @@ export const bfString: BinaryFnString = {
   },
 } as const;
 
-export type BinaryFnStringNameSpace = "binaryFnString";
-export type BinaryFnStringNames =
-  `${BinaryFnStringNameSpace}${NamespaceDelimiter}${keyof typeof bfString}`;
+export type CombineFnStringNameSpace = "combineFnString";
+export type CombineFnStringNames =
+  `${CombineFnStringNameSpace}${NamespaceDelimiter}${keyof typeof cfString}`;
 
-export type ReturnMetaBinaryFnString = {
-  [K in keyof BinaryFnString]: ReturnType<BinaryFnString[K]>["symbol"];
+export type ReturnMetaCombineFnString = {
+  [K in keyof CombineFnString]: ReturnType<CombineFnString[K]>["symbol"];
 };
 
-export type ParamsMetaBinaryFnString = {
-  [K in keyof BinaryFnString]: [
-    Parameters<BinaryFnString[K]>[0]["symbol"],
-    Parameters<BinaryFnString[K]>[1]["symbol"],
+export type ParamsMetaCombineFnString = {
+  [K in keyof CombineFnString]: [
+    Parameters<CombineFnString[K]>[0]["symbol"],
+    Parameters<CombineFnString[K]>[1]["symbol"],
   ];
 };

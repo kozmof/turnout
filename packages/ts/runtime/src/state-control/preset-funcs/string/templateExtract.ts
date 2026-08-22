@@ -1,6 +1,6 @@
 // Runtime capture extraction for template literal types (literal-template-types-spec.md §19).
 //
-// The Go converter lowers a template `case` arm into `binaryFnString::extract`
+// The Go converter lowers a template `case` arm into `combineFnString::extract`
 // combines whose second argument is a JSON spec describing the (fully-resolved)
 // template and the capture to read. This module parses that spec and returns the
 // raw captured substring; type conversion (to number/bool) is applied downstream

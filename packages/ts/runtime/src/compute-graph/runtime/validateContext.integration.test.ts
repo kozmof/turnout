@@ -34,7 +34,7 @@ describe("validateContext integration", () => {
         } as any,
         combineFuncDefTable: {
           "pd-add": {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -78,7 +78,7 @@ describe("validateContext integration", () => {
         } as any,
         combineFuncDefTable: {
           "pd-add": {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -152,7 +152,7 @@ describe("validateContext integration", () => {
         } as any,
         combineFuncDefTable: {
           "pd-add": {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -260,7 +260,7 @@ describe("validateContext integration", () => {
         } as any,
         combineFuncDefTable: {
           "pd-add": {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],
@@ -342,7 +342,7 @@ describe("validateContext integration", () => {
         } as any,
         combineFuncDefTable: {
           "pd-add": {
-            name: "binaryFnNumber::add",
+            name: "combineFnNumber::add",
             transformFn: {
               a: ["transformFnNumber::pass"],
               b: ["transformFnNumber::pass"],

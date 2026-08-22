@@ -5,7 +5,7 @@ export { executeTree } from "./runtime/executeTree.js";
 export type { ExecutionResult } from "./types.js";
 
 // Type inference helpers
-export { getBinaryFnReturnType } from "./runtime/typeInference.js";
+export { getCombineFnReturnType } from "./runtime/typeInference.js";
 
 // Context validation
 export { validateContext, assertValidContext, isValidContext } from "./runtime/validateContext.js";
@@ -34,7 +34,7 @@ export type {
   CondDefineId,
   PipeStepBinding,
   PipeArgBinding,
-  BinaryFnNames,
+  CombineFnNames,
   TransformFnNames,
 } from "./types.js";
 

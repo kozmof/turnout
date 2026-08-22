@@ -3,13 +3,13 @@ import { type BooleanToBoolean } from "../convert.js";
 import { binaryBooleanOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
-export interface BinaryFnBoolean {
+export interface CombineFnBoolean {
   and: BooleanToBoolean;
   or: BooleanToBoolean;
   xor: BooleanToBoolean;
 }
 
-export const bfBoolean: BinaryFnBoolean = {
+export const cfBoolean: CombineFnBoolean = {
   and: (
     a: BooleanValue<readonly TagSymbol[]>,
     b: BooleanValue<readonly TagSymbol[]>,
@@ -30,17 +30,17 @@ export const bfBoolean: BinaryFnBoolean = {
   },
 } as const;
 
-export type BinaryFnBooleanNameSpace = "binaryFnBoolean";
-export type BinaryFnBooleanNames =
-  `${BinaryFnBooleanNameSpace}${NamespaceDelimiter}${keyof typeof bfBoolean}`;
+export type CombineFnBooleanNameSpace = "combineFnBoolean";
+export type CombineFnBooleanNames =
+  `${CombineFnBooleanNameSpace}${NamespaceDelimiter}${keyof typeof cfBoolean}`;
 
-export type ReturnMetaBinaryFnBoolean = {
-  [K in keyof BinaryFnBoolean]: ReturnType<BinaryFnBoolean[K]>["symbol"];
+export type ReturnMetaCombineFnBoolean = {
+  [K in keyof CombineFnBoolean]: ReturnType<CombineFnBoolean[K]>["symbol"];
 };
 
-export type ParamsMetaBinaryFnBoolean = {
-  [K in keyof BinaryFnBoolean]: [
-    Parameters<BinaryFnBoolean[K]>[0]["symbol"],
-    Parameters<BinaryFnBoolean[K]>[1]["symbol"],
+export type ParamsMetaCombineFnBoolean = {
+  [K in keyof CombineFnBoolean]: [
+    Parameters<CombineFnBoolean[K]>[0]["symbol"],
+    Parameters<CombineFnBoolean[K]>[1]["symbol"],
   ];
 };

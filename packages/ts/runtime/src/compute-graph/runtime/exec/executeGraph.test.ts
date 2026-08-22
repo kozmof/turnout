@@ -30,7 +30,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -73,7 +73,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-boolean": {
-          name: "binaryFnBoolean::or",
+          name: "combineFnBoolean::or",
           transformFn: {
             a: ["transformFnBoolean::pass"],
             b: ["transformFnBoolean::pass"],
@@ -124,7 +124,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-add": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -135,7 +135,7 @@ describe("executeGraph", () => {
           },
         },
         "pd-multiply": {
-          name: "binaryFnNumber::multiply",
+          name: "combineFnNumber::multiply",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -186,7 +186,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-add": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -230,7 +230,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-add": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -241,7 +241,7 @@ describe("executeGraph", () => {
           },
         },
         "pd-multiply": {
-          name: "binaryFnNumber::multiply",
+          name: "combineFnNumber::multiply",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -308,7 +308,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: "binaryFnString::concat",
+          name: "combineFnString::concat",
           transformFn: {
             a: ["transformFnNumber::toStr"],
             b: ["transformFnString::pass"],
@@ -352,7 +352,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-add": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -394,7 +394,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -480,7 +480,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-pass-true": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -491,7 +491,7 @@ describe("executeGraph", () => {
           },
         },
         "pd-pass-false": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -556,7 +556,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-pass-true": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -567,7 +567,7 @@ describe("executeGraph", () => {
           },
         },
         "pd-pass-false": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -633,7 +633,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-use-shared": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -707,7 +707,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         "pd-eq": {
-          name: "binaryFnGeneric::isEqual",
+          name: "combineFnGeneric::isEqual",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -718,7 +718,7 @@ describe("executeGraph", () => {
           },
         },
         "pd-pass-true": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -729,7 +729,7 @@ describe("executeGraph", () => {
           },
         },
         "pd-pass-false": {
-          name: "binaryFnNumber::add",
+          name: "combineFnNumber::add",
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],
@@ -766,7 +766,7 @@ describe("executeGraph", () => {
     // Bypasses brand to test non-Error exception handling path in executeGraphSafe.
     // The `error instanceof Error ? error : undefined` branch (line 64) is hit when
     // something throws a non-Error value.
-    // We create a broken context where getBinaryFn would throw a string-like object.
+    // We create a broken context where getCombineFn would throw a string-like object.
     const context = {
       valueTable: {
         v1: { symbol: "number", value: 5, subSymbol: undefined, tags: [] },
@@ -782,7 +782,7 @@ describe("executeGraph", () => {
       } as any,
       combineFuncDefTable: {
         pd1: {
-          name: "binaryFnNumber::nonExistentOp", // unknown fn — getBinaryFn will throw
+          name: "combineFnNumber::nonExistentOp", // unknown fn — getCombineFn will throw
           transformFn: {
             a: ["transformFnNumber::pass"],
             b: ["transformFnNumber::pass"],

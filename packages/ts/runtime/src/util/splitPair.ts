@@ -1,4 +1,4 @@
-import { BinaryFnNames, TransformFnNames } from "../compute-graph/types.js";
+import { CombineFnNames, TransformFnNames } from "../compute-graph/types.js";
 import { NAMESPACE_DELIMITER, type NamespaceDelimiter } from "./constants.js";
 
 type SplitPair<S extends string> = S extends `${infer Left}${NamespaceDelimiter}${infer Right}`
@@ -17,7 +17,7 @@ const isTransformFnName = (pair: string[]): pair is SplitPair<TransformFnNames> 
   return true;
 };
 
-const isBinaryFnName = (pair: string[]): pair is SplitPair<BinaryFnNames> => {
+const isCombineFnName = (pair: string[]): pair is SplitPair<CombineFnNames> => {
   if (pair.length !== 2) return false;
 
   const [namespace, name] = pair;
@@ -40,11 +40,11 @@ export const splitPairTransformFnNames = (
   }
 };
 
-export const splitPairBinaryFnNames = (
-  joinedName: BinaryFnNames,
-): SplitPair<BinaryFnNames> | null => {
+export const splitPairCombineFnNames = (
+  joinedName: CombineFnNames,
+): SplitPair<CombineFnNames> | null => {
   const pair = joinedName.split(NAMESPACE_DELIMITER);
-  if (isBinaryFnName(pair)) {
+  if (isCombineFnName(pair)) {
     return pair;
   } else {
     return null;

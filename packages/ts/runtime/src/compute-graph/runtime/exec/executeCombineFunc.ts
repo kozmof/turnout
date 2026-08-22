@@ -1,6 +1,6 @@
 import { FuncId, CombineDefineId, ExecutionContext, ExecutionResult } from "../../types.js";
 import { createArgName } from "../../idValidation.js";
-import { getBinaryFn } from "../../call-presets/getBinaryFn.js";
+import { getCombineFn } from "../../call-presets/getCombineFn.js";
 import { getTransformFn } from "../../call-presets/getTransformFn.js";
 
 /**
@@ -26,8 +26,8 @@ export function executeCombineFunc(
     throw new Error(`executeCombineFunc: missing combine definition ${defId}`);
   }
 
-  // Get binary function
-  const binaryFn = getBinaryFn(def.name);
+  // Get combine function
+  const combineFn = getCombineFn(def.name);
 
   // Resolve argument values from argMap
   const argAId = funcEntry.argMap[createArgName("a")];
@@ -46,16 +46,16 @@ export function executeCombineFunc(
   const transformedA = def.transformFn.a.reduce((v, fn) => getTransformFn(fn)(v), valA);
   const transformedB = def.transformFn.b.reduce((v, fn) => getTransformFn(fn)(v), valB);
   let result;
-  if (def.name === "binaryFnRecord::set") {
+  if (def.name === "combineFnRecord::set") {
     const argCId = funcEntry.argMap[createArgName("c")];
     if (argCId === undefined) throw new Error(`executeCombineFunc: record set  is missing arg c`);
     const valC = context.valueTable[argCId];
     if (valC === undefined)
       throw new Error(`executeCombineFunc: missing value table entry for arg c of `);
     const transformedC = (def.transformFn.c ?? []).reduce((v, fn) => getTransformFn(fn)(v), valC);
-    result = binaryFn(transformedA, transformedB, transformedC);
+    result = combineFn(transformedA, transformedB, transformedC);
   } else {
-    result = binaryFn(transformedA, transformedB);
+    result = combineFn(transformedA, transformedB);
   }
 
   // Return result with updated value table (immutable update)

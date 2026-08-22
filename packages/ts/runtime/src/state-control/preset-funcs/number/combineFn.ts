@@ -3,7 +3,7 @@ import { type NumberToBoolean, type NumberToNumber } from "../convert.js";
 import { binaryBooleanOp, binaryNumberOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
-export interface BinaryFnNumber {
+export interface CombineFnNumber {
   add: NumberToNumber;
   minus: NumberToNumber;
   multiply: NumberToNumber;
@@ -17,7 +17,7 @@ export interface BinaryFnNumber {
   lessThanOrEqual: NumberToBoolean;
 }
 
-export const bfNumber: BinaryFnNumber = {
+export const cfNumber: CombineFnNumber = {
   add: (
     a: NumberValue<readonly TagSymbol[]>,
     b: NumberValue<readonly TagSymbol[]>,
@@ -92,17 +92,17 @@ export const bfNumber: BinaryFnNumber = {
   },
 } as const;
 
-export type BinaryFnNumberNameSpace = "binaryFnNumber";
-export type BinaryFnNumberNames =
-  `${BinaryFnNumberNameSpace}${NamespaceDelimiter}${keyof typeof bfNumber}`;
+export type CombineFnNumberNameSpace = "combineFnNumber";
+export type CombineFnNumberNames =
+  `${CombineFnNumberNameSpace}${NamespaceDelimiter}${keyof typeof cfNumber}`;
 
-export type ReturnMetaBinaryFnNumber = {
-  [K in keyof BinaryFnNumber]: ReturnType<BinaryFnNumber[K]>["symbol"];
+export type ReturnMetaCombineFnNumber = {
+  [K in keyof CombineFnNumber]: ReturnType<CombineFnNumber[K]>["symbol"];
 };
 
-export type ParamsMetaBinaryFnNumber = {
-  [K in keyof BinaryFnNumber]: [
-    Parameters<BinaryFnNumber[K]>[0]["symbol"],
-    Parameters<BinaryFnNumber[K]>[1]["symbol"],
+export type ParamsMetaCombineFnNumber = {
+  [K in keyof CombineFnNumber]: [
+    Parameters<CombineFnNumber[K]>[0]["symbol"],
+    Parameters<CombineFnNumber[K]>[1]["symbol"],
   ];
 };

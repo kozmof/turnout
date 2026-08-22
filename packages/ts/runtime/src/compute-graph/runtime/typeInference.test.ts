@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
-  getBinaryFnParamTypes,
-  getBinaryFnReturnType,
+  getCombineFnParamTypes,
+  getCombineFnReturnType,
   getTransformFnInputType,
   getTransformFnReturnType,
   inferCombineFuncReturnType,
@@ -14,8 +14,8 @@ import type { CombineDefineId, ExecutionContext, FuncId, PipeDefineId, ValueId }
 function buildCondContext(
   trueBranchFuncId: string,
   falseBranchFuncId: string,
-  trueBranchName: "binaryFnNumber::add" | "binaryFnString::concat",
-  falseBranchName: "binaryFnNumber::add" | "binaryFnString::concat",
+  trueBranchName: "combineFnNumber::add" | "combineFnString::concat",
+  falseBranchName: "combineFnNumber::add" | "combineFnString::concat",
 ): ExecutionContext {
   return {
     valueTable: {} as any,
@@ -43,11 +43,11 @@ function buildCondContext(
         name: trueBranchName,
         transformFn: {
           a:
-            trueBranchName === "binaryFnNumber::add"
+            trueBranchName === "combineFnNumber::add"
               ? "transformFnNumber::pass"
               : "transformFnString::pass",
           b:
-            trueBranchName === "binaryFnNumber::add"
+            trueBranchName === "combineFnNumber::add"
               ? "transformFnNumber::pass"
               : "transformFnString::pass",
         },
@@ -56,11 +56,11 @@ function buildCondContext(
         name: falseBranchName,
         transformFn: {
           a:
-            falseBranchName === "binaryFnNumber::add"
+            falseBranchName === "combineFnNumber::add"
               ? "transformFnNumber::pass"
               : "transformFnString::pass",
           b:
-            falseBranchName === "binaryFnNumber::add"
+            falseBranchName === "combineFnNumber::add"
               ? "transformFnNumber::pass"
               : "transformFnString::pass",
         },
@@ -83,8 +83,8 @@ describe("typeInference", () => {
       const context = buildCondContext(
         "f_true",
         "f_false",
-        "binaryFnNumber::add",
-        "binaryFnNumber::add",
+        "combineFnNumber::add",
+        "combineFnNumber::add",
       );
 
       const result = inferFuncReturnType("cond1" as FuncId, context);
@@ -95,8 +95,8 @@ describe("typeInference", () => {
       const context = buildCondContext(
         "f_true",
         "f_false",
-        "binaryFnNumber::add",
-        "binaryFnString::concat",
+        "combineFnNumber::add",
+        "combineFnString::concat",
       );
 
       const result = inferFuncReturnType("cond1" as FuncId, context);
@@ -107,8 +107,8 @@ describe("typeInference", () => {
       const context = buildCondContext(
         "f_shared",
         "f_shared",
-        "binaryFnNumber::add",
-        "binaryFnNumber::add",
+        "combineFnNumber::add",
+        "combineFnNumber::add",
       );
 
       const result = inferFuncReturnType("cond1" as FuncId, context);
@@ -136,25 +136,25 @@ describe("typeInference metadata helpers", () => {
   });
 
   it("resolves binary parameter and return types across namespaces", () => {
-    expect(getBinaryFnParamTypes("binaryFnBoolean::and" as any)).toEqual(["boolean", "boolean"]);
-    expect(getBinaryFnParamTypes("binaryFnNumber::add" as any)).toEqual(["number", "number"]);
-    expect(getBinaryFnParamTypes("binaryFnString::concat" as any)).toEqual(["string", "string"]);
-    expect(getBinaryFnParamTypes("binaryFnGeneric::isEqual" as any)).toBeNull();
-    expect(getBinaryFnParamTypes("binaryFnArray::get" as any)).toBeNull();
-    expect(getBinaryFnParamTypes("binaryFnNumber::missing" as any)).toBeNull();
-    expect(getBinaryFnParamTypes("bad-name" as any)).toBeNull();
-    expect(getBinaryFnParamTypes("binaryFnBogus::x" as any)).toBeNull();
+    expect(getCombineFnParamTypes("combineFnBoolean::and" as any)).toEqual(["boolean", "boolean"]);
+    expect(getCombineFnParamTypes("combineFnNumber::add" as any)).toEqual(["number", "number"]);
+    expect(getCombineFnParamTypes("combineFnString::concat" as any)).toEqual(["string", "string"]);
+    expect(getCombineFnParamTypes("combineFnGeneric::isEqual" as any)).toBeNull();
+    expect(getCombineFnParamTypes("combineFnArray::get" as any)).toBeNull();
+    expect(getCombineFnParamTypes("combineFnNumber::missing" as any)).toBeNull();
+    expect(getCombineFnParamTypes("bad-name" as any)).toBeNull();
+    expect(getCombineFnParamTypes("combineFnBogus::x" as any)).toBeNull();
 
-    expect(getBinaryFnReturnType("binaryFnBoolean::or" as any)).toBe("boolean");
-    expect(getBinaryFnReturnType("binaryFnNumber::add" as any)).toBe("number");
-    expect(getBinaryFnReturnType("binaryFnString::includes" as any)).toBe("boolean");
-    expect(getBinaryFnReturnType("binaryFnGeneric::isNotEqual" as any)).toBe("boolean");
-    expect(getBinaryFnReturnType("binaryFnArray::get" as any, "number")).toBe("number");
-    expect(getBinaryFnReturnType("binaryFnArray::get" as any)).toBeNull();
-    expect(getBinaryFnReturnType("binaryFnArray::get" as any, "array")).toBeNull();
-    expect(getBinaryFnReturnType("binaryFnNumber::missing" as any)).toBeNull();
-    expect(getBinaryFnReturnType("bad-name" as any)).toBeNull();
-    expect(getBinaryFnReturnType("binaryFnBogus::x" as any)).toBeNull();
+    expect(getCombineFnReturnType("combineFnBoolean::or" as any)).toBe("boolean");
+    expect(getCombineFnReturnType("combineFnNumber::add" as any)).toBe("number");
+    expect(getCombineFnReturnType("combineFnString::includes" as any)).toBe("boolean");
+    expect(getCombineFnReturnType("combineFnGeneric::isNotEqual" as any)).toBe("boolean");
+    expect(getCombineFnReturnType("combineFnArray::get" as any, "number")).toBe("number");
+    expect(getCombineFnReturnType("combineFnArray::get" as any)).toBeNull();
+    expect(getCombineFnReturnType("combineFnArray::get" as any, "array")).toBeNull();
+    expect(getCombineFnReturnType("combineFnNumber::missing" as any)).toBeNull();
+    expect(getCombineFnReturnType("bad-name" as any)).toBeNull();
+    expect(getCombineFnReturnType("combineFnBogus::x" as any)).toBeNull();
   });
 });
 
@@ -208,8 +208,8 @@ describe("typeInference values and function inference", () => {
         },
       } as any,
       combineFuncDefTable: {
-        pd_add: { name: "binaryFnNumber::add" },
-        pd_concat: { name: "binaryFnString::concat" },
+        pd_add: { name: "combineFnNumber::add" },
+        pd_concat: { name: "combineFnString::concat" },
       } as any,
       pipeFuncDefTable: {
         td_pipe: {
@@ -243,7 +243,7 @@ describe("typeInference values and function inference", () => {
         },
       } as any,
       combineFuncDefTable: {
-        pd_add: { name: "binaryFnNumber::add" },
+        pd_add: { name: "combineFnNumber::add" },
       } as any,
       pipeFuncDefTable: {
         td_outer: { args: [], sequence: [{ defId: "td_inner" as PipeDefineId, argBindings: {} }] },
@@ -340,7 +340,7 @@ describe("typeInference values and function inference", () => {
         },
       } as any,
       combineFuncDefTable: {
-        pd_add: { name: "binaryFnNumber::add" },
+        pd_add: { name: "combineFnNumber::add" },
       } as any,
       condFuncDefTable: {
         cd_null: { trueBranchId: "f_unknown" as FuncId, falseBranchId: "f_num" as FuncId },

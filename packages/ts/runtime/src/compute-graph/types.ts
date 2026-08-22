@@ -1,26 +1,26 @@
 import {
-  BinaryFnArrayNames,
-  BinaryFnRecordNames,
-} from "../state-control/preset-funcs/array/binaryFn.js";
+  CombineFnArrayNames,
+  CombineFnRecordNames,
+} from "../state-control/preset-funcs/array/combineFn.js";
 import { TransformFnArrayNames } from "../state-control/preset-funcs/array/transformFn.js";
-import { BinaryFnBooleanNames } from "../state-control/preset-funcs/boolean/binaryFn.js";
+import { CombineFnBooleanNames } from "../state-control/preset-funcs/boolean/combineFn.js";
 import { TransformFnBooleanNames } from "../state-control/preset-funcs/boolean/transformFn.js";
-import { BinaryFnGenericNames } from "../state-control/preset-funcs/generic/binaryFn.js";
-import { BinaryFnNumberNames } from "../state-control/preset-funcs/number/binaryFn.js";
+import { CombineFnGenericNames } from "../state-control/preset-funcs/generic/combineFn.js";
+import { CombineFnNumberNames } from "../state-control/preset-funcs/number/combineFn.js";
 import { TransformFnNumberNames } from "../state-control/preset-funcs/number/transformFn.js";
 import { TransformFnNullNames } from "../state-control/preset-funcs/null/transformFn.js";
-import { BinaryFnStringNames } from "../state-control/preset-funcs/string/binaryFn.js";
+import { CombineFnStringNames } from "../state-control/preset-funcs/string/combineFn.js";
 import { TransformFnStringNames } from "../state-control/preset-funcs/string/transformFn.js";
 import { AnyValue } from "../state-control/value.js";
 import { Brand } from "../util/brand.js";
 
-export type BinaryFnNames =
-  | BinaryFnArrayNames
-  | BinaryFnRecordNames
-  | BinaryFnBooleanNames
-  | BinaryFnGenericNames
-  | BinaryFnNumberNames
-  | BinaryFnStringNames;
+export type CombineFnNames =
+  | CombineFnArrayNames
+  | CombineFnRecordNames
+  | CombineFnBooleanNames
+  | CombineFnGenericNames
+  | CombineFnNumberNames
+  | CombineFnStringNames;
 
 export type TransformFnNames =
   | TransformFnArrayNames
@@ -100,8 +100,8 @@ export type FuncTable = {
 
 export type CombineFuncDefTable = {
   [defId in CombineDefineId]: {
-    name: BinaryFnNames;
-    // Each arg carries an ordered chain of transforms applied before the binary fn.
+    name: CombineFnNames;
+    // Each arg carries an ordered chain of transforms applied before the combine fn.
     transformFn: {
       a: readonly TransformFnNames[];
       b: readonly TransformFnNames[];

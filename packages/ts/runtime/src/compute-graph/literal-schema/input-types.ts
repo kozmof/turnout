@@ -1,4 +1,4 @@
-import { BinaryFnNames } from "../types.js";
+import { CombineFnNames } from "../types.js";
 import { AnyValue } from "../../state-control/value.js";
 import { TransformFnNames } from "../types.js";
 
@@ -8,7 +8,7 @@ export type CombineFuncType = "combine";
 export type PipeFuncType = "pipe";
 
 export type CombineFunc = {
-  name: BinaryFnNames;
+  name: CombineFnNames;
   type: CombineFuncType;
   transformFn: {
     a: { name: TransformFnNames };

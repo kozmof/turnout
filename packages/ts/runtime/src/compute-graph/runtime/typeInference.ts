@@ -4,12 +4,12 @@ import {
   metaBfString,
   metaBfArray,
   metaBfGeneric,
-} from "../../state-control/meta-chain/binary-fn/metaReturn.js";
+} from "../../state-control/meta-chain/combine-fn/metaReturn.js";
 import {
   metaBfBooleanParams,
   metaBfNumberParams,
   metaBfStringParams,
-} from "../../state-control/meta-chain/binary-fn/metaParams.js";
+} from "../../state-control/meta-chain/combine-fn/metaParams.js";
 import {
   metaTfBoolean,
   metaTfNumber,
@@ -24,11 +24,11 @@ import type {
   FuncId,
   CombineDefineId,
   PipeDefineId,
-  BinaryFnNames,
+  CombineFnNames,
   TransformFnNames,
 } from "../types.js";
 import { isCondDefineId, isCombineDefineId, isPipeDefineId } from "../idValidation.js";
-import { splitPairBinaryFnNames, splitPairTransformFnNames } from "../../util/splitPair.js";
+import { splitPairCombineFnNames, splitPairTransformFnNames } from "../../util/splitPair.js";
 
 /**
  * Type-safe helper to get a value from the ValueTable.
@@ -99,45 +99,45 @@ export function getTransformFnReturnType(transformFnName: TransformFnNames): Bas
 }
 
 /**
- * Gets the expected parameter types for a binary function.
- * e.g., "binaryFnNumber::add" returns ["number", "number"]
+ * Gets the expected parameter types for a combine function.
+ * e.g., "combineFnNumber::add" returns ["number", "number"]
  *
- * Note: Returns null for binaryFnGeneric and binaryFnArray functions because:
+ * Note: Returns null for combineFnGeneric and combineFnArray functions because:
  * - Generic functions (like isEqual) can work with any type, requiring runtime type checking
  * - Array functions require element type information that depends on runtime values
  * - This design does not support nested arrays (array elements cannot be arrays)
  */
-export function getBinaryFnParamTypes(
-  binaryFnName: BinaryFnNames,
+export function getCombineFnParamTypes(
+  combineFnName: CombineFnNames,
 ): [BaseTypeSymbol, BaseTypeSymbol] | null {
-  const mayPair = splitPairBinaryFnNames(binaryFnName);
+  const mayPair = splitPairCombineFnNames(combineFnName);
   if (mayPair === null) return null;
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
-    case "binaryFnBoolean": {
+    case "combineFnBoolean": {
       const meta = metaBfBooleanParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnNumber": {
+    case "combineFnNumber": {
       const meta = metaBfNumberParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnString": {
+    case "combineFnString": {
       const meta = metaBfStringParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnGeneric": {
+    case "combineFnGeneric": {
       // Generic functions can work with any type, so we can't validate statically
       // We'd need to check that both params have the same type at runtime
       return null;
     }
-    case "binaryFnArray": {
+    case "combineFnArray": {
       // Array functions have complex param types (array + element type)
       // Would need the element type to validate properly
       return null;
     }
-    case "binaryFnRecord":
+    case "combineFnRecord":
       return null;
     default:
       return null;
@@ -145,42 +145,42 @@ export function getBinaryFnParamTypes(
 }
 
 /**
- * Gets the return type of a binary function.
- * e.g., "binaryFnNumber::add" returns "number"
+ * Gets the return type of a combine function.
+ * e.g., "combineFnNumber::add" returns "number"
  */
-export function getBinaryFnReturnType(
-  binaryFnName: BinaryFnNames,
+export function getCombineFnReturnType(
+  combineFnName: CombineFnNames,
   elemType?: BaseTypeSymbol,
 ): BaseTypeSymbol | null {
-  const mayPair = splitPairBinaryFnNames(binaryFnName);
+  const mayPair = splitPairCombineFnNames(combineFnName);
   if (mayPair === null) return null;
   const [namespace, fnName] = mayPair;
 
   switch (namespace) {
-    case "binaryFnBoolean": {
+    case "combineFnBoolean": {
       const meta = metaBfBoolean();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnNumber": {
+    case "combineFnNumber": {
       const meta = metaBfNumber();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnString": {
+    case "combineFnString": {
       const meta = metaBfString();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnGeneric": {
+    case "combineFnGeneric": {
       const meta = metaBfGeneric();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnArray": {
-      // Array binary functions require a non-array element type
+    case "combineFnArray": {
+      // Array combine functions require a non-array element type
       // This design does not support nested arrays (array of arrays)
       if (!elemType || elemType === "array" || elemType === "record") return null;
       const meta = metaBfArray(elemType);
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
-    case "binaryFnRecord":
+    case "combineFnRecord":
       if (fnName === "set") return "record";
       if (fnName === "getNumber") return "number";
       if (fnName === "getString") return "string";
@@ -325,7 +325,7 @@ export function inferCombineFuncReturnType(
   const def = context.combineFuncDefTable[defId];
   if (def === undefined) return null;
 
-  // For array binary functions, we'd need element type info
+  // For array combine functions, we'd need element type info
   // For now, we'll handle simple cases
-  return getBinaryFnReturnType(def.name);
+  return getCombineFnReturnType(def.name);
 }

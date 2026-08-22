@@ -1,5 +1,5 @@
 import { combine, pipe, cond, ref as runtimeRef } from "runtime";
-import type { AnyValue, BinaryFnNames } from "runtime";
+import type { AnyValue, CombineFnNames } from "runtime";
 import type {
   ProgModel,
   BindingModel,
@@ -20,7 +20,7 @@ import { inferLiteralAnyValue } from "./hcl-literal.js";
 import { literalToValue } from "../state/state-manager.js";
 import { FN_MAP } from "./fn-map.generated.js";
 
-function mapFnName(hclFn: string, contextId: string): BinaryFnNames {
+function mapFnName(hclFn: string, contextId: string): CombineFnNames {
   const mapped = Object.hasOwn(FN_MAP, hclFn) ? FN_MAP[hclFn] : undefined;
   if (!mapped) {
     throw new SceneRuntimeError(

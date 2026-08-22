@@ -4,10 +4,10 @@ import type {
   CombineDefineId,
   PipeDefineId,
   CondDefineId,
-  BinaryFnNames,
+  CombineFnNames,
 } from "../../types.js";
 import type { BaseTypeSymbol } from "../../../state-control/value.js";
-import { getBinaryFnReturnType } from "../typeInference.js";
+import { getCombineFnReturnType } from "../typeInference.js";
 import type { UnvalidatedContext, TypeEnvironment } from "./types.js";
 import { VALID_BASE_TYPE_SYMBOLS } from "./types.js";
 
@@ -26,13 +26,13 @@ export function isBaseTypeSymbol(value: unknown): value is BaseTypeSymbol {
   return VALID_BASE_TYPE_SYMBOLS.has(value as BaseTypeSymbol);
 }
 
-export function isCombineDefWithBinaryFnName(value: unknown): value is { name: BinaryFnNames } {
+export function isCombineDefWithCombineFnName(value: unknown): value is { name: CombineFnNames } {
   if (!(value && typeof value === "object" && "name" in value && typeof value.name === "string")) {
     return false;
   }
-  // getBinaryFnReturnType is the runtime proof that the string is a BinaryFnNames member.
+  // getCombineFnReturnType is the runtime proof that the string is a CombineFnNames member.
   // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return getBinaryFnReturnType(value.name as BinaryFnNames) !== null;
+  return getCombineFnReturnType(value.name as CombineFnNames) !== null;
 }
 
 export function isPipeDefWithSequence(value: unknown): value is { sequence: unknown[] } {
@@ -161,8 +161,8 @@ export function inferFuncType(
   if (!defId || typeof defId !== "string") return null;
 
   const combineDef = context.combineFuncDefTable?.[defId];
-  if (isCombineDefWithBinaryFnName(combineDef)) {
-    return getBinaryFnReturnType(combineDef.name);
+  if (isCombineDefWithCombineFnName(combineDef)) {
+    return getCombineFnReturnType(combineDef.name);
   }
 
   const pipeDef = context.pipeFuncDefTable?.[defId];
@@ -173,8 +173,8 @@ export function inferFuncType(
       if (typeof lastStep.defId !== "string") return null;
       const lastStepDefId = lastStep.defId;
       const lastStepCombineDef = context.combineFuncDefTable?.[lastStepDefId];
-      if (isCombineDefWithBinaryFnName(lastStepCombineDef)) {
-        return getBinaryFnReturnType(lastStepCombineDef.name);
+      if (isCombineDefWithCombineFnName(lastStepCombineDef)) {
+        return getCombineFnReturnType(lastStepCombineDef.name);
       }
     }
     return null;

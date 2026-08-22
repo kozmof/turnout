@@ -19,18 +19,18 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         a: true,
         b: false,
-        f1: combine("binaryFnBoolean::and", { a: "a", b: "b" }),
+        f1: combine("combineFnBoolean::and", { a: "a", b: "b" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.symbol).toBe("boolean");
       expect(result.value.value).toBe(false);
     });
 
-    it("infers boolean pass transform for binaryFnBoolean::or", () => {
+    it("infers boolean pass transform for combineFnBoolean::or", () => {
       const context = ctx({
         a: true,
         b: false,
-        f1: combine("binaryFnBoolean::or", { a: "a", b: "b" }),
+        f1: combine("combineFnBoolean::or", { a: "a", b: "b" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.value).toBe(true);
@@ -40,7 +40,7 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         a: val.null(),
         b: val.null(),
-        f1: combine("binaryFnGeneric::isEqual", { a: "a", b: "b" }),
+        f1: combine("combineFnGeneric::isEqual", { a: "a", b: "b" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.symbol).toBe("boolean");
@@ -50,7 +50,7 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         arr1: val.array("number", [val.number(1)]),
         arr2: val.array("number", [val.number(1)]),
-        f1: combine("binaryFnGeneric::isEqual", { a: "arr1", b: "arr2" }),
+        f1: combine("combineFnGeneric::isEqual", { a: "arr1", b: "arr2" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.symbol).toBe("boolean");
@@ -74,8 +74,8 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           v0: 0,
-          trueFunc: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
-          falseFunc: combine("binaryFnNumber::add", { a: "v1", b: "v0" }),
+          trueFunc: combine("combineFnNumber::add", { a: "v1", b: "v0" }),
+          falseFunc: combine("combineFnNumber::add", { a: "v1", b: "v0" }),
           result: cond("nonExistentCondition", { then: "trueFunc", else: "falseFunc" }),
         }),
       ).toThrow();
@@ -87,7 +87,7 @@ describe("context.ts — coverage", () => {
           v1: true,
           v0: 0,
           v2: 10,
-          falseFunc: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
+          falseFunc: combine("combineFnNumber::add", { a: "v2", b: "v0" }),
           result: cond("v1", { then: "nonExistentThen", else: "falseFunc" }),
         }),
       ).toThrow();
@@ -99,7 +99,7 @@ describe("context.ts — coverage", () => {
           v1: true,
           v0: 0,
           v2: 10,
-          trueFunc: combine("binaryFnNumber::add", { a: "v2", b: "v0" }),
+          trueFunc: combine("combineFnNumber::add", { a: "v2", b: "v0" }),
           result: cond("v1", { then: "trueFunc", else: "nonExistentElse" }),
         }),
       ).toThrow();
@@ -114,7 +114,7 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         v1: 5,
         v2: 3,
-        f1: combine("binaryFnNumber::add", { a: valueRef, b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: valueRef, b: "v2" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.value).toBe(8);
@@ -125,7 +125,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", { a: valueRef, b: "v1" }),
+          f1: combine("combineFnNumber::add", { a: valueRef, b: "v1" }),
         }),
       ).toThrow();
     });
@@ -134,7 +134,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", { a: "v1", b: "undefinedValue" }),
+          f1: combine("combineFnNumber::add", { a: "v1", b: "undefinedValue" }),
         }),
       ).toThrow();
     });
@@ -151,8 +151,8 @@ describe("context.ts — coverage", () => {
           v1: 10,
           v2: 5,
           v3: 2,
-          myPipe: pipe({ a: "v1", b: "v2" }, [combine("binaryFnNumber::add", { a: "a", b: "b" })]),
-          f2: combine("binaryFnNumber::multiply", {
+          myPipe: pipe({ a: "v1", b: "v2" }, [combine("combineFnNumber::add", { a: "a", b: "b" })]),
+          f2: combine("combineFnNumber::multiply", {
             a: ref.step("myPipe", 0),
             b: "v3",
           }),
@@ -169,7 +169,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", { a: stepRef, b: "v1" }),
+          f1: combine("combineFnNumber::add", { a: stepRef, b: "v1" }),
         }),
       ).toThrow();
     });
@@ -181,7 +181,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", { a: funcRef, b: "v1" }),
+          f1: combine("combineFnNumber::add", { a: funcRef, b: "v1" }),
         }),
       ).toThrow();
     });
@@ -195,7 +195,7 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         v1: 42,
         v2: 0,
-        f1: combine("binaryFnNumber::add", { a: transformRef, b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: transformRef, b: "v2" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.value).toBe(42);
@@ -207,7 +207,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", { a: transformRef, b: "v1" }),
+          f1: combine("combineFnNumber::add", { a: transformRef, b: "v1" }),
         }),
       ).toThrow();
     });
@@ -217,8 +217,8 @@ describe("context.ts — coverage", () => {
         v1: 10,
         v2: 5,
         v3: " result",
-        sum: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
-        f2: combine("binaryFnString::concat", {
+        sum: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
+        f2: combine("combineFnString::concat", {
           a: ref.transform(ref.output("sum"), "transformFnNumber::toStr"),
           b: "v3",
         }),
@@ -231,7 +231,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", {
+          f1: combine("combineFnNumber::add", {
             a: ref.transform(ref.output("nonExistent"), "transformFnNumber::pass"),
             b: "v1",
           }),
@@ -248,8 +248,8 @@ describe("context.ts — coverage", () => {
           v1: 10,
           v2: 5,
           v3: " items",
-          myPipe: pipe({ a: "v1", b: "v2" }, [combine("binaryFnNumber::add", { a: "a", b: "b" })]),
-          f2: combine("binaryFnString::concat", {
+          myPipe: pipe({ a: "v1", b: "v2" }, [combine("combineFnNumber::add", { a: "a", b: "b" })]),
+          f2: combine("combineFnString::concat", {
             a: ref.transform(ref.step("myPipe", 0), "transformFnNumber::toStr"),
             b: "v3",
           }),
@@ -267,7 +267,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::add", { a: transformRef, b: "v1" }),
+          f1: combine("combineFnNumber::add", { a: transformRef, b: "v1" }),
         }),
       ).toThrow();
     });
@@ -281,8 +281,8 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           pipe1: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", { a: "a", b: "a" }),
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", { a: "a", b: "a" }),
+            combine("combineFnNumber::add", {
               a: ref.step("pipe1", 5), // index >= current step
               b: "a",
             }),
@@ -296,8 +296,8 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           pipe1: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", { a: ref.step("pipe1", 1), b: "a" }),
-            combine("binaryFnNumber::add", { a: "a", b: "a" }),
+            combine("combineFnNumber::add", { a: ref.step("pipe1", 1), b: "a" }),
+            combine("combineFnNumber::add", { a: "a", b: "a" }),
           ]),
         }),
       ).toThrow();
@@ -307,10 +307,10 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 10,
-          otherPipe: pipe({ a: "v1" }, [combine("binaryFnNumber::add", { a: "a", b: "a" })]),
+          otherPipe: pipe({ a: "v1" }, [combine("combineFnNumber::add", { a: "a", b: "a" })]),
           myPipe: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", { a: "a", b: "a" }),
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", { a: "a", b: "a" }),
+            combine("combineFnNumber::add", {
               a: ref.step("otherPipe", 0), // different pipe
               b: "a",
             }),
@@ -328,9 +328,9 @@ describe("context.ts — coverage", () => {
           v1: 10,
           v2: 5,
           v3: 2,
-          sum: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+          sum: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
           myPipe: pipe({ a: "v3" }, [
-            combine("binaryFnNumber::multiply", { a: ref.output("sum"), b: "a" }),
+            combine("combineFnNumber::multiply", { a: ref.output("sum"), b: "a" }),
           ]),
         }),
       ).not.toThrow();
@@ -345,7 +345,7 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           v2: 5,
-          myPipe: pipe({ a: "v2" }, [combine("binaryFnNumber::add", { a: valueRef, b: "a" })]),
+          myPipe: pipe({ a: "v2" }, [combine("combineFnNumber::add", { a: valueRef, b: "a" })]),
         }),
       ).not.toThrow();
     });
@@ -355,7 +355,7 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 10,
-          myPipe: pipe({ a: "v1" }, [combine("binaryFnNumber::add", { a: valueRef, b: "a" })]),
+          myPipe: pipe({ a: "v1" }, [combine("combineFnNumber::add", { a: valueRef, b: "a" })]),
         }),
       ).toThrow();
     });
@@ -365,7 +365,7 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           myPipe: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", { a: "a", b: "undefinedRef" }),
+            combine("combineFnNumber::add", { a: "a", b: "undefinedRef" }),
           ]),
         }),
       ).toThrow();
@@ -380,9 +380,9 @@ describe("context.ts — coverage", () => {
           v1: 10,
           v2: 5,
           v3: " result",
-          sum: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+          sum: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
           myPipe: pipe({ a: "v3" }, [
-            combine("binaryFnString::concat", {
+            combine("combineFnString::concat", {
               a: ref.transform(ref.output("sum"), "transformFnNumber::toStr"),
               b: "a",
             }),
@@ -402,8 +402,8 @@ describe("context.ts — coverage", () => {
           v2: 5,
           v3: " items",
           myPipe: pipe({ a: "v1", b: "v2", c: "v3" }, [
-            combine("binaryFnNumber::add", { a: "a", b: "b" }),
-            combine("binaryFnString::concat", {
+            combine("combineFnNumber::add", { a: "a", b: "b" }),
+            combine("combineFnString::concat", {
               a: ref.transform(ref.step("myPipe", 0), "transformFnNumber::toStr"),
               b: "c",
             }),
@@ -417,7 +417,7 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           myPipe: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", {
               a: ref.transform(ref.output("nonExistent"), "transformFnNumber::pass"),
               b: "a",
             }),
@@ -436,9 +436,9 @@ describe("context.ts — coverage", () => {
       expect(() =>
         ctx({
           v1: 10,
-          otherPipe: pipe({ a: "v1" }, [combine("binaryFnNumber::add", { a: "a", b: "a" })]),
+          otherPipe: pipe({ a: "v1" }, [combine("combineFnNumber::add", { a: "a", b: "a" })]),
           myPipe: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", {
               a: ref.transform(stepRef, "transformFnNumber::pass"),
               b: "a",
             }),
@@ -452,7 +452,7 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 10,
           myPipe: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", {
               a: ref.transform(ref.step("myPipe", 5), "transformFnNumber::pass"),
               b: "a",
             }),
@@ -474,7 +474,7 @@ describe("context.ts — coverage", () => {
           v1: 42,
           v2: " answer",
           myPipe: pipe({ b: "v2" }, [
-            combine("binaryFnString::concat", {
+            combine("combineFnString::concat", {
               a: ref.transform(valueRef, "transformFnNumber::toStr"),
               b: "b",
             }),
@@ -492,8 +492,8 @@ describe("context.ts — coverage", () => {
           v2: 5,
           v3: " total",
           myPipe: pipe({ a: "v1", b: "v2", c: "v3" }, [
-            combine("binaryFnNumber::add", { a: "a", b: "b" }),
-            combine("binaryFnString::concat", {
+            combine("combineFnNumber::add", { a: "a", b: "b" }),
+            combine("combineFnString::concat", {
               a: ref.transform(ref.step("myPipe", 0), "transformFnNumber::toStr"),
               b: "c",
             }),
@@ -514,11 +514,11 @@ describe("context.ts — coverage", () => {
         v1: 10,
         v2: 5,
         // f2 references f1 which comes AFTER it in the spec → forward reference
-        f2: combine("binaryFnNumber::multiply", {
+        f2: combine("combineFnNumber::multiply", {
           a: ref.output("f1"),
           b: "v2",
         }),
-        f1: combine("binaryFnNumber::add", { a: "v1", b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: "v1", b: "v2" }),
       });
       const result = executeGraph(context.ids.f2, assertValidContext(context.exec));
       expect(result.value.value).toBe(75);
@@ -530,11 +530,11 @@ describe("context.ts — coverage", () => {
         v2: 5,
         v3: 2,
         // f2 references myPipe which comes after it
-        f2: combine("binaryFnNumber::multiply", {
+        f2: combine("combineFnNumber::multiply", {
           a: ref.output("myPipe"),
           b: "v3",
         }),
-        myPipe: pipe({ a: "v1", b: "v2" }, [combine("binaryFnNumber::add", { a: "a", b: "b" })]),
+        myPipe: pipe({ a: "v1", b: "v2" }, [combine("combineFnNumber::add", { a: "a", b: "b" })]),
       });
       const result = executeGraph(context.ids.f2, assertValidContext(context.exec));
       expect(result.value.value).toBe(30);
@@ -545,21 +545,21 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         v1: 7,
         v2: 3,
-        f1: combine("binaryFnNumber::add", { a: valueRef, b: "v2" }),
+        f1: combine("combineFnNumber::add", { a: valueRef, b: "v2" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.value).toBe(10);
     });
   });
 
-  // --- inferTransformForBinaryFn error branch ---
+  // --- inferTransformForCombineFn error branch ---
 
-  describe("getOrCreateCombineDefinitionId — error for unknown binary function", () => {
-    it("throws for unknown binary function name", () => {
+  describe("getOrCreateCombineDefinitionId — error for unknown combine function", () => {
+    it("throws for unknown combine function name", () => {
       expect(() =>
         ctx({
           v1: 5,
-          f1: combine("binaryFnNumber::nonExistentOp" as any, { a: "v1", b: "v1" }),
+          f1: combine("combineFnNumber::nonExistentOp" as any, { a: "v1", b: "v1" }),
         }),
       ).toThrow();
     });
@@ -578,9 +578,9 @@ describe("context.ts — coverage", () => {
         v2: 5,
         v3: 3,
         myPipe: pipe({ a: "v1", b: "v2", c: "v3" }, [
-          combine("binaryFnNumber::add", { a: "a", b: "b" }),
-          combine("binaryFnNumber::multiply", { a: ref.step("myPipe", 0), b: "c" }),
-          combine("binaryFnNumber::minus", { a: ref.step("myPipe", 1), b: "a" }),
+          combine("combineFnNumber::add", { a: "a", b: "b" }),
+          combine("combineFnNumber::multiply", { a: ref.step("myPipe", 0), b: "c" }),
+          combine("combineFnNumber::minus", { a: ref.step("myPipe", 1), b: "a" }),
         ]),
       });
       const result = executeGraph(context.ids.myPipe, assertValidContext(context.exec));
@@ -597,7 +597,7 @@ describe("context.ts — coverage", () => {
       const context = ctx({
         v1: 100,
         v2: 50,
-        f1: combine("binaryFnNumber::minus", { a: valueRef, b: "v2" }),
+        f1: combine("combineFnNumber::minus", { a: valueRef, b: "v2" }),
       });
       const result = executeGraph(context.ids.f1, assertValidContext(context.exec));
       expect(result.value.value).toBe(50);
@@ -613,9 +613,9 @@ describe("context.ts — coverage", () => {
           v2: 7,
           v3: 2,
           myPipe: pipe({ a: "v1", b: "v2" }, [
-            combine("binaryFnNumber::multiply", { a: "a", b: "b" }),
+            combine("combineFnNumber::multiply", { a: "a", b: "b" }),
           ]),
-          f2: combine("binaryFnNumber::minus", {
+          f2: combine("combineFnNumber::minus", {
             a: ref.step("myPipe", 0),
             b: "v3",
           }),
@@ -632,7 +632,7 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 5,
           myPipe: pipe({ a: "nonExistentValue" }, [
-            combine("binaryFnNumber::add", { a: "a", b: "a" }),
+            combine("combineFnNumber::add", { a: "a", b: "a" }),
           ]),
         }),
       ).toThrow();
@@ -644,7 +644,7 @@ describe("context.ts — coverage", () => {
         ctx({
           v1: 5,
           myPipe: pipe({ a: "v1" }, [
-            combine("binaryFnNumber::add", {
+            combine("combineFnNumber::add", {
               a: ref.transform(nonExistentRef, "transformFnNumber::pass"),
               b: "a",
             }),
@@ -653,16 +653,16 @@ describe("context.ts — coverage", () => {
       ).toThrow();
     });
 
-    it("throws in inferTransformForBinaryFn when function has no return type (array fn in pipe step)", () => {
-      // binaryFnArray::concat returns null from getBinaryFnReturnType without elemType.
-      // buildStepTransformMap calls inferTransformForBinaryFn before getOrCreateCombineDefinitionId,
+    it("throws in inferTransformForCombineFn when function has no return type (array fn in pipe step)", () => {
+      // combineFnArray::concat returns null from getCombineFnReturnType without elemType.
+      // buildStepTransformMap calls inferTransformForCombineFn before getOrCreateCombineDefinitionId,
       // so this triggers branch 112 arm 0 (returnType === null).
       expect(() =>
         ctx({
           v1: val.array("number", [val.number(1)]),
           v2: val.array("number", [val.number(2)]),
           myPipe: pipe({ a: "v1", b: "v2" }, [
-            combine("binaryFnArray::concat" as any, { a: "a", b: "b" }),
+            combine("combineFnArray::concat" as any, { a: "a", b: "b" }),
           ]),
         }),
       ).toThrow();

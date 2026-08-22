@@ -6,36 +6,38 @@ import {
   buildString,
   buildNull,
 } from "../../state-control/value-builders.js";
-import { getBinaryFn } from "./getBinaryFn.js";
+import { getCombineFn } from "./getCombineFn.js";
 import { getTransformFn } from "./getTransformFn.js";
 
 describe("call preset lookup", () => {
-  it("resolves binary functions for every namespace", () => {
+  it("resolves combine functions for every namespace", () => {
     expect(
-      getBinaryFn("binaryFnArray::concat" as any)(
+      getCombineFn("combineFnArray::concat" as any)(
         buildArray([buildNumber(1)]),
         buildArray([buildNumber(2)]),
       ).value,
     ).toHaveLength(2);
 
     expect(
-      getBinaryFn("binaryFnBoolean::and" as any)(buildBoolean(true), buildBoolean(false)).value,
+      getCombineFn("combineFnBoolean::and" as any)(buildBoolean(true), buildBoolean(false)).value,
     ).toBe(false);
 
     expect(
-      getBinaryFn("binaryFnGeneric::isEqual" as any)(buildNumber(1), buildNumber(1)).value,
+      getCombineFn("combineFnGeneric::isEqual" as any)(buildNumber(1), buildNumber(1)).value,
     ).toBe(true);
 
-    expect(getBinaryFn("binaryFnNumber::add" as any)(buildNumber(2), buildNumber(3)).value).toBe(5);
+    expect(getCombineFn("combineFnNumber::add" as any)(buildNumber(2), buildNumber(3)).value).toBe(
+      5,
+    );
 
     expect(
-      getBinaryFn("binaryFnString::concat" as any)(buildString("turn"), buildString("out")).value,
+      getCombineFn("combineFnString::concat" as any)(buildString("turn"), buildString("out")).value,
     ).toBe("turnout");
   });
 
-  it("rejects malformed binary function names", () => {
-    expect(() => getBinaryFn("not-a-pair" as any)).toThrow(
-      "Invalid binary function name: not-a-pair",
+  it("rejects malformed combine function names", () => {
+    expect(() => getCombineFn("not-a-pair" as any)).toThrow(
+      "Invalid combine function name: not-a-pair",
     );
   });
 

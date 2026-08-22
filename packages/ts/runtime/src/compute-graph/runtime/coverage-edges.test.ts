@@ -14,7 +14,7 @@ import {
   hasSymbolProperty,
   inferFuncType,
   isBaseTypeSymbol,
-  isCombineDefWithBinaryFnName,
+  isCombineDefWithCombineFnName,
   isPipeDefWithSequence,
   isRecord,
   isStringAs,
@@ -52,11 +52,11 @@ describe("runtime coverage edges", () => {
       expect(isStringAs<string>("x")).toBe(true);
       expect(isStringAs<string>(1)).toBe(false);
 
-      expect(isCombineDefWithBinaryFnName(null)).toBe(false);
-      expect(isCombineDefWithBinaryFnName({})).toBe(false);
-      expect(isCombineDefWithBinaryFnName({ name: 1 })).toBe(false);
-      expect(isCombineDefWithBinaryFnName({ name: "binaryFnNumber::missing" })).toBe(false);
-      expect(isCombineDefWithBinaryFnName({ name: "binaryFnNumber::add" })).toBe(true);
+      expect(isCombineDefWithCombineFnName(null)).toBe(false);
+      expect(isCombineDefWithCombineFnName({})).toBe(false);
+      expect(isCombineDefWithCombineFnName({ name: 1 })).toBe(false);
+      expect(isCombineDefWithCombineFnName({ name: "combineFnNumber::missing" })).toBe(false);
+      expect(isCombineDefWithCombineFnName({ name: "combineFnNumber::add" })).toBe(true);
 
       expect(isPipeDefWithSequence(null)).toBe(false);
       expect(isPipeDefWithSequence({})).toBe(false);
@@ -79,7 +79,7 @@ describe("runtime coverage edges", () => {
         valueTable: { v1: numberValue(1) },
         funcTable: { f1: { kind: "cond", defId: "cd1", returnId: "v2" } },
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+          pd1: { name: "combineFnNumber::add", transformFn: { a: [], b: [] } },
         },
         pipeFuncDefTable: { td1: { args: [], sequence: [] } },
         condFuncDefTable: {
@@ -126,7 +126,7 @@ describe("runtime coverage edges", () => {
           fNoDef: { kind: "combine", returnId: "v4" },
         },
         combineFuncDefTable: {
-          pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+          pd1: { name: "combineFnNumber::add", transformFn: { a: [], b: [] } },
         },
         pipeFuncDefTable: {
           td1: { args: [], sequence: [{ defId: "pd1", argBindings: {} }] },
@@ -177,7 +177,7 @@ describe("runtime coverage edges", () => {
           {
             ...base,
             combineFuncDefTable: {
-              pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+              pd1: { name: "combineFnNumber::add", transformFn: { a: [], b: [] } },
             },
           } as any,
         ),
@@ -192,7 +192,7 @@ describe("runtime coverage edges", () => {
               f1: { kind: "combine", defId: "pd1", argMap: { a: "v1", b: "v2" }, returnId: "vOut" },
             },
             combineFuncDefTable: {
-              pd1: { name: "binaryFnNumber::add", transformFn: { a: [], b: [] } },
+              pd1: { name: "combineFnNumber::add", transformFn: { a: [], b: [] } },
             },
           } as any,
         ),

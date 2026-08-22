@@ -159,7 +159,7 @@ export type BuilderInvariantCode =
   | "ExhaustivenessCheck" // unreachable switch default — unknown discriminant value
   | "MissingTableEntry" // expected entry absent from an internal state table
   | "UnsupportedConstruct" // feature not yet implemented by the builder
-  | "UnknownBinaryFn"; // binary function name unknown at build time
+  | "UnknownCombineFn"; // combine function name unknown at build time
 
 export class BuilderInvariantError extends Error {
   readonly code: BuilderInvariantCode;

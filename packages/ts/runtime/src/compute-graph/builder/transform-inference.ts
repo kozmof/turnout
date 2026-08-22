@@ -1,9 +1,9 @@
-import type { BinaryFnNames, TransformFnNames } from "../types.js";
+import type { CombineFnNames, TransformFnNames } from "../types.js";
 import { BuilderInvariantError } from "./errors.js";
 import type { ValueInputRef } from "./types.js";
 import type { BaseTypeSymbol } from "../../state-control/value.js";
 import { assertNever } from "../../util/brand.js";
-import { getBinaryFnReturnType } from "../runtime/typeInference.js";
+import { getCombineFnReturnType } from "../runtime/typeInference.js";
 import { NAMESPACE_DELIMITER } from "../../util/constants.js";
 import type { TransformFnBooleanNameSpace } from "../../state-control/preset-funcs/boolean/transformFn.js";
 import type { TransformFnNullNameSpace } from "../../state-control/preset-funcs/null/transformFn.js";
@@ -51,12 +51,12 @@ export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames
   }
 }
 
-export function inferTransformForBinaryFn(binaryFnName: BinaryFnNames): TransformFnNames {
-  const returnType = getBinaryFnReturnType(binaryFnName);
+export function inferTransformForCombineFn(combineFnName: CombineFnNames): TransformFnNames {
+  const returnType = getCombineFnReturnType(combineFnName);
   if (returnType === null) {
     throw new BuilderInvariantError(
-      "UnknownBinaryFn",
-      `cannot infer transform: unknown return type for binary function '${binaryFnName}'`,
+      "UnknownCombineFn",
+      `cannot infer transform: unknown return type for combine function '${combineFnName}'`,
     );
   }
   return getPassTransformFn(returnType);
@@ -71,7 +71,7 @@ export function inferPassTransform(
     const funcEntry = getFuncFromTable(scope.funcId(ref.funcId), state.funcTable);
     if (funcEntry) {
       const def = getCombineFuncDefFromTable(funcEntry.defId, state.combineFuncDefTable);
-      if (def) return [inferTransformForBinaryFn(def.name)];
+      if (def) return [inferTransformForCombineFn(def.name)];
     }
 
     const precomputedType = state.returnTypeByFuncKey.get(ref.funcId);

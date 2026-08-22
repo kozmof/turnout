@@ -2479,7 +2479,7 @@ A `case` subject is typed as its template, so runtime membership is guaranteed. 
 * a literal-constrained field (`kind: "foo"`) becomes `eq(template_extract(subject, spec), "foo")`.
 * a bound capture becomes `template_extract` (string), `template_extract_num` (number), or `eq(extract, "true")` (boolean), referenced by the arm body under a fresh alpha-renamed binding so multiple arms may bind the same capture name without collision.
 
-`template_extract` / `template_extract_num` are built-in binary functions `(subject, spec) → value`. `spec` is a JSON descriptor of the fully-resolved template and the target capture, so the runtime needs no type registry. The structured pattern is preserved in the model's `ext_expr` for static analysis, which the runtime lowering does not affect.
+`template_extract` / `template_extract_num` are built-in combine functions `(subject, spec) → value`. `spec` is a JSON descriptor of the fully-resolved template and the target capture, so the runtime needs no type registry. The structured pattern is preserved in the model's `ext_expr` for static analysis, which the runtime lowering does not affect.
 
 ## 32.6 Static analysis (§14, §16, §17)
 

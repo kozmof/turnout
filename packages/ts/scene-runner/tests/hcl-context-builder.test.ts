@@ -603,8 +603,8 @@ describe("buildContextFromProg — errors", () => {
 // Array literal args (inferLiteralAnyValue coverage)
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Note: binaryFnArray functions are not yet registered in the context builder's
-// type-inference layer (getBinaryFnReturnType), so ctx() throws after inferLiteralAnyValue
+// Note: combineFnArray functions are not yet registered in the context builder's
+// type-inference layer (getCombineFnReturnType), so ctx() throws after inferLiteralAnyValue
 // has already executed. These tests cover the inferLiteralAnyValue array branches
 // (lines 67-73) and document the current builder limitation.
 describe("buildContextFromProg — array literal args (inferLiteralAnyValue coverage)", () => {
@@ -620,7 +620,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
       ],
     } as unknown as ProgModel;
     // inferLiteralAnyValue([1,2]) runs (covers array branch), then ctx() rejects arr_concat
-    expect(() => buildContextFromProg(prog, {})).toThrow("array binary functions");
+    expect(() => buildContextFromProg(prog, {})).toThrow("array combine functions");
   });
 
   it("reaches inferLiteralAnyValue array branch for string arrays before builder throws", () => {
@@ -634,7 +634,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow("array binary functions");
+    expect(() => buildContextFromProg(prog, {})).toThrow("array combine functions");
   });
 
   it("reaches inferLiteralAnyValue array branch for bool arrays before builder throws", () => {
@@ -648,7 +648,7 @@ describe("buildContextFromProg — array literal args (inferLiteralAnyValue cove
         },
       ],
     } as unknown as ProgModel;
-    expect(() => buildContextFromProg(prog, {})).toThrow("array binary functions");
+    expect(() => buildContextFromProg(prog, {})).toThrow("array combine functions");
   });
 
   it("accepts an empty-array inline arg as an untyped empty array (no longer throws)", () => {

@@ -185,7 +185,7 @@ CAN'T (NG):
 Correlation between CAN and CAN'T:
 - Because DSL allows compact typed keys and bare refs, lowering must expand them into explicit `binding` blocks, reference nodes, and canonical expression nodes to stay parseable and unambiguous in plain HCL.
 - Because the Surface DSL is parsed by the custom Go CLI (not a stock HCL parser), infix expressions can use plain `=` without a special marker. The parser distinguishes infix from function calls by token lookahead.
-- Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition. Every binary function is either call-only or operator-only.
+- Because operator-only functions have no callable alias in DSL (CAN'T), they are exclusively expressed through their operator syntax (CAN). This is a closed, exhaustive partition. Every combine function is either call-only or operator-only.
 
 ### Runtime value types
 
@@ -268,7 +268,7 @@ There are five forms: combine (call expression), infix (`= lhs OP rhs`), if, cas
 
 ### 3.1 Combine — binary operation
 
-Binary functions are divided into two categories based on whether a DSL infix operator is assigned:
+Combine functions are divided into two categories based on whether a DSL infix operator is assigned:
 
 Operator functions have an assigned DSL infix operator and must be written using it. Call-form alias is forbidden for these:
 
@@ -339,13 +339,13 @@ Emitted ContextSpec:
 {
   v1:      5,
   v2:      3,
-  diff:    combine('binaryFnNumber::minus',              { a: 'v1', b: 'v2' }),
-  prod:    combine('binaryFnNumber::multiply',           { a: 'v1', b: 'v2' }),
-  quot:    combine('binaryFnNumber::divide',             { a: 'v1', b: 'v2' }),
-  txt:     combine('binaryFnString::concat',             { a: 'edge ', b: 'mix' }),
-  flag_hi: combine('binaryFnNumber::greaterThanOrEqual', { a: 'v1', b: 'v2' }),
-  flag_lo: combine('binaryFnNumber::lessThanOrEqual',    { a: 'v1', b: 'v2' }),
-  go:      combine('binaryFnBoolean::and',               { a: 'flag_hi', b: true }),
+  diff:    combine('combineFnNumber::minus',              { a: 'v1', b: 'v2' }),
+  prod:    combine('combineFnNumber::multiply',           { a: 'v1', b: 'v2' }),
+  quot:    combine('combineFnNumber::divide',             { a: 'v1', b: 'v2' }),
+  txt:     combine('combineFnString::concat',             { a: 'edge ', b: 'mix' }),
+  flag_hi: combine('combineFnNumber::greaterThanOrEqual', { a: 'v1', b: 'v2' }),
+  flag_lo: combine('combineFnNumber::lessThanOrEqual',    { a: 'v1', b: 'v2' }),
+  go:      combine('combineFnBoolean::and',               { a: 'flag_hi', b: true }),
 }
 ```
 
@@ -353,31 +353,31 @@ Emitted ContextSpec:
 
 Functions marked operator-only must be written using their DSL operator. Their alias cannot be used in call form.
 
-| HCL alias      | Runtime `BinaryFnNames`                  | arg1 type | arg2 type | return type | DSL form         |
+| HCL alias      | Runtime `CombineFnNames`                  | arg1 type | arg2 type | return type | DSL form         |
 |----------------|------------------------------------------|-----------|-----------|-------------|------------------|
-| `add`          | `binaryFnNumber::add`                    | `number`  | `number`  | `number`    | operator-only `+` (for `:number`) |
-| `sub`          | `binaryFnNumber::minus`                  | `number`  | `number`  | `number`    | operator-only `-` |
-| `mul`          | `binaryFnNumber::multiply`               | `number`  | `number`  | `number`    | operator-only `*` |
-| `div`          | `binaryFnNumber::divide`                 | `number`  | `number`  | `number`    | operator-only `/` |
-| `mod`          | `binaryFnNumber::mod`                    | `number`  | `number`  | `number`    | operator-only `%` |
-| `max`          | `binaryFnNumber::max`                    | `number`  | `number`  | `number`    | call only        |
-| `min`          | `binaryFnNumber::min`                    | `number`  | `number`  | `number`    | call only        |
-| `gt`           | `binaryFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | operator-only `>` |
-| `gte`          | `binaryFnNumber::greaterThanOrEqual`     | `number`  | `number`  | `bool`      | operator-only `>=` |
-| `lt`           | `binaryFnNumber::lessThan`               | `number`  | `number`  | `bool`      | operator-only `<` |
-| `lte`          | `binaryFnNumber::lessThanOrEqual`        | `number`  | `number`  | `bool`      | operator-only `<=` |
-| `str_concat`   | `binaryFnString::concat`                 | `str`     | `str`     | `str`       | operator-only `+`  |
-| `str_includes` | `binaryFnString::includes`               | `str`     | `str`     | `bool`      | call only        |
-| `str_starts`   | `binaryFnString::startsWith`             | `str`     | `str`     | `bool`      | call only        |
-| `str_ends`     | `binaryFnString::endsWith`               | `str`     | `str`     | `bool`      | call only        |
-| `bool_and`     | `binaryFnBoolean::and`                   | `bool`    | `bool`    | `bool`      | operator-only `&`  |
-| `bool_or`      | `binaryFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | operator-only `\|` |
-| `bool_xor`     | `binaryFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      | call only        |
-| `eq`           | `binaryFnGeneric::isEqual`               | any       | any (same)| `bool`      | operator-only `==` |
-| `neq`          | `binaryFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | operator-only `!=` |
-| `arr_includes` | `binaryFnArray::includes`                | `arr<T>`  | `T`       | `bool`      | call only        |
-| `arr_get`      | `binaryFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
-| `arr_concat`   | `binaryFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
+| `add`          | `combineFnNumber::add`                    | `number`  | `number`  | `number`    | operator-only `+` (for `:number`) |
+| `sub`          | `combineFnNumber::minus`                  | `number`  | `number`  | `number`    | operator-only `-` |
+| `mul`          | `combineFnNumber::multiply`               | `number`  | `number`  | `number`    | operator-only `*` |
+| `div`          | `combineFnNumber::divide`                 | `number`  | `number`  | `number`    | operator-only `/` |
+| `mod`          | `combineFnNumber::mod`                    | `number`  | `number`  | `number`    | operator-only `%` |
+| `max`          | `combineFnNumber::max`                    | `number`  | `number`  | `number`    | call only        |
+| `min`          | `combineFnNumber::min`                    | `number`  | `number`  | `number`    | call only        |
+| `gt`           | `combineFnNumber::greaterThan`            | `number`  | `number`  | `bool`      | operator-only `>` |
+| `gte`          | `combineFnNumber::greaterThanOrEqual`     | `number`  | `number`  | `bool`      | operator-only `>=` |
+| `lt`           | `combineFnNumber::lessThan`               | `number`  | `number`  | `bool`      | operator-only `<` |
+| `lte`          | `combineFnNumber::lessThanOrEqual`        | `number`  | `number`  | `bool`      | operator-only `<=` |
+| `str_concat`   | `combineFnString::concat`                 | `str`     | `str`     | `str`       | operator-only `+`  |
+| `str_includes` | `combineFnString::includes`               | `str`     | `str`     | `bool`      | call only        |
+| `str_starts`   | `combineFnString::startsWith`             | `str`     | `str`     | `bool`      | call only        |
+| `str_ends`     | `combineFnString::endsWith`               | `str`     | `str`     | `bool`      | call only        |
+| `bool_and`     | `combineFnBoolean::and`                   | `bool`    | `bool`    | `bool`      | operator-only `&`  |
+| `bool_or`      | `combineFnBoolean::or`                    | `bool`    | `bool`    | `bool`      | operator-only `\|` |
+| `bool_xor`     | `combineFnBoolean::xor`                   | `bool`    | `bool`    | `bool`      | call only        |
+| `eq`           | `combineFnGeneric::isEqual`               | any       | any (same)| `bool`      | operator-only `==` |
+| `neq`          | `combineFnGeneric::isNotEqual`            | any       | any (same)| `bool`      | operator-only `!=` |
+| `arr_includes` | `combineFnArray::includes`                | `arr<T>`  | `T`       | `bool`      | call only        |
+| `arr_get`      | `combineFnArray::get`                     | `arr<T>`  | `number`  | `T`         | call only        |
+| `arr_concat`   | `combineFnArray::concat`                  | `arr<T>`  | `arr<T>`  | `arr<T>`    | call only        |
 
 > Parse-time checks: the inferred return type of the function alias must match the binding's declared type. Argument value types must match the function's expected parameter types. Binary call args must be positional `(x, y)` (`InvalidBinaryArgShape` otherwise). Named-argument syntax emits `NamedArgNotSupported`. Infix expressions are parsed with precedence climbing and may contain nested operators. Operator and type pairings are enforced at every branch. `&`/`>=`/`<=`/`>`/`<`/`|`/`==`/`!=` are valid for `name:bool`, `+`/`-`/`*`/`/`/`%` for `name:number`, and `+` (only) for `name:str`. `eq`/`neq` (`==`/`!=`) are the sole exceptions, accepting any homogeneous operand type (`InvalidInfixExpr` otherwise). Using a call-form alias for an operator-only function emits `OperatorOnlyFn`.
 
@@ -406,7 +406,7 @@ Emitted ContextSpec:
 {
   temp_c: 24,
   status: ifExpr(
-    combine('binaryFnNumber::lessThan', { a: 'temp_c', b: 28 }),
+    combine('combineFnNumber::lessThan', { a: 'temp_c', b: 28 }),
     'warmup',
     'run'
   ),
@@ -460,7 +460,7 @@ Emitted ContextSpec:
     'unsafe',
     'lockout',
     caseExpr('spindle_temp_c', [
-      { pattern: bind('t'), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
+      { pattern: bind('t'), guard: combine('combineFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
       { pattern: wildcard(), expr: 'run' },
     ])
   ),
@@ -515,8 +515,8 @@ Emitted ContextSpec:
   raw_temp_c: 24.4,
   route: pipeExpr('raw_temp_c', [
     caseExpr(it(), [
-      { pattern: bind('t'), guard: combine('binaryFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
-      { pattern: bind('t'), guard: combine('binaryFnNumber::greaterThan', { a: 't', b: 90 }), expr: 'hold' },
+      { pattern: bind('t'), guard: combine('combineFnNumber::lessThan', { a: 't', b: 28 }), expr: 'warmup' },
+      { pattern: bind('t'), guard: combine('combineFnNumber::greaterThan', { a: 't', b: 90 }), expr: 'hold' },
       { pattern: wildcard(), expr: 'run' },
     ]),
   ]),
@@ -587,7 +587,7 @@ Rules:
 
 The following constructs are syntactically reserved. They cannot be compiled to the current ContextSpec without adding new builder types, because:
 
-1. `range(n)` is a unary operation, but the current binary function model requires two arguments.
+1. `range(n)` is a unary operation, but the current combine function model requires two arguments.
 2. `map`, `filter`, and `fold` take a function reference as an argument, and `AnyValue` cannot hold a `FuncRef` in the current value type system.
 
 ### Reserved syntax (Phase 2)
@@ -681,25 +681,25 @@ Emitted ContextSpec:
 ctx({
   n:                 10,
   msg:               'score',
-  doubled:           combine('binaryFnNumber::multiply',         { a: 'n',      b: 'n' }),
-  halved:            combine('binaryFnNumber::divide',           { a: 'n',      b: 2 }),
-  less:              combine('binaryFnNumber::minus',            { a: 'n',      b: 1 }),
-  label_hi:          combine('binaryFnString::concat',           { a: 'msg',    b: ' high' }),
-  label_lo:          combine('binaryFnString::concat',           { a: 'msg',    b: ' low'  }),
-  is_big:            combine('binaryFnNumber::greaterThanOrEqual', { a: 'doubled', b: 'n' }),
+  doubled:           combine('combineFnNumber::multiply',         { a: 'n',      b: 'n' }),
+  halved:            combine('combineFnNumber::divide',           { a: 'n',      b: 2 }),
+  less:              combine('combineFnNumber::minus',            { a: 'n',      b: 1 }),
+  label_hi:          combine('combineFnString::concat',           { a: 'msg',    b: ' high' }),
+  label_lo:          combine('combineFnString::concat',           { a: 'msg',    b: ' low'  }),
+  is_big:            combine('combineFnNumber::greaterThanOrEqual', { a: 'doubled', b: 'n' }),
   piped:             pipeExpr('n', [
-                       combine('binaryFnNumber::multiply', { a: it(), b: it() }),
-                       combine('binaryFnNumber::minus',    { a: it(), b: 'n' }),
+                       combine('combineFnNumber::multiply', { a: it(), b: it() }),
+                       combine('combineFnNumber::minus',    { a: it(), b: 'n' }),
                      ]),
   band:              caseExpr('piped', [
-                       { pattern: bind('x'), guard: combine('binaryFnNumber::greaterThanOrEqual', { a: 'x', b: 80 }), expr: 'high' },
-                       { pattern: bind('x'), guard: combine('binaryFnNumber::greaterThanOrEqual', { a: 'x', b: 50 }), expr: 'medium' },
+                       { pattern: bind('x'), guard: combine('combineFnNumber::greaterThanOrEqual', { a: 'x', b: 80 }), expr: 'high' },
+                       { pattern: bind('x'), guard: combine('combineFnNumber::greaterThanOrEqual', { a: 'x', b: 50 }), expr: 'medium' },
                        { pattern: wildcard(), expr: 'low' },
                      ]),
   final:             ifExpr(
-                       combine('binaryFnNumber::greaterThan', { a: 'piped', b: 'doubled' }),
-                       combine('binaryFnString::concat', { a: 'msg', b: ' !' }),
-                       combine('binaryFnString::concat', { a: 'msg', b: ' .' }),
+                       combine('combineFnNumber::greaterThan', { a: 'piped', b: 'doubled' }),
+                       combine('combineFnString::concat', { a: 'msg', b: ' !' }),
+                       combine('combineFnString::concat', { a: 'msg', b: ' .' }),
                      ),
 })
 ```
@@ -726,11 +726,11 @@ ctx({
 | # | Path | Idempotency check |
 |---|------|------------------|
 | 1 | Parse `name:arr<number> = [1,2,3]` → emit `val.array('number', [...])` | Re-parse emitted TS, compare AST |
-| 2 | `max(v1, v2)` → `combine('binaryFnNumber::max', { a: 'v1', b: 'v2' })`; `max(a: v1, b: v2)` | Positional call lowers successfully; named-argument form emits `NamedArgNotSupported` |
+| 2 | `max(v1, v2)` → `combine('combineFnNumber::max', { a: 'v1', b: 'v2' })`; `max(a: v1, b: v2)` | Positional call lowers successfully; named-argument form emits `NamedArgNotSupported` |
 | 3 | Pipe with `#it` in each step → current pipeline value resolved to the prior step result | Round-trip: ContextSpec → `ctx()` → same `ExecutionContext` shape |
 | 4 | Forward reference: `result` defined before `flag` (its condition) | Compiler produces identical output regardless of declaration order |
 | 5 | `if(cond, then, else)` expression | Branch type and condition type checks are deterministic |
-| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `BinaryFnNames` |
+| 6 | `income_ok:bool = income >= min_income`, `debt_ok:bool = debt <= max_debt`, `approval_code:str = prefix + suffix`, `remainder:number = total - discount`, `area:number = w * h`, `rate:number = amount / count` | Operator forms are the only valid DSL; each lowers to the correct runtime `CombineFnNames` |
 | 7 | `case` with guarded scalar arms and `_` fallback | First matching arm wins; fallback is selected only when no earlier arm matches |
 
 ### Edge cases
@@ -771,5 +771,5 @@ ctx({
 
 ### Manual intervention points
 
-- `div` fractional results: `binaryFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`.
+- `div` fractional results: `combineFnNumber::divide` may return a fractional result. Since the DSL type `number` maps to JavaScript `number` (which accepts fractions), this is no longer a type violation. Authors requiring integer results should bind the division result and use it as a transform receiver in a later expression, for example `rounded:number = rate.round() + 0`.
 - Phase 2 activation: Phase 2 loop syntax (`range`, `map`, `filter`, `fold`) encountered in a Phase 1 file is a hard parse error that aborts conversion.
