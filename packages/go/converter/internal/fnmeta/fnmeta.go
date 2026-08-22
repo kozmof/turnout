@@ -105,6 +105,8 @@ var builtinFnTable = map[string]FnSpec{
 	"record_get_number":    {Kind: FnKindRecordGet, ReturnType: ast.FieldTypeNumber},
 	"record_get_str":       {Kind: FnKindRecordGet, ReturnType: ast.FieldTypeStr},
 	"record_get_bool":      {Kind: FnKindRecordGet, ReturnType: ast.FieldTypeBool},
+	"record_get_array":     {Kind: FnKindRecordGet},
+	"record_get_record":    {Kind: FnKindRecordGet},
 	"record_set":           {Kind: FnKindRecordSet},
 }
 

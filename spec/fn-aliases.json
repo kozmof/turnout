@@ -28,5 +28,7 @@
   { "hcl": "record_get_number", "runtime": "combineFnRecord::getNumber" },
   { "hcl": "record_get_str", "runtime": "combineFnRecord::getString" },
   { "hcl": "record_get_bool", "runtime": "combineFnRecord::getBoolean" },
+  { "hcl": "record_get_array", "runtime": "combineFnRecord::getArray" },
+  { "hcl": "record_get_record", "runtime": "combineFnRecord::getRecord" },
   { "hcl": "record_set", "runtime": "combineFnRecord::set" }
 ]

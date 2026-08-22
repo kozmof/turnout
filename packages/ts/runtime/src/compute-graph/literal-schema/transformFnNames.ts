@@ -20,6 +20,7 @@ import {
   TransformFnNullNames,
   TransformFnNullNameSpace,
 } from "../../state-control/preset-funcs/null/transformFn.js";
+import { TransformFnRecordNames } from "../../state-control/preset-funcs/record/transformFn.js";
 import {
   tfString,
   TransformFnStringNames,
@@ -45,6 +46,10 @@ const transformFnBooleanNames = (): LiteralSchema<TransformFnBooleanNames, undef
   return fnNames.map((fnName) => literal(`${namespace}${NAMESPACE_DELIMITER}${fnName}`));
 };
 
+const transformFnRecordNames = (): LiteralSchema<TransformFnRecordNames, undefined>[] => [
+  literal("transformFnRecord::pass"),
+];
+
 const transformFnStringNames = (): LiteralSchema<TransformFnStringNames, undefined>[] => {
   const namespace: TransformFnStringNameSpace = "transformFnString";
   const fnNames = TOM.keys(tfString);
@@ -63,6 +68,7 @@ export const transformFnNames = () => {
     ...transformFnBooleanNames(),
     ...transformFnNumberNames(),
     ...transformFnNullNames(),
+    ...transformFnRecordNames(),
     ...transformFnStringNames(),
   ]);
 };

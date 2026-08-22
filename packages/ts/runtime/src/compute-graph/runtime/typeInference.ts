@@ -1,14 +1,14 @@
 import {
-  metaBfBoolean,
-  metaBfNumber,
-  metaBfString,
-  metaBfArray,
-  metaBfGeneric,
+  metaCfBoolean,
+  metaCfNumber,
+  metaCfString,
+  metaCfArray,
+  metaCfGeneric,
 } from "../../state-control/meta-chain/combine-fn/metaReturn.js";
 import {
-  metaBfBooleanParams,
-  metaBfNumberParams,
-  metaBfStringParams,
+  metaCfBooleanParams,
+  metaCfNumberParams,
+  metaCfStringParams,
 } from "../../state-control/meta-chain/combine-fn/metaParams.js";
 import {
   metaTfBoolean,
@@ -58,6 +58,8 @@ export function getTransformFnInputType(transformFnName: TransformFnNames): Base
       return "string";
     case "transformFnArray":
       return "array";
+    case "transformFnRecord":
+      return "record";
     default:
       return null;
   }
@@ -93,6 +95,8 @@ export function getTransformFnReturnType(transformFnName: TransformFnNames): Bas
       const meta = metaTfArray();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
+    case "transformFnRecord":
+      return fnName === "pass" ? "record" : null;
     default:
       return null;
   }
@@ -105,7 +109,6 @@ export function getTransformFnReturnType(transformFnName: TransformFnNames): Bas
  * Note: Returns null for combineFnGeneric and combineFnArray functions because:
  * - Generic functions (like isEqual) can work with any type, requiring runtime type checking
  * - Array functions require element type information that depends on runtime values
- * - This design does not support nested arrays (array elements cannot be arrays)
  */
 export function getCombineFnParamTypes(
   combineFnName: CombineFnNames,
@@ -116,15 +119,15 @@ export function getCombineFnParamTypes(
 
   switch (namespace) {
     case "combineFnBoolean": {
-      const meta = metaBfBooleanParams();
+      const meta = metaCfBooleanParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnNumber": {
-      const meta = metaBfNumberParams();
+      const meta = metaCfNumberParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnString": {
-      const meta = metaBfStringParams();
+      const meta = metaCfStringParams();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnGeneric": {
@@ -158,26 +161,25 @@ export function getCombineFnReturnType(
 
   switch (namespace) {
     case "combineFnBoolean": {
-      const meta = metaBfBoolean();
+      const meta = metaCfBoolean();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnNumber": {
-      const meta = metaBfNumber();
+      const meta = metaCfNumber();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnString": {
-      const meta = metaBfString();
+      const meta = metaCfString();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnGeneric": {
-      const meta = metaBfGeneric();
+      const meta = metaCfGeneric();
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnArray": {
-      // Array combine functions require a non-array element type
-      // This design does not support nested arrays (array of arrays)
-      if (!elemType || elemType === "array" || elemType === "record") return null;
-      const meta = metaBfArray(elemType);
+      // Array combine functions require element type information
+      if (!elemType || elemType === "null") return null;
+      const meta = metaCfArray(elemType);
       return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
     }
     case "combineFnRecord":
@@ -185,6 +187,8 @@ export function getCombineFnReturnType(
       if (fnName === "getNumber") return "number";
       if (fnName === "getString") return "string";
       if (fnName === "getBoolean") return "boolean";
+      if (fnName === "getArray") return "array";
+      if (fnName === "getRecord") return "record";
       return null;
     default:
       return null;
@@ -214,11 +218,11 @@ export function inferValueElemType(
   if (!value) return null;
 
   // Only array values have element types
-  const valueType = inferValueType(valueId, context);
-  if (valueType !== "array") return null;
+  if (value.symbol !== "array") return null;
 
-  // Get element type from subSymbol
-  const subSymbol = value.subSymbol;
+  // Primitive arrays carry subSymbol metadata. Nested container arrays use the
+  // first item symbol; schema validation guarantees homogeneous elements.
+  const subSymbol = value.subSymbol ?? value.value[0]?.symbol;
   if (!subSymbol) return null;
 
   // Tags are tracked separately in the tags field.
@@ -227,6 +231,8 @@ export function inferValueElemType(
     case "string":
     case "boolean":
     case "null":
+    case "array":
+    case "record":
       return subSymbol;
     default:
       return null;

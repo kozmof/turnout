@@ -77,9 +77,7 @@ describe("schema type vocabulary parity", () => {
   });
 
   it("rejects a type name outside the vocabulary", () => {
-    expect(() => matchesSchemaType(buildNumber(1), "arr<arr<number>>")).toThrow(
-      /unknown schema type/,
-    );
+    expect(() => matchesSchemaType(buildNumber(1), "arr<unknown>")).toThrow(/unknown schema type/);
   });
 });
 
@@ -98,6 +96,10 @@ function sampleFor(dsl: string): unknown {
       return ["x"];
     case "arr<bool>":
       return [true];
+    case "arr<Record<str, number>>":
+      return [{ count: 1 }];
+    case "Record<str, arr<number>>":
+      return { scores: [1] };
     case "Record<str, number>":
     case "Record<str, str>":
     case "Record<str, bool>":

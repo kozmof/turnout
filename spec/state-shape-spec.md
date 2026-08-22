@@ -94,7 +94,8 @@ state-block     ::= 'state' '{' namespace-decl* '}'
 state-file-directive ::= 'state_file' '=' string-literal
 namespace-decl  ::= IDENT '{' field-decl* '}'
 field-decl      ::= IDENT ':' type '=' literal
-type            ::= 'number' | 'str' | 'bool' | 'arr<number>' | 'arr<str>' | 'arr<bool>'
+type            ::= 'number' | 'str' | 'bool' | 'arr<' type '>' | 'Record<' record-key ', ' type '>'
+record-key      ::= 'str' | 'number'
 literal         ::= number | string | boolean | array-literal
 IDENT           ::= [A-Za-z_][A-Za-z0-9_]*
 ```
@@ -201,7 +202,7 @@ When the DSL uses `state_file`, the converter reads and lowers the referenced fi
 
 | Attribute | Type   | Required | Description                                                               |
 |-----------|--------|----------|---------------------------------------------------------------------------|
-| `type`    | string | yes      | One of: `"number"`, `"str"`, `"bool"`, `"arr<number>"`, `"arr<str>"`, `"arr<bool>"` |
+| `type`    | string | yes      | A recursive type: `number`, `str`, `bool`, `arr<T>`, or `Record<str|number, T>` |
 | `value`   | literal| yes      | Default value; must be type-compatible                                    |
 
 ---
@@ -282,7 +283,7 @@ type StateSchema = {
 };
 
 type StateFieldMeta = {
-  type:         "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>";
+  type:         FieldType string (`number`, `str`, `bool`, `arr<T>`, or `Record<str|number, T>`);
   defaultValue: StateValue;
 };
 ```
@@ -409,7 +410,7 @@ Validation failures MUST set run status to `invalid_graph` and prevent execution
 | `DuplicateStateNamespace`      | Two `namespace` blocks in one `state` block share the same label                                           |
 | `DuplicateStateField`          | Two `field` blocks within one namespace share the same name                                                |
 | `MissingStateFieldAttr`        | A `field` block is missing `type` or `value`                                                               |
-| `InvalidStateFieldType`        | `type` is not one of `"number"`, `"str"`, `"bool"`, `"arr<number>"`, `"arr<str>"`, `"arr<bool>"`          |
+| `InvalidStateFieldType`        | `type` is not a valid recursive field type          |
 | `StateFieldDefaultTypeMismatch`| The `value` literal is not type-compatible with the declared `type`                                        |
 | `UnresolvedStatePath`          | A `from_state` or `to_state` path references a namespace or field not declared in the `state` block        |
 | `StateTypeMismatch`            | The type of a `merge` source binding does not match the declared type of the target STATE field            |

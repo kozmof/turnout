@@ -305,16 +305,10 @@ func (l *lex) scanIdent(ln, co int) {
 	}
 	value := sb.String()
 
-	// arr<T> — composite type token; only if '<' immediately follows (no space)
-	if value == "arr" && !l.atEnd() && l.peek() == '<' {
-		if inner := l.tryScanTypeParam(); inner != "" {
-			l.emit(TokType, "arr<"+inner+">", ln, co)
-			return
-		}
-	}
-
-	if value == "Record" && !l.atEnd() && l.peek() == '<' {
-		if typ := l.tryScanRecordType(); typ != "" {
+	// Composite types are emitted as one token, including recursively nested
+	// arr<T> and Record<K, V> forms. Semantic validation happens in ast.
+	if (value == "arr" || value == "Record") && !l.atEnd() && l.peek() == '<' {
+		if typ := l.tryScanCompositeType(value); typ != "" {
 			l.emit(TokType, typ, ln, co)
 			return
 		}
@@ -335,25 +329,23 @@ func (l *lex) scanIdent(ln, co int) {
 	l.emit(TokIdent, value, ln, co)
 }
 
-// tryScanTypeParam attempts to consume <number|str|bool> at the current
-// position. Returns the inner type string on success, "" on failure (and
-// restores the lexer position).
-func (l *lex) tryScanTypeParam() string {
+func (l *lex) tryScanCompositeType(prefix string) string {
 	snap := l.save()
-	l.advance() // consume '<'
-
-	var inner strings.Builder
-	for !l.atEnd() && l.peek() != '>' && l.peek() != '\n' {
-		inner.WriteRune(l.advance())
+	var body strings.Builder
+	depth := 0
+	for !l.atEnd() && l.peek() != '\n' {
+		r := l.advance()
+		body.WriteRune(r)
+		switch r {
+		case '<':
+			depth++
+		case '>':
+			depth--
+			if depth == 0 {
+				return prefix + body.String()
+			}
+		}
 	}
-
-	innerStr := inner.String()
-	if !l.atEnd() && l.peek() == '>' &&
-		(innerStr == "number" || innerStr == "str" || innerStr == "bool") {
-		l.advance() // consume '>'
-		return innerStr
-	}
-
 	l.restore(snap)
 	return ""
 }
@@ -361,31 +353,6 @@ func (l *lex) tryScanTypeParam() string {
 // ────────────────────────────────────────────────────────────
 // Character classification helpers
 // ────────────────────────────────────────────────────────────
-
-func (l *lex) tryScanRecordType() string {
-	snap := l.save()
-	l.advance()
-	var inner strings.Builder
-	for !l.atEnd() && l.peek() != '>' && l.peek() != '\n' {
-		inner.WriteRune(l.advance())
-	}
-	if l.atEnd() || l.peek() != '>' {
-		l.restore(snap)
-		return ""
-	}
-	parts := strings.Split(inner.String(), ",")
-	if len(parts) != 2 {
-		l.restore(snap)
-		return ""
-	}
-	key, value := strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1])
-	if (key != "str" && key != "number") || (value != "number" && value != "str" && value != "bool") {
-		l.restore(snap)
-		return ""
-	}
-	l.advance()
-	return "Record<" + key + ", " + value + ">"
-}
 
 func isDigit(c rune) bool {
 	return c >= '0' && c <= '9'

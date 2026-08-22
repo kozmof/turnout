@@ -42,10 +42,7 @@ export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames
       return `${namespace}${NAMESPACE_DELIMITER}pass`;
     }
     case "record":
-      throw new BuilderInvariantError(
-        "UnsupportedConstruct",
-        "record values do not support transform inference",
-      );
+      return "transformFnRecord::pass";
     default:
       return assertNever(typeSymbol);
   }

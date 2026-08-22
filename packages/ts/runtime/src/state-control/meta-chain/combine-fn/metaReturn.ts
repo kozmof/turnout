@@ -12,7 +12,7 @@ export type ReturnTypeCombineFnArray = ReturnMetaCombineFnArray;
 export type ReturnTypeCombineFnBoolean = ReturnMetaCombineFnBoolean;
 export type ReturnTypeCombineFnGeneric = ReturnMetaCombineFnGeneric;
 
-export const metaBfBoolean = (): ReturnTypeCombineFnBoolean => {
+export const metaCfBoolean = (): ReturnTypeCombineFnBoolean => {
   return {
     and: "boolean",
     or: "boolean",
@@ -20,7 +20,7 @@ export const metaBfBoolean = (): ReturnTypeCombineFnBoolean => {
   };
 };
 
-export const metaBfNumber = (): ReturnTypeCombineFnNumber => {
+export const metaCfNumber = (): ReturnTypeCombineFnNumber => {
   return {
     add: "number",
     minus: "number",
@@ -36,7 +36,7 @@ export const metaBfNumber = (): ReturnTypeCombineFnNumber => {
   };
 };
 
-export const metaBfString = (): ReturnTypeCombineFnString => {
+export const metaCfString = (): ReturnTypeCombineFnString => {
   return {
     concat: "string",
     includes: "boolean",
@@ -47,7 +47,7 @@ export const metaBfString = (): ReturnTypeCombineFnString => {
   };
 };
 
-export const metaBfArray = (elemType: ElemType): ReturnTypeCombineFnArray => {
+export const metaCfArray = (elemType: ElemType): ReturnTypeCombineFnArray => {
   return {
     includes: "boolean",
     get: elemType,
@@ -55,7 +55,7 @@ export const metaBfArray = (elemType: ElemType): ReturnTypeCombineFnArray => {
   };
 };
 
-export const metaBfGeneric = (): ReturnTypeCombineFnGeneric => {
+export const metaCfGeneric = (): ReturnTypeCombineFnGeneric => {
   return {
     isEqual: "boolean",
     isNotEqual: "boolean",

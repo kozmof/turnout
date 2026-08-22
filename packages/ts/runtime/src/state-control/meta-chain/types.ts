@@ -1,3 +1,3 @@
 import type { BaseTypeSymbol } from "../value.js";
 
-export type ElemType = Exclude<BaseTypeSymbol, "array" | "record">;
+export type ElemType = Exclude<BaseTypeSymbol, "null">;

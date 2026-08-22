@@ -23,10 +23,9 @@ const (
 
 // Error codes from hcl-context-spec.md
 const (
-	CodeTypeMismatch          ErrorCode = "TypeMismatch"
-	CodeNonIntegerValue       ErrorCode = "NonIntegerValue"
-	CodeHeterogeneousArray    ErrorCode = "HeterogeneousArray"
-	CodeNestedArrayNotAllowed ErrorCode = "NestedArrayNotAllowed"
+	CodeTypeMismatch       ErrorCode = "TypeMismatch"
+	CodeNonIntegerValue    ErrorCode = "NonIntegerValue"
+	CodeHeterogeneousArray ErrorCode = "HeterogeneousArray"
 	// CodeDuplicateProg applies to the canonical ContextSpec layer, where a
 	// file may hold at most one prog block. The Turn DSL surface cannot express
 	// it: prog is not a surface block, it is the compute label.

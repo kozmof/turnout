@@ -180,9 +180,7 @@ describe("preset functions", () => {
     expect(cfArray.includes(arr, item).value).toBe(true);
     expectTagsToContainAll(cfArray.includes(arr, item).tags, ["array", "item"]);
     expect(() => cfArray.get(arr, buildNumber(99))).toThrow("out of bounds");
-    expect(() => cfArray.get(buildArray([nested]), buildNumber(0))).toThrow(
-      "item at that index is an array",
-    );
+    expect(cfArray.get(buildArray([nested]), buildNumber(0)).symbol).toBe("array");
   });
 
   describe("record functions", () => {
@@ -198,6 +196,16 @@ describe("preset functions", () => {
       expect(cfRecord.getNumber(updated, buildString("visits")).value).toBe(2);
       expect(updated).not.toBe(original);
       expectTagsToContainAll(updated.tags, ["record", "key", "value"]);
+
+      const nestedRecord = buildRecord({ count: buildNumber(3) });
+      const recordArray = buildArray([nestedRecord]);
+      expect(cfArray.get(recordArray, buildNumber(0)).symbol).toBe("record");
+
+      const arrays = buildRecord({ scores: buildArray([buildNumber(1)]) });
+      expect(cfRecord.getArray(arrays, buildString("scores")).symbol).toBe("array");
+      expect(
+        cfRecord.getRecord(buildRecord({ row: nestedRecord }), buildString("row")).symbol,
+      ).toBe("record");
     });
   });
 

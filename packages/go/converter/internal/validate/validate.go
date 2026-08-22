@@ -118,11 +118,6 @@ func validateArrayLiteral(v *structpb.Value, ft ast.FieldType, bindingName strin
 		return
 	}
 	for _, elem := range lv.ListValue.GetValues() {
-		if _, isArr := elem.Kind.(*structpb.Value_ListValue); isArr {
-			ds.Append(diag.Errorf(diag.CodeNestedArrayNotAllowed,
-				"binding %q: nested arrays are not allowed in value bindings", bindingName))
-			continue
-		}
 		if !structpbMatchesFieldType(elem, elemFT) {
 			ds.Append(diag.Errorf(diag.CodeHeterogeneousArray,
 				"binding %q: array element does not match declared element type %s", bindingName, elemFT))
@@ -144,33 +139,33 @@ func structpbMatchesFieldType(v *structpb.Value, ft ast.FieldType) bool {
 	case ast.FieldTypeBool:
 		_, ok := v.Kind.(*structpb.Value_BoolValue)
 		return ok
-	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
+	}
+	if elemFT, ok := ft.TryElemType(); ok {
 		lv, ok := v.Kind.(*structpb.Value_ListValue)
 		if !ok {
 			return false
 		}
-		elemFT := ft.ElemType()
 		for _, elem := range lv.ListValue.GetValues() {
 			if !structpbMatchesFieldType(elem, elemFT) {
 				return false
 			}
 		}
 		return true
-	case ast.FieldTypeRecordStrNumber, ast.FieldTypeRecordStrStr, ast.FieldTypeRecordStrBool,
-		ast.FieldTypeRecordNumberNumber, ast.FieldTypeRecordNumberStr, ast.FieldTypeRecordNumberBool:
-		_, ok := v.Kind.(*structpb.Value_StructValue)
-		return ok
-	case ast.FieldTypeInvalid:
-		return false
-	default:
-		// Unknown FieldType value not covered by the explicit cases above. This is
-		// only reachable if a new FieldType constant was added to ast.go without
-		// updating this function. Conservatively reporting no match surfaces a
-		// type-mismatch diagnostic rather than panicking, mirroring the behaviour
-		// callers expect when the schema is extended. Internal invariants that
-		// require a known type are caught by the parser long before this point.
-		return false
 	}
+	if ft.IsRecord() {
+		sv, ok := v.Kind.(*structpb.Value_StructValue)
+		if !ok {
+			return false
+		}
+		valueFT, _ := ft.RecordValueType()
+		for _, item := range sv.StructValue.GetFields() {
+			if !structpbMatchesFieldType(item, valueFT) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
 }
 
 // structpbFieldType is a package-local alias for state.StructpbFieldType.

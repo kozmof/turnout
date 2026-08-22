@@ -6,7 +6,7 @@ type ParamTypesCombineFnBoolean = ParamsMetaCombineFnBoolean;
 type ParamTypesCombineFnNumber = ParamsMetaCombineFnNumber;
 type ParamTypesCombineFnString = ParamsMetaCombineFnString;
 
-export const metaBfBooleanParams = (): ParamTypesCombineFnBoolean => {
+export const metaCfBooleanParams = (): ParamTypesCombineFnBoolean => {
   return {
     and: ["boolean", "boolean"],
     or: ["boolean", "boolean"],
@@ -14,7 +14,7 @@ export const metaBfBooleanParams = (): ParamTypesCombineFnBoolean => {
   };
 };
 
-export const metaBfNumberParams = (): ParamTypesCombineFnNumber => {
+export const metaCfNumberParams = (): ParamTypesCombineFnNumber => {
   return {
     add: ["number", "number"],
     minus: ["number", "number"],
@@ -30,7 +30,7 @@ export const metaBfNumberParams = (): ParamTypesCombineFnNumber => {
   };
 };
 
-export const metaBfStringParams = (): ParamTypesCombineFnString => {
+export const metaCfStringParams = (): ParamTypesCombineFnString => {
   return {
     concat: ["string", "string"],
     includes: ["string", "string"],

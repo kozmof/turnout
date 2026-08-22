@@ -12,7 +12,7 @@ type TokenKind int
 const (
 	TokEOF       TokenKind = iota
 	TokIdent               // bare identifier (not a keyword)
-	TokType                // arr<number> | arr<str> | arr<bool>
+	TokType                // recursive arr<T> or Record<K, V> type
 	TokStringLit           // "..."
 	TokNumberLit           // 42 | 3.14
 	TokBoolLit             // true | false

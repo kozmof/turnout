@@ -23,6 +23,7 @@ import {
   isArray,
 } from "runtime";
 import type { AnyValue } from "runtime";
+import { matchesSchemaType } from "../src/state/schema-types.js";
 import type { StateModel } from "../src/types/turnout-model_pb.js";
 
 describe("StateManager", () => {
@@ -165,6 +166,18 @@ describe("literalToValue", () => {
   it("handles arr<bool> with a boolean array", () => {
     const val = literalToValue([true, false], "arr<bool>");
     expect(isArray(val)).toBe(true);
+  });
+
+  it("builds and validates arrays of Records", () => {
+    const val = literalToValue([{ count: 1 }], "arr<Record<str, number>>");
+    expect(matchesSchemaType(val, "arr<Record<str, number>>")).toBe(true);
+    expect(() => literalToValue([{ count: "wrong" }], "arr<Record<str, number>>")).toThrow();
+  });
+
+  it("builds and validates Records of arrays", () => {
+    const val = literalToValue({ scores: [1, 2] }, "Record<str, arr<number>>");
+    expect(matchesSchemaType(val, "Record<str, arr<number>>")).toBe(true);
+    expect(() => literalToValue({ scores: ["wrong"] }, "Record<str, arr<number>>")).toThrow();
   });
 
   it("throws when arr<number> receives a non-array value", () => {
@@ -402,11 +415,9 @@ describe("StateManager — additional validation branches", () => {
 
   it("literalToValue validates scalar bool and array elements", () => {
     expect(() => literalToValue("true", "bool")).toThrow('schema type "bool"');
-    expect(() => literalToValue([1, "bad"], "arr<number>")).toThrow(
-      "arr<number> element is string",
-    );
-    expect(() => literalToValue(["ok", 2], "arr<str>")).toThrow("arr<str> element is number");
-    expect(() => literalToValue([true, "bad"], "arr<bool>")).toThrow("arr<bool> element is string");
+    expect(() => literalToValue([1, "bad"], "arr<number>")).toThrow("does not match number");
+    expect(() => literalToValue(["ok", 2], "arr<str>")).toThrow("does not match str");
+    expect(() => literalToValue([true, "bad"], "arr<bool>")).toThrow("does not match bool");
   });
 
   it("protoValueToJs returns nullish inputs unchanged and ignores malformed proto-like objects", () => {

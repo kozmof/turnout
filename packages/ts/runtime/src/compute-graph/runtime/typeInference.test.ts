@@ -151,7 +151,8 @@ describe("typeInference metadata helpers", () => {
     expect(getCombineFnReturnType("combineFnGeneric::isNotEqual" as any)).toBe("boolean");
     expect(getCombineFnReturnType("combineFnArray::get" as any, "number")).toBe("number");
     expect(getCombineFnReturnType("combineFnArray::get" as any)).toBeNull();
-    expect(getCombineFnReturnType("combineFnArray::get" as any, "array")).toBeNull();
+    expect(getCombineFnReturnType("combineFnArray::get" as any, "array")).toBe("array");
+    expect(getCombineFnReturnType("combineFnArray::get" as any, "record")).toBe("record");
     expect(getCombineFnReturnType("combineFnNumber::missing" as any)).toBeNull();
     expect(getCombineFnReturnType("bad-name" as any)).toBeNull();
     expect(getCombineFnReturnType("combineFnBogus::x" as any)).toBeNull();

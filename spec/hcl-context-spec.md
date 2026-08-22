@@ -221,7 +221,7 @@ name:type = literal
 ```
 
 - `name` must match `[A-Za-z_][A-Za-z0-9_]*`. Names starting with `__` are reserved for compiler-generated bindings.
-- `type` is one of: `number | str | bool | arr<number> | arr<str> | arr<bool>`
+- `type` is recursive: `number | str | bool | arr<T> | Record<str|number, T>`.
 - In the DSL layer, keys are written as `name:type`. The lowering pass splits on the first `:` and emits canonical plain HCL `binding` blocks.
 
 ### Examples
@@ -244,7 +244,6 @@ prog "main" {
 | Literal must match declared type | `TypeMismatch` |
 | `:number` value must be a valid numeric literal (integers and decimals both accepted) | `NonIntegerValue` |
 | All elements of `arr<T>` must be of type `T` | `HeterogeneousArray` |
-| Nested arrays are not allowed as value literals | `NestedArrayNotAllowed` |
 | Same `name` declared twice in the same `prog` | `DuplicateBinding` |
 
 ### ContextSpec emission
@@ -560,7 +559,6 @@ Rules:
 | `TypeMismatch` | Literal does not match declared `:type` |
 | `NonIntegerValue` | Non-numeric literal assigned to `:number` binding |
 | `HeterogeneousArray` | Mixed element types in `arr<T>` literal |
-| `NestedArrayNotAllowed` | Array literal contains a sub-array in a value binding |
 | `DuplicateProg` | More than one `prog` block declared in one canonical ContextSpec file. Not reachable from Turn DSL source, where `prog` is not a block: it is the `compute` label |
 | `DuplicateBinding` | Same `name` declared twice in one `prog` |
 | `ReservedName` | User binding name starts with `__` |

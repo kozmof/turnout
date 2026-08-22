@@ -8,23 +8,18 @@ import {
   type TagSymbol,
   AnyValue,
 } from "../../value.js";
-import { type ArrayToArray, type ToItemtProcess, type ToBooleanProcess } from "../convert.js";
+import { type ArrayToArray, type ToBooleanProcess } from "../convert.js";
 import { buildArray, buildBoolean, recordGet, recordSet } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface CombineFnArray {
   includes: ToBooleanProcess<AnyArrayValue<readonly TagSymbol[]>, NonArrayValue>;
-  get: ToItemtProcess<
-    AnyArrayValue<readonly TagSymbol[]>,
-    NonArrayValue,
-    NumberValue<readonly TagSymbol[]>
-  >;
+  get: (
+    array: AnyArrayValue<readonly TagSymbol[]>,
+    index: NumberValue<readonly TagSymbol[]>,
+  ) => AnyValue;
   concat: ArrayToArray;
 }
-
-const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
-  return !Array.isArray(val.value);
-};
 
 /**
  * Merges tags from item with array and index tags.
@@ -32,7 +27,7 @@ const isNonArrayValue = (val: AnyValue): val is NonArrayValue => {
  * the item's own tags with tags from accessing it.
  */
 function mergeItemTags(
-  item: NonArrayValue,
+  item: AnyValue,
   array: AnyArrayValue<readonly TagSymbol[]>,
   index: NumberValue<readonly TagSymbol[]>,
 ): readonly TagSymbol[] {
@@ -84,7 +79,7 @@ export const cfArray: CombineFnArray = {
   get: (
     a: AnyArrayValue<readonly TagSymbol[]>,
     idx: NumberValue<readonly TagSymbol[]>,
-  ): NonArrayValue => {
+  ): AnyValue => {
     // Only non-negative integers within range are valid. `.at()` would accept
     // negative indices and silently return from the end, masking out-of-bounds.
     if (!Number.isInteger(idx.value) || idx.value < 0 || idx.value >= a.value.length) {
@@ -93,17 +88,16 @@ export const cfArray: CombineFnArray = {
       );
     }
     const item = a.value[idx.value];
-    if (item !== undefined && isNonArrayValue(item)) {
-      // Propagate tags from both the array and the index to the retrieved item
-      return {
-        ...item,
-        tags: mergeItemTags(item, a, idx),
-      };
-    } else {
+    if (item === undefined) {
       throw new Error(
-        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)}) or the item at that index is an array`,
+        `Array index ${String(idx.value)} is out of bounds (length: ${String(a.value.length)})`,
       );
     }
+    // Propagate tags from both the array and the index to the retrieved item.
+    return {
+      ...item,
+      tags: mergeItemTags(item, a, idx),
+    };
   },
   concat: (
     a: AnyArrayValue<readonly TagSymbol[]>,
@@ -134,6 +128,14 @@ export const cfRecord = {
     record: RecordValue<readonly TagSymbol[]>,
     key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
   ) => recordGet(record, key),
+  getArray: (
+    record: RecordValue<readonly TagSymbol[]>,
+    key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+  ) => recordGet(record, key),
+  getRecord: (
+    record: RecordValue<readonly TagSymbol[]>,
+    key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
+  ) => recordGet(record, key),
   set: (
     record: RecordValue<readonly TagSymbol[]>,
     key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
@@ -144,4 +146,6 @@ export type CombineFnRecordNames =
   | "combineFnRecord::getNumber"
   | "combineFnRecord::getString"
   | "combineFnRecord::getBoolean"
+  | "combineFnRecord::getArray"
+  | "combineFnRecord::getRecord"
   | "combineFnRecord::set";

@@ -435,25 +435,22 @@ func literalMatchesType(lit ast.Literal, ft ast.FieldType) bool {
 	case ast.FieldTypeBool:
 		_, ok := lit.(*ast.BoolLiteral)
 		return ok
-	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
+	}
+	if elemFT, ok := ft.TryElemType(); ok {
 		arr, ok := lit.(*ast.ArrayLiteral)
 		if !ok {
 			return false
 		}
-		elemFT := ft.ElemType()
 		for _, e := range arr.Elements {
 			if !literalMatchesType(e, elemFT) {
 				return false
 			}
 		}
 		return true
-	case ast.FieldTypeRecordStrNumber, ast.FieldTypeRecordStrStr, ast.FieldTypeRecordStrBool,
-		ast.FieldTypeRecordNumberNumber, ast.FieldTypeRecordNumberStr, ast.FieldTypeRecordNumberBool:
+	}
+	if ft.IsRecord() {
 		_, ok := lit.(*ast.RecordLiteral)
 		return ok
-	case ast.FieldTypeInvalid:
-		return false
-	default:
-		panic(fmt.Sprintf("literalMatchesType: unhandled FieldType %d — add a case when adding new FieldType values", ft))
 	}
+	return false
 }

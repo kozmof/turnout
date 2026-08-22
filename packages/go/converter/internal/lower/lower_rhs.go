@@ -79,10 +79,12 @@ func identityFnFor(ft ast.FieldType) (fn string, identityArg *turnoutpb.ArgModel
 		fn = "add"
 	case ast.FieldTypeStr:
 		fn = "str_concat"
-	case ast.FieldTypeArrNumber, ast.FieldTypeArrStr, ast.FieldTypeArrBool:
-		fn = "arr_concat"
 	default:
-		return "", nil, false
+		if ft.IsArray() {
+			fn = "arr_concat"
+		} else {
+			return "", nil, false
+		}
 	}
 	val, _ := fnmeta.IdentityValue(fn)
 	return fn, &turnoutpb.ArgModel{Lit: val}, true
@@ -119,6 +121,12 @@ func loweredRecordFn(fn string, resultType ast.FieldType) string {
 	case ast.FieldTypeBool:
 		return "record_get_bool"
 	default:
+		if resultType.IsArray() {
+			return "record_get_array"
+		}
+		if resultType.IsRecord() {
+			return "record_get_record"
+		}
 		return fn
 	}
 }

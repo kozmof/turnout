@@ -2,6 +2,7 @@ import { tfArray } from "../../state-control/preset-funcs/array/transformFn.js";
 import { tfBoolean } from "../../state-control/preset-funcs/boolean/transformFn.js";
 import { tfNumber } from "../../state-control/preset-funcs/number/transformFn.js";
 import { tfNull } from "../../state-control/preset-funcs/null/transformFn.js";
+import { tfRecord } from "../../state-control/preset-funcs/record/transformFn.js";
 import { tfString } from "../../state-control/preset-funcs/string/transformFn.js";
 import { AnyValue } from "../../state-control/value.js";
 import { splitPairTransformFnNames } from "../../util/splitPair.js";
@@ -38,6 +39,8 @@ export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
       // already selected the correct namespace/function pair before this cast.
       // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
       return tfNull[fnName] as AnyToAny;
+    case "transformFnRecord":
+      return tfRecord[fnName] as AnyToAny;
     case "transformFnString":
       // String-keyed lookup erases the concrete signature; runtime validation
       // already selected the correct namespace/function pair before this cast.

@@ -105,14 +105,7 @@ func LiteralFieldType(lit Literal) (FieldType, bool) {
 				return 0, false
 			}
 		}
-		switch elemType {
-		case FieldTypeNumber:
-			return FieldTypeArrNumber, true
-		case FieldTypeStr:
-			return FieldTypeArrStr, true
-		case FieldTypeBool:
-			return FieldTypeArrBool, true
-		}
+		return FieldTypeFromString("arr<" + elemType.String() + ">")
 	}
 	return 0, false
 }

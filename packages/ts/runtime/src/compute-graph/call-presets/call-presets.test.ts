@@ -5,6 +5,7 @@ import {
   buildNumber,
   buildString,
   buildNull,
+  buildRecord,
 } from "../../state-control/value-builders.js";
 import { getCombineFn } from "./getCombineFn.js";
 import { getTransformFn } from "./getTransformFn.js";
@@ -48,6 +49,8 @@ describe("call preset lookup", () => {
     expect(getTransformFn("transformFnNull::pass" as any)(buildNull("missing")).subSymbol).toBe(
       "missing",
     );
+    const record = buildRecord({ value: buildNumber(1) });
+    expect(getTransformFn("transformFnRecord::pass" as any)(record)).toBe(record);
     expect(getTransformFn("transformFnString::trim" as any)(buildString("  ok  ")).value).toBe(
       "ok",
     );

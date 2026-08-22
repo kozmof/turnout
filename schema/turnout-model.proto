@@ -80,7 +80,7 @@ message NamespaceModel {
 
 message FieldModel {
   string name = 1;
-  // type is one of: "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>"
+  // type is recursive: number | str | bool | arr<T> | Record<str|number, T>
   string type = 2;
   google.protobuf.Value value = 3;
 }
@@ -164,7 +164,7 @@ message ProgModel {
 
 message BindingModel {
   string name = 1;
-  // type is a FieldTypeStr: "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>"
+  // type is a recursive FieldType string: number | str | bool | arr<T> | Record<str|number, T>
   string type = 2;
   // Exactly one of value or expr is present.
   google.protobuf.Value value = 3;

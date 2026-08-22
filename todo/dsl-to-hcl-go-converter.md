@@ -251,7 +251,7 @@ All validation must complete before any HCL is emitted. Failures abort with no p
 - [x] Literal matches declared `:type` (`TypeMismatch`)
 - [ ] `:number` value is a valid numeric literal (`NonIntegerValue` — but decimals are allowed per spec)
 - [x] `arr<T>` elements all of type `T` (`HeterogeneousArray`)
-- [x] No nested arrays in value bindings (`NestedArrayNotAllowed`)
+- [x] Recursive arrays and Records are supported in value bindings
 - [x] At most one `prog` block per file (`DuplicateProg`)
 - [x] No duplicate binding names within `prog` (`DuplicateBinding`)
 - [x] No user binding name starts with `__` (`ReservedName`)
@@ -438,7 +438,7 @@ Lower and validate the `route` block after scene conversion is complete.
 All error codes that the converter must emit, grouped by spec source:
 
 ### `hcl-context-spec.md`
-`TypeMismatch`, `NonIntegerValue`, `HeterogeneousArray`, `NestedArrayNotAllowed`, `DuplicateProg`, `DuplicateBinding`, `ReservedName`, `UnknownFnAlias`, `OperatorOnlyFn`, `UndefinedRef`, `UndefinedFuncRef`, `InvalidCombineArgShape`, `InvalidInfixExpr`, `ArgTypeMismatch`, `ReturnTypeMismatch`, `CondNotBool`, `BranchTypeMismatch`, `StepRefOutOfBounds`, `CrossPipeStepRef`, `PipeArgNotValue`, `SingleRefTypeMismatch`
+`TypeMismatch`, `NonIntegerValue`, `HeterogeneousArray`, `DuplicateProg`, `DuplicateBinding`, `ReservedName`, `UnknownFnAlias`, `OperatorOnlyFn`, `UndefinedRef`, `UndefinedFuncRef`, `InvalidCombineArgShape`, `InvalidInfixExpr`, `ArgTypeMismatch`, `ReturnTypeMismatch`, `CondNotBool`, `BranchTypeMismatch`, `StepRefOutOfBounds`, `CrossPipeStepRef`, `PipeArgNotValue`, `SingleRefTypeMismatch`
 
 ### `state-shape-spec.md`
 `MissingStateSource`, `ConflictingStateSource`, `StateFileMissing`, `StateFileParseError`, `MissingStateBlock`, `DuplicateStateBlock`, `DuplicateStateNamespace`, `DuplicateStateField`, `MissingStateFieldAttr`, `InvalidStateFieldType`, `StateFieldDefaultTypeMismatch`, `UnresolvedStatePath`, `StateTypeMismatch`, `InvalidStatePath`, `MissingStatePath`

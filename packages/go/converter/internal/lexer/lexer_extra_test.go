@@ -66,26 +66,11 @@ func TestHeredocMissingDelimiter(t *testing.T) {
 	}
 }
 
-// TestArrInvalidTypeParam verifies that arr<unknown> (invalid type parameter)
-// causes the lexer to restore its position and emit arr as a plain identifier,
-// followed by the remaining tokens (<, unknown, >).
+// Invalid composite types remain a single TokType so the parser can report a type error.
 func TestArrInvalidTypeParam(t *testing.T) {
 	toks := filterEOF(mustTokenize(t, "arr<unknown>"))
-	// arr → TokIdent, < → TokLT, unknown → TokIdent, > → TokGT
-	if len(toks) != 4 {
-		t.Fatalf("expected 4 tokens for arr<unknown>, got %d: %v", len(toks), toks)
-	}
-	if toks[0].Kind != TokIdent || toks[0].Value != "arr" {
-		t.Errorf("toks[0]: got %v %q, want TokIdent 'arr'", toks[0].Kind, toks[0].Value)
-	}
-	if toks[1].Kind != TokLT {
-		t.Errorf("toks[1]: got %v, want TokLT", toks[1].Kind)
-	}
-	if toks[2].Kind != TokIdent || toks[2].Value != "unknown" {
-		t.Errorf("toks[2]: got %v %q, want TokIdent 'unknown'", toks[2].Kind, toks[2].Value)
-	}
-	if toks[3].Kind != TokGT {
-		t.Errorf("toks[3]: got %v, want TokGT", toks[3].Kind)
+	if len(toks) != 1 || toks[0].Kind != TokType || toks[0].Value != "arr<unknown>" {
+		t.Fatalf("tokens = %v, want one TokType", toks)
 	}
 }
 

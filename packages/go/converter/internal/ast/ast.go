@@ -4,7 +4,11 @@
 // unexported marker methods so the compiler enforces exhaustive type switches.
 package ast
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+	"sync"
+)
 
 // ────────────────────────────────────────────────────────────
 // Pos — source location
@@ -26,162 +30,179 @@ func (p Pos) String() string {
 }
 
 // ────────────────────────────────────────────────────────────
-// FieldType — the six DSL value types
+// FieldType — recursively composable DSL value types
 // ────────────────────────────────────────────────────────────
 
-// FieldType enumerates the six DSL value types.
-// FieldTypeInvalid (0) is the zero value, so any zero-initialized FieldType
-// variable is safely invalid rather than silently treated as a valid type.
-// The six valid types start at 1.
 type FieldType int
 
 const (
-	FieldTypeInvalid   FieldType = iota //  0: zero value → invalid (safe default)
-	FieldTypeNumber                     //  1: number
-	FieldTypeStr                        //  2: str
-	FieldTypeBool                       //  3: bool
-	FieldTypeArrNumber                  //  4: arr<number>
-	FieldTypeArrStr                     //  5: arr<str>
-	FieldTypeArrBool                    //  6: arr<bool>
+	FieldTypeInvalid FieldType = iota
+	FieldTypeNumber
+	FieldTypeStr
+	FieldTypeBool
+	FieldTypeArrNumber
+	FieldTypeArrStr
+	FieldTypeArrBool
 	FieldTypeRecordStrNumber
 	FieldTypeRecordStrStr
 	FieldTypeRecordStrBool
 	FieldTypeRecordNumberNumber
 	FieldTypeRecordNumberStr
 	FieldTypeRecordNumberBool
-	fieldTypeSentinel // unexported — marks the end of the valid range; add new types above this line
+	fieldTypeSentinel
 )
 
-// fieldTypeExhaustiveCheck is a compile-time guard: its size equals the number
-// of valid FieldType values (fieldTypeSentinel - 1). Adding a new FieldType
-// constant without updating this array causes a compile error, forcing every
-// switch site to be audited before the build succeeds again.
-// To add a new type: append a {} element here AND update every switch/map in:
-//
-//	ast.go (fieldTypeNames, fieldTypeByString, LiteralFieldType, IsArray, TryElemType)
-//	state/state.go (literalMatchesType)
-//	validate/validate.go (structpbMatchesFieldType)
-//	lower/lower_rhs.go (identityFnFor)
-var _ = [fieldTypeSentinel - 1]struct{}{
-	{}, // FieldTypeNumber
-	{}, // FieldTypeStr
-	{}, // FieldTypeBool
-	{}, // FieldTypeArrNumber
-	{}, // FieldTypeArrStr
-	{}, // FieldTypeArrBool
-	{}, {}, {}, {}, {}, {},
+type fieldTypeKind uint8
+
+const (
+	fieldTypePrimitive fieldTypeKind = iota
+	fieldTypeArray
+	fieldTypeRecord
+)
+
+type fieldTypeDesc struct {
+	name             string
+	kind             fieldTypeKind
+	elem, key, value FieldType
 }
 
-// Valid reports whether ft is a recognised (non-zero, in-range) FieldType.
-// Callers that switch on FieldType exhaustively can use this to guard against
-// future additions without recompiling this package.
-func (ft FieldType) Valid() bool {
-	return ft > FieldTypeInvalid && ft < fieldTypeSentinel
-}
+var (
+	fieldTypesMu sync.RWMutex
+	fieldTypes   = map[FieldType]fieldTypeDesc{
+		FieldTypeNumber: {name: "number", kind: fieldTypePrimitive}, FieldTypeStr: {name: "str", kind: fieldTypePrimitive}, FieldTypeBool: {name: "bool", kind: fieldTypePrimitive},
+		FieldTypeArrNumber: {name: "arr<number>", kind: fieldTypeArray, elem: FieldTypeNumber}, FieldTypeArrStr: {name: "arr<str>", kind: fieldTypeArray, elem: FieldTypeStr}, FieldTypeArrBool: {name: "arr<bool>", kind: fieldTypeArray, elem: FieldTypeBool},
+		FieldTypeRecordStrNumber: {name: "Record<str, number>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeNumber}, FieldTypeRecordStrStr: {name: "Record<str, str>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeStr}, FieldTypeRecordStrBool: {name: "Record<str, bool>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeBool},
+		FieldTypeRecordNumberNumber: {name: "Record<number, number>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeNumber}, FieldTypeRecordNumberStr: {name: "Record<number, str>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeStr}, FieldTypeRecordNumberBool: {name: "Record<number, bool>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeBool},
+	}
+	fieldTypesByName = map[string]FieldType{
+		"number": FieldTypeNumber, "str": FieldTypeStr, "bool": FieldTypeBool, "arr<number>": FieldTypeArrNumber, "arr<str>": FieldTypeArrStr, "arr<bool>": FieldTypeArrBool,
+		"Record<str, number>": FieldTypeRecordStrNumber, "Record<str, str>": FieldTypeRecordStrStr, "Record<str, bool>": FieldTypeRecordStrBool, "Record<number, number>": FieldTypeRecordNumberNumber, "Record<number, str>": FieldTypeRecordNumberStr, "Record<number, bool>": FieldTypeRecordNumberBool,
+	}
+	nextFieldType = fieldTypeSentinel
+)
 
-var fieldTypeNames = map[FieldType]string{
-	FieldTypeNumber:             "number",
-	FieldTypeStr:                "str",
-	FieldTypeBool:               "bool",
-	FieldTypeArrNumber:          "arr<number>",
-	FieldTypeArrStr:             "arr<str>",
-	FieldTypeArrBool:            "arr<bool>",
-	FieldTypeRecordStrNumber:    "Record<str, number>",
-	FieldTypeRecordStrStr:       "Record<str, str>",
-	FieldTypeRecordStrBool:      "Record<str, bool>",
-	FieldTypeRecordNumberNumber: "Record<number, number>",
-	FieldTypeRecordNumberStr:    "Record<number, str>",
-	FieldTypeRecordNumberBool:   "Record<number, bool>",
+func fieldTypeDescriptor(ft FieldType) (fieldTypeDesc, bool) {
+	fieldTypesMu.RLock()
+	d, ok := fieldTypes[ft]
+	fieldTypesMu.RUnlock()
+	return d, ok
 }
-
+func (ft FieldType) Valid() bool { _, ok := fieldTypeDescriptor(ft); return ok }
 func (ft FieldType) String() string {
 	if ft == FieldTypeInvalid {
 		return "FieldType(invalid)"
 	}
-	if name, ok := fieldTypeNames[ft]; ok {
-		return name
+	if d, ok := fieldTypeDescriptor(ft); ok {
+		return d.name
 	}
 	return fmt.Sprintf("FieldType(%d)", int(ft))
 }
-
-// ProtoString returns the proto-level serialization key for this FieldType.
-// This MUST match the schema-type strings expected by the TS runtime's
-// state-manager.ts. Equal to String() for valid types; exists as an explicit
-// contract so future DSL renames do not silently break cross-language serialization.
 func (ft FieldType) ProtoString() string { return ft.String() }
 
-var fieldTypeByString = map[string]FieldType{
-	"number":                 FieldTypeNumber,
-	"str":                    FieldTypeStr,
-	"bool":                   FieldTypeBool,
-	"arr<number>":            FieldTypeArrNumber,
-	"arr<str>":               FieldTypeArrStr,
-	"arr<bool>":              FieldTypeArrBool,
-	"Record<str, number>":    FieldTypeRecordStrNumber,
-	"Record<str, str>":       FieldTypeRecordStrStr,
-	"Record<str, bool>":      FieldTypeRecordStrBool,
-	"Record<number, number>": FieldTypeRecordNumberNumber,
-	"Record<number, str>":    FieldTypeRecordNumberStr,
-	"Record<number, bool>":   FieldTypeRecordNumberBool,
+func splitRecordParams(s string) (string, string, bool) {
+	depth := 0
+	for i, r := range s {
+		switch r {
+		case '<':
+			depth++
+		case '>':
+			depth--
+		case ',':
+			if depth == 0 {
+				return strings.TrimSpace(s[:i]), strings.TrimSpace(s[i+1:]), true
+			}
+		}
+	}
+	return "", "", false
 }
-
-// FieldTypeFromString converts a DSL type string to a FieldType.
-// Returns (FieldTypeInvalid, false) if the string is not a valid type.
+func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
+	s = strings.TrimSpace(s)
+	if s == "number" || s == "str" || s == "bool" {
+		return s, fieldTypeDesc{name: s, kind: fieldTypePrimitive}, true
+	}
+	if strings.HasPrefix(s, "arr<") && strings.HasSuffix(s, ">") {
+		inner, _, ok := parseFieldTypeString(s[4 : len(s)-1])
+		if !ok {
+			return "", fieldTypeDesc{}, false
+		}
+		return "arr<" + inner + ">", fieldTypeDesc{kind: fieldTypeArray}, true
+	}
+	if strings.HasPrefix(s, "Record<") && strings.HasSuffix(s, ">") {
+		key, value, ok := splitRecordParams(s[7 : len(s)-1])
+		if !ok {
+			return "", fieldTypeDesc{}, false
+		}
+		keyName, _, keyOK := parseFieldTypeString(key)
+		if !keyOK || (keyName != "str" && keyName != "number") {
+			return "", fieldTypeDesc{}, false
+		}
+		valueName, _, valueOK := parseFieldTypeString(value)
+		if !valueOK {
+			return "", fieldTypeDesc{}, false
+		}
+		return "Record<" + keyName + ", " + valueName + ">", fieldTypeDesc{kind: fieldTypeRecord}, true
+	}
+	return "", fieldTypeDesc{}, false
+}
 func FieldTypeFromString(s string) (FieldType, bool) {
-	ft, ok := fieldTypeByString[s]
+	name, desc, ok := parseFieldTypeString(s)
 	if !ok {
 		return FieldTypeInvalid, false
 	}
-	return ft, ok
+	fieldTypesMu.RLock()
+	existing, found := fieldTypesByName[name]
+	fieldTypesMu.RUnlock()
+	if found {
+		return existing, true
+	}
+	if desc.kind == fieldTypeArray {
+		desc.elem, _ = FieldTypeFromString(name[4 : len(name)-1])
+	} else if desc.kind == fieldTypeRecord {
+		keyName, valueName, _ := splitRecordParams(name[7 : len(name)-1])
+		desc.key, _ = FieldTypeFromString(keyName)
+		desc.value, _ = FieldTypeFromString(valueName)
+	}
+	desc.name = name
+	fieldTypesMu.Lock()
+	defer fieldTypesMu.Unlock()
+	if existing, found := fieldTypesByName[name]; found {
+		return existing, true
+	}
+	ft := nextFieldType
+	nextFieldType++
+	fieldTypes[ft] = desc
+	fieldTypesByName[name] = ft
+	return ft, true
 }
-
-// IsArray reports whether the type is an array type.
 func (ft FieldType) IsRecord() bool {
-	return ft >= FieldTypeRecordStrNumber && ft <= FieldTypeRecordNumberBool
+	d, ok := fieldTypeDescriptor(ft)
+	return ok && d.kind == fieldTypeRecord
 }
-
 func (ft FieldType) RecordKeyType() (FieldType, bool) {
-	switch ft {
-	case FieldTypeRecordStrNumber, FieldTypeRecordStrStr, FieldTypeRecordStrBool:
-		return FieldTypeStr, true
-	case FieldTypeRecordNumberNumber, FieldTypeRecordNumberStr, FieldTypeRecordNumberBool:
-		return FieldTypeNumber, true
+	d, ok := fieldTypeDescriptor(ft)
+	if !ok || d.kind != fieldTypeRecord {
+		return FieldTypeInvalid, false
 	}
-	return FieldTypeInvalid, false
+	return d.key, true
 }
-
 func (ft FieldType) RecordValueType() (FieldType, bool) {
-	switch ft {
-	case FieldTypeRecordStrNumber, FieldTypeRecordNumberNumber:
-		return FieldTypeNumber, true
-	case FieldTypeRecordStrStr, FieldTypeRecordNumberStr:
-		return FieldTypeStr, true
-	case FieldTypeRecordStrBool, FieldTypeRecordNumberBool:
-		return FieldTypeBool, true
+	d, ok := fieldTypeDescriptor(ft)
+	if !ok || d.kind != fieldTypeRecord {
+		return FieldTypeInvalid, false
 	}
-	return FieldTypeInvalid, false
+	return d.value, true
 }
-
 func (ft FieldType) IsArray() bool {
-	return ft == FieldTypeArrNumber || ft == FieldTypeArrStr || ft == FieldTypeArrBool
+	d, ok := fieldTypeDescriptor(ft)
+	return ok && d.kind == fieldTypeArray
 }
-
-// TryElemType returns the element type of an array FieldType.
-// Returns (FieldTypeInvalid, false) for non-array types.
 func (ft FieldType) TryElemType() (FieldType, bool) {
-	switch ft {
-	case FieldTypeArrNumber:
-		return FieldTypeNumber, true
-	case FieldTypeArrStr:
-		return FieldTypeStr, true
-	case FieldTypeArrBool:
-		return FieldTypeBool, true
+	d, ok := fieldTypeDescriptor(ft)
+	if !ok || d.kind != fieldTypeArray {
+		return FieldTypeInvalid, false
 	}
-	return FieldTypeInvalid, false
+	return d.elem, true
 }
-
-// ElemType returns the element type of an array FieldType.
-// Panics if called on a non-array type; use TryElemType for a safe variant.
 func (ft FieldType) ElemType() FieldType {
 	et, ok := ft.TryElemType()
 	if !ok {

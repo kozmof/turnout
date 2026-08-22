@@ -31,16 +31,7 @@ func StructpbFieldType(v *structpb.Value) (ast.FieldType, bool) {
 		if !ok {
 			return ast.FieldTypeInvalid, false
 		}
-		switch elemFT {
-		case ast.FieldTypeNumber:
-			return ast.FieldTypeArrNumber, true
-		case ast.FieldTypeStr:
-			return ast.FieldTypeArrStr, true
-		case ast.FieldTypeBool:
-			return ast.FieldTypeArrBool, true
-		default:
-			panic("StructpbFieldType: unhandled element FieldType — add a case when adding new FieldType values")
-		}
+		return ast.FieldTypeFromString("arr<" + elemFT.String() + ">")
 	}
 	return ast.FieldTypeInvalid, false
 }

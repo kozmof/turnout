@@ -511,7 +511,7 @@ func (x *NamespaceModel) GetFields() []*FieldModel {
 type FieldModel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// type is one of: "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>"
+	// type is recursive: number | str | bool | arr<T> | Record<str|number, T>
 	Type          string          `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	Value         *structpb.Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1060,7 +1060,7 @@ func (x *ProgModel) GetSigils() map[string]int32 {
 type BindingModel struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	Name  string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	// type is a FieldTypeStr: "number" | "str" | "bool" | "arr<number>" | "arr<str>" | "arr<bool>"
+	// type is a recursive FieldType string: number | str | bool | arr<T> | Record<str|number, T>
 	Type string `protobuf:"bytes,2,opt,name=type,proto3" json:"type,omitempty"`
 	// Exactly one of value or expr is present.
 	Value *structpb.Value `protobuf:"bytes,3,opt,name=value,proto3" json:"value,omitempty"`

@@ -9,6 +9,7 @@ import { CombineFnGenericNames } from "../state-control/preset-funcs/generic/com
 import { CombineFnNumberNames } from "../state-control/preset-funcs/number/combineFn.js";
 import { TransformFnNumberNames } from "../state-control/preset-funcs/number/transformFn.js";
 import { TransformFnNullNames } from "../state-control/preset-funcs/null/transformFn.js";
+import { TransformFnRecordNames } from "../state-control/preset-funcs/record/transformFn.js";
 import { CombineFnStringNames } from "../state-control/preset-funcs/string/combineFn.js";
 import { TransformFnStringNames } from "../state-control/preset-funcs/string/transformFn.js";
 import { AnyValue } from "../state-control/value.js";
@@ -27,6 +28,7 @@ export type TransformFnNames =
   | TransformFnBooleanNames
   | TransformFnNumberNames
   | TransformFnNullNames
+  | TransformFnRecordNames
   | TransformFnStringNames;
 
 export type CombineDefineId = Brand<string, "combineDefineId">;

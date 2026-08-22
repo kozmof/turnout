@@ -129,22 +129,22 @@ func TestHeterogeneousArray(t *testing.T) {
 	}
 }
 
-func TestNestedArrayNotAllowed(t *testing.T) {
-	// arr<number> with a nested array element [[1]]
-	// The parser supports nested array literals.
+func TestNestedArraySupported(t *testing.T) {
 	src := basicState + `
 scene "test" {
   entry_action = a
   action "a" {
     compute "p" {
-      xs:arr<number> = [[1, 2]]
+      xs:arr<arr<number>> = [[1, 2]]
       v:bool := true
     }
   }
 }
 `
-	if !hasCode(pipeline(src), diag.CodeNestedArrayNotAllowed) {
-		t.Error("want NestedArrayNotAllowed")
+	if ds := pipeline(src); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
 	}
 }
 

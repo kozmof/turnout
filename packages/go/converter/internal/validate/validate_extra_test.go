@@ -1963,6 +1963,25 @@ func TestRecordGetSetValid(t *testing.T) {
 	}
 }
 
+func TestNestedRecordArrayTypesValid(t *testing.T) {
+	src := minScene(`state {
+  cache {
+    rows:arr<Record<str, number>> = []
+    groups:Record<str, arr<number>> = {}
+  }
+}`, `        rows:arr<Record<str, number>> <~ @cache.rows
+        groups:Record<str, arr<number>> <~ @cache.groups
+        row:Record<str, number> = arr_get(rows, 0)
+        scores:arr<number> = record_get(groups, "scores")
+        updated:Record<str, arr<number>> = record_set(groups, "scores", scores)
+`)
+	if ds := pipeline(src); ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
 func TestRecordSetRejectsWrongValueType(t *testing.T) {
 	src := minScene(`state { cache { counters:Record<str, number> = {} } }`, `        counters:Record<str, number> <~ @cache.counters
         updated:Record<str, number> = record_set(counters, "visits", "wrong")

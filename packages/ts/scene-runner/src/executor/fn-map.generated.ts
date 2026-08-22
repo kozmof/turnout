@@ -33,5 +33,7 @@ export const FN_MAP: Record<string, CombineFnNames> = {
   record_get_number: "combineFnRecord::getNumber",
   record_get_str: "combineFnRecord::getString",
   record_get_bool: "combineFnRecord::getBoolean",
+  record_get_array: "combineFnRecord::getArray",
+  record_get_record: "combineFnRecord::getRecord",
   record_set: "combineFnRecord::set",
 };
