@@ -94,7 +94,7 @@ state-block     ::= 'state' '{' namespace-decl* '}'
 state-file-directive ::= 'state_file' '=' string-literal
 namespace-decl  ::= IDENT '{' field-decl* '}'
 field-decl      ::= IDENT ':' type '=' literal
-type            ::= 'number' | 'str' | 'bool' | 'arr<' type '>' | 'Record<' record-key ', ' type '>'
+type            ::= 'number' | 'str' | 'bool' | 'arr<' type '>' | 'rec<' record-key ', ' type '>'
 record-key      ::= 'str' | 'number'
 literal         ::= number | string | boolean | array-literal
 IDENT           ::= [A-Za-z_][A-Za-z0-9_]*
@@ -202,7 +202,7 @@ When the DSL uses `state_file`, the converter reads and lowers the referenced fi
 
 | Attribute | Type   | Required | Description                                                               |
 |-----------|--------|----------|---------------------------------------------------------------------------|
-| `type`    | string | yes      | A recursive type: `number`, `str`, `bool`, `arr<T>`, or `Record<str|number, T>` |
+| `type`    | string | yes      | A recursive type: `number`, `str`, `bool`, `arr<T>`, or `rec<str|number, T>` |
 | `value`   | literal| yes      | Default value; must be type-compatible                                    |
 
 ---
@@ -283,7 +283,7 @@ type StateSchema = {
 };
 
 type StateFieldMeta = {
-  type:         FieldType string (`number`, `str`, `bool`, `arr<T>`, or `Record<str|number, T>`);
+  type:         FieldType string (`number`, `str`, `bool`, `arr<T>`, or `rec<str|number, T>`);
   defaultValue: StateValue;
 };
 ```

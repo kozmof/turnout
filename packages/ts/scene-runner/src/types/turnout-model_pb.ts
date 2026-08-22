@@ -228,7 +228,7 @@ export type FieldModel = Message<"turnout.model.v1.FieldModel"> & {
   name: string;
 
   /**
-   * type is recursive: number | str | bool | arr<T> | Record<str|number, T>
+   * type is recursive: number | str | bool | arr<T> | rec<str|number, T>
    *
    * @generated from field: string type = 2;
    */
@@ -505,7 +505,7 @@ export type BindingModel = Message<"turnout.model.v1.BindingModel"> & {
   name: string;
 
   /**
-   * type is a recursive FieldType string: number | str | bool | arr<T> | Record<str|number, T>
+   * type is a recursive FieldType string: number | str | bool | arr<T> | rec<str|number, T>
    *
    * @generated from field: string type = 2;
    */

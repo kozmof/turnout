@@ -4,10 +4,10 @@
 
 state {
   analytics {
-    counters:Record<str, number> = {}
-    labels:Record<number, str>   = {}
-    readings:arr<Record<str, number>> = []
-    buckets:Record<str, arr<number>> = {}
+    counters:rec<str, number> = {}
+    labels:rec<number, str>   = {}
+    readings:arr<rec<str, number>> = []
+    buckets:rec<str, arr<number>> = {}
   }
 }
 
@@ -21,13 +21,13 @@ scene "record_state" {
     """
 
     compute "record_graph" {
-      counters:Record<str, number> <~ @analytics.counters
-      labels:Record<number, str>   <~ @analytics.labels
-      readings:arr<Record<str, number>> <~ @analytics.readings
-      buckets:Record<str, arr<number>> <~ @analytics.buckets
+      counters:rec<str, number> <~ @analytics.counters
+      labels:rec<number, str>   <~ @analytics.labels
+      readings:arr<rec<str, number>> <~ @analytics.readings
+      buckets:rec<str, arr<number>> <~ @analytics.buckets
       scores:arr<number> = record_get(buckets, "scores")
 
-      updated:Record<str, number> = (record_set(counters, "visits", 1)) ~> @analytics.counters
+      updated:rec<str, number> = (record_set(counters, "visits", 1)) ~> @analytics.counters
       visits:number                = record_get(updated, "visits")
       ready:bool := visits >= 0
     }

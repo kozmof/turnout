@@ -221,7 +221,7 @@ name:type = literal
 ```
 
 - `name` must match `[A-Za-z_][A-Za-z0-9_]*`. Names starting with `__` are reserved for compiler-generated bindings.
-- `type` is recursive: `number | str | bool | arr<T> | Record<str|number, T>`.
+- `type` is recursive: `number | str | bool | arr<T> | rec<str|number, T>`.
 - In the DSL layer, keys are written as `name:type`. The lowering pass splits on the first `:` and emits canonical plain HCL `binding` blocks.
 
 ### Examples

@@ -1219,7 +1219,7 @@ route "r" { to { s.*.final -> s } }`
 
 func TestParseRecordStateField(t *testing.T) {
 	tf := mustParse(t, `state {
-  cache { counters:Record<str, number> = {} }
+  cache { counters:rec<str, number> = {} }
 }
 scene "s" {
   entry_action = a

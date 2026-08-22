@@ -306,8 +306,8 @@ func (l *lex) scanIdent(ln, co int) {
 	value := sb.String()
 
 	// Composite types are emitted as one token, including recursively nested
-	// arr<T> and Record<K, V> forms. Semantic validation happens in ast.
-	if (value == "arr" || value == "Record") && !l.atEnd() && l.peek() == '<' {
+	// arr<T> and rec<K, V> forms. Semantic validation happens in ast.
+	if (value == "arr" || value == "rec") && !l.atEnd() && l.peek() == '<' {
 		if typ := l.tryScanCompositeType(value); typ != "" {
 			l.emit(TokType, typ, ln, co)
 			return

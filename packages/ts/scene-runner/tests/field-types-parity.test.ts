@@ -96,16 +96,16 @@ function sampleFor(dsl: string): unknown {
       return ["x"];
     case "arr<bool>":
       return [true];
-    case "arr<Record<str, number>>":
+    case "arr<rec<str, number>>":
       return [{ count: 1 }];
-    case "Record<str, arr<number>>":
+    case "rec<str, arr<number>>":
       return { scores: [1] };
-    case "Record<str, number>":
-    case "Record<str, str>":
-    case "Record<str, bool>":
-    case "Record<number, number>":
-    case "Record<number, str>":
-    case "Record<number, bool>":
+    case "rec<str, number>":
+    case "rec<str, str>":
+    case "rec<str, bool>":
+    case "rec<number, number>":
+    case "rec<number, str>":
+    case "rec<number, bool>":
       return {};
     default:
       throw new Error(

@@ -71,12 +71,12 @@ var (
 	fieldTypes   = map[FieldType]fieldTypeDesc{
 		FieldTypeNumber: {name: "number", kind: fieldTypePrimitive}, FieldTypeStr: {name: "str", kind: fieldTypePrimitive}, FieldTypeBool: {name: "bool", kind: fieldTypePrimitive},
 		FieldTypeArrNumber: {name: "arr<number>", kind: fieldTypeArray, elem: FieldTypeNumber}, FieldTypeArrStr: {name: "arr<str>", kind: fieldTypeArray, elem: FieldTypeStr}, FieldTypeArrBool: {name: "arr<bool>", kind: fieldTypeArray, elem: FieldTypeBool},
-		FieldTypeRecordStrNumber: {name: "Record<str, number>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeNumber}, FieldTypeRecordStrStr: {name: "Record<str, str>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeStr}, FieldTypeRecordStrBool: {name: "Record<str, bool>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeBool},
-		FieldTypeRecordNumberNumber: {name: "Record<number, number>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeNumber}, FieldTypeRecordNumberStr: {name: "Record<number, str>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeStr}, FieldTypeRecordNumberBool: {name: "Record<number, bool>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeBool},
+		FieldTypeRecordStrNumber: {name: "rec<str, number>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeNumber}, FieldTypeRecordStrStr: {name: "rec<str, str>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeStr}, FieldTypeRecordStrBool: {name: "rec<str, bool>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeBool},
+		FieldTypeRecordNumberNumber: {name: "rec<number, number>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeNumber}, FieldTypeRecordNumberStr: {name: "rec<number, str>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeStr}, FieldTypeRecordNumberBool: {name: "rec<number, bool>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeBool},
 	}
 	fieldTypesByName = map[string]FieldType{
 		"number": FieldTypeNumber, "str": FieldTypeStr, "bool": FieldTypeBool, "arr<number>": FieldTypeArrNumber, "arr<str>": FieldTypeArrStr, "arr<bool>": FieldTypeArrBool,
-		"Record<str, number>": FieldTypeRecordStrNumber, "Record<str, str>": FieldTypeRecordStrStr, "Record<str, bool>": FieldTypeRecordStrBool, "Record<number, number>": FieldTypeRecordNumberNumber, "Record<number, str>": FieldTypeRecordNumberStr, "Record<number, bool>": FieldTypeRecordNumberBool,
+		"rec<str, number>": FieldTypeRecordStrNumber, "rec<str, str>": FieldTypeRecordStrStr, "rec<str, bool>": FieldTypeRecordStrBool, "rec<number, number>": FieldTypeRecordNumberNumber, "rec<number, str>": FieldTypeRecordNumberStr, "rec<number, bool>": FieldTypeRecordNumberBool,
 	}
 	nextFieldType = fieldTypeSentinel
 )
@@ -127,8 +127,8 @@ func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
 		}
 		return "arr<" + inner + ">", fieldTypeDesc{kind: fieldTypeArray}, true
 	}
-	if strings.HasPrefix(s, "Record<") && strings.HasSuffix(s, ">") {
-		key, value, ok := splitRecordParams(s[7 : len(s)-1])
+	if strings.HasPrefix(s, "rec<") && strings.HasSuffix(s, ">") {
+		key, value, ok := splitRecordParams(s[4 : len(s)-1])
 		if !ok {
 			return "", fieldTypeDesc{}, false
 		}
@@ -140,7 +140,7 @@ func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
 		if !valueOK {
 			return "", fieldTypeDesc{}, false
 		}
-		return "Record<" + keyName + ", " + valueName + ">", fieldTypeDesc{kind: fieldTypeRecord}, true
+		return "rec<" + keyName + ", " + valueName + ">", fieldTypeDesc{kind: fieldTypeRecord}, true
 	}
 	return "", fieldTypeDesc{}, false
 }
@@ -158,7 +158,7 @@ func FieldTypeFromString(s string) (FieldType, bool) {
 	if desc.kind == fieldTypeArray {
 		desc.elem, _ = FieldTypeFromString(name[4 : len(name)-1])
 	} else if desc.kind == fieldTypeRecord {
-		keyName, valueName, _ := splitRecordParams(name[7 : len(name)-1])
+		keyName, valueName, _ := splitRecordParams(name[4 : len(name)-1])
 		desc.key, _ = FieldTypeFromString(keyName)
 		desc.value, _ = FieldTypeFromString(valueName)
 	}

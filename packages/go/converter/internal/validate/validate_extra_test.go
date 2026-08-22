@@ -1951,8 +1951,8 @@ func TestCondStepRefBranch(t *testing.T) {
 }
 
 func TestRecordGetSetValid(t *testing.T) {
-	src := minScene(`state { cache { counters:Record<str, number> = {} } }`, `        counters:Record<str, number> <~ @cache.counters
-        updated:Record<str, number> = record_set(counters, "visits", 1)
+	src := minScene(`state { cache { counters:rec<str, number> = {} } }`, `        counters:rec<str, number> <~ @cache.counters
+        updated:rec<str, number> = record_set(counters, "visits", 1)
         visits:number = record_get(updated, "visits")
 `)
 	ds := pipeline(src)
@@ -1966,14 +1966,14 @@ func TestRecordGetSetValid(t *testing.T) {
 func TestNestedRecordArrayTypesValid(t *testing.T) {
 	src := minScene(`state {
   cache {
-    rows:arr<Record<str, number>> = []
-    groups:Record<str, arr<number>> = {}
+    rows:arr<rec<str, number>> = []
+    groups:rec<str, arr<number>> = {}
   }
-}`, `        rows:arr<Record<str, number>> <~ @cache.rows
-        groups:Record<str, arr<number>> <~ @cache.groups
-        row:Record<str, number> = arr_get(rows, 0)
+}`, `        rows:arr<rec<str, number>> <~ @cache.rows
+        groups:rec<str, arr<number>> <~ @cache.groups
+        row:rec<str, number> = arr_get(rows, 0)
         scores:arr<number> = record_get(groups, "scores")
-        updated:Record<str, arr<number>> = record_set(groups, "scores", scores)
+        updated:rec<str, arr<number>> = record_set(groups, "scores", scores)
 `)
 	if ds := pipeline(src); ds.HasErrors() {
 		for _, d := range ds {
@@ -1983,8 +1983,8 @@ func TestNestedRecordArrayTypesValid(t *testing.T) {
 }
 
 func TestRecordSetRejectsWrongValueType(t *testing.T) {
-	src := minScene(`state { cache { counters:Record<str, number> = {} } }`, `        counters:Record<str, number> <~ @cache.counters
-        updated:Record<str, number> = record_set(counters, "visits", "wrong")
+	src := minScene(`state { cache { counters:rec<str, number> = {} } }`, `        counters:rec<str, number> <~ @cache.counters
+        updated:rec<str, number> = record_set(counters, "visits", "wrong")
 `)
 	if !hasCode(pipeline(src), diag.CodeArgTypeMismatch) {
 		t.Error("want ArgTypeMismatch for record_set value")

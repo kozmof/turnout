@@ -31,14 +31,14 @@ const goBin = process.env.GOROOT
 
 const source = `state {
   input {
-    rows:arr<Record<str, number>> = []
-    groups:Record<str, arr<number>> = {}
+    rows:arr<rec<str, number>> = []
+    groups:rec<str, arr<number>> = {}
     replacement:arr<number> = []
-    deep:Record<str, arr<Record<str, arr<number>>>> = {}
+    deep:rec<str, arr<rec<str, arr<number>>>> = {}
   }
   output {
-    first:Record<str, number> = {}
-    groups:Record<str, arr<number>> = {}
+    first:rec<str, number> = {}
+    groups:rec<str, arr<number>> = {}
     deep_value:number = 0
   }
 }
@@ -47,13 +47,13 @@ scene "nested_both" {
   entry_action = run
   action "run" {
     compute "nested" {
-      rows:arr<Record<str, number>> <~ @input.rows
-      groups:Record<str, arr<number>> <~ @input.groups
+      rows:arr<rec<str, number>> <~ @input.rows
+      groups:rec<str, arr<number>> <~ @input.groups
       replacement:arr<number> <~ @input.replacement
 
-      first:Record<str, number> = arr_get(rows, 0)
-      updated_first:Record<str, number> = (record_set(first, "count", 99)) ~> @output.first
-      updated_groups:Record<str, arr<number>> = (record_set(groups, "scores", replacement)) ~> @output.groups
+      first:rec<str, number> = arr_get(rows, 0)
+      updated_first:rec<str, number> = (record_set(first, "count", 99)) ~> @output.first
+      updated_groups:rec<str, arr<number>> = (record_set(groups, "scores", replacement)) ~> @output.groups
       count:number = record_get(updated_first, "count")
       scores:arr<number> = record_get(updated_groups, "scores")
       first_score:number = arr_get(scores, 0)
@@ -67,9 +67,9 @@ scene "nested_deep" {
   entry_action = run
   action "run" {
     compute "deep" {
-      deep:Record<str, arr<Record<str, arr<number>>>> <~ @input.deep
-      rows:arr<Record<str, arr<number>>> = record_get(deep, "rows")
-      first:Record<str, arr<number>> = arr_get(rows, 0)
+      deep:rec<str, arr<rec<str, arr<number>>>> <~ @input.deep
+      rows:arr<rec<str, arr<number>>> = record_get(deep, "rows")
+      first:rec<str, arr<number>> = arr_get(rows, 0)
       values:arr<number> = record_get(first, "values")
       value:number := (arr_get(values, 0)) ~> @output.deep_value
     }

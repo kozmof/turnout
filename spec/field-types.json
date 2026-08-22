@@ -5,12 +5,12 @@
   { "dsl": "arr<number>", "element": "number" },
   { "dsl": "arr<str>", "element": "str" },
   { "dsl": "arr<bool>", "element": "bool" },
-  { "dsl": "arr<Record<str, number>>", "element": "Record<str, number>" },
-  { "dsl": "Record<str, number>", "element": null },
-  { "dsl": "Record<str, str>", "element": null },
-  { "dsl": "Record<str, bool>", "element": null },
-  { "dsl": "Record<number, number>", "element": null },
-  { "dsl": "Record<number, str>", "element": null },
-  { "dsl": "Record<number, bool>", "element": null },
-  { "dsl": "Record<str, arr<number>>", "element": null }
+  { "dsl": "arr<rec<str, number>>", "element": "rec<str, number>" },
+  { "dsl": "rec<str, number>", "element": null },
+  { "dsl": "rec<str, str>", "element": null },
+  { "dsl": "rec<str, bool>", "element": null },
+  { "dsl": "rec<number, number>", "element": null },
+  { "dsl": "rec<number, str>", "element": null },
+  { "dsl": "rec<number, bool>", "element": null },
+  { "dsl": "rec<str, arr<number>>", "element": null }
 ]

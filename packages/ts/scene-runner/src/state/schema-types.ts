@@ -47,8 +47,8 @@ function parseSchemaType(source: string): SchemaNode | undefined {
       index++;
       return { kind: "array", element };
     }
-    if (source.startsWith("Record<", index)) {
-      index += 7;
+    if (source.startsWith("rec<", index)) {
+      index += 4;
       spaces();
       const key = source.startsWith("str", index)
         ? "str"
@@ -141,14 +141,14 @@ const declaredSchemaTypes = [
   "arr<number>",
   "arr<str>",
   "arr<bool>",
-  "Record<str, number>",
-  "Record<str, str>",
-  "Record<str, bool>",
-  "Record<number, number>",
-  "Record<number, str>",
-  "Record<number, bool>",
-  "arr<Record<str, number>>",
-  "Record<str, arr<number>>",
+  "rec<str, number>",
+  "rec<str, str>",
+  "rec<str, bool>",
+  "rec<number, number>",
+  "rec<number, str>",
+  "rec<number, bool>",
+  "arr<rec<str, number>>",
+  "rec<str, arr<number>>",
 ] as const;
 
 export const schemaTypeTable: Record<string, SchemaTypeEntry> = {};

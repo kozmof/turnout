@@ -169,15 +169,15 @@ describe("literalToValue", () => {
   });
 
   it("builds and validates arrays of Records", () => {
-    const val = literalToValue([{ count: 1 }], "arr<Record<str, number>>");
-    expect(matchesSchemaType(val, "arr<Record<str, number>>")).toBe(true);
-    expect(() => literalToValue([{ count: "wrong" }], "arr<Record<str, number>>")).toThrow();
+    const val = literalToValue([{ count: 1 }], "arr<rec<str, number>>");
+    expect(matchesSchemaType(val, "arr<rec<str, number>>")).toBe(true);
+    expect(() => literalToValue([{ count: "wrong" }], "arr<rec<str, number>>")).toThrow();
   });
 
   it("builds and validates Records of arrays", () => {
-    const val = literalToValue({ scores: [1, 2] }, "Record<str, arr<number>>");
-    expect(matchesSchemaType(val, "Record<str, arr<number>>")).toBe(true);
-    expect(() => literalToValue({ scores: ["wrong"] }, "Record<str, arr<number>>")).toThrow();
+    const val = literalToValue({ scores: [1, 2] }, "rec<str, arr<number>>");
+    expect(matchesSchemaType(val, "rec<str, arr<number>>")).toBe(true);
+    expect(() => literalToValue({ scores: ["wrong"] }, "rec<str, arr<number>>")).toThrow();
   });
 
   it("throws when arr<number> receives a non-array value", () => {
@@ -759,11 +759,11 @@ describe("StateManager — value nesting depth", () => {
 });
 
 describe("Record schema types", () => {
-  it("builds and validates Record<str, number>", () => {
-    const value = literalToValue({ visits: 1 }, "Record<str, number>");
+  it("builds and validates rec<str, number>", () => {
+    const value = literalToValue({ visits: 1 }, "rec<str, number>");
     expect(isRecord(value)).toBe(true);
     expect(value.value).toEqual({ visits: buildNumber(1) });
-    expect(() => literalToValue({ visits: "bad" }, "Record<str, number>")).toThrow(
+    expect(() => literalToValue({ visits: "bad" }, "rec<str, number>")).toThrow(
       "does not match number",
     );
   });
@@ -772,7 +772,7 @@ describe("Record schema types", () => {
     const manager = stateManagerFromStrict(
       { counters: buildRecord({ visits: buildNumber(1) }) },
       new Set(["counters"]),
-      new Map([["counters", "Record<str, number>"]]),
+      new Map([["counters", "rec<str, number>"]]),
     );
     expect(() => manager.write("counters", buildRecord({ visits: buildString("bad") }))).toThrow(
       "type mismatch",
