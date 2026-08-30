@@ -80,7 +80,7 @@ fn executeExpression(
 ) !value.OwnedTaggedValue {
     if (expression.object.get("combine")) |combine| return executeCombine(combine, values, allocator);
     if (expression.object.contains("pipe")) return error.UnsupportedPipe;
-    return error.UnsupportedConditional;
+    return executeConditional(expression.object.get("cond").?, values, allocator);
 }
 
 fn executeCombine(
@@ -101,23 +101,52 @@ fn executeCombine(
     var args = std.ArrayList(value.TaggedValue).empty;
     defer args.deinit(allocator);
     for (args_value.array.items) |arg| {
-        if (arg != .object) return error.InvalidArgument;
-        if (arg.object.get("ref")) |reference| {
-            if (reference != .string) return error.InvalidArgument;
-            const resolved = values.get(reference.string) orelse return error.MissingReference;
-            try args.append(allocator, resolved.borrowed());
-        } else if (arg.object.get("lit")) |literal| {
-            try owned_args.ensureUnusedCapacity(allocator, 1);
-            owned_args.appendAssumeCapacity(try ownedJsonValue(literal, allocator));
-            try args.append(allocator, owned_args.items[owned_args.items.len - 1].borrowed());
-        } else if (arg.object.get("transform")) |transform| {
-            try owned_args.ensureUnusedCapacity(allocator, 1);
-            owned_args.appendAssumeCapacity(try executeTransform(transform, values, allocator));
-            try args.append(allocator, owned_args.items[owned_args.items.len - 1].borrowed());
-        } else return error.UnsupportedArgument;
+        try owned_args.ensureUnusedCapacity(allocator, 1);
+        owned_args.appendAssumeCapacity(try resolveArgument(arg, values, allocator, true));
+        try args.append(allocator, owned_args.items[owned_args.items.len - 1].borrowed());
     }
     const function_name = fn_aliases.resolve(fn_value.string) orelse fn_value.string;
     return preset.call(function_name, args.items, allocator);
+}
+
+fn executeConditional(
+    conditional: std.json.Value,
+    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+    allocator: std.mem.Allocator,
+) !value.OwnedTaggedValue {
+    if (conditional != .object) return error.InvalidExpression;
+    const condition_arg = conditional.object.get("condition") orelse return error.InvalidExpression;
+    const then_arg = conditional.object.get("then") orelse return error.InvalidExpression;
+    const else_arg = conditional.object.get("elseBranch") orelse return error.InvalidExpression;
+    var condition = try resolveArgument(condition_arg, values, allocator, false);
+    defer condition.deinit(allocator);
+    if (condition.value != .boolean) return error.ConditionTypeMismatch;
+    return resolveArgument(if (condition.value.boolean) then_arg else else_arg, values, allocator, false);
+}
+
+fn resolveArgument(
+    arg: std.json.Value,
+    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+    allocator: std.mem.Allocator,
+    allow_transform: bool,
+) !value.OwnedTaggedValue {
+    if (arg != .object) return error.InvalidArgument;
+    var variants: usize = 0;
+    inline for (.{ "ref", "funcRef", "lit", "stepRef", "transform" }) |name| {
+        if (arg.object.contains(name)) variants += 1;
+    }
+    if (variants != 1) return error.InvalidArgument;
+    if (arg.object.get("ref") orelse arg.object.get("funcRef")) |reference| {
+        if (reference != .string) return error.InvalidArgument;
+        const resolved = values.get(reference.string) orelse return error.MissingReference;
+        return value.build(resolved.value, resolved.tags, allocator);
+    }
+    if (arg.object.get("lit")) |literal| return ownedJsonValue(literal, allocator);
+    if (arg.object.get("transform")) |transform| {
+        if (!allow_transform) return error.UnsupportedArgument;
+        return executeTransform(transform, values, allocator);
+    }
+    return error.UnsupportedArgument;
 }
 
 fn executeTransform(
@@ -237,4 +266,31 @@ test "compute rejects forward references during ordered execution" {
     var loaded = try LoadedCompute.init(std.testing.allocator, fixture);
     defer loaded.deinit();
     try std.testing.expectError(error.MissingReference, loaded.execute(std.testing.allocator));
+}
+
+test "compute conditionals resolve only the selected branch" {
+    const fixture =
+        \\{"root":"result","prog":{"bindings":[
+        \\  {"name":"enabled","type":"bool","value":true},
+        \\  {"name":"chosen","type":"str","value":"yes"},
+        \\  {"name":"result","type":"str","expr":{"cond":{"condition":{"ref":"enabled"},"then":{"funcRef":"chosen"},"elseBranch":{"ref":"missing"}}}}
+        \\]}}
+    ;
+    var loaded = try LoadedCompute.init(std.testing.allocator, fixture);
+    defer loaded.deinit();
+    var result = try loaded.execute(std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("yes", result.value.string);
+}
+
+test "compute conditionals require boolean conditions" {
+    const fixture =
+        \\{"root":"result","prog":{"bindings":[
+        \\  {"name":"condition","type":"number","value":1},
+        \\  {"name":"result","type":"number","expr":{"cond":{"condition":{"ref":"condition"},"then":{"lit":2},"elseBranch":{"lit":3}}}}
+        \\]}}
+    ;
+    var loaded = try LoadedCompute.init(std.testing.allocator, fixture);
+    defer loaded.deinit();
+    try std.testing.expectError(error.ConditionTypeMismatch, loaded.execute(std.testing.allocator));
 }
