@@ -38,7 +38,7 @@
   {
     "name": "conditional action and wildcard route",
     "routeId": "main",
-    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"start\",\"match\":[{\"patterns\":[\"start.*.terminal\"],\"target\":\"finish\"}]}],\"scenes\":[{\"id\":\"start\",\"entryAction\":\"intro\",\"actions\":[{\"id\":\"intro\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":3}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.intro\"}],\"next\":[{\"action\":\"terminal\",\"prepare\":[{\"binding\":\"flag\",\"fromLiteral\":true}],\"compute\":{\"condition\":\"flag\",\"prog\":{\"bindings\":[{\"name\":\"flag\",\"type\":\"bool\"}]}}}]},{\"id\":\"terminal\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":4}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.terminal\"}]}]},{\"id\":\"finish\",\"entryAction\":\"done\",\"actions\":[{\"id\":\"done\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.done\"}]}]}]}",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"start\",\"match\":[{\"patterns\":[\"start.*.terminal\"],\"target\":\"finish\"}]}],\"scenes\":[{\"id\":\"start\",\"entryAction\":\"intro\",\"actions\":[{\"id\":\"intro\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":3}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.intro\"}],\"next\":[{\"action\":\"never\",\"prepare\":[{\"binding\":\"bad\",\"fromLiteral\":1}],\"compute\":{\"condition\":\"bad\",\"prog\":{\"bindings\":[{\"name\":\"bad\",\"type\":\"number\"}]}}},{\"action\":\"terminal\",\"prepare\":[{\"binding\":\"flag\",\"fromLiteral\":true}],\"compute\":{\"condition\":\"flag\",\"prog\":{\"bindings\":[{\"name\":\"flag\",\"type\":\"bool\"}]}}}]},{\"id\":\"terminal\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":4}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.terminal\"}]}]},{\"id\":\"finish\",\"entryAction\":\"done\",\"actions\":[{\"id\":\"done\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.done\"}]}]}]}",
     "output": {
       "state": [
         { "path": "result.intro", "value": 3 },
@@ -48,6 +48,7 @@
       "history": ["start.intro", "start.terminal", "finish.done"],
       "logs": [
         { "kind": "action-start", "sceneId": "start", "actionId": "intro", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "start", "actionId": "intro" },
         { "kind": "warning", "sceneId": "start", "actionId": "intro" },
         { "kind": "action-complete", "sceneId": "start", "actionId": "intro" },
         { "kind": "action-start", "sceneId": "start", "actionId": "terminal", "stepIndex": 2 },
@@ -63,7 +64,10 @@
           "actionId": "intro",
           "root": 3,
           "nextActions": ["terminal"],
-          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.intro"] }]
+          "warnings": [
+            { "kind": "unchecked_state_write", "writtenPaths": ["result.intro"] },
+            { "kind": "invalid_next_condition" }
+          ]
         },
         {
           "sceneId": "start",
@@ -85,7 +89,7 @@
   {
     "name": "post-merge state and action output",
     "routeId": "main",
-    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"absent\",\"toState\":\"ignored\"},{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}]}]}]}",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"absent\",\"toState\":\"ignored\"},{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"never\",\"compute\":{}},{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}]}]}]}",
     "output": {
       "state": [
         { "path": "counter.value", "value": 5 },
@@ -94,6 +98,7 @@
       "history": ["only.source", "only.target"],
       "logs": [
         { "kind": "action-start", "sceneId": "only", "actionId": "source", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "only", "actionId": "source" },
         { "kind": "warning", "sceneId": "only", "actionId": "source" },
         { "kind": "warning", "sceneId": "only", "actionId": "source" },
         { "kind": "action-complete", "sceneId": "only", "actionId": "source" },
@@ -109,7 +114,8 @@
           "nextActions": ["target"],
           "warnings": [
             { "kind": "merge_warning" },
-            { "kind": "unchecked_state_write", "writtenPaths": ["counter.value"] }
+            { "kind": "unchecked_state_write", "writtenPaths": ["counter.value"] },
+            { "kind": "missing_next_compute_prog" }
           ]
         },
         {
