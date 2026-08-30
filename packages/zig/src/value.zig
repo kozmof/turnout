@@ -19,7 +19,7 @@ pub const Value = union(enum) {
             .number => |x| x == b.number,
             .string => |x| std.mem.eql(u8, x, b.string),
             .boolean => |x| x == b.boolean,
-            .null_value => |x| x == b.null_value,
+            .null_value => true,
             .array => |x| blk: {
                 if (x.items.len != b.array.items.len) break :blk false;
                 for (x.items, b.array.items) |left, right| if (!left.eql(right)) break :blk false;
