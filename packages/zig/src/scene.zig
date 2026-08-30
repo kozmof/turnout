@@ -45,6 +45,30 @@ pub const Result = struct {
     }
 };
 
+pub const Failure = struct {
+    err: anyerror,
+    partial_state: state_runtime.State,
+    failed_action_id: ?[]const u8,
+
+    pub fn deinit(self: *Failure, allocator: std.mem.Allocator) void {
+        self.partial_state.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
+pub const SafeResult = union(enum) {
+    success: Result,
+    failure: Failure,
+
+    pub fn deinit(self: *SafeResult, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .success => |*result| result.deinit(allocator),
+            .failure => |*failure| failure.deinit(allocator),
+        }
+        self.* = undefined;
+    }
+};
+
 pub fn execute(
     model: *const model_runtime.RuntimeModel,
     scene_id: []const u8,
@@ -52,10 +76,51 @@ pub fn execute(
     max_steps: usize,
     allocator: std.mem.Allocator,
 ) !Result {
-    const scene = findScene(model, scene_id) orelse return error.SceneNotFound;
-    const entry = try validateScene(scene, allocator);
+    var current_state = try initial_state.snapshot(allocator);
+    defer current_state.deinit(allocator);
+    var failed_action_id: ?[]const u8 = null;
+    return executeOwned(model, scene_id, &current_state, max_steps, &failed_action_id, allocator);
+}
+
+pub fn executeSafe(
+    model: *const model_runtime.RuntimeModel,
+    scene_id: []const u8,
+    initial_state: *const state_runtime.State,
+    max_steps: usize,
+    allocator: std.mem.Allocator,
+) !SafeResult {
     var current_state = try initial_state.snapshot(allocator);
     errdefer current_state.deinit(allocator);
+    var failed_action_id: ?[]const u8 = null;
+    const result = executeOwned(
+        model,
+        scene_id,
+        &current_state,
+        max_steps,
+        &failed_action_id,
+        allocator,
+    ) catch |err| {
+        const partial_state = current_state;
+        current_state = .{};
+        return .{ .failure = .{
+            .err = err,
+            .partial_state = partial_state,
+            .failed_action_id = failed_action_id,
+        } };
+    };
+    return .{ .success = result };
+}
+
+fn executeOwned(
+    model: *const model_runtime.RuntimeModel,
+    scene_id: []const u8,
+    current_state: *state_runtime.State,
+    max_steps: usize,
+    failed_action_id: *?[]const u8,
+    allocator: std.mem.Allocator,
+) !Result {
+    const scene = findScene(model, scene_id) orelse return error.SceneNotFound;
+    const entry = try validateScene(scene, allocator);
     var queue = std.ArrayList([]const u8).empty;
     defer queue.deinit(allocator);
     try queue.append(allocator, entry);
@@ -78,17 +143,22 @@ pub fn execute(
     while (queue_head < queue.items.len) {
         const action_id = queue.items[queue_head];
         queue_head += 1;
+        failed_action_id.* = action_id;
         step_count += 1;
         if (step_count > max_steps) return error.MaxStepsExceeded;
         try visited.put(allocator, action_id, {});
 
-        var action_result = try model.executeAction(scene_id, action_id, &current_state, allocator);
+        var action_result = try model.executeAction(scene_id, action_id, current_state, allocator);
         defer action_result.deinit(allocator);
-        var selection = try model.selectNextAfterAction(scene_id, action_id, &action_result, allocator);
+        var selection = model.selectNextAfterAction(scene_id, action_id, &action_result, allocator) catch |err| {
+            current_state.deinit(allocator);
+            current_state.* = action_result.takeState();
+            return err;
+        };
         defer selection.deinit(allocator);
 
         current_state.deinit(allocator);
-        current_state = action_result.takeState();
+        current_state.* = action_result.takeState();
         const next_action = selection.target;
         if (next_action == null) try terminated.append(allocator, action_id);
         const next_warnings = try allocator.dupe(model_runtime.NextRuleWarning, selection.warnings);
@@ -115,6 +185,7 @@ pub fn execute(
                 try queue.append(allocator, target);
             }
         }
+        failed_action_id.* = null;
     }
 
     const trace_slice = try traces.toOwnedSlice(allocator);
@@ -125,8 +196,10 @@ pub fn execute(
     const terminated_slice = try terminated.toOwnedSlice(allocator);
     errdefer allocator.free(terminated_slice);
     const duplicate_slice = try duplicates.toOwnedSlice(allocator);
+    const final_state = current_state.*;
+    current_state.* = .{};
     return .{
-        .state_after_scene = current_state,
+        .state_after_scene = final_state,
         .traces = trace_slice,
         .terminated_at = terminated_slice,
         .duplicate_warnings = duplicate_slice,
@@ -216,4 +289,67 @@ test "scene suppresses duplicate enqueue and enforces step limit" {
     try std.testing.expectEqualStrings("a", result.duplicate_warnings[0].action_id);
     try std.testing.expect(result.duplicate_warnings[0].first_enqueued_by == null);
     try std.testing.expectError(error.MaxStepsExceeded, execute(&model, "main", &state, 1, std.testing.allocator));
+}
+
+test "safe scene result preserves committed state and failed action" {
+    const fixture =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
+        \\  {
+        \\    "id":"first",
+        \\    "compute":{"root":"out","prog":{"bindings":[
+        \\      {"name":"out","type":"number","value":1}
+        \\    ]}},
+        \\    "merge":[{"binding":"out","toState":"step.first"}],
+        \\    "next":[{"action":"second"}]
+        \\  },
+        \\  {
+        \\    "id":"second",
+        \\    "compute":{"root":"out","prog":{"bindings":[
+        \\      {"name":"out","type":"number","expr":{
+        \\        "combine":{"fn":"not_a_function","args":[{"lit":1},{"lit":2}]}
+        \\      }}
+        \\    ]}}
+        \\  }
+        \\]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var safe = try executeSafe(&model, "main", &state, default_max_steps, std.testing.allocator);
+    defer safe.deinit(std.testing.allocator);
+    switch (safe) {
+        .success => return error.TestExpectedFailure,
+        .failure => |*failure| {
+            try std.testing.expectEqual(error.UnknownFunction, failure.err);
+            try std.testing.expectEqualStrings("second", failure.failed_action_id.?);
+            var committed = try failure.partial_state.read("step.first", std.testing.allocator);
+            defer committed.deinit(std.testing.allocator);
+            try std.testing.expectEqual(@as(f64, 1), committed.value.number);
+        },
+    }
+}
+
+test "safe scene construction failure retains initial state without action id" {
+    const fixture =
+        \\{"version":2,"scenes":[{"id":"main","actions":[]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    var initial: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    defer initial.deinit(std.testing.allocator);
+    try initial.put(std.testing.allocator, "kept", .{ .value = .{ .boolean = true } });
+    var state = try state_runtime.State.initUnchecked(&initial, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var safe = try executeSafe(&model, "main", &state, default_max_steps, std.testing.allocator);
+    defer safe.deinit(std.testing.allocator);
+    switch (safe) {
+        .success => return error.TestExpectedFailure,
+        .failure => |*failure| {
+            try std.testing.expectEqual(error.NoEntryAction, failure.err);
+            try std.testing.expect(failure.failed_action_id == null);
+            try std.testing.expect(try failure.partial_state.exists("kept"));
+        },
+    }
 }
