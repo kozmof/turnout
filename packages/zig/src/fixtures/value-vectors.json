@@ -1,0 +1,40 @@
+[
+  {
+    "name": "large JSON integer rounds to f64",
+    "input": 9007199254740993,
+    "tags": ["input"],
+    "expected": { "symbol": "number", "value": 9007199254740992, "tags": ["input"] }
+  },
+  {
+    "name": "nested arrays and null reasons",
+    "input": ["😀", null, [true]],
+    "tags": ["outer"],
+    "expected": {
+      "symbol": "array",
+      "tags": ["outer"],
+      "value": [
+        { "symbol": "string", "value": "😀", "tags": [] },
+        { "symbol": "null", "value": null, "reason": "unknown", "tags": [] },
+        {
+          "symbol": "array",
+          "tags": [],
+          "value": [{ "symbol": "boolean", "value": true, "tags": [] }]
+        }
+      ]
+    }
+  },
+  {
+    "name": "record insertion order",
+    "input": { "first": 1, "second": "two", "third": false },
+    "tags": [],
+    "expected": {
+      "symbol": "record",
+      "tags": [],
+      "value": {
+        "first": { "symbol": "number", "value": 1, "tags": [] },
+        "second": { "symbol": "string", "value": "two", "tags": [] },
+        "third": { "symbol": "boolean", "value": false, "tags": [] }
+      }
+    }
+  }
+]

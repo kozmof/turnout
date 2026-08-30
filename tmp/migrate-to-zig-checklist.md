@@ -10,7 +10,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Current phase | 5 |
 | Last verified commit | `4258d8e` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Unicode case conversion and shared Value vectors are incomplete |
+| Blocking issue | Unicode case conversion is incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -122,14 +122,14 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Implement binding execution in declaration order
 - [x] Implement compute root resolution
 - [x] Implement missing compute and root behavior
-- [ ] Add shared Value and preset-function vectors
+- [x] Add shared Value and preset-function vectors
 - [x] Add compute parity fixtures
 - [x] Add compute complexity and nesting limits
 
 ### Phase 5 exit gate
 
-- [ ] Shared Value vectors pass in TypeScript and Zig
-- [ ] Shared preset-function vectors pass in TypeScript and Zig
+- [x] Shared Value vectors pass in TypeScript and Zig
+- [x] Shared preset-function vectors pass in TypeScript and Zig
 - [ ] Compute results and errors match
 
 ## Phase 6. Port STATE, actions, scenes, and routes
