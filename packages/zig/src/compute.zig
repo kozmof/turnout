@@ -33,7 +33,8 @@ pub const LoadedCompute = struct {
     }
 
     pub fn rootName(self: *const LoadedCompute) []const u8 {
-        return self.parsed.value.object.get("root").?.string;
+        const root = self.parsed.value.object.get("root") orelse return "";
+        return root.string;
     }
 
     pub fn bindings(self: *const LoadedCompute) []const std.json.Value {
@@ -41,23 +42,38 @@ pub const LoadedCompute = struct {
     }
 
     pub fn execute(self: *const LoadedCompute, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+        const inputs: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+        return self.executeWithInputs(&inputs, allocator);
+    }
+
+    pub fn executeWithInputs(
+        self: *const LoadedCompute,
+        inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+        allocator: std.mem.Allocator,
+    ) !value.OwnedTaggedValue {
         var values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
         defer deinitValues(&values, allocator);
 
         for (self.bindings()) |binding| {
             const object = binding.object;
             const name = object.get("name").?.string;
-            var result = if (object.get("value")) |literal|
+            var result = if (object.get("expr")) |expression|
+                try executeExpression(expression, &values, allocator)
+            else if (inputs.get(name)) |input|
+                try value.build(input.value, input.tags, allocator)
+            else if (object.get("value")) |literal|
                 try ownedJsonValue(literal, allocator)
             else
-                try executeExpression(object.get("expr").?, &values, allocator);
+                return error.MissingBindingValue;
             values.put(allocator, name, result) catch |err| {
                 result.deinit(allocator);
                 return err;
             };
         }
 
-        const root = values.getPtr(self.rootName()) orelse return error.MissingRootBinding;
+        const root_name = self.rootName();
+        if (root_name.len == 0) return value.buildNull(.missing, &.{}, allocator);
+        const root = values.getPtr(root_name) orelse return error.MissingRootBinding;
         return value.build(root.value, root.tags, allocator);
     }
 };
@@ -274,8 +290,8 @@ fn applyTransforms(
 
 pub fn validate(compute: std.json.Value, allocator: std.mem.Allocator) LoadError!void {
     if (compute != .object) return error.RootMustBeObject;
-    const root = compute.object.get("root") orelse return error.MissingRoot;
-    if (root != .string or root.string.len == 0) return error.MissingRoot;
+    const root = compute.object.get("root") orelse std.json.Value{ .string = "" };
+    if (root != .string) return error.MissingRoot;
     const prog = compute.object.get("prog") orelse return error.MissingProgram;
     if (prog != .object) return error.InvalidProgram;
     const bindings_value = prog.object.get("bindings") orelse return error.InvalidProgram;
@@ -296,10 +312,10 @@ pub fn validate(compute: std.json.Value, allocator: std.mem.Allocator) LoadError
 
         const has_value = binding.object.contains("value");
         const has_expr = binding.object.contains("expr");
-        if (has_value == has_expr) return error.InvalidBinding;
+        if (has_value and has_expr) return error.InvalidBinding;
         if (has_expr) try validateExpression(binding.object.get("expr").?);
     }
-    if (!found_root) return error.MissingRootBinding;
+    if (root.string.len > 0 and !found_root) return error.MissingRootBinding;
 }
 
 fn validateExpression(expression: std.json.Value) LoadError!void {
@@ -431,4 +447,43 @@ test "compute pipes reject empty and forward step references" {
     );
     defer forward.deinit();
     try std.testing.expectError(error.InvalidStepReference, forward.execute(std.testing.allocator));
+}
+
+test "prepared inputs override value bindings and preserve tags" {
+    const fixture =
+        \\{"root":"result","prog":{"bindings":[
+        \\  {"name":"input","type":"number"},
+        \\  {"name":"result","type":"number","expr":{"combine":{"fn":"add","args":[{"ref":"input"},{"lit":1}]}}}
+        \\]}}
+    ;
+    var loaded = try LoadedCompute.init(std.testing.allocator, fixture);
+    defer loaded.deinit();
+    var inputs: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer inputs.deinit(std.testing.allocator);
+    try inputs.put(std.testing.allocator, "input", .{ .value = .{ .number = 9 }, .tags = &.{"state"} });
+    var result = try loaded.executeWithInputs(&inputs, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 10), result.value.number);
+    try std.testing.expectEqualSlices([]const u8, &.{"state"}, result.tags);
+}
+
+test "uninjected bindings without defaults fail during execution" {
+    var loaded = try LoadedCompute.init(
+        std.testing.allocator,
+        "{\"root\":\"input\",\"prog\":{\"bindings\":[{\"name\":\"input\",\"type\":\"number\"}]}}",
+    );
+    defer loaded.deinit();
+    try std.testing.expectError(error.MissingBindingValue, loaded.execute(std.testing.allocator));
+}
+
+test "compute without a root returns missing null" {
+    var loaded = try LoadedCompute.init(
+        std.testing.allocator,
+        "{\"prog\":{\"bindings\":[{\"name\":\"value\",\"type\":\"number\",\"value\":1}]}}",
+    );
+    defer loaded.deinit();
+    var result = try loaded.execute(std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(value.NullReason.missing, result.value.null_value);
+    try std.testing.expectEqual(@as(usize, 0), result.tags.len);
 }
