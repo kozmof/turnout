@@ -18,6 +18,7 @@ pub const RuntimeError = error{
     PublishHookFailed,
     MissingPrepareBinding,
     InvalidPreparePayload,
+    ActionInProgress,
 };
 pub const Event = union(enum) {
     need_effect: effect.Request,
@@ -79,6 +80,7 @@ pub const Runtime = struct {
     pending_context: ?[]u8 = null,
     action_state_context: ?[]u8 = null,
     scheduled: []const effect.Spec = &.{},
+    owns_scheduled: bool = false,
     schedule_index: usize = 0,
     status: Status = .active,
     completed: std.ArrayList(CompletedEffect) = .empty,
@@ -87,11 +89,47 @@ pub const Runtime = struct {
         return .{ .allocator = allocator, .scheduled = scheduled };
     }
 
+    pub fn initAction(
+        allocator: std.mem.Allocator,
+        model: anytype,
+        scene_id: []const u8,
+        action_id: []const u8,
+    ) !Runtime {
+        const schedule = try model.actionEffectSchedule(scene_id, action_id, allocator);
+        return .{
+            .allocator = allocator,
+            .scheduled = schedule.specs,
+            .owns_scheduled = true,
+        };
+    }
+
+    pub fn beginAction(
+        self: *Runtime,
+        model: anytype,
+        scene_id: []const u8,
+        action_id: []const u8,
+    ) !void {
+        if (self.pending != null) return error.PendingEffect;
+        if (self.status == .active and self.schedule_index != self.scheduled.len)
+            return error.ActionInProgress;
+        const schedule = try model.actionEffectSchedule(scene_id, action_id, self.allocator);
+        for (self.completed.items) |*item| item.deinit(self.allocator);
+        self.completed.clearRetainingCapacity();
+        if (self.action_state_context) |context| self.allocator.free(context);
+        self.action_state_context = null;
+        if (self.owns_scheduled) self.allocator.free(self.scheduled);
+        self.scheduled = schedule.specs;
+        self.owns_scheduled = true;
+        self.schedule_index = 0;
+        self.status = .active;
+    }
+
     pub fn deinit(self: *Runtime) void {
         if (self.pending_context) |context| self.allocator.free(context);
         if (self.action_state_context) |context| self.allocator.free(context);
         for (self.completed.items) |*item| item.deinit(self.allocator);
         self.completed.deinit(self.allocator);
+        if (self.owns_scheduled) self.allocator.free(self.scheduled);
         self.* = undefined;
     }
 
@@ -672,9 +710,7 @@ test "one prepare hook response feeds multiple action bindings" {
     ;
     var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
     defer model.deinit();
-    var schedule = try model.actionEffectSchedule("main", "start", std.testing.allocator);
-    defer schedule.deinit(std.testing.allocator);
-    var runtime = Runtime.init(std.testing.allocator, schedule.specs);
+    var runtime = try Runtime.initAction(std.testing.allocator, &model, "main", "start");
     defer runtime.deinit();
     const request = (try runtime.step()).need_effect;
     try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"left\":{\"symbol\":\"number\",\"value\":2,\"tags\":[\"host\"]},\"right\":{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}" } });
@@ -849,4 +885,29 @@ test "dynamic prepare request owns prior binding context" {
         request.context_json,
         runtime.completedEffects()[0].request.context_json,
     );
+}
+
+test "begin action preserves effect IDs and clears prior outcomes" {
+    const model_runtime = @import("model.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
+        \\{"id":"first","publish":["save_first"]},
+        \\{"id":"second","publish":["save_second"]}
+        \\]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    var runtime = try Runtime.initAction(std.testing.allocator, &model, "main", "first");
+    defer runtime.deinit();
+    const first = (try runtime.step()).need_effect;
+    try std.testing.expectEqual(@as(u64, 1), first.id);
+    try runtime.@"resume"(first.id, .{ .publish = .ok });
+    try std.testing.expect((try runtime.step()) == .complete);
+    try std.testing.expectEqual(@as(usize, 1), runtime.completedEffects().len);
+
+    try runtime.beginAction(&model, "main", "second");
+    try std.testing.expectEqual(@as(usize, 0), runtime.completedEffects().len);
+    const second = (try runtime.step()).need_effect;
+    try std.testing.expectEqual(@as(u64, 2), second.id);
+    try std.testing.expectEqualStrings("save_second", second.hook);
 }
