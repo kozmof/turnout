@@ -26,6 +26,30 @@ pub const Result = struct {
     }
 };
 
+pub const Failure = struct {
+    err: anyerror,
+    partial_state: state_runtime.State,
+    failed_scene_id: []const u8,
+
+    pub fn deinit(self: *Failure, allocator: std.mem.Allocator) void {
+        self.partial_state.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
+pub const SafeResult = union(enum) {
+    success: Result,
+    failure: Failure,
+
+    pub fn deinit(self: *SafeResult, allocator: std.mem.Allocator) void {
+        switch (self.*) {
+            .success => |*result| result.deinit(allocator),
+            .failure => |*failure| failure.deinit(allocator),
+        }
+        self.* = undefined;
+    }
+};
+
 pub fn selectNextScene(
     history: []const HistoryEntry,
     arms: std.json.Value,
@@ -63,13 +87,65 @@ pub fn execute(
     max_transitions: usize,
     allocator: std.mem.Allocator,
 ) !Result {
+    var current_state = try initial_state.snapshot(allocator);
+    defer current_state.deinit(allocator);
+    var current_scene: []const u8 = "";
+    return executeOwned(
+        model,
+        route_id,
+        &current_state,
+        &current_scene,
+        max_scene_steps,
+        max_transitions,
+        allocator,
+    );
+}
+
+pub fn executeSafe(
+    model: *const model_runtime.RuntimeModel,
+    route_id: []const u8,
+    initial_state: *const state_runtime.State,
+    max_scene_steps: usize,
+    max_transitions: usize,
+    allocator: std.mem.Allocator,
+) !SafeResult {
+    var current_state = try initial_state.snapshot(allocator);
+    errdefer current_state.deinit(allocator);
+    var current_scene: []const u8 = "";
+    const result = executeOwned(
+        model,
+        route_id,
+        &current_state,
+        &current_scene,
+        max_scene_steps,
+        max_transitions,
+        allocator,
+    ) catch |err| {
+        const partial_state = current_state;
+        current_state = .{};
+        return .{ .failure = .{
+            .err = err,
+            .partial_state = partial_state,
+            .failed_scene_id = current_scene,
+        } };
+    };
+    return .{ .success = result };
+}
+
+fn executeOwned(
+    model: *const model_runtime.RuntimeModel,
+    route_id: []const u8,
+    current_state: *state_runtime.State,
+    current_scene: *[]const u8,
+    max_scene_steps: usize,
+    max_transitions: usize,
+    allocator: std.mem.Allocator,
+) !Result {
     const route = findRoute(model, route_id) orelse return error.RouteNotFound;
     const entry = route.get("entrySceneId") orelse return error.NoEntryScene;
     const arms = route.get("match") orelse return error.InvalidRoute;
     if (entry != .string or entry.string.len == 0) return error.NoEntryScene;
-    var current_scene = entry.string;
-    var current_state = try initial_state.snapshot(allocator);
-    errdefer current_state.deinit(allocator);
+    current_scene.* = entry.string;
     var history = std.ArrayList(HistoryEntry).empty;
     errdefer history.deinit(allocator);
     var scenes = std.ArrayList([]const u8).empty;
@@ -79,27 +155,29 @@ pub fn execute(
         const history_start = history.items.len;
         var scene_result = try scene_runtime.execute(
             model,
-            current_scene,
-            &current_state,
+            current_scene.*,
+            current_state,
             max_scene_steps,
             allocator,
         );
         defer scene_result.deinit(allocator);
         current_state.deinit(allocator);
-        current_state = scene_result.takeState();
-        try scenes.append(allocator, current_scene);
+        current_state.* = scene_result.takeState();
+        try scenes.append(allocator, current_scene.*);
         for (scene_result.traces) |trace|
-            try history.append(allocator, .{ .scene_id = current_scene, .action_id = trace.action_id });
-        const next = try selectNextScene(history.items[history_start..], arms, current_scene);
+            try history.append(allocator, .{ .scene_id = current_scene.*, .action_id = trace.action_id });
+        const next = try selectNextScene(history.items[history_start..], arms, current_scene.*);
         if (next == null) break;
         transitions += 1;
         if (transitions > max_transitions) return error.MaxRouteTransitionsExceeded;
-        current_scene = next.?;
+        current_scene.* = next.?;
     }
     const history_slice = try history.toOwnedSlice(allocator);
     errdefer allocator.free(history_slice);
     const scene_slice = try scenes.toOwnedSlice(allocator);
-    return .{ .final_state = current_state, .history = history_slice, .scenes = scene_slice };
+    const final_state = current_state.*;
+    current_state.* = .{};
+    return .{ .final_state = final_state, .history = history_slice, .scenes = scene_slice };
 }
 
 fn better(candidate: Score, current: Score) bool {
@@ -233,4 +311,79 @@ test "route transition limit fails on the transition after the limit" {
         error.MaxRouteTransitionsExceeded,
         execute(&model, "loop", &state, scene_runtime.default_max_steps, 0, std.testing.allocator),
     );
+}
+
+test "safe route result keeps state from last completed scene" {
+    const fixture =
+        \\{"version":2,
+        \\ "routes":[{"id":"main","entrySceneId":"s1","match":[
+        \\   {"patterns":["s1.a"],"target":"s2"}
+        \\ ]}],
+        \\ "scenes":[
+        \\   {"id":"s1","entryAction":"a","actions":[{"id":"a",
+        \\     "compute":{"root":"out","prog":{"bindings":[
+        \\       {"name":"out","type":"number","value":1}
+        \\     ]}},
+        \\     "merge":[{"binding":"out","toState":"committed"}]
+        \\   }]},
+        \\   {"id":"s2","entryAction":"b","actions":[{"id":"b",
+        \\     "compute":{"root":"out","prog":{"bindings":[
+        \\       {"name":"out","type":"number","expr":{
+        \\         "combine":{"fn":"not_a_function","args":[{"lit":1},{"lit":2}]}
+        \\       }}
+        \\     ]}}
+        \\   }]}
+        \\ ]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var safe = try executeSafe(
+        &model,
+        "main",
+        &state,
+        scene_runtime.default_max_steps,
+        default_max_transitions,
+        std.testing.allocator,
+    );
+    defer safe.deinit(std.testing.allocator);
+    switch (safe) {
+        .success => return error.TestExpectedFailure,
+        .failure => |*failure| {
+            try std.testing.expectEqual(error.UnknownFunction, failure.err);
+            try std.testing.expectEqualStrings("s2", failure.failed_scene_id);
+            var committed = try failure.partial_state.read("committed", std.testing.allocator);
+            defer committed.deinit(std.testing.allocator);
+            try std.testing.expectEqual(@as(f64, 1), committed.value.number);
+        },
+    }
+}
+
+test "safe route success owns the normal result" {
+    const fixture =
+        \\{"version":2,
+        \\ "routes":[{"id":"main","entrySceneId":"only","match":[]}],
+        \\ "scenes":[{"id":"only","entryAction":"done","actions":[{"id":"done"}]}]
+        \\}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var safe = try executeSafe(
+        &model,
+        "main",
+        &state,
+        scene_runtime.default_max_steps,
+        default_max_transitions,
+        std.testing.allocator,
+    );
+    defer safe.deinit(std.testing.allocator);
+    switch (safe) {
+        .success => |result| try std.testing.expectEqual(@as(usize, 1), result.scenes.len),
+        .failure => return error.TestUnexpectedFailure,
+    }
 }
