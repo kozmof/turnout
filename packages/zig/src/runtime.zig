@@ -156,10 +156,10 @@ pub const Runtime = struct {
                     .status = .ok,
                 }),
                 .missing => {},
-                .failed => |message| try outcomes.append(self.allocator, .{
+                .failed => |failure| try outcomes.append(self.allocator, .{
                     .hook_name = item.request.hook,
                     .status = .@"error",
-                    .message = message,
+                    .message = failure.message,
                 }),
             }
         }
@@ -385,10 +385,14 @@ test "resume owns prepare payloads and publish failures" {
 
     const publish_request = (try runtime.step()).need_effect;
     var message = [_]u8{ 'b', 'a', 'd' };
-    try runtime.@"resume"(publish_request.id, .{ .publish = .{ .failed = &message } });
+    try runtime.@"resume"(publish_request.id, .{ .publish = .{ .failed = .{
+        .source = .thrown,
+        .message = &message,
+    } } });
     message[0] = 'x';
     const stored = runtime.completedResult(publish_request.id).?.publish;
-    try std.testing.expectEqualStrings("bad", stored.failed);
+    try std.testing.expectEqual(effect.PublishFailureSource.thrown, stored.failed.source);
+    try std.testing.expectEqualStrings("bad", stored.failed.message);
 }
 
 test "prepare and publish outcome policies differ" {
@@ -423,7 +427,10 @@ test "prepare and publish outcome policies differ" {
     const missing_publish = (try runtime.step()).need_effect;
     try runtime.@"resume"(missing_publish.id, .{ .publish = .missing });
     const failed_publish = (try runtime.step()).need_effect;
-    try runtime.@"resume"(failed_publish.id, .{ .publish = .{ .failed = "host failed" } });
+    try runtime.@"resume"(failed_publish.id, .{ .publish = .{ .failed = .{
+        .source = .returned,
+        .message = "host failed",
+    } } });
     try runtime.enforcePublishPolicy(false);
     try std.testing.expectError(error.PublishHookFailed, runtime.enforcePublishPolicy(true));
 }
@@ -582,10 +589,16 @@ test "strict publish policy is action scoped and preserves merged state" {
     var runtime = Runtime.init(std.testing.allocator, &scheduled);
     defer runtime.deinit();
     const previous = (try runtime.step()).need_effect;
-    try runtime.@"resume"(previous.id, .{ .publish = .{ .failed = "old failure" } });
+    try runtime.@"resume"(previous.id, .{ .publish = .{ .failed = .{
+        .source = .thrown,
+        .message = "old failure",
+    } } });
     try runtime.enforceActionPublishPolicy("main", "current", true);
     const current = (try runtime.step()).need_effect;
-    try runtime.@"resume"(current.id, .{ .publish = .{ .failed = "current failure" } });
+    try runtime.@"resume"(current.id, .{ .publish = .{ .failed = .{
+        .source = .returned,
+        .message = "current failure",
+    } } });
     try std.testing.expectError(
         error.PublishHookFailed,
         runtime.enforceActionPublishPolicy("main", "current", true),
@@ -600,7 +613,8 @@ test "action publish outcomes retain order and omit missing hooks" {
         .{ .kind = .publish, .hook = "first", .scene_id = "main", .action_id = "start", .callback_index = 0 },
         .{ .kind = .publish, .hook = "optional", .scene_id = "main", .action_id = "start", .callback_index = 1 },
         .{ .kind = .publish, .hook = "other", .scene_id = "main", .action_id = "other", .callback_index = 0 },
-        .{ .kind = .publish, .hook = "last", .scene_id = "main", .action_id = "start", .callback_index = 2 },
+        .{ .kind = .publish, .hook = "thrown", .scene_id = "main", .action_id = "start", .callback_index = 2 },
+        .{ .kind = .publish, .hook = "last", .scene_id = "main", .action_id = "start", .callback_index = 3 },
     };
     var runtime = Runtime.init(std.testing.allocator, &scheduled);
     defer runtime.deinit();
@@ -609,16 +623,30 @@ test "action publish outcomes retain order and omit missing hooks" {
     const optional = (try runtime.step()).need_effect;
     try runtime.@"resume"(optional.id, .{ .publish = .missing });
     const other = (try runtime.step()).need_effect;
-    try runtime.@"resume"(other.id, .{ .publish = .{ .failed = "ignored" } });
+    try runtime.@"resume"(other.id, .{ .publish = .{ .failed = .{
+        .source = .thrown,
+        .message = "ignored",
+    } } });
+    const thrown = (try runtime.step()).need_effect;
+    try runtime.@"resume"(thrown.id, .{ .publish = .{ .failed = .{
+        .source = .thrown,
+        .message = "exception",
+    } } });
     const last = (try runtime.step()).need_effect;
-    try runtime.@"resume"(last.id, .{ .publish = .{ .failed = "rejected" } });
+    try runtime.@"resume"(last.id, .{ .publish = .{ .failed = .{
+        .source = .returned,
+        .message = "rejected",
+    } } });
 
     var outcomes = try runtime.actionPublishOutcomes("main", "start");
     defer outcomes.deinit(std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 2), outcomes.items.len);
+    try std.testing.expectEqual(@as(usize, 3), outcomes.items.len);
     try std.testing.expectEqualStrings("first", outcomes.items[0].hook_name);
     try std.testing.expectEqual(PublishStatus.ok, outcomes.items[0].status);
-    try std.testing.expectEqualStrings("last", outcomes.items[1].hook_name);
+    try std.testing.expectEqualStrings("thrown", outcomes.items[1].hook_name);
     try std.testing.expectEqual(PublishStatus.@"error", outcomes.items[1].status);
-    try std.testing.expectEqualStrings("rejected", outcomes.items[1].message.?);
+    try std.testing.expectEqualStrings("exception", outcomes.items[1].message.?);
+    try std.testing.expectEqualStrings("last", outcomes.items[2].hook_name);
+    try std.testing.expectEqual(PublishStatus.@"error", outcomes.items[2].status);
+    try std.testing.expectEqualStrings("rejected", outcomes.items[2].message.?);
 }
