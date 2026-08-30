@@ -12,10 +12,17 @@ const ExpectedLog = struct {
     actionId: []const u8,
     stepIndex: ?usize = null,
 };
+const ExpectedTrace = struct {
+    sceneId: []const u8,
+    actionId: []const u8,
+    root: f64,
+    nextActions: []const []const u8,
+};
 const Output = struct {
     state: []const ExpectedState,
     history: []const []const u8,
     logs: []const ExpectedLog,
+    traces: []const ExpectedTrace,
 };
 const Vector = struct { name: []const u8, routeId: []const u8, model: []const u8, output: Output };
 
@@ -69,5 +76,20 @@ test "shared scene and route vectors" {
             try std.testing.expectEqualStrings(expected.actionId, actual.action_id);
             try std.testing.expectEqual(expected.stepIndex, actual.step_index);
         }
+        var trace_index: usize = 0;
+        for (result.traces) |scene_trace| {
+            for (scene_trace.actions) |action_trace| {
+                const expected = vector.output.traces[trace_index];
+                trace_index += 1;
+                try std.testing.expectEqualStrings(expected.sceneId, scene_trace.scene_id);
+                try std.testing.expectEqualStrings(expected.actionId, action_trace.action_id);
+                try std.testing.expectEqual(expected.root, action_trace.compute_root.value.number);
+                const actual_next_len: usize = if (action_trace.next_action_id == null) 0 else 1;
+                try std.testing.expectEqual(expected.nextActions.len, actual_next_len);
+                if (action_trace.next_action_id) |next|
+                    try std.testing.expectEqualStrings(expected.nextActions[0], next);
+            }
+        }
+        try std.testing.expectEqual(vector.output.traces.len, trace_index);
     }
 }

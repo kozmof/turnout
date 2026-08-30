@@ -13,17 +13,31 @@ pub const HistoryEntry = struct {
 
 const Score = struct { wildcards: usize, suffix_len: usize };
 
+pub const SceneTrace = struct {
+    scene_id: []const u8,
+    actions: []scene_runtime.ActionTrace,
+
+    pub fn deinit(self: *SceneTrace, allocator: std.mem.Allocator) void {
+        for (self.actions) |*action| action.deinit(allocator);
+        allocator.free(self.actions);
+        self.* = undefined;
+    }
+};
+
 pub const Result = struct {
     final_state: state_runtime.State,
     history: []HistoryEntry,
     scenes: []const []const u8,
     logs: []scene_runtime.LogEvent,
+    traces: []SceneTrace,
 
     pub fn deinit(self: *Result, allocator: std.mem.Allocator) void {
         self.final_state.deinit(allocator);
         allocator.free(self.history);
         allocator.free(self.scenes);
         allocator.free(self.logs);
+        for (self.traces) |*trace| trace.deinit(allocator);
+        allocator.free(self.traces);
         self.* = undefined;
     }
 };
@@ -163,6 +177,11 @@ fn executeOwned(
     errdefer history.deinit(allocator);
     var scenes = std.ArrayList([]const u8).empty;
     errdefer scenes.deinit(allocator);
+    var traces = std.ArrayList(SceneTrace).empty;
+    errdefer {
+        for (traces.items) |*trace| trace.deinit(allocator);
+        traces.deinit(allocator);
+    }
     var transitions: usize = 0;
     while (true) {
         const history_start = history.items.len;
@@ -182,6 +201,11 @@ fn executeOwned(
             },
         };
         try logs.appendSlice(allocator, scene_result.logs);
+        var cloned_trace = try cloneSceneTrace(current_scene.*, scene_result.traces, allocator);
+        traces.append(allocator, cloned_trace) catch |err| {
+            cloned_trace.deinit(allocator);
+            return err;
+        };
         current_state.deinit(allocator);
         current_state.* = scene_result.takeState();
         try scenes.append(allocator, current_scene.*);
@@ -198,6 +222,8 @@ fn executeOwned(
     const scene_slice = try scenes.toOwnedSlice(allocator);
     errdefer allocator.free(scene_slice);
     const log_slice = try logs.toOwnedSlice(allocator);
+    errdefer allocator.free(log_slice);
+    const trace_slice = try traces.toOwnedSlice(allocator);
     const final_state = current_state.*;
     current_state.* = .{};
     return .{
@@ -205,7 +231,24 @@ fn executeOwned(
         .history = history_slice,
         .scenes = scene_slice,
         .logs = log_slice,
+        .traces = trace_slice,
     };
+}
+
+fn cloneSceneTrace(
+    scene_id: []const u8,
+    actions: []const scene_runtime.ActionTrace,
+    allocator: std.mem.Allocator,
+) !SceneTrace {
+    const cloned = try allocator.alloc(scene_runtime.ActionTrace, actions.len);
+    errdefer allocator.free(cloned);
+    var initialized: usize = 0;
+    errdefer for (cloned[0..initialized]) |*action| action.deinit(allocator);
+    for (actions, 0..) |action, index| {
+        cloned[index] = try action.clone(allocator);
+        initialized += 1;
+    }
+    return .{ .scene_id = scene_id, .actions = cloned };
 }
 
 fn better(candidate: Score, current: Score) bool {

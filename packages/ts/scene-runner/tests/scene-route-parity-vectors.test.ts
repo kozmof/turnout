@@ -19,6 +19,12 @@ type Vector = {
       actionId: string;
       stepIndex?: number;
     }>;
+    traces: Array<{
+      sceneId: string;
+      actionId: string;
+      root: unknown;
+      nextActions: string[];
+    }>;
   };
 };
 
@@ -56,6 +62,16 @@ describe("shared scene and route vectors", () => {
           ...("stepIndex" in event ? { stepIndex: event.stepIndex } : {}),
         })),
       ).toEqual(vector.output.logs);
+      expect(
+        result.trace.scenes.flatMap((scene) =>
+          scene.actions.map((action) => ({
+            sceneId: scene.sceneId,
+            actionId: action.actionId,
+            root: action.computeRootValue.value,
+            nextActions: action.nextActionIds,
+          })),
+        ),
+      ).toEqual(vector.output.traces);
     });
   }
 });

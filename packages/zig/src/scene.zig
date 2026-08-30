@@ -31,15 +31,38 @@ pub const LogEvent = struct {
 pub const ActionTrace = struct {
     action_id: []const u8,
     next_action_id: ?[]const u8,
+    compute_root: turnout_value.OwnedTaggedValue,
     merge_warnings: []action_runtime.MergeWarning,
     unchecked_write_paths: []const []const u8,
     next_warnings: []model_runtime.NextRuleWarning,
 
-    fn deinit(self: *ActionTrace, allocator: std.mem.Allocator) void {
+    pub fn deinit(self: *ActionTrace, allocator: std.mem.Allocator) void {
+        self.compute_root.deinit(allocator);
         allocator.free(self.merge_warnings);
         allocator.free(self.unchecked_write_paths);
         allocator.free(self.next_warnings);
         self.* = undefined;
+    }
+
+    pub fn clone(self: *const ActionTrace, allocator: std.mem.Allocator) !ActionTrace {
+        var compute_root = try turnout_value.build(
+            self.compute_root.value,
+            self.compute_root.tags,
+            allocator,
+        );
+        errdefer compute_root.deinit(allocator);
+        const merge_warnings = try allocator.dupe(action_runtime.MergeWarning, self.merge_warnings);
+        errdefer allocator.free(merge_warnings);
+        const unchecked_write_paths = try allocator.dupe([]const u8, self.unchecked_write_paths);
+        errdefer allocator.free(unchecked_write_paths);
+        return .{
+            .action_id = self.action_id,
+            .next_action_id = self.next_action_id,
+            .compute_root = compute_root,
+            .merge_warnings = merge_warnings,
+            .unchecked_write_paths = unchecked_write_paths,
+            .next_warnings = try allocator.dupe(model_runtime.NextRuleWarning, self.next_warnings),
+        };
     }
 };
 
@@ -284,6 +307,12 @@ fn makeTrace(
     selection: *const model_runtime.NextRuleSelection,
     allocator: std.mem.Allocator,
 ) !ActionTrace {
+    var compute_root = try turnout_value.build(
+        action_result.compute_root.value,
+        action_result.compute_root.tags,
+        allocator,
+    );
+    errdefer compute_root.deinit(allocator);
     const merge_warnings = try allocator.dupe(action_runtime.MergeWarning, action_result.merge_warnings);
     errdefer allocator.free(merge_warnings);
     const unchecked_write_paths = try allocator.dupe([]const u8, action_result.unchecked_write_paths);
@@ -291,6 +320,7 @@ fn makeTrace(
     return .{
         .action_id = action_id,
         .next_action_id = next_action,
+        .compute_root = compute_root,
         .merge_warnings = merge_warnings,
         .unchecked_write_paths = unchecked_write_paths,
         .next_warnings = try allocator.dupe(model_runtime.NextRuleWarning, selection.warnings),
