@@ -17,6 +17,11 @@ const ExpectedTrace = struct {
     actionId: []const u8,
     root: f64,
     nextActions: []const []const u8,
+    warnings: []const ExpectedWarning,
+};
+const ExpectedWarning = struct {
+    kind: []const u8,
+    writtenPaths: []const []const u8 = &.{},
 };
 const Output = struct {
     state: []const ExpectedState,
@@ -88,6 +93,40 @@ test "shared scene and route vectors" {
                 try std.testing.expectEqual(expected.nextActions.len, actual_next_len);
                 if (action_trace.next_action_id) |next|
                     try std.testing.expectEqualStrings(expected.nextActions[0], next);
+                const warning_count = action_trace.merge_warnings.len +
+                    @as(usize, if (action_trace.unchecked_write_paths.len > 0) 1 else 0) +
+                    action_trace.next_warnings.len;
+                try std.testing.expectEqual(expected.warnings.len, warning_count);
+                var warning_index: usize = 0;
+                for (action_trace.merge_warnings) |_| {
+                    try std.testing.expectEqualStrings(
+                        expected.warnings[warning_index].kind,
+                        "merge_warning",
+                    );
+                    warning_index += 1;
+                }
+                if (action_trace.unchecked_write_paths.len > 0) {
+                    const warning = expected.warnings[warning_index];
+                    warning_index += 1;
+                    try std.testing.expectEqualStrings(warning.kind, "unchecked_state_write");
+                    try std.testing.expectEqual(
+                        warning.writtenPaths.len,
+                        action_trace.unchecked_write_paths.len,
+                    );
+                    for (warning.writtenPaths, action_trace.unchecked_write_paths) |path, actual|
+                        try std.testing.expectEqualStrings(path, actual);
+                }
+                for (action_trace.next_warnings) |warning| {
+                    const kind = switch (warning.kind) {
+                        .invalid_condition => "invalid_next_condition",
+                        .missing_program => "missing_next_compute_prog",
+                    };
+                    try std.testing.expectEqualStrings(
+                        expected.warnings[warning_index].kind,
+                        kind,
+                    );
+                    warning_index += 1;
+                }
             }
         }
         try std.testing.expectEqual(vector.output.traces.len, trace_index);

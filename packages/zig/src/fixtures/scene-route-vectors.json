@@ -18,8 +18,20 @@
         { "kind": "action-complete", "sceneId": "finish", "actionId": "second" }
       ],
       "traces": [
-        { "sceneId": "start", "actionId": "first", "root": 1, "nextActions": [] },
-        { "sceneId": "finish", "actionId": "second", "root": 2, "nextActions": [] }
+        {
+          "sceneId": "start",
+          "actionId": "first",
+          "root": 1,
+          "nextActions": [],
+          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.first"] }]
+        },
+        {
+          "sceneId": "finish",
+          "actionId": "second",
+          "root": 2,
+          "nextActions": [],
+          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.second"] }]
+        }
       ]
     }
   },
@@ -46,16 +58,34 @@
         { "kind": "action-complete", "sceneId": "finish", "actionId": "done" }
       ],
       "traces": [
-        { "sceneId": "start", "actionId": "intro", "root": 3, "nextActions": ["terminal"] },
-        { "sceneId": "start", "actionId": "terminal", "root": 4, "nextActions": [] },
-        { "sceneId": "finish", "actionId": "done", "root": 5, "nextActions": [] }
+        {
+          "sceneId": "start",
+          "actionId": "intro",
+          "root": 3,
+          "nextActions": ["terminal"],
+          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.intro"] }]
+        },
+        {
+          "sceneId": "start",
+          "actionId": "terminal",
+          "root": 4,
+          "nextActions": [],
+          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.terminal"] }]
+        },
+        {
+          "sceneId": "finish",
+          "actionId": "done",
+          "root": 5,
+          "nextActions": [],
+          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.done"] }]
+        }
       ]
     }
   },
   {
     "name": "post-merge state and action output",
     "routeId": "main",
-    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}]}]}]}",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"absent\",\"toState\":\"ignored\"},{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}]}]}]}",
     "output": {
       "state": [
         { "path": "counter.value", "value": 5 },
@@ -65,14 +95,30 @@
       "logs": [
         { "kind": "action-start", "sceneId": "only", "actionId": "source", "stepIndex": 1 },
         { "kind": "warning", "sceneId": "only", "actionId": "source" },
+        { "kind": "warning", "sceneId": "only", "actionId": "source" },
         { "kind": "action-complete", "sceneId": "only", "actionId": "source" },
         { "kind": "action-start", "sceneId": "only", "actionId": "target", "stepIndex": 2 },
         { "kind": "warning", "sceneId": "only", "actionId": "target" },
         { "kind": "action-complete", "sceneId": "only", "actionId": "target" }
       ],
       "traces": [
-        { "sceneId": "only", "actionId": "source", "root": 5, "nextActions": ["target"] },
-        { "sceneId": "only", "actionId": "target", "root": 9, "nextActions": [] }
+        {
+          "sceneId": "only",
+          "actionId": "source",
+          "root": 5,
+          "nextActions": ["target"],
+          "warnings": [
+            { "kind": "merge_warning" },
+            { "kind": "unchecked_state_write", "writtenPaths": ["counter.value"] }
+          ]
+        },
+        {
+          "sceneId": "only",
+          "actionId": "target",
+          "root": 9,
+          "nextActions": [],
+          "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.target"] }]
+        }
       ]
     }
   }

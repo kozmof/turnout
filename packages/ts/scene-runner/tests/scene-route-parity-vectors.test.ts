@@ -24,6 +24,7 @@ type Vector = {
       actionId: string;
       root: unknown;
       nextActions: string[];
+      warnings: Array<{ kind: string; writtenPaths?: string[] }>;
     }>;
   };
 };
@@ -69,6 +70,12 @@ describe("shared scene and route vectors", () => {
             actionId: action.actionId,
             root: action.computeRootValue.value,
             nextActions: action.nextActionIds,
+            warnings: (action.warnings ?? []).map((warning) => ({
+              kind: warning.kind,
+              ...(warning.kind === "unchecked_state_write"
+                ? { writtenPaths: warning.writtenPaths }
+                : {}),
+            })),
           })),
         ),
       ).toEqual(vector.output.traces);
