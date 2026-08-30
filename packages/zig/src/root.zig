@@ -7,6 +7,7 @@ pub const compute = @import("compute.zig");
 pub const compute_vectors = @import("compute_vectors.zig");
 pub const fn_aliases = @import("generated/fn_aliases.zig");
 pub const effect = @import("effect.zig");
+pub const effect_vectors = @import("effect_vectors.zig");
 pub const runtime = @import("runtime.zig");
 pub const state = @import("state.zig");
 pub const action = @import("action.zig");
@@ -26,6 +27,7 @@ test {
     _ = compute_vectors;
     _ = fn_aliases;
     _ = effect;
+    _ = effect_vectors;
     _ = runtime;
     _ = state;
     _ = action;

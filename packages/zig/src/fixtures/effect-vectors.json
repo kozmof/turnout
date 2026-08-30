@@ -1,0 +1,10 @@
+[
+  {
+    "name": "prepare compute merge publish",
+    "model": "{\"version\":2,\"scenes\":[{\"id\":\"main\",\"entryAction\":\"start\",\"actions\":[{\"id\":\"start\",\"prepare\":[{\"binding\":\"input\",\"fromHook\":\"load\"}],\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"input\",\"type\":\"number\"},{\"name\":\"result\",\"type\":\"number\",\"expr\":{\"combine\":{\"fn\":\"add\",\"args\":[{\"ref\":\"input\"},{\"lit\":2}]}}}]}},\"merge\":[{\"binding\":\"result\",\"toState\":\"result.value\"}],\"publish\":[\"save\"]}]}]}",
+    "prepareValue": 5,
+    "expectedState": 7,
+    "effectOrder": ["prepare:load", "publish:save"],
+    "publishContext": "{\"result.value\":{\"symbol\":\"number\",\"value\":7,\"tags\":[]}}"
+  }
+]
