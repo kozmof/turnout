@@ -10,7 +10,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Current phase | 8 |
 | Last verified commit | `5dced40` |
 | Last updated | 2026-08-30 |
-| Blocking issue | The WASM byte-buffer and runtime-handle boundary is not implemented |
+| Blocking issue | WASM resource limits and portable core tests are not implemented |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -183,10 +183,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Define byte-buffer request and response formats
 - [x] Define handle and buffer ownership
 - [x] Export allocation and release functions
-- [ ] Export runtime create, destroy, step, and resume
-- [ ] Return structured statuses instead of traps
+- [x] Export runtime create, destroy, step, and resume
+- [x] Return structured statuses instead of traps
 - [ ] Enforce model, STATE, nesting, and effect-result limits
-- [ ] Add malformed-input and lifecycle tests
+- [x] Add malformed-input and lifecycle tests
 - [ ] Add leak checks where tooling permits
 - [ ] Run core tests under WASM
 - [ ] Package the WASM artifact for `scene-runner`

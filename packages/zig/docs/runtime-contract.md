@@ -101,3 +101,37 @@ The total allocation length is `12 + payload length`. Read or copy the payload, 
 Invalid model, STATE, and effect-result data returns a structured status. Defined limit failures do not trap.
 
 Raw memory addresses are the exception. Bounds-check addresses and lengths against exported WASM memory before calling the ABI. An out-of-bounds memory read traps before Zig can return a status. A mismatched allocation address or length is also a host contract violation.
+
+### Lifecycle operations
+
+`turnout_runtime_create(model_address, model_length, request_address, request_length)` validates the model and request before assigning a handle. The request is JSON with this shape.
+
+```json
+{
+  "sceneId": "main",
+  "initialState": {
+    "player.score": 1
+  },
+  "failOnPublishError": false,
+  "maxSceneSteps": 10000
+}
+```
+
+`sceneId` is required. The other fields use the shown defaults. Unknown request fields are ignored. The success payload is `{"handle":1}`.
+
+`turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, and `contextJson`.
+
+`turnout_runtime_resume(handle, address, length)` records one effect result without advancing execution. Prepare success accepts any JSON value in `value`.
+
+```json
+{
+  "id": 1,
+  "kind": "prepare",
+  "status": "ok",
+  "value": {}
+}
+```
+
+Both effect kinds accept `missing`. A failed prepare result includes `message`. A failed publish result also includes `source`, which is `returned` or `thrown`.
+
+`turnout_runtime_destroy(handle)` releases the model, STATE, driver, and handle. Calls with an unknown or destroyed handle return `invalid_handle`.
