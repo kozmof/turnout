@@ -1,0 +1,87 @@
+[
+  {
+    "name": "division by zero",
+    "error": "DivisionByZero",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          {
+            "name": "result",
+            "type": "number",
+            "expr": { "combine": { "fn": "div", "args": [{ "lit": 1 }, { "lit": 0 }] } }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "forward reference",
+    "error": "MissingReference",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          {
+            "name": "result",
+            "type": "number",
+            "expr": { "combine": { "fn": "add", "args": [{ "ref": "later" }, { "lit": 1 }] } }
+          },
+          { "name": "later", "type": "number", "value": 2 }
+        ]
+      }
+    }
+  },
+  {
+    "name": "non-boolean condition",
+    "error": "ConditionTypeMismatch",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          { "name": "condition", "type": "number", "value": 1 },
+          { "name": "then_base", "type": "number", "value": 2 },
+          { "name": "else_base", "type": "number", "value": 3 },
+          { "name": "zero", "type": "number", "value": 0 },
+          {
+            "name": "then_value",
+            "type": "number",
+            "expr": {
+              "combine": { "fn": "add", "args": [{ "ref": "then_base" }, { "ref": "zero" }] }
+            }
+          },
+          {
+            "name": "else_value",
+            "type": "number",
+            "expr": {
+              "combine": { "fn": "add", "args": [{ "ref": "else_base" }, { "ref": "zero" }] }
+            }
+          },
+          {
+            "name": "result",
+            "type": "number",
+            "expr": {
+              "cond": {
+                "condition": { "ref": "condition" },
+                "then": { "funcRef": "then_value" },
+                "elseBranch": { "funcRef": "else_value" }
+              }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "empty pipe",
+    "error": "EmptyPipe",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          { "name": "result", "type": "number", "expr": { "pipe": { "params": [], "steps": [] } } }
+        ]
+      }
+    }
+  }
+]

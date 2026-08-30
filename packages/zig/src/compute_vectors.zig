@@ -48,3 +48,29 @@ test "shared compute vectors" {
             try std.testing.expectEqualStrings(expected_tag, actual_tag);
     }
 }
+
+const ErrorVector = struct { name: []const u8, compute: std.json.Value, @"error": []const u8 };
+
+test "shared compute error vectors" {
+    const allocator = std.testing.allocator;
+    const parsed = try std.json.parseFromSlice(
+        []ErrorVector,
+        allocator,
+        @embedFile("fixtures/compute-error-vectors.json"),
+        .{},
+    );
+    defer parsed.deinit();
+    const inputs: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    for (parsed.value) |vector| {
+        if (std.mem.eql(u8, vector.@"error", "DivisionByZero"))
+            try std.testing.expectError(error.DivisionByZero, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "MissingReference"))
+            try std.testing.expectError(error.MissingReference, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "ConditionTypeMismatch"))
+            try std.testing.expectError(error.ConditionTypeMismatch, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "EmptyPipe"))
+            try std.testing.expectError(error.EmptyPipe, compute.executeJson(vector.compute, &inputs, allocator))
+        else
+            return error.InvalidVector;
+    }
+}
