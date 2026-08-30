@@ -38,6 +38,16 @@ pub fn execute(
     state: *const state_runtime.State,
     allocator: std.mem.Allocator,
 ) !Result {
+    const prepared_hooks: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    return executeWithPrepared(action, state, &prepared_hooks, allocator);
+}
+
+pub fn executeWithPrepared(
+    action: std.json.Value,
+    state: *const state_runtime.State,
+    prepared_hooks: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    allocator: std.mem.Allocator,
+) !Result {
     if (action != .object) return error.InvalidAction;
     const compute_model = action.object.get("compute") orelse return noOp(state, allocator);
     if (compute_model != .object) return noOp(state, allocator);
@@ -56,10 +66,15 @@ pub fn execute(
             if (entry != .object) return error.InvalidPrepare;
             const binding = entry.object.get("binding") orelse return error.InvalidPrepare;
             if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
-            if (entry.object.contains("fromHook")) return error.HookRequired;
-            const from_state = entry.object.get("fromState") orelse continue;
-            if (from_state != .string) return error.InvalidPrepare;
-            var prepared_value = try state.read(from_state.string, allocator);
+            var prepared_value = if (entry.object.get("fromHook")) |from_hook| blk: {
+                if (from_hook != .string or from_hook.string.len == 0) return error.InvalidPrepare;
+                const supplied = prepared_hooks.get(binding.string) orelse return error.HookRequired;
+                break :blk try value.build(supplied.value, supplied.tags, allocator);
+            } else blk: {
+                const from_state = entry.object.get("fromState") orelse continue;
+                if (from_state != .string) return error.InvalidPrepare;
+                break :blk try state.read(from_state.string, allocator);
+            };
             const tagged = prepared_value.borrowed();
             if (prepared.getPtr(binding.string)) |previous| {
                 value.deinitTaggedValue(previous, allocator);
@@ -212,4 +227,29 @@ test "action without compute is a no-op" {
     defer result.deinit(allocator);
     try std.testing.expectEqual(value.NullReason.missing, result.compute_root.value.null_value);
     try std.testing.expectEqual(@as(usize, 0), result.binding_values.count());
+}
+
+test "action consumes resumed prepare values by binding" {
+    const allocator = std.testing.allocator;
+    const source =
+        \\{"id":"loaded","compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"input","type":"number"},
+        \\{"name":"result","type":"number","expr":{
+        \\"combine":{"fn":"add","args":[{"ref":"input"},{"lit":2}]}
+        \\}}
+        \\]}},"prepare":[{"binding":"input","fromHook":"load"}]}
+    ;
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, source, .{});
+    defer parsed.deinit();
+    const empty_state: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty_state, allocator);
+    defer state.deinit(allocator);
+    var prepared: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer prepared.deinit(allocator);
+    try prepared.put(allocator, "input", .{ .value = .{ .number = 5 }, .tags = &.{"host"} });
+
+    var result = try executeWithPrepared(parsed.value, &state, &prepared, allocator);
+    defer result.deinit(allocator);
+    try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
+    try std.testing.expect(value.hasTag(result.binding_values.getPtr("input").?.borrowed(), "host"));
 }
