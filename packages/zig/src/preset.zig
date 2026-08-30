@@ -37,6 +37,11 @@ pub fn call(
     if (std.mem.eql(u8, name, "combineFnString::includes")) return stringPredicate(args, allocator, .includes);
     if (std.mem.eql(u8, name, "combineFnString::startsWith")) return stringPredicate(args, allocator, .starts_with);
     if (std.mem.eql(u8, name, "combineFnString::endsWith")) return stringPredicate(args, allocator, .ends_with);
+    if (std.mem.eql(u8, name, "combineFnArray::concat")) return arrayConcat(args, allocator);
+    if (std.mem.eql(u8, name, "combineFnArray::includes")) return arrayIncludes(args, allocator);
+    if (std.mem.startsWith(u8, name, "combineFnArray::get")) return arrayGet(args, allocator);
+    if (std.mem.startsWith(u8, name, "combineFnRecord::get")) return recordGet(args, allocator);
+    if (std.mem.eql(u8, name, "combineFnRecord::set")) return recordSet(args, allocator);
     if (std.mem.eql(u8, name, "transformFnNumber::abs")) return numberUnary(args, allocator, .absolute);
     if (std.mem.eql(u8, name, "transformFnNumber::floor")) return numberUnary(args, allocator, .floor);
     if (std.mem.eql(u8, name, "transformFnNumber::ceil")) return numberUnary(args, allocator, .ceil);
@@ -182,6 +187,100 @@ fn stringPredicate(args: []const value.TaggedValue, allocator: std.mem.Allocator
     return value.buildBoolean(result, tags, allocator);
 }
 
+fn arrayConcat(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 2);
+    if (args[0].value != .array or args[1].value != .array) return error.TypeMismatch;
+    const left = args[0].value.array.items;
+    const right = args[1].value.array.items;
+    const shallow = try allocator.alloc(value.TaggedValue, left.len + right.len);
+    defer allocator.free(shallow);
+    @memcpy(shallow[0..left.len], left);
+    @memcpy(shallow[left.len..], right);
+    const tags = try mergedArgs(args, allocator);
+    defer allocator.free(tags);
+    return value.build(.{ .array = .{ .items = shallow } }, tags, allocator);
+}
+
+fn arrayIncludes(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 2);
+    if (args[0].value != .array or args[1].value == .array or args[1].value == .record) return error.TypeMismatch;
+    var found = false;
+    for (args[0].value.array.items) |item| {
+        if (item.value.eql(args[1].value)) {
+            found = true;
+            break;
+        }
+    }
+    const tags = try mergedArgs(args, allocator);
+    defer allocator.free(tags);
+    return value.buildBoolean(found, tags, allocator);
+}
+
+fn arrayGet(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 2);
+    if (args[0].value != .array or args[1].value != .number) return error.TypeMismatch;
+    const raw_index = args[1].value.number;
+    if (!std.math.isFinite(raw_index) or @floor(raw_index) != raw_index or raw_index < 0) return error.IndexOutOfBounds;
+    const index: usize = @intFromFloat(raw_index);
+    if (index >= args[0].value.array.items.len) return error.IndexOutOfBounds;
+    const item = args[0].value.array.items[index];
+    const access_tags = try value.mergeTags(args[0].tags, args[1].tags, allocator);
+    defer allocator.free(access_tags);
+    const tags = try value.mergeTags(item.tags, access_tags, allocator);
+    defer allocator.free(tags);
+    return value.build(item.value, tags, allocator);
+}
+
+fn recordGet(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 2);
+    if (args[0].value != .record or (args[1].value != .string and args[1].value != .number)) return error.TypeMismatch;
+    const key = try recordKey(args[1].value, allocator);
+    defer allocator.free(key);
+    const item = args[0].value.record.get(key) orelse return error.IndexOutOfBounds;
+    const access_tags = try value.mergeTags(args[0].tags, args[1].tags, allocator);
+    defer allocator.free(access_tags);
+    const tags = try value.mergeTags(item.tags, access_tags, allocator);
+    defer allocator.free(tags);
+    return value.build(item.value, tags, allocator);
+}
+
+fn recordSet(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 3);
+    if (args[0].value != .record or (args[1].value != .string and args[1].value != .number)) return error.TypeMismatch;
+    const key = try recordKey(args[1].value, allocator);
+    defer allocator.free(key);
+    if (std.mem.eql(u8, key, "__proto__") or std.mem.eql(u8, key, "constructor") or std.mem.eql(u8, key, "prototype"))
+        return error.TypeMismatch;
+    const tags = try mergedArgs(args, allocator);
+    defer allocator.free(tags);
+    var result = try value.build(args[0].value, tags, allocator);
+    errdefer result.deinit(allocator);
+    var item = try value.build(args[2].value, args[2].tags, allocator);
+    const tagged: value.TaggedValue = .{ .value = item.value, .tags = item.tags };
+    item = undefined;
+    if (result.value.record.getPtr(key)) |existing| {
+        value.deinitTaggedValue(existing, allocator);
+        existing.* = tagged;
+    } else {
+        const owned_key = try allocator.dupe(u8, key);
+        result.value.record.put(allocator, owned_key, tagged) catch |err| {
+            allocator.free(owned_key);
+            var cleanup = tagged;
+            value.deinitTaggedValue(&cleanup, allocator);
+            return err;
+        };
+    }
+    return result;
+}
+
+fn recordKey(key: value.Value, allocator: std.mem.Allocator) ![]u8 {
+    return switch (key) {
+        .string => |string| allocator.dupe(u8, string),
+        .number => |number| std.fmt.allocPrint(allocator, "{d}", .{number}),
+        else => error.TypeMismatch,
+    };
+}
+
 fn arrayLength(args: []const value.TaggedValue, allocator: std.mem.Allocator, empty: bool) !value.OwnedTaggedValue {
     try requireArity(args, 1);
     if (args[0].value != .array) return error.TypeMismatch;
@@ -237,6 +336,25 @@ test "numeric, boolean, string, and generic calls propagate tags" {
     var equal = try call("combineFnGeneric::isEqual", &.{ null_a, null_b }, allocator);
     defer equal.deinit(allocator);
     try std.testing.expect(equal.value.boolean);
+}
+
+test "tagged array and record operations preserve child provenance" {
+    const allocator = std.testing.allocator;
+    var items = [_]value.TaggedValue{.{ .value = .{ .number = 2 }, .tags = &.{"item"} }};
+    const array: value.TaggedValue = .{ .value = .{ .array = .{ .items = &items } }, .tags = &.{"array"} };
+    const index: value.TaggedValue = .{ .value = .{ .number = 0 }, .tags = &.{"index"} };
+    var got = try call("combineFnArray::getNumber", &.{ array, index }, allocator);
+    defer got.deinit(allocator);
+    try std.testing.expectEqualSlices([]const u8, &.{ "item", "array", "index" }, got.tags);
+
+    var fields: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    try fields.put(allocator, "score", .{ .value = .{ .number = 4 }, .tags = &.{"field"} });
+    defer fields.deinit(allocator);
+    const record: value.TaggedValue = .{ .value = .{ .record = fields }, .tags = &.{"record"} };
+    const key: value.TaggedValue = .{ .value = .{ .string = "score" }, .tags = &.{"key"} };
+    var record_got = try call("combineFnRecord::getNumber", &.{ record, key }, allocator);
+    defer record_got.deinit(allocator);
+    try std.testing.expectEqualSlices([]const u8, &.{ "field", "record", "key" }, record_got.tags);
 }
 
 test "division, rounding, and UTF-16 length match JavaScript edges" {
