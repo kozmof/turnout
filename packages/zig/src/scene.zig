@@ -69,9 +69,11 @@ pub const Failure = struct {
     err: anyerror,
     partial_state: state_runtime.State,
     failed_action_id: ?[]const u8,
+    logs: []LogEvent,
 
     pub fn deinit(self: *Failure, allocator: std.mem.Allocator) void {
         self.partial_state.deinit(allocator);
+        allocator.free(self.logs);
         self.* = undefined;
     }
 };
@@ -99,7 +101,9 @@ pub fn execute(
     var current_state = try initial_state.snapshot(allocator);
     defer current_state.deinit(allocator);
     var failed_action_id: ?[]const u8 = null;
-    return executeOwned(model, scene_id, &current_state, max_steps, &failed_action_id, allocator);
+    var logs = std.ArrayList(LogEvent).empty;
+    defer logs.deinit(allocator);
+    return executeOwned(model, scene_id, &current_state, max_steps, &failed_action_id, &logs, allocator);
 }
 
 pub fn executeSafe(
@@ -112,20 +116,25 @@ pub fn executeSafe(
     var current_state = try initial_state.snapshot(allocator);
     errdefer current_state.deinit(allocator);
     var failed_action_id: ?[]const u8 = null;
+    var logs = std.ArrayList(LogEvent).empty;
+    errdefer logs.deinit(allocator);
     const result = executeOwned(
         model,
         scene_id,
         &current_state,
         max_steps,
         &failed_action_id,
+        &logs,
         allocator,
     ) catch |err| {
+        const log_slice = try logs.toOwnedSlice(allocator);
         const partial_state = current_state;
         current_state = .{};
         return .{ .failure = .{
             .err = err,
             .partial_state = partial_state,
             .failed_action_id = failed_action_id,
+            .logs = log_slice,
         } };
     };
     return .{ .success = result };
@@ -137,6 +146,7 @@ fn executeOwned(
     current_state: *state_runtime.State,
     max_steps: usize,
     failed_action_id: *?[]const u8,
+    logs: *std.ArrayList(LogEvent),
     allocator: std.mem.Allocator,
 ) !Result {
     const scene = findScene(model, scene_id) orelse return error.SceneNotFound;
@@ -158,8 +168,6 @@ fn executeOwned(
     errdefer terminated.deinit(allocator);
     var duplicates = std.ArrayList(DuplicateEnqueueWarning).empty;
     errdefer duplicates.deinit(allocator);
-    var logs = std.ArrayList(LogEvent).empty;
-    errdefer logs.deinit(allocator);
 
     var step_count: usize = 0;
     while (queue_head < queue.items.len) {
@@ -401,6 +409,9 @@ test "safe scene result preserves committed state and failed action" {
         .failure => |*failure| {
             try std.testing.expectEqual(error.UnknownFunction, failure.err);
             try std.testing.expectEqualStrings("second", failure.failed_action_id.?);
+            try std.testing.expectEqual(@as(usize, 4), failure.logs.len);
+            try std.testing.expectEqual(LogKind.action_start, failure.logs[3].kind);
+            try std.testing.expectEqualStrings("second", failure.logs[3].action_id);
             var committed = try failure.partial_state.read("step.first", std.testing.allocator);
             defer committed.deinit(std.testing.allocator);
             try std.testing.expectEqual(@as(f64, 1), committed.value.number);
@@ -426,6 +437,7 @@ test "safe scene construction failure retains initial state without action id" {
         .failure => |*failure| {
             try std.testing.expectEqual(error.NoEntryAction, failure.err);
             try std.testing.expect(failure.failed_action_id == null);
+            try std.testing.expectEqual(@as(usize, 0), failure.logs.len);
             try std.testing.expect(try failure.partial_state.exists("kept"));
         },
     }
