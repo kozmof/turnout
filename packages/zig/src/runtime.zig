@@ -47,6 +47,21 @@ pub const PreparedValues = struct {
     }
 };
 
+pub const PublishStatus = enum { ok, @"error" };
+pub const PublishOutcome = struct {
+    hook_name: []const u8,
+    status: PublishStatus,
+    message: ?[]const u8 = null,
+};
+pub const PublishOutcomes = struct {
+    items: []PublishOutcome,
+
+    pub fn deinit(self: *PublishOutcomes, allocator: std.mem.Allocator) void {
+        allocator.free(self.items);
+        self.* = undefined;
+    }
+};
+
 /// Pull-based runtime boundary. resume records exactly one effect result;
 /// callers invoke step to continue, keeping advancement semantics uniform.
 pub const Runtime = struct {
@@ -132,6 +147,33 @@ pub const Runtime = struct {
 
     pub fn enforcePublishPolicy(self: *const Runtime, fail_on_error: bool) RuntimeError!void {
         return self.enforcePublishPolicyFor(null, null, fail_on_error);
+    }
+
+    pub fn actionPublishOutcomes(
+        self: *const Runtime,
+        scene_id: []const u8,
+        action_id: []const u8,
+    ) RuntimeError!PublishOutcomes {
+        var outcomes = std.ArrayList(PublishOutcome).empty;
+        errdefer outcomes.deinit(self.allocator);
+        for (self.completed.items) |item| {
+            if (item.result != .publish) continue;
+            if (!std.mem.eql(u8, item.request.scene_id, scene_id)) continue;
+            if (!std.mem.eql(u8, item.request.action_id, action_id)) continue;
+            switch (item.result.publish) {
+                .ok => try outcomes.append(self.allocator, .{
+                    .hook_name = item.request.hook,
+                    .status = .ok,
+                }),
+                .missing => {},
+                .failed => |message| try outcomes.append(self.allocator, .{
+                    .hook_name = item.request.hook,
+                    .status = .@"error",
+                    .message = message,
+                }),
+            }
+        }
+        return .{ .items = try outcomes.toOwnedSlice(self.allocator) };
     }
 
     pub fn enforceActionPublishPolicy(
@@ -490,4 +532,32 @@ test "strict publish policy is action scoped and preserves merged state" {
     var committed = try action_result.state_after_merge.read("result.value", std.testing.allocator);
     defer committed.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 7), committed.value.number);
+}
+
+test "action publish outcomes retain order and omit missing hooks" {
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .publish, .hook = "first", .scene_id = "main", .action_id = "start", .callback_index = 0 },
+        .{ .kind = .publish, .hook = "optional", .scene_id = "main", .action_id = "start", .callback_index = 1 },
+        .{ .kind = .publish, .hook = "other", .scene_id = "main", .action_id = "other", .callback_index = 0 },
+        .{ .kind = .publish, .hook = "last", .scene_id = "main", .action_id = "start", .callback_index = 2 },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const first = (try runtime.step()).need_effect;
+    try runtime.@"resume"(first.id, .{ .publish = .ok });
+    const optional = (try runtime.step()).need_effect;
+    try runtime.@"resume"(optional.id, .{ .publish = .missing });
+    const other = (try runtime.step()).need_effect;
+    try runtime.@"resume"(other.id, .{ .publish = .{ .failed = "ignored" } });
+    const last = (try runtime.step()).need_effect;
+    try runtime.@"resume"(last.id, .{ .publish = .{ .failed = "rejected" } });
+
+    var outcomes = try runtime.actionPublishOutcomes("main", "start");
+    defer outcomes.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 2), outcomes.items.len);
+    try std.testing.expectEqualStrings("first", outcomes.items[0].hook_name);
+    try std.testing.expectEqual(PublishStatus.ok, outcomes.items[0].status);
+    try std.testing.expectEqualStrings("last", outcomes.items[1].hook_name);
+    try std.testing.expectEqual(PublishStatus.@"error", outcomes.items[1].status);
+    try std.testing.expectEqualStrings("rejected", outcomes.items[1].message.?);
 }
