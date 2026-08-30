@@ -4,6 +4,7 @@ const preset = @import("preset.zig");
 const value = @import("value.zig");
 
 pub const max_program_bindings: usize = 50_000;
+pub const max_program_expression_nodes: usize = 50_000;
 
 pub const LoadError = error{
     OutOfMemory,
@@ -17,6 +18,7 @@ pub const LoadError = error{
     MissingRootBinding,
     InvalidExpression,
     ProgramTooLarge,
+    ProgramTooComplex,
 };
 
 pub const LoadedCompute = struct {
@@ -309,6 +311,16 @@ pub fn validateProgramWithLimit(
     allocator: std.mem.Allocator,
     max_bindings: usize,
 ) LoadError!void {
+    return validateProgramWithLimits(prog, output_name, allocator, max_bindings, max_program_expression_nodes);
+}
+
+pub fn validateProgramWithLimits(
+    prog: std.json.Value,
+    output_name: []const u8,
+    allocator: std.mem.Allocator,
+    max_bindings: usize,
+    max_expression_nodes: usize,
+) LoadError!void {
     if (prog != .object) return error.InvalidProgram;
     const bindings_value = prog.object.get("bindings") orelse return error.InvalidProgram;
     if (bindings_value != .array) return error.InvalidProgram;
@@ -317,6 +329,7 @@ pub fn validateProgramWithLimit(
     var names = std.StringHashMapUnmanaged(void).empty;
     defer names.deinit(allocator);
     var found_root = false;
+    var expression_nodes: usize = 0;
     for (bindings_value.array.items) |binding| {
         if (binding != .object) return error.InvalidBinding;
         const name = binding.object.get("name") orelse return error.InvalidBinding;
@@ -330,9 +343,33 @@ pub fn validateProgramWithLimit(
         const has_value = binding.object.contains("value");
         const has_expr = binding.object.contains("expr");
         if (has_value and has_expr) return error.InvalidBinding;
-        if (has_expr) try validateExpression(binding.object.get("expr").?);
+        if (has_expr) {
+            const expression = binding.object.get("expr").?;
+            try validateExpression(expression);
+            expression_nodes = try countJsonNodes(expression, expression_nodes, max_expression_nodes, allocator);
+        }
     }
     if (output_name.len > 0 and !found_root) return error.MissingRootBinding;
+}
+
+fn countJsonNodes(root: std.json.Value, initial: usize, maximum: usize, allocator: std.mem.Allocator) LoadError!usize {
+    var count = initial;
+    var pending = std.ArrayList(std.json.Value).empty;
+    defer pending.deinit(allocator);
+    try pending.append(allocator, root);
+    while (pending.pop()) |current| {
+        if (count >= maximum) return error.ProgramTooComplex;
+        count += 1;
+        switch (current) {
+            .array => |array| try pending.appendSlice(allocator, array.items),
+            .object => |object| {
+                var iterator = object.iterator();
+                while (iterator.next()) |entry| try pending.append(allocator, entry.value_ptr.*);
+            },
+            else => {},
+        }
+    }
+    return count;
 }
 
 fn validateExpression(expression: std.json.Value) LoadError!void {
@@ -390,6 +427,21 @@ test "compute validation enforces the flattened binding budget" {
         validateProgramWithLimit(parsed.value, "a", std.testing.allocator, 1),
     );
     try validateProgramWithLimit(parsed.value, "a", std.testing.allocator, 2);
+}
+
+test "compute validation iteratively enforces expression complexity" {
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        "{\"bindings\":[{\"name\":\"a\",\"type\":\"number\",\"expr\":{\"combine\":{\"fn\":\"add\",\"args\":[{\"lit\":1},{\"lit\":2}]}}}]}",
+        .{},
+    );
+    defer parsed.deinit();
+    try std.testing.expectError(
+        error.ProgramTooComplex,
+        validateProgramWithLimits(parsed.value, "a", std.testing.allocator, 1, 3),
+    );
+    try validateProgramWithLimits(parsed.value, "a", std.testing.allocator, 1, 16);
 }
 
 test "compute executes bindings in declaration order and resolves root" {
