@@ -536,6 +536,9 @@ pub const SceneDriver = struct {
     advance_pending: bool = false,
     finished: bool = false,
     cancelled: bool = false,
+    action_steps: usize = 0,
+    max_action_steps: usize = std.math.maxInt(usize),
+    current_action_counted: bool = false,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -543,14 +546,33 @@ pub const SceneDriver = struct {
         scene_id: []const u8,
         initial_state: *const state_runtime.State,
     ) !SceneDriver {
-        const entry = try model.sceneEntryAction(scene_id);
-        return .{ .action = try ActionDriver.init(
+        return initWithLimit(
             allocator,
             model,
             scene_id,
-            entry,
             initial_state,
-        ) };
+            std.math.maxInt(usize),
+        );
+    }
+
+    pub fn initWithLimit(
+        allocator: std.mem.Allocator,
+        model: anytype,
+        scene_id: []const u8,
+        initial_state: *const state_runtime.State,
+        max_action_steps: usize,
+    ) !SceneDriver {
+        const entry = try model.sceneEntryAction(scene_id);
+        return .{
+            .action = try ActionDriver.init(
+                allocator,
+                model,
+                scene_id,
+                entry,
+                initial_state,
+            ),
+            .max_action_steps = max_action_steps,
+        };
     }
 
     pub fn deinit(self: *SceneDriver) void {
@@ -570,6 +592,12 @@ pub const SceneDriver = struct {
                 return .complete;
             }
             self.advance_pending = false;
+            self.current_action_counted = false;
+        }
+        if (!self.current_action_counted) {
+            if (self.action_steps == self.max_action_steps) return error.MaxStepsExceeded;
+            self.action_steps += 1;
+            self.current_action_counted = true;
         }
         const event = try self.action.step(model, fail_on_publish_error);
         switch (event) {
@@ -1228,4 +1256,38 @@ test "scene driver cancellation is terminal and stable" {
     driver.cancel();
     try std.testing.expect((try driver.step(&model, false)) == .cancelled);
     try std.testing.expect((try driver.step(&model, false)) == .cancelled);
+}
+
+test "scene driver limit preserves the last committed state" {
+    const model_runtime = @import("model.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
+        \\{"id":"first","compute":{"root":"value","prog":{"bindings":[
+        \\{"name":"value","type":"number","value":1}
+        \\]}},"merge":[{"binding":"value","toState":"result.value"}],
+        \\"next":[{"action":"second"}]},
+        \\{"id":"second","compute":{"root":"value","prog":{"bindings":[
+        \\{"name":"value","type":"number","value":2}
+        \\]}},"merge":[{"binding":"value","toState":"result.value"}]}
+        \\]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var initial = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer initial.deinit(std.testing.allocator);
+    var driver = try SceneDriver.initWithLimit(
+        std.testing.allocator,
+        &model,
+        "main",
+        &initial,
+        1,
+    );
+    defer driver.deinit();
+    const first = (try driver.step(&model, false)).action_complete;
+    try std.testing.expectEqualStrings("first", first.action_id);
+    try std.testing.expectError(error.MaxStepsExceeded, driver.step(&model, false));
+    var partial = try driver.partialState().read("result.value", std.testing.allocator);
+    defer partial.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 1), partial.value.number);
 }
