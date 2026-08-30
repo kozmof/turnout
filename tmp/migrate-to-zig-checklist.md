@@ -10,7 +10,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Current phase | 6 |
 | Last verified commit | `a27182c` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Shared scene and route conformance fixtures are incomplete |
+| Blocking issue | Partial STATE and diagnostics parity are incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -147,7 +147,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Implement scene and route limits
 - [ ] Implement stable warnings and runtime errors
 - [ ] Implement execution traces and log events
-- [ ] Add scene and route parity fixtures
+- [x] Add scene and route parity fixtures
 
 ### Phase 6 exit gate
 

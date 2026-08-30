@@ -10,5 +10,30 @@
       ],
       "history": ["start.first", "finish.second"]
     }
+  },
+  {
+    "name": "conditional action and wildcard route",
+    "routeId": "main",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"start\",\"match\":[{\"patterns\":[\"start.*.terminal\"],\"target\":\"finish\"}]}],\"scenes\":[{\"id\":\"start\",\"entryAction\":\"intro\",\"actions\":[{\"id\":\"intro\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":3}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.intro\"}],\"next\":[{\"action\":\"terminal\",\"prepare\":[{\"binding\":\"flag\",\"fromLiteral\":true}],\"compute\":{\"condition\":\"flag\",\"prog\":{\"bindings\":[{\"name\":\"flag\",\"type\":\"bool\"}]}}}]},{\"id\":\"terminal\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":4}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.terminal\"}]}]},{\"id\":\"finish\",\"entryAction\":\"done\",\"actions\":[{\"id\":\"done\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.done\"}]}]}]}",
+    "output": {
+      "state": [
+        { "path": "result.intro", "value": 3 },
+        { "path": "result.terminal", "value": 4 },
+        { "path": "result.done", "value": 5 }
+      ],
+      "history": ["start.intro", "start.terminal", "finish.done"]
+    }
+  },
+  {
+    "name": "post-merge state and action output",
+    "routeId": "main",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}]}]}]}",
+    "output": {
+      "state": [
+        { "path": "counter.value", "value": 5 },
+        { "path": "result.target", "value": 9 }
+      ],
+      "history": ["only.source", "only.target"]
+    }
   }
 ]
