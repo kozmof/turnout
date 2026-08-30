@@ -8,7 +8,15 @@
         { "path": "result.first", "value": 1 },
         { "path": "result.second", "value": 2 }
       ],
-      "history": ["start.first", "finish.second"]
+      "history": ["start.first", "finish.second"],
+      "logs": [
+        { "kind": "action-start", "sceneId": "start", "actionId": "first", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "start", "actionId": "first" },
+        { "kind": "action-complete", "sceneId": "start", "actionId": "first" },
+        { "kind": "action-start", "sceneId": "finish", "actionId": "second", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "finish", "actionId": "second" },
+        { "kind": "action-complete", "sceneId": "finish", "actionId": "second" }
+      ]
     }
   },
   {
@@ -21,7 +29,18 @@
         { "path": "result.terminal", "value": 4 },
         { "path": "result.done", "value": 5 }
       ],
-      "history": ["start.intro", "start.terminal", "finish.done"]
+      "history": ["start.intro", "start.terminal", "finish.done"],
+      "logs": [
+        { "kind": "action-start", "sceneId": "start", "actionId": "intro", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "start", "actionId": "intro" },
+        { "kind": "action-complete", "sceneId": "start", "actionId": "intro" },
+        { "kind": "action-start", "sceneId": "start", "actionId": "terminal", "stepIndex": 2 },
+        { "kind": "warning", "sceneId": "start", "actionId": "terminal" },
+        { "kind": "action-complete", "sceneId": "start", "actionId": "terminal" },
+        { "kind": "action-start", "sceneId": "finish", "actionId": "done", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "finish", "actionId": "done" },
+        { "kind": "action-complete", "sceneId": "finish", "actionId": "done" }
+      ]
     }
   },
   {
@@ -33,7 +52,15 @@
         { "path": "counter.value", "value": 5 },
         { "path": "result.target", "value": 9 }
       ],
-      "history": ["only.source", "only.target"]
+      "history": ["only.source", "only.target"],
+      "logs": [
+        { "kind": "action-start", "sceneId": "only", "actionId": "source", "stepIndex": 1 },
+        { "kind": "warning", "sceneId": "only", "actionId": "source" },
+        { "kind": "action-complete", "sceneId": "only", "actionId": "source" },
+        { "kind": "action-start", "sceneId": "only", "actionId": "target", "stepIndex": 2 },
+        { "kind": "warning", "sceneId": "only", "actionId": "target" },
+        { "kind": "action-complete", "sceneId": "only", "actionId": "target" }
+      ]
     }
   }
 ]

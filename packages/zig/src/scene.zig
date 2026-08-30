@@ -22,7 +22,9 @@ pub const LogWarningKind = enum {
 };
 pub const LogEvent = struct {
     kind: LogKind,
+    scene_id: []const u8,
     action_id: []const u8,
+    step_index: ?usize = null,
     warning_kind: ?LogWarningKind = null,
 };
 
@@ -177,7 +179,12 @@ fn executeOwned(
         step_count += 1;
         if (step_count > max_steps) return error.MaxStepsExceeded;
         try visited.put(allocator, action_id, {});
-        try logs.append(allocator, .{ .kind = .action_start, .action_id = action_id });
+        try logs.append(allocator, .{
+            .kind = .action_start,
+            .scene_id = scene_id,
+            .action_id = action_id,
+            .step_index = step_count,
+        });
 
         var action_result = try model.executeAction(scene_id, action_id, current_state, allocator);
         defer action_result.deinit(allocator);
@@ -200,18 +207,21 @@ fn executeOwned(
         for (action_result.merge_warnings) |_|
             try logs.append(allocator, .{
                 .kind = .warning,
+                .scene_id = scene_id,
                 .action_id = action_id,
                 .warning_kind = .merge_warning,
             });
         if (action_result.unchecked_write_paths.len > 0)
             try logs.append(allocator, .{
                 .kind = .warning,
+                .scene_id = scene_id,
                 .action_id = action_id,
                 .warning_kind = .unchecked_state_write,
             });
         for (selection.warnings) |warning|
             try logs.append(allocator, .{
                 .kind = .warning,
+                .scene_id = scene_id,
                 .action_id = action_id,
                 .warning_kind = switch (warning.kind) {
                     .invalid_condition => .invalid_next_condition,
@@ -229,7 +239,8 @@ fn executeOwned(
                 });
                 try logs.append(allocator, .{
                     .kind = .warning,
-                    .action_id = target,
+                    .scene_id = scene_id,
+                    .action_id = "",
                     .warning_kind = .duplicate_enqueue,
                 });
             } else {
@@ -237,7 +248,11 @@ fn executeOwned(
                 try queue.append(allocator, target);
             }
         }
-        try logs.append(allocator, .{ .kind = .action_complete, .action_id = action_id });
+        try logs.append(allocator, .{
+            .kind = .action_complete,
+            .scene_id = scene_id,
+            .action_id = action_id,
+        });
         failed_action_id.* = null;
     }
 

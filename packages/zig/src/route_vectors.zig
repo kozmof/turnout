@@ -6,7 +6,17 @@ const state_runtime = @import("state.zig");
 const turnout_value = @import("value.zig");
 
 const ExpectedState = struct { path: []const u8, value: f64 };
-const Output = struct { state: []const ExpectedState, history: []const []const u8 };
+const ExpectedLog = struct {
+    kind: []const u8,
+    sceneId: []const u8,
+    actionId: []const u8,
+    stepIndex: ?usize = null,
+};
+const Output = struct {
+    state: []const ExpectedState,
+    history: []const []const u8,
+    logs: []const ExpectedLog,
+};
 const Vector = struct { name: []const u8, routeId: []const u8, model: []const u8, output: Output };
 
 test "shared scene and route vectors" {
@@ -46,6 +56,18 @@ test "shared scene and route vectors" {
             });
             defer allocator.free(joined);
             try std.testing.expectEqualStrings(expected, joined);
+        }
+        try std.testing.expectEqual(vector.output.logs.len, result.logs.len);
+        for (vector.output.logs, result.logs) |expected, actual| {
+            const kind = switch (actual.kind) {
+                .action_start => "action-start",
+                .warning => "warning",
+                .action_complete => "action-complete",
+            };
+            try std.testing.expectEqualStrings(expected.kind, kind);
+            try std.testing.expectEqualStrings(expected.sceneId, actual.scene_id);
+            try std.testing.expectEqualStrings(expected.actionId, actual.action_id);
+            try std.testing.expectEqual(expected.stepIndex, actual.step_index);
         }
     }
 }

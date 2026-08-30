@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import { executeRoute } from "../src/executor/route-executor.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import type { RouteModel, SceneBlock } from "../src/types/turnout-model_pb.js";
+import type { LogEvent } from "../src/types/harness-types.js";
 
 type Vector = {
   name: string;
@@ -12,6 +13,12 @@ type Vector = {
   output: {
     state: Array<{ path: string; value: unknown }>;
     history: string[];
+    logs: Array<{
+      kind: "action-start" | "warning" | "action-complete";
+      sceneId: string;
+      actionId: string;
+      stepIndex?: number;
+    }>;
   };
 };
 
@@ -29,15 +36,26 @@ describe("shared scene and route vectors", () => {
       const route = model.routes.find((candidate) => candidate.id === vector.routeId);
       expect(route).toBeDefined();
       const scenes = Object.fromEntries(model.scenes.map((scene) => [scene.id, scene]));
+      const logs: LogEvent[] = [];
       const result = await executeRoute(
         route!,
         scenes,
         route!.entrySceneId,
         stateManagerFromUnchecked({}),
+        { prepare: {}, publish: {} },
+        { onLog: (event) => logs.push(event) },
       );
       expect(result.history).toEqual(vector.output.history);
       for (const expected of vector.output.state)
         expect(result.finalState[expected.path]?.value).toEqual(expected.value);
+      expect(
+        logs.map((event) => ({
+          kind: event.kind,
+          sceneId: "sceneId" in event ? event.sceneId : "",
+          actionId: "actionId" in event ? event.actionId : "",
+          ...("stepIndex" in event ? { stepIndex: event.stepIndex } : {}),
+        })),
+      ).toEqual(vector.output.logs);
     });
   }
 });
