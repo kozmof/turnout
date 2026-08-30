@@ -9,6 +9,10 @@ pub const RuntimeError = error{
     StaleEffect,
     WrongEffectKind,
     EffectIdOverflow,
+    EffectNotCompleted,
+    MissingPrepareHook,
+    PrepareHookFailed,
+    PublishHookFailed,
 };
 pub const Event = union(enum) {
     need_effect: effect.Request,
@@ -59,6 +63,24 @@ pub const Runtime = struct {
         for (self.completed.items) |*item|
             if (item.request.id == id) return &item.result;
         return null;
+    }
+
+    pub fn preparePayload(self: *const Runtime, id: u64) RuntimeError![]const u8 {
+        const result = self.completedResult(id) orelse return error.EffectNotCompleted;
+        if (result.* != .prepare) return error.WrongEffectKind;
+        return switch (result.prepare) {
+            .ok => |payload| payload,
+            .missing => error.MissingPrepareHook,
+            .failed => error.PrepareHookFailed,
+        };
+    }
+
+    pub fn enforcePublishPolicy(self: *const Runtime, fail_on_error: bool) RuntimeError!void {
+        if (!fail_on_error) return;
+        for (self.completed.items) |item| {
+            if (item.result != .publish) continue;
+            if (item.result.publish == .failed) return error.PublishHookFailed;
+        }
     }
 
     pub fn step(self: *Runtime) RuntimeError!Event {
@@ -133,10 +155,10 @@ test "effect results reject stale and wrong-kind responses" {
     var runtime = Runtime.init(std.testing.allocator, &.{});
     defer runtime.deinit();
     _ = try runtime.requestEffect(.prepare, "load", "scene", "action");
-    try std.testing.expectError(error.StaleEffect, runtime.@"resume"(2, .{ .prepare = "{}" }));
+    try std.testing.expectError(error.StaleEffect, runtime.@"resume"(2, .{ .prepare = .{ .ok = "{}" } }));
     try std.testing.expectError(error.WrongEffectKind, runtime.@"resume"(1, .{ .publish = .ok }));
-    try runtime.@"resume"(1, .{ .prepare = "{}" });
-    try std.testing.expectError(error.NoPendingEffect, runtime.@"resume"(1, .{ .prepare = "{}" }));
+    try runtime.@"resume"(1, .{ .prepare = .{ .ok = "{}" } });
+    try std.testing.expectError(error.NoPendingEffect, runtime.@"resume"(1, .{ .prepare = .{ .ok = "{}" } }));
 }
 
 test "step preserves declaration order and callback context" {
@@ -167,7 +189,7 @@ test "step preserves declaration order and callback context" {
     try std.testing.expectEqualStrings("{\"prepared\":[]}", first.context_json);
     const replay = (try runtime.step()).need_effect;
     try std.testing.expectEqual(first.id, replay.id);
-    try runtime.@"resume"(first.id, .{ .prepare = "{\"input\":1}" });
+    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "{\"input\":1}" } });
     const second = (try runtime.step()).need_effect;
     try std.testing.expectEqual(@as(u64, 2), second.id);
     try std.testing.expectEqual(@as(usize, 1), second.callback_index);
@@ -175,7 +197,7 @@ test "step preserves declaration order and callback context" {
     try std.testing.expectEqual(@as(usize, 2), runtime.completedEffects().len);
     try std.testing.expectEqualStrings(
         "{\"input\":1}",
-        runtime.completedEffects()[0].result.prepare,
+        runtime.completedEffects()[0].result.prepare.ok,
     );
     try std.testing.expect((try runtime.step()) == .complete);
     try std.testing.expect((try runtime.step()) == .complete);
@@ -194,7 +216,7 @@ test "cancel produces a stable terminal event" {
     _ = try runtime.step();
     runtime.cancel();
     try std.testing.expect((try runtime.step()) == .cancelled);
-    try std.testing.expectError(error.Terminal, runtime.@"resume"(1, .{ .prepare = "{}" }));
+    try std.testing.expectError(error.Terminal, runtime.@"resume"(1, .{ .prepare = .{ .ok = "{}" } }));
 }
 
 test "resume owns prepare payloads and publish failures" {
@@ -218,9 +240,9 @@ test "resume owns prepare payloads and publish failures" {
     defer runtime.deinit();
     const prepare_request = (try runtime.step()).need_effect;
     var payload = [_]u8{ 'o', 'k' };
-    try runtime.@"resume"(prepare_request.id, .{ .prepare = &payload });
+    try runtime.@"resume"(prepare_request.id, .{ .prepare = .{ .ok = &payload } });
     payload[0] = 'x';
-    try std.testing.expectEqualStrings("ok", runtime.completedResult(prepare_request.id).?.prepare);
+    try std.testing.expectEqualStrings("ok", runtime.completedResult(prepare_request.id).?.prepare.ok);
 
     const publish_request = (try runtime.step()).need_effect;
     var message = [_]u8{ 'b', 'a', 'd' };
@@ -228,4 +250,52 @@ test "resume owns prepare payloads and publish failures" {
     message[0] = 'x';
     const stored = runtime.completedResult(publish_request.id).?.publish;
     try std.testing.expectEqualStrings("bad", stored.failed);
+}
+
+test "prepare and publish outcome policies differ" {
+    const scheduled = [_]effect.Spec{
+        .{
+            .kind = .prepare,
+            .hook = "load",
+            .scene_id = "main",
+            .action_id = "start",
+            .callback_index = 0,
+        },
+        .{
+            .kind = .publish,
+            .hook = "optional",
+            .scene_id = "main",
+            .action_id = "start",
+            .callback_index = 0,
+        },
+        .{
+            .kind = .publish,
+            .hook = "failing",
+            .scene_id = "main",
+            .action_id = "start",
+            .callback_index = 1,
+        },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const prepare = (try runtime.step()).need_effect;
+    try runtime.@"resume"(prepare.id, .{ .prepare = .missing });
+    try std.testing.expectError(error.MissingPrepareHook, runtime.preparePayload(prepare.id));
+    const missing_publish = (try runtime.step()).need_effect;
+    try runtime.@"resume"(missing_publish.id, .{ .publish = .missing });
+    const failed_publish = (try runtime.step()).need_effect;
+    try runtime.@"resume"(failed_publish.id, .{ .publish = .{ .failed = "host failed" } });
+    try runtime.enforcePublishPolicy(false);
+    try std.testing.expectError(error.PublishHookFailed, runtime.enforcePublishPolicy(true));
+}
+
+test "failed prepare outcomes are owned and rejected" {
+    var runtime = Runtime.init(std.testing.allocator, &.{});
+    defer runtime.deinit();
+    const request = (try runtime.requestEffect(.prepare, "load", "main", "start")).need_effect;
+    var message = [_]u8{ 'b', 'a', 'd' };
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .failed = &message } });
+    message[0] = 'x';
+    try std.testing.expectEqualStrings("bad", runtime.completedResult(request.id).?.prepare.failed);
+    try std.testing.expectError(error.PrepareHookFailed, runtime.preparePayload(request.id));
 }
