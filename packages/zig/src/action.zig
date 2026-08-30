@@ -13,6 +13,7 @@ pub const Result = struct {
     binding_values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
     state_after_merge: state_runtime.State,
     merge_warnings: []MergeWarning,
+    unchecked_write_paths: []const []const u8,
 
     pub fn deinit(self: *Result, allocator: std.mem.Allocator) void {
         self.compute_root.deinit(allocator);
@@ -21,6 +22,7 @@ pub const Result = struct {
         self.binding_values.deinit(allocator);
         self.state_after_merge.deinit(allocator);
         allocator.free(self.merge_warnings);
+        allocator.free(self.unchecked_write_paths);
         self.* = undefined;
     }
 
@@ -100,11 +102,19 @@ pub fn execute(
     else
         try state.writeBatch(&batch, allocator);
     errdefer merged.deinit(allocator);
+    const merge_warnings = try warnings.toOwnedSlice(allocator);
+    errdefer allocator.free(merge_warnings);
+    const unchecked_write_paths = if (!state.isSchemaManaged() and batch.count() > 0) blk: {
+        const paths = try allocator.alloc([]const u8, batch.count());
+        for (batch.keys(), 0..) |path, index| paths[index] = path;
+        break :blk paths;
+    } else try allocator.alloc([]const u8, 0);
     return .{
         .compute_root = computed.root,
         .binding_values = computed.bindings,
         .state_after_merge = merged,
-        .merge_warnings = try warnings.toOwnedSlice(allocator),
+        .merge_warnings = merge_warnings,
+        .unchecked_write_paths = unchecked_write_paths,
     };
 }
 
@@ -113,11 +123,14 @@ fn noOp(state: *const state_runtime.State, allocator: std.mem.Allocator) !Result
     errdefer root.deinit(allocator);
     var snapshot = try state.snapshot(allocator);
     errdefer snapshot.deinit(allocator);
+    const merge_warnings = try allocator.alloc(MergeWarning, 0);
+    errdefer allocator.free(merge_warnings);
     return .{
         .compute_root = root,
         .binding_values = .empty,
         .state_after_merge = snapshot,
-        .merge_warnings = try allocator.alloc(MergeWarning, 0),
+        .merge_warnings = merge_warnings,
+        .unchecked_write_paths = try allocator.alloc([]const u8, 0),
     };
 }
 
@@ -148,6 +161,8 @@ test "hook-free action prepares computes and merges" {
     defer result.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 5), result.compute_root.value.number);
     try std.testing.expectEqual(@as(f64, 5), result.binding_values.get("result").?.value.number);
+    try std.testing.expectEqual(@as(usize, 1), result.unchecked_write_paths.len);
+    try std.testing.expectEqualStrings("counter.value", result.unchecked_write_paths[0]);
     var merged = try result.state_after_merge.read("counter.value", allocator);
     defer merged.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 5), merged.value.number);
@@ -172,6 +187,8 @@ test "action reports absent merge bindings and rejects hooks" {
     defer result.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 1), result.merge_warnings.len);
     try std.testing.expectEqualStrings("ghost", result.merge_warnings[0].binding);
+    try std.testing.expectEqualStrings("state.value", result.merge_warnings[0].to_state);
+    try std.testing.expectEqual(@as(usize, 0), result.unchecked_write_paths.len);
     try std.testing.expect(!try result.state_after_merge.exists("state.value"));
 
     const hook_source =

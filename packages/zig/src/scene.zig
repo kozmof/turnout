@@ -1,4 +1,5 @@
 const std = @import("std");
+const action_runtime = @import("action.zig");
 const model_runtime = @import("model.zig");
 const state_runtime = @import("state.zig");
 const turnout_value = @import("value.zig");
@@ -14,10 +15,13 @@ pub const DuplicateEnqueueWarning = struct {
 pub const ActionTrace = struct {
     action_id: []const u8,
     next_action_id: ?[]const u8,
-    merge_warning_count: usize,
+    merge_warnings: []action_runtime.MergeWarning,
+    unchecked_write_paths: []const []const u8,
     next_warnings: []model_runtime.NextRuleWarning,
 
     fn deinit(self: *ActionTrace, allocator: std.mem.Allocator) void {
+        allocator.free(self.merge_warnings);
+        allocator.free(self.unchecked_write_paths);
         allocator.free(self.next_warnings);
         self.* = undefined;
     }
@@ -161,14 +165,9 @@ fn executeOwned(
         current_state.* = action_result.takeState();
         const next_action = selection.target;
         if (next_action == null) try terminated.append(allocator, action_id);
-        const next_warnings = try allocator.dupe(model_runtime.NextRuleWarning, selection.warnings);
-        traces.append(allocator, .{
-            .action_id = action_id,
-            .next_action_id = next_action,
-            .merge_warning_count = action_result.merge_warnings.len,
-            .next_warnings = next_warnings,
-        }) catch |err| {
-            allocator.free(next_warnings);
+        var trace = try makeTrace(action_id, next_action, &action_result, &selection, allocator);
+        traces.append(allocator, trace) catch |err| {
+            trace.deinit(allocator);
             return err;
         };
 
@@ -203,6 +202,26 @@ fn executeOwned(
         .traces = trace_slice,
         .terminated_at = terminated_slice,
         .duplicate_warnings = duplicate_slice,
+    };
+}
+
+fn makeTrace(
+    action_id: []const u8,
+    next_action: ?[]const u8,
+    action_result: *const action_runtime.Result,
+    selection: *const model_runtime.NextRuleSelection,
+    allocator: std.mem.Allocator,
+) !ActionTrace {
+    const merge_warnings = try allocator.dupe(action_runtime.MergeWarning, action_result.merge_warnings);
+    errdefer allocator.free(merge_warnings);
+    const unchecked_write_paths = try allocator.dupe([]const u8, action_result.unchecked_write_paths);
+    errdefer allocator.free(unchecked_write_paths);
+    return .{
+        .action_id = action_id,
+        .next_action_id = next_action,
+        .merge_warnings = merge_warnings,
+        .unchecked_write_paths = unchecked_write_paths,
+        .next_warnings = try allocator.dupe(model_runtime.NextRuleWarning, selection.warnings),
     };
 }
 

@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 6 |
-| Last verified commit | `a27182c` |
+| Last verified commit | `015349b` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Partial STATE and diagnostics parity are incomplete |
+| Blocking issue | Warning, trace, and log parity are incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -142,7 +142,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Implement action execution
 - [x] Implement first-match next rules and action queueing
 - [x] Implement duplicate enqueue warnings and scene termination
-- [ ] Implement partial STATE on failure
+- [x] Implement partial STATE on failure
 - [x] Implement route matching and scene transitions
 - [x] Implement scene and route limits
 - [ ] Implement stable warnings and runtime errors

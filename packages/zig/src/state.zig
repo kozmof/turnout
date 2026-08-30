@@ -177,6 +177,10 @@ pub const State = struct {
         return schema.contains(path);
     }
 
+    pub fn isSchemaManaged(self: *const State) bool {
+        return self.schema != null;
+    }
+
     pub fn snapshot(self: *const State, allocator: std.mem.Allocator) StateError!State {
         var result: State = .{};
         errdefer result.deinit(allocator);
