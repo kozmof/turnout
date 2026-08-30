@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 7 |
-| Last verified commit | `067ed22` |
+| Last verified commit | `0348f19` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Repeated prepare hooks and full hook context are not integrated |
+| Blocking issue | Full hook data and scene-level effect execution are not integrated |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -163,9 +163,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Implement `Runtime.step()`
 - [x] Implement `Runtime.resume()`
 - [x] Define whether `resume()` advances execution
-- [ ] Preserve prepare and publish declaration order
+- [x] Preserve prepare and publish declaration order
 - [x] Preserve missing-hook behavior
-- [ ] Preserve returned and thrown publish failures
+- [x] Preserve returned and thrown publish failures
 - [x] Preserve `failOnPublishError`
 - [x] Preserve committed STATE after strict publish failure
 - [x] Reject stale, duplicate, and wrong-kind results
