@@ -83,5 +83,78 @@
         ]
       }
     }
+  },
+  {
+    "name": "invalid arity",
+    "error": "InvalidArity",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          {
+            "name": "result",
+            "type": "number",
+            "expr": { "combine": { "fn": "add", "args": [{ "lit": 1 }] } }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "unknown function",
+    "error": "UnknownFunction",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          {
+            "name": "result",
+            "type": "number",
+            "expr": {
+              "combine": { "fn": "not_a_function", "args": [{ "lit": 1 }, { "lit": 2 }] }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "operand type mismatch",
+    "error": "TypeMismatch",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          {
+            "name": "result",
+            "type": "number",
+            "expr": {
+              "combine": { "fn": "add", "args": [{ "lit": "one" }, { "lit": 2 }] }
+            }
+          }
+        ]
+      }
+    }
+  },
+  {
+    "name": "forward pipe step reference",
+    "error": "InvalidStepReference",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          {
+            "name": "result",
+            "type": "number",
+            "expr": {
+              "pipe": {
+                "params": [],
+                "steps": [{ "fn": "add", "args": [{ "stepRef": 0 }, { "lit": 1 }] }]
+              }
+            }
+          }
+        ]
+      }
+    }
   }
 ]

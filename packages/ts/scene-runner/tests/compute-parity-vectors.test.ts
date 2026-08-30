@@ -57,8 +57,17 @@ function classifyError(error: unknown): string {
   if (text.includes("division by zero")) return "DivisionByZero";
   if (text.includes("empty") && (text.includes("pipe") || text.includes("sequence")))
     return "EmptyPipe";
+  if (text.includes("step") && (text.includes("reference") || text.includes("undefined")))
+    return "InvalidStepReference";
   if (text.includes("condition") && (text.includes("boolean") || text.includes("bool")))
     return "ConditionTypeMismatch";
+  if (text.includes("unknown") && text.includes("function")) return "UnknownFunction";
+  if (text.includes("arg") && text.includes("expected")) return "InvalidArity";
+  if (
+    text.includes("type") &&
+    (text.includes("mismatch") || text.includes("expected") || text.includes("expects"))
+  )
+    return "TypeMismatch";
   if (text.includes("later") || text.includes("missing") || text.includes("undefined"))
     return "MissingReference";
   return "Unknown";

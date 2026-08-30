@@ -70,6 +70,14 @@ test "shared compute error vectors" {
             try std.testing.expectError(error.ConditionTypeMismatch, compute.executeJson(vector.compute, &inputs, allocator))
         else if (std.mem.eql(u8, vector.@"error", "EmptyPipe"))
             try std.testing.expectError(error.EmptyPipe, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "InvalidArity"))
+            try std.testing.expectError(error.InvalidArity, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "UnknownFunction"))
+            try std.testing.expectError(error.UnknownFunction, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "TypeMismatch"))
+            try std.testing.expectError(error.TypeMismatch, compute.executeJson(vector.compute, &inputs, allocator))
+        else if (std.mem.eql(u8, vector.@"error", "InvalidStepReference"))
+            try std.testing.expectError(error.InvalidStepReference, compute.executeJson(vector.compute, &inputs, allocator))
         else
             return error.InvalidVector;
     }
