@@ -29,6 +29,7 @@ pub const Event = union(enum) {
 };
 
 const Status = enum { active, complete, cancelled };
+pub const ActionPhase = enum { prepare, execute, publish, complete, cancelled };
 
 pub const CompletedEffect = struct {
     request: effect.Request,
@@ -135,6 +136,21 @@ pub const Runtime = struct {
 
     pub fn completedEffects(self: *const Runtime) []const CompletedEffect {
         return self.completed.items;
+    }
+
+    pub fn actionPhase(self: *const Runtime) ActionPhase {
+        if (self.status == .cancelled) return .cancelled;
+        if (self.status == .complete) return .complete;
+        if (self.pending) |pending| return switch (pending.kind) {
+            .prepare => .prepare,
+            .publish => .publish,
+        };
+        if (self.schedule_index < self.scheduled.len and
+            self.scheduled[self.schedule_index].kind == .prepare)
+            return .prepare;
+        if (self.action_state_context == null) return .execute;
+        if (self.schedule_index < self.scheduled.len) return .publish;
+        return .complete;
     }
 
     pub fn completedResult(self: *const Runtime, id: u64) ?*const effect.OwnedResult {
@@ -712,8 +728,10 @@ test "one prepare hook response feeds multiple action bindings" {
     defer model.deinit();
     var runtime = try Runtime.initAction(std.testing.allocator, &model, "main", "start");
     defer runtime.deinit();
+    try std.testing.expectEqual(ActionPhase.prepare, runtime.actionPhase());
     const request = (try runtime.step()).need_effect;
     try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"left\":{\"symbol\":\"number\",\"value\":2,\"tags\":[\"host\"]},\"right\":{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}" } });
+    try std.testing.expectEqual(ActionPhase.execute, runtime.actionPhase());
     const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
     var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
     defer state.deinit(std.testing.allocator);
@@ -726,6 +744,7 @@ test "one prepare hook response feeds multiple action bindings" {
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
     try std.testing.expect(value.hasTag(result.binding_values.getPtr("left").?.borrowed(), "host"));
+    try std.testing.expectEqual(ActionPhase.publish, runtime.actionPhase());
     const publish = (try runtime.step()).need_effect;
     try std.testing.expectEqual(effect.Kind.publish, publish.kind);
     try std.testing.expectEqualStrings("save", publish.hook);
@@ -734,6 +753,7 @@ test "one prepare hook response feeds multiple action bindings" {
         publish.context_json,
     );
     try runtime.@"resume"(publish.id, .{ .publish = .ok });
+    try std.testing.expectEqual(ActionPhase.complete, runtime.actionPhase());
     try std.testing.expect((try runtime.step()) == .complete);
     var outcomes = try runtime.finishActionEffects("main", "start", true);
     defer outcomes.deinit(std.testing.allocator);
