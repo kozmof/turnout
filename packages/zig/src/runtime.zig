@@ -1,5 +1,6 @@
 const std = @import("std");
 const effect = @import("effect.zig");
+const value = @import("value.zig");
 
 pub const RuntimeError = error{
     OutOfMemory,
@@ -13,6 +14,8 @@ pub const RuntimeError = error{
     MissingPrepareHook,
     PrepareHookFailed,
     PublishHookFailed,
+    MissingPrepareBinding,
+    InvalidPreparePayload,
 };
 pub const Event = union(enum) {
     need_effect: effect.Request,
@@ -30,6 +33,16 @@ pub const CompletedEffect = struct {
 
     fn deinit(self: *CompletedEffect, allocator: std.mem.Allocator) void {
         self.result.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
+pub const PreparedValues = struct {
+    values: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty,
+
+    pub fn deinit(self: *PreparedValues, allocator: std.mem.Allocator) void {
+        for (self.values.values()) |*item| value.deinitTaggedValue(item, allocator);
+        self.values.deinit(allocator);
         self.* = undefined;
     }
 };
@@ -73,6 +86,48 @@ pub const Runtime = struct {
             .missing => error.MissingPrepareHook,
             .failed => error.PrepareHookFailed,
         };
+    }
+
+    pub fn preparedValues(
+        self: *const Runtime,
+        scene_id: []const u8,
+        action_id: []const u8,
+    ) RuntimeError!PreparedValues {
+        var prepared: PreparedValues = .{};
+        errdefer prepared.deinit(self.allocator);
+        for (self.completed.items) |item| {
+            if (item.result != .prepare) continue;
+            if (!std.mem.eql(u8, item.request.scene_id, scene_id)) continue;
+            if (!std.mem.eql(u8, item.request.action_id, action_id)) continue;
+            const binding = item.request.binding orelse return error.MissingPrepareBinding;
+            const payload = switch (item.result.prepare) {
+                .ok => |bytes| bytes,
+                .missing => return error.MissingPrepareHook,
+                .failed => return error.PrepareHookFailed,
+            };
+            const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, payload, .{}) catch
+                return error.InvalidPreparePayload;
+            defer parsed.deinit();
+            var converted = value.fromJson(self.allocator, parsed.value) catch |err| switch (err) {
+                error.OutOfMemory => return error.OutOfMemory,
+                else => return error.InvalidPreparePayload,
+            };
+            var tagged: value.TaggedValue = .{
+                .value = converted,
+                .tags = self.allocator.alloc([]const u8, 0) catch |err| {
+                    value.deinitValue(&converted, self.allocator);
+                    return err;
+                },
+            };
+            if (prepared.values.getPtr(binding)) |previous| {
+                value.deinitTaggedValue(previous, self.allocator);
+                previous.* = tagged;
+            } else prepared.values.put(self.allocator, binding, tagged) catch |err| {
+                value.deinitTaggedValue(&tagged, self.allocator);
+                return err;
+            };
+        }
+        return prepared;
     }
 
     pub fn enforcePublishPolicy(self: *const Runtime, fail_on_error: bool) RuntimeError!void {
@@ -298,4 +353,81 @@ test "failed prepare outcomes are owned and rejected" {
     message[0] = 'x';
     try std.testing.expectEqualStrings("bad", runtime.completedResult(request.id).?.prepare.failed);
     try std.testing.expectError(error.PrepareHookFailed, runtime.preparePayload(request.id));
+}
+
+test "completed prepare effects decode by action and replace duplicate bindings" {
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .prepare, .hook = "first", .scene_id = "main", .action_id = "start", .callback_index = 0, .binding = "input" },
+        .{ .kind = .prepare, .hook = "second", .scene_id = "main", .action_id = "start", .callback_index = 1, .binding = "input" },
+        .{ .kind = .prepare, .hook = "other", .scene_id = "other", .action_id = "start", .callback_index = 0, .binding = "ignored" },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const first = (try runtime.step()).need_effect;
+    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "1" } });
+    const second = (try runtime.step()).need_effect;
+    try runtime.@"resume"(second.id, .{ .prepare = .{ .ok = "2" } });
+    var prepared = try runtime.preparedValues("main", "start");
+    defer prepared.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), prepared.values.count());
+    try std.testing.expectEqual(@as(f64, 2), prepared.values.get("input").?.value.number);
+}
+
+test "malformed prepare payload is rejected" {
+    var runtime = Runtime.init(std.testing.allocator, &.{});
+    defer runtime.deinit();
+    const request = (try runtime.requestEffectWithContext(.{
+        .kind = .prepare,
+        .hook = "load",
+        .scene_id = "main",
+        .action_id = "start",
+        .callback_index = 0,
+        .binding = "input",
+    })).need_effect;
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{" } });
+    try std.testing.expectError(error.InvalidPreparePayload, runtime.preparedValues("main", "start"));
+}
+
+test "resumed prepare effect feeds model action compute" {
+    const model_runtime = @import("model.zig");
+    const state_runtime = @import("state.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","prepare":[{"binding":"input","fromHook":"load"}],
+        \\"compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"input","type":"number"},
+        \\{"name":"result","type":"number","expr":{"combine":{
+        \\"fn":"add","args":[{"ref":"input"},{"lit":3}]
+        \\}}}
+        \\]}}
+        \\}]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    const scheduled = [_]effect.Spec{.{
+        .kind = .prepare,
+        .hook = "load",
+        .scene_id = "main",
+        .action_id = "start",
+        .callback_index = 0,
+        .binding = "input",
+    }};
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const request = (try runtime.step()).need_effect;
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "4" } });
+    var prepared = try runtime.preparedValues("main", "start");
+    defer prepared.deinit(std.testing.allocator);
+    var result = try model.executeActionWithPrepared(
+        "main",
+        "start",
+        &state,
+        &prepared.values,
+        std.testing.allocator,
+    );
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
 }

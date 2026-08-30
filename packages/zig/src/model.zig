@@ -89,6 +89,18 @@ pub const RuntimeModel = struct {
         return action_runtime.execute(.{ .object = action }, state, allocator);
     }
 
+    pub fn executeActionWithPrepared(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        state: *const state_runtime.State,
+        prepared: *const std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue),
+        allocator: std.mem.Allocator,
+    ) !action_runtime.Result {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        return action_runtime.executeWithPrepared(.{ .object = action }, state, prepared, allocator);
+    }
+
     pub fn selectNextAfterAction(
         self: *const RuntimeModel,
         scene_id: []const u8,
