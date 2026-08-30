@@ -11,6 +11,7 @@ pub const PresetError = error{
     IndexOutOfBounds,
     IncomparableValues,
     InvalidTemplateSpec,
+    InvalidNumber,
 };
 
 pub fn call(
@@ -53,6 +54,7 @@ pub fn call(
     if (std.mem.eql(u8, name, "transformFnBoolean::not")) return booleanNot(args, allocator);
     if (std.mem.eql(u8, name, "transformFnBoolean::toStr")) return booleanToString(args, allocator);
     if (std.mem.eql(u8, name, "transformFnString::trim")) return stringTrim(args, allocator);
+    if (std.mem.eql(u8, name, "transformFnString::toNumber")) return stringToNumber(args, allocator);
     if (std.mem.eql(u8, name, "transformFnString::length")) return stringLength(args, allocator);
     if (std.mem.eql(u8, name, "transformFnArray::length")) return arrayLength(args, allocator, false);
     if (std.mem.eql(u8, name, "transformFnArray::isEmpty")) return arrayLength(args, allocator, true);
@@ -414,6 +416,16 @@ fn stringTrim(args: []const value.TaggedValue, allocator: std.mem.Allocator) !va
     return value.buildString(try jsTrim(args[0].value.string), args[0].tags, allocator);
 }
 
+fn stringToNumber(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 1);
+    if (args[0].value != .string) return error.TypeMismatch;
+    const trimmed = try jsTrim(args[0].value.string);
+    if (trimmed.len == 0) return error.InvalidNumber;
+    const number = std.fmt.parseFloat(f64, trimmed) catch return error.InvalidNumber;
+    if (!std.math.isFinite(number)) return error.InvalidNumber;
+    return value.buildNumber(number, args[0].tags, allocator);
+}
+
 fn stringLength(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
     try requireArity(args, 1);
     if (args[0].value != .string) return error.TypeMismatch;
@@ -566,4 +578,20 @@ test "string and boolean transforms preserve JavaScript values and tags" {
     defer string.deinit(allocator);
     try std.testing.expectEqualStrings("false", string.value.string);
     try std.testing.expectEqualSlices([]const u8, &.{"boolean"}, string.tags);
+}
+
+test "string to number is strict and finite" {
+    const allocator = std.testing.allocator;
+    const valid: value.TaggedValue = .{ .value = .{ .string = "\xE3\x80\x80-1.25e2\xC2\xA0" }, .tags = &.{"input"} };
+    var number = try call("transformFnString::toNumber", &.{valid}, allocator);
+    defer number.deinit(allocator);
+    try std.testing.expectEqual(@as(f64, -125), number.value.number);
+    try std.testing.expectEqualSlices([]const u8, &.{"input"}, number.tags);
+
+    const malformed: value.TaggedValue = .{ .value = .{ .string = "42abc" } };
+    const empty: value.TaggedValue = .{ .value = .{ .string = "  " } };
+    const infinite: value.TaggedValue = .{ .value = .{ .string = "Infinity" } };
+    try std.testing.expectError(error.InvalidNumber, call("transformFnString::toNumber", &.{malformed}, allocator));
+    try std.testing.expectError(error.InvalidNumber, call("transformFnString::toNumber", &.{empty}, allocator));
+    try std.testing.expectError(error.InvalidNumber, call("transformFnString::toNumber", &.{infinite}, allocator));
 }

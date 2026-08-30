@@ -33,6 +33,12 @@
     "output": { "value": 2, "tags": [] }
   },
   {
+    "name": "strict string number conversion",
+    "function": "transformFnString::toNumber",
+    "inputs": [{ "value": "　-1.25e2 ", "tags": ["input"] }],
+    "output": { "value": -125, "tags": ["input"] }
+  },
+  {
     "name": "generic equality ignores input tags",
     "function": "combineFnGeneric::isEqual",
     "inputs": [
