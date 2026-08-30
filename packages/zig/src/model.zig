@@ -26,6 +26,22 @@ pub const NextRuleCondition = union(enum) {
     missing_program,
 };
 
+pub const NextRuleWarningKind = enum { invalid_condition, missing_program };
+pub const NextRuleWarning = struct {
+    kind: NextRuleWarningKind,
+    rule_index: usize,
+    condition_name: []const u8,
+};
+pub const NextRuleSelection = struct {
+    target: ?[]const u8,
+    warnings: []NextRuleWarning,
+
+    pub fn deinit(self: *NextRuleSelection, allocator: std.mem.Allocator) void {
+        allocator.free(self.warnings);
+        self.* = undefined;
+    }
+};
+
 pub const RuntimeModel = struct {
     parsed: std.json.Parsed(std.json.Value),
 
@@ -84,6 +100,45 @@ pub const RuntimeModel = struct {
         return .{ .matched = result.value.boolean };
     }
 
+    pub fn selectNextRule(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        prepared_by_rule: []const std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue),
+        allocator: std.mem.Allocator,
+    ) !NextRuleSelection {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        const rules_value = action.get("next") orelse return .{ .target = null, .warnings = try allocator.alloc(NextRuleWarning, 0) };
+        if (rules_value != .array) return error.NextRuleNotFound;
+        const rules = rules_value.array.items;
+        if (prepared_by_rule.len != 0 and prepared_by_rule.len != rules.len) return error.InvalidPreparedRuleCount;
+        var warnings = std.ArrayList(NextRuleWarning).empty;
+        errdefer warnings.deinit(allocator);
+        const empty_inputs: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+        for (rules, 0..) |rule, index| {
+            const inputs = if (prepared_by_rule.len == 0) &empty_inputs else &prepared_by_rule[index];
+            const outcome = try self.evaluateNextRule(scene_id, action_id, index, inputs, allocator);
+            switch (outcome) {
+                .matched => |matched| if (matched) {
+                    const target = rule.object.get("action") orelse return error.NextRuleNotFound;
+                    if (target != .string) return error.NextRuleNotFound;
+                    return .{ .target = target.string, .warnings = try warnings.toOwnedSlice(allocator) };
+                },
+                .invalid_type => try warnings.append(allocator, .{
+                    .kind = .invalid_condition,
+                    .rule_index = index,
+                    .condition_name = nextConditionName(rule),
+                }),
+                .missing_program => try warnings.append(allocator, .{
+                    .kind = .missing_program,
+                    .rule_index = index,
+                    .condition_name = nextConditionName(rule),
+                }),
+            }
+        }
+        return .{ .target = null, .warnings = try warnings.toOwnedSlice(allocator) };
+    }
+
     fn findAction(self: *const RuntimeModel, scene_id: []const u8, action_id: []const u8) ?std.json.ObjectMap {
         const scenes = self.root().get("scenes") orelse return null;
         if (scenes != .array) return null;
@@ -103,6 +158,14 @@ pub const RuntimeModel = struct {
         return null;
     }
 };
+
+fn nextConditionName(rule: std.json.Value) []const u8 {
+    if (rule != .object) return "";
+    const rule_compute = rule.object.get("compute") orelse return "";
+    if (rule_compute != .object) return "";
+    const condition = rule_compute.object.get("condition") orelse return "";
+    return if (condition == .string) condition.string else "";
+}
 
 /// Validate the JSON-first runtime projection. Unknown runtime fields are
 /// ignored for forward compatibility; known compiler-only fields are rejected.
@@ -416,4 +479,24 @@ test "runtime model evaluates unconditional and computed next rules" {
 
     try inputs.put(std.testing.allocator, "condition", .{ .value = .{ .boolean = true }, .tags = &.{"impure"} });
     try std.testing.expectEqual(NextRuleCondition.invalid_type, try model.evaluateNextRule("scene", "action", 2, &inputs, std.testing.allocator));
+}
+
+test "runtime model selects the first matching next rule and retains warnings" {
+    const fixture =
+        \\{"version":2,"scenes":[{"id":"scene","actions":[{"id":"action","next":[
+        \\  {"action":"invalid","compute":{"condition":"c","prog":{"bindings":[{"name":"c","type":"number","value":1}]}}},
+        \\  {"action":"false","compute":{"condition":"c","prog":{"bindings":[{"name":"c","type":"bool","value":false}]}}},
+        \\  {"action":"selected","compute":{"condition":"c","prog":{"bindings":[{"name":"c","type":"bool","value":true}]}}},
+        \\  {"action":"unreached"}
+        \\]}]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    var selection = try model.selectNextRule("scene", "action", &.{}, std.testing.allocator);
+    defer selection.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("selected", selection.target.?);
+    try std.testing.expectEqual(@as(usize, 1), selection.warnings.len);
+    try std.testing.expectEqual(NextRuleWarningKind.invalid_condition, selection.warnings[0].kind);
+    try std.testing.expectEqual(@as(usize, 0), selection.warnings[0].rule_index);
+    try std.testing.expectEqualStrings("c", selection.warnings[0].condition_name);
 }
