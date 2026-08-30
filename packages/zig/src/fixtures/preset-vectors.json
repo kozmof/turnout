@@ -21,6 +21,12 @@
     "output": { "value": "false", "tags": [] }
   },
   {
+    "name": "number string conversion uses positive exponent sign",
+    "function": "transformFnNumber::toStr",
+    "inputs": [{ "value": 1e21, "tags": ["number"] }],
+    "output": { "value": "1e+21", "tags": ["number"] }
+  },
+  {
     "name": "ECMAScript trim handles Unicode whitespace",
     "function": "transformFnString::trim",
     "inputs": [{ "value": "　hello ", "tags": ["text"] }],

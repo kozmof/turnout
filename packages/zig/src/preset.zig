@@ -51,6 +51,7 @@ pub fn call(
     if (std.mem.eql(u8, name, "transformFnNumber::ceil")) return numberUnary(args, allocator, .ceil);
     if (std.mem.eql(u8, name, "transformFnNumber::round")) return numberUnary(args, allocator, .round);
     if (std.mem.eql(u8, name, "transformFnNumber::negate")) return numberUnary(args, allocator, .negate);
+    if (std.mem.eql(u8, name, "transformFnNumber::toStr")) return numberToString(args, allocator);
     if (std.mem.eql(u8, name, "transformFnBoolean::not")) return booleanNot(args, allocator);
     if (std.mem.eql(u8, name, "transformFnBoolean::toStr")) return booleanToString(args, allocator);
     if (std.mem.eql(u8, name, "transformFnString::trim")) return stringTrim(args, allocator);
@@ -410,6 +411,35 @@ fn booleanToString(args: []const value.TaggedValue, allocator: std.mem.Allocator
     return value.buildString(if (args[0].value.boolean) "true" else "false", args[0].tags, allocator);
 }
 
+fn numberToString(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 1);
+    if (args[0].value != .number) return error.TypeMismatch;
+    var buffer: [std.fmt.float.bufferSize(.decimal, f64) + 1]u8 = undefined;
+    const number = args[0].value.number;
+    const rendered: []const u8 = if (std.math.isNan(number))
+        "NaN"
+    else if (std.math.isPositiveInf(number))
+        "Infinity"
+    else if (std.math.isNegativeInf(number))
+        "-Infinity"
+    else if (number == 0)
+        "0"
+    else blk: {
+        const magnitude = @abs(number);
+        if (magnitude >= 1e-6 and magnitude < 1e21)
+            break :blk std.fmt.float.render(&buffer, number, .{ .mode = .decimal }) catch unreachable;
+        const scientific = std.fmt.float.render(&buffer, number, .{ .mode = .scientific }) catch unreachable;
+        const exponent = std.mem.indexOfScalar(u8, scientific, 'e').?;
+        if (scientific[exponent + 1] != '-') {
+            std.mem.copyBackwards(u8, buffer[exponent + 2 .. scientific.len + 1], buffer[exponent + 1 .. scientific.len]);
+            buffer[exponent + 1] = '+';
+            break :blk buffer[0 .. scientific.len + 1];
+        }
+        break :blk scientific;
+    };
+    return value.buildString(rendered, args[0].tags, allocator);
+}
+
 fn stringTrim(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
     try requireArity(args, 1);
     if (args[0].value != .string) return error.TypeMismatch;
@@ -594,4 +624,23 @@ test "string to number is strict and finite" {
     try std.testing.expectError(error.InvalidNumber, call("transformFnString::toNumber", &.{malformed}, allocator));
     try std.testing.expectError(error.InvalidNumber, call("transformFnString::toNumber", &.{empty}, allocator));
     try std.testing.expectError(error.InvalidNumber, call("transformFnString::toNumber", &.{infinite}, allocator));
+}
+
+test "number to string uses JavaScript notation boundaries" {
+    const allocator = std.testing.allocator;
+    const cases = [_]struct { number: f64, expected: []const u8 }{
+        .{ .number = -0.0, .expected = "0" },
+        .{ .number = 1e21, .expected = "1e+21" },
+        .{ .number = 1e20, .expected = "100000000000000000000" },
+        .{ .number = 1e-6, .expected = "0.000001" },
+        .{ .number = 1e-7, .expected = "1e-7" },
+        .{ .number = std.math.inf(f64), .expected = "Infinity" },
+    };
+    for (cases) |case| {
+        const input: value.TaggedValue = .{ .value = .{ .number = case.number }, .tags = &.{"number"} };
+        var string = try call("transformFnNumber::toStr", &.{input}, allocator);
+        defer string.deinit(allocator);
+        try std.testing.expectEqualStrings(case.expected, string.value.string);
+        try std.testing.expectEqualSlices([]const u8, &.{"number"}, string.tags);
+    }
 }
