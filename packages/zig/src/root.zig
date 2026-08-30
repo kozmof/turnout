@@ -12,6 +12,7 @@ pub const state = @import("state.zig");
 pub const action = @import("action.zig");
 pub const scene = @import("scene.zig");
 pub const route = @import("route.zig");
+pub const route_vectors = @import("route_vectors.zig");
 
 test {
     _ = model;
@@ -28,4 +29,5 @@ test {
     _ = action;
     _ = scene;
     _ = route;
+    _ = route_vectors;
 }

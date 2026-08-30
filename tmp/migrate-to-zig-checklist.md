@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 5 |
-| Last verified commit | `9d4e01c` |
+| Current phase | 6 |
+| Last verified commit | `a27182c` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Shared compute error parity is incomplete |
+| Blocking issue | Shared scene and route conformance fixtures are incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -130,21 +130,21 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 - [x] Shared Value vectors pass in TypeScript and Zig
 - [x] Shared preset-function vectors pass in TypeScript and Zig
-- [ ] Compute results and errors match
+- [x] Compute results and errors match
 
 ## Phase 6. Port STATE, actions, scenes, and routes
 
-- [ ] Implement STATE initialization and snapshots
-- [ ] Implement STATE schema validation
-- [ ] Implement checked and unchecked STATE
-- [ ] Implement STATE reads and batch writes
-- [ ] Implement merge warnings
-- [ ] Implement action execution
-- [ ] Implement first-match next rules and action queueing
-- [ ] Implement duplicate enqueue warnings and scene termination
+- [x] Implement STATE initialization and snapshots
+- [x] Implement STATE schema validation
+- [x] Implement checked and unchecked STATE
+- [x] Implement STATE reads and batch writes
+- [x] Implement merge warnings
+- [x] Implement action execution
+- [x] Implement first-match next rules and action queueing
+- [x] Implement duplicate enqueue warnings and scene termination
 - [ ] Implement partial STATE on failure
-- [ ] Implement route matching and scene transitions
-- [ ] Implement scene and route limits
+- [x] Implement route matching and scene transitions
+- [x] Implement scene and route limits
 - [ ] Implement stable warnings and runtime errors
 - [ ] Implement execution traces and log events
 - [ ] Add scene and route parity fixtures
