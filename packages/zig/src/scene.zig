@@ -12,6 +12,20 @@ pub const DuplicateEnqueueWarning = struct {
     first_enqueued_by: ?[]const u8,
 };
 
+pub const LogKind = enum { action_start, warning, action_complete };
+pub const LogWarningKind = enum {
+    merge_warning,
+    unchecked_state_write,
+    invalid_next_condition,
+    missing_next_compute_program,
+    duplicate_enqueue,
+};
+pub const LogEvent = struct {
+    kind: LogKind,
+    action_id: []const u8,
+    warning_kind: ?LogWarningKind = null,
+};
+
 pub const ActionTrace = struct {
     action_id: []const u8,
     next_action_id: ?[]const u8,
@@ -32,6 +46,7 @@ pub const Result = struct {
     traces: []ActionTrace,
     terminated_at: []const []const u8,
     duplicate_warnings: []DuplicateEnqueueWarning,
+    logs: []LogEvent,
 
     pub fn deinit(self: *Result, allocator: std.mem.Allocator) void {
         self.state_after_scene.deinit(allocator);
@@ -39,6 +54,7 @@ pub const Result = struct {
         allocator.free(self.traces);
         allocator.free(self.terminated_at);
         allocator.free(self.duplicate_warnings);
+        allocator.free(self.logs);
         self.* = undefined;
     }
 
@@ -142,6 +158,8 @@ fn executeOwned(
     errdefer terminated.deinit(allocator);
     var duplicates = std.ArrayList(DuplicateEnqueueWarning).empty;
     errdefer duplicates.deinit(allocator);
+    var logs = std.ArrayList(LogEvent).empty;
+    errdefer logs.deinit(allocator);
 
     var step_count: usize = 0;
     while (queue_head < queue.items.len) {
@@ -151,6 +169,7 @@ fn executeOwned(
         step_count += 1;
         if (step_count > max_steps) return error.MaxStepsExceeded;
         try visited.put(allocator, action_id, {});
+        try logs.append(allocator, .{ .kind = .action_start, .action_id = action_id });
 
         var action_result = try model.executeAction(scene_id, action_id, current_state, allocator);
         defer action_result.deinit(allocator);
@@ -170,6 +189,27 @@ fn executeOwned(
             trace.deinit(allocator);
             return err;
         };
+        for (action_result.merge_warnings) |_|
+            try logs.append(allocator, .{
+                .kind = .warning,
+                .action_id = action_id,
+                .warning_kind = .merge_warning,
+            });
+        if (action_result.unchecked_write_paths.len > 0)
+            try logs.append(allocator, .{
+                .kind = .warning,
+                .action_id = action_id,
+                .warning_kind = .unchecked_state_write,
+            });
+        for (selection.warnings) |warning|
+            try logs.append(allocator, .{
+                .kind = .warning,
+                .action_id = action_id,
+                .warning_kind = switch (warning.kind) {
+                    .invalid_condition => .invalid_next_condition,
+                    .missing_program => .missing_next_compute_program,
+                },
+            });
 
         if (next_action) |target| {
             const previous_source = enqueue_sources.get(target);
@@ -179,11 +219,17 @@ fn executeOwned(
                     .from_action_id = action_id,
                     .first_enqueued_by = previous_source,
                 });
+                try logs.append(allocator, .{
+                    .kind = .warning,
+                    .action_id = target,
+                    .warning_kind = .duplicate_enqueue,
+                });
             } else {
                 try enqueue_sources.put(allocator, target, action_id);
                 try queue.append(allocator, target);
             }
         }
+        try logs.append(allocator, .{ .kind = .action_complete, .action_id = action_id });
         failed_action_id.* = null;
     }
 
@@ -195,6 +241,8 @@ fn executeOwned(
     const terminated_slice = try terminated.toOwnedSlice(allocator);
     errdefer allocator.free(terminated_slice);
     const duplicate_slice = try duplicates.toOwnedSlice(allocator);
+    errdefer allocator.free(duplicate_slice);
+    const log_slice = try logs.toOwnedSlice(allocator);
     const final_state = current_state.*;
     current_state.* = .{};
     return .{
@@ -202,6 +250,7 @@ fn executeOwned(
         .traces = trace_slice,
         .terminated_at = terminated_slice,
         .duplicate_warnings = duplicate_slice,
+        .logs = log_slice,
     };
 }
 
@@ -287,6 +336,11 @@ test "scene executes first-match action chain" {
     try std.testing.expectEqualStrings("second", result.traces[1].action_id);
     try std.testing.expectEqual(@as(usize, 1), result.terminated_at.len);
     try std.testing.expectEqualStrings("second", result.terminated_at[0]);
+    try std.testing.expectEqual(@as(usize, 6), result.logs.len);
+    try std.testing.expectEqual(LogKind.action_start, result.logs[0].kind);
+    try std.testing.expectEqual(LogKind.warning, result.logs[1].kind);
+    try std.testing.expectEqual(LogWarningKind.unchecked_state_write, result.logs[1].warning_kind.?);
+    try std.testing.expectEqual(LogKind.action_complete, result.logs[2].kind);
 }
 
 test "scene suppresses duplicate enqueue and enforces step limit" {
@@ -307,6 +361,10 @@ test "scene suppresses duplicate enqueue and enforces step limit" {
     try std.testing.expectEqual(@as(usize, 1), result.duplicate_warnings.len);
     try std.testing.expectEqualStrings("a", result.duplicate_warnings[0].action_id);
     try std.testing.expect(result.duplicate_warnings[0].first_enqueued_by == null);
+    try std.testing.expectEqual(@as(usize, 5), result.logs.len);
+    try std.testing.expectEqual(LogKind.warning, result.logs[3].kind);
+    try std.testing.expectEqual(LogWarningKind.duplicate_enqueue, result.logs[3].warning_kind.?);
+    try std.testing.expectEqual(LogKind.action_complete, result.logs[4].kind);
     try std.testing.expectError(error.MaxStepsExceeded, execute(&model, "main", &state, 1, std.testing.allocator));
 }
 
