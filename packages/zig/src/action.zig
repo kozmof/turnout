@@ -23,6 +23,12 @@ pub const Result = struct {
         allocator.free(self.merge_warnings);
         self.* = undefined;
     }
+
+    pub fn takeState(self: *Result) state_runtime.State {
+        const state = self.state_after_merge;
+        self.state_after_merge = .{};
+        return state;
+    }
 };
 
 pub fn execute(

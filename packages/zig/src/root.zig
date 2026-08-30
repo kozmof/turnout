@@ -10,6 +10,7 @@ pub const effect = @import("effect.zig");
 pub const runtime = @import("runtime.zig");
 pub const state = @import("state.zig");
 pub const action = @import("action.zig");
+pub const scene = @import("scene.zig");
 
 test {
     _ = model;
@@ -24,4 +25,5 @@ test {
     _ = runtime;
     _ = state;
     _ = action;
+    _ = scene;
 }
