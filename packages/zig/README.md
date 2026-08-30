@@ -13,6 +13,7 @@ Run the current native checks from the repository root.
 - JSON runtime projection and version validation
 - Retained JSON model decoding with byte and nesting limits
 - Tagged scalar, array, and record values
+- Allocator-owned Value builders, cloning, guards, and cleanup
 - Recursive protobuf JSON Value conversion
 - Structural Value equality
 - Stable tag union order

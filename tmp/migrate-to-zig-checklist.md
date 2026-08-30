@@ -8,7 +8,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 5 |
-| Last verified commit | `bcfffcb` |
+| Last verified commit | `a4cd927` |
 | Last updated | 2026-08-30 |
 | Blocking issue | Zig Value and compute parity are incomplete |
 
@@ -113,8 +113,8 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ## Phase 5. Port Values and compute execution
 
-- [ ] Implement tagged Values, null reasons, and purity tags
-- [ ] Implement arrays, records, builders, and guards
+- [x] Implement tagged Values, null reasons, and purity tags
+- [x] Implement arrays, records, builders, and guards
 - [x] Implement Value conversion
 - [ ] Implement every preset transform and combine function
 - [x] Implement function aliases
