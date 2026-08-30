@@ -3,6 +3,8 @@ const fn_aliases = @import("generated/fn_aliases.zig");
 const preset = @import("preset.zig");
 const value = @import("value.zig");
 
+pub const max_program_bindings: usize = 50_000;
+
 pub const LoadError = error{
     OutOfMemory,
     InvalidJson,
@@ -14,6 +16,7 @@ pub const LoadError = error{
     DuplicateBinding,
     MissingRootBinding,
     InvalidExpression,
+    ProgramTooLarge,
 };
 
 pub const LoadedCompute = struct {
@@ -297,9 +300,19 @@ pub fn validate(compute: std.json.Value, allocator: std.mem.Allocator) LoadError
 }
 
 pub fn validateProgram(prog: std.json.Value, output_name: []const u8, allocator: std.mem.Allocator) LoadError!void {
+    return validateProgramWithLimit(prog, output_name, allocator, max_program_bindings);
+}
+
+pub fn validateProgramWithLimit(
+    prog: std.json.Value,
+    output_name: []const u8,
+    allocator: std.mem.Allocator,
+    max_bindings: usize,
+) LoadError!void {
     if (prog != .object) return error.InvalidProgram;
     const bindings_value = prog.object.get("bindings") orelse return error.InvalidProgram;
     if (bindings_value != .array) return error.InvalidProgram;
+    if (bindings_value.array.items.len > max_bindings) return error.ProgramTooLarge;
 
     var names = std.StringHashMapUnmanaged(void).empty;
     defer names.deinit(allocator);
@@ -362,6 +375,21 @@ test "compute validation rejects malformed binding graphs" {
         std.testing.allocator,
         "{\"root\":\"x\",\"prog\":{\"bindings\":[{\"name\":\"x\",\"type\":\"number\",\"expr\":{\"combine\":{},\"cond\":{}}}]}}",
     ));
+}
+
+test "compute validation enforces the flattened binding budget" {
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        "{\"bindings\":[{\"name\":\"a\",\"type\":\"number\",\"value\":1},{\"name\":\"b\",\"type\":\"number\",\"value\":2}]}",
+        .{},
+    );
+    defer parsed.deinit();
+    try std.testing.expectError(
+        error.ProgramTooLarge,
+        validateProgramWithLimit(parsed.value, "a", std.testing.allocator, 1),
+    );
+    try validateProgramWithLimit(parsed.value, "a", std.testing.allocator, 2);
 }
 
 test "compute executes bindings in declaration order and resolves root" {
