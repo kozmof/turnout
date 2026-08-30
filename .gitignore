@@ -10,6 +10,7 @@
 .go-cache
 .zig-cache
 .zig-global-cache
+packages/zig/zig-out/
 .claude
 .buf-cache
 .tools

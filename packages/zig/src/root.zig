@@ -16,6 +16,7 @@ pub const route = @import("route.zig");
 pub const route_vectors = @import("route_vectors.zig");
 pub const runtime_error = @import("runtime_error.zig");
 pub const route_error_vectors = @import("route_error_vectors.zig");
+pub const wasm_abi = @import("wasm.zig");
 
 test {
     _ = model;
@@ -36,4 +37,5 @@ test {
     _ = route_vectors;
     _ = runtime_error;
     _ = route_error_vectors;
+    _ = wasm_abi;
 }
