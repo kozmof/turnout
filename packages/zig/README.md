@@ -11,7 +11,9 @@ Run the current native checks from the repository root.
 ## Current scope
 
 - JSON runtime projection and version validation
+- Retained JSON model decoding with byte and nesting limits
 - Tagged scalar, array, and record values
+- Recursive protobuf JSON Value conversion
 - Structural Value equality
 - Stable tag union order
 - JavaScript-compatible rounding and UTF-16 string length
