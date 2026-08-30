@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 5 |
-| Last verified commit | `4258d8e` |
+| Last verified commit | `9d4e01c` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Unicode case conversion is incomplete |
+| Blocking issue | Shared compute error parity is incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -116,7 +116,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Implement tagged Values, null reasons, and purity tags
 - [x] Implement arrays, records, builders, and guards
 - [x] Implement Value conversion
-- [ ] Implement every preset transform and combine function
+- [x] Implement every preset transform and combine function
 - [x] Implement function aliases
 - [x] Implement compute model loading and validation
 - [x] Implement binding execution in declaration order

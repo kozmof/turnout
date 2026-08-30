@@ -1,10 +1,12 @@
 {
   "scripts": {
-    "check": "pnpm run check:proto && pnpm run check:fn-map && pnpm run check:fieldtype && pnpm run check:zig && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
+    "check": "pnpm run check:proto && pnpm run check:fn-map && pnpm run check:unicode-case && pnpm run check:fieldtype && pnpm run check:zig && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
     "generate": "sh scripts/generate-proto.sh",
     "generate:fn-map": "node --experimental-strip-types scripts/gen-fn-map.ts",
+    "generate:unicode-case": "node --experimental-strip-types scripts/gen-unicode-case.ts",
     "check:proto": "sh scripts/check-proto.sh",
     "check:fn-map": "sh scripts/check-fn-map.sh",
+    "check:unicode-case": "sh scripts/check-unicode-case.sh",
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
     "build": "pnpm run build:zig && (cd packages/ts/runtime && ./node_modules/.bin/tsc --project tsconfig.build.json) && (cd packages/ts/scene-runner && ./node_modules/.bin/tsc --project tsconfig.build.json)",
     "build:zig": "zig build --build-file packages/zig/build.zig",
