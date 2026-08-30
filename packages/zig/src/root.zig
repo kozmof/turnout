@@ -13,6 +13,7 @@ pub const action = @import("action.zig");
 pub const scene = @import("scene.zig");
 pub const route = @import("route.zig");
 pub const route_vectors = @import("route_vectors.zig");
+pub const runtime_error = @import("runtime_error.zig");
 
 test {
     _ = model;
@@ -30,4 +31,5 @@ test {
     _ = scene;
     _ = route;
     _ = route_vectors;
+    _ = runtime_error;
 }

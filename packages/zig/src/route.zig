@@ -1,5 +1,6 @@
 const std = @import("std");
 const model_runtime = @import("model.zig");
+const runtime_error = @import("runtime_error.zig");
 const scene_runtime = @import("scene.zig");
 const state_runtime = @import("state.zig");
 const turnout_value = @import("value.zig");
@@ -46,6 +47,7 @@ pub const Result = struct {
 
 pub const Failure = struct {
     err: anyerror,
+    code: runtime_error.Code,
     partial_state: state_runtime.State,
     failed_scene_id: []const u8,
     logs: []scene_runtime.LogEvent,
@@ -152,6 +154,7 @@ pub fn executeSafe(
         current_state = .{};
         return .{ .failure = .{
             .err = err,
+            .code = runtime_error.fromError(err),
             .partial_state = partial_state,
             .failed_scene_id = current_scene,
             .logs = log_slice,
@@ -444,6 +447,7 @@ test "safe route result keeps state from last completed scene" {
         .success => return error.TestExpectedFailure,
         .failure => |*failure| {
             try std.testing.expectEqual(error.UnknownFunction, failure.err);
+            try std.testing.expectEqual(runtime_error.Code.unknown_function, failure.code);
             try std.testing.expectEqualStrings("s2", failure.failed_scene_id);
             try std.testing.expectEqual(@as(usize, 4), failure.logs.len);
             try std.testing.expectEqual(scene_runtime.LogKind.action_start, failure.logs[3].kind);

@@ -1,6 +1,7 @@
 const std = @import("std");
 const action_runtime = @import("action.zig");
 const model_runtime = @import("model.zig");
+const runtime_error = @import("runtime_error.zig");
 const state_runtime = @import("state.zig");
 const turnout_value = @import("value.zig");
 
@@ -92,6 +93,7 @@ pub const Result = struct {
 
 pub const Failure = struct {
     err: anyerror,
+    code: runtime_error.Code,
     partial_state: state_runtime.State,
     failed_action_id: ?[]const u8,
     logs: []LogEvent,
@@ -157,6 +159,7 @@ pub fn executeSafe(
         current_state = .{};
         return .{ .failure = .{
             .err = err,
+            .code = runtime_error.fromError(err),
             .partial_state = partial_state,
             .failed_action_id = failed_action_id,
             .logs = log_slice,
@@ -453,6 +456,7 @@ test "safe scene result preserves committed state and failed action" {
         .success => return error.TestExpectedFailure,
         .failure => |*failure| {
             try std.testing.expectEqual(error.UnknownFunction, failure.err);
+            try std.testing.expectEqual(runtime_error.Code.unknown_function, failure.code);
             try std.testing.expectEqualStrings("second", failure.failed_action_id.?);
             try std.testing.expectEqual(@as(usize, 4), failure.logs.len);
             try std.testing.expectEqual(LogKind.action_start, failure.logs[3].kind);
@@ -481,6 +485,7 @@ test "safe scene construction failure retains initial state without action id" {
         .success => return error.TestExpectedFailure,
         .failure => |*failure| {
             try std.testing.expectEqual(error.NoEntryAction, failure.err);
+            try std.testing.expectEqual(runtime_error.Code.no_entry_action, failure.code);
             try std.testing.expect(failure.failed_action_id == null);
             try std.testing.expectEqual(@as(usize, 0), failure.logs.len);
             try std.testing.expect(try failure.partial_state.exists("kept"));
