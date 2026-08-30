@@ -508,6 +508,21 @@ pub const ActionDriver = struct {
         self.completion_emitted = false;
     }
 
+    pub fn beginNextAction(self: *ActionDriver, model: anytype) !bool {
+        if (!self.completion_emitted) return error.ActionInProgress;
+        const result = &(self.action_result orelse return error.ActionInProgress);
+        var selection = try model.selectNextAfterAction(
+            self.scene_id,
+            self.action_id,
+            result,
+            self.allocator,
+        );
+        defer selection.deinit(self.allocator);
+        const target = selection.target orelse return false;
+        try self.beginAction(model, target);
+        return true;
+    }
+
     pub fn partialState(self: *const ActionDriver) *const state_runtime.State {
         if (!self.completion_emitted) {
             if (self.action_result) |*result| return &result.state_after_merge;
@@ -1045,7 +1060,7 @@ test "action driver yields effects and commits completion state" {
         \\"fn":"add","args":[{"ref":"input"},{"lit":1}]
         \\}}}
         \\]}},"merge":[{"binding":"result","toState":"result.value"}],
-        \\"publish":["save"]
+        \\"publish":["save"],"next":[{"action":"second"}]
         \\},{
         \\"id":"second","compute":{"root":"result","prog":{"bindings":[
         \\{"name":"result","type":"number","value":9}
@@ -1081,7 +1096,7 @@ test "action driver yields effects and commits completion state" {
     try std.testing.expectEqual(@as(f64, 5), committed.value.number);
     try std.testing.expect((try driver.step(&model, true)) == .complete);
 
-    try driver.beginAction(&model, "second");
+    try std.testing.expect(try driver.beginNextAction(&model));
     const second_publish = (try driver.step(&model, true)).need_effect;
     try std.testing.expectEqual(@as(u64, 3), second_publish.id);
     try std.testing.expectEqualStrings("save_second", second_publish.hook);
@@ -1095,4 +1110,5 @@ test "action driver yields effects and commits completion state" {
     var second_state = try driver.partialState().read("result.value", std.testing.allocator);
     defer second_state.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 9), second_state.value.number);
+    try std.testing.expect(!(try driver.beginNextAction(&model)));
 }
