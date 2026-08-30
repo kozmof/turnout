@@ -1291,3 +1291,39 @@ test "scene driver limit preserves the last committed state" {
     defer partial.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 1), partial.value.number);
 }
+
+test "scene driver strict publish failure retains merged state without replay" {
+    const model_runtime = @import("model.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[
+        \\{"id":"start","compute":{"root":"value","prog":{"bindings":[
+        \\{"name":"value","type":"number","value":7}
+        \\]}},"merge":[{"binding":"value","toState":"result.value"}],
+        \\"publish":["save"]}
+        \\]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var initial = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer initial.deinit(std.testing.allocator);
+    var driver = try SceneDriver.init(std.testing.allocator, &model, "main", &initial);
+    defer driver.deinit();
+    const publish = (try driver.step(&model, true)).need_effect;
+    try driver.@"resume"(publish.id, .{ .publish = .{ .failed = .{
+        .source = .returned,
+        .message = "rejected",
+    } } });
+    try std.testing.expectError(error.PublishHookFailed, driver.step(&model, true));
+    var partial = try driver.partialState().read("result.value", std.testing.allocator);
+    defer partial.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 7), partial.value.number);
+    const completed = (try driver.step(&model, false)).action_complete;
+    try std.testing.expectEqualStrings("start", completed.action_id);
+    try std.testing.expectEqual(@as(usize, 1), driver.action.publish_outcomes.?.items.len);
+    try std.testing.expectEqualStrings(
+        "rejected",
+        driver.action.publish_outcomes.?.items[0].message.?,
+    );
+    try std.testing.expect((try driver.step(&model, false)) == .complete);
+}
