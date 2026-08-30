@@ -1,0 +1,44 @@
+[
+  {
+    "name": "number add merges tags",
+    "function": "combineFnNumber::add",
+    "inputs": [
+      { "value": 2, "tags": ["left"] },
+      { "value": 3.5, "tags": ["right"] }
+    ],
+    "output": { "value": 5.5, "tags": ["left", "right"] }
+  },
+  {
+    "name": "boolean not preserves tags",
+    "function": "transformFnBoolean::not",
+    "inputs": [{ "value": true, "tags": ["source"] }],
+    "output": { "value": false, "tags": ["source"] }
+  },
+  {
+    "name": "boolean string conversion",
+    "function": "transformFnBoolean::toStr",
+    "inputs": [{ "value": false, "tags": [] }],
+    "output": { "value": "false", "tags": [] }
+  },
+  {
+    "name": "ECMAScript trim handles Unicode whitespace",
+    "function": "transformFnString::trim",
+    "inputs": [{ "value": "　hello ", "tags": ["text"] }],
+    "output": { "value": "hello", "tags": ["text"] }
+  },
+  {
+    "name": "string length counts UTF-16 code units",
+    "function": "transformFnString::length",
+    "inputs": [{ "value": "😀", "tags": [] }],
+    "output": { "value": 2, "tags": [] }
+  },
+  {
+    "name": "generic equality ignores input tags",
+    "function": "combineFnGeneric::isEqual",
+    "inputs": [
+      { "value": "same", "tags": ["left"] },
+      { "value": "same", "tags": ["right"] }
+    ],
+    "output": { "value": true, "tags": ["left", "right"] }
+  }
+]
