@@ -1,0 +1,12279 @@
+{
+  "unicodeVersion": "17.0",
+  "lower": [
+    {
+      "source": 65,
+      "replacement": "a"
+    },
+    {
+      "source": 66,
+      "replacement": "b"
+    },
+    {
+      "source": 67,
+      "replacement": "c"
+    },
+    {
+      "source": 68,
+      "replacement": "d"
+    },
+    {
+      "source": 69,
+      "replacement": "e"
+    },
+    {
+      "source": 70,
+      "replacement": "f"
+    },
+    {
+      "source": 71,
+      "replacement": "g"
+    },
+    {
+      "source": 72,
+      "replacement": "h"
+    },
+    {
+      "source": 73,
+      "replacement": "i"
+    },
+    {
+      "source": 74,
+      "replacement": "j"
+    },
+    {
+      "source": 75,
+      "replacement": "k"
+    },
+    {
+      "source": 76,
+      "replacement": "l"
+    },
+    {
+      "source": 77,
+      "replacement": "m"
+    },
+    {
+      "source": 78,
+      "replacement": "n"
+    },
+    {
+      "source": 79,
+      "replacement": "o"
+    },
+    {
+      "source": 80,
+      "replacement": "p"
+    },
+    {
+      "source": 81,
+      "replacement": "q"
+    },
+    {
+      "source": 82,
+      "replacement": "r"
+    },
+    {
+      "source": 83,
+      "replacement": "s"
+    },
+    {
+      "source": 84,
+      "replacement": "t"
+    },
+    {
+      "source": 85,
+      "replacement": "u"
+    },
+    {
+      "source": 86,
+      "replacement": "v"
+    },
+    {
+      "source": 87,
+      "replacement": "w"
+    },
+    {
+      "source": 88,
+      "replacement": "x"
+    },
+    {
+      "source": 89,
+      "replacement": "y"
+    },
+    {
+      "source": 90,
+      "replacement": "z"
+    },
+    {
+      "source": 192,
+      "replacement": "à"
+    },
+    {
+      "source": 193,
+      "replacement": "á"
+    },
+    {
+      "source": 194,
+      "replacement": "â"
+    },
+    {
+      "source": 195,
+      "replacement": "ã"
+    },
+    {
+      "source": 196,
+      "replacement": "ä"
+    },
+    {
+      "source": 197,
+      "replacement": "å"
+    },
+    {
+      "source": 198,
+      "replacement": "æ"
+    },
+    {
+      "source": 199,
+      "replacement": "ç"
+    },
+    {
+      "source": 200,
+      "replacement": "è"
+    },
+    {
+      "source": 201,
+      "replacement": "é"
+    },
+    {
+      "source": 202,
+      "replacement": "ê"
+    },
+    {
+      "source": 203,
+      "replacement": "ë"
+    },
+    {
+      "source": 204,
+      "replacement": "ì"
+    },
+    {
+      "source": 205,
+      "replacement": "í"
+    },
+    {
+      "source": 206,
+      "replacement": "î"
+    },
+    {
+      "source": 207,
+      "replacement": "ï"
+    },
+    {
+      "source": 208,
+      "replacement": "ð"
+    },
+    {
+      "source": 209,
+      "replacement": "ñ"
+    },
+    {
+      "source": 210,
+      "replacement": "ò"
+    },
+    {
+      "source": 211,
+      "replacement": "ó"
+    },
+    {
+      "source": 212,
+      "replacement": "ô"
+    },
+    {
+      "source": 213,
+      "replacement": "õ"
+    },
+    {
+      "source": 214,
+      "replacement": "ö"
+    },
+    {
+      "source": 216,
+      "replacement": "ø"
+    },
+    {
+      "source": 217,
+      "replacement": "ù"
+    },
+    {
+      "source": 218,
+      "replacement": "ú"
+    },
+    {
+      "source": 219,
+      "replacement": "û"
+    },
+    {
+      "source": 220,
+      "replacement": "ü"
+    },
+    {
+      "source": 221,
+      "replacement": "ý"
+    },
+    {
+      "source": 222,
+      "replacement": "þ"
+    },
+    {
+      "source": 256,
+      "replacement": "ā"
+    },
+    {
+      "source": 258,
+      "replacement": "ă"
+    },
+    {
+      "source": 260,
+      "replacement": "ą"
+    },
+    {
+      "source": 262,
+      "replacement": "ć"
+    },
+    {
+      "source": 264,
+      "replacement": "ĉ"
+    },
+    {
+      "source": 266,
+      "replacement": "ċ"
+    },
+    {
+      "source": 268,
+      "replacement": "č"
+    },
+    {
+      "source": 270,
+      "replacement": "ď"
+    },
+    {
+      "source": 272,
+      "replacement": "đ"
+    },
+    {
+      "source": 274,
+      "replacement": "ē"
+    },
+    {
+      "source": 276,
+      "replacement": "ĕ"
+    },
+    {
+      "source": 278,
+      "replacement": "ė"
+    },
+    {
+      "source": 280,
+      "replacement": "ę"
+    },
+    {
+      "source": 282,
+      "replacement": "ě"
+    },
+    {
+      "source": 284,
+      "replacement": "ĝ"
+    },
+    {
+      "source": 286,
+      "replacement": "ğ"
+    },
+    {
+      "source": 288,
+      "replacement": "ġ"
+    },
+    {
+      "source": 290,
+      "replacement": "ģ"
+    },
+    {
+      "source": 292,
+      "replacement": "ĥ"
+    },
+    {
+      "source": 294,
+      "replacement": "ħ"
+    },
+    {
+      "source": 296,
+      "replacement": "ĩ"
+    },
+    {
+      "source": 298,
+      "replacement": "ī"
+    },
+    {
+      "source": 300,
+      "replacement": "ĭ"
+    },
+    {
+      "source": 302,
+      "replacement": "į"
+    },
+    {
+      "source": 304,
+      "replacement": "i̇"
+    },
+    {
+      "source": 306,
+      "replacement": "ĳ"
+    },
+    {
+      "source": 308,
+      "replacement": "ĵ"
+    },
+    {
+      "source": 310,
+      "replacement": "ķ"
+    },
+    {
+      "source": 313,
+      "replacement": "ĺ"
+    },
+    {
+      "source": 315,
+      "replacement": "ļ"
+    },
+    {
+      "source": 317,
+      "replacement": "ľ"
+    },
+    {
+      "source": 319,
+      "replacement": "ŀ"
+    },
+    {
+      "source": 321,
+      "replacement": "ł"
+    },
+    {
+      "source": 323,
+      "replacement": "ń"
+    },
+    {
+      "source": 325,
+      "replacement": "ņ"
+    },
+    {
+      "source": 327,
+      "replacement": "ň"
+    },
+    {
+      "source": 330,
+      "replacement": "ŋ"
+    },
+    {
+      "source": 332,
+      "replacement": "ō"
+    },
+    {
+      "source": 334,
+      "replacement": "ŏ"
+    },
+    {
+      "source": 336,
+      "replacement": "ő"
+    },
+    {
+      "source": 338,
+      "replacement": "œ"
+    },
+    {
+      "source": 340,
+      "replacement": "ŕ"
+    },
+    {
+      "source": 342,
+      "replacement": "ŗ"
+    },
+    {
+      "source": 344,
+      "replacement": "ř"
+    },
+    {
+      "source": 346,
+      "replacement": "ś"
+    },
+    {
+      "source": 348,
+      "replacement": "ŝ"
+    },
+    {
+      "source": 350,
+      "replacement": "ş"
+    },
+    {
+      "source": 352,
+      "replacement": "š"
+    },
+    {
+      "source": 354,
+      "replacement": "ţ"
+    },
+    {
+      "source": 356,
+      "replacement": "ť"
+    },
+    {
+      "source": 358,
+      "replacement": "ŧ"
+    },
+    {
+      "source": 360,
+      "replacement": "ũ"
+    },
+    {
+      "source": 362,
+      "replacement": "ū"
+    },
+    {
+      "source": 364,
+      "replacement": "ŭ"
+    },
+    {
+      "source": 366,
+      "replacement": "ů"
+    },
+    {
+      "source": 368,
+      "replacement": "ű"
+    },
+    {
+      "source": 370,
+      "replacement": "ų"
+    },
+    {
+      "source": 372,
+      "replacement": "ŵ"
+    },
+    {
+      "source": 374,
+      "replacement": "ŷ"
+    },
+    {
+      "source": 376,
+      "replacement": "ÿ"
+    },
+    {
+      "source": 377,
+      "replacement": "ź"
+    },
+    {
+      "source": 379,
+      "replacement": "ż"
+    },
+    {
+      "source": 381,
+      "replacement": "ž"
+    },
+    {
+      "source": 385,
+      "replacement": "ɓ"
+    },
+    {
+      "source": 386,
+      "replacement": "ƃ"
+    },
+    {
+      "source": 388,
+      "replacement": "ƅ"
+    },
+    {
+      "source": 390,
+      "replacement": "ɔ"
+    },
+    {
+      "source": 391,
+      "replacement": "ƈ"
+    },
+    {
+      "source": 393,
+      "replacement": "ɖ"
+    },
+    {
+      "source": 394,
+      "replacement": "ɗ"
+    },
+    {
+      "source": 395,
+      "replacement": "ƌ"
+    },
+    {
+      "source": 398,
+      "replacement": "ǝ"
+    },
+    {
+      "source": 399,
+      "replacement": "ə"
+    },
+    {
+      "source": 400,
+      "replacement": "ɛ"
+    },
+    {
+      "source": 401,
+      "replacement": "ƒ"
+    },
+    {
+      "source": 403,
+      "replacement": "ɠ"
+    },
+    {
+      "source": 404,
+      "replacement": "ɣ"
+    },
+    {
+      "source": 406,
+      "replacement": "ɩ"
+    },
+    {
+      "source": 407,
+      "replacement": "ɨ"
+    },
+    {
+      "source": 408,
+      "replacement": "ƙ"
+    },
+    {
+      "source": 412,
+      "replacement": "ɯ"
+    },
+    {
+      "source": 413,
+      "replacement": "ɲ"
+    },
+    {
+      "source": 415,
+      "replacement": "ɵ"
+    },
+    {
+      "source": 416,
+      "replacement": "ơ"
+    },
+    {
+      "source": 418,
+      "replacement": "ƣ"
+    },
+    {
+      "source": 420,
+      "replacement": "ƥ"
+    },
+    {
+      "source": 422,
+      "replacement": "ʀ"
+    },
+    {
+      "source": 423,
+      "replacement": "ƨ"
+    },
+    {
+      "source": 425,
+      "replacement": "ʃ"
+    },
+    {
+      "source": 428,
+      "replacement": "ƭ"
+    },
+    {
+      "source": 430,
+      "replacement": "ʈ"
+    },
+    {
+      "source": 431,
+      "replacement": "ư"
+    },
+    {
+      "source": 433,
+      "replacement": "ʊ"
+    },
+    {
+      "source": 434,
+      "replacement": "ʋ"
+    },
+    {
+      "source": 435,
+      "replacement": "ƴ"
+    },
+    {
+      "source": 437,
+      "replacement": "ƶ"
+    },
+    {
+      "source": 439,
+      "replacement": "ʒ"
+    },
+    {
+      "source": 440,
+      "replacement": "ƹ"
+    },
+    {
+      "source": 444,
+      "replacement": "ƽ"
+    },
+    {
+      "source": 452,
+      "replacement": "ǆ"
+    },
+    {
+      "source": 453,
+      "replacement": "ǆ"
+    },
+    {
+      "source": 455,
+      "replacement": "ǉ"
+    },
+    {
+      "source": 456,
+      "replacement": "ǉ"
+    },
+    {
+      "source": 458,
+      "replacement": "ǌ"
+    },
+    {
+      "source": 459,
+      "replacement": "ǌ"
+    },
+    {
+      "source": 461,
+      "replacement": "ǎ"
+    },
+    {
+      "source": 463,
+      "replacement": "ǐ"
+    },
+    {
+      "source": 465,
+      "replacement": "ǒ"
+    },
+    {
+      "source": 467,
+      "replacement": "ǔ"
+    },
+    {
+      "source": 469,
+      "replacement": "ǖ"
+    },
+    {
+      "source": 471,
+      "replacement": "ǘ"
+    },
+    {
+      "source": 473,
+      "replacement": "ǚ"
+    },
+    {
+      "source": 475,
+      "replacement": "ǜ"
+    },
+    {
+      "source": 478,
+      "replacement": "ǟ"
+    },
+    {
+      "source": 480,
+      "replacement": "ǡ"
+    },
+    {
+      "source": 482,
+      "replacement": "ǣ"
+    },
+    {
+      "source": 484,
+      "replacement": "ǥ"
+    },
+    {
+      "source": 486,
+      "replacement": "ǧ"
+    },
+    {
+      "source": 488,
+      "replacement": "ǩ"
+    },
+    {
+      "source": 490,
+      "replacement": "ǫ"
+    },
+    {
+      "source": 492,
+      "replacement": "ǭ"
+    },
+    {
+      "source": 494,
+      "replacement": "ǯ"
+    },
+    {
+      "source": 497,
+      "replacement": "ǳ"
+    },
+    {
+      "source": 498,
+      "replacement": "ǳ"
+    },
+    {
+      "source": 500,
+      "replacement": "ǵ"
+    },
+    {
+      "source": 502,
+      "replacement": "ƕ"
+    },
+    {
+      "source": 503,
+      "replacement": "ƿ"
+    },
+    {
+      "source": 504,
+      "replacement": "ǹ"
+    },
+    {
+      "source": 506,
+      "replacement": "ǻ"
+    },
+    {
+      "source": 508,
+      "replacement": "ǽ"
+    },
+    {
+      "source": 510,
+      "replacement": "ǿ"
+    },
+    {
+      "source": 512,
+      "replacement": "ȁ"
+    },
+    {
+      "source": 514,
+      "replacement": "ȃ"
+    },
+    {
+      "source": 516,
+      "replacement": "ȅ"
+    },
+    {
+      "source": 518,
+      "replacement": "ȇ"
+    },
+    {
+      "source": 520,
+      "replacement": "ȉ"
+    },
+    {
+      "source": 522,
+      "replacement": "ȋ"
+    },
+    {
+      "source": 524,
+      "replacement": "ȍ"
+    },
+    {
+      "source": 526,
+      "replacement": "ȏ"
+    },
+    {
+      "source": 528,
+      "replacement": "ȑ"
+    },
+    {
+      "source": 530,
+      "replacement": "ȓ"
+    },
+    {
+      "source": 532,
+      "replacement": "ȕ"
+    },
+    {
+      "source": 534,
+      "replacement": "ȗ"
+    },
+    {
+      "source": 536,
+      "replacement": "ș"
+    },
+    {
+      "source": 538,
+      "replacement": "ț"
+    },
+    {
+      "source": 540,
+      "replacement": "ȝ"
+    },
+    {
+      "source": 542,
+      "replacement": "ȟ"
+    },
+    {
+      "source": 544,
+      "replacement": "ƞ"
+    },
+    {
+      "source": 546,
+      "replacement": "ȣ"
+    },
+    {
+      "source": 548,
+      "replacement": "ȥ"
+    },
+    {
+      "source": 550,
+      "replacement": "ȧ"
+    },
+    {
+      "source": 552,
+      "replacement": "ȩ"
+    },
+    {
+      "source": 554,
+      "replacement": "ȫ"
+    },
+    {
+      "source": 556,
+      "replacement": "ȭ"
+    },
+    {
+      "source": 558,
+      "replacement": "ȯ"
+    },
+    {
+      "source": 560,
+      "replacement": "ȱ"
+    },
+    {
+      "source": 562,
+      "replacement": "ȳ"
+    },
+    {
+      "source": 570,
+      "replacement": "ⱥ"
+    },
+    {
+      "source": 571,
+      "replacement": "ȼ"
+    },
+    {
+      "source": 573,
+      "replacement": "ƚ"
+    },
+    {
+      "source": 574,
+      "replacement": "ⱦ"
+    },
+    {
+      "source": 577,
+      "replacement": "ɂ"
+    },
+    {
+      "source": 579,
+      "replacement": "ƀ"
+    },
+    {
+      "source": 580,
+      "replacement": "ʉ"
+    },
+    {
+      "source": 581,
+      "replacement": "ʌ"
+    },
+    {
+      "source": 582,
+      "replacement": "ɇ"
+    },
+    {
+      "source": 584,
+      "replacement": "ɉ"
+    },
+    {
+      "source": 586,
+      "replacement": "ɋ"
+    },
+    {
+      "source": 588,
+      "replacement": "ɍ"
+    },
+    {
+      "source": 590,
+      "replacement": "ɏ"
+    },
+    {
+      "source": 880,
+      "replacement": "ͱ"
+    },
+    {
+      "source": 882,
+      "replacement": "ͳ"
+    },
+    {
+      "source": 886,
+      "replacement": "ͷ"
+    },
+    {
+      "source": 895,
+      "replacement": "ϳ"
+    },
+    {
+      "source": 902,
+      "replacement": "ά"
+    },
+    {
+      "source": 904,
+      "replacement": "έ"
+    },
+    {
+      "source": 905,
+      "replacement": "ή"
+    },
+    {
+      "source": 906,
+      "replacement": "ί"
+    },
+    {
+      "source": 908,
+      "replacement": "ό"
+    },
+    {
+      "source": 910,
+      "replacement": "ύ"
+    },
+    {
+      "source": 911,
+      "replacement": "ώ"
+    },
+    {
+      "source": 913,
+      "replacement": "α"
+    },
+    {
+      "source": 914,
+      "replacement": "β"
+    },
+    {
+      "source": 915,
+      "replacement": "γ"
+    },
+    {
+      "source": 916,
+      "replacement": "δ"
+    },
+    {
+      "source": 917,
+      "replacement": "ε"
+    },
+    {
+      "source": 918,
+      "replacement": "ζ"
+    },
+    {
+      "source": 919,
+      "replacement": "η"
+    },
+    {
+      "source": 920,
+      "replacement": "θ"
+    },
+    {
+      "source": 921,
+      "replacement": "ι"
+    },
+    {
+      "source": 922,
+      "replacement": "κ"
+    },
+    {
+      "source": 923,
+      "replacement": "λ"
+    },
+    {
+      "source": 924,
+      "replacement": "μ"
+    },
+    {
+      "source": 925,
+      "replacement": "ν"
+    },
+    {
+      "source": 926,
+      "replacement": "ξ"
+    },
+    {
+      "source": 927,
+      "replacement": "ο"
+    },
+    {
+      "source": 928,
+      "replacement": "π"
+    },
+    {
+      "source": 929,
+      "replacement": "ρ"
+    },
+    {
+      "source": 931,
+      "replacement": "σ"
+    },
+    {
+      "source": 932,
+      "replacement": "τ"
+    },
+    {
+      "source": 933,
+      "replacement": "υ"
+    },
+    {
+      "source": 934,
+      "replacement": "φ"
+    },
+    {
+      "source": 935,
+      "replacement": "χ"
+    },
+    {
+      "source": 936,
+      "replacement": "ψ"
+    },
+    {
+      "source": 937,
+      "replacement": "ω"
+    },
+    {
+      "source": 938,
+      "replacement": "ϊ"
+    },
+    {
+      "source": 939,
+      "replacement": "ϋ"
+    },
+    {
+      "source": 975,
+      "replacement": "ϗ"
+    },
+    {
+      "source": 984,
+      "replacement": "ϙ"
+    },
+    {
+      "source": 986,
+      "replacement": "ϛ"
+    },
+    {
+      "source": 988,
+      "replacement": "ϝ"
+    },
+    {
+      "source": 990,
+      "replacement": "ϟ"
+    },
+    {
+      "source": 992,
+      "replacement": "ϡ"
+    },
+    {
+      "source": 994,
+      "replacement": "ϣ"
+    },
+    {
+      "source": 996,
+      "replacement": "ϥ"
+    },
+    {
+      "source": 998,
+      "replacement": "ϧ"
+    },
+    {
+      "source": 1000,
+      "replacement": "ϩ"
+    },
+    {
+      "source": 1002,
+      "replacement": "ϫ"
+    },
+    {
+      "source": 1004,
+      "replacement": "ϭ"
+    },
+    {
+      "source": 1006,
+      "replacement": "ϯ"
+    },
+    {
+      "source": 1012,
+      "replacement": "θ"
+    },
+    {
+      "source": 1015,
+      "replacement": "ϸ"
+    },
+    {
+      "source": 1017,
+      "replacement": "ϲ"
+    },
+    {
+      "source": 1018,
+      "replacement": "ϻ"
+    },
+    {
+      "source": 1021,
+      "replacement": "ͻ"
+    },
+    {
+      "source": 1022,
+      "replacement": "ͼ"
+    },
+    {
+      "source": 1023,
+      "replacement": "ͽ"
+    },
+    {
+      "source": 1024,
+      "replacement": "ѐ"
+    },
+    {
+      "source": 1025,
+      "replacement": "ё"
+    },
+    {
+      "source": 1026,
+      "replacement": "ђ"
+    },
+    {
+      "source": 1027,
+      "replacement": "ѓ"
+    },
+    {
+      "source": 1028,
+      "replacement": "є"
+    },
+    {
+      "source": 1029,
+      "replacement": "ѕ"
+    },
+    {
+      "source": 1030,
+      "replacement": "і"
+    },
+    {
+      "source": 1031,
+      "replacement": "ї"
+    },
+    {
+      "source": 1032,
+      "replacement": "ј"
+    },
+    {
+      "source": 1033,
+      "replacement": "љ"
+    },
+    {
+      "source": 1034,
+      "replacement": "њ"
+    },
+    {
+      "source": 1035,
+      "replacement": "ћ"
+    },
+    {
+      "source": 1036,
+      "replacement": "ќ"
+    },
+    {
+      "source": 1037,
+      "replacement": "ѝ"
+    },
+    {
+      "source": 1038,
+      "replacement": "ў"
+    },
+    {
+      "source": 1039,
+      "replacement": "џ"
+    },
+    {
+      "source": 1040,
+      "replacement": "а"
+    },
+    {
+      "source": 1041,
+      "replacement": "б"
+    },
+    {
+      "source": 1042,
+      "replacement": "в"
+    },
+    {
+      "source": 1043,
+      "replacement": "г"
+    },
+    {
+      "source": 1044,
+      "replacement": "д"
+    },
+    {
+      "source": 1045,
+      "replacement": "е"
+    },
+    {
+      "source": 1046,
+      "replacement": "ж"
+    },
+    {
+      "source": 1047,
+      "replacement": "з"
+    },
+    {
+      "source": 1048,
+      "replacement": "и"
+    },
+    {
+      "source": 1049,
+      "replacement": "й"
+    },
+    {
+      "source": 1050,
+      "replacement": "к"
+    },
+    {
+      "source": 1051,
+      "replacement": "л"
+    },
+    {
+      "source": 1052,
+      "replacement": "м"
+    },
+    {
+      "source": 1053,
+      "replacement": "н"
+    },
+    {
+      "source": 1054,
+      "replacement": "о"
+    },
+    {
+      "source": 1055,
+      "replacement": "п"
+    },
+    {
+      "source": 1056,
+      "replacement": "р"
+    },
+    {
+      "source": 1057,
+      "replacement": "с"
+    },
+    {
+      "source": 1058,
+      "replacement": "т"
+    },
+    {
+      "source": 1059,
+      "replacement": "у"
+    },
+    {
+      "source": 1060,
+      "replacement": "ф"
+    },
+    {
+      "source": 1061,
+      "replacement": "х"
+    },
+    {
+      "source": 1062,
+      "replacement": "ц"
+    },
+    {
+      "source": 1063,
+      "replacement": "ч"
+    },
+    {
+      "source": 1064,
+      "replacement": "ш"
+    },
+    {
+      "source": 1065,
+      "replacement": "щ"
+    },
+    {
+      "source": 1066,
+      "replacement": "ъ"
+    },
+    {
+      "source": 1067,
+      "replacement": "ы"
+    },
+    {
+      "source": 1068,
+      "replacement": "ь"
+    },
+    {
+      "source": 1069,
+      "replacement": "э"
+    },
+    {
+      "source": 1070,
+      "replacement": "ю"
+    },
+    {
+      "source": 1071,
+      "replacement": "я"
+    },
+    {
+      "source": 1120,
+      "replacement": "ѡ"
+    },
+    {
+      "source": 1122,
+      "replacement": "ѣ"
+    },
+    {
+      "source": 1124,
+      "replacement": "ѥ"
+    },
+    {
+      "source": 1126,
+      "replacement": "ѧ"
+    },
+    {
+      "source": 1128,
+      "replacement": "ѩ"
+    },
+    {
+      "source": 1130,
+      "replacement": "ѫ"
+    },
+    {
+      "source": 1132,
+      "replacement": "ѭ"
+    },
+    {
+      "source": 1134,
+      "replacement": "ѯ"
+    },
+    {
+      "source": 1136,
+      "replacement": "ѱ"
+    },
+    {
+      "source": 1138,
+      "replacement": "ѳ"
+    },
+    {
+      "source": 1140,
+      "replacement": "ѵ"
+    },
+    {
+      "source": 1142,
+      "replacement": "ѷ"
+    },
+    {
+      "source": 1144,
+      "replacement": "ѹ"
+    },
+    {
+      "source": 1146,
+      "replacement": "ѻ"
+    },
+    {
+      "source": 1148,
+      "replacement": "ѽ"
+    },
+    {
+      "source": 1150,
+      "replacement": "ѿ"
+    },
+    {
+      "source": 1152,
+      "replacement": "ҁ"
+    },
+    {
+      "source": 1162,
+      "replacement": "ҋ"
+    },
+    {
+      "source": 1164,
+      "replacement": "ҍ"
+    },
+    {
+      "source": 1166,
+      "replacement": "ҏ"
+    },
+    {
+      "source": 1168,
+      "replacement": "ґ"
+    },
+    {
+      "source": 1170,
+      "replacement": "ғ"
+    },
+    {
+      "source": 1172,
+      "replacement": "ҕ"
+    },
+    {
+      "source": 1174,
+      "replacement": "җ"
+    },
+    {
+      "source": 1176,
+      "replacement": "ҙ"
+    },
+    {
+      "source": 1178,
+      "replacement": "қ"
+    },
+    {
+      "source": 1180,
+      "replacement": "ҝ"
+    },
+    {
+      "source": 1182,
+      "replacement": "ҟ"
+    },
+    {
+      "source": 1184,
+      "replacement": "ҡ"
+    },
+    {
+      "source": 1186,
+      "replacement": "ң"
+    },
+    {
+      "source": 1188,
+      "replacement": "ҥ"
+    },
+    {
+      "source": 1190,
+      "replacement": "ҧ"
+    },
+    {
+      "source": 1192,
+      "replacement": "ҩ"
+    },
+    {
+      "source": 1194,
+      "replacement": "ҫ"
+    },
+    {
+      "source": 1196,
+      "replacement": "ҭ"
+    },
+    {
+      "source": 1198,
+      "replacement": "ү"
+    },
+    {
+      "source": 1200,
+      "replacement": "ұ"
+    },
+    {
+      "source": 1202,
+      "replacement": "ҳ"
+    },
+    {
+      "source": 1204,
+      "replacement": "ҵ"
+    },
+    {
+      "source": 1206,
+      "replacement": "ҷ"
+    },
+    {
+      "source": 1208,
+      "replacement": "ҹ"
+    },
+    {
+      "source": 1210,
+      "replacement": "һ"
+    },
+    {
+      "source": 1212,
+      "replacement": "ҽ"
+    },
+    {
+      "source": 1214,
+      "replacement": "ҿ"
+    },
+    {
+      "source": 1216,
+      "replacement": "ӏ"
+    },
+    {
+      "source": 1217,
+      "replacement": "ӂ"
+    },
+    {
+      "source": 1219,
+      "replacement": "ӄ"
+    },
+    {
+      "source": 1221,
+      "replacement": "ӆ"
+    },
+    {
+      "source": 1223,
+      "replacement": "ӈ"
+    },
+    {
+      "source": 1225,
+      "replacement": "ӊ"
+    },
+    {
+      "source": 1227,
+      "replacement": "ӌ"
+    },
+    {
+      "source": 1229,
+      "replacement": "ӎ"
+    },
+    {
+      "source": 1232,
+      "replacement": "ӑ"
+    },
+    {
+      "source": 1234,
+      "replacement": "ӓ"
+    },
+    {
+      "source": 1236,
+      "replacement": "ӕ"
+    },
+    {
+      "source": 1238,
+      "replacement": "ӗ"
+    },
+    {
+      "source": 1240,
+      "replacement": "ә"
+    },
+    {
+      "source": 1242,
+      "replacement": "ӛ"
+    },
+    {
+      "source": 1244,
+      "replacement": "ӝ"
+    },
+    {
+      "source": 1246,
+      "replacement": "ӟ"
+    },
+    {
+      "source": 1248,
+      "replacement": "ӡ"
+    },
+    {
+      "source": 1250,
+      "replacement": "ӣ"
+    },
+    {
+      "source": 1252,
+      "replacement": "ӥ"
+    },
+    {
+      "source": 1254,
+      "replacement": "ӧ"
+    },
+    {
+      "source": 1256,
+      "replacement": "ө"
+    },
+    {
+      "source": 1258,
+      "replacement": "ӫ"
+    },
+    {
+      "source": 1260,
+      "replacement": "ӭ"
+    },
+    {
+      "source": 1262,
+      "replacement": "ӯ"
+    },
+    {
+      "source": 1264,
+      "replacement": "ӱ"
+    },
+    {
+      "source": 1266,
+      "replacement": "ӳ"
+    },
+    {
+      "source": 1268,
+      "replacement": "ӵ"
+    },
+    {
+      "source": 1270,
+      "replacement": "ӷ"
+    },
+    {
+      "source": 1272,
+      "replacement": "ӹ"
+    },
+    {
+      "source": 1274,
+      "replacement": "ӻ"
+    },
+    {
+      "source": 1276,
+      "replacement": "ӽ"
+    },
+    {
+      "source": 1278,
+      "replacement": "ӿ"
+    },
+    {
+      "source": 1280,
+      "replacement": "ԁ"
+    },
+    {
+      "source": 1282,
+      "replacement": "ԃ"
+    },
+    {
+      "source": 1284,
+      "replacement": "ԅ"
+    },
+    {
+      "source": 1286,
+      "replacement": "ԇ"
+    },
+    {
+      "source": 1288,
+      "replacement": "ԉ"
+    },
+    {
+      "source": 1290,
+      "replacement": "ԋ"
+    },
+    {
+      "source": 1292,
+      "replacement": "ԍ"
+    },
+    {
+      "source": 1294,
+      "replacement": "ԏ"
+    },
+    {
+      "source": 1296,
+      "replacement": "ԑ"
+    },
+    {
+      "source": 1298,
+      "replacement": "ԓ"
+    },
+    {
+      "source": 1300,
+      "replacement": "ԕ"
+    },
+    {
+      "source": 1302,
+      "replacement": "ԗ"
+    },
+    {
+      "source": 1304,
+      "replacement": "ԙ"
+    },
+    {
+      "source": 1306,
+      "replacement": "ԛ"
+    },
+    {
+      "source": 1308,
+      "replacement": "ԝ"
+    },
+    {
+      "source": 1310,
+      "replacement": "ԟ"
+    },
+    {
+      "source": 1312,
+      "replacement": "ԡ"
+    },
+    {
+      "source": 1314,
+      "replacement": "ԣ"
+    },
+    {
+      "source": 1316,
+      "replacement": "ԥ"
+    },
+    {
+      "source": 1318,
+      "replacement": "ԧ"
+    },
+    {
+      "source": 1320,
+      "replacement": "ԩ"
+    },
+    {
+      "source": 1322,
+      "replacement": "ԫ"
+    },
+    {
+      "source": 1324,
+      "replacement": "ԭ"
+    },
+    {
+      "source": 1326,
+      "replacement": "ԯ"
+    },
+    {
+      "source": 1329,
+      "replacement": "ա"
+    },
+    {
+      "source": 1330,
+      "replacement": "բ"
+    },
+    {
+      "source": 1331,
+      "replacement": "գ"
+    },
+    {
+      "source": 1332,
+      "replacement": "դ"
+    },
+    {
+      "source": 1333,
+      "replacement": "ե"
+    },
+    {
+      "source": 1334,
+      "replacement": "զ"
+    },
+    {
+      "source": 1335,
+      "replacement": "է"
+    },
+    {
+      "source": 1336,
+      "replacement": "ը"
+    },
+    {
+      "source": 1337,
+      "replacement": "թ"
+    },
+    {
+      "source": 1338,
+      "replacement": "ժ"
+    },
+    {
+      "source": 1339,
+      "replacement": "ի"
+    },
+    {
+      "source": 1340,
+      "replacement": "լ"
+    },
+    {
+      "source": 1341,
+      "replacement": "խ"
+    },
+    {
+      "source": 1342,
+      "replacement": "ծ"
+    },
+    {
+      "source": 1343,
+      "replacement": "կ"
+    },
+    {
+      "source": 1344,
+      "replacement": "հ"
+    },
+    {
+      "source": 1345,
+      "replacement": "ձ"
+    },
+    {
+      "source": 1346,
+      "replacement": "ղ"
+    },
+    {
+      "source": 1347,
+      "replacement": "ճ"
+    },
+    {
+      "source": 1348,
+      "replacement": "մ"
+    },
+    {
+      "source": 1349,
+      "replacement": "յ"
+    },
+    {
+      "source": 1350,
+      "replacement": "ն"
+    },
+    {
+      "source": 1351,
+      "replacement": "շ"
+    },
+    {
+      "source": 1352,
+      "replacement": "ո"
+    },
+    {
+      "source": 1353,
+      "replacement": "չ"
+    },
+    {
+      "source": 1354,
+      "replacement": "պ"
+    },
+    {
+      "source": 1355,
+      "replacement": "ջ"
+    },
+    {
+      "source": 1356,
+      "replacement": "ռ"
+    },
+    {
+      "source": 1357,
+      "replacement": "ս"
+    },
+    {
+      "source": 1358,
+      "replacement": "վ"
+    },
+    {
+      "source": 1359,
+      "replacement": "տ"
+    },
+    {
+      "source": 1360,
+      "replacement": "ր"
+    },
+    {
+      "source": 1361,
+      "replacement": "ց"
+    },
+    {
+      "source": 1362,
+      "replacement": "ւ"
+    },
+    {
+      "source": 1363,
+      "replacement": "փ"
+    },
+    {
+      "source": 1364,
+      "replacement": "ք"
+    },
+    {
+      "source": 1365,
+      "replacement": "օ"
+    },
+    {
+      "source": 1366,
+      "replacement": "ֆ"
+    },
+    {
+      "source": 4256,
+      "replacement": "ⴀ"
+    },
+    {
+      "source": 4257,
+      "replacement": "ⴁ"
+    },
+    {
+      "source": 4258,
+      "replacement": "ⴂ"
+    },
+    {
+      "source": 4259,
+      "replacement": "ⴃ"
+    },
+    {
+      "source": 4260,
+      "replacement": "ⴄ"
+    },
+    {
+      "source": 4261,
+      "replacement": "ⴅ"
+    },
+    {
+      "source": 4262,
+      "replacement": "ⴆ"
+    },
+    {
+      "source": 4263,
+      "replacement": "ⴇ"
+    },
+    {
+      "source": 4264,
+      "replacement": "ⴈ"
+    },
+    {
+      "source": 4265,
+      "replacement": "ⴉ"
+    },
+    {
+      "source": 4266,
+      "replacement": "ⴊ"
+    },
+    {
+      "source": 4267,
+      "replacement": "ⴋ"
+    },
+    {
+      "source": 4268,
+      "replacement": "ⴌ"
+    },
+    {
+      "source": 4269,
+      "replacement": "ⴍ"
+    },
+    {
+      "source": 4270,
+      "replacement": "ⴎ"
+    },
+    {
+      "source": 4271,
+      "replacement": "ⴏ"
+    },
+    {
+      "source": 4272,
+      "replacement": "ⴐ"
+    },
+    {
+      "source": 4273,
+      "replacement": "ⴑ"
+    },
+    {
+      "source": 4274,
+      "replacement": "ⴒ"
+    },
+    {
+      "source": 4275,
+      "replacement": "ⴓ"
+    },
+    {
+      "source": 4276,
+      "replacement": "ⴔ"
+    },
+    {
+      "source": 4277,
+      "replacement": "ⴕ"
+    },
+    {
+      "source": 4278,
+      "replacement": "ⴖ"
+    },
+    {
+      "source": 4279,
+      "replacement": "ⴗ"
+    },
+    {
+      "source": 4280,
+      "replacement": "ⴘ"
+    },
+    {
+      "source": 4281,
+      "replacement": "ⴙ"
+    },
+    {
+      "source": 4282,
+      "replacement": "ⴚ"
+    },
+    {
+      "source": 4283,
+      "replacement": "ⴛ"
+    },
+    {
+      "source": 4284,
+      "replacement": "ⴜ"
+    },
+    {
+      "source": 4285,
+      "replacement": "ⴝ"
+    },
+    {
+      "source": 4286,
+      "replacement": "ⴞ"
+    },
+    {
+      "source": 4287,
+      "replacement": "ⴟ"
+    },
+    {
+      "source": 4288,
+      "replacement": "ⴠ"
+    },
+    {
+      "source": 4289,
+      "replacement": "ⴡ"
+    },
+    {
+      "source": 4290,
+      "replacement": "ⴢ"
+    },
+    {
+      "source": 4291,
+      "replacement": "ⴣ"
+    },
+    {
+      "source": 4292,
+      "replacement": "ⴤ"
+    },
+    {
+      "source": 4293,
+      "replacement": "ⴥ"
+    },
+    {
+      "source": 4295,
+      "replacement": "ⴧ"
+    },
+    {
+      "source": 4301,
+      "replacement": "ⴭ"
+    },
+    {
+      "source": 5024,
+      "replacement": "ꭰ"
+    },
+    {
+      "source": 5025,
+      "replacement": "ꭱ"
+    },
+    {
+      "source": 5026,
+      "replacement": "ꭲ"
+    },
+    {
+      "source": 5027,
+      "replacement": "ꭳ"
+    },
+    {
+      "source": 5028,
+      "replacement": "ꭴ"
+    },
+    {
+      "source": 5029,
+      "replacement": "ꭵ"
+    },
+    {
+      "source": 5030,
+      "replacement": "ꭶ"
+    },
+    {
+      "source": 5031,
+      "replacement": "ꭷ"
+    },
+    {
+      "source": 5032,
+      "replacement": "ꭸ"
+    },
+    {
+      "source": 5033,
+      "replacement": "ꭹ"
+    },
+    {
+      "source": 5034,
+      "replacement": "ꭺ"
+    },
+    {
+      "source": 5035,
+      "replacement": "ꭻ"
+    },
+    {
+      "source": 5036,
+      "replacement": "ꭼ"
+    },
+    {
+      "source": 5037,
+      "replacement": "ꭽ"
+    },
+    {
+      "source": 5038,
+      "replacement": "ꭾ"
+    },
+    {
+      "source": 5039,
+      "replacement": "ꭿ"
+    },
+    {
+      "source": 5040,
+      "replacement": "ꮀ"
+    },
+    {
+      "source": 5041,
+      "replacement": "ꮁ"
+    },
+    {
+      "source": 5042,
+      "replacement": "ꮂ"
+    },
+    {
+      "source": 5043,
+      "replacement": "ꮃ"
+    },
+    {
+      "source": 5044,
+      "replacement": "ꮄ"
+    },
+    {
+      "source": 5045,
+      "replacement": "ꮅ"
+    },
+    {
+      "source": 5046,
+      "replacement": "ꮆ"
+    },
+    {
+      "source": 5047,
+      "replacement": "ꮇ"
+    },
+    {
+      "source": 5048,
+      "replacement": "ꮈ"
+    },
+    {
+      "source": 5049,
+      "replacement": "ꮉ"
+    },
+    {
+      "source": 5050,
+      "replacement": "ꮊ"
+    },
+    {
+      "source": 5051,
+      "replacement": "ꮋ"
+    },
+    {
+      "source": 5052,
+      "replacement": "ꮌ"
+    },
+    {
+      "source": 5053,
+      "replacement": "ꮍ"
+    },
+    {
+      "source": 5054,
+      "replacement": "ꮎ"
+    },
+    {
+      "source": 5055,
+      "replacement": "ꮏ"
+    },
+    {
+      "source": 5056,
+      "replacement": "ꮐ"
+    },
+    {
+      "source": 5057,
+      "replacement": "ꮑ"
+    },
+    {
+      "source": 5058,
+      "replacement": "ꮒ"
+    },
+    {
+      "source": 5059,
+      "replacement": "ꮓ"
+    },
+    {
+      "source": 5060,
+      "replacement": "ꮔ"
+    },
+    {
+      "source": 5061,
+      "replacement": "ꮕ"
+    },
+    {
+      "source": 5062,
+      "replacement": "ꮖ"
+    },
+    {
+      "source": 5063,
+      "replacement": "ꮗ"
+    },
+    {
+      "source": 5064,
+      "replacement": "ꮘ"
+    },
+    {
+      "source": 5065,
+      "replacement": "ꮙ"
+    },
+    {
+      "source": 5066,
+      "replacement": "ꮚ"
+    },
+    {
+      "source": 5067,
+      "replacement": "ꮛ"
+    },
+    {
+      "source": 5068,
+      "replacement": "ꮜ"
+    },
+    {
+      "source": 5069,
+      "replacement": "ꮝ"
+    },
+    {
+      "source": 5070,
+      "replacement": "ꮞ"
+    },
+    {
+      "source": 5071,
+      "replacement": "ꮟ"
+    },
+    {
+      "source": 5072,
+      "replacement": "ꮠ"
+    },
+    {
+      "source": 5073,
+      "replacement": "ꮡ"
+    },
+    {
+      "source": 5074,
+      "replacement": "ꮢ"
+    },
+    {
+      "source": 5075,
+      "replacement": "ꮣ"
+    },
+    {
+      "source": 5076,
+      "replacement": "ꮤ"
+    },
+    {
+      "source": 5077,
+      "replacement": "ꮥ"
+    },
+    {
+      "source": 5078,
+      "replacement": "ꮦ"
+    },
+    {
+      "source": 5079,
+      "replacement": "ꮧ"
+    },
+    {
+      "source": 5080,
+      "replacement": "ꮨ"
+    },
+    {
+      "source": 5081,
+      "replacement": "ꮩ"
+    },
+    {
+      "source": 5082,
+      "replacement": "ꮪ"
+    },
+    {
+      "source": 5083,
+      "replacement": "ꮫ"
+    },
+    {
+      "source": 5084,
+      "replacement": "ꮬ"
+    },
+    {
+      "source": 5085,
+      "replacement": "ꮭ"
+    },
+    {
+      "source": 5086,
+      "replacement": "ꮮ"
+    },
+    {
+      "source": 5087,
+      "replacement": "ꮯ"
+    },
+    {
+      "source": 5088,
+      "replacement": "ꮰ"
+    },
+    {
+      "source": 5089,
+      "replacement": "ꮱ"
+    },
+    {
+      "source": 5090,
+      "replacement": "ꮲ"
+    },
+    {
+      "source": 5091,
+      "replacement": "ꮳ"
+    },
+    {
+      "source": 5092,
+      "replacement": "ꮴ"
+    },
+    {
+      "source": 5093,
+      "replacement": "ꮵ"
+    },
+    {
+      "source": 5094,
+      "replacement": "ꮶ"
+    },
+    {
+      "source": 5095,
+      "replacement": "ꮷ"
+    },
+    {
+      "source": 5096,
+      "replacement": "ꮸ"
+    },
+    {
+      "source": 5097,
+      "replacement": "ꮹ"
+    },
+    {
+      "source": 5098,
+      "replacement": "ꮺ"
+    },
+    {
+      "source": 5099,
+      "replacement": "ꮻ"
+    },
+    {
+      "source": 5100,
+      "replacement": "ꮼ"
+    },
+    {
+      "source": 5101,
+      "replacement": "ꮽ"
+    },
+    {
+      "source": 5102,
+      "replacement": "ꮾ"
+    },
+    {
+      "source": 5103,
+      "replacement": "ꮿ"
+    },
+    {
+      "source": 5104,
+      "replacement": "ᏸ"
+    },
+    {
+      "source": 5105,
+      "replacement": "ᏹ"
+    },
+    {
+      "source": 5106,
+      "replacement": "ᏺ"
+    },
+    {
+      "source": 5107,
+      "replacement": "ᏻ"
+    },
+    {
+      "source": 5108,
+      "replacement": "ᏼ"
+    },
+    {
+      "source": 5109,
+      "replacement": "ᏽ"
+    },
+    {
+      "source": 7305,
+      "replacement": "ᲊ"
+    },
+    {
+      "source": 7312,
+      "replacement": "ა"
+    },
+    {
+      "source": 7313,
+      "replacement": "ბ"
+    },
+    {
+      "source": 7314,
+      "replacement": "გ"
+    },
+    {
+      "source": 7315,
+      "replacement": "დ"
+    },
+    {
+      "source": 7316,
+      "replacement": "ე"
+    },
+    {
+      "source": 7317,
+      "replacement": "ვ"
+    },
+    {
+      "source": 7318,
+      "replacement": "ზ"
+    },
+    {
+      "source": 7319,
+      "replacement": "თ"
+    },
+    {
+      "source": 7320,
+      "replacement": "ი"
+    },
+    {
+      "source": 7321,
+      "replacement": "კ"
+    },
+    {
+      "source": 7322,
+      "replacement": "ლ"
+    },
+    {
+      "source": 7323,
+      "replacement": "მ"
+    },
+    {
+      "source": 7324,
+      "replacement": "ნ"
+    },
+    {
+      "source": 7325,
+      "replacement": "ო"
+    },
+    {
+      "source": 7326,
+      "replacement": "პ"
+    },
+    {
+      "source": 7327,
+      "replacement": "ჟ"
+    },
+    {
+      "source": 7328,
+      "replacement": "რ"
+    },
+    {
+      "source": 7329,
+      "replacement": "ს"
+    },
+    {
+      "source": 7330,
+      "replacement": "ტ"
+    },
+    {
+      "source": 7331,
+      "replacement": "უ"
+    },
+    {
+      "source": 7332,
+      "replacement": "ფ"
+    },
+    {
+      "source": 7333,
+      "replacement": "ქ"
+    },
+    {
+      "source": 7334,
+      "replacement": "ღ"
+    },
+    {
+      "source": 7335,
+      "replacement": "ყ"
+    },
+    {
+      "source": 7336,
+      "replacement": "შ"
+    },
+    {
+      "source": 7337,
+      "replacement": "ჩ"
+    },
+    {
+      "source": 7338,
+      "replacement": "ც"
+    },
+    {
+      "source": 7339,
+      "replacement": "ძ"
+    },
+    {
+      "source": 7340,
+      "replacement": "წ"
+    },
+    {
+      "source": 7341,
+      "replacement": "ჭ"
+    },
+    {
+      "source": 7342,
+      "replacement": "ხ"
+    },
+    {
+      "source": 7343,
+      "replacement": "ჯ"
+    },
+    {
+      "source": 7344,
+      "replacement": "ჰ"
+    },
+    {
+      "source": 7345,
+      "replacement": "ჱ"
+    },
+    {
+      "source": 7346,
+      "replacement": "ჲ"
+    },
+    {
+      "source": 7347,
+      "replacement": "ჳ"
+    },
+    {
+      "source": 7348,
+      "replacement": "ჴ"
+    },
+    {
+      "source": 7349,
+      "replacement": "ჵ"
+    },
+    {
+      "source": 7350,
+      "replacement": "ჶ"
+    },
+    {
+      "source": 7351,
+      "replacement": "ჷ"
+    },
+    {
+      "source": 7352,
+      "replacement": "ჸ"
+    },
+    {
+      "source": 7353,
+      "replacement": "ჹ"
+    },
+    {
+      "source": 7354,
+      "replacement": "ჺ"
+    },
+    {
+      "source": 7357,
+      "replacement": "ჽ"
+    },
+    {
+      "source": 7358,
+      "replacement": "ჾ"
+    },
+    {
+      "source": 7359,
+      "replacement": "ჿ"
+    },
+    {
+      "source": 7680,
+      "replacement": "ḁ"
+    },
+    {
+      "source": 7682,
+      "replacement": "ḃ"
+    },
+    {
+      "source": 7684,
+      "replacement": "ḅ"
+    },
+    {
+      "source": 7686,
+      "replacement": "ḇ"
+    },
+    {
+      "source": 7688,
+      "replacement": "ḉ"
+    },
+    {
+      "source": 7690,
+      "replacement": "ḋ"
+    },
+    {
+      "source": 7692,
+      "replacement": "ḍ"
+    },
+    {
+      "source": 7694,
+      "replacement": "ḏ"
+    },
+    {
+      "source": 7696,
+      "replacement": "ḑ"
+    },
+    {
+      "source": 7698,
+      "replacement": "ḓ"
+    },
+    {
+      "source": 7700,
+      "replacement": "ḕ"
+    },
+    {
+      "source": 7702,
+      "replacement": "ḗ"
+    },
+    {
+      "source": 7704,
+      "replacement": "ḙ"
+    },
+    {
+      "source": 7706,
+      "replacement": "ḛ"
+    },
+    {
+      "source": 7708,
+      "replacement": "ḝ"
+    },
+    {
+      "source": 7710,
+      "replacement": "ḟ"
+    },
+    {
+      "source": 7712,
+      "replacement": "ḡ"
+    },
+    {
+      "source": 7714,
+      "replacement": "ḣ"
+    },
+    {
+      "source": 7716,
+      "replacement": "ḥ"
+    },
+    {
+      "source": 7718,
+      "replacement": "ḧ"
+    },
+    {
+      "source": 7720,
+      "replacement": "ḩ"
+    },
+    {
+      "source": 7722,
+      "replacement": "ḫ"
+    },
+    {
+      "source": 7724,
+      "replacement": "ḭ"
+    },
+    {
+      "source": 7726,
+      "replacement": "ḯ"
+    },
+    {
+      "source": 7728,
+      "replacement": "ḱ"
+    },
+    {
+      "source": 7730,
+      "replacement": "ḳ"
+    },
+    {
+      "source": 7732,
+      "replacement": "ḵ"
+    },
+    {
+      "source": 7734,
+      "replacement": "ḷ"
+    },
+    {
+      "source": 7736,
+      "replacement": "ḹ"
+    },
+    {
+      "source": 7738,
+      "replacement": "ḻ"
+    },
+    {
+      "source": 7740,
+      "replacement": "ḽ"
+    },
+    {
+      "source": 7742,
+      "replacement": "ḿ"
+    },
+    {
+      "source": 7744,
+      "replacement": "ṁ"
+    },
+    {
+      "source": 7746,
+      "replacement": "ṃ"
+    },
+    {
+      "source": 7748,
+      "replacement": "ṅ"
+    },
+    {
+      "source": 7750,
+      "replacement": "ṇ"
+    },
+    {
+      "source": 7752,
+      "replacement": "ṉ"
+    },
+    {
+      "source": 7754,
+      "replacement": "ṋ"
+    },
+    {
+      "source": 7756,
+      "replacement": "ṍ"
+    },
+    {
+      "source": 7758,
+      "replacement": "ṏ"
+    },
+    {
+      "source": 7760,
+      "replacement": "ṑ"
+    },
+    {
+      "source": 7762,
+      "replacement": "ṓ"
+    },
+    {
+      "source": 7764,
+      "replacement": "ṕ"
+    },
+    {
+      "source": 7766,
+      "replacement": "ṗ"
+    },
+    {
+      "source": 7768,
+      "replacement": "ṙ"
+    },
+    {
+      "source": 7770,
+      "replacement": "ṛ"
+    },
+    {
+      "source": 7772,
+      "replacement": "ṝ"
+    },
+    {
+      "source": 7774,
+      "replacement": "ṟ"
+    },
+    {
+      "source": 7776,
+      "replacement": "ṡ"
+    },
+    {
+      "source": 7778,
+      "replacement": "ṣ"
+    },
+    {
+      "source": 7780,
+      "replacement": "ṥ"
+    },
+    {
+      "source": 7782,
+      "replacement": "ṧ"
+    },
+    {
+      "source": 7784,
+      "replacement": "ṩ"
+    },
+    {
+      "source": 7786,
+      "replacement": "ṫ"
+    },
+    {
+      "source": 7788,
+      "replacement": "ṭ"
+    },
+    {
+      "source": 7790,
+      "replacement": "ṯ"
+    },
+    {
+      "source": 7792,
+      "replacement": "ṱ"
+    },
+    {
+      "source": 7794,
+      "replacement": "ṳ"
+    },
+    {
+      "source": 7796,
+      "replacement": "ṵ"
+    },
+    {
+      "source": 7798,
+      "replacement": "ṷ"
+    },
+    {
+      "source": 7800,
+      "replacement": "ṹ"
+    },
+    {
+      "source": 7802,
+      "replacement": "ṻ"
+    },
+    {
+      "source": 7804,
+      "replacement": "ṽ"
+    },
+    {
+      "source": 7806,
+      "replacement": "ṿ"
+    },
+    {
+      "source": 7808,
+      "replacement": "ẁ"
+    },
+    {
+      "source": 7810,
+      "replacement": "ẃ"
+    },
+    {
+      "source": 7812,
+      "replacement": "ẅ"
+    },
+    {
+      "source": 7814,
+      "replacement": "ẇ"
+    },
+    {
+      "source": 7816,
+      "replacement": "ẉ"
+    },
+    {
+      "source": 7818,
+      "replacement": "ẋ"
+    },
+    {
+      "source": 7820,
+      "replacement": "ẍ"
+    },
+    {
+      "source": 7822,
+      "replacement": "ẏ"
+    },
+    {
+      "source": 7824,
+      "replacement": "ẑ"
+    },
+    {
+      "source": 7826,
+      "replacement": "ẓ"
+    },
+    {
+      "source": 7828,
+      "replacement": "ẕ"
+    },
+    {
+      "source": 7838,
+      "replacement": "ß"
+    },
+    {
+      "source": 7840,
+      "replacement": "ạ"
+    },
+    {
+      "source": 7842,
+      "replacement": "ả"
+    },
+    {
+      "source": 7844,
+      "replacement": "ấ"
+    },
+    {
+      "source": 7846,
+      "replacement": "ầ"
+    },
+    {
+      "source": 7848,
+      "replacement": "ẩ"
+    },
+    {
+      "source": 7850,
+      "replacement": "ẫ"
+    },
+    {
+      "source": 7852,
+      "replacement": "ậ"
+    },
+    {
+      "source": 7854,
+      "replacement": "ắ"
+    },
+    {
+      "source": 7856,
+      "replacement": "ằ"
+    },
+    {
+      "source": 7858,
+      "replacement": "ẳ"
+    },
+    {
+      "source": 7860,
+      "replacement": "ẵ"
+    },
+    {
+      "source": 7862,
+      "replacement": "ặ"
+    },
+    {
+      "source": 7864,
+      "replacement": "ẹ"
+    },
+    {
+      "source": 7866,
+      "replacement": "ẻ"
+    },
+    {
+      "source": 7868,
+      "replacement": "ẽ"
+    },
+    {
+      "source": 7870,
+      "replacement": "ế"
+    },
+    {
+      "source": 7872,
+      "replacement": "ề"
+    },
+    {
+      "source": 7874,
+      "replacement": "ể"
+    },
+    {
+      "source": 7876,
+      "replacement": "ễ"
+    },
+    {
+      "source": 7878,
+      "replacement": "ệ"
+    },
+    {
+      "source": 7880,
+      "replacement": "ỉ"
+    },
+    {
+      "source": 7882,
+      "replacement": "ị"
+    },
+    {
+      "source": 7884,
+      "replacement": "ọ"
+    },
+    {
+      "source": 7886,
+      "replacement": "ỏ"
+    },
+    {
+      "source": 7888,
+      "replacement": "ố"
+    },
+    {
+      "source": 7890,
+      "replacement": "ồ"
+    },
+    {
+      "source": 7892,
+      "replacement": "ổ"
+    },
+    {
+      "source": 7894,
+      "replacement": "ỗ"
+    },
+    {
+      "source": 7896,
+      "replacement": "ộ"
+    },
+    {
+      "source": 7898,
+      "replacement": "ớ"
+    },
+    {
+      "source": 7900,
+      "replacement": "ờ"
+    },
+    {
+      "source": 7902,
+      "replacement": "ở"
+    },
+    {
+      "source": 7904,
+      "replacement": "ỡ"
+    },
+    {
+      "source": 7906,
+      "replacement": "ợ"
+    },
+    {
+      "source": 7908,
+      "replacement": "ụ"
+    },
+    {
+      "source": 7910,
+      "replacement": "ủ"
+    },
+    {
+      "source": 7912,
+      "replacement": "ứ"
+    },
+    {
+      "source": 7914,
+      "replacement": "ừ"
+    },
+    {
+      "source": 7916,
+      "replacement": "ử"
+    },
+    {
+      "source": 7918,
+      "replacement": "ữ"
+    },
+    {
+      "source": 7920,
+      "replacement": "ự"
+    },
+    {
+      "source": 7922,
+      "replacement": "ỳ"
+    },
+    {
+      "source": 7924,
+      "replacement": "ỵ"
+    },
+    {
+      "source": 7926,
+      "replacement": "ỷ"
+    },
+    {
+      "source": 7928,
+      "replacement": "ỹ"
+    },
+    {
+      "source": 7930,
+      "replacement": "ỻ"
+    },
+    {
+      "source": 7932,
+      "replacement": "ỽ"
+    },
+    {
+      "source": 7934,
+      "replacement": "ỿ"
+    },
+    {
+      "source": 7944,
+      "replacement": "ἀ"
+    },
+    {
+      "source": 7945,
+      "replacement": "ἁ"
+    },
+    {
+      "source": 7946,
+      "replacement": "ἂ"
+    },
+    {
+      "source": 7947,
+      "replacement": "ἃ"
+    },
+    {
+      "source": 7948,
+      "replacement": "ἄ"
+    },
+    {
+      "source": 7949,
+      "replacement": "ἅ"
+    },
+    {
+      "source": 7950,
+      "replacement": "ἆ"
+    },
+    {
+      "source": 7951,
+      "replacement": "ἇ"
+    },
+    {
+      "source": 7960,
+      "replacement": "ἐ"
+    },
+    {
+      "source": 7961,
+      "replacement": "ἑ"
+    },
+    {
+      "source": 7962,
+      "replacement": "ἒ"
+    },
+    {
+      "source": 7963,
+      "replacement": "ἓ"
+    },
+    {
+      "source": 7964,
+      "replacement": "ἔ"
+    },
+    {
+      "source": 7965,
+      "replacement": "ἕ"
+    },
+    {
+      "source": 7976,
+      "replacement": "ἠ"
+    },
+    {
+      "source": 7977,
+      "replacement": "ἡ"
+    },
+    {
+      "source": 7978,
+      "replacement": "ἢ"
+    },
+    {
+      "source": 7979,
+      "replacement": "ἣ"
+    },
+    {
+      "source": 7980,
+      "replacement": "ἤ"
+    },
+    {
+      "source": 7981,
+      "replacement": "ἥ"
+    },
+    {
+      "source": 7982,
+      "replacement": "ἦ"
+    },
+    {
+      "source": 7983,
+      "replacement": "ἧ"
+    },
+    {
+      "source": 7992,
+      "replacement": "ἰ"
+    },
+    {
+      "source": 7993,
+      "replacement": "ἱ"
+    },
+    {
+      "source": 7994,
+      "replacement": "ἲ"
+    },
+    {
+      "source": 7995,
+      "replacement": "ἳ"
+    },
+    {
+      "source": 7996,
+      "replacement": "ἴ"
+    },
+    {
+      "source": 7997,
+      "replacement": "ἵ"
+    },
+    {
+      "source": 7998,
+      "replacement": "ἶ"
+    },
+    {
+      "source": 7999,
+      "replacement": "ἷ"
+    },
+    {
+      "source": 8008,
+      "replacement": "ὀ"
+    },
+    {
+      "source": 8009,
+      "replacement": "ὁ"
+    },
+    {
+      "source": 8010,
+      "replacement": "ὂ"
+    },
+    {
+      "source": 8011,
+      "replacement": "ὃ"
+    },
+    {
+      "source": 8012,
+      "replacement": "ὄ"
+    },
+    {
+      "source": 8013,
+      "replacement": "ὅ"
+    },
+    {
+      "source": 8025,
+      "replacement": "ὑ"
+    },
+    {
+      "source": 8027,
+      "replacement": "ὓ"
+    },
+    {
+      "source": 8029,
+      "replacement": "ὕ"
+    },
+    {
+      "source": 8031,
+      "replacement": "ὗ"
+    },
+    {
+      "source": 8040,
+      "replacement": "ὠ"
+    },
+    {
+      "source": 8041,
+      "replacement": "ὡ"
+    },
+    {
+      "source": 8042,
+      "replacement": "ὢ"
+    },
+    {
+      "source": 8043,
+      "replacement": "ὣ"
+    },
+    {
+      "source": 8044,
+      "replacement": "ὤ"
+    },
+    {
+      "source": 8045,
+      "replacement": "ὥ"
+    },
+    {
+      "source": 8046,
+      "replacement": "ὦ"
+    },
+    {
+      "source": 8047,
+      "replacement": "ὧ"
+    },
+    {
+      "source": 8072,
+      "replacement": "ᾀ"
+    },
+    {
+      "source": 8073,
+      "replacement": "ᾁ"
+    },
+    {
+      "source": 8074,
+      "replacement": "ᾂ"
+    },
+    {
+      "source": 8075,
+      "replacement": "ᾃ"
+    },
+    {
+      "source": 8076,
+      "replacement": "ᾄ"
+    },
+    {
+      "source": 8077,
+      "replacement": "ᾅ"
+    },
+    {
+      "source": 8078,
+      "replacement": "ᾆ"
+    },
+    {
+      "source": 8079,
+      "replacement": "ᾇ"
+    },
+    {
+      "source": 8088,
+      "replacement": "ᾐ"
+    },
+    {
+      "source": 8089,
+      "replacement": "ᾑ"
+    },
+    {
+      "source": 8090,
+      "replacement": "ᾒ"
+    },
+    {
+      "source": 8091,
+      "replacement": "ᾓ"
+    },
+    {
+      "source": 8092,
+      "replacement": "ᾔ"
+    },
+    {
+      "source": 8093,
+      "replacement": "ᾕ"
+    },
+    {
+      "source": 8094,
+      "replacement": "ᾖ"
+    },
+    {
+      "source": 8095,
+      "replacement": "ᾗ"
+    },
+    {
+      "source": 8104,
+      "replacement": "ᾠ"
+    },
+    {
+      "source": 8105,
+      "replacement": "ᾡ"
+    },
+    {
+      "source": 8106,
+      "replacement": "ᾢ"
+    },
+    {
+      "source": 8107,
+      "replacement": "ᾣ"
+    },
+    {
+      "source": 8108,
+      "replacement": "ᾤ"
+    },
+    {
+      "source": 8109,
+      "replacement": "ᾥ"
+    },
+    {
+      "source": 8110,
+      "replacement": "ᾦ"
+    },
+    {
+      "source": 8111,
+      "replacement": "ᾧ"
+    },
+    {
+      "source": 8120,
+      "replacement": "ᾰ"
+    },
+    {
+      "source": 8121,
+      "replacement": "ᾱ"
+    },
+    {
+      "source": 8122,
+      "replacement": "ὰ"
+    },
+    {
+      "source": 8123,
+      "replacement": "ά"
+    },
+    {
+      "source": 8124,
+      "replacement": "ᾳ"
+    },
+    {
+      "source": 8136,
+      "replacement": "ὲ"
+    },
+    {
+      "source": 8137,
+      "replacement": "έ"
+    },
+    {
+      "source": 8138,
+      "replacement": "ὴ"
+    },
+    {
+      "source": 8139,
+      "replacement": "ή"
+    },
+    {
+      "source": 8140,
+      "replacement": "ῃ"
+    },
+    {
+      "source": 8152,
+      "replacement": "ῐ"
+    },
+    {
+      "source": 8153,
+      "replacement": "ῑ"
+    },
+    {
+      "source": 8154,
+      "replacement": "ὶ"
+    },
+    {
+      "source": 8155,
+      "replacement": "ί"
+    },
+    {
+      "source": 8168,
+      "replacement": "ῠ"
+    },
+    {
+      "source": 8169,
+      "replacement": "ῡ"
+    },
+    {
+      "source": 8170,
+      "replacement": "ὺ"
+    },
+    {
+      "source": 8171,
+      "replacement": "ύ"
+    },
+    {
+      "source": 8172,
+      "replacement": "ῥ"
+    },
+    {
+      "source": 8184,
+      "replacement": "ὸ"
+    },
+    {
+      "source": 8185,
+      "replacement": "ό"
+    },
+    {
+      "source": 8186,
+      "replacement": "ὼ"
+    },
+    {
+      "source": 8187,
+      "replacement": "ώ"
+    },
+    {
+      "source": 8188,
+      "replacement": "ῳ"
+    },
+    {
+      "source": 8486,
+      "replacement": "ω"
+    },
+    {
+      "source": 8490,
+      "replacement": "k"
+    },
+    {
+      "source": 8491,
+      "replacement": "å"
+    },
+    {
+      "source": 8498,
+      "replacement": "ⅎ"
+    },
+    {
+      "source": 8544,
+      "replacement": "ⅰ"
+    },
+    {
+      "source": 8545,
+      "replacement": "ⅱ"
+    },
+    {
+      "source": 8546,
+      "replacement": "ⅲ"
+    },
+    {
+      "source": 8547,
+      "replacement": "ⅳ"
+    },
+    {
+      "source": 8548,
+      "replacement": "ⅴ"
+    },
+    {
+      "source": 8549,
+      "replacement": "ⅵ"
+    },
+    {
+      "source": 8550,
+      "replacement": "ⅶ"
+    },
+    {
+      "source": 8551,
+      "replacement": "ⅷ"
+    },
+    {
+      "source": 8552,
+      "replacement": "ⅸ"
+    },
+    {
+      "source": 8553,
+      "replacement": "ⅹ"
+    },
+    {
+      "source": 8554,
+      "replacement": "ⅺ"
+    },
+    {
+      "source": 8555,
+      "replacement": "ⅻ"
+    },
+    {
+      "source": 8556,
+      "replacement": "ⅼ"
+    },
+    {
+      "source": 8557,
+      "replacement": "ⅽ"
+    },
+    {
+      "source": 8558,
+      "replacement": "ⅾ"
+    },
+    {
+      "source": 8559,
+      "replacement": "ⅿ"
+    },
+    {
+      "source": 8579,
+      "replacement": "ↄ"
+    },
+    {
+      "source": 9398,
+      "replacement": "ⓐ"
+    },
+    {
+      "source": 9399,
+      "replacement": "ⓑ"
+    },
+    {
+      "source": 9400,
+      "replacement": "ⓒ"
+    },
+    {
+      "source": 9401,
+      "replacement": "ⓓ"
+    },
+    {
+      "source": 9402,
+      "replacement": "ⓔ"
+    },
+    {
+      "source": 9403,
+      "replacement": "ⓕ"
+    },
+    {
+      "source": 9404,
+      "replacement": "ⓖ"
+    },
+    {
+      "source": 9405,
+      "replacement": "ⓗ"
+    },
+    {
+      "source": 9406,
+      "replacement": "ⓘ"
+    },
+    {
+      "source": 9407,
+      "replacement": "ⓙ"
+    },
+    {
+      "source": 9408,
+      "replacement": "ⓚ"
+    },
+    {
+      "source": 9409,
+      "replacement": "ⓛ"
+    },
+    {
+      "source": 9410,
+      "replacement": "ⓜ"
+    },
+    {
+      "source": 9411,
+      "replacement": "ⓝ"
+    },
+    {
+      "source": 9412,
+      "replacement": "ⓞ"
+    },
+    {
+      "source": 9413,
+      "replacement": "ⓟ"
+    },
+    {
+      "source": 9414,
+      "replacement": "ⓠ"
+    },
+    {
+      "source": 9415,
+      "replacement": "ⓡ"
+    },
+    {
+      "source": 9416,
+      "replacement": "ⓢ"
+    },
+    {
+      "source": 9417,
+      "replacement": "ⓣ"
+    },
+    {
+      "source": 9418,
+      "replacement": "ⓤ"
+    },
+    {
+      "source": 9419,
+      "replacement": "ⓥ"
+    },
+    {
+      "source": 9420,
+      "replacement": "ⓦ"
+    },
+    {
+      "source": 9421,
+      "replacement": "ⓧ"
+    },
+    {
+      "source": 9422,
+      "replacement": "ⓨ"
+    },
+    {
+      "source": 9423,
+      "replacement": "ⓩ"
+    },
+    {
+      "source": 11264,
+      "replacement": "ⰰ"
+    },
+    {
+      "source": 11265,
+      "replacement": "ⰱ"
+    },
+    {
+      "source": 11266,
+      "replacement": "ⰲ"
+    },
+    {
+      "source": 11267,
+      "replacement": "ⰳ"
+    },
+    {
+      "source": 11268,
+      "replacement": "ⰴ"
+    },
+    {
+      "source": 11269,
+      "replacement": "ⰵ"
+    },
+    {
+      "source": 11270,
+      "replacement": "ⰶ"
+    },
+    {
+      "source": 11271,
+      "replacement": "ⰷ"
+    },
+    {
+      "source": 11272,
+      "replacement": "ⰸ"
+    },
+    {
+      "source": 11273,
+      "replacement": "ⰹ"
+    },
+    {
+      "source": 11274,
+      "replacement": "ⰺ"
+    },
+    {
+      "source": 11275,
+      "replacement": "ⰻ"
+    },
+    {
+      "source": 11276,
+      "replacement": "ⰼ"
+    },
+    {
+      "source": 11277,
+      "replacement": "ⰽ"
+    },
+    {
+      "source": 11278,
+      "replacement": "ⰾ"
+    },
+    {
+      "source": 11279,
+      "replacement": "ⰿ"
+    },
+    {
+      "source": 11280,
+      "replacement": "ⱀ"
+    },
+    {
+      "source": 11281,
+      "replacement": "ⱁ"
+    },
+    {
+      "source": 11282,
+      "replacement": "ⱂ"
+    },
+    {
+      "source": 11283,
+      "replacement": "ⱃ"
+    },
+    {
+      "source": 11284,
+      "replacement": "ⱄ"
+    },
+    {
+      "source": 11285,
+      "replacement": "ⱅ"
+    },
+    {
+      "source": 11286,
+      "replacement": "ⱆ"
+    },
+    {
+      "source": 11287,
+      "replacement": "ⱇ"
+    },
+    {
+      "source": 11288,
+      "replacement": "ⱈ"
+    },
+    {
+      "source": 11289,
+      "replacement": "ⱉ"
+    },
+    {
+      "source": 11290,
+      "replacement": "ⱊ"
+    },
+    {
+      "source": 11291,
+      "replacement": "ⱋ"
+    },
+    {
+      "source": 11292,
+      "replacement": "ⱌ"
+    },
+    {
+      "source": 11293,
+      "replacement": "ⱍ"
+    },
+    {
+      "source": 11294,
+      "replacement": "ⱎ"
+    },
+    {
+      "source": 11295,
+      "replacement": "ⱏ"
+    },
+    {
+      "source": 11296,
+      "replacement": "ⱐ"
+    },
+    {
+      "source": 11297,
+      "replacement": "ⱑ"
+    },
+    {
+      "source": 11298,
+      "replacement": "ⱒ"
+    },
+    {
+      "source": 11299,
+      "replacement": "ⱓ"
+    },
+    {
+      "source": 11300,
+      "replacement": "ⱔ"
+    },
+    {
+      "source": 11301,
+      "replacement": "ⱕ"
+    },
+    {
+      "source": 11302,
+      "replacement": "ⱖ"
+    },
+    {
+      "source": 11303,
+      "replacement": "ⱗ"
+    },
+    {
+      "source": 11304,
+      "replacement": "ⱘ"
+    },
+    {
+      "source": 11305,
+      "replacement": "ⱙ"
+    },
+    {
+      "source": 11306,
+      "replacement": "ⱚ"
+    },
+    {
+      "source": 11307,
+      "replacement": "ⱛ"
+    },
+    {
+      "source": 11308,
+      "replacement": "ⱜ"
+    },
+    {
+      "source": 11309,
+      "replacement": "ⱝ"
+    },
+    {
+      "source": 11310,
+      "replacement": "ⱞ"
+    },
+    {
+      "source": 11311,
+      "replacement": "ⱟ"
+    },
+    {
+      "source": 11360,
+      "replacement": "ⱡ"
+    },
+    {
+      "source": 11362,
+      "replacement": "ɫ"
+    },
+    {
+      "source": 11363,
+      "replacement": "ᵽ"
+    },
+    {
+      "source": 11364,
+      "replacement": "ɽ"
+    },
+    {
+      "source": 11367,
+      "replacement": "ⱨ"
+    },
+    {
+      "source": 11369,
+      "replacement": "ⱪ"
+    },
+    {
+      "source": 11371,
+      "replacement": "ⱬ"
+    },
+    {
+      "source": 11373,
+      "replacement": "ɑ"
+    },
+    {
+      "source": 11374,
+      "replacement": "ɱ"
+    },
+    {
+      "source": 11375,
+      "replacement": "ɐ"
+    },
+    {
+      "source": 11376,
+      "replacement": "ɒ"
+    },
+    {
+      "source": 11378,
+      "replacement": "ⱳ"
+    },
+    {
+      "source": 11381,
+      "replacement": "ⱶ"
+    },
+    {
+      "source": 11390,
+      "replacement": "ȿ"
+    },
+    {
+      "source": 11391,
+      "replacement": "ɀ"
+    },
+    {
+      "source": 11392,
+      "replacement": "ⲁ"
+    },
+    {
+      "source": 11394,
+      "replacement": "ⲃ"
+    },
+    {
+      "source": 11396,
+      "replacement": "ⲅ"
+    },
+    {
+      "source": 11398,
+      "replacement": "ⲇ"
+    },
+    {
+      "source": 11400,
+      "replacement": "ⲉ"
+    },
+    {
+      "source": 11402,
+      "replacement": "ⲋ"
+    },
+    {
+      "source": 11404,
+      "replacement": "ⲍ"
+    },
+    {
+      "source": 11406,
+      "replacement": "ⲏ"
+    },
+    {
+      "source": 11408,
+      "replacement": "ⲑ"
+    },
+    {
+      "source": 11410,
+      "replacement": "ⲓ"
+    },
+    {
+      "source": 11412,
+      "replacement": "ⲕ"
+    },
+    {
+      "source": 11414,
+      "replacement": "ⲗ"
+    },
+    {
+      "source": 11416,
+      "replacement": "ⲙ"
+    },
+    {
+      "source": 11418,
+      "replacement": "ⲛ"
+    },
+    {
+      "source": 11420,
+      "replacement": "ⲝ"
+    },
+    {
+      "source": 11422,
+      "replacement": "ⲟ"
+    },
+    {
+      "source": 11424,
+      "replacement": "ⲡ"
+    },
+    {
+      "source": 11426,
+      "replacement": "ⲣ"
+    },
+    {
+      "source": 11428,
+      "replacement": "ⲥ"
+    },
+    {
+      "source": 11430,
+      "replacement": "ⲧ"
+    },
+    {
+      "source": 11432,
+      "replacement": "ⲩ"
+    },
+    {
+      "source": 11434,
+      "replacement": "ⲫ"
+    },
+    {
+      "source": 11436,
+      "replacement": "ⲭ"
+    },
+    {
+      "source": 11438,
+      "replacement": "ⲯ"
+    },
+    {
+      "source": 11440,
+      "replacement": "ⲱ"
+    },
+    {
+      "source": 11442,
+      "replacement": "ⲳ"
+    },
+    {
+      "source": 11444,
+      "replacement": "ⲵ"
+    },
+    {
+      "source": 11446,
+      "replacement": "ⲷ"
+    },
+    {
+      "source": 11448,
+      "replacement": "ⲹ"
+    },
+    {
+      "source": 11450,
+      "replacement": "ⲻ"
+    },
+    {
+      "source": 11452,
+      "replacement": "ⲽ"
+    },
+    {
+      "source": 11454,
+      "replacement": "ⲿ"
+    },
+    {
+      "source": 11456,
+      "replacement": "ⳁ"
+    },
+    {
+      "source": 11458,
+      "replacement": "ⳃ"
+    },
+    {
+      "source": 11460,
+      "replacement": "ⳅ"
+    },
+    {
+      "source": 11462,
+      "replacement": "ⳇ"
+    },
+    {
+      "source": 11464,
+      "replacement": "ⳉ"
+    },
+    {
+      "source": 11466,
+      "replacement": "ⳋ"
+    },
+    {
+      "source": 11468,
+      "replacement": "ⳍ"
+    },
+    {
+      "source": 11470,
+      "replacement": "ⳏ"
+    },
+    {
+      "source": 11472,
+      "replacement": "ⳑ"
+    },
+    {
+      "source": 11474,
+      "replacement": "ⳓ"
+    },
+    {
+      "source": 11476,
+      "replacement": "ⳕ"
+    },
+    {
+      "source": 11478,
+      "replacement": "ⳗ"
+    },
+    {
+      "source": 11480,
+      "replacement": "ⳙ"
+    },
+    {
+      "source": 11482,
+      "replacement": "ⳛ"
+    },
+    {
+      "source": 11484,
+      "replacement": "ⳝ"
+    },
+    {
+      "source": 11486,
+      "replacement": "ⳟ"
+    },
+    {
+      "source": 11488,
+      "replacement": "ⳡ"
+    },
+    {
+      "source": 11490,
+      "replacement": "ⳣ"
+    },
+    {
+      "source": 11499,
+      "replacement": "ⳬ"
+    },
+    {
+      "source": 11501,
+      "replacement": "ⳮ"
+    },
+    {
+      "source": 11506,
+      "replacement": "ⳳ"
+    },
+    {
+      "source": 42560,
+      "replacement": "ꙁ"
+    },
+    {
+      "source": 42562,
+      "replacement": "ꙃ"
+    },
+    {
+      "source": 42564,
+      "replacement": "ꙅ"
+    },
+    {
+      "source": 42566,
+      "replacement": "ꙇ"
+    },
+    {
+      "source": 42568,
+      "replacement": "ꙉ"
+    },
+    {
+      "source": 42570,
+      "replacement": "ꙋ"
+    },
+    {
+      "source": 42572,
+      "replacement": "ꙍ"
+    },
+    {
+      "source": 42574,
+      "replacement": "ꙏ"
+    },
+    {
+      "source": 42576,
+      "replacement": "ꙑ"
+    },
+    {
+      "source": 42578,
+      "replacement": "ꙓ"
+    },
+    {
+      "source": 42580,
+      "replacement": "ꙕ"
+    },
+    {
+      "source": 42582,
+      "replacement": "ꙗ"
+    },
+    {
+      "source": 42584,
+      "replacement": "ꙙ"
+    },
+    {
+      "source": 42586,
+      "replacement": "ꙛ"
+    },
+    {
+      "source": 42588,
+      "replacement": "ꙝ"
+    },
+    {
+      "source": 42590,
+      "replacement": "ꙟ"
+    },
+    {
+      "source": 42592,
+      "replacement": "ꙡ"
+    },
+    {
+      "source": 42594,
+      "replacement": "ꙣ"
+    },
+    {
+      "source": 42596,
+      "replacement": "ꙥ"
+    },
+    {
+      "source": 42598,
+      "replacement": "ꙧ"
+    },
+    {
+      "source": 42600,
+      "replacement": "ꙩ"
+    },
+    {
+      "source": 42602,
+      "replacement": "ꙫ"
+    },
+    {
+      "source": 42604,
+      "replacement": "ꙭ"
+    },
+    {
+      "source": 42624,
+      "replacement": "ꚁ"
+    },
+    {
+      "source": 42626,
+      "replacement": "ꚃ"
+    },
+    {
+      "source": 42628,
+      "replacement": "ꚅ"
+    },
+    {
+      "source": 42630,
+      "replacement": "ꚇ"
+    },
+    {
+      "source": 42632,
+      "replacement": "ꚉ"
+    },
+    {
+      "source": 42634,
+      "replacement": "ꚋ"
+    },
+    {
+      "source": 42636,
+      "replacement": "ꚍ"
+    },
+    {
+      "source": 42638,
+      "replacement": "ꚏ"
+    },
+    {
+      "source": 42640,
+      "replacement": "ꚑ"
+    },
+    {
+      "source": 42642,
+      "replacement": "ꚓ"
+    },
+    {
+      "source": 42644,
+      "replacement": "ꚕ"
+    },
+    {
+      "source": 42646,
+      "replacement": "ꚗ"
+    },
+    {
+      "source": 42648,
+      "replacement": "ꚙ"
+    },
+    {
+      "source": 42650,
+      "replacement": "ꚛ"
+    },
+    {
+      "source": 42786,
+      "replacement": "ꜣ"
+    },
+    {
+      "source": 42788,
+      "replacement": "ꜥ"
+    },
+    {
+      "source": 42790,
+      "replacement": "ꜧ"
+    },
+    {
+      "source": 42792,
+      "replacement": "ꜩ"
+    },
+    {
+      "source": 42794,
+      "replacement": "ꜫ"
+    },
+    {
+      "source": 42796,
+      "replacement": "ꜭ"
+    },
+    {
+      "source": 42798,
+      "replacement": "ꜯ"
+    },
+    {
+      "source": 42802,
+      "replacement": "ꜳ"
+    },
+    {
+      "source": 42804,
+      "replacement": "ꜵ"
+    },
+    {
+      "source": 42806,
+      "replacement": "ꜷ"
+    },
+    {
+      "source": 42808,
+      "replacement": "ꜹ"
+    },
+    {
+      "source": 42810,
+      "replacement": "ꜻ"
+    },
+    {
+      "source": 42812,
+      "replacement": "ꜽ"
+    },
+    {
+      "source": 42814,
+      "replacement": "ꜿ"
+    },
+    {
+      "source": 42816,
+      "replacement": "ꝁ"
+    },
+    {
+      "source": 42818,
+      "replacement": "ꝃ"
+    },
+    {
+      "source": 42820,
+      "replacement": "ꝅ"
+    },
+    {
+      "source": 42822,
+      "replacement": "ꝇ"
+    },
+    {
+      "source": 42824,
+      "replacement": "ꝉ"
+    },
+    {
+      "source": 42826,
+      "replacement": "ꝋ"
+    },
+    {
+      "source": 42828,
+      "replacement": "ꝍ"
+    },
+    {
+      "source": 42830,
+      "replacement": "ꝏ"
+    },
+    {
+      "source": 42832,
+      "replacement": "ꝑ"
+    },
+    {
+      "source": 42834,
+      "replacement": "ꝓ"
+    },
+    {
+      "source": 42836,
+      "replacement": "ꝕ"
+    },
+    {
+      "source": 42838,
+      "replacement": "ꝗ"
+    },
+    {
+      "source": 42840,
+      "replacement": "ꝙ"
+    },
+    {
+      "source": 42842,
+      "replacement": "ꝛ"
+    },
+    {
+      "source": 42844,
+      "replacement": "ꝝ"
+    },
+    {
+      "source": 42846,
+      "replacement": "ꝟ"
+    },
+    {
+      "source": 42848,
+      "replacement": "ꝡ"
+    },
+    {
+      "source": 42850,
+      "replacement": "ꝣ"
+    },
+    {
+      "source": 42852,
+      "replacement": "ꝥ"
+    },
+    {
+      "source": 42854,
+      "replacement": "ꝧ"
+    },
+    {
+      "source": 42856,
+      "replacement": "ꝩ"
+    },
+    {
+      "source": 42858,
+      "replacement": "ꝫ"
+    },
+    {
+      "source": 42860,
+      "replacement": "ꝭ"
+    },
+    {
+      "source": 42862,
+      "replacement": "ꝯ"
+    },
+    {
+      "source": 42873,
+      "replacement": "ꝺ"
+    },
+    {
+      "source": 42875,
+      "replacement": "ꝼ"
+    },
+    {
+      "source": 42877,
+      "replacement": "ᵹ"
+    },
+    {
+      "source": 42878,
+      "replacement": "ꝿ"
+    },
+    {
+      "source": 42880,
+      "replacement": "ꞁ"
+    },
+    {
+      "source": 42882,
+      "replacement": "ꞃ"
+    },
+    {
+      "source": 42884,
+      "replacement": "ꞅ"
+    },
+    {
+      "source": 42886,
+      "replacement": "ꞇ"
+    },
+    {
+      "source": 42891,
+      "replacement": "ꞌ"
+    },
+    {
+      "source": 42893,
+      "replacement": "ɥ"
+    },
+    {
+      "source": 42896,
+      "replacement": "ꞑ"
+    },
+    {
+      "source": 42898,
+      "replacement": "ꞓ"
+    },
+    {
+      "source": 42902,
+      "replacement": "ꞗ"
+    },
+    {
+      "source": 42904,
+      "replacement": "ꞙ"
+    },
+    {
+      "source": 42906,
+      "replacement": "ꞛ"
+    },
+    {
+      "source": 42908,
+      "replacement": "ꞝ"
+    },
+    {
+      "source": 42910,
+      "replacement": "ꞟ"
+    },
+    {
+      "source": 42912,
+      "replacement": "ꞡ"
+    },
+    {
+      "source": 42914,
+      "replacement": "ꞣ"
+    },
+    {
+      "source": 42916,
+      "replacement": "ꞥ"
+    },
+    {
+      "source": 42918,
+      "replacement": "ꞧ"
+    },
+    {
+      "source": 42920,
+      "replacement": "ꞩ"
+    },
+    {
+      "source": 42922,
+      "replacement": "ɦ"
+    },
+    {
+      "source": 42923,
+      "replacement": "ɜ"
+    },
+    {
+      "source": 42924,
+      "replacement": "ɡ"
+    },
+    {
+      "source": 42925,
+      "replacement": "ɬ"
+    },
+    {
+      "source": 42926,
+      "replacement": "ɪ"
+    },
+    {
+      "source": 42928,
+      "replacement": "ʞ"
+    },
+    {
+      "source": 42929,
+      "replacement": "ʇ"
+    },
+    {
+      "source": 42930,
+      "replacement": "ʝ"
+    },
+    {
+      "source": 42931,
+      "replacement": "ꭓ"
+    },
+    {
+      "source": 42932,
+      "replacement": "ꞵ"
+    },
+    {
+      "source": 42934,
+      "replacement": "ꞷ"
+    },
+    {
+      "source": 42936,
+      "replacement": "ꞹ"
+    },
+    {
+      "source": 42938,
+      "replacement": "ꞻ"
+    },
+    {
+      "source": 42940,
+      "replacement": "ꞽ"
+    },
+    {
+      "source": 42942,
+      "replacement": "ꞿ"
+    },
+    {
+      "source": 42944,
+      "replacement": "ꟁ"
+    },
+    {
+      "source": 42946,
+      "replacement": "ꟃ"
+    },
+    {
+      "source": 42948,
+      "replacement": "ꞔ"
+    },
+    {
+      "source": 42949,
+      "replacement": "ʂ"
+    },
+    {
+      "source": 42950,
+      "replacement": "ᶎ"
+    },
+    {
+      "source": 42951,
+      "replacement": "ꟈ"
+    },
+    {
+      "source": 42953,
+      "replacement": "ꟊ"
+    },
+    {
+      "source": 42955,
+      "replacement": "ɤ"
+    },
+    {
+      "source": 42956,
+      "replacement": "ꟍ"
+    },
+    {
+      "source": 42958,
+      "replacement": "꟏"
+    },
+    {
+      "source": 42960,
+      "replacement": "ꟑ"
+    },
+    {
+      "source": 42962,
+      "replacement": "ꟓ"
+    },
+    {
+      "source": 42964,
+      "replacement": "ꟕ"
+    },
+    {
+      "source": 42966,
+      "replacement": "ꟗ"
+    },
+    {
+      "source": 42968,
+      "replacement": "ꟙ"
+    },
+    {
+      "source": 42970,
+      "replacement": "ꟛ"
+    },
+    {
+      "source": 42972,
+      "replacement": "ƛ"
+    },
+    {
+      "source": 42997,
+      "replacement": "ꟶ"
+    },
+    {
+      "source": 65313,
+      "replacement": "ａ"
+    },
+    {
+      "source": 65314,
+      "replacement": "ｂ"
+    },
+    {
+      "source": 65315,
+      "replacement": "ｃ"
+    },
+    {
+      "source": 65316,
+      "replacement": "ｄ"
+    },
+    {
+      "source": 65317,
+      "replacement": "ｅ"
+    },
+    {
+      "source": 65318,
+      "replacement": "ｆ"
+    },
+    {
+      "source": 65319,
+      "replacement": "ｇ"
+    },
+    {
+      "source": 65320,
+      "replacement": "ｈ"
+    },
+    {
+      "source": 65321,
+      "replacement": "ｉ"
+    },
+    {
+      "source": 65322,
+      "replacement": "ｊ"
+    },
+    {
+      "source": 65323,
+      "replacement": "ｋ"
+    },
+    {
+      "source": 65324,
+      "replacement": "ｌ"
+    },
+    {
+      "source": 65325,
+      "replacement": "ｍ"
+    },
+    {
+      "source": 65326,
+      "replacement": "ｎ"
+    },
+    {
+      "source": 65327,
+      "replacement": "ｏ"
+    },
+    {
+      "source": 65328,
+      "replacement": "ｐ"
+    },
+    {
+      "source": 65329,
+      "replacement": "ｑ"
+    },
+    {
+      "source": 65330,
+      "replacement": "ｒ"
+    },
+    {
+      "source": 65331,
+      "replacement": "ｓ"
+    },
+    {
+      "source": 65332,
+      "replacement": "ｔ"
+    },
+    {
+      "source": 65333,
+      "replacement": "ｕ"
+    },
+    {
+      "source": 65334,
+      "replacement": "ｖ"
+    },
+    {
+      "source": 65335,
+      "replacement": "ｗ"
+    },
+    {
+      "source": 65336,
+      "replacement": "ｘ"
+    },
+    {
+      "source": 65337,
+      "replacement": "ｙ"
+    },
+    {
+      "source": 65338,
+      "replacement": "ｚ"
+    },
+    {
+      "source": 66560,
+      "replacement": "𐐨"
+    },
+    {
+      "source": 66561,
+      "replacement": "𐐩"
+    },
+    {
+      "source": 66562,
+      "replacement": "𐐪"
+    },
+    {
+      "source": 66563,
+      "replacement": "𐐫"
+    },
+    {
+      "source": 66564,
+      "replacement": "𐐬"
+    },
+    {
+      "source": 66565,
+      "replacement": "𐐭"
+    },
+    {
+      "source": 66566,
+      "replacement": "𐐮"
+    },
+    {
+      "source": 66567,
+      "replacement": "𐐯"
+    },
+    {
+      "source": 66568,
+      "replacement": "𐐰"
+    },
+    {
+      "source": 66569,
+      "replacement": "𐐱"
+    },
+    {
+      "source": 66570,
+      "replacement": "𐐲"
+    },
+    {
+      "source": 66571,
+      "replacement": "𐐳"
+    },
+    {
+      "source": 66572,
+      "replacement": "𐐴"
+    },
+    {
+      "source": 66573,
+      "replacement": "𐐵"
+    },
+    {
+      "source": 66574,
+      "replacement": "𐐶"
+    },
+    {
+      "source": 66575,
+      "replacement": "𐐷"
+    },
+    {
+      "source": 66576,
+      "replacement": "𐐸"
+    },
+    {
+      "source": 66577,
+      "replacement": "𐐹"
+    },
+    {
+      "source": 66578,
+      "replacement": "𐐺"
+    },
+    {
+      "source": 66579,
+      "replacement": "𐐻"
+    },
+    {
+      "source": 66580,
+      "replacement": "𐐼"
+    },
+    {
+      "source": 66581,
+      "replacement": "𐐽"
+    },
+    {
+      "source": 66582,
+      "replacement": "𐐾"
+    },
+    {
+      "source": 66583,
+      "replacement": "𐐿"
+    },
+    {
+      "source": 66584,
+      "replacement": "𐑀"
+    },
+    {
+      "source": 66585,
+      "replacement": "𐑁"
+    },
+    {
+      "source": 66586,
+      "replacement": "𐑂"
+    },
+    {
+      "source": 66587,
+      "replacement": "𐑃"
+    },
+    {
+      "source": 66588,
+      "replacement": "𐑄"
+    },
+    {
+      "source": 66589,
+      "replacement": "𐑅"
+    },
+    {
+      "source": 66590,
+      "replacement": "𐑆"
+    },
+    {
+      "source": 66591,
+      "replacement": "𐑇"
+    },
+    {
+      "source": 66592,
+      "replacement": "𐑈"
+    },
+    {
+      "source": 66593,
+      "replacement": "𐑉"
+    },
+    {
+      "source": 66594,
+      "replacement": "𐑊"
+    },
+    {
+      "source": 66595,
+      "replacement": "𐑋"
+    },
+    {
+      "source": 66596,
+      "replacement": "𐑌"
+    },
+    {
+      "source": 66597,
+      "replacement": "𐑍"
+    },
+    {
+      "source": 66598,
+      "replacement": "𐑎"
+    },
+    {
+      "source": 66599,
+      "replacement": "𐑏"
+    },
+    {
+      "source": 66736,
+      "replacement": "𐓘"
+    },
+    {
+      "source": 66737,
+      "replacement": "𐓙"
+    },
+    {
+      "source": 66738,
+      "replacement": "𐓚"
+    },
+    {
+      "source": 66739,
+      "replacement": "𐓛"
+    },
+    {
+      "source": 66740,
+      "replacement": "𐓜"
+    },
+    {
+      "source": 66741,
+      "replacement": "𐓝"
+    },
+    {
+      "source": 66742,
+      "replacement": "𐓞"
+    },
+    {
+      "source": 66743,
+      "replacement": "𐓟"
+    },
+    {
+      "source": 66744,
+      "replacement": "𐓠"
+    },
+    {
+      "source": 66745,
+      "replacement": "𐓡"
+    },
+    {
+      "source": 66746,
+      "replacement": "𐓢"
+    },
+    {
+      "source": 66747,
+      "replacement": "𐓣"
+    },
+    {
+      "source": 66748,
+      "replacement": "𐓤"
+    },
+    {
+      "source": 66749,
+      "replacement": "𐓥"
+    },
+    {
+      "source": 66750,
+      "replacement": "𐓦"
+    },
+    {
+      "source": 66751,
+      "replacement": "𐓧"
+    },
+    {
+      "source": 66752,
+      "replacement": "𐓨"
+    },
+    {
+      "source": 66753,
+      "replacement": "𐓩"
+    },
+    {
+      "source": 66754,
+      "replacement": "𐓪"
+    },
+    {
+      "source": 66755,
+      "replacement": "𐓫"
+    },
+    {
+      "source": 66756,
+      "replacement": "𐓬"
+    },
+    {
+      "source": 66757,
+      "replacement": "𐓭"
+    },
+    {
+      "source": 66758,
+      "replacement": "𐓮"
+    },
+    {
+      "source": 66759,
+      "replacement": "𐓯"
+    },
+    {
+      "source": 66760,
+      "replacement": "𐓰"
+    },
+    {
+      "source": 66761,
+      "replacement": "𐓱"
+    },
+    {
+      "source": 66762,
+      "replacement": "𐓲"
+    },
+    {
+      "source": 66763,
+      "replacement": "𐓳"
+    },
+    {
+      "source": 66764,
+      "replacement": "𐓴"
+    },
+    {
+      "source": 66765,
+      "replacement": "𐓵"
+    },
+    {
+      "source": 66766,
+      "replacement": "𐓶"
+    },
+    {
+      "source": 66767,
+      "replacement": "𐓷"
+    },
+    {
+      "source": 66768,
+      "replacement": "𐓸"
+    },
+    {
+      "source": 66769,
+      "replacement": "𐓹"
+    },
+    {
+      "source": 66770,
+      "replacement": "𐓺"
+    },
+    {
+      "source": 66771,
+      "replacement": "𐓻"
+    },
+    {
+      "source": 66928,
+      "replacement": "𐖗"
+    },
+    {
+      "source": 66929,
+      "replacement": "𐖘"
+    },
+    {
+      "source": 66930,
+      "replacement": "𐖙"
+    },
+    {
+      "source": 66931,
+      "replacement": "𐖚"
+    },
+    {
+      "source": 66932,
+      "replacement": "𐖛"
+    },
+    {
+      "source": 66933,
+      "replacement": "𐖜"
+    },
+    {
+      "source": 66934,
+      "replacement": "𐖝"
+    },
+    {
+      "source": 66935,
+      "replacement": "𐖞"
+    },
+    {
+      "source": 66936,
+      "replacement": "𐖟"
+    },
+    {
+      "source": 66937,
+      "replacement": "𐖠"
+    },
+    {
+      "source": 66938,
+      "replacement": "𐖡"
+    },
+    {
+      "source": 66940,
+      "replacement": "𐖣"
+    },
+    {
+      "source": 66941,
+      "replacement": "𐖤"
+    },
+    {
+      "source": 66942,
+      "replacement": "𐖥"
+    },
+    {
+      "source": 66943,
+      "replacement": "𐖦"
+    },
+    {
+      "source": 66944,
+      "replacement": "𐖧"
+    },
+    {
+      "source": 66945,
+      "replacement": "𐖨"
+    },
+    {
+      "source": 66946,
+      "replacement": "𐖩"
+    },
+    {
+      "source": 66947,
+      "replacement": "𐖪"
+    },
+    {
+      "source": 66948,
+      "replacement": "𐖫"
+    },
+    {
+      "source": 66949,
+      "replacement": "𐖬"
+    },
+    {
+      "source": 66950,
+      "replacement": "𐖭"
+    },
+    {
+      "source": 66951,
+      "replacement": "𐖮"
+    },
+    {
+      "source": 66952,
+      "replacement": "𐖯"
+    },
+    {
+      "source": 66953,
+      "replacement": "𐖰"
+    },
+    {
+      "source": 66954,
+      "replacement": "𐖱"
+    },
+    {
+      "source": 66956,
+      "replacement": "𐖳"
+    },
+    {
+      "source": 66957,
+      "replacement": "𐖴"
+    },
+    {
+      "source": 66958,
+      "replacement": "𐖵"
+    },
+    {
+      "source": 66959,
+      "replacement": "𐖶"
+    },
+    {
+      "source": 66960,
+      "replacement": "𐖷"
+    },
+    {
+      "source": 66961,
+      "replacement": "𐖸"
+    },
+    {
+      "source": 66962,
+      "replacement": "𐖹"
+    },
+    {
+      "source": 66964,
+      "replacement": "𐖻"
+    },
+    {
+      "source": 66965,
+      "replacement": "𐖼"
+    },
+    {
+      "source": 68736,
+      "replacement": "𐳀"
+    },
+    {
+      "source": 68737,
+      "replacement": "𐳁"
+    },
+    {
+      "source": 68738,
+      "replacement": "𐳂"
+    },
+    {
+      "source": 68739,
+      "replacement": "𐳃"
+    },
+    {
+      "source": 68740,
+      "replacement": "𐳄"
+    },
+    {
+      "source": 68741,
+      "replacement": "𐳅"
+    },
+    {
+      "source": 68742,
+      "replacement": "𐳆"
+    },
+    {
+      "source": 68743,
+      "replacement": "𐳇"
+    },
+    {
+      "source": 68744,
+      "replacement": "𐳈"
+    },
+    {
+      "source": 68745,
+      "replacement": "𐳉"
+    },
+    {
+      "source": 68746,
+      "replacement": "𐳊"
+    },
+    {
+      "source": 68747,
+      "replacement": "𐳋"
+    },
+    {
+      "source": 68748,
+      "replacement": "𐳌"
+    },
+    {
+      "source": 68749,
+      "replacement": "𐳍"
+    },
+    {
+      "source": 68750,
+      "replacement": "𐳎"
+    },
+    {
+      "source": 68751,
+      "replacement": "𐳏"
+    },
+    {
+      "source": 68752,
+      "replacement": "𐳐"
+    },
+    {
+      "source": 68753,
+      "replacement": "𐳑"
+    },
+    {
+      "source": 68754,
+      "replacement": "𐳒"
+    },
+    {
+      "source": 68755,
+      "replacement": "𐳓"
+    },
+    {
+      "source": 68756,
+      "replacement": "𐳔"
+    },
+    {
+      "source": 68757,
+      "replacement": "𐳕"
+    },
+    {
+      "source": 68758,
+      "replacement": "𐳖"
+    },
+    {
+      "source": 68759,
+      "replacement": "𐳗"
+    },
+    {
+      "source": 68760,
+      "replacement": "𐳘"
+    },
+    {
+      "source": 68761,
+      "replacement": "𐳙"
+    },
+    {
+      "source": 68762,
+      "replacement": "𐳚"
+    },
+    {
+      "source": 68763,
+      "replacement": "𐳛"
+    },
+    {
+      "source": 68764,
+      "replacement": "𐳜"
+    },
+    {
+      "source": 68765,
+      "replacement": "𐳝"
+    },
+    {
+      "source": 68766,
+      "replacement": "𐳞"
+    },
+    {
+      "source": 68767,
+      "replacement": "𐳟"
+    },
+    {
+      "source": 68768,
+      "replacement": "𐳠"
+    },
+    {
+      "source": 68769,
+      "replacement": "𐳡"
+    },
+    {
+      "source": 68770,
+      "replacement": "𐳢"
+    },
+    {
+      "source": 68771,
+      "replacement": "𐳣"
+    },
+    {
+      "source": 68772,
+      "replacement": "𐳤"
+    },
+    {
+      "source": 68773,
+      "replacement": "𐳥"
+    },
+    {
+      "source": 68774,
+      "replacement": "𐳦"
+    },
+    {
+      "source": 68775,
+      "replacement": "𐳧"
+    },
+    {
+      "source": 68776,
+      "replacement": "𐳨"
+    },
+    {
+      "source": 68777,
+      "replacement": "𐳩"
+    },
+    {
+      "source": 68778,
+      "replacement": "𐳪"
+    },
+    {
+      "source": 68779,
+      "replacement": "𐳫"
+    },
+    {
+      "source": 68780,
+      "replacement": "𐳬"
+    },
+    {
+      "source": 68781,
+      "replacement": "𐳭"
+    },
+    {
+      "source": 68782,
+      "replacement": "𐳮"
+    },
+    {
+      "source": 68783,
+      "replacement": "𐳯"
+    },
+    {
+      "source": 68784,
+      "replacement": "𐳰"
+    },
+    {
+      "source": 68785,
+      "replacement": "𐳱"
+    },
+    {
+      "source": 68786,
+      "replacement": "𐳲"
+    },
+    {
+      "source": 68944,
+      "replacement": "𐵰"
+    },
+    {
+      "source": 68945,
+      "replacement": "𐵱"
+    },
+    {
+      "source": 68946,
+      "replacement": "𐵲"
+    },
+    {
+      "source": 68947,
+      "replacement": "𐵳"
+    },
+    {
+      "source": 68948,
+      "replacement": "𐵴"
+    },
+    {
+      "source": 68949,
+      "replacement": "𐵵"
+    },
+    {
+      "source": 68950,
+      "replacement": "𐵶"
+    },
+    {
+      "source": 68951,
+      "replacement": "𐵷"
+    },
+    {
+      "source": 68952,
+      "replacement": "𐵸"
+    },
+    {
+      "source": 68953,
+      "replacement": "𐵹"
+    },
+    {
+      "source": 68954,
+      "replacement": "𐵺"
+    },
+    {
+      "source": 68955,
+      "replacement": "𐵻"
+    },
+    {
+      "source": 68956,
+      "replacement": "𐵼"
+    },
+    {
+      "source": 68957,
+      "replacement": "𐵽"
+    },
+    {
+      "source": 68958,
+      "replacement": "𐵾"
+    },
+    {
+      "source": 68959,
+      "replacement": "𐵿"
+    },
+    {
+      "source": 68960,
+      "replacement": "𐶀"
+    },
+    {
+      "source": 68961,
+      "replacement": "𐶁"
+    },
+    {
+      "source": 68962,
+      "replacement": "𐶂"
+    },
+    {
+      "source": 68963,
+      "replacement": "𐶃"
+    },
+    {
+      "source": 68964,
+      "replacement": "𐶄"
+    },
+    {
+      "source": 68965,
+      "replacement": "𐶅"
+    },
+    {
+      "source": 71840,
+      "replacement": "𑣀"
+    },
+    {
+      "source": 71841,
+      "replacement": "𑣁"
+    },
+    {
+      "source": 71842,
+      "replacement": "𑣂"
+    },
+    {
+      "source": 71843,
+      "replacement": "𑣃"
+    },
+    {
+      "source": 71844,
+      "replacement": "𑣄"
+    },
+    {
+      "source": 71845,
+      "replacement": "𑣅"
+    },
+    {
+      "source": 71846,
+      "replacement": "𑣆"
+    },
+    {
+      "source": 71847,
+      "replacement": "𑣇"
+    },
+    {
+      "source": 71848,
+      "replacement": "𑣈"
+    },
+    {
+      "source": 71849,
+      "replacement": "𑣉"
+    },
+    {
+      "source": 71850,
+      "replacement": "𑣊"
+    },
+    {
+      "source": 71851,
+      "replacement": "𑣋"
+    },
+    {
+      "source": 71852,
+      "replacement": "𑣌"
+    },
+    {
+      "source": 71853,
+      "replacement": "𑣍"
+    },
+    {
+      "source": 71854,
+      "replacement": "𑣎"
+    },
+    {
+      "source": 71855,
+      "replacement": "𑣏"
+    },
+    {
+      "source": 71856,
+      "replacement": "𑣐"
+    },
+    {
+      "source": 71857,
+      "replacement": "𑣑"
+    },
+    {
+      "source": 71858,
+      "replacement": "𑣒"
+    },
+    {
+      "source": 71859,
+      "replacement": "𑣓"
+    },
+    {
+      "source": 71860,
+      "replacement": "𑣔"
+    },
+    {
+      "source": 71861,
+      "replacement": "𑣕"
+    },
+    {
+      "source": 71862,
+      "replacement": "𑣖"
+    },
+    {
+      "source": 71863,
+      "replacement": "𑣗"
+    },
+    {
+      "source": 71864,
+      "replacement": "𑣘"
+    },
+    {
+      "source": 71865,
+      "replacement": "𑣙"
+    },
+    {
+      "source": 71866,
+      "replacement": "𑣚"
+    },
+    {
+      "source": 71867,
+      "replacement": "𑣛"
+    },
+    {
+      "source": 71868,
+      "replacement": "𑣜"
+    },
+    {
+      "source": 71869,
+      "replacement": "𑣝"
+    },
+    {
+      "source": 71870,
+      "replacement": "𑣞"
+    },
+    {
+      "source": 71871,
+      "replacement": "𑣟"
+    },
+    {
+      "source": 93760,
+      "replacement": "𖹠"
+    },
+    {
+      "source": 93761,
+      "replacement": "𖹡"
+    },
+    {
+      "source": 93762,
+      "replacement": "𖹢"
+    },
+    {
+      "source": 93763,
+      "replacement": "𖹣"
+    },
+    {
+      "source": 93764,
+      "replacement": "𖹤"
+    },
+    {
+      "source": 93765,
+      "replacement": "𖹥"
+    },
+    {
+      "source": 93766,
+      "replacement": "𖹦"
+    },
+    {
+      "source": 93767,
+      "replacement": "𖹧"
+    },
+    {
+      "source": 93768,
+      "replacement": "𖹨"
+    },
+    {
+      "source": 93769,
+      "replacement": "𖹩"
+    },
+    {
+      "source": 93770,
+      "replacement": "𖹪"
+    },
+    {
+      "source": 93771,
+      "replacement": "𖹫"
+    },
+    {
+      "source": 93772,
+      "replacement": "𖹬"
+    },
+    {
+      "source": 93773,
+      "replacement": "𖹭"
+    },
+    {
+      "source": 93774,
+      "replacement": "𖹮"
+    },
+    {
+      "source": 93775,
+      "replacement": "𖹯"
+    },
+    {
+      "source": 93776,
+      "replacement": "𖹰"
+    },
+    {
+      "source": 93777,
+      "replacement": "𖹱"
+    },
+    {
+      "source": 93778,
+      "replacement": "𖹲"
+    },
+    {
+      "source": 93779,
+      "replacement": "𖹳"
+    },
+    {
+      "source": 93780,
+      "replacement": "𖹴"
+    },
+    {
+      "source": 93781,
+      "replacement": "𖹵"
+    },
+    {
+      "source": 93782,
+      "replacement": "𖹶"
+    },
+    {
+      "source": 93783,
+      "replacement": "𖹷"
+    },
+    {
+      "source": 93784,
+      "replacement": "𖹸"
+    },
+    {
+      "source": 93785,
+      "replacement": "𖹹"
+    },
+    {
+      "source": 93786,
+      "replacement": "𖹺"
+    },
+    {
+      "source": 93787,
+      "replacement": "𖹻"
+    },
+    {
+      "source": 93788,
+      "replacement": "𖹼"
+    },
+    {
+      "source": 93789,
+      "replacement": "𖹽"
+    },
+    {
+      "source": 93790,
+      "replacement": "𖹾"
+    },
+    {
+      "source": 93791,
+      "replacement": "𖹿"
+    },
+    {
+      "source": 93856,
+      "replacement": "𖺻"
+    },
+    {
+      "source": 93857,
+      "replacement": "𖺼"
+    },
+    {
+      "source": 93858,
+      "replacement": "𖺽"
+    },
+    {
+      "source": 93859,
+      "replacement": "𖺾"
+    },
+    {
+      "source": 93860,
+      "replacement": "𖺿"
+    },
+    {
+      "source": 93861,
+      "replacement": "𖻀"
+    },
+    {
+      "source": 93862,
+      "replacement": "𖻁"
+    },
+    {
+      "source": 93863,
+      "replacement": "𖻂"
+    },
+    {
+      "source": 93864,
+      "replacement": "𖻃"
+    },
+    {
+      "source": 93865,
+      "replacement": "𖻄"
+    },
+    {
+      "source": 93866,
+      "replacement": "𖻅"
+    },
+    {
+      "source": 93867,
+      "replacement": "𖻆"
+    },
+    {
+      "source": 93868,
+      "replacement": "𖻇"
+    },
+    {
+      "source": 93869,
+      "replacement": "𖻈"
+    },
+    {
+      "source": 93870,
+      "replacement": "𖻉"
+    },
+    {
+      "source": 93871,
+      "replacement": "𖻊"
+    },
+    {
+      "source": 93872,
+      "replacement": "𖻋"
+    },
+    {
+      "source": 93873,
+      "replacement": "𖻌"
+    },
+    {
+      "source": 93874,
+      "replacement": "𖻍"
+    },
+    {
+      "source": 93875,
+      "replacement": "𖻎"
+    },
+    {
+      "source": 93876,
+      "replacement": "𖻏"
+    },
+    {
+      "source": 93877,
+      "replacement": "𖻐"
+    },
+    {
+      "source": 93878,
+      "replacement": "𖻑"
+    },
+    {
+      "source": 93879,
+      "replacement": "𖻒"
+    },
+    {
+      "source": 93880,
+      "replacement": "𖻓"
+    },
+    {
+      "source": 125184,
+      "replacement": "𞤢"
+    },
+    {
+      "source": 125185,
+      "replacement": "𞤣"
+    },
+    {
+      "source": 125186,
+      "replacement": "𞤤"
+    },
+    {
+      "source": 125187,
+      "replacement": "𞤥"
+    },
+    {
+      "source": 125188,
+      "replacement": "𞤦"
+    },
+    {
+      "source": 125189,
+      "replacement": "𞤧"
+    },
+    {
+      "source": 125190,
+      "replacement": "𞤨"
+    },
+    {
+      "source": 125191,
+      "replacement": "𞤩"
+    },
+    {
+      "source": 125192,
+      "replacement": "𞤪"
+    },
+    {
+      "source": 125193,
+      "replacement": "𞤫"
+    },
+    {
+      "source": 125194,
+      "replacement": "𞤬"
+    },
+    {
+      "source": 125195,
+      "replacement": "𞤭"
+    },
+    {
+      "source": 125196,
+      "replacement": "𞤮"
+    },
+    {
+      "source": 125197,
+      "replacement": "𞤯"
+    },
+    {
+      "source": 125198,
+      "replacement": "𞤰"
+    },
+    {
+      "source": 125199,
+      "replacement": "𞤱"
+    },
+    {
+      "source": 125200,
+      "replacement": "𞤲"
+    },
+    {
+      "source": 125201,
+      "replacement": "𞤳"
+    },
+    {
+      "source": 125202,
+      "replacement": "𞤴"
+    },
+    {
+      "source": 125203,
+      "replacement": "𞤵"
+    },
+    {
+      "source": 125204,
+      "replacement": "𞤶"
+    },
+    {
+      "source": 125205,
+      "replacement": "𞤷"
+    },
+    {
+      "source": 125206,
+      "replacement": "𞤸"
+    },
+    {
+      "source": 125207,
+      "replacement": "𞤹"
+    },
+    {
+      "source": 125208,
+      "replacement": "𞤺"
+    },
+    {
+      "source": 125209,
+      "replacement": "𞤻"
+    },
+    {
+      "source": 125210,
+      "replacement": "𞤼"
+    },
+    {
+      "source": 125211,
+      "replacement": "𞤽"
+    },
+    {
+      "source": 125212,
+      "replacement": "𞤾"
+    },
+    {
+      "source": 125213,
+      "replacement": "𞤿"
+    },
+    {
+      "source": 125214,
+      "replacement": "𞥀"
+    },
+    {
+      "source": 125215,
+      "replacement": "𞥁"
+    },
+    {
+      "source": 125216,
+      "replacement": "𞥂"
+    },
+    {
+      "source": 125217,
+      "replacement": "𞥃"
+    }
+  ],
+  "upper": [
+    {
+      "source": 97,
+      "replacement": "A"
+    },
+    {
+      "source": 98,
+      "replacement": "B"
+    },
+    {
+      "source": 99,
+      "replacement": "C"
+    },
+    {
+      "source": 100,
+      "replacement": "D"
+    },
+    {
+      "source": 101,
+      "replacement": "E"
+    },
+    {
+      "source": 102,
+      "replacement": "F"
+    },
+    {
+      "source": 103,
+      "replacement": "G"
+    },
+    {
+      "source": 104,
+      "replacement": "H"
+    },
+    {
+      "source": 105,
+      "replacement": "I"
+    },
+    {
+      "source": 106,
+      "replacement": "J"
+    },
+    {
+      "source": 107,
+      "replacement": "K"
+    },
+    {
+      "source": 108,
+      "replacement": "L"
+    },
+    {
+      "source": 109,
+      "replacement": "M"
+    },
+    {
+      "source": 110,
+      "replacement": "N"
+    },
+    {
+      "source": 111,
+      "replacement": "O"
+    },
+    {
+      "source": 112,
+      "replacement": "P"
+    },
+    {
+      "source": 113,
+      "replacement": "Q"
+    },
+    {
+      "source": 114,
+      "replacement": "R"
+    },
+    {
+      "source": 115,
+      "replacement": "S"
+    },
+    {
+      "source": 116,
+      "replacement": "T"
+    },
+    {
+      "source": 117,
+      "replacement": "U"
+    },
+    {
+      "source": 118,
+      "replacement": "V"
+    },
+    {
+      "source": 119,
+      "replacement": "W"
+    },
+    {
+      "source": 120,
+      "replacement": "X"
+    },
+    {
+      "source": 121,
+      "replacement": "Y"
+    },
+    {
+      "source": 122,
+      "replacement": "Z"
+    },
+    {
+      "source": 181,
+      "replacement": "Μ"
+    },
+    {
+      "source": 223,
+      "replacement": "SS"
+    },
+    {
+      "source": 224,
+      "replacement": "À"
+    },
+    {
+      "source": 225,
+      "replacement": "Á"
+    },
+    {
+      "source": 226,
+      "replacement": "Â"
+    },
+    {
+      "source": 227,
+      "replacement": "Ã"
+    },
+    {
+      "source": 228,
+      "replacement": "Ä"
+    },
+    {
+      "source": 229,
+      "replacement": "Å"
+    },
+    {
+      "source": 230,
+      "replacement": "Æ"
+    },
+    {
+      "source": 231,
+      "replacement": "Ç"
+    },
+    {
+      "source": 232,
+      "replacement": "È"
+    },
+    {
+      "source": 233,
+      "replacement": "É"
+    },
+    {
+      "source": 234,
+      "replacement": "Ê"
+    },
+    {
+      "source": 235,
+      "replacement": "Ë"
+    },
+    {
+      "source": 236,
+      "replacement": "Ì"
+    },
+    {
+      "source": 237,
+      "replacement": "Í"
+    },
+    {
+      "source": 238,
+      "replacement": "Î"
+    },
+    {
+      "source": 239,
+      "replacement": "Ï"
+    },
+    {
+      "source": 240,
+      "replacement": "Ð"
+    },
+    {
+      "source": 241,
+      "replacement": "Ñ"
+    },
+    {
+      "source": 242,
+      "replacement": "Ò"
+    },
+    {
+      "source": 243,
+      "replacement": "Ó"
+    },
+    {
+      "source": 244,
+      "replacement": "Ô"
+    },
+    {
+      "source": 245,
+      "replacement": "Õ"
+    },
+    {
+      "source": 246,
+      "replacement": "Ö"
+    },
+    {
+      "source": 248,
+      "replacement": "Ø"
+    },
+    {
+      "source": 249,
+      "replacement": "Ù"
+    },
+    {
+      "source": 250,
+      "replacement": "Ú"
+    },
+    {
+      "source": 251,
+      "replacement": "Û"
+    },
+    {
+      "source": 252,
+      "replacement": "Ü"
+    },
+    {
+      "source": 253,
+      "replacement": "Ý"
+    },
+    {
+      "source": 254,
+      "replacement": "Þ"
+    },
+    {
+      "source": 255,
+      "replacement": "Ÿ"
+    },
+    {
+      "source": 257,
+      "replacement": "Ā"
+    },
+    {
+      "source": 259,
+      "replacement": "Ă"
+    },
+    {
+      "source": 261,
+      "replacement": "Ą"
+    },
+    {
+      "source": 263,
+      "replacement": "Ć"
+    },
+    {
+      "source": 265,
+      "replacement": "Ĉ"
+    },
+    {
+      "source": 267,
+      "replacement": "Ċ"
+    },
+    {
+      "source": 269,
+      "replacement": "Č"
+    },
+    {
+      "source": 271,
+      "replacement": "Ď"
+    },
+    {
+      "source": 273,
+      "replacement": "Đ"
+    },
+    {
+      "source": 275,
+      "replacement": "Ē"
+    },
+    {
+      "source": 277,
+      "replacement": "Ĕ"
+    },
+    {
+      "source": 279,
+      "replacement": "Ė"
+    },
+    {
+      "source": 281,
+      "replacement": "Ę"
+    },
+    {
+      "source": 283,
+      "replacement": "Ě"
+    },
+    {
+      "source": 285,
+      "replacement": "Ĝ"
+    },
+    {
+      "source": 287,
+      "replacement": "Ğ"
+    },
+    {
+      "source": 289,
+      "replacement": "Ġ"
+    },
+    {
+      "source": 291,
+      "replacement": "Ģ"
+    },
+    {
+      "source": 293,
+      "replacement": "Ĥ"
+    },
+    {
+      "source": 295,
+      "replacement": "Ħ"
+    },
+    {
+      "source": 297,
+      "replacement": "Ĩ"
+    },
+    {
+      "source": 299,
+      "replacement": "Ī"
+    },
+    {
+      "source": 301,
+      "replacement": "Ĭ"
+    },
+    {
+      "source": 303,
+      "replacement": "Į"
+    },
+    {
+      "source": 305,
+      "replacement": "I"
+    },
+    {
+      "source": 307,
+      "replacement": "Ĳ"
+    },
+    {
+      "source": 309,
+      "replacement": "Ĵ"
+    },
+    {
+      "source": 311,
+      "replacement": "Ķ"
+    },
+    {
+      "source": 314,
+      "replacement": "Ĺ"
+    },
+    {
+      "source": 316,
+      "replacement": "Ļ"
+    },
+    {
+      "source": 318,
+      "replacement": "Ľ"
+    },
+    {
+      "source": 320,
+      "replacement": "Ŀ"
+    },
+    {
+      "source": 322,
+      "replacement": "Ł"
+    },
+    {
+      "source": 324,
+      "replacement": "Ń"
+    },
+    {
+      "source": 326,
+      "replacement": "Ņ"
+    },
+    {
+      "source": 328,
+      "replacement": "Ň"
+    },
+    {
+      "source": 329,
+      "replacement": "ʼN"
+    },
+    {
+      "source": 331,
+      "replacement": "Ŋ"
+    },
+    {
+      "source": 333,
+      "replacement": "Ō"
+    },
+    {
+      "source": 335,
+      "replacement": "Ŏ"
+    },
+    {
+      "source": 337,
+      "replacement": "Ő"
+    },
+    {
+      "source": 339,
+      "replacement": "Œ"
+    },
+    {
+      "source": 341,
+      "replacement": "Ŕ"
+    },
+    {
+      "source": 343,
+      "replacement": "Ŗ"
+    },
+    {
+      "source": 345,
+      "replacement": "Ř"
+    },
+    {
+      "source": 347,
+      "replacement": "Ś"
+    },
+    {
+      "source": 349,
+      "replacement": "Ŝ"
+    },
+    {
+      "source": 351,
+      "replacement": "Ş"
+    },
+    {
+      "source": 353,
+      "replacement": "Š"
+    },
+    {
+      "source": 355,
+      "replacement": "Ţ"
+    },
+    {
+      "source": 357,
+      "replacement": "Ť"
+    },
+    {
+      "source": 359,
+      "replacement": "Ŧ"
+    },
+    {
+      "source": 361,
+      "replacement": "Ũ"
+    },
+    {
+      "source": 363,
+      "replacement": "Ū"
+    },
+    {
+      "source": 365,
+      "replacement": "Ŭ"
+    },
+    {
+      "source": 367,
+      "replacement": "Ů"
+    },
+    {
+      "source": 369,
+      "replacement": "Ű"
+    },
+    {
+      "source": 371,
+      "replacement": "Ų"
+    },
+    {
+      "source": 373,
+      "replacement": "Ŵ"
+    },
+    {
+      "source": 375,
+      "replacement": "Ŷ"
+    },
+    {
+      "source": 378,
+      "replacement": "Ź"
+    },
+    {
+      "source": 380,
+      "replacement": "Ż"
+    },
+    {
+      "source": 382,
+      "replacement": "Ž"
+    },
+    {
+      "source": 383,
+      "replacement": "S"
+    },
+    {
+      "source": 384,
+      "replacement": "Ƀ"
+    },
+    {
+      "source": 387,
+      "replacement": "Ƃ"
+    },
+    {
+      "source": 389,
+      "replacement": "Ƅ"
+    },
+    {
+      "source": 392,
+      "replacement": "Ƈ"
+    },
+    {
+      "source": 396,
+      "replacement": "Ƌ"
+    },
+    {
+      "source": 402,
+      "replacement": "Ƒ"
+    },
+    {
+      "source": 405,
+      "replacement": "Ƕ"
+    },
+    {
+      "source": 409,
+      "replacement": "Ƙ"
+    },
+    {
+      "source": 410,
+      "replacement": "Ƚ"
+    },
+    {
+      "source": 411,
+      "replacement": "Ƛ"
+    },
+    {
+      "source": 414,
+      "replacement": "Ƞ"
+    },
+    {
+      "source": 417,
+      "replacement": "Ơ"
+    },
+    {
+      "source": 419,
+      "replacement": "Ƣ"
+    },
+    {
+      "source": 421,
+      "replacement": "Ƥ"
+    },
+    {
+      "source": 424,
+      "replacement": "Ƨ"
+    },
+    {
+      "source": 429,
+      "replacement": "Ƭ"
+    },
+    {
+      "source": 432,
+      "replacement": "Ư"
+    },
+    {
+      "source": 436,
+      "replacement": "Ƴ"
+    },
+    {
+      "source": 438,
+      "replacement": "Ƶ"
+    },
+    {
+      "source": 441,
+      "replacement": "Ƹ"
+    },
+    {
+      "source": 445,
+      "replacement": "Ƽ"
+    },
+    {
+      "source": 447,
+      "replacement": "Ƿ"
+    },
+    {
+      "source": 453,
+      "replacement": "Ǆ"
+    },
+    {
+      "source": 454,
+      "replacement": "Ǆ"
+    },
+    {
+      "source": 456,
+      "replacement": "Ǉ"
+    },
+    {
+      "source": 457,
+      "replacement": "Ǉ"
+    },
+    {
+      "source": 459,
+      "replacement": "Ǌ"
+    },
+    {
+      "source": 460,
+      "replacement": "Ǌ"
+    },
+    {
+      "source": 462,
+      "replacement": "Ǎ"
+    },
+    {
+      "source": 464,
+      "replacement": "Ǐ"
+    },
+    {
+      "source": 466,
+      "replacement": "Ǒ"
+    },
+    {
+      "source": 468,
+      "replacement": "Ǔ"
+    },
+    {
+      "source": 470,
+      "replacement": "Ǖ"
+    },
+    {
+      "source": 472,
+      "replacement": "Ǘ"
+    },
+    {
+      "source": 474,
+      "replacement": "Ǚ"
+    },
+    {
+      "source": 476,
+      "replacement": "Ǜ"
+    },
+    {
+      "source": 477,
+      "replacement": "Ǝ"
+    },
+    {
+      "source": 479,
+      "replacement": "Ǟ"
+    },
+    {
+      "source": 481,
+      "replacement": "Ǡ"
+    },
+    {
+      "source": 483,
+      "replacement": "Ǣ"
+    },
+    {
+      "source": 485,
+      "replacement": "Ǥ"
+    },
+    {
+      "source": 487,
+      "replacement": "Ǧ"
+    },
+    {
+      "source": 489,
+      "replacement": "Ǩ"
+    },
+    {
+      "source": 491,
+      "replacement": "Ǫ"
+    },
+    {
+      "source": 493,
+      "replacement": "Ǭ"
+    },
+    {
+      "source": 495,
+      "replacement": "Ǯ"
+    },
+    {
+      "source": 496,
+      "replacement": "J̌"
+    },
+    {
+      "source": 498,
+      "replacement": "Ǳ"
+    },
+    {
+      "source": 499,
+      "replacement": "Ǳ"
+    },
+    {
+      "source": 501,
+      "replacement": "Ǵ"
+    },
+    {
+      "source": 505,
+      "replacement": "Ǹ"
+    },
+    {
+      "source": 507,
+      "replacement": "Ǻ"
+    },
+    {
+      "source": 509,
+      "replacement": "Ǽ"
+    },
+    {
+      "source": 511,
+      "replacement": "Ǿ"
+    },
+    {
+      "source": 513,
+      "replacement": "Ȁ"
+    },
+    {
+      "source": 515,
+      "replacement": "Ȃ"
+    },
+    {
+      "source": 517,
+      "replacement": "Ȅ"
+    },
+    {
+      "source": 519,
+      "replacement": "Ȇ"
+    },
+    {
+      "source": 521,
+      "replacement": "Ȉ"
+    },
+    {
+      "source": 523,
+      "replacement": "Ȋ"
+    },
+    {
+      "source": 525,
+      "replacement": "Ȍ"
+    },
+    {
+      "source": 527,
+      "replacement": "Ȏ"
+    },
+    {
+      "source": 529,
+      "replacement": "Ȑ"
+    },
+    {
+      "source": 531,
+      "replacement": "Ȓ"
+    },
+    {
+      "source": 533,
+      "replacement": "Ȕ"
+    },
+    {
+      "source": 535,
+      "replacement": "Ȗ"
+    },
+    {
+      "source": 537,
+      "replacement": "Ș"
+    },
+    {
+      "source": 539,
+      "replacement": "Ț"
+    },
+    {
+      "source": 541,
+      "replacement": "Ȝ"
+    },
+    {
+      "source": 543,
+      "replacement": "Ȟ"
+    },
+    {
+      "source": 547,
+      "replacement": "Ȣ"
+    },
+    {
+      "source": 549,
+      "replacement": "Ȥ"
+    },
+    {
+      "source": 551,
+      "replacement": "Ȧ"
+    },
+    {
+      "source": 553,
+      "replacement": "Ȩ"
+    },
+    {
+      "source": 555,
+      "replacement": "Ȫ"
+    },
+    {
+      "source": 557,
+      "replacement": "Ȭ"
+    },
+    {
+      "source": 559,
+      "replacement": "Ȯ"
+    },
+    {
+      "source": 561,
+      "replacement": "Ȱ"
+    },
+    {
+      "source": 563,
+      "replacement": "Ȳ"
+    },
+    {
+      "source": 572,
+      "replacement": "Ȼ"
+    },
+    {
+      "source": 575,
+      "replacement": "Ȿ"
+    },
+    {
+      "source": 576,
+      "replacement": "Ɀ"
+    },
+    {
+      "source": 578,
+      "replacement": "Ɂ"
+    },
+    {
+      "source": 583,
+      "replacement": "Ɇ"
+    },
+    {
+      "source": 585,
+      "replacement": "Ɉ"
+    },
+    {
+      "source": 587,
+      "replacement": "Ɋ"
+    },
+    {
+      "source": 589,
+      "replacement": "Ɍ"
+    },
+    {
+      "source": 591,
+      "replacement": "Ɏ"
+    },
+    {
+      "source": 592,
+      "replacement": "Ɐ"
+    },
+    {
+      "source": 593,
+      "replacement": "Ɑ"
+    },
+    {
+      "source": 594,
+      "replacement": "Ɒ"
+    },
+    {
+      "source": 595,
+      "replacement": "Ɓ"
+    },
+    {
+      "source": 596,
+      "replacement": "Ɔ"
+    },
+    {
+      "source": 598,
+      "replacement": "Ɖ"
+    },
+    {
+      "source": 599,
+      "replacement": "Ɗ"
+    },
+    {
+      "source": 601,
+      "replacement": "Ə"
+    },
+    {
+      "source": 603,
+      "replacement": "Ɛ"
+    },
+    {
+      "source": 604,
+      "replacement": "Ɜ"
+    },
+    {
+      "source": 608,
+      "replacement": "Ɠ"
+    },
+    {
+      "source": 609,
+      "replacement": "Ɡ"
+    },
+    {
+      "source": 611,
+      "replacement": "Ɣ"
+    },
+    {
+      "source": 612,
+      "replacement": "Ɤ"
+    },
+    {
+      "source": 613,
+      "replacement": "Ɥ"
+    },
+    {
+      "source": 614,
+      "replacement": "Ɦ"
+    },
+    {
+      "source": 616,
+      "replacement": "Ɨ"
+    },
+    {
+      "source": 617,
+      "replacement": "Ɩ"
+    },
+    {
+      "source": 618,
+      "replacement": "Ɪ"
+    },
+    {
+      "source": 619,
+      "replacement": "Ɫ"
+    },
+    {
+      "source": 620,
+      "replacement": "Ɬ"
+    },
+    {
+      "source": 623,
+      "replacement": "Ɯ"
+    },
+    {
+      "source": 625,
+      "replacement": "Ɱ"
+    },
+    {
+      "source": 626,
+      "replacement": "Ɲ"
+    },
+    {
+      "source": 629,
+      "replacement": "Ɵ"
+    },
+    {
+      "source": 637,
+      "replacement": "Ɽ"
+    },
+    {
+      "source": 640,
+      "replacement": "Ʀ"
+    },
+    {
+      "source": 642,
+      "replacement": "Ʂ"
+    },
+    {
+      "source": 643,
+      "replacement": "Ʃ"
+    },
+    {
+      "source": 647,
+      "replacement": "Ʇ"
+    },
+    {
+      "source": 648,
+      "replacement": "Ʈ"
+    },
+    {
+      "source": 649,
+      "replacement": "Ʉ"
+    },
+    {
+      "source": 650,
+      "replacement": "Ʊ"
+    },
+    {
+      "source": 651,
+      "replacement": "Ʋ"
+    },
+    {
+      "source": 652,
+      "replacement": "Ʌ"
+    },
+    {
+      "source": 658,
+      "replacement": "Ʒ"
+    },
+    {
+      "source": 669,
+      "replacement": "Ʝ"
+    },
+    {
+      "source": 670,
+      "replacement": "Ʞ"
+    },
+    {
+      "source": 837,
+      "replacement": "Ι"
+    },
+    {
+      "source": 881,
+      "replacement": "Ͱ"
+    },
+    {
+      "source": 883,
+      "replacement": "Ͳ"
+    },
+    {
+      "source": 887,
+      "replacement": "Ͷ"
+    },
+    {
+      "source": 891,
+      "replacement": "Ͻ"
+    },
+    {
+      "source": 892,
+      "replacement": "Ͼ"
+    },
+    {
+      "source": 893,
+      "replacement": "Ͽ"
+    },
+    {
+      "source": 912,
+      "replacement": "Ϊ́"
+    },
+    {
+      "source": 940,
+      "replacement": "Ά"
+    },
+    {
+      "source": 941,
+      "replacement": "Έ"
+    },
+    {
+      "source": 942,
+      "replacement": "Ή"
+    },
+    {
+      "source": 943,
+      "replacement": "Ί"
+    },
+    {
+      "source": 944,
+      "replacement": "Ϋ́"
+    },
+    {
+      "source": 945,
+      "replacement": "Α"
+    },
+    {
+      "source": 946,
+      "replacement": "Β"
+    },
+    {
+      "source": 947,
+      "replacement": "Γ"
+    },
+    {
+      "source": 948,
+      "replacement": "Δ"
+    },
+    {
+      "source": 949,
+      "replacement": "Ε"
+    },
+    {
+      "source": 950,
+      "replacement": "Ζ"
+    },
+    {
+      "source": 951,
+      "replacement": "Η"
+    },
+    {
+      "source": 952,
+      "replacement": "Θ"
+    },
+    {
+      "source": 953,
+      "replacement": "Ι"
+    },
+    {
+      "source": 954,
+      "replacement": "Κ"
+    },
+    {
+      "source": 955,
+      "replacement": "Λ"
+    },
+    {
+      "source": 956,
+      "replacement": "Μ"
+    },
+    {
+      "source": 957,
+      "replacement": "Ν"
+    },
+    {
+      "source": 958,
+      "replacement": "Ξ"
+    },
+    {
+      "source": 959,
+      "replacement": "Ο"
+    },
+    {
+      "source": 960,
+      "replacement": "Π"
+    },
+    {
+      "source": 961,
+      "replacement": "Ρ"
+    },
+    {
+      "source": 962,
+      "replacement": "Σ"
+    },
+    {
+      "source": 963,
+      "replacement": "Σ"
+    },
+    {
+      "source": 964,
+      "replacement": "Τ"
+    },
+    {
+      "source": 965,
+      "replacement": "Υ"
+    },
+    {
+      "source": 966,
+      "replacement": "Φ"
+    },
+    {
+      "source": 967,
+      "replacement": "Χ"
+    },
+    {
+      "source": 968,
+      "replacement": "Ψ"
+    },
+    {
+      "source": 969,
+      "replacement": "Ω"
+    },
+    {
+      "source": 970,
+      "replacement": "Ϊ"
+    },
+    {
+      "source": 971,
+      "replacement": "Ϋ"
+    },
+    {
+      "source": 972,
+      "replacement": "Ό"
+    },
+    {
+      "source": 973,
+      "replacement": "Ύ"
+    },
+    {
+      "source": 974,
+      "replacement": "Ώ"
+    },
+    {
+      "source": 976,
+      "replacement": "Β"
+    },
+    {
+      "source": 977,
+      "replacement": "Θ"
+    },
+    {
+      "source": 981,
+      "replacement": "Φ"
+    },
+    {
+      "source": 982,
+      "replacement": "Π"
+    },
+    {
+      "source": 983,
+      "replacement": "Ϗ"
+    },
+    {
+      "source": 985,
+      "replacement": "Ϙ"
+    },
+    {
+      "source": 987,
+      "replacement": "Ϛ"
+    },
+    {
+      "source": 989,
+      "replacement": "Ϝ"
+    },
+    {
+      "source": 991,
+      "replacement": "Ϟ"
+    },
+    {
+      "source": 993,
+      "replacement": "Ϡ"
+    },
+    {
+      "source": 995,
+      "replacement": "Ϣ"
+    },
+    {
+      "source": 997,
+      "replacement": "Ϥ"
+    },
+    {
+      "source": 999,
+      "replacement": "Ϧ"
+    },
+    {
+      "source": 1001,
+      "replacement": "Ϩ"
+    },
+    {
+      "source": 1003,
+      "replacement": "Ϫ"
+    },
+    {
+      "source": 1005,
+      "replacement": "Ϭ"
+    },
+    {
+      "source": 1007,
+      "replacement": "Ϯ"
+    },
+    {
+      "source": 1008,
+      "replacement": "Κ"
+    },
+    {
+      "source": 1009,
+      "replacement": "Ρ"
+    },
+    {
+      "source": 1010,
+      "replacement": "Ϲ"
+    },
+    {
+      "source": 1011,
+      "replacement": "Ϳ"
+    },
+    {
+      "source": 1013,
+      "replacement": "Ε"
+    },
+    {
+      "source": 1016,
+      "replacement": "Ϸ"
+    },
+    {
+      "source": 1019,
+      "replacement": "Ϻ"
+    },
+    {
+      "source": 1072,
+      "replacement": "А"
+    },
+    {
+      "source": 1073,
+      "replacement": "Б"
+    },
+    {
+      "source": 1074,
+      "replacement": "В"
+    },
+    {
+      "source": 1075,
+      "replacement": "Г"
+    },
+    {
+      "source": 1076,
+      "replacement": "Д"
+    },
+    {
+      "source": 1077,
+      "replacement": "Е"
+    },
+    {
+      "source": 1078,
+      "replacement": "Ж"
+    },
+    {
+      "source": 1079,
+      "replacement": "З"
+    },
+    {
+      "source": 1080,
+      "replacement": "И"
+    },
+    {
+      "source": 1081,
+      "replacement": "Й"
+    },
+    {
+      "source": 1082,
+      "replacement": "К"
+    },
+    {
+      "source": 1083,
+      "replacement": "Л"
+    },
+    {
+      "source": 1084,
+      "replacement": "М"
+    },
+    {
+      "source": 1085,
+      "replacement": "Н"
+    },
+    {
+      "source": 1086,
+      "replacement": "О"
+    },
+    {
+      "source": 1087,
+      "replacement": "П"
+    },
+    {
+      "source": 1088,
+      "replacement": "Р"
+    },
+    {
+      "source": 1089,
+      "replacement": "С"
+    },
+    {
+      "source": 1090,
+      "replacement": "Т"
+    },
+    {
+      "source": 1091,
+      "replacement": "У"
+    },
+    {
+      "source": 1092,
+      "replacement": "Ф"
+    },
+    {
+      "source": 1093,
+      "replacement": "Х"
+    },
+    {
+      "source": 1094,
+      "replacement": "Ц"
+    },
+    {
+      "source": 1095,
+      "replacement": "Ч"
+    },
+    {
+      "source": 1096,
+      "replacement": "Ш"
+    },
+    {
+      "source": 1097,
+      "replacement": "Щ"
+    },
+    {
+      "source": 1098,
+      "replacement": "Ъ"
+    },
+    {
+      "source": 1099,
+      "replacement": "Ы"
+    },
+    {
+      "source": 1100,
+      "replacement": "Ь"
+    },
+    {
+      "source": 1101,
+      "replacement": "Э"
+    },
+    {
+      "source": 1102,
+      "replacement": "Ю"
+    },
+    {
+      "source": 1103,
+      "replacement": "Я"
+    },
+    {
+      "source": 1104,
+      "replacement": "Ѐ"
+    },
+    {
+      "source": 1105,
+      "replacement": "Ё"
+    },
+    {
+      "source": 1106,
+      "replacement": "Ђ"
+    },
+    {
+      "source": 1107,
+      "replacement": "Ѓ"
+    },
+    {
+      "source": 1108,
+      "replacement": "Є"
+    },
+    {
+      "source": 1109,
+      "replacement": "Ѕ"
+    },
+    {
+      "source": 1110,
+      "replacement": "І"
+    },
+    {
+      "source": 1111,
+      "replacement": "Ї"
+    },
+    {
+      "source": 1112,
+      "replacement": "Ј"
+    },
+    {
+      "source": 1113,
+      "replacement": "Љ"
+    },
+    {
+      "source": 1114,
+      "replacement": "Њ"
+    },
+    {
+      "source": 1115,
+      "replacement": "Ћ"
+    },
+    {
+      "source": 1116,
+      "replacement": "Ќ"
+    },
+    {
+      "source": 1117,
+      "replacement": "Ѝ"
+    },
+    {
+      "source": 1118,
+      "replacement": "Ў"
+    },
+    {
+      "source": 1119,
+      "replacement": "Џ"
+    },
+    {
+      "source": 1121,
+      "replacement": "Ѡ"
+    },
+    {
+      "source": 1123,
+      "replacement": "Ѣ"
+    },
+    {
+      "source": 1125,
+      "replacement": "Ѥ"
+    },
+    {
+      "source": 1127,
+      "replacement": "Ѧ"
+    },
+    {
+      "source": 1129,
+      "replacement": "Ѩ"
+    },
+    {
+      "source": 1131,
+      "replacement": "Ѫ"
+    },
+    {
+      "source": 1133,
+      "replacement": "Ѭ"
+    },
+    {
+      "source": 1135,
+      "replacement": "Ѯ"
+    },
+    {
+      "source": 1137,
+      "replacement": "Ѱ"
+    },
+    {
+      "source": 1139,
+      "replacement": "Ѳ"
+    },
+    {
+      "source": 1141,
+      "replacement": "Ѵ"
+    },
+    {
+      "source": 1143,
+      "replacement": "Ѷ"
+    },
+    {
+      "source": 1145,
+      "replacement": "Ѹ"
+    },
+    {
+      "source": 1147,
+      "replacement": "Ѻ"
+    },
+    {
+      "source": 1149,
+      "replacement": "Ѽ"
+    },
+    {
+      "source": 1151,
+      "replacement": "Ѿ"
+    },
+    {
+      "source": 1153,
+      "replacement": "Ҁ"
+    },
+    {
+      "source": 1163,
+      "replacement": "Ҋ"
+    },
+    {
+      "source": 1165,
+      "replacement": "Ҍ"
+    },
+    {
+      "source": 1167,
+      "replacement": "Ҏ"
+    },
+    {
+      "source": 1169,
+      "replacement": "Ґ"
+    },
+    {
+      "source": 1171,
+      "replacement": "Ғ"
+    },
+    {
+      "source": 1173,
+      "replacement": "Ҕ"
+    },
+    {
+      "source": 1175,
+      "replacement": "Җ"
+    },
+    {
+      "source": 1177,
+      "replacement": "Ҙ"
+    },
+    {
+      "source": 1179,
+      "replacement": "Қ"
+    },
+    {
+      "source": 1181,
+      "replacement": "Ҝ"
+    },
+    {
+      "source": 1183,
+      "replacement": "Ҟ"
+    },
+    {
+      "source": 1185,
+      "replacement": "Ҡ"
+    },
+    {
+      "source": 1187,
+      "replacement": "Ң"
+    },
+    {
+      "source": 1189,
+      "replacement": "Ҥ"
+    },
+    {
+      "source": 1191,
+      "replacement": "Ҧ"
+    },
+    {
+      "source": 1193,
+      "replacement": "Ҩ"
+    },
+    {
+      "source": 1195,
+      "replacement": "Ҫ"
+    },
+    {
+      "source": 1197,
+      "replacement": "Ҭ"
+    },
+    {
+      "source": 1199,
+      "replacement": "Ү"
+    },
+    {
+      "source": 1201,
+      "replacement": "Ұ"
+    },
+    {
+      "source": 1203,
+      "replacement": "Ҳ"
+    },
+    {
+      "source": 1205,
+      "replacement": "Ҵ"
+    },
+    {
+      "source": 1207,
+      "replacement": "Ҷ"
+    },
+    {
+      "source": 1209,
+      "replacement": "Ҹ"
+    },
+    {
+      "source": 1211,
+      "replacement": "Һ"
+    },
+    {
+      "source": 1213,
+      "replacement": "Ҽ"
+    },
+    {
+      "source": 1215,
+      "replacement": "Ҿ"
+    },
+    {
+      "source": 1218,
+      "replacement": "Ӂ"
+    },
+    {
+      "source": 1220,
+      "replacement": "Ӄ"
+    },
+    {
+      "source": 1222,
+      "replacement": "Ӆ"
+    },
+    {
+      "source": 1224,
+      "replacement": "Ӈ"
+    },
+    {
+      "source": 1226,
+      "replacement": "Ӊ"
+    },
+    {
+      "source": 1228,
+      "replacement": "Ӌ"
+    },
+    {
+      "source": 1230,
+      "replacement": "Ӎ"
+    },
+    {
+      "source": 1231,
+      "replacement": "Ӏ"
+    },
+    {
+      "source": 1233,
+      "replacement": "Ӑ"
+    },
+    {
+      "source": 1235,
+      "replacement": "Ӓ"
+    },
+    {
+      "source": 1237,
+      "replacement": "Ӕ"
+    },
+    {
+      "source": 1239,
+      "replacement": "Ӗ"
+    },
+    {
+      "source": 1241,
+      "replacement": "Ә"
+    },
+    {
+      "source": 1243,
+      "replacement": "Ӛ"
+    },
+    {
+      "source": 1245,
+      "replacement": "Ӝ"
+    },
+    {
+      "source": 1247,
+      "replacement": "Ӟ"
+    },
+    {
+      "source": 1249,
+      "replacement": "Ӡ"
+    },
+    {
+      "source": 1251,
+      "replacement": "Ӣ"
+    },
+    {
+      "source": 1253,
+      "replacement": "Ӥ"
+    },
+    {
+      "source": 1255,
+      "replacement": "Ӧ"
+    },
+    {
+      "source": 1257,
+      "replacement": "Ө"
+    },
+    {
+      "source": 1259,
+      "replacement": "Ӫ"
+    },
+    {
+      "source": 1261,
+      "replacement": "Ӭ"
+    },
+    {
+      "source": 1263,
+      "replacement": "Ӯ"
+    },
+    {
+      "source": 1265,
+      "replacement": "Ӱ"
+    },
+    {
+      "source": 1267,
+      "replacement": "Ӳ"
+    },
+    {
+      "source": 1269,
+      "replacement": "Ӵ"
+    },
+    {
+      "source": 1271,
+      "replacement": "Ӷ"
+    },
+    {
+      "source": 1273,
+      "replacement": "Ӹ"
+    },
+    {
+      "source": 1275,
+      "replacement": "Ӻ"
+    },
+    {
+      "source": 1277,
+      "replacement": "Ӽ"
+    },
+    {
+      "source": 1279,
+      "replacement": "Ӿ"
+    },
+    {
+      "source": 1281,
+      "replacement": "Ԁ"
+    },
+    {
+      "source": 1283,
+      "replacement": "Ԃ"
+    },
+    {
+      "source": 1285,
+      "replacement": "Ԅ"
+    },
+    {
+      "source": 1287,
+      "replacement": "Ԇ"
+    },
+    {
+      "source": 1289,
+      "replacement": "Ԉ"
+    },
+    {
+      "source": 1291,
+      "replacement": "Ԋ"
+    },
+    {
+      "source": 1293,
+      "replacement": "Ԍ"
+    },
+    {
+      "source": 1295,
+      "replacement": "Ԏ"
+    },
+    {
+      "source": 1297,
+      "replacement": "Ԑ"
+    },
+    {
+      "source": 1299,
+      "replacement": "Ԓ"
+    },
+    {
+      "source": 1301,
+      "replacement": "Ԕ"
+    },
+    {
+      "source": 1303,
+      "replacement": "Ԗ"
+    },
+    {
+      "source": 1305,
+      "replacement": "Ԙ"
+    },
+    {
+      "source": 1307,
+      "replacement": "Ԛ"
+    },
+    {
+      "source": 1309,
+      "replacement": "Ԝ"
+    },
+    {
+      "source": 1311,
+      "replacement": "Ԟ"
+    },
+    {
+      "source": 1313,
+      "replacement": "Ԡ"
+    },
+    {
+      "source": 1315,
+      "replacement": "Ԣ"
+    },
+    {
+      "source": 1317,
+      "replacement": "Ԥ"
+    },
+    {
+      "source": 1319,
+      "replacement": "Ԧ"
+    },
+    {
+      "source": 1321,
+      "replacement": "Ԩ"
+    },
+    {
+      "source": 1323,
+      "replacement": "Ԫ"
+    },
+    {
+      "source": 1325,
+      "replacement": "Ԭ"
+    },
+    {
+      "source": 1327,
+      "replacement": "Ԯ"
+    },
+    {
+      "source": 1377,
+      "replacement": "Ա"
+    },
+    {
+      "source": 1378,
+      "replacement": "Բ"
+    },
+    {
+      "source": 1379,
+      "replacement": "Գ"
+    },
+    {
+      "source": 1380,
+      "replacement": "Դ"
+    },
+    {
+      "source": 1381,
+      "replacement": "Ե"
+    },
+    {
+      "source": 1382,
+      "replacement": "Զ"
+    },
+    {
+      "source": 1383,
+      "replacement": "Է"
+    },
+    {
+      "source": 1384,
+      "replacement": "Ը"
+    },
+    {
+      "source": 1385,
+      "replacement": "Թ"
+    },
+    {
+      "source": 1386,
+      "replacement": "Ժ"
+    },
+    {
+      "source": 1387,
+      "replacement": "Ի"
+    },
+    {
+      "source": 1388,
+      "replacement": "Լ"
+    },
+    {
+      "source": 1389,
+      "replacement": "Խ"
+    },
+    {
+      "source": 1390,
+      "replacement": "Ծ"
+    },
+    {
+      "source": 1391,
+      "replacement": "Կ"
+    },
+    {
+      "source": 1392,
+      "replacement": "Հ"
+    },
+    {
+      "source": 1393,
+      "replacement": "Ձ"
+    },
+    {
+      "source": 1394,
+      "replacement": "Ղ"
+    },
+    {
+      "source": 1395,
+      "replacement": "Ճ"
+    },
+    {
+      "source": 1396,
+      "replacement": "Մ"
+    },
+    {
+      "source": 1397,
+      "replacement": "Յ"
+    },
+    {
+      "source": 1398,
+      "replacement": "Ն"
+    },
+    {
+      "source": 1399,
+      "replacement": "Շ"
+    },
+    {
+      "source": 1400,
+      "replacement": "Ո"
+    },
+    {
+      "source": 1401,
+      "replacement": "Չ"
+    },
+    {
+      "source": 1402,
+      "replacement": "Պ"
+    },
+    {
+      "source": 1403,
+      "replacement": "Ջ"
+    },
+    {
+      "source": 1404,
+      "replacement": "Ռ"
+    },
+    {
+      "source": 1405,
+      "replacement": "Ս"
+    },
+    {
+      "source": 1406,
+      "replacement": "Վ"
+    },
+    {
+      "source": 1407,
+      "replacement": "Տ"
+    },
+    {
+      "source": 1408,
+      "replacement": "Ր"
+    },
+    {
+      "source": 1409,
+      "replacement": "Ց"
+    },
+    {
+      "source": 1410,
+      "replacement": "Ւ"
+    },
+    {
+      "source": 1411,
+      "replacement": "Փ"
+    },
+    {
+      "source": 1412,
+      "replacement": "Ք"
+    },
+    {
+      "source": 1413,
+      "replacement": "Օ"
+    },
+    {
+      "source": 1414,
+      "replacement": "Ֆ"
+    },
+    {
+      "source": 1415,
+      "replacement": "ԵՒ"
+    },
+    {
+      "source": 4304,
+      "replacement": "Ა"
+    },
+    {
+      "source": 4305,
+      "replacement": "Ბ"
+    },
+    {
+      "source": 4306,
+      "replacement": "Გ"
+    },
+    {
+      "source": 4307,
+      "replacement": "Დ"
+    },
+    {
+      "source": 4308,
+      "replacement": "Ე"
+    },
+    {
+      "source": 4309,
+      "replacement": "Ვ"
+    },
+    {
+      "source": 4310,
+      "replacement": "Ზ"
+    },
+    {
+      "source": 4311,
+      "replacement": "Თ"
+    },
+    {
+      "source": 4312,
+      "replacement": "Ი"
+    },
+    {
+      "source": 4313,
+      "replacement": "Კ"
+    },
+    {
+      "source": 4314,
+      "replacement": "Ლ"
+    },
+    {
+      "source": 4315,
+      "replacement": "Მ"
+    },
+    {
+      "source": 4316,
+      "replacement": "Ნ"
+    },
+    {
+      "source": 4317,
+      "replacement": "Ო"
+    },
+    {
+      "source": 4318,
+      "replacement": "Პ"
+    },
+    {
+      "source": 4319,
+      "replacement": "Ჟ"
+    },
+    {
+      "source": 4320,
+      "replacement": "Რ"
+    },
+    {
+      "source": 4321,
+      "replacement": "Ს"
+    },
+    {
+      "source": 4322,
+      "replacement": "Ტ"
+    },
+    {
+      "source": 4323,
+      "replacement": "Უ"
+    },
+    {
+      "source": 4324,
+      "replacement": "Ფ"
+    },
+    {
+      "source": 4325,
+      "replacement": "Ქ"
+    },
+    {
+      "source": 4326,
+      "replacement": "Ღ"
+    },
+    {
+      "source": 4327,
+      "replacement": "Ყ"
+    },
+    {
+      "source": 4328,
+      "replacement": "Შ"
+    },
+    {
+      "source": 4329,
+      "replacement": "Ჩ"
+    },
+    {
+      "source": 4330,
+      "replacement": "Ც"
+    },
+    {
+      "source": 4331,
+      "replacement": "Ძ"
+    },
+    {
+      "source": 4332,
+      "replacement": "Წ"
+    },
+    {
+      "source": 4333,
+      "replacement": "Ჭ"
+    },
+    {
+      "source": 4334,
+      "replacement": "Ხ"
+    },
+    {
+      "source": 4335,
+      "replacement": "Ჯ"
+    },
+    {
+      "source": 4336,
+      "replacement": "Ჰ"
+    },
+    {
+      "source": 4337,
+      "replacement": "Ჱ"
+    },
+    {
+      "source": 4338,
+      "replacement": "Ჲ"
+    },
+    {
+      "source": 4339,
+      "replacement": "Ჳ"
+    },
+    {
+      "source": 4340,
+      "replacement": "Ჴ"
+    },
+    {
+      "source": 4341,
+      "replacement": "Ჵ"
+    },
+    {
+      "source": 4342,
+      "replacement": "Ჶ"
+    },
+    {
+      "source": 4343,
+      "replacement": "Ჷ"
+    },
+    {
+      "source": 4344,
+      "replacement": "Ჸ"
+    },
+    {
+      "source": 4345,
+      "replacement": "Ჹ"
+    },
+    {
+      "source": 4346,
+      "replacement": "Ჺ"
+    },
+    {
+      "source": 4349,
+      "replacement": "Ჽ"
+    },
+    {
+      "source": 4350,
+      "replacement": "Ჾ"
+    },
+    {
+      "source": 4351,
+      "replacement": "Ჿ"
+    },
+    {
+      "source": 5112,
+      "replacement": "Ᏸ"
+    },
+    {
+      "source": 5113,
+      "replacement": "Ᏹ"
+    },
+    {
+      "source": 5114,
+      "replacement": "Ᏺ"
+    },
+    {
+      "source": 5115,
+      "replacement": "Ᏻ"
+    },
+    {
+      "source": 5116,
+      "replacement": "Ᏼ"
+    },
+    {
+      "source": 5117,
+      "replacement": "Ᏽ"
+    },
+    {
+      "source": 7296,
+      "replacement": "В"
+    },
+    {
+      "source": 7297,
+      "replacement": "Д"
+    },
+    {
+      "source": 7298,
+      "replacement": "О"
+    },
+    {
+      "source": 7299,
+      "replacement": "С"
+    },
+    {
+      "source": 7300,
+      "replacement": "Т"
+    },
+    {
+      "source": 7301,
+      "replacement": "Т"
+    },
+    {
+      "source": 7302,
+      "replacement": "Ъ"
+    },
+    {
+      "source": 7303,
+      "replacement": "Ѣ"
+    },
+    {
+      "source": 7304,
+      "replacement": "Ꙋ"
+    },
+    {
+      "source": 7306,
+      "replacement": "Ᲊ"
+    },
+    {
+      "source": 7545,
+      "replacement": "Ᵹ"
+    },
+    {
+      "source": 7549,
+      "replacement": "Ᵽ"
+    },
+    {
+      "source": 7566,
+      "replacement": "Ᶎ"
+    },
+    {
+      "source": 7681,
+      "replacement": "Ḁ"
+    },
+    {
+      "source": 7683,
+      "replacement": "Ḃ"
+    },
+    {
+      "source": 7685,
+      "replacement": "Ḅ"
+    },
+    {
+      "source": 7687,
+      "replacement": "Ḇ"
+    },
+    {
+      "source": 7689,
+      "replacement": "Ḉ"
+    },
+    {
+      "source": 7691,
+      "replacement": "Ḋ"
+    },
+    {
+      "source": 7693,
+      "replacement": "Ḍ"
+    },
+    {
+      "source": 7695,
+      "replacement": "Ḏ"
+    },
+    {
+      "source": 7697,
+      "replacement": "Ḑ"
+    },
+    {
+      "source": 7699,
+      "replacement": "Ḓ"
+    },
+    {
+      "source": 7701,
+      "replacement": "Ḕ"
+    },
+    {
+      "source": 7703,
+      "replacement": "Ḗ"
+    },
+    {
+      "source": 7705,
+      "replacement": "Ḙ"
+    },
+    {
+      "source": 7707,
+      "replacement": "Ḛ"
+    },
+    {
+      "source": 7709,
+      "replacement": "Ḝ"
+    },
+    {
+      "source": 7711,
+      "replacement": "Ḟ"
+    },
+    {
+      "source": 7713,
+      "replacement": "Ḡ"
+    },
+    {
+      "source": 7715,
+      "replacement": "Ḣ"
+    },
+    {
+      "source": 7717,
+      "replacement": "Ḥ"
+    },
+    {
+      "source": 7719,
+      "replacement": "Ḧ"
+    },
+    {
+      "source": 7721,
+      "replacement": "Ḩ"
+    },
+    {
+      "source": 7723,
+      "replacement": "Ḫ"
+    },
+    {
+      "source": 7725,
+      "replacement": "Ḭ"
+    },
+    {
+      "source": 7727,
+      "replacement": "Ḯ"
+    },
+    {
+      "source": 7729,
+      "replacement": "Ḱ"
+    },
+    {
+      "source": 7731,
+      "replacement": "Ḳ"
+    },
+    {
+      "source": 7733,
+      "replacement": "Ḵ"
+    },
+    {
+      "source": 7735,
+      "replacement": "Ḷ"
+    },
+    {
+      "source": 7737,
+      "replacement": "Ḹ"
+    },
+    {
+      "source": 7739,
+      "replacement": "Ḻ"
+    },
+    {
+      "source": 7741,
+      "replacement": "Ḽ"
+    },
+    {
+      "source": 7743,
+      "replacement": "Ḿ"
+    },
+    {
+      "source": 7745,
+      "replacement": "Ṁ"
+    },
+    {
+      "source": 7747,
+      "replacement": "Ṃ"
+    },
+    {
+      "source": 7749,
+      "replacement": "Ṅ"
+    },
+    {
+      "source": 7751,
+      "replacement": "Ṇ"
+    },
+    {
+      "source": 7753,
+      "replacement": "Ṉ"
+    },
+    {
+      "source": 7755,
+      "replacement": "Ṋ"
+    },
+    {
+      "source": 7757,
+      "replacement": "Ṍ"
+    },
+    {
+      "source": 7759,
+      "replacement": "Ṏ"
+    },
+    {
+      "source": 7761,
+      "replacement": "Ṑ"
+    },
+    {
+      "source": 7763,
+      "replacement": "Ṓ"
+    },
+    {
+      "source": 7765,
+      "replacement": "Ṕ"
+    },
+    {
+      "source": 7767,
+      "replacement": "Ṗ"
+    },
+    {
+      "source": 7769,
+      "replacement": "Ṙ"
+    },
+    {
+      "source": 7771,
+      "replacement": "Ṛ"
+    },
+    {
+      "source": 7773,
+      "replacement": "Ṝ"
+    },
+    {
+      "source": 7775,
+      "replacement": "Ṟ"
+    },
+    {
+      "source": 7777,
+      "replacement": "Ṡ"
+    },
+    {
+      "source": 7779,
+      "replacement": "Ṣ"
+    },
+    {
+      "source": 7781,
+      "replacement": "Ṥ"
+    },
+    {
+      "source": 7783,
+      "replacement": "Ṧ"
+    },
+    {
+      "source": 7785,
+      "replacement": "Ṩ"
+    },
+    {
+      "source": 7787,
+      "replacement": "Ṫ"
+    },
+    {
+      "source": 7789,
+      "replacement": "Ṭ"
+    },
+    {
+      "source": 7791,
+      "replacement": "Ṯ"
+    },
+    {
+      "source": 7793,
+      "replacement": "Ṱ"
+    },
+    {
+      "source": 7795,
+      "replacement": "Ṳ"
+    },
+    {
+      "source": 7797,
+      "replacement": "Ṵ"
+    },
+    {
+      "source": 7799,
+      "replacement": "Ṷ"
+    },
+    {
+      "source": 7801,
+      "replacement": "Ṹ"
+    },
+    {
+      "source": 7803,
+      "replacement": "Ṻ"
+    },
+    {
+      "source": 7805,
+      "replacement": "Ṽ"
+    },
+    {
+      "source": 7807,
+      "replacement": "Ṿ"
+    },
+    {
+      "source": 7809,
+      "replacement": "Ẁ"
+    },
+    {
+      "source": 7811,
+      "replacement": "Ẃ"
+    },
+    {
+      "source": 7813,
+      "replacement": "Ẅ"
+    },
+    {
+      "source": 7815,
+      "replacement": "Ẇ"
+    },
+    {
+      "source": 7817,
+      "replacement": "Ẉ"
+    },
+    {
+      "source": 7819,
+      "replacement": "Ẋ"
+    },
+    {
+      "source": 7821,
+      "replacement": "Ẍ"
+    },
+    {
+      "source": 7823,
+      "replacement": "Ẏ"
+    },
+    {
+      "source": 7825,
+      "replacement": "Ẑ"
+    },
+    {
+      "source": 7827,
+      "replacement": "Ẓ"
+    },
+    {
+      "source": 7829,
+      "replacement": "Ẕ"
+    },
+    {
+      "source": 7830,
+      "replacement": "H̱"
+    },
+    {
+      "source": 7831,
+      "replacement": "T̈"
+    },
+    {
+      "source": 7832,
+      "replacement": "W̊"
+    },
+    {
+      "source": 7833,
+      "replacement": "Y̊"
+    },
+    {
+      "source": 7834,
+      "replacement": "Aʾ"
+    },
+    {
+      "source": 7835,
+      "replacement": "Ṡ"
+    },
+    {
+      "source": 7841,
+      "replacement": "Ạ"
+    },
+    {
+      "source": 7843,
+      "replacement": "Ả"
+    },
+    {
+      "source": 7845,
+      "replacement": "Ấ"
+    },
+    {
+      "source": 7847,
+      "replacement": "Ầ"
+    },
+    {
+      "source": 7849,
+      "replacement": "Ẩ"
+    },
+    {
+      "source": 7851,
+      "replacement": "Ẫ"
+    },
+    {
+      "source": 7853,
+      "replacement": "Ậ"
+    },
+    {
+      "source": 7855,
+      "replacement": "Ắ"
+    },
+    {
+      "source": 7857,
+      "replacement": "Ằ"
+    },
+    {
+      "source": 7859,
+      "replacement": "Ẳ"
+    },
+    {
+      "source": 7861,
+      "replacement": "Ẵ"
+    },
+    {
+      "source": 7863,
+      "replacement": "Ặ"
+    },
+    {
+      "source": 7865,
+      "replacement": "Ẹ"
+    },
+    {
+      "source": 7867,
+      "replacement": "Ẻ"
+    },
+    {
+      "source": 7869,
+      "replacement": "Ẽ"
+    },
+    {
+      "source": 7871,
+      "replacement": "Ế"
+    },
+    {
+      "source": 7873,
+      "replacement": "Ề"
+    },
+    {
+      "source": 7875,
+      "replacement": "Ể"
+    },
+    {
+      "source": 7877,
+      "replacement": "Ễ"
+    },
+    {
+      "source": 7879,
+      "replacement": "Ệ"
+    },
+    {
+      "source": 7881,
+      "replacement": "Ỉ"
+    },
+    {
+      "source": 7883,
+      "replacement": "Ị"
+    },
+    {
+      "source": 7885,
+      "replacement": "Ọ"
+    },
+    {
+      "source": 7887,
+      "replacement": "Ỏ"
+    },
+    {
+      "source": 7889,
+      "replacement": "Ố"
+    },
+    {
+      "source": 7891,
+      "replacement": "Ồ"
+    },
+    {
+      "source": 7893,
+      "replacement": "Ổ"
+    },
+    {
+      "source": 7895,
+      "replacement": "Ỗ"
+    },
+    {
+      "source": 7897,
+      "replacement": "Ộ"
+    },
+    {
+      "source": 7899,
+      "replacement": "Ớ"
+    },
+    {
+      "source": 7901,
+      "replacement": "Ờ"
+    },
+    {
+      "source": 7903,
+      "replacement": "Ở"
+    },
+    {
+      "source": 7905,
+      "replacement": "Ỡ"
+    },
+    {
+      "source": 7907,
+      "replacement": "Ợ"
+    },
+    {
+      "source": 7909,
+      "replacement": "Ụ"
+    },
+    {
+      "source": 7911,
+      "replacement": "Ủ"
+    },
+    {
+      "source": 7913,
+      "replacement": "Ứ"
+    },
+    {
+      "source": 7915,
+      "replacement": "Ừ"
+    },
+    {
+      "source": 7917,
+      "replacement": "Ử"
+    },
+    {
+      "source": 7919,
+      "replacement": "Ữ"
+    },
+    {
+      "source": 7921,
+      "replacement": "Ự"
+    },
+    {
+      "source": 7923,
+      "replacement": "Ỳ"
+    },
+    {
+      "source": 7925,
+      "replacement": "Ỵ"
+    },
+    {
+      "source": 7927,
+      "replacement": "Ỷ"
+    },
+    {
+      "source": 7929,
+      "replacement": "Ỹ"
+    },
+    {
+      "source": 7931,
+      "replacement": "Ỻ"
+    },
+    {
+      "source": 7933,
+      "replacement": "Ỽ"
+    },
+    {
+      "source": 7935,
+      "replacement": "Ỿ"
+    },
+    {
+      "source": 7936,
+      "replacement": "Ἀ"
+    },
+    {
+      "source": 7937,
+      "replacement": "Ἁ"
+    },
+    {
+      "source": 7938,
+      "replacement": "Ἂ"
+    },
+    {
+      "source": 7939,
+      "replacement": "Ἃ"
+    },
+    {
+      "source": 7940,
+      "replacement": "Ἄ"
+    },
+    {
+      "source": 7941,
+      "replacement": "Ἅ"
+    },
+    {
+      "source": 7942,
+      "replacement": "Ἆ"
+    },
+    {
+      "source": 7943,
+      "replacement": "Ἇ"
+    },
+    {
+      "source": 7952,
+      "replacement": "Ἐ"
+    },
+    {
+      "source": 7953,
+      "replacement": "Ἑ"
+    },
+    {
+      "source": 7954,
+      "replacement": "Ἒ"
+    },
+    {
+      "source": 7955,
+      "replacement": "Ἓ"
+    },
+    {
+      "source": 7956,
+      "replacement": "Ἔ"
+    },
+    {
+      "source": 7957,
+      "replacement": "Ἕ"
+    },
+    {
+      "source": 7968,
+      "replacement": "Ἠ"
+    },
+    {
+      "source": 7969,
+      "replacement": "Ἡ"
+    },
+    {
+      "source": 7970,
+      "replacement": "Ἢ"
+    },
+    {
+      "source": 7971,
+      "replacement": "Ἣ"
+    },
+    {
+      "source": 7972,
+      "replacement": "Ἤ"
+    },
+    {
+      "source": 7973,
+      "replacement": "Ἥ"
+    },
+    {
+      "source": 7974,
+      "replacement": "Ἦ"
+    },
+    {
+      "source": 7975,
+      "replacement": "Ἧ"
+    },
+    {
+      "source": 7984,
+      "replacement": "Ἰ"
+    },
+    {
+      "source": 7985,
+      "replacement": "Ἱ"
+    },
+    {
+      "source": 7986,
+      "replacement": "Ἲ"
+    },
+    {
+      "source": 7987,
+      "replacement": "Ἳ"
+    },
+    {
+      "source": 7988,
+      "replacement": "Ἴ"
+    },
+    {
+      "source": 7989,
+      "replacement": "Ἵ"
+    },
+    {
+      "source": 7990,
+      "replacement": "Ἶ"
+    },
+    {
+      "source": 7991,
+      "replacement": "Ἷ"
+    },
+    {
+      "source": 8000,
+      "replacement": "Ὀ"
+    },
+    {
+      "source": 8001,
+      "replacement": "Ὁ"
+    },
+    {
+      "source": 8002,
+      "replacement": "Ὂ"
+    },
+    {
+      "source": 8003,
+      "replacement": "Ὃ"
+    },
+    {
+      "source": 8004,
+      "replacement": "Ὄ"
+    },
+    {
+      "source": 8005,
+      "replacement": "Ὅ"
+    },
+    {
+      "source": 8016,
+      "replacement": "Υ̓"
+    },
+    {
+      "source": 8017,
+      "replacement": "Ὑ"
+    },
+    {
+      "source": 8018,
+      "replacement": "Υ̓̀"
+    },
+    {
+      "source": 8019,
+      "replacement": "Ὓ"
+    },
+    {
+      "source": 8020,
+      "replacement": "Υ̓́"
+    },
+    {
+      "source": 8021,
+      "replacement": "Ὕ"
+    },
+    {
+      "source": 8022,
+      "replacement": "Υ̓͂"
+    },
+    {
+      "source": 8023,
+      "replacement": "Ὗ"
+    },
+    {
+      "source": 8032,
+      "replacement": "Ὠ"
+    },
+    {
+      "source": 8033,
+      "replacement": "Ὡ"
+    },
+    {
+      "source": 8034,
+      "replacement": "Ὢ"
+    },
+    {
+      "source": 8035,
+      "replacement": "Ὣ"
+    },
+    {
+      "source": 8036,
+      "replacement": "Ὤ"
+    },
+    {
+      "source": 8037,
+      "replacement": "Ὥ"
+    },
+    {
+      "source": 8038,
+      "replacement": "Ὦ"
+    },
+    {
+      "source": 8039,
+      "replacement": "Ὧ"
+    },
+    {
+      "source": 8048,
+      "replacement": "Ὰ"
+    },
+    {
+      "source": 8049,
+      "replacement": "Ά"
+    },
+    {
+      "source": 8050,
+      "replacement": "Ὲ"
+    },
+    {
+      "source": 8051,
+      "replacement": "Έ"
+    },
+    {
+      "source": 8052,
+      "replacement": "Ὴ"
+    },
+    {
+      "source": 8053,
+      "replacement": "Ή"
+    },
+    {
+      "source": 8054,
+      "replacement": "Ὶ"
+    },
+    {
+      "source": 8055,
+      "replacement": "Ί"
+    },
+    {
+      "source": 8056,
+      "replacement": "Ὸ"
+    },
+    {
+      "source": 8057,
+      "replacement": "Ό"
+    },
+    {
+      "source": 8058,
+      "replacement": "Ὺ"
+    },
+    {
+      "source": 8059,
+      "replacement": "Ύ"
+    },
+    {
+      "source": 8060,
+      "replacement": "Ὼ"
+    },
+    {
+      "source": 8061,
+      "replacement": "Ώ"
+    },
+    {
+      "source": 8064,
+      "replacement": "ἈΙ"
+    },
+    {
+      "source": 8065,
+      "replacement": "ἉΙ"
+    },
+    {
+      "source": 8066,
+      "replacement": "ἊΙ"
+    },
+    {
+      "source": 8067,
+      "replacement": "ἋΙ"
+    },
+    {
+      "source": 8068,
+      "replacement": "ἌΙ"
+    },
+    {
+      "source": 8069,
+      "replacement": "ἍΙ"
+    },
+    {
+      "source": 8070,
+      "replacement": "ἎΙ"
+    },
+    {
+      "source": 8071,
+      "replacement": "ἏΙ"
+    },
+    {
+      "source": 8072,
+      "replacement": "ἈΙ"
+    },
+    {
+      "source": 8073,
+      "replacement": "ἉΙ"
+    },
+    {
+      "source": 8074,
+      "replacement": "ἊΙ"
+    },
+    {
+      "source": 8075,
+      "replacement": "ἋΙ"
+    },
+    {
+      "source": 8076,
+      "replacement": "ἌΙ"
+    },
+    {
+      "source": 8077,
+      "replacement": "ἍΙ"
+    },
+    {
+      "source": 8078,
+      "replacement": "ἎΙ"
+    },
+    {
+      "source": 8079,
+      "replacement": "ἏΙ"
+    },
+    {
+      "source": 8080,
+      "replacement": "ἨΙ"
+    },
+    {
+      "source": 8081,
+      "replacement": "ἩΙ"
+    },
+    {
+      "source": 8082,
+      "replacement": "ἪΙ"
+    },
+    {
+      "source": 8083,
+      "replacement": "ἫΙ"
+    },
+    {
+      "source": 8084,
+      "replacement": "ἬΙ"
+    },
+    {
+      "source": 8085,
+      "replacement": "ἭΙ"
+    },
+    {
+      "source": 8086,
+      "replacement": "ἮΙ"
+    },
+    {
+      "source": 8087,
+      "replacement": "ἯΙ"
+    },
+    {
+      "source": 8088,
+      "replacement": "ἨΙ"
+    },
+    {
+      "source": 8089,
+      "replacement": "ἩΙ"
+    },
+    {
+      "source": 8090,
+      "replacement": "ἪΙ"
+    },
+    {
+      "source": 8091,
+      "replacement": "ἫΙ"
+    },
+    {
+      "source": 8092,
+      "replacement": "ἬΙ"
+    },
+    {
+      "source": 8093,
+      "replacement": "ἭΙ"
+    },
+    {
+      "source": 8094,
+      "replacement": "ἮΙ"
+    },
+    {
+      "source": 8095,
+      "replacement": "ἯΙ"
+    },
+    {
+      "source": 8096,
+      "replacement": "ὨΙ"
+    },
+    {
+      "source": 8097,
+      "replacement": "ὩΙ"
+    },
+    {
+      "source": 8098,
+      "replacement": "ὪΙ"
+    },
+    {
+      "source": 8099,
+      "replacement": "ὫΙ"
+    },
+    {
+      "source": 8100,
+      "replacement": "ὬΙ"
+    },
+    {
+      "source": 8101,
+      "replacement": "ὭΙ"
+    },
+    {
+      "source": 8102,
+      "replacement": "ὮΙ"
+    },
+    {
+      "source": 8103,
+      "replacement": "ὯΙ"
+    },
+    {
+      "source": 8104,
+      "replacement": "ὨΙ"
+    },
+    {
+      "source": 8105,
+      "replacement": "ὩΙ"
+    },
+    {
+      "source": 8106,
+      "replacement": "ὪΙ"
+    },
+    {
+      "source": 8107,
+      "replacement": "ὫΙ"
+    },
+    {
+      "source": 8108,
+      "replacement": "ὬΙ"
+    },
+    {
+      "source": 8109,
+      "replacement": "ὭΙ"
+    },
+    {
+      "source": 8110,
+      "replacement": "ὮΙ"
+    },
+    {
+      "source": 8111,
+      "replacement": "ὯΙ"
+    },
+    {
+      "source": 8112,
+      "replacement": "Ᾰ"
+    },
+    {
+      "source": 8113,
+      "replacement": "Ᾱ"
+    },
+    {
+      "source": 8114,
+      "replacement": "ᾺΙ"
+    },
+    {
+      "source": 8115,
+      "replacement": "ΑΙ"
+    },
+    {
+      "source": 8116,
+      "replacement": "ΆΙ"
+    },
+    {
+      "source": 8118,
+      "replacement": "Α͂"
+    },
+    {
+      "source": 8119,
+      "replacement": "Α͂Ι"
+    },
+    {
+      "source": 8124,
+      "replacement": "ΑΙ"
+    },
+    {
+      "source": 8126,
+      "replacement": "Ι"
+    },
+    {
+      "source": 8130,
+      "replacement": "ῊΙ"
+    },
+    {
+      "source": 8131,
+      "replacement": "ΗΙ"
+    },
+    {
+      "source": 8132,
+      "replacement": "ΉΙ"
+    },
+    {
+      "source": 8134,
+      "replacement": "Η͂"
+    },
+    {
+      "source": 8135,
+      "replacement": "Η͂Ι"
+    },
+    {
+      "source": 8140,
+      "replacement": "ΗΙ"
+    },
+    {
+      "source": 8144,
+      "replacement": "Ῐ"
+    },
+    {
+      "source": 8145,
+      "replacement": "Ῑ"
+    },
+    {
+      "source": 8146,
+      "replacement": "Ϊ̀"
+    },
+    {
+      "source": 8147,
+      "replacement": "Ϊ́"
+    },
+    {
+      "source": 8150,
+      "replacement": "Ι͂"
+    },
+    {
+      "source": 8151,
+      "replacement": "Ϊ͂"
+    },
+    {
+      "source": 8160,
+      "replacement": "Ῠ"
+    },
+    {
+      "source": 8161,
+      "replacement": "Ῡ"
+    },
+    {
+      "source": 8162,
+      "replacement": "Ϋ̀"
+    },
+    {
+      "source": 8163,
+      "replacement": "Ϋ́"
+    },
+    {
+      "source": 8164,
+      "replacement": "Ρ̓"
+    },
+    {
+      "source": 8165,
+      "replacement": "Ῥ"
+    },
+    {
+      "source": 8166,
+      "replacement": "Υ͂"
+    },
+    {
+      "source": 8167,
+      "replacement": "Ϋ͂"
+    },
+    {
+      "source": 8178,
+      "replacement": "ῺΙ"
+    },
+    {
+      "source": 8179,
+      "replacement": "ΩΙ"
+    },
+    {
+      "source": 8180,
+      "replacement": "ΏΙ"
+    },
+    {
+      "source": 8182,
+      "replacement": "Ω͂"
+    },
+    {
+      "source": 8183,
+      "replacement": "Ω͂Ι"
+    },
+    {
+      "source": 8188,
+      "replacement": "ΩΙ"
+    },
+    {
+      "source": 8526,
+      "replacement": "Ⅎ"
+    },
+    {
+      "source": 8560,
+      "replacement": "Ⅰ"
+    },
+    {
+      "source": 8561,
+      "replacement": "Ⅱ"
+    },
+    {
+      "source": 8562,
+      "replacement": "Ⅲ"
+    },
+    {
+      "source": 8563,
+      "replacement": "Ⅳ"
+    },
+    {
+      "source": 8564,
+      "replacement": "Ⅴ"
+    },
+    {
+      "source": 8565,
+      "replacement": "Ⅵ"
+    },
+    {
+      "source": 8566,
+      "replacement": "Ⅶ"
+    },
+    {
+      "source": 8567,
+      "replacement": "Ⅷ"
+    },
+    {
+      "source": 8568,
+      "replacement": "Ⅸ"
+    },
+    {
+      "source": 8569,
+      "replacement": "Ⅹ"
+    },
+    {
+      "source": 8570,
+      "replacement": "Ⅺ"
+    },
+    {
+      "source": 8571,
+      "replacement": "Ⅻ"
+    },
+    {
+      "source": 8572,
+      "replacement": "Ⅼ"
+    },
+    {
+      "source": 8573,
+      "replacement": "Ⅽ"
+    },
+    {
+      "source": 8574,
+      "replacement": "Ⅾ"
+    },
+    {
+      "source": 8575,
+      "replacement": "Ⅿ"
+    },
+    {
+      "source": 8580,
+      "replacement": "Ↄ"
+    },
+    {
+      "source": 9424,
+      "replacement": "Ⓐ"
+    },
+    {
+      "source": 9425,
+      "replacement": "Ⓑ"
+    },
+    {
+      "source": 9426,
+      "replacement": "Ⓒ"
+    },
+    {
+      "source": 9427,
+      "replacement": "Ⓓ"
+    },
+    {
+      "source": 9428,
+      "replacement": "Ⓔ"
+    },
+    {
+      "source": 9429,
+      "replacement": "Ⓕ"
+    },
+    {
+      "source": 9430,
+      "replacement": "Ⓖ"
+    },
+    {
+      "source": 9431,
+      "replacement": "Ⓗ"
+    },
+    {
+      "source": 9432,
+      "replacement": "Ⓘ"
+    },
+    {
+      "source": 9433,
+      "replacement": "Ⓙ"
+    },
+    {
+      "source": 9434,
+      "replacement": "Ⓚ"
+    },
+    {
+      "source": 9435,
+      "replacement": "Ⓛ"
+    },
+    {
+      "source": 9436,
+      "replacement": "Ⓜ"
+    },
+    {
+      "source": 9437,
+      "replacement": "Ⓝ"
+    },
+    {
+      "source": 9438,
+      "replacement": "Ⓞ"
+    },
+    {
+      "source": 9439,
+      "replacement": "Ⓟ"
+    },
+    {
+      "source": 9440,
+      "replacement": "Ⓠ"
+    },
+    {
+      "source": 9441,
+      "replacement": "Ⓡ"
+    },
+    {
+      "source": 9442,
+      "replacement": "Ⓢ"
+    },
+    {
+      "source": 9443,
+      "replacement": "Ⓣ"
+    },
+    {
+      "source": 9444,
+      "replacement": "Ⓤ"
+    },
+    {
+      "source": 9445,
+      "replacement": "Ⓥ"
+    },
+    {
+      "source": 9446,
+      "replacement": "Ⓦ"
+    },
+    {
+      "source": 9447,
+      "replacement": "Ⓧ"
+    },
+    {
+      "source": 9448,
+      "replacement": "Ⓨ"
+    },
+    {
+      "source": 9449,
+      "replacement": "Ⓩ"
+    },
+    {
+      "source": 11312,
+      "replacement": "Ⰰ"
+    },
+    {
+      "source": 11313,
+      "replacement": "Ⰱ"
+    },
+    {
+      "source": 11314,
+      "replacement": "Ⰲ"
+    },
+    {
+      "source": 11315,
+      "replacement": "Ⰳ"
+    },
+    {
+      "source": 11316,
+      "replacement": "Ⰴ"
+    },
+    {
+      "source": 11317,
+      "replacement": "Ⰵ"
+    },
+    {
+      "source": 11318,
+      "replacement": "Ⰶ"
+    },
+    {
+      "source": 11319,
+      "replacement": "Ⰷ"
+    },
+    {
+      "source": 11320,
+      "replacement": "Ⰸ"
+    },
+    {
+      "source": 11321,
+      "replacement": "Ⰹ"
+    },
+    {
+      "source": 11322,
+      "replacement": "Ⰺ"
+    },
+    {
+      "source": 11323,
+      "replacement": "Ⰻ"
+    },
+    {
+      "source": 11324,
+      "replacement": "Ⰼ"
+    },
+    {
+      "source": 11325,
+      "replacement": "Ⰽ"
+    },
+    {
+      "source": 11326,
+      "replacement": "Ⰾ"
+    },
+    {
+      "source": 11327,
+      "replacement": "Ⰿ"
+    },
+    {
+      "source": 11328,
+      "replacement": "Ⱀ"
+    },
+    {
+      "source": 11329,
+      "replacement": "Ⱁ"
+    },
+    {
+      "source": 11330,
+      "replacement": "Ⱂ"
+    },
+    {
+      "source": 11331,
+      "replacement": "Ⱃ"
+    },
+    {
+      "source": 11332,
+      "replacement": "Ⱄ"
+    },
+    {
+      "source": 11333,
+      "replacement": "Ⱅ"
+    },
+    {
+      "source": 11334,
+      "replacement": "Ⱆ"
+    },
+    {
+      "source": 11335,
+      "replacement": "Ⱇ"
+    },
+    {
+      "source": 11336,
+      "replacement": "Ⱈ"
+    },
+    {
+      "source": 11337,
+      "replacement": "Ⱉ"
+    },
+    {
+      "source": 11338,
+      "replacement": "Ⱊ"
+    },
+    {
+      "source": 11339,
+      "replacement": "Ⱋ"
+    },
+    {
+      "source": 11340,
+      "replacement": "Ⱌ"
+    },
+    {
+      "source": 11341,
+      "replacement": "Ⱍ"
+    },
+    {
+      "source": 11342,
+      "replacement": "Ⱎ"
+    },
+    {
+      "source": 11343,
+      "replacement": "Ⱏ"
+    },
+    {
+      "source": 11344,
+      "replacement": "Ⱐ"
+    },
+    {
+      "source": 11345,
+      "replacement": "Ⱑ"
+    },
+    {
+      "source": 11346,
+      "replacement": "Ⱒ"
+    },
+    {
+      "source": 11347,
+      "replacement": "Ⱓ"
+    },
+    {
+      "source": 11348,
+      "replacement": "Ⱔ"
+    },
+    {
+      "source": 11349,
+      "replacement": "Ⱕ"
+    },
+    {
+      "source": 11350,
+      "replacement": "Ⱖ"
+    },
+    {
+      "source": 11351,
+      "replacement": "Ⱗ"
+    },
+    {
+      "source": 11352,
+      "replacement": "Ⱘ"
+    },
+    {
+      "source": 11353,
+      "replacement": "Ⱙ"
+    },
+    {
+      "source": 11354,
+      "replacement": "Ⱚ"
+    },
+    {
+      "source": 11355,
+      "replacement": "Ⱛ"
+    },
+    {
+      "source": 11356,
+      "replacement": "Ⱜ"
+    },
+    {
+      "source": 11357,
+      "replacement": "Ⱝ"
+    },
+    {
+      "source": 11358,
+      "replacement": "Ⱞ"
+    },
+    {
+      "source": 11359,
+      "replacement": "Ⱟ"
+    },
+    {
+      "source": 11361,
+      "replacement": "Ⱡ"
+    },
+    {
+      "source": 11365,
+      "replacement": "Ⱥ"
+    },
+    {
+      "source": 11366,
+      "replacement": "Ⱦ"
+    },
+    {
+      "source": 11368,
+      "replacement": "Ⱨ"
+    },
+    {
+      "source": 11370,
+      "replacement": "Ⱪ"
+    },
+    {
+      "source": 11372,
+      "replacement": "Ⱬ"
+    },
+    {
+      "source": 11379,
+      "replacement": "Ⱳ"
+    },
+    {
+      "source": 11382,
+      "replacement": "Ⱶ"
+    },
+    {
+      "source": 11393,
+      "replacement": "Ⲁ"
+    },
+    {
+      "source": 11395,
+      "replacement": "Ⲃ"
+    },
+    {
+      "source": 11397,
+      "replacement": "Ⲅ"
+    },
+    {
+      "source": 11399,
+      "replacement": "Ⲇ"
+    },
+    {
+      "source": 11401,
+      "replacement": "Ⲉ"
+    },
+    {
+      "source": 11403,
+      "replacement": "Ⲋ"
+    },
+    {
+      "source": 11405,
+      "replacement": "Ⲍ"
+    },
+    {
+      "source": 11407,
+      "replacement": "Ⲏ"
+    },
+    {
+      "source": 11409,
+      "replacement": "Ⲑ"
+    },
+    {
+      "source": 11411,
+      "replacement": "Ⲓ"
+    },
+    {
+      "source": 11413,
+      "replacement": "Ⲕ"
+    },
+    {
+      "source": 11415,
+      "replacement": "Ⲗ"
+    },
+    {
+      "source": 11417,
+      "replacement": "Ⲙ"
+    },
+    {
+      "source": 11419,
+      "replacement": "Ⲛ"
+    },
+    {
+      "source": 11421,
+      "replacement": "Ⲝ"
+    },
+    {
+      "source": 11423,
+      "replacement": "Ⲟ"
+    },
+    {
+      "source": 11425,
+      "replacement": "Ⲡ"
+    },
+    {
+      "source": 11427,
+      "replacement": "Ⲣ"
+    },
+    {
+      "source": 11429,
+      "replacement": "Ⲥ"
+    },
+    {
+      "source": 11431,
+      "replacement": "Ⲧ"
+    },
+    {
+      "source": 11433,
+      "replacement": "Ⲩ"
+    },
+    {
+      "source": 11435,
+      "replacement": "Ⲫ"
+    },
+    {
+      "source": 11437,
+      "replacement": "Ⲭ"
+    },
+    {
+      "source": 11439,
+      "replacement": "Ⲯ"
+    },
+    {
+      "source": 11441,
+      "replacement": "Ⲱ"
+    },
+    {
+      "source": 11443,
+      "replacement": "Ⲳ"
+    },
+    {
+      "source": 11445,
+      "replacement": "Ⲵ"
+    },
+    {
+      "source": 11447,
+      "replacement": "Ⲷ"
+    },
+    {
+      "source": 11449,
+      "replacement": "Ⲹ"
+    },
+    {
+      "source": 11451,
+      "replacement": "Ⲻ"
+    },
+    {
+      "source": 11453,
+      "replacement": "Ⲽ"
+    },
+    {
+      "source": 11455,
+      "replacement": "Ⲿ"
+    },
+    {
+      "source": 11457,
+      "replacement": "Ⳁ"
+    },
+    {
+      "source": 11459,
+      "replacement": "Ⳃ"
+    },
+    {
+      "source": 11461,
+      "replacement": "Ⳅ"
+    },
+    {
+      "source": 11463,
+      "replacement": "Ⳇ"
+    },
+    {
+      "source": 11465,
+      "replacement": "Ⳉ"
+    },
+    {
+      "source": 11467,
+      "replacement": "Ⳋ"
+    },
+    {
+      "source": 11469,
+      "replacement": "Ⳍ"
+    },
+    {
+      "source": 11471,
+      "replacement": "Ⳏ"
+    },
+    {
+      "source": 11473,
+      "replacement": "Ⳑ"
+    },
+    {
+      "source": 11475,
+      "replacement": "Ⳓ"
+    },
+    {
+      "source": 11477,
+      "replacement": "Ⳕ"
+    },
+    {
+      "source": 11479,
+      "replacement": "Ⳗ"
+    },
+    {
+      "source": 11481,
+      "replacement": "Ⳙ"
+    },
+    {
+      "source": 11483,
+      "replacement": "Ⳛ"
+    },
+    {
+      "source": 11485,
+      "replacement": "Ⳝ"
+    },
+    {
+      "source": 11487,
+      "replacement": "Ⳟ"
+    },
+    {
+      "source": 11489,
+      "replacement": "Ⳡ"
+    },
+    {
+      "source": 11491,
+      "replacement": "Ⳣ"
+    },
+    {
+      "source": 11500,
+      "replacement": "Ⳬ"
+    },
+    {
+      "source": 11502,
+      "replacement": "Ⳮ"
+    },
+    {
+      "source": 11507,
+      "replacement": "Ⳳ"
+    },
+    {
+      "source": 11520,
+      "replacement": "Ⴀ"
+    },
+    {
+      "source": 11521,
+      "replacement": "Ⴁ"
+    },
+    {
+      "source": 11522,
+      "replacement": "Ⴂ"
+    },
+    {
+      "source": 11523,
+      "replacement": "Ⴃ"
+    },
+    {
+      "source": 11524,
+      "replacement": "Ⴄ"
+    },
+    {
+      "source": 11525,
+      "replacement": "Ⴅ"
+    },
+    {
+      "source": 11526,
+      "replacement": "Ⴆ"
+    },
+    {
+      "source": 11527,
+      "replacement": "Ⴇ"
+    },
+    {
+      "source": 11528,
+      "replacement": "Ⴈ"
+    },
+    {
+      "source": 11529,
+      "replacement": "Ⴉ"
+    },
+    {
+      "source": 11530,
+      "replacement": "Ⴊ"
+    },
+    {
+      "source": 11531,
+      "replacement": "Ⴋ"
+    },
+    {
+      "source": 11532,
+      "replacement": "Ⴌ"
+    },
+    {
+      "source": 11533,
+      "replacement": "Ⴍ"
+    },
+    {
+      "source": 11534,
+      "replacement": "Ⴎ"
+    },
+    {
+      "source": 11535,
+      "replacement": "Ⴏ"
+    },
+    {
+      "source": 11536,
+      "replacement": "Ⴐ"
+    },
+    {
+      "source": 11537,
+      "replacement": "Ⴑ"
+    },
+    {
+      "source": 11538,
+      "replacement": "Ⴒ"
+    },
+    {
+      "source": 11539,
+      "replacement": "Ⴓ"
+    },
+    {
+      "source": 11540,
+      "replacement": "Ⴔ"
+    },
+    {
+      "source": 11541,
+      "replacement": "Ⴕ"
+    },
+    {
+      "source": 11542,
+      "replacement": "Ⴖ"
+    },
+    {
+      "source": 11543,
+      "replacement": "Ⴗ"
+    },
+    {
+      "source": 11544,
+      "replacement": "Ⴘ"
+    },
+    {
+      "source": 11545,
+      "replacement": "Ⴙ"
+    },
+    {
+      "source": 11546,
+      "replacement": "Ⴚ"
+    },
+    {
+      "source": 11547,
+      "replacement": "Ⴛ"
+    },
+    {
+      "source": 11548,
+      "replacement": "Ⴜ"
+    },
+    {
+      "source": 11549,
+      "replacement": "Ⴝ"
+    },
+    {
+      "source": 11550,
+      "replacement": "Ⴞ"
+    },
+    {
+      "source": 11551,
+      "replacement": "Ⴟ"
+    },
+    {
+      "source": 11552,
+      "replacement": "Ⴠ"
+    },
+    {
+      "source": 11553,
+      "replacement": "Ⴡ"
+    },
+    {
+      "source": 11554,
+      "replacement": "Ⴢ"
+    },
+    {
+      "source": 11555,
+      "replacement": "Ⴣ"
+    },
+    {
+      "source": 11556,
+      "replacement": "Ⴤ"
+    },
+    {
+      "source": 11557,
+      "replacement": "Ⴥ"
+    },
+    {
+      "source": 11559,
+      "replacement": "Ⴧ"
+    },
+    {
+      "source": 11565,
+      "replacement": "Ⴭ"
+    },
+    {
+      "source": 42561,
+      "replacement": "Ꙁ"
+    },
+    {
+      "source": 42563,
+      "replacement": "Ꙃ"
+    },
+    {
+      "source": 42565,
+      "replacement": "Ꙅ"
+    },
+    {
+      "source": 42567,
+      "replacement": "Ꙇ"
+    },
+    {
+      "source": 42569,
+      "replacement": "Ꙉ"
+    },
+    {
+      "source": 42571,
+      "replacement": "Ꙋ"
+    },
+    {
+      "source": 42573,
+      "replacement": "Ꙍ"
+    },
+    {
+      "source": 42575,
+      "replacement": "Ꙏ"
+    },
+    {
+      "source": 42577,
+      "replacement": "Ꙑ"
+    },
+    {
+      "source": 42579,
+      "replacement": "Ꙓ"
+    },
+    {
+      "source": 42581,
+      "replacement": "Ꙕ"
+    },
+    {
+      "source": 42583,
+      "replacement": "Ꙗ"
+    },
+    {
+      "source": 42585,
+      "replacement": "Ꙙ"
+    },
+    {
+      "source": 42587,
+      "replacement": "Ꙛ"
+    },
+    {
+      "source": 42589,
+      "replacement": "Ꙝ"
+    },
+    {
+      "source": 42591,
+      "replacement": "Ꙟ"
+    },
+    {
+      "source": 42593,
+      "replacement": "Ꙡ"
+    },
+    {
+      "source": 42595,
+      "replacement": "Ꙣ"
+    },
+    {
+      "source": 42597,
+      "replacement": "Ꙥ"
+    },
+    {
+      "source": 42599,
+      "replacement": "Ꙧ"
+    },
+    {
+      "source": 42601,
+      "replacement": "Ꙩ"
+    },
+    {
+      "source": 42603,
+      "replacement": "Ꙫ"
+    },
+    {
+      "source": 42605,
+      "replacement": "Ꙭ"
+    },
+    {
+      "source": 42625,
+      "replacement": "Ꚁ"
+    },
+    {
+      "source": 42627,
+      "replacement": "Ꚃ"
+    },
+    {
+      "source": 42629,
+      "replacement": "Ꚅ"
+    },
+    {
+      "source": 42631,
+      "replacement": "Ꚇ"
+    },
+    {
+      "source": 42633,
+      "replacement": "Ꚉ"
+    },
+    {
+      "source": 42635,
+      "replacement": "Ꚋ"
+    },
+    {
+      "source": 42637,
+      "replacement": "Ꚍ"
+    },
+    {
+      "source": 42639,
+      "replacement": "Ꚏ"
+    },
+    {
+      "source": 42641,
+      "replacement": "Ꚑ"
+    },
+    {
+      "source": 42643,
+      "replacement": "Ꚓ"
+    },
+    {
+      "source": 42645,
+      "replacement": "Ꚕ"
+    },
+    {
+      "source": 42647,
+      "replacement": "Ꚗ"
+    },
+    {
+      "source": 42649,
+      "replacement": "Ꚙ"
+    },
+    {
+      "source": 42651,
+      "replacement": "Ꚛ"
+    },
+    {
+      "source": 42787,
+      "replacement": "Ꜣ"
+    },
+    {
+      "source": 42789,
+      "replacement": "Ꜥ"
+    },
+    {
+      "source": 42791,
+      "replacement": "Ꜧ"
+    },
+    {
+      "source": 42793,
+      "replacement": "Ꜩ"
+    },
+    {
+      "source": 42795,
+      "replacement": "Ꜫ"
+    },
+    {
+      "source": 42797,
+      "replacement": "Ꜭ"
+    },
+    {
+      "source": 42799,
+      "replacement": "Ꜯ"
+    },
+    {
+      "source": 42803,
+      "replacement": "Ꜳ"
+    },
+    {
+      "source": 42805,
+      "replacement": "Ꜵ"
+    },
+    {
+      "source": 42807,
+      "replacement": "Ꜷ"
+    },
+    {
+      "source": 42809,
+      "replacement": "Ꜹ"
+    },
+    {
+      "source": 42811,
+      "replacement": "Ꜻ"
+    },
+    {
+      "source": 42813,
+      "replacement": "Ꜽ"
+    },
+    {
+      "source": 42815,
+      "replacement": "Ꜿ"
+    },
+    {
+      "source": 42817,
+      "replacement": "Ꝁ"
+    },
+    {
+      "source": 42819,
+      "replacement": "Ꝃ"
+    },
+    {
+      "source": 42821,
+      "replacement": "Ꝅ"
+    },
+    {
+      "source": 42823,
+      "replacement": "Ꝇ"
+    },
+    {
+      "source": 42825,
+      "replacement": "Ꝉ"
+    },
+    {
+      "source": 42827,
+      "replacement": "Ꝋ"
+    },
+    {
+      "source": 42829,
+      "replacement": "Ꝍ"
+    },
+    {
+      "source": 42831,
+      "replacement": "Ꝏ"
+    },
+    {
+      "source": 42833,
+      "replacement": "Ꝑ"
+    },
+    {
+      "source": 42835,
+      "replacement": "Ꝓ"
+    },
+    {
+      "source": 42837,
+      "replacement": "Ꝕ"
+    },
+    {
+      "source": 42839,
+      "replacement": "Ꝗ"
+    },
+    {
+      "source": 42841,
+      "replacement": "Ꝙ"
+    },
+    {
+      "source": 42843,
+      "replacement": "Ꝛ"
+    },
+    {
+      "source": 42845,
+      "replacement": "Ꝝ"
+    },
+    {
+      "source": 42847,
+      "replacement": "Ꝟ"
+    },
+    {
+      "source": 42849,
+      "replacement": "Ꝡ"
+    },
+    {
+      "source": 42851,
+      "replacement": "Ꝣ"
+    },
+    {
+      "source": 42853,
+      "replacement": "Ꝥ"
+    },
+    {
+      "source": 42855,
+      "replacement": "Ꝧ"
+    },
+    {
+      "source": 42857,
+      "replacement": "Ꝩ"
+    },
+    {
+      "source": 42859,
+      "replacement": "Ꝫ"
+    },
+    {
+      "source": 42861,
+      "replacement": "Ꝭ"
+    },
+    {
+      "source": 42863,
+      "replacement": "Ꝯ"
+    },
+    {
+      "source": 42874,
+      "replacement": "Ꝺ"
+    },
+    {
+      "source": 42876,
+      "replacement": "Ꝼ"
+    },
+    {
+      "source": 42879,
+      "replacement": "Ꝿ"
+    },
+    {
+      "source": 42881,
+      "replacement": "Ꞁ"
+    },
+    {
+      "source": 42883,
+      "replacement": "Ꞃ"
+    },
+    {
+      "source": 42885,
+      "replacement": "Ꞅ"
+    },
+    {
+      "source": 42887,
+      "replacement": "Ꞇ"
+    },
+    {
+      "source": 42892,
+      "replacement": "Ꞌ"
+    },
+    {
+      "source": 42897,
+      "replacement": "Ꞑ"
+    },
+    {
+      "source": 42899,
+      "replacement": "Ꞓ"
+    },
+    {
+      "source": 42900,
+      "replacement": "Ꞔ"
+    },
+    {
+      "source": 42903,
+      "replacement": "Ꞗ"
+    },
+    {
+      "source": 42905,
+      "replacement": "Ꞙ"
+    },
+    {
+      "source": 42907,
+      "replacement": "Ꞛ"
+    },
+    {
+      "source": 42909,
+      "replacement": "Ꞝ"
+    },
+    {
+      "source": 42911,
+      "replacement": "Ꞟ"
+    },
+    {
+      "source": 42913,
+      "replacement": "Ꞡ"
+    },
+    {
+      "source": 42915,
+      "replacement": "Ꞣ"
+    },
+    {
+      "source": 42917,
+      "replacement": "Ꞥ"
+    },
+    {
+      "source": 42919,
+      "replacement": "Ꞧ"
+    },
+    {
+      "source": 42921,
+      "replacement": "Ꞩ"
+    },
+    {
+      "source": 42933,
+      "replacement": "Ꞵ"
+    },
+    {
+      "source": 42935,
+      "replacement": "Ꞷ"
+    },
+    {
+      "source": 42937,
+      "replacement": "Ꞹ"
+    },
+    {
+      "source": 42939,
+      "replacement": "Ꞻ"
+    },
+    {
+      "source": 42941,
+      "replacement": "Ꞽ"
+    },
+    {
+      "source": 42943,
+      "replacement": "Ꞿ"
+    },
+    {
+      "source": 42945,
+      "replacement": "Ꟁ"
+    },
+    {
+      "source": 42947,
+      "replacement": "Ꟃ"
+    },
+    {
+      "source": 42952,
+      "replacement": "Ꟈ"
+    },
+    {
+      "source": 42954,
+      "replacement": "Ꟊ"
+    },
+    {
+      "source": 42957,
+      "replacement": "Ꟍ"
+    },
+    {
+      "source": 42959,
+      "replacement": "꟎"
+    },
+    {
+      "source": 42961,
+      "replacement": "Ꟑ"
+    },
+    {
+      "source": 42963,
+      "replacement": "꟒"
+    },
+    {
+      "source": 42965,
+      "replacement": "꟔"
+    },
+    {
+      "source": 42967,
+      "replacement": "Ꟗ"
+    },
+    {
+      "source": 42969,
+      "replacement": "Ꟙ"
+    },
+    {
+      "source": 42971,
+      "replacement": "Ꟛ"
+    },
+    {
+      "source": 42998,
+      "replacement": "Ꟶ"
+    },
+    {
+      "source": 43859,
+      "replacement": "Ꭓ"
+    },
+    {
+      "source": 43888,
+      "replacement": "Ꭰ"
+    },
+    {
+      "source": 43889,
+      "replacement": "Ꭱ"
+    },
+    {
+      "source": 43890,
+      "replacement": "Ꭲ"
+    },
+    {
+      "source": 43891,
+      "replacement": "Ꭳ"
+    },
+    {
+      "source": 43892,
+      "replacement": "Ꭴ"
+    },
+    {
+      "source": 43893,
+      "replacement": "Ꭵ"
+    },
+    {
+      "source": 43894,
+      "replacement": "Ꭶ"
+    },
+    {
+      "source": 43895,
+      "replacement": "Ꭷ"
+    },
+    {
+      "source": 43896,
+      "replacement": "Ꭸ"
+    },
+    {
+      "source": 43897,
+      "replacement": "Ꭹ"
+    },
+    {
+      "source": 43898,
+      "replacement": "Ꭺ"
+    },
+    {
+      "source": 43899,
+      "replacement": "Ꭻ"
+    },
+    {
+      "source": 43900,
+      "replacement": "Ꭼ"
+    },
+    {
+      "source": 43901,
+      "replacement": "Ꭽ"
+    },
+    {
+      "source": 43902,
+      "replacement": "Ꭾ"
+    },
+    {
+      "source": 43903,
+      "replacement": "Ꭿ"
+    },
+    {
+      "source": 43904,
+      "replacement": "Ꮀ"
+    },
+    {
+      "source": 43905,
+      "replacement": "Ꮁ"
+    },
+    {
+      "source": 43906,
+      "replacement": "Ꮂ"
+    },
+    {
+      "source": 43907,
+      "replacement": "Ꮃ"
+    },
+    {
+      "source": 43908,
+      "replacement": "Ꮄ"
+    },
+    {
+      "source": 43909,
+      "replacement": "Ꮅ"
+    },
+    {
+      "source": 43910,
+      "replacement": "Ꮆ"
+    },
+    {
+      "source": 43911,
+      "replacement": "Ꮇ"
+    },
+    {
+      "source": 43912,
+      "replacement": "Ꮈ"
+    },
+    {
+      "source": 43913,
+      "replacement": "Ꮉ"
+    },
+    {
+      "source": 43914,
+      "replacement": "Ꮊ"
+    },
+    {
+      "source": 43915,
+      "replacement": "Ꮋ"
+    },
+    {
+      "source": 43916,
+      "replacement": "Ꮌ"
+    },
+    {
+      "source": 43917,
+      "replacement": "Ꮍ"
+    },
+    {
+      "source": 43918,
+      "replacement": "Ꮎ"
+    },
+    {
+      "source": 43919,
+      "replacement": "Ꮏ"
+    },
+    {
+      "source": 43920,
+      "replacement": "Ꮐ"
+    },
+    {
+      "source": 43921,
+      "replacement": "Ꮑ"
+    },
+    {
+      "source": 43922,
+      "replacement": "Ꮒ"
+    },
+    {
+      "source": 43923,
+      "replacement": "Ꮓ"
+    },
+    {
+      "source": 43924,
+      "replacement": "Ꮔ"
+    },
+    {
+      "source": 43925,
+      "replacement": "Ꮕ"
+    },
+    {
+      "source": 43926,
+      "replacement": "Ꮖ"
+    },
+    {
+      "source": 43927,
+      "replacement": "Ꮗ"
+    },
+    {
+      "source": 43928,
+      "replacement": "Ꮘ"
+    },
+    {
+      "source": 43929,
+      "replacement": "Ꮙ"
+    },
+    {
+      "source": 43930,
+      "replacement": "Ꮚ"
+    },
+    {
+      "source": 43931,
+      "replacement": "Ꮛ"
+    },
+    {
+      "source": 43932,
+      "replacement": "Ꮜ"
+    },
+    {
+      "source": 43933,
+      "replacement": "Ꮝ"
+    },
+    {
+      "source": 43934,
+      "replacement": "Ꮞ"
+    },
+    {
+      "source": 43935,
+      "replacement": "Ꮟ"
+    },
+    {
+      "source": 43936,
+      "replacement": "Ꮠ"
+    },
+    {
+      "source": 43937,
+      "replacement": "Ꮡ"
+    },
+    {
+      "source": 43938,
+      "replacement": "Ꮢ"
+    },
+    {
+      "source": 43939,
+      "replacement": "Ꮣ"
+    },
+    {
+      "source": 43940,
+      "replacement": "Ꮤ"
+    },
+    {
+      "source": 43941,
+      "replacement": "Ꮥ"
+    },
+    {
+      "source": 43942,
+      "replacement": "Ꮦ"
+    },
+    {
+      "source": 43943,
+      "replacement": "Ꮧ"
+    },
+    {
+      "source": 43944,
+      "replacement": "Ꮨ"
+    },
+    {
+      "source": 43945,
+      "replacement": "Ꮩ"
+    },
+    {
+      "source": 43946,
+      "replacement": "Ꮪ"
+    },
+    {
+      "source": 43947,
+      "replacement": "Ꮫ"
+    },
+    {
+      "source": 43948,
+      "replacement": "Ꮬ"
+    },
+    {
+      "source": 43949,
+      "replacement": "Ꮭ"
+    },
+    {
+      "source": 43950,
+      "replacement": "Ꮮ"
+    },
+    {
+      "source": 43951,
+      "replacement": "Ꮯ"
+    },
+    {
+      "source": 43952,
+      "replacement": "Ꮰ"
+    },
+    {
+      "source": 43953,
+      "replacement": "Ꮱ"
+    },
+    {
+      "source": 43954,
+      "replacement": "Ꮲ"
+    },
+    {
+      "source": 43955,
+      "replacement": "Ꮳ"
+    },
+    {
+      "source": 43956,
+      "replacement": "Ꮴ"
+    },
+    {
+      "source": 43957,
+      "replacement": "Ꮵ"
+    },
+    {
+      "source": 43958,
+      "replacement": "Ꮶ"
+    },
+    {
+      "source": 43959,
+      "replacement": "Ꮷ"
+    },
+    {
+      "source": 43960,
+      "replacement": "Ꮸ"
+    },
+    {
+      "source": 43961,
+      "replacement": "Ꮹ"
+    },
+    {
+      "source": 43962,
+      "replacement": "Ꮺ"
+    },
+    {
+      "source": 43963,
+      "replacement": "Ꮻ"
+    },
+    {
+      "source": 43964,
+      "replacement": "Ꮼ"
+    },
+    {
+      "source": 43965,
+      "replacement": "Ꮽ"
+    },
+    {
+      "source": 43966,
+      "replacement": "Ꮾ"
+    },
+    {
+      "source": 43967,
+      "replacement": "Ꮿ"
+    },
+    {
+      "source": 64256,
+      "replacement": "FF"
+    },
+    {
+      "source": 64257,
+      "replacement": "FI"
+    },
+    {
+      "source": 64258,
+      "replacement": "FL"
+    },
+    {
+      "source": 64259,
+      "replacement": "FFI"
+    },
+    {
+      "source": 64260,
+      "replacement": "FFL"
+    },
+    {
+      "source": 64261,
+      "replacement": "ST"
+    },
+    {
+      "source": 64262,
+      "replacement": "ST"
+    },
+    {
+      "source": 64275,
+      "replacement": "ՄՆ"
+    },
+    {
+      "source": 64276,
+      "replacement": "ՄԵ"
+    },
+    {
+      "source": 64277,
+      "replacement": "ՄԻ"
+    },
+    {
+      "source": 64278,
+      "replacement": "ՎՆ"
+    },
+    {
+      "source": 64279,
+      "replacement": "ՄԽ"
+    },
+    {
+      "source": 65345,
+      "replacement": "Ａ"
+    },
+    {
+      "source": 65346,
+      "replacement": "Ｂ"
+    },
+    {
+      "source": 65347,
+      "replacement": "Ｃ"
+    },
+    {
+      "source": 65348,
+      "replacement": "Ｄ"
+    },
+    {
+      "source": 65349,
+      "replacement": "Ｅ"
+    },
+    {
+      "source": 65350,
+      "replacement": "Ｆ"
+    },
+    {
+      "source": 65351,
+      "replacement": "Ｇ"
+    },
+    {
+      "source": 65352,
+      "replacement": "Ｈ"
+    },
+    {
+      "source": 65353,
+      "replacement": "Ｉ"
+    },
+    {
+      "source": 65354,
+      "replacement": "Ｊ"
+    },
+    {
+      "source": 65355,
+      "replacement": "Ｋ"
+    },
+    {
+      "source": 65356,
+      "replacement": "Ｌ"
+    },
+    {
+      "source": 65357,
+      "replacement": "Ｍ"
+    },
+    {
+      "source": 65358,
+      "replacement": "Ｎ"
+    },
+    {
+      "source": 65359,
+      "replacement": "Ｏ"
+    },
+    {
+      "source": 65360,
+      "replacement": "Ｐ"
+    },
+    {
+      "source": 65361,
+      "replacement": "Ｑ"
+    },
+    {
+      "source": 65362,
+      "replacement": "Ｒ"
+    },
+    {
+      "source": 65363,
+      "replacement": "Ｓ"
+    },
+    {
+      "source": 65364,
+      "replacement": "Ｔ"
+    },
+    {
+      "source": 65365,
+      "replacement": "Ｕ"
+    },
+    {
+      "source": 65366,
+      "replacement": "Ｖ"
+    },
+    {
+      "source": 65367,
+      "replacement": "Ｗ"
+    },
+    {
+      "source": 65368,
+      "replacement": "Ｘ"
+    },
+    {
+      "source": 65369,
+      "replacement": "Ｙ"
+    },
+    {
+      "source": 65370,
+      "replacement": "Ｚ"
+    },
+    {
+      "source": 66600,
+      "replacement": "𐐀"
+    },
+    {
+      "source": 66601,
+      "replacement": "𐐁"
+    },
+    {
+      "source": 66602,
+      "replacement": "𐐂"
+    },
+    {
+      "source": 66603,
+      "replacement": "𐐃"
+    },
+    {
+      "source": 66604,
+      "replacement": "𐐄"
+    },
+    {
+      "source": 66605,
+      "replacement": "𐐅"
+    },
+    {
+      "source": 66606,
+      "replacement": "𐐆"
+    },
+    {
+      "source": 66607,
+      "replacement": "𐐇"
+    },
+    {
+      "source": 66608,
+      "replacement": "𐐈"
+    },
+    {
+      "source": 66609,
+      "replacement": "𐐉"
+    },
+    {
+      "source": 66610,
+      "replacement": "𐐊"
+    },
+    {
+      "source": 66611,
+      "replacement": "𐐋"
+    },
+    {
+      "source": 66612,
+      "replacement": "𐐌"
+    },
+    {
+      "source": 66613,
+      "replacement": "𐐍"
+    },
+    {
+      "source": 66614,
+      "replacement": "𐐎"
+    },
+    {
+      "source": 66615,
+      "replacement": "𐐏"
+    },
+    {
+      "source": 66616,
+      "replacement": "𐐐"
+    },
+    {
+      "source": 66617,
+      "replacement": "𐐑"
+    },
+    {
+      "source": 66618,
+      "replacement": "𐐒"
+    },
+    {
+      "source": 66619,
+      "replacement": "𐐓"
+    },
+    {
+      "source": 66620,
+      "replacement": "𐐔"
+    },
+    {
+      "source": 66621,
+      "replacement": "𐐕"
+    },
+    {
+      "source": 66622,
+      "replacement": "𐐖"
+    },
+    {
+      "source": 66623,
+      "replacement": "𐐗"
+    },
+    {
+      "source": 66624,
+      "replacement": "𐐘"
+    },
+    {
+      "source": 66625,
+      "replacement": "𐐙"
+    },
+    {
+      "source": 66626,
+      "replacement": "𐐚"
+    },
+    {
+      "source": 66627,
+      "replacement": "𐐛"
+    },
+    {
+      "source": 66628,
+      "replacement": "𐐜"
+    },
+    {
+      "source": 66629,
+      "replacement": "𐐝"
+    },
+    {
+      "source": 66630,
+      "replacement": "𐐞"
+    },
+    {
+      "source": 66631,
+      "replacement": "𐐟"
+    },
+    {
+      "source": 66632,
+      "replacement": "𐐠"
+    },
+    {
+      "source": 66633,
+      "replacement": "𐐡"
+    },
+    {
+      "source": 66634,
+      "replacement": "𐐢"
+    },
+    {
+      "source": 66635,
+      "replacement": "𐐣"
+    },
+    {
+      "source": 66636,
+      "replacement": "𐐤"
+    },
+    {
+      "source": 66637,
+      "replacement": "𐐥"
+    },
+    {
+      "source": 66638,
+      "replacement": "𐐦"
+    },
+    {
+      "source": 66639,
+      "replacement": "𐐧"
+    },
+    {
+      "source": 66776,
+      "replacement": "𐒰"
+    },
+    {
+      "source": 66777,
+      "replacement": "𐒱"
+    },
+    {
+      "source": 66778,
+      "replacement": "𐒲"
+    },
+    {
+      "source": 66779,
+      "replacement": "𐒳"
+    },
+    {
+      "source": 66780,
+      "replacement": "𐒴"
+    },
+    {
+      "source": 66781,
+      "replacement": "𐒵"
+    },
+    {
+      "source": 66782,
+      "replacement": "𐒶"
+    },
+    {
+      "source": 66783,
+      "replacement": "𐒷"
+    },
+    {
+      "source": 66784,
+      "replacement": "𐒸"
+    },
+    {
+      "source": 66785,
+      "replacement": "𐒹"
+    },
+    {
+      "source": 66786,
+      "replacement": "𐒺"
+    },
+    {
+      "source": 66787,
+      "replacement": "𐒻"
+    },
+    {
+      "source": 66788,
+      "replacement": "𐒼"
+    },
+    {
+      "source": 66789,
+      "replacement": "𐒽"
+    },
+    {
+      "source": 66790,
+      "replacement": "𐒾"
+    },
+    {
+      "source": 66791,
+      "replacement": "𐒿"
+    },
+    {
+      "source": 66792,
+      "replacement": "𐓀"
+    },
+    {
+      "source": 66793,
+      "replacement": "𐓁"
+    },
+    {
+      "source": 66794,
+      "replacement": "𐓂"
+    },
+    {
+      "source": 66795,
+      "replacement": "𐓃"
+    },
+    {
+      "source": 66796,
+      "replacement": "𐓄"
+    },
+    {
+      "source": 66797,
+      "replacement": "𐓅"
+    },
+    {
+      "source": 66798,
+      "replacement": "𐓆"
+    },
+    {
+      "source": 66799,
+      "replacement": "𐓇"
+    },
+    {
+      "source": 66800,
+      "replacement": "𐓈"
+    },
+    {
+      "source": 66801,
+      "replacement": "𐓉"
+    },
+    {
+      "source": 66802,
+      "replacement": "𐓊"
+    },
+    {
+      "source": 66803,
+      "replacement": "𐓋"
+    },
+    {
+      "source": 66804,
+      "replacement": "𐓌"
+    },
+    {
+      "source": 66805,
+      "replacement": "𐓍"
+    },
+    {
+      "source": 66806,
+      "replacement": "𐓎"
+    },
+    {
+      "source": 66807,
+      "replacement": "𐓏"
+    },
+    {
+      "source": 66808,
+      "replacement": "𐓐"
+    },
+    {
+      "source": 66809,
+      "replacement": "𐓑"
+    },
+    {
+      "source": 66810,
+      "replacement": "𐓒"
+    },
+    {
+      "source": 66811,
+      "replacement": "𐓓"
+    },
+    {
+      "source": 66967,
+      "replacement": "𐕰"
+    },
+    {
+      "source": 66968,
+      "replacement": "𐕱"
+    },
+    {
+      "source": 66969,
+      "replacement": "𐕲"
+    },
+    {
+      "source": 66970,
+      "replacement": "𐕳"
+    },
+    {
+      "source": 66971,
+      "replacement": "𐕴"
+    },
+    {
+      "source": 66972,
+      "replacement": "𐕵"
+    },
+    {
+      "source": 66973,
+      "replacement": "𐕶"
+    },
+    {
+      "source": 66974,
+      "replacement": "𐕷"
+    },
+    {
+      "source": 66975,
+      "replacement": "𐕸"
+    },
+    {
+      "source": 66976,
+      "replacement": "𐕹"
+    },
+    {
+      "source": 66977,
+      "replacement": "𐕺"
+    },
+    {
+      "source": 66979,
+      "replacement": "𐕼"
+    },
+    {
+      "source": 66980,
+      "replacement": "𐕽"
+    },
+    {
+      "source": 66981,
+      "replacement": "𐕾"
+    },
+    {
+      "source": 66982,
+      "replacement": "𐕿"
+    },
+    {
+      "source": 66983,
+      "replacement": "𐖀"
+    },
+    {
+      "source": 66984,
+      "replacement": "𐖁"
+    },
+    {
+      "source": 66985,
+      "replacement": "𐖂"
+    },
+    {
+      "source": 66986,
+      "replacement": "𐖃"
+    },
+    {
+      "source": 66987,
+      "replacement": "𐖄"
+    },
+    {
+      "source": 66988,
+      "replacement": "𐖅"
+    },
+    {
+      "source": 66989,
+      "replacement": "𐖆"
+    },
+    {
+      "source": 66990,
+      "replacement": "𐖇"
+    },
+    {
+      "source": 66991,
+      "replacement": "𐖈"
+    },
+    {
+      "source": 66992,
+      "replacement": "𐖉"
+    },
+    {
+      "source": 66993,
+      "replacement": "𐖊"
+    },
+    {
+      "source": 66995,
+      "replacement": "𐖌"
+    },
+    {
+      "source": 66996,
+      "replacement": "𐖍"
+    },
+    {
+      "source": 66997,
+      "replacement": "𐖎"
+    },
+    {
+      "source": 66998,
+      "replacement": "𐖏"
+    },
+    {
+      "source": 66999,
+      "replacement": "𐖐"
+    },
+    {
+      "source": 67000,
+      "replacement": "𐖑"
+    },
+    {
+      "source": 67001,
+      "replacement": "𐖒"
+    },
+    {
+      "source": 67003,
+      "replacement": "𐖔"
+    },
+    {
+      "source": 67004,
+      "replacement": "𐖕"
+    },
+    {
+      "source": 68800,
+      "replacement": "𐲀"
+    },
+    {
+      "source": 68801,
+      "replacement": "𐲁"
+    },
+    {
+      "source": 68802,
+      "replacement": "𐲂"
+    },
+    {
+      "source": 68803,
+      "replacement": "𐲃"
+    },
+    {
+      "source": 68804,
+      "replacement": "𐲄"
+    },
+    {
+      "source": 68805,
+      "replacement": "𐲅"
+    },
+    {
+      "source": 68806,
+      "replacement": "𐲆"
+    },
+    {
+      "source": 68807,
+      "replacement": "𐲇"
+    },
+    {
+      "source": 68808,
+      "replacement": "𐲈"
+    },
+    {
+      "source": 68809,
+      "replacement": "𐲉"
+    },
+    {
+      "source": 68810,
+      "replacement": "𐲊"
+    },
+    {
+      "source": 68811,
+      "replacement": "𐲋"
+    },
+    {
+      "source": 68812,
+      "replacement": "𐲌"
+    },
+    {
+      "source": 68813,
+      "replacement": "𐲍"
+    },
+    {
+      "source": 68814,
+      "replacement": "𐲎"
+    },
+    {
+      "source": 68815,
+      "replacement": "𐲏"
+    },
+    {
+      "source": 68816,
+      "replacement": "𐲐"
+    },
+    {
+      "source": 68817,
+      "replacement": "𐲑"
+    },
+    {
+      "source": 68818,
+      "replacement": "𐲒"
+    },
+    {
+      "source": 68819,
+      "replacement": "𐲓"
+    },
+    {
+      "source": 68820,
+      "replacement": "𐲔"
+    },
+    {
+      "source": 68821,
+      "replacement": "𐲕"
+    },
+    {
+      "source": 68822,
+      "replacement": "𐲖"
+    },
+    {
+      "source": 68823,
+      "replacement": "𐲗"
+    },
+    {
+      "source": 68824,
+      "replacement": "𐲘"
+    },
+    {
+      "source": 68825,
+      "replacement": "𐲙"
+    },
+    {
+      "source": 68826,
+      "replacement": "𐲚"
+    },
+    {
+      "source": 68827,
+      "replacement": "𐲛"
+    },
+    {
+      "source": 68828,
+      "replacement": "𐲜"
+    },
+    {
+      "source": 68829,
+      "replacement": "𐲝"
+    },
+    {
+      "source": 68830,
+      "replacement": "𐲞"
+    },
+    {
+      "source": 68831,
+      "replacement": "𐲟"
+    },
+    {
+      "source": 68832,
+      "replacement": "𐲠"
+    },
+    {
+      "source": 68833,
+      "replacement": "𐲡"
+    },
+    {
+      "source": 68834,
+      "replacement": "𐲢"
+    },
+    {
+      "source": 68835,
+      "replacement": "𐲣"
+    },
+    {
+      "source": 68836,
+      "replacement": "𐲤"
+    },
+    {
+      "source": 68837,
+      "replacement": "𐲥"
+    },
+    {
+      "source": 68838,
+      "replacement": "𐲦"
+    },
+    {
+      "source": 68839,
+      "replacement": "𐲧"
+    },
+    {
+      "source": 68840,
+      "replacement": "𐲨"
+    },
+    {
+      "source": 68841,
+      "replacement": "𐲩"
+    },
+    {
+      "source": 68842,
+      "replacement": "𐲪"
+    },
+    {
+      "source": 68843,
+      "replacement": "𐲫"
+    },
+    {
+      "source": 68844,
+      "replacement": "𐲬"
+    },
+    {
+      "source": 68845,
+      "replacement": "𐲭"
+    },
+    {
+      "source": 68846,
+      "replacement": "𐲮"
+    },
+    {
+      "source": 68847,
+      "replacement": "𐲯"
+    },
+    {
+      "source": 68848,
+      "replacement": "𐲰"
+    },
+    {
+      "source": 68849,
+      "replacement": "𐲱"
+    },
+    {
+      "source": 68850,
+      "replacement": "𐲲"
+    },
+    {
+      "source": 68976,
+      "replacement": "𐵐"
+    },
+    {
+      "source": 68977,
+      "replacement": "𐵑"
+    },
+    {
+      "source": 68978,
+      "replacement": "𐵒"
+    },
+    {
+      "source": 68979,
+      "replacement": "𐵓"
+    },
+    {
+      "source": 68980,
+      "replacement": "𐵔"
+    },
+    {
+      "source": 68981,
+      "replacement": "𐵕"
+    },
+    {
+      "source": 68982,
+      "replacement": "𐵖"
+    },
+    {
+      "source": 68983,
+      "replacement": "𐵗"
+    },
+    {
+      "source": 68984,
+      "replacement": "𐵘"
+    },
+    {
+      "source": 68985,
+      "replacement": "𐵙"
+    },
+    {
+      "source": 68986,
+      "replacement": "𐵚"
+    },
+    {
+      "source": 68987,
+      "replacement": "𐵛"
+    },
+    {
+      "source": 68988,
+      "replacement": "𐵜"
+    },
+    {
+      "source": 68989,
+      "replacement": "𐵝"
+    },
+    {
+      "source": 68990,
+      "replacement": "𐵞"
+    },
+    {
+      "source": 68991,
+      "replacement": "𐵟"
+    },
+    {
+      "source": 68992,
+      "replacement": "𐵠"
+    },
+    {
+      "source": 68993,
+      "replacement": "𐵡"
+    },
+    {
+      "source": 68994,
+      "replacement": "𐵢"
+    },
+    {
+      "source": 68995,
+      "replacement": "𐵣"
+    },
+    {
+      "source": 68996,
+      "replacement": "𐵤"
+    },
+    {
+      "source": 68997,
+      "replacement": "𐵥"
+    },
+    {
+      "source": 71872,
+      "replacement": "𑢠"
+    },
+    {
+      "source": 71873,
+      "replacement": "𑢡"
+    },
+    {
+      "source": 71874,
+      "replacement": "𑢢"
+    },
+    {
+      "source": 71875,
+      "replacement": "𑢣"
+    },
+    {
+      "source": 71876,
+      "replacement": "𑢤"
+    },
+    {
+      "source": 71877,
+      "replacement": "𑢥"
+    },
+    {
+      "source": 71878,
+      "replacement": "𑢦"
+    },
+    {
+      "source": 71879,
+      "replacement": "𑢧"
+    },
+    {
+      "source": 71880,
+      "replacement": "𑢨"
+    },
+    {
+      "source": 71881,
+      "replacement": "𑢩"
+    },
+    {
+      "source": 71882,
+      "replacement": "𑢪"
+    },
+    {
+      "source": 71883,
+      "replacement": "𑢫"
+    },
+    {
+      "source": 71884,
+      "replacement": "𑢬"
+    },
+    {
+      "source": 71885,
+      "replacement": "𑢭"
+    },
+    {
+      "source": 71886,
+      "replacement": "𑢮"
+    },
+    {
+      "source": 71887,
+      "replacement": "𑢯"
+    },
+    {
+      "source": 71888,
+      "replacement": "𑢰"
+    },
+    {
+      "source": 71889,
+      "replacement": "𑢱"
+    },
+    {
+      "source": 71890,
+      "replacement": "𑢲"
+    },
+    {
+      "source": 71891,
+      "replacement": "𑢳"
+    },
+    {
+      "source": 71892,
+      "replacement": "𑢴"
+    },
+    {
+      "source": 71893,
+      "replacement": "𑢵"
+    },
+    {
+      "source": 71894,
+      "replacement": "𑢶"
+    },
+    {
+      "source": 71895,
+      "replacement": "𑢷"
+    },
+    {
+      "source": 71896,
+      "replacement": "𑢸"
+    },
+    {
+      "source": 71897,
+      "replacement": "𑢹"
+    },
+    {
+      "source": 71898,
+      "replacement": "𑢺"
+    },
+    {
+      "source": 71899,
+      "replacement": "𑢻"
+    },
+    {
+      "source": 71900,
+      "replacement": "𑢼"
+    },
+    {
+      "source": 71901,
+      "replacement": "𑢽"
+    },
+    {
+      "source": 71902,
+      "replacement": "𑢾"
+    },
+    {
+      "source": 71903,
+      "replacement": "𑢿"
+    },
+    {
+      "source": 93792,
+      "replacement": "𖹀"
+    },
+    {
+      "source": 93793,
+      "replacement": "𖹁"
+    },
+    {
+      "source": 93794,
+      "replacement": "𖹂"
+    },
+    {
+      "source": 93795,
+      "replacement": "𖹃"
+    },
+    {
+      "source": 93796,
+      "replacement": "𖹄"
+    },
+    {
+      "source": 93797,
+      "replacement": "𖹅"
+    },
+    {
+      "source": 93798,
+      "replacement": "𖹆"
+    },
+    {
+      "source": 93799,
+      "replacement": "𖹇"
+    },
+    {
+      "source": 93800,
+      "replacement": "𖹈"
+    },
+    {
+      "source": 93801,
+      "replacement": "𖹉"
+    },
+    {
+      "source": 93802,
+      "replacement": "𖹊"
+    },
+    {
+      "source": 93803,
+      "replacement": "𖹋"
+    },
+    {
+      "source": 93804,
+      "replacement": "𖹌"
+    },
+    {
+      "source": 93805,
+      "replacement": "𖹍"
+    },
+    {
+      "source": 93806,
+      "replacement": "𖹎"
+    },
+    {
+      "source": 93807,
+      "replacement": "𖹏"
+    },
+    {
+      "source": 93808,
+      "replacement": "𖹐"
+    },
+    {
+      "source": 93809,
+      "replacement": "𖹑"
+    },
+    {
+      "source": 93810,
+      "replacement": "𖹒"
+    },
+    {
+      "source": 93811,
+      "replacement": "𖹓"
+    },
+    {
+      "source": 93812,
+      "replacement": "𖹔"
+    },
+    {
+      "source": 93813,
+      "replacement": "𖹕"
+    },
+    {
+      "source": 93814,
+      "replacement": "𖹖"
+    },
+    {
+      "source": 93815,
+      "replacement": "𖹗"
+    },
+    {
+      "source": 93816,
+      "replacement": "𖹘"
+    },
+    {
+      "source": 93817,
+      "replacement": "𖹙"
+    },
+    {
+      "source": 93818,
+      "replacement": "𖹚"
+    },
+    {
+      "source": 93819,
+      "replacement": "𖹛"
+    },
+    {
+      "source": 93820,
+      "replacement": "𖹜"
+    },
+    {
+      "source": 93821,
+      "replacement": "𖹝"
+    },
+    {
+      "source": 93822,
+      "replacement": "𖹞"
+    },
+    {
+      "source": 93823,
+      "replacement": "𖹟"
+    },
+    {
+      "source": 93883,
+      "replacement": "𖺠"
+    },
+    {
+      "source": 93884,
+      "replacement": "𖺡"
+    },
+    {
+      "source": 93885,
+      "replacement": "𖺢"
+    },
+    {
+      "source": 93886,
+      "replacement": "𖺣"
+    },
+    {
+      "source": 93887,
+      "replacement": "𖺤"
+    },
+    {
+      "source": 93888,
+      "replacement": "𖺥"
+    },
+    {
+      "source": 93889,
+      "replacement": "𖺦"
+    },
+    {
+      "source": 93890,
+      "replacement": "𖺧"
+    },
+    {
+      "source": 93891,
+      "replacement": "𖺨"
+    },
+    {
+      "source": 93892,
+      "replacement": "𖺩"
+    },
+    {
+      "source": 93893,
+      "replacement": "𖺪"
+    },
+    {
+      "source": 93894,
+      "replacement": "𖺫"
+    },
+    {
+      "source": 93895,
+      "replacement": "𖺬"
+    },
+    {
+      "source": 93896,
+      "replacement": "𖺭"
+    },
+    {
+      "source": 93897,
+      "replacement": "𖺮"
+    },
+    {
+      "source": 93898,
+      "replacement": "𖺯"
+    },
+    {
+      "source": 93899,
+      "replacement": "𖺰"
+    },
+    {
+      "source": 93900,
+      "replacement": "𖺱"
+    },
+    {
+      "source": 93901,
+      "replacement": "𖺲"
+    },
+    {
+      "source": 93902,
+      "replacement": "𖺳"
+    },
+    {
+      "source": 93903,
+      "replacement": "𖺴"
+    },
+    {
+      "source": 93904,
+      "replacement": "𖺵"
+    },
+    {
+      "source": 93905,
+      "replacement": "𖺶"
+    },
+    {
+      "source": 93906,
+      "replacement": "𖺷"
+    },
+    {
+      "source": 93907,
+      "replacement": "𖺸"
+    },
+    {
+      "source": 125218,
+      "replacement": "𞤀"
+    },
+    {
+      "source": 125219,
+      "replacement": "𞤁"
+    },
+    {
+      "source": 125220,
+      "replacement": "𞤂"
+    },
+    {
+      "source": 125221,
+      "replacement": "𞤃"
+    },
+    {
+      "source": 125222,
+      "replacement": "𞤄"
+    },
+    {
+      "source": 125223,
+      "replacement": "𞤅"
+    },
+    {
+      "source": 125224,
+      "replacement": "𞤆"
+    },
+    {
+      "source": 125225,
+      "replacement": "𞤇"
+    },
+    {
+      "source": 125226,
+      "replacement": "𞤈"
+    },
+    {
+      "source": 125227,
+      "replacement": "𞤉"
+    },
+    {
+      "source": 125228,
+      "replacement": "𞤊"
+    },
+    {
+      "source": 125229,
+      "replacement": "𞤋"
+    },
+    {
+      "source": 125230,
+      "replacement": "𞤌"
+    },
+    {
+      "source": 125231,
+      "replacement": "𞤍"
+    },
+    {
+      "source": 125232,
+      "replacement": "𞤎"
+    },
+    {
+      "source": 125233,
+      "replacement": "𞤏"
+    },
+    {
+      "source": 125234,
+      "replacement": "𞤐"
+    },
+    {
+      "source": 125235,
+      "replacement": "𞤑"
+    },
+    {
+      "source": 125236,
+      "replacement": "𞤒"
+    },
+    {
+      "source": 125237,
+      "replacement": "𞤓"
+    },
+    {
+      "source": 125238,
+      "replacement": "𞤔"
+    },
+    {
+      "source": 125239,
+      "replacement": "𞤕"
+    },
+    {
+      "source": 125240,
+      "replacement": "𞤖"
+    },
+    {
+      "source": 125241,
+      "replacement": "𞤗"
+    },
+    {
+      "source": 125242,
+      "replacement": "𞤘"
+    },
+    {
+      "source": 125243,
+      "replacement": "𞤙"
+    },
+    {
+      "source": 125244,
+      "replacement": "𞤚"
+    },
+    {
+      "source": 125245,
+      "replacement": "𞤛"
+    },
+    {
+      "source": 125246,
+      "replacement": "𞤜"
+    },
+    {
+      "source": 125247,
+      "replacement": "𞤝"
+    },
+    {
+      "source": 125248,
+      "replacement": "𞤞"
+    },
+    {
+      "source": 125249,
+      "replacement": "𞤟"
+    },
+    {
+      "source": 125250,
+      "replacement": "𞤠"
+    },
+    {
+      "source": 125251,
+      "replacement": "𞤡"
+    }
+  ]
+}
