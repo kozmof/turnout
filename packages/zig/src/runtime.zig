@@ -131,9 +131,31 @@ pub const Runtime = struct {
     }
 
     pub fn enforcePublishPolicy(self: *const Runtime, fail_on_error: bool) RuntimeError!void {
+        return self.enforcePublishPolicyFor(null, null, fail_on_error);
+    }
+
+    pub fn enforceActionPublishPolicy(
+        self: *const Runtime,
+        scene_id: []const u8,
+        action_id: []const u8,
+        fail_on_error: bool,
+    ) RuntimeError!void {
+        return self.enforcePublishPolicyFor(scene_id, action_id, fail_on_error);
+    }
+
+    fn enforcePublishPolicyFor(
+        self: *const Runtime,
+        scene_id: ?[]const u8,
+        action_id: ?[]const u8,
+        fail_on_error: bool,
+    ) RuntimeError!void {
         if (!fail_on_error) return;
         for (self.completed.items) |item| {
             if (item.result != .publish) continue;
+            if (scene_id) |wanted|
+                if (!std.mem.eql(u8, item.request.scene_id, wanted)) continue;
+            if (action_id) |wanted|
+                if (!std.mem.eql(u8, item.request.action_id, wanted)) continue;
             if (item.result.publish == .failed) return error.PublishHookFailed;
         }
     }
@@ -430,4 +452,42 @@ test "resumed prepare effect feeds model action compute" {
     );
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
+}
+
+test "strict publish policy is action scoped and preserves merged state" {
+    const model_runtime = @import("model.zig");
+    const state_runtime = @import("state.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"current","actions":[{
+        \\"id":"current","compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"result","type":"number","value":7}
+        \\]}},"merge":[{"binding":"result","toState":"result.value"}],
+        \\"publish":["save"]
+        \\}]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var action_result = try model.executeAction("main", "current", &state, std.testing.allocator);
+    defer action_result.deinit(std.testing.allocator);
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .publish, .hook = "old", .scene_id = "main", .action_id = "previous", .callback_index = 0 },
+        .{ .kind = .publish, .hook = "save", .scene_id = "main", .action_id = "current", .callback_index = 0 },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const previous = (try runtime.step()).need_effect;
+    try runtime.@"resume"(previous.id, .{ .publish = .{ .failed = "old failure" } });
+    try runtime.enforceActionPublishPolicy("main", "current", true);
+    const current = (try runtime.step()).need_effect;
+    try runtime.@"resume"(current.id, .{ .publish = .{ .failed = "current failure" } });
+    try std.testing.expectError(
+        error.PublishHookFailed,
+        runtime.enforceActionPublishPolicy("main", "current", true),
+    );
+    var committed = try action_result.state_after_merge.read("result.value", std.testing.allocator);
+    defer committed.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 7), committed.value.number);
 }
