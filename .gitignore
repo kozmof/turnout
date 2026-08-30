@@ -8,6 +8,8 @@
 .pnpm-store
 .npm-cache
 .go-cache
+.zig-cache
+.zig-global-cache
 .claude
 .buf-cache
 .tools
