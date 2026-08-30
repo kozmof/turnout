@@ -74,6 +74,21 @@ pub const RuntimeModel = struct {
         return self.parsed.value.object;
     }
 
+    pub fn sceneEntryAction(self: *const RuntimeModel, scene_id: []const u8) ![]const u8 {
+        const scenes = self.root().get("scenes") orelse return error.SceneNotFound;
+        if (scenes != .array) return error.SceneNotFound;
+        for (scenes.array.items) |scene| {
+            if (scene != .object) continue;
+            const id = scene.object.get("id") orelse continue;
+            if (id != .string or !std.mem.eql(u8, id.string, scene_id)) continue;
+            const entry = scene.object.get("entryAction") orelse return error.NoEntryAction;
+            if (entry != .string or entry.string.len == 0) return error.NoEntryAction;
+            if (self.findAction(scene_id, entry.string) == null) return error.ActionNotFound;
+            return entry.string;
+        }
+        return error.SceneNotFound;
+    }
+
     pub fn executeActionCompute(
         self: *const RuntimeModel,
         scene_id: []const u8,

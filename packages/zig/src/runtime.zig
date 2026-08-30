@@ -531,6 +531,71 @@ pub const ActionDriver = struct {
     }
 };
 
+pub const SceneDriver = struct {
+    action: ActionDriver,
+    advance_pending: bool = false,
+    finished: bool = false,
+    cancelled: bool = false,
+
+    pub fn init(
+        allocator: std.mem.Allocator,
+        model: anytype,
+        scene_id: []const u8,
+        initial_state: *const state_runtime.State,
+    ) !SceneDriver {
+        const entry = try model.sceneEntryAction(scene_id);
+        return .{ .action = try ActionDriver.init(
+            allocator,
+            model,
+            scene_id,
+            entry,
+            initial_state,
+        ) };
+    }
+
+    pub fn deinit(self: *SceneDriver) void {
+        self.action.deinit();
+        self.* = undefined;
+    }
+
+    pub fn step(
+        self: *SceneDriver,
+        model: anytype,
+        fail_on_publish_error: bool,
+    ) anyerror!Event {
+        if (self.finished) return if (self.cancelled) .cancelled else .complete;
+        if (self.advance_pending) {
+            if (!try self.action.beginNextAction(model)) {
+                self.finished = true;
+                return .complete;
+            }
+            self.advance_pending = false;
+        }
+        const event = try self.action.step(model, fail_on_publish_error);
+        switch (event) {
+            .action_complete => self.advance_pending = true,
+            .cancelled => {
+                self.finished = true;
+                self.cancelled = true;
+            },
+            else => {},
+        }
+        return event;
+    }
+
+    pub fn @"resume"(self: *SceneDriver, id: u64, result: effect.Result) RuntimeError!void {
+        return self.action.@"resume"(id, result);
+    }
+
+    pub fn cancel(self: *SceneDriver) void {
+        self.action.runtime.cancel();
+    }
+
+    pub fn partialState(self: *const SceneDriver) *const state_runtime.State {
+        return self.action.partialState();
+    }
+};
+
 fn putPreparedValue(
     prepared: *PreparedValues,
     binding: []const u8,
@@ -1111,4 +1176,56 @@ test "action driver yields effects and commits completion state" {
     defer second_state.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 9), second_state.value.number);
     try std.testing.expect(!(try driver.beginNextAction(&model)));
+}
+
+test "scene driver follows entry and next actions through effects" {
+    const model_runtime = @import("model.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
+        \\{"id":"first","prepare":[{"binding":"input","fromHook":"load"}],
+        \\"compute":{"root":"input","prog":{"bindings":[{"name":"input","type":"number"}]}},
+        \\"merge":[{"binding":"input","toState":"result.value"}],
+        \\"next":[{"action":"second"}]},
+        \\{"id":"second","compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"result","type":"number","value":8}
+        \\]}},"merge":[{"binding":"result","toState":"result.value"}]}
+        \\]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var initial = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer initial.deinit(std.testing.allocator);
+    var driver = try SceneDriver.init(std.testing.allocator, &model, "main", &initial);
+    defer driver.deinit();
+    const prepare = (try driver.step(&model, true)).need_effect;
+    try driver.@"resume"(prepare.id, .{ .prepare = .{ .ok = "{\"input\":{\"symbol\":\"number\",\"value\":4,\"tags\":[]}}" } });
+    const first = (try driver.step(&model, true)).action_complete;
+    try std.testing.expectEqualStrings("first", first.action_id);
+    const second = (try driver.step(&model, true)).action_complete;
+    try std.testing.expectEqualStrings("second", second.action_id);
+    try std.testing.expect((try driver.step(&model, true)) == .complete);
+    try std.testing.expect((try driver.step(&model, true)) == .complete);
+    var final_state = try driver.partialState().read("result.value", std.testing.allocator);
+    defer final_state.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 8), final_state.value.number);
+}
+
+test "scene driver cancellation is terminal and stable" {
+    const model_runtime = @import("model.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[
+        \\{"id":"start","publish":["save"]}
+        \\]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var initial = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer initial.deinit(std.testing.allocator);
+    var driver = try SceneDriver.init(std.testing.allocator, &model, "main", &initial);
+    defer driver.deinit();
+    driver.cancel();
+    try std.testing.expect((try driver.step(&model, false)) == .cancelled);
+    try std.testing.expect((try driver.step(&model, false)) == .cancelled);
 }
