@@ -497,6 +497,17 @@ pub const ActionDriver = struct {
         return self.runtime.@"resume"(id, result);
     }
 
+    pub fn beginAction(self: *ActionDriver, model: anytype, action_id: []const u8) !void {
+        if (!self.completion_emitted) return error.ActionInProgress;
+        try self.runtime.beginAction(model, self.scene_id, action_id);
+        if (self.publish_outcomes) |*outcomes| outcomes.deinit(self.allocator);
+        self.publish_outcomes = null;
+        if (self.action_result) |*result| result.deinit(self.allocator);
+        self.action_result = null;
+        self.action_id = action_id;
+        self.completion_emitted = false;
+    }
+
     pub fn partialState(self: *const ActionDriver) *const state_runtime.State {
         if (!self.completion_emitted) {
             if (self.action_result) |*result| return &result.state_after_merge;
@@ -808,6 +819,11 @@ test "one prepare hook response feeds multiple action bindings" {
         \\}}}
         \\]}},"merge":[{"binding":"result","toState":"result.value"}],
         \\"publish":["save"]
+        \\},{
+        \\"id":"second","compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"result","type":"number","value":9}
+        \\]}},"merge":[{"binding":"result","toState":"result.value"}],
+        \\"publish":["save_second"]
         \\}]}]}
     ;
     var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
@@ -1030,6 +1046,11 @@ test "action driver yields effects and commits completion state" {
         \\}}}
         \\]}},"merge":[{"binding":"result","toState":"result.value"}],
         \\"publish":["save"]
+        \\},{
+        \\"id":"second","compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"result","type":"number","value":9}
+        \\]}},"merge":[{"binding":"result","toState":"result.value"}],
+        \\"publish":["save_second"]
         \\}]}]}
     ;
     var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
@@ -1059,4 +1080,19 @@ test "action driver yields effects and commits completion state" {
     defer committed.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 5), committed.value.number);
     try std.testing.expect((try driver.step(&model, true)) == .complete);
+
+    try driver.beginAction(&model, "second");
+    const second_publish = (try driver.step(&model, true)).need_effect;
+    try std.testing.expectEqual(@as(u64, 3), second_publish.id);
+    try std.testing.expectEqualStrings("save_second", second_publish.hook);
+    try std.testing.expectEqualStrings(
+        "{\"result.value\":{\"symbol\":\"number\",\"value\":9,\"tags\":[]}}",
+        second_publish.context_json,
+    );
+    try driver.@"resume"(second_publish.id, .{ .publish = .ok });
+    const second_complete = (try driver.step(&model, true)).action_complete;
+    try std.testing.expectEqualStrings("second", second_complete.action_id);
+    var second_state = try driver.partialState().read("result.value", std.testing.allocator);
+    defer second_state.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 9), second_state.value.number);
 }
