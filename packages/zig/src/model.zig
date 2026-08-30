@@ -1,5 +1,6 @@
 const std = @import("std");
 const compute_runtime = @import("compute.zig");
+const turnout_value = @import("value.zig");
 
 pub const current_version: u32 = 2;
 pub const Limits = struct {
@@ -37,6 +38,39 @@ pub const RuntimeModel = struct {
 
     pub fn root(self: *const RuntimeModel) std.json.ObjectMap {
         return self.parsed.value.object;
+    }
+
+    pub fn executeActionCompute(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        inputs: *const std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue),
+        allocator: std.mem.Allocator,
+    ) !turnout_value.OwnedTaggedValue {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        const action_compute = action.get("compute") orelse return turnout_value.buildNull(.missing, &.{}, allocator);
+        if (action_compute != .object or !action_compute.object.contains("prog"))
+            return turnout_value.buildNull(.missing, &.{}, allocator);
+        return compute_runtime.executeJson(action_compute, inputs, allocator);
+    }
+
+    fn findAction(self: *const RuntimeModel, scene_id: []const u8, action_id: []const u8) ?std.json.ObjectMap {
+        const scenes = self.root().get("scenes") orelse return null;
+        if (scenes != .array) return null;
+        for (scenes.array.items) |scene| {
+            if (scene != .object) continue;
+            const id = scene.object.get("id") orelse continue;
+            if (id != .string or !std.mem.eql(u8, id.string, scene_id)) continue;
+            const actions = scene.object.get("actions") orelse return null;
+            if (actions != .array) return null;
+            for (actions.array.items) |action| {
+                if (action != .object) continue;
+                const candidate = action.object.get("id") orelse continue;
+                if (candidate == .string and std.mem.eql(u8, candidate.string, action_id)) return action.object;
+            }
+            return null;
+        }
+        return null;
     }
 };
 
@@ -306,4 +340,29 @@ test "runtime model validates action and next-rule compute programs" {
         "{\"version\":2,\"scenes\":[{\"actions\":[{\"compute\":{},\"next\":[{\"compute\":{}}]}]}]}",
         .{},
     );
+}
+
+test "runtime model executes action compute and handles absent compute" {
+    const fixture =
+        \\{"version":2,"scenes":[{"id":"scene","actions":[
+        \\  {"id":"computed","compute":{"root":"result","prog":{"bindings":[
+        \\    {"name":"input","type":"number"},
+        \\    {"name":"result","type":"number","expr":{"combine":{"fn":"add","args":[{"ref":"input"},{"lit":1}]}}}
+        \\  ]}}},
+        \\  {"id":"noop"}
+        \\]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    var inputs: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    defer inputs.deinit(std.testing.allocator);
+    try inputs.put(std.testing.allocator, "input", .{ .value = .{ .number = 4 }, .tags = &.{"prepared"} });
+    var computed = try model.executeActionCompute("scene", "computed", &inputs, std.testing.allocator);
+    defer computed.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 5), computed.value.number);
+    try std.testing.expectEqualSlices([]const u8, &.{"prepared"}, computed.tags);
+    var noop = try model.executeActionCompute("scene", "noop", &inputs, std.testing.allocator);
+    defer noop.deinit(std.testing.allocator);
+    try std.testing.expectEqual(turnout_value.NullReason.missing, noop.value.null_value);
+    try std.testing.expectError(error.ActionNotFound, model.executeActionCompute("scene", "missing", &inputs, std.testing.allocator));
 }

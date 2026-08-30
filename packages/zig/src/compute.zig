@@ -56,32 +56,40 @@ pub const LoadedCompute = struct {
         inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
         allocator: std.mem.Allocator,
     ) !value.OwnedTaggedValue {
-        var values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
-        defer deinitValues(&values, allocator);
-
-        for (self.bindings()) |binding| {
-            const object = binding.object;
-            const name = object.get("name").?.string;
-            var result = if (object.get("expr")) |expression|
-                try executeExpression(expression, &values, allocator)
-            else if (inputs.get(name)) |input|
-                try value.build(input.value, input.tags, allocator)
-            else if (object.get("value")) |literal|
-                try ownedJsonValue(literal, allocator)
-            else
-                return error.MissingBindingValue;
-            values.put(allocator, name, result) catch |err| {
-                result.deinit(allocator);
-                return err;
-            };
-        }
-
-        const root_name = self.rootName();
-        if (root_name.len == 0) return value.buildNull(.missing, &.{}, allocator);
-        const root = values.getPtr(root_name) orelse return error.MissingRootBinding;
-        return value.build(root.value, root.tags, allocator);
+        return executeJson(self.parsed.value, inputs, allocator);
     }
 };
+
+pub fn executeJson(
+    compute: std.json.Value,
+    inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    allocator: std.mem.Allocator,
+) !value.OwnedTaggedValue {
+    try validate(compute, allocator);
+    var values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
+    defer deinitValues(&values, allocator);
+    const bindings = compute.object.get("prog").?.object.get("bindings").?.array.items;
+    for (bindings) |binding| {
+        const object = binding.object;
+        const name = object.get("name").?.string;
+        var result = if (object.get("expr")) |expression|
+            try executeExpression(expression, &values, allocator)
+        else if (inputs.get(name)) |input|
+            try value.build(input.value, input.tags, allocator)
+        else if (object.get("value")) |literal|
+            try ownedJsonValue(literal, allocator)
+        else
+            return error.MissingBindingValue;
+        values.put(allocator, name, result) catch |err| {
+            result.deinit(allocator);
+            return err;
+        };
+    }
+    const root_name = if (compute.object.get("root")) |root| root.string else "";
+    if (root_name.len == 0) return value.buildNull(.missing, &.{}, allocator);
+    const root = values.getPtr(root_name) orelse return error.MissingRootBinding;
+    return value.build(root.value, root.tags, allocator);
+}
 
 fn deinitValues(values: *std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue), allocator: std.mem.Allocator) void {
     for (values.values()) |*item| item.deinit(allocator);
