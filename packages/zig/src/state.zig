@@ -7,6 +7,8 @@ pub const StateError = error{
     UnknownPath,
     UnknownSchemaType,
     TypeMismatch,
+    InvalidStateModel,
+    InvalidLiteral,
 };
 
 pub const Declaration = struct {
@@ -54,9 +56,6 @@ pub const State = struct {
         for (declarations) |declaration| {
             try validatePath(declaration.path);
             if (state.schema.?.contains(declaration.path)) continue;
-            if (declaration.schema_type) |schema_type| {
-                _ = try parseSchemaType(schema_type);
-            }
             const path = try allocator.dupe(u8, declaration.path);
             const schema_type = if (declaration.schema_type) |source|
                 allocator.dupe(u8, source) catch |err| {
@@ -72,6 +71,53 @@ pub const State = struct {
         }
         var iterator = initial.iterator();
         while (iterator.next()) |entry| try state.set(entry.key_ptr.*, entry.value_ptr.*, allocator);
+        return state;
+    }
+
+    pub fn initFromModel(
+        state_model: std.json.Value,
+        overrides: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+        allocator: std.mem.Allocator,
+    ) StateError!State {
+        if (state_model != .object) return error.InvalidStateModel;
+        const namespaces = state_model.object.get("namespaces") orelse
+            return State.initStrict(overrides, &.{}, allocator);
+        if (namespaces != .array) return error.InvalidStateModel;
+
+        var state: State = .{ .schema = .empty };
+        errdefer state.deinit(allocator);
+        for (namespaces.array.items) |namespace| {
+            if (namespace != .object) return error.InvalidStateModel;
+            const namespace_name = namespace.object.get("name") orelse return error.InvalidStateModel;
+            if (namespace_name != .string or namespace_name.string.len == 0)
+                return error.InvalidStateModel;
+            const fields = namespace.object.get("fields") orelse continue;
+            if (fields != .array) return error.InvalidStateModel;
+            for (fields.array.items) |field| {
+                if (field != .object) return error.InvalidStateModel;
+                const field_name = field.object.get("name") orelse return error.InvalidStateModel;
+                const schema_type = field.object.get("type") orelse return error.InvalidStateModel;
+                if (field_name != .string or field_name.string.len == 0 or
+                    schema_type != .string or schema_type.string.len == 0)
+                    return error.InvalidStateModel;
+                const path = try std.fmt.allocPrint(allocator, "{s}.{s}", .{
+                    namespace_name.string,
+                    field_name.string,
+                });
+                defer allocator.free(path);
+                try state.addDeclaration(path, schema_type.string, allocator);
+
+                var default_value = if (field.object.get("value")) |literal|
+                    try literalToValue(literal, schema_type.string, allocator)
+                else
+                    try value.buildNull(.missing, &.{}, allocator);
+                defer default_value.deinit(allocator);
+                try state.setOwned(path, default_value.borrowed(), allocator);
+            }
+        }
+        var override_iterator = overrides.iterator();
+        while (override_iterator.next()) |entry|
+            try state.set(entry.key_ptr.*, entry.value_ptr.*, allocator);
         return state;
     }
 
@@ -194,6 +240,15 @@ pub const State = struct {
         allocator: std.mem.Allocator,
     ) StateError!void {
         try self.validateWrite(path, new_value);
+        return self.setOwned(path, new_value, allocator);
+    }
+
+    fn setOwned(
+        self: *State,
+        path: []const u8,
+        new_value: value.TaggedValue,
+        allocator: std.mem.Allocator,
+    ) StateError!void {
         var owned = try value.build(new_value.value, new_value.tags, allocator);
         if (self.entries.getPtr(path)) |existing| {
             existing.deinit(allocator);
@@ -218,6 +273,32 @@ pub const State = struct {
         if (schema_type) |expected| {
             if (!try matchesSchemaType(new_value.value, expected)) return error.TypeMismatch;
         }
+    }
+
+    fn addDeclaration(
+        self: *State,
+        path: []const u8,
+        schema_type: []const u8,
+        allocator: std.mem.Allocator,
+    ) StateError!void {
+        try validatePath(path);
+        const schema = &self.schema.?;
+        if (schema.getPtr(path)) |existing| {
+            const replacement = try allocator.dupe(u8, schema_type);
+            if (existing.*) |previous| allocator.free(previous);
+            existing.* = replacement;
+            return;
+        }
+        const owned_path = try allocator.dupe(u8, path);
+        const owned_type = allocator.dupe(u8, schema_type) catch |err| {
+            allocator.free(owned_path);
+            return err;
+        };
+        schema.put(allocator, owned_path, owned_type) catch |err| {
+            allocator.free(owned_path);
+            allocator.free(owned_type);
+            return err;
+        };
     }
 };
 
@@ -299,6 +380,26 @@ fn parseSchemaType(source: []const u8) StateError!SchemaParser {
 pub fn matchesSchemaType(candidate: value.Value, schema_type: []const u8) StateError!bool {
     const parser = try parseSchemaType(schema_type);
     return matchesNode(candidate, &parser, parser.root_index);
+}
+
+fn literalToValue(
+    literal: std.json.Value,
+    schema_type: []const u8,
+    allocator: std.mem.Allocator,
+) StateError!value.OwnedTaggedValue {
+    if (literal == .null) return value.buildNull(.missing, &.{}, allocator);
+    var converted = value.fromJson(allocator, literal) catch return error.InvalidLiteral;
+    errdefer value.deinitValue(&converted, allocator);
+    if (!try matchesSchemaType(converted, schema_type)) return error.InvalidLiteral;
+    if (converted == .array) converted.array.element = arrayElement(schema_type);
+    return .{ .value = converted, .tags = try allocator.alloc([]const u8, 0) };
+}
+
+fn arrayElement(schema_type: []const u8) value.ArrayElement {
+    if (std.mem.eql(u8, schema_type, "arr<number>")) return .number;
+    if (std.mem.eql(u8, schema_type, "arr<str>")) return .string;
+    if (std.mem.eql(u8, schema_type, "arr<bool>")) return .boolean;
+    return .untyped;
 }
 
 fn matchesNode(candidate: value.Value, parser: *const SchemaParser, node_index: usize) bool {
@@ -435,4 +536,61 @@ test "schema matcher validates nested arrays and records" {
     try numeric.put(allocator, "not-a-number", .{ .value = .{ .boolean = true } });
     try std.testing.expect(!try matchesSchemaType(.{ .record = numeric }, "rec<number, bool>"));
     try std.testing.expectError(error.UnknownSchemaType, matchesSchemaType(nested, "array<number>"));
+}
+
+test "state initializes defaults and overrides from model JSON" {
+    const allocator = std.testing.allocator;
+    const source =
+        \\{"namespaces":[{"name":"player","fields":[
+        \\{"name":"score","type":"number","value":1},
+        \\{"name":"tags","type":"arr<str>","value":["new"]},
+        \\{"name":"note","type":"unknown","value":null}
+        \\]}]}
+    ;
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, source, .{});
+    defer parsed.deinit();
+    var overrides: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer overrides.deinit(allocator);
+    try overrides.put(allocator, "player.score", .{ .value = .{ .number = 42 } });
+
+    var state = try State.initFromModel(parsed.value, &overrides, allocator);
+    defer state.deinit(allocator);
+    var score = try state.read("player.score", allocator);
+    defer score.deinit(allocator);
+    try std.testing.expectEqual(@as(f64, 42), score.value.number);
+    var tags = try state.read("player.tags", allocator);
+    defer tags.deinit(allocator);
+    try std.testing.expectEqual(value.ArrayElement.string, tags.value.array.element);
+    var note = try state.read("player.note", allocator);
+    defer note.deinit(allocator);
+    try std.testing.expectEqual(value.NullReason.missing, note.value.null_value);
+    try std.testing.expectError(
+        error.UnknownSchemaType,
+        state.write("player.note", .{ .value = .{ .number = 1 } }, allocator),
+    );
+}
+
+test "state model rejects invalid defaults and overrides" {
+    const allocator = std.testing.allocator;
+    const invalid_source =
+        \\{"namespaces":[{"name":"player","fields":[
+        \\{"name":"score","type":"number","value":"wrong"}
+        \\]}]}
+    ;
+    const invalid = try std.json.parseFromSlice(std.json.Value, allocator, invalid_source, .{});
+    defer invalid.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    try std.testing.expectError(error.InvalidLiteral, State.initFromModel(invalid.value, &empty, allocator));
+
+    const valid_source =
+        \\{"namespaces":[{"name":"player","fields":[
+        \\{"name":"score","type":"number","value":0}
+        \\]}]}
+    ;
+    const valid = try std.json.parseFromSlice(std.json.Value, allocator, valid_source, .{});
+    defer valid.deinit();
+    var overrides: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer overrides.deinit(allocator);
+    try overrides.put(allocator, "player.score", .{ .value = .{ .string = "wrong" } });
+    try std.testing.expectError(error.TypeMismatch, State.initFromModel(valid.value, &overrides, allocator));
 }
