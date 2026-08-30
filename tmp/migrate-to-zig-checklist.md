@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 7 |
-| Last verified commit | `02e2817` |
+| Current phase | 8 |
+| Last verified commit | `5dced40` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Scene-level effect execution is not integrated |
+| Blocking issue | The WASM byte-buffer and runtime-handle boundary is not implemented |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -174,9 +174,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ### Phase 7 exit gate
 
-- [ ] Scripted effects reproduce TypeScript results
-- [ ] Effect order and context match
-- [ ] Replay, misuse, cancellation, and failure tests pass
+- [x] Scripted effects reproduce TypeScript results
+- [x] Effect order and context match
+- [x] Replay, misuse, cancellation, and failure tests pass
 
 ## Phase 8. Add the WASM boundary
 
