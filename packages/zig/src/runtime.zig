@@ -42,6 +42,7 @@ pub const PreparedValues = struct {
 
     pub fn deinit(self: *PreparedValues, allocator: std.mem.Allocator) void {
         for (self.values.values()) |*item| value.deinitTaggedValue(item, allocator);
+        for (self.values.keys()) |key| allocator.free(key);
         self.values.deinit(allocator);
         self.* = undefined;
     }
@@ -114,7 +115,6 @@ pub const Runtime = struct {
             if (item.result != .prepare) continue;
             if (!std.mem.eql(u8, item.request.scene_id, scene_id)) continue;
             if (!std.mem.eql(u8, item.request.action_id, action_id)) continue;
-            const binding = item.request.binding orelse return error.MissingPrepareBinding;
             const payload = switch (item.result.prepare) {
                 .ok => |bytes| bytes,
                 .missing => return error.MissingPrepareHook,
@@ -123,24 +123,14 @@ pub const Runtime = struct {
             const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, payload, .{}) catch
                 return error.InvalidPreparePayload;
             defer parsed.deinit();
-            var converted = value.fromJson(self.allocator, parsed.value) catch |err| switch (err) {
-                error.OutOfMemory => return error.OutOfMemory,
-                else => return error.InvalidPreparePayload,
-            };
-            var tagged: value.TaggedValue = .{
-                .value = converted,
-                .tags = self.allocator.alloc([]const u8, 0) catch |err| {
-                    value.deinitValue(&converted, self.allocator);
-                    return err;
-                },
-            };
-            if (prepared.values.getPtr(binding)) |previous| {
-                value.deinitTaggedValue(previous, self.allocator);
-                previous.* = tagged;
-            } else prepared.values.put(self.allocator, binding, tagged) catch |err| {
-                value.deinitTaggedValue(&tagged, self.allocator);
-                return err;
-            };
+            if (item.request.binding) |binding| {
+                try putPreparedValue(&prepared, binding, parsed.value, self.allocator);
+            } else {
+                if (parsed.value != .object) return error.InvalidPreparePayload;
+                var fields = parsed.value.object.iterator();
+                while (fields.next()) |field|
+                    try putPreparedValue(&prepared, field.key_ptr.*, field.value_ptr.*, self.allocator);
+            }
         }
         return prepared;
     }
@@ -269,6 +259,36 @@ pub const Runtime = struct {
         self.status = .cancelled;
     }
 };
+
+fn putPreparedValue(
+    prepared: *PreparedValues,
+    binding: []const u8,
+    json: std.json.Value,
+    allocator: std.mem.Allocator,
+) RuntimeError!void {
+    var converted = value.fromJson(allocator, json) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return error.InvalidPreparePayload,
+    };
+    var tagged: value.TaggedValue = .{
+        .value = converted,
+        .tags = allocator.alloc([]const u8, 0) catch |err| {
+            value.deinitValue(&converted, allocator);
+            return err;
+        },
+    };
+    if (prepared.values.getPtr(binding)) |previous| {
+        value.deinitTaggedValue(previous, allocator);
+        previous.* = tagged;
+        return;
+    }
+    const owned_binding = try allocator.dupe(u8, binding);
+    prepared.values.put(allocator, owned_binding, tagged) catch |err| {
+        allocator.free(owned_binding);
+        value.deinitTaggedValue(&tagged, allocator);
+        return err;
+    };
+}
 
 test "effect results reject stale and wrong-kind responses" {
     var runtime = Runtime.init(std.testing.allocator, &.{});
@@ -485,6 +505,47 @@ test "resumed prepare effect feeds model action compute" {
     try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "4" } });
     var prepared = try runtime.preparedValues("main", "start");
     defer prepared.deinit(std.testing.allocator);
+    var result = try model.executeActionWithPrepared(
+        "main",
+        "start",
+        &state,
+        &prepared.values,
+        std.testing.allocator,
+    );
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
+}
+
+test "one prepare hook response feeds multiple action bindings" {
+    const model_runtime = @import("model.zig");
+    const state_runtime = @import("state.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","prepare":[
+        \\{"binding":"left","fromHook":"load"},
+        \\{"binding":"right","fromHook":"load"}
+        \\],"compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"left","type":"number"},{"name":"right","type":"number"},
+        \\{"name":"result","type":"number","expr":{"combine":{
+        \\"fn":"add","args":[{"ref":"left"},{"ref":"right"}]
+        \\}}}
+        \\]}}
+        \\}]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    var schedule = try model.actionEffectSchedule("main", "start", std.testing.allocator);
+    defer schedule.deinit(std.testing.allocator);
+    var runtime = Runtime.init(std.testing.allocator, schedule.specs);
+    defer runtime.deinit();
+    const request = (try runtime.step()).need_effect;
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"left\":2,\"right\":5}" } });
+    try std.testing.expect((try runtime.step()) == .complete);
+    var prepared = try runtime.preparedValues("main", "start");
+    defer prepared.deinit(std.testing.allocator);
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
     var result = try model.executeActionWithPrepared(
         "main",
         "start",

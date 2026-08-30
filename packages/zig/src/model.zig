@@ -120,6 +120,8 @@ pub const RuntimeModel = struct {
         const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
         var specs = std.ArrayList(effect.Spec).empty;
         errdefer specs.deinit(allocator);
+        var scheduled_prepare_hooks: std.StringHashMapUnmanaged(void) = .empty;
+        defer scheduled_prepare_hooks.deinit(allocator);
         if (action.get("prepare")) |prepare| {
             if (prepare != .array) return error.InvalidPrepare;
             for (prepare.array.items, 0..) |entry, index| {
@@ -128,13 +130,14 @@ pub const RuntimeModel = struct {
                 const binding = entry.object.get("binding") orelse return error.InvalidPrepare;
                 if (from_hook != .string or from_hook.string.len == 0) return error.InvalidPrepare;
                 if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
+                if (scheduled_prepare_hooks.contains(from_hook.string)) continue;
+                try scheduled_prepare_hooks.put(allocator, from_hook.string, {});
                 try specs.append(allocator, .{
                     .kind = .prepare,
                     .hook = from_hook.string,
                     .scene_id = scene_id,
                     .action_id = action_id,
                     .callback_index = index,
-                    .binding = binding.string,
                 });
             }
         }
@@ -608,7 +611,7 @@ test "action effect schedule follows model declaration order" {
     try std.testing.expectEqual(effect.Kind.prepare, schedule.specs[0].kind);
     try std.testing.expectEqualStrings("load_first", schedule.specs[0].hook);
     try std.testing.expectEqual(@as(usize, 1), schedule.specs[0].callback_index);
-    try std.testing.expectEqualStrings("first", schedule.specs[0].binding.?);
+    try std.testing.expect(schedule.specs[0].binding == null);
     try std.testing.expectEqualStrings("load_second", schedule.specs[1].hook);
     try std.testing.expectEqual(effect.Kind.publish, schedule.specs[2].kind);
     try std.testing.expectEqualStrings("save_first", schedule.specs[2].hook);
@@ -622,6 +625,23 @@ test "action effect schedule follows model declaration order" {
     try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "1" } });
     const second = (try runtime.step()).need_effect;
     try std.testing.expectEqualStrings("load_second", second.hook);
+}
+
+test "action effect schedule caches repeated prepare hooks" {
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","prepare":[
+        \\{"binding":"first","fromHook":"load"},
+        \\{"binding":"second","fromHook":"load"}
+        \\],"publish":[] }]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    var schedule = try model.actionEffectSchedule("main", "start", std.testing.allocator);
+    defer schedule.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), schedule.specs.len);
+    try std.testing.expectEqualStrings("load", schedule.specs[0].hook);
+    try std.testing.expectEqual(@as(usize, 0), schedule.specs[0].callback_index);
 }
 
 test "model executes action and selects first matching prepared next rule" {
