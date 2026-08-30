@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 7 |
-| Last verified commit | `0348f19` |
+| Last verified commit | `02e2817` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Full hook data and scene-level effect execution are not integrated |
+| Blocking issue | Scene-level effect execution is not integrated |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -159,7 +159,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 - [x] Define prepare and publish effect requests
 - [x] Define stable effect IDs
-- [ ] Include scene, action, hook, and callback context
+- [x] Include scene, action, hook, and callback context
 - [x] Implement `Runtime.step()`
 - [x] Implement `Runtime.resume()`
 - [x] Define whether `resume()` advances execution
