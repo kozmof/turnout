@@ -1,5 +1,6 @@
 const std = @import("std");
 const effect = @import("effect.zig");
+const state_runtime = @import("state.zig");
 const value = @import("value.zig");
 
 pub const RuntimeError = error{
@@ -30,9 +31,11 @@ const Status = enum { active, complete, cancelled };
 pub const CompletedEffect = struct {
     request: effect.Request,
     result: effect.OwnedResult,
+    owned_context: ?[]u8 = null,
 
     fn deinit(self: *CompletedEffect, allocator: std.mem.Allocator) void {
         self.result.deinit(allocator);
+        if (self.owned_context) |context| allocator.free(context);
         self.* = undefined;
     }
 };
@@ -69,6 +72,7 @@ pub const Runtime = struct {
     allocator: std.mem.Allocator,
     next_effect_id: u64 = 1,
     pending: ?effect.Request = null,
+    pending_context: ?[]u8 = null,
     scheduled: []const effect.Spec = &.{},
     schedule_index: usize = 0,
     status: Status = .active,
@@ -79,6 +83,7 @@ pub const Runtime = struct {
     }
 
     pub fn deinit(self: *Runtime) void {
+        if (self.pending_context) |context| self.allocator.free(context);
         for (self.completed.items) |*item| item.deinit(self.allocator);
         self.completed.deinit(self.allocator);
         self.* = undefined;
@@ -238,6 +243,28 @@ pub const Runtime = struct {
         return .{ .need_effect = request };
     }
 
+    pub fn requestPublishEffect(
+        self: *Runtime,
+        hook: []const u8,
+        scene_id: []const u8,
+        action_id: []const u8,
+        callback_index: usize,
+        state: *const state_runtime.State,
+    ) !Event {
+        const context = try state.canonicalJson(self.allocator);
+        errdefer self.allocator.free(context);
+        const event = try self.requestEffectWithContext(.{
+            .kind = .publish,
+            .hook = hook,
+            .scene_id = scene_id,
+            .action_id = action_id,
+            .callback_index = callback_index,
+            .context_json = context,
+        });
+        self.pending_context = context;
+        return event;
+    }
+
     pub fn @"resume"(self: *Runtime, id: u64, result: effect.Result) RuntimeError!void {
         if (self.status != .active) return error.Terminal;
         const pending = self.pending orelse return error.NoPendingEffect;
@@ -247,15 +274,19 @@ pub const Runtime = struct {
         self.completed.append(self.allocator, .{
             .request = pending,
             .result = owned,
+            .owned_context = self.pending_context,
         }) catch |err| {
             owned.deinit(self.allocator);
             return err;
         };
         self.pending = null;
+        self.pending_context = null;
     }
 
     pub fn cancel(self: *Runtime) void {
         self.pending = null;
+        if (self.pending_context) |context| self.allocator.free(context);
+        self.pending_context = null;
         self.status = .cancelled;
     }
 };
@@ -481,7 +512,6 @@ test "malformed prepare payload is rejected" {
 
 test "resumed prepare effect feeds model action compute" {
     const model_runtime = @import("model.zig");
-    const state_runtime = @import("state.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
         \\"id":"start","prepare":[{"binding":"input","fromHook":"load"}],
@@ -525,7 +555,6 @@ test "resumed prepare effect feeds model action compute" {
 
 test "one prepare hook response feeds multiple action bindings" {
     const model_runtime = @import("model.zig");
-    const state_runtime = @import("state.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
         \\"id":"start","prepare":[
@@ -566,7 +595,6 @@ test "one prepare hook response feeds multiple action bindings" {
 
 test "strict publish policy is action scoped and preserves merged state" {
     const model_runtime = @import("model.zig");
-    const state_runtime = @import("state.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"current","actions":[{
         \\"id":"current","compute":{"root":"result","prog":{"bindings":[
@@ -649,4 +677,33 @@ test "action publish outcomes retain order and omit missing hooks" {
     try std.testing.expectEqualStrings("last", outcomes.items[2].hook_name);
     try std.testing.expectEqual(PublishStatus.@"error", outcomes.items[2].status);
     try std.testing.expectEqualStrings("rejected", outcomes.items[2].message.?);
+}
+
+test "dynamic publish request owns the post-merge state context" {
+    var initial: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer initial.deinit(std.testing.allocator);
+    try initial.put(std.testing.allocator, "result.value", .{
+        .value = .{ .number = 7 },
+        .tags = &.{"computed"},
+    });
+    var state = try state_runtime.State.initUnchecked(&initial, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var runtime = Runtime.init(std.testing.allocator, &.{});
+    defer runtime.deinit();
+    const request = (try runtime.requestPublishEffect(
+        "save",
+        "main",
+        "start",
+        0,
+        &state,
+    )).need_effect;
+    try std.testing.expectEqualStrings(
+        "{\"result.value\":{\"symbol\":\"number\",\"value\":7,\"tags\":[\"computed\"]}}",
+        request.context_json,
+    );
+    try runtime.@"resume"(request.id, .{ .publish = .ok });
+    try std.testing.expectEqualStrings(
+        request.context_json,
+        runtime.completedEffects()[0].request.context_json,
+    );
 }
