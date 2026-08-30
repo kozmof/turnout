@@ -1,4 +1,5 @@
 const std = @import("std");
+const action_runtime = @import("action.zig");
 const effect = @import("effect.zig");
 const state_runtime = @import("state.zig");
 const value = @import("value.zig");
@@ -305,6 +306,37 @@ pub const Runtime = struct {
         const context = try state.canonicalJson(self.allocator);
         if (self.action_state_context) |previous| self.allocator.free(previous);
         self.action_state_context = context;
+    }
+
+    pub fn executePreparedAction(
+        self: *Runtime,
+        model: anytype,
+        scene_id: []const u8,
+        action_id: []const u8,
+        state: *const state_runtime.State,
+    ) !action_runtime.Result {
+        var prepared = try self.preparedValues(scene_id, action_id);
+        defer prepared.deinit(self.allocator);
+        var result = try model.executeActionWithPrepared(
+            scene_id,
+            action_id,
+            state,
+            &prepared.values,
+            self.allocator,
+        );
+        errdefer result.deinit(self.allocator);
+        try self.setActionStateContext(&result.state_after_merge);
+        return result;
+    }
+
+    pub fn finishActionEffects(
+        self: *const Runtime,
+        scene_id: []const u8,
+        action_id: []const u8,
+        fail_on_publish_error: bool,
+    ) RuntimeError!PublishOutcomes {
+        try self.enforceActionPublishPolicy(scene_id, action_id, fail_on_publish_error);
+        return self.actionPublishOutcomes(scene_id, action_id);
     }
 
     pub fn @"resume"(self: *Runtime, id: u64, result: effect.Result) RuntimeError!void {
@@ -646,22 +678,18 @@ test "one prepare hook response feeds multiple action bindings" {
     defer runtime.deinit();
     const request = (try runtime.step()).need_effect;
     try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"left\":{\"symbol\":\"number\",\"value\":2,\"tags\":[\"host\"]},\"right\":{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}" } });
-    var prepared = try runtime.preparedValues("main", "start");
-    defer prepared.deinit(std.testing.allocator);
     const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
     var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
     defer state.deinit(std.testing.allocator);
-    var result = try model.executeActionWithPrepared(
+    var result = try runtime.executePreparedAction(
+        &model,
         "main",
         "start",
         &state,
-        &prepared.values,
-        std.testing.allocator,
     );
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
     try std.testing.expect(value.hasTag(result.binding_values.getPtr("left").?.borrowed(), "host"));
-    try runtime.setActionStateContext(&result.state_after_merge);
     const publish = (try runtime.step()).need_effect;
     try std.testing.expectEqual(effect.Kind.publish, publish.kind);
     try std.testing.expectEqualStrings("save", publish.hook);
@@ -671,6 +699,10 @@ test "one prepare hook response feeds multiple action bindings" {
     );
     try runtime.@"resume"(publish.id, .{ .publish = .ok });
     try std.testing.expect((try runtime.step()) == .complete);
+    var outcomes = try runtime.finishActionEffects("main", "start", true);
+    defer outcomes.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), outcomes.items.len);
+    try std.testing.expectEqual(PublishStatus.ok, outcomes.items[0].status);
 }
 
 test "strict publish policy is action scoped and preserves merged state" {
@@ -709,8 +741,12 @@ test "strict publish policy is action scoped and preserves merged state" {
     } } });
     try std.testing.expectError(
         error.PublishHookFailed,
-        runtime.enforceActionPublishPolicy("main", "current", true),
+        runtime.finishActionEffects("main", "current", true),
     );
+    var non_strict = try runtime.finishActionEffects("main", "current", false);
+    defer non_strict.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), non_strict.items.len);
+    try std.testing.expectEqualStrings("current failure", non_strict.items[0].message.?);
     var committed = try action_result.state_after_merge.read("result.value", std.testing.allocator);
     defer committed.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 7), committed.value.number);
