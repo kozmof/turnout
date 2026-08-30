@@ -22,3 +22,11 @@ Run the current native checks from the repository root.
 - Cancellation as a terminal state
 
 Scene execution, compute execution, WASM packaging, and the TypeScript adapter are not implemented yet. Keep the TypeScript executor enabled until the matching migration phases pass.
+
+## Test expectations
+
+Add a Zig unit test for every public runtime operation, validation error, ownership path, and execution branch. Add a regression test for every parity gap. Run the same portable core vectors natively and under WASM once the WASM target exists.
+
+Zig 0.16.0 does not provide the repository with a stable source-coverage report. The current gate requires passing tests and leak detection through std.testing. Add a numeric coverage threshold only after the chosen Zig coverage tool produces reproducible local and CI results.
+
+JSON-first transport does not generate Zig model code. The protobuf generation and generated-code drift tasks are not applicable unless a later approved decision adds protobuf transport.

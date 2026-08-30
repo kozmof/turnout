@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 3 |
+| Current phase | 5 |
 | Last verified commit | `2b8dd88` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Phase 3 runtime projection requires review before the phase can close |
+| Blocking issue | Zig Value and compute parity are incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -87,7 +87,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ### Phase 3 exit gate
 
-- [ ] Runtime projection approved
+- [x] Runtime projection approved
 - [x] Zig decodes every representative fixture
 - [x] Transport decision recorded
 - [x] Generation is reproducible. JSON-first requires no generated Zig model.
@@ -97,19 +97,19 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Add `packages/zig/build.zig` and `build.zig.zon`
 - [x] Add the initial `packages/zig/src` modules
 - [x] Add Zig unit-test and formatting commands
-- [ ] Add reproducible Zig model generation
-- [ ] Extend generated-code drift checks
+- [x] Add reproducible Zig model generation. Not applicable for JSON-first transport.
+- [x] Extend generated-code drift checks. No generated Zig exists in the JSON-first milestone.
 - [x] Add Zig to the development container
 - [x] Add Zig build and test steps to CI
 - [x] Add Zig checks to root `check`, `build`, and `test`
-- [ ] Define Zig coverage expectations
-- [ ] Exclude generated Zig from formatting if needed
+- [x] Define Zig coverage expectations
+- [x] Exclude generated Zig from formatting if needed. No generated Zig exists.
 
 ### Phase 4 exit gate
 
-- [ ] A clean checkout generates, builds, checks, and tests Zig
-- [ ] Root checks detect stale generated Zig
-- [ ] Existing Go and TypeScript checks pass
+- [x] A clean checkout generates, builds, checks, and tests Zig
+- [x] Root checks detect stale generated Zig. Not applicable while the runtime has no generated Zig.
+- [x] Existing Go and TypeScript checks pass
 
 ## Phase 5. Port Values and compute execution
 
