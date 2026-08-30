@@ -419,6 +419,92 @@ pub const Runtime = struct {
     }
 };
 
+pub const ActionDriver = struct {
+    allocator: std.mem.Allocator,
+    runtime: Runtime,
+    scene_id: []const u8,
+    action_id: []const u8,
+    state: state_runtime.State,
+    action_result: ?action_runtime.Result = null,
+    publish_outcomes: ?PublishOutcomes = null,
+    completion_emitted: bool = false,
+
+    pub fn init(
+        allocator: std.mem.Allocator,
+        model: anytype,
+        scene_id: []const u8,
+        action_id: []const u8,
+        initial_state: *const state_runtime.State,
+    ) !ActionDriver {
+        var state = try initial_state.snapshot(allocator);
+        errdefer state.deinit(allocator);
+        return .{
+            .allocator = allocator,
+            .runtime = try Runtime.initAction(allocator, model, scene_id, action_id),
+            .scene_id = scene_id,
+            .action_id = action_id,
+            .state = state,
+        };
+    }
+
+    pub fn deinit(self: *ActionDriver) void {
+        if (self.publish_outcomes) |*outcomes| outcomes.deinit(self.allocator);
+        if (self.action_result) |*result| result.deinit(self.allocator);
+        self.state.deinit(self.allocator);
+        self.runtime.deinit();
+        self.* = undefined;
+    }
+
+    pub fn step(
+        self: *ActionDriver,
+        model: anytype,
+        fail_on_publish_error: bool,
+    ) anyerror!Event {
+        while (true) switch (self.runtime.actionPhase()) {
+            .prepare, .publish => return self.runtime.step(),
+            .execute => {
+                if (self.action_result != null) return error.ActionInProgress;
+                self.action_result = try self.runtime.executePreparedAction(
+                    model,
+                    self.scene_id,
+                    self.action_id,
+                    &self.state,
+                );
+            },
+            .complete => {
+                if (self.completion_emitted) return .complete;
+                var outcomes = try self.runtime.finishActionEffects(
+                    self.scene_id,
+                    self.action_id,
+                    fail_on_publish_error,
+                );
+                errdefer outcomes.deinit(self.allocator);
+                const result = &(self.action_result orelse return error.ActionInProgress);
+                self.state.deinit(self.allocator);
+                self.state = result.takeState();
+                self.publish_outcomes = outcomes;
+                self.completion_emitted = true;
+                return .{ .action_complete = .{
+                    .scene_id = self.scene_id,
+                    .action_id = self.action_id,
+                } };
+            },
+            .cancelled => return .cancelled,
+        };
+    }
+
+    pub fn @"resume"(self: *ActionDriver, id: u64, result: effect.Result) RuntimeError!void {
+        return self.runtime.@"resume"(id, result);
+    }
+
+    pub fn partialState(self: *const ActionDriver) *const state_runtime.State {
+        if (!self.completion_emitted) {
+            if (self.action_result) |*result| return &result.state_after_merge;
+        }
+        return &self.state;
+    }
+};
+
 fn putPreparedValue(
     prepared: *PreparedValues,
     binding: []const u8,
@@ -930,4 +1016,47 @@ test "begin action preserves effect IDs and clears prior outcomes" {
     const second = (try runtime.step()).need_effect;
     try std.testing.expectEqual(@as(u64, 2), second.id);
     try std.testing.expectEqualStrings("save_second", second.hook);
+}
+
+test "action driver yields effects and commits completion state" {
+    const model_runtime = @import("model.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","prepare":[{"binding":"input","fromHook":"load"}],
+        \\"compute":{"root":"result","prog":{"bindings":[
+        \\{"name":"input","type":"number"},
+        \\{"name":"result","type":"number","expr":{"combine":{
+        \\"fn":"add","args":[{"ref":"input"},{"lit":1}]
+        \\}}}
+        \\]}},"merge":[{"binding":"result","toState":"result.value"}],
+        \\"publish":["save"]
+        \\}]}]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    var initial = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer initial.deinit(std.testing.allocator);
+    var driver = try ActionDriver.init(
+        std.testing.allocator,
+        &model,
+        "main",
+        "start",
+        &initial,
+    );
+    defer driver.deinit();
+    const prepare = (try driver.step(&model, true)).need_effect;
+    try driver.@"resume"(prepare.id, .{ .prepare = .{ .ok = "{\"input\":{\"symbol\":\"number\",\"value\":4,\"tags\":[]}}" } });
+    const publish = (try driver.step(&model, true)).need_effect;
+    try std.testing.expectEqualStrings(
+        "{\"result.value\":{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}",
+        publish.context_json,
+    );
+    try driver.@"resume"(publish.id, .{ .publish = .ok });
+    const completed = (try driver.step(&model, true)).action_complete;
+    try std.testing.expectEqualStrings("start", completed.action_id);
+    var committed = try driver.partialState().read("result.value", std.testing.allocator);
+    defer committed.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 5), committed.value.number);
+    try std.testing.expect((try driver.step(&model, true)) == .complete);
 }
