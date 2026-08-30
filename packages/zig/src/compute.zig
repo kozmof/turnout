@@ -293,6 +293,10 @@ pub fn validate(compute: std.json.Value, allocator: std.mem.Allocator) LoadError
     const root = compute.object.get("root") orelse std.json.Value{ .string = "" };
     if (root != .string) return error.MissingRoot;
     const prog = compute.object.get("prog") orelse return error.MissingProgram;
+    return validateProgram(prog, root.string, allocator);
+}
+
+pub fn validateProgram(prog: std.json.Value, output_name: []const u8, allocator: std.mem.Allocator) LoadError!void {
     if (prog != .object) return error.InvalidProgram;
     const bindings_value = prog.object.get("bindings") orelse return error.InvalidProgram;
     if (bindings_value != .array) return error.InvalidProgram;
@@ -308,14 +312,14 @@ pub fn validate(compute: std.json.Value, allocator: std.mem.Allocator) LoadError
             return error.InvalidBinding;
         const entry = try names.getOrPut(allocator, name.string);
         if (entry.found_existing) return error.DuplicateBinding;
-        if (std.mem.eql(u8, name.string, root.string)) found_root = true;
+        if (std.mem.eql(u8, name.string, output_name)) found_root = true;
 
         const has_value = binding.object.contains("value");
         const has_expr = binding.object.contains("expr");
         if (has_value and has_expr) return error.InvalidBinding;
         if (has_expr) try validateExpression(binding.object.get("expr").?);
     }
-    if (root.string.len > 0 and !found_root) return error.MissingRootBinding;
+    if (output_name.len > 0 and !found_root) return error.MissingRootBinding;
 }
 
 fn validateExpression(expression: std.json.Value) LoadError!void {
