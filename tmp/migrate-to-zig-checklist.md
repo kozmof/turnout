@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 7 |
-| Last verified commit | `c97a3b5` |
+| Last verified commit | `9c3fd2d` |
 | Last updated | 2026-08-30 |
-| Blocking issue | The prepare and publish effect state machine is incomplete |
+| Blocking issue | Effects are not integrated with scene and action execution |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -159,14 +159,14 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 - [x] Define prepare and publish effect requests
 - [x] Define stable effect IDs
-- [ ] Include scene, action, hook, and callback context
-- [ ] Implement `Runtime.step()`
-- [ ] Implement `Runtime.resume()`
+- [x] Include scene, action, hook, and callback context
+- [x] Implement `Runtime.step()`
+- [x] Implement `Runtime.resume()`
 - [x] Define whether `resume()` advances execution
-- [ ] Preserve prepare and publish declaration order
-- [ ] Preserve missing-hook behavior
+- [x] Preserve prepare and publish declaration order
+- [x] Preserve missing-hook behavior
 - [ ] Preserve returned and thrown publish failures
-- [ ] Preserve `failOnPublishError`
+- [x] Preserve `failOnPublishError`
 - [ ] Preserve committed STATE after strict publish failure
 - [x] Reject stale, duplicate, and wrong-kind results
 - [x] Implement cancellation as a defined terminal state
