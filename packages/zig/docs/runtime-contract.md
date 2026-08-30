@@ -8,6 +8,45 @@ The Go converter's sanitized JSON output is the only accepted transport in the f
 
 JSON-first is the recorded transport decision. It avoids giving Zig compiler-only fields that exist in the in-memory protobuf message. A Zig protobuf generator is not selected or required for this milestone. Revisit generator support only with a proposal that covers proto3 optional fields, reserved fields, maps, recursive messages, and google.protobuf.Value.
 
+## Runtime projection
+
+The projection retains these model fields.
+
+| Message | Retained fields |
+| --- | --- |
+| TurnModel | state, scenes, routes, version, minVersion, maxVersion, typeDecls |
+| StateModel | namespaces |
+| NamespaceModel | name, fields |
+| FieldModel | name, type, value |
+| SceneBlock | id, entryAction, actions, view |
+| ViewBlock | name, flow, enforce |
+| ActionModel | id, compute, prepare, merge, publish, next, text |
+| ComputeModel | root, prog |
+| ProgModel | name, bindings |
+| BindingModel | name, type, value, expr |
+| ExprModel and children | combine, pipe, cond, params, steps, args, refs, literals, transforms |
+| PrepareEntry | binding, fromState, fromHook |
+| MergeEntry | binding, toState |
+| NextRuleModel | compute, prepare, action |
+| NextComputeModel | condition, prog |
+| NextPrepareEntry | binding, fromAction, fromState, fromLiteral |
+| RouteModel | id, match, entrySceneId |
+| MatchArm | patterns, target |
+| Type declarations | names, type expressions, unions, templates, segments, captures |
+
+Absent optional fields remain absent in the parsed JSON tree. Absent repeated fields are equivalent to empty lists when the typed model layer reads them. Unknown fields are retained in the parsed tree and ignored by execution. Reserved protobuf fields are not emitted. A matching unknown JSON key follows the unknown-field rule.
+
+## Protobuf generator evaluation
+
+Two active Zig implementations were considered.
+
+| Candidate | Finding |
+| --- | --- |
+| [Arwalk zig-protobuf](https://github.com/Arwalk/zig-protobuf) | Provides protobuf 3 generation, materialized and streaming decode, and optional unknown-field preservation. Its JSON support is marked beta. The current evaluation does not prove Turnout's optional fields and google.protobuf.Value contract. |
+| [gremlin.zig](https://github.com/norma-core/gremlin.zig) | Provides proto2 and proto3 generation with recursive-message support. Its documented tested compiler is Zig 0.15.2, while Turnout pins Zig 0.16.0. The current evaluation does not prove well-known Value support or Turnout's optional-field behavior. |
+
+Neither candidate is selected. JSON decoding already covers the sanitized runtime projection and avoids a second wire contract. A later protobuf proposal must pin a generator commit and pass the representative fixture suite before adding generated Zig.
+
 The runtime version is 2, matching the Go converter's emitted version. The runtime rejects malformed JSON, a non-object root, unsupported model versions, and incompatible minVersion or maxVersion values. It rejects compiler metadata anywhere in the model.
 
 Compiler-only fields include annotations, sourcePos, sigils, extExpr, declaredType, overview nodes, and overview edges. The Go emitter strips these fields before transport. Projection tests in the converter protect that rule.

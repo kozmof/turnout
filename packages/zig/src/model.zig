@@ -225,3 +225,25 @@ test "runtime projection enforces nesting limit" {
         validateJson(std.testing.allocator, "{\"version\":2,\"a\":{\"b\":{\"c\":true}}}", .{ .max_nesting = 2 }),
     );
 }
+
+test "JSON-first decoding covers absent optional and reserved field names" {
+    const fixture =
+        \\{
+        \\  "version": 2,
+        \\  "scenes": [{
+        \\    "id": "main",
+        \\    "entryAction": "done",
+        \\    "nextPolicy": "reserved-unknown-field",
+        \\    "actions": [{"id": "done", "publish": [], "next": []}]
+        \\  }],
+        \\  "routes": [{"id": "route", "match": []}]
+        \\}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    const scene = model.root().get("scenes").?.array.items[0].object;
+    try std.testing.expect(scene.get("view") == null);
+    try std.testing.expectEqualStrings("reserved-unknown-field", scene.get("nextPolicy").?.string);
+    const route = model.root().get("routes").?.array.items[0].object;
+    try std.testing.expect(route.get("entrySceneId") == null);
+}
