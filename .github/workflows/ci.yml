@@ -27,6 +27,11 @@ jobs:
           go-version-file: packages/go/converter/go.mod
           cache-dependency-path: packages/go/converter/go.sum
 
+      - name: Setup Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.16.0
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v6
         with:
