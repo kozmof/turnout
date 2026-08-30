@@ -20,6 +20,12 @@ pub const ValidationError = error{
     InvalidCompute,
 };
 
+pub const NextRuleCondition = union(enum) {
+    matched: bool,
+    invalid_type,
+    missing_program,
+};
+
 pub const RuntimeModel = struct {
     parsed: std.json.Parsed(std.json.Value),
 
@@ -52,6 +58,30 @@ pub const RuntimeModel = struct {
         if (action_compute != .object or !action_compute.object.contains("prog"))
             return turnout_value.buildNull(.missing, &.{}, allocator);
         return compute_runtime.executeJson(action_compute, inputs, allocator);
+    }
+
+    pub fn evaluateNextRule(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        rule_index: usize,
+        inputs: *const std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue),
+        allocator: std.mem.Allocator,
+    ) !NextRuleCondition {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        const rules = action.get("next") orelse return error.NextRuleNotFound;
+        if (rules != .array or rule_index >= rules.array.items.len) return error.NextRuleNotFound;
+        const rule = rules.array.items[rule_index];
+        if (rule != .object) return error.NextRuleNotFound;
+        const next_compute = rule.object.get("compute") orelse return .{ .matched = true };
+        if (next_compute != .object) return .missing_program;
+        const prog = next_compute.object.get("prog") orelse return .missing_program;
+        const condition = next_compute.object.get("condition") orelse std.json.Value{ .string = "" };
+        if (condition != .string) return .invalid_type;
+        var result = try compute_runtime.executeProgram(prog, condition.string, inputs, allocator);
+        defer result.deinit(allocator);
+        if (result.value != .boolean or result.tags.len != 0) return .invalid_type;
+        return .{ .matched = result.value.boolean };
     }
 
     fn findAction(self: *const RuntimeModel, scene_id: []const u8, action_id: []const u8) ?std.json.ObjectMap {
@@ -365,4 +395,25 @@ test "runtime model executes action compute and handles absent compute" {
     defer noop.deinit(std.testing.allocator);
     try std.testing.expectEqual(turnout_value.NullReason.missing, noop.value.null_value);
     try std.testing.expectError(error.ActionNotFound, model.executeActionCompute("scene", "missing", &inputs, std.testing.allocator));
+}
+
+test "runtime model evaluates unconditional and computed next rules" {
+    const fixture =
+        \\{"version":2,"scenes":[{"id":"scene","actions":[{"id":"action","next":[
+        \\  {"action":"a"},
+        \\  {"action":"b","compute":{}},
+        \\  {"action":"c","compute":{"condition":"condition","prog":{"bindings":[{"name":"condition","type":"bool"}]}}}
+        \\]}]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    var inputs: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    defer inputs.deinit(std.testing.allocator);
+    try inputs.put(std.testing.allocator, "condition", .{ .value = .{ .boolean = true } });
+    try std.testing.expectEqual(NextRuleCondition{ .matched = true }, try model.evaluateNextRule("scene", "action", 0, &inputs, std.testing.allocator));
+    try std.testing.expectEqual(NextRuleCondition.missing_program, try model.evaluateNextRule("scene", "action", 1, &inputs, std.testing.allocator));
+    try std.testing.expectEqual(NextRuleCondition{ .matched = true }, try model.evaluateNextRule("scene", "action", 2, &inputs, std.testing.allocator));
+
+    try inputs.put(std.testing.allocator, "condition", .{ .value = .{ .boolean = true }, .tags = &.{"impure"} });
+    try std.testing.expectEqual(NextRuleCondition.invalid_type, try model.evaluateNextRule("scene", "action", 2, &inputs, std.testing.allocator));
 }

@@ -66,9 +66,20 @@ pub fn executeJson(
     allocator: std.mem.Allocator,
 ) !value.OwnedTaggedValue {
     try validate(compute, allocator);
+    const root_name = if (compute.object.get("root")) |root| root.string else "";
+    return executeProgram(compute.object.get("prog").?, root_name, inputs, allocator);
+}
+
+pub fn executeProgram(
+    prog: std.json.Value,
+    output_name: []const u8,
+    inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    allocator: std.mem.Allocator,
+) !value.OwnedTaggedValue {
+    try validateProgram(prog, output_name, allocator);
     var values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
     defer deinitValues(&values, allocator);
-    const bindings = compute.object.get("prog").?.object.get("bindings").?.array.items;
+    const bindings = prog.object.get("bindings").?.array.items;
     for (bindings) |binding| {
         const object = binding.object;
         const name = object.get("name").?.string;
@@ -85,9 +96,8 @@ pub fn executeJson(
             return err;
         };
     }
-    const root_name = if (compute.object.get("root")) |root| root.string else "";
-    if (root_name.len == 0) return value.buildNull(.missing, &.{}, allocator);
-    const root = values.getPtr(root_name) orelse return error.MissingRootBinding;
+    if (output_name.len == 0) return value.buildNull(.missing, &.{}, allocator);
+    const root = values.getPtr(output_name) orelse return error.MissingRootBinding;
     return value.build(root.value, root.tags, allocator);
 }
 
