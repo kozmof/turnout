@@ -14,6 +14,7 @@ Run the current native checks from the repository root.
 - Tagged scalar, array, and record values
 - Structural Value equality
 - Stable tag union order
+- JavaScript-compatible rounding and UTF-16 string length
 - Prepare and publish effect request types
 - Stable effect IDs and resume misuse checks
 - Cancellation as a terminal state
