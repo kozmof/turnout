@@ -16,10 +16,12 @@ const Score = struct { wildcards: usize, suffix_len: usize };
 pub const SceneTrace = struct {
     scene_id: []const u8,
     actions: []scene_runtime.ActionTrace,
+    duplicate_warnings: []scene_runtime.DuplicateEnqueueWarning,
 
     pub fn deinit(self: *SceneTrace, allocator: std.mem.Allocator) void {
         for (self.actions) |*action| action.deinit(allocator);
         allocator.free(self.actions);
+        allocator.free(self.duplicate_warnings);
         self.* = undefined;
     }
 };
@@ -201,7 +203,12 @@ fn executeOwned(
             },
         };
         try logs.appendSlice(allocator, scene_result.logs);
-        var cloned_trace = try cloneSceneTrace(current_scene.*, scene_result.traces, allocator);
+        var cloned_trace = try cloneSceneTrace(
+            current_scene.*,
+            scene_result.traces,
+            scene_result.duplicate_warnings,
+            allocator,
+        );
         traces.append(allocator, cloned_trace) catch |err| {
             cloned_trace.deinit(allocator);
             return err;
@@ -238,6 +245,7 @@ fn executeOwned(
 fn cloneSceneTrace(
     scene_id: []const u8,
     actions: []const scene_runtime.ActionTrace,
+    duplicate_warnings: []const scene_runtime.DuplicateEnqueueWarning,
     allocator: std.mem.Allocator,
 ) !SceneTrace {
     const cloned = try allocator.alloc(scene_runtime.ActionTrace, actions.len);
@@ -248,7 +256,14 @@ fn cloneSceneTrace(
         cloned[index] = try action.clone(allocator);
         initialized += 1;
     }
-    return .{ .scene_id = scene_id, .actions = cloned };
+    return .{
+        .scene_id = scene_id,
+        .actions = cloned,
+        .duplicate_warnings = try allocator.dupe(
+            scene_runtime.DuplicateEnqueueWarning,
+            duplicate_warnings,
+        ),
+    };
 }
 
 fn better(candidate: Score, current: Score) bool {

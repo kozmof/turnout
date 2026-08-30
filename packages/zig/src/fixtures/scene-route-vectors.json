@@ -32,7 +32,8 @@
           "nextActions": [],
           "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.second"] }]
         }
-      ]
+      ],
+      "sceneWarnings": []
     }
   },
   {
@@ -83,13 +84,14 @@
           "nextActions": [],
           "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.done"] }]
         }
-      ]
+      ],
+      "sceneWarnings": []
     }
   },
   {
     "name": "post-merge state and action output",
     "routeId": "main",
-    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"absent\",\"toState\":\"ignored\"},{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"never\",\"compute\":{}},{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}]}]}]}",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"only\",\"match\":[]}],\"scenes\":[{\"id\":\"only\",\"entryAction\":\"source\",\"actions\":[{\"id\":\"source\",\"compute\":{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"value\":5}]}},\"merge\":[{\"binding\":\"absent\",\"toState\":\"ignored\"},{\"binding\":\"result\",\"toState\":\"counter.value\"}],\"next\":[{\"action\":\"never\",\"compute\":{}},{\"action\":\"target\",\"prepare\":[{\"binding\":\"left\",\"fromState\":\"counter.value\"},{\"binding\":\"right\",\"fromAction\":\"result\"}],\"compute\":{\"condition\":\"matches\",\"prog\":{\"bindings\":[{\"name\":\"left\",\"type\":\"number\"},{\"name\":\"right\",\"type\":\"number\"},{\"name\":\"matches\",\"type\":\"bool\",\"expr\":{\"combine\":{\"fn\":\"eq\",\"args\":[{\"ref\":\"left\"},{\"ref\":\"right\"}]}}}]}}}]},{\"id\":\"target\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":9}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"result.target\"}],\"next\":[{\"action\":\"source\"}]}]}]}",
     "output": {
       "state": [
         { "path": "counter.value", "value": 5 },
@@ -104,6 +106,7 @@
         { "kind": "action-complete", "sceneId": "only", "actionId": "source" },
         { "kind": "action-start", "sceneId": "only", "actionId": "target", "stepIndex": 2 },
         { "kind": "warning", "sceneId": "only", "actionId": "target" },
+        { "kind": "warning", "sceneId": "only", "actionId": "" },
         { "kind": "action-complete", "sceneId": "only", "actionId": "target" }
       ],
       "traces": [
@@ -122,9 +125,12 @@
           "sceneId": "only",
           "actionId": "target",
           "root": 9,
-          "nextActions": [],
+          "nextActions": ["source"],
           "warnings": [{ "kind": "unchecked_state_write", "writtenPaths": ["result.target"] }]
         }
+      ],
+      "sceneWarnings": [
+        { "actionId": "source", "firstEnqueuedBy": null }
       ]
     }
   }

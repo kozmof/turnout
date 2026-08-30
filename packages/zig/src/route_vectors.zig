@@ -23,11 +23,16 @@ const ExpectedWarning = struct {
     kind: []const u8,
     writtenPaths: []const []const u8 = &.{},
 };
+const ExpectedSceneWarning = struct {
+    actionId: []const u8,
+    firstEnqueuedBy: ?[]const u8,
+};
 const Output = struct {
     state: []const ExpectedState,
     history: []const []const u8,
     logs: []const ExpectedLog,
     traces: []const ExpectedTrace,
+    sceneWarnings: []const ExpectedSceneWarning,
 };
 const Vector = struct { name: []const u8, routeId: []const u8, model: []const u8, output: Output };
 
@@ -130,5 +135,18 @@ test "shared scene and route vectors" {
             }
         }
         try std.testing.expectEqual(vector.output.traces.len, trace_index);
+        var scene_warning_index: usize = 0;
+        for (result.traces) |scene_trace| {
+            for (scene_trace.duplicate_warnings) |warning| {
+                const expected = vector.output.sceneWarnings[scene_warning_index];
+                scene_warning_index += 1;
+                try std.testing.expectEqualStrings(expected.actionId, warning.action_id);
+                if (expected.firstEnqueuedBy) |source|
+                    try std.testing.expectEqualStrings(source, warning.first_enqueued_by.?)
+                else
+                    try std.testing.expect(warning.first_enqueued_by == null);
+            }
+        }
+        try std.testing.expectEqual(vector.output.sceneWarnings.len, scene_warning_index);
     }
 }

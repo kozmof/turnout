@@ -26,6 +26,10 @@ type Vector = {
       nextActions: string[];
       warnings: Array<{ kind: string; writtenPaths?: string[] }>;
     }>;
+    sceneWarnings: Array<{
+      actionId: string;
+      firstEnqueuedBy: string | null;
+    }>;
   };
 };
 
@@ -79,6 +83,14 @@ describe("shared scene and route vectors", () => {
           })),
         ),
       ).toEqual(vector.output.traces);
+      expect(
+        result.trace.scenes.flatMap((scene) =>
+          (scene.warnings ?? []).map((warning) => ({
+            actionId: warning.actionId,
+            firstEnqueuedBy: warning.firstEnqueuedBy === "<entry>" ? null : warning.firstEnqueuedBy,
+          })),
+        ),
+      ).toEqual(vector.output.sceneWarnings);
     });
   }
 });
