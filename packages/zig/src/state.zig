@@ -208,6 +208,15 @@ pub const State = struct {
         return result;
     }
 
+    pub fn canonicalJson(self: *const State, allocator: std.mem.Allocator) ![]u8 {
+        var borrowed: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+        defer borrowed.deinit(allocator);
+        var iterator = self.entries.iterator();
+        while (iterator.next()) |entry|
+            try borrowed.put(allocator, entry.key_ptr.*, entry.value_ptr.borrowed());
+        return value.canonicalMapJson(&borrowed, allocator);
+    }
+
     pub fn write(
         self: *const State,
         path: []const u8,
@@ -474,6 +483,24 @@ test "writes and snapshots preserve previous state" {
     var copied_value = (try copy.readOrNull("score.value", allocator)).?;
     defer copied_value.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 7), copied_value.value.number);
+}
+
+test "state canonical JSON preserves snapshot order and tags" {
+    var initial: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer initial.deinit(std.testing.allocator);
+    try initial.put(std.testing.allocator, "app.count", .{
+        .value = .{ .number = 3 },
+        .tags = &.{"initial"},
+    });
+    try initial.put(std.testing.allocator, "app.ready", .{ .value = .{ .boolean = true } });
+    var state = try State.initUnchecked(&initial, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    const json = try state.canonicalJson(std.testing.allocator);
+    defer std.testing.allocator.free(json);
+    try std.testing.expectEqualStrings(
+        "{\"app.count\":{\"symbol\":\"number\",\"value\":3,\"tags\":[\"initial\"]},\"app.ready\":{\"symbol\":\"boolean\",\"value\":true,\"tags\":[]}}",
+        json,
+    );
 }
 
 test "batch writes are atomic and reject reserved paths" {
