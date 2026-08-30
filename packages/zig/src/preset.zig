@@ -10,6 +10,7 @@ pub const PresetError = error{
     TypeMismatch,
     IndexOutOfBounds,
     IncomparableValues,
+    InvalidTemplateSpec,
 };
 
 pub fn call(
@@ -37,6 +38,8 @@ pub fn call(
     if (std.mem.eql(u8, name, "combineFnString::includes")) return stringPredicate(args, allocator, .includes);
     if (std.mem.eql(u8, name, "combineFnString::startsWith")) return stringPredicate(args, allocator, .starts_with);
     if (std.mem.eql(u8, name, "combineFnString::endsWith")) return stringPredicate(args, allocator, .ends_with);
+    if (std.mem.eql(u8, name, "combineFnString::extract")) return stringExtract(args, allocator, false);
+    if (std.mem.eql(u8, name, "combineFnString::extractNum")) return stringExtract(args, allocator, true);
     if (std.mem.eql(u8, name, "combineFnArray::concat")) return arrayConcat(args, allocator);
     if (std.mem.eql(u8, name, "combineFnArray::includes")) return arrayIncludes(args, allocator);
     if (std.mem.startsWith(u8, name, "combineFnArray::get")) return arrayGet(args, allocator);
@@ -48,6 +51,9 @@ pub fn call(
     if (std.mem.eql(u8, name, "transformFnNumber::round")) return numberUnary(args, allocator, .round);
     if (std.mem.eql(u8, name, "transformFnNumber::negate")) return numberUnary(args, allocator, .negate);
     if (std.mem.eql(u8, name, "transformFnBoolean::not")) return booleanNot(args, allocator);
+    if (std.mem.eql(u8, name, "transformFnBoolean::toStr")) return booleanToString(args, allocator);
+    if (std.mem.eql(u8, name, "transformFnString::trim")) return stringTrim(args, allocator);
+    if (std.mem.eql(u8, name, "transformFnString::length")) return stringLength(args, allocator);
     if (std.mem.eql(u8, name, "transformFnArray::length")) return arrayLength(args, allocator, false);
     if (std.mem.eql(u8, name, "transformFnArray::isEmpty")) return arrayLength(args, allocator, true);
     if (std.mem.endsWith(u8, name, "::pass")) return pass(args, allocator);
@@ -187,6 +193,114 @@ fn stringPredicate(args: []const value.TaggedValue, allocator: std.mem.Allocator
     return value.buildBoolean(result, tags, allocator);
 }
 
+fn stringExtract(args: []const value.TaggedValue, allocator: std.mem.Allocator, as_number: bool) !value.OwnedTaggedValue {
+    try requireArity(args, 2);
+    if (args[0].value != .string or args[1].value != .string) return error.TypeMismatch;
+    const captured = extractCapture(args[0].value.string, args[1].value.string, allocator) catch "";
+    if (as_number) {
+        const number = if (captured.len == 0)
+            0
+        else
+            std.fmt.parseFloat(f64, captured) catch 0;
+        return value.buildNumber(number, args[0].tags, allocator);
+    }
+    const tags = try mergedArgs(args, allocator);
+    defer allocator.free(tags);
+    return value.buildString(captured, tags, allocator);
+}
+
+pub fn extractCapture(subject: []const u8, spec_json: []const u8, allocator: std.mem.Allocator) ![]const u8 {
+    const parsed = std.json.parseFromSlice(std.json.Value, allocator, spec_json, .{}) catch
+        return error.InvalidTemplateSpec;
+    defer parsed.deinit();
+    if (parsed.value != .object) return error.InvalidTemplateSpec;
+    const want_value = parsed.value.object.get("want") orelse return error.InvalidTemplateSpec;
+    const segs_value = parsed.value.object.get("segs") orelse return error.InvalidTemplateSpec;
+    if (want_value != .string or segs_value != .array) return error.InvalidTemplateSpec;
+    return matchSegments(segs_value.array.items, 0, subject, want_value.string) orelse "";
+}
+
+fn matchSegments(segs: []const std.json.Value, index: usize, remaining: []const u8, wanted: []const u8) ?[]const u8 {
+    if (index >= segs.len) return if (remaining.len == 0) "" else null;
+    if (segs[index] != .object) return null;
+    const segment = segs[index].object;
+    if (segment.get("text")) |text| {
+        if (text != .string or !std.mem.startsWith(u8, remaining, text.string)) return null;
+        return matchSegments(segs, index + 1, remaining[text.string.len..], wanted);
+    }
+    const capture = segment.get("cap") orelse return null;
+    if (capture != .string) return null;
+    if (index == segs.len - 1) {
+        if (!captureAccepts(remaining, segment)) return null;
+        return if (std.mem.eql(u8, capture.string, wanted)) remaining else "";
+    }
+    var end: usize = 1;
+    while (end <= remaining.len) : (end += 1) {
+        const raw = remaining[0..end];
+        if (!captureAccepts(raw, segment)) continue;
+        if (matchSegments(segs, index + 1, remaining[end..], wanted)) |later| {
+            if (std.mem.eql(u8, capture.string, wanted)) return raw;
+            return later;
+        }
+    }
+    return null;
+}
+
+fn captureAccepts(raw: []const u8, segment: std.json.ObjectMap) bool {
+    if (raw.len == 0) return false;
+    const type_value = segment.get("t") orelse return false;
+    if (type_value != .string) return false;
+    const kind = type_value.string;
+    if (std.mem.eql(u8, kind, "str")) return true;
+    if (std.mem.eql(u8, kind, "bool"))
+        return std.mem.eql(u8, raw, "true") or std.mem.eql(u8, raw, "false");
+    if (std.mem.eql(u8, kind, "integer"))
+        return isCanonicalInteger(raw) and isFiniteFloat(raw);
+    if (std.mem.eql(u8, kind, "number"))
+        return isCanonicalNumber(raw) and isFiniteFloat(raw);
+    if (std.mem.eql(u8, kind, "enum")) {
+        const values = segment.get("vals") orelse return false;
+        if (values != .array) return false;
+        for (values.array.items) |candidate| {
+            if (candidate == .string and std.mem.eql(u8, raw, candidate.string)) return true;
+        }
+    }
+    return false;
+}
+
+fn isCanonicalInteger(raw: []const u8) bool {
+    const negative = raw[0] == '-';
+    const digits = if (negative) raw[1..] else raw;
+    return isCanonicalDigits(digits) and !(negative and std.mem.eql(u8, digits, "0"));
+}
+
+fn isCanonicalNumber(raw: []const u8) bool {
+    const dot = std.mem.indexOfScalar(u8, raw, '.');
+    const integer = if (dot) |position| raw[0..position] else raw;
+    const fraction = if (dot) |position| raw[position + 1 ..] else "";
+    if (dot != null and !isDigits(fraction)) return false;
+    const negative = integer.len > 0 and integer[0] == '-';
+    const digits = if (negative) integer[1..] else integer;
+    return isCanonicalDigits(digits) and
+        !(negative and std.mem.eql(u8, digits, "0") and fraction.len == 0);
+}
+
+fn isCanonicalDigits(raw: []const u8) bool {
+    if (std.mem.eql(u8, raw, "0")) return true;
+    return raw.len > 0 and raw[0] != '0' and isDigits(raw);
+}
+
+fn isDigits(raw: []const u8) bool {
+    if (raw.len == 0) return false;
+    for (raw) |character| if (character < '0' or character > '9') return false;
+    return true;
+}
+
+fn isFiniteFloat(raw: []const u8) bool {
+    const number = std.fmt.parseFloat(f64, raw) catch return false;
+    return std.math.isFinite(number);
+}
+
 fn arrayConcat(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
     try requireArity(args, 2);
     if (args[0].value != .array or args[1].value != .array) return error.TypeMismatch;
@@ -288,6 +402,24 @@ fn arrayLength(args: []const value.TaggedValue, allocator: std.mem.Allocator, em
     return value.buildNumber(@floatFromInt(args[0].value.array.items.len), args[0].tags, allocator);
 }
 
+fn booleanToString(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 1);
+    if (args[0].value != .boolean) return error.TypeMismatch;
+    return value.buildString(if (args[0].value.boolean) "true" else "false", args[0].tags, allocator);
+}
+
+fn stringTrim(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 1);
+    if (args[0].value != .string) return error.TypeMismatch;
+    return value.buildString(try jsTrim(args[0].value.string), args[0].tags, allocator);
+}
+
+fn stringLength(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
+    try requireArity(args, 1);
+    if (args[0].value != .string) return error.TypeMismatch;
+    return value.buildNumber(@floatFromInt(try jsStringLength(args[0].value.string)), args[0].tags, allocator);
+}
+
 fn pass(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
     try requireArity(args, 1);
     return value.build(args[0].value, args[0].tags, allocator);
@@ -320,6 +452,34 @@ pub fn jsStringLength(bytes: []const u8) PresetError!usize {
         index += sequence_len;
     }
     return length;
+}
+
+pub fn jsTrim(bytes: []const u8) PresetError![]const u8 {
+    if (!std.unicode.utf8ValidateSlice(bytes)) return error.InvalidUtf8;
+    var start: usize = 0;
+    while (start < bytes.len) {
+        const sequence_len = std.unicode.utf8ByteSequenceLength(bytes[start]) catch return error.InvalidUtf8;
+        const scalar = std.unicode.utf8Decode(bytes[start..][0..sequence_len]) catch return error.InvalidUtf8;
+        if (!isEcmaWhitespace(scalar)) break;
+        start += sequence_len;
+    }
+
+    var end = bytes.len;
+    while (end > start) {
+        var scalar_start = end - 1;
+        while (scalar_start > start and (bytes[scalar_start] & 0b1100_0000) == 0b1000_0000) scalar_start -= 1;
+        const scalar = std.unicode.utf8Decode(bytes[scalar_start..end]) catch return error.InvalidUtf8;
+        if (!isEcmaWhitespace(scalar)) break;
+        end = scalar_start;
+    }
+    return bytes[start..end];
+}
+
+fn isEcmaWhitespace(scalar: u21) bool {
+    return switch (scalar) {
+        0x0009...0x000D, 0x0020, 0x00A0, 0x1680, 0x2000...0x200A, 0x2028, 0x2029, 0x202F, 0x205F, 0x3000, 0xFEFF => true,
+        else => false,
+    };
 }
 
 test "numeric, boolean, string, and generic calls propagate tags" {
@@ -357,9 +517,53 @@ test "tagged array and record operations preserve child provenance" {
     try std.testing.expectEqualSlices([]const u8, &.{ "field", "record", "key" }, record_got.tags);
 }
 
+test "template extraction matches canonical typed captures" {
+    const allocator = std.testing.allocator;
+    const spec =
+        \\{"want":"sequence","segs":[{"cap":"kind","t":"enum","vals":["foo","bar"]},{"text":"-"},{"cap":"sequence","t":"integer"}]}
+    ;
+    try std.testing.expectEqualStrings("42", try extractCapture("foo-42", spec, allocator));
+    try std.testing.expectEqualStrings("", try extractCapture("baz-42", spec, allocator));
+    try std.testing.expectEqualStrings("", try extractCapture("foo-01", spec, allocator));
+    try std.testing.expectError(error.InvalidTemplateSpec, extractCapture("foo-42", "{bad", allocator));
+
+    const subject: value.TaggedValue = .{ .value = .{ .string = "foo-42" }, .tags = &.{"subject"} };
+    const descriptor: value.TaggedValue = .{ .value = .{ .string = spec }, .tags = &.{"descriptor"} };
+    var extracted = try call("combineFnString::extract", &.{ subject, descriptor }, allocator);
+    defer extracted.deinit(allocator);
+    try std.testing.expectEqualStrings("42", extracted.value.string);
+    try std.testing.expectEqualSlices([]const u8, &.{ "subject", "descriptor" }, extracted.tags);
+    var number = try call("combineFnString::extractNum", &.{ subject, descriptor }, allocator);
+    defer number.deinit(allocator);
+    try std.testing.expectEqual(@as(f64, 42), number.value.number);
+    try std.testing.expectEqualSlices([]const u8, &.{"subject"}, number.tags);
+}
+
 test "division, rounding, and UTF-16 length match JavaScript edges" {
     try std.testing.expectError(error.DivisionByZero, divide(1, -0.0));
     try std.testing.expectEqual(@as(f64, -2), jsRound(-2.5));
     try std.testing.expect(std.math.signbit(jsRound(-0.1)));
     try std.testing.expectEqual(@as(usize, 2), try jsStringLength("😀"));
+    try std.testing.expectEqualStrings("hello", try jsTrim("\xEF\xBB\xBF\xE3\x80\x80hello\xC2\xA0"));
+}
+
+test "string and boolean transforms preserve JavaScript values and tags" {
+    const allocator = std.testing.allocator;
+    const text: value.TaggedValue = .{ .value = .{ .string = "\xE3\x80\x80😀 ok\xC2\xA0" }, .tags = &.{"text"} };
+    var trimmed = try call("transformFnString::trim", &.{text}, allocator);
+    defer trimmed.deinit(allocator);
+    try std.testing.expectEqualStrings("😀 ok", trimmed.value.string);
+    try std.testing.expectEqualSlices([]const u8, &.{"text"}, trimmed.tags);
+
+    const emoji: value.TaggedValue = .{ .value = .{ .string = "😀" }, .tags = &.{"emoji"} };
+    var length = try call("transformFnString::length", &.{emoji}, allocator);
+    defer length.deinit(allocator);
+    try std.testing.expectEqual(@as(f64, 2), length.value.number);
+    try std.testing.expectEqualSlices([]const u8, &.{"emoji"}, length.tags);
+
+    const boolean: value.TaggedValue = .{ .value = .{ .boolean = false }, .tags = &.{"boolean"} };
+    var string = try call("transformFnBoolean::toStr", &.{boolean}, allocator);
+    defer string.deinit(allocator);
+    try std.testing.expectEqualStrings("false", string.value.string);
+    try std.testing.expectEqualSlices([]const u8, &.{"boolean"}, string.tags);
 }
