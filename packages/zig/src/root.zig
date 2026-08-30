@@ -9,6 +9,7 @@ pub const fn_aliases = @import("generated/fn_aliases.zig");
 pub const effect = @import("effect.zig");
 pub const runtime = @import("runtime.zig");
 pub const state = @import("state.zig");
+pub const action = @import("action.zig");
 
 test {
     _ = model;
@@ -22,4 +23,5 @@ test {
     _ = effect;
     _ = runtime;
     _ = state;
+    _ = action;
 }

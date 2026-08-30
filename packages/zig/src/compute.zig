@@ -60,6 +60,17 @@ pub const LoadedCompute = struct {
     }
 };
 
+pub const ProgramResult = struct {
+    bindings: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+    root: value.OwnedTaggedValue,
+
+    pub fn deinit(self: *ProgramResult, allocator: std.mem.Allocator) void {
+        deinitValues(&self.bindings, allocator);
+        self.root.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
 pub fn executeJson(
     compute: std.json.Value,
     inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
@@ -76,9 +87,20 @@ pub fn executeProgram(
     inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
     allocator: std.mem.Allocator,
 ) !value.OwnedTaggedValue {
+    var result = try executeProgramWithBindings(prog, output_name, inputs, allocator);
+    deinitValues(&result.bindings, allocator);
+    return result.root;
+}
+
+pub fn executeProgramWithBindings(
+    prog: std.json.Value,
+    output_name: []const u8,
+    inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    allocator: std.mem.Allocator,
+) !ProgramResult {
     try validateProgram(prog, output_name, allocator);
     var values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
-    defer deinitValues(&values, allocator);
+    errdefer deinitValues(&values, allocator);
     const bindings = prog.object.get("bindings").?.array.items;
     for (bindings) |binding| {
         const object = binding.object;
@@ -96,9 +118,13 @@ pub fn executeProgram(
             return err;
         };
     }
-    if (output_name.len == 0) return value.buildNull(.missing, &.{}, allocator);
-    const root = values.getPtr(output_name) orelse return error.MissingRootBinding;
-    return value.build(root.value, root.tags, allocator);
+    const root = if (output_name.len == 0)
+        try value.buildNull(.missing, &.{}, allocator)
+    else blk: {
+        const found = values.getPtr(output_name) orelse return error.MissingRootBinding;
+        break :blk try value.build(found.value, found.tags, allocator);
+    };
+    return .{ .bindings = values, .root = root };
 }
 
 fn deinitValues(values: *std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue), allocator: std.mem.Allocator) void {
