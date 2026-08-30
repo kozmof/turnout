@@ -174,6 +174,86 @@ pub fn fromJson(allocator: std.mem.Allocator, json: std.json.Value) !Value {
     };
 }
 
+pub fn canonicalJson(tagged: TaggedValue, allocator: std.mem.Allocator) ![]u8 {
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    errdefer output.deinit();
+    try std.json.Stringify.value(CanonicalTagged{ .tagged = tagged }, .{}, &output.writer);
+    return output.toOwnedSlice();
+}
+
+pub fn canonicalMapJson(
+    values: *const std.StringArrayHashMapUnmanaged(TaggedValue),
+    allocator: std.mem.Allocator,
+) ![]u8 {
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    errdefer output.deinit();
+    var writer: std.json.Stringify = .{ .writer = &output.writer, .options = .{} };
+    try writer.beginObject();
+    var iterator = values.iterator();
+    while (iterator.next()) |entry| {
+        try writer.objectField(entry.key_ptr.*);
+        try writer.write(CanonicalTagged{ .tagged = entry.value_ptr.* });
+    }
+    try writer.endObject();
+    return output.toOwnedSlice();
+}
+
+const CanonicalTagged = struct {
+    tagged: TaggedValue,
+
+    pub fn jsonStringify(self: CanonicalTagged, writer: anytype) !void {
+        try writer.beginObject();
+        try writer.objectField("symbol");
+        try writer.write(switch (self.tagged.value) {
+            .number => "number",
+            .string => "string",
+            .boolean => "boolean",
+            .null_value => "null",
+            .array => "array",
+            .record => "record",
+        });
+        switch (self.tagged.value) {
+            .number => |number| {
+                try writer.objectField("value");
+                try writer.write(number);
+            },
+            .string => |string| {
+                try writer.objectField("value");
+                try writer.write(string);
+            },
+            .boolean => |boolean| {
+                try writer.objectField("value");
+                try writer.write(boolean);
+            },
+            .null_value => |reason| {
+                try writer.objectField("value");
+                try writer.write(null);
+                try writer.objectField("reason");
+                try writer.write(@tagName(reason));
+            },
+            .array => |array| {
+                try writer.objectField("value");
+                try writer.beginArray();
+                for (array.items) |item| try writer.write(CanonicalTagged{ .tagged = item });
+                try writer.endArray();
+            },
+            .record => |record| {
+                try writer.objectField("value");
+                try writer.beginObject();
+                var iterator = record.iterator();
+                while (iterator.next()) |entry| {
+                    try writer.objectField(entry.key_ptr.*);
+                    try writer.write(CanonicalTagged{ .tagged = entry.value_ptr.* });
+                }
+                try writer.endObject();
+            },
+        }
+        try writer.objectField("tags");
+        try writer.write(self.tagged.tags);
+        try writer.endObject();
+    }
+};
+
 pub fn cloneValue(value: Value, allocator: std.mem.Allocator) std.mem.Allocator.Error!Value {
     return switch (value) {
         .number => |number| .{ .number = number },
@@ -335,4 +415,40 @@ test "recursive clone preserves nested tags independently" {
     defer deinitValue(&cloned, std.testing.allocator);
     try std.testing.expectEqualSlices([]const u8, &.{"child"}, cloned.array.items[0].tags);
     try std.testing.expect(cloned.array.items[0].tags.ptr != children[0].tags.ptr);
+}
+
+test "canonical JSON preserves nested values tags and record order" {
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        std.testing.allocator,
+        "{\"first\":[1,null],\"second\":true}",
+        .{},
+    );
+    defer parsed.deinit();
+    var converted = try fromJson(std.testing.allocator, parsed.value);
+    defer deinitValue(&converted, std.testing.allocator);
+    var tagged = try build(converted, &.{"context"}, std.testing.allocator);
+    defer tagged.deinit(std.testing.allocator);
+    const json = try canonicalJson(tagged.borrowed(), std.testing.allocator);
+    defer std.testing.allocator.free(json);
+    try std.testing.expectEqualStrings(
+        "{\"symbol\":\"record\",\"value\":{\"first\":{\"symbol\":\"array\",\"value\":[{\"symbol\":\"number\",\"value\":1,\"tags\":[]},{\"symbol\":\"null\",\"value\":null,\"reason\":\"unknown\",\"tags\":[]}],\"tags\":[]},\"second\":{\"symbol\":\"boolean\",\"value\":true,\"tags\":[]}},\"tags\":[\"context\"]}",
+        json,
+    );
+}
+
+test "canonical map JSON preserves binding order" {
+    var values: std.StringArrayHashMapUnmanaged(TaggedValue) = .empty;
+    defer values.deinit(std.testing.allocator);
+    try values.put(std.testing.allocator, "first", .{ .value = .{ .number = 1 } });
+    try values.put(std.testing.allocator, "second", .{
+        .value = .{ .string = "two" },
+        .tags = &.{"prepared"},
+    });
+    const json = try canonicalMapJson(&values, std.testing.allocator);
+    defer std.testing.allocator.free(json);
+    try std.testing.expectEqualStrings(
+        "{\"first\":{\"symbol\":\"number\",\"value\":1,\"tags\":[]},\"second\":{\"symbol\":\"string\",\"value\":\"two\",\"tags\":[\"prepared\"]}}",
+        json,
+    );
 }
