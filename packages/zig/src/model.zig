@@ -1,5 +1,7 @@
 const std = @import("std");
+const action_runtime = @import("action.zig");
 const compute_runtime = @import("compute.zig");
+const state_runtime = @import("state.zig");
 const turnout_value = @import("value.zig");
 
 pub const current_version: u32 = 2;
@@ -74,6 +76,56 @@ pub const RuntimeModel = struct {
         if (action_compute != .object or !action_compute.object.contains("prog"))
             return turnout_value.buildNull(.missing, &.{}, allocator);
         return compute_runtime.executeJson(action_compute, inputs, allocator);
+    }
+
+    pub fn executeAction(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        state: *const state_runtime.State,
+        allocator: std.mem.Allocator,
+    ) !action_runtime.Result {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        return action_runtime.execute(.{ .object = action }, state, allocator);
+    }
+
+    pub fn selectNextAfterAction(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        result: *const action_runtime.Result,
+        allocator: std.mem.Allocator,
+    ) !NextRuleSelection {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        const rules_value = action.get("next") orelse
+            return .{ .target = null, .warnings = try allocator.alloc(NextRuleWarning, 0) };
+        if (rules_value != .array) return error.NextRuleNotFound;
+        var warnings = std.ArrayList(NextRuleWarning).empty;
+        errdefer warnings.deinit(allocator);
+        for (rules_value.array.items, 0..) |rule, index| {
+            if (rule != .object) return error.NextRuleNotFound;
+            var prepared = try prepareNextRule(rule, result, allocator);
+            defer deinitPrepared(&prepared, allocator);
+            const outcome = try self.evaluateNextRule(scene_id, action_id, index, &prepared, allocator);
+            switch (outcome) {
+                .matched => |matched| if (matched) {
+                    const target = rule.object.get("action") orelse return error.NextRuleNotFound;
+                    if (target != .string) return error.NextRuleNotFound;
+                    return .{ .target = target.string, .warnings = try warnings.toOwnedSlice(allocator) };
+                },
+                .invalid_type => try warnings.append(allocator, .{
+                    .kind = .invalid_condition,
+                    .rule_index = index,
+                    .condition_name = nextConditionName(rule),
+                }),
+                .missing_program => try warnings.append(allocator, .{
+                    .kind = .missing_program,
+                    .rule_index = index,
+                    .condition_name = nextConditionName(rule),
+                }),
+            }
+        }
+        return .{ .target = null, .warnings = try warnings.toOwnedSlice(allocator) };
     }
 
     pub fn evaluateNextRule(
@@ -158,6 +210,96 @@ pub const RuntimeModel = struct {
         return null;
     }
 };
+
+fn prepareNextRule(
+    rule: std.json.Value,
+    result: *const action_runtime.Result,
+    allocator: std.mem.Allocator,
+) !std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) {
+    var prepared: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    errdefer deinitPrepared(&prepared, allocator);
+    const entries = rule.object.get("prepare") orelse return prepared;
+    if (entries != .array) return error.InvalidPrepare;
+    for (entries.array.items) |entry| {
+        if (entry != .object) return error.InvalidPrepare;
+        const binding = entry.object.get("binding") orelse return error.InvalidPrepare;
+        if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
+        var prepared_value = if (entry.object.get("fromAction")) |source| blk: {
+            if (source != .string) return error.InvalidPrepare;
+            const found = result.binding_values.get(source.string) orelse return error.MissingActionBinding;
+            break :blk try turnout_value.build(found.value, found.tags, allocator);
+        } else if (entry.object.get("fromState")) |source| blk: {
+            if (source != .string) return error.InvalidPrepare;
+            break :blk try result.state_after_merge.read(source.string, allocator);
+        } else if (entry.object.get("fromLiteral")) |literal|
+            try inferLiteral(literal, allocator)
+        else if (entry.object.contains("fromHook"))
+            return error.HookRequired
+        else
+            continue;
+        const tagged = prepared_value.borrowed();
+        if (prepared.getPtr(binding.string)) |previous| {
+            turnout_value.deinitTaggedValue(previous, allocator);
+            previous.* = tagged;
+            continue;
+        }
+        prepared.put(allocator, binding.string, tagged) catch |err| {
+            prepared_value.deinit(allocator);
+            return err;
+        };
+    }
+    return prepared;
+}
+
+fn inferLiteral(literal: std.json.Value, allocator: std.mem.Allocator) !turnout_value.OwnedTaggedValue {
+    switch (literal) {
+        .integer, .float, .number_string, .string, .bool => {
+            var converted = try turnout_value.fromJson(allocator, literal);
+            errdefer turnout_value.deinitValue(&converted, allocator);
+            return .{ .value = converted, .tags = try allocator.alloc([]const u8, 0) };
+        },
+        .array => |array| {
+            if (array.items.len == 0) return error.EmptyLiteralArray;
+            const element = switch (array.items[0]) {
+                .integer, .float, .number_string => turnout_value.ArrayElement.number,
+                .string => turnout_value.ArrayElement.string,
+                .bool => turnout_value.ArrayElement.boolean,
+                else => return emptyArray(allocator),
+            };
+            var converted = try turnout_value.fromJson(allocator, literal);
+            errdefer turnout_value.deinitValue(&converted, allocator);
+            converted.array.element = element;
+            for (converted.array.items) |item| {
+                const matches = switch (element) {
+                    .number => item.value == .number,
+                    .string => item.value == .string,
+                    .boolean => item.value == .boolean,
+                    else => unreachable,
+                };
+                if (!matches) return error.InvalidLiteral;
+            }
+            return .{ .value = converted, .tags = try allocator.alloc([]const u8, 0) };
+        },
+        else => return turnout_value.buildNull(.unknown, &.{}, allocator),
+    }
+}
+
+fn emptyArray(allocator: std.mem.Allocator) !turnout_value.OwnedTaggedValue {
+    const items = try allocator.alloc(turnout_value.TaggedValue, 0);
+    errdefer allocator.free(items);
+    return .{
+        .value = .{ .array = .{ .items = items } },
+        .tags = try allocator.alloc([]const u8, 0),
+    };
+}
+
+fn deinitPrepared(
+    prepared: *std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue),
+    allocator: std.mem.Allocator,
+) void {
+    for (prepared.values()) |*item| turnout_value.deinitTaggedValue(item, allocator);
+    prepared.deinit(allocator);
+}
 
 fn nextConditionName(rule: std.json.Value) []const u8 {
     if (rule != .object) return "";
@@ -380,6 +522,95 @@ test "decoded runtime model retains representative full-schema JSON" {
     defer model.deinit();
     try std.testing.expectEqual(@as(i64, 2), model.root().get("version").?.integer);
     try std.testing.expectEqual(@as(usize, 1), model.root().get("scenes").?.array.items.len);
+}
+
+test "model executes action and selects first matching prepared next rule" {
+    const fixture =
+        \\{
+        \\  "version":2,
+        \\  "scenes":[{"id":"main","actions":[{
+        \\    "id":"source",
+        \\    "compute":{"root":"result","prog":{"bindings":[
+        \\      {"name":"input","type":"number"},
+        \\      {"name":"result","type":"number","expr":{
+        \\        "combine":{"fn":"add","args":[{"ref":"input"},{"lit":2}]}
+        \\      }}
+        \\    ]}},
+        \\    "prepare":[{"binding":"input","fromState":"counter.value"}],
+        \\    "merge":[{"binding":"result","toState":"counter.value"}],
+        \\    "next":[
+        \\      {
+        \\        "action":"skipped",
+        \\        "prepare":[{"binding":"flag","fromLiteral":false}],
+        \\        "compute":{"condition":"flag","prog":{"bindings":[
+        \\          {"name":"flag","type":"bool"}
+        \\        ]}}
+        \\      },
+        \\      {
+        \\        "action":"target",
+        \\        "prepare":[
+        \\          {"binding":"left","fromState":"counter.value"},
+        \\          {"binding":"right","fromAction":"result"}
+        \\        ],
+        \\        "compute":{"condition":"matches","prog":{"bindings":[
+        \\          {"name":"left","type":"number"},
+        \\          {"name":"right","type":"number"},
+        \\          {"name":"matches","type":"bool","expr":{
+        \\            "combine":{"fn":"eq","args":[{"ref":"left"},{"ref":"right"}]}
+        \\          }}
+        \\        ]}}
+        \\      }
+        \\    ]
+        \\  }]}]
+        \\}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    var initial: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    defer initial.deinit(std.testing.allocator);
+    try initial.put(std.testing.allocator, "counter.value", .{ .value = .{ .number = 3 } });
+    var state = try state_runtime.State.initUnchecked(&initial, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var action_result = try model.executeAction("main", "source", &state, std.testing.allocator);
+    defer action_result.deinit(std.testing.allocator);
+    var selection = try model.selectNextAfterAction(
+        "main",
+        "source",
+        &action_result,
+        std.testing.allocator,
+    );
+    defer selection.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("target", selection.target.?);
+    try std.testing.expectEqual(@as(usize, 0), selection.warnings.len);
+}
+
+test "next preparation rejects absent action binding" {
+    const fixture =
+        \\{"version":2,"scenes":[{"id":"main","actions":[{
+        \\  "id":"source",
+        \\  "compute":{"root":"result","prog":{"bindings":[
+        \\    {"name":"result","type":"number","value":1}
+        \\  ]}},
+        \\  "next":[{
+        \\    "action":"target",
+        \\    "prepare":[{"binding":"input","fromAction":"absent"}],
+        \\    "compute":{"condition":"input","prog":{"bindings":[
+        \\      {"name":"input","type":"bool"}
+        \\    ]}}
+        \\  }]
+        \\}]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, fixture, .{});
+    defer model.deinit();
+    const empty: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, std.testing.allocator);
+    defer state.deinit(std.testing.allocator);
+    var action_result = try model.executeAction("main", "source", &state, std.testing.allocator);
+    defer action_result.deinit(std.testing.allocator);
+    try std.testing.expectError(
+        error.MissingActionBinding,
+        model.selectNextAfterAction("main", "source", &action_result, std.testing.allocator),
+    );
 }
 
 test "runtime projection enforces nesting limit" {
