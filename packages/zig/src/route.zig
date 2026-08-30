@@ -17,11 +17,13 @@ pub const Result = struct {
     final_state: state_runtime.State,
     history: []HistoryEntry,
     scenes: []const []const u8,
+    logs: []scene_runtime.LogEvent,
 
     pub fn deinit(self: *Result, allocator: std.mem.Allocator) void {
         self.final_state.deinit(allocator);
         allocator.free(self.history);
         allocator.free(self.scenes);
+        allocator.free(self.logs);
         self.* = undefined;
     }
 };
@@ -30,9 +32,11 @@ pub const Failure = struct {
     err: anyerror,
     partial_state: state_runtime.State,
     failed_scene_id: []const u8,
+    logs: []scene_runtime.LogEvent,
 
     pub fn deinit(self: *Failure, allocator: std.mem.Allocator) void {
         self.partial_state.deinit(allocator);
+        allocator.free(self.logs);
         self.* = undefined;
     }
 };
@@ -90,6 +94,8 @@ pub fn execute(
     var current_state = try initial_state.snapshot(allocator);
     defer current_state.deinit(allocator);
     var current_scene: []const u8 = "";
+    var logs = std.ArrayList(scene_runtime.LogEvent).empty;
+    defer logs.deinit(allocator);
     return executeOwned(
         model,
         route_id,
@@ -97,6 +103,7 @@ pub fn execute(
         &current_scene,
         max_scene_steps,
         max_transitions,
+        &logs,
         allocator,
     );
 }
@@ -112,6 +119,8 @@ pub fn executeSafe(
     var current_state = try initial_state.snapshot(allocator);
     errdefer current_state.deinit(allocator);
     var current_scene: []const u8 = "";
+    var logs = std.ArrayList(scene_runtime.LogEvent).empty;
+    errdefer logs.deinit(allocator);
     const result = executeOwned(
         model,
         route_id,
@@ -119,14 +128,17 @@ pub fn executeSafe(
         &current_scene,
         max_scene_steps,
         max_transitions,
+        &logs,
         allocator,
     ) catch |err| {
+        const log_slice = try logs.toOwnedSlice(allocator);
         const partial_state = current_state;
         current_state = .{};
         return .{ .failure = .{
             .err = err,
             .partial_state = partial_state,
             .failed_scene_id = current_scene,
+            .logs = log_slice,
         } };
     };
     return .{ .success = result };
@@ -139,6 +151,7 @@ fn executeOwned(
     current_scene: *[]const u8,
     max_scene_steps: usize,
     max_transitions: usize,
+    logs: *std.ArrayList(scene_runtime.LogEvent),
     allocator: std.mem.Allocator,
 ) !Result {
     const route = findRoute(model, route_id) orelse return error.RouteNotFound;
@@ -153,14 +166,22 @@ fn executeOwned(
     var transitions: usize = 0;
     while (true) {
         const history_start = history.items.len;
-        var scene_result = try scene_runtime.execute(
+        var safe_scene = try scene_runtime.executeSafe(
             model,
             current_scene.*,
             current_state,
             max_scene_steps,
             allocator,
         );
-        defer scene_result.deinit(allocator);
+        defer safe_scene.deinit(allocator);
+        const scene_result = switch (safe_scene) {
+            .success => |*result| result,
+            .failure => |*failure| {
+                try logs.appendSlice(allocator, failure.logs);
+                return failure.err;
+            },
+        };
+        try logs.appendSlice(allocator, scene_result.logs);
         current_state.deinit(allocator);
         current_state.* = scene_result.takeState();
         try scenes.append(allocator, current_scene.*);
@@ -175,9 +196,16 @@ fn executeOwned(
     const history_slice = try history.toOwnedSlice(allocator);
     errdefer allocator.free(history_slice);
     const scene_slice = try scenes.toOwnedSlice(allocator);
+    errdefer allocator.free(scene_slice);
+    const log_slice = try logs.toOwnedSlice(allocator);
     const final_state = current_state.*;
     current_state.* = .{};
-    return .{ .final_state = final_state, .history = history_slice, .scenes = scene_slice };
+    return .{
+        .final_state = final_state,
+        .history = history_slice,
+        .scenes = scene_slice,
+        .logs = log_slice,
+    };
 }
 
 fn better(candidate: Score, current: Score) bool {
@@ -287,6 +315,11 @@ test "route executes scene transitions and shares state" {
     try std.testing.expectEqual(@as(usize, 2), result.history.len);
     try std.testing.expect(try result.final_state.exists("one"));
     try std.testing.expect(try result.final_state.exists("two"));
+    try std.testing.expectEqual(@as(usize, 6), result.logs.len);
+    try std.testing.expectEqualStrings("a", result.logs[0].action_id);
+    try std.testing.expectEqual(scene_runtime.LogKind.action_complete, result.logs[2].kind);
+    try std.testing.expectEqualStrings("b", result.logs[3].action_id);
+    try std.testing.expectEqual(scene_runtime.LogKind.action_complete, result.logs[5].kind);
 }
 
 test "route transition limit fails on the transition after the limit" {
@@ -354,6 +387,9 @@ test "safe route result keeps state from last completed scene" {
         .failure => |*failure| {
             try std.testing.expectEqual(error.UnknownFunction, failure.err);
             try std.testing.expectEqualStrings("s2", failure.failed_scene_id);
+            try std.testing.expectEqual(@as(usize, 4), failure.logs.len);
+            try std.testing.expectEqual(scene_runtime.LogKind.action_start, failure.logs[3].kind);
+            try std.testing.expectEqualStrings("b", failure.logs[3].action_id);
             var committed = try failure.partial_state.read("committed", std.testing.allocator);
             defer committed.deinit(std.testing.allocator);
             try std.testing.expectEqual(@as(f64, 1), committed.value.number);
