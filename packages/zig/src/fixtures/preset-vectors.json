@@ -45,6 +45,18 @@
     "output": { "value": -125, "tags": ["input"] }
   },
   {
+    "name": "Unicode uppercase expansion",
+    "function": "transformFnString::toUpperCase",
+    "inputs": [{ "value": "Straße", "tags": ["text"] }],
+    "output": { "value": "STRASSE", "tags": ["text"] }
+  },
+  {
+    "name": "Unicode lowercase final sigma",
+    "function": "transformFnString::toLowerCase",
+    "inputs": [{ "value": "ΟΣ ΟΣΑ", "tags": [] }],
+    "output": { "value": "ος οσα", "tags": [] }
+  },
+  {
     "name": "generic equality ignores input tags",
     "function": "combineFnGeneric::isEqual",
     "inputs": [

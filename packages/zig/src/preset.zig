@@ -1,5 +1,6 @@
 const std = @import("std");
 const value = @import("value.zig");
+const unicode_case = @import("generated/unicode_case.zig");
 
 pub const PresetError = error{
     DivisionByZero,
@@ -56,6 +57,8 @@ pub fn call(
     if (std.mem.eql(u8, name, "transformFnBoolean::toStr")) return booleanToString(args, allocator);
     if (std.mem.eql(u8, name, "transformFnString::trim")) return stringTrim(args, allocator);
     if (std.mem.eql(u8, name, "transformFnString::toNumber")) return stringToNumber(args, allocator);
+    if (std.mem.eql(u8, name, "transformFnString::toLowerCase")) return stringCase(args, allocator, .lower);
+    if (std.mem.eql(u8, name, "transformFnString::toUpperCase")) return stringCase(args, allocator, .upper);
     if (std.mem.eql(u8, name, "transformFnString::length")) return stringLength(args, allocator);
     if (std.mem.eql(u8, name, "transformFnArray::length")) return arrayLength(args, allocator, false);
     if (std.mem.eql(u8, name, "transformFnArray::isEmpty")) return arrayLength(args, allocator, true);
@@ -68,6 +71,8 @@ const NumberCompare = enum { gt, gte, lt, lte };
 const NumberUnary = enum { absolute, floor, ceil, round, negate };
 const BooleanBinary = enum { and_op, or_op, xor };
 const StringPredicate = enum { includes, starts_with, ends_with };
+const StringCase = enum { lower, upper };
+const Scalar = struct { value: u21, bytes: []const u8 };
 
 fn requireArity(args: []const value.TaggedValue, count: usize) PresetError!void {
     if (args.len != count) return error.InvalidArity;
@@ -456,6 +461,78 @@ fn stringToNumber(args: []const value.TaggedValue, allocator: std.mem.Allocator)
     return value.buildNumber(number, args[0].tags, allocator);
 }
 
+fn stringCase(args: []const value.TaggedValue, allocator: std.mem.Allocator, mode: StringCase) !value.OwnedTaggedValue {
+    try requireArity(args, 1);
+    if (args[0].value != .string) return error.TypeMismatch;
+    const input = args[0].value.string;
+    if (!std.unicode.utf8ValidateSlice(input)) return error.InvalidUtf8;
+    var scalars = std.ArrayList(Scalar).empty;
+    defer scalars.deinit(allocator);
+    var offset: usize = 0;
+    while (offset < input.len) {
+        const length = std.unicode.utf8ByteSequenceLength(input[offset]) catch return error.InvalidUtf8;
+        try scalars.append(allocator, .{
+            .value = std.unicode.utf8Decode(input[offset..][0..length]) catch return error.InvalidUtf8,
+            .bytes = input[offset..][0..length],
+        });
+        offset += length;
+    }
+    var output = std.ArrayList(u8).empty;
+    defer output.deinit(allocator);
+    for (scalars.items, 0..) |scalar, index| {
+        if (mode == .lower and scalar.value == 0x03A3 and isFinalSigma(scalars.items, index)) {
+            try output.appendSlice(allocator, "\xCF\x82");
+            continue;
+        }
+        const mappings = if (mode == .lower) &unicode_case.lower else &unicode_case.upper;
+        if (findMapping(mappings, scalar.value)) |replacement|
+            try output.appendSlice(allocator, replacement)
+        else
+            try output.appendSlice(allocator, scalar.bytes);
+    }
+    return value.buildString(output.items, args[0].tags, allocator);
+}
+
+fn findMapping(mappings: []const unicode_case.Mapping, scalar: u21) ?[]const u8 {
+    var low: usize = 0;
+    var high = mappings.len;
+    while (low < high) {
+        const middle = low + (high - low) / 2;
+        if (mappings[middle].source < scalar) low = middle + 1 else high = middle;
+    }
+    return if (low < mappings.len and mappings[low].source == scalar) mappings[low].replacement else null;
+}
+
+fn inRanges(ranges: []const unicode_case.Range, scalar: u21) bool {
+    var low: usize = 0;
+    var high = ranges.len;
+    while (low < high) {
+        const middle = low + (high - low) / 2;
+        if (ranges[middle].last < scalar) low = middle + 1 else high = middle;
+    }
+    return low < ranges.len and ranges[low].first <= scalar;
+}
+
+fn isFinalSigma(scalars: []const Scalar, index: usize) bool {
+    var before = index;
+    var has_cased_before = false;
+    while (before > 0) {
+        before -= 1;
+        const scalar = scalars[before].value;
+        if (inRanges(&unicode_case.case_ignorable, scalar)) continue;
+        has_cased_before = inRanges(&unicode_case.cased, scalar);
+        break;
+    }
+    if (!has_cased_before) return false;
+    var after = index + 1;
+    while (after < scalars.len) : (after += 1) {
+        const scalar = scalars[after].value;
+        if (inRanges(&unicode_case.case_ignorable, scalar)) continue;
+        return !inRanges(&unicode_case.cased, scalar);
+    }
+    return true;
+}
+
 fn stringLength(args: []const value.TaggedValue, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
     try requireArity(args, 1);
     if (args[0].value != .string) return error.TypeMismatch;
@@ -643,4 +720,23 @@ test "number to string uses JavaScript notation boundaries" {
         try std.testing.expectEqualStrings(case.expected, string.value.string);
         try std.testing.expectEqualSlices([]const u8, &.{"number"}, string.tags);
     }
+}
+
+test "Unicode case conversion matches ECMAScript expansions and final sigma" {
+    const allocator = std.testing.allocator;
+    const upper_input: value.TaggedValue = .{ .value = .{ .string = "Straße" }, .tags = &.{"text"} };
+    var upper = try call("transformFnString::toUpperCase", &.{upper_input}, allocator);
+    defer upper.deinit(allocator);
+    try std.testing.expectEqualStrings("STRASSE", upper.value.string);
+    try std.testing.expectEqualSlices([]const u8, &.{"text"}, upper.tags);
+
+    const dotted: value.TaggedValue = .{ .value = .{ .string = "İ" } };
+    var lower = try call("transformFnString::toLowerCase", &.{dotted}, allocator);
+    defer lower.deinit(allocator);
+    try std.testing.expectEqualStrings("i\xCC\x87", lower.value.string);
+
+    const greek: value.TaggedValue = .{ .value = .{ .string = "ΟΣ ΟΣΑ" } };
+    var greek_lower = try call("transformFnString::toLowerCase", &.{greek}, allocator);
+    defer greek_lower.deinit(allocator);
+    try std.testing.expectEqualStrings("ος οσα", greek_lower.value.string);
 }
