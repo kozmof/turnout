@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { executeRoute } from "../src/executor/route-executor.js";
+import { executeRoute, executeRouteSafe } from "../src/executor/route-executor.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import type { RouteModel, SceneBlock } from "../src/types/turnout-model_pb.js";
 import type { LogEvent } from "../src/types/harness-types.js";
@@ -36,6 +36,24 @@ type Vector = {
 const vectors = JSON.parse(
   readFileSync(resolve(__dirname, "../../../zig/src/fixtures/scene-route-vectors.json"), "utf8"),
 ) as Vector[];
+
+type ErrorVector = {
+  name: string;
+  routeId: string;
+  model: string;
+  maxRouteTransitions?: number;
+  expected: {
+    code: string;
+    failedSceneId: string;
+    partialState: Array<{ path: string; value: unknown }>;
+  };
+};
+const errorVectors = JSON.parse(
+  readFileSync(
+    resolve(__dirname, "../../../zig/src/fixtures/scene-route-error-vectors.json"),
+    "utf8",
+  ),
+) as ErrorVector[];
 
 describe("shared scene and route vectors", () => {
   for (const vector of vectors) {
@@ -91,6 +109,35 @@ describe("shared scene and route vectors", () => {
           })),
         ),
       ).toEqual(vector.output.sceneWarnings);
+    });
+  }
+});
+
+describe("shared scene and route error vectors", () => {
+  for (const vector of errorVectors) {
+    it(vector.name, async () => {
+      const model = JSON.parse(vector.model) as {
+        routes: Array<RouteModel & { entrySceneId: string }>;
+        scenes: SceneBlock[];
+      };
+      const route = model.routes.find((candidate) => candidate.id === vector.routeId)!;
+      const scenes = Object.fromEntries(model.scenes.map((scene) => [scene.id, scene]));
+      const result = await executeRouteSafe(
+        route,
+        scenes,
+        route.entrySceneId,
+        stateManagerFromUnchecked({}),
+        { prepare: {}, publish: {} },
+        vector.maxRouteTransitions === undefined
+          ? {}
+          : { maxRouteTransitions: vector.maxRouteTransitions },
+      );
+      expect(result.ok).toBe(false);
+      if (result.ok) return;
+      expect((result.error as { code?: string }).code).toBe(vector.expected.code);
+      expect(result.failedSceneId).toBe(vector.expected.failedSceneId);
+      for (const expected of vector.expected.partialState)
+        expect(result.partialState[expected.path]?.value).toEqual(expected.value);
     });
   }
 });

@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 6 |
-| Last verified commit | `fa5a3e6` |
+| Current phase | 7 |
+| Last verified commit | `c97a3b5` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Stable runtime error codes and context are incomplete |
+| Blocking issue | The prepare and publish effect state machine is incomplete |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -145,15 +145,15 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Implement partial STATE on failure
 - [x] Implement route matching and scene transitions
 - [x] Implement scene and route limits
-- [ ] Implement stable warnings and runtime errors
+- [x] Implement stable warnings and runtime errors
 - [x] Implement execution traces and log events
 - [x] Add scene and route parity fixtures
 
 ### Phase 6 exit gate
 
-- [ ] Hook-free models match the TypeScript executor
-- [ ] Final and partial STATE match
-- [ ] Traces, warnings, logs, and errors match
+- [x] Hook-free models match the TypeScript executor
+- [x] Final and partial STATE match
+- [x] Traces, warnings, logs, and errors match
 
 ## Phase 7. Add the effect state machine
 

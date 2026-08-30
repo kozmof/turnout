@@ -1,0 +1,23 @@
+[
+  {
+    "name": "second scene compute failure",
+    "routeId": "main",
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"main\",\"entrySceneId\":\"s1\",\"match\":[{\"patterns\":[\"s1.a\"],\"target\":\"s2\"}]}],\"scenes\":[{\"id\":\"s1\",\"entryAction\":\"a\",\"actions\":[{\"id\":\"a\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"value\":1}]}},\"merge\":[{\"binding\":\"out\",\"toState\":\"committed\"}]}]},{\"id\":\"s2\",\"entryAction\":\"b\",\"actions\":[{\"id\":\"b\",\"compute\":{\"root\":\"out\",\"prog\":{\"bindings\":[{\"name\":\"out\",\"type\":\"number\",\"expr\":{\"combine\":{\"fn\":\"not_a_function\",\"args\":[{\"lit\":1},{\"lit\":2}]}}}]}}}]}]}",
+    "expected": {
+      "code": "UnknownFunction",
+      "failedSceneId": "s2",
+      "partialState": [{ "path": "committed", "value": 1 }]
+    }
+  },
+  {
+    "name": "route transition limit",
+    "routeId": "loop",
+    "maxRouteTransitions": 1,
+    "model": "{\"version\":2,\"routes\":[{\"id\":\"loop\",\"entrySceneId\":\"s\",\"match\":[{\"patterns\":[\"_\"],\"target\":\"s\"}]}],\"scenes\":[{\"id\":\"s\",\"entryAction\":\"a\",\"actions\":[{\"id\":\"a\"}]}]}",
+    "expected": {
+      "code": "MaxRouteTransitionsExceeded",
+      "failedSceneId": "s",
+      "partialState": []
+    }
+  }
+]
