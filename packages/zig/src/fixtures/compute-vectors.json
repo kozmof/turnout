@@ -1,0 +1,54 @@
+[
+  {
+    "name": "prepared combine binding",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          { "name": "input", "type": "number" },
+          {
+            "name": "result",
+            "type": "number",
+            "expr": { "combine": { "fn": "add", "args": [{ "ref": "input" }, { "lit": 3 }] } }
+          }
+        ]
+      }
+    },
+    "inputs": [{ "name": "input", "value": 2, "tags": ["prepared"] }],
+    "output": { "symbol": "number", "value": 5, "tags": ["prepared"] }
+  },
+  {
+    "name": "pipe step ordering",
+    "compute": {
+      "root": "result",
+      "prog": {
+        "bindings": [
+          { "name": "input", "type": "number", "value": 2 },
+          {
+            "name": "result",
+            "type": "number",
+            "expr": {
+              "pipe": {
+                "params": [{ "paramName": "x", "sourceIdent": "input" }],
+                "steps": [
+                  { "fn": "add", "args": [{ "ref": "x" }, { "lit": 1 }] },
+                  { "fn": "mul", "args": [{ "stepRef": 0 }, { "lit": 10 }] }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    },
+    "inputs": [],
+    "output": { "symbol": "number", "value": 30, "tags": [] }
+  },
+  {
+    "name": "missing root",
+    "compute": {
+      "prog": { "bindings": [{ "name": "unused", "type": "number", "value": 1 }] }
+    },
+    "inputs": [],
+    "output": { "symbol": "null", "value": null, "reason": "missing", "tags": [] }
+  }
+]
