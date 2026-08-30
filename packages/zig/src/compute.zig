@@ -79,8 +79,101 @@ fn executeExpression(
     allocator: std.mem.Allocator,
 ) !value.OwnedTaggedValue {
     if (expression.object.get("combine")) |combine| return executeCombine(combine, values, allocator);
-    if (expression.object.contains("pipe")) return error.UnsupportedPipe;
+    if (expression.object.get("pipe")) |pipe| return executePipe(pipe, values, allocator);
     return executeConditional(expression.object.get("cond").?, values, allocator);
+}
+
+fn executePipe(
+    pipe: std.json.Value,
+    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+    allocator: std.mem.Allocator,
+) !value.OwnedTaggedValue {
+    if (pipe != .object) return error.InvalidExpression;
+    const params_value = pipe.object.get("params") orelse return error.InvalidExpression;
+    const steps_value = pipe.object.get("steps") orelse return error.InvalidExpression;
+    if (params_value != .array or steps_value != .array) return error.InvalidExpression;
+    if (steps_value.array.items.len == 0) return error.EmptyPipe;
+
+    var params: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
+    defer deinitValues(&params, allocator);
+    for (params_value.array.items) |param| {
+        if (param != .object) return error.InvalidArgument;
+        const name = param.object.get("paramName") orelse return error.InvalidArgument;
+        const source = param.object.get("sourceIdent") orelse return error.InvalidArgument;
+        if (name != .string or name.string.len == 0 or source != .string) return error.InvalidArgument;
+        if (params.contains(name.string)) return error.DuplicateParameter;
+        const source_value = values.get(source.string) orelse return error.MissingReference;
+        var cloned = try value.build(source_value.value, source_value.tags, allocator);
+        params.put(allocator, name.string, cloned) catch |err| {
+            cloned.deinit(allocator);
+            return err;
+        };
+    }
+
+    var step_results = std.ArrayList(value.OwnedTaggedValue).empty;
+    defer {
+        for (step_results.items) |*result| result.deinit(allocator);
+        step_results.deinit(allocator);
+    }
+    for (steps_value.array.items) |step| {
+        if (step != .object) return error.InvalidExpression;
+        const fn_value = step.object.get("fn") orelse return error.InvalidExpression;
+        const args_value = step.object.get("args") orelse return error.InvalidExpression;
+        if (fn_value != .string or args_value != .array) return error.InvalidExpression;
+        var owned_args = std.ArrayList(value.OwnedTaggedValue).empty;
+        defer {
+            for (owned_args.items) |*arg| arg.deinit(allocator);
+            owned_args.deinit(allocator);
+        }
+        var args = std.ArrayList(value.TaggedValue).empty;
+        defer args.deinit(allocator);
+        for (args_value.array.items) |arg| {
+            try owned_args.ensureUnusedCapacity(allocator, 1);
+            owned_args.appendAssumeCapacity(try resolvePipeArgument(arg, &params, values, step_results.items, allocator));
+            try args.append(allocator, owned_args.items[owned_args.items.len - 1].borrowed());
+        }
+        const function_name = fn_aliases.resolve(fn_value.string) orelse fn_value.string;
+        try step_results.ensureUnusedCapacity(allocator, 1);
+        step_results.appendAssumeCapacity(try preset.call(function_name, args.items, allocator));
+    }
+    const final = &step_results.items[step_results.items.len - 1];
+    return value.build(final.value, final.tags, allocator);
+}
+
+fn resolvePipeArgument(
+    arg: std.json.Value,
+    params: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+    step_results: []const value.OwnedTaggedValue,
+    allocator: std.mem.Allocator,
+) !value.OwnedTaggedValue {
+    if (arg != .object) return error.InvalidArgument;
+    var variants: usize = 0;
+    inline for (.{ "ref", "funcRef", "lit", "stepRef", "transform" }) |name| {
+        if (arg.object.contains(name)) variants += 1;
+    }
+    if (variants != 1) return error.InvalidArgument;
+    if (arg.object.get("stepRef")) |step_ref| {
+        if (step_ref != .integer or step_ref.integer < 0) return error.InvalidStepReference;
+        const index: usize = @intCast(step_ref.integer);
+        if (index >= step_results.len) return error.InvalidStepReference;
+        return value.build(step_results[index].value, step_results[index].tags, allocator);
+    }
+    if (arg.object.get("ref") orelse arg.object.get("funcRef")) |reference| {
+        if (reference != .string) return error.InvalidArgument;
+        const resolved = params.get(reference.string) orelse values.get(reference.string) orelse return error.MissingReference;
+        return value.build(resolved.value, resolved.tags, allocator);
+    }
+    if (arg.object.get("lit")) |literal| return ownedJsonValue(literal, allocator);
+    if (arg.object.get("transform")) |transform| {
+        if (transform != .object) return error.InvalidArgument;
+        const reference = transform.object.get("ref") orelse return error.InvalidArgument;
+        const functions = transform.object.get("fn") orelse return error.InvalidArgument;
+        if (reference != .string) return error.InvalidArgument;
+        const source = params.get(reference.string) orelse values.get(reference.string) orelse return error.MissingReference;
+        return applyTransforms(source, functions, allocator);
+    }
+    return error.UnsupportedArgument;
 }
 
 fn executeCombine(
@@ -159,6 +252,15 @@ fn executeTransform(
     const functions = transform.object.get("fn") orelse return error.InvalidArgument;
     if (reference != .string or functions != .array) return error.InvalidArgument;
     const source = values.get(reference.string) orelse return error.MissingReference;
+    return applyTransforms(source, functions, allocator);
+}
+
+fn applyTransforms(
+    source: value.OwnedTaggedValue,
+    functions: std.json.Value,
+    allocator: std.mem.Allocator,
+) !value.OwnedTaggedValue {
+    if (functions != .array) return error.InvalidArgument;
     var current = try value.build(source.value, source.tags, allocator);
     errdefer current.deinit(allocator);
     for (functions.array.items) |function| {
@@ -293,4 +395,40 @@ test "compute conditionals require boolean conditions" {
     var loaded = try LoadedCompute.init(std.testing.allocator, fixture);
     defer loaded.deinit();
     try std.testing.expectError(error.ConditionTypeMismatch, loaded.execute(std.testing.allocator));
+}
+
+test "compute pipes map parameters and resolve prior steps" {
+    const fixture =
+        \\{"root":"result","prog":{"bindings":[
+        \\  {"name":"input","type":"number","value":2},
+        \\  {"name":"result","type":"number","expr":{"pipe":{
+        \\    "params":[{"paramName":"x","sourceIdent":"input"}],
+        \\    "steps":[
+        \\      {"fn":"add","args":[{"ref":"x"},{"lit":1}]},
+        \\      {"fn":"mul","args":[{"stepRef":0},{"lit":10}]}
+        \\    ]
+        \\  }}}
+        \\]}}
+    ;
+    var loaded = try LoadedCompute.init(std.testing.allocator, fixture);
+    defer loaded.deinit();
+    var result = try loaded.execute(std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 30), result.value.number);
+}
+
+test "compute pipes reject empty and forward step references" {
+    var empty = try LoadedCompute.init(
+        std.testing.allocator,
+        "{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"expr\":{\"pipe\":{\"params\":[],\"steps\":[]}}}]}}",
+    );
+    defer empty.deinit();
+    try std.testing.expectError(error.EmptyPipe, empty.execute(std.testing.allocator));
+
+    var forward = try LoadedCompute.init(
+        std.testing.allocator,
+        "{\"root\":\"result\",\"prog\":{\"bindings\":[{\"name\":\"result\",\"type\":\"number\",\"expr\":{\"pipe\":{\"params\":[],\"steps\":[{\"fn\":\"add\",\"args\":[{\"stepRef\":0},{\"lit\":1}]}]}}}]}}",
+    );
+    defer forward.deinit();
+    try std.testing.expectError(error.InvalidStepReference, forward.execute(std.testing.allocator));
 }
