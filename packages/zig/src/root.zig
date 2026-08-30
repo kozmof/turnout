@@ -11,6 +11,7 @@ pub const runtime = @import("runtime.zig");
 pub const state = @import("state.zig");
 pub const action = @import("action.zig");
 pub const scene = @import("scene.zig");
+pub const route = @import("route.zig");
 
 test {
     _ = model;
@@ -26,4 +27,5 @@ test {
     _ = state;
     _ = action;
     _ = scene;
+    _ = route;
 }

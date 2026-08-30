@@ -37,6 +37,12 @@ pub const Result = struct {
         allocator.free(self.duplicate_warnings);
         self.* = undefined;
     }
+
+    pub fn takeState(self: *Result) state_runtime.State {
+        const state = self.state_after_scene;
+        self.state_after_scene = .{};
+        return state;
+    }
 };
 
 pub fn execute(
