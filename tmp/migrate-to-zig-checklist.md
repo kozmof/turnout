@@ -180,9 +180,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ## Phase 8. Add the WASM boundary
 
-- [ ] Define byte-buffer request and response formats
-- [ ] Define handle and buffer ownership
-- [ ] Export allocation and release functions
+- [x] Define byte-buffer request and response formats
+- [x] Define handle and buffer ownership
+- [x] Export allocation and release functions
 - [ ] Export runtime create, destroy, step, and resume
 - [ ] Return structured statuses instead of traps
 - [ ] Enforce model, STATE, nesting, and effect-result limits

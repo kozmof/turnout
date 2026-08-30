@@ -72,3 +72,32 @@ Cancellation clears the pending request and makes the runtime terminal.
 ## Ownership
 
 RuntimeModel owns its parsed JSON tree and releases it through deinit. Strings converted from JSON borrow from that tree. Converted arrays and record indexes own allocator-backed storage and release it recursively through value.deinit.
+
+## WASM ABI
+
+The WASM boundary uses ABI version 1. Lengths are unsigned 32-bit values. Byte fields and JSON payloads use UTF-8. Multi-byte integers use little-endian order.
+
+### Input buffers
+
+Call `turnout_alloc(length)` and copy exactly `length` bytes to the returned address. Zero reports allocation failure for a nonzero request. Release the buffer with `turnout_free(address, length)` using the same pair. `(0, 0)` is a no-op. ABI calls borrow input buffers, so the host retains ownership.
+
+### Runtime handles
+
+Runtime handles are unsigned 32-bit IDs, not pointers. Zero is invalid. Creation owns the decoded model, initial STATE, and execution state until destroy succeeds. A destroyed handle is invalid and cannot be reused.
+
+### Response buffers
+
+Responses are host-owned allocations with this 12-byte header.
+
+| Offset | Width | Field | Meaning |
+| --- | --- | --- | --- |
+| 0 | 4 | magic | `0x4e525554` |
+| 4 | 2 | ABI version | `1` |
+| 6 | 2 | status | `0` ok, `1` invalid input, `2` invalid handle, `3` runtime error, `4` out of memory, `5` internal error |
+| 8 | 4 | payload length | Bytes after the header |
+
+The total allocation length is `12 + payload length`. Read or copy the payload, then release the response with `turnout_free(address, total_length)`. Later runtime calls do not invalidate it. A nonempty payload contains one JSON value.
+
+Invalid model, STATE, and effect-result data returns a structured status. Defined limit failures do not trap.
+
+Raw memory addresses are the exception. Bounds-check addresses and lengths against exported WASM memory before calling the ABI. An out-of-bounds memory read traps before Zig can return a status. A mismatched allocation address or length is also a host contract violation.
