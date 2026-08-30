@@ -265,6 +265,28 @@ pub const Runtime = struct {
         return event;
     }
 
+    pub fn requestPrepareEffect(
+        self: *Runtime,
+        hook: []const u8,
+        scene_id: []const u8,
+        action_id: []const u8,
+        callback_index: usize,
+        prepared: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    ) !Event {
+        const context = try value.canonicalMapJson(prepared, self.allocator);
+        errdefer self.allocator.free(context);
+        const event = try self.requestEffectWithContext(.{
+            .kind = .prepare,
+            .hook = hook,
+            .scene_id = scene_id,
+            .action_id = action_id,
+            .callback_index = callback_index,
+            .context_json = context,
+        });
+        self.pending_context = context;
+        return event;
+    }
+
     pub fn @"resume"(self: *Runtime, id: u64, result: effect.Result) RuntimeError!void {
         if (self.status != .active) return error.Terminal;
         const pending = self.pending orelse return error.NoPendingEffect;
@@ -702,6 +724,33 @@ test "dynamic publish request owns the post-merge state context" {
         request.context_json,
     );
     try runtime.@"resume"(request.id, .{ .publish = .ok });
+    try std.testing.expectEqualStrings(
+        request.context_json,
+        runtime.completedEffects()[0].request.context_json,
+    );
+}
+
+test "dynamic prepare request owns prior binding context" {
+    var prepared: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer prepared.deinit(std.testing.allocator);
+    try prepared.put(std.testing.allocator, "from_state", .{
+        .value = .{ .string = "ready" },
+        .tags = &.{"state"},
+    });
+    var runtime = Runtime.init(std.testing.allocator, &.{});
+    defer runtime.deinit();
+    const request = (try runtime.requestPrepareEffect(
+        "load",
+        "main",
+        "start",
+        1,
+        &prepared,
+    )).need_effect;
+    try std.testing.expectEqualStrings(
+        "{\"from_state\":{\"symbol\":\"string\",\"value\":\"ready\",\"tags\":[\"state\"]}}",
+        request.context_json,
+    );
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"loaded\":1}" } });
     try std.testing.expectEqualStrings(
         request.context_json,
         runtime.completedEffects()[0].request.context_json,
