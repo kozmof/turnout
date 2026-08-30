@@ -17,6 +17,8 @@ Run the current native checks from the repository root.
 - Structural Value equality
 - Stable tag union order
 - JavaScript-compatible rounding and UTF-16 string length
+- Generated function aliases from spec/fn-aliases.json
+- Generated function aliases from spec/fn-aliases.json
 - Prepare and publish effect request types
 - Stable effect IDs and resume misuse checks
 - Cancellation as a terminal state

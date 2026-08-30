@@ -8,7 +8,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 5 |
-| Last verified commit | `2b8dd88` |
+| Last verified commit | `bcfffcb` |
 | Last updated | 2026-08-30 |
 | Blocking issue | Zig Value and compute parity are incomplete |
 
@@ -98,12 +98,12 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Add the initial `packages/zig/src` modules
 - [x] Add Zig unit-test and formatting commands
 - [x] Add reproducible Zig model generation. Not applicable for JSON-first transport.
-- [x] Extend generated-code drift checks. No generated Zig exists in the JSON-first milestone.
+- [x] Extend generated-code drift checks for the generated Zig function alias map.
 - [x] Add Zig to the development container
 - [x] Add Zig build and test steps to CI
 - [x] Add Zig checks to root `check`, `build`, and `test`
 - [x] Define Zig coverage expectations
-- [x] Exclude generated Zig from formatting if needed. No generated Zig exists.
+- [x] Exclude generated Zig from formatting if needed. The alias generator emits formatter-stable Zig.
 
 ### Phase 4 exit gate
 
@@ -117,7 +117,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [ ] Implement arrays, records, builders, and guards
 - [x] Implement Value conversion
 - [ ] Implement every preset transform and combine function
-- [ ] Implement function aliases
+- [x] Implement function aliases
 - [ ] Implement compute model loading and validation
 - [ ] Implement binding execution in declaration order
 - [ ] Implement compute root resolution
