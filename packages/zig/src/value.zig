@@ -198,6 +198,111 @@ pub fn canonicalMapJson(
     return output.toOwnedSlice();
 }
 
+pub const CanonicalError = error{ OutOfMemory, InvalidCanonicalValue };
+
+pub const ParsedCanonical = struct {
+    parsed: std.json.Parsed(std.json.Value),
+    tagged: OwnedTaggedValue,
+
+    pub fn init(bytes: []const u8, allocator: std.mem.Allocator) CanonicalError!ParsedCanonical {
+        const parsed = std.json.parseFromSlice(std.json.Value, allocator, bytes, .{}) catch
+            return error.InvalidCanonicalValue;
+        errdefer parsed.deinit();
+        return .{
+            .parsed = parsed,
+            .tagged = try fromCanonicalValue(parsed.value, allocator),
+        };
+    }
+
+    pub fn deinit(self: *ParsedCanonical, allocator: std.mem.Allocator) void {
+        self.tagged.deinit(allocator);
+        self.parsed.deinit();
+        self.* = undefined;
+    }
+};
+
+pub fn fromCanonicalValue(json: std.json.Value, allocator: std.mem.Allocator) CanonicalError!OwnedTaggedValue {
+    if (json != .object) return error.InvalidCanonicalValue;
+    const symbol = json.object.get("symbol") orelse return error.InvalidCanonicalValue;
+    const raw = json.object.get("value") orelse return error.InvalidCanonicalValue;
+    const raw_tags = json.object.get("tags") orelse return error.InvalidCanonicalValue;
+    if (symbol != .string or raw_tags != .array) return error.InvalidCanonicalValue;
+    const tags = try allocator.alloc([]const u8, raw_tags.array.items.len);
+    errdefer allocator.free(tags);
+    for (raw_tags.array.items, 0..) |tag, index| {
+        if (tag != .string) return error.InvalidCanonicalValue;
+        tags[index] = tag.string;
+    }
+    const decoded = try decodeCanonicalValue(symbol.string, raw, json.object.get("reason"), allocator);
+    return .{ .value = decoded, .tags = tags };
+}
+
+fn decodeCanonicalValue(
+    symbol: []const u8,
+    raw: std.json.Value,
+    raw_reason: ?std.json.Value,
+    allocator: std.mem.Allocator,
+) CanonicalError!Value {
+    if (std.mem.eql(u8, symbol, "number")) {
+        const number: f64 = switch (raw) {
+            .integer => |integer| @floatFromInt(integer),
+            .float => |float| float,
+            else => return error.InvalidCanonicalValue,
+        };
+        if (!std.math.isFinite(number)) return error.InvalidCanonicalValue;
+        return .{ .number = number };
+    }
+    if (std.mem.eql(u8, symbol, "string")) {
+        if (raw != .string) return error.InvalidCanonicalValue;
+        return .{ .string = try allocator.dupe(u8, raw.string) };
+    }
+    if (std.mem.eql(u8, symbol, "boolean")) {
+        if (raw != .bool) return error.InvalidCanonicalValue;
+        return .{ .boolean = raw.bool };
+    }
+    if (std.mem.eql(u8, symbol, "null")) {
+        if (raw != .null) return error.InvalidCanonicalValue;
+        const reason = raw_reason orelse return error.InvalidCanonicalValue;
+        if (reason != .string) return error.InvalidCanonicalValue;
+        return .{ .null_value = std.meta.stringToEnum(NullReason, reason.string) orelse
+            return error.InvalidCanonicalValue };
+    }
+    if (std.mem.eql(u8, symbol, "array")) {
+        if (raw != .array) return error.InvalidCanonicalValue;
+        const items = try allocator.alloc(TaggedValue, raw.array.items.len);
+        errdefer allocator.free(items);
+        var initialized: usize = 0;
+        errdefer for (items[0..initialized]) |*item| deinitTagged(item, allocator);
+        for (raw.array.items, 0..) |raw_item, index| {
+            const item = try fromCanonicalValue(raw_item, allocator);
+            items[index] = item.borrowed();
+            initialized += 1;
+        }
+        return .{ .array = .{ .items = items } };
+    }
+    if (std.mem.eql(u8, symbol, "record")) {
+        if (raw != .object) return error.InvalidCanonicalValue;
+        var record: std.StringArrayHashMapUnmanaged(TaggedValue) = .empty;
+        errdefer deinitRecord(&record, allocator);
+        var iterator = raw.object.iterator();
+        while (iterator.next()) |entry| {
+            const key = try allocator.dupe(u8, entry.key_ptr.*);
+            const item = fromCanonicalValue(entry.value_ptr.*, allocator) catch |err| {
+                allocator.free(key);
+                return err;
+            };
+            record.put(allocator, key, item.borrowed()) catch |err| {
+                allocator.free(key);
+                var borrowed = item.borrowed();
+                deinitTagged(&borrowed, allocator);
+                return err;
+            };
+        }
+        return .{ .record = record };
+    }
+    return error.InvalidCanonicalValue;
+}
+
 const CanonicalTagged = struct {
     tagged: TaggedValue,
 
@@ -451,4 +556,19 @@ test "canonical map JSON preserves binding order" {
         "{\"first\":{\"symbol\":\"number\",\"value\":1,\"tags\":[]},\"second\":{\"symbol\":\"string\",\"value\":\"two\",\"tags\":[\"prepared\"]}}",
         json,
     );
+}
+
+test "parsed canonical owner retains nested tags and null reasons" {
+    const source = "{\"symbol\":\"record\",\"value\":{\"items\":{\"symbol\":\"array\",\"value\":[{\"symbol\":\"null\",\"value\":null,\"reason\":\"filtered\",\"tags\":[\"nested\"]}],\"tags\":[]}},\"tags\":[\"root\"]}";
+    var parsed = try ParsedCanonical.init(source, std.testing.allocator);
+    defer parsed.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), parsed.tagged.tags.len);
+    try std.testing.expectEqualStrings("root", parsed.tagged.tags[0]);
+    const nested = parsed.tagged.value.record.get("items").?.value.array.items[0];
+    try std.testing.expectEqual(NullReason.filtered, nested.value.null_value);
+    try std.testing.expectEqual(@as(usize, 1), nested.tags.len);
+    try std.testing.expectEqualStrings("nested", nested.tags[0]);
+    const json = try canonicalJson(parsed.tagged.borrowed(), std.testing.allocator);
+    defer std.testing.allocator.free(json);
+    try std.testing.expectEqualStrings(source, json);
 }

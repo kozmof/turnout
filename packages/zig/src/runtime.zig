@@ -42,11 +42,14 @@ pub const CompletedEffect = struct {
 
 pub const PreparedValues = struct {
     values: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty,
+    parsed_payloads: std.ArrayList(std.json.Parsed(std.json.Value)) = .empty,
 
     pub fn deinit(self: *PreparedValues, allocator: std.mem.Allocator) void {
         for (self.values.values()) |*item| value.deinitTaggedValue(item, allocator);
         for (self.values.keys()) |key| allocator.free(key);
         self.values.deinit(allocator);
+        for (self.parsed_payloads.items) |*parsed| parsed.deinit();
+        self.parsed_payloads.deinit(allocator);
         self.* = undefined;
     }
 };
@@ -73,6 +76,7 @@ pub const Runtime = struct {
     next_effect_id: u64 = 1,
     pending: ?effect.Request = null,
     pending_context: ?[]u8 = null,
+    action_state_context: ?[]u8 = null,
     scheduled: []const effect.Spec = &.{},
     schedule_index: usize = 0,
     status: Status = .active,
@@ -84,6 +88,7 @@ pub const Runtime = struct {
 
     pub fn deinit(self: *Runtime) void {
         if (self.pending_context) |context| self.allocator.free(context);
+        if (self.action_state_context) |context| self.allocator.free(context);
         for (self.completed.items) |*item| item.deinit(self.allocator);
         self.completed.deinit(self.allocator);
         self.* = undefined;
@@ -125,14 +130,18 @@ pub const Runtime = struct {
                 .missing => return error.MissingPrepareHook,
                 .failed => return error.PrepareHookFailed,
             };
-            const parsed = std.json.parseFromSlice(std.json.Value, self.allocator, payload, .{}) catch
+            var parsed = std.json.parseFromSlice(std.json.Value, self.allocator, payload, .{}) catch
                 return error.InvalidPreparePayload;
-            defer parsed.deinit();
+            prepared.parsed_payloads.append(self.allocator, parsed) catch |err| {
+                parsed.deinit();
+                return err;
+            };
+            const parsed_value = prepared.parsed_payloads.items[prepared.parsed_payloads.items.len - 1].value;
             if (item.request.binding) |binding| {
-                try putPreparedValue(&prepared, binding, parsed.value, self.allocator);
+                try putPreparedValue(&prepared, binding, parsed_value, self.allocator);
             } else {
-                if (parsed.value != .object) return error.InvalidPreparePayload;
-                var fields = parsed.value.object.iterator();
+                if (parsed_value != .object) return error.InvalidPreparePayload;
+                var fields = parsed_value.object.iterator();
                 while (fields.next()) |field|
                     try putPreparedValue(&prepared, field.key_ptr.*, field.value_ptr.*, self.allocator);
             }
@@ -208,7 +217,10 @@ pub const Runtime = struct {
             self.status = .complete;
             return .complete;
         }
-        const spec = self.scheduled[self.schedule_index];
+        var spec = self.scheduled[self.schedule_index];
+        if (spec.kind == .publish) {
+            if (self.action_state_context) |context| spec.context_json = context;
+        }
         const event = try self.requestEffectWithContext(spec);
         self.schedule_index += 1;
         return event;
@@ -287,6 +299,14 @@ pub const Runtime = struct {
         return event;
     }
 
+    pub fn setActionStateContext(self: *Runtime, state: *const state_runtime.State) !void {
+        if (self.status != .active) return error.Terminal;
+        if (self.pending != null) return error.PendingEffect;
+        const context = try state.canonicalJson(self.allocator);
+        if (self.action_state_context) |previous| self.allocator.free(previous);
+        self.action_state_context = context;
+    }
+
     pub fn @"resume"(self: *Runtime, id: u64, result: effect.Result) RuntimeError!void {
         if (self.status != .active) return error.Terminal;
         const pending = self.pending orelse return error.NoPendingEffect;
@@ -319,16 +339,24 @@ fn putPreparedValue(
     json: std.json.Value,
     allocator: std.mem.Allocator,
 ) RuntimeError!void {
-    var converted = value.fromJson(allocator, json) catch |err| switch (err) {
-        error.OutOfMemory => return error.OutOfMemory,
-        else => return error.InvalidPreparePayload,
-    };
-    var tagged: value.TaggedValue = .{
-        .value = converted,
-        .tags = allocator.alloc([]const u8, 0) catch |err| {
-            value.deinitValue(&converted, allocator);
-            return err;
-        },
+    var tagged: value.TaggedValue = if (json == .object and json.object.contains("symbol")) blk: {
+        const canonical = value.fromCanonicalValue(json, allocator) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            error.InvalidCanonicalValue => return error.InvalidPreparePayload,
+        };
+        break :blk canonical.borrowed();
+    } else blk: {
+        var converted = value.fromJson(allocator, json) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            else => return error.InvalidPreparePayload,
+        };
+        break :blk .{
+            .value = converted,
+            .tags = allocator.alloc([]const u8, 0) catch |err| {
+                value.deinitValue(&converted, allocator);
+                return err;
+            },
+        };
     };
     if (prepared.values.getPtr(binding)) |previous| {
         value.deinitTaggedValue(previous, allocator);
@@ -532,6 +560,25 @@ test "malformed prepare payload is rejected" {
     try std.testing.expectError(error.InvalidPreparePayload, runtime.preparedValues("main", "start"));
 }
 
+test "canonical prepare payload retains tags and null reasons" {
+    var runtime = Runtime.init(std.testing.allocator, &.{});
+    defer runtime.deinit();
+    const request = (try runtime.requestEffectWithContext(.{
+        .kind = .prepare,
+        .hook = "load",
+        .scene_id = "main",
+        .action_id = "start",
+        .callback_index = 0,
+    })).need_effect;
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"result\":{\"symbol\":\"null\",\"value\":null,\"reason\":\"filtered\",\"tags\":[\"host\"]}}" } });
+    var prepared = try runtime.preparedValues("main", "start");
+    defer prepared.deinit(std.testing.allocator);
+    const result = prepared.values.get("result").?;
+    try std.testing.expectEqual(value.NullReason.filtered, result.value.null_value);
+    try std.testing.expectEqual(@as(usize, 1), result.tags.len);
+    try std.testing.expectEqualStrings("host", result.tags[0]);
+}
+
 test "resumed prepare effect feeds model action compute" {
     const model_runtime = @import("model.zig");
     const source =
@@ -587,7 +634,8 @@ test "one prepare hook response feeds multiple action bindings" {
         \\{"name":"result","type":"number","expr":{"combine":{
         \\"fn":"add","args":[{"ref":"left"},{"ref":"right"}]
         \\}}}
-        \\]}}
+        \\]}},"merge":[{"binding":"result","toState":"result.value"}],
+        \\"publish":["save"]
         \\}]}]}
     ;
     var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
@@ -597,8 +645,7 @@ test "one prepare hook response feeds multiple action bindings" {
     var runtime = Runtime.init(std.testing.allocator, schedule.specs);
     defer runtime.deinit();
     const request = (try runtime.step()).need_effect;
-    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"left\":2,\"right\":5}" } });
-    try std.testing.expect((try runtime.step()) == .complete);
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"left\":{\"symbol\":\"number\",\"value\":2,\"tags\":[\"host\"]},\"right\":{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}" } });
     var prepared = try runtime.preparedValues("main", "start");
     defer prepared.deinit(std.testing.allocator);
     const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
@@ -613,6 +660,17 @@ test "one prepare hook response feeds multiple action bindings" {
     );
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
+    try std.testing.expect(value.hasTag(result.binding_values.getPtr("left").?.borrowed(), "host"));
+    try runtime.setActionStateContext(&result.state_after_merge);
+    const publish = (try runtime.step()).need_effect;
+    try std.testing.expectEqual(effect.Kind.publish, publish.kind);
+    try std.testing.expectEqualStrings("save", publish.hook);
+    try std.testing.expectEqualStrings(
+        "{\"result.value\":{\"symbol\":\"number\",\"value\":7,\"tags\":[\"host\"]}}",
+        publish.context_json,
+    );
+    try runtime.@"resume"(publish.id, .{ .publish = .ok });
+    try std.testing.expect((try runtime.step()) == .complete);
 }
 
 test "strict publish policy is action scoped and preserves merged state" {
