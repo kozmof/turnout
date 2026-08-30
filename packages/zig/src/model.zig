@@ -1,6 +1,7 @@
 const std = @import("std");
 const action_runtime = @import("action.zig");
 const compute_runtime = @import("compute.zig");
+const effect = @import("effect.zig");
 const state_runtime = @import("state.zig");
 const turnout_value = @import("value.zig");
 
@@ -40,6 +41,15 @@ pub const NextRuleSelection = struct {
 
     pub fn deinit(self: *NextRuleSelection, allocator: std.mem.Allocator) void {
         allocator.free(self.warnings);
+        self.* = undefined;
+    }
+};
+
+pub const EffectSchedule = struct {
+    specs: []effect.Spec,
+
+    pub fn deinit(self: *EffectSchedule, allocator: std.mem.Allocator) void {
+        allocator.free(self.specs);
         self.* = undefined;
     }
 };
@@ -99,6 +109,49 @@ pub const RuntimeModel = struct {
     ) !action_runtime.Result {
         const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
         return action_runtime.executeWithPrepared(.{ .object = action }, state, prepared, allocator);
+    }
+
+    pub fn actionEffectSchedule(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        allocator: std.mem.Allocator,
+    ) !EffectSchedule {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        var specs = std.ArrayList(effect.Spec).empty;
+        errdefer specs.deinit(allocator);
+        if (action.get("prepare")) |prepare| {
+            if (prepare != .array) return error.InvalidPrepare;
+            for (prepare.array.items, 0..) |entry, index| {
+                if (entry != .object) return error.InvalidPrepare;
+                const from_hook = entry.object.get("fromHook") orelse continue;
+                const binding = entry.object.get("binding") orelse return error.InvalidPrepare;
+                if (from_hook != .string or from_hook.string.len == 0) return error.InvalidPrepare;
+                if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
+                try specs.append(allocator, .{
+                    .kind = .prepare,
+                    .hook = from_hook.string,
+                    .scene_id = scene_id,
+                    .action_id = action_id,
+                    .callback_index = index,
+                    .binding = binding.string,
+                });
+            }
+        }
+        if (action.get("publish")) |publish| {
+            if (publish != .array) return error.InvalidPublish;
+            for (publish.array.items, 0..) |hook, index| {
+                if (hook != .string or hook.string.len == 0) return error.InvalidPublish;
+                try specs.append(allocator, .{
+                    .kind = .publish,
+                    .hook = hook.string,
+                    .scene_id = scene_id,
+                    .action_id = action_id,
+                    .callback_index = index,
+                });
+            }
+        }
+        return .{ .specs = try specs.toOwnedSlice(allocator) };
     }
 
     pub fn selectNextAfterAction(
@@ -534,6 +587,41 @@ test "decoded runtime model retains representative full-schema JSON" {
     defer model.deinit();
     try std.testing.expectEqual(@as(i64, 2), model.root().get("version").?.integer);
     try std.testing.expectEqual(@as(usize, 1), model.root().get("scenes").?.array.items.len);
+}
+
+test "action effect schedule follows model declaration order" {
+    const effect_runtime = @import("runtime.zig");
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","prepare":[
+        \\{"binding":"state","fromState":"app.value"},
+        \\{"binding":"first","fromHook":"load_first"},
+        \\{"binding":"second","fromHook":"load_second"}
+        \\],"publish":["save_first","save_second"]
+        \\}]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    var schedule = try model.actionEffectSchedule("main", "start", std.testing.allocator);
+    defer schedule.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 4), schedule.specs.len);
+    try std.testing.expectEqual(effect.Kind.prepare, schedule.specs[0].kind);
+    try std.testing.expectEqualStrings("load_first", schedule.specs[0].hook);
+    try std.testing.expectEqual(@as(usize, 1), schedule.specs[0].callback_index);
+    try std.testing.expectEqualStrings("first", schedule.specs[0].binding.?);
+    try std.testing.expectEqualStrings("load_second", schedule.specs[1].hook);
+    try std.testing.expectEqual(effect.Kind.publish, schedule.specs[2].kind);
+    try std.testing.expectEqualStrings("save_first", schedule.specs[2].hook);
+    try std.testing.expectEqual(@as(usize, 0), schedule.specs[2].callback_index);
+    try std.testing.expectEqualStrings("save_second", schedule.specs[3].hook);
+
+    var runtime = effect_runtime.Runtime.init(std.testing.allocator, schedule.specs);
+    defer runtime.deinit();
+    const first = (try runtime.step()).need_effect;
+    try std.testing.expectEqualStrings("load_first", first.hook);
+    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "1" } });
+    const second = (try runtime.step()).need_effect;
+    try std.testing.expectEqualStrings("load_second", second.hook);
 }
 
 test "model executes action and selects first matching prepared next rule" {
