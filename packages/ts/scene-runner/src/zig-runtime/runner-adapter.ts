@@ -4,10 +4,14 @@ import type {
   HookRegistry,
   PublishHookOutcome,
 } from "../types/harness-types.js";
-import type { RunnerStepResult } from "../runner-types.js";
+import type { FragmentHarnessResult } from "../types/harness-types.js";
+import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
+import { makeRunnerMethods } from "../runner-methods.js";
+import { RunnerError } from "../executor/errors.js";
+import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse } from "./client.js";
 import { dispatchZigEffect, type ZigEffectRequest } from "./effect-dispatcher.js";
-import { fromCanonicalValue } from "./value-codec.js";
+import { fromCanonicalValue, toCanonicalValue } from "./value-codec.js";
 
 type ZigWarning =
   | { kind: "merge"; binding: string; toState: string }
@@ -134,4 +138,90 @@ function assertOk<T>(
 
 function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) throw new DOMException("Runner aborted", "AbortError");
+}
+
+export interface ZigRuntimeLifecycleTransport extends ZigRuntimeTransport {
+  create(model: Uint8Array, request: unknown): ZigResponse<{ handle: number }>;
+  destroy(handle: number): ZigResponse<{ destroyed: number }>;
+  snapshot<T>(handle: number): ZigResponse<{ state: T; done: boolean }>;
+}
+
+/** Build the existing scene Runner API around one Zig WASM runtime handle. */
+export function createZigSceneRunner(
+  client: ZigRuntimeLifecycleTransport,
+  model: Uint8Array,
+  sceneId: string,
+  options: RunnerOptions,
+): Runner<FragmentHarnessResult> {
+  const hooks: HookRegistry = {
+    prepare: Object.create(null) as HookRegistry["prepare"],
+    publish: Object.create(null) as HookRegistry["publish"],
+  };
+  const signal = options.signal ?? new AbortController().signal;
+  const initialState = Object.fromEntries(
+    Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
+  );
+  const created = client.create(model, {
+    sceneId,
+    initialState,
+    failOnPublishError: options.failOnPublishError ?? false,
+    maxSceneSteps: options.maxSceneSteps ?? 10_000,
+  });
+  assertOk(created);
+  const handle = created.payload.handle;
+  const actions: ActionTrace[] = [];
+  let done = false;
+  let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
+
+  function readState(): Record<string, ReturnType<typeof fromCanonicalValue>> {
+    const snapshot = client.snapshot<Record<string, unknown>>(handle);
+    assertOk(snapshot);
+    return Object.fromEntries(
+      Object.entries(snapshot.payload.state).map(([path, entry]) => [
+        path,
+        fromCanonicalValue(entry),
+      ]),
+    );
+  }
+
+  function finish(): void {
+    if (done) return;
+    finalState = readState();
+    const destroyed = client.destroy(handle);
+    assertOk(destroyed);
+    done = true;
+  }
+
+  async function advance(): Promise<RunnerStepResult> {
+    const result = await advanceZigRuntime(client, handle, hooks, signal);
+    if (result.done) {
+      finish();
+      return result;
+    }
+    if (result.kind === "action") {
+      actions.push(result.trace);
+      if (result.trace.nextActionIds.length === 0) finish();
+    }
+    return result;
+  }
+
+  return makeRunnerMethods(
+    hooks,
+    advance,
+    () => done,
+    () => {
+      if (!done || finalState === undefined) {
+        throw new RunnerError(
+          "IncompleteExecution",
+          "execution is not complete — call run() or step until isDone()",
+        );
+      }
+      return {
+        finalState,
+        trace: { kind: "scene", scene: { sceneId, actions } },
+      };
+    },
+    () => stateManagerFromUnchecked(done && finalState !== undefined ? finalState : readState()),
+    signal,
+  );
 }

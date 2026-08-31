@@ -201,6 +201,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 - [x] Add `packages/ts/scene-runner/src/zig-runtime`
 - [x] Add the WASM loader and effect dispatcher
+- [x] Add the scene-level Zig Runner wrapper and action event pump
 - [x] Add internal engine selection with TypeScript as the initial default
 - [ ] Adapt `Runner.next()` while preserving action-level stepping
 - [ ] Preserve `run()`, `runAsync()`, `result()`, and `partialState()`

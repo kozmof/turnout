@@ -12,4 +12,9 @@ export {
   type ZigEffectResult,
 } from "./effect-dispatcher.js";
 export { fromCanonicalValue, toCanonicalValue } from "./value-codec.js";
-export { advanceZigRuntime, type ZigRuntimeTransport } from "./runner-adapter.js";
+export {
+  advanceZigRuntime,
+  createZigSceneRunner,
+  type ZigRuntimeLifecycleTransport,
+  type ZigRuntimeTransport,
+} from "./runner-adapter.js";

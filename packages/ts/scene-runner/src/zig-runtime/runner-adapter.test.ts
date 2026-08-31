@@ -1,7 +1,12 @@
 import { buildNumber } from "runtime";
 import { describe, expect, it, vi } from "vitest";
 import type { HookRegistry } from "../types/harness-types.js";
-import { advanceZigRuntime, type ZigRuntimeTransport } from "./runner-adapter.js";
+import {
+  advanceZigRuntime,
+  createZigSceneRunner,
+  type ZigRuntimeLifecycleTransport,
+  type ZigRuntimeTransport,
+} from "./runner-adapter.js";
 
 function hooks(): HookRegistry {
   return {
@@ -104,5 +109,63 @@ describe("advanceZigRuntime", () => {
     await expect(advanceZigRuntime(client, 1, hooks(), controller.signal)).rejects.toMatchObject({
       name: "AbortError",
     });
+  });
+
+  it("wraps a Zig handle with Runner lifecycle and snapshots", async () => {
+    const actionEvent = {
+      event: "actionComplete",
+      sceneId: "main",
+      actionId: "start",
+      computeRoot: { symbol: "number", value: 9, tags: [] },
+      nextActionIds: [],
+      publishOutcomes: [],
+      warnings: [],
+    };
+    const create = vi.fn(() => ({ status: "ok" as const, payload: { handle: 12 } }));
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 12 } }));
+    const client: ZigRuntimeLifecycleTransport = {
+      create,
+      destroy,
+      step: <T>() => ({ status: "ok", payload: actionEvent as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({
+        status: "ok",
+        payload: {
+          state: { score: { symbol: "number", value: 9, tags: [] } } as T,
+          done: false,
+        },
+      }),
+    };
+    const runner = createZigSceneRunner(client, new Uint8Array([1, 2]), "main", {
+      entryId: "main",
+      initialState: { score: buildNumber(1) },
+    });
+
+    await expect(runner.next()).resolves.toHaveLength(1);
+    expect(runner.isDone()).toBe(true);
+    expect(runner.partialState().snapshot()).toEqual({ score: buildNumber(9) });
+    expect(runner.result()).toEqual({
+      finalState: { score: buildNumber(9) },
+      trace: {
+        kind: "scene",
+        scene: {
+          sceneId: "main",
+          actions: [
+            {
+              actionId: "start",
+              computeRootValue: buildNumber(9),
+              nextActionIds: [],
+            },
+          ],
+        },
+      },
+    });
+    expect(create).toHaveBeenCalledWith(new Uint8Array([1, 2]), {
+      sceneId: "main",
+      initialState: { score: { symbol: "number", value: 1, tags: [] } },
+      failOnPublishError: false,
+      maxSceneSteps: 10_000,
+    });
+    expect(destroy).toHaveBeenCalledOnce();
   });
 });
