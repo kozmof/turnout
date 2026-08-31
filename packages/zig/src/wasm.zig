@@ -508,7 +508,7 @@ test "WASM lifecycle creates steps resumes and destroys a runtime" {
     try std.testing.expectEqualStrings("prepare", prepare.value.object.get("kind").?.string);
     const prepare_id = prepare.value.object.get("id").?.integer;
 
-    const prepare_result = try std.fmt.allocPrint(std.testing.allocator, "{{\"id\":{d},\"kind\":\"prepare\",\"status\":\"ok\",\"value\":{{\"input\":{{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}}}}}", .{prepare_id});
+    const prepare_result = try std.fmt.allocPrint(std.testing.allocator, "{{\"id\":{d},\"kind\":\"prepare\",\"status\":\"ok\",\"value\":{{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}}}", .{prepare_id});
     defer std.testing.allocator.free(prepare_result);
     const resumed_prepare_address = turnout_runtime_resume(handle, @intFromPtr(prepare_result.ptr), @intCast(prepare_result.len));
     defer freeResponse(resumed_prepare_address);

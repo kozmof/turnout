@@ -1,4 +1,5 @@
 import type { AnyValue } from "runtime";
+import { PrepareError } from "../executor/errors.js";
 import type {
   HookRegistry,
   PrepareHookContext,
@@ -23,9 +24,16 @@ export type ZigEffectResult =
       id: number;
       kind: "prepare";
       status: "ok";
-      value: Record<string, unknown>;
+      value: unknown;
     }
-  | { id: number; kind: "prepare"; status: "missing" | "failed"; message?: string }
+  | { id: number; kind: "prepare"; status: "missing" }
+  | {
+      id: number;
+      kind: "prepare";
+      status: "failed";
+      message: string;
+      readonly hostError?: unknown;
+    }
   | { id: number; kind: "publish"; status: "ok" | "missing" }
   | {
       id: number;
@@ -61,24 +69,57 @@ async function dispatchPrepare(
     hookName: request.hook,
     get: (binding) => prepared[binding],
   };
+  let result: unknown;
   try {
-    const result = await hook(context, signal);
-    if (!isRecord(result)) throw new TypeError("prepare hook returned a non-object result");
-    return {
-      id: request.id,
-      kind: "prepare",
-      status: "ok",
-      value: mapRecord(result, toCanonicalValue),
-    };
+    result = await hook(context, signal);
   } catch (error) {
     if (isAbortError(error) || signal.aborted) throwAbort();
-    return {
+    const failed: Extract<ZigEffectResult, { kind: "prepare"; status: "failed" }> = {
       id: request.id,
       kind: "prepare",
       status: "failed",
       message: String(error),
     };
+    Object.defineProperty(failed, "hostError", { value: error });
+    return failed;
   }
+  if (!isRecord(result)) {
+    throw new PrepareError(
+      "InvalidHookValue",
+      request.actionId,
+      `prepare hook "${request.hook}" returned a non-object result: got ${JSON.stringify(result)}`,
+    );
+  }
+  if (request.binding !== null) {
+    const value = Object.hasOwn(result, request.binding) ? result[request.binding] : undefined;
+    if (value === undefined) {
+      throw new PrepareError(
+        "MissingHookField",
+        request.actionId,
+        `prepare hook "${request.hook}" did not return field "${request.binding}"`,
+      );
+    }
+    if (!isRecord(value) || typeof value.symbol !== "string") {
+      throw new PrepareError(
+        "InvalidHookValue",
+        request.actionId,
+        `prepare hook "${request.hook}" returned a non-AnyValue for field "${request.binding}": ` +
+          `expected a typed value (built with buildString/buildNumber/etc), got ${JSON.stringify(value)}`,
+      );
+    }
+    return {
+      id: request.id,
+      kind: "prepare",
+      status: "ok",
+      value: toCanonicalValue(value),
+    };
+  }
+  return {
+    id: request.id,
+    kind: "prepare",
+    status: "ok",
+    value: mapRecord(result, toCanonicalValue),
+  };
 }
 
 async function dispatchPublish(

@@ -66,7 +66,7 @@ describe("advanceZigRuntime", () => {
       id: 7,
       kind: "prepare",
       status: "ok",
-      value: { input: { symbol: "number", value: 5, tags: [] } },
+      value: { symbol: "number", value: 5, tags: [] },
     });
   });
 

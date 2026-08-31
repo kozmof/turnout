@@ -36,7 +36,7 @@ test "shared effect vectors" {
         try expectEffect(vector.effectOrder[0], prepare);
         const payload = try std.fmt.allocPrint(
             allocator,
-            "{{\"input\":{{\"symbol\":\"number\",\"value\":{d},\"tags\":[]}}}}",
+            "{{\"symbol\":\"number\",\"value\":{d},\"tags\":[]}}",
             .{vector.prepareValue},
         );
         defer allocator.free(payload);

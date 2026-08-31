@@ -137,7 +137,7 @@ pub const RuntimeModel = struct {
         const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
         var specs = std.ArrayList(effect.Spec).empty;
         errdefer specs.deinit(allocator);
-        var scheduled_prepare_hooks: std.StringHashMapUnmanaged(void) = .empty;
+        var scheduled_prepare_hooks: std.StringHashMapUnmanaged(usize) = .empty;
         defer scheduled_prepare_hooks.deinit(allocator);
         if (action.get("prepare")) |prepare| {
             if (prepare != .array) return error.InvalidPrepare;
@@ -147,14 +147,18 @@ pub const RuntimeModel = struct {
                 const binding = entry.object.get("binding") orelse return error.InvalidPrepare;
                 if (from_hook != .string or from_hook.string.len == 0) return error.InvalidPrepare;
                 if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
-                if (scheduled_prepare_hooks.contains(from_hook.string)) continue;
-                try scheduled_prepare_hooks.put(allocator, from_hook.string, {});
+                if (scheduled_prepare_hooks.get(from_hook.string)) |spec_index| {
+                    specs.items[spec_index].binding = null;
+                    continue;
+                }
+                try scheduled_prepare_hooks.put(allocator, from_hook.string, specs.items.len);
                 try specs.append(allocator, .{
                     .kind = .prepare,
                     .hook = from_hook.string,
                     .scene_id = scene_id,
                     .action_id = action_id,
                     .callback_index = index,
+                    .binding = binding.string,
                 });
             }
         }
@@ -626,7 +630,8 @@ test "action effect schedule follows model declaration order" {
         \\"id":"start","prepare":[
         \\{"binding":"state","fromState":"app.value"},
         \\{"binding":"first","fromHook":"load_first"},
-        \\{"binding":"second","fromHook":"load_second"}
+        \\{"binding":"second","fromHook":"load_second"},
+        \\{"binding":"first_again","fromHook":"load_first"}
         \\],"publish":["save_first","save_second"]
         \\}]}]}
     ;
@@ -640,6 +645,7 @@ test "action effect schedule follows model declaration order" {
     try std.testing.expectEqual(@as(usize, 1), schedule.specs[0].callback_index);
     try std.testing.expect(schedule.specs[0].binding == null);
     try std.testing.expectEqualStrings("load_second", schedule.specs[1].hook);
+    try std.testing.expectEqualStrings("second", schedule.specs[1].binding.?);
     try std.testing.expectEqual(effect.Kind.publish, schedule.specs[2].kind);
     try std.testing.expectEqualStrings("save_first", schedule.specs[2].hook);
     try std.testing.expectEqual(@as(usize, 0), schedule.specs[2].callback_index);

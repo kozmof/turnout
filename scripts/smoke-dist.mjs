@@ -272,6 +272,42 @@ assertSame(
   "missing prepare-hook error",
 );
 
+const thrownPrepareReference = createRunnerWithEngine(hookModel, hookOptions, {
+  kind: "typescript",
+});
+const thrownPrepareCandidate = createRunnerWithEngine(hookModel, hookOptions, {
+  kind: "zig",
+  client,
+});
+for (const runner of [thrownPrepareReference, thrownPrepareCandidate]) {
+  runner.usePrepareHook("load_value", async () => {
+    throw new Error("load rejected");
+  });
+}
+assertSame(
+  errorShape(await captureError(() => thrownPrepareCandidate.run())),
+  errorShape(await captureError(() => thrownPrepareReference.run())),
+  "thrown prepare-hook error",
+);
+
+for (const invalidResult of [{ other: buildNumber(1) }, { input: 42 }]) {
+  const invalidPrepareReference = createRunnerWithEngine(hookModel, hookOptions, {
+    kind: "typescript",
+  });
+  const invalidPrepareCandidate = createRunnerWithEngine(hookModel, hookOptions, {
+    kind: "zig",
+    client,
+  });
+  for (const runner of [invalidPrepareReference, invalidPrepareCandidate]) {
+    runner.usePrepareHook("load_value", async () => invalidResult);
+  }
+  assertSame(
+    errorShape(await captureError(() => invalidPrepareCandidate.run())),
+    errorShape(await captureError(() => invalidPrepareReference.run())),
+    "invalid prepare-hook error",
+  );
+}
+
 const strictPublishOptions = { ...hookOptions, failOnPublishError: true };
 const strictPublishReference = createRunnerWithEngine(hookModel, strictPublishOptions, {
   kind: "typescript",

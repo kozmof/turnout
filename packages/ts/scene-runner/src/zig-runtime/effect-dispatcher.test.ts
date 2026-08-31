@@ -101,13 +101,38 @@ describe("dispatchZigEffect", () => {
       status: "missing",
     });
 
+    const thrown = new Error("load failed");
     registry.prepare.load = () => {
-      throw new Error("load failed");
+      throw thrown;
     };
-    await expect(dispatchZigEffect(request("prepare"), registry, signal)).resolves.toMatchObject({
+    const failed = await dispatchZigEffect(request("prepare"), registry, signal);
+    expect(failed).toMatchObject({
       kind: "prepare",
       status: "failed",
       message: "Error: load failed",
+    });
+    expect(failed).toHaveProperty("hostError", thrown);
+    expect(JSON.stringify(failed)).not.toContain("hostError");
+  });
+
+  it("maps invalid prepare results to structured errors", async () => {
+    const registry = hooks();
+    registry.prepare.load = () => ({ other: buildNumber(1) });
+    await expect(
+      dispatchZigEffect({ ...request("prepare"), binding: "loaded" }, registry, signal),
+    ).rejects.toMatchObject({
+      name: "PrepareError",
+      code: "MissingHookField",
+      actionId: "start",
+    });
+
+    registry.prepare.load = () => ({ loaded: 42 }) as never;
+    await expect(
+      dispatchZigEffect({ ...request("prepare"), binding: "loaded" }, registry, signal),
+    ).rejects.toMatchObject({
+      name: "PrepareError",
+      code: "InvalidHookValue",
+      actionId: "start",
     });
   });
 

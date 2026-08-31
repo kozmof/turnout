@@ -105,6 +105,9 @@ export async function advanceZigRuntime(
             `prepare hook "${event.hook}" is not registered`,
           );
         }
+        if (result.kind === "prepare" && result.status === "failed") {
+          throw result.hostError;
+        }
         const resumed = client.resume(handle, result);
         assertOk(resumed);
         if (resumed.payload.resumed !== event.id) {

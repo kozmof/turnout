@@ -1304,7 +1304,7 @@ test "action driver yields effects and commits completion state" {
     );
     defer driver.deinit();
     const prepare = (try driver.step(&model, true)).need_effect;
-    try driver.@"resume"(prepare.id, .{ .prepare = .{ .ok = "{\"input\":{\"symbol\":\"number\",\"value\":4,\"tags\":[]}}" } });
+    try driver.@"resume"(prepare.id, .{ .prepare = .{ .ok = "{\"symbol\":\"number\",\"value\":4,\"tags\":[]}" } });
     const publish = (try driver.step(&model, true)).need_effect;
     try std.testing.expectEqualStrings(
         "{\"result.value\":{\"symbol\":\"number\",\"value\":5,\"tags\":[]}}",
@@ -1355,7 +1355,7 @@ test "scene driver follows entry and next actions through effects" {
     var driver = try SceneDriver.init(std.testing.allocator, &model, "main", &initial);
     defer driver.deinit();
     const prepare = (try driver.step(&model, true)).need_effect;
-    try driver.@"resume"(prepare.id, .{ .prepare = .{ .ok = "{\"input\":{\"symbol\":\"number\",\"value\":4,\"tags\":[]}}" } });
+    try driver.@"resume"(prepare.id, .{ .prepare = .{ .ok = "{\"symbol\":\"number\",\"value\":4,\"tags\":[]}" } });
     const first = (try driver.step(&model, true)).action_complete;
     try std.testing.expectEqualStrings("first", first.action_id);
     const second = (try driver.step(&model, true)).action_complete;
