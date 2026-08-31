@@ -70,6 +70,36 @@ describe("advanceZigRuntime", () => {
     });
   });
 
+  it("maps a missing prepare hook to PrepareError", async () => {
+    const client: ZigRuntimeTransport = {
+      step: <T>() => ({
+        status: "ok",
+        payload: {
+          event: "needEffect",
+          id: 8,
+          kind: "prepare",
+          hook: "load",
+          sceneId: "main",
+          actionId: "start",
+          callbackIndex: 0,
+          binding: "input",
+          contextJson: "{}",
+        } as T,
+      }),
+      resume: vi.fn(),
+    };
+
+    await expect(
+      advanceZigRuntime(client, 3, hooks(), new AbortController().signal),
+    ).rejects.toMatchObject({
+      name: "PrepareError",
+      code: "UnregisteredHook",
+      actionId: "start",
+      message: '[action: start] prepare hook "load" is not registered',
+    });
+    expect(client.resume).not.toHaveBeenCalled();
+  });
+
   it("returns transitions and terminal events without exposing internal effects", async () => {
     const transition: ZigRuntimeTransport = {
       step: <T>() => ({

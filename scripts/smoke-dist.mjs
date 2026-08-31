@@ -259,6 +259,19 @@ assertSame(
   "failed publish outcome",
 );
 
+const missingPrepareReference = createRunnerWithEngine(hookModel, hookOptions, {
+  kind: "typescript",
+});
+const missingPrepareCandidate = createRunnerWithEngine(hookModel, hookOptions, {
+  kind: "zig",
+  client,
+});
+assertSame(
+  errorShape(await captureError(() => missingPrepareCandidate.run())),
+  errorShape(await captureError(() => missingPrepareReference.run())),
+  "missing prepare-hook error",
+);
+
 const strictPublishOptions = { ...hookOptions, failOnPublishError: true };
 const strictPublishReference = createRunnerWithEngine(hookModel, strictPublishOptions, {
   kind: "typescript",

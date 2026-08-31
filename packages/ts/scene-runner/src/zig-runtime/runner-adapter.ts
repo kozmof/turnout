@@ -9,6 +9,7 @@ import type { FragmentHarnessResult } from "../types/harness-types.js";
 import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
 import { makeRunnerMethods } from "../runner-methods.js";
 import {
+  PrepareError,
   PublishHookFailedError,
   RouteRuntimeError,
   RunnerError,
@@ -97,6 +98,13 @@ export async function advanceZigRuntime(
         activeActionId = event.actionId;
         const result = await dispatchZigEffect(event, hooks, signal);
         recordPublishOutcome(event, result, publishOutcomes);
+        if (result.kind === "prepare" && result.status === "missing") {
+          throw new PrepareError(
+            "UnregisteredHook",
+            event.actionId,
+            `prepare hook "${event.hook}" is not registered`,
+          );
+        }
         const resumed = client.resume(handle, result);
         assertOk(resumed);
         if (resumed.payload.resumed !== event.id) {
