@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 8 |
-| Last verified commit | `5dced40` |
-| Last updated | 2026-08-30 |
-| Blocking issue | Leak checks and scene-runner artifact packaging remain |
+| Current phase | 9 |
+| Last verified commit | `ddaf88b` |
+| Last updated | 2026-08-31 |
+| Blocking issue | The scene-runner Zig runtime adapter is not implemented |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -187,9 +187,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Return structured statuses instead of traps
 - [x] Enforce model, STATE, nesting, and effect-result limits
 - [x] Add malformed-input and lifecycle tests
-- [ ] Add leak checks where tooling permits
+- [x] Add leak checks where tooling permits
 - [x] Run core tests under WASM
-- [ ] Package the WASM artifact for `scene-runner`
+- [x] Package the WASM artifact for `scene-runner`
 
 ### Phase 8 exit gate
 

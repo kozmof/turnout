@@ -24,9 +24,9 @@ Run the native and WASM core checks from the repository root.
 - Cancellation as a terminal state
 - Compute, action, scene, and route execution
 - Versioned WASM allocation, lifecycle, and effect-result APIs
-- Native and WASM execution of the same 103 core tests
+- Native and WASM execution of the same 104 core tests
 
-The TypeScript adapter is not implemented yet. Keep the TypeScript executor enabled until the matching migration phases pass.
+The build packages the WASM module for the TypeScript adapter, which is not implemented yet. Keep the TypeScript executor enabled until the matching migration phases pass.
 
 ## Test expectations
 

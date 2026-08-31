@@ -6,10 +6,9 @@ const runtime = @import("runtime.zig");
 const state_runtime = @import("state.zig");
 const value = @import("value.zig");
 
-const allocator = if (builtin.target.cpu.arch.isWasm())
-    std.heap.wasm_allocator
-else
-    std.heap.page_allocator;
+const NativeAllocator = if (builtin.target.cpu.arch.isWasm()) struct {} else std.heap.DebugAllocator(.{});
+var native_allocator: NativeAllocator = if (builtin.target.cpu.arch.isWasm()) .{} else .init;
+const allocator = if (builtin.target.cpu.arch.isWasm()) std.heap.wasm_allocator else native_allocator.allocator();
 
 pub const abi_version: u16 = 1;
 pub const response_magic: u32 = 0x4e525554;
@@ -501,5 +500,13 @@ test "WASM boundary rejects deeply nested STATE and effect inputs" {
     try std.testing.expectError(
         error.InputTooDeep,
         parseEffectResult(effect_input.items),
+    );
+}
+
+test "native WASM ABI lifecycle has no outstanding allocations" {
+    if (comptime builtin.target.cpu.arch.isWasm()) return;
+    try std.testing.expectEqual(
+        @as(usize, 0),
+        native_allocator.detectLeaks(),
     );
 }

@@ -148,3 +148,9 @@ ABI version 1 applies these fixed limits.
 | Initial STATE and effect-result JSON nesting | 128 levels |
 
 The runtime model also uses the core model nesting limit of 128 levels. An oversized or deeply nested input returns `invalid_input` with a stable error name. The boundary checks byte lengths before reading request or effect-result memory.
+
+### Leak checks and packaging
+
+Native ABI lifecycle tests use Zig's debug allocator and fail when allocations remain after runtime destruction and response release. The WASI suite uses the target's WASM allocator because that environment does not provide equivalent leak reporting.
+
+The `scene-runner` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm`. The package exports it as `turnout-scene-runner/zig-runtime/turnout-runtime.wasm`. Distribution smoke tests check that the copied file has the WebAssembly magic bytes.

@@ -2,6 +2,7 @@
   "name": "turnout-scene-runner",
   "version": "0.0.0",
   "private": true,
+  "files": ["dist"],
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -13,10 +14,12 @@
     "./server": {
       "import": "./dist/server/index.js",
       "types": "./dist/server/index.d.ts"
-    }
+    },
+    "./zig-runtime/turnout-runtime.wasm": "./dist/zig-runtime/turnout-runtime.wasm"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.build.json",
+    "build": "pnpm run build:wasm && tsc --project tsconfig.build.json && node ../../../scripts/package-zig-wasm.mjs",
+    "build:wasm": "zig build --build-file ../../zig/build.zig wasm",
     "gen:fn-map": "node --experimental-strip-types ../../../scripts/gen-fn-map.ts",
     "lint": "oxlint -c ../../../.oxlintrc.json src/ tests/",
     "fmt": "oxfmt",
