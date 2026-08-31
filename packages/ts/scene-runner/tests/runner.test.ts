@@ -1,8 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { createRouteRunner, createRunner, createSceneRunner } from "../src/runner.js";
+import {
+  createRouteRunner,
+  createRunner,
+  createRunnerWithEngine,
+  createSceneRunner,
+} from "../src/runner.js";
 import { RunnerError, ModelValidationError } from "../src/executor/errors.js";
 import { buildNumber, isPureNumber } from "runtime";
 import type { RouteModel, SceneBlock, TurnModel } from "../src/types/turnout-model_pb.js";
+import type { ZigRuntimeLifecycleTransport } from "../src/zig-runtime/runner-adapter.js";
 
 const sceneA = {
   id: "s1",
@@ -823,5 +829,54 @@ describe("low-level runner factories", () => {
     await routeRunner.run();
 
     expect(warnings).toHaveLength(2);
+  });
+});
+
+describe("createRunnerWithEngine — Zig scene wiring", () => {
+  it("projects the model and runs a scene through the selected Zig client", async () => {
+    const create = vi.fn((_model: Uint8Array, _request: unknown) => ({
+      status: "ok" as const,
+      payload: { handle: 21 },
+    }));
+    const client: ZigRuntimeLifecycleTransport = {
+      create,
+      destroy: () => ({ status: "ok", payload: { destroyed: 21 } }),
+      step: <T>() => ({
+        status: "ok",
+        payload: {
+          event: "actionComplete",
+          sceneId: "main",
+          actionId: "start",
+          computeRoot: { symbol: "null", value: null, reason: "missing", tags: [] },
+          nextActionIds: [],
+          publishOutcomes: [],
+          warnings: [],
+        } as T,
+      }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const model = {
+      version: 1,
+      userData: { sourcePos: "preserved" },
+      annotations: { entries: [] },
+      scenes: [{ id: "main", entryAction: "start", actions: [{ id: "start" }] }],
+      routes: [],
+    } as unknown as TurnModel;
+    const runner = createRunnerWithEngine(
+      model,
+      { entryId: "main", initialState: {}, allowUncheckedState: true },
+      { kind: "zig", client },
+    );
+
+    const result = await runner.run();
+    expect(result.trace).toMatchObject({
+      kind: "scene",
+      scene: { sceneId: "main", actions: [{ actionId: "start" }] },
+    });
+    const encoded = JSON.parse(new TextDecoder().decode(create.mock.calls[0]![0]));
+    expect(encoded.version).toBe(2);
+    expect(encoded).not.toHaveProperty("annotations");
+    expect(encoded.userData).toEqual({ sourcePos: "preserved" });
   });
 });

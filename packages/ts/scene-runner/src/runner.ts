@@ -1,4 +1,6 @@
+import { toJson } from "@bufbuild/protobuf";
 import type { TurnModel, RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
+import { TurnModelSchema } from "./types/turnout-model_pb.js";
 import type {
   ActionTrace,
   HookRegistry,
@@ -31,6 +33,10 @@ import {
   selectInternalEngine,
   type InternalEngineSelection,
 } from "./zig-runtime/engine-selection.js";
+import {
+  createZigSceneRunner,
+  type ZigRuntimeLifecycleTransport,
+} from "./zig-runtime/runner-adapter.js";
 
 export type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
 
@@ -361,9 +367,94 @@ export function createRunner(
 export function createRunnerWithEngine(
   inputModel: TurnModel,
   options: RunnerOptions,
-  selection: InternalEngineSelection<Runner<FullHarnessResult>>,
+  selection: InternalEngineSelection,
 ): Runner<FullHarnessResult> {
-  return selectInternalEngine(selection, () => createTypeScriptRunner(inputModel, options));
+  return selectInternalEngine(
+    selection,
+    () => createTypeScriptRunner(inputModel, options),
+    (client) => createZigRunner(inputModel, options, client),
+  );
+}
+
+function encodeZigRuntimeModel(model: TurnModel): Uint8Array {
+  let protobufJson: unknown;
+  try {
+    protobufJson = toJson(TurnModelSchema, model);
+  } catch {
+    protobufJson = model;
+  }
+  const json = runtimeProjection(protobufJson);
+  return new TextEncoder().encode(JSON.stringify({ ...json, version: 2 }));
+}
+
+function runtimeProjection(input: unknown): Record<string, unknown> {
+  const root = JSON.parse(JSON.stringify(input)) as Record<string, unknown>;
+  delete root.annotations;
+  for (const declaration of arrayRecords(root.typeDecls)) delete declaration.sourcePos;
+  for (const scene of arrayRecords(root.scenes)) {
+    const view = objectRecord(scene.view);
+    if (view !== undefined) {
+      delete view.nodes;
+      delete view.edges;
+      delete view.sourcePos;
+    }
+    for (const action of arrayRecords(scene.actions)) {
+      stripComputeMetadata(action.compute);
+      for (const rule of arrayRecords(action.next)) stripComputeMetadata(rule.compute);
+    }
+  }
+  return root;
+}
+
+function stripComputeMetadata(input: unknown): void {
+  const compute = objectRecord(input);
+  const prog = objectRecord(compute?.prog);
+  if (prog === undefined) return;
+  delete prog.sigils;
+  for (const binding of arrayRecords(prog.bindings)) {
+    delete binding.extExpr;
+    delete binding.sourcePos;
+    delete binding.declaredType;
+  }
+}
+
+function arrayRecords(input: unknown): Record<string, unknown>[] {
+  return Array.isArray(input)
+    ? input.filter((entry): entry is Record<string, unknown> => objectRecord(entry) !== undefined)
+    : [];
+}
+
+function objectRecord(input: unknown): Record<string, unknown> | undefined {
+  return typeof input === "object" && input !== null && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : undefined;
+}
+
+function createZigRunner(
+  inputModel: TurnModel,
+  options: RunnerOptions,
+  client: ZigRuntimeLifecycleTransport,
+): Runner<FullHarnessResult> {
+  const migratedModel = migrateModel(snapshotModel(inputModel));
+  const validationErrors = validateModel(migratedModel);
+  if (validationErrors.length > 0) throw new ModelValidationError(validationErrors);
+  validateExecutionLimits(options);
+  const target = resolveDispatchTarget(migratedModel, options.entryId);
+  if (target.kind === "route") {
+    throw new Error("the internal Zig engine does not support route entry points yet");
+  }
+  if (!migratedModel.state) {
+    const detail = "No STATE schema in model";
+    assertUncheckedStateAllowed(options, detail);
+    warnUncheckedState(options, detail);
+  }
+  const inner = createZigSceneRunner(
+    client,
+    encodeZigRuntimeModel(migratedModel),
+    target.scene.id,
+    options,
+  );
+  return mapRunnerResult(inner, (result) => ({ ...result, model: migratedModel }));
 }
 
 function createTypeScriptRunner(

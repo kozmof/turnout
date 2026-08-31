@@ -6,7 +6,9 @@ describe("selectInternalEngine", () => {
     const createTypeScript = vi.fn(() => "typescript");
     const createZig = vi.fn(() => "zig");
 
-    expect(selectInternalEngine({ kind: "typescript" }, createTypeScript)).toBe("typescript");
+    expect(selectInternalEngine({ kind: "typescript" }, createTypeScript, createZig)).toBe(
+      "typescript",
+    );
     expect(createTypeScript).toHaveBeenCalledOnce();
     expect(createZig).not.toHaveBeenCalled();
   });
@@ -15,7 +17,9 @@ describe("selectInternalEngine", () => {
     const createTypeScript = vi.fn(() => "typescript");
     const createZig = vi.fn(() => "zig");
 
-    expect(selectInternalEngine({ kind: "zig", create: createZig }, createTypeScript)).toBe("zig");
+    expect(
+      selectInternalEngine({ kind: "zig", client: {} as never }, createTypeScript, createZig),
+    ).toBe("zig");
     expect(createZig).toHaveBeenCalledOnce();
     expect(createTypeScript).not.toHaveBeenCalled();
   });

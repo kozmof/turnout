@@ -1,13 +1,18 @@
-export type InternalEngineSelection<T> = { kind: "typescript" } | { kind: "zig"; create: () => T };
+import type { ZigRuntimeLifecycleTransport } from "./runner-adapter.js";
+
+export type InternalEngineSelection =
+  | { kind: "typescript" }
+  | { kind: "zig"; client: ZigRuntimeLifecycleTransport };
 
 export function selectInternalEngine<T>(
-  selection: InternalEngineSelection<T>,
+  selection: InternalEngineSelection,
   createTypeScript: () => T,
+  createZig: (client: ZigRuntimeLifecycleTransport) => T,
 ): T {
   switch (selection.kind) {
     case "typescript":
       return createTypeScript();
     case "zig":
-      return selection.create();
+      return createZig(selection.client);
   }
 }
