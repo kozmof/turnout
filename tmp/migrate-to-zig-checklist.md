@@ -10,7 +10,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Current phase | 9 |
 | Last verified commit | `ddaf88b` |
 | Last updated | 2026-08-31 |
-| Blocking issue | The Zig effect dispatcher and Runner adapter are not implemented |
+| Blocking issue | Internal engine selection and the Zig Runner adapter are not implemented |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -200,7 +200,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 ## Phase 9. Integrate `scene-runner`
 
 - [x] Add `packages/ts/scene-runner/src/zig-runtime`
-- [ ] Add the WASM loader and effect dispatcher
+- [x] Add the WASM loader and effect dispatcher
 - [ ] Add internal engine selection with TypeScript as the initial default
 - [ ] Adapt `Runner.next()` while preserving action-level stepping
 - [ ] Preserve `run()`, `runAsync()`, `result()`, and `partialState()`
