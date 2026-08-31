@@ -214,7 +214,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 ### Phase 9 exit gate
 
 - [ ] Public API tests pass against both engines
-- [ ] Distribution smoke tests pass with WASM
+- [x] Distribution smoke tests pass with WASM
 - [ ] No caller-facing difference remains unexplained
 
 ## Phase 10. Reach conformance

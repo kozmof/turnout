@@ -311,6 +311,8 @@ export function createZigRouteRunner(
   const handle = created.payload.handle;
   const scenes: SceneTrace[] = [];
   const pending: RunnerStepResult[] = [];
+  const preprocessedActions = new WeakSet<object>();
+  const finishAfterActions = new WeakSet<object>();
   let done = false;
   let handleOpen = true;
   let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
@@ -410,13 +412,30 @@ export function createZigRouteRunner(
       return result;
     }
     if (result.kind === "scene-transition") {
+      const following = await advanceZigRuntime(client, handle, hooks, signal);
+      if (following.done || following.kind !== "action") {
+        throw new Error("Zig route transition was not followed by an action");
+      }
+      appendAction(following.sceneId, following.trace);
+      preprocessedActions.add(following);
+      pending.push(following);
+      if (following.trace.nextActionIds.length === 0) {
+        const afterAction = await advanceZigRuntime(client, handle, hooks, signal);
+        if (afterAction.done) finishAfterActions.add(following);
+        else pending.push(afterAction);
+      }
       safeLog(options.onLog, {
         kind: "route-transition",
         fromSceneId: result.fromSceneId,
         toSceneId: result.toSceneId,
       });
+      return result;
     }
     if (result.kind === "action") {
+      if (preprocessedActions.delete(result)) {
+        if (finishAfterActions.delete(result)) finish();
+        return result;
+      }
       appendAction(result.sceneId, result.trace);
       if (result.trace.nextActionIds.length === 0) {
         const following = await advanceZigRuntime(client, handle, hooks, signal);

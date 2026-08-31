@@ -236,11 +236,11 @@ describe("advanceZigRuntime", () => {
       "action-start",
       "action-complete",
       "scene-complete",
-      "route-transition",
       "scene-start",
       "action-start",
       "action-complete",
       "scene-complete",
+      "route-transition",
     ]);
   });
 
