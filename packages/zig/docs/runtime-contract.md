@@ -136,6 +136,9 @@ Both effect kinds accept `missing`. A failed prepare result includes `message`. 
 
 `turnout_runtime_destroy(handle)` releases the model, STATE, driver, and handle. Calls with an unknown or destroyed handle return `invalid_handle`.
 
+`turnout_runtime_snapshot(handle)` returns the current partial STATE and a `done` flag. STATE values use canonical tagged-Value JSON. The operation does not advance execution or invalidate the returned snapshot.
+
+
 ### Resource limits
 
 ABI version 1 applies these fixed limits.

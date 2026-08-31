@@ -33,6 +33,7 @@ export interface ZigRuntimeExports {
   turnout_runtime_destroy(handle: number): number;
   turnout_runtime_step(handle: number): number;
   turnout_runtime_resume(handle: number, address: number, length: number): number;
+  turnout_runtime_snapshot(handle: number): number;
 }
 
 export interface ZigResponse<T = unknown> {
@@ -80,6 +81,10 @@ export class ZigRuntimeClient {
 
   step<T = unknown>(handle: number): ZigResponse<T> {
     return this.#readResponse(this.#exports.turnout_runtime_step(handle));
+  }
+
+  snapshot<T = unknown>(handle: number): ZigResponse<{ state: T; done: boolean }> {
+    return this.#readResponse(this.#exports.turnout_runtime_snapshot(handle));
   }
 
   resume(handle: number, result: unknown): ZigResponse<{ resumed: number }> {

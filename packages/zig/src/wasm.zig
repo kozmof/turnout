@@ -227,8 +227,27 @@ export fn turnout_runtime_step(handle: u32) usize {
     return eventResponse(event);
 }
 
+fn snapshotResponse(instance: *const Instance) usize {
+    const state_json = instance.driver.partialState().canonicalJson(allocator) catch |err|
+        return runtimeError(err);
+    defer allocator.free(state_json);
+    const payload = std.fmt.allocPrint(
+        allocator,
+        "{{\"state\":{s},\"done\":{s}}}",
+        .{ state_json, if (instance.driver.finished) "true" else "false" },
+    ) catch return errorResponse(.out_of_memory, "OutOfMemory");
+    defer allocator.free(payload);
+    return responseAddress(.ok, payload);
+}
+
+export fn turnout_runtime_snapshot(handle: u32) usize {
+    const instance = instances.get(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
+    return snapshotResponse(instance);
+}
+
 test "WASM ABI allocation round trips bytes" {
     const address = turnout_alloc(4);
+
     try std.testing.expect(address != 0);
     const bytes: *[4]u8 = @ptrFromInt(address);
     bytes.* = .{ 1, 2, 3, 4 };
@@ -405,6 +424,16 @@ test "WASM lifecycle creates steps resumes and destroys a runtime" {
     defer freeResponse(complete_address);
     var complete = try expectResponse(complete_address, .ok, "complete");
     defer complete.deinit();
+    const snapshot_address = turnout_runtime_snapshot(handle);
+    defer freeResponse(snapshot_address);
+    var snapshot = try expectResponse(snapshot_address, .ok, null);
+    defer snapshot.deinit();
+    try std.testing.expect(snapshot.value.object.get("done").?.bool);
+    const result_value = snapshot.value.object
+        .get("state").?.object
+        .get("result.value").?.object
+        .get("value").?.integer;
+    try std.testing.expectEqual(@as(i64, 7), result_value);
 
     const destroyed_address = turnout_runtime_destroy(handle);
     defer freeResponse(destroyed_address);

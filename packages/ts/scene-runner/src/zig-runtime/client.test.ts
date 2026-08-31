@@ -50,6 +50,13 @@ class MockExports implements ZigRuntimeExports {
     return this.response(0, { resumed: 3 });
   }
 
+  turnout_runtime_snapshot(): number {
+    return this.response(0, {
+      state: { score: { symbol: "number", value: 7, tags: [] } },
+      done: true,
+    });
+  }
+
   response(status: number, payload: unknown): number {
     const payloadBytes = encoder.encode(JSON.stringify(payload));
     const address = this.turnout_alloc(12 + payloadBytes.length);
@@ -82,26 +89,23 @@ describe("ZigRuntimeClient", () => {
     expect(exports.freed).toHaveLength(3);
   });
 
-  it("decodes step and resume responses", () => {
+  it("decodes step, snapshot, and resume responses", () => {
     const exports = new MockExports();
     const client = new ZigRuntimeClient(exports);
 
-    expect(client.step(7)).toEqual({
+    expect(client.step(7)).toEqual({ status: "ok", payload: { event: "complete" } });
+    expect(client.snapshot(7)).toEqual({
       status: "ok",
-      payload: { event: "complete" },
+      payload: {
+        state: { score: { symbol: "number", value: 7, tags: [] } },
+        done: true,
+      },
     });
-    expect(
-      client.resume(7, {
-        id: 3,
-        kind: "publish",
-        status: "ok",
-      }),
-    ).toEqual({ status: "ok", payload: { resumed: 3 } });
-    expect(exports.resumed).toEqual({
-      id: 3,
-      kind: "publish",
+    expect(client.resume(7, { id: 3, kind: "publish", status: "ok" })).toEqual({
       status: "ok",
+      payload: { resumed: 3 },
     });
+    expect(exports.resumed).toEqual({ id: 3, kind: "publish", status: "ok" });
   });
 
   it("rejects ABI version mismatches", () => {
