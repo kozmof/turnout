@@ -173,6 +173,71 @@ describe("advanceZigRuntime", () => {
     expect(logs).toEqual(["scene-start", "action-start", "action-complete", "scene-complete"]);
   });
 
+  it("maps strict publish failures with committed state and hook outcomes", async () => {
+    const events: unknown[] = [
+      {
+        event: "needEffect",
+        id: 9,
+        kind: "publish",
+        hook: "save",
+        sceneId: "main",
+        actionId: "start",
+        callbackIndex: 0,
+        binding: null,
+        contextJson: '{"score":{"symbol":"number","value":7,"tags":[]}}',
+      },
+    ];
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 13 } }),
+      destroy: vi.fn(() => ({ status: "ok", payload: { destroyed: 13 } })),
+      step: <T>() =>
+        events.length > 0
+          ? { status: "ok", payload: events.shift() as T }
+          : { status: "runtime_error", payload: { error: "PublishHookFailed" } as T },
+      resume: () => ({ status: "ok", payload: { resumed: 9 } }),
+      snapshot: <T>() => ({
+        status: "ok",
+        payload: {
+          state: { score: { symbol: "number", value: 7, tags: [] } } as T,
+          done: false,
+        },
+      }),
+    };
+    const runner = createZigSceneRunner(client, new Uint8Array([1]), "main", {
+      entryId: "main",
+      initialState: {},
+      failOnPublishError: true,
+    });
+    runner.usePublishHook("save", async () => ({
+      hookName: "save",
+      status: "error",
+      message: "rejected",
+    }));
+
+    const error = await runner.run().then(
+      () => undefined,
+      (reason: unknown) => reason,
+    );
+    expect(error).toMatchObject({
+      name: "SceneRuntimeError",
+      code: "PublishHookFailed",
+      sceneId: "main",
+      context: { actionId: "start" },
+      publishOutcomes: [{ hookName: "save", status: "error", message: "rejected" }],
+    });
+    expect(error).toHaveProperty(
+      "message",
+      'Scene "main": action "start": 1 publish hook(s) failed — save: rejected',
+    );
+    expect(error).toHaveProperty("stateAfterMerge");
+    expect(
+      (error as { stateAfterMerge: { snapshot(): unknown } }).stateAfterMerge.snapshot(),
+    ).toEqual({
+      score: buildNumber(7),
+    });
+    expect(runner.partialState().snapshot()).toEqual({ score: buildNumber(7) });
+  });
+
   it("preserves route transition order and final-action completion", async () => {
     const events: unknown[] = [
       {

@@ -8,11 +8,20 @@ import type {
 import type { FragmentHarnessResult } from "../types/harness-types.js";
 import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
 import { makeRunnerMethods } from "../runner-methods.js";
-import { RouteRuntimeError, RunnerError, SceneRuntimeError } from "../executor/errors.js";
+import {
+  PublishHookFailedError,
+  RouteRuntimeError,
+  RunnerError,
+  SceneRuntimeError,
+} from "../executor/errors.js";
 import { safeLog } from "../executor/logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse } from "./client.js";
-import { dispatchZigEffect, type ZigEffectRequest } from "./effect-dispatcher.js";
+import {
+  dispatchZigEffect,
+  type ZigEffectRequest,
+  type ZigEffectResult,
+} from "./effect-dispatcher.js";
 import { fromCanonicalValue, toCanonicalValue } from "./value-codec.js";
 
 type ZigWarning =
@@ -39,7 +48,11 @@ type ZigRuntimeEvent =
   | { event: "sceneChanged"; from: string; to: string }
   | { event: "complete" | "cancelled" };
 
-const ZigRuntimeStatusError = class extends Error {
+class ZigRuntimeStatusError extends Error {
+  sceneId?: string;
+  actionId?: string;
+  publishOutcomes?: PublishHookOutcome[];
+
   constructor(
     readonly status: ZigResponse["status"],
     readonly code: string,
@@ -47,7 +60,7 @@ const ZigRuntimeStatusError = class extends Error {
     super(`Zig runtime returned ${status}: ${code}`);
     this.name = "ZigRuntimeStatusError";
   }
-};
+}
 
 export interface ZigRuntimeTransport {
   step<T>(handle: number): ZigResponse<T>;
@@ -61,14 +74,29 @@ export async function advanceZigRuntime(
   hooks: HookRegistry,
   signal: AbortSignal,
 ): Promise<RunnerStepResult> {
+  let activeSceneId: string | undefined;
+  let activeActionId: string | undefined;
+  const publishOutcomes: PublishHookOutcome[] = [];
   while (true) {
     throwIfAborted(signal);
     const response = client.step<ZigRuntimeEvent>(handle);
-    assertOk(response);
+    try {
+      assertOk(response);
+    } catch (error) {
+      if (error instanceof ZigRuntimeStatusError) {
+        if (activeSceneId !== undefined) error.sceneId = activeSceneId;
+        if (activeActionId !== undefined) error.actionId = activeActionId;
+        error.publishOutcomes = publishOutcomes;
+      }
+      throw error;
+    }
     const event = response.payload;
     switch (event.event) {
       case "needEffect": {
+        activeSceneId = event.sceneId;
+        activeActionId = event.actionId;
         const result = await dispatchZigEffect(event, hooks, signal);
+        recordPublishOutcome(event, result, publishOutcomes);
         const resumed = client.resume(handle, result);
         assertOk(resumed);
         if (resumed.payload.resumed !== event.id) {
@@ -98,6 +126,37 @@ export async function advanceZigRuntime(
         return { done: true };
     }
   }
+}
+
+function recordPublishOutcome(
+  request: ZigEffectRequest,
+  result: ZigEffectResult,
+  outcomes: PublishHookOutcome[],
+): void {
+  if (result.kind !== "publish" || result.status === "missing") return;
+  if (result.status === "failed") {
+    outcomes.push({ hookName: request.hook, status: "error", message: result.message });
+  } else {
+    outcomes.push({ hookName: request.hook, status: "ok" });
+  }
+}
+
+function mapPublishHookFailed(
+  error: ZigRuntimeStatusError,
+  fallbackSceneId: string,
+  readState: () => Record<string, ReturnType<typeof fromCanonicalValue>>,
+): PublishHookFailedError | undefined {
+  if (error.code !== "PublishHookFailed" || error.actionId === undefined) return undefined;
+  const outcomes = error.publishOutcomes ?? [];
+  const failed = outcomes.filter((outcome) => outcome.status === "error");
+  const summary = failed.map((outcome) => `${outcome.hookName}: ${outcome.message}`).join("; ");
+  return new PublishHookFailedError(
+    error.sceneId ?? fallbackSceneId,
+    `action "${error.actionId}": ${failed.length} publish hook(s) failed — ${summary}`,
+    error.actionId,
+    stateManagerFromUnchecked(readState()),
+    outcomes,
+  );
 }
 
 function actionTrace(event: Extract<ZigRuntimeEvent, { event: "actionComplete" }>): ActionTrace {
@@ -253,6 +312,10 @@ export function createZigSceneRunner(
     try {
       result = await advanceZigRuntime(client, handle, hooks, signal);
     } catch (error) {
+      if (error instanceof ZigRuntimeStatusError) {
+        const publishError = mapPublishHookFailed(error, sceneId, readState);
+        if (publishError !== undefined) throw publishError;
+      }
       if (error instanceof ZigRuntimeStatusError && error.code === "MaxStepsExceeded") {
         throw new SceneRuntimeError(
           "MaxStepsExceeded",
@@ -446,6 +509,10 @@ export function createZigRouteRunner(
     try {
       return await advanceZigRuntime(client, handle, hooks, signal);
     } catch (error) {
+      if (error instanceof ZigRuntimeStatusError) {
+        const publishError = mapPublishHookFailed(error, error.sceneId ?? routeId, readState);
+        if (publishError !== undefined) throw publishError;
+      }
       if (error instanceof ZigRuntimeStatusError && error.code === "MaxRouteTransitionsExceeded") {
         throw new RouteRuntimeError(
           "MaxRouteTransitionsExceeded",

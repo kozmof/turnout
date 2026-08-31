@@ -177,6 +177,28 @@ assertSame(
   "execution-limit error",
 );
 
+const routeLimitFile = new URL(
+  "../packages/ts/scene-runner/tests/fixtures/two-scene-route.json",
+  import.meta.url,
+).pathname;
+const routeLimitOptions = {
+  jsonFile: routeLimitFile,
+  entryId: "main_route",
+  initialState: {},
+  maxRouteTransitions: 0,
+};
+const referenceRouteLimitError = await captureError(() =>
+  runServerHarnessWithEngine(routeLimitOptions, { kind: "typescript" }),
+);
+const candidateRouteLimitError = await captureError(() =>
+  runServerHarnessWithEngine(routeLimitOptions, { kind: "zig", client }),
+);
+assertSame(
+  errorShape(candidateRouteLimitError),
+  errorShape(referenceRouteLimitError),
+  "route execution-limit error",
+);
+
 const hookModel = fromJson(TurnModelSchema, {
   version: 2,
   scenes: [
@@ -214,6 +236,56 @@ assertSame(
   withoutModel(hookCandidate.result()),
   withoutModel(hookReference.result()),
   "hook Runner result",
+);
+
+const failedPublishReference = createRunnerWithEngine(hookModel, hookOptions, {
+  kind: "typescript",
+});
+const failedPublishCandidate = createRunnerWithEngine(hookModel, hookOptions, {
+  kind: "zig",
+  client,
+});
+for (const runner of [failedPublishReference, failedPublishCandidate]) {
+  runner.usePrepareHook("load_value", async () => ({ input: buildNumber(5) }));
+  runner.usePublishHook("save_value", async () => ({
+    hookName: "save_value",
+    status: "error",
+    message: "save rejected",
+  }));
+}
+assertSame(
+  withoutModel(await failedPublishCandidate.run()),
+  withoutModel(await failedPublishReference.run()),
+  "failed publish outcome",
+);
+
+const strictPublishOptions = { ...hookOptions, failOnPublishError: true };
+const strictPublishReference = createRunnerWithEngine(hookModel, strictPublishOptions, {
+  kind: "typescript",
+});
+const strictPublishCandidate = createRunnerWithEngine(hookModel, strictPublishOptions, {
+  kind: "zig",
+  client,
+});
+for (const runner of [strictPublishReference, strictPublishCandidate]) {
+  runner.usePrepareHook("load_value", async () => ({ input: buildNumber(5) }));
+  runner.usePublishHook("save_value", async () => ({
+    hookName: "save_value",
+    status: "error",
+    message: "save rejected",
+  }));
+}
+const strictPublishReferenceError = await captureError(() => strictPublishReference.run());
+const strictPublishCandidateError = await captureError(() => strictPublishCandidate.run());
+assertSame(
+  publishErrorShape(strictPublishCandidateError),
+  publishErrorShape(strictPublishReferenceError),
+  "strict publish error",
+);
+assertSame(
+  strictPublishCandidate.partialState().snapshot(),
+  strictPublishReference.partialState().snapshot(),
+  "strict publish partial state",
 );
 
 const fixtureNames = ["scene-graph.json", "workflow.json", "two-scene-route.json"];
@@ -266,6 +338,14 @@ function errorShape(error) {
     sceneId: error?.sceneId,
     routeId: error?.routeId,
     context: error?.context,
+  };
+}
+
+function publishErrorShape(error) {
+  return {
+    ...errorShape(error),
+    stateAfterMerge: error?.stateAfterMerge?.snapshot(),
+    publishOutcomes: error?.publishOutcomes,
   };
 }
 
