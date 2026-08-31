@@ -14,6 +14,7 @@ export {
 export { fromCanonicalValue, toCanonicalValue } from "./value-codec.js";
 export {
   advanceZigRuntime,
+  createZigRouteRunner,
   createZigSceneRunner,
   type ZigRuntimeLifecycleTransport,
   type ZigRuntimeTransport,

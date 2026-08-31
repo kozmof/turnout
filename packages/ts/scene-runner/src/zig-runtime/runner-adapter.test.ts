@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { HookRegistry } from "../types/harness-types.js";
 import {
   advanceZigRuntime,
+  createZigRouteRunner,
   createZigSceneRunner,
   type ZigRuntimeLifecycleTransport,
   type ZigRuntimeTransport,
@@ -165,6 +166,64 @@ describe("advanceZigRuntime", () => {
       initialState: { score: { symbol: "number", value: 1, tags: [] } },
       failOnPublishError: false,
       maxSceneSteps: 10_000,
+    });
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it("preserves route transition order and final-action completion", async () => {
+    const events: unknown[] = [
+      {
+        event: "actionComplete",
+        sceneId: "one",
+        actionId: "start",
+        computeRoot: { symbol: "number", value: 1, tags: [] },
+        nextActionIds: [],
+        publishOutcomes: [],
+        warnings: [],
+      },
+      { event: "sceneChanged", from: "one", to: "two" },
+      {
+        event: "actionComplete",
+        sceneId: "two",
+        actionId: "finish",
+        computeRoot: { symbol: "number", value: 2, tags: [] },
+        nextActionIds: [],
+        publishOutcomes: [],
+        warnings: [],
+      },
+      { event: "complete" },
+    ];
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 8 } }));
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 8 } }),
+      destroy,
+      step: <T>() => ({ status: "ok", payload: events.shift() as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const runner = createZigRouteRunner(client, new Uint8Array([1]), "route", {
+      entryId: "route",
+      initialState: {},
+    });
+
+    await expect(runner.next()).resolves.toMatchObject([
+      { kind: "action", sceneId: "one", actionId: "start" },
+    ]);
+    expect(runner.isDone()).toBe(false);
+    await expect(runner.next()).resolves.toMatchObject([
+      { kind: "scene-transition", fromSceneId: "one", toSceneId: "two" },
+      { kind: "action", sceneId: "two", actionId: "finish" },
+    ]);
+    expect(runner.isDone()).toBe(true);
+    expect(runner.result().trace).toMatchObject({
+      kind: "route",
+      route: {
+        routeId: "route",
+        scenes: [
+          { sceneId: "one", actions: [{ actionId: "start" }] },
+          { sceneId: "two", actions: [{ actionId: "finish" }] },
+        ],
+      },
     });
     expect(destroy).toHaveBeenCalledOnce();
   });

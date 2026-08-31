@@ -3,6 +3,7 @@ import type {
   ActionWarning,
   HookRegistry,
   PublishHookOutcome,
+  SceneTrace,
 } from "../types/harness-types.js";
 import type { FragmentHarnessResult } from "../types/harness-types.js";
 import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
@@ -219,6 +220,107 @@ export function createZigSceneRunner(
       return {
         finalState,
         trace: { kind: "scene", scene: { sceneId, actions } },
+      };
+    },
+    () => stateManagerFromUnchecked(done && finalState !== undefined ? finalState : readState()),
+    signal,
+  );
+}
+
+/** Build the existing route Runner API around one Zig WASM runtime handle. */
+export function createZigRouteRunner(
+  client: ZigRuntimeLifecycleTransport,
+  model: Uint8Array,
+  routeId: string,
+  options: RunnerOptions,
+): Runner<FragmentHarnessResult> {
+  const hooks: HookRegistry = {
+    prepare: Object.create(null) as HookRegistry["prepare"],
+    publish: Object.create(null) as HookRegistry["publish"],
+  };
+  const signal = options.signal ?? new AbortController().signal;
+  const initialState = Object.fromEntries(
+    Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
+  );
+  const created = client.create(model, {
+    routeId,
+    initialState,
+    failOnPublishError: options.failOnPublishError ?? false,
+    maxSceneSteps: options.maxSceneSteps ?? 10_000,
+    maxRouteTransitions: options.maxRouteTransitions ?? 1_000,
+  });
+  assertOk(created);
+  const handle = created.payload.handle;
+  const scenes: SceneTrace[] = [];
+  const pending: RunnerStepResult[] = [];
+  let done = false;
+  let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
+
+  function readState(): Record<string, ReturnType<typeof fromCanonicalValue>> {
+    const snapshot = client.snapshot<Record<string, unknown>>(handle);
+    assertOk(snapshot);
+    return Object.fromEntries(
+      Object.entries(snapshot.payload.state).map(([path, entry]) => [
+        path,
+        fromCanonicalValue(entry),
+      ]),
+    );
+  }
+
+  function finish(): void {
+    if (done) return;
+    finalState = readState();
+    const destroyed = client.destroy(handle);
+    assertOk(destroyed);
+    done = true;
+  }
+
+  function appendAction(sceneId: string, trace: ActionTrace): void {
+    let scene = scenes.at(-1);
+    if (scene?.sceneId !== sceneId) {
+      scene = { sceneId, actions: [] };
+      scenes.push(scene);
+    }
+    scene.actions.push(trace);
+  }
+
+  async function nextEvent(): Promise<RunnerStepResult> {
+    const queued = pending.shift();
+    if (queued !== undefined) return queued;
+    return advanceZigRuntime(client, handle, hooks, signal);
+  }
+
+  async function advance(): Promise<RunnerStepResult> {
+    const result = await nextEvent();
+    if (result.done) {
+      finish();
+      return result;
+    }
+    if (result.kind === "action") {
+      appendAction(result.sceneId, result.trace);
+      if (result.trace.nextActionIds.length === 0) {
+        const following = await advanceZigRuntime(client, handle, hooks, signal);
+        if (following.done) finish();
+        else pending.push(following);
+      }
+    }
+    return result;
+  }
+
+  return makeRunnerMethods(
+    hooks,
+    advance,
+    () => done,
+    () => {
+      if (!done || finalState === undefined) {
+        throw new RunnerError(
+          "IncompleteExecution",
+          "execution is not complete — call run() or step until isDone()",
+        );
+      }
+      return {
+        finalState,
+        trace: { kind: "route", route: { routeId, scenes } },
       };
     },
     () => stateManagerFromUnchecked(done && finalState !== undefined ? finalState : readState()),

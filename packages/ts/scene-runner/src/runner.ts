@@ -34,6 +34,7 @@ import {
   type InternalEngineSelection,
 } from "./zig-runtime/engine-selection.js";
 import {
+  createZigRouteRunner,
   createZigSceneRunner,
   type ZigRuntimeLifecycleTransport,
 } from "./zig-runtime/runner-adapter.js";
@@ -440,20 +441,16 @@ function createZigRunner(
   if (validationErrors.length > 0) throw new ModelValidationError(validationErrors);
   validateExecutionLimits(options);
   const target = resolveDispatchTarget(migratedModel, options.entryId);
-  if (target.kind === "route") {
-    throw new Error("the internal Zig engine does not support route entry points yet");
-  }
   if (!migratedModel.state) {
     const detail = "No STATE schema in model";
     assertUncheckedStateAllowed(options, detail);
     warnUncheckedState(options, detail);
   }
-  const inner = createZigSceneRunner(
-    client,
-    encodeZigRuntimeModel(migratedModel),
-    target.scene.id,
-    options,
-  );
+  const encodedModel = encodeZigRuntimeModel(migratedModel);
+  const inner =
+    target.kind === "route"
+      ? createZigRouteRunner(client, encodedModel, target.route.id, options)
+      : createZigSceneRunner(client, encodedModel, target.scene.id, options);
   return mapRunnerResult(inner, (result) => ({ ...result, model: migratedModel }));
 }
 

@@ -203,9 +203,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Add the WASM loader and effect dispatcher
 - [x] Add the scene-level Zig Runner wrapper and action event pump
 - [x] Add internal engine selection with TypeScript as the initial default
-- [ ] Adapt `Runner.next()` while preserving action-level stepping
-- [ ] Preserve `run()`, `runAsync()`, `result()`, and `partialState()`
-- [ ] Preserve hook registration
+- [x] Adapt `Runner.next()` while preserving action-level stepping
+- [x] Preserve `run()`, `runAsync()`, `result()`, and `partialState()`
+- [x] Preserve hook registration
 - [ ] Preserve abort signals, logging, and limits
 - [ ] Preserve harness and server entry points
 - [ ] Update distribution smoke tests

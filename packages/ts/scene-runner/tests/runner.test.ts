@@ -879,4 +879,73 @@ describe("createRunnerWithEngine — Zig scene wiring", () => {
     expect(encoded).not.toHaveProperty("annotations");
     expect(encoded.userData).toEqual({ sourcePos: "preserved" });
   });
+
+  it("selects the Zig route wrapper for route entry points", async () => {
+    const events: unknown[] = [
+      {
+        event: "actionComplete",
+        sceneId: "one",
+        actionId: "a",
+        computeRoot: { symbol: "null", value: null, reason: "missing", tags: [] },
+        nextActionIds: [],
+        publishOutcomes: [],
+        warnings: [],
+      },
+      { event: "sceneChanged", from: "one", to: "two" },
+      {
+        event: "actionComplete",
+        sceneId: "two",
+        actionId: "b",
+        computeRoot: { symbol: "null", value: null, reason: "missing", tags: [] },
+        nextActionIds: [],
+        publishOutcomes: [],
+        warnings: [],
+      },
+      { event: "complete" },
+    ];
+    const create = vi.fn((_model: Uint8Array, _request: unknown) => ({
+      status: "ok" as const,
+      payload: { handle: 22 },
+    }));
+    const client: ZigRuntimeLifecycleTransport = {
+      create,
+      destroy: () => ({ status: "ok", payload: { destroyed: 22 } }),
+      step: <T>() => ({ status: "ok", payload: events.shift() as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const model = {
+      version: 2,
+      scenes: [
+        { id: "one", entryAction: "a", actions: [{ id: "a" }] },
+        { id: "two", entryAction: "b", actions: [{ id: "b" }] },
+      ],
+      routes: [
+        {
+          id: "route",
+          entrySceneId: "one",
+          match: [{ patterns: ["one.a"], target: "two" }],
+        },
+      ],
+    } as unknown as TurnModel;
+    const runner = createRunnerWithEngine(
+      model,
+      { entryId: "route", initialState: {}, allowUncheckedState: true },
+      { kind: "zig", client },
+    );
+
+    await expect(runner.run()).resolves.toMatchObject({
+      trace: {
+        kind: "route",
+        route: {
+          routeId: "route",
+          scenes: [{ sceneId: "one" }, { sceneId: "two" }],
+        },
+      },
+    });
+    expect(create.mock.calls[0]![1]).toMatchObject({
+      routeId: "route",
+      maxRouteTransitions: 1_000,
+    });
+  });
 });
