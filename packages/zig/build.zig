@@ -13,6 +13,23 @@ pub fn build(b: *std.Build) void {
     const test_step = b.step("test", "Run Turnout Zig runtime tests");
     test_step.dependOn(&run_tests.step);
 
+    const wasi_target = b.resolveTargetQuery(.{
+        .cpu_arch = .wasm32,
+        .os_tag = .wasi,
+    });
+    const wasi_test_module = b.createModule(.{
+        .root_source_file = b.path("src/root.zig"),
+        .target = wasi_target,
+        .optimize = optimize,
+    });
+    const wasi_tests = b.addTest(.{
+        .name = "turnout-core-tests",
+        .root_module = wasi_test_module,
+    });
+    const install_wasi_tests = b.addInstallArtifact(wasi_tests, .{});
+    const wasi_test_step = b.step("wasm-test-artifact", "Build the WASI core test artifact");
+    wasi_test_step.dependOn(&install_wasi_tests.step);
+
     const wasm_target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,
         .os_tag = .freestanding,

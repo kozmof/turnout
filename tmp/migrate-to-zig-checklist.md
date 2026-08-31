@@ -10,7 +10,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Current phase | 8 |
 | Last verified commit | `5dced40` |
 | Last updated | 2026-08-30 |
-| Blocking issue | Portable core tests are not running under WASM |
+| Blocking issue | Leak checks and scene-runner artifact packaging remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -188,14 +188,14 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Enforce model, STATE, nesting, and effect-result limits
 - [x] Add malformed-input and lifecycle tests
 - [ ] Add leak checks where tooling permits
-- [ ] Run core tests under WASM
+- [x] Run core tests under WASM
 - [ ] Package the WASM artifact for `scene-runner`
 
 ### Phase 8 exit gate
 
-- [ ] Native and WASM core tests agree
-- [ ] Invalid input does not trap the host
-- [ ] Ownership rules are documented and tested
+- [x] Native and WASM core tests agree
+- [x] Invalid input does not trap the host
+- [x] Ownership rules are documented and tested
 
 ## Phase 9. Integrate `scene-runner`
 
