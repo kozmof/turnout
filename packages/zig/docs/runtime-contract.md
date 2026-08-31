@@ -121,6 +121,8 @@ Raw memory addresses are the exception. Bounds-check addresses and lengths again
 
 `turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, and `contextJson`.
 
+An `actionComplete` event contains `sceneId`, `actionId`, canonical tagged `computeRoot`, ordered `nextActionIds`, `publishOutcomes`, and `warnings`. Warnings are ordered as merge warnings, an optional unchecked-STATE-write warning, then next-rule warnings. The event borrows no WASM memory after the response is decoded.
+
 `turnout_runtime_resume(handle, address, length)` records one effect result without advancing execution. Prepare success accepts any JSON value in `value`.
 
 ```json

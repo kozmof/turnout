@@ -1,6 +1,7 @@
 const std = @import("std");
 const action_runtime = @import("action.zig");
 const effect = @import("effect.zig");
+const model_runtime = @import("model.zig");
 const state_runtime = @import("state.zig");
 const value = @import("value.zig");
 
@@ -22,7 +23,16 @@ pub const RuntimeError = error{
 };
 pub const Event = union(enum) {
     need_effect: effect.Request,
-    action_complete: struct { scene_id: []const u8, action_id: []const u8 },
+    action_complete: struct {
+        scene_id: []const u8,
+        action_id: []const u8,
+        compute_root: value.TaggedValue,
+        merge_warnings: []const action_runtime.MergeWarning,
+        unchecked_write_paths: []const []const u8,
+        next_action_id: ?[]const u8,
+        next_warnings: []const model_runtime.NextRuleWarning,
+        publish_outcomes: []const PublishOutcome,
+    },
     scene_changed: struct { from: []const u8, to: []const u8 },
     complete,
     cancelled,
@@ -428,6 +438,7 @@ pub const ActionDriver = struct {
     action_result: ?action_runtime.Result = null,
     publish_outcomes: ?PublishOutcomes = null,
     completion_emitted: bool = false,
+    next_selection: ?model_runtime.NextRuleSelection = null,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -448,6 +459,7 @@ pub const ActionDriver = struct {
     }
 
     pub fn deinit(self: *ActionDriver) void {
+        if (self.next_selection) |*selection| selection.deinit(self.allocator);
         if (self.publish_outcomes) |*outcomes| outcomes.deinit(self.allocator);
         if (self.action_result) |*result| result.deinit(self.allocator);
         self.state.deinit(self.allocator);
@@ -480,13 +492,27 @@ pub const ActionDriver = struct {
                 );
                 errdefer outcomes.deinit(self.allocator);
                 const result = &(self.action_result orelse return error.ActionInProgress);
+                var selection = try model.selectNextAfterAction(
+                    self.scene_id,
+                    self.action_id,
+                    result,
+                    self.allocator,
+                );
+                errdefer selection.deinit(self.allocator);
                 self.state.deinit(self.allocator);
                 self.state = result.takeState();
+                self.next_selection = selection;
                 self.publish_outcomes = outcomes;
                 self.completion_emitted = true;
                 return .{ .action_complete = .{
                     .scene_id = self.scene_id,
                     .action_id = self.action_id,
+                    .compute_root = result.compute_root.borrowed(),
+                    .merge_warnings = result.merge_warnings,
+                    .unchecked_write_paths = result.unchecked_write_paths,
+                    .next_action_id = selection.target,
+                    .next_warnings = selection.warnings,
+                    .publish_outcomes = outcomes.items,
                 } };
             },
             .cancelled => return .cancelled,
@@ -500,6 +526,8 @@ pub const ActionDriver = struct {
     pub fn beginAction(self: *ActionDriver, model: anytype, action_id: []const u8) !void {
         if (!self.completion_emitted) return error.ActionInProgress;
         try self.runtime.beginAction(model, self.scene_id, action_id);
+        if (self.next_selection) |*selection| selection.deinit(self.allocator);
+        self.next_selection = null;
         if (self.publish_outcomes) |*outcomes| outcomes.deinit(self.allocator);
         self.publish_outcomes = null;
         if (self.action_result) |*result| result.deinit(self.allocator);
@@ -510,15 +538,7 @@ pub const ActionDriver = struct {
 
     pub fn beginNextAction(self: *ActionDriver, model: anytype) !bool {
         if (!self.completion_emitted) return error.ActionInProgress;
-        const result = &(self.action_result orelse return error.ActionInProgress);
-        var selection = try model.selectNextAfterAction(
-            self.scene_id,
-            self.action_id,
-            result,
-            self.allocator,
-        );
-        defer selection.deinit(self.allocator);
-        const target = selection.target orelse return false;
+        const target = if (self.next_selection) |selection| selection.target orelse return false else return error.ActionInProgress;
         try self.beginAction(model, target);
         return true;
     }
@@ -871,7 +891,6 @@ test "canonical prepare payload retains tags and null reasons" {
 }
 
 test "resumed prepare effect feeds model action compute" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
         \\"id":"start","prepare":[{"binding":"input","fromHook":"load"}],
@@ -914,7 +933,6 @@ test "resumed prepare effect feeds model action compute" {
 }
 
 test "one prepare hook response feeds multiple action bindings" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
         \\"id":"start","prepare":[
@@ -972,7 +990,6 @@ test "one prepare hook response feeds multiple action bindings" {
 }
 
 test "strict publish policy is action scoped and preserves merged state" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"current","actions":[{
         \\"id":"current","compute":{"root":"result","prog":{"bindings":[
@@ -1118,7 +1135,6 @@ test "dynamic prepare request owns prior binding context" {
 }
 
 test "begin action preserves effect IDs and clears prior outcomes" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
         \\{"id":"first","publish":["save_first"]},
@@ -1143,7 +1159,6 @@ test "begin action preserves effect IDs and clears prior outcomes" {
 }
 
 test "action driver yields effects and commits completion state" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
         \\"id":"start","prepare":[{"binding":"input","fromHook":"load"}],
@@ -1207,7 +1222,6 @@ test "action driver yields effects and commits completion state" {
 }
 
 test "scene driver follows entry and next actions through effects" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
         \\{"id":"first","prepare":[{"binding":"input","fromHook":"load"}],
@@ -1240,7 +1254,6 @@ test "scene driver follows entry and next actions through effects" {
 }
 
 test "scene driver cancellation is terminal and stable" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[
         \\{"id":"start","publish":["save"]}
@@ -1259,7 +1272,6 @@ test "scene driver cancellation is terminal and stable" {
 }
 
 test "scene driver limit preserves the last committed state" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"first","actions":[
         \\{"id":"first","compute":{"root":"value","prog":{"bindings":[
@@ -1293,7 +1305,6 @@ test "scene driver limit preserves the last committed state" {
 }
 
 test "scene driver strict publish failure retains merged state without replay" {
-    const model_runtime = @import("model.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[
         \\{"id":"start","compute":{"root":"value","prog":{"bindings":[

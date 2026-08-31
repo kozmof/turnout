@@ -211,10 +211,76 @@ export fn turnout_runtime_destroy(handle: u32) usize {
     return jsonResponse(.ok, .{ .destroyed = handle });
 }
 
+const ActionCompleteJson = struct {
+    completed: @FieldType(runtime.Event, "action_complete"),
+
+    pub fn jsonStringify(self: ActionCompleteJson, writer: anytype) !void {
+        const completed = self.completed;
+        try writer.beginObject();
+        try writer.objectField("event");
+        try writer.write("actionComplete");
+        try writer.objectField("sceneId");
+        try writer.write(completed.scene_id);
+        try writer.objectField("actionId");
+        try writer.write(completed.action_id);
+        try writer.objectField("computeRoot");
+        try writer.write(value.CanonicalTagged{ .tagged = completed.compute_root });
+        try writer.objectField("nextActionIds");
+        try writer.beginArray();
+        if (completed.next_action_id) |action_id| try writer.write(action_id);
+        try writer.endArray();
+        try writer.objectField("publishOutcomes");
+        try writer.beginArray();
+        for (completed.publish_outcomes) |outcome| {
+            try writer.beginObject();
+            try writer.objectField("hookName");
+            try writer.write(outcome.hook_name);
+            try writer.objectField("status");
+            try writer.write(@tagName(outcome.status));
+            try writer.objectField("message");
+            try writer.write(outcome.message);
+            try writer.endObject();
+        }
+        try writer.endArray();
+        try writer.objectField("warnings");
+        try writer.beginArray();
+        for (completed.merge_warnings) |warning| {
+            try writer.beginObject();
+            try writer.objectField("kind");
+            try writer.write("merge");
+            try writer.objectField("binding");
+            try writer.write(warning.binding);
+            try writer.objectField("toState");
+            try writer.write(warning.to_state);
+            try writer.endObject();
+        }
+        if (completed.unchecked_write_paths.len != 0) {
+            try writer.beginObject();
+            try writer.objectField("kind");
+            try writer.write("uncheckedStateWrite");
+            try writer.objectField("writtenPaths");
+            try writer.write(completed.unchecked_write_paths);
+            try writer.endObject();
+        }
+        for (completed.next_warnings) |warning| {
+            try writer.beginObject();
+            try writer.objectField("kind");
+            try writer.write(@tagName(warning.kind));
+            try writer.objectField("ruleIndex");
+            try writer.write(warning.rule_index);
+            try writer.objectField("conditionName");
+            try writer.write(warning.condition_name);
+            try writer.endObject();
+        }
+        try writer.endArray();
+        try writer.endObject();
+    }
+};
+
 fn eventResponse(event: runtime.Event) usize {
     return switch (event) {
         .need_effect => |request| jsonResponse(.ok, .{ .event = "needEffect", .id = request.id, .kind = @tagName(request.kind), .hook = request.hook, .sceneId = request.scene_id, .actionId = request.action_id, .callbackIndex = request.callback_index, .binding = request.binding, .contextJson = request.context_json }),
-        .action_complete => |completed| jsonResponse(.ok, .{ .event = "actionComplete", .sceneId = completed.scene_id, .actionId = completed.action_id }),
+        .action_complete => |completed| jsonResponse(.ok, ActionCompleteJson{ .completed = completed }),
         .scene_changed => |changed| jsonResponse(.ok, .{ .event = "sceneChanged", .from = changed.from, .to = changed.to }),
         .complete => jsonResponse(.ok, .{ .event = "complete" }),
         .cancelled => jsonResponse(.ok, .{ .event = "cancelled" }),
@@ -420,6 +486,16 @@ test "WASM lifecycle creates steps resumes and destroys a runtime" {
     defer freeResponse(action_address);
     var action = try expectResponse(action_address, .ok, "actionComplete");
     defer action.deinit();
+    try std.testing.expectEqualStrings("start", action.value.object.get("actionId").?.string);
+    try std.testing.expectEqual(@as(i64, 7), action.value.object.get("computeRoot").?.object.get("value").?.integer);
+    try std.testing.expectEqual(@as(usize, 0), action.value.object.get("nextActionIds").?.array.items.len);
+    const publish_outcomes = action.value.object.get("publishOutcomes").?.array.items;
+    try std.testing.expectEqual(@as(usize, 1), publish_outcomes.len);
+    try std.testing.expectEqualStrings("save", publish_outcomes[0].object.get("hookName").?.string);
+    try std.testing.expectEqualStrings("ok", publish_outcomes[0].object.get("status").?.string);
+    const warnings = action.value.object.get("warnings").?.array.items;
+    try std.testing.expectEqual(@as(usize, 1), warnings.len);
+    try std.testing.expectEqualStrings("uncheckedStateWrite", warnings[0].object.get("kind").?.string);
     const complete_address = turnout_runtime_step(handle);
     defer freeResponse(complete_address);
     var complete = try expectResponse(complete_address, .ok, "complete");

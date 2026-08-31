@@ -303,7 +303,7 @@ fn decodeCanonicalValue(
     return error.InvalidCanonicalValue;
 }
 
-const CanonicalTagged = struct {
+pub const CanonicalTagged = struct {
     tagged: TaggedValue,
 
     pub fn jsonStringify(self: CanonicalTagged, writer: anytype) !void {
