@@ -27,6 +27,10 @@ import {
   validateExecutionLimits,
   warnUncheckedState,
 } from "./runner-validation.js";
+import {
+  selectInternalEngine,
+  type InternalEngineSelection,
+} from "./zig-runtime/engine-selection.js";
 
 export type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
 
@@ -344,6 +348,25 @@ function mapRunnerResult<A extends HarnessResult, B extends HarnessResult>(
 }
 
 export function createRunner(
+  inputModel: TurnModel,
+  options: RunnerOptions,
+): Runner<FullHarnessResult> {
+  return createRunnerWithEngine(inputModel, options, { kind: "typescript" });
+}
+
+/**
+ * Internal migration seam. Keep this out of the package entry point until the
+ * Zig engine reaches parity and engine choice becomes a supported API.
+ */
+export function createRunnerWithEngine(
+  inputModel: TurnModel,
+  options: RunnerOptions,
+  selection: InternalEngineSelection<Runner<FullHarnessResult>>,
+): Runner<FullHarnessResult> {
+  return selectInternalEngine(selection, () => createTypeScriptRunner(inputModel, options));
+}
+
+function createTypeScriptRunner(
   inputModel: TurnModel,
   options: RunnerOptions,
 ): Runner<FullHarnessResult> {
