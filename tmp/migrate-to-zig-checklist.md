@@ -208,8 +208,8 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Preserve hook registration
 - [x] Preserve abort signals, logging, and limits
 - [ ] Preserve harness and server entry points
-- [ ] Update distribution smoke tests
-- [ ] Test WASM loading in supported environments
+- [x] Update distribution smoke tests
+- [x] Test WASM loading in supported environments
 
 ### Phase 9 exit gate
 
