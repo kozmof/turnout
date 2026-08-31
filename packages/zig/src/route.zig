@@ -317,7 +317,7 @@ fn firstBlock(history: []const HistoryEntry, scene_id: []const u8) []const Histo
     return if (start) |begin| history[begin..] else &.{};
 }
 
-fn findRoute(model: *const model_runtime.RuntimeModel, route_id: []const u8) ?std.json.ObjectMap {
+pub fn findRoute(model: *const model_runtime.RuntimeModel, route_id: []const u8) ?std.json.ObjectMap {
     const routes = model.root().get("routes") orelse return null;
     if (routes != .array) return null;
     for (routes.array.items) |route| {

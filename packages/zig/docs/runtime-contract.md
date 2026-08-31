@@ -113,11 +113,12 @@ Raw memory addresses are the exception. Bounds-check addresses and lengths again
     "player.score": 1
   },
   "failOnPublishError": false,
-  "maxSceneSteps": 10000
+  "maxSceneSteps": 10000,
+  "maxRouteTransitions": 1000
 }
 ```
 
-`sceneId` is required. The other fields use the shown defaults. Unknown request fields are ignored. The success payload is `{"handle":1}`.
+Set exactly one of `sceneId` or `routeId`. The other fields use the shown defaults. `maxRouteTransitions` applies only to route handles. Unknown request fields are ignored. The success payload is `{"handle":1}`.
 
 `turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, and `contextJson`.
 

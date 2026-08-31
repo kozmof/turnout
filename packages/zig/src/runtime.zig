@@ -2,6 +2,7 @@ const std = @import("std");
 const action_runtime = @import("action.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
+const route_runtime = @import("route.zig");
 const state_runtime = @import("state.zig");
 const value = @import("value.zig");
 
@@ -641,6 +642,119 @@ pub const SceneDriver = struct {
 
     pub fn partialState(self: *const SceneDriver) *const state_runtime.State {
         return self.action.partialState();
+    }
+};
+
+pub const RouteDriver = struct {
+    allocator: std.mem.Allocator,
+    route_id: []const u8,
+    arms: std.json.Value,
+    scene: SceneDriver,
+    current_scene_id: []const u8,
+    history: std.ArrayList(route_runtime.HistoryEntry) = .empty,
+    history_start: usize = 0,
+    transitions: usize = 0,
+    max_transitions: usize,
+    max_scene_steps: usize,
+    finished: bool = false,
+
+    pub fn init(
+        allocator: std.mem.Allocator,
+        model: *const model_runtime.RuntimeModel,
+        route_id: []const u8,
+        initial_state: *const state_runtime.State,
+        max_scene_steps: usize,
+        max_transitions: usize,
+    ) !RouteDriver {
+        const route = route_runtime.findRoute(model, route_id) orelse return error.RouteNotFound;
+        const entry = route.get("entrySceneId") orelse return error.NoEntryScene;
+        const arms = route.get("match") orelse return error.InvalidRoute;
+        if (entry != .string or entry.string.len == 0) return error.NoEntryScene;
+        return .{
+            .allocator = allocator,
+            .route_id = route_id,
+            .arms = arms,
+            .scene = try SceneDriver.initWithLimit(
+                allocator,
+                model,
+                entry.string,
+                initial_state,
+                max_scene_steps,
+            ),
+            .current_scene_id = entry.string,
+            .max_transitions = max_transitions,
+            .max_scene_steps = max_scene_steps,
+        };
+    }
+
+    pub fn deinit(self: *RouteDriver) void {
+        self.scene.deinit();
+        self.history.deinit(self.allocator);
+        self.* = undefined;
+    }
+
+    pub fn step(
+        self: *RouteDriver,
+        model: *const model_runtime.RuntimeModel,
+        fail_on_publish_error: bool,
+    ) !Event {
+        if (self.finished) return .complete;
+        const event = try self.scene.step(model, fail_on_publish_error);
+        switch (event) {
+            .action_complete => |completed| {
+                try self.history.append(self.allocator, .{
+                    .scene_id = self.current_scene_id,
+                    .action_id = completed.action_id,
+                });
+                return event;
+            },
+            .complete => {
+                const next = try route_runtime.selectNextScene(
+                    self.history.items[self.history_start..],
+                    self.arms,
+                    self.current_scene_id,
+                );
+                if (next == null) {
+                    self.finished = true;
+                    return .complete;
+                }
+                if (self.transitions == self.max_transitions)
+                    return error.MaxRouteTransitionsExceeded;
+                const target = next.?;
+                var next_scene = try SceneDriver.initWithLimit(
+                    self.allocator,
+                    model,
+                    target,
+                    self.scene.partialState(),
+                    self.max_scene_steps,
+                );
+                errdefer next_scene.deinit();
+                const previous = self.current_scene_id;
+                self.scene.deinit();
+                self.scene = next_scene;
+                self.current_scene_id = target;
+                self.history_start = self.history.items.len;
+                self.transitions += 1;
+                return .{ .scene_changed = .{ .from = previous, .to = target } };
+            },
+            .cancelled => {
+                self.finished = true;
+                return .cancelled;
+            },
+            else => return event,
+        }
+    }
+
+    pub fn @"resume"(self: *RouteDriver, id: u64, result: effect.Result) RuntimeError!void {
+        return self.scene.@"resume"(id, result);
+    }
+
+    pub fn cancel(self: *RouteDriver) void {
+        self.scene.cancel();
+    }
+
+    pub fn partialState(self: *const RouteDriver) *const state_runtime.State {
+        return self.scene.partialState();
     }
 };
 
@@ -1337,4 +1451,42 @@ test "scene driver strict publish failure retains merged state without replay" {
         driver.action.publish_outcomes.?.items[0].message.?,
     );
     try std.testing.expect((try driver.step(&model, false)) == .complete);
+}
+
+test "route driver emits actions and scene transitions incrementally" {
+    const source =
+        \\{"version":2,"routes":[{"id":"route","entrySceneId":"one","match":[{"patterns":["one.start"],"target":"two"}]}],"scenes":[
+        \\  {"id":"one","entryAction":"start","actions":[{"id":"start","compute":{"root":"value","prog":{"bindings":[{"name":"value","type":"number","value":1}]}},"merge":[{"binding":"value","toState":"score"}]}]},
+        \\  {"id":"two","entryAction":"finish","actions":[{"id":"finish","compute":{"root":"value","prog":{"bindings":[{"name":"value","type":"number","value":2}]}},"merge":[{"binding":"value","toState":"score"}]}]}
+        \\]}
+    ;
+    var model = try model_runtime.RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    var values: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer values.deinit(std.testing.allocator);
+    var initial = try state_runtime.State.initUnchecked(&values, std.testing.allocator);
+    defer initial.deinit(std.testing.allocator);
+    var driver = try RouteDriver.init(
+        std.testing.allocator,
+        &model,
+        "route",
+        &initial,
+        10,
+        10,
+    );
+    defer driver.deinit();
+
+    const first = (try driver.step(&model, false)).action_complete;
+    try std.testing.expectEqualStrings("one", first.scene_id);
+    try std.testing.expectEqualStrings("start", first.action_id);
+    const changed = (try driver.step(&model, false)).scene_changed;
+    try std.testing.expectEqualStrings("one", changed.from);
+    try std.testing.expectEqualStrings("two", changed.to);
+    const second = (try driver.step(&model, false)).action_complete;
+    try std.testing.expectEqualStrings("two", second.scene_id);
+    try std.testing.expectEqualStrings("finish", second.action_id);
+    try std.testing.expectEqual(Event.complete, try driver.step(&model, false));
+    var score = try driver.partialState().read("score", std.testing.allocator);
+    defer score.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 2), score.value.number);
 }

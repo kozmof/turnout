@@ -36,22 +36,60 @@ pub const Response = struct {
 };
 
 const CreateRequest = struct {
-    sceneId: []const u8,
+    sceneId: ?[]const u8 = null,
+    routeId: ?[]const u8 = null,
     initialState: ?std.json.Value = null,
     failOnPublishError: bool = false,
     maxSceneSteps: usize = 10_000,
+    maxRouteTransitions: usize = 1_000,
+};
+
+const Driver = union(enum) {
+    scene: runtime.SceneDriver,
+    route: runtime.RouteDriver,
+
+    fn deinit(self: *Driver) void {
+        switch (self.*) {
+            inline else => |*driver| driver.deinit(),
+        }
+    }
+
+    fn step(self: *Driver, model: *const model_runtime.RuntimeModel, fail_on_publish_error: bool) !runtime.Event {
+        return switch (self.*) {
+            inline else => |*driver| driver.step(model, fail_on_publish_error),
+        };
+    }
+
+    fn @"resume"(self: *Driver, id: u64, result: effect.Result) runtime.RuntimeError!void {
+        return switch (self.*) {
+            inline else => |*driver| driver.@"resume"(id, result),
+        };
+    }
+
+    fn partialState(self: *const Driver) *const state_runtime.State {
+        return switch (self.*) {
+            inline else => |*driver| driver.partialState(),
+        };
+    }
+
+    fn isDone(self: *const Driver) bool {
+        return switch (self.*) {
+            .scene => |driver| driver.finished,
+            .route => |driver| driver.finished,
+        };
+    }
 };
 
 const Instance = struct {
     model: model_runtime.RuntimeModel,
-    driver: runtime.SceneDriver,
-    scene_id: []u8,
+    driver: Driver,
+    entry_id: []u8,
     fail_on_publish_error: bool,
 
     fn deinit(self: *Instance) void {
         self.driver.deinit();
         self.model.deinit();
-        allocator.free(self.scene_id);
+        allocator.free(self.entry_id);
         allocator.destroy(self);
     }
 };
@@ -161,7 +199,9 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
     });
     defer request.deinit();
     try validateInputNesting(request.value.initialState orelse .null, 0);
-    if (request.value.sceneId.len == 0) return error.InvalidSceneId;
+    if ((request.value.sceneId == null) == (request.value.routeId == null)) return error.InvalidEntryId;
+    const entry = request.value.sceneId orelse request.value.routeId.?;
+    if (entry.len == 0) return error.InvalidEntryId;
     var model = try model_runtime.RuntimeModel.init(allocator, model_bytes, .{});
     errdefer model.deinit();
     var initial_values: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
@@ -172,14 +212,17 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
     else
         try state_runtime.State.initUnchecked(&initial_values, allocator);
     defer initial_state.deinit(allocator);
-    const scene_id = try allocator.dupe(u8, request.value.sceneId);
-    errdefer allocator.free(scene_id);
+    const entry_id = try allocator.dupe(u8, entry);
+    errdefer allocator.free(entry_id);
     const instance = try allocator.create(Instance);
     errdefer allocator.destroy(instance);
     instance.* = .{
         .model = model,
-        .driver = try runtime.SceneDriver.initWithLimit(allocator, &model, scene_id, &initial_state, request.value.maxSceneSteps),
-        .scene_id = scene_id,
+        .driver = if (request.value.sceneId != null)
+            .{ .scene = try runtime.SceneDriver.initWithLimit(allocator, &model, entry_id, &initial_state, request.value.maxSceneSteps) }
+        else
+            .{ .route = try runtime.RouteDriver.init(allocator, &model, entry_id, &initial_state, request.value.maxSceneSteps, request.value.maxRouteTransitions) },
+        .entry_id = entry_id,
         .fail_on_publish_error = request.value.failOnPublishError,
     };
     if (next_handle == 0) return error.HandleSpaceExhausted;
@@ -304,7 +347,7 @@ fn snapshotResponse(instance: *const Instance) usize {
     const payload = std.fmt.allocPrint(
         allocator,
         "{{\"state\":{s},\"done\":{s}}}",
-        .{ state_json, if (instance.driver.finished) "true" else "false" },
+        .{ state_json, if (instance.driver.isDone()) "true" else "false" },
     ) catch return errorResponse(.out_of_memory, "OutOfMemory");
     defer allocator.free(payload);
     return responseAddress(.ok, payload);
@@ -618,4 +661,49 @@ test "native WASM ABI lifecycle has no outstanding allocations" {
         @as(usize, 0),
         native_allocator.detectLeaks(),
     );
+}
+
+test "WASM route lifecycle emits scene transitions" {
+    const model =
+        \\{"version":2,"routes":[{"id":"route","entrySceneId":"one","match":[{"patterns":["one.start"],"target":"two"}]}],"scenes":[
+        \\{"id":"one","entryAction":"start","actions":[{"id":"start"}]},
+        \\{"id":"two","entryAction":"finish","actions":[{"id":"finish"}]}
+        \\]}
+    ;
+    const config =
+        \\{"routeId":"route","initialState":{},"maxRouteTransitions":2}
+    ;
+    const created_address = turnout_runtime_create(@intFromPtr(model.ptr), model.len, @intFromPtr(config.ptr), config.len);
+    defer freeResponse(created_address);
+    var created = try expectResponse(created_address, .ok, null);
+    defer created.deinit();
+    const handle: u32 = @intCast(created.value.object.get("handle").?.integer);
+
+    const first_address = turnout_runtime_step(handle);
+    defer freeResponse(first_address);
+    var first = try expectResponse(first_address, .ok, "actionComplete");
+    defer first.deinit();
+    try std.testing.expectEqualStrings("one", first.value.object.get("sceneId").?.string);
+
+    const changed_address = turnout_runtime_step(handle);
+    defer freeResponse(changed_address);
+    var changed = try expectResponse(changed_address, .ok, "sceneChanged");
+    defer changed.deinit();
+    try std.testing.expectEqualStrings("two", changed.value.object.get("to").?.string);
+
+    const second_address = turnout_runtime_step(handle);
+    defer freeResponse(second_address);
+    var second = try expectResponse(second_address, .ok, "actionComplete");
+    defer second.deinit();
+    try std.testing.expectEqualStrings("two", second.value.object.get("sceneId").?.string);
+
+    const complete_address = turnout_runtime_step(handle);
+    defer freeResponse(complete_address);
+    var complete = try expectResponse(complete_address, .ok, "complete");
+    defer complete.deinit();
+
+    const destroyed_address = turnout_runtime_destroy(handle);
+    defer freeResponse(destroyed_address);
+    var destroyed = try expectResponse(destroyed_address, .ok, null);
+    defer destroyed.deinit();
 }
