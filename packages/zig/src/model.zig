@@ -25,7 +25,7 @@ pub const ValidationError = error{
 
 pub const NextRuleCondition = union(enum) {
     matched: bool,
-    invalid_type,
+    invalid_type: []const u8,
     missing_program,
 };
 
@@ -34,6 +34,8 @@ pub const NextRuleWarning = struct {
     kind: NextRuleWarningKind,
     rule_index: usize,
     condition_name: []const u8,
+    actual_type: []const u8 = "",
+    target_action_id: []const u8 = "",
 };
 pub const NextRuleSelection = struct {
     target: ?[]const u8,
@@ -196,15 +198,17 @@ pub const RuntimeModel = struct {
                     if (target != .string) return error.NextRuleNotFound;
                     return .{ .target = target.string, .warnings = try warnings.toOwnedSlice(allocator) };
                 },
-                .invalid_type => try warnings.append(allocator, .{
+                .invalid_type => |actual_type| try warnings.append(allocator, .{
                     .kind = .invalid_condition,
                     .rule_index = index,
                     .condition_name = nextConditionName(rule),
+                    .actual_type = actual_type,
                 }),
                 .missing_program => try warnings.append(allocator, .{
                     .kind = .missing_program,
                     .rule_index = index,
                     .condition_name = nextConditionName(rule),
+                    .target_action_id = nextTargetAction(rule),
                 }),
             }
         }
@@ -228,10 +232,10 @@ pub const RuntimeModel = struct {
         if (next_compute != .object) return .missing_program;
         const prog = next_compute.object.get("prog") orelse return .missing_program;
         const condition = next_compute.object.get("condition") orelse std.json.Value{ .string = "" };
-        if (condition != .string) return .invalid_type;
+        if (condition != .string) return .{ .invalid_type = "undefined" };
         var result = try compute_runtime.executeProgram(prog, condition.string, inputs, allocator);
         defer result.deinit(allocator);
-        if (result.value != .boolean or result.tags.len != 0) return .invalid_type;
+        if (result.value != .boolean or result.tags.len != 0) return .{ .invalid_type = if (result.value == .null_value) "null" else @tagName(result.value) };
         return .{ .matched = result.value.boolean };
     }
 
@@ -259,15 +263,17 @@ pub const RuntimeModel = struct {
                     if (target != .string) return error.NextRuleNotFound;
                     return .{ .target = target.string, .warnings = try warnings.toOwnedSlice(allocator) };
                 },
-                .invalid_type => try warnings.append(allocator, .{
+                .invalid_type => |actual_type| try warnings.append(allocator, .{
                     .kind = .invalid_condition,
                     .rule_index = index,
                     .condition_name = nextConditionName(rule),
+                    .actual_type = actual_type,
                 }),
                 .missing_program => try warnings.append(allocator, .{
                     .kind = .missing_program,
                     .rule_index = index,
                     .condition_name = nextConditionName(rule),
+                    .target_action_id = nextTargetAction(rule),
                 }),
             }
         }
@@ -382,6 +388,12 @@ fn deinitPrepared(
 ) void {
     for (prepared.values()) |*item| turnout_value.deinitTaggedValue(item, allocator);
     prepared.deinit(allocator);
+}
+
+fn nextTargetAction(rule: std.json.Value) []const u8 {
+    if (rule != .object) return "";
+    const action = rule.object.get("action") orelse return "";
+    return if (action == .string) action.string else "";
 }
 
 fn nextConditionName(rule: std.json.Value) []const u8 {
@@ -844,7 +856,8 @@ test "runtime model evaluates unconditional and computed next rules" {
     try std.testing.expectEqual(NextRuleCondition{ .matched = true }, try model.evaluateNextRule("scene", "action", 2, &inputs, std.testing.allocator));
 
     try inputs.put(std.testing.allocator, "condition", .{ .value = .{ .boolean = true }, .tags = &.{"impure"} });
-    try std.testing.expectEqual(NextRuleCondition.invalid_type, try model.evaluateNextRule("scene", "action", 2, &inputs, std.testing.allocator));
+    const invalid = try model.evaluateNextRule("scene", "action", 2, &inputs, std.testing.allocator);
+    try std.testing.expectEqualStrings("boolean", invalid.invalid_type);
 }
 
 test "runtime model selects the first matching next rule and retains warnings" {

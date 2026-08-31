@@ -270,6 +270,10 @@ const ActionCompleteJson = struct {
             try writer.write(warning.rule_index);
             try writer.objectField("conditionName");
             try writer.write(warning.condition_name);
+            try writer.objectField("actualType");
+            try writer.write(warning.actual_type);
+            try writer.objectField("targetActionId");
+            try writer.write(warning.target_action_id);
             try writer.endObject();
         }
         try writer.endArray();
