@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
-await import("../packages/ts/runtime/dist/index.js");
+const { buildNumber } = await import("../packages/ts/runtime/dist/index.js");
 await import("../packages/ts/scene-runner/dist/index.js");
 await import("../packages/ts/scene-runner/dist/server/index.js");
 
@@ -13,6 +13,7 @@ if (wasm.length < 8 || !wasm.subarray(0, 4).equals(Buffer.from([0, 97, 115, 109]
 }
 const { fromJson } =
   await import("../packages/ts/scene-runner/node_modules/@bufbuild/protobuf/dist/esm/index.js");
+const { createRunnerWithEngine } = await import("../packages/ts/scene-runner/dist/runner.js");
 const { runHarnessWithEngine } =
   await import("../packages/ts/scene-runner/dist/harness/harness.js");
 const { runServerHarnessWithEngine } =
@@ -102,6 +103,119 @@ if (!isDeepStrictEqual(withoutModel(routeResult), withoutModel(routeReference)))
   throw new Error("packaged Zig route runner differs from the TypeScript result");
 }
 
+const stepModel = fromJson(TurnModelSchema, {
+  version: 2,
+  scenes: [
+    {
+      id: "steps",
+      entryAction: "first",
+      actions: [
+        {
+          id: "first",
+          compute: {
+            root: "value",
+            prog: { bindings: [{ name: "value", type: "number", value: 1 }] },
+          },
+          merge: [{ binding: "value", toState: "score" }],
+          next: [{ action: "second" }],
+        },
+        {
+          id: "second",
+          compute: {
+            root: "value",
+            prog: { bindings: [{ name: "value", type: "number", value: 2 }] },
+          },
+          merge: [{ binding: "value", toState: "score" }],
+        },
+      ],
+    },
+  ],
+  routes: [],
+});
+const runnerOptions = {
+  entryId: "steps",
+  initialState: {},
+  allowUncheckedState: true,
+};
+const referenceRunner = createRunnerWithEngine(stepModel, runnerOptions, { kind: "typescript" });
+const candidateRunner = createRunnerWithEngine(stepModel, runnerOptions, { kind: "zig", client });
+for (const runner of [referenceRunner, candidateRunner]) {
+  try {
+    runner.result();
+    throw new Error("incomplete Runner result unexpectedly succeeded");
+  } catch (error) {
+    if (error?.code !== "IncompleteExecution") throw error;
+  }
+}
+assertSame(
+  candidateRunner.partialState().snapshot(),
+  referenceRunner.partialState().snapshot(),
+  "initial partial STATE",
+);
+assertSame(await candidateRunner.next(1), await referenceRunner.next(1), "first next(1) result");
+assertSame(
+  candidateRunner.partialState().snapshot(),
+  referenceRunner.partialState().snapshot(),
+  "partial STATE after first action",
+);
+assertSame(await candidateRunner.next(1), await referenceRunner.next(1), "second next(1) result");
+assertSame(candidateRunner.isDone(), referenceRunner.isDone(), "final isDone");
+assertSame(
+  withoutModel(candidateRunner.result()),
+  withoutModel(referenceRunner.result()),
+  "final Runner result",
+);
+
+const limitedOptions = { ...runnerOptions, maxSceneSteps: 1 };
+const limitedReference = createRunnerWithEngine(stepModel, limitedOptions, { kind: "typescript" });
+const limitedCandidate = createRunnerWithEngine(stepModel, limitedOptions, { kind: "zig", client });
+const referenceLimitError = await captureError(() => limitedReference.run());
+const candidateLimitError = await captureError(() => limitedCandidate.run());
+assertSame(
+  errorShape(candidateLimitError),
+  errorShape(referenceLimitError),
+  "execution-limit error",
+);
+
+const hookModel = fromJson(TurnModelSchema, {
+  version: 2,
+  scenes: [
+    {
+      id: "hooks",
+      entryAction: "load",
+      actions: [
+        {
+          id: "load",
+          prepare: [{ binding: "input", fromHook: "load_value" }],
+          compute: {
+            root: "input",
+            prog: { bindings: [{ name: "input", type: "number", value: 0 }] },
+          },
+          publish: ["save_value"],
+        },
+      ],
+    },
+  ],
+  routes: [],
+});
+const hookOptions = { entryId: "hooks", initialState: {}, allowUncheckedState: true };
+const hookReference = createRunnerWithEngine(hookModel, hookOptions, { kind: "typescript" });
+const hookCandidate = createRunnerWithEngine(hookModel, hookOptions, { kind: "zig", client });
+for (const runner of [hookReference, hookCandidate]) {
+  runner.usePrepareHook("load_value", async () => ({ input: buildNumber(5) }));
+  runner.usePublishHook("save_value", async () => {});
+}
+const referenceEvents = [];
+for await (const event of hookReference.runAsync()) referenceEvents.push(event);
+const candidateEvents = [];
+for await (const event of hookCandidate.runAsync()) candidateEvents.push(event);
+assertSame(candidateEvents, referenceEvents, "runAsync hook events");
+assertSame(
+  withoutModel(hookCandidate.result()),
+  withoutModel(hookReference.result()),
+  "hook Runner result",
+);
+
 const fixtureNames = ["scene-graph.json", "workflow.json", "two-scene-route.json"];
 for (const fixtureName of fixtureNames) {
   const jsonFile = new URL(
@@ -132,6 +246,34 @@ for (const fixtureName of fixtureNames) {
 TS ${JSON.stringify(referenceLogs)}
 Zig ${JSON.stringify(candidateLogs)}`);
     }
+  }
+}
+
+async function captureError(operation) {
+  try {
+    await operation();
+  } catch (error) {
+    return error;
+  }
+  throw new Error("expected operation to fail");
+}
+
+function errorShape(error) {
+  return {
+    name: error?.name,
+    code: error?.code,
+    message: error?.message,
+    sceneId: error?.sceneId,
+    routeId: error?.routeId,
+    context: error?.context,
+  };
+}
+
+function assertSame(candidate, reference, label) {
+  if (!isDeepStrictEqual(candidate, reference)) {
+    throw new Error(`packaged Zig ${label} differs from TypeScript:
+TS ${JSON.stringify(reference)}
+Zig ${JSON.stringify(candidate)}`);
   }
 }
 

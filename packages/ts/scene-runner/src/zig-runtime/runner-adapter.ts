@@ -8,7 +8,7 @@ import type {
 import type { FragmentHarnessResult } from "../types/harness-types.js";
 import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
 import { makeRunnerMethods } from "../runner-methods.js";
-import { RunnerError } from "../executor/errors.js";
+import { RouteRuntimeError, RunnerError, SceneRuntimeError } from "../executor/errors.js";
 import { safeLog } from "../executor/logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse } from "./client.js";
@@ -29,11 +29,25 @@ type ZigRuntimeEvent =
       actionId: string;
       computeRoot: unknown;
       nextActionIds: string[];
-      publishOutcomes: PublishHookOutcome[];
+      publishOutcomes: Array<{
+        hookName: string;
+        status: "ok" | "error";
+        message?: string | null;
+      }>;
       warnings: ZigWarning[];
     }
   | { event: "sceneChanged"; from: string; to: string }
   | { event: "complete" | "cancelled" };
+
+const ZigRuntimeStatusError = class extends Error {
+  constructor(
+    readonly status: ZigResponse["status"],
+    readonly code: string,
+  ) {
+    super(`Zig runtime returned ${status}: ${code}`);
+    this.name = "ZigRuntimeStatusError";
+  }
+};
 
 export interface ZigRuntimeTransport {
   step<T>(handle: number): ZigResponse<T>;
@@ -87,6 +101,15 @@ export async function advanceZigRuntime(
 }
 
 function actionTrace(event: Extract<ZigRuntimeEvent, { event: "actionComplete" }>): ActionTrace {
+  const publishOutcomes: PublishHookOutcome[] = event.publishOutcomes.map((outcome) =>
+    outcome.status === "ok"
+      ? { hookName: outcome.hookName, status: "ok" }
+      : {
+          hookName: outcome.hookName,
+          status: "error",
+          message: outcome.message ?? "",
+        },
+  );
   const warnings = event.warnings.map((warning): ActionWarning => {
     switch (warning.kind) {
       case "merge":
@@ -125,7 +148,7 @@ function actionTrace(event: Extract<ZigRuntimeEvent, { event: "actionComplete" }
     actionId: event.actionId,
     computeRootValue: fromCanonicalValue(event.computeRoot),
     nextActionIds: event.nextActionIds,
-    ...(event.publishOutcomes.length > 0 ? { publishOutcomes: event.publishOutcomes } : {}),
+    ...(publishOutcomes.length > 0 ? { publishOutcomes } : {}),
     ...(warnings.length > 0 ? { warnings } : {}),
   };
 }
@@ -134,7 +157,15 @@ function assertOk<T>(
   response: ZigResponse<T>,
 ): asserts response is ZigResponse<T> & { status: "ok" } {
   if (response.status !== "ok") {
-    throw new Error(`Zig runtime returned ${response.status}: ${JSON.stringify(response.payload)}`);
+    const payload = response.payload;
+    const code =
+      typeof payload === "object" &&
+      payload !== null &&
+      "error" in payload &&
+      typeof payload.error === "string"
+        ? payload.error
+        : JSON.stringify(payload);
+    throw new ZigRuntimeStatusError(response.status, code);
   }
 }
 
@@ -218,7 +249,19 @@ export function createZigSceneRunner(
   if (signal.aborted) releaseOnAbort();
 
   async function advance(): Promise<RunnerStepResult> {
-    const result = await advanceZigRuntime(client, handle, hooks, signal);
+    let result: RunnerStepResult;
+    try {
+      result = await advanceZigRuntime(client, handle, hooks, signal);
+    } catch (error) {
+      if (error instanceof ZigRuntimeStatusError && error.code === "MaxStepsExceeded") {
+        throw new SceneRuntimeError(
+          "MaxStepsExceeded",
+          sceneId,
+          `exceeded ${options.maxSceneSteps ?? 10_000} action steps — possible infinite loop in next-rule graph`,
+        );
+      }
+      throw error;
+    }
     if (result.done) {
       finish();
       return result;
@@ -399,10 +442,24 @@ export function createZigRouteRunner(
     }
   }
 
+  async function advanceRouteRuntime(): Promise<RunnerStepResult> {
+    try {
+      return await advanceZigRuntime(client, handle, hooks, signal);
+    } catch (error) {
+      if (error instanceof ZigRuntimeStatusError && error.code === "MaxRouteTransitionsExceeded") {
+        throw new RouteRuntimeError(
+          "MaxRouteTransitionsExceeded",
+          routeId,
+          `exceeded ${options.maxRouteTransitions ?? 1_000} scene transitions — possible infinite loop`,
+        );
+      }
+      throw error;
+    }
+  }
+
   async function nextEvent(): Promise<RunnerStepResult> {
     const queued = pending.shift();
-    if (queued !== undefined) return queued;
-    return advanceZigRuntime(client, handle, hooks, signal);
+    return queued ?? advanceRouteRuntime();
   }
 
   async function advance(): Promise<RunnerStepResult> {
@@ -412,7 +469,7 @@ export function createZigRouteRunner(
       return result;
     }
     if (result.kind === "scene-transition") {
-      const following = await advanceZigRuntime(client, handle, hooks, signal);
+      const following = await advanceRouteRuntime();
       if (following.done || following.kind !== "action") {
         throw new Error("Zig route transition was not followed by an action");
       }
@@ -420,7 +477,7 @@ export function createZigRouteRunner(
       preprocessedActions.add(following);
       pending.push(following);
       if (following.trace.nextActionIds.length === 0) {
-        const afterAction = await advanceZigRuntime(client, handle, hooks, signal);
+        const afterAction = await advanceRouteRuntime();
         if (afterAction.done) finishAfterActions.add(following);
         else pending.push(afterAction);
       }
@@ -438,7 +495,7 @@ export function createZigRouteRunner(
       }
       appendAction(result.sceneId, result.trace);
       if (result.trace.nextActionIds.length === 0) {
-        const following = await advanceZigRuntime(client, handle, hooks, signal);
+        const following = await advanceRouteRuntime();
         if (following.done) finish();
         else pending.push(following);
       }
