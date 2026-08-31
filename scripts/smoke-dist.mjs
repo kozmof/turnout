@@ -12,7 +12,10 @@ if (wasm.length < 8 || !wasm.subarray(0, 4).equals(Buffer.from([0, 97, 115, 109]
 }
 const { fromJson } =
   await import("../packages/ts/scene-runner/node_modules/@bufbuild/protobuf/dist/esm/index.js");
-const { createRunnerWithEngine } = await import("../packages/ts/scene-runner/dist/runner.js");
+const { runHarnessWithEngine } =
+  await import("../packages/ts/scene-runner/dist/harness/harness.js");
+const { runServerHarnessWithEngine } =
+  await import("../packages/ts/scene-runner/dist/server/harness.js");
 const { instantiateZigRuntime } =
   await import("../packages/ts/scene-runner/dist/zig-runtime/client.js");
 const { TurnModelSchema } =
@@ -41,37 +44,33 @@ const sceneModel = fromJson(TurnModelSchema, {
   ],
   routes: [],
 });
-const sceneResult = await createRunnerWithEngine(
-  sceneModel,
-  { entryId: "main", initialState: {}, allowUncheckedState: true },
+const sceneResult = await runHarnessWithEngine(
+  {
+    model: sceneModel,
+    entryId: "main",
+    initialState: {},
+    allowUncheckedState: true,
+  },
   { kind: "zig", client },
-).run();
+);
 if (sceneResult.finalState.score?.symbol !== "number" || sceneResult.finalState.score.value !== 7) {
   throw new Error("packaged Zig scene runner returned the wrong STATE");
 }
 
-const routeModel = fromJson(TurnModelSchema, {
-  version: 2,
-  scenes: [
-    { id: "one", entryAction: "a", actions: [{ id: "a" }] },
-    { id: "two", entryAction: "b", actions: [{ id: "b" }] },
-  ],
-  routes: [
-    {
-      id: "route",
-      entrySceneId: "one",
-      match: [{ patterns: ["one.a"], target: "two" }],
-    },
-  ],
-});
-const routeResult = await createRunnerWithEngine(
-  routeModel,
-  { entryId: "route", initialState: {}, allowUncheckedState: true },
+const routeResult = await runServerHarnessWithEngine(
+  {
+    jsonFile: new URL(
+      "../packages/ts/scene-runner/tests/fixtures/two-scene-route.json",
+      import.meta.url,
+    ).pathname,
+    entryId: "main_route",
+    initialState: {},
+  },
   { kind: "zig", client },
-).run();
+);
 if (
   routeResult.trace.kind !== "route" ||
-  routeResult.trace.route.scenes.map((scene) => scene.sceneId).join(",") !== "one,two"
+  routeResult.trace.route.scenes.map((scene) => scene.sceneId).join(",") !== "scene_a,scene_b"
 ) {
   throw new Error("packaged Zig route runner returned the wrong trace");
 }

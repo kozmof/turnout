@@ -207,7 +207,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Preserve `run()`, `runAsync()`, `result()`, and `partialState()`
 - [x] Preserve hook registration
 - [x] Preserve abort signals, logging, and limits
-- [ ] Preserve harness and server entry points
+- [x] Preserve harness and server entry points
 - [x] Update distribution smoke tests
 - [x] Test WASM loading in supported environments
 

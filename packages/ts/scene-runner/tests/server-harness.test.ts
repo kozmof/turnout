@@ -7,8 +7,9 @@ vi.mock("../src/server/bridge.js", () => ({
 }));
 
 import { runConverter, loadJsonModel } from "../src/server/bridge.js";
-import { runServerHarness } from "../src/server/harness.js";
+import { runServerHarness, runServerHarnessWithEngine } from "../src/server/harness.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
+import type { ZigRuntimeLifecycleTransport } from "../src/zig-runtime/runner-adapter.js";
 
 const mockRunConverter = vi.mocked(runConverter);
 const mockLoadJsonModel = vi.mocked(loadJsonModel);
@@ -212,5 +213,40 @@ describe("runServerHarness", () => {
         allowUncheckedState: true,
       }),
     ).rejects.toThrow("either turnFile or jsonFile must be provided");
+  });
+
+  it("loads JSON and delegates through the internal Zig engine seam", async () => {
+    mockLoadJsonModel.mockReturnValue(minimalModel);
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 41 } }),
+      destroy: () => ({ status: "ok", payload: { destroyed: 41 } }),
+      step: <T>() => ({
+        status: "ok",
+        payload: {
+          event: "actionComplete",
+          sceneId: "scene_a",
+          actionId: "act_a",
+          computeRoot: { symbol: "null", value: null, reason: "missing", tags: [] },
+          nextActionIds: [],
+          publishOutcomes: [],
+          warnings: [],
+        } as T,
+      }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+
+    const result = await runServerHarnessWithEngine(
+      {
+        jsonFile: "model.json",
+        entryId: "scene_a",
+        initialState: {},
+        allowUncheckedState: true,
+      },
+      { kind: "zig", client },
+    );
+
+    expect(mockLoadJsonModel).toHaveBeenCalledWith("model.json", {});
+    expect(result.trace).toMatchObject({ kind: "scene", scene: { sceneId: "scene_a" } });
   });
 });
