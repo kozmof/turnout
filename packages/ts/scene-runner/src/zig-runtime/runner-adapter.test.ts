@@ -137,9 +137,11 @@ describe("advanceZigRuntime", () => {
         },
       }),
     };
+    const logs: string[] = [];
     const runner = createZigSceneRunner(client, new Uint8Array([1, 2]), "main", {
       entryId: "main",
       initialState: { score: buildNumber(1) },
+      onLog: (event) => logs.push(event.kind),
     });
 
     await expect(runner.next()).resolves.toHaveLength(1);
@@ -168,6 +170,7 @@ describe("advanceZigRuntime", () => {
       maxSceneSteps: 10_000,
     });
     expect(destroy).toHaveBeenCalledOnce();
+    expect(logs).toEqual(["scene-start", "action-start", "action-complete", "scene-complete"]);
   });
 
   it("preserves route transition order and final-action completion", async () => {
@@ -201,9 +204,11 @@ describe("advanceZigRuntime", () => {
       resume: vi.fn(),
       snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
     };
+    const logs: string[] = [];
     const runner = createZigRouteRunner(client, new Uint8Array([1]), "route", {
       entryId: "route",
       initialState: {},
+      onLog: (event) => logs.push(event.kind),
     });
 
     await expect(runner.next()).resolves.toMatchObject([
@@ -226,5 +231,58 @@ describe("advanceZigRuntime", () => {
       },
     });
     expect(destroy).toHaveBeenCalledOnce();
+    expect(logs).toEqual([
+      "scene-start",
+      "action-start",
+      "action-complete",
+      "scene-complete",
+      "route-transition",
+      "scene-start",
+      "action-start",
+      "action-complete",
+      "scene-complete",
+    ]);
+  });
+
+  it("captures partial state and destroys the handle when aborted between steps", async () => {
+    const controller = new AbortController();
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 30 } }));
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 30 } }),
+      destroy,
+      step: <T>() => ({
+        status: "ok",
+        payload: {
+          event: "actionComplete",
+          sceneId: "main",
+          actionId: "first",
+          computeRoot: { symbol: "number", value: 1, tags: [] },
+          nextActionIds: ["second"],
+          publishOutcomes: [],
+          warnings: [],
+        } as T,
+      }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({
+        status: "ok",
+        payload: {
+          state: { score: { symbol: "number", value: 1, tags: [] } } as T,
+          done: false,
+        },
+      }),
+    };
+    const runner = createZigSceneRunner(client, new Uint8Array([1]), "main", {
+      entryId: "main",
+      initialState: {},
+      signal: controller.signal,
+    });
+
+    await runner.next();
+    controller.abort();
+
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(runner.isDone()).toBe(false);
+    expect(runner.partialState().snapshot()).toEqual({ score: buildNumber(1) });
+    await expect(runner.next()).rejects.toMatchObject({ name: "AbortError" });
   });
 });

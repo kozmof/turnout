@@ -9,6 +9,7 @@ import type { FragmentHarnessResult } from "../types/harness-types.js";
 import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
 import { makeRunnerMethods } from "../runner-methods.js";
 import { RunnerError } from "../executor/errors.js";
+import { safeLog } from "../executor/logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse } from "./client.js";
 import { dispatchZigEffect, type ZigEffectRequest } from "./effect-dispatcher.js";
@@ -172,9 +173,14 @@ export function createZigSceneRunner(
   const handle = created.payload.handle;
   const actions: ActionTrace[] = [];
   let done = false;
+  let handleOpen = true;
   let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
 
   function readState(): Record<string, ReturnType<typeof fromCanonicalValue>> {
+    if (!handleOpen) {
+      if (finalState !== undefined) return finalState;
+      throw new Error("Zig runtime handle is closed");
+    }
     const snapshot = client.snapshot<Record<string, unknown>>(handle);
     assertOk(snapshot);
     return Object.fromEntries(
@@ -190,8 +196,26 @@ export function createZigSceneRunner(
     finalState = readState();
     const destroyed = client.destroy(handle);
     assertOk(destroyed);
+    handleOpen = false;
+    signal.removeEventListener("abort", releaseOnAbort);
     done = true;
   }
+
+  function releaseOnAbort(): void {
+    if (!handleOpen) return;
+    try {
+      finalState = readState();
+    } catch {
+      finalState = undefined;
+    }
+    try {
+      client.destroy(handle);
+    } catch {}
+    handleOpen = false;
+  }
+
+  signal.addEventListener("abort", releaseOnAbort, { once: true });
+  if (signal.aborted) releaseOnAbort();
 
   async function advance(): Promise<RunnerStepResult> {
     const result = await advanceZigRuntime(client, handle, hooks, signal);
@@ -200,8 +224,42 @@ export function createZigSceneRunner(
       return result;
     }
     if (result.kind === "action") {
+      if (actions.length === 0) {
+        safeLog(options.onLog, {
+          kind: "scene-start",
+          sceneId,
+          entryAction: result.actionId,
+        });
+      }
+      safeLog(options.onLog, {
+        kind: "action-start",
+        sceneId,
+        actionId: result.actionId,
+        stepIndex: actions.length + 1,
+      });
+      for (const warning of result.trace.warnings ?? []) {
+        safeLog(options.onLog, {
+          kind: "warning",
+          sceneId,
+          actionId: result.actionId,
+          message: warning.message,
+        });
+      }
       actions.push(result.trace);
-      if (result.trace.nextActionIds.length === 0) finish();
+      safeLog(options.onLog, {
+        kind: "action-complete",
+        sceneId,
+        actionId: result.actionId,
+        trace: result.trace,
+      });
+      if (result.trace.nextActionIds.length === 0) {
+        safeLog(options.onLog, {
+          kind: "scene-complete",
+          sceneId,
+          terminatedAt: [result.actionId],
+        });
+        finish();
+      }
     }
     return result;
   }
@@ -222,7 +280,7 @@ export function createZigSceneRunner(
         trace: { kind: "scene", scene: { sceneId, actions } },
       };
     },
-    () => stateManagerFromUnchecked(done && finalState !== undefined ? finalState : readState()),
+    () => stateManagerFromUnchecked(finalState ?? readState()),
     signal,
   );
 }
@@ -254,9 +312,14 @@ export function createZigRouteRunner(
   const scenes: SceneTrace[] = [];
   const pending: RunnerStepResult[] = [];
   let done = false;
+  let handleOpen = true;
   let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
 
   function readState(): Record<string, ReturnType<typeof fromCanonicalValue>> {
+    if (!handleOpen) {
+      if (finalState !== undefined) return finalState;
+      throw new Error("Zig runtime handle is closed");
+    }
     const snapshot = client.snapshot<Record<string, unknown>>(handle);
     assertOk(snapshot);
     return Object.fromEntries(
@@ -272,16 +335,66 @@ export function createZigRouteRunner(
     finalState = readState();
     const destroyed = client.destroy(handle);
     assertOk(destroyed);
+    handleOpen = false;
+    signal.removeEventListener("abort", releaseOnAbort);
     done = true;
   }
+
+  function releaseOnAbort(): void {
+    if (!handleOpen) return;
+    try {
+      finalState = readState();
+    } catch {
+      finalState = undefined;
+    }
+    try {
+      client.destroy(handle);
+    } catch {}
+    handleOpen = false;
+  }
+
+  signal.addEventListener("abort", releaseOnAbort, { once: true });
+  if (signal.aborted) releaseOnAbort();
 
   function appendAction(sceneId: string, trace: ActionTrace): void {
     let scene = scenes.at(-1);
     if (scene?.sceneId !== sceneId) {
       scene = { sceneId, actions: [] };
       scenes.push(scene);
+      safeLog(options.onLog, {
+        kind: "scene-start",
+        sceneId,
+        entryAction: trace.actionId,
+      });
+    }
+    safeLog(options.onLog, {
+      kind: "action-start",
+      sceneId,
+      actionId: trace.actionId,
+      stepIndex: scene.actions.length + 1,
+    });
+    for (const warning of trace.warnings ?? []) {
+      safeLog(options.onLog, {
+        kind: "warning",
+        sceneId,
+        actionId: trace.actionId,
+        message: warning.message,
+      });
     }
     scene.actions.push(trace);
+    safeLog(options.onLog, {
+      kind: "action-complete",
+      sceneId,
+      actionId: trace.actionId,
+      trace,
+    });
+    if (trace.nextActionIds.length === 0) {
+      safeLog(options.onLog, {
+        kind: "scene-complete",
+        sceneId,
+        terminatedAt: [trace.actionId],
+      });
+    }
   }
 
   async function nextEvent(): Promise<RunnerStepResult> {
@@ -295,6 +408,13 @@ export function createZigRouteRunner(
     if (result.done) {
       finish();
       return result;
+    }
+    if (result.kind === "scene-transition") {
+      safeLog(options.onLog, {
+        kind: "route-transition",
+        fromSceneId: result.fromSceneId,
+        toSceneId: result.toSceneId,
+      });
     }
     if (result.kind === "action") {
       appendAction(result.sceneId, result.trace);
@@ -323,7 +443,7 @@ export function createZigRouteRunner(
         trace: { kind: "route", route: { routeId, scenes } },
       };
     },
-    () => stateManagerFromUnchecked(done && finalState !== undefined ? finalState : readState()),
+    () => stateManagerFromUnchecked(finalState ?? readState()),
     signal,
   );
 }

@@ -206,7 +206,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Adapt `Runner.next()` while preserving action-level stepping
 - [x] Preserve `run()`, `runAsync()`, `result()`, and `partialState()`
 - [x] Preserve hook registration
-- [ ] Preserve abort signals, logging, and limits
+- [x] Preserve abort signals, logging, and limits
 - [ ] Preserve harness and server entry points
 - [ ] Update distribution smoke tests
 - [ ] Test WASM loading in supported environments
