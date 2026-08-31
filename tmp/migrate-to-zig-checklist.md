@@ -10,7 +10,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Current phase | 8 |
 | Last verified commit | `5dced40` |
 | Last updated | 2026-08-30 |
-| Blocking issue | WASM resource limits and portable core tests are not implemented |
+| Blocking issue | Portable core tests are not running under WASM |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -185,7 +185,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Export allocation and release functions
 - [x] Export runtime create, destroy, step, and resume
 - [x] Return structured statuses instead of traps
-- [ ] Enforce model, STATE, nesting, and effect-result limits
+- [x] Enforce model, STATE, nesting, and effect-result limits
 - [x] Add malformed-input and lifecycle tests
 - [ ] Add leak checks where tooling permits
 - [ ] Run core tests under WASM

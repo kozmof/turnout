@@ -14,6 +14,10 @@ else
 pub const abi_version: u16 = 1;
 pub const response_magic: u32 = 0x4e525554;
 pub const response_header_len: usize = 12;
+pub const max_create_request_bytes: usize = 16 * 1024 * 1024;
+pub const max_effect_result_bytes: usize = 16 * 1024 * 1024;
+pub const max_input_nesting: usize = 128;
+
 pub const Status = enum(u16) {
     ok = 0,
     invalid_input = 1,
@@ -138,11 +142,26 @@ fn deinitInitialValues(values: *std.StringArrayHashMapUnmanaged(value.TaggedValu
     values.deinit(allocator);
 }
 
+fn validateInputNesting(json: std.json.Value, depth: usize) !void {
+    if (depth > max_input_nesting) return error.InputTooDeep;
+    switch (json) {
+        .object => |object| {
+            var fields = object.iterator();
+            while (fields.next()) |field| try validateInputNesting(field.value_ptr.*, depth + 1);
+        },
+        .array => |array| for (array.items) |item| try validateInputNesting(item, depth + 1),
+        else => {},
+    }
+}
+
 fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
+    if (request_bytes.len > max_create_request_bytes) return error.InitialStateTooLarge;
     var request = try std.json.parseFromSlice(CreateRequest, allocator, request_bytes, .{
         .ignore_unknown_fields = true,
+        .max_value_len = max_create_request_bytes,
     });
     defer request.deinit();
+    try validateInputNesting(request.value.initialState orelse .null, 0);
     if (request.value.sceneId.len == 0) return error.InvalidSceneId;
     var model = try model_runtime.RuntimeModel.init(allocator, model_bytes, .{});
     errdefer model.deinit();
@@ -175,6 +194,7 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
 }
 
 export fn turnout_runtime_create(model_address: usize, model_len: u32, request_address: usize, request_len: u32) usize {
+    if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
     if (model_address == 0 or model_len == 0 or request_address == 0 or request_len == 0)
         return errorResponse(.invalid_input, "InvalidBuffer");
     const handle = createInstance(bytesAt(model_address, model_len), bytesAt(request_address, request_len)) catch |err|
@@ -232,8 +252,12 @@ const DecodedEffectResult = struct {
 };
 
 fn parseEffectResult(bytes: []const u8) !DecodedEffectResult {
-    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, bytes, .{});
+    if (bytes.len > max_effect_result_bytes) return error.EffectResultTooLarge;
+    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, bytes, .{
+        .max_value_len = max_effect_result_bytes,
+    });
     errdefer parsed.deinit();
+    try validateInputNesting(parsed.value, 0);
     if (parsed.value != .object) return error.InvalidEffectResult;
     const object = parsed.value.object;
     const id_value = object.get("id") orelse return error.InvalidEffectResult;
@@ -285,6 +309,7 @@ fn parseEffectResult(bytes: []const u8) !DecodedEffectResult {
 export fn turnout_runtime_resume(handle: u32, address: usize, len: u32) usize {
     const instance = instances.get(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
+    if (len > max_effect_result_bytes) return errorResponse(.invalid_input, "EffectResultTooLarge");
     var decoded = parseEffectResult(bytesAt(address, len)) catch |err|
         return if (err == error.OutOfMemory) errorResponse(.out_of_memory, @errorName(err)) else errorResponse(.invalid_input, @errorName(err));
     defer decoded.deinit();
@@ -401,4 +426,80 @@ test "WASM lifecycle rejects malformed creation input" {
     defer freeResponse(address);
     var response = try expectResponse(address, .invalid_input, null);
     defer response.deinit();
+}
+
+test "WASM boundary rejects oversized model STATE and effect inputs" {
+    const one = "x";
+    const config =
+        \\{"sceneId":"main"}
+    ;
+
+    const oversized_state = turnout_runtime_create(
+        @intFromPtr(one.ptr),
+        one.len,
+        @intFromPtr(one.ptr),
+        max_create_request_bytes + 1,
+    );
+    defer freeResponse(oversized_state);
+    var state_response = try expectResponse(oversized_state, .invalid_input, null);
+    defer state_response.deinit();
+    try std.testing.expectEqualStrings(
+        "InitialStateTooLarge",
+        state_response.value.object.get("error").?.string,
+    );
+
+    const oversized_model = turnout_runtime_create(
+        @intFromPtr(one.ptr),
+        (model_runtime.Limits{}).max_model_bytes + 1,
+        @intFromPtr(config.ptr),
+        config.len,
+    );
+    defer freeResponse(oversized_model);
+    var model_response = try expectResponse(oversized_model, .invalid_input, null);
+    defer model_response.deinit();
+    try std.testing.expectEqualStrings(
+        "ModelTooLarge",
+        model_response.value.object.get("error").?.string,
+    );
+
+    const pointer: [*]const u8 = one.ptr;
+    try std.testing.expectError(
+        error.EffectResultTooLarge,
+        parseEffectResult(pointer[0 .. max_effect_result_bytes + 1]),
+    );
+}
+
+test "WASM boundary rejects deeply nested STATE and effect inputs" {
+    var request = std.ArrayList(u8).empty;
+    defer request.deinit(std.testing.allocator);
+    try request.appendSlice(std.testing.allocator, "{\"sceneId\":\"main\",\"initialState\":");
+    for (0..max_input_nesting + 1) |_| try request.append(std.testing.allocator, '[');
+    try request.appendSlice(std.testing.allocator, "null");
+    for (0..max_input_nesting + 1) |_| try request.append(std.testing.allocator, ']');
+    try request.append(std.testing.allocator, '}');
+
+    const model = "{\"version\":2}";
+    const address = turnout_runtime_create(
+        @intFromPtr(model.ptr),
+        model.len,
+        @intFromPtr(request.items.ptr),
+        @intCast(request.items.len),
+    );
+    defer freeResponse(address);
+    var response = try expectResponse(address, .invalid_input, null);
+    defer response.deinit();
+    try std.testing.expectEqualStrings(
+        "InputTooDeep",
+        response.value.object.get("error").?.string,
+    );
+
+    var effect_input = std.ArrayList(u8).empty;
+    defer effect_input.deinit(std.testing.allocator);
+    for (0..max_input_nesting + 1) |_| try effect_input.append(std.testing.allocator, '[');
+    try effect_input.appendSlice(std.testing.allocator, "null");
+    for (0..max_input_nesting + 1) |_| try effect_input.append(std.testing.allocator, ']');
+    try std.testing.expectError(
+        error.InputTooDeep,
+        parseEffectResult(effect_input.items),
+    );
 }

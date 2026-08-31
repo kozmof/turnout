@@ -135,3 +135,16 @@ Raw memory addresses are the exception. Bounds-check addresses and lengths again
 Both effect kinds accept `missing`. A failed prepare result includes `message`. A failed publish result also includes `source`, which is `returned` or `thrown`.
 
 `turnout_runtime_destroy(handle)` releases the model, STATE, driver, and handle. Calls with an unknown or destroyed handle return `invalid_handle`.
+
+### Resource limits
+
+ABI version 1 applies these fixed limits.
+
+| Input | Maximum |
+| --- | --- |
+| Runtime model | 16 MiB |
+| Create request, including initial STATE | 16 MiB |
+| Effect result | 16 MiB |
+| Initial STATE and effect-result JSON nesting | 128 levels |
+
+The runtime model also uses the core model nesting limit of 128 levels. An oversized or deeply nested input returns `invalid_input` with a stable error name. The boundary checks byte lengths before reading request or effect-result memory.
