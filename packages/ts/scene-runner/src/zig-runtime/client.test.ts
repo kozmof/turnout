@@ -121,4 +121,66 @@ describe("ZigRuntimeClient", () => {
     const client = new ZigRuntimeClient(exports);
     expect(() => client.step(7)).toThrow("memory range is out of bounds");
   });
+
+  it("rejects empty inputs and failed allocations while releasing prior inputs", () => {
+    const emptyExports = new MockExports();
+    const emptyClient = new ZigRuntimeClient(emptyExports);
+    expect(() => emptyClient.create(new Uint8Array(), {})).toThrow("empty ABI input");
+
+    const failedExports = new MockExports();
+    let allocations = 0;
+    failedExports.turnout_alloc = (length) => {
+      allocations += 1;
+      if (allocations === 2) return 0;
+      const address = failedExports.nextAddress;
+      failedExports.nextAddress += length;
+      return address;
+    };
+    const failedClient = new ZigRuntimeClient(failedExports);
+    expect(() => failedClient.create(encoder.encode("model"), {})).toThrow("allocation failed");
+    expect(failedExports.freed).toEqual([{ address: 1024, length: 5 }]);
+  });
+
+  it.each([
+    ["zero address", () => 0, "response allocation failed"],
+    [
+      "bad magic",
+      (exports: MockExports) => {
+        const address = exports.response(0, {});
+        new DataView(exports.memory.buffer).setUint32(address, 0, true);
+        return address;
+      },
+      "invalid Zig response magic",
+    ],
+    [
+      "bad ABI version",
+      (exports: MockExports) => {
+        const address = exports.response(0, {});
+        new DataView(exports.memory.buffer).setUint16(address + 4, 2, true);
+        return address;
+      },
+      "invalid Zig response ABI version",
+    ],
+    [
+      "unknown status",
+      (exports: MockExports) => exports.response(99, {}),
+      "unknown Zig response status",
+    ],
+    [
+      "invalid JSON",
+      (exports: MockExports) => {
+        const address = exports.response(0, {});
+        const view = new DataView(exports.memory.buffer);
+        view.setUint32(address + 8, 1, true);
+        new Uint8Array(exports.memory.buffer)[address + 12] = 0x7b;
+        return address;
+      },
+      "JSON",
+    ],
+  ] as const)("rejects %s responses", (_name, response, message) => {
+    const exports = new MockExports();
+    exports.turnout_runtime_step = () => response(exports);
+    const client = new ZigRuntimeClient(exports);
+    expect(() => client.step(7)).toThrow(message);
+  });
 });

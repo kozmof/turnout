@@ -53,6 +53,29 @@ describe("canonical Value codec", () => {
     ).toThrow("finite");
     expect(() => toCanonicalValue(3)).toThrow("tagged Value");
   });
+
+  it.each([
+    [{ symbol: "number", value: 1, tags: [1] }, "tags must be strings"],
+    [{ symbol: "string", value: 1, tags: [] }, "string Value is invalid"],
+    [{ symbol: "boolean", value: 1, tags: [] }, "boolean Value is invalid"],
+    [{ symbol: "null", value: null, subSymbol: "bogus", tags: [] }, "reason is invalid"],
+    [{ symbol: "array", value: {}, tags: [] }, "array Value is invalid"],
+    [{ symbol: "record", value: [], tags: [] }, "record Value is invalid"],
+    [{ symbol: "mystery", value: null, tags: [] }, "unknown Value symbol"],
+  ])("rejects malformed Values %#", (value, message) => {
+    expect(() => toCanonicalValue(value)).toThrow(message);
+  });
+
+  it.each([
+    [null, "invalid canonical Value"],
+    [{ symbol: "number", value: 1, tags: [1] }, "tags must be strings"],
+    [{ symbol: "null", value: null, tags: [] }, "null reason is invalid"],
+    [{ symbol: "array", value: {}, tags: [] }, "canonical array is invalid"],
+    [{ symbol: "record", value: [], tags: [] }, "canonical record is invalid"],
+    [{ symbol: "mystery", value: null, tags: [] }, "unknown canonical Value symbol"],
+  ])("rejects malformed canonical Values %#", (value, message) => {
+    expect(() => fromCanonicalValue(value)).toThrow(message);
+  });
 });
 
 describe("dispatchZigEffect", () => {
@@ -186,6 +209,50 @@ describe("dispatchZigEffect", () => {
       status: "failed",
       source: "thrown",
       message: "Error: thrown failure",
+    });
+  });
+
+  it("covers missing publish hooks, explicit prepare context, and invalid contexts", async () => {
+    await expect(dispatchZigEffect(request("publish"), hooks(), signal)).resolves.toMatchObject({
+      kind: "publish",
+      status: "missing",
+    });
+
+    const registry = hooks();
+    registry.prepare.load = (context) => ({ loaded: context.get("seed") });
+    await expect(
+      dispatchZigEffect(
+        { ...request("prepare"), binding: "loaded", contextJson: "not json" },
+        registry,
+        signal,
+        [],
+        { seed: buildString("override") },
+      ),
+    ).resolves.toMatchObject({ status: "ok", value: { symbol: "string", value: "override" } });
+
+    registry.prepare.load = () => 42 as never;
+    await expect(dispatchZigEffect(request("prepare"), registry, signal)).rejects.toMatchObject({
+      code: "InvalidHookValue",
+    });
+    registry.publish.load = () => undefined;
+    await expect(
+      dispatchZigEffect({ ...request("publish"), contextJson: "[]" }, registry, signal),
+    ).rejects.toThrow("context must be an object");
+  });
+
+  it("propagates AbortErrors thrown by hooks", async () => {
+    const registry = hooks();
+    registry.prepare.load = () => {
+      throw new DOMException("stopped", "AbortError");
+    };
+    await expect(dispatchZigEffect(request("prepare"), registry, signal)).rejects.toMatchObject({
+      name: "AbortError",
+    });
+    registry.publish.load = () => {
+      throw new DOMException("stopped", "AbortError");
+    };
+    await expect(dispatchZigEffect(request("publish"), registry, signal)).rejects.toMatchObject({
+      name: "AbortError",
     });
   });
 

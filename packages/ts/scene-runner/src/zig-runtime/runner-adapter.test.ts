@@ -1,4 +1,4 @@
-import { buildNumber } from "runtime";
+import { buildNull, buildNumber } from "runtime";
 import { describe, expect, it, vi } from "vitest";
 import type { HookRegistry } from "../types/harness-types.js";
 import {
@@ -68,6 +68,22 @@ describe("advanceZigRuntime", () => {
       status: "ok",
       value: { symbol: "number", value: 5, tags: [] },
     });
+  });
+
+  it("preserves ordinary transport exceptions", async () => {
+    const failure = new Error("transport failed");
+    const client: ZigRuntimeTransport = {
+      step: <T>() => ({
+        status: "runtime_error",
+        get payload(): T {
+          throw failure;
+        },
+      }),
+      resume: vi.fn(),
+    };
+    await expect(advanceZigRuntime(client, 1, hooks(), new AbortController().signal)).rejects.toBe(
+      failure,
+    );
   });
 
   it("maps a missing prepare hook to PrepareError", async () => {
@@ -140,6 +156,88 @@ describe("advanceZigRuntime", () => {
     await expect(advanceZigRuntime(client, 1, hooks(), controller.signal)).rejects.toMatchObject({
       name: "AbortError",
     });
+  });
+
+  it("maps action warnings and failed publish outcomes into traces", async () => {
+    const client: ZigRuntimeTransport = {
+      step: <T>() => ({
+        status: "ok",
+        payload: {
+          event: "actionComplete",
+          sceneId: "main",
+          actionId: "start",
+          computeRoot: { symbol: "number", value: 1, tags: [] },
+          nextActionIds: [],
+          publishOutcomes: [{ hookName: "save", status: "error", message: null }],
+          warnings: [
+            { kind: "merge", binding: "value", toState: "missing.path" },
+            { kind: "uncheckedStateWrite", writtenPaths: ["one", "two"] },
+            {
+              kind: "invalid_condition",
+              ruleIndex: 0,
+              conditionName: "ready",
+              actualType: "string",
+            },
+            {
+              kind: "missing_program",
+              ruleIndex: 1,
+              conditionName: "next",
+              targetActionId: "finish",
+            },
+          ],
+        } as T,
+      }),
+      resume: vi.fn(),
+    };
+    const result = await advanceZigRuntime(client, 1, hooks(), new AbortController().signal);
+    expect(result).toMatchObject({
+      kind: "action",
+      trace: {
+        publishOutcomes: [{ hookName: "save", status: "error", message: "" }],
+        warnings: [
+          { kind: "merge_warning" },
+          { kind: "unchecked_state_write" },
+          { kind: "invalid_next_condition" },
+          { kind: "missing_next_compute_prog" },
+        ],
+      },
+    });
+  });
+
+  it("rejects failed prepare effects and mismatched resume IDs", async () => {
+    const effect = {
+      event: "needEffect",
+      id: 11,
+      kind: "prepare",
+      hook: "load",
+      sceneId: "main",
+      actionId: "start",
+      callbackIndex: 0,
+      binding: "value",
+      contextJson: "{}",
+    };
+    const failedHooks = hooks();
+    const hostError = new Error("host failed");
+    failedHooks.prepare.load = () => {
+      throw hostError;
+    };
+    const failedClient: ZigRuntimeTransport = {
+      step: <T>() => ({ status: "ok", payload: effect as T }),
+      resume: vi.fn(),
+    };
+    await expect(
+      advanceZigRuntime(failedClient, 1, failedHooks, new AbortController().signal),
+    ).rejects.toBe(hostError);
+
+    const mismatchHooks = hooks();
+    mismatchHooks.prepare.load = () => ({ value: buildNumber(1) });
+    const mismatchClient: ZigRuntimeTransport = {
+      step: <T>() => ({ status: "ok", payload: effect as T }),
+      resume: () => ({ status: "ok", payload: { resumed: 99 } }),
+    };
+    await expect(
+      advanceZigRuntime(mismatchClient, 1, mismatchHooks, new AbortController().signal),
+    ).rejects.toThrow("different effect ID");
   });
 
   it("wraps a Zig handle with Runner lifecycle and snapshots", async () => {
@@ -337,6 +435,254 @@ describe("advanceZigRuntime", () => {
       "scene-complete",
       "route-transition",
     ]);
+  });
+
+  it("tolerates malformed model metadata and failed cleanup of a pre-aborted handle", () => {
+    const controller = new AbortController();
+    controller.abort();
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 40 } }),
+      destroy: () => {
+        throw new Error("destroy failed");
+      },
+      step: <T>() => ({ status: "ok", payload: { event: "complete" } as T }),
+      resume: vi.fn(),
+      snapshot: () => {
+        throw new Error("snapshot failed");
+      },
+    };
+    const model = new TextEncoder().encode(
+      JSON.stringify({
+        scenes: [
+          null,
+          { id: 1 },
+          {
+            id: "main",
+            actions: [
+              null,
+              { id: 1 },
+              { id: "empty" },
+              {
+                id: "start",
+                prepare: [
+                  null,
+                  { fromHook: 1, binding: "bad" },
+                  { fromHook: "load", binding: 1 },
+                  { fromHook: "load", binding: "one" },
+                  { fromHook: "load", binding: "two" },
+                  { fromState: "score", binding: "current" },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const runner = createZigSceneRunner(client, model, "main", {
+      entryId: "main",
+      initialState: {},
+      signal: controller.signal,
+    });
+    expect(() => runner.partialState()).toThrow("handle is closed");
+  });
+
+  it("accepts non-JSON model bytes when deriving prepare metadata", () => {
+    const controller = new AbortController();
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 41 } }),
+      destroy: () => ({ status: "ok", payload: { destroyed: 41 } }),
+      step: <T>() => ({ status: "ok", payload: { event: "complete" } as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const runner = createZigRouteRunner(client, new Uint8Array([0xff]), "route", {
+      entryId: "route",
+      initialState: {},
+      signal: controller.signal,
+    });
+    controller.abort();
+    expect(runner.partialState().snapshot()).toEqual({});
+  });
+
+  it("maps scene and route runtime limits to public errors", async () => {
+    const lifecycle = (code: string): ZigRuntimeLifecycleTransport => ({
+      create: () => ({ status: "ok", payload: { handle: 50 } }),
+      destroy: () => ({ status: "ok", payload: { destroyed: 50 } }),
+      step: <T>() => ({ status: "runtime_error", payload: { error: code } as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    });
+    const scene = createZigSceneRunner(lifecycle("MaxStepsExceeded"), new Uint8Array([1]), "main", {
+      entryId: "main",
+      initialState: {},
+      maxSceneSteps: 3,
+    });
+    await expect(scene.run()).rejects.toMatchObject({
+      name: "SceneRuntimeError",
+      code: "MaxStepsExceeded",
+      sceneId: "main",
+    });
+
+    const route = createZigRouteRunner(
+      lifecycle("MaxRouteTransitionsExceeded"),
+      new Uint8Array([1]),
+      "route",
+      { entryId: "route", initialState: {}, maxRouteTransitions: 4 },
+    );
+    await expect(route.run()).rejects.toMatchObject({
+      name: "RouteRuntimeError",
+      code: "MaxRouteTransitionsExceeded",
+      routeId: "route",
+    });
+  });
+
+  it("rejects a route transition not followed by an action", async () => {
+    const events: unknown[] = [
+      { event: "sceneChanged", from: "one", to: "two" },
+      { event: "complete" },
+    ];
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 51 } }),
+      destroy: () => ({ status: "ok", payload: { destroyed: 51 } }),
+      step: <T>() => ({ status: "ok", payload: events.shift() as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const runner = createZigRouteRunner(client, new Uint8Array([1]), "route", {
+      entryId: "route",
+      initialState: {},
+    });
+    expect(() => runner.result()).toThrow("execution is not complete");
+    await expect(runner.next()).rejects.toThrow("not followed by an action");
+  });
+
+  it("preserves nonstandard runtime status payloads in errors", async () => {
+    const client: ZigRuntimeTransport = {
+      step: <T>() => ({ status: "internal_error", payload: null as T }),
+      resume: vi.fn(),
+    };
+    await expect(
+      advanceZigRuntime(client, 1, hooks(), new AbortController().signal),
+    ).rejects.toThrow("internal_error: null");
+  });
+
+  it("handles empty model metadata and a nonterminal route action", async () => {
+    const events: unknown[] = [
+      {
+        event: "actionComplete",
+        sceneId: "one",
+        actionId: "start",
+        computeRoot: { symbol: "number", value: 1, tags: [] },
+        nextActionIds: ["finish"],
+        publishOutcomes: [],
+        warnings: [{ kind: "merge", binding: "x", toState: "y" }],
+      },
+      { event: "complete" },
+    ];
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 52 } }),
+      destroy: () => ({ status: "ok", payload: { destroyed: 52 } }),
+      step: <T>() => ({ status: "ok", payload: events.shift() as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const runner = createZigRouteRunner(client, new TextEncoder().encode("{}"), "route", {
+      entryId: "route",
+      initialState: {},
+    });
+    expect(runner.partialState().snapshot()).toEqual({});
+    await expect(runner.next()).resolves.toMatchObject([{ actionId: "start" }]);
+    expect(runner.isDone()).toBe(false);
+    await expect(runner.next()).resolves.toEqual([]);
+    expect(runner.isDone()).toBe(true);
+  });
+
+  it("attaches active effect context to later runtime failures", async () => {
+    const events: unknown[] = [
+      {
+        event: "needEffect",
+        id: 60,
+        kind: "publish",
+        hook: "missing",
+        sceneId: "main",
+        actionId: "start",
+        callbackIndex: 0,
+        binding: null,
+        contextJson: "{}",
+      },
+    ];
+    const client: ZigRuntimeTransport = {
+      step: <T>() =>
+        events.length > 0
+          ? { status: "ok", payload: events.shift() as T }
+          : { status: "runtime_error", payload: { error: "later" } as T },
+      resume: () => ({ status: "ok", payload: { resumed: 60 } }),
+    };
+    const error = await advanceZigRuntime(client, 1, hooks(), new AbortController().signal).then(
+      () => undefined,
+      (reason: unknown) => reason,
+    );
+    expect(error).toMatchObject({ sceneId: "main", actionId: "start" });
+  });
+
+  it("hydrates route prepare context from state with a missing-value fallback", async () => {
+    const events: unknown[] = [
+      {
+        event: "needEffect",
+        id: 70,
+        kind: "prepare",
+        hook: "load",
+        sceneId: "main",
+        actionId: "start",
+        callbackIndex: 0,
+        binding: "loaded",
+        contextJson: "{}",
+      },
+      {
+        event: "actionComplete",
+        sceneId: "main",
+        actionId: "start",
+        computeRoot: { symbol: "number", value: 1, tags: [] },
+        nextActionIds: [],
+        publishOutcomes: [],
+        warnings: [],
+      },
+      { event: "complete" },
+    ];
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({ status: "ok", payload: { handle: 70 } }),
+      destroy: () => ({ status: "ok", payload: { destroyed: 70 } }),
+      step: <T>() => ({ status: "ok", payload: events.shift() as T }),
+      resume: () => ({ status: "ok", payload: { resumed: 70 } }),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
+    };
+    const model = new TextEncoder().encode(
+      JSON.stringify({
+        scenes: [
+          {
+            id: "main",
+            actions: [
+              {
+                id: "start",
+                prepare: [
+                  { fromState: "missing.path", binding: "prior" },
+                  { fromHook: "load", binding: "loaded" },
+                ],
+              },
+            ],
+          },
+        ],
+      }),
+    );
+    const runner = createZigRouteRunner(client, model, "route", {
+      entryId: "route",
+      initialState: {},
+    });
+    runner.usePrepareHook("load", (context) => {
+      expect(context.get("prior")).toEqual(buildNull("missing"));
+      return { loaded: buildNumber(1) };
+    });
+    await expect(runner.next()).resolves.toHaveLength(1);
   });
 
   it("captures partial state and destroys the handle when aborted between steps", async () => {
