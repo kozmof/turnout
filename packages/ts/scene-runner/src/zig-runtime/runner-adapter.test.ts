@@ -218,8 +218,8 @@ describe("advanceZigRuntime", () => {
       },
     ];
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 13 } }),
-      destroy: vi.fn(() => ({ status: "ok", payload: { destroyed: 13 } })),
+      create: () => ({ status: "ok" as const, payload: { handle: 13 } }),
+      destroy: vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 13 } })),
       step: <T>() =>
         events.length > 0
           ? { status: "ok", payload: events.shift() as T }

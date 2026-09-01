@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 10 |
-| Last verified commit | `25f38a0` |
+| Last verified commit | `10aaaaf` |
 | Last updated | 2026-09-01 |
-| Blocking issue | None in Phase 9. Full conformance expansion is in progress. |
+| Blocking issue | Ordered effect parity and generated compiler E2E coverage remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -219,15 +219,15 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ## Phase 10. Reach conformance
 
-- [ ] Run every accepted fixture through both engines
-- [ ] Compare `Runner.next()` results
-- [ ] Compare final and partial STATE
-- [ ] Compare traces and publish outcomes
-- [ ] Compare warning kinds and order
-- [ ] Compare structured log events
-- [ ] Compare error codes and context
+- [x] Run every accepted fixture through both engines
+- [x] Compare `Runner.next()` results
+- [x] Compare final and partial STATE
+- [x] Compare traces and publish outcomes
+- [x] Compare warning kinds and order
+- [x] Compare structured log events
+- [x] Compare error codes and context
 - [ ] Compare ordered effect requests
-- [ ] Run compiler-to-runner tests through Zig
+- [x] Run compiler-to-runner tests through Zig
 - [ ] Add a fixture for every discovered parity gap
 - [ ] Document approved representation-only normalization
 - [ ] Record performance and memory baselines
@@ -235,7 +235,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ### Phase 10 exit gate
 
-- [ ] The selected conformance suite passes
+- [x] The selected conformance suite passes
 - [ ] Existing end-to-end fixtures pass through Zig
 - [ ] No correctness or compatibility blocker remains
 - [ ] Performance and memory results are recorded
