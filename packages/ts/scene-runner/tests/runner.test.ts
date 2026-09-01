@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   createRouteRunner,
-  createRunner,
+  createRunner as createDefaultRunner,
   createRunnerWithEngine,
   createSceneRunner,
 } from "../src/runner.js";
@@ -9,6 +9,10 @@ import { RunnerError, ModelValidationError } from "../src/executor/errors.js";
 import { buildNumber, isPureNumber } from "runtime";
 import type { RouteModel, SceneBlock, TurnModel } from "../src/types/turnout-model_pb.js";
 import type { ZigRuntimeLifecycleTransport } from "../src/zig-runtime/runner-adapter.js";
+
+function createRunner(model: TurnModel, options: Parameters<typeof createDefaultRunner>[1]) {
+  return createRunnerWithEngine(model, options, { kind: "typescript" });
+}
 
 const sceneA = {
   id: "s1",
@@ -29,7 +33,7 @@ describe("prototype-named runtime identifiers", () => {
       scenes: [{ id: "s", entryAction: "constructor", actions: [{ id: "constructor" }] }],
       routes: [],
     } as unknown as TurnModel;
-    const runner = createRunner(model, {
+    const runner = createDefaultRunner(model, {
       entryId: "s",
       initialState: {},
       allowUncheckedState: true,

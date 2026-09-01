@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
-import { selectInternalEngine } from "./engine-selection.js";
+import { requestedDefaultEngine, selectInternalEngine } from "./engine-selection.js";
 
 describe("selectInternalEngine", () => {
+  it("selects Zig unless the internal rollback value requests TypeScript", () => {
+    expect(requestedDefaultEngine(undefined)).toBe("zig");
+    expect(requestedDefaultEngine("zig")).toBe("zig");
+    expect(requestedDefaultEngine("typescript")).toBe("typescript");
+  });
   it("uses TypeScript by default selection without constructing Zig", () => {
     const createTypeScript = vi.fn(() => "typescript");
     const createZig = vi.fn(() => "zig");

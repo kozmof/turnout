@@ -1,6 +1,9 @@
 import type { HarnessOptions, FullHarnessResult } from "../types/harness-types.js";
 import { createRunnerWithEngine } from "../runner.js";
-import type { InternalEngineSelection } from "../zig-runtime/engine-selection.js";
+import {
+  defaultInternalEngineSelection,
+  type InternalEngineSelection,
+} from "../zig-runtime/engine-selection.js";
 
 /**
  * Universal harness entry point (client + server).
@@ -20,7 +23,7 @@ import type { InternalEngineSelection } from "../zig-runtime/engine-selection.js
  * `maxRouteTransitions`) are forwarded to the underlying Runner.
  */
 export async function runHarness(options: HarnessOptions): Promise<FullHarnessResult> {
-  return runHarnessWithEngine(options, { kind: "typescript" });
+  return runHarnessWithEngine(options, defaultInternalEngineSelection);
 }
 
 /** Internal migration seam for exercising harness entry points through Zig. */

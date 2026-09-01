@@ -46,7 +46,7 @@ describe("shared effect vectors", () => {
       expect(effectOrder).toEqual(vector.effectOrder);
       expect(publishState).toBe(vector.expectedState);
       expect(result.stateAfterScene.read("result.value").value).toBe(vector.expectedState);
-      expect(vector.publishContext).toContain("\"value\":" + vector.expectedState);
+      expect(vector.publishContext).toContain('"value":' + vector.expectedState);
     });
   }
 });

@@ -30,6 +30,7 @@ import {
   warnUncheckedState,
 } from "./runner-validation.js";
 import {
+  defaultInternalEngineSelection,
   selectInternalEngine,
   type InternalEngineSelection,
 } from "./zig-runtime/engine-selection.js";
@@ -358,7 +359,7 @@ export function createRunner(
   inputModel: TurnModel,
   options: RunnerOptions,
 ): Runner<FullHarnessResult> {
-  return createRunnerWithEngine(inputModel, options, { kind: "typescript" });
+  return createRunnerWithEngine(inputModel, options, defaultInternalEngineSelection);
 }
 
 /**

@@ -4,7 +4,7 @@ The scene runner is entering a compatibility window for the Zig/WASM default. Th
 
 ## Schedule
 
-The window was announced on 2026-09-01. It begins when the public runner and harness entry points switch to Zig/WASM. Keep the TypeScript executor through at least one release cycle after that switch. Remove it only after every exit condition below passes.
+The window was announced on 2026-09-01. The public runner and harness entry points switched to Zig/WASM on 2026-09-01. Keep the TypeScript executor through at least one release cycle after that switch. Remove it only after every exit condition below passes.
 
 ## What remains stable
 
@@ -14,7 +14,9 @@ The shipped package continues to include the WASM artifact. Browser and server e
 
 ## Rollback path
 
-The TypeScript executor remains compiled and testable during the window. The default-selection implementation must provide an internal rollback control for deployments. Do not expose that control from the package entry point.
+The TypeScript executor remains compiled and testable during the window. The default-selection implementation provides an internal rollback control for deployments. It is not exported from the package entry point.
+
+For Node, set `TURNOUT_SCENE_RUNNER_ENGINE=typescript` before importing the package. For browser hosts, set `globalThis.__TURNOUT_SCENE_RUNNER_ENGINE__ = "typescript"` before importing the package. The selector reads the control before loading WASM, so rollback still works when WASM loading or instantiation is the failure.
 
 Use the rollback path when a confirmed issue meets any of these conditions.
 

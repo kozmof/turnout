@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 11 |
-| Last verified commit | `f70fc45` |
+| Last verified commit | `1af8711` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Zig default-engine switch and internal rollback control remain |
+| Blocking issue | Root branch coverage is 86.08% against the 90% gate; compatibility monitoring and runtime export outcomes also remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -243,10 +243,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 ## Phase 11. Switch the default
 
 - [x] Announce the compatibility window
-- [ ] Make Zig/WASM the default engine
-- [ ] Keep an internal rollback path during the window
+- [x] Make Zig/WASM the default engine
+- [x] Keep an internal rollback path during the window
 - [ ] Run the full root `check`
-- [ ] Run distribution smoke tests
+- [x] Run distribution smoke tests
 - [ ] Monitor parity and deployment issues
 - [ ] Add regression tests for every confirmed issue
 - [ ] Implement all `packages/ts/runtime` compatibility outcomes

@@ -67,8 +67,7 @@ describe("runHarness — model without state schema", () => {
     const { finalState } = await runHarness({
       model,
       entryId: "scene_a",
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      initialState: { "custom.key": { type: "number", value: 42 } as any },
+      initialState: { "custom.key": buildNumber(42) },
       allowUncheckedState: true,
       onWarning: () => {},
     });

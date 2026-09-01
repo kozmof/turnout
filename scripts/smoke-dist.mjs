@@ -2,8 +2,8 @@ import { readFile } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 
 const { buildNumber } = await import("../packages/ts/runtime/dist/index.js");
-await import("../packages/ts/scene-runner/dist/index.js");
-await import("../packages/ts/scene-runner/dist/server/index.js");
+const publicApi = await import("../packages/ts/scene-runner/dist/index.js");
+const serverApi = await import("../packages/ts/scene-runner/dist/server/index.js");
 
 const wasm = await readFile(
   new URL("../packages/ts/scene-runner/dist/zig-runtime/turnout-runtime.wasm", import.meta.url),
@@ -70,6 +70,15 @@ const sceneReference = await runHarnessWithEngine(
 if (!isDeepStrictEqual(withoutModel(sceneResult), withoutModel(sceneReference))) {
   throw new Error("packaged Zig scene runner differs from the TypeScript result");
 }
+const defaultSceneResult = await publicApi.runHarness({
+  model: sceneModel,
+  entryId: "main",
+  initialState: {},
+  allowUncheckedState: true,
+});
+if (!isDeepStrictEqual(withoutModel(defaultSceneResult), withoutModel(sceneResult))) {
+  throw new Error("public harness does not default to the packaged Zig runtime");
+}
 
 const routeResult = await runServerHarnessWithEngine(
   {
@@ -101,6 +110,17 @@ const routeReference = await runServerHarnessWithEngine(
 );
 if (!isDeepStrictEqual(withoutModel(routeResult), withoutModel(routeReference))) {
   throw new Error("packaged Zig route runner differs from the TypeScript result");
+}
+const defaultRouteResult = await serverApi.runServerHarness({
+  jsonFile: new URL(
+    "../packages/ts/scene-runner/tests/fixtures/two-scene-route.json",
+    import.meta.url,
+  ).pathname,
+  entryId: "main_route",
+  initialState: {},
+});
+if (!isDeepStrictEqual(withoutModel(defaultRouteResult), withoutModel(routeResult))) {
+  throw new Error("public server harness does not default to the packaged Zig runtime");
 }
 
 const stepModel = fromJson(TurnModelSchema, {

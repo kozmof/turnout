@@ -3,7 +3,10 @@ import type { FullHarnessResult, HookRegistry, LogEvent } from "../types/harness
 import type { AnyValue } from "runtime";
 import { runConverter, loadJsonModel } from "./bridge.js";
 import { runHarnessWithEngine } from "../harness/harness.js";
-import type { InternalEngineSelection } from "../zig-runtime/engine-selection.js";
+import {
+  defaultInternalEngineSelection,
+  type InternalEngineSelection,
+} from "../zig-runtime/engine-selection.js";
 import { HarnessError } from "./errors.js";
 import { containPath } from "./path-safety.js";
 
@@ -73,7 +76,7 @@ function resolveHarnessPath(filePath: string, allowedBaseDir: string | undefined
  * already available as a parsed object.
  */
 export async function runServerHarness(options: ServerHarnessOptions): Promise<FullHarnessResult> {
-  return runServerHarnessWithEngine(options, { kind: "typescript" });
+  return runServerHarnessWithEngine(options, defaultInternalEngineSelection);
 }
 
 /** Internal migration seam for exercising server entry points through Zig. */
