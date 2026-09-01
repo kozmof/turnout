@@ -213,6 +213,56 @@ describe.each(["typescript", "zig"] as const)("Runner public conformance — %s"
     ]);
   });
 
+  it("preserves scene and route execution limits", async () => {
+    const sceneModel = asModel({
+      version: 2,
+      scenes: [
+        {
+          id: "limited",
+          entryAction: "first",
+          actions: [{ id: "first", next: [{ action: "second" }] }, { id: "second" }],
+        },
+      ],
+      routes: [],
+    });
+    const sceneRunner = create(engine, sceneModel, {
+      entryId: "limited",
+      initialState: {},
+      allowUncheckedState: true,
+      maxSceneSteps: 1,
+    });
+
+    await expect(sceneRunner.run()).rejects.toMatchObject({
+      name: "SceneRuntimeError",
+      code: "MaxStepsExceeded",
+      sceneId: "limited",
+    });
+
+    const routeModel = asModel({
+      version: 2,
+      scenes: [{ id: "looping", entryAction: "again", actions: [{ id: "again" }] }],
+      routes: [
+        {
+          id: "limited_route",
+          entrySceneId: "looping",
+          match: [{ patterns: ["_"], target: "looping" }],
+        },
+      ],
+    });
+    const routeRunner = create(engine, routeModel, {
+      entryId: "limited_route",
+      initialState: {},
+      allowUncheckedState: true,
+      maxRouteTransitions: 1,
+    });
+
+    await expect(routeRunner.run()).rejects.toMatchObject({
+      name: "RouteRuntimeError",
+      code: "MaxRouteTransitionsExceeded",
+      routeId: "limited_route",
+    });
+  });
+
   it("preserves typed misuse errors", async () => {
     const model = asModel({
       version: 2,

@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 10 |
-| Last verified commit | `a78ddce` |
+| Last verified commit | `344fd34` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Performance baselines and runtime-limit verification remain |
+| Blocking issue | Performance and memory baselines remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -231,7 +231,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Add a fixture for every discovered parity gap
 - [x] Document approved representation-only normalization
 - [ ] Record performance and memory baselines
-- [ ] Verify native and WASM limits
+- [x] Verify native and WASM limits
 
 ### Phase 10 exit gate
 

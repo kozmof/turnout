@@ -159,6 +159,8 @@ ABI version 1 applies these fixed limits.
 | Effect result | 16 MiB |
 | Initial STATE and effect-result JSON nesting | 128 levels |
 
+The native and WASI suites verify the model, create-request, effect-result, nesting, compute-complexity, scene-step, and route-transition limits. The packaged freestanding WASM conformance suite also verifies scene-step and route-transition failures through the public Runner API.
+
 The runtime model also uses the core model nesting limit of 128 levels. An oversized or deeply nested input returns `invalid_input` with a stable error name. The boundary checks byte lengths before reading request or effect-result memory.
 
 ### Leak checks and packaging
