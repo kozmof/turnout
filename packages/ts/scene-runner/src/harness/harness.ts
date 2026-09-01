@@ -1,37 +1,9 @@
 import type { HarnessOptions, FullHarnessResult } from "../types/harness-types.js";
-import { createRunnerWithEngine } from "../runner.js";
-import {
-  defaultInternalEngineSelection,
-  type InternalEngineSelection,
-} from "../zig-runtime/engine-selection.js";
+import { createRunner } from "../runner.js";
 
-/**
- * Universal harness entry point (client + server).
- *
- * Accepts a pre-parsed TurnModel, builds STATE, then dispatches to the route
- * or scene executor based on `entryId`.
- *
- * To load a model from a .tu or .json file (Node.js only), use
- * `runServerHarness` from the server entry point instead.
- *
- * Dispatch rules:
- *  - `entryId` matches a `route.id`  → route executor
- *  - `entryId` matches a `scene.id`  → scene executor
- *  - no match                         → throws
- *
- * All `ExecutionOptions` fields (`signal`, `onWarning`, `maxSceneSteps`,
- * `maxRouteTransitions`) are forwarded to the underlying Runner.
- */
+/** Run a parsed model through the universal Zig-backed Runner. */
 export async function runHarness(options: HarnessOptions): Promise<FullHarnessResult> {
-  return runHarnessWithEngine(options, defaultInternalEngineSelection);
-}
-
-/** Internal migration seam for exercising harness entry points through Zig. */
-export async function runHarnessWithEngine(
-  options: HarnessOptions,
-  selection: InternalEngineSelection,
-): Promise<FullHarnessResult> {
-  const runner = createRunnerWithEngine(options.model, options, selection);
+  const runner = createRunner(options.model, options);
 
   for (const [name, handler] of Object.entries(options.hooks?.prepare ?? {})) {
     runner.usePrepareHook(name, handler);

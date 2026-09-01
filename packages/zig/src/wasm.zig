@@ -315,7 +315,7 @@ const ActionCompleteJson = struct {
         for (completed.next_warnings) |warning| {
             try writer.beginObject();
             try writer.objectField("kind");
-            try writer.write(@tagName(warning.kind));
+            try writer.write((warning.kind));
             try writer.objectField("ruleIndex");
             try writer.write(warning.rule_index);
             try writer.objectField("conditionName");
@@ -324,6 +324,21 @@ const ActionCompleteJson = struct {
             try writer.write(warning.actual_type);
             try writer.objectField("targetActionId");
             try writer.write(warning.target_action_id);
+            try writer.endObject();
+        }
+        try writer.endArray();
+        try writer.objectField("sceneWarnings");
+        try writer.beginArray();
+        if (completed.duplicate_warning) |warning| {
+            try writer.beginObject();
+            try writer.objectField("kind");
+            try writer.write("duplicate_enqueue");
+            try writer.objectField("actionId");
+            try writer.write(warning.action_id);
+            try writer.objectField("fromActionId");
+            try writer.write(warning.from_action_id);
+            try writer.objectField("firstEnqueuedBy");
+            try writer.write(warning.first_enqueued_by);
             try writer.endObject();
         }
         try writer.endArray();

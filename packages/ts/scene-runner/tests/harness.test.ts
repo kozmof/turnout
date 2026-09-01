@@ -1,8 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { runHarness, runHarnessWithEngine } from "../src/harness/harness.js";
+import { runHarness } from "../src/harness/harness.js";
 import { buildNumber } from "runtime";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
-import type { ZigRuntimeLifecycleTransport } from "../src/zig-runtime/runner-adapter.js";
 
 // Minimal scene fixture — no compute, just an empty action so execution terminates.
 const minimalScene = {
@@ -119,67 +118,5 @@ describe("runHarness — ExecutionOptions propagation", () => {
       hooks: { prepare: { myPrepare: prepareHook }, publish: { myPublish: publishHook } },
     });
     // hooks registered — action doesn't invoke them but the loop bodies are covered
-  });
-});
-
-describe("runHarnessWithEngine — Zig migration seam", () => {
-  it("preserves hook registration and result shape", async () => {
-    const events: unknown[] = [
-      {
-        event: "needEffect",
-        id: 1,
-        kind: "prepare",
-        hook: "load",
-        sceneId: "scene_a",
-        actionId: "act_a",
-        callbackIndex: 0,
-        binding: "input",
-        contextJson: "{}",
-      },
-      {
-        event: "actionComplete",
-        sceneId: "scene_a",
-        actionId: "act_a",
-        computeRoot: { symbol: "number", value: 3, tags: [] },
-        nextActionIds: [],
-        publishOutcomes: [],
-        warnings: [],
-      },
-    ];
-    const resume = vi.fn(() => ({ status: "ok" as const, payload: { resumed: 1 } }));
-    const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 40 } }),
-      destroy: () => ({ status: "ok", payload: { destroyed: 40 } }),
-      step: <T>() => ({ status: "ok", payload: events.shift() as T }),
-      resume,
-      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
-    };
-    const prepare = vi.fn(() => ({ input: buildNumber(3) }));
-    const model = {
-      version: 2,
-      scenes: [
-        {
-          id: "scene_a",
-          entryAction: "act_a",
-          actions: [{ id: "act_a", prepare: [{ binding: "input", fromHook: "load" }] }],
-        },
-      ],
-      routes: [],
-    } as unknown as TurnModel;
-
-    const result = await runHarnessWithEngine(
-      {
-        model,
-        entryId: "scene_a",
-        initialState: {},
-        allowUncheckedState: true,
-        hooks: { prepare: { load: prepare }, publish: {} },
-      },
-      { kind: "zig", client },
-    );
-
-    expect(result.trace).toMatchObject({ kind: "scene", scene: { sceneId: "scene_a" } });
-    expect(prepare).toHaveBeenCalledOnce();
-    expect(resume).toHaveBeenCalledWith(40, expect.objectContaining({ status: "ok" }));
   });
 });

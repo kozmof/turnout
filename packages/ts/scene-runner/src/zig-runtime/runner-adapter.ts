@@ -2,9 +2,11 @@ import { buildNull, type AnyValue } from "runtime";
 import type {
   ActionTrace,
   ActionWarning,
+  ExecutionWarning,
   HookRegistry,
   PublishHookOutcome,
   SceneTrace,
+  SceneWarning,
 } from "../types/harness-types.js";
 import type { FragmentHarnessResult } from "../types/harness-types.js";
 import type { Runner, RunnerOptions, RunnerStepResult } from "../runner-types.js";
@@ -32,6 +34,13 @@ type ZigWarning =
   | { kind: "invalid_condition"; ruleIndex: number; conditionName: string; actualType: string }
   | { kind: "missing_program"; ruleIndex: number; conditionName: string; targetActionId: string };
 
+type ZigSceneWarning = {
+  kind: "duplicate_enqueue";
+  actionId: string;
+  fromActionId: string;
+  firstEnqueuedBy: string | null;
+};
+
 type ZigRuntimeEvent =
   | ZigEffectRequest
   | {
@@ -46,6 +55,7 @@ type ZigRuntimeEvent =
         message?: string | null;
       }>;
       warnings: ZigWarning[];
+      sceneWarnings: ZigSceneWarning[];
     }
   | { event: "sceneChanged"; from: string; to: string }
   | { event: "complete" | "cancelled" };
@@ -134,13 +144,18 @@ export async function advanceZigRuntime(
       }
       case "actionComplete": {
         const trace = actionTrace(event);
-        return {
+        const step: RunnerStepResult = {
           done: false,
           kind: "action",
           sceneId: event.sceneId,
           actionId: event.actionId,
           trace,
         };
+        const sceneWarnings = (event.sceneWarnings ?? []).map(sceneWarning);
+        if (sceneWarnings.length > 0) {
+          Object.defineProperty(step, "sceneWarnings", { value: sceneWarnings });
+        }
+        return step;
       }
       case "sceneChanged":
         return {
@@ -285,6 +300,29 @@ function asRecord(input: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
+function sceneWarning(warning: ZigSceneWarning): SceneWarning {
+  const firstEnqueuedBy = warning.firstEnqueuedBy ?? "<entry>";
+  return {
+    kind: "duplicate_enqueue",
+    actionId: warning.actionId,
+    firstEnqueuedBy,
+    message:
+      `action "` +
+      warning.actionId +
+      `" was enqueued by "` +
+      warning.fromActionId +
+      `" but already ran (first enqueued by "` +
+      firstEnqueuedBy +
+      `"); next rule points to an already-executed action`,
+  };
+}
+
+function internalSceneWarnings(result: RunnerStepResult): readonly SceneWarning[] {
+  return (
+    (result as RunnerStepResult & { sceneWarnings?: readonly SceneWarning[] }).sceneWarnings ?? []
+  );
+}
+
 function actionTrace(event: Extract<ZigRuntimeEvent, { event: "actionComplete" }>): ActionTrace {
   const publishOutcomes: PublishHookOutcome[] = event.publishOutcomes.map((outcome) =>
     outcome.status === "ok"
@@ -390,6 +428,7 @@ export function createZigSceneRunner(
   assertOk(created);
   const handle = created.payload.handle;
   const actions: ActionTrace[] = [];
+  const sceneWarnings: SceneWarning[] = [];
   let done = false;
   let handleOpen = true;
   let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
@@ -497,6 +536,7 @@ export function createZigSceneRunner(
           message: warning.message,
         });
       }
+      sceneWarnings.push(...internalSceneWarnings(result));
       actions.push(result.trace);
       safeLog(options.onLog, {
         kind: "action-complete",
@@ -529,7 +569,21 @@ export function createZigSceneRunner(
       }
       return {
         finalState,
-        trace: { kind: "scene", scene: { sceneId, actions } },
+        trace: {
+          kind: "scene",
+          scene: {
+            sceneId,
+            actions,
+            ...(sceneWarnings.length > 0 ? { warnings: sceneWarnings } : {}),
+          },
+        },
+        ...(sceneWarnings.length > 0
+          ? {
+              warnings: sceneWarnings.map(
+                (warning): ExecutionWarning => ({ kind: "scene_warning", sceneId, warning }),
+              ),
+            }
+          : {}),
       };
     },
     () => stateManagerFromUnchecked(finalState ?? readState()),
@@ -622,7 +676,11 @@ export function createZigRouteRunner(
   signal.addEventListener("abort", releaseOnAbort, { once: true });
   if (signal.aborted) releaseOnAbort();
 
-  function appendAction(sceneId: string, trace: ActionTrace): void {
+  function appendAction(
+    sceneId: string,
+    trace: ActionTrace,
+    sceneWarnings: readonly SceneWarning[],
+  ): void {
     let scene = scenes.at(-1);
     if (scene?.sceneId !== sceneId) {
       scene = { sceneId, actions: [] };
@@ -646,6 +704,9 @@ export function createZigRouteRunner(
         actionId: trace.actionId,
         message: warning.message,
       });
+    }
+    if (sceneWarnings.length > 0) {
+      scene.warnings = [...(scene.warnings ?? []), ...sceneWarnings];
     }
     scene.actions.push(trace);
     safeLog(options.onLog, {
@@ -706,7 +767,7 @@ export function createZigRouteRunner(
       if (following.done || following.kind !== "action") {
         throw new Error("Zig route transition was not followed by an action");
       }
-      appendAction(following.sceneId, following.trace);
+      appendAction(following.sceneId, following.trace, internalSceneWarnings(following));
       preprocessedActions.add(following);
       pending.push(following);
       if (following.trace.nextActionIds.length === 0) {
@@ -726,7 +787,7 @@ export function createZigRouteRunner(
         if (finishAfterActions.delete(result)) finish();
         return result;
       }
-      appendAction(result.sceneId, result.trace);
+      appendAction(result.sceneId, result.trace, internalSceneWarnings(result));
       if (result.trace.nextActionIds.length === 0) {
         const following = await advanceRouteRuntime();
         if (following.done) finish();
@@ -750,6 +811,18 @@ export function createZigRouteRunner(
       return {
         finalState,
         trace: { kind: "route", route: { routeId, scenes } },
+        ...(() => {
+          const warnings = scenes.flatMap((scene) =>
+            (scene.warnings ?? []).map(
+              (warning): ExecutionWarning => ({
+                kind: "scene_warning",
+                sceneId: scene.sceneId,
+                warning,
+              }),
+            ),
+          );
+          return warnings.length > 0 ? { warnings } : {};
+        })(),
       };
     },
     () => stateManagerFromUnchecked(finalState ?? readState()),

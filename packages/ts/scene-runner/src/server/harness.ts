@@ -2,11 +2,7 @@
 import type { FullHarnessResult, HookRegistry, LogEvent } from "../types/harness-types.js";
 import type { AnyValue } from "runtime";
 import { runConverter, loadJsonModel } from "./bridge.js";
-import { runHarnessWithEngine } from "../harness/harness.js";
-import {
-  defaultInternalEngineSelection,
-  type InternalEngineSelection,
-} from "../zig-runtime/engine-selection.js";
+import { runHarness } from "../harness/harness.js";
 import { HarnessError } from "./errors.js";
 import { containPath } from "./path-safety.js";
 
@@ -76,14 +72,6 @@ function resolveHarnessPath(filePath: string, allowedBaseDir: string | undefined
  * already available as a parsed object.
  */
 export async function runServerHarness(options: ServerHarnessOptions): Promise<FullHarnessResult> {
-  return runServerHarnessWithEngine(options, defaultInternalEngineSelection);
-}
-
-/** Internal migration seam for exercising server entry points through Zig. */
-export async function runServerHarnessWithEngine(
-  options: ServerHarnessOptions,
-  selection: InternalEngineSelection,
-): Promise<FullHarnessResult> {
   let model;
   if (options.turnFile && options.jsonFile) {
     throw new HarnessError(
@@ -115,26 +103,23 @@ export async function runServerHarnessWithEngine(
     );
   }
 
-  return runHarnessWithEngine(
-    {
-      model,
-      entryId: options.entryId,
-      initialState: options.initialState,
-      ...(options.allowUncheckedState !== undefined && {
-        allowUncheckedState: options.allowUncheckedState,
-      }),
-      ...(options.hooks !== undefined && { hooks: options.hooks }),
-      ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
-      ...(options.maxRouteTransitions !== undefined && {
-        maxRouteTransitions: options.maxRouteTransitions,
-      }),
-      ...(options.signal !== undefined && { signal: options.signal }),
-      ...(options.onWarning !== undefined && { onWarning: options.onWarning }),
-      ...(options.onLog !== undefined && { onLog: options.onLog }),
-      ...(options.failOnPublishError !== undefined && {
-        failOnPublishError: options.failOnPublishError,
-      }),
-    },
-    selection,
-  );
+  return runHarness({
+    model,
+    entryId: options.entryId,
+    initialState: options.initialState,
+    ...(options.allowUncheckedState !== undefined && {
+      allowUncheckedState: options.allowUncheckedState,
+    }),
+    ...(options.hooks !== undefined && { hooks: options.hooks }),
+    ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
+    ...(options.maxRouteTransitions !== undefined && {
+      maxRouteTransitions: options.maxRouteTransitions,
+    }),
+    ...(options.signal !== undefined && { signal: options.signal }),
+    ...(options.onWarning !== undefined && { onWarning: options.onWarning }),
+    ...(options.onLog !== undefined && { onLog: options.onLog }),
+    ...(options.failOnPublishError !== undefined && {
+      failOnPublishError: options.failOnPublishError,
+    }),
+  });
 }

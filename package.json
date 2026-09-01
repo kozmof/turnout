@@ -9,7 +9,6 @@
     "check:unicode-case": "sh scripts/check-unicode-case.sh",
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
     "build": "pnpm run build:zig && (cd packages/ts/runtime && ./node_modules/.bin/tsc --project tsconfig.build.json) && (cd packages/ts/scene-runner && pnpm run build)",
-    "benchmark:scene-runner": "pnpm run build && node --expose-gc scripts/benchmark-scene-runner.mjs",
     "build:zig": "zig build --build-file packages/zig/build.zig wasm",
     "check:zig": "zig fmt --check packages/zig/build.zig packages/zig/src && pnpm run test:zig",
     "test:zig": "zig build --build-file packages/zig/build.zig test && pnpm run test:zig:wasm",

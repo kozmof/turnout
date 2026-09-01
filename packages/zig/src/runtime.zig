@@ -22,6 +22,12 @@ pub const RuntimeError = error{
     InvalidPreparePayload,
     ActionInProgress,
 };
+pub const IncrementalDuplicateWarning = struct {
+    action_id: []const u8,
+    from_action_id: []const u8,
+    first_enqueued_by: ?[]const u8,
+};
+
 pub const Event = union(enum) {
     need_effect: effect.Request,
     action_complete: struct {
@@ -33,6 +39,7 @@ pub const Event = union(enum) {
         next_action_id: ?[]const u8,
         next_warnings: []const model_runtime.NextRuleWarning,
         publish_outcomes: []const PublishOutcome,
+        duplicate_warning: ?IncrementalDuplicateWarning = null,
     },
     scene_changed: struct { from: []const u8, to: []const u8 },
     complete,
@@ -514,6 +521,7 @@ pub const ActionDriver = struct {
                     .next_action_id = selection.target,
                     .next_warnings = selection.warnings,
                     .publish_outcomes = outcomes.items,
+                    .duplicate_warning = null,
                 } };
             },
             .cancelled => return .cancelled,
@@ -553,7 +561,10 @@ pub const ActionDriver = struct {
 };
 
 pub const SceneDriver = struct {
+    allocator: std.mem.Allocator,
     action: ActionDriver,
+    visited: std.StringHashMapUnmanaged(void) = .empty,
+    enqueue_sources: std.StringHashMapUnmanaged([]const u8) = .empty,
     advance_pending: bool = false,
     finished: bool = false,
     cancelled: bool = false,
@@ -584,19 +595,22 @@ pub const SceneDriver = struct {
         max_action_steps: usize,
     ) !SceneDriver {
         const entry = try model.sceneEntryAction(scene_id);
+        var action = try ActionDriver.init(allocator, model, scene_id, entry, initial_state);
+        errdefer action.deinit();
+        var visited: std.StringHashMapUnmanaged(void) = .empty;
+        errdefer visited.deinit(allocator);
+        try visited.put(allocator, entry, {});
         return .{
-            .action = try ActionDriver.init(
-                allocator,
-                model,
-                scene_id,
-                entry,
-                initial_state,
-            ),
+            .allocator = allocator,
+            .action = action,
+            .visited = visited,
             .max_action_steps = max_action_steps,
         };
     }
 
     pub fn deinit(self: *SceneDriver) void {
+        self.visited.deinit(self.allocator);
+        self.enqueue_sources.deinit(self.allocator);
         self.action.deinit();
         self.* = undefined;
     }
@@ -620,9 +634,26 @@ pub const SceneDriver = struct {
             self.action_steps += 1;
             self.current_action_counted = true;
         }
-        const event = try self.action.step(model, fail_on_publish_error);
+        var event = try self.action.step(model, fail_on_publish_error);
         switch (event) {
-            .action_complete => self.advance_pending = true,
+            .action_complete => |*completed| {
+                if (completed.next_action_id) |target| {
+                    if (self.visited.contains(target)) {
+                        const first_source = self.enqueue_sources.get(target);
+                        completed.duplicate_warning = .{
+                            .action_id = target,
+                            .from_action_id = completed.action_id,
+                            .first_enqueued_by = first_source,
+                        };
+                        completed.next_action_id = null;
+                        if (self.action.next_selection) |*selection| selection.target = null;
+                    } else {
+                        try self.visited.put(self.allocator, target, {});
+                        try self.enqueue_sources.put(self.allocator, target, completed.action_id);
+                    }
+                }
+                self.advance_pending = true;
+            },
             .cancelled => {
                 self.finished = true;
                 self.cancelled = true;
