@@ -61,6 +61,10 @@ Equality is structural and ignores tags. Scalars require matching kinds and matc
 
 Tag propagation uses set union. It preserves the first occurrence of each tag.
 
+## Compatibility window
+
+The rollout and rollback rules are recorded in [compatibility-window.md](./compatibility-window.md).
+
 ## Conformance normalization
 
 No caller-visible representation differences are approved. Conformance comparisons use the public Runner results and structured logs without normalization. Values, tags, null reasons, ordering, warning data, error data, and effect context must match.
