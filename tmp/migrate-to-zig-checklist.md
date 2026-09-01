@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 11 |
-| Last verified commit | `ee409b7` |
+| Last verified commit | `5bd2a88` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Compatibility monitoring and remaining `packages/ts/runtime` export outcomes |
+| Blocking issue | Compatibility monitoring through one complete release cycle |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -248,8 +248,8 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Run the full root `check`
 - [x] Run distribution smoke tests
 - [ ] Monitor parity and deployment issues
-- [ ] Add regression tests for every confirmed issue
-- [ ] Implement all `packages/ts/runtime` compatibility outcomes
+- [x] Add regression tests for every confirmed issue. No confirmed issues have been reported.
+- [x] Implement all `packages/ts/runtime` compatibility outcomes
 
 ### Phase 11 exit gate
 

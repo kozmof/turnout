@@ -42,6 +42,10 @@ The TypeScript packages keep their current public APIs during the migration. No 
 | UndefinedValueReferenceError, UndefinedPipeArgumentError | Retain types |
 | UndefinedPipeStepReferenceError, isBuilderValidationError | Retain type and guard |
 
+## Runtime implementation status
+
+All runtime outcomes above are implemented. `src/index.test.ts` locks the retained value exports to the package entry point. Type checking and the distribution build verify the retained type exports and signatures. The four compute execution helpers remain available under their recorded keep outcome. No runtime export is deprecated or approved for removal.
+
 ## Scene-runner package
 
 | Exports | Outcome |
