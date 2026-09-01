@@ -61,6 +61,12 @@ Equality is structural and ignores tags. Scalars require matching kinds and matc
 
 Tag propagation uses set union. It preserves the first occurrence of each tag.
 
+## Conformance normalization
+
+No caller-visible representation differences are approved. Conformance comparisons use the public Runner results and structured logs without normalization. Values, tags, null reasons, ordering, warning data, error data, and effect context must match.
+
+The WASM ABI uses canonical tagged-Value JSON as a transport encoding. The TypeScript host adapter decodes that envelope into the existing public `AnyValue` shape before returning data or calling hooks. This boundary conversion is not a parity exception.
+
 ## Effects
 
 Zig does not call hooks. It emits prepare and publish requests with a stable ID, hook name, scene ID, and action ID.
@@ -110,7 +116,7 @@ Raw memory addresses are the exception. Bounds-check addresses and lengths again
 {
   "sceneId": "main",
   "initialState": {
-    "player.score": 1
+    "player.score": {"symbol":"number","value":1,"tags":[]}
   },
   "failOnPublishError": false,
   "maxSceneSteps": 10000,
@@ -118,7 +124,7 @@ Raw memory addresses are the exception. Bounds-check addresses and lengths again
 }
 ```
 
-Set exactly one of `sceneId` or `routeId`. The other fields use the shown defaults. `maxRouteTransitions` applies only to route handles. Unknown request fields are ignored. The success payload is `{"handle":1}`.
+Set exactly one of `sceneId` or `routeId`. Initial STATE entries use canonical tagged-Value JSON. The other fields use the shown defaults. `maxRouteTransitions` applies only to route handles. Unknown request fields are ignored. The success payload is `{"handle":1}`.
 
 `turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, and `contextJson`.
 
