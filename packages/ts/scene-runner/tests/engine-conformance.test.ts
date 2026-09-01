@@ -140,6 +140,79 @@ describe.each(["typescript", "zig"] as const)("Runner public conformance — %s"
     });
   });
 
+  it("preserves ordered effect requests and callback context", async () => {
+    const model = asModel({
+      version: 2,
+      scenes: [
+        {
+          id: "effects",
+          entryAction: "run",
+          actions: [
+            {
+              id: "run",
+              prepare: [
+                { binding: "base", fromState: "input.base" },
+                { binding: "first", fromHook: "alpha" },
+                { binding: "second", fromHook: "beta" },
+              ],
+              compute: {
+                root: "total",
+                prog: {
+                  bindings: [
+                    { name: "base", type: "number", value: 0 },
+                    { name: "first", type: "number", value: 0 },
+                    { name: "second", type: "number", value: 0 },
+                    {
+                      name: "total",
+                      type: "number",
+                      expr: { combine: { fn: "add", args: [{ ref: "first" }, { ref: "second" }] } },
+                    },
+                  ],
+                },
+              },
+              merge: [{ binding: "total", toState: "output.total" }],
+              publish: ["first_publish", "second_publish"],
+            },
+          ],
+        },
+      ],
+      routes: [],
+    });
+    const calls: string[] = [];
+    const numberValue = (value: unknown) =>
+      typeof value === "object" && value !== null && "value" in value
+        ? (value as { value: unknown }).value
+        : "missing";
+    const runner = create(engine, model, {
+      entryId: "effects",
+      initialState: { "input.base": buildNumber(2) },
+      allowUncheckedState: true,
+    })
+      .usePrepareHook("alpha", (context) => {
+        calls.push("prepare:alpha:" + numberValue(context.get("base")));
+        return { first: buildNumber(3) };
+      })
+      .usePrepareHook("beta", (context) => {
+        calls.push("prepare:beta:" + numberValue(context.get("first")));
+        return { second: buildNumber(4) };
+      })
+      .usePublishHook("first_publish", (context) => {
+        calls.push("publish:first:" + numberValue(context.state()["output.total"]));
+      })
+      .usePublishHook("second_publish", (context) => {
+        calls.push("publish:second:" + numberValue(context.state()["output.total"]));
+      });
+
+    await runner.run();
+
+    expect(calls).toEqual([
+      "prepare:alpha:2",
+      "prepare:beta:3",
+      "publish:first:7",
+      "publish:second:7",
+    ]);
+  });
+
   it("preserves typed misuse errors", async () => {
     const model = asModel({
       version: 2,

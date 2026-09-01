@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 10 |
-| Last verified commit | `10aaaaf` |
+| Last verified commit | `b9829b9` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Ordered effect parity and generated compiler E2E coverage remain |
+| Blocking issue | Generated compiler E2E coverage, performance baselines, and runtime-limit verification remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -226,7 +226,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Compare warning kinds and order
 - [x] Compare structured log events
 - [x] Compare error codes and context
-- [ ] Compare ordered effect requests
+- [x] Compare ordered effect requests
 - [x] Run compiler-to-runner tests through Zig
 - [ ] Add a fixture for every discovered parity gap
 - [ ] Document approved representation-only normalization

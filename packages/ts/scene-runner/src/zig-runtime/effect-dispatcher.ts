@@ -48,10 +48,11 @@ export async function dispatchZigEffect(
   hooks: HookRegistry,
   signal: AbortSignal,
   requiredPrepareBindings: readonly string[] = [],
+  prepareContext?: Record<string, AnyValue>,
 ): Promise<ZigEffectResult> {
   throwIfAborted(signal);
   return request.kind === "prepare"
-    ? dispatchPrepare(request, hooks, signal, requiredPrepareBindings)
+    ? dispatchPrepare(request, hooks, signal, requiredPrepareBindings, prepareContext)
     : dispatchPublish(request, hooks, signal);
 }
 
@@ -60,12 +61,13 @@ async function dispatchPrepare(
   hooks: HookRegistry,
   signal: AbortSignal,
   requiredPrepareBindings: readonly string[],
+  prepareContext: Record<string, AnyValue> | undefined,
 ): Promise<ZigEffectResult> {
   const hook = Object.hasOwn(hooks.prepare, request.hook) ? hooks.prepare[request.hook] : undefined;
   if (hook === undefined) {
     return { id: request.id, kind: "prepare", status: "missing" };
   }
-  const prepared = decodeContext(request.contextJson);
+  const prepared = prepareContext ?? decodeContext(request.contextJson);
   const context: PrepareHookContext = {
     actionId: request.actionId,
     hookName: request.hook,

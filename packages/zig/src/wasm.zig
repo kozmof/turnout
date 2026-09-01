@@ -81,6 +81,7 @@ const Driver = union(enum) {
 };
 
 const Instance = struct {
+    request: std.json.Parsed(CreateRequest),
     model: model_runtime.RuntimeModel,
     driver: Driver,
     entry_id: []u8,
@@ -89,6 +90,7 @@ const Instance = struct {
     fn deinit(self: *Instance) void {
         self.driver.deinit();
         self.model.deinit();
+        self.request.deinit();
         allocator.free(self.entry_id);
         allocator.destroy(self);
     }
@@ -162,11 +164,13 @@ fn putInitialValues(
     while (fields.next()) |field| {
         const key = try allocator.dupe(u8, field.key_ptr.*);
         errdefer allocator.free(key);
-        var converted = try value.fromJson(allocator, field.value_ptr.*);
-        errdefer value.deinitValue(&converted, allocator);
-        const tags = try allocator.alloc([]const u8, 0);
-        errdefer allocator.free(tags);
-        try values.put(allocator, key, .{ .value = converted, .tags = tags });
+        const converted = value.fromCanonicalValue(field.value_ptr.*, allocator) catch
+            return error.InvalidInitialState;
+        errdefer {
+            var borrowed = converted.borrowed();
+            value.deinitTaggedValue(&borrowed, allocator);
+        }
+        try values.put(allocator, key, converted.borrowed());
     }
 }
 
@@ -197,7 +201,8 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
         .ignore_unknown_fields = true,
         .max_value_len = max_create_request_bytes,
     });
-    defer request.deinit();
+    var request_transferred = false;
+    defer if (!request_transferred) request.deinit();
     try validateInputNesting(request.value.initialState orelse .null, 0);
     if ((request.value.sceneId == null) == (request.value.routeId == null)) return error.InvalidEntryId;
     const entry = request.value.sceneId orelse request.value.routeId.?;
@@ -217,6 +222,7 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
     const instance = try allocator.create(Instance);
     errdefer allocator.destroy(instance);
     instance.* = .{
+        .request = request,
         .model = model,
         .driver = if (request.value.sceneId != null)
             .{ .scene = try runtime.SceneDriver.initWithLimit(allocator, &model, entry_id, &initial_state, request.value.maxSceneSteps) }
@@ -232,6 +238,7 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
         instance.driver.deinit();
         return err;
     };
+    request_transferred = true;
     return handle;
 }
 

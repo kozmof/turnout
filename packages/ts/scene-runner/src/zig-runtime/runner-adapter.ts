@@ -1,3 +1,4 @@
+import { buildNull, type AnyValue } from "runtime";
 import type {
   ActionTrace,
   ActionWarning,
@@ -75,10 +76,12 @@ export async function advanceZigRuntime(
   hooks: HookRegistry,
   signal: AbortSignal,
   prepareBindings: ReadonlyMap<string, readonly string[]> = new Map(),
+  prepareInitialContext: (request: ZigEffectRequest) => Record<string, AnyValue> = () => ({}),
 ): Promise<RunnerStepResult> {
   let activeSceneId: string | undefined;
   let activeActionId: string | undefined;
   const publishOutcomes: PublishHookOutcome[] = [];
+  const prepareContexts = new Map<string, Record<string, AnyValue>>();
   while (true) {
     throwIfAborted(signal);
     const response = client.step<ZigRuntimeEvent>(handle);
@@ -97,12 +100,20 @@ export async function advanceZigRuntime(
       case "needEffect": {
         activeSceneId = event.sceneId;
         activeActionId = event.actionId;
+        const contextKey = prepareActionKey(event);
+        let prepareContext = prepareContexts.get(contextKey);
+        if (event.kind === "prepare" && prepareContext === undefined) {
+          prepareContext = prepareInitialContext(event);
+          prepareContexts.set(contextKey, prepareContext);
+        }
         const result = await dispatchZigEffect(
           event,
           hooks,
           signal,
           prepareBindings.get(prepareEffectKey(event)) ?? [],
+          prepareContext,
         );
+        recordPreparedValues(event, result, prepareContext);
         recordPublishOutcome(event, result, publishOutcomes);
         if (result.kind === "prepare" && result.status === "missing") {
           throw new PrepareError(
@@ -142,6 +153,28 @@ export async function advanceZigRuntime(
       case "cancelled":
         return { done: true };
     }
+  }
+}
+
+function prepareActionKey(request: Pick<ZigEffectRequest, "sceneId" | "actionId">): string {
+  return `${request.sceneId}\u0000${request.actionId}`;
+}
+
+function recordPreparedValues(
+  request: ZigEffectRequest,
+  result: ZigEffectResult,
+  context: Record<string, AnyValue> | undefined,
+): void {
+  if (request.kind !== "prepare" || result.kind !== "prepare" || result.status !== "ok") return;
+  if (context === undefined) return;
+  if (request.binding !== null) {
+    context[request.binding] = fromCanonicalValue(result.value);
+    return;
+  }
+  const values = asRecord(result.value);
+  if (values === undefined) return;
+  for (const [binding, value] of Object.entries(values)) {
+    context[binding] = fromCanonicalValue(value);
   }
 }
 
@@ -212,6 +245,38 @@ function prepareBindingMap(model: Uint8Array): ReadonlyMap<string, readonly stri
     }
   }
   return bindings;
+}
+
+function prepareStateSourceMap(
+  model: Uint8Array,
+): ReadonlyMap<string, readonly [string, string][]> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(model));
+  } catch {
+    return new Map();
+  }
+  const root = asRecord(parsed);
+  const sources = new Map<string, Array<[string, string]>>();
+  for (const sceneValue of Array.isArray(root?.scenes) ? root.scenes : []) {
+    const scene = asRecord(sceneValue);
+    if (typeof scene?.id !== "string") continue;
+    for (const actionValue of Array.isArray(scene.actions) ? scene.actions : []) {
+      const action = asRecord(actionValue);
+      if (typeof action?.id !== "string") continue;
+      const actionSources: Array<[string, string]> = [];
+      for (const prepareValue of Array.isArray(action.prepare) ? action.prepare : []) {
+        const prepare = asRecord(prepareValue);
+        if (typeof prepare?.fromState === "string" && typeof prepare.binding === "string") {
+          actionSources.push([prepare.binding, prepare.fromState]);
+        }
+      }
+      if (actionSources.length > 0) {
+        sources.set(prepareActionKey({ sceneId: scene.id, actionId: action.id }), actionSources);
+      }
+    }
+  }
+  return sources;
 }
 
 function asRecord(input: unknown): Record<string, unknown> | undefined {
@@ -311,6 +376,7 @@ export function createZigSceneRunner(
     publish: Object.create(null) as HookRegistry["publish"],
   };
   const prepareBindings = prepareBindingMap(model);
+  const prepareStateSources = prepareStateSourceMap(model);
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -339,6 +405,16 @@ export function createZigSceneRunner(
       Object.entries(snapshot.payload.state).map(([path, entry]) => [
         path,
         fromCanonicalValue(entry),
+      ]),
+    );
+  }
+
+  function initialPrepareContext(request: ZigEffectRequest): Record<string, AnyValue> {
+    const state = readState();
+    return Object.fromEntries(
+      (prepareStateSources.get(prepareActionKey(request)) ?? []).map(([binding, path]) => [
+        binding,
+        state[path] ?? buildNull("missing"),
       ]),
     );
   }
@@ -373,7 +449,14 @@ export function createZigSceneRunner(
     if (done) return { done: true };
     let result: RunnerStepResult;
     try {
-      result = await advanceZigRuntime(client, handle, hooks, signal, prepareBindings);
+      result = await advanceZigRuntime(
+        client,
+        handle,
+        hooks,
+        signal,
+        prepareBindings,
+        initialPrepareContext,
+      );
     } catch (error) {
       if (error instanceof ZigRuntimeStatusError) {
         const publishError = mapPublishHookFailed(error, sceneId, readState);
@@ -466,6 +549,7 @@ export function createZigRouteRunner(
     publish: Object.create(null) as HookRegistry["publish"],
   };
   const prepareBindings = prepareBindingMap(model);
+  const prepareStateSources = prepareStateSourceMap(model);
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -498,6 +582,16 @@ export function createZigRouteRunner(
       Object.entries(snapshot.payload.state).map(([path, entry]) => [
         path,
         fromCanonicalValue(entry),
+      ]),
+    );
+  }
+
+  function initialPrepareContext(request: ZigEffectRequest): Record<string, AnyValue> {
+    const state = readState();
+    return Object.fromEntries(
+      (prepareStateSources.get(prepareActionKey(request)) ?? []).map(([binding, path]) => [
+        binding,
+        state[path] ?? buildNull("missing"),
       ]),
     );
   }
@@ -571,7 +665,14 @@ export function createZigRouteRunner(
 
   async function advanceRouteRuntime(): Promise<RunnerStepResult> {
     try {
-      return await advanceZigRuntime(client, handle, hooks, signal, prepareBindings);
+      return await advanceZigRuntime(
+        client,
+        handle,
+        hooks,
+        signal,
+        prepareBindings,
+        initialPrepareContext,
+      );
     } catch (error) {
       if (error instanceof ZigRuntimeStatusError) {
         const publishError = mapPublishHookFailed(error, error.sceneId ?? routeId, readState);
