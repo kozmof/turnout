@@ -174,7 +174,7 @@ describe("advanceZigRuntime", () => {
       onLog: (event) => logs.push(event.kind),
     });
 
-    await expect(runner.next()).resolves.toHaveLength(1);
+    await expect(runner.next(2)).resolves.toHaveLength(1);
     expect(runner.isDone()).toBe(true);
     expect(runner.partialState().snapshot()).toEqual({ score: buildNumber(9) });
     expect(runner.result()).toEqual({

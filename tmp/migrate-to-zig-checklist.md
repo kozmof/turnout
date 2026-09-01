@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 9 |
-| Last verified commit | `ddaf88b` |
-| Last updated | 2026-08-31 |
-| Blocking issue | The Zig Runner adapter does not yet preserve action-level stepping and results |
+| Last verified commit | `c0b99d6` |
+| Last updated | 2026-09-01 |
+| Blocking issue | Multi-binding prepare hooks still lack binding-level error context at the WASM boundary |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -213,7 +213,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ### Phase 9 exit gate
 
-- [ ] Public API tests pass against both engines
+- [x] Public API tests pass against both engines
 - [x] Distribution smoke tests pass with WASM
 - [ ] No caller-facing difference remains unexplained
 

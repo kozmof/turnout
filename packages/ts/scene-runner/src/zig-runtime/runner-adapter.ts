@@ -319,6 +319,7 @@ export function createZigSceneRunner(
   if (signal.aborted) releaseOnAbort();
 
   async function advance(): Promise<RunnerStepResult> {
+    if (done) return { done: true };
     let result: RunnerStepResult;
     try {
       result = await advanceZigRuntime(client, handle, hooks, signal);
@@ -541,6 +542,7 @@ export function createZigRouteRunner(
   }
 
   async function advance(): Promise<RunnerStepResult> {
+    if (done) return { done: true };
     const result = await nextEvent();
     if (result.done) {
       finish();
