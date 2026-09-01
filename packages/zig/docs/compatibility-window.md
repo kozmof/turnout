@@ -14,7 +14,7 @@ The shipped package continues to include the WASM artifact. Browser and server e
 
 ## Rollback path
 
-The deployment rollback control was removed when the window ended. `TURNOUT_SCENE_RUNNER_ENGINE` and `globalThis.__TURNOUT_SCENE_RUNNER_ENGINE__` no longer select the TypeScript executor. The remaining dual-engine seam is test-only and will be removed with the TypeScript executor.
+The deployment rollback control was removed when the window ended. `TURNOUT_SCENE_RUNNER_ENGINE` and `globalThis.__TURNOUT_SCENE_RUNNER_ENGINE__` no longer select the TypeScript executor. No internal engine selector remains.
 
 Use the rollback path when a confirmed issue meets any of these conditions.
 
@@ -36,4 +36,4 @@ The original exit conditions were listed below. The release-cycle condition was 
 - Every `packages/ts/runtime` export has a recorded compatibility outcome.
 - The rollback control has not been needed for one complete release cycle. Waived on 2026-09-01.
 
-Remove the TypeScript executor and the test-only selector in Phase 12.
+Remove the TypeScript executor in Phase 12.

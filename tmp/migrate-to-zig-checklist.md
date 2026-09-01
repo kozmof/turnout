@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 12 |
-| Last verified commit | `5bd2a88` |
+| Last verified commit | `884f799` |
 | Last updated | 2026-09-01 |
-| Blocking issue | TypeScript executor and test-only engine selection remain |
+| Blocking issue | TypeScript executor modules and retained safe wrappers remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -248,7 +248,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Run the full root `check`
 - [x] Run distribution smoke tests
 - [x] Monitor parity and deployment issues. The planned release-cycle observation was explicitly waived.
-- [x] Add regression tests for every confirmed issue. No confirmed issues have been reported.
+- [x] Add regression tests for every confirmed issue. Incremental duplicate-enqueue suppression is covered.
 - [x] Implement all `packages/ts/runtime` compatibility outcomes
 
 ### Phase 11 exit gate
@@ -260,7 +260,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 ## Phase 12. Remove duplicate execution
 
 - [ ] Remove the TypeScript scene executor
-- [ ] Remove internal engine selection
+- [x] Remove internal engine selection
 - [ ] Remove reference-only dependencies
 - [ ] Remove obsolete tests only after equivalent conformance coverage exists
 - [ ] Keep JavaScript utilities required by the compatibility matrix
