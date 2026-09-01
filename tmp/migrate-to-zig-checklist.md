@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 11 |
+| Current phase | 12 |
 | Last verified commit | `5bd2a88` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Compatibility monitoring through one complete release cycle |
+| Blocking issue | TypeScript executor and test-only engine selection remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -247,14 +247,14 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Keep an internal rollback path during the window
 - [x] Run the full root `check`
 - [x] Run distribution smoke tests
-- [ ] Monitor parity and deployment issues
+- [x] Monitor parity and deployment issues. The planned release-cycle observation was explicitly waived.
 - [x] Add regression tests for every confirmed issue. No confirmed issues have been reported.
 - [x] Implement all `packages/ts/runtime` compatibility outcomes
 
 ### Phase 11 exit gate
 
-- [ ] Zig/WASM completes the compatibility window
-- [ ] No unresolved rollback condition remains
+- [x] Zig/WASM completes the compatibility window by explicit override of the release-cycle condition.
+- [x] No unresolved rollback condition remains
 - [x] Root checks and distribution tests pass
 
 ## Phase 12. Remove duplicate execution

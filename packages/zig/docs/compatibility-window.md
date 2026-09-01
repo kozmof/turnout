@@ -1,10 +1,10 @@
 # Zig runtime compatibility window
 
-The scene runner is entering a compatibility window for the Zig/WASM default. The TypeScript executor remains available only as an internal rollback path during this window.
+The scene runner used a compatibility window while Zig/WASM became the default. The window ended by explicit project decision on 2026-09-01 before a release cycle elapsed.
 
 ## Schedule
 
-The window was announced on 2026-09-01. The public runner and harness entry points switched to Zig/WASM on 2026-09-01. Keep the TypeScript executor through at least one release cycle after that switch. Remove it only after every exit condition below passes.
+The window was announced on 2026-09-01. The public runner and harness entry points switched to Zig/WASM on 2026-09-01. The planned release-cycle observation was explicitly waived on 2026-09-01 so Phase 12 could begin.
 
 ## What remains stable
 
@@ -14,9 +14,7 @@ The shipped package continues to include the WASM artifact. Browser and server e
 
 ## Rollback path
 
-The TypeScript executor remains compiled and testable during the window. The default-selection implementation provides an internal rollback control for deployments. It is not exported from the package entry point.
-
-For Node, set `TURNOUT_SCENE_RUNNER_ENGINE=typescript` before importing the package. For browser hosts, set `globalThis.__TURNOUT_SCENE_RUNNER_ENGINE__ = "typescript"` before importing the package. The selector reads the control before loading WASM, so rollback still works when WASM loading or instantiation is the failure.
+The deployment rollback control was removed when the window ended. `TURNOUT_SCENE_RUNNER_ENGINE` and `globalThis.__TURNOUT_SCENE_RUNNER_ENGINE__` no longer select the TypeScript executor. The remaining dual-engine seam is test-only and will be removed with the TypeScript executor.
 
 Use the rollback path when a confirmed issue meets any of these conditions.
 
@@ -29,13 +27,13 @@ Record every confirmed issue as a regression test before restoring the Zig defau
 
 ## Exit conditions
 
-End the compatibility window only when all of these conditions pass.
+The original exit conditions were listed below. The release-cycle condition was waived by explicit project decision.
 
 - The full root `check` passes with Zig as the default.
 - Distribution smoke tests exercise the default public runner and server harness.
 - No confirmed parity or deployment issue remains open.
 - Every confirmed issue has regression coverage.
 - Every `packages/ts/runtime` export has a recorded compatibility outcome.
-- The rollback control has not been needed for one complete release cycle.
+- The rollback control has not been needed for one complete release cycle. Waived on 2026-09-01.
 
-After the window, remove the TypeScript executor and the internal selector in Phase 12.
+Remove the TypeScript executor and the test-only selector in Phase 12.
