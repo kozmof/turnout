@@ -87,6 +87,7 @@ describe("ZigRuntimeClient", () => {
     expect(exports.model).toBe('{"version":2}');
     expect(exports.request).toEqual({ sceneId: "main" });
     expect(exports.freed).toHaveLength(3);
+    expect(client.memoryByteLength()).toBe(65_536);
   });
 
   it("decodes step, snapshot, and resume responses", () => {

@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 10 |
-| Last verified commit | `344fd34` |
+| Current phase | 11 |
+| Last verified commit | `d935b7c` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Performance and memory baselines remain |
+| Blocking issue | Phase 11 compatibility window and default-engine switch remain |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -230,7 +230,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Run compiler-to-runner tests through Zig
 - [x] Add a fixture for every discovered parity gap
 - [x] Document approved representation-only normalization
-- [ ] Record performance and memory baselines
+- [x] Record performance and memory baselines
 - [x] Verify native and WASM limits
 
 ### Phase 10 exit gate
@@ -238,7 +238,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] The selected conformance suite passes
 - [x] Existing end-to-end fixtures pass through Zig
 - [x] No correctness or compatibility blocker remains
-- [ ] Performance and memory results are recorded
+- [x] Performance and memory results are recorded
 
 ## Phase 11. Switch the default
 

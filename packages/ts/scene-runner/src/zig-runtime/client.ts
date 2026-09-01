@@ -75,6 +75,10 @@ export class ZigRuntimeClient {
     });
   }
 
+  memoryByteLength(): number {
+    return this.#exports.memory.buffer.byteLength;
+  }
+
   destroy(handle: number): ZigResponse<{ destroyed: number }> {
     return this.#readResponse(this.#exports.turnout_runtime_destroy(handle));
   }

@@ -167,4 +167,6 @@ The runtime model also uses the core model nesting limit of 128 levels. An overs
 
 Native ABI lifecycle tests use Zig's debug allocator and fail when allocations remain after runtime destruction and response release. The WASI suite uses the target's WASM allocator because that environment does not provide equivalent leak reporting.
 
+The reproducible performance and memory baseline is recorded in [performance-baseline.md](./performance-baseline.md).
+
 The `scene-runner` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm`. The package exports it as `turnout-scene-runner/zig-runtime/turnout-runtime.wasm`. Distribution smoke tests check that the copied file has the WebAssembly magic bytes.
