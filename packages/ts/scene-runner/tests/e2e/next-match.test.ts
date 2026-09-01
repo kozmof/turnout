@@ -21,7 +21,7 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { runConverter, resetBinCache } from "../../src/server/bridge.js";
-import { runHarness } from "../../src/harness/harness.js";
+import { runZigHarness as runHarness } from "./zig-harness.js";
 import { buildNumber, buildBoolean, buildString, isPureString } from "runtime";
 import type { HookRegistry } from "../../src/types/harness-types.js";
 import type { TurnModel } from "../../src/types/turnout-model_pb.js";

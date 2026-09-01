@@ -17,7 +17,7 @@ import {
   isPureNumber,
   isRecord,
 } from "runtime";
-import { runServerHarness as runHarness } from "../../src/server/index.js";
+import { runZigServerHarness as runHarness } from "./zig-harness.js";
 
 const converterDir = resolve(__dirname, "../../../../go/converter");
 const tmpRoot = mkdtempSync(join(tmpdir(), "turnout-nested-container-e2e-"));
