@@ -220,6 +220,40 @@ const hookModel = fromJson(TurnModelSchema, {
   ],
   routes: [],
 });
+const multiHookModel = fromJson(TurnModelSchema, {
+  version: 2,
+  scenes: [
+    {
+      id: "multi_hooks",
+      entryAction: "load",
+      actions: [
+        {
+          id: "load",
+          prepare: [
+            { binding: "first", fromHook: "load_many" },
+            { binding: "second", fromHook: "load_many" },
+          ],
+          compute: {
+            root: "output",
+            prog: {
+              bindings: [
+                { name: "first", type: "number", value: 0 },
+                { name: "second", type: "number", value: 0 },
+                {
+                  name: "output",
+                  type: "number",
+                  expr: { combine: { fn: "add", args: [{ ref: "first" }, { ref: "second" }] } },
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  ],
+  routes: [],
+});
+
 const hookOptions = { entryId: "hooks", initialState: {}, allowUncheckedState: true };
 const hookReference = createRunnerWithEngine(hookModel, hookOptions, { kind: "typescript" });
 const hookCandidate = createRunnerWithEngine(hookModel, hookOptions, { kind: "zig", client });
@@ -271,6 +305,29 @@ assertSame(
   errorShape(await captureError(() => missingPrepareReference.run())),
   "missing prepare-hook error",
 );
+
+const multiHookOptions = {
+  entryId: "multi_hooks",
+  initialState: {},
+  allowUncheckedState: true,
+};
+for (const invalidResult of [{ first: buildNumber(1) }, { first: buildNumber(1), second: 42 }]) {
+  const multiPrepareReference = createRunnerWithEngine(multiHookModel, multiHookOptions, {
+    kind: "typescript",
+  });
+  const multiPrepareCandidate = createRunnerWithEngine(multiHookModel, multiHookOptions, {
+    kind: "zig",
+    client,
+  });
+  for (const runner of [multiPrepareReference, multiPrepareCandidate]) {
+    runner.usePrepareHook("load_many", async () => invalidResult);
+  }
+  assertSame(
+    errorShape(await captureError(() => multiPrepareCandidate.run())),
+    errorShape(await captureError(() => multiPrepareReference.run())),
+    "multi-binding prepare-hook error",
+  );
+}
 
 const thrownPrepareReference = createRunnerWithEngine(hookModel, hookOptions, {
   kind: "typescript",

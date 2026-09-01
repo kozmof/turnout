@@ -134,6 +134,16 @@ describe("dispatchZigEffect", () => {
       code: "InvalidHookValue",
       actionId: "start",
     });
+
+    registry.prepare.load = () => ({ first: buildNumber(1) });
+    await expect(
+      dispatchZigEffect(request("prepare"), registry, signal, ["first", "second"]),
+    ).rejects.toMatchObject({
+      name: "PrepareError",
+      code: "MissingHookField",
+      actionId: "start",
+      message: '[action: start] prepare hook "load" did not return field "second"',
+    });
   });
 
   it("passes post-merge STATE to publish hooks", async () => {

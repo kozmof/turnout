@@ -47,10 +47,11 @@ export async function dispatchZigEffect(
   request: ZigEffectRequest,
   hooks: HookRegistry,
   signal: AbortSignal,
+  requiredPrepareBindings: readonly string[] = [],
 ): Promise<ZigEffectResult> {
   throwIfAborted(signal);
   return request.kind === "prepare"
-    ? dispatchPrepare(request, hooks, signal)
+    ? dispatchPrepare(request, hooks, signal, requiredPrepareBindings)
     : dispatchPublish(request, hooks, signal);
 }
 
@@ -58,6 +59,7 @@ async function dispatchPrepare(
   request: ZigEffectRequest,
   hooks: HookRegistry,
   signal: AbortSignal,
+  requiredPrepareBindings: readonly string[],
 ): Promise<ZigEffectResult> {
   const hook = Object.hasOwn(hooks.prepare, request.hook) ? hooks.prepare[request.hook] : undefined;
   if (hook === undefined) {
@@ -90,28 +92,31 @@ async function dispatchPrepare(
       `prepare hook "${request.hook}" returned a non-object result: got ${JSON.stringify(result)}`,
     );
   }
-  if (request.binding !== null) {
-    const value = Object.hasOwn(result, request.binding) ? result[request.binding] : undefined;
+  const bindings = request.binding === null ? requiredPrepareBindings : [request.binding];
+  for (const binding of bindings) {
+    const value = Object.hasOwn(result, binding) ? result[binding] : undefined;
     if (value === undefined) {
       throw new PrepareError(
         "MissingHookField",
         request.actionId,
-        `prepare hook "${request.hook}" did not return field "${request.binding}"`,
+        `prepare hook "${request.hook}" did not return field "${binding}"`,
       );
     }
     if (!isRecord(value) || typeof value.symbol !== "string") {
       throw new PrepareError(
         "InvalidHookValue",
         request.actionId,
-        `prepare hook "${request.hook}" returned a non-AnyValue for field "${request.binding}": ` +
+        `prepare hook "${request.hook}" returned a non-AnyValue for field "${binding}": ` +
           `expected a typed value (built with buildString/buildNumber/etc), got ${JSON.stringify(value)}`,
       );
     }
+  }
+  if (request.binding !== null) {
     return {
       id: request.id,
       kind: "prepare",
       status: "ok",
-      value: toCanonicalValue(value),
+      value: toCanonicalValue(result[request.binding]),
     };
   }
   return {

@@ -74,6 +74,7 @@ export async function advanceZigRuntime(
   handle: number,
   hooks: HookRegistry,
   signal: AbortSignal,
+  prepareBindings: ReadonlyMap<string, readonly string[]> = new Map(),
 ): Promise<RunnerStepResult> {
   let activeSceneId: string | undefined;
   let activeActionId: string | undefined;
@@ -96,7 +97,12 @@ export async function advanceZigRuntime(
       case "needEffect": {
         activeSceneId = event.sceneId;
         activeActionId = event.actionId;
-        const result = await dispatchZigEffect(event, hooks, signal);
+        const result = await dispatchZigEffect(
+          event,
+          hooks,
+          signal,
+          prepareBindings.get(prepareEffectKey(event)) ?? [],
+        );
         recordPublishOutcome(event, result, publishOutcomes);
         if (result.kind === "prepare" && result.status === "missing") {
           throw new PrepareError(
@@ -168,6 +174,50 @@ function mapPublishHookFailed(
     stateManagerFromUnchecked(readState()),
     outcomes,
   );
+}
+
+function prepareEffectKey(
+  request: Pick<ZigEffectRequest, "sceneId" | "actionId" | "hook">,
+): string {
+  return `${request.sceneId}\u0000${request.actionId}\u0000${request.hook}`;
+}
+
+function prepareBindingMap(model: Uint8Array): ReadonlyMap<string, readonly string[]> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(model));
+  } catch {
+    return new Map();
+  }
+  const root = asRecord(parsed);
+  const bindings = new Map<string, string[]>();
+  for (const sceneValue of Array.isArray(root?.scenes) ? root.scenes : []) {
+    const scene = asRecord(sceneValue);
+    if (typeof scene?.id !== "string") continue;
+    for (const actionValue of Array.isArray(scene.actions) ? scene.actions : []) {
+      const action = asRecord(actionValue);
+      if (typeof action?.id !== "string") continue;
+      for (const prepareValue of Array.isArray(action.prepare) ? action.prepare : []) {
+        const prepare = asRecord(prepareValue);
+        if (typeof prepare?.fromHook !== "string" || typeof prepare.binding !== "string") continue;
+        const key = prepareEffectKey({
+          sceneId: scene.id,
+          actionId: action.id,
+          hook: prepare.fromHook,
+        });
+        const required = bindings.get(key);
+        if (required === undefined) bindings.set(key, [prepare.binding]);
+        else required.push(prepare.binding);
+      }
+    }
+  }
+  return bindings;
+}
+
+function asRecord(input: unknown): Record<string, unknown> | undefined {
+  return typeof input === "object" && input !== null && !Array.isArray(input)
+    ? (input as Record<string, unknown>)
+    : undefined;
 }
 
 function actionTrace(event: Extract<ZigRuntimeEvent, { event: "actionComplete" }>): ActionTrace {
@@ -260,6 +310,7 @@ export function createZigSceneRunner(
     prepare: Object.create(null) as HookRegistry["prepare"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
+  const prepareBindings = prepareBindingMap(model);
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -322,7 +373,7 @@ export function createZigSceneRunner(
     if (done) return { done: true };
     let result: RunnerStepResult;
     try {
-      result = await advanceZigRuntime(client, handle, hooks, signal);
+      result = await advanceZigRuntime(client, handle, hooks, signal, prepareBindings);
     } catch (error) {
       if (error instanceof ZigRuntimeStatusError) {
         const publishError = mapPublishHookFailed(error, sceneId, readState);
@@ -414,6 +465,7 @@ export function createZigRouteRunner(
     prepare: Object.create(null) as HookRegistry["prepare"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
+  const prepareBindings = prepareBindingMap(model);
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -519,7 +571,7 @@ export function createZigRouteRunner(
 
   async function advanceRouteRuntime(): Promise<RunnerStepResult> {
     try {
-      return await advanceZigRuntime(client, handle, hooks, signal);
+      return await advanceZigRuntime(client, handle, hooks, signal, prepareBindings);
     } catch (error) {
       if (error instanceof ZigRuntimeStatusError) {
         const publishError = mapPublishHookFailed(error, error.sceneId ?? routeId, readState);

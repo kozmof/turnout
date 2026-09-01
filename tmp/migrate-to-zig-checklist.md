@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 9 |
-| Last verified commit | `c0b99d6` |
+| Current phase | 10 |
+| Last verified commit | `25f38a0` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Multi-binding prepare hooks still lack binding-level error context at the WASM boundary |
+| Blocking issue | None in Phase 9. Full conformance expansion is in progress. |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -215,7 +215,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 - [x] Public API tests pass against both engines
 - [x] Distribution smoke tests pass with WASM
-- [ ] No caller-facing difference remains unexplained
+- [x] No caller-facing difference remains unexplained
 
 ## Phase 10. Reach conformance
 
