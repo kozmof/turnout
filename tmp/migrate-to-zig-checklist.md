@@ -8,9 +8,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | --- | --- |
 | Owner | Codex implementation agent |
 | Current phase | 11 |
-| Last verified commit | `1af8711` |
+| Last verified commit | `ee409b7` |
 | Last updated | 2026-09-01 |
-| Blocking issue | Root branch coverage is 86.08% against the 90% gate; compatibility monitoring and runtime export outcomes also remain |
+| Blocking issue | Compatibility monitoring and remaining `packages/ts/runtime` export outcomes |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -245,7 +245,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Announce the compatibility window
 - [x] Make Zig/WASM the default engine
 - [x] Keep an internal rollback path during the window
-- [ ] Run the full root `check`
+- [x] Run the full root `check`
 - [x] Run distribution smoke tests
 - [ ] Monitor parity and deployment issues
 - [ ] Add regression tests for every confirmed issue
@@ -255,7 +255,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 - [ ] Zig/WASM completes the compatibility window
 - [ ] No unresolved rollback condition remains
-- [ ] Root checks and distribution tests pass
+- [x] Root checks and distribution tests pass
 
 ## Phase 12. Remove duplicate execution
 
