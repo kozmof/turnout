@@ -1,6 +1,6 @@
 # Turnout Zig runtime
 
-This package is the new execution core for Turnout. The TypeScript executor remains the reference engine while the port moves through the conformance gates.
+This package is the execution core for Turnout. The TypeScript scene runner loads the packaged Zig/WASM module and adapts its events to the public JavaScript API.
 
 The first transport is the sanitized JSON emitted by the Go converter. Zig validates that boundary before it creates runtime state. Host work stays outside Zig and crosses the ordered prepare and publish effect interface.
 
@@ -24,9 +24,9 @@ Run the native and WASM core checks from the repository root.
 - Cancellation as a terminal state
 - Compute, action, scene, and route execution
 - Versioned WASM allocation, lifecycle, and effect-result APIs
-- Native and WASM execution of the same 104 core tests
+- Native and WASM execution of the same 106 core tests
 
-The build packages the WASM module for the TypeScript adapter, which is not implemented yet. Keep the TypeScript executor enabled until the matching migration phases pass.
+The build produces the freestanding WASM module used by `turnout-scene-runner`. The package build validates and copies that artifact into its distribution.
 
 ## Test expectations
 
@@ -34,4 +34,4 @@ Add a Zig unit test for every public runtime operation, validation error, owners
 
 Zig 0.16.0 does not provide the repository with a stable source-coverage report. The current gate requires passing tests and leak detection through std.testing. Add a numeric coverage threshold only after the chosen Zig coverage tool produces reproducible local and CI results.
 
-JSON-first transport does not generate Zig model code. The protobuf generation and generated-code drift tasks are not applicable unless a later approved decision adds protobuf transport.
+JSON-first transport does not generate Zig model code. The shared function-alias specification generates a Zig lookup table, and the root drift check verifies it.

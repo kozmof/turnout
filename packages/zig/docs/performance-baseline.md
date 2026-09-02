@@ -4,11 +4,7 @@ This baseline compares full scene execution through the TypeScript and Zig/WASM 
 
 ## Method
 
-Run the benchmark with the shipped build artifacts.
-
-```sh
-pnpm run benchmark:scene-runner
-```
+The migration benchmark command was removed with the TypeScript executor. The method and results below are retained as the final dual-engine baseline. Recreate an equivalent comparison only from a revision that still contains both engines.
 
 Each engine runs in a separate Node process. The benchmark warms up 100 runners, then measures 1,000 runners. Every runner executes the same 20-action scene. Each action evaluates a three-binding numeric compute program. Runner creation and result decoding are included. Module loading and WASM compilation are outside the timed window.
 
@@ -27,4 +23,4 @@ Recorded on 2026-09-01 with Node v25.9.0 on `linux-x64`. Three isolated trials p
 | WASM linear memory after warmup | not applicable | 1.875 MiB |
 | WASM linear-memory growth during measurement | not applicable | 0 bytes |
 
-TypeScript is about 1.8 times faster on this small compute-heavy workload. Zig/WASM shows about one-tenth of the peak V8 heap growth and about one-ninth of the retained V8 heap growth. These results describe this machine and workload only. Compare future runs with the raw JSON output from the same command and environment.
+TypeScript is about 1.8 times faster on this small compute-heavy workload. Zig/WASM shows about one-tenth of the peak V8 heap growth and about one-ninth of the retained V8 heap growth. These results describe this machine and workload only. Treat these results as historical migration evidence. They are not a current performance gate.

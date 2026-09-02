@@ -8,22 +8,22 @@ The window was announced on 2026-09-01. The public runner and harness entry poin
 
 ## What remains stable
 
-Public runner APIs, hook behavior, result shapes, logs, warnings, errors, state values, and execution order remain unchanged. Engine selection stays internal. Applications do not opt into the Zig engine and do not receive a new engine-selection option.
+Public runner APIs, hook behavior, result shapes, logs, warnings, errors, state values, and execution order remain unchanged. Zig/WASM is the only engine. Applications do not receive an engine-selection option.
 
 The shipped package continues to include the WASM artifact. Browser and server entry points must load the same validated artifact. Distribution smoke tests must cover both environments that the package supports.
 
-## Rollback path
+## Regression response
 
 The deployment rollback control was removed when the window ended. `TURNOUT_SCENE_RUNNER_ENGINE` and `globalThis.__TURNOUT_SCENE_RUNNER_ENGINE__` no longer select the TypeScript executor. No internal engine selector remains.
 
-Use the rollback path when a confirmed issue meets any of these conditions.
+Treat a confirmed issue as release-blocking when it meets any of these conditions.
 
 - Public results, state, hooks, logs, warnings, or errors differ from TypeScript.
 - A supported environment cannot load or instantiate the packaged WASM artifact.
 - A compiler-to-runner fixture fails only with Zig.
 - Zig introduces an unbounded memory increase, host trap, or data corruption.
 
-Record every confirmed issue as a regression test before restoring the Zig default. Benchmark variation alone does not trigger rollback unless it violates an adopted release threshold.
+Record every confirmed issue as a regression test before releasing a fix. Benchmark variation alone does not trigger rollback unless it violates an adopted release threshold.
 
 ## Exit conditions
 
