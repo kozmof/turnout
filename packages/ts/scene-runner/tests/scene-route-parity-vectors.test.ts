@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
-import { executeRoute, executeRouteSafe } from "../src/executor/route-executor.js";
+import { executeRoute } from "../src/executor/route-executor.js";
+import { executeRouteSafe } from "../src/route-safe.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import type { RouteModel, SceneBlock } from "../src/types/turnout-model_pb.js";
 import type { LogEvent } from "../src/types/harness-types.js";

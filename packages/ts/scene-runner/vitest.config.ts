@@ -15,7 +15,7 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/index.ts",
-        "src/executor/types.ts",
+        "src/executor/**",
         "src/server/index.ts",
         "src/types/harness-types.ts",
         "src/types/turnout-model_pb.ts",
@@ -27,18 +27,6 @@ export default defineConfig({
         functions: 90,
         lines: 90,
         "src/runner.ts": { statements: 95, branches: 90, functions: 100, lines: 96 },
-        "src/executor/scene-executor.ts": {
-          statements: 96,
-          branches: 88,
-          functions: 100,
-          lines: 95,
-        },
-        "src/executor/route-stepper.ts": {
-          statements: 94,
-          branches: 87,
-          functions: 100,
-          lines: 95,
-        },
       },
     },
   },

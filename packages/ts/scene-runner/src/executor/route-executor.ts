@@ -205,33 +205,3 @@ export async function executeRoute(
   const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
   return runRouteCore(route, scenes, hooks, options, progress);
 }
-
-/**
- * Like `executeRoute` but catches errors and returns a discriminated union
- * instead of throwing. `partialState` holds the STATE after all successfully
- * completed scenes so callers can inspect progress up to the failure point.
- */
-export async function executeRouteSafe(
-  inputRoute: RouteModel,
-  inputScenes: Record<string, SceneBlock>,
-  entrySceneId: string,
-  state: StateManager,
-  hooks: HookRegistry = { prepare: {}, publish: {} },
-  options: RouteExecutionOptions = {},
-): Promise<RouteResult> {
-  // Per argument, not as one wrapper: the wrapper is always fresh, so snapshotting
-  // it would re-clone scenes a caller already snapshotted, breaking cache identity.
-  const route = snapshotModel(inputRoute);
-  const scenes = snapshotRecord(inputScenes);
-  const progress: RouteProgress = { currentSceneId: entrySceneId, currentState: state };
-  try {
-    return { ok: true, value: await runRouteCore(route, scenes, hooks, options, progress) };
-  } catch (err) {
-    return {
-      ok: false,
-      error: err,
-      partialState: progress.currentState.snapshot(),
-      failedSceneId: progress.currentSceneId,
-    };
-  }
-}

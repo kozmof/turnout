@@ -28,12 +28,8 @@ export {
   stateManagerFromSchema,
 } from "./state/state-manager.js";
 export type { StateManager, StateReader } from "./state/state-manager.js";
-export { executeSceneSafe } from "./executor/scene-executor.js";
-export type {
-  SceneResult,
-  SceneExecutionResult,
-  SceneExecutionOptions,
-} from "./executor/scene-executor.js";
+export { executeSceneSafe } from "./scene-safe.js";
+export type { SceneResult, SceneExecutionResult, SceneExecutionOptions } from "./scene-safe.js";
 export {
   isSceneRuntimeError,
   isPublishHookFailedError,
@@ -56,7 +52,7 @@ export type {
   SceneErrorCode,
   SceneInternalErrorCode,
 } from "./errors.js";
-export { executeRouteSafe } from "./executor/route-executor.js";
-export type { RouteResult, RouteExecutionResult } from "./executor/route-executor.js";
+export { executeRouteSafe } from "./route-safe.js";
+export type { RouteResult, RouteExecutionResult } from "./route-safe.js";
 export { collectPublishFailures } from "./trace-utils.js";
 export type { PublishFailure } from "./trace-utils.js";

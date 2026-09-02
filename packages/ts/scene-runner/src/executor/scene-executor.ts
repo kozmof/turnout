@@ -309,50 +309,6 @@ export async function executeScene(
   return executor.result();
 }
 
-/**
- * Like `executeScene` but catches `SceneRuntimeError` and returns a
- * discriminated union instead of throwing. Partial state at the point of
- * failure is preserved in `result.partialState`.
- */
-export async function executeSceneSafe(
-  inputScene: SceneBlock,
-  state: StateManager,
-  hooks: HookRegistry = { prepare: {}, publish: {} },
-  maxSteps?: number,
-  options: SceneExecutionOptions = {},
-): Promise<SceneResult> {
-  const scene = snapshotModel(inputScene);
-  let executor: SceneExecutor | null = null;
-  try {
-    executor = createSceneExecutor(
-      scene,
-      state,
-      hooks,
-      maxSteps,
-      options.signal,
-      options.onLog,
-      options.failOnPublishError,
-    );
-    while (!executor.isDone()) await executor.next();
-    return { ok: true, value: executor.result() };
-  } catch (err) {
-    const error =
-      err instanceof SceneRuntimeError ? err : err instanceof Error ? err : new Error(String(err));
-    return {
-      ok: false,
-      error,
-      // executor is null when construction itself threw (e.g. DuplicateActionId);
-      // fall back to the pre-construction state and the structured context from
-      // the error (if available) for a machine-readable action id.
-      partialState: executor?.partialState() ?? state,
-      failedActionId:
-        executor?.currentActionId() ??
-        (err instanceof SceneRuntimeError ? err.context?.actionId : undefined) ??
-        "<none>",
-    };
-  }
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────

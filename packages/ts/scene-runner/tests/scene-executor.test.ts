@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  executeScene,
-  executeSceneSafe,
-  createSceneExecutor,
-} from "../src/executor/scene-executor.js";
+import { executeScene, createSceneExecutor } from "../src/executor/scene-executor.js";
+import { executeSceneSafe } from "../src/scene-safe.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { buildNumber, buildBoolean, isPureNumber } from "runtime";
 import type { SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";

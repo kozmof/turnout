@@ -682,6 +682,7 @@ pub const RouteDriver = struct {
     arms: std.json.Value,
     scene: SceneDriver,
     current_scene_id: []const u8,
+    pending_scene_id: ?[]const u8 = null,
     history: std.ArrayList(route_runtime.HistoryEntry) = .empty,
     history_start: usize = 0,
     transitions: usize = 0,
@@ -752,6 +753,7 @@ pub const RouteDriver = struct {
                 if (self.transitions == self.max_transitions)
                     return error.MaxRouteTransitionsExceeded;
                 const target = next.?;
+                self.pending_scene_id = target;
                 var next_scene = try SceneDriver.initWithLimit(
                     self.allocator,
                     model,
@@ -764,6 +766,7 @@ pub const RouteDriver = struct {
                 self.scene.deinit();
                 self.scene = next_scene;
                 self.current_scene_id = target;
+                self.pending_scene_id = null;
                 self.history_start = self.history.items.len;
                 self.transitions += 1;
                 return .{ .scene_changed = .{ .from = previous, .to = target } };

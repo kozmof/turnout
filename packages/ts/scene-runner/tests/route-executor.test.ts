@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { executeRoute, executeRouteSafe } from "../src/executor/route-executor.js";
+import { executeRoute } from "../src/executor/route-executor.js";
+import { executeRouteSafe } from "../src/route-safe.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { isPureNumber } from "runtime";
 import type { RouteModel, SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
@@ -690,7 +691,7 @@ describe("executeRoute convenience options", () => {
   it("forwards structured logs into scene execution", async () => {
     const events: string[] = [];
 
-    await executeRoute(
+    const result = await executeRouteSafe(
       route,
       makeSceneMap(scene),
       "only_scene",
@@ -698,6 +699,7 @@ describe("executeRoute convenience options", () => {
       undefined,
       { onLog: (event) => events.push(event.kind) },
     );
+    expect(result.ok).toBe(true);
 
     expect(events).toEqual(["action-start", "warning", "action-complete"]);
   });

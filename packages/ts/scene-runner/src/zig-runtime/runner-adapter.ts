@@ -388,7 +388,16 @@ function assertOk<T>(
       typeof payload.error === "string"
         ? payload.error
         : JSON.stringify(payload);
-    throw new ZigRuntimeStatusError(response.status, code);
+    const error = new ZigRuntimeStatusError(response.status, code);
+    if (
+      typeof payload === "object" &&
+      payload !== null &&
+      "sceneId" in payload &&
+      typeof payload.sceneId === "string"
+    ) {
+      error.sceneId = payload.sceneId;
+    }
+    throw error;
   }
 }
 
@@ -621,6 +630,7 @@ export function createZigRouteRunner(
   const pending: RunnerStepResult[] = [];
   const preprocessedActions = new WeakSet<object>();
   const finishAfterActions = new WeakSet<object>();
+  let activeSceneId: string | undefined;
   let done = false;
   let handleOpen = true;
   let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
@@ -735,6 +745,13 @@ export function createZigRouteRunner(
         initialPrepareContext,
       );
     } catch (error) {
+      if (
+        error instanceof ZigRuntimeStatusError &&
+        error.sceneId === undefined &&
+        activeSceneId !== undefined
+      ) {
+        error.sceneId = activeSceneId;
+      }
       if (error instanceof ZigRuntimeStatusError) {
         const publishError = mapPublishHookFailed(error, error.sceneId ?? routeId, readState);
         if (publishError !== undefined) throw publishError;
@@ -763,6 +780,7 @@ export function createZigRouteRunner(
       return result;
     }
     if (result.kind === "scene-transition") {
+      activeSceneId = result.toSceneId;
       const following = await advanceRouteRuntime();
       if (following.done || following.kind !== "action") {
         throw new Error("Zig route transition was not followed by an action");

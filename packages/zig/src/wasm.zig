@@ -358,7 +358,17 @@ fn eventResponse(event: runtime.Event) usize {
 
 export fn turnout_runtime_step(handle: u32) usize {
     const instance = instances.get(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
-    const event = instance.driver.step(&instance.model, instance.fail_on_publish_error) catch |err| return runtimeError(err);
+    const event = instance.driver.step(&instance.model, instance.fail_on_publish_error) catch |err| {
+        if (err == error.SceneNotFound) {
+            switch (instance.driver) {
+                .route => |driver| if (driver.pending_scene_id) |scene_id| {
+                    return jsonResponse(.runtime_error, .{ .@"error" = (err), .sceneId = scene_id });
+                },
+                .scene => {},
+            }
+        }
+        return runtimeError(err);
+    };
     return eventResponse(event);
 }
 
