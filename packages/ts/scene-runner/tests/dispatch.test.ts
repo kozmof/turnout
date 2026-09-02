@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveDispatchTarget } from "../src/executor/dispatch.js";
+import { resolveDispatchTarget } from "../src/dispatch.js";
 import type { TurnModel, RouteModel, SceneBlock } from "../src/types/turnout-model_pb.js";
 
 // resolveDispatchTarget only reads ids, routes, scenes, and entrySceneId, so the

@@ -17,8 +17,8 @@ import {
   RouteRuntimeError,
   RunnerError,
   SceneRuntimeError,
-} from "../executor/errors.js";
-import { safeLog } from "../executor/logging.js";
+} from "../errors.js";
+import { safeLog } from "../logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse } from "./client.js";
 import {

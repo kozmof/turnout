@@ -1,6 +1,6 @@
 import type { combine, FuncId, ValueId } from "runtime";
 import type { BindingModel, ArgModel } from "../types/turnout-model_pb.js";
-import { SceneRuntimeError } from "./errors.js";
+import { SceneRuntimeError } from "../errors.js";
 
 export type LocalFuncOutputRef = { readonly __type: "funcOutput"; readonly funcId: string };
 export type LocalStepOutputRef = {

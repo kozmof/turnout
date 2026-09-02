@@ -10,7 +10,7 @@ import {
   isModelValidationError,
   RouteRuntimeError,
   isRouteRuntimeError,
-} from "../src/executor/errors.js";
+} from "../src/errors.js";
 
 // Each guard must accept its own error type and reject every other error type.
 // A guard that always returned true would silently misroute error handling, so

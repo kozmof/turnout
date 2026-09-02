@@ -14,7 +14,7 @@ import {
   isRecord,
 } from "runtime";
 import type { AnyValue } from "runtime";
-import { StateError } from "../executor/errors.js";
+import { StateError } from "../errors.js";
 
 type SchemaTypeEntry = {
   guard(v: AnyValue): boolean;

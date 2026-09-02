@@ -1,7 +1,7 @@
 import { buildNull } from "runtime";
 import type { AnyValue } from "runtime";
 import type { StateModel } from "../types/turnout-model_pb.js";
-import { StateError } from "../executor/errors.js";
+import { StateError } from "../errors.js";
 import type { StateManager } from "./state-types.js";
 import { assertSafePath, assertKnownPath, assertValidWrite } from "./state-validation.js";
 import { matchesSchemaType } from "./schema-types.js";

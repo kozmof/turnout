@@ -12,7 +12,7 @@ import {
 } from "./prepare-resolver.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
 import type { PublishHookOutcome } from "../types/harness-types.js";
-import { PublishHookFailedError, SceneRuntimeError } from "./errors.js";
+import { PublishHookFailedError, SceneRuntimeError } from "../errors.js";
 
 // Trees are fully determined by funcTable, which is stable for the lifetime of
 // a given BuiltContext. For pure progs, buildContextFromProg returns the same

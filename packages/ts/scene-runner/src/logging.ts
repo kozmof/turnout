@@ -1,4 +1,4 @@
-import type { LogEvent } from "../types/harness-types.js";
+import type { LogEvent } from "./types/harness-types.js";
 
 /**
  * Emit an observational log event without allowing a failing sink to alter

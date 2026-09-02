@@ -1,4 +1,4 @@
-import type { TurnModel, ProgModel, BindingModel } from "../types/turnout-model_pb.js";
+import type { TurnModel, ProgModel, BindingModel } from "./types/turnout-model_pb.js";
 
 /**
  * Validate the structural invariants of a TurnModel that cannot be caught by

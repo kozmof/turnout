@@ -5,8 +5,8 @@
 // but also carry typed fields that callers can inspect without parsing messages.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import type { StateManager } from "../state/state-types.js";
-import type { PublishHookOutcome } from "../types/harness-types.js";
+import type { StateManager } from "./state/state-types.js";
+import type { PublishHookOutcome } from "./types/harness-types.js";
 
 export type PrepareErrorCode =
   | "MissingStateBinding"

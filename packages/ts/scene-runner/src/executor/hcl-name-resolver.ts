@@ -1,7 +1,7 @@
 import type { FuncId, FuncTable, ValueId } from "runtime";
 import type { ProgModel } from "../types/turnout-model_pb.js";
 import { toFuncId, toValueId } from "./dynamic-boundary.js";
-import { SceneRuntimeError } from "./errors.js";
+import { SceneRuntimeError } from "../errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Phase 2: ids + funcTable → nameToValueId

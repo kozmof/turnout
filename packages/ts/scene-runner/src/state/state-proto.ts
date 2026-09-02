@@ -3,7 +3,7 @@ import type { AnyValue } from "runtime";
 import { toJson } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import type { Value } from "@bufbuild/protobuf/wkt";
-import { StateError } from "../executor/errors.js";
+import { StateError } from "../errors.js";
 import { getSchemaTypeEntry } from "./schema-types.js";
 
 /**

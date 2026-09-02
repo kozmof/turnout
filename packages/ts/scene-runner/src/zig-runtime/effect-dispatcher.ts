@@ -1,5 +1,5 @@
 import type { AnyValue } from "runtime";
-import { PrepareError } from "../executor/errors.js";
+import { PrepareError } from "../errors.js";
 import type {
   HookRegistry,
   PrepareHookContext,

@@ -12,8 +12,8 @@ import { collectSceneWarnings } from "./collect-warnings.js";
 import type { ParsedMatchArm, HistoryEntry } from "./route-pattern.js";
 import { selectNextScene } from "./route-pattern.js";
 import { createSceneExecutor } from "./scene-executor.js";
-import { RouteRuntimeError, SceneRuntimeError } from "./errors.js";
-import { safeLog } from "./logging.js";
+import { RouteRuntimeError, SceneRuntimeError } from "../errors.js";
+import { safeLog } from "../logging.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Public types

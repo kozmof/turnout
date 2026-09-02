@@ -45,7 +45,7 @@ export {
   StateError,
   ModelValidationError,
   RouteRuntimeError,
-} from "./executor/errors.js";
+} from "./errors.js";
 export type {
   RunnerErrorCode,
   StateErrorCode,
@@ -55,7 +55,7 @@ export type {
   PublishHookFailedError,
   SceneErrorCode,
   SceneInternalErrorCode,
-} from "./executor/errors.js";
+} from "./errors.js";
 export { executeRouteSafe } from "./executor/route-executor.js";
 export type { RouteResult, RouteExecutionResult } from "./executor/route-executor.js";
 export { collectPublishFailures } from "./trace-utils.js";

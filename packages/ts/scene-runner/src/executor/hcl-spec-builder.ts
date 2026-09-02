@@ -14,7 +14,7 @@ import type {
   LocalStepOutputRef,
   LocalTransformRef,
 } from "./dynamic-boundary.js";
-import { SceneRuntimeError } from "./errors.js";
+import { SceneRuntimeError } from "../errors.js";
 import { getFuncBindingNames } from "./hcl-cache.js";
 import { inferLiteralAnyValue } from "./hcl-literal.js";
 import { literalToValue } from "../state/state-manager.js";

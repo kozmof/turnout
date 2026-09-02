@@ -1,5 +1,5 @@
 import type { AnyValue } from "runtime";
-import { StateError } from "../executor/errors.js";
+import { StateError } from "../errors.js";
 import { matchesSchemaType } from "./schema-types.js";
 
 export const RESERVED_KEYS = new Set([

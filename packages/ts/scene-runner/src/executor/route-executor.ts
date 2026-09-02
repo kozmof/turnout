@@ -11,7 +11,7 @@ import { collectSceneWarnings } from "./collect-warnings.js";
 import { executeScene } from "./scene-executor.js";
 import { selectNextScene, parseMatchArms } from "./route-pattern.js";
 import type { HistoryEntry } from "./route-pattern.js";
-import { isPublishHookFailedError, RouteRuntimeError } from "./errors.js";
+import { isPublishHookFailedError, RouteRuntimeError } from "../errors.js";
 import { snapshotModel, snapshotRecord } from "../model-snapshot.js";
 
 // ─────────────────────────────────────────────────────────────────────────────

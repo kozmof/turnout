@@ -1,6 +1,6 @@
 import { buildArray } from "runtime";
 import type { AnyValue } from "runtime";
-import { SceneRuntimeError } from "./errors.js";
+import { SceneRuntimeError } from "../errors.js";
 import { literalToValue, protoValueToJs } from "../state/state-manager.js";
 
 export function inferLiteralAnyValue(lit: unknown, contextId: string): AnyValue {

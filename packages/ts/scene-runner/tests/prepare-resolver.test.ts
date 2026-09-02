@@ -18,7 +18,7 @@ import {
 import type { ActionExecutionResult } from "../src/executor/types.js";
 import type { HookRegistry, PrepareHookContext } from "../src/types/harness-types.js";
 import type { PrepareEntry, NextPrepareEntry } from "../src/types/turnout-model_pb.js";
-import { PrepareError } from "../src/executor/errors.js";
+import { PrepareError } from "../src/errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // resolveActionPrepare

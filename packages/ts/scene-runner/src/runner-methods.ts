@@ -1,7 +1,7 @@
 import type { StateManager } from "./state/state-manager.js";
 import type { HarnessResult, HookRegistry } from "./types/harness-types.js";
 import type { Runner, RunnerStepResult } from "./runner.js";
-import { RunnerError } from "./executor/errors.js";
+import { RunnerError } from "./errors.js";
 
 /** Build the mode-independent stepping, lifecycle, and hook-registration API. */
 export function makeRunnerMethods<R extends HarnessResult>(

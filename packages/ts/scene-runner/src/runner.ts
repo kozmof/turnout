@@ -8,9 +8,9 @@ import type {
 } from "./types/harness-types.js";
 import type { StateManager } from "./state/state-manager.js";
 import { migrateModel, checkSceneForExtExpr } from "./migration.js";
-import { resolveDispatchTarget } from "./executor/dispatch.js";
-import { validateModel } from "./executor/validate-model.js";
-import { ModelValidationError } from "./executor/errors.js";
+import { resolveDispatchTarget } from "./dispatch.js";
+import { validateModel } from "./validate-model.js";
+import { ModelValidationError } from "./errors.js";
 import { snapshotModel, snapshotRecord } from "./model-snapshot.js";
 import type { Runner, RunnerOptions } from "./runner-types.js";
 import {

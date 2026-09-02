@@ -3,7 +3,7 @@ import { executeAction } from "../src/executor/action-executor.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { buildNumber, buildString, isPureNumber, isPureNull } from "runtime";
 import type { ActionModel } from "../src/types/turnout-model_pb.js";
-import { PublishHookFailedError } from "../src/executor/errors.js";
+import { PublishHookFailedError } from "../src/errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Fixtures

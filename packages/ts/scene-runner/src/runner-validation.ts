@@ -1,4 +1,4 @@
-import { RunnerError } from "./executor/errors.js";
+import { RunnerError } from "./errors.js";
 import type { RunnerOptions } from "./runner-types.js";
 
 export function assertUncheckedStateAllowed(options: RunnerOptions, detail: string): void {

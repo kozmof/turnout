@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel, SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
 import { TurnModelSchema } from "../src/types/turnout-model_pb.js";
-import { validateModel } from "../src/executor/validate-model.js";
+import { validateModel } from "../src/validate-model.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = resolve(__dirname, "fixtures");

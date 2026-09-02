@@ -1,4 +1,4 @@
-import type { TurnModel, RouteModel, SceneBlock } from "../types/turnout-model_pb.js";
+import type { TurnModel, RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
 
 export type DispatchTarget =
   | { kind: "route"; route: RouteModel; entryScene: SceneBlock }

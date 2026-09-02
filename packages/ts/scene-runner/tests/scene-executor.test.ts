@@ -7,7 +7,7 @@ import {
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import { buildNumber, buildBoolean, isPureNumber } from "runtime";
 import type { SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
-import { SceneRuntimeError, PrepareError } from "../src/executor/errors.js";
+import { SceneRuntimeError, PrepareError } from "../src/errors.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers

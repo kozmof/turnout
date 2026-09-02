@@ -6,7 +6,7 @@ import { literalToValue, protoValueToJs } from "../state/state-manager.js";
 import type { HookRegistry, PrepareHookContext } from "../types/harness-types.js";
 import type { ActionExecutionResult } from "./types.js";
 import { UNABORTABLE } from "./types.js";
-import { PrepareError } from "./errors.js";
+import { PrepareError } from "../errors.js";
 
 /**
  * Returns true when any prepare entry requires an async hook call.

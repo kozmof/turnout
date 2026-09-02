@@ -10,10 +10,10 @@ import type {
 } from "../types/harness-types.js";
 import { executeAction } from "./action-executor.js";
 import { type ActionExecutionResult, UNABORTABLE } from "./types.js";
-import { isPublishHookFailedError, SceneRuntimeError } from "./errors.js";
+import { isPublishHookFailedError, SceneRuntimeError } from "../errors.js";
 import { snapshotModel } from "../model-snapshot.js";
 import { createRunState, enqueueNext } from "./run-state.js";
-import { safeLog } from "./logging.js";
+import { safeLog } from "../logging.js";
 import { evaluateNextRules } from "./next-rules.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
