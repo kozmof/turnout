@@ -14,6 +14,14 @@ type CanonicalValue = {
 };
 
 export function toCanonicalValue(input: unknown): CanonicalValue {
+  return encodeCanonicalValue(input, false);
+}
+
+export function toCanonicalOperationValue(input: unknown): CanonicalValue {
+  return encodeCanonicalValue(input, true);
+}
+
+function encodeCanonicalValue(input: unknown, allowNonFinite: boolean): CanonicalValue {
   if (!isRecord(input) || typeof input.symbol !== "string" || !Array.isArray(input.tags)) {
     throw new TypeError("expected a tagged Value");
   }
@@ -23,10 +31,11 @@ export function toCanonicalValue(input: unknown): CanonicalValue {
   }
   switch (input.symbol) {
     case "number":
-      if (typeof input.value !== "number" || !Number.isFinite(input.value)) {
+      if (typeof input.value !== "number") throw new TypeError("number Value is invalid");
+      if (!allowNonFinite && !Number.isFinite(input.value)) {
         throw new TypeError("number Value must be finite");
       }
-      return { symbol: "number", value: input.value, tags };
+      return { symbol: "number", value: encodeNumber(input.value), tags };
     case "string":
       if (typeof input.value !== "string") throw new TypeError("string Value is invalid");
       return { symbol: "string", value: input.value, tags };
@@ -53,7 +62,7 @@ export function toCanonicalValue(input: unknown): CanonicalValue {
       const subSymbol = canonicalArraySubSymbol(input.subSymbol);
       return {
         symbol: "array",
-        value: input.value.map(toCanonicalValue),
+        value: input.value.map((value) => encodeCanonicalValue(value, allowNonFinite)),
         tags,
         ...(subSymbol !== undefined && { subSymbol }),
       };
@@ -61,7 +70,7 @@ export function toCanonicalValue(input: unknown): CanonicalValue {
       if (!isRecord(input.value)) throw new TypeError("record Value is invalid");
       return {
         symbol: "record",
-        value: mapRecord(input.value, toCanonicalValue),
+        value: mapRecord(input.value, (value) => encodeCanonicalValue(value, allowNonFinite)),
         tags,
       };
     default:
@@ -79,10 +88,7 @@ export function fromCanonicalValue(input: unknown): AnyValue {
   }
   switch (input.symbol) {
     case "number":
-      if (typeof input.value !== "number" || !Number.isFinite(input.value)) {
-        throw new TypeError("canonical number is invalid");
-      }
-      return { symbol: "number", value: input.value, subSymbol: undefined, tags };
+      return { symbol: "number", value: decodeNumber(input.value), subSymbol: undefined, tags };
     case "string":
       if (typeof input.value !== "string") throw new TypeError("canonical string is invalid");
       return { symbol: "string", value: input.value, subSymbol: undefined, tags };
@@ -119,6 +125,21 @@ export function fromCanonicalValue(input: unknown): AnyValue {
     default:
       throw new TypeError("unknown canonical Value symbol");
   }
+}
+
+function encodeNumber(value: number): number | string {
+  if (Number.isNaN(value)) return "NaN";
+  if (value === Infinity) return "Infinity";
+  if (value === -Infinity) return "-Infinity";
+  return value;
+}
+
+function decodeNumber(value: unknown): number {
+  if (typeof value === "number") return value;
+  if (value === "NaN") return Number.NaN;
+  if (value === "Infinity") return Infinity;
+  if (value === "-Infinity") return -Infinity;
+  throw new TypeError("canonical number is invalid");
 }
 
 function canonicalArraySubSymbol(input: unknown): ArrayElemSubSymbol {

@@ -1,6 +1,6 @@
 import type { AnyValue } from "../../state-control/value.js";
 import { defaultZigRuntimeClient } from "../../zig-runtime/default-client.js";
-import { fromCanonicalValue, toCanonicalValue } from "../../zig-runtime/value-codec.js";
+import { fromCanonicalValue, toCanonicalOperationValue } from "../../zig-runtime/value-codec.js";
 import type { TransformFnNames } from "../types.js";
 
 type AnyToAny = (value: AnyValue) => AnyValue;
@@ -11,7 +11,7 @@ export const getTransformFn = (name: TransformFnNames): AnyToAny => {
     const response = defaultZigRuntimeClient.value({
       operation: "preset",
       name,
-      args: [toCanonicalValue(value)],
+      args: [toCanonicalOperationValue(value)],
     });
     if (response.status !== "ok") throw new Error(readError(response.payload));
     const result = fromCanonicalValue(response.payload);

@@ -1,6 +1,6 @@
 import type { AnyValue } from "../../state-control/value.js";
 import { defaultZigRuntimeClient } from "../../zig-runtime/default-client.js";
-import { fromCanonicalValue, toCanonicalValue } from "../../zig-runtime/value-codec.js";
+import { fromCanonicalValue, toCanonicalOperationValue } from "../../zig-runtime/value-codec.js";
 import type { CombineFnNames } from "../types.js";
 
 type AnyToAny = (...values: AnyValue[]) => AnyValue;
@@ -21,7 +21,7 @@ function callPreset(name: string, values: readonly AnyValue[]): AnyValue {
   const response = defaultZigRuntimeClient.value({
     operation: "preset",
     name,
-    args: values.map(toCanonicalValue),
+    args: values.map(toCanonicalOperationValue),
   });
   if (response.status !== "ok") throw new Error(readError(response.payload));
   return fromCanonicalValue(response.payload);

@@ -1,6 +1,6 @@
-import { type NumberValue, type StringValue, type TagSymbol } from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
+import { type NumberValue, type TagSymbol } from "../../value.js";
 import { type ToNumberConversion, type ToStringConversion } from "../convert.js";
-import { buildString, unaryNumberOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnNumber {
@@ -13,29 +13,15 @@ export interface TransformFnNumber {
   negate: ToNumberConversion<NumberValue<readonly TagSymbol[]>>;
 }
 
-export const tfNumber: TransformFnNumber = {
-  pass: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return val;
-  },
-  toStr: (val: NumberValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
-    return buildString(val.value.toString(), val.tags);
-  },
-  abs: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return unaryNumberOp((n) => Math.abs(n), val);
-  },
-  floor: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return unaryNumberOp((n) => Math.floor(n), val);
-  },
-  ceil: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return unaryNumberOp((n) => Math.ceil(n), val);
-  },
-  round: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return unaryNumberOp((n) => Math.round(n), val);
-  },
-  negate: (val: NumberValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return unaryNumberOp((n) => -n, val);
-  },
-} as const;
+export const tfNumber = createZigPresetNamespace<TransformFnNumber>("transformFnNumber", [
+  "pass",
+  "toStr",
+  "abs",
+  "floor",
+  "ceil",
+  "round",
+  "negate",
+]);
 
 export type TransformFnNumberNameSpace = "transformFnNumber";
 export type TransformFnNumberNames =

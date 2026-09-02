@@ -1,6 +1,5 @@
-import { type BooleanValue, type TagSymbol } from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
 import { type BooleanToBoolean } from "../convert.js";
-import { combineBooleanOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface CombineFnBoolean {
@@ -9,26 +8,11 @@ export interface CombineFnBoolean {
   xor: BooleanToBoolean;
 }
 
-export const cfBoolean: CombineFnBoolean = {
-  and: (
-    a: BooleanValue<readonly TagSymbol[]>,
-    b: BooleanValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x && y, a, b);
-  },
-  or: (
-    a: BooleanValue<readonly TagSymbol[]>,
-    b: BooleanValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x || y, a, b);
-  },
-  xor: (
-    a: BooleanValue<readonly TagSymbol[]>,
-    b: BooleanValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x !== y, a, b);
-  },
-} as const;
+export const cfBoolean = createZigPresetNamespace<CombineFnBoolean>("combineFnBoolean", [
+  "and",
+  "or",
+  "xor",
+]);
 
 export type CombineFnBooleanNameSpace = "combineFnBoolean";
 export type CombineFnBooleanNames =

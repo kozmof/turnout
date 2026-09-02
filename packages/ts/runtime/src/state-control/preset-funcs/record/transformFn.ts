@@ -1,3 +1,4 @@
+import { createZigPresetNamespace } from "../zig-preset.js";
 import { type RecordValue, type TagSymbol } from "../../value.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
@@ -5,9 +6,7 @@ export interface TransformFnRecord {
   pass: (value: RecordValue<readonly TagSymbol[]>) => RecordValue<readonly TagSymbol[]>;
 }
 
-export const tfRecord: TransformFnRecord = {
-  pass: (value) => value,
-} as const;
+export const tfRecord = createZigPresetNamespace<TransformFnRecord>("transformFnRecord", ["pass"]);
 
 export type TransformFnRecordNameSpace = "transformFnRecord";
 export type TransformFnRecordNames =

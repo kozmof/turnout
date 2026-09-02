@@ -1,6 +1,5 @@
-import { type BooleanValue, type NumberValue, type TagSymbol } from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
 import { type NumberToBoolean, type NumberToNumber } from "../convert.js";
-import { combineBooleanOp, combineNumberOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface CombineFnNumber {
@@ -17,80 +16,19 @@ export interface CombineFnNumber {
   lessThanOrEqual: NumberToBoolean;
 }
 
-export const cfNumber: CombineFnNumber = {
-  add: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    return combineNumberOp((x, y) => x + y, a, b);
-  },
-  minus: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    return combineNumberOp((x, y) => x - y, a, b);
-  },
-  multiply: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    return combineNumberOp((x, y) => x * y, a, b);
-  },
-  divide: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    if (b.value === 0) {
-      throw new Error("Division by zero");
-    }
-    return combineNumberOp((x, y) => x / y, a, b);
-  },
-  mod: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    if (b.value === 0) {
-      throw new Error("Modulo by zero");
-    }
-    return combineNumberOp((x, y) => x % y, a, b);
-  },
-  max: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    return combineNumberOp((x, y) => Math.max(x, y), a, b);
-  },
-  min: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    return combineNumberOp((x, y) => Math.min(x, y), a, b);
-  },
-  greaterThan: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x > y, a, b);
-  },
-  greaterThanOrEqual: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x >= y, a, b);
-  },
-  lessThan: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x < y, a, b);
-  },
-  lessThanOrEqual: (
-    a: NumberValue<readonly TagSymbol[]>,
-    b: NumberValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x <= y, a, b);
-  },
-} as const;
+export const cfNumber = createZigPresetNamespace<CombineFnNumber>("combineFnNumber", [
+  "add",
+  "minus",
+  "multiply",
+  "divide",
+  "mod",
+  "max",
+  "min",
+  "greaterThan",
+  "greaterThanOrEqual",
+  "lessThan",
+  "lessThanOrEqual",
+]);
 
 export type CombineFnNumberNameSpace = "combineFnNumber";
 export type CombineFnNumberNames =

@@ -1,15 +1,10 @@
-import {
-  type NumberValue,
-  type AnyArrayValue,
-  type TagSymbol,
-  type BooleanValue,
-} from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
+import { type AnyArrayValue, type TagSymbol } from "../../value.js";
 import {
   type ToArrayConversion,
   type ToNumberConversion,
   type ToBooleanConversion,
 } from "../convert.js";
-import { buildBoolean, buildNumber } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnArray {
@@ -18,17 +13,11 @@ export interface TransformFnArray {
   isEmpty: ToBooleanConversion<AnyArrayValue<readonly TagSymbol[]>>;
 }
 
-export const tfArray: TransformFnArray = {
-  pass: (val: AnyArrayValue<readonly TagSymbol[]>): AnyArrayValue<readonly TagSymbol[]> => {
-    return val;
-  },
-  length: (val: AnyArrayValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return buildNumber(val.value.length, val.tags);
-  },
-  isEmpty: (val: AnyArrayValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
-    return buildBoolean(val.value.length === 0, val.tags);
-  },
-} as const;
+export const tfArray = createZigPresetNamespace<TransformFnArray>("transformFnArray", [
+  "pass",
+  "length",
+  "isEmpty",
+]);
 
 export type TransformFnArrayNameSpace = "transformFnArray";
 export type TransformFnArrayNames =

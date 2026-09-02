@@ -290,7 +290,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [ ] Replace `executeGraph` and `executeGraphSafe` with Zig-backed adapters
 - [ ] Replace compute validation and type inference with Zig-backed adapters
 - [ ] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters
-- [ ] Remove TypeScript preset implementations
+- [x] Remove TypeScript preset implementations
 - [ ] Remove TypeScript compute execution implementations
 - [ ] Remove TypeScript Value semantic implementations
 - [ ] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists

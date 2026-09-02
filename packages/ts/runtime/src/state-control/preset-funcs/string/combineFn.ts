@@ -1,13 +1,7 @@
-import {
-  type BooleanValue,
-  type NumberValue,
-  type StringValue,
-  type TagSymbol,
-} from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
+import { type NumberValue, type StringValue, type TagSymbol } from "../../value.js";
 import { type StringToBoolean, type StringToString } from "../convert.js";
-import { combineBooleanOp, combineStringOp, buildNumber } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
-import { extractCapture } from "./templateExtract.js";
 
 export interface CombineFnString {
   concat: StringToString;
@@ -25,46 +19,14 @@ export interface CombineFnString {
   ) => NumberValue<readonly TagSymbol[]>;
 }
 
-export const cfString: CombineFnString = {
-  concat: (
-    a: StringValue<readonly TagSymbol[]>,
-    b: StringValue<readonly TagSymbol[]>,
-  ): StringValue<readonly TagSymbol[]> => {
-    return combineStringOp((x, y) => x + y, a, b);
-  },
-  includes: (
-    a: StringValue<readonly TagSymbol[]>,
-    b: StringValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x.includes(y), a, b);
-  },
-  startsWith: (
-    a: StringValue<readonly TagSymbol[]>,
-    b: StringValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x.startsWith(y), a, b);
-  },
-  endsWith: (
-    a: StringValue<readonly TagSymbol[]>,
-    b: StringValue<readonly TagSymbol[]>,
-  ): BooleanValue<readonly TagSymbol[]> => {
-    return combineBooleanOp((x, y) => x.endsWith(y), a, b);
-  },
-  extract: (
-    a: StringValue<readonly TagSymbol[]>,
-    b: StringValue<readonly TagSymbol[]>,
-  ): StringValue<readonly TagSymbol[]> => {
-    return combineStringOp((subject, spec) => extractCapture(subject, spec), a, b);
-  },
-  extractNum: (
-    a: StringValue<readonly TagSymbol[]>,
-    b: StringValue<readonly TagSymbol[]>,
-  ): NumberValue<readonly TagSymbol[]> => {
-    const raw = extractCapture(a.value, b.value);
-    const n = Number(raw);
-    return buildNumber(raw !== "" && !Number.isNaN(n) ? n : 0, a.tags);
-  },
-} as const;
+export const cfString = createZigPresetNamespace<CombineFnString>("combineFnString", [
+  "concat",
+  "includes",
+  "startsWith",
+  "endsWith",
+  "extract",
+  "extractNum",
+]);
 
 export type CombineFnStringNameSpace = "combineFnString";
 export type CombineFnStringNames =

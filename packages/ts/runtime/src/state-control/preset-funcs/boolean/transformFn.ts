@@ -1,6 +1,6 @@
-import { type BooleanValue, type StringValue, type TagSymbol } from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
+import { type BooleanValue, type TagSymbol } from "../../value.js";
 import { type ToBooleanConversion, type ToStringConversion } from "../convert.js";
-import { buildString, unaryBooleanOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnBoolean {
@@ -9,17 +9,11 @@ export interface TransformFnBoolean {
   toStr: ToStringConversion<BooleanValue<readonly TagSymbol[]>>;
 }
 
-export const tfBoolean: TransformFnBoolean = {
-  pass: (val: BooleanValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
-    return val;
-  },
-  not: (val: BooleanValue<readonly TagSymbol[]>): BooleanValue<readonly TagSymbol[]> => {
-    return unaryBooleanOp((b) => !b, val);
-  },
-  toStr: (val: BooleanValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
-    return buildString(val.value.toString(), val.tags);
-  },
-} as const;
+export const tfBoolean = createZigPresetNamespace<TransformFnBoolean>("transformFnBoolean", [
+  "pass",
+  "not",
+  "toStr",
+]);
 
 export type TransformFnBooleanNameSpace = "transformFnBoolean";
 export type TransformFnBooleanNames =

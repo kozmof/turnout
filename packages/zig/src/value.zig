@@ -251,9 +251,16 @@ fn decodeCanonicalValue(
         const number: f64 = switch (raw) {
             .integer => |integer| @floatFromInt(integer),
             .float => |float| float,
+            .string => |string| if (std.mem.eql(u8, string, "NaN"))
+                std.math.nan(f64)
+            else if (std.mem.eql(u8, string, "Infinity"))
+                std.math.inf(f64)
+            else if (std.mem.eql(u8, string, "-Infinity"))
+                -std.math.inf(f64)
+            else
+                return error.InvalidCanonicalValue,
             else => return error.InvalidCanonicalValue,
         };
-        if (!std.math.isFinite(number)) return error.InvalidCanonicalValue;
         return .{ .number = number };
     }
     if (std.mem.eql(u8, symbol, "string")) {
@@ -354,7 +361,14 @@ pub const CanonicalTagged = struct {
         switch (self.tagged.value) {
             .number => |number| {
                 try writer.objectField("value");
-                try writer.write(number);
+                if (std.math.isNan(number))
+                    try writer.write("NaN")
+                else if (std.math.isPositiveInf(number))
+                    try writer.write("Infinity")
+                else if (std.math.isNegativeInf(number))
+                    try writer.write("-Infinity")
+                else
+                    try writer.write(number);
             },
             .string => |string| {
                 try writer.objectField("value");

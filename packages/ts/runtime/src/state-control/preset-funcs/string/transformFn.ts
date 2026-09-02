@@ -1,6 +1,6 @@
-import { type NumberValue, type StringValue, type TagSymbol } from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
+import { type StringValue, type TagSymbol } from "../../value.js";
 import { type ToStringConversion, type ToNumberConversion } from "../convert.js";
-import { buildNumber, unaryStringOp } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface TransformFnString {
@@ -12,33 +12,14 @@ export interface TransformFnString {
   length: ToNumberConversion<StringValue<readonly TagSymbol[]>>;
 }
 
-export const tfString: TransformFnString = {
-  pass: (val: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
-    return val;
-  },
-  toNumber: (val: StringValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    // Use strict Number() rather than parseFloat, which accepts trailing garbage
-    // ("42abc" -> 42). Reject empty/whitespace-only and non-finite results.
-    const trimmed = val.value.trim();
-    const n = Number(trimmed);
-    if (trimmed === "" || !Number.isFinite(n)) {
-      throw new Error(`Cannot convert ${JSON.stringify(val.value)} to a number`);
-    }
-    return buildNumber(n, val.tags);
-  },
-  trim: (val: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
-    return unaryStringOp((s) => s.trim(), val);
-  },
-  toLowerCase: (val: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
-    return unaryStringOp((s) => s.toLowerCase(), val);
-  },
-  toUpperCase: (val: StringValue<readonly TagSymbol[]>): StringValue<readonly TagSymbol[]> => {
-    return unaryStringOp((s) => s.toUpperCase(), val);
-  },
-  length: (val: StringValue<readonly TagSymbol[]>): NumberValue<readonly TagSymbol[]> => {
-    return buildNumber(val.value.length, val.tags);
-  },
-} as const;
+export const tfString = createZigPresetNamespace<TransformFnString>("transformFnString", [
+  "pass",
+  "toNumber",
+  "trim",
+  "toLowerCase",
+  "toUpperCase",
+  "length",
+]);
 
 export type TransformFnStringNameSpace = "transformFnString";
 export type TransformFnStringNames =

@@ -1,3 +1,4 @@
+import { createZigPresetNamespace } from "../zig-preset.js";
 import { type NullValue, type TagSymbol } from "../../value.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
@@ -5,11 +6,7 @@ export interface TransformFnNull {
   pass: (val: NullValue<readonly TagSymbol[]>) => NullValue<readonly TagSymbol[]>;
 }
 
-export const tfNull: TransformFnNull = {
-  pass: (val: NullValue<readonly TagSymbol[]>): NullValue<readonly TagSymbol[]> => {
-    return val;
-  },
-} as const;
+export const tfNull = createZigPresetNamespace<TransformFnNull>("transformFnNull", ["pass"]);
 
 export type TransformFnNullNameSpace = "transformFnNull";
 export type TransformFnNullNames =

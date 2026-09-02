@@ -1,7 +1,6 @@
-import { isArray, type AnyValue, type BooleanValue, type TagSymbol } from "../../value.js";
+import { createZigPresetNamespace } from "../zig-preset.js";
+import { type AnyValue } from "../../value.js";
 import { type ToBooleanProcess } from "../convert.js";
-import { isComparable } from "../util/isComparable.js";
-import { buildBoolean } from "../../value-builders.js";
 import { type NamespaceDelimiter } from "../../../util/constants.js";
 
 export interface CombineFnGeneric<T extends AnyValue> {
@@ -9,47 +8,10 @@ export interface CombineFnGeneric<T extends AnyValue> {
   isNotEqual: ToBooleanProcess<T, T>;
 }
 
-function mergeOperandTags(a: AnyValue, b: AnyValue): readonly TagSymbol[] {
-  const tagsSet = new Set<TagSymbol>();
-  for (const tag of a.tags) tagsSet.add(tag);
-  for (const tag of b.tags) tagsSet.add(tag);
-  return Array.from(tagsSet);
-}
-
-/**
- * Structural, tag-insensitive value equality.
- *
- * Scalars compare by their underlying `.value` (matching strict `===` semantics,
- * so differing base types are unequal). Arrays compare length and then element
- * for element with the same rule. Tags never participate in equality — this keeps
- * array equality consistent with scalar equality, which ignores tags entirely.
- */
-function areValuesEqual(a: AnyValue, b: AnyValue): boolean {
-  if (isArray(a) && isArray(b)) {
-    return (
-      a.value.length === b.value.length &&
-      a.value.every((el, i) => areValuesEqual(el, b.value[i] as AnyValue))
-    );
-  }
-  return a.value === b.value;
-}
-
-export const cfGeneric: CombineFnGeneric<AnyValue> = {
-  isEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
-    if (isComparable(a, b)) {
-      return buildBoolean(areValuesEqual(a, b), mergeOperandTags(a, b));
-    } else {
-      throw new Error("Cannot compare " + a.symbol + " and " + b.symbol + " values for equality");
-    }
-  },
-  isNotEqual: (a: AnyValue, b: AnyValue): BooleanValue<readonly TagSymbol[]> => {
-    if (isComparable(a, b)) {
-      return buildBoolean(!areValuesEqual(a, b), mergeOperandTags(a, b));
-    } else {
-      throw new Error("Cannot compare " + a.symbol + " and " + b.symbol + " values for inequality");
-    }
-  },
-} as const;
+export const cfGeneric = createZigPresetNamespace<CombineFnGeneric<AnyValue>>("combineFnGeneric", [
+  "isEqual",
+  "isNotEqual",
+]);
 
 export type CombineFnGenericNameSpace = "combineFnGeneric";
 export type CombineFnGenericNames =
