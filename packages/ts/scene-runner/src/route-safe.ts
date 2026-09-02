@@ -48,9 +48,9 @@ export async function executeRouteSafe(
   let activeSceneId = entrySceneId;
   try {
     const entryScene = scenes[entrySceneId];
-    if (entryScene === undefined) throw new Error(`unknown scene ""`);
+    if (entryScene === undefined) throw new Error('unknown scene "' + entrySceneId + '"');
     if (!entryScene.entryAction) {
-      throw new Error(`scene "" has no entry action`);
+      throw new Error('scene "' + entrySceneId + '" has no entry action');
     }
     runner = createRouteRunner(
       route,

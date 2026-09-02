@@ -1,4 +1,4 @@
-// Generates TypeScript and Zig function maps from spec/fn-aliases.json.
+// Generates the Zig function alias map from spec/fn-aliases.json.
 // Run: node --experimental-strip-types scripts/gen-fn-map.ts
 import { readFileSync, writeFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
@@ -9,26 +9,6 @@ const aliases = JSON.parse(readFileSync(resolve(root, "spec/fn-aliases.json"), "
   hcl: string;
   runtime: string;
 }>;
-
-const lines = aliases.map(({ hcl, runtime }) => {
-  return `  ${hcl}: "${runtime}",`;
-});
-
-const out = [
-  "// AUTO-GENERATED — do not edit.",
-  "// Source of truth: spec/fn-aliases.json",
-  "// Regenerate: node --experimental-strip-types scripts/gen-fn-map.ts",
-  'import type { CombineFnNames } from "runtime";',
-  "",
-  "export const FN_MAP: Record<string, CombineFnNames> = {",
-  ...lines,
-  "};",
-  "",
-].join("\n");
-
-const dest = resolve(root, "packages/ts/scene-runner/src/executor/fn-map.generated.ts");
-writeFileSync(dest, out);
-console.log(`Generated ${dest}`);
 
 const zigLines = aliases.map(({ hcl, runtime }) => {
   return `    .{ .hcl = "${hcl}", .runtime = "${runtime}" },`;

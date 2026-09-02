@@ -1,9 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { executeRoute } from "../src/executor/route-executor.js";
-import { createRouteStepper } from "../src/executor/route-stepper.js";
-import { parseMatchArms } from "../src/executor/route-pattern.js";
 import { createSceneRunner, createRouteRunner } from "../src/runner.js";
-import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import type { RouteModel, SceneBlock, ActionModel } from "../src/types/turnout-model_pb.js";
 import type { ExecutionWarning } from "../src/types/harness-types.js";
 
@@ -82,31 +78,6 @@ const runnerOptions = {
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe("execution warnings — driver parity", () => {
-  it("executeRoute flattens scene warnings onto the result", async () => {
-    const scene = makeWarningScene("s1");
-    const route = { id: "r", match: [] } as unknown as RouteModel;
-
-    const result = await executeRoute(route, { s1: scene }, "s1", stateManagerFromUnchecked({}));
-
-    expect(result.warnings).toEqual([expectedWarning("s1")]);
-  });
-
-  it("createRouteStepper reports the same warnings executeRoute does", async () => {
-    const scene = makeWarningScene("s1");
-    const stepper = createRouteStepper(
-      "r",
-      parseMatchArms([]),
-      "s1",
-      { s1: scene },
-      stateManagerFromUnchecked({}),
-      { prepare: {}, publish: {} },
-    );
-
-    while (!stepper.isDone()) await stepper.next();
-
-    expect(stepper.result().warnings).toEqual([expectedWarning("s1")]);
-  });
-
   it("createRouteRunner surfaces warnings on its harness result", async () => {
     const scene = makeWarningScene("s1");
     const route = { id: "r", match: [] } as unknown as RouteModel;
@@ -145,7 +116,7 @@ describe("execution warnings — shape", () => {
       match: [{ patterns: ["s1.*.again"], target: "s2" }],
     } as unknown as RouteModel;
 
-    const result = await executeRoute(route, { s1, s2 }, "s1", stateManagerFromUnchecked({}));
+    const result = await createRouteRunner(route, s1, { s1, s2 }, runnerOptions).run();
 
     expect(result.warnings).toEqual([expectedWarning("s1"), expectedWarning("s2")]);
   });

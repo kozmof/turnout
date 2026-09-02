@@ -15,7 +15,6 @@ export default defineConfig({
       include: ["src/**/*.ts"],
       exclude: [
         "src/index.ts",
-        "src/executor/**",
         "src/server/index.ts",
         "src/types/harness-types.ts",
         "src/types/turnout-model_pb.ts",

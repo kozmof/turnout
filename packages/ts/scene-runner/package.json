@@ -20,7 +20,6 @@
   "scripts": {
     "build": "pnpm run build:wasm && tsc --project tsconfig.build.json && node ../../../scripts/package-zig-wasm.mjs",
     "build:wasm": "zig build --build-file ../../zig/build.zig wasm",
-    "gen:fn-map": "node --experimental-strip-types ../../../scripts/gen-fn-map.ts",
     "lint": "oxlint -c ../../../.oxlintrc.json src/ tests/",
     "fmt": "oxfmt",
     "test": "vitest --run",
