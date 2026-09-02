@@ -1,4 +1,5 @@
 import type { BaseTypeSymbol } from "../state-control/value.js";
+import type { ExecutionContext } from "../compute-graph/types.js";
 import { defaultZigRuntimeClient } from "./default-client.js";
 
 type PresetMetadata = {
@@ -17,4 +18,20 @@ export function getPresetMetadata(name: string, elementType?: BaseTypeSymbol): P
     return { inputType: null, parameterType: null, returnType: null };
   }
   return response.payload;
+}
+
+type GraphInferenceQuery = "value" | "element" | "combine" | "function";
+
+export function inferGraphType(
+  query: GraphInferenceQuery,
+  id: string,
+  context: ExecutionContext,
+): BaseTypeSymbol | null {
+  const response = defaultZigRuntimeClient.value<{ type: BaseTypeSymbol | null }>({
+    operation: "infer",
+    query,
+    id,
+    context,
+  });
+  return response.status === "ok" ? response.payload.type : null;
 }

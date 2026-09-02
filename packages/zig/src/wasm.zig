@@ -266,6 +266,27 @@ fn valueResponse(bytes: []const u8) !Response {
         });
     }
 
+    if (std.mem.eql(u8, operation.string, "infer")) {
+        const query = parsed.value.object.get("query") orelse return error.InvalidValueRequest;
+        const id = parsed.value.object.get("id") orelse return error.InvalidValueRequest;
+        const context = parsed.value.object.get("context") orelse return error.InvalidValueRequest;
+        if (query != .string or id != .string or context != .object) return error.InvalidValueRequest;
+        const inferred = if (std.mem.eql(u8, query.string, "value"))
+            inferValueType(context, id.string)
+        else if (std.mem.eql(u8, query.string, "element"))
+            inferValueElementType(context, id.string)
+        else if (std.mem.eql(u8, query.string, "combine"))
+            try inferCombineType(context, id.string)
+        else if (std.mem.eql(u8, query.string, "function")) blk: {
+            var visited_functions: std.StringHashMapUnmanaged(void) = .empty;
+            defer visited_functions.deinit(allocator);
+            var visited_pipes: std.StringHashMapUnmanaged(void) = .empty;
+            defer visited_pipes.deinit(allocator);
+            break :blk try inferFunctionType(context, id.string, &visited_functions, &visited_pipes);
+        } else return error.InvalidValueRequest;
+        return jsonResponseValue(.{ .type = inferred });
+    }
+
     var result = if (std.mem.eql(u8, operation.string, "normalize")) blk: {
         const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
         var decoded = try value.fromCanonicalValue(raw, allocator);
@@ -309,6 +330,100 @@ fn valueResponse(bytes: []const u8) !Response {
     const payload = try value.canonicalJson(result.borrowed(), allocator);
     defer allocator.free(payload);
     return makeResponse(.ok, payload);
+}
+
+fn contextTable(context: std.json.Value, name: []const u8) ?std.json.ObjectMap {
+    const table = context.object.get(name) orelse return null;
+    return if (table == .object) table.object else null;
+}
+
+fn inferValueType(context: std.json.Value, id: []const u8) ?[]const u8 {
+    const table = contextTable(context, "valueTable") orelse return null;
+    const item = table.get(id) orelse return null;
+    if (item != .object) return null;
+    const symbol = item.object.get("symbol") orelse return null;
+    return if (symbol == .string) symbol.string else null;
+}
+
+fn inferValueElementType(context: std.json.Value, id: []const u8) ?[]const u8 {
+    const table = contextTable(context, "valueTable") orelse return null;
+    const item = table.get(id) orelse return null;
+    if (item != .object) return null;
+    const symbol = item.object.get("symbol") orelse return null;
+    if (symbol != .string or !std.mem.eql(u8, symbol.string, "array")) return null;
+    if (item.object.get("subSymbol")) |sub_symbol|
+        if (sub_symbol == .string) return sub_symbol.string;
+    const items = item.object.get("value") orelse return null;
+    if (items != .array or items.array.items.len == 0 or items.array.items[0] != .object) return null;
+    const first_symbol = items.array.items[0].object.get("symbol") orelse return null;
+    return if (first_symbol == .string) first_symbol.string else null;
+}
+
+fn inferCombineType(context: std.json.Value, id: []const u8) !?[]const u8 {
+    const table = contextTable(context, "combineFuncDefTable") orelse return null;
+    const definition = table.get(id) orelse return null;
+    if (definition != .object) return null;
+    const name = definition.object.get("name") orelse return null;
+    if (name != .string) return null;
+    var probe = preset.call(name.string, &.{}, allocator) catch |err| switch (err) {
+        error.UnknownFunction => return null,
+        else => return preset.returnType(name.string, null),
+    };
+    probe.deinit(allocator);
+    return preset.returnType(name.string, null);
+}
+
+fn inferFunctionType(
+    context: std.json.Value,
+    id: []const u8,
+    visited_functions: *std.StringHashMapUnmanaged(void),
+    visited_pipes: *std.StringHashMapUnmanaged(void),
+) !?[]const u8 {
+    if (visited_functions.contains(id)) return null;
+    try visited_functions.put(allocator, id, {});
+    defer _ = visited_functions.remove(id);
+    const functions = contextTable(context, "funcTable") orelse return null;
+    const entry = functions.get(id) orelse return null;
+    if (entry != .object) return null;
+    const kind = entry.object.get("kind") orelse return null;
+    const definition_id = entry.object.get("defId") orelse return null;
+    if (kind != .string or definition_id != .string) return null;
+    if (std.mem.eql(u8, kind.string, "combine")) return try inferCombineType(context, definition_id.string);
+    if (std.mem.eql(u8, kind.string, "pipe"))
+        return inferPipeType(context, definition_id.string, visited_pipes);
+    if (!std.mem.eql(u8, kind.string, "cond")) return null;
+    const definitions = contextTable(context, "condFuncDefTable") orelse return null;
+    const definition = definitions.get(definition_id.string) orelse return null;
+    if (definition != .object) return null;
+    const true_id = definition.object.get("trueBranchId") orelse return null;
+    const false_id = definition.object.get("falseBranchId") orelse return null;
+    if (true_id != .string or false_id != .string) return null;
+    const true_type = try inferFunctionType(context, true_id.string, visited_functions, visited_pipes) orelse return null;
+    const false_type = try inferFunctionType(context, false_id.string, visited_functions, visited_pipes) orelse return null;
+    return if (std.mem.eql(u8, true_type, false_type)) true_type else null;
+}
+
+fn inferPipeType(
+    context: std.json.Value,
+    id: []const u8,
+    visited: *std.StringHashMapUnmanaged(void),
+) !?[]const u8 {
+    if (visited.contains(id)) return null;
+    try visited.put(allocator, id, {});
+    defer _ = visited.remove(id);
+    const pipes = contextTable(context, "pipeFuncDefTable") orelse return null;
+    const definition = pipes.get(id) orelse return null;
+    if (definition != .object) return null;
+    const sequence = definition.object.get("sequence") orelse return null;
+    if (sequence != .array or sequence.array.items.len == 0) return null;
+    const last = sequence.array.items[sequence.array.items.len - 1];
+    if (last != .object) return null;
+    const definition_id = last.object.get("defId") orelse return null;
+    if (definition_id != .string) return null;
+    if (contextTable(context, "combineFuncDefTable")) |combines|
+        if (combines.contains(definition_id.string)) return try inferCombineType(context, definition_id.string);
+    if (pipes.contains(definition_id.string)) return inferPipeType(context, definition_id.string, visited);
+    return null;
 }
 
 fn jsonResponseValue(payload: anytype) !Response {
@@ -815,6 +930,41 @@ test "WASM stateless Value operation normalizes and calls presets" {
     var matched = try expectResponse(predicate_address, .ok, null);
     defer matched.deinit();
     try std.testing.expect(matched.value.object.get("matches").?.bool);
+}
+
+test "WASM stateless Value operation infers graph types" {
+    const context =
+        \\{"valueTable":{"array":{"symbol":"array","value":[],"subSymbol":"number"}},
+        \\ "funcTable":{"pipe":{"kind":"pipe","defId":"outer"},"cond":{"kind":"cond","defId":"choice"},"left":{"kind":"combine","defId":"add"},"right":{"kind":"combine","defId":"add"}},
+        \\ "combineFuncDefTable":{"add":{"name":"combineFnNumber::add"},"unknown":{"name":"combineFnNumber::missing"}},
+        \\ "pipeFuncDefTable":{"outer":{"sequence":[{"defId":"inner"}]},"inner":{"sequence":[{"defId":"add"}]}},
+        \\ "condFuncDefTable":{"choice":{"trueBranchId":"left","falseBranchId":"right"}}}
+    ;
+    const queries = [_]struct { query: []const u8, id: []const u8, expected: ?[]const u8 }{
+        .{ .query = "value", .id = "array", .expected = "array" },
+        .{ .query = "element", .id = "array", .expected = "number" },
+        .{ .query = "combine", .id = "add", .expected = "number" },
+        .{ .query = "function", .id = "pipe", .expected = "number" },
+        .{ .query = "function", .id = "cond", .expected = "number" },
+        .{ .query = "combine", .id = "unknown", .expected = null },
+    };
+    for (queries) |query| {
+        const request = try std.fmt.allocPrint(
+            std.testing.allocator,
+            "{{\"operation\":\"infer\",\"query\":\"{s}\",\"id\":\"{s}\",\"context\":{s}}}",
+            .{ query.query, query.id, context },
+        );
+        defer std.testing.allocator.free(request);
+        const address = turnout_value_operate(@intFromPtr(request.ptr), @intCast(request.len));
+        defer freeResponse(address);
+        var response = try expectResponse(address, .ok, null);
+        defer response.deinit();
+        const inferred = response.value.object.get("type").?;
+        if (query.expected) |expected|
+            try std.testing.expectEqualStrings(expected, inferred.string)
+        else
+            try std.testing.expect(inferred == .null);
+    }
 }
 
 test "WASM stateless Value operation rejects malformed and oversized requests" {
