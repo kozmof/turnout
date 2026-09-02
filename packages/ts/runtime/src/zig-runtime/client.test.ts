@@ -31,6 +31,7 @@ function testExports(): ZigRuntimeExports {
       bytes.set(payload, 12);
       return responseAddress;
     },
+    turnout_value_operate: () => 0,
     turnout_runtime_create: () => 0,
     turnout_runtime_destroy: () => 0,
     turnout_runtime_step: () => 0,

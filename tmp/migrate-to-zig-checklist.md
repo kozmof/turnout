@@ -281,12 +281,12 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Reopen the migration with the expanded all-runtime-semantics goal
 - [x] Define the allowed TypeScript adapter responsibilities
 - [x] Add stateless compute execution to the WASM ABI
-- [ ] Add stateless Value and preset operations to the WASM ABI
-- [ ] Add malformed-input, size-limit, nesting-limit, and leak tests for the new ABI operations
+- [x] Add stateless Value and preset operations to the WASM ABI
+- [x] Add malformed-input, size-limit, nesting-limit, and leak tests for the new ABI operations
 - [x] Package the Zig WASM artifact with `packages/ts/runtime`
 - [x] Move or share the WASM byte-buffer client through `packages/ts/runtime`
-- [ ] Move or share the canonical Value codec through `packages/ts/runtime`
-- [ ] Preserve synchronous public APIs after WASM module initialization
+- [x] Move or share the canonical Value codec through `packages/ts/runtime`
+- [x] Preserve synchronous public APIs after WASM module initialization
 - [ ] Replace `executeGraph` and `executeGraphSafe` with Zig-backed adapters
 - [ ] Replace compute validation and type inference with Zig-backed adapters
 - [ ] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters

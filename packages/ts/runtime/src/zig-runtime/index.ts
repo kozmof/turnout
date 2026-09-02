@@ -7,3 +7,4 @@ export {
   type ZigStatus,
 } from "./client.js";
 export { defaultZigRuntimeClient } from "./default-client.js";
+export { fromCanonicalValue, toCanonicalValue } from "./value-codec.js";

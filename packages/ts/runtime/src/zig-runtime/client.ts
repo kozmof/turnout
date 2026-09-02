@@ -25,6 +25,7 @@ export interface ZigRuntimeExports {
   turnout_alloc(length: number): number;
   turnout_free(address: number, length: number): void;
   turnout_compute_execute(address: number, length: number): number;
+  turnout_value_operate(address: number, length: number): number;
   turnout_runtime_create(
     modelAddress: number,
     modelLength: number,
@@ -84,6 +85,13 @@ export class ZigRuntimeClient {
     return this.#withInputs([this.#encode(request)], ([input]) => {
       if (input === undefined) throw new ZigAbiError("missing ABI input");
       return this.#readResponse(this.#exports.turnout_compute_execute(input.address, input.length));
+    });
+  }
+
+  value<T = unknown>(request: unknown): ZigResponse<T> {
+    return this.#withInputs([this.#encode(request)], ([input]) => {
+      if (input === undefined) throw new ZigAbiError("missing ABI input");
+      return this.#readResponse(this.#exports.turnout_value_operate(input.address, input.length));
     });
   }
 

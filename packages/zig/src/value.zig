@@ -233,7 +233,11 @@ pub fn fromCanonicalValue(json: std.json.Value, allocator: std.mem.Allocator) Ca
         if (tag != .string) return error.InvalidCanonicalValue;
         tags[index] = tag.string;
     }
-    const decoded = try decodeCanonicalValue(symbol.string, raw, json.object.get("reason"), allocator);
+    const metadata = if (std.mem.eql(u8, symbol.string, "array"))
+        json.object.get("subSymbol")
+    else
+        json.object.get("reason");
+    const decoded = try decodeCanonicalValue(symbol.string, raw, metadata, allocator);
     return .{ .value = decoded, .tags = tags };
 }
 
@@ -264,8 +268,7 @@ fn decodeCanonicalValue(
         if (raw != .null) return error.InvalidCanonicalValue;
         const reason = raw_reason orelse return error.InvalidCanonicalValue;
         if (reason != .string) return error.InvalidCanonicalValue;
-        return .{ .null_value = std.meta.stringToEnum(NullReason, reason.string) orelse
-            return error.InvalidCanonicalValue };
+        return .{ .null_value = parseNullReason(reason.string) orelse return error.InvalidCanonicalValue };
     }
     if (std.mem.eql(u8, symbol, "array")) {
         if (raw != .array) return error.InvalidCanonicalValue;
@@ -278,7 +281,11 @@ fn decodeCanonicalValue(
             items[index] = item.borrowed();
             initialized += 1;
         }
-        return .{ .array = .{ .items = items } };
+        const element = if (raw_reason) |sub_symbol| blk: {
+            if (sub_symbol != .string) return error.InvalidCanonicalValue;
+            break :blk parseArrayElement(sub_symbol.string) orelse return error.InvalidCanonicalValue;
+        } else .untyped;
+        return .{ .array = .{ .element = element, .items = items } };
     }
     if (std.mem.eql(u8, symbol, "record")) {
         if (raw != .object) return error.InvalidCanonicalValue;
@@ -301,6 +308,33 @@ fn decodeCanonicalValue(
         return .{ .record = record };
     }
     return error.InvalidCanonicalValue;
+}
+
+fn parseNullReason(reason: []const u8) ?NullReason {
+    if (std.mem.eql(u8, reason, "not-found")) return .not_found;
+    return std.meta.stringToEnum(NullReason, reason);
+}
+
+fn nullReasonName(reason: NullReason) []const u8 {
+    return if (reason == .not_found) "not-found" else @tagName(reason);
+}
+
+fn parseArrayElement(symbol: []const u8) ?ArrayElement {
+    if (std.mem.eql(u8, symbol, "number")) return .number;
+    if (std.mem.eql(u8, symbol, "string")) return .string;
+    if (std.mem.eql(u8, symbol, "boolean")) return .boolean;
+    if (std.mem.eql(u8, symbol, "null")) return .null_value;
+    return null;
+}
+
+fn arrayElementName(element: ArrayElement) ?[]const u8 {
+    return switch (element) {
+        .untyped => null,
+        .number => "number",
+        .string => "string",
+        .boolean => "boolean",
+        .null_value => "null",
+    };
 }
 
 pub const CanonicalTagged = struct {
@@ -334,13 +368,17 @@ pub const CanonicalTagged = struct {
                 try writer.objectField("value");
                 try writer.write(null);
                 try writer.objectField("reason");
-                try writer.write(@tagName(reason));
+                try writer.write(nullReasonName(reason));
             },
             .array => |array| {
                 try writer.objectField("value");
                 try writer.beginArray();
                 for (array.items) |item| try writer.write(CanonicalTagged{ .tagged = item });
                 try writer.endArray();
+                if (arrayElementName(array.element)) |element| {
+                    try writer.objectField("subSymbol");
+                    try writer.write(element);
+                }
             },
             .record => |record| {
                 try writer.objectField("value");
@@ -568,6 +606,17 @@ test "parsed canonical owner retains nested tags and null reasons" {
     try std.testing.expectEqual(NullReason.filtered, nested.value.null_value);
     try std.testing.expectEqual(@as(usize, 1), nested.tags.len);
     try std.testing.expectEqualStrings("nested", nested.tags[0]);
+    const json = try canonicalJson(parsed.tagged.borrowed(), std.testing.allocator);
+    defer std.testing.allocator.free(json);
+    try std.testing.expectEqualStrings(source, json);
+}
+
+test "canonical JSON preserves public null reason and typed array symbols" {
+    const source = "{\"symbol\":\"array\",\"value\":[{\"symbol\":\"null\",\"value\":null,\"reason\":\"not-found\",\"tags\":[]}],\"subSymbol\":\"null\",\"tags\":[]}";
+    var parsed = try ParsedCanonical.init(source, std.testing.allocator);
+    defer parsed.deinit(std.testing.allocator);
+    try std.testing.expectEqual(ArrayElement.null_value, parsed.tagged.value.array.element);
+    try std.testing.expectEqual(NullReason.not_found, parsed.tagged.value.array.items[0].value.null_value);
     const json = try canonicalJson(parsed.tagged.borrowed(), std.testing.allocator);
     defer std.testing.allocator.free(json);
     try std.testing.expectEqualStrings(source, json);

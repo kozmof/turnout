@@ -3,6 +3,7 @@ const builtin = @import("builtin");
 const compute = @import("compute.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
+const preset = @import("preset.zig");
 const runtime = @import("runtime.zig");
 const state_runtime = @import("state.zig");
 const value = @import("value.zig");
@@ -17,6 +18,7 @@ pub const response_header_len: usize = 12;
 pub const max_create_request_bytes: usize = 16 * 1024 * 1024;
 pub const max_effect_result_bytes: usize = 16 * 1024 * 1024;
 pub const max_compute_request_bytes: usize = 16 * 1024 * 1024;
+pub const max_value_request_bytes: usize = 16 * 1024 * 1024;
 pub const max_input_nesting: usize = 128;
 
 pub const Status = enum(u16) {
@@ -204,6 +206,54 @@ export fn turnout_compute_execute(address: usize, len: u32) usize {
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
     if (len > max_compute_request_bytes) return errorResponse(.invalid_input, "ComputeRequestTooLarge");
     const response = computeResponse(bytesAt(address, len)) catch |err|
+        return if (err == error.OutOfMemory)
+            errorResponse(.out_of_memory, @errorName(err))
+        else
+            errorResponse(.runtime_error, @errorName(err));
+    return @intFromPtr(response.bytes.ptr);
+}
+
+fn valueResponse(bytes: []const u8) !Response {
+    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, bytes, .{});
+    defer parsed.deinit();
+    try validateInputNesting(parsed.value, 0);
+    if (parsed.value != .object) return error.InvalidValueRequest;
+    const operation = parsed.value.object.get("operation") orelse return error.InvalidValueRequest;
+    if (operation != .string) return error.InvalidValueRequest;
+
+    var result = if (std.mem.eql(u8, operation.string, "normalize")) blk: {
+        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
+        var decoded = try value.fromCanonicalValue(raw, allocator);
+        defer decoded.deinit(allocator);
+        break :blk try value.build(decoded.value, decoded.tags, allocator);
+    } else if (std.mem.eql(u8, operation.string, "preset")) blk: {
+        const name = parsed.value.object.get("name") orelse return error.InvalidValueRequest;
+        const raw_args = parsed.value.object.get("args") orelse return error.InvalidValueRequest;
+        if (name != .string or raw_args != .array) return error.InvalidValueRequest;
+        var owned = std.ArrayList(value.OwnedTaggedValue).empty;
+        defer {
+            for (owned.items) |*item| item.deinit(allocator);
+            owned.deinit(allocator);
+        }
+        var args = std.ArrayList(value.TaggedValue).empty;
+        defer args.deinit(allocator);
+        for (raw_args.array.items) |raw| {
+            try owned.ensureUnusedCapacity(allocator, 1);
+            owned.appendAssumeCapacity(try value.fromCanonicalValue(raw, allocator));
+            try args.append(allocator, owned.items[owned.items.len - 1].borrowed());
+        }
+        break :blk try preset.call(name.string, args.items, allocator);
+    } else return error.InvalidValueRequest;
+    defer result.deinit(allocator);
+    const payload = try value.canonicalJson(result.borrowed(), allocator);
+    defer allocator.free(payload);
+    return makeResponse(.ok, payload);
+}
+
+export fn turnout_value_operate(address: usize, len: u32) usize {
+    if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
+    if (len > max_value_request_bytes) return errorResponse(.invalid_input, "ValueRequestTooLarge");
+    const response = valueResponse(bytesAt(address, len)) catch |err|
         return if (err == error.OutOfMemory)
             errorResponse(.out_of_memory, @errorName(err))
         else
@@ -595,6 +645,53 @@ test "WASM stateless compute rejects malformed and oversized requests" {
     defer oversized_response.deinit();
     try std.testing.expectEqualStrings(
         "ComputeRequestTooLarge",
+        oversized_response.value.object.get("error").?.string,
+    );
+}
+
+test "WASM stateless Value operation normalizes and calls presets" {
+    const normalize =
+        \\{"operation":"normalize","value":{"symbol":"number","value":3,"tags":["a","a"]}}
+    ;
+    const normalize_address = turnout_value_operate(@intFromPtr(normalize.ptr), normalize.len);
+    defer freeResponse(normalize_address);
+    var normalized = try expectResponse(normalize_address, .ok, null);
+    defer normalized.deinit();
+    try std.testing.expectEqual(@as(usize, 1), normalized.value.object.get("tags").?.array.items.len);
+
+    const call =
+        \\{"operation":"preset","name":"combineFnNumber::add","args":[
+        \\  {"symbol":"number","value":3,"tags":["left"]},
+        \\  {"symbol":"number","value":4,"tags":["right"]}
+        \\]}
+    ;
+    const call_address = turnout_value_operate(@intFromPtr(call.ptr), call.len);
+    defer freeResponse(call_address);
+    var called = try expectResponse(call_address, .ok, null);
+    defer called.deinit();
+    try std.testing.expectEqual(@as(i64, 7), called.value.object.get("value").?.integer);
+    try std.testing.expectEqualStrings("left", called.value.object.get("tags").?.array.items[0].string);
+    try std.testing.expectEqualStrings("right", called.value.object.get("tags").?.array.items[1].string);
+}
+
+test "WASM stateless Value operation rejects malformed and oversized requests" {
+    const malformed = "{}";
+    const malformed_address = turnout_value_operate(@intFromPtr(malformed.ptr), malformed.len);
+    defer freeResponse(malformed_address);
+    var malformed_response = try expectResponse(malformed_address, .runtime_error, null);
+    defer malformed_response.deinit();
+    try std.testing.expectEqualStrings(
+        "InvalidValueRequest",
+        malformed_response.value.object.get("error").?.string,
+    );
+
+    const one = "x";
+    const oversized_address = turnout_value_operate(@intFromPtr(one.ptr), max_value_request_bytes + 1);
+    defer freeResponse(oversized_address);
+    var oversized_response = try expectResponse(oversized_address, .invalid_input, null);
+    defer oversized_response.deinit();
+    try std.testing.expectEqualStrings(
+        "ValueRequestTooLarge",
         oversized_response.value.object.get("error").?.string,
     );
 }
