@@ -238,6 +238,34 @@ fn valueResponse(bytes: []const u8) !Response {
         return makeResponse(.ok, output.written());
     }
 
+    if (std.mem.eql(u8, operation.string, "metadata")) {
+        const name = parsed.value.object.get("name") orelse return error.InvalidValueRequest;
+        if (name != .string) return error.InvalidValueRequest;
+        const known = blk: {
+            var probe = preset.call(name.string, &.{}, allocator) catch |err|
+                break :blk err != error.UnknownFunction;
+            probe.deinit(allocator);
+            break :blk true;
+        };
+        if (!known) return jsonResponseValue(.{
+            .inputType = @as(?[]const u8, null),
+            .parameterType = @as(?[]const u8, null),
+            .returnType = @as(?[]const u8, null),
+        });
+        const element = if (parsed.value.object.get("elementType")) |raw| blk: {
+            if (raw != .string) return error.InvalidValueRequest;
+            break :blk raw.string;
+        } else null;
+        const output_type = preset.returnType(name.string, element);
+        const input_type = preset.inputType(name.string);
+        const parameter_type = preset.parameterType(name.string);
+        return jsonResponseValue(.{
+            .inputType = input_type,
+            .parameterType = parameter_type,
+            .returnType = output_type,
+        });
+    }
+
     var result = if (std.mem.eql(u8, operation.string, "normalize")) blk: {
         const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
         var decoded = try value.fromCanonicalValue(raw, allocator);
@@ -281,6 +309,13 @@ fn valueResponse(bytes: []const u8) !Response {
     const payload = try value.canonicalJson(result.borrowed(), allocator);
     defer allocator.free(payload);
     return makeResponse(.ok, payload);
+}
+
+fn jsonResponseValue(payload: anytype) !Response {
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    defer output.deinit();
+    try std.json.Stringify.value(payload, .{}, &output.writer);
+    return makeResponse(.ok, output.written());
 }
 
 fn valuePredicate(tagged: value.TaggedValue, predicate: []const u8, argument: ?std.json.Value) !bool {

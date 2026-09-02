@@ -1,22 +1,4 @@
-import {
-  metaCfBoolean,
-  metaCfNumber,
-  metaCfString,
-  metaCfArray,
-  metaCfGeneric,
-} from "../../state-control/meta-chain/combine-fn/metaReturn.js";
-import {
-  metaCfBooleanParams,
-  metaCfNumberParams,
-  metaCfStringParams,
-} from "../../state-control/meta-chain/combine-fn/metaParams.js";
-import {
-  metaTfBoolean,
-  metaTfNumber,
-  metaTfNull,
-  metaTfString,
-  metaTfArray,
-} from "../../state-control/meta-chain/transform-fn/metaReturn.js";
+import { getPresetMetadata } from "../../zig-runtime/preset-metadata.js";
 import type { AnyValue, BaseTypeSymbol } from "../../state-control/value.js";
 import type {
   ExecutionContext,
@@ -28,7 +10,6 @@ import type {
   TransformFnNames,
 } from "../types.js";
 import { isCondDefineId, isCombineDefineId, isPipeDefineId } from "../idValidation.js";
-import { splitPairCombineFnNames, splitPairTransformFnNames } from "../../util/splitPair.js";
 
 /**
  * Type-safe helper to get a value from the ValueTable.
@@ -43,26 +24,7 @@ function getValueFromTable(valueId: ValueId, context: ExecutionContext): AnyValu
  * Transform functions are namespaced, e.g., "transformFnNumber::pass"
  */
 export function getTransformFnInputType(transformFnName: TransformFnNames): BaseTypeSymbol | null {
-  const maySplit = splitPairTransformFnNames(transformFnName);
-  if (maySplit === null) return null;
-  const namespace = maySplit[0];
-
-  switch (namespace) {
-    case "transformFnBoolean":
-      return "boolean";
-    case "transformFnNumber":
-      return "number";
-    case "transformFnNull":
-      return "null";
-    case "transformFnString":
-      return "string";
-    case "transformFnArray":
-      return "array";
-    case "transformFnRecord":
-      return "record";
-    default:
-      return null;
-  }
+  return getPresetMetadata(transformFnName).inputType;
 }
 
 /**
@@ -70,36 +32,7 @@ export function getTransformFnInputType(transformFnName: TransformFnNames): Base
  * e.g., "transformFnNumber::toStr" returns "string"
  */
 export function getTransformFnReturnType(transformFnName: TransformFnNames): BaseTypeSymbol | null {
-  const maySplit = splitPairTransformFnNames(transformFnName);
-  if (maySplit === null) return null;
-  const [namespace, fnName] = maySplit;
-
-  switch (namespace) {
-    case "transformFnBoolean": {
-      const meta = metaTfBoolean();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "transformFnNumber": {
-      const meta = metaTfNumber();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "transformFnNull": {
-      const meta = metaTfNull();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "transformFnString": {
-      const meta = metaTfString();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "transformFnArray": {
-      const meta = metaTfArray();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "transformFnRecord":
-      return fnName === "pass" ? "record" : null;
-    default:
-      return null;
-  }
+  return getPresetMetadata(transformFnName).returnType;
 }
 
 /**
@@ -113,38 +46,8 @@ export function getTransformFnReturnType(transformFnName: TransformFnNames): Bas
 export function getCombineFnParamTypes(
   combineFnName: CombineFnNames,
 ): [BaseTypeSymbol, BaseTypeSymbol] | null {
-  const mayPair = splitPairCombineFnNames(combineFnName);
-  if (mayPair === null) return null;
-  const [namespace, fnName] = mayPair;
-
-  switch (namespace) {
-    case "combineFnBoolean": {
-      const meta = metaCfBooleanParams();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnNumber": {
-      const meta = metaCfNumberParams();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnString": {
-      const meta = metaCfStringParams();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnGeneric": {
-      // Generic functions can work with any type, so we can't validate statically
-      // We'd need to check that both params have the same type at runtime
-      return null;
-    }
-    case "combineFnArray": {
-      // Array functions have complex param types (array + element type)
-      // Would need the element type to validate properly
-      return null;
-    }
-    case "combineFnRecord":
-      return null;
-    default:
-      return null;
-  }
+  const parameterType = getPresetMetadata(combineFnName).parameterType;
+  return parameterType === null ? null : [parameterType, parameterType];
 }
 
 /**
@@ -155,50 +58,7 @@ export function getCombineFnReturnType(
   combineFnName: CombineFnNames,
   elemType?: BaseTypeSymbol,
 ): BaseTypeSymbol | null {
-  const mayPair = splitPairCombineFnNames(combineFnName);
-  if (mayPair === null) return null;
-  const [namespace, fnName] = mayPair;
-
-  switch (namespace) {
-    case "combineFnBoolean": {
-      const meta = metaCfBoolean();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnNumber": {
-      const meta = metaCfNumber();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnString": {
-      const meta = metaCfString();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnGeneric": {
-      const meta = metaCfGeneric();
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnArray": {
-      if (fnName === "includes") return "boolean";
-      if (fnName === "concat") return "array";
-      if (fnName === "getNumber") return "number";
-      if (fnName === "getString") return "string";
-      if (fnName === "getBoolean") return "boolean";
-      if (fnName === "getArray") return "array";
-      if (fnName === "getRecord") return "record";
-      if (!elemType || elemType === "null") return null;
-      const meta = metaCfArray(elemType);
-      return Object.prototype.hasOwnProperty.call(meta, fnName) ? meta[fnName] : null;
-    }
-    case "combineFnRecord":
-      if (fnName === "set") return "record";
-      if (fnName === "getNumber") return "number";
-      if (fnName === "getString") return "string";
-      if (fnName === "getBoolean") return "boolean";
-      if (fnName === "getArray") return "array";
-      if (fnName === "getRecord") return "record";
-      return null;
-    default:
-      return null;
-  }
+  return getPresetMetadata(combineFnName, elemType).returnType;
 }
 
 /**

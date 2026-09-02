@@ -15,6 +15,64 @@ pub const PresetError = error{
     InvalidNumber,
 };
 
+pub fn inputType(name: []const u8) ?[]const u8 {
+    if (std.mem.startsWith(u8, name, "transformFnNumber::")) return "number";
+    if (std.mem.startsWith(u8, name, "transformFnString::")) return "string";
+    if (std.mem.startsWith(u8, name, "transformFnBoolean::")) return "boolean";
+    if (std.mem.startsWith(u8, name, "transformFnNull::")) return "null";
+    if (std.mem.startsWith(u8, name, "transformFnArray::")) return "array";
+    if (std.mem.startsWith(u8, name, "transformFnRecord::")) return "record";
+    return null;
+}
+
+pub fn parameterType(name: []const u8) ?[]const u8 {
+    if (std.mem.startsWith(u8, name, "combineFnNumber::")) return "number";
+    if (std.mem.startsWith(u8, name, "combineFnString::")) return "string";
+    if (std.mem.startsWith(u8, name, "combineFnBoolean::")) return "boolean";
+    return null;
+}
+
+pub fn returnType(name: []const u8, array_element: ?[]const u8) ?[]const u8 {
+    if (std.mem.endsWith(u8, name, "::pass")) return inputType(name);
+    if (std.mem.eql(u8, name, "transformFnNumber::toStr") or
+        std.mem.eql(u8, name, "transformFnBoolean::toStr")) return "string";
+    if (std.mem.startsWith(u8, name, "transformFnNumber::")) return "number";
+    if (std.mem.eql(u8, name, "transformFnString::length")) return "number";
+    if (std.mem.eql(u8, name, "transformFnString::toNumber")) return "number";
+    if (std.mem.startsWith(u8, name, "transformFnString::")) return "string";
+    if (std.mem.eql(u8, name, "transformFnBoolean::not")) return "boolean";
+    if (std.mem.eql(u8, name, "transformFnArray::length")) return "number";
+    if (std.mem.eql(u8, name, "transformFnArray::isEmpty")) return "boolean";
+    if (std.mem.startsWith(u8, name, "combineFnNumber::greaterThan") or
+        std.mem.startsWith(u8, name, "combineFnNumber::lessThan")) return "boolean";
+    if (std.mem.startsWith(u8, name, "combineFnNumber::")) return "number";
+    if (std.mem.eql(u8, name, "combineFnString::includes") or
+        std.mem.eql(u8, name, "combineFnString::startsWith") or
+        std.mem.eql(u8, name, "combineFnString::endsWith")) return "boolean";
+    if (std.mem.eql(u8, name, "combineFnString::extractNum")) return "number";
+    if (std.mem.startsWith(u8, name, "combineFnString::")) return "string";
+    if (std.mem.startsWith(u8, name, "combineFnBoolean::") or
+        std.mem.startsWith(u8, name, "combineFnGeneric::")) return "boolean";
+    if (std.mem.eql(u8, name, "combineFnArray::includes")) return "boolean";
+    if (std.mem.eql(u8, name, "combineFnArray::concat")) return "array";
+    if (std.mem.eql(u8, name, "combineFnArray::get")) return array_element;
+    if (std.mem.startsWith(u8, name, "combineFnArray::get"))
+        return typedGetterReturn(name["combineFnArray::get".len..]);
+    if (std.mem.eql(u8, name, "combineFnRecord::set")) return "record";
+    if (std.mem.startsWith(u8, name, "combineFnRecord::get"))
+        return typedGetterReturn(name["combineFnRecord::get".len..]);
+    return null;
+}
+
+fn typedGetterReturn(suffix: []const u8) ?[]const u8 {
+    if (std.mem.eql(u8, suffix, "Number")) return "number";
+    if (std.mem.eql(u8, suffix, "String")) return "string";
+    if (std.mem.eql(u8, suffix, "Boolean")) return "boolean";
+    if (std.mem.eql(u8, suffix, "Array")) return "array";
+    if (std.mem.eql(u8, suffix, "Record")) return "record";
+    return null;
+}
+
 pub fn call(
     name: []const u8,
     args: []const value.TaggedValue,
@@ -592,6 +650,14 @@ pub fn jsTrim(bytes: []const u8) PresetError![]const u8 {
         end = scalar_start;
     }
     return bytes[start..end];
+}
+
+test "preset signature metadata matches public Value symbols" {
+    try std.testing.expectEqualStrings("number", inputType("transformFnNumber::abs").?);
+    try std.testing.expectEqualStrings("string", returnType("transformFnNumber::toStr", null).?);
+    try std.testing.expectEqualStrings("number", parameterType("combineFnNumber::add").?);
+    try std.testing.expectEqualStrings("record", returnType("combineFnArray::get", "record").?);
+    try std.testing.expect(returnType("combineFnRecord::missing", null) == null);
 }
 
 fn isEcmaWhitespace(scalar: u21) bool {
