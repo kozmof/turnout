@@ -1,7 +1,6 @@
 import { expect, test, describe } from "vitest";
 import {
   baseTypeSymbols,
-  createUnknownValue,
   isArray,
   isBoolean,
   isNull,
@@ -196,15 +195,6 @@ describe("value metadata and validation", () => {
     expect(isTypedArray({ symbol: "number", value: 1, subSymbol: undefined, tags: [] })).toBe(
       false,
     );
-  });
-
-  test("creates unknown values with the requested shape", () => {
-    expect(createUnknownValue("string", "hello", undefined, ["external"])).toEqual({
-      symbol: "string",
-      value: "hello",
-      subSymbol: undefined,
-      tags: ["external"],
-    });
   });
 
   test("validates supported value shapes and expected symbols", () => {

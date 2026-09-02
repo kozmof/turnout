@@ -289,10 +289,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Preserve synchronous public APIs after WASM module initialization
 - [ ] Replace `executeGraph` and `executeGraphSafe` with Zig-backed adapters
 - [ ] Replace compute validation and type inference with Zig-backed adapters
-- [ ] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters
+- [x] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters
 - [x] Remove TypeScript preset implementations
 - [ ] Remove TypeScript compute execution implementations
-- [ ] Remove TypeScript Value semantic implementations
+- [x] Remove TypeScript Value semantic implementations
 - [ ] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists
 - [ ] Keep public TypeScript types, builders, error shapes, and entry points compatible where practical
 - [ ] Make `scene-runner` consume the shared runtime adapter

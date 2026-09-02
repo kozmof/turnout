@@ -221,6 +221,23 @@ fn valueResponse(bytes: []const u8) !Response {
     const operation = parsed.value.object.get("operation") orelse return error.InvalidValueRequest;
     if (operation != .string) return error.InvalidValueRequest;
 
+    if (std.mem.eql(u8, operation.string, "predicate")) {
+        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
+        const predicate = parsed.value.object.get("predicate") orelse return error.InvalidValueRequest;
+        if (predicate != .string) return error.InvalidValueRequest;
+        var decoded = try value.fromCanonicalValue(raw, allocator);
+        defer decoded.deinit(allocator);
+        const matches = try valuePredicate(
+            decoded.borrowed(),
+            predicate.string,
+            parsed.value.object.get("argument"),
+        );
+        var output: std.Io.Writer.Allocating = .init(allocator);
+        defer output.deinit();
+        try std.json.Stringify.value(.{ .matches = matches }, .{}, &output.writer);
+        return makeResponse(.ok, output.written());
+    }
+
     var result = if (std.mem.eql(u8, operation.string, "normalize")) blk: {
         const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
         var decoded = try value.fromCanonicalValue(raw, allocator);
@@ -264,6 +281,59 @@ fn valueResponse(bytes: []const u8) !Response {
     const payload = try value.canonicalJson(result.borrowed(), allocator);
     defer allocator.free(payload);
     return makeResponse(.ok, payload);
+}
+
+fn valuePredicate(tagged: value.TaggedValue, predicate: []const u8, argument: ?std.json.Value) !bool {
+    if (std.mem.eql(u8, predicate, "number")) return tagged.value == .number;
+    if (std.mem.eql(u8, predicate, "string")) return tagged.value == .string;
+    if (std.mem.eql(u8, predicate, "boolean")) return tagged.value == .boolean;
+    if (std.mem.eql(u8, predicate, "null")) return tagged.value == .null_value;
+    if (std.mem.eql(u8, predicate, "array")) return tagged.value == .array;
+    if (std.mem.eql(u8, predicate, "record")) return tagged.value == .record;
+    if (std.mem.eql(u8, predicate, "typedArray"))
+        return tagged.value == .array and tagged.value.array.element != .untyped;
+    if (std.mem.eql(u8, predicate, "pure")) return value.isPure(tagged);
+    if (std.mem.eql(u8, predicate, "hasTag")) {
+        const tag = argument orelse return error.InvalidValueRequest;
+        if (tag != .string) return error.InvalidValueRequest;
+        return value.hasTag(tagged, tag.string);
+    }
+    if (std.mem.eql(u8, predicate, "valid")) {
+        const expected = argument orelse return true;
+        if (expected != .object) return error.InvalidValueRequest;
+        if (expected.object.get("symbol")) |symbol| {
+            if (symbol != .string or !valueHasSymbol(tagged.value, symbol.string)) return false;
+        }
+        if (expected.object.get("subSymbol")) |sub_symbol| {
+            if (sub_symbol != .string or !valueHasSubSymbol(tagged.value, sub_symbol.string)) return false;
+        }
+        return true;
+    }
+    return error.InvalidValueRequest;
+}
+
+fn valueHasSymbol(input: value.Value, symbol: []const u8) bool {
+    if (std.mem.eql(u8, symbol, "number")) return input == .number;
+    if (std.mem.eql(u8, symbol, "string")) return input == .string;
+    if (std.mem.eql(u8, symbol, "boolean")) return input == .boolean;
+    if (std.mem.eql(u8, symbol, "null")) return input == .null_value;
+    if (std.mem.eql(u8, symbol, "array")) return input == .array;
+    if (std.mem.eql(u8, symbol, "record")) return input == .record;
+    return false;
+}
+
+fn valueHasSubSymbol(input: value.Value, sub_symbol: []const u8) bool {
+    return switch (input) {
+        .null_value => |reason| std.mem.eql(u8, sub_symbol, if (reason == .not_found) "not-found" else @tagName(reason)),
+        .array => |array| switch (array.element) {
+            .untyped => false,
+            .number => std.mem.eql(u8, sub_symbol, "number"),
+            .string => std.mem.eql(u8, sub_symbol, "string"),
+            .boolean => std.mem.eql(u8, sub_symbol, "boolean"),
+            .null_value => std.mem.eql(u8, sub_symbol, "null"),
+        },
+        else => false,
+    };
 }
 
 export fn turnout_value_operate(address: usize, len: u32) usize {
@@ -701,6 +771,15 @@ test "WASM stateless Value operation normalizes and calls presets" {
     try std.testing.expectEqual(@as(i64, 7), called.value.object.get("value").?.integer);
     try std.testing.expectEqualStrings("left", called.value.object.get("tags").?.array.items[0].string);
     try std.testing.expectEqualStrings("right", called.value.object.get("tags").?.array.items[1].string);
+
+    const predicate =
+        \\{"operation":"predicate","predicate":"typedArray","value":{"symbol":"array","value":[],"subSymbol":"number","tags":[]}}
+    ;
+    const predicate_address = turnout_value_operate(@intFromPtr(predicate.ptr), predicate.len);
+    defer freeResponse(predicate_address);
+    var matched = try expectResponse(predicate_address, .ok, null);
+    defer matched.deinit();
+    try std.testing.expect(matched.value.object.get("matches").?.bool);
 }
 
 test "WASM stateless Value operation rejects malformed and oversized requests" {

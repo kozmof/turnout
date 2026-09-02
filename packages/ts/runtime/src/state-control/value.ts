@@ -1,5 +1,7 @@
 import strEnum from "../util/strEnum.js";
 import { TOM } from "../util/tom.js";
+import { defaultZigRuntimeClient } from "../zig-runtime/default-client.js";
+import { toCanonicalOperationValue } from "../zig-runtime/value-codec.js";
 
 const _baseTypes = strEnum(["number", "string", "boolean", "array", "record", "null"]);
 const _nullReasonSubSymbols = strEnum([
@@ -175,40 +177,40 @@ export type UnknownValue = Value<unknown, BaseTypeSymbol, BaseTypeSubSymbol, rea
 
 // Type guards based on base type
 export function isNumber(val: AnyValue): val is NumberValue<readonly TagSymbol[]> {
-  return val.symbol === "number";
+  return zigPredicate(val, "number");
 }
 
 export function isString(val: AnyValue): val is StringValue<readonly TagSymbol[]> {
-  return val.symbol === "string";
+  return zigPredicate(val, "string");
 }
 
 export function isBoolean(val: AnyValue): val is BooleanValue<readonly TagSymbol[]> {
-  return val.symbol === "boolean";
+  return zigPredicate(val, "boolean");
 }
 
 export function isNull(val: AnyValue): val is NullValue<readonly TagSymbol[]> {
-  return val.symbol === "null";
+  return zigPredicate(val, "null");
 }
 
 export function isArray(val: AnyValue): val is AnyArrayValue<readonly TagSymbol[]> {
-  return val.symbol === "array";
+  return zigPredicate(val, "array");
 }
 
 export function isRecord(val: AnyValue): val is RecordValue<readonly TagSymbol[]> {
-  return val.symbol === "record";
+  return zigPredicate(val, "record");
 }
 
 export function isTypedArray(val: AnyValue): val is TypedArrayValue<readonly TagSymbol[]> {
-  return isArray(val) && val.subSymbol !== undefined;
+  return zigPredicate(val, "typedArray");
 }
 
 // Type guards based on tags
 export function isPure(val: AnyValue): boolean {
-  return val.tags.length === 0;
+  return zigPredicate(val, "pure");
 }
 
 export function hasTag(val: AnyValue, tag: TagSymbol): boolean {
-  return val.tags.includes(tag);
+  return zigPredicate(val, "hasTag", tag);
 }
 
 // Combined type guards for pure values
@@ -240,26 +242,6 @@ export function isPureNull(val: AnyValue): val is PureNullValue {
  *
  * @internal
  */
-export function createUnknownValue(
-  symbol: BaseTypeSymbol,
-  value: unknown,
-  subSymbol: BaseTypeSubSymbol,
-  tags: readonly TagSymbol[],
-): UnknownValue {
-  return { symbol, value, subSymbol, tags };
-}
-
-/**
- * Type guard that validates an UnknownValue has the expected structure.
- * This performs runtime validation to ensure the value conforms to the Value interface.
- *
- * @param val - The value to validate
- * @param expectedSymbol - Optional: validate the symbol matches this value
- * @param expectedSubSymbol - Optional: validate the subSymbol matches this value
- * @returns True if the value is a valid UnknownValue with matching symbols
- *
- * @internal
- */
 // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
 export function isValidValue<T extends UnknownValue>(
   val: unknown,
@@ -279,59 +261,22 @@ export function isValidValue<T extends UnknownValue>(
     return false;
   }
 
-  // Validate symbol is a valid BaseTypeSymbol
-  if (
-    typeof v.symbol !== "string" ||
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    !baseTypeSymbols.includes(v.symbol as BaseTypeSymbol)
-  ) {
+  return zigPredicate(val, "valid", {
+    ...(expectedSymbol !== undefined && { symbol: expectedSymbol }),
+    ...(expectedSubSymbol !== undefined && { subSymbol: expectedSubSymbol }),
+  });
+}
+
+function zigPredicate(value: unknown, predicate: string, argument?: unknown): boolean {
+  try {
+    const response = defaultZigRuntimeClient.value<{ matches: boolean }>({
+      operation: "predicate",
+      value: toCanonicalOperationValue(value),
+      predicate,
+      ...(argument !== undefined && { argument }),
+    });
+    return response.status === "ok" && response.payload.matches;
+  } catch {
     return false;
   }
-
-  // Validate subSymbol shape based on symbol
-  if (v.symbol === "number" || v.symbol === "string" || v.symbol === "boolean") {
-    if (v.subSymbol !== undefined) {
-      return false;
-    }
-  } else if (v.symbol === "array") {
-    if (
-      v.subSymbol !== undefined &&
-      v.subSymbol !== "number" &&
-      v.subSymbol !== "string" &&
-      v.subSymbol !== "boolean" &&
-      v.subSymbol !== "null"
-    ) {
-      return false;
-    }
-  } else if (v.symbol === "null") {
-    if (
-      typeof v.subSymbol !== "string" ||
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      !nullReasonSubSymbols.includes(v.subSymbol as NullReasonSubSymbol)
-    ) {
-      return false;
-    }
-  }
-
-  // Validate tags is an array
-  if (!Array.isArray(v.tags)) {
-    return false;
-  }
-
-  // Validate all tags are strings
-  if (!v.tags.every((tag: unknown) => typeof tag === "string")) {
-    return false;
-  }
-
-  // If expectedSymbol provided, validate it matches
-  if (expectedSymbol !== undefined && v.symbol !== expectedSymbol) {
-    return false;
-  }
-
-  // If expectedSubSymbol provided, validate it matches
-  if (expectedSubSymbol !== undefined && v.subSymbol !== expectedSubSymbol) {
-    return false;
-  }
-
-  return true;
 }

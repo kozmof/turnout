@@ -32,15 +32,18 @@ function encodeCanonicalValue(input: unknown, allowNonFinite: boolean): Canonica
   switch (input.symbol) {
     case "number":
       if (typeof input.value !== "number") throw new TypeError("number Value is invalid");
+      if (input.subSymbol !== undefined) throw new TypeError("number Value subSymbol is invalid");
       if (!allowNonFinite && !Number.isFinite(input.value)) {
         throw new TypeError("number Value must be finite");
       }
       return { symbol: "number", value: encodeNumber(input.value), tags };
     case "string":
       if (typeof input.value !== "string") throw new TypeError("string Value is invalid");
+      if (input.subSymbol !== undefined) throw new TypeError("string Value subSymbol is invalid");
       return { symbol: "string", value: input.value, tags };
     case "boolean":
       if (typeof input.value !== "boolean") throw new TypeError("boolean Value is invalid");
+      if (input.subSymbol !== undefined) throw new TypeError("boolean Value subSymbol is invalid");
       return { symbol: "boolean", value: input.value, tags };
     case "null": {
       if (
@@ -68,6 +71,7 @@ function encodeCanonicalValue(input: unknown, allowNonFinite: boolean): Canonica
       };
     case "record":
       if (!isRecord(input.value)) throw new TypeError("record Value is invalid");
+      if (input.subSymbol !== undefined) throw new TypeError("record Value subSymbol is invalid");
       return {
         symbol: "record",
         value: mapRecord(input.value, (value) => encodeCanonicalValue(value, allowNonFinite)),
