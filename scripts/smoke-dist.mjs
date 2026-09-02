@@ -1,4 +1,14 @@
-import { readFile } from "node:fs/promises";
+import { readFile, stat } from "node:fs/promises";
+
+const staleExecutor = new URL("../packages/ts/scene-runner/dist/executor/", import.meta.url);
+if (
+  await stat(staleExecutor).then(
+    () => true,
+    () => false,
+  )
+) {
+  throw new Error("scene-runner distribution contains the removed TypeScript executor");
+}
 
 const publicApi = await import("../packages/ts/scene-runner/dist/index.js");
 const serverApi = await import("../packages/ts/scene-runner/dist/server/index.js");
