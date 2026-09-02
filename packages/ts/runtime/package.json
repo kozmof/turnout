@@ -2,6 +2,7 @@
   "name": "runtime",
   "version": "0.0.0",
   "private": true,
+  "files": ["dist"],
   "description": "",
   "license": "MIT",
   "author": "",
@@ -12,10 +13,15 @@
     ".": {
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
-    }
+    },
+    "./zig-runtime": {
+      "import": "./dist/zig-runtime/index.js",
+      "types": "./dist/zig-runtime/index.d.ts"
+    },
+    "./zig-runtime/turnout-runtime.wasm": "./dist/zig-runtime/turnout-runtime.wasm"
   },
   "scripts": {
-    "build": "tsc --project tsconfig.build.json",
+    "build": "tsc --project tsconfig.build.json && node ../../../scripts/package-runtime-zig-wasm.mjs",
     "test": "vitest --run",
     "coverage": "vitest run --coverage",
     "lint": "oxlint -c ../../../.oxlintrc.json src/",
@@ -25,6 +31,7 @@
     "valibot": "^1.1.0"
   },
   "devDependencies": {
+    "@types/node": "^25.5.0",
     "@vitest/coverage-v8": "^4.1.0",
     "oxfmt": "^0.53.0",
     "oxlint": "^1.68.0",

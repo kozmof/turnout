@@ -7,8 +7,8 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | Complete |
-| Last verified commit | `a062d77` |
+| Current phase | Phase 13, make TypeScript a thin Zig adapter |
+| Last verified commit | `b4abc80` |
 | Last updated | 2026-09-02 |
 | Blocking issue | None |
 
@@ -276,9 +276,42 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Every completion criterion in `migrate-to-zig.md` passes
 - [x] Migration release notes are ready
 
+## Phase 13. Make TypeScript a thin Zig adapter
+
+- [x] Reopen the migration with the expanded all-runtime-semantics goal
+- [x] Define the allowed TypeScript adapter responsibilities
+- [x] Add stateless compute execution to the WASM ABI
+- [ ] Add stateless Value and preset operations to the WASM ABI
+- [ ] Add malformed-input, size-limit, nesting-limit, and leak tests for the new ABI operations
+- [x] Package the Zig WASM artifact with `packages/ts/runtime`
+- [x] Move or share the WASM byte-buffer client through `packages/ts/runtime`
+- [ ] Move or share the canonical Value codec through `packages/ts/runtime`
+- [ ] Preserve synchronous public APIs after WASM module initialization
+- [ ] Replace `executeGraph` and `executeGraphSafe` with Zig-backed adapters
+- [ ] Replace compute validation and type inference with Zig-backed adapters
+- [ ] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters
+- [ ] Remove TypeScript preset implementations
+- [ ] Remove TypeScript compute execution implementations
+- [ ] Remove TypeScript Value semantic implementations
+- [ ] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists
+- [ ] Keep public TypeScript types, builders, error shapes, and entry points compatible where practical
+- [ ] Make `scene-runner` consume the shared runtime adapter
+- [ ] Verify no independent Turnout runtime semantics remain in either TypeScript package
+- [ ] Update runtime, ABI, package, and release documentation
+
+### Phase 13 exit gate
+
+- [ ] Zig is authoritative for Value, preset, compute, STATE, action, scene, and route behavior
+- [ ] Every retained semantic `packages/ts/runtime` export delegates to Zig
+- [ ] TypeScript contains only declarations, structural adapters, serialization, error translation, runner iteration, cancellation, and host callback dispatch
+- [ ] Native and WASM Zig tests pass
+- [ ] TypeScript public API and distribution tests pass
+- [ ] The full root `check` passes
+- [ ] The runtime migration completion criteria pass
+
 ## Follow-up work
 
-These items do not block removal of the TypeScript executor.
+These items do not block removal of the TypeScript runtime implementations.
 
 - [ ] Add native libraries when a host requires them
 - [ ] Add a C ABI when a host requires it

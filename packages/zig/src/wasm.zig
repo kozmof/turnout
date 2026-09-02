@@ -1,5 +1,6 @@
 const std = @import("std");
 const builtin = @import("builtin");
+const compute = @import("compute.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
 const runtime = @import("runtime.zig");
@@ -15,6 +16,7 @@ pub const response_magic: u32 = 0x4e525554;
 pub const response_header_len: usize = 12;
 pub const max_create_request_bytes: usize = 16 * 1024 * 1024;
 pub const max_effect_result_bytes: usize = 16 * 1024 * 1024;
+pub const max_compute_request_bytes: usize = 16 * 1024 * 1024;
 pub const max_input_nesting: usize = 128;
 
 pub const Status = enum(u16) {
@@ -152,6 +154,61 @@ fn errorResponse(status: Status, code: []const u8) usize {
 
 fn runtimeError(err: anyerror) usize {
     return errorResponse(if (err == error.OutOfMemory) .out_of_memory else .runtime_error, @errorName(err));
+}
+
+fn computeResponse(bytes: []const u8) !Response {
+    var parsed = try std.json.parseFromSlice(std.json.Value, allocator, bytes, .{});
+    defer parsed.deinit();
+    try validateInputNesting(parsed.value, 0);
+    if (parsed.value != .object) return error.InvalidComputeRequest;
+    const program = parsed.value.object.get("prog") orelse return error.InvalidComputeRequest;
+    const root = parsed.value.object.get("root") orelse return error.InvalidComputeRequest;
+    const raw_inputs = parsed.value.object.get("inputs") orelse return error.InvalidComputeRequest;
+    if (root != .string or raw_inputs != .object) return error.InvalidComputeRequest;
+
+    var inputs: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer deinitInitialValues(&inputs);
+    var iterator = raw_inputs.object.iterator();
+    while (iterator.next()) |entry| {
+        const key = try allocator.dupe(u8, entry.key_ptr.*);
+        errdefer allocator.free(key);
+        const converted = try value.fromCanonicalValue(entry.value_ptr.*, allocator);
+        errdefer {
+            var borrowed = converted.borrowed();
+            value.deinitTaggedValue(&borrowed, allocator);
+        }
+        try inputs.put(allocator, key, converted.borrowed());
+    }
+
+    var result = try compute.executeProgramWithBindings(program, root.string, &inputs, allocator);
+    defer result.deinit(allocator);
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    defer output.deinit();
+    var writer: std.json.Stringify = .{ .writer = &output.writer, .options = .{} };
+    try writer.beginObject();
+    try writer.objectField("value");
+    try writer.write(value.CanonicalTagged{ .tagged = result.root.borrowed() });
+    try writer.objectField("bindings");
+    try writer.beginObject();
+    var bindings = result.bindings.iterator();
+    while (bindings.next()) |entry| {
+        try writer.objectField(entry.key_ptr.*);
+        try writer.write(value.CanonicalTagged{ .tagged = entry.value_ptr.borrowed() });
+    }
+    try writer.endObject();
+    try writer.endObject();
+    return makeResponse(.ok, output.written());
+}
+
+export fn turnout_compute_execute(address: usize, len: u32) usize {
+    if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
+    if (len > max_compute_request_bytes) return errorResponse(.invalid_input, "ComputeRequestTooLarge");
+    const response = computeResponse(bytesAt(address, len)) catch |err|
+        return if (err == error.OutOfMemory)
+            errorResponse(.out_of_memory, @errorName(err))
+        else
+            errorResponse(.runtime_error, @errorName(err));
+    return @intFromPtr(response.bytes.ptr);
 }
 
 fn putInitialValues(
@@ -494,6 +551,51 @@ test "WASM response envelope is versioned and little endian" {
     try std.testing.expectEqualStrings(
         "{\"error\":\"bad request\"}",
         response.bytes[response_header_len..],
+    );
+}
+
+test "WASM stateless compute executes canonical inputs and returns bindings" {
+    const request =
+        \\{"root":"result","inputs":{"input":{"symbol":"number","value":5,"tags":["source"]}},"prog":{"bindings":[
+        \\  {"name":"input","type":"number"},
+        \\  {"name":"result","type":"number","expr":{"combine":{"fn":"add","args":[{"ref":"input"},{"lit":2}]}}}
+        \\]}}
+    ;
+    const address = turnout_compute_execute(@intFromPtr(request.ptr), request.len);
+    defer freeResponse(address);
+    var response = try expectResponse(address, .ok, null);
+    defer response.deinit();
+    const result = response.value.object.get("value").?.object;
+    try std.testing.expectEqualStrings("number", result.get("symbol").?.string);
+    try std.testing.expectEqual(@as(i64, 7), result.get("value").?.integer);
+    try std.testing.expectEqualStrings("source", result.get("tags").?.array.items[0].string);
+    const bindings = response.value.object.get("bindings").?.object;
+    try std.testing.expectEqual(@as(i64, 5), bindings.get("input").?.object.get("value").?.integer);
+    try std.testing.expectEqual(@as(i64, 7), bindings.get("result").?.object.get("value").?.integer);
+}
+
+test "WASM stateless compute rejects malformed and oversized requests" {
+    const malformed = "{}";
+    const malformed_address = turnout_compute_execute(@intFromPtr(malformed.ptr), malformed.len);
+    defer freeResponse(malformed_address);
+    var malformed_response = try expectResponse(malformed_address, .runtime_error, null);
+    defer malformed_response.deinit();
+    try std.testing.expectEqualStrings(
+        "InvalidComputeRequest",
+        malformed_response.value.object.get("error").?.string,
+    );
+
+    const one = "x";
+    const oversized_address = turnout_compute_execute(
+        @intFromPtr(one.ptr),
+        max_compute_request_bytes + 1,
+    );
+    defer freeResponse(oversized_address);
+    var oversized_response = try expectResponse(oversized_address, .invalid_input, null);
+    defer oversized_response.deinit();
+    try std.testing.expectEqualStrings(
+        "ComputeRequestTooLarge",
+        oversized_response.value.object.get("error").?.string,
     );
 }
 
