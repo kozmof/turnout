@@ -166,12 +166,3 @@ export function matchesSchemaType(value: AnyValue, schemaType: string): boolean 
     throw new StateError("UnknownSchemaType", "unknown schema type " + JSON.stringify(schemaType));
   return entry.guard(value);
 }
-export function matchesArraySubtype(
-  value: AnyValue,
-  expected: "number" | "string" | "boolean",
-): boolean {
-  return (
-    isArray(value) &&
-    (value.value.length === 0 || value.value.every((item) => item.symbol === expected))
-  );
-}

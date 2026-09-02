@@ -610,10 +610,10 @@ describe("stateManagerFromSchema — override key validation", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// matchesArraySubtype — empty-array edge cases
+// Array subtype empty-array edge cases
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe("matchesArraySubtype — empty-array edge cases", () => {
+describe("array subtype empty-array edge cases", () => {
   // An untyped empty array (buildArray([])) has subSymbol undefined.
   // Schema-backed managers accept it for any arr<X> field because there is
   // nothing to check element-wise; the Go validator rejects [] as a fn arg
