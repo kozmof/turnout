@@ -1,181 +1,86 @@
-import {
-  NumberValue,
-  StringValue,
-  BooleanValue,
-  NullValue,
-  ArrayValue,
-  ArrayNumberValue,
-  ArrayStringValue,
+import type {
+  AnyValue,
   ArrayBooleanValue,
   ArrayNullValue,
-  RecordValue,
-  AnyValue,
-  TagSymbol,
-  BaseTypeSymbol,
-  BaseTypeSubSymbol,
+  ArrayNumberValue,
+  ArrayStringValue,
+  ArrayValue,
+  BooleanValue,
   NullReasonSubSymbol,
-  nullReasonSubSymbols,
-  UnknownValue,
-  createUnknownValue,
+  NullValue,
+  NumberValue,
+  RecordValue,
+  StringValue,
+  TagSymbol,
 } from "./value.js";
 import { createInvalidValueError } from "./errors.js";
+import { callZigPreset } from "./preset-funcs/zig-preset.js";
+import { defaultZigRuntimeClient } from "../zig-runtime/default-client.js";
+import { fromCanonicalValue, toCanonicalOperationValue } from "../zig-runtime/value-codec.js";
 
-/**
- * Pure builders for creating values with proper tag propagation.
- * These eliminate repetitive object construction throughout the codebase.
- *
- * @example
- * // Creating a pure value
- * const pure = buildNumber(42);
- * // => { symbol: 'number', value: 42, subSymbol: undefined, tags: [] }
- *
- * @example
- * // Creating a value with tags from sources
- * const a = buildNumber(5, { tags: ['random'] });
- * const b = buildNumber(3, { tags: ['cached'] });
- * const sum = buildNumber(8, a, b);
- * // => { symbol: 'number', value: 8, subSymbol: undefined, tags: ['random', 'cached'] }
- */
+type ArraySubSymbol = "number" | "string" | "boolean" | "null";
 
-/**
- * Merges tags from multiple source values using set union semantics.
- * Duplicates are removed automatically.
- */
-function mergeTags(...sources: AnyValue[]): readonly TagSymbol[] {
-  const tagsSet = new Set<TagSymbol>();
-
-  for (const source of sources) {
-    for (const tag of source.tags) {
-      tagsSet.add(tag);
-    }
-  }
-
-  return Array.from(tagsSet);
+export function buildNumber(
+  value: number,
+  tags: readonly TagSymbol[] = [],
+): NumberValue<readonly TagSymbol[]> {
+  return normalize({ symbol: "number", value: encodeNumber(value), tags }) as NumberValue<
+    readonly TagSymbol[]
+  >;
 }
 
-/**
- * Generic builder factory for creating value builders with specific symbol/subSymbol configurations.
- * This eliminates code duplication across all builder functions.
- *
- * Type safety approach:
- * 1. Accept properly typed symbol and subSymbol parameters
- * 2. Create an UnknownValue using the type-safe createUnknownValue function
- * 3. Cast to TResult based on the invariant enforced by symbol/subSymbol inputs
- *
- * @internal
- */
-function createValueBuilder<
-  // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
-  TResult extends UnknownValue,
->(
-  symbol: BaseTypeSymbol,
-  subSymbol: BaseTypeSubSymbol,
-): (value: unknown, tags?: readonly TagSymbol[]) => TResult {
-  return (value: unknown, tags: readonly TagSymbol[] = []): TResult => {
-    const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
-
-    // createUnknownValue guarantees the required structural fields.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-    return createUnknownValue(symbol, value, subSymbol, uniqueTags) as TResult;
-  };
+export function buildString(
+  value: string,
+  tags: readonly TagSymbol[] = [],
+): StringValue<readonly TagSymbol[]> {
+  return normalize({ symbol: "string", value, tags }) as StringValue<readonly TagSymbol[]>;
 }
 
-/**
- * Builds a NumberValue with tags propagated from source values.
- *
- * @param value - The numeric value
- * @param sources - Source values whose tags should be propagated
- * @returns NumberValue with merged tags from all sources
- *
- * @example
- * const pure = buildNumber(42);
- * const withTags = buildNumber(10, { tags: ['random'] } as AnyValue);
- */
-export const buildNumber = createValueBuilder<NumberValue<readonly TagSymbol[]>>(
-  "number",
-  undefined,
-);
+export function buildBoolean(
+  value: boolean,
+  tags: readonly TagSymbol[] = [],
+): BooleanValue<readonly TagSymbol[]> {
+  return normalize({ symbol: "boolean", value, tags }) as BooleanValue<readonly TagSymbol[]>;
+}
 
-/**
- * Builds a StringValue with tags propagated from source values.
- *
- * @param value - The string value
- * @param sources - Source values whose tags should be propagated
- * @returns StringValue with merged tags from all sources
- *
- * @example
- * const greeting = buildString('Hello');
- * const fromNetwork = buildString('data', { tags: ['network'] } as AnyValue);
- */
-export const buildString = createValueBuilder<StringValue<readonly TagSymbol[]>>(
-  "string",
-  undefined,
-);
-
-/**
- * Builds a BooleanValue with tags propagated from source values.
- *
- * @param value - The boolean value
- * @param sources - Source values whose tags should be propagated
- * @returns BooleanValue with merged tags from all sources
- *
- * @example
- * const flag = buildBoolean(true);
- * const derived = buildBoolean(false, someValue, anotherValue);
- */
-export const buildBoolean = createValueBuilder<BooleanValue<readonly TagSymbol[]>>(
-  "boolean",
-  undefined,
-);
-
-/**
- * Builds a NullValue with a required reason subSymbol and propagated tags.
- *
- * @param reason - Category describing why the value is null
- * @param tags - Optional tags to attach
- * @returns NullValue with the provided reason
- */
 export function buildNull(
   reason: NullReasonSubSymbol,
   tags: readonly TagSymbol[] = [],
 ): NullValue<readonly TagSymbol[]> {
-  if (!nullReasonSubSymbols.includes(reason)) {
+  try {
+    return normalize({ symbol: "null", value: null, reason, tags }) as NullValue<
+      readonly TagSymbol[]
+    >;
+  } catch {
     throw createInvalidValueError("null", reason, "Invalid NullReasonSubSymbol");
   }
-  const uniqueTags = tags.length <= 1 ? tags : Array.from(new Set(tags));
-  // createUnknownValue preserves the provided symbol/subSymbol; this narrows the generic value builder result.
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-  return createUnknownValue("null", null, reason, uniqueTags) as NullValue<readonly TagSymbol[]>;
 }
 
-/**
- * Builds an ArrayValue (untyped array) with tags propagated from source values.
- *
- * @param value - The array of values
- * @param sources - Source values whose tags should be propagated
- * @returns ArrayValue with merged tags from all sources
- *
- * @example
- * const arr = buildArray([item1, item2, item3]);
- */
-export const buildArray = createValueBuilder<ArrayValue<readonly TagSymbol[]>>("array", undefined);
+export function buildArray(
+  value: AnyValue[],
+  tags: readonly TagSymbol[] = [],
+): ArrayValue<readonly TagSymbol[]> {
+  return buildArrayWithSymbol(value, tags) as ArrayValue<readonly TagSymbol[]>;
+}
 
-export const buildRecord = createValueBuilder<RecordValue<readonly TagSymbol[]>>(
-  "record",
-  undefined,
-);
+export function buildRecord(
+  value: Record<string, AnyValue>,
+  tags: readonly TagSymbol[] = [],
+): RecordValue<readonly TagSymbol[]> {
+  return normalize({
+    symbol: "record",
+    value: Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, toCanonicalOperationValue(item)]),
+    ),
+    tags,
+  }) as RecordValue<readonly TagSymbol[]>;
+}
 
 export function recordGet(
   record: RecordValue<readonly TagSymbol[]>,
   key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
 ): AnyValue {
-  const normalized = String(key.value);
-  const value = record.value[normalized];
-  if (value === undefined) throw new Error(`Record key "${normalized}" was not found`);
-  return {
-    ...value,
-    tags: Array.from(new Set([...value.tags, ...record.tags, ...key.tags])),
-  } as AnyValue;
+  return callZigPreset("combineFnRecord::get", [record, key]);
 }
 
 export function recordSet(
@@ -183,200 +88,140 @@ export function recordSet(
   key: StringValue<readonly TagSymbol[]> | NumberValue<readonly TagSymbol[]>,
   value: AnyValue,
 ): RecordValue<readonly TagSymbol[]> {
-  const normalized = String(key.value);
-  if (["__proto__", "constructor", "prototype"].includes(normalized))
-    throw new Error(`Reserved record key "${normalized}" is not allowed`);
-  return buildRecord(
-    { ...record.value, [normalized]: value },
-    Array.from(new Set([...record.tags, ...key.tags, ...value.tags])),
-  );
+  return callZigPreset("combineFnRecord::set", [record, key, value]) as RecordValue<
+    readonly TagSymbol[]
+  >;
 }
 
-/**
- * Builds a typed ArrayNumberValue with tags propagated from source values.
- *
- * @param value - The array of number values
- * @param sources - Source values whose tags should be propagated
- * @returns ArrayNumberValue with merged tags from all sources
- *
- * @example
- * const numbers = buildArrayNumber([num1, num2]);
- */
-export const buildArrayNumber = createValueBuilder<ArrayNumberValue<readonly TagSymbol[]>>(
-  "array",
-  "number",
-);
+export function buildArrayNumber(
+  value: AnyValue[],
+  tags: readonly TagSymbol[] = [],
+): ArrayNumberValue<readonly TagSymbol[]> {
+  return buildArrayWithSymbol(value, tags, "number") as ArrayNumberValue<readonly TagSymbol[]>;
+}
 
-/**
- * Builds a typed ArrayStringValue with tags propagated from source values.
- *
- * @param value - The array of string values
- * @param sources - Source values whose tags should be propagated
- * @returns ArrayStringValue with merged tags from all sources
- */
-export const buildArrayString = createValueBuilder<ArrayStringValue<readonly TagSymbol[]>>(
-  "array",
-  "string",
-);
+export function buildArrayString(
+  value: AnyValue[],
+  tags: readonly TagSymbol[] = [],
+): ArrayStringValue<readonly TagSymbol[]> {
+  return buildArrayWithSymbol(value, tags, "string") as ArrayStringValue<readonly TagSymbol[]>;
+}
 
-/**
- * Builds a typed ArrayBooleanValue with tags propagated from source values.
- *
- * @param value - The array of boolean values
- * @param sources - Source values whose tags should be propagated
- * @returns ArrayBooleanValue with merged tags from all sources
- */
-export const buildArrayBoolean = createValueBuilder<ArrayBooleanValue<readonly TagSymbol[]>>(
-  "array",
-  "boolean",
-);
+export function buildArrayBoolean(
+  value: AnyValue[],
+  tags: readonly TagSymbol[] = [],
+): ArrayBooleanValue<readonly TagSymbol[]> {
+  return buildArrayWithSymbol(value, tags, "boolean") as ArrayBooleanValue<readonly TagSymbol[]>;
+}
 
-/**
- * Builds a typed ArrayNullValue with tags propagated from source values.
- *
- * @param value - The array of null values
- * @param sources - Source values whose tags should be propagated
- * @returns ArrayNullValue with merged tags from all sources
- */
-export const buildArrayNull = createValueBuilder<ArrayNullValue<readonly TagSymbol[]>>(
-  "array",
-  "null",
-);
+export function buildArrayNull(
+  value: AnyValue[],
+  tags: readonly TagSymbol[] = [],
+): ArrayNullValue<readonly TagSymbol[]> {
+  return buildArrayWithSymbol(value, tags, "null") as ArrayNullValue<readonly TagSymbol[]>;
+}
 
-/**
- * Helper for combine operations on NumberValues.
- * Applies the operation and automatically propagates tags.
- *
- * @param op - Combine operation on raw number values
- * @param a - First NumberValue operand
- * @param b - Second NumberValue operand
- * @returns NumberValue with operation result and merged tags
- *
- * @example
- * const add = (a, b) => combineNumberOp((x, y) => x + y, a, b);
- * const multiply = (a, b) => combineNumberOp((x, y) => x * y, a, b);
- */
 export function combineNumberOp(
   op: (a: number, b: number) => number,
   a: NumberValue<readonly TagSymbol[]>,
   b: NumberValue<readonly TagSymbol[]>,
 ): NumberValue<readonly TagSymbol[]> {
-  return buildNumber(op(a.value, b.value), mergeTags(a, b));
+  return derive(buildNumber(op(a.value, b.value)), [a, b]) as NumberValue<readonly TagSymbol[]>;
 }
 
-/**
- * Helper for combine operations on StringValues.
- * Applies the operation and automatically propagates tags.
- *
- * @param op - Combine operation on raw string values
- * @param a - First StringValue operand
- * @param b - Second StringValue operand
- * @returns StringValue with operation result and merged tags
- *
- * @example
- * const concat = (a, b) => combineStringOp((x, y) => x + y, a, b);
- */
 export function combineStringOp(
   op: (a: string, b: string) => string,
   a: StringValue<readonly TagSymbol[]>,
   b: StringValue<readonly TagSymbol[]>,
 ): StringValue<readonly TagSymbol[]> {
-  return buildString(op(a.value, b.value), mergeTags(a, b));
+  return derive(buildString(op(a.value, b.value)), [a, b]) as StringValue<readonly TagSymbol[]>;
 }
 
-/**
- * Helper for combine operations that produce BooleanValues.
- * Applies the operation and automatically propagates tags.
- *
- * @param op - Combine operation that returns a boolean
- * @param a - First operand
- * @param b - Second operand
- * @returns BooleanValue with operation result and merged tags
- *
- * @example
- * const equals = (a, b) => combineBooleanOp((x, y) => x === y, a, b);
- * const lessThan = (a, b) => combineBooleanOp((x, y) => x < y, a, b);
- */
 export function combineBooleanOp<A, B>(
   op: (a: A, b: B) => boolean,
   a: AnyValue & { value: A },
   b: AnyValue & { value: B },
 ): BooleanValue<readonly TagSymbol[]> {
-  return buildBoolean(op(a.value, b.value), mergeTags(a, b));
+  return derive(buildBoolean(op(a.value, b.value)), [a, b]) as BooleanValue<readonly TagSymbol[]>;
 }
 
-/**
- * Helper for unary transform operations on NumberValues.
- * Applies the transformation and propagates tags from source.
- *
- * @param transform - Unary operation on raw number value
- * @param source - Source NumberValue
- * @returns NumberValue with transformed value and source tags
- *
- * @example
- * const negate = (n) => unaryNumberOp(x => -x, n);
- * const abs = (n) => unaryNumberOp(x => Math.abs(x), n);
- */
 export function unaryNumberOp(
   transform: (value: number) => number,
   source: NumberValue<readonly TagSymbol[]>,
 ): NumberValue<readonly TagSymbol[]> {
-  return buildNumber(transform(source.value), source.tags);
+  return derive(buildNumber(transform(source.value)), [source]) as NumberValue<
+    readonly TagSymbol[]
+  >;
 }
 
-/**
- * Helper for unary transform operations on StringValues.
- * Applies the transformation and propagates tags from source.
- *
- * @param transform - Unary operation on raw string value
- * @param source - Source StringValue
- * @returns StringValue with transformed value and source tags
- *
- * @example
- * const toUpper = (s) => unaryStringOp(x => x.toUpperCase(), s);
- * const trim = (s) => unaryStringOp(x => x.trim(), s);
- */
 export function unaryStringOp(
   transform: (value: string) => string,
   source: StringValue<readonly TagSymbol[]>,
 ): StringValue<readonly TagSymbol[]> {
-  return buildString(transform(source.value), source.tags);
+  return derive(buildString(transform(source.value)), [source]) as StringValue<
+    readonly TagSymbol[]
+  >;
 }
 
-/**
- * Helper for unary transform operations on BooleanValues.
- * Applies the transformation and propagates tags from source.
- *
- * @param transform - Unary operation on raw boolean value
- * @param source - Source BooleanValue
- * @returns BooleanValue with transformed value and source tags
- *
- * @example
- * const not = (b) => unaryBooleanOp(x => !x, b);
- */
 export function unaryBooleanOp(
   transform: (value: boolean) => boolean,
   source: BooleanValue<readonly TagSymbol[]>,
 ): BooleanValue<readonly TagSymbol[]> {
-  return buildBoolean(transform(source.value), source.tags);
+  return derive(buildBoolean(transform(source.value)), [source]) as BooleanValue<
+    readonly TagSymbol[]
+  >;
 }
 
-/**
- * Helper for conversion operations that change the value type.
- * Applies the conversion and propagates tags from source.
- *
- * @param convert - Conversion function
- * @param source - Source value
- * @returns Converted value with source tags
- *
- * @example
- * const numberToString = (n) => convertValue(x => String(x), n, buildString);
- * const stringToNumber = (s) => convertValue(x => parseFloat(x), s, buildNumber);
- */
 export function convertValue<TIn, TOut>(
   convert: (value: TIn) => TOut,
   source: AnyValue & { value: TIn },
   builder: (value: TOut, tags?: readonly TagSymbol[]) => AnyValue & { value: TOut },
 ): AnyValue & { value: TOut } {
-  return builder(convert(source.value), source.tags);
+  return derive(builder(convert(source.value)), [source]) as AnyValue & { value: TOut };
+}
+
+function buildArrayWithSymbol(
+  items: AnyValue[],
+  tags: readonly TagSymbol[],
+  subSymbol?: ArraySubSymbol,
+): AnyValue {
+  return normalize({
+    symbol: "array",
+    value: items.map(toCanonicalOperationValue),
+    ...(subSymbol !== undefined && { subSymbol }),
+    tags,
+  });
+}
+
+function derive(value: AnyValue, sources: readonly AnyValue[]): AnyValue {
+  return operate({
+    operation: "derive",
+    value: toCanonicalOperationValue(value),
+    sources: sources.map(toCanonicalOperationValue),
+  });
+}
+
+function normalize(value: unknown): AnyValue {
+  return operate({ operation: "normalize", value });
+}
+
+function operate(request: unknown): AnyValue {
+  const response = defaultZigRuntimeClient.value(request);
+  if (response.status !== "ok") throw new Error(readError(response.payload));
+  return fromCanonicalValue(response.payload);
+}
+
+function readError(payload: unknown): string {
+  if (typeof payload === "object" && payload !== null && "error" in payload) {
+    const code = String((payload as { error: unknown }).error);
+    return code === "InputTooDeep" ? "Value exceeds the maximum nesting depth" : code;
+  }
+  return "Zig Value operation failed";
+}
+
+function encodeNumber(value: number): number | string {
+  if (Number.isNaN(value)) return "NaN";
+  if (value === Infinity) return "Infinity";
+  if (value === -Infinity) return "-Infinity";
+  return value;
 }

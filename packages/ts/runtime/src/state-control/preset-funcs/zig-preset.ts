@@ -24,7 +24,7 @@ export function createZigPresetNamespace<T extends PresetTable>(
   ) as T;
 }
 
-function callZigPreset(name: string, args: readonly AnyValue[]): AnyValue {
+export function callZigPreset(name: string, args: readonly AnyValue[]): AnyValue {
   const response = defaultZigRuntimeClient.value({
     operation: "preset",
     name,
@@ -43,7 +43,15 @@ function compatibilityError(name: string, args: readonly AnyValue[], payload: un
     return new Error(`Cannot convert ${JSON.stringify(args[0]?.value)} to a number`);
   }
   if (code === "IndexOutOfBounds") {
+    if (name.startsWith("combineFnRecord::get")) {
+      return new Error(`Record key ${JSON.stringify(String(args[1]?.value))} was not found`);
+    }
     return new Error(`Array index ${String(args[1]?.value)} is out of bounds`);
+  }
+  if (code === "TypeMismatch" && name === "combineFnRecord::set") {
+    return new Error(
+      `Reserved record key ${JSON.stringify(String(args[1]?.value))} is not allowed`,
+    );
   }
   if (code === "IncomparableValues") {
     const comparison = name.endsWith("isNotEqual") ? "inequality" : "equality";

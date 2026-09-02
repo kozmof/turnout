@@ -226,6 +226,22 @@ fn valueResponse(bytes: []const u8) !Response {
         var decoded = try value.fromCanonicalValue(raw, allocator);
         defer decoded.deinit(allocator);
         break :blk try value.build(decoded.value, decoded.tags, allocator);
+    } else if (std.mem.eql(u8, operation.string, "derive")) blk: {
+        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
+        const raw_sources = parsed.value.object.get("sources") orelse return error.InvalidValueRequest;
+        if (raw_sources != .array) return error.InvalidValueRequest;
+        var decoded = try value.fromCanonicalValue(raw, allocator);
+        defer decoded.deinit(allocator);
+        var tags = try value.mergeTags(decoded.tags, &.{}, allocator);
+        defer allocator.free(tags);
+        for (raw_sources.array.items) |source| {
+            var parsed_source = try value.fromCanonicalValue(source, allocator);
+            defer parsed_source.deinit(allocator);
+            const merged = try value.mergeTags(tags, parsed_source.tags, allocator);
+            allocator.free(tags);
+            tags = merged;
+        }
+        break :blk try value.build(decoded.value, tags, allocator);
     } else if (std.mem.eql(u8, operation.string, "preset")) blk: {
         const name = parsed.value.object.get("name") orelse return error.InvalidValueRequest;
         const raw_args = parsed.value.object.get("args") orelse return error.InvalidValueRequest;
@@ -658,6 +674,19 @@ test "WASM stateless Value operation normalizes and calls presets" {
     var normalized = try expectResponse(normalize_address, .ok, null);
     defer normalized.deinit();
     try std.testing.expectEqual(@as(usize, 1), normalized.value.object.get("tags").?.array.items.len);
+
+    const derive =
+        \\{"operation":"derive","value":{"symbol":"string","value":"result","tags":[]},"sources":[
+        \\  {"symbol":"number","value":1,"tags":["left"]},
+        \\  {"symbol":"number","value":2,"tags":["right","left"]}
+        \\]}
+    ;
+    const derive_address = turnout_value_operate(@intFromPtr(derive.ptr), derive.len);
+    defer freeResponse(derive_address);
+    var derived = try expectResponse(derive_address, .ok, null);
+    defer derived.deinit();
+    try std.testing.expectEqualStrings("left", derived.value.object.get("tags").?.array.items[0].string);
+    try std.testing.expectEqualStrings("right", derived.value.object.get("tags").?.array.items[1].string);
 
     const call =
         \\{"operation":"preset","name":"combineFnNumber::add","args":[
