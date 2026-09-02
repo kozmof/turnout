@@ -82,7 +82,7 @@ the runtime only ever sees a model that already type-checks.
 | --- | --- |
 | `packages/go/converter` | The compiler and the `turnout` CLI |
 | `packages/ts/runtime` | Computation graph engine, value types, and builder API |
-| `packages/ts/scene-runner` | Executes a compiled model, plus a Node bridge to the CLI |
+| `packages/ts/scene-runner` | Runs compiled models through Zig/WASM and provides a Node bridge to the CLI |
 | `apps/vscode/tu-language` | Syntax highlighting for `.tu` files |
 
 `schema/turnout-model.proto` defines the model both sides exchange. Running
@@ -195,8 +195,7 @@ pnpm install
 pnpm check
 ```
 
-`pnpm check` is the full gate. It regenerates the protobuf and function-map
-bindings and fails if either drifted, then checks formatting, type-checks,
+`pnpm check` is the full gate. It regenerates the protobuf bindings and Zig function-alias map and fails if either drifted, then checks formatting, type-checks,
 lints, runs `go vet` and the race detector, and runs both test suites with
 coverage floors.
 

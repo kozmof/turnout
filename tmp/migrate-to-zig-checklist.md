@@ -7,10 +7,10 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 | Field | Value |
 | --- | --- |
 | Owner | Codex implementation agent |
-| Current phase | 12 |
-| Last verified commit | `884f799` |
-| Last updated | 2026-09-01 |
-| Blocking issue | TypeScript executor modules and retained safe wrappers remain |
+| Current phase | Complete |
+| Last verified commit | `a062d77` |
+| Last updated | 2026-09-02 |
+| Blocking issue | None |
 
 - [x] Record the migration owner
 - [x] Record the current phase
@@ -259,22 +259,22 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 
 ## Phase 12. Remove duplicate execution
 
-- [ ] Remove the TypeScript scene executor
+- [x] Remove the TypeScript scene executor
 - [x] Remove internal engine selection
-- [ ] Remove reference-only dependencies
-- [ ] Remove obsolete tests only after equivalent conformance coverage exists
-- [ ] Keep JavaScript utilities required by the compatibility matrix
-- [ ] Update package and architecture documentation
-- [ ] Run generated-code drift checks
-- [ ] Run the full root `check`
-- [ ] Run compiler-to-Zig end-to-end tests
-- [ ] Verify no TypeScript scene or route semantics remain
+- [x] Remove reference-only dependencies
+- [x] Remove obsolete tests only after equivalent conformance coverage exists
+- [x] Keep JavaScript utilities required by the compatibility matrix
+- [x] Update package and architecture documentation
+- [x] Run generated-code drift checks
+- [x] Run the full root `check`
+- [x] Run compiler-to-Zig end-to-end tests
+- [x] Verify no TypeScript scene or route semantics remain
 
 ### Phase 12 exit gate
 
-- [ ] Zig is the only scene and route executor
-- [ ] Every completion criterion in `migrate-to-zig.md` passes
-- [ ] Migration release notes are ready
+- [x] Zig is the only scene and route executor
+- [x] Every completion criterion in `migrate-to-zig.md` passes
+- [x] Migration release notes are ready
 
 ## Follow-up work
 

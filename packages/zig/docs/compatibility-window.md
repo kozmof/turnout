@@ -36,4 +36,4 @@ The original exit conditions were listed below. The release-cycle condition was 
 - Every `packages/ts/runtime` export has a recorded compatibility outcome.
 - The rollback control has not been needed for one complete release cycle. Waived on 2026-09-01.
 
-Remove the TypeScript executor in Phase 12.
+The TypeScript executor was removed in Phase 12 on 2026-09-02. Public safe wrappers continue to use Zig/WASM.
