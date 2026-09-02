@@ -1,50 +1,34 @@
-import { tfArray } from "../../state-control/preset-funcs/array/transformFn.js";
-import { tfBoolean } from "../../state-control/preset-funcs/boolean/transformFn.js";
-import { tfNumber } from "../../state-control/preset-funcs/number/transformFn.js";
-import { tfNull } from "../../state-control/preset-funcs/null/transformFn.js";
-import { tfRecord } from "../../state-control/preset-funcs/record/transformFn.js";
-import { tfString } from "../../state-control/preset-funcs/string/transformFn.js";
-import { AnyValue } from "../../state-control/value.js";
-import { splitPairTransformFnNames } from "../../util/splitPair.js";
-import { TransformFnNames } from "../types.js";
+import type { AnyValue } from "../../state-control/value.js";
+import { defaultZigRuntimeClient } from "../../zig-runtime/default-client.js";
+import { fromCanonicalValue, toCanonicalValue } from "../../zig-runtime/value-codec.js";
+import type { TransformFnNames } from "../types.js";
 
-// Runtime execution passes values as AnyValue, so transform lookups are normalized
-// to a single callable contract regardless of each preset's narrower input type.
-type AnyToAny = (val: AnyValue) => AnyValue;
+type AnyToAny = (value: AnyValue) => AnyValue;
 
-export const getTransformFn = (joinedName: TransformFnNames): AnyToAny => {
-  const mayPair = splitPairTransformFnNames(joinedName);
-  if (mayPair === null) {
-    throw new Error("Invalid transform function name: " + joinedName);
-  }
-  const [namespace, fnName] = mayPair;
-  switch (namespace) {
-    case "transformFnArray":
-      // String-keyed lookup erases the concrete signature; runtime validation
-      // already selected the correct namespace/function pair before this cast.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfArray[fnName] as AnyToAny;
-    case "transformFnBoolean":
-      // String-keyed lookup erases the concrete signature; runtime validation
-      // already selected the correct namespace/function pair before this cast.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfBoolean[fnName] as AnyToAny;
-    case "transformFnNumber":
-      // String-keyed lookup erases the concrete signature; runtime validation
-      // already selected the correct namespace/function pair before this cast.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfNumber[fnName] as AnyToAny;
-    case "transformFnNull":
-      // String-keyed lookup erases the concrete signature; runtime validation
-      // already selected the correct namespace/function pair before this cast.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfNull[fnName] as AnyToAny;
-    case "transformFnRecord":
-      return tfRecord[fnName] as AnyToAny;
-    case "transformFnString":
-      // String-keyed lookup erases the concrete signature; runtime validation
-      // already selected the correct namespace/function pair before this cast.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return tfString[fnName] as AnyToAny;
-  }
+export const getTransformFn = (name: TransformFnNames): AnyToAny => {
+  assertKnownPreset(name);
+  return (value) => {
+    const response = defaultZigRuntimeClient.value({
+      operation: "preset",
+      name,
+      args: [toCanonicalValue(value)],
+    });
+    if (response.status !== "ok") throw new Error(readError(response.payload));
+    const result = fromCanonicalValue(response.payload);
+    return name.endsWith("::pass") ? value : result;
+  };
 };
+
+function assertKnownPreset(name: string): void {
+  const response = defaultZigRuntimeClient.value({ operation: "preset", name, args: [] });
+  if (readError(response.payload) === "UnknownFunction") {
+    throw new Error(`Invalid transform function name: ${name}`);
+  }
+}
+
+function readError(payload: unknown): string {
+  if (typeof payload === "object" && payload !== null && "error" in payload) {
+    return String((payload as { error: unknown }).error);
+  }
+  return "Zig preset execution failed";
+}

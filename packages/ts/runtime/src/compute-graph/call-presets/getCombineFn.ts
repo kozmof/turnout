@@ -1,50 +1,35 @@
-import { cfArray, cfRecord } from "../../state-control/preset-funcs/array/combineFn.js";
-import { cfBoolean } from "../../state-control/preset-funcs/boolean/combineFn.js";
-import { cfGeneric } from "../../state-control/preset-funcs/generic/combineFn.js";
-import { cfNumber } from "../../state-control/preset-funcs/number/combineFn.js";
-import { cfString } from "../../state-control/preset-funcs/string/combineFn.js";
-import { AnyValue } from "../../state-control/value.js";
-import { splitPairCombineFnNames } from "../../util/splitPair.js";
-import { CombineFnNames } from "../types.js";
+import type { AnyValue } from "../../state-control/value.js";
+import { defaultZigRuntimeClient } from "../../zig-runtime/default-client.js";
+import { fromCanonicalValue, toCanonicalValue } from "../../zig-runtime/value-codec.js";
+import type { CombineFnNames } from "../types.js";
 
-// Runtime execution resolves combine functions dynamically, so we expose a single
-// AnyValue-based contract that works across all namespaced preset implementations.
 type AnyToAny = (...values: AnyValue[]) => AnyValue;
 
-export const getCombineFn = (joinedName: CombineFnNames): AnyToAny => {
-  const mayPair = splitPairCombineFnNames(joinedName);
-  if (mayPair === null) {
-    throw new Error("Invalid combine function name: " + joinedName);
-  }
-  const [namespace, fnName] = mayPair;
-
-  switch (namespace) {
-    case "combineFnArray":
-      // String-keyed lookup widens the function type; namespace/function parsing
-      // above ensures this cast matches the selected preset implementation.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return cfArray[fnName] as AnyToAny;
-    case "combineFnRecord":
-      return cfRecord[fnName] as unknown as AnyToAny;
-    case "combineFnBoolean":
-      // String-keyed lookup widens the function type; namespace/function parsing
-      // above ensures this cast matches the selected preset implementation.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return cfBoolean[fnName] as AnyToAny;
-    case "combineFnGeneric":
-      // String-keyed lookup widens the function type; namespace/function parsing
-      // above ensures this cast matches the selected preset implementation.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return cfGeneric[fnName] as AnyToAny;
-    case "combineFnNumber":
-      // String-keyed lookup widens the function type; namespace/function parsing
-      // above ensures this cast matches the selected preset implementation.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return cfNumber[fnName] as AnyToAny;
-    case "combineFnString":
-      // String-keyed lookup widens the function type; namespace/function parsing
-      // above ensures this cast matches the selected preset implementation.
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
-      return cfString[fnName] as AnyToAny;
-  }
+export const getCombineFn = (name: CombineFnNames): AnyToAny => {
+  assertKnownPreset(name, "combine");
+  return (...values) => callPreset(name, values);
 };
+
+function assertKnownPreset(name: string, kind: "combine" | "transform"): void {
+  const response = defaultZigRuntimeClient.value({ operation: "preset", name, args: [] });
+  if (readError(response.payload) === "UnknownFunction") {
+    throw new Error(`Invalid ${kind} function name: ${name}`);
+  }
+}
+
+function callPreset(name: string, values: readonly AnyValue[]): AnyValue {
+  const response = defaultZigRuntimeClient.value({
+    operation: "preset",
+    name,
+    args: values.map(toCanonicalValue),
+  });
+  if (response.status !== "ok") throw new Error(readError(response.payload));
+  return fromCanonicalValue(response.payload);
+}
+
+function readError(payload: unknown): string {
+  if (typeof payload === "object" && payload !== null && "error" in payload) {
+    return String((payload as { error: unknown }).error);
+  }
+  return "Zig preset execution failed";
+}
