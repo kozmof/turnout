@@ -17,8 +17,14 @@ const Detail = union(enum) {
     def: struct { def_id: []const u8 },
     def_name: struct { def_id: []const u8, name: std.json.Value },
     def_transform: struct { def_id: []const u8, transform_fn: []const u8 },
+    def_combine: struct { def_id: []const u8, combine_fn: []const u8 },
     value: struct { value_id: []const u8 },
     pipe: struct { def_id: []const u8, step_index: ?usize = null, arg_name: ?[]const u8 = null },
+    pipe_step_def: struct { def_id: []const u8, step_index: usize, step_def_id: []const u8 },
+    condition: struct { def_id: []const u8, condition_id: []const u8, condition_type: []const u8 },
+    condition_ref: struct { def_id: []const u8, condition_id: []const u8 },
+    branch: struct { def_id: []const u8, key: []const u8, id: []const u8 },
+    branch_key: struct { def_id: []const u8, key: []const u8 },
     cycle: []const []const u8,
 };
 
@@ -118,6 +124,12 @@ const Issue = struct {
                 try writer.objectField("transformFn");
                 try writer.write(detail.transform_fn);
             },
+            .def_combine => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("combineFn");
+                try writer.write(detail.combine_fn);
+            },
             .value => |detail| {
                 try writer.objectField("valueId");
                 try writer.write(detail.value_id);
@@ -133,6 +145,40 @@ const Issue = struct {
                     try writer.objectField("argName");
                     try writer.write(name);
                 }
+            },
+            .pipe_step_def => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("stepIndex");
+                try writer.write(detail.step_index);
+                try writer.objectField("stepDefId");
+                try writer.write(detail.step_def_id);
+            },
+            .condition => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("conditionId");
+                try writer.write(detail.condition_id);
+                try writer.objectField("conditionType");
+                try writer.write(detail.condition_type);
+            },
+            .condition_ref => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("conditionId");
+                try writer.write(detail.condition_id);
+            },
+            .branch => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField(detail.key);
+                try writer.write(detail.id);
+            },
+            .branch_key => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("branchKey");
+                try writer.write(detail.key);
             },
             .cycle => |nodes| {
                 try writer.objectField("cycle");
@@ -436,7 +482,7 @@ fn validateCombineDefinition(
     } else if (!try knownPreset(name.?.string, allocator) or !std.mem.startsWith(u8, name.?.string, "combineFn")) {
         try result.errors.append(allocator, .{
             .message = try std.fmt.allocPrint(allocator, "CombineFuncDefTable[{s}]: Invalid or unknown combine function \"{s}\"", .{ def_id, name.?.string }),
-            .detail = .{ .def_transform = .{ .def_id = def_id, .transform_fn = name.?.string } },
+            .detail = .{ .def_combine = .{ .def_id = def_id, .combine_fn = name.?.string } },
         });
     }
     const transforms = raw.object.get("transformFn");
@@ -544,7 +590,10 @@ fn validatePipeDefinition(
         const in_pipe = tables[3].contains(step_id);
         const in_cond = tables[4].contains(step_id);
         if (!in_combine and !in_pipe and !in_cond) {
-            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: Referenced definition {s} does not exist", .{ def_id, step_index, step_id }), def_id, step_index, null);
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: Referenced definition {s} does not exist", .{ def_id, step_index, step_id }),
+                .detail = .{ .pipe_step_def = .{ .def_id = def_id, .step_index = step_index, .step_def_id = step_id } },
+            });
             continue;
         }
         if (!in_combine and !in_pipe and in_cond) {
@@ -635,26 +684,26 @@ fn validateCondDefinition(
             if (!tables[0].contains(id.?.string)) {
                 try result.errors.append(allocator, .{
                     .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced ValueId {s} does not exist", .{ def_id, id.?.string }),
-                    .detail = .{ .def = .{ .def_id = def_id } },
+                    .detail = .{ .condition_ref = .{ .def_id = def_id, .condition_id = id.?.string } },
                 });
             } else {
                 try referenced_values.put(allocator, id.?.string, {});
                 if (inferReferenceType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
                     try result.errors.append(allocator, .{
                         .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Condition value must be boolean, got \"{s}\"", .{ def_id, condition_type }),
-                        .detail = .{ .def = .{ .def_id = def_id } },
+                        .detail = .{ .condition = .{ .def_id = def_id, .condition_id = id.?.string, .condition_type = condition_type } },
                     });
                 };
             }
         } else if (!tables[1].contains(id.?.string)) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced FuncId {s} does not exist", .{ def_id, id.?.string }),
-                .detail = .{ .def = .{ .def_id = def_id } },
+                .detail = .{ .condition_ref = .{ .def_id = def_id, .condition_id = id.?.string } },
             });
         } else if (inferFunctionIdType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Function condition must return boolean, got \"{s}\"", .{ def_id, condition_type }),
-                .detail = .{ .def = .{ .def_id = def_id } },
+                .detail = .{ .condition = .{ .def_id = def_id, .condition_id = id.?.string, .condition_type = condition_type } },
             });
         };
     }
@@ -663,12 +712,12 @@ fn validateCondDefinition(
         if (branch == null or branch.? != .string) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].{s}: Missing or invalid FuncId", .{ def_id, branch_key }),
-                .detail = .{ .def = .{ .def_id = def_id } },
+                .detail = .{ .branch_key = .{ .def_id = def_id, .key = branch_key } },
             });
         } else if (!tables[1].contains(branch.?.string)) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].{s}: Referenced FuncId {s} does not exist", .{ def_id, branch_key, branch.?.string }),
-                .detail = .{ .def = .{ .def_id = def_id } },
+                .detail = .{ .branch = .{ .def_id = def_id, .key = branch_key, .id = branch.?.string } },
             });
         }
     }

@@ -14,8 +14,8 @@ const empty = (): UnvalidatedContext => ({
 function messages(result: ReturnType<typeof validateContext>) {
   return {
     valid: result.valid,
-    errors: result.errors.map((issue) => issue.message),
-    warnings: result.warnings.map((issue) => issue.message),
+    errors: result.errors,
+    warnings: result.warnings,
   };
 }
 
@@ -24,8 +24,8 @@ function expectParity(context: UnvalidatedContext): void {
   const zigResult = validateLegacyContextWithZig(context);
   expect({
     valid: zigResult.valid,
-    errors: zigResult.errors.map((issue) => issue.message),
-    warnings: zigResult.warnings.map((issue) => issue.message),
+    errors: zigResult.errors,
+    warnings: zigResult.warnings,
   }).toEqual(typescript);
 }
 
