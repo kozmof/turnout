@@ -1,6 +1,6 @@
 # Turnout Zig runtime
 
-This package is the execution core for Turnout. The TypeScript scene runner loads the packaged Zig/WASM module and adapts its events to the public JavaScript API.
+This package is the execution core for Turnout. The TypeScript runtime package loads the packaged Zig/WASM module, and the scene runner consumes that shared adapter for its public JavaScript API.
 
 The first transport is the sanitized JSON emitted by the Go converter. Zig validates that boundary before it creates runtime state. Host work stays outside Zig and crosses the ordered prepare and publish effect interface.
 
@@ -26,7 +26,7 @@ Run the native and WASM core checks from the repository root.
 - Versioned WASM allocation, lifecycle, and effect-result APIs
 - Native and WASM execution of the same 106 core tests
 
-The build produces the freestanding WASM module used by `turnout-scene-runner`. The package build validates and copies that artifact into its distribution.
+The build produces the freestanding WASM module packaged by `runtime`. The runtime package build validates and copies that artifact into its distribution; `turnout-scene-runner` imports the shared client instead of shipping another copy.
 
 ## Test expectations
 

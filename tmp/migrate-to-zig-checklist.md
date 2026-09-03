@@ -294,9 +294,9 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Remove TypeScript preset implementations
 - [x] Remove TypeScript compute execution implementations
 - [x] Remove TypeScript Value semantic implementations
-- [ ] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists
+- [x] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists
 - [ ] Keep public TypeScript types, builders, error shapes, and entry points compatible where practical
-- [ ] Make `scene-runner` consume the shared runtime adapter
+- [x] Make `scene-runner` consume the shared runtime adapter
 - [ ] Verify no independent Turnout runtime semantics remain in either TypeScript package
 - [ ] Update runtime, ABI, package, and release documentation
 

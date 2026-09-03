@@ -74,11 +74,7 @@ export type { InvalidValueError, ValueBuilderError } from "./state-control/error
 export { createInvalidValueError, isValueBuilderError } from "./state-control/errors.js";
 
 // ── Compute-graph runtime ─────────────────────────────────────────────────────
-export {
-  executeGraph,
-  executeGraphSafe,
-  getCombineFnReturnType,
-} from "./compute-graph/index.js";
+export { executeGraph, executeGraphSafe, getCombineFnReturnType } from "./compute-graph/index.js";
 
 export type { ExecutionResult } from "./compute-graph/index.js";
 

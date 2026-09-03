@@ -173,4 +173,4 @@ Native ABI lifecycle tests use Zig's debug allocator and fail when allocations r
 
 The reproducible performance and memory baseline is recorded in [performance-baseline.md](./performance-baseline.md).
 
-The `scene-runner` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm`. The package exports it as `turnout-scene-runner/zig-runtime/turnout-runtime.wasm`. Distribution smoke tests check that the copied file has the WebAssembly magic bytes.
+The `runtime` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm` and exports it as `runtime/zig-runtime/turnout-runtime.wasm`. The scene runner imports the shared runtime client and default instance. Distribution smoke tests check that the single copied file has the WebAssembly magic bytes.

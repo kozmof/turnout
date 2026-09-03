@@ -14,12 +14,10 @@
     "./server": {
       "import": "./dist/server/index.js",
       "types": "./dist/server/index.d.ts"
-    },
-    "./zig-runtime/turnout-runtime.wasm": "./dist/zig-runtime/turnout-runtime.wasm"
+    }
   },
   "scripts": {
-    "build": "node ../../../scripts/clean-scene-runner-dist.mjs && pnpm run build:wasm && tsc --project tsconfig.build.json && node ../../../scripts/package-zig-wasm.mjs",
-    "build:wasm": "zig build --build-file ../../zig/build.zig wasm",
+    "build": "node ../../../scripts/clean-scene-runner-dist.mjs && tsc --project tsconfig.build.json",
     "lint": "oxlint -c ../../../.oxlintrc.json src/ tests/",
     "fmt": "oxfmt",
     "test": "vitest --run",

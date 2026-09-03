@@ -1,10 +1,4 @@
-import type {
-  ExecutionContext,
-  ValueId,
-  FuncId,
-  ValueTable,
-  FuncTable,
-} from "../../types.js";
+import type { ExecutionContext, ValueId, FuncId, ValueTable, FuncTable } from "../../types.js";
 import type { BaseTypeSymbol } from "../../../state-control/value.js";
 
 // ============================================================================

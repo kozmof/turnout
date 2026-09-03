@@ -9,10 +9,7 @@ import {
 import type { ValidatedContext } from "../validateContext.js";
 import { type ExecutionResult, type ValueTable } from "../../types.js";
 import { defaultZigRuntimeClient } from "../../../zig-runtime/default-client.js";
-import {
-  fromCanonicalValue,
-  toCanonicalOperationValue,
-} from "../../../zig-runtime/value-codec.js";
+import { fromCanonicalValue, toCanonicalOperationValue } from "../../../zig-runtime/value-codec.js";
 
 /**
  * Executes a computation graph starting from a root function.

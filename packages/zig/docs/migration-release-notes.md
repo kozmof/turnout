@@ -13,7 +13,7 @@ The scene runner now executes scenes and routes only through Zig/WASM. The TypeS
 
 `createRunner`, `createSceneRunner`, `createRouteRunner`, `runHarness`, and `runServerHarness` retain their public contracts. `executeSceneSafe` and `executeRouteSafe` remain available and run through Zig/WASM. JavaScript state and error utilities required by the compatibility matrix remain in the package.
 
-The packaged WASM path remains `turnout-scene-runner/zig-runtime/turnout-runtime.wasm`.
+The packaged WASM path is `runtime/zig-runtime/turnout-runtime.wasm`. `turnout-scene-runner` consumes the client and default instance exported by `runtime/zig-runtime`.
 
 ## Verification
 
