@@ -18,6 +18,7 @@ const Detail = union(enum) {
     def_name: struct { def_id: []const u8, name: std.json.Value },
     def_transform: struct { def_id: []const u8, transform_fn: []const u8 },
     pipe: struct { def_id: []const u8, step_index: ?usize = null, arg_name: ?[]const u8 = null },
+    cycle: []const []const u8,
 };
 
 const Issue = struct {
@@ -26,6 +27,7 @@ const Issue = struct {
 
     fn deinit(self: Issue, allocator: std.mem.Allocator) void {
         allocator.free(self.message);
+        if (self.detail == .cycle) allocator.free(self.detail.cycle);
     }
 
     pub fn jsonStringify(self: Issue, writer: anytype) !void {
@@ -127,6 +129,10 @@ const Issue = struct {
                     try writer.write(name);
                 }
             },
+            .cycle => |nodes| {
+                try writer.objectField("cycle");
+                try writer.write(nodes);
+            },
         }
         try writer.endObject();
         try writer.endObject();
@@ -227,6 +233,8 @@ pub fn validate(context: std.json.Value, allocator: std.mem.Allocator) !Result {
     while (pipes.next()) |entry| try validatePipeDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
     var conditions = tables[4].iterator();
     while (conditions.next()) |entry| try validateCondDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
+    try checkFunctionCycles(tables, &owners, &result, allocator);
+    try checkPipeCycles(tables, &result, allocator);
     return result;
 }
 
@@ -652,6 +660,129 @@ fn validateCondDefinition(
     }
 }
 
+const Dependencies = std.StringArrayHashMapUnmanaged(std.ArrayList([]const u8));
+
+fn deinitDependencies(deps: *Dependencies, allocator: std.mem.Allocator) void {
+    for (deps.values()) |*items| items.deinit(allocator);
+    deps.deinit(allocator);
+}
+
+fn appendDependency(deps: *Dependencies, node: []const u8, dependency: []const u8, allocator: std.mem.Allocator) !void {
+    const found = deps.getPtr(node) orelse return;
+    for (found.items) |existing| if (std.mem.eql(u8, existing, dependency)) return;
+    try found.append(allocator, dependency);
+}
+
+fn checkFunctionCycles(tables: [5]std.json.ObjectMap, owners: *const std.StringHashMapUnmanaged([]const u8), result: *Result, allocator: std.mem.Allocator) !void {
+    var deps: Dependencies = .empty;
+    defer deinitDependencies(&deps, allocator);
+    var functions = tables[1].iterator();
+    while (functions.next()) |entry| try deps.put(allocator, entry.key_ptr.*, .empty);
+    functions = tables[1].iterator();
+    while (functions.next()) |entry| {
+        if (entry.value_ptr.* != .object) continue;
+        if (entry.value_ptr.object.get("argMap")) |args| if (args == .object) {
+            var iterator = args.object.iterator();
+            while (iterator.next()) |arg| if (arg.value_ptr.* == .string) if (owners.get(arg.value_ptr.string)) |producer|
+                try appendDependency(&deps, entry.key_ptr.*, producer, allocator);
+        };
+        const def_id = entry.value_ptr.object.get("defId") orelse continue;
+        if (def_id != .string) continue;
+        const condition = tables[4].get(def_id.string) orelse continue;
+        if (condition != .object) continue;
+        if (condition.object.get("conditionId")) |condition_id| if (condition_id == .object) {
+            const kind = condition_id.object.get("kind");
+            const id = condition_id.object.get("id");
+            if (kind != null and kind.? == .string and std.mem.eql(u8, kind.?.string, "func") and id != null and id.? == .string)
+                try appendDependency(&deps, entry.key_ptr.*, id.?.string, allocator);
+        };
+        for ([_][]const u8{ "trueBranchId", "falseBranchId" }) |key| if (condition.object.get(key)) |branch| if (branch == .string)
+            try appendDependency(&deps, entry.key_ptr.*, branch.string, allocator);
+    }
+    try detectCycles(&deps, "FuncTable", true, result, allocator);
+}
+
+fn checkPipeCycles(tables: [5]std.json.ObjectMap, result: *Result, allocator: std.mem.Allocator) !void {
+    var deps: Dependencies = .empty;
+    defer deinitDependencies(&deps, allocator);
+    var pipes = tables[3].iterator();
+    while (pipes.next()) |entry| try deps.put(allocator, entry.key_ptr.*, .empty);
+    pipes = tables[3].iterator();
+    while (pipes.next()) |entry| {
+        if (entry.value_ptr.* != .object) continue;
+        const sequence = entry.value_ptr.object.get("sequence") orelse continue;
+        if (sequence != .array) continue;
+        for (sequence.array.items) |step| {
+            if (step != .object) continue;
+            const def_id = step.object.get("defId") orelse continue;
+            if (def_id == .string and tables[3].contains(def_id.string))
+                try appendDependency(&deps, entry.key_ptr.*, def_id.string, allocator);
+        }
+    }
+    try detectCycles(&deps, "PipeFuncDefTable", false, result, allocator);
+}
+
+const CycleFrame = struct { node: []const u8, next: usize = 0 };
+
+fn detectCycles(deps: *const Dependencies, label: []const u8, normalize: bool, result: *Result, allocator: std.mem.Allocator) !void {
+    var states: std.StringHashMapUnmanaged(u8) = .empty;
+    defer states.deinit(allocator);
+    var path = std.ArrayList([]const u8).empty;
+    defer path.deinit(allocator);
+    var work = std.ArrayList(CycleFrame).empty;
+    defer work.deinit(allocator);
+    for (deps.keys()) |root| {
+        if (states.get(root) != null) continue;
+        try states.put(allocator, root, 1);
+        try path.append(allocator, root);
+        try work.append(allocator, .{ .node = root });
+        while (work.items.len > 0) {
+            const frame = &work.items[work.items.len - 1];
+            const children = deps.get(frame.node).?.items;
+            if (frame.next >= children.len) {
+                try states.put(allocator, frame.node, 2);
+                _ = path.pop();
+                _ = work.pop();
+                continue;
+            }
+            const child = children[frame.next];
+            frame.next += 1;
+            if (!deps.contains(child)) continue;
+            const state = states.get(child) orelse 0;
+            if (state == 0) {
+                try states.put(allocator, child, 1);
+                try path.append(allocator, child);
+                try work.append(allocator, .{ .node = child });
+            } else if (state == 1) {
+                var start: usize = 0;
+                while (start < path.items.len and !std.mem.eql(u8, path.items[start], child)) : (start += 1) {}
+                try reportCycle(path.items[start..], child, label, normalize, result, allocator);
+            }
+        }
+    }
+}
+
+fn reportCycle(path: []const []const u8, closing: []const u8, label: []const u8, normalize: bool, result: *Result, allocator: std.mem.Allocator) !void {
+    var start: usize = 0;
+    if (normalize and path.len > 0) for (path, 0..) |node, index| if (std.mem.order(u8, node, path[start]) == .lt) {
+        start = index;
+    };
+    const cycle = try allocator.alloc([]const u8, path.len + 1);
+    errdefer allocator.free(cycle);
+    for (0..path.len) |index| cycle[index] = path[(start + index) % path.len];
+    cycle[path.len] = if (normalize) cycle[0] else closing;
+    var joined = std.ArrayList(u8).empty;
+    defer joined.deinit(allocator);
+    for (cycle, 0..) |node, index| {
+        if (index != 0) try joined.appendSlice(allocator, " -> ");
+        try joined.appendSlice(allocator, node);
+    }
+    try result.errors.append(allocator, .{
+        .message = try std.fmt.allocPrint(allocator, "{s}: Cycle detected {s}", .{ label, joined.items }),
+        .detail = .{ .cycle = cycle },
+    });
+}
+
 fn addFuncIssue(result: *Result, allocator: std.mem.Allocator, comptime format: []const u8, func_id: []const u8, detail: Detail) !void {
     try result.errors.append(allocator, .{ .message = try std.fmt.allocPrint(allocator, format, .{func_id}), .detail = detail });
 }
@@ -765,4 +896,44 @@ test "legacy validation checks conditional references and condition types" {
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[1].message, "missingTrue does not exist") != null);
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[2].message, "missingFalse does not exist") != null);
     try std.testing.expectEqualStrings("CondFuncDefTable[condition]: Definition is never used", result.warnings.items[0].message);
+}
+
+test "legacy validation reports normalized function and pipe cycles" {
+    const fixture =
+        \\{"valueTable":{},"funcTable":{"z":{"kind":"cond","defId":"cz","returnId":"rz"},"a":{"kind":"cond","defId":"ca","returnId":"ra"}},"combineFuncDefTable":{},
+        \\ "pipeFuncDefTable":{"p1":{"sequence":[{"defId":"p2","argBindings":{}}]},"p2":{"sequence":[{"defId":"p1","argBindings":{}}]}},
+        \\ "condFuncDefTable":{"cz":{"conditionId":{"kind":"func","id":"a"},"trueBranchId":"a","falseBranchId":"a"},"ca":{"conditionId":{"kind":"func","id":"z"},"trueBranchId":"z","falseBranchId":"z"}}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try validate(parsed.value, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    var found_function = false;
+    var found_pipe = false;
+    for (result.errors.items) |issue| {
+        if (std.mem.eql(u8, issue.message, "FuncTable: Cycle detected a -> z -> a")) found_function = true;
+        if (std.mem.indexOf(u8, issue.message, "PipeFuncDefTable: Cycle detected") != null) found_pipe = true;
+    }
+    try std.testing.expect(found_function);
+    try std.testing.expect(found_pipe);
+}
+
+test "cycle detection handles a forty thousand node chain iteratively" {
+    var deps: Dependencies = .empty;
+    defer deinitDependencies(&deps, std.testing.allocator);
+    var names = std.ArrayList([]u8).empty;
+    defer {
+        for (names.items) |name| std.testing.allocator.free(name);
+        names.deinit(std.testing.allocator);
+    }
+    for (0..40_000) |index| {
+        const name = try std.fmt.allocPrint(std.testing.allocator, "n{d}", .{index});
+        try names.append(std.testing.allocator, name);
+        try deps.put(std.testing.allocator, name, .empty);
+        if (index > 0) try appendDependency(&deps, names.items[index - 1], name, std.testing.allocator);
+    }
+    var result: Result = .{};
+    defer result.deinit(std.testing.allocator);
+    try detectCycles(&deps, "FuncTable", true, &result, std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 0), result.errors.items.len);
 }
