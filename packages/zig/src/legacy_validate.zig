@@ -17,6 +17,7 @@ const Detail = union(enum) {
     def: struct { def_id: []const u8 },
     def_name: struct { def_id: []const u8, name: std.json.Value },
     def_transform: struct { def_id: []const u8, transform_fn: []const u8 },
+    value: struct { value_id: []const u8 },
     pipe: struct { def_id: []const u8, step_index: ?usize = null, arg_name: ?[]const u8 = null },
     cycle: []const []const u8,
 };
@@ -117,6 +118,10 @@ const Issue = struct {
                 try writer.objectField("transformFn");
                 try writer.write(detail.transform_fn);
             },
+            .value => |detail| {
+                try writer.objectField("valueId");
+                try writer.write(detail.value_id);
+            },
             .pipe => |detail| {
                 try writer.objectField("defId");
                 try writer.write(detail.def_id);
@@ -213,6 +218,8 @@ pub fn validate(context: std.json.Value, allocator: std.mem.Allocator) !Result {
     defer owners.deinit(allocator);
     var referenced_defs: std.StringHashMapUnmanaged(void) = .empty;
     defer referenced_defs.deinit(allocator);
+    var referenced_values: std.StringHashMapUnmanaged(void) = .empty;
+    defer referenced_values.deinit(allocator);
     var functions = tables[1].iterator();
     while (functions.next()) |entry| {
         if (entry.value_ptr.* != .object) continue;
@@ -226,15 +233,22 @@ pub fn validate(context: std.json.Value, allocator: std.mem.Allocator) !Result {
         } else try owners.put(allocator, return_id.string, entry.key_ptr.*);
     }
     functions = tables[1].iterator();
-    while (functions.next()) |entry| try validateFunction(entry.key_ptr.*, entry.value_ptr.*, tables, &owners, &referenced_defs, &result, allocator);
+    while (functions.next()) |entry| try validateFunction(entry.key_ptr.*, entry.value_ptr.*, tables, &owners, &referenced_defs, &referenced_values, &result, allocator);
     var combines = tables[2].iterator();
     while (combines.next()) |entry| try validateCombineDefinition(entry.key_ptr.*, entry.value_ptr.*, &referenced_defs, &result, allocator);
     var pipes = tables[3].iterator();
-    while (pipes.next()) |entry| try validatePipeDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
+    while (pipes.next()) |entry| try validatePipeDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &referenced_values, &result, allocator);
     var conditions = tables[4].iterator();
-    while (conditions.next()) |entry| try validateCondDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
+    while (conditions.next()) |entry| try validateCondDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &referenced_values, &result, allocator);
     try checkFunctionCycles(tables, &owners, &result, allocator);
     try checkPipeCycles(tables, &result, allocator);
+    var values = tables[0].iterator();
+    while (values.next()) |entry| if (!referenced_values.contains(entry.key_ptr.*)) {
+        try result.warnings.append(allocator, .{
+            .message = try std.fmt.allocPrint(allocator, "ValueTable[{s}]: Value is never referenced", .{entry.key_ptr.*}),
+            .detail = .{ .value = .{ .value_id = entry.key_ptr.* } },
+        });
+    };
     return result;
 }
 
@@ -248,6 +262,7 @@ fn validateFunction(
     tables: [5]std.json.ObjectMap,
     return_ids: *const std.StringHashMapUnmanaged([]const u8),
     referenced_defs: *std.StringHashMapUnmanaged(void),
+    referenced_values: *std.StringHashMapUnmanaged(void),
     result: *Result,
     allocator: std.mem.Allocator,
 ) !void {
@@ -310,7 +325,7 @@ fn validateFunction(
             } else if (!has(tables[0], arg.value_ptr.string) and !return_ids.contains(arg.value_ptr.string)) {
                 const message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: Referenced ID {s} does not exist", .{ func_id, arg.key_ptr.*, arg.value_ptr.string });
                 try result.errors.append(allocator, .{ .message = message, .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg.key_ptr.*, .arg_id = arg.value_ptr.* } } });
-            }
+            } else try referenced_values.put(allocator, arg.value_ptr.string, {});
         }
         if (std.mem.eql(u8, kind, "combine")) for ([_][]const u8{ "a", "b" }) |arg_name| if (!map.object.contains(arg_name)) {
             const message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap: Combine function requires argument \"{s}\"", .{ func_id, arg_name });
@@ -486,6 +501,7 @@ fn validatePipeDefinition(
     raw: std.json.Value,
     tables: [5]std.json.ObjectMap,
     referenced_defs: *const std.StringHashMapUnmanaged(void),
+    referenced_values: *std.StringHashMapUnmanaged(void),
     result: *Result,
     allocator: std.mem.Allocator,
 ) !void {
@@ -541,7 +557,7 @@ fn validatePipeDefinition(
             continue;
         }
         var iterator = bindings.?.object.iterator();
-        while (iterator.next()) |entry| try validatePipeBinding(def_id, step_index, entry.key_ptr.*, entry.value_ptr.*, &declared_args, tables[0], result, allocator);
+        while (iterator.next()) |entry| try validatePipeBinding(def_id, step_index, entry.key_ptr.*, entry.value_ptr.*, &declared_args, tables[0], referenced_values, result, allocator);
     }
     if (!referenced_defs.contains(def_id)) {
         try result.warnings.append(allocator, .{
@@ -551,7 +567,7 @@ fn validatePipeDefinition(
     }
 }
 
-fn validatePipeBinding(def_id: []const u8, step_index: usize, arg_name: []const u8, binding: std.json.Value, declared_args: *const std.StringHashMapUnmanaged(void), values: std.json.ObjectMap, result: *Result, allocator: std.mem.Allocator) !void {
+fn validatePipeBinding(def_id: []const u8, step_index: usize, arg_name: []const u8, binding: std.json.Value, declared_args: *const std.StringHashMapUnmanaged(void), values: std.json.ObjectMap, referenced_values: *std.StringHashMapUnmanaged(void), result: *Result, allocator: std.mem.Allocator) !void {
     const prefix = "PipeFuncDefTable[{s}].sequence[{d}]";
     if (binding != .object or binding.object.get("source") == null or binding.object.get("source").? != .string) {
         try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' is invalid", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
@@ -583,7 +599,7 @@ fn validatePipeBinding(def_id: []const u8, step_index: usize, arg_name: []const 
             try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": 'value' binding for '{s}' must include string id", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
         } else if (!values.contains(id.?.string)) {
             try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' references non-existent ValueId {s}", .{ def_id, step_index, arg_name, id.?.string }), def_id, step_index, arg_name);
-        }
+        } else try referenced_values.put(allocator, id.?.string, {});
         return;
     }
     try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' has unknown source \"{s}\"", .{ def_id, step_index, arg_name, source }), def_id, step_index, arg_name);
@@ -594,6 +610,7 @@ fn validateCondDefinition(
     raw: std.json.Value,
     tables: [5]std.json.ObjectMap,
     referenced_defs: *const std.StringHashMapUnmanaged(void),
+    referenced_values: *std.StringHashMapUnmanaged(void),
     result: *Result,
     allocator: std.mem.Allocator,
 ) !void {
@@ -620,12 +637,15 @@ fn validateCondDefinition(
                     .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced ValueId {s} does not exist", .{ def_id, id.?.string }),
                     .detail = .{ .def = .{ .def_id = def_id } },
                 });
-            } else if (inferReferenceType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
-                try result.errors.append(allocator, .{
-                    .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Condition value must be boolean, got \"{s}\"", .{ def_id, condition_type }),
-                    .detail = .{ .def = .{ .def_id = def_id } },
-                });
-            };
+            } else {
+                try referenced_values.put(allocator, id.?.string, {});
+                if (inferReferenceType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
+                    try result.errors.append(allocator, .{
+                        .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Condition value must be boolean, got \"{s}\"", .{ def_id, condition_type }),
+                        .detail = .{ .def = .{ .def_id = def_id } },
+                    });
+                };
+            }
         } else if (!tables[1].contains(id.?.string)) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced FuncId {s} does not exist", .{ def_id, id.?.string }),
@@ -936,4 +956,19 @@ test "cycle detection handles a forty thousand node chain iteratively" {
     defer result.deinit(std.testing.allocator);
     try detectCycles(&deps, "FuncTable", true, &result, std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 0), result.errors.items.len);
+}
+
+test "legacy validation warns only for unreferenced values in table order" {
+    const fixture =
+        \\{"valueTable":{"arg":{"symbol":"number"},"condition":{"symbol":"boolean"},"literal":{"symbol":"number"},"unused":{"symbol":"string"}},
+        \\ "funcTable":{"sum":{"kind":"combine","defId":"add","argMap":{"a":"arg","b":"arg"},"returnId":"sumOut"},"choose":{"kind":"cond","defId":"choice","returnId":"choiceOut"}},
+        \\ "combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":[],"b":[]}}},
+        \\ "pipeFuncDefTable":{"pipe":{"args":[],"sequence":[{"defId":"add","argBindings":{"a":{"source":"value","id":"literal"},"b":{"source":"value","id":"literal"}}}]}},
+        \\ "condFuncDefTable":{"choice":{"conditionId":{"kind":"value","id":"condition"},"trueBranchId":"sum","falseBranchId":"sum"}}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try validate(parsed.value, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqualStrings("ValueTable[unused]: Value is never referenced", result.warnings.items[result.warnings.items.len - 1].message);
 }
