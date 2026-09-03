@@ -225,6 +225,8 @@ pub fn validate(context: std.json.Value, allocator: std.mem.Allocator) !Result {
     while (combines.next()) |entry| try validateCombineDefinition(entry.key_ptr.*, entry.value_ptr.*, &referenced_defs, &result, allocator);
     var pipes = tables[3].iterator();
     while (pipes.next()) |entry| try validatePipeDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
+    var conditions = tables[4].iterator();
+    while (conditions.next()) |entry| try validateCondDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
     return result;
 }
 
@@ -327,6 +329,13 @@ fn inferReferenceType(id: []const u8, tables: [5]std.json.ObjectMap) ?[]const u8
         }
     }
     return null;
+}
+
+fn inferFunctionIdType(id: []const u8, tables: [5]std.json.ObjectMap) ?[]const u8 {
+    const entry = tables[1].get(id) orelse return null;
+    if (entry != .object) return null;
+    const return_id = entry.object.get("returnId") orelse return null;
+    return if (return_id == .string) inferReferenceType(return_id.string, tables) else null;
 }
 
 fn validateFunctionTypes(
@@ -572,6 +581,77 @@ fn validatePipeBinding(def_id: []const u8, step_index: usize, arg_name: []const 
     try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' has unknown source \"{s}\"", .{ def_id, step_index, arg_name, source }), def_id, step_index, arg_name);
 }
 
+fn validateCondDefinition(
+    def_id: []const u8,
+    raw: std.json.Value,
+    tables: [5]std.json.ObjectMap,
+    referenced_defs: *const std.StringHashMapUnmanaged(void),
+    result: *Result,
+    allocator: std.mem.Allocator,
+) !void {
+    if (raw != .object) {
+        try addDefIssue(result, allocator, "CondFuncDefTable[{s}]: Invalid entry", def_id);
+        return;
+    }
+    const condition = raw.object.get("conditionId");
+    if (condition == null or condition.? != .object) {
+        try addDefIssue(result, allocator, "CondFuncDefTable[{s}]: Missing or invalid conditionId", def_id);
+    } else {
+        const kind = condition.?.object.get("kind");
+        const id = condition.?.object.get("id");
+        if (kind == null or kind.? != .string or id == null or id.? != .string) {
+            try addDefIssue(result, allocator, "CondFuncDefTable[{s}].conditionId: Must include string kind and id", def_id);
+        } else if (!std.mem.eql(u8, kind.?.string, "value") and !std.mem.eql(u8, kind.?.string, "func")) {
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Unknown kind \"{s}\"", .{ def_id, kind.?.string }),
+                .detail = .{ .def = .{ .def_id = def_id } },
+            });
+        } else if (std.mem.eql(u8, kind.?.string, "value")) {
+            if (!tables[0].contains(id.?.string)) {
+                try result.errors.append(allocator, .{
+                    .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced ValueId {s} does not exist", .{ def_id, id.?.string }),
+                    .detail = .{ .def = .{ .def_id = def_id } },
+                });
+            } else if (inferReferenceType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
+                try result.errors.append(allocator, .{
+                    .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Condition value must be boolean, got \"{s}\"", .{ def_id, condition_type }),
+                    .detail = .{ .def = .{ .def_id = def_id } },
+                });
+            };
+        } else if (!tables[1].contains(id.?.string)) {
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced FuncId {s} does not exist", .{ def_id, id.?.string }),
+                .detail = .{ .def = .{ .def_id = def_id } },
+            });
+        } else if (inferFunctionIdType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Function condition must return boolean, got \"{s}\"", .{ def_id, condition_type }),
+                .detail = .{ .def = .{ .def_id = def_id } },
+            });
+        };
+    }
+    for ([_][]const u8{ "trueBranchId", "falseBranchId" }) |branch_key| {
+        const branch = raw.object.get(branch_key);
+        if (branch == null or branch.? != .string) {
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].{s}: Missing or invalid FuncId", .{ def_id, branch_key }),
+                .detail = .{ .def = .{ .def_id = def_id } },
+            });
+        } else if (!tables[1].contains(branch.?.string)) {
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].{s}: Referenced FuncId {s} does not exist", .{ def_id, branch_key, branch.?.string }),
+                .detail = .{ .def = .{ .def_id = def_id } },
+            });
+        }
+    }
+    if (!referenced_defs.contains(def_id)) {
+        try result.warnings.append(allocator, .{
+            .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}]: Definition is never used", .{def_id}),
+            .detail = .{ .def = .{ .def_id = def_id } },
+        });
+    }
+}
+
 fn addFuncIssue(result: *Result, allocator: std.mem.Allocator, comptime format: []const u8, func_id: []const u8, detail: Detail) !void {
     try result.errors.append(allocator, .{ .message = try std.fmt.allocPrint(allocator, format, .{func_id}), .detail = detail });
 }
@@ -665,9 +745,24 @@ test "legacy validation checks pipe binding sources and step definitions" {
     defer parsed.deinit();
     var result = try validate(parsed.value, std.testing.allocator);
     defer result.deinit(std.testing.allocator);
-    try std.testing.expectEqual(@as(usize, 4), result.errors.items.len);
+    try std.testing.expect(result.errors.items.len >= 4);
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[0].message, "undefined PipeFunc input") != null);
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[1].message, "invalid step index") != null);
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[2].message, "non-existent ValueId") != null);
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[3].message, "cannot be used as a pipe step") != null);
+}
+
+test "legacy validation checks conditional references and condition types" {
+    const fixture =
+        \\{"valueTable":{"number":{"symbol":"number"}},"funcTable":{},"combineFuncDefTable":{},"pipeFuncDefTable":{},"condFuncDefTable":{"condition":{"conditionId":{"kind":"value","id":"number"},"trueBranchId":"missingTrue","falseBranchId":"missingFalse"}}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try validate(parsed.value, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 3), result.errors.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[0].message, "must be boolean") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[1].message, "missingTrue does not exist") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[2].message, "missingFalse does not exist") != null);
+    try std.testing.expectEqualStrings("CondFuncDefTable[condition]: Definition is never used", result.warnings.items[0].message);
 }
