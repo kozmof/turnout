@@ -395,7 +395,7 @@ pub fn matchesSchemaType(candidate: value.Value, schema_type: []const u8) StateE
     return matchesNode(candidate, &parser, parser.root_index);
 }
 
-fn literalToValue(
+pub fn literalToValue(
     literal: std.json.Value,
     schema_type: []const u8,
     allocator: std.mem.Allocator,

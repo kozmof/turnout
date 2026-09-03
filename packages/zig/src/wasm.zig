@@ -272,6 +272,27 @@ fn valueResponse(bytes: []const u8) !Response {
         return makeResponse(.ok, output.written());
     }
 
+    if (std.mem.eql(u8, operation.string, "schemaMatches")) {
+        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
+        const schema_type = parsed.value.object.get("schemaType") orelse return error.InvalidValueRequest;
+        if (schema_type != .string) return error.InvalidValueRequest;
+        var decoded = try value.fromCanonicalValue(raw, allocator);
+        defer decoded.deinit(allocator);
+        const matches = try state_runtime.matchesSchemaType(decoded.value, schema_type.string);
+        return jsonResponseValue(.{ .matches = matches });
+    }
+
+    if (std.mem.eql(u8, operation.string, "literalToValue")) {
+        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
+        const schema_type = parsed.value.object.get("schemaType") orelse return error.InvalidValueRequest;
+        if (schema_type != .string) return error.InvalidValueRequest;
+        var result = try state_runtime.literalToValue(raw, schema_type.string, allocator);
+        defer result.deinit(allocator);
+        const payload = try value.canonicalJson(result.borrowed(), allocator);
+        defer allocator.free(payload);
+        return makeResponse(.ok, payload);
+    }
+
     if (std.mem.eql(u8, operation.string, "metadata")) {
         const name = parsed.value.object.get("name") orelse return error.InvalidValueRequest;
         if (name != .string) return error.InvalidValueRequest;
@@ -999,6 +1020,24 @@ test "WASM stateless Value operation normalizes and calls presets" {
     var matched = try expectResponse(predicate_address, .ok, null);
     defer matched.deinit();
     try std.testing.expect(matched.value.object.get("matches").?.bool);
+
+    const schema_match =
+        \\{"operation":"schemaMatches","schemaType":"arr<number>","value":{"symbol":"array","value":[{"symbol":"number","value":1,"tags":[]}],"subSymbol":"number","tags":[]}}
+    ;
+    const schema_match_address = turnout_value_operate(@intFromPtr(schema_match.ptr), schema_match.len);
+    defer freeResponse(schema_match_address);
+    var schema_matched = try expectResponse(schema_match_address, .ok, null);
+    defer schema_matched.deinit();
+    try std.testing.expect(schema_matched.value.object.get("matches").?.bool);
+
+    const literal =
+        \\{"operation":"literalToValue","schemaType":"arr<number>","value":[1,2]}
+    ;
+    const literal_address = turnout_value_operate(@intFromPtr(literal.ptr), literal.len);
+    defer freeResponse(literal_address);
+    var literal_value = try expectResponse(literal_address, .ok, null);
+    defer literal_value.deinit();
+    try std.testing.expectEqualStrings("number", literal_value.value.object.get("subSymbol").?.string);
 }
 
 test "WASM stateless Value operation infers graph types" {

@@ -1,9 +1,7 @@
-import { buildNull } from "runtime";
 import type { AnyValue } from "runtime";
 import { toJson } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import type { Value } from "@bufbuild/protobuf/wkt";
-import { StateError } from "../errors.js";
 import { getSchemaTypeEntry } from "./schema-types.js";
 
 /**
@@ -34,11 +32,5 @@ function isProtoValue(v: unknown): v is Value {
  */
 export function literalToValue(value: unknown, type: string): AnyValue {
   const raw = protoValueToJs(value);
-  if (raw === null || raw === undefined) {
-    return buildNull("missing");
-  }
-  const entry = getSchemaTypeEntry(type);
-  if (!entry)
-    throw new StateError("UnknownSchemaType", `literalToValue: unknown schema type "${type}"`);
-  return entry.build(raw);
+  return getSchemaTypeEntry(type).build(raw ?? null);
 }
