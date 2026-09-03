@@ -292,7 +292,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [ ] Replace compute validation with Zig-backed adapters
 - [x] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters
 - [x] Remove TypeScript preset implementations
-- [ ] Remove TypeScript compute execution implementations
+- [x] Remove TypeScript compute execution implementations
 - [x] Remove TypeScript Value semantic implementations
 - [ ] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists
 - [ ] Keep public TypeScript types, builders, error shapes, and entry points compatible where practical

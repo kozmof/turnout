@@ -1,7 +1,5 @@
 // Main execution engine
 export { executeGraph, executeGraphSafe } from "./runtime/exec/executeGraph.js";
-export { buildExecutionTree, buildReturnIdToFuncIdMap } from "./runtime/buildExecutionTree.js";
-export { executeTree } from "./runtime/executeTree.js";
 export type { ExecutionResult } from "./types.js";
 
 // Type inference helpers
@@ -50,4 +48,4 @@ export {
   isGraphExecutionError,
 } from "./runtime/errors.js";
 
-export type { NodeId, ExecutionTree } from "./runtime/tree-types.js";
+export type { NodeId } from "./runtime/tree-types.js";

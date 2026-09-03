@@ -77,9 +77,6 @@ export { createInvalidValueError, isValueBuilderError } from "./state-control/er
 export {
   executeGraph,
   executeGraphSafe,
-  buildExecutionTree,
-  executeTree,
-  buildReturnIdToFuncIdMap,
   getCombineFnReturnType,
 } from "./compute-graph/index.js";
 
@@ -118,7 +115,7 @@ export type {
 
 export { isValueCondition, isFuncCondition } from "./compute-graph/index.js";
 
-export type { GraphExecutionError, NodeId, ExecutionTree } from "./compute-graph/index.js";
+export type { GraphExecutionError, NodeId } from "./compute-graph/index.js";
 
 export {
   createMissingDependencyError,

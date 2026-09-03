@@ -69,8 +69,7 @@ export type FuncArgMap = Readonly<Record<ArgName, ValueId>>;
  * combine / pipe carry `argMap` because their inputs are live value-table
  * references resolved during execution. cond does NOT carry `argMap`: its
  * inputs (condition id, true/false branch ids) are fully pre-resolved into
- * `condFuncDefTable` at build time, and `executeCondFunc` receives the
- * already-selected branch value as a parameter — no runtime value lookup needed.
+ * `condFuncDefTable` at build time.
  *
  * Use `isArgMapEntry(entry)` to narrow to the combine | pipe variants without
  * special-casing `cond` directly.
@@ -200,11 +199,8 @@ export type ExecutionContext = {
  * Scope is explicit at the type level so Pipe execution code can distinguish
  * restricted visibility contexts from full root contexts.
  *
- * Visibility is enforced by `valueTable` itself: `createScopedValueTable` copies
- * in only the pipe's declared arguments and its literal `value` bindings, so ids
- * outside that set are simply absent and resolve to a MissingValueError. There is
- * deliberately no separate `visibleValueIds` set — a second copy of the same
- * information would be a set nothing consults and a claim nothing enforces.
+ * Retained as a compatibility type for consumers that distinguish pipe-local
+ * contexts. Pipe execution itself is owned by Zig.
  */
 export type ScopedExecutionContext = ExecutionContext & {
   readonly scope: "pipe";

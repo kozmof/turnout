@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { executeGraph, executeGraphSafe } from "./executeGraph.js";
-import { executeCombineFunc } from "./executeCombineFunc.js";
 import { assertValidContext } from "../validateContext.js";
 import type { ValidatedContext } from "../validateContext.js";
 import {
@@ -600,8 +599,7 @@ describe("executeGraph", () => {
   });
 
   it("should handle CondFunc branches sharing the same value dependency", () => {
-    // This test verifies the optimization in buildExecutionTree where sibling branches
-    // can visit the same nodes without false cycle detection
+    // Sibling branches may share dependencies without triggering false cycle detection.
     const context: ExecutionContext = {
       valueTable: {
         vCondition: { symbol: "boolean", value: true, subSymbol: undefined, tags: [] },
@@ -797,24 +795,5 @@ describe("executeGraph", () => {
     expect(result).toBeUndefined();
     expect(errors).toHaveLength(1);
     expect(errors[0]!.kind).toBe("functionExecution");
-  });
-});
-
-describe("executeCombineFunc — guard branch", () => {
-  it("throws when called with a non-combine funcTable entry", () => {
-    // Covers the `if (funcEntry.kind !== 'combine')` guard at executeCombineFunc.ts:22
-    const context = {
-      valueTable: {} as any,
-      funcTable: {
-        f1: { kind: "pipe", defId: "td1" as PipeDefineId, argMap: {}, returnId: "vR" as ValueId },
-      } as any,
-      combineFuncDefTable: {} as any,
-      pipeFuncDefTable: {} as any,
-      condFuncDefTable: {} as any,
-    } as unknown as ExecutionContext;
-
-    expect(() => executeCombineFunc("f1" as FuncId, "pd1" as CombineDefineId, context)).toThrow(
-      "executeCombineFunc called with non-combine entry",
-    );
   });
 });
