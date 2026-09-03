@@ -14,10 +14,13 @@ const Detail = union(enum) {
     func_def_kind: struct { func_id: []const u8, def_id: []const u8, kind: []const u8 },
     func_arg: struct { func_id: []const u8, arg_name: []const u8 },
     func_arg_id: struct { func_id: []const u8, arg_name: []const u8, arg_id: std.json.Value },
+    transform_type: struct { func_id: []const u8, arg_id: []const u8, arg_type: []const u8, transform_fn: []const u8, expected_type: []const u8 },
+    combine_type: struct { func_id: []const u8, arg_id: []const u8, arg_name: []const u8, arg_type: []const u8, combine_fn: []const u8, expected_type: []const u8 },
     def: struct { def_id: []const u8 },
     def_name: struct { def_id: []const u8, name: std.json.Value },
     def_transform: struct { def_id: []const u8, transform_fn: []const u8 },
     def_combine: struct { def_id: []const u8, combine_fn: []const u8 },
+    def_compat: struct { def_id: []const u8, transform_fn: []const u8, transform_return_type: []const u8, combine_fn: []const u8, expected_type: []const u8 },
     value: struct { value_id: []const u8 },
     pipe: struct { def_id: []const u8, step_index: ?usize = null, arg_name: ?[]const u8 = null },
     pipe_step_def: struct { def_id: []const u8, step_index: usize, step_def_id: []const u8 },
@@ -108,6 +111,32 @@ const Issue = struct {
                 try writer.objectField("argId");
                 try writer.write(detail.arg_id);
             },
+            .transform_type => |detail| {
+                try writer.objectField("funcId");
+                try writer.write(detail.func_id);
+                try writer.objectField("argId");
+                try writer.write(detail.arg_id);
+                try writer.objectField("argType");
+                try writer.write(detail.arg_type);
+                try writer.objectField("transformFn");
+                try writer.write(detail.transform_fn);
+                try writer.objectField("expectedType");
+                try writer.write(detail.expected_type);
+            },
+            .combine_type => |detail| {
+                try writer.objectField("funcId");
+                try writer.write(detail.func_id);
+                try writer.objectField("argId");
+                try writer.write(detail.arg_id);
+                try writer.objectField("argName");
+                try writer.write(detail.arg_name);
+                try writer.objectField("argType");
+                try writer.write(detail.arg_type);
+                try writer.objectField("combineFn");
+                try writer.write(detail.combine_fn);
+                try writer.objectField("expectedType");
+                try writer.write(detail.expected_type);
+            },
             .def => |detail| {
                 try writer.objectField("defId");
                 try writer.write(detail.def_id);
@@ -129,6 +158,18 @@ const Issue = struct {
                 try writer.write(detail.def_id);
                 try writer.objectField("combineFn");
                 try writer.write(detail.combine_fn);
+            },
+            .def_compat => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("transformFn");
+                try writer.write(detail.transform_fn);
+                try writer.objectField("transformReturnType");
+                try writer.write(detail.transform_return_type);
+                try writer.objectField("combineFn");
+                try writer.write(detail.combine_fn);
+                try writer.objectField("expectedType");
+                try writer.write(detail.expected_type);
             },
             .value => |detail| {
                 try writer.objectField("valueId");
@@ -437,7 +478,7 @@ fn validateFunctionTypes(
             if (preset.inputType(function.string)) |input_type| if (!std.mem.eql(u8, current, input_type)) {
                 try result.errors.append(allocator, .{
                     .message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: Argument has type \"{s}\" but transform function \"{s}\" expects \"{s}\"", .{ func_id, arg_name, current, function.string, input_type }),
-                    .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg_name, .arg_id = arg_id } },
+                    .detail = .{ .transform_type = .{ .func_id = func_id, .arg_id = arg_id.string, .arg_type = current, .transform_fn = function.string, .expected_type = input_type } },
                 });
             };
             if (preset.returnType(function.string, null)) |return_type| current = return_type;
@@ -445,7 +486,7 @@ fn validateFunctionTypes(
         if (expected) |expected_type| if (!std.mem.eql(u8, current, expected_type)) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: Argument resolves to type \"{s}\" but combine function \"{s}\" expects \"{s}\"", .{ func_id, arg_name, current, name.string, expected_type }),
-                .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg_name, .arg_id = arg_id } },
+                .detail = .{ .combine_type = .{ .func_id = func_id, .arg_id = arg_id.string, .arg_name = arg_name, .arg_type = current, .combine_fn = name.string, .expected_type = expected_type } },
             });
         };
     }
@@ -521,7 +562,7 @@ fn validateCombineDefinition(
                 const ordinal = if (std.mem.eql(u8, key, "a")) "first" else "second";
                 try result.errors.append(allocator, .{
                     .message = try std.fmt.allocPrint(allocator, "CombineFuncDefTable[{s}]: Transform function '{s}' returns \"{s}\" but combine function \"{s}\" expects \"{s}\" for {s} parameter", .{ def_id, key, return_type, name.?.string, expected.?, ordinal }),
-                    .detail = .{ .def_transform = .{ .def_id = def_id, .transform_fn = last.string } },
+                    .detail = .{ .def_compat = .{ .def_id = def_id, .transform_fn = last.string, .transform_return_type = return_type, .combine_fn = name.?.string, .expected_type = expected.? } },
                 });
             };
         }

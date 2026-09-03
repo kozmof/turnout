@@ -110,4 +110,28 @@ describe("Zig legacy validation parity", () => {
       },
     });
   });
+
+  it("matches transform and combine type compatibility details", () => {
+    expectParity({
+      ...empty(),
+      valueTable: {
+        text: { symbol: "string", value: "x", subSymbol: undefined, tags: [] },
+        number: { symbol: "number", value: 1, subSymbol: undefined, tags: [] },
+      } as never,
+      funcTable: {
+        sum: {
+          kind: "combine",
+          defId: "add",
+          argMap: { a: "text", b: "number" },
+          returnId: "out",
+        },
+      } as never,
+      combineFuncDefTable: {
+        add: {
+          name: "combineFnNumber::add",
+          transformFn: { a: ["transformFnNumber::pass"], b: ["transformFnString::pass"] },
+        },
+      },
+    });
+  });
 });
