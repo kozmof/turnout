@@ -1,5 +1,4 @@
 import type { BaseTypeSymbol } from "../state-control/value.js";
-import type { ExecutionContext } from "../compute-graph/types.js";
 import { defaultZigRuntimeClient } from "./default-client.js";
 
 type PresetMetadata = {
@@ -25,7 +24,7 @@ type GraphInferenceQuery = "value" | "element" | "combine" | "function";
 export function inferGraphType(
   query: GraphInferenceQuery,
   id: string,
-  context: ExecutionContext,
+  context: unknown,
 ): BaseTypeSymbol | null {
   const response = defaultZigRuntimeClient.value<{ type: BaseTypeSymbol | null }>({
     operation: "infer",

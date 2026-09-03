@@ -8,6 +8,7 @@ import type {
 } from "../../types.js";
 import type { BaseTypeSymbol } from "../../../state-control/value.js";
 import { getCombineFnReturnType } from "../typeInference.js";
+import { inferGraphType } from "../../../zig-runtime/preset-metadata.js";
 import type { UnvalidatedContext, TypeEnvironment } from "./types.js";
 import { VALID_BASE_TYPE_SYMBOLS } from "./types.js";
 
@@ -153,32 +154,5 @@ export function inferFuncType(
   visited: Set<FuncId> = new Set(),
 ): BaseTypeSymbol | null {
   if (visited.has(funcId)) return null;
-  const funcEntry = context.funcTable?.[funcId];
-  if (!funcEntry || typeof funcEntry !== "object") return null;
-  visited.add(funcId);
-
-  const defId = "defId" in funcEntry ? funcEntry.defId : undefined;
-  if (!defId || typeof defId !== "string") return null;
-
-  const combineDef = context.combineFuncDefTable?.[defId];
-  if (isCombineDefWithCombineFnName(combineDef)) {
-    return getCombineFnReturnType(combineDef.name);
-  }
-
-  const pipeDef = context.pipeFuncDefTable?.[defId];
-  if (isPipeDefWithSequence(pipeDef)) {
-    if (pipeDef.sequence.length === 0) return null;
-    const lastStep = pipeDef.sequence[pipeDef.sequence.length - 1];
-    if (lastStep && typeof lastStep === "object" && "defId" in lastStep) {
-      if (typeof lastStep.defId !== "string") return null;
-      const lastStepDefId = lastStep.defId;
-      const lastStepCombineDef = context.combineFuncDefTable?.[lastStepDefId];
-      if (isCombineDefWithCombineFnName(lastStepCombineDef)) {
-        return getCombineFnReturnType(lastStepCombineDef.name);
-      }
-    }
-    return null;
-  }
-
-  return null;
+  return inferGraphType("function", funcId, context);
 }
