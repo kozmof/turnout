@@ -134,4 +134,87 @@ describe("Zig legacy validation parity", () => {
       },
     });
   });
+
+  it("matches malformed function entry details", () => {
+    const cases: UnvalidatedContext[] = [
+      { ...empty(), funcTable: { bad: [] } as never },
+      { ...empty(), funcTable: { bad: { kind: "unknown" } } as never },
+      {
+        ...empty(),
+        funcTable: {
+          bad: {
+            kind: "combine",
+            defId: "missing",
+            argMap: { a: 42 },
+            returnId: "out",
+          },
+        } as never,
+      },
+      {
+        ...empty(),
+        funcTable: { bad: { kind: "combine", defId: "add", returnId: "out" } } as never,
+        combineFuncDefTable: {
+          add: { name: "combineFnNumber::add", transformFn: { a: [], b: [] } },
+        },
+      },
+      {
+        ...empty(),
+        funcTable: { bad: { kind: "cond", defId: "condition", argMap: 42 } } as never,
+        condFuncDefTable: { condition: {} },
+      },
+    ];
+    for (const context of cases) expectParity(context);
+  });
+
+  it("matches malformed combine definition details", () => {
+    const cases: UnvalidatedContext[] = [
+      { ...empty(), combineFuncDefTable: { bad: [] } },
+      {
+        ...empty(),
+        combineFuncDefTable: { bad: { name: "combineFnNumber::add", transformFn: 42 } },
+      },
+      {
+        ...empty(),
+        combineFuncDefTable: {
+          bad: { name: "combineFnNumber::add", transformFn: { a: [42], b: [] } },
+        },
+      },
+    ];
+    for (const context of cases) expectParity(context);
+  });
+
+  it("matches malformed pipe definition details", () => {
+    const cases: UnvalidatedContext[] = [
+      { ...empty(), pipeFuncDefTable: { bad: [] } },
+      { ...empty(), pipeFuncDefTable: { bad: {} } },
+      { ...empty(), pipeFuncDefTable: { bad: { sequence: [] } } },
+      { ...empty(), pipeFuncDefTable: { bad: { args: 42, sequence: [42] } } },
+      {
+        ...empty(),
+        pipeFuncDefTable: {
+          bad: { sequence: [{ defId: "condition", argBindings: {} }] },
+        },
+        condFuncDefTable: { condition: {} },
+      },
+    ];
+    for (const context of cases) expectParity(context);
+  });
+
+  it("matches malformed conditional definition details", () => {
+    const cases: UnvalidatedContext[] = [
+      { ...empty(), condFuncDefTable: { bad: [] } },
+      { ...empty(), condFuncDefTable: { bad: {} } },
+      {
+        ...empty(),
+        condFuncDefTable: {
+          bad: {
+            conditionId: { kind: "unknown", id: "condition" },
+            trueBranchId: 1,
+            falseBranchId: 2,
+          },
+        },
+      },
+    ];
+    for (const context of cases) expectParity(context);
+  });
 });

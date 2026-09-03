@@ -21,6 +21,8 @@ const Detail = union(enum) {
     def_transform: struct { def_id: []const u8, transform_fn: []const u8 },
     def_combine: struct { def_id: []const u8, combine_fn: []const u8 },
     def_compat: struct { def_id: []const u8, transform_fn: []const u8, transform_return_type: []const u8, combine_fn: []const u8, expected_type: []const u8 },
+    def_args: struct { def_id: []const u8, args: std.json.Value },
+    def_kind: struct { def_id: []const u8, kind: []const u8 },
     value: struct { value_id: []const u8 },
     pipe: struct { def_id: []const u8, step_index: ?usize = null, arg_name: ?[]const u8 = null },
     pipe_step_def: struct { def_id: []const u8, step_index: usize, step_def_id: []const u8 },
@@ -170,6 +172,18 @@ const Issue = struct {
                 try writer.write(detail.combine_fn);
                 try writer.objectField("expectedType");
                 try writer.write(detail.expected_type);
+            },
+            .def_args => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("args");
+                try writer.write(detail.args);
+            },
+            .def_kind => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                try writer.objectField("kind");
+                try writer.write(detail.kind);
             },
             .value => |detail| {
                 try writer.objectField("valueId");
@@ -609,7 +623,10 @@ fn validatePipeDefinition(
     defer declared_args.deinit(allocator);
     if (raw.object.get("args")) |args| {
         if (args != .array) {
-            try addDefIssue(result, allocator, "PipeFuncDefTable[{s}]: 'args' must be an array of strings", def_id);
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}]: 'args' must be an array of strings", .{def_id}),
+                .detail = .{ .def_args = .{ .def_id = def_id, .args = args } },
+            });
         } else for (args.array.items, 0..) |arg, index| {
             if (arg != .string) {
                 try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].args[{d}]: argument name must be a string", .{ def_id, index }), def_id, null, null);
@@ -638,7 +655,10 @@ fn validatePipeDefinition(
             continue;
         }
         if (!in_combine and !in_pipe and in_cond) {
-            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: CondFunc definition {s} cannot be used as a pipe step; only combine and pipe definitions are supported", .{ def_id, step_index, step_id }), def_id, step_index, null);
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: CondFunc definition {s} cannot be used as a pipe step; only combine and pipe definitions are supported", .{ def_id, step_index, step_id }),
+                .detail = .{ .pipe_step_def = .{ .def_id = def_id, .step_index = step_index, .step_def_id = step_id } },
+            });
             continue;
         }
         const bindings = step.object.get("argBindings");
@@ -719,7 +739,7 @@ fn validateCondDefinition(
         } else if (!std.mem.eql(u8, kind.?.string, "value") and !std.mem.eql(u8, kind.?.string, "func")) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Unknown kind \"{s}\"", .{ def_id, kind.?.string }),
-                .detail = .{ .def = .{ .def_id = def_id } },
+                .detail = .{ .def_kind = .{ .def_id = def_id, .kind = kind.?.string } },
             });
         } else if (std.mem.eql(u8, kind.?.string, "value")) {
             if (!tables[0].contains(id.?.string)) {
