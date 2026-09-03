@@ -1,21 +1,14 @@
 import type { AnyValue } from "runtime";
+import { defaultZigRuntimeClient } from "runtime/zig-runtime";
 import { StateError } from "../errors.js";
 import { matchesSchemaType } from "./schema-types.js";
 
-export const RESERVED_KEYS = new Set([
-  "__proto__",
-  "constructor",
-  "prototype",
-  "hasOwnProperty",
-  "toString",
-  "valueOf",
-  "toLocaleString",
-  "isPrototypeOf",
-  "propertyIsEnumerable",
-]);
-
 export function assertSafePath(path: string): void {
-  if (RESERVED_KEYS.has(path)) {
+  const response = defaultZigRuntimeClient.value<{ valid: boolean }>({
+    operation: "statePathValid",
+    path,
+  });
+  if (response.status !== "ok" || !response.payload.valid) {
     throw new StateError("ReservedPath", `reserved path "${path}" is not allowed`, path);
   }
 }

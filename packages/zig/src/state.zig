@@ -315,7 +315,7 @@ pub const State = struct {
     }
 };
 
-fn validatePath(path: []const u8) StateError!void {
+pub fn validatePath(path: []const u8) StateError!void {
     for (reserved_paths) |reserved|
         if (std.mem.eql(u8, path, reserved)) return error.ReservedPath;
 }

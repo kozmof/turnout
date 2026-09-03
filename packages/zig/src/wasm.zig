@@ -272,6 +272,13 @@ fn valueResponse(bytes: []const u8) !Response {
         return makeResponse(.ok, output.written());
     }
 
+    if (std.mem.eql(u8, operation.string, "statePathValid")) {
+        const path = parsed.value.object.get("path") orelse return error.InvalidValueRequest;
+        if (path != .string) return error.InvalidValueRequest;
+        try state_runtime.validatePath(path.string);
+        return jsonResponseValue(.{ .valid = true });
+    }
+
     if (std.mem.eql(u8, operation.string, "schemaMatches")) {
         const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
         const schema_type = parsed.value.object.get("schemaType") orelse return error.InvalidValueRequest;
