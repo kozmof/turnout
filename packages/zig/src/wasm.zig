@@ -266,6 +266,12 @@ fn valueResponse(bytes: []const u8) !Response {
         });
     }
 
+    if (std.mem.eql(u8, operation.string, "passTransform")) {
+        const type_symbol = parsed.value.object.get("type") orelse return error.InvalidValueRequest;
+        if (type_symbol != .string) return error.InvalidValueRequest;
+        return jsonResponseValue(.{ .name = preset.passTransform(type_symbol.string) });
+    }
+
     if (std.mem.eql(u8, operation.string, "infer")) {
         const query = parsed.value.object.get("query") orelse return error.InvalidValueRequest;
         const id = parsed.value.object.get("id") orelse return error.InvalidValueRequest;

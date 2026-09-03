@@ -34,3 +34,11 @@ export function inferGraphType(
   });
   return response.status === "ok" ? response.payload.type : null;
 }
+
+export function getPassTransformName(type: BaseTypeSymbol): string | null {
+  const response = defaultZigRuntimeClient.value<{ name: string | null }>({
+    operation: "passTransform",
+    type,
+  });
+  return response.status === "ok" ? response.payload.name : null;
+}

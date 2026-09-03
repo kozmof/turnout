@@ -32,6 +32,16 @@ pub fn parameterType(name: []const u8) ?[]const u8 {
     return null;
 }
 
+pub fn passTransform(type_symbol: []const u8) ?[]const u8 {
+    if (std.mem.eql(u8, type_symbol, "number")) return "transformFnNumber::pass";
+    if (std.mem.eql(u8, type_symbol, "string")) return "transformFnString::pass";
+    if (std.mem.eql(u8, type_symbol, "boolean")) return "transformFnBoolean::pass";
+    if (std.mem.eql(u8, type_symbol, "null")) return "transformFnNull::pass";
+    if (std.mem.eql(u8, type_symbol, "array")) return "transformFnArray::pass";
+    if (std.mem.eql(u8, type_symbol, "record")) return "transformFnRecord::pass";
+    return null;
+}
+
 pub fn returnType(name: []const u8, array_element: ?[]const u8) ?[]const u8 {
     if (std.mem.endsWith(u8, name, "::pass")) return inputType(name);
     if (std.mem.eql(u8, name, "transformFnNumber::toStr") or
@@ -658,6 +668,13 @@ test "preset signature metadata matches public Value symbols" {
     try std.testing.expectEqualStrings("number", parameterType("combineFnNumber::add").?);
     try std.testing.expectEqualStrings("record", returnType("combineFnArray::get", "record").?);
     try std.testing.expect(returnType("combineFnRecord::missing", null) == null);
+    try std.testing.expectEqualStrings("transformFnNumber::pass", passTransform("number").?);
+    try std.testing.expectEqualStrings("transformFnString::pass", passTransform("string").?);
+    try std.testing.expectEqualStrings("transformFnBoolean::pass", passTransform("boolean").?);
+    try std.testing.expectEqualStrings("transformFnNull::pass", passTransform("null").?);
+    try std.testing.expectEqualStrings("transformFnArray::pass", passTransform("array").?);
+    try std.testing.expectEqualStrings("transformFnRecord::pass", passTransform("record").?);
+    try std.testing.expect(passTransform("unknown") == null);
 }
 
 fn isEcmaWhitespace(scalar: u21) bool {

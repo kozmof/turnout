@@ -2,14 +2,8 @@ import type { CombineFnNames, TransformFnNames } from "../types.js";
 import { BuilderInvariantError } from "./errors.js";
 import type { ValueInputRef } from "./types.js";
 import type { BaseTypeSymbol } from "../../state-control/value.js";
-import { assertNever } from "../../util/brand.js";
 import { getCombineFnReturnType } from "../runtime/typeInference.js";
-import { NAMESPACE_DELIMITER } from "../../util/constants.js";
-import type { TransformFnBooleanNameSpace } from "../../state-control/preset-funcs/boolean/transformFn.js";
-import type { TransformFnNullNameSpace } from "../../state-control/preset-funcs/null/transformFn.js";
-import type { TransformFnNumberNameSpace } from "../../state-control/preset-funcs/number/transformFn.js";
-import type { TransformFnStringNameSpace } from "../../state-control/preset-funcs/string/transformFn.js";
-import type { TransformFnArrayNameSpace } from "../../state-control/preset-funcs/array/transformFn.js";
+import { getPassTransformName } from "../../zig-runtime/preset-metadata.js";
 import {
   getValueFromTable,
   getFuncFromTable,
@@ -20,32 +14,14 @@ import {
 import type { FunctionPhaseState } from "./phase-types.js";
 
 export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
-  switch (typeSymbol) {
-    case "boolean": {
-      const namespace: TransformFnBooleanNameSpace = "transformFnBoolean";
-      return `${namespace}${NAMESPACE_DELIMITER}pass`;
-    }
-    case "number": {
-      const namespace: TransformFnNumberNameSpace = "transformFnNumber";
-      return `${namespace}${NAMESPACE_DELIMITER}pass`;
-    }
-    case "string": {
-      const namespace: TransformFnStringNameSpace = "transformFnString";
-      return `${namespace}${NAMESPACE_DELIMITER}pass`;
-    }
-    case "null": {
-      const namespace: TransformFnNullNameSpace = "transformFnNull";
-      return `${namespace}${NAMESPACE_DELIMITER}pass`;
-    }
-    case "array": {
-      const namespace: TransformFnArrayNameSpace = "transformFnArray";
-      return `${namespace}${NAMESPACE_DELIMITER}pass`;
-    }
-    case "record":
-      return "transformFnRecord::pass";
-    default:
-      return assertNever(typeSymbol);
+  const name = getPassTransformName(typeSymbol);
+  if (name === null) {
+    throw new BuilderInvariantError(
+      "ExhaustivenessCheck",
+      `cannot infer pass transform for '${typeSymbol}'`,
+    );
   }
+  return name as TransformFnNames;
 }
 
 export function inferTransformForCombineFn(combineFnName: CombineFnNames): TransformFnNames {
