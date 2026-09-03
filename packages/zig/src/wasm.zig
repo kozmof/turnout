@@ -917,7 +917,7 @@ test "WASM stateless compute executes a legacy graph context" {
 
 test "WASM stateless compute validates a legacy graph context" {
     const request =
-        \\{"operation":"validateLegacy","context":{"valueTable":{"x":{},"y":{}},"funcTable":{"a":{"kind":"combine","defId":"add","argMap":{"a":"x","b":"y"},"returnId":"same"},"b":{"kind":"combine","defId":"add","argMap":{"a":"x","b":"y"},"returnId":"same"}},"combineFuncDefTable":{"add":{}},"pipeFuncDefTable":{},"condFuncDefTable":{}}}
+        \\{"operation":"validateLegacy","context":{"valueTable":{"x":{},"y":{}},"funcTable":{"a":{"kind":"combine","defId":"add","argMap":{"a":"x","b":"y"},"returnId":"same"},"b":{"kind":"combine","defId":"add","argMap":{"a":"x","b":"y"},"returnId":"same"}},"combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":[],"b":[]}}},"pipeFuncDefTable":{},"condFuncDefTable":{}}}
     ;
     const address = turnout_compute_execute(@intFromPtr(request.ptr), request.len);
     defer freeResponse(address);
