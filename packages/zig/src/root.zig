@@ -4,6 +4,7 @@ pub const value_vectors = @import("value_vectors.zig");
 pub const preset = @import("preset.zig");
 pub const preset_vectors = @import("preset_vectors.zig");
 pub const compute = @import("compute.zig");
+pub const legacy_compute = @import("legacy_compute.zig");
 pub const compute_vectors = @import("compute_vectors.zig");
 pub const fn_aliases = @import("generated/fn_aliases.zig");
 pub const effect = @import("effect.zig");
@@ -25,6 +26,7 @@ test {
     _ = preset;
     _ = preset_vectors;
     _ = compute;
+    _ = legacy_compute;
     _ = compute_vectors;
     _ = fn_aliases;
     _ = effect;

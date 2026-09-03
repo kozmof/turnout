@@ -1,6 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const compute = @import("compute.zig");
+const legacy_compute = @import("legacy_compute.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
 const preset = @import("preset.zig");
@@ -163,6 +164,28 @@ fn computeResponse(bytes: []const u8) !Response {
     defer parsed.deinit();
     try validateInputNesting(parsed.value, 0);
     if (parsed.value != .object) return error.InvalidComputeRequest;
+    if (parsed.value.object.get("context")) |context| {
+        const root_func_id = parsed.value.object.get("rootFuncId") orelse return error.InvalidComputeRequest;
+        if (root_func_id != .string) return error.InvalidComputeRequest;
+        var result = try legacy_compute.execute(context, root_func_id.string, allocator);
+        defer result.deinit(allocator);
+        var output: std.Io.Writer.Allocating = .init(allocator);
+        defer output.deinit();
+        var writer: std.json.Stringify = .{ .writer = &output.writer, .options = .{} };
+        try writer.beginObject();
+        try writer.objectField("value");
+        try writer.write(value.CanonicalTagged{ .tagged = result.root.borrowed() });
+        try writer.objectField("updatedValueTable");
+        try writer.beginObject();
+        var values = result.values.iterator();
+        while (values.next()) |entry| {
+            try writer.objectField(entry.key_ptr.*);
+            try writer.write(value.CanonicalTagged{ .tagged = entry.value_ptr.borrowed() });
+        }
+        try writer.endObject();
+        try writer.endObject();
+        return makeResponse(.ok, output.written());
+    }
     const program = parsed.value.object.get("prog") orelse return error.InvalidComputeRequest;
     const root = parsed.value.object.get("root") orelse return error.InvalidComputeRequest;
     const raw_inputs = parsed.value.object.get("inputs") orelse return error.InvalidComputeRequest;
@@ -864,6 +887,21 @@ test "WASM stateless compute executes canonical inputs and returns bindings" {
     const bindings = response.value.object.get("bindings").?.object;
     try std.testing.expectEqual(@as(i64, 5), bindings.get("input").?.object.get("value").?.integer);
     try std.testing.expectEqual(@as(i64, 7), bindings.get("result").?.object.get("value").?.integer);
+}
+
+test "WASM stateless compute executes a legacy graph context" {
+    const request =
+        \\{"rootFuncId":"sum","context":{"valueTable":{"a":{"symbol":"number","value":2,"tags":[]},"b":{"symbol":"number","value":3,"tags":[]}},
+        \\ "funcTable":{"sum":{"kind":"combine","defId":"add","argMap":{"a":"a","b":"b"},"returnId":"total"}},
+        \\ "combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":["transformFnNumber::pass"],"b":["transformFnNumber::pass"]}}},
+        \\ "pipeFuncDefTable":{},"condFuncDefTable":{}}}
+    ;
+    const address = turnout_compute_execute(@intFromPtr(request.ptr), request.len);
+    defer freeResponse(address);
+    var response = try expectResponse(address, .ok, null);
+    defer response.deinit();
+    try std.testing.expectEqual(@as(i64, 5), response.value.object.get("value").?.object.get("value").?.integer);
+    try std.testing.expectEqual(@as(i64, 5), response.value.object.get("updatedValueTable").?.object.get("total").?.object.get("value").?.integer);
 }
 
 test "WASM stateless compute rejects malformed and oversized requests" {
