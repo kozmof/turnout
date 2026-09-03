@@ -1,4 +1,5 @@
 import { buildNull } from "runtime";
+import { defaultZigRuntimeClient, fromCanonicalValue, toCanonicalValue } from "runtime/zig-runtime";
 import type { AnyValue } from "runtime";
 import type { StateModel } from "../types/turnout-model_pb.js";
 import { StateError } from "../errors.js";
@@ -13,36 +14,21 @@ export { protoValueToJs, literalToValue } from "./state-proto.js";
 export { matchesSchemaType } from "./schema-types.js";
 export { assertSafePath } from "./state-validation.js";
 
-/**
- * Maximum nesting depth for a state value.
- *
- * Values nest — an ArrayValue holds AnyValue[], whose elements may be arrays in
- * turn — and cloneValue runs on every read/write/snapshot. Model-derived values
- * are bounded by the converter, but a StateManager can also be built from a
- * caller-supplied record (stateManagerFromUnchecked / …FromStrict), so the depth
- * is not guaranteed by the compiler on every path. A explicit cap turns a
- * pathological value into a structured StateError instead of a RangeError with
- * no path information. Chosen well above any realistic DSL value shape.
- */
-const MAX_VALUE_DEPTH = 64;
+function cloneValue(value: AnyValue): AnyValue {
+  const response = defaultZigRuntimeClient.value({
+    operation: "normalize",
+    value: toCanonicalValue(value),
+  });
+  if (response.status !== "ok") {
+    throw new StateError("ValueTooDeep", "state value exceeds the maximum nesting depth");
+  }
+  return deepFreeze(fromCanonicalValue(response.payload));
+}
 
-function cloneValue<T>(value: T, depth = 0): T {
+function deepFreeze<T>(value: T): T {
   if (value === null || typeof value !== "object") return value;
-  if (depth >= MAX_VALUE_DEPTH) {
-    throw new StateError(
-      "ValueTooDeep",
-      `state value exceeds the maximum nesting depth of ${MAX_VALUE_DEPTH}`,
-    );
-  }
-  if (Array.isArray(value)) {
-    return Object.freeze(value.map((item) => cloneValue(item, depth + 1))) as T;
-  }
-
-  const next: Record<string, unknown> = {};
-  for (const [key, nested] of Object.entries(value)) {
-    next[key] = cloneValue(nested, depth + 1);
-  }
-  return Object.freeze(next) as T;
+  for (const nested of Object.values(value)) deepFreeze(nested);
+  return Object.freeze(value);
 }
 
 function cloneState(state: Record<string, AnyValue>): Record<string, AnyValue> {
