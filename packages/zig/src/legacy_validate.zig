@@ -17,6 +17,7 @@ const Detail = union(enum) {
     def: struct { def_id: []const u8 },
     def_name: struct { def_id: []const u8, name: std.json.Value },
     def_transform: struct { def_id: []const u8, transform_fn: []const u8 },
+    pipe: struct { def_id: []const u8, step_index: ?usize = null, arg_name: ?[]const u8 = null },
 };
 
 const Issue = struct {
@@ -114,6 +115,18 @@ const Issue = struct {
                 try writer.objectField("transformFn");
                 try writer.write(detail.transform_fn);
             },
+            .pipe => |detail| {
+                try writer.objectField("defId");
+                try writer.write(detail.def_id);
+                if (detail.step_index) |index| {
+                    try writer.objectField("stepIndex");
+                    try writer.write(index);
+                }
+                if (detail.arg_name) |name| {
+                    try writer.objectField("argName");
+                    try writer.write(name);
+                }
+            },
         }
         try writer.endObject();
         try writer.endObject();
@@ -210,6 +223,8 @@ pub fn validate(context: std.json.Value, allocator: std.mem.Allocator) !Result {
     while (functions.next()) |entry| try validateFunction(entry.key_ptr.*, entry.value_ptr.*, tables, &owners, &referenced_defs, &result, allocator);
     var combines = tables[2].iterator();
     while (combines.next()) |entry| try validateCombineDefinition(entry.key_ptr.*, entry.value_ptr.*, &referenced_defs, &result, allocator);
+    var pipes = tables[3].iterator();
+    while (pipes.next()) |entry| try validatePipeDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &result, allocator);
     return result;
 }
 
@@ -445,6 +460,118 @@ fn addDefIssue(result: *Result, allocator: std.mem.Allocator, comptime format: [
     try result.errors.append(allocator, .{ .message = try std.fmt.allocPrint(allocator, format, .{def_id}), .detail = .{ .def = .{ .def_id = def_id } } });
 }
 
+fn addPipeIssue(result: *Result, allocator: std.mem.Allocator, message: []u8, def_id: []const u8, step_index: ?usize, arg_name: ?[]const u8) !void {
+    try result.errors.append(allocator, .{ .message = message, .detail = .{ .pipe = .{ .def_id = def_id, .step_index = step_index, .arg_name = arg_name } } });
+}
+
+fn validatePipeDefinition(
+    def_id: []const u8,
+    raw: std.json.Value,
+    tables: [5]std.json.ObjectMap,
+    referenced_defs: *const std.StringHashMapUnmanaged(void),
+    result: *Result,
+    allocator: std.mem.Allocator,
+) !void {
+    if (raw != .object) {
+        try addDefIssue(result, allocator, "PipeFuncDefTable[{s}]: Invalid entry", def_id);
+        return;
+    }
+    const sequence = raw.object.get("sequence");
+    if (sequence == null or sequence.? != .array) {
+        try addDefIssue(result, allocator, "PipeFuncDefTable[{s}]: Missing or invalid sequence", def_id);
+        return;
+    }
+    if (sequence.?.array.items.len == 0) {
+        try addDefIssue(result, allocator, "PipeFuncDefTable[{s}]: Sequence is empty", def_id);
+        return;
+    }
+    var declared_args: std.StringHashMapUnmanaged(void) = .empty;
+    defer declared_args.deinit(allocator);
+    if (raw.object.get("args")) |args| {
+        if (args != .array) {
+            try addDefIssue(result, allocator, "PipeFuncDefTable[{s}]: 'args' must be an array of strings", def_id);
+        } else for (args.array.items, 0..) |arg, index| {
+            if (arg != .string) {
+                try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].args[{d}]: argument name must be a string", .{ def_id, index }), def_id, null, null);
+            } else try declared_args.put(allocator, arg.string, {});
+        }
+    }
+    for (sequence.?.array.items, 0..) |step, step_index| {
+        if (step != .object) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: Step must be an object", .{ def_id, step_index }), def_id, step_index, null);
+            continue;
+        }
+        const step_def = step.object.get("defId");
+        if (step_def == null or step_def.? != .string) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: Missing step defId", .{ def_id, step_index }), def_id, step_index, null);
+            continue;
+        }
+        const step_id = step_def.?.string;
+        const in_combine = tables[2].contains(step_id);
+        const in_pipe = tables[3].contains(step_id);
+        const in_cond = tables[4].contains(step_id);
+        if (!in_combine and !in_pipe and !in_cond) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: Referenced definition {s} does not exist", .{ def_id, step_index, step_id }), def_id, step_index, null);
+            continue;
+        }
+        if (!in_combine and !in_pipe and in_cond) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: CondFunc definition {s} cannot be used as a pipe step; only combine and pipe definitions are supported", .{ def_id, step_index, step_id }), def_id, step_index, null);
+            continue;
+        }
+        const bindings = step.object.get("argBindings");
+        if (bindings == null or bindings.? != .object) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}].sequence[{d}]: Missing or invalid argBindings", .{ def_id, step_index }), def_id, step_index, null);
+            continue;
+        }
+        var iterator = bindings.?.object.iterator();
+        while (iterator.next()) |entry| try validatePipeBinding(def_id, step_index, entry.key_ptr.*, entry.value_ptr.*, &declared_args, tables[0], result, allocator);
+    }
+    if (!referenced_defs.contains(def_id)) {
+        try result.warnings.append(allocator, .{
+            .message = try std.fmt.allocPrint(allocator, "PipeFuncDefTable[{s}]: Definition is never used", .{def_id}),
+            .detail = .{ .def = .{ .def_id = def_id } },
+        });
+    }
+}
+
+fn validatePipeBinding(def_id: []const u8, step_index: usize, arg_name: []const u8, binding: std.json.Value, declared_args: *const std.StringHashMapUnmanaged(void), values: std.json.ObjectMap, result: *Result, allocator: std.mem.Allocator) !void {
+    const prefix = "PipeFuncDefTable[{s}].sequence[{d}]";
+    if (binding != .object or binding.object.get("source") == null or binding.object.get("source").? != .string) {
+        try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' is invalid", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
+        return;
+    }
+    const source = binding.object.get("source").?.string;
+    if (std.mem.eql(u8, source, "input")) {
+        const name = binding.object.get("argName");
+        if (name == null or name.? != .string or name.?.string.len == 0) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": 'input' binding for '{s}' must include string argName", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
+        } else if (!declared_args.contains(name.?.string)) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' references undefined PipeFunc input '{s}'", .{ def_id, step_index, arg_name, name.?.string }), def_id, step_index, arg_name);
+        }
+        return;
+    }
+    if (std.mem.eql(u8, source, "step")) {
+        const index = binding.object.get("stepIndex");
+        if (index == null or (index.? != .integer and index.? != .float)) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": 'step' binding for '{s}' must include numeric stepIndex", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
+        } else {
+            const valid = if (index.? == .integer) index.?.integer >= 0 and index.?.integer < step_index else false;
+            if (!valid) try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' references invalid step index (must be < {d})", .{ def_id, step_index, arg_name, step_index }), def_id, step_index, arg_name);
+        }
+        return;
+    }
+    if (std.mem.eql(u8, source, "value")) {
+        const id = binding.object.get("id");
+        if (id == null or id.? != .string or id.?.string.len == 0) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": 'value' binding for '{s}' must include string id", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
+        } else if (!values.contains(id.?.string)) {
+            try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' references non-existent ValueId {s}", .{ def_id, step_index, arg_name, id.?.string }), def_id, step_index, arg_name);
+        }
+        return;
+    }
+    try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' has unknown source \"{s}\"", .{ def_id, step_index, arg_name, source }), def_id, step_index, arg_name);
+}
+
 fn addFuncIssue(result: *Result, allocator: std.mem.Allocator, comptime format: []const u8, func_id: []const u8, detail: Detail) !void {
     try result.errors.append(allocator, .{ .message = try std.fmt.allocPrint(allocator, format, .{func_id}), .detail = detail });
 }
@@ -526,4 +653,21 @@ test "legacy validation checks final transform compatibility" {
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(usize, 1), result.errors.items.len);
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[0].message, "expects \"number\" for first parameter") != null);
+}
+
+test "legacy validation checks pipe binding sources and step definitions" {
+    const fixture =
+        \\{"valueTable":{},"funcTable":{"run":{"kind":"pipe","defId":"pipe","argMap":{},"returnId":"out"}},"combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":[],"b":[]}}},
+        \\ "pipeFuncDefTable":{"pipe":{"args":["x"],"sequence":[{"defId":"add","argBindings":{"a":{"source":"input","argName":"missing"},"b":{"source":"step","stepIndex":0}}},{"defId":"add","argBindings":{"a":{"source":"value","id":"absent"}}},{"defId":"condition","argBindings":{}}]}},
+        \\ "condFuncDefTable":{"condition":{}}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try validate(parsed.value, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 4), result.errors.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[0].message, "undefined PipeFunc input") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[1].message, "invalid step index") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[2].message, "non-existent ValueId") != null);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[3].message, "cannot be used as a pipe step") != null);
 }
