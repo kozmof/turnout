@@ -291,7 +291,71 @@ fn validateFunction(
             const message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap: Combine function requires argument \"{s}\"", .{ func_id, arg_name });
             try result.errors.append(allocator, .{ .message = message, .detail = .{ .func_arg = .{ .func_id = func_id, .arg_name = arg_name } } });
         };
+        if (std.mem.eql(u8, kind, "combine") and tables[2].get(def_id) != null)
+            try validateFunctionTypes(func_id, map.object, tables[2].get(def_id).?, tables, result, allocator);
     };
+}
+
+fn inferReferenceType(id: []const u8, tables: [5]std.json.ObjectMap) ?[]const u8 {
+    if (tables[0].get(id)) |item| {
+        if (item == .object) if (item.object.get("symbol")) |symbol| if (symbol == .string) return symbol.string;
+    }
+    var functions = tables[1].iterator();
+    while (functions.next()) |entry| {
+        if (entry.value_ptr.* != .object) continue;
+        const return_id = entry.value_ptr.object.get("returnId") orelse continue;
+        const def_id = entry.value_ptr.object.get("defId") orelse continue;
+        if (return_id != .string or def_id != .string or !std.mem.eql(u8, return_id.string, id)) continue;
+        if (tables[2].get(def_id.string)) |definition| {
+            if (definition == .object) if (definition.object.get("name")) |name| if (name == .string)
+                return preset.returnType(name.string, null);
+        }
+    }
+    return null;
+}
+
+fn validateFunctionTypes(
+    func_id: []const u8,
+    arg_map: std.json.ObjectMap,
+    definition: std.json.Value,
+    tables: [5]std.json.ObjectMap,
+    result: *Result,
+    allocator: std.mem.Allocator,
+) !void {
+    if (definition != .object) return;
+    const name = definition.object.get("name") orelse return;
+    const transforms = definition.object.get("transformFn") orelse return;
+    if (name != .string or transforms != .object) return;
+    const expected = preset.parameterType(name.string);
+    for ([_][]const u8{ "a", "b" }) |arg_name| {
+        const arg_id = arg_map.get(arg_name) orelse continue;
+        if (arg_id != .string) continue;
+        var current = inferReferenceType(arg_id.string, tables) orelse {
+            try result.warnings.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: type of argument \"{s}\" could not be inferred, skipping compatibility check", .{ func_id, arg_name, arg_id.string }),
+                .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg_name, .arg_id = arg_id } },
+            });
+            continue;
+        };
+        const chain = transforms.object.get(arg_name) orelse continue;
+        if (chain != .array) continue;
+        for (chain.array.items) |function| {
+            if (function != .string) continue;
+            if (preset.inputType(function.string)) |input_type| if (!std.mem.eql(u8, current, input_type)) {
+                try result.errors.append(allocator, .{
+                    .message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: Argument has type \"{s}\" but transform function \"{s}\" expects \"{s}\"", .{ func_id, arg_name, current, function.string, input_type }),
+                    .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg_name, .arg_id = arg_id } },
+                });
+            };
+            if (preset.returnType(function.string, null)) |return_type| current = return_type;
+        }
+        if (expected) |expected_type| if (!std.mem.eql(u8, current, expected_type)) {
+            try result.errors.append(allocator, .{
+                .message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: Argument resolves to type \"{s}\" but combine function \"{s}\" expects \"{s}\"", .{ func_id, arg_name, current, name.string, expected_type }),
+                .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg_name, .arg_id = arg_id } },
+            });
+        };
+    }
 }
 
 fn knownPreset(name: []const u8, allocator: std.mem.Allocator) !bool {
@@ -356,6 +420,17 @@ fn validateCombineDefinition(
                     .detail = .{ .def_transform = .{ .def_id = def_id, .transform_fn = function.string } },
                 });
             }
+        }
+        if (name != null and name.? == .string and chain.?.array.items.len > 0) {
+            const last = chain.?.array.items[chain.?.array.items.len - 1];
+            const expected = preset.parameterType(name.?.string);
+            if (last == .string and expected != null) if (preset.returnType(last.string, null)) |return_type| if (!std.mem.eql(u8, return_type, expected.?)) {
+                const ordinal = if (std.mem.eql(u8, key, "a")) "first" else "second";
+                try result.errors.append(allocator, .{
+                    .message = try std.fmt.allocPrint(allocator, "CombineFuncDefTable[{s}]: Transform function '{s}' returns \"{s}\" but combine function \"{s}\" expects \"{s}\" for {s} parameter", .{ def_id, key, return_type, name.?.string, expected.?, ordinal }),
+                    .detail = .{ .def_transform = .{ .def_id = def_id, .transform_fn = last.string } },
+                });
+            };
         }
     }
     if (!referenced_defs.contains(def_id)) {
@@ -427,4 +502,28 @@ test "legacy validation checks combine definitions and unused warnings" {
     try std.testing.expect(std.mem.indexOf(u8, result.errors.items[1].message, "unknown transform function") != null);
     try std.testing.expectEqual(@as(usize, 2), result.warnings.items.len);
     try std.testing.expectEqualStrings("CombineFuncDefTable[unused]: Definition is never used", result.warnings.items[1].message);
+}
+
+test "legacy validation checks function transform input types" {
+    const fixture =
+        \\{"valueTable":{"text":{"symbol":"string"},"number":{"symbol":"number"}},"funcTable":{"sum":{"kind":"combine","defId":"add","argMap":{"a":"text","b":"number"},"returnId":"out"}},"combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":["transformFnNumber::pass"],"b":["transformFnNumber::pass"]}}},"pipeFuncDefTable":{},"condFuncDefTable":{}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try validate(parsed.value, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), result.errors.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[0].message, "Argument has type \"string\"") != null);
+}
+
+test "legacy validation checks final transform compatibility" {
+    const fixture =
+        \\{"valueTable":{},"funcTable":{},"combineFuncDefTable":{"bad":{"name":"combineFnNumber::add","transformFn":{"a":["transformFnString::pass"],"b":["transformFnNumber::pass"]}}},"pipeFuncDefTable":{},"condFuncDefTable":{}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try validate(parsed.value, std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 1), result.errors.items.len);
+    try std.testing.expect(std.mem.indexOf(u8, result.errors.items[0].message, "expects \"number\" for first parameter") != null);
 }
