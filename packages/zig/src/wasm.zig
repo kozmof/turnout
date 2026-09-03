@@ -2,6 +2,7 @@ const std = @import("std");
 const builtin = @import("builtin");
 const compute = @import("compute.zig");
 const legacy_compute = @import("legacy_compute.zig");
+const legacy_validate = @import("legacy_validate.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
 const preset = @import("preset.zig");
@@ -164,6 +165,16 @@ fn computeResponse(bytes: []const u8) !Response {
     defer parsed.deinit();
     try validateInputNesting(parsed.value, 0);
     if (parsed.value != .object) return error.InvalidComputeRequest;
+    if (parsed.value.object.get("operation")) |operation| {
+        if (operation != .string or !std.mem.eql(u8, operation.string, "validateLegacy")) return error.InvalidComputeRequest;
+        const context = parsed.value.object.get("context") orelse return error.InvalidComputeRequest;
+        var result = try legacy_validate.validate(context, allocator);
+        defer result.deinit(allocator);
+        var output: std.Io.Writer.Allocating = .init(allocator);
+        defer output.deinit();
+        try std.json.Stringify.value(result, .{}, &output.writer);
+        return makeResponse(.ok, output.written());
+    }
     if (parsed.value.object.get("context")) |context| {
         const root_func_id = parsed.value.object.get("rootFuncId") orelse return error.InvalidComputeRequest;
         if (root_func_id != .string) return error.InvalidComputeRequest;
@@ -902,6 +913,20 @@ test "WASM stateless compute executes a legacy graph context" {
     defer response.deinit();
     try std.testing.expectEqual(@as(i64, 5), response.value.object.get("value").?.object.get("value").?.integer);
     try std.testing.expectEqual(@as(i64, 5), response.value.object.get("updatedValueTable").?.object.get("total").?.object.get("value").?.integer);
+}
+
+test "WASM stateless compute validates a legacy graph context" {
+    const request =
+        \\{"operation":"validateLegacy","context":{"valueTable":{},"funcTable":{"a":{"returnId":"same"},"b":{"returnId":"same"}},"combineFuncDefTable":{},"pipeFuncDefTable":{},"condFuncDefTable":{}}}
+    ;
+    const address = turnout_compute_execute(@intFromPtr(request.ptr), request.len);
+    defer freeResponse(address);
+    var response = try expectResponse(address, .ok, null);
+    defer response.deinit();
+    try std.testing.expect(!response.value.object.get("valid").?.bool);
+    const errors = response.value.object.get("errors").?.array.items;
+    try std.testing.expectEqual(@as(usize, 1), errors.len);
+    try std.testing.expectEqualStrings("same", errors[0].object.get("details").?.object.get("returnId").?.string);
 }
 
 test "WASM stateless compute rejects malformed and oversized requests" {
