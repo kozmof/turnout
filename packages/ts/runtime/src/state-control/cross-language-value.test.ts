@@ -1,4 +1,9 @@
 import { describe, expect, it } from "vitest";
+import {
+  fromCanonicalValue,
+  toCanonicalOperationValue,
+  toCanonicalValue,
+} from "../zig-runtime/value-codec.js";
 import { buildArray, buildNumber, buildRecord, buildString } from "./value-builders.js";
 import { cfGeneric } from "./preset-funcs/generic/combineFn.js";
 import { tfNumber } from "./preset-funcs/number/transformFn.js";
@@ -41,6 +46,64 @@ describe("cross-language Value contract", () => {
     const right = buildRecord({ a: buildNumber(1) });
     expect(() => cfGeneric.isEqual(left, right)).toThrow(
       "Cannot compare record and record values for equality",
+    );
+  });
+
+  it("rejects malformed public Values at the canonical boundary", () => {
+    const invalid = [
+      null,
+      { symbol: "number", value: 1, tags: [1] },
+      { symbol: "number", value: "1", tags: [] },
+      { symbol: "number", value: 1, subSymbol: "number", tags: [] },
+      { symbol: "string", value: 1, tags: [] },
+      { symbol: "string", value: "x", subSymbol: "string", tags: [] },
+      { symbol: "boolean", value: 1, tags: [] },
+      { symbol: "boolean", value: true, subSymbol: "boolean", tags: [] },
+      { symbol: "null", value: null, subSymbol: "invalid", tags: [] },
+      { symbol: "array", value: {}, tags: [] },
+      { symbol: "array", value: [], subSymbol: "record", tags: [] },
+      { symbol: "record", value: [], tags: [] },
+      { symbol: "record", value: {}, subSymbol: "record", tags: [] },
+      { symbol: "unknown", value: 1, tags: [] },
+    ];
+    for (const value of invalid) expect(() => toCanonicalValue(value)).toThrow(TypeError);
+    expect(() => toCanonicalValue({ symbol: "number", value: Infinity, tags: [] })).toThrow(
+      "must be finite",
+    );
+    expect(toCanonicalOperationValue({ symbol: "number", value: Number.NaN, tags: [] }).value).toBe(
+      "NaN",
+    );
+    expect(toCanonicalOperationValue({ symbol: "number", value: Infinity, tags: [] }).value).toBe(
+      "Infinity",
+    );
+    expect(toCanonicalOperationValue({ symbol: "number", value: -Infinity, tags: [] }).value).toBe(
+      "-Infinity",
+    );
+  });
+
+  it("rejects malformed Zig Values and decodes number sentinels", () => {
+    const invalid = [
+      null,
+      { symbol: "number", value: 1, tags: [1] },
+      { symbol: "number", value: "invalid", tags: [] },
+      { symbol: "string", value: 1, tags: [] },
+      { symbol: "boolean", value: 1, tags: [] },
+      { symbol: "null", value: null, tags: [] },
+      { symbol: "null", value: null, reason: "invalid", tags: [] },
+      { symbol: "array", value: {}, tags: [] },
+      { symbol: "array", value: [], subSymbol: "record", tags: [] },
+      { symbol: "record", value: [], tags: [] },
+      { symbol: "unknown", value: 1, tags: [] },
+    ];
+    for (const value of invalid) expect(() => fromCanonicalValue(value)).toThrow(TypeError);
+    expect(
+      Number.isNaN(fromCanonicalValue({ symbol: "number", value: "NaN", tags: [] }).value),
+    ).toBe(true);
+    expect(fromCanonicalValue({ symbol: "number", value: "Infinity", tags: [] }).value).toBe(
+      Infinity,
+    );
+    expect(fromCanonicalValue({ symbol: "number", value: "-Infinity", tags: [] }).value).toBe(
+      -Infinity,
     );
   });
 });

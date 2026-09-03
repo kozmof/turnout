@@ -24,7 +24,7 @@ Run the native and WASM core checks from the repository root.
 - Cancellation as a terminal state
 - Compute, action, scene, and route execution
 - Versioned WASM allocation, lifecycle, and effect-result APIs
-- Native and WASM execution of the same 106 core tests
+- Native and WASM execution of the same 127 core tests
 
 The build produces the freestanding WASM module packaged by `runtime`. The runtime package build validates and copies that artifact into its distribution; `turnout-scene-runner` imports the shared client instead of shipping another copy.
 

@@ -116,6 +116,10 @@ describe("Value Builders", () => {
     });
   });
 
+  it("translates invalid null reasons from Zig", () => {
+    expect(() => buildNull("invalid" as never)).toThrow("Invalid NullReasonSubSymbol");
+  });
+
   describe("buildArray", () => {
     it("creates a pure array value", () => {
       const item1 = buildNumber(1);

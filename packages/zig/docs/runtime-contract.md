@@ -173,4 +173,6 @@ Native ABI lifecycle tests use Zig's debug allocator and fail when allocations r
 
 The reproducible performance and memory baseline is recorded in [performance-baseline.md](./performance-baseline.md).
 
+The stateless Value ABI also owns public STATE schema matching, literal conversion, reserved-path validation, and Value normalization used by the TypeScript `StateManager` adapter. The adapter preserves JavaScript object freezing and translates Zig status codes into the existing public error classes.
+
 The `runtime` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm` and exports it as `runtime/zig-runtime/turnout-runtime.wasm`. The scene runner imports the shared runtime client and default instance. Distribution smoke tests check that the single copied file has the WebAssembly magic bytes.

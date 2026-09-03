@@ -17,4 +17,4 @@ The packaged WASM path is `runtime/zig-runtime/turnout-runtime.wasm`. `turnout-s
 
 ## Verification
 
-The migration passed the root `pnpm check` gate with `TMPDIR=/tmp` on 2026-09-02. The gate included generated-code drift checks, 106 Zig tests, 418 TypeScript runtime tests, 441 scene-runner tests, Go vet and race checks, package builds, distribution smoke tests, and coverage gates. Scene-runner branch coverage was 90.37 percent.
+The expanded migration passed the root `pnpm check` gate with `TMPDIR=/tmp` on 2026-09-03. The verification included generated-code drift checks, 127 Zig tests, 408 TypeScript runtime tests, 391 scene-runner tests, Go vet and race checks, package builds, distribution smoke tests, and coverage gates. Runtime branch coverage was 90.61 percent. Scene-runner branch coverage was 90.70 percent.

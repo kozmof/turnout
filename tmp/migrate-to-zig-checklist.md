@@ -295,20 +295,20 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Remove TypeScript compute execution implementations
 - [x] Remove TypeScript Value semantic implementations
 - [x] Remove implementation-only TypeScript tests after equivalent Zig semantic coverage exists
-- [ ] Keep public TypeScript types, builders, error shapes, and entry points compatible where practical
+- [x] Keep public TypeScript types, builders, error shapes, and entry points compatible where practical
 - [x] Make `scene-runner` consume the shared runtime adapter
-- [ ] Verify no independent Turnout runtime semantics remain in either TypeScript package
-- [ ] Update runtime, ABI, package, and release documentation
+- [x] Verify no independent Turnout runtime semantics remain in either TypeScript package
+- [x] Update runtime, ABI, package, and release documentation
 
 ### Phase 13 exit gate
 
-- [ ] Zig is authoritative for Value, preset, compute, STATE, action, scene, and route behavior
-- [ ] Every retained semantic `packages/ts/runtime` export delegates to Zig
-- [ ] TypeScript contains only declarations, structural adapters, serialization, error translation, runner iteration, cancellation, and host callback dispatch
-- [ ] Native and WASM Zig tests pass
-- [ ] TypeScript public API and distribution tests pass
-- [ ] The full root `check` passes
-- [ ] The runtime migration completion criteria pass
+- [x] Zig is authoritative for Value, preset, compute, STATE, action, scene, and route behavior
+- [x] Every retained semantic `packages/ts/runtime` export delegates to Zig
+- [x] TypeScript contains only declarations, structural adapters, serialization, error translation, runner iteration, cancellation, and host callback dispatch
+- [x] Native and WASM Zig tests pass
+- [x] TypeScript public API and distribution tests pass
+- [x] The full root `check` passes
+- [x] The runtime migration completion criteria pass
 
 ## Follow-up work
 

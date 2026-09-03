@@ -373,4 +373,10 @@ describe("typeInference values and function inference", () => {
     expect(inferFuncReturnType("f_cycle" as FuncId, context)).toBeNull();
     expect(inferFuncReturnType("missing_func" as FuncId, context)).toBeNull();
   });
+
+  it("short-circuits an explicitly visited function", () => {
+    expect(
+      inferFuncReturnType("seen" as FuncId, {} as ExecutionContext, new Set(["seen" as FuncId])),
+    ).toBeNull();
+  });
 });
