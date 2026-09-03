@@ -1,13 +1,18 @@
 import { FuncId } from "../../types.js";
 import {
   GraphExecutionError,
+  createEmptySequenceError,
   createFunctionExecutionError,
+  createMissingValueError,
   isGraphExecutionError,
 } from "../errors.js";
-import { buildExecutionTree } from "../buildExecutionTree.js";
-import { executeTree } from "../executeTree.js";
 import type { ValidatedContext } from "../validateContext.js";
-import { type ExecutionResult } from "../../types.js";
+import { type ExecutionResult, type ValueTable } from "../../types.js";
+import { defaultZigRuntimeClient } from "../../../zig-runtime/default-client.js";
+import {
+  fromCanonicalValue,
+  toCanonicalOperationValue,
+} from "../../../zig-runtime/value-codec.js";
 
 /**
  * Executes a computation graph starting from a root function.
@@ -21,13 +26,42 @@ import { type ExecutionResult } from "../../types.js";
  * @returns Execution result with computed value and updated value table
  */
 export function executeGraph(rootFuncId: FuncId, context: ValidatedContext): ExecutionResult {
-  // 1. Build execution tree
-  const tree = buildExecutionTree(rootFuncId, context);
-
-  // 2. Execute tree (post-order traversal) - returns result with updated state
-  const result = executeTree(tree, context);
-
-  return result;
+  const valueTable = Object.fromEntries(
+    Object.entries(context.valueTable).map(([id, value]) => [id, toCanonicalOperationValue(value)]),
+  );
+  const response = defaultZigRuntimeClient.compute<{
+    value: unknown;
+    updatedValueTable: Record<string, unknown>;
+    error?: string;
+  }>({
+    rootFuncId,
+    context: { ...context, valueTable },
+  });
+  if (response.status !== "ok") {
+    const message = response.payload.error ?? response.status;
+    if (message === "EmptyPipe") throw createEmptySequenceError(rootFuncId);
+    if (message === "MissingValue") {
+      const root = context.funcTable[rootFuncId];
+      if (root !== undefined && "argMap" in root) {
+        const returnIds = new Set(Object.values(context.funcTable).map((entry) => entry.returnId));
+        const missing = Object.values(root.argMap).find(
+          (id) => context.valueTable[id] === undefined && !returnIds.has(id),
+        );
+        if (missing !== undefined) throw createMissingValueError(missing);
+      }
+    }
+    if (message === "GraphCycle") {
+      throw createFunctionExecutionError(rootFuncId, `Cycle detected at node ${rootFuncId}`);
+    }
+    throw createFunctionExecutionError(rootFuncId, message);
+  }
+  const updatedValueTable = Object.fromEntries(
+    Object.entries(response.payload.updatedValueTable).map(([id, value]) => [
+      id,
+      fromCanonicalValue(value),
+    ]),
+  ) as ValueTable;
+  return { value: fromCanonicalValue(response.payload.value), updatedValueTable };
 }
 
 /**

@@ -287,7 +287,7 @@ Use this checklist with [migrate-to-zig.md](./migrate-to-zig.md). Complete phase
 - [x] Move or share the WASM byte-buffer client through `packages/ts/runtime`
 - [x] Move or share the canonical Value codec through `packages/ts/runtime`
 - [x] Preserve synchronous public APIs after WASM module initialization
-- [ ] Replace `executeGraph` and `executeGraphSafe` with Zig-backed adapters
+- [x] Replace `executeGraph` and `executeGraphSafe` with Zig-backed adapters
 - [x] Replace compute type inference with Zig-backed adapters
 - [ ] Replace compute validation with Zig-backed adapters
 - [x] Replace Value builders, guards, record operations, conversions, and operation wrappers with Zig-backed adapters

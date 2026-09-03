@@ -77,6 +77,8 @@ const Executor = struct {
 
         var output = if (std.mem.eql(u8, kind.string, "combine"))
             try self.evalCombine(entry, def_id.string)
+        else if (std.mem.eql(u8, kind.string, "pipe"))
+            try self.evalPipe(entry, def_id.string)
         else if (std.mem.eql(u8, kind.string, "cond"))
             try self.evalConditional(def_id.string)
         else
@@ -108,6 +110,124 @@ const Executor = struct {
             args[index] = owned[index].?.borrowed();
         }
         return preset.call(name.string, args[0..arity], self.allocator);
+    }
+
+    fn evalPipe(self: *Executor, entry: std.json.Value, def_id: []const u8) anyerror!value.OwnedTaggedValue {
+        const definition = (try self.table("pipeFuncDefTable")).get(def_id) orelse return error.MissingDefinition;
+        if (definition != .object) return error.InvalidDefinition;
+        const names = definition.object.get("args") orelse return error.InvalidDefinition;
+        const arg_map = entry.object.get("argMap") orelse return error.InvalidFunction;
+        if (names != .array or arg_map != .object) return error.InvalidDefinition;
+        var inputs: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+        defer inputs.deinit(self.allocator);
+        for (names.array.items) |name| {
+            if (name != .string) return error.InvalidDefinition;
+            const raw_id = arg_map.object.get(name.string) orelse return error.MissingArgument;
+            if (raw_id != .string) return error.InvalidArgument;
+            try inputs.put(self.allocator, name.string, try self.resolveValue(raw_id.string));
+        }
+        return self.evalPipeDefinition(def_id, &inputs);
+    }
+
+    fn evalPipeDefinition(
+        self: *Executor,
+        def_id: []const u8,
+        inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    ) anyerror!value.OwnedTaggedValue {
+        if (self.visiting.contains(def_id)) return error.GraphCycle;
+        try self.visiting.put(self.allocator, def_id, {});
+        defer _ = self.visiting.remove(def_id);
+        const definition = (try self.table("pipeFuncDefTable")).get(def_id) orelse return error.MissingDefinition;
+        if (definition != .object) return error.InvalidDefinition;
+        const sequence = definition.object.get("sequence") orelse return error.InvalidDefinition;
+        if (sequence != .array) return error.InvalidDefinition;
+        if (sequence.array.items.len == 0) return error.EmptyPipe;
+        var results = std.ArrayList(value.OwnedTaggedValue).empty;
+        defer {
+            for (results.items) |*item| item.deinit(self.allocator);
+            results.deinit(self.allocator);
+        }
+        for (sequence.array.items) |step| {
+            if (self.count >= max_graph_nodes) return error.GraphTooLarge;
+            self.count += 1;
+            if (step != .object) return error.InvalidDefinition;
+            const step_def_id = step.object.get("defId") orelse return error.InvalidDefinition;
+            const bindings = step.object.get("argBindings") orelse return error.InvalidDefinition;
+            if (step_def_id != .string or bindings != .object) return error.InvalidDefinition;
+            var output = if ((try self.table("combineFuncDefTable")).get(step_def_id.string)) |combine|
+                try self.evalPipeCombine(combine, bindings, inputs, results.items)
+            else if ((try self.table("pipeFuncDefTable")).get(step_def_id.string)) |nested| blk: {
+                if (nested != .object) return error.InvalidDefinition;
+                const nested_names = nested.object.get("args") orelse return error.InvalidDefinition;
+                if (nested_names != .array) return error.InvalidDefinition;
+                var nested_inputs: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+                defer nested_inputs.deinit(self.allocator);
+                for (nested_names.array.items) |name| {
+                    if (name != .string) return error.InvalidDefinition;
+                    const binding = bindings.object.get(name.string) orelse return error.MissingArgument;
+                    try nested_inputs.put(self.allocator, name.string, try self.resolvePipeBinding(binding, inputs, results.items));
+                }
+                break :blk try self.evalPipeDefinition(step_def_id.string, &nested_inputs);
+            } else return error.MissingDefinition;
+            errdefer output.deinit(self.allocator);
+            try results.append(self.allocator, output);
+        }
+        const final = results.items[results.items.len - 1].borrowed();
+        return value.build(final.value, final.tags, self.allocator);
+    }
+
+    fn evalPipeCombine(
+        self: *Executor,
+        definition: std.json.Value,
+        bindings: std.json.Value,
+        inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+        results: []const value.OwnedTaggedValue,
+    ) anyerror!value.OwnedTaggedValue {
+        if (definition != .object) return error.InvalidDefinition;
+        const name = definition.object.get("name") orelse return error.InvalidDefinition;
+        const transforms = definition.object.get("transformFn") orelse return error.InvalidDefinition;
+        if (name != .string or transforms != .object) return error.InvalidDefinition;
+        var owned: [3]?value.OwnedTaggedValue = .{ null, null, null };
+        defer for (&owned) |*item| if (item.*) |*present| present.deinit(self.allocator);
+        var args: [3]value.TaggedValue = undefined;
+        const arity: usize = if (std.mem.eql(u8, name.string, "combineFnRecord::set")) 3 else 2;
+        const names = [_][]const u8{ "a", "b", "c" };
+        for (0..arity) |index| {
+            const binding = bindings.object.get(names[index]) orelse return error.MissingArgument;
+            const source = try self.resolvePipeBinding(binding, inputs, results);
+            owned[index] = try applyTransforms(source, transforms.object.get(names[index]), self.allocator);
+            args[index] = owned[index].?.borrowed();
+        }
+        return preset.call(name.string, args[0..arity], self.allocator);
+    }
+
+    fn resolvePipeBinding(
+        self: *Executor,
+        binding: std.json.Value,
+        inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+        results: []const value.OwnedTaggedValue,
+    ) anyerror!value.TaggedValue {
+        if (binding != .object) return error.InvalidArgument;
+        const source = binding.object.get("source") orelse return error.InvalidArgument;
+        if (source != .string) return error.InvalidArgument;
+        if (std.mem.eql(u8, source.string, "input")) {
+            const name = binding.object.get("argName") orelse return error.InvalidArgument;
+            if (name != .string) return error.InvalidArgument;
+            return inputs.get(name.string) orelse error.MissingArgument;
+        }
+        if (std.mem.eql(u8, source.string, "step")) {
+            const index = binding.object.get("stepIndex") orelse return error.InvalidArgument;
+            if (index != .integer or index.integer < 0) return error.InvalidStepReference;
+            const cast: usize = @intCast(index.integer);
+            if (cast >= results.len) return error.InvalidStepReference;
+            return results[cast].borrowed();
+        }
+        if (std.mem.eql(u8, source.string, "value")) {
+            const id = binding.object.get("id") orelse return error.InvalidArgument;
+            if (id != .string) return error.InvalidArgument;
+            return self.resolveValue(id.string);
+        }
+        return error.InvalidArgument;
     }
 
     fn evalConditional(self: *Executor, def_id: []const u8) anyerror!value.OwnedTaggedValue {
@@ -175,4 +295,19 @@ test "legacy compute executes combine and selected conditional branch" {
     var result = try execute(parsed.value, "choice", std.testing.allocator);
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 5), result.root.value.number);
+}
+
+test "legacy compute executes nested pipes and direct value bindings" {
+    const fixture =
+        \\{"valueTable":{"a":{"symbol":"number","value":2,"tags":[]},"b":{"symbol":"number","value":3,"tags":[]}},
+        \\ "funcTable":{"run":{"kind":"pipe","defId":"outer","argMap":{"x":"a","y":"b"},"returnId":"result"}},
+        \\ "combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":["transformFnNumber::pass"],"b":["transformFnNumber::pass"]}}},
+        \\ "pipeFuncDefTable":{"inner":{"args":["x","y"],"sequence":[{"defId":"add","argBindings":{"a":{"source":"input","argName":"x"},"b":{"source":"input","argName":"y"}}}]},
+        \\ "outer":{"args":["x","y"],"sequence":[{"defId":"inner","argBindings":{"x":{"source":"input","argName":"x"},"y":{"source":"input","argName":"y"}}},{"defId":"add","argBindings":{"a":{"source":"step","stepIndex":0},"b":{"source":"value","id":"b"}}}]}},"condFuncDefTable":{}}
+    ;
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, fixture, .{});
+    defer parsed.deinit();
+    var result = try execute(parsed.value, "run", std.testing.allocator);
+    defer result.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 8), result.root.value.number);
 }
