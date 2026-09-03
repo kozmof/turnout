@@ -2,20 +2,10 @@ import type {
   ExecutionContext,
   ValueId,
   FuncId,
-  CombineDefineId,
-  PipeDefineId,
-  CondDefineId,
   ValueTable,
   FuncTable,
 } from "../../types.js";
 import type { BaseTypeSymbol } from "../../../state-control/value.js";
-import { baseTypeSymbols } from "../../../state-control/value.js";
-
-// ============================================================================
-// Constants
-// ============================================================================
-
-export const VALID_BASE_TYPE_SYMBOLS = new Set(baseTypeSymbols);
 
 // ============================================================================
 // UnvalidatedContext
@@ -86,32 +76,3 @@ export function isValidationSuccess(
 // ============================================================================
 
 export type TypeEnvironment = ReadonlyMap<ValueId | FuncId, BaseTypeSymbol>;
-
-// ============================================================================
-// ValidationState — mutable accumulator shared across all validators
-// ============================================================================
-
-export type ValidationState = {
-  readonly errors: ValidationError[];
-  readonly warnings: ValidationWarning[];
-  readonly referencedValues: Set<ValueId>;
-  readonly referencedDefs: Set<CombineDefineId | PipeDefineId | CondDefineId>;
-  readonly returnIds: Set<ValueId>;
-  readonly returnIdToFuncId: Map<string, string>;
-  // Intentionally mutable during the validation pass — entries are added lazily
-  // as types are inferred. The exported TypeEnvironment alias uses ReadonlyMap
-  // for the frozen snapshot exposed to consumers after validation completes.
-  readonly typeEnv: Map<ValueId | FuncId, BaseTypeSymbol>;
-};
-
-export function createValidationState(): ValidationState {
-  return {
-    errors: [],
-    warnings: [],
-    referencedValues: new Set(),
-    referencedDefs: new Set(),
-    returnIds: new Set(),
-    returnIdToFuncId: new Map(),
-    typeEnv: new Map(),
-  };
-}

@@ -340,7 +340,7 @@ pub fn validate(context: std.json.Value, allocator: std.mem.Allocator) !Result {
     var pipes = tables[3].iterator();
     while (pipes.next()) |entry| try validatePipeDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &referenced_values, &result, allocator);
     var conditions = tables[4].iterator();
-    while (conditions.next()) |entry| try validateCondDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &referenced_defs, &referenced_values, &result, allocator);
+    while (conditions.next()) |entry| try validateCondDefinition(entry.key_ptr.*, entry.value_ptr.*, tables, &owners, &referenced_defs, &referenced_values, &result, allocator);
     try checkFunctionCycles(tables, &owners, &result, allocator);
     try checkPipeCycles(tables, &result, allocator);
     var values = tables[0].iterator();
@@ -433,33 +433,29 @@ fn validateFunction(
             try result.errors.append(allocator, .{ .message = message, .detail = .{ .func_arg = .{ .func_id = func_id, .arg_name = arg_name } } });
         };
         if (std.mem.eql(u8, kind, "combine") and tables[2].get(def_id) != null)
-            try validateFunctionTypes(func_id, map.object, tables[2].get(def_id).?, tables, result, allocator);
+            try validateFunctionTypes(func_id, map.object, tables[2].get(def_id).?, tables, return_ids, result, allocator);
     };
 }
 
-fn inferReferenceType(id: []const u8, tables: [5]std.json.ObjectMap) ?[]const u8 {
+fn inferReferenceType(id: []const u8, tables: [5]std.json.ObjectMap, owners: *const std.StringHashMapUnmanaged([]const u8)) ?[]const u8 {
     if (tables[0].get(id)) |item| {
         if (item == .object) if (item.object.get("symbol")) |symbol| if (symbol == .string) return symbol.string;
     }
-    var functions = tables[1].iterator();
-    while (functions.next()) |entry| {
-        if (entry.value_ptr.* != .object) continue;
-        const return_id = entry.value_ptr.object.get("returnId") orelse continue;
-        const def_id = entry.value_ptr.object.get("defId") orelse continue;
-        if (return_id != .string or def_id != .string or !std.mem.eql(u8, return_id.string, id)) continue;
-        if (tables[2].get(def_id.string)) |definition| {
-            if (definition == .object) if (definition.object.get("name")) |name| if (name == .string)
-                return preset.returnType(name.string, null);
-        }
-    }
+    const producer = owners.get(id) orelse return null;
+    const entry = tables[1].get(producer) orelse return null;
+    if (entry != .object) return null;
+    const def_id = entry.object.get("defId") orelse return null;
+    if (def_id != .string) return null;
+    if (tables[2].get(def_id.string)) |definition| if (definition == .object) if (definition.object.get("name")) |name| if (name == .string)
+        return preset.returnType(name.string, null);
     return null;
 }
 
-fn inferFunctionIdType(id: []const u8, tables: [5]std.json.ObjectMap) ?[]const u8 {
+fn inferFunctionIdType(id: []const u8, tables: [5]std.json.ObjectMap, owners: *const std.StringHashMapUnmanaged([]const u8)) ?[]const u8 {
     const entry = tables[1].get(id) orelse return null;
     if (entry != .object) return null;
     const return_id = entry.object.get("returnId") orelse return null;
-    return if (return_id == .string) inferReferenceType(return_id.string, tables) else null;
+    return if (return_id == .string) inferReferenceType(return_id.string, tables, owners) else null;
 }
 
 fn validateFunctionTypes(
@@ -467,6 +463,7 @@ fn validateFunctionTypes(
     arg_map: std.json.ObjectMap,
     definition: std.json.Value,
     tables: [5]std.json.ObjectMap,
+    owners: *const std.StringHashMapUnmanaged([]const u8),
     result: *Result,
     allocator: std.mem.Allocator,
 ) !void {
@@ -478,7 +475,7 @@ fn validateFunctionTypes(
     for ([_][]const u8{ "a", "b" }) |arg_name| {
         const arg_id = arg_map.get(arg_name) orelse continue;
         if (arg_id != .string) continue;
-        var current = inferReferenceType(arg_id.string, tables) orelse {
+        var current = inferReferenceType(arg_id.string, tables, owners) orelse {
             try result.warnings.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "FuncTable[{s}].argMap['{s}']: type of argument \"{s}\" could not be inferred, skipping compatibility check", .{ func_id, arg_name, arg_id.string }),
                 .detail = .{ .func_arg_id = .{ .func_id = func_id, .arg_name = arg_name, .arg_id = arg_id } },
@@ -699,7 +696,10 @@ fn validatePipeBinding(def_id: []const u8, step_index: usize, arg_name: []const 
             try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": 'step' binding for '{s}' must include numeric stepIndex", .{ def_id, step_index, arg_name }), def_id, step_index, arg_name);
         } else {
             const valid = if (index.? == .integer) index.?.integer >= 0 and index.?.integer < step_index else false;
-            if (!valid) try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' references invalid step index (must be < {d})", .{ def_id, step_index, arg_name, step_index }), def_id, step_index, arg_name);
+            if (!valid) {
+                const actual = if (index.? == .integer) index.?.integer else @as(i64, @intFromFloat(index.?.float));
+                try addPipeIssue(result, allocator, try std.fmt.allocPrint(allocator, prefix ++ ": Argument binding for '{s}' references invalid step index {d} (must be < {d})", .{ def_id, step_index, arg_name, actual, step_index }), def_id, step_index, arg_name);
+            }
         }
         return;
     }
@@ -719,6 +719,7 @@ fn validateCondDefinition(
     def_id: []const u8,
     raw: std.json.Value,
     tables: [5]std.json.ObjectMap,
+    owners: *const std.StringHashMapUnmanaged([]const u8),
     referenced_defs: *const std.StringHashMapUnmanaged(void),
     referenced_values: *std.StringHashMapUnmanaged(void),
     result: *Result,
@@ -749,7 +750,7 @@ fn validateCondDefinition(
                 });
             } else {
                 try referenced_values.put(allocator, id.?.string, {});
-                if (inferReferenceType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
+                if (inferReferenceType(id.?.string, tables, owners)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
                     try result.errors.append(allocator, .{
                         .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Condition value must be boolean, got \"{s}\"", .{ def_id, condition_type }),
                         .detail = .{ .condition = .{ .def_id = def_id, .condition_id = id.?.string, .condition_type = condition_type } },
@@ -761,7 +762,7 @@ fn validateCondDefinition(
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Referenced FuncId {s} does not exist", .{ def_id, id.?.string }),
                 .detail = .{ .condition_ref = .{ .def_id = def_id, .condition_id = id.?.string } },
             });
-        } else if (inferFunctionIdType(id.?.string, tables)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
+        } else if (inferFunctionIdType(id.?.string, tables, owners)) |condition_type| if (!std.mem.eql(u8, condition_type, "boolean")) {
             try result.errors.append(allocator, .{
                 .message = try std.fmt.allocPrint(allocator, "CondFuncDefTable[{s}].conditionId: Function condition must return boolean, got \"{s}\"", .{ def_id, condition_type }),
                 .detail = .{ .condition = .{ .def_id = def_id, .condition_id = id.?.string, .condition_type = condition_type } },
