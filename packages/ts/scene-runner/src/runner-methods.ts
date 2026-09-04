@@ -37,13 +37,17 @@ export function makeRunnerMethods<R extends HarnessResult>(
     }
   }
 
-  function beginExecution(): void {
+  function assertNotInFlight(): void {
     if (inFlight) {
       throw new RunnerError(
         "ConcurrentExecution",
         "runner execution is already in progress; await the current next(), run(), or runAsync() step before starting another",
       );
     }
+  }
+
+  function beginExecution(): void {
+    assertNotInFlight();
     inFlight = true;
   }
 
@@ -103,6 +107,13 @@ export function makeRunnerMethods<R extends HarnessResult>(
     },
     runAsync() {
       started = true;
+      // Report a concurrent start at the call that made the mistake, the way
+      // next() and run() do, instead of leaving it to surface when the returned
+      // generator is first pulled. The slot itself is still claimed inside the
+      // generator: claiming it here would strand it whenever a caller builds a
+      // generator and never iterates it, since the release lives in a finally
+      // that only runs once the body has started.
+      assertNotInFlight();
       return (async function* () {
         beginExecution();
         try {

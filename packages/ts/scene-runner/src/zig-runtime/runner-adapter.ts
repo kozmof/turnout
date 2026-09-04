@@ -230,68 +230,78 @@ function prepareEffectKey(
   return `${request.sceneId}\u0000${request.actionId}\u0000${request.hook}`;
 }
 
-function prepareBindingMap(model: Uint8Array): ReadonlyMap<string, readonly string[]> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(new TextDecoder().decode(model));
-  } catch {
-    return new Map();
-  }
-  const root = asRecord(parsed);
-  const bindings = new Map<string, string[]>();
-  for (const sceneValue of Array.isArray(root?.scenes) ? root.scenes : []) {
-    const scene = asRecord(sceneValue);
-    if (typeof scene?.id !== "string") continue;
-    for (const actionValue of Array.isArray(scene.actions) ? scene.actions : []) {
-      const action = asRecord(actionValue);
-      if (typeof action?.id !== "string") continue;
-      for (const prepareValue of Array.isArray(action.prepare) ? action.prepare : []) {
-        const prepare = asRecord(prepareValue);
-        if (typeof prepare?.fromHook !== "string" || typeof prepare.binding !== "string") continue;
-        const key = prepareEffectKey({
-          sceneId: scene.id,
-          actionId: action.id,
-          hook: prepare.fromHook,
-        });
-        const required = bindings.get(key);
-        if (required === undefined) bindings.set(key, [prepare.binding]);
-        else required.push(prepare.binding);
-      }
-    }
-  }
-  return bindings;
-}
+/**
+ * The two prepare indexes an adapter needs, built from one walk of the model.
+ *
+ * `hookBindings` maps a scene/action/hook to the binding names that hook must
+ * return; `stateSources` maps a scene/action to its `binding ← state path`
+ * pairs. Both are read from the same `action.prepare` list, so they are built
+ * together rather than by two passes over two parses of the same bytes.
+ */
+type PrepareIndex = {
+  hookBindings: ReadonlyMap<string, readonly string[]>;
+  stateSources: ReadonlyMap<string, readonly [string, string][]>;
+};
 
-function prepareStateSourceMap(
-  model: Uint8Array,
-): ReadonlyMap<string, readonly [string, string][]> {
+/**
+ * Index the prepare entries of an encoded runtime model.
+ *
+ * `model` is an opaque blob as far as this adapter is concerned: it is handed
+ * to the runtime unread, and indexed here only to recover information the
+ * runtime's effect events do not carry. Bytes that are not the JSON this reader
+ * expects therefore yield an empty index rather than an error — the runtime
+ * remains the authority on whether the model is loadable, and it reports that
+ * from `create`.
+ *
+ * The cost of the empty index is that a `prepare` hook returning the wrong
+ * field is no longer caught by name, so the missing value surfaces later. That
+ * only arises for a model this reader could not parse, which the runtime will
+ * itself reject moments later.
+ */
+function buildPrepareIndex(model: Uint8Array): PrepareIndex {
   let parsed: unknown;
   try {
     parsed = JSON.parse(new TextDecoder().decode(model));
   } catch {
-    return new Map();
+    return { hookBindings: new Map(), stateSources: new Map() };
   }
   const root = asRecord(parsed);
-  const sources = new Map<string, Array<[string, string]>>();
+  const hookBindings = new Map<string, string[]>();
+  const stateSources = new Map<string, [string, string][]>();
+
   for (const sceneValue of Array.isArray(root?.scenes) ? root.scenes : []) {
     const scene = asRecord(sceneValue);
     if (typeof scene?.id !== "string") continue;
     for (const actionValue of Array.isArray(scene.actions) ? scene.actions : []) {
       const action = asRecord(actionValue);
       if (typeof action?.id !== "string") continue;
-      const actionSources: Array<[string, string]> = [];
+      const actionSources: [string, string][] = [];
       for (const prepareValue of Array.isArray(action.prepare) ? action.prepare : []) {
         const prepare = asRecord(prepareValue);
-        if (typeof prepare?.fromState === "string" && typeof prepare.binding === "string") {
+        if (typeof prepare?.binding !== "string") continue;
+        if (typeof prepare.fromHook === "string") {
+          const key = prepareEffectKey({
+            sceneId: scene.id,
+            actionId: action.id,
+            hook: prepare.fromHook,
+          });
+          const required = hookBindings.get(key);
+          if (required === undefined) hookBindings.set(key, [prepare.binding]);
+          else required.push(prepare.binding);
+        }
+        if (typeof prepare.fromState === "string") {
           actionSources.push([prepare.binding, prepare.fromState]);
         }
       }
       if (actionSources.length > 0) {
-        sources.set(prepareActionKey({ sceneId: scene.id, actionId: action.id }), actionSources);
+        stateSources.set(
+          prepareActionKey({ sceneId: scene.id, actionId: action.id }),
+          actionSources,
+        );
       }
     }
   }
-  return sources;
+  return { hookBindings, stateSources };
 }
 
 function asRecord(input: unknown): Record<string, unknown> | undefined {
@@ -422,8 +432,8 @@ export function createZigSceneRunner(
     prepare: Object.create(null) as HookRegistry["prepare"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
-  const prepareBindings = prepareBindingMap(model);
-  const prepareStateSources = prepareStateSourceMap(model);
+  const { hookBindings: prepareBindings, stateSources: prepareStateSources } =
+    buildPrepareIndex(model);
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -611,8 +621,8 @@ export function createZigRouteRunner(
     prepare: Object.create(null) as HookRegistry["prepare"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
-  const prepareBindings = prepareBindingMap(model);
-  const prepareStateSources = prepareStateSourceMap(model);
+  const { hookBindings: prepareBindings, stateSources: prepareStateSources } =
+    buildPrepareIndex(model);
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),

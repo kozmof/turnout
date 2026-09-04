@@ -267,16 +267,30 @@ export function isValidValue<T extends UnknownValue>(
   });
 }
 
+/**
+ * Ask the Zig runtime whether `value` satisfies `predicate`.
+ *
+ * Two failures are possible and they are not the same thing. A value that
+ * cannot be encoded is simply not a value of the asked-about kind, so the
+ * predicate answers `false` — that is what a type guard is for. A failure of
+ * the ABI itself (a bad response header, an allocation failure, a corrupt
+ * instance) means the runtime could not answer at all, and reporting that as
+ * `false` would present a broken runtime as an unbroken stream of ordinary type
+ * mismatches. Those propagate.
+ */
 function zigPredicate(value: unknown, predicate: string, argument?: unknown): boolean {
+  let request: { operation: string; value: unknown; predicate: string; argument?: unknown };
   try {
-    const response = defaultZigRuntimeClient.value<{ matches: boolean }>({
+    request = {
       operation: "predicate",
       value: toCanonicalOperationValue(value),
       predicate,
       ...(argument !== undefined && { argument }),
-    });
-    return response.status === "ok" && response.payload.matches;
+    };
   } catch {
+    // Not encodable as a tagged Value — a legitimate negative answer.
     return false;
   }
+  const response = defaultZigRuntimeClient.value<{ matches: boolean }>(request);
+  return response.status === "ok" && response.payload.matches;
 }
