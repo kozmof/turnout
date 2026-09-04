@@ -21,8 +21,8 @@ The TypeScript packages keep their current public APIs during the migration. No 
 | unaryNumberOp, unaryStringOp, unaryBooleanOp | Retain helpers |
 | InvalidValueError, ValueBuilderError | Retain types |
 | createInvalidValueError, isValueBuilderError | Retain helpers |
-| executeGraph, executeGraphSafe, buildExecutionTree, executeTree | Keep until a separately reviewed deprecation after Zig compute parity |
-| buildReturnIdToFuncIdMap, getCombineFnReturnType | Retain JavaScript utilities |
+| executeGraph, executeGraphSafe | Keep until a separately reviewed deprecation after Zig compute parity |
+| getCombineFnReturnType | Retain JavaScript utilities |
 | ExecutionResult, UnvalidatedContext, ValidatedContext | Retain types |
 | ValidationError, ValidationWarning, ValidationResult | Retain types |
 | validateContext, assertValidContext, isValidContext | Retain JavaScript validators |
@@ -32,7 +32,7 @@ The TypeScript packages keep their current public APIs during the migration. No 
 | CombineDefineId, PipeDefineId, CondDefineId | Retain types |
 | PipeStepBinding, PipeArgBinding, CombineFnNames, TransformFnNames | Retain types |
 | isValueCondition, isFuncCondition | Retain guards |
-| GraphExecutionError, NodeId, ExecutionTree | Retain types |
+| GraphExecutionError, NodeId | Retain types |
 | createMissingDependencyError, createMissingDefinitionError | Retain error helpers |
 | createFunctionExecutionError, createEmptySequenceError, createMissingValueError | Retain error helpers |
 | isGraphExecutionError, assertNever | Retain helpers |
@@ -45,7 +45,9 @@ The TypeScript packages keep their current public APIs during the migration. No 
 
 ## Runtime implementation status
 
-All runtime outcomes above are implemented. `src/index.test.ts` locks the retained value exports to the package entry point. Type checking and the distribution build verify the retained type exports and signatures. The four compute execution helpers remain available under their recorded keep outcome. No runtime export is deprecated or approved for removal.
+All runtime outcomes above are implemented. `src/index.test.ts` locks the retained value exports to the package entry point. Type checking and the distribution build verify the retained type exports and signatures. `executeGraph` and `executeGraphSafe` remain available under their recorded keep outcome. No runtime export is deprecated or approved for removal.
+
+`buildExecutionTree`, `executeTree`, `ExecutionTree`, and `buildReturnIdToFuncIdMap` were removed with the TypeScript compute executor and no longer exist. The rows above previously listed them; they are recorded here so the matrix is not read as promising an export the package does not ship.
 
 ## Scene-runner package
 
