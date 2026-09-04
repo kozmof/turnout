@@ -336,9 +336,29 @@ fn valueResponse(bytes: []const u8) !Response {
 
     if (std.mem.eql(u8, operation.string, "infer")) {
         const query = parsed.value.object.get("query") orelse return error.InvalidValueRequest;
-        const id = parsed.value.object.get("id") orelse return error.InvalidValueRequest;
         const context = parsed.value.object.get("context") orelse return error.InvalidValueRequest;
-        if (query != .string or id != .string or context != .object) return error.InvalidValueRequest;
+        if (query != .string or context != .object) return error.InvalidValueRequest;
+
+        // Batched form: infer every listed function against one context. Returns
+        // types positionally so the host zips them back onto the ids it sent.
+        if (std.mem.eql(u8, query.string, "functions")) {
+            const ids = parsed.value.object.get("ids") orelse return error.InvalidValueRequest;
+            if (ids != .array) return error.InvalidValueRequest;
+            const types = try allocator.alloc(?[]const u8, ids.array.items.len);
+            defer allocator.free(types);
+            for (ids.array.items, types) |item, *slot| {
+                if (item != .string) return error.InvalidValueRequest;
+                var visited_functions: std.StringHashMapUnmanaged(void) = .empty;
+                defer visited_functions.deinit(allocator);
+                var visited_pipes: std.StringHashMapUnmanaged(void) = .empty;
+                defer visited_pipes.deinit(allocator);
+                slot.* = try inferFunctionType(context, item.string, &visited_functions, &visited_pipes);
+            }
+            return jsonResponseValue(.{ .types = types });
+        }
+
+        const id = parsed.value.object.get("id") orelse return error.InvalidValueRequest;
+        if (id != .string) return error.InvalidValueRequest;
         const inferred = if (std.mem.eql(u8, query.string, "value"))
             inferValueType(context, id.string)
         else if (std.mem.eql(u8, query.string, "element"))
@@ -1079,6 +1099,50 @@ test "WASM stateless Value operation infers graph types" {
             try std.testing.expectEqualStrings(expected, inferred.string)
         else
             try std.testing.expect(inferred == .null);
+    }
+}
+
+test "WASM stateless Value operation infers a batch of function types" {
+    const context =
+        \\{"valueTable":{},
+        \\ "funcTable":{"pipe":{"kind":"pipe","defId":"outer"},"cond":{"kind":"cond","defId":"choice"},"mixed":{"kind":"cond","defId":"clash"},"left":{"kind":"combine","defId":"add"},"right":{"kind":"combine","defId":"add"},"text":{"kind":"combine","defId":"concat"}},
+        \\ "combineFuncDefTable":{"add":{"name":"combineFnNumber::add"},"concat":{"name":"combineFnString::concat"}},
+        \\ "pipeFuncDefTable":{"outer":{"sequence":[{"defId":"add"}]}},
+        \\ "condFuncDefTable":{"choice":{"trueBranchId":"left","falseBranchId":"right"},"clash":{"trueBranchId":"left","falseBranchId":"text"}}}
+    ;
+    const request = try std.fmt.allocPrint(
+        std.testing.allocator,
+        "{{\"operation\":\"infer\",\"query\":\"functions\",\"ids\":[\"pipe\",\"cond\",\"text\",\"mixed\",\"absent\"],\"context\":{s}}}",
+        .{context},
+    );
+    defer std.testing.allocator.free(request);
+    const address = turnout_value_operate(@intFromPtr(request.ptr), @intCast(request.len));
+    defer freeResponse(address);
+    var response = try expectResponse(address, .ok, null);
+    defer response.deinit();
+
+    const types = response.value.object.get("types").?.array;
+    try std.testing.expectEqual(@as(usize, 5), types.items.len);
+    try std.testing.expectEqualStrings("number", types.items[0].string);
+    try std.testing.expectEqualStrings("number", types.items[1].string);
+    try std.testing.expectEqualStrings("string", types.items[2].string);
+    // Branch types disagree, so the cond has no inferable type.
+    try std.testing.expect(types.items[3] == .null);
+    try std.testing.expect(types.items[4] == .null);
+}
+
+test "WASM stateless Value operation rejects a malformed batched inference request" {
+    const context = "{\"valueTable\":{},\"funcTable\":{},\"combineFuncDefTable\":{},\"pipeFuncDefTable\":{},\"condFuncDefTable\":{}}";
+    const requests = [_][]const u8{
+        "{\"operation\":\"infer\",\"query\":\"functions\",\"context\":" ++ context ++ "}",
+        "{\"operation\":\"infer\",\"query\":\"functions\",\"ids\":\"pipe\",\"context\":" ++ context ++ "}",
+        "{\"operation\":\"infer\",\"query\":\"functions\",\"ids\":[7],\"context\":" ++ context ++ "}",
+    };
+    for (requests) |request| {
+        const address = turnout_value_operate(@intFromPtr(request.ptr), @intCast(request.len));
+        defer freeResponse(address);
+        var response = try expectResponse(address, .runtime_error, null);
+        defer response.deinit();
     }
 }
 

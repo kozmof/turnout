@@ -259,7 +259,7 @@ describe("Context Builder", () => {
 
     it("should infer transformFnBoolean::pass for a step referencing a boolean-returning previous step", () => {
       // Step 0 returns boolean (and); step 1 uses step 0's output as argument a.
-      // buildStepTransformMap must use inferTransformForCombineFn('combineFnBoolean::and')
+      // The transform must come from the referenced step's boolean return type
       // → transformFnBoolean::pass, not a number pass-transform.
       const context = ctx({
         a: true,

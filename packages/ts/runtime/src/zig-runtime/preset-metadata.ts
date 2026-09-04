@@ -35,6 +35,25 @@ export function inferGraphType(
   return response.status === "ok" ? response.payload.type : null;
 }
 
+/**
+ * Infers the return type of many functions against one context in a single
+ * call. Zig returns the types positionally, matching the order of `ids`.
+ */
+export function inferGraphFunctionTypes(
+  ids: readonly string[],
+  context: unknown,
+): (BaseTypeSymbol | null)[] {
+  if (ids.length === 0) return [];
+  const response = defaultZigRuntimeClient.value<{ types: (BaseTypeSymbol | null)[] }>({
+    operation: "infer",
+    query: "functions",
+    ids,
+    context,
+  });
+  if (response.status !== "ok") return ids.map(() => null);
+  return ids.map((_, index) => response.payload.types[index] ?? null);
+}
+
 export function getPassTransformName(type: BaseTypeSymbol): string | null {
   const response = defaultZigRuntimeClient.value<{ name: string | null }>({
     operation: "passTransform",

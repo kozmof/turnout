@@ -12,8 +12,9 @@ import {
   createUndefinedValueReferenceError,
   createUndefinedPipeArgumentError,
   createUndefinedPipeStepReferenceError,
+  createBranchTypeMismatchError,
 } from "./errors.js";
-import { getCombineFnReturnType } from "../runtime/typeInference.js";
+import { inferReturnTypesByFuncKey } from "./return-type-inference.js";
 import { createFuncId } from "../idValidation.js";
 import { IdFactory, normalizeValueRef, isTransformRef } from "./id-factory.js";
 import type { FunctionPhaseState, ReferenceIndex } from "./phase-types.js";
@@ -32,33 +33,28 @@ export function buildReferenceIndexAndRegisterReturns(
       functionKeys.add(key);
       const returnId = IdFactory.createReturnValue(createFuncId(key), state);
       state.returnIdByFuncId[key] = returnId;
-      if (value.__type === "combine") {
-        const rt = getCombineFnReturnType(value.name);
-        if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
-      } else if (value.__type === "pipe" && value.steps.length > 0) {
-        const lastStep = value.steps[value.steps.length - 1];
-        if (lastStep !== undefined && lastStep.__type === "combine") {
-          const rt = getCombineFnReturnType(lastStep.name);
-          if (rt !== null) state.returnTypeByFuncKey.set(key, rt);
-        }
-      }
     } else {
       valueKeys.add(key);
     }
   }
 
-  // Second mini-pass: pre-compute cond return types from their then-branch.
-  let madeProgress = true;
-  while (madeProgress) {
-    madeProgress = false;
-    for (const [key, value] of Object.entries(spec)) {
-      if (!isFunctionBuilderLocal(value) || value.__type !== "cond") continue;
-      if (state.returnTypeByFuncKey.has(key)) continue;
-      const thenType = state.returnTypeByFuncKey.get(value.then);
-      if (thenType !== undefined) {
-        state.returnTypeByFuncKey.set(key, thenType);
-        madeProgress = true;
-      }
+  // Return types come from Zig, which owns the inference rules for every
+  // function kind. See return-type-inference.ts for why a skeleton context is
+  // enough to answer this before the real tables are built.
+  const returnTypes = inferReturnTypesByFuncKey(spec, isFunctionBuilderLocal);
+  for (const [key, type] of returnTypes) {
+    state.returnTypeByFuncKey.set(key, type);
+  }
+
+  // Zig declines to type a cond whose branches disagree, so report the cause
+  // here rather than letting it surface as a TypeMismatch during execution.
+  // The Go compiler rejects the same shape with CodeBranchTypeMismatch.
+  for (const [key, value] of Object.entries(spec)) {
+    if (!isFunctionBuilderLocal(value) || value.__type !== "cond") continue;
+    const thenType = returnTypes.get(value.then);
+    const elseType = returnTypes.get(value.else);
+    if (thenType !== undefined && elseType !== undefined && thenType !== elseType) {
+      throw createBranchTypeMismatchError(key, thenType, elseType);
     }
   }
 

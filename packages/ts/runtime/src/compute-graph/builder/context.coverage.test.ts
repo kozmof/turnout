@@ -552,7 +552,7 @@ describe("context.ts — coverage", () => {
     });
   });
 
-  // --- inferTransformForCombineFn error branch ---
+  // --- unknown combine function name ---
 
   describe("getOrCreateCombineDefinitionId — error for unknown combine function", () => {
     it("throws for unknown combine function name", () => {
@@ -565,14 +565,13 @@ describe("context.ts — coverage", () => {
     });
   });
 
-  // --- buildStepTransformMap — fallback path for nested pipe steps ---
+  // --- buildStepTransformMap — chained step references ---
 
-  describe("buildStepTransformMap — step ref fallback", () => {
-    it("uses fallback transform when referencedStep is not a combine builder", () => {
-      // The fallback at line 1035 handles when referencedStep.__type !== 'combine'
-      // (e.g. it's a pipe step). This is an edge case where getPassTransformFn('number') is used.
-      // In practice only CombineBuilders appear as steps, but the code defensively handles this.
-      // We test the normal path (referencedStep IS combine) to confirm the happy path coverage.
+  describe("buildStepTransformMap — step ref chain", () => {
+    it("types each step argument from the step output it references", () => {
+      // Every step reads the previous step's output, so each argument's transform
+      // has to come from that step's return type rather than from the step doing
+      // the reading.
       const context = ctx({
         v1: 10,
         v2: 5,

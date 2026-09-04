@@ -1,6 +1,5 @@
-import type { ValueId, FuncId, CombineDefineId, PipeDefineId, CondDefineId } from "../types.js";
+import type { ValueId, FuncId } from "../types.js";
 import type {
-  ContextBuilder as BuilderState,
   ValueInputRef,
   ValueSourceRef,
   FuncOutputRef,
@@ -55,20 +54,6 @@ export function getValueFromTable(
   return valueTable[valueRef];
 }
 
-export function getFuncFromTable(
-  funcId: string,
-  funcTable: BuilderState["funcTable"],
-): BuilderState["funcTable"][string] | undefined {
-  return funcTable[funcId];
-}
-
-export function getCombineFuncDefFromTable(
-  defId: CombineDefineId | PipeDefineId | CondDefineId,
-  combineFuncDefTable: BuilderState["combineFuncDefTable"],
-): BuilderState["combineFuncDefTable"][CombineDefineId] | undefined {
-  return combineFuncDefTable[defId];
-}
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Value reference helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -80,10 +65,6 @@ export function normalizeValueRef(ref: ValueInputRef): ValueSourceRef {
 
 export function isTransformRef(ref: ValueInputRef | TransformRef): ref is TransformRef {
   return typeof ref === "object" && ref.__type === "transform";
-}
-
-export function isStepOutputRef(ref: ValueInputRef | TransformRef): ref is StepOutputRef {
-  return typeof ref === "object" && ref.__type === "stepOutput";
 }
 
 export function resolveFuncOutputRef(ref: FuncOutputRef, state: FunctionPhaseState): ValueId {

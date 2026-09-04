@@ -7,7 +7,7 @@ import type {
   TransformFnNames,
 } from "../types.js";
 import { BuilderInvariantError } from "./errors.js";
-import type { PipeBuilder, CombineBuilder } from "./types.js";
+import type { PipeBuilder, CombineBuilder, ValueInputRef } from "./types.js";
 import { createArgName, createFuncId } from "../idValidation.js";
 import { IdGenerator } from "../../util/idGenerator.js";
 import { getCombineFnReturnType } from "../runtime/typeInference.js";
@@ -17,11 +17,10 @@ import {
   resolveFuncOutputRef,
   resolveStepOutputRef,
   isTransformRef,
-  isStepOutputRef,
   lookupReturnId,
   type Scope,
 } from "./id-factory.js";
-import { inferTransformForCombineFn } from "./transform-inference.js";
+import { inferPassTransform } from "./transform-inference.js";
 import type { FunctionPhaseState } from "./phase-types.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -157,7 +156,7 @@ function buildPipeStepBinding(
   scope: Scope,
 ): PipeStepBinding {
   const argBindings = buildStepArgBindings(step, pipeBuilder, state, scope);
-  const transformFnMap = buildStepTransformMap(step, pipeBuilder);
+  const transformFnMap = buildStepTransformMap(step, pipeBuilder, state, scope);
   const stepDefId = registerCombineDefinition(step.name, transformFnMap, state);
 
   return { defId: stepDefId, argBindings };
@@ -217,25 +216,30 @@ function resolveArgBinding(refStr: string, pipeBuilder: PipeBuilder, scope: Scop
 function buildStepTransformMap(
   step: CombineBuilder,
   pipeBuilder: PipeBuilder,
+  state: FunctionPhaseState,
+  scope: Scope,
 ): Record<string, readonly TransformFnNames[]> {
   const transformFnMap: Record<string, readonly TransformFnNames[]> = {};
 
   for (const [argName, ref] of Object.entries(step.args)) {
-    if (isTransformRef(ref)) {
-      transformFnMap[argName] = ref.transformFn;
-    } else if (isStepOutputRef(ref)) {
-      const referencedStep = pipeBuilder.steps[ref.stepIndex];
-      if (referencedStep === undefined || referencedStep.__type !== "combine") {
-        throw new BuilderInvariantError(
-          "UnsupportedConstruct",
-          `buildStepTransformMap: step ${String(ref.stepIndex)} is not a combine step — nested pipe steps are not supported`,
-        );
-      }
-      transformFnMap[argName] = [inferTransformForCombineFn(referencedStep.name)];
-    } else {
-      transformFnMap[argName] = [inferTransformForCombineFn(step.name)];
-    }
+    // A pass transform must match the type of the argument it is applied to,
+    // not the type the step returns.
+    transformFnMap[argName] = isTransformRef(ref)
+      ? ref.transformFn
+      : inferPassTransform(resolveStepArgRef(ref, pipeBuilder), state, scope);
   }
 
   return transformFnMap;
+}
+
+/**
+ * Rewrites a reference to a pipe input into the context value that input is
+ * bound to, so its type can be looked up in the shared value table. Every other
+ * reference kind already resolves against the shared tables as-is.
+ */
+function resolveStepArgRef(ref: ValueInputRef, pipeBuilder: PipeBuilder): ValueInputRef {
+  if (typeof ref === "object" && ref.__type !== "value") return ref;
+  const id = typeof ref === "string" ? ref : ref.id;
+  if (!Object.prototype.hasOwnProperty.call(pipeBuilder.argBindings, id)) return id;
+  return pipeBuilder.argBindings[id] ?? id;
 }

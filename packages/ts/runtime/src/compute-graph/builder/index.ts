@@ -49,6 +49,7 @@ export type {
   UndefinedValueReferenceError,
   UndefinedPipeArgumentError,
   UndefinedPipeStepReferenceError,
+  BranchTypeMismatchError,
 } from "./errors.js";
 export {
   isBuilderValidationError,

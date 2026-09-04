@@ -175,4 +175,6 @@ The reproducible performance and memory baseline is recorded in [performance-bas
 
 The stateless Value ABI also owns public STATE schema matching, literal conversion, reserved-path validation, and Value normalization used by the TypeScript `StateManager` adapter. The adapter preserves JavaScript object freezing and translates Zig status codes into the existing public error classes.
 
+The `infer` operation owns compute-graph type inference. A combine function's type is its preset return type, a pipe's type is its last step's type, and a cond has a type only when its then and else branches agree. The `functions` query answers a list of function ids against one context and returns their types positionally, so a host resolving a whole graph does not pay one round trip per function. The TypeScript builder uses that query rather than carrying its own inference rules; a cond whose branches disagree has no type, which the builder reports as a build-time error instead of allowing a `TypeMismatch` at execution.
+
 The `runtime` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm` and exports it as `runtime/zig-runtime/turnout-runtime.wasm`. The scene runner imports the shared runtime client and default instance. Distribution smoke tests check that the single copied file has the WebAssembly magic bytes.

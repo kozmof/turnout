@@ -36,19 +36,28 @@ type UndefinedPipeStepReferenceErrorData = {
   readonly reference: string;
 };
 
+type BranchTypeMismatchErrorData = {
+  readonly kind: "branchTypeMismatch";
+  readonly funcId: string;
+  readonly thenType: string;
+  readonly elseType: string;
+};
+
 // Combine Error with data types
 export type UndefinedConditionError = Error & UndefinedConditionErrorData;
 export type UndefinedBranchError = Error & UndefinedBranchErrorData;
 export type UndefinedValueReferenceError = Error & UndefinedValueReferenceErrorData;
 export type UndefinedPipeArgumentError = Error & UndefinedPipeArgumentErrorData;
 export type UndefinedPipeStepReferenceError = Error & UndefinedPipeStepReferenceErrorData;
+export type BranchTypeMismatchError = Error & BranchTypeMismatchErrorData;
 
 export type BuilderValidationError =
   | UndefinedConditionError
   | UndefinedBranchError
   | UndefinedValueReferenceError
   | UndefinedPipeArgumentError
-  | UndefinedPipeStepReferenceError;
+  | UndefinedPipeStepReferenceError
+  | BranchTypeMismatchError;
 
 // Factory functions that create Error instances with additional properties
 export function createUndefinedConditionError(
@@ -151,6 +160,26 @@ export function createUndefinedPipeStepReferenceError(
   return Object.assign(error, errorData);
 }
 
+export function createBranchTypeMismatchError(
+  funcId: string,
+  thenType: string,
+  elseType: string,
+): BranchTypeMismatchError {
+  const error = new Error(
+    `Cond function '${funcId}': then branch returns '${thenType}' but else branch returns '${elseType}' — both branches must return the same type`,
+  );
+  error.name = "BranchTypeMismatchError";
+
+  const errorData: BranchTypeMismatchErrorData = {
+    kind: "branchTypeMismatch",
+    funcId,
+    thenType,
+    elseType,
+  };
+
+  return Object.assign(error, errorData);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BuilderInvariantError — library-internal invariant violations
 // ─────────────────────────────────────────────────────────────────────────────
@@ -180,6 +209,7 @@ const BUILDER_VALIDATION_ERROR_KINDS = new Set<string>([
   "undefinedValueReference",
   "undefinedPipeArgument",
   "undefinedPipeStepReference",
+  "branchTypeMismatch",
 ]);
 
 // Type guard

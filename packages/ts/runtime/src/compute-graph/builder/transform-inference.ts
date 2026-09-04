@@ -1,16 +1,9 @@
-import type { CombineFnNames, TransformFnNames } from "../types.js";
+import type { TransformFnNames } from "../types.js";
 import { BuilderInvariantError } from "./errors.js";
 import type { ValueInputRef } from "./types.js";
 import type { BaseTypeSymbol } from "../../state-control/value.js";
-import { getCombineFnReturnType } from "../runtime/typeInference.js";
 import { getPassTransformName } from "../../zig-runtime/preset-metadata.js";
-import {
-  getValueFromTable,
-  getFuncFromTable,
-  getCombineFuncDefFromTable,
-  getStepOutputLookupKey,
-  type Scope,
-} from "./id-factory.js";
+import { getValueFromTable, getStepOutputLookupKey, type Scope } from "./id-factory.js";
 import type { FunctionPhaseState } from "./phase-types.js";
 
 export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames {
@@ -24,31 +17,23 @@ export function getPassTransformFn(typeSymbol: BaseTypeSymbol): TransformFnNames
   return name as TransformFnNames;
 }
 
-export function inferTransformForCombineFn(combineFnName: CombineFnNames): TransformFnNames {
-  const returnType = getCombineFnReturnType(combineFnName);
-  if (returnType === null) {
-    throw new BuilderInvariantError(
-      "UnknownCombineFn",
-      `cannot infer transform: unknown return type for combine function '${combineFnName}'`,
-    );
-  }
-  return getPassTransformFn(returnType);
-}
-
 export function inferPassTransform(
   ref: ValueInputRef,
   state: FunctionPhaseState,
   scope: Scope,
 ): readonly TransformFnNames[] {
   if (typeof ref === "object" && ref.__type === "funcOutput") {
-    const funcEntry = getFuncFromTable(scope.funcId(ref.funcId), state.funcTable);
-    if (funcEntry) {
-      const def = getCombineFuncDefFromTable(funcEntry.defId, state.combineFuncDefTable);
-      if (def) return [inferTransformForCombineFn(def.name)];
-    }
+    // Types for every declared function are inferred by Zig up front, so this
+    // answers forward references and every function kind uniformly.
+    const inferredType = state.returnTypeByFuncKey.get(ref.funcId);
+    if (inferredType !== undefined) return [getPassTransformFn(inferredType)];
 
-    const precomputedType = state.returnTypeByFuncKey.get(ref.funcId);
-    if (precomputedType !== undefined) return [getPassTransformFn(precomputedType)];
+    if (state.returnIdByFuncId[ref.funcId] !== undefined) {
+      throw new BuilderInvariantError(
+        "UnknownCombineFn",
+        `cannot infer the return type of function '${ref.funcId}' — check that its combine function names are known and that any pipe ends in a combine step`,
+      );
+    }
 
     throw new BuilderInvariantError(
       "MissingTableEntry",

@@ -138,6 +138,7 @@ export type {
   UndefinedValueReferenceError,
   UndefinedPipeArgumentError,
   UndefinedPipeStepReferenceError,
+  BranchTypeMismatchError,
 } from "./compute-graph/builder/index.js";
 
 export { isBuilderValidationError } from "./compute-graph/builder/index.js";

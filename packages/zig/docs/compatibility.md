@@ -41,6 +41,7 @@ The TypeScript packages keep their current public APIs during the migration. No 
 | BuilderValidationError, UndefinedConditionError, UndefinedBranchError | Retain types |
 | UndefinedValueReferenceError, UndefinedPipeArgumentError | Retain types |
 | UndefinedPipeStepReferenceError, isBuilderValidationError | Retain type and guard |
+| BranchTypeMismatchError | Added with Zig-owned builder type inference |
 
 ## Runtime implementation status
 
