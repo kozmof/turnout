@@ -3,8 +3,13 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
+    // Resolve the `runtime` monorepo package to its TypeScript source, matching
+    // the aliases in vitest.config.ts, so type checking works without a prior
+    // `pnpm build`. tsconfig.build.json deliberately omits these: the published
+    // build resolves through the package exports to dist.
     "paths": {
-      "runtime": ["../runtime/src/index.ts"]
+      "runtime": ["../runtime/src/index.ts"],
+      "runtime/zig-runtime": ["../runtime/src/zig-runtime/index.ts"]
     },
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
