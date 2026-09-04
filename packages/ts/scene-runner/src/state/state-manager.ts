@@ -14,7 +14,16 @@ export { protoValueToJs, literalToValue } from "./state-proto.js";
 export { matchesSchemaType } from "./schema-types.js";
 export { assertSafePath } from "./state-validation.js";
 
-function cloneValue(value: AnyValue): AnyValue {
+/**
+ * Detach a caller-owned value from the caller and make it safe to hand back
+ * without copying again: the Zig runtime rebuilds it (which is also where the
+ * nesting-depth limit is enforced) and the result is deep-frozen.
+ *
+ * This is the only place a value crosses the WASM boundary. It runs once per
+ * value as it enters state — never on the way out, because what comes back is
+ * already frozen and therefore already safe to share.
+ */
+function normalizeValue(value: AnyValue): AnyValue {
   const response = defaultZigRuntimeClient.value({
     operation: "normalize",
     value: toCanonicalValue(value),
@@ -31,25 +40,38 @@ function deepFreeze<T>(value: T): T {
   return Object.freeze(value);
 }
 
-function cloneState(state: Record<string, AnyValue>): Record<string, AnyValue> {
+function normalizeState(state: Record<string, AnyValue>): Record<string, AnyValue> {
   const next: Record<string, AnyValue> = {};
   for (const [path, value] of Object.entries(state)) {
-    next[path] = cloneValue(value);
+    next[path] = normalizeValue(value);
   }
   return next;
 }
 
+/** Shared frozen result for a read of a path that holds no value. */
+const MISSING_VALUE: AnyValue = deepFreeze(buildNull("missing"));
+
+/**
+ * Build a StateManager over an already-normalized state record.
+ *
+ * The invariant every accessor below relies on: every value in `state` has been
+ * through `normalizeValue`, so it is detached from any caller and deep-frozen.
+ * Reads can therefore return stored values directly, and a write only has to
+ * normalize the one value being written rather than the whole record.
+ *
+ * Callers outside this file must go through the three public constructors,
+ * which establish the invariant.
+ */
 function make(
   state: Record<string, AnyValue>,
   validPaths: ReadonlySet<string> | null,
   typeMap: ReadonlyMap<string, string> | null = null,
 ): StateManager {
-  const frozenState = Object.freeze(cloneState(state));
+  const frozenState = Object.freeze(state);
   return {
     read: (path) => {
       assertKnownPath(path, validPaths);
-      const value = frozenState[path];
-      return value === undefined ? cloneValue(buildNull("missing")) : cloneValue(value);
+      return frozenState[path] ?? MISSING_VALUE;
     },
     isDeclared: (path) => {
       assertSafePath(path);
@@ -62,20 +84,22 @@ function make(
     },
     write: (path, value) => {
       assertValidWrite(path, value, validPaths, typeMap);
-      return make({ ...frozenState, [path]: value }, validPaths, typeMap);
+      return make({ ...frozenState, [path]: normalizeValue(value) }, validPaths, typeMap);
     },
     writeBatch: (batch) => {
       const newState = { ...frozenState };
       for (const [path, value] of Object.entries(batch)) {
         assertValidWrite(path, value, validPaths, typeMap);
-        newState[path] = value;
+        newState[path] = normalizeValue(value);
       }
       return make(newState, validPaths, typeMap);
     },
-    snapshot: () => Object.freeze(cloneState(frozenState)),
+    // A shallow copy, per StateReader.snapshot: the record is the caller's to
+    // hold, while the values inside it stay the shared frozen ones.
+    snapshot: () => Object.freeze({ ...frozenState }),
     forEach: (cb) => {
       for (const [path, value] of Object.entries(frozenState)) {
-        cb(path, cloneValue(value));
+        cb(path, value);
       }
     },
     validPaths: () => validPaths,
@@ -83,8 +107,7 @@ function make(
     readOrUndefined: (path) => {
       assertSafePath(path);
       if (validPaths !== null && !validPaths.has(path)) return undefined;
-      const value = frozenState[path];
-      return value === undefined ? undefined : cloneValue(value);
+      return frozenState[path];
     },
   };
 }
@@ -98,7 +121,7 @@ function make(
  */
 export function stateManagerFromUnchecked(initial: Record<string, AnyValue>): StateManager {
   for (const key of Object.keys(initial)) assertSafePath(key);
-  return make({ ...initial }, null);
+  return make(normalizeState(initial), null);
 }
 
 /**
@@ -140,7 +163,7 @@ export function stateManagerFromStrict(
       }
     }
   }
-  return make({ ...initial }, validPaths, typeMap ?? null);
+  return make(normalizeState(initial), validPaths, typeMap ?? null);
 }
 
 /**
@@ -186,5 +209,5 @@ export function stateManagerFromSchema(
     }
     state[path] = value;
   }
-  return make(state, validPaths, typeMap);
+  return make(normalizeState(state), validPaths, typeMap);
 }
