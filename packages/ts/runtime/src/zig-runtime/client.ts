@@ -38,6 +38,13 @@ export interface ZigRuntimeExports {
   turnout_runtime_snapshot(handle: number): number;
 }
 
+export interface CreatedRuntime {
+  handle: number;
+  /** Limits actually in force, from the request or the runtime defaults. */
+  maxSceneSteps: number;
+  maxRouteTransitions: number;
+}
+
 export interface ZigResponse<T = unknown> {
   status: ZigStatus;
   payload: T;
@@ -62,7 +69,7 @@ export class ZigRuntimeClient {
     this.#exports = exports;
   }
 
-  create(model: Uint8Array, request: unknown): ZigResponse<{ handle: number }> {
+  create(model: Uint8Array, request: unknown): ZigResponse<CreatedRuntime> {
     return this.#withInputs([model, this.#encode(request)], ([modelInput, requestInput]) => {
       if (modelInput === undefined || requestInput === undefined)
         throw new ZigAbiError("missing ABI input");

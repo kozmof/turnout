@@ -20,7 +20,7 @@ import {
 } from "../errors.js";
 import { safeLog } from "../logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
-import type { ZigResponse } from "./client.js";
+import type { ZigResponse, CreatedRuntime } from "./client.js";
 import {
   dispatchZigEffect,
   type ZigEffectRequest,
@@ -416,7 +416,7 @@ function throwIfAborted(signal: AbortSignal): void {
 }
 
 export interface ZigRuntimeLifecycleTransport extends ZigRuntimeTransport {
-  create(model: Uint8Array, request: unknown): ZigResponse<{ handle: number }>;
+  create(model: Uint8Array, request: unknown): ZigResponse<CreatedRuntime>;
   destroy(handle: number): ZigResponse<{ destroyed: number }>;
   snapshot<T>(handle: number): ZigResponse<{ state: T; done: boolean }>;
 }
@@ -442,10 +442,12 @@ export function createZigSceneRunner(
     sceneId,
     initialState,
     failOnPublishError: options.failOnPublishError ?? false,
-    maxSceneSteps: options.maxSceneSteps ?? 10_000,
+    ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
   });
   assertOk(created);
   const handle = created.payload.handle;
+  // Zig reports the limits it applied, so the message below never restates them.
+  const maxSceneSteps = created.payload.maxSceneSteps;
   const actions: ActionTrace[] = [];
   const sceneWarnings: SceneWarning[] = [];
   let done = false;
@@ -524,7 +526,7 @@ export function createZigSceneRunner(
         throw new SceneRuntimeError(
           "MaxStepsExceeded",
           sceneId,
-          `exceeded ${options.maxSceneSteps ?? 10_000} action steps — possible infinite loop in next-rule graph`,
+          `exceeded ${maxSceneSteps} action steps — possible infinite loop in next-rule graph`,
         );
       }
       throw error;
@@ -631,11 +633,14 @@ export function createZigRouteRunner(
     routeId,
     initialState,
     failOnPublishError: options.failOnPublishError ?? false,
-    maxSceneSteps: options.maxSceneSteps ?? 10_000,
-    maxRouteTransitions: options.maxRouteTransitions ?? 1_000,
+    ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
+    ...(options.maxRouteTransitions !== undefined && {
+      maxRouteTransitions: options.maxRouteTransitions,
+    }),
   });
   assertOk(created);
   const handle = created.payload.handle;
+  const maxRouteTransitions = created.payload.maxRouteTransitions;
   const scenes: SceneTrace[] = [];
   const pending: RunnerStepResult[] = [];
   const preprocessedActions = new WeakSet<object>();
@@ -770,7 +775,7 @@ export function createZigRouteRunner(
         throw new RouteRuntimeError(
           "MaxRouteTransitionsExceeded",
           routeId,
-          `exceeded ${options.maxRouteTransitions ?? 1_000} scene transitions — possible infinite loop`,
+          `exceeded ${maxRouteTransitions} scene transitions — possible infinite loop`,
         );
       }
       throw error;

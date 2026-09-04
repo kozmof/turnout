@@ -1,15 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { validateContext } from "./validateContext.js";
-import { MAX_GRAPH_NODES } from "./limits.js";
 import type { ExecutionContext } from "../types.js";
 
 const num = (value: number) => ({ symbol: "number", value, subSymbol: undefined, tags: [] });
+
+/**
+ * Zig owns the node budget and reports it in the rejection, so this only needs a
+ * size comfortably above it. The first test asserts the limit Zig actually
+ * enforced rather than restating the number here.
+ */
+const OVERSIZED = 60_000;
 const DEEP = 40_000;
 
 describe("compute-graph complexity limits", () => {
   it("rejects models exceeding the node budget instead of overflowing", () => {
     const valueTable: Record<string, ReturnType<typeof num>> = {};
-    for (let i = 0; i <= MAX_GRAPH_NODES; i += 1) valueTable[`v${i}`] = num(i);
+    for (let i = 0; i < OVERSIZED; i += 1) valueTable[`v${i}`] = num(i);
     const context = {
       valueTable,
       funcTable: {},
@@ -22,7 +28,14 @@ describe("compute-graph complexity limits", () => {
       result = validateContext(context);
     }).not.toThrow();
     expect(result!.valid).toBe(false);
-    expect(result!.errors.some((error) => error.message.includes("too large"))).toBe(true);
+
+    const tooLarge = result!.errors.find((error) => error.message.includes("too large"));
+    expect(tooLarge).toBeDefined();
+    // The reported budget is Zig's, and it has to be one this context exceeds.
+    const limit = tooLarge!.details?.["limit"];
+    expect(typeof limit).toBe("number");
+    expect(limit as number).toBeLessThan(OVERSIZED);
+    expect(tooLarge!.details?.["totalNodes"]).toBe(OVERSIZED);
   });
 
   it("validates a deep dependency chain without a stack overflow", () => {

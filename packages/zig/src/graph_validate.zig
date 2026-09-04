@@ -1,7 +1,10 @@
 const std = @import("std");
 const preset = @import("preset.zig");
+const graph_compute = @import("graph_compute.zig");
 
-pub const max_graph_nodes: usize = 50_000;
+/// Re-exported so the gate that rejects an oversized graph and the executor
+/// that guards against one can never disagree about the budget.
+pub const max_graph_nodes = graph_compute.max_graph_nodes;
 
 const Detail = union(enum) {
     table: []const u8,

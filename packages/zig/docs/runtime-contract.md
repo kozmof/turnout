@@ -128,7 +128,9 @@ Raw memory addresses are the exception. Bounds-check addresses and lengths again
 }
 ```
 
-Set exactly one of `sceneId` or `routeId`. Initial STATE entries use canonical tagged-Value JSON. The other fields use the shown defaults. `maxRouteTransitions` applies only to route handles. Unknown request fields are ignored. The success payload is `{"handle":1}`.
+Set exactly one of `sceneId` or `routeId`. Initial STATE entries use canonical tagged-Value JSON. The other fields use the shown defaults. `maxRouteTransitions` applies only to route handles. Unknown request fields are ignored.
+
+The success payload is `{"handle":1,"maxSceneSteps":10000,"maxRouteTransitions":1000}`. The two limits are the ones actually in force, whether they came from the request or from the defaults above. A host omits a limit it does not want to override and reads the effective value back, so the defaults are stated here and nowhere else.
 
 `turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, and `contextJson`.
 

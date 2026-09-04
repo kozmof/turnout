@@ -686,7 +686,14 @@ export fn turnout_runtime_create(model_address: usize, model_len: u32, request_a
         return errorResponse(.invalid_input, "InvalidBuffer");
     const handle = createInstance(bytesAt(model_address, model_len), bytesAt(request_address, request_len)) catch |err|
         return if (err == error.OutOfMemory) errorResponse(.out_of_memory, @errorName(err)) else errorResponse(.invalid_input, @errorName(err));
-    return jsonResponse(.ok, .{ .handle = handle });
+    // Report the limits actually in force, whether they came from the request or
+    // from the defaults above, so a host never has to restate them.
+    const instance = instances.get(handle) orelse return errorResponse(.internal_error, "MissingInstance");
+    return jsonResponse(.ok, .{
+        .handle = handle,
+        .maxSceneSteps = instance.request.value.maxSceneSteps,
+        .maxRouteTransitions = instance.request.value.maxRouteTransitions,
+    });
 }
 
 export fn turnout_runtime_destroy(handle: u32) usize {

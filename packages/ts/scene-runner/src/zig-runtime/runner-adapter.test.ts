@@ -250,7 +250,10 @@ describe("advanceZigRuntime", () => {
       publishOutcomes: [],
       warnings: [],
     };
-    const create = vi.fn(() => ({ status: "ok" as const, payload: { handle: 12 } }));
+    const create = vi.fn(() => ({
+      status: "ok" as const,
+      payload: { handle: 12, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+    }));
     const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 12 } }));
     const client: ZigRuntimeLifecycleTransport = {
       create,
@@ -291,11 +294,12 @@ describe("advanceZigRuntime", () => {
         },
       },
     });
+    // maxSceneSteps is absent because the caller did not set one: the runtime
+    // applies its own default and reports it back on the create response.
     expect(create).toHaveBeenCalledWith(new Uint8Array([1, 2]), {
       sceneId: "main",
       initialState: { score: { symbol: "number", value: 1, tags: [] } },
       failOnPublishError: false,
-      maxSceneSteps: 10_000,
     });
     expect(destroy).toHaveBeenCalledOnce();
     expect(logs).toEqual(["scene-start", "action-start", "action-complete", "scene-complete"]);
@@ -316,7 +320,10 @@ describe("advanceZigRuntime", () => {
       },
     ];
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok" as const, payload: { handle: 13 } }),
+      create: () => ({
+        status: "ok" as const,
+        payload: { handle: 13, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 13 } })),
       step: <T>() =>
         events.length > 0
@@ -391,7 +398,10 @@ describe("advanceZigRuntime", () => {
     ];
     const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 8 } }));
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 8 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 8, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy,
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
       resume: vi.fn(),
@@ -441,7 +451,10 @@ describe("advanceZigRuntime", () => {
     const controller = new AbortController();
     controller.abort();
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 40 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 40, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: () => {
         throw new Error("destroy failed");
       },
@@ -489,7 +502,10 @@ describe("advanceZigRuntime", () => {
   it("accepts non-JSON model bytes when deriving prepare metadata", () => {
     const controller = new AbortController();
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 41 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 41, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: () => ({ status: "ok", payload: { destroyed: 41 } }),
       step: <T>() => ({ status: "ok", payload: { event: "complete" } as T }),
       resume: vi.fn(),
@@ -506,7 +522,10 @@ describe("advanceZigRuntime", () => {
 
   it("maps scene and route runtime limits to public errors", async () => {
     const lifecycle = (code: string): ZigRuntimeLifecycleTransport => ({
-      create: () => ({ status: "ok", payload: { handle: 50 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 50, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: () => ({ status: "ok", payload: { destroyed: 50 } }),
       step: <T>() => ({ status: "runtime_error", payload: { error: code } as T }),
       resume: vi.fn(),
@@ -542,7 +561,10 @@ describe("advanceZigRuntime", () => {
       { event: "complete" },
     ];
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 51 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 51, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: () => ({ status: "ok", payload: { destroyed: 51 } }),
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
       resume: vi.fn(),
@@ -580,7 +602,10 @@ describe("advanceZigRuntime", () => {
       { event: "complete" },
     ];
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 52 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 52, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: () => ({ status: "ok", payload: { destroyed: 52 } }),
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
       resume: vi.fn(),
@@ -650,7 +675,10 @@ describe("advanceZigRuntime", () => {
       { event: "complete" },
     ];
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 70 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 70, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy: () => ({ status: "ok", payload: { destroyed: 70 } }),
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
       resume: () => ({ status: "ok", payload: { resumed: 70 } }),
@@ -689,7 +717,10 @@ describe("advanceZigRuntime", () => {
     const controller = new AbortController();
     const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 30 } }));
     const client: ZigRuntimeLifecycleTransport = {
-      create: () => ({ status: "ok", payload: { handle: 30 } }),
+      create: () => ({
+        status: "ok",
+        payload: { handle: 30, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
       destroy,
       step: <T>() => ({
         status: "ok",
