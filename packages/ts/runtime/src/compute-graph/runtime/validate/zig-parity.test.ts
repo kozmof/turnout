@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateLegacyContextWithZig } from "../../../zig-runtime/legacy-validation.js";
+import { validateGraphContextWithZig } from "../../../zig-runtime/graph-validation.js";
 import { validateContext } from "./index.js";
 import type { UnvalidatedContext } from "./types.js";
 
@@ -21,7 +21,7 @@ function messages(result: ReturnType<typeof validateContext>) {
 
 function expectParity(context: UnvalidatedContext): void {
   const typescript = messages(validateContext(context));
-  const zigResult = validateLegacyContextWithZig(context);
+  const zigResult = validateGraphContextWithZig(context);
   expect({
     valid: zigResult.valid,
     errors: zigResult.errors,

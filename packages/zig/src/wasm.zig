@@ -1,8 +1,8 @@
 const std = @import("std");
 const builtin = @import("builtin");
 const compute = @import("compute.zig");
-const legacy_compute = @import("legacy_compute.zig");
-const legacy_validate = @import("legacy_validate.zig");
+const graph_compute = @import("graph_compute.zig");
+const graph_validate = @import("graph_validate.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
 const preset = @import("preset.zig");
@@ -160,6 +160,11 @@ fn runtimeError(err: anyerror) usize {
     return errorResponse(if (err == error.OutOfMemory) .out_of_memory else .runtime_error, @errorName(err));
 }
 
+// Handles three request shapes: a graph-context validation, a graph-context
+// execution, and a compiler prog execution. The first two carry the graph
+// format the TypeScript builder produces; the third carries the compiler's
+// bindings. "validateLegacy" is the wire name for the first and is fixed by
+// ABI version 1 — the modules behind it are named graph_* .
 fn computeResponse(bytes: []const u8) !Response {
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, bytes, .{});
     defer parsed.deinit();
@@ -168,7 +173,7 @@ fn computeResponse(bytes: []const u8) !Response {
     if (parsed.value.object.get("operation")) |operation| {
         if (operation != .string or !std.mem.eql(u8, operation.string, "validateLegacy")) return error.InvalidComputeRequest;
         const context = parsed.value.object.get("context") orelse return error.InvalidComputeRequest;
-        var result = try legacy_validate.validate(context, allocator);
+        var result = try graph_validate.validate(context, allocator);
         defer result.deinit(allocator);
         var output: std.Io.Writer.Allocating = .init(allocator);
         defer output.deinit();
@@ -178,7 +183,7 @@ fn computeResponse(bytes: []const u8) !Response {
     if (parsed.value.object.get("context")) |context| {
         const root_func_id = parsed.value.object.get("rootFuncId") orelse return error.InvalidComputeRequest;
         if (root_func_id != .string) return error.InvalidComputeRequest;
-        var result = try legacy_compute.execute(context, root_func_id.string, allocator);
+        var result = try graph_compute.execute(context, root_func_id.string, allocator);
         defer result.deinit(allocator);
         var output: std.Io.Writer.Allocating = .init(allocator);
         defer output.deinit();
@@ -948,7 +953,7 @@ test "WASM stateless compute executes canonical inputs and returns bindings" {
     try std.testing.expectEqual(@as(i64, 7), bindings.get("result").?.object.get("value").?.integer);
 }
 
-test "WASM stateless compute executes a legacy graph context" {
+test "WASM stateless compute executes a graph context" {
     const request =
         \\{"rootFuncId":"sum","context":{"valueTable":{"a":{"symbol":"number","value":2,"tags":[]},"b":{"symbol":"number","value":3,"tags":[]}},
         \\ "funcTable":{"sum":{"kind":"combine","defId":"add","argMap":{"a":"a","b":"b"},"returnId":"total"}},
@@ -963,7 +968,7 @@ test "WASM stateless compute executes a legacy graph context" {
     try std.testing.expectEqual(@as(i64, 5), response.value.object.get("updatedValueTable").?.object.get("total").?.object.get("value").?.integer);
 }
 
-test "WASM stateless compute validates a legacy graph context" {
+test "WASM stateless compute validates a graph context" {
     const request =
         \\{"operation":"validateLegacy","context":{"valueTable":{"x":{},"y":{}},"funcTable":{"a":{"kind":"combine","defId":"add","argMap":{"a":"x","b":"y"},"returnId":"same"},"b":{"kind":"combine","defId":"add","argMap":{"a":"x","b":"y"},"returnId":"same"}},"combineFuncDefTable":{"add":{"name":"combineFnNumber::add","transformFn":{"a":[],"b":[]}}},"pipeFuncDefTable":{},"condFuncDefTable":{}}}
     ;

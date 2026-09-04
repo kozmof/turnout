@@ -1,4 +1,4 @@
-import { validateLegacyContextWithZig } from "../../../zig-runtime/legacy-validation.js";
+import { validateGraphContextWithZig } from "../../../zig-runtime/graph-validation.js";
 import {
   createValidatedContext,
   isValidationSuccess,
@@ -21,7 +21,7 @@ export type {
 export { isValidationSuccess };
 
 export function validateContext(context: UnvalidatedContext): ValidationResult {
-  const result = validateLegacyContextWithZig(context);
+  const result = validateGraphContextWithZig(context);
   if (!result.valid) {
     return { valid: false, errors: result.errors, warnings: result.warnings };
   }

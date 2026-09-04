@@ -5,16 +5,15 @@ import type {
 } from "../compute-graph/runtime/validateContext.js";
 import { defaultZigRuntimeClient } from "./default-client.js";
 
-export type ZigLegacyValidationResult = {
+export type ZigGraphValidationResult = {
   readonly valid: boolean;
   readonly errors: readonly ValidationError[];
   readonly warnings: readonly ValidationWarning[];
 };
 
-export function validateLegacyContextWithZig(
-  context: UnvalidatedContext,
-): ZigLegacyValidationResult {
-  const response = defaultZigRuntimeClient.compute<ZigLegacyValidationResult & { error?: string }>({
+export function validateGraphContextWithZig(context: UnvalidatedContext): ZigGraphValidationResult {
+  const response = defaultZigRuntimeClient.compute<ZigGraphValidationResult & { error?: string }>({
+    // Wire name fixed by ABI version 1; the request carries a graph context.
     operation: "validateLegacy",
     context,
   });
