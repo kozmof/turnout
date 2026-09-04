@@ -113,7 +113,8 @@ type TurnModel struct {
 	State  *StateModel            `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	Scenes []*SceneBlock          `protobuf:"bytes,2,rep,name=scenes,proto3" json:"scenes,omitempty"`
 	Routes []*RouteModel          `protobuf:"bytes,3,rep,name=routes,proto3" json:"routes,omitempty"`
-	// version identifies the schema revision. The Go emitter sets this to 1.
+	// version identifies the schema revision. The Go emitter sets this to the
+	// current revision (see jsonModelVersion in internal/emit/json.go).
 	// The TypeScript runner validates this on load and rejects other values.
 	Version uint32 `protobuf:"varint,4,opt,name=version,proto3" json:"version,omitempty"`
 	// annotations carries sigil metadata from the DSL that cannot be represented

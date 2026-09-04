@@ -18,7 +18,8 @@ message TurnModel {
   StateModel state = 1;
   repeated SceneBlock scenes = 2;
   repeated RouteModel routes = 3;
-  // version identifies the schema revision. The Go emitter sets this to 1.
+  // version identifies the schema revision. The Go emitter sets this to the
+  // current revision (see jsonModelVersion in internal/emit/json.go).
   // The TypeScript runner validates this on load and rejects other values.
   uint32 version = 4;
   // annotations carries sigil metadata from the DSL that cannot be represented

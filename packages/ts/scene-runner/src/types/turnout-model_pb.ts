@@ -39,7 +39,8 @@ export type TurnModel = Message<"turnout.model.v1.TurnModel"> & {
   routes: RouteModel[];
 
   /**
-   * version identifies the schema revision. The Go emitter sets this to 1.
+   * version identifies the schema revision. The Go emitter sets this to the
+   * current revision (see jsonModelVersion in internal/emit/json.go).
    * The TypeScript runner validates this on load and rejects other values.
    *
    * @generated from field: uint32 version = 4;
