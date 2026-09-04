@@ -99,7 +99,7 @@ const Executor = struct {
         var owned: [3]?value.OwnedTaggedValue = .{ null, null, null };
         defer for (&owned) |*item| if (item.*) |*present| present.deinit(self.allocator);
         var args: [3]value.TaggedValue = undefined;
-        const arity: usize = if (std.mem.eql(u8, name.string, "combineFnRecord::set")) 3 else 2;
+        const arity = preset.arity(name.string);
         const names = [_][]const u8{ "a", "b", "c" };
         for (0..arity) |index| {
             const raw_id = arg_map.object.get(names[index]) orelse return error.MissingArgument;
@@ -190,7 +190,7 @@ const Executor = struct {
         var owned: [3]?value.OwnedTaggedValue = .{ null, null, null };
         defer for (&owned) |*item| if (item.*) |*present| present.deinit(self.allocator);
         var args: [3]value.TaggedValue = undefined;
-        const arity: usize = if (std.mem.eql(u8, name.string, "combineFnRecord::set")) 3 else 2;
+        const arity = preset.arity(name.string);
         const names = [_][]const u8{ "a", "b", "c" };
         for (0..arity) |index| {
             const binding = bindings.object.get(names[index]) orelse return error.MissingArgument;

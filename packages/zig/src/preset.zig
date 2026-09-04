@@ -32,6 +32,14 @@ pub fn parameterType(name: []const u8) ?[]const u8 {
     return null;
 }
 
+/// How many arguments a combine function consumes. Arguments are named "a",
+/// "b", and "c" in order, so an arity of n means the first n of those names
+/// carry a binding and a transform chain.
+pub fn arity(name: []const u8) usize {
+    if (std.mem.eql(u8, name, "combineFnRecord::set")) return 3;
+    return 2;
+}
+
 pub fn passTransform(type_symbol: []const u8) ?[]const u8 {
     if (std.mem.eql(u8, type_symbol, "number")) return "transformFnNumber::pass";
     if (std.mem.eql(u8, type_symbol, "string")) return "transformFnString::pass";
@@ -675,6 +683,9 @@ test "preset signature metadata matches public Value symbols" {
     try std.testing.expectEqualStrings("transformFnArray::pass", passTransform("array").?);
     try std.testing.expectEqualStrings("transformFnRecord::pass", passTransform("record").?);
     try std.testing.expect(passTransform("unknown") == null);
+    try std.testing.expectEqual(@as(usize, 3), arity("combineFnRecord::set"));
+    try std.testing.expectEqual(@as(usize, 2), arity("combineFnNumber::add"));
+    try std.testing.expectEqual(@as(usize, 2), arity("combineFnRecord::getNumber"));
 }
 
 fn isEcmaWhitespace(scalar: u21) bool {

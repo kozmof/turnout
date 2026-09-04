@@ -5,6 +5,8 @@ type PresetMetadata = {
   inputType: BaseTypeSymbol | null;
   parameterType: BaseTypeSymbol | null;
   returnType: BaseTypeSymbol | null;
+  /** Number of arguments the function consumes; null when the name is unknown. */
+  arity: number | null;
 };
 
 export function getPresetMetadata(name: string, elementType?: BaseTypeSymbol): PresetMetadata {
@@ -14,10 +16,21 @@ export function getPresetMetadata(name: string, elementType?: BaseTypeSymbol): P
     ...(elementType !== undefined && { elementType }),
   });
   if (response.status !== "ok") {
-    return { inputType: null, parameterType: null, returnType: null };
+    return { inputType: null, parameterType: null, returnType: null, arity: null };
   }
   return response.payload;
 }
+
+/** Argument names a combine function binds, in order, as Zig reports its arity. */
+export function getCombineArgNames(name: string): readonly string[] {
+  const arity = getPresetMetadata(name).arity;
+  // An unknown name has no arity. Fall back to the two-argument shape, which is
+  // what every combine but record::set uses; unknown names are rejected later.
+  if (typeof arity !== "number") return COMBINE_ARG_NAMES.slice(0, 2);
+  return COMBINE_ARG_NAMES.slice(0, arity);
+}
+
+const COMBINE_ARG_NAMES = ["a", "b", "c"] as const;
 
 type GraphInferenceQuery = "value" | "element" | "combine" | "function";
 

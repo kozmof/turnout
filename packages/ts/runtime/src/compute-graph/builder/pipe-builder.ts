@@ -11,6 +11,7 @@ import type { PipeBuilder, CombineBuilder, ValueInputRef } from "./types.js";
 import { createArgName, createFuncId } from "../idValidation.js";
 import { IdGenerator } from "../../util/idGenerator.js";
 import { getCombineFnReturnType } from "../runtime/typeInference.js";
+import { getCombineArgNames } from "../../zig-runtime/preset-metadata.js";
 import {
   IdFactory,
   getStepOutputLookupKey,
@@ -31,7 +32,10 @@ export function createCombineDefSignature(
   name: CombineBuilder["name"],
   transformFnMap: Record<string, readonly TransformFnNames[]>,
 ): string {
-  return JSON.stringify([name, transformFnMap["a"], transformFnMap["b"]]);
+  // Cover every argument the function actually takes, so two definitions that
+  // differ only in a later argument's transforms do not share an id.
+  const argNames = getCombineArgNames(name);
+  return JSON.stringify([name, ...argNames.map((argName) => transformFnMap[argName])]);
 }
 
 export function buildCombineDefinition(
@@ -39,15 +43,23 @@ export function buildCombineDefinition(
   transformFnMap: Record<string, readonly TransformFnNames[]>,
 ): {
   name: CombineBuilder["name"];
-  transformFn: { a: readonly TransformFnNames[]; b: readonly TransformFnNames[] };
-} {
-  return {
-    name,
-    transformFn: {
-      a: transformFnMap["a"] ?? [],
-      b: transformFnMap["b"] ?? [],
-    },
+  transformFn: {
+    a: readonly TransformFnNames[];
+    b: readonly TransformFnNames[];
+    c?: readonly TransformFnNames[];
   };
+} {
+  const argNames = getCombineArgNames(name);
+  const transformFn: {
+    a: readonly TransformFnNames[];
+    b: readonly TransformFnNames[];
+    c?: readonly TransformFnNames[];
+  } = {
+    a: transformFnMap["a"] ?? [],
+    b: transformFnMap["b"] ?? [],
+  };
+  if (argNames.includes("c")) transformFn.c = transformFnMap["c"] ?? [];
+  return { name, transformFn };
 }
 
 /** Register (or reuse) a combine function definition in the shared def table. No validation. */

@@ -3,8 +3,9 @@ import { ctx } from "./context.js";
 import { combine, pipe, cond } from "./functions.js";
 import { ref } from "./values.js";
 import { isBuilderValidationError } from "./errors.js";
+import { buildRecord, buildNumber } from "../../state-control/value-builders.js";
 import { inferFuncReturnType } from "../runtime/typeInference.js";
-import { inferGraphFunctionTypes } from "../../zig-runtime/preset-metadata.js";
+import { inferGraphFunctionTypes, getPresetMetadata } from "../../zig-runtime/preset-metadata.js";
 import { executeGraph } from "../runtime/exec/executeGraph.js";
 import { assertValidContext } from "../runtime/validateContext.js";
 import type {
@@ -290,5 +291,69 @@ describe("Zig-backed builder return-type inference", () => {
     it("returns an empty list without calling Zig", () => {
       expect(inferGraphFunctionTypes([], {})).toEqual([]);
     });
+  });
+});
+
+describe("combine argument arity", () => {
+  const record = buildRecord({ hp: buildNumber(1) });
+
+  it("keeps the third argument's transform for a 3-arity combine", () => {
+    const context = ctx({
+      rec: record,
+      key: "hp",
+      n: 42,
+      put: combine("combineFnRecord::set", {
+        a: "rec",
+        b: "key",
+        c: ref.transform("n", "transformFnNumber::toStr"),
+      }),
+    });
+
+    const entry = context.exec.funcTable[context.ids.put]!;
+    const defs: Readonly<Record<string, { transformFn: { c?: readonly TransformFnNames[] } }>> =
+      context.exec.combineFuncDefTable;
+    expect(defs[entry.defId]?.transformFn.c).toEqual(["transformFnNumber::toStr"]);
+
+    // The transform must actually run: 42 is stored as the string "42".
+    const result = executeGraph(context.ids.put, assertValidContext(context.exec));
+    expect(result.value.value).toEqual({ hp: { symbol: "string", value: "42", tags: [] } });
+  });
+
+  it("does not merge definitions that differ only in the third argument", () => {
+    const context = ctx({
+      rec: record,
+      key: "hp",
+      n: 42,
+      plain: combine("combineFnRecord::set", { a: "rec", b: "key", c: "n" }),
+      shifted: combine("combineFnRecord::set", {
+        a: "rec",
+        b: "key",
+        c: ref.transform("n", "transformFnNumber::toStr"),
+      }),
+    });
+
+    const plain = context.exec.funcTable[context.ids.plain]!;
+    const shifted = context.exec.funcTable[context.ids.shifted]!;
+    expect(plain.defId).not.toBe(shifted.defId);
+    expect(Object.keys(context.exec.combineFuncDefTable)).toHaveLength(2);
+  });
+
+  it("omits the third slot for a 2-arity combine", () => {
+    const context = ctx({
+      n1: 1,
+      n2: 2,
+      sum: combine("combineFnNumber::add", { a: "n1", b: "n2" }),
+    });
+
+    const entry = context.exec.funcTable[context.ids.sum]!;
+    const defs: Readonly<Record<string, { transformFn: Record<string, unknown> }>> =
+      context.exec.combineFuncDefTable;
+    expect(Object.keys(defs[entry.defId]!.transformFn)).toEqual(["a", "b"]);
+  });
+
+  it("reports arity through the Zig metadata op", () => {
+    expect(getPresetMetadata("combineFnRecord::set").arity).toBe(3);
+    expect(getPresetMetadata("combineFnNumber::add").arity).toBe(2);
+    expect(getPresetMetadata("combineFnNumber::nope").arity).toBeNull();
   });
 });

@@ -318,6 +318,7 @@ fn valueResponse(bytes: []const u8) !Response {
             .inputType = @as(?[]const u8, null),
             .parameterType = @as(?[]const u8, null),
             .returnType = @as(?[]const u8, null),
+            .arity = @as(?usize, null),
         });
         const element = if (parsed.value.object.get("elementType")) |raw| blk: {
             if (raw != .string) return error.InvalidValueRequest;
@@ -330,6 +331,7 @@ fn valueResponse(bytes: []const u8) !Response {
             .inputType = input_type,
             .parameterType = parameter_type,
             .returnType = output_type,
+            .arity = preset.arity(name.string),
         });
     }
 
