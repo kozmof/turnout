@@ -356,8 +356,13 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	nextFn := fallbackFn
 	for i := len(conditionalArms) - 1; i >= 0; i-- {
 		arm := conditionalArms[i]
-		condRef := c.lowerCasePatternCond(subjectRef, subjectType, arm, pc)
-		thenFn := c.lowerFuncTemp(arm.Expr, "case_then", ft, pc)
+		// A fresh rename map per arm is what confines a pattern binder to its own
+		// arm: the binder resolves to the subject temp that already exists rather
+		// than to a new prog binding named after it. Two arms may therefore reuse
+		// one binder name, and no binder outlives its arm.
+		rename := map[string]string{}
+		condRef := c.lowerCasePatternCond(subjectRef, subjectType, arm, rename, pc)
+		thenFn := c.lowerFuncTemp(substituteRefs(arm.Expr, rename), "case_then", ft, pc)
 		condName := c.temp("case_cond")
 		if i == 0 {
 			condName = name
@@ -378,7 +383,13 @@ func (c *localLowerer) lowerCaseInto(name string, ft ast.FieldType, subject ast.
 	}
 }
 
-func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.FieldType, arm ast.LocalCaseArm, pc pipeContext) string {
+// lowerCasePatternCond lowers one arm's pattern to a bool binding name and
+// records any variable binder in rename, mapping the binder's source name to
+// the subject temp it resolves to. Callers must apply substituteRefs(rename) to
+// the arm's expression; the guard is substituted here because it is lowered
+// here. rename is per-arm, which is what keeps a binder arm-local
+// (pipe-if-case-it.md §5.7).
+func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.FieldType, arm ast.LocalCaseArm, rename map[string]string, pc pipeContext) string {
 	var condRef string
 	switch p := arm.Pattern.(type) {
 	case *ast.LiteralCasePattern:
@@ -396,9 +407,11 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 	case *ast.VarBinderPattern:
 		condRef = c.temp("case_bind")
 		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: true})
-		// Inject the binder variable so arm expressions can reference p.Name.
-		// emitIdentity also calls remember(), registering the type for downstream inference.
-		c.emitIdentity(p.Name, subjectType, subjectRef)
+		// Bind by alpha-renaming references to the subject temp rather than by
+		// emitting a prog binding named p.Name. The subject temp is already
+		// registered with subjectType, so downstream type inference resolves the
+		// renamed reference the same way it resolved the binder name before.
+		rename[p.Name] = subjectRef
 	default:
 		condRef = c.temp("case_unsupported")
 		c.emitValue(condRef, ast.FieldTypeBool, &ast.BoolLiteral{Value: false})
@@ -406,7 +419,7 @@ func (c *localLowerer) lowerCasePatternCond(subjectRef string, subjectType ast.F
 	if arm.Guard == nil {
 		return condRef
 	}
-	guardRef, _ := c.lowerExprTemp(arm.Guard, "case_guard", ast.FieldTypeBool, pc)
+	guardRef, _ := c.lowerExprTemp(substituteRefs(arm.Guard, rename), "case_guard", ast.FieldTypeBool, pc)
 	combined := c.temp("case_guarded")
 	c.appendBinding(&turnoutpb.BindingModel{
 		Name: combined,

@@ -50,8 +50,10 @@ func (c *localLowerer) lowerTemplateCaseInto(name string, ft ast.FieldType, subj
 			}
 		case *ast.VarBinderPattern:
 			if fallbackFn == "" {
-				c.emitIdentity(p.Name, ast.FieldTypeStr, subjectRef)
-				fallbackFn = c.lowerFuncTemp(arm.Expr, "case_default", ft, pc)
+				// Bind by alpha-rename, not by a prog binding named p.Name, so the
+				// binder stays confined to this arm (pipe-if-case-it.md §5.7).
+				body := substituteRefs(arm.Expr, map[string]string{p.Name: subjectRef})
+				fallbackFn = c.lowerFuncTemp(body, "case_default", ft, pc)
 			}
 		}
 	}
@@ -333,15 +335,65 @@ func substituteRefs(e ast.LocalExpr, rename map[string]string) ast.LocalExpr {
 	case *ast.LocalCaseExpr:
 		arms := make([]ast.LocalCaseArm, len(x.Arms))
 		for i, a := range x.Arms {
-			arm := ast.LocalCaseArm{Pos: a.Pos, Pattern: a.Pattern, Expr: substituteRefs(a.Expr, rename)}
+			// An inner arm's own binders shadow the outer rename inside that arm.
+			// Without this the outer substitution would capture the inner binder's
+			// references and silently point them at the outer subject.
+			inner := shadowRename(rename, a.Pattern)
+			arm := ast.LocalCaseArm{Pos: a.Pos, Pattern: a.Pattern, Expr: substituteRefs(a.Expr, inner)}
 			if a.Guard != nil {
-				arm.Guard = substituteRefs(a.Guard, rename)
+				arm.Guard = substituteRefs(a.Guard, inner)
 			}
 			arms[i] = arm
 		}
+		// The subject is evaluated outside the arms, so it is not shadowed.
 		return &ast.LocalCaseExpr{Subject: substituteRefs(x.Subject, rename), Arms: arms}
 	default:
 		// LocalLitExpr, LocalItExpr: no references to rewrite.
 		return e
 	}
+}
+
+// shadowRename returns rename with every name bound by p removed, so that a
+// nested pattern's binders shadow an enclosing arm's rename rather than being
+// captured by it. Returns rename unchanged when p binds nothing, which is the
+// common case and avoids an allocation.
+func shadowRename(rename map[string]string, p ast.LocalCasePattern) map[string]string {
+	bound := patternBoundNames(p, nil)
+	shadowed := false
+	for _, name := range bound {
+		if _, ok := rename[name]; ok {
+			shadowed = true
+			break
+		}
+	}
+	if !shadowed {
+		return rename
+	}
+	inner := make(map[string]string, len(rename))
+	for from, to := range rename {
+		inner[from] = to
+	}
+	for _, name := range bound {
+		delete(inner, name)
+	}
+	return inner
+}
+
+// patternBoundNames appends every variable name p binds to acc and returns it.
+// Wildcard and literal patterns bind nothing; tuple and template patterns
+// delegate to their sub-patterns.
+func patternBoundNames(p ast.LocalCasePattern, acc []string) []string {
+	switch x := p.(type) {
+	case *ast.VarBinderPattern:
+		return append(acc, x.Name)
+	case *ast.TupleCasePattern:
+		for _, elem := range x.Elems {
+			acc = patternBoundNames(elem, acc)
+		}
+	case *ast.TemplateCasePattern:
+		for _, f := range x.Fields {
+			acc = patternBoundNames(f.Sub, acc)
+		}
+	}
+	return acc
 }

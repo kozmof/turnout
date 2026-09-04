@@ -428,6 +428,43 @@ route "pipe_route" {
   },
 ];
 
+// A binder is arm-local, so the same name may gate several thresholds. This is
+// the spelling pipe-if-case-it.md §5.7 describes and the one that used to fail
+// with DuplicateBinding; run it end to end at each threshold so the fix is
+// pinned by evaluated output, not just by lowered shape.
+const binderThresholdSrc = `${stateBlock}
+scene "case_binder" {
+  entry_action = classify
+  action "classify" {
+    compute "p" {
+      v:number <~ @input.n
+      band:str := (case(
+        v,
+        x if x >= 10 -> "high",
+        x if x >= 5  -> "mid",
+        _            -> "low"
+      )) ~> @work.final
+    }
+  }
+}`;
+
+for (const [input, expected] of [
+  [12, "high"],
+  [7, "mid"],
+  [1, "low"],
+] as const) {
+  cases.push({
+    name: `case-binder-threshold-${input}`,
+    pattern: "case",
+    complexity: "low",
+    entryId: "case_binder",
+    expectPath: "work.final",
+    expectValue: expected,
+    initialState: boxed({ "input.n": input }),
+    src: binderThresholdSrc,
+  });
+}
+
 describe("v1 local expressions — DSL convert runtime output matrix", () => {
   for (const tc of cases) {
     it(`${tc.pattern} / ${tc.complexity}`, async () => {
