@@ -70,7 +70,7 @@ case "${1:-test}" in
 ./internal/emit 80.0
 ./internal/fnmeta 80.0
 ./internal/lexer 90.0
-./internal/lower 71.5
+./internal/lower 75.0
 ./internal/parser 90.0
 ./internal/state 90.0
 ./internal/validate 90.0
