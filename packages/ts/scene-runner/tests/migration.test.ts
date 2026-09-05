@@ -125,3 +125,20 @@ describe("checkForExtExpr", () => {
     ).toThrow("extExpr");
   });
 });
+
+describe("migrateModel — absent repeated fields", () => {
+  it("accepts a scene that declares no actions", () => {
+    // An absent repeated field is an empty list, per the runtime contract.
+    // Scanning for extExpr used to iterate `scene.actions` unguarded, so such a
+    // scene raised `TypeError: scene.actions is not iterable` instead of being
+    // treated as empty.
+    const model = {
+      version: 2,
+      scenes: [{ id: "empty", entryAction: "" }],
+      routes: [],
+    } as unknown as TurnModel;
+
+    const migrated = migrateModel(model);
+    expect(migrated.scenes[0]?.id).toBe("empty");
+  });
+});

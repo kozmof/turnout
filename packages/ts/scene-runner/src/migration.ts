@@ -85,7 +85,9 @@ function checkForExtExpr(model: TurnModel): void {
  * `createRunner` (via `migrateModel`) provides.
  */
 export function checkSceneForExtExpr(scene: SceneBlock): void {
-  for (const action of scene.actions) {
+  // An absent repeated field is an empty list, per the runtime contract, so a
+  // scene that declares no actions is merely empty rather than malformed.
+  for (const action of scene.actions ?? []) {
     checkProgForExtExpr(action.compute?.prog, action.id, "action compute");
     for (const rule of action.next ?? []) {
       checkProgForExtExpr(rule.compute?.prog, action.id, "next-rule compute");
