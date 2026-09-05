@@ -87,9 +87,12 @@ still costs is TypeScript-side: `encodeZigRuntimeModel` runs `toJson`, then a
 `JSON.parse(JSON.stringify(...))` deep clone in `runtimeProjection`, then a third
 serialization to bytes -- once per runner. Two consequences worth recording:
 
-- The plan's success condition, beating the TypeScript baseline, is not met
-  (838-868 against 956-996) and cannot be met by compute optimisation. The
-  execution path is no longer where the time is.
+- The plan's success condition, beating the TypeScript baseline, **is** met, but
+  not by this work. The shipped WASM artifact is built in `Debug`; `pnpm run
+  build:zig` passes no `-Doptimize`. In a release mode the same workload reaches
+  2307-2380 runs/s against the TypeScript baseline's 956-996 -- and the runtime
+  at `30c2cfa`, before any of this, reaches 2063-2128. The baseline that
+  motivated the redesign was measuring a debug build.
 - The real fix is a model handle: marshal and lower a model once, then create
   many runtimes against it. That is the same shape the registry in this plan
   already needs for merging scenes, so the two wants agree.

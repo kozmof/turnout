@@ -25,8 +25,15 @@ the description here.
 ## The short version
 
 Inside the runtime, the redesign is worth between 2.5x and 7x depending on the
-workload. End to end through the WASM host it was worth about 8%, because the
-runtime was not where the time was going. Model marshalling was, and still is.
+workload, and it makes execution cost independent of model size rather than
+growing with it. End to end through the WASM host it is worth about 10%, because
+the runtime was not where the time was going: runner creation dominates.
+
+The larger finding came from checking how the artifact under test was built. The
+WASM module that ships is compiled in `Debug`, and has been all along. Building it
+in any release mode is worth about 2.7x -- more than everything else here
+combined -- and puts the runtime roughly 2.4x ahead of the TypeScript engine it
+replaced, rather than behind it.
 
 ## Native measurements
 
@@ -104,6 +111,38 @@ that copy moved 1.79 s to 1.63 s. The allocations were the cost.
 Parsing, validating, indexing, and lowering a 20-action model, 10,000 times:
 **0.55 s, or about 55 us per model.**
 
+## The optimization mode
+
+Everything below was first measured against the WASM artifact that `pnpm run
+build:zig` produces, and that `packages/ts/runtime` packages for distribution.
+That command passes no `-Doptimize`, and `std.Build.standardOptimizeOption`
+defaults to `Debug`. **The artifact that ships, and every end-to-end figure
+published before this document, is a debug build.**
+
+Same workload, same code, four optimization modes:
+
+| Mode | Artifact | runs/s | us/action |
+| --- | ---: | ---: | ---: |
+| `Debug` (what ships today) | 3.35 MB | 838-868 | 57.6-59.6 |
+| `ReleaseSafe` | 2.81 MB | 2156-2237 | 22.4-23.2 |
+| `ReleaseFast` | 2.77 MB | **2307-2380** | **21.0-21.7** |
+| `ReleaseSmall` | **0.41 MB** | 2030-2060 | 24.3-24.6 |
+
+A release mode is worth about 2.7x, which is more than everything else in this
+document combined. `ReleaseSmall` is eight times smaller than the debug artifact
+and within 14% of `ReleaseFast`, which matters for a module delivered to
+browsers. `ReleaseSafe` keeps the runtime's bounds and overflow checks for about
+6% against `ReleaseFast`.
+
+This also reframes the finding in [performance-baseline.md](./performance-baseline.md)
+that prompted the whole redesign. That baseline recorded Zig/WASM at 533-553
+runs/s against TypeScript at 956-996, and concluded TypeScript was 1.8x faster on
+compute-heavy work. Reproducing it here with a debug build gives 535-572 runs/s,
+matching it closely, which is good evidence the baseline measured a debug
+artifact against optimized TypeScript. Built in any release mode, the runtime at
+that same commit reaches 2063-2128 runs/s -- already twice the TypeScript figure,
+before any of the work in this document.
+
 ## End-to-end measurements
 
 The workload from `performance-baseline.md`: 1000 runners over one 20-action
@@ -114,64 +153,89 @@ this includes the ABI boundary and the host's model marshalling.
 
 | | runs/s | us/action |
 | --- | ---: | ---: |
-| Documented Zig/WASM baseline (2026-09-01, different machine) | 533–553 | 90.4–93.8 |
-| Documented TypeScript baseline (2026-09-01, different machine) | 956–996 | 50.2–52.3 |
-| `30c2cfa`, this machine | 535–572 | 87.4–93.4 |
-| Redesigned runtime | 575–624 | 80.1–87.0 |
-| Redesigned runtime, model parsed once | **838–868** | **57.6–59.6** |
+| Documented Zig/WASM baseline (2026-09-01, different machine) | 533-553 | 90.4-93.8 |
+| Documented TypeScript baseline (2026-09-01, different machine) | 956-996 | 50.2-52.3 |
+| `30c2cfa`, debug | 535-572 | 87.4-93.4 |
+| Redesigned runtime, debug | 575-624 | 80.1-87.0 |
+| Redesigned runtime, debug, model parsed once | 838-868 | 57.6-59.6 |
+| `30c2cfa`, `ReleaseFast` | 2063-2128 | 23.5-24.2 |
+| Redesigned runtime, `ReleaseFast` | **2307-2380** | **21.0-21.7** |
 
-The `30c2cfa` row reproduces the documented Zig/WASM baseline closely enough to
-treat this machine and that one as comparable.
+The `30c2cfa` debug row reproduces the documented Zig/WASM baseline closely
+enough to treat this machine and that one as comparable.
 
 The fourth row spans two measurement sessions of the same binary, which gave
-575–619 and 594–624. The spread between sessions is wider than within one, so
-differences under about 10% in this benchmark are not meaningful.
+575-619 and 594-624. The spread between sessions is wider than within one, so
+differences under about 10% in this benchmark are not meaningful. On that
+standard the redesign is worth about 11% end to end at `ReleaseFast`
+(2063-2128 to 2307-2380) and about 8% at debug -- real, and small next to the
+build flag.
 
 ## Where the time goes
 
-The redesign was worth 2.5x to 7x natively and about 8% here. Splitting runner
-creation from stepping explains the gap. Same workload, timing the two phases
+The redesign is worth 2.5x to 7x natively and about 10% end to end. Splitting
+runner creation from stepping explains the gap. Same workload, timing the phases
 separately:
 
-| | Creating a runner | Running 20 actions |
+| Phase | Debug | `ReleaseFast` |
 | --- | ---: | ---: |
-| Redesigned runtime | ~1604 us | ~30 us |
-| Model parsed once | ~1240 us | ~7–15 us |
+| `snapshotModel` (`structuredClone` + freeze) | ~161 us | ~155 us |
+| `migrateModel` | ~4 us | ~3 us |
+| `validateModel` | ~4 us | ~4 us |
+| `encodeZigRuntimeModel` | ~56 us | ~51 us |
+| Everything else, mostly `turnout_runtime_create` | ~900 us | ~210 us |
+| **Creating a runner** | **~1129 us** | **~420 us** |
+| Running all twenty actions | ~7-15 us | small |
 
-Over 98% of the benchmark is model marshalling. The execution path that the
-redesign made several times faster was about 2% of the wall clock.
+Execution is a rounding error either way. At debug, creation is about 80% WASM;
+at `ReleaseFast` the two sides are roughly even, and `structuredClone` of the
+model becomes the largest single identified phase.
 
-One caveat on those figures: the run column is the difference between two
-measurements of similar magnitude, and one trial of the first row produced a
-small negative value. Treat it as "small and hard to measure", not as an exact
-number.
+One caveat: the run figure is the difference between two measurements of similar
+magnitude, and one trial produced a small negative value. Treat it as "small and
+hard to measure", not as an exact number.
 
-`RuntimeModel.init` parsed the model JSON twice — once to validate it, once to
-keep it. Fixing that was worth more on this workload than the whole redesign
-before it: creation fell from ~1604 us to ~1240 us and the benchmark went from
-575–624 to 838–868 runs/s.
-
-The rest is not in Zig. A 20-action model costs about 55 us to parse, validate,
-index, and lower natively, so roughly 90% of the ~1240 us that creating a runner
-still costs is on the TypeScript side. `encodeZigRuntimeModel` in
-`packages/ts/scene-runner/src/runner.ts` serializes the model three times per
-runner: `toJson` over the protobuf schema, a `JSON.parse(JSON.stringify(...))`
-deep clone inside `runtimeProjection`, and a final serialization to bytes.
+`RuntimeModel.init` also parsed the model JSON twice, once to validate and once
+to keep. Fixing that took creation from ~1604 us to ~1240 us at debug, and the
+benchmark from 575-624 to 838-868 runs/s.
 
 ## What this means
 
-The redesign did what it set out to do inside the runtime, and the
-`performance-baseline.md` finding that prompted it — Zig/WASM running slower than
-the TypeScript it replaced — is no longer explained by the execution path.
+Built in a release mode, the redesigned runtime runs the baseline workload at
+2307-2380 runs/s against the documented TypeScript baseline's 956-996. The goal
+this work set out to meet is met, roughly 2.4x over. It would have been met
+without the redesign, by the build flag alone.
 
-It does not meet the goal of beating the TypeScript baseline: 838–868 runs/s
-against 956–996. That goal cannot be reached by making execution faster, because
-execution is not the cost. Reaching it means marshalling and lowering a model
-once and creating many runtimes against it, rather than re-encoding and
-re-parsing it per runner. That is a change across the ABI and the TypeScript
-host, and it is the same shape as the model registry that dynamic scene merging
-needs.
+The redesign is still worth what it measures natively, and it is what makes the
+runtime's cost independent of model size rather than growing with it. But its end
+-to-end contribution is about 10%, because runner creation dominates and always
+did.
 
-The process lesson is worth recording with the numbers. Measuring end to end
-first would have found the marshalling cost before any of this work, and would
-have reordered the plan around it.
+The next bottleneck is that creation, and it is now split evenly between the two
+languages: `structuredClone` of the model plus three serialization passes on the
+TypeScript side, and a full parse, validate, index, and lower on the Zig side --
+all of it per runner, for a model that does not change. Both halves are fixed by
+the same change: prepare a model once and create many runtimes against it. That
+is also the shape of the registry that dynamic scene merging needs.
+
+## What went wrong in measuring this
+
+Recorded because each cost real work.
+
+- **Lowering per execution is slower than interpreting.** The program split only
+  pays once lowering is hoisted to model creation. Measuring the intermediate
+  state caught a 1.85x regression that reasoning had not predicted.
+- **The schema parser's by-value struct copy looked expensive and was not.**
+  A 128-element node array returned by value is an obvious suspect; removing the
+  copy moved 1.79 s to 1.63 s. The allocations around it were the cost.
+- **Runner creation was assumed to be mostly TypeScript. It was not.** An earlier
+  revision of this document put roughly 90% of creation on the TypeScript side,
+  inferred by subtracting a native measurement from an end-to-end one. Measuring
+  the phases directly gave about 20% at debug and about 50% at `ReleaseFast`.
+- **Every end-to-end figure was measured against a debug build for most of this
+  work,** including the baseline that motivated the redesign. Checking how the
+  artifact under test was built should have come before optimising anything
+  inside it.
+
+The pattern is the same each time: end-to-end measurement first, and measure the
+thing rather than inferring it from two other numbers.
