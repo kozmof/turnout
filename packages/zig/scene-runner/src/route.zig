@@ -318,14 +318,7 @@ fn firstBlock(history: []const HistoryEntry, scene_id: []const u8) []const Histo
 }
 
 pub fn findRoute(model: *const model_runtime.RuntimeModel, route_id: []const u8) ?std.json.ObjectMap {
-    const routes = model.root().get("routes") orelse return null;
-    if (routes != .array) return null;
-    for (routes.array.items) |route| {
-        if (route != .object) continue;
-        const id = route.object.get("id") orelse continue;
-        if (id == .string and std.mem.eql(u8, id.string, route_id)) return route.object;
-    }
-    return null;
+    return model.findRoute(route_id);
 }
 
 test "route pattern priority matches exact wildcard and catchall" {

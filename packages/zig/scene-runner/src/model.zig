@@ -84,77 +84,121 @@ const ProgramKey = struct {
     };
 };
 
-/// Every compute program in the model, lowered once when the model is created.
-///
-/// Lowering is the expensive half of running a program; evaluating the lowered
-/// form is several times cheaper than walking the JSON. Doing it per execution
-/// would be slower than the tree interpreter it replaced, so it happens here,
-/// alongside the validation pass that already visits every program.
-///
-/// Keys borrow scene and action ids from the parsed tree, and every program is
-/// lowered into one arena, so releasing the cache is a single free.
-const ProgramCache = struct {
-    arena: std.heap.ArenaAllocator,
-    entries: std.HashMapUnmanaged(
-        ProgramKey,
-        compute_runtime.Program,
-        ProgramKey.Context,
-        std.hash_map.default_max_load_percentage,
-    ) = .empty,
+/// Names a scene and, when `action` is non-empty, one of its actions.
+const NodeKey = struct {
+    scene: []const u8,
+    action: []const u8 = "",
 
-    fn deinit(self: *ProgramCache) void {
+    const Context = struct {
+        pub fn hash(_: Context, key: NodeKey) u64 {
+            var hasher = std.hash.Wyhash.init(0);
+            hasher.update(key.scene);
+            hasher.update(&.{0});
+            hasher.update(key.action);
+            return hasher.final();
+        }
+
+        pub fn eql(_: Context, a: NodeKey, b: NodeKey) bool {
+            return std.mem.eql(u8, a.scene, b.scene) and std.mem.eql(u8, a.action, b.action);
+        }
+    };
+};
+
+fn Table(comptime Key: type, comptime Value: type, comptime KeyContext: type) type {
+    return std.HashMapUnmanaged(Key, Value, KeyContext, std.hash_map.default_max_load_percentage);
+}
+
+/// Everything the model resolves once, when it is created.
+///
+/// Two things used to happen on every step and now happen here. Scenes,
+/// actions, and routes were found by scanning the JSON arrays and comparing id
+/// strings -- several O(scenes x actions) passes per action. And every compute
+/// program was lowered from JSON on each execution, which is the expensive half
+/// of running one: evaluating a lowered program is far cheaper than lowering it,
+/// so lowering per execution would be slower than interpreting the tree.
+///
+/// Keys borrow scene and action ids from the parsed tree, and everything is
+/// allocated in one arena, so releasing the index is a single free.
+const ModelIndex = struct {
+    arena: std.heap.ArenaAllocator,
+    scenes: std.StringHashMapUnmanaged(std.json.ObjectMap) = .empty,
+    actions: Table(NodeKey, std.json.ObjectMap, NodeKey.Context) = .empty,
+    routes: std.StringHashMapUnmanaged(std.json.ObjectMap) = .empty,
+    programs: Table(ProgramKey, compute_runtime.Program, ProgramKey.Context) = .empty,
+
+    fn deinit(self: *ModelIndex) void {
         self.arena.deinit();
         self.* = undefined;
     }
 
-    fn get(self: *const ProgramCache, key: ProgramKey) ?*const compute_runtime.Program {
-        return self.entries.getPtr(key);
+    fn program(self: *const ModelIndex, key: ProgramKey) ?*const compute_runtime.Program {
+        return self.programs.getPtr(key);
     }
 };
 
-/// Lowers every action compute and next-rule compute in the model.
+/// Indexes every scene, action, and route by id, and lowers every compute
+/// program.
 ///
-/// A program that is absent or malformed is simply not cached; execution falls
-/// back to the JSON path, which reports the same errors it always did.
-fn buildProgramCache(root: std.json.ObjectMap, parent: std.mem.Allocator) ValidationError!ProgramCache {
-    var cache: ProgramCache = .{ .arena = .init(parent) };
-    errdefer cache.deinit();
-    const allocator = cache.arena.allocator();
+/// Duplicate ids keep the first occurrence, which is what the scans they replace
+/// did. A program that is absent or malformed is simply not lowered; execution
+/// falls back to the JSON path, which reports the same errors it always did.
+fn buildIndex(root: std.json.ObjectMap, parent: std.mem.Allocator) ValidationError!ModelIndex {
+    var index: ModelIndex = .{ .arena = .init(parent) };
+    errdefer index.deinit();
+    const allocator = index.arena.allocator();
 
-    const scenes = root.get("scenes") orelse return cache;
-    if (scenes != .array) return cache;
+    if (root.get("routes")) |routes| if (routes == .array) {
+        for (routes.array.items) |route_value| {
+            if (route_value != .object) continue;
+            const route_id = stringOf(route_value.object.get("id")) orelse continue;
+            const slot = try index.routes.getOrPut(allocator, route_id);
+            if (!slot.found_existing) slot.value_ptr.* = route_value.object;
+        }
+    };
+
+    const scenes = root.get("scenes") orelse return index;
+    if (scenes != .array) return index;
     for (scenes.array.items) |scene_value| {
         if (scene_value != .object) continue;
         const scene_id = stringOf(scene_value.object.get("id")) orelse continue;
+        const scene_slot = try index.scenes.getOrPut(allocator, scene_id);
+        if (!scene_slot.found_existing) scene_slot.value_ptr.* = scene_value.object;
+
         const actions = scene_value.object.get("actions") orelse continue;
         if (actions != .array) continue;
         for (actions.array.items) |action_value| {
             if (action_value != .object) continue;
             const action_id = stringOf(action_value.object.get("id")) orelse continue;
+            const action_slot = try index.actions.getOrPut(
+                allocator,
+                .{ .scene = scene_id, .action = action_id },
+            );
+            if (!action_slot.found_existing) action_slot.value_ptr.* = action_value.object;
+
             if (action_value.object.get("compute")) |action_compute|
-                try cacheProgram(&cache, allocator, .{
+                try lowerProgram(&index, allocator, .{
                     .scene = scene_id,
                     .action = action_id,
                     .rule = ProgramKey.action_compute,
                 }, action_compute, "root");
             const rules = action_value.object.get("next") orelse continue;
             if (rules != .array) continue;
-            for (rules.array.items, 0..) |rule, index| {
+            for (rules.array.items, 0..) |rule, rule_index| {
                 if (rule != .object) continue;
                 const rule_compute = rule.object.get("compute") orelse continue;
-                try cacheProgram(&cache, allocator, .{
+                try lowerProgram(&index, allocator, .{
                     .scene = scene_id,
                     .action = action_id,
-                    .rule = @intCast(index),
+                    .rule = @intCast(rule_index),
                 }, rule_compute, "condition");
             }
         }
     }
-    return cache;
+    return index;
 }
 
-fn cacheProgram(
-    cache: *ProgramCache,
+fn lowerProgram(
+    index: *ModelIndex,
     allocator: std.mem.Allocator,
     key: ProgramKey,
     model_compute: std.json.Value,
@@ -168,7 +212,7 @@ fn cacheProgram(
         error.OutOfMemory => return error.OutOfMemory,
         else => return,
     };
-    try cache.entries.put(allocator, key, lowered);
+    try index.programs.put(allocator, key, lowered);
 }
 
 fn stringOf(field: ?std.json.Value) ?[]const u8 {
@@ -178,7 +222,7 @@ fn stringOf(field: ?std.json.Value) ?[]const u8 {
 
 pub const RuntimeModel = struct {
     parsed: std.json.Parsed(std.json.Value),
-    programs: ProgramCache,
+    index: ModelIndex,
 
     pub fn init(allocator: std.mem.Allocator, bytes: []const u8, limits: Limits) ValidationError!RuntimeModel {
         try validateJson(allocator, bytes, limits);
@@ -188,19 +232,19 @@ pub const RuntimeModel = struct {
         errdefer parsed.deinit();
         return .{
             .parsed = parsed,
-            .programs = try buildProgramCache(parsed.value.object, allocator),
+            .index = try buildIndex(parsed.value.object, allocator),
         };
     }
 
     pub fn deinit(self: *RuntimeModel) void {
-        self.programs.deinit();
+        self.index.deinit();
         self.parsed.deinit();
         self.* = undefined;
     }
 
     /// The lowered program for an action's own compute, when there is one.
     fn actionProgram(self: *const RuntimeModel, scene_id: []const u8, action_id: []const u8) ?*const compute_runtime.Program {
-        return self.programs.get(.{
+        return self.index.program(.{
             .scene = scene_id,
             .action = action_id,
             .rule = ProgramKey.action_compute,
@@ -212,18 +256,11 @@ pub const RuntimeModel = struct {
     }
 
     pub fn sceneEntryAction(self: *const RuntimeModel, scene_id: []const u8) ![]const u8 {
-        const scenes = self.root().get("scenes") orelse return error.SceneNotFound;
-        if (scenes != .array) return error.SceneNotFound;
-        for (scenes.array.items) |scene| {
-            if (scene != .object) continue;
-            const id = scene.object.get("id") orelse continue;
-            if (id != .string or !std.mem.eql(u8, id.string, scene_id)) continue;
-            const entry = scene.object.get("entryAction") orelse return error.NoEntryAction;
-            if (entry != .string or entry.string.len == 0) return error.NoEntryAction;
-            if (self.findAction(scene_id, entry.string) == null) return error.ActionNotFound;
-            return entry.string;
-        }
-        return error.SceneNotFound;
+        const scene = self.findScene(scene_id) orelse return error.SceneNotFound;
+        const entry = scene.get("entryAction") orelse return error.NoEntryAction;
+        if (entry != .string or entry.string.len == 0) return error.NoEntryAction;
+        if (self.findAction(scene_id, entry.string) == null) return error.ActionNotFound;
+        return entry.string;
     }
 
     pub fn executeActionCompute(
@@ -381,7 +418,7 @@ pub const RuntimeModel = struct {
         const condition = next_compute.object.get("condition") orelse std.json.Value{ .string = "" };
         if (condition != .string) return .{ .invalid_type = "undefined" };
         const key: ProgramKey = .{ .scene = scene_id, .action = action_id, .rule = @intCast(rule_index) };
-        var result = if (self.programs.get(key)) |lowered|
+        var result = if (self.index.program(key)) |lowered|
             try compute_runtime.executeLoaded(lowered, inputs, allocator)
         else
             try compute_runtime.executeProgram(prog, condition.string, inputs, allocator);
@@ -432,22 +469,17 @@ pub const RuntimeModel = struct {
     }
 
     fn findAction(self: *const RuntimeModel, scene_id: []const u8, action_id: []const u8) ?std.json.ObjectMap {
-        const scenes = self.root().get("scenes") orelse return null;
-        if (scenes != .array) return null;
-        for (scenes.array.items) |scene| {
-            if (scene != .object) continue;
-            const id = scene.object.get("id") orelse continue;
-            if (id != .string or !std.mem.eql(u8, id.string, scene_id)) continue;
-            const actions = scene.object.get("actions") orelse return null;
-            if (actions != .array) return null;
-            for (actions.array.items) |action| {
-                if (action != .object) continue;
-                const candidate = action.object.get("id") orelse continue;
-                if (candidate == .string and std.mem.eql(u8, candidate.string, action_id)) return action.object;
-            }
-            return null;
-        }
-        return null;
+        return self.index.actions.get(.{ .scene = scene_id, .action = action_id });
+    }
+
+    /// The scene with this id, or null. Indexed when the model was created.
+    pub fn findScene(self: *const RuntimeModel, scene_id: []const u8) ?std.json.ObjectMap {
+        return self.index.scenes.get(scene_id);
+    }
+
+    /// The route with this id, or null. Indexed when the model was created.
+    pub fn findRoute(self: *const RuntimeModel, route_id: []const u8) ?std.json.ObjectMap {
+        return self.index.routes.get(route_id);
     }
 };
 

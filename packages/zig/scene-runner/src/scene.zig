@@ -331,14 +331,7 @@ fn makeTrace(
 }
 
 fn findScene(model: *const model_runtime.RuntimeModel, scene_id: []const u8) ?std.json.ObjectMap {
-    const scenes = model.root().get("scenes") orelse return null;
-    if (scenes != .array) return null;
-    for (scenes.array.items) |scene| {
-        if (scene != .object) continue;
-        const id = scene.object.get("id") orelse continue;
-        if (id == .string and std.mem.eql(u8, id.string, scene_id)) return scene.object;
-    }
-    return null;
+    return model.findScene(scene_id);
 }
 
 fn validateScene(scene: std.json.ObjectMap, allocator: std.mem.Allocator) ![]const u8 {
