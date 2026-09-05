@@ -1,6 +1,6 @@
 # Redesign the Zig runtime around loaded scene units
 
-> Status: in progress — steps 1-3 landed, steps 4-8 open
+> Status: in progress — steps 1-3 and 5-8 landed, step 4 partly done
 > Origin: two observations — the Zig code barely uses comptime, and the types it
 > needs at runtime were already decided by the Go converter. Revised with three
 > constraints: the program is a derived runtime entity and never a wire format,
@@ -37,6 +37,59 @@ finding worth keeping: lowering costs about 2.4 us, so lowering per execution is
 *slower* than interpreting. The split is only a win once the load is hoisted,
 which is why step 3 was pulled forward and merged into this batch rather than
 left until step 4.
+
+**Steps 5, 6, and 7 landed, and step 4 in part.** Scenes, actions, and routes are
+indexed by id when the model is created, so the repeated O(scenes x actions)
+scans are gone. Route match patterns lower to typed data, and route history owns
+its ids, which closes the borrows that would have dangled first. STATE schemas
+are shared across snapshots and their types parsed once. The authoring engine
+moved to `runtime/src/authoring/`.
+
+Native measurements, ReleaseFast, against the tree interpreter at `30c2cfa`:
+
+| Workload | Before | After |
+| --- | ---: | ---: |
+| Action, 20x20 model, first action | 0.19 s | 0.08 s |
+| Action, 20x20 model, last action | 0.23 s | 0.08 s |
+| Action with a 40-field STATE schema | 1.79 s | 0.26 s |
+
+## Step 8: where the time actually goes
+
+Re-measuring the `performance-baseline.md` workload through the WASM host --
+1000 runners, one 20-action scene, three bindings per action -- gave a result the
+rest of this plan did not predict.
+
+| | runs/s | us/action |
+| --- | ---: | ---: |
+| Documented Zig/WASM baseline (2026-09-01, other machine) | 533-553 | 90.4-93.8 |
+| Documented TypeScript baseline (same) | 956-996 | 50.2-52.3 |
+| `30c2cfa` WASM, this machine | 535-572 | 87.4-93.4 |
+| After steps 1-7 | 575-619 | 80.8-87.0 |
+| After parsing the model once | 838-868 | 57.6-59.6 |
+
+Steps 1 to 7 bought about 8% end to end, against 2.5x to 7x measured natively.
+Splitting runner creation from stepping explains it: creating a runner cost
+~1604 us and running all twenty actions cost ~30 us. **Over 98% of the workload
+was model marshalling, not execution.** Optimising the execution path was
+optimising 2% of the wall clock.
+
+The one marshalling fix in reach from the Zig side -- `RuntimeModel.init` parsed
+the model JSON twice, once to validate and once to keep -- was worth more on its
+own than steps 1 through 7 combined on this workload, taking creation from
+~1604 us to ~1240 us and execution from ~30 us to ~10 us.
+
+What remains is not in Zig. A 20-action model costs ~55 us to parse, validate,
+index, and lower natively, so roughly 90% of the ~1240 us that creating a runner
+still costs is TypeScript-side: `encodeZigRuntimeModel` runs `toJson`, then a
+`JSON.parse(JSON.stringify(...))` deep clone in `runtimeProjection`, then a third
+serialization to bytes -- once per runner. Two consequences worth recording:
+
+- The plan's success condition, beating the TypeScript baseline, is not met
+  (838-868 against 956-996) and cannot be met by compute optimisation. The
+  execution path is no longer where the time is.
+- The real fix is a model handle: marshal and lower a model once, then create
+  many runtimes against it. That is the same shape the registry in this plan
+  already needs for merging scenes, so the two wants agree.
 
 One deviation from what this plan originally said. It proposed deleting
 `inputType`, `parameterType`, `arity`, `passTransform`, and `returnType` and
@@ -433,9 +486,15 @@ implements dynamic merging; steps 1–5 make it a feature rather than a rewrite.
    registry; retire `SchemaParser` from the write path.
 7. **Move `graph_validate` and `graph_compute` to `authoring/`.** No behaviour
    change; it makes the two engines visibly separate.
-8. **Re-measure.** Re-run the `docs/performance-baseline.md` workload. The
-   success condition for this whole redesign is beating the TypeScript baseline,
-   not merely improving on 553 runs/s.
+8. ~~**Re-measure.**~~ Done, and it redirected the plan. See "Step 8: where the
+   time actually goes". The execution path is no longer the bottleneck; per-runner
+   model marshalling is, and most of what is left is in TypeScript.
+
+9. **A model handle.** Marshal and lower a model once, then create many runtimes
+   against it, instead of re-encoding and re-parsing per runner. This is the
+   change the measurement points at, and it is the same registry the merge
+   feature needs. It spans the ABI and the TypeScript host, so it is a larger
+   piece than anything above.
 
 Steps 1–2 are where most of the win is; 4 is where most of the code deletion is;
 5 is the prerequisite for the merge feature and a bug fix in its own right.
